@@ -96,7 +96,7 @@ function makeGame() {
       const s = SLOTS[sk(i, 2)];
       return {
         gold: 90, cd: 0, lane: i, slot: 2, built: 0, kills: 0,
-        cx: s.x, cy: s.y, cr: CLASSES[i].range, jolt: 0, hold: null, holdT: 0,
+        cx: s.x, cy: s.y, cr: CLASSES[i].range, jolt: 0, heldKeys: [], holdT: 0,
       };
     }),
     towers: new Array(20).fill(null),
@@ -206,18 +206,20 @@ export default function App() {
       else if (act === "skill") doSkill(g, pi);
       else {
         applyMove(g, pi, act);
-        g.players[pi].hold = act;
-        g.players[pi].holdT = 0.24;
+        const p = g.players[pi];
+        if (!p.heldKeys.includes(act)) p.heldKeys.push(act);
+        p.holdT = 0.24;
       }
     }
     function onUp(e) {
       const m = CODEMAP[e.code];
       if (!m) return;
       const [pi, act] = m;
-      if (G.current.players[pi].hold === act) G.current.players[pi].hold = null;
+      const p = G.current.players[pi];
+      p.heldKeys = p.heldKeys.filter((a) => a !== act);
     }
     function onBlur() {
-      G.current.players.forEach((p) => (p.hold = null));
+      G.current.players.forEach((p) => (p.heldKeys = []));
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
@@ -368,11 +370,14 @@ export default function App() {
 
     if (g.phase !== "prep" && g.phase !== "wave") return;
 
-    // 방향키를 누르고 있으면 연속 이동
+    // 방향키를 누르고 있으면 연속 이동 (가장 최근에 누른 방향을 우선한다)
     g.players.forEach((p, pi) => {
-      if (!p.hold) return;
+      if (!p.heldKeys.length) return;
       p.holdT -= dt;
-      if (p.holdT <= 0) { applyMove(g, pi, p.hold); p.holdT = 0.11; }
+      if (p.holdT <= 0) {
+        applyMove(g, pi, p.heldKeys[p.heldKeys.length - 1]);
+        p.holdT = 0.11;
+      }
     });
 
     g.players.forEach((p) => { if (p.cd > 0) p.cd -= dt; });

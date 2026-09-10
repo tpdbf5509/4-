@@ -43,6 +43,12 @@ LANES.forEach((L, li) => {
 });
 const sk = (lane, idx) => lane * 5 + idx;
 
+// 이동 인접 그래프: 각 경로(북0·동1·남2·서3)는 안쪽(코어 쪽)으로 갈수록 idx가 커진다.
+// 가장 안쪽 칸(idx 4)에서만 옆 경로로 넘어갈 수 있다 — 시계 방향은 CW_DIR, 반시계 방향은 TOWARD 방향을 그대로 쓴다.
+const TOWARD = ["down", "left", "up", "right"];   // 코어 쪽으로 가는 방향 (경로별)
+const AWAY = { down: "up", up: "down", left: "right", right: "left" };
+const CW_DIR = ["right", "down", "left", "up"];    // idx 4에서 시계 방향 옆 경로로 넘어가는 방향
+
 const CLASSES = [
   { name: "저격", cost: 30, range: 158, dmg: 15, interval: 0.95, note: "단일 대상 · 사거리가 가장 길다" },
   { name: "포격", cost: 40, range: 118, dmg: 11, interval: 1.5, splash: 48, note: "착탄 지점 범위 피해" },
@@ -231,28 +237,32 @@ export default function App() {
     };
   }, [start, togglePause]);
 
-  const DIRS = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-
   function applyMove(g, pi, act) {
     const p = g.players[pi];
-    const from = sk(p.lane, p.slot);
-    const cur = SLOTS[from];
-    const [ux, uy] = DIRS[act];
-    let best = -1, bestScore = Infinity;
-    SLOTS.forEach((s, i) => {
-      if (i === from) return;
-      const dx = s.x - cur.x, dy = s.y - cur.y;
-      const proj = dx * ux + dy * uy;          // 누른 방향으로 얼마나 갔는가
-      if (proj <= 8) return;
-      const perp = Math.abs(dx * -uy + dy * ux); // 방향에서 얼마나 벗어났는가
-      if (perp > proj * 1.9) return;             // 약 62도 안쪽만 후보
-      const score = proj + perp * 1.9;
-      if (score < bestScore) { bestScore = score; best = i; }
-    });
-    if (best < 0) { p.jolt = 0.12; return; }   // 그 방향에 자리가 없으면 제자리
-    p.lane = SLOTS[best].lane;
-    p.slot = SLOTS[best].idx;
-    p.jolt = 0.2;
+    const lane = p.lane, idx = p.slot;
+    const toward = TOWARD[lane];
+    const away = AWAY[toward];
+
+    if (act === away) {
+      if (idx === 0) { p.jolt = 0.12; return; }  // 가장 바깥 칸, 더 나갈 곳 없음
+      p.slot = idx - 1;
+      p.jolt = 0.2;
+      return;
+    }
+    if (act === toward) {
+      if (idx < 4) { p.slot = idx + 1; p.jolt = 0.2; return; }
+      p.lane = (lane + 3) % 4;   // 가장 안쪽 칸에서 반시계 방향 옆 경로로
+      p.slot = 4;
+      p.jolt = 0.2;
+      return;
+    }
+    if (idx === 4 && act === CW_DIR[lane]) {
+      p.lane = (lane + 1) % 4;   // 가장 안쪽 칸에서 시계 방향 옆 경로로
+      p.slot = 4;
+      p.jolt = 0.2;
+      return;
+    }
+    p.jolt = 0.12;               // 그 방향엔 갈 자리가 없음
   }
 
   function say(g, x, y, text, color) {

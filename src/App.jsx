@@ -44,10 +44,11 @@ LANES.forEach((L, li) => {
 const sk = (lane, idx) => lane * 5 + idx;
 
 // 이동 인접 그래프: 각 경로(북0·동1·남2·서3)는 안쪽(코어 쪽)으로 갈수록 idx가 커진다.
-// 가장 안쪽 칸(idx 4)에서만 옆 경로로 넘어갈 수 있다 — 시계 방향은 CW_DIR, 반시계 방향은 TOWARD 방향을 그대로 쓴다.
+// 경로마다 남는 축 하나(CW_DIR)는 어느 칸에서든 시계 방향 옆 경로의 같은 칸으로 이어져 있다.
+// 반시계 방향은 그 경로 고유의 "코어 쪽" 방향(TOWARD)과 겹치므로, 그 축이 막히는 가장 안쪽 칸(idx 4)에서만 넘어갈 수 있다.
 const TOWARD = ["down", "left", "up", "right"];   // 코어 쪽으로 가는 방향 (경로별)
 const AWAY = { down: "up", up: "down", left: "right", right: "left" };
-const CW_DIR = ["right", "down", "left", "up"];    // idx 4에서 시계 방향 옆 경로로 넘어가는 방향
+const CW_DIR = ["right", "down", "left", "up"];    // 시계 방향 옆 경로로 넘어가는 방향 (경로별, 모든 칸에서 유효)
 
 const CLASSES = [
   { name: "저격", cost: 30, range: 158, dmg: 15, interval: 0.95, note: "단일 대상 · 사거리가 가장 길다" },
@@ -256,9 +257,8 @@ export default function App() {
       p.jolt = 0.2;
       return;
     }
-    if (idx === 4 && act === CW_DIR[lane]) {
-      p.lane = (lane + 1) % 4;   // 가장 안쪽 칸에서 시계 방향 옆 경로로
-      p.slot = 4;
+    if (act === CW_DIR[lane]) {
+      p.lane = (lane + 1) % 4;   // 시계 방향 옆 경로의 같은 번째 칸으로 (칸 번호는 그대로)
       p.jolt = 0.2;
       return;
     }

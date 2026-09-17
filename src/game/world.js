@@ -54,7 +54,7 @@ const SLOT_OFF = 50;   // 길 가장자리에서 타워 터까지
 export function makeLane(li) {
   const { dx, dy } = DIRS4[li];
   const nx = -dy, ny = dx;                       // 길에 수직인 방향
-  const amp = 50;                                // 네 길이 같은 방향으로 굽어 바람개비를 이룬다
+  const amp = 34;                                // 네 길이 같은 방향으로 굽어 바람개비를 이룬다
   // 양 끝(관문·성문)에서는 곧게 들어가고 가운데가 크게 굽이친다.
   // 두 번째 파를 섞어 굽이 크기를 들쭉날쭉하게 — 자로 잰 파형처럼 보이지 않게 한다
   const bend = (s) =>

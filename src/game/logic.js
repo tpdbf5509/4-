@@ -87,7 +87,7 @@ export function doSkill(g, pi) {
     });
     say(g, CX, CY - 96, "한파!", P[2].light);
   } else {
-    g.players.forEach((q) => (q.gold += 45));
+    g.players.forEach((q, i) => { if (g.seats[i]) q.gold += 45; });
     g.core.hp = Math.min(g.core.max, g.core.hp + 12);
     for (let i = 0; i < 6; i++) {
       fx(g, { kind: "coin", x: CX + (Math.random() - 0.5) * 70, y: CY + 20, t: 0.9, life: 0.9 });
@@ -139,15 +139,7 @@ export function step(g, dt) {
 
   if (g.phase !== "prep" && g.phase !== "wave") return;
 
-  g.players.forEach((p, pi) => {
-    if (!p.heldKeys.length) return;
-    p.holdT -= dt;
-    if (p.holdT <= 0) {
-      applyMove(g, pi, p.heldKeys[p.heldKeys.length - 1]);
-      p.holdT = 0.11;
-    }
-  });
-
+  // 키를 누르고 있을 때의 연속 이동은 각 참가자 브라우저에서 처리한다
   g.players.forEach((p) => { if (p.cd > 0) p.cd -= dt; });
   if (g.focus > 0) g.focus -= dt;
 
@@ -166,6 +158,7 @@ export function step(g, dt) {
       const scale = Math.pow(1.155, g.wave - 1);
       const p0 = posAt(q.lane, 0);
       g.enemies.push({
+        id: g.nextId++,
         type: q.type, lane: q.lane, p: 0,
         hp: base.hp * scale, max: base.hp * scale,
         x: p0.x, y: p0.y, ax: p0.ax, ay: p0.ay,
@@ -175,7 +168,7 @@ export function step(g, dt) {
     }
     if (!g.queue.length && !g.enemies.length) {
       if (g.wave >= TOTAL_WAVES) { g.phase = "clear"; return; }
-      g.players.forEach((p) => (p.gold += 22 + g.wave * 3));
+      g.players.forEach((p, i) => { if (g.seats[i]) p.gold += 22 + g.wave * 3; });
       g.wave++;
       g.phase = "prep";
       g.timer = PREP;
@@ -186,7 +179,7 @@ export function step(g, dt) {
   const supports = [];
   g.towers.forEach((t, i) => { if (t && t.owner === 3) supports.push({ t, s: SLOTS[i] }); });
   supports.forEach(({ t }) => {
-    g.players.forEach((p) => (p.gold += CLASSES[3].gold * t.lv * dt));
+    g.players.forEach((p, i) => { if (g.seats[i]) p.gold += CLASSES[3].gold * t.lv * dt; });
   });
 
   // 사격

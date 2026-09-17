@@ -47,21 +47,26 @@ export const DIRS4 = [
   { dx: -1, dy: 0, name: "서" },
 ];
 
-// 코어에서 떨어진 거리. 앞쪽(idx 0)이 바깥, 뒤쪽(idx 4)이 코어에 가깝다
-export const DIST = [236, 200, 164, 128, 96];
+// 길은 굽이를 다섯 번 틀고, 굽이가 바깥으로 부푼 자리마다 타워 터를 하나씩 둔다
+export const SLOT_S = [0.1, 0.3, 0.5, 0.7, 0.9];
+const SLOT_OFF = 50;   // 길 가장자리에서 타워 터까지
 
 export function makeLane(li) {
   const { dx, dy } = DIRS4[li];
-  const nx = -dy, ny = dx;                  // 길에 수직인 방향
-  const amp = li % 2 === 0 ? 26 : -26;      // 경로마다 굽는 쪽을 다르게
-  const bend = (s) => amp * Math.sin(s * Math.PI * 1.7) * Math.sin(s * Math.PI);
+  const nx = -dy, ny = dx;                       // 길에 수직인 방향
+  const amp = 50;                                // 네 길이 같은 방향으로 굽어 바람개비를 이룬다
+  // 양 끝(관문·성문)에서는 곧게 들어가고 가운데가 크게 굽이친다.
+  // 두 번째 파를 섞어 굽이 크기를 들쭉날쭉하게 — 자로 잰 파형처럼 보이지 않게 한다
+  const bend = (s) =>
+    Math.pow(Math.sin(s * Math.PI), 0.35) *
+    (amp * Math.sin(s * Math.PI * 5) + amp * 0.3 * Math.sin(s * Math.PI * 3 + 0.8));
   const at = (s) => {
     const r = R_SPAWN + (R_CORE - R_SPAWN) * s;
     const w = bend(s);
     return { x: CX + dx * r + nx * w, y: CY + dy * r + ny * w };
   };
 
-  const N = 90, pts = [], cum = [0];
+  const N = 260, pts = [], cum = [0];
   for (let k = 0; k < N; k++) pts.push(at(k / (N - 1)));
   for (let k = 1; k < N; k++) {
     cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
@@ -87,16 +92,19 @@ export function posAt(lane, u) {
 }
 
 /* ── 자리(타워 터) ──────────────────────────────────────── */
+// 굽이가 바깥으로 부푼 지점마다 하나씩, 길 바깥쪽으로 물려 놓는다.
+// 굽이가 번갈아 반대쪽으로 휘므로 이웃한 칸끼리 자연히 멀어진다.
 export const SLOTS = [];
 LANES.forEach((L, li) => {
-  DIST.forEach((d, si) => {
-    const s = (R_SPAWN - d) / (R_SPAWN - R_CORE);
-    const p = L.at(s), q = L.at(Math.min(1, s + 0.012));
-    let tx = q.x - p.x, ty = q.y - p.y;
-    const tl = Math.hypot(tx, ty) || 1;
-    tx /= tl; ty /= tl;
-    const side = si % 2 === 0 ? 1 : -1;     // 길 양옆으로 번갈아
-    SLOTS.push({ lane: li, idx: si, x: p.x - ty * 40 * side, y: p.y + tx * 40 * side });
+  SLOT_S.forEach((s, si) => {
+    const r = R_SPAWN + (R_CORE - R_SPAWN) * s;
+    const w = L.bend(s);
+    const lat = w + (Math.sign(w) || 1) * SLOT_OFF;
+    SLOTS.push({
+      lane: li, idx: si,
+      x: CX + L.dx * r + L.nx * lat,
+      y: CY + L.dy * r + L.ny * lat,
+    });
   });
 });
 export const sk = (lane, idx) => lane * 5 + idx;
@@ -123,11 +131,12 @@ export const SKILLS = [
   { name: "긴급 보급", cd: 36, note: "전원 45 골드 · 성채 12 회복" },
 ];
 
+// 길이 두 배 넘게 길어졌으므로 걷는 속도도 그만큼 올려 한 웨이브가 늘어지지 않게 한다
 export const ENEMY = {
-  grunt: { hp: 24, spd: 27, dmg: 4, gold: 6, r: 8, res: 0, label: "오크 보병" },
-  rusher: { hp: 15, spd: 55, dmg: 3, gold: 5, r: 7, res: 0, label: "고블린 척후" },
-  armor: { hp: 58, spd: 18, dmg: 7, gold: 11, r: 10, res: 0.25, label: "중장갑 트롤" },
-  boss: { hp: 340, spd: 14, dmg: 25, gold: 60, r: 16, res: 0.15, label: "오우거 지휘관" },
+  grunt: { hp: 24, spd: 42, dmg: 4, gold: 6, r: 8, res: 0, label: "오크 보병" },
+  rusher: { hp: 15, spd: 86, dmg: 3, gold: 5, r: 7, res: 0, label: "고블린 척후" },
+  armor: { hp: 58, spd: 28, dmg: 7, gold: 11, r: 10, res: 0.25, label: "중장갑 트롤" },
+  boss: { hp: 340, spd: 22, dmg: 25, gold: 60, r: 16, res: 0.15, label: "오우거 지휘관" },
 };
 
 /* ── 조작키 (온라인에서는 각자 자기 키보드를 쓴다) ────────── */

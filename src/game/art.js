@@ -90,10 +90,10 @@ export function paintTerrain(ctx) {
     for (let k = 1; k < L.pts.length; k++) ctx.lineTo(L.pts[k].x, L.pts[k].y);
     ctx.stroke();
   };
-  LANES.forEach((L) => strokePath(L, 58, "rgba(47,84,28,0.45)"));
-  LANES.forEach((L) => strokePath(L, 52, C.dirtEdge));
-  LANES.forEach((L) => strokePath(L, 46, C.dirt));
-  LANES.forEach((L) => strokePath(L, 30, "rgba(226,193,142,0.55)"));
+  LANES.forEach((L) => strokePath(L, 48, "rgba(47,84,28,0.45)"));
+  LANES.forEach((L) => strokePath(L, 42, C.dirtEdge));
+  LANES.forEach((L) => strokePath(L, 36, C.dirt));
+  LANES.forEach((L) => strokePath(L, 22, "rgba(226,193,142,0.55)"));
 
   // 길 위 자갈과 바퀴 자국
   LANES.forEach((L) => {
@@ -101,7 +101,7 @@ export function paintTerrain(ctx) {
       const p = L.pts[k], q = L.pts[k + 1];
       let tx = q.x - p.x, ty = q.y - p.y;
       const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
-      const off = (rnd() - 0.5) * 34;
+      const off = (rnd() - 0.5) * 26;
       const x = p.x - ty * off, y = p.y + tx * off;
       ctx.fillStyle = rnd() > 0.5 ? "rgba(146,110,62,0.55)" : "rgba(238,214,168,0.5)";
       ctx.beginPath();
@@ -114,7 +114,7 @@ export function paintTerrain(ctx) {
       let tx = q.x - p.x, ty = q.y - p.y;
       const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
       for (const side of [-1, 1]) {
-        const off = side * (25 + rnd() * 4);
+        const off = side * (20 + rnd() * 4);
         const x = p.x - ty * off, y = p.y + tx * off;
         const r = 2.4 + rnd() * 2.2;
         ctx.fillStyle = "#9e968a";
@@ -537,16 +537,19 @@ export function drawPad(ctx, s, occupied, time) {
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     ctx.beginPath(); ctx.ellipse(s.x, s.y, 15, 9.5, 0, 0, Math.PI * 2); ctx.stroke();
-    ctx.setLineDash([]);
-    // 망치 표시
-    ctx.translate(s.x, s.y);
-    ctx.rotate(-0.5);
-    ctx.beginPath(); roundRect(ctx, -1.1, -2, 2.2, 8.5, 1);
-    inkPath(ctx, "#b98a52", 1);
-    ctx.beginPath(); roundRect(ctx, -4.8, -5.6, 9.6, 4.2, 1.4);
-    inkPath(ctx, "#cfd4da", 1);
     ctx.restore();
   }
+
+  // 몇 번째 자리인지 — 안내문의 "3번 자리"와 바로 맞춰볼 수 있게
+  const bx = s.x - 17, by = s.y + 9;
+  ctx.beginPath(); ctx.arc(bx, by, 8.5, 0, Math.PI * 2);
+  inkPath(ctx, "rgba(38,28,18,0.88)", 1.4, "rgba(246,229,187,0.75)");
+  ctx.fillStyle = "#f6e5bb";
+  ctx.font = "700 11px 'Do Hyeon', Jua, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(String(s.idx + 1), bx, by + 0.5);
+  ctx.textBaseline = "alphabetic";
 }
 
 /* ── 타워 ───────────────────────────────────────────────── */
@@ -556,6 +559,7 @@ export function drawTower(ctx, t, s, time) {
   const col = P[t.owner];
   ctx.save();
   ctx.translate(s.x, s.y - 2);
+  ctx.scale(0.85, 0.85);
 
   if (t.owner === 0) drawArcherTower(ctx, lv, col, time, t, recoil);
   else if (t.owner === 1) drawCannonTower(ctx, lv, col, time, t, recoil);

@@ -2,6 +2,7 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
+  diffOf, prepTime,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
 } from "./world.js";
 
@@ -276,7 +277,7 @@ function advanceWave(g) {
   });
   g.wave++;
   g.phase = "prep";
-  g.timer = PREP;
+  g.timer = prepTime(g);
 }
 
 /* ── 피해 ───────────────────────────────────────────────── */
@@ -295,7 +296,7 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes) {
   if (e.hp > 0) return;
 
   e.dead = true;
-  const base = ENEMY[e.type].gold + g.wave * 0.6;
+  const base = (ENEMY[e.type].gold + g.wave * 0.6) * diffOf(g).gold;
   let reward = Math.round(base * (typeof byPlayer === "number" ? perkVal.gold(perkN(g, byPlayer, "gold")) : 1));
   if (typeof byPlayer === "number") {
     // 행운의 동전 — 가끔 두 배로 줍는다
@@ -477,7 +478,7 @@ export function step(g, dt) {
     if (g.timer <= 0) {
       g.phase = "wave";
       const total = g.total || TOTAL_WAVES;
-      g.queue = buildQueue(g.wave, seatCount(g), total);
+      g.queue = buildQueue(g.wave, seatCount(g), total, g.diff);
       g.spawnT = 0;
       const kind = waveKind(g.wave, total);
       if (kind === "rush") banner(g, `웨이브 ${g.wave} — 돌격`, "발 빠른 고블린 떼가 몰려온다", "#ffb765");
@@ -491,14 +492,15 @@ export function step(g, dt) {
       const q = g.queue.shift();
       const base = ENEMY[q.type];
       const big = q.type === "boss" || q.type === "titan";
+      const D = diffOf(g);
       // 보스는 수비대가 적으면 그만큼 체력을 덜어 준다
-      const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + SURGE_HP * g.surge)
+      const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + D.surge * g.surge) * D.hp
         * (big ? bossScale(seatCount(g)) : 1);
       const p0 = posAt(q.lane, 0);
       g.enemies.push({
         id: g.nextId++,
         type: q.type, lane: q.lane, p: 0,
-        spd: base.spd * (1 + Math.min(0.6, SURGE_SPD * g.surge)),
+        spd: base.spd * D.spd * (1 + Math.min(0.6, SURGE_SPD * g.surge)),
         hp: base.hp * scale, max: base.hp * scale,
         x: p0.x, y: p0.y, ax: p0.ax, ay: p0.ay,
         slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, pdps: 0, dead: false, age: 0,
@@ -884,7 +886,7 @@ export function stepVisual(g, dt) {
 /* 호스트가 보내는 상태 묶음 */
 export function packSnapshot(g) {
   return {
-    ph: g.phase, wv: g.wave, tt: g.total, tm: Math.max(0, g.timer),
+    ph: g.phase, wv: g.wave, tt: g.total, df: g.diff, tm: Math.max(0, g.timer),
     hp: g.core.hp, hm: g.core.max, cv: g.core.lv, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
     ql: g.queue.length, cb: g.combo,
     sg: g.surge,
@@ -906,6 +908,7 @@ export function applySnapshot(g, s) {
   g.phase = s.ph;
   g.wave = s.wv;
   if (s.tt) g.total = s.tt;
+  if (typeof s.df === "number") g.diff = s.df;
   g.timer = s.tm;
   g.core.hp = s.hp;
   if (s.hm) g.core.max = s.hm;
@@ -958,7 +961,7 @@ export function applySnapshot(g, s) {
       const pos = posAt(lane, p);
       e = {
         id, type, lane, p, max: base.hp, hp: base.hp * hpr,
-        spd: base.spd * (1 + Math.min(0.6, SURGE_SPD * (g.surge || 0))),
+        spd: base.spd * diffOf(g).spd * (1 + Math.min(0.6, SURGE_SPD * (g.surge || 0))),
         x: pos.x, y: pos.y, ax: pos.ax, ay: pos.ay,
         slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, dead: false, age: 0,
       };

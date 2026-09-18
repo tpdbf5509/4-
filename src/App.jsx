@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   W, H, CX, CY, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
   castleTier, castleCost, CASTLE_TIERS,
-  SKILLS, ENEMY, LANES, TOTAL_WAVES, WAVE_OPTIONS, PREP,
+  SKILLS, ENEMY, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
   makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
@@ -39,16 +39,23 @@ export default function App() {
   const mySeat = lobby ? lobby.seats.findIndex((s) => s && s.id === me) : -1;
 
   const wavesRef = useRef(TOTAL_WAVES);
+  const diffRef = useRef(DEFAULT_DIFF);
   const publishLobby = useCallback(() => {
-    const next = { hostId: me, seats: seatsRef.current, waves: wavesRef.current };
+    const next = { hostId: me, seats: seatsRef.current, waves: wavesRef.current, diff: diffRef.current };
     setLobby(next);
     roomRef.current?.send("lobby", next);
   }, [me]);
 
-  // 방장만 라운드 수를 바꾼다
+  // 방장만 라운드 수와 난이도를 바꾼다
   const setWaves = useCallback((n) => {
     if (!hostRef.current || !WAVE_OPTIONS.includes(n)) return;
     wavesRef.current = n;
+    publishLobby();
+  }, [publishLobby]);
+
+  const setDiff = useCallback((d) => {
+    if (!hostRef.current || !DIFFS[d]) return;
+    diffRef.current = d;
     publishLobby();
   }, [publishLobby]);
 
@@ -197,7 +204,7 @@ export default function App() {
       <Lobby
         code={code} lobby={lobby} me={me} isHost={isHost} mySeat={mySeat}
         error={error} connecting={connecting}
-        onPick={pick} onStart={startGame} onLeave={leave} onWaves={setWaves}
+        onPick={pick} onStart={startGame} onLeave={leave} onWaves={setWaves} onDiff={setDiff}
       />
     );
   }
@@ -208,6 +215,7 @@ export default function App() {
       isHost={isHost}
       seats={lobby?.seats || []}
       waves={lobby?.waves || TOTAL_WAVES}
+      diff={lobby?.diff ?? DEFAULT_DIFF}
       mySeat={mySeat}
       onBack={backToLobby}
     />
@@ -253,13 +261,14 @@ function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
 }
 
 /* ── 로비 ───────────────────────────────────────────────── */
-function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onWaves, onStart, onLeave }) {
+function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onWaves, onDiff, onStart, onLeave }) {
   const [copied, setCopied] = useState("");
   const link = `${location.origin}${location.pathname}?room=${code}`;
   const seats = lobby?.seats || new Array(SEATS).fill(null);
   const filled = seats.filter(Boolean).length;
   const full = filled >= CREW_MAX;
   const waves = lobby?.waves || TOTAL_WAVES;
+  const diff = lobby?.diff ?? DEFAULT_DIFF;
 
   const copy = async (text, what) => {
     try {
@@ -323,6 +332,23 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
           </span>
         </div>
 
+        <div className="rounds">
+          <span className="rounds-label">난이도</span>
+          <div className="rounds-btns">
+            {DIFFS.map((d, i) => (
+              <button
+                key={d.id}
+                className={`round-btn ${diff === i ? "on" : ""} diff-${d.id}`}
+                onClick={() => onDiff(i)}
+                disabled={!isHost}
+              >
+                {d.name}
+              </button>
+            ))}
+          </div>
+          <span className="rounds-note">{DIFFS[diff].note}</span>
+        </div>
+
         <div className="seats">
           {CLASSES.map((cls, i) => {
             const who = seats[i];
@@ -379,7 +405,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
 }
 
 /* ── 게임 ───────────────────────────────────────────────── */
-function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
+function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
   const cvsRef = useRef(null);
   const bgRef = useRef(null);
   const idx = useMemo(() => Array.from({ length: SEATS }, (_, i) => i), []);
@@ -388,13 +414,13 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
 
   const G = useRef(null);
   if (!G.current) {
-    const g = makeGame(seatFlags, waves);
+    const g = makeGame(seatFlags, waves, diff);
     g.names = names;
     g.mySeat = mySeat;
     if (import.meta.env.DEV) window.__G = g;    // 개발 중 상태를 들여다보려고
     g.phase = "prep";
     g.wave = 1;
-    g.timer = PREP;
+    g.timer = prepTime(g);
     G.current = g;
   }
 
@@ -415,7 +441,7 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
       tier: castleTier(g), upCost: castleCost(g),
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
       paused: g.paused, speed: g.speed,
-      surge: g.surge || 0,
+      surge: g.surge || 0, diff: g.diff ?? DEFAULT_DIFF,
       offer: g.phase === "reward" ? g.offer : null,
       picked: g.phase === "reward" ? g.picked : null,
       players: g.players.map((p) => ({
@@ -710,6 +736,7 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
             <div className="wave-box">
               <span className={`wave-label ${kindLabel && hud.phase !== "clear" && hud.phase !== "over" ? "hot" : ""}`}>{phaseLabel}</span>
               <span className="wave-num">웨이브 {hud.wave}<em>/{hud.total}</em></span>
+              <span className="wave-diff">{DIFFS[hud.diff]?.name}</span>
               <span className="wave-sub">
                 {hud.phase === "prep" ? `${Math.ceil(hud.timer)}초 뒤 시작`
                   : hud.phase === "wave" ? `남은 적 ${hud.left}`

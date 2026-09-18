@@ -10,6 +10,21 @@ export const R_CORE = 74;       // 성문 앞 (길이 여기서 끝난다)
 export const WAVE_OPTIONS = [15, 30, 45, 60];   // 대기실에서 고르는 라운드 수
 export const TOTAL_WAVES = 15;                  // 기본값
 export const PREP = 5;
+
+/* 난이도 — 대기실에서 방장이 고른다 */
+export const DIFFS = [
+  { id: "easy", name: "쉬움",   hp: 0.75, count: 0.85, spd: 0.92, gold: 1.2, start: 130, core: 130, prep: 7, surge: 0.08, bosses: 1,
+    note: "적이 약하고 골드가 넉넉합니다" },
+  { id: "normal", name: "보통", hp: 1,    count: 1,    spd: 1,    gold: 1,   start: 90,  core: 100, prep: 5, surge: 0.12, bosses: 1,
+    note: "기준이 되는 난이도입니다" },
+  { id: "hard", name: "어려움", hp: 1.35, count: 1.15, spd: 1.08, gold: 0.9, start: 80,  core: 90,  prep: 5, surge: 0.16, bosses: 1,
+    note: "적이 단단하고 골드가 빡빡합니다" },
+  { id: "hell", name: "지옥",   hp: 1.8,  count: 1.3,  spd: 1.18, gold: 0.8, start: 70,  core: 80,  prep: 4, surge: 0.22, bosses: 2,
+    note: "보스가 둘씩 옵니다. 각오하세요" },
+];
+export const DEFAULT_DIFF = 1;
+export const diffOf = (g) => DIFFS[(g && g.diff) || 0] || DIFFS[DEFAULT_DIFF];
+export const prepTime = (g) => diffOf(g).prep;
 export const REWARD_T = 22;    // 보상을 고르는 시간
 
 /* ── 색 ─────────────────────────────────────────────────── */
@@ -401,23 +416,26 @@ export const KEY_HINT = { move: "W A S D · 방향키", build: "Space", skill: "
 export const ETYPES = ["grunt", "rusher", "armor", "boss", "titan"];
 
 /* ── 상태 ───────────────────────────────────────────────── */
-export function makeGame(seats = [true, true, true, true, false, false], total = TOTAL_WAVES) {
+export function makeGame(seats = [true, true, true, true, false, false], total = TOTAL_WAVES, diff = DEFAULT_DIFF) {
   const flags = [];
   for (let i = 0; i < SEATS; i++) flags.push(!!seats[i]);
+  const d = DIFFS[diff] ? diff : DEFAULT_DIFF;
+  const D = DIFFS[d];
   return {
     seats: flags,
     total: WAVE_OPTIONS.includes(total) ? total : TOTAL_WAVES,
+    diff: d,
     phase: "ready",
     wave: 0,
-    timer: PREP,
-    core: { hp: 100, max: 100, lv: 1 },
+    timer: D.prep,
+    core: { hp: D.core, max: D.core, lv: 1 },
     players: flags.map((_, i) => {
       // 여섯 병과를 네 경로에 나눠 세운다
       const lane = i % 4;
       const slot = Math.min(SLOT_INDEX[lane].length - 1, i < 4 ? 3 : i === 4 ? 1 : 5);
       const s = SLOTS[sk(lane, slot)];
       return {
-        gold: 90, cd: 0, lane, slot, built: 0, kills: 0,
+        gold: D.start, cd: 0, lane, slot, built: 0, kills: 0,
         perks: {},                      // 보스를 잡고 고른 능력 { id: 개수 }
         cx: s.x, cy: s.y, cr: CLASSES[i].range, jolt: 0, heldKeys: [], holdT: 0,
       };
@@ -472,28 +490,29 @@ export function waveScale(n, total = TOTAL_WAVES) {
   return Math.pow(1.155, ((n - 1) * TOTAL_WAVES) / Math.max(1, total));
 }
 
-export function buildQueue(n, players = 4, total = TOTAL_WAVES) {
+export function buildQueue(n, players = 4, total = TOTAL_WAVES, diff = DEFAULT_DIFF) {
+  const D = DIFFS[diff] || DIFFS[DEFAULT_DIFF];
   const crew = Math.max(1, Math.min(CREW_MAX, players));
   const kind = waveKind(n, total);
   const laneCount = Math.max(1, Math.min(crew, n < 2 ? 2 : n < 4 ? 3 : 4));
   const active = shuffle([0, 1, 2, 3]).slice(0, laneCount);
   const one = () => active[Math.floor(Math.random() * active.length)];
 
-  // 보스 웨이브에는 보스 하나만 나온다
-  if (kind === "boss") return [{ type: "boss", lane: one() }];
-  if (kind === "titan") return [{ type: "titan", lane: one() }];
+  // 보스 웨이브에는 보스만 나온다 (지옥에서는 둘)
+  if (kind === "boss") return Array.from({ length: D.bosses }, () => ({ type: "boss", lane: one() }));
+  if (kind === "titan") return Array.from({ length: D.bosses }, () => ({ type: "titan", lane: one() }));
 
   const list = [];
   const step = (n * TOTAL_WAVES) / Math.max(1, total);   // 15라운드 기준으로 환산한 진행도
 
   if (kind === "rush") {
     // 갑자기 빠른 적이 떼로 몰려온다
-    const count = Math.round((10 + step * 2.6) * (0.5 + 0.13 * crew));
+    const count = Math.round((10 + step * 2.6) * (0.5 + 0.13 * crew) * D.count);
     for (let i = 0; i < count; i++) list.push({ type: "rusher", lane: active[i % active.length] });
     return list;
   }
 
-  const count = Math.round((5 + step * 1.9) * (0.44 + 0.14 * crew));
+  const count = Math.round((5 + step * 1.9) * (0.44 + 0.14 * crew) * D.count);
   for (let i = 0; i < count; i++) {
     let type = "grunt";
     const r = Math.random();

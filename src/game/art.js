@@ -1,5 +1,6 @@
 import {
-  W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY, castleTier,
+  W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY,
+  castleTier, castleCost, CASTLE_TIERS,
 } from "./world.js";
 
 /* ── 그리기 도우미 ──────────────────────────────────────── */
@@ -573,6 +574,29 @@ export function drawCastle(ctx, g, time) {
   drawCastleGun(ctx, g, time);
 
   ctx.restore();
+
+  // 마우스를 올렸을 때 — 여기를 누르면 올라간다
+  if (g.hoverCastle) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,243,206,0.9)";
+    ctx.lineWidth = 2.6;
+    ctx.setLineDash([9, 7]);
+    ctx.lineDashOffset = -time * 24;
+    ctx.beginPath(); ctx.ellipse(CX, CY + 10, 68, 41, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(255,243,206,0.12)";
+    ctx.beginPath(); ctx.ellipse(CX, CY + 10, 68, 41, 0, 0, Math.PI * 2); ctx.fill();
+    const tier = castleTier(g);
+    const label = tier >= CASTLE_TIERS ? "성채 최대 단계" : `성채 ${tier + 1}단계 · ${castleCost(g)}골드`;
+    ctx.font = "700 14px Jua, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 3.6;
+    ctx.strokeStyle = "rgba(26,20,12,0.92)";
+    ctx.strokeText(label, CX, CY - 58);
+    ctx.fillStyle = "#ffeeba";
+    ctx.fillText(label, CX, CY - 58);
+    ctx.restore();
+  }
 
   // 체력 띠
   const bw = 96;

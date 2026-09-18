@@ -359,6 +359,18 @@ kbd {
   background: var(--pc); color: #1b1309;
 }
 
-
-
-
+/* 성채 강화 단추 */
+.keep-up {
+  position: absolute; left: 12px; top: 64px;
+  padding: 7px 12px; border-radius: 10px; cursor: pointer;
+  font-family: 'Do Hyeon', sans-serif; font-size: 12.5px; letter-spacing: -0.02em; color: #fff3d0;
+  background: linear-gradient(#7a5a2e, #5d4222);
+  border: 2px solid #d6b26a; box-shadow: 0 3px 0 #22180e;
+}
+.keep-up em { font-style: normal; font-size: 11px; color: #f0c04a; }
+.keep-up:hover:not(:disabled) { filter: brightness(1.15); }
+.keep-up:disabled {
+  cursor: not-allowed; color: #a8987a; border-color: #6b5432;
+  background: linear-gradient(#41301c, #2c2013);
+}
+.keep-up:disabled em { color: #8d7d61; }

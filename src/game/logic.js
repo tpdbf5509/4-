@@ -2,7 +2,7 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
-  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier,
+  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
 } from "./world.js";
 
 // 호스트에서 일어난 연출은 그대로 다른 참가자에게도 보낸다
@@ -68,6 +68,25 @@ export function applyGoto(g, pi, i) {
   p.lane = s.lane;
   p.slot = s.idx;
   p.jolt = 0.2;
+}
+
+/* 성채 강화 — 누구든 자기 골드로 한 단계 올린다 */
+export function doCastle(g, pi) {
+  const p = g.players[pi];
+  if (!p) return;
+  const lv = castleTier(g);
+  if (lv >= CASTLE_TIERS) return say(g, CX, CY - 70, "최대 단계", "#f0dcb4");
+  const cost = castleCost(g);
+  if (p.gold < cost) return say(g, CX, CY - 70, `${cost} 골드 필요`, "#f0dcb4");
+  p.gold -= cost;
+  g.core.lv = lv + 1;
+  g.core.max += CASTLE_HP_UP;
+  g.core.hp = Math.min(g.core.max, g.core.hp + CASTLE_HP_UP);
+  fx(g, { kind: "ring", x: CX, y: CY, r: 210, color: "#ffe08a", t: 0.9, life: 0.9, snd: "bless" });
+  fx(g, { kind: "poof", x: CX, y: CY - 10, t: 0.7, life: 0.7, color: "rgba(246,230,190,1)" });
+  fx(g, { kind: "heal", x: CX, y: CY - 24, text: `+${CASTLE_HP_UP}`, t: 1.1, life: 1.1 });
+  g.shake = Math.max(g.shake, 0.25);
+  banner(g, `성채 ${g.core.lv}단계`, "성을 한 겹 더 올렸다 · 대포도 세졌다", "#ffe08a");
 }
 
 export function say(g, x, y, text, color) {
@@ -225,15 +244,7 @@ export function applyReward(g, pi, k) {
   p.perks[id] = (p.perks[id] || 0) + 1;
   g.picked[pi] = true;
 
-  if (id === "wall") {
-    const before = castleTier(g);
-    g.core.max += 30;
-    g.core.hp = g.core.max;
-    if (castleTier(g) > before) {
-      fx(g, { kind: "ring", x: CX, y: CY, r: 200, color: "#ffe08a", t: 0.9, life: 0.9 });
-      banner(g, `성채 ${castleTier(g)}단계`, "성벽을 한 겹 더 둘렀다", "#ffe08a");
-    }
-  }
+  if (id === "wall") { g.core.max += 30; g.core.hp = g.core.max; }
   const s = SLOTS[sk(p.lane, p.slot)];
   say(g, s.x, s.y, PERK_BY_ID[id].name, P[pi].light);
   fx(g, { kind: "ring", x: s.x, y: s.y, r: 70, color: P[pi].light, t: 0.5, life: 0.5, snd: "bless" });
@@ -253,16 +264,8 @@ export function closeReward(g) {
   g.offer = null;
   g.picked = null;
   // 보스를 잡을 때마다 관문에서 나오는 적이 조금씩 세진다
-  const before = castleTier(g);
   g.surge++;
-  const after = castleTier(g);
-  if (after > before) {
-    fx(g, { kind: "ring", x: CX, y: CY, r: 200, color: "#ffe08a", t: 0.9, life: 0.9, snd: "bless" });
-    fx(g, { kind: "poof", x: CX, y: CY - 10, t: 0.7, life: 0.7, color: "rgba(246,230,190,1)" });
-    banner(g, `성채 ${after}단계`, "성을 한 겹 더 올렸다", "#ffe08a");
-  } else {
-    banner(g, "적이 더 몰려온다", `관문 너머의 적이 강해졌다 (${g.surge}단계)`, "#ff9f6a");
-  }
+  banner(g, "적이 더 몰려온다", `관문 너머의 적이 강해졌다 (${g.surge}단계)`, "#ff9f6a");
   advanceWave(g);
 }
 
@@ -576,29 +579,30 @@ export function step(g, dt) {
   // 성채의 대포 — 성문 앞까지 온 적을 직접 때린다
   {
     const cg = g.castle;
+    const gun = castleGun(castleTier(g));
     cg.cd -= dt;
     let target = null;
     for (const e of g.enemies) {
       if (e.dead) continue;
-      if (Math.hypot(e.x - CX, e.y - CY) > CASTLE_GUN.range) continue;
+      if (Math.hypot(e.x - CX, e.y - CY) > gun.range) continue;
       if (!target || e.p > target.p) target = e;
     }
     if (target) {
       cg.aim = Math.atan2(target.y - (CY - 22), target.x - CX);
       if (cg.cd <= 0) {
-        cg.cd = CASTLE_GUN.interval;
+        cg.cd = gun.interval;
         cg.pulse = 0.35;
-        const dmg = CASTLE_GUN.dmg;
+        const dmg = gun.dmg;
         g.bullets.push({
           x: CX + Math.cos(cg.aim) * 18, y: CY - 22 + Math.sin(cg.aim) * 18,
           tx: target.x, ty: target.y, target, dmg, owner: null,
-          splash: CASTLE_GUN.splash, slow: 0, slowT: 0, speed: 340, kind: "shell",
+          splash: gun.splash, slow: 0, slowT: 0, speed: 340, kind: "shell",
           travel: 0, total: Math.max(1, Math.hypot(target.x - CX, target.y - CY)),
           vx: target.x - CX, vy: target.y - CY,
         });
         if (g.out) {
           g.out.push({ k: "shot", si: -1, x: CX, y: CY - 22, tx: target.x, ty: target.y,
-            owner: null, splash: CASTLE_GUN.splash, speed: 340, kind: "shell", aim: cg.aim });
+            owner: null, splash: gun.splash, speed: 340, kind: "shell", aim: cg.aim });
         }
         fx(g, { kind: "poof", x: CX + Math.cos(cg.aim) * 26, y: CY - 22 + Math.sin(cg.aim) * 26,
           t: 0.3, life: 0.3, color: "rgba(236,228,212,1)" });
@@ -881,7 +885,7 @@ export function stepVisual(g, dt) {
 export function packSnapshot(g) {
   return {
     ph: g.phase, wv: g.wave, tt: g.total, tm: Math.max(0, g.timer),
-    hp: g.core.hp, hm: g.core.max, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
+    hp: g.core.hp, hm: g.core.max, cv: g.core.lv, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
     ql: g.queue.length, cb: g.combo,
     sg: g.surge,
     pk: g.players.map((p) => PERK_IDS.map((id) => p.perks[id] || 0)),
@@ -905,6 +909,7 @@ export function applySnapshot(g, s) {
   g.timer = s.tm;
   g.core.hp = s.hp;
   if (s.hm) g.core.max = s.hm;
+  if (s.cv) g.core.lv = s.cv;
   g.speed = s.sp;
   g.paused = !!s.pa;
   g.focus = s.fo ? 1 : 0;

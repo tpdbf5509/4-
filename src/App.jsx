@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  W, H, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX, castleTier,
+  W, H, CX, CY, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
+  castleTier, castleCost, CASTLE_TIERS,
   SKILLS, ENEMY, LANES, TOTAL_WAVES, WAVE_OPTIONS, PREP,
   makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
-  step, stepVisual, applyMove, applyGoto, doBuild, doSkill, applyReward,
+  step, stepVisual, applyMove, applyGoto, doBuild, doCastle, doSkill, applyReward,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
@@ -410,7 +411,8 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
   function snapHud(g) {
     return {
       phase: g.phase, wave: g.wave, total: g.total, timer: Math.max(0, g.timer),
-      hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max, tier: castleTier(g),
+      hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max,
+      tier: castleTier(g), upCost: castleCost(g),
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
       paused: g.paused, speed: g.speed,
       surge: g.surge || 0,
@@ -442,6 +444,7 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
       if (kind === "move") applyMove(g, mySeat, dir);
       else if (kind === "goto") applyGoto(g, mySeat, dir);
       else if (kind === "build") doBuild(g, mySeat);
+      else if (kind === "castle") doCastle(g, mySeat);
       else doSkill(g, mySeat);
     } else {
       // 내 커서는 바로 움직이고, 판정은 방장에게 맡긴다
@@ -519,19 +522,31 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
       return best;
     };
 
+    // 성채 언덕 위인지
+    const onCastle = (e) => {
+      const r = cvs.getBoundingClientRect();
+      if (!r.width || !r.height) return false;
+      const x = (e.clientX - r.left) * (W / r.width);
+      const y = (e.clientY - r.top) * (H / r.height);
+      const dx = (x - CX) / 66, dy = (y - (CY + 10)) / 39;
+      return dx * dx + dy * dy <= 1;
+    };
+
     const onMove = (e) => {
+      const g = G.current;
       const i = slotAt(e);
-      G.current.hover = i;
-      cvs.style.cursor = i >= 0 && mySeat >= 0 ? "pointer" : "default";
+      const onKeep = i < 0 && onCastle(e);
+      g.hover = i;
+      g.hoverCastle = onKeep;
+      cvs.style.cursor = (i >= 0 || onKeep) && mySeat >= 0 ? "pointer" : "default";
     };
     const onDown = (e) => {
       if (e.button !== 0) return;
       const i = slotAt(e);
-      if (i < 0) return;
-      e.preventDefault();
-      act("goto", i);
+      if (i >= 0) { e.preventDefault(); act("goto", i); return; }
+      if (onCastle(e)) { e.preventDefault(); act("castle"); }
     };
-    const onLeave = () => { G.current.hover = -1; };
+    const onLeave = () => { G.current.hover = -1; G.current.hoverCastle = false; };
 
     cvs.addEventListener("pointermove", onMove);
     cvs.addEventListener("pointerdown", onDown);
@@ -562,6 +577,7 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
         if (d.kind === "move") applyMove(g, d.cls, d.dir);
         else if (d.kind === "goto") applyGoto(g, d.cls, d.dir);
         else if (d.kind === "build") doBuild(g, d.cls);
+        else if (d.kind === "castle") doCastle(g, d.cls);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
     } else {
@@ -719,6 +735,19 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
             </button>
           </div>
 
+          {mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
+            <button
+              className="keep-up"
+              onClick={() => act("castle")}
+              disabled={hud.tier >= CASTLE_TIERS || (hud.players[mySeat]?.gold ?? 0) < hud.upCost}
+              title="성채를 눌러도 올릴 수 있습니다"
+            >
+              {hud.tier >= CASTLE_TIERS
+                ? "성채 최대 단계"
+                : <>성채 {hud.tier + 1}단계 <em>{hud.upCost}골드</em></>}
+            </button>
+          )}
+
           {hud.surge > 0 && (
             <div className="surge-tag" title="보스를 잡을 때마다 관문의 적이 강해집니다">
               적 강화 {hud.surge}단계
@@ -850,6 +879,7 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
         </div>
 
         <p className="footnote">
+          성채를 누르면 골드를 내고 한 단계 올립니다. 단계마다 최대 체력 +30, 성채 대포도 함께 세집니다.
           길가의 돌판마다 타워를 세울 수 있습니다. 돌판을 마우스로 눌러 바로 옮겨 갈 수 있고,
           방향키를 누르면 그쪽에 있는 가장 가까운 자리로 한 칸씩 옮겨 갑니다. 같은 자리에 자기 타워를 다시 지으면 4단계까지 강화됩니다.
           성채도 스스로 대포를 쏩니다. 다섯 웨이브마다 보스가 하나 오고, 잡으면 각자 능력을 하나 고릅니다.

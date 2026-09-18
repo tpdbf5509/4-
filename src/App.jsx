@@ -261,7 +261,10 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onS
         <div className="lobby-head">
           <div>
             <h1>대기실</h1>
-            <p className="tag">병과를 고르고, 방장이 시작하면 모두의 화면에서 함께 시작합니다.</p>
+            <p className="tag">
+              병과를 고르면 그 병과의 탑과 공용 탑 둘까지, 모두 세 가지를 지을 수 있습니다.
+              방장이 시작하면 모두의 화면에서 함께 시작합니다.
+            </p>
           </div>
           <button className="btn-ghost" onClick={onLeave}>나가기</button>
         </div>
@@ -300,6 +303,16 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onS
                 <span className="seat-badge"><ClassIcon i={i} /></span>
                 <span className="seat-name">{cls.name}</span>
                 <span className="seat-note">{cls.note}</span>
+                <span className="seat-towers">
+                  {CLASS_TOWERS[i].map((id, k) => {
+                    const def = TOWER_BY_ID[id];
+                    return (
+                      <span key={id} className={`seat-tw ${k === 0 ? "main" : ""}`} title={def.note}>
+                        {def.name} <em>{def.cost}</em>
+                      </span>
+                    );
+                  })}
+                </span>
                 <span className="seat-who">
                   {who ? (
                     <>

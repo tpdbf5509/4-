@@ -3,9 +3,9 @@
    한 대의 키보드로 네 명이 함께 중앙 요새를 지킵니다.
    ──────────────────────────────────────────────────────────── */
 
-export const W = 860, H = 640, CX = 430, CY = 320;
-export const R_SPAWN = 272;     // 적이 나오는 관문까지의 거리
-export const R_CORE = 88;       // 성문 앞 (길이 여기서 끝난다)
+export const W = 1000, H = 760, CX = 500, CY = 380;
+export const R_SPAWN = 330;     // 적이 나오는 관문까지의 거리
+export const R_CORE = 96;       // 성문 앞 (길이 여기서 끝난다)
 export const TOTAL_WAVES = 15;
 export const PREP = 9;
 
@@ -49,12 +49,12 @@ export const DIRS4 = [
 
 // 길은 굽이를 다섯 번 틀고, 굽이가 바깥으로 부푼 자리마다 타워 터를 하나씩 둔다
 export const SLOT_S = [0.1, 0.3, 0.5, 0.7, 0.9];
-const SLOT_OFF = 50;   // 길 가장자리에서 타워 터까지
+const SLOT_OFF = 56;   // 길 가장자리에서 타워 터까지
 
 export function makeLane(li) {
   const { dx, dy } = DIRS4[li];
   const nx = -dy, ny = dx;                       // 길에 수직인 방향
-  const amp = 34;                                // 네 길이 같은 방향으로 굽어 바람개비를 이룬다
+  const amp = 74;                                // 네 길이 같은 방향으로 굽어 바람개비를 이룬다
   // 양 끝(관문·성문)에서는 곧게 들어가고 가운데가 크게 굽이친다.
   // 두 번째 파를 섞어 굽이 크기를 들쭉날쭉하게 — 자로 잰 파형처럼 보이지 않게 한다
   const bend = (s) =>
@@ -66,7 +66,7 @@ export function makeLane(li) {
     return { x: CX + dx * r + nx * w, y: CY + dy * r + ny * w };
   };
 
-  const N = 260, pts = [], cum = [0];
+  const N = 320, pts = [], cum = [0];
   for (let k = 0; k < N; k++) pts.push(at(k / (N - 1)));
   for (let k = 1; k < N; k++) {
     cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
@@ -133,10 +133,10 @@ export const SKILLS = [
 
 // 길이 두 배 넘게 길어졌으므로 걷는 속도도 그만큼 올려 한 웨이브가 늘어지지 않게 한다
 export const ENEMY = {
-  grunt: { hp: 24, spd: 42, dmg: 4, gold: 6, r: 8, res: 0, label: "오크 보병" },
-  rusher: { hp: 15, spd: 86, dmg: 3, gold: 5, r: 7, res: 0, label: "고블린 척후" },
-  armor: { hp: 58, spd: 28, dmg: 7, gold: 11, r: 10, res: 0.25, label: "중장갑 트롤" },
-  boss: { hp: 340, spd: 22, dmg: 25, gold: 60, r: 16, res: 0.15, label: "오우거 지휘관" },
+  grunt: { hp: 24, spd: 62, dmg: 4, gold: 6, r: 8, res: 0, label: "오크 보병" },
+  rusher: { hp: 15, spd: 127, dmg: 3, gold: 5, r: 7, res: 0, label: "고블린 척후" },
+  armor: { hp: 58, spd: 41, dmg: 7, gold: 11, r: 10, res: 0.25, label: "중장갑 트롤" },
+  boss: { hp: 340, spd: 32, dmg: 25, gold: 60, r: 16, res: 0.15, label: "오우거 지휘관" },
 };
 
 /* ── 조작키 (온라인에서는 각자 자기 키보드를 쓴다) ────────── */

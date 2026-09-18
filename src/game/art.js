@@ -522,9 +522,9 @@ export function drawCastle(ctx, g, time) {
 export function drawPad(ctx, s, occupied, time) {
   shadow(ctx, s.x, s.y + 8, 24, 9, 0.26);
   // 흙더미 + 돌판(옆면을 먼저 그려 두께를 준다)
-  ctx.beginPath(); ctx.ellipse(s.x, s.y + 5, 22, 14, 0, 0, Math.PI * 2);
+  ctx.beginPath(); ctx.ellipse(s.x, s.y + 5, 24, 15, 0, 0, Math.PI * 2);
   inkPath(ctx, "#6f6353", 1.6);
-  ctx.beginPath(); ctx.ellipse(s.x, s.y, 22, 14, 0, 0, Math.PI * 2);
+  ctx.beginPath(); ctx.ellipse(s.x, s.y, 24, 15, 0, 0, Math.PI * 2);
   inkPath(ctx, occupied ? "#b0a68f" : "#a89d86", 1.6);
   ctx.fillStyle = "rgba(255,255,255,0.2)";
   ctx.beginPath(); ctx.ellipse(s.x, s.y - 3, 16, 8, 0, Math.PI, Math.PI * 2); ctx.fill();
@@ -541,11 +541,11 @@ export function drawPad(ctx, s, occupied, time) {
   }
 
   // 몇 번째 자리인지 — 안내문의 "3번 자리"와 바로 맞춰볼 수 있게
-  const bx = s.x - 17, by = s.y + 9;
-  ctx.beginPath(); ctx.arc(bx, by, 8.5, 0, Math.PI * 2);
+  const bx = s.x - 19, by = s.y + 10;
+  ctx.beginPath(); ctx.arc(bx, by, 9.5, 0, Math.PI * 2);
   inkPath(ctx, "rgba(38,28,18,0.88)", 1.4, "rgba(246,229,187,0.75)");
   ctx.fillStyle = "#f6e5bb";
-  ctx.font = "700 11px 'Do Hyeon', Jua, system-ui, sans-serif";
+  ctx.font = "700 12.5px 'Do Hyeon', Jua, system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(String(s.idx + 1), bx, by + 0.5);
@@ -559,7 +559,7 @@ export function drawTower(ctx, t, s, time) {
   const col = P[t.owner];
   ctx.save();
   ctx.translate(s.x, s.y - 2);
-  ctx.scale(0.85, 0.85);
+  ctx.scale(0.92, 0.92);
 
   if (t.owner === 0) drawArcherTower(ctx, lv, col, time, t, recoil);
   else if (t.owner === 1) drawCannonTower(ctx, lv, col, time, t, recoil);

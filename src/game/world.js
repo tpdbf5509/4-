@@ -3,7 +3,7 @@
    한 대의 키보드로 네 명이 함께 중앙 요새를 지킵니다.
    ──────────────────────────────────────────────────────────── */
 
-export const W = 1000, H = 760, CX = 500, CY = 380;
+export const W = 1160, H = 760, CX = 580, CY = 380;
 export const R_SPAWN = 344;     // 남·북 관문까지의 거리
 export const R_SPAWN_X = 448;   // 동·서 관문까지의 거리 (화면이 가로로 넓다)
 export const R_CORE = 74;       // 성문 앞 (길이 여기서 끝난다)
@@ -173,8 +173,9 @@ export const SLOT_INDEX = [[], [], [], []];   // [경로][몇 번째] → 전체
           const x = p.x + px * side * off, y = p.y + py * side * off;
           if (x < EDGE || x > W - EDGE || y < EDGE || y > H - EDGE) continue;
           if (Math.hypot(x - CX, y - CY) < R_CORE + 48) continue;
-          // 화면 위 모서리는 체력·웨이브·속도 표시가 덮는다
-          if (y < 150 && (x < 330 || x > 740)) continue;
+          // 화면 위 모서리는 표시창이 덮는다 (왼쪽은 체력·웨이브·성채, 오른쪽은 속도·소리)
+          if (y < 176 && x < W * 0.36) continue;
+          if (y < 100 && x > W * 0.66) continue;
           const d = far(x, y);
           if (!best || d > best.d) best = { x, y, d, u };
         }

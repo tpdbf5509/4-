@@ -171,7 +171,7 @@ kbd {
 .keyhint kbd { margin: 0 2px; }
 
 /* ── 게임 ───────────────────────────────────────────────── */
-.stage { max-width: 900px; margin: 0 auto; }
+.stage { max-width: 1040px; margin: 0 auto; }
 .frame {
   position: relative; border-radius: 14px; overflow: hidden;
   border: 3px solid #6b4f2c;

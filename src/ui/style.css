@@ -204,6 +204,12 @@ kbd {
 .wave-num { font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: #f6e5bb; line-height: 1.2; }
 .wave-num em { font-style: normal; font-size: 11px; color: #b09a73; }
 .wave-sub { font-size: 10.5px; color: #c9b58c; }
+.wave-mix { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.wave-mix em {
+  font-style: normal; font-size: 10px; letter-spacing: -0.02em; color: #e8d7ae;
+  padding: 1px 6px; border-radius: 999px;
+  background: rgba(20, 14, 8, 0.45); border: 1px solid rgba(160, 130, 90, 0.4);
+}
 .wave-diff {
   position: absolute; right: -1px; top: -9px;
   padding: 2px 7px; border-radius: 999px; font-size: 9.5px; letter-spacing: -0.02em;

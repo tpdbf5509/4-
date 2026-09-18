@@ -193,7 +193,53 @@ export const SLOT_INDEX = [[], [], [], []];   // [경로][몇 번째] → 전체
       SLOTS.push({ lane: li, idx: SLOT_INDEX[li].length - 1, x: Math.round(c.x), y: Math.round(c.y) });
     });
   });
+
+  /* 자리마다 성격을 붙인다. 그 자리에서 길이 얼마나 보이는지로 정한다.
+     - 여러 경로가 걸치면 핵심 지점
+     - 한 경로를 길게 굽어보면 집중 지점
+     - 길에서 멀찍이 떨어져 있으면 장거리 지점
+     - 스쳐 지나가는 자리면 위험 지점 */
+  const R = 130;
+  SLOTS.forEach((sl) => {
+    let near = Infinity, seen = 0;
+    const lanes = new Set();
+    LANES.forEach((L, li) => {
+      let hit = 0;
+      for (let k = 0; k < L.pts.length; k += 2) {
+        const d = Math.hypot(L.pts[k].x - sl.x, L.pts[k].y - sl.y);
+        if (d < near) near = d;
+        if (d <= R) hit++;
+      }
+      if (hit >= 26) lanes.add(li);   // 그 경로를 제대로 굽어봐야 친다
+      seen += hit;
+    });
+    sl.near = Math.round(near);
+    sl.seen = seen;            // 사정권에 들어오는 길의 양
+    sl.lanes = lanes.size;
+  });
+  // 길을 많이 굽어보는 순서로 잘라 집중 지점을 정한다
+  const sorted = SLOTS.map((s) => s.seen).sort((a, b) => b - a);
+  const focusCut = sorted[Math.floor(sorted.length * 0.34)];
+  SLOTS.forEach((sl) => {
+    if (sl.lanes >= 2) sl.spot = "key";
+    else if (sl.seen >= focusCut) sl.spot = "focus";
+    else if (sl.near >= 62) sl.spot = "long";
+    else sl.spot = "risk";
+  });
 }
+
+/* 자리 성격 — 그 자리에 세운 탑에 붙는 보너스 */
+export const SPOTS = {
+  key: { name: "핵심 지점", tag: "여러 길이 걸친다", color: "#c186e0", dark: "#7d4aa0",
+    note: "범위·연쇄가 강해진다 · 대포 화염 번개" },
+  focus: { name: "집중 지점", tag: "길을 길게 굽어본다", color: "#6fb6e8", dark: "#3a6f96",
+    note: "공격 속도 +15%" },
+  long: { name: "장거리 지점", tag: "길에서 물러나 있다", color: "#7fc98a", dark: "#3f7a4a",
+    note: "사거리 +18 · 궁수 저격" },
+  risk: { name: "위험 지점", tag: "적이 스쳐 지나간다", color: "#e8a45c", dark: "#95611f",
+    note: "공격력 +20%" },
+};
+export const spotOf = (i) => SPOTS[(SLOTS[i] && SLOTS[i].spot) || "risk"];
 
 export const sk = (lane, idx) => {
   const row = SLOT_INDEX[lane] || SLOT_INDEX[0];
@@ -413,7 +459,8 @@ export const MOVE_KEYS = {
 };
 export const BUILD_KEYS = ["Space", "Enter", "KeyQ"];
 export const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyE"];
-export const KEY_HINT = { move: "W A S D · 방향키", build: "Space", skill: "Shift" };
+export const SELL_KEYS = ["KeyX", "Delete", "Backspace"];
+export const KEY_HINT = { move: "W A S D · 방향키", build: "Space", skill: "Shift", sell: "X" };
 
 export const ETYPES = ["grunt", "rusher", "armor", "boss", "titan"];
 
@@ -463,6 +510,7 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
     combo: 0,
     comboT: 0,
     banner: null,       // { text, sub, t, life, tone }
+    preview: null,      // 이번 웨이브에 올 적 [종류, 수]
     leave: flags.map(() => false),   // 대기실로 돌아가자는 데 동의한 자리
     leaveT: 0,                       // 동의가 살아 있는 시간
     leaveDone: 0,                    // 모두 동의했다

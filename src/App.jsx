@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  W, H, CX, CY, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
+  W, H, CX, CY, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
   castleTier, castleCost, CASTLE_TIERS, LEAVE_FORCE, LEAVE_T,
-  SKILLS, ENEMY, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
-  makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
+  SKILLS, ENEMY, ETYPES, SLOTS, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
+  makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, SELL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
-  step, stepVisual, applyMove, applyGoto, doBuild, doCastle, doSkill, applyReward, applyLeave,
+  step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
+  applyReward, applyLeave, startPrep,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
@@ -397,7 +398,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
         </div>
 
         <p className="keyhint">
-          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> 또는 돌판 <kbd>클릭</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
+          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> 또는 돌판 <kbd>클릭</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 팔기 <kbd>{KEY_HINT.sell}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
         </p>
       </div>
     </div>
@@ -418,9 +419,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
     g.names = names;
     g.mySeat = mySeat;
     if (import.meta.env.DEV) window.__G = g;    // 개발 중 상태를 들여다보려고
-    g.phase = "prep";
     g.wave = 1;
-    g.timer = prepTime(g);
+    startPrep(g);
     G.current = g;
   }
 
@@ -442,6 +442,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
       hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max,
       tier: castleTier(g), upCost: castleCost(g),
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
+      preview: g.preview || null,
       paused: g.paused, speed: g.speed,
       surge: g.surge || 0, diff: g.diff ?? DEFAULT_DIFF,
       leave: (g.leave || []).map((v) => !!v), leaveT: g.leaveT || 0,
@@ -479,6 +480,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
       if (kind === "move") applyMove(g, mySeat, dir);
       else if (kind === "goto") applyGoto(g, mySeat, dir);
       else if (kind === "build") doBuild(g, mySeat);
+      else if (kind === "sell") doSell(g, mySeat);
       else if (kind === "castle") doCastle(g, mySeat);
       else doSkill(g, mySeat);
     } else {
@@ -506,7 +508,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
       const dir = MOVE_KEYS[e.code];
       const isBuild = BUILD_KEYS.includes(e.code);
       const isSkill = SKILL_KEYS.includes(e.code);
-      if (!dir && !isBuild && !isSkill) return;
+      const isSell = SELL_KEYS.includes(e.code);
+      if (!dir && !isBuild && !isSkill && !isSell) return;
       e.preventDefault();
       if (e.repeat) return;
       if (dir) {
@@ -515,6 +518,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
         holdT = 0.24;
         if (!timer) timer = setInterval(tick, 50);
       } else if (isBuild) act("build");
+      else if (isSell) act("sell");
       else act("skill");
     }
     function onUp(e) {
@@ -613,6 +617,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
         if (d.kind === "move") applyMove(g, d.cls, d.dir);
         else if (d.kind === "goto") applyGoto(g, d.cls, d.dir);
         else if (d.kind === "build") doBuild(g, d.cls);
+        else if (d.kind === "sell") doSell(g, d.cls);
         else if (d.kind === "castle") doCastle(g, d.cls);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
@@ -755,6 +760,13 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
                   : hud.phase === "wave" ? `남은 적 ${hud.left}`
                   : hud.phase === "reward" ? `${Math.ceil(hud.timer)}초 안에 고르기` : "—"}
               </span>
+              {hud.phase === "prep" && hud.preview?.length > 0 && (
+                <span className="wave-mix">
+                  {hud.preview.map(([ti, n]) => (
+                    <em key={ti}>{ENEMY[ETYPES[ti]]?.label ?? "적"} ×{n}</em>
+                  ))}
+                </span>
+              )}
             </div>
           </div>
 
@@ -946,6 +958,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
                     <kbd>{KEY_HINT.move}</kbd><span>이동</span>
                     <kbd>클릭</kbd><span>그 자리로</span>
                     <kbd>{KEY_HINT.build}</kbd><span>건설</span>
+                    <kbd>{KEY_HINT.sell}</kbd><span>팔기</span>
                     <kbd>{KEY_HINT.skill}</kbd><span>스킬</span>
                   </div>
                 )}
@@ -955,6 +968,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
         </div>
 
         <p className="footnote">
+          돌판마다 성격이 다릅니다. 마우스를 올리면 그 자리가 어떤 자리인지 알려 줍니다.
+          지은 탑은 <kbd>X</kbd>로 팔아 들인 값의 60%를 돌려받습니다.
           성채를 누르면 골드를 내고 한 단계 올립니다. 단계마다 최대 체력 +30, 성채 대포도 함께 세집니다.
           길가의 돌판마다 타워를 세울 수 있습니다. 돌판을 마우스로 눌러 바로 옮겨 갈 수 있고,
           방향키를 누르면 그쪽에 있는 가장 가까운 자리로 한 칸씩 옮겨 갑니다. 같은 자리에 자기 타워를 다시 지으면 4단계까지 강화됩니다.

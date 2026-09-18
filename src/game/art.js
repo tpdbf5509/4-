@@ -1,6 +1,6 @@
 import {
   W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY,
-  castleTier, castleCost, CASTLE_TIERS,
+  castleTier, castleCost, CASTLE_TIERS, SPOTS,
 } from "./world.js";
 
 /* ── 그리기 도우미 ──────────────────────────────────────── */
@@ -664,12 +664,20 @@ export function drawCastleGun(ctx, g, time) {
 
 /* ── 타워 터 ────────────────────────────────────────────── */
 export function drawPad(ctx, s, occupied, time, hover) {
+  const sp = SPOTS[s.spot] || SPOTS.risk;
   shadow(ctx, s.x, s.y + 7, 21, 8, 0.26);
   // 흙더미 + 돌판(옆면을 먼저 그려 두께를 준다)
   ctx.beginPath(); ctx.ellipse(s.x, s.y + 4, 21, 13, 0, 0, Math.PI * 2);
-  inkPath(ctx, "#6f6353", 1.6);
+  inkPath(ctx, sp.dark, 1.6);
   ctx.beginPath(); ctx.ellipse(s.x, s.y, 21, 13, 0, 0, Math.PI * 2);
   inkPath(ctx, occupied ? "#b0a68f" : "#a89d86", 1.6);
+  // 자리 성격 — 가장자리 색 띠
+  ctx.save();
+  ctx.globalAlpha = occupied ? 0.5 : 0.9;
+  ctx.strokeStyle = sp.color;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.ellipse(s.x, s.y, 20, 12.2, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
   ctx.fillStyle = "rgba(255,255,255,0.2)";
   ctx.beginPath(); ctx.ellipse(s.x, s.y - 3, 14, 7, 0, Math.PI, Math.PI * 2); ctx.fill();
 
@@ -688,7 +696,7 @@ export function drawPad(ctx, s, occupied, time, hover) {
     const pulse = 0.45 + 0.25 * Math.sin(time * 2.4 + s.x * 0.05);
     ctx.save();
     ctx.globalAlpha = pulse;
-    ctx.strokeStyle = "rgba(255,243,206,0.95)";
+    ctx.strokeStyle = sp.color;
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     ctx.beginPath(); ctx.ellipse(s.x, s.y, 13, 8, 0, 0, Math.PI * 2); ctx.stroke();
@@ -696,6 +704,22 @@ export function drawPad(ctx, s, occupied, time, hover) {
   }
 
   // 몇 번째 자리인지 — 안내문의 "3번 자리"와 바로 맞춰볼 수 있게
+  if (hover) {
+    ctx.save();
+    ctx.font = "700 12px Jua, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 3.4;
+    ctx.strokeStyle = "rgba(26,20,12,0.92)";
+    ctx.strokeText(sp.name, s.x, s.y - 22);
+    ctx.fillStyle = sp.color;
+    ctx.fillText(sp.name, s.x, s.y - 22);
+    ctx.font = "500 10.5px Jua, system-ui, sans-serif";
+    ctx.strokeText(sp.note, s.x, s.y - 9);
+    ctx.fillStyle = "rgba(246,229,187,0.95)";
+    ctx.fillText(sp.note, s.x, s.y - 9);
+    ctx.restore();
+  }
+
   const bx = s.x - 17, by = s.y + 9;
   ctx.beginPath(); ctx.arc(bx, by, 8.4, 0, Math.PI * 2);
   inkPath(ctx, "rgba(38,28,18,0.88)", 1.4, "rgba(246,229,187,0.75)");
@@ -2144,6 +2168,21 @@ export function drawFx(ctx, f) {
       ctx.fillText(f.text, f.x, y);
     }
     ctx.restore();
+  } else if (k === "call") {
+    const p = 1 - f.t / f.life;
+    const pop = p < 0.2 ? 0.6 + p * 2 : 1 + (p - 0.2) * 0.12;
+    ctx.save();
+    ctx.globalAlpha = 1 - Math.pow(p, 3);
+    ctx.translate(f.x, f.y - p * 16);
+    ctx.scale(pop, pop);
+    ctx.font = "800 24px Jua, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "rgba(24,18,10,0.92)";
+    ctx.strokeText(f.text, 0, 0);
+    ctx.fillStyle = f.color || "#ffe9bd";
+    ctx.fillText(f.text, 0, 0);
+    ctx.restore();
   } else if (k === "dmg") {
     const p = 1 - f.t / f.life;
     ctx.globalAlpha = 1 - Math.pow(p, 2.5);
@@ -2312,6 +2351,28 @@ export function draw(ctx, g, bg) {
       ctx.fillText(label, p.cx, p.cy - b * 0.82 - 9);
       ctx.restore();
     });
+  }
+
+  // 성채가 위태롭다 — 체력이 낮을수록 경고가 짙어진다
+  {
+    const hpr = Math.max(0, g.core.hp / g.core.max);
+    if (playing && hpr <= 0.5) {
+      const lvl = hpr <= 0.2 ? 2 : hpr <= 0.3 ? 1 : 0;
+      const beat = 0.5 + 0.5 * Math.sin(g.t * (lvl === 2 ? 6 : lvl === 1 ? 4 : 2.6));
+      ctx.save();
+      ctx.globalAlpha = (0.12 + lvl * 0.1) * (0.5 + beat * 0.5);
+      ctx.strokeStyle = "#c0392b";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(CX, CY + 6, 96 + lvl * 8, 60 + lvl * 5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      if (lvl >= 1) {
+        const edge = ctx.createRadialGradient(CX, CY, W * 0.3, CX, CY, W * 0.62);
+        edge.addColorStop(0, "rgba(160,20,16,0)");
+        edge.addColorStop(1, `rgba(160,20,16,${(lvl === 2 ? 0.42 : 0.2) * (0.6 + beat * 0.4)})`);
+        ctx.fillStyle = edge;
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
   }
 
   // 성채 피격 섬광

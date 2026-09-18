@@ -117,11 +117,14 @@ export function posAt(lane, u) {
 /* ── 자리(타워 터) ──────────────────────────────────────── */
 // 길을 따라가며 옆으로 물러난 자리 다섯을 고른다.
 // 길에서 멀수록, 서로 떨어져 있을수록 좋은 자리로 본다.
-const SLOT_GAP_U = 0.13;   // 같은 길 안에서 자리끼리 벌어질 최소 진행도
-const SLOT_GAP = 50;       // 자리끼리의 최소 거리
+const MIN_ROAD = 40;       // 길에서 이만큼은 떨어져야 자리로 쓴다
+const SLOT_GAP = 56;       // 자리끼리의 최소 거리
 const EDGE = 46;           // 화면 가장자리 여백
 
+/* 경로를 따라가며 쓸 만한 자리를 모두 찾는다.
+   길에서 충분히 떨어져 있고 서로 붙지 않는 자리라면 다 쓴다. */
 export const SLOTS = [];
+export const SLOT_INDEX = [[], [], [], []];   // [경로][몇 번째] → 전체 번호
 {
   const road = [];
   LANES.forEach((L) => { for (let k = 0; k < L.pts.length; k += 3) road.push(L.pts[k]); });
@@ -135,51 +138,44 @@ export const SLOTS = [];
   };
 
   LANES.forEach((L, li) => {
-    // 진행도마다 가장 여유 있는 한 자리를 후보로 모은다
+    // 진행도마다 길 양옆으로 후보를 하나씩 모은다 (길을 사이에 두고 마주 보게 둘 수 있다)
     const cand = [];
-    for (let u = 0.05; u <= 0.951; u += 0.01) {
+    for (let u = 0.04; u <= 0.961; u += 0.006) {
       const p = posAt(li, u);
       const al = Math.hypot(p.ax, p.ay) || 1;
       const px = -p.ay / al, py = p.ax / al;
-      let best = null;
       for (const side of [1, -1]) {
-        for (let off = 42; off <= 96; off += 4) {
+        let best = null;
+        for (let off = 44; off <= 124; off += 4) {
           const x = p.x + px * side * off, y = p.y + py * side * off;
           if (x < EDGE || x > W - EDGE || y < EDGE || y > H - EDGE) continue;
+          if (Math.hypot(x - CX, y - CY) < R_CORE + 48) continue;
           // 화면 위 모서리는 체력·웨이브·속도 표시가 덮는다
           if (y < 150 && (x < 330 || x > 740)) continue;
-          if (Math.hypot(x - CX, y - CY) < R_CORE + 48) continue;
           const d = far(x, y);
           if (!best || d > best.d) best = { x, y, d, u };
         }
+        if (best) cand.push(best);
       }
-      if (best) cand.push(best);
     }
-    // 여유를 가장 크게 잡으면서 다섯 자리를 고른다
-    const pickAll = (min) => {
-      const pick = [];
-      let lastU = -9;
-      for (const c of cand) {
-        if (c.d < min || c.u - lastU < SLOT_GAP_U) continue;
-        if (SLOTS.concat(pick).some((s) => Math.hypot(s.x - c.x, s.y - c.y) < SLOT_GAP)) continue;
-        pick.push(c);
-        lastU = c.u;
-        if (pick.length === 5) return pick;
+    cand.sort((a, b) => a.u - b.u);
+
+    // 길에서 떨어진 순서가 아니라 경로 순서대로, 자리가 되는 곳마다 하나씩 놓는다
+    cand.forEach((c) => {
+      if (c.d < MIN_ROAD) return;
+      for (const s of SLOTS) {
+        if (Math.hypot(s.x - c.x, s.y - c.y) < SLOT_GAP) return;
       }
-      return null;
-    };
-    let lo = 30, hi = 100, chosen = null;
-    for (let i = 0; i < 22; i++) {
-      const mid = (lo + hi) / 2;
-      const got = pickAll(mid);
-      if (got) { chosen = got; lo = mid; } else hi = mid;
-    }
-    (chosen || pickAll(0) || []).forEach((c, si) => {
-      SLOTS.push({ lane: li, idx: si, x: Math.round(c.x), y: Math.round(c.y) });
+      SLOT_INDEX[li].push(SLOTS.length);
+      SLOTS.push({ lane: li, idx: SLOT_INDEX[li].length - 1, x: Math.round(c.x), y: Math.round(c.y) });
     });
   });
 }
-export const sk = (lane, idx) => lane * 5 + idx;
+
+export const sk = (lane, idx) => {
+  const row = SLOT_INDEX[lane] || SLOT_INDEX[0];
+  return row[Math.max(0, Math.min(idx, row.length - 1))] || 0;
+};
 
 // 이동은 자리 사이를 눈에 보이는 대로 옮겨 다닌다.
 // 누른 방향과 60도 안쪽에 있는 자리 중 가장 가깝고 방향이 잘 맞는 곳으로 간다.
@@ -310,7 +306,7 @@ export function makeGame(seats = [true, true, true, true, false, false]) {
     players: flags.map((_, i) => {
       // 여섯 병과를 네 경로에 나눠 세운다
       const lane = i % 4;
-      const slot = i < 4 ? 2 : i === 4 ? 1 : 3;
+      const slot = Math.min(SLOT_INDEX[lane].length - 1, i < 4 ? 3 : i === 4 ? 1 : 5);
       const s = SLOTS[sk(lane, slot)];
       return {
         gold: 90, cd: 0, lane, slot, built: 0, kills: 0,
@@ -318,7 +314,7 @@ export function makeGame(seats = [true, true, true, true, false, false]) {
         cx: s.x, cy: s.y, cr: CLASSES[i].range, jolt: 0, heldKeys: [], holdT: 0,
       };
     }),
-    towers: new Array(20).fill(null),
+    towers: new Array(SLOTS.length).fill(null),
     enemies: [],
     bullets: [],
     fx: [],

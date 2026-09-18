@@ -581,14 +581,14 @@ export function drawCastleGun(ctx, g, time) {
 
 /* ── 타워 터 ────────────────────────────────────────────── */
 export function drawPad(ctx, s, occupied, time) {
-  shadow(ctx, s.x, s.y + 8, 24, 9, 0.26);
+  shadow(ctx, s.x, s.y + 7, 21, 8, 0.26);
   // 흙더미 + 돌판(옆면을 먼저 그려 두께를 준다)
-  ctx.beginPath(); ctx.ellipse(s.x, s.y + 5, 24, 15, 0, 0, Math.PI * 2);
+  ctx.beginPath(); ctx.ellipse(s.x, s.y + 4, 21, 13, 0, 0, Math.PI * 2);
   inkPath(ctx, "#6f6353", 1.6);
-  ctx.beginPath(); ctx.ellipse(s.x, s.y, 24, 15, 0, 0, Math.PI * 2);
+  ctx.beginPath(); ctx.ellipse(s.x, s.y, 21, 13, 0, 0, Math.PI * 2);
   inkPath(ctx, occupied ? "#b0a68f" : "#a89d86", 1.6);
   ctx.fillStyle = "rgba(255,255,255,0.2)";
-  ctx.beginPath(); ctx.ellipse(s.x, s.y - 3, 16, 8, 0, Math.PI, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(s.x, s.y - 3, 14, 7, 0, Math.PI, Math.PI * 2); ctx.fill();
 
   if (!occupied) {
     const pulse = 0.45 + 0.25 * Math.sin(time * 2.4 + s.x * 0.05);
@@ -597,16 +597,16 @@ export function drawPad(ctx, s, occupied, time) {
     ctx.strokeStyle = "rgba(255,243,206,0.95)";
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
-    ctx.beginPath(); ctx.ellipse(s.x, s.y, 15, 9.5, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, 13, 8, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 
   // 몇 번째 자리인지 — 안내문의 "3번 자리"와 바로 맞춰볼 수 있게
-  const bx = s.x - 19, by = s.y + 10;
-  ctx.beginPath(); ctx.arc(bx, by, 9.5, 0, Math.PI * 2);
+  const bx = s.x - 17, by = s.y + 9;
+  ctx.beginPath(); ctx.arc(bx, by, 8.4, 0, Math.PI * 2);
   inkPath(ctx, "rgba(38,28,18,0.88)", 1.4, "rgba(246,229,187,0.75)");
   ctx.fillStyle = "#f6e5bb";
-  ctx.font = "700 12.5px 'Do Hyeon', Jua, system-ui, sans-serif";
+  ctx.font = "700 11px 'Do Hyeon', Jua, system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(String(s.idx + 1), bx, by + 0.5);
@@ -620,7 +620,7 @@ export function drawTower(ctx, t, s, time) {
   const col = P[t.owner];
   ctx.save();
   ctx.translate(s.x, s.y - 2);
-  ctx.scale(0.92, 0.92);
+  ctx.scale(0.86, 0.86);
 
   const kind = t.type || "archer";
   if (kind === "archer") drawArcherTower(ctx, lv, col, time, t, recoil);

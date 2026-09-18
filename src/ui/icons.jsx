@@ -19,6 +19,14 @@ export function Coin() {
   );
 }
 
+export function HomeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3l9 8h-2.5v9h-5v-5.5h-3V20h-5v-9H3l9-8z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function ClassIcon({ i }) {
   // TOWERS 차례: 궁수 저격 대포 번개 화염 독 서리 중력 보급 부식 성기사
   const S = [

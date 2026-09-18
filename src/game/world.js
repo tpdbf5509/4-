@@ -26,6 +26,8 @@ export const DEFAULT_DIFF = 1;
 export const diffOf = (g) => DIFFS[(g && g.diff) || 0] || DIFFS[DEFAULT_DIFF];
 export const prepTime = (g) => diffOf(g).prep;
 export const REWARD_T = 22;    // 보상을 고르는 시간
+export const LEAVE_T = 25;     // 대기실로 돌아가자는 제안이 살아 있는 시간
+export const LEAVE_FORCE = 20; // 이만큼 지나면 방장이 혼자 결정할 수 있다
 
 /* ── 색 ─────────────────────────────────────────────────── */
 export const C = {
@@ -461,6 +463,9 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
     combo: 0,
     comboT: 0,
     banner: null,       // { text, sub, t, life, tone }
+    leave: flags.map(() => false),   // 대기실로 돌아가자는 데 동의한 자리
+    leaveT: 0,                       // 동의가 살아 있는 시간
+    leaveDone: 0,                    // 모두 동의했다
     out: [],            // 호스트가 다른 참가자에게 보낼 연출 이벤트
   };
 }

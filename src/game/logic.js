@@ -1,7 +1,7 @@
 import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
-  SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
+  SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, LEAVE_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
   diffOf, prepTime,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
 } from "./world.js";
@@ -69,6 +69,23 @@ export function applyGoto(g, pi, i) {
   p.lane = s.lane;
   p.slot = s.idx;
   p.jolt = 0.2;
+}
+
+/* 대기실로 돌아가기 — 자리에 앉은 사람이 모두 동의해야 간다 */
+export function applyLeave(g, pi, want) {
+  if (!g.seats[pi]) return;
+  if (!g.leave) g.leave = g.seats.map(() => false);
+  const next = typeof want === "boolean" ? want : !g.leave[pi];
+  g.leave[pi] = next;
+  const any = g.leave.some((v, i) => v && g.seats[i]);
+  g.leaveT = any ? LEAVE_T : 0;
+  if (!any) return;
+  if (g.seats.every((on, i) => !on || g.leave[i])) g.leaveDone = 1;
+}
+
+export function clearLeave(g) {
+  if (g.leave) g.leave = g.seats.map(() => false);
+  g.leaveT = 0;
 }
 
 /* 성채 강화 — 누구든 자기 골드로 한 단계 올린다 */
@@ -441,6 +458,10 @@ function applyPoison(e, dps, time, owner) {
 /* ── 한 프레임 ──────────────────────────────────────────── */
 export function step(g, dt) {
   g.t += dt;
+  if (g.leaveT > 0) {
+    g.leaveT -= dt;
+    if (g.leaveT <= 0) clearLeave(g);
+  }
   if (g.shake > 0) g.shake -= dt;
   if (g.hitFlash > 0) g.hitFlash -= dt;
   if (g.banner) { g.banner.t -= dt; if (g.banner.t <= 0) g.banner = null; }
@@ -823,6 +844,7 @@ export function step(g, dt) {
    ──────────────────────────────────────────────────────────── */
 export function stepVisual(g, dt) {
   g.t += dt;
+  if (g.leaveT > 0) g.leaveT -= dt;
   if (g.shake > 0) g.shake -= dt;
   if (g.hitFlash > 0) g.hitFlash -= dt;
   if (g.banner) { g.banner.t -= dt; if (g.banner.t <= 0) g.banner = null; }
@@ -893,6 +915,8 @@ export function packSnapshot(g) {
     pk: g.players.map((p) => PERK_IDS.map((id) => p.perks[id] || 0)),
     rw: g.phase === "reward" ? { of: g.offer, pi: g.picked } : 0,
     ca: Math.round(g.castle.aim * 100) / 100,
+    lv2: g.leaveT > 0 ? (g.leave || []).map((v) => (v ? 1 : 0)) : 0,
+    lt: Math.max(0, Math.round(g.leaveT * 10) / 10),
     pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills]),
     tw: g.towers.map((t) => (t ? [t.owner, t.lv, towerIdx(t.type), t.warm > 0 ? 1 : 0] : 0)),
     en: g.enemies.map((e) => [
@@ -930,6 +954,8 @@ export function applySnapshot(g, s) {
   if (s.rw) { g.offer = s.rw.of; g.picked = s.rw.pi; }
   else { g.offer = null; g.picked = null; }
   if (typeof s.ca === "number") g.castle.aim = s.ca;
+  g.leave = s.lv2 ? s.lv2.map((v) => !!v) : g.seats.map(() => false);
+  g.leaveT = s.lt || 0;
 
   s.pl.forEach((row, i) => {
     const p = g.players[i];

@@ -218,6 +218,7 @@ kbd {
 }
 .sbtn:hover { filter: brightness(1.15); }
 .sbtn.on { background: linear-gradient(#7a5a2e, #5d4222); border-color: #d6b26a; color: #fff3d0; }
+.sbtn svg { width: 17px; height: 17px; display: block; }
 .pause-glyph { width: 12px; height: 13px; border-left: 4px solid currentColor; border-right: 4px solid currentColor; }
 
 .guest-tag { padding: 8px 12px; font-size: 11.5px; color: #c9b58c; }
@@ -384,3 +385,25 @@ kbd {
   background: linear-gradient(#41301c, #2c2013);
 }
 .keep-up:disabled em { color: #8d7d61; }
+
+/* 대기실로 돌아가기 — 앉은 사람이 모두 동의해야 간다 */
+.leave-vote {
+  position: absolute; left: 50%; top: 64px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 11px 16px; border-radius: 12px; text-align: center;
+  background: linear-gradient(rgba(74, 55, 34, 0.96), rgba(50, 36, 22, 0.96));
+  border: 2px solid #8a6a3f; box-shadow: 0 4px 0 #22180e, 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+.leave-vote b {
+  font-family: 'Do Hyeon', sans-serif; font-size: 15px; font-weight: 400;
+  letter-spacing: -0.03em; color: #f6e5bb;
+}
+.leave-count { font-size: 11px; color: #f0c04a; }
+.leave-who { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.leave-who em {
+  font-style: normal; font-size: 10.5px; padding: 2px 8px; border-radius: 999px;
+  color: #9c8d70; border: 1px solid rgba(160, 130, 90, 0.35);
+}
+.leave-who em.yes { color: #a9e79c; border-color: #5fa354; background: rgba(60, 106, 64, 0.35); }
+.leave-btns { display: flex; gap: 6px; margin-top: 3px; }
+.leave-btns .btn-ghost { padding: 5px 11px; font-size: 11.5px; }

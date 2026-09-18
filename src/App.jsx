@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   W, H, CX, CY, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
-  castleTier, castleCost, CASTLE_TIERS,
+  castleTier, castleCost, CASTLE_TIERS, LEAVE_FORCE, LEAVE_T,
   SKILLS, ENEMY, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
   makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
-  step, stepVisual, applyMove, applyGoto, doBuild, doCastle, doSkill, applyReward,
+  step, stepVisual, applyMove, applyGoto, doBuild, doCastle, doSkill, applyReward, applyLeave,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
-import { Shield, Coin, ClassIcon, PerkIcon } from "./ui/icons.jsx";
+import { Shield, Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -427,6 +427,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
   const [hud, setHud] = useState(() => snapHud(G.current));
   const [dropped, setDropped] = useState(false);
   const [mute, setMute] = useState(() => sfx.isMuted());
+  const onBackRef = useRef(onBack);
+  onBackRef.current = onBack;
   const toggleMute = useCallback(() => {
     sfx.unlock();
     const v = !sfx.isMuted();
@@ -442,6 +444,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
       paused: g.paused, speed: g.speed,
       surge: g.surge || 0, diff: g.diff ?? DEFAULT_DIFF,
+      leave: (g.leave || []).map((v) => !!v), leaveT: g.leaveT || 0,
       offer: g.phase === "reward" ? g.offer : null,
       picked: g.phase === "reward" ? g.picked : null,
       players: g.players.map((p) => ({
@@ -456,6 +459,12 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
   const act = useCallback((kind, dir) => {
     const g = G.current;
     if (mySeat < 0) return;
+    if (kind === "leave") {
+      sfx.unlock();
+      if (isHost) applyLeave(g, mySeat, dir);
+      else room?.send("input", { cls: mySeat, kind, dir });
+      return;
+    }
     if (kind === "reward") {
       if (g.phase !== "reward") return;
       sfx.unlock();
@@ -598,6 +607,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
         const g = G.current;
         if (!g.seats[d.cls]) return;
         if (d.kind === "reward") return applyReward(g, d.cls, d.dir);
+        if (d.kind === "leave") return applyLeave(g, d.cls, d.dir);
         if (g.phase !== "prep" && g.phase !== "wave") return;
         if (g.paused) return;
         if (d.kind === "move") applyMove(g, d.cls, d.dir);
@@ -681,6 +691,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
         stepVisual(g, dt);
       }
 
+      if (isHost && g.leaveDone) { g.leaveDone = 0; onBackRef.current(); }
       playSounds(g);
       draw(ctx, g, bgRef.current);
       if (++frame % 5 === 0) setHud(snapHud(g));
@@ -716,6 +727,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
     hud.phase === "reward" ? "능력 선택" :
     hud.phase === "clear" ? "방어 성공" : "성채 함락";
   const over = hud.phase === "over" || hud.phase === "clear";
+  const crewCount = seatFlags.filter(Boolean).length;
+  const agreed = hud.leave.filter((v, i) => v && seatFlags[i]).length;
   const hpRatio = hud.hp / hud.max;
 
   return (
@@ -760,6 +773,15 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
             <button className={`sbtn ${mute ? "" : "on"}`} onClick={toggleMute} title="소리">
               {mute ? "🔇" : "🔊"}
             </button>
+            {mySeat >= 0 && (
+              <button
+                className={`sbtn ${hud.leave[mySeat] ? "on" : ""}`}
+                onClick={() => act("leave")}
+                title="대기실로 돌아가기"
+              >
+                <HomeIcon />
+              </button>
+            )}
           </div>
 
           {mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
@@ -829,6 +851,33 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
                   })}
                 </div>
               </div>
+            </div>
+          )}
+
+          {agreed > 0 && !over && (
+            <div className="leave-vote">
+              <b>대기실로 돌아갈까요?</b>
+              <span className="leave-count">{agreed} / {crewCount} 동의 · {Math.ceil(hud.leaveT)}초</span>
+              <span className="leave-who">
+                {hud.players.map((p, i) => {
+                  if (!seatFlags[i]) return null;
+                  return (
+                    <em key={i} className={hud.leave[i] ? "yes" : ""}>
+                      {names[i] || CLASSES[i].name}
+                    </em>
+                  );
+                })}
+              </span>
+              {mySeat >= 0 && (
+                <span className="leave-btns">
+                  <button className="btn-ghost" onClick={() => act("leave")}>
+                    {hud.leave[mySeat] ? "동의 취소" : "나도 동의"}
+                  </button>
+                  {isHost && hud.leaveT <= LEAVE_T - LEAVE_FORCE && (
+                    <button className="btn-ghost" onClick={onBack}>방장 권한으로 나가기</button>
+                  )}
+                </span>
+              )}
             </div>
           )}
 

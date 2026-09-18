@@ -232,6 +232,10 @@ export const SKILLS = [
   { name: "역병", cd: 35, note: "모든 적이 6초간 초당 12 피해" },
 ];
 
+// 보스는 사람 수가 적으면 체력을 덜어 준다 (1명 · 2명 · 3명 · 4명)
+export const BOSS_CREW = [0.7, 0.75, 0.85, 1];
+export const bossScale = (crew) => BOSS_CREW[Math.max(1, Math.min(4, crew)) - 1];
+
 // 보스를 하나 잡을 때마다 관문에서 나오는 적이 이만큼씩 세진다
 export const SURGE_HP = 0.12;
 export const SURGE_SPD = 0.045;
@@ -243,7 +247,7 @@ export const ENEMY = {
   grunt: { hp: 34, spd: 50, dmg: 4, gold: 7, r: 8, res: 0, label: "오크 보병" },
   rusher: { hp: 15, spd: 127, dmg: 3, gold: 5, r: 7, res: 0, label: "고블린 척후" },
   armor: { hp: 58, spd: 41, dmg: 7, gold: 11, r: 10, res: 0.25, label: "중장갑 트롤" },
-  boss: { hp: 200, spd: 32, dmg: 25, gold: 130, r: 16, res: 0.15, label: "오우거 지휘관" },
+  boss: { hp: 340, spd: 32, dmg: 25, gold: 130, r: 16, res: 0.15, label: "오우거 지휘관" },
   titan: { hp: 700, spd: 24, dmg: 60, gold: 320, r: 30, res: 0.3, label: "대군주" },
 };
 

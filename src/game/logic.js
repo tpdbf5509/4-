@@ -2,7 +2,7 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, seatCount, ETYPES,
-  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD,
+  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale,
 } from "./world.js";
 
 // 호스트에서 일어난 연출은 그대로 다른 참가자에게도 보낸다
@@ -307,7 +307,10 @@ export function step(g, dt) {
     if (g.queue.length && g.spawnT <= 0) {
       const q = g.queue.shift();
       const base = ENEMY[q.type];
-      const scale = Math.pow(1.155, g.wave - 1) * (1 + SURGE_HP * g.surge);
+      const big = q.type === "boss" || q.type === "titan";
+      // 보스는 수비대가 적으면 그만큼 체력을 덜어 준다
+      const scale = Math.pow(1.155, g.wave - 1) * (1 + SURGE_HP * g.surge)
+        * (big ? bossScale(seatCount(g)) : 1);
       const p0 = posAt(q.lane, 0);
       g.enemies.push({
         id: g.nextId++,
@@ -317,7 +320,7 @@ export function step(g, dt) {
         x: p0.x, y: p0.y, ax: p0.ax, ay: p0.ay,
         slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, pdps: 0, dead: false, age: 0,
       });
-      if (q.type === "boss" || q.type === "titan") {
+      if (big) {
         g.shake = Math.max(g.shake, q.type === "titan" ? 0.7 : 0.4);
         fx(g, { kind: "ring", x: p0.x, y: p0.y, r: q.type === "titan" ? 180 : 110,
           color: q.type === "titan" ? "#ff7a6a" : "#ffb06a", t: 0.7, life: 0.7, snd: "boss" });

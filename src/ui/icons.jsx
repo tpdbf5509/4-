@@ -20,6 +20,7 @@ export function Coin() {
 }
 
 export function ClassIcon({ i }) {
+  // 0 궁수 · 1 서리 · 2 대포 · 3 보급 · 4 번개 · 5 독
   if (i === 0) {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -31,25 +32,44 @@ export function ClassIcon({ i }) {
   if (i === 1) {
     return (
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="11" cy="14" r="7" fill="#fff" />
-        <path d="M16 8l3-3" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
-        <circle cx="20" cy="4" r="2" fill="#fff" />
-      </svg>
-    );
-  }
-  if (i === 2) {
-    return (
-      <svg viewBox="0 0 24 24" aria-hidden="true">
         <g stroke="#fff" strokeWidth="2.2" strokeLinecap="round">
           <path d="M12 3v18M4.2 7.5l15.6 9M19.8 7.5l-15.6 9" />
         </g>
       </svg>
     );
   }
+  if (i === 2) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="14" r="7" fill="#fff" />
+        <path d="M16 8l3-3" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
+        <circle cx="20" cy="4" r="2" fill="#fff" />
+      </svg>
+    );
+  }
+  if (i === 3) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 8h8l2.5 11h-13L8 8z" fill="#fff" />
+        <path d="M9.5 8V6a2.5 2.5 0 015 0v2" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (i === 4) {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M13.5 2L5 13.5h5L9.5 22 19 10h-5.5L13.5 2z" fill="#fff" />
+      </svg>
+    );
+  }
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8 8h8l2.5 11h-13L8 8z" fill="#fff" />
-      <path d="M9.5 8V6a2.5 2.5 0 015 0v2" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <path d="M10 3h4v4.2l3.8 8.3A3 3 0 0115.1 20H8.9a3 3 0 01-2.7-4.5L10 7.2V3z" fill="#fff" />
+      <g fill="#6d7a3a">
+        <circle cx="12" cy="15.5" r="1.6" />
+        <circle cx="9.4" cy="17.6" r="1" />
+        <circle cx="14.4" cy="17.8" r="1.1" />
+      </g>
     </svg>
   );
 }

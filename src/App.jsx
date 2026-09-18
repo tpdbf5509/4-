@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  W, H, P, CLASSES, CLASS_TOWERS, TOWER_BY_ID, BLESSINGS,
+  W, H, P, CLASSES, BLESSINGS, SEATS, CREW_MAX,
   SKILLS, ENEMY, LANES, TOTAL_WAVES, PREP,
-  makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, PICK_KEYS, PICK_NUM, KEY_HINT,
+  makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
-  step, stepVisual, applyMove, doBuild, doSkill, applyPick,
+  step, stepVisual, applyMove, doBuild, doSkill,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
@@ -31,7 +31,7 @@ export default function App() {
 
   const roomRef = useRef(null);
   const hostRef = useRef(false);
-  const seatsRef = useRef([null, null, null, null]);
+  const seatsRef = useRef(new Array(SEATS).fill(null));
   const peersRef = useRef([]);
 
   const isHost = lobby?.hostId === me;
@@ -49,6 +49,7 @@ export default function App() {
     const seats = seatsRef.current.map((s) => (s && present.has(s.id) ? s : null));
     peersRef.current.forEach((peer) => {
       if (seats.some((s) => s && s.id === peer.id)) return;
+      if (seats.filter(Boolean).length >= CREW_MAX) return;   // 정원이 차면 구경만
       const free = seats.findIndex((s) => !s);
       if (free >= 0) seats[free] = { id: peer.id, name: peer.name || "수비대원" };
     });
@@ -93,20 +94,13 @@ export default function App() {
     room.on("pick", (d, from) => {
       if (!hostRef.current) return;
       const seats = seatsRef.current.slice();
+      if (d.cls < 0 || d.cls >= SEATS) return;
       if (seats[d.cls]) return;                               // 이미 누가 골랐다
       const cur = seats.findIndex((s) => s && s.id === from);
+      if (cur < 0 && seats.filter(Boolean).length >= CREW_MAX) return;   // 정원이 찼다
       const who = cur >= 0 ? seats[cur] : { id: from, name: d.name || "수비대원" };
       if (cur >= 0) seats[cur] = null;
       seats[d.cls] = who;
-      seatsRef.current = seats;
-      publishLobby();
-    });
-    room.on("tower", (d, from) => {
-      if (!hostRef.current) return;
-      const seats = seatsRef.current.slice();
-      const i = seats.findIndex((s) => s && s.id === from);
-      if (i < 0) return;
-      seats[i] = { ...seats[i], pick: Math.max(0, Math.min(2, d.k | 0)) };
       seatsRef.current = seats;
       publishLobby();
     });
@@ -133,7 +127,7 @@ export default function App() {
     roomRef.current?.leave();
     roomRef.current = null;
     hostRef.current = false;
-    seatsRef.current = [null, null, null, null];
+    seatsRef.current = new Array(SEATS).fill(null);
     setLobby(null);
     setScreen("home");
     history.replaceState(null, "", location.pathname);
@@ -145,6 +139,7 @@ export default function App() {
     if (hostRef.current) {
       const seats = seatsRef.current.slice();
       const cur = seats.findIndex((s) => s && s.id === me);
+      if (cur < 0 && seats.filter(Boolean).length >= CREW_MAX) return;
       const who = cur >= 0 ? seats[cur] : { id: me, name: name || "수비대원" };
       if (cur >= 0) seats[cur] = null;
       seats[cls] = who;
@@ -154,19 +149,6 @@ export default function App() {
       roomRef.current?.send("pick", { cls, name });
     }
   }, [lobby, me, name, publishLobby]);
-
-  const chooseTower = useCallback((k) => {
-    if (mySeat < 0) return;
-    if (hostRef.current) {
-      const seats = seatsRef.current.slice();
-      if (!seats[mySeat]) return;
-      seats[mySeat] = { ...seats[mySeat], pick: k };
-      seatsRef.current = seats;
-      publishLobby();
-    } else {
-      roomRef.current?.send("tower", { k });
-    }
-  }, [mySeat, publishLobby]);
 
   const startGame = useCallback(() => {
     roomRef.current?.send("start", {});
@@ -206,7 +188,7 @@ export default function App() {
       <Lobby
         code={code} lobby={lobby} me={me} isHost={isHost} mySeat={mySeat}
         error={error} connecting={connecting}
-        onPick={pick} onTower={chooseTower} onStart={startGame} onLeave={leave}
+        onPick={pick} onStart={startGame} onLeave={leave}
       />
     );
   }
@@ -261,11 +243,12 @@ function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
 }
 
 /* ── 로비 ───────────────────────────────────────────────── */
-function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onTower, onStart, onLeave }) {
+function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onStart, onLeave }) {
   const [copied, setCopied] = useState("");
   const link = `${location.origin}${location.pathname}?room=${code}`;
-  const seats = lobby?.seats || [null, null, null, null];
+  const seats = lobby?.seats || new Array(SEATS).fill(null);
   const filled = seats.filter(Boolean).length;
+  const full = filled >= CREW_MAX;
 
   const copy = async (text, what) => {
     try {
@@ -284,7 +267,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onT
           <div>
             <h1>대기실</h1>
             <p className="tag">
-              병과를 고르면 그 병과의 탑과 공용 탑 둘까지, 모두 세 가지를 지을 수 있습니다.
+              병과 여섯 가운데 넷을 고릅니다. 맡은 병과의 탑만 지을 수 있으니 서로 겹치지 않게 나눠 보세요.
               방장이 시작하면 모두의 화면에서 함께 시작합니다.
             </p>
           </div>
@@ -314,43 +297,21 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onT
           {CLASSES.map((cls, i) => {
             const who = seats[i];
             const mine = who && who.id === me;
-            const chosen = who?.pick || 0;
+            const locked = !who && full && mySeat < 0;
             return (
-              <div
+              <button
                 key={i}
-                className={`seat ${who ? "taken" : "free"} ${mine ? "mine" : ""}`}
+                className={`seat ${who ? "taken" : "free"} ${mine ? "mine" : ""} ${locked ? "locked" : ""}`}
                 style={{ "--pc": P[i].key, "--pcl": P[i].light, "--pcd": P[i].dark }}
+                onClick={() => onPick(i)}
+                disabled={!!who || locked}
               >
-                <button className="seat-claim" onClick={() => onPick(i)} disabled={!!who}>
-                  <span className="seat-badge"><ClassIcon i={i} /></span>
-                  <span className="seat-name">{cls.name}</span>
-                  <span className="seat-note">{cls.note}</span>
-                </button>
-
-                <div className="seat-towers">
-                  {CLASS_TOWERS[i].map((id, k) => {
-                    const def = TOWER_BY_ID[id];
-                    return (
-                      <button
-                        key={id}
-                        className={`seat-tw ${chosen === k ? "on" : ""}`}
-                        onClick={() => onTower(k)}
-                        disabled={!mine}
-                        title={def.note}
-                      >
-                        {def.name} <em>{def.cost}</em>
-                      </button>
-                    );
-                  })}
-                </div>
-                <span className="seat-tw-note">
-                  {mine
-                    ? `처음 지을 탑 — ${TOWER_BY_ID[CLASS_TOWERS[i][chosen]].note}`
-                    : who
-                      ? `처음 지을 탑 — ${TOWER_BY_ID[CLASS_TOWERS[i][chosen]].name}`
-                      : "자리를 맡으면 처음 지을 탑을 고를 수 있습니다"}
+                <span className="seat-badge"><ClassIcon i={i} /></span>
+                <span className="seat-name">{cls.name} <em>{cls.cost}골드</em></span>
+                <span className="seat-note">{cls.note}</span>
+                <span className="seat-skill">
+                  <b>{SKILLS[i].name}</b> {SKILLS[i].note}
                 </span>
-
                 <span className="seat-who">
                   {who ? (
                     <>
@@ -358,16 +319,16 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onT
                       {who.id === lobby?.hostId && <em> · 방장</em>}
                       {mine && <em> · 나</em>}
                     </>
-                  ) : "비어 있음 — 눌러서 맡기"}
+                  ) : locked ? "정원이 찼습니다" : "비어 있음 — 눌러서 맡기"}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
 
         <div className="lobby-foot">
           <span className="muted">
-            {filled}명 참가 중 · 내 병과 {mySeat >= 0 ? CLASSES[mySeat].name : "없음"}
+            {filled}/{CREW_MAX}명 참가 중 · 내 병과 {mySeat >= 0 ? CLASSES[mySeat].name : "없음"}
           </span>
           {isHost ? (
             <button className="btn-main" onClick={onStart} disabled={filled === 0}>
@@ -379,7 +340,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onT
         </div>
 
         <p className="keyhint">
-          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 타워 고르기 <kbd>{KEY_HINT.pick}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
+          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
         </p>
       </div>
     </div>
@@ -390,16 +351,15 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onT
 function GameView({ room, isHost, seats, mySeat, onBack }) {
   const cvsRef = useRef(null);
   const bgRef = useRef(null);
-  const seatFlags = useMemo(() => [0, 1, 2, 3].map((i) => !!seats[i]), [seats]);
-  const names = useMemo(() => [0, 1, 2, 3].map((i) => seats[i]?.name || ""), [seats]);
+  const idx = useMemo(() => Array.from({ length: SEATS }, (_, i) => i), []);
+  const seatFlags = useMemo(() => idx.map((i) => !!seats[i]), [idx, seats]);
+  const names = useMemo(() => idx.map((i) => seats[i]?.name || ""), [idx, seats]);
 
   const G = useRef(null);
   if (!G.current) {
     const g = makeGame(seatFlags);
     g.names = names;
     g.mySeat = mySeat;
-    // 대기실에서 고른 탑으로 시작한다
-    g.players.forEach((p, i) => { p.pick = Math.max(0, Math.min(2, seats[i]?.pick || 0)); });
     g.phase = "prep";
     g.wave = 1;
     g.timer = PREP;
@@ -425,7 +385,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
       blessed: g.blessed || [],
       players: g.players.map((p) => ({
         gold: Math.floor(p.gold), cd: Math.max(0, p.cd),
-        lane: p.lane, slot: p.slot, built: p.built, kills: p.kills, pick: p.pick || 0,
+        lane: p.lane, slot: p.slot, built: p.built, kills: p.kills,
       })),
     };
   }
@@ -445,7 +405,6 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
       if (isHost) {
         if (kind === "move") applyMove(g, mySeat, dir);
         else if (kind === "build") doBuild(g, mySeat);
-        else if (kind === "pick") applyPick(g, mySeat, dir);
         else doSkill(g, mySeat);
       } else {
         if (kind === "move") applyMove(g, mySeat, dir);   // 내 커서는 바로 움직이고
@@ -463,9 +422,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
       const dir = MOVE_KEYS[e.code];
       const isBuild = BUILD_KEYS.includes(e.code);
       const isSkill = SKILL_KEYS.includes(e.code);
-      const isPick = PICK_KEYS.includes(e.code);
-      const pickNum = PICK_NUM[e.code];
-      if (!dir && !isBuild && !isSkill && !isPick && pickNum === undefined) return;
+      if (!dir && !isBuild && !isSkill) return;
       e.preventDefault();
       if (e.repeat) return;
       if (dir) {
@@ -474,8 +431,6 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         holdT = 0.24;
         if (!timer) timer = setInterval(tick, 50);
       } else if (isBuild) act("build");
-      else if (isPick) act("pick");
-      else if (pickNum !== undefined) act("pick", pickNum);
       else act("skill");
     }
     function onUp(e) {
@@ -510,7 +465,6 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         if (!g.seats[d.cls]) return;
         if (d.kind === "move") applyMove(g, d.cls, d.dir);
         else if (d.kind === "build") doBuild(g, d.cls);
-        else if (d.kind === "pick") applyPick(g, d.cls, d.dir);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
     } else {
@@ -698,17 +652,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
 
         <div className="party">
           {hud.players.map((p, i) => {
-            if (!seatFlags[i]) {
-              return (
-                <div key={i} className="card empty">
-                  <div className="card-head">
-                    <span className="badge ghost"><ClassIcon i={i} /></span>
-                    <span className="who">{CLASSES[i].name}</span>
-                  </div>
-                  <div className="card-note">이번 판에는 비어 있는 자리입니다.</div>
-                </div>
-              );
-            }
+            if (!seatFlags[i]) return null;         // 이번 판에 안 고른 병과는 빼고 보여준다
             const cls = CLASSES[i];
             const ready = p.cd <= 0;
             const mine = i === mySeat;
@@ -722,20 +666,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
                   </span>
                   <span className="coin"><Coin />{p.gold}</span>
                 </div>
-                <div className="tower-pick">
-                  {CLASS_TOWERS[i].map((id, k) => {
-                    const def = TOWER_BY_ID[id];
-                    const on = (p.pick || 0) === k;
-                    return (
-                      <span key={id} className={`tp ${on ? "on" : ""}`} title={def.note}>
-                        <b>{def.name}</b><em>{def.cost}</em>
-                      </span>
-                    );
-                  })}
-                </div>
-                <div className="card-note">
-                  {TOWER_BY_ID[CLASS_TOWERS[i][p.pick || 0]].note}
-                </div>
+                <div className="card-note">{cls.note} · {cls.cost}골드</div>
                 <div className="card-row">
                   <span>{LANES[p.lane].name} · {p.slot + 1}번 자리</span>
                   <span>건설 {p.built} · 처치 {p.kills}</span>
@@ -751,7 +682,6 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
                   <div className="keys">
                     <kbd>{KEY_HINT.move}</kbd><span>이동</span>
                     <kbd>{KEY_HINT.build}</kbd><span>건설</span>
-                    <kbd>{KEY_HINT.pick}</kbd><span>타워 고르기</span>
                     <kbd>{KEY_HINT.skill}</kbd><span>스킬</span>
                   </div>
                 )}
@@ -763,7 +693,6 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         <p className="footnote">
           자리는 네 경로에 다섯 칸씩, 모두 스무 칸입니다. 방향키를 누르면 그쪽에 있는 가장 가까운 자리로 옮겨 가고,
           경로 사이도 그대로 넘어갑니다. 같은 자리에 자기 타워를 다시 지으면 4단계까지 강화됩니다.
-          <kbd>Z</kbd> 또는 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>으로 지을 타워를 바꿉니다.
           성채도 스스로 대포를 쏘고, 보스를 잡으면 수비대 전체가 축복을 하나 받습니다.
           {mySeat < 0 && " 지금은 구경 중이라 조작할 수 없습니다."}
         </p>

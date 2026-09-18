@@ -98,51 +98,33 @@ kbd {
 
 .seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
 .seat {
+  display: grid; grid-template-columns: auto 1fr; align-items: start;
+  gap: 2px 10px; text-align: left; cursor: pointer;
   padding: 12px 13px; border-radius: 11px;
   background: linear-gradient(#33261a, #251b11);
   border: 2px solid #5b452a; box-shadow: 0 3px 0 #1b1309;
+  color: inherit; font-family: inherit;
 }
-.seat.taken { border-color: var(--pc); }
+.seat:hover:not(:disabled) { filter: brightness(1.15); }
+.seat.taken { cursor: default; border-color: var(--pc); }
 .seat.mine { box-shadow: 0 3px 0 #1b1309, 0 0 0 2px var(--pcl); }
+.seat.locked { cursor: not-allowed; opacity: 0.45; }
 
-.seat-claim {
-  display: grid; grid-template-columns: auto 1fr; align-items: start;
-  gap: 2px 10px; width: 100%; text-align: left; cursor: pointer;
-  padding: 0; background: none; border: 0; color: inherit; font-family: inherit;
-}
-.seat-claim:hover:not(:disabled) { filter: brightness(1.2); }
-.seat-claim:disabled { cursor: default; opacity: 1; }
 .seat-badge {
   grid-row: 1 / 3; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center;
   background: linear-gradient(var(--pcl), var(--pc)); border: 1.5px solid var(--pcd);
 }
 .seat-badge svg { width: 17px; height: 17px; display: block; }
 .seat-name { font-size: 15px; color: #f2e3c2; }
-.seat-note { font-size: 11px; color: #a8987a; }
-
-/* 처음 지을 탑 고르기 */
-.seat-towers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.seat-tw {
-  padding: 5px 11px; border-radius: 999px; font-size: 11.5px; letter-spacing: -0.02em;
-  font-family: inherit; color: #a8987a; cursor: pointer;
-  border: 1px solid rgba(160, 130, 90, 0.32);
-  background: rgba(30, 22, 14, 0.3);
+.seat-name em { font-style: normal; font-size: 10.5px; color: var(--pcl); }
+.seat-note { grid-column: 2; font-size: 11px; color: #a8987a; }
+.seat-skill {
+  grid-column: 1 / -1; margin-top: 8px; padding: 6px 9px; border-radius: 8px;
+  font-size: 10.5px; color: #9c8d70; line-height: 1.5;
+  background: rgba(20, 14, 8, 0.35); border: 1px solid rgba(160, 130, 90, 0.2);
 }
-.seat-tw em { font-style: normal; font-size: 10px; color: #8d7d61; }
-.seat-tw:hover:not(:disabled) { filter: brightness(1.3); }
-.seat-tw:disabled { cursor: default; }
-.seat-tw.on {
-  color: #f6e5bb; border-color: var(--pcl);
-  background: linear-gradient(rgba(70, 52, 30, 0.9), rgba(48, 35, 20, 0.9));
-  box-shadow: inset 0 0 0 1px rgba(255, 236, 190, 0.12);
-}
-.seat-tw.on em { color: var(--pcl); }
-.seat-tw-note { display: block; margin-top: 7px; font-size: 10.5px; color: #8d8068; }
-
-.seat-who {
-  display: block; margin-top: 9px; padding-top: 9px; font-size: 11.5px; color: #9c8d70;
-  border-top: 1px solid rgba(160, 130, 90, 0.2);
-}
+.seat-skill b { color: var(--pcl); font-weight: 600; }
+.seat-who { grid-column: 1 / -1; margin-top: 8px; font-size: 11.5px; color: #9c8d70; }
 .seat.taken .seat-who { color: var(--pcl); }
 .seat-who em { font-style: normal; color: #9c8d70; }
 
@@ -216,7 +198,10 @@ kbd {
 .scroll-panel p { margin: 0 0 16px; font-size: 13px; color: #6b533a; line-height: 1.6; }
 .hint { display: block; margin-top: 10px; font-size: 11.5px; color: #8a6c44; }
 
-.party { margin-top: 14px; display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.party {
+  margin-top: 14px; display: grid; gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
 .card {
   background: linear-gradient(#3b2c1b, #2a1f13);
   border: 2px solid #6b4f2c; border-top-color: var(--pc);
@@ -284,22 +269,6 @@ kbd {
   box-shadow: 0 2px 0 rgba(34, 24, 14, 0.8);
 }
 
-/* 지을 타워 고르기 */
-.tower-pick { display: flex; gap: 4px; margin-top: 7px; }
-.tp {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 4px 2px 3px; border-radius: 7px;
-  border: 1px solid rgba(160, 130, 90, 0.3);
-  background: rgba(30, 22, 14, 0.35);
-  color: #a8987a; letter-spacing: -0.02em;
-}
-.tp b { font-size: 11px; font-weight: 600; }
-.tp em { font-style: normal; font-size: 9.5px; color: #8d7d61; }
-.tp.on {
-  border-color: var(--pcl, #d6b26a);
-  background: rgba(var(--pcrgb, 120, 100, 60), 0.18);
-  color: #f6e5bb;
-}
-.tp.on em { color: #d9c397; }
+
 
 

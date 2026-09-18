@@ -32,13 +32,18 @@ export const C = {
   hpLow: "#d2453f",
 };
 
-// 플레이어(=병과) 색
+// 병과 색 (TOWERS 차례와 같다)
 export const P = [
   { key: "#4e9e5a", dark: "#2f6b39", light: "#78c283", name: "궁수" },
+  { key: "#4a8ed2", dark: "#2a5f96", light: "#7cb6ea", name: "서리" },
   { key: "#d2793a", dark: "#95501f", light: "#eda061", name: "포병" },
-  { key: "#4a8ed2", dark: "#2a5f96", light: "#7cb6ea", name: "마법" },
   { key: "#a86fc9", dark: "#71428c", light: "#c99ae0", name: "보급" },
+  { key: "#ddb23f", dark: "#96761c", light: "#f2d179", name: "뇌전" },
+  { key: "#8fb93c", dark: "#5c7c1f", light: "#bcdd71", name: "역병" },
 ];
+
+export const SEATS = 6;      // 고를 수 있는 병과 수
+export const CREW_MAX = 4;   // 한 판에 들어갈 수 있는 인원
 
 /* ── 길 ─────────────────────────────────────────────────── */
 export const DIRS4 = [
@@ -202,36 +207,30 @@ export function nextSlot(from, act) {
 export const TOWERS = [
   { id: "archer", name: "궁수탑", cost: 30, range: 158, dmg: 15, interval: 0.95,
     note: "단일 대상 · 사거리가 가장 길다" },
-  { id: "cannon", name: "대포탑", cost: 40, range: 118, dmg: 11, interval: 1.5, splash: 48,
-    note: "착탄 지점 범위 피해" },
   { id: "frost", name: "서리탑", cost: 25, range: 128, dmg: 4, interval: 0.85, slow: 0.5, slowT: 1.6,
     note: "적 이동 속도를 절반으로" },
+  { id: "cannon", name: "대포탑", cost: 40, range: 118, dmg: 11, interval: 1.5, splash: 48,
+    note: "착탄 지점 범위 피해" },
   { id: "supply", name: "보급소", cost: 35, range: 140, dmg: 0, interval: 0, gold: 0.45, buff: 0.25,
     note: "주변 타워 강화 · 골드 생성" },
   { id: "bolt", name: "번개탑", cost: 55, range: 142, dmg: 10, interval: 1.2, chain: 3,
     note: "가까운 적 셋까지 연쇄" },
   { id: "poison", name: "독탑", cost: 45, range: 124, dmg: 3, interval: 1.0, poison: 7, poisonT: 4,
-    note: "맞은 적이 계속 아파한다" },
+    note: "맞은 적이 계속 아파한다 · 장갑 무시" },
 ];
 export const TOWER_BY_ID = Object.fromEntries(TOWERS.map((t) => [t.id, t]));
 export const towerIdx = (id) => TOWERS.findIndex((t) => t.id === id);
 
-// 병과마다 고를 수 있는 타워 (첫 번째가 기본). 번개·독은 누구나 지을 수 있다
-export const CLASS_TOWERS = [
-  ["archer", "bolt", "poison"],
-  ["cannon", "bolt", "poison"],
-  ["frost", "bolt", "poison"],
-  ["supply", "bolt", "poison"],
-];
-
-// 예전 이름 (병과별 기본 타워)
-export const CLASSES = CLASS_TOWERS.map((ids) => TOWER_BY_ID[ids[0]]);
+// 병과 하나가 탑 하나를 맡는다
+export const CLASSES = TOWERS;
 
 export const SKILLS = [
   { name: "집중 사격", cd: 32, note: "궁수탑 피해 2배 · 8초" },
-  { name: "융단 폭격", cd: 34, note: "모든 적에게 45 피해" },
   { name: "한파", cd: 30, note: "모든 적 정지 · 4초" },
+  { name: "융단 폭격", cd: 34, note: "모든 적에게 45 피해" },
   { name: "긴급 보급", cd: 36, note: "전원 45 골드 · 성채 12 회복" },
+  { name: "뇌우", cd: 33, note: "모든 적에게 30 피해 · 1.5초 감전" },
+  { name: "역병", cd: 35, note: "모든 적이 6초간 초당 12 피해" },
 ];
 
 // 성채도 스스로 싸운다
@@ -260,25 +259,28 @@ export const MOVE_KEYS = {
   ArrowUp: "up", ArrowLeft: "left", ArrowDown: "down", ArrowRight: "right",
 };
 export const BUILD_KEYS = ["Space", "Enter", "KeyQ"];
-export const PICK_KEYS = ["KeyZ", "KeyC", "Tab"];
-export const PICK_NUM = { Digit1: 0, Digit2: 1, Digit3: 2 };
 export const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyE"];
-export const KEY_HINT = { move: "W A S D · 방향키", build: "Space", skill: "Shift", pick: "Z · 1 2 3" };
+export const KEY_HINT = { move: "W A S D · 방향키", build: "Space", skill: "Shift" };
 
 export const ETYPES = ["grunt", "rusher", "armor", "boss", "titan"];
 
 /* ── 상태 ───────────────────────────────────────────────── */
-export function makeGame(seats = [true, true, true, true]) {
+export function makeGame(seats = [true, true, true, true, false, false]) {
+  const flags = [];
+  for (let i = 0; i < SEATS; i++) flags.push(!!seats[i]);
   return {
-    seats: seats.slice(0, 4),
+    seats: flags,
     phase: "ready",
     wave: 0,
     timer: PREP,
     core: { hp: 100, max: 100 },
-    players: [0, 1, 2, 3].map((i) => {
-      const s = SLOTS[sk(i, 2)];
+    players: flags.map((_, i) => {
+      // 여섯 병과를 네 경로에 나눠 세운다
+      const lane = i % 4;
+      const slot = i < 4 ? 2 : i === 4 ? 1 : 3;
+      const s = SLOTS[sk(lane, slot)];
       return {
-        gold: 90, cd: 0, lane: i, slot: 2, built: 0, kills: 0, pick: 0,
+        gold: 90, cd: 0, lane, slot, built: 0, kills: 0,
         cx: s.x, cy: s.y, cr: CLASSES[i].range, jolt: 0, heldKeys: [], holdT: 0,
       };
     }),
@@ -325,7 +327,7 @@ export function waveKind(n) {
 }
 
 export function buildQueue(n, players = 4) {
-  const crew = Math.max(1, Math.min(4, players));
+  const crew = Math.max(1, Math.min(CREW_MAX, players));
   const kind = waveKind(n);
   const laneCount = Math.max(1, Math.min(crew, n < 2 ? 2 : n < 4 ? 3 : 4));
   const active = shuffle([0, 1, 2, 3]).slice(0, laneCount);

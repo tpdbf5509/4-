@@ -622,7 +622,7 @@ export function drawTower(ctx, t, s, time) {
   ctx.translate(s.x, s.y - 2);
   ctx.scale(0.92, 0.92);
 
-  const kind = t.type || ["archer", "cannon", "frost", "supply"][t.owner];
+  const kind = t.type || "archer";
   if (kind === "archer") drawArcherTower(ctx, lv, col, time, t, recoil);
   else if (kind === "cannon") drawCannonTower(ctx, lv, col, time, t, recoil);
   else if (kind === "frost") drawFrostTower(ctx, lv, col, time, t, recoil);

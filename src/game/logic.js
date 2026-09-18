@@ -1,6 +1,6 @@
 import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
-  CLASSES, CLASS_TOWERS, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
+  CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, buildQueue, waveKind, seatCount, ETYPES, BLESSINGS,
 } from "./world.js";
 
@@ -24,11 +24,6 @@ export function towerRange(g, t) {
 export function towerDmg(g, t) {
   return tdef(t).dmg * (1 + 0.62 * (t.lv - 1)) * (1 + (g.bless ? g.bless.power : 0));
 }
-// 지금 그 사람이 지으려는 타워
-export function wantTower(pi, p) {
-  const ids = CLASS_TOWERS[pi];
-  return TOWER_BY_ID[ids[Math.min(p.pick || 0, ids.length - 1)]];
-}
 
 /* ── 조작 ───────────────────────────────────────────────── */
 export function applyMove(g, pi, act) {
@@ -45,22 +40,13 @@ export function say(g, x, y, text, color) {
   fx(g, { kind: "text", x, y, text, color, t: 1.1, life: 1.1 });
 }
 
-export function applyPick(g, pi, i) {
-  const p = g.players[pi];
-  const ids = CLASS_TOWERS[pi];
-  const next = typeof i === "number" ? i : ((p.pick || 0) + 1);
-  p.pick = ((next % ids.length) + ids.length) % ids.length;
-  const s = SLOTS[sk(p.lane, p.slot)];
-  say(g, s.x, s.y, TOWER_BY_ID[ids[p.pick]].name, P[pi].light);
-}
-
 export function doBuild(g, pi) {
   const p = g.players[pi];
   const key = sk(p.lane, p.slot);
   const s = SLOTS[key];
   const t = g.towers[key];
   if (!t) {
-    const def = wantTower(pi, p);
+    const def = CLASSES[pi];
     if (p.gold < def.cost) return say(g, s.x, s.y, "골드 부족", "#f0dcb4");
     p.gold -= def.cost;
     p.built++;
@@ -88,29 +74,46 @@ export function doSkill(g, pi) {
   const p = g.players[pi];
   if (p.cd > 0) return say(g, CX, CY - 96, `${SKILLS[pi].name} ${Math.ceil(p.cd)}초`, "#f0dcb4");
   p.cd = SKILLS[pi].cd;
-  if (pi === 0) {
+  const col = P[pi].light;
+  const id = CLASSES[pi].id;
+
+  if (id === "archer") {
     g.focus = 8;
-    banner(g, "집중 사격", "궁수탑 피해가 두 배로", P[0].light);
-  } else if (pi === 1) {
-    g.enemies.forEach((e) => {
-      hurt(g, e, 45, 1, true);
-      fx(g, { kind: "boom", x: e.x, y: e.y, r: 30, t: 0.4, life: 0.4 });
-    });
-    g.shake = 0.45;
-    banner(g, "융단 폭격", "전장 전체에 포격", P[1].light);
-  } else if (pi === 2) {
+    banner(g, "집중 사격", "궁수탑 피해가 두 배로", col);
+  } else if (id === "frost") {
     g.enemies.forEach((e) => {
       e.freeze = Math.max(e.freeze, 4);
       fx(g, { kind: "ice", x: e.x, y: e.y, t: 0.5, life: 0.5 });
     });
-    banner(g, "한파", "모든 적이 얼어붙는다", P[2].light);
-  } else {
+    banner(g, "한파", "모든 적이 얼어붙는다", col);
+  } else if (id === "cannon") {
+    g.enemies.forEach((e) => {
+      hurt(g, e, 45, pi, true);
+      fx(g, { kind: "boom", x: e.x, y: e.y, r: 30, t: 0.4, life: 0.4 });
+    });
+    g.shake = 0.45;
+    banner(g, "융단 폭격", "전장 전체에 포격", col);
+  } else if (id === "supply") {
     g.players.forEach((q, i) => { if (g.seats[i]) q.gold += 45; });
     g.core.hp = Math.min(g.core.max, g.core.hp + 12);
     for (let i = 0; i < 6; i++) {
       fx(g, { kind: "coin", x: CX + (Math.random() - 0.5) * 70, y: CY + 20, t: 0.9, life: 0.9 });
     }
-    banner(g, "긴급 보급", "전원 45 골드 · 성채 회복", P[3].light);
+    banner(g, "긴급 보급", "전원 45 골드 · 성채 회복", col);
+  } else if (id === "bolt") {
+    g.enemies.forEach((e) => {
+      fx(g, { kind: "zap", x: e.x, y: e.y - 70, x2: e.x, y2: e.y, t: 0.26, life: 0.26 });
+      e.freeze = Math.max(e.freeze, 1.5);
+      hurt(g, e, 30, pi, true);
+    });
+    g.shake = Math.max(g.shake, 0.3);
+    banner(g, "뇌우", "하늘에서 번개가 떨어진다", col);
+  } else {
+    g.enemies.forEach((e) => {
+      applyPoison(e, 12, 6, pi);
+      fx(g, { kind: "fume", x: e.x, y: e.y - 4, t: 0.5, life: 0.5 });
+    });
+    banner(g, "역병", "모든 적이 6초간 병든다", col);
   }
 }
 
@@ -213,7 +216,7 @@ export function step(g, dt) {
     const key = sk(p.lane, p.slot);
     const s = SLOTS[key];
     const t = g.towers[key];
-    const range = t ? towerRange(g, t) : wantTower(pi, p).range + g.bless.reach;
+    const range = t ? towerRange(g, t) : CLASSES[pi].range + g.bless.reach;
     p.cx += (s.x - p.cx) * kPos;
     p.cy += (s.y - p.cy) * kPos;
     p.cr += (range - p.cr) * kRad;
@@ -459,7 +462,7 @@ export function stepVisual(g, dt) {
     const key = sk(p.lane, p.slot);
     const s = SLOTS[key];
     const t = g.towers[key];
-    const range = t ? towerRange(g, t) : wantTower(pi, p).range + g.bless.reach;
+    const range = t ? towerRange(g, t) : CLASSES[pi].range + g.bless.reach;
     p.cx += (s.x - p.cx) * kPos;
     p.cy += (s.y - p.cy) * kPos;
     p.cr += (range - p.cr) * kRad;
@@ -508,7 +511,7 @@ export function packSnapshot(g) {
     bl: [g.bless.power, g.bless.reach, g.bless.haste],
     bs: g.blessed,
     ca: Math.round(g.castle.aim * 100) / 100,
-    pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills, p.pick || 0]),
+    pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills]),
     tw: g.towers.map((t) => (t ? [t.owner, t.lv, towerIdx(t.type)] : 0)),
     en: g.enemies.map((e) => [
       e.id, ETYPES.indexOf(e.type), e.lane, Math.round(e.p * 10000) / 10000,
@@ -540,7 +543,6 @@ export function applySnapshot(g, s) {
     p.gold = row[0]; p.cd = row[1];
     p.lane = row[2]; p.slot = row[3];
     p.built = row[4]; p.kills = row[5];
-    p.pick = row[6] || 0;
   });
 
   s.tw.forEach((row, i) => {

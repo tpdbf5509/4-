@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  W, H, P, CLASSES, SKILLS, ENEMY, LANES, TOTAL_WAVES, PREP,
-  makeGame, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
+  W, H, P, CLASSES, CLASS_TOWERS, TOWER_BY_ID, BLESSINGS,
+  SKILLS, ENEMY, LANES, TOTAL_WAVES, PREP,
+  makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, PICK_KEYS, PICK_NUM, KEY_HINT,
 } from "./game/world.js";
 import {
-  step, stepVisual, applyMove, doBuild, doSkill,
+  step, stepVisual, applyMove, doBuild, doSkill, applyPick,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
+import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
 import { Shield, Coin, ClassIcon } from "./ui/icons.jsx";
@@ -326,7 +328,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onS
         </div>
 
         <p className="keyhint">
-          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
+          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 타워 고르기 <kbd>{KEY_HINT.pick}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
         </p>
       </div>
     </div>
@@ -353,6 +355,13 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
 
   const [hud, setHud] = useState(() => snapHud(G.current));
   const [dropped, setDropped] = useState(false);
+  const [mute, setMute] = useState(() => sfx.isMuted());
+  const toggleMute = useCallback(() => {
+    sfx.unlock();
+    const v = !sfx.isMuted();
+    sfx.setMuted(v);
+    setMute(v);
+  }, []);
 
   function snapHud(g) {
     return {
@@ -360,9 +369,10 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
       hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max,
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
       paused: g.paused, speed: g.speed,
+      blessed: g.blessed || [],
       players: g.players.map((p) => ({
         gold: Math.floor(p.gold), cd: Math.max(0, p.cd),
-        lane: p.lane, slot: p.slot, built: p.built, kills: p.kills,
+        lane: p.lane, slot: p.slot, built: p.built, kills: p.kills, pick: p.pick || 0,
       })),
     };
   }
@@ -378,9 +388,11 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
       const g = G.current;
       if (g.phase !== "prep" && g.phase !== "wave") return;
       if (g.paused) return;
+      sfx.unlock();
       if (isHost) {
         if (kind === "move") applyMove(g, mySeat, dir);
         else if (kind === "build") doBuild(g, mySeat);
+        else if (kind === "pick") applyPick(g, mySeat, dir);
         else doSkill(g, mySeat);
       } else {
         if (kind === "move") applyMove(g, mySeat, dir);   // 내 커서는 바로 움직이고
@@ -398,7 +410,9 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
       const dir = MOVE_KEYS[e.code];
       const isBuild = BUILD_KEYS.includes(e.code);
       const isSkill = SKILL_KEYS.includes(e.code);
-      if (!dir && !isBuild && !isSkill) return;
+      const isPick = PICK_KEYS.includes(e.code);
+      const pickNum = PICK_NUM[e.code];
+      if (!dir && !isBuild && !isSkill && !isPick && pickNum === undefined) return;
       e.preventDefault();
       if (e.repeat) return;
       if (dir) {
@@ -407,6 +421,8 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         holdT = 0.24;
         if (!timer) timer = setInterval(tick, 50);
       } else if (isBuild) act("build");
+      else if (isPick) act("pick");
+      else if (pickNum !== undefined) act("pick", pickNum);
       else act("skill");
     }
     function onUp(e) {
@@ -441,6 +457,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         if (!g.seats[d.cls]) return;
         if (d.kind === "move") applyMove(g, d.cls, d.dir);
         else if (d.kind === "build") doBuild(g, d.cls);
+        else if (d.kind === "pick") applyPick(g, d.cls, d.dir);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
     } else {
@@ -452,6 +469,32 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
     }
     return () => offs.forEach((off) => off && off());
   }, [room, isHost]);
+
+  /* 소리 — 새로 생긴 연출·탄에만 한 번씩 */
+  const soundRef = useRef({ phase: "", banner: null });
+  const playSounds = useCallback((g) => {
+    if (sfx.isMuted()) return;
+    for (const f of g.fx) {
+      if (f.played) continue;
+      f.played = true;
+      if (f.snd) sfx.play(f.snd);
+    }
+    for (const b of g.bullets) {
+      if (b.played) continue;
+      b.played = true;
+      sfx.shot(b.kind);
+    }
+    const st = soundRef.current;
+    if (g.banner && g.banner !== st.banner) {
+      st.banner = g.banner;
+      if (/웨이브/.test(g.banner.text)) sfx.play("wave");
+    }
+    if (g.phase !== st.phase) {
+      if (g.phase === "clear") sfx.play("clear");
+      else if (g.phase === "over") sfx.play("over");
+      st.phase = g.phase;
+    }
+  }, []);
 
   /* 루프 */
   useEffect(() => {
@@ -492,13 +535,14 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         stepVisual(g, dt);
       }
 
+      playSounds(g);
       draw(ctx, g, bgRef.current);
       if (++frame % 5 === 0) setHud(snapHud(g));
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [isHost, room]);
+  }, [isHost, room, playSounds]);
 
   const togglePause = useCallback(() => {
     if (!isHost) return;
@@ -516,9 +560,13 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
     setHud(snapHud(g));
   }, [isHost]);
 
+  const kind = waveKind(hud.wave);
+  const kindLabel =
+    kind === "rush" ? "돌격 웨이브" : kind === "boss" ? "보스 웨이브" :
+    kind === "titan" ? "대군주 웨이브" : "";
   const phaseLabel =
-    hud.phase === "prep" ? "배치 시간" :
-    hud.phase === "wave" ? "교전 중" :
+    hud.phase === "prep" ? (kindLabel ? `${kindLabel} 준비` : "배치 시간") :
+    hud.phase === "wave" ? (kindLabel || "교전 중") :
     hud.phase === "clear" ? "방어 성공" : "성채 함락";
   const over = hud.phase === "over" || hud.phase === "clear";
   const hpRatio = hud.hp / hud.max;
@@ -538,7 +586,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
               </div>
             </div>
             <div className="wave-box">
-              <span className="wave-label">{phaseLabel}</span>
+              <span className={`wave-label ${kindLabel && hud.phase !== "clear" && hud.phase !== "over" ? "hot" : ""}`}>{phaseLabel}</span>
               <span className="wave-num">웨이브 {hud.wave}<em>/{TOTAL_WAVES}</em></span>
               <span className="wave-sub">
                 {hud.phase === "prep" ? `${Math.ceil(hud.timer)}초 뒤 시작`
@@ -559,7 +607,19 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
             ) : (
               <span className="guest-tag">방장이 진행 중</span>
             )}
+            <button className={`sbtn ${mute ? "" : "on"}`} onClick={toggleMute} title="소리">
+              {mute ? "🔇" : "🔊"}
+            </button>
           </div>
+
+          {hud.blessed?.length > 0 && (
+            <div className="bless-strip">
+              {hud.blessed.map((id, i) => {
+                const b = BLESSINGS.find((x) => x.id === id);
+                return <span key={i} className="bless-chip" title={b?.note}>{b?.name}</span>;
+              })}
+            </div>
+          )}
 
           {dropped && (
             <div className="drop-note">방장과의 연결이 끊긴 것 같습니다…</div>
@@ -609,7 +669,20 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
                   </span>
                   <span className="coin"><Coin />{p.gold}</span>
                 </div>
-                <div className="card-note">{cls.note}</div>
+                <div className="tower-pick">
+                  {CLASS_TOWERS[i].map((id, k) => {
+                    const def = TOWER_BY_ID[id];
+                    const on = (p.pick || 0) === k;
+                    return (
+                      <span key={id} className={`tp ${on ? "on" : ""}`} title={def.note}>
+                        <b>{def.name}</b><em>{def.cost}</em>
+                      </span>
+                    );
+                  })}
+                </div>
+                <div className="card-note">
+                  {TOWER_BY_ID[CLASS_TOWERS[i][p.pick || 0]].note}
+                </div>
                 <div className="card-row">
                   <span>{LANES[p.lane].name} · {p.slot + 1}번 자리</span>
                   <span>건설 {p.built} · 처치 {p.kills}</span>
@@ -625,6 +698,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
                   <div className="keys">
                     <kbd>{KEY_HINT.move}</kbd><span>이동</span>
                     <kbd>{KEY_HINT.build}</kbd><span>건설</span>
+                    <kbd>{KEY_HINT.pick}</kbd><span>타워 고르기</span>
                     <kbd>{KEY_HINT.skill}</kbd><span>스킬</span>
                   </div>
                 )}
@@ -636,6 +710,8 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         <p className="footnote">
           자리는 네 경로에 다섯 칸씩, 모두 스무 칸입니다. 좌우(또는 상하)로 누르면 옆 경로의 같은 칸으로 넘어갑니다.
           같은 자리에 자기 타워를 다시 지으면 4단계까지 강화됩니다.
+          <kbd>Z</kbd> 또는 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd>으로 지을 타워를 바꿉니다.
+          성채도 스스로 대포를 쏘고, 보스를 잡으면 수비대 전체가 축복을 하나 받습니다.
           {mySeat < 0 && " 지금은 구경 중이라 조작할 수 없습니다."}
         </p>
       </div>

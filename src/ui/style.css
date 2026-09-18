@@ -149,7 +149,8 @@ kbd {
 .crest-num { font-family: 'Do Hyeon', sans-serif; font-size: 20px; line-height: 1; }
 
 .wave-box { display: flex; flex-direction: column; gap: 1px; padding: 5px 12px; }
-.wave-label { font-size: 10.5px; color: #d0ba8e; }
+.wave-label { font-size: 10.5px; color: #d0ba8e; letter-spacing: -0.02em; }
+.wave-label.hot { color: #f3a86a; }
 .wave-num { font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: #f6e5bb; line-height: 1.2; }
 .wave-num em { font-style: normal; font-size: 11px; color: #b09a73; }
 .wave-sub { font-size: 10.5px; color: #c9b58c; }
@@ -242,3 +243,33 @@ kbd {
   .page { padding: 16px 12px 32px; }
   .party { grid-template-columns: 1fr; }
 }
+
+/* 축복 — 보스를 잡을 때마다 하나씩 쌓인다 */
+.bless-strip {
+  position: absolute; left: 12px; bottom: 12px;
+  display: flex; flex-wrap: wrap; gap: 6px; max-width: 46%;
+}
+.bless-chip {
+  padding: 5px 10px; font-size: 11px; color: #fdeec2; letter-spacing: -0.02em;
+  background: linear-gradient(rgba(74, 55, 34, 0.94), rgba(50, 36, 22, 0.94));
+  border: 1px solid #c9a14e; border-radius: 999px;
+  box-shadow: 0 2px 0 rgba(34, 24, 14, 0.8);
+}
+
+/* 지을 타워 고르기 */
+.tower-pick { display: flex; gap: 4px; margin-top: 7px; }
+.tp {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 4px 2px 3px; border-radius: 7px;
+  border: 1px solid rgba(160, 130, 90, 0.3);
+  background: rgba(30, 22, 14, 0.35);
+  color: #a8987a; letter-spacing: -0.02em;
+}
+.tp b { font-size: 11px; font-weight: 600; }
+.tp em { font-style: normal; font-size: 9.5px; color: #8d7d61; }
+.tp.on {
+  border-color: var(--pcl, #d6b26a);
+  background: rgba(var(--pcrgb, 120, 100, 60), 0.18);
+  color: #f6e5bb;
+}
+.tp.on em { color: #d9c397; }

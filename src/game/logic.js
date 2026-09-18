@@ -1,7 +1,8 @@
 import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
-  SKILLS, ENEMY, TOTAL_WAVES, PREP, buildQueue, waveKind, seatCount, ETYPES, BLESSINGS,
+  SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, seatCount, ETYPES,
+  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD,
 } from "./world.js";
 
 // 호스트에서 일어난 연출은 그대로 다른 참가자에게도 보낸다
@@ -16,13 +17,16 @@ function banner(g, text, sub, tone) {
   if (g.out) g.out.push({ k: "banner", ...b });
 }
 
-/* ── 타워 성능 (축복·단계가 함께 반영된다) ─────────────────── */
+/* ── 타워 성능 (고른 능력·단계가 함께 반영된다) ───────────── */
 export const tdef = (t) => TOWER_BY_ID[t.type] || CLASSES[t.owner];
+export const perkOf = (g, pi) => (g.players[pi] && g.players[pi].perks) || {};
+export const perkN = (g, pi, id) => perkOf(g, pi)[id] || 0;
+
 export function towerRange(g, t) {
-  return tdef(t).range + 12 * (t.lv - 1) + (g.bless ? g.bless.reach : 0);
+  return tdef(t).range + 12 * (t.lv - 1) + perkVal.reach(perkN(g, t.owner, "reach"));
 }
 export function towerDmg(g, t) {
-  return tdef(t).dmg * (1 + 0.62 * (t.lv - 1)) * (1 + (g.bless ? g.bless.power : 0));
+  return tdef(t).dmg * (1 + 0.62 * (t.lv - 1)) * perkVal.power(perkN(g, t.owner, "power"));
 }
 
 /* ── 조작 ───────────────────────────────────────────────── */
@@ -47,8 +51,9 @@ export function doBuild(g, pi) {
   const t = g.towers[key];
   if (!t) {
     const def = CLASSES[pi];
-    if (p.gold < def.cost) return say(g, s.x, s.y, "골드 부족", "#f0dcb4");
-    p.gold -= def.cost;
+    const cost = Math.round(def.cost * perkVal.thrift(perkN(g, pi, "thrift")));
+    if (p.gold < cost) return say(g, s.x, s.y, "골드 부족", "#f0dcb4");
+    p.gold -= cost;
     p.built++;
     g.towers[key] = { owner: pi, type: def.id, lv: 1, cd: 0, pulse: 0.4, aim: 0 };
     fx(g, { kind: "poof", x: s.x, y: s.y, t: 0.5, life: 0.5 });
@@ -57,7 +62,7 @@ export function doBuild(g, pi) {
   } else if (t.owner === pi) {
     const def = tdef(t);
     if (t.lv >= 4) return say(g, s.x, s.y, "최대 단계", "#f0dcb4");
-    const cost = Math.round(def.cost * (0.7 + t.lv * 0.45));
+    const cost = Math.round(def.cost * (0.7 + t.lv * 0.45) * perkVal.thrift(perkN(g, pi, "thrift")));
     if (p.gold < cost) return say(g, s.x, s.y, `${cost} 골드 필요`, "#f0dcb4");
     p.gold -= cost;
     t.lv++;
@@ -73,7 +78,7 @@ export function doBuild(g, pi) {
 export function doSkill(g, pi) {
   const p = g.players[pi];
   if (p.cd > 0) return say(g, CX, CY - 96, `${SKILLS[pi].name} ${Math.ceil(p.cd)}초`, "#f0dcb4");
-  p.cd = SKILLS[pi].cd;
+  p.cd = SKILLS[pi].cd * perkVal.cool(perkN(g, pi, "cool"));
   const col = P[pi].light;
   const id = CLASSES[pi].id;
 
@@ -117,21 +122,60 @@ export function doSkill(g, pi) {
   }
 }
 
-/* ── 축복 ───────────────────────────────────────────────── */
-function grantBlessing(g) {
-  const pool = BLESSINGS.filter((b) => b.id !== "wall" || g.core.max < 220);
-  const b = pool[Math.floor(Math.random() * pool.length)];
-  g.blessed.push(b.id);
-  if (b.id === "power") g.bless.power += 0.2;
-  else if (b.id === "reach") g.bless.reach += 18;
-  else if (b.id === "haste") g.bless.haste += 0.15;
-  else if (b.id === "riches") g.players.forEach((p, i) => { if (g.seats[i]) p.gold += 180; });
-  else if (b.id === "wall") { g.core.max += 40; g.core.hp = g.core.max; }
-  banner(g, b.name, b.note, "#ffe08a");
-  for (let i = 0; i < 10; i++) {
-    fx(g, { kind: "coin", x: CX + (Math.random() - 0.5) * 120, y: CY + 10, t: 1.1, life: 1.1 });
-  }
-  fx(g, { kind: "ring", x: CX, y: CY, r: 220, color: "#ffe08a", t: 0.8, life: 0.8, snd: "bless" });
+/* ── 보스 보상 ──────────────────────────────────────────── */
+export function openReward(g) {
+  g.phase = "reward";
+  g.timer = REWARD_T;
+  g.offer = g.seats.map((on) => (on ? rollPerks(g) : null));
+  g.picked = g.seats.map(() => false);
+  g.pendingReward = 0;
+  g.banner = null;              // 고르는 창이 대신 알려 준다
+  fx(g, { kind: "ring", x: CX, y: CY, r: 240, color: "#ffe08a", t: 0.9, life: 0.9, snd: "bless" });
+}
+
+export function applyReward(g, pi, k) {
+  if (g.phase !== "reward" || !g.offer || !g.seats[pi]) return;
+  if (g.picked[pi]) return;
+  const ids = g.offer[pi];
+  if (!ids) return;
+  const id = ids[Math.max(0, Math.min(ids.length - 1, k | 0))];
+  const p = g.players[pi];
+  p.perks[id] = (p.perks[id] || 0) + 1;
+  g.picked[pi] = true;
+
+  if (id === "wall") { g.core.max += 30; g.core.hp = g.core.max; }
+  const s = SLOTS[sk(p.lane, p.slot)];
+  say(g, s.x, s.y, PERK_BY_ID[id].name, P[pi].light);
+  fx(g, { kind: "ring", x: s.x, y: s.y, r: 70, color: P[pi].light, t: 0.5, life: 0.5, snd: "bless" });
+
+  if (g.seats.every((on, i) => !on || g.picked[i])) closeReward(g);
+}
+
+export function closeReward(g) {
+  // 안 고른 사람은 첫 번째 것을 받는다
+  g.seats.forEach((on, i) => {
+    if (!on || g.picked[i]) return;
+    const id = g.offer[i][0];
+    g.players[i].perks[id] = (g.players[i].perks[id] || 0) + 1;
+    if (id === "wall") { g.core.max += 30; g.core.hp = g.core.max; }
+    g.picked[i] = true;
+  });
+  g.offer = null;
+  g.picked = null;
+  // 보스를 잡을 때마다 관문에서 나오는 적이 조금씩 세진다
+  g.surge++;
+  banner(g, "적이 더 몰려온다", `관문 너머의 적이 강해졌다 (${g.surge}단계)`, "#ff9f6a");
+  advanceWave(g);
+}
+
+function advanceWave(g) {
+  g.players.forEach((p, i) => {
+    if (!g.seats[i]) return;
+    p.gold += 22 + g.wave * 3 + perkVal.bank(perkN(g, i, "bank"));
+  });
+  g.wave++;
+  g.phase = "prep";
+  g.timer = PREP;
 }
 
 /* ── 피해 ───────────────────────────────────────────────── */
@@ -148,7 +192,8 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes) {
   if (e.hp > 0) return;
 
   e.dead = true;
-  const reward = Math.round(ENEMY[e.type].gold + g.wave * 0.6);
+  const base = ENEMY[e.type].gold + g.wave * 0.6;
+  const reward = Math.round(base * (typeof byPlayer === "number" ? perkVal.gold(perkN(g, byPlayer, "gold")) : 1));
   if (typeof byPlayer === "number") {
     g.players[byPlayer].gold += reward;
     g.players[byPlayer].kills++;
@@ -168,7 +213,7 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes) {
     g.shake = Math.max(g.shake, e.type === "titan" ? 0.8 : 0.5);
     fx(g, { kind: "boom", x: e.x, y: e.y, r: e.type === "titan" ? 120 : 70, t: 0.7, life: 0.7 });
     fx(g, { kind: "ring", x: e.x, y: e.y, r: e.type === "titan" ? 260 : 150, color: "#ffd07a", t: 0.7, life: 0.7 });
-    grantBlessing(g);
+    g.pendingReward = 1;
   }
 }
 
@@ -216,13 +261,18 @@ export function step(g, dt) {
     const key = sk(p.lane, p.slot);
     const s = SLOTS[key];
     const t = g.towers[key];
-    const range = t ? towerRange(g, t) : CLASSES[pi].range + g.bless.reach;
+    const range = t ? towerRange(g, t) : CLASSES[pi].range + perkVal.reach(perkN(g, pi, "reach"));
     p.cx += (s.x - p.cx) * kPos;
     p.cy += (s.y - p.cy) * kPos;
     p.cr += (range - p.cr) * kRad;
     if (p.jolt > 0) p.jolt -= dt;
   });
 
+  if (g.phase === "reward") {
+    g.timer -= dt;
+    if (g.timer <= 0) closeReward(g);
+    return;
+  }
   if (g.phase !== "prep" && g.phase !== "wave") return;
 
   // 키를 누르고 있을 때의 연속 이동은 각 참가자 브라우저에서 처리한다
@@ -246,11 +296,12 @@ export function step(g, dt) {
     if (g.queue.length && g.spawnT <= 0) {
       const q = g.queue.shift();
       const base = ENEMY[q.type];
-      const scale = Math.pow(1.155, g.wave - 1);
+      const scale = Math.pow(1.155, g.wave - 1) * (1 + SURGE_HP * g.surge);
       const p0 = posAt(q.lane, 0);
       g.enemies.push({
         id: g.nextId++,
         type: q.type, lane: q.lane, p: 0,
+        spd: base.spd * (1 + SURGE_SPD * g.surge),
         hp: base.hp * scale, max: base.hp * scale,
         x: p0.x, y: p0.y, ax: p0.ax, ay: p0.ay,
         slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, pdps: 0, dead: false, age: 0,
@@ -266,10 +317,8 @@ export function step(g, dt) {
     }
     if (!g.queue.length && !g.enemies.length) {
       if (g.wave >= TOTAL_WAVES) { g.phase = "clear"; return; }
-      g.players.forEach((p, i) => { if (g.seats[i]) p.gold += 22 + g.wave * 3; });
-      g.wave++;
-      g.phase = "prep";
-      g.timer = PREP;
+      if (g.pendingReward) { openReward(g); return; }
+      advanceWave(g);
     }
   }
 
@@ -284,7 +333,7 @@ export function step(g, dt) {
   // 성채의 대포 — 성문 앞까지 온 적을 직접 때린다
   {
     const cg = g.castle;
-    cg.cd -= dt * (1 + g.bless.haste);
+    cg.cd -= dt;
     let target = null;
     for (const e of g.enemies) {
       if (e.dead) continue;
@@ -296,7 +345,7 @@ export function step(g, dt) {
       if (cg.cd <= 0) {
         cg.cd = CASTLE_GUN.interval;
         cg.pulse = 0.35;
-        const dmg = CASTLE_GUN.dmg * (1 + g.bless.power);
+        const dmg = CASTLE_GUN.dmg;
         g.bullets.push({
           x: CX + Math.cos(cg.aim) * 18, y: CY - 22 + Math.sin(cg.aim) * 18,
           tx: target.x, ty: target.y, target, dmg, owner: null,
@@ -322,10 +371,11 @@ export function step(g, dt) {
     const def = tdef(t);
     if (!def.interval) return;                 // 보급소는 쏘지 않는다
     const s = SLOTS[i];
-    let mul = 1 + g.bless.haste;
+    const haste = perkVal.haste(perkN(g, t.owner, "haste"));
+    let mul = 1 + haste;
     supports.forEach((sp) => {
       if (Math.hypot(sp.s.x - s.x, sp.s.y - s.y) <= supDef.range) {
-        mul = Math.max(mul, 1 + g.bless.haste + supDef.buff * sp.t.lv);
+        mul = Math.max(mul, 1 + haste + supDef.buff * sp.t.lv);
       }
     });
     t.cd -= dt * mul;
@@ -342,11 +392,16 @@ export function step(g, dt) {
     t.cd = def.interval;
     let dmg = towerDmg(g, t);
     if (t.type === "archer" && g.focus > 0) dmg *= 2;
+    const crit = Math.random() < perkVal.crit(perkN(g, t.owner, "crit"));
+    if (crit) dmg *= 2;
+    const chill = perkN(g, t.owner, "chill") > 0;
     const kind = { archer: "arrow", cannon: "ball", frost: "shard", bolt: "bolt", poison: "orb" }[t.type] || "arrow";
     const speed = t.type === "cannon" ? 300 : t.type === "bolt" ? 900 : 470;
     g.bullets.push({
       x: s.x, y: s.y - 20, tx: target.x, ty: target.y, target, dmg,
-      owner: t.owner, splash: def.splash || 0, slow: def.slow || 0, slowT: def.slowT || 0,
+      owner: t.owner, crit,
+      splash: def.splash || 0,
+      slow: def.slow || (chill ? 0.82 : 0), slowT: def.slowT || (chill ? 1.2 : 0),
       chain: def.chain || 0, poison: def.poison ? def.poison * (1 + 0.5 * (t.lv - 1)) : 0,
       poisonT: def.poisonT || 0,
       speed, kind,
@@ -422,7 +477,7 @@ export function step(g, dt) {
     }
     if (e.freeze > 0) { e.freeze -= dt; return; }
     if (e.slow > 0) e.slow -= dt;
-    const spd = ENEMY[e.type].spd * (e.slow > 0 ? e.slowAmt : 1);
+    const spd = (e.spd || ENEMY[e.type].spd) * (e.slow > 0 ? e.slowAmt : 1);
     e.p += (spd * dt) / LANES[e.lane].len;
     const pos = posAt(e.lane, e.p);
     e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;
@@ -462,7 +517,7 @@ export function stepVisual(g, dt) {
     const key = sk(p.lane, p.slot);
     const s = SLOTS[key];
     const t = g.towers[key];
-    const range = t ? towerRange(g, t) : CLASSES[pi].range + g.bless.reach;
+    const range = t ? towerRange(g, t) : CLASSES[pi].range + perkVal.reach(perkN(g, pi, "reach"));
     p.cx += (s.x - p.cx) * kPos;
     p.cy += (s.y - p.cy) * kPos;
     p.cr += (range - p.cr) * kRad;
@@ -495,7 +550,7 @@ export function stepVisual(g, dt) {
     if (e.poison > 0) e.poison -= dt;
     if (e.freeze > 0) { e.freeze -= dt; return; }
     if (e.slow > 0) e.slow -= dt;
-    const spd = ENEMY[e.type].spd * (e.slow > 0 ? e.slowAmt : 1);
+    const spd = (e.spd || ENEMY[e.type].spd) * (e.slow > 0 ? e.slowAmt : 1);
     e.p = Math.min(1, e.p + (spd * dt) / LANES[e.lane].len);
     const pos = posAt(e.lane, e.p);
     e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;
@@ -508,8 +563,9 @@ export function packSnapshot(g) {
     ph: g.phase, wv: g.wave, tm: Math.max(0, g.timer),
     hp: g.core.hp, hm: g.core.max, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
     ql: g.queue.length, cb: g.combo,
-    bl: [g.bless.power, g.bless.reach, g.bless.haste],
-    bs: g.blessed,
+    sg: g.surge,
+    pk: g.players.map((p) => PERK_IDS.map((id) => p.perks[id] || 0)),
+    rw: g.phase === "reward" ? { of: g.offer, pi: g.picked } : 0,
     ca: Math.round(g.castle.aim * 100) / 100,
     pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills]),
     tw: g.towers.map((t) => (t ? [t.owner, t.lv, towerIdx(t.type)] : 0)),
@@ -534,8 +590,16 @@ export function applySnapshot(g, s) {
   g.queueLeft = s.ql;
   g.combo = s.cb || 0;
   if (g.combo) g.comboT = Math.max(g.comboT, 0.3);
-  if (s.bl) { g.bless.power = s.bl[0]; g.bless.reach = s.bl[1]; g.bless.haste = s.bl[2]; }
-  if (s.bs) g.blessed = s.bs;
+  g.surge = s.sg || 0;
+  if (s.pk) {
+    s.pk.forEach((row, i) => {
+      const perks = {};
+      PERK_IDS.forEach((id, k) => { if (row[k]) perks[id] = row[k]; });
+      g.players[i].perks = perks;
+    });
+  }
+  if (s.rw) { g.offer = s.rw.of; g.picked = s.rw.pi; }
+  else { g.offer = null; g.picked = null; }
   if (typeof s.ca === "number") g.castle.aim = s.ca;
 
   s.pl.forEach((row, i) => {
@@ -564,6 +628,7 @@ export function applySnapshot(g, s) {
       const pos = posAt(lane, p);
       e = {
         id, type, lane, p, max: base.hp, hp: base.hp * hpr,
+        spd: base.spd * (1 + SURGE_SPD * (g.surge || 0)),
         x: pos.x, y: pos.y, ax: pos.ax, ay: pos.ay,
         slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, dead: false, age: 0,
       };

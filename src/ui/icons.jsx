@@ -73,3 +73,74 @@ export function ClassIcon({ i }) {
     </svg>
   );
 }
+
+/* 보스 보상 능력 아이콘 */
+export function PerkIcon({ kind }) {
+  const P = {
+    attack: (
+      <>
+        <path d="M13 3l8 8-3 3-8-8 3-3z" fill="#fff" />
+        <path d="M10 6l8 8-8 7-5-5 8-7-3-3z" fill="#fff" opacity="0.72" />
+      </>
+    ),
+    range: (
+      <>
+        <circle cx="12" cy="12" r="8.5" fill="none" stroke="#fff" strokeWidth="2" />
+        <circle cx="12" cy="12" r="4" fill="none" stroke="#fff" strokeWidth="2" />
+        <circle cx="12" cy="12" r="1.6" fill="#fff" />
+      </>
+    ),
+    speed: (
+      <>
+        <circle cx="12" cy="13" r="8" fill="none" stroke="#fff" strokeWidth="2" />
+        <path d="M12 8.5V13l3 2" stroke="#fff" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M9 2.5h6" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+      </>
+    ),
+    crit: (
+      <>
+        <path d="M12 2l2.6 6.2L21 9.2l-4.7 4.3 1.3 6.5-5.6-3.2-5.6 3.2 1.3-6.5L3 9.2l6.4-1z" fill="#fff" />
+      </>
+    ),
+    frost: (
+      <>
+        <g stroke="#fff" strokeWidth="2" strokeLinecap="round">
+          <path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9" />
+        </g>
+      </>
+    ),
+    gold: (
+      <>
+        <ellipse cx="12" cy="16.5" rx="8" ry="3.6" fill="#fff" opacity="0.7" />
+        <ellipse cx="12" cy="12.5" rx="8" ry="3.6" fill="#fff" opacity="0.85" />
+        <ellipse cx="12" cy="8.5" rx="8" ry="3.6" fill="#fff" />
+      </>
+    ),
+    build: (
+      <>
+        <path d="M14.5 3a5 5 0 00-4.2 7.7L3.6 17.4a2 2 0 102.8 2.8l6.7-6.7A5 5 0 1014.5 3z" fill="#fff" />
+      </>
+    ),
+    skill: (
+      <>
+        <path d="M13.5 2L5 13.5h5L9.5 22 19 10h-5.5L13.5 2z" fill="#fff" />
+      </>
+    ),
+    chest: (
+      <>
+        <path d="M3.5 9.5h17V19a1.5 1.5 0 01-1.5 1.5H5A1.5 1.5 0 013.5 19V9.5z" fill="#fff" opacity="0.85" />
+        <path d="M3.5 9.5A4.5 4.5 0 018 5h8a4.5 4.5 0 014.5 4.5h-17z" fill="#fff" />
+        <rect x="10.5" y="11" width="3" height="5" rx="1.2" fill="#3b2c1b" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="M12 2.5l7.5 2.8v6.2c0 4.6-3.1 8-7.5 9.5-4.4-1.5-7.5-4.9-7.5-9.5V5.3L12 2.5z" fill="#fff" />
+        <path d="M12 5.2v13.6c-3-1.3-5-3.8-5-7.3V6.9l5-1.7z" fill="#3b2c1b" opacity="0.28" />
+      </>
+    ),
+  };
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">{P[kind] || P.attack}</svg>
+  );
+}

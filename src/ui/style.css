@@ -257,16 +257,69 @@ kbd {
   .party { grid-template-columns: 1fr; }
 }
 
-/* 축복 — 보스를 잡을 때마다 하나씩 쌓인다 */
-.bless-strip {
+/* 보스를 잡을 때마다 오르는 적 강화 단계 */
+.surge-tag {
   position: absolute; left: 12px; bottom: 12px;
-  display: flex; flex-wrap: wrap; gap: 6px; max-width: 46%;
+  padding: 6px 11px; font-size: 11px; letter-spacing: -0.02em; color: #f3c9a4;
+  background: linear-gradient(rgba(74, 44, 30, 0.94), rgba(50, 30, 20, 0.94));
+  border: 1px solid #c07a4a; border-radius: 999px;
+  box-shadow: 0 2px 0 rgba(34, 20, 14, 0.8);
 }
-.bless-chip {
-  padding: 5px 10px; font-size: 11px; color: #fdeec2; letter-spacing: -0.02em;
-  background: linear-gradient(rgba(74, 55, 34, 0.94), rgba(50, 36, 22, 0.94));
-  border: 1px solid #c9a14e; border-radius: 999px;
-  box-shadow: 0 2px 0 rgba(34, 24, 14, 0.8);
+
+/* 보스 보상 고르기 */
+.curtain.reward { background: rgba(12, 20, 12, 0.82); padding: 16px; }
+.reward-box { width: min(560px, 100%); text-align: center; }
+.reward-head h2 {
+  margin: 0; font-family: 'Do Hyeon', sans-serif; font-size: 26px; letter-spacing: -0.03em;
+  color: #f6e5bb; text-shadow: 0 2px 0 rgba(20, 14, 8, 0.8);
+}
+.reward-head p { margin: 4px 0 16px; font-size: 12.5px; color: #cbbb96; }
+.reward-head em { font-style: normal; color: #f0c04a; }
+
+.reward-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.perk-card {
+  display: flex; flex-direction: column; align-items: center; gap: 0; cursor: pointer;
+  padding: 0 0 12px; border-radius: 12px; overflow: hidden; font-family: inherit;
+  background: linear-gradient(#3b2c1b, #241a10);
+  border: 2px solid #6b4f2c; box-shadow: 0 4px 0 #1b1309;
+  transition: transform 0.08s ease;
+}
+.perk-card:hover { transform: translateY(-3px); border-color: var(--pcl); filter: brightness(1.08); }
+.perk-card:active { transform: translateY(0); }
+.perk-art {
+  width: 100%; height: 86px; display: grid; place-items: center;
+  background: radial-gradient(circle at 50% 35%, var(--pcl), var(--pcd));
+  border-bottom: 2px solid #1b1309;
+}
+.perk-art svg { width: 40px; height: 40px; display: block; filter: drop-shadow(0 2px 0 rgba(20, 14, 8, 0.45)); }
+.perk-name {
+  width: 100%; padding: 6px 4px; margin-bottom: 9px;
+  font-family: 'Do Hyeon', sans-serif; font-size: 14px; letter-spacing: -0.03em; color: #fff6dd;
+  background: linear-gradient(var(--pc), var(--pcd));
+  border-bottom: 1px solid rgba(20, 14, 8, 0.5);
+}
+.perk-note { padding: 0 10px; font-size: 11.5px; line-height: 1.5; color: #c3b291; letter-spacing: -0.02em; }
+.perk-have { margin-top: 6px; font-size: 10px; color: #8d8068; }
+
+.reward-wait { margin: 18px 0; font-size: 13px; color: #cbbb96; }
+.reward-crew { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+.crew-dot {
+  padding: 4px 10px; border-radius: 999px; font-size: 10.5px; color: #9c8d70;
+  border: 1px solid rgba(160, 130, 90, 0.35); background: rgba(20, 14, 8, 0.5);
+}
+.crew-dot.done { color: var(--pcl); border-color: var(--pcl); }
+
+/* 카드에 쌓인 능력 */
+.perk-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.perk-chip {
+  position: relative; width: 22px; height: 22px; display: grid; place-items: center;
+  border-radius: 7px; background: rgba(20, 14, 8, 0.45); border: 1px solid var(--pcd);
+}
+.perk-chip svg { width: 13px; height: 13px; display: block; opacity: 0.9; }
+.perk-chip em {
+  position: absolute; right: -3px; bottom: -3px; font-style: normal; font-size: 9px;
+  min-width: 12px; padding: 0 2px; border-radius: 6px; text-align: center;
+  background: var(--pc); color: #1b1309;
 }
 
 

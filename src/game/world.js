@@ -4,11 +4,12 @@
    ──────────────────────────────────────────────────────────── */
 
 export const W = 1000, H = 760, CX = 500, CY = 380;
-export const R_SPAWN = 330;     // 남·북 관문까지의 거리
-export const R_SPAWN_X = 438;   // 동·서 관문까지의 거리 (화면이 가로로 넓다)
+export const R_SPAWN = 344;     // 남·북 관문까지의 거리
+export const R_SPAWN_X = 448;   // 동·서 관문까지의 거리 (화면이 가로로 넓다)
 export const R_CORE = 74;       // 성문 앞 (길이 여기서 끝난다)
 export const TOTAL_WAVES = 15;
-export const PREP = 9;
+export const PREP = 5;
+export const REWARD_T = 22;    // 보상을 고르는 시간
 
 /* ── 색 ─────────────────────────────────────────────────── */
 export const C = {
@@ -54,10 +55,11 @@ export const DIRS4 = [
 ];
 
 // 길은 직각으로만 꺾인다. 곧은 가로·세로 구간만으로 이어 붙여 네모난 굽이를 만든다.
-const AMP_Y = 166;     // 남·북 길이 좌우로 벌어지는 폭
-const AMP_X = 132;     // 동·서 길이 위아래로 벌어지는 폭
-const ENT = 0.12;      // 관문 쪽 직진 구간 (전체 깊이 대비)
-const EXT = 0.12;      // 성문 쪽 직진 구간
+const AMP_Y = 180;     // 남·북 길이 좌우로 벌어지는 폭
+const AMP_X = 153;     // 동·서 길이 위아래로 벌어지는 폭
+const ENT = 0.10;      // 관문 쪽 직진 구간 (전체 깊이 대비)
+const EXT = 0.10;      // 성문 쪽 직진 구간
+const TAPER = 0.8;     // 성채에 가까운 굽이일수록 좁게 (네 길이 서로 부딪히지 않게)
 
 export function makeLane(li) {
   const { dx, dy } = DIRS4[li];
@@ -71,10 +73,11 @@ export function makeLane(li) {
   // 이웃한 모서리끼리 r이나 w 중 하나만 달라서 모든 구간이 가로 아니면 세로가 된다.
   const span = r0 - R_CORE;
   const ent = span * ENT, ext = span * EXT;
-  const h = (span - ent - ext) / 2;              // 가로로 지른 구간 사이의 간격
-  const rA = r0 - ent, rB = rA - h, rC = rB - h;
+  const h = (span - ent - ext) / 3;              // 가로로 지른 구간 사이의 간격
+  const rA = r0 - ent, rB = rA - h, rC = rB - h, rD = rC - h;
+  const a1 = A, a2 = A * TAPER, a3 = A * TAPER * TAPER;
   const corners = [
-    [r0, 0], [rA, 0], [rA, A], [rB, A], [rB, -A], [rC, -A], [rC, 0], [R_CORE, 0],
+    [r0, 0], [rA, 0], [rA, a1], [rB, a1], [rB, -a2], [rC, -a2], [rC, a3], [rD, a3], [rD, 0], [R_CORE, 0],
   ];
   const toXY = ([r, w]) => ({ x: CX + dx * r + nx * w, y: CY + dy * r + ny * w });
 
@@ -233,25 +236,55 @@ export const SKILLS = [
   { name: "역병", cd: 35, note: "모든 적이 6초간 초당 12 피해" },
 ];
 
+// 보스를 하나 잡을 때마다 관문에서 나오는 적이 이만큼씩 세진다
+export const SURGE_HP = 0.12;
+export const SURGE_SPD = 0.045;
+
 // 성채도 스스로 싸운다
 export const CASTLE_GUN = { range: 150, dmg: 22, interval: 1.6, splash: 34 };
 
 export const ENEMY = {
-  grunt: { hp: 24, spd: 62, dmg: 4, gold: 6, r: 8, res: 0, label: "오크 보병" },
+  grunt: { hp: 34, spd: 50, dmg: 4, gold: 7, r: 8, res: 0, label: "오크 보병" },
   rusher: { hp: 15, spd: 127, dmg: 3, gold: 5, r: 7, res: 0, label: "고블린 척후" },
   armor: { hp: 58, spd: 41, dmg: 7, gold: 11, r: 10, res: 0.25, label: "중장갑 트롤" },
-  boss: { hp: 340, spd: 32, dmg: 25, gold: 60, r: 16, res: 0.15, label: "오우거 지휘관" },
-  titan: { hp: 700, spd: 24, dmg: 60, gold: 220, r: 30, res: 0.3, label: "대군주" },
+  boss: { hp: 340, spd: 32, dmg: 25, gold: 130, r: 16, res: 0.15, label: "오우거 지휘관" },
+  titan: { hp: 700, spd: 24, dmg: 60, gold: 320, r: 30, res: 0.3, label: "대군주" },
 };
 
-// 보스를 잡으면 수비대 전체가 축복을 하나 받는다
-export const BLESSINGS = [
-  { id: "power", name: "전투의 각인", note: "모든 타워 공격력 +20%" },
-  { id: "reach", name: "매의 눈", note: "모든 타워 사거리 +18" },
-  { id: "haste", name: "전장의 북", note: "모든 타워 공격 속도 +15%" },
-  { id: "riches", name: "전리품", note: "전원 골드 +180" },
-  { id: "wall", name: "성벽 보수", note: "성채 최대 체력 +40 · 완전 회복" },
+/* 보스를 잡으면 각자 셋 중 하나를 고른다.
+   대부분 고른 사람 몫이고, 성벽만 수비대 전체에 적용된다. */
+export const PERKS = [
+  { id: "power",  icon: "attack", name: "전투의 각인", note: "내 타워 공격력 +20%" },
+  { id: "reach",  icon: "range",  name: "매의 눈",     note: "내 타워 사거리 +22" },
+  { id: "haste",  icon: "speed",  name: "전장의 북",   note: "내 타워 공격 속도 +18%" },
+  { id: "crit",   icon: "crit",   name: "급소 찌르기", note: "12% 확률로 피해 두 배" },
+  { id: "chill",  icon: "frost",  name: "무거운 사슬", note: "맞은 적이 1.2초간 느려진다" },
+  { id: "gold",   icon: "gold",   name: "전리품",      note: "내가 잡은 적 골드 +25%" },
+  { id: "thrift", icon: "build",  name: "숙련된 목수", note: "건설·강화 비용 -18%" },
+  { id: "cool",   icon: "skill",  name: "빠른 준비",   note: "내 스킬 대기 시간 -20%" },
+  { id: "bank",   icon: "chest",  name: "군수 계약",   note: "웨이브를 넘길 때마다 +60 골드" },
+  { id: "wall",   icon: "shield", name: "성벽 보수",   note: "성채 최대 체력 +30 · 완전 회복" },
 ];
+export const PERK_BY_ID = Object.fromEntries(PERKS.map((p) => [p.id, p]));
+export const PERK_IDS = PERKS.map((p) => p.id);
+
+// 능력이 쌓였을 때의 값
+export const perkVal = {
+  power: (n) => 1 + 0.2 * n,
+  reach: (n) => 22 * n,
+  haste: (n) => 0.18 * n,
+  crit: (n) => 0.12 * n,
+  gold: (n) => 1 + 0.25 * n,
+  thrift: (n) => Math.max(0.3, 1 - 0.18 * n),
+  cool: (n) => Math.max(0.3, 1 - 0.2 * n),
+  bank: (n) => 60 * n,
+};
+
+// 셋을 뽑는다. 이미 많이 쌓인 것도 다시 나올 수 있게 두되, 성벽은 성채가 튼튼하면 뺀다
+export function rollPerks(g, n = 3) {
+  const pool = PERKS.filter((p) => p.id !== "wall" || g.core.max < 220);
+  return shuffle(pool).slice(0, n).map((p) => p.id);
+}
 
 /* ── 조작키 (온라인에서는 각자 자기 키보드를 쓴다) ────────── */
 export const MOVE_KEYS = {
@@ -281,6 +314,7 @@ export function makeGame(seats = [true, true, true, true, false, false]) {
       const s = SLOTS[sk(lane, slot)];
       return {
         gold: 90, cd: 0, lane, slot, built: 0, kills: 0,
+        perks: {},                      // 보스를 잡고 고른 능력 { id: 개수 }
         cx: s.x, cy: s.y, cr: CLASSES[i].range, jolt: 0, heldKeys: [], holdT: 0,
       };
     }),
@@ -298,12 +332,14 @@ export function makeGame(seats = [true, true, true, true, false, false]) {
     t: 0,
     nextId: 1,
     castle: { cd: 0, aim: Math.PI / 2, pulse: 0 },
-    bless: { power: 0, reach: 0, haste: 0 },
-    blessed: [],      // 받은 축복 id
+    surge: 0,           // 보스를 몇 번 잡았는지 (관문에서 나오는 적이 그만큼 세진다)
+    pendingReward: 0,   // 이번 웨이브가 끝나면 보상을 고른다
+    offer: null,        // 고를 수 있는 능력 [자리][셋]
+    picked: null,       // 고르기를 마친 자리
     combo: 0,
     comboT: 0,
-    banner: null,     // { text, sub, t, life, tone }
-    out: [],          // 호스트가 다른 참가자에게 보낼 연출 이벤트
+    banner: null,       // { text, sub, t, life, tone }
+    out: [],            // 호스트가 다른 참가자에게 보낼 연출 이벤트
   };
 }
 
@@ -331,8 +367,13 @@ export function buildQueue(n, players = 4) {
   const kind = waveKind(n);
   const laneCount = Math.max(1, Math.min(crew, n < 2 ? 2 : n < 4 ? 3 : 4));
   const active = shuffle([0, 1, 2, 3]).slice(0, laneCount);
-  const list = [];
+  const one = () => active[Math.floor(Math.random() * active.length)];
 
+  // 보스 웨이브에는 보스 하나만 나온다
+  if (kind === "boss") return [{ type: "boss", lane: one() }];
+  if (kind === "titan") return [{ type: "titan", lane: one() }];
+
+  const list = [];
   if (kind === "rush") {
     // 갑자기 빠른 적이 떼로 몰려온다
     const count = Math.round((10 + n * 2.6) * (0.5 + 0.13 * crew));
@@ -347,12 +388,6 @@ export function buildQueue(n, players = 4) {
     if (n >= 3 && r < 0.32) type = "rusher";
     else if (n >= 5 && r > 0.76) type = "armor";
     list.push({ type, lane: active[i % active.length] });
-  }
-  if (kind === "boss") {
-    list.push({ type: "boss", lane: active[Math.floor(Math.random() * active.length)] });
-  }
-  if (kind === "titan") {
-    list.push({ type: "titan", lane: active[Math.floor(Math.random() * active.length)] });
   }
   return list;
 }

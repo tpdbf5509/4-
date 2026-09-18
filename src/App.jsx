@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  W, H, P, CLASSES, BLESSINGS, SEATS, CREW_MAX,
+  W, H, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
   SKILLS, ENEMY, LANES, TOTAL_WAVES, PREP,
   makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
-  step, stepVisual, applyMove, doBuild, doSkill,
+  step, stepVisual, applyMove, doBuild, doSkill, applyReward,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
-import { Shield, Coin, ClassIcon } from "./ui/icons.jsx";
+import { Shield, Coin, ClassIcon, PerkIcon } from "./ui/icons.jsx";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -360,6 +360,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
     const g = makeGame(seatFlags);
     g.names = names;
     g.mySeat = mySeat;
+    if (import.meta.env.DEV) window.__G = g;    // 개발 중 상태를 들여다보려고
     g.phase = "prep";
     g.wave = 1;
     g.timer = PREP;
@@ -382,10 +383,13 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
       hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max,
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
       paused: g.paused, speed: g.speed,
-      blessed: g.blessed || [],
+      surge: g.surge || 0,
+      offer: g.phase === "reward" ? g.offer : null,
+      picked: g.phase === "reward" ? g.picked : null,
       players: g.players.map((p) => ({
         gold: Math.floor(p.gold), cd: Math.max(0, p.cd),
         lane: p.lane, slot: p.slot, built: p.built, kills: p.kills,
+        perks: PERK_IDS.filter((id) => p.perks[id]).map((id) => [id, p.perks[id]]),
       })),
     };
   }
@@ -399,6 +403,13 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
 
     const act = (kind, dir) => {
       const g = G.current;
+      if (kind === "reward") {
+        if (g.phase !== "reward") return;
+        sfx.unlock();
+        if (isHost) applyReward(g, mySeat, dir);
+        else room?.send("input", { cls: mySeat, kind, dir });
+        return;
+      }
       if (g.phase !== "prep" && g.phase !== "wave") return;
       if (g.paused) return;
       sfx.unlock();
@@ -453,6 +464,15 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
     };
   }, [isHost, mySeat, room]);
 
+  const chooseReward = useCallback((k) => {
+    const g = G.current;
+    if (mySeat < 0 || g.phase !== "reward") return;
+    sfx.unlock();
+    sfx.play("build");
+    if (isHost) applyReward(g, mySeat, k);
+    else room?.send("input", { cls: mySeat, kind: "reward", dir: k });
+  }, [isHost, mySeat, room]);
+
   /* 통신 */
   useEffect(() => {
     if (!room) return;
@@ -460,9 +480,10 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
     if (isHost) {
       offs.push(room.on("input", (d) => {
         const g = G.current;
+        if (!g.seats[d.cls]) return;
+        if (d.kind === "reward") return applyReward(g, d.cls, d.dir);
         if (g.phase !== "prep" && g.phase !== "wave") return;
         if (g.paused) return;
-        if (!g.seats[d.cls]) return;
         if (d.kind === "move") applyMove(g, d.cls, d.dir);
         else if (d.kind === "build") doBuild(g, d.cls);
         else if (d.kind === "skill") doSkill(g, d.cls);
@@ -574,6 +595,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
   const phaseLabel =
     hud.phase === "prep" ? (kindLabel ? `${kindLabel} 준비` : "배치 시간") :
     hud.phase === "wave" ? (kindLabel || "교전 중") :
+    hud.phase === "reward" ? "능력 선택" :
     hud.phase === "clear" ? "방어 성공" : "성채 함락";
   const over = hud.phase === "over" || hud.phase === "clear";
   const hpRatio = hud.hp / hud.max;
@@ -597,7 +619,8 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
               <span className="wave-num">웨이브 {hud.wave}<em>/{TOTAL_WAVES}</em></span>
               <span className="wave-sub">
                 {hud.phase === "prep" ? `${Math.ceil(hud.timer)}초 뒤 시작`
-                  : hud.phase === "wave" ? `남은 적 ${hud.left}` : "—"}
+                  : hud.phase === "wave" ? `남은 적 ${hud.left}`
+                  : hud.phase === "reward" ? `${Math.ceil(hud.timer)}초 안에 고르기` : "—"}
               </span>
             </div>
           </div>
@@ -619,12 +642,60 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
             </button>
           </div>
 
-          {hud.blessed?.length > 0 && (
-            <div className="bless-strip">
-              {hud.blessed.map((id, i) => {
-                const b = BLESSINGS.find((x) => x.id === id);
-                return <span key={i} className="bless-chip" title={b?.note}>{b?.name}</span>;
-              })}
+          {hud.surge > 0 && (
+            <div className="surge-tag" title="보스를 잡을 때마다 관문의 적이 강해집니다">
+              적 강화 {hud.surge}단계
+            </div>
+          )}
+
+          {hud.phase === "reward" && (
+            <div className="curtain reward">
+              <div className="reward-box">
+                <div className="reward-head">
+                  <h2>보스를 쓰러뜨렸다</h2>
+                  <p>
+                    {mySeat >= 0 && !hud.picked?.[mySeat]
+                      ? "능력을 하나 고르세요"
+                      : "다른 수비대원을 기다리는 중"}
+                    <em> · {Math.ceil(hud.timer)}초</em>
+                  </p>
+                </div>
+
+                {mySeat >= 0 && hud.offer?.[mySeat] && !hud.picked?.[mySeat] ? (
+                  <div className="reward-cards">
+                    {hud.offer[mySeat].map((id, k) => {
+                      const perk = PERK_BY_ID[id];
+                      const have = hud.players[mySeat]?.perks?.find((x) => x[0] === id);
+                      return (
+                        <button key={id} className="perk-card" onClick={() => chooseReward(k)}
+                          style={{ "--pc": P[mySeat].key, "--pcl": P[mySeat].light, "--pcd": P[mySeat].dark }}>
+                          <span className="perk-art"><PerkIcon kind={perk.icon} /></span>
+                          <span className="perk-name">{perk.name}</span>
+                          <span className="perk-note">{perk.note}</span>
+                          {have && <span className="perk-have">이미 {have[1]}개</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="reward-wait">
+                    {mySeat < 0 ? "구경 중입니다." : "고르기를 마쳤습니다."}
+                  </p>
+                )}
+
+                <div className="reward-crew">
+                  {hud.players.map((p, i) => {
+                    if (!seatFlags[i]) return null;
+                    return (
+                      <span key={i} className={`crew-dot ${hud.picked?.[i] ? "done" : ""}`}
+                        style={{ "--pcl": P[i].light }}>
+                        {names[i] || CLASSES[i].name}
+                        {hud.picked?.[i] ? " 완료" : " 고르는 중"}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
@@ -667,6 +738,16 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
                   <span className="coin"><Coin />{p.gold}</span>
                 </div>
                 <div className="card-note">{cls.note} · {cls.cost}골드</div>
+                {p.perks?.length > 0 && (
+                  <div className="perk-row">
+                    {p.perks.map(([id, n]) => (
+                      <span key={id} className="perk-chip" title={PERK_BY_ID[id].note}>
+                        <PerkIcon kind={PERK_BY_ID[id].icon} />
+                        {n > 1 && <em>{n}</em>}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="card-row">
                   <span>{LANES[p.lane].name} · {p.slot + 1}번 자리</span>
                   <span>건설 {p.built} · 처치 {p.kills}</span>
@@ -693,7 +774,8 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         <p className="footnote">
           자리는 네 경로에 다섯 칸씩, 모두 스무 칸입니다. 방향키를 누르면 그쪽에 있는 가장 가까운 자리로 옮겨 가고,
           경로 사이도 그대로 넘어갑니다. 같은 자리에 자기 타워를 다시 지으면 4단계까지 강화됩니다.
-          성채도 스스로 대포를 쏘고, 보스를 잡으면 수비대 전체가 축복을 하나 받습니다.
+          성채도 스스로 대포를 쏩니다. 다섯 웨이브마다 보스가 하나 오고, 잡으면 각자 능력을 하나 고릅니다.
+          대신 그때부터 관문에서 나오는 적이 조금씩 강해집니다.
           {mySeat < 0 && " 지금은 구경 중이라 조작할 수 없습니다."}
         </p>
       </div>

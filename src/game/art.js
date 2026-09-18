@@ -580,7 +580,7 @@ export function drawCastleGun(ctx, g, time) {
 }
 
 /* ── 타워 터 ────────────────────────────────────────────── */
-export function drawPad(ctx, s, occupied, time) {
+export function drawPad(ctx, s, occupied, time, hover) {
   shadow(ctx, s.x, s.y + 7, 21, 8, 0.26);
   // 흙더미 + 돌판(옆면을 먼저 그려 두께를 준다)
   ctx.beginPath(); ctx.ellipse(s.x, s.y + 4, 21, 13, 0, 0, Math.PI * 2);
@@ -589,6 +589,17 @@ export function drawPad(ctx, s, occupied, time) {
   inkPath(ctx, occupied ? "#b0a68f" : "#a89d86", 1.6);
   ctx.fillStyle = "rgba(255,255,255,0.2)";
   ctx.beginPath(); ctx.ellipse(s.x, s.y - 3, 14, 7, 0, Math.PI, Math.PI * 2); ctx.fill();
+
+  // 마우스가 올라간 자리
+  if (hover) {
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,243,206,0.95)";
+    ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, 24, 15, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "rgba(255,243,206,0.16)";
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, 24, 15, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
 
   if (!occupied) {
     const pulse = 0.45 + 0.25 * Math.sin(time * 2.4 + s.x * 0.05);
@@ -1612,7 +1623,7 @@ export function draw(ctx, g, bg) {
   }
 
   // 타워 터
-  SLOTS.forEach((s, i) => drawPad(ctx, s, !!g.towers[i], g.t));
+  SLOTS.forEach((s, i) => drawPad(ctx, s, !!g.towers[i], g.t, g.hover === i));
 
   // 성채 · 타워 · 적을 y 순서로 겹쳐 그리기
   const layers = [{ y: CY + 30, kind: "castle" }];

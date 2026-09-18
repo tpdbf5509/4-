@@ -243,7 +243,7 @@ export const ENEMY = {
   grunt: { hp: 34, spd: 50, dmg: 4, gold: 7, r: 8, res: 0, label: "오크 보병" },
   rusher: { hp: 15, spd: 127, dmg: 3, gold: 5, r: 7, res: 0, label: "고블린 척후" },
   armor: { hp: 58, spd: 41, dmg: 7, gold: 11, r: 10, res: 0.25, label: "중장갑 트롤" },
-  boss: { hp: 340, spd: 32, dmg: 25, gold: 130, r: 16, res: 0.15, label: "오우거 지휘관" },
+  boss: { hp: 200, spd: 32, dmg: 25, gold: 130, r: 16, res: 0.15, label: "오우거 지휘관" },
   titan: { hp: 700, spd: 24, dmg: 60, gold: 320, r: 30, res: 0.3, label: "대군주" },
 };
 

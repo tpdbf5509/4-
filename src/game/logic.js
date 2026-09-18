@@ -40,6 +40,17 @@ export function applyMove(g, pi, act) {
   p.jolt = 0.2;
 }
 
+// 마우스로 자리를 직접 고른다
+export function applyGoto(g, pi, i) {
+  const p = g.players[pi];
+  const s = SLOTS[i];
+  if (!s) return;
+  if (p.lane === s.lane && p.slot === s.idx) return;
+  p.lane = s.lane;
+  p.slot = s.idx;
+  p.jolt = 0.2;
+}
+
 export function say(g, x, y, text, color) {
   fx(g, { kind: "text", x, y, text, color, t: 1.1, life: 1.1 });
 }

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  W, H, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
+  W, H, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
   SKILLS, ENEMY, LANES, TOTAL_WAVES, PREP,
   makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
-  step, stepVisual, applyMove, doBuild, doSkill, applyReward,
+  step, stepVisual, applyMove, applyGoto, doBuild, doSkill, applyReward,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
@@ -394,34 +394,39 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
     };
   }
 
-  /* 입력 — 자기 병과만 조작한다 */
+  /* 한 번의 조작 — 방장은 바로 판정하고, 손님은 방장에게 보낸다 */
+  const act = useCallback((kind, dir) => {
+    const g = G.current;
+    if (mySeat < 0) return;
+    if (kind === "reward") {
+      if (g.phase !== "reward") return;
+      sfx.unlock();
+      if (isHost) applyReward(g, mySeat, dir);
+      else room?.send("input", { cls: mySeat, kind, dir });
+      return;
+    }
+    if (g.phase !== "prep" && g.phase !== "wave") return;
+    if (g.paused) return;
+    sfx.unlock();
+    if (isHost) {
+      if (kind === "move") applyMove(g, mySeat, dir);
+      else if (kind === "goto") applyGoto(g, mySeat, dir);
+      else if (kind === "build") doBuild(g, mySeat);
+      else doSkill(g, mySeat);
+    } else {
+      // 내 커서는 바로 움직이고, 판정은 방장에게 맡긴다
+      if (kind === "move") applyMove(g, mySeat, dir);
+      else if (kind === "goto") applyGoto(g, mySeat, dir);
+      room?.send("input", { cls: mySeat, kind, dir });
+    }
+  }, [isHost, mySeat, room]);
+
+  /* 키보드 — 자기 병과만 조작한다 */
   useEffect(() => {
     if (mySeat < 0) return;
     const held = [];
     let holdT = 0;
     let timer = null;
-
-    const act = (kind, dir) => {
-      const g = G.current;
-      if (kind === "reward") {
-        if (g.phase !== "reward") return;
-        sfx.unlock();
-        if (isHost) applyReward(g, mySeat, dir);
-        else room?.send("input", { cls: mySeat, kind, dir });
-        return;
-      }
-      if (g.phase !== "prep" && g.phase !== "wave") return;
-      if (g.paused) return;
-      sfx.unlock();
-      if (isHost) {
-        if (kind === "move") applyMove(g, mySeat, dir);
-        else if (kind === "build") doBuild(g, mySeat);
-        else doSkill(g, mySeat);
-      } else {
-        if (kind === "move") applyMove(g, mySeat, dir);   // 내 커서는 바로 움직이고
-        room?.send("input", { cls: mySeat, kind, dir }); // 판정은 방장에게 맡긴다
-      }
-    };
 
     const tick = () => {
       if (!held.length) return;
@@ -462,16 +467,56 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
       window.removeEventListener("blur", onBlur);
       if (timer) clearInterval(timer);
     };
-  }, [isHost, mySeat, room]);
+  }, [act, mySeat]);
+
+  /* 마우스 — 자리를 눌러 바로 옮겨 간다 */
+  useEffect(() => {
+    const cvs = cvsRef.current;
+    if (!cvs) return;
+
+    // 화면 좌표를 판 좌표로 옮기고, 그 자리에 있는 돌판을 찾는다
+    const slotAt = (e) => {
+      const r = cvs.getBoundingClientRect();
+      if (!r.width || !r.height) return -1;
+      const x = (e.clientX - r.left) * (W / r.width);
+      const y = (e.clientY - r.top) * (H / r.height);
+      let best = -1, bd = Infinity;
+      for (let i = 0; i < SLOTS.length; i++) {
+        const dx = (SLOTS[i].x - x) / 26, dy = (SLOTS[i].y - y) / 21;
+        const d = dx * dx + dy * dy;
+        if (d <= 1 && d < bd) { bd = d; best = i; }
+      }
+      return best;
+    };
+
+    const onMove = (e) => {
+      const i = slotAt(e);
+      G.current.hover = i;
+      cvs.style.cursor = i >= 0 && mySeat >= 0 ? "pointer" : "default";
+    };
+    const onDown = (e) => {
+      if (e.button !== 0) return;
+      const i = slotAt(e);
+      if (i < 0) return;
+      e.preventDefault();
+      act("goto", i);
+    };
+    const onLeave = () => { G.current.hover = -1; };
+
+    cvs.addEventListener("pointermove", onMove);
+    cvs.addEventListener("pointerdown", onDown);
+    cvs.addEventListener("pointerleave", onLeave);
+    return () => {
+      cvs.removeEventListener("pointermove", onMove);
+      cvs.removeEventListener("pointerdown", onDown);
+      cvs.removeEventListener("pointerleave", onLeave);
+    };
+  }, [act, mySeat]);
 
   const chooseReward = useCallback((k) => {
-    const g = G.current;
-    if (mySeat < 0 || g.phase !== "reward") return;
-    sfx.unlock();
     sfx.play("build");
-    if (isHost) applyReward(g, mySeat, k);
-    else room?.send("input", { cls: mySeat, kind: "reward", dir: k });
-  }, [isHost, mySeat, room]);
+    act("reward", k);
+  }, [act]);
 
   /* 통신 */
   useEffect(() => {
@@ -485,6 +530,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         if (g.phase !== "prep" && g.phase !== "wave") return;
         if (g.paused) return;
         if (d.kind === "move") applyMove(g, d.cls, d.dir);
+        else if (d.kind === "goto") applyGoto(g, d.cls, d.dir);
         else if (d.kind === "build") doBuild(g, d.cls);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
@@ -762,6 +808,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
                 {mine && (
                   <div className="keys">
                     <kbd>{KEY_HINT.move}</kbd><span>이동</span>
+                    <kbd>클릭</kbd><span>그 자리로</span>
                     <kbd>{KEY_HINT.build}</kbd><span>건설</span>
                     <kbd>{KEY_HINT.skill}</kbd><span>스킬</span>
                   </div>
@@ -772,8 +819,8 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
         </div>
 
         <p className="footnote">
-          길가의 돌판마다 타워를 세울 수 있습니다. 방향키를 누르면 그쪽에 있는 가장 가까운 자리로 옮겨 가고,
-          경로 사이도 그대로 넘어갑니다. 같은 자리에 자기 타워를 다시 지으면 4단계까지 강화됩니다.
+          길가의 돌판마다 타워를 세울 수 있습니다. 돌판을 마우스로 눌러 바로 옮겨 갈 수 있고,
+          방향키를 누르면 그쪽에 있는 가장 가까운 자리로 한 칸씩 옮겨 갑니다. 같은 자리에 자기 타워를 다시 지으면 4단계까지 강화됩니다.
           성채도 스스로 대포를 쏩니다. 다섯 웨이브마다 보스가 하나 오고, 잡으면 각자 능력을 하나 고릅니다.
           대신 그때부터 관문에서 나오는 적이 조금씩 강해집니다.
           {mySeat < 0 && " 지금은 구경 중이라 조작할 수 없습니다."}

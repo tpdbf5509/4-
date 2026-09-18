@@ -125,12 +125,16 @@ export function doSkill(g, pi) {
   if (id === "archer") {
     g.focus = 8 * amp;
     banner(g, "집중 사격", "궁수탑 피해가 두 배로", col);
-  } else if (id === "frost") {
-    g.enemies.forEach((e) => {
-      e.freeze = Math.max(e.freeze, 4 * amp);
-      fx(g, { kind: "ice", x: e.x, y: e.y, t: 0.5, life: 0.5 });
-    });
-    banner(g, "한파", "모든 적이 얼어붙는다", col);
+  } else if (id === "sniper") {
+    let big = null;
+    g.enemies.forEach((e) => { if (!e.dead && (!big || e.hp > big.hp)) big = e; });
+    if (big) {
+      fx(g, { kind: "mark", x: big.x, y: big.y - 6, t: 0.6, life: 0.6, color: col });
+      fx(g, { kind: "slash", x: big.x, y: big.y - 4, t: 0.4, life: 0.4 });
+      hurt(g, big, 250 * amp, pi, true);
+      g.shake = Math.max(g.shake, 0.4);
+    }
+    banner(g, "결정타", "가장 단단한 적을 노린다", col);
   } else if (id === "cannon") {
     g.enemies.forEach((e) => {
       hurt(g, e, 45 * amp, pi, true);
@@ -138,13 +142,6 @@ export function doSkill(g, pi) {
     });
     g.shake = 0.45;
     banner(g, "융단 폭격", "전장 전체에 포격", col);
-  } else if (id === "supply") {
-    g.players.forEach((q, i) => { if (g.seats[i]) q.gold += 45 * amp; });
-    g.core.hp = Math.min(g.core.max, g.core.hp + 12 * amp);
-    for (let i = 0; i < 6; i++) {
-      fx(g, { kind: "coin", x: CX + (Math.random() - 0.5) * 70, y: CY + 20, t: 0.9, life: 0.9 });
-    }
-    banner(g, "긴급 보급", "전원 45 골드 · 성채 회복", col);
   } else if (id === "bolt") {
     g.enemies.forEach((e) => {
       fx(g, { kind: "zap", x: e.x, y: e.y - 70, x2: e.x, y2: e.y, t: 0.26, life: 0.26 });
@@ -153,12 +150,57 @@ export function doSkill(g, pi) {
     });
     g.shake = Math.max(g.shake, 0.3);
     banner(g, "뇌우", "하늘에서 번개가 떨어진다", col);
-  } else {
+  } else if (id === "flame") {
+    g.enemies.forEach((e) => {
+      e.burn = Math.max(e.burn || 0, 6);
+      e.bdps = Math.max(e.bdps || 0, 16 * amp);
+      e.bby = pi;
+      fx(g, { kind: "flame", x: e.x, y: e.y - 4, t: 0.5, life: 0.5 });
+    });
+    g.shake = Math.max(g.shake, 0.25);
+    banner(g, "화염 폭풍", "전장이 불바다가 된다", col);
+  } else if (id === "poison") {
     g.enemies.forEach((e) => {
       applyPoison(e, 12 * amp, 6, pi);
       fx(g, { kind: "fume", x: e.x, y: e.y - 4, t: 0.5, life: 0.5 });
     });
     banner(g, "역병", "모든 적이 6초간 병든다", col);
+  } else if (id === "frost") {
+    g.enemies.forEach((e) => {
+      e.freeze = Math.max(e.freeze, 4 * amp);
+      fx(g, { kind: "ice", x: e.x, y: e.y, t: 0.5, life: 0.5 });
+    });
+    banner(g, "한파", "모든 적이 얼어붙는다", col);
+  } else if (id === "gravity") {
+    g.enemies.forEach((e) => {
+      e.p = Math.max(0, e.p - 0.12 * amp);
+      e.freeze = Math.max(e.freeze, 2 * amp);
+      const pos = posAt(e.lane, e.p);
+      e.x = pos.x; e.y = pos.y;
+      fx(g, { kind: "vortex", x: e.x, y: e.y, r: 40, t: 0.6, life: 0.6 });
+    });
+    g.shake = Math.max(g.shake, 0.35);
+    banner(g, "블랙홀", "모두 뒤로 끌려간다", col);
+  } else if (id === "supply") {
+    g.players.forEach((q, i) => { if (g.seats[i]) q.gold += 45 * amp; });
+    g.core.hp = Math.min(g.core.max, g.core.hp + 12 * amp);
+    for (let i = 0; i < 6; i++) {
+      fx(g, { kind: "coin", x: CX + (Math.random() - 0.5) * 70, y: CY + 20, t: 0.9, life: 0.9 });
+    }
+    banner(g, "긴급 보급", "전원 45 골드 · 성채 회복", col);
+  } else if (id === "corrode") {
+    g.enemies.forEach((e) => {
+      e.shred = Math.max(e.shred || 0, 8 * amp);
+      e.shredAmt = Math.max(e.shredAmt || 0, 0.4);
+      fx(g, { kind: "acid", x: e.x, y: e.y - 4, t: 0.5, life: 0.5 });
+    });
+    banner(g, "산성비", "적의 갑옷이 녹아내린다", col);
+  } else {
+    g.sanctuary = 8 * amp;
+    g.core.hp = Math.min(g.core.max, g.core.hp + 20 * amp);
+    fx(g, { kind: "ring", x: CX, y: CY, r: 220, color: col, t: 0.8, life: 0.8 });
+    fx(g, { kind: "heal", x: CX, y: CY - 20, text: `+${Math.round(20 * amp)}`, t: 1.1, life: 1.1 });
+    banner(g, "성역", "성채를 빛이 감싼다", col);
   }
 }
 
@@ -221,7 +263,8 @@ function advanceWave(g) {
 /* ── 피해 ───────────────────────────────────────────────── */
 export function hurt(g, e, dmg, byPlayer, ignoreRes) {
   if (e.dead) return;
-  const d = ignoreRes ? dmg : dmg * (1 - ENEMY[e.type].res);
+  const res = Math.max(0, ENEMY[e.type].res - (e.shred > 0 ? e.shredAmt : 0));
+  const d = ignoreRes ? dmg : dmg * (1 - res);
   e.hp -= d;
   e.flash = 0.12;
   const big = e.type === "boss" || e.type === "titan";
@@ -408,6 +451,7 @@ export function step(g, dt) {
   // 키를 누르고 있을 때의 연속 이동은 각 참가자 브라우저에서 처리한다
   g.players.forEach((p) => { if (p.cd > 0) p.cd -= dt; });
   if (g.focus > 0) g.focus -= dt;
+  if (g.sanctuary > 0) g.sanctuary -= dt;
 
   if (g.phase === "prep") {
     g.timer -= dt;
@@ -547,12 +591,19 @@ export function step(g, dt) {
     if (cg.pulse > 0) cg.pulse -= dt;
   }
 
+  // 성기사탑 — 서 있는 것만으로 성채를 지킨다
+  {
+    let ward = 0;
+    g.towers.forEach((t) => { if (t && t.type === "paladin" && !(t.warm > 0)) ward += TOWER_BY_ID.paladin.ward * t.lv; });
+    g.ward = Math.min(0.45, ward);
+  }
+
   // 타워 사격
   g.towers.forEach((t, i) => {
     if (!t) return;
     if (t.pulse > 0) t.pulse -= dt;
     const def = tdef(t);
-    if (!def.interval) return;                 // 보급소는 쏘지 않는다
+    if (!def.interval) return;                 // 보급소·성기사탑은 쏘지 않는다
     const s = SLOTS[i];
     if (t.warm > 0) { t.warm -= dt; return; }        // 짓고 나서 자리를 잡는 중
     const cmd = perkVal.command(teamPerk(g, "command"));
@@ -567,11 +618,44 @@ export function step(g, dt) {
     });
     t.cd -= dt * mul;
     const range = towerRange(g, t);
+
+    // 범위에 들어온 적 모두를 상대하는 탑 (화염·중력)
+    if (def.aura) {
+      if (t.cd > 0) return;
+      const inRange = g.enemies.filter((e) => !e.dead && Math.hypot(e.x - s.x, e.y - s.y) <= range);
+      if (!inRange.length) { t.cd = 0; return; }
+      t.cd = def.interval;
+      t.pulse = 0.4;
+      if (def.aura === "burn") {
+        const dps = def.burn * (1 + 0.5 * (t.lv - 1)) * perkVal.power(perkN(g, t.owner, "power"));
+        inRange.forEach((e) => {
+          e.burn = Math.max(e.burn || 0, def.burnT);
+          e.bdps = Math.max(e.bdps || 0, dps);
+          e.bby = t.owner;
+        });
+        fx(g, { kind: "firering", x: s.x, y: s.y - 6, r: range, t: 0.5, life: 0.5 });
+      } else {
+        // 중력탑 — 지나간 만큼 뒤로 당기고 잠깐 붙잡는다
+        const back = def.pull * (1 + 0.45 * (t.lv - 1));
+        inRange.forEach((e) => {
+          e.p = Math.max(0, e.p - back);
+          e.freeze = Math.max(e.freeze, 0.5);
+          const pos = posAt(e.lane, e.p);
+          e.x = pos.x; e.y = pos.y;
+        });
+        fx(g, { kind: "vortex", x: s.x, y: s.y - 6, r: range, t: 0.6, life: 0.6 });
+      }
+      if (g.out) g.out.push({ k: "shot", si: i, x: s.x, y: s.y, tx: s.x, ty: s.y, owner: t.owner, aura: def.aura });
+      return;
+    }
+
+    // 하나를 고른다. 저격탑은 가장 단단한 적을, 나머지는 가장 앞선 적을
     let target = null;
     for (const e of g.enemies) {
       if (e.dead) continue;
       if (Math.hypot(e.x - s.x, e.y - s.y) > range) continue;
-      if (!target || e.p > target.p) target = e;
+      if (!target) { target = e; continue; }
+      if (def.pickBig ? e.hp > target.hp : e.p > target.p) target = e;
     }
     if (target) t.aim = Math.atan2(target.y - (s.y - 20), target.x - s.x);
     if (t.cd > 0) return;
@@ -582,8 +666,9 @@ export function step(g, dt) {
     const crit = Math.random() < perkVal.crit(perkN(g, t.owner, "crit"));
     if (crit) dmg *= 2;
     const chill = perkN(g, t.owner, "chill") > 0;
-    const kind = { archer: "arrow", cannon: "ball", frost: "shard", bolt: "bolt", poison: "orb" }[t.type] || "arrow";
-    const speed = t.type === "cannon" ? 300 : t.type === "bolt" ? 900 : 470;
+    const kind = { archer: "arrow", sniper: "slug", cannon: "ball", frost: "shard",
+      bolt: "bolt", poison: "orb", corrode: "acid" }[t.type] || "arrow";
+    const speed = t.type === "cannon" ? 300 : t.type === "bolt" ? 900 : t.type === "sniper" ? 1200 : 470;
     g.bullets.push({
       x: s.x, y: s.y - 20, tx: target.x, ty: target.y, target, dmg,
       owner: t.owner, crit,
@@ -591,6 +676,7 @@ export function step(g, dt) {
       slow: def.slow || (chill ? 0.82 : 0), slowT: def.slowT || (chill ? 1.2 : 0),
       chain: def.chain || 0, poison: def.poison ? def.poison * (1 + 0.5 * (t.lv - 1)) : 0,
       poisonT: def.poisonT || 0,
+      shred: def.shred || 0, shredT: def.shredT || 0,
       speed, kind,
       travel: 0, total: Math.max(1, Math.hypot(target.x - s.x, target.y - s.y + 20)),
       vx: target.x - s.x, vy: target.y - (s.y - 20),
@@ -640,6 +726,11 @@ export function step(g, dt) {
           applyPoison(tg, b.poison, b.poisonT, b.owner);
           fx(g, { kind: "fume", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
         }
+        if (b.shred) {
+          tg.shred = Math.max(tg.shred || 0, b.shredT);
+          tg.shredAmt = Math.max(tg.shredAmt || 0, b.shred);
+          fx(g, { kind: "acid", x: b.tx, y: b.ty, t: 0.45, life: 0.45 });
+        }
       }
       return false;
     }
@@ -653,6 +744,7 @@ export function step(g, dt) {
     e.age += dt;
     if (e.flash > 0) e.flash -= dt;
     if (e.dead) return;
+    if (e.shred > 0) e.shred -= dt;
     if (e.burn > 0) {
       e.burn -= dt;
       e.btick = (e.btick || 0) + dt;
@@ -684,6 +776,8 @@ export function step(g, dt) {
       const heavy = e.type === "boss" || e.type === "titan";
       let take = ENEMY[e.type].dmg * perkVal.guard(teamPerk(g, "guard"));
       if (heavy) take *= perkVal.bulwark(teamPerk(g, "bulwark"));
+      take *= 1 - (g.ward || 0);                 // 성기사탑
+      if (g.sanctuary > 0) take *= 0.4;          // 성역
       if (take < ENEMY[e.type].dmg - 0.5) {
         fx(g, { kind: "ring", x: CX, y: CY, r: 90, color: "#9fd8ff", t: 0.5, life: 0.5 });
       }

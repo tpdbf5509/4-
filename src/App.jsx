@@ -277,7 +277,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
           <div>
             <h1>대기실</h1>
             <p className="tag">
-              병과 여섯 가운데 넷을 고릅니다. 맡은 병과의 탑만 지을 수 있으니 서로 겹치지 않게 나눠 보세요.
+              병과 열하나 가운데 넷을 고릅니다. 맡은 병과의 탑만 지을 수 있으니 공격·제어·지원을 섞어 보세요.
               방장이 시작하면 모두의 화면에서 함께 시작합니다.
             </p>
           </div>
@@ -337,6 +337,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
               >
                 <span className="seat-badge"><ClassIcon i={i} /></span>
                 <span className="seat-name">{cls.name} <em>{cls.cost}골드</em></span>
+                <span className="seat-role">{cls.role}</span>
                 <span className="seat-note">{cls.note}</span>
                 <span className="seat-skill">
                   <b>{SKILLS[i].name}</b> {SKILLS[i].note}

@@ -666,6 +666,11 @@ export function drawTower(ctx, t, s, time, g) {
   else if (kind === "frost") drawFrostTower(ctx, lv, col, time, t, recoil);
   else if (kind === "bolt") drawBoltTower(ctx, lv, col, time, t, recoil);
   else if (kind === "poison") drawPoisonTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "sniper") drawSniperTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "flame") drawFlameTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "gravity") drawGravityTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "corrode") drawCorrodeTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "paladin") drawPaladinTower(ctx, lv, col, time, t, recoil);
   else drawSupplyTower(ctx, lv, col, time, t, recoil);
 
   ctx.restore();
@@ -1046,6 +1051,227 @@ export function drawPoisonTower(ctx, lv, col, time, t, recoil) {
   }
 }
 
+export function drawSniperTower(ctx, lv, col, time, t, recoil) {
+  const h = 34 + lv * 6;
+  towerBase(ctx, 26, h);
+  // 좁은 창
+  ctx.beginPath(); roundRect(ctx, -3, -h + 8, 6, 12, 3);
+  inkPath(ctx, "#3d3a4b", 1.2);
+  // 관측대
+  ctx.beginPath(); roundRect(ctx, -20, -h - 10, 40, 11, 4);
+  inkPath(ctx, col.dark, 1.8);
+  ctx.fillStyle = col.key;
+  roundRect(ctx, -20, -h - 11, 40, 7, 4); ctx.fill();
+  // 모래주머니
+  [-15, 15].forEach((x) => {
+    ctx.beginPath(); ctx.ellipse(x, -h - 12, 8, 4.6, 0, 0, Math.PI * 2);
+    inkPath(ctx, "#b9a887", 1.3);
+  });
+  // 저격수와 긴 총열
+  const aim = t.aim || 0;
+  ctx.save();
+  ctx.translate(0, -h - 19);
+  ctx.beginPath(); roundRect(ctx, -5, -1, 10, 9, 4);
+  inkPath(ctx, col.dark, 1.5);
+  ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2);
+  inkPath(ctx, "#e8cfa8", 1.5);
+  ctx.save();
+  ctx.rotate(aim);
+  const back = recoil * 7;
+  ctx.beginPath(); roundRect(ctx, -6 - back, -2.6, 34 + lv * 2, 5.2, 2.6);
+  inkPath(ctx, "#2f2f38", 1.5);
+  ctx.fillStyle = "#565663";
+  roundRect(ctx, -4 - back, -1.6, 26 + lv * 2, 1.8, 1); ctx.fill();
+  // 조준경
+  ctx.beginPath(); roundRect(ctx, 2 - back, -7.4, 12, 4.4, 2);
+  inkPath(ctx, "#3d3a4b", 1.2);
+  if (recoil > 0.3) {
+    ctx.globalAlpha = recoil;
+    const gl = ctx.createRadialGradient(30, 0, 0, 30, 0, 18);
+    gl.addColorStop(0, "rgba(255,246,210,0.95)");
+    gl.addColorStop(1, "rgba(200,180,255,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.arc(30, 0, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  ctx.restore();
+}
+
+export function drawFlameTower(ctx, lv, col, time, t, recoil) {
+  const h = 24 + lv * 4;
+  towerBase(ctx, 30, h);
+  // 화덕
+  ctx.beginPath(); ctx.ellipse(0, -h - 4, 16, 9, 0, 0, Math.PI * 2);
+  inkPath(ctx, "#4a3a34", 1.8);
+  ctx.beginPath(); ctx.ellipse(0, -h - 7, 13, 6.5, 0, 0, Math.PI * 2);
+  inkPath(ctx, "#8a4a2a", 1.4);
+  // 불길
+  const wob = Math.sin(time * 7) * 2;
+  for (let k = 0; k < 3; k++) {
+    const ph = ((time * 1.2 + k * 0.33) % 1);
+    const x = (k - 1) * 7 + Math.sin(time * 5 + k) * 2;
+    const y = -h - 12 - ph * 20;
+    const r = 7 + k * 1.5 - ph * 3;
+    const gl = ctx.createRadialGradient(x, y, 0, x, y, Math.max(2, r));
+    gl.addColorStop(0, `rgba(255,240,180,${0.95 - ph * 0.6})`);
+    gl.addColorStop(0.55, `rgba(245,140,45,${0.8 - ph * 0.6})`);
+    gl.addColorStop(1, "rgba(190,50,20,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.arc(x, y, Math.max(2, r), 0, Math.PI * 2); ctx.fill();
+  }
+  // 심지 셋
+  [-9, 0, 9].forEach((x, i) => {
+    ctx.beginPath();
+    ctx.moveTo(x, -h - 7);
+    ctx.quadraticCurveTo(x + wob * (i - 1), -h - 16, x, -h - 22 - lv);
+    ctx.strokeStyle = "rgba(255,170,70,0.9)";
+    ctx.lineWidth = 3.4; ctx.lineCap = "round";
+    ctx.stroke();
+  });
+  ctx.lineCap = "butt";
+  // 기름통
+  ctx.beginPath(); roundRect(ctx, 18, -h - 2, 11, 14, 3.5);
+  inkPath(ctx, "#7a3b28", 1.5);
+  ctx.fillStyle = "#c0392b";
+  roundRect(ctx, 18, -h + 3, 11, 2.4, 1); ctx.fill();
+}
+
+export function drawGravityTower(ctx, lv, col, time, t) {
+  const h = 30 + lv * 5;
+  // 떠 있는 기둥
+  ctx.beginPath();
+  ctx.moveTo(-14, 2); ctx.lineTo(-9, -h * 0.55); ctx.lineTo(9, -h * 0.55); ctx.lineTo(14, 2);
+  ctx.closePath();
+  inkPath(ctx, col.dark, 2);
+  ctx.fillStyle = col.key;
+  ctx.beginPath();
+  ctx.moveTo(-14, 2); ctx.lineTo(-9, -h * 0.55); ctx.lineTo(0, -h * 0.55); ctx.lineTo(-3, 2);
+  ctx.closePath(); ctx.fill();
+
+  // 떠 있는 돌 세 조각
+  for (let k = 0; k < 3; k++) {
+    const a = time * 1.4 + (k / 3) * Math.PI * 2;
+    const x = Math.cos(a) * 20, y = -h * 0.75 + Math.sin(a) * 8;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(a * 1.5);
+    ctx.beginPath(); roundRect(ctx, -4, -3, 8, 6, 2);
+    inkPath(ctx, "#8a7f96", 1.2);
+    ctx.restore();
+  }
+
+  // 소용돌이
+  const cy = -h - 6;
+  const gl = ctx.createRadialGradient(0, cy, 1, 0, cy, 26);
+  gl.addColorStop(0, "rgba(30,10,40,0.95)");
+  gl.addColorStop(0.5, `rgba(${193},${86},${159},0.55)`);
+  gl.addColorStop(1, "rgba(193,86,159,0)");
+  ctx.fillStyle = gl;
+  ctx.beginPath(); ctx.arc(0, cy, 26, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(0, cy);
+  ctx.strokeStyle = "rgba(240,180,225,0.85)";
+  ctx.lineWidth = 2;
+  for (let k = 0; k < 3; k++) {
+    ctx.beginPath();
+    for (let i = 0; i <= 16; i++) {
+      const a = time * 3 + (k / 3) * Math.PI * 2 + i * 0.32;
+      const r = 4 + i * 1.1;
+      const x = Math.cos(a) * r, y = Math.sin(a) * r * 0.45;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(0, cy, 5 + lv * 0.6, 0, Math.PI * 2);
+  inkPath(ctx, "#2a1030", 1.4, "rgba(240,180,225,0.9)");
+}
+
+export function drawCorrodeTower(ctx, lv, col, time, t, recoil) {
+  const h = 26 + lv * 4;
+  towerBase(ctx, 28, h);
+  // 증류기
+  ctx.beginPath(); ctx.ellipse(0, -h - 8, 13, 11, 0, 0, Math.PI * 2);
+  inkPath(ctx, "#2f4f48", 1.8);
+  ctx.beginPath(); ctx.ellipse(0, -h - 10, 10.5, 5, 0, 0, Math.PI * 2);
+  inkPath(ctx, col.key, 1.3, "rgba(20,60,50,0.7)");
+  // 관
+  ctx.strokeStyle = "#7d8f8a"; ctx.lineWidth = 3.4; ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(10, -h - 12);
+  ctx.quadraticCurveTo(24, -h - 14, 22, -h - 2);
+  ctx.stroke();
+  ctx.lineCap = "butt";
+  // 떨어지는 방울
+  const ph = (time * 1.3) % 1;
+  ctx.fillStyle = col.light;
+  ctx.beginPath(); ctx.ellipse(22, -h - 2 + ph * 14, 2.6, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1 - ph;
+  ctx.beginPath(); ctx.ellipse(22, -h + 12, 6 * ph, 2.4 * ph, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  // 거품
+  for (let k = 0; k < 3; k++) {
+    const p = ((time * 0.9 + k * 0.33) % 1);
+    ctx.globalAlpha = 0.7 * (1 - p);
+    ctx.fillStyle = col.light;
+    ctx.beginPath(); ctx.arc(Math.sin(k * 2 + time) * 6, -h - 12 - p * 14, 2 + p * 3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (recoil > 0.2) {
+    ctx.globalAlpha = recoil * 0.8;
+    ctx.fillStyle = col.light;
+    ctx.beginPath(); ctx.arc(0, -h - 10, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+export function drawPaladinTower(ctx, lv, col, time) {
+  const h = 30 + lv * 5;
+  towerBase(ctx, 28, h);
+  // 지붕
+  ctx.beginPath();
+  ctx.moveTo(0, -h - 26); ctx.lineTo(24, -h + 1); ctx.lineTo(-24, -h + 1); ctx.closePath();
+  inkPath(ctx, col.dark, 2);
+  ctx.beginPath();
+  ctx.moveTo(0, -h - 26); ctx.lineTo(4, -h + 1); ctx.lineTo(-24, -h + 1); ctx.closePath();
+  ctx.fillStyle = col.key; ctx.fill();
+  // 성스러운 창
+  ctx.beginPath(); roundRect(ctx, -5, -h * 0.72, 10, 14, 5);
+  inkPath(ctx, "#f2efdf", 1.3, "rgba(70,90,110,0.7)");
+  // 방패 문장
+  const bob = Math.sin(time * 2) * 2;
+  ctx.save();
+  ctx.translate(0, -h - 12 + bob);
+  const gl = ctx.createRadialGradient(0, 0, 1, 0, 0, 22);
+  gl.addColorStop(0, "rgba(232,244,255,0.85)");
+  gl.addColorStop(1, "rgba(150,190,230,0)");
+  ctx.fillStyle = gl;
+  ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0, -10);
+  ctx.lineTo(9, -6.5);
+  ctx.lineTo(9, 2);
+  ctx.quadraticCurveTo(9, 8, 0, 11);
+  ctx.quadraticCurveTo(-9, 8, -9, 2);
+  ctx.lineTo(-9, -6.5);
+  ctx.closePath();
+  inkPath(ctx, "#eef4fb", 1.6, "rgba(70,100,130,0.8)");
+  ctx.strokeStyle = col.dark; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, 6); ctx.moveTo(-4.5, -1); ctx.lineTo(4.5, -1); ctx.stroke();
+  ctx.restore();
+  // 바닥에 도는 빛 고리
+  ctx.save();
+  ctx.globalAlpha = 0.45 + 0.2 * Math.sin(time * 2.2);
+  ctx.strokeStyle = "rgba(210,232,250,0.9)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([7, 7]);
+  ctx.lineDashOffset = -time * 20;
+  ctx.beginPath(); ctx.ellipse(0, 3, 26, 14, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  ctx.setLineDash([]);
+}
+
 /* ── 적 ─────────────────────────────────────────────────── */
 export function drawEnemy(ctx, e, time) {
   const cfg = ENEMY[e.type];
@@ -1111,6 +1337,13 @@ export function drawEnemy(ctx, e, time) {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  } else if (e.shred > 0) {
+    ctx.strokeStyle = "rgba(95,211,182,0.85)";
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([4, 4]);
+    ctx.lineDashOffset = -time * 16;
+    ctx.beginPath(); ctx.ellipse(e.x, e.y - 2 * s, 12 * s, 14 * s, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
   } else if (e.poison > 0) {
     ctx.fillStyle = "rgba(150,220,90,0.45)";
     for (let k = 0; k < 4; k++) {
@@ -1459,6 +1692,24 @@ export function drawBullet(ctx, b) {
     ctx.moveTo(-14, 2); ctx.lineTo(-5, -3); ctx.lineTo(-1, 2); ctx.lineTo(8, -2);
     ctx.stroke();
     ctx.restore();
+  } else if (b.kind === "slug") {
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(ang);
+    ctx.strokeStyle = "rgba(220,226,255,0.65)";
+    ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(4, 0); ctx.stroke();
+    ctx.fillStyle = "#eef0ff";
+    ctx.beginPath(); ctx.ellipse(5, 0, 5, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  } else if (b.kind === "acid") {
+    const gl = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 10);
+    gl.addColorStop(0, "rgba(150,240,215,0.9)");
+    gl.addColorStop(1, "rgba(60,175,150,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#5fd3b6";
+    ctx.beginPath(); ctx.ellipse(b.x, b.y, 4.4, 5.4, 0, 0, Math.PI * 2); ctx.fill();
   } else if (b.kind === "orb") {
     const wob = Math.sin(b.x * 0.2 + b.y * 0.2) * 1.2;
     const gl = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 11);
@@ -1591,6 +1842,56 @@ export function drawFx(ctx, f) {
       gl.addColorStop(1, "rgba(200,60,20,0)");
       ctx.fillStyle = gl;
       ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * p * 9, y, rr, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  } else if (k === "firering") {
+    const p = 1 - f.t / f.life;
+    ctx.save();
+    ctx.globalAlpha = (1 - p) * 0.55;
+    const gl = ctx.createRadialGradient(f.x, f.y, f.r * 0.25, f.x, f.y, f.r);
+    gl.addColorStop(0, "rgba(255,210,120,0)");
+    gl.addColorStop(0.7, "rgba(250,140,50,0.55)");
+    gl.addColorStop(1, "rgba(200,60,20,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.62, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(255,190,110,0.8)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.6 + p * 0.4), f.r * 0.62 * (0.6 + p * 0.4), 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  } else if (k === "vortex") {
+    const p = 1 - f.t / f.life;
+    ctx.save();
+    ctx.globalAlpha = (1 - p) * 0.9;
+    ctx.translate(f.x, f.y);
+    ctx.strokeStyle = "rgba(240,170,220,0.9)";
+    ctx.lineWidth = 2.2;
+    for (let k2 = 0; k2 < 4; k2++) {
+      ctx.beginPath();
+      for (let i = 0; i <= 18; i++) {
+        const a = p * 7 + (k2 / 4) * Math.PI * 2 + i * 0.3;
+        const r = f.r * (1 - p) * (1 - i / 22);
+        const x = Math.cos(a) * r, y = Math.sin(a) * r * 0.55;
+        i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+      ctx.stroke();
+    }
+    const gl = ctx.createRadialGradient(0, 0, 1, 0, 0, f.r * 0.5);
+    gl.addColorStop(0, "rgba(50,14,60,0.6)");
+    gl.addColorStop(1, "rgba(193,86,159,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.arc(0, 0, f.r * 0.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  } else if (k === "acid") {
+    const p = 1 - f.t / f.life;
+    ctx.globalAlpha = (1 - p) * 0.85;
+    ctx.fillStyle = "#5fd3b6";
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + f.x;
+      ctx.beginPath();
+      ctx.ellipse(f.x + Math.cos(a) * p * 15, f.y + Math.sin(a) * p * 9 + p * 6,
+        2.6 * (1 - p) + 1, 3.6 * (1 - p) + 1, 0, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
   } else if (k === "slash") {

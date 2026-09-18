@@ -743,6 +743,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
           <canvas ref={cvsRef} />
 
           <div className="hud hud-left">
+            <div className="hud-row">
             <div className="crest" title={`성채 ${hud.tier}단계 · 체력 ${hud.hp}/${hud.max}`}>
               <Shield />
               <div className="crest-num"
@@ -768,6 +769,20 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
                 </span>
               )}
             </div>
+            </div>
+
+            {mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
+              <button
+                className="keep-up"
+                onClick={() => act("castle")}
+                disabled={hud.tier >= CASTLE_TIERS || (hud.players[mySeat]?.gold ?? 0) < hud.upCost}
+                title="성채를 눌러도 올릴 수 있습니다"
+              >
+                {hud.tier >= CASTLE_TIERS
+                  ? "성채 최대 단계"
+                  : <>성채 {hud.tier + 1}단계 <em>{hud.upCost}골드</em></>}
+              </button>
+            )}
           </div>
 
           <div className="hud hud-right">
@@ -795,19 +810,6 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
               </button>
             )}
           </div>
-
-          {mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
-            <button
-              className="keep-up"
-              onClick={() => act("castle")}
-              disabled={hud.tier >= CASTLE_TIERS || (hud.players[mySeat]?.gold ?? 0) < hud.upCost}
-              title="성채를 눌러도 올릴 수 있습니다"
-            >
-              {hud.tier >= CASTLE_TIERS
-                ? "성채 최대 단계"
-                : <>성채 {hud.tier + 1}단계 <em>{hud.upCost}골드</em></>}
-            </button>
-          )}
 
           {hud.surge > 0 && (
             <div className="surge-tag" title="보스를 잡을 때마다 관문의 적이 강해집니다">

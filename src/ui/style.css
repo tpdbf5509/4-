@@ -181,7 +181,8 @@ kbd {
 .frame canvas { width: 100%; height: auto; display: block; }
 
 .hud { position: absolute; top: 12px; display: flex; gap: 8px; align-items: stretch; }
-.hud-left { left: 12px; }
+.hud-left { left: 12px; flex-direction: column; align-items: flex-start; gap: 7px; }
+.hud-row { display: flex; gap: 8px; align-items: stretch; }
 .hud-right { right: 12px; }
 
 .crest, .wave-box, .sbtn, .guest-tag, .drop-note {
@@ -199,7 +200,7 @@ kbd {
 }
 
 .wave-box { display: flex; flex-direction: column; gap: 1px; padding: 5px 12px; }
-.wave-label { font-size: 10.5px; color: #d0ba8e; letter-spacing: -0.02em; }
+.wave-label { font-size: 10.5px; color: #d0ba8e; letter-spacing: -0.02em; padding-right: 34px; }
 .wave-label.hot { color: #f3a86a; }
 .wave-num { font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: #f6e5bb; line-height: 1.2; }
 .wave-num em { font-style: normal; font-size: 11px; color: #b09a73; }
@@ -378,7 +379,6 @@ kbd {
 
 /* 성채 강화 단추 */
 .keep-up {
-  position: absolute; left: 12px; top: 64px;
   padding: 7px 12px; border-radius: 10px; cursor: pointer;
   font-family: 'Do Hyeon', sans-serif; font-size: 12.5px; letter-spacing: -0.02em; color: #fff3d0;
   background: linear-gradient(#7a5a2e, #5d4222);

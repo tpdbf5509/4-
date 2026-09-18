@@ -7,8 +7,11 @@ import { createClient } from "@supabase/supabase-js";
    판정은 방장(호스트) 한 명만 하고 나머지는 결과를 받아 그린다.
    ──────────────────────────────────────────────────────────── */
 
-const URL = import.meta.env.VITE_SUPABASE_URL;
-const KEY = import.meta.env.VITE_SUPABASE_KEY;
+// 브라우저에 노출되는 공개 값이라 기본값으로 둔다.
+// (publishable 키는 노출을 전제로 만들어진 키이고, 이 프로젝트엔 테이블 없이 실시간 채널만 있다)
+// 다른 Supabase 프로젝트를 쓰고 싶으면 환경변수로 덮어쓰면 된다.
+const URL = import.meta.env.VITE_SUPABASE_URL || "https://jgxtbtpxmnsfghqmtsnq.supabase.co";
+const KEY = import.meta.env.VITE_SUPABASE_KEY || "sb_publishable_lwm7FIU-HhslF5ofSikbtQ_G4BNXh9u";
 
 export const netReady = Boolean(URL && KEY);
 

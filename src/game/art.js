@@ -708,6 +708,86 @@ export function drawPad(ctx, s, occupied, time, hover) {
 }
 
 /* ── 타워 ───────────────────────────────────────────────── */
+/* ── 단계 치장 ──────────────────────────────────────────────
+   탑 종류와 상관없이 같은 문법으로 자란다.
+   2단계 돌 받침 · 3단계 깃발 · 4단계 금테와 반짝임            */
+const GOLD_T = "#e8bd52", GOLD_D = "#9a7820", GOLD_L = "#ffe9a8";
+
+export function tierPlinth(ctx, lv, col, time) {
+  if (lv < 2) return;
+  // 돌 받침 — 단계가 오를수록 넓고 두껍게
+  const w = 26 + lv * 2.5, h = 14 + lv;
+  ctx.beginPath(); ctx.ellipse(0, 7, w, h, 0, 0, Math.PI * 2);
+  inkPath(ctx, "#6f6353", 1.5);
+  ctx.beginPath(); ctx.ellipse(0, 3, w, h, 0, 0, Math.PI * 2);
+  inkPath(ctx, "#b3a993", 1.5);
+  ctx.fillStyle = "rgba(255,255,255,0.18)";
+  ctx.beginPath(); ctx.ellipse(0, 0, w * 0.62, h * 0.5, 0, Math.PI, Math.PI * 2); ctx.fill();
+
+  // 3단계 — 네 귀퉁이에 주춧돌
+  if (lv >= 3) {
+    for (let k = 0; k < 4; k++) {
+      const a = Math.PI / 4 + (k / 4) * Math.PI * 2;
+      const x = Math.cos(a) * (w - 5), y = 3 + Math.sin(a) * (h - 3);
+      ctx.beginPath(); roundRect(ctx, x - 4, y - 5, 8, 8, 2);
+      inkPath(ctx, "#8d8271", 1.2);
+    }
+  }
+  // 4단계 — 금테
+  if (lv >= 4) {
+    ctx.save();
+    ctx.strokeStyle = GOLD_T;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.ellipse(0, 3, w - 2, h - 1.5, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.45 + 0.2 * Math.sin(time * 2.4);
+    ctx.strokeStyle = GOLD_L;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(0, 3, w - 6, h - 4, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+export function tierCrown(ctx, lv, col, time, top) {
+  // 3단계 — 양옆에 깃대
+  if (lv >= 3) {
+    const y0 = Math.min(-26, top + 6);
+    [-1, 1].forEach((k) => {
+      const x = k * 27;
+      ctx.strokeStyle = lv >= 4 ? GOLD_D : "#5b4a33";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath(); ctx.moveTo(x, 2); ctx.lineTo(x, y0); ctx.stroke();
+      const wv = Math.sin(time * 3.4 + k) * 2.2;
+      ctx.beginPath();
+      ctx.moveTo(x, y0);
+      ctx.lineTo(x - k * 13, y0 + 5 + wv);
+      ctx.lineTo(x, y0 + 11);
+      ctx.closePath();
+      inkPath(ctx, lv >= 4 ? GOLD_T : col.light, 1.3);
+      if (lv >= 4) {
+        ctx.beginPath(); ctx.arc(x, y0 - 2.5, 2.6, 0, Math.PI * 2);
+        inkPath(ctx, GOLD_L, 1);
+      }
+    });
+  }
+  // 4단계 — 떠오르는 금빛 가루
+  if (lv >= 4) {
+    for (let k = 0; k < 3; k++) {
+      const ph = ((time * 0.6 + k * 0.33) % 1);
+      const x = Math.sin(k * 2.3 + time * 0.8) * 20;
+      const y = 2 - ph * 46;
+      ctx.save();
+      ctx.globalAlpha = 0.85 * (1 - ph);
+      ctx.translate(x, y);
+      ctx.rotate(time * 1.6 + k);
+      ctx.fillStyle = GOLD_L;
+      ctx.beginPath();
+      ctx.moveTo(0, -3.4); ctx.lineTo(2, 0); ctx.lineTo(0, 3.4); ctx.lineTo(-2, 0);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
 export function drawTower(ctx, t, s, time, g) {
   const lv = t.lv;
   // 지금 이 타워에 걸린 것들 — 발밑에 표시해 둔다
@@ -742,6 +822,7 @@ export function drawTower(ctx, t, s, time, g) {
   ctx.save();
   ctx.translate(s.x, s.y - 2);
   ctx.scale(0.86, 0.86);
+  tierPlinth(ctx, lv, col, time);
 
   const kind = t.type || "archer";
   if (kind === "archer") drawArcherTower(ctx, lv, col, time, t, recoil);
@@ -755,6 +836,11 @@ export function drawTower(ctx, t, s, time, g) {
   else if (kind === "corrode") drawCorrodeTower(ctx, lv, col, time, t, recoil);
   else if (kind === "paladin") drawPaladinTower(ctx, lv, col, time, t, recoil);
   else drawSupplyTower(ctx, lv, col, time, t, recoil);
+
+  // 탑 꼭대기쯤 — 깃대 높이를 맞추는 데 쓴다
+  const top = { archer: -80, sniper: -84, cannon: -62, bolt: -78, flame: -66, poison: -62,
+    frost: -76, gravity: -74, supply: -70, corrode: -60, paladin: -72 }[kind] || -70;
+  tierCrown(ctx, lv, col, time, top);
 
   ctx.restore();
 
@@ -778,9 +864,24 @@ export function drawTower(ctx, t, s, time, g) {
     ctx.restore();
   }
 
-  // 단계 표시
+  // 단계 표시 — 받침 아래로 내려 가린다 (4단계는 왕관)
+  const pipY = s.y + (lv >= 2 ? 24 : 17);
+  if (lv >= 4) {
+    const y = pipY;
+    ctx.beginPath();
+    ctx.moveTo(s.x - 9, y + 3.4);
+    ctx.lineTo(s.x - 9, y - 2);
+    ctx.lineTo(s.x - 4.5, y + 1);
+    ctx.lineTo(s.x, y - 4.4);
+    ctx.lineTo(s.x + 4.5, y + 1);
+    ctx.lineTo(s.x + 9, y - 2);
+    ctx.lineTo(s.x + 9, y + 3.4);
+    ctx.closePath();
+    inkPath(ctx, C.gold, 1.1, "rgba(90,66,16,0.85)");
+    return;
+  }
   for (let i = 0; i < lv; i++) {
-    const x = s.x - (lv - 1) * 4 + i * 8, y = s.y + 17;
+    const x = s.x - (lv - 1) * 4 + i * 8, y = pipY;
     ctx.fillStyle = C.gold;
     ctx.beginPath();
     for (let k = 0; k < 5; k++) {
@@ -1056,11 +1157,13 @@ export function drawBoltTower(ctx, lv, col, time, t, recoil) {
   });
   // 갈래 뿔
   ctx.strokeStyle = "#d9d2e2"; ctx.lineWidth = 3; ctx.lineCap = "round";
-  [-1, 1].forEach((k) => {
+  const prongs = lv + 1;
+  for (let k = 0; k < prongs; k++) {
+    const f = prongs === 1 ? 0 : (k / (prongs - 1)) * 2 - 1;   // -1 … 1
     ctx.beginPath();
-    ctx.moveTo(k * 7, -h); ctx.lineTo(k * 13, -h - 14);
+    ctx.moveTo(f * 7, -h); ctx.lineTo(f * 13, -h - 14 - Math.abs(f) * 2);
     ctx.stroke();
-  });
+  }
   ctx.lineCap = "butt";
   // 전기 구체
   const bob = Math.sin(time * 3) * 2;
@@ -1191,9 +1294,10 @@ export function drawFlameTower(ctx, lv, col, time, t, recoil) {
   inkPath(ctx, "#8a4a2a", 1.4);
   // 불길
   const wob = Math.sin(time * 7) * 2;
-  for (let k = 0; k < 3; k++) {
-    const ph = ((time * 1.2 + k * 0.33) % 1);
-    const x = (k - 1) * 7 + Math.sin(time * 5 + k) * 2;
+  const tongues = 2 + lv;
+  for (let k = 0; k < tongues; k++) {
+    const ph = ((time * 1.2 + k * (1 / tongues)) % 1);
+    const x = (k - (tongues - 1) / 2) * 6.5 + Math.sin(time * 5 + k) * 2;
     const y = -h - 12 - ph * 20;
     const r = 7 + k * 1.5 - ph * 3;
     const gl = ctx.createRadialGradient(x, y, 0, x, y, Math.max(2, r));
@@ -1204,7 +1308,7 @@ export function drawFlameTower(ctx, lv, col, time, t, recoil) {
     ctx.beginPath(); ctx.arc(x, y, Math.max(2, r), 0, Math.PI * 2); ctx.fill();
   }
   // 심지 셋
-  [-9, 0, 9].forEach((x, i) => {
+  Array.from({ length: tongues }, (_, i) => (i - (tongues - 1) / 2) * 8).forEach((x, i) => {
     ctx.beginPath();
     ctx.moveTo(x, -h - 7);
     ctx.quadraticCurveTo(x + wob * (i - 1), -h - 16, x, -h - 22 - lv);
@@ -1232,9 +1336,10 @@ export function drawGravityTower(ctx, lv, col, time, t) {
   ctx.moveTo(-14, 2); ctx.lineTo(-9, -h * 0.55); ctx.lineTo(0, -h * 0.55); ctx.lineTo(-3, 2);
   ctx.closePath(); ctx.fill();
 
-  // 떠 있는 돌 세 조각
-  for (let k = 0; k < 3; k++) {
-    const a = time * 1.4 + (k / 3) * Math.PI * 2;
+  // 떠 있는 돌 — 단계마다 하나씩 늘어난다
+  const rocks = 2 + lv;
+  for (let k = 0; k < rocks; k++) {
+    const a = time * 1.4 + (k / rocks) * Math.PI * 2;
     const x = Math.cos(a) * 20, y = -h * 0.75 + Math.sin(a) * 8;
     ctx.save();
     ctx.translate(x, y);

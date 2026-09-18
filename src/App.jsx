@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  W, H, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
+  W, H, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX, castleTier,
   SKILLS, ENEMY, LANES, TOTAL_WAVES, WAVE_OPTIONS, PREP,
   makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
 } from "./game/world.js";
@@ -410,7 +410,7 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
   function snapHud(g) {
     return {
       phase: g.phase, wave: g.wave, total: g.total, timer: Math.max(0, g.timer),
-      hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max,
+      hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max, tier: castleTier(g),
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
       paused: g.paused, speed: g.speed,
       surge: g.surge || 0,
@@ -683,12 +683,13 @@ function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
           <canvas ref={cvsRef} />
 
           <div className="hud hud-left">
-            <div className="crest">
+            <div className="crest" title={`성채 ${hud.tier}단계 · 체력 ${hud.hp}/${hud.max}`}>
               <Shield />
               <div className="crest-num"
                 style={{ color: hpRatio > 0.5 ? "#a9e79c" : hpRatio > 0.25 ? "#f3c766" : "#f09a90" }}>
                 {hud.hp}
               </div>
+              <span className="crest-tier">Lv.{hud.tier}</span>
             </div>
             <div className="wave-box">
               <span className={`wave-label ${kindLabel && hud.phase !== "clear" && hud.phase !== "over" ? "hot" : ""}`}>{phaseLabel}</span>

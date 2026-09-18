@@ -1,5 +1,5 @@
 import {
-  W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY,
+  W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY, castleTier,
 } from "./world.js";
 
 /* ── 그리기 도우미 ──────────────────────────────────────── */
@@ -406,6 +406,12 @@ export const CASTLE_K = 0.72;   // 길에 비해 크지 않도록 줄여 그린�
 
 export function drawCastle(ctx, g, time) {
   const ratio = Math.max(0, g.core.hp / g.core.max);
+  const tier = castleTier(g);
+  // 단계가 오를수록 벽이 두꺼워지고 지붕이 귀해진다
+  const roof = tier >= 4 ? "#e0b23c" : tier >= 3 ? "#3f6fb5" : C.roof;
+  const roofDark = tier >= 4 ? "#9a7820" : tier >= 3 ? "#26497f" : C.roofDark;
+  const wallR = 62 + (tier - 1) * 3;
+  const stone = tier >= 3 ? "#ded6c4" : C.stone;
   ctx.save();
   ctx.translate(CX, CY);
   ctx.scale(CASTLE_K, CASTLE_K);
@@ -419,6 +425,35 @@ export function drawCastle(ctx, g, time) {
   ctx.beginPath();
   ctx.ellipse(CX, CY + 14, 92, 54, 0, 0, Math.PI * 2);
   inkPath(ctx, "#93b25c", 2);
+
+  // 바깥 방벽 — 2단계는 목책, 3단계부터는 돌담
+  if (tier >= 2) {
+    if (tier >= 3) {
+      ctx.beginPath(); ctx.ellipse(CX, CY + 16, 88, 51, 0, 0, Math.PI * 2);
+      inkPath(ctx, C.stoneDark, 1.8);
+      ctx.beginPath(); ctx.ellipse(CX, CY + 12, 88, 51, 0, 0, Math.PI * 2);
+      inkPath(ctx, "#b8ae98", 1.6);
+      for (let a = 0; a < 20; a++) {
+        const t = (a / 20) * Math.PI * 2;
+        const x = CX + Math.cos(t) * 88, y = CY + 12 + Math.sin(t) * 51;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(t + Math.PI / 2);
+        ctx.beginPath(); roundRect(ctx, -3.4, -5, 6.8, 7, 1.2);
+        inkPath(ctx, a % 2 ? C.stoneMid : stone, 1.1);
+        ctx.restore();
+      }
+    } else {
+      for (let a = 0; a < 26; a++) {
+        const t = (a / 26) * Math.PI * 2;
+        const x = CX + Math.cos(t) * 86, y = CY + 14 + Math.sin(t) * 50;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(t + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(-3.4, 4); ctx.lineTo(-3.4, -7); ctx.lineTo(0, -11); ctx.lineTo(3.4, -7); ctx.lineTo(3.4, 4);
+        ctx.closePath();
+        inkPath(ctx, a % 2 ? "#8a5c34" : "#9a6a3c", 1.2);
+        ctx.restore();
+      }
+    }
+  }
 
   // 포석 마당
   ctx.beginPath();
@@ -446,31 +481,32 @@ export function drawCastle(ctx, g, time) {
 
   // 성벽 — 옆면 + 윗면으로 두께를 만든다
   ctx.beginPath();
-  ctx.ellipse(CX, CY + 6, 62, 36, 0, 0, Math.PI * 2);
+  ctx.ellipse(CX, CY + 6, wallR, 36, 0, 0, Math.PI * 2);
   inkPath(ctx, C.stoneDark, 2);
   ctx.beginPath();
-  ctx.ellipse(CX, CY - 4, 62, 36, 0, 0, Math.PI * 2);
-  inkPath(ctx, C.stone, 2);
+  ctx.ellipse(CX, CY - 4 - (tier - 1) * 2, wallR, 36, 0, 0, Math.PI * 2);
+  inkPath(ctx, stone, 2);
   ctx.beginPath();
   ctx.ellipse(CX, CY - 4, 46, 24, 0, 0, Math.PI * 2);
   inkPath(ctx, "#a79c86", 1.6);
 
-  // 성가퀴
-  for (let a = 0; a < 18; a++) {
-    const t = (a / 18) * Math.PI * 2;
-    const x = CX + Math.cos(t) * 62, y = CY - 4 + Math.sin(t) * 36;
+  // 성가퀴 — 단계가 오를수록 촘촘해진다
+  const merlons = 18 + (tier - 1) * 3;
+  for (let a = 0; a < merlons; a++) {
+    const t = (a / merlons) * Math.PI * 2;
+    const x = CX + Math.cos(t) * wallR, y = CY - 4 - (tier - 1) * 2 + Math.sin(t) * 36;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(t + Math.PI / 2);
     ctx.beginPath();
     roundRect(ctx, -4.6, -7, 9.2, 10, 1.6);
-    inkPath(ctx, a % 2 ? C.stoneMid : C.stone, 1.3);
+    inkPath(ctx, a % 2 ? C.stoneMid : stone, 1.3);
     ctx.restore();
   }
 
   // 네 방향 성문
   DIRS4.forEach((d) => {
-    const x = CX + d.dx * 58, y = CY - 4 + d.dy * 34;
+    const x = CX + d.dx * (wallR - 4), y = CY - 4 + d.dy * 34;
     ctx.save();
     ctx.translate(x, y + 4);
     ctx.beginPath();
@@ -485,12 +521,35 @@ export function drawCastle(ctx, g, time) {
     ctx.restore();
   });
 
-  // 모서리 탑 넷 + 중앙 첨탑
-  keepTower(ctx, CX - 46, CY + 8, 11, 26, C.roof, C.roofDark, time, false);
-  keepTower(ctx, CX + 46, CY + 8, 11, 26, C.roof, C.roofDark, time, false);
-  keepTower(ctx, CX - 34, CY - 14, 10, 24, C.roof, C.roofDark, time, false);
-  keepTower(ctx, CX + 34, CY - 14, 10, 24, C.roof, C.roofDark, time, false);
-  keepTower(ctx, CX, CY - 2, 19, 48, C.roof, C.roofDark, time, true);
+  // 모서리 탑 — 3단계부터 넷이 더 선다
+  if (tier >= 3) {
+    keepTower(ctx, CX - 58, CY - 2, 8, 20, roof, roofDark, time, false);
+    keepTower(ctx, CX + 58, CY - 2, 8, 20, roof, roofDark, time, false);
+    keepTower(ctx, CX - 20, CY - 22, 8, 19, roof, roofDark, time, false);
+    keepTower(ctx, CX + 20, CY - 22, 8, 19, roof, roofDark, time, false);
+  }
+  keepTower(ctx, CX - 46, CY + 8, 11, 26, roof, roofDark, time, tier >= 2);
+  keepTower(ctx, CX + 46, CY + 8, 11, 26, roof, roofDark, time, tier >= 2);
+  keepTower(ctx, CX - 34, CY - 14, 10, 24 + (tier - 1) * 2, roof, roofDark, time, false);
+  keepTower(ctx, CX + 34, CY - 14, 10, 24 + (tier - 1) * 2, roof, roofDark, time, false);
+  keepTower(ctx, CX, CY - 2, 19 + (tier - 1) * 1.6, 48 + (tier - 1) * 7, roof, roofDark, time, true);
+
+  // 4단계 — 성문마다 화톳불
+  if (tier >= 4) {
+    DIRS4.forEach((d, i) => {
+      const x = CX + d.dx * (wallR - 16) + (d.dy ? 22 : 0);
+      const y = CY + 6 + d.dy * 28 + (d.dx ? 14 : 0);
+      ctx.beginPath(); roundRect(ctx, x - 5, y - 8, 10, 10, 2);
+      inkPath(ctx, "#5d4a33", 1.2);
+      const ph = (time * 1.6 + i * 0.4) % 1;
+      const gl = ctx.createRadialGradient(x, y - 13, 0, x, y - 13, 10 + ph * 4);
+      gl.addColorStop(0, "rgba(255,240,180,0.95)");
+      gl.addColorStop(0.5, "rgba(250,160,50,0.8)");
+      gl.addColorStop(1, "rgba(200,70,20,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(x, y - 13, 10 + ph * 4, 0, Math.PI * 2); ctx.fill();
+    });
+  }
 
   // 피해 흔적
   if (ratio < 0.65) {

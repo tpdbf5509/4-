@@ -189,6 +189,11 @@ kbd {
 .crest { display: flex; align-items: center; gap: 6px; padding: 6px 11px 6px 8px; }
 .crest svg { width: 22px; height: 22px; display: block; }
 .crest-num { font-family: 'Do Hyeon', sans-serif; font-size: 20px; line-height: 1; }
+.crest-tier {
+  margin-left: 2px; padding: 2px 6px; border-radius: 999px;
+  font-size: 10px; color: #f0d79a; background: rgba(20, 14, 8, 0.5);
+  border: 1px solid rgba(214, 178, 106, 0.55);
+}
 
 .wave-box { display: flex; flex-direction: column; gap: 1px; padding: 5px 12px; }
 .wave-label { font-size: 10.5px; color: #d0ba8e; letter-spacing: -0.02em; }

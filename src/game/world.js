@@ -366,6 +366,14 @@ export const perkVal = {
   repair: (n) => 0.1 * n,
 };
 
+/* 성채 단계 — 보스를 하나 잡을 때마다, 성벽 보수를 받을 때마다 한 칸 올라간다.
+   수치는 그대로고 생김새만 바뀐다. */
+export const CASTLE_TIERS = 4;
+export function castleTier(g) {
+  const wall = Math.floor(Math.max(0, (g.core.max - 100)) / 30);
+  return Math.max(1, Math.min(CASTLE_TIERS, 1 + (g.surge || 0) + wall));
+}
+
 // 짓고 나서 첫 사격까지 걸리는 시간
 export const WARMUP = 1.5;
 

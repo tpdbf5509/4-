@@ -2,7 +2,7 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
-  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP,
+  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier,
 } from "./world.js";
 
 // 호스트에서 일어난 연출은 그대로 다른 참가자에게도 보낸다
@@ -225,7 +225,15 @@ export function applyReward(g, pi, k) {
   p.perks[id] = (p.perks[id] || 0) + 1;
   g.picked[pi] = true;
 
-  if (id === "wall") { g.core.max += 30; g.core.hp = g.core.max; }
+  if (id === "wall") {
+    const before = castleTier(g);
+    g.core.max += 30;
+    g.core.hp = g.core.max;
+    if (castleTier(g) > before) {
+      fx(g, { kind: "ring", x: CX, y: CY, r: 200, color: "#ffe08a", t: 0.9, life: 0.9 });
+      banner(g, `성채 ${castleTier(g)}단계`, "성벽을 한 겹 더 둘렀다", "#ffe08a");
+    }
+  }
   const s = SLOTS[sk(p.lane, p.slot)];
   say(g, s.x, s.y, PERK_BY_ID[id].name, P[pi].light);
   fx(g, { kind: "ring", x: s.x, y: s.y, r: 70, color: P[pi].light, t: 0.5, life: 0.5, snd: "bless" });
@@ -245,8 +253,16 @@ export function closeReward(g) {
   g.offer = null;
   g.picked = null;
   // 보스를 잡을 때마다 관문에서 나오는 적이 조금씩 세진다
+  const before = castleTier(g);
   g.surge++;
-  banner(g, "적이 더 몰려온다", `관문 너머의 적이 강해졌다 (${g.surge}단계)`, "#ff9f6a");
+  const after = castleTier(g);
+  if (after > before) {
+    fx(g, { kind: "ring", x: CX, y: CY, r: 200, color: "#ffe08a", t: 0.9, life: 0.9, snd: "bless" });
+    fx(g, { kind: "poof", x: CX, y: CY - 10, t: 0.7, life: 0.7, color: "rgba(246,230,190,1)" });
+    banner(g, `성채 ${after}단계`, "성을 한 겹 더 올렸다", "#ffe08a");
+  } else {
+    banner(g, "적이 더 몰려온다", `관문 너머의 적이 강해졌다 (${g.surge}단계)`, "#ff9f6a");
+  }
   advanceWave(g);
 }
 

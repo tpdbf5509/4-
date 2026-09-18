@@ -101,6 +101,15 @@ export default function App() {
       seatsRef.current = seats;
       publishLobby();
     });
+    room.on("tower", (d, from) => {
+      if (!hostRef.current) return;
+      const seats = seatsRef.current.slice();
+      const i = seats.findIndex((s) => s && s.id === from);
+      if (i < 0) return;
+      seats[i] = { ...seats[i], pick: Math.max(0, Math.min(2, d.k | 0)) };
+      seatsRef.current = seats;
+      publishLobby();
+    });
     room.on("start", () => { if (!hostRef.current) setScreen("game"); });
     room.on("toLobby", () => { if (!hostRef.current) setScreen("lobby"); });
 
@@ -146,6 +155,19 @@ export default function App() {
     }
   }, [lobby, me, name, publishLobby]);
 
+  const chooseTower = useCallback((k) => {
+    if (mySeat < 0) return;
+    if (hostRef.current) {
+      const seats = seatsRef.current.slice();
+      if (!seats[mySeat]) return;
+      seats[mySeat] = { ...seats[mySeat], pick: k };
+      seatsRef.current = seats;
+      publishLobby();
+    } else {
+      roomRef.current?.send("tower", { k });
+    }
+  }, [mySeat, publishLobby]);
+
   const startGame = useCallback(() => {
     roomRef.current?.send("start", {});
     setScreen("game");
@@ -184,7 +206,7 @@ export default function App() {
       <Lobby
         code={code} lobby={lobby} me={me} isHost={isHost} mySeat={mySeat}
         error={error} connecting={connecting}
-        onPick={pick} onStart={startGame} onLeave={leave}
+        onPick={pick} onTower={chooseTower} onStart={startGame} onLeave={leave}
       />
     );
   }
@@ -239,7 +261,7 @@ function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
 }
 
 /* ── 로비 ───────────────────────────────────────────────── */
-function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onStart, onLeave }) {
+function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onTower, onStart, onLeave }) {
   const [copied, setCopied] = useState("");
   const link = `${location.origin}${location.pathname}?room=${code}`;
   const seats = lobby?.seats || [null, null, null, null];
@@ -292,27 +314,43 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onS
           {CLASSES.map((cls, i) => {
             const who = seats[i];
             const mine = who && who.id === me;
+            const chosen = who?.pick || 0;
             return (
-              <button
+              <div
                 key={i}
                 className={`seat ${who ? "taken" : "free"} ${mine ? "mine" : ""}`}
                 style={{ "--pc": P[i].key, "--pcl": P[i].light, "--pcd": P[i].dark }}
-                onClick={() => onPick(i)}
-                disabled={!!who}
               >
-                <span className="seat-badge"><ClassIcon i={i} /></span>
-                <span className="seat-name">{cls.name}</span>
-                <span className="seat-note">{cls.note}</span>
-                <span className="seat-towers">
+                <button className="seat-claim" onClick={() => onPick(i)} disabled={!!who}>
+                  <span className="seat-badge"><ClassIcon i={i} /></span>
+                  <span className="seat-name">{cls.name}</span>
+                  <span className="seat-note">{cls.note}</span>
+                </button>
+
+                <div className="seat-towers">
                   {CLASS_TOWERS[i].map((id, k) => {
                     const def = TOWER_BY_ID[id];
                     return (
-                      <span key={id} className={`seat-tw ${k === 0 ? "main" : ""}`} title={def.note}>
+                      <button
+                        key={id}
+                        className={`seat-tw ${chosen === k ? "on" : ""}`}
+                        onClick={() => onTower(k)}
+                        disabled={!mine}
+                        title={def.note}
+                      >
                         {def.name} <em>{def.cost}</em>
-                      </span>
+                      </button>
                     );
                   })}
+                </div>
+                <span className="seat-tw-note">
+                  {mine
+                    ? `처음 지을 탑 — ${TOWER_BY_ID[CLASS_TOWERS[i][chosen]].note}`
+                    : who
+                      ? `처음 지을 탑 — ${TOWER_BY_ID[CLASS_TOWERS[i][chosen]].name}`
+                      : "자리를 맡으면 처음 지을 탑을 고를 수 있습니다"}
                 </span>
+
                 <span className="seat-who">
                   {who ? (
                     <>
@@ -322,7 +360,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onS
                     </>
                   ) : "비어 있음 — 눌러서 맡기"}
                 </span>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -360,6 +398,8 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
     const g = makeGame(seatFlags);
     g.names = names;
     g.mySeat = mySeat;
+    // 대기실에서 고른 탑으로 시작한다
+    g.players.forEach((p, i) => { p.pick = Math.max(0, Math.min(2, seats[i]?.pick || 0)); });
     g.phase = "prep";
     g.wave = 1;
     g.timer = PREP;

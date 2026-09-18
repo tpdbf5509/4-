@@ -625,8 +625,35 @@ export function drawPad(ctx, s, occupied, time, hover) {
 }
 
 /* ── 타워 ───────────────────────────────────────────────── */
-export function drawTower(ctx, t, s, time) {
+export function drawTower(ctx, t, s, time, g) {
   const lv = t.lv;
+  // 지금 이 타워에 걸린 것들 — 발밑에 표시해 둔다
+  if (g) {
+    const p = g.players[t.owner];
+    const hpr = Math.max(0, g.core.hp / g.core.max);
+    const perks = (p && p.perks) || {};
+    const fury = (perks.berserk && hpr < 0.9) || (perks.laststand && hpr <= 0.2);
+    const rage = perks.thirst && p.rage > 0;
+    if (fury || rage) {
+      const pulse = 0.5 + 0.5 * Math.sin(time * (rage ? 9 : 4) + s.x);
+      ctx.save();
+      ctx.globalAlpha = 0.25 + pulse * 0.35;
+      const gl = ctx.createRadialGradient(s.x, s.y + 2, 2, s.x, s.y + 2, 30);
+      gl.addColorStop(0, rage ? "rgba(255,140,90,0.9)" : "rgba(220,60,50,0.85)");
+      gl.addColorStop(1, "rgba(180,40,30,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.ellipse(s.x, s.y + 2, 30, 18, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    if (perks.command) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = "rgba(255,226,150,0.9)";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.ellipse(s.x, s.y + 3, 24, 14, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+  }
   const recoil = t.pulse > 0 ? Math.pow(Math.max(0, t.pulse) / 0.4, 2) : 0;
   const col = P[t.owner];
   ctx.save();
@@ -642,6 +669,26 @@ export function drawTower(ctx, t, s, time) {
   else drawSupplyTower(ctx, lv, col, time, t, recoil);
 
   ctx.restore();
+
+  // 짓고 나서 자리를 잡는 중
+  if (t.warm > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = "rgba(255,236,178,0.95)";
+    ctx.lineWidth = 2.4;
+    ctx.setLineDash([6, 6]);
+    ctx.lineDashOffset = -time * 26;
+    ctx.beginPath(); ctx.ellipse(s.x, s.y - 2, 22, 13, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = "#8a5c34";
+    ctx.lineWidth = 2;
+    [-14, 14].forEach((dx) => {
+      ctx.beginPath(); ctx.moveTo(s.x + dx, s.y + 2); ctx.lineTo(s.x + dx * 0.6, s.y - 30); ctx.stroke();
+    });
+    ctx.beginPath(); ctx.moveTo(s.x - 12, s.y - 14); ctx.lineTo(s.x + 12, s.y - 14); ctx.stroke();
+    ctx.restore();
+  }
 
   // 단계 표시
   for (let i = 0; i < lv; i++) {
@@ -1020,12 +1067,15 @@ export function drawEnemy(ctx, e, time) {
   else if (e.type === "titan") drawTitan(ctx, walk, time);
   else drawOgre(ctx, walk, time);
 
-  // 피격 섬광
+  // 피격 섬광 — 네모로 덮지 않고 부드럽게 번지게 한다
   if (e.flash > 0) {
-    ctx.globalCompositeOperation = "source-atop";
-    ctx.fillStyle = `rgba(255,255,255,${Math.min(0.85, e.flash * 6)})`;
-    ctx.fillRect(-24, -34, 48, 50);
-    ctx.globalCompositeOperation = "source-over";
+    const a = Math.min(0.7, e.flash * 5);
+    const gl = ctx.createRadialGradient(0, -8, 0, 0, -8, 24);
+    gl.addColorStop(0, `rgba(255,255,255,${a})`);
+    gl.addColorStop(0.6, `rgba(255,245,225,${a * 0.5})`);
+    gl.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.arc(0, -8, 24, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 
@@ -1046,6 +1096,21 @@ export function drawEnemy(ctx, e, time) {
     ctx.lineWidth = 1.4;
     ctx.stroke();
     ctx.restore();
+  } else if (e.burn > 0) {
+    for (let k = 0; k < 4; k++) {
+      const ph = ((time * 1.6 + k * 0.27) % 1);
+      ctx.globalAlpha = 0.75 * (1 - ph);
+      const gl = ctx.createRadialGradient(e.x + Math.sin(k * 2 + time * 5) * 5 * s, e.y - 6 * s - ph * 22, 0,
+        e.x + Math.sin(k * 2 + time * 5) * 5 * s, e.y - 6 * s - ph * 22, 4 + ph * 6);
+      gl.addColorStop(0, "rgba(255,236,160,0.95)");
+      gl.addColorStop(0.6, "rgba(245,140,40,0.7)");
+      gl.addColorStop(1, "rgba(190,50,20,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath();
+      ctx.arc(e.x + Math.sin(k * 2 + time * 5) * 5 * s, e.y - 6 * s - ph * 22, 4 + ph * 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   } else if (e.poison > 0) {
     ctx.fillStyle = "rgba(150,220,90,0.45)";
     for (let k = 0; k < 4; k++) {
@@ -1513,6 +1578,83 @@ export function drawFx(ctx, f) {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  } else if (k === "flame") {
+    const p = 1 - f.t / f.life;
+    ctx.globalAlpha = (1 - p) * 0.9;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + f.x;
+      const rr = 5 + p * 7;
+      const y = f.y - p * 20 + Math.sin(a) * 4;
+      const gl = ctx.createRadialGradient(f.x + Math.cos(a) * p * 9, y, 0, f.x + Math.cos(a) * p * 9, y, rr);
+      gl.addColorStop(0, "rgba(255,238,170,0.95)");
+      gl.addColorStop(0.5, "rgba(250,150,50,0.8)");
+      gl.addColorStop(1, "rgba(200,60,20,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * p * 9, y, rr, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  } else if (k === "slash") {
+    const p = 1 - f.t / f.life;
+    ctx.save();
+    ctx.globalAlpha = 1 - p;
+    ctx.translate(f.x, f.y);
+    ctx.rotate(-0.5);
+    ctx.strokeStyle = "rgba(255,120,110,0.95)";
+    ctx.lineWidth = 4 * (1 - p) + 1.5;
+    ctx.lineCap = "round";
+    const r = 16 + p * 14;
+    [-1, 1].forEach((k2) => {
+      ctx.beginPath();
+      ctx.moveTo(-r * k2, -r); ctx.lineTo(r * k2, r);
+      ctx.stroke();
+    });
+    ctx.restore();
+  } else if (k === "mark") {
+    const p = 1 - f.t / f.life;
+    ctx.save();
+    ctx.globalAlpha = 1 - p;
+    ctx.strokeStyle = f.color || "#ffe9bd";
+    ctx.lineWidth = 2;
+    const r = 20 - p * 7;
+    ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      ctx.moveTo(f.x + dx * (r - 5), f.y + dy * (r - 5));
+      ctx.lineTo(f.x + dx * (r + 5), f.y + dy * (r + 5));
+    }
+    ctx.stroke();
+    ctx.restore();
+  } else if (k === "pierce") {
+    const p = 1 - f.t / f.life;
+    ctx.save();
+    ctx.globalAlpha = 1 - p;
+    ctx.strokeStyle = f.color || "#fff";
+    ctx.lineWidth = 5 * (1 - p) + 1;
+    ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x2, f.y2); ctx.stroke();
+    ctx.restore();
+  } else if (k === "heal") {
+    const p = 1 - f.t / f.life;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (1 - p) * 1.6);
+    const y = f.y - p * 34;
+    ctx.fillStyle = "#8fe08a";
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI * 2 + p * 2;
+      const x = f.x + Math.cos(a) * 22, yy = y + Math.sin(a) * 8;
+      ctx.fillRect(x - 5, yy - 1.6, 10, 3.2);
+      ctx.fillRect(x - 1.6, yy - 5, 3.2, 10);
+    }
+    if (f.text) {
+      ctx.font = "800 15px Jua, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.lineWidth = 3.4;
+      ctx.strokeStyle = "rgba(26,20,12,0.92)";
+      ctx.strokeText(f.text, f.x, y);
+      ctx.fillStyle = "#b6f0a8";
+      ctx.fillText(f.text, f.x, y);
+    }
+    ctx.restore();
   } else if (k === "dmg") {
     const p = 1 - f.t / f.life;
     ctx.globalAlpha = 1 - Math.pow(p, 2.5);
@@ -1632,7 +1774,7 @@ export function draw(ctx, g, bg) {
   layers.sort((a, b) => a.y - b.y);
   layers.forEach((o) => {
     if (o.kind === "castle") drawCastle(ctx, g, g.t);
-    else if (o.kind === "tower") drawTower(ctx, o.t, o.s, g.t);
+    else if (o.kind === "tower") drawTower(ctx, o.t, o.s, g.t, g);
     else drawEnemy(ctx, o.e, g.t);
   });
 

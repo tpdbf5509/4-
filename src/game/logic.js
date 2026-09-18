@@ -2,7 +2,7 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
-  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale,
+  PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP,
 } from "./world.js";
 
 // 호스트에서 일어난 연출은 그대로 다른 참가자에게도 보낸다
@@ -22,11 +22,30 @@ export const tdef = (t) => TOWER_BY_ID[t.type] || CLASSES[t.owner];
 export const perkOf = (g, pi) => (g.players[pi] && g.players[pi].perks) || {};
 export const perkN = (g, pi, id) => perkOf(g, pi)[id] || 0;
 
+// 수비대 전체가 나눠 갖는 능력은 모두의 것을 합쳐서 본다
+export function teamPerk(g, id) {
+  let n = 0;
+  g.players.forEach((p, i) => { if (g.seats[i]) n += (p.perks && p.perks[id]) || 0; });
+  return n;
+}
+
+// 성채가 다칠수록 / 벼랑 끝에서 오르는 몫
+export function moodBonus(g, pi) {
+  const hpr = Math.max(0, g.core.hp / g.core.max);
+  let b = perkVal.berserk(perkN(g, pi, "berserk")) * (1 - hpr);
+  if (hpr <= 0.2) b += perkVal.laststand(perkN(g, pi, "laststand"));
+  return b;
+}
+
 export function towerRange(g, t) {
-  return tdef(t).range + 12 * (t.lv - 1) + perkVal.reach(perkN(g, t.owner, "reach"));
+  const cmd = perkVal.command(teamPerk(g, "command"));
+  return (tdef(t).range + 12 * (t.lv - 1)) * (1 + cmd) + perkVal.reach(perkN(g, t.owner, "reach"));
 }
 export function towerDmg(g, t) {
-  return tdef(t).dmg * (1 + 0.62 * (t.lv - 1)) * perkVal.power(perkN(g, t.owner, "power"));
+  const cmd = perkVal.command(teamPerk(g, "command"));
+  return tdef(t).dmg * (1 + 0.62 * (t.lv - 1))
+    * perkVal.power(perkN(g, t.owner, "power"))
+    * (1 + cmd + moodBonus(g, t.owner));
 }
 
 /* ── 조작 ───────────────────────────────────────────────── */
@@ -66,7 +85,8 @@ export function doBuild(g, pi) {
     if (p.gold < cost) return say(g, s.x, s.y, "골드 부족", "#f0dcb4");
     p.gold -= cost;
     p.built++;
-    g.towers[key] = { owner: pi, type: def.id, lv: 1, cd: 0, pulse: 0.4, aim: 0 };
+    const warm = WARMUP * perkVal.swift(perkN(g, pi, "swift"));
+    g.towers[key] = { owner: pi, type: def.id, lv: 1, cd: 0, pulse: 0.4, aim: 0, warm };
     fx(g, { kind: "poof", x: s.x, y: s.y, t: 0.5, life: 0.5 });
     fx(g, { kind: "ring", x: s.x, y: s.y, r: 46, color: P[pi].light, t: 0.45, life: 0.45, snd: "build" });
     say(g, s.x, s.y, def.name, P[pi].light);
@@ -78,6 +98,7 @@ export function doBuild(g, pi) {
     p.gold -= cost;
     t.lv++;
     t.pulse = 0.4;
+    t.warm = WARMUP * 0.6 * perkVal.swift(perkN(g, pi, "swift"));
     fx(g, { kind: "poof", x: s.x, y: s.y, t: 0.5, life: 0.5, color: "rgba(246,220,150,1)" });
     fx(g, { kind: "ring", x: s.x, y: s.y, r: 40, color: "#ffe6a2", t: 0.45, life: 0.45, snd: "build" });
     say(g, s.x, s.y, `${t.lv}단계`, P[pi].light);
@@ -90,28 +111,36 @@ export function doSkill(g, pi) {
   const p = g.players[pi];
   if (p.cd > 0) return say(g, CX, CY - 96, `${SKILLS[pi].name} ${Math.ceil(p.cd)}초`, "#f0dcb4");
   p.cd = SKILLS[pi].cd * perkVal.cool(perkN(g, pi, "cool"));
+  // 재사용의 축복 — 가끔 대기가 절반으로 줄어든다
+  if (Math.random() < perkVal.echo(perkN(g, pi, "echo"))) {
+    p.cd *= 0.5;
+    fx(g, { kind: "ring", x: CX, y: CY, r: 150, color: "#9fe8ff", t: 0.6, life: 0.6 });
+    say(g, CX, CY - 120, "재사용!", "#9fe8ff");
+  }
+  const amp = perkVal.amp(perkN(g, pi, "amp"));      // 마력 증폭
   const col = P[pi].light;
   const id = CLASSES[pi].id;
+  if (amp > 1) fx(g, { kind: "ring", x: CX, y: CY, r: 200, color: col, t: 0.5, life: 0.5 });
 
   if (id === "archer") {
-    g.focus = 8;
+    g.focus = 8 * amp;
     banner(g, "집중 사격", "궁수탑 피해가 두 배로", col);
   } else if (id === "frost") {
     g.enemies.forEach((e) => {
-      e.freeze = Math.max(e.freeze, 4);
+      e.freeze = Math.max(e.freeze, 4 * amp);
       fx(g, { kind: "ice", x: e.x, y: e.y, t: 0.5, life: 0.5 });
     });
     banner(g, "한파", "모든 적이 얼어붙는다", col);
   } else if (id === "cannon") {
     g.enemies.forEach((e) => {
-      hurt(g, e, 45, pi, true);
+      hurt(g, e, 45 * amp, pi, true);
       fx(g, { kind: "boom", x: e.x, y: e.y, r: 30, t: 0.4, life: 0.4 });
     });
     g.shake = 0.45;
     banner(g, "융단 폭격", "전장 전체에 포격", col);
   } else if (id === "supply") {
-    g.players.forEach((q, i) => { if (g.seats[i]) q.gold += 45; });
-    g.core.hp = Math.min(g.core.max, g.core.hp + 12);
+    g.players.forEach((q, i) => { if (g.seats[i]) q.gold += 45 * amp; });
+    g.core.hp = Math.min(g.core.max, g.core.hp + 12 * amp);
     for (let i = 0; i < 6; i++) {
       fx(g, { kind: "coin", x: CX + (Math.random() - 0.5) * 70, y: CY + 20, t: 0.9, life: 0.9 });
     }
@@ -119,14 +148,14 @@ export function doSkill(g, pi) {
   } else if (id === "bolt") {
     g.enemies.forEach((e) => {
       fx(g, { kind: "zap", x: e.x, y: e.y - 70, x2: e.x, y2: e.y, t: 0.26, life: 0.26 });
-      e.freeze = Math.max(e.freeze, 1.5);
-      hurt(g, e, 30, pi, true);
+      e.freeze = Math.max(e.freeze, 1.5 * amp);
+      hurt(g, e, 30 * amp, pi, true);
     });
     g.shake = Math.max(g.shake, 0.3);
     banner(g, "뇌우", "하늘에서 번개가 떨어진다", col);
   } else {
     g.enemies.forEach((e) => {
-      applyPoison(e, 12, 6, pi);
+      applyPoison(e, 12 * amp, 6, pi);
       fx(g, { kind: "fume", x: e.x, y: e.y - 4, t: 0.5, life: 0.5 });
     });
     banner(g, "역병", "모든 적이 6초간 병든다", col);
@@ -196,16 +225,26 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes) {
   e.hp -= d;
   e.flash = 0.12;
   const big = e.type === "boss" || e.type === "titan";
-  if (d >= 12 || big) {
-    fx(g, { kind: "dmg", x: e.x, y: e.y - 8, text: String(Math.round(d)),
+  // 숫자가 겹쳐 뭉치지 않게, 큰 피해만 좌우로 흩어 띄운다
+  if (d >= 18 || big) {
+    fx(g, { kind: "dmg", x: e.x + (Math.random() - 0.5) * 22, y: e.y - 8, text: String(Math.round(d)),
       color: typeof byPlayer === "number" ? P[byPlayer].light : "#ffe9bd", t: 0.62, life: 0.62 });
   }
   if (e.hp > 0) return;
 
   e.dead = true;
   const base = ENEMY[e.type].gold + g.wave * 0.6;
-  const reward = Math.round(base * (typeof byPlayer === "number" ? perkVal.gold(perkN(g, byPlayer, "gold")) : 1));
+  let reward = Math.round(base * (typeof byPlayer === "number" ? perkVal.gold(perkN(g, byPlayer, "gold")) : 1));
   if (typeof byPlayer === "number") {
+    // 행운의 동전 — 가끔 두 배로 줍는다
+    if (Math.random() < perkVal.luck(perkN(g, byPlayer, "luck"))) {
+      reward *= 2;
+      fx(g, { kind: "dmg", x: e.x, y: e.y - 18, text: `+${reward} 행운!`, color: "#ffd873", t: 0.9, life: 0.9 });
+    }
+    // 탐욕의 손 — 보스에서 한 몫 더
+    if (big && perkN(g, byPlayer, "greed")) reward += perkVal.greed(perkN(g, byPlayer, "greed"));
+    // 피의 갈증 — 잡고 나면 잠깐 손이 빨라진다
+    if (perkN(g, byPlayer, "thirst")) g.players[byPlayer].rage = 3;
     g.players[byPlayer].gold += reward;
     g.players[byPlayer].kills++;
   } else {
@@ -233,7 +272,7 @@ function zap(g, from, first, dmg, owner, chain) {
   let prev = first;
   let d = dmg;
   fx(g, { kind: "zap", x: from.x, y: from.y, x2: first.x, y2: first.y, t: 0.2, life: 0.2, snd: "zap" });
-  hurt(g, first, d, owner);
+  applyHit(g, first, d, owner);
   for (let n = 1; n < chain; n++) {
     let best = null, bd = 1e9;
     for (const e of g.enemies) {
@@ -245,8 +284,88 @@ function zap(g, from, first, dmg, owner, chain) {
     hit.add(best.id);
     d *= 0.72;
     fx(g, { kind: "zap", x: prev.x, y: prev.y, x2: best.x, y2: best.y, t: 0.2, life: 0.2 });
-    hurt(g, best, d, owner);
+    applyHit(g, best, d, owner);
     prev = best;
+  }
+}
+
+/* 한 발이 적에게 닿았을 때. 보스 표식·마무리 일격·불타는 탄환이 여기서 붙는다 */
+export function applyHit(g, e, dmg, owner, quiet) {
+  if (e.dead) return;
+  if (typeof owner !== "number") return hurt(g, e, dmg, owner);
+  const big = e.type === "boss" || e.type === "titan";
+  let d = dmg;
+
+  const hunter = perkN(g, owner, "hunter");
+  if (hunter && big) {
+    d *= 1 + perkVal.hunter(hunter);
+    if (!quiet) fx(g, { kind: "mark", x: e.x, y: e.y - 6, t: 0.4, life: 0.4, color: P[owner].light });
+  }
+  const exec = perkN(g, owner, "execute");
+  if (exec && e.hp / e.max <= 0.35) {
+    d *= 1 + perkVal.execute(exec);
+    if (!quiet) fx(g, { kind: "slash", x: e.x, y: e.y - 4, t: 0.3, life: 0.3 });
+  }
+
+  const burn = perkN(g, owner, "burn");
+  if (burn) {
+    e.burn = Math.max(e.burn || 0, 3);
+    e.bdps = Math.max(e.bdps || 0, d * perkVal.burn(burn));
+    e.bby = owner;
+    if (!quiet) fx(g, { kind: "flame", x: e.x, y: e.y - 4, t: 0.4, life: 0.4 });
+  }
+  hurt(g, e, d, owner);
+}
+
+/* 본체에 맞은 뒤 퍼지는 것들 — 연쇄·관통·폭발 */
+function spread(g, b, tg) {
+  const owner = b.owner;
+  if (typeof owner !== "number") return;
+
+  const arc = perkN(g, owner, "arc");
+  if (arc && Math.random() < perkVal.arc(arc)) {
+    let best = null, bd = 1e9;
+    for (const e of g.enemies) {
+      if (e.dead || e === tg) continue;
+      const dd = Math.hypot(e.x - tg.x, e.y - tg.y);
+      if (dd < 110 && dd < bd) { bd = dd; best = e; }
+    }
+    if (best) {
+      fx(g, { kind: "zap", x: tg.x, y: tg.y, x2: best.x, y2: best.y, t: 0.22, life: 0.22,
+        color: P[owner].light });
+      applyHit(g, best, b.dmg * 0.6, owner, true);
+    }
+  }
+
+  const pierce = perkN(g, owner, "pierce");
+  if (pierce) {
+    const al = Math.hypot(b.vx, b.vy) || 1;
+    const ux = b.vx / al, uy = b.vy / al;
+    const behind = g.enemies
+      .filter((e) => !e.dead && e !== tg)
+      .map((e) => ({ e, t: (e.x - tg.x) * ux + (e.y - tg.y) * uy,
+        off: Math.abs((e.x - tg.x) * -uy + (e.y - tg.y) * ux) }))
+      .filter((o) => o.t > 0 && o.t < 150 && o.off < 26)
+      .sort((a, z) => a.t - z.t)
+      .slice(0, perkVal.pierce(pierce));
+    if (behind.length) {
+      const last = behind[behind.length - 1].e;
+      fx(g, { kind: "pierce", x: tg.x, y: tg.y, x2: last.x, y2: last.y, t: 0.26, life: 0.26,
+        color: P[owner].light });
+      behind.forEach((o) => applyHit(g, o.e, b.dmg, owner, true));
+    }
+  }
+
+  const blast = perkN(g, owner, "blast");
+  if (blast) {
+    const r = 40;
+    fx(g, { kind: "ring", x: tg.x, y: tg.y, r, color: "#ffb45c", t: 0.3, life: 0.3 });
+    g.enemies.forEach((e) => {
+      if (e.dead || e === tg) return;
+      if (Math.hypot(e.x - tg.x, e.y - tg.y) <= r) {
+        applyHit(g, e, b.dmg * perkVal.blast(blast), owner, true);
+      }
+    });
   }
 }
 
@@ -337,6 +456,55 @@ export function step(g, dt) {
     }
   }
 
+  // 성채 돌봄 — 재생의 문장 · 응급 수리 · 비상식량
+  {
+    const hpr = g.core.hp / g.core.max;
+    const regen = teamPerk(g, "regen");
+    if (regen) {
+      g.regenT = (g.regenT || 0) + dt;
+      if (g.regenT >= 5) {
+        g.regenT = 0;
+        const heal = g.core.max * perkVal.regen(regen);
+        if (g.core.hp < g.core.max) {
+          g.core.hp = Math.min(g.core.max, g.core.hp + heal);
+          fx(g, { kind: "heal", x: CX, y: CY - 20, text: `+${Math.round(heal)}`, t: 1, life: 1 });
+        }
+      }
+    }
+    const repair = teamPerk(g, "repair");
+    if (repair && hpr <= 0.3 && !g.repairUsed) {
+      g.repairUsed = 1;
+      const heal = g.core.max * perkVal.repair(repair);
+      g.core.hp = Math.min(g.core.max, g.core.hp + heal);
+      fx(g, { kind: "heal", x: CX, y: CY - 20, text: `응급 수리 +${Math.round(heal)}`, t: 1.4, life: 1.4 });
+      fx(g, { kind: "ring", x: CX, y: CY, r: 180, color: "#8fe08a", t: 0.7, life: 0.7, snd: "bless" });
+      banner(g, "응급 수리", "성벽을 급히 메웠다", "#8fe08a");
+    }
+    if (g.repairUsed && hpr > 0.5) g.repairUsed = 0;
+
+    if (hpr <= 0.5 && !g.rationUsed) {
+      let gave = 0;
+      g.players.forEach((p, i) => {
+        if (!g.seats[i]) return;
+        const n = perkN(g, i, "ration");
+        if (!n) return;
+        p.gold += perkVal.ration(n);
+        gave += perkVal.ration(n);
+      });
+      if (gave) {
+        g.rationUsed = 1;
+        for (let k = 0; k < 8; k++) {
+          fx(g, { kind: "coin", x: CX + (Math.random() - 0.5) * 100, y: CY + 10, t: 1, life: 1 });
+        }
+        banner(g, "비상식량", "창고를 열었다", "#ffd873");
+      }
+    }
+    if (g.rationUsed && hpr > 0.7) g.rationUsed = 0;
+  }
+
+  // 피의 갈증이 도는 동안
+  g.players.forEach((p) => { if (p.rage > 0) p.rage -= dt; });
+
   // 보급소
   const supports = [];
   g.towers.forEach((t, i) => { if (t && t.type === "supply") supports.push({ t, s: SLOTS[i] }); });
@@ -386,7 +554,11 @@ export function step(g, dt) {
     const def = tdef(t);
     if (!def.interval) return;                 // 보급소는 쏘지 않는다
     const s = SLOTS[i];
-    const haste = perkVal.haste(perkN(g, t.owner, "haste"));
+    if (t.warm > 0) { t.warm -= dt; return; }        // 짓고 나서 자리를 잡는 중
+    const cmd = perkVal.command(teamPerk(g, "command"));
+    const rage = g.players[t.owner] && g.players[t.owner].rage > 0
+      ? perkVal.thirst(perkN(g, t.owner, "thirst")) : 0;
+    const haste = perkVal.haste(perkN(g, t.owner, "haste")) + cmd + rage;
     let mul = 1 + haste;
     supports.forEach((sp) => {
       if (Math.hypot(sp.s.x - s.x, sp.s.y - s.y) <= supDef.range) {
@@ -448,7 +620,7 @@ export function step(g, dt) {
         g.enemies.forEach((e) => {
           if (e.dead) return;
           const dd = Math.hypot(e.x - b.tx, e.y - b.ty);
-          if (dd <= b.splash) hurt(g, e, b.dmg * (dd < b.splash * 0.5 ? 1 : 0.6), b.owner);
+          if (dd <= b.splash) applyHit(g, e, b.dmg * (dd < b.splash * 0.5 ? 1 : 0.6), b.owner, dd > 1);
         });
         fx(g, { kind: "boom", x: b.tx, y: b.ty, r: b.splash, t: 0.42, life: 0.42, snd: "boom" });
         g.shake = Math.max(g.shake, b.kind === "shell" ? 0.2 : 0.12);
@@ -456,8 +628,9 @@ export function step(g, dt) {
         if (b.chain) {
           zap(g, { x: b.x, y: b.y }, tg, b.dmg, b.owner, b.chain);
         } else {
-          hurt(g, tg, b.dmg, b.owner);
+          applyHit(g, tg, b.dmg, b.owner);
         }
+        spread(g, b, tg);
         if (b.slow) {
           tg.slow = Math.max(tg.slow, b.slowT);
           tg.slowAmt = b.slow;
@@ -480,6 +653,16 @@ export function step(g, dt) {
     e.age += dt;
     if (e.flash > 0) e.flash -= dt;
     if (e.dead) return;
+    if (e.burn > 0) {
+      e.burn -= dt;
+      e.btick = (e.btick || 0) + dt;
+      if (e.btick >= 0.5) {
+        e.btick = 0;
+        hurt(g, e, e.bdps * 0.5, e.bby, true);
+        fx(g, { kind: "flame", x: e.x, y: e.y - 4, t: 0.35, life: 0.35 });
+      }
+      if (e.dead) return;
+    }
     if (e.poison > 0) {
       e.poison -= dt;
       e.ptick = (e.ptick || 0) + dt;
@@ -498,7 +681,13 @@ export function step(g, dt) {
     e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;
     if (e.p >= 1) {
       e.dead = true;
-      g.core.hp -= ENEMY[e.type].dmg;
+      const heavy = e.type === "boss" || e.type === "titan";
+      let take = ENEMY[e.type].dmg * perkVal.guard(teamPerk(g, "guard"));
+      if (heavy) take *= perkVal.bulwark(teamPerk(g, "bulwark"));
+      if (take < ENEMY[e.type].dmg - 0.5) {
+        fx(g, { kind: "ring", x: CX, y: CY, r: 90, color: "#9fd8ff", t: 0.5, life: 0.5 });
+      }
+      g.core.hp -= take;
       g.shake = 0.32;
       g.hitFlash = 0.35;
       g.combo = 0;
@@ -540,7 +729,12 @@ export function stepVisual(g, dt) {
     if (p.cd > 0) p.cd -= dt;
   });
 
-  g.towers.forEach((t) => { if (t && t.pulse > 0) t.pulse -= dt; });
+  g.towers.forEach((t) => {
+    if (!t) return;
+    if (t.pulse > 0) t.pulse -= dt;
+    if (t.warm > 0) t.warm -= dt;
+  });
+  g.players.forEach((p) => { if (p.rage > 0) p.rage -= dt; });
   if (g.castle.pulse > 0) g.castle.pulse -= dt;
 
   // 탄은 눈에 보이는 용도라 목표 지점까지 날아간 뒤 사라진다
@@ -563,6 +757,7 @@ export function stepVisual(g, dt) {
     e.age += dt;
     if (e.flash > 0) e.flash -= dt;
     if (e.poison > 0) e.poison -= dt;
+    if (e.burn > 0) e.burn -= dt;
     if (e.freeze > 0) { e.freeze -= dt; return; }
     if (e.slow > 0) e.slow -= dt;
     const spd = (e.spd || ENEMY[e.type].spd) * (e.slow > 0 ? e.slowAmt : 1);
@@ -583,11 +778,11 @@ export function packSnapshot(g) {
     rw: g.phase === "reward" ? { of: g.offer, pi: g.picked } : 0,
     ca: Math.round(g.castle.aim * 100) / 100,
     pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills]),
-    tw: g.towers.map((t) => (t ? [t.owner, t.lv, towerIdx(t.type)] : 0)),
+    tw: g.towers.map((t) => (t ? [t.owner, t.lv, towerIdx(t.type), t.warm > 0 ? 1 : 0] : 0)),
     en: g.enemies.map((e) => [
       e.id, ETYPES.indexOf(e.type), e.lane, Math.round(e.p * 10000) / 10000,
       Math.round((e.hp / e.max) * 100) / 100,
-      (e.freeze > 0 ? 1 : 0) | (e.slow > 0 ? 2 : 0) | (e.poison > 0 ? 4 : 0),
+      (e.freeze > 0 ? 1 : 0) | (e.slow > 0 ? 2 : 0) | (e.poison > 0 ? 4 : 0) | (e.burn > 0 ? 8 : 0),
     ]),
   };
 }
@@ -629,8 +824,12 @@ export function applySnapshot(g, s) {
     if (!row) { g.towers[i] = null; return; }
     const type = (TOWERS[row[2]] || TOWERS[0]).id;
     const cur = g.towers[i];
-    if (cur && cur.owner === row[0] && cur.type === type) { cur.lv = row[1]; return; }
-    g.towers[i] = { owner: row[0], type, lv: row[1], cd: 0, pulse: 0.4, aim: 0 };
+    if (cur && cur.owner === row[0] && cur.type === type) {
+      cur.lv = row[1];
+      cur.warm = row[3] ? Math.max(cur.warm || 0, 0.2) : 0;
+      return;
+    }
+    g.towers[i] = { owner: row[0], type, lv: row[1], cd: 0, pulse: 0.4, aim: 0, warm: row[3] ? 0.5 : 0 };
   });
 
   const seen = new Set();
@@ -657,6 +856,7 @@ export function applySnapshot(g, s) {
     e.freeze = flags & 1 ? Math.max(e.freeze, 0.4) : 0;
     e.slow = flags & 2 ? Math.max(e.slow, 0.4) : 0;
     e.poison = flags & 4 ? Math.max(e.poison, 0.4) : 0;
+    e.burn = flags & 8 ? Math.max(e.burn || 0, 0.4) : 0;
   });
   g.enemies = g.enemies.filter((e) => seen.has(e.id));
 }

@@ -255,31 +255,93 @@ export const ENEMY = {
 /* 보스를 잡으면 각자 셋 중 하나를 고른다.
    대부분 고른 사람 몫이고, 성벽만 수비대 전체에 적용된다. */
 export const PERKS = [
+  /* 타워 성능 */
   { id: "power",  icon: "attack", name: "전투의 각인", note: "내 타워 공격력 +20%" },
   { id: "reach",  icon: "range",  name: "매의 눈",     note: "내 타워 사거리 +22" },
   { id: "haste",  icon: "speed",  name: "전장의 북",   note: "내 타워 공격 속도 +18%" },
+  { id: "command", icon: "flag",  name: "전투 지휘",   note: "모든 수비대의 타워 +5%" },
+
+  /* 공격에 붙는 것 */
   { id: "crit",   icon: "crit",   name: "급소 찌르기", note: "12% 확률로 피해 두 배" },
+  { id: "burn",   icon: "flame",  name: "불타는 탄환", note: "적중한 적이 3초간 불탄다 (피해의 10%)" },
+  { id: "arc",    icon: "arc",    name: "연쇄 공격",   note: "10% 확률로 옆 적 하나를 더 때린다" },
+  { id: "pierce", icon: "pierce", name: "관통의 힘",   note: "뒤에 있는 적 1명까지 꿰뚫는다" },
+  { id: "blast",  icon: "blast",  name: "폭발 탄환",   note: "착탄 지점 주변에 피해의 20%" },
+  { id: "hunter", icon: "mark",   name: "사냥꾼의 표식", note: "보스에게 주는 피해 +15%" },
+  { id: "execute", icon: "execute", name: "마무리 일격", note: "체력 35% 이하인 적에게 +25%" },
   { id: "chill",  icon: "frost",  name: "무거운 사슬", note: "맞은 적이 1.2초간 느려진다" },
+
+  /* 상황에 따라 세지는 것 */
+  { id: "berserk", icon: "rage",  name: "광전사의 분노", note: "성채가 다칠수록 공격력 (최대 +20%)" },
+  { id: "laststand", icon: "last", name: "최후의 저항", note: "성채 체력 20% 이하일 때 공격력 +30%" },
+  { id: "thirst", icon: "drop",   name: "피의 갈증",   note: "적을 잡으면 3초간 공격 속도 +10%" },
+
+  /* 골드 */
   { id: "gold",   icon: "gold",   name: "전리품",      note: "내가 잡은 적 골드 +25%" },
+  { id: "luck",   icon: "luck",   name: "행운의 동전", note: "10% 확률로 골드를 두 배로 줍는다" },
+  { id: "greed",  icon: "chest",  name: "탐욕의 손",   note: "보스를 잡으면 +100 골드" },
+  { id: "bank",   icon: "note",   name: "군수 계약",   note: "웨이브를 넘길 때마다 +60 골드" },
+  { id: "ration", icon: "ration", name: "비상식량",    note: "성채가 절반 아래로 떨어지면 +100 골드" },
+
+  /* 건설 */
   { id: "thrift", icon: "build",  name: "숙련된 목수", note: "건설·강화 비용 -18%" },
+  { id: "swift",  icon: "swift",  name: "신속한 건설", note: "짓고 나서 첫 사격까지 -25%" },
+
+  /* 스킬 */
   { id: "cool",   icon: "skill",  name: "빠른 준비",   note: "내 스킬 대기 시간 -20%" },
-  { id: "bank",   icon: "chest",  name: "군수 계약",   note: "웨이브를 넘길 때마다 +60 골드" },
+  { id: "amp",    icon: "amp",    name: "마력 증폭",   note: "내 스킬 위력 +15%" },
+  { id: "echo",   icon: "echo",   name: "재사용의 축복", note: "10% 확률로 스킬 대기가 절반으로" },
+
+  /* 성채 */
   { id: "wall",   icon: "shield", name: "성벽 보수",   note: "성채 최대 체력 +30 · 완전 회복" },
+  { id: "guard",  icon: "guard",  name: "불굴의 방어", note: "성채가 받는 피해 -8%" },
+  { id: "bulwark", icon: "wall",  name: "철벽",        note: "보스에게 받는 피해 -20%" },
+  { id: "regen",  icon: "heal",   name: "재생의 문장", note: "5초마다 성채 체력 2% 회복" },
+  { id: "repair", icon: "repair", name: "응급 수리",   note: "성채가 30% 아래로 떨어지면 10% 회복" },
 ];
 export const PERK_BY_ID = Object.fromEntries(PERKS.map((p) => [p.id, p]));
 export const PERK_IDS = PERKS.map((p) => p.id);
 
-// 능력이 쌓였을 때의 값
+// 능력이 쌓였을 때의 값 (n = 가진 개수)
 export const perkVal = {
   power: (n) => 1 + 0.2 * n,
   reach: (n) => 22 * n,
   haste: (n) => 0.18 * n,
+  command: (n) => 0.05 * n,
+
   crit: (n) => 0.12 * n,
+  burn: (n) => 0.1 * n,
+  arc: (n) => 0.1 * n,
+  pierce: (n) => n,
+  blast: (n) => 0.2 * n,
+  hunter: (n) => 0.15 * n,
+  execute: (n) => 0.25 * n,
+
+  berserk: (n) => 0.2 * n,
+  laststand: (n) => 0.3 * n,
+  thirst: (n) => 0.1 * n,
+
   gold: (n) => 1 + 0.25 * n,
-  thrift: (n) => Math.max(0.3, 1 - 0.18 * n),
-  cool: (n) => Math.max(0.3, 1 - 0.2 * n),
+  luck: (n) => 0.1 * n,
+  greed: (n) => 100 * n,
   bank: (n) => 60 * n,
+  ration: (n) => 100 * n,
+
+  thrift: (n) => Math.max(0.3, 1 - 0.18 * n),
+  swift: (n) => Math.max(0.2, 1 - 0.25 * n),
+
+  cool: (n) => Math.max(0.3, 1 - 0.2 * n),
+  amp: (n) => 1 + 0.15 * n,
+  echo: (n) => 0.1 * n,
+
+  guard: (n) => Math.max(0.4, 1 - 0.08 * n),
+  bulwark: (n) => Math.max(0.25, 1 - 0.2 * n),
+  regen: (n) => 0.02 * n,
+  repair: (n) => 0.1 * n,
 };
+
+// 짓고 나서 첫 사격까지 걸리는 시간
+export const WARMUP = 1.5;
 
 // 셋을 뽑는다. 이미 많이 쌓인 것도 다시 나올 수 있게 두되, 성벽은 성채가 튼튼하면 뺀다
 export function rollPerks(g, n = 3) {

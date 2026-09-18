@@ -1,7 +1,7 @@
 import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
-  SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, seatCount, ETYPES,
+  SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale,
 } from "./world.js";
 
@@ -294,9 +294,10 @@ export function step(g, dt) {
     g.timer -= dt;
     if (g.timer <= 0) {
       g.phase = "wave";
-      g.queue = buildQueue(g.wave, seatCount(g));
+      const total = g.total || TOTAL_WAVES;
+      g.queue = buildQueue(g.wave, seatCount(g), total);
       g.spawnT = 0;
-      const kind = waveKind(g.wave);
+      const kind = waveKind(g.wave, total);
       if (kind === "rush") banner(g, `웨이브 ${g.wave} — 돌격`, "발 빠른 고블린 떼가 몰려온다", "#ffb765");
       else if (kind === "boss") banner(g, `웨이브 ${g.wave} — 보스`, "오우거 지휘관이 온다", "#ff8f6a");
       else if (kind === "titan") banner(g, "최종 웨이브 — 대군주", "성문 앞까지 한 걸음도 내주지 마라", "#ff6f6f");
@@ -309,13 +310,13 @@ export function step(g, dt) {
       const base = ENEMY[q.type];
       const big = q.type === "boss" || q.type === "titan";
       // 보스는 수비대가 적으면 그만큼 체력을 덜어 준다
-      const scale = Math.pow(1.155, g.wave - 1) * (1 + SURGE_HP * g.surge)
+      const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + SURGE_HP * g.surge)
         * (big ? bossScale(seatCount(g)) : 1);
       const p0 = posAt(q.lane, 0);
       g.enemies.push({
         id: g.nextId++,
         type: q.type, lane: q.lane, p: 0,
-        spd: base.spd * (1 + SURGE_SPD * g.surge),
+        spd: base.spd * (1 + Math.min(0.6, SURGE_SPD * g.surge)),
         hp: base.hp * scale, max: base.hp * scale,
         x: p0.x, y: p0.y, ax: p0.ax, ay: p0.ay,
         slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, pdps: 0, dead: false, age: 0,
@@ -330,7 +331,7 @@ export function step(g, dt) {
       g.spawnT = q.type === "titan" ? 2 : q.type === "boss" ? 1.4 : q.type === "rusher" ? 0.36 : 0.62;
     }
     if (!g.queue.length && !g.enemies.length) {
-      if (g.wave >= TOTAL_WAVES) { g.phase = "clear"; return; }
+      if (g.wave >= (g.total || TOTAL_WAVES)) { g.phase = "clear"; return; }
       if (g.pendingReward) { openReward(g); return; }
       advanceWave(g);
     }
@@ -574,7 +575,7 @@ export function stepVisual(g, dt) {
 /* 호스트가 보내는 상태 묶음 */
 export function packSnapshot(g) {
   return {
-    ph: g.phase, wv: g.wave, tm: Math.max(0, g.timer),
+    ph: g.phase, wv: g.wave, tt: g.total, tm: Math.max(0, g.timer),
     hp: g.core.hp, hm: g.core.max, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
     ql: g.queue.length, cb: g.combo,
     sg: g.surge,
@@ -595,6 +596,7 @@ export function packSnapshot(g) {
 export function applySnapshot(g, s) {
   g.phase = s.ph;
   g.wave = s.wv;
+  if (s.tt) g.total = s.tt;
   g.timer = s.tm;
   g.core.hp = s.hp;
   if (s.hm) g.core.max = s.hm;
@@ -642,7 +644,7 @@ export function applySnapshot(g, s) {
       const pos = posAt(lane, p);
       e = {
         id, type, lane, p, max: base.hp, hp: base.hp * hpr,
-        spd: base.spd * (1 + SURGE_SPD * (g.surge || 0)),
+        spd: base.spd * (1 + Math.min(0.6, SURGE_SPD * (g.surge || 0))),
         x: pos.x, y: pos.y, ax: pos.ax, ay: pos.ay,
         slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, dead: false, age: 0,
       };

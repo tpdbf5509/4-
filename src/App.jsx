@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   W, H, P, SLOTS, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
-  SKILLS, ENEMY, LANES, TOTAL_WAVES, PREP,
+  SKILLS, ENEMY, LANES, TOTAL_WAVES, WAVE_OPTIONS, PREP,
   makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
@@ -37,11 +37,19 @@ export default function App() {
   const isHost = lobby?.hostId === me;
   const mySeat = lobby ? lobby.seats.findIndex((s) => s && s.id === me) : -1;
 
+  const wavesRef = useRef(TOTAL_WAVES);
   const publishLobby = useCallback(() => {
-    const next = { hostId: me, seats: seatsRef.current };
+    const next = { hostId: me, seats: seatsRef.current, waves: wavesRef.current };
     setLobby(next);
     roomRef.current?.send("lobby", next);
   }, [me]);
+
+  // 방장만 라운드 수를 바꾼다
+  const setWaves = useCallback((n) => {
+    if (!hostRef.current || !WAVE_OPTIONS.includes(n)) return;
+    wavesRef.current = n;
+    publishLobby();
+  }, [publishLobby]);
 
   // 방장은 들어온 사람에게 빈 병과를 하나 내어준다
   const reseat = useCallback(() => {
@@ -188,7 +196,7 @@ export default function App() {
       <Lobby
         code={code} lobby={lobby} me={me} isHost={isHost} mySeat={mySeat}
         error={error} connecting={connecting}
-        onPick={pick} onStart={startGame} onLeave={leave}
+        onPick={pick} onStart={startGame} onLeave={leave} onWaves={setWaves}
       />
     );
   }
@@ -198,6 +206,7 @@ export default function App() {
       room={roomRef.current}
       isHost={isHost}
       seats={lobby?.seats || []}
+      waves={lobby?.waves || TOTAL_WAVES}
       mySeat={mySeat}
       onBack={backToLobby}
     />
@@ -243,12 +252,13 @@ function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
 }
 
 /* ── 로비 ───────────────────────────────────────────────── */
-function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onStart, onLeave }) {
+function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onWaves, onStart, onLeave }) {
   const [copied, setCopied] = useState("");
   const link = `${location.origin}${location.pathname}?room=${code}`;
   const seats = lobby?.seats || new Array(SEATS).fill(null);
   const filled = seats.filter(Boolean).length;
   const full = filled >= CREW_MAX;
+  const waves = lobby?.waves || TOTAL_WAVES;
 
   const copy = async (text, what) => {
     try {
@@ -292,6 +302,25 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onS
 
         {connecting && <p className="muted">방에 연결하는 중…</p>}
         {error && <p className="err">{error}</p>}
+
+        <div className="rounds">
+          <span className="rounds-label">라운드</span>
+          <div className="rounds-btns">
+            {WAVE_OPTIONS.map((n) => (
+              <button
+                key={n}
+                className={`round-btn ${waves === n ? "on" : ""}`}
+                onClick={() => onWaves(n)}
+                disabled={!isHost}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <span className="rounds-note">
+            {isHost ? "길게 잡아도 적이 세지는 속도는 그만큼 완만해집니다" : "방장이 정합니다"}
+          </span>
+        </div>
 
         <div className="seats">
           {CLASSES.map((cls, i) => {
@@ -340,7 +369,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onS
         </div>
 
         <p className="keyhint">
-          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
+          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> 또는 돌판 <kbd>클릭</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
         </p>
       </div>
     </div>
@@ -348,7 +377,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onS
 }
 
 /* ── 게임 ───────────────────────────────────────────────── */
-function GameView({ room, isHost, seats, mySeat, onBack }) {
+function GameView({ room, isHost, seats, waves, mySeat, onBack }) {
   const cvsRef = useRef(null);
   const bgRef = useRef(null);
   const idx = useMemo(() => Array.from({ length: SEATS }, (_, i) => i), []);
@@ -357,7 +386,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
 
   const G = useRef(null);
   if (!G.current) {
-    const g = makeGame(seatFlags);
+    const g = makeGame(seatFlags, waves);
     g.names = names;
     g.mySeat = mySeat;
     if (import.meta.env.DEV) window.__G = g;    // 개발 중 상태를 들여다보려고
@@ -379,7 +408,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
 
   function snapHud(g) {
     return {
-      phase: g.phase, wave: g.wave, timer: Math.max(0, g.timer),
+      phase: g.phase, wave: g.wave, total: g.total, timer: Math.max(0, g.timer),
       hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max,
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
       paused: g.paused, speed: g.speed,
@@ -634,7 +663,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
     setHud(snapHud(g));
   }, [isHost]);
 
-  const kind = waveKind(hud.wave);
+  const kind = waveKind(hud.wave, hud.total);
   const kindLabel =
     kind === "rush" ? "돌격 웨이브" : kind === "boss" ? "보스 웨이브" :
     kind === "titan" ? "대군주 웨이브" : "";
@@ -662,7 +691,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
             </div>
             <div className="wave-box">
               <span className={`wave-label ${kindLabel && hud.phase !== "clear" && hud.phase !== "over" ? "hot" : ""}`}>{phaseLabel}</span>
-              <span className="wave-num">웨이브 {hud.wave}<em>/{TOTAL_WAVES}</em></span>
+              <span className="wave-num">웨이브 {hud.wave}<em>/{hud.total}</em></span>
               <span className="wave-sub">
                 {hud.phase === "prep" ? `${Math.ceil(hud.timer)}초 뒤 시작`
                   : hud.phase === "wave" ? `남은 적 ${hud.left}`
@@ -756,7 +785,7 @@ function GameView({ room, isHost, seats, mySeat, onBack }) {
                 <h2>{hud.phase === "clear" ? "성채를 지켰습니다" : "성채가 무너졌습니다"}</h2>
                 <p>
                   {hud.phase === "clear"
-                    ? "15번의 웨이브를 모두 막아냈습니다."
+                    ? `${hud.total}번의 웨이브를 모두 막아냈습니다.`
                     : "대기실로 돌아가 방어선을 다시 세워보세요."}
                 </p>
                 {isHost

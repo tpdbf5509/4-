@@ -96,6 +96,27 @@ kbd {
 }
 .invite-actions { display: flex; gap: 8px; }
 
+/* 라운드 수 고르기 */
+.rounds {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-top: 14px; padding: 10px 12px; border-radius: 11px;
+  background: rgba(20, 14, 8, 0.32); border: 1px solid rgba(160, 130, 90, 0.25);
+}
+.rounds-label { font-size: 12px; color: #d0ba8e; letter-spacing: -0.02em; }
+.rounds-btns { display: flex; gap: 6px; }
+.round-btn {
+  min-width: 46px; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+  font-family: 'Do Hyeon', sans-serif; font-size: 14px; color: #a8987a;
+  background: rgba(30, 22, 14, 0.5); border: 1px solid rgba(160, 130, 90, 0.35);
+}
+.round-btn:hover:not(:disabled) { filter: brightness(1.3); }
+.round-btn:disabled { cursor: default; }
+.round-btn.on {
+  color: #fff3d0; border-color: #d6b26a;
+  background: linear-gradient(#7a5a2e, #5d4222);
+}
+.rounds-note { flex: 1; min-width: 160px; font-size: 10.5px; color: #8d8068; letter-spacing: -0.02em; }
+
 .seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
 .seat {
   display: grid; grid-template-columns: auto 1fr; align-items: start;

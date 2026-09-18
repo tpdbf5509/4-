@@ -7,7 +7,8 @@ export const W = 1000, H = 760, CX = 500, CY = 380;
 export const R_SPAWN = 344;     // 남·북 관문까지의 거리
 export const R_SPAWN_X = 448;   // 동·서 관문까지의 거리 (화면이 가로로 넓다)
 export const R_CORE = 74;       // 성문 앞 (길이 여기서 끝난다)
-export const TOTAL_WAVES = 15;
+export const WAVE_OPTIONS = [15, 30, 45, 60];   // 대기실에서 고르는 라운드 수
+export const TOTAL_WAVES = 15;                  // 기본값
 export const PREP = 5;
 export const REWARD_T = 22;    // 보상을 고르는 시간
 
@@ -298,11 +299,12 @@ export const KEY_HINT = { move: "W A S D · 방향키", build: "Space", skill: "
 export const ETYPES = ["grunt", "rusher", "armor", "boss", "titan"];
 
 /* ── 상태 ───────────────────────────────────────────────── */
-export function makeGame(seats = [true, true, true, true, false, false]) {
+export function makeGame(seats = [true, true, true, true, false, false], total = TOTAL_WAVES) {
   const flags = [];
   for (let i = 0; i < SEATS; i++) flags.push(!!seats[i]);
   return {
     seats: flags,
+    total: WAVE_OPTIONS.includes(total) ? total : TOTAL_WAVES,
     phase: "ready",
     wave: 0,
     timer: PREP,
@@ -355,16 +357,22 @@ export function shuffle(a) {
 }
 
 // 웨이브 성격: 보통 / 돌격(빠른 적 떼) / 보스 / 대군주
-export function waveKind(n) {
-  if (n === TOTAL_WAVES) return "titan";
+export function waveKind(n, total = TOTAL_WAVES) {
+  if (n >= total) return "titan";
   if (n % 5 === 0) return "boss";
   if (n % 4 === 0) return "rush";
   return "normal";
 }
 
-export function buildQueue(n, players = 4) {
+/* 적이 세지는 정도. 라운드를 길게 잡으면 그만큼 완만하게 올라간다.
+   어느 길이로 하든 마지막 웨이브의 세기는 같다. */
+export function waveScale(n, total = TOTAL_WAVES) {
+  return Math.pow(1.155, ((n - 1) * TOTAL_WAVES) / Math.max(1, total));
+}
+
+export function buildQueue(n, players = 4, total = TOTAL_WAVES) {
   const crew = Math.max(1, Math.min(CREW_MAX, players));
-  const kind = waveKind(n);
+  const kind = waveKind(n, total);
   const laneCount = Math.max(1, Math.min(crew, n < 2 ? 2 : n < 4 ? 3 : 4));
   const active = shuffle([0, 1, 2, 3]).slice(0, laneCount);
   const one = () => active[Math.floor(Math.random() * active.length)];
@@ -374,19 +382,21 @@ export function buildQueue(n, players = 4) {
   if (kind === "titan") return [{ type: "titan", lane: one() }];
 
   const list = [];
+  const step = (n * TOTAL_WAVES) / Math.max(1, total);   // 15라운드 기준으로 환산한 진행도
+
   if (kind === "rush") {
     // 갑자기 빠른 적이 떼로 몰려온다
-    const count = Math.round((10 + n * 2.6) * (0.5 + 0.13 * crew));
+    const count = Math.round((10 + step * 2.6) * (0.5 + 0.13 * crew));
     for (let i = 0; i < count; i++) list.push({ type: "rusher", lane: active[i % active.length] });
     return list;
   }
 
-  const count = Math.round((5 + n * 1.9) * (0.44 + 0.14 * crew));
+  const count = Math.round((5 + step * 1.9) * (0.44 + 0.14 * crew));
   for (let i = 0; i < count; i++) {
     let type = "grunt";
     const r = Math.random();
-    if (n >= 3 && r < 0.32) type = "rusher";
-    else if (n >= 5 && r > 0.76) type = "armor";
+    if (step >= 3 && r < 0.32) type = "rusher";
+    else if (step >= 5 && r > 0.76) type = "armor";
     list.push({ type, lane: active[i % active.length] });
   }
   return list;

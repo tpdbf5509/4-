@@ -48,35 +48,45 @@ export const DIRS4 = [
   { dx: -1, dy: 0, name: "서" },
 ];
 
-// 길은 굽이를 다섯 번 틀고, 굽이가 바깥으로 부푼 자리마다 타워 터를 하나씩 둔다
-export const SLOT_S = [0.1, 0.28, 0.46, 0.64, 0.82];
-const SLOT_OFF = 76;   // 길 가장자리에서 타워 터까지
+// 길은 직각으로만 꺾인다. 곧은 가로·세로 구간만으로 이어 붙여 네모난 굽이를 만든다.
+const AMP_Y = 166;     // 남·북 길이 좌우로 벌어지는 폭
+const AMP_X = 132;     // 동·서 길이 위아래로 벌어지는 폭
+const ENT = 0.12;      // 관문 쪽 직진 구간 (전체 깊이 대비)
+const EXT = 0.12;      // 성문 쪽 직진 구간
 
 export function makeLane(li) {
   const { dx, dy } = DIRS4[li];
   const nx = -dy, ny = dx;                       // 길에 수직인 방향
-  // 화면이 가로로 넓으니 동·서 길은 더 멀리서 출발시키고,
-  // 남·북 길은 좌우로 크게 굽이쳐 빈 곳을 메운다
+  // 화면이 가로로 넓으니 동·서 길은 더 멀리서 출발한다
   const horiz = dx !== 0;
   const r0 = horiz ? R_SPAWN_X : R_SPAWN;
-  const amp = horiz ? 100 : 108;
-  // 양 끝(관문·성문)에서는 곧게 들어가고 가운데가 크게 굽이친다.
-  // 두 번째 파를 섞어 굽이 크기를 들쭉날쭉하게 — 자로 잰 파형처럼 보이지 않게 한다
-  const bend = (s) =>
-    Math.pow(Math.sin(s * Math.PI), 0.35) *
-    (amp * Math.sin(s * Math.PI * 5) + amp * 0.3 * Math.sin(s * Math.PI * 3 + 0.8));
-  const at = (s) => {
-    const r = r0 + (R_CORE - r0) * s;
-    const w = bend(s);
-    return { x: CX + dx * r + nx * w, y: CY + dy * r + ny * w };
-  };
+  const A = horiz ? AMP_X : AMP_Y;
 
-  const N = 320, pts = [], cum = [0];
-  for (let k = 0; k < N; k++) pts.push(at(k / (N - 1)));
-  for (let k = 1; k < N; k++) {
+  // (r, w) = (성채까지 남은 거리, 옆으로 벌어진 정도).
+  // 이웃한 모서리끼리 r이나 w 중 하나만 달라서 모든 구간이 가로 아니면 세로가 된다.
+  const span = r0 - R_CORE;
+  const ent = span * ENT, ext = span * EXT;
+  const h = (span - ent - ext) / 2;              // 가로로 지른 구간 사이의 간격
+  const rA = r0 - ent, rB = rA - h, rC = rB - h;
+  const corners = [
+    [r0, 0], [rA, 0], [rA, A], [rB, A], [rB, -A], [rC, -A], [rC, 0], [R_CORE, 0],
+  ];
+  const toXY = ([r, w]) => ({ x: CX + dx * r + nx * w, y: CY + dy * r + ny * w });
+
+  const pts = [];
+  for (let i = 0; i < corners.length - 1; i++) {
+    const a = toXY(corners[i]), b = toXY(corners[i + 1]);
+    const d = Math.hypot(b.x - a.x, b.y - a.y);
+    const n = Math.max(1, Math.round(d / 3));
+    for (let k = 0; k < n; k++) pts.push({ x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n });
+  }
+  pts.push(toXY(corners[corners.length - 1]));
+
+  const cum = [0];
+  for (let k = 1; k < pts.length; k++) {
     cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
   }
-  return { pts, cum, len: cum[N - 1], dx, dy, nx, ny, r0, at, bend, name: DIRS4[li].name };
+  return { pts, cum, len: cum[cum.length - 1], dx, dy, nx, ny, name: DIRS4[li].name };
 }
 
 export const LANES = [0, 1, 2, 3].map(makeLane);
@@ -97,24 +107,96 @@ export function posAt(lane, u) {
 }
 
 /* ── 자리(타워 터) ──────────────────────────────────────── */
-// 굽이가 바깥으로 부푼 지점마다 하나씩, 길 바깥쪽으로 물려 놓는다.
-// 굽이가 번갈아 반대쪽으로 휘므로 이웃한 칸끼리 자연히 멀어진다.
+// 길을 따라가며 옆으로 물러난 자리 다섯을 고른다.
+// 길에서 멀수록, 서로 떨어져 있을수록 좋은 자리로 본다.
+const SLOT_GAP_U = 0.13;   // 같은 길 안에서 자리끼리 벌어질 최소 진행도
+const SLOT_GAP = 50;       // 자리끼리의 최소 거리
+const EDGE = 46;           // 화면 가장자리 여백
+
 export const SLOTS = [];
-LANES.forEach((L, li) => {
-  SLOT_S.forEach((s, si) => {
-    const pt = L.at(s);
-    const off = (Math.sign(L.bend(s)) || 1) * SLOT_OFF;   // 굽이가 부푼 바깥쪽으로 물린다
-    SLOTS.push({ lane: li, idx: si, x: pt.x + L.nx * off, y: pt.y + L.ny * off });
+{
+  const road = [];
+  LANES.forEach((L) => { for (let k = 0; k < L.pts.length; k += 3) road.push(L.pts[k]); });
+  const far = (x, y) => {
+    let d = Infinity;
+    for (const q of road) {
+      const dd = (q.x - x) * (q.x - x) + (q.y - y) * (q.y - y);
+      if (dd < d) d = dd;
+    }
+    return Math.sqrt(d);
+  };
+
+  LANES.forEach((L, li) => {
+    // 진행도마다 가장 여유 있는 한 자리를 후보로 모은다
+    const cand = [];
+    for (let u = 0.05; u <= 0.951; u += 0.01) {
+      const p = posAt(li, u);
+      const al = Math.hypot(p.ax, p.ay) || 1;
+      const px = -p.ay / al, py = p.ax / al;
+      let best = null;
+      for (const side of [1, -1]) {
+        for (let off = 42; off <= 96; off += 4) {
+          const x = p.x + px * side * off, y = p.y + py * side * off;
+          if (x < EDGE || x > W - EDGE || y < EDGE || y > H - EDGE) continue;
+          // 화면 위 모서리는 체력·웨이브·속도 표시가 덮는다
+          if (y < 150 && (x < 330 || x > 740)) continue;
+          if (Math.hypot(x - CX, y - CY) < R_CORE + 48) continue;
+          const d = far(x, y);
+          if (!best || d > best.d) best = { x, y, d, u };
+        }
+      }
+      if (best) cand.push(best);
+    }
+    // 여유를 가장 크게 잡으면서 다섯 자리를 고른다
+    const pickAll = (min) => {
+      const pick = [];
+      let lastU = -9;
+      for (const c of cand) {
+        if (c.d < min || c.u - lastU < SLOT_GAP_U) continue;
+        if (SLOTS.concat(pick).some((s) => Math.hypot(s.x - c.x, s.y - c.y) < SLOT_GAP)) continue;
+        pick.push(c);
+        lastU = c.u;
+        if (pick.length === 5) return pick;
+      }
+      return null;
+    };
+    let lo = 30, hi = 100, chosen = null;
+    for (let i = 0; i < 22; i++) {
+      const mid = (lo + hi) / 2;
+      const got = pickAll(mid);
+      if (got) { chosen = got; lo = mid; } else hi = mid;
+    }
+    (chosen || pickAll(0) || []).forEach((c, si) => {
+      SLOTS.push({ lane: li, idx: si, x: Math.round(c.x), y: Math.round(c.y) });
+    });
   });
-});
+}
 export const sk = (lane, idx) => lane * 5 + idx;
 
-// 이동 인접 그래프: 각 경로(북0·동1·남2·서3)는 안쪽(코어 쪽)으로 갈수록 idx가 커진다.
-// 경로마다 남는 축 하나(CW_DIR)는 어느 칸에서든 시계 방향 옆 경로의 같은 칸으로 이어져 있다.
-// 반시계 방향은 그 경로 고유의 "코어 쪽" 방향(TOWARD)과 겹치므로, 그 축이 막히는 가장 안쪽 칸에서만 넘어갈 수 있다.
-export const TOWARD = ["down", "left", "up", "right"];
-export const AWAY = { down: "up", up: "down", left: "right", right: "left" };
-export const CW_DIR = ["right", "down", "left", "up"];
+// 이동은 자리 사이를 눈에 보이는 대로 옮겨 다닌다.
+// 누른 방향과 60도 안쪽에 있는 자리 중 가장 가깝고 방향이 잘 맞는 곳으로 간다.
+export const DIR_VEC = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+
+export function nextSlot(from, act) {
+  const v = DIR_VEC[act];
+  if (!v) return -1;
+  // 먼저 60도 안쪽에서 찾고, 그쪽이 비어 있으면 더 넓게 훑는다
+  for (const limit of [0.5, 0.15]) {
+    let best = -1, bestScore = Infinity;
+    for (let i = 0; i < SLOTS.length; i++) {
+      const s = SLOTS[i];
+      const dx = s.x - from.x, dy = s.y - from.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 1) continue;
+      const dot = (dx * v[0] + dy * v[1]) / d;
+      if (dot < limit) continue;
+      const score = d / (dot * dot);
+      if (score < bestScore) { bestScore = score; best = i; }
+    }
+    if (best >= 0) return best;
+  }
+  return -1;
+}
 
 /* ── 규칙 ───────────────────────────────────────────────── */
 export const TOWERS = [

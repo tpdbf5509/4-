@@ -1,5 +1,5 @@
 import {
-  CX, CY, P, LANES, SLOTS, sk, posAt, TOWARD, AWAY, CW_DIR,
+  CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, CLASS_TOWERS, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, buildQueue, waveKind, seatCount, ETYPES, BLESSINGS,
 } from "./world.js";
@@ -33,28 +33,12 @@ export function wantTower(pi, p) {
 /* ── 조작 ───────────────────────────────────────────────── */
 export function applyMove(g, pi, act) {
   const p = g.players[pi];
-  const lane = p.lane, idx = p.slot;
-  const toward = TOWARD[lane];
-  const away = AWAY[toward];
-
-  if (act === away) {
-    if (idx === 0) { p.jolt = 0.12; return; }
-    p.slot = idx - 1;
-    p.jolt = 0.2;
-    return;
-  }
-  if (act === toward) {
-    if (idx < 4) { p.slot = idx + 1; p.jolt = 0.2; return; }
-    p.lane = (lane + 3) % 4;
-    p.jolt = 0.2;
-    return;
-  }
-  if (act === CW_DIR[lane]) {
-    p.lane = (lane + 1) % 4;
-    p.jolt = 0.2;
-    return;
-  }
-  p.jolt = 0.12;
+  const from = SLOTS[sk(p.lane, p.slot)];
+  const i = nextSlot(from, act);
+  if (i < 0) { p.jolt = 0.12; return; }      // 그쪽에는 자리가 없다
+  p.lane = SLOTS[i].lane;
+  p.slot = SLOTS[i].idx;
+  p.jolt = 0.2;
 }
 
 export function say(g, x, y, text, color) {

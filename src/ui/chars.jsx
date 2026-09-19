@@ -35,6 +35,10 @@ export const TOWER_CHARACTERS = {
     src: "/assets/characters/supply-tower.webp",
     alt: "보급소 캐릭터 — 지팡이와 물약을 든 분홍 차림의 보급병",
   },
+  paladin: {
+    src: "/assets/characters/paladin-tower.webp",
+    alt: "성기사탑 캐릭터 — 검과 방패를 든 금발의 성기사",
+  },
   frost: {
     src: "/assets/characters/frost-tower.webp",
     alt: "서리탑 캐릭터 — 눈송이를 띄우는 흰 머리의 얼음 마법사",

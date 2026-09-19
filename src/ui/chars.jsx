@@ -19,6 +19,10 @@ export const TOWER_CHARACTERS = {
     src: "/assets/characters/bolt-tower.webp",
     alt: "번개탑 캐릭터 — 번개를 두른 금발의 번개 마법사",
   },
+  flame: {
+    src: "/assets/characters/flame-tower.webp",
+    alt: "화염탑 캐릭터 — 불덩이를 든 붉은 머리의 불꽃 전사",
+  },
   frost: {
     src: "/assets/characters/frost-tower.webp",
     alt: "서리탑 캐릭터 — 눈송이를 띄우는 흰 머리의 얼음 마법사",

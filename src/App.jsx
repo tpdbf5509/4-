@@ -364,7 +364,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
                 onClick={() => onPick(i)}
                 disabled={!!who || locked}
               >
-                <span className="seat-badge"><ClassIcon i={i} /></span>
+                <span className={`seat-badge ${P[i].pale ? "pale" : ""}`}><ClassIcon i={i} /></span>
                 <span className="seat-name">{cls.name} <em>{cls.cost}골드</em></span>
                 <span className="seat-role">{cls.role}</span>
                 <span className="seat-note">{cls.note}</span>
@@ -936,7 +936,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
               <div key={i} className={`card ${mine ? "mine" : ""}`}
                 style={{ "--pc": P[i].key, "--pcl": P[i].light, "--pcd": P[i].dark }}>
                 <div className="card-head">
-                  <span className="badge"><ClassIcon i={i} /></span>
+                  <span className={`badge ${P[i].pale ? "pale" : ""}`}><ClassIcon i={i} /></span>
                   <span className="who">
                     <b>{names[i] || `${i + 1}P`}</b> {cls.name}
                   </span>

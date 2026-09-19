@@ -158,6 +158,10 @@ kbd {
   display: block; width: 100%; height: 100%;
   object-fit: contain; object-position: center bottom;
   user-select: none; -webkit-user-drag: none;
+  /* 어두운 병과가 어두운 카드에 묻히지 않게 뒤에 옅은 빛을 깔고 테두리를 한 겹 두른다 */
+  background: radial-gradient(ellipse at 50% 56%, rgba(255, 244, 218, 0.13), rgba(255, 244, 218, 0) 68%);
+  --rim: drop-shadow(0 0 1.1px rgba(226, 232, 255, 0.55)) drop-shadow(0 0 2.5px rgba(226, 232, 255, 0.3));
+  filter: var(--rim);
 }
 /* 대기실 병과 카드 — 설명 오른쪽에 세워 둔다 */
 .seat-char {
@@ -185,7 +189,7 @@ kbd {
 .foot-me { display: flex; align-items: center; gap: 12px; min-height: 40px; }
 .foot-char {
   width: 118px; height: 138px; margin: -18px 0 -10px;
-  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
+  filter: var(--rim) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
 .keyhint { margin: 12px 0 0; font-size: 11.5px; color: #8d8068; }
 .keyhint kbd { margin: 0 2px; }
@@ -308,7 +312,7 @@ kbd {
 /* 게임 중 병과 카드 — 설명 옆에 작게 세운다 */
 .card-char {
   float: right; width: 72px; height: 76px; margin: -6px -2px 0 9px;
-  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
+  filter: var(--rim) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
 }
 .card-row {
   display: flex; justify-content: space-between; gap: 6px;

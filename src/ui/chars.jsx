@@ -31,6 +31,10 @@ export const TOWER_CHARACTERS = {
     src: "/assets/characters/gravity-tower.webp",
     alt: "중력탑 캐릭터 — 중력 구슬을 띄운 보랏빛 두건의 술사",
   },
+  supply: {
+    src: "/assets/characters/supply-tower.webp",
+    alt: "보급소 캐릭터 — 보급 가방을 멘 보라 머리의 지원병",
+  },
   frost: {
     src: "/assets/characters/frost-tower.webp",
     alt: "서리탑 캐릭터 — 눈송이를 띄우는 흰 머리의 얼음 마법사",

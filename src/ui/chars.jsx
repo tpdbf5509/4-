@@ -4,15 +4,15 @@
 
 export const TOWER_CHARACTERS = {
   archer: {
-    src: "/assets/characters/archer-tower.png",
+    src: "/assets/characters/archer-tower.webp",
     alt: "궁수탑 캐릭터 — 활을 당기는 초록 두건의 궁수",
   },
   cannon: {
-    src: "/assets/characters/cannon-tower.png",
+    src: "/assets/characters/cannon-tower.webp",
     alt: "대포탑 캐릭터 — 대포를 쏘는 주황 머리의 포병",
   },
   frost: {
-    src: "/assets/characters/frost-tower.png",
+    src: "/assets/characters/frost-tower.webp",
     alt: "서리탑 캐릭터 — 눈송이를 띄우는 흰 머리의 얼음 마법사",
   },
 };

@@ -145,8 +145,8 @@ kbd {
 }
 .seat-badge svg { width: 16px; height: 16px; display: block; }
 /* 밝은 병과 딱지는 그림을 어둡게 — 흰 바탕에 흰 그림이 묻히지 않게 */
-.badge.pale svg [fill="#fff"], .seat-badge.pale svg [fill="#fff"] { fill: #55503f; }
-.badge.pale svg [stroke="#fff"], .seat-badge.pale svg [stroke="#fff"] { stroke: #55503f; }
+.badge.pale svg [fill="#fff"], .seat-badge.pale svg [fill="#fff"] { fill: #6b4046; }
+.badge.pale svg [stroke="#fff"], .seat-badge.pale svg [stroke="#fff"] { stroke: #6b4046; }
 .seat-name { font-size: 14px; color: #f2e3c2; letter-spacing: -0.03em; }
 .seat-name em { font-style: normal; font-size: 10px; color: var(--pcl); }
 .seat-role {

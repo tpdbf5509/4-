@@ -33,7 +33,7 @@ export const TOWER_CHARACTERS = {
   },
   supply: {
     src: "/assets/characters/supply-tower.webp",
-    alt: "보급소 캐릭터 — 보급 가방을 멘 보라 머리의 지원병",
+    alt: "보급소 캐릭터 — 보급 가방을 멘 흰빛 차림의 지원병",
   },
   frost: {
     src: "/assets/characters/frost-tower.webp",

@@ -7,6 +7,10 @@ export const TOWER_CHARACTERS = {
     src: "/assets/characters/archer-tower.png",
     alt: "궁수탑 캐릭터 — 활을 당기는 초록 두건의 궁수",
   },
+  cannon: {
+    src: "/assets/characters/cannon-tower.png",
+    alt: "대포탑 캐릭터 — 대포를 쏘는 주황 머리의 포병",
+  },
 };
 
 export const charOf = (id) => TOWER_CHARACTERS[id] || null;

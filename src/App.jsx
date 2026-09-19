@@ -14,6 +14,7 @@ import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
 import { Shield, Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
+import { TowerChar, hasChar } from "./ui/chars.jsx";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -367,6 +368,9 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
                 <span className="seat-name">{cls.name} <em>{cls.cost}골드</em></span>
                 <span className="seat-role">{cls.role}</span>
                 <span className="seat-note">{cls.note}</span>
+                {hasChar(i) && (
+                  <span className="seat-char"><TowerChar i={i} /></span>
+                )}
                 <span className="seat-skill">
                   <b>{SKILLS[i].name}</b> {SKILLS[i].note}
                 </span>

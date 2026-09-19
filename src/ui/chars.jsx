@@ -11,6 +11,10 @@ export const TOWER_CHARACTERS = {
     src: "/assets/characters/cannon-tower.png",
     alt: "대포탑 캐릭터 — 대포를 쏘는 주황 머리의 포병",
   },
+  frost: {
+    src: "/assets/characters/frost-tower.png",
+    alt: "서리탑 캐릭터 — 눈송이를 띄우는 흰 머리의 얼음 마법사",
+  },
 };
 
 export const charOf = (id) => TOWER_CHARACTERS[id] || null;

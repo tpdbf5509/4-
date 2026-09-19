@@ -164,7 +164,7 @@ kbd {
   grid-column: 3; grid-row: 2; justify-self: end; align-self: center;
   width: 74px; height: 78px; margin: -4px 0 -4px 8px;
 }
-.seat.free .seat-char { opacity: 0.66; }
+.seat.free .seat-char { opacity: 0.8; }
 .seat:hover:not(:disabled) .seat-char { opacity: 1; }
 .seat.mine .seat-char { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45)); }
 .seat-skill {

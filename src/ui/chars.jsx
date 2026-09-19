@@ -27,6 +27,10 @@ export const TOWER_CHARACTERS = {
     src: "/assets/characters/poison-tower.webp",
     alt: "독탑 캐릭터 — 독병을 든 보라 머리의 독 연금술사",
   },
+  gravity: {
+    src: "/assets/characters/gravity-tower.webp",
+    alt: "중력탑 캐릭터 — 중력 구슬을 띄운 보랏빛 두건의 술사",
+  },
   frost: {
     src: "/assets/characters/frost-tower.webp",
     alt: "서리탑 캐릭터 — 눈송이를 띄우는 흰 머리의 얼음 마법사",

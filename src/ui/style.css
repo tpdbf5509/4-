@@ -322,45 +322,58 @@ kbd {
 }
 
 /* 보스 보상 고르기 */
-.curtain.reward { background: rgba(12, 20, 12, 0.82); padding: 16px; }
-.reward-box { width: min(560px, 100%); text-align: center; }
+.curtain.reward { background: rgba(10, 16, 10, 0.88); padding: 16px; }
+.reward-box { width: min(660px, 100%); text-align: center; }
 .reward-head h2 {
-  margin: 0; font-family: 'Do Hyeon', sans-serif; font-size: 26px; letter-spacing: -0.03em;
-  color: #f6e5bb; text-shadow: 0 2px 0 rgba(20, 14, 8, 0.8);
+  margin: 0; font-family: 'Do Hyeon', sans-serif; font-size: 27px; letter-spacing: -0.03em;
+  color: #fbeecd; text-shadow: 0 2px 0 rgba(12, 8, 4, 0.9);
 }
-.reward-head p { margin: 4px 0 16px; font-size: 12.5px; color: #cbbb96; }
-.reward-head em { font-style: normal; color: #f0c04a; }
+.reward-head p { margin: 5px 0 17px; font-size: 13px; color: #ded1b3; letter-spacing: -0.02em; }
+.reward-head em { font-style: normal; font-weight: 700; color: #f4c95a; }
 
-.reward-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.reward-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .perk-card {
-  display: flex; flex-direction: column; align-items: center; gap: 0; cursor: pointer;
-  padding: 0 0 12px; border-radius: 12px; overflow: hidden; font-family: inherit;
-  background: linear-gradient(#3b2c1b, #241a10);
-  border: 2px solid #6b4f2c; box-shadow: 0 4px 0 #1b1309;
-  transition: transform 0.08s ease;
+  display: flex; flex-direction: column; align-items: flex-start; text-align: left;
+  gap: 0; cursor: pointer;
+  padding: 0 0 13px; border-radius: 12px; overflow: hidden; font-family: inherit;
+  background: #1e1710;
+  border: 1px solid #5b452a; box-shadow: 0 3px 0 #120c07;
+  transition: transform 0.08s ease, border-color 0.08s ease, background 0.08s ease;
 }
-.perk-card:hover { transform: translateY(-3px); border-color: var(--pcl); filter: brightness(1.08); }
+.perk-card:hover { transform: translateY(-3px); border-color: var(--pcl); background: #261e14; }
 .perk-card:active { transform: translateY(0); }
+.perk-card:focus-visible { outline: 2px solid var(--pcl); outline-offset: 2px; }
 .perk-art {
-  width: 100%; height: 86px; display: grid; place-items: center;
-  background: radial-gradient(circle at 50% 35%, var(--pcl), var(--pcd));
-  border-bottom: 2px solid #1b1309;
+  position: relative; width: 100%; height: 72px; display: grid; place-items: center;
+  background: linear-gradient(#272015, #17100a);
+  border-bottom: 1px solid #3c2e1c;
 }
-.perk-art svg { width: 40px; height: 40px; display: block; filter: drop-shadow(0 2px 0 rgba(20, 14, 8, 0.45)); }
+/* 직업 색은 아이콘 뒤 은은한 빛으로만 — 글씨 대비를 해치지 않게 */
+.perk-art::before {
+  content: ""; position: absolute; width: 54px; height: 54px; border-radius: 50%;
+  background: var(--pc); opacity: 0.32; filter: blur(9px);
+}
+.perk-art svg { position: relative; width: 38px; height: 38px; display: block; }
 .perk-name {
-  width: 100%; padding: 6px 4px; margin-bottom: 9px;
-  font-family: 'Do Hyeon', sans-serif; font-size: 14px; letter-spacing: -0.03em; color: #fff6dd;
-  background: linear-gradient(var(--pc), var(--pcd));
-  border-bottom: 1px solid rgba(20, 14, 8, 0.5);
+  width: 100%; padding: 10px 12px 0;
+  font-family: 'Do Hyeon', sans-serif; font-size: 15.5px; line-height: 1.25;
+  letter-spacing: -0.03em; color: #fbf0d6; word-break: keep-all;
 }
-.perk-note { padding: 0 10px; font-size: 11.5px; line-height: 1.5; color: #c3b291; letter-spacing: -0.02em; }
-.perk-have { margin-top: 6px; font-size: 10px; color: #8d8068; }
+.perk-note {
+  padding: 5px 12px 0; font-size: 12.5px; line-height: 1.55;
+  color: #cfc0a1; letter-spacing: -0.02em; word-break: keep-all;
+}
+.perk-have {
+  margin: 9px 12px 0; padding: 2px 8px; border-radius: 999px;
+  font-size: 10.5px; color: #e2c98c;
+  border: 1px solid rgba(226, 201, 140, 0.4); background: rgba(226, 201, 140, 0.09);
+}
 
-.reward-wait { margin: 18px 0; font-size: 13px; color: #cbbb96; }
-.reward-crew { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+.reward-wait { margin: 18px 0; font-size: 13.5px; color: #ded1b3; }
+.reward-crew { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 17px; }
 .crew-dot {
-  padding: 4px 10px; border-radius: 999px; font-size: 10.5px; color: #9c8d70;
-  border: 1px solid rgba(160, 130, 90, 0.35); background: rgba(20, 14, 8, 0.5);
+  padding: 4px 10px; border-radius: 999px; font-size: 11px; color: #c0b192; letter-spacing: -0.02em;
+  border: 1px solid rgba(170, 142, 100, 0.45); background: rgba(20, 14, 8, 0.6);
 }
 .crew-dot.done { color: var(--pcl); border-color: var(--pcl); }
 

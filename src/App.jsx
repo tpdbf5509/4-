@@ -14,7 +14,7 @@ import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
 import { Shield, Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
-import { TowerChar, hasChar } from "./ui/chars.jsx";
+import { TowerChar, charOf } from "./ui/chars.jsx";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -368,8 +368,8 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
                 <span className="seat-name">{cls.name} <em>{cls.cost}골드</em></span>
                 <span className="seat-role">{cls.role}</span>
                 <span className="seat-note">{cls.note}</span>
-                {hasChar(i) && (
-                  <span className="seat-char"><TowerChar i={i} /></span>
+                {charOf(cls.id) && (
+                  <span className="seat-char"><TowerChar id={cls.id} /></span>
                 )}
                 <span className="seat-skill">
                   <b>{SKILLS[i].name}</b> {SKILLS[i].note}
@@ -389,8 +389,13 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
         </div>
 
         <div className="lobby-foot">
-          <span className="muted">
-            {filled}/{CREW_MAX}명 참가 중 · 내 병과 {mySeat >= 0 ? CLASSES[mySeat].name : "없음"}
+          <span className="foot-me">
+            {mySeat >= 0 && charOf(CLASSES[mySeat].id) && (
+              <TowerChar id={CLASSES[mySeat].id} className="foot-char" />
+            )}
+            <span className="muted">
+              {filled}/{CREW_MAX}명 참가 중 · 내 병과 {mySeat >= 0 ? CLASSES[mySeat].name : "없음"}
+            </span>
           </span>
           {isHost ? (
             <button className="btn-main" onClick={onStart} disabled={filled === 0}>
@@ -937,7 +942,10 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
                   </span>
                   <span className="coin"><Coin />{p.gold}</span>
                 </div>
-                <div className="card-note">{cls.note} · {cls.cost}골드</div>
+                <div className="card-note">
+                  {charOf(cls.id) && <TowerChar id={cls.id} className="card-char" />}
+                  {cls.note} · {cls.cost}골드
+                </div>
                 {p.perks?.length > 0 && (
                   <div className="perk-row">
                     {p.perks.map(([id, n]) => (

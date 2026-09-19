@@ -153,14 +153,20 @@ kbd {
 }
 .seat.taken .seat-role, .seat.mine .seat-role { color: var(--pcl); border-color: var(--pcl); }
 .seat-note { grid-column: 2; font-size: 10.5px; color: #a8987a; line-height: 1.4; }
-/* 병과 캐릭터 — 설명 오른쪽에 세워 둔다 */
+/* 병과 캐릭터 그림 — 어디에 놓든 잘리지 않게 통째로 담는다 */
+.tower-char {
+  display: block; width: 100%; height: 100%;
+  object-fit: contain; object-position: center bottom;
+  user-select: none; -webkit-user-drag: none;
+}
+/* 대기실 병과 카드 — 설명 오른쪽에 세워 둔다 */
 .seat-char {
   grid-column: 3; grid-row: 2; justify-self: end; align-self: center;
-  width: 52px; height: 52px; margin-left: 6px;
+  width: 74px; height: 78px; margin: -4px 0 -4px 8px;
 }
-.seat-char svg { width: 100%; height: 100%; display: block; }
-.seat.free .seat-char { opacity: 0.72; }
+.seat.free .seat-char { opacity: 0.66; }
 .seat:hover:not(:disabled) .seat-char { opacity: 1; }
+.seat.mine .seat-char { filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.45)); }
 .seat-skill {
   grid-column: 1 / -1; margin-top: 7px; padding: 5px 8px; border-radius: 8px;
   font-size: 10px; color: #9c8d70; line-height: 1.45;
@@ -174,6 +180,12 @@ kbd {
 .lobby-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding-top: 14px; border-top: 1px solid rgba(160, 130, 90, 0.25);
+}
+/* 내가 고른 병과의 캐릭터를 크게 세워 둔다 */
+.foot-me { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.foot-char {
+  width: 118px; height: 138px; margin: -18px 0 -10px;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
 .keyhint { margin: 12px 0 0; font-size: 11.5px; color: #8d8068; }
 .keyhint kbd { margin: 0 2px; }
@@ -289,7 +301,15 @@ kbd {
 }
 .coin svg { width: 14px; height: 14px; }
 
-.card-note { margin-top: 6px; font-size: 11px; color: #a8987a; line-height: 1.45; min-height: 30px; }
+.card-note {
+  margin-top: 6px; font-size: 11px; color: #a8987a; line-height: 1.45;
+  min-height: 30px; overflow: hidden;
+}
+/* 게임 중 병과 카드 — 설명 옆에 작게 세운다 */
+.card-char {
+  float: right; width: 72px; height: 76px; margin: -6px -2px 0 9px;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
+}
 .card-row {
   display: flex; justify-content: space-between; gap: 6px;
   font-size: 10.5px; color: #9c8d70; padding-top: 7px; margin-top: 3px;

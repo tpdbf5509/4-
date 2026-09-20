@@ -3,7 +3,7 @@ import {
   W, H, CX, CY, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
   castleTier, castleCost, CASTLE_TIERS, LEAVE_FORCE, LEAVE_T,
   SKILLS, ENEMY, ETYPES, SLOTS, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
-  makeGame, waveKind, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, SELL_KEYS, KEY_HINT,
+  makeGame, waveKind, bossWave, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, SELL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
   step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
@@ -48,7 +48,7 @@ export default function App() {
 
   const roomRef = useRef(null);
   const hostRef = useRef(false);
-  const bossRef = useRef(false);        // 대기실에서 '보스전 바로'로 시작했는지
+  const bossRef = useRef(false);        // 대기실에서 바로 들어간 결전 — false · "boss" · "titan"
   const seatsRef = useRef(new Array(SEATS).fill(null));
   const peersRef = useRef([]);
 
@@ -137,7 +137,12 @@ export default function App() {
       seatsRef.current = seats;
       publishLobby();
     });
-    room.on("start", (d) => { if (!hostRef.current) { bossRef.current = !!(d && d.boss); setScreen("game"); } });
+    room.on("start", (d) => {
+      if (hostRef.current) return;
+      const b = d && d.boss;
+      bossRef.current = b === true ? "boss" : (b === "boss" || b === "titan") ? b : false;
+      setScreen("game");
+    });
     room.on("toLobby", () => { if (!hostRef.current) setScreen("lobby"); });
 
     setCode(roomCode);
@@ -183,9 +188,11 @@ export default function App() {
     }
   }, [lobby, me, name, publishLobby]);
 
+  // boss 는 false 이거나 곧장 들어갈 결전의 상대 — "boss" · "titan"
   const startGame = useCallback((boss) => {
-    bossRef.current = boss === true;
-    roomRef.current?.send("start", { boss: boss === true });
+    const kind = boss === "boss" || boss === "titan" ? boss : false;
+    bossRef.current = kind;
+    roomRef.current?.send("start", { boss: kind });
     setScreen("game");
   }, []);
 
@@ -223,7 +230,7 @@ export default function App() {
         code={code} lobby={lobby} me={me} isHost={isHost} mySeat={mySeat}
         error={error} connecting={connecting}
         onPick={pick} onStart={startGame} onLeave={leave} onWaves={setWaves} onDiff={setDiff}
-        onStartBoss={() => startGame(true)}
+        onStartBoss={(kind) => startGame(kind)}
       />
     );
   }
@@ -418,9 +425,13 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
           </span>
           {isHost ? (
             <span className="start-row">
-              <button className="btn-ghost btn-test" onClick={onStartBoss} disabled={filled === 0}
-                title="5웨이브 보스 결전으로 곧장 들어갑니다">
-                보스전 바로
+              <button className="btn-ghost btn-test" onClick={() => onStartBoss("boss")} disabled={filled === 0}
+                title="오우거 지휘관과의 1차 결전으로 곧장 들어갑니다">
+                1차 보스전
+              </button>
+              <button className="btn-ghost btn-test" onClick={() => onStartBoss("titan")} disabled={filled === 0}
+                title="대군주와의 2차 결전으로 곧장 들어갑니다">
+                2차 보스전
               </button>
               <button className="btn-main" onClick={() => onStart(false)} disabled={filled === 0}>
                 방어 시작
@@ -490,8 +501,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     g.names = names;
     g.mySeat = mySeat;
     if (import.meta.env.DEV) window.__G = g;    // 개발 중 상태를 들여다보려고
-    // 시험용 — 대기실에서 '보스전 바로'로 들어오면 보스 웨이브에서 시작한다
-    g.wave = startBoss ? Math.min(5, g.total) : 1;
+    // 시험용 — 대기실에서 바로 들어오면 그 상대를 만나는 웨이브에서 시작한다
+    g.wave = startBoss ? bossWave(startBoss, g.total) : 1;
     startPrep(g);
     if (startBoss) g.timer = 0.6;
     G.current = g;

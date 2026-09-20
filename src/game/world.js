@@ -509,8 +509,41 @@ export const ARENA_PATTERNS = [
     note: "가로세로로 가른다 — 네 귀퉁이로" },
   { id: "xcut",  name: "엇갈려 가르기", tell: 0.58, dmg: 0.85, chain: 1,
     note: "곧바로 비스듬히 가른다 — 아까 안전하던 자리가 위험해진다" },
+  // 대군주만 쓰는 둘. 방망이가 아니라 땅으로 자리를 좁힌다.
+  { id: "wake", name: "겹파문",   tell: 1.6, dmg: 0.9,
+    note: "파문이 두 겹으로 퍼진다 — 두 겹 사이에 서라" },
+  { id: "hail", name: "쏟아지기", tell: 1.3, dmg: 0.8,
+    note: "다섯 곳이 한꺼번에 무너진다" },
 ];
 export const PAT_BY_ID = Object.fromEntries(ARENA_PATTERNS.map((p) => [p.id, p]));
+
+/* 결전은 두 갈래다 — 상대가 누구냐에 따라 읽어야 할 것이 달라진다.
+   오우거 지휘관은 방망이로 가르고, 대군주는 땅을 흔들어 설 자리를 좁힌다.
+   pool 은 평소에 뽑는 목록, far 는 다들 멀리 떨어졌을 때, close 는 곁에 붙었을 때다. */
+export const ARENA_BOSS = {
+  boss: {
+    tag: "1차 결전",
+    lead: "맞으면 깎인 체력만큼 성채도 깎인다 — 피하면서 싸우자",
+    color: "#ff9f6a", ring: "#ffb06a",
+    pool: ["slam", "stomp", "leap", "cross", "sweep", "cross", "rush"],
+    far: ["leap", "rush"], close: "swipe",
+    tell: 1, after: 1, rest: 1.6, limit: 75,
+  },
+  titan: {
+    tag: "2차 결전",
+    lead: "파문과 낙반 사이로 자리를 찾아라 — 맞은 만큼 성채가 깎인다",
+    color: "#ff6f6f", ring: "#ff7a6a",
+    pool: ["wake", "slam", "hail", "leap", "wake", "sweep", "rush"],
+    far: ["leap", "rush", "wake"], close: "swipe",
+    tell: 0.88, after: 0.8, rest: 1.1, limit: 100,
+  },
+};
+export const arenaBossCfg = (kind) => ARENA_BOSS[kind] || ARENA_BOSS.boss;
+
+/* 겹파문 — 안쪽 띠와 바깥 띠, 그 사이가 안전하다 */
+export const ARENA_WAKE = { r0: 96, r1: 236, r2: 372, r3: 530 };
+/* 쏟아지기 — 다섯 곳 */
+export const ARENA_HAIL = { n: 5, r: 132 };
 
 /* 돌진이 훑는 길이 · 뛰어오르는 높이 */
 export const ARENA_LEAP = { r: 210, rTitan: 245, up: 190 };
@@ -646,9 +679,16 @@ export function shuffle(a) {
 // 웨이브 성격: 보통 / 돌격(빠른 적 떼) / 보스 / 대군주
 export function waveKind(n, total = TOTAL_WAVES) {
   if (n >= total) return "titan";
-  if (n % 5 === 0) return "boss";
+  // 보스 웨이브는 번갈아 온다 — 첫 번째는 오우거 지휘관, 두 번째는 대군주
+  if (n % 5 === 0) return (n / 5) % 2 === 0 ? "titan" : "boss";
   if (n % 4 === 0) return "rush";
   return "normal";
+}
+
+/* 그 길이의 판에서 이 결전을 처음 만나는 웨이브. 시험용 바로 들어가기에 쓴다. */
+export function bossWave(kind, total = TOTAL_WAVES) {
+  for (let n = 1; n <= total; n++) if (waveKind(n, total) === kind) return n;
+  return total;
 }
 
 /* 적이 세지는 정도. 라운드를 길게 잡으면 그만큼 완만하게 올라간다.

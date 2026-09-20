@@ -3,6 +3,7 @@ import {
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, LEAVE_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
   diffOf, prepTime, ARENA, ARENA_PATTERNS, PAT_BY_ID, ARENA_LEAP, ARENA_RUSH, ARENA_CUT,
+  arenaBossCfg, ARENA_WAKE, ARENA_HAIL,
   arenaInZone, arenaNear, arenaKit, arenaRange,
   bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
@@ -597,6 +598,7 @@ export function arenaPower(g, pi) {
 
 export function startArena(g, kind) {
   const base = ENEMY[kind];
+  const cfg = arenaBossCfg(kind);
   const D = diffOf(g);
   const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + D.surge * g.surge) * D.hp;
   const max = Math.round(base.hp * scale * ARENA.hpMul * arenaCrew(g));
@@ -618,7 +620,7 @@ export function startArena(g, kind) {
     combo: 0, comboT: 0, jolt: 0, roar: 0,
     burn: 0, burnDps: 0, poison: 0, poisonDps: 0, slow: 0, shred: 0, shredAmt: 0,
     shots: [], mobs: [],
-    limit: kind === "titan" ? 100 : 75, rage: 0,
+    limit: cfg.limit, rage: 0,
   };
   const crew = arenaCrew(g);
   let k = 0;
@@ -634,10 +636,8 @@ export function startArena(g, kind) {
     p.ahpMax = life; p.ahp = life; p.aout = 0;
   });
   g.shake = Math.max(g.shake, 0.6);
-  fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: kind === "titan" ? "#ff7a6a" : "#ffb06a",
-    t: 1, life: 1, snd: "boss" });
-  banner(g, base.label, "맞으면 깎인 체력만큼 성채도 깎인다 — 피하면서 싸우자",
-    kind === "titan" ? "#ff6f6f" : "#ff9f6a");
+  fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: cfg.ring, t: 1, life: 1, snd: "boss" });
+  banner(g, `${cfg.tag} — ${base.label}`, cfg.lead, cfg.color);
 }
 
 /* 결전장에서의 조작 */
@@ -1148,14 +1148,14 @@ function arenaNextPattern(g) {
   const far = up.some((q) => arenaNear(q.ax, q.ay || ARENA.bfy, a.x, a.y) > ARENA.club * 1.6);
   // 붙어 있으면 팔로, 멀리 떨어져 있으면 뛰거나 밀고 들어간다
   // 십자 가르기는 이 보스의 간판이라 조금 더 자주 나오게 두 칸을 준다
-  const pool = a.type === "titan" ? [0, 1, 4, 6, 2, 6, 5] : [0, 2, 4, 6, 1, 6, 5];
-  const reach = far ? [4, 5] : null;
+  const cfg = arenaBossCfg(a.type);
+  const pick = (list) => PAT_BY_ID[list[Math.floor(Math.random() * list.length)]];
   const pat = close && Math.random() < 0.34
-    ? ARENA_PATTERNS.find((x) => x.id === "swipe")
-    : reach && Math.random() < 0.5
-      ? ARENA_PATTERNS[reach[Math.floor(Math.random() * reach.length)]]
-      : ARENA_PATTERNS[pool[Math.floor(Math.random() * pool.length)]];
-  arenaBegin(g, pat);
+    ? PAT_BY_ID[cfg.close]
+    : far && Math.random() < 0.5
+      ? pick(cfg.far)
+      : pick(cfg.pool);
+  arenaBegin(g, pat || ARENA_PATTERNS[0]);
 }
 
 /* 고른 공격의 자리를 깔고 예비 동작에 들어간다 */
@@ -1167,7 +1167,7 @@ function arenaBegin(g, pat) {
   a.sw = 0; a.swHit = 0;
   a.leap = null; a.rush = null; a.air = 0;
   a.next = pat.next || null;
-  a.stT = pat.tell * (a.type === "titan" ? 0.88 : 1);
+  a.stT = pat.tell * arenaBossCfg(a.type).tell;
   const spot = () => {
     // 아무나 한 사람 근처를 노린다
     const q = up.length ? up[Math.floor(Math.random() * up.length)] : null;
@@ -1223,6 +1223,23 @@ function arenaBegin(g, pat) {
   } else if (pat.id === "slam") {
     const c = spot();
     a.zone = [{ k: "circle", x: c.x, y: c.y, r: a.type === "titan" ? 230 : 195 }];
+  } else if (pat.id === "wake") {                 // 두 겹으로 퍼진다 — 띠 사이가 안전하다
+    a.zone = [{ k: "ring", x: a.x, y: a.y, r0: ARENA_WAKE.r0, r1: ARENA_WAKE.r1 },
+      { k: "ring", x: a.x, y: a.y, r0: ARENA_WAKE.r2, r1: ARENA_WAKE.r3 }];
+  } else if (pat.id === "hail") {                 // 다섯 곳이 한꺼번에 무너진다
+    // 사람 수만큼은 각자 머리 위로, 남는 자리는 판 여기저기로 흩뿌린다
+    const rest = up.slice();
+    a.zone = [];
+    for (let i = 0; i < ARENA_HAIL.n; i++) {
+      const q = rest.length ? rest.splice(Math.floor(Math.random() * rest.length), 1)[0] : null;
+      const cx = q ? q.ax + (Math.random() - 0.5) * 90
+        : ARENA.left + 70 + Math.random() * (ARENA.right - ARENA.left - 140);
+      const cy = q ? (q.ay || ARENA.bfy) + (Math.random() - 0.5) * 60
+        : ARENA.top + 70 + Math.random() * (ARENA.bottom - ARENA.top - 120);
+      a.zone.push({ k: "circle", r: ARENA_HAIL.r,
+        x: Math.max(ARENA.left, Math.min(ARENA.right, cx)),
+        y: Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30, cy)) });
+    }
   } else if (pat.id === "sweep") {
     a.zone = [{ k: "ring", x: a.x, y: a.y, r0: a.type === "titan" ? 150 : 135,
       r1: a.type === "titan" ? 460 : 400 }];
@@ -1297,7 +1314,7 @@ function arenaStrike(g) {
     if (nx) return arenaBegin(g, nx);
   }
   a.st = "rest";
-  a.stT = (a.type === "titan" ? 0.8 : 1) + (a.pat === "rush" ? 0.5 : 0);
+  a.stT = arenaBossCfg(a.type).after + (a.pat === "rush" ? 0.5 : 0);
   a.zone = null;
 }
 
@@ -1388,7 +1405,7 @@ export function stepArena(g, dt) {
     a.outro -= dt;
     if (a.outro <= 0) {
       g.arena = null;
-      if (a.type === "titan") { g.phase = "clear"; return; }
+      if (g.wave >= (g.total || TOTAL_WAVES)) { g.phase = "clear"; return; }
       g.pendingReward = 1;
       openReward(g);
     }
@@ -1406,7 +1423,7 @@ export function stepArena(g, dt) {
     else if (a.st === "tell") arenaStrike(g);
     else {
       a.st = "idle";
-      a.stT = ((a.type === "titan" ? 1.1 : 1.6) + Math.random() * 0.8) * (a.rage ? 0.5 : 1);
+      a.stT = (arenaBossCfg(a.type).rest + Math.random() * 0.8) * (a.rage ? 0.5 : 1);
     }
   }
 }
@@ -1466,7 +1483,8 @@ export function step(g, dt) {
       const kind = waveKind(g.wave, total);
       if (kind === "rush") banner(g, `웨이브 ${g.wave} — 돌격`, "발 빠른 고블린 떼가 몰려온다", "#ffb765");
       else if (kind === "boss") banner(g, `웨이브 ${g.wave} — 보스`, "오우거 지휘관이 온다", "#ff8f6a");
-      else if (kind === "titan") banner(g, "최종 웨이브 — 대군주", "성문 앞까지 한 걸음도 내주지 마라", "#ff6f6f");
+      else if (kind === "titan") banner(g, g.wave >= total ? "최종 웨이브 — 대군주" : `웨이브 ${g.wave} — 보스`,
+        g.wave >= total ? "성문 앞까지 한 걸음도 내주지 마라" : "대군주가 온다", "#ff6f6f");
       else banner(g, `웨이브 ${g.wave}`, "적이 네 갈래 길로 들어온다", "#e8dcc0");
     }
   } else if (g.phase === "wave") {
@@ -1894,7 +1912,8 @@ export function packSnapshot(g) {
     ca: Math.round(g.castle.aim * 100) / 100,
     ar: g.arena ? {
       ty: g.arena.type, hp: Math.round(g.arena.hp), mx: g.arena.max,
-      st: g.arena.st, zo: g.arena.zone, li: Math.max(0, Math.round(g.arena.limit * 10) / 10),
+      st: g.arena.st, pa: g.arena.pat || 0, zo: g.arena.zone,
+      li: Math.max(0, Math.round(g.arena.limit * 10) / 10),
       ef: [g.arena.burn > 0 ? 1 : 0, g.arena.poison > 0 ? 1 : 0,
         g.arena.slow > 0 ? 1 : 0, g.arena.shred > 0 ? 1 : 0],
       rg: g.arena.rage, cb: g.arena.combo, io: Math.round(g.arena.intro * 10) / 10,
@@ -1953,7 +1972,7 @@ export function applySnapshot(g, s) {
   if (s.ar) {
     const a = g.arena || (g.arena = {});
     a.type = s.ar.ty; a.hp = s.ar.hp; a.max = s.ar.mx;
-    a.st = s.ar.st; a.zone = s.ar.zo; a.limit = s.ar.li; a.rage = s.ar.rg;
+    a.st = s.ar.st; a.pat = s.ar.pa || null; a.zone = s.ar.zo; a.limit = s.ar.li; a.rage = s.ar.rg;
     a.combo = s.ar.cb; a.intro = s.ar.io; a.outro = s.ar.oo; a.jolt = s.ar.jo;
     a.stT = s.ar.sT; a.t = (a.t || 0);
     a.x = s.ar.bx; a.y = s.ar.by; a.dir = s.ar.bd || 1;

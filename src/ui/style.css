@@ -194,7 +194,9 @@ kbd {
   width: 118px; height: 138px; margin: -18px 0 -10px;
   filter: var(--rim) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
-.start-row { display: flex; align-items: center; gap: 8px; }
+/* 시험용 두 개와 시작 하나 — 좁은 화면에서는 줄을 바꿔 서게 둔다 */
+.start-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.start-row button { white-space: nowrap; }
 .btn-test { font-size: 12.5px; padding: 8px 12px; opacity: 0.8; }
 .btn-test:hover:not(:disabled) { opacity: 1; }
 

@@ -798,7 +798,9 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
         if (d.kind === "reward") return applyReward(g, d.cls, d.dir);
         if (d.kind === "hold") return applyHold(g, d.cls, d.dir);
         if (d.kind === "leave") return applyLeave(g, d.cls, d.dir);
-        if (g.phase !== "prep" && g.phase !== "wave") return;
+        // 결전장에서도 손님의 조작을 받는다 — 평타와 스킬이 이 길로 온다.
+        // 결전장에서 뜻이 없는 것(팔기·성채·그 자리로)은 각자 알아서 물러난다.
+        if (g.phase !== "prep" && g.phase !== "wave" && g.phase !== "arena") return;
         if (g.paused) return;
         if (d.kind === "move") applyMove(g, d.cls, d.dir);
         else if (d.kind === "goto") applyGoto(g, d.cls, d.dir);

@@ -3,6 +3,7 @@ import {
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, LEAVE_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
   diffOf, prepTime, ARENA, ARENA_PATTERNS, arenaInZone, arenaNear, arenaKit, arenaRange,
+  bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
 } from "./world.js";
 
@@ -598,6 +599,9 @@ export function startArena(g, kind) {
   const D = diffOf(g);
   const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + D.surge * g.surge) * D.hp;
   const max = Math.round(base.hp * scale * ARENA.hpMul * arenaCrew(g));
+  // 보스 한 대가 사람에게 주는 피해. 이 수의 ARENA.lives 배가 각자의 체력이 된다.
+  const bite = Math.max(1, Math.round(base.dmg * ARENA.coreHit * D.hp));
+  const life = Math.max(12, bite * ARENA.lives);
   g.phase = "arena";
   g.enemies = [];
   g.queue = [];
@@ -606,6 +610,8 @@ export function startArena(g, kind) {
     type: kind, hp: max, max,
     t: 0, intro: 2.2, outro: 0,
     st: "idle", stT: 2, pat: null, zone: null,
+    x: ARENA.bx, y: ARENA.bfy, dir: 1, tgt: -1, step: 0,   // 걸어 다니는 자리
+    bite, life,
     sup: 3, combo: 0, comboT: 0, jolt: 0, roar: 0,
     burn: 0, burnDps: 0, poison: 0, poisonDps: 0, slow: 0, shred: 0, shredAmt: 0,
     shots: [], mobs: [],
@@ -622,11 +628,12 @@ export function startArena(g, kind) {
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
     p.hold = []; p.vx = undefined; p.vy = undefined;    // 지난 판에 누르고 있던 건 잊는다
     p.abuff = 0; p.abuffAmt = 0;
+    p.ahpMax = life; p.ahp = life; p.acalm = 0; p.aout = 0;
   });
   g.shake = Math.max(g.shake, 0.6);
   fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: kind === "titan" ? "#ff7a6a" : "#ffb06a",
     t: 1, life: 1, snd: "boss" });
-  banner(g, base.label, kind === "titan" ? "모두 앞으로 — 마지막 싸움" : "모두 앞으로 — 보스를 막아라",
+  banner(g, base.label, "맞으면 깎인 체력만큼 성채도 깎인다 — 피하면서 싸우자",
     kind === "titan" ? "#ff6f6f" : "#ff9f6a");
 }
 
@@ -641,7 +648,7 @@ export function applyHold(g, pi, dirs) {
 // 누르고 있는 만큼 걸어간다 — 방장과 손님 화면 양쪽에서 같은 식으로 돈다
 export function arenaWalk(g, pi, dt) {
   const p = g.players[pi];
-  if (!p || !p.hold || !p.hold.length || p.adown > 0) return;
+  if (!p || !p.hold || !p.hold.length || p.adown > 0 || p.aout > 0) return;
   let dx = 0, dy = 0;
   p.hold.forEach((d) => {
     if (d === "left") dx -= 1;
@@ -687,8 +694,8 @@ function arenaDamage(g, pi, raw, opt) {
   a.combo += 1;
   a.comboT = ARENA.comboT;
   const off = opt && opt.off ? opt.off : 0;
-  fx(g, { kind: "dmg", x: ARENA.bx + off + (Math.random() - 0.5) * 70,
-    y: ARENA.by + 40 + (Math.random() - 0.5) * 50,
+  fx(g, { kind: "dmg", x: bossX(g) + off + (Math.random() - 0.5) * 70,
+    y: bossTop(g) + 40 + (Math.random() - 0.5) * 50,
     text: String(dmg), color: crit ? "#ffd873" : P[pi].light, t: 0.8, life: 0.8, big: crit ? 1 : 0 });
   if (crit) callout(g, CX, 250, "치명타!", "#ffd873", null, 1.1);
   if (a.combo > 0 && a.combo % 15 === 0) callout(g, CX, 250, `${a.combo} 연타!`, "#ffb765", null, 0.9);
@@ -714,7 +721,7 @@ function arenaMark(g, pi, kit) {
 function arenaShoot(g, pi, kit, dmg, mode, big, off) {
   const p = g.players[pi];
   const py = p.ay || ARENA.bfy;
-  const tx = ARENA.bx + (off || 0), ty = ARENA.by + 62;
+  const tx = bossX(g) + (off || 0), ty = bossTop(g) + 62;
   const fly = kit.fly || 0.18;
   fx(g, { kind: "shot", x0: p.ax, y0: py - 46, x1: tx, y1: ty, style: kit.shot || "arrow",
     color: kit.col, t: fly, life: fly, snd: mode === "bomb" ? "cannon" : "shot" });
@@ -730,15 +737,15 @@ function arenaImpact(g, s) {
   const big = s.big ? 1 : 0;
   arenaDamage(g, pi, s.dmg, { off: mode === "bomb" ? 0 : (Math.random() - 0.5) * 60 });
   arenaMark(g, pi, kit);
-  const hx = ARENA.bx + (Math.random() - 0.5) * 40, hy = ARENA.by + 60;
+  const hx = bossX(g) + (Math.random() - 0.5) * 40, hy = bossTop(g) + 60;
   if (mode === "bomb") {
-    fx(g, { kind: "boom", x: ARENA.bx, y: ARENA.by + 74, r: (kit.splash || 90) * (big ? 1.5 : 1),
+    fx(g, { kind: "boom", x: bossX(g), y: bossTop(g) + 74, r: (kit.splash || 90) * (big ? 1.5 : 1),
       t: 0.55, life: 0.55, snd: "boom" });
-    fx(g, { kind: "cloud", x: ARENA.bx, y: ARENA.by + 88, r: (kit.splash || 90) * 0.7,
+    fx(g, { kind: "cloud", x: bossX(g), y: bossTop(g) + 88, r: (kit.splash || 90) * 0.7,
       color: "rgba(150,132,108,0.75)", t: 0.8, life: 0.8 });
     // 광역 — 보스 곁의 다른 적도 함께 맞는다(결전장에 딸린 적이 있을 때)
     (a.mobs || []).forEach((m) => {
-      if (Math.hypot(m.x - ARENA.bx, (m.y - ARENA.bfy) / ARENA.squash) <= (kit.splash || 90)) m.hp -= s.dmg * 0.6;
+      if (arenaNear(m.x, m.y, bossX(g), bossY(g)) <= (kit.splash || 90)) m.hp -= s.dmg * 0.6;
     });
   } else if (kit.poison) {                       // 독 — 퍼지는 독무
     fx(g, { kind: "cloud", x: hx, y: hy + 10, r: big ? 130 : 62, color: "rgba(168,222,110,0.85)",
@@ -749,7 +756,7 @@ function arenaImpact(g, s) {
       t: big ? 0.8 : 0.5, life: big ? 0.8 : 0.5, snd: "ice" });
     fx(g, { kind: "ice", x: hx, y: hy, r: 46, t: 0.6, life: 0.6 });
   } else if (kit.shred) {                        // 부식 — 갑옷이 갈라진 자국
-    fx(g, { kind: "mark", x: ARENA.bx, y: ARENA.by + 50, r: 40, color: kit.col,
+    fx(g, { kind: "mark", x: bossX(g), y: bossTop(g) + 50, r: 40, color: kit.col,
       t: 0.7, life: 0.7 });
     fx(g, { kind: "burst", x: hx, y: hy, r: big ? 56 : 30, color: kit.col, n: big ? 12 : 7,
       t: 0.45, life: 0.45 });
@@ -770,12 +777,12 @@ function arenaFire(g, pi, mul, label) {
   if (!a || a.hp <= 0) return;
   const kit = arenaKit(pi);
   const py = p.ay || ARENA.bfy;
-  const far = arenaNear(p.ax, py, ARENA.bx, ARENA.bfy);
+  const far = arenaNear(p.ax, py, bossX(g), bossY(g));
   const rng = arenaRange(pi);
 
   const big = mul > 1;                           // 시프트로 쓴 스킬
-  const bx2 = ARENA.bx, by2 = ARENA.by + 62;
-  const ang = Math.atan2((ARENA.bfy - py) / ARENA.squash, bx2 - p.ax);
+  const bx2 = bossX(g), by2 = bossTop(g) + 62;
+  const ang = Math.atan2((bossY(g) - py) / ARENA.squash, bx2 - p.ax);
 
   if (kit.mode === "aid") {                      // 보급소 — 때리지 않고 밀어 준다
     let n = 0;
@@ -784,11 +791,14 @@ function arenaFire(g, pi, mul, label) {
       if (arenaNear(p.ax, py, q.ax, q.ay || ARENA.bfy) > rng) return;
       q.abuff = kit.buffT * mul; q.abuffAmt = kit.buff * (big ? 1.6 : 1);
       n += 1;
-      fx(g, { kind: "heal", x: q.ax, y: (q.ay || ARENA.bfy) - 70, text: "+힘", t: 0.9, life: 0.9 });
+      // 힘만 밀어 주는 게 아니라 다친 곳도 여민다
+      const up = arenaMend(g, i, (q.ahpMax || 0) * (big ? 0.35 : 0.12));
+      fx(g, { kind: "heal", x: q.ax, y: (q.ay || ARENA.bfy) - 70,
+        text: up > 0 ? `+${up}` : "+힘", t: 0.9, life: 0.9 });
       fx(g, { kind: "nova", x: q.ax, y: (q.ay || ARENA.bfy) - 6, r: 40, color: kit.col, n: 6,
         t: 0.5, life: 0.5 });
     });
-    g.core.hp = Math.min(g.core.max, g.core.hp + kit.heal * mul);
+    g.core.hp = Math.min(g.core.max, g.core.hp + kit.heal * mul);   // 성채도 조금 돌린다
     fx(g, { kind: "ring", x: p.ax, y: py - 20, r: rng, color: kit.col, t: 0.6, life: 0.6, snd: "bless" });
     if (big) {                                   // 큰 축복 — 넓게 한 번 더
       fx(g, { kind: "nova", x: p.ax, y: py - 20, r: rng * 0.9, color: "#f2dcff", n: 14,
@@ -808,12 +818,12 @@ function arenaFire(g, pi, mul, label) {
   if (label) callout(g, CX, 250, label, "#ffd873", "crit", 0.8);
 
   if (kit.mode === "melee") {                    // 성기사 — 붙어서 벤다. 스킬은 검기가 날아간다
-    const side = p.ax < ARENA.bx ? 1 : -1;
+    const side = p.ax < bx2 ? 1 : -1;
     arenaDamage(g, pi, dmg, { off: -side * 40 });
     arenaMark(g, pi, kit);
     fx(g, { kind: "aura", x0: p.ax + side * 26, y0: py - 52, x1: bx2 - side * 30, y1: by2,
       r: big ? 92 : 48, color: kit.col, t: big ? 0.4 : 0.3, life: big ? 0.4 : 0.3, snd: "hit" });
-    fx(g, { kind: "slash", x: ARENA.bx + side * -52, y: ARENA.by + 60,
+    fx(g, { kind: "slash", x: bx2 + side * -52, y: by2 - 2,
       a: side > 0 ? 0 : Math.PI, color: "rgba(255,246,226,0.95)", t: 0.24, life: 0.24 });
     if (big) {                                   // 성스러운 일격 — 십자 표식과 빛 고리
       fx(g, { kind: "sigil", x: bx2, y: by2 + 20, r: 120, color: "#ffeec2", t: 0.9, life: 0.9 });
@@ -832,29 +842,29 @@ function arenaFire(g, pi, mul, label) {
     fx(g, { kind: "firering", x: p.ax, y: py - 10, r: rng, t: 0.5, life: 0.5 });
     arenaDamage(g, pi, dmg, { off: (Math.random() - 0.5) * 60 });
     arenaMark(g, pi, kit);
-    fx(g, { kind: "flame", x: ARENA.bx + (Math.random() - 0.5) * 60, y: ARENA.by + 70, t: 0.5, life: 0.5 });
+    fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 60, y: by2 + 8, t: 0.5, life: 0.5 });
     if (big) {                                   // 화염 폭풍 — 보스 자리가 통째로 탄다
       for (let i = 0; i < 5; i++) {
         fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 150,
-          y: ARENA.by + 40 + Math.random() * 70, t: 0.5 + i * 0.08, life: 0.5 + i * 0.08 });
+          y: by2 - 22 + Math.random() * 70, t: 0.5 + i * 0.08, life: 0.5 + i * 0.08 });
       }
-      fx(g, { kind: "firering", x: bx2, y: ARENA.bfy, r: 190, t: 0.8, life: 0.8 });
+      fx(g, { kind: "firering", x: bx2, y: bossY(g), r: 190, t: 0.8, life: 0.8 });
     }
     return;
   }
   if (kit.mode === "field") {                    // 중력 — 보스 자리에 중력장
-    fx(g, { kind: "hole", x: bx2, y: ARENA.by + 74, r: big ? 210 : 130,
+    fx(g, { kind: "hole", x: bx2, y: by2 + 12, r: big ? 210 : 130,
       t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7, color: kit.col, snd: "pull" });
-    fx(g, { kind: "vortex", x: bx2, y: ARENA.by + 74, r: 120, t: 0.8, life: 0.8 });
+    fx(g, { kind: "vortex", x: bx2, y: by2 + 12, r: 120, t: 0.8, life: 0.8 });
     arenaDamage(g, pi, dmg, {});
     arenaMark(g, pi, kit);
-    if (big) fx(g, { kind: "nova", x: bx2, y: ARENA.by + 74, r: 220, color: kit.col, n: 14,
+    if (big) fx(g, { kind: "nova", x: bx2, y: by2 + 12, r: 220, color: kit.col, n: 14,
       t: 0.8, life: 0.8 });
     return;
   }
   if (kit.mode === "chain") {                    // 번개 — 보스에서 가까운 것들로 이어진다
     let x0 = p.ax, y0 = py - 46;
-    const hops = [[ARENA.bx, ARENA.by + 60]];
+    const hops = [[bx2, by2 - 2]];
     (a.mobs || []).slice(0, (kit.chain || 3) - 1).forEach((m) => hops.push([m.x, m.y]));
     hops.forEach(([hx, hy], k) => {
       fx(g, { kind: "zap", x0, y0, x1: hx, y1: hy, color: kit.col, t: 0.32, life: 0.32,
@@ -902,12 +912,12 @@ function arenaFire(g, pi, mul, label) {
 
 export function arenaAttack(g, pi) {
   const p = g.players[pi];
-  if (!p || p.adown > 0 || p.acd > 0 || !g.arena || g.arena.intro > 0) return;
+  if (!p || p.aout > 0 || p.adown > 0 || p.acd > 0 || !g.arena || g.arena.intro > 0) return;
   const kit = arenaKit(pi);
   p.acd = kit.cd / (1 + perkVal.haste(perkN(g, pi, "haste")));     // 전장의 북
   p.aswing = Math.min(ARENA.swing, kit.cd * 0.7);
   p.ahit = Math.min(ARENA.land, kit.cd * 0.35);
-  p.adir = p.ax < ARENA.bx ? 1 : -1;
+  p.adir = p.ax < bossX(g) ? 1 : -1;
 }
 
 export function arenaSkill(g, pi) {
@@ -915,11 +925,11 @@ export function arenaSkill(g, pi) {
   const a = g.arena;
   if (!p || !a || a.intro > 0) return;
   if (p.cd > 0) return say(g, p.ax, ARENA.floor - 96, `${SKILLS[pi].name} ${Math.ceil(p.cd)}초`, "#f0dcb4");
-  if (p.adown > 0) return;
+  if (p.adown > 0 || p.aout > 0) return;
   p.cd = SKILLS[pi].cd * perkVal.cool(perkN(g, pi, "cool"));
   p.aswing = ARENA.swing * 1.6;
   p.ahit = ARENA.land * 1.4;
-  p.adir = p.ax < ARENA.bx ? 1 : -1;
+  p.adir = p.ax < bossX(g) ? 1 : -1;
   p.askill = 1;
   // 스킬을 모으는 순간 — 발밑에서 기운이 차오른다
   const kit = arenaKit(pi);
@@ -927,6 +937,67 @@ export function arenaSkill(g, pi) {
   fx(g, { kind: "ring", x: p.ax, y: sy, r: 90, color: P[pi].key, t: 0.5, life: 0.5, snd: "skill" });
   fx(g, { kind: "nova", x: p.ax, y: sy, r: 70, color: kit.col, n: 10, t: 0.45, life: 0.45 });
   fx(g, { kind: "burst", x: p.ax, y: sy - 30, r: 44, color: kit.col, n: 10, t: 0.5, life: 0.5 });
+}
+
+/* 사람이 맞는다. 깎인 체력만큼 성채도 같이 깎인다 — 앞에서 버텨 주는 몫이다. */
+function arenaHurt(g, pi, raw) {
+  const p = g.players[pi];
+  const a = g.arena;
+  if (!p || !a || p.aout > 0) return 0;
+  const had = Math.max(0, p.ahp || 0);
+  const lost = Math.min(had, Math.max(1, Math.round(raw)));
+  p.ahp = had - lost;
+  p.acalm = ARENA.calm;
+  g.core.hp -= lost;                       // 깎인 만큼 그대로 성채로
+  g.hitFlash = 0.35;
+  fx(g, { kind: "dmg", x: p.ax, y: (p.ay || ARENA.bfy) - 96, text: `-${lost}`,
+    color: "#ff8d76", t: 0.9, life: 0.9 });
+  if (p.ahp <= 0) {
+    p.aout = ARENA.revive;                 // 쓰러졌다 — 잠시 아무것도 못 한다
+    p.adown = ARENA.revive;
+    p.aswing = 0; p.askill = 0; p.hold = [];
+    fx(g, { kind: "poof", x: p.ax, y: (p.ay || ARENA.bfy) - 20, t: 0.6, life: 0.6,
+      color: "rgba(230,150,140,1)" });
+    callout(g, CX, 280, `${(g.names && g.names[pi]) || CLASSES[pi].name} 쓰러짐`, "#ff8d76", "warn", 0.6);
+  }
+  return lost;
+}
+
+/* 보급소가 곁에 있는 사람을 일으켜 세운다 */
+function arenaMend(g, pi, amt) {
+  const p = g.players[pi];
+  if (!p || !p.ahpMax) return 0;
+  if (p.aout > 0) { p.aout = Math.max(0, p.aout - 1.2); return 0; }   // 일어나는 것만 앞당긴다
+  const up = Math.min(p.ahpMax - p.ahp, Math.max(1, Math.round(amt)));
+  if (up <= 0) return 0;
+  p.ahp += up;
+  return up;
+}
+
+/* 보스가 결전장을 걸어 다닌다 — 가장 가까운 사람 쪽으로 */
+function arenaBossWalk(g, dt) {
+  const a = g.arena;
+  if (!a || a.intro > 0 || a.outro > 0) return;
+  if (a.st === "tell") return;                       // 휘두르려고 버티는 동안은 멈춘다
+  let best = -1, bd = Infinity;
+  g.players.forEach((p, i) => {
+    if (!g.seats[i] || p.aout > 0) return;
+    const d = arenaNear(p.ax, p.ay || ARENA.bfy, a.x, a.y);
+    if (d < bd) { bd = d; best = i; }
+  });
+  a.tgt = best;
+  if (best < 0) return;
+  const q = g.players[best];
+  const dx = q.ax - a.x, dy = (q.ay || ARENA.bfy) - a.y;
+  if (dx) a.dir = dx < 0 ? -1 : 1;
+  if (bd <= ARENA.breach * 0.8) return;              // 이미 코앞이면 더 다가가지 않는다
+  const len = Math.max(1, Math.hypot(dx, dy));
+  const slow = a.slow > 0 ? 0.62 : 1;                // 서리를 맞으면 걸음도 굼떠진다
+  const rush = a.rage ? 1.35 : 1;
+  a.x = Math.max(ARENA.left, Math.min(ARENA.right, a.x + (dx / len) * ARENA.bspd * slow * rush * dt));
+  a.y = Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30,
+    a.y + (dy / len) * ARENA.bspdY * slow * rush * dt));
+  a.step += dt * 6;
 }
 
 /* 보스가 쓰러졌다 */
@@ -939,8 +1010,8 @@ function arenaDown(g, pi) {
   g.players.forEach((p, i) => { if (g.seats[i]) p.gold += gold; });
   if (g.players[pi]) g.players[pi].kills += 1;
   g.shake = Math.max(g.shake, 0.8);
-  fx(g, { kind: "ring", x: ARENA.bx, y: ARENA.by + 60, r: 260, color: "#ffd873", t: 1.1, life: 1.1, snd: "boom" });
-  fx(g, { kind: "boom", x: ARENA.bx, y: ARENA.by + 60, r: 120, t: 0.8, life: 0.8 });
+  fx(g, { kind: "ring", x: bossX(g), y: bossTop(g) + 60, r: 260, color: "#ffd873", t: 1.1, life: 1.1, snd: "boom" });
+  fx(g, { kind: "boom", x: bossX(g), y: bossTop(g) + 60, r: 120, t: 0.8, life: 0.8 });
   callout(g, CX, 250, "격파!", "#ffd873", "bless", 0);
   banner(g, `${base.label} 격파`, `모두 ${gold} 골드`, "#ffd873");
 }
@@ -948,23 +1019,29 @@ function arenaDown(g, pi) {
 /* 보스의 다음 공격을 고른다 */
 function arenaNextPattern(g) {
   const a = g.arena;
+  const up = g.players.filter((q, i) => g.seats[i] && q.aout <= 0);
+  // 곁에 붙은 사람이 있으면 팔로 후려친다 — 붙어 싸우는 병과에게 주는 대가
+  const close = up.some((q) => arenaNear(q.ax, q.ay || ARENA.bfy, a.x, a.y) <= ARENA.breach);
   const pool = a.type === "titan" ? [0, 1, 2, 1] : [0, 2, 0, 1];
-  const pat = ARENA_PATTERNS[pool[Math.floor(Math.random() * pool.length)]];
+  const pat = close && Math.random() < 0.55
+    ? ARENA_PATTERNS.find((x) => x.id === "swipe")
+    : ARENA_PATTERNS[pool[Math.floor(Math.random() * pool.length)]];
   a.pat = pat.id;
   a.st = "tell";
   a.stT = pat.tell * (a.type === "titan" ? 0.88 : 1);
   const spot = () => {
     // 아무나 한 사람 근처를 노린다
-    const on = g.players.filter((q, i) => g.seats[i]);
-    const q = on.length ? on[Math.floor(Math.random() * on.length)] : null;
+    const q = up.length ? up[Math.floor(Math.random() * up.length)] : null;
     return q ? { x: q.ax + (Math.random() - 0.5) * 90, y: (q.ay || ARENA.bfy) + (Math.random() - 0.5) * 60 }
-             : { x: ARENA.bx, y: ARENA.bfy + 120 };
+             : { x: a.x, y: a.y + 120 };
   };
-  if (pat.id === "slam") {
+  if (pat.id === "swipe") {
+    a.zone = [{ k: "circle", x: a.x + a.dir * 74, y: a.y + 14, r: a.type === "titan" ? 190 : 162 }];
+  } else if (pat.id === "slam") {
     const c = spot();
     a.zone = [{ k: "circle", x: c.x, y: c.y, r: a.type === "titan" ? 230 : 195 }];
   } else if (pat.id === "sweep") {
-    a.zone = [{ k: "ring", x: ARENA.bx, y: ARENA.bfy, r0: a.type === "titan" ? 150 : 135,
+    a.zone = [{ k: "ring", x: a.x, y: a.y, r0: a.type === "titan" ? 150 : 135,
       r1: a.type === "titan" ? 460 : 400 }];
   } else {
     a.zone = [];
@@ -976,22 +1053,22 @@ function arenaNextPattern(g) {
   callout(g, CX, 300, pat.name, "#ff8f6a", "warn", 1.4);
 }
 
-/* 공격이 떨어졌다 — 자리에 있던 사람은 넘어지고 성채가 다친다 */
+/* 공격이 떨어졌다 — 자리에 있던 사람이 다치고, 깎인 만큼 성채도 깎인다 */
 function arenaStrike(g) {
   const a = g.arena;
   const pat = ARENA_PATTERNS.find((x) => x.id === a.pat) || ARENA_PATTERNS[0];
-  const base = ENEMY[a.type];
-  const D = diffOf(g);
-  let hit = 0, safe = 0;
+  let hit = 0, safe = 0, cost = 0;
+  const raw = a.bite * pat.dmg * (a.rage ? 1.6 : 1) * perkVal.guard(teamPerk(g, "guard"));
   g.players.forEach((p, i) => {
-    if (!g.seats[i]) return;
+    if (!g.seats[i] || p.aout > 0) return;
     const py = p.ay || ARENA.bfy;
     const inside = (a.zone || []).some((z) => arenaInZone(z, p.ax, py));
     if (inside) {
       hit += 1;
-      p.adown = ARENA.down;
+      cost += arenaHurt(g, i, raw);
+      if (p.aout <= 0) p.adown = ARENA.down;
       p.aswing = 0;
-      const kx = p.ax - ARENA.bx, ky = py - ARENA.bfy;
+      const kx = p.ax - a.x, ky = py - a.y;
       const len = Math.max(1, Math.hypot(kx, ky));
       p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + (kx / len) * ARENA.knock));
       p.ay = Math.max(ARENA.top, Math.min(ARENA.bottom, py + (ky / len) * ARENA.knock * 0.6));
@@ -1008,11 +1085,7 @@ function arenaStrike(g) {
   });
   g.shake = Math.max(g.shake, 0.45);
   if (hit) {
-    const dmg = Math.max(1, Math.round(base.dmg * ARENA.coreHit * pat.dmg * D.hp * (a.rage ? 1.6 : 1)
-      * perkVal.guard(teamPerk(g, "guard")) * hit));
-    g.core.hp -= dmg;
-    g.hitFlash = 0.35;
-    fx(g, { kind: "dmg", x: CX, y: 180, text: `성채 -${dmg}`, color: "#ff8d76", t: 1, life: 1 });
+    if (cost > 0) fx(g, { kind: "dmg", x: CX, y: 180, text: `성채 -${cost}`, color: "#ff8d76", t: 1, life: 1 });
     a.combo = 0; a.comboT = 0;
   } else if (safe) {
     callout(g, CX, 250, "완벽 회피!", "#9fe8ff", "perfect", 0.9);
@@ -1044,15 +1117,15 @@ export function stepArena(g, dt) {
   if (a.burn > 0) {
     a.burn -= dt;
     a.hp = Math.max(0, a.hp - a.burnDps * dt);
-    if (Math.random() < dt * 6) fx(g, { kind: "flame", x: ARENA.bx + (Math.random() - 0.5) * 70,
-      y: ARENA.by + 40 + Math.random() * 50, t: 0.4, life: 0.4 });
+    if (Math.random() < dt * 6) fx(g, { kind: "flame", x: bossX(g) + (Math.random() - 0.5) * 70,
+      y: bossTop(g) + 40 + Math.random() * 50, t: 0.4, life: 0.4 });
     if (a.hp <= 0 && !a.outro) arenaDown(g, a.burnBy || 0);
   }
   if (a.poison > 0) {
     a.poison -= dt;
     a.hp = Math.max(0, a.hp - a.poisonDps * dt);          // 장갑 무시
-    if (Math.random() < dt * 5) fx(g, { kind: "fume", x: ARENA.bx + (Math.random() - 0.5) * 70,
-      y: ARENA.by + 40 + Math.random() * 50, t: 0.6, life: 0.6, color: "rgba(150,220,90,0.55)" });
+    if (Math.random() < dt * 5) fx(g, { kind: "fume", x: bossX(g) + (Math.random() - 0.5) * 70,
+      y: bossTop(g) + 40 + Math.random() * 50, t: 0.6, life: 0.6, color: "rgba(150,220,90,0.55)" });
     if (a.hp <= 0 && !a.outro) arenaDown(g, a.poisonBy || 0);
   }
   if (a.slow > 0) a.slow -= dt;
@@ -1073,11 +1146,27 @@ export function stepArena(g, dt) {
     if (p.acd > 0) p.acd -= dt;
     if (p.adodge > 0) p.adodge -= dt;
     if (p.adown > 0) p.adown -= dt;
+    // 쓰러졌다가 일어난다
+    if (p.aout > 0) {
+      p.aout -= dt;
+      if (p.aout <= 0) {
+        p.ahp = Math.max(1, Math.round(p.ahpMax * ARENA.reviveHp));
+        p.acalm = ARENA.calm;
+        p.adown = 0;
+        fx(g, { kind: "nova", x: p.ax, y: (p.ay || ARENA.bfy) - 20, r: 56, color: P[i].light,
+          n: 8, t: 0.6, life: 0.6 });
+        say(g, p.ax, (p.ay || ARENA.bfy) - 104, "일어섰다", P[i].light);
+      }
+    } else if (g.seats[i] && p.ahpMax) {
+      // 한동안 맞지 않으면 숨을 돌린다
+      if (p.acalm > 0) p.acalm -= dt;
+      else if (p.ahp < p.ahpMax) p.ahp = Math.min(p.ahpMax, p.ahp + p.ahpMax * ARENA.regen * dt);
+    }
     if (p.aswing > 0) {
       p.aswing -= dt;
       if (p.ahit > 0) {
         p.ahit -= dt;
-        if (p.ahit <= 0 && g.seats[i]) {
+        if (p.ahit <= 0 && g.seats[i] && p.aout <= 0) {
           const sk2 = p.askill;
           p.askill = 0;
           arenaFire(g, i, sk2 ? ARENA.skill : 1, sk2 ? SKILLS[i].name : null);
@@ -1108,15 +1197,17 @@ export function stepArena(g, dt) {
     if (d > 0) {
       const dmg = Math.round(d * 0.8);
       a.hp = Math.max(0, a.hp - dmg);
-      fx(g, { kind: "dmg", x: ARENA.bx + (Math.random() - 0.5) * 90, y: ARENA.by + 10,
+      fx(g, { kind: "dmg", x: bossX(g) + (Math.random() - 0.5) * 90, y: bossTop(g) + 10,
         text: String(dmg), color: "#cfe3a6", t: 0.8, life: 0.8 });
-      fx(g, { kind: "zap", x0: ARENA.bx - 240, y0: 120, x1: ARENA.bx - 30, y1: ARENA.by + 30,
+      fx(g, { kind: "zap", x0: bossX(g) - 240, y0: 120, x1: bossX(g) - 30, y1: bossTop(g) + 30,
         color: "#e8dcc0", t: 0.22, life: 0.22 });
-      fx(g, { kind: "zap", x0: ARENA.bx + 240, y0: 120, x1: ARENA.bx + 30, y1: ARENA.by + 30,
+      fx(g, { kind: "zap", x0: bossX(g) + 240, y0: 120, x1: bossX(g) + 30, y1: bossTop(g) + 30,
         color: "#e8dcc0", t: 0.22, life: 0.22 });
       if (a.hp <= 0) { arenaDown(g, 0); return; }
     }
   }
+
+  arenaBossWalk(g, dt);                      // 보스가 사람 쪽으로 걸어온다
 
   a.stT -= dt * (a.slow > 0 ? 0.62 : 1);      // 서리 — 보스의 동작이 굼떠진다
   if (a.stT <= 0) {
@@ -1613,9 +1704,12 @@ export function packSnapshot(g) {
       rg: g.arena.rage, cb: g.arena.combo, io: Math.round(g.arena.intro * 10) / 10,
       oo: Math.round(g.arena.outro * 10) / 10, jo: Math.round(g.arena.jolt * 100) / 100,
       sT: Math.round(g.arena.stT * 100) / 100,
+      bx: Math.round(g.arena.x), by: Math.round(g.arena.y), bd: g.arena.dir,
       pp: g.players.map((p) => [Math.round(p.ax || 0), p.adir || 1, Math.round(p.ay || 0),
         Math.round((p.aswing || 0) * 100) / 100, Math.round((p.adown || 0) * 100) / 100,
-        p.askill ? 1 : 0, p.abuff > 0 ? 1 : 0, Math.round(Math.max(0, p.acd || 0) * 100) / 100]),
+        p.askill ? 1 : 0, p.abuff > 0 ? 1 : 0, Math.round(Math.max(0, p.acd || 0) * 100) / 100,
+        Math.round(Math.max(0, p.ahp || 0)), Math.round(p.ahpMax || 0),
+        Math.round(Math.max(0, p.aout || 0) * 10) / 10]),
     } : 0,
     lv2: g.leaveT > 0 ? (g.leave || []).map((v) => (v ? 1 : 0)) : 0,
     lt: Math.max(0, Math.round(g.leaveT * 10) / 10),
@@ -1663,6 +1757,7 @@ export function applySnapshot(g, s) {
     a.st = s.ar.st; a.zone = s.ar.zo; a.limit = s.ar.li; a.rage = s.ar.rg;
     a.combo = s.ar.cb; a.intro = s.ar.io; a.outro = s.ar.oo; a.jolt = s.ar.jo;
     a.stT = s.ar.sT; a.t = (a.t || 0);
+    a.x = s.ar.bx; a.y = s.ar.by; a.dir = s.ar.bd || 1;
     const ef = s.ar.ef || [0, 0, 0, 0];
     a.burn = ef[0] ? Math.max(a.burn || 0, 0.3) : 0;
     a.poison = ef[1] ? Math.max(a.poison || 0, 0.3) : 0;
@@ -1674,6 +1769,7 @@ export function applySnapshot(g, s) {
       p.aswing = row[3]; p.adown = row[4]; p.askill = row[5];
       p.abuff = row[6] ? Math.max(p.abuff || 0, 0.3) : 0;
       p.acd = row[7] || 0;
+      p.ahp = row[8] || 0; p.ahpMax = row[9] || 0; p.aout = row[10] || 0;
     });
   } else g.arena = null;
   g.leave = s.lv2 ? s.lv2.map((v) => !!v) : g.seats.map(() => false);

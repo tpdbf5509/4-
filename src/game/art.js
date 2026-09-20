@@ -1,6 +1,7 @@
 import {
   W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY,
-  castleTier, castleCost, CASTLE_TIERS, SPOTS, CLASSES, ARENA, ARENA_PATTERNS, arenaKit, arenaRange,
+  castleTier, castleCost, CASTLE_TIERS, SPOTS, CLASSES, ARENA, ARENA_LIFT, ARENA_PATTERNS,
+  arenaKit, arenaRange,
 } from "./world.js";
 
 /* ── 그리기 도우미 ──────────────────────────────────────── */
@@ -2638,13 +2639,31 @@ function arenaBar(ctx, g, a) {
   ctx.restore();
 }
 
+/* 보스가 선 자리. 소식이 띄엄띄엄 오니 화면에서는 부드럽게 따라가게 한다. */
+function bossSpot(a) {
+  const tx = a.x === undefined ? ARENA.bx : a.x;
+  const ty = a.y === undefined ? ARENA.bfy : a.y;
+  if (a.sx === undefined || Math.hypot(a.sx - tx, a.sy - ty) > 300) { a.sx = tx; a.sy = ty; }
+  return [a.sx, a.sy];
+}
+function bossEase(a, dt) {
+  const tx = a.x === undefined ? ARENA.bx : a.x;
+  const ty = a.y === undefined ? ARENA.bfy : a.y;
+  if (a.sx === undefined) { a.sx = tx; a.sy = ty; return; }
+  const k = 1 - Math.exp(-dt * 11);
+  a.sx += (tx - a.sx) * k;
+  a.sy += (ty - a.sy) * k;
+}
+
 function arenaBoss(ctx, g, a, time) {
   const im = enemySprite(a.type);
   const jolt = a.jolt > 0 ? a.jolt : 0;
   const bob = Math.sin(time * (a.rage ? 4.2 : 2.4)) * 5;
   const scale = a.type === "titan" ? 2.35 : 2.15;
+  const [bxx, byy] = bossSpot(a);
   ctx.save();
-  ctx.translate(ARENA.bx + (jolt > 0 ? (Math.random() - 0.5) * 12 : 0), ARENA.by + bob);
+  ctx.translate(bxx + (jolt > 0 ? (Math.random() - 0.5) * 12 : 0), byy - ARENA_LIFT + bob);
+  if (a.dir < 0) ctx.scale(-1, 1);            // 걸어가는 쪽을 본다
   if (a.intro > 0) {
     const k = Math.min(1, (2.2 - a.intro) / 0.8);
     ctx.globalAlpha = k;
@@ -2719,10 +2738,11 @@ function arenaPlayer(ctx, g, pi, time, dt) {
   }
   ctx.restore();
 
+  const outed = p.aout > 0;
   ctx.save();
   shadow(ctx, p.vx, y + 4, 26, 8, 0.3);
   ctx.translate(x, y);
-  if (down) { ctx.rotate(-0.9 * p.adir); ctx.translate(0, 14); ctx.globalAlpha = 0.75; }
+  if (down) { ctx.rotate(-0.9 * p.adir); ctx.translate(0, 14); ctx.globalAlpha = outed ? 0.42 : 0.75; }
   ctx.scale(p.adir < 0 ? -1 : 1, 1);
   if (im) {
     const hh = 128, ww = hh * (im.naturalWidth / im.naturalHeight);
@@ -2733,6 +2753,26 @@ function arenaPlayer(ctx, g, pi, time, dt) {
   }
   ctx.restore();
 
+  // 각자의 체력 — 여기서 깎인 만큼 성채가 같이 깎인다
+  if (p.ahpMax > 0) {
+    const bw = 58, bh = 6, byy = y - 138;
+    const r = Math.max(0, Math.min(1, p.ahp / p.ahpMax));
+    ctx.save();
+    ctx.fillStyle = "rgba(18,12,8,0.78)";
+    roundRect(ctx, p.vx - bw / 2 - 1, byy - 1, bw + 2, bh + 2, 4); ctx.fill();
+    ctx.fillStyle = outed ? "#6a5a52" : r > 0.5 ? "#8fd07f" : r > 0.25 ? "#e8c05e" : "#ef8b7c";
+    roundRect(ctx, p.vx - bw / 2, byy, Math.max(1.5, bw * r), bh, 3); ctx.fill();
+    ctx.strokeStyle = "rgba(226,206,160,0.35)"; ctx.lineWidth = 1;
+    roundRect(ctx, p.vx - bw / 2 - 1, byy - 1, bw + 2, bh + 2, 4); ctx.stroke();
+    if (outed) {
+      ctx.font = "11px 'Jua', sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "#ffbdb2";
+      ctx.fillText(`${Math.ceil(p.aout)}초`, p.vx, byy - 10);
+    }
+    ctx.restore();
+  }
+
   // 이름표
   ctx.save();
   ctx.font = "12px 'Do Hyeon', sans-serif";
@@ -2741,7 +2781,7 @@ function arenaPlayer(ctx, g, pi, time, dt) {
   const wdt = ctx.measureText(nm).width + 16;
   ctx.fillStyle = "rgba(20,14,10,0.7)";
   roundRect(ctx, p.vx - wdt / 2, y + 6, wdt, 17, 8); ctx.fill();
-  ctx.fillStyle = col.light;
+  ctx.fillStyle = outed ? "#a89a90" : col.light;
   ctx.fillText(nm, p.vx, y + 15);
   ctx.restore();
 
@@ -2770,7 +2810,8 @@ function arenaPlayer(ctx, g, pi, time, dt) {
       ctx.restore();
     } else if (kit.mode !== "aid") {
       // 쏘는 쪽으로 짧은 불빛
-      const ang = Math.atan2((ARENA.bfy - (p.vy || y)) / ARENA.squash, ARENA.bx - p.vx);
+      const bs = g.arena ? bossSpot(g.arena) : [ARENA.bx, ARENA.bfy];
+      const ang = Math.atan2((bs[1] - (p.vy || y)) / ARENA.squash, bs[0] - p.vx);
       ctx.save();
       ctx.globalAlpha = 0.85 * fade;
       ctx.translate(p.vx + Math.cos(ang) * 16, y - 50 + Math.sin(ang) * 10);
@@ -2797,6 +2838,7 @@ export function drawArena(ctx, g, time) {
   const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
   const dt = Math.min(0.06, Math.max(0, now - (g.arenaT || now)));
   g.arenaT = now;
+  bossEase(a, dt);
   // 바탕
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, "#22301c");
@@ -2828,7 +2870,8 @@ export function drawArena(ctx, g, time) {
     const mx = me.vx === undefined ? me.ax : me.vx;
     const my = me.vy === undefined ? (me.ay || ARENA.bfy) : me.vy;
     const rr = arenaRange(meI);
-    const far = Math.hypot(ARENA.bx - mx, (ARENA.bfy - my) / ARENA.squash);
+    const [bxx, byy] = bossSpot(a);
+    const far = Math.hypot(bxx - mx, (byy - my) / ARENA.squash);
     const on = far <= rr && kit.mode !== "aid";
     ctx.save();
     ctx.translate(mx, my);
@@ -2846,7 +2889,7 @@ export function drawArena(ctx, g, time) {
     if (on) {
       // 사거리 안이라는 표시 — 보스 발밑에 같은 색 고리
       ctx.save();
-      ctx.translate(ARENA.bx, ARENA.bfy);
+      ctx.translate(bxx, byy);
       ctx.scale(1, ARENA.squash);
       ctx.globalAlpha = 0.5 + 0.2 * Math.sin(time * 6);
       ctx.strokeStyle = P[meI].light; ctx.lineWidth = 3;
@@ -2857,7 +2900,7 @@ export function drawArena(ctx, g, time) {
 
   arenaZone(ctx, a, time);
   // 앞뒤로 겹치게 — 보스보다 위에 선 사람은 뒤에 가린다
-  const order = [{ y: ARENA.bfy, boss: 1 }];
+  const order = [{ y: bossSpot(a)[1], boss: 1 }];
   g.players.forEach((p, i) => {
     if (!g.seats || g.seats[i]) order.push({ y: p.vy === undefined ? (p.ay || ARENA.bfy) : p.vy, pi: i });
   });

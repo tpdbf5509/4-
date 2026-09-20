@@ -450,10 +450,24 @@ export const ARENA = {
   hpMul: 1.55,           // 사람 수 한 명당 보스 체력 배수
   base: 18,              // 맨손 기본 피해
   tower: 0.5,            // 지은 탑 공격력이 실리는 비율
-  coreHit: 0.22,         // 보스 한 대가 성채에 주는 피해 비율
+  coreHit: 0.22,         // 보스 한 대가 사람에게 주는 피해 비율
   skill: 4.2,            // 스킬 한 방의 배수
   comboT: 2.2,           // 연타가 이어지는 시간
+  lives: 5,              // 몇 대를 맞으면 쓰러지는지 — 이 수로 각자의 체력을 잡는다
+  revive: 4,             // 쓰러진 뒤 다시 일어나기까지
+  reviveHp: 0.5,         // 일어날 때 돌아오는 체력 비율
+  regen: 0.05,           // 한동안 안 맞으면 초당 이만큼 회복한다 (최대 체력 대비)
+  calm: 4,               // 회복이 시작되기까지 맞지 않고 있어야 하는 시간
+  bspd: 82,              // 보스가 걷는 속도 (좌우)
+  bspdY: 52,             // 보스가 걷는 속도 (위아래)
+  breach: 168,           // 보스가 곁에 있다고 보는 거리 — 이 안이면 후려친다
 };
+
+/* 보스는 결전장 안을 걸어 다닌다. 자리는 arena 에 담고, 그림 기준선은 발끝에서 이만큼 위다. */
+export const ARENA_LIFT = ARENA.bfy - ARENA.by;
+export const bossX = (g) => (g.arena && g.arena.x !== undefined ? g.arena.x : ARENA.bx);
+export const bossY = (g) => (g.arena && g.arena.y !== undefined ? g.arena.y : ARENA.bfy);
+export const bossTop = (g) => bossY(g) - ARENA_LIFT;
 
 /* 결전장에서 병과마다 다르게 싸운다. 사거리·간격은 판 위 타워 수치를 그대로 쓰고,
    결전장은 판보다 넓으므로 사거리에 ARENA.rangeMul 을 곱한다.
@@ -481,6 +495,7 @@ export const ARENA_PATTERNS = [
   { id: "slam",  name: "내리치기", tell: 1.45, dmg: 1.0, note: "한 곳을 크게 내리친다" },
   { id: "sweep", name: "휩쓸기",   tell: 1.7,  dmg: 0.9, note: "둘레를 쓸어버린다 — 품 안이나 바깥으로" },
   { id: "stomp", name: "발구르기", tell: 1.35, dmg: 0.8, note: "세 곳을 동시에 짓밟는다" },
+  { id: "swipe", name: "후려치기", tell: 0.75, dmg: 0.6, note: "곁에 붙은 것을 팔로 후려친다" },
 ];
 
 /* 결전장에서 어느 자리가 공격에 닿는지 — 위아래를 좁게 보아 판단한다 */
@@ -554,6 +569,7 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
         // 보스 결전장에서 쓰는 값
         ax: ARENA.bx - 255 + i * 170, ay: ARENA.bfy + 150,
         adir: 1, aswing: 0, adown: 0, acd: 0, ahit: 0, askill: 0, adodge: 0,
+        ahp: 0, ahpMax: 0, aout: 0, acalm: 0,   // 결전장에서만 쓰는 체력 · 쓰러진 시간
       };
     }),
     towers: new Array(SLOTS.length).fill(null),

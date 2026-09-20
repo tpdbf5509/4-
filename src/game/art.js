@@ -2543,18 +2543,17 @@ function bigNum(n) {
   return rest ? `${man}만${rest}` : `${man}만`;
 }
 
-function arenaLeaves(ctx, time) {
-  // 사방을 둘러싼 숲 — 결전장 느낌을 내는 테두리
+function arenaLeaves(ctx, time, cy, rx, ry) {
+  // 싸우는 터를 둘러싼 숲 — 풀밭 바깥에만 심어 터를 가리지 않게 한다
   const rnd = mulberry32(99);
   ctx.save();
-  for (let i = 0; i < 46; i++) {
-    const side = i % 4;
-    const t = rnd();
-    let x, y, s;
-    if (side === 0) { x = 40 + t * (W - 80); y = 96 + rnd() * 40; s = 0.9 + rnd() * 0.5; }
-    else if (side === 1) { x = 40 + t * (W - 80); y = H - 40 - rnd() * 50; s = 1 + rnd() * 0.5; }
-    else if (side === 2) { x = 26 + rnd() * 110; y = 150 + t * (H - 230); s = 0.9 + rnd() * 0.5; }
-    else { x = W - 26 - rnd() * 110; y = 150 + t * (H - 230); s = 0.9 + rnd() * 0.5; }
+  for (let i = 0; i < 52; i++) {
+    const a = (i / 52) * Math.PI * 2 + rnd() * 0.22;
+    const k = 1.03 + rnd() * 0.34;                 // 풀밭 테두리 바로 바깥
+    const x = CX + Math.cos(a) * rx * k;
+    const y = cy + Math.sin(a) * ry * k;
+    if (x < -30 || x > W + 30 || y < 70 || y > H - 6) continue;
+    const s = 0.9 + rnd() * 0.55;
     const sway = Math.sin(time * 0.7 + i) * 1.6;
     drawTree(ctx, x + sway, y, s, rnd() > 0.45, rnd() * 99);
   }
@@ -2969,8 +2968,8 @@ export function drawArena(ctx, g, time) {
   ctx.fillRect(0, 0, W, H);
 
   // 싸우는 터 — 가장자리가 둥근 풀밭
-  const cy = (ARENA.top + ARENA.bottom) / 2, ry = (ARENA.bottom - ARENA.top) / 2 + 70;
-  const rx = (ARENA.right - ARENA.left) / 2 + 110;
+  const cy = (ARENA.top + ARENA.bottom) / 2, ry = (ARENA.bottom - ARENA.top) / 2 + 44;
+  const rx = (ARENA.right - ARENA.left) / 2 + 66;
   const gr = ctx.createRadialGradient(CX, cy, 40, CX, cy, rx);
   gr.addColorStop(0, "#475c31");
   gr.addColorStop(0.75, "#3d5029");
@@ -2981,7 +2980,7 @@ export function drawArena(ctx, g, time) {
   ctx.strokeStyle = "rgba(226,206,160,0.14)"; ctx.lineWidth = 3; ctx.stroke();
   ctx.restore();
 
-  arenaLeaves(ctx, time);
+  arenaLeaves(ctx, time, cy, rx, ry);
 
   // 내 공격 범위 — 보스가 들어오면 또렷해진다 (보스의 붉은 자리와 헷갈리지 않게 병과 색)
   const meI = g.mySeat;

@@ -433,16 +433,16 @@ export const perkVal = {
 /* 보스 결전 — 보스 웨이브에는 판이 결전장으로 바뀐다.
    수비대가 직접 앞으로 나가 보스를 때리고, 보스의 내리치기를 피한다. */
 export const ARENA = {
-  floor: 596,            // 바닥 기준선 (그림용)
-  left: 150, right: 1010,   // 걸어 다닐 수 있는 범위
-  top: 300, bottom: 690,
-  bx: 580, by: 352,      // 보스 그림이 서는 자리
-  bfy: 470,              // 보스 발이 닿는 높이
+  floor: 606,            // 바닥 기준선 (그림용)
+  left: 88, right: 1072,    // 걸어 다닐 수 있는 범위 — 넷이 흩어져 설 만큼
+  top: 264, bottom: 700,
+  bx: 580, by: 364,      // 보스 그림이 서는 자리
+  bfy: 482,              // 보스 발이 닿는 높이
   squash: 0.62,          // 비스듬히 내려다보는 판이라 위아래는 좁게 센다
   reach: 190,            // 때릴 수 있는 거리
   rangeMul: 1.6,         // 결전장은 판보다 넓다 — 사거리를 이만큼 늘려 쓴다
-  spd: 268,              // 초당 좌우 이동 거리 — 누르고 있는 동안 이어서 걷는다
-  spdY: 176,             // 초당 위아래 이동 거리
+  spd: 292,              // 초당 좌우 이동 거리 — 누르고 있는 동안 이어서 걷는다
+  spdY: 196,             // 초당 위아래 이동 거리
   step: 13, stepY: 9,    // 한 번 눌렀을 때 움직이는 거리
   swing: 0.32, land: 0.13, cd: 0.36,   // 휘두르기 · 맞는 순간 · 다음 공격까지
   down: 1.1,             // 넘어져 있는 시간
@@ -457,8 +457,8 @@ export const ARENA = {
   revive: 4,             // 쓰러진 뒤 다시 일어나기까지
   reviveHp: 0.5,         // 일어날 때 돌아오는 체력 비율
   // 저절로 차오르지는 않는다. 채우는 길은 보급소뿐이다.
-  bspd: 82,              // 보스가 걷는 속도 (좌우)
-  bspdY: 52,             // 보스가 걷는 속도 (위아래)
+  bspd: 90,              // 보스가 걷는 속도 (좌우)
+  bspdY: 58,             // 보스가 걷는 속도 (위아래)
   breach: 168,           // 보스가 곁에 있다고 보는 거리 — 이 안이면 후려친다
   club: 172,             // 방망이가 닿는 거리
   clubArc: 1.15,         // 방망이가 훑는 부채꼴의 절반 각 (라디안)
@@ -513,9 +513,9 @@ export const PAT_BY_ID = Object.fromEntries(ARENA_PATTERNS.map((p) => [p.id, p])
 
 /* 돌진이 훑는 길이 · 뛰어오르는 높이 */
 export const ARENA_LEAP = { r: 210, rTitan: 245, up: 190 };
-export const ARENA_RUSH = { len: 460, half: 78, halfTitan: 92, spd: 1250, least: 340 };
+export const ARENA_RUSH = { len: 520, half: 78, halfTitan: 92, spd: 1250, least: 380 };
 /* 가르기 띠 — 보스를 지나 판 끝까지 뻗는다 */
-export const ARENA_CUT = { reach: 900, half: 66, halfTitan: 80 };
+export const ARENA_CUT = { reach: 1100, half: 66, halfTitan: 80 };
 
 /* 결전장에서 어느 자리가 공격에 닿는지 — 위아래를 좁게 보아 판단한다 */
 export function arenaInZone(z, x, y) {

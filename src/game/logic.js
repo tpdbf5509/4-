@@ -624,8 +624,8 @@ export function startArena(g, kind) {
   let k = 0;
   g.players.forEach((p, i) => {
     if (g.seats[i]) {
-      p.ax = ARENA.bx + (k - (crew - 1) / 2) * 165;
-      p.ay = ARENA.bfy + 150 + (k % 2) * 26;
+      p.ax = ARENA.bx + (k - (crew - 1) / 2) * 205;   // 넓어진 만큼 더 벌려 선다
+      p.ay = ARENA.bfy + 152 + (k % 2) * 28;
       k++;
     } else { p.ax = ARENA.bx; p.ay = ARENA.bfy + 150; }
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;

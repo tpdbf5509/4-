@@ -711,15 +711,15 @@ function arenaMark(g, pi, kit) {
 }
 
 /* 날아가는 것 — 방장 쪽에서만 굴리고, 보이는 것은 fx 로 모두에게 간다 */
-function arenaShoot(g, pi, kit, dmg, mode) {
+function arenaShoot(g, pi, kit, dmg, mode, big, off) {
   const p = g.players[pi];
   const py = p.ay || ARENA.bfy;
-  const tx = ARENA.bx, ty = ARENA.by + 62;
+  const tx = ARENA.bx + (off || 0), ty = ARENA.by + 62;
   const fly = kit.fly || 0.18;
   fx(g, { kind: "shot", x0: p.ax, y0: py - 46, x1: tx, y1: ty, style: kit.shot || "arrow",
     color: kit.col, t: fly, life: fly, snd: mode === "bomb" ? "cannon" : "shot" });
   if (!g.arena.shots) g.arena.shots = [];
-  g.arena.shots.push({ pi, t: fly, dmg, kit, mode });
+  g.arena.shots.push({ pi, t: fly, dmg, kit, mode, big: big ? 1 : 0 });
 }
 
 // 날아간 것이 닿았다
@@ -727,22 +727,39 @@ function arenaImpact(g, s) {
   const { pi, kit, mode } = s;
   const a = g.arena;
   if (!a || a.hp <= 0) return;
+  const big = s.big ? 1 : 0;
   arenaDamage(g, pi, s.dmg, { off: mode === "bomb" ? 0 : (Math.random() - 0.5) * 60 });
   arenaMark(g, pi, kit);
+  const hx = ARENA.bx + (Math.random() - 0.5) * 40, hy = ARENA.by + 60;
   if (mode === "bomb") {
-    fx(g, { kind: "boom", x: ARENA.bx, y: ARENA.by + 74, r: kit.splash || 90, t: 0.55, life: 0.55, snd: "boom" });
+    fx(g, { kind: "boom", x: ARENA.bx, y: ARENA.by + 74, r: (kit.splash || 90) * (big ? 1.5 : 1),
+      t: 0.55, life: 0.55, snd: "boom" });
+    fx(g, { kind: "cloud", x: ARENA.bx, y: ARENA.by + 88, r: (kit.splash || 90) * 0.7,
+      color: "rgba(150,132,108,0.75)", t: 0.8, life: 0.8 });
     // 광역 — 보스 곁의 다른 적도 함께 맞는다(결전장에 딸린 적이 있을 때)
     (a.mobs || []).forEach((m) => {
       if (Math.hypot(m.x - ARENA.bx, (m.y - ARENA.bfy) / ARENA.squash) <= (kit.splash || 90)) m.hp -= s.dmg * 0.6;
     });
-  } else if (kit.poison) {
-    fx(g, { kind: "acid", x: ARENA.bx, y: ARENA.by + 60, r: 44, t: 0.5, life: 0.5 });
-  } else if (kit.slow) {
-    fx(g, { kind: "ice", x: ARENA.bx, y: ARENA.by + 60, r: 46, t: 0.6, life: 0.6, snd: "ice" });
-  } else if (kit.shred) {
-    fx(g, { kind: "mark", x: ARENA.bx, y: ARENA.by + 50, r: 40, t: 0.7, life: 0.7 });
-  } else {
-    fx(g, { kind: "pierce", x: ARENA.bx, y: ARENA.by + 60, a: 0, t: 0.3, life: 0.3 });
+  } else if (kit.poison) {                       // 독 — 퍼지는 독무
+    fx(g, { kind: "cloud", x: hx, y: hy + 10, r: big ? 130 : 62, color: "rgba(168,222,110,0.85)",
+      t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7 });
+    fx(g, { kind: "acid", x: hx, y: hy, r: 44, t: 0.5, life: 0.5 });
+  } else if (kit.slow) {                         // 서리 — 서리꽃이 터진다
+    fx(g, { kind: "nova", x: hx, y: hy, r: big ? 150 : 62, color: "#bfe6ff", n: big ? 12 : 8,
+      t: big ? 0.8 : 0.5, life: big ? 0.8 : 0.5, snd: "ice" });
+    fx(g, { kind: "ice", x: hx, y: hy, r: 46, t: 0.6, life: 0.6 });
+  } else if (kit.shred) {                        // 부식 — 갑옷이 갈라진 자국
+    fx(g, { kind: "mark", x: ARENA.bx, y: ARENA.by + 50, r: 40, color: kit.col,
+      t: 0.7, life: 0.7 });
+    fx(g, { kind: "burst", x: hx, y: hy, r: big ? 56 : 30, color: kit.col, n: big ? 12 : 7,
+      t: 0.45, life: 0.45 });
+  } else if (kit.shot === "slug") {              // 저격 — 한 점이 뚫린다
+    fx(g, { kind: "nova", x: hx, y: hy, r: big ? 130 : 54, color: "#e6e9ff", n: 6,
+      t: 0.45, life: 0.45 });
+    fx(g, { kind: "pierce", x: hx, y: hy, color: kit.col, t: 0.3, life: 0.3 });
+  } else {                                       // 궁수 등 — 꽂히면서 튄다
+    fx(g, { kind: "burst", x: hx, y: hy, r: big ? 48 : 26, color: kit.col, n: big ? 11 : 7,
+      t: 0.34, life: 0.34 });
   }
 }
 
@@ -756,17 +773,28 @@ function arenaFire(g, pi, mul, label) {
   const far = arenaNear(p.ax, py, ARENA.bx, ARENA.bfy);
   const rng = arenaRange(pi);
 
+  const big = mul > 1;                           // 시프트로 쓴 스킬
+  const bx2 = ARENA.bx, by2 = ARENA.by + 62;
+  const ang = Math.atan2((ARENA.bfy - py) / ARENA.squash, bx2 - p.ax);
+
   if (kit.mode === "aid") {                      // 보급소 — 때리지 않고 밀어 준다
     let n = 0;
     g.players.forEach((q, i) => {
       if (!g.seats[i]) return;
       if (arenaNear(p.ax, py, q.ax, q.ay || ARENA.bfy) > rng) return;
-      q.abuff = kit.buffT * mul; q.abuffAmt = kit.buff * (mul > 1 ? 1.6 : 1);
+      q.abuff = kit.buffT * mul; q.abuffAmt = kit.buff * (big ? 1.6 : 1);
       n += 1;
       fx(g, { kind: "heal", x: q.ax, y: (q.ay || ARENA.bfy) - 70, text: "+힘", t: 0.9, life: 0.9 });
+      fx(g, { kind: "nova", x: q.ax, y: (q.ay || ARENA.bfy) - 6, r: 40, color: kit.col, n: 6,
+        t: 0.5, life: 0.5 });
     });
     g.core.hp = Math.min(g.core.max, g.core.hp + kit.heal * mul);
     fx(g, { kind: "ring", x: p.ax, y: py - 20, r: rng, color: kit.col, t: 0.6, life: 0.6, snd: "bless" });
+    if (big) {                                   // 큰 축복 — 넓게 한 번 더
+      fx(g, { kind: "nova", x: p.ax, y: py - 20, r: rng * 0.9, color: "#f2dcff", n: 14,
+        t: 0.9, life: 0.9 });
+      fx(g, { kind: "sigil", x: p.ax, y: py - 10, r: rng * 0.6, color: kit.col, t: 1, life: 1 });
+    }
     say(g, p.ax, py - 104, n > 1 ? `보급 ${n}명` : "보급", kit.col);
     if (label) callout(g, CX, 250, label, "#ffd873", "crit", 0.8);
     return;
@@ -779,24 +807,49 @@ function arenaFire(g, pi, mul, label) {
   const dmg = kit.dmg * mul;
   if (label) callout(g, CX, 250, label, "#ffd873", "crit", 0.8);
 
-  if (kit.mode === "melee") {                    // 성기사 — 붙어서 벤다
-    arenaDamage(g, pi, dmg, { off: p.ax < ARENA.bx ? -40 : 40 });
+  if (kit.mode === "melee") {                    // 성기사 — 붙어서 벤다. 스킬은 검기가 날아간다
+    const side = p.ax < ARENA.bx ? 1 : -1;
+    arenaDamage(g, pi, dmg, { off: -side * 40 });
     arenaMark(g, pi, kit);
-    fx(g, { kind: "slash", x: ARENA.bx + (p.ax < ARENA.bx ? -52 : 52), y: ARENA.by + 60,
-      a: p.ax < ARENA.bx ? 0 : Math.PI, color: kit.col, t: 0.24, life: 0.24, snd: "hit" });
+    fx(g, { kind: "aura", x0: p.ax + side * 26, y0: py - 52, x1: bx2 - side * 30, y1: by2,
+      r: big ? 92 : 48, color: kit.col, t: big ? 0.4 : 0.3, life: big ? 0.4 : 0.3, snd: "hit" });
+    fx(g, { kind: "slash", x: ARENA.bx + side * -52, y: ARENA.by + 60,
+      a: side > 0 ? 0 : Math.PI, color: "rgba(255,246,226,0.95)", t: 0.24, life: 0.24 });
+    if (big) {                                   // 성스러운 일격 — 십자 표식과 빛 고리
+      fx(g, { kind: "sigil", x: bx2, y: by2 + 20, r: 120, color: "#ffeec2", t: 0.9, life: 0.9 });
+      fx(g, { kind: "nova", x: bx2, y: by2, r: 150, color: "#ffeec2", n: 12, t: 0.7, life: 0.7 });
+      for (let i = 0; i < 3; i++) {
+        fx(g, { kind: "aura", x0: p.ax + side * 26, y0: py - 52 - i * 18,
+          x1: bx2 - side * 30, y1: by2 + (i - 1) * 26, r: 74, color: "#ffeec2",
+          t: 0.32 + i * 0.09, life: 0.32 + i * 0.09 });
+      }
+    }
     return;
   }
-  if (kit.mode === "aura") {                     // 화염 — 내 둘레를 태운다
-    fx(g, { kind: "firering", x: p.ax, y: py - 10, r: rng, t: 0.5, life: 0.5, snd: "flame" });
+  if (kit.mode === "aura") {                     // 화염 — 쏘는 쪽으로 불을 뿜는다
+    fx(g, { kind: "cone", x: p.ax + Math.cos(ang) * 14, y: py - 42 + Math.sin(ang) * 10,
+      a: ang, r: rng * (big ? 1.25 : 1), half: big ? 0.6 : 0.4, t: 0.45, life: 0.45, snd: "flame" });
+    fx(g, { kind: "firering", x: p.ax, y: py - 10, r: rng, t: 0.5, life: 0.5 });
     arenaDamage(g, pi, dmg, { off: (Math.random() - 0.5) * 60 });
     arenaMark(g, pi, kit);
     fx(g, { kind: "flame", x: ARENA.bx + (Math.random() - 0.5) * 60, y: ARENA.by + 70, t: 0.5, life: 0.5 });
+    if (big) {                                   // 화염 폭풍 — 보스 자리가 통째로 탄다
+      for (let i = 0; i < 5; i++) {
+        fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 150,
+          y: ARENA.by + 40 + Math.random() * 70, t: 0.5 + i * 0.08, life: 0.5 + i * 0.08 });
+      }
+      fx(g, { kind: "firering", x: bx2, y: ARENA.bfy, r: 190, t: 0.8, life: 0.8 });
+    }
     return;
   }
   if (kit.mode === "field") {                    // 중력 — 보스 자리에 중력장
-    fx(g, { kind: "vortex", x: ARENA.bx, y: ARENA.by + 74, r: 120, t: 0.8, life: 0.8, snd: "pull" });
+    fx(g, { kind: "hole", x: bx2, y: ARENA.by + 74, r: big ? 210 : 130,
+      t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7, color: kit.col, snd: "pull" });
+    fx(g, { kind: "vortex", x: bx2, y: ARENA.by + 74, r: 120, t: 0.8, life: 0.8 });
     arenaDamage(g, pi, dmg, {});
     arenaMark(g, pi, kit);
+    if (big) fx(g, { kind: "nova", x: bx2, y: ARENA.by + 74, r: 220, color: kit.col, n: 14,
+      t: 0.8, life: 0.8 });
     return;
   }
   if (kit.mode === "chain") {                    // 번개 — 보스에서 가까운 것들로 이어진다
@@ -804,17 +857,47 @@ function arenaFire(g, pi, mul, label) {
     const hops = [[ARENA.bx, ARENA.by + 60]];
     (a.mobs || []).slice(0, (kit.chain || 3) - 1).forEach((m) => hops.push([m.x, m.y]));
     hops.forEach(([hx, hy], k) => {
-      fx(g, { kind: "zap", x0, y0, x1: hx, y1: hy, color: kit.col, t: 0.22, life: 0.22,
+      fx(g, { kind: "zap", x0, y0, x1: hx, y1: hy, color: kit.col, t: 0.32, life: 0.32,
         snd: k === 0 ? "zap" : null });
+      fx(g, { kind: "burst", x: hx, y: hy, r: 26, color: "#fff4c2", n: 7, t: 0.34, life: 0.34 });
       x0 = hx; y0 = hy;
     });
     arenaDamage(g, pi, dmg, {});
     arenaMark(g, pi, kit);
     (a.mobs || []).slice(0, (kit.chain || 3) - 1).forEach((m) => { m.hp -= dmg * 0.5; });
+    if (big) {                                   // 낙뢰 — 하늘에서 세 줄기
+      for (let i = 0; i < 3; i++) {
+        const tx2 = bx2 + (i - 1) * 70;
+        fx(g, { kind: "zap", x0: tx2 + (Math.random() - 0.5) * 40, y0: 110, x1: tx2, y1: by2 + 24,
+          color: "#fff0a8", t: 0.3, life: 0.3 });
+        fx(g, { kind: "nova", x: tx2, y: by2 + 24, r: 80, color: "#fff0a8", n: 8, t: 0.5, life: 0.5 });
+      }
+    }
     return;
   }
+  if (kit.shot === "slug") {                     // 저격 — 총구에서 표적까지 한 줄
+    fx(g, { kind: "beam", x0: p.ax + Math.cos(ang) * 22, y0: py - 46 + Math.sin(ang) * 12,
+      x1: bx2, y1: by2, color: kit.col, w: big ? 13 : 7, t: 0.28, life: 0.28 });
+  }
+  if (kit.mode === "bomb") {                     // 대포 — 포구 연기
+    fx(g, { kind: "cloud", x: p.ax + Math.cos(ang) * 26, y: py - 44 + Math.sin(ang) * 12,
+      r: 34, color: "rgba(160,142,116,0.7)", t: 0.5, life: 0.5 });
+  }
   // 나머지는 날아가는 것 (궁수·저격·대포·독·서리·부식)
-  arenaShoot(g, pi, kit, dmg, kit.mode);
+  if (big && kit.shot === "arrow") {             // 화살비 — 여러 대가 한꺼번에
+    fx(g, { kind: "rain", x: bx2, y: by2, r: 110, n: 14, color: kit.col, t: 0.9, life: 0.9 });
+    for (let i = 0; i < 4; i++) {
+      arenaShoot(g, pi, kit, dmg / 4, kit.mode, 1, (i - 1.5) * 34);
+    }
+    return;
+  }
+  if (big && kit.mode === "bomb") {              // 융단 폭격 — 세 발이 흩어져 떨어진다
+    for (let i = 0; i < 3; i++) {
+      arenaShoot(g, pi, kit, dmg / 3, kit.mode, 1, (i - 1) * 62);
+    }
+    return;
+  }
+  arenaShoot(g, pi, kit, dmg, kit.mode, big ? 1 : 0);
 }
 
 export function arenaAttack(g, pi) {
@@ -838,7 +921,12 @@ export function arenaSkill(g, pi) {
   p.ahit = ARENA.land * 1.4;
   p.adir = p.ax < ARENA.bx ? 1 : -1;
   p.askill = 1;
-  fx(g, { kind: "ring", x: p.ax, y: (p.ay || ARENA.bfy) - 20, r: 90, color: P[pi].key, t: 0.5, life: 0.5, snd: "skill" });
+  // 스킬을 모으는 순간 — 발밑에서 기운이 차오른다
+  const kit = arenaKit(pi);
+  const sy = (p.ay || ARENA.bfy) - 20;
+  fx(g, { kind: "ring", x: p.ax, y: sy, r: 90, color: P[pi].key, t: 0.5, life: 0.5, snd: "skill" });
+  fx(g, { kind: "nova", x: p.ax, y: sy, r: 70, color: kit.col, n: 10, t: 0.45, life: 0.45 });
+  fx(g, { kind: "burst", x: p.ax, y: sy - 30, r: 44, color: kit.col, n: 10, t: 0.5, life: 0.5 });
 }
 
 /* 보스가 쓰러졌다 */

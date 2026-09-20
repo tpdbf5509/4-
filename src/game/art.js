@@ -2027,24 +2027,28 @@ export function drawFx(ctx, f) {
     ctx.globalAlpha = 1;
   } else if (k === "zap") {
     const p = 1 - f.t / f.life;
+    // 탑은 x/y·x2/y2, 결전장은 x0/y0·x1/y1 로 보낸다
+    const ax = f.x0 !== undefined ? f.x0 : f.x, ay = f.y0 !== undefined ? f.y0 : f.y;
+    const bx = f.x1 !== undefined ? f.x1 : f.x2, by = f.y1 !== undefined ? f.y1 : f.y2;
     ctx.save();
     ctx.globalAlpha = 1 - p * 0.7;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    const dx = f.x2 - f.x, dy = f.y2 - f.y;
-    const seg = 5;
-    for (let pass = 0; pass < 2; pass++) {
-      ctx.strokeStyle = pass ? "rgba(240,250,255,0.95)" : "rgba(140,190,255,0.7)";
-      ctx.lineWidth = pass ? 2 : 6;
+    const dx = bx - ax, dy = by - ay;
+    const len = Math.hypot(dx, dy) || 1;
+    const seg = 6;
+    const core = f.color || "#cfe6ff";
+    for (let pass = 0; pass < 3; pass++) {
+      ctx.strokeStyle = pass === 2 ? "rgba(255,255,255,0.95)" : pass === 1 ? core : "rgba(140,190,255,0.35)";
+      ctx.lineWidth = pass === 2 ? 2 : pass === 1 ? 5 : 11;
       ctx.beginPath();
-      ctx.moveTo(f.x, f.y);
+      ctx.moveTo(ax, ay);
       for (let i = 1; i < seg; i++) {
         const u = i / seg;
-        const jitter = (Math.sin(i * 12.9898 + f.x) * 43758.5453 % 1) * 14 - 7;
-        ctx.lineTo(f.x + dx * u - dy * 0.001 + jitter * (-dy / (Math.hypot(dx, dy) || 1)),
-                   f.y + dy * u + jitter * (dx / (Math.hypot(dx, dy) || 1)));
+        const jitter = ((Math.sin(i * 12.9898 + ax + pass) * 43758.5453) % 1) * 16 - 8;
+        ctx.lineTo(ax + dx * u + jitter * (-dy / len), ay + dy * u + jitter * (dx / len));
       }
-      ctx.lineTo(f.x2, f.y2);
+      ctx.lineTo(bx, by);
       ctx.stroke();
     }
     ctx.restore();
@@ -2178,8 +2182,8 @@ export function drawFx(ctx, f) {
     ctx.save();
     ctx.globalAlpha = 1 - p;
     ctx.translate(f.x, f.y);
-    ctx.rotate(-0.5);
-    ctx.strokeStyle = "rgba(255,120,110,0.95)";
+    ctx.rotate((f.a || 0) - 0.5);
+    ctx.strokeStyle = f.color || "rgba(255,120,110,0.95)";
     ctx.lineWidth = 4 * (1 - p) + 1.5;
     ctx.lineCap = "round";
     const r = 16 + p * 14;
@@ -2211,7 +2215,18 @@ export function drawFx(ctx, f) {
     ctx.strokeStyle = f.color || "#fff";
     ctx.lineWidth = 5 * (1 - p) + 1;
     ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x2, f.y2); ctx.stroke();
+    if (f.x2 === undefined) {                    // 끝점이 없으면 맞은 자리에서 튄다
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 + f.x;
+        const r0 = 6 + p * 12, r1 = r0 + 10 * (1 - p);
+        ctx.beginPath();
+        ctx.moveTo(f.x + Math.cos(a) * r0, f.y + Math.sin(a) * r0 * 0.8);
+        ctx.lineTo(f.x + Math.cos(a) * r1, f.y + Math.sin(a) * r1 * 0.8);
+        ctx.stroke();
+      }
+    } else {
+      ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.lineTo(f.x2, f.y2); ctx.stroke();
+    }
     ctx.restore();
   } else if (k === "heal") {
     const p = 1 - f.t / f.life;
@@ -2234,6 +2249,174 @@ export function drawFx(ctx, f) {
       ctx.fillStyle = "#b6f0a8";
       ctx.fillText(f.text, f.x, y);
     }
+    ctx.restore();
+  } else if (k === "aura") {
+    // 검기 — 날아가는 초승달
+    const q = 1 - f.t / f.life;
+    const x = f.x0 + (f.x1 - f.x0) * q, y = f.y0 + (f.y1 - f.y0) * q;
+    const ang = Math.atan2(f.y1 - f.y0, f.x1 - f.x0);
+    const r = f.r || 34;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (1 - q) * 2.2);
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    ctx.lineCap = "round";
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.strokeStyle = pass ? "rgba(255,252,240,0.95)" : (f.color || "#bcd8ef");
+      ctx.lineWidth = pass ? r * 0.16 : r * 0.42;
+      ctx.beginPath();
+      ctx.arc(-r * 0.5, 0, r, -0.95, 0.95);
+      ctx.stroke();
+    }
+    ctx.restore();
+  } else if (k === "rain") {
+    // 화살비 — 여러 대가 비스듬히 떨어진다
+    const p = 1 - f.t / f.life;
+    const n = f.n || 12;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (1 - p) * 2);
+    ctx.strokeStyle = f.color || "#cfe3a6";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    for (let i = 0; i < n; i++) {
+      const u = (p * 1.6 - i / n) % 1;
+      if (u < 0 || u > 1) continue;
+      const sx = f.x + ((i * 37) % 100 - 50) / 50 * f.r;
+      const sy = f.y - 210 + u * 240;
+      ctx.beginPath(); ctx.moveTo(sx - 9, sy - 22); ctx.lineTo(sx, sy); ctx.stroke();
+    }
+    ctx.restore();
+  } else if (k === "cone") {
+    // 화염 방사 — 쏘는 쪽으로 퍼지는 부채꼴
+    const p = 1 - f.t / f.life;
+    const r = (f.r || 150) * (0.4 + p * 0.75);
+    const half = f.half || 0.42;
+    ctx.save();
+    ctx.globalAlpha = (1 - p) * 0.8;
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.a || 0);
+    ctx.scale(1, 0.72);
+    const gl = ctx.createRadialGradient(0, 0, 8, 0, 0, r);
+    gl.addColorStop(0, "rgba(255,244,196,0.95)");
+    gl.addColorStop(0.45, f.color || "rgba(250,150,52,0.75)");
+    gl.addColorStop(1, "rgba(190,58,20,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, -half, half); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  } else if (k === "nova") {
+    // 터져 나가는 고리 + 조각
+    const p = 1 - f.t / f.life;
+    const r = (f.r || 80) * (0.2 + p * 1.05);
+    ctx.save();
+    ctx.globalAlpha = (1 - p) * 0.95;
+    ctx.strokeStyle = f.color || "#d8f2ff";
+    ctx.lineWidth = 4 * (1 - p) + 1;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, r, r * 0.62, 0, 0, Math.PI * 2); ctx.stroke();
+    const n = f.n || 8;
+    ctx.fillStyle = f.color || "#d8f2ff";
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + (f.x % 1);
+      const d = r * 0.9;
+      ctx.save();
+      ctx.translate(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.62);
+      ctx.rotate(a);
+      ctx.beginPath();
+      ctx.moveTo(7 * (1 - p) + 2, 0); ctx.lineTo(-4, -3); ctx.lineTo(-4, 3);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+  } else if (k === "beam") {
+    // 저격선 — 한 줄로 지나간 자리
+    const p = 1 - f.t / f.life;
+    ctx.save();
+    ctx.globalAlpha = Math.pow(1 - p, 1.6);
+    ctx.lineCap = "round";
+    ctx.strokeStyle = f.color || "#8e99e8";
+    ctx.lineWidth = (f.w || 7) * (1 - p * 0.6);
+    ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(f.x1, f.y1); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,0.95)";
+    ctx.lineWidth = (f.w || 7) * 0.3;
+    ctx.stroke();
+    ctx.restore();
+  } else if (k === "cloud") {
+    // 독·연기 — 부풀었다 흩어진다
+    const p = 1 - f.t / f.life;
+    const r = (f.r || 60) * (0.35 + p * 0.85);
+    ctx.save();
+    ctx.globalAlpha = (1 - p) * 0.55;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + f.x;
+      const cx = f.x + Math.cos(a) * r * 0.5, cy = f.y + Math.sin(a) * r * 0.3 - p * 14;
+      const gl = ctx.createRadialGradient(cx, cy, 2, cx, cy, r * 0.6);
+      gl.addColorStop(0, f.color || "rgba(168,222,110,0.9)");
+      gl.addColorStop(1, "rgba(90,140,50,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(cx, cy, r * 0.6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  } else if (k === "hole") {
+    // 중력정 — 바깥에서 안으로 빨려 든다
+    const p = 1 - f.t / f.life;
+    const r = f.r || 130;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (1 - p) * 1.6);
+    ctx.translate(f.x, f.y);
+    const gl = ctx.createRadialGradient(0, 0, 2, 0, 0, r * 0.55);
+    gl.addColorStop(0, "rgba(30,8,38,0.85)");
+    gl.addColorStop(0.7, "rgba(120,50,120,0.35)");
+    gl.addColorStop(1, "rgba(193,86,159,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 0.55, r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = f.color || "#e08cc6";
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2 + p * 5;
+      const d = r * (1 - p) * (0.35 + ((i * 7) % 10) / 14);
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(a) * d, Math.sin(a) * d * 0.6, 2.6, 1.6, a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = f.color || "#e08cc6";
+    ctx.lineWidth = 1.6;
+    ctx.globalAlpha = (1 - p) * 0.6;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * (1 - p), r * (1 - p) * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  } else if (k === "burst") {
+    // 맞은 자리 — 병과 색으로 짧게 튄다
+    const p = 1 - f.t / f.life;
+    ctx.save();
+    ctx.globalAlpha = 1 - p;
+    ctx.fillStyle = f.color || "#fff6dd";
+    const n = f.n || 7;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + f.x;
+      const d = (f.r || 26) * p;
+      const s2 = 3.2 * (1 - p) + 0.8;
+      ctx.beginPath();
+      ctx.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.72, s2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = (1 - p) * 0.8;
+    ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    ctx.lineWidth = 2 * (1 - p);
+    ctx.beginPath(); ctx.arc(f.x, f.y, (f.r || 26) * p * 0.7, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  } else if (k === "sigil") {
+    // 성스러운 표식 — 성기사 스킬
+    const p = 1 - f.t / f.life;
+    const r = (f.r || 90) * (0.5 + p * 0.6);
+    ctx.save();
+    ctx.globalAlpha = (1 - p) * 0.9;
+    ctx.translate(f.x, f.y);
+    ctx.strokeStyle = f.color || "#ffe9bd";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 0.66, r * 0.4, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 3.4;
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 0.62); ctx.lineTo(0, r * 0.62);
+    ctx.moveTo(-r * 0.34, -r * 0.2); ctx.lineTo(r * 0.34, -r * 0.2);
+    ctx.stroke();
     ctx.restore();
   } else if (k === "call") {
     const p = 1 - f.t / f.life;

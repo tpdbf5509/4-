@@ -456,8 +456,7 @@ export const ARENA = {
   lives: 5,              // 몇 대를 맞으면 쓰러지는지 — 이 수로 각자의 체력을 잡는다
   revive: 4,             // 쓰러진 뒤 다시 일어나기까지
   reviveHp: 0.5,         // 일어날 때 돌아오는 체력 비율
-  regen: 0.05,           // 한동안 안 맞으면 초당 이만큼 회복한다 (최대 체력 대비)
-  calm: 4,               // 회복이 시작되기까지 맞지 않고 있어야 하는 시간
+  // 저절로 차오르지는 않는다. 채우는 길은 보급소뿐이다.
   bspd: 82,              // 보스가 걷는 속도 (좌우)
   bspdY: 52,             // 보스가 걷는 속도 (위아래)
   breach: 168,           // 보스가 곁에 있다고 보는 거리 — 이 안이면 후려친다
@@ -502,10 +501,26 @@ export const ARENA_PATTERNS = [
   { id: "sweep", name: "휩쓸기",   tell: 1.7,  dmg: 0.9, note: "둘레를 쓸어버린다 — 품 안이나 바깥으로" },
   { id: "stomp", name: "발구르기", tell: 1.35, dmg: 0.8, note: "세 곳을 동시에 짓밟는다" },
   { id: "swipe", name: "후려치기", tell: 0.75, dmg: 0.6, note: "곁에 붙은 것을 팔로 후려친다" },
+  { id: "leap",  name: "내려찍기", tell: 1.5,  dmg: 1.1, note: "뛰어올라 한 곳에 떨어진다" },
+  { id: "rush",  name: "돌진",     tell: 1.6,  dmg: 0.95, note: "일직선으로 밀고 들어온다" },
 ];
+export const PAT_BY_ID = Object.fromEntries(ARENA_PATTERNS.map((p) => [p.id, p]));
+
+/* 돌진이 훑는 길이 · 뛰어오르는 높이 */
+export const ARENA_LEAP = { r: 210, rTitan: 245, up: 190 };
+export const ARENA_RUSH = { len: 460, half: 78, halfTitan: 92, spd: 780 };
 
 /* 결전장에서 어느 자리가 공격에 닿는지 — 위아래를 좁게 보아 판단한다 */
 export function arenaInZone(z, x, y) {
+  if (z.k === "lane") {                    // 돌진이 지나가는 길 — 선분까지의 거리로 본다
+    const ax = z.x, ay = z.y / ARENA.squash;
+    const bx = z.ex, by = z.ey / ARENA.squash;
+    const px = x, py = y / ARENA.squash;
+    const vx = bx - ax, vy = by - ay;
+    const len2 = vx * vx + vy * vy || 1;
+    const t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / len2));
+    return Math.hypot(px - (ax + vx * t), py - (ay + vy * t)) <= z.w;
+  }
   const dx = x - z.x, dy = (y - z.y) / ARENA.squash;
   const d = Math.hypot(dx, dy);
   return z.k === "ring" ? d >= z.r0 && d <= z.r1 : d <= z.r;
@@ -575,7 +590,7 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
         // 보스 결전장에서 쓰는 값
         ax: ARENA.bx - 255 + i * 170, ay: ARENA.bfy + 150,
         adir: 1, aswing: 0, adown: 0, acd: 0, ahit: 0, askill: 0, adodge: 0,
-        ahp: 0, ahpMax: 0, aout: 0, acalm: 0,   // 결전장에서만 쓰는 체력 · 쓰러진 시간
+        ahp: 0, ahpMax: 0, aout: 0,             // 결전장에서만 쓰는 체력 · 쓰러져 있는 시간
       };
     }),
     towers: new Array(SLOTS.length).fill(null),

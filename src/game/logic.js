@@ -2,7 +2,7 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, LEAVE_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
-  diffOf, prepTime, ARENA, ARENA_PATTERNS, arenaInZone, arenaNear, arenaKit, arenaRange,
+  diffOf, prepTime, ARENA, ARENA_PATTERNS, ARENA_LEAP, ARENA_RUSH, arenaInZone, arenaNear, arenaKit, arenaRange,
   bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
 } from "./world.js";
@@ -612,6 +612,7 @@ export function startArena(g, kind) {
     st: "idle", stT: 2, pat: null, zone: null,
     x: ARENA.bx, y: ARENA.bfy, dir: 1, tgt: -1, step: 0,   // 걸어 다니는 자리
     sw: 0, swHit: 0, swDir: 1, hitT: 2.5,                  // 방망이 — 휘두르는 중 · 맞는 순간 · 쿨타임
+    air: 0, leap: null, rush: null,                        // 뛰어오른 높이 · 뛰는 길 · 밀고 드는 길
     bite, life,
     sup: 3, combo: 0, comboT: 0, jolt: 0, roar: 0,
     burn: 0, burnDps: 0, poison: 0, poisonDps: 0, slow: 0, shred: 0, shredAmt: 0,
@@ -629,7 +630,7 @@ export function startArena(g, kind) {
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
     p.hold = []; p.vx = undefined; p.vy = undefined;    // 지난 판에 누르고 있던 건 잊는다
     p.abuff = 0; p.abuffAmt = 0;
-    p.ahpMax = life; p.ahp = life; p.acalm = 0; p.aout = 0;
+    p.ahpMax = life; p.ahp = life; p.aout = 0;
   });
   g.shake = Math.max(g.shake, 0.6);
   fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: kind === "titan" ? "#ff7a6a" : "#ffb06a",
@@ -948,7 +949,6 @@ function arenaHurt(g, pi, raw) {
   const had = Math.max(0, p.ahp || 0);
   const lost = Math.min(had, Math.max(1, Math.round(raw)));
   p.ahp = had - lost;
-  p.acalm = ARENA.calm;
   g.core.hp -= lost;                       // 깎인 만큼 그대로 성채로
   g.hitFlash = 0.35;
   fx(g, { kind: "dmg", x: p.ax, y: (p.ay || ARENA.bfy) - 96, text: `-${lost}`,
@@ -1032,11 +1032,40 @@ function arenaClubLand(g) {
   }
 }
 
+/* 뛰어오른 몸이 포물선을 그린다 — 예비 동작이 끝나는 순간 땅에 닿는다 */
+function arenaLeapMove(g) {
+  const a = g.arena;
+  const L = a.leap;
+  if (!L) return;
+  const pat = ARENA_PATTERNS.find((x) => x.id === "leap");
+  const full = pat.tell * (a.type === "titan" ? 0.88 : 1);
+  const k = Math.max(0, Math.min(1, 1 - a.stT / full));
+  const fly = Math.max(0, (k - 0.28) / 0.72);        // 앞쪽은 웅크리는 시간
+  a.x = L.x0 + (L.x1 - L.x0) * fly;
+  a.y = L.y0 + (L.y1 - L.y0) * fly;
+  a.air = Math.sin(fly * Math.PI) * ARENA_LEAP.up;
+}
+
+/* 예비 동작이 끝나면 길 끝까지 밀고 들어간다 */
+function arenaRushMove(g, dt) {
+  const a = g.arena;
+  const R = a.rush;
+  if (!R || !R.go) return;
+  const dx = R.x1 - a.x, dy = R.y1 - a.y;
+  const len = Math.hypot(dx, dy);
+  const mv = ARENA_RUSH.spd * dt;
+  if (len <= mv) { a.x = R.x1; a.y = R.y1; a.rush = null; return; }
+  a.x += (dx / len) * mv;
+  a.y += (dy / len) * mv;
+}
+
 /* 보스가 결전장을 걸어 다닌다 — 가장 가까운 사람 쪽으로 */
 function arenaBossWalk(g, dt) {
   const a = g.arena;
   if (!a || a.intro > 0 || a.outro > 0) return;
-  if (a.st === "tell" || a.sw > 0) return;           // 휘두르는 동안은 발을 멈춘다
+  if (a.rush && a.rush.go) return arenaRushMove(g, dt);
+  if (a.st === "tell") { if (a.leap) arenaLeapMove(g); return; }
+  if (a.sw > 0) return;                              // 휘두르는 동안은 발을 멈춘다
   let best = -1, bd = Infinity;
   g.players.forEach((p, i) => {
     if (!g.seats[i] || p.aout > 0) return;
@@ -1080,13 +1109,19 @@ function arenaNextPattern(g) {
   const up = g.players.filter((q, i) => g.seats[i] && q.aout <= 0);
   // 곁에 붙은 사람이 있으면 팔로 후려친다 — 붙어 싸우는 병과에게 주는 대가
   const close = up.some((q) => arenaNear(q.ax, q.ay || ARENA.bfy, a.x, a.y) <= ARENA.breach);
-  const pool = a.type === "titan" ? [0, 1, 2, 1] : [0, 2, 0, 1];
-  const pat = close && Math.random() < 0.4
+  const far = up.some((q) => arenaNear(q.ax, q.ay || ARENA.bfy, a.x, a.y) > ARENA.club * 1.6);
+  // 붙어 있으면 팔로, 멀리 떨어져 있으면 뛰거나 밀고 들어간다
+  const pool = a.type === "titan" ? [0, 1, 4, 2, 5, 1] : [0, 2, 4, 1, 5, 0];
+  const reach = far ? [4, 5] : null;
+  const pat = close && Math.random() < 0.34
     ? ARENA_PATTERNS.find((x) => x.id === "swipe")
-    : ARENA_PATTERNS[pool[Math.floor(Math.random() * pool.length)]];
+    : reach && Math.random() < 0.5
+      ? ARENA_PATTERNS[reach[Math.floor(Math.random() * reach.length)]]
+      : ARENA_PATTERNS[pool[Math.floor(Math.random() * pool.length)]];
   a.pat = pat.id;
   a.st = "tell";
   a.sw = 0; a.swHit = 0;
+  a.leap = null; a.rush = null; a.air = 0;
   a.stT = pat.tell * (a.type === "titan" ? 0.88 : 1);
   const spot = () => {
     // 아무나 한 사람 근처를 노린다
@@ -1094,7 +1129,26 @@ function arenaNextPattern(g) {
     return q ? { x: q.ax + (Math.random() - 0.5) * 90, y: (q.ay || ARENA.bfy) + (Math.random() - 0.5) * 60 }
              : { x: a.x, y: a.y + 120 };
   };
-  if (pat.id === "swipe") {
+  if (pat.id === "leap") {                        // 뛰어올라 한 곳에 떨어진다
+    const c = spot();
+    const lx = Math.max(ARENA.left, Math.min(ARENA.right, c.x));
+    const ly = Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30, c.y));
+    const r = a.type === "titan" ? ARENA_LEAP.rTitan : ARENA_LEAP.r;
+    a.zone = [{ k: "circle", x: lx, y: ly, r }];
+    a.leap = { x0: a.x, y0: a.y, x1: lx, y1: ly };
+    if (lx !== a.x) a.dir = lx < a.x ? -1 : 1;
+  } else if (pat.id === "rush") {                 // 한 사람 쪽으로 일직선
+    const c = spot();
+    const dx = c.x - a.x, dy = (c.y - a.y) / ARENA.squash;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const ex = Math.max(ARENA.left, Math.min(ARENA.right, a.x + (dx / len) * ARENA_RUSH.len));
+    const ey = Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30,
+      a.y + (dy / len) * ARENA_RUSH.len * ARENA.squash));
+    a.zone = [{ k: "lane", x: a.x, y: a.y, ex, ey,
+      w: a.type === "titan" ? ARENA_RUSH.halfTitan : ARENA_RUSH.half }];
+    a.rush = { x1: ex, y1: ey, go: 0 };
+    a.dir = ex < a.x ? -1 : 1;
+  } else if (pat.id === "swipe") {
     a.zone = [{ k: "circle", x: a.x + a.dir * 74, y: a.y + 14, r: a.type === "titan" ? 190 : 162 }];
   } else if (pat.id === "slam") {
     const c = spot();
@@ -1139,10 +1193,28 @@ function arenaStrike(g) {
     }
   });
   (a.zone || []).forEach((z) => {
+    if (z.k === "lane") {                        // 길 위에 먼지를 여러 번 남긴다
+      for (let i = 0; i <= 4; i++) {
+        const u = i / 4;
+        fx(g, { kind: "boom", x: z.x + (z.ex - z.x) * u, y: z.y + (z.ey - z.y) * u,
+          r: z.w * 0.9, t: 0.45 + i * 0.05, life: 0.45 + i * 0.05, snd: i === 0 ? "boom" : null });
+      }
+      return;
+    }
     fx(g, { kind: "boom", x: z.x, y: z.y, r: Math.min(150, (z.k === "ring" ? z.r1 * 0.5 : z.r) * 0.8),
       t: 0.5, life: 0.5, snd: "boom" });
   });
-  g.shake = Math.max(g.shake, 0.45);
+  if (a.pat === "leap") {                        // 떨어진 자리에서 땅이 퍼져 나간다
+    a.air = 0; a.leap = null;
+    const z = (a.zone || [])[0];
+    if (z) {
+      fx(g, { kind: "ring", x: z.x, y: z.y, r: z.r * 1.15, color: "#ffb08a", t: 0.7, life: 0.7 });
+      fx(g, { kind: "cloud", x: z.x, y: z.y + 8, r: z.r * 0.6, color: "rgba(180,150,112,0.8)",
+        t: 0.8, life: 0.8 });
+    }
+  }
+  if (a.pat === "rush" && a.rush) a.rush.go = 1;  // 이제 밀고 들어간다
+  g.shake = Math.max(g.shake, a.pat === "leap" ? 0.75 : 0.45);
   if (hit) {
     if (cost > 0) fx(g, { kind: "dmg", x: CX, y: 180, text: `성채 -${cost}`, color: "#ff8d76", t: 1, life: 1 });
     a.combo = 0; a.comboT = 0;
@@ -1150,7 +1222,7 @@ function arenaStrike(g) {
     callout(g, CX, 250, "완벽 회피!", "#9fe8ff", "perfect", 0.9);
   }
   a.st = "rest";
-  a.stT = a.type === "titan" ? 0.8 : 1;
+  a.stT = (a.type === "titan" ? 0.8 : 1) + (a.pat === "rush" ? 0.5 : 0);
   a.zone = null;
 }
 
@@ -1210,16 +1282,11 @@ export function stepArena(g, dt) {
       p.aout -= dt;
       if (p.aout <= 0) {
         p.ahp = Math.max(1, Math.round(p.ahpMax * ARENA.reviveHp));
-        p.acalm = ARENA.calm;
         p.adown = 0;
         fx(g, { kind: "nova", x: p.ax, y: (p.ay || ARENA.bfy) - 20, r: 56, color: P[i].light,
           n: 8, t: 0.6, life: 0.6 });
         say(g, p.ax, (p.ay || ARENA.bfy) - 104, "일어섰다", P[i].light);
       }
-    } else if (g.seats[i] && p.ahpMax) {
-      // 한동안 맞지 않으면 숨을 돌린다
-      if (p.acalm > 0) p.acalm -= dt;
-      else if (p.ahp < p.ahpMax) p.ahp = Math.min(p.ahpMax, p.ahp + p.ahpMax * ARENA.regen * dt);
     }
     if (p.aswing > 0) {
       p.aswing -= dt;
@@ -1770,6 +1837,7 @@ export function packSnapshot(g) {
       sT: Math.round(g.arena.stT * 100) / 100,
       bx: Math.round(g.arena.x), by: Math.round(g.arena.y), bd: g.arena.dir,
       sw: Math.round(Math.max(0, g.arena.sw) * 100) / 100, sd: g.arena.swDir,
+      ai: Math.round(g.arena.air || 0),
       pp: g.players.map((p) => [Math.round(p.ax || 0), p.adir || 1, Math.round(p.ay || 0),
         Math.round((p.aswing || 0) * 100) / 100, Math.round((p.adown || 0) * 100) / 100,
         p.askill ? 1 : 0, p.abuff > 0 ? 1 : 0, Math.round(Math.max(0, p.acd || 0) * 100) / 100,
@@ -1823,7 +1891,7 @@ export function applySnapshot(g, s) {
     a.combo = s.ar.cb; a.intro = s.ar.io; a.outro = s.ar.oo; a.jolt = s.ar.jo;
     a.stT = s.ar.sT; a.t = (a.t || 0);
     a.x = s.ar.bx; a.y = s.ar.by; a.dir = s.ar.bd || 1;
-    a.sw = s.ar.sw || 0; a.swDir = s.ar.sd || 1;
+    a.sw = s.ar.sw || 0; a.swDir = s.ar.sd || 1; a.air = s.ar.ai || 0;
     const ef = s.ar.ef || [0, 0, 0, 0];
     a.burn = ef[0] ? Math.max(a.burn || 0, 0.3) : 0;
     a.poison = ef[1] ? Math.max(a.poison || 0, 0.3) : 0;

@@ -1,6 +1,6 @@
 import {
   W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY,
-  castleTier, castleCost, CASTLE_TIERS, SPOTS, CLASSES, ARENA, ARENA_LIFT, ARENA_PATTERNS,
+  castleTier, castleCost, CASTLE_TIERS, SPOTS, CLASSES, ARENA, ARENA_LIFT, ARENA_PATTERNS, ARENA_LEAP,
   arenaKit, arenaRange,
 } from "./world.js";
 
@@ -2567,6 +2567,35 @@ function arenaZone(ctx, a, time) {
   const fill = Math.max(0, Math.min(1, 1 - a.stT / (pat.tell || 1)));
   const sq = ARENA.squash;
   a.zone.forEach((z) => {
+    if (z.k === "lane") {                          // 돌진이 지나갈 길
+      const ang = Math.atan2((z.ey - z.y) / sq, z.ex - z.x);
+      const len = Math.hypot(z.ex - z.x, (z.ey - z.y) / sq);
+      ctx.save();
+      ctx.translate(z.x, z.y);
+      ctx.scale(1, sq);
+      ctx.rotate(ang);
+      ctx.globalAlpha = 0.2 + 0.14 * Math.abs(Math.sin(time * 9));
+      ctx.fillStyle = "#ff4d3d";
+      roundRect(ctx, 0, -z.w, len, z.w * 2, z.w); ctx.fill();
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = "rgba(255,130,104,0.95)";
+      ctx.lineWidth = 3;
+      roundRect(ctx, 0, -z.w, len, z.w * 2, z.w); ctx.stroke();
+      // 차오르는 부분 — 다 차면 밀고 들어온다
+      ctx.fillStyle = "rgba(255,216,200,0.5)";
+      roundRect(ctx, 0, -z.w, len * fill, z.w * 2, z.w); ctx.fill();
+      // 나아가는 쪽을 가리키는 화살
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = "#ffd8c8";
+      for (let i = 1; i <= 3; i++) {
+        const u = len * (i / 4);
+        ctx.beginPath();
+        ctx.moveTo(u + 16, 0); ctx.lineTo(u - 8, -14); ctx.lineTo(u - 8, 14);
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.translate(z.x, z.y);
     ctx.scale(1, sq);
@@ -2724,8 +2753,18 @@ function arenaBoss(ctx, g, a, time) {
   const scale = a.type === "titan" ? 2.35 : 2.15;
   const [bxx, byy] = bossSpot(a);
   const pose = clubPose(a);
+  const air = a.air > 0 ? a.air : 0;
+  if (air > 0) {                               // 떠 있는 동안 그림자만 땅에 남는다
+    const k = 1 - air / ARENA_LEAP.up;
+    ctx.save();
+    ctx.globalAlpha = 0.18 + 0.2 * k;
+    shadow(ctx, bxx, byy, 74 + 40 * k, 17 + 9 * k, 1);
+    ctx.restore();
+  }
   ctx.save();
-  ctx.translate(bxx + (jolt > 0 ? (Math.random() - 0.5) * 12 : 0), byy - ARENA_LIFT + bob);
+  ctx.translate(bxx + (jolt > 0 ? (Math.random() - 0.5) * 12 : 0), byy - ARENA_LIFT + bob - air);
+  // 뛰어오른 만큼 몸이 길게 늘어난다
+  if (air > 0) ctx.scale(1 - (air / ARENA_LEAP.up) * 0.1, 1 + (air / ARENA_LEAP.up) * 0.12);
   const face = pose ? a.swDir : a.dir;
   if (face < 0) ctx.scale(-1, 1);             // 걸어가는 쪽, 휘두르는 쪽을 본다
   if (pose) {                                 // 방망이질 — 발끝을 축으로 몸을 기울인다
@@ -2745,7 +2784,7 @@ function arenaBoss(ctx, g, a, time) {
     ctx.rotate((1 - k) * 0.5);
     ctx.translate(0, (1 - k) * 70);
   }
-  shadow(ctx, 0, 118, 116, 26, 0.3);
+  if (air <= 0) shadow(ctx, 0, 118, 116, 26, 0.3);
   if (im) {
     const art = ENEMY_ART[a.type];
     const hh = art.h * scale * 2.6, ww = hh * (im.naturalWidth / im.naturalHeight);

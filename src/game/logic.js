@@ -2,7 +2,7 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, LEAVE_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
-  diffOf, prepTime,
+  diffOf, prepTime, ARENA, ARENA_PATTERNS,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
 } from "./world.js";
 
@@ -71,6 +71,7 @@ export function towerDmg(g, t, i) {
 
 /* ── 조작 ───────────────────────────────────────────────── */
 export function applyMove(g, pi, act) {
+  if (g.phase === "arena") return arenaMove(g, pi, act);
   const p = g.players[pi];
   const from = SLOTS[sk(p.lane, p.slot)];
   const i = nextSlot(from, act);
@@ -82,6 +83,7 @@ export function applyMove(g, pi, act) {
 
 // 마우스로 자리를 직접 고른다
 export function applyGoto(g, pi, i) {
+  if (g.phase === "arena") return;
   const p = g.players[pi];
   const s = SLOTS[i];
   if (!s) return;
@@ -94,6 +96,7 @@ export function applyGoto(g, pi, i) {
 /* 지은 탑을 판다. 들인 값의 60%가 돌아온다 */
 export const SELL_BACK = 0.6;
 export function doSell(g, pi) {
+  if (g.phase === "arena") return;
   const p = g.players[pi];
   const key = sk(p.lane, p.slot);
   const t = g.towers[key];
@@ -128,6 +131,7 @@ export function clearLeave(g) {
 
 /* 성채 강화 — 누구든 자기 골드로 한 단계 올린다 */
 export function doCastle(g, pi) {
+  if (g.phase === "arena") return;
   const p = g.players[pi];
   if (!p) return;
   const lv = castleTier(g);
@@ -150,6 +154,7 @@ export function say(g, x, y, text, color) {
 }
 
 export function doBuild(g, pi) {
+  if (g.phase === "arena") return arenaAttack(g, pi);
   const p = g.players[pi];
   const key = sk(p.lane, p.slot);
   const s = SLOTS[key];
@@ -184,6 +189,7 @@ export function doBuild(g, pi) {
 }
 
 export function doSkill(g, pi) {
+  if (g.phase === "arena") return arenaSkill(g, pi);
   const p = g.players[pi];
   if (p.cd > 0) return say(g, CX, CY - 96, `${SKILLS[pi].name} ${Math.ceil(p.cd)}초`, "#f0dcb4");
   p.cd = SKILLS[pi].cd * perkVal.cool(perkN(g, pi, "cool"));
@@ -573,6 +579,271 @@ function applyPoison(e, dps, time, owner) {
 }
 
 /* ── 한 프레임 ──────────────────────────────────────────── */
+
+/* ── 보스 결전 ───────────────────────────────────────────
+   보스 웨이브에는 길을 따라오는 대신 결전장이 열린다.
+   수비대가 직접 나가서 때리고, 보스가 내리칠 자리는 미리 붉게 뜬다. */
+
+function arenaCrew(g) { return Math.max(1, seatCount(g)); }
+
+// 그 사람이 지은 탑이 곧 주먹의 무게가 된다
+export function arenaPower(g, pi) {
+  let t = 0;
+  g.towers.forEach((tw, i) => { if (tw && tw.owner === pi) t += towerDmg(g, tw, i); });
+  return ARENA.base + t * ARENA.tower;
+}
+
+export function startArena(g, kind) {
+  const base = ENEMY[kind];
+  const D = diffOf(g);
+  const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + D.surge * g.surge) * D.hp;
+  const max = Math.round(base.hp * scale * ARENA.hpMul * arenaCrew(g));
+  g.phase = "arena";
+  g.enemies = [];
+  g.queue = [];
+  g.queueLeft = 0;
+  g.arena = {
+    type: kind, hp: max, max,
+    t: 0, intro: 2.2, outro: 0,
+    st: "idle", stT: 2, pat: null, zone: null,
+    sup: 3, combo: 0, comboT: 0, jolt: 0, roar: 0,
+    limit: kind === "titan" ? 100 : 75, rage: 0,
+  };
+  let k = 0;
+  g.players.forEach((p, i) => {
+    if (g.seats[i]) { p.ax = ARENA.left + 130 + k * 170; k++; } else p.ax = ARENA.bx;
+    p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
+  });
+  g.shake = Math.max(g.shake, 0.6);
+  fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: kind === "titan" ? "#ff7a6a" : "#ffb06a",
+    t: 1, life: 1, snd: "boss" });
+  banner(g, base.label, kind === "titan" ? "모두 앞으로 — 마지막 싸움" : "모두 앞으로 — 보스를 막아라",
+    kind === "titan" ? "#ff6f6f" : "#ff9f6a");
+}
+
+/* 결전장에서의 조작 */
+export function arenaMove(g, pi, act) {
+  const p = g.players[pi];
+  if (!p || p.adown > 0) return;
+  const d = act === "left" ? -1 : act === "right" ? 1 : 0;
+  if (!d) return;
+  p.adir = d;
+  p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + d * 26));
+}
+
+function arenaLand(g, pi, mul, label) {
+  const a = g.arena;
+  const p = g.players[pi];
+  if (!a || a.hp <= 0) return;
+  const dx = Math.abs(p.ax - ARENA.bx);
+  if (dx > ARENA.reach) {
+    say(g, p.ax, ARENA.floor - 96, "닿지 않는다", "#d9c9a6");
+    return;
+  }
+  let dmg = arenaPower(g, pi) * mul;
+  dmg *= 1 + perkVal.hunter(perkN(g, pi, "hunter"));        // 사냥꾼의 표식
+  dmg *= 1 + Math.min(0.5, a.combo * 0.012);                 // 연타가 쌓일수록
+  const crit = Math.random() < perkVal.crit(perkN(g, pi, "crit"));
+  if (crit) dmg *= 2;
+  dmg = Math.round(dmg);
+  a.hp = Math.max(0, a.hp - dmg);
+  a.jolt = 0.16;
+  a.combo += 1;
+  a.comboT = ARENA.comboT;
+  const px = ARENA.bx + (p.ax < ARENA.bx ? -40 : 40) + (Math.random() - 0.5) * 40;
+  fx(g, { kind: "dmg", x: px, y: ARENA.by + 40 + (Math.random() - 0.5) * 40,
+    text: String(dmg), color: crit ? "#ffd873" : P[pi].light, t: 0.8, life: 0.8, big: crit ? 1 : 0 });
+  fx(g, { kind: "slash", x: ARENA.bx + (p.ax < ARENA.bx ? -52 : 52), y: ARENA.by + 60,
+    a: p.ax < ARENA.bx ? 0 : Math.PI, color: P[pi].key, t: 0.24, life: 0.24, snd: crit ? "crit" : "hit" });
+  if (label) callout(g, CX, 250, label, "#ffd873", "crit", 0.8);
+  if (crit) callout(g, CX, 250, "치명타!", "#ffd873", null, 1.1);
+  if (a.combo > 0 && a.combo % 15 === 0) callout(g, CX, 250, `${a.combo} 연타!`, "#ffb765", null, 0.9);
+  if (a.hp <= 0) arenaDown(g, pi);
+}
+
+export function arenaAttack(g, pi) {
+  const p = g.players[pi];
+  if (!p || p.adown > 0 || p.acd > 0 || !g.arena || g.arena.intro > 0) return;
+  p.acd = ARENA.cd / (1 + perkVal.haste(perkN(g, pi, "haste")));   // 전장의 북
+  p.aswing = ARENA.swing;
+  p.ahit = ARENA.land;
+  p.adir = p.ax < ARENA.bx ? 1 : -1;
+}
+
+export function arenaSkill(g, pi) {
+  const p = g.players[pi];
+  const a = g.arena;
+  if (!p || !a || a.intro > 0) return;
+  if (p.cd > 0) return say(g, p.ax, ARENA.floor - 96, `${SKILLS[pi].name} ${Math.ceil(p.cd)}초`, "#f0dcb4");
+  if (p.adown > 0) return;
+  p.cd = SKILLS[pi].cd * perkVal.cool(perkN(g, pi, "cool"));
+  p.aswing = ARENA.swing * 1.6;
+  p.ahit = ARENA.land * 1.4;
+  p.adir = p.ax < ARENA.bx ? 1 : -1;
+  p.askill = 1;
+  fx(g, { kind: "ring", x: p.ax, y: ARENA.floor - 30, r: 90, color: P[pi].key, t: 0.5, life: 0.5, snd: "skill" });
+}
+
+/* 보스가 쓰러졌다 */
+function arenaDown(g, pi) {
+  const a = g.arena;
+  a.outro = 2.4;
+  const base = ENEMY[a.type];
+  const D = diffOf(g);
+  const gold = Math.round(base.gold * D.gold * perkVal.gold(perkN(g, pi, "gold")));
+  g.players.forEach((p, i) => { if (g.seats[i]) p.gold += gold; });
+  if (g.players[pi]) g.players[pi].kills += 1;
+  g.shake = Math.max(g.shake, 0.8);
+  fx(g, { kind: "ring", x: ARENA.bx, y: ARENA.by + 60, r: 260, color: "#ffd873", t: 1.1, life: 1.1, snd: "boom" });
+  fx(g, { kind: "boom", x: ARENA.bx, y: ARENA.by + 60, r: 120, t: 0.8, life: 0.8 });
+  callout(g, CX, 250, "격파!", "#ffd873", "bless", 0);
+  banner(g, `${base.label} 격파`, `모두 ${gold} 골드`, "#ffd873");
+}
+
+/* 보스의 다음 공격을 고른다 */
+function arenaNextPattern(g) {
+  const a = g.arena;
+  const pool = a.type === "titan" ? [0, 1, 2, 1] : [0, 2, 0, 1];
+  const pat = ARENA_PATTERNS[pool[Math.floor(Math.random() * pool.length)]];
+  a.pat = pat.id;
+  a.st = "tell";
+  a.stT = pat.tell * (a.type === "titan" ? 0.88 : 1);
+  if (pat.id === "slam") {
+    const c = ARENA.bx + (Math.random() - 0.5) * 220;
+    a.zone = [[c - pat.w / 2, c + pat.w / 2]];
+  } else if (pat.id === "sweep") {
+    const gapW = a.type === "titan" ? 190 : 240;
+    const c = ARENA.left + gapW / 2 + Math.random() * (ARENA.right - ARENA.left - gapW);
+    a.zone = [[ARENA.left - 60, c - gapW / 2], [c + gapW / 2, ARENA.right + 60]];
+  } else {
+    const c1 = ARENA.left + Math.random() * (ARENA.right - ARENA.left) * 0.45;
+    const c2 = ARENA.right - Math.random() * (ARENA.right - ARENA.left) * 0.45;
+    a.zone = [[c1 - pat.w / 2, c1 + pat.w / 2], [c2 - pat.w / 2, c2 + pat.w / 2]];
+  }
+  callout(g, CX, 300, pat.name, "#ff8f6a", "warn", 1.4);
+}
+
+/* 공격이 떨어졌다 — 자리에 있던 사람은 넘어지고 성채가 다친다 */
+function arenaStrike(g) {
+  const a = g.arena;
+  const pat = ARENA_PATTERNS.find((x) => x.id === a.pat) || ARENA_PATTERNS[0];
+  const base = ENEMY[a.type];
+  const D = diffOf(g);
+  let hit = 0, safe = 0;
+  g.players.forEach((p, i) => {
+    if (!g.seats[i]) return;
+    const inside = (a.zone || []).some(([l, r]) => p.ax >= l && p.ax <= r);
+    if (inside) {
+      hit += 1;
+      p.adown = ARENA.down;
+      p.aswing = 0;
+      p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + (p.ax < ARENA.bx ? -ARENA.knock : ARENA.knock)));
+      fx(g, { kind: "poof", x: p.ax, y: ARENA.floor - 20, t: 0.5, life: 0.5, color: "rgba(230,190,140,1)" });
+    } else {
+      safe += 1;
+      p.adodge = 1.1;
+      fx(g, { kind: "text", x: p.ax, y: ARENA.floor - 108, text: "회피!", color: P[i].light, t: 0.8, life: 0.8 });
+    }
+  });
+  (a.zone || []).forEach(([l, r]) => {
+    fx(g, { kind: "boom", x: (l + r) / 2, y: ARENA.floor - 10, r: Math.min(140, (r - l) / 2 + 30),
+      t: 0.5, life: 0.5, snd: "boom" });
+  });
+  g.shake = Math.max(g.shake, 0.45);
+  if (hit) {
+    const dmg = Math.max(1, Math.round(base.dmg * ARENA.coreHit * pat.dmg * D.hp * (a.rage ? 1.6 : 1)
+      * perkVal.guard(teamPerk(g, "guard")) * hit));
+    g.core.hp -= dmg;
+    g.hitFlash = 0.35;
+    fx(g, { kind: "dmg", x: CX, y: 180, text: `성채 -${dmg}`, color: "#ff8d76", t: 1, life: 1 });
+    a.combo = 0; a.comboT = 0;
+  } else if (safe) {
+    callout(g, CX, 250, "완벽 회피!", "#9fe8ff", "perfect", 0.9);
+  }
+  a.st = "rest";
+  a.stT = a.type === "titan" ? 0.8 : 1;
+  a.zone = null;
+}
+
+export function stepArena(g, dt) {
+  const a = g.arena;
+  if (!a) { g.phase = "wave"; return; }
+  a.t += dt;
+  if (a.jolt > 0) a.jolt -= dt;
+  // 제한 시간이 다하면 보스가 분노한다 — 더 빨리, 더 세게 내리친다
+  if (a.outro <= 0 && a.intro <= 0) {
+    a.limit -= dt;
+    if (a.limit <= 0 && !a.rage) {
+      a.rage = 1;
+      a.limit = 0;
+      g.shake = Math.max(g.shake, 0.7);
+      callout(g, CX, 250, "분노!", "#ff6f6f", "boss", 0);
+      banner(g, "보스가 분노했다", "내리치기가 빨라지고 더 아프다", "#ff6f6f");
+    }
+  }
+  if (a.comboT > 0) { a.comboT -= dt; if (a.comboT <= 0) a.combo = 0; }
+
+  g.players.forEach((p, i) => {
+    if (p.cd > 0) p.cd -= dt;
+    if (p.acd > 0) p.acd -= dt;
+    if (p.adodge > 0) p.adodge -= dt;
+    if (p.adown > 0) p.adown -= dt;
+    if (p.aswing > 0) {
+      p.aswing -= dt;
+      if (p.ahit > 0) {
+        p.ahit -= dt;
+        if (p.ahit <= 0 && g.seats[i]) {
+          const sk2 = p.askill;
+          p.askill = 0;
+          arenaLand(g, i, sk2 ? ARENA.skill : 1, sk2 ? SKILLS[i].name : null);
+        }
+      }
+    }
+  });
+
+  if (a.intro > 0) { a.intro -= dt; return; }
+
+  if (a.outro > 0) {
+    a.outro -= dt;
+    if (a.outro <= 0) {
+      g.arena = null;
+      if (a.type === "titan") { g.phase = "clear"; return; }
+      g.pendingReward = 1;
+      openReward(g);
+    }
+    return;
+  }
+
+  // 지은 탑이 성벽 위에서 같이 쏜다
+  a.sup -= dt;
+  if (a.sup <= 0) {
+    a.sup = 2.2;
+    let d = 0;
+    g.towers.forEach((tw, i) => { if (tw) d += towerDmg(g, tw, i); });
+    if (d > 0) {
+      const dmg = Math.round(d * 0.8);
+      a.hp = Math.max(0, a.hp - dmg);
+      fx(g, { kind: "dmg", x: ARENA.bx + (Math.random() - 0.5) * 90, y: ARENA.by + 10,
+        text: String(dmg), color: "#cfe3a6", t: 0.8, life: 0.8 });
+      fx(g, { kind: "zap", x0: ARENA.bx - 240, y0: 120, x1: ARENA.bx - 30, y1: ARENA.by + 30,
+        color: "#e8dcc0", t: 0.22, life: 0.22 });
+      fx(g, { kind: "zap", x0: ARENA.bx + 240, y0: 120, x1: ARENA.bx + 30, y1: ARENA.by + 30,
+        color: "#e8dcc0", t: 0.22, life: 0.22 });
+      if (a.hp <= 0) { arenaDown(g, 0); return; }
+    }
+  }
+
+  a.stT -= dt;
+  if (a.stT <= 0) {
+    if (a.st === "idle") arenaNextPattern(g);
+    else if (a.st === "tell") arenaStrike(g);
+    else {
+      a.st = "idle";
+      a.stT = ((a.type === "titan" ? 1.1 : 1.6) + Math.random() * 0.8) * (a.rage ? 0.5 : 1);
+    }
+  }
+}
+
 export function step(g, dt) {
   g.t += dt;
   if (g.leaveT > 0) {
@@ -604,6 +875,11 @@ export function step(g, dt) {
     if (g.timer <= 0) closeReward(g);
     return;
   }
+  if (g.phase === "arena") {
+    stepArena(g, dt);
+    if (g.core.hp <= 0) { g.core.hp = 0; g.arena = null; g.phase = "over"; }
+    return;
+  }
   if (g.phase !== "prep" && g.phase !== "wave") return;
 
   // 키를 누르고 있을 때의 연속 이동은 각 참가자 브라우저에서 처리한다
@@ -614,8 +890,10 @@ export function step(g, dt) {
   if (g.phase === "prep") {
     g.timer -= dt;
     if (g.timer <= 0) {
-      g.phase = "wave";
       const total = g.total || TOTAL_WAVES;
+      const kind0 = waveKind(g.wave, total);
+      if (kind0 === "boss" || kind0 === "titan") { startArena(g, kind0); return; }
+      g.phase = "wave";
       if (!g.queue.length) g.queue = buildQueue(g.wave, seatCount(g), total, g.diff);
       g.spawnT = 0;
       const kind = waveKind(g.wave, total);
@@ -1040,6 +1318,16 @@ export function packSnapshot(g) {
     pk: g.players.map((p) => PERK_IDS.map((id) => p.perks[id] || 0)),
     rw: g.phase === "reward" ? { of: g.offer, pi: g.picked } : 0,
     ca: Math.round(g.castle.aim * 100) / 100,
+    ar: g.arena ? {
+      ty: g.arena.type, hp: Math.round(g.arena.hp), mx: g.arena.max,
+      st: g.arena.st, zo: g.arena.zone, li: Math.max(0, Math.round(g.arena.limit * 10) / 10),
+      rg: g.arena.rage, cb: g.arena.combo, io: Math.round(g.arena.intro * 10) / 10,
+      oo: Math.round(g.arena.outro * 10) / 10, jo: Math.round(g.arena.jolt * 100) / 100,
+      sT: Math.round(g.arena.stT * 100) / 100,
+      pp: g.players.map((p) => [Math.round(p.ax || 0), p.adir || 1,
+        Math.round((p.aswing || 0) * 100) / 100, Math.round((p.adown || 0) * 100) / 100,
+        p.askill ? 1 : 0]),
+    } : 0,
     lv2: g.leaveT > 0 ? (g.leave || []).map((v) => (v ? 1 : 0)) : 0,
     lt: Math.max(0, Math.round(g.leaveT * 10) / 10),
     pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills]),
@@ -1080,6 +1368,17 @@ export function applySnapshot(g, s) {
   if (s.rw) { g.offer = s.rw.of; g.picked = s.rw.pi; }
   else { g.offer = null; g.picked = null; }
   if (typeof s.ca === "number") g.castle.aim = s.ca;
+  if (s.ar) {
+    const a = g.arena || (g.arena = {});
+    a.type = s.ar.ty; a.hp = s.ar.hp; a.max = s.ar.mx;
+    a.st = s.ar.st; a.zone = s.ar.zo; a.limit = s.ar.li; a.rage = s.ar.rg;
+    a.combo = s.ar.cb; a.intro = s.ar.io; a.outro = s.ar.oo; a.jolt = s.ar.jo;
+    a.stT = s.ar.sT; a.t = (a.t || 0);
+    s.ar.pp.forEach((row, i) => {
+      const p = g.players[i];
+      p.ax = row[0]; p.adir = row[1]; p.aswing = row[2]; p.adown = row[3]; p.askill = row[4];
+    });
+  } else g.arena = null;
   g.leave = s.lv2 ? s.lv2.map((v) => !!v) : g.seats.map(() => false);
   g.leaveT = s.lt || 0;
 

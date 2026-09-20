@@ -454,6 +454,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
       preview: g.preview || null,
       paused: g.paused, speed: g.speed,
       surge: g.surge || 0, diff: g.diff ?? DEFAULT_DIFF,
+      boss: g.arena ? g.arena.hp / g.arena.max : 0,
       leave: (g.leave || []).map((v) => !!v), leaveT: g.leaveT || 0,
       offer: g.phase === "reward" ? g.offer : null,
       picked: g.phase === "reward" ? g.picked : null,
@@ -482,7 +483,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
       else room?.send("input", { cls: mySeat, kind, dir });
       return;
     }
-    if (g.phase !== "prep" && g.phase !== "wave") return;
+    if (g.phase !== "prep" && g.phase !== "wave" && g.phase !== "arena") return;
     if (g.paused) return;
     sfx.unlock();
     if (isHost) {
@@ -738,6 +739,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
   const phaseLabel =
     hud.phase === "prep" ? (kindLabel ? `${kindLabel} 준비` : "배치 시간") :
     hud.phase === "wave" ? (kindLabel || "교전 중") :
+    hud.phase === "arena" ? "보스 결전" :
     hud.phase === "reward" ? "능력 선택" :
     hud.phase === "clear" ? "방어 성공" : "성채 함락";
   const over = hud.phase === "over" || hud.phase === "clear";
@@ -768,6 +770,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
               <span className="wave-sub">
                 {hud.phase === "prep" ? `${Math.ceil(hud.timer)}초 뒤 시작`
                   : hud.phase === "wave" ? `남은 적 ${hud.left}`
+                  : hud.phase === "arena" ? (hud.boss ? `보스 체력 ${Math.round(hud.boss * 100)}%` : "보스와 맞선다")
                   : hud.phase === "reward" ? `${Math.ceil(hud.timer)}초 안에 고르기` : "—"}
               </span>
               {hud.phase === "prep" && hud.preview?.length > 0 && (

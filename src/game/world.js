@@ -430,6 +430,32 @@ export const perkVal = {
   repair: (n) => 0.1 * n,
 };
 
+/* 보스 결전 — 보스 웨이브에는 판이 결전장으로 바뀐다.
+   수비대가 직접 앞으로 나가 보스를 때리고, 보스의 내리치기를 피한다. */
+export const ARENA = {
+  floor: 596,            // 발이 닿는 높이
+  left: 210, right: 950, // 좌우로 움직일 수 있는 범위
+  bx: 580, by: 352,      // 보스가 서는 자리
+  reach: 190,            // 때릴 수 있는 거리
+  step: 260,             // 초당 이동 거리
+  swing: 0.32, land: 0.13, cd: 0.36,   // 휘두르기 · 맞는 순간 · 다음 공격까지
+  down: 1.1,             // 넘어져 있는 시간
+  knock: 36,             // 맞고 밀려나는 거리
+  hpMul: 1.55,           // 사람 수 한 명당 보스 체력 배수
+  base: 18,              // 맨손 기본 피해
+  tower: 0.5,            // 지은 탑 공격력이 실리는 비율
+  coreHit: 0.22,         // 보스 한 대가 성채에 주는 피해 비율
+  skill: 4.2,            // 스킬 한 방의 배수
+  comboT: 2.2,           // 연타가 이어지는 시간
+};
+
+/* 보스가 쓰는 공격. tell 동안 바닥에 붉은 자리가 뜨고, 그때 빠져나가면 된다. */
+export const ARENA_PATTERNS = [
+  { id: "slam",  name: "내리치기", tell: 0.95, w: 230, dmg: 1.0, note: "보스 앞을 내리친다" },
+  { id: "sweep", name: "휩쓸기",   tell: 1.15, w: 0,   dmg: 0.9, note: "빈틈 한 곳만 남기고 쓸어버린다" },
+  { id: "stomp", name: "발구르기", tell: 0.85, w: 170, dmg: 0.8, note: "두 곳을 동시에 짓밟는다" },
+];
+
 /* 성채 단계 — 골드를 내고 직접 올린다. 올릴 때마다 겉모습과 성능이 같이 오른다. */
 export const CASTLE_TIERS = 4;
 export const CASTLE_COST = [120, 250, 420];      // 1→2, 2→3, 3→4
@@ -488,9 +514,12 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
         gold: D.start, cd: 0, lane, slot, built: 0, kills: 0,
         perks: {},                      // 보스를 잡고 고른 능력 { id: 개수 }
         cx: s.x, cy: s.y, cr: CLASSES[i].range, jolt: 0, heldKeys: [], holdT: 0,
+        // 보스 결전장에서 쓰는 값
+        ax: ARENA.left + 130 + i * 170, adir: 1, aswing: 0, adown: 0, acd: 0, ahit: 0, askill: 0, adodge: 0,
       };
     }),
     towers: new Array(SLOTS.length).fill(null),
+    arena: null,                        // 보스 결전 중에만 채워진다
     enemies: [],
     bullets: [],
     fx: [],

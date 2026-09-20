@@ -1,6 +1,6 @@
 import {
   W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY,
-  castleTier, castleCost, CASTLE_TIERS, SPOTS,
+  castleTier, castleCost, CASTLE_TIERS, SPOTS, CLASSES, ARENA, ARENA_PATTERNS,
 } from "./world.js";
 
 /* ── 그리기 도우미 ──────────────────────────────────────── */
@@ -2291,12 +2291,278 @@ export function drawBanner(ctx, b) {
 }
 
 /* 그리기 */
+
+/* ── 보스 결전 화면 ──────────────────────────────────────
+   위쪽 가운데에 보스, 아래에 수비대. 맨 위에 이름과 체력 막대. */
+
+const charCache = {};
+function classArt(i) {
+  if (typeof Image === "undefined") return null;
+  const id = (CLASSES[i] || {}).id;
+  if (!id) return null;
+  let im = charCache[id];
+  if (im === undefined) {
+    im = charCache[id] = new Image();
+    im.onerror = () => { charCache[id] = null; };
+    im.src = `/assets/characters/${id}-tower.webp`;
+  }
+  return im && im.complete && im.naturalWidth ? im : null;
+}
+
+// 숫자를 9306만1917 처럼 읽기 좋게
+function bigNum(n) {
+  n = Math.max(0, Math.round(n));
+  if (n < 10000) return String(n);
+  const man = Math.floor(n / 10000);
+  const rest = n % 10000;
+  return rest ? `${man}만${rest}` : `${man}만`;
+}
+
+function arenaLeaves(ctx, time) {
+  // 사방을 둘러싼 숲 — 결전장 느낌을 내는 테두리
+  const rnd = mulberry32(99);
+  ctx.save();
+  for (let i = 0; i < 46; i++) {
+    const side = i % 4;
+    const t = rnd();
+    let x, y, s;
+    if (side === 0) { x = 40 + t * (W - 80); y = 96 + rnd() * 40; s = 0.9 + rnd() * 0.5; }
+    else if (side === 1) { x = 40 + t * (W - 80); y = H - 40 - rnd() * 50; s = 1 + rnd() * 0.5; }
+    else if (side === 2) { x = 26 + rnd() * 110; y = 150 + t * (H - 230); s = 0.9 + rnd() * 0.5; }
+    else { x = W - 26 - rnd() * 110; y = 150 + t * (H - 230); s = 0.9 + rnd() * 0.5; }
+    const sway = Math.sin(time * 0.7 + i) * 1.6;
+    drawTree(ctx, x + sway, y, s, rnd() > 0.45, rnd() * 99);
+  }
+  ctx.restore();
+}
+
+function arenaZone(ctx, a, time) {
+  if (!a.zone || a.st !== "tell") return;
+  const pat = ARENA_PATTERNS.find((x) => x.id === a.pat) || ARENA_PATTERNS[0];
+  const fill = Math.max(0, Math.min(1, 1 - a.stT / (pat.tell || 1)));
+  a.zone.forEach(([l, r]) => {
+    const x = Math.max(ARENA.left - 60, l), w = Math.min(ARENA.right + 60, r) - x;
+    if (w <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = 0.28 + 0.22 * Math.abs(Math.sin(time * 9));
+    ctx.fillStyle = "#ff4d3d";
+    ctx.fillRect(x, ARENA.floor - 118, w, 126);
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "#ff8a76";
+    ctx.fillRect(x, ARENA.floor + 4, w * fill, 5);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "rgba(255,120,96,0.9)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, ARENA.floor - 117, w - 2, 124);
+    ctx.restore();
+  });
+}
+
+function arenaBar(ctx, g, a) {
+  const label = (ENEMY[a.type] || {}).label || "보스";
+  const y = 188, bw = 620, bx = (W - bw) / 2;      // 왼쪽 위 상황판을 피해 내려 놓는다
+  // 이름표
+  ctx.save();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "19px 'Do Hyeon', sans-serif";
+  const lw = ctx.measureText(label).width + 40;
+  ctx.fillStyle = "rgba(24,18,12,0.86)";
+  roundRect(ctx, CX - lw / 2, y - 36, lw, 30, 8); ctx.fill();
+  ctx.strokeStyle = "rgba(196,160,104,0.7)"; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.fillStyle = "#f6e5bb";
+  ctx.fillText(label, CX, y - 20);
+
+  // 체력 막대
+  const r = Math.max(0, a.hp / a.max);
+  ctx.fillStyle = "rgba(20,14,10,0.9)";
+  roundRect(ctx, bx - 3, y - 3, bw + 6, 30, 7); ctx.fill();
+  ctx.strokeStyle = "rgba(196,160,104,0.75)"; ctx.lineWidth = 1.6; ctx.stroke();
+  const gl = ctx.createLinearGradient(0, y, 0, y + 24);
+  gl.addColorStop(0, a.rage ? "#ff6a52" : "#e8483a");
+  gl.addColorStop(1, a.rage ? "#a81d18" : "#8c1f18");
+  ctx.fillStyle = gl;
+  roundRect(ctx, bx, y, Math.max(2, bw * r), 24, 5); ctx.fill();
+  // 칸 눈금
+  ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1;
+  for (let i = 1; i < 10; i++) {
+    const x = bx + (bw * i) / 10;
+    ctx.beginPath(); ctx.moveTo(x, y + 2); ctx.lineTo(x, y + 22); ctx.stroke();
+  }
+  ctx.fillStyle = "#fff6dd";
+  ctx.font = "15px 'Do Hyeon', sans-serif";
+  ctx.fillText(`${bigNum(a.hp)} / ${bigNum(a.max)}`, bx + bw / 2, y + 13);
+
+  // 남은 시간 — 다하면 보스가 분노한다
+  ctx.fillStyle = a.rage ? "rgba(120,30,24,0.9)" : "rgba(24,18,12,0.86)";
+  roundRect(ctx, bx + bw + 12, y - 3, 92, 30, 8); ctx.fill();
+  ctx.strokeStyle = a.rage ? "rgba(255,120,96,0.9)" : "rgba(196,160,104,0.7)"; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.fillStyle = a.rage ? "#ffb1a2" : "#f6e5bb";
+  ctx.font = "15px 'Do Hyeon', sans-serif";
+  const sec = Math.max(0, Math.ceil(a.limit));
+  ctx.fillText(a.rage ? "분노" : `${String(Math.floor(sec / 60)).padStart(2, "0")}:${String(sec % 60).padStart(2, "0")}`,
+    bx + bw + 58, y + 13);
+  ctx.restore();
+}
+
+function arenaBoss(ctx, g, a, time) {
+  const im = enemySprite(a.type);
+  const jolt = a.jolt > 0 ? a.jolt : 0;
+  const bob = Math.sin(time * (a.rage ? 4.2 : 2.4)) * 5;
+  const scale = a.type === "titan" ? 2.35 : 2.15;
+  ctx.save();
+  ctx.translate(ARENA.bx + (jolt > 0 ? (Math.random() - 0.5) * 12 : 0), ARENA.by + bob);
+  if (a.intro > 0) {
+    const k = Math.min(1, (2.2 - a.intro) / 0.8);
+    ctx.globalAlpha = k;
+    ctx.scale(1 + (1 - k) * 0.4, 1 + (1 - k) * 0.4);
+  }
+  if (a.outro > 0) {
+    const k = Math.max(0, a.outro / 2.4);
+    ctx.globalAlpha = k;
+    ctx.rotate((1 - k) * 0.5);
+    ctx.translate(0, (1 - k) * 70);
+  }
+  shadow(ctx, 0, 118, 116, 26, 0.3);
+  if (im) {
+    const art = ENEMY_ART[a.type];
+    const hh = art.h * scale * 2.6, ww = hh * (im.naturalWidth / im.naturalHeight);
+    if (jolt > 0) { ctx.globalCompositeOperation = "source-over"; }
+    ctx.drawImage(im, -ww / 2, 118 - hh, ww, hh);
+    if (jolt > 0) {
+      ctx.globalAlpha *= Math.min(0.6, jolt * 4);
+      ctx.fillStyle = "#fff";
+      ctx.globalCompositeOperation = "lighter";
+      ctx.beginPath(); ctx.ellipse(0, 118 - hh / 2, ww * 0.32, hh * 0.42, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function arenaPlayer(ctx, g, pi, time) {
+  const p = g.players[pi];
+  const im = classArt(pi);
+  const col = P[pi];
+  const down = p.adown > 0;
+  const swing = p.aswing > 0 ? p.aswing : 0;
+  const lunge = swing > 0 ? Math.sin((1 - swing / ARENA.swing) * Math.PI) * 26 : 0;
+  const x = p.ax + (p.adir > 0 ? lunge : -lunge);
+  const y = ARENA.floor + Math.abs(Math.sin(time * 3 + pi)) * -2;
+  ctx.save();
+  shadow(ctx, p.ax, y + 4, 26, 8, 0.3);
+  ctx.translate(x, y);
+  if (down) { ctx.rotate(-0.9 * p.adir); ctx.translate(0, 14); ctx.globalAlpha = 0.75; }
+  ctx.scale(p.adir < 0 ? -1 : 1, 1);
+  if (im) {
+    const hh = 128, ww = hh * (im.naturalWidth / im.naturalHeight);
+    ctx.drawImage(im, -ww / 2, -hh, ww, hh);
+  } else {
+    ctx.fillStyle = col.key;
+    roundRect(ctx, -16, -58, 32, 58, 12); ctx.fill();
+  }
+  ctx.restore();
+
+  // 이름표
+  ctx.save();
+  ctx.font = "12px 'Do Hyeon', sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const nm = (g.names && g.names[pi]) || `${pi + 1}P`;
+  const wdt = ctx.measureText(nm).width + 16;
+  ctx.fillStyle = "rgba(20,14,10,0.7)";
+  roundRect(ctx, p.ax - wdt / 2, y + 6, wdt, 17, 8); ctx.fill();
+  ctx.fillStyle = col.light;
+  ctx.fillText(nm, p.ax, y + 15);
+  ctx.restore();
+
+  // 휘두르기 — 커다란 베기 자국
+  if (swing > 0) {
+    const k = 1 - swing / (p.askill ? ARENA.swing * 1.6 : ARENA.swing);
+    const a0 = Math.min(1, k * 2.2), fade = Math.max(0, 1 - Math.max(0, k - 0.45) / 0.55);
+    ctx.save();
+    ctx.globalAlpha = 0.9 * fade;
+    ctx.translate(p.ax, y - 58);
+    ctx.scale(p.adir < 0 ? -1 : 1, 1);
+    const R = p.askill ? 300 : 210;
+    ctx.strokeStyle = p.askill ? col.light : "#fff6e2";
+    ctx.lineWidth = p.askill ? 26 : 15;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(30, -20, R, -1.25 + a0 * 0.5, -1.25 + a0 * 0.5 + 0.95);
+    ctx.stroke();
+    ctx.globalAlpha = 0.55 * fade;
+    ctx.strokeStyle = col.key;
+    ctx.lineWidth = p.askill ? 10 : 5;
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (p.adodge > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.6, p.adodge);
+    ctx.strokeStyle = "#9fe8ff"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(p.ax, y - 30, 26, 40, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+}
+
+export function drawArena(ctx, g, time) {
+  const a = g.arena;
+  if (!a) return;
+  // 바탕
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, "#22301c");
+  sky.addColorStop(0.55, "#2c3d22");
+  sky.addColorStop(1, "#1a2415");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
+
+  // 바닥
+  ctx.fillStyle = "#3c4f2a";
+  ctx.fillRect(0, ARENA.floor - 118, W, H - ARENA.floor + 118);
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.fillRect(0, ARENA.floor + 6, W, H - ARENA.floor);
+  ctx.strokeStyle = "rgba(226,206,160,0.18)";
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, ARENA.floor + 6); ctx.lineTo(W, ARENA.floor + 6); ctx.stroke();
+
+  arenaLeaves(ctx, time);
+  arenaZone(ctx, a, time);
+  arenaBoss(ctx, g, a, time);
+  g.players.forEach((p, i) => { if (!g.seats || g.seats[i]) arenaPlayer(ctx, g, i, time); });
+
+  g.fx.forEach((f) => drawFx(ctx, f));
+  arenaBar(ctx, g, a);
+
+  // 연타
+  if (a.combo > 1) {
+    ctx.save();
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    ctx.font = "34px 'Do Hyeon', sans-serif";
+    ctx.fillStyle = "#ffd873";
+    ctx.fillText(String(a.combo), W - 34, 116);
+    ctx.font = "14px 'Do Hyeon', sans-serif";
+    ctx.fillStyle = "#e8dcc0";
+    ctx.fillText("연타", W - 34, 142);
+    ctx.restore();
+  }
+
+  // 조작 안내
+  ctx.save();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "13px 'Jua', sans-serif";
+  ctx.fillStyle = "rgba(240,228,198,0.6)";
+  ctx.fillText("← → 피하기 · 스페이스 공격 · 시프트 스킬", CX, H - 22);
+  ctx.restore();
+
+  if (g.banner) drawBanner(ctx, g.banner);
+}
+
 export function draw(ctx, g, bg) {
   ctx.save();
   if (g.shake > 0) {
     const s = g.shake * 7;
     ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
   }
+
+  if (g.phase === "arena" && g.arena) { drawArena(ctx, g, g.t); ctx.restore(); return; }
 
   if (bg) ctx.drawImage(bg, 0, 0, W, H);
   else { ctx.fillStyle = C.grass; ctx.fillRect(0, 0, W, H); }

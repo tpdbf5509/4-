@@ -514,6 +514,17 @@ export const ARENA_PATTERNS = [
     note: "파문이 두 겹으로 퍼진다 — 두 겹 사이에 서라" },
   { id: "hail", name: "쏟아지기", tell: 1.3, dmg: 0.8,
     note: "다섯 곳이 한꺼번에 무너진다" },
+  // 대군주가 더 쓰는 다섯. hits 가 붙으면 한 기술이 그 횟수만큼 이어서 떨어진다.
+  { id: "gore",  name: "뿔찍기",   tell: 1.2, dmg: 1.2,
+    note: "정면을 크게 들이받는다 — 양옆이 안전하다" },
+  { id: "rift",  name: "대지균열", tell: 1.4, dmg: 0.85,
+    note: "땅이 세 줄로 갈라진다 — 줄과 줄 사이로" },
+  { id: "pulse", name: "분노의 파동", tell: 1.6, dmg: 1.0, hits: 3, gap: 0.5,
+    note: "파동이 세 번 퍼진다 — 안쪽에서 바깥으로" },
+  { id: "track", name: "추적 낙석", tell: 1.1, dmg: 0.75, chase: 1,
+    note: "자리를 쫓아오다 떨어진다 — 끝에 비켜라" },
+  { id: "spin",  name: "광폭 회전", tell: 1.8, dmg: 1.15, hits: 2, gap: 0.45,
+    note: "반 바퀴씩 두 번 휘두른다 — 등 뒤로 돌아라" },
 ];
 export const PAT_BY_ID = Object.fromEntries(ARENA_PATTERNS.map((p) => [p.id, p]));
 
@@ -526,19 +537,47 @@ export const ARENA_BOSS = {
     lead: "맞으면 깎인 체력만큼 성채도 깎인다 — 피하면서 싸우자",
     color: "#ff9f6a", ring: "#ffb06a",
     pool: ["slam", "stomp", "leap", "cross", "sweep", "cross", "rush"],
-    far: ["leap", "rush"], close: "swipe",
+    far: ["leap", "rush"], close: ["swipe"],
     tell: 1, after: 1, rest: 1.6, limit: 75,
   },
   titan: {
     tag: "2차 결전",
     lead: "파문과 낙반 사이로 자리를 찾아라 — 맞은 만큼 성채가 깎인다",
     color: "#ff6f6f", ring: "#ff7a6a",
-    pool: ["wake", "slam", "hail", "leap", "wake", "sweep", "rush"],
-    far: ["leap", "rush", "wake"], close: "swipe",
+    pool: ["wake", "rift", "slam", "hail", "pulse", "leap", "wake", "spin",
+      "track", "sweep", "rush", "rift"],
+    far: ["leap", "rush", "wake", "rift"], close: ["swipe", "gore"],
     tell: 0.88, after: 0.8, rest: 1.1, limit: 100,
+    // 기술마다 얹을 그림 (design/effects 시트에서 떼어 낸 것).
+    // once 가 붙으면 자리마다가 아니라 한 판에 한 장만 얹는다.
+    art: {
+      wake:  { id: "wake", once: 1 },
+      hail:  { id: "hail1" },
+      slam:  { id: "slam" },
+      leap:  { id: "leap" },
+      sweep: { id: "sweep" },
+      swipe: { id: "swipe" },
+      rush:  { id: "rush" },
+      gore:  { id: "gore" },
+      rift:  { id: "rift", once: 1, r: 260 },
+      pulse: { id: "pulse", once: 1, r: 380 },
+      track: { id: "track1" },
+      spin:  { id: "spin", once: 1, r: 430 },
+    },
   },
 };
 export const arenaBossCfg = (kind) => ARENA_BOSS[kind] || ARENA_BOSS.boss;
+
+/* 뿔찍기 — 보스가 보는 쪽으로 부채꼴 120도 */
+export const ARENA_GORE = { half: Math.PI / 3, r: 330 };
+/* 대지균열 — 나란한 세 줄 */
+export const ARENA_RIFT = { n: 3, len: 520, half: 27, gap: 104, ang: 0.62 };
+/* 분노의 파동 — 세 번 퍼진다 */
+export const ARENA_PULSE = { r: [120, 250, 380], band: 96 };
+/* 추적 낙석 — 여섯 곳, 예비 끝자락에 자리가 굳는다 */
+export const ARENA_TRACK = { n: 6, r: 105, pull: 3.4, stop: 0.35 };
+/* 광폭 회전 — 반 바퀴씩 두 번 */
+export const ARENA_SPIN = { r0: 100, r1: 430, half: Math.PI / 2 };
 
 /* 겹파문 — 안쪽 띠와 바깥 띠, 그 사이가 안전하다 */
 export const ARENA_WAKE = { r0: 96, r1: 236, r2: 372, r3: 530 };
@@ -564,6 +603,13 @@ export function arenaInZone(z, x, y) {
   }
   const dx = x - z.x, dy = (y - z.y) / ARENA.squash;
   const d = Math.hypot(dx, dy);
+  if (z.k === "cone") {                    // 부채꼴 — 거리와 방향을 같이 본다
+    if (d < (z.r0 || 0) || d > z.r1) return false;
+    let da = Math.atan2(dy, dx) - z.a0;
+    while (da > Math.PI) da -= Math.PI * 2;
+    while (da < -Math.PI) da += Math.PI * 2;
+    return Math.abs(da) <= z.half;
+  }
   return z.k === "ring" ? d >= z.r0 && d <= z.r1 : d <= z.r;
 }
 export function arenaNear(x, y, tx, ty) {

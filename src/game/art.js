@@ -48,6 +48,47 @@ function enemySprite(kind) {
   return im && im.complete && im.naturalWidth ? im : null;
 }
 
+/* 결전 이펙트 그림 — design/effects 의 시트에서 떼어 낸 것을 그대로 얹는다.
+   ax, ay 는 그림 안에서 땅에 닿는 한가운데이고,
+   k 는 판정 반지름의 몇 배를 그림의 가로 반지름으로 삼을지다.
+   어느 기술에 어느 그림을 얹을지는 world.js 의 ARENA_BOSS 에 적혀 있다.
+   ax, ay 는 design/effects/cut.py 가 재어 준 값을 그대로 옮긴 것이다. */
+export const FX_ART = {
+  wake:   { src: "/assets/fx/titan/wake.webp",   ax: 174, ay: 81,  k: 1 },
+  sweep:  { src: "/assets/fx/titan/sweep.webp",  ax: 137, ay: 54,  k: 1 },
+  spin:   { src: "/assets/fx/titan/spin.webp",   ax: 134, ay: 74,  k: 1 },
+  pulse:  { src: "/assets/fx/titan/pulse.webp",  ax: 124, ay: 68,  k: 1 },
+  rift:   { src: "/assets/fx/titan/rift.webp",   ax: 98,  ay: 81,  k: 1 },
+  // 위로 솟거나 떨어지는 것은 사람보다 앞에 둔다 (over)
+  slam:   { src: "/assets/fx/titan/slam.webp",   ax: 114, ay: 153, k: 1, over: 1 },
+  leap:   { src: "/assets/fx/titan/leap.webp",   ax: 115, ay: 167, k: 1, over: 1 },
+  swipe:  { src: "/assets/fx/titan/swipe.webp",  ax: 92,  ay: 110, k: 1, over: 1 },
+  gore:   { src: "/assets/fx/titan/gore.webp",   ax: 56,  ay: 60,  k: 1 },
+  rush:   { src: "/assets/fx/titan/rush.webp",   ax: 117, ay: 40,  k: 1 },
+  hail1:  { src: "/assets/fx/titan/hail1.webp",  ax: 55,  ay: 116, k: 0.8, over: 1 },
+  track1: { src: "/assets/fx/titan/track1.webp", ax: 20,  ay: 110, k: 0.8, over: 1 },
+};const fxCache = {};
+let fxWarm = 0;
+
+/* 결전이 시작될 때 미리 불러 둔다 — 안 그러면 기술이 처음 나올 때 한 번 빈다 */
+function fxWarmUp() {
+  if (fxWarm) return;
+  fxWarm = 1;
+  Object.keys(FX_ART).forEach((id) => fxSprite(id));
+}
+
+function fxSprite(id) {
+  const art = FX_ART[id];
+  if (!art || typeof Image === "undefined") return null;
+  let im = fxCache[id];
+  if (im === undefined) {
+    im = fxCache[id] = new Image();
+    im.onerror = () => { fxCache[id] = null; };
+    im.src = art.src;
+  }
+  return im && im.complete && im.naturalWidth ? im : null;
+}
+
 export function shadow(ctx, x, y, rx, ry, alpha = 0.22) {
   ctx.fillStyle = `rgba(28,42,20,${alpha})`;
   ctx.beginPath();
@@ -1981,6 +2022,20 @@ export function drawBullet(ctx, b) {
 
 export function drawFx(ctx, f) {
   const k = f.kind;
+  if (k === "art") {                   // 시트에서 떼어 낸 그림을 그대로 — 가로세로 같은 배율
+    const art = FX_ART[f.art];
+    const im = art && fxSprite(f.art);
+    if (!im) return;
+    const p = 1 - f.t / f.life;        // 0 → 1
+    const s = ((f.r || 120) * (art.k || 1)) / (im.naturalWidth / 2);
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, (1 - p) * 2.4);   // 터질 때 바로 보이고 천천히 사라진다
+    ctx.translate(f.x, f.y);
+    if (f.flip) ctx.scale(-1, 1);
+    ctx.drawImage(im, -art.ax * s, -art.ay * s, im.naturalWidth * s, im.naturalHeight * s);
+    ctx.restore();
+    return;
+  }
   if (k === "boom") {
     const p = 1 - f.t / f.life;
     const r = f.r * (0.3 + p * 1.1);
@@ -2563,7 +2618,7 @@ function arenaLeaves(ctx, time, cy, rx, ry) {
 function arenaZone(ctx, a, time) {
   if (!a.zone || a.st !== "tell") return;
   const pat = ARENA_PATTERNS.find((x) => x.id === a.pat) || ARENA_PATTERNS[0];
-  const fill = Math.max(0, Math.min(1, 1 - a.stT / (pat.tell || 1)));
+  const fill = Math.max(0, Math.min(1, 1 - a.stT / (a.stT0 || pat.tell || 1)));
   const sq = ARENA.squash;
   a.zone.forEach((z) => {
     if (z.k === "lane") {                          // 돌진이 지나갈 길
@@ -2603,6 +2658,32 @@ function arenaZone(ctx, a, time) {
           ctx.closePath(); ctx.fill();
         }
       }
+      ctx.restore();
+      return;
+    }
+    if (z.k === "cone") {                          // 부채꼴 — 보는 쪽으로 펼친다
+      ctx.save();
+      ctx.translate(z.x, z.y);
+      ctx.scale(1, sq);
+      const a0 = z.a0 - z.half, a1 = z.a0 + z.half;
+      const path = (r1, r0) => {
+        ctx.beginPath();
+        ctx.arc(0, 0, r1, a0, a1);
+        if (r0) ctx.arc(0, 0, r0, a1, a0, true);
+        else ctx.lineTo(0, 0);
+        ctx.closePath();
+      };
+      ctx.globalAlpha = 0.2 + 0.14 * Math.abs(Math.sin(time * 9));
+      ctx.fillStyle = "#ff4d3d";
+      path(z.r1, z.r0); ctx.fill();
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = "rgba(255,130,104,0.95)";
+      ctx.lineWidth = 3;
+      path(z.r1, z.r0); ctx.stroke();
+      // 차오르는 부분 — 안쪽에서 바깥으로
+      ctx.globalAlpha = 0.34;
+      ctx.fillStyle = "rgba(255,216,200,0.5)";
+      path((z.r0 || 0) + (z.r1 - (z.r0 || 0)) * fill, z.r0); ctx.fill();
       ctx.restore();
       return;
     }
@@ -2955,6 +3036,7 @@ function arenaPlayer(ctx, g, pi, time, dt) {
 export function drawArena(ctx, g, time) {
   const a = g.arena;
   if (!a) return;
+  fxWarmUp();
   const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
   const dt = Math.min(0.06, Math.max(0, now - (g.arenaT || now)));
   g.arenaT = now;
@@ -3019,6 +3101,8 @@ export function drawArena(ctx, g, time) {
   }
 
   arenaZone(ctx, a, time);
+  // 땅에 깔리는 그림은 사람과 보스보다 아래에 둔다
+  g.fx.forEach((f) => { if (f.kind === "art" && !(FX_ART[f.art] || {}).over) drawFx(ctx, f); });
   // 앞뒤로 겹치게 — 보스보다 위에 선 사람은 뒤에 가린다
   const order = [{ y: bossSpot(a)[1], boss: 1 }];
   g.players.forEach((p, i) => {
@@ -3027,7 +3111,8 @@ export function drawArena(ctx, g, time) {
   order.sort((u, v) => u.y - v.y);
   order.forEach((o) => { if (o.boss) arenaBoss(ctx, g, a, time); else arenaPlayer(ctx, g, o.pi, time, dt); });
 
-  g.fx.forEach((f) => drawFx(ctx, f));
+  // 솟거나 떨어지는 그림은 사람보다 위에
+  g.fx.forEach((f) => { if (f.kind !== "art" || (FX_ART[f.art] || {}).over) drawFx(ctx, f); });
   arenaBar(ctx, g, a);
 
   // 보스에게 걸린 것 — 화상·독·서리·부식

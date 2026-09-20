@@ -3,7 +3,8 @@ import {
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, LEAVE_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
   diffOf, prepTime, ARENA, ARENA_PATTERNS, PAT_BY_ID, ARENA_LEAP, ARENA_RUSH, ARENA_CUT,
-  arenaBossCfg, ARENA_WAKE, ARENA_HAIL,
+  arenaBossCfg, ARENA_WAKE, ARENA_HAIL, ARENA_GORE, ARENA_RIFT, ARENA_PULSE,
+  ARENA_TRACK, ARENA_SPIN,
   arenaInZone, arenaNear, arenaKit, arenaRange,
   bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
@@ -612,7 +613,7 @@ export function startArena(g, kind) {
   g.arena = {
     type: kind, hp: max, max,
     t: 0, intro: 2.2, outro: 0,
-    st: "idle", stT: 2, pat: null, zone: null,
+    st: "idle", stT: 2, stT0: 2, stage: 0, pat: null, zone: null,
     x: ARENA.bx, y: ARENA.bfy, dir: 1, tgt: -1, step: 0,   // 걸어 다니는 자리
     sw: 0, swHit: 0, swDir: 1, hitT: 2.5,                  // 방망이 — 휘두르는 중 · 맞는 순간 · 쿨타임
     air: 0, leap: null, rush: null, next: null,            // 뛰어오른 높이 · 뛰는 길 · 밀고 드는 길 · 이어지는 공격
@@ -1151,23 +1152,54 @@ function arenaNextPattern(g) {
   const cfg = arenaBossCfg(a.type);
   const pick = (list) => PAT_BY_ID[list[Math.floor(Math.random() * list.length)]];
   const pat = close && Math.random() < 0.34
-    ? PAT_BY_ID[cfg.close]
+    ? pick(cfg.close)
     : far && Math.random() < 0.5
       ? pick(cfg.far)
       : pick(cfg.pool);
   arenaBegin(g, pat || ARENA_PATTERNS[0]);
 }
 
+/* 자리 하나의 한가운데와 크기. 판정에는 쓰지 않고, 그림을 어디에 얹을지 고를 때만 쓴다. */
+function zoneSpot(z) {
+  if (z.k === "lane") {
+    return { x: (z.x + z.ex) / 2, y: (z.y + z.ey) / 2,
+      r: Math.hypot(z.ex - z.x, (z.ey - z.y) / ARENA.squash) / 2 };
+  }
+  return { x: z.x, y: z.y, r: z.k === "ring" ? z.r1 : z.r };
+}
+
+/* 떼어 낸 이펙트 그림을 얹는다 — 보이는 것만 맡고 판정과는 상관이 없다 */
+function arenaArt(g, a) {
+  const art = (arenaBossCfg(a.type).art || {})[a.pat];
+  if (!art) return;
+  const zs = a.zone || [];
+  const flip = a.dir < 0 ? 1 : 0;
+  if (art.once) {
+    if (a.stage > 0) return;                     // 이어지는 단계에는 다시 얹지 않는다
+    let r = art.r || 120;
+    if (!art.r) zs.forEach((z) => { r = Math.max(r, zoneSpot(z).r); });
+    return fx(g, { kind: "art", art: art.id, x: a.x, y: a.y, r, flip, t: 0.9, life: 0.9 });
+  }
+  zs.forEach((z) => {
+    const c = zoneSpot(z);
+    fx(g, { kind: "art", art: art.id, x: c.x, y: c.y, r: c.r, flip, t: 0.9, life: 0.9 });
+  });
+}
+
 /* 고른 공격의 자리를 깔고 예비 동작에 들어간다 */
-function arenaBegin(g, pat) {
+function arenaBegin(g, pat, stage = 0) {
   const a = g.arena;
   const up = g.players.filter((q, i) => g.seats[i] && q.aout <= 0);
+  const seat = g.players.map((q, i) => i).filter((i) => g.seats[i] && g.players[i].aout <= 0);
   a.pat = pat.id;
   a.st = "tell";
+  a.stage = stage;
   a.sw = 0; a.swHit = 0;
   a.leap = null; a.rush = null; a.air = 0;
   a.next = pat.next || null;
-  a.stT = pat.tell * arenaBossCfg(a.type).tell;
+  // 이어지는 단계는 예비가 짧다
+  a.stT = (stage ? (pat.gap || 0.5) : pat.tell) * arenaBossCfg(a.type).tell;
+  a.stT0 = a.stT;
   const spot = () => {
     // 아무나 한 사람 근처를 노린다
     const q = up.length ? up[Math.floor(Math.random() * up.length)] : null;
@@ -1240,6 +1272,38 @@ function arenaBegin(g, pat) {
         x: Math.max(ARENA.left, Math.min(ARENA.right, cx)),
         y: Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30, cy)) });
     }
+  } else if (pat.id === "gore") {                 // 보는 쪽으로 부채꼴
+    a.zone = [{ k: "cone", x: a.x, y: a.y, a0: a.dir > 0 ? 0 : Math.PI,
+      half: ARENA_GORE.half, r0: 0, r1: ARENA_GORE.r }];
+  } else if (pat.id === "rift") {                 // 나란한 세 줄
+    const ang = ARENA_RIFT.ang * (a.dir > 0 ? 1 : -1);
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    a.zone = [];
+    for (let i = 0; i < ARENA_RIFT.n; i++) {
+      const off = (i - (ARENA_RIFT.n - 1) / 2) * ARENA_RIFT.gap;
+      const cx = a.x - uy * off, cy = a.y + ux * off * ARENA.squash;
+      const hx = (ux * ARENA_RIFT.len) / 2, hy = (uy * ARENA_RIFT.len * ARENA.squash) / 2;
+      a.zone.push({ k: "lane", x: cx - hx, y: cy - hy, ex: cx + hx, ey: cy + hy, w: ARENA_RIFT.half });
+    }
+  } else if (pat.id === "pulse") {                // 안쪽에서 바깥으로 세 번
+    const r = ARENA_PULSE.r[stage] || ARENA_PULSE.r[0];
+    a.zone = [{ k: "ring", x: a.x, y: a.y, r0: Math.max(0, r - ARENA_PULSE.band), r1: r }];
+  } else if (pat.id === "spin") {                 // 반 바퀴씩 두 번
+    a.zone = [{ k: "cone", x: a.x, y: a.y, a0: (a.dir > 0 ? 0 : Math.PI) + stage * Math.PI,
+      half: ARENA_SPIN.half, r0: ARENA_SPIN.r0, r1: ARENA_SPIN.r1 }];
+  } else if (pat.id === "track") {                // 쫓아오다 떨어진다
+    a.zone = [];
+    for (let i = 0; i < ARENA_TRACK.n; i++) {
+      const pi = seat.length ? seat[i % seat.length] : -1;
+      const q = pi >= 0 ? g.players[pi] : null;
+      const cx = q ? q.ax + (Math.random() - 0.5) * 120
+        : ARENA.left + 70 + Math.random() * (ARENA.right - ARENA.left - 140);
+      const cy = q ? (q.ay || ARENA.bfy) + (Math.random() - 0.5) * 80
+        : ARENA.top + 70 + Math.random() * (ARENA.bottom - ARENA.top - 120);
+      a.zone.push({ k: "circle", r: ARENA_TRACK.r, pi,
+        x: Math.max(ARENA.left, Math.min(ARENA.right, cx)),
+        y: Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30, cy)) });
+    }
   } else if (pat.id === "sweep") {
     a.zone = [{ k: "ring", x: a.x, y: a.y, r0: a.type === "titan" ? 150 : 135,
       r1: a.type === "titan" ? 460 : 400 }];
@@ -1250,7 +1314,7 @@ function arenaBegin(g, pat) {
       a.zone.push({ k: "circle", x: c.x, y: c.y, r: 140 });
     }
   }
-  callout(g, CX, 300, pat.name, "#ff8f6a", "warn", 1.4);
+  if (!stage) callout(g, CX, 300, pat.name, "#ff8f6a", "warn", 1.4);
 }
 
 /* 공격이 떨어졌다 — 자리에 있던 사람이 다치고, 깎인 만큼 성채도 깎인다 */
@@ -1291,6 +1355,7 @@ function arenaStrike(g) {
     fx(g, { kind: "boom", x: z.x, y: z.y, r: Math.min(150, (z.k === "ring" ? z.r1 * 0.5 : z.r) * 0.8),
       t: 0.5, life: 0.5, snd: "boom" });
   });
+  arenaArt(g, a);                                // 시트에서 떼어 낸 그림
   if (a.pat === "leap") {                        // 떨어진 자리에서 땅이 퍼져 나간다
     a.air = 0; a.leap = null;
     const z = (a.zone || [])[0];
@@ -1307,6 +1372,9 @@ function arenaStrike(g) {
     a.combo = 0; a.comboT = 0;
   } else if (safe) {
     callout(g, CX, 250, "완벽 회피!", "#9fe8ff", "perfect", 0.9);
+  }
+  if (pat.hits && (a.stage || 0) + 1 < pat.hits) {   // 같은 기술이 한 번 더 떨어진다
+    return arenaBegin(g, pat, (a.stage || 0) + 1);
   }
   if (a.next) {                                  // 이어지는 공격이 있으면 쉬지 않고 넘어간다
     const nx = PAT_BY_ID[a.next];
@@ -1416,6 +1484,17 @@ export function stepArena(g, dt) {
 
   arenaBossWalk(g, dt);                      // 보스가 사람 쪽으로 걸어온다
   arenaClub(g, dt);                          // 곁에 들면 방망이를 휘두른다
+
+  // 쫓아오는 기술은 예비 동안 자리가 따라온다. 끝자락에는 굳어 더 못 쫓아온다.
+  if (a.st === "tell" && a.zone && (PAT_BY_ID[a.pat] || {}).chase && a.stT > ARENA_TRACK.stop) {
+    const k = Math.min(1, dt * ARENA_TRACK.pull);
+    a.zone.forEach((z) => {
+      const q = z.pi >= 0 ? g.players[z.pi] : null;
+      if (!q || !g.seats[z.pi] || q.aout > 0) return;
+      z.x += (q.ax - z.x) * k;
+      z.y += ((q.ay || ARENA.bfy) - z.y) * k;
+    });
+  }
 
   a.stT -= dt * (a.slow > 0 ? 0.62 : 1);      // 서리 — 보스의 동작이 굼떠진다
   if (a.stT <= 0) {
@@ -1913,6 +1992,7 @@ export function packSnapshot(g) {
     ar: g.arena ? {
       ty: g.arena.type, hp: Math.round(g.arena.hp), mx: g.arena.max,
       st: g.arena.st, pa: g.arena.pat || 0, zo: g.arena.zone,
+      s0: Math.round((g.arena.stT0 || 0) * 100) / 100,
       li: Math.max(0, Math.round(g.arena.limit * 10) / 10),
       ef: [g.arena.burn > 0 ? 1 : 0, g.arena.poison > 0 ? 1 : 0,
         g.arena.slow > 0 ? 1 : 0, g.arena.shred > 0 ? 1 : 0],
@@ -1972,7 +2052,7 @@ export function applySnapshot(g, s) {
   if (s.ar) {
     const a = g.arena || (g.arena = {});
     a.type = s.ar.ty; a.hp = s.ar.hp; a.max = s.ar.mx;
-    a.st = s.ar.st; a.pat = s.ar.pa || null; a.zone = s.ar.zo; a.limit = s.ar.li; a.rage = s.ar.rg;
+    a.st = s.ar.st; a.pat = s.ar.pa || null; a.zone = s.ar.zo; a.stT0 = s.ar.s0 || 0; a.limit = s.ar.li; a.rage = s.ar.rg;
     a.combo = s.ar.cb; a.intro = s.ar.io; a.outro = s.ar.oo; a.jolt = s.ar.jo;
     a.stT = s.ar.sT; a.t = (a.t || 0);
     a.x = s.ar.bx; a.y = s.ar.by; a.dir = s.ar.bd || 1;

@@ -514,6 +514,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
   function snapHud(g) {
     return {
       phase: g.phase, wave: g.wave, total: g.total, timer: Math.max(0, g.timer),
+      overWhy: g.overWhy || 0,
       hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max,
       tier: castleTier(g), upCost: castleCost(g),
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
@@ -841,7 +842,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     hud.phase === "wave" ? (kindLabel || "교전 중") :
     hud.phase === "arena" ? "보스 결전" :
     hud.phase === "reward" ? "능력 선택" :
-    hud.phase === "clear" ? "방어 성공" : "성채 함락";
+    hud.phase === "clear" ? "방어 성공" : hud.overWhy === "wipe" ? "전멸" : "성채 함락";
   const over = hud.phase === "over" || hud.phase === "clear";
   const crewCount = seatFlags.filter(Boolean).length;
   const agreed = hud.leave.filter((v, i) => v && seatFlags[i]).length;
@@ -1015,11 +1016,17 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
             <div className="curtain over">
               <div className="scroll-panel">
                 <div className="scroll-eyebrow">웨이브 {hud.wave}에서 종료</div>
-                <h2>{hud.phase === "clear" ? "성채를 지켰습니다" : "성채가 무너졌습니다"}</h2>
+                <h2>
+                  {hud.phase === "clear" ? "성채를 지켰습니다"
+                    : hud.overWhy === "wipe" ? "모두 쓰러졌습니다"
+                    : "성채가 무너졌습니다"}
+                </h2>
                 <p>
                   {hud.phase === "clear"
                     ? `${hud.total}번의 웨이브를 모두 막아냈습니다.`
-                    : "대기실로 돌아가 방어선을 다시 세워보세요."}
+                    : hud.overWhy === "wipe"
+                      ? "보스 앞에 설 사람이 남지 않았습니다. 대기실로 돌아가 다시 세워보세요."
+                      : "대기실로 돌아가 방어선을 다시 세워보세요."}
                 </p>
                 {isHost
                   ? <button className="btn-main" onClick={onBack}>대기실로</button>
@@ -1113,6 +1120,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
           성채도 스스로 대포를 쏩니다. 다섯 웨이브마다 보스가 하나 오고, 잡으면 각자 능력을 하나 고릅니다.
           보스 결전에서는 사람마다 체력이 따로 있습니다. 맞아서 깎인 만큼 성채도 같이 깎이고,
           체력이 다하면 잠시 쓰러졌다가 절반으로 일어납니다. 체력은 저절로 차오르지 않습니다. 채우는 길은 보급소뿐입니다.
+          한 사람도 서 있지 않게 되면 성채가 멀쩡해도 그 자리에서 집니다.
           보스는 가만히 있지 않고 가장 가까운 사람에게 걸어옵니다. 방망이가 닿는 거리에 들면 평타로 휘두르고,
           더 붙으면 팔로 크게 후려칩니다. 휘두르는 동안은 발이 멈추니, 등 뒤로 돌아가면 빗나갑니다.
           뛰어올라 한 곳에 내려찍기도 하고, 붉은 길을 깔고 일직선으로 돌진하기도 합니다.

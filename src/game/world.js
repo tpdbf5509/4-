@@ -595,6 +595,7 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
     }),
     towers: new Array(SLOTS.length).fill(null),
     arena: null,                        // 보스 결전 중에만 채워진다
+    overWhy: 0,                         // 진 까닭 — "wipe" 면 결전장에서 전멸
     enemies: [],
     bullets: [],
     fx: [],

@@ -1087,6 +1087,20 @@ function arenaBossWalk(g, dt) {
   a.step += dt * 6;
 }
 
+/* 모두 쓰러져 싸울 사람이 남지 않았다 */
+function arenaWipe(g) {
+  const a = g.arena;
+  if (!a || a.wiped) return;
+  a.wiped = 1;
+  g.shake = Math.max(g.shake, 0.9);
+  fx(g, { kind: "boom", x: CX, y: CY, r: 240, t: 1, life: 1, snd: "boom" });
+  callout(g, CX, 250, "전멸", "#ff6f6f", "boss", 0);
+  banner(g, "전멸", "싸울 사람이 남지 않았다", "#ff6f6f");
+  g.overWhy = "wipe";
+  g.arena = null;
+  g.phase = "over";
+}
+
 /* 보스가 쓰러졌다 */
 function arenaDown(g, pi) {
   const a = g.arena;
@@ -1300,6 +1314,12 @@ export function stepArena(g, dt) {
       }
     }
   });
+
+  // 싸울 사람이 하나도 서 있지 않으면 거기서 끝난다
+  if (a.intro <= 0 && a.outro <= 0) {
+    const crew = g.players.filter((p, i) => g.seats[i]);
+    if (crew.length && crew.every((p) => p.aout > 0)) return arenaWipe(g);
+  }
 
   if (a.intro > 0) { a.intro -= dt; return; }
 
@@ -1821,6 +1841,7 @@ export function stepVisual(g, dt) {
 export function packSnapshot(g) {
   return {
     ph: g.phase, wv: g.wave, tt: g.total, df: g.diff, tm: Math.max(0, g.timer),
+    ow: g.overWhy || 0,
     hp: g.core.hp, hm: g.core.max, cv: g.core.lv, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
     ql: g.queue.length, cb: g.combo, pv: g.preview || 0,
     sg: g.surge,
@@ -1859,6 +1880,7 @@ export function packSnapshot(g) {
 /* 참가자가 받은 상태를 자기 화면에 반영 */
 export function applySnapshot(g, s) {
   g.phase = s.ph;
+  g.overWhy = s.ow || 0;
   g.wave = s.wv;
   if (s.tt) g.total = s.tt;
   if (typeof s.df === "number") g.diff = s.df;

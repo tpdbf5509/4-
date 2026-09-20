@@ -1165,7 +1165,8 @@ function zoneSpot(z) {
     return { x: (z.x + z.ex) / 2, y: (z.y + z.ey) / 2,
       r: Math.hypot(z.ex - z.x, (z.ey - z.y) / ARENA.squash) / 2 };
   }
-  return { x: z.x, y: z.y, r: z.k === "ring" ? z.r1 : z.r };
+  if (z.k === "ring" || z.k === "cone") return { x: z.x, y: z.y, r: z.r1 };
+  return { x: z.x, y: z.y, r: z.r };
 }
 
 /* 떼어 낸 이펙트 그림을 얹는다 — 보이는 것만 맡고 판정과는 상관이 없다 */
@@ -1352,7 +1353,8 @@ function arenaStrike(g) {
       }
       return;
     }
-    fx(g, { kind: "boom", x: z.x, y: z.y, r: Math.min(150, (z.k === "ring" ? z.r1 * 0.5 : z.r) * 0.8),
+    const c = zoneSpot(z);
+    fx(g, { kind: "boom", x: c.x, y: c.y, r: Math.min(150, c.r * (z.k === "circle" ? 0.8 : 0.4)),
       t: 0.5, life: 0.5, snd: "boom" });
   });
   arenaArt(g, a);                                // 시트에서 떼어 낸 그림

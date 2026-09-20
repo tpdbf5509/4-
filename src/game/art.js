@@ -2022,6 +2022,9 @@ export function drawBullet(ctx, b) {
 
 export function drawFx(ctx, f) {
   const k = f.kind;
+  // 수가 하나라도 깨져 있으면 그리지 않는다. 캔버스가 던지면 그 프레임이 통째로 멈춘다.
+  if (!Number.isFinite(f.x) || !Number.isFinite(f.y)) return;
+  if (f.r !== undefined && !Number.isFinite(f.r)) return;
   if (k === "art") {                   // 시트에서 떼어 낸 그림을 그대로 — 가로세로 같은 배율
     const art = FX_ART[f.art];
     const im = art && fxSprite(f.art);

@@ -1,7 +1,7 @@
 /* ── 공통 ───────────────────────────────────────────────── */
 .page {
-  min-height: 100vh;
-  padding: 22px 20px 44px;
+  min-height: 100svh;
+  padding: 22px max(20px, env(safe-area-inset-right)) calc(44px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   background: radial-gradient(1200px 600px at 50% -10%, #33512c 0%, #1d2f1b 45%, #162415 100%);
   color: #f2e8d2;
   font-family: Jua, 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
@@ -209,9 +209,12 @@ kbd {
   box-shadow: 0 0 0 3px #2a1d10, 0 18px 40px rgba(0, 0, 0, 0.5), inset 0 0 60px rgba(0, 0, 0, 0.25);
   background: #4d8632;
 }
-.frame canvas { width: 100%; height: auto; display: block; }
+.frame canvas { width: 100%; height: auto; display: block; touch-action: manipulation; }
 
-.hud { position: absolute; top: 12px; display: flex; gap: 8px; align-items: stretch; }
+/* 알림판은 판 위에 떠 있다. 누름은 판으로 흘려보내고 단추만 받는다 —
+   화면이 작을수록 알림판이 판을 더 많이 가리기 때문이다. */
+.hud { position: absolute; top: 12px; display: flex; gap: 8px; align-items: stretch; pointer-events: none; }
+.hud button { pointer-events: auto; }
 .hud-left { left: 12px; flex-direction: column; align-items: flex-start; gap: 7px; }
 .hud-row { display: flex; gap: 8px; align-items: stretch; }
 .hud-right { right: 12px; }
@@ -347,8 +350,111 @@ kbd {
   .seats { grid-template-columns: 1fr; }
 }
 @media (max-width: 440px) {
-  .page { padding: 16px 12px 32px; }
+  .page {
+    padding: 16px max(12px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
   .party { grid-template-columns: 1fr; }
+}
+
+/* ── 작은 화면 ───────────────────────────────────────────
+   판 위의 알림판은 판과 함께 작아져야 서로 겹치지 않는다.
+   글자 크기를 하나씩 줄이는 대신 통째로 줄여 비율을 지킨다. */
+@media (max-width: 860px) {
+  .hud { top: 8px; }
+  .hud-left { left: 8px; transform: scale(0.76); transform-origin: top left; }
+  .hud-right { right: 8px; transform: scale(0.76); transform-origin: top right; }
+  .surge-tag { left: 8px; bottom: 8px; transform: scale(0.82); transform-origin: bottom left; }
+  .drop-note { top: 52px; font-size: 11.5px; }
+}
+@media (max-width: 560px) {
+  .hud { top: 6px; }
+  .hud-left { left: 6px; transform: scale(0.58); }
+  .hud-right { right: 6px; transform: scale(0.58); }
+  .surge-tag { transform: scale(0.7); }
+  .footnote { font-size: 11.5px; line-height: 1.65; }
+}
+
+/* ── 화면 조작판 ─────────────────────────────────────────
+   자판이 없는 기기에서만 나온다. 왼손은 방향, 오른손은 행동. */
+/* 세로로 들면 판이 작다 — 한 줄로만 알려 준다 */
+.turn-note { display: none; }
+.page.touch .turn-note {
+  display: block; margin: 8px 2px 0; font-size: 11.5px; color: #8d8068; letter-spacing: -0.02em;
+}
+@media (orientation: landscape) { .page.touch .turn-note { display: none; } }
+
+.pad { display: none; }
+.page.touch .pad {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 14px; margin-top: 12px; touch-action: none; user-select: none;
+}
+.page.touch .pad.off { opacity: 0.35; pointer-events: none; }
+
+.pad-dir {
+  position: relative; display: grid; gap: 6px;
+  grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px);
+}
+.pad-nub {
+  grid-area: 2 / 2; border-radius: 50%;
+  background: rgba(20, 14, 8, 0.4); border: 1px solid rgba(160, 130, 90, 0.35);
+}
+.pkey, .pbtn {
+  -webkit-tap-highlight-color: transparent; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+  font-family: 'Do Hyeon', sans-serif; color: #e8d7ae; cursor: pointer;
+  background: linear-gradient(#4a3722, #322416);
+  border: 2px solid #8a6a3f; border-radius: 12px;
+  box-shadow: 0 4px 0 #22180e, 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+.pkey { display: grid; place-items: center; font-size: 15px; padding: 0; }
+.pkey.up { grid-area: 1 / 2; }
+.pkey.left { grid-area: 2 / 1; }
+.pkey.right { grid-area: 2 / 3; }
+.pkey.down { grid-area: 3 / 2; }
+.pkey:active, .pbtn:active {
+  transform: translateY(3px); box-shadow: 0 1px 0 #22180e;
+  background: linear-gradient(#7a5a2e, #5d4222); border-color: #d6b26a; color: #fff3d0;
+}
+
+.pad-act { display: flex; align-items: flex-end; gap: 9px; }
+.pbtn { padding: 0 16px; height: 52px; font-size: 15px; letter-spacing: -0.02em; white-space: nowrap; }
+.pbtn.hit { height: 68px; padding: 0 22px; font-size: 18px; border-color: #d6b26a; }
+.pbtn.sell { height: 44px; font-size: 13px; opacity: 0.85; }
+.pbtn.skill { border-color: #6f5636; color: #a9998a; }
+.pbtn.skill.ready { border-color: #d6b26a; color: #fff3d0; }
+
+/* 좁은 화면에서는 조작판이 한 줄에 들어가도록 줄인다 */
+@media (max-width: 430px) {
+  .page.touch .pad { gap: 8px; }
+  .page.touch .pad-dir { grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); gap: 5px; }
+  .page.touch .pad-act { gap: 7px; }
+  .page.touch .pbtn { height: 46px; padding: 0 12px; font-size: 14px; }
+  .page.touch .pbtn.hit { height: 60px; padding: 0 16px; font-size: 16px; }
+  .page.touch .pbtn.sell { height: 40px; padding: 0 10px; font-size: 12.5px; }
+}
+@media (max-width: 350px) {
+  .page.touch .pad-dir { grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); gap: 4px; }
+  .page.touch .pbtn { height: 40px; padding: 0 9px; font-size: 13px; }
+  .page.touch .pbtn.hit { height: 52px; padding: 0 13px; font-size: 15px; }
+  .page.touch .pbtn.sell { height: 36px; padding: 0 8px; font-size: 12px; }
+}
+
+/* 가로로 눕히면 판을 화면 높이에 맞추고, 조작판은 판 위에 겹친다.
+   화면에 붙여 두어야 아래 카드로 내려도 조작판이 따라오지 않는다. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .page.touch {
+    padding: 8px max(10px, env(safe-area-inset-right)) 20px max(10px, env(safe-area-inset-left));
+  }
+  .page.touch .stage { max-width: min(1040px, calc((100dvh - 44px) * 1.52)); }
+  .page.touch .pad {
+    position: fixed; bottom: calc(8px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    width: min(100% - 20px, 1040px); margin: 0; pointer-events: none;
+  }
+  .page.touch .pad > * { pointer-events: auto; }
+  .page.touch .pad-dir { grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 5px; }
+  .page.touch .pbtn { height: 44px; font-size: 14px; }
+  .page.touch .pbtn.hit { height: 56px; font-size: 16px; }
+  .page.touch .pbtn.sell { height: 38px; font-size: 12.5px; }
 }
 
 /* 보스를 잡을 때마다 오르는 적 강화 단계 */
@@ -410,6 +516,26 @@ kbd {
 
 .reward-wait { margin: 18px 0; font-size: 13.5px; color: #ded1b3; }
 .reward-crew { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 17px; }
+
+/* 작은 화면에서는 판이 낮아 고르는 창이 잘린다.
+   그때는 판이 아니라 화면 전체를 덮고, 넘치면 스크롤한다. */
+@media (max-width: 760px), (max-height: 620px) {
+  .curtain.reward, .curtain.over {
+    position: fixed; inset: 0; z-index: 40;
+    padding: max(14px, env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
+    align-items: start; overflow-y: auto; overscroll-behavior: contain;
+  }
+  .reward-box, .scroll-panel { margin: auto 0; }
+  .curtain.over .scroll-panel { width: min(420px, 100%); }
+  .reward-head h2 { font-size: 22px; }
+  .reward-head p { margin-bottom: 13px; }
+  .reward-cards { gap: 9px; }
+  .perk-art { height: 56px; }
+}
+@media (max-width: 430px) {
+  .reward-cards { gap: 7px; }
+  .perk-art { height: 48px; }
+}
 .crew-dot {
   padding: 4px 10px; border-radius: 999px; font-size: 11px; color: #c0b192; letter-spacing: -0.02em;
   border: 1px solid rgba(170, 142, 100, 0.45); background: rgba(20, 14, 8, 0.6);

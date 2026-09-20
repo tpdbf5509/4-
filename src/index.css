@@ -12,6 +12,10 @@
 
 body {
   margin: 0;
+  /* 손가락으로 할 때 — 두 번 눌러 확대되거나 아래로 당겨 새로고침되지 않게 */
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 #root {

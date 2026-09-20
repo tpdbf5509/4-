@@ -2944,9 +2944,13 @@ export function drawArena(ctx, g, time) {
   const how = meK ? ({ shot: "쏘기", bomb: "포격", chain: "연쇄", aura: "범위", field: "중력장",
     melee: "근접", aid: "보급" })[meK.mode] : "";
   const cls = g.mySeat >= 0 && CLASSES[g.mySeat] ? CLASSES[g.mySeat].name : "";
+  // 손가락으로 하는 기기에는 화면 조작판 이름을 그대로 알려 준다
+  const move = g.touch ? "화살표 버튼으로 움직이기" : "W A S D · 방향키로 움직이기";
+  const fire = g.touch ? "공격" : "스페이스";
+  const sk2 = g.touch ? "스킬 버튼" : "시프트 스킬";
   ctx.fillText(meK
-    ? `W A S D · 방향키로 움직이기 · 스페이스 ${cls} ${how} · 시프트 스킬`
-    : "W A S D · 방향키로 움직이기 · 스페이스 공격 · 시프트 스킬", CX, H - 22);
+    ? `${move} · ${fire} ${cls} ${how} · ${sk2}`
+    : `${move} · ${fire} · ${sk2}`, CX, H - 22);
   ctx.restore();
 
   if (g.banner) drawBanner(ctx, g.banner);

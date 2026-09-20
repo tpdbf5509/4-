@@ -19,6 +19,20 @@ import "./ui/style.css";
 
 const SNAP_HZ = 12;
 
+/* 손가락으로 하는 기기인지 — 마우스가 없고 손끝처럼 뭉툭한 입력이면 참 */
+function useTouch() {
+  const [on, setOn] = useState(() =>
+    typeof matchMedia === "function" && matchMedia("(hover: none) and (pointer: coarse)").matches);
+  useEffect(() => {
+    if (typeof matchMedia !== "function") return;
+    const m = matchMedia("(hover: none) and (pointer: coarse)");
+    const f = (e) => setOn(e.matches);
+    m.addEventListener("change", f);
+    return () => m.removeEventListener("change", f);
+  }, []);
+  return on;
+}
+
 /* ── 홈 · 로비 · 게임을 오가는 바깥 껍데기 ─────────────────── */
 export default function App() {
   const me = useMemo(() => myId(), []);
@@ -236,7 +250,7 @@ function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
         <h1>네 갈래 방어선</h1>
         <p className="tag">
           북·동·남·서에서 밀려오는 적을 네 명이 나눠 막는 협동 디펜스.
-          각자 자기 컴퓨터에서 들어와 한 방에서 함께 지킵니다.
+          각자 자기 컴퓨터나 휴대폰에서 들어와 한 방에서 함께 지킵니다.
         </p>
 
         <label className="field">
@@ -268,6 +282,7 @@ function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
 
 /* ── 로비 ───────────────────────────────────────────────── */
 function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onWaves, onDiff, onStart, onStartBoss, onLeave }) {
+  const touch = useTouch();
   const [copied, setCopied] = useState("");
   const link = `${location.origin}${location.pathname}?room=${code}`;
   const seats = lobby?.seats || new Array(SEATS).fill(null);
@@ -417,8 +432,45 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
         </div>
 
         <p className="keyhint">
-          조작 — 이동 <kbd>{KEY_HINT.move}</kbd> 또는 돌판 <kbd>클릭</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 팔기 <kbd>{KEY_HINT.sell}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd>
+          {touch
+            ? <>조작 — 판 아래 화살표로 <kbd>이동</kbd> 또는 돌판을 <kbd>누르기</kbd> · <kbd>건설</kbd> · <kbd>팔기</kbd> · <kbd>스킬</kbd> 버튼</>
+            : <>조작 — 이동 <kbd>{KEY_HINT.move}</kbd> 또는 돌판 <kbd>클릭</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 팔기 <kbd>{KEY_HINT.sell}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd></>}
         </p>
+      </div>
+    </div>
+  );
+}
+
+/* ── 화면 조작판 — 자판이 없는 기기에서 쓴다 ────────────────
+   방향은 누르는 동안 눌린 것으로 두고, 나머지는 한 번 누르면 한 번 나간다. */
+function TouchPad({ phase, onPress, onRelease, onTap, ready }) {
+  const arena = phase === "arena";
+  const live = phase === "prep" || phase === "wave" || arena;
+  const dir = (d) => ({
+    onPointerDown: (e) => {
+      e.preventDefault();
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 지원 안 하면 그냥 둔다 */ }
+      onPress(d);
+    },
+    onPointerUp: (e) => { e.preventDefault(); onRelease(d); },
+    onPointerCancel: () => onRelease(d),
+    onLostPointerCapture: () => onRelease(d),
+  });
+  const tap = (k) => ({ onPointerDown: (e) => { e.preventDefault(); onTap(k); } });
+
+  return (
+    <div className={`pad ${live ? "" : "off"}`} aria-hidden={!live}>
+      <div className="pad-dir">
+        <button className="pkey up" {...dir("up")} aria-label="위로">▲</button>
+        <button className="pkey left" {...dir("left")} aria-label="왼쪽">◀</button>
+        <button className="pkey right" {...dir("right")} aria-label="오른쪽">▶</button>
+        <button className="pkey down" {...dir("down")} aria-label="아래로">▼</button>
+        <span className="pad-nub" />
+      </div>
+      <div className="pad-act">
+        {!arena && <button className="pbtn sell" {...tap("sell")}>팔기</button>}
+        <button className={`pbtn skill ${ready ? "ready" : ""}`} {...tap("skill")}>스킬</button>
+        <button className="pbtn hit" {...tap("build")}>{arena ? "공격" : "건설"}</button>
       </div>
     </div>
   );
@@ -445,6 +497,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     G.current = g;
   }
 
+  const touch = useTouch();
+  G.current.touch = touch;                      // 판 안의 안내 글도 조작판에 맞춘다
   const [hud, setHud] = useState(() => snapHud(G.current));
   const [dropped, setDropped] = useState(false);
   const [mute, setMute] = useState(() => sfx.isMuted());
@@ -519,23 +573,53 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     }
   }, [isHost, mySeat, room]);
 
+  /* 누르고 있는 방향 — 키보드와 화면 버튼이 같은 곳으로 들어온다 */
+  const holdRef = useRef(null);
+  if (!holdRef.current) holdRef.current = { dirs: [], wait: 0, timer: null };
+
+  const inArena = useCallback(() => !!G.current && G.current.phase === "arena", []);
+
+  const pressDir = useCallback((dir) => {
+    const c = holdRef.current;
+    if (c.dirs.includes(dir)) return;
+    c.dirs.push(dir);
+    if (inArena()) { act("hold", c.dirs.slice()); return; }   // 결전장은 누르는 동안 걷는다
+    act("move", dir);
+    c.wait = 0.24;
+    if (!c.timer) {
+      c.timer = setInterval(() => {
+        if (!c.dirs.length || inArena()) return;
+        c.wait -= 0.05;
+        if (c.wait <= 0) { act("move", c.dirs[c.dirs.length - 1]); c.wait = 0.11; }
+      }, 50);
+    }
+  }, [act, inArena]);
+
+  const releaseDir = useCallback((dir) => {
+    const c = holdRef.current;
+    const i = c.dirs.indexOf(dir);
+    if (i < 0) return;
+    c.dirs.splice(i, 1);
+    if (inArena()) act("hold", c.dirs.slice());
+    if (!c.dirs.length && c.timer) { clearInterval(c.timer); c.timer = null; }
+  }, [act, inArena]);
+
+  const clearDirs = useCallback(() => {
+    const c = holdRef.current;
+    if (!c.dirs.length) return;
+    c.dirs.length = 0;
+    if (inArena()) act("hold", []);
+    if (c.timer) { clearInterval(c.timer); c.timer = null; }
+  }, [act, inArena]);
+
+  useEffect(() => () => {
+    const c = holdRef.current;
+    if (c.timer) { clearInterval(c.timer); c.timer = null; }
+  }, []);
+
   /* 키보드 — 자기 병과만 조작한다 */
   useEffect(() => {
     if (mySeat < 0) return;
-    const held = [];
-    let holdT = 0;
-    let timer = null;
-
-    const arena = () => G.current && G.current.phase === "arena";
-    const sendHold = () => act("hold", held.slice());
-
-    const tick = () => {
-      if (!held.length) return;
-      if (arena()) return;                 // 결전장은 누르고 있는 동안 알아서 걷는다
-      holdT -= 0.05;
-      if (holdT <= 0) { act("move", held[held.length - 1]); holdT = 0.11; }
-    };
-
     function onKey(e) {
       const dir = MOVE_KEYS[e.code];
       const isBuild = BUILD_KEYS.includes(e.code);
@@ -544,40 +628,24 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       if (!dir && !isBuild && !isSkill && !isSell) return;
       e.preventDefault();
       if (e.repeat) return;
-      if (dir) {
-        if (!held.includes(dir)) held.push(dir);
-        if (arena()) { sendHold(); return; }
-        act("move", dir);
-        holdT = 0.24;
-        if (!timer) timer = setInterval(tick, 50);
-      } else if (isBuild) act("build");
+      if (dir) pressDir(dir);
+      else if (isBuild) act("build");
       else if (isSell) act("sell");
       else act("skill");
     }
     function onUp(e) {
       const dir = MOVE_KEYS[e.code];
-      if (!dir) return;
-      const i = held.indexOf(dir);
-      if (i >= 0) held.splice(i, 1);
-      if (arena()) sendHold();
-      if (!held.length && timer) { clearInterval(timer); timer = null; }
+      if (dir) releaseDir(dir);
     }
-    function onBlur() {
-      held.length = 0;
-      if (arena()) sendHold();
-      if (timer) { clearInterval(timer); timer = null; }
-    }
-
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
-    window.addEventListener("blur", onBlur);
+    window.addEventListener("blur", clearDirs);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onUp);
-      window.removeEventListener("blur", onBlur);
-      if (timer) clearInterval(timer);
+      window.removeEventListener("blur", clearDirs);
     };
-  }, [act, mySeat]);
+  }, [act, mySeat, pressDir, releaseDir, clearDirs]);
 
   /* 마우스 — 자리를 눌러 바로 옮겨 간다 */
   useEffect(() => {
@@ -590,11 +658,14 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       if (!r.width || !r.height) return -1;
       const x = (e.clientX - r.left) * (W / r.width);
       const y = (e.clientY - r.top) * (H / r.height);
+      // 손끝은 마우스보다 뭉툭하고, 작은 화면에서는 돌판도 함께 작아진다.
+      // 그래서 손가락으로 누를 때는 받아 주는 범위를 넓힌다.
+      const far = e.pointerType === "touch" ? Math.pow(Math.max(1.6, (W / r.width) * 0.5), 2) : 1;
       let best = -1, bd = Infinity;
       for (let i = 0; i < SLOTS.length; i++) {
         const dx = (SLOTS[i].x - x) / 26, dy = (SLOTS[i].y - y) / 21;
         const d = dx * dx + dy * dy;
-        if (d <= 1 && d < bd) { bd = d; best = i; }
+        if (d <= far && d < bd) { bd = d; best = i; }
       }
       return best;
     };
@@ -777,7 +848,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
   const hpRatio = hud.hp / hud.max;
 
   return (
-    <div className="page">
+    <div className={`page ${touch ? "touch" : ""}`}>
       <div className="stage">
         <div className="frame">
           <canvas ref={cvsRef} />
@@ -941,7 +1012,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
           )}
 
           {over && (
-            <div className="curtain">
+            <div className="curtain over">
               <div className="scroll-panel">
                 <div className="scroll-eyebrow">웨이브 {hud.wave}에서 종료</div>
                 <h2>{hud.phase === "clear" ? "성채를 지켰습니다" : "성채가 무너졌습니다"}</h2>
@@ -957,6 +1028,18 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
             </div>
           )}
         </div>
+
+        {touch && <p className="turn-note">가로로 돌리면 판이 커집니다.</p>}
+
+        {touch && mySeat >= 0 && (
+          <TouchPad
+            phase={hud.phase}
+            ready={(hud.players[mySeat]?.cd ?? 1) <= 0}
+            onPress={pressDir}
+            onRelease={releaseDir}
+            onTap={act}
+          />
+        )}
 
         <div className="party">
           {hud.players.map((p, i) => {
@@ -999,7 +1082,15 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                     <span style={{ width: `${ready ? 100 : (1 - p.cd / SKILLS[i].cd) * 100}%` }} />
                   </span>
                 </div>
-                {mine && (
+                {mine && (touch ? (
+                  <div className="keys">
+                    <kbd>◀▲▼▶</kbd><span>이동</span>
+                    <kbd>돌판</kbd><span>눌러서 그 자리로</span>
+                    <kbd>건설</kbd><span>탑 세우기 · 결전장에서는 공격</span>
+                    <kbd>팔기</kbd><span>들인 값의 60%</span>
+                    <kbd>스킬</kbd><span>{SKILLS[i].name}</span>
+                  </div>
+                ) : (
                   <div className="keys">
                     <kbd>{KEY_HINT.move}</kbd><span>이동</span>
                     <kbd>클릭</kbd><span>그 자리로</span>
@@ -1007,7 +1098,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                     <kbd>{KEY_HINT.sell}</kbd><span>팔기</span>
                     <kbd>{KEY_HINT.skill}</kbd><span>스킬</span>
                   </div>
-                )}
+                ))}
               </div>
             );
           })}

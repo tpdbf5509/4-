@@ -194,6 +194,10 @@ kbd {
   width: 118px; height: 138px; margin: -18px 0 -10px;
   filter: var(--rim) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
+.start-row { display: flex; align-items: center; gap: 8px; }
+.btn-test { font-size: 12.5px; padding: 8px 12px; opacity: 0.8; }
+.btn-test:hover:not(:disabled) { opacity: 1; }
+
 .keyhint { margin: 12px 0 0; font-size: 11.5px; color: #8d8068; }
 .keyhint kbd { margin: 0 2px; }
 

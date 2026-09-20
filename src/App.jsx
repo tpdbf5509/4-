@@ -34,6 +34,7 @@ export default function App() {
 
   const roomRef = useRef(null);
   const hostRef = useRef(false);
+  const bossRef = useRef(false);        // 대기실에서 '보스전 바로'로 시작했는지
   const seatsRef = useRef(new Array(SEATS).fill(null));
   const peersRef = useRef([]);
 
@@ -122,7 +123,7 @@ export default function App() {
       seatsRef.current = seats;
       publishLobby();
     });
-    room.on("start", () => { if (!hostRef.current) setScreen("game"); });
+    room.on("start", (d) => { if (!hostRef.current) { bossRef.current = !!(d && d.boss); setScreen("game"); } });
     room.on("toLobby", () => { if (!hostRef.current) setScreen("lobby"); });
 
     setCode(roomCode);
@@ -168,8 +169,9 @@ export default function App() {
     }
   }, [lobby, me, name, publishLobby]);
 
-  const startGame = useCallback(() => {
-    roomRef.current?.send("start", {});
+  const startGame = useCallback((boss) => {
+    bossRef.current = boss === true;
+    roomRef.current?.send("start", { boss: boss === true });
     setScreen("game");
   }, []);
 
@@ -207,6 +209,7 @@ export default function App() {
         code={code} lobby={lobby} me={me} isHost={isHost} mySeat={mySeat}
         error={error} connecting={connecting}
         onPick={pick} onStart={startGame} onLeave={leave} onWaves={setWaves} onDiff={setDiff}
+        onStartBoss={() => startGame(true)}
       />
     );
   }
@@ -219,6 +222,7 @@ export default function App() {
       waves={lobby?.waves || TOTAL_WAVES}
       diff={lobby?.diff ?? DEFAULT_DIFF}
       mySeat={mySeat}
+      startBoss={bossRef.current}
       onBack={backToLobby}
     />
   );
@@ -263,7 +267,7 @@ function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
 }
 
 /* ── 로비 ───────────────────────────────────────────────── */
-function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onWaves, onDiff, onStart, onLeave }) {
+function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onWaves, onDiff, onStart, onStartBoss, onLeave }) {
   const [copied, setCopied] = useState("");
   const link = `${location.origin}${location.pathname}?room=${code}`;
   const seats = lobby?.seats || new Array(SEATS).fill(null);
@@ -398,9 +402,15 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
             </span>
           </span>
           {isHost ? (
-            <button className="btn-main" onClick={onStart} disabled={filled === 0}>
-              방어 시작
-            </button>
+            <span className="start-row">
+              <button className="btn-ghost btn-test" onClick={onStartBoss} disabled={filled === 0}
+                title="5웨이브 보스 결전으로 곧장 들어갑니다">
+                보스전 바로
+              </button>
+              <button className="btn-main" onClick={() => onStart(false)} disabled={filled === 0}>
+                방어 시작
+              </button>
+            </span>
           ) : (
             <span className="muted">방장이 시작하기를 기다리는 중…</span>
           )}
@@ -415,7 +425,7 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
 }
 
 /* ── 게임 ───────────────────────────────────────────────── */
-function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
+function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack }) {
   const cvsRef = useRef(null);
   const bgRef = useRef(null);
   const idx = useMemo(() => Array.from({ length: SEATS }, (_, i) => i), []);
@@ -428,8 +438,10 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, onBack }) {
     g.names = names;
     g.mySeat = mySeat;
     if (import.meta.env.DEV) window.__G = g;    // 개발 중 상태를 들여다보려고
-    g.wave = 1;
+    // 시험용 — 대기실에서 '보스전 바로'로 들어오면 보스 웨이브에서 시작한다
+    g.wave = startBoss ? Math.min(5, g.total) : 1;
     startPrep(g);
+    if (startBoss) g.timer = 0.6;
     G.current = g;
   }
 

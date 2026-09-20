@@ -611,6 +611,7 @@ export function startArena(g, kind) {
     t: 0, intro: 2.2, outro: 0,
     st: "idle", stT: 2, pat: null, zone: null,
     x: ARENA.bx, y: ARENA.bfy, dir: 1, tgt: -1, step: 0,   // 걸어 다니는 자리
+    sw: 0, swHit: 0, swDir: 1, hitT: 2.5,                  // 방망이 — 휘두르는 중 · 맞는 순간 · 쿨타임
     bite, life,
     sup: 3, combo: 0, comboT: 0, jolt: 0, roar: 0,
     burn: 0, burnDps: 0, poison: 0, poisonDps: 0, slow: 0, shred: 0, shredAmt: 0,
@@ -974,11 +975,68 @@ function arenaMend(g, pi, amt) {
   return up;
 }
 
+/* 보스의 평타 — 곁에 든 것을 방망이로 후려친다.
+   크게 내리치는 것과 달리 붉은 자리를 깔지 않는다. 휘두르는 동작을 보고 빠져야 한다. */
+function arenaClub(g, dt) {
+  const a = g.arena;
+  if (!a || a.intro > 0 || a.outro > 0) return;
+  if (a.hitT > 0) a.hitT -= dt * (a.slow > 0 ? 0.62 : 1);
+
+  if (a.sw > 0) {                                  // 이미 휘두르는 중
+    a.sw -= dt;
+    if (a.swHit > 0) {
+      a.swHit -= dt;
+      if (a.swHit <= 0) arenaClubLand(g);
+    }
+    if (a.sw <= 0) { a.sw = 0; a.swHit = 0; }
+    return;
+  }
+  if (a.st === "tell") return;                     // 큰 동작을 잡는 동안은 쉰다
+  if (a.hitT > 0) return;
+
+  const near = g.players.some((p, i) => g.seats[i] && p.aout <= 0
+    && arenaNear(p.ax, p.ay || ARENA.bfy, a.x, a.y) <= ARENA.club);
+  if (!near) return;
+  a.sw = ARENA.bswing;
+  a.swHit = ARENA.bland;
+  a.swDir = a.dir;
+  a.hitT = ARENA.bcd * (a.rage ? 0.65 : 1);
+}
+
+/* 방망이가 닿는 순간 — 앞쪽 부채꼴 안에 있던 사람만 맞는다 */
+function arenaClubLand(g) {
+  const a = g.arena;
+  if (!a || a.outro > 0) return;
+  const raw = a.bite * ARENA.clubDmg * (a.rage ? 1.6 : 1) * perkVal.guard(teamPerk(g, "guard"));
+  let hit = 0, cost = 0;
+  g.players.forEach((p, i) => {
+    if (!g.seats[i] || p.aout > 0) return;
+    const py = p.ay || ARENA.bfy;
+    if (arenaNear(p.ax, py, a.x, a.y) > ARENA.club) return;
+    // 휘두른 쪽 앞에 있어야 맞는다 — 등 뒤로 돌아가면 빗나간다
+    const ang = Math.atan2((py - a.y) / ARENA.squash, p.ax - a.x);
+    if (Math.cos(ang) * a.swDir < Math.cos(ARENA.clubArc)) return;
+    hit += 1;
+    cost += arenaHurt(g, i, raw);
+    const kx = p.ax - a.x, ky = py - a.y;
+    const len = Math.max(1, Math.hypot(kx, ky));
+    p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + (kx / len) * ARENA.knock * 0.7));
+    p.ay = Math.max(ARENA.top, Math.min(ARENA.bottom, py + (ky / len) * ARENA.knock * 0.4));
+    fx(g, { kind: "poof", x: p.ax, y: py - 20, t: 0.4, life: 0.4, color: "rgba(230,190,140,1)" });
+  });
+  fx(g, { kind: "boom", x: a.x + a.swDir * 92, y: a.y - 6, r: 62, t: 0.36, life: 0.36, snd: "hit" });
+  if (hit) {
+    g.shake = Math.max(g.shake, 0.3);
+    a.combo = 0; a.comboT = 0;
+    if (cost > 0) fx(g, { kind: "dmg", x: CX, y: 180, text: `성채 -${cost}`, color: "#ff8d76", t: 1, life: 1 });
+  }
+}
+
 /* 보스가 결전장을 걸어 다닌다 — 가장 가까운 사람 쪽으로 */
 function arenaBossWalk(g, dt) {
   const a = g.arena;
   if (!a || a.intro > 0 || a.outro > 0) return;
-  if (a.st === "tell") return;                       // 휘두르려고 버티는 동안은 멈춘다
+  if (a.st === "tell" || a.sw > 0) return;           // 휘두르는 동안은 발을 멈춘다
   let best = -1, bd = Infinity;
   g.players.forEach((p, i) => {
     if (!g.seats[i] || p.aout > 0) return;
@@ -1023,11 +1081,12 @@ function arenaNextPattern(g) {
   // 곁에 붙은 사람이 있으면 팔로 후려친다 — 붙어 싸우는 병과에게 주는 대가
   const close = up.some((q) => arenaNear(q.ax, q.ay || ARENA.bfy, a.x, a.y) <= ARENA.breach);
   const pool = a.type === "titan" ? [0, 1, 2, 1] : [0, 2, 0, 1];
-  const pat = close && Math.random() < 0.55
+  const pat = close && Math.random() < 0.4
     ? ARENA_PATTERNS.find((x) => x.id === "swipe")
     : ARENA_PATTERNS[pool[Math.floor(Math.random() * pool.length)]];
   a.pat = pat.id;
   a.st = "tell";
+  a.sw = 0; a.swHit = 0;
   a.stT = pat.tell * (a.type === "titan" ? 0.88 : 1);
   const spot = () => {
     // 아무나 한 사람 근처를 노린다
@@ -1208,6 +1267,7 @@ export function stepArena(g, dt) {
   }
 
   arenaBossWalk(g, dt);                      // 보스가 사람 쪽으로 걸어온다
+  arenaClub(g, dt);                          // 곁에 들면 방망이를 휘두른다
 
   a.stT -= dt * (a.slow > 0 ? 0.62 : 1);      // 서리 — 보스의 동작이 굼떠진다
   if (a.stT <= 0) {
@@ -1646,7 +1706,11 @@ export function stepVisual(g, dt) {
     if (p.cd > 0) p.cd -= dt;
   });
 
-  if (g.phase === "arena" && g.mySeat >= 0) arenaWalk(g, g.mySeat, dt);
+  if (g.phase === "arena") {
+    if (g.mySeat >= 0) arenaWalk(g, g.mySeat, dt);
+    // 방망이질은 초당 열두 번 오는 소식 사이도 이어서 그린다
+    if (g.arena && g.arena.sw > 0) g.arena.sw = Math.max(0, g.arena.sw - dt);
+  }
 
   g.towers.forEach((t) => {
     if (!t) return;
@@ -1705,6 +1769,7 @@ export function packSnapshot(g) {
       oo: Math.round(g.arena.outro * 10) / 10, jo: Math.round(g.arena.jolt * 100) / 100,
       sT: Math.round(g.arena.stT * 100) / 100,
       bx: Math.round(g.arena.x), by: Math.round(g.arena.y), bd: g.arena.dir,
+      sw: Math.round(Math.max(0, g.arena.sw) * 100) / 100, sd: g.arena.swDir,
       pp: g.players.map((p) => [Math.round(p.ax || 0), p.adir || 1, Math.round(p.ay || 0),
         Math.round((p.aswing || 0) * 100) / 100, Math.round((p.adown || 0) * 100) / 100,
         p.askill ? 1 : 0, p.abuff > 0 ? 1 : 0, Math.round(Math.max(0, p.acd || 0) * 100) / 100,
@@ -1758,6 +1823,7 @@ export function applySnapshot(g, s) {
     a.combo = s.ar.cb; a.intro = s.ar.io; a.outro = s.ar.oo; a.jolt = s.ar.jo;
     a.stT = s.ar.sT; a.t = (a.t || 0);
     a.x = s.ar.bx; a.y = s.ar.by; a.dir = s.ar.bd || 1;
+    a.sw = s.ar.sw || 0; a.swDir = s.ar.sd || 1;
     const ef = s.ar.ef || [0, 0, 0, 0];
     a.burn = ef[0] ? Math.max(a.burn || 0, 0.3) : 0;
     a.poison = ef[1] ? Math.max(a.poison || 0, 0.3) : 0;

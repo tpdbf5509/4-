@@ -2655,15 +2655,85 @@ function bossEase(a, dt) {
   a.sy += (ty - a.sy) * k;
 }
 
+/* 방망이질 한 번을 셋으로 나눈다 — 뒤로 젖히고, 내리찍고, 되돌아온다.
+   그림이 한 장뿐이라 몸 전체를 기울이고 앞으로 내밀어 휘두르는 티를 낸다. */
+function clubPose(a) {
+  if (!(a.sw > 0)) return null;
+  const k = 1 - a.sw / ARENA.bswing;          // 0 → 1
+  const land = ARENA.bland / ARENA.bswing;    // 맞는 순간의 자리
+  let lean, push, rise;
+  if (k < land) {                             // 젖히기
+    const u = k / land;
+    lean = -0.34 * Math.sin(u * Math.PI * 0.5);
+    push = -26 * u;
+    rise = -12 * u;
+  } else {                                    // 내리찍고 되돌아오기
+    const u = Math.min(1, (k - land) / (1 - land));
+    const snap = Math.pow(1 - u, 2);
+    lean = 0.5 * snap;
+    push = 58 * snap;
+    rise = 12 * snap;
+  }
+  return { k, land, lean, push, rise };
+}
+
+/* 방망이가 훑고 지나간 자리 — 위에서 아래로 반원을 그린다 */
+function clubArc(ctx, a, pose) {
+  const rr = ARENA.club * 0.84;
+  const back = -2.3, front = -2.3 + ARENA.clubArc * 2 + 1.1;   // 어깨 뒤에서 앞 바닥까지
+  let u, fade;
+  if (pose.k < pose.land) {                        // 젖히는 동안 — 지나갈 길만 흐리게
+    u = 0.1;
+    fade = 0.3 * (pose.k / pose.land);
+  } else {
+    const q = Math.min(1, (pose.k - pose.land) / 0.16);
+    u = q;
+    fade = Math.max(0, 1 - Math.max(0, (pose.k - pose.land) - 0.16) / 0.26);
+  }
+  if (fade <= 0.01) return;
+  const a1 = back + (front - back) * u;
+  ctx.save();
+  ctx.translate(a.sx === undefined ? a.x : a.sx, (a.sy === undefined ? a.y : a.sy) - 92);
+  ctx.scale(a.swDir < 0 ? -1 : 1, 0.86);
+  ctx.lineCap = "round";
+  ctx.globalAlpha = 0.34 * fade;
+  ctx.strokeStyle = "#f3b672";
+  ctx.lineWidth = 34;
+  ctx.beginPath(); ctx.arc(0, 0, rr, back, a1); ctx.stroke();
+  ctx.globalAlpha = 0.8 * fade;
+  ctx.strokeStyle = "#ffe6bd";
+  ctx.lineWidth = 13;
+  ctx.beginPath(); ctx.arc(0, 0, rr, back, a1); ctx.stroke();
+  ctx.globalAlpha = fade;
+  ctx.strokeStyle = "#fffaf0";
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(0, 0, rr, back, a1); ctx.stroke();
+  // 방망이 머리 — 호의 끝에 뭉툭한 덩어리
+  if (pose.k >= pose.land) {
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = "#e8d3b0";
+    ctx.beginPath(); ctx.arc(Math.cos(a1) * rr, Math.sin(a1) * rr, 13, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+
 function arenaBoss(ctx, g, a, time) {
   const im = enemySprite(a.type);
   const jolt = a.jolt > 0 ? a.jolt : 0;
   const bob = Math.sin(time * (a.rage ? 4.2 : 2.4)) * 5;
   const scale = a.type === "titan" ? 2.35 : 2.15;
   const [bxx, byy] = bossSpot(a);
+  const pose = clubPose(a);
   ctx.save();
   ctx.translate(bxx + (jolt > 0 ? (Math.random() - 0.5) * 12 : 0), byy - ARENA_LIFT + bob);
-  if (a.dir < 0) ctx.scale(-1, 1);            // 걸어가는 쪽을 본다
+  const face = pose ? a.swDir : a.dir;
+  if (face < 0) ctx.scale(-1, 1);             // 걸어가는 쪽, 휘두르는 쪽을 본다
+  if (pose) {                                 // 방망이질 — 발끝을 축으로 몸을 기울인다
+    ctx.translate(pose.push, pose.rise);
+    ctx.translate(0, 118);
+    ctx.rotate(pose.lean);
+    ctx.translate(0, -118);
+  }
   if (a.intro > 0) {
     const k = Math.min(1, (2.2 - a.intro) / 0.8);
     ctx.globalAlpha = k;
@@ -2689,6 +2759,7 @@ function arenaBoss(ctx, g, a, time) {
     }
   }
   ctx.restore();
+  if (pose) clubArc(ctx, a, pose);           // 휘두른 자국은 몸 위로 지나간다
 }
 
 function arenaPlayer(ctx, g, pi, time, dt) {

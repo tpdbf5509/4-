@@ -49,25 +49,37 @@ function enemySprite(kind) {
 }
 
 /* 결전 이펙트 그림 — design/effects 의 시트에서 떼어 낸 것을 그대로 얹는다.
+   열쇠가 곧 파일 자리다 (boss/slam → /assets/fx/boss/slam.webp).
    ax, ay 는 그림 안에서 땅에 닿는 한가운데이고,
    k 는 판정 반지름의 몇 배를 그림의 가로 반지름으로 삼을지다.
+   over 가 붙으면 사람보다 위에 그린다 — 솟거나 떨어지는 것들이다.
    어느 기술에 어느 그림을 얹을지는 world.js 의 ARENA_BOSS 에 적혀 있다.
    ax, ay 는 design/effects/cut.py 가 재어 준 값을 그대로 옮긴 것이다. */
 export const FX_ART = {
-  wake:   { src: "/assets/fx/titan/wake.webp",   ax: 174, ay: 81,  k: 1 },
-  sweep:  { src: "/assets/fx/titan/sweep.webp",  ax: 137, ay: 54,  k: 1 },
-  spin:   { src: "/assets/fx/titan/spin.webp",   ax: 134, ay: 74,  k: 1 },
-  pulse:  { src: "/assets/fx/titan/pulse.webp",  ax: 124, ay: 68,  k: 1 },
-  rift:   { src: "/assets/fx/titan/rift.webp",   ax: 98,  ay: 81,  k: 1 },
-  // 위로 솟거나 떨어지는 것은 사람보다 앞에 둔다 (over)
-  slam:   { src: "/assets/fx/titan/slam.webp",   ax: 114, ay: 153, k: 1, over: 1 },
-  leap:   { src: "/assets/fx/titan/leap.webp",   ax: 115, ay: 167, k: 1, over: 1 },
-  swipe:  { src: "/assets/fx/titan/swipe.webp",  ax: 92,  ay: 110, k: 1, over: 1 },
-  gore:   { src: "/assets/fx/titan/gore.webp",   ax: 56,  ay: 60,  k: 1 },
-  rush:   { src: "/assets/fx/titan/rush.webp",   ax: 117, ay: 40,  k: 1 },
-  hail1:  { src: "/assets/fx/titan/hail1.webp",  ax: 55,  ay: 116, k: 0.8, over: 1 },
-  track1: { src: "/assets/fx/titan/track1.webp", ax: 20,  ay: 110, k: 0.8, over: 1 },
-};const fxCache = {};
+  // 2차 대군주
+  "titan/wake":   { ax: 174, ay: 81,  k: 1 },
+  "titan/sweep":  { ax: 137, ay: 54,  k: 1 },
+  "titan/spin":   { ax: 134, ay: 74,  k: 1 },
+  "titan/pulse":  { ax: 124, ay: 68,  k: 1 },
+  "titan/rift":   { ax: 98,  ay: 81,  k: 1 },
+  "titan/gore":   { ax: 56,  ay: 60,  k: 1 },
+  "titan/rush":   { ax: 117, ay: 40,  k: 1 },
+  "titan/slam":   { ax: 114, ay: 153, k: 1, over: 1 },
+  "titan/leap":   { ax: 115, ay: 167, k: 1, over: 1 },
+  "titan/swipe":  { ax: 92,  ay: 110, k: 1, over: 1 },
+  "titan/hail1":  { ax: 55,  ay: 116, k: 0.8, over: 1 },
+  "titan/track1": { ax: 20,  ay: 110, k: 0.8, over: 1 },
+  // 1차 오우거 지휘관
+  "boss/sweep":   { ax: 198, ay: 110, k: 1 },
+  "boss/rush":    { ax: 222, ay: 66,  k: 1 },
+  "boss/cross":   { ax: 135, ay: 169, k: 1, over: 1 },
+  "boss/xcut":    { ax: 199, ay: 190, k: 1, over: 1 },
+  "boss/slam":    { ax: 194, ay: 248, k: 1, over: 1 },
+  "boss/leap":    { ax: 151, ay: 333, k: 1, over: 1 },
+  "boss/swipe":   { ax: 159, ay: 193, k: 1, over: 1 },
+  "boss/stomp1":  { ax: 80,  ay: 158, k: 0.75, over: 1 },
+};
+const fxCache = {};
 let fxWarm = 0;
 
 /* 결전이 시작될 때 미리 불러 둔다 — 안 그러면 기술이 처음 나올 때 한 번 빈다 */
@@ -84,7 +96,7 @@ function fxSprite(id) {
   if (im === undefined) {
     im = fxCache[id] = new Image();
     im.onerror = () => { fxCache[id] = null; };
-    im.src = art.src;
+    im.src = `/assets/fx/${id}.webp`;
   }
   return im && im.complete && im.naturalWidth ? im : null;
 }

@@ -539,6 +539,18 @@ export const ARENA_BOSS = {
     pool: ["slam", "stomp", "leap", "cross", "sweep", "cross", "rush"],
     far: ["leap", "rush"], close: ["swipe"],
     tell: 1, after: 1, rest: 1.6, limit: 75,
+    // 기술마다 얹을 그림 (design/effects 의 오우거 시트에서 떼어 낸 것).
+    // once 가 붙으면 자리마다가 아니라 한 판에 한 장만 얹는다.
+    art: {
+      cross: { id: "boss/cross", once: 1, r: 300 },
+      xcut:  { id: "boss/xcut", once: 1, r: 300 },
+      slam:  { id: "boss/slam" },
+      leap:  { id: "boss/leap" },
+      sweep: { id: "boss/sweep" },
+      swipe: { id: "boss/swipe" },
+      rush:  { id: "boss/rush" },
+      stomp: { id: "boss/stomp1" },
+    },
   },
   titan: {
     tag: "2차 결전",
@@ -551,18 +563,18 @@ export const ARENA_BOSS = {
     // 기술마다 얹을 그림 (design/effects 시트에서 떼어 낸 것).
     // once 가 붙으면 자리마다가 아니라 한 판에 한 장만 얹는다.
     art: {
-      wake:  { id: "wake", once: 1 },
-      hail:  { id: "hail1" },
-      slam:  { id: "slam" },
-      leap:  { id: "leap" },
-      sweep: { id: "sweep" },
-      swipe: { id: "swipe" },
-      rush:  { id: "rush" },
-      gore:  { id: "gore" },
-      rift:  { id: "rift", once: 1, r: 260 },
-      pulse: { id: "pulse", once: 1, r: 380 },
-      track: { id: "track1" },
-      spin:  { id: "spin", once: 1, r: 430 },
+      wake:  { id: "titan/wake", once: 1 },
+      hail:  { id: "titan/hail1" },
+      slam:  { id: "titan/slam" },
+      leap:  { id: "titan/leap" },
+      sweep: { id: "titan/sweep" },
+      swipe: { id: "titan/swipe" },
+      rush:  { id: "titan/rush" },
+      gore:  { id: "titan/gore" },
+      rift:  { id: "titan/rift", once: 1, r: 260 },
+      pulse: { id: "titan/pulse", once: 1, r: 380 },
+      track: { id: "titan/track1" },
+      spin:  { id: "titan/spin", once: 1, r: 430 },
     },
   },
 };

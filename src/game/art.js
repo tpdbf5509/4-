@@ -2505,16 +2505,32 @@ function arenaPlayer(ctx, g, pi, time, dt) {
   }
   const x = p.vx + (p.adir > 0 ? lunge : -lunge);
   const y = p.vy + Math.abs(Math.sin(time * 3 + pi)) * -2;
-  // 발밑 고리 — 보스 뒤로 돌아가도 내가 어디 있는지 보이게
+  // 발밑 고리 — 내가 어디 있는지, 그리고 평타가 얼마나 찼는지
+  const mine = g.mySeat === pi;
+  const cdMax = arenaKit(pi).cd || 1;
+  const left = Math.max(0, p.acd || 0);
+  const full = 1 - Math.min(1, left / cdMax);
   ctx.save();
-  ctx.globalAlpha = g.mySeat === pi ? 0.95 : 0.5;
+  ctx.globalAlpha = mine ? 0.45 : 0.4;
   ctx.strokeStyle = col.light;
-  ctx.lineWidth = g.mySeat === pi ? 3 : 2;
+  ctx.lineWidth = mine ? 3 : 2;
   ctx.beginPath(); ctx.ellipse(p.vx, y + 3, 30, 11, 0, 0, Math.PI * 2); ctx.stroke();
-  if (g.mySeat === pi) {
-    ctx.globalAlpha = 0.25;
+  if (mine) {
+    ctx.globalAlpha = 0.22;
     ctx.fillStyle = col.key;
     ctx.beginPath(); ctx.ellipse(p.vx, y + 3, 30, 11, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // 차오르는 부분
+  ctx.globalAlpha = 0.95;
+  ctx.strokeStyle = left > 0 ? col.key : "#fff6dd";
+  ctx.lineWidth = mine ? 3.4 : 2.4;
+  ctx.beginPath();
+  ctx.ellipse(p.vx, y + 3, 30, 11, 0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * full);
+  ctx.stroke();
+  if (left <= 0 && mine) {                       // 준비됨 — 살짝 뛴다
+    ctx.globalAlpha = 0.35 + 0.25 * Math.sin(time * 7);
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(p.vx, y + 3, 36 + Math.sin(time * 7) * 2, 13, 0, 0, Math.PI * 2); ctx.stroke();
   }
   ctx.restore();
 
@@ -2706,6 +2722,39 @@ export function drawArena(ctx, g, time) {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.font = "13px 'Jua', sans-serif";
   ctx.fillStyle = "rgba(240,228,198,0.6)";
+  // 평타 게이지 — 화면 아래 가운데
+  if (g.mySeat >= 0 && (!g.seats || g.seats[g.mySeat]) && g.players[g.mySeat]) {
+    const me = g.players[g.mySeat];
+    const kit = arenaKit(g.mySeat);
+    const left = Math.max(0, me.acd || 0);
+    const full = 1 - Math.min(1, left / (kit.cd || 1));
+    const bw = 190, bx = CX - bw / 2, by = H - 56;
+    ctx.save();
+    ctx.fillStyle = "rgba(20,14,10,0.7)";
+    roundRect(ctx, bx - 46, by - 9, bw + 92, 26, 9); ctx.fill();
+    ctx.strokeStyle = "rgba(196,160,104,0.45)"; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.font = "13px 'Do Hyeon', sans-serif";
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillStyle = left > 0 ? "#a8987a" : P[g.mySeat].light;
+    ctx.fillText("평타", bx - 38, by + 4);
+    // 막대
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    roundRect(ctx, bx, by - 1, bw, 10, 5); ctx.fill();
+    ctx.fillStyle = left > 0 ? P[g.mySeat].key : "#ffe08a";
+    roundRect(ctx, bx, by - 1, Math.max(3, bw * full), 10, 5); ctx.fill();
+    if (left <= 0) {
+      ctx.globalAlpha = 0.55 + 0.35 * Math.sin(time * 7);
+      ctx.strokeStyle = "#ffe08a"; ctx.lineWidth = 1.6;
+      roundRect(ctx, bx - 1, by - 2, bw + 2, 12, 6); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = "right";
+    ctx.fillStyle = left > 0 ? "#cbbb96" : "#ffe08a";
+    ctx.font = "12.5px 'Jua', sans-serif";
+    ctx.fillText(left > 0 ? `${left.toFixed(1)}초` : "준비", bx + bw + 40, by + 4);
+    ctx.restore();
+  }
+
   const meK = g.mySeat >= 0 ? arenaKit(g.mySeat) : null;
   const how = meK ? ({ shot: "쏘기", bomb: "포격", chain: "연쇄", aura: "범위", field: "중력장",
     melee: "근접", aid: "보급" })[meK.mode] : "";

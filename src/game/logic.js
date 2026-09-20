@@ -1527,7 +1527,7 @@ export function packSnapshot(g) {
       sT: Math.round(g.arena.stT * 100) / 100,
       pp: g.players.map((p) => [Math.round(p.ax || 0), p.adir || 1, Math.round(p.ay || 0),
         Math.round((p.aswing || 0) * 100) / 100, Math.round((p.adown || 0) * 100) / 100,
-        p.askill ? 1 : 0, p.abuff > 0 ? 1 : 0]),
+        p.askill ? 1 : 0, p.abuff > 0 ? 1 : 0, Math.round(Math.max(0, p.acd || 0) * 100) / 100]),
     } : 0,
     lv2: g.leaveT > 0 ? (g.leave || []).map((v) => (v ? 1 : 0)) : 0,
     lt: Math.max(0, Math.round(g.leaveT * 10) / 10),
@@ -1585,6 +1585,7 @@ export function applySnapshot(g, s) {
       p.ax = row[0]; p.adir = row[1]; p.ay = row[2];
       p.aswing = row[3]; p.adown = row[4]; p.askill = row[5];
       p.abuff = row[6] ? Math.max(p.abuff || 0, 0.3) : 0;
+      p.acd = row[7] || 0;
     });
   } else g.arena = null;
   g.leave = s.lv2 ? s.lv2.map((v) => !!v) : g.seats.map(() => false);

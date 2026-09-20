@@ -23,6 +23,30 @@ export function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+/* 적 그림 — public/assets/enemies 의 도트 스프라이트.
+   h 는 적의 지역 좌표 높이이고, foot 은 발이 닿는 y 다(그림자 위치와 같다).
+   파일이 아직 안 왔거나 못 불러오면 예전처럼 손으로 그린다. */
+export const ENEMY_ART = {
+  grunt:  { src: "/assets/enemies/grunt.webp",  h: 31 },
+  rusher: { src: "/assets/enemies/rusher.webp", h: 28 },
+  armor:  { src: "/assets/enemies/armor.webp",  h: 33 },
+  boss:   { src: "/assets/enemies/boss.webp",   h: 34 },
+  titan:  { src: "/assets/enemies/titan.webp",  h: 62 },
+};
+const FOOT = 9;                       // 지역 좌표에서 발이 닿는 높이
+const spriteCache = {};
+
+function enemySprite(kind) {
+  if (!ENEMY_ART[kind] || typeof Image === "undefined") return null;
+  let im = spriteCache[kind];
+  if (im === undefined) {
+    im = spriteCache[kind] = new Image();
+    im.onerror = () => { spriteCache[kind] = null; };
+    im.src = ENEMY_ART[kind].src;
+  }
+  return im && im.complete && im.naturalWidth ? im : null;
+}
+
 export function shadow(ctx, x, y, rx, ry, alpha = 0.22) {
   ctx.fillStyle = `rgba(28,42,20,${alpha})`;
   ctx.beginPath();
@@ -1492,14 +1516,18 @@ export function drawEnemy(ctx, e, time) {
   const walk = e.freeze > 0 ? 0 : Math.sin(e.age * (e.type === "rusher" ? 16 : 9));
   const bob = e.freeze > 0 ? 0 : Math.abs(walk) * 1.6 * s;
 
-  shadow(ctx, e.x, e.y + 9 * s, 11 * s, 4.4 * s, 0.26 * grow);
+  const im = enemySprite(e.type);
+  const art = ENEMY_ART[e.type];
+  const spw = im ? art.h * (im.naturalWidth / im.naturalHeight) : 0;   // 지역 좌표 폭
+  shadow(ctx, e.x, e.y + 9 * s, (im ? spw * 0.34 : 11) * s, 4.4 * s, 0.26 * grow);
 
   ctx.save();
   ctx.globalAlpha = grow;
   ctx.translate(e.x, e.y - bob);
   ctx.scale(s * (0.55 + grow * 0.45) * (e.ax < 0 ? -1 : 1), s * (0.55 + grow * 0.45));
 
-  if (e.type === "grunt") drawOrc(ctx, walk, time);
+  if (im) ctx.drawImage(im, -spw / 2, FOOT - art.h, spw, art.h);
+  else if (e.type === "grunt") drawOrc(ctx, walk, time);
   else if (e.type === "rusher") drawGoblin(ctx, walk, time);
   else if (e.type === "armor") drawTroll(ctx, walk, time);
   else if (e.type === "titan") drawTitan(ctx, walk, time);

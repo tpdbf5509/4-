@@ -1166,7 +1166,12 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                 </div>
                 <div className={`skill ${ready ? "ready" : ""}`}>
                   <span className="skill-name">{SKILLS[i].name}</span>
-                  <span className="skill-state">{ready ? "준비됨" : `${Math.ceil(p.cd)}초`}</span>
+                  <span className="skill-state">
+                    {ready ? "준비됨"
+                      : hud.phase === "arena"
+                        ? `${Math.max(0, Math.round((1 - p.cd / SKILLS[i].cd) * 100))}%`
+                        : `${Math.ceil(p.cd)}초`}
+                  </span>
                   <span className="skill-bar">
                     <span style={{ width: `${ready ? 100 : (1 - p.cd / SKILLS[i].cd) * 100}%` }} />
                   </span>

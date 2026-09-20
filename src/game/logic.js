@@ -633,7 +633,7 @@ export function startArena(g, kind) {
     } else { p.ax = ARENA.bx; p.ay = ARENA.bfy + 150; }
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
     p.hold = []; p.vx = undefined; p.vy = undefined;    // 지난 판에 누르고 있던 건 잊는다
-    p.abuff = 0; p.abuffAmt = 0;
+    p.abuff = 0; p.abuffAmt = 0; p.abuffBy = -1;
     p.ahpMax = life; p.ahp = life; p.aout = 0;
   });
   g.shake = Math.max(g.shake, 0.6);
@@ -680,6 +680,18 @@ export function arenaMove(g, pi, act) {
   }
 }
 
+/* 결전장에서 스킬을 채운다 — 시간이 아니라 때린 만큼이다.
+   한 번 채우는 데 드는 피해는 보스 체력의 제 몫이 기준이라,
+   난이도와 인원이 달라져도 채우는 품이 비슷하게 남는다.
+   「빠른 준비」 퍽은 막대 자체를 줄이므로 그만큼 덜 때려도 찬다. */
+function arenaCharge(g, pi, dmg) {
+  const p = g.players[pi];
+  const a = g.arena;
+  if (!p || !a || !(p.cd > 0) || !(dmg > 0)) return;
+  const need = Math.max(1, (a.max / arenaCrew(g)) * ARENA.charge);
+  p.cd = Math.max(0, p.cd - (dmg / need) * SKILLS[pi].cd);
+}
+
 /* 병과마다 다른 공격 — 사거리 안이면 쏘고, 맞으면 병과의 효과가 보스에게 남는다 */
 function arenaDamage(g, pi, raw, opt) {
   const a = g.arena;
@@ -697,6 +709,13 @@ function arenaDamage(g, pi, raw, opt) {
   a.jolt = 0.16;
   a.combo += 1;
   a.comboT = ARENA.comboT;
+  if (!(opt && opt.skill)) {
+    arenaCharge(g, pi, dmg);
+    // 보급소는 때리지 못하니, 제가 밀어 준 사람이 낸 피해로 찬다
+    if (p && p.abuff > 0 && p.abuffBy >= 0 && p.abuffBy !== pi) {
+      arenaCharge(g, p.abuffBy, dmg * ARENA.aidCut);
+    }
+  }
   const off = opt && opt.off ? opt.off : 0;
   fx(g, { kind: "dmg", x: bossX(g) + off + (Math.random() - 0.5) * 70,
     y: bossTop(g) + 40 + (Math.random() - 0.5) * 50,
@@ -739,7 +758,8 @@ function arenaImpact(g, s) {
   const a = g.arena;
   if (!a || a.hp <= 0) return;
   const big = s.big ? 1 : 0;
-  arenaDamage(g, pi, s.dmg, { off: mode === "bomb" ? 0 : (Math.random() - 0.5) * 60 });
+  arenaDamage(g, pi, s.dmg, { skill: big,
+    off: mode === "bomb" ? 0 : (Math.random() - 0.5) * 60 });
   arenaMark(g, pi, kit);
   const hx = bossX(g) + (Math.random() - 0.5) * 40, hy = bossTop(g) + 60;
   if (mode === "bomb") {
@@ -793,7 +813,7 @@ function arenaFire(g, pi, mul, label) {
     g.players.forEach((q, i) => {
       if (!g.seats[i]) return;
       if (arenaNear(p.ax, py, q.ax, q.ay || ARENA.bfy) > rng) return;
-      q.abuff = kit.buffT * mul; q.abuffAmt = kit.buff * (big ? 1.6 : 1);
+      q.abuff = kit.buffT * mul; q.abuffAmt = kit.buff * (big ? 1.6 : 1); q.abuffBy = pi;
       n += 1;
       // 힘만 밀어 주는 게 아니라 다친 곳도 여민다
       const up = arenaMend(g, i, (q.ahpMax || 0) * (big ? 0.35 : 0.12));
@@ -823,7 +843,7 @@ function arenaFire(g, pi, mul, label) {
 
   if (kit.mode === "melee") {                    // 성기사 — 붙어서 벤다. 스킬은 검기가 날아간다
     const side = p.ax < bx2 ? 1 : -1;
-    arenaDamage(g, pi, dmg, { off: -side * 40 });
+    arenaDamage(g, pi, dmg, { skill: big, off: -side * 40 });
     arenaMark(g, pi, kit);
     fx(g, { kind: "aura", x0: p.ax + side * 26, y0: py - 52, x1: bx2 - side * 30, y1: by2,
       r: big ? 92 : 48, color: kit.col, t: big ? 0.4 : 0.3, life: big ? 0.4 : 0.3, snd: "hit" });
@@ -844,7 +864,7 @@ function arenaFire(g, pi, mul, label) {
     fx(g, { kind: "cone", x: p.ax + Math.cos(ang) * 14, y: py - 42 + Math.sin(ang) * 10,
       a: ang, r: rng * (big ? 1.25 : 1), half: big ? 0.6 : 0.4, t: 0.45, life: 0.45, snd: "flame" });
     fx(g, { kind: "firering", x: p.ax, y: py - 10, r: rng, t: 0.5, life: 0.5 });
-    arenaDamage(g, pi, dmg, { off: (Math.random() - 0.5) * 60 });
+    arenaDamage(g, pi, dmg, { skill: big, off: (Math.random() - 0.5) * 60 });
     arenaMark(g, pi, kit);
     fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 60, y: by2 + 8, t: 0.5, life: 0.5 });
     if (big) {                                   // 화염 폭풍 — 보스 자리가 통째로 탄다
@@ -860,7 +880,7 @@ function arenaFire(g, pi, mul, label) {
     fx(g, { kind: "hole", x: bx2, y: by2 + 12, r: big ? 210 : 130,
       t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7, color: kit.col, snd: "pull" });
     fx(g, { kind: "vortex", x: bx2, y: by2 + 12, r: 120, t: 0.8, life: 0.8 });
-    arenaDamage(g, pi, dmg, {});
+    arenaDamage(g, pi, dmg, { skill: big });
     arenaMark(g, pi, kit);
     if (big) fx(g, { kind: "nova", x: bx2, y: by2 + 12, r: 220, color: kit.col, n: 14,
       t: 0.8, life: 0.8 });
@@ -876,7 +896,7 @@ function arenaFire(g, pi, mul, label) {
       fx(g, { kind: "burst", x: hx, y: hy, r: 26, color: "#fff4c2", n: 7, t: 0.34, life: 0.34 });
       x0 = hx; y0 = hy;
     });
-    arenaDamage(g, pi, dmg, {});
+    arenaDamage(g, pi, dmg, { skill: big });
     arenaMark(g, pi, kit);
     (a.mobs || []).slice(0, (kit.chain || 3) - 1).forEach((m) => { m.hp -= dmg * 0.5; });
     if (big) {                                   // 낙뢰 — 하늘에서 세 줄기
@@ -945,7 +965,10 @@ export function arenaSkill(g, pi) {
   const p = g.players[pi];
   const a = g.arena;
   if (!p || !a || a.intro > 0) return;
-  if (p.cd > 0) return say(g, p.ax, ARENA.floor - 96, `${SKILLS[pi].name} ${Math.ceil(p.cd)}초`, "#f0dcb4");
+  if (p.cd > 0) {                                // 결전장에서는 때린 만큼 차니 남은 초가 아니라 채운 몫을 알린다
+    const pct = Math.max(0, Math.round((1 - p.cd / SKILLS[pi].cd) * 100));
+    return say(g, p.ax, ARENA.floor - 96, `${SKILLS[pi].name} ${pct}%`, "#f0dcb4");
+  }
   if (p.adown > 0 || p.aout > 0) return;
   // 평타와 같다 — 닿지 않으면 쿨타임을 쓰지 않는다
   if (!arenaCanHit(g, pi)) {
@@ -1410,6 +1433,7 @@ export function stepArena(g, dt) {
   if (a.burn > 0) {
     a.burn -= dt;
     a.hp = Math.max(0, a.hp - a.burnDps * dt);
+    arenaCharge(g, a.burnBy || 0, a.burnDps * dt);      // 남겨 둔 불도 때린 값이다
     if (Math.random() < dt * 6) fx(g, { kind: "flame", x: bossX(g) + (Math.random() - 0.5) * 70,
       y: bossTop(g) + 40 + Math.random() * 50, t: 0.4, life: 0.4 });
     if (a.hp <= 0 && !a.outro) arenaDown(g, a.burnBy || 0);
@@ -1417,6 +1441,7 @@ export function stepArena(g, dt) {
   if (a.poison > 0) {
     a.poison -= dt;
     a.hp = Math.max(0, a.hp - a.poisonDps * dt);          // 장갑 무시
+    arenaCharge(g, a.poisonBy || 0, a.poisonDps * dt);
     if (Math.random() < dt * 5) fx(g, { kind: "fume", x: bossX(g) + (Math.random() - 0.5) * 70,
       y: bossTop(g) + 40 + Math.random() * 50, t: 0.6, life: 0.6, color: "rgba(150,220,90,0.55)" });
     if (a.hp <= 0 && !a.outro) arenaDown(g, a.poisonBy || 0);
@@ -1434,8 +1459,8 @@ export function stepArena(g, dt) {
 
   g.players.forEach((p, i) => {
     if (g.seats[i]) arenaWalk(g, i, dt);
-    if (p.abuff > 0) p.abuff -= dt;
-    if (p.cd > 0) p.cd -= dt;
+    if (p.abuff > 0) { p.abuff -= dt; if (p.abuff <= 0) p.abuffBy = -1; }
+    // 결전장에서는 스킬이 시간으로 차지 않는다 — arenaCharge 가 때린 만큼 채운다
     if (p.acd > 0) p.acd -= dt;
     if (p.adodge > 0) p.adodge -= dt;
     if (p.adown > 0) p.adown -= dt;
@@ -1933,7 +1958,8 @@ export function stepVisual(g, dt) {
     p.cy += (s.y - p.cy) * kPos;
     p.cr += (range - p.cr) * kRad;
     if (p.jolt > 0) p.jolt -= dt;
-    if (p.cd > 0) p.cd -= dt;
+    // 결전장에서는 때려야 차니, 손님 화면에서도 시간으로 줄이지 않는다
+    if (p.cd > 0 && g.phase !== "arena") p.cd -= dt;
   });
 
   if (g.phase === "arena") {

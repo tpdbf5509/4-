@@ -618,6 +618,7 @@ export function startArena(g, kind) {
       k++;
     } else { p.ax = ARENA.bx; p.ay = ARENA.bfy + 150; }
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
+    p.hold = []; p.vx = undefined; p.vy = undefined;    // 지난 판에 누르고 있던 건 잊는다
   });
   g.shake = Math.max(g.shake, 0.6);
   fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: kind === "titan" ? "#ff7a6a" : "#ffb06a",
@@ -627,13 +628,38 @@ export function startArena(g, kind) {
 }
 
 /* 결전장에서의 조작 */
+/* 결전장에서는 누르고 있는 방향을 상태로 받아 매 프레임 이어서 움직인다 */
+export function applyHold(g, pi, dirs) {
+  const p = g.players[pi];
+  if (!p) return;
+  p.hold = Array.isArray(dirs) ? dirs.slice(0, 4) : [];
+}
+
+// 누르고 있는 만큼 걸어간다 — 방장과 손님 화면 양쪽에서 같은 식으로 돈다
+export function arenaWalk(g, pi, dt) {
+  const p = g.players[pi];
+  if (!p || !p.hold || !p.hold.length || p.adown > 0) return;
+  let dx = 0, dy = 0;
+  p.hold.forEach((d) => {
+    if (d === "left") dx -= 1;
+    else if (d === "right") dx += 1;
+    else if (d === "up") dy -= 1;
+    else if (d === "down") dy += 1;
+  });
+  if (!dx && !dy) return;
+  const len = Math.hypot(dx, dy) || 1;
+  if (dx) p.adir = dx < 0 ? -1 : 1;
+  p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + (dx / len) * ARENA.spd * dt));
+  p.ay = Math.max(ARENA.top, Math.min(ARENA.bottom, (p.ay || ARENA.bfy) + (dy / len) * ARENA.spdY * dt));
+}
+
 export function arenaMove(g, pi, act) {
   const p = g.players[pi];
   if (!p || p.adown > 0) return;
   if (act === "left" || act === "right") {
     const d = act === "left" ? -1 : 1;
     p.adir = d;
-    p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + d * 26));
+    p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + d * ARENA.step));
   } else if (act === "up" || act === "down") {
     const d = act === "up" ? -1 : 1;
     p.ay = Math.max(ARENA.top, Math.min(ARENA.bottom, (p.ay || ARENA.bfy + 150) + d * ARENA.stepY));
@@ -805,6 +831,7 @@ export function stepArena(g, dt) {
   if (a.comboT > 0) { a.comboT -= dt; if (a.comboT <= 0) a.combo = 0; }
 
   g.players.forEach((p, i) => {
+    if (g.seats[i]) arenaWalk(g, i, dt);
     if (p.cd > 0) p.cd -= dt;
     if (p.acd > 0) p.acd -= dt;
     if (p.adodge > 0) p.adodge -= dt;
@@ -1290,6 +1317,8 @@ export function stepVisual(g, dt) {
     if (p.jolt > 0) p.jolt -= dt;
     if (p.cd > 0) p.cd -= dt;
   });
+
+  if (g.phase === "arena" && g.mySeat >= 0) arenaWalk(g, g.mySeat, dt);
 
   g.towers.forEach((t) => {
     if (!t) return;

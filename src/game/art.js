@@ -2448,30 +2448,39 @@ function arenaBoss(ctx, g, a, time) {
   ctx.restore();
 }
 
-function arenaPlayer(ctx, g, pi, time) {
+function arenaPlayer(ctx, g, pi, time, dt) {
   const p = g.players[pi];
   const im = classArt(pi);
   const col = P[pi];
   const down = p.adown > 0;
   const swing = p.aswing > 0 ? p.aswing : 0;
   const lunge = swing > 0 ? Math.sin((1 - swing / ARENA.swing) * Math.PI) * 26 : 0;
-  const x = p.ax + (p.adir > 0 ? lunge : -lunge);
-  const y = (p.ay || ARENA.bfy) + Math.abs(Math.sin(time * 3 + pi)) * -2;
+  // 내 캐릭터는 바로, 다른 사람은 부드럽게 따라온다 (자리 소식이 초당 열두 번만 오니까)
+  const tx = p.ax, ty = p.ay || ARENA.bfy;
+  if (p.vx === undefined || g.mySeat === pi || Math.hypot(p.vx - tx, p.vy - ty) > 260) {
+    p.vx = tx; p.vy = ty;
+  } else {
+    const k = 1 - Math.exp(-dt * 13);
+    p.vx += (tx - p.vx) * k;
+    p.vy += (ty - p.vy) * k;
+  }
+  const x = p.vx + (p.adir > 0 ? lunge : -lunge);
+  const y = p.vy + Math.abs(Math.sin(time * 3 + pi)) * -2;
   // 발밑 고리 — 보스 뒤로 돌아가도 내가 어디 있는지 보이게
   ctx.save();
   ctx.globalAlpha = g.mySeat === pi ? 0.95 : 0.5;
   ctx.strokeStyle = col.light;
   ctx.lineWidth = g.mySeat === pi ? 3 : 2;
-  ctx.beginPath(); ctx.ellipse(p.ax, y + 3, 30, 11, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(p.vx, y + 3, 30, 11, 0, 0, Math.PI * 2); ctx.stroke();
   if (g.mySeat === pi) {
     ctx.globalAlpha = 0.25;
     ctx.fillStyle = col.key;
-    ctx.beginPath(); ctx.ellipse(p.ax, y + 3, 30, 11, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(p.vx, y + 3, 30, 11, 0, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 
   ctx.save();
-  shadow(ctx, p.ax, y + 4, 26, 8, 0.3);
+  shadow(ctx, p.vx, y + 4, 26, 8, 0.3);
   ctx.translate(x, y);
   if (down) { ctx.rotate(-0.9 * p.adir); ctx.translate(0, 14); ctx.globalAlpha = 0.75; }
   ctx.scale(p.adir < 0 ? -1 : 1, 1);
@@ -2491,9 +2500,9 @@ function arenaPlayer(ctx, g, pi, time) {
   const nm = (g.names && g.names[pi]) || `${pi + 1}P`;
   const wdt = ctx.measureText(nm).width + 16;
   ctx.fillStyle = "rgba(20,14,10,0.7)";
-  roundRect(ctx, p.ax - wdt / 2, y + 6, wdt, 17, 8); ctx.fill();
+  roundRect(ctx, p.vx - wdt / 2, y + 6, wdt, 17, 8); ctx.fill();
   ctx.fillStyle = col.light;
-  ctx.fillText(nm, p.ax, y + 15);
+  ctx.fillText(nm, p.vx, y + 15);
   ctx.restore();
 
   // 휘두르기 — 커다란 베기 자국
@@ -2502,7 +2511,7 @@ function arenaPlayer(ctx, g, pi, time) {
     const a0 = Math.min(1, k * 2.2), fade = Math.max(0, 1 - Math.max(0, k - 0.45) / 0.55);
     ctx.save();
     ctx.globalAlpha = 0.9 * fade;
-    ctx.translate(p.ax, y - 58);
+    ctx.translate(p.vx, y - 58);
     ctx.scale(p.adir < 0 ? -1 : 1, 1);
     const R = p.askill ? 300 : 210;
     ctx.strokeStyle = p.askill ? col.light : "#fff6e2";
@@ -2521,7 +2530,7 @@ function arenaPlayer(ctx, g, pi, time) {
     ctx.save();
     ctx.globalAlpha = Math.min(0.6, p.adodge);
     ctx.strokeStyle = "#9fe8ff"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(p.ax, y - 30, 26, 40, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(p.vx, y - 30, 26, 40, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 }
@@ -2529,6 +2538,9 @@ function arenaPlayer(ctx, g, pi, time) {
 export function drawArena(ctx, g, time) {
   const a = g.arena;
   if (!a) return;
+  const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
+  const dt = Math.min(0.06, Math.max(0, now - (g.arenaT || now)));
+  g.arenaT = now;
   // 바탕
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, "#22301c");
@@ -2555,10 +2567,10 @@ export function drawArena(ctx, g, time) {
   // 앞뒤로 겹치게 — 보스보다 위에 선 사람은 뒤에 가린다
   const order = [{ y: ARENA.bfy, boss: 1 }];
   g.players.forEach((p, i) => {
-    if (!g.seats || g.seats[i]) order.push({ y: p.ay || ARENA.bfy, pi: i });
+    if (!g.seats || g.seats[i]) order.push({ y: p.vy === undefined ? (p.ay || ARENA.bfy) : p.vy, pi: i });
   });
   order.sort((u, v) => u.y - v.y);
-  order.forEach((o) => { if (o.boss) arenaBoss(ctx, g, a, time); else arenaPlayer(ctx, g, o.pi, time); });
+  order.forEach((o) => { if (o.boss) arenaBoss(ctx, g, a, time); else arenaPlayer(ctx, g, o.pi, time, dt); });
 
   g.fx.forEach((f) => drawFx(ctx, f));
   arenaBar(ctx, g, a);

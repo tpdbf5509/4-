@@ -7,7 +7,7 @@ import {
 } from "./game/world.js";
 import {
   step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
-  applyReward, applyLeave, startPrep,
+  applyReward, applyLeave, applyHold, startPrep,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
@@ -488,6 +488,12 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       else room?.send("input", { cls: mySeat, kind, dir });
       return;
     }
+    if (kind === "hold") {
+      // 결전장 — 누르고 있는 방향을 그대로 넘긴다
+      applyHold(g, mySeat, dir);
+      if (!isHost) room?.send("input", { cls: mySeat, kind, dir });
+      return;
+    }
     if (kind === "reward") {
       if (g.phase !== "reward") return;
       sfx.unlock();
@@ -520,8 +526,12 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     let holdT = 0;
     let timer = null;
 
+    const arena = () => G.current && G.current.phase === "arena";
+    const sendHold = () => act("hold", held.slice());
+
     const tick = () => {
       if (!held.length) return;
+      if (arena()) return;                 // 결전장은 누르고 있는 동안 알아서 걷는다
       holdT -= 0.05;
       if (holdT <= 0) { act("move", held[held.length - 1]); holdT = 0.11; }
     };
@@ -535,8 +545,9 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       e.preventDefault();
       if (e.repeat) return;
       if (dir) {
-        act("move", dir);
         if (!held.includes(dir)) held.push(dir);
+        if (arena()) { sendHold(); return; }
+        act("move", dir);
         holdT = 0.24;
         if (!timer) timer = setInterval(tick, 50);
       } else if (isBuild) act("build");
@@ -548,9 +559,14 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       if (!dir) return;
       const i = held.indexOf(dir);
       if (i >= 0) held.splice(i, 1);
+      if (arena()) sendHold();
       if (!held.length && timer) { clearInterval(timer); timer = null; }
     }
-    function onBlur() { held.length = 0; if (timer) { clearInterval(timer); timer = null; } }
+    function onBlur() {
+      held.length = 0;
+      if (arena()) sendHold();
+      if (timer) { clearInterval(timer); timer = null; }
+    }
 
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
@@ -633,6 +649,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
         const g = G.current;
         if (!g.seats[d.cls]) return;
         if (d.kind === "reward") return applyReward(g, d.cls, d.dir);
+        if (d.kind === "hold") return applyHold(g, d.cls, d.dir);
         if (d.kind === "leave") return applyLeave(g, d.cls, d.dir);
         if (g.phase !== "prep" && g.phase !== "wave") return;
         if (g.paused) return;

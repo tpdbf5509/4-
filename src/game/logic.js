@@ -1174,11 +1174,25 @@ function arenaBegin(g, pat) {
     if (lx !== a.x) a.dir = lx < a.x ? -1 : 1;
   } else if (pat.id === "rush") {                 // 한 사람 쪽으로 일직선
     const c = spot();
+    // 그 방향으로 판 끝까지 얼마나 달릴 수 있는지 — 모자라면 돌진이 돌진 같지 않다
+    const runTo = (ux, uy) => {
+      let t = ARENA_RUSH.len;
+      if (ux > 0) t = Math.min(t, (ARENA.right - a.x) / ux);
+      else if (ux < 0) t = Math.min(t, (ARENA.left - a.x) / ux);
+      const vy = uy * ARENA.squash;
+      if (vy > 0) t = Math.min(t, (ARENA.bottom - 30 - a.y) / vy);
+      else if (vy < 0) t = Math.min(t, (ARENA.top + 40 - a.y) / vy);
+      return Math.max(0, t);
+    };
     const dx = c.x - a.x, dy = (c.y - a.y) / ARENA.squash;
     const len = Math.max(1, Math.hypot(dx, dy));
-    const ex = Math.max(ARENA.left, Math.min(ARENA.right, a.x + (dx / len) * ARENA_RUSH.len));
-    const ey = Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30,
-      a.y + (dy / len) * ARENA_RUSH.len * ARENA.squash));
+    let ux = dx / len, uy = dy / len;
+    let run = runTo(ux, uy);
+    if (run < ARENA_RUSH.least) {                 // 벽이 가까우면 가로로 틀어 자리를 낸다
+      ux = a.x < CX ? 1 : -1; uy = 0;
+      run = runTo(ux, uy);
+    }
+    const ex = a.x + ux * run, ey = a.y + uy * ARENA.squash * run;
     a.zone = [{ k: "lane", x: a.x, y: a.y, ex, ey,
       w: a.type === "titan" ? ARENA_RUSH.halfTitan : ARENA_RUSH.half }];
     a.rush = { x1: ex, y1: ey, go: 0 };

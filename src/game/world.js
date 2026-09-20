@@ -502,7 +502,7 @@ export const ARENA_PATTERNS = [
   { id: "stomp", name: "발구르기", tell: 1.35, dmg: 0.8, note: "세 곳을 동시에 짓밟는다" },
   { id: "swipe", name: "후려치기", tell: 0.75, dmg: 0.6, note: "곁에 붙은 것을 팔로 후려친다" },
   { id: "leap",  name: "내려찍기", tell: 1.5,  dmg: 1.1, note: "뛰어올라 한 곳에 떨어진다" },
-  { id: "rush",  name: "돌진",     tell: 1.6,  dmg: 0.95, note: "일직선으로 밀고 들어온다" },
+  { id: "rush",  name: "돌진",     tell: 1.1,  dmg: 0.95, note: "일직선으로 밀고 들어온다" },
   // 십자로 한 번 가르고, 쉬지 않고 엇갈려 한 번 더 가른다. 두 번째는 따로 뽑히지 않는다.
   { id: "cross", name: "십자 가르기",   tell: 1.05, dmg: 0.85, next: "xcut",
     note: "가로세로로 가른다 — 네 귀퉁이로" },
@@ -513,7 +513,7 @@ export const PAT_BY_ID = Object.fromEntries(ARENA_PATTERNS.map((p) => [p.id, p])
 
 /* 돌진이 훑는 길이 · 뛰어오르는 높이 */
 export const ARENA_LEAP = { r: 210, rTitan: 245, up: 190 };
-export const ARENA_RUSH = { len: 460, half: 78, halfTitan: 92, spd: 780 };
+export const ARENA_RUSH = { len: 460, half: 78, halfTitan: 92, spd: 1250, least: 340 };
 /* 가르기 띠 — 보스를 지나 판 끝까지 뻗는다 */
 export const ARENA_CUT = { reach: 900, half: 66, halfTitan: 80 };
 

@@ -1,6 +1,6 @@
 import {
   W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY,
-  castleTier, castleCost, CASTLE_TIERS, SPOTS, CLASSES, ARENA, ARENA_PATTERNS,
+  castleTier, castleCost, CASTLE_TIERS, SPOTS, CLASSES, ARENA, ARENA_PATTERNS, arenaKit, arenaRange,
 } from "./world.js";
 
 /* ── 그리기 도우미 ──────────────────────────────────────── */
@@ -2134,6 +2134,45 @@ export function drawFx(ctx, f) {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  } else if (k === "shot") {
+    // 병과가 쏜 것이 날아간다
+    const q = 1 - f.t / f.life;
+    const x = f.x0 + (f.x1 - f.x0) * q, y = f.y0 + (f.y1 - f.y0) * q;
+    const ang = Math.atan2(f.y1 - f.y0, f.x1 - f.x0);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    const col = f.color || "#f0e4c6";
+    if (f.style === "arrow") {
+      ctx.strokeStyle = col; ctx.lineWidth = 2.6; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(7, 0); ctx.stroke();
+      ctx.fillStyle = "#fff6dd";
+      ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(4, -3.4); ctx.lineTo(4, 3.4); ctx.closePath(); ctx.fill();
+    } else if (f.style === "slug") {
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = col; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(-34, 0); ctx.lineTo(10, 0); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.fillStyle = "#fff6dd";
+      ctx.beginPath(); ctx.ellipse(8, 0, 6, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (f.style === "shell") {
+      const lift = Math.sin(q * Math.PI) * 42;               // 포물선으로 날아간다
+      ctx.translate(0, -lift);
+      ctx.fillStyle = "#4a3a28";
+      ctx.beginPath(); ctx.arc(0, 0, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(-1.5, -1.5, 4, 0, Math.PI * 2); ctx.fill();
+    } else if (f.style === "acid") {
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.ellipse(0, 0, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.ellipse(-9, 0, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(9, 0); ctx.lineTo(0, -5); ctx.lineTo(-7, 0); ctx.lineTo(0, 5);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
   } else if (k === "slash") {
     const p = 1 - f.t / f.life;
     ctx.save();
@@ -2505,26 +2544,42 @@ function arenaPlayer(ctx, g, pi, time, dt) {
   ctx.fillText(nm, p.vx, y + 15);
   ctx.restore();
 
-  // 휘두르기 — 커다란 베기 자국
+  // 공격 동작 — 붙어서 베는 병과만 큰 자국을 남기고, 나머지는 쏘는 티만 낸다
   if (swing > 0) {
+    const kit = arenaKit(pi);
     const k = 1 - swing / (p.askill ? ARENA.swing * 1.6 : ARENA.swing);
-    const a0 = Math.min(1, k * 2.2), fade = Math.max(0, 1 - Math.max(0, k - 0.45) / 0.55);
-    ctx.save();
-    ctx.globalAlpha = 0.9 * fade;
-    ctx.translate(p.vx, y - 58);
-    ctx.scale(p.adir < 0 ? -1 : 1, 1);
-    const R = p.askill ? 300 : 210;
-    ctx.strokeStyle = p.askill ? col.light : "#fff6e2";
-    ctx.lineWidth = p.askill ? 26 : 15;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.arc(30, -20, R, -1.25 + a0 * 0.5, -1.25 + a0 * 0.5 + 0.95);
-    ctx.stroke();
-    ctx.globalAlpha = 0.55 * fade;
-    ctx.strokeStyle = col.key;
-    ctx.lineWidth = p.askill ? 10 : 5;
-    ctx.stroke();
-    ctx.restore();
+    const fade = Math.max(0, 1 - Math.max(0, k - 0.45) / 0.55);
+    if (kit.mode === "melee") {
+      const a0 = Math.min(1, k * 2.2);
+      ctx.save();
+      ctx.globalAlpha = 0.9 * fade;
+      ctx.translate(p.vx, y - 58);
+      ctx.scale(p.adir < 0 ? -1 : 1, 1);
+      const R = p.askill ? 200 : 140;
+      ctx.strokeStyle = p.askill ? col.light : "#fff6e2";
+      ctx.lineWidth = p.askill ? 22 : 13;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(24, -16, R, -1.25 + a0 * 0.5, -1.25 + a0 * 0.5 + 0.95);
+      ctx.stroke();
+      ctx.globalAlpha = 0.55 * fade;
+      ctx.strokeStyle = col.key;
+      ctx.lineWidth = p.askill ? 9 : 5;
+      ctx.stroke();
+      ctx.restore();
+    } else if (kit.mode !== "aid") {
+      // 쏘는 쪽으로 짧은 불빛
+      const ang = Math.atan2((ARENA.bfy - (p.vy || y)) / ARENA.squash, ARENA.bx - p.vx);
+      ctx.save();
+      ctx.globalAlpha = 0.85 * fade;
+      ctx.translate(p.vx + Math.cos(ang) * 16, y - 50 + Math.sin(ang) * 10);
+      ctx.rotate(ang);
+      ctx.fillStyle = kit.col || col.light;
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(26, -7); ctx.lineTo(34, 0); ctx.lineTo(26, 7);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
   }
   if (p.adodge > 0) {
     ctx.save();
@@ -2563,6 +2618,42 @@ export function drawArena(ctx, g, time) {
   ctx.restore();
 
   arenaLeaves(ctx, time);
+
+  // 내 공격 범위 — 보스가 들어오면 또렷해진다 (보스의 붉은 자리와 헷갈리지 않게 병과 색)
+  const meI = g.mySeat;
+  if (meI >= 0 && (!g.seats || g.seats[meI]) && g.players[meI]) {
+    const me = g.players[meI];
+    const kit = arenaKit(meI);
+    const mx = me.vx === undefined ? me.ax : me.vx;
+    const my = me.vy === undefined ? (me.ay || ARENA.bfy) : me.vy;
+    const rr = arenaRange(meI);
+    const far = Math.hypot(ARENA.bx - mx, (ARENA.bfy - my) / ARENA.squash);
+    const on = far <= rr && kit.mode !== "aid";
+    ctx.save();
+    ctx.translate(mx, my);
+    ctx.scale(1, ARENA.squash);
+    ctx.globalAlpha = on ? 0.16 : 0.07;
+    ctx.fillStyle = P[meI].key;
+    ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = on ? 0.95 : 0.4;
+    ctx.strokeStyle = P[meI].light;
+    ctx.lineWidth = on ? 2.4 : 1.6;
+    ctx.setLineDash(on ? [] : [9, 8]);
+    ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    if (on) {
+      // 사거리 안이라는 표시 — 보스 발밑에 같은 색 고리
+      ctx.save();
+      ctx.translate(ARENA.bx, ARENA.bfy);
+      ctx.scale(1, ARENA.squash);
+      ctx.globalAlpha = 0.5 + 0.2 * Math.sin(time * 6);
+      ctx.strokeStyle = P[meI].light; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, 96, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   arenaZone(ctx, a, time);
   // 앞뒤로 겹치게 — 보스보다 위에 선 사람은 뒤에 가린다
   const order = [{ y: ARENA.bfy, boss: 1 }];
@@ -2574,6 +2665,28 @@ export function drawArena(ctx, g, time) {
 
   g.fx.forEach((f) => drawFx(ctx, f));
   arenaBar(ctx, g, a);
+
+  // 보스에게 걸린 것 — 화상·독·서리·부식
+  const marks = [];
+  if (a.burn > 0) marks.push(["화상", "#ef8177"]);
+  if (a.poison > 0) marks.push(["중독", "#bcdd71"]);
+  if (a.slow > 0) marks.push(["둔화", "#7cb6ea"]);
+  if (a.shred > 0) marks.push(["부식", "#78d5bf"]);
+  if (marks.length) {
+    ctx.save();
+    ctx.font = "12px 'Jua', sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    let x = CX - (marks.length * 62) / 2 + 31;
+    marks.forEach(([t2, c]) => {
+      ctx.fillStyle = "rgba(20,14,10,0.75)";
+      roundRect(ctx, x - 27, 220, 54, 20, 7); ctx.fill();
+      ctx.strokeStyle = c; ctx.lineWidth = 1.2; ctx.stroke();
+      ctx.fillStyle = c;
+      ctx.fillText(t2, x, 231);
+      x += 62;
+    });
+    ctx.restore();
+  }
 
   // 연타
   if (a.combo > 1) {
@@ -2593,7 +2706,13 @@ export function drawArena(ctx, g, time) {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.font = "13px 'Jua', sans-serif";
   ctx.fillStyle = "rgba(240,228,198,0.6)";
-  ctx.fillText("W A S D · 방향키로 움직이기 · 스페이스 공격 · 시프트 스킬", CX, H - 22);
+  const meK = g.mySeat >= 0 ? arenaKit(g.mySeat) : null;
+  const how = meK ? ({ shot: "쏘기", bomb: "포격", chain: "연쇄", aura: "범위", field: "중력장",
+    melee: "근접", aid: "보급" })[meK.mode] : "";
+  const cls = g.mySeat >= 0 && CLASSES[g.mySeat] ? CLASSES[g.mySeat].name : "";
+  ctx.fillText(meK
+    ? `W A S D · 방향키로 움직이기 · 스페이스 ${cls} ${how} · 시프트 스킬`
+    : "W A S D · 방향키로 움직이기 · 스페이스 공격 · 시프트 스킬", CX, H - 22);
   ctx.restore();
 
   if (g.banner) drawBanner(ctx, g.banner);

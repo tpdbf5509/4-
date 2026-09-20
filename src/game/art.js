@@ -2334,6 +2334,8 @@ export function drawBanner(ctx, b) {
 /* ── 보스 결전 화면 ──────────────────────────────────────
    위쪽 가운데에 보스, 아래에 수비대. 맨 위에 이름과 체력 막대. */
 
+/* 결전장에 서는 모습은 시트의 '인게임 스타일' 그림을 쓴다.
+   대기실 카드에 쓰는 큰 그림(-tower.webp)과는 따로다. */
 const charCache = {};
 function classArt(i) {
   if (typeof Image === "undefined") return null;
@@ -2343,7 +2345,7 @@ function classArt(i) {
   if (im === undefined) {
     im = charCache[id] = new Image();
     im.onerror = () => { charCache[id] = null; };
-    im.src = `/assets/characters/${id}-tower.webp`;
+    im.src = `/assets/characters/${id}-chibi.webp`;
   }
   return im && im.complete && im.naturalWidth ? im : null;
 }

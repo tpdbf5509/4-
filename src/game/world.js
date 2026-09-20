@@ -504,9 +504,9 @@ export const ARENA_PATTERNS = [
   { id: "leap",  name: "내려찍기", tell: 1.5,  dmg: 1.1, note: "뛰어올라 한 곳에 떨어진다" },
   { id: "rush",  name: "돌진",     tell: 1.6,  dmg: 0.95, note: "일직선으로 밀고 들어온다" },
   // 십자로 한 번 가르고, 쉬지 않고 엇갈려 한 번 더 가른다. 두 번째는 따로 뽑히지 않는다.
-  { id: "cross", name: "십자 가르기",   tell: 1.5,  dmg: 0.85, next: "xcut",
+  { id: "cross", name: "십자 가르기",   tell: 1.05, dmg: 0.85, next: "xcut",
     note: "가로세로로 가른다 — 네 귀퉁이로" },
-  { id: "xcut",  name: "엇갈려 가르기", tell: 0.85, dmg: 0.85, chain: 1,
+  { id: "xcut",  name: "엇갈려 가르기", tell: 0.58, dmg: 0.85, chain: 1,
     note: "곧바로 비스듬히 가른다 — 아까 안전하던 자리가 위험해진다" },
 ];
 export const PAT_BY_ID = Object.fromEntries(ARENA_PATTERNS.map((p) => [p.id, p]));

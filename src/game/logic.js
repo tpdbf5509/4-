@@ -913,10 +913,23 @@ function arenaFire(g, pi, mul, label) {
   arenaShoot(g, pi, kit, dmg, kit.mode, big ? 1 : 0);
 }
 
+/* 지금 자리에서 보스에게 닿는지. 보급은 아군에게 거는 것이라 이 판정을 받지 않는다. */
+function arenaCanHit(g, pi) {
+  const p = g.players[pi];
+  const a = g.arena;
+  if (!p || !a) return false;
+  if (arenaKit(pi).mode === "aid") return true;
+  return arenaNear(p.ax, p.ay || ARENA.bfy, a.x, a.y) <= arenaRange(pi);
+}
+
 export function arenaAttack(g, pi) {
   const p = g.players[pi];
   if (!p || p.aout > 0 || p.adown > 0 || p.acd > 0 || !g.arena || g.arena.intro > 0) return;
   const kit = arenaKit(pi);
+  // 닿지 않으면 아무것도 쓰지 않는다 — 쿨타임도 돌지 않는다
+  if (!arenaCanHit(g, pi)) {
+    return say(g, p.ax, (p.ay || ARENA.bfy) - 96, "사거리 밖", "#d9c9a6");
+  }
   // 겨누어 쏘는 병과는 발을 멈춰야 한다
   if (kit.rooted && p.hold && p.hold.length) {
     return say(g, p.ax, (p.ay || ARENA.bfy) - 96, "멈춰야 쏜다", "#f0dcb4");
@@ -933,6 +946,10 @@ export function arenaSkill(g, pi) {
   if (!p || !a || a.intro > 0) return;
   if (p.cd > 0) return say(g, p.ax, ARENA.floor - 96, `${SKILLS[pi].name} ${Math.ceil(p.cd)}초`, "#f0dcb4");
   if (p.adown > 0 || p.aout > 0) return;
+  // 평타와 같다 — 닿지 않으면 쿨타임을 쓰지 않는다
+  if (!arenaCanHit(g, pi)) {
+    return say(g, p.ax, (p.ay || ARENA.bfy) - 96, "사거리 밖", "#d9c9a6");
+  }
   p.cd = SKILLS[pi].cd * perkVal.cool(perkN(g, pi, "cool"));
   p.aswing = ARENA.swing * 1.6;
   p.ahit = ARENA.land * 1.4;

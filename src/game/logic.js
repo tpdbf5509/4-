@@ -615,7 +615,7 @@ export function startArena(g, kind) {
     sw: 0, swHit: 0, swDir: 1, hitT: 2.5,                  // 방망이 — 휘두르는 중 · 맞는 순간 · 쿨타임
     air: 0, leap: null, rush: null, next: null,            // 뛰어오른 높이 · 뛰는 길 · 밀고 드는 길 · 이어지는 공격
     bite, life,
-    sup: 3, combo: 0, comboT: 0, jolt: 0, roar: 0,
+    combo: 0, comboT: 0, jolt: 0, roar: 0,
     burn: 0, burnDps: 0, poison: 0, poisonDps: 0, slow: 0, shred: 0, shredAmt: 0,
     shots: [], mobs: [],
     limit: kind === "titan" ? 100 : 75, rage: 0,
@@ -917,6 +917,10 @@ export function arenaAttack(g, pi) {
   const p = g.players[pi];
   if (!p || p.aout > 0 || p.adown > 0 || p.acd > 0 || !g.arena || g.arena.intro > 0) return;
   const kit = arenaKit(pi);
+  // 겨누어 쏘는 병과는 발을 멈춰야 한다
+  if (kit.rooted && p.hold && p.hold.length) {
+    return say(g, p.ax, (p.ay || ARENA.bfy) - 96, "멈춰야 쏜다", "#f0dcb4");
+  }
   p.acd = kit.cd / (1 + perkVal.haste(perkN(g, pi, "haste")));     // 전장의 북
   p.aswing = Math.min(ARENA.swing, kit.cd * 0.7);
   p.ahit = Math.min(ARENA.land, kit.cd * 0.35);
@@ -1374,24 +1378,7 @@ export function stepArena(g, dt) {
     return;
   }
 
-  // 지은 탑이 성벽 위에서 같이 쏜다
-  a.sup -= dt;
-  if (a.sup <= 0) {
-    a.sup = 2.2;
-    let d = 0;
-    g.towers.forEach((tw, i) => { if (tw) d += towerDmg(g, tw, i); });
-    if (d > 0) {
-      const dmg = Math.round(d * 0.8);
-      a.hp = Math.max(0, a.hp - dmg);
-      fx(g, { kind: "dmg", x: bossX(g) + (Math.random() - 0.5) * 90, y: bossTop(g) + 10,
-        text: String(dmg), color: "#cfe3a6", t: 0.8, life: 0.8 });
-      fx(g, { kind: "zap", x0: bossX(g) - 240, y0: 120, x1: bossX(g) - 30, y1: bossTop(g) + 30,
-        color: "#e8dcc0", t: 0.22, life: 0.22 });
-      fx(g, { kind: "zap", x0: bossX(g) + 240, y0: 120, x1: bossX(g) + 30, y1: bossTop(g) + 30,
-        color: "#e8dcc0", t: 0.22, life: 0.22 });
-      if (a.hp <= 0) { arenaDown(g, 0); return; }
-    }
-  }
+  // 결전장에서는 지은 탑이 거들지 않는다 — 보스를 깎는 것은 사람뿐이다
 
   arenaBossWalk(g, dt);                      // 보스가 사람 쪽으로 걸어온다
   arenaClub(g, dt);                          // 곁에 들면 방망이를 휘두른다

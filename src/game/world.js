@@ -476,17 +476,18 @@ export const bossTop = (g) => bossY(g) - ARENA_LIFT;
 
 /* 결전장에서 병과마다 다르게 싸운다. 사거리·간격은 판 위 타워 수치를 그대로 쓰고,
    결전장은 판보다 넓으므로 사거리에 ARENA.rangeMul 을 곱한다.
-   한 방 피해는 타워의 초당 피해에서 뽑아, 병과끼리 비슷한 몫이 되도록 맞췄다. */
+   한 방 피해는 타워의 초당 피해에서 뽑아, 병과끼리 비슷한 몫이 되도록 맞췄다.
+   rooted 가 붙은 병과는 겨누어 쏘므로, 발을 멈춰야 평타가 나간다. */
 export const ARENA_KIT = {
-  archer:  { mode: "shot",  dmg: 45,  cd: 0.95, fly: 0.20, rng: 158, shot: "arrow", col: "#cfe3a6" },
-  sniper:  { mode: "shot",  dmg: 130, cd: 2.60, fly: 0.10, rng: 165, shot: "slug",  col: "#8e99e8" },
-  cannon:  { mode: "bomb",  dmg: 66,  cd: 1.50, fly: 0.42, rng: 118, splash: 96, shot: "shell", col: "#eda061" },
+  archer:  { mode: "shot",  dmg: 45,  cd: 0.95, fly: 0.20, rng: 158, shot: "arrow", col: "#cfe3a6", rooted: 1 },
+  sniper:  { mode: "shot",  dmg: 130, cd: 2.60, fly: 0.10, rng: 165, shot: "slug",  col: "#8e99e8", rooted: 1 },
+  cannon:  { mode: "bomb",  dmg: 66,  cd: 1.50, fly: 0.42, rng: 118, splash: 96, shot: "shell", col: "#eda061", rooted: 1 },
   bolt:    { mode: "chain", dmg: 55,  cd: 1.20, rng: 142, chain: 3, col: "#f2d179" },
   flame:   { mode: "aura",  dmg: 32,  cd: 1.00, rng: 112, burn: 14, burnT: 5, col: "#ef8177" },
   poison:  { mode: "shot",  dmg: 18,  cd: 1.00, fly: 0.24, rng: 124, poison: 12, poisonT: 4, trueDmg: 1,
              shot: "acid", col: "#bcdd71" },
   frost:   { mode: "shot",  dmg: 39,  cd: 0.85, fly: 0.18, rng: 128, slow: 3, shot: "shard", col: "#7cb6ea" },
-  gravity: { mode: "field", dmg: 118, cd: 3.20, rng: 145, stagger: 0.7, col: "#e08cc6" },
+  gravity: { mode: "field", dmg: 118, cd: 3.20, rng: 145, stagger: 0.7, col: "#e08cc6", rooted: 1 },
   corrode: { mode: "shot",  dmg: 46,  cd: 1.10, fly: 0.20, rng: 132, shred: 0.2, shredT: 4,
              shot: "acid", col: "#78d5bf" },
   paladin: { mode: "melee", dmg: 33,  cd: 0.50, rng: 72,  col: "#bcd8ef" },   // 붙어야 닿는다

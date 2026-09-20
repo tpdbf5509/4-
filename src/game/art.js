@@ -3111,8 +3111,9 @@ export function drawArena(ctx, g, time) {
   const move = g.touch ? "화살표 버튼으로 움직이기" : "W A S D · 방향키로 움직이기";
   const fire = g.touch ? "공격" : "스페이스";
   const sk2 = g.touch ? "스킬 버튼" : "시프트 스킬";
+  const stand = meK && meK.rooted ? " — 멈춰야 쏜다" : "";
   ctx.fillText(meK
-    ? `${move} · ${fire} ${cls} ${how} · ${sk2}`
+    ? `${move} · ${fire} ${cls} ${how}${stand} · ${sk2}`
     : `${move} · ${fire} · ${sk2}`, CX, H - 22);
   ctx.restore();
 

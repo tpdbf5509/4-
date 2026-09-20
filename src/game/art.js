@@ -2340,20 +2340,30 @@ function arenaZone(ctx, a, time) {
   if (!a.zone || a.st !== "tell") return;
   const pat = ARENA_PATTERNS.find((x) => x.id === a.pat) || ARENA_PATTERNS[0];
   const fill = Math.max(0, Math.min(1, 1 - a.stT / (pat.tell || 1)));
-  a.zone.forEach(([l, r]) => {
-    const x = Math.max(ARENA.left - 60, l), w = Math.min(ARENA.right + 60, r) - x;
-    if (w <= 0) return;
+  const sq = ARENA.squash;
+  a.zone.forEach((z) => {
     ctx.save();
-    ctx.globalAlpha = 0.28 + 0.22 * Math.abs(Math.sin(time * 9));
+    ctx.translate(z.x, z.y);
+    ctx.scale(1, sq);
+    ctx.globalAlpha = 0.2 + 0.14 * Math.abs(Math.sin(time * 9));
     ctx.fillStyle = "#ff4d3d";
-    ctx.fillRect(x, ARENA.floor - 118, w, 126);
-    ctx.globalAlpha = 0.85;
-    ctx.fillStyle = "#ff8a76";
-    ctx.fillRect(x, ARENA.floor + 4, w * fill, 5);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = "rgba(255,120,96,0.9)";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x + 1, ARENA.floor - 117, w - 2, 124);
+    ctx.beginPath();
+    if (z.k === "ring") {
+      ctx.arc(0, 0, z.r1, 0, Math.PI * 2);
+      ctx.arc(0, 0, z.r0, 0, Math.PI * 2, true);
+    } else ctx.arc(0, 0, z.r, 0, Math.PI * 2);
+    ctx.fill();
+    // 차오르는 테두리 — 다 차면 떨어진다
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = "rgba(255,130,104,0.95)";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, z.k === "ring" ? z.r1 : z.r, 0, Math.PI * 2); ctx.stroke();
+    if (z.k === "ring") { ctx.beginPath(); ctx.arc(0, 0, z.r0, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.strokeStyle = "#ffd8c8";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.arc(0, 0, z.k === "ring" ? z.r1 : z.r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fill);
+    ctx.stroke();
     ctx.restore();
   });
 }
@@ -2446,7 +2456,20 @@ function arenaPlayer(ctx, g, pi, time) {
   const swing = p.aswing > 0 ? p.aswing : 0;
   const lunge = swing > 0 ? Math.sin((1 - swing / ARENA.swing) * Math.PI) * 26 : 0;
   const x = p.ax + (p.adir > 0 ? lunge : -lunge);
-  const y = ARENA.floor + Math.abs(Math.sin(time * 3 + pi)) * -2;
+  const y = (p.ay || ARENA.bfy) + Math.abs(Math.sin(time * 3 + pi)) * -2;
+  // 발밑 고리 — 보스 뒤로 돌아가도 내가 어디 있는지 보이게
+  ctx.save();
+  ctx.globalAlpha = g.mySeat === pi ? 0.95 : 0.5;
+  ctx.strokeStyle = col.light;
+  ctx.lineWidth = g.mySeat === pi ? 3 : 2;
+  ctx.beginPath(); ctx.ellipse(p.ax, y + 3, 30, 11, 0, 0, Math.PI * 2); ctx.stroke();
+  if (g.mySeat === pi) {
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = col.key;
+    ctx.beginPath(); ctx.ellipse(p.ax, y + 3, 30, 11, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+
   ctx.save();
   shadow(ctx, p.ax, y + 4, 26, 8, 0.3);
   ctx.translate(x, y);
@@ -2514,19 +2537,28 @@ export function drawArena(ctx, g, time) {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  // 바닥
-  ctx.fillStyle = "#3c4f2a";
-  ctx.fillRect(0, ARENA.floor - 118, W, H - ARENA.floor + 118);
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
-  ctx.fillRect(0, ARENA.floor + 6, W, H - ARENA.floor);
-  ctx.strokeStyle = "rgba(226,206,160,0.18)";
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0, ARENA.floor + 6); ctx.lineTo(W, ARENA.floor + 6); ctx.stroke();
+  // 싸우는 터 — 가장자리가 둥근 풀밭
+  const cy = (ARENA.top + ARENA.bottom) / 2, ry = (ARENA.bottom - ARENA.top) / 2 + 70;
+  const rx = (ARENA.right - ARENA.left) / 2 + 110;
+  const gr = ctx.createRadialGradient(CX, cy, 40, CX, cy, rx);
+  gr.addColorStop(0, "#475c31");
+  gr.addColorStop(0.75, "#3d5029");
+  gr.addColorStop(1, "#33431f");
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(CX, cy, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = gr; ctx.fill();
+  ctx.strokeStyle = "rgba(226,206,160,0.14)"; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore();
 
   arenaLeaves(ctx, time);
   arenaZone(ctx, a, time);
-  arenaBoss(ctx, g, a, time);
-  g.players.forEach((p, i) => { if (!g.seats || g.seats[i]) arenaPlayer(ctx, g, i, time); });
+  // 앞뒤로 겹치게 — 보스보다 위에 선 사람은 뒤에 가린다
+  const order = [{ y: ARENA.bfy, boss: 1 }];
+  g.players.forEach((p, i) => {
+    if (!g.seats || g.seats[i]) order.push({ y: p.ay || ARENA.bfy, pi: i });
+  });
+  order.sort((u, v) => u.y - v.y);
+  order.forEach((o) => { if (o.boss) arenaBoss(ctx, g, a, time); else arenaPlayer(ctx, g, o.pi, time); });
 
   g.fx.forEach((f) => drawFx(ctx, f));
   arenaBar(ctx, g, a);
@@ -2549,7 +2581,7 @@ export function drawArena(ctx, g, time) {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.font = "13px 'Jua', sans-serif";
   ctx.fillStyle = "rgba(240,228,198,0.6)";
-  ctx.fillText("← → 피하기 · 스페이스 공격 · 시프트 스킬", CX, H - 22);
+  ctx.fillText("W A S D · 방향키로 움직이기 · 스페이스 공격 · 시프트 스킬", CX, H - 22);
   ctx.restore();
 
   if (g.banner) drawBanner(ctx, g.banner);

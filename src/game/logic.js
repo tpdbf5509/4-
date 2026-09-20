@@ -2,7 +2,7 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, LEAVE_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
-  diffOf, prepTime, ARENA, ARENA_PATTERNS,
+  diffOf, prepTime, ARENA, ARENA_PATTERNS, arenaInZone, arenaNear,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
 } from "./world.js";
 
@@ -609,9 +609,14 @@ export function startArena(g, kind) {
     sup: 3, combo: 0, comboT: 0, jolt: 0, roar: 0,
     limit: kind === "titan" ? 100 : 75, rage: 0,
   };
+  const crew = arenaCrew(g);
   let k = 0;
   g.players.forEach((p, i) => {
-    if (g.seats[i]) { p.ax = ARENA.left + 130 + k * 170; k++; } else p.ax = ARENA.bx;
+    if (g.seats[i]) {
+      p.ax = ARENA.bx + (k - (crew - 1) / 2) * 165;
+      p.ay = ARENA.bfy + 150 + (k % 2) * 26;
+      k++;
+    } else { p.ax = ARENA.bx; p.ay = ARENA.bfy + 150; }
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
   });
   g.shake = Math.max(g.shake, 0.6);
@@ -625,19 +630,23 @@ export function startArena(g, kind) {
 export function arenaMove(g, pi, act) {
   const p = g.players[pi];
   if (!p || p.adown > 0) return;
-  const d = act === "left" ? -1 : act === "right" ? 1 : 0;
-  if (!d) return;
-  p.adir = d;
-  p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + d * 26));
+  if (act === "left" || act === "right") {
+    const d = act === "left" ? -1 : 1;
+    p.adir = d;
+    p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + d * 26));
+  } else if (act === "up" || act === "down") {
+    const d = act === "up" ? -1 : 1;
+    p.ay = Math.max(ARENA.top, Math.min(ARENA.bottom, (p.ay || ARENA.bfy + 150) + d * ARENA.stepY));
+  }
 }
 
 function arenaLand(g, pi, mul, label) {
   const a = g.arena;
   const p = g.players[pi];
   if (!a || a.hp <= 0) return;
-  const dx = Math.abs(p.ax - ARENA.bx);
-  if (dx > ARENA.reach) {
-    say(g, p.ax, ARENA.floor - 96, "닿지 않는다", "#d9c9a6");
+  const far = arenaNear(p.ax, p.ay || ARENA.bfy, ARENA.bx, ARENA.bfy);
+  if (far > ARENA.reach) {
+    say(g, p.ax, (p.ay || ARENA.bfy) - 96, "닿지 않는다", "#d9c9a6");
     return;
   }
   let dmg = arenaPower(g, pi) * mul;
@@ -681,7 +690,7 @@ export function arenaSkill(g, pi) {
   p.ahit = ARENA.land * 1.4;
   p.adir = p.ax < ARENA.bx ? 1 : -1;
   p.askill = 1;
-  fx(g, { kind: "ring", x: p.ax, y: ARENA.floor - 30, r: 90, color: P[pi].key, t: 0.5, life: 0.5, snd: "skill" });
+  fx(g, { kind: "ring", x: p.ax, y: (p.ay || ARENA.bfy) - 20, r: 90, color: P[pi].key, t: 0.5, life: 0.5, snd: "skill" });
 }
 
 /* 보스가 쓰러졌다 */
@@ -708,17 +717,25 @@ function arenaNextPattern(g) {
   a.pat = pat.id;
   a.st = "tell";
   a.stT = pat.tell * (a.type === "titan" ? 0.88 : 1);
+  const spot = () => {
+    // 아무나 한 사람 근처를 노린다
+    const on = g.players.filter((q, i) => g.seats[i]);
+    const q = on.length ? on[Math.floor(Math.random() * on.length)] : null;
+    return q ? { x: q.ax + (Math.random() - 0.5) * 90, y: (q.ay || ARENA.bfy) + (Math.random() - 0.5) * 60 }
+             : { x: ARENA.bx, y: ARENA.bfy + 120 };
+  };
   if (pat.id === "slam") {
-    const c = ARENA.bx + (Math.random() - 0.5) * 220;
-    a.zone = [[c - pat.w / 2, c + pat.w / 2]];
+    const c = spot();
+    a.zone = [{ k: "circle", x: c.x, y: c.y, r: a.type === "titan" ? 230 : 195 }];
   } else if (pat.id === "sweep") {
-    const gapW = a.type === "titan" ? 190 : 240;
-    const c = ARENA.left + gapW / 2 + Math.random() * (ARENA.right - ARENA.left - gapW);
-    a.zone = [[ARENA.left - 60, c - gapW / 2], [c + gapW / 2, ARENA.right + 60]];
+    a.zone = [{ k: "ring", x: ARENA.bx, y: ARENA.bfy, r0: a.type === "titan" ? 150 : 135,
+      r1: a.type === "titan" ? 460 : 400 }];
   } else {
-    const c1 = ARENA.left + Math.random() * (ARENA.right - ARENA.left) * 0.45;
-    const c2 = ARENA.right - Math.random() * (ARENA.right - ARENA.left) * 0.45;
-    a.zone = [[c1 - pat.w / 2, c1 + pat.w / 2], [c2 - pat.w / 2, c2 + pat.w / 2]];
+    a.zone = [];
+    for (let i = 0; i < 3; i++) {
+      const c = spot();
+      a.zone.push({ k: "circle", x: c.x, y: c.y, r: 140 });
+    }
   }
   callout(g, CX, 300, pat.name, "#ff8f6a", "warn", 1.4);
 }
@@ -732,21 +749,25 @@ function arenaStrike(g) {
   let hit = 0, safe = 0;
   g.players.forEach((p, i) => {
     if (!g.seats[i]) return;
-    const inside = (a.zone || []).some(([l, r]) => p.ax >= l && p.ax <= r);
+    const py = p.ay || ARENA.bfy;
+    const inside = (a.zone || []).some((z) => arenaInZone(z, p.ax, py));
     if (inside) {
       hit += 1;
       p.adown = ARENA.down;
       p.aswing = 0;
-      p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + (p.ax < ARENA.bx ? -ARENA.knock : ARENA.knock)));
-      fx(g, { kind: "poof", x: p.ax, y: ARENA.floor - 20, t: 0.5, life: 0.5, color: "rgba(230,190,140,1)" });
+      const kx = p.ax - ARENA.bx, ky = py - ARENA.bfy;
+      const len = Math.max(1, Math.hypot(kx, ky));
+      p.ax = Math.max(ARENA.left, Math.min(ARENA.right, p.ax + (kx / len) * ARENA.knock));
+      p.ay = Math.max(ARENA.top, Math.min(ARENA.bottom, py + (ky / len) * ARENA.knock * 0.6));
+      fx(g, { kind: "poof", x: p.ax, y: p.ay - 20, t: 0.5, life: 0.5, color: "rgba(230,190,140,1)" });
     } else {
       safe += 1;
       p.adodge = 1.1;
-      fx(g, { kind: "text", x: p.ax, y: ARENA.floor - 108, text: "회피!", color: P[i].light, t: 0.8, life: 0.8 });
+      fx(g, { kind: "text", x: p.ax, y: py - 108, text: "회피!", color: P[i].light, t: 0.8, life: 0.8 });
     }
   });
-  (a.zone || []).forEach(([l, r]) => {
-    fx(g, { kind: "boom", x: (l + r) / 2, y: ARENA.floor - 10, r: Math.min(140, (r - l) / 2 + 30),
+  (a.zone || []).forEach((z) => {
+    fx(g, { kind: "boom", x: z.x, y: z.y, r: Math.min(150, (z.k === "ring" ? z.r1 * 0.5 : z.r) * 0.8),
       t: 0.5, life: 0.5, snd: "boom" });
   });
   g.shake = Math.max(g.shake, 0.45);
@@ -1324,7 +1345,7 @@ export function packSnapshot(g) {
       rg: g.arena.rage, cb: g.arena.combo, io: Math.round(g.arena.intro * 10) / 10,
       oo: Math.round(g.arena.outro * 10) / 10, jo: Math.round(g.arena.jolt * 100) / 100,
       sT: Math.round(g.arena.stT * 100) / 100,
-      pp: g.players.map((p) => [Math.round(p.ax || 0), p.adir || 1,
+      pp: g.players.map((p) => [Math.round(p.ax || 0), p.adir || 1, Math.round(p.ay || 0),
         Math.round((p.aswing || 0) * 100) / 100, Math.round((p.adown || 0) * 100) / 100,
         p.askill ? 1 : 0]),
     } : 0,
@@ -1376,7 +1397,8 @@ export function applySnapshot(g, s) {
     a.stT = s.ar.sT; a.t = (a.t || 0);
     s.ar.pp.forEach((row, i) => {
       const p = g.players[i];
-      p.ax = row[0]; p.adir = row[1]; p.aswing = row[2]; p.adown = row[3]; p.askill = row[4];
+      p.ax = row[0]; p.adir = row[1]; p.ay = row[2];
+      p.aswing = row[3]; p.adown = row[4]; p.askill = row[5];
     });
   } else g.arena = null;
   g.leave = s.lv2 ? s.lv2.map((v) => !!v) : g.seats.map(() => false);

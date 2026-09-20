@@ -39,6 +39,10 @@ export const TOWER_CHARACTERS = {
     src: "/assets/characters/paladin-tower.webp",
     alt: "성기사탑 캐릭터 — 검과 방패를 든 금발의 성기사",
   },
+  corrode: {
+    src: "/assets/characters/corrode-tower.webp",
+    alt: "부식탑 캐릭터 — 산성 액체를 두른 검은 두건의 부식술사",
+  },
   frost: {
     src: "/assets/characters/frost-tower.webp",
     alt: "서리탑 캐릭터 — 눈송이를 띄우는 흰 머리의 얼음 마법사",

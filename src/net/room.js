@@ -16,7 +16,7 @@ const KEY = import.meta.env.VITE_SUPABASE_KEY || "sb_publishable_lwm7FIU-HhslF5o
 export const netReady = Boolean(URL && KEY);
 
 let client = null;
-function supabase() {
+export function supabase() {
   if (!client) {
     client = createClient(URL, KEY, {
       auth: { persistSession: false },

@@ -203,6 +203,57 @@ kbd {
 .keyhint { margin: 12px 0 0; font-size: 11.5px; color: #8d8068; }
 .keyhint kbd { margin: 0 2px; }
 
+/* ── 의견 적는 칸 ───────────────────────────────────────── */
+.say-open {
+  margin-top: 12px; padding: 0; border: 0; background: none; cursor: pointer;
+  font-size: 11.5px; color: #9c8d70; letter-spacing: -0.01em;
+  border-bottom: 1px solid rgba(160, 130, 90, 0.45);
+}
+.say-open:hover { color: #d8c69f; border-bottom-color: rgba(216, 198, 159, 0.7); }
+
+.say {
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid rgba(160, 130, 90, 0.28);
+  text-align: left;
+}
+.say-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.say-title { font-size: 12.5px; color: #c3bda4; letter-spacing: -0.01em; }
+.say-close {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  font-size: 11px; color: #8d8068;
+}
+.say-close:hover { color: #c3bda4; }
+.say-box {
+  display: block; width: 100%; box-sizing: border-box; margin-top: 8px;
+  font-family: inherit; font-size: 13px; line-height: 1.55; color: #f2e3c2;
+  letter-spacing: -0.01em; resize: vertical;
+  padding: 10px 12px; border-radius: 9px;
+  background: #1e1609; border: 1px solid #5b452a;
+}
+.say-box::placeholder { color: #7d6f57; }
+.say-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.say-left { font-size: 11px; color: #8d8068; }
+/* 강조는 판마다 한 곳만 — 시작 · 대기실로 버튼이 그 자리라 보내기는 한 발 물린다 */
+.say-send { font-size: 12.5px; padding: 8px 18px; }
+.scroll-panel .say-send {
+  color: #4a3520; border-color: rgba(120, 95, 60, 0.55);
+  background: linear-gradient(#efe0c0, #e2cfa8); box-shadow: 0 3px 0 rgba(120, 95, 60, 0.45);
+}
+.say-ok { margin: 8px 0 0; font-size: 12px; color: #a8d08a; }
+.say-bad { margin: 8px 0 0; font-size: 12px; color: #f0a79d; }
+.say-note { margin: 8px 0 0; font-size: 11px; color: #8d8068; line-height: 1.5; }
+
+/* 끝난 화면의 양피지 위에서는 색을 뒤집는다 */
+.scroll-panel .say { border-top-color: rgba(120, 95, 60, 0.35); }
+.scroll-panel .say-title { color: #5c452c; }
+.scroll-panel .say-close, .scroll-panel .say-left, .scroll-panel .say-note { color: #8a6c44; }
+.scroll-panel .say-box {
+  color: #3a2a18; background: #f6ecd4; border-color: rgba(120, 95, 60, 0.45);
+}
+.scroll-panel .say-box::placeholder { color: #a08a68; }
+.scroll-panel .say-ok { color: #4a7a34; }
+.scroll-panel .say-bad { color: #a8452f; }
+
 /* ── 게임 ───────────────────────────────────────────────── */
 .stage { max-width: 1040px; margin: 0 auto; }
 .frame {

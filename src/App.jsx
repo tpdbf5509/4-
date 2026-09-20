@@ -13,6 +13,7 @@ import {
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
+import { sendFeedback, loadDraft, saveDraft, FEEDBACK_MAX } from "./net/feedback.js";
 import { Shield, Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
 import { TowerChar, charOf } from "./ui/chars.jsx";
 import "./ui/style.css";
@@ -447,7 +448,70 @@ function Lobby({ code, lobby, me, isHost, mySeat, error, connecting, onPick, onW
             ? <>조작 — 판 아래 화살표로 <kbd>이동</kbd> 또는 돌판을 <kbd>누르기</kbd> · <kbd>건설</kbd> · <kbd>팔기</kbd> · <kbd>스킬</kbd> 버튼</>
             : <>조작 — 이동 <kbd>{KEY_HINT.move}</kbd> 또는 돌판 <kbd>클릭</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 팔기 <kbd>{KEY_HINT.sell}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd></>}
         </p>
+
+        <Feedback
+          name={seats.find((q) => q && q.id === me)?.name} room={code} result="lobby"
+          diff={DIFFS[diff]?.id || null}
+          cls={mySeat >= 0 ? CLASSES[mySeat].id : null}
+        />
       </div>
+    </div>
+  );
+}
+
+/* ── 의견 적는 칸 ───────────────────────────────────────────
+   접어 두었다가 눌러서 편다. 보낸 글은 게임 안에서 다시 볼 수 없고,
+   받는 쪽에서만 읽는다. 무엇이 같이 실리는지는 칸 아래에 적어 둔다. */
+function Feedback({ name, room, result, wave, total, diff, cls, open: openAt }) {
+  const [open, setOpen] = useState(Boolean(openAt));
+  const [text, setText] = useState(() => loadDraft());
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState(null);      // { ok, why }
+  const left = FEEDBACK_MAX - text.length;
+
+  const change = useCallback((e) => {
+    const v = e.target.value.slice(0, FEEDBACK_MAX);
+    setText(v);
+    setSaid(null);
+    saveDraft(v);
+  }, []);
+
+  const send = useCallback(async () => {
+    setBusy(true);
+    const r = await sendFeedback({ body: text, name, room, result, wave, total, diff, cls });
+    setBusy(false);
+    setSaid(r);
+    if (r.ok) setText("");
+  }, [text, name, room, result, wave, total, diff, cls]);
+
+  if (!open) {
+    return (
+      <button type="button" className="say-open" onClick={() => setOpen(true)}>
+        의견 남기기
+      </button>
+    );
+  }
+  return (
+    <div className="say">
+      <div className="say-head">
+        <span className="say-title">의견 남기기</span>
+        <button type="button" className="say-close" onClick={() => setOpen(false)}>접기</button>
+      </div>
+      <textarea
+        className="say-box" value={text} onChange={change} rows={3} maxLength={FEEDBACK_MAX}
+        placeholder="불편한 곳, 어려운 곳, 있었으면 하는 것을 적어 주세요."
+      />
+      <div className="say-foot">
+        <span className="say-left">{left}자 남음</span>
+        <button type="button" className="btn-ghost say-send" onClick={send} disabled={busy || !text.trim()}>
+          {busy ? "보내는 중…" : "보내기"}
+        </button>
+      </div>
+      {said && <p className={said.ok ? "say-ok" : "say-bad"}>{said.why}</p>}
+      <p className="say-note">
+        적은 글과 함께 이름{room ? " · 방 코드" : ""}
+        {wave ? ` · 웨이브 ${wave}` : ""}{diff ? ` · 난이도` : ""}{cls ? ` · 병과` : ""}가 같이 갑니다.
+      </p>
     </div>
   );
 }
@@ -1042,6 +1106,13 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                 {isHost
                   ? <button className="btn-main" onClick={onBack}>대기실로</button>
                   : <span className="hint">방장이 대기실로 돌아가기를 기다리는 중…</span>}
+                <Feedback
+                  open
+                  name={names[mySeat] || null}
+                  result={hud.phase === "clear" ? "clear" : hud.overWhy === "wipe" ? "wipe" : "over"}
+                  wave={hud.wave} total={hud.total} diff={DIFFS[diff]?.id || null}
+                  cls={mySeat >= 0 ? CLASSES[mySeat].id : null}
+                />
               </div>
             </div>
           )}

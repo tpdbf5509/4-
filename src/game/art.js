@@ -2582,16 +2582,27 @@ function arenaZone(ctx, a, time) {
       ctx.lineWidth = 3;
       roundRect(ctx, 0, -z.w, len, z.w * 2, z.w); ctx.stroke();
       // 차오르는 부분 — 다 차면 밀고 들어온다
-      ctx.fillStyle = "rgba(255,216,200,0.5)";
-      roundRect(ctx, 0, -z.w, len * fill, z.w * 2, z.w); ctx.fill();
-      // 나아가는 쪽을 가리키는 화살
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = "#ffd8c8";
-      for (let i = 1; i <= 3; i++) {
-        const u = len * (i / 4);
+      ctx.fillStyle = "rgba(255,216,200,0.28)";
+      if (z.mid) {                                 // 가르기 — 가운데에서 양쪽으로 차오른다
+        roundRect(ctx, len / 2 - (len / 2) * fill, -z.w, len * fill, z.w * 2, z.w); ctx.fill();
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = "#ffd8c8";
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.moveTo(u + 16, 0); ctx.lineTo(u - 8, -14); ctx.lineTo(u - 8, 14);
-        ctx.closePath(); ctx.fill();
+        ctx.moveTo(len / 2 - (len / 2) * fill, -z.w); ctx.lineTo(len / 2 - (len / 2) * fill, z.w);
+        ctx.moveTo(len / 2 + (len / 2) * fill, -z.w); ctx.lineTo(len / 2 + (len / 2) * fill, z.w);
+        ctx.stroke();
+      } else {
+        roundRect(ctx, 0, -z.w, len * fill, z.w * 2, z.w); ctx.fill();
+        // 나아가는 쪽을 가리키는 화살
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = "#ffd8c8";
+        for (let i = 1; i <= 3; i++) {
+          const u = len * (i / 4);
+          ctx.beginPath();
+          ctx.moveTo(u + 16, 0); ctx.lineTo(u - 8, -14); ctx.lineTo(u - 8, 14);
+          ctx.closePath(); ctx.fill();
+        }
       }
       ctx.restore();
       return;

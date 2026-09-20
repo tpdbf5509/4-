@@ -2,7 +2,8 @@ import {
   CX, CY, P, LANES, SLOTS, sk, posAt, nextSlot,
   CLASSES, TOWER_BY_ID, TOWERS, towerIdx, CASTLE_GUN,
   SKILLS, ENEMY, TOTAL_WAVES, PREP, REWARD_T, LEAVE_T, buildQueue, waveKind, waveScale, seatCount, ETYPES,
-  diffOf, prepTime, ARENA, ARENA_PATTERNS, ARENA_LEAP, ARENA_RUSH, arenaInZone, arenaNear, arenaKit, arenaRange,
+  diffOf, prepTime, ARENA, ARENA_PATTERNS, PAT_BY_ID, ARENA_LEAP, ARENA_RUSH, ARENA_CUT,
+  arenaInZone, arenaNear, arenaKit, arenaRange,
   bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
 } from "./world.js";
@@ -612,7 +613,7 @@ export function startArena(g, kind) {
     st: "idle", stT: 2, pat: null, zone: null,
     x: ARENA.bx, y: ARENA.bfy, dir: 1, tgt: -1, step: 0,   // 걸어 다니는 자리
     sw: 0, swHit: 0, swDir: 1, hitT: 2.5,                  // 방망이 — 휘두르는 중 · 맞는 순간 · 쿨타임
-    air: 0, leap: null, rush: null,                        // 뛰어오른 높이 · 뛰는 길 · 밀고 드는 길
+    air: 0, leap: null, rush: null, next: null,            // 뛰어오른 높이 · 뛰는 길 · 밀고 드는 길 · 이어지는 공격
     bite, life,
     sup: 3, combo: 0, comboT: 0, jolt: 0, roar: 0,
     burn: 0, burnDps: 0, poison: 0, poisonDps: 0, slow: 0, shred: 0, shredAmt: 0,
@@ -1125,17 +1126,26 @@ function arenaNextPattern(g) {
   const close = up.some((q) => arenaNear(q.ax, q.ay || ARENA.bfy, a.x, a.y) <= ARENA.breach);
   const far = up.some((q) => arenaNear(q.ax, q.ay || ARENA.bfy, a.x, a.y) > ARENA.club * 1.6);
   // 붙어 있으면 팔로, 멀리 떨어져 있으면 뛰거나 밀고 들어간다
-  const pool = a.type === "titan" ? [0, 1, 4, 2, 5, 1] : [0, 2, 4, 1, 5, 0];
+  // 십자 가르기는 이 보스의 간판이라 조금 더 자주 나오게 두 칸을 준다
+  const pool = a.type === "titan" ? [0, 1, 4, 6, 2, 6, 5] : [0, 2, 4, 6, 1, 6, 5];
   const reach = far ? [4, 5] : null;
   const pat = close && Math.random() < 0.34
     ? ARENA_PATTERNS.find((x) => x.id === "swipe")
     : reach && Math.random() < 0.5
       ? ARENA_PATTERNS[reach[Math.floor(Math.random() * reach.length)]]
       : ARENA_PATTERNS[pool[Math.floor(Math.random() * pool.length)]];
+  arenaBegin(g, pat);
+}
+
+/* 고른 공격의 자리를 깔고 예비 동작에 들어간다 */
+function arenaBegin(g, pat) {
+  const a = g.arena;
+  const up = g.players.filter((q, i) => g.seats[i] && q.aout <= 0);
   a.pat = pat.id;
   a.st = "tell";
   a.sw = 0; a.swHit = 0;
   a.leap = null; a.rush = null; a.air = 0;
+  a.next = pat.next || null;
   a.stT = pat.tell * (a.type === "titan" ? 0.88 : 1);
   const spot = () => {
     // 아무나 한 사람 근처를 노린다
@@ -1143,7 +1153,18 @@ function arenaNextPattern(g) {
     return q ? { x: q.ax + (Math.random() - 0.5) * 90, y: (q.ay || ARENA.bfy) + (Math.random() - 0.5) * 60 }
              : { x: a.x, y: a.y + 120 };
   };
-  if (pat.id === "leap") {                        // 뛰어올라 한 곳에 떨어진다
+  // 보스를 지나 판 끝까지 뻗는 띠 하나
+  const cut = (ang) => {
+    const R = ARENA_CUT.reach;
+    const dx = Math.cos(ang), dy = Math.sin(ang) * ARENA.squash;
+    return { k: "lane", mid: 1, x: a.x - dx * R, y: a.y - dy * R, ex: a.x + dx * R, ey: a.y + dy * R,
+      w: a.type === "titan" ? ARENA_CUT.halfTitan : ARENA_CUT.half };
+  };
+  if (pat.id === "cross") {                       // 가로세로 — 네 귀퉁이가 안전하다
+    a.zone = [cut(0), cut(Math.PI / 2)];
+  } else if (pat.id === "xcut") {                 // 비스듬히 — 위아래좌우가 안전하다
+    a.zone = [cut(Math.PI / 4), cut(-Math.PI / 4)];
+  } else if (pat.id === "leap") {                        // 뛰어올라 한 곳에 떨어진다
     const c = spot();
     const lx = Math.max(ARENA.left, Math.min(ARENA.right, c.x));
     const ly = Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30, c.y));
@@ -1234,6 +1255,11 @@ function arenaStrike(g) {
     a.combo = 0; a.comboT = 0;
   } else if (safe) {
     callout(g, CX, 250, "완벽 회피!", "#9fe8ff", "perfect", 0.9);
+  }
+  if (a.next) {                                  // 이어지는 공격이 있으면 쉬지 않고 넘어간다
+    const nx = PAT_BY_ID[a.next];
+    a.next = null;
+    if (nx) return arenaBegin(g, nx);
   }
   a.st = "rest";
   a.stT = (a.type === "titan" ? 0.8 : 1) + (a.pat === "rush" ? 0.5 : 0);

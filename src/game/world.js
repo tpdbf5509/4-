@@ -61,7 +61,7 @@ export const P = [
   { key: "#8fb93c", dark: "#5c7c1f", light: "#bcdd71", name: "역병" },
   { key: "#4a8ed2", dark: "#2a5f96", light: "#7cb6ea", name: "서리" },
   { key: "#c1569f", dark: "#82316a", light: "#e08cc6", name: "중력" },
-  { key: "#e394a3", dark: "#a55d69", light: "#f6c0c9", name: "보급", pale: true },
+  { key: "#d4788f", dark: "#93445a", light: "#f0b4c2", name: "보급" },
   { key: "#3fae94", dark: "#207565", light: "#78d5bf", name: "부식" },
   { key: "#8fb6d8", dark: "#5a7fa0", light: "#bcd8ef", name: "성기사" },
 ];

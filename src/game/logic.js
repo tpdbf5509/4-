@@ -1982,6 +1982,15 @@ export function step(g, dt) {
    한 번에 확 맞추면 초당 열두 번 오는 소식마다 화면이 튄다. */
 const chase = (dt, rate) => 1 - Math.exp(-dt * rate);
 
+/* 걷는 동안 내 자리를 방장 쪽으로 당기는 규칙.
+   ARENA_SLACK 만큼 벌어지기 전에는 그대로 두고(그 몫은 소식이 늦어 생기는 정상적인 차이다),
+   넘어서면 초당 ARENA_PULL 을 넘지 않게만 당긴다. 걸음(좌우 292 · 위아래 196)보다
+   한참 느려야 걸음이 멈칫하지 않는다. */
+const ARENA_SLACK = 120;
+const ARENA_PULL = 35;
+// 발을 멈췄을 때 따라잡는 속도의 한도(초당 px). 걸음보다 느려야 미끄러져 보이지 않는다.
+const ARENA_SLIDE = 150;
+
 export function stepVisual(g, dt) {
   // 방장 판은 속도 배수만큼 여러 번 돌린다. 손님도 같은 시간을 흘려야 겹친다.
   const real = dt;                                   // 따라잡기에는 실제 시간을 쓴다
@@ -2089,12 +2098,29 @@ function arenaFollow(g, dt) {
     const far = Math.hypot(p.gx - p.ax, p.gy - p.ay);
     if (far > 260) { p.ax = p.gx; p.ay = p.gy; return; }   // 되살아나거나 판이 바뀐 것
     if (i === g.mySeat) {
-      // 내 손은 여기서 먼저 움직인다. 소식이 늦게 오는 만큼은 그냥 두고,
-      // 정말 벌어졌을 때만 당겨 와야 걸을 때 고무줄처럼 끌리지 않는다.
-      if (far < 56) return;
-      const k = chase(dt, 7);
-      p.ax += (p.gx - p.ax) * k;
-      p.ay += (p.gy - p.ay) * k;
+      // 내 손은 여기서 먼저 걷는다. 그래서 방장보다 늘 조금 앞서 있는 것이 정상이다.
+      // 걷는 도중에 그 몫까지 끌어당기면 걸음이 자꾸 멈칫한다 —
+      // 당기는 힘이 걸음보다 세면 오히려 뒤로 밀린다. 위아래 걸음은 좌우보다
+      // 느려서 더 쉽게 밀린다.
+      const busy = p.adown > 0 || p.aout > 0;
+      if (p.hold && p.hold.length && !busy) {
+        // 걷는 중 — 아주 크게 벌어졌을 때만, 걸음보다 훨씬 느린 속도로 슬그머니 당긴다
+        if (far < ARENA_SLACK) return;
+        const pull = Math.min((far - ARENA_SLACK) * 3, ARENA_PULL) * dt;
+        p.ax += ((p.gx - p.ax) / far) * pull;
+        p.ay += ((p.gy - p.ay) / far) * pull;
+        return;
+      }
+      // 발을 멈췄으면(맞아서 넘어진 동안도) 어긋난 만큼을 조용히 맞춘다.
+      // 걷지 않으니 끌려가는 것이 보이지 않고, 밀려난 자리도 여기서 따라잡는다.
+      // 다만 걸음보다 빠르게 끌어당기면 손을 뗀 순간 뒤로 주욱 미끄러진다.
+      const k = chase(dt, 8);
+      let mx = (p.gx - p.ax) * k, my = (p.gy - p.ay) * k;
+      const move = Math.hypot(mx, my);
+      const cap = ARENA_SLIDE * dt;
+      if (move > cap) { mx *= cap / move; my *= cap / move; }
+      p.ax += mx;
+      p.ay += my;
       return;
     }
     const k = chase(dt, 15);

@@ -7,7 +7,9 @@
 | `ogre-fx-sheet.webp` | 1차 결전 — 오우거 지휘관의 기술 |
 | `titan-fx-sheet.webp` | 2차 결전 — 대군주의 기술 |
 | `hero-fx-sheet.webp` | 병과 캐릭터 첫째 장 — 궁수탑(초록)·저격탑(파랑)·대포탑(주황) |
-| `hero2-fx-sheet.webp` | 병과 캐릭터 둘째 장 — 번개탑(파랑·노랑)·화염탑(주황)·독탑(초록·보라) |
+| `hero2-fx-sheet.webp` | 병과 캐릭터 둘째 장 — 번개탑(파랑·노랑)·독탑(초록·보라) |
+| `hero3-fx-sheet.webp` | 병과 캐릭터 셋째 장 — 서리탑(파랑)·중력탑(보라)·보급소(분홍) |
+| `hero4-fx-sheet.webp` | 병과 캐릭터 넷째 장 — 부식탑(초록·보라)·성기사탑(금색)·화염탑(빨강) |
 
 게임에서 쓰는 그림은 이 시트에서 이펙트만 떼어 낸 `public/assets/fx/<보스>/*.webp` 입니다.
 무손실 WebP라 픽셀이 원본과 한 점도 다르지 않습니다. 늘리거나 돌리거나 색을 고치지 않았습니다.
@@ -127,8 +129,58 @@
 | 독탑 — 발밑 고리 | poison/ring.webp | 240×72 |
 
 번개탑은 줄기가 보스에서 옆의 적으로 이어지므로, 첫 줄기만 날아가는 그림(`fly`)으로 쏘고
-이어지는 줄기는 `arc` 를 두 점 한가운데에 얹습니다. 화염탑은 쏘는 무기가 없어 `boom` 은
-아직 쓰지 않고, 시트에서 떼어 낸 채로 두었습니다.
+이어지는 줄기는 `arc` 를 두 점 한가운데에 얹습니다.
+
+화염탑은 둘째 장에 있었지만 나중에 이펙트를 새로 받아 **넷째 장으로 옮겼습니다.**
+둘째 장의 불 줄은 이제 쓰지 않습니다.
+
+## 병과 캐릭터 셋째 장 — `public/assets/fx/{frost,gravity,supply}/`
+
+| 쓰는 곳 | 그림 | 크기 |
+| --- | --- | --- |
+| 서리탑 — 날아가는 얼음살 | frost/fly.webp | 189×64 |
+| 서리탑 — 솟는 얼음 | frost/hit.webp | 262×269 |
+| 서리탑 한파 — 크게 얼어붙는다 | frost/big.webp | 416×360 |
+| 서리탑 한파 — 얼음 결정 | frost/sigil.webp | 202×231 |
+| 서리탑 — 땅에 남는 고리 | frost/ring.webp | 198×131 |
+| 중력탑 — 빨아들이는 소용돌이 | gravity/pull.webp | 131×129 |
+| 중력탑 — 짓누르며 솟는 파편 | gravity/crush.webp | 278×338 |
+| 중력탑 — 돌아가는 중력장 | gravity/field.webp | 355×313 |
+| 중력탑 블랙홀 | gravity/hole.webp | 254×279 |
+| 중력탑 블랙홀 — 감아올리는 기둥 | gravity/swirl.webp | 121×284 |
+| 보급소 — 밀어 준 사람 발밑 빛기둥 | supply/beam.webp | 238×213 |
+| 보급소 긴급 보급 — 축복 | supply/bless.webp | 168×214 |
+| 보급소 긴급 보급 — 감싸는 보호막 | supply/dome.webp | 211×198 |
+| 보급소 — 발밑 고리 | supply/ring.webp | 160×162 |
+| 보급소 — 흐르는 띠 | supply/wave.webp | 220×182 |
+| 보급소 — 반짝이는 십자 | supply/spark.webp | 190×185 |
+| 보급소 — 솟는 빛 | supply/up.webp | 170×180 |
+
+## 병과 캐릭터 넷째 장 — `public/assets/fx/{corrode,paladin,flame}/`
+
+| 쓰는 곳 | 그림 | 크기 |
+| --- | --- | --- |
+| 부식탑 — 날아가는 부식구 | corrode/fly.webp | 156×92 |
+| 부식탑 — 녹아드는 자국 | corrode/hit.webp | 186×192 |
+| 부식탑 — 땅에 고인 부식 | corrode/pool.webp | 247×186 |
+| 부식탑 산성비 — 솟는 기둥 | corrode/up.webp | 272×233 |
+| 부식탑 산성비 — 휘몰아친다 | corrode/storm.webp | 285×311 |
+| 성기사탑 성역 — 날아가는 검기 | paladin/fly.webp | 209×46 |
+| 성기사탑 — 베어 넘기는 호 | paladin/slash.webp | 260×143 |
+| 성기사탑 성역 — 내리꽂는 검 | paladin/blade.webp | 182×230 |
+| 성기사탑 성역 — 감싸는 구체 | paladin/orb.webp | 244×211 |
+| 성기사탑 성역 — 휘도는 고리 | paladin/ring.webp | 314×220 |
+| 성기사탑 성역 — 방패 문장 | paladin/sigil.webp | 266×299 |
+| 화염탑 — 뿜는 불꽃 | flame/fly.webp | 162×73 |
+| 화염탑 — 솟구치는 불길 | flame/hit.webp | 242×219 |
+| 화염탑 화염 폭풍 — 터진 자국 | flame/boom.webp | 243×195 |
+| 화염탑 화염 폭풍 — 두 줄기 불기둥 | flame/up.webp | 268×185 |
+| 화염탑 화염 폭풍 — 회오리 | flame/storm.webp | 239×229 |
+| 화염탑 — 발밑 불고리 | flame/ring.webp | 144×43 |
+
+보급소는 때리지 않으므로 밀어 준 사람 발밑에 빛기둥을 세우고, 제 발밑에는 고리를 둡니다.
+성기사탑은 붙어서 베므로 `slash` 를 보스 옆에 얹고, 성역에서만 문장·구체·고리가 함께 돕니다.
+성역은 보스를 너무 가리지 않게 크기를 106·84·84로 줄여 두었습니다.
 
 ## 게임에 얹는 자리
 

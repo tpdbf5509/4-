@@ -511,13 +511,32 @@ export const ARENA_ART = {
   bolt: { fly: "bolt/fly", flyR: 36, hit: "bolt/hit", hitR: 40,
     big: "bolt/storm", bigR: 138, strike: "bolt/strike", strikeR: 58,
     arc: "bolt/arc", arcR: 58, ring: "bolt/ring", ringR: 72 },
-  flame: { fly: "flame/fly", flyR: 22, hit: "flame/hit", hitR: 50,
-    big: "flame/storm", bigR: 196, up: "flame/up", upR: 44,
-    ring: "flame/ring", ringR: 98, smoke: "flame/smoke", smokeR: 34 },
+  // 화염탑은 이펙트를 새로 받아 넷째 장으로 바꿨다
+  flame: { fly: "flame/fly", flyR: 26, hit: "flame/hit", hitR: 64,
+    big: "flame/storm", bigR: 120, up: "flame/up", upR: 64,
+    boom: "flame/boom", boomR: 72, ring: "flame/ring", ringR: 62 },
   poison: { fly: "poison/fly", flyR: 28, hit: "poison/hit", hitR: 54,
     big: "poison/storm", bigR: 148, cloud: "poison/cloud", cloudR: 60,
     pool: "poison/pool", poolR: 96, drop: "poison/drop", dropR: 26,
     ring: "poison/ring", ringR: 76 },
+  // 셋째 장 — design/effects/hero3-fx-sheet.webp
+  frost: { fly: "frost/fly", flyR: 30, hit: "frost/hit", hitR: 64,
+    big: "frost/big", bigR: 148, ring: "frost/ring", ringR: 70,
+    sigil: "frost/sigil", sigilR: 54 },
+  gravity: { field: "gravity/field", fieldR: 112, hit: "gravity/crush", hitR: 92,
+    big: "gravity/hole", bigR: 124, pull: "gravity/pull", pullR: 46,
+    swirl: "gravity/swirl", swirlR: 62 },
+  supply: { beam: "supply/beam", beamR: 52, ring: "supply/ring", ringR: 46,
+    dome: "supply/dome", domeR: 78, bless: "supply/bless", blessR: 56,
+    spark: "supply/spark", sparkR: 46, wave: "supply/wave", waveR: 54,
+    up: "supply/up", upR: 50 },
+  // 넷째 장 — design/effects/hero4-fx-sheet.webp
+  corrode: { fly: "corrode/fly", flyR: 26, hit: "corrode/hit", hitR: 56,
+    big: "corrode/storm", bigR: 132, pool: "corrode/pool", poolR: 82,
+    up: "corrode/up", upR: 62 },
+  paladin: { fly: "paladin/fly", flyR: 34, hit: "paladin/slash", hitR: 70,
+    big: "paladin/sigil", bigR: 106, blade: "paladin/blade", bladeR: 76,
+    orb: "paladin/orb", orbR: 84, ring: "paladin/ring", ringR: 84 },
 };
 
 export const ARENA_KIT = {

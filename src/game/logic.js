@@ -835,12 +835,32 @@ function arenaImpact(g, s) {
   } else if (kit.slow) {                         // 서리 — 서리꽃이 터진다
     fx(g, { kind: "nova", x: hx, y: hy, r: big ? 150 : 62, color: "#bfe6ff", n: big ? 12 : 8,
       t: big ? 0.8 : 0.5, life: big ? 0.8 : 0.5, snd: "ice" });
-    fx(g, { kind: "ice", x: hx, y: hy, r: 46, t: 0.6, life: 0.6 });
+    if (ART) {
+      fx(g, { kind: "art", art: ART.ring, x: bossX(g), y: bossY(g) - 2,
+        r: ART.ringR * (big ? 1.6 : 1), t: big ? 1 : 0.6, life: big ? 1 : 0.6 });
+      if (big) {                                 // 한파 — 얼음 결정이 함께 돈다
+        fx(g, { kind: "art", art: ART.sigil, x: bossX(g), y: bossTop(g) + 40, r: ART.sigilR,
+          t: 1, life: 1 });
+      }
+    } else {
+      fx(g, { kind: "ice", x: hx, y: hy, r: 46, t: 0.6, life: 0.6 });
+    }
   } else if (kit.shred) {                        // 부식 — 갑옷이 갈라진 자국
     fx(g, { kind: "mark", x: bossX(g), y: bossTop(g) + 50, r: 40, color: kit.col,
       t: 0.7, life: 0.7 });
-    fx(g, { kind: "burst", x: hx, y: hy, r: big ? 56 : 30, color: kit.col, n: big ? 12 : 7,
-      t: 0.45, life: 0.45 });
+    if (ART) {
+      fx(g, { kind: "art", art: ART.pool, x: bossX(g), y: bossY(g) - 2,
+        r: ART.poolR * (big ? 1.5 : 1), t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7 });
+      if (big) {                                 // 산성비 — 기둥이 솟는다
+        for (let i = 0; i < 3; i++) {
+          fx(g, { kind: "art", art: ART.up, x: bossX(g) + (i - 1) * 76, y: bossY(g) - 2,
+            r: ART.upR, t: 0.7 + i * 0.09, life: 0.7 + i * 0.09 });
+        }
+      }
+    } else {
+      fx(g, { kind: "burst", x: hx, y: hy, r: big ? 56 : 30, color: kit.col, n: big ? 12 : 7,
+        t: 0.45, life: 0.45 });
+    }
   } else if (kit.shot === "slug") {              // 저격 — 한 점이 뚫린다
     fx(g, { kind: "nova", x: hx, y: hy, r: big ? 130 : 54, color: "#e6e9ff", n: 6,
       t: 0.45, life: 0.45 });
@@ -866,6 +886,7 @@ function arenaFire(g, pi, mul, label) {
   const ang = Math.atan2((bossY(g) - py) / ARENA.squash, bx2 - p.ax);
 
   if (kit.mode === "aid") {                      // 보급소 — 때리지 않고 밀어 준다
+    const AID = arenaArtOf(pi);                  // 이 갈래는 dmg 앞에서 끝나므로 따로 본다
     let n = 0;
     g.players.forEach((q, i) => {
       if (!g.seats[i]) return;
@@ -876,15 +897,27 @@ function arenaFire(g, pi, mul, label) {
       const up = arenaMend(g, i, (q.ahpMax || 0) * (big ? 0.35 : 0.12));
       fx(g, { kind: "heal", x: q.ax, y: (q.ay || ARENA.bfy) - 70,
         text: up > 0 ? `+${up}` : "+힘", t: 0.9, life: 0.9 });
-      fx(g, { kind: "nova", x: q.ax, y: (q.ay || ARENA.bfy) - 6, r: 40, color: kit.col, n: 6,
-        t: 0.5, life: 0.5 });
+      if (AID) {                                 // 밀어 준 사람 발밑에서 빛이 솟는다
+        fx(g, { kind: "art", art: big ? AID.bless : AID.beam, x: q.ax, y: (q.ay || ARENA.bfy) - 2,
+          r: big ? AID.blessR : AID.beamR, t: 0.8, life: 0.8 });
+      } else {
+        fx(g, { kind: "nova", x: q.ax, y: (q.ay || ARENA.bfy) - 6, r: 40, color: kit.col, n: 6,
+          t: 0.5, life: 0.5 });
+      }
     });
     g.core.hp = Math.min(g.core.max, g.core.hp + kit.heal * mul);   // 성채도 조금 돌린다
     fx(g, { kind: "ring", x: p.ax, y: py - 20, r: rng, color: kit.col, t: 0.6, life: 0.6, snd: "bless" });
+    if (AID) fx(g, { kind: "art", art: AID.ring, x: p.ax, y: py - 4, r: AID.ringR, t: 0.6, life: 0.6 });
     if (big) {                                   // 큰 축복 — 넓게 한 번 더
-      fx(g, { kind: "nova", x: p.ax, y: py - 20, r: rng * 0.9, color: "#f2dcff", n: 14,
-        t: 0.9, life: 0.9 });
-      fx(g, { kind: "sigil", x: p.ax, y: py - 10, r: rng * 0.6, color: kit.col, t: 1, life: 1 });
+      if (AID) {
+        fx(g, { kind: "art", art: AID.dome, x: p.ax, y: py - 42, r: AID.domeR, t: 1, life: 1 });
+        fx(g, { kind: "art", art: AID.spark, x: p.ax, y: py - 60, r: AID.sparkR, t: 1, life: 1 });
+        fx(g, { kind: "art", art: AID.wave, x: p.ax, y: py - 30, r: AID.waveR, t: 0.9, life: 0.9 });
+      } else {
+        fx(g, { kind: "nova", x: p.ax, y: py - 20, r: rng * 0.9, color: "#f2dcff", n: 14,
+          t: 0.9, life: 0.9 });
+        fx(g, { kind: "sigil", x: p.ax, y: py - 10, r: rng * 0.6, color: kit.col, t: 1, life: 1 });
+      }
     }
     say(g, p.ax, py - 104, n > 1 ? `보급 ${n}명` : "보급", kit.col);
     if (label) callout(g, CX, 250, label, "#ffd873", "crit", 0.8);
@@ -907,7 +940,19 @@ function arenaFire(g, pi, mul, label) {
       r: big ? 92 : 48, color: kit.col, t: big ? 0.4 : 0.3, life: big ? 0.4 : 0.3, snd: "hit" });
     fx(g, { kind: "slash", x: bx2 + side * -52, y: by2 - 2,
       a: side > 0 ? 0 : Math.PI, color: "rgba(255,246,226,0.95)", t: 0.24, life: 0.24 });
-    if (big) {                                   // 성스러운 일격 — 십자 표식과 빛 고리
+    if (ART) {                                   // 베어 넘기는 호
+      fx(g, { kind: "art", art: ART.hit, x: bx2 - side * 26, y: by2 - 2, r: ART.hitR,
+        flip: side < 0 ? 1 : 0, t: 0.34, life: 0.34 });
+    }
+    if (big) {                                   // 성스러운 일격 — 문장과 구체가 감싼다
+      if (ART) {
+        fx(g, { kind: "art", art: ART.big, x: bx2, y: by2 + 10, r: ART.bigR, t: 1, life: 1 });
+        fx(g, { kind: "art", art: ART.orb, x: bx2, y: by2 + 4, r: ART.orbR, t: 0.9, life: 0.9 });
+        fx(g, { kind: "art", art: ART.ring, x: bx2, y: bossY(g) - 16, r: ART.ringR, t: 0.9, life: 0.9 });
+        fx(g, { kind: "art", art: ART.blade, x: bx2, y: bossY(g) - 2, r: ART.bladeR, t: 0.8, life: 0.8 });
+        fx(g, { kind: "shot", x0: p.ax, y0: py - 46, x1: bx2, y1: by2, style: "blade",
+          art: ART.fly, r: ART.flyR, color: kit.col, t: 0.16, life: 0.16 });
+      }
       fx(g, { kind: "sigil", x: bx2, y: by2 + 20, r: 120, color: "#ffeec2", t: 0.9, life: 0.9 });
       fx(g, { kind: "nova", x: bx2, y: by2, r: 150, color: "#ffeec2", n: 12, t: 0.7, life: 0.7 });
       for (let i = 0; i < 3; i++) {
@@ -928,7 +973,7 @@ function arenaFire(g, pi, mul, label) {
       fx(g, { kind: "art", art: ART.ring, x: p.ax, y: py - 6, r: ART.ringR, t: 0.5, life: 0.5 });
       fx(g, { kind: "art", art: ART.fly, x: p.ax + Math.cos(ang) * 40, y: py - 44 + Math.sin(ang) * 16,
         r: ART.flyR, flip: p.ax > bx2 ? 1 : 0, t: 0.3, life: 0.3 });
-      fx(g, { kind: "art", art: ART.hit, x: bx2 + (Math.random() - 0.5) * 50, y: by2 + 6,
+      fx(g, { kind: "art", art: ART.hit, x: bx2 + (Math.random() - 0.5) * 50, y: bossY(g) - 4,
         r: ART.hitR, flip: p.ax > bx2 ? 1 : 0, t: 0.5, life: 0.5 });
     } else {
       fx(g, { kind: "firering", x: p.ax, y: py - 10, r: rng, t: 0.5, life: 0.5 });
@@ -941,8 +986,8 @@ function arenaFire(g, pi, mul, label) {
           fx(g, { kind: "art", art: ART.up, x: bx2 + (i - 1.5) * 62 + (Math.random() - 0.5) * 20,
             y: bossY(g) - 4, r: ART.upR, t: 0.6 + i * 0.09, life: 0.6 + i * 0.09 });
         }
-        fx(g, { kind: "art", art: ART.smoke, x: bx2 + (Math.random() - 0.5) * 90,
-          y: bossTop(g) + 20, r: ART.smokeR, t: 1, life: 1 });
+        fx(g, { kind: "art", art: ART.boom, x: bx2 + (Math.random() - 0.5) * 90,
+          y: bossY(g) - 12, r: ART.boomR, t: 0.8, life: 0.8 });
       } else {
         for (let i = 0; i < 5; i++) {
           fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 150,
@@ -956,11 +1001,26 @@ function arenaFire(g, pi, mul, label) {
   if (kit.mode === "field") {                    // 중력 — 보스 자리에 중력장
     fx(g, { kind: "hole", x: bx2, y: by2 + 12, r: big ? 210 : 130,
       t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7, color: kit.col, snd: "pull" });
-    fx(g, { kind: "vortex", x: bx2, y: by2 + 12, r: 120, t: 0.8, life: 0.8 });
     arenaDamage(g, pi, dmg, { skill: big });
     arenaMark(g, pi, kit);
-    if (big) fx(g, { kind: "nova", x: bx2, y: by2 + 12, r: 220, color: kit.col, n: 14,
-      t: 0.8, life: 0.8 });
+    if (ART) {
+      fx(g, { kind: "art", art: ART.field, x: bx2, y: bossY(g) - 24, r: ART.fieldR,
+        t: 0.8, life: 0.8 });
+      fx(g, { kind: "art", art: ART.hit, x: bx2, y: bossY(g) - 2, r: ART.hitR, t: 0.7, life: 0.7 });
+      fx(g, { kind: "art", art: ART.pull, x: p.ax, y: py - 44, r: ART.pullR, t: 0.6, life: 0.6 });
+    } else {
+      fx(g, { kind: "vortex", x: bx2, y: by2 + 12, r: 120, t: 0.8, life: 0.8 });
+    }
+    if (big) {                                   // 블랙홀 — 빨아들인다
+      if (ART) {
+        fx(g, { kind: "art", art: ART.big, x: bx2, y: by2 + 6, r: ART.bigR, t: 1.1, life: 1.1 });
+        for (let i = 0; i < 2; i++) {
+          fx(g, { kind: "art", art: ART.swirl, x: bx2 + (i ? 96 : -96), y: bossY(g) - 10,
+            r: ART.swirlR, flip: i, t: 0.9 + i * 0.1, life: 0.9 + i * 0.1 });
+        }
+      }
+      fx(g, { kind: "nova", x: bx2, y: by2 + 12, r: 220, color: kit.col, n: 14, t: 0.8, life: 0.8 });
+    }
     return;
   }
   if (kit.mode === "chain") {                    // 번개 — 보스에서 가까운 것들로 이어진다

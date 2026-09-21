@@ -119,14 +119,7 @@ SHEETS = {
             'bolt/arc':     (250, 55, 520, 250),     # 이어지는 줄기
             'bolt/ring':    (710, 84, 910, 264),     # 땅에 남는 고리
             'bolt/storm':   (1140, 5, 1534, 355),    # 뇌우 — 크게 휘몰아친다
-            # 화염탑
-            'flame/fly':    (18, 480, 140, 552),     # 날아가는 불덩이
-            'flame/hit':    (150, 447, 300, 566),    # 스친 자국
-            'flame/up':     (473, 410, 585, 588),    # 솟아오르는 불길
-            'flame/boom':   (606, 410, 820, 600),    # 터진 자국
-            'flame/ring':   (825, 423, 1057, 600),   # 발밑 불고리
-            'flame/storm':  (1070, 360, 1520, 628),  # 화염 폭풍
-            'flame/smoke':  (748, 612, 860, 704),    # 그을음
+            # 화염탑은 hero4 로 옮겼다 (이펙트를 새로 받았다)
             # 독탑
             'poison/fly':   (24, 797, 241, 864),     # 날아가는 독구슬
             'poison/hit':   (253, 752, 420, 900),    # 터진 자국
@@ -138,13 +131,86 @@ SHEETS = {
         },
         'with_boss': set(),
         'anchor': {
-            'bolt/fly': 'tip', 'flame/fly': 'tip', 'poison/fly': 'tip',
-            'bolt/hit': 'bright', 'flame/hit': 'bright', 'flame/boom': 'bright',
-            'poison/hit': 'bright',
-            'bolt/strike': 'foot', 'flame/up': 'foot', 'poison/drop': 'foot',
-            'bolt/arc': 'center', 'bolt/storm': 'center', 'flame/storm': 'center',
-            'flame/smoke': 'center', 'poison/cloud': 'center', 'poison/storm': 'center',
+            'bolt/fly': 'tip', 'poison/fly': 'tip',
+            'bolt/hit': 'bright', 'poison/hit': 'bright',
+            'bolt/strike': 'foot', 'poison/drop': 'foot',
+            'bolt/arc': 'center', 'bolt/storm': 'center',
+            'poison/cloud': 'center', 'poison/storm': 'center',
             # 고리와 고인 자리는 빈 구멍 한가운데 (기본값)
+        },
+        'single': {},
+    },
+    # ── 병과 캐릭터 셋째 장 (서리탑·중력탑·보급소) ────────────
+    'hero3': {
+        'file': 'hero3-fx-sheet.webp',
+        'labels': None, 'wash': True, 'root': True,
+        'box': {
+            # 서리탑 — 파랑
+            'frost/fly':     (210, 100, 400, 168),   # 날아가는 얼음살
+            'frost/hit':     (438, 100, 700, 370),   # 솟는 얼음
+            'frost/big':     (712, 42, 1128, 406),   # 한파 — 크게 얼어붙는다
+            'frost/sigil':   (1120, 136, 1322, 370), # 얼음 결정
+            'frost/ring':    (1320, 250, 1518, 382), # 땅에 남는 고리
+            # 중력탑 — 보라
+            'gravity/pull':  (18, 436, 152, 570),    # 빨아들이는 소용돌이
+            'gravity/crush': (498, 388, 776, 726),   # 짓누르며 솟는 파편
+            'gravity/field': (782, 444, 1140, 762),  # 돌아가는 중력장
+            'gravity/hole':  (1136, 448, 1390, 730), # 블랙홀
+            'gravity/swirl': (1394, 442, 1522, 732), # 감아올리는 기둥
+            # 보급소 — 분홍
+            'supply/beam':   (20, 766, 258, 986),    # 빛기둥
+            'supply/dome':   (266, 778, 482, 976),   # 감싸는 보호막
+            'supply/bless':  (488, 766, 656, 980),   # 축복
+            'supply/ring':   (652, 800, 812, 962),   # 땅에 남는 고리
+            'supply/wave':   (820, 790, 1040, 972),  # 흐르는 띠
+            'supply/spark':  (1050, 780, 1240, 972), # 반짝이는 십자
+            'supply/up':     (1250, 766, 1420, 980), # 솟는 빛
+        },
+        'with_boss': set(),
+        'anchor': {
+            'frost/fly': 'tip',
+            'frost/hit': 'foot', 'frost/big': 'foot', 'gravity/crush': 'foot',
+            'supply/beam': 'foot', 'supply/bless': 'foot', 'supply/up': 'foot',
+            'frost/sigil': 'center', 'gravity/hole': 'bright', 'gravity/swirl': 'center',
+            'supply/dome': 'center', 'supply/wave': 'center', 'supply/spark': 'center',
+        },
+        'single': {},
+    },
+    # ── 병과 캐릭터 넷째 장 (부식탑·성기사탑·화염탑) ──────────
+    'hero4': {
+        'file': 'hero4-fx-sheet.webp',
+        'labels': None, 'wash': True, 'root': True,
+        'box': {
+            # 부식탑 — 초록·보라
+            'corrode/fly':   (284, 156, 446, 254),   # 날아가는 부식구
+            'corrode/hit':   (460, 90, 646, 288),    # 녹아드는 자국
+            'corrode/pool':  (662, 92, 916, 286),    # 땅에 고인 부식
+            'corrode/up':    (920, 56, 1200, 296),   # 솟는 기둥
+            'corrode/storm': (1214, 16, 1510, 336),  # 산성비 — 휘몰아친다
+            # 성기사탑 — 금색
+            'paladin/fly':   (32, 448, 244, 502),    # 날아가는 검기
+            'paladin/slash': (242, 466, 502, 612),   # 베어 넘기는 호
+            'paladin/blade': (530, 384, 712, 620),   # 내리꽂는 검
+            'paladin/orb':   (700, 392, 944, 608),   # 감싸는 구체
+            'paladin/ring':  (938, 388, 1254, 610),  # 휘도는 고리
+            'paladin/sigil': (1248, 370, 1516, 676), # 성역 — 방패 문장
+            # 화염탑 — 빨강 (새로 받은 이펙트)
+            'flame/fly':     (24, 740, 190, 820),    # 날아가는 불꽃
+            'flame/hit':     (494, 708, 740, 932),   # 솟구치는 불길
+            'flame/boom':    (748, 730, 1000, 928),  # 터진 자국
+            'flame/up':      (1030, 732, 1298, 926), # 두 줄기 불기둥
+            'flame/storm':   (1280, 690, 1520, 930), # 화염 폭풍 — 회오리
+            'flame/ring':    (1216, 944, 1372, 996), # 발밑 불고리
+        },
+        'with_boss': set(),
+        'anchor': {
+            'corrode/fly': 'tip', 'paladin/fly': 'tip', 'flame/fly': 'tip',
+            'corrode/hit': 'bright', 'flame/boom': 'bright',
+            'corrode/up': 'foot', 'flame/hit': 'foot', 'flame/up': 'foot',
+            'paladin/blade': 'foot',
+            'corrode/storm': 'center', 'flame/storm': 'center',
+            'paladin/slash': 'center', 'paladin/orb': 'center',
+            'paladin/ring': 'center', 'paladin/sigil': 'center',
         },
         'single': {},
     },

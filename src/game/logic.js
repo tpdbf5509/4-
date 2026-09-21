@@ -995,7 +995,11 @@ function arenaHurt(g, pi, raw) {
   const had = Math.max(0, p.ahp || 0);
   const lost = Math.min(had, Math.max(1, Math.round(raw)));
   p.ahp = had - lost;
-  g.core.hp -= lost;                       // 깎인 만큼 그대로 성채로
+  // 깎인 만큼 성채도 깎인다. 다만 한 사람이 다 쓰러져도 성채는
+  // 제 몫(coreShare)만큼만 잃는다 — 한 번 쓰러졌다고 판이 끝나지 않게.
+  const share = (g.core.max * ARENA.coreShare) / Math.max(1, p.ahpMax || 1);
+  const cost = Math.max(1, Math.round(lost * Math.min(1, share)));
+  g.core.hp -= cost;
   g.hitFlash = 0.35;
   fx(g, { kind: "dmg", x: p.ax, y: (p.ay || ARENA.bfy) - 96, text: `-${lost}`,
     color: "#ff8d76", t: 0.9, life: 0.9 });
@@ -1007,7 +1011,7 @@ function arenaHurt(g, pi, raw) {
       color: "rgba(230,150,140,1)" });
     callout(g, CX, 280, `${(g.names && g.names[pi]) || CLASSES[pi].name} 쓰러짐`, "#ff8d76", "warn", 0.6);
   }
-  return lost;
+  return cost;                             // 성채가 실제로 잃은 값
 }
 
 /* 보급소가 곁에 있는 사람을 일으켜 세운다 */

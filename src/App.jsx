@@ -7,7 +7,7 @@ import {
 } from "./game/world.js";
 import {
   step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
-  applyReward, applyLeave, applyHold, startPrep, towerCosts,
+  applyReward, applyLeave, applyHold, startPrep, towerCosts, markMove,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
@@ -683,10 +683,14 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       else if (kind === "castle") doCastle(g, mySeat);
       else doSkill(g, mySeat);
     } else {
-      // 내 커서는 바로 움직이고, 판정은 방장에게 맡긴다
-      if (kind === "move") applyMove(g, mySeat, dir);
-      else if (kind === "goto") applyGoto(g, mySeat, dir);
-      room?.send("input", { cls: mySeat, kind, dir });
+      // 내 커서는 바로 움직이고, 판정은 방장에게 맡긴다.
+      // 옮긴 자리마다 번호를 붙여 보내고, 방장이 그 번호를 돌려줄 때까지는
+      // 늦게 온 자리로 되돌리지 않는다 (applySnapshot 에서 막는다).
+      let seq;
+      const guard = g.phase !== "arena";          // 결전장에서는 자리 번호를 쓰지 않는다
+      if (kind === "move") { applyMove(g, mySeat, dir); if (guard) seq = markMove(g); }
+      else if (kind === "goto") { applyGoto(g, mySeat, dir); if (guard) seq = markMove(g); }
+      room?.send("input", { cls: mySeat, kind, dir, seq });
     }
   }, [isHost, mySeat, room]);
 
@@ -861,8 +865,12 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
         // 결전장에서 뜻이 없는 것(팔기·성채·그 자리로)은 각자 알아서 물러난다.
         if (g.phase !== "prep" && g.phase !== "wave" && g.phase !== "arena") return;
         if (g.paused) return;
-        if (d.kind === "move") applyMove(g, d.cls, d.dir);
-        else if (d.kind === "goto") applyGoto(g, d.cls, d.dir);
+        if (d.kind === "move" || d.kind === "goto") {
+          if (d.kind === "move") applyMove(g, d.cls, d.dir);
+          else applyGoto(g, d.cls, d.dir);
+          // 어디까지 받았는지 돌려줘야 손님 커서가 제자리를 지킨다
+          if (d.seq) g.players[d.cls].ack = d.seq;
+        }
         else if (d.kind === "build") doBuild(g, d.cls);
         else if (d.kind === "sell") doSell(g, d.cls);
         else if (d.kind === "castle") doCastle(g, d.cls);

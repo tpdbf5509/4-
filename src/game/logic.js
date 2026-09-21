@@ -2094,6 +2094,19 @@ function arenaFollow(g, dt) {
   });
 }
 
+/* 손님이 보낸 자리 옮기기를 방장이 받았다고 알려 줄 때까지 기다리는 한도(초).
+   이만큼 지나도 소식이 없으면 조작이 길에서 사라진 것으로 보고 방장 쪽을 따른다. */
+const ACK_WAIT = 1.5;
+const nowSec = () => (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
+
+/* 손님이 제 화면에서 먼저 옮겨 놓은 자리에 번호를 매긴다.
+   방장이 같은 번호를 돌려주기 전까지는 늦게 온 자리를 믿지 않는다. */
+export function markMove(g) {
+  g.myMove = (g.myMove || 0) + 1;
+  g.myMoveT = nowSec();
+  return g.myMove;
+}
+
 /* 호스트가 보내는 상태 묶음 */
 export function packSnapshot(g) {
   return {
@@ -2126,7 +2139,8 @@ export function packSnapshot(g) {
     } : 0,
     lv2: g.leaveT > 0 ? (g.leave || []).map((v) => (v ? 1 : 0)) : 0,
     lt: Math.max(0, Math.round(g.leaveT * 10) / 10),
-    pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills]),
+    pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills,
+      p.ack || 0]),
     tw: g.towers.map((t) => (t
       ? [t.owner, t.lv, towerIdx(t.type), t.warm > 0 ? 1 : 0,
         Math.round((t.aid || 0) * 100) / 100, t.aidFrom >= 0 ? t.aidFrom : -1]
@@ -2202,8 +2216,14 @@ export function applySnapshot(g, s) {
   s.pl.forEach((row, i) => {
     const p = g.players[i];
     p.gold = row[0]; p.cd = row[1];
-    p.lane = row[2]; p.slot = row[3];
     p.built = row[4]; p.kills = row[5];
+    p.ack = row[6] || 0;
+    // 내 커서는 내 화면에서 먼저 옮겨 간다. 방장이 그 조작을 받았다고 알려 줄 때까지
+    // 늦게 온 자리로 되돌리면 커서가 앞뒤로 튄다 — 그동안은 내 자리를 그대로 둔다.
+    // 조작이 길에서 사라졌을 수도 있으니 오래 기다리면 방장 쪽을 따른다.
+    if (i === g.mySeat && g.phase !== "arena" && g.myMove > 0 && p.ack < g.myMove
+      && nowSec() - (g.myMoveT || 0) < ACK_WAIT) return;
+    p.lane = row[2]; p.slot = row[3];
   });
 
   s.tw.forEach((row, i) => {

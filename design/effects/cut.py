@@ -1,14 +1,18 @@
-"""결전 이펙트 시트에서 이펙트만 떼어 낸다.
+"""이펙트 시트에서 이펙트만 떼어 낸다.
 
-두 장을 다룬다. 1차 오우거 지휘관(`boss`)과 2차 대군주(`titan`)다.
-둘 다 배경이 이미 투명하다. 그래서 하는 일은 셋뿐이다.
+세 장을 다룬다. 1차 오우거 지휘관(`boss`), 2차 대군주(`titan`),
+그리고 병과 캐릭터의 평타·스킬(`hero`)이다.
 
   1) 칸마다 잘라 낸다 — 좌표는 SHEETS 의 box 에 적어 두었다.
   2) 설명 라벨을 지운다.
   3) 칸 안에 함께 그려진 보스를 지운다 — 게임은 제 보스를 따로 그린다.
+  4) 깔려 있는 배경 안개를 걷는다 (`wash`).
+
+보스 시트 둘은 배경이 이미 투명해 4)가 없다. 병과 시트는 줄마다 옅은
+색 안개가 깔려 있어, 그 안개만 걷어 내고 그림은 그대로 둔다.
 
 픽셀 자체는 건드리지 않는다. 늘리거나 돌리거나 색을 고치지 않는다.
-지우는 것은 라벨과 보스뿐이고, 나머지는 원본 그대로 둔다.
+지우는 것은 라벨·보스·배경뿐이고, 나머지는 원본 그대로 둔다.
 
     python3 design/effects/cut.py
 """
@@ -56,6 +60,49 @@ SHEETS = {
             'hail1':  ('hail',  (21, 15, 105, 150)),
             'track1': ('track', (32, 2, 68, 124)),
         },
+    },
+    # ── 병과 캐릭터 (궁수탑·저격탑·대포탑) ────────────────────
+    # 한 장에 세 줄이다. 위가 초록(궁수탑), 가운데가 파랑(저격탑), 아래가 주황(대포탑).
+    # 라벨도 보스도 없고, 대신 줄마다 옅은 색 안개가 깔려 있어 그것만 걷는다.
+    'hero': {
+        'file': 'hero-fx-sheet.webp',
+        'labels': None,
+        'wash': True,
+        # 칸 이름에 이미 병과가 붙어 있어 시트 이름으로 한 겹 더 싸지 않는다
+        'root': True,
+        'box': {
+            # 궁수탑 — 초록
+            'archer/arrow':  (148, 207, 440, 291),    # 날아가는 화살
+            'archer/volley': (452, 66, 848, 412),     # 집중 사격 — 화살 무리
+            'archer/hit':    (834, 77, 1048, 413),    # 크게 꽂힌 자국
+            'archer/hit1':   (1042, 244, 1154, 404),  # 한 대 꽂힌 자국
+            'archer/ring':   (1173, 312, 1328, 396),  # 땅에 남는 고리
+            # 저격탑 — 파랑
+            'sniper/slug':   (24, 598, 278, 682),     # 날아가는 탄
+            'sniper/mark':   (737, 414, 1093, 578),   # 결정타 — 겨누어 꿰뚫는다
+            'sniper/hit':    (1118, 418, 1322, 616),  # 꽂힌 자국
+            'sniper/spark':  (1340, 427, 1385, 498),  # 튀는 빛
+            # 대포탑 — 주황
+            'cannon/shell':  (360, 762, 510, 834),    # 날아가는 포탄
+            'cannon/boom':   (715, 734, 897, 898),    # 터진 자국
+            'cannon/rain1':  (1158, 700, 1204, 788),  # 융단 폭격 — 떨어지는 포탄 하나
+            'cannon/hit':    (1306, 840, 1398, 904),  # 땅에 터진 자국
+            'cannon/trail':  (24, 898, 396, 992),     # 불꼬리
+            'cannon/smoke':  (786, 898, 886, 996),    # 포연
+        },
+        'with_boss': set(),
+        'anchor': {
+            # 날아가는 것은 머리 끝에 맞춘다
+            'archer/arrow': 'tip', 'sniper/slug': 'tip', 'cannon/shell': 'tip',
+            'cannon/trail': 'tip', 'sniper/mark': 'tip',
+            # 터지는 것은 가장 밝은 한가운데
+            'archer/hit': 'bright', 'archer/hit1': 'bright',
+            'sniper/hit': 'bright', 'cannon/boom': 'bright', 'cannon/hit': 'bright',
+            # 떨어지는 포탄은 닿는 발끝
+            'cannon/rain1': 'foot',
+            'archer/volley': 'center', 'sniper/spark': 'center', 'cannon/smoke': 'center',
+        },
+        'single': {},
     },
     # ── 1차 오우거 지휘관 ─────────────────────────────────────
     'boss': {
@@ -110,6 +157,44 @@ def _drop_label_boxes(a, boxes):
     for x0, y0, x1, y1 in boxes:
         a[max(0, y0 - 2):y1 + 2, max(0, x0 - 2):x1 + 2] = 0
     return len(boxes)
+
+
+def _drop_wash(sheet):
+    """줄마다 깔려 있는 옅은 색 안개를 걷는다.
+
+    안개는 넓고 매끈하다. 작게 줄여 낮은 분위수를 재면 이펙트에 휘둘리지 않고
+    그 언저리의 바탕값이 나온다. 그만큼 알파에서 덜어 내고, 남은 아주 옅은
+    자락은 부드럽게 0 으로 보낸다. 색(RGB)은 건드리지 않는다.
+    """
+    al = sheet[:, :, 3].astype(np.float64)
+    h, w = al.shape
+    small = np.asarray(Image.fromarray(sheet[:, :, 3]).resize((w // 8, h // 8), Image.BOX))
+    bg = ndi.gaussian_filter(ndi.percentile_filter(small.astype(np.float64), 12,
+                                                   size=21, mode='nearest'), 3)
+    bg = np.asarray(Image.fromarray(bg.astype(np.uint8)).resize((w, h), Image.BICUBIC))
+    left = np.clip(al - bg, 0, 255)
+    t = np.clip((left - 18) / 24, 0, 1)            # 18 아래는 안개, 42 위는 그림
+    sheet[:, :, 3] = (left * (t * t * (3 - 2 * t))).astype(np.uint8)
+    return int(bg.max())
+
+
+def _tip(a):
+    """날아가는 것의 머리 끝 — 가장 밝은 무리 중 가장 앞(오른쪽)."""
+    al = a[:, :, 3].astype(float)
+    lum = a[:, :, :3].astype(float).mean(2) * (al / 255)
+    if not (al > 40).any():
+        return float(a.shape[1]), a.shape[0] / 2.0
+    ys, xs = np.where(lum > np.percentile(lum[al > 40], 96))
+    edge = xs.max()
+    near = xs > edge - 6
+    return float(xs[near].mean()), float(ys[near].mean())
+
+
+def _foot(a):
+    """떨어지는 것이 닿는 자리 — 아래 끝 한가운데."""
+    ys, xs = np.where(a[:, :, 3] > 24)
+    low = ys > ys.max() - 8
+    return float(xs[low].mean()), float(ys.max())
 
 
 def _hole(a):
@@ -189,6 +274,10 @@ def _anchor(cfg, key, a, spot):
         return want
     if want == 'bright':
         return _bright(a)
+    if want == 'tip':
+        return _tip(a)
+    if want == 'foot':
+        return _foot(a)
     if want == 'center':
         return (a.shape[1] / 2, a.shape[0] / 2)
     return spot
@@ -201,9 +290,10 @@ def _tight(a):
 
 def cut_sheet(name):
     cfg = SHEETS[name]
-    out = os.path.join(OUT, name)
+    out = OUT if cfg.get('root') else os.path.join(OUT, name)
     os.makedirs(out, exist_ok=True)
     sheet = np.asarray(Image.open(os.path.join(HERE, cfg['file'])).convert('RGBA')).copy()
+    wash = _drop_wash(sheet) if cfg.get('wash') else 0
     labels = 0
     if isinstance(cfg['labels'], list):
         labels = _drop_label_boxes(sheet, cfg['labels'])   # 딱지를 한 번에 걷는다
@@ -218,7 +308,9 @@ def cut_sheet(name):
             a = _one(a)
         a, x0c, y0c = _tight(a)
         im = Image.fromarray(a)
-        im.save(os.path.join(out, key + '.webp'), lossless=True, quality=100, method=4)
+        dst = os.path.join(out, key + '.webp')
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        im.save(dst, lossless=True, quality=100, method=4)
         # 그림을 어디에 맞춰 얹을지 — 보스가 섰던 자리, 없으면 빈 구멍, 그것도 없으면 가장 밝은 곳
         if spot is None:
             spot = _hole(a) or _bright(a)
@@ -232,9 +324,12 @@ def cut_sheet(name):
         im = Image.fromarray(a)
         im.save(os.path.join(out, key + '.webp'), lossless=True, quality=100, method=4)
         rows.append((key, im.size, 0, 0, _anchor(cfg, key, a, _bright(a))))
-    print(f'── {name} ({cfg["file"]}) · 걷어낸 라벨 딱지 {labels}개')
+    note = f'걷어낸 라벨 딱지 {labels}개' if labels else ''
+    if wash:
+        note = f'배경 안개 최대 알파 {wash} 걷어 냄'
+    print(f'── {name} ({cfg["file"]}) · {note}')
     for key, size, lab, boss, spot in rows:
-        print(f'  {key:7s} {size[0]:4d}x{size[1]:<4d} 라벨 {lab:2d}줄  보스 {boss:6d}px'
+        print(f'  {key:14s} {size[0]:4d}x{size[1]:<4d} 라벨 {lab:2d}줄  보스 {boss:6d}px'
               f'  ax {spot[0]:5.0f} ay {spot[1]:5.0f}')
 
 

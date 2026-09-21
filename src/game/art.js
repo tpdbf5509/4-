@@ -78,6 +78,22 @@ export const FX_ART = {
   "boss/leap":    { ax: 151, ay: 333, k: 1, over: 1 },
   "boss/swipe":   { ax: 159, ay: 193, k: 1, over: 1 },
   "boss/stomp1":  { ax: 80,  ay: 158, k: 0.75, over: 1 },
+  // 병과 캐릭터 — 궁수탑(초록) · 저격탑(파랑) · 대포탑(주황)
+  "archer/arrow":  { ax: 218, ay: 21,  k: 1 },
+  "archer/volley": { ax: 192, ay: 160, k: 1, over: 1 },
+  "archer/hit":    { ax: 91,  ay: 256, k: 1, over: 1 },
+  "archer/hit1":   { ax: 55,  ay: 103, k: 1, over: 1 },
+  "archer/ring":   { ax: 45,  ay: 40,  k: 1 },
+  "sniper/slug":   { ax: 174, ay: 43,  k: 1 },
+  "sniper/mark":   { ax: 331, ay: 99,  k: 1, over: 1 },
+  "sniper/hit":    { ax: 93,  ay: 91,  k: 1, over: 1 },
+  "sniper/spark":  { ax: 22,  ay: 35,  k: 1, over: 1 },
+  "cannon/shell":  { ax: 134, ay: 53,  k: 1 },
+  "cannon/boom":   { ax: 92,  ay: 69,  k: 1, over: 1 },
+  "cannon/rain1":  { ax: 24,  ay: 76,  k: 0.8, over: 1 },
+  "cannon/hit":    { ax: 51,  ay: 44,  k: 1 },
+  "cannon/trail":  { ax: 338, ay: 30,  k: 1 },
+  "cannon/smoke":  { ax: 48,  ay: 36,  k: 1, over: 1 },
 };
 const fxCache = {};
 let fxWarm = 0;
@@ -2056,7 +2072,10 @@ export function drawBullet(ctx, b) {
 export function drawFx(ctx, f) {
   const k = f.kind;
   // 수가 하나라도 깨져 있으면 그리지 않는다. 캔버스가 던지면 그 프레임이 통째로 멈춘다.
-  if (!Number.isFinite(f.x) || !Number.isFinite(f.y)) return;
+  // 한 점으로 그리는 것과 두 점을 잇는 것(날아가는 것·번개·빛줄기)은 보는 값이 다르다.
+  if (f.x0 !== undefined) {
+    if (![f.x0, f.y0, f.x1, f.y1].every(Number.isFinite)) return;
+  } else if (!Number.isFinite(f.x) || !Number.isFinite(f.y)) return;
   if (f.r !== undefined && !Number.isFinite(f.r)) return;
   if (k === "art") {                   // 시트에서 떼어 낸 그림을 그대로 — 가로세로 같은 배율
     const art = FX_ART[f.art];
@@ -2065,8 +2084,13 @@ export function drawFx(ctx, f) {
     const p = 1 - f.t / f.life;        // 0 → 1
     const s = ((f.r || 120) * (art.k || 1)) / (im.naturalWidth / 2);
     ctx.save();
-    ctx.globalAlpha = Math.min(1, (1 - p) * 2.4);   // 터질 때 바로 보이고 천천히 사라진다
+    // 터질 때 바로 보이고 천천히 사라진다
+    ctx.globalAlpha = Math.min(1, (1 - p) * 2.4);
     ctx.translate(f.x, f.y);
+    if (f.a) {                        // 날아가는 쪽을 보게 돌리되, 몸은 뒤집히지 않게
+      ctx.rotate(f.a);
+      if (Math.cos(f.a) < 0) ctx.scale(1, -1);
+    }
     if (f.flip) ctx.scale(-1, 1);
     ctx.drawImage(im, -art.ax * s, -art.ay * s, im.naturalWidth * s, im.naturalHeight * s);
     ctx.restore();
@@ -2239,7 +2263,15 @@ export function drawFx(ctx, f) {
     ctx.translate(x, y);
     ctx.rotate(ang);
     const col = f.color || "#f0e4c6";
-    if (f.style === "arrow") {
+    const art = f.art && FX_ART[f.art];
+    const im = art && fxSprite(f.art);
+    if (im && im.naturalWidth) {
+      // 시트에서 떼어 낸 그림을 날아가는 쪽으로 돌려 얹는다
+      if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      if (f.style === "shell") ctx.translate(0, -Math.sin(q * Math.PI) * 42);   // 포물선
+      const s2 = ((f.r || 30) * (art.k || 1)) / (im.naturalWidth / 2);
+      ctx.drawImage(im, -art.ax * s2, -art.ay * s2, im.naturalWidth * s2, im.naturalHeight * s2);
+    } else if (f.style === "arrow") {
       ctx.strokeStyle = col; ctx.lineWidth = 2.6; ctx.lineCap = "round";
       ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(7, 0); ctx.stroke();
       ctx.fillStyle = "#fff6dd";

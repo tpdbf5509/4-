@@ -496,6 +496,19 @@ export const bossTop = (g) => bossY(g) - ARENA_LIFT;
    결전장은 판보다 넓으므로 사거리에 ARENA.rangeMul 을 곱한다.
    한 방 피해는 타워의 초당 피해에서 뽑아, 병과끼리 비슷한 몫이 되도록 맞췄다.
    rooted 가 붙은 병과는 겨누어 쏘므로, 발을 멈춰야 평타가 나간다. */
+/* 병과 이펙트 원본에서 떼어 낸 그림 — design/effects/hero-fx-sheet.webp
+   fly 는 날아가는 것, hit 는 꽂힌 자국, big 은 스킬로 꽂힌 자국,
+   cast 는 스킬을 쓸 때 보스 자리에 얹는 그림이다. r 은 얹을 크기(반지름). */
+export const ARENA_ART = {
+  archer: { fly: "archer/arrow", flyR: 30, hit: "archer/hit1", hitR: 46,
+    big: "archer/hit", bigR: 108, cast: "archer/volley", castR: 190 },
+  sniper: { fly: "sniper/slug", flyR: 34, hit: "sniper/hit", hitR: 62,
+    big: "sniper/hit", bigR: 118, cast: "sniper/mark", castR: 168 },
+  cannon: { fly: "cannon/shell", flyR: 24, hit: "cannon/boom", hitR: 74,
+    big: "cannon/boom", bigR: 132, rain: "cannon/rain1", rainR: 22,
+    land: "cannon/hit", landR: 42, smoke: "cannon/smoke", smokeR: 30 },
+};
+
 export const ARENA_KIT = {
   archer:  { mode: "shot",  dmg: 45,  cd: 0.95, fly: 0.20, rng: 158, shot: "arrow", col: "#cfe3a6", rooted: 1 },
   sniper:  { mode: "shot",  dmg: 130, cd: 2.60, fly: 0.10, rng: 165, shot: "slug",  col: "#8e99e8", rooted: 1 },
@@ -512,6 +525,7 @@ export const ARENA_KIT = {
   supply:  { mode: "aid",   dmg: 0,   cd: 2.20, rng: 140, buff: 0.25, buffT: 5, heal: 4, col: "#c99ae0" },
 };
 export const arenaKit = (pi) => ARENA_KIT[(CLASSES[pi] || {}).id] || ARENA_KIT.archer;
+export const arenaArtOf = (pi) => ARENA_ART[(CLASSES[pi] || {}).id] || null;
 export const arenaRange = (pi) => arenaKit(pi).rng * ARENA.rangeMul;
 
 /* 보스가 쓰는 공격. tell 동안 바닥에 붉은 자리가 뜨고, 그때 빠져나가면 된다. */

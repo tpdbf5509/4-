@@ -5,7 +5,7 @@ import {
   diffOf, prepTime, ARENA, ARENA_PATTERNS, PAT_BY_ID, ARENA_LEAP, ARENA_RUSH, ARENA_CUT,
   arenaBossCfg, ARENA_WAKE, ARENA_HAIL, ARENA_GORE, ARENA_RIFT, ARENA_PULSE,
   ARENA_TRACK, ARENA_SPIN,
-  arenaInZone, arenaNear, arenaKit, arenaRange,
+  arenaInZone, arenaNear, arenaKit, arenaRange, arenaArtOf,
   bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
   TOWER_MAX_LV, UP_MUL, upCostOf, supplyAid,
@@ -779,7 +779,9 @@ function arenaShoot(g, pi, kit, dmg, mode, big, off) {
   const py = p.ay || ARENA.bfy;
   const tx = bossX(g) + (off || 0), ty = bossTop(g) + 62;
   const fly = kit.fly || 0.18;
+  const ART = arenaArtOf(pi);
   fx(g, { kind: "shot", x0: p.ax, y0: py - 46, x1: tx, y1: ty, style: kit.shot || "arrow",
+    art: ART ? ART.fly : 0, r: ART ? ART.flyR : 0,
     color: kit.col, t: fly, life: fly, snd: mode === "bomb" ? "cannon" : "shot" });
   if (!g.arena.shots) g.arena.shots = [];
   g.arena.shots.push({ pi, t: fly, dmg, kit, mode, big: big ? 1 : 0 });
@@ -795,6 +797,13 @@ function arenaImpact(g, s) {
     off: mode === "bomb" ? 0 : (Math.random() - 0.5) * 60 });
   arenaMark(g, pi, kit);
   const hx = bossX(g) + (Math.random() - 0.5) * 40, hy = bossTop(g) + 60;
+  // 병과 시트에서 떼어 낸 꽂힌 자국 — 궁수·저격·대포만 있다
+  const ART = arenaArtOf(pi);
+  if (ART) {
+    fx(g, { kind: "art", art: big ? ART.big : ART.hit, x: hx, y: hy + (mode === "bomb" ? 14 : 0),
+      r: big ? ART.bigR : ART.hitR, flip: Math.random() < 0.5 ? 1 : 0,
+      t: big ? 0.8 : 0.55, life: big ? 0.8 : 0.55 });
+  }
   if (mode === "bomb") {
     fx(g, { kind: "boom", x: bossX(g), y: bossTop(g) + 74, r: (kit.splash || 90) * (big ? 1.5 : 1),
       t: 0.55, life: 0.55, snd: "boom" });
@@ -942,17 +951,42 @@ function arenaFire(g, pi, mul, label) {
     }
     return;
   }
+  const ART = arenaArtOf(pi);                    // 병과 시트에서 떼어 낸 그림
   if (kit.shot === "slug") {                     // 저격 — 총구에서 표적까지 한 줄
     fx(g, { kind: "beam", x0: p.ax + Math.cos(ang) * 22, y0: py - 46 + Math.sin(ang) * 12,
       x1: bx2, y1: by2, color: kit.col, w: big ? 13 : 7, t: 0.28, life: 0.28 });
+    if (big && ART) {                            // 결정타 — 겨누는 표식이 보스에 걸린다
+      fx(g, { kind: "art", art: ART.cast, x: bx2, y: by2, r: ART.castR,
+        flip: p.ax > bx2 ? 1 : 0, t: 0.75, life: 0.75 });
+    }
   }
   if (kit.mode === "bomb") {                     // 대포 — 포구 연기
-    fx(g, { kind: "cloud", x: p.ax + Math.cos(ang) * 26, y: py - 44 + Math.sin(ang) * 12,
-      r: 34, color: "rgba(160,142,116,0.7)", t: 0.5, life: 0.5 });
+    if (ART) {
+      fx(g, { kind: "art", art: ART.smoke, x: p.ax + Math.cos(ang) * 30,
+        y: py - 44 + Math.sin(ang) * 12, r: ART.smokeR, flip: p.ax > bx2 ? 1 : 0,
+        t: 0.5, life: 0.5 });
+    } else {
+      fx(g, { kind: "cloud", x: p.ax + Math.cos(ang) * 26, y: py - 44 + Math.sin(ang) * 12,
+        r: 34, color: "rgba(160,142,116,0.7)", t: 0.5, life: 0.5 });
+    }
+    if (big && ART) {                            // 융단 폭격 — 포탄이 줄줄이 떨어진다
+      for (let i = 0; i < 6; i++) {
+        const rx = bx2 + (i - 2.5) * 46 + (Math.random() - 0.5) * 20;
+        const ry = bossY(g) - 10 + (Math.random() - 0.5) * 30;
+        fx(g, { kind: "art", art: ART.rain, x: rx, y: ry, r: ART.rainR,
+          t: 0.42 + i * 0.07, life: 0.42 + i * 0.07 });
+        fx(g, { kind: "art", art: ART.land, x: rx, y: ry, r: ART.landR,
+          t: 0.2 + i * 0.07, life: 0.2 + i * 0.07 });
+      }
+    }
   }
   // 나머지는 날아가는 것 (궁수·저격·대포·독·서리·부식)
   if (big && kit.shot === "arrow") {             // 화살비 — 여러 대가 한꺼번에
     fx(g, { kind: "rain", x: bx2, y: by2, r: 110, n: 14, color: kit.col, t: 0.9, life: 0.9 });
+    if (ART) {                                   // 집중 사격 — 화살 무리가 휘몰아친다
+      fx(g, { kind: "art", art: ART.cast, x: bx2, y: by2 - 10, r: ART.castR,
+        flip: p.ax > bx2 ? 1 : 0, t: 0.8, life: 0.8 });
+    }
     for (let i = 0; i < 4; i++) {
       arenaShoot(g, pi, kit, dmg / 4, kit.mode, 1, (i - 1.5) * 34);
     }

@@ -7,7 +7,7 @@ import {
 } from "./game/world.js";
 import {
   step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
-  applyReward, applyLeave, applyHold, startPrep,
+  applyReward, applyLeave, applyHold, startPrep, towerCosts,
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
@@ -567,6 +567,31 @@ function TouchPad({ phase, onPress, onRelease, onTap, ready }) {
 }
 
 /* ── 게임 ───────────────────────────────────────────────── */
+/* 값 상자 — 지금 이 자리에 얼마가 드는지 그대로 보여 준다.
+   단계가 오를수록 값이 뛰므로 세 단계를 한 줄에 늘어놓고, 지금 낼 값 하나만 밝힌다. */
+function CostBox({ cost, seat }) {
+  const rows = [
+    { key: "build", label: cost.name, gold: cost.build, on: cost.lv === 0 },
+    ...cost.ups.map((gold, k) => ({
+      key: `up${k}`, label: `${k + 2}단계`, gold, on: cost.lv === k + 1,
+    })),
+  ];
+  const note = cost.here === "other" ? "남의 자리" : cost.lv >= 4 ? "최대 단계" : null;
+  return (
+    <div className="cost-box" style={{ "--pcl": P[seat].light }}>
+      <span className="cost-head">건설 비용{note && <em>{note}</em>}</span>
+      <span className="cost-rows">
+        {rows.map((r) => (
+          <span key={r.key}
+            className={`cost-item ${r.on && !note ? "on" : ""} ${cost.gold < r.gold ? "short" : ""}`}>
+            {r.label}<b>{r.gold}</b>
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack }) {
   const cvsRef = useRef(null);
   const bgRef = useRef(null);
@@ -607,6 +632,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       overWhy: g.overWhy || 0,
       hp: Math.max(0, Math.round(g.core.hp)), max: g.core.max,
       tier: castleTier(g), upCost: castleCost(g),
+      cost: g.mySeat >= 0 ? towerCosts(g, g.mySeat) : null,
       left: (g.queueLeft ?? g.queue.length) + g.enemies.length,
       preview: g.preview || null,
       paused: g.paused, speed: g.speed,
@@ -1000,6 +1026,10 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                   : <>성채 {hud.tier + 1}단계 <em>{hud.upCost}골드</em></>}
               </button>
             )}
+
+            {hud.cost && (hud.phase === "prep" || hud.phase === "wave") && (
+              <CostBox cost={hud.cost} seat={mySeat} />
+            )}
           </div>
 
           <div className="hud hud-right">
@@ -1224,7 +1254,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
           지은 탑은 <kbd>X</kbd>로 팔아 들인 값의 60%를 돌려받습니다.
           성채를 누르면 골드를 내고 한 단계 올립니다. 단계마다 최대 체력 +30, 성채 대포도 함께 세집니다.
           길가의 돌판마다 타워를 세울 수 있습니다. 돌판을 마우스로 눌러 바로 옮겨 갈 수 있고,
-          방향키를 누르면 그쪽에 있는 가장 가까운 자리로 한 칸씩 옮겨 갑니다. 같은 자리에 자기 타워를 다시 지으면 4단계까지 강화됩니다.
+          방향키를 누르면 그쪽에 있는 가장 가까운 자리로 한 칸씩 옮겨 갑니다. 같은 자리에 자기 타워를 다시 지으면 4단계까지 강화되고, 단계가 오를수록 값이 뜁니다. 보급소 사거리 안에 선 타워는 공격력과 공격 속도가 함께 오릅니다.
           성채도 스스로 대포를 쏩니다. 다섯 웨이브마다 보스가 하나 오고, 잡으면 각자 능력을 하나 고릅니다.
           보스 결전에서는 지은 탑이 거들지 않습니다. 보스를 깎는 것은 나가 싸우는 사람뿐입니다.
           궁수탑·저격탑·대포탑·중력탑은 겨누어 쏘는 병과라 발을 멈춰야 평타가 나갑니다.

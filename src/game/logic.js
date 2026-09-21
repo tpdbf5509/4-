@@ -8,6 +8,7 @@ import {
   arenaInZone, arenaNear, arenaKit, arenaRange,
   bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
+  TOWER_MAX_LV, UP_MUL, upCostOf, supplyAid,
 } from "./world.js";
 
 // 호스트에서 일어난 연출은 그대로 다른 참가자에게도 보낸다
@@ -70,7 +71,8 @@ export function towerDmg(g, t, i) {
   else if (spot === "key" && !def.splash && !def.chain && !def.aura) spotMul = 1.12;
   return def.dmg * (1 + 0.62 * (t.lv - 1))
     * perkVal.power(perkN(g, t.owner, "power"))
-    * (1 + cmd + moodBonus(g, t.owner)) * spotMul;
+    * (1 + cmd + moodBonus(g, t.owner)) * spotMul
+    * (1 + (t.aid || 0));                       // 보급소 사거리 안이면 더 세게 때린다
 }
 
 /* ── 조작 ───────────────────────────────────────────────── */
@@ -176,8 +178,8 @@ export function doBuild(g, pi) {
     say(g, s.x, s.y, def.name, P[pi].light);
   } else if (t.owner === pi) {
     const def = tdef(t);
-    if (t.lv >= 4) return say(g, s.x, s.y, "최대 단계", "#f0dcb4");
-    const cost = Math.round(def.cost * (0.7 + t.lv * 0.45) * perkVal.thrift(perkN(g, pi, "thrift")));
+    if (t.lv >= TOWER_MAX_LV) return say(g, s.x, s.y, "최대 단계", "#f0dcb4");
+    const cost = Math.round(upCostOf(def, t.lv) * perkVal.thrift(perkN(g, pi, "thrift")));
     if (p.gold < cost) return say(g, s.x, s.y, `${cost} 골드 필요`, "#f0dcb4");
     p.gold -= cost;
     t.spent = (t.spent || 0) + cost;
@@ -190,6 +192,24 @@ export function doBuild(g, pi) {
   } else {
     say(g, s.x, s.y, `${t.owner + 1}P 자리`, "#f0dcb4");
   }
+}
+
+/* 값 상자에 띄울 비용. 판정에 쓰는 식을 그대로 써서 표시와 실제가 어긋나지 않는다. */
+export function towerCosts(g, pi) {
+  const p = g.players[pi];
+  if (!p) return null;
+  const def = CLASSES[pi];
+  const thrift = perkVal.thrift(perkN(g, pi, "thrift"));
+  const key = sk(p.lane, p.slot);
+  const t = g.towers[key];
+  return {
+    name: def.name,
+    build: Math.round(def.cost * thrift),
+    ups: UP_MUL.map((_, k) => Math.round(upCostOf(def, k + 1) * thrift)),
+    lv: t && t.owner === pi ? t.lv : 0,
+    here: !t ? "empty" : t.owner === pi ? "mine" : "other",
+    gold: Math.floor(p.gold),
+  };
 }
 
 export function doSkill(g, pi) {
@@ -1689,12 +1709,23 @@ export function step(g, dt) {
   // 피의 갈증이 도는 동안
   g.players.forEach((p) => { if (p.rage > 0) p.rage -= dt; });
 
-  // 보급소
+  // 보급소 — 골드를 만들고, 사거리 안에 선 이웃 타워를 밀어 준다
   const supports = [];
-  g.towers.forEach((t, i) => { if (t && t.type === "supply") supports.push({ t, s: SLOTS[i] }); });
+  g.towers.forEach((t, i) => { if (t && t.type === "supply") supports.push({ t, i, s: SLOTS[i] }); });
   const supDef = TOWER_BY_ID.supply;
-  supports.forEach(({ t }) => {
-    g.players.forEach((p, i) => { if (g.seats[i]) p.gold += supDef.gold * t.lv * dt; });
+  g.towers.forEach((t) => { if (t) { t.aid = 0; t.aidFrom = -1; } });
+  supports.forEach(({ t, i, s }) => {
+    g.players.forEach((p, k) => { if (g.seats[k]) p.gold += supDef.gold * t.lv * dt; });
+    if (t.warm > 0) return;                    // 아직 자리를 잡는 중이면 밀어 주지 못한다
+    const reach = towerRange(g, t, i);
+    const amt = supplyAid(t.lv);
+    g.towers.forEach((o, k) => {
+      if (!o || k === i || o.type === "supply") return;
+      if (Math.hypot(SLOTS[k].x - s.x, SLOTS[k].y - s.y) > reach) return;
+      if (amt <= (o.aid || 0)) return;         // 여러 보급소가 겹쳐도 가장 센 것 하나만
+      o.aid = amt;
+      o.aidFrom = i;                           // 어느 보급소가 밀어 주는지 — 판에 선으로 잇는다
+    });
   });
 
   // 성채의 대포 — 성문 앞까지 온 적을 직접 때린다
@@ -1743,21 +1774,19 @@ export function step(g, dt) {
   g.towers.forEach((t, i) => {
     if (!t) return;
     if (t.pulse > 0) t.pulse -= dt;
+    // 자리를 잡는 시간은 쏘지 않는 탑에도 흘러야 한다.
+    // 여기서 빼 주지 않으면 보급소와 성기사탑은 영영 준비가 끝나지 않는다.
+    if (t.warm > 0) t.warm = Math.max(0, t.warm - dt);
     const def = tdef(t);
     if (!def.interval) return;                 // 보급소·성기사탑은 쏘지 않는다
     const s = SLOTS[i];
-    if (t.warm > 0) { t.warm -= dt; return; }        // 짓고 나서 자리를 잡는 중
+    if (t.warm > 0) return;                          // 짓고 나서 자리를 잡는 중
     const cmd = perkVal.command(teamPerk(g, "command"));
     const rage = g.players[t.owner] && g.players[t.owner].rage > 0
       ? perkVal.thirst(perkN(g, t.owner, "thirst")) : 0;
     const spot = spotAt(i);
     const haste = perkVal.haste(perkN(g, t.owner, "haste")) + cmd + rage + (spot === "focus" ? 0.15 : 0);
-    let mul = 1 + haste;
-    supports.forEach((sp) => {
-      if (Math.hypot(sp.s.x - s.x, sp.s.y - s.y) <= supDef.range) {
-        mul = Math.max(mul, 1 + haste + supDef.buff * sp.t.lv);
-      }
-    });
+    const mul = 1 + haste + (t.aid || 0);      // 보급소가 밀어 준 만큼 더 빨리 쏜다
     t.cd -= dt * mul;
     const range = towerRange(g, t, i);
 
@@ -1769,7 +1798,8 @@ export function step(g, dt) {
       t.cd = def.interval;
       t.pulse = 0.4;
       if (def.aura === "burn") {
-        const dps = def.burn * (1 + 0.5 * (t.lv - 1)) * perkVal.power(perkN(g, t.owner, "power"));
+        const dps = def.burn * (1 + 0.5 * (t.lv - 1)) * perkVal.power(perkN(g, t.owner, "power"))
+          * (1 + (t.aid || 0));
         inRange.forEach((e) => {
           e.burn = Math.max(e.burn || 0, def.burnT);
           e.bdps = Math.max(e.bdps || 0, dps);
@@ -1818,7 +1848,7 @@ export function step(g, dt) {
       src: t.type, spot,
       splash: (def.splash || 0) * (spot === "key" ? 1.3 : 1),
       slow: def.slow || (chill ? 0.82 : 0), slowT: def.slowT || (chill ? 1.2 : 0),
-      chain: def.chain ? def.chain + (spot === "key" ? 1 : 0) : 0, poison: def.poison ? def.poison * (1 + 0.5 * (t.lv - 1)) : 0,
+      chain: def.chain ? def.chain + (spot === "key" ? 1 : 0) : 0, poison: def.poison ? def.poison * (1 + 0.5 * (t.lv - 1)) * (1 + (t.aid || 0)) : 0,
       poisonT: def.poisonT || 0,
       shred: def.shred || 0, shredT: def.shredT || 0,
       speed, kind,
@@ -1948,7 +1978,14 @@ export function step(g, dt) {
    호스트가 아닌 참가자용.
    판정은 호스트만 하고, 이쪽은 받은 상태 사이를 부드럽게 이어 그린다.
    ──────────────────────────────────────────────────────────── */
+/* 손님 화면에서 위치를 부드럽게 따라가게 하는 계수.
+   한 번에 확 맞추면 초당 열두 번 오는 소식마다 화면이 튄다. */
+const chase = (dt, rate) => 1 - Math.exp(-dt * rate);
+
 export function stepVisual(g, dt) {
+  // 방장 판은 속도 배수만큼 여러 번 돌린다. 손님도 같은 시간을 흘려야 겹친다.
+  const real = dt;                                   // 따라잡기에는 실제 시간을 쓴다
+  dt = g.paused ? 0 : dt * (g.speed || 1);
   g.t += dt;
   if (g.leaveT > 0) g.leaveT -= dt;
   if (g.shake > 0) g.shake -= dt;
@@ -1978,12 +2015,13 @@ export function stepVisual(g, dt) {
     if (g.mySeat >= 0) arenaWalk(g, g.mySeat, dt);
     // 방망이질은 초당 열두 번 오는 소식 사이도 이어서 그린다
     if (g.arena && g.arena.sw > 0) g.arena.sw = Math.max(0, g.arena.sw - dt);
+    arenaFollow(g, real);
   }
 
   g.towers.forEach((t) => {
     if (!t) return;
     if (t.pulse > 0) t.pulse -= dt;
-    if (t.warm > 0) t.warm -= dt;
+    if (t.warm > 0) t.warm = Math.max(0, t.warm - dt);
   });
   g.players.forEach((p) => { if (p.rage > 0) p.rage -= dt; });
   if (g.castle.pulse > 0) g.castle.pulse -= dt;
@@ -2003,18 +2041,56 @@ export function stepVisual(g, dt) {
 
   if (g.phase !== "prep" && g.phase !== "wave") return;
 
-  // 다음 상태가 올 때까지 적은 같은 공식으로 계속 나아간다
+  // 다음 상태가 올 때까지 적은 같은 공식으로 계속 나아간다.
+  // tp 가 방장 쪽을 따라간 자리고, p 는 화면에 그리는 자리다.
+  // 소식이 올 때마다 p 를 홱 옮기지 않고 tp 쪽으로 미끄러지게 해서 끊김을 없앤다.
+  const k = chase(real, 11);
   g.enemies.forEach((e) => {
     e.age += dt;
     if (e.flash > 0) e.flash -= dt;
     if (e.poison > 0) e.poison -= dt;
     if (e.burn > 0) e.burn -= dt;
-    if (e.freeze > 0) { e.freeze -= dt; return; }
-    if (e.slow > 0) e.slow -= dt;
-    const spd = (e.spd || ENEMY[e.type].spd) * (e.slow > 0 ? e.slowAmt : 1);
-    e.p = Math.min(1, e.p + (spd * dt) / LANES[e.lane].len);
+    if (e.tp === undefined) e.tp = e.p;
+    if (e.freeze > 0) e.freeze -= dt;
+    else {
+      if (e.slow > 0) e.slow -= dt;
+      const spd = (e.spd || ENEMY[e.type].spd) * (e.slow > 0 ? e.slowAmt : 1);
+      e.tp = Math.min(1, e.tp + (spd * dt) / LANES[e.lane].len);
+    }
+    e.p += (e.tp - e.p) * k;
     const pos = posAt(e.lane, e.p);
     e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;
+  });
+}
+
+/* 결전장에서 보스와 동료의 자리를 부드럽게 좇는다.
+   내 몫은 내 화면에서 먼저 걷고 있으니, 많이 어긋났을 때만 슬그머니 당겨 온다. */
+function arenaFollow(g, dt) {
+  const a = g.arena;
+  if (!a) return;
+  if (a.gx === undefined) { a.gx = a.x; a.gy = a.y; }
+  if (Math.hypot(a.gx - a.x, a.gy - a.y) > 260) { a.x = a.gx; a.y = a.gy; }
+  else {
+    const k = chase(dt, 13);
+    a.x += (a.gx - a.x) * k;
+    a.y += (a.gy - a.y) * k;
+  }
+  g.players.forEach((p, i) => {
+    if (!g.seats[i] || p.gx === undefined) return;
+    const far = Math.hypot(p.gx - p.ax, p.gy - p.ay);
+    if (far > 260) { p.ax = p.gx; p.ay = p.gy; return; }   // 되살아나거나 판이 바뀐 것
+    if (i === g.mySeat) {
+      // 내 손은 여기서 먼저 움직인다. 소식이 늦게 오는 만큼은 그냥 두고,
+      // 정말 벌어졌을 때만 당겨 와야 걸을 때 고무줄처럼 끌리지 않는다.
+      if (far < 56) return;
+      const k = chase(dt, 7);
+      p.ax += (p.gx - p.ax) * k;
+      p.ay += (p.gy - p.ay) * k;
+      return;
+    }
+    const k = chase(dt, 15);
+    p.ax += (p.gx - p.ax) * k;
+    p.ay += (p.gy - p.ay) * k;
   });
 }
 
@@ -2051,7 +2127,10 @@ export function packSnapshot(g) {
     lv2: g.leaveT > 0 ? (g.leave || []).map((v) => (v ? 1 : 0)) : 0,
     lt: Math.max(0, Math.round(g.leaveT * 10) / 10),
     pl: g.players.map((p) => [Math.floor(p.gold), Math.max(0, p.cd), p.lane, p.slot, p.built, p.kills]),
-    tw: g.towers.map((t) => (t ? [t.owner, t.lv, towerIdx(t.type), t.warm > 0 ? 1 : 0] : 0)),
+    tw: g.towers.map((t) => (t
+      ? [t.owner, t.lv, towerIdx(t.type), t.warm > 0 ? 1 : 0,
+        Math.round((t.aid || 0) * 100) / 100, t.aidFrom >= 0 ? t.aidFrom : -1]
+      : 0)),
     en: g.enemies.map((e) => [
       e.id, ETYPES.indexOf(e.type), e.lane, Math.round(e.p * 10000) / 10000,
       Math.round((e.hp / e.max) * 100) / 100,
@@ -2095,7 +2174,10 @@ export function applySnapshot(g, s) {
     a.st = s.ar.st; a.pat = s.ar.pa || null; a.zone = s.ar.zo; a.stT0 = s.ar.s0 || 0; a.limit = s.ar.li; a.rage = s.ar.rg;
     a.combo = s.ar.cb; a.intro = s.ar.io; a.outro = s.ar.oo; a.jolt = s.ar.jo;
     a.stT = s.ar.sT; a.t = (a.t || 0);
-    a.x = s.ar.bx; a.y = s.ar.by; a.dir = s.ar.bd || 1;
+    // 자리는 바로 박아 넣지 않고 목표로 둔다 — stepVisual 이 그쪽으로 미끄러지게 좇는다
+    a.gx = s.ar.bx; a.gy = s.ar.by;
+    if (a.x === undefined) { a.x = a.gx; a.y = a.gy; }
+    a.dir = s.ar.bd || 1;
     a.sw = s.ar.sw || 0; a.swDir = s.ar.sd || 1; a.air = s.ar.ai || 0;
     const ef = s.ar.ef || [0, 0, 0, 0];
     a.burn = ef[0] ? Math.max(a.burn || 0, 0.3) : 0;
@@ -2104,7 +2186,10 @@ export function applySnapshot(g, s) {
     a.shred = ef[3] ? Math.max(a.shred || 0, 0.3) : 0;
     s.ar.pp.forEach((row, i) => {
       const p = g.players[i];
-      p.ax = row[0]; p.adir = row[1]; p.ay = row[2];
+      p.gx = row[0]; p.gy = row[2];
+      if (p.ax === undefined) p.ax = p.gx;
+      if (p.ay === undefined) p.ay = p.gy;
+      p.adir = row[1];
       p.aswing = row[3]; p.adown = row[4]; p.askill = row[5];
       p.abuff = row[6] ? Math.max(p.abuff || 0, 0.3) : 0;
       p.acd = row[7] || 0;
@@ -2128,9 +2213,12 @@ export function applySnapshot(g, s) {
     if (cur && cur.owner === row[0] && cur.type === type) {
       cur.lv = row[1];
       cur.warm = row[3] ? Math.max(cur.warm || 0, 0.2) : 0;
+      cur.aid = row[4] || 0;
+      cur.aidFrom = row[5] ?? -1;
       return;
     }
-    g.towers[i] = { owner: row[0], type, lv: row[1], cd: 0, pulse: 0.4, aim: 0, warm: row[3] ? 0.5 : 0 };
+    g.towers[i] = { owner: row[0], type, lv: row[1], cd: 0, pulse: 0.4, aim: 0,
+      warm: row[3] ? 0.5 : 0, aid: row[4] || 0, aidFrom: row[5] ?? -1 };
   });
 
   const seen = new Set();
@@ -2150,8 +2238,10 @@ export function applySnapshot(g, s) {
       };
       g.enemies.push(e);
     }
-    // 받은 위치가 앞서 있으면 당겨오고, 뒤처져 있으면 살짝만 되돌린다
-    e.p = e.p > p ? e.p + (p - e.p) * 0.35 : p;
+    // 받은 자리는 목표로만 둔다. 화면에 그리는 e.p 는 stepVisual 이 천천히 좇아가고,
+    // 너무 벌어졌을 때만 한 번에 맞춘다.
+    e.tp = p;
+    if (Math.abs(p - e.p) > 0.05) e.p = p;
     if (hpr < e.hp / e.max) e.flash = 0.12;
     e.hp = e.max * hpr;
     e.freeze = flags & 1 ? Math.max(e.freeze, 0.4) : 0;

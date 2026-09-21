@@ -918,6 +918,27 @@ export function drawTower(ctx, t, s, time, g) {
       ctx.beginPath(); ctx.ellipse(s.x, s.y + 3, 24, 14, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
+    // 보급소가 밀어 주고 있는 타워 — 발밑에 얇은 테를 두르고, 밀어 주는 보급소까지 실을 잇는다
+    if (t.aid > 0) {
+      const beat = 0.5 + 0.5 * Math.sin(time * 2.2 + s.x * 0.05);
+      ctx.save();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(240,180,194,0.95)";
+      const from = t.aidFrom >= 0 ? SLOTS[t.aidFrom] : null;
+      if (from) {
+        ctx.globalAlpha = 0.16 + beat * 0.14;
+        ctx.setLineDash([4, 6]);
+        ctx.lineDashOffset = -time * 14;
+        ctx.beginPath();
+        ctx.moveTo(from.x, from.y + 4);
+        ctx.lineTo(s.x, s.y + 4);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.globalAlpha = 0.34 + beat * 0.26;
+      ctx.beginPath(); ctx.ellipse(s.x, s.y + 5, 28, 16, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
   }
   const recoil = t.pulse > 0 ? Math.pow(Math.max(0, t.pulse) / 0.4, 2) : 0;
   const col = P[t.owner];

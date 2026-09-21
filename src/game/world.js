@@ -306,6 +306,15 @@ export const TOWERS = [
 export const TOWER_BY_ID = Object.fromEntries(TOWERS.map((t) => [t.id, t]));
 export const towerIdx = (id) => TOWERS.findIndex((t) => t.id === id);
 
+/* 강화 값 — 단계가 올라갈수록 가파르게 비싸진다. 1→2 · 2→3 · 3→4 */
+export const TOWER_MAX_LV = 4;
+export const UP_MUL = [1.2, 2, 3.2];
+export const upCostOf = (def, lv) => Math.round((def.cost || 0) * (UP_MUL[lv - 1] || 0));
+
+/* 보급소가 이웃에게 밀어 주는 몫 — 공격력과 공격 속도에 같이 실린다.
+   단계를 올려도 천천히만 오르게 묶어 둔다. */
+export const supplyAid = (lv) => TOWER_BY_ID.supply.buff * (0.6 + 0.4 * Math.max(1, lv));
+
 // 병과 하나가 탑 하나를 맡는다
 export const CLASSES = TOWERS;
 

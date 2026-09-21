@@ -623,6 +623,29 @@ kbd {
 }
 .keep-up:disabled em { color: #8d7d61; }
 
+/* 값 상자 — 지금 이 자리에 드는 골드 */
+.cost-box {
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+  padding: 5px 8px 6px; border-radius: 9px;
+  background: rgba(20, 14, 8, 0.62);
+  border: 1px solid rgba(170, 142, 100, 0.38);
+  pointer-events: none;
+}
+.cost-head {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 9.5px; letter-spacing: -0.02em; color: #8c7e66;
+}
+.cost-head em { font-style: normal; font-size: 9.5px; color: #7e7159; }
+.cost-rows { display: grid; grid-template-columns: auto auto; gap: 0 9px; }
+.cost-item {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+  font-size: 10px; letter-spacing: -0.02em; color: #9d8e74;
+}
+.cost-item b { font-family: 'Do Hyeon', sans-serif; font-size: 11.5px; color: #e8dcc0; font-weight: 400; }
+.cost-item.on { color: var(--pcl); }
+.cost-item.on b { color: var(--pcl); }
+.cost-item.short b { color: #8d7d61; }
+
 /* 대기실로 돌아가기 — 앉은 사람이 모두 동의해야 간다 */
 .leave-vote {
   position: absolute; left: 50%; top: 64px; transform: translateX(-50%);

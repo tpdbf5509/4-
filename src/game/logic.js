@@ -642,6 +642,11 @@ export function startArena(g, kind) {
     burn: 0, burnDps: 0, poison: 0, poisonDps: 0, slow: 0, shred: 0, shredAmt: 0,
     shots: [], mobs: [],
     limit: cfg.limit, rage: 0,
+    // 누가 얼마나 때렸는지 — 끝나고 보여 줄 기록
+    tally: g.players.map(() => 0),
+    assist: g.players.map(() => 0),
+    hits: g.players.map(() => 0),
+    t0: 0,
   };
   const crew = arenaCrew(g);
   let k = 0;
@@ -725,6 +730,14 @@ function arenaDamage(g, pi, raw, opt) {
   const crit = Math.random() < perkVal.crit(perkN(g, pi, "crit"));
   if (crit) dmg *= 2;
   dmg = Math.max(1, Math.round(dmg));
+  if (a.tally) {
+    a.tally[pi] = (a.tally[pi] || 0) + dmg;
+    a.hits[pi] = (a.hits[pi] || 0) + 1;
+    // 보급소는 때리지 못한다. 제가 밀어 준 사람이 낸 피해를 도운 몫으로 적어 둔다.
+    if (p && p.abuff > 0 && p.abuffBy >= 0 && p.abuffBy !== pi) {
+      a.assist[p.abuffBy] = (a.assist[p.abuffBy] || 0) + dmg;
+    }
+  }
   a.hp = Math.max(0, a.hp - dmg);
   a.jolt = 0.16;
   a.combo += 1;
@@ -1183,6 +1196,15 @@ function arenaWipe(g) {
 function arenaDown(g, pi) {
   const a = g.arena;
   a.outro = 2.4;
+  // 고르는 창보다 먼저 보여 줄 기록. 결전장은 곧 사라지므로 따로 담아 둔다.
+  g.bossScore = {
+    n: (g.bossScore ? g.bossScore.n : 0) + 1,
+    kind: a.type, wave: g.wave, secs: Math.max(0, Math.round((a.t || 0) - (a.t0 || 0))),
+    last: pi,                                  // 마지막 일격을 넣은 사람
+    dmg: (a.tally || []).slice(),
+    aid: (a.assist || []).slice(),
+    hits: (a.hits || []).slice(),
+  };
   const base = ENEMY[a.type];
   const D = diffOf(g);
   const gold = Math.round(base.gold * D.gold * perkVal.gold(perkN(g, pi, "gold")));
@@ -1526,7 +1548,8 @@ export function stepArena(g, dt) {
     if (crew.length && crew.every((p) => p.aout > 0)) return arenaWipe(g);
   }
 
-  if (a.intro > 0) { a.intro -= dt; return; }
+  // 등장 연출이 끝나는 순간을 적어 둔다 — 싸운 시간은 여기서부터 센다
+  if (a.intro > 0) { a.intro -= dt; if (a.intro <= 0) a.t0 = a.t; return; }
 
   if (a.outro > 0) {
     a.outro -= dt;
@@ -2161,7 +2184,7 @@ export function packSnapshot(g) {
     ql: g.queue.length, cb: g.combo, pv: g.preview || 0,
     sg: g.surge,
     pk: g.players.map((p) => PERK_IDS.map((id) => p.perks[id] || 0)),
-    rw: g.phase === "reward" ? { of: g.offer, pi: g.picked } : 0,
+    rw: g.phase === "reward" ? { of: g.offer, pi: g.picked, sc: g.bossScore || 0 } : 0,
     ca: Math.round(g.castle.aim * 100) / 100,
     ar: g.arena ? {
       ty: g.arena.type, hp: Math.round(g.arena.hp), mx: g.arena.max,
@@ -2224,8 +2247,10 @@ export function applySnapshot(g, s) {
       g.players[i].perks = perks;
     });
   }
-  if (s.rw) { g.offer = s.rw.of; g.picked = s.rw.pi; }
-  else { g.offer = null; g.picked = null; }
+  if (s.rw) {
+    g.offer = s.rw.of; g.picked = s.rw.pi;
+    if (s.rw.sc) g.bossScore = s.rw.sc;
+  } else { g.offer = null; g.picked = null; }
   if (typeof s.ca === "number") g.castle.aim = s.ca;
   if (s.ar) {
     const a = g.arena || (g.arena = {});

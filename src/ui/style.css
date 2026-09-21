@@ -667,3 +667,74 @@ kbd {
 .leave-who em.yes { color: #a9e79c; border-color: #5fa354; background: rgba(60, 106, 64, 0.35); }
 .leave-btns { display: flex; gap: 6px; margin-top: 3px; }
 .leave-btns .btn-ghost { padding: 5px 11px; font-size: 11.5px; }
+
+/* 보스 기록 — 고르는 창보다 먼저 4초 동안 */
+.score-box {
+  width: min(560px, 92%);
+  padding: 20px 22px 0;
+  background: rgba(22, 17, 11, 0.965);
+  border: 1px solid rgba(170, 142, 100, 0.42);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.score-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.score-head h2 {
+  margin: 0; font-family: 'Do Hyeon', sans-serif; font-size: 19px;
+  letter-spacing: -0.03em; color: #f0e2c2; font-weight: 400;
+}
+.score-sub { font-size: 11.5px; letter-spacing: -0.02em; color: #9d8e74; }
+
+.score-list { display: flex; flex-direction: column; }
+.score-row {
+  display: grid;
+  grid-template-columns: 16px minmax(96px, 1fr) minmax(70px, 1.4fr) 62px 34px 84px;
+  align-items: center; gap: 10px;
+  padding: 9px 0; border-top: 1px solid rgba(170, 142, 100, 0.18);
+}
+.score-row:first-child { border-top: 0; }
+.score-rank { font-size: 11px; color: #7e7159; text-align: right; }
+.score-who { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.score-who b {
+  font-size: 12.5px; font-weight: 400; letter-spacing: -0.03em; color: #d9caa8;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.score-who em { font-style: normal; font-size: 10.5px; letter-spacing: -0.02em; color: var(--pcl); opacity: 0.8; }
+.score-bar { height: 4px; border-radius: 2px; background: rgba(170, 142, 100, 0.16); overflow: hidden; }
+.score-bar span { display: block; height: 100%; background: var(--pc); opacity: 0.75; }
+.score-num {
+  font-family: 'Do Hyeon', sans-serif; font-size: 15px; font-weight: 400;
+  color: #d9caa8; text-align: right; letter-spacing: -0.02em;
+}
+.score-pct { font-size: 11px; color: #8c7e66; text-align: right; }
+.score-note { font-size: 10.5px; letter-spacing: -0.02em; color: #7e7159; text-align: right; }
+
+/* 강조는 한 곳만 — 가장 많이 때린 사람 */
+.score-row.best .score-who b { color: #ffe08a; }
+.score-row.best .score-num { color: #ffe08a; font-size: 17px; }
+.score-row.best .score-bar span { opacity: 1; }
+.score-row.mine .score-rank { color: #d9caa8; }
+
+.score-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 0 16px; margin-top: 4px;
+  border-top: 1px solid rgba(170, 142, 100, 0.18);
+}
+.score-last { font-size: 11.5px; letter-spacing: -0.02em; color: #9d8e74; }
+.score-skip { padding: 7px 14px; font-size: 12px; }
+.score-skip em { font-style: normal; color: #9d8e74; margin-left: 4px; }
+.score-drain {
+  display: block; height: 2px; margin: 0 -22px;
+  background: rgba(170, 142, 100, 0.14);
+}
+.score-drain span { display: block; height: 100%; background: #c9b083; opacity: 0.55; }
+
+@media (max-width: 620px) {
+  .score-row {
+    grid-template-columns: 14px minmax(72px, 1fr) 56px 30px;
+    gap: 8px;
+  }
+  .score-bar, .score-note { display: none; }
+  .score-box { padding: 16px 16px 0; }
+  .score-drain { margin: 0 -16px; }
+}

@@ -567,6 +567,82 @@ function TouchPad({ phase, onPress, onRelease, onTap, ready }) {
 }
 
 /* ── 게임 ───────────────────────────────────────────────── */
+/* 보스 기록 — 고르는 창보다 먼저, 누가 얼마나 때렸는지 보여 준다.
+   건너뛰기는 각자의 화면에서만 닫는다. 한 사람이 눌러도 남은 사람은 계속 본다. */
+const SCORE_T = 4;
+
+function BossScore({ score, seats, names, mySeat, onDone }) {
+  const [left, setLeft] = useState(SCORE_T);
+  const n = score.n;
+  useEffect(() => {
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      const rest = SCORE_T - (Date.now() - t0) / 1000;
+      if (rest <= 0) { clearInterval(id); setLeft(0); onDone(n); }
+      else setLeft(rest);
+    }, 100);
+    return () => clearInterval(id);
+  }, [n, onDone]);
+  const skip = () => onDone(n);
+
+  const rows = score.dmg
+    .map((v, i) => ({
+      i, dmg: v || 0, aid: (score.aid || [])[i] || 0, hits: (score.hits || [])[i] || 0,
+    }))
+    .filter((r) => seats[r.i])
+    .sort((a, b) => b.dmg - a.dmg || b.aid - a.aid);
+  const total = rows.reduce((a, r) => a + r.dmg, 0) || 1;
+  const top = rows.length ? rows[0].dmg : 0;
+  const label = ENEMY[score.kind]?.label || "보스";
+  const num = (v) => v.toLocaleString("ko-KR");
+
+  return (
+    <div className="curtain score">
+      <div className="score-box">
+        <div className="score-head">
+          <h2>보스 기록</h2>
+          <span className="score-sub">{label} · {score.secs}초 · 웨이브 {score.wave}</span>
+        </div>
+
+        <div className="score-list">
+          {rows.map((r, k) => {
+            const share = Math.round((r.dmg / total) * 100);
+            const best = k === 0 && r.dmg > 0;
+            return (
+              <div key={r.i} className={`score-row ${best ? "best" : ""} ${r.i === mySeat ? "mine" : ""}`}
+                style={{ "--pc": P[r.i].key, "--pcl": P[r.i].light }}>
+                <span className="score-rank">{k + 1}</span>
+                <span className="score-who">
+                  <b>{names[r.i] || `${r.i + 1}P`}</b>
+                  <em>{CLASSES[r.i].name}</em>
+                </span>
+                <span className="score-bar">
+                  <span style={{ width: `${top > 0 ? (r.dmg / top) * 100 : 0}%` }} />
+                </span>
+                <span className="score-num">{num(r.dmg)}</span>
+                <span className="score-pct">{share}%</span>
+                <span className="score-note">
+                  {r.aid > 0 ? `도운 피해 ${num(r.aid)}` : r.hits > 0 ? `${r.hits}대` : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="score-foot">
+          <span className="score-last">
+            마지막 일격 {names[score.last] || `${score.last + 1}P`}
+          </span>
+          <button className="btn-ghost score-skip" onClick={skip}>
+            건너뛰기 <em>{Math.ceil(left)}</em>
+          </button>
+        </div>
+        <span className="score-drain"><span style={{ width: `${(left / SCORE_T) * 100}%` }} /></span>
+      </div>
+    </div>
+  );
+}
+
 /* 값 상자 — 지금 이 자리에 얼마가 드는지 그대로 보여 준다.
    단계가 오를수록 값이 뛰므로 세 단계를 한 줄에 늘어놓고, 지금 낼 값 하나만 밝힌다. */
 function CostBox({ cost, seat }) {
@@ -616,6 +692,9 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
   G.current.touch = touch;                      // 판 안의 안내 글도 조작판에 맞춘다
   const [hud, setHud] = useState(() => snapHud(G.current));
   const [dropped, setDropped] = useState(false);
+  // 이미 본 보스 기록 번호 — 건너뛰기는 각자의 화면에서만 닫는다
+  const [seenScore, setSeenScore] = useState(0);
+  const skipScore = useCallback((n) => setSeenScore((v) => Math.max(v, n)), []);
   const [mute, setMute] = useState(() => sfx.isMuted());
   const onBackRef = useRef(onBack);
   onBackRef.current = onBack;
@@ -641,6 +720,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       leave: (g.leave || []).map((v) => !!v), leaveT: g.leaveT || 0,
       offer: g.phase === "reward" ? g.offer : null,
       picked: g.phase === "reward" ? g.picked : null,
+      score: g.phase === "reward" ? g.bossScore || null : null,
       players: g.players.map((p) => ({
         gold: Math.floor(p.gold), cd: Math.max(0, p.cd),
         lane: p.lane, slot: p.slot, built: p.built, kills: p.kills,
@@ -971,6 +1051,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     else if (mySeat >= 0) room?.send("input", { cls: mySeat, kind: "speed", dir: v });
   }, [isHost, room, mySeat, doSpeed]);
 
+  const showScore = hud.phase === "reward" && !!hud.score && hud.score.n > seenScore;
+
   const kind = waveKind(hud.wave, hud.total);
   const kindLabel =
     kind === "rush" ? "돌격 웨이브" : kind === "boss" ? "보스 웨이브" :
@@ -1066,7 +1148,18 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
             </div>
           )}
 
-          {hud.phase === "reward" && (
+          {hud.phase === "reward" && showScore && (
+            <BossScore
+              key={hud.score.n}
+              score={hud.score}
+              seats={seatFlags}
+              names={names}
+              mySeat={mySeat}
+              onDone={skipScore}
+            />
+          )}
+
+          {hud.phase === "reward" && !showScore && (
             <div className="curtain reward">
               <div className="reward-box">
                 <div className="reward-head">

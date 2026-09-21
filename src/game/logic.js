@@ -1989,7 +1989,10 @@ const chase = (dt, rate) => 1 - Math.exp(-dt * rate);
 const ARENA_SLACK = 120;
 const ARENA_PULL = 35;
 // 발을 멈췄을 때 따라잡는 속도의 한도(초당 px). 걸음보다 느려야 미끄러져 보이지 않는다.
-const ARENA_SLIDE = 150;
+const ARENA_SLIDE = 60;
+// 마지막으로 내 발로 움직인 뒤 이만큼(초)은 앞서 있어도 그냥 둔다.
+// 소식이 한 번 왕복하는 동안 저절로 맞춰지는 몫이다.
+const ARENA_SETTLE = 0.8;
 
 export function stepVisual(g, dt) {
   // 방장 판은 속도 배수만큼 여러 번 돌린다. 손님도 같은 시간을 흘려야 겹친다.
@@ -2021,7 +2024,14 @@ export function stepVisual(g, dt) {
   });
 
   if (g.phase === "arena") {
-    if (g.mySeat >= 0) arenaWalk(g, g.mySeat, dt);
+    if (g.mySeat >= 0) {
+      // 내 발로 실제로 움직였는지 적어 둔다 — 방금까지 걷던 참이면
+      // 방장보다 앞서 있는 것이 정상이라, 그 몫을 되돌리면 안 된다.
+      const me = g.players[g.mySeat];
+      const was = me ? me.ax + (me.ay || 0) : 0;
+      arenaWalk(g, g.mySeat, dt);
+      if (me && me.ax + (me.ay || 0) !== was) me.walkT = nowSec();
+    }
     // 방망이질은 초당 열두 번 오는 소식 사이도 이어서 그린다
     if (g.arena && g.arena.sw > 0) g.arena.sw = Math.max(0, g.arena.sw - dt);
     // 사람 쪽도 마찬가지다. 쏘는 동작(aswing)은 캐릭터를 앞으로 내밀며 그리므로,
@@ -2102,18 +2112,18 @@ function arenaFollow(g, dt) {
       // 걷는 도중에 그 몫까지 끌어당기면 걸음이 자꾸 멈칫한다 —
       // 당기는 힘이 걸음보다 세면 오히려 뒤로 밀린다. 위아래 걸음은 좌우보다
       // 느려서 더 쉽게 밀린다.
-      const busy = p.adown > 0 || p.aout > 0;
-      if (p.hold && p.hold.length && !busy) {
-        // 걷는 중 — 아주 크게 벌어졌을 때만, 걸음보다 훨씬 느린 속도로 슬그머니 당긴다
+      // 손을 뗀 뒤에도 방장은 잠깐 더 걷는다. 그동안 앞선 몫은 저절로 사라지므로
+      // 건드리면 안 된다 — 건드리면 뒤로 끌렸다 돌아오는 스프링이 된다.
+      if (nowSec() - (p.walkT || 0) < ARENA_SETTLE) {
+        // 걷던 참 — 아주 크게 벌어졌을 때만, 걸음보다 훨씬 느린 속도로 슬그머니 당긴다
         if (far < ARENA_SLACK) return;
         const pull = Math.min((far - ARENA_SLACK) * 3, ARENA_PULL) * dt;
         p.ax += ((p.gx - p.ax) / far) * pull;
         p.ay += ((p.gy - p.ay) / far) * pull;
         return;
       }
-      // 발을 멈췄으면(맞아서 넘어진 동안도) 어긋난 만큼을 조용히 맞춘다.
-      // 걷지 않으니 끌려가는 것이 보이지 않고, 밀려난 자리도 여기서 따라잡는다.
-      // 다만 걸음보다 빠르게 끌어당기면 손을 뗀 순간 뒤로 주욱 미끄러진다.
+      // 한참 가만히 있었는데도 어긋나 있다면 그건 진짜 차이다 (보스에게 밀려난 자리 같은 것).
+      // 걷지 않으니 맞춰지는 것이 보이지 않지만, 걸음보다 빠르면 미끄러져 보인다.
       const k = chase(dt, 8);
       let mx = (p.gx - p.ax) * k, my = (p.gy - p.ay) * k;
       const move = Math.hypot(mx, my);

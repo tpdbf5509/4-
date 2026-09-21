@@ -2928,22 +2928,16 @@ function arenaBoss(ctx, g, a, time) {
   if (pose) clubArc(ctx, a, pose);           // 휘두른 자국은 몸 위로 지나간다
 }
 
-function arenaPlayer(ctx, g, pi, time, dt) {
+function arenaPlayer(ctx, g, pi, time) {
   const p = g.players[pi];
   const im = classArt(pi);
   const col = P[pi];
   const down = p.adown > 0;
   const swing = p.aswing > 0 ? p.aswing : 0;
   const lunge = swing > 0 ? Math.sin((1 - swing / ARENA.swing) * Math.PI) * 26 : 0;
-  // 내 캐릭터는 바로, 다른 사람은 부드럽게 따라온다 (자리 소식이 초당 열두 번만 오니까)
-  const tx = p.ax, ty = p.ay || ARENA.bfy;
-  if (p.vx === undefined || g.mySeat === pi || Math.hypot(p.vx - tx, p.vy - ty) > 260) {
-    p.vx = tx; p.vy = ty;
-  } else {
-    const k = 1 - Math.exp(-dt * 13);
-    p.vx += (tx - p.vx) * k;
-    p.vy += (ty - p.vy) * k;
-  }
+  // 자리는 이미 stepVisual 이 소식 사이를 메워 두었다 (arenaFollow).
+  // 여기서 한 번 더 늦추면 남의 캐릭터만 두 겹으로 끌린다.
+  p.vx = p.ax; p.vy = p.ay || ARENA.bfy;
   const x = p.vx + (p.adir > 0 ? lunge : -lunge);
   const y = p.vy + Math.abs(Math.sin(time * 3 + pi)) * -2;
   // 발밑 고리 — 내가 어디 있는지, 그리고 평타가 얼마나 찼는지
@@ -3145,7 +3139,7 @@ export function drawArena(ctx, g, time) {
     if (!g.seats || g.seats[i]) order.push({ y: p.vy === undefined ? (p.ay || ARENA.bfy) : p.vy, pi: i });
   });
   order.sort((u, v) => u.y - v.y);
-  order.forEach((o) => { if (o.boss) arenaBoss(ctx, g, a, time); else arenaPlayer(ctx, g, o.pi, time, dt); });
+  order.forEach((o) => { if (o.boss) arenaBoss(ctx, g, a, time); else arenaPlayer(ctx, g, o.pi, time); });
 
   // 솟거나 떨어지는 그림은 사람보다 위에
   g.fx.forEach((f) => { if (f.kind !== "art" || (FX_ART[f.art] || {}).over) drawFx(ctx, f); });

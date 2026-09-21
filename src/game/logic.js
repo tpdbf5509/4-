@@ -2015,6 +2015,15 @@ export function stepVisual(g, dt) {
     if (g.mySeat >= 0) arenaWalk(g, g.mySeat, dt);
     // 방망이질은 초당 열두 번 오는 소식 사이도 이어서 그린다
     if (g.arena && g.arena.sw > 0) g.arena.sw = Math.max(0, g.arena.sw - dt);
+    // 사람 쪽도 마찬가지다. 쏘는 동작(aswing)은 캐릭터를 앞으로 내밀며 그리므로,
+    // 소식 사이를 메우지 않으면 쏠 때마다 몸이 계단처럼 튄다.
+    g.players.forEach((p, i) => {
+      if (!g.seats[i]) return;
+      if (p.aswing > 0) p.aswing = Math.max(0, p.aswing - dt);
+      if (p.acd > 0) p.acd = Math.max(0, p.acd - dt);
+      if (p.adown > 0) p.adown = Math.max(0, p.adown - dt);
+      if (p.aout > 0) p.aout = Math.max(0, p.aout - dt);
+    });
     arenaFollow(g, real);
   }
 

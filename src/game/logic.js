@@ -998,8 +998,16 @@ function arenaHurt(g, pi, raw) {
   // 깎인 만큼 성채도 깎인다. 다만 한 사람이 다 쓰러져도 성채는
   // 제 몫(coreShare)만큼만 잃는다 — 한 번 쓰러졌다고 판이 끝나지 않게.
   const share = (g.core.max * ARENA.coreShare) / Math.max(1, p.ahpMax || 1);
-  const cost = Math.max(1, Math.round(lost * Math.min(1, share)));
-  g.core.hp -= cost;
+  const want = Math.max(1, Math.round(lost * Math.min(1, share)));
+  // 결전장에서 성채가 무너지지는 않는다. 여기서 지는 길은 다 쓰러지는 것뿐이고,
+  // 얇아진 성채는 웨이브로 돌아가서 갚는다.
+  const before = g.core.hp;
+  g.core.hp = Math.max(1, before - want);
+  const cost = Math.round(before - g.core.hp);
+  if (cost < want && !a.creak) {              // 처음 바닥에 닿았을 때 한 번 알린다
+    a.creak = 1;
+    callout(g, CX, 300, "성문이 버티고 있다", "#ffb08a", "warn", 0);
+  }
   g.hitFlash = 0.35;
   fx(g, { kind: "dmg", x: p.ax, y: (p.ay || ARENA.bfy) - 96, text: `-${lost}`,
     color: "#ff8d76", t: 0.9, life: 0.9 });

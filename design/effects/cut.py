@@ -104,6 +104,50 @@ SHEETS = {
         },
         'single': {},
     },
+    # ── 병과 캐릭터 둘째 장 (번개탑·화염탑·독탑) ──────────────
+    # 위가 번개(파랑·노랑), 가운데가 불(주황·빨강), 아래가 독(초록·보라).
+    'hero2': {
+        'file': 'hero2-fx-sheet.webp',
+        'labels': None,
+        'wash': True,
+        'root': True,
+        'box': {
+            # 번개탑
+            'bolt/fly':     (909, 110, 1162, 202),   # 날아가는 번개
+            'bolt/hit':     (588, 92, 706, 200),     # 꽂힌 자국
+            'bolt/strike':  (6, 12, 138, 290),       # 뇌우 — 하늘에서 내리꽂힌다
+            'bolt/arc':     (250, 55, 520, 250),     # 이어지는 줄기
+            'bolt/ring':    (710, 84, 910, 264),     # 땅에 남는 고리
+            'bolt/storm':   (1140, 5, 1534, 355),    # 뇌우 — 크게 휘몰아친다
+            # 화염탑
+            'flame/fly':    (18, 480, 140, 552),     # 날아가는 불덩이
+            'flame/hit':    (150, 447, 300, 566),    # 스친 자국
+            'flame/up':     (473, 410, 585, 588),    # 솟아오르는 불길
+            'flame/boom':   (606, 410, 820, 600),    # 터진 자국
+            'flame/ring':   (825, 423, 1057, 600),   # 발밑 불고리
+            'flame/storm':  (1070, 360, 1520, 628),  # 화염 폭풍
+            'flame/smoke':  (748, 612, 860, 704),    # 그을음
+            # 독탑
+            'poison/fly':   (24, 797, 241, 864),     # 날아가는 독구슬
+            'poison/hit':   (253, 752, 420, 900),    # 터진 자국
+            'poison/cloud': (466, 755, 663, 908),    # 퍼지는 독무
+            'poison/pool':  (673, 776, 912, 910),    # 땅에 고인 독
+            'poison/drop':  (937, 800, 991, 900),    # 떨어지는 독방울
+            'poison/storm': (1150, 715, 1520, 938),  # 역병 — 크게 퍼진다
+            'poison/ring':  (795, 935, 1047, 1013),  # 땅에 남는 고리
+        },
+        'with_boss': set(),
+        'anchor': {
+            'bolt/fly': 'tip', 'flame/fly': 'tip', 'poison/fly': 'tip',
+            'bolt/hit': 'bright', 'flame/hit': 'bright', 'flame/boom': 'bright',
+            'poison/hit': 'bright',
+            'bolt/strike': 'foot', 'flame/up': 'foot', 'poison/drop': 'foot',
+            'bolt/arc': 'center', 'bolt/storm': 'center', 'flame/storm': 'center',
+            'flame/smoke': 'center', 'poison/cloud': 'center', 'poison/storm': 'center',
+            # 고리와 고인 자리는 빈 구멍 한가운데 (기본값)
+        },
+        'single': {},
+    },
     # ── 1차 오우거 지휘관 ─────────────────────────────────────
     'boss': {
         'file': 'ogre-fx-sheet.webp',

@@ -94,6 +94,27 @@ export const FX_ART = {
   "cannon/hit":    { ax: 51,  ay: 44,  k: 1 },
   "cannon/trail":  { ax: 338, ay: 30,  k: 1 },
   "cannon/smoke":  { ax: 48,  ay: 36,  k: 1, over: 1 },
+  // 번개탑(파랑·노랑) · 화염탑(주황) · 독탑(초록·보라)
+  "bolt/fly":      { ax: 215, ay: 43,  k: 1 },
+  "bolt/hit":      { ax: 51,  ay: 56,  k: 1, over: 1 },
+  "bolt/strike":   { ax: 93,  ay: 271, k: 0.8, over: 1 },
+  "bolt/arc":      { ax: 135, ay: 94,  k: 1, over: 1 },
+  "bolt/ring":     { ax: 117, ay: 54,  k: 1 },
+  "bolt/storm":    { ax: 198, ay: 173, k: 1, over: 1 },
+  "flame/fly":     { ax: 98,  ay: 31,  k: 1 },
+  "flame/hit":     { ax: 36,  ay: 80,  k: 1, over: 1 },
+  "flame/up":      { ax: 57,  ay: 169, k: 0.85, over: 1 },
+  "flame/boom":    { ax: 89,  ay: 117, k: 1, over: 1 },
+  "flame/ring":    { ax: 112, ay: 86,  k: 1 },
+  "flame/storm":   { ax: 224, ay: 138, k: 1, over: 1 },
+  "flame/smoke":   { ax: 54,  ay: 44,  k: 1, over: 1 },
+  "poison/fly":    { ax: 188, ay: 15,  k: 1 },
+  "poison/hit":    { ax: 77,  ay: 81,  k: 1, over: 1 },
+  "poison/cloud":  { ax: 94,  ay: 70,  k: 1, over: 1 },
+  "poison/pool":   { ax: 97,  ay: 88,  k: 1 },
+  "poison/drop":   { ax: 34,  ay: 93,  k: 0.8, over: 1 },
+  "poison/storm":  { ax: 176, ay: 118, k: 1, over: 1 },
+  "poison/ring":   { ax: 58,  ay: 47,  k: 1 },
 };
 const fxCache = {};
 let fxWarm = 0;

@@ -507,6 +507,17 @@ export const ARENA_ART = {
   cannon: { fly: "cannon/shell", flyR: 24, hit: "cannon/boom", hitR: 74,
     big: "cannon/boom", bigR: 132, rain: "cannon/rain1", rainR: 22,
     land: "cannon/hit", landR: 42, smoke: "cannon/smoke", smokeR: 30 },
+  // 둘째 장 — design/effects/hero2-fx-sheet.webp
+  bolt: { fly: "bolt/fly", flyR: 36, hit: "bolt/hit", hitR: 40,
+    big: "bolt/storm", bigR: 138, strike: "bolt/strike", strikeR: 58,
+    arc: "bolt/arc", arcR: 58, ring: "bolt/ring", ringR: 72 },
+  flame: { fly: "flame/fly", flyR: 22, hit: "flame/hit", hitR: 50,
+    big: "flame/storm", bigR: 196, up: "flame/up", upR: 44,
+    ring: "flame/ring", ringR: 98, smoke: "flame/smoke", smokeR: 34 },
+  poison: { fly: "poison/fly", flyR: 28, hit: "poison/hit", hitR: 54,
+    big: "poison/storm", bigR: 148, cloud: "poison/cloud", cloudR: 60,
+    pool: "poison/pool", poolR: 96, drop: "poison/drop", dropR: 26,
+    ring: "poison/ring", ringR: 76 },
 };
 
 export const ARENA_KIT = {

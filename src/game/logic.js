@@ -814,9 +814,24 @@ function arenaImpact(g, s) {
       if (arenaNear(m.x, m.y, bossX(g), bossY(g)) <= (kit.splash || 90)) m.hp -= s.dmg * 0.6;
     });
   } else if (kit.poison) {                       // 독 — 퍼지는 독무
-    fx(g, { kind: "cloud", x: hx, y: hy + 10, r: big ? 130 : 62, color: "rgba(168,222,110,0.85)",
-      t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7 });
-    fx(g, { kind: "acid", x: hx, y: hy, r: 44, t: 0.5, life: 0.5 });
+    if (ART) {
+      fx(g, { kind: "art", art: ART.cloud, x: hx, y: hy + 12, r: ART.cloudR * (big ? 1.5 : 1),
+        flip: Math.random() < 0.5 ? 1 : 0, t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7 });
+      fx(g, { kind: "art", art: ART.pool, x: bossX(g), y: bossY(g) - 4,
+        r: ART.poolR * (big ? 1.6 : 1), t: big ? 1.2 : 0.8, life: big ? 1.2 : 0.8 });
+      if (big) {                                 // 역병 — 독방울이 줄줄이 떨어진다
+        for (let i = 0; i < 5; i++) {
+          fx(g, { kind: "art", art: ART.drop, x: bossX(g) + (i - 2) * 52 + (Math.random() - 0.5) * 24,
+            y: bossY(g) - 6, r: ART.dropR, t: 0.5 + i * 0.08, life: 0.5 + i * 0.08 });
+        }
+        fx(g, { kind: "art", art: ART.ring, x: bossX(g), y: bossY(g) - 2, r: ART.ringR * 1.4,
+          t: 1, life: 1 });
+      }
+    } else {
+      fx(g, { kind: "cloud", x: hx, y: hy + 10, r: big ? 130 : 62, color: "rgba(168,222,110,0.85)",
+        t: big ? 1.1 : 0.7, life: big ? 1.1 : 0.7 });
+      fx(g, { kind: "acid", x: hx, y: hy, r: 44, t: 0.5, life: 0.5 });
+    }
   } else if (kit.slow) {                         // 서리 — 서리꽃이 터진다
     fx(g, { kind: "nova", x: hx, y: hy, r: big ? 150 : 62, color: "#bfe6ff", n: big ? 12 : 8,
       t: big ? 0.8 : 0.5, life: big ? 0.8 : 0.5, snd: "ice" });
@@ -881,6 +896,7 @@ function arenaFire(g, pi, mul, label) {
     return;
   }
   const dmg = kit.dmg * mul;
+  const ART = arenaArtOf(pi);                    // 병과 시트에서 떼어 낸 그림
   if (label) callout(g, CX, 250, label, "#ffd873", "crit", 0.8);
 
   if (kit.mode === "melee") {                    // 성기사 — 붙어서 벤다. 스킬은 검기가 날아간다
@@ -905,16 +921,35 @@ function arenaFire(g, pi, mul, label) {
   if (kit.mode === "aura") {                     // 화염 — 쏘는 쪽으로 불을 뿜는다
     fx(g, { kind: "cone", x: p.ax + Math.cos(ang) * 14, y: py - 42 + Math.sin(ang) * 10,
       a: ang, r: rng * (big ? 1.25 : 1), half: big ? 0.6 : 0.4, t: 0.45, life: 0.45, snd: "flame" });
-    fx(g, { kind: "firering", x: p.ax, y: py - 10, r: rng, t: 0.5, life: 0.5 });
     arenaDamage(g, pi, dmg, { skill: big, off: (Math.random() - 0.5) * 60 });
     arenaMark(g, pi, kit);
-    fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 60, y: by2 + 8, t: 0.5, life: 0.5 });
+    if (ART) {
+      // 발밑 불고리와 보스에게 스친 자국 — 시트에서 떼어 낸 그림
+      fx(g, { kind: "art", art: ART.ring, x: p.ax, y: py - 6, r: ART.ringR, t: 0.5, life: 0.5 });
+      fx(g, { kind: "art", art: ART.fly, x: p.ax + Math.cos(ang) * 40, y: py - 44 + Math.sin(ang) * 16,
+        r: ART.flyR, flip: p.ax > bx2 ? 1 : 0, t: 0.3, life: 0.3 });
+      fx(g, { kind: "art", art: ART.hit, x: bx2 + (Math.random() - 0.5) * 50, y: by2 + 6,
+        r: ART.hitR, flip: p.ax > bx2 ? 1 : 0, t: 0.5, life: 0.5 });
+    } else {
+      fx(g, { kind: "firering", x: p.ax, y: py - 10, r: rng, t: 0.5, life: 0.5 });
+      fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 60, y: by2 + 8, t: 0.5, life: 0.5 });
+    }
     if (big) {                                   // 화염 폭풍 — 보스 자리가 통째로 탄다
-      for (let i = 0; i < 5; i++) {
-        fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 150,
-          y: by2 - 22 + Math.random() * 70, t: 0.5 + i * 0.08, life: 0.5 + i * 0.08 });
+      if (ART) {
+        fx(g, { kind: "art", art: ART.big, x: bx2, y: bossY(g) - 26, r: ART.bigR, t: 0.9, life: 0.9 });
+        for (let i = 0; i < 4; i++) {            // 솟아오르는 불길 넷
+          fx(g, { kind: "art", art: ART.up, x: bx2 + (i - 1.5) * 62 + (Math.random() - 0.5) * 20,
+            y: bossY(g) - 4, r: ART.upR, t: 0.6 + i * 0.09, life: 0.6 + i * 0.09 });
+        }
+        fx(g, { kind: "art", art: ART.smoke, x: bx2 + (Math.random() - 0.5) * 90,
+          y: bossTop(g) + 20, r: ART.smokeR, t: 1, life: 1 });
+      } else {
+        for (let i = 0; i < 5; i++) {
+          fx(g, { kind: "flame", x: bx2 + (Math.random() - 0.5) * 150,
+            y: by2 - 22 + Math.random() * 70, t: 0.5 + i * 0.08, life: 0.5 + i * 0.08 });
+        }
+        fx(g, { kind: "firering", x: bx2, y: bossY(g), r: 190, t: 0.8, life: 0.8 });
       }
-      fx(g, { kind: "firering", x: bx2, y: bossY(g), r: 190, t: 0.8, life: 0.8 });
     }
     return;
   }
@@ -935,23 +970,44 @@ function arenaFire(g, pi, mul, label) {
     hops.forEach(([hx, hy], k) => {
       fx(g, { kind: "zap", x0, y0, x1: hx, y1: hy, color: kit.col, t: 0.32, life: 0.32,
         snd: k === 0 ? "zap" : null });
-      fx(g, { kind: "burst", x: hx, y: hy, r: 26, color: "#fff4c2", n: 7, t: 0.34, life: 0.34 });
+      if (ART) {
+        // 첫 줄기는 날아가는 번개로, 이어지는 줄기는 줄기 그림으로
+        if (k === 0) {
+          fx(g, { kind: "shot", x0, y0, x1: hx, y1: hy, style: "bolt",
+            art: ART.fly, r: ART.flyR, color: kit.col, t: 0.12, life: 0.12 });
+        } else {
+          fx(g, { kind: "art", art: ART.arc, x: (x0 + hx) / 2, y: (y0 + hy) / 2,
+            r: ART.arcR, flip: hx < x0 ? 1 : 0, t: 0.3, life: 0.3 });
+        }
+        fx(g, { kind: "art", art: ART.hit, x: hx, y: hy, r: ART.hitR, t: 0.34, life: 0.34 });
+      } else {
+        fx(g, { kind: "burst", x: hx, y: hy, r: 26, color: "#fff4c2", n: 7, t: 0.34, life: 0.34 });
+      }
       x0 = hx; y0 = hy;
     });
     arenaDamage(g, pi, dmg, { skill: big });
     arenaMark(g, pi, kit);
     (a.mobs || []).slice(0, (kit.chain || 3) - 1).forEach((m) => { m.hp -= dmg * 0.5; });
     if (big) {                                   // 낙뢰 — 하늘에서 세 줄기
-      for (let i = 0; i < 3; i++) {
-        const tx2 = bx2 + (i - 1) * 70;
-        fx(g, { kind: "zap", x0: tx2 + (Math.random() - 0.5) * 40, y0: 110, x1: tx2, y1: by2 + 24,
-          color: "#fff0a8", t: 0.3, life: 0.3 });
-        fx(g, { kind: "nova", x: tx2, y: by2 + 24, r: 80, color: "#fff0a8", n: 8, t: 0.5, life: 0.5 });
+      if (ART) {
+        fx(g, { kind: "art", art: ART.ring, x: p.ax, y: py - 6, r: ART.ringR, t: 0.6, life: 0.6 });
+        for (let i = 0; i < 3; i++) {
+          const tx2 = bx2 + (i - 1) * 78;
+          fx(g, { kind: "art", art: ART.strike, x: tx2, y: bossY(g) - 2, r: ART.strikeR,
+            t: 0.5 + i * 0.1, life: 0.5 + i * 0.1 });
+        }
+        fx(g, { kind: "art", art: ART.big, x: bx2, y: bossY(g) - 40, r: ART.bigR, t: 0.95, life: 0.95 });
+      } else {
+        for (let i = 0; i < 3; i++) {
+          const tx2 = bx2 + (i - 1) * 70;
+          fx(g, { kind: "zap", x0: tx2 + (Math.random() - 0.5) * 40, y0: 110, x1: tx2, y1: by2 + 24,
+            color: "#fff0a8", t: 0.3, life: 0.3 });
+          fx(g, { kind: "nova", x: tx2, y: by2 + 24, r: 80, color: "#fff0a8", n: 8, t: 0.5, life: 0.5 });
+        }
       }
     }
     return;
   }
-  const ART = arenaArtOf(pi);                    // 병과 시트에서 떼어 낸 그림
   if (kit.shot === "slug") {                     // 저격 — 총구에서 표적까지 한 줄
     fx(g, { kind: "beam", x0: p.ax + Math.cos(ang) * 22, y0: py - 46 + Math.sin(ang) * 12,
       x1: bx2, y1: by2, color: kit.col, w: big ? 13 : 7, t: 0.28, life: 0.28 });

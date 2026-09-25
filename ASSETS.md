@@ -11,10 +11,11 @@
    이 프로젝트는 코드 전체가 `/assets/...` 절대경로로 그림을 부르므로, 이번 정리도 `public/assets/`
    안에서 폴더만 체계적으로 다시 짰습니다(요청하신 예시 구조의 정신은 그대로 따르되, 실제로 깨지지
    않는 자리에 두었습니다).
-2. **타워·돌판·배경·UI 버튼/패널·능력 아이콘은 이미지 파일이 아니라 코드로 직접 그립니다.**
+2. **타워·돌판·배경·UI 버튼/패널·능력 아이콘 대부분은 이미지 파일이 아니라 코드로 직접 그립니다.**
    `src/game/art.js`가 캔버스에 도형을 그리고(절차적 렌더링), `src/ui/icons.jsx`가 아이콘을
-   인라인 SVG 컴포넌트로 갖고 있습니다. 그래서 아래 목록에는 "타워 이미지"나 "돌판 이미지",
-   "UI 아이콘 이미지" 항목이 없습니다 — 실제로 존재하지 않는 파일이기 때문입니다.
+   인라인 SVG 컴포넌트로 갖고 있습니다. 다만 **길·관문·소리 단추·성채 체력 아이콘**은 예외로,
+   아래 Map·UI 항목에 적은 그림 파일을 씁니다(그림이 아직 안 왔거나 못 불러오면 예전 절차적
+   그리기로 자동으로 되돌아갑니다).
 
 ---
 
@@ -33,16 +34,22 @@ public/
     │   └── bosses/                 ← 보스 결전장의 보스 2종
     ├── effects/
     │   └── <병과id 또는 보스id>/   ← 공격·스킬 이펙트 (13개 폴더)
+    ├── map/
+    │   ├── tiles/                  ← 길 타일 7종(실제로 그리는 건 2종뿐)
+    │   └── gates/                  ← 관문을 4방향에서 본 그림
+    ├── ui/                         ← 소리 단추·성채 체력 아이콘
     └── unused/
         └── effects/                ← 코드에서 지금 쓰지 않는 이펙트 낱장
 
 design/                              ← 원본 디자인 시트 + 잘라내는 파이썬 스크립트 (게임이 직접 불러오지 않음)
 ├── characters/
 ├── enemies/
-└── effects/
+├── effects/
+└── map/
 ```
 
-`map/`, `towers/`, `ui/` 폴더는 만들지 않았습니다 — 아래 "이미지가 없는 항목" 참고.
+`towers/` 폴더는 만들지 않았습니다 — 타워 자체는 여전히 그림 없이 절차적으로 그립니다.
+아래 "이미지가 없는 항목" 참고.
 
 ---
 
@@ -98,6 +105,52 @@ design/                              ← 원본 디자인 시트 + 잘라내는 
 
 ---
 
+## Map — `public/assets/map/`
+
+길과 관문(적 출현구)에 얹는 그림입니다. 그림이 아직 로딩 중이거나 못 불러왔으면 예전처럼
+캔버스에 절차적으로 그린 흙길/돌 아치가 그대로 남습니다(`paintPathTiles()`가 `false`를 돌려주면
+장식만 절차적으로 이어 그립니다) — 그래서 이 그림들은 "없으면 깨지는" 게 아니라 "있으면 입혀지는"
+덧그림입니다.
+
+### tiles — `public/assets/map/tiles/`
+
+| 파일 | 실제로 쓰는가 | 비고 |
+| --- | --- | --- |
+| `straight-mid.webp` | ✅ | `straight-long.webp`에서 둥근 양 끝 마감을 잘라낸 가운데 조각. 각 직선 구간 길이에 맞춰 늘려 그립니다 |
+| `corner.webp` | ✅ | 직각으로 꺾이는 자리마다 실제 꺾이는 방향(들어온 쪽 반대 ↔ 나가는 쪽)에 맞춰 돌려 그립니다 |
+| `straight-long.webp` | — | 원본 낱장(양 끝이 둥글게 막혀 있어 그대로는 안 쓰고 `straight-mid`만 씁니다) |
+| `straight-short.webp`, `t-junction.webp`, `s-curve.webp`, `cross.webp`, `u-turn.webp` | — | 이 게임의 길은 네 갈래 모두 직각으로만 꺾이고 갈라지지 않아 지금은 쓰지 않습니다. 나중을 위해 남겨 두었습니다 |
+
+- 사용처: `src/game/art.js`의 `paintPathTiles()`, `drawStraightTile()`, `drawCornerTile()` —
+  `paintTerrain()`이 절차적 흙길을 그린 **위에** 덧그립니다.
+
+### gates — `public/assets/map/gates/`
+
+| 파일 | 실제로 쓰는가 | 어느 방향 |
+| --- | --- | --- |
+| `front.webp` | ✅ | 북쪽 관문(정면에서 보이는 방향) |
+| `back.webp` | ✅ | 남쪽 관문(뒤에서 보이는 방향) |
+| `left.webp` | ✅ | 서쪽 관문(왼쪽 옆면이 보이는 방향) |
+| `right.webp` | ✅ | 동쪽 관문(오른쪽 옆면이 보이는 방향) |
+| `front-path.webp` | — | 정면+진입로가 함께 보이는 여분(좁은 화면 자리엔 정면 클로즈업 쪽이 더 잘 맞아 안 씀) |
+
+- 사용처: `src/game/art.js`의 `drawPortal()`, `GATE_DIR`(길 이름 → 그림 이름). 각도가 이미 그림에
+  박혀 있는 그림이라 돌리지 않고 그대로 그립니다.
+
+---
+
+## UI — `public/assets/ui/`
+
+| 파일 | 사용처 |
+| --- | --- |
+| `sound-on.webp`, `sound-off.webp` | `src/App.jsx`의 소리 단추(`toggleMute`) — 기존 이모지(🔊/🔇) 대신 씁니다 |
+| `shield-icon.webp` | `src/App.jsx`의 `.crest`(성채 체력 판) 아이콘 — `src/ui/icons.jsx`의 `Shield` SVG 대신 씁니다 |
+
+나머지 UI 아이콘(`Coin`, `HomeIcon`, `ClassIcon`, `PerkIcon`)은 여전히 `src/ui/icons.jsx`의
+인라인 SVG이고, 판/단추의 나무 질감·테두리도 여전히 `src/ui/style.css`의 CSS 디자인입니다.
+
+---
+
 ## Effects — `public/assets/effects/<병과id 또는 보스id>/`
 
 공격·스킬·보스 기술의 시각 효과 조각 그림입니다. 13개 폴더에 총 80장이 있고, 어느 폴더에
@@ -134,9 +187,10 @@ design/                              ← 원본 디자인 시트 + 잘라내는 
 | --- | --- |
 | 돌판 / 건설 지점 | `src/game/art.js`의 `drawPad()`가 캔버스에 타원·점선으로 직접 그립니다. 자리 성격(공격/제어/지원)별 색만 `world.js`의 `SPOTS`에서 가져옵니다. |
 | 타워 그림 | 타워 자체는 그림 없이 `drawPad()`의 연장선에서 절차적으로 표현됩니다(공격 시 이펙트만 위의 effects/ 그림을 씁니다). |
-| 게임 배경 / 맵 | `src/game/art.js`의 `paintTerrain()`이 캔버스에 잔디 그라데이션·풀 얼룩·나무를 절차적으로(시드 난수) 그립니다. |
-| UI 아이콘 | 이미지가 아니라 `src/ui/icons.jsx`의 인라인 SVG 컴포넌트입니다(`Shield`, `Coin`, `HomeIcon`, `ClassIcon`, `PerkIcon`). |
-| UI 버튼 / 패널 | `src/ui/style.css`의 그라데이션·테두리·그림자로 그린 CSS 디자인입니다. `background-image`를 쓰는 곳이 없습니다. |
+| 게임 배경(잔디·나무) | `src/game/art.js`의 `paintTerrain()`이 캔버스에 잔디 그라데이션·풀 얼룩·나무를 절차적으로(시드 난수) 그립니다. 길·관문만 위 Map 항목의 그림을 그 위에 덧그립니다. |
+| 성채 | `src/game/art.js`의 `drawCastle()`이 절차적으로 그립니다(위 Map의 관문과는 다른, 지도 한가운데의 성채입니다). |
+| UI 아이콘(방패·소리 제외) | 이미지가 아니라 `src/ui/icons.jsx`의 인라인 SVG 컴포넌트입니다(`Coin`, `HomeIcon`, `ClassIcon`, `PerkIcon`). |
+| UI 버튼 / 패널 | `src/ui/style.css`의 그라데이션·테두리·그림자로 그린 CSS 디자인입니다. 소리 단추만 배경을 없애고 위 UI 그림을 그대로 보입니다. |
 
 ---
 
@@ -177,5 +231,6 @@ design/                              ← 원본 디자인 시트 + 잘라내는 
 | `design/characters/` | 병과 캐릭터 원본 시트, `chibi.py`(인게임 자세 오려내기) · `recolor.py`(색 바꾸기 참고 코드) · `trio_cut.py`(보급소·성기사탑·번개탑 3인 시트 자르기) |
 | `design/enemies/` | 적 5종 원본 시트(`enemy-sheet.webp`) |
 | `design/effects/` | 이펙트 원본 시트 6장, `cut.py`(시트에서 이펙트 낱장을 잘라 `public/assets/effects/`로 저장) |
+| `design/map/` | 길·관문·소리 단추·성채 체력 아이콘의 원본 목업 5장, `cut.py`(연결 성분으로 낱장을 잘라 `public/assets/map/`·`public/assets/ui/`로 저장) |
 
 각 폴더의 `README.md`에 어떤 방식으로 배경을 지우고 캐릭터만 남겼는지 자세히 적혀 있습니다.

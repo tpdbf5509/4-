@@ -279,6 +279,7 @@ kbd {
 }
 .crest { display: flex; align-items: center; gap: 6px; padding: 6px 11px 6px 8px; }
 .crest svg { width: 22px; height: 22px; display: block; }
+.crest-shield { width: 22px; height: 22px; display: block; object-fit: contain; }
 .crest-num { font-family: 'Do Hyeon', sans-serif; font-size: 20px; line-height: 1; }
 .crest-tier {
   margin-left: 2px; padding: 2px 6px; border-radius: 999px;
@@ -314,6 +315,8 @@ kbd {
 .sbtn.on { background: linear-gradient(#7a5a2e, #5d4222); border-color: #d6b26a; color: #fff3d0; }
 .sbtn svg { width: 17px; height: 17px; display: block; }
 .pause-glyph { width: 12px; height: 13px; border-left: 4px solid currentColor; border-right: 4px solid currentColor; }
+.sbtn.sbtn-img { background: none; border: none; box-shadow: none; }
+.sbtn-img img { width: 38px; height: 38px; display: block; border-radius: 8px; }
 
 .guest-tag { padding: 8px 12px; font-size: 11.5px; color: #c9b58c; }
 .drop-note {

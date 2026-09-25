@@ -105,25 +105,27 @@ export function makeLane(li) {
   const h = (span - ent - ext) / 3;              // 가로로 지른 구간 사이의 간격
   const rA = r0 - ent, rB = rA - h, rC = rB - h, rD = rC - h;
   const a1 = A, a2 = A * TAPER, a3 = A * TAPER * TAPER;
-  const corners = [
+  const cornersRW = [
     [r0, 0], [rA, 0], [rA, a1], [rB, a1], [rB, -a2], [rC, -a2], [rC, a3], [rD, a3], [rD, 0], [R_CORE, 0],
   ];
   const toXY = ([r, w]) => ({ x: CX + dx * r + nx * w, y: CY + dy * r + ny * w });
 
   const pts = [];
-  for (let i = 0; i < corners.length - 1; i++) {
-    const a = toXY(corners[i]), b = toXY(corners[i + 1]);
+  for (let i = 0; i < cornersRW.length - 1; i++) {
+    const a = toXY(cornersRW[i]), b = toXY(cornersRW[i + 1]);
     const d = Math.hypot(b.x - a.x, b.y - a.y);
     const n = Math.max(1, Math.round(d / 3));
     for (let k = 0; k < n; k++) pts.push({ x: a.x + (b.x - a.x) * k / n, y: a.y + (b.y - a.y) * k / n });
   }
-  pts.push(toXY(corners[corners.length - 1]));
+  pts.push(toXY(cornersRW[cornersRW.length - 1]));
 
   const cum = [0];
   for (let k = 1; k < pts.length; k++) {
     cum.push(cum[k - 1] + Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y));
   }
-  return { pts, cum, len: cum[cum.length - 1], dx, dy, nx, ny, name: DIRS4[li].name };
+  // 굵은 꺾임 자리(그림용) — 길은 직각으로만 꺾이므로 이 점들 사이는 늘 가로 아니면 세로다
+  const corners = cornersRW.map(toXY);
+  return { pts, cum, len: cum[cum.length - 1], dx, dy, nx, ny, name: DIRS4[li].name, corners };
 }
 
 export const LANES = [0, 1, 2, 3].map(makeLane);

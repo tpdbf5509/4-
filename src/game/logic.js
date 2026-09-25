@@ -243,6 +243,21 @@ export function doBuild(g, pi) {
   }
 }
 
+/* 테스트 서버 전용 — 지금 커서가 있는 자리에 골라 둔 병과를 값 없이, 있던 탑도 갈아엎고 바로 세운다.
+   정식 대전에서는 절대 안 불린다(모든 진입점이 g.testMode를 먼저 확인한다). */
+export function doTestBuild(g, pi, type) {
+  if (!g.testMode || !TOWER_BY_ID[type]) return;
+  const p = g.players[pi];
+  if (!p) return;
+  const key = sk(p.lane, p.slot);
+  const s = SLOTS[key];
+  const def = TOWER_BY_ID[type];
+  g.towers[key] = { owner: pi, type, lv: 1, cd: 0, pulse: 0.4, aim: 0, warm: 0, spent: 0 };
+  fx(g, { kind: "poof", x: s.x, y: s.y, t: 0.5, life: 0.5, color: P[pi].light });
+  fx(g, { kind: "ring", x: s.x, y: s.y, r: 46, color: P[pi].light, t: 0.45, life: 0.45, snd: "build" });
+  say(g, s.x, s.y, `테스트 · ${def.name}`, P[pi].light);
+}
+
 /* 값 상자에 띄울 비용. 판정에 쓰는 식을 그대로 써서 표시와 실제가 어긋나지 않는다. */
 export function towerCosts(g, pi) {
   const p = g.players[pi];
@@ -1830,6 +1845,8 @@ export function stepArena(g, dt) {
 
 export function step(g, dt) {
   g.t += dt;
+  // 테스트 서버 — 얼마를 쓰든 매 틱마다 다시 채운다(개별 비용 검사를 일일이 건드리지 않아도 된다)
+  if (g.testMode) g.players.forEach((p) => { p.gold = Math.max(p.gold, 99999); });
   if (g.leaveT > 0) {
     g.leaveT -= dt;
     if (g.leaveT <= 0) clearLeave(g);

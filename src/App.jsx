@@ -8,7 +8,7 @@ import {
 import {
   step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
   applyReward, applyLeave, applyHold, startPrep, towerCosts, markMove,
-  packSnapshot, applySnapshot, applyOut,
+  packSnapshot, applySnapshot, applyOut, doTestBuild,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
@@ -204,6 +204,14 @@ export default function App() {
     }
   }, [lobby, me, name, publishLobby]);
 
+  // 테스트 서버 — 코드만 치고 바로 들어오도록, 방에 들어오면 병과를 스스로 하나 집는다
+  useEffect(() => {
+    if (code !== "TEST" || screen !== "lobby" || !lobby) return;
+    if (mySeat >= 0) return;
+    const free = lobby.seats.findIndex((s) => !s);
+    if (free >= 0) pick(free);
+  }, [code, screen, lobby, mySeat, pick]);
+
   // boss 는 false 이거나 곧장 들어갈 결전의 상대 — "boss" · "titan"
   const startGame = useCallback((boss) => {
     const kind = boss === "boss" || boss === "titan" ? boss : false;
@@ -243,7 +251,10 @@ export default function App() {
         code={code} setCode={setCode}
         error={error}
         onCreate={() => connect(makeCode(), true)}
-        onJoin={() => code.length === 4 && connect(code.toUpperCase(), false)}
+        onJoin={() => {
+          if (code.toUpperCase() === "TEST") return connect("TEST", true);
+          if (code.length === 4) connect(code.toUpperCase(), false);
+        }}
       />
     );
   }
@@ -269,6 +280,7 @@ export default function App() {
       mySeat={mySeat}
       startBoss={bossRef.current}
       onBack={backToLobby}
+      testMode={code === "TEST"}
     />
   );
 }
@@ -680,7 +692,7 @@ function SpotTip({ spot }) {
   );
 }
 
-function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack }) {
+function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack, testMode }) {
   const cvsRef = useRef(null);
   const bgRef = useRef(null);
   const idx = useMemo(() => Array.from({ length: SEATS }, (_, i) => i), []);
@@ -689,7 +701,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
 
   const G = useRef(null);
   if (!G.current) {
-    const g = makeGame(seatFlags, waves, diff);
+    const g = makeGame(seatFlags, waves, diff, testMode);
     g.names = names;
     g.mySeat = mySeat;
     if (import.meta.env.DEV) window.__G = g;    // 개발 중 상태를 들여다보려고
@@ -792,6 +804,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       else if (kind === "build") doBuild(g, mySeat);
       else if (kind === "sell") doSell(g, mySeat);
       else if (kind === "castle") doCastle(g, mySeat);
+      else if (kind === "testBuild") doTestBuild(g, mySeat, dir);
       else doSkill(g, mySeat);
     } else {
       // 내 커서는 바로 움직이고, 판정은 방장에게 맡긴다.
@@ -994,6 +1007,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
         else if (d.kind === "build") doBuild(g, d.cls);
         else if (d.kind === "sell") doSell(g, d.cls);
         else if (d.kind === "castle") doCastle(g, d.cls);
+        else if (d.kind === "testBuild") doTestBuild(g, d.cls, d.dir);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
     } else {
@@ -1113,6 +1127,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       <div className="stage">
         <div className="frame">
           <canvas ref={cvsRef} />
+          {testMode && <div className="test-badge">TEST 서버 · 값 없이 마음대로</div>}
 
           <div className="hud hud-left">
             <div className="hud-row">
@@ -1188,6 +1203,19 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
               </button>
             )}
           </div>
+
+          {testMode && mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
+            <div className="test-panel" title="지금 고른 자리에 값 없이 바로 세웁니다">
+              <span className="test-panel-label">테스트 · 탑 바꾸기</span>
+              <div className="test-panel-row">
+                {CLASSES.map((cls, i) => (
+                  <button key={cls.id} className="test-panel-btn" onClick={() => act("testBuild", cls.id)} title={cls.name}>
+                    <ClassIcon i={i} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {hud.surge > 0 && (
             <div className="surge-tag" title="보스를 잡을 때마다 관문의 적이 강해집니다">

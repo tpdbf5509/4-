@@ -780,12 +780,13 @@ export const KEY_HINT = { move: "W A S D · 방향키", build: "Space", skill: "
 export const ETYPES = ["grunt", "rusher", "armor", "boss", "titan"];
 
 /* ── 상태 ───────────────────────────────────────────────── */
-export function makeGame(seats = [true, true, true, true, false, false], total = TOTAL_WAVES, diff = DEFAULT_DIFF) {
+export function makeGame(seats = [true, true, true, true, false, false], total = TOTAL_WAVES, diff = DEFAULT_DIFF, testMode = false) {
   const flags = [];
   for (let i = 0; i < SEATS; i++) flags.push(!!seats[i]);
   const d = DIFFS[diff] ? diff : DEFAULT_DIFF;
   const D = DIFFS[d];
   return {
+    testMode,
     seats: flags,
     total: WAVE_OPTIONS.includes(total) ? total : TOTAL_WAVES,
     diff: d,
@@ -799,7 +800,7 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
       const slot = Math.min(SLOT_INDEX[lane].length - 1, i < 4 ? 3 : i === 4 ? 1 : 5);
       const s = SLOTS[sk(lane, slot)];
       return {
-        gold: D.start, cd: 0, lane, slot, built: 0, kills: 0,
+        gold: testMode ? 99999 : D.start, cd: 0, lane, slot, built: 0, kills: 0,
         perks: {},                      // 보스를 잡고 고른 능력 { id: 개수 }
         cx: s.x, cy: s.y, cr: CLASSES[i].range, jolt: 0, heldKeys: [], holdT: 0,
         // 보스 결전장에서 쓰는 값

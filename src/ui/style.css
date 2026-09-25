@@ -576,6 +576,33 @@ kbd {
   box-shadow: 0 2px 0 rgba(34, 20, 14, 0.8);
 }
 
+/* 테스트 서버 — 지금 이 판이 정식 대전이 아니라는 걸 늘 보이게 해 둔다 */
+.test-badge {
+  position: absolute; left: 50%; top: 8px; transform: translateX(-50%);
+  padding: 4px 12px; font-size: 10.5px; letter-spacing: -0.02em; color: #ffe3e3;
+  background: linear-gradient(rgba(120, 30, 30, 0.9), rgba(80, 16, 16, 0.9));
+  border: 1px solid #ff9a9a; border-radius: 999px; pointer-events: none; z-index: 2;
+}
+
+/* 테스트 서버 — 자리에 값 없이 원하는 병과를 바로 세우는 판 */
+.test-panel {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
+  max-width: min(94%, 620px);
+  padding: 7px 10px; display: flex; flex-direction: column; gap: 5px; align-items: center;
+  background: linear-gradient(rgba(58, 20, 20, 0.94), rgba(36, 12, 12, 0.94));
+  border: 1px solid #c25a5a; border-radius: 12px;
+  box-shadow: 0 4px 0 rgba(30, 10, 10, 0.8), 0 10px 20px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+}
+.test-panel-label { font-size: 10.5px; letter-spacing: -0.02em; color: #ffc9c9; }
+.test-panel-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.test-panel-btn {
+  width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer;
+  background: linear-gradient(#4a3722, #322416); border: 1px solid #8a6a3f; border-radius: 8px;
+}
+.test-panel-btn:hover { filter: brightness(1.25); border-color: #ffc9c9; }
+.test-panel-btn svg { width: 17px; height: 17px; display: block; }
+
 /* 보스 보상 고르기 */
 .curtain.reward { background: rgba(10, 16, 10, 0.88); padding: 16px; }
 .reward-box { width: min(660px, 100%); text-align: center; }

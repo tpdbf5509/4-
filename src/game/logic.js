@@ -2295,7 +2295,6 @@ function arenaFollow(g, dt) {
   g.players.forEach((p, i) => {
     if (!g.seats[i] || p.gx === undefined) return;
     const far = Math.hypot(p.gx - p.ax, p.gy - p.ay);
-    if (far > 260) { p.ax = p.gx; p.ay = p.gy; return; }   // 되살아나거나 판이 바뀐 것
     if (i === g.mySeat) {
       // 내 손은 여기서 먼저 걷는다. 그래서 방장보다 늘 조금 앞서 있는 것이 정상이다.
       // 걷는 도중에 그 몫까지 끌어당기면 걸음이 자꾸 멈칫한다 —
@@ -2304,14 +2303,17 @@ function arenaFollow(g, dt) {
       // 손을 뗀 뒤에도 방장은 잠깐 더 걷는다. 그동안 앞선 몫은 저절로 사라지므로
       // 건드리면 안 된다 — 건드리면 뒤로 끌렸다 돌아오는 스프링이 된다.
       if (nowSec() - (p.walkT || 0) < ARENA_SETTLE) {
-        // 걷던 참 — 아주 크게 벌어졌을 때만, 걸음보다 훨씬 느린 속도로 슬그머니 당긴다
+        // 걷던 참 — 소식이 잠깐 늦어 크게 벌어져도 순간이동으로 보이면 안 되니,
+        // 여기서는 260px 문턱을 쓰지 않고 늘 걸음보다 훨씬 느린 속도로만 슬그머니 당긴다.
         if (far < ARENA_SLACK) return;
         const pull = Math.min((far - ARENA_SLACK) * 3, ARENA_PULL) * dt;
         p.ax += ((p.gx - p.ax) / far) * pull;
         p.ay += ((p.gy - p.ay) / far) * pull;
         return;
       }
-      // 한참 가만히 있었는데도 어긋나 있다면 그건 진짜 차이다 (보스에게 밀려난 자리 같은 것).
+      // 한참 가만히 있었는데도 이만큼 어긋나 있다면 되살아나거나 판이 바뀐 것이다.
+      if (far > 260) { p.ax = p.gx; p.ay = p.gy; return; }
+      // 그보다 덜 어긋난 차이는 진짜 차이다 (보스에게 밀려난 자리 같은 것).
       // 걷지 않으니 맞춰지는 것이 보이지 않지만, 걸음보다 빠르면 미끄러져 보인다.
       const k = chase(dt, 8);
       let mx = (p.gx - p.ax) * k, my = (p.gy - p.ay) * k;
@@ -2322,6 +2324,7 @@ function arenaFollow(g, dt) {
       p.ay += my;
       return;
     }
+    if (far > 260) { p.ax = p.gx; p.ay = p.gy; return; }   // 되살아나거나 판이 바뀐 것
     const k = chase(dt, 15);
     p.ax += (p.gx - p.ax) * k;
     p.ay += (p.gy - p.ay) * k;

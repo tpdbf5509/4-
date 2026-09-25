@@ -357,52 +357,62 @@ export const ENEMY = {
   titan: { hp: 700, spd: 24, dmg: 60, gold: 320, r: 30, res: 0.3, label: "대군주" },
 };
 
+/* 희귀도 — 카드가 얼마나 세게 등장하는지, 뽑힐 때 얼마나 귀한지.
+   weight 는 rollPerks 가 등급을 고를 때 쓰는 상대적 확률 몫이다. */
+export const RARITY = {
+  common:    { id: "common",    name: "일반", weight: 55, color: "#cfc6ae", glow: "rgba(207,198,174,0.4)" },
+  rare:      { id: "rare",      name: "희귀", weight: 27, color: "#7ec4ff", glow: "rgba(126,196,255,0.5)" },
+  epic:      { id: "epic",      name: "영웅", weight: 13, color: "#c98bff", glow: "rgba(201,139,255,0.55)" },
+  legendary: { id: "legendary", name: "전설", weight: 5,  color: "#ffb44a", glow: "rgba(255,180,74,0.65)" },
+};
+export const RARITY_IDS = ["common", "rare", "epic", "legendary"];
+
 /* 보스를 잡으면 각자 셋 중 하나를 고른다.
    대부분 고른 사람 몫이고, 성벽만 수비대 전체에 적용된다. */
 export const PERKS = [
   /* 타워 성능 */
-  { id: "power",  icon: "attack", name: "전투의 각인", note: "내 타워 공격력 +20%" },
-  { id: "reach",  icon: "range",  name: "매의 눈",     note: "내 타워 사거리 +22" },
-  { id: "haste",  icon: "speed",  name: "전장의 북",   note: "내 타워 공격 속도 +18%" },
-  { id: "command", icon: "flag",  name: "전투 지휘",   note: "모든 수비대의 타워 +5%" },
+  { id: "power",  icon: "attack", name: "전투의 각인", note: "내 타워 공격력 +20%", rarity: "common" },
+  { id: "reach",  icon: "range",  name: "매의 눈",     note: "내 타워 사거리 +22", rarity: "common" },
+  { id: "haste",  icon: "speed",  name: "전장의 북",   note: "내 타워 공격 속도 +18%", rarity: "common" },
+  { id: "command", icon: "flag",  name: "전투 지휘",   note: "모든 수비대의 타워 +5%", rarity: "rare" },
 
   /* 공격에 붙는 것 */
-  { id: "crit",   icon: "crit",   name: "급소 찌르기", note: "12% 확률로 피해 두 배" },
-  { id: "burn",   icon: "flame",  name: "불타는 탄환", note: "적중한 적이 3초간 불탄다 (피해의 10%)" },
-  { id: "arc",    icon: "arc",    name: "연쇄 공격",   note: "10% 확률로 옆 적 하나를 더 때린다" },
-  { id: "pierce", icon: "pierce", name: "관통의 힘",   note: "뒤에 있는 적 1명까지 꿰뚫는다" },
-  { id: "blast",  icon: "blast",  name: "폭발 탄환",   note: "착탄 지점 주변에 피해의 20%" },
-  { id: "hunter", icon: "mark",   name: "사냥꾼의 표식", note: "보스에게 주는 피해 +15%" },
-  { id: "execute", icon: "execute", name: "마무리 일격", note: "체력 35% 이하인 적에게 +25%" },
-  { id: "chill",  icon: "frost",  name: "무거운 사슬", note: "맞은 적이 1.2초간 느려진다" },
+  { id: "crit",   icon: "crit",   name: "급소 찌르기", note: "12% 확률로 피해 두 배", rarity: "rare" },
+  { id: "burn",   icon: "flame",  name: "불타는 탄환", note: "적중한 적이 3초간 불탄다 (피해의 10%)", rarity: "common" },
+  { id: "arc",    icon: "arc",    name: "연쇄 공격",   note: "10% 확률로 옆 적 하나를 더 때린다", rarity: "rare" },
+  { id: "pierce", icon: "pierce", name: "관통의 힘",   note: "뒤에 있는 적 1명까지 꿰뚫는다", rarity: "rare" },
+  { id: "blast",  icon: "blast",  name: "폭발 탄환",   note: "착탄 지점 주변에 피해의 20%", rarity: "epic" },
+  { id: "hunter", icon: "mark",   name: "사냥꾼의 표식", note: "보스에게 주는 피해 +15%", rarity: "epic" },
+  { id: "execute", icon: "execute", name: "마무리 일격", note: "체력 35% 이하인 적에게 +25%", rarity: "epic" },
+  { id: "chill",  icon: "frost",  name: "무거운 사슬", note: "맞은 적이 1.2초간 느려진다", rarity: "common" },
 
   /* 상황에 따라 세지는 것 */
-  { id: "berserk", icon: "rage",  name: "광전사의 분노", note: "성채가 다칠수록 공격력 (최대 +20%)" },
-  { id: "laststand", icon: "last", name: "최후의 저항", note: "성채 체력 20% 이하일 때 공격력 +30%" },
-  { id: "thirst", icon: "drop",   name: "피의 갈증",   note: "적을 잡으면 3초간 공격 속도 +10%" },
+  { id: "berserk", icon: "rage",  name: "광전사의 분노", note: "성채가 다칠수록 공격력 (최대 +20%)", rarity: "rare" },
+  { id: "laststand", icon: "last", name: "최후의 저항", note: "성채 체력 20% 이하일 때 공격력 +30%", rarity: "epic" },
+  { id: "thirst", icon: "drop",   name: "피의 갈증",   note: "적을 잡으면 3초간 공격 속도 +10%", rarity: "common" },
 
   /* 골드 */
-  { id: "gold",   icon: "gold",   name: "전리품",      note: "내가 잡은 적 골드 +25%" },
-  { id: "luck",   icon: "luck",   name: "행운의 동전", note: "10% 확률로 골드를 두 배로 줍는다" },
-  { id: "greed",  icon: "chest",  name: "탐욕의 손",   note: "보스를 잡으면 +100 골드" },
-  { id: "bank",   icon: "note",   name: "군수 계약",   note: "웨이브를 넘길 때마다 +60 골드" },
-  { id: "ration", icon: "ration", name: "비상식량",    note: "성채가 절반 아래로 떨어지면 +100 골드" },
+  { id: "gold",   icon: "gold",   name: "전리품",      note: "내가 잡은 적 골드 +25%", rarity: "common" },
+  { id: "luck",   icon: "luck",   name: "행운의 동전", note: "10% 확률로 골드를 두 배로 줍는다", rarity: "rare" },
+  { id: "greed",  icon: "chest",  name: "탐욕의 손",   note: "보스를 잡으면 +100 골드", rarity: "legendary" },
+  { id: "bank",   icon: "note",   name: "군수 계약",   note: "웨이브를 넘길 때마다 +60 골드", rarity: "common" },
+  { id: "ration", icon: "ration", name: "비상식량",    note: "성채가 절반 아래로 떨어지면 +100 골드", rarity: "common" },
 
   /* 건설 */
-  { id: "thrift", icon: "build",  name: "숙련된 목수", note: "건설·강화 비용 -18%" },
-  { id: "swift",  icon: "swift",  name: "신속한 건설", note: "짓고 나서 첫 사격까지 -25%" },
+  { id: "thrift", icon: "build",  name: "숙련된 목수", note: "건설·강화 비용 -18%", rarity: "common" },
+  { id: "swift",  icon: "swift",  name: "신속한 건설", note: "짓고 나서 첫 사격까지 -25%", rarity: "common" },
 
   /* 스킬 */
-  { id: "cool",   icon: "skill",  name: "빠른 준비",   note: "내 스킬 대기 시간 -20%" },
-  { id: "amp",    icon: "amp",    name: "마력 증폭",   note: "내 스킬 위력 +15%" },
-  { id: "echo",   icon: "echo",   name: "재사용의 축복", note: "10% 확률로 스킬 대기가 절반으로" },
+  { id: "cool",   icon: "skill",  name: "빠른 준비",   note: "내 스킬 대기 시간 -20%", rarity: "rare" },
+  { id: "amp",    icon: "amp",    name: "마력 증폭",   note: "내 스킬 위력 +15%", rarity: "epic" },
+  { id: "echo",   icon: "echo",   name: "재사용의 축복", note: "10% 확률로 스킬 대기가 절반으로", rarity: "epic" },
 
   /* 성채 */
-  { id: "wall",   icon: "shield", name: "성벽 보수",   note: "성채 최대 체력 +30 · 완전 회복" },
-  { id: "guard",  icon: "guard",  name: "불굴의 방어", note: "성채가 받는 피해 -8%" },
-  { id: "bulwark", icon: "wall",  name: "철벽",        note: "보스에게 받는 피해 -20%" },
-  { id: "regen",  icon: "heal",   name: "재생의 문장", note: "5초마다 성채 체력 2% 회복" },
-  { id: "repair", icon: "repair", name: "응급 수리",   note: "성채가 30% 아래로 떨어지면 10% 회복" },
+  { id: "wall",   icon: "shield", name: "성벽 보수",   note: "성채 최대 체력 +30 · 완전 회복", rarity: "legendary" },
+  { id: "guard",  icon: "guard",  name: "불굴의 방어", note: "성채가 받는 피해 -8%", rarity: "common" },
+  { id: "bulwark", icon: "wall",  name: "철벽",        note: "보스에게 받는 피해 -20%", rarity: "legendary" },
+  { id: "regen",  icon: "heal",   name: "재생의 문장", note: "5초마다 성채 체력 2% 회복", rarity: "rare" },
+  { id: "repair", icon: "repair", name: "응급 수리",   note: "성채가 30% 아래로 떨어지면 10% 회복", rarity: "rare" },
 ];
 export const PERK_BY_ID = Object.fromEntries(PERKS.map((p) => [p.id, p]));
 export const PERK_IDS = PERKS.map((p) => p.id);
@@ -724,10 +734,35 @@ export const castleGun = (lv) => ({
 // 짓고 나서 첫 사격까지 걸리는 시간
 export const WARMUP = 1.5;
 
-// 셋을 뽑는다. 이미 많이 쌓인 것도 다시 나올 수 있게 두되, 성벽은 성채가 튼튼하면 뺀다
+// 등급 하나를 무게에 따라 고른다
+function rollRarity() {
+  const total = RARITY_IDS.reduce((s, id) => s + RARITY[id].weight, 0);
+  let r = Math.random() * total;
+  for (const id of RARITY_IDS) {
+    r -= RARITY[id].weight;
+    if (r <= 0) return id;
+  }
+  return "common";
+}
+
+// 셋을 뽑는다. 이미 많이 쌓인 것도 다시 나올 수 있게 두되, 성벽은 성채가 튼튼하면 뺀다.
+// 자리마다 등급을 먼저 굴리고, 그 등급에서 하나를 고른다 — 등급 풀이 바닥나면 한 단계 낮춰 채운다.
 export function rollPerks(g, n = 3) {
   const pool = PERKS.filter((p) => p.id !== "wall" || g.core.max < 220);
-  return shuffle(pool).slice(0, n).map((p) => p.id);
+  const byRarity = {};
+  RARITY_IDS.forEach((r) => { byRarity[r] = shuffle(pool.filter((p) => p.rarity === r)); });
+  const picks = [];
+  for (let i = 0; i < n; i++) {
+    let idx = RARITY_IDS.indexOf(rollRarity());
+    let chosen = null;
+    while (idx >= 0 && !chosen) {
+      chosen = byRarity[RARITY_IDS[idx]].pop();
+      idx--;
+    }
+    if (!chosen) break;                 // 풀이 정말 다 바닥났다 (perk 수보다 n 이 클 때만)
+    picks.push(chosen.id);
+  }
+  return picks;
 }
 
 /* ── 조작키 (온라인에서는 각자 자기 키보드를 쓴다) ────────── */

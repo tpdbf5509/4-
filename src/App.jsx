@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  W, H, CX, CY, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX,
+  W, H, CX, CY, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX, RARITY,
   castleTier, castleCost, CASTLE_TIERS, LEAVE_FORCE, LEAVE_T,
   SKILLS, ENEMY, ETYPES, SLOTS, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
   makeGame, waveKind, bossWave, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, SELL_KEYS, KEY_HINT,
@@ -692,6 +692,19 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
   G.current.touch = touch;                      // 판 안의 안내 글도 조작판에 맞춘다
   const [hud, setHud] = useState(() => snapHud(G.current));
   const [dropped, setDropped] = useState(false);
+  // 골드가 늘어난 순간만 잠깐 반짝인다 — 실제 값이 아니라 화면 강조일 뿐이다
+  const prevGoldRef = useRef([]);
+  const [goldFlash, setGoldFlash] = useState([]);
+  useEffect(() => {
+    const prev = prevGoldRef.current;
+    const cur = hud.players.map((p) => p.gold);
+    prevGoldRef.current = cur;
+    const changed = cur.map((v, i) => v > (prev[i] ?? v));
+    if (!changed.some(Boolean)) return;
+    setGoldFlash(changed);
+    const t = setTimeout(() => setGoldFlash([]), 450);
+    return () => clearTimeout(t);
+  }, [hud]);
   // 이미 본 보스 기록 번호 — 건너뛰기는 각자의 화면에서만 닫는다
   const [seenScore, setSeenScore] = useState(0);
   const skipScore = useCallback((n) => setSeenScore((v) => Math.max(v, n)), []);
@@ -1177,9 +1190,17 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                     {hud.offer[mySeat].map((id, k) => {
                       const perk = PERK_BY_ID[id];
                       const have = hud.players[mySeat]?.perks?.find((x) => x[0] === id);
+                      const rarity = perk.rarity || "common";
+                      const rare = rarity !== "common";
+                      // 카드마다 살짝 시차를 두고, 귀한 등급일수록 한 박자 늦게 나와 기대감을 만든다
+                      const delay = k * 0.05 + (rarity === "legendary" ? 0.16 : rarity === "epic" ? 0.08 : 0);
                       return (
-                        <button key={id} className="perk-card" onClick={() => chooseReward(k)}
-                          style={{ "--pc": P[mySeat].key, "--pcl": P[mySeat].light, "--pcd": P[mySeat].dark }}>
+                        <button key={id} className={`perk-card${rare ? ` rarity-${rarity}` : ""}`}
+                          onClick={() => chooseReward(k)} style={{
+                            "--pc": P[mySeat].key, "--pcl": P[mySeat].light, "--pcd": P[mySeat].dark,
+                            "--rc": RARITY[rarity].color, "--rg": RARITY[rarity].glow, animationDelay: `${delay}s`,
+                          }}>
+                          {rare && <span className="perk-rarity">{RARITY[rarity].name}</span>}
                           <span className="perk-art"><PerkIcon kind={perk.icon} /></span>
                           <span className="perk-name">{perk.name}</span>
                           <span className="perk-note">{perk.note}</span>
@@ -1296,7 +1317,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                   <span className="who">
                     <b>{names[i] || `${i + 1}P`}</b> {cls.name}
                   </span>
-                  <span className="coin"><Coin />{p.gold}</span>
+                  <span className={`coin${goldFlash[i] ? " flash" : ""}`}><Coin />{p.gold}</span>
                 </div>
                 <div className="card-note">
                   {charOf(cls.id) && <TowerChar id={cls.id} className="card-char" />}

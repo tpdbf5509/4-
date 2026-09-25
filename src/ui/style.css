@@ -367,6 +367,12 @@ kbd {
   font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: #f3d27f;
 }
 .coin svg { width: 14px; height: 14px; }
+/* 골드가 늘어난 순간만 짧게 커졌다 돌아온다 — 흔들림 없이 숫자만 반응한다 */
+.coin.flash { animation: coin-flash 0.45s ease-out; }
+@keyframes coin-flash {
+  0% { color: #fff3d0; transform: scale(1.22); }
+  100% { color: #f3d27f; transform: scale(1); }
+}
 
 .card-note {
   margin-top: 6px; font-size: 11px; color: #a8987a; line-height: 1.45;
@@ -565,6 +571,33 @@ kbd {
   margin: 9px 12px 0; padding: 2px 8px; border-radius: 999px;
   font-size: 10.5px; color: #e2c98c;
   border: 1px solid rgba(226, 201, 140, 0.4); background: rgba(226, 201, 140, 0.09);
+}
+
+/* 카드가 뜨는 순서 — 자리마다 살짝 시차를 두고, 귀한 등급일수록 한 박자 늦게 나온다.
+   버튼은 처음부터 눌러지므로(애니메이션은 그림만) 고르는 데는 지장이 없다. */
+@keyframes card-in { from { opacity: 0; transform: translateY(9px) scale(0.97); } to { opacity: 1; transform: none; } }
+.perk-card { animation: card-in 0.22s ease-out both; }
+
+/* 희귀도 — 일반은 지금 모습 그대로, 등급이 오를수록 테두리와 빛만 조금씩 세진다 */
+.perk-card.rarity-rare, .perk-card.rarity-epic, .perk-card.rarity-legendary {
+  border-color: var(--rc); box-shadow: 0 3px 0 #120c07, 0 0 0 1px var(--rg);
+}
+.perk-card.rarity-epic {
+  box-shadow: 0 3px 0 #120c07, 0 0 0 1px var(--rg), 0 0 16px var(--rg);
+}
+.perk-card.rarity-legendary {
+  box-shadow: 0 3px 0 #120c07, 0 0 0 1.5px var(--rc), 0 0 22px var(--rg);
+  animation: card-in 0.22s ease-out both, legend-pulse 2.2s ease-in-out 0.22s infinite;
+}
+@keyframes legend-pulse {
+  0%, 100% { box-shadow: 0 3px 0 #120c07, 0 0 0 1.5px var(--rc), 0 0 18px var(--rg); }
+  50% { box-shadow: 0 3px 0 #120c07, 0 0 0 1.5px var(--rc), 0 0 30px var(--rg); }
+}
+.perk-card { position: relative; }
+.perk-rarity {
+  position: absolute; top: 8px; left: 8px; z-index: 1; padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; letter-spacing: -0.01em; color: #17110a;
+  background: var(--rc); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
 }
 
 .reward-wait { margin: 18px 0; font-size: 13.5px; color: #ded1b3; }

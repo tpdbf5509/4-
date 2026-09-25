@@ -32,6 +32,42 @@ function banner(g, text, sub, tone) {
   if (g.out) g.out.push({ k: "banner", ...b });
 }
 
+/* 피해 숫자의 크기 계급 — 0 평타 · 1 강타 · 2 치명타급 · 3 초대형.
+   기준으로 잡는 값(scale)은 웨이브에서는 탑 피해의 스케일(절대 수치),
+   결전장에서는 보스 체력을 사람 수로 나눈 몫(제 몫 대비 비율)이라 서로 다르다. */
+function dmgTier(amount, scale, crit) {
+  const frac = amount / Math.max(1, scale);
+  if (crit && frac >= 0.4) return 3;
+  if (crit || frac >= 0.75) return 2;
+  if (frac >= 0.32) return 1;
+  return 0;
+}
+
+/* 골드 팝업 — 잠깐 사이 여러 마리를 잡으면 하나로 모아 보여준다.
+   창이 닫혀 있을 때 들어온 첫 몫은 바로 띄우고, 그 뒤 0.35초 동안 들어오는
+   몫은 쌓아 두었다가 창이 닫힐 때 한 번에 더 띄운다. */
+const GOLD_POP_WINDOW = 0.35;
+function queueGoldPop(g, pi, amt, x, y) {
+  const p = g.players[pi];
+  if (!p || !(amt > 0)) return;
+  if (!(p.goldPopT > 0)) {
+    fx(g, { kind: "dmg", x, y, text: `+${Math.round(amt)} G`, color: "#f3d27f", t: 0.68, life: 0.68 });
+    p.goldPopT = GOLD_POP_WINDOW;
+    p.goldPopAmt = 0;
+  } else {
+    p.goldPopAmt = (p.goldPopAmt || 0) + amt;
+    p.goldPopX = x; p.goldPopY = y;
+  }
+}
+function flushGoldPop(g, pi) {
+  const p = g.players[pi];
+  if (p && p.goldPopAmt > 0) {
+    fx(g, { kind: "dmg", x: p.goldPopX, y: p.goldPopY, text: `+${Math.round(p.goldPopAmt)} G`,
+      color: "#f3d27f", tier: 1, t: 0.7, life: 0.7 });
+  }
+  if (p) { p.goldPopAmt = 0; p.goldPopT = 0; }
+}
+
 /* ── 타워 성능 (고른 능력·단계가 함께 반영된다) ───────────── */
 export const tdef = (t) => TOWER_BY_ID[t.type] || CLASSES[t.owner];
 export const perkOf = (g, pi) => (g.players[pi] && g.players[pi].perks) || {};
@@ -403,7 +439,12 @@ export function startPrep(g) {
 }
 
 /* ── 피해 ───────────────────────────────────────────────── */
-export function hurt(g, e, dmg, byPlayer, ignoreRes) {
+// 웨이브에서 던지는 피해 숫자의 크기를 가늠하는 기준값 (절대 수치 스케일)
+const WAVE_DMG_SCALE = 125;
+// 이보다 많은 골드를 한 번에 주는 처치는 특별한 처치로 크게 띄운다
+const GOLD_BIG = 45;
+
+export function hurt(g, e, dmg, byPlayer, ignoreRes, crit) {
   if (e.dead) return;
   const res = Math.max(0, ENEMY[e.type].res - (e.shred > 0 ? e.shredAmt : 0));
   const d = ignoreRes ? dmg : dmg * (1 - res);
@@ -412,8 +453,11 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes) {
   const big = e.type === "boss" || e.type === "titan";
   // 숫자가 겹쳐 뭉치지 않게, 큰 피해만 좌우로 흩어 띄운다
   if (d >= 18 || big) {
+    const tier = dmgTier(d, WAVE_DMG_SCALE, crit);
     fx(g, { kind: "dmg", x: e.x + (Math.random() - 0.5) * 22, y: e.y - 8, text: String(Math.round(d)),
-      color: typeof byPlayer === "number" ? P[byPlayer].light : "#ffe9bd", t: 0.62, life: 0.62 });
+      color: crit ? "#ffd873" : (typeof byPlayer === "number" ? P[byPlayer].light : "#ffe9bd"),
+      tier, t: 0.62, life: 0.62 });
+    if (crit && tier >= 2) callout(g, e.x, e.y - 30, "치명타!", "#ffd873", null, 0.8);
   }
   if (e.hp > 0) return;
 
@@ -423,10 +467,12 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes) {
   const base = (ENEMY[e.type].gold + g.wave * 0.6) * diffOf(g).gold * comboBonus;
   let reward = Math.round(base * (typeof byPlayer === "number" ? perkVal.gold(perkN(g, byPlayer, "gold")) : 1));
   if (typeof byPlayer === "number") {
+    let shown = false;
     // 행운의 동전 — 가끔 두 배로 줍는다
     if (Math.random() < perkVal.luck(perkN(g, byPlayer, "luck"))) {
       reward *= 2;
-      fx(g, { kind: "dmg", x: e.x, y: e.y - 18, text: `+${reward} 행운!`, color: "#ffd873", t: 0.9, life: 0.9 });
+      fx(g, { kind: "dmg", x: e.x, y: e.y - 18, text: `+${reward} 행운!`, color: "#ffd873", tier: 2, t: 0.9, life: 0.9 });
+      shown = true;
     }
     // 탐욕의 손 — 보스에서 한 몫 더
     if (big && perkN(g, byPlayer, "greed")) reward += perkVal.greed(perkN(g, byPlayer, "greed"));
@@ -434,9 +480,21 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes) {
     if (perkN(g, byPlayer, "thirst")) g.players[byPlayer].rage = 3;
     g.players[byPlayer].gold += reward;
     g.players[byPlayer].kills++;
+    if (!shown) {
+      // 특별히 큰 처치는 바로, 크게 — 그 외에는 짧은 사이 몫을 모아 하나로 띄운다
+      if (reward >= GOLD_BIG) {
+        fx(g, { kind: "dmg", x: e.x, y: e.y - 18, text: `💰 +${Math.round(reward)} G`,
+          color: "#ffd873", tier: 2, t: 0.85, life: 0.85 });
+      } else {
+        queueGoldPop(g, byPlayer, reward, e.x, e.y - 18);
+      }
+    }
   } else {
     const crew = seatCount(g) || 1;
     g.players.forEach((p, i) => { if (g.seats[i]) p.gold += reward / crew; });
+    if (reward > 0) {
+      fx(g, { kind: "dmg", x: e.x, y: e.y - 18, text: `+${Math.round(reward)} G`, color: "#f3d27f", t: 0.62, life: 0.62 });
+    }
   }
   g.combo++;
   g.comboT = 2.4;
@@ -458,12 +516,12 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes) {
   }
 }
 
-function zap(g, from, first, dmg, owner, chain, src) {
+function zap(g, from, first, dmg, owner, chain, src, crit) {
   const hit = new Set([first.id]);
   let prev = first;
   let d = dmg;
   fx(g, { kind: "zap", x: from.x, y: from.y, x2: first.x, y2: first.y, t: 0.2, life: 0.2, snd: "zap" });
-  applyHit(g, first, d, owner, false, src);
+  applyHit(g, first, d, owner, false, src, crit);
   for (let n = 1; n < chain; n++) {
     let best = null, bd = 1e9;
     for (const e of g.enemies) {
@@ -475,7 +533,7 @@ function zap(g, from, first, dmg, owner, chain, src) {
     hit.add(best.id);
     d *= 0.72;
     fx(g, { kind: "zap", x: prev.x, y: prev.y, x2: best.x, y2: best.y, t: 0.2, life: 0.2 });
-    applyHit(g, best, d, owner, true, src);
+    applyHit(g, best, d, owner, true, src, crit);
     prev = best;
   }
 }
@@ -503,7 +561,7 @@ export function synergy(g, src, e) {
 }
 
 /* 한 발이 적에게 닿았을 때. 보스 표식·마무리 일격·불타는 탄환이 여기서 붙는다 */
-export function applyHit(g, e, dmg, owner, quiet, src) {
+export function applyHit(g, e, dmg, owner, quiet, src, crit) {
   if (e.dead) return;
   if (typeof owner !== "number") return hurt(g, e, dmg, owner);
   const big = e.type === "boss" || e.type === "titan";
@@ -541,7 +599,7 @@ export function applyHit(g, e, dmg, owner, quiet, src) {
     e.bby = owner;
     if (!quiet) fx(g, { kind: "flame", x: e.x, y: e.y - 4, t: 0.4, life: 0.4 });
   }
-  hurt(g, e, d, owner, ignoreRes);
+  hurt(g, e, d, owner, ignoreRes, crit);
 }
 
 /* 본체에 맞은 뒤 퍼지는 것들 — 연쇄·관통·폭발 */
@@ -560,7 +618,7 @@ function spread(g, b, tg) {
     if (best) {
       fx(g, { kind: "zap", x: tg.x, y: tg.y, x2: best.x, y2: best.y, t: 0.22, life: 0.22,
         color: P[owner].light });
-      applyHit(g, best, b.dmg * 0.6, owner, true);
+      applyHit(g, best, b.dmg * 0.6, owner, true, undefined, b.crit);
     }
   }
 
@@ -579,7 +637,7 @@ function spread(g, b, tg) {
       const last = behind[behind.length - 1].e;
       fx(g, { kind: "pierce", x: tg.x, y: tg.y, x2: last.x, y2: last.y, t: 0.26, life: 0.26,
         color: P[owner].light });
-      behind.forEach((o) => applyHit(g, o.e, b.dmg, owner, true));
+      behind.forEach((o) => applyHit(g, o.e, b.dmg, owner, true, undefined, b.crit));
     }
   }
 
@@ -590,7 +648,7 @@ function spread(g, b, tg) {
     g.enemies.forEach((e) => {
       if (e.dead || e === tg) return;
       if (Math.hypot(e.x - tg.x, e.y - tg.y) <= r) {
-        applyHit(g, e, b.dmg * perkVal.blast(blast), owner, true);
+        applyHit(g, e, b.dmg * perkVal.blast(blast), owner, true, undefined, b.crit);
       }
     });
   }
@@ -751,9 +809,11 @@ function arenaDamage(g, pi, raw, opt) {
     }
   }
   const off = opt && opt.off ? opt.off : 0;
+  const fairShare = Math.max(1, a.max / arenaCrew(g));
+  const tier = dmgTier(dmg, fairShare, crit);
   fx(g, { kind: "dmg", x: bossX(g) + off + (Math.random() - 0.5) * 70,
     y: bossTop(g) + 40 + (Math.random() - 0.5) * 50,
-    text: String(dmg), color: crit ? "#ffd873" : P[pi].light, t: 0.8, life: 0.8, big: crit ? 1 : 0 });
+    text: String(dmg), color: crit ? "#ffd873" : P[pi].light, t: 0.8, life: 0.8, tier });
   if (crit) callout(g, CX, 250, "치명타!", "#ffd873", null, 1.1);
   if (a.combo > 0 && a.combo % 15 === 0) callout(g, CX, 250, `${a.combo} 연타!`, "#ffb765", null, 0.9);
   if (a.hp <= 0) arenaDown(g, pi);
@@ -1794,7 +1854,10 @@ export function step(g, dt) {
   if (g.phase !== "prep" && g.phase !== "wave") return;
 
   // 키를 누르고 있을 때의 연속 이동은 각 참가자 브라우저에서 처리한다
-  g.players.forEach((p) => { if (p.cd > 0) p.cd -= dt; });
+  g.players.forEach((p, i) => {
+    if (p.cd > 0) p.cd -= dt;
+    if (p.goldPopT > 0) { p.goldPopT -= dt; if (p.goldPopT <= 0) flushGoldPop(g, i); }
+  });
   if (g.focus > 0) g.focus -= dt;
   if (g.sanctuary > 0) g.sanctuary -= dt;
 
@@ -2071,7 +2134,7 @@ export function step(g, dt) {
           if (e.dead) return;
           const dd = Math.hypot(e.x - b.tx, e.y - b.ty);
           if (dd > b.splash) return;
-          applyHit(g, e, b.dmg * (dd < b.splash * 0.5 ? 1 : 0.6), b.owner, dd > 1, b.src);
+          applyHit(g, e, b.dmg * (dd < b.splash * 0.5 ? 1 : 0.6), b.owner, dd > 1, b.src, b.crit);
           if (e.dead) killed++;
         });
         if (killed >= 3) callout(g, b.tx, b.ty - 26, `${killed}킬!`, "#ffd873", "boom");
@@ -2079,9 +2142,9 @@ export function step(g, dt) {
         g.shake = Math.max(g.shake, b.kind === "shell" ? 0.2 : 0.12);
       } else if (tg && !tg.dead) {
         if (b.chain) {
-          zap(g, { x: b.x, y: b.y }, tg, b.dmg, b.owner, b.chain, b.src);
+          zap(g, { x: b.x, y: b.y }, tg, b.dmg, b.owner, b.chain, b.src, b.crit);
         } else {
-          applyHit(g, tg, b.dmg, b.owner, false, b.src);
+          applyHit(g, tg, b.dmg, b.owner, false, b.src, b.crit);
         }
         spread(g, b, tg);
         if (b.slow) {

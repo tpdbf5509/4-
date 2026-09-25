@@ -2609,14 +2609,18 @@ export function drawFx(ctx, f) {
     ctx.restore();
   } else if (k === "dmg") {
     const p = 1 - f.t / f.life;
+    // 계급이 높을수록(평타→강타→치명타급→초대형) 크게, 살짝 더 튀어오르며 뜬다
+    const tier = f.tier || 0;
+    const size = [15, 18, 22, 27][tier];
+    const rise = 26 + tier * 5;
     ctx.globalAlpha = 1 - Math.pow(p, 2.5);
-    const pop = p < 0.18 ? 1 + (0.18 - p) * 2.2 : 1;
+    const pop = p < 0.18 ? 1 + (0.18 - p) * (2.2 + tier * 0.5) : 1;
     ctx.save();
-    ctx.translate(f.x, f.y - p * 26);
+    ctx.translate(f.x, f.y - p * rise);
     ctx.scale(pop, pop);
-    ctx.font = "800 15px Jua, system-ui, sans-serif";
+    ctx.font = `${tier >= 2 ? 900 : 800} ${size}px Jua, system-ui, sans-serif`;
     ctx.textAlign = "center";
-    ctx.lineWidth = 3.4;
+    ctx.lineWidth = 3.4 + tier * 0.5;
     ctx.strokeStyle = "rgba(26,20,12,0.92)";
     ctx.strokeText(f.text, 0, 0);
     ctx.fillStyle = f.color || "#ffe9bd";

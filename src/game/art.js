@@ -209,7 +209,8 @@ function mapImg(path) {
 const tileImg = (name) => mapImg(`/assets/map/tiles/${name}.webp`);
 const gateImg = (name) => mapImg(`/assets/map/gates/${name}.webp`);
 
-const PATH_ART_W = 46;                  // 길 그림을 얹을 화면 위 두께(흙+테두리) — straight-mid.webp를 이 두께로 늘려 그린다
+const PATH_ART_W = 46;                  // 길 그림을 얹을 화면 위 두께(흙+테두리)
+const STRAIGHT_SRC_H = 168;                         // straight-mid.webp 원본 두께
 const CORNER_SRC_W = 305, CORNER_SRC_H = 220;       // corner.webp 원본 크기
 const CORNER_PIVOT_X = 231, CORNER_PIVOT_Y = 75;    // corner.webp 안에서 두 팔이 만나는 안쪽 꼭짓점
 const CORNER_ARM_THICK = 126;                       // corner.webp 팔 두께(원본 픽셀)
@@ -221,14 +222,33 @@ const CORNER_ROT = {
   N: { W: Math.PI / 2, E: Math.PI }, E: { N: Math.PI, S: -Math.PI / 2 },
 };
 
-// 한 직선 구간을 정확히 두 점 사이에 맞춰 늘려 그린다(양 끝은 다음 굽이 그림이 덮는다)
+// 구간마다 길이가 다 달라서, 그림을 구간 길이에 맞춰 늘리면 테두리의 통나무 기둥·돌
+// 간격이 구간마다 늘었다 줄었다 해서 마디마디 끊어져 보인다. 그래서 늘리지 않고
+// 그림을 화면 두께에 맞게 미리 축소해 둔 다음(오프스크린 캔버스), 그 축소본을 실제 크기 그대로
+// drawImage로 옆으로 이어 붙인다 — 기둥 간격이 어느 구간에서나 똑같아진다.
+// (CanvasPattern을 회전된 채로 채우면 이 환경에서 타일이 안 반복되고 통째로 뭉개져 보이는
+// 문제가 있어, 패턴 대신 drawImage를 여러 번 불러 직접 이어 붙인다.)
+let straightTileImg = null, straightTileSrc = null;
 function drawStraightTile(ctx, im, ax, ay, bx, by) {
   const len = Math.hypot(bx - ax, by - ay);
   if (len < 1) return;
+  if (straightTileSrc !== im) {
+    const scale = PATH_ART_W / STRAIGHT_SRC_H;
+    const off = document.createElement("canvas");
+    off.width = Math.round(im.naturalWidth * scale);
+    off.height = PATH_ART_W;
+    off.getContext("2d").drawImage(im, 0, 0, off.width, off.height);
+    straightTileImg = off;
+    straightTileSrc = im;
+  }
+  if (!straightTileImg) return;
+  const tw = straightTileImg.width;
   ctx.save();
   ctx.translate((ax + bx) / 2, (ay + by) / 2);
   ctx.rotate(Math.atan2(by - ay, bx - ax));
-  ctx.drawImage(im, -len / 2, -PATH_ART_W / 2, len, PATH_ART_W);
+  for (let x = -len / 2; x < len / 2; x += tw) {
+    ctx.drawImage(straightTileImg, x, -PATH_ART_W / 2);
+  }
   ctx.restore();
 }
 

@@ -91,11 +91,22 @@ export function moodBonus(g, pi) {
 // 자리 성격이 주는 몫
 export const spotAt = (i) => (SLOTS[i] && SLOTS[i].spot) || "risk";
 
+/* 다섯 병과(궁수·저격·대포·서리·화염)는 단계마다 자기 몫의 수치가 한 단계 전보다
+   얼마나 느는지를 표로 갖는다(1단계=기준, 이후는 그 앞 단계에 곱해진다).
+   4단계에는 수치 성장 말고 전용 기술도 함께 붙는다(아래 타워 사격 루프 참고). */
+const ARCHER_SPEED_MUL = [1, 1.10, 1.10 * 1.30, 1.10 * 1.30 * 1.70];   // 공속
+const SNIPER_RANGE_MUL = [1, 1.10, 1.10 * 1.15, 1.10 * 1.15 * 1.10];   // 사거리
+const CANNON_SPLASH_MUL = [1, 1.10, 1.10 * 1.15, 1.10 * 1.15 * 1.20];  // 광역 범위
+const FROST_SLOW_AMT = [0.5, 0.5 * 0.90, 0.5 * 0.90 * 0.70, 0.5 * 0.90 * 0.70]; // 남는 속도 비율(작을수록 많이 느려짐)
+const FLAME_DPS_MUL = [1, 1.10, 1.10 * 1.20, 1.10 * 1.20];             // 화상 초당 피해
+const lvMul = (arr, lv) => arr[Math.min(Math.max(lv, 1), arr.length) - 1];
+
 export function towerRange(g, t, i) {
   const cmd = perkVal.command(teamPerk(g, "command"));
   const spot = typeof i === "number" ? spotAt(i) : null;
   const aura = tdef(t).aura && spot === "key" ? 1.15 : 1;
-  return ((tdef(t).range + 12 * (t.lv - 1)) * (1 + cmd) + perkVal.reach(perkN(g, t.owner, "reach"))
+  const rangeMul = t.type === "sniper" ? lvMul(SNIPER_RANGE_MUL, t.lv) : 1;
+  return ((tdef(t).range * rangeMul + 12 * (t.lv - 1)) * (1 + cmd) + perkVal.reach(perkN(g, t.owner, "reach"))
     + (spot === "long" ? 18 : 0)) * aura;
 }
 export function towerDmg(g, t, i) {
@@ -2052,12 +2063,23 @@ export function step(g, dt) {
       t.cd = def.interval;
       t.pulse = 0.4;
       if (def.aura === "burn") {
-        const dps = def.burn * (1 + 0.5 * (t.lv - 1)) * perkVal.power(perkN(g, t.owner, "power"))
+        const dps = def.burn * lvMul(FLAME_DPS_MUL, t.lv) * perkVal.power(perkN(g, t.owner, "power"))
           * (1 + (t.aid || 0));
         inRange.forEach((e) => {
+          const wasBurning = e.burn > 0;             // 4단계 — 이미 붙어 있던 화상에만 불기둥이 인다
           e.burn = Math.max(e.burn || 0, def.burnT);
           e.bdps = Math.max(e.bdps || 0, dps);
           e.bby = t.owner;
+          if (t.lv >= 4 && wasBurning) {
+            const pillar = dps * 1.5;
+            applyHit(g, e, pillar, t.owner, true, "flame", false);
+            g.enemies.forEach((o) => {
+              if (o === e || o.dead) return;
+              if (Math.hypot(o.x - e.x, o.y - e.y) > 36) return;
+              applyHit(g, o, pillar * 0.5, t.owner, true, "flame", false);
+            });
+            fx(g, { kind: "boom", x: e.x, y: e.y - 6, r: 36, t: 0.4, life: 0.4 });
+          }
         });
         fx(g, { kind: "firering", x: s.x, y: s.y - 6, r: range, t: 0.5, life: 0.5 });
       } else {
@@ -2087,10 +2109,20 @@ export function step(g, dt) {
     if (target) t.aim = Math.atan2(target.y - (s.y - 20), target.x - s.x);
     if (t.cd > 0) return;
     if (!target) { t.cd = 0; return; }
-    t.cd = def.interval;
+    // 궁수탑은 단계마다 공속이 크게 오른다(1→2단계 폭이 가장 크다)
+    t.cd = t.type === "archer" ? def.interval / lvMul(ARCHER_SPEED_MUL, t.lv) : def.interval;
     let dmg = towerDmg(g, t, i);
     if (t.type === "archer" && g.focus > 0) dmg *= 2;
-    const crit = Math.random() < perkVal.crit(perkN(g, t.owner, "crit"));
+    // 저격탑 3단계 — 지금 사거리가 길수록 그만큼 더 세게 때린다
+    if (t.type === "sniper" && t.lv >= 3) dmg *= range / def.range;
+    // 대포탑 3단계 — 광역 범위뿐 아니라 피해도 함께 오른다
+    if (t.type === "cannon" && t.lv >= 3) dmg *= 1.15;
+    let crit = Math.random() < perkVal.crit(perkN(g, t.owner, "crit"));
+    // 저격탑 4단계 — 사거리 끝자락의 적은 확정 치명타
+    if (t.type === "sniper" && t.lv >= 4) {
+      const dist = Math.hypot(target.x - s.x, target.y - (s.y - 20));
+      if (dist >= range * 0.85) crit = true;
+    }
     if (crit) dmg *= 2;
     const chill = perkN(g, t.owner, "chill") > 0;
     const kind = { archer: "arrow", sniper: "slug", cannon: "ball", frost: "shard",
@@ -2100,8 +2132,11 @@ export function step(g, dt) {
       x: s.x, y: s.y - 20, tx: target.x, ty: target.y, target, dmg,
       owner: t.owner, crit,
       src: t.type, spot,
-      splash: (def.splash || 0) * (spot === "key" ? 1.3 : 1),
-      slow: def.slow || (chill ? 0.82 : 0), slowT: def.slowT || (chill ? 1.2 : 0),
+      splash: (def.splash || 0) * (spot === "key" ? 1.3 : 1) * (t.type === "cannon" ? lvMul(CANNON_SPLASH_MUL, t.lv) : 1),
+      slow: t.type === "frost" ? lvMul(FROST_SLOW_AMT, t.lv) : (def.slow || (chill ? 0.82 : 0)),
+      slowT: def.slowT || (chill ? 1.2 : 0),
+      stun: (t.type === "frost" && t.lv >= 4) ? 3 : 0,          // 서리탑 4단계 — 3초간 기절
+      delayedBoom: (t.type === "cannon" && t.lv >= 4) ? 1 : 0,  // 대포탑 4단계 — 맞은 적이 잠시 뒤 한 번 더 터진다
       chain: def.chain ? def.chain + (spot === "key" ? 1 : 0) : 0, poison: def.poison ? def.poison * (1 + 0.5 * (t.lv - 1)) * (1 + (t.aid || 0)) : 0,
       poisonT: def.poisonT || 0,
       shred: def.shred || 0, shredT: def.shredT || 0,
@@ -2117,6 +2152,16 @@ export function step(g, dt) {
     if (t.type === "cannon") {
       fx(g, { kind: "poof", x: s.x + Math.cos(t.aim) * 22, y: s.y - 20 + Math.sin(t.aim) * 22,
         t: 0.3, life: 0.3, color: "rgba(230,224,210,1)" });
+    }
+    // 궁수탑 4단계 — 쏠 때마다 탑 주변에도 바람 피해가 함께 인다
+    if (t.type === "archer" && t.lv >= 4) {
+      const windDmg = dmg * 0.4;
+      g.enemies.forEach((e) => {
+        if (e.dead || e === target) return;
+        if (Math.hypot(e.x - s.x, e.y - s.y) > 70) return;
+        applyHit(g, e, windDmg, t.owner, true, "archer", false);
+      });
+      fx(g, { kind: "ring", x: s.x, y: s.y - 10, r: 70, color: "rgba(206,238,196,0.75)", t: 0.35, life: 0.35 });
     }
   });
 
@@ -2137,7 +2182,13 @@ export function step(g, dt) {
           const dd = Math.hypot(e.x - b.tx, e.y - b.ty);
           if (dd > b.splash) return;
           applyHit(g, e, b.dmg * (dd < b.splash * 0.5 ? 1 : 0.6), b.owner, dd > 1, b.src, b.crit);
-          if (e.dead) killed++;
+          if (e.dead) { killed++; return; }
+          // 대포탑 4단계 — 맞은 적은 잠시 뒤 한 번 더 터진다
+          if (b.delayedBoom) {
+            e.boomT = 1.2;
+            e.boomDmg = Math.max(e.boomDmg || 0, b.dmg * 0.5);
+            e.boomBy = b.owner;
+          }
         });
         if (killed >= 3) callout(g, b.tx, b.ty - 26, `${killed}킬!`, "#ffd873", "boom");
         fx(g, { kind: "boom", x: b.tx, y: b.ty, r: b.splash, t: 0.42, life: 0.42, snd: "boom" });
@@ -2153,6 +2204,10 @@ export function step(g, dt) {
           tg.slow = Math.max(tg.slow, b.slowT);
           tg.slowAmt = b.slow;
           fx(g, { kind: "ice", x: b.tx, y: b.ty, t: 0.4, life: 0.4, snd: "ice" });
+        }
+        if (b.stun) {
+          tg.freeze = Math.max(tg.freeze, b.stun);        // 서리탑 4단계 — 3초간 완전히 멈춘다
+          fx(g, { kind: "ice", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
         }
         if (b.poison) {
           applyPoison(tg, b.poison, b.poisonT, b.owner);
@@ -2197,6 +2252,24 @@ export function step(g, dt) {
         fx(g, { kind: "fume", x: e.x, y: e.y - 4, t: 0.4, life: 0.4 });
       }
       if (e.dead) return;
+    }
+    if (e.boomT > 0) {                            // 대포탑 4단계 — 표식이 붙은 적은 잠시 뒤 한 번 더 터진다
+      e.boomT -= dt;
+      if (e.boomT <= 0) {
+        e.boomT = 0;
+        const dmg = e.boomDmg || 0;
+        e.boomDmg = 0;
+        applyHit(g, e, dmg, e.boomBy, false, "cannon", false);
+        if (!e.dead) {
+          g.enemies.forEach((o) => {
+            if (o === e || o.dead) return;
+            if (Math.hypot(o.x - e.x, o.y - e.y) > 40) return;
+            applyHit(g, o, dmg * 0.6, e.boomBy, true, "cannon", false);
+          });
+        }
+        fx(g, { kind: "boom", x: e.x, y: e.y, r: 40, t: 0.4, life: 0.4, snd: "boom" });
+        if (e.dead) return;
+      }
     }
     if (e.freeze > 0) { e.freeze -= dt; return; }
     if (e.slow > 0) e.slow -= dt;

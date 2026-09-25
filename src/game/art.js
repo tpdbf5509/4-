@@ -1158,8 +1158,11 @@ export function drawArcherTower(ctx, lv, col, time, t, recoil) {
   ctx.fillStyle = col.key; ctx.fill();
   ctx.beginPath(); roundRect(ctx, -27, -h - 27, 54, 5, 2.5);
   inkPath(ctx, col.dark, 1.5);
-  // 궁수
+  // 궁수 — 활은 병과 "핵심 장치"라서 단계마다 눈에 띄게 커진다(1→2단계 폭이 가장 크다)
   const aim = t.aim || 0;
+  const bowR = [7.5, 10.5, 12.3, 13.8][lv - 1];
+  const bowLW = [2.4, 2.9, 3.4, 3.9][lv - 1];
+  const bowK = bowR / 7.5;   // 원래 그림 비율 그대로 키우는 배율
   ctx.save();
   ctx.translate(0, -h - 16);
   ctx.beginPath(); roundRect(ctx, -5, -1, 10, 9, 4);
@@ -1168,12 +1171,22 @@ export function drawArcherTower(ctx, lv, col, time, t, recoil) {
   inkPath(ctx, "#e8cfa8", 1.5);
   ctx.save();
   ctx.rotate(aim);
-  ctx.strokeStyle = "#6f4a28";
-  ctx.lineWidth = 2.4;
-  ctx.beginPath(); ctx.arc(9 - recoil * 3, -2, 7.5, -1.15, 1.15); ctx.stroke();
+  ctx.strokeStyle = lv >= 3 ? "#5a4a3a" : "#6f4a28";
+  ctx.lineWidth = bowLW;
+  ctx.beginPath(); ctx.arc(9 - recoil * 3, -2, bowR, -1.15, 1.15); ctx.stroke();
   ctx.strokeStyle = "rgba(252,248,238,0.95)";
   ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.moveTo(6.6 - recoil * 3, -8.6); ctx.lineTo(6.6 - recoil * 3, 4.6); ctx.stroke();
+  const sx = 9 - 2.4 * bowK - recoil * 3, sHalf = 6.6 * bowK;
+  ctx.beginPath(); ctx.moveTo(sx, -2 - sHalf); ctx.lineTo(sx, -2 + sHalf); ctx.stroke();
+  if (lv >= 4) {
+    const pulse = 0.5 + 0.5 * Math.sin(time * 3);
+    ctx.fillStyle = col.light;
+    ctx.globalAlpha = 0.55 + pulse * 0.35;
+    const tx = 9 - recoil * 3 + bowR * 0.41;
+    ctx.beginPath(); ctx.arc(tx, -2 - bowR * 0.91, 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(tx, -2 + bowR * 0.91, 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
   ctx.restore();
   ctx.restore();
   // 깃발
@@ -1208,20 +1221,43 @@ export function drawCannonTower(ctx, lv, col, time, t, recoil) {
   ctx.beginPath(); ctx.arc(28, -h + 4, 4.2, 0, Math.PI * 2);
   inkPath(ctx, "#33333a", 1.3);
 
-  // 대포
+  // 대포 — 포신은 병과 "핵심 장치"라서 길이·구경이 단계마다 눈에 띄게 커진다(1→2단계 폭이 가장 크다)
   const aim = t.aim || 0;
+  const bw = [34, 44, 50, 56][lv - 1];      // 포신 길이
+  const bh = [16, 19, 22, 25][lv - 1];      // 포신 구경(굵기)
+  const inH = [6, 7, 8, 9][lv - 1];         // 포신 위 하이라이트 굵기
+  const mzR = [8.4, 10, 11.5, 13][lv - 1];  // 포구 바깥 고리
+  const mzInR = [5.4, 6.4, 7.4, 8.4][lv - 1]; // 포구 안쪽(포신 입구)
   ctx.save();
   ctx.translate(0, -h - 18);
   ctx.rotate(aim);
   const back = recoil * 6;
-  ctx.beginPath(); roundRect(ctx, -13 - back, -8, 34 + lv * 3, 16, 7);
+  ctx.beginPath(); roundRect(ctx, -13 - back, -bh / 2, bw, bh, bh * 0.44);
   inkPath(ctx, "#3b3b42", 2);
   ctx.fillStyle = "#5b5b66";
-  roundRect(ctx, -11 - back, -6.5, 30 + lv * 3, 6, 3); ctx.fill();
-  ctx.beginPath(); ctx.arc(20 + lv * 3 - back, 0, 8.4, 0, Math.PI * 2);
+  roundRect(ctx, -11 - back, -bh / 2 + 1.5, bw - 4, inH, inH * 0.5); ctx.fill();
+  // 3단계 — 포신에 보강 테
+  if (lv >= 3) {
+    ctx.strokeStyle = "rgba(20,20,24,0.55)";
+    ctx.lineWidth = 1.4;
+    [0.32, 0.64].forEach((f) => {
+      const x = -13 - back + bw * f;
+      ctx.beginPath(); ctx.moveTo(x, -bh / 2 + 1); ctx.lineTo(x, bh / 2 - 1); ctx.stroke();
+    });
+  }
+  ctx.beginPath(); ctx.arc(bw - 14 - back, 0, mzR, 0, Math.PI * 2);
   inkPath(ctx, "#2a2a30", 1.8);
   ctx.fillStyle = "#131317";
-  ctx.beginPath(); ctx.arc(21 + lv * 3 - back, 0, 5.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(bw - 13 - back, 0, mzInR, 0, Math.PI * 2); ctx.fill();
+  // 4단계 — 포구에 병과색 발광
+  if (lv >= 4) {
+    const pulse = 0.5 + 0.5 * Math.sin(time * 3);
+    ctx.save();
+    ctx.globalAlpha = 0.5 + pulse * 0.4;
+    ctx.fillStyle = col.light;
+    ctx.beginPath(); ctx.arc(bw - 13 - back, 0, mzInR * 0.55, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
   ctx.beginPath(); ctx.arc(-11 - back, 0, 8.4, 0, Math.PI * 2);
   inkPath(ctx, col.key, 1.8);
   ctx.fillStyle = col.light;

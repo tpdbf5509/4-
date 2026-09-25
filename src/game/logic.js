@@ -222,8 +222,10 @@ export function doBuild(g, pi) {
     t.lv++;
     t.pulse = 0.4;
     t.warm = WARMUP * 0.6 * perkVal.swift(perkN(g, pi, "swift"));
-    fx(g, { kind: "poof", x: s.x, y: s.y, t: 0.5, life: 0.5, color: "rgba(246,220,150,1)" });
-    fx(g, { kind: "ring", x: s.x, y: s.y, r: 40, color: "#ffe6a2", t: 0.45, life: 0.45, snd: "build" });
+    // 건설 이펙트와 구분되도록 병과색으로, 더 크고 길게, 뭉게구름도 두 겹으로
+    fx(g, { kind: "poof", x: s.x, y: s.y, t: 0.5, life: 0.5, color: P[pi].light });
+    fx(g, { kind: "poof", x: s.x, y: s.y, t: 0.5, life: 0.5, color: P[pi].dark });
+    fx(g, { kind: "ring", x: s.x, y: s.y, r: 52, color: P[pi].light, t: 0.6, life: 0.6, snd: "build" });
     say(g, s.x, s.y, `${t.lv}단계`, P[pi].light);
   } else {
     say(g, s.x, s.y, `${t.owner + 1}P 자리`, "#f0dcb4");

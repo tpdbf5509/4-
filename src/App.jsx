@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   W, H, CX, CY, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX, RARITY,
   castleTier, castleCost, CASTLE_TIERS, LEAVE_FORCE, LEAVE_T,
-  SKILLS, ENEMY, ETYPES, SLOTS, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime, sk,
+  SKILLS, ENEMY, ETYPES, SLOTS, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
   makeGame, waveKind, bossWave, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, SELL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
@@ -719,11 +719,9 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
   }, [hud]);
   // 카드를 눌러 자세히 보기를 고정한다 — 다시 누르면 닫힌다 (마우스는 올리기만 해도 열린다)
   const [expandedCard, setExpandedCard] = useState(-1);
-  // 돌판 위에 마우스를 올렸을 때 — 어느 자리인지, 그 성격을 이미 봤는지
+  // 돌판 위에 마우스를 올리고 있는 동안만 그 자리 설명을 띄운다
   const [hoverSlot, setHoverSlot] = useState(-1);
-  const [showSpotTip, setShowSpotTip] = useState(false);
   const hoverRef = useRef(-1);
-  const seenSpotsRef = useRef(new Set());
 
   // 이미 본 보스 기록 번호 — 건너뛰기는 각자의 화면에서만 닫는다
   const [seenScore, setSeenScore] = useState(0);
@@ -921,18 +919,11 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       g.hover = i;
       g.hoverCastle = onKeep;
       cvs.style.cursor = (i >= 0 || onKeep) && mySeat >= 0 ? "pointer" : "default";
-      // 돌판 위에 처음 올렸을 때만 자리 성격을 크게 보여준다 — 한 번 본 성격은 다시 방해하지 않는다
-      if (i !== hoverRef.current) {
-        hoverRef.current = i;
-        if (i >= 0 && g.phase !== "arena") {
-          const spot = (SLOTS[i] && SLOTS[i].spot) || "risk";
-          setShowSpotTip(!seenSpotsRef.current.has(spot));
-          seenSpotsRef.current.add(spot);
-          setHoverSlot(i);
-        } else {
-          setHoverSlot(-1);
-          setShowSpotTip(false);
-        }
+      // 마우스가 그 돌판 위에 있는 동안은 계속 보여준다 — 다른 자리로 옮기거나 벗어나면 바뀐다
+      const nextHover = i >= 0 && g.phase !== "arena" ? i : -1;
+      if (nextHover !== hoverRef.current) {
+        hoverRef.current = nextHover;
+        setHoverSlot(nextHover);
       }
     };
     const onDown = (e) => {
@@ -943,7 +934,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     };
     const onLeave = () => {
       G.current.hover = -1; G.current.hoverCastle = false;
-      hoverRef.current = -1; setHoverSlot(-1); setShowSpotTip(false);
+      hoverRef.current = -1; setHoverSlot(-1);
     };
 
     cvs.addEventListener("pointermove", onMove);
@@ -1152,11 +1143,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
               )}
             </div>
             </div>
-          </div>
 
-          {/* 건설·성채 강화는 그 일이 실제로 일어나는 자리 옆에 붙여 둔다 — 위 상황판과 다투지 않게 */}
-          {mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
-            <div className="field-anchor" style={{ left: `${(CX / W) * 100}%`, top: `${((CY + 10) / H) * 100}%` }}>
+            {mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
               <button
                 className="keep-up"
                 onClick={() => act("castle")}
@@ -1167,20 +1155,14 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                   ? "성채 최대 단계"
                   : <>성채 {hud.tier + 1}단계 <em>{hud.upCost}골드</em></>}
               </button>
-            </div>
-          )}
+            )}
 
-          {hud.cost && (hud.phase === "prep" || hud.phase === "wave") && mySeat >= 0 && hud.players[mySeat] && (
-            <div className="field-anchor field-anchor-up"
-              style={{
-                left: `${(SLOTS[sk(hud.players[mySeat].lane, hud.players[mySeat].slot)].x / W) * 100}%`,
-                top: `${(SLOTS[sk(hud.players[mySeat].lane, hud.players[mySeat].slot)].y / H) * 100}%`,
-              }}>
+            {hud.cost && (hud.phase === "prep" || hud.phase === "wave") && (
               <CostBox cost={hud.cost} seat={mySeat} />
-            </div>
-          )}
+            )}
+          </div>
 
-          {hoverSlot >= 0 && showSpotTip && (hud.phase === "prep" || hud.phase === "wave") && (
+          {hoverSlot >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
             <div className="field-anchor field-anchor-up"
               style={{ left: `${(SLOTS[hoverSlot].x / W) * 100}%`, top: `${(SLOTS[hoverSlot].y / H) * 100}%` }}>
               <SpotTip spot={SPOTS[(SLOTS[hoverSlot] && SLOTS[hoverSlot].spot) || "risk"]} />

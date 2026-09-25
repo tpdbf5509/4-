@@ -848,22 +848,7 @@ export function drawPad(ctx, s, occupied, time, hover) {
     ctx.restore();
   }
 
-  // 몇 번째 자리인지 — 안내문의 "3번 자리"와 바로 맞춰볼 수 있게
-  if (hover) {
-    ctx.save();
-    ctx.font = "700 12px Jua, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.lineWidth = 3.4;
-    ctx.strokeStyle = "rgba(26,20,12,0.92)";
-    ctx.strokeText(sp.name, s.x, s.y - 22);
-    ctx.fillStyle = sp.color;
-    ctx.fillText(sp.name, s.x, s.y - 22);
-    ctx.font = "500 10.5px Jua, system-ui, sans-serif";
-    ctx.strokeText(sp.note, s.x, s.y - 9);
-    ctx.fillStyle = "rgba(246,229,187,0.95)";
-    ctx.fillText(sp.note, s.x, s.y - 9);
-    ctx.restore();
-  }
+  // 자리 이름 · 효과는 이제 HTML 쪽 돌판 설명 카드(SpotTip)가 맡는다 — 여기서는 겹치지 않게 그리지 않는다
 
   const bx = s.x - 17, by = s.y + 9;
   ctx.beginPath(); ctx.arc(bx, by, 8.4, 0, Math.PI * 2);

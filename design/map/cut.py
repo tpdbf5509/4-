@@ -1,8 +1,7 @@
 """
-길 타일·관문·상단 UI 원본 시트에서 게임이 실제로 쓰는 낱장을 오려내는 스크립트.
+관문·상단 UI 원본 시트에서 게임이 실제로 쓰는 낱장을 오려내는 스크립트.
 
-원본 5장(사용자가 준 목업/시트)은 이 폴더에 그대로 있다:
-  source-path-tiles.jpg     ← 길 타일 7종이 모여 있는 시트
+원본 4장(사용자가 준 목업/시트)은 이 폴더에 그대로 있다:
   source-gate-front.jpg     ← 관문 정면 2장(문양만 / 문양+길)
   source-gate-angles.jpg    ← 관문을 왼쪽·뒤·오른쪽에서 본 3장
   source-sound-buttons.jpg  ← 소리 켜기/끄기 단추 2장
@@ -10,9 +9,13 @@
 
 낱장을 뗄 때는 배경(흰 바탕)과의 밝기 차이로 마스크를 만들고
 scipy.ndimage.label로 서로 떨어진 조각을 찾아 조각마다 바운딩 박스로 자른다.
-결과는 public/assets/map/tiles/, public/assets/map/gates/, public/assets/ui/ 에 저장한다.
-정확한 픽셀 좌표(크롭 범위, 굽이 그림의 회전 중심 등)는 그림마다 눈으로 확인하며 정했으므로
+결과는 public/assets/map/gates/, public/assets/ui/ 에 저장한다.
+정확한 픽셀 좌표(크롭 범위 등)는 그림마다 눈으로 확인하며 정했으므로
 이 스크립트는 "어떻게 했는지"의 기록이며, 다른 시트에 그대로 돌리면 좌표를 다시 맞춰야 한다.
+
+(길 타일 시트 하나도 함께 받았었지만, 적용해 보니 절차적으로 그리던 기존 흙길보다
+나을 게 없다고 판단해 길은 다시 절차적 그리기로 되돌렸다. 그 시트와 잘라내던 코드는
+이 파일의 git 이력에 남아 있다.)
 """
 import numpy as np
 from PIL import Image
@@ -52,31 +55,8 @@ def cut_components(src_path, out_paths, bg_thresh=18, pad=6):
         print(name, crop.size)
 
 
-def crop_straight_mid(src, dst, left=65, right=1005):
-    """긴 직선 타일은 양 끝이 둥글게 막혀 있어(통나무 기둥까지 있는 마감), 그대로 늘리면
-    구간 중간에 막다른 길처럼 보인다. 양 끝의 둥근 마감을 잘라내 가운데의 늘려 쓸 수 있는
-    부분만 남긴다(경계 좌표는 열 단위 알파 폭을 스캔해 마감이 끝나는 자리를 눈으로 확인했다)."""
-    im = Image.open(src).convert("RGBA")
-    im.crop((left, 0, right, im.height)).save(dst)
-
-
 if __name__ == "__main__":
-    # 1) 길 타일 7종 — 흰 배경에 격자로 놓여 있어 연결 성분으로 그대로 떨어진다
-    cut_components(f"{HERE}/source-path-tiles.jpg", [
-        f"{HERE}/../../public/assets/map/tiles/straight-long.png",
-        f"{HERE}/../../public/assets/map/tiles/corner.png",
-        f"{HERE}/../../public/assets/map/tiles/t-junction.png",
-        f"{HERE}/../../public/assets/map/tiles/s-curve.png",
-        f"{HERE}/../../public/assets/map/tiles/cross.png",
-        f"{HERE}/../../public/assets/map/tiles/u-turn.png",
-        f"{HERE}/../../public/assets/map/tiles/straight-short.png",
-    ])
-    crop_straight_mid(
-        f"{HERE}/../../public/assets/map/tiles/straight-long.png",
-        f"{HERE}/../../public/assets/map/tiles/straight-mid.png",
-    )
-
-    # 2) 관문 정면 2장, 3) 관문 옆·뒤 3장 — 아래쪽의 글자 알약(label pill)은 잘라내고 받았다
+    # 1) 관문 정면 2장, 2) 관문 옆·뒤 3장 — 아래쪽의 글자 알약(label pill)은 잘라내고 받았다
     cut_components(f"{HERE}/source-gate-front.jpg", [
         f"{HERE}/../../public/assets/map/gates/front.png",
         f"{HERE}/../../public/assets/map/gates/front-path.png",
@@ -87,12 +67,12 @@ if __name__ == "__main__":
         f"{HERE}/../../public/assets/map/gates/right.png",
     ])
 
-    # 4) 소리 켜기/끄기 단추
+    # 3) 소리 켜기/끄기 단추
     cut_components(f"{HERE}/source-sound-buttons.jpg", [
         f"{HERE}/../../public/assets/ui/sound-on.png",
         f"{HERE}/../../public/assets/ui/sound-off.png",
     ])
 
-    # 5) 상단 HUD 목업 — "100"/"Lv.1"/웨이브 숫자가 그림에 직접 박혀 있어 그대로는 못 쓴다.
+    # 4) 상단 HUD 목업 — "100"/"Lv.1"/웨이브 숫자가 그림에 직접 박혀 있어 그대로는 못 쓴다.
     #    글자가 없는 방패 아이콘만 파란색/밝기 기준으로 따로 오려서 crest 아이콘으로 쓴다.
     #    (나머지 판 디자인은 src/ui/style.css의 기존 .crest/.wave-box 배경을 그대로 둔다)

@@ -11,7 +11,7 @@ import {
   packSnapshot, applySnapshot, applyOut,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
-import { paintTerrain, onMapArtReady, draw } from "./game/art.js";
+import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
 import { sendFeedback, loadDraft, saveDraft, FEEDBACK_MAX } from "./net/feedback.js";
 import { Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
@@ -1048,7 +1048,6 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     paintTerrain(bctx);
     bgRef.current = bg;
-    const offMapArt = onMapArtReady(() => paintTerrain(bctx));
 
     let raf, last = performance.now(), frame = 0, sinceSnap = 0;
     const loop = (now) => {
@@ -1079,7 +1078,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(raf); offMapArt(); };
+    return () => cancelAnimationFrame(raf);
   }, [isHost, room, playSounds]);
 
   const togglePause = useCallback(() => {

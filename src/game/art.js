@@ -187,13 +187,8 @@ export function distToPaths(x, y) {
   return best;
 }
 
-/* 길 그림 — public/assets/map 의 돌·통나무 테두리 그림을 얹는다.
-   아직 못 불러왔으면(또는 실패했으면) 아래 절차적 흙길만 남아 자리를 채운다. */
-// paintTerrain은 배경을 딱 한 번 그려서 재사용하므로, 그림이 뒤늦게 도착하면
-// 여기 등록해 둔 콜백(주로 "다시 한 번 그려줘")을 불러 배경을 새로 그리게 한다.
-const mapArtListeners = new Set();
-export function onMapArtReady(cb) { mapArtListeners.add(cb); return () => mapArtListeners.delete(cb); }
-
+/* 관문 그림 — public/assets/map/gates 의 그림을 그대로 얹는다.
+   아직 못 불러왔으면(또는 실패했으면) 절차적 아치로 대신 그린다. */
 const mapImgCache = {};
 function mapImg(path) {
   if (typeof Image === "undefined") return null;
@@ -201,85 +196,11 @@ function mapImg(path) {
   if (im === undefined) {
     im = mapImgCache[path] = new Image();
     im.onerror = () => { mapImgCache[path] = null; };
-    im.onload = () => { mapArtListeners.forEach((cb) => cb()); };
     im.src = path;
   }
   return im && im.complete && im.naturalWidth ? im : null;
 }
-const tileImg = (name) => mapImg(`/assets/map/tiles/${name}.webp`);
 const gateImg = (name) => mapImg(`/assets/map/gates/${name}.webp`);
-
-const PATH_ART_W = 46;                  // 길 그림을 얹을 화면 위 두께(흙+테두리)
-const STRAIGHT_SRC_H = 168;                         // straight-mid.webp 원본 두께
-const CORNER_SRC_W = 305, CORNER_SRC_H = 220;       // corner.webp 원본 크기
-const CORNER_PIVOT_X = 231, CORNER_PIVOT_Y = 75;    // corner.webp 안에서 두 팔이 만나는 안쪽 꼭짓점
-const CORNER_ARM_THICK = 126;                       // corner.webp 팔 두께(원본 픽셀)
-
-const dirName = (dx, dy) => (dy === -1 ? "N" : dx === 1 ? "E" : dy === 1 ? "S" : "W");
-const OPP = { N: "S", S: "N", E: "W", W: "E" };
-const CORNER_ROT = {
-  W: { S: 0, N: Math.PI / 2 }, S: { W: 0, E: -Math.PI / 2 },
-  N: { W: Math.PI / 2, E: Math.PI }, E: { N: Math.PI, S: -Math.PI / 2 },
-};
-
-// 구간마다 길이가 다 달라서, 그림을 구간 길이에 맞춰 늘리면 테두리의 통나무 기둥·돌
-// 간격이 구간마다 늘었다 줄었다 해서 마디마디 끊어져 보인다. 그래서 늘리지 않고
-// 그림을 화면 두께에 맞게 미리 축소해 둔 다음(오프스크린 캔버스), 그 축소본을 실제 크기 그대로
-// drawImage로 옆으로 이어 붙인다 — 기둥 간격이 어느 구간에서나 똑같아진다.
-// (CanvasPattern을 회전된 채로 채우면 이 환경에서 타일이 안 반복되고 통째로 뭉개져 보이는
-// 문제가 있어, 패턴 대신 drawImage를 여러 번 불러 직접 이어 붙인다.)
-let straightTileImg = null, straightTileSrc = null;
-function drawStraightTile(ctx, im, ax, ay, bx, by) {
-  const len = Math.hypot(bx - ax, by - ay);
-  if (len < 1) return;
-  if (straightTileSrc !== im) {
-    const scale = PATH_ART_W / STRAIGHT_SRC_H;
-    const off = document.createElement("canvas");
-    off.width = Math.round(im.naturalWidth * scale);
-    off.height = PATH_ART_W;
-    off.getContext("2d").drawImage(im, 0, 0, off.width, off.height);
-    straightTileImg = off;
-    straightTileSrc = im;
-  }
-  if (!straightTileImg) return;
-  const tw = straightTileImg.width;
-  ctx.save();
-  ctx.translate((ax + bx) / 2, (ay + by) / 2);
-  ctx.rotate(Math.atan2(by - ay, bx - ax));
-  for (let x = -len / 2; x < len / 2; x += tw) {
-    ctx.drawImage(straightTileImg, x, -PATH_ART_W / 2);
-  }
-  ctx.restore();
-}
-
-// 굽이 그림을 실제 꺾이는 방향(들어온 쪽 반대 ↔ 나가는 쪽)에 맞춰 돌려 붙인다
-function drawCornerTile(ctx, im, x, y, dirIn, dirOut) {
-  const rot = CORNER_ROT[OPP[dirIn]]?.[dirOut] ?? CORNER_ROT[dirOut]?.[OPP[dirIn]];
-  if (rot === undefined) return;
-  const scale = PATH_ART_W / CORNER_ARM_THICK;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rot);
-  ctx.drawImage(im, -CORNER_PIVOT_X * scale, -CORNER_PIVOT_Y * scale, CORNER_SRC_W * scale, CORNER_SRC_H * scale);
-  ctx.restore();
-}
-
-// 각 길의 곧은 구간·굽이 자리에 그림을 입힌다. 그림이 아직 없으면 아무것도 안 그린다(절차적 길이 그대로 보임).
-function paintPathTiles(ctx) {
-  const straight = tileImg("straight-mid");
-  const corner = tileImg("corner");
-  if (!straight || !corner) return false;
-  for (const L of LANES) {
-    const c = L.corners;
-    for (let i = 0; i < c.length - 1; i++) drawStraightTile(ctx, straight, c[i].x, c[i].y, c[i + 1].x, c[i + 1].y);
-    for (let i = 1; i < c.length - 1; i++) {
-      const din = dirName(Math.sign(c[i].x - c[i - 1].x), Math.sign(c[i].y - c[i - 1].y));
-      const dout = dirName(Math.sign(c[i + 1].x - c[i].x), Math.sign(c[i + 1].y - c[i].y));
-      drawCornerTile(ctx, corner, c[i].x, c[i].y, din, dout);
-    }
-  }
-  return true;
-}
 
 /* ── 정적 배경(지형·길·숲) — 한 번만 그려서 재사용 ─────── */
 export function paintTerrain(ctx) {
@@ -335,11 +256,8 @@ export function paintTerrain(ctx) {
   LANES.forEach((L) => strokePath(L, 36, C.dirt));
   LANES.forEach((L) => strokePath(L, 22, "rgba(226,193,142,0.55)"));
 
-  // 사용자가 올려 준 돌·통나무 길 그림을 그 위에 입힌다(못 불러오면 절차적 흙길만 남는다)
-  const tilesOn = paintPathTiles(ctx);
-
-  // 길 위 자갈과 바퀴 자국 — 그림 길에는 이미 자기 테두리가 있으니 겹쳐 그리지 않는다
-  if (!tilesOn) LANES.forEach((L) => {
+  // 길 위 자갈과 바퀴 자국
+  LANES.forEach((L) => {
     for (let k = 4; k < L.pts.length - 4; k += 3) {
       const p = L.pts[k], q = L.pts[k + 1];
       let tx = q.x - p.x, ty = q.y - p.y;

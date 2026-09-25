@@ -2110,6 +2110,7 @@ export function drawBullet(ctx, b) {
     }
     ctx.restore();
   } else if (b.kind === "ball" || b.kind === "shell") {
+    // 대포탑·성채 대포 공용 — 그림자·연기 자국은 그대로 두고 포탄만 결전장 그림으로 바꾼다
     const big = b.kind === "shell";
     const r = big ? 7 : 5.2;
     const lift = Math.sin(Math.min(1, b.travel) * Math.PI) * (big ? 34 : 22);
@@ -2123,54 +2124,130 @@ export function drawBullet(ctx, b) {
         ctx.fill();
       }
     }
-    ctx.fillStyle = "#2c2c33";
-    ctx.beginPath(); ctx.arc(b.x, b.y - lift, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#54545e";
-    ctx.beginPath(); ctx.arc(b.x - r * 0.3, b.y - lift - r * 0.3, r * 0.4, 0, Math.PI * 2); ctx.fill();
+    const cArt = FX_ART["cannon/shell"];
+    const cIm = cArt && fxSprite("cannon/shell");
+    if (cIm && cIm.naturalWidth) {
+      ctx.save();
+      ctx.translate(b.x, b.y - lift);
+      ctx.rotate(ang);
+      if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      const s2 = (big ? 16 : 12) / (cIm.naturalWidth / 2);
+      ctx.drawImage(cIm, -cArt.ax * s2, -cArt.ay * s2, cIm.naturalWidth * s2, cIm.naturalHeight * s2);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = "#2c2c33";
+      ctx.beginPath(); ctx.arc(b.x, b.y - lift, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#54545e";
+      ctx.beginPath(); ctx.arc(b.x - r * 0.3, b.y - lift - r * 0.3, r * 0.4, 0, Math.PI * 2); ctx.fill();
+    }
   } else if (b.kind === "bolt") {
+    const art = FX_ART["bolt/fly"];
+    const im = art && fxSprite("bolt/fly");
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(ang);
-    const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 13);
-    gl.addColorStop(0, "rgba(220,240,255,0.95)");
-    gl.addColorStop(1, "rgba(120,160,255,0)");
-    ctx.fillStyle = gl;
-    ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "rgba(235,246,255,0.95)";
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(-14, 2); ctx.lineTo(-5, -3); ctx.lineTo(-1, 2); ctx.lineTo(8, -2);
-    ctx.stroke();
+    if (im && im.naturalWidth) {
+      if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      const s2 = 26 / (im.naturalWidth / 2);
+      ctx.drawImage(im, -art.ax * s2, -art.ay * s2, im.naturalWidth * s2, im.naturalHeight * s2);
+    } else {
+      const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 13);
+      gl.addColorStop(0, "rgba(220,240,255,0.95)");
+      gl.addColorStop(1, "rgba(120,160,255,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(0, 0, 13, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(235,246,255,0.95)";
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(-14, 2); ctx.lineTo(-5, -3); ctx.lineTo(-1, 2); ctx.lineTo(8, -2);
+      ctx.stroke();
+    }
     ctx.restore();
   } else if (b.kind === "slug") {
+    const art = FX_ART["sniper/slug"];
+    const im = art && fxSprite("sniper/slug");
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(ang);
-    ctx.strokeStyle = "rgba(220,226,255,0.65)";
-    ctx.lineWidth = 2.6;
-    ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(4, 0); ctx.stroke();
-    ctx.fillStyle = "#eef0ff";
-    ctx.beginPath(); ctx.ellipse(5, 0, 5, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+    if (im && im.naturalWidth) {
+      if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      const s2 = 25 / (im.naturalWidth / 2);
+      ctx.drawImage(im, -art.ax * s2, -art.ay * s2, im.naturalWidth * s2, im.naturalHeight * s2);
+    } else {
+      ctx.strokeStyle = "rgba(220,226,255,0.65)";
+      ctx.lineWidth = 2.6;
+      ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(4, 0); ctx.stroke();
+      ctx.fillStyle = "#eef0ff";
+      ctx.beginPath(); ctx.ellipse(5, 0, 5, 2.4, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  } else if (b.kind === "shard") {
+    const art = FX_ART["frost/fly"];
+    const im = art && fxSprite("frost/fly");
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    if (im && im.naturalWidth) {
+      ctx.rotate(ang);
+      if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      const s2 = 22 / (im.naturalWidth / 2);
+      ctx.drawImage(im, -art.ax * s2, -art.ay * s2, im.naturalWidth * s2, im.naturalHeight * s2);
+    } else {
+      // 그림 못 불러왔을 때는 예전처럼 아래 else(기본 마름모)와 같은 모양으로 남는다
+      ctx.rotate(b.x * 0.2 + b.y * 0.2);
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 9);
+      glow.addColorStop(0, "rgba(200,240,255,0.9)");
+      glow.addColorStop(1, "rgba(140,205,245,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#e6f7ff";
+      ctx.beginPath();
+      ctx.moveTo(0, -5); ctx.lineTo(3, 0); ctx.lineTo(0, 5); ctx.lineTo(-3, 0);
+      ctx.closePath(); ctx.fill();
+    }
     ctx.restore();
   } else if (b.kind === "acid") {
-    const gl = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 10);
-    gl.addColorStop(0, "rgba(150,240,215,0.9)");
-    gl.addColorStop(1, "rgba(60,175,150,0)");
-    ctx.fillStyle = gl;
-    ctx.beginPath(); ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#5fd3b6";
-    ctx.beginPath(); ctx.ellipse(b.x, b.y, 4.4, 5.4, 0, 0, Math.PI * 2); ctx.fill();
+    const art = FX_ART["corrode/fly"];
+    const im = art && fxSprite("corrode/fly");
+    if (im && im.naturalWidth) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(ang);
+      if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      const s2 = 19 / (im.naturalWidth / 2);
+      ctx.drawImage(im, -art.ax * s2, -art.ay * s2, im.naturalWidth * s2, im.naturalHeight * s2);
+      ctx.restore();
+    } else {
+      const gl = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 10);
+      gl.addColorStop(0, "rgba(150,240,215,0.9)");
+      gl.addColorStop(1, "rgba(60,175,150,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#5fd3b6";
+      ctx.beginPath(); ctx.ellipse(b.x, b.y, 4.4, 5.4, 0, 0, Math.PI * 2); ctx.fill();
+    }
   } else if (b.kind === "orb") {
-    const wob = Math.sin(b.x * 0.2 + b.y * 0.2) * 1.2;
-    const gl = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 11);
-    gl.addColorStop(0, "rgba(190,240,120,0.9)");
-    gl.addColorStop(1, "rgba(110,180,60,0)");
-    ctx.fillStyle = gl;
-    ctx.beginPath(); ctx.arc(b.x, b.y, 11, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#8fd44f";
-    ctx.beginPath(); ctx.ellipse(b.x, b.y, 5 + wob, 5.6 - wob, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "rgba(240,255,210,0.85)";
-    ctx.beginPath(); ctx.arc(b.x - 1.4, b.y - 1.6, 1.8, 0, Math.PI * 2); ctx.fill();
+    const art = FX_ART["poison/fly"];
+    const im = art && fxSprite("poison/fly");
+    if (im && im.naturalWidth) {
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(ang);
+      if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      const s2 = 20 / (im.naturalWidth / 2);
+      ctx.drawImage(im, -art.ax * s2, -art.ay * s2, im.naturalWidth * s2, im.naturalHeight * s2);
+      ctx.restore();
+    } else {
+      const wob = Math.sin(b.x * 0.2 + b.y * 0.2) * 1.2;
+      const gl = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, 11);
+      gl.addColorStop(0, "rgba(190,240,120,0.9)");
+      gl.addColorStop(1, "rgba(110,180,60,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(b.x, b.y, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#8fd44f";
+      ctx.beginPath(); ctx.ellipse(b.x, b.y, 5 + wob, 5.6 - wob, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(240,255,210,0.85)";
+      ctx.beginPath(); ctx.arc(b.x - 1.4, b.y - 1.6, 1.8, 0, Math.PI * 2); ctx.fill();
+    }
   } else {
     ctx.save();
     ctx.translate(b.x, b.y);

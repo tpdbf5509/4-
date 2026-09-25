@@ -2088,16 +2088,26 @@ export function drawTitan(ctx, walk, time) {
 export function drawBullet(ctx, b) {
   const ang = Math.atan2(b.vy || 0, b.vx || 1);
   if (b.kind === "arrow") {
+    // 결전장에서 궁수탑 평타로 쓰는 그림(archer/arrow)을 판 위 화살에도 그대로 쓴다.
+    // 못 불러왔으면 예전 절차적 화살로 그대로 남는다.
+    const art = FX_ART["archer/arrow"];
+    const im = art && fxSprite("archer/arrow");
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(ang);
-    ctx.strokeStyle = "#7d5330";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(6, 0); ctx.stroke();
-    ctx.fillStyle = "#d7dce2";
-    ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(4, -3); ctx.lineTo(4, 3); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#e8e2d2";
-    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-5, -3); ctx.lineTo(-5, 3); ctx.closePath(); ctx.fill();
+    if (im && im.naturalWidth) {
+      if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      const s2 = 22 / (im.naturalWidth / 2);
+      ctx.drawImage(im, -art.ax * s2, -art.ay * s2, im.naturalWidth * s2, im.naturalHeight * s2);
+    } else {
+      ctx.strokeStyle = "#7d5330";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(6, 0); ctx.stroke();
+      ctx.fillStyle = "#d7dce2";
+      ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(4, -3); ctx.lineTo(4, 3); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#e8e2d2";
+      ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-5, -3); ctx.lineTo(-5, 3); ctx.closePath(); ctx.fill();
+    }
     ctx.restore();
   } else if (b.kind === "ball" || b.kind === "shell") {
     const big = b.kind === "shell";

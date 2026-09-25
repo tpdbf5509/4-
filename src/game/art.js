@@ -522,25 +522,22 @@ export function drawBush(ctx, x, y, s, berry) {
 // 돌리면 그림자·조명이 어긋난다). 북쪽 길은 정면, 남쪽은 뒷면, 서·동쪽은 옆면이 보인다.
 const GATE_DIR = { 북: "front", 남: "back", 서: "left", 동: "right" };
 const GATE_H = 84;    // 화면에 그릴 관문 높이(px)
-const GATE_PUSH = 48; // 남·북 관문은 판 위쪽/아래쪽 가장자리에 바짝 붙어 있어, 그림이 잘리지 않도록
-                       // 성채 쪽으로 살짝 당겨 그린다(동·서는 가장자리에서 멀어 밀 필요가 없다)
 
 export function drawPortal(ctx, lane, time) {
   const L = LANES[lane];
-  const p = L.pts[0];
+  const p = L.pts[0];   // 길이 실제로 시작하는 자리 — 관문 그림의 계단 밑동을 여기 정확히 맞춘다
   const gateName = GATE_DIR[L.name];
   const gim = gateName && gateImg(gateName);
   if (gim) {
     const h = GATE_H, w = (gim.naturalWidth / gim.naturalHeight) * h;
-    const ax = p.x - L.dx * GATE_PUSH, ay = p.y - L.dy * GATE_PUSH;
-    shadow(ctx, ax, ay - 2, w * 0.36, w * 0.14, 0.3);
-    ctx.drawImage(gim, ax - w / 2, ay - h + 6, w, h);
+    shadow(ctx, p.x, p.y - 2, w * 0.36, w * 0.14, 0.3);
+    ctx.drawImage(gim, p.x - w / 2, p.y - h, w, h);
     if (gateName !== "back") {
       const pulse = 0.35 + 0.2 * Math.sin(time * 2.2 + lane);
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       ctx.fillStyle = `rgba(190,110,230,${pulse})`;
-      ctx.beginPath(); ctx.ellipse(ax, ay - h * 0.5, w * 0.1, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(p.x, p.y - h * 0.5, w * 0.1, h * 0.12, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
     return;

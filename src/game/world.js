@@ -25,7 +25,7 @@ export const DIFFS = [
     note: "적이 단단하고 골드가 빡빡합니다" },
   { id: "hell", name: "지옥",   hp: 1.8,  count: 1.45, spd: 1.22, gold: 0.7,  start: 70, core: 72, prep: 4, surge: 0.32,
     elite: 0.55, leak: 1.25, perks: 2,
-    arena: { hp: 0.85, lives: 4, revive: 1.35, wear: 0.35, tell: 0.78, rest: 0.68, limit: 0.65, move: 1.3, cut: 0.2 },
+    arena: { hp: 0.85, lives: 4, revive: 1.35, wear: 0.35, tell: 0.78, rest: 0.58, limit: 0.65, move: 1.45, cut: 0.35 },
     note: "보스가 일찍 분노하고, 보상 카드도 두 장뿐입니다" },
 ];
 export const DEFAULT_DIFF = 1;

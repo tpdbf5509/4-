@@ -25,7 +25,7 @@ export const DIFFS = [
     note: "적이 단단하고 골드가 빡빡합니다" },
   { id: "hell", name: "지옥",   hp: 1.8,  count: 1.45, spd: 1.22, gold: 0.7,  start: 70, core: 72, prep: 4, surge: 0.32,
     elite: 0.55, leak: 1.25, perks: 2,
-    arena: { hp: 0.85, lives: 4, revive: 1.35, wear: 0.35, tell: 0.78, rest: 0.68, limit: 0.65 },
+    arena: { hp: 0.85, lives: 4, revive: 1.35, wear: 0.35, tell: 0.78, rest: 0.68, limit: 0.65, move: 1.3, cut: 0.2 },
     note: "보스가 일찍 분노하고, 보상 카드도 두 장뿐입니다" },
 ];
 export const DEFAULT_DIFF = 1;
@@ -496,8 +496,9 @@ export const ARENA = {
    hp     는 보스 체력, lives 는 몇 대를 맞으면 쓰러지는지,
    revive 는 다시 일어나기까지, wear 는 두 번째부터 얼마씩 더 누워 있는지,
    tell   은 붉은 자리가 떠 있는 시간, rest 는 다음 공격까지,
-   limit  은 분노하기까지, bite 는 한 대의 무게다. */
-export const AD_TUNE = { hp: 1, bite: 1, lives: ARENA.lives, revive: 1, wear: 0, tell: 1, rest: 1, limit: 1 };
+   limit  은 분노하기까지, bite 는 한 대의 무게다.
+   move   는 걸어 다니는 속도, cut 은 tell 에서 초 단위로 깎아내는 몫이다. */
+export const AD_TUNE = { hp: 1, bite: 1, lives: ARENA.lives, revive: 1, wear: 0, tell: 1, rest: 1, limit: 1, move: 1, cut: 0 };
 export const AD_WEAR_MAX = 2.2;      // 아무리 자주 쓰러져도 이보다 더 누워 있지는 않는다
 export const AD_MEND = 14;           // 이만큼 버티고 서 있으면 쌓인 몫이 한 칸 풀린다
 export const adTune = (g) => ({ ...AD_TUNE, ...(diffOf(g).arena || {}) });

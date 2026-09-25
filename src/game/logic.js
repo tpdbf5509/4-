@@ -1329,9 +1329,10 @@ function arenaBossWalk(g, dt) {
   const len = Math.max(1, Math.hypot(dx, dy));
   const slow = a.slow > 0 ? 0.62 : 1;                // 서리를 맞으면 걸음도 굼떠진다
   const rush = a.rage ? 1.35 : 1;
-  a.x = Math.max(ARENA.left, Math.min(ARENA.right, a.x + (dx / len) * ARENA.bspd * slow * rush * dt));
+  const move = adTune(g).move;
+  a.x = Math.max(ARENA.left, Math.min(ARENA.right, a.x + (dx / len) * ARENA.bspd * slow * rush * move * dt));
   a.y = Math.max(ARENA.top + 40, Math.min(ARENA.bottom - 30,
-    a.y + (dy / len) * ARENA.bspdY * slow * rush * dt));
+    a.y + (dy / len) * ARENA.bspdY * slow * rush * move * dt));
   a.step += dt * 6;
 }
 
@@ -1433,7 +1434,9 @@ function arenaBegin(g, pat, stage = 0) {
   a.leap = null; a.rush = null; a.air = 0;
   a.next = pat.next || null;
   // 이어지는 단계는 예비가 짧다
-  a.stT = (stage ? (pat.gap || 0.5) : pat.tell) * arenaBossCfg(a.type).tell * adTune(g).tell;
+  const T = adTune(g);
+  a.stT = Math.max(0.25,
+    (stage ? (pat.gap || 0.5) : pat.tell) * arenaBossCfg(a.type).tell * T.tell - T.cut);
   a.stT0 = a.stT;
   const spot = () => {
     // 아무나 한 사람 근처를 노린다

@@ -344,29 +344,42 @@ kbd {
   margin-top: 14px; display: grid; gap: 10px;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
+/* 카드는 기본적으로 압축된 모습이다 — 이름·병과·골드·스킬 상태·위치만 항상 보인다.
+   나머지(병과 설명·능력 설명·건설 비용·조작법·건설/처치 수)는 눌러야/올려야 나온다. */
 .card {
+  position: relative; cursor: pointer;
   background: linear-gradient(#3b2c1b, #2a1f13);
   border: 2px solid #6b4f2c; border-top-color: var(--pc);
-  border-radius: 11px; padding: 10px 11px 11px;
-  box-shadow: 0 4px 0 #1b1309, 0 8px 18px rgba(0, 0, 0, 0.35);
+  border-radius: 11px; padding: 8px 10px 9px;
+  box-shadow: 0 3px 0 #1b1309, 0 5px 10px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.12s ease;
 }
-.card.mine { box-shadow: 0 4px 0 #1b1309, 0 0 0 2px var(--pcl), 0 8px 18px rgba(0, 0, 0, 0.35); }
-.card.empty { opacity: 0.5; border-top-color: #6b4f2c; }
-.card-head { display: flex; align-items: center; gap: 7px; }
+/* 내 카드는 확실히 도드라져야 한다 — 밝은 테두리 발광 + 살짝 더 깊은 그림자 */
+.card.mine {
+  background: linear-gradient(#443219, #2d2012);
+  box-shadow: 0 4px 0 #1b1309, 0 0 0 2px var(--pcl), 0 0 16px rgba(0, 0, 0, 0), 0 10px 22px rgba(0, 0, 0, 0.4);
+}
+.card.empty { opacity: 0.5; border-top-color: #6b4f2c; box-shadow: none; }
+.me-tag {
+  font-size: 9px; font-family: 'Do Hyeon', sans-serif; letter-spacing: -0.02em;
+  padding: 1px 5px 0; border-radius: 999px; background: var(--pcl); color: #1b1309;
+}
+.card-head { display: flex; align-items: center; gap: 6px; }
 .badge {
-  width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center;
   background: linear-gradient(var(--pcl), var(--pc)); border: 1.5px solid var(--pcd);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
 }
 .badge.ghost { background: #3a2c1c; border-color: #5b452a; }
-.badge svg { width: 15px; height: 15px; display: block; }
-.who { font-size: 13.5px; color: #f2e3c2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge svg { width: 14px; height: 14px; display: block; }
+.who { font-size: 12.5px; color: #f2e3c2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .who b { font-family: 'Do Hyeon', sans-serif; color: var(--pcl); }
 .coin {
-  margin-left: auto; display: flex; align-items: center; gap: 4px;
-  font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: #f3d27f;
+  margin-left: auto; display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: #f3d27f;
 }
-.coin svg { width: 14px; height: 14px; }
+.coin svg { width: 13px; height: 13px; }
 /* 골드가 늘어난 순간만 짧게 커졌다 돌아온다 — 흔들림 없이 숫자만 반응한다 */
 .coin.flash { animation: coin-flash 0.45s ease-out; }
 @keyframes coin-flash {
@@ -374,35 +387,70 @@ kbd {
   100% { color: #f3d27f; transform: scale(1); }
 }
 
-.card-note {
-  margin-top: 6px; font-size: 11px; color: #a8987a; line-height: 1.45;
-  min-height: 30px; overflow: hidden;
+/* 스킬 상태 — 언제나 한눈에. 준비되면 병과 색으로 확실히 켜진다 */
+.skill-pip {
+  display: flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 999px;
+  font-family: 'Do Hyeon', sans-serif; font-size: 10.5px; letter-spacing: -0.02em;
+  color: #93866c; background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.35);
+  flex-shrink: 0;
 }
-/* 게임 중 병과 카드 — 설명 옆에 작게 세운다 */
+.skill-pip-glyph { font-size: 9px; filter: grayscale(1) brightness(0.75); }
+.skill-pip.ready {
+  color: #fff3d0; background: linear-gradient(#7a5a2e, #5d4222); border-color: #d6b26a;
+}
+.skill-pip.ready .skill-pip-glyph { filter: none; }
+
+.card-sub {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 5px; font-size: 10.5px; color: #9c8d70;
+}
+.card-loc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-sub .perk-row { margin-top: 0; flex-shrink: 0; }
+
+.skill-bar.mini { display: block; width: 100%; height: 3px; border-radius: 2px; margin-top: 6px; background: #1d1509; overflow: hidden; }
+.skill-bar { border-radius: 3px; background: #1d1509; overflow: hidden; }
+.skill-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--pc), var(--pcl)); transition: width 0.15s linear; }
+
+/* 자세히 보기 — 카드 바로 위에 뜬다. 올리면 보이고, 눌러 고정할 수도 있다 */
+.card-detail {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 5;
+  padding: 10px 12px 11px; border-radius: 11px; text-align: left; cursor: default;
+  background: linear-gradient(#453421, #2c2013);
+  border: 2px solid #8a6a3f; box-shadow: 0 10px 22px rgba(0, 0, 0, 0.5);
+  opacity: 0; visibility: hidden; transform: translateY(4px);
+  transition: opacity 0.1s ease, transform 0.1s ease;
+  pointer-events: none;
+}
+.card:hover .card-detail, .card.pinned .card-detail {
+  opacity: 1; visibility: visible; transform: translateY(0); pointer-events: auto;
+}
+.detail-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.detail-top b { font-family: 'Do Hyeon', sans-serif; font-size: 14px; color: #fbf0d6; display: block; }
+.detail-top span { font-size: 11px; color: #cbb98e; }
 .card-char {
-  float: right; width: 72px; height: 76px; margin: -6px -2px 0 9px;
+  width: 44px; height: 48px; flex-shrink: 0;
   filter: var(--rim) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.4));
 }
-.card-row {
-  display: flex; justify-content: space-between; gap: 6px;
-  font-size: 10.5px; color: #9c8d70; padding-top: 7px; margin-top: 3px;
-  border-top: 1px solid rgba(160, 130, 90, 0.25);
+.detail-list { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; }
+.detail-list dt { font-size: 10px; color: #8c7e66; white-space: nowrap; padding-top: 1px; }
+.detail-list dd {
+  margin: 0; font-size: 11.5px; color: #ded1b3; line-height: 1.45;
+  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
 }
-.skill { margin-top: 8px; display: grid; grid-template-columns: 1fr auto; gap: 2px 6px; align-items: center; }
-.skill-name { font-size: 12px; color: #8d8068; }
-.skill.ready .skill-name { color: #f2e3c2; }
-.skill-state { font-size: 10.5px; color: #9c8d70; }
-.skill.ready .skill-state { color: var(--pcl); }
-.skill-bar { grid-column: 1 / -1; height: 4px; border-radius: 3px; background: #1d1509; overflow: hidden; }
-.skill-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--pc), var(--pcl)); }
 
-.keys {
-  margin-top: 9px; display: grid; grid-template-columns: auto 1fr; gap: 5px 7px;
-  align-items: center; font-size: 10.5px; color: #93866c;
+/* 게임 방법 — 처음엔 접혀 있다. 필요할 때만 펼쳐 본다 */
+.footnote {
+  margin: 14px 2px 0; font-size: 12px; color: #93866c; line-height: 1.7;
+  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
 }
-.keys kbd { justify-self: start; }
-
-.footnote { margin: 14px 2px 0; font-size: 12px; color: #93866c; line-height: 1.7; }
+.footnote summary {
+  cursor: pointer; font-family: 'Do Hyeon', sans-serif; font-size: 12.5px;
+  color: #b6a67e; letter-spacing: -0.02em; list-style: none;
+}
+.footnote summary::-webkit-details-marker { display: none; }
+.footnote summary::before { content: "▸ "; }
+.footnote[open] summary::before { content: "▾ "; }
+.footnote[open] summary { margin-bottom: 6px; }
 
 @media (max-width: 760px) {
   .party { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -639,6 +687,30 @@ kbd {
   position: absolute; right: -3px; bottom: -3px; font-style: normal; font-size: 9px;
   min-width: 12px; padding: 0 2px; border-radius: 6px; text-align: center;
   background: var(--pc); color: #1b1309;
+}
+
+/* 건설·성채 강화·돌판 설명 — 판 위 그 자리에 닻을 내린다.
+   %로 두는 자리는 캔버스가 판의 가로폭에 꼭 맞게 늘어나므로(.frame canvas) 그대로 좌표가 된다. */
+.field-anchor {
+  position: absolute; transform: translate(-50%, -8px); pointer-events: none; z-index: 6;
+}
+.field-anchor button { pointer-events: auto; }
+.field-anchor-up { transform: translate(-50%, calc(-100% - 10px)); }
+
+/* 돌판 처음 올렸을 때 — 이름 → 핵심 효과 → 한 줄 보조 설명, 1~2초 안에 읽는다 */
+.spot-tip {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 7px 12px 8px; border-radius: 10px; text-align: center; white-space: nowrap;
+  background: linear-gradient(#4a3722, #322416);
+  border: 2px solid var(--sc, #8a6a3f); box-shadow: 0 4px 0 #22180e, 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+.spot-tip-name {
+  font-family: 'Do Hyeon', sans-serif; font-size: 13px; letter-spacing: -0.02em; color: var(--sc, #f6e5bb);
+}
+.spot-tip-note { font-family: 'Do Hyeon', sans-serif; font-size: 12.5px; color: #fff3d0; }
+.spot-tip-tag {
+  font-size: 10px; color: #b6a67e; margin-top: 1px;
+  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
 }
 
 /* 성채 강화 단추 */

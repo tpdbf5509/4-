@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   W, H, CX, CY, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX, RARITY,
   castleTier, castleCost, CASTLE_TIERS, LEAVE_FORCE, LEAVE_T,
-  SKILLS, ENEMY, ETYPES, SLOTS, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
+  SKILLS, ENEMY, ETYPES, SLOTS, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime, sk,
   makeGame, waveKind, bossWave, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, SELL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
@@ -668,6 +668,18 @@ function CostBox({ cost, seat }) {
   );
 }
 
+/* 돌판에 처음 마우스를 올렸을 때만 뜨는 짧은 설명 — 이름 → 핵심 효과 → 한 줄 보조 설명 */
+function SpotTip({ spot }) {
+  if (!spot) return null;
+  return (
+    <div className="spot-tip" style={{ "--sc": spot.color }}>
+      <span className="spot-tip-name">{spot.name}</span>
+      <span className="spot-tip-note">{spot.note}</span>
+      <span className="spot-tip-tag">{spot.tag}</span>
+    </div>
+  );
+}
+
 function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack }) {
   const cvsRef = useRef(null);
   const bgRef = useRef(null);
@@ -705,6 +717,14 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
     const t = setTimeout(() => setGoldFlash([]), 450);
     return () => clearTimeout(t);
   }, [hud]);
+  // 카드를 눌러 자세히 보기를 고정한다 — 다시 누르면 닫힌다 (마우스는 올리기만 해도 열린다)
+  const [expandedCard, setExpandedCard] = useState(-1);
+  // 돌판 위에 마우스를 올렸을 때 — 어느 자리인지, 그 성격을 이미 봤는지
+  const [hoverSlot, setHoverSlot] = useState(-1);
+  const [showSpotTip, setShowSpotTip] = useState(false);
+  const hoverRef = useRef(-1);
+  const seenSpotsRef = useRef(new Set());
+
   // 이미 본 보스 기록 번호 — 건너뛰기는 각자의 화면에서만 닫는다
   const [seenScore, setSeenScore] = useState(0);
   const skipScore = useCallback((n) => setSeenScore((v) => Math.max(v, n)), []);
@@ -901,6 +921,19 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       g.hover = i;
       g.hoverCastle = onKeep;
       cvs.style.cursor = (i >= 0 || onKeep) && mySeat >= 0 ? "pointer" : "default";
+      // 돌판 위에 처음 올렸을 때만 자리 성격을 크게 보여준다 — 한 번 본 성격은 다시 방해하지 않는다
+      if (i !== hoverRef.current) {
+        hoverRef.current = i;
+        if (i >= 0 && g.phase !== "arena") {
+          const spot = (SLOTS[i] && SLOTS[i].spot) || "risk";
+          setShowSpotTip(!seenSpotsRef.current.has(spot));
+          seenSpotsRef.current.add(spot);
+          setHoverSlot(i);
+        } else {
+          setHoverSlot(-1);
+          setShowSpotTip(false);
+        }
+      }
     };
     const onDown = (e) => {
       if (e.button !== 0) return;
@@ -908,7 +941,10 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
       if (i >= 0) { e.preventDefault(); act("goto", i); return; }
       if (onCastle(e)) { e.preventDefault(); act("castle"); }
     };
-    const onLeave = () => { G.current.hover = -1; G.current.hoverCastle = false; };
+    const onLeave = () => {
+      G.current.hover = -1; G.current.hoverCastle = false;
+      hoverRef.current = -1; setHoverSlot(-1); setShowSpotTip(false);
+    };
 
     cvs.addEventListener("pointermove", onMove);
     cvs.addEventListener("pointerdown", onDown);
@@ -1100,11 +1136,11 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
             <div className="wave-box">
               <span className={`wave-label ${kindLabel && hud.phase !== "clear" && hud.phase !== "over" ? "hot" : ""}`}>{phaseLabel}</span>
               <span className="wave-num">웨이브 {hud.wave}<em>/{hud.total}</em></span>
-              <span className="wave-diff">{DIFFS[hud.diff]?.name}</span>
+              {hud.phase !== "arena" && <span className="wave-diff">{DIFFS[hud.diff]?.name}</span>}
               <span className="wave-sub">
                 {hud.phase === "prep" ? `${Math.ceil(hud.timer)}초 뒤 시작`
                   : hud.phase === "wave" ? `남은 적 ${hud.left}`
-                  : hud.phase === "arena" ? (hud.boss ? `보스 체력 ${Math.round(hud.boss * 100)}%` : "보스와 맞선다")
+                  : hud.phase === "arena" ? "아래 체력바를 보세요"
                   : hud.phase === "reward" ? `${Math.ceil(hud.timer)}초 안에 고르기` : "—"}
               </span>
               {hud.phase === "prep" && hud.preview?.length > 0 && (
@@ -1116,8 +1152,11 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
               )}
             </div>
             </div>
+          </div>
 
-            {mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
+          {/* 건설·성채 강화는 그 일이 실제로 일어나는 자리 옆에 붙여 둔다 — 위 상황판과 다투지 않게 */}
+          {mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
+            <div className="field-anchor" style={{ left: `${(CX / W) * 100}%`, top: `${((CY + 10) / H) * 100}%` }}>
               <button
                 className="keep-up"
                 onClick={() => act("castle")}
@@ -1128,12 +1167,25 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                   ? "성채 최대 단계"
                   : <>성채 {hud.tier + 1}단계 <em>{hud.upCost}골드</em></>}
               </button>
-            )}
+            </div>
+          )}
 
-            {hud.cost && (hud.phase === "prep" || hud.phase === "wave") && (
+          {hud.cost && (hud.phase === "prep" || hud.phase === "wave") && mySeat >= 0 && hud.players[mySeat] && (
+            <div className="field-anchor field-anchor-up"
+              style={{
+                left: `${(SLOTS[sk(hud.players[mySeat].lane, hud.players[mySeat].slot)].x / W) * 100}%`,
+                top: `${(SLOTS[sk(hud.players[mySeat].lane, hud.players[mySeat].slot)].y / H) * 100}%`,
+              }}>
               <CostBox cost={hud.cost} seat={mySeat} />
-            )}
-          </div>
+            </div>
+          )}
+
+          {hoverSlot >= 0 && showSpotTip && (hud.phase === "prep" || hud.phase === "wave") && (
+            <div className="field-anchor field-anchor-up"
+              style={{ left: `${(SLOTS[hoverSlot].x / W) * 100}%`, top: `${(SLOTS[hoverSlot].y / H) * 100}%` }}>
+              <SpotTip spot={SPOTS[(SLOTS[hoverSlot] && SLOTS[hoverSlot].spot) || "risk"]} />
+            </div>
+          )}
 
           <div className="hud hud-right">
             <button className={`sbtn ${hud.paused ? "on" : ""}`} onClick={togglePause} title="일시정지">
@@ -1309,69 +1361,78 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
             const cls = CLASSES[i];
             const ready = p.cd <= 0;
             const mine = i === mySeat;
+            const skillPct = ready ? 100 : (1 - p.cd / SKILLS[i].cd) * 100;
+            const skillState = ready ? "준비됨"
+              : hud.phase === "arena" ? `${Math.max(0, Math.round(skillPct))}%`
+              : `${Math.ceil(p.cd)}초`;
+            const pinned = expandedCard === i;
             return (
-              <div key={i} className={`card ${mine ? "mine" : ""}`}
-                style={{ "--pc": P[i].key, "--pcl": P[i].light, "--pcd": P[i].dark }}>
+              <div key={i} className={`card ${mine ? "mine" : ""} ${pinned ? "pinned" : ""}`}
+                style={{ "--pc": P[i].key, "--pcl": P[i].light, "--pcd": P[i].dark }}
+                onClick={() => setExpandedCard((v) => (v === i ? -1 : i))}>
                 <div className="card-head">
                   <span className={`badge ${P[i].pale ? "pale" : ""}`}><ClassIcon i={i} /></span>
                   <span className="who">
-                    <b>{names[i] || `${i + 1}P`}</b> {cls.name}
+                    <b>{names[i] || `${i + 1}P`}</b> {mine && <span className="me-tag">나</span>} {cls.name}
                   </span>
                   <span className={`coin${goldFlash[i] ? " flash" : ""}`}><Coin />{p.gold}</span>
-                </div>
-                <div className="card-note">
-                  {charOf(cls.id) && <TowerChar id={cls.id} className="card-char" />}
-                  {cls.note} · {cls.cost}골드
-                </div>
-                {p.perks?.length > 0 && (
-                  <div className="perk-row">
-                    {p.perks.map(([id, n]) => (
-                      <span key={id} className="perk-chip" title={PERK_BY_ID[id].note}>
-                        <PerkIcon kind={PERK_BY_ID[id].icon} />
-                        {n > 1 && <em>{n}</em>}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                <div className="card-row">
-                  <span>{LANES[p.lane].name} · {p.slot + 1}번 자리</span>
-                  <span>건설 {p.built} · 처치 {p.kills}</span>
-                </div>
-                <div className={`skill ${ready ? "ready" : ""}`}>
-                  <span className="skill-name">{SKILLS[i].name}</span>
-                  <span className="skill-state">
-                    {ready ? "준비됨"
-                      : hud.phase === "arena"
-                        ? `${Math.max(0, Math.round((1 - p.cd / SKILLS[i].cd) * 100))}%`
-                        : `${Math.ceil(p.cd)}초`}
-                  </span>
-                  <span className="skill-bar">
-                    <span style={{ width: `${ready ? 100 : (1 - p.cd / SKILLS[i].cd) * 100}%` }} />
+                  <span className={`skill-pip ${ready ? "ready" : ""}`} title={`${SKILLS[i].name} · ${skillState}`}>
+                    <span className="skill-pip-glyph">⚡</span>{skillState}
                   </span>
                 </div>
-                {mine && (touch ? (
-                  <div className="keys">
-                    <kbd>◀▲▼▶</kbd><span>이동</span>
-                    <kbd>돌판</kbd><span>눌러서 그 자리로</span>
-                    <kbd>건설</kbd><span>탑 세우기 · 결전장에서는 공격</span>
-                    <kbd>팔기</kbd><span>들인 값의 60%</span>
-                    <kbd>스킬</kbd><span>{SKILLS[i].name}</span>
+                <div className="card-sub">
+                  <span className="card-loc">{LANES[p.lane].name} · {p.slot + 1}번 자리</span>
+                  {p.perks?.length > 0 && (
+                    <span className="perk-row">
+                      {p.perks.map(([id, n]) => (
+                        <span key={id} className="perk-chip">
+                          <PerkIcon kind={PERK_BY_ID[id].icon} />
+                          {n > 1 && <em>{n}</em>}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+                <span className="skill-bar mini"><span style={{ width: `${skillPct}%` }} /></span>
+
+                {/* 자세히 — 병과 설명 · 능력 · 건설/처치 수 · 조작법은 여기서만 본다 */}
+                <div className="card-detail" onClick={(e) => e.stopPropagation()}>
+                  <div className="detail-top">
+                    {charOf(cls.id) && <TowerChar id={cls.id} className="card-char" />}
+                    <div>
+                      <b>{names[i] || `${i + 1}P`}</b>
+                      <span>{cls.name}</span>
+                    </div>
                   </div>
-                ) : (
-                  <div className="keys">
-                    <kbd>{KEY_HINT.move}</kbd><span>이동</span>
-                    <kbd>클릭</kbd><span>그 자리로</span>
-                    <kbd>{KEY_HINT.build}</kbd><span>건설</span>
-                    <kbd>{KEY_HINT.sell}</kbd><span>팔기</span>
-                    <kbd>{KEY_HINT.skill}</kbd><span>스킬</span>
-                  </div>
-                ))}
+                  <dl className="detail-list">
+                    <dt>병과</dt><dd>{cls.note} · {cls.cost}골드</dd>
+                    <dt>위치</dt><dd>{LANES[p.lane].name} · {p.slot + 1}번 자리</dd>
+                    {p.perks?.length > 0 && (
+                      <>
+                        <dt>능력</dt>
+                        <dd>{p.perks.map(([id, n]) => `${PERK_BY_ID[id].note}${n > 1 ? ` ×${n}` : ""}`).join(" · ")}</dd>
+                      </>
+                    )}
+                    <dt>건설 · 처치</dt><dd>{p.built}회 · {p.kills}마리</dd>
+                    {mine && (
+                      <>
+                        <dt>조작</dt>
+                        <dd>
+                          {touch
+                            ? "방향 패드 이동 · 돌판 눌러 이동 · 건설 버튼 · 팔기 버튼 · 스킬 버튼"
+                            : <>{KEY_HINT.move} 이동 · 클릭으로 그 자리 · {KEY_HINT.build} 건설 · {KEY_HINT.sell} 팔기 · {KEY_HINT.skill} {SKILLS[i].name}</>}
+                        </dd>
+                      </>
+                    )}
+                  </dl>
+                </div>
               </div>
             );
           })}
         </div>
 
-        <p className="footnote">
+        <details className="footnote">
+          <summary>게임 방법 다시 보기</summary>
           돌판마다 성격이 다릅니다. 마우스를 올리면 그 자리가 어떤 자리인지 알려 줍니다.
           지은 탑은 <kbd>X</kbd>로 팔아 들인 값의 60%를 돌려받습니다.
           성채를 누르면 골드를 내고 한 단계 올립니다. 단계마다 최대 체력 +30, 성채 대포도 함께 세집니다.
@@ -1390,7 +1451,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
           먼저 네 귀퉁이로 피하고, 곧바로 위아래좌우로 옮겨야 합니다.
           대신 그때부터 관문에서 나오는 적이 조금씩 강해집니다.
           {mySeat < 0 && " 지금은 구경 중이라 조작할 수 없습니다."}
-        </p>
+        </details>
       </div>
     </div>
   );

@@ -2,7 +2,9 @@
 
 `enemy-sheet.webp` 는 다섯 적의 원본 디자인 시트입니다. 바꾸지 마세요.
 
-게임에서 쓰는 그림은 시트에서 한 마리씩 떼어 낸 `public/assets/enemies/*.webp` 입니다.
+게임에서 쓰는 그림은 시트에서 한 마리씩 떼어 낸 것입니다. 일반 적 셋(오크 보병·고블린 척후·중장갑 트롤)은
+`public/assets/characters/enemies/*.webp`, 보스 둘(오우거 지휘관·대군주)은 결전장 그림도 함께 쓰므로
+`public/assets/characters/bosses/*.webp` 에 둡니다(예전에는 다섯 모두 `public/assets/enemies/`에 있었습니다).
 배경(남색)만 걷어 냈고 색은 그대로입니다. `*-cut.webp` 는 줄이기 전의 손실 없는 원본입니다.
 
 | 적 | 파일 | 화면 높이 | 파일 크기 |

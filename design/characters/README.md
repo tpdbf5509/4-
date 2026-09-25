@@ -2,7 +2,10 @@
 
 `*-sheet.webp` 는 병과 캐릭터의 원본 디자인 시트입니다. 바꾸지 마세요.
 
-게임에서 쓰는 그림은 이 시트에서 캐릭터만 따로 떼어 낸 `public/assets/characters/*.webp` 입니다.
+게임에서 쓰는 그림은 이 시트에서 캐릭터만 따로 떼어 낸 것입니다. 대기실 카드에 쓰는 큰 그림은
+`public/assets/characters/players/<병과id>/portrait.webp`(예전 이름 `<병과id>-tower.webp`),
+결전장에 서는 작은 그림은 `public/assets/characters/players/<병과id>/arena.webp`(예전 이름 `<병과id>-chibi.webp`)입니다.
+아래 표의 파일명은 옮기기 전 이름 그대로 남겨 뒀습니다 — 어떤 시트에서 왔는지 찾아볼 때는 그대로 쓰시면 됩니다.
 원본 해상도 그대로이고, WebP 품질 92로 저장했습니다. 원본과 평균 1~2단계 차이라 눈으로는 구별되지 않고,
 알파(오려 낸 테두리)는 한 픽셀도 달라지지 않습니다. 손실 없는 잘라내기 원본은 `*-cut.webp` 로 이 폴더에 둡니다.
 얼굴·머리·모자·옷·무기·색은 원본 그대로이며, 시트의 제목 글씨와 배경 장식만 걷어냈습니다.
@@ -36,8 +39,8 @@
 
 ## 인게임 자세 그림
 
-시트 오른쪽 '인게임 스타일' 칸에 있는 작은 그림을 따로 떼어 `*-chibi.webp` 로 저장했습니다.
-보스 결전장에서 이 그림을 씁니다. 대기실 카드에는 큰 그림(`*-tower.webp`)을 그대로 씁니다.
+시트 오른쪽 '인게임 스타일' 칸에 있는 작은 그림을 따로 떼어 `players/<병과id>/arena.webp` 로 저장했습니다.
+보스 결전장에서 이 그림을 씁니다. 대기실 카드에는 큰 그림(`players/<병과id>/portrait.webp`)을 그대로 씁니다.
 
 떼어 내는 방법은 `chibi.py` 와 같습니다. 칸 바탕색과 종이 바탕색 둘 다와 다른 픽셀만 남기고,
 덩어리 중 왼쪽 것(캐릭터, 오른쪽은 탑 그림)을 고릅니다.
@@ -103,12 +106,14 @@
 
 새 병과 캐릭터를 넣을 때
 1. 원본 시트를 이 폴더에 둡니다.
-2. 캐릭터만 딴 그림을 `public/assets/characters/<병과id>-tower.webp` 로 저장합니다.
-3. `src/ui/chars.jsx` 의 `TOWER_CHARACTERS` 에 한 줄 더합니다.
+2. 캐릭터만 딴 그림을 `public/assets/characters/players/<병과id>/portrait.webp` 로 저장합니다.
+3. 인게임 자세 그림은 `public/assets/characters/players/<병과id>/arena.webp` 로 저장합니다.
+4. `src/ui/chars.jsx` 의 `TOWER_CHARACTERS` 에 한 줄 더합니다.
 
 저장은 이렇게 합니다.
 
 ```python
-im.save("public/assets/characters/<id>-tower.webp", "WEBP", quality=92, method=6)
+im.save("public/assets/characters/players/<id>/portrait.webp", "WEBP", quality=92, method=6)
+im.save("public/assets/characters/players/<id>/arena.webp", "WEBP", quality=92, method=6)
 im.save("design/characters/<id>-tower-cut.webp", "WEBP", lossless=True, method=6, exact=True)
 ```

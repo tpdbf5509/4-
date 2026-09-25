@@ -24,7 +24,7 @@ import scipy.ndimage as ndi
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.abspath(os.path.join(HERE, '..', '..', 'public', 'assets', 'fx'))
+OUT = os.path.abspath(os.path.join(HERE, '..', '..', 'public', 'assets', 'effects'))
 
 SHEETS = {
     # ── 2차 대군주 ────────────────────────────────────────────

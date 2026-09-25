@@ -24,15 +24,16 @@ export function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-/* 적 그림 — public/assets/enemies 의 도트 스프라이트.
+/* 적 그림 — public/assets/characters/enemies · bosses 의 도트 스프라이트.
    h 는 적의 지역 좌표 높이이고, foot 은 발이 닿는 y 다(그림자 위치와 같다).
+   boss · titan 은 결전장의 보스 그림도 함께 쓴다(2963행의 classArt 대신 이 캐시를 씀).
    파일이 아직 안 왔거나 못 불러오면 예전처럼 손으로 그린다. */
 export const ENEMY_ART = {
-  grunt:  { src: "/assets/enemies/grunt.webp",  h: 31 },
-  rusher: { src: "/assets/enemies/rusher.webp", h: 28 },
-  armor:  { src: "/assets/enemies/armor.webp",  h: 33 },
-  boss:   { src: "/assets/enemies/boss.webp",   h: 34 },
-  titan:  { src: "/assets/enemies/titan.webp",  h: 62 },
+  grunt:  { src: "/assets/characters/enemies/grunt.webp",  h: 31 },
+  rusher: { src: "/assets/characters/enemies/rusher.webp", h: 28 },
+  armor:  { src: "/assets/characters/enemies/armor.webp",  h: 33 },
+  boss:   { src: "/assets/characters/bosses/boss.webp",    h: 34 },
+  titan:  { src: "/assets/characters/bosses/titan.webp",   h: 62 },
 };
 const FOOT = 9;                       // 지역 좌표에서 발이 닿는 높이
 const spriteCache = {};
@@ -49,7 +50,7 @@ function enemySprite(kind) {
 }
 
 /* 결전 이펙트 그림 — design/effects 의 시트에서 떼어 낸 것을 그대로 얹는다.
-   열쇠가 곧 파일 자리다 (boss/slam → /assets/fx/boss/slam.webp).
+   열쇠가 곧 파일 자리다 (boss/slam → /assets/effects/boss/slam.webp).
    ax, ay 는 그림 안에서 땅에 닿는 한가운데이고,
    k 는 판정 반지름의 몇 배를 그림의 가로 반지름으로 삼을지다.
    over 가 붙으면 사람보다 위에 그린다 — 솟거나 떨어지는 것들이다.
@@ -162,7 +163,7 @@ function fxSprite(id) {
   if (im === undefined) {
     im = fxCache[id] = new Image();
     im.onerror = () => { fxCache[id] = null; };
-    im.src = `/assets/fx/${id}.webp`;
+    im.src = `/assets/effects/${id}.webp`;
   }
   return im && im.complete && im.naturalWidth ? im : null;
 }
@@ -2695,8 +2696,8 @@ export function drawBanner(ctx, b) {
 /* ── 보스 결전 화면 ──────────────────────────────────────
    위쪽 가운데에 보스, 아래에 수비대. 맨 위에 이름과 체력 막대. */
 
-/* 결전장에 서는 모습은 시트의 '인게임 스타일' 그림을 쓴다.
-   대기실 카드에 쓰는 큰 그림(-tower.webp)과는 따로다. */
+/* 결전장에 서는 모습은 players/<id>/arena.webp — 시트의 '인게임 스타일' 그림이다.
+   대기실 카드에 쓰는 큰 그림(players/<id>/portrait.webp)과는 따로다. */
 const charCache = {};
 function classArt(i) {
   if (typeof Image === "undefined") return null;
@@ -2706,7 +2707,7 @@ function classArt(i) {
   if (im === undefined) {
     im = charCache[id] = new Image();
     im.onerror = () => { charCache[id] = null; };
-    im.src = `/assets/characters/${id}-chibi.webp`;
+    im.src = `/assets/characters/players/${id}/arena.webp`;
   }
   return im && im.complete && im.naturalWidth ? im : null;
 }

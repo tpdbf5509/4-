@@ -11,9 +11,15 @@
 | `hero3-fx-sheet.webp` | 병과 캐릭터 셋째 장 — 서리탑(파랑)·중력탑(보라)·보급소(분홍) |
 | `hero4-fx-sheet.webp` | 병과 캐릭터 넷째 장 — 부식탑(초록·보라)·성기사탑(금색)·화염탑(빨강) |
 
-게임에서 쓰는 그림은 이 시트에서 이펙트만 떼어 낸 `public/assets/fx/<보스>/*.webp` 입니다.
+게임에서 쓰는 그림은 이 시트에서 이펙트만 떼어 낸 `public/assets/effects/<보스>/*.webp` 입니다.
 무손실 WebP라 픽셀이 원본과 한 점도 다르지 않습니다. 늘리거나 돌리거나 색을 고치지 않았습니다.
 `cut.py` 가 하는 일은 넷뿐입니다.
+
+아래 표에는 있지만 `FX_ART`(`src/game/art.js`)에 자리를 얻지 못한 낱개 그림
+(`boss/rock` · `boss/slash` · `boss/smoke` · `boss/spark` · `boss/stomp`,
+`titan/hail` · `titan/rock` · `titan/spark` · `titan/track`)은
+`public/assets/unused/effects/<보스>/` 에 옮겨 두었습니다 — 게임에서 지금 쓰지는 않지만
+같은 시트에서 뗀 낱개 소재라 나중에 새 패턴에 쓸 수 있습니다.
 
 1. 칸마다 잘라 냅니다 (`BOX`).
 2. 설명 라벨이 걸친 줄을 지웁니다 (`_drop_label`).
@@ -28,7 +34,7 @@
 
 `python3 design/effects/cut.py` 로 다시 만들 수 있습니다.
 
-## 2차 대군주 — `public/assets/fx/titan/`
+## 2차 대군주 — `public/assets/effects/titan/`
 
 | 기술 | 그림 | 크기 | 지운 것 |
 | --- | --- | --- | --- |
@@ -50,7 +56,7 @@
 쏟아지기와 추적 낙석은 시트에 다섯·여섯 개가 나란히 그려져 있습니다.
 게임에서는 자리마다 따로 떨어지므로 낱개 하나(`hail1` · `track1`)만 떼어 내 자리마다 얹습니다.
 
-## 1차 오우거 지휘관 — `public/assets/fx/boss/`
+## 1차 오우거 지휘관 — `public/assets/effects/boss/`
 
 이 시트는 여덟 칸이 게임의 여덟 기술과 그대로 맞아떨어집니다.
 
@@ -72,7 +78,7 @@
 발구르기는 세 곳을 동시에 짓밟으므로 시트의 셋 중 하나만 떼어 자리마다 얹습니다.
 십자·엇갈려 가르기는 띠가 두 줄이지만 그림은 한 장이라 한가운데에 한 번만 얹습니다.
 
-## 병과 캐릭터 — `public/assets/fx/{archer,sniper,cannon}/`
+## 병과 캐릭터 — `public/assets/effects/{archer,sniper,cannon}/`
 
 한 장에 세 줄입니다. 위가 초록(궁수탑), 가운데가 파랑(저격탑), 아래가 주황(대포탑)입니다.
 라벨도 보스도 없는 대신 줄마다 옅은 색 안개가 깔려 있습니다. `_drop_wash` 가 그 안개만 걷습니다.
@@ -101,7 +107,7 @@
 융단 폭격은 시트에 여러 발이 나란히 그려져 있습니다. 게임에서는 자리마다 따로 떨어지므로
 낱개 하나(`rain1`)만 떼어 내 여섯 자리에 얹습니다.
 
-## 병과 캐릭터 둘째 장 — `public/assets/fx/{bolt,flame,poison}/`
+## 병과 캐릭터 둘째 장 — `public/assets/effects/{bolt,flame,poison}/`
 
 첫째 장과 같은 방식입니다. 위가 번개(파랑·노랑), 가운데가 불(주황·빨강), 아래가 독(초록·보라)입니다.
 
@@ -134,7 +140,7 @@
 화염탑은 둘째 장에 있었지만 나중에 이펙트를 새로 받아 **넷째 장으로 옮겼습니다.**
 둘째 장의 불 줄은 이제 쓰지 않습니다.
 
-## 병과 캐릭터 셋째 장 — `public/assets/fx/{frost,gravity,supply}/`
+## 병과 캐릭터 셋째 장 — `public/assets/effects/{frost,gravity,supply}/`
 
 | 쓰는 곳 | 그림 | 크기 |
 | --- | --- | --- |
@@ -156,7 +162,7 @@
 | 보급소 — 반짝이는 십자 | supply/spark.webp | 190×185 |
 | 보급소 — 솟는 빛 | supply/up.webp | 170×180 |
 
-## 병과 캐릭터 넷째 장 — `public/assets/fx/{corrode,paladin,flame}/`
+## 병과 캐릭터 넷째 장 — `public/assets/effects/{corrode,paladin,flame}/`
 
 | 쓰는 곳 | 그림 | 크기 |
 | --- | --- | --- |

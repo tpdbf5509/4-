@@ -11,16 +11,22 @@ export const WAVE_OPTIONS = [15, 30, 45, 60];   // 대기실에서 고르는 라
 export const TOTAL_WAVES = 15;                  // 기본값
 export const PREP = 5;
 
-/* 난이도 — 대기실에서 방장이 고른다 */
+/* 난이도 — 대기실에서 방장이 고른다.
+   elite  는 관문에서 나오는 적이 얼마나 돌격병·중갑으로 쏠리는지,
+   leak   는 성문까지 온 적 하나가 성채를 얼마나 깎는지,
+   perks  는 보상으로 고를 수 있는 카드 수,
+   arena  는 결전장에서만 달라지는 몫이다 (adTune 참고). */
 export const DIFFS = [
-  { id: "easy", name: "쉬움",   hp: 0.75, count: 0.85, spd: 0.92, gold: 1.2, start: 130, core: 130, prep: 7, surge: 0.08, bosses: 1,
+  { id: "easy", name: "쉬움",   hp: 0.75, count: 0.85, spd: 0.92, gold: 1.2, start: 130, core: 130, prep: 7, surge: 0.08,
     note: "적이 약하고 골드가 넉넉합니다" },
-  { id: "normal", name: "보통", hp: 1,    count: 1,    spd: 1,    gold: 1,   start: 90,  core: 100, prep: 5, surge: 0.12, bosses: 1,
+  { id: "normal", name: "보통", hp: 1,    count: 1,    spd: 1,    gold: 1,   start: 90,  core: 100, prep: 5, surge: 0.12,
     note: "기준이 되는 난이도입니다" },
-  { id: "hard", name: "어려움", hp: 1.35, count: 1.15, spd: 1.08, gold: 0.9, start: 80,  core: 90,  prep: 5, surge: 0.16, bosses: 1,
+  { id: "hard", name: "어려움", hp: 1.35, count: 1.15, spd: 1.08, gold: 0.9, start: 80,  core: 90,  prep: 5, surge: 0.16,
     note: "적이 단단하고 골드가 빡빡합니다" },
-  { id: "hell", name: "지옥",   hp: 1.8,  count: 1.3,  spd: 1.18, gold: 0.8, start: 70,  core: 80,  prep: 4, surge: 0.22, bosses: 2,
-    note: "보스가 둘씩 옵니다. 각오하세요" },
+  { id: "hell", name: "지옥",   hp: 1.8,  count: 1.45, spd: 1.22, gold: 0.7,  start: 70, core: 72, prep: 4, surge: 0.32,
+    elite: 0.55, leak: 1.25, perks: 2,
+    arena: { hp: 0.85, lives: 4, revive: 1.35, wear: 0.35, tell: 0.78, rest: 0.68, limit: 0.65 },
+    note: "보스가 일찍 분노하고, 보상 카드도 두 장뿐입니다" },
 ];
 export const DEFAULT_DIFF = 1;
 export const diffOf = (g) => DIFFS[(g && g.diff) || 0] || DIFFS[DEFAULT_DIFF];
@@ -486,6 +492,16 @@ export const ARENA = {
   clubDmg: 0.5,          // 방망이 한 대 — 크게 내리치는 것보다는 약하다
 };
 
+/* 난이도마다 결전장이 달라지는 몫. 적어 두지 않은 값은 기준을 그대로 쓴다.
+   hp     는 보스 체력, lives 는 몇 대를 맞으면 쓰러지는지,
+   revive 는 다시 일어나기까지, wear 는 두 번째부터 얼마씩 더 누워 있는지,
+   tell   은 붉은 자리가 떠 있는 시간, rest 는 다음 공격까지,
+   limit  은 분노하기까지, bite 는 한 대의 무게다. */
+export const AD_TUNE = { hp: 1, bite: 1, lives: ARENA.lives, revive: 1, wear: 0, tell: 1, rest: 1, limit: 1 };
+export const AD_WEAR_MAX = 2.2;      // 아무리 자주 쓰러져도 이보다 더 누워 있지는 않는다
+export const AD_MEND = 14;           // 이만큼 버티고 서 있으면 쌓인 몫이 한 칸 풀린다
+export const adTune = (g) => ({ ...AD_TUNE, ...(diffOf(g).arena || {}) });
+
 /* 보스는 결전장 안을 걸어 다닌다. 자리는 arena 에 담고, 그림 기준선은 발끝에서 이만큼 위다. */
 export const ARENA_LIFT = ARENA.bfy - ARENA.by;
 export const bossX = (g) => (g.arena && g.arena.x !== undefined ? g.arena.x : ARENA.bx);
@@ -825,17 +841,21 @@ export function buildQueue(n, players = 4, total = TOTAL_WAVES, diff = DEFAULT_D
   const active = shuffle([0, 1, 2, 3]).slice(0, laneCount);
   const one = () => active[Math.floor(Math.random() * active.length)];
 
-  // 보스 웨이브에는 보스만 나온다 (지옥에서는 둘)
-  if (kind === "boss") return Array.from({ length: D.bosses }, () => ({ type: "boss", lane: one() }));
-  if (kind === "titan") return Array.from({ length: D.bosses }, () => ({ type: "titan", lane: one() }));
+  // 보스 웨이브에는 보스만 나온다 — 길을 따라오는 대신 결전장이 열린다
+  if (kind === "boss") return [{ type: "boss", lane: one() }];
+  if (kind === "titan") return [{ type: "titan", lane: one() }];
 
   const list = [];
   const step = (n * TOTAL_WAVES) / Math.max(1, total);   // 15라운드 기준으로 환산한 진행도
+  const elite = D.elite || 0;                            // 돌격병·중갑으로 얼마나 쏠리는지
 
   if (kind === "rush") {
-    // 갑자기 빠른 적이 떼로 몰려온다
+    // 갑자기 빠른 적이 떼로 몰려온다. 높은 난이도에서는 그 틈에 중갑이 섞인다.
     const count = Math.round((10 + step * 2.6) * (0.5 + 0.13 * crew) * D.count);
-    for (let i = 0; i < count; i++) list.push({ type: "rusher", lane: active[i % active.length] });
+    for (let i = 0; i < count; i++) {
+      const type = elite > 0 && step >= 4 && Math.random() < 0.3 * elite ? "armor" : "rusher";
+      list.push({ type, lane: active[i % active.length] });
+    }
     return list;
   }
 
@@ -843,8 +863,8 @@ export function buildQueue(n, players = 4, total = TOTAL_WAVES, diff = DEFAULT_D
   for (let i = 0; i < count; i++) {
     let type = "grunt";
     const r = Math.random();
-    if (step >= 3 && r < 0.32) type = "rusher";
-    else if (step >= 5 && r > 0.76) type = "armor";
+    if (step >= 3 && r < 0.32 + 0.16 * elite) type = "rusher";
+    else if (step >= 5 && r > 0.76 - 0.2 * elite) type = "armor";
     list.push({ type, lane: active[i % active.length] });
   }
   return list;

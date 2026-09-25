@@ -1173,7 +1173,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack 
                 </div>
 
                 {mySeat >= 0 && hud.offer?.[mySeat] && !hud.picked?.[mySeat] ? (
-                  <div className="reward-cards">
+                  <div className="reward-cards" style={{ "--cards": hud.offer[mySeat].length }}>
                     {hud.offer[mySeat].map((id, k) => {
                       const perk = PERK_BY_ID[id];
                       const have = hud.players[mySeat]?.perks?.find((x) => x[0] === id);

@@ -5,7 +5,7 @@ import {
   diffOf, prepTime, ARENA, ARENA_PATTERNS, PAT_BY_ID, ARENA_LEAP, ARENA_RUSH, ARENA_CUT,
   arenaBossCfg, ARENA_WAKE, ARENA_HAIL, ARENA_GORE, ARENA_RIFT, ARENA_PULSE,
   ARENA_TRACK, ARENA_SPIN,
-  arenaInZone, arenaNear, arenaKit, arenaRange, arenaArtOf,
+  arenaInZone, arenaNear, arenaKit, arenaRange, arenaArtOf, adTune, AD_WEAR_MAX, AD_MEND,
   bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
   TOWER_MAX_LV, UP_MUL, upCostOf, supplyAid,
@@ -337,7 +337,7 @@ export function doSkill(g, pi) {
 export function openReward(g) {
   g.phase = "reward";
   g.timer = REWARD_T;
-  g.offer = g.seats.map((on) => (on ? rollPerks(g) : null));
+  g.offer = g.seats.map((on) => (on ? rollPerks(g, diffOf(g).perks || 3) : null));
   g.picked = g.seats.map(() => false);
   g.pendingReward = 0;
   g.banner = null;              // 고르는 창이 대신 알려 준다
@@ -622,10 +622,11 @@ export function startArena(g, kind) {
   const cfg = arenaBossCfg(kind);
   const D = diffOf(g);
   const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + D.surge * g.surge) * D.hp;
-  const max = Math.round(base.hp * scale * ARENA.hpMul * arenaCrew(g));
-  // 보스 한 대가 사람에게 주는 피해. 이 수의 ARENA.lives 배가 각자의 체력이 된다.
-  const bite = Math.max(1, Math.round(base.dmg * ARENA.coreHit * D.hp));
-  const life = Math.max(12, bite * ARENA.lives);
+  const T = adTune(g);
+  const max = Math.round(base.hp * scale * ARENA.hpMul * arenaCrew(g) * T.hp);
+  // 보스 한 대가 사람에게 주는 피해. 이 수의 T.lives 배가 각자의 체력이 된다.
+  const bite = Math.max(1, Math.round(base.dmg * ARENA.coreHit * D.hp * T.bite));
+  const life = Math.max(12, bite * T.lives);
   g.phase = "arena";
   g.enemies = [];
   g.queue = [];
@@ -641,7 +642,7 @@ export function startArena(g, kind) {
     combo: 0, comboT: 0, jolt: 0, roar: 0,
     burn: 0, burnDps: 0, poison: 0, poisonDps: 0, slow: 0, shred: 0, shredAmt: 0,
     shots: [], mobs: [],
-    limit: cfg.limit, rage: 0,
+    limit: cfg.limit * T.limit, rage: 0,
     // 누가 얼마나 때렸는지 — 끝나고 보여 줄 기록
     tally: g.players.map(() => 0),
     assist: g.players.map(() => 0),
@@ -659,7 +660,7 @@ export function startArena(g, kind) {
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
     p.hold = []; p.vx = undefined; p.vy = undefined;    // 지난 판에 누르고 있던 건 잊는다
     p.abuff = 0; p.abuffAmt = 0; p.abuffBy = -1;
-    p.ahpMax = life; p.ahp = life; p.aout = 0;
+    p.ahpMax = life; p.ahp = life; p.aout = 0; p.adowns = 0;
   });
   g.shake = Math.max(g.shake, 0.6);
   fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: cfg.ring, t: 1, life: 1, snd: "boss" });
@@ -1195,12 +1196,18 @@ function arenaHurt(g, pi, raw) {
   fx(g, { kind: "dmg", x: p.ax, y: (p.ay || ARENA.bfy) - 96, text: `-${lost}`,
     color: "#ff8d76", t: 0.9, life: 0.9 });
   if (p.ahp <= 0) {
-    p.aout = ARENA.revive;                 // 쓰러졌다 — 잠시 아무것도 못 한다
-    p.adown = ARENA.revive;
+    // 쓰러졌다 — 잠시 아무것도 못 한다. 거듭 쓰러지면 그만큼 늦게 일어난다.
+    const T = adTune(g);
+    p.adowns = (p.adowns || 0) + 1;
+    const wear = Math.min(AD_WEAR_MAX, 1 + T.wear * (p.adowns - 1));
+    const wait = ARENA.revive * T.revive * wear;
+    p.aout = wait;
+    p.adown = wait;
     p.aswing = 0; p.askill = 0; p.hold = [];
     fx(g, { kind: "poof", x: p.ax, y: (p.ay || ARENA.bfy) - 20, t: 0.6, life: 0.6,
       color: "rgba(230,150,140,1)" });
-    callout(g, CX, 280, `${(g.names && g.names[pi]) || CLASSES[pi].name} 쓰러짐`, "#ff8d76", "warn", 0.6);
+    callout(g, CX, 280, `${(g.names && g.names[pi]) || CLASSES[pi].name} 쓰러짐`
+      + (wear > 1 ? " — 늦게 일어선다" : ""), "#ff8d76", "warn", 0.6);
   }
   return cost;                             // 성채가 실제로 잃은 값
 }
@@ -1426,7 +1433,7 @@ function arenaBegin(g, pat, stage = 0) {
   a.leap = null; a.rush = null; a.air = 0;
   a.next = pat.next || null;
   // 이어지는 단계는 예비가 짧다
-  a.stT = (stage ? (pat.gap || 0.5) : pat.tell) * arenaBossCfg(a.type).tell;
+  a.stT = (stage ? (pat.gap || 0.5) : pat.tell) * arenaBossCfg(a.type).tell * adTune(g).tell;
   a.stT0 = a.stT;
   const spot = () => {
     // 아무나 한 사람 근처를 노린다
@@ -1611,7 +1618,7 @@ function arenaStrike(g) {
     if (nx) return arenaBegin(g, nx);
   }
   a.st = "rest";
-  a.stT = arenaBossCfg(a.type).after + (a.pat === "rush" ? 0.5 : 0);
+  a.stT = (arenaBossCfg(a.type).after + (a.pat === "rush" ? 0.5 : 0)) * adTune(g).rest;
   a.zone = null;
 }
 
@@ -1661,6 +1668,7 @@ export function stepArena(g, dt) {
     done.forEach((sh) => arenaImpact(g, sh));
   }
 
+  const wear = adTune(g).wear;
   g.players.forEach((p, i) => {
     if (g.seats[i]) arenaWalk(g, i, dt);
     if (p.abuff > 0) { p.abuff -= dt; if (p.abuff <= 0) p.abuffBy = -1; }
@@ -1677,7 +1685,12 @@ export function stepArena(g, dt) {
         fx(g, { kind: "nova", x: p.ax, y: (p.ay || ARENA.bfy) - 20, r: 56, color: P[i].light,
           n: 8, t: 0.6, life: 0.6 });
         say(g, p.ax, (p.ay || ARENA.bfy) - 104, "일어섰다", P[i].light);
+        p.aupT = 0;
       }
+    } else if (p.adowns > 0 && wear > 0) {
+      // 한동안 버티면 다친 자리가 아문다 — 다시 가볍게 일어난다
+      p.aupT = (p.aupT || 0) + dt;
+      if (p.aupT >= AD_MEND) { p.aupT = 0; p.adowns -= 1; }
     }
     if (p.aswing > 0) {
       p.aswing -= dt;
@@ -1734,7 +1747,7 @@ export function stepArena(g, dt) {
     else if (a.st === "tell") arenaStrike(g);
     else {
       a.st = "idle";
-      a.stT = (arenaBossCfg(a.type).rest + Math.random() * 0.8) * (a.rage ? 0.5 : 1);
+      a.stT = (arenaBossCfg(a.type).rest + Math.random() * 0.8) * adTune(g).rest * (a.rage ? 0.5 : 1);
     }
   }
 }
@@ -2126,11 +2139,11 @@ export function step(g, dt) {
     if (e.p >= 1) {
       e.dead = true;
       const heavy = e.type === "boss" || e.type === "titan";
-      let take = ENEMY[e.type].dmg * perkVal.guard(teamPerk(g, "guard"));
+      let take = ENEMY[e.type].dmg * (diffOf(g).leak || 1) * perkVal.guard(teamPerk(g, "guard"));
       if (heavy) take *= perkVal.bulwark(teamPerk(g, "bulwark"));
       take *= 1 - (g.ward || 0);                 // 성기사탑
       if (g.sanctuary > 0) take *= 0.4;          // 성역
-      if (take < ENEMY[e.type].dmg - 0.5) {
+      if (take < ENEMY[e.type].dmg * (diffOf(g).leak || 1) - 0.5) {
         fx(g, { kind: "ring", x: CX, y: CY, r: 90, color: "#9fd8ff", t: 0.5, life: 0.5 });
       }
       g.core.hp -= take;

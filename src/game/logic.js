@@ -120,13 +120,19 @@ export function towerDmg(g, t, i) {
     * perkVal.power(perkN(g, t.owner, "power"))
     * (1 + cmd + moodBonus(g, t.owner)) * spotMul
     * (1 + (t.aid || 0))                        // 보급소 사거리 안이면 더 세게 때린다
-    * (g.testMode ? (g.testDmgMul || 1) : 1);   // 테스트 서버 — 판 위 배율 단추
+    * (g.testMode ? (g.testDmgMul ?? 1) : 1);   // 테스트 서버 — 판 위 배율 단추 (0도 그대로 살려야 한다)
 }
 
 /* 테스트 서버 전용 — 판 위 탑들의 피해를 한꺼번에 배율로 조절한다. */
 export function doTestDmg(g, mul) {
   if (!g.testMode) return;
   g.testDmgMul = mul;
+}
+
+/* 테스트 서버 전용 — 결전장에서 보스가 주는 피해를 배율로 조절한다(탑 피해와는 다른 값). */
+export function doTestBossDmg(g, mul) {
+  if (!g.testMode) return;
+  g.testBossDmgMul = mul;
 }
 
 /* ── 조작 ───────────────────────────────────────────────── */
@@ -1271,8 +1277,11 @@ function arenaHurt(g, pi, raw) {
   const p = g.players[pi];
   const a = g.arena;
   if (!p || !a || p.aout > 0) return 0;
+  const scaled = g.testMode ? raw * (g.testBossDmgMul ?? 1) : raw;   // 테스트 서버 — 보스 피해 배율 (0도 그대로 살려야 한다)
   const had = Math.max(0, p.ahp || 0);
-  const lost = Math.min(had, Math.max(1, Math.round(raw)));
+  // 정식 대전은 맞았으면 최소 1은 깎이게 하지만, 테스트 서버는 배율 0을 진짜 무적으로 본다
+  const floor = g.testMode ? 0 : 1;
+  const lost = Math.min(had, Math.max(floor, Math.round(scaled)));
   p.ahp = had - lost;
   // 깎인 만큼 성채도 깎인다. 다만 한 사람이 다 쓰러져도 성채는
   // 제 몫(coreShare)만큼만 잃는다 — 한 번 쓰러졌다고 판이 끝나지 않게.

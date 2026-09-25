@@ -787,6 +787,7 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
   const D = DIFFS[d];
   return {
     testMode,
+    testDmgMul: 1,
     seats: flags,
     total: WAVE_OPTIONS.includes(total) ? total : TOTAL_WAVES,
     diff: d,

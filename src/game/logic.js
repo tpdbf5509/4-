@@ -119,7 +119,14 @@ export function towerDmg(g, t, i) {
   return def.dmg * (1 + 0.62 * (t.lv - 1))
     * perkVal.power(perkN(g, t.owner, "power"))
     * (1 + cmd + moodBonus(g, t.owner)) * spotMul
-    * (1 + (t.aid || 0));                       // 보급소 사거리 안이면 더 세게 때린다
+    * (1 + (t.aid || 0))                        // 보급소 사거리 안이면 더 세게 때린다
+    * (g.testMode ? (g.testDmgMul || 1) : 1);   // 테스트 서버 — 판 위 배율 단추
+}
+
+/* 테스트 서버 전용 — 판 위 탑들의 피해를 한꺼번에 배율로 조절한다. */
+export function doTestDmg(g, mul) {
+  if (!g.testMode) return;
+  g.testDmgMul = mul;
 }
 
 /* ── 조작 ───────────────────────────────────────────────── */

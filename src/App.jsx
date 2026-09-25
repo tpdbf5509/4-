@@ -8,7 +8,7 @@ import {
 import {
   step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
   applyReward, applyLeave, applyHold, startPrep, towerCosts, markMove,
-  packSnapshot, applySnapshot, applyOut, doTestBuild,
+  packSnapshot, applySnapshot, applyOut, doTestBuild, doTestDmg,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
@@ -759,6 +759,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       preview: g.preview || null,
       paused: g.paused, speed: g.speed,
       surge: g.surge || 0, diff: g.diff ?? DEFAULT_DIFF,
+      testDmgMul: g.testDmgMul || 1,
       boss: g.arena ? g.arena.hp / g.arena.max : 0,
       leave: (g.leave || []).map((v) => !!v), leaveT: g.leaveT || 0,
       offer: g.phase === "reward" ? g.offer : null,
@@ -805,6 +806,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       else if (kind === "sell") doSell(g, mySeat);
       else if (kind === "castle") doCastle(g, mySeat);
       else if (kind === "testBuild") doTestBuild(g, mySeat, dir);
+      else if (kind === "testDmg") doTestDmg(g, dir);
       else doSkill(g, mySeat);
     } else {
       // 내 커서는 바로 움직이고, 판정은 방장에게 맡긴다.
@@ -1008,6 +1010,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
         else if (d.kind === "sell") doSell(g, d.cls);
         else if (d.kind === "castle") doCastle(g, d.cls);
         else if (d.kind === "testBuild") doTestBuild(g, d.cls, d.dir);
+        else if (d.kind === "testDmg") doTestDmg(g, d.dir);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
     } else {
@@ -1211,6 +1214,18 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
                 {CLASSES.map((cls, i) => (
                   <button key={cls.id} className="test-panel-btn" onClick={() => act("testBuild", cls.id)} title={cls.name}>
                     <ClassIcon i={i} />
+                  </button>
+                ))}
+              </div>
+              <span className="test-panel-label">테스트 · 탑 피해 배율 ×{hud.testDmgMul}</span>
+              <div className="test-panel-row">
+                {[0.1, 0.5, 1, 2, 5, 10, 50].map((mul) => (
+                  <button
+                    key={mul}
+                    className={`test-panel-mul ${hud.testDmgMul === mul ? "on" : ""}`}
+                    onClick={() => act("testDmg", mul)}
+                  >
+                    ×{mul}
                   </button>
                 ))}
               </div>

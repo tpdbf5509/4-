@@ -2118,7 +2118,7 @@ export function step(g, dt) {
               if (Math.hypot(o.x - e.x, o.y - e.y) > 36) return;
               applyHit(g, o, pillar * 0.5, t.owner, true, "flame", false);
             });
-            fx(g, { kind: "boom", x: e.x, y: e.y - 6, r: 36, t: 0.4, life: 0.4 });
+            fx(g, { kind: "pillar", x: e.x, y: e.y + 4, r: 36, h: 80, t: 0.6, life: 0.6 });
           }
         });
         fx(g, { kind: "firering", x: s.x, y: s.y - 6, r: range, t: 0.5, life: 0.5 });

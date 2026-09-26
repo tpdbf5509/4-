@@ -2400,6 +2400,55 @@ export function drawFx(ctx, f) {
       ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * p * 9, y, rr, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
+  } else if (k === "pillar") {
+    // 화염탑 4단계 불기둥 — 바닥이 달아오르고, 불길이 위로 솟았다가 가늘어지며 사그라든다
+    const p = 1 - f.t / f.life;
+    const seed = (f.x * 12.9898 + f.y * 78.233) % 6.283;
+    const rise = Math.min(1, p / 0.28);
+    const H = (f.h || 80) * (1 - (1 - rise) * (1 - rise));
+    const W = (f.r || 36) * 0.5 * (1 - p * 0.4);
+    const fade = p < 0.55 ? 1 : 1 - (p - 0.55) / 0.45;
+    const bx = f.x, by = f.y;
+    ctx.save();
+    ctx.globalAlpha = fade * 0.7;
+    const scorch = ctx.createRadialGradient(bx, by, 0, bx, by, W * 2.2);
+    scorch.addColorStop(0, "rgba(255,170,70,0.85)");
+    scorch.addColorStop(0.55, "rgba(200,70,20,0.45)");
+    scorch.addColorStop(1, "rgba(90,20,10,0)");
+    ctx.fillStyle = scorch;
+    ctx.beginPath(); ctx.ellipse(bx, by, W * 2.2, W * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+    // 불꽃 혀 하나 — 아래는 넓고 위로 갈수록 가늘어지며 끝이 흔들린다
+    const tongue = (cx, w, h, ph, stops, alpha) => {
+      const sway = Math.sin(p * 18 + seed + ph) * w * 0.45;
+      const top = by - h;
+      const gr = ctx.createLinearGradient(cx, by, cx, top);
+      gr.addColorStop(0, stops[0]); gr.addColorStop(0.5, stops[1]); gr.addColorStop(1, stops[2]);
+      ctx.globalAlpha = fade * alpha;
+      ctx.fillStyle = gr;
+      ctx.beginPath();
+      ctx.moveTo(cx - w, by);
+      ctx.bezierCurveTo(cx - w * 1.15, by - h * 0.4, cx - w * 0.45 + sway, by - h * 0.78, cx + sway * 1.5, top);
+      ctx.bezierCurveTo(cx + w * 0.45 + sway, by - h * 0.78, cx + w * 1.15, by - h * 0.4, cx + w, by);
+      ctx.closePath();
+      ctx.fill();
+    };
+    const body = ["rgba(255,150,55,0.95)", "rgba(228,72,30,0.85)", "rgba(150,30,20,0)"];
+    tongue(bx - W * 0.6, W * 0.62, H * 0.66, 1.3, body, 0.9);
+    tongue(bx + W * 0.6, W * 0.62, H * 0.78, 2.6, body, 0.9);
+    tongue(bx, W * 0.95, H, 0, body, 0.95);
+    // 안쪽 심지만 빛을 더해 달아오른 느낌을 낸다
+    ctx.globalCompositeOperation = "lighter";
+    tongue(bx, W * 0.42, H * 0.62, 0.5, ["rgba(255,245,200,0.95)", "rgba(255,190,80,0.6)", "rgba(255,140,40,0)"], 0.9);
+    ctx.fillStyle = "rgba(255,220,140,1)";
+    for (let i = 0; i < 6; i++) {
+      const s = seed + i * 1.7;
+      const ep = (p * 1.4 + i * 0.13) % 1;
+      ctx.globalAlpha = fade * (1 - ep);
+      const ex = bx + Math.sin(s * 3) * W * 1.3 + Math.sin(p * 10 + s) * 3;
+      const ey = by - (f.h || 80) * (0.3 + ep * 0.9);
+      ctx.beginPath(); ctx.arc(ex, ey, 1.8 * (1 - ep) + 0.4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
   } else if (k === "firering") {
     const p = 1 - f.t / f.life;
     ctx.save();

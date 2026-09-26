@@ -129,10 +129,16 @@ export function doTestDmg(g, mul) {
   g.testDmgMul = mul;
 }
 
-/* 테스트 서버 전용 — 결전장에서 보스가 주는 피해를 배율로 조절한다(탑 피해와는 다른 값). */
-export function doTestBossDmg(g, mul) {
-  if (!g.testMode || !Number.isFinite(mul) || mul < 0) return;
-  g.testBossDmgMul = mul;
+/* 테스트 서버 전용 — 결전장에서 캐릭터가 보스에게 주는 피해를 배율로 조절한다(보스 공격력은 그대로) */
+export function doTestCharMul(g, mul) {
+  if (!g.testMode || !Number.isFinite(mul) || mul <= 0) return;
+  g.testCharMul = mul;
+}
+
+/* 테스트 서버 전용 — 캐릭터 한 방의 피해를 숫자 그대로 박는다. 0이면 풀고 배율로 돌아간다 */
+export function doTestCharDmg(g, n) {
+  if (!g.testMode || !Number.isFinite(n) || n < 0) return;
+  g.testCharDmg = Math.min(9999999, Math.round(n));
 }
 
 /* ── 조작 ───────────────────────────────────────────────── */
@@ -829,6 +835,8 @@ function arenaDamage(g, pi, raw, opt) {
   if (p && p.abuff > 0) dmg *= 1 + p.abuffAmt;                // 보급소가 밀어 준 만큼
   const crit = Math.random() < perkVal.crit(perkN(g, pi, "crit"));
   if (crit) dmg *= 2;
+  // 테스트 서버 — 숫자를 박아 두었으면 그 값 그대로, 아니면 배율만큼
+  if (g.testMode) dmg = g.testCharDmg > 0 ? g.testCharDmg : dmg * (g.testCharMul ?? 1);
   dmg = Math.max(1, Math.round(dmg));
   if (a.tally) {
     a.tally[pi] = (a.tally[pi] || 0) + dmg;
@@ -1277,11 +1285,8 @@ function arenaHurt(g, pi, raw) {
   const p = g.players[pi];
   const a = g.arena;
   if (!p || !a || p.aout > 0) return 0;
-  const scaled = g.testMode ? raw * (g.testBossDmgMul ?? 1) : raw;   // 테스트 서버 — 보스 피해 배율 (0도 그대로 살려야 한다)
   const had = Math.max(0, p.ahp || 0);
-  // 정식 대전은 맞았으면 최소 1은 깎이게 하지만, 테스트 서버는 배율 0을 진짜 무적으로 본다
-  const floor = g.testMode ? 0 : 1;
-  const lost = Math.min(had, Math.max(floor, Math.round(scaled)));
+  const lost = Math.min(had, Math.max(1, Math.round(raw)));
   p.ahp = had - lost;
   // 깎인 만큼 성채도 깎인다. 다만 한 사람이 다 쓰러져도 성채는
   // 제 몫(coreShare)만큼만 잃는다 — 한 번 쓰러졌다고 판이 끝나지 않게.
@@ -1748,9 +1753,11 @@ export function stepArena(g, dt) {
   if (a.comboT > 0) { a.comboT -= dt; if (a.comboT <= 0) a.combo = 0; }
 
   // 보스에게 남은 효과 — 화상·독은 계속 깎고, 서리는 다음 공격을 늦춘다
+  // 테스트 서버 — 캐릭터가 남긴 화상·독도 캐릭터 피해라 배율을 따른다
+  const dotMul = g.testMode ? (g.testCharMul ?? 1) : 1;
   if (a.burn > 0) {
     a.burn -= dt;
-    a.hp = Math.max(0, a.hp - a.burnDps * dt);
+    a.hp = Math.max(0, a.hp - a.burnDps * dotMul * dt);
     arenaCharge(g, a.burnBy || 0, a.burnDps * dt);      // 남겨 둔 불도 때린 값이다
     if (Math.random() < dt * 6) fx(g, { kind: "flame", x: bossX(g) + (Math.random() - 0.5) * 70,
       y: bossTop(g) + 40 + Math.random() * 50, t: 0.4, life: 0.4 });
@@ -1758,7 +1765,7 @@ export function stepArena(g, dt) {
   }
   if (a.poison > 0) {
     a.poison -= dt;
-    a.hp = Math.max(0, a.hp - a.poisonDps * dt);          // 장갑 무시
+    a.hp = Math.max(0, a.hp - a.poisonDps * dotMul * dt);          // 장갑 무시
     arenaCharge(g, a.poisonBy || 0, a.poisonDps * dt);
     if (Math.random() < dt * 5) fx(g, { kind: "fume", x: bossX(g) + (Math.random() - 0.5) * 70,
       y: bossTop(g) + 40 + Math.random() * 50, t: 0.6, life: 0.6, color: "rgba(150,220,90,0.55)" });
@@ -2523,7 +2530,7 @@ export function packSnapshot(g) {
     hp: g.core.hp, hm: g.core.max, cv: g.core.lv, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
     ql: g.queue.length, cb: g.combo, pv: g.preview || 0,
     sg: g.surge,
-    tx: g.testMode ? [g.testDmgMul, g.testBossDmgMul] : 0,
+    tx: g.testMode ? [g.testDmgMul, g.testCharMul, g.testCharDmg] : 0,
     pk: g.players.map((p) => PERK_IDS.map((id) => p.perks[id] || 0)),
     rw: g.phase === "reward" ? { of: g.offer, pi: g.picked, sc: g.bossScore || 0 } : 0,
     ca: Math.round(g.castle.aim * 100) / 100,
@@ -2581,7 +2588,7 @@ export function applySnapshot(g, s) {
   g.combo = s.cb || 0;
   if (g.combo) g.comboT = Math.max(g.comboT, 0.3);
   g.surge = s.sg || 0;
-  if (s.tx) { g.testDmgMul = s.tx[0]; g.testBossDmgMul = s.tx[1]; }
+  if (s.tx) { g.testDmgMul = s.tx[0]; g.testCharMul = s.tx[1]; g.testCharDmg = s.tx[2]; }
   if (s.pk) {
     s.pk.forEach((row, i) => {
       const perks = {};

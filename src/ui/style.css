@@ -883,3 +883,9 @@ kbd {
 
 /* 테스트 서버 비밀번호 칸 — 코드에 TEST를 쳤을 때만 나온다 */
 .home .test-pw { margin-top: 12px; }
+.test-panel-num {
+  width: 110px; padding: 5px 9px; font-size: 12px; color: #ffe3e3;
+  background: rgba(20, 8, 8, 0.8); border: 1px solid #8a6a3f; border-radius: 8px;
+}
+.test-panel-num:focus { outline: none; border-color: #ffc9c9; }
+.test-panel-mul:disabled { opacity: 0.4; cursor: default; filter: none; }

@@ -8,7 +8,7 @@ import {
 import {
   step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
   applyReward, applyLeave, applyHold, startPrep, towerCosts, markMove,
-  packSnapshot, applySnapshot, applyOut, doTestBuild, doTestDmg, doTestBossDmg,
+  packSnapshot, applySnapshot, applyOut, doTestBuild, doTestDmg, doTestCharMul, doTestCharDmg,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
@@ -778,6 +778,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
   const touch = useTouch();
   G.current.touch = touch;                      // 판 안의 안내 글도 조작판에 맞춘다
   const [hud, setHud] = useState(() => snapHud(G.current));
+  const [charDmgText, setCharDmgText] = useState("");
   const [dropped, setDropped] = useState(false);
   // 골드가 늘어난 순간만 잠깐 반짝인다 — 실제 값이 아니라 화면 강조일 뿐이다
   const prevGoldRef = useRef([]);
@@ -823,7 +824,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       paused: g.paused, speed: g.speed,
       surge: g.surge || 0, diff: g.diff ?? DEFAULT_DIFF,
       testDmgMul: g.testDmgMul ?? 1,
-      testBossDmgMul: g.testBossDmgMul ?? 1,
+      testCharMul: g.testCharMul ?? 1,
+      testCharDmg: g.testCharDmg || 0,
       boss: g.arena ? g.arena.hp / g.arena.max : 0,
       leave: (g.leave || []).map((v) => !!v), leaveT: g.leaveT || 0,
       offer: g.phase === "reward" ? g.offer : null,
@@ -871,7 +873,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       else if (kind === "castle") doCastle(g, mySeat);
       else if (kind === "testBuild") doTestBuild(g, mySeat, dir);
       else if (kind === "testDmg") doTestDmg(g, dir);
-      else if (kind === "testBossDmg") doTestBossDmg(g, dir);
+      else if (kind === "testCharMul") doTestCharMul(g, dir);
+      else if (kind === "testCharDmg") doTestCharDmg(g, dir);
       else doSkill(g, mySeat);
     } else {
       // 내 커서는 바로 움직이고, 판정은 방장에게 맡긴다.
@@ -933,6 +936,9 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
   useEffect(() => {
     if (mySeat < 0) return;
     function onKey(e) {
+      // 글을 쓰는 칸에서는 조작 키로 가로채지 않는다 — 한글 자판도 같은 키 자리를 쓴다
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       const dir = MOVE_KEYS[e.code];
       const isBuild = BUILD_KEYS.includes(e.code);
       const isSkill = SKILL_KEYS.includes(e.code);
@@ -1076,7 +1082,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
         else if (d.kind === "castle") doCastle(g, d.cls);
         else if (d.kind === "testBuild") doTestBuild(g, d.cls, d.dir);
         else if (d.kind === "testDmg") doTestDmg(g, d.dir);
-        else if (d.kind === "testBossDmg") doTestBossDmg(g, d.dir);
+        else if (d.kind === "testCharMul") doTestCharMul(g, d.dir);
+        else if (d.kind === "testCharDmg") doTestCharDmg(g, d.dir);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
     } else {
@@ -1438,18 +1445,44 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
 
         {testMode && mySeat >= 0 && hud.phase === "arena" && (
           <div className="test-panel">
-            <span className="test-panel-label">테스트 · 보스 피해 배율 ×{hud.testBossDmgMul}</span>
+            <span className="test-panel-label">
+              테스트 · 캐릭터 피해 배율 ×{hud.testCharMul}{hud.testCharDmg > 0 ? " · 숫자 고정 중이라 쉬는 중" : ""}
+            </span>
             <div className="test-panel-row">
-              {[0, 0.1, 0.5, 1, 2, 5, 10].map((mul) => (
+              {[0.1, 0.5, 1, 2, 5, 10, 50].map((mul) => (
                 <button
                   key={mul}
-                  className={`test-panel-mul ${hud.testBossDmgMul === mul ? "on" : ""}`}
-                  onClick={() => act("testBossDmg", mul)}
+                  className={`test-panel-mul ${!hud.testCharDmg && hud.testCharMul === mul ? "on" : ""}`}
+                  onClick={() => act("testCharMul", mul)}
                 >
                   ×{mul}
                 </button>
               ))}
             </div>
+            <span className="test-panel-label">
+              테스트 · 한 방 피해 직접 입력 {hud.testCharDmg > 0 ? `· 지금 ${hud.testCharDmg}` : "· 안 씀"}
+            </span>
+            <form
+              className="test-panel-row"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const n = Number(charDmgText);
+                if (Number.isFinite(n) && n >= 1) act("testCharDmg", n);
+              }}
+            >
+              <input
+                className="test-panel-num" type="number" inputMode="numeric" min="1" max="9999999"
+                placeholder="예: 500" value={charDmgText}
+                onChange={(e) => setCharDmgText(e.target.value)}
+              />
+              <button type="submit" className="test-panel-mul">적용</button>
+              <button
+                type="button" className="test-panel-mul" disabled={!hud.testCharDmg}
+                onClick={() => { act("testCharDmg", 0); setCharDmgText(""); }}
+              >
+                해제
+              </button>
+            </form>
           </div>
         )}
 

@@ -583,19 +583,20 @@ kbd {
   background: linear-gradient(rgba(120, 30, 30, 0.9), rgba(80, 16, 16, 0.9));
   border: 1px solid #ff9a9a; border-radius: 999px; pointer-events: none; z-index: 2;
 }
+@media (max-width: 560px) {
+  .test-badge { top: auto; bottom: 6px; padding: 2px 8px; font-size: 9px; }
+}
 
-/* 테스트 서버 — 자리에 값 없이 원하는 병과를 바로 세우는 판 */
+/* 테스트 서버 — 자리에 값 없이 원하는 병과를 바로 세우는 판.
+   판 위에 띄우면 캐릭터와 남쪽 길을 가리니, 판 바로 아래에 둔다 */
 .test-panel {
-  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%);
-  max-width: min(94%, 620px);
-  padding: 7px 10px; display: flex; flex-direction: column; gap: 5px; align-items: center;
+  margin-top: 10px;
+  padding: 8px 12px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start;
   background: linear-gradient(rgba(58, 20, 20, 0.94), rgba(36, 12, 12, 0.94));
   border: 1px solid #c25a5a; border-radius: 12px;
-  box-shadow: 0 4px 0 rgba(30, 10, 10, 0.8), 0 10px 20px rgba(0, 0, 0, 0.4);
-  pointer-events: auto;
 }
 .test-panel-label { font-size: 10.5px; letter-spacing: -0.02em; color: #ffc9c9; }
-.test-panel-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.test-panel-row { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 5px; }
 .test-panel-btn {
   width: 30px; height: 30px; display: grid; place-items: center; cursor: pointer;
   background: linear-gradient(#4a3722, #322416); border: 1px solid #8a6a3f; border-radius: 8px;

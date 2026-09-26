@@ -125,13 +125,13 @@ export function towerDmg(g, t, i) {
 
 /* 테스트 서버 전용 — 판 위 탑들의 피해를 한꺼번에 배율로 조절한다. */
 export function doTestDmg(g, mul) {
-  if (!g.testMode) return;
+  if (!g.testMode || !Number.isFinite(mul) || mul < 0) return;
   g.testDmgMul = mul;
 }
 
 /* 테스트 서버 전용 — 결전장에서 보스가 주는 피해를 배율로 조절한다(탑 피해와는 다른 값). */
 export function doTestBossDmg(g, mul) {
-  if (!g.testMode) return;
+  if (!g.testMode || !Number.isFinite(mul) || mul < 0) return;
   g.testBossDmgMul = mul;
 }
 
@@ -2523,6 +2523,7 @@ export function packSnapshot(g) {
     hp: g.core.hp, hm: g.core.max, cv: g.core.lv, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
     ql: g.queue.length, cb: g.combo, pv: g.preview || 0,
     sg: g.surge,
+    tx: g.testMode ? [g.testDmgMul, g.testBossDmgMul] : 0,
     pk: g.players.map((p) => PERK_IDS.map((id) => p.perks[id] || 0)),
     rw: g.phase === "reward" ? { of: g.offer, pi: g.picked, sc: g.bossScore || 0 } : 0,
     ca: Math.round(g.castle.aim * 100) / 100,
@@ -2580,6 +2581,7 @@ export function applySnapshot(g, s) {
   g.combo = s.cb || 0;
   if (g.combo) g.comboT = Math.max(g.comboT, 0.3);
   g.surge = s.sg || 0;
+  if (s.tx) { g.testDmgMul = s.tx[0]; g.testBossDmgMul = s.tx[1]; }
   if (s.pk) {
     s.pk.forEach((row, i) => {
       const perks = {};

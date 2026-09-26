@@ -103,6 +103,16 @@ export default function App() {
     hostRef.current = asHost;
     const nick = (name || "수비대원").slice(0, 8);
     localStorage.setItem("flg:name", nick);
+    // 테스트 서버는 누구나 같은 코드로 들어온다 — 방장이 이미 있으면 손님으로 붙고,
+    // 잠깐 기다려도 대기실 소식이 없으면 그때 내가 방장이 된다
+    const auto = roomCode === "TEST";
+    let gotLobby = false;
+    const becomeHost = () => {
+      hostRef.current = true;
+      seatsRef.current = [{ id: me, name: nick }, null, null, null];
+      if (peersRef.current.some((p) => p.id === me)) reseat();
+      else publishLobby();
+    };
 
     const room = joinRoom(roomCode, {
       id: me,
@@ -119,6 +129,14 @@ export default function App() {
             publishLobby();
           } else {
             room.send("hello", { name: nick });
+            if (auto) {
+              setTimeout(() => {
+                if (roomRef.current !== room || gotLobby || hostRef.current) return;
+                // 동시에 들어온 사람끼리는 아이디가 가장 작은 쪽 하나만 방장이 된다
+                if (peersRef.current.some((p) => p.id < me)) return;
+                becomeHost();
+              }, 2000);
+            }
           }
         }
         if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") {
@@ -130,7 +148,15 @@ export default function App() {
     roomRef.current = room;
 
     room.on("hello", () => { if (hostRef.current) reseat(); });
-    room.on("lobby", (d) => { if (!hostRef.current) setLobby(d); });
+    room.on("lobby", (d) => {
+      gotLobby = true;
+      // 테스트 서버에서 방장이 둘 생겼으면 아이디가 큰 쪽이 물러나 손님이 된다
+      if (auto && hostRef.current && d && d.hostId && d.hostId < me) {
+        hostRef.current = false;
+        room.send("hello", { name: nick });
+      }
+      if (!hostRef.current) setLobby(d);
+    });
     room.on("pick", (d, from) => {
       if (!hostRef.current) return;
       const seats = seatsRef.current.slice();
@@ -252,7 +278,7 @@ export default function App() {
         error={error}
         onCreate={() => connect(makeCode(), true)}
         onJoin={() => {
-          if (code.toUpperCase() === "TEST") return connect("TEST", true);
+          if (code.toUpperCase() === "TEST") return connect("TEST", false);
           if (code.length === 4) connect(code.toUpperCase(), false);
         }}
       />
@@ -759,8 +785,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       preview: g.preview || null,
       paused: g.paused, speed: g.speed,
       surge: g.surge || 0, diff: g.diff ?? DEFAULT_DIFF,
-      testDmgMul: g.testDmgMul || 1,
-      testBossDmgMul: g.testBossDmgMul || 1,
+      testDmgMul: g.testDmgMul ?? 1,
+      testBossDmgMul: g.testBossDmgMul ?? 1,
       boss: g.arena ? g.arena.hp / g.arena.max : 0,
       leave: (g.leave || []).map((v) => !!v), leaveT: g.leaveT || 0,
       offer: g.phase === "reward" ? g.offer : null,
@@ -1210,48 +1236,6 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
             )}
           </div>
 
-          {testMode && mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
-            <div className="test-panel" title="지금 고른 자리에 값 없이 바로 세웁니다">
-              <span className="test-panel-label">테스트 · 탑 바꾸기</span>
-              <div className="test-panel-row">
-                {CLASSES.map((cls, i) => (
-                  <button key={cls.id} className="test-panel-btn" onClick={() => act("testBuild", cls.id)} title={cls.name}>
-                    <ClassIcon i={i} />
-                  </button>
-                ))}
-              </div>
-              <span className="test-panel-label">테스트 · 탑 피해 배율 ×{hud.testDmgMul}</span>
-              <div className="test-panel-row">
-                {[0.1, 0.5, 1, 2, 5, 10, 50].map((mul) => (
-                  <button
-                    key={mul}
-                    className={`test-panel-mul ${hud.testDmgMul === mul ? "on" : ""}`}
-                    onClick={() => act("testDmg", mul)}
-                  >
-                    ×{mul}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {testMode && mySeat >= 0 && hud.phase === "arena" && (
-            <div className="test-panel">
-              <span className="test-panel-label">테스트 · 보스 피해 배율 ×{hud.testBossDmgMul}</span>
-              <div className="test-panel-row">
-                {[0, 0.1, 0.5, 1, 2, 5, 10].map((mul) => (
-                  <button
-                    key={mul}
-                    className={`test-panel-mul ${hud.testBossDmgMul === mul ? "on" : ""}`}
-                    onClick={() => act("testBossDmg", mul)}
-                  >
-                    ×{mul}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {hud.surge > 0 && (
             <div className="surge-tag" title="보스를 잡을 때마다 관문의 적이 강해집니다">
               적 강화 {hud.surge}단계
@@ -1389,6 +1373,48 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
         </div>
 
         {touch && <p className="turn-note">가로로 돌리면 판이 커집니다.</p>}
+
+        {testMode && mySeat >= 0 && (hud.phase === "prep" || hud.phase === "wave") && (
+          <div className="test-panel" title="지금 고른 자리에 값 없이 바로 세웁니다">
+            <span className="test-panel-label">테스트 · 탑 바꾸기</span>
+            <div className="test-panel-row">
+              {CLASSES.map((cls, i) => (
+                <button key={cls.id} className="test-panel-btn" onClick={() => act("testBuild", cls.id)} title={cls.name}>
+                  <ClassIcon i={i} />
+                </button>
+              ))}
+            </div>
+            <span className="test-panel-label">테스트 · 탑 피해 배율 ×{hud.testDmgMul}</span>
+            <div className="test-panel-row">
+              {[0.1, 0.5, 1, 2, 5, 10, 50].map((mul) => (
+                <button
+                  key={mul}
+                  className={`test-panel-mul ${hud.testDmgMul === mul ? "on" : ""}`}
+                  onClick={() => act("testDmg", mul)}
+                >
+                  ×{mul}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {testMode && mySeat >= 0 && hud.phase === "arena" && (
+          <div className="test-panel">
+            <span className="test-panel-label">테스트 · 보스 피해 배율 ×{hud.testBossDmgMul}</span>
+            <div className="test-panel-row">
+              {[0, 0.1, 0.5, 1, 2, 5, 10].map((mul) => (
+                <button
+                  key={mul}
+                  className={`test-panel-mul ${hud.testBossDmgMul === mul ? "on" : ""}`}
+                  onClick={() => act("testBossDmg", mul)}
+                >
+                  ×{mul}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {touch && mySeat >= 0 && (
           <TouchPad

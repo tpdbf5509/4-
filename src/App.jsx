@@ -20,6 +20,18 @@ import "./ui/style.css";
 
 const SNAP_HZ = 12;
 
+// 테스트 서버 비밀번호 — 원문은 두지 않고 SHA-256 값만 둔다. 한 번 맞히면 그 기기는 기억한다
+const TEST_HASH = "f93b230c345f6a3c8aca5dab29e3ac3fb78795c908bf3ef69b85e802dc46c99a";
+async function sha256(s) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+let testOk = false;
+function testUnlocked() {
+  if (testOk) return true;
+  try { return localStorage.getItem("flg:test") === TEST_HASH; } catch { return false; }
+}
+
 /* 손가락으로 하는 기기인지 — 마우스가 없고 손끝처럼 뭉툭한 입력이면 참 */
 function useTouch() {
   const [on, setOn] = useState(() =>
@@ -46,6 +58,7 @@ export default function App() {
   const [lobby, setLobby] = useState(null);       // { hostId, seats }
   const [error, setError] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [testPw, setTestPw] = useState("");
 
   const roomRef = useRef(null);
   const hostRef = useRef(false);
@@ -98,6 +111,7 @@ export default function App() {
   }, [publishLobby]);
 
   const connect = useCallback((roomCode, asHost) => {
+    if (roomCode === "TEST" && !testUnlocked()) return;
     setError("");
     setConnecting(true);
     hostRef.current = asHost;
@@ -276,10 +290,22 @@ export default function App() {
         name={name} setName={setName}
         code={code} setCode={setCode}
         error={error}
+        needPw={code === "TEST" && !testUnlocked()}
+        testPw={testPw} setTestPw={(v) => { setTestPw(v); setError(""); }}
         onCreate={() => connect(makeCode(), true)}
         onJoin={() => {
-          if (code.toUpperCase() === "TEST") return connect("TEST", false);
-          if (code.length === 4) connect(code.toUpperCase(), false);
+          if (code === "TEST") {
+            if (testUnlocked()) return connect("TEST", false);
+            sha256(testPw).then((h) => {
+              if (h !== TEST_HASH) return setError("테스트 서버 비밀번호가 맞지 않습니다.");
+              testOk = true;
+              try { localStorage.setItem("flg:test", h); } catch { /* 저장이 막혀 있으면 이번에만 들어간다 */ }
+              setTestPw("");
+              connect("TEST", false);
+            });
+            return;
+          }
+          if (code.length === 4) connect(code, false);
         }}
       />
     );
@@ -312,7 +338,7 @@ export default function App() {
 }
 
 /* ── 홈 ─────────────────────────────────────────────────── */
-function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
+function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, onCreate, onJoin }) {
   return (
     <div className="page center-page">
       <div className="home">
@@ -340,8 +366,19 @@ function Home({ name, setName, code, setCode, error, onCreate, onJoin }) {
             onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
             onKeyDown={(e) => e.key === "Enter" && onJoin()}
           />
-          <button className="btn-ghost tall" onClick={onJoin} disabled={code.length !== 4}>입장</button>
+          <button className="btn-ghost tall" onClick={onJoin} disabled={code.length !== 4 || (needPw && !testPw)}>입장</button>
         </div>
+
+        {needPw && (
+          <label className="field test-pw">
+            <span>테스트 서버 비밀번호</span>
+            <input
+              id="test-pw" type="password" value={testPw} maxLength={32} autoComplete="off"
+              onChange={(e) => setTestPw(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && testPw && onJoin()}
+            />
+          </label>
+        )}
 
         {error && <p className="err">{error}</p>}
       </div>

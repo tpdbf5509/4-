@@ -880,3 +880,6 @@ kbd {
   .score-box { padding: 16px 16px 0; }
   .score-drain { margin: 0 -16px; }
 }
+
+/* 테스트 서버 비밀번호 칸 — 코드에 TEST를 쳤을 때만 나온다 */
+.home .test-pw { margin-top: 12px; }

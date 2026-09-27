@@ -83,6 +83,45 @@ kbd {
 /* ── 로비 ───────────────────────────────────────────────── */
 .lobby-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .lobby-head .btn-ghost { flex: none; white-space: nowrap; }
+.lobby-actions { display: flex; gap: 8px; flex: none; }
+
+/* 업데이트 — 아직 안 본 새 소식이 있으면 단추 귀퉁이에 점 */
+.notes-btn { position: relative; }
+.notes-dot {
+  position: absolute; top: -5px; right: -5px; width: 10px; height: 10px; border-radius: 50%;
+  background: #f0b27a; border: 2px solid #2a1f13;
+}
+.notes-back {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
+  background: rgba(14, 24, 12, 0.72);
+}
+.notes-panel {
+  width: min(560px, 100%); max-height: min(80vh, 720px); display: flex; flex-direction: column;
+  background: linear-gradient(#3b2c1b, #2a1f13);
+  border: 2px solid #6b4f2c; border-radius: 14px;
+  box-shadow: 0 6px 0 #1b1309, 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.notes-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 18px 22px 14px; border-bottom: 1px solid rgba(107, 79, 44, 0.6);
+}
+.notes-head h2 {
+  margin: 0; font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 24px;
+  color: #f6e5bb; letter-spacing: -0.02em;
+}
+.notes-list { overflow-y: auto; padding: 4px 22px 18px; overscroll-behavior: contain; }
+.notes-day { padding: 14px 0; border-bottom: 1px solid rgba(107, 79, 44, 0.35); }
+.notes-day:last-child { border-bottom: 0; }
+.notes-date {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px;
+  font-size: 13px; font-weight: 400; color: #c3bda4;
+}
+.notes-new {
+  font-size: 10.5px; color: #2a1f13; background: #f0c890; padding: 1px 8px; border-radius: 999px;
+}
+.notes-day ul { margin: 0; padding-left: 18px; }
+.notes-day li { font-size: 13px; line-height: 1.6; color: #e8dcc0; letter-spacing: -0.01em; }
+.notes-day li + li { margin-top: 4px; }
 .invite {
   margin: 18px 0 14px; padding: 12px 14px;
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;

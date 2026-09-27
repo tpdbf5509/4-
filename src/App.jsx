@@ -16,6 +16,7 @@ import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
 import { sendFeedback, loadDraft, saveDraft, FEEDBACK_MAX } from "./net/feedback.js";
 import { Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
 import { TowerChar, charOf } from "./ui/chars.jsx";
+import { UPDATES } from "./game/updates.js";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -386,6 +387,38 @@ function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, 
   );
 }
 
+/* ── 업데이트 내용 ──────────────────────────────────────── */
+function UpdateNotes({ seenId, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="notes-back" onClick={onClose}>
+      <div className="notes-panel" role="dialog" aria-modal="true" aria-labelledby="notes-title" onClick={(e) => e.stopPropagation()}>
+        <div className="notes-head">
+          <h2 id="notes-title">업데이트 내용</h2>
+          <button className="btn-ghost" onClick={onClose} autoFocus>닫기</button>
+        </div>
+        <div className="notes-list">
+          {UPDATES.map((u) => (
+            <section key={u.id} className="notes-day">
+              <h3 className="notes-date">
+                {u.date}
+                {(seenId ? u.id > seenId : u.id === UPDATES[0].id) && <span className="notes-new">새 소식</span>}
+              </h3>
+              <ul>
+                {u.items.map((t) => <li key={t}>{t}</li>)}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── 로비 ───────────────────────────────────────────────── */
 function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, onDiff, onStart, onStartBoss, onLeave }) {
   const touch = useTouch();
@@ -396,6 +429,19 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
   const full = filled >= CREW_MAX;
   const waves = lobby?.waves || TOTAL_WAVES;
   const diff = lobby?.diff ?? DEFAULT_DIFF;
+
+  // 업데이트 창 — 가장 새 소식을 본 적이 없으면 단추에 점을 띄운다
+  const latestNote = UPDATES[0].id;
+  const [notesPrev] = useState(() => {
+    try { return localStorage.getItem("flg:notes") || ""; } catch { return ""; }
+  });
+  const [notesSeen, setNotesSeen] = useState(notesPrev === latestNote);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const openNotes = () => {
+    setNotesOpen(true);
+    setNotesSeen(true);
+    try { localStorage.setItem("flg:notes", latestNote); } catch { /* 기억 못 해도 창은 연다 */ }
+  };
 
   const copy = async (text, what) => {
     try {
@@ -418,8 +464,15 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
               방장이 시작하면 모두의 화면에서 함께 시작합니다.
             </p>
           </div>
-          <button className="btn-ghost" onClick={onLeave}>나가기</button>
+          <div className="lobby-actions">
+            <button className="btn-ghost notes-btn" onClick={openNotes} aria-haspopup="dialog">
+              업데이트
+              {!notesSeen && <span className="notes-dot" aria-label="새 소식" />}
+            </button>
+            <button className="btn-ghost" onClick={onLeave}>나가기</button>
+          </div>
         </div>
+        {notesOpen && <UpdateNotes seenId={notesPrev} onClose={() => setNotesOpen(false)} />}
 
         <div className="invite">
           <div className="invite-code">

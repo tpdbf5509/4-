@@ -1947,7 +1947,7 @@ export function step(g, dt) {
         spd: base.spd * D.spd * (1 + Math.min(0.6, SURGE_SPD * g.surge)),
         hp: base.hp * scale, max: base.hp * scale,
         x: p0.x, y: p0.y, ax: p0.ax, ay: p0.ay,
-        slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, pdps: 0, dead: false, age: 0,
+        slow: 0, slowAmt: 0.5, freeze: 0, stun: 0, flash: 0, poison: 0, pdps: 0, dead: false, age: 0,
       });
       if (big) {
         g.shake = Math.max(g.shake, q.type === "titan" ? 0.7 : 0.4);
@@ -2247,7 +2247,8 @@ export function step(g, dt) {
         }
         if (b.stun) {
           tg.freeze = Math.max(tg.freeze, b.stun);        // 서리탑 4단계 — 3초간 완전히 멈춘다
-          fx(g, { kind: "ice", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
+          tg.stun = Math.max(tg.stun || 0, b.stun);        // 얼음이 아니라 기절 — 표시를 따로 한다
+          fx(g, { kind: "stun", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
         }
         if (b.poison) {
           applyPoison(tg, b.poison, b.poisonT, b.owner);
@@ -2311,6 +2312,7 @@ export function step(g, dt) {
         if (e.dead) return;
       }
     }
+    if (e.stun > 0) e.stun -= dt;
     if (e.freeze > 0) { e.freeze -= dt; return; }
     if (e.slow > 0) e.slow -= dt;
     const spd = (e.spd || ENEMY[e.type].spd) * (e.slow > 0 ? e.slowAmt : 1);
@@ -2446,6 +2448,7 @@ export function stepVisual(g, dt) {
     if (e.poison > 0) e.poison -= dt;
     if (e.burn > 0) e.burn -= dt;
     if (e.tp === undefined) e.tp = e.p;
+    if (e.stun > 0) e.stun -= dt;
     if (e.freeze > 0) e.freeze -= dt;
     else {
       if (e.slow > 0) e.slow -= dt;
@@ -2564,7 +2567,8 @@ export function packSnapshot(g) {
     en: g.enemies.map((e) => [
       e.id, ETYPES.indexOf(e.type), e.lane, Math.round(e.p * 10000) / 10000,
       Math.round((e.hp / e.max) * 100) / 100,
-      (e.freeze > 0 ? 1 : 0) | (e.slow > 0 ? 2 : 0) | (e.poison > 0 ? 4 : 0) | (e.burn > 0 ? 8 : 0),
+      (e.freeze > 0 ? 1 : 0) | (e.slow > 0 ? 2 : 0) | (e.poison > 0 ? 4 : 0) | (e.burn > 0 ? 8 : 0)
+        | (e.stun > 0 ? 16 : 0),
     ]),
   };
 }
@@ -2673,7 +2677,7 @@ export function applySnapshot(g, s) {
         id, type, lane, p, max: base.hp, hp: base.hp * hpr,
         spd: base.spd * diffOf(g).spd * (1 + Math.min(0.6, SURGE_SPD * (g.surge || 0))),
         x: pos.x, y: pos.y, ax: pos.ax, ay: pos.ay,
-        slow: 0, slowAmt: 0.5, freeze: 0, flash: 0, poison: 0, dead: false, age: 0,
+        slow: 0, slowAmt: 0.5, freeze: 0, stun: 0, flash: 0, poison: 0, dead: false, age: 0,
       };
       g.enemies.push(e);
     }
@@ -2687,6 +2691,7 @@ export function applySnapshot(g, s) {
     e.slow = flags & 2 ? Math.max(e.slow, 0.4) : 0;
     e.poison = flags & 4 ? Math.max(e.poison, 0.4) : 0;
     e.burn = flags & 8 ? Math.max(e.burn || 0, 0.4) : 0;
+    e.stun = flags & 16 ? Math.max(e.stun || 0, 0.4) : 0;
   });
   g.enemies = g.enemies.filter((e) => seen.has(e.id));
 }

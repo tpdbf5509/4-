@@ -175,6 +175,17 @@ export function shadow(ctx, x, y, rx, ry, alpha = 0.22) {
   ctx.fill();
 }
 
+// 기절 효과에 쓰는 별 하나의 윤곽 — 현재 변환에 그대로 그려 넣는다 (중심이 원점)
+function starPath(ctx, rOut, rIn) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    const r = i % 2 === 0 ? rOut : rIn;
+    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+}
+
 // 길에서 얼마나 떨어져 있는지 (지형 장식이 길을 덮지 않게)
 export function distToPaths(x, y) {
   let best = 1e9;
@@ -1745,8 +1756,28 @@ export function drawEnemy(ctx, e, time) {
   }
   ctx.restore();
 
-  // 얼음
-  if (e.freeze > 0) {
+  // 기절 — 얼음과는 다른 신호. 머리 위로 별이 빙글빙글 돈다
+  if (e.stun > 0) {
+    ctx.save();
+    const top = e.y - 24 * s;
+    ctx.globalAlpha = 0.9;
+    for (let i = 0; i < 3; i++) {
+      const a = time * 5.2 + (i / 3) * Math.PI * 2;
+      const sx = e.x + Math.cos(a) * 10 * s;
+      const sy = top + Math.sin(a) * 3.4 * s;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(a * 1.4);
+      ctx.fillStyle = "#ffe27a";
+      starPath(ctx, 3.6 * s, 1.5 * s);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(140,96,20,0.6)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+  } else if (e.freeze > 0) {
     ctx.save();
     ctx.globalAlpha = 0.55;
     ctx.fillStyle = "#a8ddf5";
@@ -2324,6 +2355,24 @@ export function drawFx(ctx, f) {
       ctx.beginPath();
       ctx.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.7, 2.4 * (1 - p), 0, Math.PI * 2);
       ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  } else if (k === "stun") {          // 서리탑 4단계 — 얼음이 아니라 기절, 별이 흩어진다
+    const p = 1 - f.t / f.life;
+    ctx.globalAlpha = 1 - p;
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + p * 2.2;
+      const d = p * 20;
+      ctx.save();
+      ctx.translate(f.x + Math.cos(a) * d, f.y - 4 + Math.sin(a) * d * 0.6 - p * 6);
+      ctx.rotate(a * 1.6);
+      ctx.fillStyle = "#ffe27a";
+      starPath(ctx, 5 * (1 - p * 0.35), 2.2 * (1 - p * 0.35));
+      ctx.fill();
+      ctx.strokeStyle = "rgba(140,96,20,0.55)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
   } else if (k === "coin") {

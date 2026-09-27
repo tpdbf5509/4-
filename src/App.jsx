@@ -22,7 +22,7 @@ import "./ui/style.css";
 const SNAP_HZ = 12;
 
 // 테스트 서버 비밀번호 — 원문은 두지 않고 SHA-256 값만 둔다. 한 번 맞히면 그 기기는 기억한다
-const TEST_HASH = "f93b230c345f6a3c8aca5dab29e3ac3fb78795c908bf3ef69b85e802dc46c99a";
+const TEST_HASH = "d86d84d945596a7836b26b9e06e05042ba9617bac697b793b008fb4c4f7c218a";
 async function sha256(s) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");

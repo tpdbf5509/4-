@@ -94,7 +94,8 @@ export const spotAt = (i) => (SLOTS[i] && SLOTS[i].spot) || "risk";
 /* 다섯 병과(궁수·저격·대포·서리·화염)는 단계마다 자기 몫의 수치가 한 단계 전보다
    얼마나 느는지를 표로 갖는다(1단계=기준, 이후는 그 앞 단계에 곱해진다).
    4단계에는 수치 성장 말고 전용 기술도 함께 붙는다(아래 타워 사격 루프 참고). */
-const ARCHER_SPEED_MUL = [1, 1.10, 1.10 * 1.30, 1.10 * 1.30 * 1.70];   // 공속
+const ARCHER_SPEED_MUL = [1, 1.10, 1.10 * 1.30, 17];   // 공속 — 4단계는 화살이 거의 레이저처럼 보일 만큼 빨라진다
+const ARCHER_LV4_DMG_MUL = 0.14;   // 공속이 크게 뛴 만큼 한 발 피해는 낮춰 총 피해량을 맞춘다
 const SNIPER_RANGE_MUL = [1, 1.10, 1.10 * 1.15, 1.10 * 1.15 * 1.10];   // 사거리
 const CANNON_SPLASH_MUL = [1, 1.10, 1.10 * 1.15, 1.10 * 1.15 * 1.20];  // 광역 범위
 const FROST_SLOW_AMT = [0.5, 0.5 * 0.90, 0.5 * 0.90 * 0.70, 0.5 * 0.90 * 0.70]; // 남는 속도 비율(작을수록 많이 느려짐)
@@ -2152,6 +2153,8 @@ export function step(g, dt) {
     // 궁수탑은 단계마다 공속이 크게 오른다(1→2단계 폭이 가장 크다)
     t.cd = t.type === "archer" ? def.interval / lvMul(ARCHER_SPEED_MUL, t.lv) : def.interval;
     let dmg = towerDmg(g, t, i);
+    // 궁수탑 4단계 — 공속을 크게 올린 만큼 한 발 피해를 낮춰 총 피해량을 맞춘다
+    if (t.type === "archer" && t.lv >= 4) dmg *= ARCHER_LV4_DMG_MUL;
     if (t.type === "archer" && g.focus > 0) dmg *= 2;
     // 저격탑 3단계 — 지금 사거리가 길수록 그만큼 더 세게 때린다
     if (t.type === "sniper" && t.lv >= 3) dmg *= range / def.range;

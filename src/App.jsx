@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   W, H, CX, CY, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX, RARITY,
   castleTier, castleCost, CASTLE_TIERS, LEAVE_FORCE, LEAVE_T,
-  SKILLS, ENEMY, ETYPES, SLOTS, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
+  SKILLS, ENEMY, ETYPES, SLOTS, upCostOf, SPOTS, LANES, TOTAL_WAVES, WAVE_OPTIONS, DIFFS, DEFAULT_DIFF, prepTime,
   makeGame, waveKind, bossWave, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS, SELL_KEYS, KEY_HINT,
 } from "./game/world.js";
 import {
@@ -17,6 +17,7 @@ import { sendFeedback, loadDraft, saveDraft, FEEDBACK_MAX } from "./net/feedback
 import { Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
 import { TowerChar, charOf } from "./ui/chars.jsx";
 import { UPDATES } from "./game/updates.js";
+import { TOWER_INFO } from "./game/towerInfo.js";
 import { useTouch } from "./ui/touch.js";
 import RpgView, { RpgPick } from "./RpgView.jsx";
 import { RPG_CREW_MAX, heroSave } from "./game/rpg.js";
@@ -477,6 +478,58 @@ function UpdateNotes({ seenId, onClose }) {
   );
 }
 
+/* 탑 자세히 보기 — 역할 · 수치 · 단계마다 달라지는 것 · 병과 스킬 */
+function TowerInfo({ idx, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const def = CLASSES[idx];
+  const info = TOWER_INFO[def.id] || { lead: def.note, levels: [] };
+  const stats = [
+    ["역할", def.role],
+    ["건설", `${def.cost}골드`],
+    ["강화", [1, 2, 3].map((lv) => `${lv + 1}단계 ${upCostOf(def, lv)}`).join(" · ")],
+    ["사거리", `${def.range}${def.range ? " (단계마다 +12)" : ""}`],
+    def.dmg > 0 && ["공격 피해", `${def.dmg} (단계마다 +62%)`],
+    def.burn > 0 && ["화상 피해", `초당 ${def.burn} · ${def.burnT}초`],
+    def.interval > 0 && ["공격 간격", `${def.interval}초`],
+  ].filter(Boolean);
+  return (
+    <div className="notes-back" onClick={onClose}>
+      <div className="notes-panel tinfo" role="dialog" aria-modal="true" aria-labelledby="tinfo-title"
+        style={{ "--pc": P[idx].key, "--pcl": P[idx].light, "--pcd": P[idx].dark }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="notes-head">
+          <div className="tinfo-title">
+            <span className={`badge ${P[idx].pale ? "pale" : ""}`}><ClassIcon i={idx} /></span>
+            <h2 id="tinfo-title">{def.name}</h2>
+          </div>
+          <button className="btn-ghost" onClick={onClose} autoFocus>닫기</button>
+        </div>
+        <div className="notes-list tinfo-body">
+          <div className="tinfo-top">
+            <p className="tinfo-lead">{info.lead}</p>
+            {charOf(def.id) && <span className="tinfo-char"><TowerChar id={def.id} /></span>}
+          </div>
+          <dl className="tinfo-stats">
+            {stats.map(([k, v]) => (<div key={k}><dt>{k}</dt><dd>{v}</dd></div>))}
+          </dl>
+          <h3 className="tinfo-h">단계별 변화</h3>
+          <ol className="tinfo-levels">
+            {info.levels.map((t, k) => (
+              <li key={k}><b>{k + 1}단계</b><span>{t}</span></li>
+            ))}
+          </ol>
+          <h3 className="tinfo-h">병과 스킬</h3>
+          <p className="tinfo-skill"><b>{SKILLS[idx].name}</b> · 재사용 {SKILLS[idx].cd}초<br />{SKILLS[idx].note}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── 로비 ───────────────────────────────────────────────── */
 function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, onDiff, onStart, onStartBoss, onLeave }) {
   const touch = useTouch();
@@ -496,6 +549,7 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
   });
   const [notesSeen, setNotesSeen] = useState(notesPrev === latestNote);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [infoIdx, setInfoIdx] = useState(-1);
   const openNotes = () => {
     setNotesOpen(true);
     setNotesSeen(true);
@@ -532,6 +586,7 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
           </div>
         </div>
         {notesOpen && <UpdateNotes seenId={notesPrev} onClose={() => setNotesOpen(false)} />}
+        {infoIdx >= 0 && <TowerInfo idx={infoIdx} onClose={() => setInfoIdx(-1)} />}
 
         <div className="invite">
           <div className="invite-code">
@@ -592,8 +647,8 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
             const mine = who && who.id === me;
             const locked = !who && full && mySeat < 0;
             return (
+              <div key={i} className="seat-cell">
               <button
-                key={i}
                 className={`seat ${who ? "taken" : "free"} ${mine ? "mine" : ""} ${locked ? "locked" : ""}`}
                 style={{ "--pc": P[i].key, "--pcl": P[i].light, "--pcd": P[i].dark }}
                 onClick={() => onPick(i)}
@@ -619,6 +674,8 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
                   ) : locked ? "정원이 찼습니다" : "비어 있음 — 눌러서 맡기"}
                 </span>
               </button>
+              <button type="button" className="seat-more" onClick={() => setInfoIdx(i)}>자세히 보기</button>
+              </div>
             );
           })}
         </div>
@@ -871,6 +928,7 @@ function SpotTip({ spot }) {
 }
 
 function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack, testMode }) {
+  const [infoIdx, setInfoIdx] = useState(-1);
   const cvsRef = useRef(null);
   const bgRef = useRef(null);
   const idx = useMemo(() => Array.from({ length: SEATS }, (_, i) => i), []);
@@ -1602,6 +1660,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
           />
         )}
 
+        {infoIdx >= 0 && <TowerInfo idx={infoIdx} onClose={() => setInfoIdx(-1)} />}
+
         <div className="party">
           {hud.players.map((p, i) => {
             if (!seatFlags[i]) return null;         // 이번 판에 안 고른 병과는 빼고 보여준다
@@ -1629,6 +1689,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
                 </div>
                 <div className="card-sub">
                   <span className="card-loc">{LANES[p.lane].name} · {p.slot + 1}번 자리</span>
+                  <button type="button" className="card-more"
+                    onClick={(e) => { e.stopPropagation(); setInfoIdx(i); }}>자세히 보기</button>
                   {p.perks?.length > 0 && (
                     <span className="perk-row">
                       {p.perks.map(([id, n]) => (

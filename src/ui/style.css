@@ -223,6 +223,16 @@ kbd {
 .seat-who { grid-column: 1 / -1; margin-top: 7px; font-size: 10.5px; color: #9c8d70; }
 .seat.taken .seat-who { color: var(--pcl); }
 .seat-who em { font-style: normal; color: #9c8d70; }
+/* 대기실 병과 카드 — 자세히 보기 단추는 카드 오른쪽 아래에 얹는다(카드 자체가 단추라 바깥에 형제로 둔다) */
+.seat-cell { position: relative; min-width: 0; }
+.seat-cell .seat { width: 100%; height: 100%; box-sizing: border-box; }
+.seat-cell .seat-who { padding-right: 84px; }
+.seat-more {
+  position: absolute; right: 9px; bottom: 7px; padding: 2px 9px; border-radius: 999px;
+  font: inherit; font-size: 10.5px; color: #e8dcc0; cursor: pointer;
+  background: rgba(20, 14, 8, 0.55); border: 1px solid rgba(160, 130, 90, 0.55);
+}
+.seat-more:hover { filter: brightness(1.25); border-color: #d6b26a; }
 
 .lobby-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
@@ -1079,3 +1089,36 @@ kbd {
   .rpg-talk-btn { padding: 5px 9px; font-size: 11px; }
   .rpg-down { font-size: 11px; padding: 5px 10px; }
 }
+
+/* 탑 자세히 보기 창 */
+.tinfo-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tinfo-title .badge { flex: none; }
+.tinfo-body { padding-top: 12px; }
+.tinfo-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.tinfo-lead { margin: 0; font-size: 13.5px; line-height: 1.6; color: #efe3c6; letter-spacing: -0.02em; }
+.tinfo-char { flex: none; width: 74px; height: 78px; }
+.tinfo-stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 14px;
+  margin: 14px 0 4px; padding: 10px 12px; border-radius: 10px;
+  background: rgba(20, 14, 8, 0.35); border: 1px solid rgba(160, 130, 90, 0.25);
+}
+.tinfo-stats div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tinfo-stats dt { font-size: 10.5px; color: #9c8d70; }
+.tinfo-stats dd { margin: 0; font-size: 12.5px; color: #e8dcc0; letter-spacing: -0.02em; }
+.tinfo-h { margin: 16px 0 6px; font-size: 12px; font-weight: 400; color: var(--pcl); letter-spacing: -0.01em; }
+.tinfo-levels { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tinfo-levels li {
+  display: grid; grid-template-columns: 46px 1fr; gap: 10px; align-items: start;
+  padding: 7px 10px; border-radius: 9px; background: rgba(20, 14, 8, 0.3);
+  border-left: 3px solid var(--pc);
+}
+.tinfo-levels b { font-weight: 600; font-size: 11.5px; color: var(--pcl); padding-top: 1px; }
+.tinfo-levels span { font-size: 12.5px; line-height: 1.55; color: #e8dcc0; letter-spacing: -0.02em; }
+.tinfo-skill { margin: 0; font-size: 12.5px; line-height: 1.6; color: #d8ccb0; }
+.tinfo-skill b { color: var(--pcl); font-weight: 600; }
+/* 게임 화면 병과 카드의 자세히 보기 */
+.card-more {
+  margin-left: auto; padding: 0 8px; border-radius: 999px; font: inherit; font-size: 10px; line-height: 17px;
+  color: #d9cba9; cursor: pointer; background: rgba(20, 14, 8, 0.45); border: 1px solid rgba(160, 130, 90, 0.5);
+}
+.card-more:hover { filter: brightness(1.3); border-color: var(--pcl); }

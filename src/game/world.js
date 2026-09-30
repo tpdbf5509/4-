@@ -285,7 +285,7 @@ export function nextSlot(from, act) {
 /* ── 규칙 ───────────────────────────────────────────────── */
 export const TOWERS = [
   /* 공격 */
-  { id: "archer", role: "공격", name: "궁수탑", cost: 30, range: 158, dmg: 15, interval: 0.95, upMul: 1.5, upFixed: [null, null, 250],
+  { id: "archer", role: "공격", name: "궁수탑", cost: 30, range: 158, dmg: 15, interval: 0.95,
     note: "단일 대상 · 사거리가 가장 길다" },
   { id: "sniper", role: "공격", name: "저격탑", cost: 70, range: 165, dmg: 58, interval: 2.6, pickBig: true,
     note: "가장 단단한 적 하나를 크게 때린다" },
@@ -318,12 +318,13 @@ export const towerIdx = (id) => TOWERS.findIndex((t) => t.id === id);
 
 /* 강화 값 — 단계가 올라갈수록 가파르게 비싸진다. 1→2 · 2→3 · 3→4 */
 export const TOWER_MAX_LV = 4;
-export const UP_MUL = [1.2, 2, 3.2];
-// def.upMul 이 있는 탑은 강화 비용에 그 배수가 더 곱해진다(건설 비용은 그대로)
-// def.upFixed 에 값을 적어 둔 단계는 그 값 그대로(배수와 상관없이)
-export const upCostOf = (def, lv) => (def.upFixed && def.upFixed[lv - 1] != null
-  ? def.upFixed[lv - 1]
-  : Math.round((def.cost || 0) * (UP_MUL[lv - 1] || 0) * (def.upMul || 1)));
+// 건설 비용에 곱하는 배수. 궁수탑(건설 30)이 54 · 90 · 250 이 되는 비율을 모든 탑에 같이 쓴다.
+export const UP_MUL = [1.8, 3, 250 / 30];
+// 4단계로 올리는 값은 5 단위로 맞춘다
+export const upCostOf = (def, lv) => {
+  const v = (def.cost || 0) * (UP_MUL[lv - 1] || 0);
+  return lv >= TOWER_MAX_LV - 1 ? Math.round(v / 5) * 5 : Math.round(v);
+};
 
 /* 보급소가 이웃에게 밀어 주는 몫 — 공격력과 공격 속도에 같이 실린다.
    단계를 올려도 천천히만 오르게 묶어 둔다. */

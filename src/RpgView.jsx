@@ -1,63 +1,117 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { W, H, P, CLASSES, SEATS, DIFFS, MOVE_KEYS, BUILD_KEYS, SKILL_KEYS } from "./game/world.js";
+import { W, H, P, CLASSES, SEATS, MOVE_KEYS } from "./game/world.js";
 import {
-  RPG, RPG_ROUNDS, RPG_CARDS, RPG_SKILL, makeRpg, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgPick,
-  rpgSetHero, rpgPack, rpgApply, rpgApplyOut, needXp, heroNeed, heroSkillCd, heroRecord, commitRun, HERO_MAX,
+  RPG, RPG_CREW_MAX, RPG_SKILL, MAPS, QUEST, makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk,
+  rpgSyncSeats, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, heroSave, writeHero, npcNear, rpgStyle,
 } from "./game/rpg.js";
-import { paintRpgField, drawRpg } from "./game/rpgArt.js";
+import { paintMap, drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
-import { ClassIcon, HomeIcon } from "./ui/icons.jsx";
+import { ClassIcon, HomeIcon, Coin } from "./ui/icons.jsx";
+import { TowerChar, charOf } from "./ui/chars.jsx";
 import { useTouch } from "./ui/touch.js";
 
 const SNAP_HZ = 12;
-const CARD_KEYS = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 };
-const CARD_BY_ID = Object.fromEntries(RPG_CARDS.map((c) => [c.id, c]));
+const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyQ"];
+const TALK_KEYS = ["Space", "Enter", "KeyE"];
 
-export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
+/* ── 병과 고르기 — 고르면 곧바로 광장에 선다 ─────────────────── */
+export function RpgPick({ code, lobby, me, error, connecting, onPick, onLeave }) {
+  const [copied, setCopied] = useState("");
+  const seats = lobby?.seats || new Array(SEATS).fill(null);
+  const filled = seats.filter(Boolean).length;
+  const full = filled >= RPG_CREW_MAX;
+  const link = `${location.origin}${location.pathname}?room=${code}`;
+  const saves = useMemo(() => CLASSES.map((c) => heroSave(c.id)), []);
+  const copy = async (text, what) => {
+    try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(""), 1600); }
+    catch { setCopied("fail"); }
+  };
+  return (
+    <div className="page center-page">
+      <div className="lobby">
+        <div className="lobby-head">
+          <div>
+            <h1>RPG — 병과 고르기</h1>
+            <p className="tag">
+              고르면 곧바로 광장에 섭니다. 광장의 사냥문을 지나면 사냥터입니다.
+              지금 {filled}/{RPG_CREW_MAX}명이 들어와 있고, 언제든 함께할 수 있습니다.
+            </p>
+          </div>
+          <div className="lobby-actions">
+            <button className="btn-ghost" onClick={onLeave}>나가기</button>
+          </div>
+        </div>
+        <div className="invite">
+          <div className="invite-code"><span className="invite-label">방 코드</span><strong>{code}</strong></div>
+          <div className="invite-actions">
+            <button className="btn-ghost" onClick={() => copy(code, "code")}>{copied === "code" ? "복사됨" : "코드 복사"}</button>
+            <button className="btn-ghost" onClick={() => copy(link, "link")}>{copied === "link" ? "복사됨" : "초대 링크 복사"}</button>
+          </div>
+        </div>
+        {connecting && <p className="muted">방에 연결하는 중…</p>}
+        {error && <p className="err">{error}</p>}
+        <div className="seats">
+          {CLASSES.map((cls, i) => {
+            const who = seats[i];
+            const locked = !who && full;
+            return (
+              <button key={cls.id}
+                className={`seat ${who ? "taken" : "free"} ${who && who.id === me ? "mine" : ""} ${locked ? "locked" : ""}`}
+                style={{ "--pc": P[i].key, "--pcl": P[i].light, "--pcd": P[i].dark }}
+                onClick={() => onPick(i)} disabled={!!who || locked || !lobby}>
+                <span className={`seat-badge ${P[i].pale ? "pale" : ""}`}><ClassIcon i={i} /></span>
+                <span className="seat-name">{cls.name} <em>내 Lv.{saves[i].lv}</em></span>
+                <span className="seat-role">{cls.role}</span>
+                <span className="seat-note">{rpgStyle(i)}</span>
+                {charOf(cls.id) && <span className="seat-char"><TowerChar id={cls.id} /></span>}
+                <span className="seat-skill"><b>{RPG_SKILL[cls.id].name}</b> · 코인 {saves[i].coins}</span>
+                <span className="seat-who">
+                  {who ? `${who.name}${who.id === lobby?.hostId ? " · 방장" : ""}` : locked ? "정원이 찼습니다" : "눌러서 이 병과로 들어가기"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 광장과 사냥터 ─────────────────────────────────────── */
+export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) {
   const cvsRef = useRef(null);
-  const bgRef = useRef(null);
+  const bgsRef = useRef(null);
   const idx = useMemo(() => Array.from({ length: SEATS }, (_, i) => i), []);
   const seatFlags = useMemo(() => idx.map((i) => !!seats[i]), [idx, seats]);
   const names = useMemo(() => idx.map((i) => seats[i]?.name || ""), [idx, seats]);
-  const myCls = mySeat >= 0 ? CLASSES[mySeat].id : null;
-  // 판을 시작할 때의 내 영웅 레벨 — 이 기기에 남아 있던 기록이다
-  const [start] = useState(() => (myCls ? heroRecord(myCls) : null));
+  const myCls = CLASSES[mySeat].id;
+  const [start] = useState(() => heroSave(myCls));   // 이 기기에 남아 있던 내 기록
 
   const G = useRef(null);
   if (!G.current) {
-    const g = makeRpg(seatFlags, diff);
-    g.names = names;
+    const g = makeWorld();
     g.mySeat = mySeat;
     if (isHost) g.out = [];
-    if (isHost && mySeat >= 0 && start) rpgSetHero(g, mySeat, start.lv);
-    if (import.meta.env.DEV) window.__R = g;     // 개발 중 상태를 들여다보려고
+    else g.mobs = [];                               // 손님은 방장이 보낸 토끼만 그린다
+    if (import.meta.env.DEV) window.__R = g;        // 개발 중 상태를 들여다보려고
     G.current = g;
   }
+  useEffect(() => { G.current.names = names; }, [names]);
+
+  // 방장 — 자리가 바뀌면 세계에 세우거나 뺀다. 내 기록은 내가 바로 싣는다.
+  useEffect(() => {
+    const g = G.current;
+    if (!isHost) return;
+    rpgSyncSeats(g, seatFlags, names);
+    if (g.heroes[mySeat] && !g.heroes[mySeat].loaded) rpgJoin(g, mySeat, start);
+  }, [isHost, seatFlags, names, mySeat, start]);
 
   const touch = useTouch();
-  const [hud, setHud] = useState(() => snapHud(G.current));
+  const [hud, setHud] = useState(null);
   const [mute, setMute] = useState(() => sfx.isMuted());
   const [dropped, setDropped] = useState(false);
-  const [saved, setSaved] = useState(null);      // 판이 끝나고 영웅에게 쌓인 결과
-
-  function snapHud(g) {
-    const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
-    const left = g.out ? g.queue.length + g.mobs.length : g.left || 0;
-    return {
-      phase: g.phase, round: g.round, timer: Math.max(0, g.timer), left, runId: g.runId,
-      me: me && {
-        lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
-        sk: me.sk, skMax: heroSkillCd(me), down: me.down, hlv: me.hlv, gain: me.gain,
-        offer: me.offers.length ? me.offers[0] : me.offer || null,
-        pend: me.offers.length || me.pend || 0,
-        cards: RPG_CARDS.filter((c) => me.cards[c.id]).map((c) => [c.id, me.cards[c.id]]),
-      },
-      party: g.heroes.filter(Boolean).map((h) => ({
-        pi: h.pi, lv: h.lv, hp: Math.max(0, h.hp), max: h.max, down: h.down, kills: h.kills,
-        dmg: Math.round(h.dmg), gain: Math.round(h.gain), hlv: h.hlv,
-      })),
-    };
-  }
+  const [toast, setToast] = useState(null);         // 맵을 옮기면 잠깐 이름을 띄운다
+  const [talk, setTalk] = useState(null);           // 사냥꾼의 말
 
   const toggleMute = useCallback(() => {
     sfx.unlock();
@@ -69,20 +123,32 @@ export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
   /* 한 번의 조작 — 방장은 바로 판정하고, 손님은 방장에게 보낸다 */
   const act = useCallback((kind, dir) => {
     const g = G.current;
-    if (mySeat < 0) return;
     sfx.unlock();
     if (kind === "hold") {
-      rpgHold(g, mySeat, dir);                   // 손님도 내 영웅은 먼저 걷는다
+      rpgHold(g, mySeat, dir);                      // 손님도 내 영웅은 먼저 걷는다
       if (!isHost) room?.send("input", { cls: mySeat, kind, dir });
       return;
     }
+    if (kind === "talk") {
+      const h = g.heroes[mySeat];
+      if (!npcNear(h)) return;
+      setTalk(h.quest.on
+        ? `아직 ${QUEST.need - h.quest.n}마리 남았네. 토끼도 가끔 들이받으니 조심하게.`
+        : `토끼 ${QUEST.need}마리만 잡아 주게. 경험치 ${QUEST.xp}과 ${QUEST.coin}코인을 주겠네.`);
+    }
     if (isHost) {
       if (kind === "skill") rpgSkill(g, mySeat);
-      else if (kind === "card") rpgPick(g, mySeat, dir);
+      else if (kind === "talk") rpgTalk(g, mySeat);
     } else {
       room?.send("input", { cls: mySeat, kind, dir });
     }
   }, [isHost, mySeat, room]);
+
+  useEffect(() => {
+    if (!talk) return;
+    const t = setTimeout(() => setTalk(null), 4000);
+    return () => clearTimeout(t);
+  }, [talk]);
 
   /* 누르고 있는 방향 — 키보드와 화면 버튼이 같은 곳으로 들어온다 */
   const dirsRef = useRef([]);
@@ -106,19 +172,19 @@ export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
   }, [act]);
 
   useEffect(() => {
-    if (mySeat < 0) return;
     function onKey(e) {
       const t = e.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       const dir = MOVE_KEYS[e.code];
-      const isSkill = SKILL_KEYS.includes(e.code) || BUILD_KEYS.includes(e.code);
-      const card = CARD_KEYS[e.code];
-      if (!dir && !isSkill && card === undefined) return;
+      const isSkill = SKILL_KEYS.includes(e.code);
+      const isTalk = TALK_KEYS.includes(e.code);
+      if (!dir && !isSkill && !isTalk) return;
       e.preventDefault();
       if (e.repeat) return;
       if (dir) pressDir(dir);
       else if (isSkill) act("skill");
-      else act("card", card);
+      else if (npcNear(G.current.heroes[mySeat])) act("talk");     // 사냥꾼 곁이면 말을 건다
+      else act("skill");
     }
     function onUp(e) {
       const dir = MOVE_KEYS[e.code];
@@ -141,14 +207,14 @@ export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
     if (isHost) {
       offs.push(room.on("input", (d) => {
         const g = G.current;
-        if (!d || !g.seats[d.cls]) return;
+        if (!d || !g.heroes[d.cls]) return;
         if (d.kind === "hold") rpgHold(g, d.cls, d.dir);
         else if (d.kind === "skill") rpgSkill(g, d.cls);
-        else if (d.kind === "card") rpgPick(g, d.cls, d.dir);
+        else if (d.kind === "talk") rpgTalk(g, d.cls);
       }));
-      offs.push(room.on("rhero", (d) => {
+      offs.push(room.on("rjoin", (d) => {
         const g = G.current;
-        if (d && g.seats[d.cls]) rpgSetHero(g, d.cls, d.lv);
+        if (d && Number.isInteger(d.cls) && d.cls >= 0 && d.cls < SEATS) rpgJoin(g, d.cls, d.data);
       }));
     } else {
       let last = Date.now();
@@ -156,34 +222,33 @@ export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));
       const watch = setInterval(() => setDropped(Date.now() - last > 6000), 2000);
       offs.push(() => clearInterval(watch));
-      // 내 영웅 레벨을 방장에게 알린다 — 받았다는 게 보일 때까지 몇 번 더 보낸다
-      if (mySeat >= 0 && start) {
-        let tries = 0;
-        const tell = () => room.send("rhero", { cls: mySeat, lv: start.lv });
+      // 내 기록을 방장에게 알린다 — 실렸다는 게 보일 때까지 다시 보낸다
+      const tell = () => room.send("rjoin", { cls: mySeat, data: start });
+      tell();
+      const again = setInterval(() => {
+        const h = G.current.heroes[mySeat];
+        if (h && h.loaded) return clearInterval(again);
         tell();
-        const again = setInterval(() => {
-          const h = G.current.heroes[mySeat];
-          if ((h && h.hlv === start.lv) || ++tries > 12) return clearInterval(again);
-          tell();
-        }, 1000);
-        offs.push(() => clearInterval(again));
-      }
+      }, 1000);
+      offs.push(() => clearInterval(again));
     }
     return () => offs.forEach((off) => off && off());
   }, [room, isHost, mySeat, start]);
 
-  /* 소리 — 새로 생긴 연출에만 한 번씩 */
+  /* 소리 — 내가 있는 맵에서 난 것만, 나에게 온 것만 */
   const playSounds = useCallback((g) => {
-    if (sfx.isMuted()) return;
+    const me = g.heroes[mySeat];
     for (const f of g.fx) {
       if (f.played) continue;
       f.played = true;
-      if (!f.snd) continue;
+      if (!f.snd || sfx.isMuted()) continue;
+      if (f.map && me && f.map !== me.map) continue;
+      if (f.who !== undefined && f.who !== mySeat) continue;
       if (f.snd === "shot") sfx.shot("arrow");
       else if (f.snd === "cannon") sfx.shot("shell");
       else sfx.play(f.snd);
     }
-  }, []);
+  }, [mySeat]);
 
   /* 루프 */
   useEffect(() => {
@@ -193,30 +258,12 @@ export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
     cvs.width = W * dpr;
     cvs.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const bg = document.createElement("canvas");
-    bg.width = W * dpr;
-    bg.height = H * dpr;
-    const bctx = bg.getContext("2d");
-    bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    paintRpgField(bctx);
-    bgRef.current = bg;
+    bgsRef.current = { plaza: paintMap("plaza"), field: paintMap("field") };
 
-    /* 판이 끝나면 번 경험치를 이 기기의 영웅에게 한 번 쌓는다 */
-    let committed = false;
-    const commit = (g) => {
-      if (committed || (g.phase !== "clear" && g.phase !== "over")) return;
-      committed = true;
-      const h = mySeat >= 0 ? g.heroes[mySeat] : null;
-      if (!h) return;
-      setSaved(commitRun({
-        runId: g.runId, cls: CLASSES[mySeat].id, gain: h.gain, round: g.round,
-        diffId: (DIFFS[diff] || DIFFS[1]).id, clear: g.phase === "clear",
-      }));
-    };
-
-    let raf, last = performance.now(), frame = 0, sinceSnap = 0;
+    let raf, last = performance.now(), frame = 0, sinceSnap = 0, saved = "", lastMap = "";
     const loop = (now) => {
-      let dt = (now - last) / 1000;
+      // 첫 프레임의 시각은 루프를 건 시각보다 앞설 수 있다 — 거꾸로 가지 않게 막는다
+      let dt = Math.max(0, (now - last) / 1000);
       last = now;
       if (dt > 0.05) dt = 0.05;
       const g = G.current;
@@ -235,23 +282,38 @@ export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
         rpgStepVisual(g, dt);
       }
       playSounds(g);
-      commit(g);
-      drawRpg(ctx, g, bgRef.current);
-      if (++frame % 5 === 0) setHud(snapHud(g));
+      drawRpg(ctx, g, bgsRef.current);
+      if (++frame % 5 === 0) {
+        const me = g.heroes[mySeat];
+        setHud(me ? {
+          lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
+          coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: !!npcNear(me),
+          party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max })),
+        } : null);
+        if (me && me.map !== lastMap) {
+          if (lastMap) setToast({ name: MAPS[me.map].name, at: now });
+          lastMap = me.map;
+        }
+        // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
+        if (me && me.loaded) {
+          const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}`;
+          if (key !== saved) { saved = key; writeHero(myCls, me); }
+        }
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [isHost, room, playSounds, mySeat, diff]);
+  }, [isHost, room, playSounds, mySeat, myCls]);
 
-  const over = hud.phase === "clear" || hud.phase === "over";
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2200);
+    return () => clearTimeout(t);
+  }, [toast]);
 
-  const me = hud.me;
-  const phaseLabel = hud.phase === "intro" ? "준비"
-    : hud.phase === "fight" ? (hud.round === 5 || hud.round === 10 ? "보스 라운드" : "사냥 중")
-    : hud.phase === "rest" ? "숨 고르기"
-    : hud.phase === "clear" ? "사냥 완료" : "전멸";
-  const offer = me && me.offer;
+  const me = hud;
+  const inField = me && me.map === "field";
 
   return (
     <div className={`page ${touch ? "touch" : ""}`}>
@@ -259,69 +321,75 @@ export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
         <div className="frame">
           <canvas ref={cvsRef} />
 
-          <div className="hud hud-left">
-            <div className="wave-box">
-              <span className={`wave-label ${hud.phase === "fight" && (hud.round === 5 || hud.round === 10) ? "hot" : ""}`}>
-                RPG · {phaseLabel}
-              </span>
-              <span className="wave-num">라운드 {Math.max(1, hud.round)}<em>/{RPG_ROUNDS}</em></span>
-              <span className="wave-diff">{DIFFS[diff]?.name}</span>
-              <span className="wave-sub">
-                {hud.phase === "intro" ? `${Math.ceil(hud.timer)}초 뒤 시작`
-                  : hud.phase === "rest" ? `${Math.ceil(hud.timer)}초 뒤 다음 라운드`
-                  : hud.phase === "fight" ? `남은 괴물 ${hud.left}` : "—"}
+          {/* 왼쪽 위 — 레벨 · 경험치 · 체력 · 코인 */}
+          {me && (
+            <div className="rpg-lv" style={{ "--pc": P[mySeat].key, "--pcl": P[mySeat].light }}>
+              <span className="rpg-lv-badge"><em>Lv</em>{me.lv}</span>
+              <span className="rpg-lv-body">
+                <span className="rpg-lv-name"><b>{names[mySeat] || CLASSES[mySeat].name}</b> {CLASSES[mySeat].name}</span>
+                <span className="rpg-lv-row">
+                  <span className="rpg-lv-tag">XP</span>
+                  <span className="rpg-lv-bar xp"><span style={{ width: `${Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
+                  <span className="rpg-lv-num">{me.xp}/{me.need}</span>
+                </span>
+                <span className="rpg-lv-row">
+                  <span className="rpg-lv-tag">HP</span>
+                  <span className="rpg-lv-bar hp"><span style={{ width: `${Math.min(100, (me.hp / (me.max || 1)) * 100)}%` }} /></span>
+                  <span className="rpg-lv-num">{me.hp}/{me.max}</span>
+                </span>
+                <span className="rpg-lv-foot">
+                  <span className="rpg-lv-coin"><Coin />{me.coins}</span>
+                  <span className={`rpg-lv-sk ${me.sk <= 0 ? "ready" : ""}`}>
+                    {RPG_SKILL[myCls].name} {me.sk <= 0 ? "준비됨" : `${Math.ceil(me.sk)}초`}
+                  </span>
+                </span>
               </span>
             </div>
-          </div>
+          )}
+          {me && (me.quest.on || inField) && (
+            <div className="rpg-quest">
+              {me.quest.on
+                ? <><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</>
+                : <>사냥꾼에게 퀘스트를 받을 수 있습니다</>}
+            </div>
+          )}
 
           <div className="hud hud-right">
             <button className="sbtn sbtn-img" onClick={toggleMute} title="소리" style={{ opacity: mute ? 0.65 : 1 }}>
               <img src={mute ? "/assets/ui/sound-off.webp" : "/assets/ui/sound-on.webp"} alt="" />
             </button>
-            <button className="sbtn" onClick={onBack} title={isHost ? "모두 대기실로" : "방장에게 대기실로 가자고 합니다"}>
-              <HomeIcon />
-            </button>
+            <button className="sbtn" onClick={onLeave} title="RPG에서 나가기"><HomeIcon /></button>
           </div>
 
-          {offer && !over && (
-            <div className="rpg-offer" role="group" aria-label="레벨 업 카드">
-              <span className="rpg-offer-head">
-                레벨 업 — 한 장 고르기{!touch && <em> 1 · 2 · 3</em>}
-                {me.pend > 1 && <b>+{me.pend - 1}</b>}
+          {toast && <div className="rpg-toast" key={toast.at}>{toast.name}</div>}
+
+          {me && (talk || me.near) && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">사냥꾼</span>
+              <span className="rpg-talk-line">
+                {talk || (me.quest.on ? `토끼 ${me.quest.n}/${QUEST.need} — 계속 사냥하게.` : "자네, 사냥을 좀 도와주겠나?")}
               </span>
-              <div className="rpg-offer-row">
-                {offer.map((id, k) => {
-                  const c = CARD_BY_ID[id];
-                  if (!c) return null;
-                  const have = me.cards.find((x) => x[0] === id);
-                  return (
-                    <button key={id} className="rpg-card" onClick={() => act("card", k)}
-                      style={{ "--pcl": P[mySeat].light }}>
-                      {!touch && <span className="rpg-card-key">{k + 1}</span>}
-                      <span className="rpg-card-name">{c.name}</span>
-                      <span className="rpg-card-note">{c.note}</span>
-                      {have && <span className="rpg-card-have">지금 {have[1]}장</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              {me.near && (
+                <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                  {me.quest.on ? "남은 수 묻기" : "퀘스트 받기"}{!touch && <kbd>Space</kbd>}
+                </button>
+              )}
             </div>
           )}
 
-          {dropped && <div className="drop-note">방장과의 연결이 끊긴 것 같습니다…</div>}
+          {me && me.down > 0 && (
+            <div className="rpg-down">쓰러졌습니다 — {Math.ceil(me.down)}초 뒤 광장에서 일어납니다</div>
+          )}
 
-          {over && (
-            <div className="curtain over">
-              <RpgResult
-                hud={hud} names={names} mySeat={mySeat} diff={diff} saved={saved} start={start}
-                onBack={onBack}
-              />
+          {dropped && (
+            <div className="drop-note">
+              방장과의 연결이 끊긴 것 같습니다… <button className="btn-ghost" onClick={onLeave}>처음 화면으로</button>
             </div>
           )}
         </div>
 
-        {touch && mySeat >= 0 && (
-          <div className={`pad ${over ? "off" : ""}`}>
+        {touch && (
+          <div className="pad">
             <div className="pad-dir">
               {["up", "left", "right", "down"].map((d) => (
                 <button key={d} className={`pkey ${d}`} aria-label={d}
@@ -347,116 +415,34 @@ export default function RpgView({ room, isHost, seats, diff, mySeat, onBack }) {
           </div>
         )}
 
-        {me && mySeat >= 0 && (
-          <div className="rpg-me" style={{ "--pc": P[mySeat].key, "--pcl": P[mySeat].light, "--pcd": P[mySeat].dark }}>
-            <div className="rpg-me-head">
-              <span className={`badge ${P[mySeat].pale ? "pale" : ""}`}><ClassIcon i={mySeat} /></span>
-              <b>{names[mySeat] || CLASSES[mySeat].name}</b>
-              <span className="rpg-me-cls">{CLASSES[mySeat].name}</span>
-              <span className="rpg-me-hero" title="판이 끝나도 남는 영웅 레벨">영웅 Lv.{me.hlv}</span>
-            </div>
-            <div className="rpg-bars">
-              <span className="rpg-bar-label">Lv {me.lv}</span>
-              <span className="rpg-bar xp"><span style={{ width: `${Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
-              <span className="rpg-bar-val">{Math.floor(me.xp)} / {me.need}</span>
-              <span className="rpg-bar-label">체력</span>
-              <span className="rpg-bar hp">
-                <span style={{ width: `${Math.min(100, (me.hp / (me.max || 1)) * 100)}%` }} />
-              </span>
-              <span className="rpg-bar-val">{me.down > 0 ? `${Math.ceil(me.down)}초 뒤 일어남` : `${me.hp} / ${me.max}`}</span>
-              <span className="rpg-bar-label">스킬</span>
-              <span className={`rpg-bar sk ${me.sk <= 0 ? "ready" : ""}`}>
-                <span style={{ width: `${Math.min(100, (1 - me.sk / me.skMax) * 100)}%` }} />
-              </span>
-              <span className={`rpg-bar-val ${me.sk <= 0 ? "ready" : ""}`}>
-                {RPG_SKILL[myCls].name} · {me.sk <= 0 ? "준비됨" : `${Math.ceil(me.sk)}초`}
-              </span>
-            </div>
-            {me.cards.length > 0 && (
-              <div className="rpg-chips">
-                {me.cards.map(([id, n]) => (
-                  <span key={id} className="rpg-chip">{CARD_BY_ID[id].name}{n > 1 && <em>×{n}</em>}</span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="rpg-party">
-          {hud.party.map((h) => (
-            <span key={h.pi} className={`rpg-mate ${h.down > 0 ? "down" : ""} ${h.pi === mySeat ? "mine" : ""}`}
-              style={{ "--pcl": P[h.pi].light }}>
+          {(me ? me.party : []).map((h) => (
+            <span key={h.pi} className={`rpg-mate ${h.pi === mySeat ? "mine" : ""}`} style={{ "--pcl": P[h.pi].light }}>
               <b>{names[h.pi] || CLASSES[h.pi].name}</b>
-              <em>{CLASSES[h.pi].name} · Lv {h.lv}</em>
+              <em>{CLASSES[h.pi].name} · Lv {h.lv} · {MAPS[h.map].name}</em>
               <span className="rpg-mate-hp"><span style={{ width: `${Math.min(100, (h.hp / (h.max || 1)) * 100)}%` }} /></span>
             </span>
           ))}
         </div>
 
         <p className="keyhint rpg-keys">
+          방 코드 <kbd>{code}</kbd> ·{" "}
           {touch
-            ? <>화살표로 <kbd>이동</kbd> · 공격은 저절로 나갑니다 · <kbd>스킬</kbd> 버튼 · 카드는 눌러서 고르기</>
-            : <>이동 <kbd>W A S D</kbd> · 공격은 저절로 나갑니다 · 스킬 <kbd>Shift</kbd> <kbd>Space</kbd> · 카드 <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></>}
+            ? <>화살표로 이동 · 공격은 저절로 · <kbd>스킬</kbd> 버튼 · 사냥꾼 곁에서 대화</>
+            : <>이동 <kbd>W A S D</kbd> · 공격은 저절로 · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 곁에서 <kbd>Space</kbd> 대화</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
-          사거리 안에 들어온 괴물은 저절로 칩니다. 걸으면서도 쏘니, 붙지 않게 움직이며 싸우세요.
-          {RPG.calm}초 넘게 맞지 않으면 체력이 조금씩 차오릅니다.
-          괴물을 잡으면 경험치를 다 같이 나눕니다. 레벨이 오를 때마다 카드 세 장 가운데 하나를 고릅니다.
-          고르는 동안에도 판은 멈추지 않습니다. 여러 장이 쌓여 있으면 차례로 나옵니다.
-          다섯째 라운드엔 오우거 지휘관, 열째 라운드엔 대군주가 나옵니다. 바닥이 붉게 차오르면 그 자리를 벗어나세요.
-          쓰러지면 {RPG.revive}초 뒤에 일어납니다. 모두 쓰러지면 그 판은 끝납니다.
-          이번 판의 레벨과 카드는 판이 끝나면 사라집니다. 대신 번 경험치가 영웅 레벨로 이 기기에 남습니다.
-          영웅 레벨이 오를수록 공격력과 체력이 조금씩 오르고, 다음 판에도 이어집니다. 영웅 레벨은 병과마다 따로 쌓입니다.
+          광장 오른쪽의 사냥문으로 들어가면 사냥터입니다. 사냥터 왼쪽 끝의 문으로 나오면 광장입니다.
+          사거리 안에 들어온 토끼는 저절로 칩니다. 토끼는 늘 {MAPS.field.rabbits}마리 이하로 돌아다니고, 한 마리가 잡히면 한 마리가 새로 나옵니다.
+          토끼 한 마리는 경험치 1과 1코인입니다. 레벨을 올리려면 처음엔 경험치 30, 그다음부터는 30씩 더 필요합니다.
+          레벨이 오르면 공격력과 체력이 오르고 체력이 가득 찹니다.
+          사냥꾼에게 퀘스트를 받아 토끼 {QUEST.need}마리를 잡으면 경험치 {QUEST.xp}과 {QUEST.coin}코인을 더 받습니다. 다시 받을 수 있습니다.
+          토끼는 가끔 들이받습니다. {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
+          레벨 · 경험치 · 코인 · 퀘스트는 이 기기에 병과마다 남아, 다음에 들어와도 이어집니다.
+          방을 만든 사람이 나가면 그 방은 닫힙니다.
         </details>
       </div>
-    </div>
-  );
-}
-
-function RpgResult({ hud, names, mySeat, diff, saved, start, onBack }) {
-  const clear = hud.phase === "clear";
-  const rows = hud.party.slice().sort((a, b) => b.dmg - a.dmg);
-  const top = rows.length ? rows[0].dmg : 0;
-  const num = (v) => Math.round(v).toLocaleString("ko-KR");
-  return (
-    <div className="rpg-end">
-      <div className="rpg-end-head">
-        <h2>{clear ? "사냥 완료" : "모두 쓰러졌습니다"}</h2>
-        <span>{DIFFS[diff]?.name} · {clear ? `${RPG_ROUNDS}라운드 모두 버팀` : `라운드 ${hud.round}에서 끝남`}</span>
-      </div>
-
-      <div className="rpg-end-list">
-        {rows.map((r, k) => (
-          <div key={r.pi} className={`rpg-end-row ${r.pi === mySeat ? "mine" : ""}`} style={{ "--pcl": P[r.pi].light }}>
-            <span className="rpg-end-rank">{k + 1}</span>
-            <span className="rpg-end-who"><b>{names[r.pi] || CLASSES[r.pi].name}</b><em>{CLASSES[r.pi].name} · Lv {r.lv}</em></span>
-            <span className="rpg-end-bar"><span style={{ width: `${top > 0 ? (r.dmg / top) * 100 : 0}%` }} /></span>
-            <span className="rpg-end-num">{num(r.dmg)}</span>
-            <span className="rpg-end-note">{r.kills}마리</span>
-          </div>
-        ))}
-      </div>
-
-      {mySeat >= 0 && saved && (
-        <div className="rpg-end-hero" style={{ "--pcl": P[mySeat].light }}>
-          <span className="rpg-end-hero-label">내 영웅 · {CLASSES[mySeat].name}</span>
-          <b>
-            {saved.after > (start?.lv ?? saved.before)
-              ? <>Lv.{start?.lv ?? saved.before} → Lv.{saved.after}</>
-              : <>Lv.{saved.after}</>}
-          </b>
-          <span className="rpg-bar xp">
-            <span style={{ width: saved.after >= HERO_MAX ? "100%" : `${Math.min(100, (saved.xp / heroNeed(saved.after)) * 100)}%` }} />
-          </span>
-          <em>
-            경험치 +{num(hud.me?.gain || 0)}
-            {saved.after < HERO_MAX ? ` · 다음 레벨까지 ${num(heroNeed(saved.after) - saved.xp)}` : " · 최고 레벨"}
-          </em>
-        </div>
-      )}
-
-      <button className="btn-main" onClick={onBack}>대기실로</button>
     </div>
   );
 }

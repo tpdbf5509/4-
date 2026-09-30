@@ -729,7 +729,7 @@ export function startArena(g, kind) {
   const D = diffOf(g);
   const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + D.surge * g.surge) * D.hp;
   const T = adTune(g);
-  const max = Math.round(base.hp * scale * ARENA.hpMul * arenaCrew(g) * T.hp);
+  const max = Math.round(base.hp * scale * ARENA.hpMul * arenaCrew(g) * T.hp * (kind === "titan" ? ARENA.titanHp : 1));
   // 보스 한 대가 사람에게 주는 피해. 이 수의 T.lives 배가 각자의 체력이 된다.
   const bite = Math.max(1, Math.round(base.dmg * ARENA.coreHit * D.hp * T.bite));
   const life = Math.max(12, bite * T.lives);
@@ -834,6 +834,7 @@ function arenaDamage(g, pi, raw, opt) {
   dmg *= 1 + Math.min(0.5, a.combo * 0.012);                  // 연타가 쌓일수록
   dmg *= 1 + (a.shred > 0 ? a.shredAmt : 0);                  // 부식이 깎아 놓은 만큼
   if (p && p.abuff > 0) dmg *= 1 + p.abuffAmt;                // 보급소가 밀어 준 만큼
+  if (a.type === "titan") dmg *= ARENA.titanDmg;               // 대군주는 체력을 낮춘 만큼 더 세게 들어간다
   const crit = Math.random() < perkVal.crit(perkN(g, pi, "crit"));
   if (crit) dmg *= 2;
   // 테스트 서버 — 숫자를 박아 두었으면 그 값 그대로, 아니면 배율만큼
@@ -1755,7 +1756,7 @@ export function stepArena(g, dt) {
 
   // 보스에게 남은 효과 — 화상·독은 계속 깎고, 서리는 다음 공격을 늦춘다
   // 테스트 서버 — 캐릭터가 남긴 화상·독도 캐릭터 피해라 배율을 따른다
-  const dotMul = g.testMode ? (g.testCharMul ?? 1) : 1;
+  const dotMul = (g.testMode ? (g.testCharMul ?? 1) : 1) * (a.type === "titan" ? ARENA.titanDmg : 1);
   if (a.burn > 0) {
     a.burn -= dt;
     a.hp = Math.max(0, a.hp - a.burnDps * dotMul * dt);

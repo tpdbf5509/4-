@@ -290,7 +290,7 @@ export const TOWERS = [
   { id: "cannon", role: "공격", name: "대포탑", cost: 40, range: 118, dmg: 11, interval: 1.5, splash: 48,
     note: "착탄 지점 범위 피해" },
   { id: "bolt", role: "공격", name: "번개탑", cost: 55, range: 142, dmg: 10, interval: 1.2, chain: 3,
-    note: "가까운 적 셋까지 연쇄" },
+    note: "가까운 적 둘까지 연쇄 · 2단계부터 셋" },
   { id: "flame", role: "공격", name: "화염탑", cost: 50, range: 112, dmg: 0, interval: 1, aura: "burn",
     burn: 9, burnT: 5, note: "범위 안 모두에게 5초 화상" },
   { id: "poison", role: "공격", name: "독탑", cost: 45, range: 124, dmg: 3, interval: 1, poison: 7, poisonT: 4,
@@ -304,7 +304,7 @@ export const TOWERS = [
 
   /* 지원 */
   { id: "supply", role: "지원", name: "보급소", cost: 35, range: 140, dmg: 0, interval: 0, gold: 0.45, buff: 0.25,
-    note: "주변 타워 강화 · 골드 생성" },
+    note: "주변 타워 강화 · 골드 생성 · 성채를 조금씩 회복" },
   { id: "corrode", role: "지원", name: "부식탑", cost: 60, range: 132, dmg: 7, interval: 1.1, shred: 0.2, shredT: 4,
     note: "맞은 적의 장갑을 4초간 깎는다" },
   { id: "paladin", role: "지원", name: "성기사탑", cost: 60, range: 150, dmg: 0, interval: 0, ward: 0.06,
@@ -321,7 +321,8 @@ export const upCostOf = (def, lv) => Math.round((def.cost || 0) * (UP_MUL[lv - 1
 
 /* 보급소가 이웃에게 밀어 주는 몫 — 공격력과 공격 속도에 같이 실린다.
    단계를 올려도 천천히만 오르게 묶어 둔다. */
-export const supplyAid = (lv) => TOWER_BY_ID.supply.buff * (0.6 + 0.4 * Math.max(1, lv));
+const SUPPLY_BUFF_MUL = [1, 1.10, 1.10, 1.10];          // 단계별 공격 보조 효과 — 2단계에서 10% 늘고 그 뒤로는 그대로
+export const supplyAid = (lv) => TOWER_BY_ID.supply.buff * SUPPLY_BUFF_MUL[Math.min(Math.max(lv, 1), SUPPLY_BUFF_MUL.length) - 1];
 
 // 병과 하나가 탑 하나를 맡는다
 export const CLASSES = TOWERS;

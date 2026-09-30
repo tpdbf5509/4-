@@ -100,6 +100,27 @@ const SNIPER_RANGE_MUL = [1, 1.10, 1.10 * 1.15, 1.10 * 1.15 * 1.10];   // 사거
 const CANNON_SPLASH_MUL = [1, 1.10, 1.10 * 1.15, 1.10 * 1.15 * 1.20];  // 광역 범위
 const FROST_SLOW_AMT = [0.5, 0.5 * 0.90, 0.5 * 0.90 * 0.70, 0.5 * 0.90 * 0.70]; // 남는 속도 비율(작을수록 많이 느려짐)
 const FLAME_DPS_MUL = [1, 1.10, 1.10 * 1.20, 1.10 * 1.20];             // 화상 초당 피해
+/* 번개 · 독 · 중력 · 보급소 · 부식탑도 같은 방식으로 단계마다 자기 몫이 자란다. */
+const BOLT_CHAIN = [2, 3, 3, 3];                                   // 번개가 이어지는 수(2단계부터 3명까지)
+const BOLT_HOP = [0.72, 0.72, 0.72 * 1.15, 0.72 * 1.15];           // 한 번 이어질 때 남는 피해 비율 — 3단계부터 15% 덜 깎인다
+const BOLT_REPEAT_MAX = 3;                                         // 4단계 — 처치하면 번개가 한 번 더 튀는 최대 횟수
+const POISON_DPS_MUL = [1, 1.10, 1.10, 1.10];                      // 독 초당 피해
+const POISON_STACK_MAX = 5;                                        // 3단계부터 독이 겹쳐 쌓이는 최대 수 — 4단계는 다 쌓이면 폭발
+const POISON_SLOW = 0.85;                                          // 3단계 — 독에 걸린 적의 이동 속도
+const POISON_BURST_R = 70;                                         // 4단계 맹독 폭발 범위
+const GRAVITY_FIELD_T = 0.5;                                       // 중력장이 적을 붙잡고 있는 시간
+const GRAVITY_FIELD_MUL = [1, 1.15, 1.15, 1.15];                   // 중력장 지속시간
+const GRAVITY_DRIFT = 70;                                          // 3단계 — 중력장 안에서 중심으로 끌려가는 속도(초당 px)
+const GRAVITY_BLAST_HP = 0.10, GRAVITY_BLAST_HP_BIG = 0.03;        // 4단계 중력 폭발 — 적 최대 체력 대비 피해(보스는 적게)
+const GRAVITY_BLAST_R = 90;
+const SUPPLY_MUL = [1, 1.10, 1.10, 1.10];                          // 보급소 회복량 · 공격 보조 효과
+const SUPPLY_HEAL = 0.12;                                          // 1단계 — 초당 성채 회복
+const SUPPLY_GAUGE_MAX = 24;                                       // 3단계부터 보급 게이지(4단계는 가득 차면 터진다)
+const SUPPLY_BURST_HEAL = 0.06;                                    // 4단계 — 성채 최대 체력 대비 즉시 회복
+const SUPPLY_SURGE = 0.8, SUPPLY_SURGE_T = 4;                      // 4단계 — 공격 속도 증가량 · 시간
+const CORRODE_MUL = [1, 1.10, 1.10, 1.10];                         // 방어력 감소량
+const CORRODE_VULN = 0.10;                                         // 3단계 — 부식된 적이 받는 모든 피해 증가
+const CORRODE_SPREAD_N = 3, CORRODE_SPREAD_R = 90;                 // 4단계 — 죽으면 주변 세 명에게 전염
 const lvMul = (arr, lv) => arr[Math.min(Math.max(lv, 1), arr.length) - 1];
 
 export function towerRange(g, t, i) {
@@ -495,7 +516,8 @@ const GOLD_BIG = 45;
 export function hurt(g, e, dmg, byPlayer, ignoreRes, crit) {
   if (e.dead) return;
   const res = Math.max(0, ENEMY[e.type].res - (e.shred > 0 ? e.shredAmt : 0));
-  const d = ignoreRes ? dmg : dmg * (1 - res);
+  let d = ignoreRes ? dmg : dmg * (1 - res);
+  if (e.shred > 0 && e.vuln) d *= 1 + e.vuln;     // 부식탑 3단계 — 부식된 적이 받는 모든 피해가 늘어난다
   e.hp -= d;
   e.flash = 0.12;
   const big = e.type === "boss" || e.type === "titan";
@@ -510,6 +532,7 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes, crit) {
   if (e.hp > 0) return;
 
   e.dead = true;
+  if (e.shred > 0 && e.shredSpread) spreadCorrode(g, e);
   // 연속 처치가 쌓이면 골드가 조금 더 나온다. 너무 커지지 않게 30%에서 멈춘다
   const comboBonus = 1 + Math.min(0.3, Math.floor(g.combo / 10) * 0.1);
   const base = (ENEMY[e.type].gold + g.wave * 0.6) * diffOf(g).gold * comboBonus;
@@ -564,12 +587,119 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes, crit) {
   }
 }
 
-function zap(g, from, first, dmg, owner, chain, src, crit) {
+/* 중력장 — 붙잡고 있는 동안 3단계부터는 적이 중심(길이 탑에 가장 가까워지는 자리)으로 조금씩 끌려오고,
+   4단계는 끝나는 순간 남은 적을 중심으로 끌어당긴 뒤 중력 폭발을 일으킨다. */
+function gravityCenter(t, s, lane) {
+  t.cp = t.cp || [];
+  if (t.cp[lane] === undefined) {
+    let bp = 0, bd = 1e9;
+    for (let k = 0; k <= 120; k++) {
+      const u = k / 120, q = posAt(lane, u);
+      const dd = Math.hypot(q.x - s.x, q.y - s.y);
+      if (dd < bd) { bd = dd; bp = u; }
+    }
+    t.cp[lane] = bp;
+  }
+  return t.cp[lane];
+}
+function gravityField(g, t, s, range, dt) {
+  if (!(t.field > 0)) return;
+  const inField = () => g.enemies.filter((e) => !e.dead && Math.hypot(e.x - s.x, e.y - s.y) <= range);
+  const pullTo = (e, step) => {
+    const c = gravityCenter(t, s, e.lane);
+    const d = c - e.p;
+    e.p += Math.abs(d) <= step ? d : Math.sign(d) * step;
+    const pos = posAt(e.lane, e.p);
+    e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;
+    if (e.tp !== undefined) e.tp = e.p;
+  };
+  if (t.lv >= 3) inField().forEach((e) => pullTo(e, (GRAVITY_DRIFT * dt) / LANES[e.lane].len));
+  t.field -= dt;
+  if (t.field > 0 || t.lv < 4) { if (t.field <= 0) t.field = 0; return; }
+  t.field = 0;
+  // 4단계 — 끝나는 순간 중심으로 확 끌어당기고 터뜨린다
+  const inside = inField();
+  inside.forEach((e) => pullTo(e, 1));
+  const cx = s.x, cy = s.y - 6;
+  fx(g, { kind: "vortex", x: cx, y: cy, r: range, t: 0.5, life: 0.5 });
+  fx(g, { kind: "boom", x: cx, y: cy, r: GRAVITY_BLAST_R, t: 0.55, life: 0.55, snd: "boom" });
+  fx(g, { kind: "ring", x: cx, y: cy, r: GRAVITY_BLAST_R + 30, color: "#c48bd8", t: 0.6, life: 0.6 });
+  g.shake = Math.max(g.shake, 0.2);
+  const mul = perkVal.power(perkN(g, t.owner, "power")) * (1 + (t.aid || 0)) * (g.testMode ? (g.testDmgMul ?? 1) : 1);
+  inside.forEach((e) => {                 // 끌려온 적 모두가 폭발을 맞는다
+    if (e.dead) return;
+    const big = e.type === "boss" || e.type === "titan";
+    e.pulled = Math.max(e.pulled || 0, 2.5);
+    applyHit(g, e, e.max * (big ? GRAVITY_BLAST_HP_BIG : GRAVITY_BLAST_HP) * mul, t.owner, true, "gravity", false);
+  });
+}
+
+// 보급소 4단계 — 보급 게이지가 가득 차면 곁의 타워가 잠깐 크게 빨라지고 성채가 한꺼번에 회복된다
+function supplyBurst(g, t, i, s) {
+  t.gauge = 0;
+  const reach = towerRange(g, t, i);
+  g.towers.forEach((o, k) => {
+    if (!o || k === i || o.type === "supply") return;
+    if (Math.hypot(SLOTS[k].x - s.x, SLOTS[k].y - s.y) > reach) return;
+    o.surge = SUPPLY_SURGE_T;
+    fx(g, { kind: "ring", x: SLOTS[k].x, y: SLOTS[k].y - 10, r: 46, color: "#ffe08a", t: 0.5, life: 0.5 });
+  });
+  const heal = g.core.max * SUPPLY_BURST_HEAL;
+  g.core.hp = Math.min(g.core.max, g.core.hp + heal);
+  fx(g, { kind: "ring", x: s.x, y: s.y - 10, r: reach, color: "#ffe08a", t: 0.7, life: 0.7, snd: "bless" });
+  fx(g, { kind: "heal", x: CX, y: CY - 20, text: `보급 +${Math.round(heal)}`, t: 1.1, life: 1.1 });
+}
+
+// 3단계~ — 보급소에게 밀려 받은 타워가 공격할 때마다 그 보급소의 게이지가 찬다
+function supplyCharge(g, t) {
+  if (!(t.aid > 0) || t.aidFrom < 0) return;
+  const sup = g.towers[t.aidFrom];
+  if (sup && sup.type === "supply" && sup.lv >= 3) sup.gauge = Math.min(SUPPLY_GAUGE_MAX, (sup.gauge || 0) + 1);
+}
+
+// 부식탑 4단계 — 부식된 채 죽은 적은 주변 세 명에게 부식을 옮긴다(옮겨 받은 쪽은 다시 옮기지 않는다)
+function spreadCorrode(g, dead) {
+  const near = g.enemies
+    .filter((o) => o !== dead && !o.dead && Math.hypot(o.x - dead.x, o.y - dead.y) <= CORRODE_SPREAD_R)
+    .sort((a, z) => Math.hypot(a.x - dead.x, a.y - dead.y) - Math.hypot(z.x - dead.x, z.y - dead.y))
+    .slice(0, CORRODE_SPREAD_N);
+  near.forEach((o) => {
+    o.shred = Math.max(o.shred || 0, Math.max(dead.shred, 4));
+    o.shredAmt = Math.max(o.shredAmt || 0, dead.shredAmt || 0);
+    o.vuln = Math.max(o.vuln || 0, dead.vuln || 0);
+    fx(g, { kind: "acid", x: o.x, y: o.y - 4, t: 0.45, life: 0.45 });
+    fx(g, { kind: "zap", x: dead.x, y: dead.y, x2: o.x, y2: o.y, t: 0.25, life: 0.25, color: "#78d5bf" });
+  });
+  if (near.length) fx(g, { kind: "ring", x: dead.x, y: dead.y, r: CORRODE_SPREAD_R, color: "#78d5bf", t: 0.4, life: 0.4 });
+}
+
+function zap(g, from, first, dmg, owner, chain, src, crit, lv = 1) {
   const hit = new Set([first.id]);
+  const hop = lvMul(BOLT_HOP, lv);
   let prev = first;
   let d = dmg;
+  let extra = 0;
+  // 4단계 — 번개에 맞아 죽은 적이 있으면 그 곁의 적에게 번개가 한 번 더 튄다(한 번에 최대 3회)
+  const jump = (victim, dd) => {
+    while (lv >= 4 && victim.dead && extra < BOLT_REPEAT_MAX) {
+      let best = null, bd = 1e9;
+      for (const e of g.enemies) {
+        if (e.dead || hit.has(e.id)) continue;
+        const k = Math.hypot(e.x - victim.x, e.y - victim.y);
+        if (k < 96 && k < bd) { bd = k; best = e; }
+      }
+      if (!best) return;
+      extra++;
+      hit.add(best.id);
+      dd *= hop;
+      fx(g, { kind: "zap", x: victim.x, y: victim.y, x2: best.x, y2: best.y, t: 0.2, life: 0.2 });
+      applyHit(g, best, dd, owner, true, src, crit);
+      victim = best;
+    }
+  };
   fx(g, { kind: "zap", x: from.x, y: from.y, x2: first.x, y2: first.y, t: 0.2, life: 0.2, snd: "zap" });
   applyHit(g, first, d, owner, false, src, crit);
+  jump(first, d);
   for (let n = 1; n < chain; n++) {
     let best = null, bd = 1e9;
     for (const e of g.enemies) {
@@ -579,9 +709,10 @@ function zap(g, from, first, dmg, owner, chain, src, crit) {
     }
     if (!best) break;
     hit.add(best.id);
-    d *= 0.72;
+    d *= hop;                                    // 3단계부터는 덜 깎인다
     fx(g, { kind: "zap", x: prev.x, y: prev.y, x2: best.x, y2: best.y, t: 0.2, life: 0.2 });
     applyHit(g, best, d, owner, true, src, crit);
+    jump(best, d);
     prev = best;
   }
 }
@@ -702,9 +833,17 @@ function spread(g, b, tg) {
   }
 }
 
-function applyPoison(e, dps, time, owner) {
+// stackMax 가 1보다 크면(독탑 3단계~) 맞을 때마다 독이 겹쳐 쌓여 초당 피해가 그만큼 커진다
+function applyPoison(e, dps, time, owner, stackMax = 1) {
+  if (stackMax > 1) {
+    const n = e.poison > 0 ? Math.min(stackMax, (e.pstack || 0) + 1) : 1;
+    e.pstack = n;
+    e.punit = dps;
+    e.pdps = dps * n;
+  } else {
+    e.pdps = Math.max(e.pdps || 0, dps);
+  }
   e.poison = Math.max(e.poison || 0, time);
-  e.pdps = Math.max(e.pdps || 0, dps);
   e.pby = owner;
 }
 
@@ -2047,6 +2186,11 @@ export function step(g, dt) {
   supports.forEach(({ t, i, s }) => {
     g.players.forEach((p, k) => { if (g.seats[k]) p.gold += supDef.gold * t.lv * dt; });
     if (t.warm > 0) return;                    // 아직 자리를 잡는 중이면 밀어 주지 못한다
+    // 곁을 지키며 성채를 조금씩 돌본다 — 2단계부터 회복량이 늘어난다
+    if (g.core.hp > 0 && g.core.hp < g.core.max) {
+      g.core.hp = Math.min(g.core.max, g.core.hp + SUPPLY_HEAL * lvMul(SUPPLY_MUL, t.lv) * dt);
+    }
+    if (t.lv >= 4 && (t.gauge || 0) >= SUPPLY_GAUGE_MAX) supplyBurst(g, t, i, s);
     const reach = towerRange(g, t, i);
     const amt = supplyAid(t.lv);
     g.towers.forEach((o, k) => {
@@ -2107,6 +2251,7 @@ export function step(g, dt) {
     // 자리를 잡는 시간은 쏘지 않는 탑에도 흘러야 한다.
     // 여기서 빼 주지 않으면 보급소와 성기사탑은 영영 준비가 끝나지 않는다.
     if (t.warm > 0) t.warm = Math.max(0, t.warm - dt);
+    if (t.surge > 0) t.surge = Math.max(0, t.surge - dt);
     const def = tdef(t);
     if (!def.interval) return;                 // 보급소·성기사탑은 쏘지 않는다
     const s = SLOTS[i];
@@ -2116,17 +2261,19 @@ export function step(g, dt) {
       ? perkVal.thirst(perkN(g, t.owner, "thirst")) : 0;
     const spot = spotAt(i);
     const haste = perkVal.haste(perkN(g, t.owner, "haste")) + cmd + rage + (spot === "focus" ? 0.15 : 0);
-    const mul = 1 + haste + (t.aid || 0);      // 보급소가 밀어 준 만큼 더 빨리 쏜다
+    const mul = 1 + haste + (t.aid || 0) + (t.surge > 0 ? SUPPLY_SURGE : 0);   // 보급소가 밀어 준 만큼 더 빨리 쏜다
     t.cd -= dt * mul;
     const range = towerRange(g, t, i);
 
     // 범위에 들어온 적 모두를 상대하는 탑 (화염·중력)
     if (def.aura) {
+      if (def.aura === "pull") gravityField(g, t, s, range, dt);
       if (t.cd > 0) return;
       const inRange = g.enemies.filter((e) => !e.dead && Math.hypot(e.x - s.x, e.y - s.y) <= range);
       if (!inRange.length) { t.cd = 0; return; }
       t.cd = def.interval;
       t.pulse = 0.4;
+      supplyCharge(g, t);
       if (def.aura === "burn") {
         const dps = def.burn * lvMul(FLAME_DPS_MUL, t.lv) * perkVal.power(perkN(g, t.owner, "power"))
           * (1 + (t.aid || 0));
@@ -2148,12 +2295,14 @@ export function step(g, dt) {
         });
         fx(g, { kind: "firering", x: s.x, y: s.y - 6, r: range, t: 0.5, life: 0.5 });
       } else {
-        // 중력탑 — 지나간 만큼 뒤로 당기고 잠깐 붙잡는다
+        // 중력탑 — 지나간 만큼 뒤로 당기고 잠깐 붙잡는다. 붙잡는 동안이 중력장이다(2단계부터 15% 길다).
         const back = def.pull * (1 + 0.45 * (t.lv - 1));
+        const fieldMul = lvMul(GRAVITY_FIELD_MUL, t.lv);
+        t.field = GRAVITY_FIELD_T * fieldMul;
         inRange.forEach((e) => {
           e.p = Math.max(0, e.p - back);
-          e.freeze = Math.max(e.freeze, 0.5);
-          e.pulled = 2.5;                      // 잠깐 뭉쳐 있는 동안은 폭격이 잘 든다
+          e.freeze = Math.max(e.freeze, t.field);
+          e.pulled = 2.5 * fieldMul;           // 잠깐 뭉쳐 있는 동안은 폭격이 잘 든다
           const pos = posAt(e.lane, e.p);
           e.x = pos.x; e.y = pos.y;
         });
@@ -2205,9 +2354,16 @@ export function step(g, dt) {
       freezeT: (t.type === "frost" && t.lv >= 4) ? 3 : 0,        // 서리탑 4단계 — 3초간 얼린다
       stunT: 0,                                                    // 기절(별 연출) — 지금 쓰는 탑은 없지만 남겨 둔다
       delayedBoom: (t.type === "cannon" && t.lv >= 4) ? 1 : 0,  // 대포탑 4단계 — 맞은 적이 잠시 뒤 한 번 더 터진다
-      chain: def.chain ? def.chain + (spot === "key" ? 1 : 0) : 0, poison: def.poison ? def.poison * (1 + 0.5 * (t.lv - 1)) * (1 + (t.aid || 0)) : 0,
+      lv: t.lv,
+      chain: def.chain ? (t.type === "bolt" ? lvMul(BOLT_CHAIN, t.lv) : def.chain) + (spot === "key" ? 1 : 0) : 0,
+      poison: def.poison ? def.poison * lvMul(POISON_DPS_MUL, t.lv) * (1 + (t.aid || 0)) : 0,
       poisonT: def.poisonT || 0,
-      shred: def.shred || 0, shredT: def.shredT || 0,
+      poisonStack: t.type === "poison" && t.lv >= 3 ? POISON_STACK_MAX : 1,   // 독탑 3단계 — 독이 겹쳐 쌓인다
+      poisonSlow: t.type === "poison" && t.lv >= 3,                            // 독탑 3단계 — 독에 걸린 적이 느려진다
+      poisonBurst: t.type === "poison" && t.lv >= 4,                           // 독탑 4단계 — 다 쌓이면 맹독 폭발
+      shred: (def.shred || 0) * (t.type === "corrode" ? lvMul(CORRODE_MUL, t.lv) : 1), shredT: def.shredT || 0,
+      shredVuln: t.type === "corrode" && t.lv >= 3 ? CORRODE_VULN : 0,         // 부식탑 3단계
+      shredSpread: t.type === "corrode" && t.lv >= 4,                          // 부식탑 4단계
       speed, kind,
       travel: 0, total: Math.max(1, Math.hypot(target.x - s.x, target.y - s.y + 20)),
       vx: target.x - s.x, vy: target.y - (s.y - 20),
@@ -2217,6 +2373,7 @@ export function step(g, dt) {
         owner: t.owner, splash: def.splash || 0, speed, kind });
     }
     t.pulse = 0.4;
+    supplyCharge(g, t);
     if (t.type === "cannon") {
       fx(g, { kind: "poof", x: s.x + Math.cos(t.aim) * 22, y: s.y - 20 + Math.sin(t.aim) * 22,
         t: 0.3, life: 0.3, color: "rgba(230,224,210,1)" });
@@ -2263,7 +2420,7 @@ export function step(g, dt) {
         g.shake = Math.max(g.shake, b.kind === "shell" ? 0.2 : 0.12);
       } else if (tg && !tg.dead) {
         if (b.chain) {
-          zap(g, { x: b.x, y: b.y }, tg, b.dmg, b.owner, b.chain, b.src, b.crit);
+          zap(g, { x: b.x, y: b.y }, tg, b.dmg, b.owner, b.chain, b.src, b.crit, b.lv || 1);
         } else {
           applyHit(g, tg, b.dmg, b.owner, false, b.src, b.crit);
         }
@@ -2283,12 +2440,28 @@ export function step(g, dt) {
           fx(g, { kind: "stun", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
         }
         if (b.poison) {
-          applyPoison(tg, b.poison, b.poisonT, b.owner);
+          applyPoison(tg, b.poison, b.poisonT, b.owner, b.poisonStack || 1);
           fx(g, { kind: "fume", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
+          if (b.poisonSlow) tg.pslow = Math.max(tg.pslow || 0, b.poisonT);
+          // 4단계 — 독이 다 쌓이면 맹독 폭발: 지금 실린 독 피해 전부가 주변 적에게 한꺼번에 터진다
+          if (b.poisonBurst && (tg.pstack || 0) >= POISON_STACK_MAX && !tg.dead) {
+            const boom = (tg.pdps || 0) * Math.max(1, tg.poison);
+            fx(g, { kind: "boom", x: tg.x, y: tg.y, r: POISON_BURST_R, t: 0.45, life: 0.45, snd: "boom" });
+            fx(g, { kind: "fume", x: tg.x, y: tg.y, t: 0.7, life: 0.7, color: "rgba(150,220,90,0.7)" });
+            g.enemies.forEach((o) => {
+              if (o === tg || o.dead) return;
+              if (Math.hypot(o.x - tg.x, o.y - tg.y) > POISON_BURST_R) return;
+              applyHit(g, o, boom, b.owner, true, "poison", false);
+            });
+            tg.pstack = 1;
+            tg.pdps = tg.punit || tg.pdps;
+          }
         }
         if (b.shred) {
           tg.shred = Math.max(tg.shred || 0, b.shredT);
           tg.shredAmt = Math.max(tg.shredAmt || 0, b.shred);
+          if (b.shredVuln) tg.vuln = Math.max(tg.vuln || 0, b.shredVuln);
+          if (b.shredSpread) tg.shredSpread = 1;
           fx(g, { kind: "acid", x: b.tx, y: b.ty, t: 0.45, life: 0.45 });
         }
       }
@@ -2305,7 +2478,9 @@ export function step(g, dt) {
     if (e.flash > 0) e.flash -= dt;
     if (e.dead) return;
     if (e.shred > 0) e.shred -= dt;
+    if (!(e.shred > 0)) { e.vuln = 0; e.shredSpread = 0; }
     if (e.pulled > 0) e.pulled -= dt;
+    if (e.pslow > 0) e.pslow -= dt;
     if (e.burn > 0) {
       e.burn -= dt;
       e.btick = (e.btick || 0) + dt;
@@ -2324,6 +2499,7 @@ export function step(g, dt) {
         hurt(g, e, e.pdps * 0.5, e.pby, true);   // 독은 장갑을 무시한다
         fx(g, { kind: "fume", x: e.x, y: e.y - 4, t: 0.4, life: 0.4 });
       }
+      if (e.poison <= 0) { e.pstack = 0; e.pdps = 0; }     // 독이 다 빠지면 쌓인 것도 사라진다
       if (e.dead) return;
     }
     if (e.boomT > 0) {                            // 대포탑 4단계 — 표식이 붙은 적은 잠시 뒤 한 번 더 터진다
@@ -2347,7 +2523,7 @@ export function step(g, dt) {
     if (e.stun > 0) e.stun -= dt;
     if (e.freeze > 0) { e.freeze -= dt; return; }
     if (e.slow > 0) e.slow -= dt;
-    const spd = (e.spd || ENEMY[e.type].spd) * (e.slow > 0 ? e.slowAmt : 1);
+    const spd = (e.spd || ENEMY[e.type].spd) * (e.slow > 0 ? e.slowAmt : 1) * (e.pslow > 0 ? POISON_SLOW : 1);
     e.p += (spd * dt) / LANES[e.lane].len;
     const pos = posAt(e.lane, e.p);
     e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;

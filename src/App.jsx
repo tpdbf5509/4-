@@ -19,8 +19,8 @@ import { TowerChar, charOf } from "./ui/chars.jsx";
 import { UPDATES } from "./game/updates.js";
 import { TOWER_INFO } from "./game/towerInfo.js";
 import { useTouch } from "./ui/touch.js";
-import RpgView, { RpgPick } from "./RpgView.jsx";
-import { RPG_CREW_MAX, heroSave } from "./game/rpg.js";
+import RpgView, { RpgSetup } from "./RpgView.jsx";
+import { RPG_CREW_MAX, loadChar, cleanLook } from "./game/rpg.js";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -63,6 +63,7 @@ export default function App() {
   const wavesRef = useRef(TOTAL_WAVES);
   const diffRef = useRef(DEFAULT_DIFF);
   const modeRef = useRef("defense");      // 방을 만든 사람이 고른 놀이 — "defense" · "rpg"
+  const heroRef = useRef(null);           // RPG — 방을 열면서 곧바로 광장에 세울 내 캐릭터
   const crewMax = () => (modeRef.current === "rpg" ? RPG_CREW_MAX : CREW_MAX);
   const publishLobby = useCallback(() => {
     const next = {
@@ -93,9 +94,10 @@ export default function App() {
   // 방장은 들어온 사람에게 빈 병과를 하나 내어준다
   const reseat = useCallback(() => {
     const present = new Set(peersRef.current.map((p) => p.id));
+    present.add(me);                                          // 내 presence 가 늦게 잡혀도 방장 자리는 지킨다
     const seats = seatsRef.current.map((s) => (s && present.has(s.id) ? s : null));
     peersRef.current.forEach((peer) => {
-      if (modeRef.current === "rpg") return;                   // RPG 는 들어온 사람이 병과를 직접 고른다
+      if (modeRef.current === "rpg") return;                   // RPG 는 들어온 사람이 캐릭터를 만든 뒤 자리를 부탁한다
       if (seats.some((s) => s && s.id === peer.id)) return;
       if (seats.filter(Boolean).length >= crewMax()) return;   // 정원이 차면 구경만
       const free = seats.findIndex((s) => !s);
@@ -103,24 +105,42 @@ export default function App() {
     });
     seatsRef.current = seats;
     publishLobby();
+  }, [me, publishLobby]);
+
+  // RPG — 자리는 병과가 아니라 들어온 차례로 받는다. 같은 직업을 여럿이 골라도 된다.
+  const seatRpg = useCallback((id, hero) => {
+    const look = cleanLook(hero);
+    if (!look) return;
+    const seats = seatsRef.current.slice();
+    if (seats.some((s) => s && s.id === id)) return;         // 이미 광장에 서 있다
+    const free = seats.findIndex((s) => !s);
+    if (free < 0 || seats.filter(Boolean).length >= RPG_CREW_MAX) return;   // 정원이 찼다
+    seats[free] = { id, name: look.name, hero: look };
+    seatsRef.current = seats;
+    publishLobby();
   }, [publishLobby]);
 
-  const connect = useCallback((roomCode, asHost, mode) => {
+  const connect = useCallback((roomCode, asHost, mode, hero) => {
     if (roomCode === "TEST" && !testUnlocked()) return;
     setError("");
     setConnecting(true);
     hostRef.current = asHost;
     modeRef.current = mode === "rpg" ? "rpg" : "defense";
+    heroRef.current = modeRef.current === "rpg" ? cleanLook(hero) : null;
     const nick = (name || "수비대원").slice(0, 8);
     localStorage.setItem("flg:name", nick);
     // 테스트 서버는 누구나 같은 코드로 들어온다 — 방장이 이미 있으면 손님으로 붙고,
     // 잠깐 기다려도 대기실 소식이 없으면 그때 내가 방장이 된다
     const auto = roomCode === "TEST";
     let gotLobby = false;
-    // RPG 는 방장도 병과를 직접 고르니 빈 자리로 시작한다
-    const firstSeats = () => (modeRef.current === "rpg"
-      ? new Array(SEATS).fill(null)
-      : [{ id: me, name: nick }, ...new Array(SEATS - 1).fill(null)]);
+    // RPG 는 캐릭터를 만들고 들어오니 방장이 첫 자리에 바로 선다
+    const firstSeats = () => {
+      if (modeRef.current !== "rpg") return [{ id: me, name: nick }, ...new Array(SEATS - 1).fill(null)];
+      const seats = new Array(RPG_CREW_MAX).fill(null);
+      const h = heroRef.current;
+      if (h) seats[0] = { id: me, name: h.name, hero: h };
+      return seats;
+    };
     const becomeHost = () => {
       hostRef.current = true;
       seatsRef.current = firstSeats();
@@ -175,7 +195,8 @@ export default function App() {
       }
     });
     room.on("pick", (d, from) => {
-      if (!hostRef.current) return;
+      if (!hostRef.current || !d) return;
+      if (modeRef.current === "rpg") return seatRpg(from, d.hero);
       const seats = seatsRef.current.slice();
       if (d.cls < 0 || d.cls >= SEATS) return;
       if (seats[d.cls]) return;                               // 이미 누가 골랐다
@@ -204,7 +225,7 @@ export default function App() {
     setCode(roomCode);
     setScreen("lobby");
     history.replaceState(null, "", `?room=${roomCode}`);
-  }, [me, name, publishLobby, reseat]);
+  }, [me, name, publishLobby, reseat, seatRpg]);
 
   // 방을 못 찾으면 알려준다
   useEffect(() => {
@@ -228,6 +249,7 @@ export default function App() {
     roomRef.current = null;
     hostRef.current = false;
     modeRef.current = "defense";
+    heroRef.current = null;
     seatsRef.current = new Array(SEATS).fill(null);
     setLobby(null);
     setScreen("home");
@@ -235,7 +257,7 @@ export default function App() {
   }, []);
 
   const pick = useCallback((cls) => {
-    if (!lobby) return;
+    if (!lobby || lobby.mode === "rpg") return;
     if (lobby.seats[cls]) return;
     if (hostRef.current) {
       const seats = seatsRef.current.slice();
@@ -251,9 +273,16 @@ export default function App() {
     }
   }, [lobby, me, name, publishLobby]);
 
+  // RPG 방에 코드로 들어와 캐릭터를 고른 뒤 — 방장에게 자리를 부탁한다
+  const pickRpg = useCallback((hero) => {
+    if (!lobby) return;
+    if (hostRef.current) seatRpg(me, hero);
+    else roomRef.current?.send("pick", { hero });
+  }, [lobby, me, seatRpg]);
+
   // 테스트 서버 — 코드만 치고 바로 들어오도록, 방에 들어오면 병과를 스스로 하나 집는다
   useEffect(() => {
-    if (code !== "TEST" || screen !== "lobby" || !lobby) return;
+    if (code !== "TEST" || screen !== "lobby" || !lobby || lobby.mode === "rpg") return;
     if (mySeat >= 0) return;
     const free = lobby.seats.findIndex((s) => !s);
     if (free >= 0) pick(free);
@@ -299,7 +328,7 @@ export default function App() {
         needPw={code === "TEST" && !testUnlocked()}
         testPw={testPw} setTestPw={(v) => { setTestPw(v); setError(""); }}
         onCreate={() => connect(makeCode(), true)}
-        onCreateRpg={() => connect(makeCode(), true, "rpg")}
+        onEnterRpg={() => { setError(""); setScreen("rpgMake"); }}
         onJoin={() => {
           if (code === "TEST") {
             if (testUnlocked()) return connect("TEST", false);
@@ -318,6 +347,16 @@ export default function App() {
     );
   }
 
+  // RPG 모드 들어가기 — 방에 붙기 전에 캐릭터부터 만든다. 게임 시작하기를 누르면 방을 열고 광장에 선다.
+  if (screen === "rpgMake") {
+    return (
+      <RpgSetup
+        onStart={(hero) => connect(makeCode(), true, "rpg", hero)}
+        onLeave={() => setScreen("home")}
+      />
+    );
+  }
+
   // 코드로 들어가는 중 — 어떤 방인지 알기 전에는 대기실 모양을 먼저 띄우지 않는다
   if (screen === "lobby" && !lobby && !hostRef.current) {
     return (
@@ -332,13 +371,30 @@ export default function App() {
     );
   }
 
-  // RPG — 대기실 없이 병과만 고르면 곧바로 광장에 선다. 판이 도는 중에도 들어올 수 있다.
+  // RPG — 대기실 없이 캐릭터만 고르면 곧바로 광장에 선다. 판이 도는 중에도 들어올 수 있다.
   if (screen === "lobby" && (lobby ? lobby.mode === "rpg" : modeRef.current === "rpg")) {
-    if (mySeat < 0) {
+    if (mySeat < 0 && hostRef.current && heroRef.current) {
+      // 방을 여는 중 — 캐릭터는 이미 골랐으니 잠깐 기다린다
       return (
-        <RpgPick
-          code={code} lobby={lobby} me={me} error={error} connecting={connecting}
-          onPick={pick} onLeave={leave}
+        <div className="page center-page">
+          <div className="home">
+            <h1>광장으로 가는 중</h1>
+            <p className="tag">{connecting ? "방을 여는 중입니다…" : "캐릭터를 세우는 중입니다…"}</p>
+            {error && <p className="err">{error}</p>}
+            <button className="btn-ghost" style={{ marginTop: 14 }} onClick={leave}>처음 화면으로</button>
+          </div>
+        </div>
+      );
+    }
+    if (mySeat < 0) {
+      const filled = lobby ? lobby.seats.filter(Boolean).length : 0;
+      return (
+        <RpgSetup
+          room={{
+            code, filled, full: filled >= RPG_CREW_MAX, connecting, error,
+            link: `${location.origin}${location.pathname}?room=${code}`,
+          }}
+          onStart={pickRpg} onLeave={leave}
         />
       );
     }
@@ -381,16 +437,9 @@ export default function App() {
 }
 
 /* ── 홈 ─────────────────────────────────────────────────── */
-function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, onCreate, onCreateRpg, onJoin }) {
-  // 이 기기에 쌓인 RPG 영웅 가운데 가장 높은 레벨 — RPG 단추 아래에 한 줄로 보여 준다
-  const [top] = useState(() => {
-    let best = null;
-    CLASSES.forEach((c) => {
-      const r = heroSave(c.id);
-      if (r.lv > 1 && (!best || r.lv > best.lv)) best = { name: c.name, lv: r.lv };
-    });
-    return best;
-  });
+function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, onCreate, onEnterRpg, onJoin }) {
+  // 이 기기에 저장된 RPG 캐릭터 — RPG 단추 아래에 한 줄로 보여 준다
+  const [mine] = useState(() => loadChar());
   return (
     <div className="page center-page">
       <div className="home">
@@ -411,10 +460,10 @@ function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, 
         <button className="btn-main wide" onClick={onCreate}>새 방 만들기</button>
 
         <div className="rpg-entry">
-          <button className="btn-ghost tall rpg-entry-btn" onClick={onCreateRpg}>RPG 모드로 방 만들기</button>
+          <button className="btn-ghost tall rpg-entry-btn" onClick={onEnterRpg}>RPG 모드 들어가기</button>
           <p className="rpg-entry-note">
-            광장에서 모여 사냥터로 나갑니다. 최대 {RPG_CREW_MAX}명이 언제든 들어올 수 있습니다.
-            {top ? ` 내 영웅 — ${top.name} Lv.${top.lv}` : " 레벨과 코인은 이 기기에 남습니다."}
+            캐릭터를 만들고 광장에서 모여 사냥터로 나갑니다. 최대 {RPG_CREW_MAX}명이 언제든 들어올 수 있습니다.
+            {mine ? ` 내 캐릭터 — ${mine.name} Lv.${mine.lv}` : " 이름과 레벨 · 코인은 이 기기에 남습니다."}
           </p>
         </div>
 

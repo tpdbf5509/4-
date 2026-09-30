@@ -117,3 +117,14 @@ im.save("public/assets/characters/players/<id>/portrait.webp", "WEBP", quality=9
 im.save("public/assets/characters/players/<id>/arena.webp", "WEBP", quality=92, method=6)
 im.save("design/characters/<id>-tower-cut.webp", "WEBP", lossless=True, method=6, exact=True)
 ```
+
+## RPG 기본 캐릭터
+
+`rpg-starter-sheet.webp` 는 RPG 모드의 기본 캐릭터 원본 시트입니다. 바꾸지 마세요.
+세 줄(전사 · 마법사 · 궁수) × 두 무리(남 · 여) × 네 방향(앞 · 옆 · 뒤 · 사선)이 들어 있습니다.
+시트 배경이 이미 투명해서 덩어리만 나누면 됩니다. 왼쪽의 직업 아이콘과 글씨는 작은 덩어리라 걸러집니다.
+
+    python3 design/characters/rpg_cut.py design/characters/rpg-starter-sheet.webp public/assets/characters/rpg
+
+결과는 `public/assets/characters/rpg/<warrior|mage|archer>-<m|f>/<front|side|back|turn>.webp` 입니다.
+WebP 품질 92 · 알파 품질 100으로 저장합니다. 여백은 둘레 6px입니다.

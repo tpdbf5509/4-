@@ -1,14 +1,36 @@
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
-import { W, H, P, CLASSES } from "./world.js";
+import { W, H } from "./world.js";
 import {
   roundRect, shadow, mulberry32, drawRock, drawBush,
-  drawFx, drawBanner, classArt, fxWarmUp, FX_ART, mapImg, mapImgFailed,
+  drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange } from "./rpg.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath } from "./rpg.js";
 
-const HERO_H = 62;            // 영웅 키 — 넓어진 맵에 맞게 작게 둔다
+/* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
+   원본 시트에서 캐릭터 키는 대략 280px 이고, 그림 아래에 6px 여백이 있다. */
+const HERO_K = 66 / 280;
+const HERO_PAD = 6;
+const heroCache = {};
+function heroImg(h, view) {
+  if (typeof Image === "undefined") return null;
+  const src = heroArtPath(h, view);
+  let im = heroCache[src];
+  if (im === undefined) {
+    im = heroCache[src] = new Image();
+    im.onerror = () => { heroCache[src] = null; };
+    im.src = src;
+  }
+  return im && im.complete && im.naturalWidth ? im : null;
+}
+/* 보는 쪽에 맞는 그림 — 앞 그림은 오른쪽을, turn 은 왼쪽을 비스듬히 본다. 옆 그림은 왼쪽을 본다.
+   flip 은 좌우로 뒤집어 그릴지 */
+function heroView(h) {
+  if (h.face === 2) return { view: "back", flip: false };
+  if (h.face === 1) return { view: "side", flip: h.dir > 0 };
+  return { view: h.dir < 0 ? "turn" : "front", flip: false };
+}
 
 /* ── 이미지 그림 ─────────────────────────────────────────────
    광장 · 사냥터 바탕과 분수 · 문 · 사냥꾼 · 토끼 같은 것들은 public/assets/game/rpg 의 그림 파일을 얹는다.
@@ -422,14 +444,80 @@ function drawRabbit(ctx, m, time) {
   }
 }
 
+/* ── 움직임 — 그림은 방향마다 한 장이라, 몸 전체를 튀기고 기울이고 눌러서 걷는 것처럼 보이게 한다 ──
+   걸을 때: 한 걸음마다 통통 튀고, 좌우로 살짝 흔들리고, 발이 닿을 때 눌렸다 펴진다(흙먼지도 인다).
+   서 있을 때: 천천히 숨을 쉰다. 칠 때: 치는 쪽으로 몸을 기울였다 돌아온다.
+   그리기에만 쓰는 값이라 h.anim 에 두고 주고받지 않는다 — 방장 · 손님 화면 모두 제 화면에서 계산한다. */
+const STRIDE = 24;            // 한 걸음에 가는 거리
+function heroMotion(g, h, time) {
+  const a = h.anim || (h.anim = { x: h.x, y: h.y, t: time, ph: 0, walk: 0, land: 0 });
+  const dt = Math.min(0.1, Math.max(0, time - a.t));
+  const moved = Math.hypot(h.x - a.x, (h.y - a.y) / RPG.squash);
+  a.x = h.x; a.y = h.y; a.t = time;
+  // 문을 지나거나 위치를 맞추느라 한 번에 크게 옮긴 것은 걸음으로 치지 않는다
+  const going = dt > 0 && moved / dt > 30 && moved < 80;
+  a.walk += ((going ? 1 : 0) - a.walk) * Math.min(1, dt * 12);     // 걷기와 서기 사이를 부드럽게
+  if (going) {
+    const step = Math.floor(a.ph / Math.PI);
+    a.ph += (moved / STRIDE) * Math.PI;
+    if (Math.floor(a.ph / Math.PI) !== step) { a.land = 1; kickDust(g, h); }   // 발이 닿았다
+  } else if (a.walk < 0.05) {
+    a.ph = 0;
+  }
+  a.land = Math.max(0, a.land - dt * 7);
+  const w = a.walk;
+  const s = Math.abs(Math.sin(a.ph));
+  const breath = Math.sin(time * 2.4 + h.pi * 1.3) * (1 - w);
+  const sq = a.land * 0.08 * w;
+  let lean = 0, lunge = 0;
+  if (h.swing > 0) {
+    const k = Math.sin(Math.min(1, h.swing / 0.25) * Math.PI);
+    lean = 0.15 * k; lunge = 5 * k;
+  }
+  return {
+    hop: -s * 6 * w,                                  // 걸음마다 튀어 오른다
+    tilt: Math.sin(a.ph) * 0.09 * w,                  // 좌우로 흔들린다
+    sx: 1 - breath * 0.012 + sq * 0.8,
+    sy: 1 + breath * 0.018 + s * 0.03 * w - sq,       // 숨쉬기 · 떠오를 때 늘고 닿을 때 눌린다
+    lean, lunge, lift: s * w,
+  };
+}
+
+/* 발밑 흙먼지 — 그리기만 하는 것이라 이 화면에만 남긴다 */
+function kickDust(g, h) {
+  const list = g.dust || (g.dust = []);
+  if (list.length > 40) list.shift();
+  list.push({ map: h.map, x: h.x - h.dir * 6 + (Math.random() - 0.5) * 6, y: h.y + 1, t: 0, life: 0.38,
+    vx: -h.dir * (8 + Math.random() * 8) });
+}
+function drawDust(ctx, g, map, time) {
+  const list = g.dust;
+  if (!list || !list.length) return;
+  const dt = Math.min(0.1, Math.max(0, time - (g.dustT ?? time)));
+  g.dustT = time;
+  ctx.save();
+  g.dust = list.filter((d) => {
+    d.t += dt;
+    if (d.t >= d.life || d.map !== map) return false;
+    const p = d.t / d.life;
+    ctx.globalAlpha = (1 - p) * 0.4;
+    ctx.fillStyle = map === "plaza" ? "#e9e1cf" : "#d8c9a4";
+    ctx.beginPath();
+    ctx.ellipse(d.x + d.vx * d.t, d.y - p * 5, 3 + p * 6, 1.6 + p * 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    return true;
+  });
+  ctx.restore();
+}
+
 function drawHero(ctx, g, h, time) {
   const pi = h.pi;
-  const col = P[pi];
+  const col = elemOf(h);
   const mine = g.mySeat === pi;
   const down = h.down > 0;
-  const im = classArt(pi);
-  const bob = down ? 0 : Math.abs(Math.sin(time * 3 + pi)) * -1.5;
-  const y = h.y + bob;
+  const { view, flip } = heroView(h);
+  const im = heroImg(h, view) || heroImg(h, "front");
+  const mo = down ? null : heroMotion(g, h, time);
 
   ctx.save();
   ctx.translate(h.x, h.y + 2);
@@ -453,19 +541,24 @@ function drawHero(ctx, g, h, time) {
   }
 
   ctx.save();
-  shadow(ctx, h.x, h.y + 3, 15, 5, 0.3);
-  ctx.translate(h.x, y);
-  if (down) { ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
-  const lunge = h.swing > 0 ? Math.sin((h.swing / 0.25) * Math.PI) * 4 : 0;
-  ctx.translate(h.dir * lunge, 0);
-  ctx.scale(h.dir < 0 ? -1 : 1, 1);
+  const lift = mo ? mo.lift : 0;                     // 떠오르면 그림자가 작고 옅어진다
+  shadow(ctx, h.x, h.y + 3, 15 * (1 - lift * 0.18), 5 * (1 - lift * 0.18), 0.3 * (1 - lift * 0.3));
+  ctx.translate(h.x, h.y + (mo ? mo.hop : 0));
+  if (down) { h.anim = null; ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
+  if (mo) {                                          // 발밑을 축으로 기울이고 누른다
+    ctx.translate(h.dir * mo.lunge, 0);
+    ctx.rotate(mo.tilt + h.dir * mo.lean);
+    ctx.scale(mo.sx, mo.sy);
+  }
+  if (flip) ctx.scale(-1, 1);
   if (im) {
-    const ww = HERO_H * (im.naturalWidth / im.naturalHeight);
-    ctx.drawImage(im, -ww / 2, -HERO_H, ww, HERO_H);
+    const ww = im.naturalWidth * HERO_K, hh = im.naturalHeight * HERO_K;
+    const top = -hh + HERO_PAD * HERO_K;
+    ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (h.flash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(0.5, h.flash * 3);
-      ctx.drawImage(im, -ww / 2, -HERO_H, ww, HERO_H);
+      ctx.drawImage(im, -ww / 2, top, ww, hh);
     }
   } else {
     ctx.fillStyle = col.key; roundRect(ctx, -9, -34, 18, 34, 7); ctx.fill();
@@ -473,7 +566,7 @@ function drawHero(ctx, g, h, time) {
   ctx.restore();
 
   // 체력 · 레벨 · 이름
-  const bw = 40, byy = h.y - HERO_H - 10;
+  const bw = 40, byy = h.y - 66 - 12;
   const r = Math.max(0, Math.min(1, h.hp / (h.max || 1)));
   ctx.save();
   ctx.fillStyle = "rgba(18,12,8,0.8)"; roundRect(ctx, h.x - bw / 2 - 1, byy - 1, bw + 2, 6, 3); ctx.fill();
@@ -481,7 +574,7 @@ function drawHero(ctx, g, h, time) {
   roundRect(ctx, h.x - bw / 2, byy, Math.max(1.5, bw * r), 4, 2); ctx.fill();
   ctx.font = "10.5px 'Do Hyeon', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  const nm = `Lv${h.lv} ${(g.names && g.names[pi]) || CLASSES[pi].name}`;
+  const nm = `Lv${h.lv} ${(g.names && g.names[pi]) || "모험가"}`;
   const wdt = ctx.measureText(nm).width + 12;
   ctx.fillStyle = "rgba(20,14,10,0.72)"; roundRect(ctx, h.x - wdt / 2, h.y + 6, wdt, 15, 7); ctx.fill();
   ctx.fillStyle = down ? "#a89a90" : col.light; ctx.fillText(nm, h.x, h.y + 14);
@@ -534,9 +627,9 @@ export function drawRpg(ctx, g, bgs) {
     const on = g.mobs.some((m) => m.map === M.id && dist(me.x, me.y, m.x, m.y) <= rr);
     ctx.save();
     ctx.translate(me.x, me.y); ctx.scale(1, RPG.squash);
-    ctx.globalAlpha = on ? 0.09 : 0.04; ctx.fillStyle = P[g.mySeat].key;
+    ctx.globalAlpha = on ? 0.09 : 0.04; ctx.fillStyle = elemOf(me).key;
     ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = on ? 0.5 : 0.25; ctx.strokeStyle = P[g.mySeat].light; ctx.lineWidth = 1.4;
+    ctx.globalAlpha = on ? 0.5 : 0.25; ctx.strokeStyle = elemOf(me).light; ctx.lineWidth = 1.4;
     ctx.setLineDash(on ? [] : [8, 8]);
     ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
@@ -557,6 +650,7 @@ export function drawRpg(ctx, g, bgs) {
   }
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
+  drawDust(ctx, g, M.id, time);
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
     if (o.m) drawRabbit(ctx, o.m, time);

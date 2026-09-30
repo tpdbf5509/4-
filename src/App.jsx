@@ -8,7 +8,7 @@ import {
 import {
   step, stepVisual, applyMove, applyGoto, doBuild, doSell, doCastle, doSkill,
   applyReward, applyLeave, applyHold, startPrep, towerCosts, markMove,
-  packSnapshot, applySnapshot, applyOut, doTestBuild, doTestDmg, doTestCharMul, doTestCharDmg,
+  packSnapshot, applySnapshot, applyOut, doTestBuild, doTestDmg, doTestCharMul, doTestCharDmg, doTestCap,
 } from "./game/logic.js";
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
@@ -901,10 +901,10 @@ function CostBox({ cost, seat }) {
     })),
   ];
   const note = cost.here === "other" ? "남의 자리" : cost.lv >= 4 ? "최대 단계" : null;
-  const capFull = cost.lv === 3 && cost.capUsed >= cost.cap;       // 4단계로 못 올린다
+  const capFull = cost.lv === 3 && !cost.capOff && cost.capUsed >= cost.cap;       // 4단계로 못 올린다
   return (
     <div className="cost-box" style={{ "--pcl": P[seat].light }}>
-      <span className="cost-head">건설 비용{note && <em>{note}</em>}<em className="cost-cap">4단계 탑 {cost.capUsed}/{cost.cap}</em></span>
+      <span className="cost-head">건설 비용{note && <em>{note}</em>}<em className="cost-cap">{cost.capOff ? "4단계 탑 한도 꺼짐" : `4단계 탑 ${cost.capUsed}/${cost.cap}`}</em></span>
       <span className="cost-rows">
         {rows.map((r) => (
           <span key={r.key}
@@ -1001,6 +1001,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       testDmgMul: g.testDmgMul ?? 1,
       testCharMul: g.testCharMul ?? 1,
       testCharDmg: g.testCharDmg || 0,
+      testCapOff: !!g.testCapOff,
       boss: g.arena ? g.arena.hp / g.arena.max : 0,
       leave: (g.leave || []).map((v) => !!v), leaveT: g.leaveT || 0,
       offer: g.phase === "reward" ? g.offer : null,
@@ -1050,6 +1051,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       else if (kind === "testDmg") doTestDmg(g, dir);
       else if (kind === "testCharMul") doTestCharMul(g, dir);
       else if (kind === "testCharDmg") doTestCharDmg(g, dir);
+      else if (kind === "testCap") doTestCap(g, dir);
       else doSkill(g, mySeat);
     } else {
       // 내 커서는 바로 움직이고, 판정은 방장에게 맡긴다.
@@ -1256,6 +1258,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
         else if (d.kind === "testDmg") doTestDmg(g, d.dir);
         else if (d.kind === "testCharMul") doTestCharMul(g, d.dir);
         else if (d.kind === "testCharDmg") doTestCharDmg(g, d.dir);
+        else if (d.kind === "testCap") doTestCap(g, d.dir);
         else if (d.kind === "skill") doSkill(g, d.cls);
       }));
     } else {
@@ -1593,6 +1596,11 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
                   <ClassIcon i={i} />
                 </button>
               ))}
+            </div>
+            <span className="test-panel-label">테스트 · 4단계 탑 한도 {hud.testCapOff ? "꺼짐(무제한)" : "켜짐(일반 판과 같음)"}</span>
+            <div className="test-panel-row">
+              <button className={`test-panel-mul ${!hud.testCapOff ? "on" : ""}`} onClick={() => act("testCap", 0)}>켜기</button>
+              <button className={`test-panel-mul ${hud.testCapOff ? "on" : ""}`} onClick={() => act("testCap", 1)}>끄기</button>
             </div>
             <span className="test-panel-label">테스트 · 탑 피해 배율 ×{hud.testDmgMul}</span>
             <div className="test-panel-row">

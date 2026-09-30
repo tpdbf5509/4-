@@ -807,6 +807,7 @@ export function makeGame(seats = [true, true, true, true, false, false], total =
     testDmgMul: 1,
     testCharMul: 1,
     testCharDmg: 0,
+    testCapOff: false,                   // 테스트 서버 — 4단계 탑 한도를 끄는 스위치(꺼 두면 무제한)
     seats: flags,
     total: WAVE_OPTIONS.includes(total) ? total : TOTAL_WAVES,
     diff: d,

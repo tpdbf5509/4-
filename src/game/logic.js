@@ -154,6 +154,12 @@ export function doTestDmg(g, mul) {
   g.testDmgMul = mul;
 }
 
+/* 테스트 서버 전용 — 4단계 탑 한도를 끄고 켠다(기본은 켜져 있어 일반 판과 똑같다) */
+export function doTestCap(g, off) {
+  if (!g.testMode) return;
+  g.testCapOff = !!off;
+}
+
 /* 테스트 서버 전용 — 결전장에서 캐릭터가 보스에게 주는 피해를 배율로 조절한다(보스 공격력은 그대로) */
 export function doTestCharMul(g, mul) {
   if (!g.testMode || !Number.isFinite(mul) || mul <= 0) return;
@@ -276,7 +282,7 @@ export function doBuild(g, pi) {
     const def = tdef(t);
     if (t.lv >= TOWER_MAX_LV) return say(g, s.x, s.y, "최대 단계", "#f0dcb4");
     // 최대 단계(4단계) 탑은 각자 정해진 수만큼만 — 지옥은 둘, 그 밖에는 하나
-    if (t.lv + 1 >= TOWER_MAX_LV) {                  // 테스트 서버에서도 똑같이 지킨다
+    if (t.lv + 1 >= TOWER_MAX_LV && !(g.testMode && g.testCapOff)) {   // 테스트 서버는 스위치로 끌 수 있다(기본은 지킨다)
       const cap = diffOf(g).cap || 1;
       if (maxTowerCount(g, pi) >= cap) return say(g, s.x, s.y, `최대 단계 탑은 ${cap}개까지`, "#f0dcb4");
     }
@@ -329,6 +335,7 @@ export function towerCosts(g, pi) {
     gold: Math.floor(p.gold),
     cap: diffOf(g).cap || 1,                       // 최대 단계 탑 한도와 지금 세운 수
     capUsed: maxTowerCount(g, pi),
+    capOff: !!(g.testMode && g.testCapOff),
   };
 }
 
@@ -2815,7 +2822,7 @@ export function packSnapshot(g) {
     hp: g.core.hp, hm: g.core.max, cv: g.core.lv, sp: g.speed, pa: g.paused ? 1 : 0, fo: g.focus > 0 ? 1 : 0,
     ql: g.queue.length, cb: g.combo, pv: g.preview || 0,
     sg: g.surge,
-    tx: g.testMode ? [g.testDmgMul, g.testCharMul, g.testCharDmg] : 0,
+    tx: g.testMode ? [g.testDmgMul, g.testCharMul, g.testCharDmg, g.testCapOff ? 1 : 0] : 0,
     pk: g.players.map((p) => PERK_IDS.map((id) => p.perks[id] || 0)),
     rw: g.phase === "reward" ? { of: g.offer, pi: g.picked, sc: g.bossScore || 0 } : 0,
     ca: Math.round(g.castle.aim * 100) / 100,
@@ -2875,7 +2882,7 @@ export function applySnapshot(g, s) {
   g.combo = s.cb || 0;
   if (g.combo) g.comboT = Math.max(g.comboT, 0.3);
   g.surge = s.sg || 0;
-  if (s.tx) { g.testDmgMul = s.tx[0]; g.testCharMul = s.tx[1]; g.testCharDmg = s.tx[2]; }
+  if (s.tx) { g.testDmgMul = s.tx[0]; g.testCharMul = s.tx[1]; g.testCharDmg = s.tx[2]; g.testCapOff = !!s.tx[3]; }
   if (s.pk) {
     s.pk.forEach((row, i) => {
       const perks = {};

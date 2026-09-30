@@ -3,7 +3,7 @@ import { W, H, MOVE_KEYS } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, makeChar, saveLook, writeChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, makeChar, saveLook, writeChar, deleteChar,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanName, cleanLook,
 } from "./game/rpg.js";
 import { drawRpg } from "./game/rpgArt.js";
@@ -44,6 +44,9 @@ export function RpgSetup({ room, onStart, onLeave }) {
   const [copied, setCopied] = useState("");
   const [sure, setSure] = useState(false);           // 직업 · 원소 · 성별을 굳히기 전에 한 번 더 묻는다
   const [lookErr, setLookErr] = useState("");
+  const [del, setDel] = useState(false);             // 캐릭터 삭제 — 이름을 똑같이 적어야 지운다
+  const [delName, setDelName] = useState("");
+  const [delErr, setDelErr] = useState("");
 
   const named = !!char;
   const fixed = named && char.picked;                 // 직업 · 원소 · 성별까지 정해 두었다
@@ -73,6 +76,15 @@ export function RpgSetup({ room, onStart, onLeave }) {
       setChar(loadChar());
     }
     onStart(l);
+  };
+  const closeDel = () => { setDel(false); setDelName(""); setDelErr(""); };
+  const remove = () => {
+    if (!char || delName !== char.name) return;
+    if (!deleteChar()) return setDelErr("지우지 못했습니다. 다시 시도해 주세요.");
+    // 처음 들어온 것처럼 되돌린다
+    setChar(null); setDraft(""); setAsking(false); setNameErr("");
+    setJob(null); setElem(null); setGender(null); setSure(false); setLookErr("");
+    closeDel();
   };
   // 고른 것이 바뀌면 묻던 것은 거둔다
   const choose = (set) => (v) => { set(v); setSure(false); setLookErr(""); };
@@ -253,6 +265,33 @@ export function RpgSetup({ room, onStart, onLeave }) {
               )}
               {lookErr && <p className="err">{lookErr}</p>}
             </div>
+
+            {named && (
+              <div className="mk-del">
+                {del ? (
+                  <div className="mk-del-box" role="alertdialog" aria-labelledby="mk-del-q">
+                    <p id="mk-del-q" className="mk-del-q">캐릭터를 삭제하시겠습니까?</p>
+                    <p className="mk-note">
+                      <b>{char.name}</b>의 이름 · 직업 · 원소 · 성별과 Lv {char.lv} · 코인 {char.coins}이 모두 지워집니다.
+                      되돌릴 수 없습니다. 지우려면 캐릭터 이름을 똑같이 적어 주세요.
+                    </p>
+                    <div className="mk-row">
+                      <input
+                        className="mk-input" value={delName} maxLength={NAME_MAX} placeholder={char.name}
+                        aria-label="삭제할 캐릭터 이름" autoFocus
+                        onChange={(e) => { setDelName(e.target.value); setDelErr(""); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") remove(); if (e.key === "Escape") closeDel(); }}
+                      />
+                      <button className="btn-danger" disabled={delName !== char.name} onClick={remove}>삭제</button>
+                      <button className="btn-ghost" onClick={closeDel}>취소</button>
+                    </div>
+                    {delErr && <p className="err">{delErr}</p>}
+                  </div>
+                ) : (
+                  <button className="btn-danger" onClick={() => setDel(true)}>캐릭터 삭제</button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

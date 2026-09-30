@@ -149,6 +149,10 @@ export function saveLook(d) {
   if (!cur || cur.picked) return false;
   return store({ ...cur, job: d.job, elem: d.elem, gender: d.gender, picked: 1 });
 }
+// 캐릭터를 지운다 — 이름 · 직업 · 원소 · 성별과 레벨 · 코인까지 모두 사라진다
+export function deleteChar() {
+  try { localStorage.removeItem(SAVE_KEY); return true; } catch { return false; }
+}
 // 레벨 · 경험치 · 코인 · 퀘스트를 남긴다
 export function writeChar(d) {
   const cur = loadSave();

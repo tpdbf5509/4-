@@ -6,7 +6,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath } from "./rpg.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName } from "./rpg.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
    원본 시트에서 캐릭터 키는 대략 280px 이고, 그림 아래에 6px 여백이 있다. */
@@ -153,8 +153,7 @@ function paintPlaza(ctx) {
   treeLine(ctx, M, 77);
 }
 
-function paintField(ctx) {
-  const M = MAPS.field;
+function paintField(ctx, M) {
   const rnd = mulberry32(919);
   grass(ctx, M, 53, ["#557a37", "rgba(130,170,90,0.10)", "rgba(40,64,26,0.12)"]);
   // 광장으로 돌아가는 길
@@ -174,16 +173,22 @@ function paintField(ctx) {
   treeLine(ctx, M, 99);
 }
 
-// 사냥터 가운데 드문드문 선 나무 — 사람보다 앞뒤로 겹쳐 그린다
-const FIELD_TREES = (() => {
-  const rnd = mulberry32(4401);
+// 사냥터 가운데 드문드문 선 나무 — 사람보다 앞뒤로 겹쳐 그린다. 늘어난 끝쪽까지 심고, 늑대 사냥터는 소나무가 빽빽하다.
+function plantTrees(seed, n, x0, x1, pineRate, skip) {
+  const rnd = mulberry32(seed);
   const out = [];
-  for (let i = 0; i < 22; i++) {
-    const x = 700 + rnd() * 1800, y = 320 + rnd() * 1250;
-    out.push({ x, y, s: 1.2 + rnd() * 0.6, pine: rnd() < 0.5, seed: rnd() * 999 });
+  for (let i = 0; i < n; i++) {
+    const x = x0 + rnd() * (x1 - x0), y = 320 + rnd() * 1250;
+    const t = { x, y, s: 1.2 + rnd() * 0.6, pine: rnd() < pineRate, seed: rnd() * 999 };
+    if (!skip || !skip(t)) out.push(t);
   }
   return out;
-})();
+}
+const nearGate = (M) => (t) => M.gates.some((q) => Math.hypot(t.x - q.x, t.y - q.y) < 240);
+const MAP_TREES = {
+  field: [...plantTrees(4401, 22, 700, 2500, 0.5), ...plantTrees(4402, 12, 2500, 3500, 0.55, nearGate(MAPS.field))],
+  wolf: plantTrees(4403, 46, 500, 3450, 0.8, nearGate(MAPS.wolf)),
+};
 const PLAZA_PROPS = [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
   { k: "bench", x: 700, y: 900 }, { k: "bench", x: 1100, y: 900 }, { k: "bench", x: 700, y: 360 }, { k: "bench", x: 1100, y: 360 },
@@ -196,7 +201,7 @@ export function paintMap(id) {
   const c = document.createElement("canvas");
   c.width = M.w; c.height = M.h;
   const ctx = c.getContext("2d");
-  if (id === "plaza") paintPlaza(ctx); else paintField(ctx);
+  if (id === "plaza") paintPlaza(ctx); else paintField(ctx, M);
   return c;
 }
 
@@ -404,29 +409,129 @@ export function drawRabbitBody(ctx, frozen) {
 }
 
 function drawRabbit(ctx, m, time) {
-  const hop = m.moving ? Math.abs(Math.sin(m.age * 13)) * 7 : 0;
+  const k = m.size || 1;
+  const hop = m.moving ? Math.abs(Math.sin(m.age * (m.boss ? 9 : 13))) * 7 * Math.sqrt(k) : 0;
   const grow = Math.min(1, (m.age || 0) / 0.35);
   const x = m.x, y = m.y;
-  shadow(ctx, x, y + 2, 13 * grow, 4 * grow, 0.25);
+  shadow(ctx, x, y + 2, 13 * grow * k, 4 * grow * k, 0.25);
   ctx.save();
   ctx.translate(x, y - hop);
-  ctx.scale((m.ax < 0 ? -1 : 1) * grow, grow);
+  ctx.scale((m.ax < 0 ? -1 : 1) * grow * k, grow * k);
   const rim = mapImg(rpgFile(m.freeze > 0 ? "rabbit-frozen" : "rabbit"));
   if (rim) ctx.drawImage(rim, -RFRAME.rabbit.ox, -RFRAME.rabbit.oy, RFRAME.rabbit.w, RFRAME.rabbit.h);
   else drawRabbitBody(ctx, m.freeze > 0);
+  if (m.boss) {                                         // 대왕 토끼 — 작은 왕관
+    ctx.fillStyle = "#f3c94f"; ctx.strokeStyle = "#8a6420"; ctx.lineWidth = 1.2 / k;
+    ctx.beginPath();
+    ctx.moveTo(1, -38); ctx.lineTo(3, -46); ctx.lineTo(7, -41); ctx.lineTo(10, -48); ctx.lineTo(13, -41);
+    ctx.lineTo(17, -46); ctx.lineTo(18, -38); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
   if (m.flash > 0) {
     ctx.globalAlpha = Math.min(0.7, m.flash * 5);
     ctx.fillStyle = "#ffffff";
     ctx.beginPath(); ctx.ellipse(1, -11, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
-  // 걸린 것 — 불 · 독 · 기절
+  drawMobMarks(ctx, m, time, 44 * k + hop);
+}
+
+/* 늑대 — 코드로 그린다. 오른쪽을 보고, (0, 0)이 발밑이다. 걸을 때 다리를 번갈아 내딛는다.
+   우두머리는 털빛이 짙고 목갈기와 붉은 눈을 가진다. */
+export function drawWolfBody(ctx, ph, moving, boss, frozen, bite) {
+  const fur = frozen ? "#bcd6e6" : boss ? "#4e4953" : "#8d9099";
+  const dark = frozen ? "#8fb3c9" : boss ? "#2f2b33" : "#5e616b";
+  const belly = frozen ? "#e2f0f8" : boss ? "#8e8792" : "#d8d4cb";
+  const line = "rgba(30,24,20,0.85)";
+  const sw = moving ? Math.sin(ph) * 5 : 0;
+  ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.lineWidth = 1.6;
+  const leg = (lx, off, col) => {
+    ctx.fillStyle = col; ctx.strokeStyle = line;
+    ctx.beginPath(); ctx.roundRect(lx - 3.5 + off, -16, 7, 16, 3); ctx.fill(); ctx.stroke();
+  };
+  // 뒤쪽 다리 (어둡게)
+  leg(-18, -sw, dark); leg(14, sw, dark);
+  // 꼬리
+  ctx.save(); ctx.translate(-24, -26); ctx.rotate(-0.7 + (moving ? Math.sin(ph * 0.5) * 0.15 : 0));
+  ctx.fillStyle = fur; ctx.strokeStyle = line;
+  ctx.beginPath(); ctx.ellipse(-12, 0, 14, 6.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(-22, 0, 4, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  // 몸통 · 배
+  ctx.fillStyle = fur; ctx.strokeStyle = line;
+  ctx.beginPath(); ctx.ellipse(-2, -25, 27, 13, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(2, -17, 17, 5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(-6, -34, 16, 4, -0.05, 0, Math.PI * 2); ctx.fill();   // 등줄기
+  // 앞쪽 다리
+  leg(-12, sw, fur); leg(20, -sw, fur);
+  // 머리 — 물 때는 앞으로 내민다
+  ctx.save();
+  ctx.translate(bite > 0 ? 4 : 0, 0);
+  if (boss) {                                           // 목갈기
+    ctx.fillStyle = "#e9e4dc";
+    ctx.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const a = -2.2 + i * 0.55, r = i % 2 ? 11 : 17;
+      ctx.lineTo(18 + Math.cos(a) * r, -30 + Math.sin(a) * r);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle = fur; ctx.strokeStyle = line;
+  // 귀
+  [[17, -44, 20, -58, 26, -45], [24, -45, 30, -58, 32, -42]].forEach(([a, b, c, d, e, f]) => {
+    ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.lineTo(e, f); ctx.closePath(); ctx.fill(); ctx.stroke();
+  });
+  ctx.fillStyle = "#c79a9a";
+  ctx.beginPath(); ctx.moveTo(20, -46); ctx.lineTo(21, -53); ctx.lineTo(24, -46); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = fur;
+  ctx.beginPath(); ctx.arc(24, -35, 12, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // 주둥이 · 코 · 입
+  ctx.fillStyle = belly;
+  ctx.beginPath(); ctx.ellipse(35, -30, 9, 5.5, 0.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#231c1c"; ctx.beginPath(); ctx.arc(43, -31.5, 2.4, 0, Math.PI * 2); ctx.fill();
+  if (bite > 0) {
+    ctx.fillStyle = "#7a2a2a"; ctx.beginPath(); ctx.ellipse(36, -25.5, 6, 2.6, 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(33, -27); ctx.lineTo(34, -24); ctx.lineTo(35, -27); ctx.fill();
+  }
+  // 눈
+  ctx.fillStyle = boss ? "#ff5b4a" : "#f2c14e";
+  ctx.beginPath(); ctx.ellipse(28, -38, 2.4, 2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#1c1414"; ctx.beginPath(); ctx.arc(28.6, -38, 1.1, 0, Math.PI * 2); ctx.fill();
+  if (boss) {                                           // 흉터
+    ctx.strokeStyle = "rgba(240,220,210,0.8)"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(22, -44); ctx.lineTo(27, -33); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawWolf(ctx, m, time) {
+  const k = m.size || 1;
+  const grow = Math.min(1, (m.age || 0) / 0.35);
+  const ph = (m.age || 0) * (m.boss ? 9 : 11);
+  const bob = m.moving ? Math.abs(Math.sin(ph)) * 2.5 * k : 0;
+  const x = m.x, y = m.y;
+  shadow(ctx, x, y + 2, 30 * grow * k, 7 * grow * k, 0.28);
+  ctx.save();
+  ctx.translate(x, y - bob);
+  ctx.scale((m.ax < 0 ? -1 : 1) * grow * k, grow * k);
+  drawWolfBody(ctx, ph, m.moving, m.boss, m.freeze > 0, m.bite);
+  if (m.flash > 0) {
+    ctx.globalAlpha = Math.min(0.6, m.flash * 5);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.ellipse(6, -28, 34, 16, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  drawMobMarks(ctx, m, time, 60 * k + bob);
+}
+
+/* 몹 머리 위 — 걸린 것(불 · 독 · 기절), 체력, 레벨. top 은 발밑에서 머리 꼭대기까지의 높이 */
+function drawMobMarks(ctx, m, time, top) {
+  const x = m.x, y = m.y;
   if (m.burn > 0 || m.poison > 0) {
     ctx.fillStyle = m.burn > 0 ? "rgba(245,140,40,0.8)" : "rgba(150,220,90,0.7)";
     for (let k = 0; k < 3; k++) {
       const p = (time * 1.5 + k / 3) % 1;
       ctx.globalAlpha = 1 - p;
-      ctx.beginPath(); ctx.arc(x + (k - 1) * 6, y - 14 - p * 16, 2.2 + p * 2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + (k - 1) * 6, y - top * 0.35 - p * 16, 2.2 + p * 2, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
@@ -434,14 +539,31 @@ function drawRabbit(ctx, m, time) {
     ctx.fillStyle = "#ffe27a";
     for (let k = 0; k < 3; k++) {
       const a = time * 5 + (k / 3) * Math.PI * 2;
-      ctx.beginPath(); ctx.arc(x + Math.cos(a) * 9, y - 32 + Math.sin(a) * 3, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + Math.cos(a) * 9, y - top + 6 + Math.sin(a) * 3, 2, 0, Math.PI * 2); ctx.fill();
     }
   }
-  if (m.hp < m.max) {
-    const bw = 26, r = Math.max(0, m.hp / m.max);
-    ctx.fillStyle = "rgba(20,16,12,0.75)"; roundRect(ctx, x - bw / 2 - 1, y - 40, bw + 2, 5, 2); ctx.fill();
-    ctx.fillStyle = r > 0.5 ? "#8fd07f" : "#e5a93e"; roundRect(ctx, x - bw / 2, y - 39, Math.max(1.5, bw * r), 3, 1.5); ctx.fill();
+  const boss = !!m.boss;
+  const tagY = y - top - 10;
+  ctx.save();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  // 체력 — 보스는 늘 보이고, 나머지는 다쳤을 때만
+  let barY = tagY;
+  if (boss || m.hp < m.max) {
+    const bw = boss ? 70 : 28, r = Math.max(0, m.hp / m.max);
+    barY = tagY - 1;
+    ctx.fillStyle = "rgba(20,16,12,0.75)"; roundRect(ctx, x - bw / 2 - 1, tagY + 6, bw + 2, boss ? 6 : 5, 2); ctx.fill();
+    ctx.fillStyle = boss ? "#e2705f" : r > 0.5 ? "#8fd07f" : "#e5a93e";
+    roundRect(ctx, x - bw / 2, tagY + 7, Math.max(1.5, bw * r), boss ? 4 : 3, 1.5); ctx.fill();
   }
+  // 레벨 — 보스는 이름도 붙인다
+  const label = boss ? `Lv${m.lv} ${mobName(m)}` : `Lv${m.lv}`;
+  ctx.font = boss ? "12px 'Do Hyeon', sans-serif" : "10px 'Do Hyeon', sans-serif";
+  const w = ctx.measureText(label).width + 10;
+  ctx.fillStyle = boss ? "rgba(70,20,16,0.82)" : "rgba(20,14,10,0.62)";
+  roundRect(ctx, x - w / 2, barY - 7, w, 13, 6); ctx.fill();
+  ctx.fillStyle = boss ? "#ffd873" : m.type === "wolf" ? "#f0c9a8" : "#f2ead6";
+  ctx.fillText(label, x, barY);
+  ctx.restore();
 }
 
 /* ── 움직임 — 그림은 방향마다 한 장이라, 몸 전체를 튀기고 기울이고 눌러서 걷는 것처럼 보이게 한다 ──
@@ -585,6 +707,27 @@ function drawHero(ctx, g, h, time) {
   ctx.restore();
 }
 
+/* 바탕 그림 — 그림 한 장이 가로 tile 만큼을 덮는다. 맵이 더 넓으면 좌우로 뒤집어 이어 붙여 이음새가 보이지 않게 한다 */
+function drawTiled(ctx, im, M, cam) {
+  const TW = M.tile || M.w;
+  const kx = im.naturalWidth / TW, ky = im.naturalHeight / M.h;
+  const sy = cam.y * ky, sh = H * ky;
+  for (let k = Math.floor(cam.x / TW); k * TW < cam.x + W; k++) {
+    const x0 = k * TW;
+    const v0 = Math.max(cam.x, x0), v1 = Math.min(cam.x + W, x0 + TW);
+    if (v1 <= v0) continue;
+    const dx = v0 - cam.x, dw = v1 - v0;
+    if (k % 2 === 0) {
+      ctx.drawImage(im, (v0 - x0) * kx, sy, dw * kx, sh, dx, 0, dw, H);
+    } else {
+      ctx.save();
+      ctx.translate(dx + dw, 0); ctx.scale(-1, 1);
+      ctx.drawImage(im, (TW - (v1 - x0)) * kx, sy, dw * kx, sh, 0, 0, dw, H);
+      ctx.restore();
+    }
+  }
+}
+
 /* 내 영웅을 따라가는 화면 — 맵 끝에 닿으면 멈춘다 */
 function follow(g, M) {
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
@@ -609,16 +752,17 @@ export function drawRpg(ctx, g, bgs) {
     ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
   }
   warmRpgArt();
-  const bim = mapImg(rpgFile(M.id));
+  const bgName = M.bg || M.id;
+  const bim = mapImg(rpgFile(bgName));
   if (bim) {
-    // 파일이 얼마나 크든 맵 크기에 맞춰 자른다
-    const kx = bim.naturalWidth / M.w, ky = bim.naturalHeight / M.h;
-    ctx.drawImage(bim, cam.x * kx, cam.y * ky, W * kx, H * ky, 0, 0, W, H);
-  } else if (mapImgFailed(rpgFile(M.id))) {          // 파일이 없을 때만 예전처럼 코드로 그린다
+    drawTiled(ctx, bim, M, cam);
+    if (M.tint) { ctx.fillStyle = M.tint; ctx.fillRect(0, 0, W, H); }
+  } else if (mapImgFailed(rpgFile(bgName))) {          // 파일이 없을 때만 예전처럼 코드로 그린다
     const bg = (bgs && bgs[M.id]) || (bgs && (bgs[M.id] = paintMap(M.id)));
     if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
   } else { ctx.fillStyle = M.id === "plaza" ? "#4f6e34" : "#557a37"; ctx.fillRect(0, 0, W, H); }
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
+  (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
 
   // 내 사거리 — 토끼가 들어오면 또렷해진다
@@ -646,14 +790,14 @@ export function drawRpg(ctx, g, bgs) {
     order.push({ y: 620, fountain: 1 });
     PLAZA_PROPS.forEach((o) => order.push({ y: o.y, prop: o }));
   } else {
-    FIELD_TREES.forEach((t) => { if (inView(t.x, t.y)) order.push({ y: t.y, tree: t }); });
+    (MAP_TREES[M.id] || []).forEach((t) => { if (inView(t.x, t.y)) order.push({ y: t.y, tree: t }); });
   }
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
   drawDust(ctx, g, M.id, time);
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
-    if (o.m) drawRabbit(ctx, o.m, time);
+    if (o.m) (o.m.type === "wolf" ? drawWolf : drawRabbit)(ctx, o.m, time);
     else if (o.h) drawHero(ctx, g, o.h, time);
     else if (o.gate) drawGate(ctx, o.gate, time);
     else if (o.npc) drawNpc(ctx, g, o.npc, time);

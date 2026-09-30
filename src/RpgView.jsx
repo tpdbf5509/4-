@@ -30,7 +30,8 @@ function ro(word) {
 const VIEWS = [["front", "앞"], ["side", "옆"], ["back", "뒤"], ["turn", "사선"]];
 
 /* ── 캐릭터 만들기 — 이름을 정하고, 직업 · 원소 · 성별을 고른 뒤 광장으로 ──────────
-   이름은 처음 한 번만 정하고 이 기기에 남는다. 다음에 들어오면 그 이름과 기록을 불러온다.
+   이름은 정할 때, 직업 · 원소 · 성별은 처음 게임을 시작할 때 한 번 더 묻고 굳힌다. 넷 다 바꿀 수 없다.
+   이 기기에 남아, 다음에 들어오면 그대로 불러와 곧바로 시작할 수 있다.
    room 이 있으면(코드로 들어온 방) 방 코드와 인원을 함께 보여 준다. */
 export function RpgSetup({ room, onStart, onLeave }) {
   const [char, setChar] = useState(() => loadChar());
@@ -41,8 +42,11 @@ export function RpgSetup({ room, onStart, onLeave }) {
   const [elem, setElem] = useState(() => (char && char.picked ? char.elem : null));
   const [gender, setGender] = useState(() => (char && char.picked ? char.gender : null));
   const [copied, setCopied] = useState("");
+  const [sure, setSure] = useState(false);           // 직업 · 원소 · 성별을 굳히기 전에 한 번 더 묻는다
+  const [lookErr, setLookErr] = useState("");
 
   const named = !!char;
+  const fixed = named && char.picked;                 // 직업 · 원소 · 성별까지 정해 두었다
   const look = { name: char ? char.name : cleanName(draft), job: job || "warrior", elem: elem || "flame", gender: gender || "m" };
   const ready = named && job && elem && gender && !(room && room.full);
   const el = elem ? ELEM_BY_ID[elem] : null;
@@ -61,11 +65,24 @@ export function RpgSetup({ room, onStart, onLeave }) {
   };
   const start = () => {
     if (!ready) return;
-    const l = cleanLook({ name: char.name, job, elem, gender });
+    const l = cleanLook(fixed ? char : { name: char.name, job, elem, gender });
     if (!l) return;
-    saveLook(l);
+    if (!fixed && !sure) return setSure(true);
+    if (!fixed) {
+      if (!saveLook(l)) return setLookErr("저장하지 못했습니다. 다시 시도해 주세요.");
+      setChar(loadChar());
+    }
     onStart(l);
   };
+  // 고른 것이 바뀌면 묻던 것은 거둔다
+  const choose = (set) => (v) => { set(v); setSure(false); setLookErr(""); };
+  const lookText = `${job ? JOB_BY_ID[job].name : "직업"} · ${el ? el.name : "원소"} · ${gender ? (gender === "f" ? "여" : "남") : "성별"}`;
+  const fixedRow = (text) => (
+    <div className="mk-name-fixed">
+      <b>{text}</b>
+      <span className="mk-lock">변경 불가</span>
+    </div>
+  );
   const copy = async (text, what) => {
     try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(""), 1600); }
     catch { setCopied("fail"); }
@@ -78,9 +95,11 @@ export function RpgSetup({ room, onStart, onLeave }) {
           <div>
             <h1>{named ? "모험 준비" : "캐릭터 만들기"}</h1>
             <p className="tag">
-              {named
-                ? "저장된 캐릭터를 불러왔습니다. 직업 · 원소 · 성별을 고르고 광장으로 나가세요."
-                : "이름을 먼저 정합니다. 그다음 직업 · 원소 · 성별을 고르면 광장으로 나갑니다."}
+              {fixed
+                ? "저장된 캐릭터를 불러왔습니다. 게임 시작하기를 누르면 광장으로 나갑니다."
+                : named
+                  ? "직업 · 원소 · 성별을 고르고 광장으로 나가세요. 셋 다 한 번 정하면 바꿀 수 없습니다."
+                  : "이름을 먼저 정합니다. 그다음 직업 · 원소 · 성별을 고르면 광장으로 나갑니다. 넷 다 한 번 정하면 바꿀 수 없습니다."}
             </p>
           </div>
           <div className="lobby-actions">
@@ -117,9 +136,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
             </div>
             <div className="mk-sum">
               <b>{named ? char.name : cleanName(draft) || "이름 없음"}</b>
-              <span>
-                {job ? JOB_BY_ID[job].name : "직업"} · {el ? el.name : "원소"} · {gender ? (gender === "f" ? "여" : "남") : "성별"}
-              </span>
+              <span>{lookText}</span>
               {named && <span className="mk-rec">Lv {char.lv} · 코인 {char.coins}</span>}
             </div>
           </div>
@@ -161,10 +178,11 @@ export function RpgSetup({ room, onStart, onLeave }) {
 
             <fieldset className="mk-step" disabled={!named}>
               <h2 className="mk-h"><span>02</span>직업</h2>
+              {fixed ? fixedRow(`${JOB_BY_ID[job].name} · ${JOB_BY_ID[job].weapon}`) : (
               <div className="mk-jobs">
                 {JOBS.map((j) => (
                   <button key={j.id} type="button" className={`mk-job ${job === j.id ? "on" : ""}`}
-                    aria-pressed={job === j.id} onClick={() => setJob(j.id)}>
+                    aria-pressed={job === j.id} onClick={() => choose(setJob)(j.id)}>
                     <span className="mk-job-img"><img src={heroArtPath({ job: j.id, gender: gender || "m" }, "front")} alt="" /></span>
                     <b>{j.name}</b>
                     <em>{j.weapon}</em>
@@ -172,14 +190,17 @@ export function RpgSetup({ room, onStart, onLeave }) {
                   </button>
                 ))}
               </div>
+              )}
+              {fixed && <p className="mk-note">{JOB_BY_ID[job].note}</p>}
             </fieldset>
 
             <fieldset className="mk-step" disabled={!named}>
               <h2 className="mk-h"><span>03</span>원소</h2>
+              {fixed ? fixedRow(`${el.name} · ${el.tower}`) : (
               <div className="mk-elems">
                 {ELEMS.map((e) => (
                   <button key={e.id} type="button" className={`mk-elem ${elem === e.id ? "on" : ""}`}
-                    style={{ "--ec": e.light, "--ed": e.dark }} aria-pressed={elem === e.id} onClick={() => setElem(e.id)}>
+                    style={{ "--ec": e.light, "--ed": e.dark }} aria-pressed={elem === e.id} onClick={() => choose(setElem)(e.id)}>
                     <span className="mk-dot" />
                     <b>{e.name}</b>
                     <em>{e.tower}</em>
@@ -187,6 +208,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
                   </button>
                 ))}
               </div>
+              )}
               {el && job && (
                 <p className="mk-note">
                   큰 기술 <b>{skillName({ job, elem })}</b> — 둘레 토끼를 크게 치고 {el.big}.
@@ -196,23 +218,40 @@ export function RpgSetup({ room, onStart, onLeave }) {
 
             <fieldset className="mk-step" disabled={!named}>
               <h2 className="mk-h"><span>04</span>성별</h2>
+              {fixed ? fixedRow(gender === "f" ? "여" : "남") : (
               <div className="mk-genders">
                 {GENDERS.map((gd) => (
                   <button key={gd.id} type="button" className={`mk-gender ${gender === gd.id ? "on" : ""}`}
-                    aria-pressed={gender === gd.id} onClick={() => setGender(gd.id)}>
+                    aria-pressed={gender === gd.id} onClick={() => choose(setGender)(gd.id)}>
                     {gd.name}
                   </button>
                 ))}
               </div>
+              )}
             </fieldset>
 
             <div className="mk-go">
-              <button className="btn-main wide" disabled={!ready} onClick={start}>게임 시작하기</button>
-              <p className="mk-note">
-                {!named ? "이름을 먼저 정해 주세요."
-                  : !(job && elem && gender) ? "직업 · 원소 · 성별을 모두 고르면 시작할 수 있습니다."
-                    : "누르면 광장으로 이동합니다."}
-              </p>
+              {sure && !fixed ? (
+                <div className="mk-confirm">
+                  <p><b>{lookText}</b>{ro(gender === "f" ? "여" : "남")} 정하고 시작할까요?</p>
+                  <p className="mk-warn">직업 · 원소 · 성별은 변경 불가합니다. 정한 뒤에는 다시 바꿀 수 없습니다.</p>
+                  <div className="mk-row">
+                    <button className="btn-main" disabled={!ready} onClick={start}>이대로 정하고 시작하기</button>
+                    <button className="btn-ghost" onClick={() => setSure(false)}>다시 고르기</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <button className="btn-main wide" disabled={!ready} onClick={start}>게임 시작하기</button>
+                  <p className={fixed || !(named && job && elem && gender) ? "mk-note" : "mk-warn"}>
+                    {!named ? "이름을 먼저 정해 주세요."
+                      : !(job && elem && gender) ? "직업 · 원소 · 성별을 모두 고르면 시작할 수 있습니다. 셋 다 한 번 정하면 바꿀 수 없습니다."
+                        : fixed ? "누르면 광장으로 이동합니다."
+                          : "누르면 한 번 더 묻습니다. 직업 · 원소 · 성별은 변경 불가합니다."}
+                  </p>
+                </>
+              )}
+              {lookErr && <p className="err">{lookErr}</p>}
             </div>
           </div>
         </div>
@@ -650,7 +689,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           토끼는 가끔 들이받습니다. {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
           전사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
           고른 원소는 평타에 약하게, 큰 기술에 세게 실립니다.
-          레벨 · 경험치 · 코인 · 퀘스트는 이 기기의 내 캐릭터(이름)에 남아, 직업을 바꿔 들어와도 이어집니다.
+          이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트와 함께 이 기기에 남아, 다음에 들어와도 이어집니다.
           방을 만든 사람이 나가면 그 방은 닫힙니다.
         </details>
       </div>

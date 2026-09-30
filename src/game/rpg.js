@@ -106,8 +106,8 @@ export function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, (by - ay) / RP
 export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 30씩 는다
 export const LV_MAX = 99;
 
-/* 이 기기의 내 캐릭터 — 이름은 처음 한 번만 정하고 다시 바꿀 수 없다.
-   직업 · 원소 · 성별은 들어올 때마다 다시 고를 수 있고, 마지막으로 고른 것을 기억해 둔다. */
+/* 이 기기의 내 캐릭터 — 이름을 처음 한 번 정하고, 처음 게임을 시작할 때 직업 · 원소 · 성별을 정한다.
+   넷 다 한 번 정하면 다시 바꿀 수 없다. */
 const SAVE_KEY = "flg:rpg3";
 function loadSave() {
   try {
@@ -127,7 +127,7 @@ export function loadChar() {
   const look = cleanLook({ ...BASE_LOOK, ...r, name: r.name }) || { ...BASE_LOOK, name: cleanName(r.name) };
   return {
     ...look,
-    picked: !!r.picked,                          // 직업 · 원소 · 성별을 한 번이라도 골랐는지
+    picked: !!r.picked,                          // 직업 · 원소 · 성별을 정했는지 — 정했으면 바꿀 수 없다
     lv: clamp(Math.floor(r.lv || 1), 1, LV_MAX),
     xp: Math.max(0, Math.floor(r.xp || 0)),
     coins: Math.max(0, Math.floor(r.coins || 0)),
@@ -143,11 +143,11 @@ export function makeChar(name) {
   store({ v: 3, name: n, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 } });
   return loadChar();
 }
-// 고른 직업 · 원소 · 성별을 기억한다
+// 직업 · 원소 · 성별을 정한다 — 이미 정해 두었으면 그대로 두고 false
 export function saveLook(d) {
   const cur = loadSave();
-  if (!cur) return;
-  store({ ...cur, job: d.job, elem: d.elem, gender: d.gender, picked: 1 });
+  if (!cur || cur.picked) return false;
+  return store({ ...cur, job: d.job, elem: d.elem, gender: d.gender, picked: 1 });
 }
 // 레벨 · 경험치 · 코인 · 퀘스트를 남긴다
 export function writeChar(d) {

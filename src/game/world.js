@@ -299,8 +299,8 @@ export const TOWERS = [
   /* 제어 */
   { id: "frost", role: "제어", name: "서리탑", cost: 25, range: 128, dmg: 4, interval: 0.85, slow: 0.5, slowT: 1.6,
     note: "적 이동 속도를 절반으로" },
-  { id: "gravity", role: "제어", name: "중력탑", cost: 65, range: 145, dmg: 0, interval: 3.2, aura: "pull",
-    pull: 0.025, note: "범위 안 적을 뒤로 끌어 모은다" },
+  { id: "gravity", role: "제어", name: "중력탑", cost: 65, range: 165, dmg: 12, interval: 2.4, pickLast: true,
+    note: "가장 뒤의 적을 멀리서 쏘고, 맞은 자리로 주변 적을 끌어 모은다" },
 
   /* 지원 */
   { id: "supply", role: "지원", name: "보급소", cost: 35, range: 140, dmg: 0, interval: 0, gold: 0.45, buff: 0.25,

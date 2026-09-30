@@ -2461,6 +2461,26 @@ export function drawBullet(ctx, b) {
       ctx.fillStyle = "#5fd3b6";
       ctx.beginPath(); ctx.ellipse(b.x, b.y, 4.4, 5.4, 0, 0, Math.PI * 2); ctx.fill();
     }
+  } else if (b.kind === "grav") {
+    // 중력탑 탄 — 어두운 구슬이 보랏빛 고리를 돌리며 날아간다
+    const t2 = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 15);
+    gl.addColorStop(0, "rgba(120,50,150,0.75)");
+    gl.addColorStop(1, "rgba(193,86,159,0)");
+    ctx.fillStyle = gl;
+    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#2a1236";
+    ctx.beginPath(); ctx.arc(0, 0, 5.2, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(236,170,226,0.9)";
+    ctx.lineWidth = 1.8;
+    for (let k2 = 0; k2 < 2; k2++) {
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 10, 4.2, t2 * 7 + k2 * Math.PI / 2, 0, Math.PI * 1.5);
+      ctx.stroke();
+    }
+    ctx.restore();
   } else if (b.kind === "orb") {
     const art = FX_ART["poison/fly"];
     const im = art && fxSprite("poison/fly");

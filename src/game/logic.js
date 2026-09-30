@@ -109,10 +109,11 @@ const POISON_STACK_MAX = 5;                                        // 3단계부
 const POISON_SLOW = 0.85;                                          // 3단계 — 독에 걸린 적의 이동 속도
 const POISON_BURST_R = 70;                                         // 4단계 맹독 폭발 범위
 const GRAVITY_FIELD_T = 0.5;                                       // 중력장이 적을 붙잡고 있는 시간
+const GRAVITY_R = 80;                                              // 중력장 반지름 — 맞은 적 둘레 이 안의 적이 끌려온다
+const GRAVITY_PULL = 0.5;                                          // 맞는 순간 중심까지의 거리 중 끌려오는 몫
 const GRAVITY_FIELD_MUL = [1, 1.15, 1.15, 1.15];                   // 중력장 지속시간
 const GRAVITY_DRIFT = 70;                                          // 3단계 — 중력장 안에서 중심으로 끌려가는 속도(초당 px)
 const GRAVITY_BLAST_HP = 0.10, GRAVITY_BLAST_HP_BIG = 0.03;        // 4단계 중력 폭발 — 적 최대 체력 대비 피해(보스는 적게)
-const GRAVITY_BLAST_R = 90;
 const SUPPLY_MUL = [1, 1.10, 1.10, 1.10];                          // 보급소 회복량 · 공격 보조 효과
 const SUPPLY_HEAL = 0.12;                                          // 1단계 — 초당 성채 회복
 const SUPPLY_GAUGE_MAX = 24;                                       // 3단계부터 보급 게이지(4단계는 가득 차면 터진다)
@@ -587,50 +588,69 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes, crit) {
   }
 }
 
-/* 중력장 — 붙잡고 있는 동안 3단계부터는 적이 중심(길이 탑에 가장 가까워지는 자리)으로 조금씩 끌려오고,
-   4단계는 끝나는 순간 남은 적을 중심으로 끌어당긴 뒤 중력 폭발을 일으킨다. */
-function gravityCenter(t, s, lane) {
-  t.cp = t.cp || [];
-  if (t.cp[lane] === undefined) {
+/* 중력장 — 중력탑의 탄이 가장 뒤에 선 적을 맞히면 그 자리에 중력장이 생겨 둘레의 적을 맞은 적 쪽으로 끌어 모으고 붙잡는다.
+   3단계부터는 붙잡혀 있는 동안 중심으로 조금씩 더 끌려오고, 4단계는 끝나는 순간 중심으로 확 끌어당긴 뒤 폭발한다. */
+function fieldCenterP(f, lane) {
+  if (lane === f.lane) return f.p;
+  f.cp = f.cp || {};
+  if (f.cp[lane] === undefined) {
     let bp = 0, bd = 1e9;
     for (let k = 0; k <= 120; k++) {
       const u = k / 120, q = posAt(lane, u);
-      const dd = Math.hypot(q.x - s.x, q.y - s.y);
+      const dd = Math.hypot(q.x - f.x, q.y - f.y);
       if (dd < bd) { bd = dd; bp = u; }
     }
-    t.cp[lane] = bp;
+    f.cp[lane] = bp;
   }
-  return t.cp[lane];
+  return f.cp[lane];
 }
-function gravityField(g, t, s, range, dt) {
-  if (!(t.field > 0)) return;
-  const inField = () => g.enemies.filter((e) => !e.dead && Math.hypot(e.x - s.x, e.y - s.y) <= range);
-  const pullTo = (e, step) => {
-    const c = gravityCenter(t, s, e.lane);
-    const d = c - e.p;
-    e.p += Math.abs(d) <= step ? d : Math.sign(d) * step;
-    const pos = posAt(e.lane, e.p);
-    e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;
-    if (e.tp !== undefined) e.tp = e.p;
-  };
-  if (t.lv >= 3) inField().forEach((e) => pullTo(e, (GRAVITY_DRIFT * dt) / LANES[e.lane].len));
-  t.field -= dt;
-  if (t.field > 0 || t.lv < 4) { if (t.field <= 0) t.field = 0; return; }
-  t.field = 0;
-  // 4단계 — 끝나는 순간 중심으로 확 끌어당기고 터뜨린다
-  const inside = inField();
-  inside.forEach((e) => pullTo(e, 1));
-  const cx = s.x, cy = s.y - 6;
-  fx(g, { kind: "vortex", x: cx, y: cy, r: range, t: 0.5, life: 0.5 });
-  fx(g, { kind: "boom", x: cx, y: cy, r: GRAVITY_BLAST_R, t: 0.55, life: 0.55, snd: "boom" });
-  fx(g, { kind: "ring", x: cx, y: cy, r: GRAVITY_BLAST_R + 30, color: "#c48bd8", t: 0.6, life: 0.6 });
-  g.shake = Math.max(g.shake, 0.2);
-  const mul = perkVal.power(perkN(g, t.owner, "power")) * (1 + (t.aid || 0)) * (g.testMode ? (g.testDmgMul ?? 1) : 1);
-  inside.forEach((e) => {                 // 끌려온 적 모두가 폭발을 맞는다
-    if (e.dead) return;
-    const big = e.type === "boss" || e.type === "titan";
-    e.pulled = Math.max(e.pulled || 0, 2.5);
-    applyHit(g, e, e.max * (big ? GRAVITY_BLAST_HP_BIG : GRAVITY_BLAST_HP) * mul, t.owner, true, "gravity", false);
+function fieldPull(e, f, frac, maxStep) {
+  const c = fieldCenterP(f, e.lane);
+  let d = (c - e.p) * frac;
+  if (maxStep !== undefined && Math.abs(d) > maxStep) d = Math.sign(d) * maxStep;
+  e.p += d;
+  const pos = posAt(e.lane, e.p);
+  e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;
+  if (e.tp !== undefined) e.tp = e.p;
+}
+function startGravityField(g, b, hit) {
+  const mul = lvMul(GRAVITY_FIELD_MUL, b.lv || 1);
+  const f = { x: hit.x, y: hit.y, lane: hit.lane, p: hit.p, r: GRAVITY_R, t: GRAVITY_FIELD_T * mul,
+    lv: b.lv || 1, owner: b.owner, aid: b.aid || 0, mul };
+  g.gfields = g.gfields || [];
+  g.gfields.push(f);
+  fx(g, { kind: "vortex", x: f.x, y: f.y - 4, r: f.r + 20, t: 0.5, life: 0.5 });
+  g.enemies.forEach((e) => {
+    if (e.dead || Math.hypot(e.x - f.x, e.y - f.y) > f.r) return;
+    fieldPull(e, f, GRAVITY_PULL);                 // 맞는 순간 중심 쪽으로 반쯤 끌려온다
+    e.freeze = Math.max(e.freeze, f.t);
+    e.pulled = 2.5 * mul;                          // 잠깐 뭉쳐 있는 동안은 폭격이 잘 든다
+  });
+}
+function stepGravityFields(g, dt) {
+  if (!g.gfields || !g.gfields.length) return;
+  g.gfields = g.gfields.filter((f) => {
+    const inField = () => g.enemies.filter((e) => !e.dead && Math.hypot(e.x - f.x, e.y - f.y) <= f.r);
+    if (f.lv >= 3) inField().forEach((e) => fieldPull(e, f, 1, (GRAVITY_DRIFT * dt) / LANES[e.lane].len));
+    f.t -= dt;
+    if (f.t > 0) return true;
+    if (f.lv >= 4) {
+      // 4단계 — 끝나는 순간 중심으로 확 끌어당기고 터뜨린다
+      const inside = inField();
+      inside.forEach((e) => fieldPull(e, f, 1));
+      fx(g, { kind: "vortex", x: f.x, y: f.y - 4, r: f.r + 30, t: 0.5, life: 0.5 });
+      fx(g, { kind: "boom", x: f.x, y: f.y, r: f.r, t: 0.55, life: 0.55, snd: "boom" });
+      fx(g, { kind: "ring", x: f.x, y: f.y, r: f.r + 30, color: "#c48bd8", t: 0.6, life: 0.6 });
+      g.shake = Math.max(g.shake, 0.2);
+      const mul = perkVal.power(perkN(g, f.owner, "power")) * (1 + f.aid) * (g.testMode ? (g.testDmgMul ?? 1) : 1);
+      inside.forEach((e) => {
+        if (e.dead) return;
+        const big = e.type === "boss" || e.type === "titan";
+        e.pulled = Math.max(e.pulled || 0, 2.5);
+        applyHit(g, e, e.max * (big ? GRAVITY_BLAST_HP_BIG : GRAVITY_BLAST_HP) * mul, f.owner, true, "gravity", false);
+      });
+    }
+    return false;
   });
 }
 
@@ -873,6 +893,7 @@ export function startArena(g, kind) {
   const bite = Math.max(1, Math.round(base.dmg * ARENA.coreHit * D.hp * T.bite));
   const life = Math.max(12, bite * T.lives);
   g.phase = "arena";
+  g.gfields = [];
   g.enemies = [];
   g.queue = [];
   g.queueLeft = 0;
@@ -2244,6 +2265,8 @@ export function step(g, dt) {
     g.ward = Math.min(0.45, ward);
   }
 
+  stepGravityFields(g, dt);
+
   // 타워 사격
   g.towers.forEach((t, i) => {
     if (!t) return;
@@ -2267,7 +2290,6 @@ export function step(g, dt) {
 
     // 범위에 들어온 적 모두를 상대하는 탑 (화염·중력)
     if (def.aura) {
-      if (def.aura === "pull") gravityField(g, t, s, range, dt);
       if (t.cd > 0) return;
       const inRange = g.enemies.filter((e) => !e.dead && Math.hypot(e.x - s.x, e.y - s.y) <= range);
       if (!inRange.length) { t.cd = 0; return; }
@@ -2294,19 +2316,6 @@ export function step(g, dt) {
           }
         });
         fx(g, { kind: "firering", x: s.x, y: s.y - 6, r: range, t: 0.5, life: 0.5 });
-      } else {
-        // 중력탑 — 지나간 만큼 뒤로 당기고 잠깐 붙잡는다. 붙잡는 동안이 중력장이다(2단계부터 15% 길다).
-        const back = def.pull * (1 + 0.45 * (t.lv - 1));
-        const fieldMul = lvMul(GRAVITY_FIELD_MUL, t.lv);
-        t.field = GRAVITY_FIELD_T * fieldMul;
-        inRange.forEach((e) => {
-          e.p = Math.max(0, e.p - back);
-          e.freeze = Math.max(e.freeze, t.field);
-          e.pulled = 2.5 * fieldMul;           // 잠깐 뭉쳐 있는 동안은 폭격이 잘 든다
-          const pos = posAt(e.lane, e.p);
-          e.x = pos.x; e.y = pos.y;
-        });
-        fx(g, { kind: "vortex", x: s.x, y: s.y - 6, r: range, t: 0.6, life: 0.6 });
       }
       if (g.out) g.out.push({ k: "shot", si: i, x: s.x, y: s.y, tx: s.x, ty: s.y, owner: t.owner, aura: def.aura });
       return;
@@ -2318,7 +2327,7 @@ export function step(g, dt) {
       if (e.dead) continue;
       if (Math.hypot(e.x - s.x, e.y - s.y) > range) continue;
       if (!target) { target = e; continue; }
-      if (def.pickBig ? e.hp > target.hp : e.p > target.p) target = e;
+      if (def.pickBig ? e.hp > target.hp : def.pickLast ? e.p < target.p : e.p > target.p) target = e;
     }
     if (target) t.aim = Math.atan2(target.y - (s.y - 20), target.x - s.x);
     if (t.cd > 0) return;
@@ -2342,8 +2351,8 @@ export function step(g, dt) {
     if (crit) dmg *= 2;
     const chill = perkN(g, t.owner, "chill") > 0;
     const kind = { archer: "arrow", sniper: "slug", cannon: "ball", frost: "shard",
-      bolt: "bolt", poison: "orb", corrode: "acid" }[t.type] || "arrow";
-    const speed = t.type === "cannon" ? 300 : t.type === "bolt" ? 900 : t.type === "sniper" ? 1200 : 470;
+      bolt: "bolt", poison: "orb", corrode: "acid", gravity: "grav" }[t.type] || "arrow";
+    const speed = t.type === "gravity" ? 380 : t.type === "cannon" ? 300 : t.type === "bolt" ? 900 : t.type === "sniper" ? 1200 : 470;
     g.bullets.push({
       x: s.x, y: s.y - 20, tx: target.x, ty: target.y, target, dmg,
       owner: t.owner, crit,
@@ -2354,7 +2363,8 @@ export function step(g, dt) {
       freezeT: (t.type === "frost" && t.lv >= 4) ? 3 : 0,        // 서리탑 4단계 — 3초간 얼린다
       stunT: 0,                                                    // 기절(별 연출) — 지금 쓰는 탑은 없지만 남겨 둔다
       delayedBoom: (t.type === "cannon" && t.lv >= 4) ? 1 : 0,  // 대포탑 4단계 — 맞은 적이 잠시 뒤 한 번 더 터진다
-      lv: t.lv,
+      lv: t.lv, aid: t.aid || 0,
+      gravity: t.type === "gravity",             // 중력탑 — 맞은 자리에 중력장이 생긴다
       chain: def.chain ? (t.type === "bolt" ? lvMul(BOLT_CHAIN, t.lv) : def.chain) + (spot === "key" ? 1 : 0) : 0,
       poison: def.poison ? def.poison * lvMul(POISON_DPS_MUL, t.lv) * (1 + (t.aid || 0)) : 0,
       poisonT: def.poisonT || 0,
@@ -2425,6 +2435,7 @@ export function step(g, dt) {
           applyHit(g, tg, b.dmg, b.owner, false, b.src, b.crit);
         }
         spread(g, b, tg);
+        if (b.gravity) startGravityField(g, b, tg);
         if (b.slow) {
           tg.slow = Math.max(tg.slow, b.slowT);
           tg.slowAmt = b.slow;

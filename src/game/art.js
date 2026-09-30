@@ -3782,6 +3782,22 @@ export function drawArena(ctx, g, time) {
   ctx.restore();
 
   if (g.banner) drawBanner(ctx, g.banner);
+  if (g.paused) drawPauseVeil(ctx);
+}
+
+// 일시정지 — 방장만 멈추고 풀 수 있다
+function drawPauseVeil(ctx) {
+  ctx.save();
+  ctx.fillStyle = "rgba(18,30,16,0.62)";
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#f4e7c8";
+  ctx.font = "700 34px Jua, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("일시정지", CX, CY - 6);
+  ctx.font = "500 15px Jua, system-ui, sans-serif";
+  ctx.fillStyle = "rgba(244,231,200,0.8)";
+  ctx.fillText("방장이 다시 시작하기를 기다리는 중", CX, CY + 22);
+  ctx.restore();
 }
 
 export function draw(ctx, g, bg) {
@@ -3933,15 +3949,5 @@ export function draw(ctx, g, bg) {
   }
 
   // 일시정지
-  if (g.paused && playing) {
-    ctx.fillStyle = "rgba(18,30,16,0.62)";
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "#f4e7c8";
-    ctx.font = "700 34px Jua, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("일시정지", CX, CY - 6);
-    ctx.font = "500 15px Jua, system-ui, sans-serif";
-    ctx.fillStyle = "rgba(244,231,200,0.8)";
-    ctx.fillText(g.pauseNote || "방장이 다시 시작하기를 기다리는 중", CX, CY + 22);
-  }
+  if (g.paused && playing) drawPauseVeil(ctx);
 }

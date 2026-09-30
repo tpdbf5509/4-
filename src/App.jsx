@@ -71,18 +71,17 @@ export default function App() {
     roomRef.current?.send("lobby", next);
   }, [me]);
 
-  /* 방을 함께 쓰는 일들 — 라운드 수, 난이도, 시작, 대기실로 돌아가기.
-     누구나 할 수 있다. 판정은 방장 한 명이 해야 하니, 방장이 아니면 방장에게 부탁만 한다. */
+  /* 라운드 수 · 난이도 · 시작은 방장만 정한다. 대기실로 돌아가기는 손님도 방장에게 부탁할 수 있다. */
   const setWaves = useCallback((n) => {
     if (!WAVE_OPTIONS.includes(n)) return;
-    if (!hostRef.current) return void roomRef.current?.send("ask", { what: "waves", v: n });
+    if (!hostRef.current) return;
     wavesRef.current = n;
     publishLobby();
   }, [publishLobby]);
 
   const setDiff = useCallback((d) => {
     if (!DIFFS[d]) return;
-    if (!hostRef.current) return void roomRef.current?.send("ask", { what: "diff", v: d });
+    if (!hostRef.current) return;
     diffRef.current = d;
     publishLobby();
   }, [publishLobby]);
@@ -194,14 +193,11 @@ export default function App() {
       setScreen("game");
     });
     room.on("toLobby", () => { if (!hostRef.current) setScreen("lobby"); });
-    // 손님이 부탁한 방 전체의 일 — 판정은 방장이 한 번만 한다
+    // 손님이 부탁한 일 — 대기실로 돌아가기만 받는다 (라운드 · 난이도 · 시작은 방장만)
     room.on("ask", (d) => {
       const a = askRef.current;
       if (!hostRef.current || !d || !a) return;
-      if (d.what === "waves") a.setWaves(d.v);
-      else if (d.what === "diff") a.setDiff(d.v);
-      else if (d.what === "start") a.startGame(d.v);
-      else if (d.what === "lobby") a.backToLobby();
+      if (d.what === "lobby") a.backToLobby();
     });
 
     setCode(roomCode);
@@ -265,8 +261,7 @@ export default function App() {
   // boss 는 false 이거나 곧장 들어갈 결전의 상대 — "boss" · "titan"
   const startGame = useCallback((boss) => {
     const kind = boss === "boss" || boss === "titan" ? boss : false;
-    // 손님이 눌렀으면 방장이 시작해 주고, 그 알림을 받아 다 같이 들어간다
-    if (!hostRef.current) return void roomRef.current?.send("ask", { what: "start", v: kind });
+    if (!hostRef.current) return;         // 시작은 방장만 — 손님은 방장의 알림을 받아 들어간다
     bossRef.current = kind;
     roomRef.current?.send("start", { boss: kind });
     setScreen("game");
@@ -485,6 +480,7 @@ function UpdateNotes({ seenId, onClose }) {
 /* ── 로비 ───────────────────────────────────────────────── */
 function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, onDiff, onStart, onStartBoss, onLeave }) {
   const touch = useTouch();
+  const isHost = lobby?.hostId === me;
   const [copied, setCopied] = useState("");
   const link = `${location.origin}${location.pathname}?room=${code}`;
   const seats = lobby?.seats || new Array(SEATS).fill(null);
@@ -564,12 +560,13 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
                 key={n}
                 className={`round-btn ${waves === n ? "on" : ""}`}
                 onClick={() => onWaves(n)}
+                disabled={!isHost}
               >
                 {n}
               </button>
             ))}
           </div>
-          <span className="rounds-note">길게 잡아도 적이 세지는 속도는 그만큼 완만해집니다</span>
+          <span className="rounds-note">{isHost ? "길게 잡아도 적이 세지는 속도는 그만큼 완만해집니다" : "라운드는 방장이 정합니다"}</span>
         </div>
 
         <div className="rounds">
@@ -580,12 +577,13 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
                 key={d.id}
                 className={`round-btn ${diff === i ? "on" : ""} diff-${d.id}`}
                 onClick={() => onDiff(i)}
+                disabled={!isHost}
               >
                 {d.name}
               </button>
             ))}
           </div>
-          <span className="rounds-note">{DIFFS[diff].note}</span>
+          <span className="rounds-note">{isHost ? DIFFS[diff].note : `${DIFFS[diff].note} · 난이도는 방장이 정합니다`}</span>
         </div>
 
         <div className="seats">
@@ -635,16 +633,17 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
             </span>
           </span>
           <span className="start-row">
-            <button className="btn-ghost btn-test" onClick={() => onStartBoss("boss")} disabled={filled === 0}
+            <button className="btn-ghost btn-test" onClick={() => onStartBoss("boss")} disabled={filled === 0 || !isHost}
               title="오우거 지휘관과의 1차 결전으로 곧장 들어갑니다">
               1차 보스전
             </button>
-            <button className="btn-ghost btn-test" onClick={() => onStartBoss("titan")} disabled={filled === 0}
+            <button className="btn-ghost btn-test" onClick={() => onStartBoss("titan")} disabled={filled === 0 || !isHost}
               title="대군주와의 2차 결전으로 곧장 들어갑니다">
               2차 보스전
             </button>
-            <button className="btn-main" onClick={() => onStart(false)} disabled={filled === 0}>
-              방어 시작
+            <button className="btn-main" onClick={() => onStart(false)} disabled={filled === 0 || !isHost}
+              title={isHost ? undefined : "시작은 방장만 할 수 있습니다"}>
+              {isHost ? "방어 시작" : "방장이 시작하기를 기다리는 중"}
             </button>
           </span>
         </div>
@@ -1154,11 +1153,10 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
     act("reward", k);
   }, [act]);
 
-  /* 멈춤과 속도는 판 전체의 일이라 방장 판에서만 바뀐다.
-     손님이 눌렀으면 방장에게 보내고, 결과는 스냅샷으로 다 같이 돌아온다. */
+  /* 멈춤과 속도는 방장만 바꾼다. 결과는 스냅샷으로 손님에게 간다. 결전장에서도 멈출 수 있다. */
   const doPause = useCallback(() => {
     const g = G.current;
-    if (g.phase !== "prep" && g.phase !== "wave") return;
+    if (g.phase !== "prep" && g.phase !== "wave" && g.phase !== "arena") return;
     g.paused = !g.paused;
     setHud(snapHud(g));
   }, []);
@@ -1181,8 +1179,6 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
         if (d.kind === "reward") return applyReward(g, d.cls, d.dir);
         if (d.kind === "hold") return applyHold(g, d.cls, d.dir);
         if (d.kind === "leave") return applyLeave(g, d.cls, d.dir);
-        if (d.kind === "pause") return doPause();
-        if (d.kind === "speed") return doSpeed(d.dir);
         // 결전장에서도 손님의 조작을 받는다 — 평타와 스킬이 이 길로 온다.
         // 결전장에서 뜻이 없는 것(팔기·성채·그 자리로)은 각자 알아서 물러난다.
         if (g.phase !== "prep" && g.phase !== "wave" && g.phase !== "arena") return;
@@ -1210,7 +1206,7 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       offs.push(() => clearInterval(watch));
     }
     return () => offs.forEach((off) => off && off());
-  }, [room, isHost, doPause, doSpeed]);
+  }, [room, isHost]);
 
   /* 소리 — 새로 생긴 연출·탄에만 한 번씩 */
   const soundRef = useRef({ phase: "", banner: null });
@@ -1287,15 +1283,8 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
     return () => cancelAnimationFrame(raf);
   }, [isHost, room, playSounds]);
 
-  const togglePause = useCallback(() => {
-    if (isHost) doPause();
-    else if (mySeat >= 0) room?.send("input", { cls: mySeat, kind: "pause" });
-  }, [isHost, room, mySeat, doPause]);
-
-  const setSpeed = useCallback((v) => {
-    if (isHost) doSpeed(v);
-    else if (mySeat >= 0) room?.send("input", { cls: mySeat, kind: "speed", dir: v });
-  }, [isHost, room, mySeat, doSpeed]);
+  const togglePause = useCallback(() => { if (isHost) doPause(); }, [isHost, doPause]);
+  const setSpeed = useCallback((v) => { if (isHost) doSpeed(v); }, [isHost, doSpeed]);
 
   const showScore = hud.phase === "reward" && !!hud.score && hud.score.n > seenScore;
 
@@ -1377,11 +1366,12 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
           )}
 
           <div className="hud hud-right">
-            <button className={`sbtn ${hud.paused ? "on" : ""}`} onClick={togglePause} title="일시정지">
+            <button className={`sbtn ${hud.paused ? "on" : ""}`} onClick={togglePause} disabled={!isHost}
+              title={isHost ? "일시정지" : "일시정지는 방장만 할 수 있습니다"}>
               <span className="pause-glyph" />
             </button>
-            <button className={`sbtn ${!hud.paused && hud.speed === 1 ? "on" : ""}`} onClick={() => setSpeed(1)}>×1</button>
-            <button className={`sbtn ${!hud.paused && hud.speed === 2 ? "on" : ""}`} onClick={() => setSpeed(2)}>×2</button>
+            <button className={`sbtn ${!hud.paused && hud.speed === 1 ? "on" : ""}`} onClick={() => setSpeed(1)} disabled={!isHost}>×1</button>
+            <button className={`sbtn ${!hud.paused && hud.speed === 2 ? "on" : ""}`} onClick={() => setSpeed(2)} disabled={!isHost}>×2</button>
             <button className="sbtn sbtn-img" onClick={toggleMute} title="소리" style={{ opacity: mute ? 0.65 : 1 }}>
               <img src={mute ? "/assets/ui/sound-off.webp" : "/assets/ui/sound-on.webp"} alt="" />
             </button>

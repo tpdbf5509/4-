@@ -276,7 +276,7 @@ export function doBuild(g, pi) {
     const def = tdef(t);
     if (t.lv >= TOWER_MAX_LV) return say(g, s.x, s.y, "최대 단계", "#f0dcb4");
     // 최대 단계(4단계) 탑은 각자 정해진 수만큼만 — 지옥은 둘, 그 밖에는 하나
-    if (t.lv + 1 >= TOWER_MAX_LV && !g.testMode) {
+    if (t.lv + 1 >= TOWER_MAX_LV) {                  // 테스트 서버에서도 똑같이 지킨다
       const cap = diffOf(g).cap || 1;
       if (maxTowerCount(g, pi) >= cap) return say(g, s.x, s.y, `최대 단계 탑은 ${cap}개까지`, "#f0dcb4");
     }

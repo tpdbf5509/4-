@@ -285,7 +285,7 @@ export function nextSlot(from, act) {
 /* ── 규칙 ───────────────────────────────────────────────── */
 export const TOWERS = [
   /* 공격 */
-  { id: "archer", role: "공격", name: "궁수탑", cost: 30, up4: 150, range: 158, dmg: 15, interval: 0.95,
+  { id: "archer", role: "공격", name: "궁수탑", cost: 30, up4: 230, range: 158, dmg: 15, interval: 0.95,
     note: "단일 대상 · 사거리가 가장 길다" },
   { id: "sniper", role: "공격", name: "저격탑", cost: 70, up4: 300, range: 165, dmg: 58, interval: 2.6, pickBig: true,
     note: "가장 단단한 적 하나를 크게 때린다" },
@@ -322,7 +322,7 @@ export const TOWER_MAX_LV = 4;
 export const UP_MUL = [1.8, 3, 250 / 30];
 /* 4단계로 올리는 값은 탑마다 4단계 능력이 얼마나 강한지에 따라 따로 정한다(def.up4, 300을 넘지 않는다).
    서리(멈춰 세운다)·중력(폭발)·화염·대포·저격은 300, 독 · 번개는 그 아래, 보급소 · 부식은 낮게,
-   4단계 능력이 약한 궁수(공격력이 크게 줄었다)와 수치만 오르는 성기사는 가장 싸다. */
+   수치만 오르는 성기사는 가장 싸고, 공격력이 크게 줄어든 궁수는 그 다음이다. */
 export const UP_MAX_COST = 300;
 export const upCostOf = (def, lv) => {
   if (lv >= TOWER_MAX_LV - 1) {

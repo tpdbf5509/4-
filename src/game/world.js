@@ -320,10 +320,11 @@ export const towerIdx = (id) => TOWERS.findIndex((t) => t.id === id);
 export const TOWER_MAX_LV = 4;
 // 건설 비용에 곱하는 배수. 궁수탑(건설 30)이 54 · 90 · 250 이 되는 비율을 모든 탑에 같이 쓴다.
 export const UP_MUL = [1.8, 3, 250 / 30];
-// 4단계로 올리는 값은 5 단위로 맞춘다
+// 4단계로 올리는 값은 5 단위로 맞추고, 300을 넘지 않게 묶는다
+export const UP_MAX_COST = 300;
 export const upCostOf = (def, lv) => {
   const v = (def.cost || 0) * (UP_MUL[lv - 1] || 0);
-  return lv >= TOWER_MAX_LV - 1 ? Math.round(v / 5) * 5 : Math.round(v);
+  return lv >= TOWER_MAX_LV - 1 ? Math.min(UP_MAX_COST, Math.round(v / 5) * 5) : Math.round(v);
 };
 
 /* 보급소가 이웃에게 밀어 주는 몫 — 공격력과 공격 속도에 같이 실린다.

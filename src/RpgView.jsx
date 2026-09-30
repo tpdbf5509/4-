@@ -5,6 +5,7 @@ import {
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, makeChar, saveLook, writeChar, deleteChar,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanName, cleanLook,
+  rpgStat, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
@@ -14,6 +15,7 @@ import { useTouch } from "./ui/touch.js";
 const SNAP_HZ = 12;
 const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyQ"];
 const TALK_KEYS = ["Enter", "KeyE"];
+const STAT_KEYS = ["KeyC"];
 const FIRE_KEYS = ["Space"];
 const AUTO_KEY = "flg:rpgAuto";
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
@@ -308,7 +310,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   const [auto, setAuto] = useState(loadAuto);        // 자동 평타
   const [start] = useState(() => {                   // 이 기기에 남아 있던 내 기록
     const c = loadChar();
-    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, auto: loadAuto() } : { auto: loadAuto() };
+    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, auto: loadAuto() } : { auto: loadAuto() };
   });
 
   const G = useRef(null);
@@ -337,6 +339,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   const [toast, setToast] = useState(null);         // 맵을 옮기면 잠깐 이름을 띄운다
   const [talk, setTalk] = useState(null);           // 사냥꾼의 말
   const [menu, setMenu] = useState(false);          // 레벨 칸의 ☰ 메뉴
+  const [statOpen, setStatOpen] = useState(false);  // 스탯 창
+  const [plan, setPlan] = useState(noStats);        // 스탯 창에서 적용하기 전에 올려 둔 포인트
 
   const toggleMute = useCallback(() => {
     sfx.unlock();
@@ -362,7 +366,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         : `토끼 ${QUEST.need}마리만 잡아 주게. 경험치 ${QUEST.xp}과 ${QUEST.coin}코인을 주겠네.`);
     }
     if (isHost) {
-      if (kind === "skill") rpgSkill(g, mySeat);
+      if (kind === "stat") rpgStat(g, mySeat, dir);
+      else if (kind === "skill") rpgSkill(g, mySeat);
       else if (kind === "talk") rpgTalk(g, mySeat);
       else if (kind === "fire") rpgFire(g, mySeat, dir);
       else if (kind === "auto") rpgAuto(g, mySeat, dir);
@@ -380,13 +385,20 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     act("auto", next);
   }, [act]);
 
-  // 메뉴는 Esc 나 바깥을 누르면 닫힌다
+  // 메뉴 · 스탯 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu) return;
-    const onKey = (e) => { if (e.key === "Escape") setMenu(false); };
+    if (!menu && !statOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") { setMenu(false); setStatOpen(false); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu]);
+  }, [menu, statOpen]);
+  // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
+  useEffect(() => { if (!statOpen) setPlan(noStats()); }, [statOpen]);
+  const applyStats = useCallback(() => {
+    if (!STAT_IDS.some((k) => plan[k] > 0)) return;
+    act("stat", plan);
+    setPlan(noStats());
+  }, [act, plan]);
 
   useEffect(() => {
     if (!talk) return;
@@ -423,6 +435,11 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       const isSkill = SKILL_KEYS.includes(e.code);
       const isTalk = TALK_KEYS.includes(e.code);
       const isFire = FIRE_KEYS.includes(e.code);
+      if (STAT_KEYS.includes(e.code)) {
+        e.preventDefault();
+        if (!e.repeat) setStatOpen((v) => !v);
+        return;
+      }
       if (!dir && !isSkill && !isTalk && !isFire) return;
       e.preventDefault();
       if (e.repeat) return;
@@ -460,6 +477,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         else if (d.kind === "talk") rpgTalk(g, d.cls);
         else if (d.kind === "fire") rpgFire(g, d.cls, !!d.dir);
         else if (d.kind === "auto") rpgAuto(g, d.cls, !!d.dir);
+        else if (d.kind === "stat") rpgStat(g, d.cls, d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
@@ -539,6 +557,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         setHud(me ? {
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
           coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: !!npcNear(me),
+          st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded,
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max })),
         } : null);
         if (me && me.map !== lastMap) {
@@ -547,7 +566,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         }
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded) {
-          const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}`;
+          const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}`;
           if (key !== saved) { saved = key; writeChar(me); }
         }
       }
@@ -589,8 +608,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
                 <span className="rpg-lv-name"><b>{names[mySeat] || "모험가"}</b> {who(mySeat)}</span>
                 <span className="rpg-lv-row">
                   <span className="rpg-lv-tag">XP</span>
-                  <span className="rpg-lv-bar xp"><span style={{ width: `${Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
-                  <span className="rpg-lv-num">{me.xp}/{me.need}</span>
+                  <span className="rpg-lv-bar xp"><span style={{ width: `${me.lv >= LV_MAX ? 100 : Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
+                  <span className="rpg-lv-num">{me.lv >= LV_MAX ? "MAX" : `${me.xp}/${me.need}`}</span>
                 </span>
                 <span className="rpg-lv-row">
                   <span className="rpg-lv-tag">HP</span>
@@ -599,6 +618,10 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
                 </span>
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.coins}</span>
+                  <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}
+                    aria-expanded={statOpen} onClick={() => { setMenu(false); setStatOpen((v) => !v); }}>
+                    스탯{me.left > 0 && <b>+{me.left}</b>}
+                  </button>
                   <span className={`rpg-lv-sk ${me.sk <= 0 ? "ready" : ""}`}>
                     {skillName(myLook)} {me.sk <= 0 ? "준비됨" : `${Math.ceil(me.sk)}초`}
                   </span>
@@ -621,7 +644,59 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
               </div>
             </>
           )}
-          {me && !menu && (me.quest.on || inField) && (
+          {me && statOpen && (() => {
+            const planned = STAT_IDS.reduce((n, k) => n + plan[k], 0);
+            const room = me.left - planned;
+            const hpMul = jobOf(myLook).hp;
+            return (
+              <>
+                <div className="rpg-menu-back" onClick={() => setStatOpen(false)} />
+                <div className="rpg-stat" role="dialog" aria-label="스탯">
+                  <div className="rpg-stat-head">
+                    <b>스탯</b>
+                    <span>남은 포인트 <em>{room}</em></span>
+                  </div>
+                  <p className="rpg-stat-rule">
+                    레벨이 오를 때마다 {STAT_PER_LV}포인트 · 스탯마다 최대 {STAT_MAX} · {LV_MAX}레벨까지 모두 {statEarned(LV_MAX)}포인트
+                  </p>
+                  <div className="rpg-stat-list">
+                    {STATS.map((t) => {
+                      const cur = me.st[t.id] || 0;
+                      const add = plan[t.id];
+                      const v0 = statValue(t.id, cur), v1 = statValue(t.id, cur + add);
+                      return (
+                        <div key={t.id} className="rpg-stat-row">
+                          <span className="rpg-stat-name">
+                            <b>{t.name}</b>
+                            <em>{t.id === "hp" ? `최대 체력 ${Math.round(v1 * hpMul).toLocaleString("ko-KR")}` : t.note}</em>
+                          </span>
+                          <span className="rpg-stat-val">
+                            {t.fmt(v0)}{add > 0 && <> <i>→</i> <strong>{t.fmt(v1)}</strong></>}
+                          </span>
+                          <span className="rpg-stat-pts">{cur + add}<small>/{STAT_MAX}</small></span>
+                          <span className="rpg-stat-btns">
+                            <button type="button" aria-label={`${t.name} 내리기`} disabled={add <= 0}
+                              onClick={() => setPlan((p) => ({ ...p, [t.id]: p[t.id] - 1 }))}>−</button>
+                            <button type="button" aria-label={`${t.name} 올리기`}
+                              disabled={!me.loaded || room <= 0 || cur + add >= STAT_MAX}
+                              onClick={() => setPlan((p) => ({ ...p, [t.id]: p[t.id] + 1 }))}>+</button>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="rpg-stat-foot">
+                    <button type="button" className="btn-main" disabled={planned <= 0} onClick={applyStats}>
+                      적용하기{planned > 0 ? ` (${planned})` : ""}
+                    </button>
+                    <button type="button" className="btn-ghost" disabled={planned <= 0} onClick={() => setPlan(noStats())}>다시 고르기</button>
+                    <span className="rpg-stat-warn">적용하면 되돌릴 수 없습니다.</span>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+          {me && !menu && !statOpen && (me.quest.on || inField) && (
             <div className="rpg-quest">
               {me.quest.on
                 ? <><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</>
@@ -714,8 +789,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         <p className="keyhint rpg-keys">
           방 코드 <kbd>{code}</kbd> ·{" "}
           {touch
-            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 곁에서 대화 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 곁에서 <kbd>E</kbd> 대화 · ☰ 에서 자동 평타 켜고 끄기</>}
+            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 곁에서 대화 · 레벨 칸의 스탯 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
+            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 곁에서 <kbd>E</kbd> 대화 · 스탯 <kbd>C</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
@@ -723,7 +798,10 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           자동 평타가 켜져 있으면 사거리 안의 토끼를 저절로 칩니다. 레벨 칸의 ☰ 메뉴에서 끌 수 있고,
           끄면 스페이스(휴대폰은 공격 버튼)를 누르고 있는 동안 칩니다. 켜져 있어도 스페이스로 칠 수 있습니다. 토끼는 늘 {MAPS.field.rabbits}마리 이하로 돌아다니고, 한 마리가 잡히면 한 마리가 새로 나옵니다.
           토끼 한 마리는 경험치 1과 1코인입니다. 레벨을 올리려면 처음엔 경험치 30, 그다음부터는 30씩 더 필요합니다.
-          레벨이 오르면 공격력과 체력이 오르고 체력이 가득 찹니다.
+          레벨이 오르면 체력이 가득 차고 스탯 포인트 {STAT_PER_LV}를 받습니다(처음 만들 때도 {STAT_PER_LV}포인트). 최고 레벨은 {LV_MAX}입니다.
+          레벨 칸의 스탯 버튼(키보드는 C)에서 물리력 · 마법력 · 체력 · 치명타 확률 · 치명타 피해에 나눠 찍습니다.
+          스탯마다 {STAT_MAX}까지 찍을 수 있어 둘만 가득 채울 수 있고, 적용하면 되돌릴 수 없습니다.
+          물리력은 전사 · 궁수, 마법력은 마법사의 공격력을 올리고, 화상 · 독 피해는 직업과 상관없이 마법력을 따릅니다.
           사냥꾼에게 퀘스트를 받아 토끼 {QUEST.need}마리를 잡으면 경험치 {QUEST.xp}과 {QUEST.coin}코인을 더 받습니다. 다시 받을 수 있습니다.
           토끼는 가끔 들이받습니다. {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
           전사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.

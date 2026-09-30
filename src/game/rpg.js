@@ -104,7 +104,42 @@ export function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, (by - ay) / RP
 
 /* ── 성장 ──────────────────────────────────────────────── */
 export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 30씩 는다
-export const LV_MAX = 99;
+export const LV_MAX = 100;
+
+/* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 100레벨까지 모두 200포인트).
+   스탯 하나에는 100까지만 찍을 수 있어, 다섯 가운데 둘만 가득 채울 수 있다.
+   물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
+export const STAT_MAX = 100;
+export const STAT_PER_LV = 2;
+export const STAT_START = 2;
+export const CRIT_MAX = 0.8;          // 치명타 확률 전체 상한 — 장비가 붙어도 확정 치명타가 되지 않게
+export const STATS = [
+  { id: "str", name: "물리력", note: "전사 · 궁수 공격력", base: 10, per: 2, fmt: (v) => String(v) },
+  { id: "int", name: "마법력", note: "마법사 공격력 · 화상 · 독 피해", base: 10, per: 2, fmt: (v) => String(v) },
+  { id: "hp", name: "체력", note: "최대 체력 (직업 배율을 곱한다)", base: 100, per: 15, fmt: (v) => v.toLocaleString("ko-KR") },
+  { id: "crit", name: "치명타 확률", note: "치명타가 터질 확률", base: 5, per: 0.5, fmt: (v) => `${r1(v)}%` },
+  { id: "cdmg", name: "치명타 피해", note: "치명타가 터졌을 때 피해", base: 150, per: 1, fmt: (v) => `${v}%` },
+];
+export const STAT_IDS = STATS.map((t) => t.id);
+const STAT_BY_ID = Object.fromEntries(STATS.map((t) => [t.id, t]));
+export const noStats = () => Object.fromEntries(STAT_IDS.map((k) => [k, 0]));
+// 이 레벨까지 받은 포인트
+export const statEarned = (lv) => STAT_START + STAT_PER_LV * (clamp(Math.floor(lv || 1), 1, LV_MAX) - 1);
+export const statSpent = (st) => STAT_IDS.reduce((n, k) => n + ((st && st[k]) || 0), 0);
+export const statLeft = (h) => Math.max(0, statEarned(h.lv) - statSpent(h.st));
+// 찍은 포인트에 따른 값 — 표의 기본값 + 포인트당 효과
+export const statValue = (id, pts) => STAT_BY_ID[id].base + STAT_BY_ID[id].per * (pts || 0);
+// 받은 값을 거른다 — 스탯마다 0~100, 모두 합쳐 받은 포인트를 넘지 않게
+export function cleanStats(d, lv) {
+  const st = noStats();
+  let room = statEarned(lv);
+  STAT_IDS.forEach((k) => {
+    const v = clamp(Math.floor(Number(d && d[k]) || 0), 0, STAT_MAX);
+    st[k] = Math.min(v, room);
+    room -= st[k];
+  });
+  return st;
+}
 
 /* 이 기기의 내 캐릭터 — 이름을 처음 한 번 정하고, 처음 게임을 시작할 때 직업 · 원소 · 성별을 정한다.
    넷 다 한 번 정하면 다시 바꿀 수 없다. */
@@ -132,6 +167,7 @@ export function loadChar() {
     xp: Math.max(0, Math.floor(r.xp || 0)),
     coins: Math.max(0, Math.floor(r.coins || 0)),
     quest: { on: !!q.on, n: clamp(Math.floor(q.n || 0), 0, QUEST.need) },
+    stats: cleanStats(r.stats, r.lv || 1),
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다
@@ -157,7 +193,7 @@ export function deleteChar() {
 export function writeChar(d) {
   const cur = loadSave();
   if (!cur) return;
-  store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n } });
+  store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st } });
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -176,7 +212,7 @@ function makeHero(pi, look, map = "plaza") {
   const [sx, sy] = MAPS[map].spawn;
   const h = {
     pi, map, x: sx + (Math.random() - 0.5) * 120, y: sy + (Math.random() - 0.5) * 60, dir: 1, face: 0, hold: [],
-    hp: 0, max: 0, down: 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, loaded: 0,
+    hp: 0, max: 0, down: 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, loaded: 0, st: noStats(),
     cd: 0.5, sk: 0, swing: 0, kills: 0, flash: 0, numAcc: 0, numT: 0, calm: 0, gateCd: 0,
     buff: 0, buffAmt: 0, guard: 0,
     auto: 1, fire: 0, fireQ: 0,       // 자동 평타 · 스페이스를 누르고 있는지 · 눌렀던 한 번을 잠깐 기억
@@ -192,13 +228,20 @@ function wear(h, look) {
   h.who = l.who || "";
 }
 
-const heroMaxHp = (h) => Math.round(RPG.heroHp * jobOf(h).hp * (1 + 0.08 * (h.lv - 1)));
+// 최대 체력 = 체력 스탯 × 직업 배율 — 레벨은 포인트로만 오른다
+const heroMaxHp = (h) => Math.round(statValue("hp", h.st.hp) * jobOf(h).hp);
 function refreshHp(h, full) {
   h.max = heroMaxHp(h);
   if (full) h.hp = h.max;
   else h.hp = Math.min(h.max, h.hp);
 }
-export const heroDmgMul = (h) => (1 + 0.05 * (h.lv - 1)) * (h.buff > 0 ? 1 + h.buffAmt : 1);
+// 공격력 배율 — 스탯 10 이 1배. 마법사는 마법력, 전사 · 궁수는 물리력을 쓴다
+const buffMul = (h) => (h.buff > 0 ? 1 + h.buffAmt : 1);
+export const physMul = (h) => (statValue("str", h.st.str) / 10) * buffMul(h);
+export const magMul = (h) => (statValue("int", h.st.int) / 10) * buffMul(h);
+export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h));
+export const critChance = (h) => Math.min(CRIT_MAX, statValue("crit", h.st.crit) / 100);
+export const critMul = (h) => statValue("cdmg", h.st.cdmg) / 100;
 export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul;
 const heroCd = (h) => jobOf(h).cd;
 
@@ -238,9 +281,34 @@ export function rpgJoin(g, pi, d) {
   h.coins = Math.max(0, Math.floor(Number(d.coins) || 0));
   const q = d.quest || {};
   h.quest = { on: !!q.on, n: clamp(Math.floor(Number(q.n) || 0), 0, QUEST.need - 1) };
+  h.st = cleanStats(d.stats, h.lv);
   if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
   refreshHp(h, true);
   h.loaded = 1;
+}
+
+/* 스탯을 찍는다 (방장만 판정) — add 는 { 스탯id: 올릴 포인트 }. 남은 포인트와 스탯 상한을 넘으면 받지 않는다.
+   되돌리기는 없다. */
+export function rpgStat(g, pi, add) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || !add || typeof add !== "object") return false;
+  const next = { ...h.st };
+  let n = 0;
+  for (const k of STAT_IDS) {
+    const v = Math.floor(Number(add[k]) || 0);
+    if (v < 0) return false;
+    next[k] += v;
+    n += v;
+    if (next[k] > STAT_MAX) return false;
+  }
+  if (n <= 0 || n > statLeft(h)) return false;
+  const wasFull = h.hp >= h.max;
+  h.st = next;
+  refreshHp(h, false);
+  if (wasFull && h.down <= 0) h.hp = h.max;        // 가득 차 있었으면 늘어난 만큼도 채운다
+  fx(g, h.map, { kind: "call", x: h.x, y: h.y - 96, text: `스탯 +${n}`, color: "#ffe08a", t: 0.8, life: 0.8,
+    snd: "build", who: pi });
+  return true;
 }
 
 /* ── 연출 — 어느 맵에서 일어났는지 함께 적는다 ─────────────── */
@@ -375,8 +443,8 @@ function hitMob(g, pi, m, raw, skill) {
   if (!m || m.dead) return 0;
   const h = g.heroes[pi];
   let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0));
-  const crit = Math.random() < 0.05;
-  if (crit) dmg *= 2;
+  const crit = h ? Math.random() < critChance(h) : false;
+  if (crit) dmg *= critMul(h);
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg;
   m.flash = 0.12;
@@ -428,7 +496,7 @@ function giveXp(g, h, amt) {
     refreshHp(h, false);
     if (h.down <= 0) h.hp = h.max;             // 레벨이 오르면 체력이 가득 찬다
     fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 10, r: 60, color: "#ffe08a", n: 10, t: 0.6, life: 0.6 });
-    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 90, text: `레벨 업! Lv ${h.lv}`, color: "#ffe08a", t: 1, life: 1,
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 90, text: `레벨 업! Lv ${h.lv} · 스탯 +${STAT_PER_LV}`, color: "#ffe08a", t: 1, life: 1,
       snd: "wave", who: h.pi });
   }
   if (h.lv >= LV_MAX) h.xp = 0;
@@ -458,7 +526,7 @@ function hurtHero(g, h, raw) {
 /* ── 원소를 싣는다 — 평타는 약하게(big 0), 큰 기술은 세게(big 1) ─────── */
 function soak(g, h, m, big) {
   if (!m || m.dead) return;
-  const mul = heroDmgMul(h);
+  const mul = magMul(h);                          // 화상 · 독은 직업과 상관없이 마법력을 따른다
   const e = elemOf(h).id;
   if (e === "flame") { m.burn = big ? 6 : 3; m.bdps = Math.max(m.bdps, (big ? 32 : 10) * mul); m.bby = h.pi; }
   else if (e === "frost") { if (big) m.freeze = 3; else m.slow = 2; }
@@ -748,7 +816,8 @@ export function rpgPack(g) {
     h: g.heroes.map((h) => (h
       ? [Math.round(h.x), Math.round(h.y), h.dir, Math.round(h.hp), h.max, r1(h.down), h.lv, h.xp,
         r1(h.sk), h.swing > 0 ? 1 : 0, mapIdx(h.map), h.coins, h.quest.on ? 1 : 0, h.quest.n, h.kills,
-        h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0, h.face]
+        h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0, h.face,
+        STAT_IDS.map((k) => h.st[k])]
       : 0)),
     m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
@@ -772,6 +841,7 @@ export function rpgApply(g, s) {
       h.x = row[0]; h.y = row[1];
     }
     if (!mine) { h.dir = row[2]; h.face = row[20] || 0; }
+    if (Array.isArray(row[21])) STAT_IDS.forEach((k, i) => { h.st[k] = row[21][i] || 0; });
     h.hp = row[3]; h.max = row[4]; h.down = row[5]; h.lv = row[6]; h.xp = row[7]; h.sk = row[8];
     if (row[9]) h.swing = Math.max(h.swing, 0.2);
     h.coins = row[11]; h.quest = { on: !!row[12], n: row[13] }; h.kills = row[14];

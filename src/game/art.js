@@ -2562,7 +2562,7 @@ export function drawFx(ctx, f) {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
-  } else if (k === "stun") {          // 서리탑 4단계 — 얼음이 아니라 기절, 별이 흩어진다
+  } else if (k === "stun") {          // 기절 — 얼음이 아니라 별이 흩어진다(지금 쓰는 탑은 없지만 남겨 둔다)
     const p = 1 - f.t / f.life;
     ctx.globalAlpha = 1 - p;
     for (let i = 0; i < 5; i++) {

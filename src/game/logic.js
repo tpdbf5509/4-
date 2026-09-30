@@ -2202,7 +2202,8 @@ export function step(g, dt) {
       splash: (def.splash || 0) * (spot === "key" ? 1.3 : 1) * (t.type === "cannon" ? lvMul(CANNON_SPLASH_MUL, t.lv) : 1),
       slow: t.type === "frost" ? lvMul(FROST_SLOW_AMT, t.lv) : (def.slow || (chill ? 0.82 : 0)),
       slowT: def.slowT || (chill ? 1.2 : 0),
-      stun: (t.type === "frost" && t.lv >= 4) ? 3 : 0,          // 서리탑 4단계 — 3초간 기절
+      freezeT: (t.type === "frost" && t.lv >= 4) ? 3 : 0,        // 서리탑 4단계 — 3초간 얼린다
+      stunT: 0,                                                    // 기절(별 연출) — 지금 쓰는 탑은 없지만 남겨 둔다
       delayedBoom: (t.type === "cannon" && t.lv >= 4) ? 1 : 0,  // 대포탑 4단계 — 맞은 적이 잠시 뒤 한 번 더 터진다
       chain: def.chain ? def.chain + (spot === "key" ? 1 : 0) : 0, poison: def.poison ? def.poison * (1 + 0.5 * (t.lv - 1)) * (1 + (t.aid || 0)) : 0,
       poisonT: def.poisonT || 0,
@@ -2272,9 +2273,13 @@ export function step(g, dt) {
           tg.slowAmt = b.slow;
           fx(g, { kind: "ice", x: b.tx, y: b.ty, t: 0.4, life: 0.4, snd: "ice" });
         }
-        if (b.stun) {
-          tg.freeze = Math.max(tg.freeze, b.stun);        // 서리탑 4단계 — 3초간 완전히 멈춘다
-          tg.stun = Math.max(tg.stun || 0, b.stun);        // 얼음이 아니라 기절 — 표시를 따로 한다
+        if (b.freezeT) {
+          tg.freeze = Math.max(tg.freeze, b.freezeT);     // 서리탑 4단계 — 3초간 얼어 붙어 완전히 멈춘다
+          fx(g, { kind: "ice", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
+        }
+        if (b.stunT) {                                    // 기절 — 얼음과 표시가 다르다(머리 위로 별)
+          tg.freeze = Math.max(tg.freeze, b.stunT);
+          tg.stun = Math.max(tg.stun || 0, b.stunT);
           fx(g, { kind: "stun", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
         }
         if (b.poison) {

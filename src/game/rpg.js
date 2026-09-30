@@ -1,11 +1,12 @@
 /* ── RPG 모드 ──────────────────────────────────────────────
-   대기실 없이 바로 광장에 선다. 광장의 사냥문을 지나면 사냥터다.
+   처음 들어오면 이름을 정한다. 이름은 이 기기에 남고 다시 바꿀 수 없다.
+   그다음 직업(전사 · 마법사 · 궁수) · 원소 · 성별을 고르고 광장에 선다. 광장의 사냥문을 지나면 사냥터다.
    사냥터에는 토끼가 늘 열다섯 마리 이하로 돌아다닌다. 한 마리가 죽으면 한 마리가 새로 나온다.
    토끼 한 마리는 경험치 1 · 1코인. 사냥꾼에게 받은 퀘스트로 다섯 마리를 잡으면 경험치 10 · 15코인.
 
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
-   레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 병과마다 남아 다음에 들어와도 이어진다. */
-import { P, CLASSES, ARENA_KIT, ARENA_ART } from "./world.js";
+   레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
+import { P, towerIdx } from "./world.js";
 
 export const RPG_CREW_MAX = 8;
 
@@ -43,26 +44,59 @@ const MAP_IDS = ["plaza", "field"];
 export const QUEST = { name: "토끼 사냥", need: 5, xp: 10, coin: 15 };
 const RABBIT = { hp: 40, xp: 1, coin: 1, rad: 13, bump: 4, respawn: 1.5 };
 
-// 병과마다 버티는 몫 — 붙어서 싸우는 성기사가 가장 튼튼하다
-const CLASS_HP = { paladin: 1.35, supply: 1.1, sniper: 0.85 };
-const SUPPLY_SHOT = 60;          // 보급소도 혼자 사냥할 수는 있어야 한다
+/* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
+   hp 는 버티는 몫, rng 는 사거리(RPG.rangeMul 을 곱하기 전), splash 는 맞은 자리 둘레로 번지는 폭 */
+export const JOBS = [
+  { id: "warrior", name: "전사", weapon: "검", note: "붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다",
+    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: "회오리" },
+  { id: "mage", name: "마법사", weapon: "지팡이", note: "원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다",
+    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: "폭발" },
+  { id: "archer", name: "궁수", weapon: "활", note: "가장 멀리서 쏜다 · 한 마리를 노린다",
+    hp: 0.85, dmg: 45, cd: 0.9, rng: 158, fly: 0.2, skill: "화살비" },
+];
+export const JOB_BY_ID = Object.fromEntries(JOBS.map((j) => [j.id, j]));
 
-/* 병과마다 쓰는 큰 기술 */
-export const RPG_SKILL = {
-  archer:  { name: "화살비" },   sniper: { name: "결정타" },  cannon: { name: "융단 폭격" },
-  bolt:    { name: "뇌우" },     flame:  { name: "화염 폭풍" }, poison: { name: "역병" },
-  frost:   { name: "한파" },     gravity: { name: "블랙홀" },  supply: { name: "긴급 보급" },
-  corrode: { name: "산성비" },   paladin: { name: "성역" },
+/* ── 원소 — 디펜스의 원소 탑 여섯에서 가져왔다. 색 · 효과 그림도 그 탑의 것을 쓴다.
+   평타에는 약하게, 큰 기술에는 세게 실린다. */
+const tint = (id) => P[towerIdx(id)];
+export const ELEMS = [
+  { id: "flame",   name: "화염", tower: "화염탑", hit: "태운다",          big: "크게 불태운다" },
+  { id: "frost",   name: "서리", tower: "서리탑", hit: "느리게 한다",     big: "얼린다" },
+  { id: "bolt",    name: "번개", tower: "번개탑", hit: "옆 토끼로 옮겨 붙는다", big: "기절시킨다" },
+  { id: "poison",  name: "독",   tower: "독탑",   hit: "독을 스미게 한다", big: "짙은 독을 퍼뜨린다" },
+  { id: "corrode", name: "부식", tower: "부식탑", hit: "더 아프게 맞게 한다", big: "크게 약하게 만든다" },
+  { id: "gravity", name: "중력", tower: "중력탑", hit: "둘레 토끼를 끌어당긴다", big: "한곳에 모아 묶는다" },
+].map((e) => ({ ...e, key: tint(e.id).key, light: tint(e.id).light, dark: tint(e.id).dark }));
+export const ELEM_BY_ID = Object.fromEntries(ELEMS.map((e) => [e.id, e]));
+
+export const GENDERS = [{ id: "m", name: "남" }, { id: "f", name: "여" }];
+export const NAME_MAX = 8;
+
+// 원소 효과 그림 — 날아가는 것 · 맞은 자국 · 큰 기술
+const ELEM_ART = {
+  flame:   { fly: "flame/fly",   hit: "flame/hit",     big: "flame/storm" },
+  frost:   { fly: "frost/fly",   hit: "frost/hit",     big: "frost/big" },
+  bolt:    { fly: "bolt/fly",    hit: "bolt/hit",      big: "bolt/storm" },
+  poison:  { fly: "poison/fly",  hit: "poison/hit",    big: "poison/storm" },
+  corrode: { fly: "corrode/fly", hit: "corrode/hit",   big: "corrode/storm" },
+  gravity: { fly: null,          hit: "gravity/crush", big: "gravity/hole" },
 };
 
-const STYLE = {
-  shot: "멀리서 쏜다", bomb: "포탄 · 범위 피해", chain: "번개가 옮겨 붙는다", aura: "주변을 태운다",
-  field: "중력장으로 끌어당긴다", melee: "붙어서 벤다 · 튼튼하다", aid: "아군 회복 · 공격력 강화",
-};
-export const rpgStyle = (pi) => STYLE[kitOf(pi).mode] || "";
+/* 캐릭터 겉모습 — 이름 · 직업 · 원소 · 성별. 받은 값은 늘 이걸로 걸러 쓴다 */
+export const cleanName = (v) => String(v || "").replace(/\s+/g, " ").trim().slice(0, NAME_MAX);
+export function cleanLook(d) {
+  if (!d) return null;
+  const name = cleanName(d.name);
+  if (!name || !JOB_BY_ID[d.job] || !ELEM_BY_ID[d.elem] || !(d.gender === "m" || d.gender === "f")) return null;
+  return { name, job: d.job, elem: d.elem, gender: d.gender };
+}
+const BASE_LOOK = { name: "", job: "warrior", elem: "flame", gender: "m" };
+export const jobOf = (h) => JOB_BY_ID[h && h.job] || JOBS[0];
+export const elemOf = (h) => ELEM_BY_ID[h && h.elem] || ELEMS[0];
+export const skillName = (h) => `${elemOf(h).name} ${jobOf(h).skill}`;
+// 캐릭터 그림 — public/assets/characters/rpg/<직업>-<성별>/<방향>.webp
+export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobOf(h).id}-${h && h.gender === "f" ? "f" : "m"}/${view}.webp`;
 
-const kitOf = (pi) => ARENA_KIT[(CLASSES[pi] || {}).id] || ARENA_KIT.archer;
-const artOf = (pi) => ARENA_ART[(CLASSES[pi] || {}).id] || null;
 const r1 = (v) => Math.round(v * 10) / 10;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -72,76 +106,124 @@ export function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, (by - ay) / RP
 export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 30씩 는다
 export const LV_MAX = 99;
 
-const SAVE_KEY = "flg:rpg2";
+/* 이 기기의 내 캐릭터 — 이름을 처음 한 번 정하고, 처음 게임을 시작할 때 직업 · 원소 · 성별을 정한다.
+   넷 다 한 번 정하면 다시 바꿀 수 없다. */
+const SAVE_KEY = "flg:rpg3";
 function loadSave() {
   try {
     const v = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
-    if (v && v.v === 2 && v.heroes) return v;
+    if (v && v.v === 3 && cleanName(v.name)) return v;
   } catch { /* 망가진 기록은 새로 시작한다 */ }
-  return { v: 2, heroes: {} };
+  return null;
 }
-export function heroSave(id) {
-  const r = loadSave().heroes[id] || {};
+function store(v) {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(v)); return true; } catch { return false; }
+}
+// 저장된 캐릭터 — 없으면 null
+export function loadChar() {
+  const r = loadSave();
+  if (!r) return null;
   const q = r.quest || {};
+  const look = cleanLook({ ...BASE_LOOK, ...r, name: r.name }) || { ...BASE_LOOK, name: cleanName(r.name) };
   return {
+    ...look,
+    picked: !!r.picked,                          // 직업 · 원소 · 성별을 정했는지 — 정했으면 바꿀 수 없다
     lv: clamp(Math.floor(r.lv || 1), 1, LV_MAX),
     xp: Math.max(0, Math.floor(r.xp || 0)),
     coins: Math.max(0, Math.floor(r.coins || 0)),
     quest: { on: !!q.on, n: clamp(Math.floor(q.n || 0), 0, QUEST.need) },
   };
 }
-export function writeHero(id, d) {
-  const s = loadSave();
-  s.heroes[id] = { lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n } };
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch { /* 저장이 막혀 있으면 이번만 */ }
+// 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다
+export function makeChar(name) {
+  const cur = loadSave();
+  if (cur) return loadChar();
+  const n = cleanName(name);
+  if (!n) return null;
+  store({ v: 3, name: n, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 } });
+  return loadChar();
+}
+// 직업 · 원소 · 성별을 정한다 — 이미 정해 두었으면 그대로 두고 false
+export function saveLook(d) {
+  const cur = loadSave();
+  if (!cur || cur.picked) return false;
+  return store({ ...cur, job: d.job, elem: d.elem, gender: d.gender, picked: 1 });
+}
+// 캐릭터를 지운다 — 이름 · 직업 · 원소 · 성별과 레벨 · 코인까지 모두 사라진다
+export function deleteChar() {
+  try { localStorage.removeItem(SAVE_KEY); return true; } catch { return false; }
+}
+// 레벨 · 경험치 · 코인 · 퀘스트를 남긴다
+export function writeChar(d) {
+  const cur = loadSave();
+  if (!cur) return;
+  store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n } });
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
 export function makeWorld() {
   const g = {
     mode: "rpg", t: 0,
-    heroes: CLASSES.map(() => null), mobs: [], hits: [], respawn: [], pending: {},
+    heroes: new Array(RPG_CREW_MAX).fill(null), mobs: [], hits: [], respawn: [], pending: {},
     fx: [], out: null, banner: null, shake: 0, nextId: 1,
-    seats: CLASSES.map(() => false), names: [], mySeat: -1,
+    looks: new Array(RPG_CREW_MAX).fill(null), names: [], mySeat: -1,
   };
   for (let i = 0; i < MAPS.field.rabbits; i++) spawnRabbit(g);
   return g;
 }
 
-function makeHero(pi, map = "plaza") {
+function makeHero(pi, look, map = "plaza") {
   const [sx, sy] = MAPS[map].spawn;
   const h = {
-    pi, map, x: sx + (Math.random() - 0.5) * 120, y: sy + (Math.random() - 0.5) * 60, dir: 1, hold: [],
+    pi, map, x: sx + (Math.random() - 0.5) * 120, y: sy + (Math.random() - 0.5) * 60, dir: 1, face: 0, hold: [],
     hp: 0, max: 0, down: 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, loaded: 0,
     cd: 0.5, sk: 0, swing: 0, kills: 0, flash: 0, numAcc: 0, numT: 0, calm: 0, gateCd: 0,
     buff: 0, buffAmt: 0, guard: 0,
     auto: 1, fire: 0, fireQ: 0,       // 자동 평타 · 스페이스를 누르고 있는지 · 눌렀던 한 번을 잠깐 기억
   };
+  wear(h, look);
   refreshHp(h, true);
   return h;
 }
+// 겉모습(직업 · 원소 · 성별)을 입힌다
+function wear(h, look) {
+  const l = look || BASE_LOOK;
+  h.job = jobOf(l).id; h.elem = elemOf(l).id; h.gender = l.gender === "f" ? "f" : "m";
+  h.who = l.who || "";
+}
 
-const heroMaxHp = (h) => Math.round(RPG.heroHp * (CLASS_HP[CLASSES[h.pi].id] || 1) * (1 + 0.08 * (h.lv - 1)));
+const heroMaxHp = (h) => Math.round(RPG.heroHp * jobOf(h).hp * (1 + 0.08 * (h.lv - 1)));
 function refreshHp(h, full) {
   h.max = heroMaxHp(h);
   if (full) h.hp = h.max;
   else h.hp = Math.min(h.max, h.hp);
 }
 export const heroDmgMul = (h) => (1 + 0.05 * (h.lv - 1)) * (h.buff > 0 ? 1 + h.buffAmt : 1);
-export const heroRange = (h) => kitOf(h.pi).rng * RPG.rangeMul;
-const heroCd = (h) => kitOf(h.pi).cd;
+export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul;
+const heroCd = (h) => jobOf(h).cd;
+
+/* 자리마다 앉은 사람의 겉모습 — 방장과 손님 모두 자리가 바뀔 때마다 넣는다.
+   seats[pi] = { id, name, hero: { name, job, elem, gender } } 또는 null */
+export function rpgLooks(g, seats) {
+  g.looks = seats.map((s) => {
+    const l = s && cleanLook(s.hero);
+    return l ? { ...l, who: s.id } : null;
+  });
+  g.names = seats.map((s) => (s && s.name) || "");
+  // 손님 화면에 이미 선 영웅도 겉모습을 맞춘다
+  g.heroes.forEach((h, pi) => { if (h && g.looks[pi]) wear(h, g.looks[pi]); });
+}
 
 /* 자리에 앉은 사람을 세계에 세우고, 떠난 사람은 뺀다 (방장만) */
-export function rpgSyncSeats(g, flags, names) {
-  g.seats = flags.slice();
-  g.names = names.slice();
-  flags.forEach((on, pi) => {
-    if (on && !g.heroes[pi]) {
-      const h = g.heroes[pi] = makeHero(pi);
+export function rpgSyncSeats(g, seats) {
+  rpgLooks(g, seats);
+  g.looks.forEach((look, pi) => {
+    const cur = g.heroes[pi];
+    if (cur && (!look || cur.who !== look.who)) g.heroes[pi] = null;     // 떠났거나 다른 사람이 앉았다
+    if (look && !g.heroes[pi]) {
+      const h = g.heroes[pi] = makeHero(pi, look);
       if (g.pending[pi]) { rpgJoin(g, pi, g.pending[pi]); delete g.pending[pi]; }
-      fx(g, "plaza", { kind: "nova", x: h.x, y: h.y - 10, r: 60, color: P[pi].light, n: 8, t: 0.6, life: 0.6 });
-    } else if (!on && g.heroes[pi]) {
-      g.heroes[pi] = null;
+      fx(g, "plaza", { kind: "nova", x: h.x, y: h.y - 10, r: 60, color: elemOf(h).light, n: 8, t: 0.6, life: 0.6 });
     }
   });
 }
@@ -190,6 +272,7 @@ export function rpgWalk(h, dt) {
   if (!dx && !dy) return;
   const len = Math.hypot(dx, dy);
   if (dx) h.dir = dx < 0 ? -1 : 1;
+  h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
   h.x += (dx / len) * RPG.spd * dt;
   h.y += (dy / len) * RPG.spd * RPG.squash * dt;
   keepIn(h, MAPS[h.map], 20);
@@ -298,7 +381,7 @@ function hitMob(g, pi, m, raw, skill) {
   m.hp -= dmg;
   m.flash = 0.12;
   m.numAcc += dmg;
-  m.numCol = crit ? "#ffd873" : P[pi] ? P[pi].light : "#ffe9bd";
+  m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
   if (crit || skill || m.numT <= 0) flushNum(g, m, crit ? 2 : skill ? 1 : 0);
   // 맞은 토끼는 때린 쪽 반대로 달아난다
   if (h && m.hp > 0 && m.freeze <= 0 && m.stun <= 0) {
@@ -372,187 +455,144 @@ function hurtHero(g, h, raw) {
   }
 }
 
-/* ── 영웅의 공격 — 사거리 안의 토끼를 저절로 친다 ─────────────── */
+/* ── 원소를 싣는다 — 평타는 약하게(big 0), 큰 기술은 세게(big 1) ─────── */
+function soak(g, h, m, big) {
+  if (!m || m.dead) return;
+  const mul = heroDmgMul(h);
+  const e = elemOf(h).id;
+  if (e === "flame") { m.burn = big ? 6 : 3; m.bdps = Math.max(m.bdps, (big ? 32 : 10) * mul); m.bby = h.pi; }
+  else if (e === "frost") { if (big) m.freeze = 3; else m.slow = 2; }
+  else if (e === "bolt") { if (big) m.stun = 1.5; }
+  else if (e === "poison") { m.poison = big ? 6 : 4; m.pdps = Math.max(m.pdps, (big ? 34 : 12) * mul); m.pby = h.pi; }
+  else if (e === "corrode") { m.shred = big ? 8 : 4; m.shredAmt = Math.max(m.shredAmt, big ? 0.4 : 0.2); }
+  else if (e === "gravity") { if (big) m.stun = 2; else m.slow = Math.max(m.slow, 1); }
+}
+
+// 평타가 맞은 뒤 — 번개는 옆 토끼로 한 번 옮겨 붙고, 중력은 둘레 토끼를 끌어당긴다
+function afterHit(g, h, m, x, y, dmg) {
+  const e = elemOf(h).id;
+  const map = h.map;
+  if (e === "bolt") {
+    const next = nearMobs(g, map, x, y, 160).find((q) => q !== m);
+    if (next) {
+      fx(g, map, { kind: "zap", x0: x, y0: y - 10, x1: next.x, y1: next.y - 10, color: elemOf(h).light, t: 0.28, life: 0.28 });
+      hitMob(g, h.pi, next, dmg * 0.5);
+    }
+  } else if (e === "gravity") {
+    nearMobs(g, map, x, y, 100).forEach((q) => {
+      if (q === m) return;
+      q.x += (x - q.x) * 0.3; q.y += (y - q.y) * 0.3;
+      q.slow = Math.max(q.slow, 1);
+    });
+  }
+}
+
+/* ── 영웅의 공격 — 사거리 안의 토끼를 친다 ───────────────────── */
 function heroAttack(g, h) {
   const pi = h.pi;
   const map = h.map;
-  const kit = kitOf(pi);
-  const ART = artOf(pi);
-  const dmg = kit.dmg * heroDmgMul(h);
+  const job = jobOf(h), el = elemOf(h);
+  const dmg = job.dmg * heroDmgMul(h);
   const rng = heroRange(h);
   const hy = h.y - 34;
 
-  if (kit.mode === "aid") {
-    let n = 0;
-    g.heroes.forEach((q) => {
-      if (!q || q.map !== map || q.down > 0 || dist(h.x, h.y, q.x, q.y) > rng) return;
-      q.buff = kit.buffT; q.buffAmt = kit.buff;
-      if (q.hp < q.max) q.hp = Math.min(q.max, q.hp + q.max * 0.06);
-      n += 1;
-    });
-    const list = nearMobs(g, map, h.x, h.y, rng, 2);
-    list.forEach((m) => {
-      fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, style: "orb", color: kit.col, t: 0.2, life: 0.2 });
-      g.hits.push({ t: 0.2, pi, mid: m.id, dmg: SUPPLY_SHOT * heroDmgMul(h), mode: "shot", kit: {} });
-    });
-    if (list.length) h.dir = list[0].x < h.x ? -1 : 1;
-    return list.length > 0 || n > 1;
-  }
-
-  if (kit.mode === "aura") {                      // 화염 — 둘레를 통째로 태운다
-    const list = nearMobs(g, map, h.x, h.y, rng);
-    if (!list.length) return false;
-    list.forEach((m) => {
-      m.burn = kit.burnT; m.bdps = Math.max(m.bdps, kit.burn * 0.7 * heroDmgMul(h)); m.bby = pi;
-      hitMob(g, pi, m, dmg * 0.75);
-    });
-    fx(g, map, { kind: "firering", x: h.x, y: h.y - 6, r: rng * 0.9, t: 0.5, life: 0.5, snd: "flame" });
-    return true;
-  }
-
-  if (kit.mode === "melee") {                     // 성기사 — 둘레를 한 번에 벤다
+  if (job.id === "warrior") {                     // 전사 — 둘레를 한 번에 벤다
     const list = nearMobs(g, map, h.x, h.y, rng);
     if (!list.length) return false;
     h.dir = list[0].x < h.x ? -1 : 1;
-    list.forEach((m) => hitMob(g, pi, m, dmg));
+    h.face = 0;
+    list.forEach((m) => { hitMob(g, pi, m, dmg); soak(g, h, m, 0); });
+    afterHit(g, h, list[0], list[0].x, list[0].y, dmg);
     fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
-      color: "rgba(255,246,226,0.95)", t: 0.24, life: 0.24 });
+      color: el.light, t: 0.24, life: 0.24, snd: "slash" });
     return true;
   }
 
-  if (kit.mode === "chain") {                     // 번개 — 첫 토끼에서 가까운 토끼로 옮겨 붙는다
-    const [first] = nearMobs(g, map, h.x, h.y, rng, 1);
-    if (!first) return false;
-    h.dir = first.x < h.x ? -1 : 1;
-    const hops = [first];
-    let cur = first;
-    while (hops.length < kit.chain) {
-      const next = nearMobs(g, map, cur.x, cur.y, 170).find((m) => !hops.includes(m));
-      if (!next) break;
-      hops.push(next);
-      cur = next;
-    }
-    let x0 = h.x, y0 = hy, pow = dmg;
-    hops.forEach((m, k) => {
-      fx(g, map, { kind: "zap", x0, y0, x1: m.x, y1: m.y - 10, color: kit.col, t: 0.28, life: 0.28, snd: k === 0 ? "zap" : null });
-      hitMob(g, pi, m, pow);
-      x0 = m.x; y0 = m.y - 10; pow *= 0.8;
-    });
-    return true;
-  }
-
-  if (kit.mode === "field") {                     // 중력 — 한 자리에 모아 짓누른다
-    const [t] = nearMobs(g, map, h.x, h.y, rng, 1);
-    if (!t) return false;
-    h.dir = t.x < h.x ? -1 : 1;
-    const cx = t.x, cy = t.y;
-    nearMobs(g, map, cx, cy, 110).forEach((m) => {
-      m.x += (cx - m.x) * 0.35; m.y += (cy - m.y) * 0.35;
-      m.slow = 1.2;
-      hitMob(g, pi, m, dmg);
-    });
-    fx(g, map, { kind: "hole", x: cx, y: cy - 6, r: 110, color: kit.col, t: 0.7, life: 0.7, snd: "pull" });
-    return true;
-  }
-
-  // 날아가는 것 — 궁수·저격·대포·독·서리·부식
+  // 마법사 · 궁수 — 가장 가까운 토끼에게 날린다
   const [m] = nearMobs(g, map, h.x, h.y, rng, 1);
   if (!m) return false;
   h.dir = m.x < h.x ? -1 : 1;
-  const fly = kit.fly || 0.2;
-  if (kit.shot === "slug") {
-    fx(g, map, { kind: "beam", x0: h.x + h.dir * 16, y0: hy, x1: m.x, y1: m.y - 10, color: kit.col, w: 6, t: 0.26, life: 0.26 });
+  h.face = 0;
+  const fly = job.fly || 0.2;
+  const art = ELEM_ART[el.id];
+  if (job.id === "mage") {
+    fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: m.x, y1: m.y - 10, style: "orb",
+      art: art.fly || 0, r: 22, color: el.light, t: fly, life: fly, snd: "orb" });
   } else {
-    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, style: kit.shot || "arrow",
-      art: ART ? ART.fly : 0, r: ART ? ART.flyR * 0.6 : 0, color: kit.col, t: fly, life: fly,
-      snd: kit.mode === "bomb" ? "cannon" : "shot" });
+    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, style: "arrow",
+      color: el.light, t: fly, life: fly, snd: "shot" });
   }
-  g.hits.push({ t: fly, pi, mid: m.id, x: m.x, y: m.y, map, dmg, mode: kit.mode, kit });
+  g.hits.push({ t: fly, pi, mid: m.id, x: m.x, y: m.y, map, dmg, splash: job.splash || 0 });
   return true;
 }
 
 // 날아간 것이 닿았다
 function landHit(g, s) {
+  const h = g.heroes[s.pi];
   const m = g.mobs.find((q) => q.id === s.mid && !q.dead);
-  const kit = s.kit || {};
-  if (s.mode === "bomb") {
-    const x = m ? m.x : s.x, y = m ? m.y : s.y;
-    const R = (kit.splash || 90) * 0.8;
-    nearMobs(g, s.map || "field", x, y, R).forEach((q) => hitMob(g, s.pi, q, s.dmg * (q === m ? 1 : 0.6), s.skill));
-    fx(g, s.map || "field", { kind: "boom", x, y: y - 6, r: R * 0.8, t: 0.45, life: 0.45, snd: "boom" });
-    return;
+  if (!h) return;
+  const el = elemOf(h);
+  const x = m ? m.x : s.x, y = m ? m.y : s.y;
+  if (s.splash) {                                 // 마법 — 맞은 자리 둘레도 다친다
+    nearMobs(g, s.map, x, y, s.splash).forEach((q) => {
+      hitMob(g, s.pi, q, s.dmg * (q === m ? 1 : 0.5));
+      soak(g, h, q, 0);
+    });
+    fx(g, s.map, { kind: "art", art: ELEM_ART[el.id].hit, x, y: y - 4, r: 34, t: 0.4, life: 0.4 });
+  } else {
+    if (!m) return;
+    hitMob(g, s.pi, m, s.dmg);
+    soak(g, h, m, 0);
+    fx(g, s.map, { kind: "burst", x, y: y - 10, r: 18, color: el.light, n: 6, t: 0.3, life: 0.3 });
   }
-  if (!m) return;
-  if (kit.poison) { m.poison = kit.poisonT; m.pdps = Math.max(m.pdps, kit.poison * 1.5 * heroDmgMul(g.heroes[s.pi] || { lv: 1 })); m.pby = s.pi; }
-  if (kit.slow) m.slow = 2;
-  if (kit.shred) { m.shred = kit.shredT; m.shredAmt = Math.max(m.shredAmt, kit.shred); }
-  fx(g, m.map, { kind: "burst", x: m.x, y: m.y - 10, r: 18, color: kit.col || "#fff6dd", n: 6, t: 0.3, life: 0.3 });
-  hitMob(g, s.pi, m, s.dmg, s.skill);
+  if (m) afterHit(g, h, m, x, y, s.dmg);
 }
 
-/* ── 큰 기술 ───────────────────────────────────────────── */
+/* ── 큰 기술 — 직업이 모양을, 원소가 효과를 정한다 ──────────────
+   전사: 둘레를 휘도는 회오리 · 마법사: 가장 가까운 토끼 자리에 원소 폭발 · 궁수: 둘레에 화살비 */
 export function rpgSkill(g, pi) {
   const h = g.heroes[pi];
   if (!h || h.down > 0) return;
   const map = h.map;
-  const id = CLASSES[pi].id;
+  const job = jobOf(h), el = elemOf(h);
+  const name = skillName(h);
   if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
-  if (h.sk > 0) return say(g, map, h.x, h.y - 90, `${RPG_SKILL[id].name} ${Math.ceil(h.sk)}초`, "#f0dcb4");
-  const kit = kitOf(pi);
-  const base = kit.dmg * heroDmgMul(h);
-  const near = (r) => nearMobs(g, map, h.x, h.y, r);
+  if (h.sk > 0) return say(g, map, h.x, h.y - 90, `${name} ${Math.ceil(h.sk)}초`, "#f0dcb4");
+  const base = job.dmg * heroDmgMul(h);
+  const art = ELEM_ART[el.id];
 
-  if (id === "supply") {
-    g.heroes.forEach((q) => {
-      if (!q || q.map !== map) return;
-      q.hp = Math.min(q.max, q.hp + q.max * 0.4);
-      q.buff = 8; q.buffAmt = 0.5;
-      fx(g, map, { kind: "heal", x: q.x, y: q.y - 56, text: "보급", t: 1, life: 1 });
-    });
-    fx(g, map, { kind: "ring", x: h.x, y: h.y - 8, r: 220, color: kit.col, t: 0.8, life: 0.8, snd: "bless" });
+  let cx = h.x, cy = h.y, list, mul;
+  if (job.id === "warrior") {
+    list = nearMobs(g, map, h.x, h.y, 240); mul = 3;
+  } else if (job.id === "mage") {
+    const [t] = nearMobs(g, map, h.x, h.y, 360, 1);
+    if (t) { cx = t.x; cy = t.y; }
+    list = t ? nearMobs(g, map, cx, cy, 200) : []; mul = 2.8;
   } else {
-    const list = id === "sniper" ? nearMobs(g, map, h.x, h.y, 900).sort((a, b) => b.hp - a.hp).slice(0, 1) : near(300);
-    if (!list.length) return say(g, map, h.x, h.y - 90, "닿는 토끼가 없다", "#d9c9a6");
-    const hit = (m, mul) => hitMob(g, pi, m, base * mul, true);
-    if (id === "archer") {
-      list.forEach((m) => hit(m, 3.2));
-      fx(g, map, { kind: "rain", x: h.x, y: h.y, r: 260, n: 26, color: kit.col, t: 0.9, life: 0.9 });
-    } else if (id === "sniper") {
-      const t = list[0];
-      fx(g, map, { kind: "beam", x0: h.x, y0: h.y - 34, x1: t.x, y1: t.y - 10, color: kit.col, w: 12, t: 0.4, life: 0.4 });
-      hit(t, 14);
-    } else if (id === "cannon") {
-      list.slice(0, 8).forEach((m, i) => g.hits.push({ t: 0.3 + i * 0.09, pi, mid: m.id, x: m.x, y: m.y, map, dmg: base * 2.4, mode: "bomb", kit, skill: 1 }));
-    } else if (id === "bolt") {
-      list.slice(0, 10).forEach((m) => {
-        fx(g, map, { kind: "zap", x0: m.x, y0: m.y - 240, x1: m.x, y1: m.y - 8, color: "#fff0a8", t: 0.3, life: 0.3, snd: "zap" });
-        hit(m, 3.2);
-        if (!m.dead) m.stun = 1.5;
-      });
-    } else if (id === "flame") {
-      list.forEach((m) => { m.burn = 6; m.bdps = Math.max(m.bdps, kit.burn * 2.4); m.bby = pi; hit(m, 2.2); });
-      fx(g, map, { kind: "firering", x: h.x, y: h.y, r: 280, t: 0.8, life: 0.8, snd: "flame" });
-    } else if (id === "poison") {
-      list.forEach((m) => { m.poison = 6; m.pdps = Math.max(m.pdps, kit.poison * 2.6); m.pby = pi; hit(m, 0.8); });
-      fx(g, map, { kind: "cloud", x: h.x, y: h.y - 8, r: 280, color: "rgba(168,222,110,0.85)", t: 1.1, life: 1.1 });
-    } else if (id === "frost") {
-      list.forEach((m) => { hit(m, 1.6); if (!m.dead) m.freeze = 3; });
-      fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: 300, color: "#bfe6ff", n: 16, t: 0.8, life: 0.8, snd: "ice" });
-    } else if (id === "gravity") {
-      list.forEach((m) => { m.x += (h.x - m.x) * 0.6; m.y += (h.y - m.y) * 0.6; hit(m, 2); if (!m.dead) m.stun = 2; });
-      fx(g, map, { kind: "hole", x: h.x, y: h.y - 8, r: 240, color: kit.col, t: 1.1, life: 1.1, snd: "pull" });
-    } else if (id === "corrode") {
-      list.forEach((m) => { m.shred = 8; m.shredAmt = 0.4; hit(m, 1.6); });
-      fx(g, map, { kind: "cloud", x: h.x, y: h.y - 8, r: 280, color: "rgba(120,213,191,0.8)", t: 1, life: 1 });
-    } else if (id === "paladin") {
-      list.forEach((m) => hit(m, 4));
-      g.heroes.forEach((q) => { if (q && q.map === map && dist(h.x, h.y, q.x, q.y) < 320) { q.guard = 6; q.hp = Math.min(q.max, q.hp + q.max * 0.2); } });
-      fx(g, map, { kind: "sigil", x: h.x, y: h.y - 6, r: 180, color: "#ffeec2", t: 1, life: 1, snd: "bless" });
-    }
+    list = nearMobs(g, map, h.x, h.y, 300); mul = 2.6;
+  }
+  if (!list.length) return say(g, map, h.x, h.y - 90, "닿는 토끼가 없다", "#d9c9a6");
+  if (cx !== h.x) h.dir = cx < h.x ? -1 : 1;
+  h.face = 0;
+
+  list.forEach((m) => {
+    if (el.id === "gravity") { m.x += (cx - m.x) * 0.6; m.y += (cy - m.y) * 0.6; }
+    hitMob(g, pi, m, base * mul, true);
+    soak(g, h, m, 1);
+  });
+
+  if (job.id === "warrior") {
+    fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: 240, color: el.light, n: 16, t: 0.7, life: 0.7, snd: "boom" });
+    fx(g, map, { kind: "art", art: art.big, x: h.x, y: h.y - 6, r: 115, t: 0.8, life: 0.8 });
+  } else if (job.id === "mage") {
+    fx(g, map, { kind: "art", art: art.big, x: cx, y: cy - 6, r: 170, t: 0.9, life: 0.9, snd: "boom" });
+  } else {
+    fx(g, map, { kind: "rain", x: h.x, y: h.y, r: 260, n: 26, color: el.light, t: 0.9, life: 0.9, snd: "shot" });
+    fx(g, map, { kind: "art", art: art.hit, x: h.x, y: h.y - 4, r: 90, t: 0.8, life: 0.8 });
   }
   h.sk = RPG.skillCd;
   h.swing = 0.4;
-  fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: RPG_SKILL[id].name, color: "#ffd873", t: 0.9, life: 0.9, snd: "crit" });
+  fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: name, color: "#ffd873", t: 0.9, life: 0.9, snd: "crit" });
 }
 
 /* ── 한 걸음 ───────────────────────────────────────────── */
@@ -708,7 +748,7 @@ export function rpgPack(g) {
     h: g.heroes.map((h) => (h
       ? [Math.round(h.x), Math.round(h.y), h.dir, Math.round(h.hp), h.max, r1(h.down), h.lv, h.xp,
         r1(h.sk), h.swing > 0 ? 1 : 0, mapIdx(h.map), h.coins, h.quest.on ? 1 : 0, h.quest.n, h.kills,
-        h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0]
+        h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0, h.face]
       : 0)),
     m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
@@ -722,7 +762,7 @@ export function rpgApply(g, s) {
     if (!row) { g.heroes[pi] = null; return; }
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
-    if (!h) { h = g.heroes[pi] = makeHero(pi, map); h.x = row[0]; h.y = row[1]; }
+    if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
     const mine = pi === g.mySeat;
     const moved = h.map !== map;
     h.map = map;
@@ -731,7 +771,7 @@ export function rpgApply(g, s) {
     if (moved || (mine && Math.hypot(row[0] - h.x, row[1] - h.y) > (h.hold.length ? 140 : 70))) {
       h.x = row[0]; h.y = row[1];
     }
-    if (!mine) h.dir = row[2];
+    if (!mine) { h.dir = row[2]; h.face = row[20] || 0; }
     h.hp = row[3]; h.max = row[4]; h.down = row[5]; h.lv = row[6]; h.xp = row[7]; h.sk = row[8];
     if (row[9]) h.swing = Math.max(h.swing, 0.2);
     h.coins = row[11]; h.quest = { on: !!row[12], n: row[13] }; h.kills = row[14];

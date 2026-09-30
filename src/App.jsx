@@ -491,6 +491,7 @@ function TowerInfo({ idx, onClose }) {
     ["역할", def.role],
     ["건설", `${def.cost}골드`],
     ["강화", [1, 2, 3].map((lv) => `${lv + 1}단계 ${upCostOf(def, lv)}`).join(" · ")],
+    ["4단계 탑 한도", "각자 1개 (지옥은 2개)"],
     ["사거리", `${def.range}${def.range ? " (단계마다 +12)" : ""}`],
     def.dmg > 0 && ["공격 피해", `${def.dmg} (단계마다 +62%)`],
     def.burn > 0 && ["화상 피해", `초당 ${def.burn} · ${def.burnT}초`],
@@ -900,13 +901,14 @@ function CostBox({ cost, seat }) {
     })),
   ];
   const note = cost.here === "other" ? "남의 자리" : cost.lv >= 4 ? "최대 단계" : null;
+  const capFull = cost.lv === 3 && cost.capUsed >= cost.cap;       // 4단계로 못 올린다
   return (
     <div className="cost-box" style={{ "--pcl": P[seat].light }}>
-      <span className="cost-head">건설 비용{note && <em>{note}</em>}</span>
+      <span className="cost-head">건설 비용{note && <em>{note}</em>}<em className="cost-cap">4단계 탑 {cost.capUsed}/{cost.cap}</em></span>
       <span className="cost-rows">
         {rows.map((r) => (
           <span key={r.key}
-            className={`cost-item ${r.on && !note ? "on" : ""} ${cost.gold < r.gold ? "short" : ""}`}>
+            className={`cost-item ${r.on && !note ? "on" : ""} ${cost.gold < r.gold || (capFull && r.key === "up2") ? "short" : ""}`}>
             {r.label}<b>{r.gold}</b>
           </span>
         ))}

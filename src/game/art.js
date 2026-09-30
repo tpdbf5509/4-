@@ -2044,7 +2044,8 @@ export function drawEnemy(ctx, e, time) {
   // 체력 막대
   const hr = Math.max(0, e.hp / e.max);
   e.shown = e.shown === undefined ? hr : e.shown + (hr - e.shown) * 0.2;
-  if (e.shown < 0.999) {
+  const shr = e.shield > 0 ? Math.min(1, e.shield / e.max) : 0;     // 지옥 — 보호막
+  if (e.shown < 0.999 || shr > 0) {
     const huge = e.type === "boss" || e.type === "titan";
     const bw = e.type === "titan" ? 96 : e.type === "boss" ? 42 : 24 * s * 1.1;
     const by = e.y - (e.type === "titan" ? 64 : huge ? 34 : 20) * s - 6;
@@ -2052,6 +2053,10 @@ export function drawEnemy(ctx, e, time) {
     roundRect(ctx, e.x - bw / 2 - 1.5, by - 1.5, bw + 3, 6.5, 3); ctx.fill();
     ctx.fillStyle = e.shown > 0.5 ? C.hpGood : e.shown > 0.25 ? "#e5a93e" : C.hpLow;
     roundRect(ctx, e.x - bw / 2, by, Math.max(1.5, bw * e.shown), 3.5, 2); ctx.fill();
+    if (shr > 0) {                                  // 체력 위에 얹은 보호막 띠
+      ctx.fillStyle = "rgba(140,205,245,0.95)";
+      roundRect(ctx, e.x - bw / 2, by - 3, Math.max(1.5, bw * shr), 2.4, 1.2); ctx.fill();
+    }
   }
 }
 
@@ -3550,6 +3555,11 @@ function arenaPlayer(ctx, g, pi, time) {
     roundRect(ctx, p.vx - bw / 2 - 1, byy - 1, bw + 2, bh + 2, 4); ctx.fill();
     ctx.fillStyle = outed ? "#6a5a52" : r > 0.5 ? "#8fd07f" : r > 0.25 ? "#e8c05e" : "#ef8b7c";
     roundRect(ctx, p.vx - bw / 2, byy, Math.max(1.5, bw * r), bh, 3); ctx.fill();
+    if (p.ash > 0) {                                // 성기사탑 보호막 — 체력 띠 위에 푸르게 덮는다
+      const sr = Math.min(1, p.ash / p.ahpMax);
+      ctx.fillStyle = "rgba(150,210,250,0.92)";
+      roundRect(ctx, p.vx - bw / 2, byy - 3, Math.max(1.5, bw * sr), 3, 1.5); ctx.fill();
+    }
     ctx.strokeStyle = "rgba(226,206,160,0.35)"; ctx.lineWidth = 1;
     roundRect(ctx, p.vx - bw / 2 - 1, byy - 1, bw + 2, bh + 2, 4); ctx.stroke();
     if (outed) {

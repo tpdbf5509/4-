@@ -829,6 +829,7 @@ kbd {
   font-size: 9.5px; letter-spacing: -0.02em; color: #8c7e66;
 }
 .cost-head em { font-style: normal; font-size: 9.5px; color: #7e7159; }
+.cost-head .cost-cap { margin-left: 8px; color: #a89a78; }
 .cost-rows { display: grid; grid-template-columns: auto auto; gap: 0 9px; }
 .cost-item {
   display: flex; align-items: baseline; justify-content: space-between; gap: 6px;

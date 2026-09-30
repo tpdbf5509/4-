@@ -8,7 +8,7 @@ import {
   arenaInZone, arenaNear, arenaKit, arenaRange, arenaArtOf, adTune, AD_WEAR_MAX, AD_MEND,
   bossX, bossY, bossTop,
   PERK_BY_ID, PERK_IDS, perkVal, rollPerks, SURGE_HP, SURGE_SPD, bossScale, WARMUP, castleTier, castleCost, castleGun, CASTLE_TIERS, CASTLE_HP_UP,
-  TOWER_MAX_LV, UP_MUL, upCostOf, supplyAid,
+  TOWER_MAX_LV, UP_MUL, upCostOf, supplyAid, supplyLvMul,
 } from "./world.js";
 
 // 호스트에서 일어난 연출은 그대로 다른 참가자에게도 보낸다
@@ -95,11 +95,12 @@ export const spotAt = (i) => (SLOTS[i] && SLOTS[i].spot) || "risk";
    얼마나 느는지를 표로 갖는다(1단계=기준, 이후는 그 앞 단계에 곱해진다).
    4단계에는 수치 성장 말고 전용 기술도 함께 붙는다(아래 타워 사격 루프 참고). */
 const ARCHER_SPEED_MUL = [1, 1.10, 1.10 * 1.30, 17];   // 공속 — 4단계는 화살이 거의 레이저처럼 보일 만큼 빨라진다
-const ARCHER_LV4_DMG_MUL = 0.14;   // 공속이 크게 뛴 만큼 한 발 피해는 낮춰 총 피해량을 맞춘다
+const ARCHER_LV4_DMG_MUL = 0.14 * 0.75;   // 밸런스 패치 — 최대 단계 궁수탑 공격력 25% 감소   // 공속이 크게 뛴 만큼 한 발 피해는 낮춰 총 피해량을 맞춘다
 const SNIPER_RANGE_MUL = [1, 1.10, 1.10 * 1.15, 1.10 * 1.15 * 1.10];   // 사거리
 const CANNON_SPLASH_MUL = [1, 1.10, 1.10 * 1.15, 1.10 * 1.15 * 1.20];  // 광역 범위
 const FROST_SLOW_AMT = [0.5, 0.5 * 0.90, 0.5 * 0.90 * 0.70, 0.5 * 0.90 * 0.70]; // 남는 속도 비율(작을수록 많이 느려짐)
 const FLAME_DPS_MUL = [1, 1.10, 1.10 * 1.20, 1.10 * 1.20];             // 화상 초당 피해
+const FLAME_DOT_BUFF = [1.15, 1.20, 1.25, 1.30];                       // 밸런스 패치 — 화상 도트 피해 단계별 증가
 /* 번개 · 독 · 중력 · 보급소 · 부식탑도 같은 방식으로 단계마다 자기 몫이 자란다. */
 const BOLT_CHAIN = [2, 3, 3, 3];                                   // 번개가 이어지는 수(2단계부터 3명까지)
 const BOLT_HOP = [0.72, 0.72, 0.72 * 1.15, 0.72 * 1.15];           // 한 번 이어질 때 남는 피해 비율 — 3단계부터 15% 덜 깎인다
@@ -114,7 +115,8 @@ const GRAVITY_PULL = 0.5;                                          // 맞는 순
 const GRAVITY_FIELD_MUL = [1, 1.15, 1.15, 1.15];                   // 중력장 지속시간
 const GRAVITY_DRIFT = 70;                                          // 3단계 — 중력장 안에서 중심으로 끌려가는 속도(초당 px)
 const GRAVITY_BLAST_HP = 0.10, GRAVITY_BLAST_HP_BIG = 0.03;        // 4단계 중력 폭발 — 적 최대 체력 대비 피해(보스는 적게)
-const SUPPLY_MUL = [1, 1.10, 1.10, 1.10];                          // 보급소 회복량 · 공격 보조 효과
+const ASSIST_GOLD = 0.3, ASSIST_T = 4;                             // 제어탑(서리·중력)이 걸어 둔 적을 다른 탑이 잡으면 그 처치 골드의 30%를 4초 안이면 나눈다
+const PALADIN_SHIELD = 0.6, PALADIN_SHIELD_T = 10;                 // 성기사탑 결전 스킬 — 곁의 아군에게 체력의 60% 보호막
 const SUPPLY_HEAL = 0.12;                                          // 1단계 — 초당 성채 회복
 const SUPPLY_GAUGE_MAX = 24;                                       // 3단계부터 보급 게이지(4단계는 가득 차면 터진다)
 const SUPPLY_BURST_HEAL = 0.06;                                    // 4단계 — 성채 최대 체력 대비 즉시 회복
@@ -248,6 +250,11 @@ export function say(g, x, y, text, color) {
   fx(g, { kind: "text", x, y, text, color, t: 1.1, life: 1.1 });
 }
 
+// 이 사람이 세워 둔 최대 단계 탑의 수
+export function maxTowerCount(g, pi) {
+  return g.towers.filter((t) => t && t.owner === pi && t.lv >= TOWER_MAX_LV).length;
+}
+
 export function doBuild(g, pi) {
   if (g.phase === "arena") return arenaAttack(g, pi);
   const p = g.players[pi];
@@ -268,6 +275,11 @@ export function doBuild(g, pi) {
   } else if (t.owner === pi) {
     const def = tdef(t);
     if (t.lv >= TOWER_MAX_LV) return say(g, s.x, s.y, "최대 단계", "#f0dcb4");
+    // 최대 단계(4단계) 탑은 각자 정해진 수만큼만 — 지옥은 둘, 그 밖에는 하나
+    if (t.lv + 1 >= TOWER_MAX_LV && !g.testMode) {
+      const cap = diffOf(g).cap || 1;
+      if (maxTowerCount(g, pi) >= cap) return say(g, s.x, s.y, `최대 단계 탑은 ${cap}개까지`, "#f0dcb4");
+    }
     const cost = Math.round(upCostOf(def, t.lv) * perkVal.thrift(perkN(g, pi, "thrift")));
     if (p.gold < cost) return say(g, s.x, s.y, `${cost} 골드 필요`, "#f0dcb4");
     p.gold -= cost;
@@ -315,6 +327,8 @@ export function towerCosts(g, pi) {
     lv: t && t.owner === pi ? t.lv : 0,
     here: !t ? "empty" : t.owner === pi ? "mine" : "other",
     gold: Math.floor(p.gold),
+    cap: diffOf(g).cap || 1,                       // 최대 단계 탑 한도와 지금 세운 수
+    capUsed: maxTowerCount(g, pi),
   };
 }
 
@@ -417,12 +431,12 @@ export function doSkill(g, pi) {
     g.shake = Math.max(g.shake, 0.35);
     banner(g, "블랙홀", "모두 뒤로 끌려간다", col);
   } else if (id === "supply") {
-    g.players.forEach((q, i) => { if (g.seats[i]) q.gold += 45 * amp; });
+    g.players.forEach((q, i) => { if (g.seats[i]) q.gold += 60 * amp; });
     g.core.hp = Math.min(g.core.max, g.core.hp + 12 * amp);
     for (let i = 0; i < 6; i++) {
       fx(g, { kind: "coin", x: CX + (Math.random() - 0.5) * 70, y: CY + 20, t: 0.9, life: 0.9 });
     }
-    banner(g, "긴급 보급", "전원 45 골드 · 성채 회복", col);
+    banner(g, "긴급 보급", "전원 60 골드 · 성채 회복", col);
   } else if (id === "corrode") {
     g.enemies.forEach((e) => {
       e.shred = Math.max(e.shred || 0, 8 * amp);
@@ -519,7 +533,14 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes, crit) {
   const res = Math.max(0, ENEMY[e.type].res - (e.shred > 0 ? e.shredAmt : 0));
   let d = ignoreRes ? dmg : dmg * (1 - res);
   if (e.shred > 0 && e.vuln) d *= 1 + e.vuln;     // 부식탑 3단계 — 부식된 적이 받는 모든 피해가 늘어난다
-  e.hp -= d;
+  let left = d;
+  if (e.shield > 0) {                              // 지옥 — 보호막이 먼저 피해를 받아 낸다
+    const soak = Math.min(e.shield, left);
+    e.shield -= soak;
+    left -= soak;
+    if (e.shield <= 0.01) e.shield = 0;
+  }
+  e.hp -= left;
   e.flash = 0.12;
   const big = e.type === "boss" || e.type === "titan";
   // 숫자가 겹쳐 뭉치지 않게, 큰 피해만 좌우로 흩어 띄운다
@@ -568,6 +589,16 @@ export function hurt(g, e, dmg, byPlayer, ignoreRes, crit) {
       fx(g, { kind: "dmg", x: e.x, y: e.y - 18, text: `+${Math.round(reward)} G`, color: "#f3d27f", t: 0.62, life: 0.62 });
     }
   }
+  // 제어탑(서리·중력)이 붙잡아 두었던 적을 다른 사람이 잡으면, 붙잡은 쪽도 어시스트 골드를 받는다
+  if (e.assist) {
+    const cut = Math.max(1, Math.round(base * ASSIST_GOLD));
+    Object.keys(e.assist).forEach((k) => {
+      const who = Number(k);
+      if (who === byPlayer || !g.seats[who] || g.t - e.assist[k] > ASSIST_T) return;
+      g.players[who].gold += cut;
+      queueGoldPop(g, who, cut, e.x, e.y - 30);
+    });
+  }
   g.combo++;
   g.comboT = 2.4;
   if (g.combo === 5) callout(g, e.x, e.y - 24, "5 연속", "#ffd873");
@@ -613,6 +644,10 @@ function fieldPull(e, f, frac, maxStep) {
   e.x = pos.x; e.y = pos.y; e.ax = pos.ax; e.ay = pos.ay;
   if (e.tp !== undefined) e.tp = e.p;
 }
+function markAssist(e, owner, g) {
+  e.assist = e.assist || {};
+  e.assist[owner] = g.t;
+}
 function startGravityField(g, b, hit) {
   const mul = lvMul(GRAVITY_FIELD_MUL, b.lv || 1);
   const f = { x: hit.x, y: hit.y, lane: hit.lane, p: hit.p, r: GRAVITY_R, t: GRAVITY_FIELD_T * mul,
@@ -620,10 +655,12 @@ function startGravityField(g, b, hit) {
   g.gfields = g.gfields || [];
   g.gfields.push(f);
   fx(g, { kind: "vortex", x: f.x, y: f.y - 4, r: f.r + 20, t: 0.5, life: 0.5 });
+  markAssist(hit, b.owner, g);
   g.enemies.forEach((e) => {
     if (e.dead || Math.hypot(e.x - f.x, e.y - f.y) > f.r) return;
     fieldPull(e, f, GRAVITY_PULL);                 // 맞는 순간 중심 쪽으로 반쯤 끌려온다
     e.freeze = Math.max(e.freeze, f.t);
+    markAssist(e, f.owner, g);
     e.pulled = 2.5 * mul;                          // 잠깐 뭉쳐 있는 동안은 폭격이 잘 든다
   });
 }
@@ -664,7 +701,7 @@ function supplyBurst(g, t, i, s) {
     o.surge = SUPPLY_SURGE_T;
     fx(g, { kind: "ring", x: SLOTS[k].x, y: SLOTS[k].y - 10, r: 46, color: "#ffe08a", t: 0.5, life: 0.5 });
   });
-  const heal = g.core.max * SUPPLY_BURST_HEAL;
+  const heal = g.core.max * SUPPLY_BURST_HEAL * supplyLvMul(t.lv);
   g.core.hp = Math.min(g.core.max, g.core.hp + heal);
   fx(g, { kind: "ring", x: s.x, y: s.y - 10, r: reach, color: "#ffe08a", t: 0.7, life: 0.7, snd: "bless" });
   fx(g, { kind: "heal", x: CX, y: CY - 20, text: `보급 +${Math.round(heal)}`, t: 1.1, life: 1.1 });
@@ -926,7 +963,7 @@ export function startArena(g, kind) {
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
     p.hold = []; p.vx = undefined; p.vy = undefined;    // 지난 판에 누르고 있던 건 잊는다
     p.abuff = 0; p.abuffAmt = 0; p.abuffBy = -1;
-    p.ahpMax = life; p.ahp = life; p.aout = 0; p.adowns = 0; p.aref = 1;
+    p.ahpMax = life; p.ahp = life; p.aout = 0; p.adowns = 0; p.aref = 1; p.ash = 0; p.ashT = 0;
   });
   g.shake = Math.max(g.shake, 0.6);
   fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: cfg.ring, t: 1, life: 1, snd: "boss" });
@@ -1434,12 +1471,27 @@ export function arenaSkill(g, pi) {
   p.ahit = ARENA.land * 1.4;
   p.adir = p.ax < bossX(g) ? 1 : -1;
   p.askill = 1;
+  if (CLASSES[pi].id === "paladin") arenaShield(g, pi);
   // 스킬을 모으는 순간 — 발밑에서 기운이 차오른다
   const kit = arenaKit(pi);
   const sy = (p.ay || ARENA.bfy) - 20;
   fx(g, { kind: "ring", x: p.ax, y: sy, r: 90, color: P[pi].key, t: 0.5, life: 0.5, snd: "skill" });
   fx(g, { kind: "nova", x: p.ax, y: sy, r: 70, color: kit.col, n: 10, t: 0.45, life: 0.45 });
   fx(g, { kind: "burst", x: p.ax, y: sy - 30, r: 44, color: kit.col, n: 10, t: 0.5, life: 0.5 });
+}
+
+/* 성기사탑 — 결전에서 스킬을 쓰면 사거리 안의 아군(자신 포함)에게 각자 체력의 60% 보호막을 씌운다 */
+function arenaShield(g, pi) {
+  const me = g.players[pi];
+  const reach = arenaRange(pi);
+  g.players.forEach((q, i) => {
+    if (!g.seats[i] || !q.ahpMax || q.aout > 0) return;
+    if (arenaNear(q.ax, q.ay || ARENA.bfy, me.ax, me.ay || ARENA.bfy) > reach) return;
+    q.ash = Math.max(q.ash || 0, q.ahpMax * PALADIN_SHIELD);
+    q.ashT = PALADIN_SHIELD_T;
+    fx(g, { kind: "ring", x: q.ax, y: (q.ay || ARENA.bfy) - 20, r: 60, color: "#bcd8ef", t: 0.6, life: 0.6 });
+    say(g, q.ax, (q.ay || ARENA.bfy) - 104, "보호막", "#bcd8ef");
+  });
 }
 
 /* 사람이 맞는다. 결전 중에 맞는 것만으로는 성채가 깎이지 않는다.
@@ -1449,6 +1501,14 @@ function arenaHurt(g, pi, raw) {
   const p = g.players[pi];
   const a = g.arena;
   if (!p || !a || p.aout > 0) return 0;
+  if (p.ash > 0) {                                   // 성기사탑 보호막이 먼저 막아 준다
+    const soak = Math.min(p.ash, Math.max(1, Math.round(raw)));
+    p.ash -= soak;
+    raw = Math.round(raw) - soak;
+    fx(g, { kind: "dmg", x: p.ax, y: (p.ay || ARENA.bfy) - 96, text: `막음 ${soak}`, color: "#bcd8ef", t: 0.8, life: 0.8 });
+    if (p.ash <= 0.5) p.ash = 0;
+    if (raw < 1) return 0;
+  }
   const had = Math.max(0, p.ahp || 0);
   const lost = Math.min(had, Math.max(1, Math.round(raw)));
   p.ahp = had - lost;
@@ -1972,6 +2032,7 @@ export function stepArena(g, dt) {
     if (p.acd > 0) p.acd -= dt;
     if (p.adodge > 0) p.adodge -= dt;
     if (p.adown > 0) p.adown -= dt;
+    if (p.ashT > 0) { p.ashT -= dt; if (p.ashT <= 0) p.ash = 0; }
     // 쓰러졌다가 일어난다
     if (p.aout > 0) {
       p.aout -= dt;
@@ -2123,7 +2184,7 @@ export function step(g, dt) {
       const big = q.type === "boss" || q.type === "titan";
       const D = diffOf(g);
       // 보스는 수비대가 적으면 그만큼 체력을 덜어 준다
-      const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + D.surge * g.surge) * D.hp
+      const scale = waveScale(g.wave, g.total || TOTAL_WAVES) * (1 + D.surge * g.surge) * (big ? D.hp : (D.mob ?? D.hp))
         * (big ? bossScale(seatCount(g)) : 1);
       const p0 = posAt(q.lane, 0);
       g.enemies.push({
@@ -2133,6 +2194,7 @@ export function step(g, dt) {
         hp: base.hp * scale, max: base.hp * scale,
         x: p0.x, y: p0.y, ax: p0.ax, ay: p0.ay,
         slow: 0, slowAmt: 0.5, freeze: 0, stun: 0, flash: 0, poison: 0, pdps: 0, dead: false, age: 0,
+        shield: D.shield ? base.hp * scale * D.shield : 0,          // 지옥 — 모든 몹에 보호막이 붙는다
       });
       if (big) {
         g.shake = Math.max(g.shake, q.type === "titan" ? 0.7 : 0.4);
@@ -2209,7 +2271,7 @@ export function step(g, dt) {
     if (t.warm > 0) return;                    // 아직 자리를 잡는 중이면 밀어 주지 못한다
     // 곁을 지키며 성채를 조금씩 돌본다 — 2단계부터 회복량이 늘어난다
     if (g.core.hp > 0 && g.core.hp < g.core.max) {
-      g.core.hp = Math.min(g.core.max, g.core.hp + SUPPLY_HEAL * lvMul(SUPPLY_MUL, t.lv) * dt);
+      g.core.hp = Math.min(g.core.max, g.core.hp + SUPPLY_HEAL * supplyLvMul(t.lv) * dt);
     }
     if (t.lv >= 4 && (t.gauge || 0) >= SUPPLY_GAUGE_MAX) supplyBurst(g, t, i, s);
     const reach = towerRange(g, t, i);
@@ -2297,7 +2359,7 @@ export function step(g, dt) {
       t.pulse = 0.4;
       supplyCharge(g, t);
       if (def.aura === "burn") {
-        const dps = def.burn * lvMul(FLAME_DPS_MUL, t.lv) * perkVal.power(perkN(g, t.owner, "power"))
+        const dps = def.burn * lvMul(FLAME_DPS_MUL, t.lv) * lvMul(FLAME_DOT_BUFF, t.lv) * perkVal.power(perkN(g, t.owner, "power"))
           * (1 + (t.aid || 0));
         inRange.forEach((e) => {
           const wasBurning = e.burn > 0;             // 4단계 — 이미 붙어 있던 화상에만 불기둥이 인다
@@ -2441,6 +2503,7 @@ export function step(g, dt) {
           tg.slowAmt = b.slow;
           fx(g, { kind: "ice", x: b.tx, y: b.ty, t: 0.4, life: 0.4, snd: "ice" });
         }
+        if (b.src === "frost" && typeof b.owner === "number") markAssist(tg, b.owner, g);
         if (b.freezeT) {
           tg.freeze = Math.max(tg.freeze, b.freezeT);     // 서리탑 4단계 — 3초간 얼어 붙어 완전히 멈춘다
           fx(g, { kind: "ice", x: b.tx, y: b.ty, t: 0.5, life: 0.5 });
@@ -2773,7 +2836,7 @@ export function packSnapshot(g) {
         Math.round((p.aswing || 0) * 100) / 100, Math.round((p.adown || 0) * 100) / 100,
         p.askill ? 1 : 0, p.abuff > 0 ? 1 : 0, Math.round(Math.max(0, p.acd || 0) * 100) / 100,
         Math.round(Math.max(0, p.ahp || 0)), Math.round(p.ahpMax || 0),
-        Math.round(Math.max(0, p.aout || 0) * 10) / 10]),
+        Math.round(Math.max(0, p.aout || 0) * 10) / 10, Math.round(p.ash || 0)]),
     } : 0,
     lv2: g.leaveT > 0 ? (g.leave || []).map((v) => (v ? 1 : 0)) : 0,
     lt: Math.max(0, Math.round(g.leaveT * 10) / 10),
@@ -2788,6 +2851,7 @@ export function packSnapshot(g) {
       Math.round((e.hp / e.max) * 100) / 100,
       (e.freeze > 0 ? 1 : 0) | (e.slow > 0 ? 2 : 0) | (e.poison > 0 ? 4 : 0) | (e.burn > 0 ? 8 : 0)
         | (e.stun > 0 ? 16 : 0),
+      e.shield > 0 ? Math.max(1, Math.round((e.shield / e.max) * 100)) : 0,
     ]),
   };
 }
@@ -2849,7 +2913,7 @@ export function applySnapshot(g, s) {
       p.aswing = row[3]; p.adown = row[4]; p.askill = row[5];
       p.abuff = row[6] ? Math.max(p.abuff || 0, 0.3) : 0;
       p.acd = row[7] || 0;
-      p.ahp = row[8] || 0; p.ahpMax = row[9] || 0; p.aout = row[10] || 0;
+      p.ahp = row[8] || 0; p.ahpMax = row[9] || 0; p.aout = row[10] || 0; p.ash = row[11] || 0;
     });
   } else g.arena = null;
   g.leave = s.lv2 ? s.lv2.map((v) => !!v) : g.seats.map(() => false);
@@ -2885,7 +2949,7 @@ export function applySnapshot(g, s) {
 
   const seen = new Set();
   s.en.forEach((row) => {
-    const [id, ti, lane, p, hpr, flags] = row;
+    const [id, ti, lane, p, hpr, flags, shr] = row;
     seen.add(id);
     let e = g.enemies.find((x) => x.id === id);
     const type = ETYPES[ti];
@@ -2911,6 +2975,7 @@ export function applySnapshot(g, s) {
     e.poison = flags & 4 ? Math.max(e.poison, 0.4) : 0;
     e.burn = flags & 8 ? Math.max(e.burn || 0, 0.4) : 0;
     e.stun = flags & 16 ? Math.max(e.stun || 0, 0.4) : 0;
+    e.shield = shr ? (e.max * shr) / 100 : 0;
   });
   g.enemies = g.enemies.filter((e) => seen.has(e.id));
 }

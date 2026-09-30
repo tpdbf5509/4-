@@ -15,18 +15,20 @@ export const PREP = 5;
    elite  는 관문에서 나오는 적이 얼마나 돌격병·중갑으로 쏠리는지,
    leak   는 성문까지 온 적 하나가 성채를 얼마나 깎는지,
    perks  는 보상으로 고를 수 있는 카드 수,
+   mob    은 길을 따라오는 기본 몹의 체력 배수(hp 는 보스 결전에 쓴다), shield 는 몹마다 붙는 보호막(최대 체력 대비),
+   cap    은 각자가 세울 수 있는 최대 단계(4단계) 탑의 수,
    arena  는 결전장에서만 달라지는 몫이다 (adTune 참고). */
 export const DIFFS = [
-  { id: "easy", name: "쉬움",   hp: 0.75, count: 0.85, spd: 0.92, gold: 1.2, start: 130, core: 130, prep: 7, surge: 0.08,
-    note: "적이 약하고 골드가 넉넉합니다" },
-  { id: "normal", name: "보통", hp: 1,    count: 1,    spd: 1,    gold: 1,   start: 90,  core: 100, prep: 5, surge: 0.12,
-    note: "기준이 되는 난이도입니다" },
-  { id: "hard", name: "어려움", hp: 1.35, count: 1.15, spd: 1.08, gold: 0.9, start: 80,  core: 90,  prep: 5, surge: 0.16,
-    note: "적이 단단하고 골드가 빡빡합니다" },
-  { id: "hell", name: "지옥",   hp: 1.8,  count: 1.45, spd: 1.22, gold: 0.7,  start: 70, core: 72, prep: 4, surge: 0.32,
+  { id: "easy", name: "쉬움",   hp: 0.75, mob: 1.2, cap: 1, count: 0.85, spd: 0.92, gold: 1.2, start: 130, core: 130, prep: 7, surge: 0.08,
+    note: "기본 몹 체력 +20% · 골드가 넉넉합니다" },
+  { id: "normal", name: "보통", hp: 1,    mob: 1.4, cap: 1, count: 1,    spd: 1,    gold: 1,   start: 90,  core: 100, prep: 5, surge: 0.12,
+    note: "기본 몹 체력 +40% · 기준이 되는 난이도입니다" },
+  { id: "hard", name: "어려움", hp: 1.35, mob: 1.6, cap: 1, count: 1.15, spd: 1.08, gold: 0.9, start: 80,  core: 90,  prep: 5, surge: 0.16,
+    note: "기본 몹 체력 +60% · 골드가 빡빡합니다" },
+  { id: "hell", name: "지옥",   hp: 1.8,  mob: 1.8, cap: 2, shield: 0.3, count: 1.45, spd: 1.22, gold: 0.7,  start: 70, core: 72, prep: 4, surge: 0.32,
     elite: 0.55, leak: 1.25, perks: 2,
     arena: { hp: 0.85, lives: 4, revive: 1.35, wear: 0.35, tell: 0.78, rest: 0.58, limit: 0.65, move: 1.45, cut: 0.35 },
-    note: "보스가 일찍 분노하고, 보상 카드도 두 장뿐입니다" },
+    note: "기본 몹 체력 +80%에 보호막까지 · 보스가 일찍 분노하고 보상 카드는 두 장뿐입니다 · 최대 단계 탑은 둘까지" },
 ];
 export const DEFAULT_DIFF = 1;
 export const diffOf = (g) => DIFFS[(g && g.diff) || 0] || DIFFS[DEFAULT_DIFF];
@@ -321,8 +323,9 @@ export const upCostOf = (def, lv) => Math.round((def.cost || 0) * (UP_MUL[lv - 1
 
 /* 보급소가 이웃에게 밀어 주는 몫 — 공격력과 공격 속도에 같이 실린다.
    단계를 올려도 천천히만 오르게 묶어 둔다. */
-const SUPPLY_BUFF_MUL = [1, 1.10, 1.10, 1.10];          // 단계별 공격 보조 효과 — 2단계에서 10% 늘고 그 뒤로는 그대로
-export const supplyAid = (lv) => TOWER_BY_ID.supply.buff * SUPPLY_BUFF_MUL[Math.min(Math.max(lv, 1), SUPPLY_BUFF_MUL.length) - 1];
+// 보급소 강화 효과는 단계마다 15%씩 커진다(1단계 기준, 2단계 ×1.15 · 3단계 ×1.30 · 4단계 ×1.45)
+export const supplyLvMul = (lv) => 1 + 0.15 * (Math.min(Math.max(lv, 1), 4) - 1);
+export const supplyAid = (lv) => TOWER_BY_ID.supply.buff * supplyLvMul(lv);
 
 // 병과 하나가 탑 하나를 맡는다
 export const CLASSES = TOWERS;
@@ -336,7 +339,7 @@ export const SKILLS = [
   { name: "역병", cd: 35, note: "모든 적이 6초간 초당 12 피해" },
   { name: "한파", cd: 30, note: "모든 적 정지 · 4초" },
   { name: "블랙홀", cd: 34, note: "모든 적을 뒤로 당기고 2초 정지" },
-  { name: "긴급 보급", cd: 36, note: "전원 45 골드 · 성채 12 회복" },
+  { name: "긴급 보급", cd: 36, note: "전원 60 골드 · 성채 12 회복" },
   { name: "산성비", cd: 33, note: "모든 적 장갑 40% 감소 · 8초" },
   { name: "성역", cd: 34, note: "8초간 성채 피해 60% 감소 · 20 회복" },
 ];

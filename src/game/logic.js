@@ -766,7 +766,7 @@ export function startArena(g, kind) {
     p.adir = 1; p.aswing = 0; p.adown = 0; p.acd = 0; p.ahit = 0;
     p.hold = []; p.vx = undefined; p.vy = undefined;    // 지난 판에 누르고 있던 건 잊는다
     p.abuff = 0; p.abuffAmt = 0; p.abuffBy = -1;
-    p.ahpMax = life; p.ahp = life; p.aout = 0; p.adowns = 0;
+    p.ahpMax = life; p.ahp = life; p.aout = 0; p.adowns = 0; p.aref = 1;
   });
   g.shake = Math.max(g.shake, 0.6);
   fx(g, { kind: "ring", x: CX, y: CY, r: 280, color: cfg.ring, t: 1, life: 1, snd: "boss" });
@@ -1282,7 +1282,9 @@ export function arenaSkill(g, pi) {
   fx(g, { kind: "burst", x: p.ax, y: sy - 30, r: 44, color: kit.col, n: 10, t: 0.5, life: 0.5 });
 }
 
-/* 사람이 맞는다. 깎인 체력만큼 성채도 같이 깎인다 — 앞에서 버텨 주는 몫이다. */
+/* 사람이 맞는다. 결전 중에 맞는 것만으로는 성채가 깎이지 않는다.
+   쓰러지면 그 자리에서 성채가 깎이고(castleBill), 결전이 끝나면 쓰러지지 않고 깎인 체력만큼 깎인다(arenaSettle).
+   한 사람이 체력을 다 잃었을 때 성채가 잃는 몫은 성채 최대 체력의 ARENA.coreShare 다. */
 function arenaHurt(g, pi, raw) {
   const p = g.players[pi];
   const a = g.arena;
@@ -1290,19 +1292,15 @@ function arenaHurt(g, pi, raw) {
   const had = Math.max(0, p.ahp || 0);
   const lost = Math.min(had, Math.max(1, Math.round(raw)));
   p.ahp = had - lost;
-  // 깎인 만큼 성채도 깎인다. 다만 한 사람이 다 쓰러져도 성채는
-  // 제 몫(coreShare)만큼만 잃는다 — 한 번 쓰러졌다고 판이 끝나지 않게.
-  const share = (g.core.max * ARENA.coreShare) / Math.max(1, p.ahpMax || 1);
-  const want = Math.max(1, Math.round(lost * Math.min(1, share)));
-  // 성채가 0 까지 깎이면 결전 도중에도 함락된다(stepArena 뒤에서 판을 끝낸다)
-  const before = g.core.hp;
-  g.core.hp = Math.max(0, before - want);
-  const cost = Math.round(before - g.core.hp);
-  g.hitFlash = 0.35;
+  let cost = 0;
   fx(g, { kind: "dmg", x: p.ax, y: (p.ay || ARENA.bfy) - 96, text: `-${lost}`,
     color: "#ff8d76", t: 0.9, life: 0.9 });
   if (p.ahp <= 0) {
-    // 쓰러졌다 — 잠시 아무것도 못 한다. 거듭 쓰러지면 그만큼 늦게 일어난다.
+    // 쓰러졌다 — 아직 성채에 치르지 않은 체력만큼 성채가 그 자리에서 깎인다
+    cost = castleBill(g, (p.aref ?? 1));
+    p.aref = 0;
+    if (cost > 0) g.hitFlash = 0.35;
+    // 잠시 아무것도 못 한다. 거듭 쓰러지면 그만큼 늦게 일어난다.
     const T = adTune(g);
     p.adowns = (p.adowns || 0) + 1;
     const wear = Math.min(AD_WEAR_MAX, 1 + T.wear * (p.adowns - 1));
@@ -1318,6 +1316,32 @@ function arenaHurt(g, pi, raw) {
   return cost;                             // 성채가 실제로 잃은 값
 }
 
+// 사람 체력 비율(frac, 0~1)만큼을 성채가 치른다. 성채가 잃은 값을 돌려준다.
+function castleBill(g, frac) {
+  if (!(frac > 0)) return 0;
+  const want = Math.max(1, Math.round(g.core.max * ARENA.coreShare * Math.min(1, frac)));
+  const before = g.core.hp;
+  g.core.hp = Math.max(0, before - want);
+  return Math.round(before - g.core.hp);
+}
+
+// 결전이 끝났다 — 쓰러지지 않고 깎인 체력만큼 성채가 깎인다. 성채가 0 이 되면 함락된다.
+function arenaSettle(g) {
+  let cost = 0;
+  g.players.forEach((p, i) => {
+    if (!g.seats[i] || !p.ahpMax || p.aout > 0) return;
+    const loss = (p.aref ?? 1) - Math.max(0, p.ahp || 0) / p.ahpMax;
+    if (loss > 0.005) cost += castleBill(g, loss);
+    p.aref = Math.max(0, p.ahp || 0) / p.ahpMax;
+  });
+  if (cost > 0) {
+    fx(g, { kind: "dmg", x: CX, y: 180, text: `성채 -${cost}`, color: "#ff8d76", t: 1.2, life: 1.2 });
+    callout(g, CX, 300, `결전에서 다친 만큼 성채가 깎였다 (-${cost})`, "#ffb08a", "warn", 0);
+    g.hitFlash = 0.35;
+  }
+  return cost;
+}
+
 /* 보급소가 곁에 있는 사람을 일으켜 세운다 */
 function arenaMend(g, pi, amt) {
   const p = g.players[pi];
@@ -1326,6 +1350,7 @@ function arenaMend(g, pi, amt) {
   const up = Math.min(p.ahpMax - p.ahp, Math.max(1, Math.round(amt)));
   if (up <= 0) return 0;
   p.ahp += up;
+  p.aref = Math.max(p.aref ?? 1, p.ahp / p.ahpMax);   // 다시 채운 만큼은 잃은 것으로 세지 않는다
   return up;
 }
 
@@ -1792,6 +1817,7 @@ export function stepArena(g, dt) {
       p.aout -= dt;
       if (p.aout <= 0) {
         p.ahp = Math.max(1, Math.round(p.ahpMax * ARENA.reviveHp));
+        p.aref = p.ahp / p.ahpMax;             // 일어서며 돌아온 몫은 성채가 이미 치른 것으로 친다
         p.adown = 0;
         fx(g, { kind: "nova", x: p.ax, y: (p.ay || ARENA.bfy) - 20, r: 56, color: P[i].light,
           n: 8, t: 0.6, life: 0.6 });
@@ -1828,7 +1854,9 @@ export function stepArena(g, dt) {
   if (a.outro > 0) {
     a.outro -= dt;
     if (a.outro <= 0) {
+      arenaSettle(g);                                // 결전이 끝났으니 다친 만큼 성채가 깎인다
       g.arena = null;
+      if (g.core.hp <= 0) { g.core.hp = 0; g.phase = "over"; return; }
       if (g.wave >= (g.total || TOTAL_WAVES)) { g.phase = "clear"; return; }
       g.pendingReward = 1;
       openReward(g);

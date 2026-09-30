@@ -20,7 +20,7 @@ import { UPDATES } from "./game/updates.js";
 import { TOWER_INFO } from "./game/towerInfo.js";
 import { useTouch } from "./ui/touch.js";
 import RpgView, { RpgSetup } from "./RpgView.jsx";
-import { RPG_CREW_MAX, loadChar, cleanLook } from "./game/rpg.js";
+import { RPG_CREW_MAX, RPG_SERVERS, loadChar, cleanLook } from "./game/rpg.js";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -63,12 +63,15 @@ export default function App() {
   const wavesRef = useRef(TOTAL_WAVES);
   const diffRef = useRef(DEFAULT_DIFF);
   const modeRef = useRef("defense");      // 방을 만든 사람이 고른 놀이 — "defense" · "rpg"
-  const heroRef = useRef(null);           // RPG — 방을 열면서 곧바로 광장에 세울 내 캐릭터
+  const heroRef = useRef(null);           // RPG — 서버에 들어가며 곧바로 광장에 세울 내 캐릭터
+  const lobbyRef = useRef(null);          // 마지막으로 받은(또는 보낸) 대기실 — 방장이 나갔을 때 이어받는 데 쓴다
+  const [server, setServer] = useState(0); // RPG — 지금 들어간 서버 차례(0 = 서버 1)
   const crewMax = () => (modeRef.current === "rpg" ? RPG_CREW_MAX : CREW_MAX);
   const publishLobby = useCallback(() => {
     const next = {
       hostId: me, seats: seatsRef.current, waves: wavesRef.current, diff: diffRef.current, mode: modeRef.current,
     };
+    lobbyRef.current = next;
     setLobby(next);
     roomRef.current?.send("lobby", next);
   }, [me]);
@@ -129,9 +132,11 @@ export default function App() {
     heroRef.current = modeRef.current === "rpg" ? cleanLook(hero) : null;
     const nick = (name || "수비대원").slice(0, 8);
     localStorage.setItem("flg:name", nick);
-    // 테스트 서버는 누구나 같은 코드로 들어온다 — 방장이 이미 있으면 손님으로 붙고,
+    // 테스트 서버와 RPG 서버는 누구나 같은 코드로 들어온다 — 방장이 이미 있으면 손님으로 붙고,
     // 잠깐 기다려도 대기실 소식이 없으면 그때 내가 방장이 된다
-    const auto = roomCode === "TEST";
+    const auto = roomCode === "TEST" || RPG_SERVERS.includes(roomCode);
+    const shared = RPG_SERVERS.includes(roomCode);   // RPG 서버 — 방장이 나가도 남은 사람이 이어받는다
+    lobbyRef.current = null;
     let gotLobby = false;
     // RPG 는 캐릭터를 만들고 들어오니 방장이 첫 자리에 바로 선다
     const firstSeats = () => {
@@ -153,7 +158,23 @@ export default function App() {
       name: nick,
       onPeers: (peers) => {
         peersRef.current = peers;
-        if (hostRef.current) reseat();
+        if (hostRef.current) return void reseat();
+        if (!shared) return;
+        // 방장이 나갔으면, 남은 사람 가운데 아이디가 가장 작은 사람이 이어받는다.
+        // presence 가 잠깐 흔들릴 수 있어 조금 기다렸다가 한 번 더 본다.
+        const L = lobbyRef.current;
+        if (!L || !L.hostId || peers.some((p) => p.id === L.hostId)) return;
+        setTimeout(() => {
+          if (roomRef.current !== room || hostRef.current) return;
+          const now = peersRef.current;
+          const cur = lobbyRef.current;
+          if (!cur || now.some((p) => p.id === cur.hostId) || !now.some((p) => p.id === me)) return;
+          if (now.some((p) => p.id < me)) return;
+          hostRef.current = true;
+          const ids = new Set(now.map((p) => p.id));
+          seatsRef.current = cur.seats.map((st) => (st && ids.has(st.id) ? st : null));
+          publishLobby();
+        }, 1500);
       },
       onStatus: (st) => {
         if (st === "SUBSCRIBED") {
@@ -184,6 +205,7 @@ export default function App() {
     room.on("hello", () => { if (hostRef.current) reseat(); });
     room.on("lobby", (d) => {
       gotLobby = true;
+      if (d && d.hostId && !hostRef.current) lobbyRef.current = d;
       // 테스트 서버에서 방장이 둘 생겼으면 아이디가 큰 쪽이 물러나 손님이 된다
       if (auto && hostRef.current && d && d.hostId && d.hostId < me) {
         hostRef.current = false;
@@ -224,7 +246,8 @@ export default function App() {
 
     setCode(roomCode);
     setScreen("lobby");
-    history.replaceState(null, "", `?room=${roomCode}`);
+    // RPG 서버는 코드 없이 들어오니 주소에 방 코드를 남기지 않는다
+    if (!shared) history.replaceState(null, "", `?room=${roomCode}`);
   }, [me, name, publishLobby, reseat, seatRpg]);
 
   // 방을 못 찾으면 알려준다
@@ -250,6 +273,7 @@ export default function App() {
     hostRef.current = false;
     modeRef.current = "defense";
     heroRef.current = null;
+    lobbyRef.current = null;
     seatsRef.current = new Array(SEATS).fill(null);
     setLobby(null);
     setScreen("home");
@@ -279,6 +303,34 @@ export default function App() {
     if (hostRef.current) seatRpg(me, hero);
     else roomRef.current?.send("pick", { hero });
   }, [lobby, me, seatRpg]);
+
+  // RPG 서버에 들어간다 — 방 코드 없이 모두 같은 서버에 모인다. 가득 차 있으면 다음 서버로 넘어간다.
+  const enterRpg = useCallback((hero, at = 0) => {
+    roomRef.current?.leave();
+    roomRef.current = null;
+    setLobby(null);
+    setServer(at);
+    connect(RPG_SERVERS[at], false, "rpg", hero);
+  }, [connect]);
+
+  // RPG 서버에 붙었으면 내 캐릭터를 세운다 — 방장이면 바로, 손님이면 방장에게 부탁해 자리를 받을 때까지 다시 묻는다
+  useEffect(() => {
+    if (screen !== "lobby" || !lobby || lobby.mode !== "rpg" || mySeat >= 0) return;
+    const hero = heroRef.current;
+    if (!hero) return;
+    if (hostRef.current) return void seatRpg(me, hero);
+    const full = lobby.seats.filter(Boolean).length >= RPG_CREW_MAX;
+    if (full && RPG_SERVERS.includes(code)) {
+      const next = RPG_SERVERS.indexOf(code) + 1;
+      if (next < RPG_SERVERS.length) enterRpg(hero, next);
+      else setError("모든 서버가 가득 찼습니다. 잠시 뒤 다시 들어와 주세요.");
+      return;
+    }
+    const ask = () => roomRef.current?.send("pick", { hero });
+    ask();
+    const t = setInterval(ask, 1500);
+    return () => clearInterval(t);
+  }, [screen, lobby, mySeat, me, code, seatRpg, enterRpg]);
 
   // 테스트 서버 — 코드만 치고 바로 들어오도록, 방에 들어오면 병과를 스스로 하나 집는다
   useEffect(() => {
@@ -330,6 +382,7 @@ export default function App() {
         onCreate={() => connect(makeCode(), true)}
         onEnterRpg={() => { setError(""); setScreen("rpgMake"); }}
         onJoin={() => {
+          if (RPG_SERVERS.includes(code)) { setError(""); return void setScreen("rpgMake"); }   // RPG 서버는 코드 없이 들어간다
           if (code === "TEST") {
             if (testUnlocked()) return connect("TEST", false);
             sha256(testPw).then((h) => {
@@ -347,11 +400,11 @@ export default function App() {
     );
   }
 
-  // RPG 모드 들어가기 — 방에 붙기 전에 캐릭터부터 만든다. 게임 시작하기를 누르면 방을 열고 광장에 선다.
+  // RPG 모드 들어가기 — 서버에 붙기 전에 캐릭터부터 만든다. 게임 시작하기를 누르면 RPG 서버에 들어가 광장에 선다.
   if (screen === "rpgMake") {
     return (
       <RpgSetup
-        onStart={(hero) => connect(makeCode(), true, "rpg", hero)}
+        onStart={(hero) => enterRpg(hero, 0)}
         onLeave={() => setScreen("home")}
       />
     );
@@ -373,13 +426,13 @@ export default function App() {
 
   // RPG — 대기실 없이 캐릭터만 고르면 곧바로 광장에 선다. 판이 도는 중에도 들어올 수 있다.
   if (screen === "lobby" && (lobby ? lobby.mode === "rpg" : modeRef.current === "rpg")) {
-    if (mySeat < 0 && hostRef.current && heroRef.current) {
-      // 방을 여는 중 — 캐릭터는 이미 골랐으니 잠깐 기다린다
+    if (mySeat < 0 && heroRef.current) {
+      // 서버에 들어가는 중 — 캐릭터는 이미 골랐으니 잠깐 기다린다
       return (
         <div className="page center-page">
           <div className="home">
             <h1>광장으로 가는 중</h1>
-            <p className="tag">{connecting ? "방을 여는 중입니다…" : "캐릭터를 세우는 중입니다…"}</p>
+            <p className="tag">서버 {server + 1} · {connecting ? "서버에 연결하는 중입니다…" : "캐릭터를 세우는 중입니다…"}</p>
             {error && <p className="err">{error}</p>}
             <button className="btn-ghost" style={{ marginTop: 14 }} onClick={leave}>처음 화면으로</button>
           </div>
@@ -400,11 +453,12 @@ export default function App() {
     }
     return (
       <RpgView
+        key={lobby.hostId}
         room={roomRef.current}
         isHost={isHost}
         seats={lobby.seats}
         mySeat={mySeat}
-        code={code}
+        code={RPG_SERVERS.includes(code) ? `서버 ${server + 1}` : `방 코드 ${code}`}
         onLeave={leave}
       />
     );
@@ -462,7 +516,7 @@ function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, 
         <div className="rpg-entry">
           <button className="btn-ghost tall rpg-entry-btn" onClick={onEnterRpg}>RPG 모드 들어가기</button>
           <p className="rpg-entry-note">
-            캐릭터를 만들고 광장에서 모여 사냥터로 나갑니다. 최대 {RPG_CREW_MAX}명이 언제든 들어올 수 있습니다.
+            캐릭터를 만들고 광장에서 모여 사냥터로 나갑니다. 방 코드 없이 모두 같은 서버에 들어갑니다(서버마다 {RPG_CREW_MAX}명).
             {mine ? ` 내 캐릭터 — ${mine.name} Lv.${mine.lv}` : " 이름과 레벨 · 코인은 이 기기에 남습니다."}
           </p>
         </div>

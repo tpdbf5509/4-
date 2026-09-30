@@ -8,7 +8,10 @@
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
 
-export const RPG_CREW_MAX = 8;
+export const RPG_CREW_MAX = 16;
+// RPG 서버 — 방 코드 없이 모두 서버 1에 모인다. 서버 1이 가득 차면 다음 서버로 넘어간다.
+// (방 만들기 코드에는 숫자 1이 나오지 않아 이 이름과 겹치지 않는다)
+export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4", "RPG5"];
 
 export const RPG = {
   heroHp: 190,

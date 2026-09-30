@@ -3,11 +3,40 @@
 import { W, H, P, CLASSES } from "./world.js";
 import {
   roundRect, shadow, mulberry32, drawTree, drawRock, drawBush,
-  drawFx, drawBanner, classArt, fxWarmUp, FX_ART,
+  drawFx, drawBanner, classArt, fxWarmUp, FX_ART, mapImg, mapImgFailed,
 } from "./art.js";
 import { RPG, MAPS, QUEST, dist, heroRange } from "./rpg.js";
 
 const HERO_H = 62;            // 영웅 키 — 넓어진 맵에 맞게 작게 둔다
+
+/* ── 이미지 그림 ─────────────────────────────────────────────
+   광장 · 사냥터 바탕과 분수 · 문 · 사냥꾼 · 토끼 같은 것들은 public/assets/game/rpg 의 그림 파일을 얹는다.
+   못 불러오면 예전처럼 코드로 그린다. 크기 · 기준점은 public/assets/game/README.md 에 있다. */
+const RPG_ART = "/assets/game/rpg";
+export const rpgFile = (name) => `${RPG_ART}/${name}.webp`;
+// 논리 좌표 기준 크기(w, h)와 기준점(ox, oy = 발밑 · 바닥 가운데)
+export const RFRAME = {
+  fountain: { w: 260, h: 250, ox: 130, oy: 150 },     // 기준점 = 분수 가운데(900, 620)
+  lamp: { w: 64, h: 120, ox: 32, oy: 108 },
+  bench: { w: 96, h: 44, ox: 48, oy: 30 },
+  gate: { w: 160, h: 210, ox: 80, oy: 150 },          // 기준점 = 문이 서는 자리
+  hunter: { w: 84, h: 100, ox: 42, oy: 80 },
+  rabbit: { w: 64, h: 56, ox: 32, oy: 46 },
+  tree: { w: 100, h: 76, ox: 50, oy: 58 },
+};
+// 사냥터 나무 그림 — 소나무 셋, 둥근 나무 셋. 크기는 코드에서 배율로 맞춘다.
+export const TREE_VARIANTS = [
+  { pine: true, seed: 11 }, { pine: true, seed: 47 }, { pine: true, seed: 83 },
+  { pine: false, seed: 19 }, { pine: false, seed: 52 }, { pine: false, seed: 90 },
+];
+const treeVariant = (t) => (t.pine ? 0 : 3) + (Math.floor(t.seed) % 3);
+let rpgWarm = 0;
+export function warmRpgArt() {
+  if (rpgWarm) return;
+  rpgWarm = 1;
+  ["plaza", "field", "fountain", "lamp", "bench", "gate", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
+  TREE_VARIANTS.forEach((_, i) => mapImg(rpgFile(`tree-${i}`)));
+}
 
 /* ── 바탕 — 맵마다 한 번만 그려 둔다 ───────────────────────── */
 function grass(ctx, M, seed, tone) {
@@ -144,6 +173,15 @@ const PLAZA_PROPS = [
   { k: "bench", x: 700, y: 900 }, { k: "bench", x: 1100, y: 900 }, { k: "bench", x: 700, y: 360 }, { k: "bench", x: 1100, y: 360 },
 ];
 
+export const drawTreeBody = drawTree;     // 그림 파일을 뽑을 때 쓴다
+
+function drawFieldTree(ctx, t) {
+  const tim = mapImg(rpgFile(`tree-${treeVariant(t)}`));
+  if (!tim) return drawTree(ctx, t.x, t.y, t.s, t.pine, t.seed);
+  const F = RFRAME.tree;
+  ctx.drawImage(tim, t.x - F.ox * t.s, t.y - F.oy * t.s, F.w * t.s, F.h * t.s);
+}
+
 export function paintMap(id) {
   const M = MAPS[id];
   const c = document.createElement("canvas");
@@ -155,6 +193,13 @@ export function paintMap(id) {
 
 /* ── 움직이는 것들 ─────────────────────────────────────── */
 function drawFountain(ctx, time) {
+  const fim = mapImg(rpgFile("fountain"));
+  if (fim) ctx.drawImage(fim, 900 - RFRAME.fountain.ox, 620 - RFRAME.fountain.oy, RFRAME.fountain.w, RFRAME.fountain.h);
+  else drawFountainBody(ctx, time);
+}
+
+// 분수 몸통 — 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function drawFountainBody(ctx, time) {
   const x = 900, y = 620;
   ctx.save();
   ctx.translate(x, y);
@@ -187,6 +232,15 @@ function drawFountain(ctx, time) {
 }
 
 function drawProp(ctx, o) {
+  const pim = mapImg(rpgFile(o.k));
+  if (pim) {
+    const F = RFRAME[o.k];
+    ctx.drawImage(pim, o.x - F.ox, o.y - F.oy, F.w, F.h);
+  } else drawPropBody(ctx, o);
+}
+
+// 가로등 · 벤치 몸통 — 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function drawPropBody(ctx, o) {
   if (o.k === "lamp") {
     shadow(ctx, o.x, o.y + 2, 10, 4, 0.25);
     ctx.fillStyle = "#3a3024"; roundRect(ctx, o.x - 3, o.y - 70, 6, 72, 2); ctx.fill();
@@ -202,7 +256,8 @@ function drawProp(ctx, o) {
   }
 }
 
-function drawGate(ctx, gt, time) {
+// 문 몸통 — 바닥 빛 · 문틀 · 안쪽 소용돌이. 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function drawGateBody(ctx, gt, time) {
   const { x, y } = gt;
   // 둥글게 빛나는 문 자리
   ctx.save();
@@ -238,6 +293,13 @@ function drawGate(ctx, gt, time) {
     ctx.beginPath(); ctx.ellipse(x, y - 56, 34 * p + 4, 50 * p + 6, 0, 0, Math.PI * 2); ctx.stroke();
   }
   ctx.restore();
+}
+
+function drawGate(ctx, gt, time) {
+  const { x, y } = gt;
+  const gim = mapImg(rpgFile("gate"));
+  if (gim) ctx.drawImage(gim, x - RFRAME.gate.ox, y - RFRAME.gate.oy, RFRAME.gate.w, RFRAME.gate.h);
+  else drawGateBody(ctx, gt, time);
   // 팻말
   ctx.save();
   ctx.font = "15px 'Do Hyeon', sans-serif";
@@ -250,11 +312,9 @@ function drawGate(ctx, gt, time) {
   ctx.restore();
 }
 
-function drawNpc(ctx, g, n, time) {
-  const { x, y } = n;
-  const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
+// 사냥꾼 몸통 — 그림자와 활 · 망토 · 얼굴 · 모자. 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function drawNpcBody(ctx, x, y, bob) {
   shadow(ctx, x, y + 2, 18, 5, 0.3);
-  const bob = Math.sin(time * 2) * 1.2;
   ctx.save();
   ctx.translate(x, y + bob);
   // 활 — 등에 멘다
@@ -276,6 +336,15 @@ function drawNpc(ctx, g, n, time) {
   ctx.beginPath(); ctx.moveTo(-9, -54); ctx.lineTo(-5, -66); ctx.lineTo(8, -64); ctx.lineTo(9, -54); ctx.closePath(); ctx.fill();
   ctx.fillStyle = "#c9433b"; ctx.fillRect(-9, -57, 18, 3);
   ctx.restore();
+}
+
+function drawNpc(ctx, g, n, time) {
+  const { x, y } = n;
+  const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
+  const bob = Math.sin(time * 2) * 1.2;
+  const him = mapImg(rpgFile("hunter"));
+  if (him) ctx.drawImage(him, x - RFRAME.hunter.ox, y + bob - RFRAME.hunter.oy, RFRAME.hunter.w, RFRAME.hunter.h);
+  else drawNpcBody(ctx, x, y, bob);
 
   // 머리 위 표시 — 받을 퀘스트가 있으면 느낌표, 하는 중이면 몇 마리 잡았는지
   const q = me ? me.quest : null;
@@ -302,16 +371,10 @@ function drawNpc(ctx, g, n, time) {
   ctx.restore();
 }
 
-function drawRabbit(ctx, m, time) {
-  const hop = m.moving ? Math.abs(Math.sin(m.age * 13)) * 7 : 0;
-  const grow = Math.min(1, (m.age || 0) / 0.35);
-  const x = m.x, y = m.y;
-  shadow(ctx, x, y + 2, 13 * grow, 4 * grow, 0.25);
-  ctx.save();
-  ctx.translate(x, y - hop);
-  ctx.scale((m.ax < 0 ? -1 : 1) * grow, grow);
-  const fur = m.freeze > 0 ? "#cfe8f6" : "#f3ede0";
-  const shade = m.freeze > 0 ? "#a8cde4" : "#d9cfbd";
+// 토끼 몸통 — 꼬리 · 몸 · 머리 · 귀. 발밑이 원점이고 오른쪽을 본다. 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function drawRabbitBody(ctx, frozen) {
+  const fur = frozen ? "#cfe8f6" : "#f3ede0";
+  const shade = frozen ? "#a8cde4" : "#d9cfbd";
   // 꼬리 · 몸
   ctx.fillStyle = "#fffaf0"; ctx.beginPath(); ctx.arc(-13, -9, 4.5, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = fur; ctx.beginPath(); ctx.ellipse(-2, -9, 12, 9, 0, 0, Math.PI * 2); ctx.fill();
@@ -329,6 +392,19 @@ function drawRabbit(ctx, m, time) {
   ctx.restore();
   ctx.fillStyle = "#2a1f13"; ctx.beginPath(); ctx.arc(11, -16, 1.4, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "#e88a9c"; ctx.beginPath(); ctx.arc(15.5, -14, 1.3, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawRabbit(ctx, m, time) {
+  const hop = m.moving ? Math.abs(Math.sin(m.age * 13)) * 7 : 0;
+  const grow = Math.min(1, (m.age || 0) / 0.35);
+  const x = m.x, y = m.y;
+  shadow(ctx, x, y + 2, 13 * grow, 4 * grow, 0.25);
+  ctx.save();
+  ctx.translate(x, y - hop);
+  ctx.scale((m.ax < 0 ? -1 : 1) * grow, grow);
+  const rim = mapImg(rpgFile(m.freeze > 0 ? "rabbit-frozen" : "rabbit"));
+  if (rim) ctx.drawImage(rim, -RFRAME.rabbit.ox, -RFRAME.rabbit.oy, RFRAME.rabbit.w, RFRAME.rabbit.h);
+  else drawRabbitBody(ctx, m.freeze > 0);
   if (m.flash > 0) {
     ctx.globalAlpha = Math.min(0.7, m.flash * 5);
     ctx.fillStyle = "#ffffff";
@@ -452,9 +528,16 @@ export function drawRpg(ctx, g, bgs) {
     const s = g.shake * 6;
     ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
   }
-  const bg = bgs && bgs[M.id];
-  if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
-  else { ctx.fillStyle = "#4f6e34"; ctx.fillRect(0, 0, W, H); }
+  warmRpgArt();
+  const bim = mapImg(rpgFile(M.id));
+  if (bim) {
+    // 파일이 얼마나 크든 맵 크기에 맞춰 자른다
+    const kx = bim.naturalWidth / M.w, ky = bim.naturalHeight / M.h;
+    ctx.drawImage(bim, cam.x * kx, cam.y * ky, W * kx, H * ky, 0, 0, W, H);
+  } else if (mapImgFailed(rpgFile(M.id))) {          // 파일이 없을 때만 예전처럼 코드로 그린다
+    const bg = (bgs && bgs[M.id]) || (bgs && (bgs[M.id] = paintMap(M.id)));
+    if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
+  } else { ctx.fillStyle = M.id === "plaza" ? "#4f6e34" : "#557a37"; ctx.fillRect(0, 0, W, H); }
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
 
@@ -495,7 +578,7 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.npc) drawNpc(ctx, g, o.npc, time);
     else if (o.fountain) drawFountain(ctx, time);
     else if (o.prop) drawProp(ctx, o.prop);
-    else if (o.tree) drawTree(ctx, o.tree.x, o.tree.y, o.tree.s, o.tree.pine, o.tree.seed);
+    else if (o.tree) drawFieldTree(ctx, o.tree);
   });
 
   g.fx.forEach((f) => { if (here(f) && (f.kind !== "art" || (FX_ART[f.art] || {}).over)) drawFx(ctx, f); });

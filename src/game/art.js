@@ -201,7 +201,7 @@ export function distToPaths(x, y) {
 /* 관문 그림 — public/assets/map/gates 의 그림을 그대로 얹는다.
    아직 못 불러왔으면(또는 실패했으면) 절차적 아치로 대신 그린다. */
 const mapImgCache = {};
-function mapImg(path) {
+export function mapImg(path) {
   if (typeof Image === "undefined") return null;
   let im = mapImgCache[path];
   if (im === undefined) {
@@ -211,7 +211,57 @@ function mapImg(path) {
   }
   return im && im.complete && im.naturalWidth ? im : null;
 }
+// 불러오다 실패한 그림인지(아직 오는 중이면 거짓) — 실패했을 때만 코드 그림으로 대신하려고 쓴다
+export const mapImgFailed = (path) => mapImgCache[path] === null;
 const gateImg = (name) => mapImg(`/assets/map/gates/${name}.webp`);
+
+/* ── 이미지 그림 ─────────────────────────────────────────────
+   배경 · 탑 · 돌판 · 성채 같은 판 위의 것들은 public/assets/game 의 그림 파일을 그대로 얹는다.
+   파일이 아직 안 왔거나 못 불러오면 예전처럼 손으로 그린다(아래 코드가 그 자리를 지킨다).
+   그림을 바꿀 때는 파일만 갈아 끼우면 된다 — 크기 · 기준점은 public/assets/game/README.md 에 있다.
+   DRAW_PART 는 그림 파일을 뽑을 때만 쓴다: "base" 는 조준하는 부품을 빼고, "turret" 은 그 부품만 그린다. */
+let DRAW_PART = "all";
+export function setDrawPart(p) { DRAW_PART = p; }
+
+export const GAME_ART = "/assets/game";
+// 논리 좌표 기준 크기(w, h)와 기준점(ox, oy). 파일은 이 비율이기만 하면 얼마나 크든 된다.
+export const FRAME = {
+  tower: { w: 190, h: 192, ox: 95, oy: 154 },        // 기준점 = 탑이 서는 자리(s.x, s.y - 2)
+  turret: { w: 150, h: 150, ox: 75, oy: 75 },        // 기준점 = 조준 부품이 도는 축
+  pad: { w: 64, h: 46, ox: 32, oy: 24 },             // 기준점 = 돌판 가운데
+  castle: { w: 230, h: 200, ox: 115, oy: 132 },      // 기준점 = 성채 가운데(CX, CY)
+  gun: { w: 100, h: 60, ox: 50, oy: 30 },            // 기준점 = 성채 대포가 도는 축
+};
+// 조준 부품이 도는 축의 높이(탑 안쪽 좌표)와 쏠 때 뒤로 밀리는 거리
+export const TURRETS = {
+  archer: { py: (lv) => -(26 + lv * 5) - 16, back: 3 },
+  cannon: { py: (lv) => -(24 + lv * 4) - 18, back: 6 },
+  sniper: { py: (lv) => -(34 + lv * 6) - 19, back: 7 },
+};
+const TOWER_KINDS = ["archer", "sniper", "cannon", "bolt", "flame", "poison", "frost", "gravity", "supply", "corrode", "paladin"];
+export const towerFile = (kind, lv, turret) => `${GAME_ART}/defense/towers/${kind}-${lv}${turret ? "-turret" : ""}.webp`;
+export const padFile = (spot, built) => `${GAME_ART}/defense/pads/${spot}-${built ? "built" : "empty"}.webp`;
+export const castleFile = (tier) => `${GAME_ART}/defense/castle/tier-${tier}.webp`;
+export const GUN_FILE = `${GAME_ART}/defense/castle/gun-barrel.webp`;
+export const BG_FILE = `${GAME_ART}/defense/bg.webp`;
+export const ARENA_BG_FILE = `${GAME_ART}/defense/arena-bg.webp`;
+
+// 판이 시작될 때 미리 불러 둔다 — 안 그러면 처음 나올 때 한 번 예전 그림이 비친다
+let gameWarm = 0;
+export function warmGameArt() {
+  if (gameWarm) return;
+  gameWarm = 1;
+  mapImg(BG_FILE); mapImg(ARENA_BG_FILE);
+  TOWER_KINDS.forEach((k) => {
+    for (let lv = 1; lv <= 4; lv++) {
+      mapImg(towerFile(k, lv));
+      if (TURRETS[k]) mapImg(towerFile(k, lv, true));
+    }
+  });
+  Object.keys(SPOTS).forEach((sp) => { mapImg(padFile(sp, false)); mapImg(padFile(sp, true)); });
+  for (let t = 1; t <= 4; t++) mapImg(castleFile(t));
+  mapImg(GUN_FILE);
+}
 
 /* ── 정적 배경(지형·길·숲) — 한 번만 그려서 재사용 ─────── */
 export function paintTerrain(ctx) {
@@ -598,9 +648,9 @@ export function keepTower(ctx, x, y, r, h, roofCol, roofDark, time, flag) {
 
 export const CASTLE_K = 0.72;   // 길에 비해 크지 않도록 줄여 그린다
 
-export function drawCastle(ctx, g, time) {
-  const ratio = Math.max(0, g.core.hp / g.core.max);
-  const tier = castleTier(g);
+// 성채 몸통 — 언덕 · 성벽 · 탑 · 성문 · 대포 받침까지(체력에 따른 흔적과 돌아가는 포신은 뺀다).
+// 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function castleBody(ctx, tier, time) {
   // 단계가 오를수록 벽이 두꺼워지고 지붕이 귀해진다
   const roof = tier >= 4 ? "#e0b23c" : tier >= 3 ? "#3f6fb5" : C.roof;
   const roofDark = tier >= 4 ? "#9a7820" : tier >= 3 ? "#26497f" : C.roofDark;
@@ -745,6 +795,29 @@ export function drawCastle(ctx, g, time) {
     });
   }
 
+  // 성채 대포 받침과 포탄 더미
+  drawCastleGun(ctx, null, time, "base");
+  ctx.restore();
+}
+
+// 성채 그림 파일 — 몸통과 포신이 모두 불러와졌을 때만
+function castleSprite(tier) {
+  const body = mapImg(castleFile(tier));
+  const barrel = body && mapImg(GUN_FILE);
+  return barrel ? { body, barrel } : null;
+}
+
+export function drawCastle(ctx, g, time) {
+  const ratio = Math.max(0, g.core.hp / g.core.max);
+  const tier = castleTier(g);
+  const spr = castleSprite(tier);
+  if (spr) ctx.drawImage(spr.body, CX - FRAME.castle.ox, CY - FRAME.castle.oy, FRAME.castle.w, FRAME.castle.h);
+  else castleBody(ctx, tier, time);
+
+  ctx.save();
+  ctx.translate(CX, CY);
+  ctx.scale(CASTLE_K, CASTLE_K);
+  ctx.translate(-CX, -CY);
   // 피해 흔적
   if (ratio < 0.65) {
     ctx.strokeStyle = "rgba(70,58,44,0.6)";
@@ -764,7 +837,27 @@ export function drawCastle(ctx, g, time) {
   }
 
   // 성채 대포 — 성문 앞까지 붙은 적을 직접 때린다
-  drawCastleGun(ctx, g, time);
+  if (spr) {
+    const cg = g.castle || { aim: -Math.PI / 2, pulse: 0 };
+    const recoil = cg.pulse > 0 ? Math.pow(Math.max(0, cg.pulse) / 0.35, 2) : 0;
+    ctx.save();
+    ctx.translate(CX, CY - 24 - 3);
+    ctx.rotate(cg.aim);
+    ctx.translate(-recoil * 7, 0);
+    ctx.drawImage(spr.barrel, -FRAME.gun.ox, -FRAME.gun.oy, FRAME.gun.w, FRAME.gun.h);
+    if (recoil > 0.25) {                                // 발사 섬광
+      ctx.globalAlpha = recoil;
+      const gl = ctx.createRadialGradient(32 + recoil * 7, 0, 0, 32 + recoil * 7, 0, 22);
+      gl.addColorStop(0, "rgba(255,240,180,0.95)");
+      gl.addColorStop(1, "rgba(250,160,60,0)");
+      ctx.fillStyle = gl;
+      ctx.beginPath(); ctx.arc(32 + recoil * 7, 0, 22, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  } else {
+    drawCastleGun(ctx, g, time, "barrel");
+  }
 
   ctx.restore();
 
@@ -806,17 +899,21 @@ export function drawCastle(ctx, g, time) {
 }
 
 /* ── 성채 대포 ──────────────────────────────────────────── */
-export function drawCastleGun(ctx, g, time) {
-  const cg = g.castle || { aim: -Math.PI / 2, pulse: 0 };
+// part — "all" 은 받침 · 포신 · 포탄 더미 모두, "base" 는 받침과 포탄 더미, "barrel" 은 돌아가는 포신만
+export function drawCastleGun(ctx, g, time, part = "all") {
+  const cg = (g && g.castle) || { aim: -Math.PI / 2, pulse: 0 };
   const gy = CY - 24;      // 성벽 위 포좌
   const recoil = cg.pulse > 0 ? Math.pow(Math.max(0, cg.pulse) / 0.35, 2) : 0;
 
   // 포대 받침
-  ctx.beginPath(); ctx.ellipse(CX, gy + 5, 22, 9, 0, 0, Math.PI * 2);
-  inkPath(ctx, C.stoneDark, 1.6);
-  ctx.beginPath(); ctx.ellipse(CX, gy + 1, 22, 9, 0, 0, Math.PI * 2);
-  inkPath(ctx, C.stone, 1.4);
+  if (part !== "barrel") {
+    ctx.beginPath(); ctx.ellipse(CX, gy + 5, 22, 9, 0, 0, Math.PI * 2);
+    inkPath(ctx, C.stoneDark, 1.6);
+    ctx.beginPath(); ctx.ellipse(CX, gy + 1, 22, 9, 0, 0, Math.PI * 2);
+    inkPath(ctx, C.stone, 1.4);
+  }
 
+  if (part !== "base") {
   ctx.save();
   ctx.translate(CX, gy - 3);
   ctx.rotate(cg.aim);
@@ -847,16 +944,18 @@ export function drawCastleGun(ctx, g, time) {
     ctx.globalAlpha = 1;
   }
   ctx.restore();
+  }
 
   // 포탄 더미
-  [[-26, 4], [-20, 6], [-23, 0]].forEach(([ox, oy]) => {
+  if (part !== "barrel") [[-26, 4], [-20, 6], [-23, 0]].forEach(([ox, oy]) => {
     ctx.beginPath(); ctx.arc(CX + ox, gy + oy, 3.6, 0, Math.PI * 2);
     inkPath(ctx, "#33333a", 1.2);
   });
 }
 
 /* ── 타워 터 ────────────────────────────────────────────── */
-export function drawPad(ctx, s, occupied, time, hover) {
+// 돌판 몸통 — 그림 파일을 뽑을 때와 파일이 없을 때 쓴다
+export function padBody(ctx, s, occupied) {
   const sp = SPOTS[s.spot] || SPOTS.risk;
   shadow(ctx, s.x, s.y + 7, 21, 8, 0.26);
   // 흙더미 + 돌판(옆면을 먼저 그려 두께를 준다)
@@ -873,6 +972,13 @@ export function drawPad(ctx, s, occupied, time, hover) {
   ctx.restore();
   ctx.fillStyle = "rgba(255,255,255,0.2)";
   ctx.beginPath(); ctx.ellipse(s.x, s.y - 3, 14, 7, 0, Math.PI, Math.PI * 2); ctx.fill();
+}
+
+export function drawPad(ctx, s, occupied, time, hover) {
+  const sp = SPOTS[s.spot] || SPOTS.risk;
+  const pim = mapImg(padFile(s.spot in SPOTS ? s.spot : "risk", occupied));
+  if (pim) ctx.drawImage(pim, s.x - FRAME.pad.ox, s.y - FRAME.pad.oy, FRAME.pad.w, FRAME.pad.h);
+  else padBody(ctx, s, occupied);
 
   // 마우스가 올라간 자리
   if (hover) {
@@ -990,6 +1096,35 @@ export function tierCrown(ctx, lv, col, time, top) {
   }
 }
 
+// 탑 몸통 — 받침 · 종류별 그림 · 깃대까지. 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function towerBody(ctx, kind, lv, col, time, t, recoil) {
+  if (DRAW_PART !== "turret") tierPlinth(ctx, lv, col, time);
+  if (kind === "archer") drawArcherTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "cannon") drawCannonTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "frost") drawFrostTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "bolt") drawBoltTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "poison") drawPoisonTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "sniper") drawSniperTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "flame") drawFlameTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "gravity") drawGravityTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "corrode") drawCorrodeTower(ctx, lv, col, time, t, recoil);
+  else if (kind === "paladin") drawPaladinTower(ctx, lv, col, time, t, recoil);
+  else drawSupplyTower(ctx, lv, col, time, t, recoil);
+  // 탑 꼭대기쯤 — 깃대 높이를 맞추는 데 쓴다
+  const top = { archer: -80, sniper: -84, cannon: -62, bolt: -78, flame: -66, poison: -62,
+    frost: -76, gravity: -74, supply: -70, corrode: -60, paladin: -72 }[kind] || -70;
+  if (DRAW_PART !== "turret") tierCrown(ctx, lv, col, time, top);
+}
+
+// 탑 그림 파일 — 몸통과(있다면) 조준 부품이 모두 불러와졌을 때만 돌려준다
+function towerSprite(kind, lv) {
+  const base = mapImg(towerFile(kind, lv));
+  if (!base) return null;
+  if (!TURRETS[kind]) return { base, turret: null };
+  const turret = mapImg(towerFile(kind, lv, true));
+  return turret ? { base, turret } : null;
+}
+
 export function drawTower(ctx, t, s, time, g) {
   const lv = t.lv;
   // 지금 이 타워에 걸린 것들 — 발밑에 표시해 둔다
@@ -1041,31 +1176,36 @@ export function drawTower(ctx, t, s, time, g) {
     }
   }
   const recoil = t.pulse > 0 ? Math.pow(Math.max(0, t.pulse) / 0.4, 2) : 0;
-  const col = P[t.owner];
-  ctx.save();
-  ctx.translate(s.x, s.y - 2);
-  ctx.scale(0.86, 0.86);
-  tierPlinth(ctx, lv, col, time);
-
   const kind = t.type || "archer";
-  if (kind === "archer") drawArcherTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "cannon") drawCannonTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "frost") drawFrostTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "bolt") drawBoltTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "poison") drawPoisonTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "sniper") drawSniperTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "flame") drawFlameTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "gravity") drawGravityTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "corrode") drawCorrodeTower(ctx, lv, col, time, t, recoil);
-  else if (kind === "paladin") drawPaladinTower(ctx, lv, col, time, t, recoil);
-  else drawSupplyTower(ctx, lv, col, time, t, recoil);
-
-  // 탑 꼭대기쯤 — 깃대 높이를 맞추는 데 쓴다
-  const top = { archer: -80, sniper: -84, cannon: -62, bolt: -78, flame: -66, poison: -62,
-    frost: -76, gravity: -74, supply: -70, corrode: -60, paladin: -72 }[kind] || -70;
-  tierCrown(ctx, lv, col, time, top);
-
-  ctx.restore();
+  const spr = towerSprite(kind, lv);
+  if (spr) {
+    const F = FRAME.tower;
+    ctx.drawImage(spr.base, s.x - F.ox, s.y - 2 - F.oy, F.w, F.h);
+    if (spr.turret) {                                  // 조준하는 부품은 따로 그려 표적을 향해 돈다
+      const tu = TURRETS[kind], T = FRAME.turret;
+      ctx.save();
+      ctx.translate(s.x, s.y - 2 + 0.86 * tu.py(lv));
+      ctx.rotate(t.aim || 0);
+      ctx.translate(-recoil * tu.back * 0.86, 0);
+      ctx.drawImage(spr.turret, -T.ox, -T.oy, T.w, T.h);
+      if (kind === "sniper" && recoil > 0.3) {         // 쏠 때 총구 섬광
+        ctx.globalAlpha = recoil;
+        const gl = ctx.createRadialGradient(26, 0, 0, 26, 0, 16);
+        gl.addColorStop(0, "rgba(255,246,210,0.95)");
+        gl.addColorStop(1, "rgba(200,180,255,0)");
+        ctx.fillStyle = gl;
+        ctx.beginPath(); ctx.arc(26, 0, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+  } else {
+    ctx.save();
+    ctx.translate(s.x, s.y - 2);
+    ctx.scale(0.86, 0.86);
+    towerBody(ctx, kind, lv, P[t.owner], time, t, recoil);
+    ctx.restore();
+  }
 
   // 짓고 나서 자리를 잡는 중
   if (t.warm > 0) {
@@ -1142,6 +1282,7 @@ export function towerBase(ctx, w, h) {
 
 export function drawArcherTower(ctx, lv, col, time, t, recoil) {
   const h = 26 + lv * 5;
+  if (DRAW_PART !== "turret") {
   towerBase(ctx, 30, h);
   // 출입구와 화살 구멍
   ctx.beginPath(); roundRect(ctx, -6, -13, 12, 13, 5);
@@ -1169,6 +1310,7 @@ export function drawArcherTower(ctx, lv, col, time, t, recoil) {
   ctx.fillStyle = col.key; ctx.fill();
   ctx.beginPath(); roundRect(ctx, -27, -h - 27, 54, 5, 2.5);
   inkPath(ctx, col.dark, 1.5);
+  }
   // 궁수 — 활은 병과 "핵심 장치"라서 단계마다 눈에 띄게 커진다(1→2단계 폭이 가장 크다)
   const aim = t.aim || 0;
   const bowR = [7.5, 10.5, 12.3, 13.8][lv - 1];
@@ -1176,10 +1318,13 @@ export function drawArcherTower(ctx, lv, col, time, t, recoil) {
   const bowK = bowR / 7.5;   // 원래 그림 비율 그대로 키우는 배율
   ctx.save();
   ctx.translate(0, -h - 16);
+  if (DRAW_PART !== "turret") {
   ctx.beginPath(); roundRect(ctx, -5, -1, 10, 9, 4);
   inkPath(ctx, col.dark, 1.5);
   ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2);
   inkPath(ctx, "#e8cfa8", 1.5);
+  }
+  if (DRAW_PART !== "base") {
   ctx.save();
   ctx.rotate(aim);
   ctx.strokeStyle = lv >= 3 ? "#5a4a3a" : "#6f4a28";
@@ -1199,9 +1344,10 @@ export function drawArcherTower(ctx, lv, col, time, t, recoil) {
     ctx.globalAlpha = 1;
   }
   ctx.restore();
+  }
   ctx.restore();
   // 깃발
-  if (lv >= 3) {
+  if (lv >= 3 && DRAW_PART !== "turret") {
     ctx.strokeStyle = "#5b4a33"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, -h - 52); ctx.lineTo(0, -h - 68); ctx.stroke();
     ctx.beginPath();
@@ -1215,6 +1361,7 @@ export function drawArcherTower(ctx, lv, col, time, t, recoil) {
 
 export function drawCannonTower(ctx, lv, col, time, t, recoil) {
   const h = 24 + lv * 4;
+  if (DRAW_PART !== "turret") {
   towerBase(ctx, 36, h);
   // 나무 포대
   ctx.beginPath(); roundRect(ctx, -24, -h - 11, 48, 12, 5);
@@ -1232,6 +1379,7 @@ export function drawCannonTower(ctx, lv, col, time, t, recoil) {
   ctx.beginPath(); ctx.arc(28, -h + 4, 4.2, 0, Math.PI * 2);
   inkPath(ctx, "#33333a", 1.3);
 
+  }
   // 대포 — 포신은 병과 "핵심 장치"라서 길이·구경이 단계마다 눈에 띄게 커진다(1→2단계 폭이 가장 크다)
   const aim = t.aim || 0;
   const bw = [34, 44, 50, 56][lv - 1];      // 포신 길이
@@ -1239,6 +1387,7 @@ export function drawCannonTower(ctx, lv, col, time, t, recoil) {
   const inH = [6, 7, 8, 9][lv - 1];         // 포신 위 하이라이트 굵기
   const mzR = [8.4, 10, 11.5, 13][lv - 1];  // 포구 바깥 고리
   const mzInR = [5.4, 6.4, 7.4, 8.4][lv - 1]; // 포구 안쪽(포신 입구)
+  if (DRAW_PART !== "base") {
   ctx.save();
   ctx.translate(0, -h - 18);
   ctx.rotate(aim);
@@ -1274,9 +1423,10 @@ export function drawCannonTower(ctx, lv, col, time, t, recoil) {
   ctx.fillStyle = col.light;
   ctx.beginPath(); ctx.arc(-12.6 - back, -2.4, 4, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
+  }
 
   // 바퀴
-  [-14, 14].forEach((x) => {
+  if (DRAW_PART !== "turret") [-14, 14].forEach((x) => {
     ctx.beginPath(); ctx.arc(x, -h - 6, 6.4, 0, Math.PI * 2);
     inkPath(ctx, "#4a3421", 1.8);
     ctx.fillStyle = "#7a562f";
@@ -1498,6 +1648,7 @@ export function drawPoisonTower(ctx, lv, col, time, t, recoil) {
 
 export function drawSniperTower(ctx, lv, col, time, t, recoil) {
   const h = 34 + lv * 6;
+  if (DRAW_PART !== "turret") {
   towerBase(ctx, 26, h);
   // 좁은 창
   ctx.beginPath(); roundRect(ctx, -3, -h + 8, 6, 12, 3);
@@ -1512,14 +1663,18 @@ export function drawSniperTower(ctx, lv, col, time, t, recoil) {
     ctx.beginPath(); ctx.ellipse(x, -h - 12, 8, 4.6, 0, 0, Math.PI * 2);
     inkPath(ctx, "#b9a887", 1.3);
   });
+  }
   // 저격수와 긴 총열
   const aim = t.aim || 0;
   ctx.save();
   ctx.translate(0, -h - 19);
+  if (DRAW_PART !== "turret") {
   ctx.beginPath(); roundRect(ctx, -5, -1, 10, 9, 4);
   inkPath(ctx, col.dark, 1.5);
   ctx.beginPath(); ctx.arc(0, -5, 5, 0, Math.PI * 2);
   inkPath(ctx, "#e8cfa8", 1.5);
+  }
+  if (DRAW_PART !== "base") {
   ctx.save();
   ctx.rotate(aim);
   const back = recoil * 7;
@@ -1540,6 +1695,7 @@ export function drawSniperTower(ctx, lv, col, time, t, recoil) {
     ctx.globalAlpha = 1;
   }
   ctx.restore();
+  }
   ctx.restore();
 }
 
@@ -3393,14 +3549,8 @@ function arenaPlayer(ctx, g, pi, time) {
   }
 }
 
-export function drawArena(ctx, g, time) {
-  const a = g.arena;
-  if (!a) return;
-  fxWarmUp();
-  const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
-  const dt = Math.min(0.06, Math.max(0, now - (g.arenaT || now)));
-  g.arenaT = now;
-  bossEase(a, dt);
+// 결전장 바탕 — 하늘 · 풀밭 · 둘러선 숲. 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function paintArenaBg(ctx, time) {
   // 바탕
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, "#22301c");
@@ -3423,6 +3573,20 @@ export function drawArena(ctx, g, time) {
   ctx.restore();
 
   arenaLeaves(ctx, time, cy, rx, ry);
+}
+
+export function drawArena(ctx, g, time) {
+  const a = g.arena;
+  if (!a) return;
+  fxWarmUp();
+  const now = (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
+  const dt = Math.min(0.06, Math.max(0, now - (g.arenaT || now)));
+  g.arenaT = now;
+  bossEase(a, dt);
+  // 바탕 — 그림 파일이 있으면 그걸, 없으면 코드로 그린다
+  const abg = mapImg(ARENA_BG_FILE);
+  if (abg) ctx.drawImage(abg, 0, 0, W, H);
+  else paintArenaBg(ctx, time);
 
   // 내 공격 범위 — 보스가 들어오면 또렷해진다 (보스의 붉은 자리와 헷갈리지 않게 병과 색)
   const meI = g.mySeat;
@@ -3574,7 +3738,10 @@ export function draw(ctx, g, bg) {
 
   if (g.phase === "arena" && g.arena) { drawArena(ctx, g, g.t); ctx.restore(); return; }
 
-  if (bg) ctx.drawImage(bg, 0, 0, W, H);
+  warmGameArt();
+  const bim = mapImg(BG_FILE);
+  if (bim) ctx.drawImage(bim, 0, 0, W, H);
+  else if (bg) ctx.drawImage(bg, 0, 0, W, H);
   else { ctx.fillStyle = C.grass; ctx.fillRect(0, 0, W, H); }
 
   const playing = g.phase === "prep" || g.phase === "wave";

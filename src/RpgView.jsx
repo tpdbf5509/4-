@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, RPG_SKILL, MAPS, QUEST, makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, heroSave, writeHero, npcNear, rpgStyle,
 } from "./game/rpg.js";
-import { paintMap, drawRpg } from "./game/rpgArt.js";
+import { drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
 import { ClassIcon, HomeIcon, Coin } from "./ui/icons.jsx";
 import { TowerChar, charOf } from "./ui/chars.jsx";
@@ -290,7 +290,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     cvs.width = W * dpr;
     cvs.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    bgsRef.current = { plaza: paintMap("plaza"), field: paintMap("field") };
+    bgsRef.current = {};                              // 그림 파일이 없을 때만 drawRpg 가 코드로 채운다
 
     let raf, last = performance.now(), frame = 0, sinceSnap = 0, saved = "", lastMap = "";
     const loop = (now) => {

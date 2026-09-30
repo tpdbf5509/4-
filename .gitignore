@@ -27,3 +27,6 @@ dist-ssr
 .env
 .env.local
 __pycache__/
+
+# 그림 파일 뽑기 도구가 남기는 임시 폴더
+tools/out

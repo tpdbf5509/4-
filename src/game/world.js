@@ -285,31 +285,31 @@ export function nextSlot(from, act) {
 /* ── 규칙 ───────────────────────────────────────────────── */
 export const TOWERS = [
   /* 공격 */
-  { id: "archer", role: "공격", name: "궁수탑", cost: 30, range: 158, dmg: 15, interval: 0.95,
+  { id: "archer", role: "공격", name: "궁수탑", cost: 30, up4: 150, range: 158, dmg: 15, interval: 0.95,
     note: "단일 대상 · 사거리가 가장 길다" },
-  { id: "sniper", role: "공격", name: "저격탑", cost: 70, range: 165, dmg: 58, interval: 2.6, pickBig: true,
+  { id: "sniper", role: "공격", name: "저격탑", cost: 70, up4: 300, range: 165, dmg: 58, interval: 2.6, pickBig: true,
     note: "가장 단단한 적 하나를 크게 때린다" },
-  { id: "cannon", role: "공격", name: "대포탑", cost: 40, range: 118, dmg: 11, interval: 1.5, splash: 48,
+  { id: "cannon", role: "공격", name: "대포탑", cost: 40, up4: 300, range: 118, dmg: 11, interval: 1.5, splash: 48,
     note: "착탄 지점 범위 피해" },
-  { id: "bolt", role: "공격", name: "번개탑", cost: 55, range: 142, dmg: 10, interval: 1.2, chain: 3,
+  { id: "bolt", role: "공격", name: "번개탑", cost: 55, up4: 260, range: 142, dmg: 10, interval: 1.2, chain: 3,
     note: "가까운 적 둘까지 연쇄 · 2단계부터 셋" },
-  { id: "flame", role: "공격", name: "화염탑", cost: 50, range: 112, dmg: 0, interval: 1, aura: "burn",
+  { id: "flame", role: "공격", name: "화염탑", cost: 50, up4: 300, range: 112, dmg: 0, interval: 1, aura: "burn",
     burn: 9, burnT: 5, note: "범위 안 모두에게 5초 화상" },
-  { id: "poison", role: "공격", name: "독탑", cost: 45, range: 124, dmg: 3, interval: 1, poison: 7, poisonT: 4,
+  { id: "poison", role: "공격", name: "독탑", cost: 45, up4: 280, range: 124, dmg: 3, interval: 1, poison: 7, poisonT: 4,
     note: "하나에게 강한 지속 피해 · 장갑 무시" },
 
   /* 제어 */
-  { id: "frost", role: "제어", name: "서리탑", cost: 25, range: 128, dmg: 4, interval: 0.85, slow: 0.5, slowT: 1.6,
+  { id: "frost", role: "제어", name: "서리탑", cost: 25, up4: 300, range: 128, dmg: 4, interval: 0.85, slow: 0.5, slowT: 1.6,
     note: "적 이동 속도를 절반으로" },
-  { id: "gravity", role: "제어", name: "중력탑", cost: 65, range: 165, dmg: 12, interval: 2.4, pickLast: true,
+  { id: "gravity", role: "제어", name: "중력탑", cost: 65, up4: 300, range: 165, dmg: 12, interval: 2.4, pickLast: true,
     note: "가장 뒤의 적을 멀리서 쏘고, 맞은 자리로 주변 적을 끌어 모은다" },
 
   /* 지원 */
-  { id: "supply", role: "지원", name: "보급소", cost: 35, range: 140, dmg: 0, interval: 0, gold: 0.45, buff: 0.25,
+  { id: "supply", role: "지원", name: "보급소", cost: 35, up4: 220, range: 140, dmg: 0, interval: 0, gold: 0.45, buff: 0.25,
     note: "주변 타워 강화 · 골드 생성 · 성채를 조금씩 회복" },
-  { id: "corrode", role: "지원", name: "부식탑", cost: 60, range: 132, dmg: 7, interval: 1.1, shred: 0.2, shredT: 4,
+  { id: "corrode", role: "지원", name: "부식탑", cost: 60, up4: 200, range: 132, dmg: 7, interval: 1.1, shred: 0.2, shredT: 4,
     note: "맞은 적의 장갑을 4초간 깎는다" },
-  { id: "paladin", role: "지원", name: "성기사탑", cost: 60, range: 150, dmg: 0, interval: 0, ward: 0.06,
+  { id: "paladin", role: "지원", name: "성기사탑", cost: 60, up4: 120, range: 150, dmg: 0, interval: 0, ward: 0.06,
     note: "성채가 받는 피해를 줄인다" },
 ];
 
@@ -320,11 +320,16 @@ export const towerIdx = (id) => TOWERS.findIndex((t) => t.id === id);
 export const TOWER_MAX_LV = 4;
 // 건설 비용에 곱하는 배수. 궁수탑(건설 30)이 54 · 90 · 250 이 되는 비율을 모든 탑에 같이 쓴다.
 export const UP_MUL = [1.8, 3, 250 / 30];
-// 4단계로 올리는 값은 5 단위로 맞추고, 300을 넘지 않게 묶는다
+/* 4단계로 올리는 값은 탑마다 4단계 능력이 얼마나 강한지에 따라 따로 정한다(def.up4, 300을 넘지 않는다).
+   서리(멈춰 세운다)·중력(폭발)·화염·대포·저격은 300, 독 · 번개는 그 아래, 보급소 · 부식은 낮게,
+   4단계 능력이 약한 궁수(공격력이 크게 줄었다)와 수치만 오르는 성기사는 가장 싸다. */
 export const UP_MAX_COST = 300;
 export const upCostOf = (def, lv) => {
-  const v = (def.cost || 0) * (UP_MUL[lv - 1] || 0);
-  return lv >= TOWER_MAX_LV - 1 ? Math.min(UP_MAX_COST, Math.round(v / 5) * 5) : Math.round(v);
+  if (lv >= TOWER_MAX_LV - 1) {
+    const v = def.up4 != null ? def.up4 : Math.round(((def.cost || 0) * (UP_MUL[lv - 1] || 0)) / 5) * 5;
+    return Math.min(UP_MAX_COST, v);
+  }
+  return Math.round((def.cost || 0) * (UP_MUL[lv - 1] || 0));
 };
 
 /* 보급소가 이웃에게 밀어 주는 몫 — 공격력과 공격 속도에 같이 실린다.

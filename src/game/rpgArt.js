@@ -444,6 +444,72 @@ function drawRabbit(ctx, m, time) {
   }
 }
 
+/* ── 움직임 — 그림은 방향마다 한 장이라, 몸 전체를 튀기고 기울이고 눌러서 걷는 것처럼 보이게 한다 ──
+   걸을 때: 한 걸음마다 통통 튀고, 좌우로 살짝 흔들리고, 발이 닿을 때 눌렸다 펴진다(흙먼지도 인다).
+   서 있을 때: 천천히 숨을 쉰다. 칠 때: 치는 쪽으로 몸을 기울였다 돌아온다.
+   그리기에만 쓰는 값이라 h.anim 에 두고 주고받지 않는다 — 방장 · 손님 화면 모두 제 화면에서 계산한다. */
+const STRIDE = 24;            // 한 걸음에 가는 거리
+function heroMotion(g, h, time) {
+  const a = h.anim || (h.anim = { x: h.x, y: h.y, t: time, ph: 0, walk: 0, land: 0 });
+  const dt = Math.min(0.1, Math.max(0, time - a.t));
+  const moved = Math.hypot(h.x - a.x, (h.y - a.y) / RPG.squash);
+  a.x = h.x; a.y = h.y; a.t = time;
+  // 문을 지나거나 위치를 맞추느라 한 번에 크게 옮긴 것은 걸음으로 치지 않는다
+  const going = dt > 0 && moved / dt > 30 && moved < 80;
+  a.walk += ((going ? 1 : 0) - a.walk) * Math.min(1, dt * 12);     // 걷기와 서기 사이를 부드럽게
+  if (going) {
+    const step = Math.floor(a.ph / Math.PI);
+    a.ph += (moved / STRIDE) * Math.PI;
+    if (Math.floor(a.ph / Math.PI) !== step) { a.land = 1; kickDust(g, h); }   // 발이 닿았다
+  } else if (a.walk < 0.05) {
+    a.ph = 0;
+  }
+  a.land = Math.max(0, a.land - dt * 7);
+  const w = a.walk;
+  const s = Math.abs(Math.sin(a.ph));
+  const breath = Math.sin(time * 2.4 + h.pi * 1.3) * (1 - w);
+  const sq = a.land * 0.08 * w;
+  let lean = 0, lunge = 0;
+  if (h.swing > 0) {
+    const k = Math.sin(Math.min(1, h.swing / 0.25) * Math.PI);
+    lean = 0.15 * k; lunge = 5 * k;
+  }
+  return {
+    hop: -s * 6 * w,                                  // 걸음마다 튀어 오른다
+    tilt: Math.sin(a.ph) * 0.09 * w,                  // 좌우로 흔들린다
+    sx: 1 - breath * 0.012 + sq * 0.8,
+    sy: 1 + breath * 0.018 + s * 0.03 * w - sq,       // 숨쉬기 · 떠오를 때 늘고 닿을 때 눌린다
+    lean, lunge, lift: s * w,
+  };
+}
+
+/* 발밑 흙먼지 — 그리기만 하는 것이라 이 화면에만 남긴다 */
+function kickDust(g, h) {
+  const list = g.dust || (g.dust = []);
+  if (list.length > 40) list.shift();
+  list.push({ map: h.map, x: h.x - h.dir * 6 + (Math.random() - 0.5) * 6, y: h.y + 1, t: 0, life: 0.38,
+    vx: -h.dir * (8 + Math.random() * 8) });
+}
+function drawDust(ctx, g, map, time) {
+  const list = g.dust;
+  if (!list || !list.length) return;
+  const dt = Math.min(0.1, Math.max(0, time - (g.dustT ?? time)));
+  g.dustT = time;
+  ctx.save();
+  g.dust = list.filter((d) => {
+    d.t += dt;
+    if (d.t >= d.life || d.map !== map) return false;
+    const p = d.t / d.life;
+    ctx.globalAlpha = (1 - p) * 0.4;
+    ctx.fillStyle = map === "plaza" ? "#e9e1cf" : "#d8c9a4";
+    ctx.beginPath();
+    ctx.ellipse(d.x + d.vx * d.t, d.y - p * 5, 3 + p * 6, 1.6 + p * 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    return true;
+  });
+  ctx.restore();
+}
+
 function drawHero(ctx, g, h, time) {
   const pi = h.pi;
   const col = elemOf(h);
@@ -451,8 +517,7 @@ function drawHero(ctx, g, h, time) {
   const down = h.down > 0;
   const { view, flip } = heroView(h);
   const im = heroImg(h, view) || heroImg(h, "front");
-  const bob = down ? 0 : Math.abs(Math.sin(time * 3 + pi)) * -1.5;
-  const y = h.y + bob;
+  const mo = down ? null : heroMotion(g, h, time);
 
   ctx.save();
   ctx.translate(h.x, h.y + 2);
@@ -476,11 +541,15 @@ function drawHero(ctx, g, h, time) {
   }
 
   ctx.save();
-  shadow(ctx, h.x, h.y + 3, 15, 5, 0.3);
-  ctx.translate(h.x, y);
-  if (down) { ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
-  const lunge = h.swing > 0 ? Math.sin((h.swing / 0.25) * Math.PI) * 4 : 0;
-  ctx.translate(h.dir * lunge, 0);
+  const lift = mo ? mo.lift : 0;                     // 떠오르면 그림자가 작고 옅어진다
+  shadow(ctx, h.x, h.y + 3, 15 * (1 - lift * 0.18), 5 * (1 - lift * 0.18), 0.3 * (1 - lift * 0.3));
+  ctx.translate(h.x, h.y + (mo ? mo.hop : 0));
+  if (down) { h.anim = null; ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
+  if (mo) {                                          // 발밑을 축으로 기울이고 누른다
+    ctx.translate(h.dir * mo.lunge, 0);
+    ctx.rotate(mo.tilt + h.dir * mo.lean);
+    ctx.scale(mo.sx, mo.sy);
+  }
   if (flip) ctx.scale(-1, 1);
   if (im) {
     const ww = im.naturalWidth * HERO_K, hh = im.naturalHeight * HERO_K;
@@ -581,6 +650,7 @@ export function drawRpg(ctx, g, bgs) {
   }
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
+  drawDust(ctx, g, M.id, time);
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
     if (o.m) drawRabbit(ctx, o.m, time);

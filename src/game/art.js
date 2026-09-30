@@ -150,7 +150,7 @@ const fxCache = {};
 let fxWarm = 0;
 
 /* 결전이 시작될 때 미리 불러 둔다 — 안 그러면 기술이 처음 나올 때 한 번 빈다 */
-function fxWarmUp() {
+export function fxWarmUp() {
   if (fxWarm) return;
   fxWarm = 1;
   Object.keys(FX_ART).forEach((id) => fxSprite(id));
@@ -2942,7 +2942,7 @@ export function drawBanner(ctx, b) {
 /* 결전장에 서는 모습은 players/<id>/arena.webp — 시트의 '인게임 스타일' 그림이다.
    대기실 카드에 쓰는 큰 그림(players/<id>/portrait.webp)과는 따로다. */
 const charCache = {};
-function classArt(i) {
+export function classArt(i) {
   if (typeof Image === "undefined") return null;
   const id = (CLASSES[i] || {}).id;
   if (!id) return null;

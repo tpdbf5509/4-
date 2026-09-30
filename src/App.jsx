@@ -17,6 +17,9 @@ import { sendFeedback, loadDraft, saveDraft, FEEDBACK_MAX } from "./net/feedback
 import { Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
 import { TowerChar, charOf } from "./ui/chars.jsx";
 import { UPDATES } from "./game/updates.js";
+import { useTouch } from "./ui/touch.js";
+import RpgView from "./RpgView.jsx";
+import { RPG_CREW_MAX, RPG_SKILL, rpgStyle, heroRecord, loadSave } from "./game/rpg.js";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -31,20 +34,6 @@ let testOk = false;
 function testUnlocked() {
   if (testOk) return true;
   try { return localStorage.getItem("flg:test") === TEST_HASH; } catch { return false; }
-}
-
-/* 손가락으로 하는 기기인지 — 마우스가 없고 손끝처럼 뭉툭한 입력이면 참 */
-function useTouch() {
-  const [on, setOn] = useState(() =>
-    typeof matchMedia === "function" && matchMedia("(hover: none) and (pointer: coarse)").matches);
-  useEffect(() => {
-    if (typeof matchMedia !== "function") return;
-    const m = matchMedia("(hover: none) and (pointer: coarse)");
-    const f = (e) => setOn(e.matches);
-    m.addEventListener("change", f);
-    return () => m.removeEventListener("change", f);
-  }, []);
-  return on;
 }
 
 /* ── 홈 · 로비 · 게임을 오가는 바깥 껍데기 ─────────────────── */
@@ -72,8 +61,12 @@ export default function App() {
 
   const wavesRef = useRef(TOTAL_WAVES);
   const diffRef = useRef(DEFAULT_DIFF);
+  const modeRef = useRef("defense");      // 방을 만든 사람이 고른 놀이 — "defense" · "rpg"
+  const crewMax = () => (modeRef.current === "rpg" ? RPG_CREW_MAX : CREW_MAX);
   const publishLobby = useCallback(() => {
-    const next = { hostId: me, seats: seatsRef.current, waves: wavesRef.current, diff: diffRef.current };
+    const next = {
+      hostId: me, seats: seatsRef.current, waves: wavesRef.current, diff: diffRef.current, mode: modeRef.current,
+    };
     setLobby(next);
     roomRef.current?.send("lobby", next);
   }, [me]);
@@ -103,7 +96,7 @@ export default function App() {
     const seats = seatsRef.current.map((s) => (s && present.has(s.id) ? s : null));
     peersRef.current.forEach((peer) => {
       if (seats.some((s) => s && s.id === peer.id)) return;
-      if (seats.filter(Boolean).length >= CREW_MAX) return;   // 정원이 차면 구경만
+      if (seats.filter(Boolean).length >= crewMax()) return;   // 정원이 차면 구경만
       const free = seats.findIndex((s) => !s);
       if (free >= 0) seats[free] = { id: peer.id, name: peer.name || "수비대원" };
     });
@@ -111,11 +104,12 @@ export default function App() {
     publishLobby();
   }, [publishLobby]);
 
-  const connect = useCallback((roomCode, asHost) => {
+  const connect = useCallback((roomCode, asHost, mode) => {
     if (roomCode === "TEST" && !testUnlocked()) return;
     setError("");
     setConnecting(true);
     hostRef.current = asHost;
+    modeRef.current = mode === "rpg" ? "rpg" : "defense";
     const nick = (name || "수비대원").slice(0, 8);
     localStorage.setItem("flg:name", nick);
     // 테스트 서버는 누구나 같은 코드로 들어온다 — 방장이 이미 있으면 손님으로 붙고,
@@ -124,7 +118,7 @@ export default function App() {
     let gotLobby = false;
     const becomeHost = () => {
       hostRef.current = true;
-      seatsRef.current = [{ id: me, name: nick }, null, null, null];
+      seatsRef.current = [{ id: me, name: nick }, ...new Array(SEATS - 1).fill(null)];
       if (peersRef.current.some((p) => p.id === me)) reseat();
       else publishLobby();
     };
@@ -140,7 +134,7 @@ export default function App() {
         if (st === "SUBSCRIBED") {
           setConnecting(false);
           if (hostRef.current) {
-            seatsRef.current = [{ id: me, name: nick }, null, null, null];
+            seatsRef.current = [{ id: me, name: nick }, ...new Array(SEATS - 1).fill(null)];
             publishLobby();
           } else {
             room.send("hello", { name: nick });
@@ -170,7 +164,10 @@ export default function App() {
         hostRef.current = false;
         room.send("hello", { name: nick });
       }
-      if (!hostRef.current) setLobby(d);
+      if (!hostRef.current) {
+        if (d && d.mode) modeRef.current = d.mode;
+        setLobby(d);
+      }
     });
     room.on("pick", (d, from) => {
       if (!hostRef.current) return;
@@ -178,7 +175,7 @@ export default function App() {
       if (d.cls < 0 || d.cls >= SEATS) return;
       if (seats[d.cls]) return;                               // 이미 누가 골랐다
       const cur = seats.findIndex((s) => s && s.id === from);
-      if (cur < 0 && seats.filter(Boolean).length >= CREW_MAX) return;   // 정원이 찼다
+      if (cur < 0 && seats.filter(Boolean).length >= crewMax()) return;   // 정원이 찼다
       const who = cur >= 0 ? seats[cur] : { id: from, name: d.name || "수비대원" };
       if (cur >= 0) seats[cur] = null;
       seats[d.cls] = who;
@@ -222,6 +219,7 @@ export default function App() {
     roomRef.current?.leave();
     roomRef.current = null;
     hostRef.current = false;
+    modeRef.current = "defense";
     seatsRef.current = new Array(SEATS).fill(null);
     setLobby(null);
     setScreen("home");
@@ -234,7 +232,7 @@ export default function App() {
     if (hostRef.current) {
       const seats = seatsRef.current.slice();
       const cur = seats.findIndex((s) => s && s.id === me);
-      if (cur < 0 && seats.filter(Boolean).length >= CREW_MAX) return;
+      if (cur < 0 && seats.filter(Boolean).length >= crewMax()) return;
       const who = cur >= 0 ? seats[cur] : { id: me, name: name || "수비대원" };
       if (cur >= 0) seats[cur] = null;
       seats[cls] = who;
@@ -294,6 +292,7 @@ export default function App() {
         needPw={code === "TEST" && !testUnlocked()}
         testPw={testPw} setTestPw={(v) => { setTestPw(v); setError(""); }}
         onCreate={() => connect(makeCode(), true)}
+        onCreateRpg={() => connect(makeCode(), true, "rpg")}
         onJoin={() => {
           if (code === "TEST") {
             if (testUnlocked()) return connect("TEST", false);
@@ -317,8 +316,22 @@ export default function App() {
       <Lobby
         code={code} lobby={lobby} me={me} mySeat={mySeat}
         error={error} connecting={connecting}
+        mode={lobby?.mode || "defense"}
         onPick={pick} onStart={startGame} onLeave={leave} onWaves={setWaves} onDiff={setDiff}
         onStartBoss={(kind) => startGame(kind)}
+      />
+    );
+  }
+
+  if (lobby?.mode === "rpg") {
+    return (
+      <RpgView
+        room={roomRef.current}
+        isHost={isHost}
+        seats={lobby?.seats || []}
+        diff={lobby?.diff ?? DEFAULT_DIFF}
+        mySeat={mySeat}
+        onBack={backToLobby}
       />
     );
   }
@@ -339,7 +352,17 @@ export default function App() {
 }
 
 /* ── 홈 ─────────────────────────────────────────────────── */
-function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, onCreate, onJoin }) {
+function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, onCreate, onCreateRpg, onJoin }) {
+  // 이 기기에 쌓인 영웅 가운데 가장 높은 레벨 — RPG 단추 아래에 한 줄로 보여 준다
+  const [top] = useState(() => {
+    const s = loadSave();
+    let best = null;
+    CLASSES.forEach((c) => {
+      const r = heroRecord(c.id, s);
+      if (r.lv > 1 && (!best || r.lv > best.lv)) best = { name: c.name, lv: r.lv };
+    });
+    return best;
+  });
   return (
     <div className="page center-page">
       <div className="home">
@@ -358,6 +381,14 @@ function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, 
         </label>
 
         <button className="btn-main wide" onClick={onCreate}>새 방 만들기</button>
+
+        <div className="rpg-entry">
+          <button className="btn-ghost tall rpg-entry-btn" onClick={onCreateRpg}>RPG 모드로 방 만들기</button>
+          <p className="rpg-entry-note">
+            영웅이 직접 들판에 나가 괴물을 잡고 성장합니다. 최대 {RPG_CREW_MAX}명.
+            {top ? ` 내 영웅 — ${top.name} Lv.${top.lv}` : " 번 경험치는 이 기기에 남아 다음 판에도 이어집니다."}
+          </p>
+        </div>
 
         <div className="or"><span>또는 코드로 입장</span></div>
 
@@ -420,13 +451,24 @@ function UpdateNotes({ seenId, onClose }) {
 }
 
 /* ── 로비 ───────────────────────────────────────────────── */
-function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, onDiff, onStart, onStartBoss, onLeave }) {
+// RPG 모드에서는 골드가 없으니 난이도 설명을 따로 둔다
+const RPG_DIFF_NOTE = {
+  easy: "괴물이 약하고 적게 나옵니다",
+  normal: "기준이 되는 난이도입니다",
+  hard: "괴물이 단단하고 더 많이 몰려옵니다",
+  hell: "괴물이 훨씬 단단하고 빠릅니다",
+};
+
+function Lobby({ code, lobby, me, mySeat, error, connecting, mode, onPick, onWaves, onDiff, onStart, onStartBoss, onLeave }) {
   const touch = useTouch();
   const [copied, setCopied] = useState("");
   const link = `${location.origin}${location.pathname}?room=${code}`;
   const seats = lobby?.seats || new Array(SEATS).fill(null);
   const filled = seats.filter(Boolean).length;
-  const full = filled >= CREW_MAX;
+  const rpg = mode === "rpg";
+  const cap = rpg ? RPG_CREW_MAX : CREW_MAX;
+  const full = filled >= cap;
+  const save = useMemo(() => (rpg ? loadSave() : null), [rpg]);
   const waves = lobby?.waves || TOTAL_WAVES;
   const diff = lobby?.diff ?? DEFAULT_DIFF;
 
@@ -458,10 +500,13 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
       <div className="lobby">
         <div className="lobby-head">
           <div>
-            <h1>대기실</h1>
+            <h1>{rpg ? "RPG 대기실" : "대기실"}</h1>
             <p className="tag">
-              병과 열하나 가운데 넷을 고릅니다. 맡은 병과의 탑만 지을 수 있으니 공격·제어·지원을 섞어 보세요.
-              방장이 시작하면 모두의 화면에서 함께 시작합니다.
+              {rpg
+                ? <>병과 하나를 골라 영웅으로 나갑니다. 최대 {RPG_CREW_MAX}명이 함께 사냥합니다.
+                  레벨이 오르면 카드를 고르고, 판이 끝나면 번 경험치가 영웅 레벨로 남습니다.</>
+                : <>병과 열하나 가운데 넷을 고릅니다. 맡은 병과의 탑만 지을 수 있으니 공격·제어·지원을 섞어 보세요.
+                  방장이 시작하면 모두의 화면에서 함께 시작합니다.</>}
             </p>
           </div>
           <div className="lobby-actions">
@@ -493,7 +538,7 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
         {connecting && <p className="muted">방에 연결하는 중…</p>}
         {error && <p className="err">{error}</p>}
 
-        <div className="rounds">
+        {!rpg && <div className="rounds">
           <span className="rounds-label">라운드</span>
           <div className="rounds-btns">
             {WAVE_OPTIONS.map((n) => (
@@ -507,7 +552,7 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
             ))}
           </div>
           <span className="rounds-note">길게 잡아도 적이 세지는 속도는 그만큼 완만해집니다</span>
-        </div>
+        </div>}
 
         <div className="rounds">
           <span className="rounds-label">난이도</span>
@@ -522,7 +567,10 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
               </button>
             ))}
           </div>
-          <span className="rounds-note">{DIFFS[diff].note}</span>
+          <span className="rounds-note">
+            {rpg ? RPG_DIFF_NOTE[DIFFS[diff].id] : DIFFS[diff].note}
+            {rpg && save?.best?.[DIFFS[diff].id] > 0 && ` · 내 최고 기록 ${save.best[DIFFS[diff].id]}라운드`}
+          </span>
         </div>
 
         <div className="seats">
@@ -539,14 +587,18 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
                 disabled={!!who || locked}
               >
                 <span className={`seat-badge ${P[i].pale ? "pale" : ""}`}><ClassIcon i={i} /></span>
-                <span className="seat-name">{cls.name} <em>{cls.cost}골드</em></span>
+                <span className="seat-name">
+                  {cls.name} <em>{rpg ? `내 영웅 Lv.${heroRecord(cls.id, save).lv}` : `${cls.cost}골드`}</em>
+                </span>
                 <span className="seat-role">{cls.role}</span>
-                <span className="seat-note">{cls.note}</span>
+                <span className="seat-note">{rpg ? rpgStyle(i) : cls.note}</span>
                 {charOf(cls.id) && (
                   <span className="seat-char"><TowerChar id={cls.id} /></span>
                 )}
                 <span className="seat-skill">
-                  <b>{SKILLS[i].name}</b> {SKILLS[i].note}
+                  {rpg
+                    ? <><b>{RPG_SKILL[cls.id].name}</b> {RPG_SKILL[cls.id].note}</>
+                    : <><b>{SKILLS[i].name}</b> {SKILLS[i].note}</>}
                 </span>
                 <span className="seat-who">
                   {who ? (
@@ -568,10 +620,15 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
               <TowerChar id={CLASSES[mySeat].id} className="foot-char" />
             )}
             <span className="muted">
-              {filled}/{CREW_MAX}명 참가 중 · 내 병과 {mySeat >= 0 ? CLASSES[mySeat].name : "없음"}
+              {filled}/{cap}명 참가 중 · 내 병과 {mySeat >= 0 ? CLASSES[mySeat].name : "없음"}
             </span>
           </span>
           <span className="start-row">
+            {rpg ? (
+              <button className="btn-main" onClick={() => onStart(false)} disabled={filled === 0}>
+                사냥 시작
+              </button>
+            ) : <>
             <button className="btn-ghost btn-test" onClick={() => onStartBoss("boss")} disabled={filled === 0}
               title="오우거 지휘관과의 1차 결전으로 곧장 들어갑니다">
               1차 보스전
@@ -583,11 +640,15 @@ function Lobby({ code, lobby, me, mySeat, error, connecting, onPick, onWaves, on
             <button className="btn-main" onClick={() => onStart(false)} disabled={filled === 0}>
               방어 시작
             </button>
+            </>}
           </span>
         </div>
 
         <p className="keyhint">
-          {touch
+          {rpg ? (touch
+            ? <>조작 — 화살표로 <kbd>이동</kbd> · 공격은 저절로 · <kbd>스킬</kbd> 버튼 · 카드는 눌러서 고르기</>
+            : <>조작 — 이동 <kbd>{KEY_HINT.move}</kbd> · 공격은 저절로 · 스킬 <kbd>Shift</kbd> · 카드 <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></>)
+          : touch
             ? <>조작 — 판 아래 화살표로 <kbd>이동</kbd> 또는 돌판을 <kbd>누르기</kbd> · <kbd>건설</kbd> · <kbd>팔기</kbd> · <kbd>스킬</kbd> 버튼</>
             : <>조작 — 이동 <kbd>{KEY_HINT.move}</kbd> 또는 돌판 <kbd>클릭</kbd> · 건설 <kbd>{KEY_HINT.build}</kbd> · 팔기 <kbd>{KEY_HINT.sell}</kbd> · 스킬 <kbd>{KEY_HINT.skill}</kbd></>}
         </p>

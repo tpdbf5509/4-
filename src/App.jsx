@@ -904,7 +904,7 @@ function CostBox({ cost, seat }) {
   const capFull = cost.lv === 3 && !cost.capOff && cost.capUsed >= cost.cap;       // 4단계로 못 올린다
   return (
     <div className="cost-box" style={{ "--pcl": P[seat].light }}>
-      <span className="cost-head">건설 비용{note && <em>{note}</em>}<em className="cost-cap">{cost.capOff ? "4단계 탑 한도 꺼짐" : `4단계 탑 ${cost.capUsed}/${cost.cap}`}</em></span>
+      <span className="cost-head">건설 비용{note && <em>{note}</em>}<em className="cost-cap">{cost.capOff ? "4단계 한도 꺼짐" : `4단계 탑 ${cost.capUsed}/${cost.cap}`}</em></span>
       <span className="cost-rows">
         {rows.map((r) => (
           <span key={r.key}

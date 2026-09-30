@@ -787,7 +787,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         </div>
 
         <p className="keyhint rpg-keys">
-          방 코드 <kbd>{code}</kbd> ·{" "}
+          <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_CREW_MAX}명 ·{" "}
           {touch
             ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 곁에서 대화 · 레벨 칸의 스탯 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
             : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 곁에서 <kbd>E</kbd> 대화 · 스탯 <kbd>C</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
@@ -812,7 +812,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           전사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
           고른 원소는 평타에 약하게, 큰 기술에 세게 실립니다.
           이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트와 함께 이 기기에 남아, 다음에 들어와도 이어집니다.
-          방을 만든 사람이 나가면 그 방은 닫힙니다.
+          방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_CREW_MAX}명까지이고, 가득 차면 다음 서버로 넘어갑니다.
+          판정을 맡은 사람이 나가면 남은 사람이 이어받습니다. 이때 모두 광장에서 다시 서고 몹은 새로 나옵니다(레벨 · 코인 · 스탯은 그대로입니다).
         </details>
       </div>
     </div>

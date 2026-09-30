@@ -115,6 +115,7 @@ function makeHero(pi, map = "plaza") {
     hp: 0, max: 0, down: 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, loaded: 0,
     cd: 0.5, sk: 0, swing: 0, kills: 0, flash: 0, numAcc: 0, numT: 0, calm: 0, gateCd: 0,
     buff: 0, buffAmt: 0, guard: 0,
+    auto: 1, fire: 0, fireQ: 0,       // 자동 평타 · 스페이스를 누르고 있는지 · 눌렀던 한 번을 잠깐 기억
   };
   refreshHp(h, true);
   return h;
@@ -155,6 +156,7 @@ export function rpgJoin(g, pi, d) {
   h.coins = Math.max(0, Math.floor(Number(d.coins) || 0));
   const q = d.quest || {};
   h.quest = { on: !!q.on, n: clamp(Math.floor(Number(q.n) || 0), 0, QUEST.need - 1) };
+  if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
   refreshHp(h, true);
   h.loaded = 1;
 }
@@ -206,6 +208,25 @@ function keepIn(o, M, rad) {
       o.y = b.y + (dy / d) * min * RPG.squash;
     }
   });
+}
+
+/* 자동 평타 켜고 끄기 */
+export function rpgAuto(g, pi, on) {
+  const h = g.heroes[pi];
+  if (h) h.auto = on ? 1 : 0;
+}
+
+/* 스페이스 평타 — 누르고 있는 동안 쿨이 돌 때마다 친다. 짧게 눌렀다 떼도 한 번은 나간다. */
+export function rpgFire(g, pi, on) {
+  const h = g.heroes[pi];
+  if (!h) return;
+  h.fire = on ? 1 : 0;
+  if (!on || h.down > 0) return;
+  h.fireQ = 0.35;
+  if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, "광장에서는 싸울 수 없다", "#d9c9a6");
+  if (h.cd <= 0 && !nearMobs(g, h.map, h.x, h.y, heroRange(h), 1).length) {
+    say(g, h.map, h.x, h.y - 90, "사거리 안에 토끼가 없다", "#d9c9a6");
+  }
 }
 
 export function npcNear(h) {
@@ -572,8 +593,10 @@ function stepHeroes(g, dt) {
 
     h.sk = Math.max(0, h.sk - dt);
     h.cd = Math.max(0, h.cd - dt);
+    h.fireQ = Math.max(0, h.fireQ - dt);
     if (h.cd > 0 || MAPS[h.map].safe) return;
-    if (heroAttack(g, h)) { h.cd = heroCd(h); h.swing = 0.25; }
+    if (!h.auto && !h.fire && h.fireQ <= 0) return;
+    if (heroAttack(g, h)) { h.cd = heroCd(h); h.swing = 0.25; h.fireQ = 0; }
   });
 }
 
@@ -685,7 +708,7 @@ export function rpgPack(g) {
     h: g.heroes.map((h) => (h
       ? [Math.round(h.x), Math.round(h.y), h.dir, Math.round(h.hp), h.max, r1(h.down), h.lv, h.xp,
         r1(h.sk), h.swing > 0 ? 1 : 0, mapIdx(h.map), h.coins, h.quest.on ? 1 : 0, h.quest.n, h.kills,
-        h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0]
+        h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0]
       : 0)),
     m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
@@ -713,7 +736,7 @@ export function rpgApply(g, s) {
     if (row[9]) h.swing = Math.max(h.swing, 0.2);
     h.coins = row[11]; h.quest = { on: !!row[12], n: row[13] }; h.kills = row[14];
     if (row[15]) h.flash = 0.15;
-    h.loaded = row[16]; h.buff = row[17] ? 0.3 : 0; h.guard = row[18] ? 0.3 : 0;
+    h.loaded = row[16]; h.buff = row[17] ? 0.3 : 0; h.guard = row[18] ? 0.3 : 0; h.auto = row[19] ? 1 : 0;
   });
   const seen = new Set();
   s.m.forEach(([id, mi, x, y, pct, flags, flip, moving]) => {

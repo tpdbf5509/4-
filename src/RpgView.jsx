@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { W, H, P, CLASSES, SEATS, MOVE_KEYS } from "./game/world.js";
 import {
-  RPG, RPG_CREW_MAX, RPG_SKILL, MAPS, QUEST, makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk,
+  RPG, RPG_CREW_MAX, RPG_SKILL, MAPS, QUEST, makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, heroSave, writeHero, npcNear, rpgStyle,
 } from "./game/rpg.js";
 import { paintMap, drawRpg } from "./game/rpgArt.js";
@@ -12,7 +12,13 @@ import { useTouch } from "./ui/touch.js";
 
 const SNAP_HZ = 12;
 const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyQ"];
-const TALK_KEYS = ["Space", "Enter", "KeyE"];
+const TALK_KEYS = ["Enter", "KeyE"];
+const FIRE_KEYS = ["Space"];
+const AUTO_KEY = "flg:rpgAuto";
+// 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
+function loadAuto() {
+  try { return localStorage.getItem(AUTO_KEY) !== "0"; } catch { return true; }
+}
 
 /* ── 병과 고르기 — 고르면 곧바로 광장에 선다 ─────────────────── */
 export function RpgPick({ code, lobby, me, error, connecting, onPick, onLeave }) {
@@ -85,7 +91,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   const seatFlags = useMemo(() => idx.map((i) => !!seats[i]), [idx, seats]);
   const names = useMemo(() => idx.map((i) => seats[i]?.name || ""), [idx, seats]);
   const myCls = CLASSES[mySeat].id;
-  const [start] = useState(() => heroSave(myCls));   // 이 기기에 남아 있던 내 기록
+  const [auto, setAuto] = useState(loadAuto);        // 자동 평타
+  const [start] = useState(() => ({ ...heroSave(myCls), auto: loadAuto() }));   // 이 기기에 남아 있던 내 기록
 
   const G = useRef(null);
   if (!G.current) {
@@ -112,6 +119,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   const [dropped, setDropped] = useState(false);
   const [toast, setToast] = useState(null);         // 맵을 옮기면 잠깐 이름을 띄운다
   const [talk, setTalk] = useState(null);           // 사냥꾼의 말
+  const [menu, setMenu] = useState(false);          // 레벨 칸의 ☰ 메뉴
 
   const toggleMute = useCallback(() => {
     sfx.unlock();
@@ -139,10 +147,29 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     if (isHost) {
       if (kind === "skill") rpgSkill(g, mySeat);
       else if (kind === "talk") rpgTalk(g, mySeat);
+      else if (kind === "fire") rpgFire(g, mySeat, dir);
+      else if (kind === "auto") rpgAuto(g, mySeat, dir);
     } else {
       room?.send("input", { cls: mySeat, kind, dir });
     }
   }, [isHost, mySeat, room]);
+
+  const autoRef = useRef(auto);
+  const toggleAuto = useCallback(() => {
+    const next = !autoRef.current;
+    autoRef.current = next;
+    setAuto(next);
+    try { localStorage.setItem(AUTO_KEY, next ? "1" : "0"); } catch { /* 저장이 막혀 있으면 이번만 */ }
+    act("auto", next);
+  }, [act]);
+
+  // 메뉴는 Esc 나 바깥을 누르면 닫힌다
+  useEffect(() => {
+    if (!menu) return;
+    const onKey = (e) => { if (e.key === "Escape") setMenu(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menu]);
 
   useEffect(() => {
     if (!talk) return;
@@ -178,25 +205,28 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       const dir = MOVE_KEYS[e.code];
       const isSkill = SKILL_KEYS.includes(e.code);
       const isTalk = TALK_KEYS.includes(e.code);
-      if (!dir && !isSkill && !isTalk) return;
+      const isFire = FIRE_KEYS.includes(e.code);
+      if (!dir && !isSkill && !isTalk && !isFire) return;
       e.preventDefault();
       if (e.repeat) return;
       if (dir) pressDir(dir);
       else if (isSkill) act("skill");
-      else if (npcNear(G.current.heroes[mySeat])) act("talk");     // 사냥꾼 곁이면 말을 건다
-      else act("skill");
+      else if (isFire) act("fire", true);          // 스페이스 — 누르고 있는 동안 평타
+      else act("talk");
     }
     function onUp(e) {
       const dir = MOVE_KEYS[e.code];
       if (dir) releaseDir(dir);
+      if (FIRE_KEYS.includes(e.code)) act("fire", false);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
-    window.addEventListener("blur", clearDirs);
+    const onBlur = () => { clearDirs(); act("fire", false); };
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onUp);
-      window.removeEventListener("blur", clearDirs);
+      window.removeEventListener("blur", onBlur);
     };
   }, [act, mySeat, pressDir, releaseDir, clearDirs]);
 
@@ -211,6 +241,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         if (d.kind === "hold") rpgHold(g, d.cls, d.dir);
         else if (d.kind === "skill") rpgSkill(g, d.cls);
         else if (d.kind === "talk") rpgTalk(g, d.cls);
+        else if (d.kind === "fire") rpgFire(g, d.cls, !!d.dir);
+        else if (d.kind === "auto") rpgAuto(g, d.cls, !!d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
@@ -223,7 +255,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       const watch = setInterval(() => setDropped(Date.now() - last > 6000), 2000);
       offs.push(() => clearInterval(watch));
       // 내 기록을 방장에게 알린다 — 실렸다는 게 보일 때까지 다시 보낸다
-      const tell = () => room.send("rjoin", { cls: mySeat, data: start });
+      const tell = () => room.send("rjoin", { cls: mySeat, data: { ...start, auto: autoRef.current } });
       tell();
       const again = setInterval(() => {
         const h = G.current.heroes[mySeat];
@@ -325,6 +357,10 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           {me && (
             <div className="rpg-lv" style={{ "--pc": P[mySeat].key, "--pcl": P[mySeat].light }}>
               <span className="rpg-lv-badge"><em>Lv</em>{me.lv}</span>
+              <button type="button" className={`rpg-lv-menu ${menu ? "on" : ""}`} aria-label="메뉴" aria-haspopup="menu"
+                aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
+                <span /><span /><span />
+              </button>
               <span className="rpg-lv-body">
                 <span className="rpg-lv-name"><b>{names[mySeat] || CLASSES[mySeat].name}</b> {CLASSES[mySeat].name}</span>
                 <span className="rpg-lv-row">
@@ -346,7 +382,22 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
               </span>
             </div>
           )}
-          {me && (me.quest.on || inField) && (
+          {menu && (
+            <>
+              <div className="rpg-menu-back" onClick={() => setMenu(false)} />
+              <div className="rpg-menu" role="menu">
+                <span className="rpg-menu-head">설정</span>
+                <button type="button" role="menuitemcheckbox" aria-checked={auto} className="rpg-menu-row" onClick={toggleAuto}>
+                  <span className="rpg-menu-text">
+                    <b>자동 평타</b>
+                    <em>{auto ? "사거리 안의 토끼를 저절로 칩니다" : touch ? "공격 버튼을 누르고 있는 동안 칩니다" : "스페이스를 누르고 있는 동안 칩니다"}</em>
+                  </span>
+                  <span className={`rpg-switch ${auto ? "on" : ""}`}><span /></span>
+                </button>
+              </div>
+            </>
+          )}
+          {me && !menu && (me.quest.on || inField) && (
             <div className="rpg-quest">
               {me.quest.on
                 ? <><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</>
@@ -371,7 +422,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
               </span>
               {me.near && (
                 <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
-                  {me.quest.on ? "남은 수 묻기" : "퀘스트 받기"}{!touch && <kbd>Space</kbd>}
+                  {me.quest.on ? "남은 수 묻기" : "퀘스트 받기"}{!touch && <kbd>E</kbd>}
                 </button>
               )}
             </div>
@@ -407,9 +458,20 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
               <span className="pad-nub" />
             </div>
             <div className="pad-act">
-              <button className={`pbtn hit ${me && me.sk <= 0 ? "ready" : ""}`}
+              <button className={`pbtn ${me && me.sk <= 0 ? "ready" : ""} skill`}
                 onPointerDown={(e) => { e.preventDefault(); act("skill"); }}>
                 스킬
+              </button>
+              <button className="pbtn hit"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 안 되면 그냥 둔다 */ }
+                  act("fire", true);
+                }}
+                onPointerUp={(e) => { e.preventDefault(); act("fire", false); }}
+                onPointerCancel={() => act("fire", false)}
+                onLostPointerCapture={() => act("fire", false)}>
+                공격
               </button>
             </div>
           </div>
@@ -428,13 +490,14 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         <p className="keyhint rpg-keys">
           방 코드 <kbd>{code}</kbd> ·{" "}
           {touch
-            ? <>화살표로 이동 · 공격은 저절로 · <kbd>스킬</kbd> 버튼 · 사냥꾼 곁에서 대화</>
-            : <>이동 <kbd>W A S D</kbd> · 공격은 저절로 · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 곁에서 <kbd>Space</kbd> 대화</>}
+            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 곁에서 대화 · ☰ 에서 자동 평타 켜고 끄기</>
+            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 곁에서 <kbd>E</kbd> 대화 · ☰ 에서 자동 평타 켜고 끄기</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
           광장 오른쪽의 사냥문으로 들어가면 사냥터입니다. 사냥터 왼쪽 끝의 문으로 나오면 광장입니다.
-          사거리 안에 들어온 토끼는 저절로 칩니다. 토끼는 늘 {MAPS.field.rabbits}마리 이하로 돌아다니고, 한 마리가 잡히면 한 마리가 새로 나옵니다.
+          자동 평타가 켜져 있으면 사거리 안의 토끼를 저절로 칩니다. 레벨 칸의 ☰ 메뉴에서 끌 수 있고,
+          끄면 스페이스(휴대폰은 공격 버튼)를 누르고 있는 동안 칩니다. 켜져 있어도 스페이스로 칠 수 있습니다. 토끼는 늘 {MAPS.field.rabbits}마리 이하로 돌아다니고, 한 마리가 잡히면 한 마리가 새로 나옵니다.
           토끼 한 마리는 경험치 1과 1코인입니다. 레벨을 올리려면 처음엔 경험치 30, 그다음부터는 30씩 더 필요합니다.
           레벨이 오르면 공격력과 체력이 오르고 체력이 가득 찹니다.
           사냥꾼에게 퀘스트를 받아 토끼 {QUEST.need}마리를 잡으면 경험치 {QUEST.xp}과 {QUEST.coin}코인을 더 받습니다. 다시 받을 수 있습니다.

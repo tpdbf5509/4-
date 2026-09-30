@@ -965,6 +965,44 @@ kbd {
 .rpg-lv-sk { font-size: 10.5px; color: #a8987a; }
 .rpg-lv-sk.ready { color: #ffe08a; }
 
+/* 레벨 칸의 ☰ — 누르면 설정이 펼쳐진다 */
+.rpg-lv-menu {
+  position: absolute; top: 6px; right: 6px; width: 26px; height: 22px; padding: 0; cursor: pointer;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px;
+  border-radius: 6px; border: 1px solid rgba(160, 130, 90, 0.5); background: rgba(20, 14, 8, 0.5);
+  pointer-events: auto;
+}
+.rpg-lv-menu span { display: block; width: 12px; height: 1.5px; border-radius: 1px; background: #e8d7ae; }
+.rpg-lv-menu:hover, .rpg-lv-menu.on { background: rgba(122, 90, 46, 0.7); border-color: #d6b26a; }
+.rpg-lv-name { padding-right: 30px; }
+.rpg-menu-back { position: absolute; inset: 0; z-index: 4; }
+.rpg-menu {
+  position: absolute; left: 12px; top: 124px; z-index: 5; width: min(300px, calc(100% - 24px));
+  padding: 8px; border-radius: 11px;
+  background: linear-gradient(rgba(58, 42, 25, 0.97), rgba(38, 28, 17, 0.97));
+  border: 1px solid #8a6a3f; box-shadow: 0 4px 0 #22180e, 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+.rpg-menu-head { display: block; padding: 2px 6px 6px; font-size: 10.5px; color: #b09a73; }
+.rpg-menu-row {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px; border-radius: 8px; cursor: pointer; text-align: left;
+  background: rgba(20, 14, 8, 0.4); border: 1px solid rgba(107, 79, 44, 0.6); color: inherit; font-family: inherit;
+}
+.rpg-menu-row:hover { border-color: #8a6a3f; }
+.rpg-menu-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rpg-menu-text b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 14px; color: #f6e5bb; }
+.rpg-menu-text em { font-style: normal; font-size: 11px; color: #a8987a; letter-spacing: -0.02em; }
+.rpg-switch {
+  flex: none; position: relative; width: 38px; height: 22px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(160, 130, 90, 0.5); transition: background 0.15s;
+}
+.rpg-switch span {
+  position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+  background: #a8987a; transition: transform 0.15s, background 0.15s;
+}
+.rpg-switch.on { background: rgba(122, 90, 46, 0.8); border-color: #d6b26a; }
+.rpg-switch.on span { transform: translateX(16px); background: #ffe08a; }
+
 .rpg-quest {
   position: absolute; left: 12px; top: 128px; pointer-events: none;
   padding: 5px 11px; border-radius: 999px; font-size: 11.5px; color: #e8dcc0; letter-spacing: -0.02em;
@@ -1010,6 +1048,7 @@ kbd {
 .rpg-mate-hp { display: block; height: 4px; border-radius: 2px; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
 .rpg-mate-hp span { display: block; height: 100%; background: #8fd07f; }
 .rpg-keys { margin-top: 10px; }
+.pbtn.skill.ready { border-color: #d6b26a; color: #fff3d0; }
 .pbtn.hit.ready { color: #fff3d0; box-shadow: 0 4px 0 #22180e, 0 0 0 2px rgba(255, 224, 138, 0.45); }
 .drop-note .btn-ghost { margin-left: 8px; }
 
@@ -1026,6 +1065,11 @@ kbd {
   .rpg-lv-coin { font-size: 10.5px; }
   .rpg-lv-coin svg { width: 11px; height: 11px; }
   .rpg-quest { left: 6px; top: 62px; padding: 2px 8px; font-size: 9.5px; }
+  .rpg-lv { padding-right: 32px; }
+  .rpg-lv-menu { top: 50%; right: 5px; transform: translateY(-50%); width: 22px; height: 20px; }
+  .rpg-menu { left: 6px; top: 62px; width: min(260px, calc(100% - 12px)); padding: 6px; }
+  .rpg-menu-text b { font-size: 12.5px; }
+  .rpg-menu-text em { font-size: 10px; }
   .rpg-toast { font-size: 22px; }
   .rpg-talk { bottom: 6px; padding: 5px 8px; gap: 1px 8px; border-radius: 9px; width: min(420px, calc(100% - 12px)); }
   .rpg-talk-who { font-size: 10.5px; }

@@ -285,7 +285,7 @@ export function nextSlot(from, act) {
 /* ── 규칙 ───────────────────────────────────────────────── */
 export const TOWERS = [
   /* 공격 */
-  { id: "archer", role: "공격", name: "궁수탑", cost: 30, up4: 230, range: 158, dmg: 15, interval: 0.95,
+  { id: "archer", role: "공격", name: "궁수탑", cost: 30, up4: 260, range: 158, dmg: 15, interval: 0.95,
     note: "단일 대상 · 사거리가 가장 길다" },
   { id: "sniper", role: "공격", name: "저격탑", cost: 70, up4: 300, range: 165, dmg: 58, interval: 2.6, pickBig: true,
     note: "가장 단단한 적 하나를 크게 때린다" },

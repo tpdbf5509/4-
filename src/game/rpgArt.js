@@ -2,8 +2,9 @@
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
 import { W, H, P, CLASSES } from "./world.js";
 import {
-  roundRect, shadow, mulberry32, drawTree, drawRock, drawBush,
+  roundRect, shadow, mulberry32, drawRock, drawBush,
   drawFx, drawBanner, classArt, fxWarmUp, FX_ART, mapImg, mapImgFailed,
+  sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
 import { RPG, MAPS, QUEST, dist, heroRange } from "./rpg.js";
 
@@ -16,26 +17,19 @@ const RPG_ART = "/assets/game/rpg";
 export const rpgFile = (name) => `${RPG_ART}/${name}.webp`;
 // 논리 좌표 기준 크기(w, h)와 기준점(ox, oy = 발밑 · 바닥 가운데)
 export const RFRAME = {
-  fountain: { w: 260, h: 250, ox: 130, oy: 150 },     // 기준점 = 분수 가운데(900, 620)
+  fountain: { w: 220, h: 185, ox: 110, oy: 95 },      // 기준점 = 분수 가운데(900, 620)
   lamp: { w: 64, h: 120, ox: 32, oy: 108 },
   bench: { w: 96, h: 44, ox: 48, oy: 30 },
-  gate: { w: 160, h: 210, ox: 80, oy: 150 },          // 기준점 = 문이 서는 자리
+  gate: { w: 130, h: 190, ox: 65, oy: 138 },          // 기준점 = 문이 서는 자리
   hunter: { w: 84, h: 100, ox: 42, oy: 80 },
   rabbit: { w: 64, h: 56, ox: 32, oy: 46 },
-  tree: { w: 100, h: 76, ox: 50, oy: 58 },
 };
-// 사냥터 나무 그림 — 소나무 셋, 둥근 나무 셋. 크기는 코드에서 배율로 맞춘다.
-export const TREE_VARIANTS = [
-  { pine: true, seed: 11 }, { pine: true, seed: 47 }, { pine: true, seed: 83 },
-  { pine: false, seed: 19 }, { pine: false, seed: 52 }, { pine: false, seed: 90 },
-];
-const treeVariant = (t) => (t.pine ? 0 : 3) + (Math.floor(t.seed) % 3);
 let rpgWarm = 0;
 export function warmRpgArt() {
   if (rpgWarm) return;
   rpgWarm = 1;
-  ["plaza", "field", "fountain", "lamp", "bench", "gate", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
-  TREE_VARIANTS.forEach((_, i) => mapImg(rpgFile(`tree-${i}`)));
+  ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
+  sprite("rpg/fountain"); sprite("rpg/gate");
 }
 
 /* ── 바탕 — 맵마다 한 번만 그려 둔다 ───────────────────────── */
@@ -173,14 +167,7 @@ const PLAZA_PROPS = [
   { k: "bench", x: 700, y: 900 }, { k: "bench", x: 1100, y: 900 }, { k: "bench", x: 700, y: 360 }, { k: "bench", x: 1100, y: 360 },
 ];
 
-export const drawTreeBody = drawTree;     // 그림 파일을 뽑을 때 쓴다
-
-function drawFieldTree(ctx, t) {
-  const tim = mapImg(rpgFile(`tree-${treeVariant(t)}`));
-  if (!tim) return drawTree(ctx, t.x, t.y, t.s, t.pine, t.seed);
-  const F = RFRAME.tree;
-  ctx.drawImage(tim, t.x - F.ox * t.s, t.y - F.oy * t.s, F.w * t.s, F.h * t.s);
-}
+function drawFieldTree(ctx, t) { drawTreeArt(ctx, t.x, t.y, t.s, t.pine, t.seed); }
 
 export function paintMap(id) {
   const M = MAPS[id];
@@ -193,8 +180,8 @@ export function paintMap(id) {
 
 /* ── 움직이는 것들 ─────────────────────────────────────── */
 function drawFountain(ctx, time) {
-  const fim = mapImg(rpgFile("fountain"));
-  if (fim) ctx.drawImage(fim, 900 - RFRAME.fountain.ox, 620 - RFRAME.fountain.oy, RFRAME.fountain.w, RFRAME.fountain.h);
+  const fs = sprite("rpg/fountain");
+  if (fs) drawSprite(ctx, fs, 900 - RFRAME.fountain.ox, 620 - RFRAME.fountain.oy, RFRAME.fountain.w, RFRAME.fountain.h, time);
   else drawFountainBody(ctx, time);
 }
 
@@ -211,7 +198,7 @@ export function drawFountainBody(ctx, time) {
   ctx.fillStyle = wg; ctx.beginPath(); ctx.arc(0, 0, 82, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 2;
   for (let i = 0; i < 3; i++) {
-    const r = (((time * 30 + i * 27) % 80) + 80) % 80;
+    const r = (((time * (160 / ANIM_T) + i * 27) % 80) + 80) % 80;     // 물결 하나가 한 바퀴에 두 번 퍼진다
     ctx.globalAlpha = 1 - r / 80;
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
   }
@@ -223,8 +210,8 @@ export function drawFountainBody(ctx, time) {
   ctx.beginPath(); ctx.ellipse(x, y - 58, 26, 9, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "rgba(190,230,250,0.85)";
   for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2 + time;
-    const p = (time * 1.2 + i * 0.1) % 1;
+    const a = (i / 10) * Math.PI * 2 + time * SR(1);
+    const p = (time * CR(1.2) + i * 0.1) % 1;
     ctx.beginPath();
     ctx.arc(x + Math.cos(a) * 26 * p, y - 64 - Math.sin(p * Math.PI) * 34 + p * 30, 2.4, 0, Math.PI * 2);
     ctx.fill();
@@ -268,7 +255,7 @@ export function drawGateBody(ctx, gt, time) {
   gl.addColorStop(1, "rgba(120,180,230,0)");
   ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(0, 0, gt.r, 0, Math.PI * 2); ctx.fill();
   ctx.strokeStyle = "rgba(200,235,255,0.7)"; ctx.lineWidth = 2;
-  ctx.setLineDash([8, 8]); ctx.lineDashOffset = -time * 20;
+  ctx.setLineDash([8, 8]); ctx.lineDashOffset = -time * DR(20, 16);
   ctx.beginPath(); ctx.arc(0, 0, gt.r * 0.9, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
   ctx.setLineDash([]);
@@ -288,7 +275,7 @@ export function drawGateBody(ctx, gt, time) {
   ctx.fillRect(x - 38, y - 112, 76, 112);
   ctx.strokeStyle = "rgba(230,245,255,0.8)"; ctx.lineWidth = 1.5;
   for (let i = 0; i < 4; i++) {
-    const p = (time * 0.6 + i / 4) % 1;
+    const p = (time * CR(0.6) + i / 4) % 1;
     ctx.globalAlpha = 0.8 * (1 - p);
     ctx.beginPath(); ctx.ellipse(x, y - 56, 34 * p + 4, 50 * p + 6, 0, 0, Math.PI * 2); ctx.stroke();
   }
@@ -297,8 +284,8 @@ export function drawGateBody(ctx, gt, time) {
 
 function drawGate(ctx, gt, time) {
   const { x, y } = gt;
-  const gim = mapImg(rpgFile("gate"));
-  if (gim) ctx.drawImage(gim, x - RFRAME.gate.ox, y - RFRAME.gate.oy, RFRAME.gate.w, RFRAME.gate.h);
+  const gs = sprite("rpg/gate");
+  if (gs) drawSprite(ctx, gs, x - RFRAME.gate.ox, y - RFRAME.gate.oy, RFRAME.gate.w, RFRAME.gate.h, time);
   else drawGateBody(ctx, gt, time);
   // 팻말
   ctx.save();

@@ -220,16 +220,41 @@ const gateImg = (name) => mapImg(`/assets/map/gates/${name}.webp`);
    파일이 아직 안 왔거나 못 불러오면 예전처럼 손으로 그린다(아래 코드가 그 자리를 지킨다).
    그림을 바꿀 때는 파일만 갈아 끼우면 된다 — 크기 · 기준점은 public/assets/game/README.md 에 있다.
    DRAW_PART 는 그림 파일을 뽑을 때만 쓴다: "base" 는 조준하는 부품을 빼고, "turret" 은 그 부품만 그린다. */
+/* 움직이는 그림 — 정지 그림 여러 장을 한 줄로 이어 붙인 파일(시트)을 돌려 그린다.
+   한 바퀴가 ANIM_T 초이고, 코드로 그릴 때도 같은 시간에 딱 맞게 이어지도록 속도를 맞춰 둔다
+   (SR · HR 은 흔들림 · 돌기의 각속도, CR 은 초당 몇 번 되풀이되는 것, DR 은 점선이 흐르는 속도). */
+export const ANIM_T = 4.5;
+const RW = (2 * Math.PI) / ANIM_T;
+export const SR = (k) => Math.max(1, Math.round(k / RW)) * RW;               // 한 바퀴가 T 의 정수분의 1
+export const HR = (k) => Math.max(1, Math.round(k / (RW / 2))) * (RW / 2);          // 180도 돌아도 같은 모양인 것
+export const CR = (r) => Math.max(1, Math.round(r * ANIM_T)) / ANIM_T;
+export const DR = (rate, period) => (Math.max(1, Math.round((rate * ANIM_T) / period)) * period) / ANIM_T;
+
 let DRAW_PART = "all";
 export function setDrawPart(p) { DRAW_PART = p; }
 
 export const GAME_ART = "/assets/game";
+// 나무 그림 — 결전장 둘레 숲과 RPG 사냥터가 함께 쓴다. 소나무 셋, 둥근 나무 셋. 크기는 배율로 맞춘다.
+export const TREE_FRAME = { w: 100, h: 76, ox: 50, oy: 58 };
+export const TREE_VARIANTS = [
+  { pine: true, seed: 11 }, { pine: true, seed: 47 }, { pine: true, seed: 83 },
+  { pine: false, seed: 19 }, { pine: false, seed: 52 }, { pine: false, seed: 90 },
+];
+export const treeName = (i) => `rpg/tree-${i}`;
+export const treeVariant = (pine, seed) => (pine ? 0 : 3) + (Math.floor(seed) % 3);
+// 나무 그림이 왔으면 그걸로, 아니면 코드로 그린다
+export function drawTreeArt(ctx, x, y, s, pine, seed) {
+  const sp = sprite(treeName(treeVariant(pine, seed)));
+  if (!sp) return drawTree(ctx, x, y, s, pine, seed);
+  const F = TREE_FRAME;
+  drawSprite(ctx, sp, x - F.ox * s, y - F.oy * s, F.w * s, F.h * s, 0);
+}
 // 논리 좌표 기준 크기(w, h)와 기준점(ox, oy). 파일은 이 비율이기만 하면 얼마나 크든 된다.
 export const FRAME = {
-  tower: { w: 190, h: 192, ox: 95, oy: 154 },        // 기준점 = 탑이 서는 자리(s.x, s.y - 2)
-  turret: { w: 150, h: 150, ox: 75, oy: 75 },        // 기준점 = 조준 부품이 도는 축
+  tower: { w: 100, h: 132, ox: 50, oy: 106 },        // 기준점 = 탑이 서는 자리(s.x, s.y - 2)
+  turret: { w: 100, h: 60, ox: 30, oy: 30 },         // 기준점 = 조준 부품이 도는 축
   pad: { w: 64, h: 46, ox: 32, oy: 24 },             // 기준점 = 돌판 가운데
-  castle: { w: 230, h: 200, ox: 115, oy: 132 },      // 기준점 = 성채 가운데(CX, CY)
+  castle: { w: 150, h: 172, ox: 75, oy: 108 },       // 기준점 = 성채 가운데(CX, CY)
   gun: { w: 100, h: 60, ox: 50, oy: 30 },            // 기준점 = 성채 대포가 도는 축
 };
 // 조준 부품이 도는 축의 높이(탑 안쪽 좌표)와 쏠 때 뒤로 밀리는 거리
@@ -239,28 +264,51 @@ export const TURRETS = {
   sniper: { py: (lv) => -(34 + lv * 6) - 19, back: 7 },
 };
 const TOWER_KINDS = ["archer", "sniper", "cannon", "bolt", "flame", "poison", "frost", "gravity", "supply", "corrode", "paladin"];
-export const towerFile = (kind, lv, turret) => `${GAME_ART}/defense/towers/${kind}-${lv}${turret ? "-turret" : ""}.webp`;
+export const towerName = (kind, lv, turret) => `defense/towers/${kind}-${lv}${turret ? "-turret" : ""}`;
+export const castleName = (tier) => `defense/castle/tier-${tier}`;
+export const GUN_NAME = "defense/castle/gun-barrel";
 export const padFile = (spot, built) => `${GAME_ART}/defense/pads/${spot}-${built ? "built" : "empty"}.webp`;
-export const castleFile = (tier) => `${GAME_ART}/defense/castle/tier-${tier}.webp`;
-export const GUN_FILE = `${GAME_ART}/defense/castle/gun-barrel.webp`;
 export const BG_FILE = `${GAME_ART}/defense/bg.webp`;
 export const ARENA_BG_FILE = `${GAME_ART}/defense/arena-bg.webp`;
 
-// 판이 시작될 때 미리 불러 둔다 — 안 그러면 처음 나올 때 한 번 예전 그림이 비친다
+// 판이 시작될 때 미리 불러 둔다 — 배경 · 돌판은 작아서 한꺼번에, 탑 · 성채는 처음 그릴 때 하나씩 불러온다
+// (오는 동안은 코드 그림이 같은 모습으로 대신한다)
 let gameWarm = 0;
 export function warmGameArt() {
   if (gameWarm) return;
   gameWarm = 1;
+  loadSheetInfo();
   mapImg(BG_FILE); mapImg(ARENA_BG_FILE);
-  TOWER_KINDS.forEach((k) => {
-    for (let lv = 1; lv <= 4; lv++) {
-      mapImg(towerFile(k, lv));
-      if (TURRETS[k]) mapImg(towerFile(k, lv, true));
-    }
-  });
   Object.keys(SPOTS).forEach((sp) => { mapImg(padFile(sp, false)); mapImg(padFile(sp, true)); });
-  for (let t = 1; t <= 4; t++) mapImg(castleFile(t));
-  mapImg(GUN_FILE);
+}
+
+/* 움직이는 그림(시트) — manifest.json 에 적힌 파일은 프레임 n 장을 cols 칸씩 이어 붙인 것이다.
+   적혀 있지 않은 파일은 정지 그림 한 장이다. manifest 가 오기 전에는 그리지 않고 코드 그림에 맡긴다. */
+let sheetInfo = null, sheetInfoLoading = false;
+function loadSheetInfo() {
+  if (sheetInfo || sheetInfoLoading || typeof fetch === "undefined") return;
+  sheetInfoLoading = true;
+  fetch(`${GAME_ART}/manifest.json`)
+    .then((r) => (r.ok ? r.json() : {}))
+    .catch(() => ({}))
+    .then((j) => { sheetInfo = (j && j.sheets) || {}; });
+}
+export function sprite(name) {
+  loadSheetInfo();
+  if (!sheetInfo) return null;
+  const im = mapImg(`${GAME_ART}/${name}.webp`);
+  if (!im) return null;
+  const m = sheetInfo[name];
+  return { im, n: m ? m.n : 1, cols: m ? m.cols : 1 };
+}
+// 지금 시각에 맞는 프레임을 그린다. 시트의 프레임은 (0 ~ ANIM_T 초)를 n 등분한 것이다.
+export function drawSprite(ctx, sp, dx, dy, dw, dh, time) {
+  if (sp.n <= 1) { ctx.drawImage(sp.im, dx, dy, dw, dh); return; }
+  const rows = Math.ceil(sp.n / sp.cols);
+  const u = (((time % ANIM_T) + ANIM_T) % ANIM_T) / ANIM_T;
+  const f = Math.min(sp.n - 1, Math.floor(u * sp.n));
+  const cw = sp.im.naturalWidth / sp.cols, ch = sp.im.naturalHeight / rows;
+  ctx.drawImage(sp.im, (f % sp.cols) * cw, Math.floor(f / sp.cols) * ch, cw, ch, dx, dy, dw, dh);
 }
 
 /* ── 정적 배경(지형·길·숲) — 한 번만 그려서 재사용 ─────── */
@@ -635,7 +683,7 @@ export function keepTower(ctx, x, y, r, h, roofCol, roofDark, time, flag) {
     const top = y - h - 6 - rh;
     ctx.strokeStyle = "#5b4a33"; ctx.lineWidth = 2.2;
     ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top - 20); ctx.stroke();
-    const wv = Math.sin(time * 3) * 3;
+    const wv = Math.sin(time * SR(3)) * 3;
     ctx.beginPath();
     ctx.moveTo(x, top - 20);
     ctx.quadraticCurveTo(x + 13, top - 17 + wv, x + 23, top - 14);
@@ -785,7 +833,7 @@ export function castleBody(ctx, tier, time) {
       const y = CY + 6 + d.dy * 28 + (d.dx ? 14 : 0);
       ctx.beginPath(); roundRect(ctx, x - 5, y - 8, 10, 10, 2);
       inkPath(ctx, "#5d4a33", 1.2);
-      const ph = (time * 1.6 + i * 0.4) % 1;
+      const ph = (time * CR(1.6) + i * 0.4) % 1;
       const gl = ctx.createRadialGradient(x, y - 13, 0, x, y - 13, 10 + ph * 4);
       gl.addColorStop(0, "rgba(255,240,180,0.95)");
       gl.addColorStop(0.5, "rgba(250,160,50,0.8)");
@@ -802,8 +850,8 @@ export function castleBody(ctx, tier, time) {
 
 // 성채 그림 파일 — 몸통과 포신이 모두 불러와졌을 때만
 function castleSprite(tier) {
-  const body = mapImg(castleFile(tier));
-  const barrel = body && mapImg(GUN_FILE);
+  const body = sprite(castleName(tier));
+  const barrel = body && sprite(GUN_NAME);
   return barrel ? { body, barrel } : null;
 }
 
@@ -811,7 +859,7 @@ export function drawCastle(ctx, g, time) {
   const ratio = Math.max(0, g.core.hp / g.core.max);
   const tier = castleTier(g);
   const spr = castleSprite(tier);
-  if (spr) ctx.drawImage(spr.body, CX - FRAME.castle.ox, CY - FRAME.castle.oy, FRAME.castle.w, FRAME.castle.h);
+  if (spr) drawSprite(ctx, spr.body, CX - FRAME.castle.ox, CY - FRAME.castle.oy, FRAME.castle.w, FRAME.castle.h, time);
   else castleBody(ctx, tier, time);
 
   ctx.save();
@@ -844,7 +892,7 @@ export function drawCastle(ctx, g, time) {
     ctx.translate(CX, CY - 24 - 3);
     ctx.rotate(cg.aim);
     ctx.translate(-recoil * 7, 0);
-    ctx.drawImage(spr.barrel, -FRAME.gun.ox, -FRAME.gun.oy, FRAME.gun.w, FRAME.gun.h);
+    drawSprite(ctx, spr.barrel, -FRAME.gun.ox, -FRAME.gun.oy, FRAME.gun.w, FRAME.gun.h, time);
     if (recoil > 0.25) {                                // 발사 섬광
       ctx.globalAlpha = recoil;
       const gl = ctx.createRadialGradient(32 + recoil * 7, 0, 0, 32 + recoil * 7, 0, 22);
@@ -1047,7 +1095,7 @@ export function tierPlinth(ctx, lv, col, time) {
     ctx.strokeStyle = GOLD_T;
     ctx.lineWidth = 2.2;
     ctx.beginPath(); ctx.ellipse(0, 3, w - 2, h - 1.5, 0, 0, Math.PI * 2); ctx.stroke();
-    ctx.globalAlpha = 0.45 + 0.2 * Math.sin(time * 2.4);
+    ctx.globalAlpha = 0.45 + 0.2 * Math.sin(time * SR(2.4));
     ctx.strokeStyle = GOLD_L;
     ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.ellipse(0, 3, w - 6, h - 4, 0, 0, Math.PI * 2); ctx.stroke();
@@ -1064,7 +1112,7 @@ export function tierCrown(ctx, lv, col, time, top) {
       ctx.strokeStyle = lv >= 4 ? GOLD_D : "#5b4a33";
       ctx.lineWidth = 2.2;
       ctx.beginPath(); ctx.moveTo(x, 2); ctx.lineTo(x, y0); ctx.stroke();
-      const wv = Math.sin(time * 3.4 + k) * 2.2;
+      const wv = Math.sin(time * SR(3.4) + k) * 2.2;
       ctx.beginPath();
       ctx.moveTo(x, y0);
       ctx.lineTo(x - k * 13, y0 + 5 + wv);
@@ -1080,13 +1128,13 @@ export function tierCrown(ctx, lv, col, time, top) {
   // 4단계 — 떠오르는 금빛 가루
   if (lv >= 4) {
     for (let k = 0; k < 3; k++) {
-      const ph = ((time * 0.6 + k * 0.33) % 1);
-      const x = Math.sin(k * 2.3 + time * 0.8) * 20;
+      const ph = ((time * CR(0.6) + k * 0.33) % 1);
+      const x = Math.sin(k * 2.3 + time * SR(0.8)) * 20;
       const y = 2 - ph * 46;
       ctx.save();
       ctx.globalAlpha = 0.85 * (1 - ph);
       ctx.translate(x, y);
-      ctx.rotate(time * 1.6 + k);
+      ctx.rotate(time * SR(1.6) + k);
       ctx.fillStyle = GOLD_L;
       ctx.beginPath();
       ctx.moveTo(0, -3.4); ctx.lineTo(2, 0); ctx.lineTo(0, 3.4); ctx.lineTo(-2, 0);
@@ -1118,10 +1166,10 @@ export function towerBody(ctx, kind, lv, col, time, t, recoil) {
 
 // 탑 그림 파일 — 몸통과(있다면) 조준 부품이 모두 불러와졌을 때만 돌려준다
 function towerSprite(kind, lv) {
-  const base = mapImg(towerFile(kind, lv));
+  const base = sprite(towerName(kind, lv));
   if (!base) return null;
   if (!TURRETS[kind]) return { base, turret: null };
-  const turret = mapImg(towerFile(kind, lv, true));
+  const turret = sprite(towerName(kind, lv, true));
   return turret ? { base, turret } : null;
 }
 
@@ -1180,14 +1228,15 @@ export function drawTower(ctx, t, s, time, g) {
   const spr = towerSprite(kind, lv);
   if (spr) {
     const F = FRAME.tower;
-    ctx.drawImage(spr.base, s.x - F.ox, s.y - 2 - F.oy, F.w, F.h);
+    const tt = time + (s.x * 0.37 + s.y * 0.11);          // 탑마다 조금씩 어긋나게 — 깃발이 한꺼번에 흔들리지 않게
+    drawSprite(ctx, spr.base, s.x - F.ox, s.y - 2 - F.oy, F.w, F.h, tt);
     if (spr.turret) {                                  // 조준하는 부품은 따로 그려 표적을 향해 돈다
       const tu = TURRETS[kind], T = FRAME.turret;
       ctx.save();
       ctx.translate(s.x, s.y - 2 + 0.86 * tu.py(lv));
       ctx.rotate(t.aim || 0);
       ctx.translate(-recoil * tu.back * 0.86, 0);
-      ctx.drawImage(spr.turret, -T.ox, -T.oy, T.w, T.h);
+      drawSprite(ctx, spr.turret, -T.ox, -T.oy, T.w, T.h, tt);
       if (kind === "sniper" && recoil > 0.3) {         // 쏠 때 총구 섬광
         ctx.globalAlpha = recoil;
         const gl = ctx.createRadialGradient(26, 0, 0, 26, 0, 16);
@@ -1335,7 +1384,7 @@ export function drawArcherTower(ctx, lv, col, time, t, recoil) {
   const sx = 9 - 2.4 * bowK - recoil * 3, sHalf = 6.6 * bowK;
   ctx.beginPath(); ctx.moveTo(sx, -2 - sHalf); ctx.lineTo(sx, -2 + sHalf); ctx.stroke();
   if (lv >= 4) {
-    const pulse = 0.5 + 0.5 * Math.sin(time * 3);
+    const pulse = 0.5 + 0.5 * Math.sin(time * SR(3));
     ctx.fillStyle = col.light;
     ctx.globalAlpha = 0.55 + pulse * 0.35;
     const tx = 9 - recoil * 3 + bowR * 0.41;
@@ -1352,7 +1401,7 @@ export function drawArcherTower(ctx, lv, col, time, t, recoil) {
     ctx.beginPath(); ctx.moveTo(0, -h - 52); ctx.lineTo(0, -h - 68); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(0, -h - 68);
-    ctx.lineTo(15, -h - 63 + Math.sin(time * 4) * 2);
+    ctx.lineTo(15, -h - 63 + Math.sin(time * SR(4)) * 2);
     ctx.lineTo(0, -h - 58);
     ctx.closePath();
     inkPath(ctx, col.light, 1.4);
@@ -1411,7 +1460,7 @@ export function drawCannonTower(ctx, lv, col, time, t, recoil) {
   ctx.beginPath(); ctx.arc(bw - 13 - back, 0, mzInR, 0, Math.PI * 2); ctx.fill();
   // 4단계 — 포구에 병과색 발광
   if (lv >= 4) {
-    const pulse = 0.5 + 0.5 * Math.sin(time * 3);
+    const pulse = 0.5 + 0.5 * Math.sin(time * SR(3));
     ctx.save();
     ctx.globalAlpha = 0.5 + pulse * 0.4;
     ctx.fillStyle = col.light;
@@ -1456,8 +1505,8 @@ export function drawFrostTower(ctx, lv, col, time, t) {
   // 룬 고리
   ctx.save();
   ctx.translate(0, -h - 3);
-  ctx.rotate(time * 0.8);
-  ctx.strokeStyle = `rgba(200,238,255,${0.55 + 0.22 * Math.sin(time * 3)})`;
+  ctx.rotate(time * HR(0.8));
+  ctx.strokeStyle = `rgba(200,238,255,${0.55 + 0.22 * Math.sin(time * SR(3))})`;
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(0, 0, 19, 7, 0, 0, Math.PI * 2); ctx.stroke();
   for (let k = 0; k < 4; k++) {
@@ -1470,7 +1519,7 @@ export function drawFrostTower(ctx, lv, col, time, t) {
   ctx.restore();
 
   // 떠 있는 결정
-  const bob = Math.sin(time * 2.2) * 3;
+  const bob = Math.sin(time * SR(2.2)) * 3;
   ctx.save();
   ctx.translate(0, -h - 13 + bob);
   const glow = ctx.createRadialGradient(0, 0, 1, 0, 0, 22);
@@ -1478,7 +1527,7 @@ export function drawFrostTower(ctx, lv, col, time, t) {
   glow.addColorStop(1, "rgba(120,190,240,0)");
   ctx.fillStyle = glow;
   ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill();
-  ctx.rotate(time * 0.6);
+  ctx.rotate(Math.sin(time * RW) * 0.5);        // 떠 있는 결정은 한 방향으로 돌지 않고 살랑살랑 흔들린다
   ctx.beginPath();
   ctx.moveTo(0, -12); ctx.lineTo(8, 0); ctx.lineTo(0, 12); ctx.lineTo(-8, 0);
   ctx.closePath();
@@ -1530,7 +1579,7 @@ export function drawSupplyTower(ctx, lv, col, time) {
   ctx.beginPath(); ctx.ellipse(-26, -6, 7, 8, 0, 0, Math.PI * 2);
   inkPath(ctx, "#c8b189", 1.5);
   // 금화 반짝임
-  const ph = (time * 0.7) % 1;
+  const ph = (time * CR(0.7)) % 1;
   ctx.globalAlpha = 0.9 * (1 - ph);
   ctx.fillStyle = C.gold;
   ctx.beginPath(); ctx.arc(24, -20 - ph * 18, 3.6, 0, Math.PI * 2); ctx.fill();
@@ -1541,7 +1590,7 @@ export function drawSupplyTower(ctx, lv, col, time) {
     ctx.beginPath(); ctx.moveTo(0, -h - 28); ctx.lineTo(0, -h - 44); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(0, -h - 44);
-    ctx.lineTo(15, -h - 39 + Math.sin(time * 4) * 2);
+    ctx.lineTo(15, -h - 39 + Math.sin(time * SR(4)) * 2);
     ctx.lineTo(0, -h - 34);
     ctx.closePath();
     inkPath(ctx, col.light, 1.4);
@@ -1575,7 +1624,7 @@ export function drawBoltTower(ctx, lv, col, time, t, recoil) {
   }
   ctx.lineCap = "butt";
   // 전기 구체
-  const bob = Math.sin(time * 3) * 2;
+  const bob = Math.sin(time * SR(3)) * 2;
   const cy = -h - 16 + bob;
   const glow = ctx.createRadialGradient(0, cy, 1, 0, cy, 24 + recoil * 12);
   glow.addColorStop(0, `rgba(186,224,255,${0.75 + recoil * 0.25})`);
@@ -1585,10 +1634,10 @@ export function drawBoltTower(ctx, lv, col, time, t, recoil) {
   ctx.beginPath(); ctx.arc(0, cy, 8 + lv * 0.7, 0, Math.PI * 2);
   inkPath(ctx, "#e8f3ff", 1.6, "rgba(90,110,190,0.8)");
   // 튀는 불꽃
-  ctx.strokeStyle = `rgba(160,205,255,${0.5 + 0.4 * Math.sin(time * 12)})`;
+  ctx.strokeStyle = `rgba(160,205,255,${0.5 + 0.4 * Math.sin(time * SR(12))})`;
   ctx.lineWidth = 1.6;
   for (let k = 0; k < 3; k++) {
-    const a = time * 2.6 + (k / 3) * Math.PI * 2;
+    const a = time * SR(2.6) + (k / 3) * Math.PI * 2;
     ctx.beginPath();
     ctx.moveTo(Math.cos(a) * 8, cy + Math.sin(a) * 8);
     ctx.lineTo(Math.cos(a) * 15, cy + Math.sin(a) * 15 - 3);
@@ -1614,11 +1663,11 @@ export function drawPoisonTower(ctx, lv, col, time, t, recoil) {
   inkPath(ctx, "#7fc24a", 1.4, "rgba(40,70,25,0.7)");
   // 끓어오르는 거품
   for (let k = 0; k < 3; k++) {
-    const ph = ((time * 0.8 + k * 0.33) % 1);
+    const ph = ((time * CR(0.8) + k * 0.33) % 1);
     ctx.globalAlpha = 0.75 * (1 - ph);
     ctx.fillStyle = "#b6e87a";
     ctx.beginPath();
-    ctx.arc(Math.sin(k * 2.1 + time) * 7, -h - 12 - ph * 20, 2.6 + ph * 4.2, 0, Math.PI * 2);
+    ctx.arc(Math.sin(k * 2.1 + time * RW) * 7, -h - 12 - ph * 20, 2.6 + ph * 4.2, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -1639,7 +1688,7 @@ export function drawPoisonTower(ctx, lv, col, time, t, recoil) {
     ctx.beginPath(); ctx.moveTo(0, -h - 24); ctx.lineTo(0, -h - 40); ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(0, -h - 40);
-    ctx.lineTo(14, -h - 35 + Math.sin(time * 4) * 2);
+    ctx.lineTo(14, -h - 35 + Math.sin(time * SR(4)) * 2);
     ctx.lineTo(0, -h - 30);
     ctx.closePath();
     inkPath(ctx, "#a8dc6a", 1.4);
@@ -1708,11 +1757,11 @@ export function drawFlameTower(ctx, lv, col, time, t, recoil) {
   ctx.beginPath(); ctx.ellipse(0, -h - 7, 13, 6.5, 0, 0, Math.PI * 2);
   inkPath(ctx, "#8a4a2a", 1.4);
   // 불길
-  const wob = Math.sin(time * 7) * 2;
+  const wob = Math.sin(time * SR(7)) * 2;
   const tongues = 2 + lv;
   for (let k = 0; k < tongues; k++) {
-    const ph = ((time * 1.2 + k * (1 / tongues)) % 1);
-    const x = (k - (tongues - 1) / 2) * 6.5 + Math.sin(time * 5 + k) * 2;
+    const ph = ((time * CR(1.2) + k * (1 / tongues)) % 1);
+    const x = (k - (tongues - 1) / 2) * 6.5 + Math.sin(time * SR(5) + k) * 2;
     const y = -h - 12 - ph * 20;
     const r = 7 + k * 1.5 - ph * 3;
     const gl = ctx.createRadialGradient(x, y, 0, x, y, Math.max(2, r));
@@ -1754,7 +1803,7 @@ export function drawGravityTower(ctx, lv, col, time, t) {
   // 떠 있는 돌 — 단계마다 하나씩 늘어난다
   const rocks = 2 + lv;
   for (let k = 0; k < rocks; k++) {
-    const a = time * 1.4 + (k / rocks) * Math.PI * 2;
+    const a = time * SR(1.4) + (k / rocks) * Math.PI * 2;
     const x = Math.cos(a) * 20, y = -h * 0.75 + Math.sin(a) * 8;
     ctx.save();
     ctx.translate(x, y);
@@ -1779,7 +1828,7 @@ export function drawGravityTower(ctx, lv, col, time, t) {
   for (let k = 0; k < 3; k++) {
     ctx.beginPath();
     for (let i = 0; i <= 16; i++) {
-      const a = time * 3 + (k / 3) * Math.PI * 2 + i * 0.32;
+      const a = time * SR(3) + (k / 3) * Math.PI * 2 + i * 0.32;
       const r = 4 + i * 1.1;
       const x = Math.cos(a) * r, y = Math.sin(a) * r * 0.45;
       i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
@@ -1807,7 +1856,7 @@ export function drawCorrodeTower(ctx, lv, col, time, t, recoil) {
   ctx.stroke();
   ctx.lineCap = "butt";
   // 떨어지는 방울
-  const ph = (time * 1.3) % 1;
+  const ph = (time * CR(1.3)) % 1;
   ctx.fillStyle = col.light;
   ctx.beginPath(); ctx.ellipse(22, -h - 2 + ph * 14, 2.6, 3.6, 0, 0, Math.PI * 2); ctx.fill();
   ctx.globalAlpha = 1 - ph;
@@ -1815,10 +1864,10 @@ export function drawCorrodeTower(ctx, lv, col, time, t, recoil) {
   ctx.globalAlpha = 1;
   // 거품
   for (let k = 0; k < 3; k++) {
-    const p = ((time * 0.9 + k * 0.33) % 1);
+    const p = ((time * CR(0.9) + k * 0.33) % 1);
     ctx.globalAlpha = 0.7 * (1 - p);
     ctx.fillStyle = col.light;
-    ctx.beginPath(); ctx.arc(Math.sin(k * 2 + time) * 6, -h - 12 - p * 14, 2 + p * 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(Math.sin(k * 2 + time * RW) * 6, -h - 12 - p * 14, 2 + p * 3, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
   if (recoil > 0.2) {
@@ -1843,7 +1892,7 @@ export function drawPaladinTower(ctx, lv, col, time) {
   ctx.beginPath(); roundRect(ctx, -5, -h * 0.72, 10, 14, 5);
   inkPath(ctx, "#f2efdf", 1.3, "rgba(70,90,110,0.7)");
   // 방패 문장
-  const bob = Math.sin(time * 2) * 2;
+  const bob = Math.sin(time * SR(2)) * 2;
   ctx.save();
   ctx.translate(0, -h - 12 + bob);
   const gl = ctx.createRadialGradient(0, 0, 1, 0, 0, 22);
@@ -1865,11 +1914,11 @@ export function drawPaladinTower(ctx, lv, col, time) {
   ctx.restore();
   // 바닥에 도는 빛 고리
   ctx.save();
-  ctx.globalAlpha = 0.45 + 0.2 * Math.sin(time * 2.2);
+  ctx.globalAlpha = 0.45 + 0.2 * Math.sin(time * SR(2.2));
   ctx.strokeStyle = "rgba(210,232,250,0.9)";
   ctx.lineWidth = 2;
   ctx.setLineDash([7, 7]);
-  ctx.lineDashOffset = -time * 20;
+  ctx.lineDashOffset = -time * DR(20, 14);
   ctx.beginPath(); ctx.ellipse(0, 3, 26, 14, 0, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
   ctx.setLineDash([]);
@@ -3120,7 +3169,7 @@ function bigNum(n) {
   return rest ? `${man}만${rest}` : `${man}만`;
 }
 
-function arenaLeaves(ctx, time, cy, rx, ry) {
+function arenaLeaves(ctx, time, cy, rx, ry, art) {
   // 싸우는 터를 둘러싼 숲 — 풀밭 바깥에만 심어 터를 가리지 않게 한다
   const rnd = mulberry32(99);
   ctx.save();
@@ -3132,7 +3181,9 @@ function arenaLeaves(ctx, time, cy, rx, ry) {
     if (x < -30 || x > W + 30 || y < 70 || y > H - 6) continue;
     const s = 0.9 + rnd() * 0.55;
     const sway = Math.sin(time * 0.7 + i) * 1.6;
-    drawTree(ctx, x + sway, y, s, rnd() > 0.45, rnd() * 99);
+    const pine = rnd() > 0.45, seed = rnd() * 99;
+    if (art) drawTreeArt(ctx, x + sway, y, s, pine, seed);
+    else drawTree(ctx, x + sway, y, s, pine, seed);
   }
   ctx.restore();
 }
@@ -3549,8 +3600,9 @@ function arenaPlayer(ctx, g, pi, time) {
   }
 }
 
-// 결전장 바탕 — 하늘 · 풀밭 · 둘러선 숲. 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
-export function paintArenaBg(ctx, time) {
+// 결전장 바탕 — 하늘 · 풀밭. 둘러선 숲은 withLeaves 일 때만 함께 그린다(그림 파일은 숲을 빼고 뽑아,
+// 숲은 나무 그림을 살랑살랑 흔들며 따로 그린다). 그림 파일을 뽑을 때와 파일이 없을 때 쓴다.
+export function paintArenaBg(ctx, time, withLeaves = true) {
   // 바탕
   const sky = ctx.createLinearGradient(0, 0, 0, H);
   sky.addColorStop(0, "#22301c");
@@ -3572,7 +3624,7 @@ export function paintArenaBg(ctx, time) {
   ctx.strokeStyle = "rgba(226,206,160,0.14)"; ctx.lineWidth = 3; ctx.stroke();
   ctx.restore();
 
-  arenaLeaves(ctx, time, cy, rx, ry);
+  if (withLeaves) arenaLeaves(ctx, time, cy, rx, ry, false);
 }
 
 export function drawArena(ctx, g, time) {
@@ -3585,8 +3637,11 @@ export function drawArena(ctx, g, time) {
   bossEase(a, dt);
   // 바탕 — 그림 파일이 있으면 그걸, 없으면 코드로 그린다
   const abg = mapImg(ARENA_BG_FILE);
-  if (abg) ctx.drawImage(abg, 0, 0, W, H);
-  else paintArenaBg(ctx, time);
+  if (abg) {
+    ctx.drawImage(abg, 0, 0, W, H);
+    const cy0 = (ARENA.top + ARENA.bottom) / 2;
+    arenaLeaves(ctx, time, cy0, (ARENA.right - ARENA.left) / 2 + 66, (ARENA.bottom - ARENA.top) / 2 + 44, true);
+  } else paintArenaBg(ctx, time);
 
   // 내 공격 범위 — 보스가 들어오면 또렷해진다 (보스의 붉은 자리와 헷갈리지 않게 병과 색)
   const meI = g.mySeat;

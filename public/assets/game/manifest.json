@@ -1,0 +1,190 @@
+{
+ "animT": 4.5,
+ "frames": 36,
+ "sheets": {
+  "defense/towers/archer-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/archer-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/archer-4-turret": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/sniper-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/sniper-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/cannon-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/cannon-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/cannon-4-turret": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/bolt-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/bolt-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/bolt-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/bolt-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/flame-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/flame-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/flame-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/flame-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/poison-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/poison-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/poison-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/poison-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/frost-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/frost-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/frost-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/frost-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/gravity-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/gravity-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/gravity-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/gravity-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/supply-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/supply-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/supply-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/supply-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/corrode-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/corrode-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/corrode-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/corrode-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/paladin-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/paladin-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/paladin-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/towers/paladin-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/castle/tier-1": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/castle/tier-2": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/castle/tier-3": {
+   "n": 36,
+   "cols": 6
+  },
+  "defense/castle/tier-4": {
+   "n": 36,
+   "cols": 6
+  },
+  "rpg/fountain": {
+   "n": 36,
+   "cols": 6
+  },
+  "rpg/gate": {
+   "n": 36,
+   "cols": 6
+  }
+ }
+}

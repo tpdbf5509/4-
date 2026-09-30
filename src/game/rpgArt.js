@@ -1,14 +1,36 @@
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
-import { W, H, P, CLASSES } from "./world.js";
+import { W, H } from "./world.js";
 import {
   roundRect, shadow, mulberry32, drawRock, drawBush,
-  drawFx, drawBanner, classArt, fxWarmUp, FX_ART, mapImg, mapImgFailed,
+  drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange } from "./rpg.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath } from "./rpg.js";
 
-const HERO_H = 62;            // 영웅 키 — 넓어진 맵에 맞게 작게 둔다
+/* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
+   원본 시트에서 캐릭터 키는 대략 280px 이고, 그림 아래에 6px 여백이 있다. */
+const HERO_K = 66 / 280;
+const HERO_PAD = 6;
+const heroCache = {};
+function heroImg(h, view) {
+  if (typeof Image === "undefined") return null;
+  const src = heroArtPath(h, view);
+  let im = heroCache[src];
+  if (im === undefined) {
+    im = heroCache[src] = new Image();
+    im.onerror = () => { heroCache[src] = null; };
+    im.src = src;
+  }
+  return im && im.complete && im.naturalWidth ? im : null;
+}
+/* 보는 쪽에 맞는 그림 — 앞 그림은 오른쪽을, turn 은 왼쪽을 비스듬히 본다. 옆 그림은 왼쪽을 본다.
+   flip 은 좌우로 뒤집어 그릴지 */
+function heroView(h) {
+  if (h.face === 2) return { view: "back", flip: false };
+  if (h.face === 1) return { view: "side", flip: h.dir > 0 };
+  return { view: h.dir < 0 ? "turn" : "front", flip: false };
+}
 
 /* ── 이미지 그림 ─────────────────────────────────────────────
    광장 · 사냥터 바탕과 분수 · 문 · 사냥꾼 · 토끼 같은 것들은 public/assets/game/rpg 의 그림 파일을 얹는다.
@@ -424,10 +446,11 @@ function drawRabbit(ctx, m, time) {
 
 function drawHero(ctx, g, h, time) {
   const pi = h.pi;
-  const col = P[pi];
+  const col = elemOf(h);
   const mine = g.mySeat === pi;
   const down = h.down > 0;
-  const im = classArt(pi);
+  const { view, flip } = heroView(h);
+  const im = heroImg(h, view) || heroImg(h, "front");
   const bob = down ? 0 : Math.abs(Math.sin(time * 3 + pi)) * -1.5;
   const y = h.y + bob;
 
@@ -458,14 +481,15 @@ function drawHero(ctx, g, h, time) {
   if (down) { ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
   const lunge = h.swing > 0 ? Math.sin((h.swing / 0.25) * Math.PI) * 4 : 0;
   ctx.translate(h.dir * lunge, 0);
-  ctx.scale(h.dir < 0 ? -1 : 1, 1);
+  if (flip) ctx.scale(-1, 1);
   if (im) {
-    const ww = HERO_H * (im.naturalWidth / im.naturalHeight);
-    ctx.drawImage(im, -ww / 2, -HERO_H, ww, HERO_H);
+    const ww = im.naturalWidth * HERO_K, hh = im.naturalHeight * HERO_K;
+    const top = -hh + HERO_PAD * HERO_K;
+    ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (h.flash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(0.5, h.flash * 3);
-      ctx.drawImage(im, -ww / 2, -HERO_H, ww, HERO_H);
+      ctx.drawImage(im, -ww / 2, top, ww, hh);
     }
   } else {
     ctx.fillStyle = col.key; roundRect(ctx, -9, -34, 18, 34, 7); ctx.fill();
@@ -473,7 +497,7 @@ function drawHero(ctx, g, h, time) {
   ctx.restore();
 
   // 체력 · 레벨 · 이름
-  const bw = 40, byy = h.y - HERO_H - 10;
+  const bw = 40, byy = h.y - 66 - 12;
   const r = Math.max(0, Math.min(1, h.hp / (h.max || 1)));
   ctx.save();
   ctx.fillStyle = "rgba(18,12,8,0.8)"; roundRect(ctx, h.x - bw / 2 - 1, byy - 1, bw + 2, 6, 3); ctx.fill();
@@ -481,7 +505,7 @@ function drawHero(ctx, g, h, time) {
   roundRect(ctx, h.x - bw / 2, byy, Math.max(1.5, bw * r), 4, 2); ctx.fill();
   ctx.font = "10.5px 'Do Hyeon', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  const nm = `Lv${h.lv} ${(g.names && g.names[pi]) || CLASSES[pi].name}`;
+  const nm = `Lv${h.lv} ${(g.names && g.names[pi]) || "모험가"}`;
   const wdt = ctx.measureText(nm).width + 12;
   ctx.fillStyle = "rgba(20,14,10,0.72)"; roundRect(ctx, h.x - wdt / 2, h.y + 6, wdt, 15, 7); ctx.fill();
   ctx.fillStyle = down ? "#a89a90" : col.light; ctx.fillText(nm, h.x, h.y + 14);
@@ -534,9 +558,9 @@ export function drawRpg(ctx, g, bgs) {
     const on = g.mobs.some((m) => m.map === M.id && dist(me.x, me.y, m.x, m.y) <= rr);
     ctx.save();
     ctx.translate(me.x, me.y); ctx.scale(1, RPG.squash);
-    ctx.globalAlpha = on ? 0.09 : 0.04; ctx.fillStyle = P[g.mySeat].key;
+    ctx.globalAlpha = on ? 0.09 : 0.04; ctx.fillStyle = elemOf(me).key;
     ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = on ? 0.5 : 0.25; ctx.strokeStyle = P[g.mySeat].light; ctx.lineWidth = 1.4;
+    ctx.globalAlpha = on ? 0.5 : 0.25; ctx.strokeStyle = elemOf(me).light; ctx.lineWidth = 1.4;
     ctx.setLineDash(on ? [] : [8, 8]);
     ctx.beginPath(); ctx.arc(0, 0, rr, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();

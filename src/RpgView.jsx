@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { W, H, P, CLASSES, SEATS, MOVE_KEYS } from "./game/world.js";
+import { W, H, MOVE_KEYS } from "./game/world.js";
 import {
-  RPG, RPG_CREW_MAX, RPG_SKILL, MAPS, QUEST, makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
-  rpgSyncSeats, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, heroSave, writeHero, npcNear, rpgStyle,
+  RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
+  makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, makeChar, saveLook, writeChar,
+  npcNear, jobOf, elemOf, skillName, heroArtPath, cleanName, cleanLook,
 } from "./game/rpg.js";
 import { drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
-import { ClassIcon, HomeIcon, Coin } from "./ui/icons.jsx";
-import { TowerChar, charOf } from "./ui/chars.jsx";
+import { HomeIcon, Coin } from "./ui/icons.jsx";
 import { useTouch } from "./ui/touch.js";
 
 const SNAP_HZ = 12;
@@ -19,64 +20,201 @@ const AUTO_KEY = "flg:rpgAuto";
 function loadAuto() {
   try { return localStorage.getItem(AUTO_KEY) !== "0"; } catch { return true; }
 }
+// 받침에 맞는 조사 — "하늘로" · "바람으로"
+function ro(word) {
+  const c = word.charCodeAt(word.length - 1) - 0xac00;
+  if (c < 0 || c > 11171) return "로";
+  const jong = c % 28;
+  return jong === 0 || jong === 8 ? "로" : "으로";
+}
+const VIEWS = [["front", "앞"], ["side", "옆"], ["back", "뒤"], ["turn", "사선"]];
 
-/* ── 병과 고르기 — 고르면 곧바로 광장에 선다 ─────────────────── */
-export function RpgPick({ code, lobby, me, error, connecting, onPick, onLeave }) {
+/* ── 캐릭터 만들기 — 이름을 정하고, 직업 · 원소 · 성별을 고른 뒤 광장으로 ──────────
+   이름은 처음 한 번만 정하고 이 기기에 남는다. 다음에 들어오면 그 이름과 기록을 불러온다.
+   room 이 있으면(코드로 들어온 방) 방 코드와 인원을 함께 보여 준다. */
+export function RpgSetup({ room, onStart, onLeave }) {
+  const [char, setChar] = useState(() => loadChar());
+  const [draft, setDraft] = useState("");
+  const [asking, setAsking] = useState(false);        // 이름을 정하기 전에 한 번 더 묻는다
+  const [nameErr, setNameErr] = useState("");
+  const [job, setJob] = useState(() => (char && char.picked ? char.job : null));
+  const [elem, setElem] = useState(() => (char && char.picked ? char.elem : null));
+  const [gender, setGender] = useState(() => (char && char.picked ? char.gender : null));
   const [copied, setCopied] = useState("");
-  const seats = lobby?.seats || new Array(SEATS).fill(null);
-  const filled = seats.filter(Boolean).length;
-  const full = filled >= RPG_CREW_MAX;
-  const link = `${location.origin}${location.pathname}?room=${code}`;
-  const saves = useMemo(() => CLASSES.map((c) => heroSave(c.id)), []);
+
+  const named = !!char;
+  const look = { name: char ? char.name : cleanName(draft), job: job || "warrior", elem: elem || "flame", gender: gender || "m" };
+  const ready = named && job && elem && gender && !(room && room.full);
+  const el = elem ? ELEM_BY_ID[elem] : null;
+
+  const askName = () => {
+    const n = cleanName(draft);
+    if (!n) return setNameErr("이름을 한 글자 이상 적어 주세요.");
+    setNameErr("");
+    setAsking(true);
+  };
+  const fixName = () => {
+    const c = makeChar(draft);
+    if (!c) return setNameErr("이름을 저장하지 못했습니다. 다시 시도해 주세요.");
+    setChar(c);
+    setAsking(false);
+  };
+  const start = () => {
+    if (!ready) return;
+    const l = cleanLook({ name: char.name, job, elem, gender });
+    if (!l) return;
+    saveLook(l);
+    onStart(l);
+  };
   const copy = async (text, what) => {
     try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(""), 1600); }
     catch { setCopied("fail"); }
   };
+
   return (
     <div className="page center-page">
-      <div className="lobby">
+      <div className="lobby mk">
         <div className="lobby-head">
           <div>
-            <h1>RPG — 병과 고르기</h1>
+            <h1>{named ? "모험 준비" : "캐릭터 만들기"}</h1>
             <p className="tag">
-              고르면 곧바로 광장에 섭니다. 광장의 사냥문을 지나면 사냥터입니다.
-              지금 {filled}/{RPG_CREW_MAX}명이 들어와 있고, 언제든 함께할 수 있습니다.
+              {named
+                ? "저장된 캐릭터를 불러왔습니다. 직업 · 원소 · 성별을 고르고 광장으로 나가세요."
+                : "이름을 먼저 정합니다. 그다음 직업 · 원소 · 성별을 고르면 광장으로 나갑니다."}
             </p>
           </div>
           <div className="lobby-actions">
             <button className="btn-ghost" onClick={onLeave}>나가기</button>
           </div>
         </div>
-        <div className="invite">
-          <div className="invite-code"><span className="invite-label">방 코드</span><strong>{code}</strong></div>
-          <div className="invite-actions">
-            <button className="btn-ghost" onClick={() => copy(code, "code")}>{copied === "code" ? "복사됨" : "코드 복사"}</button>
-            <button className="btn-ghost" onClick={() => copy(link, "link")}>{copied === "link" ? "복사됨" : "초대 링크 복사"}</button>
+
+        {room && (
+          <div className="mk-room">
+            <span className="mk-label">방 코드</span>
+            <strong>{room.code}</strong>
+            <span className="mk-room-n">{room.filled}/{RPG_CREW_MAX}명</span>
+            <button className="btn-ghost" onClick={() => copy(room.code, "code")}>{copied === "code" ? "복사됨" : "코드 복사"}</button>
+            <button className="btn-ghost" onClick={() => copy(room.link, "link")}>{copied === "link" ? "복사됨" : "초대 링크 복사"}</button>
+            {room.connecting && <span className="muted">연결하는 중…</span>}
+            {room.full && <span className="err">정원이 찼습니다</span>}
+            {room.error && <span className="err">{room.error}</span>}
           </div>
-        </div>
-        {connecting && <p className="muted">방에 연결하는 중…</p>}
-        {error && <p className="err">{error}</p>}
-        <div className="seats">
-          {CLASSES.map((cls, i) => {
-            const who = seats[i];
-            const locked = !who && full;
-            return (
-              <button key={cls.id}
-                className={`seat ${who ? "taken" : "free"} ${who && who.id === me ? "mine" : ""} ${locked ? "locked" : ""}`}
-                style={{ "--pc": P[i].key, "--pcl": P[i].light, "--pcd": P[i].dark }}
-                onClick={() => onPick(i)} disabled={!!who || locked || !lobby}>
-                <span className={`seat-badge ${P[i].pale ? "pale" : ""}`}><ClassIcon i={i} /></span>
-                <span className="seat-name">{cls.name} <em>내 Lv.{saves[i].lv}</em></span>
-                <span className="seat-role">{cls.role}</span>
-                <span className="seat-note">{rpgStyle(i)}</span>
-                {charOf(cls.id) && <span className="seat-char"><TowerChar id={cls.id} /></span>}
-                <span className="seat-skill"><b>{RPG_SKILL[cls.id].name}</b> · 코인 {saves[i].coins}</span>
-                <span className="seat-who">
-                  {who ? `${who.name}${who.id === lobby?.hostId ? " · 방장" : ""}` : locked ? "정원이 찼습니다" : "눌러서 이 병과로 들어가기"}
+        )}
+
+        <div className="mk-body">
+          {/* 왼쪽 — 고른 모습 미리 보기 */}
+          <div className="mk-preview" style={el ? { "--ec": el.light, "--ed": el.dark } : undefined}>
+            <div className={`mk-stage ${job && gender ? "" : "blank"}`}>
+              <img key={heroArtPath(look, "front")} src={heroArtPath(look, "front")} alt="" />
+            </div>
+            <div className="mk-views">
+              {VIEWS.map(([v, label]) => (
+                <span key={v} className="mk-view">
+                  <img src={heroArtPath(look, v)} alt="" />
+                  <em>{label}</em>
                 </span>
-              </button>
-            );
-          })}
+              ))}
+            </div>
+            <div className="mk-sum">
+              <b>{named ? char.name : cleanName(draft) || "이름 없음"}</b>
+              <span>
+                {job ? JOB_BY_ID[job].name : "직업"} · {el ? el.name : "원소"} · {gender ? (gender === "f" ? "여" : "남") : "성별"}
+              </span>
+              {named && <span className="mk-rec">Lv {char.lv} · 코인 {char.coins}</span>}
+            </div>
+          </div>
+
+          {/* 오른쪽 — 차례대로 고른다 */}
+          <div className="mk-steps">
+            <section className="mk-step">
+              <h2 className="mk-h"><span>01</span>이름</h2>
+              {named ? (
+                <div className="mk-name-fixed">
+                  <b>{char.name}</b>
+                  <span className="mk-lock">변경 불가</span>
+                  <p className="mk-note">이름은 한 번 정하면 바꿀 수 없습니다.</p>
+                </div>
+              ) : asking ? (
+                <div className="mk-confirm">
+                  <p><b>{cleanName(draft)}</b>{ro(cleanName(draft))} 정할까요?</p>
+                  <p className="mk-warn">이름은 변경 불가합니다. 정한 뒤에는 다시 바꿀 수 없습니다.</p>
+                  <div className="mk-row">
+                    <button className="btn-main" onClick={fixName}>이 이름으로 정하기</button>
+                    <button className="btn-ghost" onClick={() => setAsking(false)}>다시 쓰기</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="mk-row">
+                    <input
+                      className="mk-input" value={draft} maxLength={NAME_MAX} placeholder={`${NAME_MAX}글자까지`}
+                      onChange={(e) => { setDraft(e.target.value); setNameErr(""); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") askName(); }}
+                    />
+                    <button className="btn-ghost tall" onClick={askName}>이름 정하기</button>
+                  </div>
+                  <p className="mk-warn">이름은 변경 불가합니다. 한 번 정하면 이 기기에 저장되고, 다음에 들어오면 그대로 불러옵니다.</p>
+                  {nameErr && <p className="err">{nameErr}</p>}
+                </div>
+              )}
+            </section>
+
+            <fieldset className="mk-step" disabled={!named}>
+              <h2 className="mk-h"><span>02</span>직업</h2>
+              <div className="mk-jobs">
+                {JOBS.map((j) => (
+                  <button key={j.id} type="button" className={`mk-job ${job === j.id ? "on" : ""}`}
+                    aria-pressed={job === j.id} onClick={() => setJob(j.id)}>
+                    <span className="mk-job-img"><img src={heroArtPath({ job: j.id, gender: gender || "m" }, "front")} alt="" /></span>
+                    <b>{j.name}</b>
+                    <em>{j.weapon}</em>
+                    <span className="mk-job-note">{j.note}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="mk-step" disabled={!named}>
+              <h2 className="mk-h"><span>03</span>원소</h2>
+              <div className="mk-elems">
+                {ELEMS.map((e) => (
+                  <button key={e.id} type="button" className={`mk-elem ${elem === e.id ? "on" : ""}`}
+                    style={{ "--ec": e.light, "--ed": e.dark }} aria-pressed={elem === e.id} onClick={() => setElem(e.id)}>
+                    <span className="mk-dot" />
+                    <b>{e.name}</b>
+                    <em>{e.tower}</em>
+                    <span className="mk-elem-note">평타가 {e.hit}</span>
+                  </button>
+                ))}
+              </div>
+              {el && job && (
+                <p className="mk-note">
+                  큰 기술 <b>{skillName({ job, elem })}</b> — 둘레 토끼를 크게 치고 {el.big}.
+                </p>
+              )}
+            </fieldset>
+
+            <fieldset className="mk-step" disabled={!named}>
+              <h2 className="mk-h"><span>04</span>성별</h2>
+              <div className="mk-genders">
+                {GENDERS.map((gd) => (
+                  <button key={gd.id} type="button" className={`mk-gender ${gender === gd.id ? "on" : ""}`}
+                    aria-pressed={gender === gd.id} onClick={() => setGender(gd.id)}>
+                    {gd.name}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="mk-go">
+              <button className="btn-main wide" disabled={!ready} onClick={start}>게임 시작하기</button>
+              <p className="mk-note">
+                {!named ? "이름을 먼저 정해 주세요."
+                  : !(job && elem && gender) ? "직업 · 원소 · 성별을 모두 고르면 시작할 수 있습니다."
+                    : "누르면 광장으로 이동합니다."}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -87,12 +225,13 @@ export function RpgPick({ code, lobby, me, error, connecting, onPick, onLeave })
 export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) {
   const cvsRef = useRef(null);
   const bgsRef = useRef(null);
-  const idx = useMemo(() => Array.from({ length: SEATS }, (_, i) => i), []);
-  const seatFlags = useMemo(() => idx.map((i) => !!seats[i]), [idx, seats]);
-  const names = useMemo(() => idx.map((i) => seats[i]?.name || ""), [idx, seats]);
-  const myCls = CLASSES[mySeat].id;
+  const names = useMemo(() => seats.map((s) => s?.name || ""), [seats]);
+  const myLook = seats[mySeat]?.hero || null;
   const [auto, setAuto] = useState(loadAuto);        // 자동 평타
-  const [start] = useState(() => ({ ...heroSave(myCls), auto: loadAuto() }));   // 이 기기에 남아 있던 내 기록
+  const [start] = useState(() => {                   // 이 기기에 남아 있던 내 기록
+    const c = loadChar();
+    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, auto: loadAuto() } : { auto: loadAuto() };
+  });
 
   const G = useRef(null);
   if (!G.current) {
@@ -103,15 +242,15 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     if (import.meta.env.DEV) window.__R = g;        // 개발 중 상태를 들여다보려고
     G.current = g;
   }
-  useEffect(() => { G.current.names = names; }, [names]);
 
-  // 방장 — 자리가 바뀌면 세계에 세우거나 뺀다. 내 기록은 내가 바로 싣는다.
+  // 자리가 바뀌면 — 방장은 세계에 세우거나 빼고, 손님은 겉모습만 맞춘다. 방장의 내 기록은 내가 바로 싣는다.
   useEffect(() => {
     const g = G.current;
-    if (!isHost) return;
-    rpgSyncSeats(g, seatFlags, names);
+    g.mySeat = mySeat;
+    if (!isHost) return void rpgLooks(g, seats);
+    rpgSyncSeats(g, seats);
     if (g.heroes[mySeat] && !g.heroes[mySeat].loaded) rpgJoin(g, mySeat, start);
-  }, [isHost, seatFlags, names, mySeat, start]);
+  }, [isHost, seats, mySeat, start]);
 
   const touch = useTouch();
   const [hud, setHud] = useState(null);
@@ -246,7 +385,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
-        if (d && Number.isInteger(d.cls) && d.cls >= 0 && d.cls < SEATS) rpgJoin(g, d.cls, d.data);
+        if (d && Number.isInteger(d.cls) && d.cls >= 0 && d.cls < RPG_CREW_MAX) rpgJoin(g, d.cls, d.data);
       }));
     } else {
       let last = Date.now();
@@ -277,6 +416,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       if (f.map && me && f.map !== me.map) continue;
       if (f.who !== undefined && f.who !== mySeat) continue;
       if (f.snd === "shot") sfx.shot("arrow");
+      else if (f.snd === "orb") sfx.shot("orb");
+      else if (f.snd === "slash") sfx.shot("blade");
       else if (f.snd === "cannon") sfx.shot("shell");
       else sfx.play(f.snd);
     }
@@ -329,14 +470,14 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}`;
-          if (key !== saved) { saved = key; writeHero(myCls, me); }
+          if (key !== saved) { saved = key; writeChar(me); }
         }
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [isHost, room, playSounds, mySeat, myCls]);
+  }, [isHost, room, playSounds, mySeat]);
 
   useEffect(() => {
     if (!toast) return;
@@ -346,6 +487,11 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
 
   const me = hud;
   const inField = me && me.map === "field";
+  const myEl = elemOf(myLook);
+  const who = (pi) => {                              // 파티 칸 — 직업 · 원소
+    const l = seats[pi]?.hero;
+    return l ? `${elemOf(l).name} ${jobOf(l).name}` : "";
+  };
 
   return (
     <div className={`page ${touch ? "touch" : ""}`}>
@@ -355,14 +501,14 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
 
           {/* 왼쪽 위 — 레벨 · 경험치 · 체력 · 코인 */}
           {me && (
-            <div className="rpg-lv" style={{ "--pc": P[mySeat].key, "--pcl": P[mySeat].light }}>
+            <div className="rpg-lv" style={{ "--pc": myEl.key, "--pcl": myEl.light }}>
               <span className="rpg-lv-badge"><em>Lv</em>{me.lv}</span>
               <button type="button" className={`rpg-lv-menu ${menu ? "on" : ""}`} aria-label="메뉴" aria-haspopup="menu"
                 aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
                 <span /><span /><span />
               </button>
               <span className="rpg-lv-body">
-                <span className="rpg-lv-name"><b>{names[mySeat] || CLASSES[mySeat].name}</b> {CLASSES[mySeat].name}</span>
+                <span className="rpg-lv-name"><b>{names[mySeat] || "모험가"}</b> {who(mySeat)}</span>
                 <span className="rpg-lv-row">
                   <span className="rpg-lv-tag">XP</span>
                   <span className="rpg-lv-bar xp"><span style={{ width: `${Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
@@ -376,7 +522,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.coins}</span>
                   <span className={`rpg-lv-sk ${me.sk <= 0 ? "ready" : ""}`}>
-                    {RPG_SKILL[myCls].name} {me.sk <= 0 ? "준비됨" : `${Math.ceil(me.sk)}초`}
+                    {skillName(myLook)} {me.sk <= 0 ? "준비됨" : `${Math.ceil(me.sk)}초`}
                   </span>
                 </span>
               </span>
@@ -479,9 +625,9 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
 
         <div className="rpg-party">
           {(me ? me.party : []).map((h) => (
-            <span key={h.pi} className={`rpg-mate ${h.pi === mySeat ? "mine" : ""}`} style={{ "--pcl": P[h.pi].light }}>
-              <b>{names[h.pi] || CLASSES[h.pi].name}</b>
-              <em>{CLASSES[h.pi].name} · Lv {h.lv} · {MAPS[h.map].name}</em>
+            <span key={h.pi} className={`rpg-mate ${h.pi === mySeat ? "mine" : ""}`} style={{ "--pcl": elemOf(seats[h.pi]?.hero).light }}>
+              <b>{names[h.pi] || "모험가"}</b>
+              <em>{who(h.pi)} · Lv {h.lv} · {MAPS[h.map].name}</em>
               <span className="rpg-mate-hp"><span style={{ width: `${Math.min(100, (h.hp / (h.max || 1)) * 100)}%` }} /></span>
             </span>
           ))}
@@ -502,7 +648,9 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           레벨이 오르면 공격력과 체력이 오르고 체력이 가득 찹니다.
           사냥꾼에게 퀘스트를 받아 토끼 {QUEST.need}마리를 잡으면 경험치 {QUEST.xp}과 {QUEST.coin}코인을 더 받습니다. 다시 받을 수 있습니다.
           토끼는 가끔 들이받습니다. {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
-          레벨 · 경험치 · 코인 · 퀘스트는 이 기기에 병과마다 남아, 다음에 들어와도 이어집니다.
+          전사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
+          고른 원소는 평타에 약하게, 큰 기술에 세게 실립니다.
+          레벨 · 경험치 · 코인 · 퀘스트는 이 기기의 내 캐릭터(이름)에 남아, 직업을 바꿔 들어와도 이어집니다.
           방을 만든 사람이 나가면 그 방은 닫힙니다.
         </details>
       </div>

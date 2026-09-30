@@ -31,6 +31,8 @@ public/
     │   │   └── <병과id>/
     │   │       ├── portrait.webp   ← 대기실 카드·사이드바에 쓰는 큰 그림
     │   │       └── arena.webp      ← 보스 결전장에 서는 작은 그림
+    │   ├── rpg/
+    │   │   └── <직업>-<성별>/      ← RPG 기본 캐릭터 · front · side · back · turn
     │   ├── enemies/                ← 길을 걸어오는 일반 적 3종
     │   └── bosses/                 ← 보스 결전장의 보스 2종
     ├── effects/
@@ -77,6 +79,23 @@ design/                              ← 원본 디자인 시트 + 잘라내는 
 - 코드에서 참조하는 곳: `src/ui/chars.jsx`의 `TOWER_CHARACTERS`(경로 11줄), `src/game/art.js`의
   `classArt()`(경로를 `/assets/characters/players/${id}/arena.webp`로 조립).
 - 새 병과를 추가할 때는 `design/characters/README.md`의 안내를 따르면 됩니다.
+
+### RPG 기본 캐릭터 — `public/assets/characters/rpg/<직업>-<성별>/`
+
+RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mage · archer) × 성별 2종(m · f) = 6명이고,
+한 명마다 네 방향 그림을 갖습니다. 원본은 `design/characters/rpg-starter-sheet.webp`(배경이 이미 투명),
+잘라 내는 스크립트는 `design/characters/rpg_cut.py`입니다.
+
+| 파일 | 방향 | 게임에서 쓰는 때 |
+| --- | --- | --- |
+| front.webp | 오른쪽을 비스듬히 본 앞모습 | 서 있거나 치면서 오른쪽을 볼 때 · 캐릭터 만들기 미리 보기 |
+| turn.webp | 왼쪽을 비스듬히 본 앞모습 | 서 있거나 치면서 왼쪽을 볼 때 |
+| side.webp | 왼쪽을 본 옆모습 | 옆으로 걸을 때(오른쪽으로 걸으면 좌우로 뒤집어 그린다) |
+| back.webp | 뒷모습 | 위로 걸을 때 |
+
+- 사용처: `src/game/rpg.js`의 `heroArtPath()`(경로 조립), `src/game/rpgArt.js`의 `drawHero()`,
+  `src/RpgView.jsx`의 `RpgSetup`(캐릭터 만들기 화면).
+- 시트 배율 그대로(캐릭터 키 약 280px → 화면 66) 줄여 그리므로, 방향마다 그림 크기가 달라도 키가 같게 보입니다.
 
 ### Enemies — `public/assets/characters/enemies/`
 

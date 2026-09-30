@@ -23,7 +23,9 @@ export const RPG = {
   edge: 40,
 };
 
-/* 맵 — 광장과 사냥터. 문에 들어서면 반대쪽 맵의 at 자리로 옮겨 간다. */
+/* 맵 — 광장 · 토끼 사냥터 · 늑대 사냥터. 문에 들어서면 반대쪽 맵의 at 자리로 옮겨 간다.
+   zone 은 몹이 나오는 가로 구간이다. 입구 쪽이 낮은 레벨, 끝으로 갈수록 높은 레벨이 나온다.
+   bg 는 바탕 그림 이름, tile 은 그 그림이 덮는 가로 폭 — 맵이 더 넓으면 좌우로 뒤집어 이어 붙인다. */
 export const MAPS = {
   plaza: {
     id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: [900, 820],
@@ -32,17 +34,62 @@ export const MAPS = {
     npcs: [],
   },
   field: {
-    id: "field", name: "사냥터", w: 2600, h: 1700, top: 170, spawn: [240, 920],
-    gates: [{ x: 90, y: 920, r: 64, to: "plaza", at: [1560, 700], label: "광장" }],
+    id: "field", name: "토끼 사냥터", w: 3800, h: 1700, top: 170, spawn: [240, 920], bg: "field", tile: 2600,
+    gates: [
+      { x: 90, y: 920, r: 64, to: "plaza", at: [1560, 700], label: "광장" },
+      { x: 3700, y: 920, r: 64, to: "wolf", at: [260, 920], label: "늑대 사냥터 · 10~20레벨" },
+    ],
     blocks: [],
     npcs: [{ id: "hunter", name: "사냥꾼", x: 430, y: 740 }],
-    rabbits: 15,
+    zone: [300, 3500],
+    paths: [[[3760, 920], [3580, 920], [3420, 880], [3260, 900]]],   // 늑대 사냥터로 가는 흙길
+  },
+  wolf: {
+    id: "wolf", name: "늑대 사냥터", w: 3600, h: 1700, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
+    tint: "rgba(16,34,22,0.32)",                  // 숲이 깊어 조금 어둡다
+    gates: [{ x: 90, y: 920, r: 64, to: "field", at: [3520, 920], label: "토끼 사냥터" }],
+    blocks: [],
+    npcs: [],
+    zone: [520, 3450],
   },
 };
-const MAP_IDS = ["plaza", "field"];
+const MAP_IDS = ["plaza", "field", "wolf"];
 
 export const QUEST = { name: "토끼 사냥", need: 5, xp: 10, coin: 15 };
-const RABBIT = { hp: 40, xp: 1, coin: 1, rad: 13, bump: 4, respawn: 1.5 };
+
+/* ── 몹 — 레벨이 오를수록 크고 단단하고 아프다 ─────────────────────
+   토끼는 1~5레벨, 맞으면 달아나고 가끔 들이받는다. 대왕 토끼(보스)는 10레벨, 달아나지 않고 자주 들이받는다.
+   늑대는 10~20레벨, 가까이 오면 쫓아와 문다. 우두머리 늑대(보스)는 25레벨, 둘레를 한꺼번에 문다.
+   size 는 그리는 크기와 몸 반지름(rad)에 같이 곱한다. */
+export const MOB = {
+  rabbit: {
+    name: "토끼", rad: 13,
+    hp: (lv) => 40 + 20 * (lv - 1),               // 40 · 60 · 80 · 100 · 120
+    dmg: (lv) => 3 + lv,                          // 들이받기 4 ~ 8
+    xp: (lv) => 2 * lv, coin: (lv) => lv,
+    size: (lv) => 0.85 + 0.1 * (lv - 1),          // 0.85 ~ 1.25
+    boss: { name: "대왕 토끼", lv: 10, hp: 1500, dmg: 20, xp: 80, coin: 60, size: 2.1 },
+  },
+  wolf: {
+    name: "늑대", rad: 22,
+    hp: (lv) => 300 + 60 * (lv - 10),             // 300 ~ 900
+    dmg: (lv) => 12 + 2 * (lv - 10),              // 한 번 물 때 12 ~ 32
+    xp: (lv) => 2 * lv, coin: (lv) => lv,
+    size: (lv) => 1 + 0.05 * (lv - 10),           // 1.0 ~ 1.5 — 토끼보다 훨씬 크다
+    boss: { name: "우두머리 늑대", lv: 25, hp: 8000, dmg: 55, xp: 400, coin: 250, size: 2.1 },
+  },
+};
+const MOB_TYPES = ["rabbit", "wolf"];
+export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
+export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
+
+/* 무리 — 맵마다 나오는 몹과 수. 한 마리가 죽으면 respawn 초 뒤에 한 마리가 새로 나온다. */
+export const SPAWNS = [
+  { map: "field", type: "rabbit", n: 15, lv: [1, 5], respawn: 1.5 },
+  { map: "field", type: "rabbit", boss: 1, n: 2, respawn: 5 },
+  { map: "wolf", type: "wolf", n: 24, lv: [10, 20], respawn: 2 },
+  { map: "wolf", type: "wolf", boss: 1, n: 2, respawn: 5 },
+];
 
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
    hp 는 버티는 몫, rng 는 사거리(RPG.rangeMul 을 곱하기 전), splash 는 맞은 자리 둘레로 번지는 폭 */
@@ -204,7 +251,7 @@ export function makeWorld() {
     fx: [], out: null, banner: null, shake: 0, nextId: 1,
     looks: new Array(RPG_CREW_MAX).fill(null), names: [], mySeat: -1,
   };
-  for (let i = 0; i < MAPS.field.rabbits; i++) spawnRabbit(g);
+  SPAWNS.forEach((sp, gi) => { for (let i = 0; i < sp.n; i++) spawnMob(g, gi); });
   return g;
 }
 
@@ -376,7 +423,7 @@ export function rpgFire(g, pi, on) {
   h.fireQ = 0.35;
   if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, "광장에서는 싸울 수 없다", "#d9c9a6");
   if (h.cd <= 0 && !nearMobs(g, h.map, h.x, h.y, heroRange(h), 1).length) {
-    say(g, h.map, h.x, h.y - 90, "사거리 안에 토끼가 없다", "#d9c9a6");
+    say(g, h.map, h.x, h.y - 90, "사거리 안에 몹이 없다", "#d9c9a6");
   }
 }
 
@@ -399,22 +446,32 @@ export function rpgTalk(g, pi) {
   }
 }
 
-/* ── 토끼 ──────────────────────────────────────────────── */
-function spawnRabbit(g) {
-  const M = MAPS.field;
+/* ── 몹이 나온다 ──────────────────────────────────────────── */
+function spawnMob(g, gi) {
+  const sp = SPAWNS[gi];
+  const M = MAPS[sp.map];
+  const T = MOB[sp.type];
+  const [z0, z1] = M.zone;
+  // 레벨을 먼저 정하고, 그 레벨의 구간 안에서 자리를 찾는다 — 보스는 맵 끝쪽 40% 안에 나온다
+  const lv = sp.boss ? T.boss.lv : sp.lv[0] + Math.floor(Math.random() * (sp.lv[1] - sp.lv[0] + 1));
+  const band = sp.boss ? [0.6, 1] : [(lv - sp.lv[0]) / (sp.lv[1] - sp.lv[0] + 1), (lv - sp.lv[0] + 1) / (sp.lv[1] - sp.lv[0] + 1)];
   let x = 0, y = 0;
-  // 사람 곁이나 문 앞에서는 나오지 않는다
+  // 사람 곁이나 문 · 사냥꾼 앞에서는 나오지 않는다
   for (let tries = 0; tries < 12; tries++) {
-    x = 300 + Math.random() * (M.w - 400);
+    x = z0 + (band[0] + Math.random() * (band[1] - band[0])) * (z1 - z0);
     y = M.top + 60 + Math.random() * (M.h - M.top - 120);
-    const busy = g.heroes.some((h) => h && h.map === "field" && dist(h.x, h.y, x, y) < 260)
-      || M.npcs.some((n) => dist(n.x, n.y, x, y) < 200);
+    const busy = g.heroes.some((h) => h && h.map === sp.map && dist(h.x, h.y, x, y) < 260)
+      || M.npcs.some((n) => dist(n.x, n.y, x, y) < 200) || M.gates.some((q) => dist(q.x, q.y, x, y) < 220);
     if (!busy) break;
   }
+  const size = mobSize(sp.type, lv, sp.boss);
+  const hp = sp.boss ? T.boss.hp : T.hp(lv);
   g.mobs.push({
-    id: g.nextId++, type: "rabbit", map: "field", x, y, ax: Math.random() < 0.5 ? -1 : 1,
-    hp: RABBIT.hp, max: RABBIT.hp, rad: RABBIT.rad, age: 0,
-    state: "idle", t: 0.5 + Math.random() * 1.5, vx: 0, vy: 0, tgt: -1, bumpCd: 2,
+    id: g.nextId++, gi, type: sp.type, boss: sp.boss ? 1 : 0, lv, size, map: sp.map, x, y, hx: x, hy: y,
+    ax: Math.random() < 0.5 ? -1 : 1,
+    hp, max: hp, rad: T.rad * size, age: 0,
+    dmg: sp.boss ? T.boss.dmg : T.dmg(lv), xp: sp.boss ? T.boss.xp : T.xp(lv), coin: sp.boss ? T.boss.coin : T.coin(lv),
+    state: "idle", t: 0.5 + Math.random() * 1.5, vx: 0, vy: 0, tgt: -1, bumpCd: 2, biteCd: 1, bite: 0,
     slow: 0, freeze: 0, stun: 0, burn: 0, bdps: 0, bby: -1, poison: 0, pdps: 0, pby: -1,
     shred: 0, shredAmt: 0, flash: 0, dotT: 0.5, numAcc: 0, numT: 0, numCol: "#ffe9bd",
   });
@@ -451,8 +508,10 @@ function hitMob(g, pi, m, raw, skill) {
   m.numAcc += dmg;
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
   if (crit || skill || m.numT <= 0) flushNum(g, m, crit ? 2 : skill ? 1 : 0);
-  // 맞은 토끼는 때린 쪽 반대로 달아난다
-  if (h && m.hp > 0 && m.freeze <= 0 && m.stun <= 0) {
+  // 늑대와 대왕 토끼는 때린 쪽을 노린다
+  if (h && m.hp > 0 && (m.type === "wolf" || m.boss)) { m.tgt = pi; m.bumpCd = Math.min(m.bumpCd, 0.6); }
+  // 작은 토끼는 때린 쪽 반대로 달아난다
+  else if (h && m.hp > 0 && m.freeze <= 0 && m.stun <= 0) {
     const dx = m.x - h.x, dy = (m.y - h.y) / RPG.squash;
     const len = Math.hypot(dx, dy) || 1;
     m.state = "flee"; m.t = 1.4;
@@ -468,15 +527,19 @@ function killMob(g, m, pi) {
   m.hp = 0;
   flushNum(g, m, 1);
   fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" });
-  g.respawn.push({ t: RABBIT.respawn });
+  g.respawn.push({ t: SPAWNS[m.gi].respawn, gi: m.gi });
   const h = g.heroes[pi];
   if (!h) return;
   h.kills += 1;
-  h.coins += RABBIT.coin;
-  fx(g, m.map, { kind: "text", x: m.x, y: m.y - 16, text: `+${RABBIT.xp} XP · +${RABBIT.coin} 코인`, color: "#f3d27f",
+  h.coins += m.coin;
+  if (m.boss) {
+    fx(g, m.map, { kind: "call", x: m.x, y: m.y - 30 - 50 * m.size, text: `${mobName(m)} 처치!`, color: "#ffd873",
+      t: 1.4, life: 1.4, snd: "clear", who: pi });
+  }
+  fx(g, m.map, { kind: "text", x: m.x, y: m.y - 16, text: `+${m.xp} XP · +${m.coin} 코인`, color: "#f3d27f",
     t: 0.9, life: 0.9, snd: "coin", who: pi });
-  giveXp(g, h, RABBIT.xp);
-  if (h.quest.on) {
+  giveXp(g, h, m.xp);
+  if (h.quest.on && m.type === "rabbit") {
     h.quest.n += 1;
     if (h.quest.n >= QUEST.need) {
       h.quest = { on: false, n: 0 };
@@ -639,7 +702,7 @@ export function rpgSkill(g, pi) {
   } else {
     list = nearMobs(g, map, h.x, h.y, 300); mul = 2.6;
   }
-  if (!list.length) return say(g, map, h.x, h.y - 90, "닿는 토끼가 없다", "#d9c9a6");
+  if (!list.length) return say(g, map, h.x, h.y - 90, "닿는 몹이 없다", "#d9c9a6");
   if (cx !== h.x) h.dir = cx < h.x ? -1 : 1;
   h.face = 0;
 
@@ -718,7 +781,8 @@ function nearestHero(g, m, range) {
   return best;
 }
 
-function stepRabbit(g, m, dt) {
+// 걸린 것 · 시간 — 모든 몹이 같다. 죽었거나 얼었거나 기절했으면 false
+function tickMob(g, m, dt) {
   m.age += dt;
   m.flash = Math.max(0, m.flash - dt);
   m.slow = Math.max(0, m.slow - dt);
@@ -727,6 +791,8 @@ function stepRabbit(g, m, dt) {
   m.shred = Math.max(0, m.shred - dt);
   m.numT = Math.max(0, m.numT - dt);
   m.bumpCd = Math.max(0, m.bumpCd - dt);
+  m.biteCd = Math.max(0, m.biteCd - dt);
+  m.bite = Math.max(0, m.bite - dt);
   if (m.numT <= 0 && m.numAcc > 0) flushNum(g, m);
   if (m.burn > 0 || m.poison > 0) {              // 불과 독은 0.5초마다 한 번씩 깎는다
     m.dotT -= dt;
@@ -734,37 +800,51 @@ function stepRabbit(g, m, dt) {
       m.dotT = 0.5;
       if (m.burn > 0) hitMob(g, m.bby, m, m.bdps * 0.5);
       if (!m.dead && m.poison > 0) hitMob(g, m.pby, m, m.pdps * 0.5);
-      if (m.dead) return;
+      if (m.dead) return false;
     }
     m.burn = Math.max(0, m.burn - dt);
     m.poison = Math.max(0, m.poison - dt);
   }
-  if (m.freeze > 0 || m.stun > 0) { m.moving = 0; return; }
+  if (m.freeze > 0 || m.stun > 0) { m.moving = 0; return false; }
+  return true;
+}
 
+// 맵 가장자리에서 튕겨 나온다
+function keepMob(m) {
+  const M = MAPS[m.map];
+  const bx = clamp(m.x, RPG.edge + 20, M.w - RPG.edge - 20), by = clamp(m.y, M.top + 10, M.h - RPG.edge);
+  if (bx !== m.x) m.vx = -m.vx;
+  if (by !== m.y) m.vy = -m.vy;
+  m.x = bx; m.y = by;
+}
+
+/* 토끼 — 깡충깡충 돌아다니다 가끔 들이받는다. 대왕 토끼는 더 멀리서, 더 자주, 더 세게 들이받는다. */
+function stepRabbit(g, m, dt) {
   const spd = m.slow > 0 ? 0.5 : 1;
   if (m.state !== "idle") {
     m.x += m.vx * spd * dt;
     m.y += m.vy * spd * RPG.squash * dt;
     if (Math.abs(m.vx) > 1) m.ax = m.vx < 0 ? -1 : 1;
   }
-  // 들이받기 — 닿으면 조금 아프고 튕겨 나온다
+  // 들이받기 — 닿으면 아프고 튕겨 나온다
   if (m.state === "charge") {
     const tg = g.heroes[m.tgt];
-    if (tg && tg.map === m.map && tg.down <= 0 && dist(m.x, m.y, tg.x, tg.y) < 26) {
-      hurtHero(g, tg, RABBIT.bump);
-      fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 24, r: 16, color: "#ffd7c2", n: 5, t: 0.25, life: 0.25 });
-      m.bumpCd = 3.5;
+    if (tg && tg.map === m.map && tg.down <= 0 && dist(m.x, m.y, tg.x, tg.y) < m.rad + 13) {
+      hurtHero(g, tg, m.dmg);
+      fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 24, r: 16 * m.size, color: "#ffd7c2", n: 5, t: 0.25, life: 0.25 });
+      m.bumpCd = m.boss ? 2.4 : 3.5;
       m.state = "flee"; m.t = 0.5; m.vx = -m.vx * 0.6; m.vy = -m.vy * 0.6;
     }
   }
   m.t -= dt;
   if (m.t <= 0) {
-    const near = m.bumpCd <= 0 ? nearestHero(g, m, 130) : null;
-    if (near && Math.random() < 0.3) {
+    const near = m.bumpCd <= 0 ? nearestHero(g, m, m.boss ? 280 : 130) : null;
+    if (near && Math.random() < (m.boss ? 0.75 : 0.3)) {
       const dx = near.x - m.x, dy = (near.y - m.y) / RPG.squash;
       const len = Math.hypot(dx, dy) || 1;
-      m.state = "charge"; m.t = 0.7; m.tgt = near.pi;
-      m.vx = (dx / len) * 240; m.vy = (dy / len) * 240;
+      const v = m.boss ? 320 : 240;
+      m.state = "charge"; m.t = m.boss ? 1.0 : 0.7; m.tgt = near.pi;
+      m.vx = (dx / len) * v; m.vy = (dy / len) * v;
     } else if (m.state === "idle") {
       const a = Math.random() * Math.PI * 2, v = 110 + Math.random() * 40;
       m.state = "hop"; m.t = 0.35 + Math.random() * 0.4;
@@ -774,11 +854,85 @@ function stepRabbit(g, m, dt) {
     }
   }
   m.moving = m.state !== "idle" ? 1 : 0;
-  const M = MAPS[m.map];
-  const bx = clamp(m.x, RPG.edge + 20, M.w - RPG.edge - 20), by = clamp(m.y, M.top + 10, M.h - RPG.edge);
-  if (bx !== m.x) m.vx = -m.vx;
-  if (by !== m.y) m.vy = -m.vy;
-  m.x = bx; m.y = by;
+  keepMob(m);
+}
+
+/* 늑대 — 가까이 온 사람을 쫓아가 문다. 제자리에서 너무 멀어지면 돌아간다.
+   우두머리는 더 멀리서 알아채고, 한 번 물 때 둘레의 사람을 모두 문다. */
+function stepWolf(g, m, dt) {
+  const spd = m.slow > 0 ? 0.5 : 1;
+  const aggro = m.boss ? 340 : 250;
+  const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
+  let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
+  if (tg && (tg.map !== m.map || tg.down > 0 || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > 900)) { tg = null; m.tgt = -1; }
+  if (!tg && far < 700) {
+    const near = nearestHero(g, m, aggro);
+    if (near) { tg = near; m.tgt = near.pi; }
+  }
+  if (tg) {
+    const dx = tg.x - m.x, dy = (tg.y - m.y) / RPG.squash;
+    const d = Math.hypot(dx, dy) || 1;
+    const reach = m.rad + 16;
+    if (Math.abs(dx) > 2) m.ax = dx < 0 ? -1 : 1;
+    if (d > reach) {
+      const v = (m.boss ? 200 : 175) * spd;
+      m.x += (dx / d) * v * dt; m.y += (dy / d) * v * RPG.squash * dt;
+      m.moving = 1;
+    } else {
+      m.moving = 0;
+      if (m.biteCd <= 0) {
+        const list = m.boss
+          ? g.heroes.filter((h) => h && h.map === m.map && h.down <= 0 && dist(m.x, m.y, h.x, h.y) < reach * 1.7)
+          : [tg];
+        list.forEach((h) => {
+          hurtHero(g, h, m.dmg);
+          fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 18, color: "#ffb4a8", n: 6, t: 0.3, life: 0.3 });
+        });
+        m.biteCd = m.boss ? 1.6 : 1.3;
+        m.bite = 0.25;
+      }
+    }
+  } else {
+    // 어슬렁거린다 — 제자리에서 멀면 그쪽으로 돌아간다
+    m.t -= dt;
+    if (m.t <= 0) {
+      if (m.state === "idle") {
+        const back = far > 260;
+        const a = back ? Math.atan2((m.hy - m.y) / RPG.squash, m.hx - m.x) : Math.random() * Math.PI * 2;
+        const v = back ? 130 : 70 + Math.random() * 40;
+        m.state = "walk"; m.t = back ? 1.2 : 0.8 + Math.random() * 1.2;
+        m.vx = Math.cos(a) * v; m.vy = Math.sin(a) * v;
+      } else {
+        m.state = "idle"; m.t = 1 + Math.random() * 2.2; m.vx = 0; m.vy = 0;
+      }
+    }
+    if (m.state !== "idle") {
+      m.x += m.vx * spd * dt;
+      m.y += m.vy * spd * RPG.squash * dt;
+      if (Math.abs(m.vx) > 1) m.ax = m.vx < 0 ? -1 : 1;
+    }
+    m.moving = m.state !== "idle" ? 1 : 0;
+  }
+  keepMob(m);
+}
+
+function stepMob(g, m, dt) {
+  if (!tickMob(g, m, dt)) return;
+  if (m.type === "wolf") { stepWolf(g, m, dt); spreadWolves(g, m); }
+  else stepRabbit(g, m, dt);
+}
+
+// 한 사람에게 몰려도 한 자리에 겹치지 않게 늑대끼리 살짝 밀어낸다
+function spreadWolves(g, m) {
+  for (const q of g.mobs) {
+    if (q === m || q.dead || q.type !== "wolf" || q.map !== m.map) continue;
+    const dx = m.x - q.x, dy = (m.y - q.y) / RPG.squash;
+    const d = Math.hypot(dx, dy), min = (m.rad + q.rad) * 0.8;
+    if (d >= min) continue;
+    const push = (min - d) * 0.5 * (q.boss && !m.boss ? 1.6 : 1);
+    const ux = d > 0.01 ? dx / d : Math.random() - 0.5, uy = d > 0.01 ? dy / d : Math.random() - 0.5;
+    m.x += ux * push; m.y += uy * push * RPG.squash;
+  }
 }
 
 export function rpgStep(g, dt) {
@@ -794,18 +948,21 @@ export function rpgStep(g, dt) {
     landHit(g, s);
     return false;
   });
-  g.mobs.forEach((m) => { if (!m.dead) stepRabbit(g, m, dt); });
+  g.mobs.forEach((m) => { if (!m.dead) stepMob(g, m, dt); });
   g.mobs = g.mobs.filter((m) => !m.dead);
 
-  // 한 마리가 죽으면 한 마리 — 열다섯 마리를 넘지 않는다
+  // 무리마다 한 마리가 죽으면 한 마리 — 정해진 수를 넘지 않는다
+  const alive = SPAWNS.map(() => 0), wait = SPAWNS.map(() => 0);
+  g.mobs.forEach((m) => { alive[m.gi] += 1; });
   g.respawn = g.respawn.filter((r) => {
     r.t -= dt;
-    if (r.t > 0) return true;
-    if (g.mobs.length < MAPS.field.rabbits) spawnRabbit(g);
+    if (r.t > 0) { wait[r.gi] += 1; return true; }
+    if (alive[r.gi] < SPAWNS[r.gi].n) { spawnMob(g, r.gi); alive[r.gi] += 1; }
     return false;
   });
-  const owed = MAPS.field.rabbits - g.mobs.length - g.respawn.length;
-  for (let i = 0; i < owed; i++) g.respawn.push({ t: RABBIT.respawn });
+  SPAWNS.forEach((sp, gi) => {
+    for (let i = alive[gi] + wait[gi]; i < sp.n; i++) g.respawn.push({ t: sp.respawn, gi });
+  });
 }
 
 /* ── 주고받기 ──────────────────────────────────────────── */
@@ -822,7 +979,7 @@ export function rpgPack(g) {
     m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
         | (m.stun > 0 ? 16 : 0) | (m.shred > 0 ? 32 : 0) | (m.flash > 0 ? 64 : 0),
-      m.ax < 0 ? 1 : 0, m.moving ? 1 : 0]),
+      m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0]),
   };
 }
 
@@ -849,13 +1006,17 @@ export function rpgApply(g, s) {
     h.loaded = row[16]; h.buff = row[17] ? 0.3 : 0; h.guard = row[18] ? 0.3 : 0; h.auto = row[19] ? 1 : 0;
   });
   const seen = new Set();
-  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving]) => {
+  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite]) => {
     seen.add(id);
     let m = g.mobs.find((q) => q.id === id);
     if (!m) {
-      m = { id, type: "rabbit", map: MAP_IDS[mi] || "field", x, y, ax: 1, hp: 100, max: 100, age: 0, rad: RABBIT.rad };
+      const type = MOB_TYPES[ti] || "rabbit";
+      const size = mobSize(type, lv || 1, boss);
+      m = { id, type, lv: lv || 1, boss: boss ? 1 : 0, size, map: MAP_IDS[mi] || "field", x, y, ax: 1,
+        hp: 100, max: 100, age: 0, rad: MOB[type].rad * size };
       g.mobs.push(m);
     }
+    m.bite = bite ? 0.25 : 0;
     m.tx = x; m.ty = y;
     if (Math.hypot(x - m.x, y - m.y) > 160) { m.x = x; m.y = y; }
     m.hp = pct; m.max = 100;

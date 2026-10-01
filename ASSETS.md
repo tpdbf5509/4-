@@ -198,6 +198,8 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 | 성채 | `src/game/art.js`의 `drawCastle()`이 절차적으로 그립니다(위 Map의 관문과는 다른, 지도 한가운데의 성채입니다). |
 | UI 아이콘(방패·소리 제외) | 이미지가 아니라 `src/ui/icons.jsx`의 인라인 SVG 컴포넌트입니다(`Coin`, `HomeIcon`, `ClassIcon`, `PerkIcon`). |
 | UI 버튼 / 패널 | `src/ui/style.css`의 그라데이션·테두리·그림자로 그린 CSS 디자인입니다. 소리 단추만 배경을 없애고 위 UI 그림을 그대로 보입니다. |
+| RPG 늑대 · 우두머리 늑대 | 그림 파일이 없습니다. `src/game/rpgArt.js`의 `drawWolfBody()`가 캔버스에 직접 그립니다(걸을 때 다리를 번갈아 내딛고, 물 때 입을 벌립니다). 우두머리는 털빛이 짙고 목갈기 · 붉은 눈 · 흉터가 붙습니다. |
+| RPG 늑대 사냥터 바탕 | 따로 그림이 없습니다. 토끼 사냥터 바탕(`public/assets/game/rpg/field.webp`)을 좌우로 뒤집어 이어 붙이고 어둡게 덮어 씁니다. 늘어난 토끼 사냥터 끝쪽도 같은 방식입니다. |
 
 ---
 

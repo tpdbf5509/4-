@@ -5,7 +5,7 @@ import {
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, makeChar, saveLook, writeChar, deleteChar,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanName, cleanLook,
-  rpgStat, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
+  rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
@@ -637,7 +637,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
                 <button type="button" role="menuitemcheckbox" aria-checked={auto} className="rpg-menu-row" onClick={toggleAuto}>
                   <span className="rpg-menu-text">
                     <b>자동 평타</b>
-                    <em>{auto ? "사거리 안의 토끼를 저절로 칩니다" : touch ? "공격 버튼을 누르고 있는 동안 칩니다" : "스페이스를 누르고 있는 동안 칩니다"}</em>
+                    <em>{auto ? "사거리 안의 몹을 저절로 칩니다" : touch ? "공격 버튼을 누르고 있는 동안 칩니다" : "스페이스를 누르고 있는 동안 칩니다"}</em>
                   </span>
                   <span className={`rpg-switch ${auto ? "on" : ""}`}><span /></span>
                 </button>
@@ -787,27 +787,33 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         </div>
 
         <p className="keyhint rpg-keys">
-          방 코드 <kbd>{code}</kbd> ·{" "}
+          <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_CREW_MAX}명 ·{" "}
           {touch
             ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 곁에서 대화 · 레벨 칸의 스탯 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
             : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 곁에서 <kbd>E</kbd> 대화 · 스탯 <kbd>C</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
-          광장 오른쪽의 사냥문으로 들어가면 사냥터입니다. 사냥터 왼쪽 끝의 문으로 나오면 광장입니다.
-          자동 평타가 켜져 있으면 사거리 안의 토끼를 저절로 칩니다. 레벨 칸의 ☰ 메뉴에서 끌 수 있고,
-          끄면 스페이스(휴대폰은 공격 버튼)를 누르고 있는 동안 칩니다. 켜져 있어도 스페이스로 칠 수 있습니다. 토끼는 늘 {MAPS.field.rabbits}마리 이하로 돌아다니고, 한 마리가 잡히면 한 마리가 새로 나옵니다.
-          토끼 한 마리는 경험치 1과 1코인입니다. 레벨을 올리려면 처음엔 경험치 30, 그다음부터는 30씩 더 필요합니다.
+          광장 오른쪽의 사냥문으로 들어가면 토끼 사냥터입니다. 토끼 사냥터 오른쪽 끝의 문으로 가면 늑대 사냥터(10~20레벨)이고, 각 사냥터 왼쪽 끝의 문으로 돌아옵니다.
+          자동 평타가 켜져 있으면 사거리 안의 몹을 저절로 칩니다. 레벨 칸의 ☰ 메뉴에서 끌 수 있고,
+          끄면 스페이스(휴대폰은 공격 버튼)를 누르고 있는 동안 칩니다. 켜져 있어도 스페이스로 칠 수 있습니다.
+          몹 머리 위에 레벨이 보이고, 레벨이 높을수록 크고 단단합니다. 입구에서 멀어질수록 높은 레벨이 나옵니다.
+          토끼는 1~5레벨로 {SPAWNS[0].n}마리, 대왕 토끼(보스 · 10레벨)는 {SPAWNS[1].n}마리까지 나옵니다.
+          늑대는 10~20레벨로 {SPAWNS[2].n}마리, 우두머리 늑대(보스 · 25레벨)는 {SPAWNS[3].n}마리까지 나옵니다. 한 마리가 잡히면 한 마리가 새로 나옵니다.
+          토끼는 레벨마다 경험치 2와 1코인씩 늘어납니다(1레벨 토끼는 경험치 2 · 1코인). 늑대도 같은 셈이라 10레벨 늑대는 경험치 20 · 10코인입니다.
+          토끼는 맞으면 달아나고 가끔 들이받지만, 늑대와 보스는 가까이 가거나 때리면 쫓아옵니다.
+          레벨을 올리려면 처음엔 경험치 30, 그다음부터는 30씩 더 필요합니다.
           레벨이 오르면 체력이 가득 차고 스탯 포인트 {STAT_PER_LV}를 받습니다(처음 만들 때도 {STAT_PER_LV}포인트). 최고 레벨은 {LV_MAX}입니다.
           레벨 칸의 스탯 버튼(키보드는 C)에서 물리력 · 마법력 · 체력 · 치명타 확률 · 치명타 피해에 나눠 찍습니다.
           스탯마다 {STAT_MAX}까지 찍을 수 있어 둘만 가득 채울 수 있고, 적용하면 되돌릴 수 없습니다.
           물리력은 전사 · 궁수, 마법력은 마법사의 공격력을 올리고, 화상 · 독 피해는 직업과 상관없이 마법력을 따릅니다.
           사냥꾼에게 퀘스트를 받아 토끼 {QUEST.need}마리를 잡으면 경험치 {QUEST.xp}과 {QUEST.coin}코인을 더 받습니다. 다시 받을 수 있습니다.
-          토끼는 가끔 들이받습니다. {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
+          {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
           전사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
           고른 원소는 평타에 약하게, 큰 기술에 세게 실립니다.
           이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트와 함께 이 기기에 남아, 다음에 들어와도 이어집니다.
-          방을 만든 사람이 나가면 그 방은 닫힙니다.
+          방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_CREW_MAX}명까지이고, 가득 차면 다음 서버로 넘어갑니다.
+          판정을 맡은 사람이 나가면 남은 사람이 이어받습니다. 이때 모두 광장에서 다시 서고 몹은 새로 나옵니다(레벨 · 코인 · 스탯은 그대로입니다).
         </details>
       </div>
     </div>

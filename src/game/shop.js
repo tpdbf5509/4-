@@ -199,20 +199,6 @@ function base(h, shop, out) {
 }
 const lackCoin = (h, price, out) => { if (h && h.coins < price) out.push(`코인 ${won(price - h.coins)} 부족`); };
 
-// 무기 사기 — 상점 목록의 일반 무기
-export function whyWeaponBuy(h, t, r, g) {
-  const out = [];
-  base(h, "weapon", out);
-  if (!h || !h.bag) return out;
-  if (!WEAPON_BY_ID[t] || !isInt(r) || !(r >= 0 && r < WEAPON_TIERS.length) || !isInt(g) || !(g >= 0 && g < GRADES.length)) {
-    out.push("없는 무기입니다");
-    return out;
-  }
-  if (h.lv < WEAPON_TIERS[r]) out.push(`레벨 ${WEAPON_TIERS[r]} 필요 (지금 ${h.lv})`);
-  if (h.bag.w.length >= WEAPON.bagMax) out.push(`가방이 가득 찼습니다 (${WEAPON.bagMax}개)`);
-  lackCoin(h, weaponPrice(t, r, g), out);
-  return out;
-}
 // 오늘의 특가 사기 — key 는 화면이 본 특가. 그사이 날짜나 내 레벨 단계가 바뀌었으면 막는다
 export function whyDealBuy(h, key, day = todayKey()) {
   const out = [];
@@ -373,21 +359,13 @@ export function rpgShop(g, pi, req) {
   const op = req.op;
   let why;
 
-  if (op === "wbuy" || op === "deal") {
-    let w, price, r;
-    if (op === "deal") {
-      if ((why = whyDealBuy(h, req.key, day)).length) return no(g, pi, why);
-      const d = dealOf(h.lv, day);
-      price = d.price; r = d.r;
-      h.bag.day.deal += 1;
-      w = addWeapon(h, d.t, d.r, d.g, price, d.sp);
-    } else {
-      const { t } = req, gr = Number(req.g);
-      r = Number(req.r);
-      if ((why = whyWeaponBuy(h, t, r, gr)).length) return no(g, pi, why);
-      price = weaponPrice(t, r, gr);
-      w = addWeapon(h, t, r, gr, price);
-    }
+  // 무기는 오늘의 특가로만 산다 — 레벨 단계별 상점 목록은 없앴다
+  if (op === "deal") {
+    if ((why = whyDealBuy(h, req.key, day)).length) return no(g, pi, why);
+    const d = dealOf(h.lv, day);
+    const price = d.price, r = d.r;
+    h.bag.day.deal += 1;
+    const w = addWeapon(h, d.t, d.r, d.g, price, d.sp);
     h.coins -= price;
     bump(h);
     fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `-${won(price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });

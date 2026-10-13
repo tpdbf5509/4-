@@ -5,13 +5,13 @@
 import { useState } from "react";
 import { STATS, statValue } from "./game/rpg.js";
 import {
-  SHOPS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
+  SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
   CASINO, BOX, DICE, SLOT,
 } from "./game/shopData.js";
 import {
-  SHOP_BY_ID, SKILL_BY_ID, POTION_BY_ID, FAM_BY_ID, todayKey, usedToday, tierOf, weaponPrice, weaponName,
+  SHOP_BY_ID, SKILL_BY_ID, POTION_BY_ID, FAM_BY_ID, todayKey, usedToday, tierOf, weaponName,
   weaponLine, weaponArt, specOf, specialTier, specialsFor, sellPrice, dealOf, equipped, skillNext, extraStat,
-  whyWeaponBuy, whyDealBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse, whyGamble, boxPrice, boxShares, casinoEv,
+  whyDealBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse, whyGamble, boxPrice, boxShares, casinoEv,
 } from "./game/shop.js";
 import { Coin } from "./ui/icons.jsx";
 
@@ -55,8 +55,6 @@ function potionText(p) {
 
 /* ── 무기상점 ─────────────────────────────────────────────── */
 function WeaponShop({ h, send }) {
-  const [tier, setTier] = useState(() => tierOf(h.lv));
-  const [grade, setGrade] = useState(0);
   const day = todayKey();
   const d = dealOf(h.lv, day);
   const dealLeft = DEAL.perDay - usedToday(h.bag, "deal", day);
@@ -85,34 +83,6 @@ function WeaponShop({ h, send }) {
             );
           })}
         </div>
-      </section>
-
-      <section className="shop-sec">
-        <h4>무기 <small>10레벨마다 새 무기가 들어옵니다</small></h4>
-        <div className="shop-tabs">
-          {WEAPON_TIERS.map((lv, r) => (
-            <button key={lv} type="button" className={`${r === tier ? "on" : ""} ${h.lv < lv ? "lock" : ""}`}
-              title={h.lv < lv ? `레벨 ${lv} 필요` : ""} onClick={() => setTier(r)}>
-              Lv {lv}
-            </button>
-          ))}
-        </div>
-        <div className="shop-tabs">
-          {GRADES.map((gd) => (
-            <button key={gd.id} type="button" className={gd.id === grade ? "on" : ""} onClick={() => setGrade(gd.id)}>{gd.name}</button>
-          ))}
-        </div>
-        {WEAPON_TYPES.map((t) => {
-          const w = { t: t.id, r: tier, g: grade };
-          return (
-            <div key={t.id} className="shop-row">
-              <WeaponTitle w={w} />
-              <span className="shop-price">{won(weaponPrice(t.id, tier, grade))}</span>
-              <Act why={whyWeaponBuy(h, t.id, tier, grade)} label="구매"
-                onClick={() => send({ op: "wbuy", t: t.id, r: tier, g: grade })} />
-            </div>
-          );
-        })}
       </section>
 
       <section className="shop-sec">

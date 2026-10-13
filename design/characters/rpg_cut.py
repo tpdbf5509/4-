@@ -21,6 +21,9 @@ for i in big:
     r = 0 if cy < 380 else 1 if cy < 700 else 2
     rows.setdefault(r, []).append(i)
 PAD = 6
+# 게임은 옆모습이 모두 왼쪽을 본다고 보고 그린다(오른쪽으로 걸을 때 뒤집는다).
+# 원본 시트에서 궁수(여)의 옆모습만 오른쪽을 보고 있어 좌우를 뒤집어 맞춘다.
+MIRROR = {("archer", "f", "side")}
 for r, ids in rows.items():
     ids.sort(key=lambda i: objs[i][1].start)
     assert len(ids) == 8, (r, len(ids))
@@ -37,6 +40,8 @@ for r, ids in rows.items():
         px = a.copy()
         px[..., 3] = np.where(mask | ((a[..., 3] > 0) & ndimage.binary_dilation(mask, iterations=2)), a[..., 3], 0)
         crop = Image.fromarray(px).crop((max(0, x0 - PAD), max(0, y0 - PAD), min(a.shape[1], x1 + PAD), min(a.shape[0], y1 + PAD)))
+        if (JOBS[r], g, v) in MIRROR:
+            crop = crop.transpose(Image.FLIP_LEFT_RIGHT)
         d = os.path.join(out, f"{JOBS[r]}-{g}")
         os.makedirs(d, exist_ok=True)
         crop.save(os.path.join(d, f"{v}.webp"), "WEBP", quality=92, alpha_quality=100, method=6)

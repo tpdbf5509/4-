@@ -138,6 +138,9 @@ export default function App() {
     const shared = RPG_SERVERS.includes(roomCode);   // RPG 서버 — 방장이 나가도 남은 사람이 이어받는다
     lobbyRef.current = null;
     let gotLobby = false;
+    let subscribed = false;
+    let heardAt = Date.now();                        // 방장의 대기실 소식을 마지막으로 들은 때
+    let lastJson = "";                               // 같은 소식이 다시 오면 화면을 다시 그리지 않는다
     // RPG 는 캐릭터를 만들고 들어오니 방장이 첫 자리에 바로 선다
     const firstSeats = () => {
       if (modeRef.current !== "rpg") return [{ id: me, name: nick }, ...new Array(SEATS - 1).fill(null)];
@@ -158,61 +161,84 @@ export default function App() {
       name: nick,
       onPeers: (peers) => {
         peersRef.current = peers;
-        if (hostRef.current) return void reseat();
-        if (!shared) return;
-        // 방장이 나갔으면, 남은 사람 가운데 아이디가 가장 작은 사람이 이어받는다.
-        // presence 가 잠깐 흔들릴 수 있어 조금 기다렸다가 한 번 더 본다.
-        const L = lobbyRef.current;
-        if (!L || !L.hostId || peers.some((p) => p.id === L.hostId)) return;
-        setTimeout(() => {
-          if (roomRef.current !== room || hostRef.current) return;
-          const now = peersRef.current;
-          const cur = lobbyRef.current;
-          if (!cur || now.some((p) => p.id === cur.hostId) || !now.some((p) => p.id === me)) return;
-          if (now.some((p) => p.id < me)) return;
-          hostRef.current = true;
-          const ids = new Set(now.map((p) => p.id));
-          seatsRef.current = cur.seats.map((st) => (st && ids.has(st.id) ? st : null));
-          publishLobby();
-        }, 1500);
+        if (hostRef.current) reseat();
       },
       onStatus: (st) => {
         if (st === "SUBSCRIBED") {
           setConnecting(false);
+          setError("");
+          heardAt = Date.now();
+          if (subscribed) {
+            // 끊겼다가 다시 붙었다 — 자리는 그대로 두고, 방장은 대기실을 다시 알리고 손님은 인사만 다시 한다
+            if (hostRef.current) publishLobby();
+            else room.send("hello", { name: nick });
+            return;
+          }
+          subscribed = true;
           if (hostRef.current) {
             seatsRef.current = firstSeats();
             publishLobby();
           } else {
             room.send("hello", { name: nick });
-            if (auto) {
-              setTimeout(() => {
-                if (roomRef.current !== room || gotLobby || hostRef.current) return;
-                // 동시에 들어온 사람끼리는 아이디가 가장 작은 쪽 하나만 방장이 된다
-                if (peersRef.current.some((p) => p.id < me)) return;
-                becomeHost();
-              }, 2000);
-            }
           }
         }
         if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") {
+          // 라이브러리가 스스로 다시 붙으려 한다 — 다시 붙으면(SUBSCRIBED) 이 안내는 지운다
           setConnecting(false);
-          setError("연결이 끊겼습니다. 잠시 뒤 다시 시도해 주세요.");
+          setError(subscribed
+            ? "서버와 연결이 잠깐 끊겼습니다. 다시 붙는 중입니다…"
+            : "서버에 연결하지 못했습니다. 다시 시도하는 중입니다… 계속 이러면 잠시 뒤 처음 화면에서 다시 들어와 주세요.");
         }
       },
     });
     roomRef.current = room;
 
+    /* 방장 정하기 — 한 번만 정하지 않고 0.5초마다 다시 본다.
+       presence 목록에는 방금 닫은 탭이나 잠든 휴대폰처럼 응답 없는 사람이 한동안 남을 수 있다.
+       그래서 "나보다 아이디가 작은 사람이 있으면 기다린다"를 영원히 하지 않고, 그런 사람 한 명마다 2초씩만 더 기다린다.
+       - 아직 방장 소식을 못 들었으면: 2초 + (앞선 사람 수 × 2초) 뒤에 내가 방장이 된다
+       - RPG 서버에서 방장이 조용해졌으면(방장은 2초마다 소식을 보낸다): presence 에서 사라졌으면 1.5초,
+         남아 있는데 소식만 끊겼으면 5초 + (앞선 사람 수 × 2초) 뒤에 이어받는다
+       방장이 둘 생기면 아이디가 큰 쪽이 물러난다(아래 lobby). */
+    const watch = setInterval(() => {
+      if (roomRef.current !== room) return void clearInterval(watch);
+      if (!auto || !subscribed) return;
+      if (hostRef.current) {
+        if (shared && lobbyRef.current) room.send("lobby", lobbyRef.current);   // 살아 있다는 소식 (RPG 서버만)
+        return;
+      }
+      const L = lobbyRef.current;
+      if (gotLobby && !shared) return;              // 테스트 서버는 판이 도는 중에 방장을 바꾸지 않는다
+      const peers = peersRef.current;
+      const ahead = peers.filter((q) => q.id < me && (!L || q.id !== L.hostId)).length;
+      const hostHere = L && peers.some((q) => q.id === L.hostId);
+      const wait = !L ? 2000 + ahead * 2000 : hostHere ? 5000 + ahead * 2000 : 1500 + ahead * 2000;
+      if (Date.now() - heardAt < wait) return;
+      heardAt = Date.now();
+      if (!L) return void becomeHost();
+      // 방장을 이어받는다 — 지금 있는 사람의 자리는 그대로 둔다
+      hostRef.current = true;
+      const ids = new Set([...peers.map((q) => q.id), me]);
+      seatsRef.current = L.seats.map((st) => (st && ids.has(st.id) && st.id !== L.hostId ? st : null));
+      publishLobby();
+    }, 500);
+
     room.on("hello", () => { if (hostRef.current) reseat(); });
     room.on("lobby", (d) => {
       gotLobby = true;
+      heardAt = Date.now();
       if (d && d.hostId && !hostRef.current) lobbyRef.current = d;
       // 테스트 서버에서 방장이 둘 생겼으면 아이디가 큰 쪽이 물러나 손님이 된다
       if (auto && hostRef.current && d && d.hostId && d.hostId < me) {
         hostRef.current = false;
+        lobbyRef.current = d;
         room.send("hello", { name: nick });
       }
       if (!hostRef.current) {
         if (d && d.mode) modeRef.current = d.mode;
+        const json = JSON.stringify(d);
+        if (json === lastJson) return;
+        lastJson = json;
         setLobby(d);
       }
     });
@@ -252,12 +278,12 @@ export default function App() {
 
   // 방을 못 찾으면 알려준다
   useEffect(() => {
-    if (screen !== "lobby" || lobby || connecting) return;
+    if (screen !== "lobby" || lobby || connecting || RPG_SERVERS.includes(code)) return;   // RPG 서버는 방장을 스스로 정한다
     const t = setTimeout(() => {
       if (!lobby) setError("그 코드의 방을 찾지 못했습니다. 코드를 다시 확인해 주세요.");
     }, 4000);
     return () => clearTimeout(t);
-  }, [screen, lobby, connecting]);
+  }, [screen, lobby, connecting, code]);
 
   useEffect(() => () => roomRef.current?.leave(), []);
   // 창을 닫거나 다른 곳으로 가면 곧바로 방을 떠난다 — 남은 사람 화면에서 바로 빠지게
@@ -274,6 +300,7 @@ export default function App() {
     modeRef.current = "defense";
     heroRef.current = null;
     lobbyRef.current = null;
+    setError("");
     seatsRef.current = new Array(SEATS).fill(null);
     setLobby(null);
     setScreen("home");
@@ -411,7 +438,7 @@ export default function App() {
   }
 
   // 코드로 들어가는 중 — 어떤 방인지 알기 전에는 대기실 모양을 먼저 띄우지 않는다
-  if (screen === "lobby" && !lobby && !hostRef.current) {
+  if (screen === "lobby" && !lobby && !hostRef.current && !RPG_SERVERS.includes(code)) {
     return (
       <div className="page center-page">
         <div className="home">

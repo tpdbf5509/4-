@@ -104,50 +104,65 @@ export function joinRoom(code, opts) {
 }
 
 function joinRealtime(code, { id, name, onPeers, onStatus }) {
-  const ch = supabase().channel(`flg:${code}`, {
-    config: {
-      broadcast: { self: false, ack: false },
-      presence: { key: id },
-    },
-  });
-
+  const sb = supabase();
+  const topic = `realtime:flg:${code}`;
   const handlers = new Map();
+  let ch = null;
+  let gone = false;
 
-  ch.on("broadcast", { event: "msg" }, ({ payload }) => {
-    const fn = handlers.get(payload.k);
-    if (fn) fn(payload.d, payload.from);
-  });
+  const open = () => {
+    if (gone) return;
+    ch = sb.channel(`flg:${code}`, {
+      config: {
+        broadcast: { self: false, ack: false },
+        presence: { key: id },
+      },
+    });
+    ch.on("broadcast", { event: "msg" }, ({ payload }) => {
+      const fn = handlers.get(payload.k);
+      if (fn) fn(payload.d, payload.from);
+    });
+    ch.on("presence", { event: "sync" }, () => {
+      const raw = ch.presenceState();
+      const peers = Object.entries(raw).map(([key, arr]) => ({ id: key, ...(arr[0] || {}) }));
+      onPeers?.(peers);
+    });
+    ch.subscribe(async (status) => {
+      if (gone) return;
+      onStatus?.(status);
+      // 끊겼다가 다시 붙을 때도 접속자 목록에 나를 다시 올린다
+      if (status === "SUBSCRIBED") await ch.track({ name, at: Date.now() });
+    });
+  };
 
-  ch.on("presence", { event: "sync" }, () => {
-    const raw = ch.presenceState();
-    const peers = Object.entries(raw).map(([key, arr]) => ({ id: key, ...(arr[0] || {}) }));
-    onPeers?.(peers);
-  });
-
-  let joined = false;
-  ch.subscribe(async (status) => {
-    onStatus?.(status);
-    if (status === "SUBSCRIBED" && !joined) {
-      joined = true;
-      await ch.track({ name, at: Date.now() });
-    }
-  });
+  /* 같은 이름의 채널이 아직 남아 있으면(방금 나간 RPG 서버처럼) 라이브러리가 그 채널을 그대로 돌려준다.
+     닫히는 중인 채널을 다시 쓰면 붙지 못하므로, 다 치운 뒤에 새로 연다. */
+  const old = sb.getChannels().find((c) => c.topic === topic);
+  if (old) {
+    sb.removeChannel(old).catch(() => {}).finally(() => {
+      if (sb.getChannels().includes(old)) sb.realtime?._remove?.(old);
+      open();
+    });
+  } else {
+    open();
+  }
 
   return {
     code,
     send(k, d) {
-      ch.send({ type: "broadcast", event: "msg", payload: { k, d, from: id } });
+      ch?.send({ type: "broadcast", event: "msg", payload: { k, d, from: id } });
     },
     on(k, fn) {
       handlers.set(k, fn);
       return () => handlers.delete(k);
     },
     setPresence(patch) {
-      return ch.track({ name, at: Date.now(), ...patch });
+      return ch?.track({ name, at: Date.now(), ...patch });
     },
     leave() {
+      gone = true;
       handlers.clear();
-      supabase().removeChannel(ch);
+      if (ch) sb.removeChannel(ch);
     },
   };
 }

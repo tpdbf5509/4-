@@ -7,6 +7,7 @@ import {
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
 import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName } from "./rpg.js";
+import { SHOP_BY_ID } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
    원본 시트에서 캐릭터 키는 대략 280px 이고, 그림 아래에 6px 여백이 있다. */
@@ -352,7 +353,52 @@ export function drawNpcBody(ctx, x, y, bob) {
   ctx.restore();
 }
 
+/* 광장 상점 — 그림 파일이 아직 없어 코드로 그린 노점이다. 차양 색은 shopData.js 의 color.
+   발밑 가운데가 (x, y). 위에 상점 이름, 아래에 주인 이름을 단다. */
+function drawShop(ctx, n, time) {
+  const { x, y } = n;
+  const c = (SHOP_BY_ID[n.shop] || {}).color || "#b9a07a";
+  shadow(ctx, x, y + 4, 62, 12, 0.28);
+  ctx.save();
+  ctx.translate(x, y);
+  // 기둥과 판매대
+  ctx.fillStyle = "#6b4e33";
+  ctx.fillRect(-54, -92, 5, 92); ctx.fillRect(49, -92, 5, 92);
+  ctx.fillStyle = "#8a6a46"; roundRect(ctx, -58, -30, 116, 30, 4); ctx.fill();
+  ctx.strokeStyle = "rgba(40,26,14,0.6)"; ctx.lineWidth = 1; ctx.stroke();
+  // 주인 — 판매대 뒤에서 살짝 흔들린다
+  const bob = Math.sin(time * 2 + x) * 1.2;
+  ctx.fillStyle = c; ctx.fillRect(-11, -50 + bob, 22, 22);
+  ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -58 + bob, 9, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#3a2c1c";
+  ctx.beginPath(); ctx.arc(-3, -58 + bob, 1.3, 0, Math.PI * 2); ctx.arc(3, -58 + bob, 1.3, 0, Math.PI * 2); ctx.fill();
+  // 줄무늬 차양
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = i % 2 ? "#efe6d2" : c;
+    ctx.beginPath();
+    ctx.moveTo(-62 + i * 20.7, -92); ctx.lineTo(-62 + (i + 1) * 20.7, -92);
+    ctx.lineTo(-62 + (i + 1) * 20.7, -78); ctx.quadraticCurveTo(-62 + (i + 0.5) * 20.7, -70, -62 + i * 20.7, -78);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = "rgba(40,26,14,0.5)"; ctx.lineWidth = 1; ctx.strokeRect(-62, -100, 124, 8);
+  ctx.fillStyle = c; ctx.fillRect(-62, -100, 124, 8);
+  // 간판 — 상점 이름
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "15px 'Do Hyeon', sans-serif";
+  const w = ctx.measureText(n.name).width + 20;
+  ctx.fillStyle = "rgba(30,22,14,0.86)"; roundRect(ctx, -w / 2, -128, w, 24, 6); ctx.fill();
+  ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = "#f6e5bb"; ctx.fillText(n.name, 0, -116);
+  // 주인 이름
+  ctx.font = "12px 'Do Hyeon', sans-serif";
+  const w2 = ctx.measureText(n.keeper).width + 14;
+  ctx.fillStyle = "rgba(20,14,10,0.7)"; roundRect(ctx, -w2 / 2, 8, w2, 16, 7); ctx.fill();
+  ctx.fillStyle = "#e8dcc0"; ctx.fillText(n.keeper, 0, 16.5);
+  ctx.restore();
+}
+
 function drawNpc(ctx, g, n, time) {
+  if (n.shop) return drawShop(ctx, n, time);
   const { x, y } = n;
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
   const bob = Math.sin(time * 2) * 1.2;

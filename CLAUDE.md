@@ -52,6 +52,7 @@
 | `src/game/logic.js` | 방어전 규칙(방장이 돌림). 파일 위쪽에 밸런스 상수(`ARCHER_LV4_DMG_MUL`, `ASSIST_GOLD`, `PALADIN_SHIELD`, `BOLT_*`, `POISON_*`, `GRAVITY_*`, `SUPPLY_*`, `CORRODE_*`…). 스냅샷 `packSnapshot`/`applySnapshot`, 결전 · 성채 정산(`castleBill`, `arenaSettle`) |
 | `src/game/art.js` | 방어전 · 결전장 캔버스 그리기. **그림 파일 우선, 없으면 코드로 그린 그림으로 대신** |
 | `src/game/rpg.js` · `rpgArt.js` · `src/RpgView.jsx` | RPG 규칙 · 그리기 · 화면 |
+| `src/game/shopData.js` · `shop.js` · `src/ShopPanel.jsx` | RPG 광장 상점. **가격 · 확률 · 제한은 shopData.js 한 곳**, 규칙(방장 판정 `rpgShop`, 조건 `why*`)은 shop.js, 상점 · 가방 창은 ShopPanel.jsx |
 | `src/game/towerInfo.js` | 탑 "자세히 보기" 창 설명. **숫자를 손으로 적어 둔 곳이라 logic.js 를 고치면 여기도 고친다** |
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |

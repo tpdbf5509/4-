@@ -1129,6 +1129,8 @@ kbd {
   background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.5);
 }
 .rpg-lv-stat b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 11.5px; color: #ffe08a; }
+.rpg-lv-stat { flex: none; white-space: nowrap; }
+.rpg-lv-sk { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rpg-lv-stat.has { border-color: #d6b26a; }
 .rpg-lv-stat:hover, .rpg-lv-stat.on { background: rgba(122, 90, 46, 0.7); }
 
@@ -1257,6 +1259,58 @@ kbd {
 .pbtn.hit.ready { color: #fff3d0; box-shadow: 0 4px 0 #22180e, 0 0 0 2px rgba(255, 224, 138, 0.45); }
 .drop-note .btn-ghost { margin-left: 8px; }
 
+/* 광장 상점 · 가방 창 — 기능 확인용 단순한 모양. 스탯 창의 틀을 빌려 쓰고 조금 넓힌다 */
+.rpg-shop { width: min(560px, calc(100% - 24px)); top: 12px; max-height: calc(100% - 24px); }
+.rpg-shop .rpg-stat-head { align-items: center; }
+.rpg-shop .rpg-stat-head b { margin-right: auto; }
+.shop-coins { display: inline-flex; align-items: center; gap: 4px; font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: #f3d27f !important; }
+.shop-coins svg { width: 14px; height: 14px; display: block; }
+.shop-x {
+  width: 26px; height: 26px; padding: 0; cursor: pointer; border-radius: 7px; font-size: 18px; line-height: 1;
+  color: #e8d7ae; background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.5);
+}
+.shop-result { margin: 6px 0; padding: 6px 9px; border-radius: 7px; font-size: 12px; line-height: 1.45; letter-spacing: -0.02em; border: 1px solid; }
+.shop-result.ok { color: #cfe6c4; border-color: rgba(150, 190, 140, 0.45); background: rgba(80, 110, 70, 0.18); }
+.shop-result.no { color: #f0c9b8; border-color: rgba(200, 140, 120, 0.45); background: rgba(120, 60, 40, 0.18); }
+.shop-sec { margin-top: 10px; }
+.shop-sec h4 {
+  margin: 0 0 4px; font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 14.5px; color: #f2e3c2; letter-spacing: -0.03em;
+  padding-bottom: 4px; border-bottom: 1px solid rgba(214, 186, 140, 0.18);
+}
+.shop-sec h4 small { margin-left: 6px; font-family: inherit; font-size: 10.5px; color: #8d8068; letter-spacing: -0.02em; }
+.shop-note, .shop-empty { margin: 4px 0; font-size: 11px; line-height: 1.5; color: #a8987a; letter-spacing: -0.02em; }
+.shop-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
+  padding: 6px 0; border-bottom: 1px solid rgba(214, 186, 140, 0.12);
+}
+.shop-row.slim { grid-template-columns: minmax(0, 1fr) auto; padding: 4px 0; }
+.shop-name { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.shop-name b { font-weight: 400; font-size: 13px; color: #f2e3c2; letter-spacing: -0.02em; }
+.shop-name b small, .shop-price small { font-size: 10.5px; color: #8d8068; }
+.shop-name em { font-style: normal; font-size: 10.5px; line-height: 1.4; color: #a8987a; letter-spacing: -0.02em; }
+.shop-price { font-family: 'Do Hyeon', sans-serif; font-size: 13.5px; color: #f3d27f; white-space: nowrap; text-align: right; }
+.shop-price s { color: #8d8068; font-size: 11px; margin-right: 2px; }
+.shop-act { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; max-width: 190px; }
+.shop-act .btn-ghost, .shop-act .btn-main { padding: 5px 12px; font-size: 12px; white-space: nowrap; box-shadow: none; }
+.shop-acts { display: flex; gap: 6px; align-items: flex-start; }
+.shop-why { font-style: normal; font-size: 10px; line-height: 1.35; color: #e9b98a; text-align: right; letter-spacing: -0.02em; }
+.shop-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.shop-tabs button {
+  padding: 3px 8px; cursor: pointer; border-radius: 6px; font-family: inherit; font-size: 11px; color: #e8d7ae;
+  background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.4);
+}
+.shop-tabs button.on { border-color: #d6b26a; color: #ffe08a; }
+.shop-tabs button.lock { opacity: 0.5; }
+.shop-line { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin-top: 6px; }
+.shop-bet { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #a8987a; }
+.shop-bet input {
+  width: 84px; padding: 4px 6px; border-radius: 6px; font-family: inherit; font-size: 12.5px; color: #f2e3c2;
+  background: rgba(20, 14, 8, 0.6); border: 1px solid rgba(160, 130, 90, 0.5);
+}
+.shop-odds { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 11px; color: #c9bb9c; }
+.shop-odds td { padding: 2px 0; border-bottom: 1px solid rgba(214, 186, 140, 0.1); }
+.shop-odds td + td { text-align: right; color: #e8dcc0; }
+
 @media (max-width: 560px), (max-height: 560px) {
   .rpg-lv { left: 6px; top: 6px; width: 172px; padding: 4px 7px 4px 4px; gap: 5px; border-radius: 9px; }
   .rpg-lv-badge { width: 30px; font-size: 16px; border-radius: 7px; }
@@ -1278,6 +1332,10 @@ kbd {
   .rpg-stat-name em { display: none; }
   .rpg-stat-rule { display: none; }
   .rpg-stat-btns button { width: 24px; height: 24px; }
+  .rpg-shop { top: 6px; max-height: calc(100% - 12px); }
+  .rpg-shop .rpg-stat-rule { display: block; }
+  .shop-row { gap: 6px; }
+  .shop-act { max-width: 130px; }
   .rpg-lv-stat { padding: 0 6px; font-size: 9px; }
   .rpg-lv-stat b { font-size: 10px; }
   .rpg-menu-text b { font-size: 12.5px; }

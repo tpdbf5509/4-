@@ -7,6 +7,8 @@
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
+import { SHOPS } from "./shopData.js";
+import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs } from "./shop.js";
 
 export const RPG_CREW_MAX = 16;
 // RPG 서버 — 방 코드 없이 모두 서버 1에 모인다. 서버 1이 가득 차면 다음 서버로 넘어간다.
@@ -33,8 +35,9 @@ export const MAPS = {
   plaza: {
     id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: [900, 820],
     gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" }],
-    blocks: [{ x: 900, y: 620, r: 96 }],          // 가운데 분수
-    npcs: [],
+    blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 }))],   // 가운데 분수 · 상점 노점
+    // 상점 네 곳 — 자리와 이름은 shopData.js 의 SHOPS
+    npcs: SHOPS.map((sh) => ({ id: `shop-${sh.id}`, shop: sh.id, name: sh.name, keeper: sh.keeper, x: sh.x, y: sh.y })),
   },
   field: {
     id: "field", name: "토끼 사냥터", w: 3800, h: 1700, top: 170, spawn: [240, 920], bg: "field", tile: 2600,
@@ -218,6 +221,7 @@ export function loadChar() {
     coins: Math.max(0, Math.floor(r.coins || 0)),
     quest: { on: !!q.on, n: clamp(Math.floor(q.n || 0), 0, QUEST.need) },
     stats: cleanStats(r.stats, r.lv || 1),
+    bag: cleanBag(r.bag),                        // 상점 — 무기 · 물약 · 스킬 · 오늘 쓴 횟수
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다
@@ -239,11 +243,12 @@ export function saveLook(d) {
 export function deleteChar() {
   try { localStorage.removeItem(SAVE_KEY); return true; } catch { return false; }
 }
-// 레벨 · 경험치 · 코인 · 퀘스트를 남긴다
+// 레벨 · 경험치 · 코인 · 퀘스트 · 스탯 · 가방을 남긴다. 가방은 저장된 기록을 실은 뒤의 것만 남긴다.
 export function writeChar(d) {
   const cur = loadSave();
   if (!cur) return;
-  store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st } });
+  const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
+  store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag });
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -253,6 +258,8 @@ export function makeWorld() {
     heroes: new Array(RPG_CREW_MAX).fill(null), mobs: [], hits: [], respawn: [], pending: {},
     fx: [], out: null, banner: null, shake: 0, nextId: 1,
     looks: new Array(RPG_CREW_MAX).fill(null), names: [], mySeat: -1,
+    notes: [],                                    // 상점 결과 — { who, ok, msg } 내 것만 화면에 띄운다
+    bagRR: 0,                                     // 가방을 돌아가며 다시 보내는 차례
   };
   SPAWNS.forEach((sp, gi) => { for (let i = 0; i < sp.n; i++) spawnMob(g, gi); });
   return g;
@@ -265,6 +272,7 @@ function makeHero(pi, look, map = "plaza") {
     hp: 0, max: 0, down: 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, loaded: 0, st: noStats(),
     cd: 0.5, sk: 0, swing: 0, kills: 0, flash: 0, numAcc: 0, numT: 0, calm: 0, gateCd: 0,
     buff: 0, buffAmt: 0, guard: 0,
+    bag: newBag(), bf: {},            // 상점 가방 · 버프 물약 { 스탯id: { t 남은 초, a 양 } }
     auto: 1, fire: 0, fireQ: 0,       // 자동 평타 · 스페이스를 누르고 있는지 · 눌렀던 한 번을 잠깐 기억
   };
   wear(h, look);
@@ -278,20 +286,22 @@ function wear(h, look) {
   h.who = l.who || "";
 }
 
+// 실제로 쓰는 스탯 — 찍은 포인트의 값 + 장착한 무기 · 패시브 스킬 · 버프 물약
+export const statTotal = (h, id) => statValue(id, h.st[id]) + extraStat(h, id);
 // 최대 체력 = 체력 스탯 × 직업 배율 — 레벨은 포인트로만 오른다
-const heroMaxHp = (h) => Math.round(statValue("hp", h.st.hp) * jobOf(h).hp);
-function refreshHp(h, full) {
+const heroMaxHp = (h) => Math.round(statTotal(h, "hp") * jobOf(h).hp);
+export function refreshHp(h, full) {
   h.max = heroMaxHp(h);
   if (full) h.hp = h.max;
   else h.hp = Math.min(h.max, h.hp);
 }
 // 공격력 배율 — 스탯 10 이 1배. 마법사는 마법력, 전사 · 궁수는 물리력을 쓴다
 const buffMul = (h) => (h.buff > 0 ? 1 + h.buffAmt : 1);
-export const physMul = (h) => (statValue("str", h.st.str) / 10) * buffMul(h);
-export const magMul = (h) => (statValue("int", h.st.int) / 10) * buffMul(h);
+export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h);
+export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h);
 export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h));
-export const critChance = (h) => Math.min(CRIT_MAX, statValue("crit", h.st.crit) / 100);
-export const critMul = (h) => statValue("cdmg", h.st.cdmg) / 100;
+export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
+export const critMul = (h) => statTotal(h, "cdmg") / 100;
 export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul;
 const heroCd = (h) => jobOf(h).cd;
 
@@ -332,6 +342,8 @@ export function rpgJoin(g, pi, d) {
   const q = d.quest || {};
   h.quest = { on: !!q.on, n: clamp(Math.floor(Number(q.n) || 0), 0, QUEST.need - 1) };
   h.st = cleanStats(d.stats, h.lv);
+  h.bag = cleanBag(d.bag);
+  h.bag.ld = 1;
   if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
   refreshHp(h, true);
   h.loaded = 1;
@@ -362,7 +374,7 @@ export function rpgStat(g, pi, add) {
 }
 
 /* ── 연출 — 어느 맵에서 일어났는지 함께 적는다 ─────────────── */
-function fx(g, map, item) {
+export function fx(g, map, item) {
   const it = { ...item, map };
   g.fx.push(it);
   if (g.out) g.out.push({ k: "fx", ...it });
@@ -439,7 +451,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0) return;
+  if (!h || !npc || h.down > 0 || npc.shop) return;   // 상점은 화면에서 창을 연다
   if (!h.quest.on) {
     h.quest = { on: true, n: 0 };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9,
@@ -736,6 +748,7 @@ function stepHeroes(g, dt) {
     h.flash = Math.max(0, h.flash - dt);
     h.swing = Math.max(0, h.swing - dt);
     h.buff = Math.max(0, h.buff - dt);
+    tickBuffs(h, dt);                             // 버프 물약 시간
     h.guard = Math.max(0, h.guard - dt);
     h.numT = Math.max(0, h.numT - dt);
     h.gateCd = Math.max(0, h.gateCd - dt);
@@ -971,14 +984,30 @@ export function rpgStep(g, dt) {
 /* ── 주고받기 ──────────────────────────────────────────── */
 const mapIdx = (id) => Math.max(0, MAP_IDS.indexOf(id));
 
+/* 가방은 스냅샷마다 보내지 않는다 — 바뀐 사람 것과, 놓쳤을 때를 대비해 차례가 된 한 사람 것만 싣는다 */
+function packBags(g) {
+  const out = {};
+  const n = g.heroes.length;
+  g.bagRR = (g.bagRR + 1) % n;
+  g.heroes.forEach((h, pi) => {
+    if (!h) return;
+    if (h.bagSent !== h.bag || h.bagSentV !== h.bag.v || pi === g.bagRR) {
+      out[pi] = h.bag;
+      h.bagSent = h.bag; h.bagSentV = h.bag.v;
+    }
+  });
+  return out;
+}
+
 export function rpgPack(g) {
   return {
     h: g.heroes.map((h) => (h
       ? [Math.round(h.x), Math.round(h.y), h.dir, Math.round(h.hp), h.max, r1(h.down), h.lv, h.xp,
         r1(h.sk), h.swing > 0 ? 1 : 0, mapIdx(h.map), h.coins, h.quest.on ? 1 : 0, h.quest.n, h.kills,
         h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0, h.face,
-        STAT_IDS.map((k) => h.st[k])]
+        STAT_IDS.map((k) => h.st[k]), packBuffs(h)]
       : 0)),
+    b: packBags(g),
     m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
         | (m.stun > 0 ? 16 : 0) | (m.shred > 0 ? 32 : 0) | (m.flash > 0 ? 64 : 0),
@@ -1007,6 +1036,8 @@ export function rpgApply(g, s) {
     h.coins = row[11]; h.quest = { on: !!row[12], n: row[13] }; h.kills = row[14];
     if (row[15]) h.flash = 0.15;
     h.loaded = row[16]; h.buff = row[17] ? 0.3 : 0; h.guard = row[18] ? 0.3 : 0; h.auto = row[19] ? 1 : 0;
+    applyBuffs(h, row[22]);
+    if (s.b && s.b[pi]) h.bag = s.b[pi];
   });
   const seen = new Set();
   s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite]) => {
@@ -1038,6 +1069,11 @@ export function rpgApplyOut(g, list) {
       const item = { ...o };
       delete item.k;
       g.fx.push(item);
+    } else if (o.k === "note") {
+      const item = { ...o };
+      delete item.k;
+      g.notes.push(item);
+      if (g.notes.length > 20) g.notes.shift();
     } else if (o.k === "banner") {
       g.banner = { text: o.text, sub: o.sub, tone: o.tone, t: o.t, life: o.life };
     }

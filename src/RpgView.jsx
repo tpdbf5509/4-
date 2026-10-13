@@ -7,6 +7,8 @@ import {
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanName, cleanLook,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
+import { rpgShop, nearShop, extraStat, SHOP_BY_ID } from "./game/shop.js";
+import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import { drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
@@ -16,6 +18,7 @@ const SNAP_HZ = 12;
 const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyQ"];
 const TALK_KEYS = ["Enter", "KeyE"];
 const STAT_KEYS = ["KeyC"];
+const BAG_KEYS = ["KeyI"];
 const FIRE_KEYS = ["Space"];
 const AUTO_KEY = "flg:rpgAuto";
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
@@ -310,7 +313,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   const [auto, setAuto] = useState(loadAuto);        // 자동 평타
   const [start] = useState(() => {                   // 이 기기에 남아 있던 내 기록
     const c = loadChar();
-    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, auto: loadAuto() } : { auto: loadAuto() };
+    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, auto: loadAuto() } : { auto: loadAuto() };
   });
 
   const G = useRef(null);
@@ -341,6 +344,11 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   const [menu, setMenu] = useState(false);          // 레벨 칸의 ☰ 메뉴
   const [statOpen, setStatOpen] = useState(false);  // 스탯 창
   const [plan, setPlan] = useState(noStats);        // 스탯 창에서 적용하기 전에 올려 둔 포인트
+  const [shopOpen, setShopOpen] = useState(null);   // 열어 둔 상점 id
+  const [bagOpen, setBagOpen] = useState(false);    // 가방 창
+  const [note, setNote] = useState(null);           // 상점 결과 한 줄 — 내 것만
+  const shopRef = useRef(null);                     // 루프가 보는 열린 상점
+  useEffect(() => { shopRef.current = shopOpen; }, [shopOpen]);
 
   const toggleMute = useCallback(() => {
     sfx.unlock();
@@ -360,13 +368,20 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     }
     if (kind === "talk") {
       const h = g.heroes[mySeat];
-      if (!npcNear(h)) return;
+      const npc = npcNear(h);
+      if (!npc) return;
+      if (npc.shop) {                               // 상점은 창만 연다 — 사고파는 것은 창에서 보낸다
+        setStatOpen(false); setMenu(false); setBagOpen(false); setNote(null);
+        setShopOpen(npc.shop);
+        return;
+      }
       setTalk(h.quest.on
         ? `아직 ${QUEST.need - h.quest.n}마리 남았네. 토끼도 가끔 들이받으니 조심하게.`
         : `토끼 ${QUEST.need}마리만 잡아 주게. 경험치 ${QUEST.xp}과 ${QUEST.coin}코인을 주겠네.`);
     }
     if (isHost) {
       if (kind === "stat") rpgStat(g, mySeat, dir);
+      else if (kind === "shop") rpgShop(g, mySeat, dir);
       else if (kind === "skill") rpgSkill(g, mySeat);
       else if (kind === "talk") rpgTalk(g, mySeat);
       else if (kind === "fire") rpgFire(g, mySeat, dir);
@@ -385,13 +400,16 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     act("auto", next);
   }, [act]);
 
-  // 메뉴 · 스탯 창은 Esc 나 바깥을 누르면 닫힌다
+  // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen) return;
-    const onKey = (e) => { if (e.key === "Escape") { setMenu(false); setStatOpen(false); } };
+    if (!menu && !statOpen && !shopOpen && !bagOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") { setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false); }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen]);
+  }, [menu, statOpen, shopOpen, bagOpen]);
+  const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
   useEffect(() => { if (!statOpen) setPlan(noStats()); }, [statOpen]);
   const applyStats = useCallback(() => {
@@ -437,7 +455,12 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       const isFire = FIRE_KEYS.includes(e.code);
       if (STAT_KEYS.includes(e.code)) {
         e.preventDefault();
-        if (!e.repeat) setStatOpen((v) => !v);
+        if (!e.repeat) { setShopOpen(null); setBagOpen(false); setStatOpen((v) => !v); }
+        return;
+      }
+      if (BAG_KEYS.includes(e.code)) {
+        e.preventDefault();
+        if (!e.repeat) { setShopOpen(null); setStatOpen(false); setNote(null); setBagOpen((v) => !v); }
         return;
       }
       if (!dir && !isSkill && !isTalk && !isFire) return;
@@ -478,6 +501,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         else if (d.kind === "fire") rpgFire(g, d.cls, !!d.dir);
         else if (d.kind === "auto") rpgAuto(g, d.cls, !!d.dir);
         else if (d.kind === "stat") rpgStat(g, d.cls, d.dir);
+        else if (d.kind === "shop") rpgShop(g, d.cls, d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
@@ -529,7 +553,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bgsRef.current = {};                              // 그림 파일이 없을 때만 drawRpg 가 코드로 채운다
 
-    let raf, last = performance.now(), frame = 0, sinceSnap = 0, saved = "", lastMap = "";
+    let raf, last = performance.now(), frame = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null;
     const loop = (now) => {
       // 첫 프레임의 시각은 루프를 건 시각보다 앞설 수 있다 — 거꾸로 가지 않게 막는다
       let dt = Math.max(0, (now - last) / 1000);
@@ -556,17 +580,27 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         const me = g.heroes[mySeat];
         setHud(me ? {
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
-          coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: !!npcNear(me),
-          st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded,
+          coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: npcNear(me),
+          st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v,
+          extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
+          // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
+          self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins,
+            hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf } },
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max })),
         } : null);
+        // 상점 결과 — 내 것 가운데 새로 온 것만
+        const mine = g.notes.filter((n) => n.who === mySeat);
+        const top = mine[mine.length - 1];
+        if (top && top !== lastNote) { lastNote = top; setNote(top); }
+        // 상점에서 멀어지면 상점 창을 닫는다
+        if (me && shopRef.current && !nearShop(me, shopRef.current)) { shopRef.current = null; setShopOpen(null); }
         if (me && me.map !== lastMap) {
           if (lastMap) setToast({ name: MAPS[me.map].name, at: now });
           lastMap = me.map;
         }
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded) {
-          const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}`;
+          const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`;
           if (key !== saved) { saved = key; writeChar(me); }
         }
       }
@@ -584,6 +618,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
 
   const me = hud;
   const inField = me && me.map === "field";
+  const nearShopNpc = me && me.near && me.near.shop ? SHOP_BY_ID[me.near.shop] : null;
   const myEl = elemOf(myLook);
   const who = (pi) => {                              // 파티 칸 — 직업 · 원소
     const l = seats[pi]?.hero;
@@ -619,8 +654,12 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}
-                    aria-expanded={statOpen} onClick={() => { setMenu(false); setStatOpen((v) => !v); }}>
+                    aria-expanded={statOpen} onClick={() => { setMenu(false); setShopOpen(null); setBagOpen(false); setStatOpen((v) => !v); }}>
                     스탯{me.left > 0 && <b>+{me.left}</b>}
+                  </button>
+                  <button type="button" className={`rpg-lv-stat ${bagOpen ? "on" : ""}`} aria-expanded={bagOpen}
+                    onClick={() => { setMenu(false); setStatOpen(false); setShopOpen(null); setNote(null); setBagOpen((v) => !v); }}>
+                    가방
                   </button>
                   <span className={`rpg-lv-sk ${me.sk <= 0 ? "ready" : ""}`}>
                     {skillName(myLook)} {me.sk <= 0 ? "준비됨" : `${Math.ceil(me.sk)}초`}
@@ -672,6 +711,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
                           </span>
                           <span className="rpg-stat-val">
                             {t.fmt(v0)}{add > 0 && <> <i>→</i> <strong>{t.fmt(v1)}</strong></>}
+                            {me.extra[t.id] > 0 && <i> +{t.fmt(me.extra[t.id])}</i>}
                           </span>
                           <span className="rpg-stat-pts">{cur + add}<small>/{STAT_MAX}</small></span>
                           <span className="rpg-stat-btns">
@@ -696,7 +736,13 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
               </>
             );
           })()}
-          {me && !menu && !statOpen && (me.quest.on || inField) && (
+          {me && shopOpen && (
+            <ShopPanel shop={shopOpen} h={me.self} send={sendShop} note={note} onClose={() => setShopOpen(null)} />
+          )}
+          {me && bagOpen && (
+            <BagPanel h={me.self} send={sendShop} note={note} onClose={() => setBagOpen(false)} />
+          )}
+          {me && !menu && !statOpen && !shopOpen && !bagOpen && (me.quest.on || inField) && (
             <div className="rpg-quest">
               {me.quest.on
                 ? <><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</>
@@ -713,7 +759,16 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
 
           {toast && <div className="rpg-toast" key={toast.at}>{toast.name}</div>}
 
-          {me && (talk || me.near) && (
+          {me && nearShopNpc && !shopOpen && !bagOpen && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">{nearShopNpc.keeper}</span>
+              <span className="rpg-talk-line">{nearShopNpc.line}</span>
+              <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                {nearShopNpc.name} 열기{!touch && <kbd>E</kbd>}
+              </button>
+            </div>
+          )}
+          {me && !nearShopNpc && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">
@@ -789,8 +844,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         <p className="keyhint rpg-keys">
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_CREW_MAX}명 ·{" "}
           {touch
-            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 곁에서 대화 · 레벨 칸의 스탯 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 곁에서 <kbd>E</kbd> 대화 · 스탯 <kbd>C</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
+            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 곁에서 대화 · 레벨 칸의 스탯 · 가방 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
+            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 · 상점 곁에서 <kbd>E</kbd> · 스탯 <kbd>C</kbd> · 가방 <kbd>I</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
@@ -812,6 +867,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           전사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
           고른 원소는 평타에 약하게, 큰 기술에 세게 실립니다.
           이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트와 함께 이 기기에 남아, 다음에 들어와도 이어집니다.
+          광장에는 무기상점 · 스킬 상점 · 물약 상점 · 도박장이 있습니다. 가까이 가서 E(휴대폰은 말풍선의 버튼)로 엽니다.
+          산 무기 · 물약 · 배운 스킬은 가방(I)에서 보고, 무기 장착과 물약 마시기는 어디서나 할 수 있습니다.
           방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_CREW_MAX}명까지이고, 가득 차면 다음 서버로 넘어갑니다.
           판정을 맡은 사람이 나가면 남은 사람이 이어받습니다. 이때 모두 광장에서 다시 서고 몹은 새로 나옵니다(레벨 · 코인 · 스탯은 그대로입니다).
         </details>

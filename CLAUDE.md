@@ -17,7 +17,9 @@
 ## 2. 브랜치 · 배포
 
 - 작업 브랜치: **`claude/4-player-coop-defense-1x89l5`** (저장소 `tpdbf5509/4-`). 여기서 커밋하고 `git push -u origin <브랜치>` 한다.
-- push 하면 **Vercel 이 자동 배포**한다. 프로젝트 `four-lane`, 주소 https://four-lane.vercel.app . 보통 1~3분 안에 READY.
+- **모든 작업은 Vercel 프로젝트 `four-lane` 하나로만 한다.** 주소는 https://four-lane.vercel.app 이다.
+  - 배포 · 배포 확인 · 사용자에게 안내하는 주소는 모두 `four-lane` 이다. 다른 Vercel 프로젝트를 새로 만들거나, 다른 프로젝트 · 미리보기 주소로 배포하거나 안내하지 않는다.
+  - push 하면 `four-lane` 에 자동 배포된다. 보통 1~3분 안에 READY.
   - Vercel MCP `list_deployments` 는 **projectId 만** 넘긴다. teamId 를 넣으면 403 이 난다.
 - RPG 모드는 **다른 세션이 다른 브랜치(`claude/funny-fermat-*`)에서 만들고 PR 로 이 브랜치에 합친다.** 그래서 push 가 거절되면 `git fetch origin <브랜치>` 후 merge 하고(리베이스 · 강제 push 금지) 다시 빌드 · 확인 후 push 한다.
 - 사용자가 요청하지 않으면 PR 을 만들지 않는다.

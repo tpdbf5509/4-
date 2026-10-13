@@ -222,15 +222,43 @@ export function loadChar() {
     quest: { on: !!q.on, n: clamp(Math.floor(q.n || 0), 0, QUEST.need) },
     stats: cleanStats(r.stats, r.lv || 1),
     bag: cleanBag(r.bag),                        // 상점 — 무기 · 물약 · 스킬 · 오늘 쓴 횟수
+    linked: !!r.linked,                          // 서버에 이 캐릭터가 있다(이름 + 코드로 이어 할 수 있다)
+    tok: typeof r.tok === "string" ? r.tok : "", // 서버 입장권 — 없으면 서버에 저장하지 않는다(다른 기기가 나중에 들어왔다)
   };
 }
-// 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다
-export function makeChar(name) {
+// 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다. acct 는 서버에 만든 계정 { tok }
+export function makeChar(name, acct) {
   const cur = loadSave();
   if (cur) return loadChar();
   const n = cleanName(name);
   if (!n) return null;
-  store({ v: 3, name: n, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 } });
+  store({ v: 3, name: n, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, ...(acct ? { linked: 1, tok: acct.tok } : {}) });
+  return loadChar();
+}
+
+/* ── 서버 계정 — 이름 + 코드 (src/net/rpgSave.js) ─────────────────── */
+// 서버에 올리는 기록 — 입장권 · 연결 표시는 빼고 보낸다
+export function charRecord() {
+  const r = loadSave();
+  if (!r) return null;
+  const { tok: _tok, linked: _linked, ...data } = r;
+  return data;
+}
+// 서버 연결 상태를 바꾼다 — 코드를 정했거나(linked · tok), 다른 기기에 밀렸을 때(tok 비움)
+export function setAccount(patch) {
+  const cur = loadSave();
+  if (!cur) return false;
+  const next = { ...cur, ...patch };
+  if (patch.name) next.name = cleanName(patch.name);
+  if (patch.linked !== undefined) next.linked = patch.linked ? 1 : 0;
+  return store(next);
+}
+// 서버에서 불러온 캐릭터로 이 기기의 기록을 바꾼다
+export function adoptChar(name, data, tok) {
+  const n = cleanName(name);
+  if (!n || !data || typeof data !== "object") return null;
+  const { tok: _tok, linked: _linked, ...rest } = data;
+  if (!store({ ...rest, v: 3, name: n, linked: 1, tok })) return null;
   return loadChar();
 }
 // 직업 · 원소 · 성별을 정한다 — 이미 정해 두었으면 그대로 두고 false

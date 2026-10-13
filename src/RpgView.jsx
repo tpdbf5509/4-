@@ -3,12 +3,15 @@ import { W, H, MOVE_KEYS } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, makeChar, saveLook, writeChar, deleteChar,
-  npcNear, jobOf, elemOf, skillName, heroArtPath, cleanName, cleanLook,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, saveLook, writeChar, deleteChar,
+  charRecord, setAccount,
+  npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID } from "./game/shop.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
+import RpgAccount from "./RpgAccount.jsx";
+import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText } from "./net/rpgSave.js";
 import { drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
@@ -34,15 +37,12 @@ function ro(word) {
 }
 const VIEWS = [["front", "앞"], ["side", "옆"], ["back", "뒤"], ["turn", "사선"]];
 
-/* ── 캐릭터 만들기 — 이름을 정하고, 직업 · 원소 · 성별을 고른 뒤 광장으로 ──────────
-   이름은 정할 때, 직업 · 원소 · 성별은 처음 게임을 시작할 때 한 번 더 묻고 굳힌다. 넷 다 바꿀 수 없다.
-   이 기기에 남아, 다음에 들어오면 그대로 불러와 곧바로 시작할 수 있다.
+/* ── 캐릭터 만들기 — 이름 · 코드를 정하고, 직업 · 원소 · 성별을 고른 뒤 광장으로 ──────────
+   이름 · 코드는 01 칸(RpgAccount)에서 정하고 서버에 만든다. 직업 · 원소 · 성별은 처음 게임을 시작할 때 한 번 더 묻고 굳힌다.
+   이름 · 직업 · 원소 · 성별은 바꿀 수 없다. 이 기기와 서버에 남아, 다른 기기에서도 이름 + 코드로 이어 한다.
    room 이 있으면(코드로 들어온 방) 방 코드와 인원을 함께 보여 준다. */
 export function RpgSetup({ room, onStart, onLeave }) {
   const [char, setChar] = useState(() => loadChar());
-  const [draft, setDraft] = useState("");
-  const [asking, setAsking] = useState(false);        // 이름을 정하기 전에 한 번 더 묻는다
-  const [nameErr, setNameErr] = useState("");
   const [job, setJob] = useState(() => (char && char.picked ? char.job : null));
   const [elem, setElem] = useState(() => (char && char.picked ? char.elem : null));
   const [gender, setGender] = useState(() => (char && char.picked ? char.gender : null));
@@ -55,21 +55,15 @@ export function RpgSetup({ room, onStart, onLeave }) {
 
   const named = !!char;
   const fixed = named && char.picked;                 // 직업 · 원소 · 성별까지 정해 두었다
-  const look = { name: char ? char.name : cleanName(draft), job: job || "warrior", elem: elem || "flame", gender: gender || "m" };
+  const look = { name: char ? char.name : "", job: job || "warrior", elem: elem || "flame", gender: gender || "m" };
   const ready = named && job && elem && gender && !(room && room.full);
   const el = elem ? ELEM_BY_ID[elem] : null;
 
-  const askName = () => {
-    const n = cleanName(draft);
-    if (!n) return setNameErr("이름을 한 글자 이상 적어 주세요.");
-    setNameErr("");
-    setAsking(true);
-  };
-  const fixName = () => {
-    const c = makeChar(draft);
-    if (!c) return setNameErr("이름을 저장하지 못했습니다. 다시 시도해 주세요.");
+  // 01 칸에서 캐릭터가 바뀌었다(새로 만듦 · 서버에서 불러옴 · 코드를 정함)
+  const applyChar = (c) => {
     setChar(c);
-    setAsking(false);
+    setJob(c && c.picked ? c.job : null); setElem(c && c.picked ? c.elem : null); setGender(c && c.picked ? c.gender : null);
+    setSure(false); setLookErr("");
   };
   const start = () => {
     if (!ready) return;
@@ -78,17 +72,27 @@ export function RpgSetup({ room, onStart, onLeave }) {
     if (!fixed && !sure) return setSure(true);
     if (!fixed) {
       if (!saveLook(l)) return setLookErr("저장하지 못했습니다. 다시 시도해 주세요.");
-      setChar(loadChar());
+      const c = loadChar();
+      setChar(c);
+      cloudQueue(c.name, c.tok, charRecord());     // 고른 모습을 서버에도 바로 남긴다
+      cloudFlush();
     }
     onStart(l);
   };
   const closeDel = () => { setDel(false); setDelName(""); setDelErr(""); };
-  const remove = () => {
-    if (!char || delName !== char.name) return;
+  const [delBusy, setDelBusy] = useState(false);
+  const remove = async () => {
+    if (!char || delName !== char.name || delBusy) return;
+    // 서버에도 있으면 서버부터 지운다. 다른 기기에 밀려 입장권이 없으면 이 기기 기록만 지운다
+    if (char.linked && char.tok) {
+      setDelBusy(true);
+      const r = await deleteRemote(char.name, char.tok);
+      setDelBusy(false);
+      if (!r.ok && r.err !== "token") return setDelErr(`서버에서 지우지 못했습니다. ${errText(r)}`);
+    }
     if (!deleteChar()) return setDelErr("지우지 못했습니다. 다시 시도해 주세요.");
     // 처음 들어온 것처럼 되돌린다
-    setChar(null); setDraft(""); setAsking(false); setNameErr("");
-    setJob(null); setElem(null); setGender(null); setSure(false); setLookErr("");
+    applyChar(null);
     closeDel();
   };
   // 고른 것이 바뀌면 묻던 것은 거둔다
@@ -116,7 +120,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
                 ? "저장된 캐릭터를 불러왔습니다. 게임 시작하기를 누르면 광장으로 나갑니다."
                 : named
                   ? "직업 · 원소 · 성별을 고르고 광장으로 나가세요. 셋 다 한 번 정하면 바꿀 수 없습니다."
-                  : "이름을 먼저 정합니다. 그다음 직업 · 원소 · 성별을 고르면 광장으로 나갑니다. 넷 다 한 번 정하면 바꿀 수 없습니다."}
+                  : "이름과 숫자 5자리 코드를 먼저 정합니다. 그다음 직업 · 원소 · 성별을 고르면 광장으로 나갑니다. 다른 기기에서는 이름과 코드로 이어 합니다."}
             </p>
           </div>
           <div className="lobby-actions">
@@ -152,7 +156,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
               ))}
             </div>
             <div className="mk-sum">
-              <b>{named ? char.name : cleanName(draft) || "이름 없음"}</b>
+              <b>{named ? char.name : "이름 없음"}</b>
               <span>{lookText}</span>
               {named && <span className="mk-rec">Lv {char.lv} · 코인 {char.coins}</span>}
             </div>
@@ -161,36 +165,8 @@ export function RpgSetup({ room, onStart, onLeave }) {
           {/* 오른쪽 — 차례대로 고른다 */}
           <div className="mk-steps">
             <section className="mk-step">
-              <h2 className="mk-h"><span>01</span>이름</h2>
-              {named ? (
-                <div className="mk-name-fixed">
-                  <b>{char.name}</b>
-                  <span className="mk-lock">변경 불가</span>
-                  <p className="mk-note">이름은 한 번 정하면 바꿀 수 없습니다.</p>
-                </div>
-              ) : asking ? (
-                <div className="mk-confirm">
-                  <p><b>{cleanName(draft)}</b>{ro(cleanName(draft))} 정할까요?</p>
-                  <p className="mk-warn">이름은 변경 불가합니다. 정한 뒤에는 다시 바꿀 수 없습니다.</p>
-                  <div className="mk-row">
-                    <button className="btn-main" onClick={fixName}>이 이름으로 정하기</button>
-                    <button className="btn-ghost" onClick={() => setAsking(false)}>다시 쓰기</button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="mk-row">
-                    <input
-                      className="mk-input" value={draft} maxLength={NAME_MAX} placeholder={`${NAME_MAX}글자까지`}
-                      onChange={(e) => { setDraft(e.target.value); setNameErr(""); }}
-                      onKeyDown={(e) => { if (e.key === "Enter") askName(); }}
-                    />
-                    <button className="btn-ghost tall" onClick={askName}>이름 정하기</button>
-                  </div>
-                  <p className="mk-warn">이름은 변경 불가합니다. 한 번 정하면 이 기기에 저장되고, 다음에 들어오면 그대로 불러옵니다.</p>
-                  {nameErr && <p className="err">{nameErr}</p>}
-                </div>
-              )}
+              <h2 className="mk-h"><span>01</span>이름 · 코드</h2>
+              <RpgAccount char={char} onChar={applyChar} />
             </section>
 
             <fieldset className="mk-step" disabled={!named}>
@@ -278,7 +254,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
                     <p id="mk-del-q" className="mk-del-q">캐릭터를 삭제하시겠습니까?</p>
                     <p className="mk-note">
                       <b>{char.name}</b>의 이름 · 직업 · 원소 · 성별과 Lv {char.lv} · 코인 {char.coins}이 모두 지워집니다.
-                      되돌릴 수 없습니다. 지우려면 캐릭터 이름을 똑같이 적어 주세요.
+                      {char.linked ? " 서버에 저장된 기록도 지워집니다." : ""} 되돌릴 수 없습니다. 지우려면 캐릭터 이름을 똑같이 적어 주세요.
                     </p>
                     <div className="mk-row">
                       <input
@@ -287,7 +263,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
                         onChange={(e) => { setDelName(e.target.value); setDelErr(""); }}
                         onKeyDown={(e) => { if (e.key === "Enter") remove(); if (e.key === "Escape") closeDel(); }}
                       />
-                      <button className="btn-danger" disabled={delName !== char.name} onClick={remove}>삭제</button>
+                      <button className="btn-danger" disabled={delName !== char.name || delBusy} onClick={remove}>{delBusy ? "지우는 중…" : "삭제"}</button>
                       <button className="btn-ghost" onClick={closeDel}>취소</button>
                     </div>
                     {delErr && <p className="err">{delErr}</p>}
@@ -348,6 +324,19 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   const [bagOpen, setBagOpen] = useState(false);    // 가방 창
   const [note, setNote] = useState(null);           // 상점 결과 한 줄 — 내 것만
   const shopRef = useRef(null);                     // 루프가 보는 열린 상점
+
+  // 서버 저장 — 코드를 정한 캐릭터만. 다른 기기가 나중에 들어오면 이 기기의 서버 저장을 멈추고 알린다
+  const acctRef = useRef(null);                     // { name, tok }
+  const [kicked, setKicked] = useState(false);
+  useEffect(() => {
+    const c = loadChar();
+    acctRef.current = c && c.linked && c.tok ? { name: c.name, tok: c.tok } : null;
+    return cloudStart(() => {
+      acctRef.current = null;
+      setAccount({ tok: "" });
+      setKicked(true);
+    });
+  }, []);
   useEffect(() => { shopRef.current = shopOpen; }, [shopOpen]);
 
   const toggleMute = useCallback(() => {
@@ -601,7 +590,12 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`;
-          if (key !== saved) { saved = key; writeChar(me); }
+          if (key !== saved) {
+            saved = key;
+            writeChar(me);
+            const a = acctRef.current;
+            if (a) cloudQueue(a.name, a.tok, charRecord());
+          }
         }
       }
       raf = requestAnimationFrame(loop);
@@ -786,6 +780,12 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
             <div className="rpg-down">쓰러졌습니다 — {Math.ceil(me.down)}초 뒤 광장에서 일어납니다</div>
           )}
 
+          {kicked && (
+            <div className="drop-note">
+              다른 기기에서 이 캐릭터로 들어왔습니다. 이 기기의 진행은 이제 서버에 저장되지 않습니다.
+              <button className="btn-ghost" onClick={onLeave}>처음 화면으로</button>
+            </div>
+          )}
           {dropped && (
             <div className="drop-note">
               방장과의 연결이 끊긴 것 같습니다… <button className="btn-ghost" onClick={onLeave}>처음 화면으로</button>
@@ -866,7 +866,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
           전사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
           고른 원소는 평타에 약하게, 큰 기술에 세게 실립니다.
-          이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트와 함께 이 기기에 남아, 다음에 들어와도 이어집니다.
+          이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트 · 가방과 함께 이 기기와 서버에 남습니다. 다른 기기에서는 캐릭터 만들기 화면의 "코드로 이어 하기"에 이름과 숫자 5자리 코드를 넣으면 이어집니다.
           광장에는 무기상점 · 스킬 상점 · 물약 상점 · 도박장이 있습니다. 가까이 가서 E(휴대폰은 말풍선의 버튼)로 엽니다.
           산 무기 · 물약 · 배운 스킬은 가방(I)에서 보고, 무기 장착과 물약 마시기는 어디서나 할 수 있습니다.
           방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_CREW_MAX}명까지이고, 가득 차면 다음 서버로 넘어갑니다.

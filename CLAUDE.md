@@ -39,9 +39,9 @@
 | 구분 | 내용 |
 |---|---|
 | 화면 | React 19 + Vite 8. 판은 `<canvas>` 에 직접 그린다 |
-| 실시간 | Supabase Realtime 채널 1개 = 방 1개(`flg:<코드>`). presence + broadcast. DB 테이블은 `feedback` 하나뿐 |
+| 실시간 | Supabase Realtime 채널 1개 = 방 1개(`flg:<코드>`). presence + broadcast. DB 테이블은 `feedback`(의견)과 `rpg_chars` · `rpg_fails`(RPG 캐릭터 서버 저장, `supabase/rpg.sql`) |
 | 판정 | **방장 권위형.** 방장 브라우저가 모든 규칙을 돌리고 손님은 입력만 보낸다. 방장이 스냅샷(초당 12회)과 연출 이벤트(`out` fx)를 뿌린다 |
-| 저장 | 서버 저장 없음. 이름 · RPG 캐릭터 · 설정은 브라우저 localStorage |
+| 저장 | RPG 캐릭터는 이름 + 숫자 5자리 코드로 서버(Supabase 함수 `rpg_*`)와 localStorage 둘 다. 홈 이름 · 설정은 localStorage |
 | 소리 | 파일 없이 웹오디오 합성(`sfx.js`) |
 
 ### 파일 지도
@@ -57,6 +57,7 @@
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
 | `src/net/room.js` | Supabase 채널 연결 |
+| `src/net/rpgSave.js` · `src/RpgAccount.jsx` | RPG 캐릭터 서버 저장(만들기 · 이어 하기 · 10초마다 저장 · 입장권)과 캐릭터 만들기 화면의 이름 · 코드 칸. 표와 함수는 `supabase/rpg.sql` |
 | `src/ui/style.css` | 모든 스타일 |
 | `public/assets/` | 그림. 판 위 그림은 `public/assets/game/`(움직이는 것은 36프레임 6열 시트 + `manifest.json`) |
 | `design/` | 원본 디자인 시트와 자르는 스크립트(게임이 직접 쓰지 않음) |

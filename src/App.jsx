@@ -166,8 +166,15 @@ export default function App() {
       onStatus: (st) => {
         if (st === "SUBSCRIBED") {
           setConnecting(false);
-          subscribed = true;
+          setError("");
           heardAt = Date.now();
+          if (subscribed) {
+            // 끊겼다가 다시 붙었다 — 자리는 그대로 두고, 방장은 대기실을 다시 알리고 손님은 인사만 다시 한다
+            if (hostRef.current) publishLobby();
+            else room.send("hello", { name: nick });
+            return;
+          }
+          subscribed = true;
           if (hostRef.current) {
             seatsRef.current = firstSeats();
             publishLobby();
@@ -176,8 +183,11 @@ export default function App() {
           }
         }
         if (st === "CHANNEL_ERROR" || st === "TIMED_OUT") {
+          // 라이브러리가 스스로 다시 붙으려 한다 — 다시 붙으면(SUBSCRIBED) 이 안내는 지운다
           setConnecting(false);
-          setError("연결이 끊겼습니다. 잠시 뒤 다시 시도해 주세요.");
+          setError(subscribed
+            ? "서버와 연결이 잠깐 끊겼습니다. 다시 붙는 중입니다…"
+            : "서버에 연결하지 못했습니다. 다시 시도하는 중입니다… 계속 이러면 잠시 뒤 처음 화면에서 다시 들어와 주세요.");
         }
       },
     });
@@ -290,6 +300,7 @@ export default function App() {
     modeRef.current = "defense";
     heroRef.current = null;
     lobbyRef.current = null;
+    setError("");
     seatsRef.current = new Array(SEATS).fill(null);
     setLobby(null);
     setScreen("home");

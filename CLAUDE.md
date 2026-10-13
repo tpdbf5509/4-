@@ -60,7 +60,7 @@
 | `src/ui/style.css` | 모든 스타일 |
 | `public/assets/` | 그림. 판 위 그림은 `public/assets/game/`(움직이는 것은 36프레임 6열 시트 + `manifest.json`) |
 | `design/` | 원본 디자인 시트와 자르는 스크립트(게임이 직접 쓰지 않음) |
-| `tools/` | `png-to-webp.py`, `export-art.mjs`, `recut-character.py`(캐릭터 누끼) |
+| `tools/` | `png-to-webp.py`, `export-art.mjs`, `recut-character.py`(캐릭터 누끼), `cut-weapons.py`(특별 무기 그림 바탕 지우기 — 원본은 `design/weapons/`) |
 | `docs/기능-명세서.md` | 기능 명세서. 기능 ID(예: `DEF-LOBBY-03`)로 정리 |
 
 ## 5. 지금 정해진 핵심 규칙 (바꿀 때 사용자 확인)

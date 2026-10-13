@@ -1307,6 +1307,13 @@ kbd {
   width: 84px; padding: 4px 6px; border-radius: 6px; font-family: inherit; font-size: 12.5px; color: #f2e3c2;
   background: rgba(20, 14, 8, 0.6); border: 1px solid rgba(160, 130, 90, 0.5);
 }
+/* 무기 그림 — 특별 무기만 그림이 있다 */
+.shop-wpn { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.shop-wpn-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.shop-art { flex: none; width: 40px; height: 40px; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.shop-specials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.shop-special { padding: 5px 0; border-bottom: 1px solid rgba(214, 186, 140, 0.12); }
+.shop-special.lock { opacity: 0.45; }
 .shop-odds { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 11px; color: #c9bb9c; }
 .shop-odds td { padding: 2px 0; border-bottom: 1px solid rgba(214, 186, 140, 0.1); }
 .shop-odds td + td { text-align: right; color: #e8dcc0; }
@@ -1336,6 +1343,8 @@ kbd {
   .rpg-shop .rpg-stat-rule { display: block; }
   .shop-row { gap: 6px; }
   .shop-act { max-width: 130px; }
+  .shop-specials { grid-template-columns: minmax(0, 1fr); }
+  .shop-art { width: 32px; height: 32px; }
   .rpg-lv-stat { padding: 0 6px; font-size: 9px; }
   .rpg-lv-stat b { font-size: 10px; }
   .rpg-menu-text b { font-size: 12.5px; }

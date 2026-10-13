@@ -48,6 +48,7 @@
 | `rabbit-frozen.webp` | 64 × 56 | (32, 46) | 얼어붙은 토끼 |
 | `tree-0~2.webp` | 100 × 76 | 나뭇등걸 (50, 58) | 소나무 3종. 사냥터와 결전장에서 함께 씁니다 |
 | `tree-3~5.webp` | 100 × 76 | (50, 58) | 둥근 나무 3종 |
+| `weapons/<id>.webp` | 64 × 64 | 가운데 | 특별 무기 그림(상점 · 가방 창). 칼끝이 오른쪽 위를 향한 모습. id 는 `shopData.js` 의 `SPECIALS[].art` — `clockwork` 태엽검 · `forest` 숲의 검 · `coral` 산호검 · `viper` 독사 단검 · `thunder` 번개검 · `frost` 서리검 · `flame` 화염검 · `star` 별의 검 · `shadow` 암흑검 · `holy` 신성검. 못 불러오면 그림 없이 이름만 보입니다 |
 
 ## 예전 코드 그림으로 다시 뽑기
 

@@ -5,13 +5,13 @@
 import { useState } from "react";
 import { STATS, statValue } from "./game/rpg.js";
 import {
-  SHOPS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SKILL_FAMS, SKILLS, POTIONS, POTION,
+  SHOPS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
   CASINO, BOX, DICE, SLOT,
 } from "./game/shopData.js";
 import {
   SHOP_BY_ID, SKILL_BY_ID, POTION_BY_ID, FAM_BY_ID, todayKey, usedToday, tierOf, weaponPrice, weaponName,
-  weaponLine, sellPrice, dealOf, equipped, skillNext, extraStat, whyWeaponBuy, whyWeaponSell, whyEquip, whySkill,
-  whyPotionBuy, whyPotionUse, whyGamble, boxPrice, casinoEv,
+  weaponLine, weaponArt, specOf, specialTier, specialsFor, sellPrice, dealOf, equipped, skillNext, extraStat,
+  whyWeaponBuy, whyDealBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse, whyGamble, boxPrice, boxShares, casinoEv,
 } from "./game/shop.js";
 import { Coin } from "./ui/icons.jsx";
 
@@ -26,6 +26,23 @@ function Act({ why, label, onClick, main, quiet }) {
     <span className="shop-act">
       <button type="button" className={main ? "btn-main" : "btn-ghost"} disabled={blocked} onClick={onClick}>{label}</button>
       {blocked && !quiet && <em className="shop-why">{why.join(" · ")}</em>}
+    </span>
+  );
+}
+
+/* 무기 이름 칸 — 특별 무기는 그림과 등급을 함께 보인다 */
+function WeaponTitle({ w, tag, line }) {
+  const art = weaponArt(w);
+  const sp = specOf(w);
+  return (
+    <span className="shop-name">
+      <span className="shop-wpn">
+        {art && <img className="shop-art" src={art} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
+        <span className="shop-wpn-text">
+          <b>{weaponName(w)} <small>{sp ? `특별 · ${GRADES[w.g].name} · ` : ""}Lv {WEAPON_TIERS[w.r]}{tag || ""}</small></b>
+          <em>{line || weaponLine(w)}</em>
+        </span>
+      </span>
     </span>
   );
 }
@@ -49,13 +66,24 @@ function WeaponShop({ h, send }) {
       <section className="shop-sec">
         <h4>오늘의 특가 <small>{Math.round(DEAL.discount * 100)}% 할인 · 하루 {DEAL.perDay}번 · 남은 {Math.max(0, dealLeft)}번</small></h4>
         <div className="shop-row">
-          <span className="shop-name">
-            <b>{weaponName(d)} <small>Lv {WEAPON_TIERS[d.r]}</small></b>
-            <em>{weaponLine(d)}</em>
-          </span>
+          <WeaponTitle w={d} />
           <span className="shop-price"><s>{won(d.full)}</s> {won(d.price)}</span>
-          <Act main why={whyWeaponBuy(h, d.t, d.r, d.g, true, day)} label="특가 구매"
-            onClick={() => send({ op: "wbuy", t: d.t, r: d.r, g: d.g, deal: 1 })} />
+          <Act main why={whyDealBuy(h, d.key, day)} label="특가 구매" onClick={() => send({ op: "deal", key: d.key })} />
+        </div>
+      </section>
+
+      <section className="shop-sec">
+        <h4>특별 무기 <small>상점에서 팔지 않습니다 · 오늘의 특가 · 랜덤 상자에서만 나옵니다</small></h4>
+        <div className="shop-specials">
+          {SPECIALS.map((sp) => {
+            const w = { t: sp.t, r: specialTier(sp), g: sp.g, sp: sp.id };
+            const have = h.bag.w.some((q) => q.sp === sp.id);
+            return (
+              <div key={sp.id} className={`shop-special ${h.lv < sp.lv ? "lock" : ""}`}>
+                <WeaponTitle w={w} tag={have ? " · 가지고 있음" : ""} />
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -78,12 +106,9 @@ function WeaponShop({ h, send }) {
           const w = { t: t.id, r: tier, g: grade };
           return (
             <div key={t.id} className="shop-row">
-              <span className="shop-name">
-                <b>{weaponName(w)} <small>Lv {WEAPON_TIERS[tier]}</small></b>
-                <em>{weaponLine(w)}</em>
-              </span>
+              <WeaponTitle w={w} />
               <span className="shop-price">{won(weaponPrice(t.id, tier, grade))}</span>
-              <Act why={whyWeaponBuy(h, t.id, tier, grade, false, day)} label="구매"
+              <Act why={whyWeaponBuy(h, t.id, tier, grade)} label="구매"
                 onClick={() => send({ op: "wbuy", t: t.id, r: tier, g: grade })} />
             </div>
           );
@@ -95,10 +120,7 @@ function WeaponShop({ h, send }) {
         {!h.bag.w.length && <p className="shop-empty">가방에 무기가 없습니다.</p>}
         {h.bag.w.map((w) => (
           <div key={w.u} className="shop-row">
-            <span className="shop-name">
-              <b>{weaponName(w)} <small>Lv {WEAPON_TIERS[w.r]}{w.u === eqU ? " · 장착 중" : ""}</small></b>
-              <em>{weaponLine(w)} · 산 값 {won(w.p)}</em>
-            </span>
+            <WeaponTitle w={w} tag={w.u === eqU ? " · 장착 중" : ""} line={`${weaponLine(w)} · 산 값 ${won(w.p)}`} />
             <span className="shop-price">+{won(sellPrice(w))}</span>
             <Act why={whyWeaponSell(h, w.u)} label="팔기" onClick={() => send({ op: "wsell", u: w.u })} />
           </div>
@@ -181,6 +203,8 @@ function Casino({ h, send }) {
   const left = (k) => CASINO.daily[k] - usedToday(h.bag, k, day);
   const gsum = BOX.grades.reduce((a, b) => a + b, 0);
   const psum = Object.values(BOX.potions).reduce((a, b) => a + b, 0);
+  const share = boxShares(h.lv);
+  const own = specialsFor(h.lv);
   const ssum = SLOT.reduce((a, s) => a + s.w, 0);
   return (
     <>
@@ -189,14 +213,20 @@ function Casino({ h, send }) {
       </p>
       <section className="shop-sec">
         <h4>랜덤 상자 <small>오늘 남은 {Math.max(0, left("box"))}/{CASINO.daily.box}번 · 기댓값 {pct(ev.box, 0)}</small></h4>
-        <p className="shop-note">내 레벨 단계(Lv {WEAPON_TIERS[tierOf(h.lv)]})의 무기 또는 물약이 나옵니다. 기댓값은 상점가로 셈합니다.</p>
+        <p className="shop-note">
+          내 레벨 단계(Lv {WEAPON_TIERS[tierOf(h.lv)]})의 무기 또는 물약이 나옵니다. 기댓값은 상점가로 셈합니다.
+          {own.length
+            ? ` 특별 무기는 내 레벨로 낄 수 있는 ${own.length}종 가운데 하나가 같은 확률로 나옵니다.`
+            : ` 특별 무기는 Lv ${SPECIALS[0].lv}부터 나옵니다. 그 전에는 그 몫이 일반 무기로 갑니다.`}
+        </p>
         <table className="shop-odds">
           <tbody>
+            {share.special > 0 && <tr><td>특별 무기</td><td>{pct(share.special)}</td></tr>}
             {GRADES.map((gd) => (
-              <tr key={gd.id}><td>{gd.name} 무기</td><td>{pct(BOX.weapon * (BOX.grades[gd.id] / gsum))}</td></tr>
+              <tr key={gd.id}><td>{gd.name} 무기</td><td>{pct(share.weapon * (BOX.grades[gd.id] / gsum))}</td></tr>
             ))}
             {Object.entries(BOX.potions).map(([id, w]) => (
-              <tr key={id}><td>{POTION_BY_ID[id].name}</td><td>{pct((1 - BOX.weapon) * (w / psum))}</td></tr>
+              <tr key={id}><td>{POTION_BY_ID[id].name}</td><td>{pct(share.potion * (w / psum))}</td></tr>
             ))}
           </tbody>
         </table>
@@ -296,10 +326,7 @@ export function BagPanel({ h, send, note, onClose }) {
         {!h.bag.w.length && <p className="shop-empty">무기상점에서 살 수 있습니다.</p>}
         {h.bag.w.map((q) => (
           <div key={q.u} className="shop-row">
-            <span className="shop-name">
-              <b>{weaponName(q)} <small>Lv {WEAPON_TIERS[q.r]}</small></b>
-              <em>{weaponLine(q)}</em>
-            </span>
+            <WeaponTitle w={q} />
             {q.u === h.bag.e
               ? <Act why={whyEquip(h, 0)} label="해제" onClick={() => send({ op: "equip", u: 0 })} />
               : <Act why={whyEquip(h, q.u)} label="장착" onClick={() => send({ op: "equip", u: q.u })} />}

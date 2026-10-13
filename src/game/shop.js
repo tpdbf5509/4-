@@ -3,7 +3,7 @@
    사고팔기 · 도박은 방장이 판정한다(rpgShop). 화면은 같은 조건 함수(why*)로 막힌 이유를 미리 보여 준다.
    가방(h.bag)은 이름과 함께 이 기기에 남고, 바뀔 때만 손님에게 보낸다. */
 import {
-  SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL,
+  SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIAL, SPECIALS,
   SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT,
 } from "./shopData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
@@ -14,6 +14,7 @@ export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]
 export const SKILL_BY_ID = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
 export const FAM_BY_ID = Object.fromEntries(SKILL_FAMS.map((f) => [f.id, f]));
 export const POTION_BY_ID = Object.fromEntries(POTIONS.map((p) => [p.id, p]));
+export const SPECIAL_BY_ID = Object.fromEntries(SPECIALS.map((sp) => [sp.id, sp]));
 const BUFF_STATS = ["str", "int", "crit"];          // 버프 물약이 올릴 수 있는 스탯
 
 const statDef = (id) => STATS.find((t) => t.id === id);
@@ -55,8 +56,30 @@ export function weaponPrice(t, r, g) {
   const raw = WEAPON.price * Math.pow(WEAPON.priceGrow, r) * GRADES[g].price * WEAPON_BY_ID[t].price;
   return Math.max(10, Math.round(raw / 10) * 10);
 }
-export const weaponName = (w) => `${GRADES[w.g].name} ${WEAPON_BY_ID[w.t].name}`;
-export const weaponLine = (w) => `${statName(WEAPON_BY_ID[w.t].stat)} +${fmtStat(WEAPON_BY_ID[w.t].stat, weaponBonus(w.t, w.r, w.g))}`;
+
+/* 특별 무기 — 단계는 레벨 제한에서, 올리는 양 · 값은 같은 단계 · 등급의 일반 무기에 SPECIAL 배율을 곱한다.
+   치명타처럼 상한이 있는 스탯은 그 스탯을 쓰는 일반 무기 종류의 배율(mul)도 함께 곱한다. */
+export const specialTier = (sp) => Math.max(0, WEAPON_TIERS.indexOf(sp.lv));
+export function specialBonus(sp) {
+  const statMul = (WEAPON_TYPES.find((t) => t.stat === sp.stat) || { mul: 1 }).mul;
+  const pts = (WEAPON.pts + WEAPON.ptsPerTier * specialTier(sp)) * GRADES[sp.g].mul * statMul * SPECIAL.mul;
+  return Math.max(1, Math.round(pts)) * statDef(sp.stat).per;
+}
+export function specialPrice(sp) {
+  const raw = WEAPON.price * Math.pow(WEAPON.priceGrow, specialTier(sp)) * GRADES[sp.g].price * SPECIAL.price;
+  return Math.max(10, Math.round(raw / 10) * 10);
+}
+// 내 레벨로 낄 수 있는 특별 무기
+export const specialsFor = (lv) => SPECIALS.filter((sp) => lv >= sp.lv);
+export const specialArt = (sp) => `/assets/game/rpg/weapons/${sp.art}.webp`;
+
+// 가방의 무기 한 자루 — 특별 무기면 sp 가 붙어 있다
+export const specOf = (w) => (w && w.sp ? SPECIAL_BY_ID[w.sp] || null : null);
+export const weaponStat = (w) => (specOf(w) ? specOf(w).stat : WEAPON_BY_ID[w.t].stat);
+export const itemBonus = (w) => (specOf(w) ? specialBonus(specOf(w)) : weaponBonus(w.t, w.r, w.g));
+export const weaponName = (w) => (specOf(w) ? specOf(w).name : `${GRADES[w.g].name} ${WEAPON_BY_ID[w.t].name}`);
+export const weaponLine = (w) => `${statName(weaponStat(w))} +${fmtStat(weaponStat(w), itemBonus(w))}`;
+export const weaponArt = (w) => (specOf(w) ? specialArt(specOf(w)) : null);
 export const sellPrice = (w) => Math.floor(w.p * WEAPON.sellRate);
 
 // 날짜로 정해지는 수 — 같은 날에는 누구에게나 같은 종류 · 등급이 나온다
@@ -65,18 +88,25 @@ function hashStr(s) {
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
-// 오늘의 특가 — 단계는 내 레벨에 맞는 가장 높은 단계
+// 오늘의 특가 — 특별 무기 날이면 내 레벨로 낄 수 있는 특별 무기 하나, 아니면 내 레벨 단계의 일반 무기
+const dealCut = (full) => Math.round((full * (1 - DEAL.discount)) / 10) * 10;
 export function dealOf(lv, day = todayKey()) {
   const h = hashStr(`deal:${day}`);
+  const own = specialsFor(lv);
+  if (own.length && (hashStr(`deal-special:${day}`) % 1000) / 1000 < DEAL.special) {
+    const sp = own[h % own.length];
+    const full = specialPrice(sp);
+    return { sp: sp.id, t: sp.t, r: specialTier(sp), g: sp.g, full, price: dealCut(full), key: `${day}/${sp.id}` };
+  }
   const t = WEAPON_TYPES[h % WEAPON_TYPES.length].id;
   const g = DEAL.grades[Math.floor(h / WEAPON_TYPES.length) % DEAL.grades.length];
   const r = tierOf(lv);
   const full = weaponPrice(t, r, g);
-  return { t, r, g, full, price: Math.round((full * (1 - DEAL.discount)) / 10) * 10 };
+  return { t, r, g, full, price: dealCut(full), key: `${day}/${t}/${r}/${g}` };
 }
 
 /* ── 가방 ──────────────────────────────────────────────────
-   w 무기 목록 [{ u 번호, t 종류, r 단계, g 등급, p 산 값 }] · e 장착한 무기 번호(0 은 맨손)
+   w 무기 목록 [{ u 번호, t 종류, r 단계, g 등급, p 산 값, sp 특별 무기 id(있을 때만) }] · e 장착한 무기 번호(0 은 맨손)
    p 물약 { id: 개수 } · s 스킬 { id: 레벨 } · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
 export const newBag = () => ({ w: [], e: 0, p: {}, s: {}, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
@@ -86,11 +116,21 @@ export function cleanBag(d) {
   const n0 = Math.max(1, Math.floor(Number(d.n) || 1));
   const seen = new Set();
   (Array.isArray(d.w) ? d.w : []).slice(0, WEAPON.bagMax).forEach((w) => {
-    if (!w || !WEAPON_BY_ID[w.t]) return;
-    const r = Math.floor(Number(w.r)), g = Math.floor(Number(w.g)), u = Math.floor(Number(w.u));
-    if (!(r >= 0 && r < WEAPON_TIERS.length) || !(g >= 0 && g < GRADES.length) || !(u > 0) || seen.has(u)) return;
+    if (!w) return;
+    const sp = w.sp ? SPECIAL_BY_ID[w.sp] : null;
+    if (w.sp && !sp) return;
+    if (!sp && !WEAPON_BY_ID[w.t]) return;
+    const u = Math.floor(Number(w.u)), p = Math.max(0, Math.floor(Number(w.p) || 0));
+    if (!(u > 0) || seen.has(u)) return;
+    if (sp) {                                     // 특별 무기는 종류 · 단계 · 등급을 표에서 다시 읽는다
+      seen.add(u);
+      b.w.push({ u, t: sp.t, r: specialTier(sp), g: sp.g, p, sp: sp.id });
+      return;
+    }
+    const r = Math.floor(Number(w.r)), g = Math.floor(Number(w.g));
+    if (!(r >= 0 && r < WEAPON_TIERS.length) || !(g >= 0 && g < GRADES.length)) return;
     seen.add(u);
-    b.w.push({ u, t: w.t, r, g, p: Math.max(0, Math.floor(Number(w.p) || 0)) });
+    b.w.push({ u, t: w.t, r, g, p });
   });
   b.n = Math.max(n0, ...b.w.map((w) => w.u + 1));
   b.e = seen.has(Number(d.e)) ? Number(d.e) : 0;
@@ -118,7 +158,7 @@ export function extraStat(h, id) {
   const bag = h.bag;
   if (bag) {
     const w = equipped(bag);
-    if (w && WEAPON_BY_ID[w.t].stat === id) v += weaponBonus(w.t, w.r, w.g);
+    if (w && weaponStat(w) === id) v += itemBonus(w);
     SKILLS.forEach((s) => {
       const l = bag.s[s.id] || 0;
       if (l > 0 && s.bonus && s.bonus.stat === id) v += s.bonus.per * l;
@@ -159,8 +199,8 @@ function base(h, shop, out) {
 }
 const lackCoin = (h, price, out) => { if (h && h.coins < price) out.push(`코인 ${won(price - h.coins)} 부족`); };
 
-// 무기 사기 — deal 이면 오늘의 특가로 산다
-export function whyWeaponBuy(h, t, r, g, deal, day = todayKey()) {
+// 무기 사기 — 상점 목록의 일반 무기
+export function whyWeaponBuy(h, t, r, g) {
   const out = [];
   base(h, "weapon", out);
   if (!h || !h.bag) return out;
@@ -169,15 +209,20 @@ export function whyWeaponBuy(h, t, r, g, deal, day = todayKey()) {
     return out;
   }
   if (h.lv < WEAPON_TIERS[r]) out.push(`레벨 ${WEAPON_TIERS[r]} 필요 (지금 ${h.lv})`);
-  let price = weaponPrice(t, r, g);
-  if (deal) {
-    const d = dealOf(h.lv, day);
-    if (d.t !== t || d.r !== r || d.g !== g) out.push("오늘의 특가가 바뀌었습니다");
-    if (usedToday(h.bag, "deal", day) >= DEAL.perDay) out.push(`오늘의 특가는 하루 ${DEAL.perDay}번까지입니다`);
-    price = d.price;
-  }
   if (h.bag.w.length >= WEAPON.bagMax) out.push(`가방이 가득 찼습니다 (${WEAPON.bagMax}개)`);
-  lackCoin(h, price, out);
+  lackCoin(h, weaponPrice(t, r, g), out);
+  return out;
+}
+// 오늘의 특가 사기 — key 는 화면이 본 특가. 그사이 날짜나 내 레벨 단계가 바뀌었으면 막는다
+export function whyDealBuy(h, key, day = todayKey()) {
+  const out = [];
+  base(h, "weapon", out);
+  if (!h || !h.bag) return out;
+  const d = dealOf(h.lv, day);
+  if (key !== d.key) out.push("오늘의 특가가 바뀌었습니다");
+  if (usedToday(h.bag, "deal", day) >= DEAL.perDay) out.push(`오늘의 특가는 하루 ${DEAL.perDay}번까지입니다`);
+  if (h.bag.w.length >= WEAPON.bagMax) out.push(`가방이 가득 찼습니다 (${WEAPON.bagMax}개)`);
+  lackCoin(h, d.price, out);
   return out;
 }
 export function whyWeaponSell(h, u) {
@@ -244,21 +289,30 @@ export function whyPotionUse(h, id) {
   return out;
 }
 
+// 랜덤 상자에서 나오는 몫 — 내 레벨로 낄 특별 무기가 없으면 그 몫은 일반 무기로 간다
+export function boxShares(lv) {
+  const sp = specialsFor(lv).length ? BOX.special : 0;
+  return { special: sp, weapon: BOX.weapon + (BOX.special - sp), potion: 1 - BOX.special - BOX.weapon };
+}
 // 랜덤 상자 값 — 내용물 상점가의 기댓값 ÷ 목표 기댓값
-export function boxValue(r) {
+export function boxValue(lv) {
+  const r = tierOf(lv);
+  const share = boxShares(lv);
+  const own = specialsFor(lv);
+  const sEv = own.length ? own.reduce((a, sp) => a + specialPrice(sp), 0) / own.length : 0;
   const wsum = BOX.grades.reduce((a, b) => a + b, 0);
   const wEv = BOX.grades.reduce((acc, pct, g) =>
     acc + (pct / wsum) * (WEAPON_TYPES.reduce((s, t) => s + weaponPrice(t.id, r, g), 0) / WEAPON_TYPES.length), 0);
   const psum = Object.values(BOX.potions).reduce((a, b) => a + b, 0);
   const pEv = Object.entries(BOX.potions).reduce((acc, [id, pct]) => acc + (pct / psum) * POTION_BY_ID[id].price, 0);
-  return BOX.weapon * wEv + (1 - BOX.weapon) * pEv;
+  return share.special * sEv + share.weapon * wEv + share.potion * pEv;
 }
-export const boxPrice = (lv) => Math.round(boxValue(tierOf(lv)) / CASINO.evTarget / 10) * 10;
+export const boxPrice = (lv) => Math.round(boxValue(lv) / CASINO.evTarget / 10) * 10;
 // 게임별 기댓값(건 금액 대비) — 화면에 공개하고 시험에도 쓴다
 export function casinoEv(lv = 1) {
   const sw = SLOT.reduce((a, s) => a + s.w, 0);
   return {
-    box: boxValue(tierOf(lv)) / boxPrice(lv),
+    box: boxValue(lv) / boxPrice(lv),
     dice: (1 - DICE.house) * 0.5 * DICE.pay,
     slot: SLOT.reduce((a, s) => a + Math.pow(s.w / sw, 3) * s.mul, 0),
   };
@@ -299,8 +353,9 @@ function pickWeighted(list, weightOf) {
   for (const x of list) { r -= weightOf(x); if (r < 0) return x; }
   return list[list.length - 1];
 }
-function addWeapon(h, t, r, g, paid) {
+function addWeapon(h, t, r, g, paid, sp) {
   const w = { u: h.bag.n++, t, r, g, p: paid };
+  if (sp) w.sp = sp;
   h.bag.w.push(w);
   return w;
 }
@@ -318,13 +373,22 @@ export function rpgShop(g, pi, req) {
   const op = req.op;
   let why;
 
-  if (op === "wbuy") {
-    const { t } = req, r = Number(req.r), gr = Number(req.g), deal = !!req.deal;
-    if ((why = whyWeaponBuy(h, t, r, gr, deal, day)).length) return no(g, pi, why);
-    const price = deal ? dealOf(h.lv, day).price : weaponPrice(t, r, gr);
+  if (op === "wbuy" || op === "deal") {
+    let w, price, r;
+    if (op === "deal") {
+      if ((why = whyDealBuy(h, req.key, day)).length) return no(g, pi, why);
+      const d = dealOf(h.lv, day);
+      price = d.price; r = d.r;
+      h.bag.day.deal += 1;
+      w = addWeapon(h, d.t, d.r, d.g, price, d.sp);
+    } else {
+      const { t } = req, gr = Number(req.g);
+      r = Number(req.r);
+      if ((why = whyWeaponBuy(h, t, r, gr)).length) return no(g, pi, why);
+      price = weaponPrice(t, r, gr);
+      w = addWeapon(h, t, r, gr, price);
+    }
     h.coins -= price;
-    if (deal) h.bag.day.deal += 1;
-    const w = addWeapon(h, t, r, gr, price);
     bump(h);
     fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `-${won(price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
     return note(g, pi, { ok: true, msg: `${jo(weaponName(w), "을", "를")} 샀습니다 (Lv ${WEAPON_TIERS[r]} · ${won(price)}코인)` });
@@ -413,7 +477,16 @@ export function rpgShop(g, pi, req) {
     h.coins -= price;
     h.bag.day.box += 1;
     let msg, got;
-    if (Math.random() < BOX.weapon) {
+    const share = boxShares(h.lv);
+    const roll = Math.random();
+    if (roll < share.special) {
+      const own = specialsFor(h.lv);
+      const sp = own[Math.floor(Math.random() * own.length)];
+      addWeapon(h, sp.t, specialTier(sp), sp.g, specialPrice(sp), sp.id);   // 되팔 때는 특별 무기 값의 40%
+      got = { kind: "special", id: sp.id };
+      msg = `특별 무기! ${jo(sp.name, "이", "가")} 나왔습니다 (${GRADES[sp.g].name} · Lv ${sp.lv})`;
+      fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `${sp.name}!`, color: "#ffd873", t: 1.4, life: 1.4, snd: "clear", who: pi });
+    } else if (roll < share.special + share.weapon) {
       const gi = pickWeighted(GRADES, (gd) => BOX.grades[gd.id]).id;
       const t = WEAPON_TYPES[Math.floor(Math.random() * WEAPON_TYPES.length)].id;
       const r = tierOf(h.lv);

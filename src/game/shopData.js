@@ -43,11 +43,30 @@ export const WEAPON = {
   sellRate: 0.4,         // 되팔면 산 값의 40%
   bagMax: 30,            // 가방에 넣을 수 있는 무기 수
 };
-// 오늘의 특가 — 날짜로 종류 · 등급을 정하고, 단계는 내 레벨에 맞는 가장 높은 단계
+/* 특별 무기 — 이름과 그림이 있는 무기. 상점 목록에는 없고 오늘의 특가 · 랜덤 상자에서만 나온다.
+   lv 는 레벨 제한(무기 단계 가운데 하나), g 는 등급, stat 은 올리는 스탯.
+   올리는 양 · 값은 같은 단계 · 등급의 일반 무기에 SPECIAL 배율을 곱한다. art 는 public/assets/game/rpg/weapons/<art>.webp */
+export const SPECIAL = { mul: 1.25, price: 1.5 };
+export const SPECIALS = [
+  { id: "clockwork", name: "태엽검", t: "sword", lv: 10, g: 3, stat: "str", art: "clockwork" },
+  { id: "forest", name: "숲의 검", t: "sword", lv: 20, g: 3, stat: "hp", art: "forest" },
+  { id: "coral", name: "산호검", t: "sword", lv: 30, g: 3, stat: "int", art: "coral" },
+  { id: "viper", name: "독사 단검", t: "dagger", lv: 40, g: 3, stat: "crit", art: "viper" },
+  { id: "thunder", name: "번개검", t: "sword", lv: 50, g: 3, stat: "str", art: "thunder" },
+  { id: "frost", name: "서리검", t: "sword", lv: 60, g: 4, stat: "cdmg", art: "frost" },
+  { id: "flame", name: "화염검", t: "sword", lv: 70, g: 4, stat: "str", art: "flame" },
+  { id: "star", name: "별의 검", t: "sword", lv: 80, g: 4, stat: "int", art: "star" },
+  { id: "shadow", name: "암흑검", t: "great", lv: 90, g: 4, stat: "cdmg", art: "shadow" },
+  { id: "holy", name: "신성검", t: "sword", lv: 100, g: 4, stat: "str", art: "holy" },
+];
+
+// 오늘의 특가 — 날짜로 정한다. 특별 무기 날이면 내 레벨로 낄 수 있는 특별 무기 하나,
+// 아니면 종류 · 등급을 정하고 단계는 내 레벨에 맞는 가장 높은 단계
 export const DEAL = {
   discount: 0.3,         // 30% 할인
   perDay: 1,             // 하루에 살 수 있는 수
-  grades: [1, 2, 3],     // 특가로 나오는 등급(고급 · 희귀 · 영웅)
+  grades: [1, 2, 3],     // 일반 무기 특가로 나오는 등급(고급 · 희귀 · 영웅)
+  special: 0.5,          // 특별 무기가 특가로 나오는 날의 몫(이틀에 한 번꼴)
 };
 
 /* ── 스킬 ──────────────────────────────────────────────── */
@@ -106,7 +125,8 @@ export const CASINO = {
 };
 // 랜덤 상자 — 내 레벨 단계의 무기 또는 물약이 나온다. 값은 내용물 상점가의 기댓값 ÷ evTarget 으로 정한다.
 export const BOX = {
-  weapon: 0.5,           // 무기가 나올 확률(나머지는 물약)
+  special: 0.02,         // 특별 무기가 나올 확률 — 내 레벨로 낄 수 있는 것 가운데 하나. 없으면 일반 무기로 바뀐다
+  weapon: 0.48,          // 일반 무기가 나올 확률(나머지는 물약)
   grades: [50, 30, 14, 5, 1],               // 무기 등급별 확률(%) — 일반 · 고급 · 희귀 · 영웅 · 전설
   potions: { heal_s: 30, heal_m: 25, heal_l: 15, buff_str: 10, buff_int: 10, buff_crit: 10 },   // 물약별 확률(%)
 };

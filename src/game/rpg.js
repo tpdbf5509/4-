@@ -163,6 +163,9 @@ export const LV_MAX = 100;
    스탯 하나에는 100까지만 찍을 수 있어, 다섯 가운데 둘만 가득 채울 수 있다.
    물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
 export const STAT_MAX = 100;
+// 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
+// 레벨은 최고 레벨로 두고, 코인은 쓰는 대로 이만큼 다시 채운다(돈 무제한)
+export const ADMIN = { coins: 99999999 };
 export const STAT_PER_LV = 2;
 export const STAT_START = 2;
 export const CRIT_MAX = 0.8;          // 치명타 확률 전체 상한 — 장비가 붙어도 확정 치명타가 되지 않게
@@ -224,6 +227,7 @@ export function loadChar() {
     bag: cleanBag(r.bag),                        // 상점 — 무기 · 물약 · 스킬 · 오늘 쓴 횟수
     linked: !!r.linked,                          // 서버에 이 캐릭터가 있다(이름 + 코드로 이어 할 수 있다)
     tok: typeof r.tok === "string" ? r.tok : "", // 서버 입장권 — 없으면 서버에 저장하지 않는다(다른 기기가 나중에 들어왔다)
+    admin: !!r.admin,                            // 관리자 — 서버가 알려 준 것만 쓴다
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다. acct 는 서버에 만든 계정 { tok }
@@ -241,7 +245,7 @@ export function makeChar(name, acct) {
 export function charRecord() {
   const r = loadSave();
   if (!r) return null;
-  const { tok: _tok, linked: _linked, ...data } = r;
+  const { tok: _tok, linked: _linked, admin: _admin, ...data } = r;
   return data;
 }
 // 서버 연결 상태를 바꾼다 — 코드를 정했거나(linked · tok), 다른 기기에 밀렸을 때(tok 비움)
@@ -254,11 +258,11 @@ export function setAccount(patch) {
   return store(next);
 }
 // 서버에서 불러온 캐릭터로 이 기기의 기록을 바꾼다
-export function adoptChar(name, data, tok) {
+export function adoptChar(name, data, tok, admin) {
   const n = cleanName(name);
   if (!n || !data || typeof data !== "object") return null;
-  const { tok: _tok, linked: _linked, ...rest } = data;
-  if (!store({ ...rest, v: 3, name: n, linked: 1, tok })) return null;
+  const { tok: _tok, linked: _linked, admin: _admin, ...rest } = data;
+  if (!store({ ...rest, v: 3, name: n, linked: 1, tok, admin: admin ? 1 : 0 })) return null;
   return loadChar();
 }
 // 직업 · 원소 · 성별을 정한다 — 이미 정해 두었으면 그대로 두고 false
@@ -369,6 +373,11 @@ export function rpgJoin(g, pi, d) {
   h.coins = Math.max(0, Math.floor(Number(d.coins) || 0));
   const q = d.quest || {};
   h.quest = { on: !!q.on, n: clamp(Math.floor(Number(q.n) || 0), 0, QUEST.need - 1) };
+  if (d.admin) {                                  // 관리자 — 최고 레벨 · 코인 가득
+    h.admin = 1;
+    h.lv = LV_MAX; h.xp = 0;
+    h.coins = Math.max(h.coins, ADMIN.coins);
+  }
   h.st = cleanStats(d.stats, h.lv);
   h.bag = cleanBag(d.bag);
   h.bag.ld = 1;
@@ -777,6 +786,7 @@ function stepHeroes(g, dt) {
     h.swing = Math.max(0, h.swing - dt);
     h.buff = Math.max(0, h.buff - dt);
     tickBuffs(h, dt);                             // 버프 물약 시간
+    if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     h.guard = Math.max(0, h.guard - dt);
     h.numT = Math.max(0, h.numT - dt);
     h.gateCd = Math.max(0, h.gateCd - dt);
@@ -1033,7 +1043,7 @@ export function rpgPack(g) {
       ? [Math.round(h.x), Math.round(h.y), h.dir, Math.round(h.hp), h.max, r1(h.down), h.lv, h.xp,
         r1(h.sk), h.swing > 0 ? 1 : 0, mapIdx(h.map), h.coins, h.quest.on ? 1 : 0, h.quest.n, h.kills,
         h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0, h.face,
-        STAT_IDS.map((k) => h.st[k]), packBuffs(h)]
+        STAT_IDS.map((k) => h.st[k]), packBuffs(h), h.admin ? 1 : 0]
       : 0)),
     b: packBags(g),
     m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
@@ -1065,6 +1075,7 @@ export function rpgApply(g, s) {
     if (row[15]) h.flash = 0.15;
     h.loaded = row[16]; h.buff = row[17] ? 0.3 : 0; h.guard = row[18] ? 0.3 : 0; h.auto = row[19] ? 1 : 0;
     applyBuffs(h, row[22]);
+    h.admin = row[23] ? 1 : 0;
     if (s.b && s.b[pi]) h.bag = s.b[pi];
   });
   const seen = new Set();

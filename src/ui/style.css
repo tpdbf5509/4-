@@ -1128,8 +1128,9 @@ kbd {
 .rpg-lv-bar.hp > span { background: linear-gradient(#9fd88f, #6aa85c); }
 .rpg-lv-num { font-size: 10.5px; color: #e8dcc0; min-width: 52px; text-align: right; letter-spacing: -0.02em; }
 .rpg-lv-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 1px; }
-.rpg-lv-coin { display: inline-flex; align-items: center; gap: 4px; font-family: 'Do Hyeon', sans-serif; font-size: 13px; color: #f3d27f; }
+.rpg-lv-coin { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-family: 'Do Hyeon', sans-serif; font-size: 13px; color: #f3d27f; }
 .rpg-lv-coin svg { width: 14px; height: 14px; display: block; }
+.rpg-admin { margin-left: 6px; padding: 0 6px; border: 1px solid #d6b26a; border-radius: 999px; font-style: normal; font-size: 10px; color: #ffe08a; }
 .rpg-lv-sk { font-size: 10.5px; color: #a8987a; }
 /* 레벨 칸의 스탯 버튼 — 찍을 포인트가 남아 있으면 숫자가 붙는다 */
 .rpg-lv-stat {

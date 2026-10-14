@@ -137,7 +137,7 @@ export default function RpgAccount({ char, onChar }) {
   const doLogin = (name, code) => run(async () => {
     const r = await login(name, code);
     if (!r.ok) return setErr(errText(r));
-    const c = adoptChar(r.name, r.data, r.token);
+    const c = adoptChar(r.name, r.data, r.token, r.admin);
     if (!c) return setErr("이 기기에 저장하지 못했습니다. 다시 시도해 주세요.");
     setErr("");
     setMode("new");

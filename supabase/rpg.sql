@@ -16,6 +16,8 @@ create table if not exists public.rpg_chars (
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+-- 관리자 캐릭터 — 게임이 최고 레벨 · 코인 무제한으로 다룬다. rpg_save 로는 바꿀 수 없고 대시보드에서만 켠다.
+alter table public.rpg_chars add column if not exists admin boolean not null default false;
 
 -- 코드를 틀린 횟수 — 이름마다. 5번 틀리면 10분 막는다.
 create table if not exists public.rpg_fails (
@@ -89,7 +91,7 @@ begin
     delete from public.rpg_fails where name_key = v_key;
     v_tok := encode(extensions.gen_random_bytes(16), 'hex');
     update public.rpg_chars set token_hash = encode(extensions.digest(v_tok, 'sha256'), 'hex') where name_key = v_key;
-    return jsonb_build_object('ok', true, 'token', v_tok, 'name', v_char.name, 'data', v_char.data);
+    return jsonb_build_object('ok', true, 'token', v_tok, 'name', v_char.name, 'data', v_char.data, 'admin', v_char.admin);
   end if;
   -- 이름이 없어도 똑같이 "틀림"으로 센다
   insert into public.rpg_fails (name_key, n, until) values (v_key, 1, null)
@@ -130,3 +132,9 @@ revoke execute on function public.rpg_key(text), public.rpg_code_ok(text), publi
   public.rpg_delete(text, text) from public, anon, authenticated;
 grant execute on function public.rpg_name_free(text), public.rpg_create(text, text, jsonb),
   public.rpg_login(text, text), public.rpg_save(text, text, jsonb), public.rpg_delete(text, text) to anon, authenticated;
+
+-- 관리자 캐릭터 만들기 — 대시보드 SQL Editor 에서 이름과 코드를 넣어 실행한다(코드는 저장소에 적지 않는다).
+-- 코드 규칙(rpg_code_ok)을 거치지 않으므로 쉬운 코드도 넣을 수 있다.
+-- insert into public.rpg_chars (name_key, name, code_hash, data, admin)
+-- values (public.rpg_key('<이름>'), '<이름>', extensions.crypt('<코드>', extensions.gen_salt('bf', 8)),
+--   '{"v":3,"name":"<이름>","lv":100,"xp":0,"coins":99999999,"quest":{"on":false,"n":0},"stats":{}}'::jsonb, true);

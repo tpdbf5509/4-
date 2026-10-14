@@ -289,7 +289,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   const [auto, setAuto] = useState(loadAuto);        // 자동 평타
   const [start] = useState(() => {                   // 이 기기에 남아 있던 내 기록
     const c = loadChar();
-    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, auto: loadAuto() } : { auto: loadAuto() };
+    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin, auto: loadAuto() } : { auto: loadAuto() };
   });
 
   const G = useRef(null);
@@ -570,7 +570,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         setHud(me ? {
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
           coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: npcNear(me),
-          st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v,
+          st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v, admin: !!me.admin,
           extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins,
@@ -634,7 +634,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
                 <span /><span /><span />
               </button>
               <span className="rpg-lv-body">
-                <span className="rpg-lv-name"><b>{names[mySeat] || "모험가"}</b> {who(mySeat)}</span>
+                <span className="rpg-lv-name"><b>{names[mySeat] || "모험가"}</b> {who(mySeat)}{me.admin && <em className="rpg-admin">관리자</em>}</span>
                 <span className="rpg-lv-row">
                   <span className="rpg-lv-tag">XP</span>
                   <span className="rpg-lv-bar xp"><span style={{ width: `${me.lv >= LV_MAX ? 100 : Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
@@ -646,7 +646,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
                   <span className="rpg-lv-num">{me.hp}/{me.max}</span>
                 </span>
                 <span className="rpg-lv-foot">
-                  <span className="rpg-lv-coin"><Coin />{me.coins}</span>
+                  <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}
                     aria-expanded={statOpen} onClick={() => { setMenu(false); setShopOpen(null); setBagOpen(false); setStatOpen((v) => !v); }}>
                     스탯{me.left > 0 && <b>+{me.left}</b>}

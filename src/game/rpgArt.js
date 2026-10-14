@@ -6,7 +6,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, PVP, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial } from "./rpg.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial } from "./rpg.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -509,6 +509,7 @@ function drawShop(ctx, n, time) {
 
 function drawNpc(ctx, g, n, time) {
   if (n.shop) return drawShop(ctx, n, time);
+  if (n.board) return drawHonorBoard(ctx, n, time);
   const { x, y } = n;
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
   const bob = Math.sin(time * 2) * 1.2;
@@ -1007,7 +1008,7 @@ function drawHero(ctx, g, h, time) {
   const mate = me && me.pty && h.pty === me.pty && h !== me;
   ctx.fillStyle = "rgba(20,14,10,0.72)"; roundRect(ctx, h.x - wdt / 2, h.y + 6, wdt, 15, 7); ctx.fill();
   if (mate) { ctx.strokeStyle = "#a9d99a"; ctx.lineWidth = 1; ctx.stroke(); }
-  else if (MAPS[h.map].pvp && me && h !== me) { ctx.strokeStyle = "#e9a08a"; ctx.lineWidth = 1; ctx.stroke(); }   // 결투장의 상대
+  else if (MAPS[h.map].pvp && me && h !== me && me.dvs === h.pi) { ctx.strokeStyle = "#e9a08a"; ctx.lineWidth = 1; ctx.stroke(); }   // 내 결투 상대
   ctx.fillStyle = down ? "#a89a90" : col.light; ctx.fillText(nm, h.x, h.y + 14);
   if (h.title) {                                  // 칭호 — 이름 아래
     ctx.font = "10px 'Jua', sans-serif";
@@ -1021,36 +1022,51 @@ function drawHero(ctx, g, h, time) {
   ctx.restore();
 }
 
-/* 결투장 바닥 — 모래 원형 경기장, 돌 테두리, 네 귀퉁이 깃발. 입구 둘레 쉼터(PVP.safeR)는 연둣빛 점선 */
+/* 결투장 바닥 — 칸(rings)마다 모래 원형 경기장 · 돌 테두리 · 네 귀퉁이 깃발. 결투 중인 사람은 제 칸 밖으로 못 나간다 */
 function drawArenaFloor(ctx, M) {
-  const cx = 1120, cy = 790, rx = 760, ry = 500;
   ctx.save();
-  ctx.fillStyle = "rgba(222,196,150,0.55)";
-  ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "rgba(120,98,72,0.85)"; ctx.lineWidth = 14;
-  ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = "rgba(240,226,196,0.6)"; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(cx, cy, rx - 12, ry - 10, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = "rgba(150,112,80,0.35)"; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(cx, cy, 150, 100, 0, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx - 120, cy); ctx.lineTo(cx + 120, cy); ctx.moveTo(cx, cy - 80); ctx.lineTo(cx, cy + 80); ctx.stroke();
-  // 깃발 기둥
-  [[cx - rx * 0.72, cy - ry * 0.72], [cx + rx * 0.72, cy - ry * 0.72], [cx - rx * 0.72, cy + ry * 0.72], [cx + rx * 0.72, cy + ry * 0.72]].forEach(([x, y], i) => {
-    ctx.fillStyle = "rgba(60,44,30,0.35)";
-    ctx.beginPath(); ctx.ellipse(x, y + 2, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#6b5440"; ctx.fillRect(x - 3, y - 70, 6, 72);
-    ctx.fillStyle = i % 2 ? "#c98d7a" : "#8fa9c4";
-    ctx.beginPath(); ctx.moveTo(x + 3, y - 68); ctx.lineTo(x + 34, y - 58); ctx.lineTo(x + 3, y - 46); ctx.closePath(); ctx.fill();
+  (M.rings || []).forEach(({ x: cx, y: cy, rx, ry }, k) => {
+    ctx.fillStyle = "rgba(222,196,150,0.55)";
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(120,98,72,0.85)"; ctx.lineWidth = 14;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(240,226,196,0.6)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx - 12, ry - 10, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(150,112,80,0.35)";
+    ctx.beginPath(); ctx.ellipse(cx, cy, 130, 86, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - ry + 30); ctx.lineTo(cx, cy + ry - 30); ctx.stroke();
+    [[cx - rx * 0.72, cy - ry * 0.72], [cx + rx * 0.72, cy - ry * 0.72], [cx - rx * 0.72, cy + ry * 0.72], [cx + rx * 0.72, cy + ry * 0.72]].forEach(([x, y], i) => {
+      ctx.fillStyle = "rgba(60,44,30,0.35)";
+      ctx.beginPath(); ctx.ellipse(x, y + 2, 14, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#6b5440"; ctx.fillRect(x - 3, y - 70, 6, 72);
+      ctx.fillStyle = i % 2 ? "#c98d7a" : "#8fa9c4";
+      ctx.beginPath(); ctx.moveTo(x + 3, y - 68); ctx.lineTo(x + 34, y - 58); ctx.lineTo(x + 3, y - 46); ctx.closePath(); ctx.fill();
+    });
+    ctx.font = "15px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "rgba(90,66,44,0.7)";
+    ctx.fillText(`${k + 1}번 결투장`, cx, cy - ry - 16);
   });
-  // 쉼터
-  M.gates.forEach((q) => {
-    ctx.fillStyle = "rgba(169,217,154,0.10)";
-    ctx.beginPath(); ctx.ellipse(q.x, q.y, PVP.safeR, PVP.safeR * RPG.squash, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.setLineDash([10, 8]); ctx.strokeStyle = "rgba(169,217,154,0.7)"; ctx.lineWidth = 2;
-    ctx.stroke(); ctx.setLineDash([]);
-    ctx.font = "13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "rgba(220,240,210,0.9)";
-    ctx.fillText("쉼터 — 싸울 수 없음", q.x + PVP.safeR * 0.55, q.y - PVP.safeR * RPG.squash - 6);
-  });
+  ctx.restore();
+}
+
+/* 명예 순위판 — 광장 위쪽 가운데. 나무 판에 금빛 글씨, 가까이 가면 E 로 연다 */
+function drawHonorBoard(ctx, n, time) {
+  const { x, y } = n;
+  ctx.save();
+  shadow(ctx, x, y + 2, 46, 9, 0.3);
+  ctx.fillStyle = "#6b4f36"; ctx.fillRect(x - 40, y - 46, 7, 48); ctx.fillRect(x + 33, y - 46, 7, 48);
+  ctx.fillStyle = "#8a6646"; ctx.strokeStyle = "rgba(40,26,16,0.9)"; ctx.lineWidth = 2;
+  roundRect(ctx, x - 58, y - 108, 116, 66, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#f3e2bd"; roundRect(ctx, x - 50, y - 100, 100, 50, 4); ctx.fill();
+  ctx.fillStyle = "#c79a3e";
+  ctx.beginPath(); ctx.moveTo(x, y - 124); ctx.lineTo(x + 9, y - 108); ctx.lineTo(x - 9, y - 108); ctx.closePath(); ctx.fill();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "14px 'Do Hyeon', sans-serif"; ctx.fillStyle = "#5a3f22"; ctx.fillText("명예 순위", x, y - 86);
+  ctx.strokeStyle = "rgba(90,63,34,0.35)"; ctx.lineWidth = 1;
+  [0, 1].forEach((i) => { ctx.beginPath(); ctx.moveTo(x - 36, y - 72 + i * 9); ctx.lineTo(x + 36, y - 72 + i * 9); ctx.stroke(); });
+  const glow = 0.5 + 0.5 * Math.sin(time * 3);
+  ctx.globalAlpha = 0.5 + glow * 0.4;
+  ctx.fillStyle = "#ffd873"; ctx.font = "16px 'Do Hyeon', sans-serif";
+  ctx.fillText("★", x, y - 134 - glow * 3);
   ctx.restore();
 }
 
@@ -1137,8 +1153,9 @@ export function drawRpg(ctx, g, bgs) {
   // 내 사거리 — 토끼가 들어오면 또렷해진다
   if (me && me.down <= 0 && !M.safe) {
     const rr = heroRange(me);
+    const foe = M.pvp && me.dvs >= 0 ? g.heroes[me.dvs] : null;
     const on = M.pvp
-      ? g.heroes.some((o) => o && o !== me && o.map === M.id && o.down <= 0 && !(me.pty && o.pty === me.pty) && dist(me.x, me.y, o.x, o.y) <= rr)
+      ? !!(foe && foe.map === M.id && foe.down <= 0 && dist(me.x, me.y, foe.x, foe.y) <= rr)
       : g.mobs.some((m) => m.map === M.id && dist(me.x, me.y, m.x, m.y) <= rr);
     ctx.save();
     ctx.translate(me.x, me.y); ctx.scale(1, RPG.squash);

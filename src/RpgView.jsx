@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, xpOf, PVP, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
+  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
@@ -15,7 +15,7 @@ import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clear
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
 import { compareBuild } from "./net/version.js";
-import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText } from "./net/rpgSave.js";
+import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText, honorTop } from "./net/rpgSave.js";
 import { drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
@@ -309,7 +309,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const c = loadChar();
     const extra = { auto: autoRef.current, hold: dirsRef.current.slice() };
     return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
-      rec: c.rec, titles: c.titles, title: c.title, ...extra } : extra;
+      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, ...extra } : extra;
   };
 
   const G = useRef(null);
@@ -353,6 +353,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [partyOpen, setPartyOpen] = useState(false); // 파티 창
   const [keysOpen, setKeysOpen] = useState(false);   // 키 설정 창
   const [answeredAt, setAnsweredAt] = useState(0);   // 초대에 답한 때 — 방장 답이 올 때까지 초대 창을 숨긴다
+  const [duelAt, setDuelAt] = useState(0);           // 결투 신청에 답한 때
+  const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
+  const [rank, setRank] = useState({ list: null, err: "", busy: false });
+  // 명예 순위 — 창을 열 때마다 서버에서 새로 읽는다
+  const loadRank = useCallback(async () => {
+    setRank((r) => ({ ...r, busy: true, err: "" }));
+    const res = await honorTop(20);
+    setRank(res.ok ? { list: res.list, err: "", busy: false } : { list: null, err: errText(res), busy: false });
+  }, []);
   const [binds, setBinds] = useState(loadKeys);      // 행동마다 키 두 칸
   const bindsRef = useRef(binds);
   const [waitKey, setWaitKey] = useState(null);      // 키 설정 창에서 새 키를 기다리는 칸 { id, slot }
@@ -374,7 +383,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   // 창은 한 번에 하나만 연다
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
-    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null);
+    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -415,6 +424,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const h = g.heroes[mySeat];
       const npc = npcNear(h);
       if (!npc) return;
+      if (npc.board) { closeAll(); setHonorOpen(true); loadRank(); return; }   // 명예 순위판 — 창만 연다
       if (npc.shop) {                               // 상점은 창만 연다 — 사고파는 것은 창에서 보낸다
         setStatOpen(false); setMenu(false); setBagOpen(false); setNote(null);
         setShopOpen(npc.shop);
@@ -436,10 +446,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "auto") rpgAuto(g, mySeat, dir);
       else if (kind === "party") rpgParty(g, mySeat, dir);
       else if (kind === "title") rpgTitle(g, mySeat, dir);
+      else if (kind === "duel") rpgDuel(g, mySeat, dir);
     } else {
       room?.send("input", { cls: mySeat, kind, dir });
     }
-  }, [isHost, mySeat, room]);
+  }, [isHost, mySeat, room, closeAll, loadRank]);
 
   const toggleAuto = useCallback(() => {
     const next = !autoRef.current;
@@ -451,13 +462,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, waitKey, closeAll]);
+
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
   useEffect(() => { if (!statOpen) setPlan(noStats()); }, [statOpen]);
@@ -620,6 +632,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         else if (d.kind === "shop") rpgShop(g, d.cls, d.dir);
         else if (d.kind === "party") rpgParty(g, d.cls, d.dir);
         else if (d.kind === "title") rpgTitle(g, d.cls, d.dir);
+        else if (d.kind === "duel") rpgDuel(g, d.cls, d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
@@ -729,7 +742,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf } },
-          party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title })),
+          party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title,
+            honor: h.honor || 0, dvs: h.dvs })),
+          honor: me.honor || 0, duelInv: me.duelInv ? me.duelInv.from : -1, dvs: me.dvs, dph: me.dph, dtl: me.dtl || 0,
           pty: me.pty, inv: me.invite ? me.invite.from : -1, title: me.title, titles: me.titles.slice(), rec: { ...me.rec },
         } : null);
         // 파티 · 칭호 알림 — 내 것 가운데 새로 온 것만 채팅 칸에
@@ -747,7 +762,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
-            + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}`;
+            + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}`;
           if (key !== saved) {
             saved = key;
             writeChar(me);
@@ -950,6 +965,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <p className="rpg-stat-rule">
                     같은 맵의 파티원이 몹을 잡으면 그 경험치의 {Math.round(PARTY.share * 100)}%를 받습니다. 코인은 잡은 사람만 받습니다.
                     채팅 칸에서 "파티"를 고르면 파티원에게만 보입니다.
+                    "결투"를 누르면 1대1 결투를 신청합니다. 이기면 상대 명예의 {Math.round(DUEL.honorRate * 100)}% + {DUEL.honorBase} 만큼 명예가 오릅니다.
                   </p>
                   <div className="rpg-stat-list">
                     {me.party.map((h) => {
@@ -960,11 +976,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                             <b>{names[h.pi] || "모험가"}{h.title && <small> 「{titleName(h.title)}」</small>}</b>
                             <em>Lv {h.lv} · {who(h.pi)} · {MAPS[h.map].name}</em>
                           </span>
-                          {mine ? <span className="rpg-win-tag">나</span>
-                            : mate ? <span className="rpg-win-tag">파티원</span>
-                              : h.pty ? <span className="rpg-win-tag">다른 파티</span>
-                                : <button type="button" className="rpg-win-btn" disabled={full}
-                                  onClick={() => act("party", { op: "invite", to: h.pi })}>초대</button>}
+                          <span className="rpg-win-acts">
+                            {mine ? <span className="rpg-win-tag">나 · 명예 {h.honor}</span>
+                              : mate ? <span className="rpg-win-tag">파티원</span>
+                                : h.pty ? <span className="rpg-win-tag">다른 파티</span>
+                                  : <button type="button" className="rpg-win-btn" disabled={full}
+                                    onClick={() => act("party", { op: "invite", to: h.pi })}>초대</button>}
+                            {!mine && (h.dvs >= 0
+                              ? <span className="rpg-win-tag">결투 중</span>
+                              : <button type="button" className="rpg-win-btn duel" disabled={me.dvs >= 0} title={`명예 ${h.honor} · 이기면 +${honorGain(h.honor)}`}
+                                onClick={() => act("duel", { op: "ask", to: h.pi })}>결투</button>)}
+                          </span>
                         </div>
                       );
                     })}
@@ -1010,6 +1032,62 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             </>
           )}
+          {me && me.duelInv >= 0 && me.dvs < 0 && nowMs - duelAt > 1500 && (
+            <div className={`rpg-invite duel ${me.inv >= 0 ? "second" : ""}`} role="alertdialog" aria-label="결투 신청">
+              <span><b>{names[me.duelInv] || "모험가"}</b>님이 결투를 신청했습니다
+                <small>명예 {(me.party.find((h) => h.pi === me.duelInv) || {}).honor ?? 0} · 이기면 +{honorGain((me.party.find((h) => h.pi === me.duelInv) || {}).honor)}</small>
+              </span>
+              <button type="button" className="btn-main" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "accept" }); }}>수락</button>
+              <button type="button" className="btn-ghost" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "decline" }); }}>거절</button>
+            </div>
+          )}
+          {me && me.dvs >= 0 && (
+            <div className="rpg-duelbar" role="status">
+              <span className="rpg-duelbar-vs">결투 · <b>{names[me.dvs] || "모험가"}</b></span>
+              <span className="rpg-duelbar-t">
+                {me.dph === 1 ? `${Math.ceil(me.dtl)}초 뒤 시작` : me.dph === 2 ? `남은 시간 ${Math.ceil(me.dtl)}초` : "끝"}
+              </span>
+              {me.dph !== 3 && <button type="button" className="btn-ghost" onClick={() => act("duel", { op: "giveup" })}>기권</button>}
+            </div>
+          )}
+          {me && me.dph === 1 && <div className="rpg-duel-count" key={Math.ceil(me.dtl)}>{Math.ceil(me.dtl)}</div>}
+          {me && honorOpen && (() => {
+            // 서버 순위에 지금 서버에 있는 사람의 최신 명예를 덮어쓴다(서버 저장은 10초마다)
+            const live = me.party.filter((h) => h.honor > 0).map((h) => ({ name: names[h.pi] || "", honor: h.honor, lv: h.lv, on: 1 }));
+            const map = new Map((rank.list || []).map((r) => [r.name, { ...r }]));
+            live.forEach((r) => { const o = map.get(r.name); map.set(r.name, o ? { ...o, honor: Math.max(o.honor, r.honor), lv: r.lv, on: 1 } : r); });
+            const rows = [...map.values()].sort((a, b) => b.honor - a.honor).slice(0, 20);
+            const myName = names[mySeat] || "";
+            const myRank = rows.findIndex((r) => r.name === myName);
+            return (
+              <>
+                <div className="rpg-menu-back" onClick={() => setHonorOpen(false)} />
+                <div className="rpg-stat rpg-win" role="dialog" aria-label="명예 순위">
+                  <div className="rpg-stat-head">
+                    <b>명예 순위</b>
+                    <span>내 명예 <em>{me.honor}</em>{myRank >= 0 ? ` · ${myRank + 1}위` : ""}</span>
+                  </div>
+                  <p className="rpg-stat-rule">
+                    결투에서 이기면 상대 명예의 {Math.round(DUEL.honorRate * 100)}% + {DUEL.honorBase} 만큼 오릅니다. 파티 창의 "결투"로 신청합니다. 위 20명까지 보입니다.
+                  </p>
+                  <div className="rpg-stat-list">
+                    {rows.map((r, i) => (
+                      <div key={r.name} className={`rpg-rank-row ${r.name === myName ? "on" : ""}`}>
+                        <span className={`rpg-rank-no ${i < 3 ? "top" : ""}`}>{i + 1}</span>
+                        <span className="rpg-stat-name"><b>{r.name}</b><em>Lv {r.lv}{r.on ? " · 지금 접속" : ""}</em></span>
+                        <span className="rpg-rank-v">{Number(r.honor).toLocaleString("ko-KR")}</span>
+                      </div>
+                    ))}
+                    {!rows.length && <p className="rpg-stat-rule">{rank.busy ? "불러오는 중…" : "아직 명예를 얻은 사람이 없습니다."}</p>}
+                  </div>
+                  <div className="rpg-stat-foot">
+                    <button type="button" className="btn-ghost" disabled={rank.busy} onClick={loadRank}>{rank.busy ? "불러오는 중…" : "새로 고침"}</button>
+                    {rank.err && <span className="rpg-stat-warn">서버 순위를 못 읽었습니다 — 지금 서버 사람만 보입니다.</span>}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
           {me && me.inv >= 0 && nowMs - answeredAt > 1500 && (
             <div className="rpg-invite" role="alertdialog" aria-label="파티 초대">
               <span><b>{names[me.inv] || "모험가"}</b>님이 파티에 초대했습니다</span>
@@ -1049,7 +1127,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
-          {me && !nearShopNpc && (talk || me.near) && (
+          {me && me.near && me.near.board && !honorOpen && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">명예의 전당</span>
+              <span className="rpg-talk-line">결투에서 이겨 얻은 명예 순위를 봅니다. 내 명예 {me.honor}.</span>
+              <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                순위 보기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
+          {me && !nearShopNpc && !(me.near && me.near.board) && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">
@@ -1224,8 +1311,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           파티 창(P)에서 같은 서버 사람을 초대합니다. {PARTY.max}명까지이고, 같은 맵의 파티원이 몹을 잡으면 그 경험치의 {Math.round(PARTY.share * 100)}%를 함께 받습니다.
           칭호는 레벨 · 사냥 수 · 보스 · 퀘스트 조건을 채우면 얻습니다. 칭호 창(T)에서 하나를 골라 이름 아래에 답니다.
           ☰ 메뉴의 키 설정에서 키를 바꿀 수 있습니다(PC).
-          광장 위쪽 문은 결투장입니다. 결투장에서는 다른 사람을 칠 수 있습니다(같은 파티는 빼고). 몹을 칠 때의 {Math.round(PVP.dmgMul * 100)}% 피해가 들어갑니다.
-          쓰러지면 {PVP.down}초 뒤 입구에서 일어나고 {PVP.guard}초 동안 맞지 않습니다. 입구 둘레 쉼터에서는 치지도 맞지도 않습니다. 경험치 · 코인은 없고 쓰러뜨린 수만 남습니다.
+          파티 창(P)의 "결투"로 다른 사람에게 1대1 결투를 신청합니다. 상대가 수락하면 둘만 결투장으로 옮겨 가 {DUEL.ready}초를 센 뒤 싸웁니다.
+          결투장에서는 자동 평타가 꺼지고 몹을 칠 때의 {Math.round(DUEL.dmgMul * 100)}% 피해가 들어갑니다. 한 사람이 쓰러지면 끝나고 {DUEL.time}초가 지나면 무승부입니다. 끝나면 둘 다 원래 자리로 돌아가고 체력이 찹니다.
+          이기면 상대 명예의 {Math.round(DUEL.honorRate * 100)}% + {DUEL.honorBase} 만큼 명예가 오릅니다. 지는 쪽 명예는 그대로입니다. 광장 위쪽의 명예 순위판(E)에서 순위를 봅니다.
         </details>
       </div>
     </div>

@@ -1,7 +1,7 @@
 -- RPG 캐릭터를 서버에 남겨, 이름 + 숫자 5자리 코드로 어느 기기에서든 이어 하게 한다.
 --
 -- 표는 브라우저에서 직접 읽거나 고칠 수 없다(RLS 를 켜고 정책을 두지 않았다).
--- 게임은 아래 함수(rpg_name_free · rpg_create · rpg_login · rpg_save · rpg_delete)로만 쓴다.
+-- 게임은 아래 함수(rpg_name_free · rpg_create · rpg_login · rpg_save · rpg_delete · rpg_honor_top)로만 쓴다.
 -- 코드는 bcrypt 해시로, 입장권은 sha256 해시로만 남긴다. 원문은 어디에도 남지 않는다.
 --
 -- 이 프로젝트(four-lane-defense)에는 이미 적용해 두었다.
@@ -125,6 +125,21 @@ begin
   delete from public.rpg_fails where name_key = public.rpg_key(p_name);
   return jsonb_build_object('ok', true);
 end $$;
+
+-- 명예 순위 — 저장된 기록(data)의 honor 가 높은 순. 숫자가 아닌 값은 0 으로 본다(기록은 게임이 보낸 그대로라)
+create or replace function public.rpg_honor_top(p_limit int default 20)
+returns table(name text, honor int, lv int)
+language sql stable security definer set search_path = '' as $$
+  select c.name,
+         case when c.data->>'honor' ~ '^[0-9]{1,9}$' then (c.data->>'honor')::int else 0 end as honor,
+         case when c.data->>'lv' ~ '^[0-9]{1,3}$' then (c.data->>'lv')::int else 1 end as lv
+  from public.rpg_chars c
+  where c.data->>'honor' ~ '^[0-9]{1,9}$' and (c.data->>'honor')::int > 0
+  order by 2 desc, c.updated_at asc
+  limit least(greatest(coalesce(p_limit, 20), 1), 50)
+$$;
+revoke execute on function public.rpg_honor_top(int) from public, anon, authenticated;
+grant execute on function public.rpg_honor_top(int) to anon, authenticated;
 
 -- 게임(anon)은 다섯 함수만 부를 수 있다
 revoke execute on function public.rpg_key(text), public.rpg_code_ok(text), public.rpg_name_free(text),

@@ -17,10 +17,12 @@ export const RPG_CREW_MAX = 16;
 // (방 만들기 코드에는 숫자 1이 나오지 않아 이 이름과 겹치지 않는다)
 export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4", "RPG5"];
 
-// 결투장 — 사람끼리 친다(같은 파티는 빼고). 몹을 칠 때보다 dmgMul 만큼만 아프다(한 방에 끝나지 않게).
-// 쓰러지면 down 초 뒤 결투장 입구에서 일어나고 guard 초 동안 맞지 않는다. 입구 둘레 safeR 은 쉼터라 치지도 맞지도 않는다.
-// 이겨도 경험치 · 코인은 없다(서로 쓰러뜨려 버는 것을 막는다). 쓰러뜨린 수만 기록(rec.pvp)에 남는다
-export const PVP = { dmgMul: 0.3, down: 3, guard: 2, safeR: 260 };
+// 결투 — 1대1. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
+// ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
+// 피해는 몹을 칠 때의 dmgMul(한 방에 끝나지 않게). 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
+// 명예 — 이기면 진 사람 명예의 honorRate 에 honorBase 를 더한 만큼 오른다(지는 쪽은 그대로). 경험치 · 코인은 없다
+export const DUEL = { dmgMul: 0.3, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10 };
+export const honorGain = (loserHonor) => Math.round((loserHonor || 0) * DUEL.honorRate) + DUEL.honorBase;
 
 // 대쉬 — 모든 캐릭터의 기본 스킬(F). 누른 방향으로 dist 만큼 time 초에 달려 나가고, inv 초 동안 맞지 않는다
 export const DASH = { dist: 230, time: 0.16, inv: 0.3, cd: 4 };
@@ -43,13 +45,14 @@ export const RPG = {
 export const MAPS = {
   plaza: {
     id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: [900, 820],
-    gates: [
-      { x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" },
-      { x: 900, y: 230, r: 60, to: "arena", at: [300, 760], label: "결투장" },
+    gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" }],
+    // 가운데 분수 · 상점 노점 · 명예 순위판
+    blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 }],
+    // 상점 네 곳 — 자리와 이름은 shopData.js 의 SHOPS. 위쪽 가운데는 명예 순위판(결투 명예 순위를 본다)
+    npcs: [
+      ...SHOPS.map((sh) => ({ id: `shop-${sh.id}`, shop: sh.id, name: sh.name, keeper: sh.keeper, x: sh.x, y: sh.y })),
+      { id: "honor", board: 1, name: "명예 순위", keeper: "명예의 전당", x: 900, y: 256 },
     ],
-    blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 }))],   // 가운데 분수 · 상점 노점
-    // 상점 네 곳 — 자리와 이름은 shopData.js 의 SHOPS
-    npcs: SHOPS.map((sh) => ({ id: `shop-${sh.id}`, shop: sh.id, name: sh.name, keeper: sh.keeper, x: sh.x, y: sh.y })),
   },
   field: {
     id: "field", name: "토끼 사냥터", w: 3800, h: 1700, top: 170, spawn: [240, 920], bg: "field", tile: 2600,
@@ -94,12 +97,14 @@ export const MAPS = {
     npcs: [],
     zone: [520, 4450],
   },
+  // 결투장 — 문이 없다. 결투를 수락하면 비어 있는 칸(rings)으로 둘이 옮겨 오고, 끝나면 원래 자리로 돌아간다
   arena: {
-    id: "arena", name: "결투장", w: 2000, h: 1400, top: 170, pvp: true, spawn: [300, 760], bg: "field", tile: 2600,
+    id: "arena", name: "결투장", w: 5400, h: 1400, top: 170, pvp: true, spawn: [700, 780], bg: "field", tile: 2600,
     tint: "rgba(96,64,36,0.30)",                  // 모래빛 — 바닥 무늬는 rpgArt.js drawArenaFloor
-    gates: [{ x: 90, y: 760, r: 64, to: "plaza", at: [900, 320], label: "광장" }],
+    gates: [],
     blocks: [],
     npcs: [],
+    rings: [0, 1, 2, 3].map((i) => ({ x: 700 + i * 1300, y: 780, rx: 540, ry: 380 })),   // 칸 하나에 결투 하나
   },
 };
 // 스냅샷은 이 차례로 맵을 싣는다 — 새 맵은 뒤에만 더한다
@@ -327,6 +332,7 @@ export function loadChar() {
     rec: cleanRec(r.rec),                        // 잡은 수 · 퀘스트 수 — 칭호 조건
     titles: cleanTitles(r.titles),               // 얻은 칭호
     title: TITLE_BY_ID[r.title] ? r.title : "",  // 달고 있는 칭호
+    honor: Math.max(0, Math.floor(Number(r.honor) || 0)),   // 명예
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다. acct 는 서버에 만든 계정 { tok }
@@ -380,7 +386,8 @@ export function writeChar(d) {
   if (!cur) return;
   const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
   store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
-    rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "" });
+    rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
+    honor: Math.max(0, Math.floor(Number(d.honor) || 0)) });
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -393,6 +400,7 @@ export function makeWorld() {
     notes: [],                                    // 상점 결과 — { who, ok, msg } 내 것만 화면에 띄운다
     bagRR: 0,                                     // 가방을 돌아가며 다시 보내는 차례
     sys: [],                                      // 알림 한 줄(파티 · 칭호) — { who, msg, at } 내 것만 채팅 칸에 띄운다
+    duels: [],                                    // 진행 중인 결투 — 방장만 { a, b, wa, wb, ring, phase, t, cnt, ret }
     nextParty: 1, titleT: 0,                      // 새 파티 번호 · 칭호 조건을 다시 보는 때
   };
   SPAWNS.forEach((sp, gi) => { for (let i = 0; i < sp.n; i++) spawnMob(g, gi); });
@@ -410,6 +418,8 @@ function makeHero(pi, look, map = "plaza") {
     auto: 1, fire: 0, fireQ: 0,       // 자동 평타 · 스페이스를 누르고 있는지 · 눌렀던 한 번을 잠깐 기억
     pty: 0, invite: null,             // 파티 번호(0 이면 없음) · 받은 초대 { from 보낸 사람 자리, t 남은 초 }
     rec: newRec(), titles: [], title: "",   // 잡은 수 · 얻은 칭호 · 달고 있는 칭호
+    honor: 0,                               // 명예 — 결투에서 이기면 오른다
+    duelInv: null, dvs: -1, dph: 0, dtl: 0, ring: -1,   // 받은 결투 신청 · 결투 상대 자리 · 단계(1 준비 2 싸움 3 끝) · 남은 초 · 결투장 칸
   };
   wear(h, look);
   refreshHp(h, true);
@@ -487,6 +497,7 @@ export function rpgJoin(g, pi, d) {
   h.bag = cleanBag(d.bag);
   h.bag.ld = 1;
   h.rec = cleanRec(d.rec);
+  h.honor = Math.max(0, Math.floor(Number(d.honor) || 0));
   h.titles = cleanTitles(d.titles);
   h.title = h.titles.includes(d.title) ? d.title : "";
   awardTitles(g, h, true);                        // 예전 캐릭터도 이미 채운 조건의 칭호는 조용히 받는다
@@ -561,6 +572,12 @@ export function rpgWalk(h, dt) {
 function keepIn(o, M, rad) {
   o.x = clamp(o.x, RPG.edge, M.w - RPG.edge);
   o.y = clamp(o.y, M.top, M.h - RPG.edge);
+  const R = M.rings && M.rings[o.ring];
+  if (R) {                                         // 결투 중이면 제 칸(타원) 밖으로 못 나간다
+    const nx = (o.x - R.x) / (R.rx - rad), ny = (o.y - R.y) / (R.ry - rad);
+    const k = Math.hypot(nx, ny);
+    if (k > 1) { o.x = R.x + (o.x - R.x) / k; o.y = R.y + (o.y - R.y) / k; }
+  }
   M.blocks.forEach((b) => {
     const dx = o.x - b.x, dy = (o.y - b.y) / RPG.squash;
     const d = Math.hypot(dx, dy);
@@ -587,8 +604,8 @@ export function rpgFire(g, pi, on) {
   h.fireQ = 0.35;
   if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, "광장에서는 싸울 수 없다", "#d9c9a6");
   if (isPvp(h.map)) {
-    if (inRest(h)) return say(g, h.map, h.x, h.y - 90, "쉼터에서는 싸울 수 없다", "#d9c9a6");
-    if (h.cd <= 0 && !nearFoes(g, h, h.x, h.y, heroRange(h), 1).length) say(g, h.map, h.x, h.y - 90, "사거리 안에 상대가 없다", "#d9c9a6");
+    if (h.dph === 1) return say(g, h.map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
+    if (h.dph === 2 && h.cd <= 0 && !nearFoes(g, h, h.x, h.y, heroRange(h)).length) say(g, h.map, h.x, h.y - 90, "사거리 안에 상대가 없다", "#d9c9a6");
     return;
   }
   if (h.cd <= 0 && !nearMobs(g, h.map, h.x, h.y, heroRange(h), 1).length) {
@@ -669,40 +686,153 @@ export function rpgPromote(g) {
   }).filter(Boolean);
   g.nextId = Math.max(g.nextId, ...g.mobs.map((m) => m.id + 1), 1);
   g.nextParty = Math.max(g.nextParty || 1, ...g.heroes.map((h) => (h ? h.pty + 1 : 1)));
+  g.duels = [];
   g.heroes.forEach((h) => {
     if (!h) return;
     h.loaded = 0; h.migr = 1;                     // 기록이 다시 올 때까지 — 자리 · 체력은 그대로
     delete h.wsp;                                 // 이제 가방에서 바로 본다
+    // 진행 중이던 결투는 무르고 광장으로 — 결투 기록(돌아갈 자리)은 옛 방장에게만 있었다
+    if (h.dvs >= 0) {
+      h.map = "plaza"; [h.x, h.y] = MAPS.plaza.spawn;
+      h.down = 0; h.hp = h.max; h.dvs = -1; h.dph = 0; h.dtl = 0; h.ring = -1;
+    }
+    h.duelInv = null;
     h.tx = undefined; h.ty = undefined;
   });
 }
 
-/* ── 결투장 (방장만 판정) ─────────────────────────────── */
+/* ── 결투 (방장만 판정) ─────────────────────────────────── */
 export const isPvp = (map) => !!(MAPS[map] && MAPS[map].pvp);
-// 입구 둘레 쉼터 — 치지도 맞지도 않는다
-export const inRest = (h) => isPvp(h.map) && MAPS[h.map].gates.some((q) => dist(h.x, h.y, q.x, q.y) <= PVP.safeR);
-// 칠 수 있는 상대 — 같은 맵 · 쓰러지지 않음 · 쉼터 밖 · 다른 파티. 가까운 순
-function nearFoes(g, h, x, y, range, n = Infinity) {
-  if (!isPvp(h.map) || inRest(h)) return [];
-  const out = [];
-  g.heroes.forEach((o) => {
-    if (!o || o === h || o.map !== h.map || !o.loaded || o.down > 0 || inRest(o)) return;
-    if (h.pty && o.pty === h.pty) return;
-    const d = dist(x, y, o.x, o.y) - 7;
-    if (d <= range) out.push([d, o]);
-  });
-  out.sort((a, b) => a[0] - b[0]);
-  return out.slice(0, n).map((q) => q[1]);
+// 칠 수 있는 상대 — 결투가 시작된 뒤의 내 결투 상대 하나뿐
+function nearFoes(g, h, x, y, range) {
+  if (!isPvp(h.map) || h.dph !== 2) return [];
+  const o = g.heroes[h.dvs];
+  if (!o || o.map !== h.map || o.down > 0 || o.dph !== 2) return [];
+  return dist(x, y, o.x, o.y) - 7 <= range ? [o] : [];
 }
-// 사람을 친다 — 쓰러뜨리면 기록하고 둘에게 알린다
+// 결투 상대를 친다 — 쓰러지면 결투가 끝난다(tickDuels)
 function hitFoe(g, h, o, raw) {
   if (!o || o.down > 0) return;
-  hurtHero(g, o, raw * PVP.dmgMul);
-  if (o.down <= 0) return;
-  h.rec.pvp += 1;
-  fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `${nameOf(g, o.pi)} 쓰러뜨림`, color: "#ffb08a", t: 1.2, life: 1.2, snd: "clear", who: h.pi });
-  sys(g, h.pi, `결투장 — ${nameOf(g, o.pi)}님을 쓰러뜨렸습니다. (모두 ${h.rec.pvp}번)`);
-  sys(g, o.pi, `결투장 — ${nameOf(g, h.pi)}님에게 쓰러졌습니다. 입구에서 다시 일어납니다.`);
+  hurtHero(g, o, raw * DUEL.dmgMul);
+}
+
+/* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
+export function rpgDuel(g, pi, req) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || !req) return false;
+  if (req.op === "ask") {
+    const o = g.heroes[req.to];
+    if (!o || o === h || !o.loaded) return false;
+    if (h.dvs >= 0) return void sys(g, pi, "결투 중에는 신청할 수 없습니다.");
+    if (o.dvs >= 0) return void sys(g, pi, `${nameOf(g, o.pi)}님은 지금 결투 중입니다.`);
+    if (h.down > 0) return void sys(g, pi, "쓰러진 동안은 신청할 수 없습니다.");
+    o.duelInv = { from: pi, t: DUEL.reqT };
+    sys(g, pi, `${nameOf(g, o.pi)}님에게 결투를 신청했습니다.`);
+    sys(g, o.pi, `${nameOf(g, pi)}님이 결투를 신청했습니다. (명예 ${h.honor})`);
+    return true;
+  }
+  if (req.op === "accept" || req.op === "decline") {
+    const inv = h.duelInv;
+    h.duelInv = null;
+    const o = inv && g.heroes[inv.from];
+    if (!o) return void sys(g, pi, "신청한 사람이 서버에 없습니다.");
+    if (req.op === "decline") { sys(g, o.pi, `${nameOf(g, pi)}님이 결투를 거절했습니다.`); return true; }
+    if (h.dvs >= 0 || o.dvs >= 0) return void sys(g, pi, "둘 가운데 한 사람이 이미 결투 중입니다.");
+    if (h.down > 0 || o.down > 0) return void sys(g, pi, "쓰러진 사람이 있어 결투를 시작할 수 없습니다.");
+    const used = g.duels.map((d) => d.ring);
+    const ring = MAPS.arena.rings.findIndex((_, i) => !used.includes(i));
+    if (ring < 0) return void [h, o].forEach((q) => sys(g, q.pi, "결투장이 모두 차 있습니다. 잠시 뒤 다시 신청해 주세요."));
+    startDuel(g, o, h, ring);
+    return true;
+  }
+  if (req.op === "giveup") {
+    const d = g.duels.find((q) => (q.a === pi || q.b === pi) && q.phase !== "end");
+    if (!d) return false;
+    endDuel(g, d, d.a === pi ? d.b : d.a, `${nameOf(g, pi)}님이 기권했습니다`);
+    return true;
+  }
+  return false;
+}
+function startDuel(g, a, b, ring) {
+  const R = MAPS.arena.rings[ring];
+  const d = { a: a.pi, b: b.pi, wa: a.who, wb: b.who, ring, phase: "ready", t: DUEL.ready, cnt: DUEL.ready + 1,
+    ret: [a, b].map((q) => ({ map: q.map, x: q.x, y: q.y })) };
+  g.duels.push(d);
+  [[a, b, -1], [b, a, 1]].forEach(([q, vs, side]) => {
+    q.ret = null;
+    q.map = "arena"; q.x = R.x + side * R.rx * 0.45; q.y = R.y;
+    q.dir = -side; q.face = 0; q.hold = []; q.fire = 0; q.dash = 0;
+    q.hp = q.max; q.down = 0; q.duelInv = null;
+    q.dvs = vs.pi; q.dph = 1; q.dtl = DUEL.ready; q.ring = ring;
+    sys(g, q.pi, `${nameOf(g, vs.pi)}님과 결투를 시작합니다. (상대 명예 ${vs.honor})`);
+  });
+  fx(g, "arena", { kind: "ring", x: R.x, y: R.y, r: 120, color: "#ffe08a", t: 0.6, life: 0.6, snd: "boss" });
+}
+// 결투를 끝낸다 — win 은 이긴 사람 자리(-1 이면 무승부). why 는 알림에 붙는 말
+function endDuel(g, d, win, why) {
+  if (d.phase === "end") return;
+  d.phase = "end"; d.t = DUEL.end;
+  const R = MAPS.arena.rings[d.ring];
+  const w = win >= 0 ? g.heroes[win] : null, l = win >= 0 ? g.heroes[win === d.a ? d.b : d.a] : null;
+  if (w) {
+    const gain = honorGain(l ? l.honor : 0);
+    w.honor += gain;
+    w.rec.pvp += 1;
+    fx(g, "arena", { kind: "call", x: w.x, y: w.y - 110, text: `승리! 명예 +${gain}`, color: "#ffd873", t: 1.6, life: 1.6, snd: "clear", who: w.pi });
+    sys(g, w.pi, `결투에서 이겼습니다${why ? ` — ${why}` : ""}. 명예 +${gain} (지금 ${w.honor})`);
+    if (l) {
+      fx(g, "arena", { kind: "call", x: l.x, y: l.y - 110, text: "패배", color: "#e9b0a0", t: 1.6, life: 1.6, who: l.pi });
+      sys(g, l.pi, `결투에서 졌습니다${why ? ` — ${why}` : ""}.`);
+    }
+  } else {
+    fx(g, "arena", { kind: "call", x: R.x, y: R.y - 140, text: "무승부", color: "#e8dcc0", t: 1.6, life: 1.6 });
+    [d.a, d.b].forEach((pi) => g.heroes[pi] && sys(g, pi, "결투가 무승부로 끝났습니다. 명예는 그대로입니다."));
+  }
+  [d.a, d.b].forEach((pi) => { const q = g.heroes[pi]; if (q && q.dvs >= 0) { q.dph = 3; q.dtl = DUEL.end; } });
+}
+// 결투 진행 — 신청 시간 · 세기 · 승부 · 돌려보내기
+function tickDuels(g, dt) {
+  g.heroes.forEach((h) => {
+    if (!h || !h.duelInv) return;
+    h.duelInv.t -= dt;
+    if (h.duelInv.t <= 0 || !g.heroes[h.duelInv.from]) h.duelInv = null;
+  });
+  g.duels = g.duels.filter((d) => {
+    const a = g.heroes[d.a], b = g.heroes[d.b];
+    const aOk = a && a.who === d.wa, bOk = b && b.who === d.wb;
+    if (d.phase !== "end" && (!aOk || !bOk)) {     // 한 사람이 서버를 떠났다 — 남은 사람이 이긴다
+      endDuel(g, d, aOk ? d.a : bOk ? d.b : -1, "상대가 서버를 떠났습니다");
+    }
+    d.t -= dt;
+    const R = MAPS.arena.rings[d.ring];
+    if (d.phase === "ready") {
+      const n = Math.ceil(d.t);
+      if (n < d.cnt && n > 0) {
+        d.cnt = n;
+        fx(g, "arena", { kind: "call", x: R.x, y: R.y - 150, text: String(n), color: "#ffe08a", t: 0.8, life: 0.8, snd: "build" });
+      }
+      if (d.t <= 0) {
+        d.phase = "fight"; d.t = DUEL.time;
+        fx(g, "arena", { kind: "call", x: R.x, y: R.y - 150, text: "시작!", color: "#ffd873", t: 0.9, life: 0.9, snd: "wave" });
+      }
+    } else if (d.phase === "fight") {
+      if (a.down > 0 || b.down > 0) endDuel(g, d, a.down > 0 ? d.b : d.a, "");
+      else if (d.t <= 0) endDuel(g, d, -1, "");
+    } else if (d.t <= 0) {                         // 끝 — 둘 다 원래 자리로 돌려보낸다
+      [[d.a, aOk, 0], [d.b, bOk, 1]].forEach(([pi, ok, i]) => {
+        const q = g.heroes[pi];
+        if (!q || !ok) return;
+        const r = d.ret[i];
+        const back = MAPS[r.map] && !MAPS[r.map].pvp ? r : { map: "plaza", x: MAPS.plaza.spawn[0], y: MAPS.plaza.spawn[1] };
+        q.map = back.map; q.x = back.x; q.y = back.y;
+        q.down = 0; q.hp = q.max; q.dvs = -1; q.dph = 0; q.dtl = 0; q.ring = -1; q.gateCd = 1;
+      });
+      return false;
+    }
+    const ph = d.phase === "ready" ? 1 : d.phase === "fight" ? 2 : 3;
+    [a, b].forEach((q, i) => { if (q && (i ? bOk : aOk)) { q.dph = ph; q.dtl = Math.max(0, d.t); } });
+    return true;
+  });
 }
 
 function nearMobs(g, map, x, y, range, n = Infinity) {
@@ -828,10 +958,10 @@ function hurtHero(g, h, raw) {
   }
   if (h.hp <= 0) {
     h.hp = 0;
-    h.down = isPvp(h.map) ? PVP.down : RPG.down;
+    h.down = isPvp(h.map) ? DUEL.end + 1 : RPG.down;   // 결투에서 쓰러지면 결투가 끝날 때 일어난다
     h.hold = [];
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
-    say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐 — 입구에서 일어납니다" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
+    say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
   }
 }
 
@@ -920,7 +1050,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy) {
       color: el.light, t: 0.24, life: 0.24, snd: "slash" });
     return true;
   }
-  const [o] = nearFoes(g, h, h.x, h.y, rng, 1);
+  const [o] = nearFoes(g, h, h.x, h.y, rng);
   if (!o) return false;
   h.dir = o.x < h.x ? -1 : 1;
   h.face = 0;
@@ -989,8 +1119,8 @@ export function rpgSkill(g, pi) {
 
   // 결투장이면 몹 대신 사람을 고른다
   const pvp = isPvp(map);
-  if (pvp && inRest(h)) return say(g, map, h.x, h.y - 90, "쉼터에서는 싸울 수 없다", "#d9c9a6");
-  const near = (x, y, r, n) => (pvp ? nearFoes(g, h, x, y, r, n) : nearMobs(g, map, x, y, r, n));
+  if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
+  const near = (x, y, r, n) => (pvp ? nearFoes(g, h, x, y, r) : nearMobs(g, map, x, y, r, n));
   let cx = h.x, cy = h.y, list, mul;
   if (job.id === "warrior") {
     list = near(h.x, h.y, 240); mul = 3;
@@ -1088,7 +1218,7 @@ export function rpgUseSkill(g, pi, id) {
     if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
     const dmg = SKILL_USE.base * skillStatMul(h, u.dmg) * u.mul[i];
     const pvp = isPvp(map);
-    if (pvp && inRest(h)) return say(g, map, h.x, h.y - 90, "쉼터에서는 싸울 수 없다", "#d9c9a6");
+    if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
     // 결투장이면 사람에게 — 치명타 보장 스킬은 치명타 피해 배율을 곱한다
     const strike = (m) => (pvp ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
     if (u.radius) {                                // 둘레를 모두
@@ -1098,7 +1228,7 @@ export function rpgUseSkill(g, pi, id) {
       fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
     } else {                                       // 가장 가까운 하나
       const reach = heroRange(h) * SKILL_USE.reach;
-      const [m] = pvp ? nearFoes(g, h, h.x, h.y, reach, 1) : nearMobs(g, map, h.x, h.y, reach, 1);
+      const [m] = pvp ? nearFoes(g, h, h.x, h.y, reach) : nearMobs(g, map, h.x, h.y, reach, 1);
       if (!m) return say(g, map, h.x, h.y - 90, pvp ? "사거리 안에 상대가 없다" : "사거리 안에 몹이 없다", "#d9c9a6");
       h.dir = m.x < h.x ? -1 : 1;
       strike(m);
@@ -1126,15 +1256,14 @@ function stepHeroes(g, dt) {
     h.inv = Math.max(0, (h.inv || 0) - dt);
     h.dashCd = Math.max(0, (h.dashCd || 0) - dt);
     if (h.down > 0) {
+      if (h.dvs >= 0) return;                     // 결투에서 쓰러졌다 — 결투가 끝나면 원래 자리로 돌아간다(tickDuels)
       h.down -= dt;
-      if (h.down <= 0) {                          // 광장에서 다시 일어난다 — 결투장이면 결투장 입구에서
+      if (h.down <= 0) {                          // 광장에서 다시 일어난다
         h.down = 0;
-        const back = isPvp(h.map) ? h.map : "plaza";
-        h.map = back;
-        [h.x, h.y] = MAPS[back].spawn;
+        h.map = "plaza";
+        [h.x, h.y] = MAPS.plaza.spawn;
         h.hp = h.max;
-        if (back !== "plaza") h.inv = PVP.guard;   // 일어난 뒤 잠깐 맞지 않는다
-        fx(g, back, { kind: "heal", x: h.x, y: h.y - 56, text: "다시 일어남", t: 0.9, life: 0.9, snd: "bless", who: h.pi });
+        fx(g, "plaza", { kind: "heal", x: h.x, y: h.y - 56, text: "다시 일어남", t: 0.9, life: 0.9, snd: "bless", who: h.pi });
       }
       return;
     }
@@ -1158,7 +1287,7 @@ function stepHeroes(g, dt) {
     h.cd = Math.max(0, h.cd - dt);
     h.fireQ = Math.max(0, h.fireQ - dt);
     if (h.cd > 0 || MAPS[h.map].safe) return;
-    if (!h.auto && !h.fire && h.fireQ <= 0) return;
+    if ((!h.auto || isPvp(h.map)) && !h.fire && h.fireQ <= 0) return;   // 결투장에서는 자동 평타를 끈다
     if (heroAttack(g, h)) { h.cd = heroCd(h); h.swing = 0.25; h.fireQ = 0; }
   });
 }
@@ -1611,6 +1740,7 @@ export function rpgStep(g, dt) {
 
   stepHeroes(g, dt);
   tickSocial(g, dt);
+  tickDuels(g, dt);
   g.hits = g.hits.filter((s) => {
     s.t -= dt;
     if (s.t > 0) return true;
@@ -1673,7 +1803,8 @@ export function rpgPack(g) {
         holdKey(h.hold), h.fire ? 1 : 0,
         h.pty, h.invite ? h.invite.from : -1, TITLES.findIndex((t) => t.id === h.title),
         TITLES.reduce((bits, t, i) => (h.titles.includes(t.id) ? bits | (1 << i) : bits), 0),
-        REC_IDS.map((k) => h.rec[k]), heldSpecial(h)]
+        REC_IDS.map((k) => h.rec[k]), heldSpecial(h),
+        h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -1723,6 +1854,11 @@ export function rpgApply(g, s) {
       if (Array.isArray(row[32])) REC_IDS.forEach((k, i) => { h.rec[k] = row[32][i] || 0; });
     }
     if (row.length > 33) h.wsp = row[33] || "";      // 장착한 특별 무기 — 그림에 들려 그린다
+    if (row.length > 39) {                         // 명예 · 결투
+      h.honor = row[34] || 0;
+      h.duelInv = row[35] >= 0 ? { from: row[35], t: h.duelInv && h.duelInv.from === row[35] ? h.duelInv.t : DUEL.reqT } : null;
+      h.dvs = row[36]; h.dph = row[37]; h.dtl = row[38]; h.ring = row[39];
+    }
   });
   const seen = new Set();
   s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite]) => {

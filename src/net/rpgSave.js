@@ -52,6 +52,11 @@ export async function nameFree(name) {
 export const createAccount = (name, code, data) => rpc("rpg_create", { p_name: name, p_code: code, p_data: data });
 export const login = (name, code) => rpc("rpg_login", { p_name: name, p_code: code });
 export const deleteRemote = (name, token) => rpc("rpg_delete", { p_name: name, p_token: token });
+// 명예 순위 — 서버에 저장된 캐릭터 가운데 명예가 높은 순. [{ name, honor, lv, job }]
+export async function honorTop(limit = 20) {
+  const r = await rpc("rpg_honor_top", { p_limit: limit });
+  return Array.isArray(r) ? { ok: true, list: r } : { ok: false, ...(r || {}) };
+}
 
 /* ── 게임 중 저장 — 마지막 기록만 들고 있다가 간격마다 보낸다 ── */
 let pending = null;        // { name, tok, data }

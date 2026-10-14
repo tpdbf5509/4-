@@ -1308,6 +1308,37 @@ kbd {
 .rpg-key-slot:hover { border-color: #d6b26a; }
 .rpg-key-slot.wait { border-color: #e3c48a; color: #ffe08a; background: rgba(122, 90, 46, 0.5); }
 
+/* 결투 · 명예 */
+.rpg-win-acts { display: inline-flex; align-items: center; gap: 6px; }
+.rpg-win-btn.duel { color: #f0c2b2; border-color: rgba(233, 160, 138, 0.55); }
+.rpg-win-btn.duel:hover:not(:disabled) { border-color: #e9a08a; }
+.rpg-invite.duel { border-color: rgba(233, 160, 138, 0.6); }
+.rpg-invite.duel b { color: #f0b8a4; }
+.rpg-invite small { display: block; margin-top: 1px; font-size: 10.5px; color: #a99a7e; }
+.rpg-invite.second { top: 64px; }
+.rpg-duelbar {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 12px;
+  padding: 6px 8px 6px 14px; border-radius: 10px; font-size: 13px; color: #ecdfc4; letter-spacing: -0.02em; white-space: nowrap;
+  background: #2a2119; border: 1px solid rgba(233, 160, 138, 0.55); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.rpg-duelbar b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; color: #f0b8a4; }
+.rpg-duelbar-t { font-family: 'Do Hyeon', sans-serif; color: #e3c48a; }
+.rpg-duelbar .btn-ghost { padding: 4px 10px; font-size: 12px; }
+.rpg-duel-count {
+  position: absolute; left: 50%; top: 32%; transform: translateX(-50%); pointer-events: none; z-index: 4;
+  font-family: 'Do Hyeon', sans-serif; font-size: 72px; color: #ffe08a; text-shadow: 0 3px 0 #2c1f12, 0 6px 18px rgba(0, 0, 0, 0.5);
+  animation: rpg-count 1s ease-out;
+}
+@keyframes rpg-count { 0% { opacity: 0; transform: translate(-50%, 0) scale(1.6); } 30% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+.rpg-rank-row {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 6px 8px; margin: 0 -8px; border-bottom: 1px solid rgba(214, 186, 140, 0.18);
+}
+.rpg-rank-row.on { background: rgba(227, 196, 138, 0.08); box-shadow: inset 2px 0 0 #e3c48a; }
+.rpg-rank-no { font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: #a99a7e; text-align: center; }
+.rpg-rank-no.top { color: #e3c48a; }
+.rpg-rank-v { font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: #f2e3c2; }
+
 /* 파티 초대 — 화면 위쪽 가운데 */
 .rpg-invite {
   position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px;

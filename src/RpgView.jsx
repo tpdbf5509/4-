@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, xpOf, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
+  charRecord, setAccount, coinOf, xpOf, PVP, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
@@ -1224,6 +1224,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           파티 창(P)에서 같은 서버 사람을 초대합니다. {PARTY.max}명까지이고, 같은 맵의 파티원이 몹을 잡으면 그 경험치의 {Math.round(PARTY.share * 100)}%를 함께 받습니다.
           칭호는 레벨 · 사냥 수 · 보스 · 퀘스트 조건을 채우면 얻습니다. 칭호 창(T)에서 하나를 골라 이름 아래에 답니다.
           ☰ 메뉴의 키 설정에서 키를 바꿀 수 있습니다(PC).
+          광장 위쪽 문은 결투장입니다. 결투장에서는 다른 사람을 칠 수 있습니다(같은 파티는 빼고). 몹을 칠 때의 {Math.round(PVP.dmgMul * 100)}% 피해가 들어갑니다.
+          쓰러지면 {PVP.down}초 뒤 입구에서 일어나고 {PVP.guard}초 동안 맞지 않습니다. 입구 둘레 쉼터에서는 치지도 맞지도 않습니다. 경험치 · 코인은 없고 쓰러뜨린 수만 남습니다.
         </details>
       </div>
     </div>

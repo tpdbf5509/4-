@@ -17,6 +17,11 @@ export const RPG_CREW_MAX = 16;
 // (방 만들기 코드에는 숫자 1이 나오지 않아 이 이름과 겹치지 않는다)
 export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4", "RPG5"];
 
+// 결투장 — 사람끼리 친다(같은 파티는 빼고). 몹을 칠 때보다 dmgMul 만큼만 아프다(한 방에 끝나지 않게).
+// 쓰러지면 down 초 뒤 결투장 입구에서 일어나고 guard 초 동안 맞지 않는다. 입구 둘레 safeR 은 쉼터라 치지도 맞지도 않는다.
+// 이겨도 경험치 · 코인은 없다(서로 쓰러뜨려 버는 것을 막는다). 쓰러뜨린 수만 기록(rec.pvp)에 남는다
+export const PVP = { dmgMul: 0.3, down: 3, guard: 2, safeR: 260 };
+
 // 대쉬 — 모든 캐릭터의 기본 스킬(F). 누른 방향으로 dist 만큼 time 초에 달려 나가고, inv 초 동안 맞지 않는다
 export const DASH = { dist: 230, time: 0.16, inv: 0.3, cd: 4 };
 export const RPG = {
@@ -38,7 +43,10 @@ export const RPG = {
 export const MAPS = {
   plaza: {
     id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: [900, 820],
-    gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" }],
+    gates: [
+      { x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" },
+      { x: 900, y: 230, r: 60, to: "arena", at: [300, 760], label: "결투장" },
+    ],
     blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 }))],   // 가운데 분수 · 상점 노점
     // 상점 네 곳 — 자리와 이름은 shopData.js 의 SHOPS
     npcs: SHOPS.map((sh) => ({ id: `shop-${sh.id}`, shop: sh.id, name: sh.name, keeper: sh.keeper, x: sh.x, y: sh.y })),
@@ -86,9 +94,16 @@ export const MAPS = {
     npcs: [],
     zone: [520, 4450],
   },
+  arena: {
+    id: "arena", name: "결투장", w: 2000, h: 1400, top: 170, pvp: true, spawn: [300, 760], bg: "field", tile: 2600,
+    tint: "rgba(96,64,36,0.30)",                  // 모래빛 — 바닥 무늬는 rpgArt.js drawArenaFloor
+    gates: [{ x: 90, y: 760, r: 64, to: "plaza", at: [900, 320], label: "광장" }],
+    blocks: [],
+    npcs: [],
+  },
 };
 // 스냅샷은 이 차례로 맵을 싣는다 — 새 맵은 뒤에만 더한다
-const MAP_IDS = ["plaza", "field", "wolf", "boar", "gorilla"];
+const MAP_IDS = ["plaza", "field", "wolf", "boar", "gorilla", "arena"];
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -571,6 +586,11 @@ export function rpgFire(g, pi, on) {
   if (!on || h.down > 0) return;
   h.fireQ = 0.35;
   if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, "광장에서는 싸울 수 없다", "#d9c9a6");
+  if (isPvp(h.map)) {
+    if (inRest(h)) return say(g, h.map, h.x, h.y - 90, "쉼터에서는 싸울 수 없다", "#d9c9a6");
+    if (h.cd <= 0 && !nearFoes(g, h, h.x, h.y, heroRange(h), 1).length) say(g, h.map, h.x, h.y - 90, "사거리 안에 상대가 없다", "#d9c9a6");
+    return;
+  }
   if (h.cd <= 0 && !nearMobs(g, h.map, h.x, h.y, heroRange(h), 1).length) {
     say(g, h.map, h.x, h.y - 90, "사거리 안에 몹이 없다", "#d9c9a6");
   }
@@ -655,6 +675,34 @@ export function rpgPromote(g) {
     delete h.wsp;                                 // 이제 가방에서 바로 본다
     h.tx = undefined; h.ty = undefined;
   });
+}
+
+/* ── 결투장 (방장만 판정) ─────────────────────────────── */
+export const isPvp = (map) => !!(MAPS[map] && MAPS[map].pvp);
+// 입구 둘레 쉼터 — 치지도 맞지도 않는다
+export const inRest = (h) => isPvp(h.map) && MAPS[h.map].gates.some((q) => dist(h.x, h.y, q.x, q.y) <= PVP.safeR);
+// 칠 수 있는 상대 — 같은 맵 · 쓰러지지 않음 · 쉼터 밖 · 다른 파티. 가까운 순
+function nearFoes(g, h, x, y, range, n = Infinity) {
+  if (!isPvp(h.map) || inRest(h)) return [];
+  const out = [];
+  g.heroes.forEach((o) => {
+    if (!o || o === h || o.map !== h.map || !o.loaded || o.down > 0 || inRest(o)) return;
+    if (h.pty && o.pty === h.pty) return;
+    const d = dist(x, y, o.x, o.y) - 7;
+    if (d <= range) out.push([d, o]);
+  });
+  out.sort((a, b) => a[0] - b[0]);
+  return out.slice(0, n).map((q) => q[1]);
+}
+// 사람을 친다 — 쓰러뜨리면 기록하고 둘에게 알린다
+function hitFoe(g, h, o, raw) {
+  if (!o || o.down > 0) return;
+  hurtHero(g, o, raw * PVP.dmgMul);
+  if (o.down <= 0) return;
+  h.rec.pvp += 1;
+  fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `${nameOf(g, o.pi)} 쓰러뜨림`, color: "#ffb08a", t: 1.2, life: 1.2, snd: "clear", who: h.pi });
+  sys(g, h.pi, `결투장 — ${nameOf(g, o.pi)}님을 쓰러뜨렸습니다. (모두 ${h.rec.pvp}번)`);
+  sys(g, o.pi, `결투장 — ${nameOf(g, h.pi)}님에게 쓰러졌습니다. 입구에서 다시 일어납니다.`);
 }
 
 function nearMobs(g, map, x, y, range, n = Infinity) {
@@ -780,10 +828,10 @@ function hurtHero(g, h, raw) {
   }
   if (h.hp <= 0) {
     h.hp = 0;
-    h.down = RPG.down;
+    h.down = isPvp(h.map) ? PVP.down : RPG.down;
     h.hold = [];
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
-    say(g, h.map, h.x, h.y - 90, "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
+    say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐 — 입구에서 일어납니다" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
   }
 }
 
@@ -827,6 +875,7 @@ function heroAttack(g, h) {
   const dmg = job.dmg * heroDmgMul(h);
   const rng = heroRange(h);
   const hy = h.y - 34;
+  if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy);
 
   if (job.id === "warrior") {                     // 전사 — 둘레를 한 번에 벤다
     const list = nearMobs(g, map, h.x, h.y, rng);
@@ -858,9 +907,54 @@ function heroAttack(g, h) {
   return true;
 }
 
+// 결투장 평타 — 몹 대신 사람을 친다. 원소 효과는 싣지 않는다
+function pvpAttack(g, h, job, el, dmg, rng, hy) {
+  const map = h.map, pi = h.pi;
+  if (job.id === "warrior") {
+    const list = nearFoes(g, h, h.x, h.y, rng);
+    if (!list.length) return false;
+    h.dir = list[0].x < h.x ? -1 : 1;
+    h.face = 0;
+    list.forEach((o) => hitFoe(g, h, o, dmg));
+    fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
+      color: el.light, t: 0.24, life: 0.24, snd: "slash" });
+    return true;
+  }
+  const [o] = nearFoes(g, h, h.x, h.y, rng, 1);
+  if (!o) return false;
+  h.dir = o.x < h.x ? -1 : 1;
+  h.face = 0;
+  const fly = job.fly || 0.2;
+  const art = ELEM_ART[el.id];
+  if (job.id === "mage") {
+    fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: o.x, y1: o.y - 30, style: "orb",
+      art: art.fly || 0, r: 22, color: el.light, t: fly, life: fly, snd: "orb" });
+  } else {
+    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: o.x, y1: o.y - 30, style: "arrow",
+      color: el.light, t: fly, life: fly, snd: "shot" });
+  }
+  g.hits.push({ t: fly, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: job.splash || 0 });
+  return true;
+}
+// 결투장에서 날아간 것이 닿았다 — 그 사이 맵을 떠났거나 쓰러졌으면 빗나간다
+function landFoe(g, s, h) {
+  const o = g.heroes[s.hid];
+  const el = elemOf(h);
+  if (!o || o.map !== s.map || o.down > 0) return;
+  if (s.splash) {
+    nearFoes(g, h, o.x, o.y, s.splash).forEach((q) => hitFoe(g, h, q, s.dmg * (q === o ? 1 : 0.5)));
+    fx(g, s.map, { kind: "art", art: ELEM_ART[el.id].hit, x: o.x, y: o.y - 4, r: 34, t: 0.4, life: 0.4 });
+  } else {
+    if (!nearFoes(g, h, o.x, o.y, 1).includes(o)) return;   // 쉼터로 들어갔거나 같은 파티가 됐다
+    hitFoe(g, h, o, s.dmg);
+    fx(g, s.map, { kind: "burst", x: o.x, y: o.y - 30, r: 18, color: el.light, n: 6, t: 0.3, life: 0.3 });
+  }
+}
+
 // 날아간 것이 닿았다
 function landHit(g, s) {
   const h = g.heroes[s.pi];
+  if (h && s.hid !== undefined) return landFoe(g, s, h);
   const m = g.mobs.find((q) => q.id === s.mid && !q.dead);
   if (!h) return;
   const el = elemOf(h);
@@ -893,21 +987,26 @@ export function rpgSkill(g, pi) {
   const base = job.dmg * heroDmgMul(h);
   const art = ELEM_ART[el.id];
 
+  // 결투장이면 몹 대신 사람을 고른다
+  const pvp = isPvp(map);
+  if (pvp && inRest(h)) return say(g, map, h.x, h.y - 90, "쉼터에서는 싸울 수 없다", "#d9c9a6");
+  const near = (x, y, r, n) => (pvp ? nearFoes(g, h, x, y, r, n) : nearMobs(g, map, x, y, r, n));
   let cx = h.x, cy = h.y, list, mul;
   if (job.id === "warrior") {
-    list = nearMobs(g, map, h.x, h.y, 240); mul = 3;
+    list = near(h.x, h.y, 240); mul = 3;
   } else if (job.id === "mage") {
-    const [t] = nearMobs(g, map, h.x, h.y, 360, 1);
+    const [t] = near(h.x, h.y, 360, 1);
     if (t) { cx = t.x; cy = t.y; }
-    list = t ? nearMobs(g, map, cx, cy, 200) : []; mul = 2.8;
+    list = t ? near(cx, cy, 200) : []; mul = 2.8;
   } else {
-    list = nearMobs(g, map, h.x, h.y, 300); mul = 2.6;
+    list = near(h.x, h.y, 300); mul = 2.6;
   }
-  if (!list.length) return say(g, map, h.x, h.y - 90, "닿는 몹이 없다", "#d9c9a6");
+  if (!list.length) return say(g, map, h.x, h.y - 90, pvp ? "닿는 상대가 없다" : "닿는 몹이 없다", "#d9c9a6");
   if (cx !== h.x) h.dir = cx < h.x ? -1 : 1;
   h.face = 0;
 
   list.forEach((m) => {
+    if (pvp) return hitFoe(g, h, m, base * mul);
     if (el.id === "gravity") { m.x += (cx - m.x) * 0.6; m.y += (cy - m.y) * 0.6; }
     hitMob(g, pi, m, base * mul, true);
     soak(g, h, m, 1);
@@ -988,16 +1087,21 @@ export function rpgUseSkill(g, pi, id) {
   } else {
     if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
     const dmg = SKILL_USE.base * skillStatMul(h, u.dmg) * u.mul[i];
+    const pvp = isPvp(map);
+    if (pvp && inRest(h)) return say(g, map, h.x, h.y - 90, "쉼터에서는 싸울 수 없다", "#d9c9a6");
+    // 결투장이면 사람에게 — 치명타 보장 스킬은 치명타 피해 배율을 곱한다
+    const strike = (m) => (pvp ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
     if (u.radius) {                                // 둘레를 모두
-      const list = nearMobs(g, map, h.x, h.y, u.radius);
-      if (!list.length) return say(g, map, h.x, h.y - 90, "닿는 몹이 없다", "#d9c9a6");
-      list.forEach((m) => hitMob(g, pi, m, dmg, true, u.crit));
+      const list = pvp ? nearFoes(g, h, h.x, h.y, u.radius) : nearMobs(g, map, h.x, h.y, u.radius);
+      if (!list.length) return say(g, map, h.x, h.y - 90, pvp ? "닿는 상대가 없다" : "닿는 몹이 없다", "#d9c9a6");
+      list.forEach(strike);
       fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
     } else {                                       // 가장 가까운 하나
-      const [m] = nearMobs(g, map, h.x, h.y, heroRange(h) * SKILL_USE.reach, 1);
-      if (!m) return say(g, map, h.x, h.y - 90, "사거리 안에 몹이 없다", "#d9c9a6");
+      const reach = heroRange(h) * SKILL_USE.reach;
+      const [m] = pvp ? nearFoes(g, h, h.x, h.y, reach, 1) : nearMobs(g, map, h.x, h.y, reach, 1);
+      if (!m) return say(g, map, h.x, h.y - 90, pvp ? "사거리 안에 상대가 없다" : "사거리 안에 몹이 없다", "#d9c9a6");
       h.dir = m.x < h.x ? -1 : 1;
-      hitMob(g, pi, m, dmg, true, u.crit);
+      strike(m);
       fx(g, map, { kind: "burst", x: m.x, y: m.y - 14, r: 30, color: u.crit ? "#ffd873" : "#f2e3c2", n: 10, t: 0.4, life: 0.4, snd: "crit" });
     }
     h.swing = 0.35;
@@ -1023,12 +1127,14 @@ function stepHeroes(g, dt) {
     h.dashCd = Math.max(0, (h.dashCd || 0) - dt);
     if (h.down > 0) {
       h.down -= dt;
-      if (h.down <= 0) {                          // 광장에서 다시 일어난다
+      if (h.down <= 0) {                          // 광장에서 다시 일어난다 — 결투장이면 결투장 입구에서
         h.down = 0;
-        h.map = "plaza";
-        [h.x, h.y] = MAPS.plaza.spawn;
+        const back = isPvp(h.map) ? h.map : "plaza";
+        h.map = back;
+        [h.x, h.y] = MAPS[back].spawn;
         h.hp = h.max;
-        fx(g, "plaza", { kind: "heal", x: h.x, y: h.y - 56, text: "다시 일어남", t: 0.9, life: 0.9, snd: "bless", who: h.pi });
+        if (back !== "plaza") h.inv = PVP.guard;   // 일어난 뒤 잠깐 맞지 않는다
+        fx(g, back, { kind: "heal", x: h.x, y: h.y - 56, text: "다시 일어남", t: 0.9, life: 0.9, snd: "bless", who: h.pi });
       }
       return;
     }

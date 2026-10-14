@@ -42,6 +42,8 @@ export default function App() {
   const me = useMemo(() => myId(), []);
   const [name, setName] = useState(() => localStorage.getItem("flg:name") || "");
   const [screen, setScreen] = useState("home");
+  // 새 버전 알림(src/net/version.js)이 방어전 판 중인지 알 수 있게 남긴다
+  useEffect(() => { document.body.dataset.screen = screen; }, [screen]);
   const [code, setCode] = useState(() => {
     const q = new URLSearchParams(location.search).get("room");
     return q ? q.toUpperCase().slice(0, 4) : "";

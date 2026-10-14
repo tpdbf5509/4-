@@ -11,6 +11,7 @@ import {
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID } from "./game/shop.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
+import { compareBuild } from "./net/version.js";
 import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText } from "./net/rpgSave.js";
 import { drawRpg } from "./game/rpgArt.js";
 import sfx from "./game/sfx.js";
@@ -331,6 +332,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   // 서버 저장 — 코드를 정한 캐릭터만. 다른 기기가 나중에 들어오면 이 기기의 서버 저장을 멈추고 알린다
   const acctRef = useRef(null);                     // { name, tok }
   const [kicked, setKicked] = useState(false);
+  const [oldHost, setOldHost] = useState(false);    // 방장이 옛 버전 — 새 기능이 안 될 수 있다
   useEffect(() => {
     const c = loadChar();
     acctRef.current = c && c.linked && c.tok ? { name: c.name, tok: c.tok } : null;
@@ -517,7 +519,12 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       }));
     } else {
       let last = Date.now();
-      offs.push(room.on("rsnap", (d) => { last = Date.now(); rpgApply(G.current, d); }));
+      let verSeen;
+      offs.push(room.on("rsnap", (d) => {
+        last = Date.now();
+        rpgApply(G.current, d);
+        if (d.ver !== verSeen) { verSeen = d.ver; setOldHost(compareBuild(d.ver)); }
+      }));
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));
       const watch = setInterval(() => setDropped(Date.now() - last > 6000), 2000);
       offs.push(() => clearInterval(watch));
@@ -823,6 +830,11 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
             <div className="rpg-down">쓰러졌습니다 — {Math.ceil(me.down)}초 뒤 광장에서 일어납니다</div>
           )}
 
+          {oldHost && (
+            <div className="drop-note">
+              판정을 맡은 사람의 게임이 옛 버전이라 새 기능(멧돼지 사냥터 · 무기 구매 등)이 안 될 수 있습니다. 그 사람이 새로 고침하면 해결됩니다.
+            </div>
+          )}
           {kicked && (
             <div className="drop-note">
               다른 기기에서 이 캐릭터로 들어왔습니다. 이 기기의 진행은 이제 서버에 저장되지 않습니다.

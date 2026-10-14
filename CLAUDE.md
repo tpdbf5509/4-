@@ -57,6 +57,7 @@
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
 | `src/net/room.js` | Supabase 채널 연결 |
+| `src/net/version.js` | 새 버전 알아채기. 빌드 번호(`__BUILD__`, `vite.config.js`)와 `dist/version.json` 을 견주어 옛 화면을 스스로 새로 고친다. RPG 스냅샷에 방장 빌드(`ver`)를 싣는다 |
 | `src/net/rpgSave.js` · `src/RpgAccount.jsx` | RPG 캐릭터 서버 저장(만들기 · 이어 하기 · 10초마다 저장 · 입장권)과 캐릭터 만들기 화면의 이름 · 코드 칸. 표와 함수는 `supabase/rpg.sql` |
 | `src/ui/style.css` | 모든 스타일 |
 | `public/assets/` | 그림. 판 위 그림은 `public/assets/game/`(움직이는 것은 36프레임 6열 시트 + `manifest.json`) |
@@ -109,3 +110,4 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 비용 칸 문구가 넘쳤다 → 좁은 칸은 문구를 짧게("4단계 한도 꺼짐").
 - 보스 결전 중 일시정지가 안 됐다 → 일시정지 처리에서 결전 상태도 허용해야 한다.
 - 성채 체력이 1에서 더 안 깎였다 → 성채 체력 규칙은 5장의 정산 방식을 따른다.
+- 배포 뒤 "알 수 없는 요청입니다" · 새 맵 문이 안 열림 → 방장이 옛 화면을 띄워 둔 것(판정은 방장 코드가 한다). 지금은 `version.js` 가 옛 화면을 스스로 새로 고친다. 새 요청 · 새 맵을 더할 때 이 점을 기억한다.

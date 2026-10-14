@@ -15,6 +15,8 @@ export const RPG_CREW_MAX = 16;
 // (방 만들기 코드에는 숫자 1이 나오지 않아 이 이름과 겹치지 않는다)
 export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4", "RPG5"];
 
+// 대쉬 — 모든 캐릭터의 기본 스킬(F). 누른 방향으로 dist 만큼 time 초에 달려 나가고, inv 초 동안 맞지 않는다
+export const DASH = { dist: 230, time: 0.16, inv: 0.3, cd: 4 };
 export const RPG = {
   heroHp: 190,
   rangeMul: 1.25,        // 탑 사거리보다 조금 넓게
@@ -650,6 +652,10 @@ function giveXp(g, h, amt) {
 
 function hurtHero(g, h, raw) {
   if (!h || h.down > 0 || MAPS[h.map].safe) return;
+  if (h.inv > 0) {                                // 대쉬로 피했다
+    if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
+    return;
+  }
   const dmg = raw * (h.guard > 0 ? 0.5 : 1);
   h.hp -= dmg;
   h.flash = 0.18;
@@ -809,6 +815,44 @@ export function rpgSkill(g, pi) {
   fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: name, color: "#ffd873", t: 0.9, life: 0.9, snd: "crit" });
 }
 
+/* ── 대쉬 — 누른 방향(없으면 바라보는 쪽)으로 짧게 달려 나간다 ─────────────
+   방장이 판정하고, 손님은 제 화면에서 먼저 같은 대쉬를 그린다(startDash). 맵 가장자리 · 분수 · 노점은 넘지 못한다. */
+// 손님 화면에서 먼저 그리는 대쉬 — 방장의 판정이 돌아올 동안(predict 초) 위치를 되돌리지 않는다
+export function predictDash(h) {
+  if (!startDash(h)) return false;
+  h.predict = 0.6;
+  return true;
+}
+export function startDash(h) {
+  if (!h || h.down > 0 || (h.dashCd || 0) > 0) return false;
+  let dx = 0, dy = 0;
+  (h.hold || []).forEach((d) => {
+    if (d === "left") dx -= 1; else if (d === "right") dx += 1; else if (d === "up") dy -= 1; else if (d === "down") dy += 1;
+  });
+  if (!dx && !dy) dx = h.dir || 1;
+  const len = Math.hypot(dx, dy);
+  const v = DASH.dist / DASH.time;
+  h.dvx = (dx / len) * v; h.dvy = (dy / len) * v;
+  if (dx) h.dir = dx < 0 ? -1 : 1;
+  h.dash = DASH.time; h.inv = DASH.inv; h.dashCd = DASH.cd;
+  return true;
+}
+// 대쉬 중 한 걸음 — 방장 · 손님 화면이 같은 식으로 움직인다
+function dashStep(h, dt) {
+  const t = Math.min(dt, h.dash);
+  h.x += h.dvx * t; h.y += h.dvy * RPG.squash * t;
+  h.dash = Math.max(0, h.dash - dt);
+  keepIn(h, MAPS[h.map], 20);
+}
+export function rpgDash(g, pi) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || h.down > 0) return;
+  if ((h.dashCd || 0) > 0) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
+  const x0 = h.x, y0 = h.y;
+  if (!startDash(h)) return;
+  fx(g, h.map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#e8f2ff", n: 8, t: 0.3, life: 0.3, snd: "slash", who: pi });
+}
+
 /* ── 산 스킬 — 숫자키로 쓴다 (방장만 판정) ─────────────────────────
    액티브 스킬만. 위력 · 대기 시간은 shopData.js 의 SKILLS[].use. 대기 시간은 h.scd[스킬id] 에 남는다. */
 export const ACTIVE_SKILLS = SHOP_SKILLS.filter((s) => s.use).sort((a, b) => a.use.key - b.use.key);
@@ -863,6 +907,8 @@ function stepHeroes(g, dt) {
     h.guard = Math.max(0, h.guard - dt);
     h.numT = Math.max(0, h.numT - dt);
     h.gateCd = Math.max(0, h.gateCd - dt);
+    h.inv = Math.max(0, (h.inv || 0) - dt);
+    h.dashCd = Math.max(0, (h.dashCd || 0) - dt);
     if (h.down > 0) {
       h.down -= dt;
       if (h.down <= 0) {                          // 광장에서 다시 일어난다
@@ -876,7 +922,8 @@ function stepHeroes(g, dt) {
     }
     h.calm += dt;
     if (h.calm >= RPG.calm) h.hp = Math.min(h.max, h.hp + h.max * RPG.calmRegen * dt);
-    rpgWalk(h, dt);
+    if (h.dash > 0) dashStep(h, dt);                // 대쉬 중에는 걷지 않고 달려 나간다
+    else rpgWalk(h, dt);
 
     // 문에 들어서면 반대쪽 맵으로 옮겨 간다
     if (h.gateCd <= 0) {
@@ -1215,7 +1262,7 @@ export function rpgPack(g) {
         r1(h.sk), h.swing > 0 ? 1 : 0, mapIdx(h.map), h.coins, h.quest.on ? 1 : 0, h.quest.n, h.kills,
         h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0, h.face,
         STAT_IDS.map((k) => h.st[k]), packBuffs(h), h.admin ? 1 : 0,
-        ACTIVE_SKILLS.map((s) => r1((h.scd && h.scd[s.id]) || 0))]
+        ACTIVE_SKILLS.map((s) => r1((h.scd && h.scd[s.id]) || 0)), r1(h.dashCd || 0)]
       : 0)),
     b: packBags(g),
     m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
@@ -1236,7 +1283,9 @@ export function rpgApply(g, s) {
     h.map = map;
     h.tx = row[0]; h.ty = row[1];
     // 내 영웅은 내 화면에서 먼저 걷는다. 맵을 옮겼거나 크게 벌어졌을 때만 맞춘다.
-    if (moved || (mine && Math.hypot(row[0] - h.x, row[1] - h.y) > (h.hold.length ? 140 : 70))) {
+    // 방금 내 화면에서 대쉬했으면 방장 위치가 따라올 때까지 크게 벌어져도 기다린다
+    const slack = mine && h.predict > 0 ? DASH.dist + 140 : h.hold.length ? 140 : 70;
+    if (moved || (mine && Math.hypot(row[0] - h.x, row[1] - h.y) > slack)) {
       h.x = row[0]; h.y = row[1];
     }
     if (!mine) { h.dir = row[2]; h.face = row[20] || 0; }
@@ -1249,6 +1298,8 @@ export function rpgApply(g, s) {
     applyBuffs(h, row[22]);
     h.admin = row[23] ? 1 : 0;
     if (Array.isArray(row[24])) { h.scd = {}; ACTIVE_SKILLS.forEach((s, i) => { h.scd[s.id] = row[24][i] || 0; }); }
+    // 대쉬 대기 시간 — 내 화면에서 먼저 대쉬했으면 방장 값이 따라올 때까지 큰 쪽을 둔다
+    h.dashCd = mine ? Math.max(row[25] || 0, h.dash > 0 ? h.dashCd || 0 : 0) : row[25] || 0;
     if (s.b && s.b[pi]) h.bag = s.b[pi];
   });
   const seen = new Set();
@@ -1305,7 +1356,9 @@ export function rpgStepVisual(g, dt) {
     h.flash = Math.max(0, h.flash - dt);
     if (h.tx === undefined) return;
     if (h.pi === g.mySeat) {
-      if (h.down <= 0 && h.hold.length) rpgWalk(h, dt);
+      h.predict = Math.max(0, (h.predict || 0) - dt);
+      if (h.dash > 0) dashStep(h, dt);             // 먼저 그린 대쉬
+      else if (h.down <= 0 && h.hold.length) rpgWalk(h, dt);
       else { h.x += (h.tx - h.x) * k * 0.5; h.y += (h.ty - h.y) * k * 0.5; }
     } else {
       const dx = h.tx - h.x;

@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill,
+  charRecord, setAccount, coinOf, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
@@ -22,6 +22,7 @@ const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyQ"];
 const TALK_KEYS = ["Enter", "KeyE"];
 const STAT_KEYS = ["KeyC"];
 // 산 스킬 — 숫자키 1 ~ 4 (SKILLS[].use.key)
+const DASH_KEYS = ["KeyF"];                          // 대쉬
 const USE_KEYS = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4 };
 const BAG_KEYS = ["KeyI"];
 const FIRE_KEYS = ["Space"];
@@ -370,8 +371,10 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         ? `아직 ${QUEST.need - h.quest.n}마리 남았네. 토끼도 가끔 들이받으니 조심하게.`
         : `토끼 ${QUEST.need}마리만 잡아 주게. 경험치 ${QUEST.xp}과 ${QUEST.coin}코인을 주겠네.`);
     }
+    if (kind === "dash" && !isHost) predictDash(g.heroes[mySeat]);   // 손님도 내 대쉬는 먼저 그린다
     if (isHost) {
-      if (kind === "stat") rpgStat(g, mySeat, dir);
+      if (kind === "dash") rpgDash(g, mySeat);
+      else if (kind === "stat") rpgStat(g, mySeat, dir);
       else if (kind === "shop") rpgShop(g, mySeat, dir);
       else if (kind === "use") rpgUseSkill(g, mySeat, dir);
       else if (kind === "skill") rpgSkill(g, mySeat);
@@ -445,6 +448,11 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       const isSkill = SKILL_KEYS.includes(e.code);
       const isTalk = TALK_KEYS.includes(e.code);
       const isFire = FIRE_KEYS.includes(e.code);
+      if (DASH_KEYS.includes(e.code)) {
+        e.preventDefault();
+        if (!e.repeat) act("dash");
+        return;
+      }
       if (USE_KEYS[e.code]) {
         e.preventDefault();
         const s = ACTIVE_SKILLS.find((q) => q.use.key === USE_KEYS[e.code]);
@@ -500,6 +508,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         else if (d.kind === "auto") rpgAuto(g, d.cls, !!d.dir);
         else if (d.kind === "stat") rpgStat(g, d.cls, d.dir);
         else if (d.kind === "use") rpgUseSkill(g, d.cls, d.dir);
+        else if (d.kind === "dash") rpgDash(g, d.cls);
         else if (d.kind === "shop") rpgShop(g, d.cls, d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
@@ -584,6 +593,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           // 산 스킬 칸 — 배운 것만, 남은 대기 시간과 함께
           skills: ACTIVE_SKILLS.filter((s) => me.bag.s[s.id] > 0).map((s) => ({ id: s.id, key: s.use.key, name: s.name,
             lv: me.bag.s[s.id], cd: (me.scd && me.scd[s.id]) || 0, max: s.use.cd })),
+          dashCd: me.dashCd || 0,
           extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
@@ -789,8 +799,15 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
             </div>
           )}
 
-          {me && me.skills.length > 0 && !shopOpen && !bagOpen && (
+          {me && !shopOpen && !bagOpen && (
             <div className="rpg-skillbar">
+              <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
+                onPointerDown={(e) => { e.preventDefault(); act("dash"); }}>
+                <kbd>F</kbd>
+                <span>대쉬<small>회피 {DASH.inv}초</small></span>
+                {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
+                {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
+              </button>
               {me.skills.map((s) => (
                 <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
                   onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
@@ -870,8 +887,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         <p className="keyhint rpg-keys">
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_CREW_MAX}명 ·{" "}
           {touch
-            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 곁에서 대화 · 산 스킬은 왼쪽 아래 칸을 누름 · 레벨 칸의 스탯 · 가방 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 · 상점 곁에서 <kbd>E</kbd> · 산 스킬 <kbd>1</kbd>~<kbd>4</kbd> · 스탯 <kbd>C</kbd> · 가방 <kbd>I</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
+            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 레벨 칸의 스탯 · 가방 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
+            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 · 상점 곁에서 <kbd>E</kbd> · 대쉬 <kbd>F</kbd> · 산 스킬 <kbd>1</kbd>~<kbd>4</kbd> · 스탯 <kbd>C</kbd> · 가방 <kbd>I</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
@@ -883,6 +900,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           늑대는 10~20레벨로 {SPAWNS[2].n}마리, 우두머리 늑대(보스 · 25레벨)는 {SPAWNS[3].n}마리까지 나옵니다.
           멧돼지는 20~50레벨로 {SPAWNS[4].n}마리, 멧돼지 왕(보스 · 55레벨)은 {SPAWNS[5].n}마리까지 나옵니다. 멧돼지는 몸을 낮췄다가 일직선으로 돌진하니 옆으로 피하세요. 한 마리가 잡히면 한 마리가 새로 나옵니다.
           스킬 상점에서 산 액티브 스킬은 숫자키 1~4(휴대폰은 왼쪽 아래 칸)로 씁니다.
+          대쉬(F)는 누른 방향으로 짧게 달려 나가고, 그동안 {DASH.inv}초는 맞지 않습니다. {DASH.cd}초마다 쓸 수 있습니다.
           레벨이 높은 몹일수록 경험치와 코인을 더 줍니다. 1레벨 토끼는 경험치 2 · {coinOf(1)}코인, 10레벨 늑대는 경험치 20 · {coinOf(10)}코인입니다.
           {MOB_REGEN.calm}초 넘게 맞지 않은 몹은 체력이 조금씩 차오릅니다.
           토끼는 맞으면 달아나고 가끔 들이받지만, 늑대와 보스는 가까이 가거나 때리면 쫓아옵니다.

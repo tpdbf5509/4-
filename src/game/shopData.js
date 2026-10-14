@@ -80,21 +80,31 @@ export const SKILL_FAMS = [
 ];
 /* 스킬 — 배열의 n번째 값이 n+1레벨로 올릴 때의 조건이다(첫 값은 처음 배울 때).
    gold 비용 · lv 캐릭터 레벨 · need 계열 스탯 수치(장비 · 버프를 뺀, 찍은 포인트로 만든 값).
-   패시브는 bonus 만큼 스킬 레벨마다 스탯이 오른다. 액티브는 아직 사고 올리기만 한다(전투에서 쓰기는 다음 작업). */
+   패시브는 bonus 만큼 스킬 레벨마다 스탯이 오른다.
+   액티브는 use 대로 숫자키(key)로 쓴다. cd 는 다시 쓰기까지 초, mul 은 스킬 레벨별 위력 배율(SKILL_USE.base × 스탯 배율에 곱한다).
+   dmg 는 위력을 따르는 스탯 — str 물리력 · int 마법력 · job 직업의 공격 스탯. */
+export const SKILL_USE = {
+  base: 40,              // 공격 스킬의 기본 피해 — 스탯 10 일 때 mul 1 이면 이만큼
+  reach: 1.3,            // 한 마리를 노리는 스킬의 사거리 — 내 평타 사거리의 배수
+};
 export const SKILLS = [
-  { id: "smash", name: "강타", kind: "active", fam: "phys", note: "앞의 적을 세게 내려친다",
+  { id: "smash", name: "강타", kind: "active", fam: "phys", note: "가장 가까운 적 하나를 세게 내려친다",
+    use: { key: 1, cd: 6, dmg: "str", mul: [3, 3.6, 4.2, 4.8, 5.4] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [30, 40, 50, 60, 70] },
   { id: "might", name: "근력 단련", kind: "passive", fam: "phys", note: "물리력이 오른다", bonus: { stat: "str", per: 4 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [20, 30, 40, 50, 60] },
-  { id: "burst", name: "마력 폭발", kind: "active", fam: "magic", note: "둘레에 마력을 터뜨린다",
+  { id: "burst", name: "마력 폭발", kind: "active", fam: "magic", note: "내 둘레의 적을 모두 친다",
+    use: { key: 2, cd: 10, dmg: "int", radius: 210, mul: [2, 2.4, 2.8, 3.2, 3.6] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [30, 40, 50, 60, 70] },
   { id: "mana", name: "마나 친화", kind: "passive", fam: "magic", note: "마법력이 오른다", bonus: { stat: "int", per: 4 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [20, 30, 40, 50, 60] },
-  { id: "pierce", name: "급소 찌르기", kind: "active", fam: "crit", note: "반드시 치명타가 터지는 일격",
+  { id: "pierce", name: "급소 찌르기", kind: "active", fam: "crit", note: "가장 가까운 적에게 반드시 치명타가 터진다",
+    use: { key: 3, cd: 8, dmg: "job", crit: 1, mul: [2.2, 2.6, 3, 3.4, 3.8] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [10, 15, 20, 25, 30] },
   { id: "eye", name: "날카로운 눈", kind: "passive", fam: "crit", note: "치명타 확률이 오른다", bonus: { stat: "crit", per: 1 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [8, 12, 16, 20, 24] },
-  { id: "aid", name: "응급 처치", kind: "active", fam: "life", note: "체력을 크게 되찾는다",
+  { id: "aid", name: "응급 처치", kind: "active", fam: "life", note: "최대 체력의 일부를 바로 되찾는다",
+    use: { key: 4, cd: 30, heal: [0.25, 0.3, 0.35, 0.4, 0.45] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [200, 300, 400, 500, 600] },
   { id: "tough", name: "강인함", kind: "passive", fam: "life", note: "최대 체력이 오른다", bonus: { stat: "hp", per: 30 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [130, 200, 270, 340, 410] },

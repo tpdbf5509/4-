@@ -144,7 +144,7 @@ function SkillShop({ h, send }) {
               <>
                 {s.note}
                 {s.bonus && ` · 레벨마다 ${statDef(s.bonus.stat).name} +${statDef(s.bonus.stat).fmt(s.bonus.per)}`}
-                {s.kind === "active" && " · 전투에서 쓰기는 준비 중"}
+                {s.use && ` · 숫자키 ${s.use.key} · ${s.use.cd}초마다`}
                 {nx && <span className="shop-need">다음 Lv {nx.lv} — 레벨 {nx.needLv} · {nsd.name} {nsd.fmt(nx.need)}</span>}
               </>
             }

@@ -7,7 +7,7 @@
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
-import { SHOPS } from "./shopData.js";
+import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE } from "./shopData.js";
 import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs } from "./shop.js";
 
 export const RPG_CREW_MAX = 16;
@@ -53,13 +53,25 @@ export const MAPS = {
   wolf: {
     id: "wolf", name: "늑대 사냥터", w: 3600, h: 1700, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
     tint: "rgba(16,34,22,0.32)",                  // 숲이 깊어 조금 어둡다
-    gates: [{ x: 90, y: 920, r: 64, to: "field", at: [3520, 920], label: "토끼 사냥터" }],
+    gates: [
+      { x: 90, y: 920, r: 64, to: "field", at: [3520, 920], label: "토끼 사냥터" },
+      { x: 3510, y: 920, r: 64, to: "boar", at: [260, 920], label: "멧돼지 사냥터 · 20~50레벨" },
+    ],
     blocks: [],
     npcs: [],
-    zone: [520, 3450],
+    zone: [520, 3300],
+    paths: [[[3570, 920], [3400, 920], [3240, 880], [3080, 900]]],   // 멧돼지 사냥터로 가는 흙길
+  },
+  boar: {
+    id: "boar", name: "멧돼지 사냥터", w: 4200, h: 1700, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
+    tint: "rgba(70,48,20,0.24)",                  // 메마른 흙빛 숲
+    gates: [{ x: 90, y: 920, r: 64, to: "wolf", at: [3400, 920], label: "늑대 사냥터" }],
+    blocks: [],
+    npcs: [],
+    zone: [520, 4050],
   },
 };
-const MAP_IDS = ["plaza", "field", "wolf"];
+const MAP_IDS = ["plaza", "field", "wolf", "boar"];
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -71,6 +83,7 @@ export const MOB_REGEN = { calm: 5, rate: 0.08 };
 /* ── 몹 — 레벨이 오를수록 크고 단단하고 아프다 ─────────────────────
    토끼는 1~5레벨, 맞으면 달아나고 가끔 들이받는다. 대왕 토끼(보스)는 10레벨, 달아나지 않고 자주 들이받는다.
    늑대는 10~20레벨, 가까이 오면 쫓아와 문다. 우두머리 늑대(보스)는 25레벨, 둘레를 한꺼번에 문다.
+   멧돼지는 20~50레벨, 쫓아와 들이받고 가까우면 몸을 낮췄다가 일직선으로 돌진한다. 멧돼지 왕(보스)은 55레벨.
    size 는 그리는 크기와 몸 반지름(rad)에 같이 곱한다. */
 export const MOB = {
   rabbit: {
@@ -89,8 +102,18 @@ export const MOB = {
     size: (lv) => 1 + 0.05 * (lv - 10),           // 1.0 ~ 1.5 — 토끼보다 훨씬 크다
     boss: { name: "우두머리 늑대", lv: 25, hp: 8000, dmg: 55, xp: 400, coin: 250, size: 2.1 },
   },
+  boar: {
+    name: "멧돼지", rad: 26,
+    hp: (lv) => 900 + 80 * (lv - 20),             // 900 ~ 3,300
+    dmg: (lv) => 30 + 2 * (lv - 20),              // 들이받기 30 ~ 90 (돌진은 BOAR.chargeMul 배)
+    xp: (lv) => 2 * lv, coin: (lv) => lv,
+    size: (lv) => 1.05 + 0.015 * (lv - 20),       // 1.05 ~ 1.5
+    boss: { name: "멧돼지 왕", lv: 55, hp: 30000, dmg: 120, xp: 1500, coin: 800, size: 2 },
+  },
 };
-const MOB_TYPES = ["rabbit", "wolf"];
+// 멧돼지 돌진 — 이 거리 안에 들면 wind 초 몸을 낮췄다가 speed 로 time 초 달린다. 돌진에 맞으면 dmg × chargeMul
+export const BOAR = { aggro: 270, chargeRange: 230, wind: 0.45, speed: 430, time: 0.7, rest: 1.1, cd: 3.6, chargeMul: 1.5, walk: 150 };
+const MOB_TYPES = ["rabbit", "wolf", "boar"];
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -100,6 +123,8 @@ export const SPAWNS = [
   { map: "field", type: "rabbit", boss: 1, n: 2, respawn: 5 },
   { map: "wolf", type: "wolf", n: 24, lv: [10, 20], respawn: 2 },
   { map: "wolf", type: "wolf", boss: 1, n: 2, respawn: 5 },
+  { map: "boar", type: "boar", n: 22, lv: [20, 50], respawn: 2.5 },
+  { map: "boar", type: "boar", boss: 1, n: 2, respawn: 8 },
 ];
 
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
@@ -528,7 +553,7 @@ function spawnMob(g, gi) {
     ax: Math.random() < 0.5 ? -1 : 1,
     hp, max: hp, rad: T.rad * size, age: 0, calm: 0,
     dmg: sp.boss ? T.boss.dmg : T.dmg(lv), xp: sp.boss ? T.boss.xp : T.xp(lv), coin: coinOf(sp.boss ? T.boss.coin : T.coin(lv)),
-    state: "idle", t: 0.5 + Math.random() * 1.5, vx: 0, vy: 0, tgt: -1, bumpCd: 2, biteCd: 1, bite: 0,
+    state: "idle", t: 0.5 + Math.random() * 1.5, vx: 0, vy: 0, tgt: -1, bumpCd: 2, biteCd: 1, bite: 0, chargeCd: 1.5, hitSet: null,
     slow: 0, freeze: 0, stun: 0, burn: 0, bdps: 0, bby: -1, poison: 0, pdps: 0, pby: -1,
     shred: 0, shredAmt: 0, flash: 0, dotT: 0.5, numAcc: 0, numT: 0, numCol: "#ffe9bd",
   });
@@ -553,11 +578,11 @@ function flushNum(g, m, tier = 0) {
   m.numT = 0.2;
 }
 
-function hitMob(g, pi, m, raw, skill) {
+function hitMob(g, pi, m, raw, skill, sureCrit) {
   if (!m || m.dead) return 0;
   const h = g.heroes[pi];
   let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0));
-  const crit = h ? Math.random() < critChance(h) : false;
+  const crit = h ? sureCrit || Math.random() < critChance(h) : false;
   if (crit) dmg *= critMul(h);
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg;
@@ -567,7 +592,7 @@ function hitMob(g, pi, m, raw, skill) {
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
   if (crit || skill || m.numT <= 0) flushNum(g, m, crit ? 2 : skill ? 1 : 0);
   // 늑대와 대왕 토끼는 때린 쪽을 노린다
-  if (h && m.hp > 0 && (m.type === "wolf" || m.boss)) { m.tgt = pi; m.bumpCd = Math.min(m.bumpCd, 0.6); }
+  if (h && m.hp > 0 && (m.type !== "rabbit" || m.boss)) { m.tgt = pi; m.bumpCd = Math.min(m.bumpCd, 0.6); }
   // 작은 토끼는 때린 쪽 반대로 달아난다
   else if (h && m.hp > 0 && m.freeze <= 0 && m.stun <= 0) {
     const dx = m.x - h.x, dy = (m.y - h.y) / RPG.squash;
@@ -784,6 +809,47 @@ export function rpgSkill(g, pi) {
   fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: name, color: "#ffd873", t: 0.9, life: 0.9, snd: "crit" });
 }
 
+/* ── 산 스킬 — 숫자키로 쓴다 (방장만 판정) ─────────────────────────
+   액티브 스킬만. 위력 · 대기 시간은 shopData.js 의 SKILLS[].use. 대기 시간은 h.scd[스킬id] 에 남는다. */
+export const ACTIVE_SKILLS = SHOP_SKILLS.filter((s) => s.use).sort((a, b) => a.use.key - b.use.key);
+const skillStatMul = (h, k) => (k === "str" ? physMul(h) : k === "int" ? magMul(h) : heroDmgMul(h));
+export function rpgUseSkill(g, pi, id) {
+  const h = g.heroes[pi];
+  const s = ACTIVE_SKILLS.find((q) => q.id === id);
+  if (!h || !s || !h.loaded || h.down > 0) return;
+  const lv = (h.bag && h.bag.s[id]) || 0;
+  const map = h.map;
+  if (!lv) return say(g, map, h.x, h.y - 90, `${s.name} — 스킬 상점에서 배워야 합니다`, "#d9c9a6");
+  h.scd = h.scd || {};
+  if (h.scd[id] > 0) return say(g, map, h.x, h.y - 90, `${s.name} ${Math.ceil(h.scd[id])}초`, "#f0dcb4");
+  const u = s.use;
+  const i = Math.min(lv, u.mul ? u.mul.length : u.heal.length) - 1;
+  if (u.heal) {                                    // 응급 처치 — 어디서나 쓸 수 있다
+    if (h.hp >= h.max) return say(g, map, h.x, h.y - 90, "체력이 이미 가득 찼습니다", "#d9c9a6");
+    const before = h.hp;
+    h.hp = Math.min(h.max, h.hp + h.max * u.heal[i]);
+    fx(g, map, { kind: "heal", x: h.x, y: h.y - 56, text: `+${Math.round(h.hp - before)}`, t: 0.9, life: 0.9, snd: "bless", who: pi });
+  } else {
+    if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
+    const dmg = SKILL_USE.base * skillStatMul(h, u.dmg) * u.mul[i];
+    if (u.radius) {                                // 둘레를 모두
+      const list = nearMobs(g, map, h.x, h.y, u.radius);
+      if (!list.length) return say(g, map, h.x, h.y - 90, "닿는 몹이 없다", "#d9c9a6");
+      list.forEach((m) => hitMob(g, pi, m, dmg, true, u.crit));
+      fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
+    } else {                                       // 가장 가까운 하나
+      const [m] = nearMobs(g, map, h.x, h.y, heroRange(h) * SKILL_USE.reach, 1);
+      if (!m) return say(g, map, h.x, h.y - 90, "사거리 안에 몹이 없다", "#d9c9a6");
+      h.dir = m.x < h.x ? -1 : 1;
+      hitMob(g, pi, m, dmg, true, u.crit);
+      fx(g, map, { kind: "burst", x: m.x, y: m.y - 14, r: 30, color: u.crit ? "#ffd873" : "#f2e3c2", n: 10, t: 0.4, life: 0.4, snd: "crit" });
+    }
+    h.swing = 0.35;
+  }
+  h.scd[id] = u.cd;
+  fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: s.name, color: "#ffd873", t: 0.8, life: 0.8, who: pi });
+}
+
 /* ── 한 걸음 ───────────────────────────────────────────── */
 function stepHeroes(g, dt) {
   g.heroes.forEach((h) => {
@@ -792,6 +858,7 @@ function stepHeroes(g, dt) {
     h.swing = Math.max(0, h.swing - dt);
     h.buff = Math.max(0, h.buff - dt);
     tickBuffs(h, dt);                             // 버프 물약 시간
+    if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - dt);   // 산 스킬 대기 시간
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     h.guard = Math.max(0, h.guard - dt);
     h.numT = Math.max(0, h.numT - dt);
@@ -978,16 +1045,112 @@ function stepWolf(g, m, dt) {
   keepMob(m);
 }
 
+/* 멧돼지 — 쫓아와 들이받는다. 돌진 거리 안에 들면 몸을 낮췄다가(wind) 그 자리를 향해 일직선으로 달린다.
+   돌진 중에 닿은 사람은 한 번씩 세게 맞는다. 달린 뒤에는 잠깐 숨을 고른다. 제자리에서 너무 멀어지면 돌아간다. */
+function stepBoar(g, m, dt) {
+  const spd = m.slow > 0 ? 0.5 : 1;
+  m.chargeCd = Math.max(0, m.chargeCd - dt);
+  if (m.state === "wind") {                        // 몸을 낮춘다 — 이때 피하면 된다
+    m.moving = 0; m.bite = 0.2;
+    m.t -= dt;
+    if (m.t <= 0) {
+      const tg = g.heroes[m.tgt];
+      const tx = tg ? tg.x : m.x + m.ax * 100, ty = tg ? tg.y : m.y;
+      const dx = tx - m.x, dy = (ty - m.y) / RPG.squash, d = Math.hypot(dx, dy) || 1;
+      m.vx = (dx / d) * BOAR.speed; m.vy = (dy / d) * BOAR.speed;
+      m.state = "charge"; m.t = BOAR.time; m.hitSet = [];
+      fx(g, m.map, { kind: "ring", x: m.x, y: m.y - 10, r: 30 * m.size, color: "#e8c39a", t: 0.3, life: 0.3 });
+    }
+    keepMob(m);
+    return;
+  }
+  if (m.state === "charge") {                      // 일직선으로 달린다
+    m.x += m.vx * spd * dt; m.y += m.vy * spd * RPG.squash * dt;
+    if (Math.abs(m.vx) > 1) m.ax = m.vx < 0 ? -1 : 1;
+    m.moving = 1;
+    g.heroes.forEach((h) => {
+      if (!h || h.map !== m.map || h.down > 0 || m.hitSet.includes(h.pi)) return;
+      if (dist(m.x, m.y, h.x, h.y) > m.rad + 18) return;
+      m.hitSet.push(h.pi);
+      hurtHero(g, h, m.dmg * BOAR.chargeMul);
+      fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22 * m.size, color: "#ffc9a0", n: 7, t: 0.32, life: 0.32 });
+    });
+    m.t -= dt;
+    if (m.t <= 0) { m.state = "rest"; m.t = BOAR.rest; m.chargeCd = BOAR.cd * (m.boss ? 0.7 : 1); m.vx = 0; m.vy = 0; }
+    keepMob(m);
+    return;
+  }
+  if (m.state === "rest") {                        // 숨을 고른다
+    m.moving = 0;
+    m.t -= dt;
+    if (m.t <= 0) { m.state = "idle"; m.t = 0.3; }
+    return;
+  }
+  // 쫓아가 들이받는다 — 늑대와 같은 셈, 조금 느리다
+  const aggro = m.boss ? BOAR.aggro * 1.3 : BOAR.aggro;
+  const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
+  let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
+  if (tg && (tg.map !== m.map || tg.down > 0 || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > 900)) { tg = null; m.tgt = -1; }
+  if (!tg && far < 700) {
+    const near = nearestHero(g, m, aggro);
+    if (near) { tg = near; m.tgt = near.pi; }
+  }
+  if (tg) {
+    const dx = tg.x - m.x, dy = (tg.y - m.y) / RPG.squash;
+    const d = Math.hypot(dx, dy) || 1;
+    const reach = m.rad + 16;
+    if (Math.abs(dx) > 2) m.ax = dx < 0 ? -1 : 1;
+    if (m.chargeCd <= 0 && d > reach && d < BOAR.chargeRange * (m.boss ? 1.3 : 1)) {
+      m.state = "wind"; m.t = BOAR.wind * (m.boss ? 0.8 : 1); m.moving = 0;
+      return;
+    }
+    if (d > reach) {
+      const v = BOAR.walk * (m.boss ? 1.15 : 1) * spd;
+      m.x += (dx / d) * v * dt; m.y += (dy / d) * v * RPG.squash * dt;
+      m.moving = 1;
+    } else {
+      m.moving = 0;
+      if (m.biteCd <= 0) {
+        hurtHero(g, tg, m.dmg);
+        fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 26, r: 18, color: "#ffc9a0", n: 6, t: 0.3, life: 0.3 });
+        m.biteCd = m.boss ? 1.4 : 1.6;
+        m.bite = 0.25;
+      }
+    }
+  } else {
+    m.t -= dt;
+    if (m.t <= 0) {
+      if (m.state === "idle") {
+        const back = far > 260;
+        const a = back ? Math.atan2((m.hy - m.y) / RPG.squash, m.hx - m.x) : Math.random() * Math.PI * 2;
+        const v = back ? 120 : 60 + Math.random() * 40;
+        m.state = "walk"; m.t = back ? 1.2 : 0.8 + Math.random() * 1.2;
+        m.vx = Math.cos(a) * v; m.vy = Math.sin(a) * v;
+      } else {
+        m.state = "idle"; m.t = 1 + Math.random() * 2.2; m.vx = 0; m.vy = 0;
+      }
+    }
+    if (m.state === "walk") {
+      m.x += m.vx * spd * dt;
+      m.y += m.vy * spd * RPG.squash * dt;
+      if (Math.abs(m.vx) > 1) m.ax = m.vx < 0 ? -1 : 1;
+    }
+    m.moving = m.state === "walk" ? 1 : 0;
+  }
+  keepMob(m);
+}
+
 function stepMob(g, m, dt) {
   if (!tickMob(g, m, dt)) return;
-  if (m.type === "wolf") { stepWolf(g, m, dt); spreadWolves(g, m); }
+  if (m.type === "wolf") { stepWolf(g, m, dt); spreadPack(g, m); }
+  else if (m.type === "boar") { stepBoar(g, m, dt); if (m.state !== "charge") spreadPack(g, m); }
   else stepRabbit(g, m, dt);
 }
 
-// 한 사람에게 몰려도 한 자리에 겹치지 않게 늑대끼리 살짝 밀어낸다
-function spreadWolves(g, m) {
+// 한 사람에게 몰려도 한 자리에 겹치지 않게 같은 무리끼리 살짝 밀어낸다(늑대 · 멧돼지)
+function spreadPack(g, m) {
   for (const q of g.mobs) {
-    if (q === m || q.dead || q.type !== "wolf" || q.map !== m.map) continue;
+    if (q === m || q.dead || q.type !== m.type || q.map !== m.map) continue;
     const dx = m.x - q.x, dy = (m.y - q.y) / RPG.squash;
     const d = Math.hypot(dx, dy), min = (m.rad + q.rad) * 0.8;
     if (d >= min) continue;
@@ -1051,7 +1214,8 @@ export function rpgPack(g) {
       ? [Math.round(h.x), Math.round(h.y), h.dir, Math.round(h.hp), h.max, r1(h.down), h.lv, h.xp,
         r1(h.sk), h.swing > 0 ? 1 : 0, mapIdx(h.map), h.coins, h.quest.on ? 1 : 0, h.quest.n, h.kills,
         h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0, h.face,
-        STAT_IDS.map((k) => h.st[k]), packBuffs(h), h.admin ? 1 : 0]
+        STAT_IDS.map((k) => h.st[k]), packBuffs(h), h.admin ? 1 : 0,
+        ACTIVE_SKILLS.map((s) => r1((h.scd && h.scd[s.id]) || 0))]
       : 0)),
     b: packBags(g),
     m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
@@ -1084,6 +1248,7 @@ export function rpgApply(g, s) {
     h.loaded = row[16]; h.buff = row[17] ? 0.3 : 0; h.guard = row[18] ? 0.3 : 0; h.auto = row[19] ? 1 : 0;
     applyBuffs(h, row[22]);
     h.admin = row[23] ? 1 : 0;
+    if (Array.isArray(row[24])) { h.scd = {}; ACTIVE_SKILLS.forEach((s, i) => { h.scd[s.id] = row[24][i] || 0; }); }
     if (s.b && s.b[pi]) h.bag = s.b[pi];
   });
   const seen = new Set();

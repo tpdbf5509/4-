@@ -1130,6 +1130,18 @@ kbd {
 .rpg-lv-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 1px; }
 .rpg-lv-coin { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-family: 'Do Hyeon', sans-serif; font-size: 13px; color: #f3d27f; }
 .rpg-lv-coin svg { width: 14px; height: 14px; display: block; }
+/* 산 스킬 칸 — 왼쪽 아래. 숫자키 · 이름 · 남은 대기 시간 */
+.rpg-skillbar { position: absolute; left: 12px; bottom: 12px; z-index: 3; display: flex; gap: 6px; pointer-events: auto; }
+.rpg-skill {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; min-width: 96px; padding: 6px 10px 6px 6px; cursor: pointer; overflow: hidden;
+  border-radius: 9px; border: 1px solid rgba(226, 205, 165, 0.35); background: rgba(34, 26, 18, 0.82); color: #ecdfc4; font-family: inherit; text-align: left;
+}
+.rpg-skill kbd { margin: 0; }
+.rpg-skill span { display: flex; flex-direction: column; font-size: 12.5px; line-height: 1.15; letter-spacing: -0.02em; }
+.rpg-skill span small { font-size: 10px; color: #a99a7e; }
+.rpg-skill em { margin-left: auto; font-style: normal; font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: #e3c48a; }
+.rpg-skill i { position: absolute; left: 0; bottom: 0; height: 2px; background: #e3c48a; }
+.rpg-skill.cool span { opacity: 0.55; }
 .rpg-admin { margin-left: 6px; padding: 0 6px; border: 1px solid #d6b26a; border-radius: 999px; font-style: normal; font-size: 10px; color: #ffe08a; }
 .rpg-lv-sk { font-size: 10.5px; color: #a8987a; }
 /* 레벨 칸의 스탯 버튼 — 찍을 포인트가 남아 있으면 숫자가 붙는다 */
@@ -1350,6 +1362,10 @@ kbd {
 .shop-stat em { grid-column: 2; font-style: normal; font-size: 11px; color: var(--sh-faint); text-align: right; }
 
 @media (max-width: 560px), (max-height: 560px) {
+  .rpg-skillbar { left: 6px; bottom: 6px; gap: 4px; }
+  .rpg-skill { min-width: 0; padding: 4px 7px 4px 4px; gap: 4px; }
+  .rpg-skill span { font-size: 11px; }
+  .rpg-skill span small { display: none; }
   .rpg-lv { left: 6px; top: 6px; width: 172px; padding: 4px 7px 4px 4px; gap: 5px; border-radius: 9px; }
   .rpg-lv-badge { width: 30px; font-size: 16px; border-radius: 7px; }
   .rpg-lv-badge em { font-size: 8px; margin-bottom: 0; }

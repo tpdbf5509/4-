@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, MOB_REGEN,
+  charRecord, setAccount, coinOf, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
@@ -21,6 +21,8 @@ const SNAP_HZ = 12;
 const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyQ"];
 const TALK_KEYS = ["Enter", "KeyE"];
 const STAT_KEYS = ["KeyC"];
+// 산 스킬 — 숫자키 1 ~ 4 (SKILLS[].use.key)
+const USE_KEYS = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4 };
 const BAG_KEYS = ["KeyI"];
 const FIRE_KEYS = ["Space"];
 const AUTO_KEY = "flg:rpgAuto";
@@ -371,6 +373,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     if (isHost) {
       if (kind === "stat") rpgStat(g, mySeat, dir);
       else if (kind === "shop") rpgShop(g, mySeat, dir);
+      else if (kind === "use") rpgUseSkill(g, mySeat, dir);
       else if (kind === "skill") rpgSkill(g, mySeat);
       else if (kind === "talk") rpgTalk(g, mySeat);
       else if (kind === "fire") rpgFire(g, mySeat, dir);
@@ -442,6 +445,12 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       const isSkill = SKILL_KEYS.includes(e.code);
       const isTalk = TALK_KEYS.includes(e.code);
       const isFire = FIRE_KEYS.includes(e.code);
+      if (USE_KEYS[e.code]) {
+        e.preventDefault();
+        const s = ACTIVE_SKILLS.find((q) => q.use.key === USE_KEYS[e.code]);
+        if (s && !e.repeat) act("use", s.id);
+        return;
+      }
       if (STAT_KEYS.includes(e.code)) {
         e.preventDefault();
         if (!e.repeat) { setShopOpen(null); setBagOpen(false); setStatOpen((v) => !v); }
@@ -490,6 +499,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         else if (d.kind === "fire") rpgFire(g, d.cls, !!d.dir);
         else if (d.kind === "auto") rpgAuto(g, d.cls, !!d.dir);
         else if (d.kind === "stat") rpgStat(g, d.cls, d.dir);
+        else if (d.kind === "use") rpgUseSkill(g, d.cls, d.dir);
         else if (d.kind === "shop") rpgShop(g, d.cls, d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
@@ -571,6 +581,9 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
           coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: npcNear(me),
           st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v, admin: !!me.admin,
+          // 산 스킬 칸 — 배운 것만, 남은 대기 시간과 함께
+          skills: ACTIVE_SKILLS.filter((s) => me.bag.s[s.id] > 0).map((s) => ({ id: s.id, key: s.use.key, name: s.name,
+            lv: me.bag.s[s.id], cd: (me.scd && me.scd[s.id]) || 0, max: s.use.cd })),
           extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
@@ -776,6 +789,19 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
             </div>
           )}
 
+          {me && me.skills.length > 0 && !shopOpen && !bagOpen && (
+            <div className="rpg-skillbar">
+              {me.skills.map((s) => (
+                <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
+                  onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
+                  <kbd>{s.key}</kbd>
+                  <span>{s.name}<small>Lv {s.lv}</small></span>
+                  {s.cd > 0 && <em>{Math.ceil(s.cd)}</em>}
+                  {s.cd > 0 && <i style={{ width: `${(s.cd / s.max) * 100}%` }} />}
+                </button>
+              ))}
+            </div>
+          )}
           {me && me.down > 0 && (
             <div className="rpg-down">쓰러졌습니다 — {Math.ceil(me.down)}초 뒤 광장에서 일어납니다</div>
           )}
@@ -844,17 +870,19 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
         <p className="keyhint rpg-keys">
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_CREW_MAX}명 ·{" "}
           {touch
-            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 곁에서 대화 · 레벨 칸의 스탯 · 가방 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 · 상점 곁에서 <kbd>E</kbd> · 스탯 <kbd>C</kbd> · 가방 <kbd>I</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
+            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 곁에서 대화 · 산 스킬은 왼쪽 아래 칸을 누름 · 레벨 칸의 스탯 · 가방 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
+            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 · 상점 곁에서 <kbd>E</kbd> · 산 스킬 <kbd>1</kbd>~<kbd>4</kbd> · 스탯 <kbd>C</kbd> · 가방 <kbd>I</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
-          광장 오른쪽의 사냥문으로 들어가면 토끼 사냥터입니다. 토끼 사냥터 오른쪽 끝의 문으로 가면 늑대 사냥터(10~20레벨)이고, 각 사냥터 왼쪽 끝의 문으로 돌아옵니다.
+          광장 오른쪽의 사냥문으로 들어가면 토끼 사냥터입니다. 토끼 사냥터 오른쪽 끝의 문으로 가면 늑대 사냥터(10~20레벨), 늑대 사냥터 오른쪽 끝의 문으로 가면 멧돼지 사냥터(20~50레벨)입니다. 각 사냥터 왼쪽 끝의 문으로 돌아옵니다.
           자동 평타가 켜져 있으면 사거리 안의 몹을 저절로 칩니다. 레벨 칸의 ☰ 메뉴에서 끌 수 있고,
           끄면 스페이스(휴대폰은 공격 버튼)를 누르고 있는 동안 칩니다. 켜져 있어도 스페이스로 칠 수 있습니다.
           몹 머리 위에 레벨이 보이고, 레벨이 높을수록 크고 단단합니다. 입구에서 멀어질수록 높은 레벨이 나옵니다.
           토끼는 1~5레벨로 {SPAWNS[0].n}마리, 대왕 토끼(보스 · 10레벨)는 {SPAWNS[1].n}마리까지 나옵니다.
-          늑대는 10~20레벨로 {SPAWNS[2].n}마리, 우두머리 늑대(보스 · 25레벨)는 {SPAWNS[3].n}마리까지 나옵니다. 한 마리가 잡히면 한 마리가 새로 나옵니다.
+          늑대는 10~20레벨로 {SPAWNS[2].n}마리, 우두머리 늑대(보스 · 25레벨)는 {SPAWNS[3].n}마리까지 나옵니다.
+          멧돼지는 20~50레벨로 {SPAWNS[4].n}마리, 멧돼지 왕(보스 · 55레벨)은 {SPAWNS[5].n}마리까지 나옵니다. 멧돼지는 몸을 낮췄다가 일직선으로 돌진하니 옆으로 피하세요. 한 마리가 잡히면 한 마리가 새로 나옵니다.
+          스킬 상점에서 산 액티브 스킬은 숫자키 1~4(휴대폰은 왼쪽 아래 칸)로 씁니다.
           레벨이 높은 몹일수록 경험치와 코인을 더 줍니다. 1레벨 토끼는 경험치 2 · {coinOf(1)}코인, 10레벨 늑대는 경험치 20 · {coinOf(10)}코인입니다.
           {MOB_REGEN.calm}초 넘게 맞지 않은 몹은 체력이 조금씩 차오릅니다.
           토끼는 맞으면 달아나고 가끔 들이받지만, 늑대와 보스는 가까이 가거나 때리면 쫓아옵니다.

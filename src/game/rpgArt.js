@@ -189,6 +189,7 @@ const nearGate = (M) => (t) => M.gates.some((q) => Math.hypot(t.x - q.x, t.y - q
 const MAP_TREES = {
   field: [...plantTrees(4401, 22, 700, 2500, 0.5), ...plantTrees(4402, 12, 2500, 3500, 0.55, nearGate(MAPS.field))],
   wolf: plantTrees(4403, 46, 500, 3450, 0.8, nearGate(MAPS.wolf)),
+  boar: plantTrees(4404, 40, 500, 4050, 0.3, nearGate(MAPS.boar)),    // 멧돼지 사냥터 — 둥근 나무가 많다
 };
 const PLAZA_PROPS = [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
@@ -569,6 +570,76 @@ function drawWolf(ctx, m, time) {
   drawMobMarks(ctx, m, time, 60 * k + bob);
 }
 
+/* 멧돼지 — 코드로 그린다. 오른쪽을 보고, (0, 0)이 발밑이다. 등에 뻣뻣한 갈기, 주둥이 옆에 엄니.
+   멧돼지 왕은 털빛이 짙고 엄니가 크며 눈이 붉다. low 가 켜지면(몸을 낮춤 · 들이받음) 머리를 숙인다. */
+export function drawBoarBody(ctx, ph, moving, boss, frozen, low) {
+  const fur = frozen ? "#bcd6e6" : boss ? "#4a3428" : "#7a5a40";
+  const dark = frozen ? "#8fb3c9" : boss ? "#2c1e16" : "#563e2b";
+  const snout = frozen ? "#e2f0f8" : boss ? "#8a6a5a" : "#c09a80";
+  const line = "rgba(30,20,14,0.85)";
+  const sw = moving ? Math.sin(ph) * 5 : 0;
+  ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.lineWidth = 1.6;
+  const leg = (lx, off, col) => {
+    ctx.fillStyle = col; ctx.strokeStyle = line;
+    ctx.beginPath(); ctx.roundRect(lx - 4 + off, -14, 8, 14, 3); ctx.fill(); ctx.stroke();
+  };
+  leg(-16, -sw, dark); leg(12, sw, dark);
+  // 꼬리
+  ctx.strokeStyle = dark; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-27, -24); ctx.quadraticCurveTo(-34, -30, -31, -20); ctx.stroke();
+  ctx.lineWidth = 1.6;
+  // 몸통 — 둥글고 두툼하다
+  ctx.fillStyle = fur; ctx.strokeStyle = line;
+  ctx.beginPath(); ctx.ellipse(-2, -24, 28, 15, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // 등 갈기
+  ctx.fillStyle = dark;
+  ctx.beginPath(); ctx.moveTo(-22, -32);
+  for (let i = 0; i <= 8; i++) ctx.lineTo(-22 + i * 5.2, -38 - (i % 2 ? 6 : 1));
+  ctx.lineTo(20, -32); ctx.closePath(); ctx.fill();
+  leg(-10, sw, fur); leg(18, -sw, fur);
+  // 머리 — 숙이면 앞으로 내려간다
+  ctx.save();
+  ctx.translate(low > 0 ? 3 : 0, low > 0 ? 5 : 0);
+  ctx.rotate(low > 0 ? 0.18 : 0);
+  ctx.fillStyle = fur; ctx.strokeStyle = line;
+  ctx.beginPath(); ctx.ellipse(24, -26, 13, 11, 0.15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // 귀
+  ctx.beginPath(); ctx.moveTo(17, -34); ctx.lineTo(16, -45); ctx.lineTo(24, -36); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // 주둥이 · 콧구멍
+  ctx.fillStyle = snout;
+  ctx.beginPath(); ctx.ellipse(37, -22, 6, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#2a1c16";
+  ctx.beginPath(); ctx.arc(38, -24, 1.2, 0, Math.PI * 2); ctx.arc(38, -20, 1.2, 0, Math.PI * 2); ctx.fill();
+  // 엄니
+  const tk = boss ? 1.5 : 1;
+  ctx.fillStyle = "#f4ead6"; ctx.strokeStyle = line; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(32, -17); ctx.quadraticCurveTo(36 + 4 * tk, -18, 34 + 5 * tk, -26 - 4 * tk); ctx.lineTo(34, -19); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // 눈
+  ctx.fillStyle = boss ? "#ff5b4a" : "#1c1410";
+  ctx.beginPath(); ctx.arc(27, -30, boss ? 2.2 : 1.8, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawBoar(ctx, m, time) {
+  const k = m.size || 1;
+  const grow = Math.min(1, (m.age || 0) / 0.35);
+  const ph = (m.age || 0) * (m.boss ? 10 : 12);
+  const bob = m.moving ? Math.abs(Math.sin(ph)) * 2.2 * k : 0;
+  const x = m.x, y = m.y;
+  shadow(ctx, x, y + 2, 32 * grow * k, 8 * grow * k, 0.3);
+  ctx.save();
+  ctx.translate(x, y - bob);
+  ctx.scale((m.ax < 0 ? -1 : 1) * grow * k, grow * k);
+  drawBoarBody(ctx, ph, m.moving, m.boss, m.freeze > 0, m.bite);
+  if (m.flash > 0) {
+    ctx.globalAlpha = Math.min(0.6, m.flash * 5);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.ellipse(4, -26, 36, 18, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  drawMobMarks(ctx, m, time, 54 * k + bob);
+}
+
 /* 몹 머리 위 — 걸린 것(불 · 독 · 기절), 체력, 레벨. top 은 발밑에서 머리 꼭대기까지의 높이 */
 function drawMobMarks(ctx, m, time, top) {
   const x = m.x, y = m.y;
@@ -607,7 +678,7 @@ function drawMobMarks(ctx, m, time, top) {
   const w = ctx.measureText(label).width + 10;
   ctx.fillStyle = boss ? "rgba(70,20,16,0.82)" : "rgba(20,14,10,0.62)";
   roundRect(ctx, x - w / 2, barY - 7, w, 13, 6); ctx.fill();
-  ctx.fillStyle = boss ? "#ffd873" : m.type === "wolf" ? "#f0c9a8" : "#f2ead6";
+  ctx.fillStyle = boss ? "#ffd873" : m.type === "boar" ? "#f2b48a" : m.type === "wolf" ? "#f0c9a8" : "#f2ead6";
   ctx.fillText(label, x, barY);
   ctx.restore();
 }
@@ -843,7 +914,7 @@ export function drawRpg(ctx, g, bgs) {
   drawDust(ctx, g, M.id, time);
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
-    if (o.m) (o.m.type === "wolf" ? drawWolf : drawRabbit)(ctx, o.m, time);
+    if (o.m) (o.m.type === "wolf" ? drawWolf : o.m.type === "boar" ? drawBoar : drawRabbit)(ctx, o.m, time);
     else if (o.h) drawHero(ctx, g, o.h, time);
     else if (o.gate) drawGate(ctx, o.gate, time);
     else if (o.npc) drawNpc(ctx, g, o.npc, time);

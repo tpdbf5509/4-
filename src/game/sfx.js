@@ -116,6 +116,10 @@ export function play(name) {
     [523, 659, 784, 1047].forEach((f, i) => tone({ type: "triangle", f0: f, t: 0.35, gain: 0.11, delay: i * 0.09 }));
   } else if (name === "over") {
     [392, 330, 262, 196].forEach((f, i) => tone({ type: "sawtooth", f0: f, t: 0.5, gain: 0.14, delay: i * 0.18 }));
+  } else if (name === "lvup") {               // RPG 레벨업 — 올라가는 화음과 반짝임
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone({ type: "triangle", f0: f, t: 0.42, gain: 0.11, delay: i * 0.07 }));
+    tone({ type: "sine", f0: 2093, f1: 3136, t: 0.5, gain: 0.05, delay: 0.42 });
+    noise({ t: 0.6, gain: 0.05, f: 5200, q: 2, delay: 0.3, down: false });
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ type: "square", f0: f, t: 0.4, gain: 0.12, delay: i * 0.12 }));
   }

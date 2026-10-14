@@ -2553,6 +2553,61 @@ export function drawFx(ctx, f) {
     ctx.restore();
     return;
   }
+  if (k === "lvup") {                 // RPG 레벨업 — 빛기둥이 솟고, 바닥에 고리가 퍼지고, 반짝이가 올라간다
+    const p = 1 - f.t / f.life;        // 0 → 1
+    const fade = p < 0.15 ? p / 0.15 : Math.max(0, (1 - p) / 0.85);
+    ctx.save();
+    // 빛기둥
+    const pw = 46 * (1 - p * 0.55), ph = 210 * Math.min(1, p * 4);
+    const pg = ctx.createLinearGradient(0, f.y - ph, 0, f.y);
+    pg.addColorStop(0, "rgba(255,236,170,0)");
+    pg.addColorStop(0.55, "rgba(255,226,140,0.55)");
+    pg.addColorStop(1, "rgba(255,246,210,0.85)");
+    ctx.globalAlpha = fade * 0.55;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.ellipse(f.x, f.y - ph / 2, pw / 2, ph / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 바닥 고리 둘
+    [0, 0.22].forEach((d) => {
+      const q = Math.max(0, Math.min(1, (p - d) / 0.6));
+      if (q <= 0 || q >= 1) return;
+      ctx.globalAlpha = (1 - q) * 0.95;
+      ctx.strokeStyle = "#ffe08a";
+      ctx.lineWidth = 3 * (1 - q) + 1;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, 18 + q * 70, (18 + q * 70) * 0.36, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    // 반짝이 — 영웅 둘레를 돌며 올라간다
+    for (let i = 0; i < 16; i++) {
+      const a0 = (i / 16) * Math.PI * 2 + p * 4;
+      const rr = 16 + ((i * 7) % 11) + p * 10;
+      const yy = f.y - 8 - p * (90 + ((i * 13) % 50));
+      const s = 1.6 + ((i * 5) % 3);
+      ctx.globalAlpha = fade * (0.55 + 0.45 * Math.sin(p * 18 + i));
+      ctx.fillStyle = i % 3 ? "#fff3c4" : "#ffd36a";
+      ctx.beginPath(); ctx.arc(f.x + Math.cos(a0) * rr, yy + Math.sin(a0) * rr * 0.3, s, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+    // 글자 — 톡 커졌다 제자리
+    const pop = p < 0.12 ? 0.6 + (p / 0.12) * 0.55 : p < 0.22 ? 1.15 - ((p - 0.12) / 0.1) * 0.15 : 1;
+    ctx.globalAlpha = fade;
+    ctx.translate(f.x, f.y - 128 - p * 18);
+    ctx.scale(pop, pop);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.font = "26px 'Do Hyeon', sans-serif";
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(60,38,10,0.85)";
+    ctx.strokeText("LEVEL UP", 0, 0);
+    ctx.fillStyle = "#ffe08a"; ctx.fillText("LEVEL UP", 0, 0);
+    if (f.text) {
+      ctx.font = "15px 'Do Hyeon', sans-serif"; ctx.lineWidth = 4;
+      ctx.strokeText(f.text, 0, 20); ctx.fillStyle = "#fff6dc"; ctx.fillText(f.text, 0, 20);
+    }
+    ctx.restore();
+    return;
+  }
   if (k === "boom") {
     const p = 1 - f.t / f.life;
     const r = f.r * (0.3 + p * 1.1);

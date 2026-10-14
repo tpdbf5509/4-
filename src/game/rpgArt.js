@@ -6,8 +6,8 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName } from "./rpg.js";
-import { SHOP_BY_ID } from "./shop.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial } from "./rpg.js";
+import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
    원본 시트에서 캐릭터 키는 대략 280px 이고, 그림 아래에 6px 여백이 있다. */
@@ -25,6 +25,55 @@ function heroImg(h, view) {
   }
   return im && im.complete && im.naturalWidth ? im : null;
 }
+/* 전사가 장착한 특별 무기를 손에 든다 — 칼을 지운 그림(<보기>-bare.webp, tools/bare-warrior.py)에 무기 그림을 얹는다.
+   WARRIOR_HAND: 성별 · 보기마다 손 [x, y]와 칼날 방향(도) — 원래 그림 크기 기준, bare-warrior.py 가 출력한 값.
+   WEAPON_GRIP: 무기 그림(128px)의 손잡이 [x, y] → 칼끝 [x, y]. 손잡이를 손에 맞추고 칼끝을 칼날 방향으로 돌린다 */
+const WARRIOR_HAND = {
+  m: { front: [60, 213, 124], turn: [122, 201, 48], side: [72, 194, 134], back: [103, 188, 59] },
+  f: { front: [94, 205, 123], turn: [71, 197, 133], side: [46, 197, 125], back: [95, 198, 62] },
+};
+const WEAPON_GRIP = {
+  clockwork: [28, 26, 122, 122], coral: [26, 102, 120, 4], flame: [102, 100, 8, 6], forest: [95, 104, 12, 6],
+  frost: [100, 100, 6, 4], holy: [92, 94, 12, 10], shadow: [104, 108, 12, 6], star: [102, 102, 6, 6],
+  thunder: [24, 100, 120, 6], viper: [36, 44, 122, 118],
+};
+const HELD_LEN = 30;                                  // 손잡이 → 칼끝 길이(화면 px). 원래 칼은 약 22
+const HELD_TYPE = { dagger: 0.8, great: 1.15 };        // 단검은 짧게, 대검은 길게
+const weaponCache = {};
+function weaponImg(sp) {
+  if (typeof Image === "undefined") return null;
+  const src = specialArt(sp);
+  let im = weaponCache[src];
+  if (im === undefined) {
+    im = weaponCache[src] = new Image();
+    im.onerror = () => { weaponCache[src] = null; };
+    im.src = src;
+  }
+  return im && im.complete && im.naturalWidth ? im : null;
+}
+// 손에 들 특별 무기 — 전사가 장착했고 그림 두 장(칼 지운 몸 · 무기)이 다 있을 때만
+function heldWeapon(h, view) {
+  if (h.job !== "warrior") return null;
+  const sp = SPECIAL_BY_ID[heldSpecial(h)];
+  const grip = sp && WEAPON_GRIP[sp.art];
+  const hand = WARRIOR_HAND[h.gender === "f" ? "f" : "m"][view];
+  if (!grip || !hand) return null;
+  const body = heroImg(h, `${view}-bare`), wpn = weaponImg(sp);
+  return body && wpn ? { body, wpn, grip, hand, len: HELD_LEN * (HELD_TYPE[sp.t] || 1) } : null;
+}
+function drawHeld(ctx, held, ww, top) {
+  const { wpn, grip, hand, len } = held;
+  const [gx, gy, tx, ty] = grip;
+  const rot = (hand[2] * Math.PI) / 180 - Math.atan2(ty - gy, tx - gx);
+  const k = len / Math.hypot(tx - gx, ty - gy);
+  ctx.save();
+  ctx.translate(-ww / 2 + hand[0] * HERO_K, top + hand[1] * HERO_K);
+  ctx.rotate(rot);
+  ctx.scale(k, k);
+  ctx.drawImage(wpn, -gx, -gy);
+  ctx.restore();
+}
+
 /* 보는 쪽에 맞는 그림 — 앞 그림은 오른쪽을, turn 은 왼쪽을 비스듬히 본다. 옆 그림은 왼쪽을 본다.
    flip 은 좌우로 뒤집어 그릴지 */
 function heroView(h) {
@@ -190,6 +239,7 @@ const MAP_TREES = {
   field: [...plantTrees(4401, 22, 700, 2500, 0.5), ...plantTrees(4402, 12, 2500, 3500, 0.55, nearGate(MAPS.field))],
   wolf: plantTrees(4403, 46, 500, 3450, 0.8, nearGate(MAPS.wolf)),
   boar: plantTrees(4404, 40, 500, 4050, 0.3, nearGate(MAPS.boar)),    // 멧돼지 사냥터 — 둥근 나무가 많다
+  gorilla: plantTrees(4405, 62, 500, 4500, 0.12, nearGate(MAPS.gorilla)),   // 고릴라 사냥터 — 빽빽한 활엽수 밀림
 };
 const PLAZA_PROPS = [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
@@ -640,6 +690,82 @@ function drawBoar(ctx, m, time) {
   drawMobMarks(ctx, m, time, 54 * k + bob);
 }
 
+/* 고릴라 — 코드로 그린다. 오른쪽을 보고, (0, 0)이 발밑이다. 평소에는 주먹을 땅에 짚고 걷는다.
+   up 이 켜지면(가슴 두드리기) 일어서서 두 주먹으로 가슴을 번갈아 친다. 고릴라 왕은 등이 은빛이고 눈이 붉다. */
+export function drawGorillaBody(ctx, ph, moving, boss, frozen, up) {
+  const fur = frozen ? "#bcd6e6" : boss ? "#2f2b2d" : "#423c39";
+  const dark = frozen ? "#8fb3c9" : boss ? "#1b181a" : "#2a2522";
+  const skin = frozen ? "#e2f0f8" : boss ? "#6a5d58" : "#7c6b61";
+  const silver = frozen ? "#eef7fb" : "#bdb8b1";
+  const line = "rgba(16,12,10,0.9)";
+  const sw = moving ? Math.sin(ph) * 5 : 0;
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  const limb = (x0, y0, x1, y1, w, col) => {
+    ctx.strokeStyle = line; ctx.lineWidth = w + 3;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = w;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  };
+  const blob = (x, y, rx, ry, rot, col) => {
+    ctx.fillStyle = col; ctx.strokeStyle = line; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  };
+  const face = (hx, hy) => {
+    blob(hx, hy, 11, 10, 0, fur);
+    ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(hx - 1, hy - 8, 9, 5, 0, Math.PI, Math.PI * 2); ctx.fill();   // 정수리
+    blob(hx + 5, hy + 2, 6.5, 6.5, 0, skin);
+    ctx.strokeStyle = line; ctx.lineWidth = 2;                                                            // 툭 튀어나온 눈썹
+    ctx.beginPath(); ctx.moveTo(hx, hy - 3); ctx.lineTo(hx + 10, hy - 3); ctx.stroke();
+    ctx.fillStyle = boss ? "#ff5b4a" : "#120c0a";
+    ctx.beginPath(); ctx.arc(hx + 6, hy - 0.5, boss ? 1.9 : 1.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#1a1210";
+    ctx.beginPath(); ctx.arc(hx + 9, hy + 4, 1, 0, Math.PI * 2); ctx.arc(hx + 6.5, hy + 4.3, 1, 0, Math.PI * 2); ctx.fill();
+  };
+  if (up > 0) {                                     // 일어서서 가슴을 친다
+    const beat = Math.sin(ph * 3);
+    limb(-7, -20, -9, 0, 10, dark); limb(7, -20, 9, 0, 10, fur);
+    blob(0, -38, 18, 24, 0, fur);
+    if (boss) { ctx.fillStyle = silver; ctx.beginPath(); ctx.ellipse(-8, -40, 6, 14, 0, 0, Math.PI * 2); ctx.fill(); }
+    blob(4, -34, 10, 13, 0, skin);                  // 가슴
+    limb(-12, -50, 0 + beat * 3, -38 - beat * 3, 10, dark);
+    limb(14, -50, 8 - beat * 3, -40 + beat * 3, 11, fur);
+    blob(1 + beat * 3, -38 - beat * 3, 5.5, 5, 0, dark);
+    blob(8 - beat * 3, -40 + beat * 3, 6, 5.5, 0, fur);
+    face(4, -64);
+    return;
+  }
+  // 주먹을 땅에 짚고 걷는다 — 먼 쪽 다리 · 팔, 몸통, 가까운 쪽 다리 · 팔, 머리 순서
+  limb(-16, -22, -18 - sw, 0, 9, dark);
+  limb(10, -40, 16 - sw, -2, 10, dark);
+  blob(16 - sw, -2, 5, 4, 0, dark);
+  blob(-2, -30, 25, 18, -0.28, fur);
+  if (boss) { ctx.fillStyle = silver; ctx.beginPath(); ctx.ellipse(-8, -40, 15, 6, -0.28, 0, Math.PI * 2); ctx.fill(); }
+  limb(-10, -20, -8 + sw, 0, 10, fur);
+  limb(15, -38, 22 + sw, -2, 11, fur);
+  blob(22 + sw, -2, 6, 4.5, 0, fur);
+  face(24, -46);
+}
+
+function drawGorilla(ctx, m, time) {
+  const k = m.size || 1;
+  const grow = Math.min(1, (m.age || 0) / 0.35);
+  const ph = (m.age || 0) * (m.boss ? 7 : 8);
+  const bob = m.moving ? Math.abs(Math.sin(ph)) * 2 * k : 0;
+  const x = m.x, y = m.y;
+  shadow(ctx, x, y + 2, 30 * grow * k, 8 * grow * k, 0.32);
+  ctx.save();
+  ctx.translate(x, y - bob);
+  ctx.scale((m.ax < 0 ? -1 : 1) * grow * k, grow * k);
+  drawGorillaBody(ctx, ph, m.moving, m.boss, m.freeze > 0, m.bite);
+  if (m.flash > 0) {
+    ctx.globalAlpha = Math.min(0.6, m.flash * 5);
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.ellipse(2, -34, 28, 24, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  drawMobMarks(ctx, m, time, (m.bite > 0 ? 78 : 60) * k + bob);
+}
+
 /* 몹 머리 위 — 걸린 것(불 · 독 · 기절), 체력, 레벨. top 은 발밑에서 머리 꼭대기까지의 높이 */
 function drawMobMarks(ctx, m, time, top) {
   const x = m.x, y = m.y;
@@ -678,7 +804,7 @@ function drawMobMarks(ctx, m, time, top) {
   const w = ctx.measureText(label).width + 10;
   ctx.fillStyle = boss ? "rgba(70,20,16,0.82)" : "rgba(20,14,10,0.62)";
   roundRect(ctx, x - w / 2, barY - 7, w, 13, 6); ctx.fill();
-  ctx.fillStyle = boss ? "#ffd873" : m.type === "boar" ? "#f2b48a" : m.type === "wolf" ? "#f0c9a8" : "#f2ead6";
+  ctx.fillStyle = boss ? "#ffd873" : m.type === "boar" ? "#f2b48a" : m.type === "gorilla" ? "#d9d0c4" : m.type === "wolf" ? "#f0c9a8" : "#f2ead6";
   ctx.fillText(label, x, barY);
   ctx.restore();
 }
@@ -755,7 +881,8 @@ function drawHero(ctx, g, h, time) {
   const mine = g.mySeat === pi;
   const down = h.down > 0;
   const { view, flip } = heroView(h);
-  const im = heroImg(h, view) || heroImg(h, "front");
+  const held = heldWeapon(h, view);
+  const im = held ? held.body : heroImg(h, view) || heroImg(h, "front");
   const mo = down ? null : heroMotion(g, h, time);
 
   ctx.save();
@@ -794,6 +921,7 @@ function drawHero(ctx, g, h, time) {
     const ww = im.naturalWidth * HERO_K, hh = im.naturalHeight * HERO_K;
     const top = -hh + HERO_PAD * HERO_K;
     ctx.drawImage(im, -ww / 2, top, ww, hh);
+    if (held) drawHeld(ctx, held, ww, top);
     if (h.flash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(0.5, h.flash * 3);
@@ -944,7 +1072,7 @@ export function drawRpg(ctx, g, bgs) {
   drawDust(ctx, g, M.id, time);
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
-    if (o.m) (o.m.type === "wolf" ? drawWolf : o.m.type === "boar" ? drawBoar : drawRabbit)(ctx, o.m, time);
+    if (o.m) (o.m.type === "wolf" ? drawWolf : o.m.type === "boar" ? drawBoar : o.m.type === "gorilla" ? drawGorilla : drawRabbit)(ctx, o.m, time);
     else if (o.h) drawHero(ctx, g, o.h, time);
     else if (o.gate) drawGate(ctx, o.gate, time);
     else if (o.npc) drawNpc(ctx, g, o.npc, time);

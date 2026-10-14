@@ -92,6 +92,7 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 | turn.webp | 왼쪽을 비스듬히 본 앞모습 | 서 있거나 치면서 왼쪽을 볼 때 |
 | side.webp | 왼쪽을 본 옆모습 | 옆으로 걸을 때(오른쪽으로 걸으면 좌우로 뒤집어 그린다) |
 | back.webp | 뒷모습 | 위로 걸을 때 |
+| `<방향>-bare.webp` (전사만) | 위 네 그림에서 칼을 지운 것 | 특별 무기를 장착했을 때 — 그 무기 그림을 손에 얹어 그린다. `tools/bare-warrior.py` 로 다시 만든다 |
 
 - 사용처: `src/game/rpg.js`의 `heroArtPath()`(경로 조립), `src/game/rpgArt.js`의 `drawHero()`,
   `src/RpgView.jsx`의 `RpgSetup`(캐릭터 만들기 화면).

@@ -8,7 +8,7 @@
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE } from "./shopData.js";
-import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs } from "./shop.js";
+import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped } from "./shop.js";
 import { BUILD } from "../net/version.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY } from "./socialData.js";
 
@@ -69,13 +69,26 @@ export const MAPS = {
   boar: {
     id: "boar", name: "멧돼지 사냥터", w: 4200, h: 1700, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
     tint: "rgba(70,48,20,0.24)",                  // 메마른 흙빛 숲
-    gates: [{ x: 90, y: 920, r: 64, to: "wolf", at: [3400, 920], label: "늑대 사냥터" }],
+    gates: [
+      { x: 90, y: 920, r: 64, to: "wolf", at: [3400, 920], label: "늑대 사냥터" },
+      { x: 4110, y: 920, r: 64, to: "gorilla", at: [260, 920], label: "고릴라 사냥터 · 50~100레벨" },
+    ],
     blocks: [],
     npcs: [],
-    zone: [520, 4050],
+    zone: [520, 3950],
+    paths: [[[4170, 920], [4000, 920], [3840, 880], [3680, 900]]],   // 고릴라 사냥터로 가는 흙길
+  },
+  gorilla: {
+    id: "gorilla", name: "고릴라 사냥터", w: 4600, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
+    tint: "rgba(16,64,36,0.30)",                  // 짙은 밀림
+    gates: [{ x: 90, y: 920, r: 64, to: "boar", at: [3990, 920], label: "멧돼지 사냥터" }],
+    blocks: [],
+    npcs: [],
+    zone: [520, 4450],
   },
 };
-const MAP_IDS = ["plaza", "field", "wolf", "boar"];
+// 스냅샷은 이 차례로 맵을 싣는다 — 새 맵은 뒤에만 더한다
+const MAP_IDS = ["plaza", "field", "wolf", "boar", "gorilla"];
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -91,6 +104,7 @@ export const MOB_REGEN = { calm: 5, rate: 0.08 };
    토끼는 1~5레벨, 맞으면 달아나고 가끔 들이받는다. 대왕 토끼(보스)는 10레벨, 달아나지 않고 자주 들이받는다.
    늑대는 10~20레벨, 가까이 오면 쫓아와 문다. 우두머리 늑대(보스)는 25레벨, 둘레를 한꺼번에 문다.
    멧돼지는 20~50레벨, 쫓아와 들이받고 가까우면 몸을 낮췄다가 일직선으로 돌진한다. 멧돼지 왕(보스)은 55레벨.
+   고릴라는 50~100레벨, 쫓아와 주먹으로 치고 가까우면 가슴을 두드렸다가 둘레를 내려찍는다. 고릴라 왕(보스)은 110레벨.
    size 는 그리는 크기와 몸 반지름(rad)에 같이 곱한다. */
 export const MOB = {
   rabbit: {
@@ -117,10 +131,25 @@ export const MOB = {
     size: (lv) => 1.05 + 0.015 * (lv - 20),       // 1.05 ~ 1.5
     boss: { name: "멧돼지 왕", lv: 55, hp: 30000, dmg: 120, xp: 1500, coin: 800, size: 2 },
   },
+  gorilla: {
+    name: "고릴라", rad: 30,
+    hp: (lv) => Math.round((3300 + 120 * (lv - 50)) * GORILLA.hpMul),   // 4,950 ~ 13,950
+    dmg: (lv) => Math.round((90 + 3 * (lv - 50)) * GORILLA.dmgMul),     // 주먹 126 ~ 336 (내려찍기는 slamMul 배)
+    xp: (lv) => 3 * lv, coin: (lv) => Math.round(1.5 * lv),             // 센 만큼 조금 더 준다
+    size: (lv) => 1.15 + 0.008 * (lv - 50),                             // 1.15 ~ 1.55
+    boss: { name: "고릴라 왕", lv: 110, hp: 150000, dmg: 420, xp: 5000, coin: 3000, size: 2.2 },
+  },
+};
+// 고릴라 — 멧돼지 다음이라 한 단계 더 세게. 레벨 식(멧돼지를 이은 값)에 hpMul · dmgMul 을 곱한다.
+// slamRange 안에 들면 wind 초 가슴을 두드렸다가 slamR 둘레를 내려찍는다(dmg × slamMul). 내려찍기는 cd 초마다
+export const GORILLA = {
+  hpMul: 1.5, dmgMul: 1.4,
+  aggro: 290, walk: 165, punchCd: 1.3,
+  slamRange: 170, wind: 0.7, slamR: 150, slamMul: 1.4, cd: 4.5, rest: 0.8,
 };
 // 멧돼지 돌진 — 이 거리 안에 들면 wind 초 몸을 낮췄다가 speed 로 time 초 달린다. 돌진에 맞으면 dmg × chargeMul
 export const BOAR = { aggro: 270, chargeRange: 230, wind: 0.45, speed: 430, time: 0.7, rest: 1.1, cd: 3.6, chargeMul: 1.5, walk: 150 };
-const MOB_TYPES = ["rabbit", "wolf", "boar"];
+const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla"];   // 스냅샷 차례 — 뒤에만 더한다
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -132,6 +161,8 @@ export const SPAWNS = [
   { map: "wolf", type: "wolf", boss: 1, n: 2, respawn: 5 },
   { map: "boar", type: "boar", n: 22, lv: [20, 50], respawn: 2.5 },
   { map: "boar", type: "boar", boss: 1, n: 2, respawn: 8 },
+  { map: "gorilla", type: "gorilla", n: 22, lv: [50, 100], respawn: 3 },
+  { map: "gorilla", type: "gorilla", boss: 1, n: 2, respawn: 10 },
 ];
 
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
@@ -621,6 +652,7 @@ export function rpgPromote(g) {
   g.heroes.forEach((h) => {
     if (!h) return;
     h.loaded = 0; h.migr = 1;                     // 기록이 다시 올 때까지 — 자리 · 체력은 그대로
+    delete h.wsp;                                 // 이제 가방에서 바로 본다
     h.tx = undefined; h.ty = undefined;
   });
 }
@@ -715,16 +747,19 @@ function killMob(g, m, pi) {
 
 function giveXp(g, h, amt) {
   h.xp += amt;
+  let up = 0;
   while (h.lv < LV_MAX && h.xp >= needXp(h.lv)) {
     h.xp -= needXp(h.lv);
     h.lv += 1;
+    up += 1;
     refreshHp(h, false);
     if (h.down <= 0) h.hp = h.max;             // 레벨이 오르면 체력이 가득 찬다
-    fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 10, r: 60, color: "#ffe08a", n: 10, t: 0.6, life: 0.6 });
-    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 90, text: `레벨 업! Lv ${h.lv} · 스탯 +${STAT_PER_LV}`, color: "#ffe08a", t: 1, life: 1,
-      snd: "wave", who: h.pi });
   }
   if (h.lv >= LV_MAX) h.xp = 0;
+  if (!up) return;
+  // 레벨업 연출 — 빛기둥 · 고리 · 반짝이 · 글자(art.js "lvup"). 여러 레벨이 한꺼번에 올라도 한 번만. 소리는 그 사람에게만
+  fx(g, h.map, { kind: "lvup", x: h.x, y: h.y, text: `Lv ${h.lv} · 스탯 +${STAT_PER_LV * up}`, t: 1.8, life: 1.8, snd: "lvup", who: h.pi });
+  fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 10, r: 70, color: "#ffe08a", n: 14, t: 0.7, life: 0.7 });
 }
 
 function hurtHero(g, h, raw) {
@@ -1264,9 +1299,91 @@ function stepBoar(g, m, dt) {
   keepMob(m);
 }
 
+/* 고릴라 — 쫓아와 주먹으로 치고, 가까우면 가슴을 두드렸다가(wind) 둘레를 내려찍는다(slam).
+   가슴을 두드리는 동안 bite 를 켜 둬 손님 화면에서도 일어선 모습이 보인다 */
+function stepGorilla(g, m, dt) {
+  const spd = m.slow > 0 ? 0.5 : 1;
+  const G = GORILLA;
+  m.chargeCd = Math.max(0, m.chargeCd - dt);
+  if (m.state === "wind") {
+    m.moving = 0; m.bite = 0.2;
+    m.t -= dt;
+    if (m.t <= 0) {                                  // 내려찍기 — 둘레의 사람 모두
+      const r = G.slamR * (m.boss ? 1.35 : 1);
+      g.heroes.forEach((h) => {
+        if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16) return;
+        hurtHero(g, h, m.dmg * G.slamMul);
+        fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22, color: "#d8cbb8", n: 7, t: 0.32, life: 0.32 });
+      });
+      fx(g, m.map, { kind: "ring", x: m.x, y: m.y, r, color: "#cbb79a", t: 0.45, life: 0.45 });
+      fx(g, m.map, { kind: "burst", x: m.x + m.ax * 20 * m.size, y: m.y - 6, r: 30 * m.size, color: "#a68f72", n: 12, t: 0.4, life: 0.4, snd: "boom" });
+      m.state = "rest"; m.t = G.rest; m.chargeCd = G.cd * (m.boss ? 0.7 : 1);
+    }
+    keepMob(m);
+    return;
+  }
+  if (m.state === "rest") {
+    m.moving = 0;
+    m.t -= dt;
+    if (m.t <= 0) { m.state = "idle"; m.t = 0.3; }
+    return;
+  }
+  const aggro = m.boss ? G.aggro * 1.3 : G.aggro;
+  const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
+  let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
+  if (tg && (tg.map !== m.map || tg.down > 0 || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > 900)) { tg = null; m.tgt = -1; }
+  if (!tg && far < 700) {
+    const near = nearestHero(g, m, aggro);
+    if (near) { tg = near; m.tgt = near.pi; }
+  }
+  if (tg) {
+    const dx = tg.x - m.x, dy = (tg.y - m.y) / RPG.squash;
+    const d = Math.hypot(dx, dy) || 1;
+    const reach = m.rad + 16;
+    if (Math.abs(dx) > 2) m.ax = dx < 0 ? -1 : 1;
+    if (m.chargeCd <= 0 && d < G.slamRange * (m.boss ? 1.3 : 1)) {
+      m.state = "wind"; m.t = G.wind * (m.boss ? 0.8 : 1); m.moving = 0;
+      return;
+    }
+    if (d > reach) {
+      const v = G.walk * (m.boss ? 1.1 : 1) * spd;
+      m.x += (dx / d) * v * dt; m.y += (dy / d) * v * RPG.squash * dt;
+      m.moving = 1;
+    } else {
+      m.moving = 0;
+      if (m.biteCd <= 0) {                          // 주먹
+        hurtHero(g, tg, m.dmg);
+        fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 26, r: 18, color: "#d8cbb8", n: 6, t: 0.3, life: 0.3 });
+        m.biteCd = G.punchCd * (m.boss ? 0.85 : 1);
+      }
+    }
+  } else {
+    m.t -= dt;
+    if (m.t <= 0) {
+      if (m.state === "idle") {
+        const back = far > 260;
+        const a = back ? Math.atan2((m.hy - m.y) / RPG.squash, m.hx - m.x) : Math.random() * Math.PI * 2;
+        const v = back ? 120 : 50 + Math.random() * 40;
+        m.state = "walk"; m.t = back ? 1.2 : 0.8 + Math.random() * 1.2;
+        m.vx = Math.cos(a) * v; m.vy = Math.sin(a) * v;
+      } else {
+        m.state = "idle"; m.t = 1 + Math.random() * 2.2; m.vx = 0; m.vy = 0;
+      }
+    }
+    if (m.state === "walk") {
+      m.x += m.vx * spd * dt;
+      m.y += m.vy * spd * RPG.squash * dt;
+      if (Math.abs(m.vx) > 1) m.ax = m.vx < 0 ? -1 : 1;
+    }
+    m.moving = m.state === "walk" ? 1 : 0;
+  }
+  keepMob(m);
+}
+
 function stepMob(g, m, dt) {
   if (!tickMob(g, m, dt)) return;
   if (m.type === "wolf") { stepWolf(g, m, dt); spreadPack(g, m); }
+  else if (m.type === "gorilla") { stepGorilla(g, m, dt); spreadPack(g, m); }
   else if (m.type === "boar") { stepBoar(g, m, dt); if (m.state !== "charge") spreadPack(g, m); }
   else stepRabbit(g, m, dt);
 }
@@ -1411,6 +1528,14 @@ export function rpgStep(g, dt) {
   });
 }
 
+// 장착한 특별 무기 id — 손님은 스냅샷으로 받은 값(wsp), 방장은 가방에서 바로 본다
+export function heldSpecial(h) {
+  if (!h) return "";
+  if (h.wsp !== undefined) return h.wsp;
+  const w = h.bag && equipped(h.bag);
+  return (w && w.sp) || "";
+}
+
 /* ── 주고받기 ──────────────────────────────────────────── */
 const mapIdx = (id) => Math.max(0, MAP_IDS.indexOf(id));
 // 누르고 있는 방향을 짧은 글자로 — 방장이 받은 입력을 손님이 견주어 보려고 스냅샷에 싣는다(순서는 상관없다)
@@ -1442,7 +1567,7 @@ export function rpgPack(g) {
         holdKey(h.hold), h.fire ? 1 : 0,
         h.pty, h.invite ? h.invite.from : -1, TITLES.findIndex((t) => t.id === h.title),
         TITLES.reduce((bits, t, i) => (h.titles.includes(t.id) ? bits | (1 << i) : bits), 0),
-        REC_IDS.map((k) => h.rec[k])]
+        REC_IDS.map((k) => h.rec[k]), heldSpecial(h)]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -1491,6 +1616,7 @@ export function rpgApply(g, s) {
       h.titles = TITLES.filter((t, i) => row[31] & (1 << i)).map((t) => t.id);
       if (Array.isArray(row[32])) REC_IDS.forEach((k, i) => { h.rec[k] = row[32][i] || 0; });
     }
+    if (row.length > 33) h.wsp = row[33] || "";      // 장착한 특별 무기 — 그림에 들려 그린다
   });
   const seen = new Set();
   s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite]) => {

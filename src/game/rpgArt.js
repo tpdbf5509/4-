@@ -6,7 +6,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName } from "./rpg.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName } from "./rpg.js";
 import { SHOP_BY_ID } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -815,12 +815,42 @@ function drawHero(ctx, g, h, time) {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   const nm = `Lv${h.lv} ${(g.names && g.names[pi]) || "모험가"}`;
   const wdt = ctx.measureText(nm).width + 12;
+  // 내 파티원은 이름표 테두리를 연두빛으로
+  const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
+  const mate = me && me.pty && h.pty === me.pty && h !== me;
   ctx.fillStyle = "rgba(20,14,10,0.72)"; roundRect(ctx, h.x - wdt / 2, h.y + 6, wdt, 15, 7); ctx.fill();
+  if (mate) { ctx.strokeStyle = "#a9d99a"; ctx.lineWidth = 1; ctx.stroke(); }
   ctx.fillStyle = down ? "#a89a90" : col.light; ctx.fillText(nm, h.x, h.y + 14);
+  if (h.title) {                                  // 칭호 — 이름 아래
+    ctx.font = "10px 'Jua', sans-serif";
+    ctx.fillStyle = "rgba(233,211,154,0.92)";
+    ctx.fillText(`「${titleName(h.title)}」`, h.x, h.y + 29);
+  }
   if (down) {
     ctx.fillStyle = "#ffbdb2"; ctx.font = "11px 'Jua', sans-serif";
     ctx.fillText(`${Math.ceil(h.down)}초 뒤 광장에서`, h.x, byy - 10);
   }
+  ctx.restore();
+}
+
+/* 채팅 말풍선 — 14글자씩 끊어 세 줄까지. 아랫변 가운데에 꼬리 */
+function drawBubble(ctx, x, y, text, alpha) {
+  const lines = [];
+  for (let i = 0; i < text.length && lines.length < 3; i += 14) lines.push(text.slice(i, i + 14));
+  if (text.length > 42) lines[2] = `${lines[2].slice(0, 13)}…`;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = "12px 'Jua', sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 16, lh = 15, hh = lines.length * lh + 8;
+  const top = y - hh;
+  ctx.fillStyle = "rgba(250,244,230,0.94)";
+  roundRect(ctx, x - w / 2, top, w, hh, 8); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - 5, y); ctx.lineTo(x + 5, y); ctx.lineTo(x, y + 6); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(120,96,64,0.6)"; ctx.lineWidth = 1;
+  roundRect(ctx, x - w / 2, top, w, hh, 8); ctx.stroke();
+  ctx.fillStyle = "#3a2c1c";
+  lines.forEach((l, i) => ctx.fillText(l, x, top + 4 + lh / 2 + i * lh));
   ctx.restore();
 }
 
@@ -925,6 +955,16 @@ export function drawRpg(ctx, g, bgs) {
 
   g.fx.forEach((f) => { if (here(f) && (f.kind !== "art" || (FX_ART[f.art] || {}).over)) drawFx(ctx, f); });
   ctx.globalAlpha = 1;
+  // 채팅 말풍선 — 모든 것 위에
+  if (g.bubbles) {
+    const now = performance.now();
+    g.heroes.forEach((h, pi) => {
+      const b = g.bubbles[pi];
+      if (!h || !b || h.map !== M.id) return;
+      if (now > b.until) { delete g.bubbles[pi]; return; }
+      drawBubble(ctx, h.x, h.y - 96, b.text, Math.min(1, (b.until - now) / 400));
+    });
+  }
   ctx.restore();
   if (g.banner) drawBanner(ctx, g.banner);
 }

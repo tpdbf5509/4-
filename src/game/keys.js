@@ -1,0 +1,83 @@
+/* ── RPG 키 설정 — 행동마다 키 두 칸. 이 기기에 남는다 ─────────────────
+   기본 키는 이 표 한 곳에서 고친다. Esc 는 창을 닫는 데 쓰여 바꿀 수 없다. */
+export const KEY_ACTIONS = [
+  { id: "up", name: "위로", group: "이동", keys: ["KeyW", "ArrowUp"] },
+  { id: "down", name: "아래로", group: "이동", keys: ["KeyS", "ArrowDown"] },
+  { id: "left", name: "왼쪽", group: "이동", keys: ["KeyA", "ArrowLeft"] },
+  { id: "right", name: "오른쪽", group: "이동", keys: ["KeyD", "ArrowRight"] },
+  { id: "fire", name: "평타", group: "전투", keys: ["Space", ""] },
+  { id: "skill", name: "큰 기술", group: "전투", keys: ["ShiftLeft", "KeyQ"] },
+  { id: "dash", name: "대쉬", group: "전투", keys: ["KeyF", ""] },
+  { id: "use1", name: "산 스킬 1", group: "전투", keys: ["Digit1", "Numpad1"] },
+  { id: "use2", name: "산 스킬 2", group: "전투", keys: ["Digit2", "Numpad2"] },
+  { id: "use3", name: "산 스킬 3", group: "전투", keys: ["Digit3", "Numpad3"] },
+  { id: "use4", name: "산 스킬 4", group: "전투", keys: ["Digit4", "Numpad4"] },
+  { id: "talk", name: "대화 · 상점", group: "창", keys: ["KeyE", ""] },
+  { id: "chat", name: "채팅", group: "창", keys: ["Enter", ""] },
+  { id: "stat", name: "스탯", group: "창", keys: ["KeyC", ""] },
+  { id: "bag", name: "가방", group: "창", keys: ["KeyI", ""] },
+  { id: "title", name: "칭호", group: "창", keys: ["KeyT", ""] },
+  { id: "party", name: "파티", group: "창", keys: ["KeyP", ""] },
+];
+export const KEY_SLOTS = 2;
+const STORE = "flg:rpgKeys";
+const LOCKED = ["Escape"];
+
+export const defaultKeys = () => Object.fromEntries(KEY_ACTIONS.map((a) => [a.id, a.keys.slice(0, KEY_SLOTS)]));
+
+// 저장된 키 — 없거나 망가졌으면 기본값. 새로 생긴 행동은 기본 키를 쓴다
+export function loadKeys() {
+  const base = defaultKeys();
+  try {
+    const v = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (!v || typeof v !== "object") return base;
+    KEY_ACTIONS.forEach((a) => {
+      const k = v[a.id];
+      if (Array.isArray(k)) base[a.id] = [0, 1].map((i) => (typeof k[i] === "string" && !LOCKED.includes(k[i]) ? k[i] : ""));
+    });
+  } catch { /* 저장이 막혀 있으면 기본값 */ }
+  return base;
+}
+export function saveKeys(binds) {
+  try { localStorage.setItem(STORE, JSON.stringify(binds)); } catch { /* 저장이 막혀 있으면 이번만 */ }
+}
+
+// 한 칸에 키를 넣는다 — 같은 키가 다른 칸에 있으면 그 칸은 비운다. Esc 는 받지 않는다
+export function bindKey(binds, id, slot, code) {
+  if (LOCKED.includes(code)) return binds;
+  const next = {};
+  Object.entries(binds).forEach(([a, ks]) => { next[a] = ks.map((k) => (k === code ? "" : k)); });
+  next[id] = next[id].slice();
+  next[id][slot] = code;
+  return next;
+}
+export function clearKey(binds, id, slot) {
+  const next = { ...binds, [id]: binds[id].slice() };
+  next[id][slot] = "";
+  return next;
+}
+
+// 키 → 행동
+export function keyMap(binds) {
+  const m = {};
+  Object.entries(binds).forEach(([a, ks]) => ks.forEach((k) => { if (k && !m[k]) m[k] = a; }));
+  return m;
+}
+
+// 화면에 보이는 키 이름
+const NAMED = {
+  Space: "Space", Enter: "Enter", Tab: "Tab", Backspace: "Backspace",
+  ShiftLeft: "Shift", ShiftRight: "오른 Shift", ControlLeft: "Ctrl", ControlRight: "오른 Ctrl", AltLeft: "Alt", AltRight: "오른 Alt",
+  ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→", NumpadEnter: "숫자판 Enter",
+  Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", Backquote: "`", Backslash: "\\",
+};
+export function keyLabel(code) {
+  if (!code) return "";
+  if (NAMED[code]) return NAMED[code];
+  if (code.startsWith("Key")) return code.slice(3);
+  if (code.startsWith("Digit")) return code.slice(5);
+  if (code.startsWith("Numpad")) return `숫자판 ${code.slice(6)}`;
+  return code;
+}
+// 행동의 첫 키 이름 — 안내 문구에 쓴다
+export const keyOf = (binds, id) => keyLabel((binds[id] || []).find(Boolean) || "");

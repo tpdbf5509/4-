@@ -1272,6 +1272,77 @@ kbd {
   background: rgba(20, 14, 8, 0.8); border: 1px solid rgba(240, 150, 140, 0.5);
 }
 
+/* 칭호 · 파티 · 키 설정 창 — 스탯 창과 같은 틀. 고른 줄만 금빛 선으로 */
+.rpg-lv-sub { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: -1px; padding-right: 2px; }
+.rpg-lv-title { min-width: 0; font-size: 10.5px; color: #e9d39a; letter-spacing: -0.02em; white-space: nowrap; }
+.rpg-win { width: min(440px, calc(100% - 24px)); }
+.rpg-win-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 7px 8px; margin: 0 -8px; border-bottom: 1px solid rgba(214, 186, 140, 0.18);
+}
+.rpg-win-row.on { background: rgba(227, 196, 138, 0.08); box-shadow: inset 2px 0 0 #e3c48a; }
+.rpg-win-row.locked .rpg-stat-name b { color: #8d8068; }
+.rpg-win-row .rpg-stat-name b small { font-family: 'Jua', sans-serif; font-size: 10.5px; color: #e9d39a; }
+.rpg-win-btn {
+  min-width: 52px; padding: 4px 10px; cursor: pointer; border-radius: 7px; font-family: inherit; font-size: 12px; letter-spacing: -0.02em;
+  color: #f2e3c2; background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.6);
+}
+.rpg-win-btn:hover:not(:disabled) { border-color: #d6b26a; }
+.rpg-win-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.rpg-win-tag { font-size: 11px; color: #8d8068; letter-spacing: -0.02em; padding: 0 4px; }
+.rpg-win-row.on .rpg-win-tag { color: #a9d99a; }
+.rpg-menu-row + .rpg-menu-row { margin-top: 6px; }
+.rpg-menu-go { flex: none; font-size: 18px; color: #a8987a; }
+.rpg-keyset { display: flex; flex-direction: column; overflow: hidden; }
+.rpg-keyset .rpg-stat-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.rpg-key-row { display: grid; grid-template-columns: minmax(0, 1fr) 96px 96px; align-items: center; gap: 6px; padding: 4px 0; }
+.rpg-key-row.gap { margin-top: 6px; padding-top: 10px; border-top: 1px solid rgba(214, 186, 140, 0.18); }
+.rpg-key-name { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.rpg-key-name em { width: 26px; flex: none; font-style: normal; font-size: 10px; color: #7f7360; }
+.rpg-key-name b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 13.5px; color: #f2e3c2; letter-spacing: -0.03em; }
+.rpg-key-slot {
+  height: 28px; padding: 0 6px; cursor: pointer; border-radius: 7px; font-family: inherit; font-size: 12px; color: #ecdfc4;
+  background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rpg-key-slot.empty { color: #6f6452; }
+.rpg-key-slot:hover { border-color: #d6b26a; }
+.rpg-key-slot.wait { border-color: #e3c48a; color: #ffe08a; background: rgba(122, 90, 46, 0.5); }
+
+/* 파티 초대 — 화면 위쪽 가운데 */
+.rpg-invite {
+  position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px 8px 14px; border-radius: 10px; font-size: 13px; color: #ecdfc4; letter-spacing: -0.02em; white-space: nowrap;
+  background: #2a2119; border: 1px solid rgba(169, 217, 154, 0.55); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.rpg-invite b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; color: #a9d99a; }
+.rpg-invite .btn-main, .rpg-invite .btn-ghost { padding: 5px 12px; font-size: 12.5px; }
+
+/* 채팅 — 왼쪽 아래, 스킬 칸 위. 입력하지 않을 때는 지난 줄이 흐려진다 */
+.rpg-chat { position: absolute; left: 12px; bottom: 62px; z-index: 3; width: min(380px, calc(100% - 24px)); pointer-events: none; }
+.rpg-chat-log { display: flex; flex-direction: column; gap: 2px; }
+.rpg-chat-line {
+  align-self: flex-start; max-width: 100%; margin: 0; padding: 2px 8px; border-radius: 6px; font-size: 12px; line-height: 1.45;
+  color: #ecdfc4; background: rgba(20, 14, 8, 0.62); letter-spacing: -0.02em; overflow-wrap: anywhere; transition: opacity 0.6s;
+}
+.rpg-chat-line b { margin-right: 6px; font-family: 'Do Hyeon', sans-serif; font-weight: 400; color: #e3c48a; }
+.rpg-chat-line.party b { color: #a9d99a; }
+.rpg-chat-line.sys { color: #c9bda4; font-size: 11.5px; background: rgba(20, 14, 8, 0.45); }
+.rpg-chat-line.old { opacity: 0.25; }
+.rpg-chat-form { display: flex; gap: 4px; margin-top: 4px; pointer-events: auto; }
+.rpg-chat-form input {
+  flex: 1; min-width: 0; height: 30px; padding: 0 9px; border-radius: 7px; font-family: inherit; font-size: 13px; color: #f2e3c2;
+  background: rgba(20, 14, 8, 0.85); border: 1px solid #8a6a3f; outline: none;
+}
+.rpg-chat-form input:focus { border-color: #e3c48a; }
+.rpg-chat-scope, .rpg-chat-send, .rpg-chat-open {
+  height: 30px; padding: 0 10px; cursor: pointer; border-radius: 7px; font-family: inherit; font-size: 12px; color: #ecdfc4; white-space: nowrap;
+  background: rgba(20, 14, 8, 0.75); border: 1px solid rgba(160, 130, 90, 0.6);
+}
+.rpg-chat-scope.party { color: #a9d99a; border-color: rgba(169, 217, 154, 0.6); }
+.rpg-chat-open { pointer-events: auto; margin-top: 4px; height: 26px; display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; }
+.rpg-chat-open kbd { margin: 0; }
+.rpg-chat-err { margin: 3px 0 0; font-size: 11px; color: #e9b98a; }
+
 /* 함께 있는 사람들 */
 .rpg-party { margin-top: 10px; display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 .rpg-mate {
@@ -1279,6 +1350,8 @@ kbd {
   background: rgba(30, 22, 12, 0.7); border: 1px solid rgba(107, 79, 44, 0.7);
 }
 .rpg-mate.mine { border-color: var(--pcl); }
+.rpg-mate.mate { border-color: rgba(169, 217, 154, 0.6); }
+.rpg-mate b small { font-family: 'Jua', sans-serif; font-size: 10px; color: #a9d99a; }
 .rpg-mate b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 12.5px; color: var(--pcl); }
 .rpg-mate em { font-style: normal; font-size: 10.5px; color: #a8987a; }
 .rpg-mate-hp { display: block; height: 4px; border-radius: 2px; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
@@ -1416,6 +1489,18 @@ kbd {
   .rpg-talk-line { font-size: 10px; line-height: 1.35; }
   .rpg-talk-btn { padding: 5px 9px; font-size: 11px; }
   .rpg-down { font-size: 11px; padding: 5px 10px; }
+  .rpg-lv-sub { display: none; }
+  .rpg-lv-foot { flex-wrap: wrap; justify-content: flex-start; gap: 3px 4px; }
+  .rpg-chat { left: 6px; bottom: 36px; width: calc(100% - 12px); }
+  .rpg-chat-log > :nth-last-child(n+4) { display: none; }    /* 좁은 화면은 세 줄만 */
+  .rpg-chat-line { padding: 1px 6px; font-size: 10px; }
+  .rpg-chat-line.sys { font-size: 9.5px; }
+  .rpg-chat-open { height: 22px; padding: 0 8px; font-size: 10.5px; }
+  .rpg-chat-form input, .rpg-chat-scope, .rpg-chat-send { height: 28px; font-size: 12px; }
+  .rpg-win-row { padding: 5px 6px; margin: 0 -6px; }
+  .rpg-win-btn { min-width: 44px; padding: 3px 8px; font-size: 11px; }
+  .rpg-invite { top: 6px; max-width: calc(100% - 12px); white-space: normal; font-size: 11.5px; padding: 6px 8px; gap: 6px; }
+  .rpg-invite .btn-main, .rpg-invite .btn-ghost { padding: 4px 9px; font-size: 11.5px; }
 }
 
 /* 탑 자세히 보기 창 */

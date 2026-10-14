@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { W, H, MOVE_KEYS } from "./game/world.js";
+import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
+  charRecord, setAccount, coinOf, xpOf, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
+  rpgParty, rpgTitle, titleName, needNow, titleMet,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID } from "./game/shop.js";
+import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
+import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
 import { compareBuild } from "./net/version.js";
@@ -27,14 +30,8 @@ const RESEND_AFTER = 700;  // 방장이 내 입력을 이만큼(ms) 지나도 �
 const STEP_MAX = 0.05;     // 한 번에 돌리는 판정 시간(초)
 const CATCH_UP = 0.25;     // 방장 화면이 잠깐 멈췄을 때 따라잡는 최대 시간(초)
 const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.max(1, n)));
-const SKILL_KEYS = ["ShiftLeft", "ShiftRight", "KeyQ"];
-const TALK_KEYS = ["Enter", "KeyE"];
-const STAT_KEYS = ["KeyC"];
-// 산 스킬 — 숫자키 1 ~ 4 (SKILLS[].use.key)
-const DASH_KEYS = ["KeyF"];                          // 대쉬
-const USE_KEYS = { Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Numpad1: 1, Numpad2: 2, Numpad3: 3, Numpad4: 4 };
-const BAG_KEYS = ["KeyI"];
-const FIRE_KEYS = ["Space"];
+// 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
+const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 const AUTO_KEY = "flg:rpgAuto";
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
 function loadAuto() {
@@ -307,7 +304,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const myData = () => {
     const c = loadChar();
     const extra = { auto: autoRef.current, hold: dirsRef.current.slice() };
-    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin, ...extra } : extra;
+    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
+      rec: c.rec, titles: c.titles, title: c.title, ...extra } : extra;
   };
 
   const G = useRef(null);
@@ -347,6 +345,35 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [bagOpen, setBagOpen] = useState(false);    // 가방 창
   const [note, setNote] = useState(null);           // 상점 결과 한 줄 — 내 것만
   const shopRef = useRef(null);                     // 루프가 보는 열린 상점
+  const [titleOpen, setTitleOpen] = useState(false); // 칭호 창
+  const [partyOpen, setPartyOpen] = useState(false); // 파티 창
+  const [keysOpen, setKeysOpen] = useState(false);   // 키 설정 창
+  const [answeredAt, setAnsweredAt] = useState(0);   // 초대에 답한 때 — 방장 답이 올 때까지 초대 창을 숨긴다
+  const [binds, setBinds] = useState(loadKeys);      // 행동마다 키 두 칸
+  const bindsRef = useRef(binds);
+  const [waitKey, setWaitKey] = useState(null);      // 키 설정 창에서 새 키를 기다리는 칸 { id, slot }
+  // 채팅 — 줄마다 { id, kind: all · party · sys, name, text, at }
+  const [chatLog, setChatLog] = useState([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatText, setChatText] = useState("");
+  const [chatScope, setChatScope] = useState("all");
+  const [chatErr, setChatErr] = useState("");
+  const chatAt = useRef(0);                          // 마지막으로 보낸 때 — CHAT.gap 초에 한 번
+  const chatInput = useRef(null);
+  const chatSeq = useRef(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());   // 채팅 줄 흐리기 · 초대 창 숨기기에 쓰는 시각 — 1초마다
+  const pushChat = useCallback((line) => {
+    chatSeq.current += 1;
+    const it = { id: chatSeq.current, at: Date.now(), ...line };
+    setChatLog((l) => [...l.slice(-(CHAT.keep - 1)), it]);
+  }, []);
+  // 창은 한 번에 하나만 연다
+  const closeAll = useCallback(() => {
+    setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
+    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null);
+  }, []);
+  const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
+  useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
 
   // 서버 저장 — 코드를 정한 캐릭터만. 다른 기기가 나중에 들어오면 이 기기의 서버 저장을 멈추고 알린다
   const acctRef = useRef(null);                     // { name, tok }
@@ -403,6 +430,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "talk") rpgTalk(g, mySeat);
       else if (kind === "fire") rpgFire(g, mySeat, dir);
       else if (kind === "auto") rpgAuto(g, mySeat, dir);
+      else if (kind === "party") rpgParty(g, mySeat, dir);
+      else if (kind === "title") rpgTitle(g, mySeat, dir);
     } else {
       room?.send("input", { cls: mySeat, kind, dir });
     }
@@ -418,13 +447,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen) return;
     const onKey = (e) => {
-      if (e.key === "Escape") { setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false); }
+      if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, waitKey, closeAll]);
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
   useEffect(() => { if (!statOpen) setPlan(noStats()); }, [statOpen]);
@@ -460,47 +489,43 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     act("hold", []);
   }, [act]);
 
+  // 채팅 칸을 연다 — 걷던 것은 멈춘다
+  const openChat = useCallback(() => {
+    clearDirs();
+    act("fire", false);
+    setChatOpen(true);
+    setChatErr("");
+    setTimeout(() => chatInput.current?.focus(), 0);
+  }, [act, clearDirs]);
+
   useEffect(() => {
     function onKey(e) {
       const t = e.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      const dir = MOVE_KEYS[e.code];
-      const isSkill = SKILL_KEYS.includes(e.code);
-      const isTalk = TALK_KEYS.includes(e.code);
-      const isFire = FIRE_KEYS.includes(e.code);
-      if (DASH_KEYS.includes(e.code)) {
-        e.preventDefault();
-        if (!e.repeat) act("dash");
-        return;
-      }
-      if (USE_KEYS[e.code]) {
-        e.preventDefault();
-        const s = ACTIVE_SKILLS.find((q) => q.use.key === USE_KEYS[e.code]);
-        if (s && !e.repeat) act("use", s.id);
-        return;
-      }
-      if (STAT_KEYS.includes(e.code)) {
-        e.preventDefault();
-        if (!e.repeat) { setShopOpen(null); setBagOpen(false); setStatOpen((v) => !v); }
-        return;
-      }
-      if (BAG_KEYS.includes(e.code)) {
-        e.preventDefault();
-        if (!e.repeat) { setShopOpen(null); setStatOpen(false); setNote(null); setBagOpen((v) => !v); }
-        return;
-      }
-      if (!dir && !isSkill && !isTalk && !isFire) return;
+      if (waitKey) return;                          // 키 설정 창이 새 키를 기다린다
+      const a = keyMap(bindsRef.current)[e.code];
+      if (!a) return;
       e.preventDefault();
+      if (MOVE_ACTS[a]) { if (!e.repeat) pressDir(MOVE_ACTS[a]); return; }
       if (e.repeat) return;
-      if (dir) pressDir(dir);
-      else if (isSkill) act("skill");
-      else if (isFire) act("fire", true);          // 스페이스 — 누르고 있는 동안 평타
-      else act("talk");
+      if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
+      else if (a === "skill") act("skill");
+      else if (a === "dash") act("dash");
+      else if (a === "talk") act("talk");
+      else if (a.startsWith("use")) {
+        const s = ACTIVE_SKILLS.find((q) => q.use.key === Number(a.slice(3)));
+        if (s) act("use", s.id);
+      }
+      else if (a === "chat") openChat();
+      else if (a === "stat") toggleWin(statOpen, setStatOpen);
+      else if (a === "bag") toggleWin(bagOpen, setBagOpen);
+      else if (a === "title") toggleWin(titleOpen, setTitleOpen);
+      else if (a === "party") toggleWin(partyOpen, setPartyOpen);
     }
     function onUp(e) {
-      const dir = MOVE_KEYS[e.code];
-      if (dir) releaseDir(dir);
-      if (FIRE_KEYS.includes(e.code)) act("fire", false);
+      const a = keyMap(bindsRef.current)[e.code];
+      if (MOVE_ACTS[a]) releaseDir(MOVE_ACTS[a]);
+      if (a === "fire") act("fire", false);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
@@ -511,7 +536,66 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       window.removeEventListener("keyup", onUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [act, mySeat, pressDir, releaseDir, clearDirs]);
+  }, [act, mySeat, pressDir, releaseDir, clearDirs, openChat, toggleWin, waitKey, statOpen, bagOpen, titleOpen, partyOpen]);
+
+  // 키 설정 창 — 고른 칸에 다음으로 누른 키를 넣는다. Esc 는 그만두기, Backspace · Delete 는 비우기
+  useEffect(() => {
+    if (!waitKey) return;
+    const onKey = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code === "Escape") return setWaitKey(null);
+      if (e.code === "Backspace" || e.code === "Delete") setBinds((b) => clearKey(b, waitKey.id, waitKey.slot));
+      else setBinds((b) => bindKey(b, waitKey.id, waitKey.slot, e.code));
+      setWaitKey(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [waitKey]);
+
+  /* 채팅 — 방장을 거치지 않고 서버의 모두에게 바로 보낸다. 파티 채팅은 같은 파티만 띄운다 */
+  const seatsRef = useRef(seats);
+  useEffect(() => { seatsRef.current = seats; }, [seats]);
+  useEffect(() => {
+    if (!room) return;
+    return room.on("chat", (d, from) => {
+      if (!d || typeof d.t !== "string") return;
+      const text = d.t.trim().slice(0, CHAT.max);
+      if (!text) return;
+      const pi = seatsRef.current.findIndex((st) => st && st.id === from);
+      if (pi < 0) return;
+      const g = G.current;
+      const me = g.heroes[mySeat];
+      const party = d.s === "party";
+      if (party && (!me || !me.pty || me.pty !== d.p)) return;
+      if (!g.bubbles) g.bubbles = {};
+      g.bubbles[pi] = { text, until: performance.now() + CHAT.bubble * 1000 };
+      pushChat({ kind: party ? "party" : "all", name: seatsRef.current[pi].name || "모험가", text });
+    });
+  }, [room, mySeat, pushChat]);
+  const sendChat = () => {
+    const text = chatText.trim().slice(0, CHAT.max);
+    if (!text) { setChatOpen(false); return; }
+    const wait = CHAT.gap * 1000 - (Date.now() - chatAt.current);
+    if (wait > 0) return setChatErr(`${Math.ceil(wait / 100) / 10}초 뒤에 보낼 수 있습니다.`);
+    const g = G.current;
+    const me = g.heroes[mySeat];
+    const party = chatScope === "party";
+    if (party && (!me || !me.pty)) return setChatErr("파티에 들어가야 파티 채팅을 쓸 수 있습니다.");
+    chatAt.current = Date.now();
+    room?.send("chat", { t: text, s: party ? "party" : "all", p: party ? me.pty : 0 });
+    if (!g.bubbles) g.bubbles = {};
+    g.bubbles[mySeat] = { text, until: performance.now() + CHAT.bubble * 1000 };
+    pushChat({ kind: party ? "party" : "all", name: names[mySeat] || "모험가", text, mine: true });
+    setChatText("");
+    setChatErr("");
+    setChatOpen(false);
+  };
+  // 오래된 줄이 흐려지게 1초마다 시각을 새로 한다
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   /* 통신 */
   useEffect(() => {
@@ -530,6 +614,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         else if (d.kind === "use") rpgUseSkill(g, d.cls, d.dir);
         else if (d.kind === "dash") rpgDash(g, d.cls);
         else if (d.kind === "shop") rpgShop(g, d.cls, d.dir);
+        else if (d.kind === "party") rpgParty(g, d.cls, d.dir);
+        else if (d.kind === "title") rpgTitle(g, d.cls, d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
@@ -639,8 +725,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf } },
-          party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max })),
+          party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title })),
+          pty: me.pty, inv: me.invite ? me.invite.from : -1, title: me.title, titles: me.titles.slice(), rec: { ...me.rec },
         } : null);
+        // 파티 · 칭호 알림 — 내 것 가운데 새로 온 것만 채팅 칸에
+        g.sys.forEach((n) => { if (n.who === mySeat && !n.seen) { n.seen = true; pushChat({ kind: "sys", text: n.msg }); } });
         // 상점 결과 — 내 것 가운데 새로 온 것만
         const mine = g.notes.filter((n) => n.who === mySeat);
         const top = mine[mine.length - 1];
@@ -653,7 +742,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         }
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded) {
-          const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`;
+          const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
+            + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}`;
           if (key !== saved) {
             saved = key;
             writeChar(me);
@@ -666,7 +756,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [isHost, room, playSounds, mySeat]);
+  }, [isHost, room, playSounds, mySeat, pushChat]);
 
   useEffect(() => {
     if (!toast) return;
@@ -699,6 +789,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
               <span className="rpg-lv-body">
                 <span className="rpg-lv-name"><b>{names[mySeat] || "모험가"}</b> {who(mySeat)}{me.admin && <em className="rpg-admin">관리자</em>}</span>
+                <span className="rpg-lv-sub">
+                  <span className="rpg-lv-title">{me.title ? `「${titleName(me.title)}」` : ""}</span>
+                  <span className={`rpg-lv-sk ${me.sk <= 0 ? "ready" : ""}`}>
+                    {skillName(myLook)} {me.sk <= 0 ? "준비됨" : `${Math.ceil(me.sk)}초`}
+                  </span>
+                </span>
                 <span className="rpg-lv-row">
                   <span className="rpg-lv-tag">XP</span>
                   <span className="rpg-lv-bar xp"><span style={{ width: `${me.lv >= LV_MAX ? 100 : Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
@@ -712,16 +808,21 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}
-                    aria-expanded={statOpen} onClick={() => { setMenu(false); setShopOpen(null); setBagOpen(false); setStatOpen((v) => !v); }}>
+                    aria-expanded={statOpen} onClick={() => toggleWin(statOpen, setStatOpen)}>
                     스탯{me.left > 0 && <b>+{me.left}</b>}
                   </button>
                   <button type="button" className={`rpg-lv-stat ${bagOpen ? "on" : ""}`} aria-expanded={bagOpen}
-                    onClick={() => { setMenu(false); setStatOpen(false); setShopOpen(null); setNote(null); setBagOpen((v) => !v); }}>
+                    onClick={() => toggleWin(bagOpen, setBagOpen)}>
                     가방
                   </button>
-                  <span className={`rpg-lv-sk ${me.sk <= 0 ? "ready" : ""}`}>
-                    {skillName(myLook)} {me.sk <= 0 ? "준비됨" : `${Math.ceil(me.sk)}초`}
-                  </span>
+                  <button type="button" className={`rpg-lv-stat ${titleOpen ? "on" : ""}`} aria-expanded={titleOpen}
+                    onClick={() => toggleWin(titleOpen, setTitleOpen)}>
+                    칭호
+                  </button>
+                  <button type="button" className={`rpg-lv-stat ${me.pty ? "has" : ""} ${partyOpen ? "on" : ""}`} aria-expanded={partyOpen}
+                    onClick={() => toggleWin(partyOpen, setPartyOpen)}>
+                    파티{me.pty > 0 && <b>{me.party.filter((h) => h.pty === me.pty).length}</b>}
+                  </button>
                 </span>
               </span>
             </div>
@@ -738,6 +839,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   </span>
                   <span className={`rpg-switch ${auto ? "on" : ""}`}><span /></span>
                 </button>
+                {!touch && (
+                  <button type="button" role="menuitem" className="rpg-menu-row" onClick={() => toggleWin(false, setKeysOpen)}>
+                    <span className="rpg-menu-text">
+                      <b>키 설정</b>
+                      <em>이동 · 공격 · 창 열기 키를 바꿉니다</em>
+                    </span>
+                    <span className="rpg-menu-go">›</span>
+                  </button>
+                )}
               </div>
             </>
           )}
@@ -794,13 +904,122 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </>
             );
           })()}
+          {me && titleOpen && (
+            <>
+              <div className="rpg-menu-back" onClick={() => setTitleOpen(false)} />
+              <div className="rpg-stat rpg-win" role="dialog" aria-label="칭호">
+                <div className="rpg-stat-head">
+                  <b>칭호</b>
+                  <span>얻은 칭호 <em>{me.titles.length}</em> / {TITLES.length}</span>
+                </div>
+                <p className="rpg-stat-rule">조건을 채우면 칭호를 얻습니다. 하나를 골라 이름 아래에 답니다. 능력치는 바뀌지 않습니다.</p>
+                <div className="rpg-stat-list">
+                  {TITLES.map((t) => {
+                    const has = me.titles.includes(t.id), on = me.title === t.id;
+                    const prog = Object.entries(t.need).map(([k, n]) => (k === "lv"
+                      ? `${n}레벨`
+                      : `${NEED_NAME[k]} ${Math.min(needNow(me, k), n).toLocaleString("ko-KR")}/${n.toLocaleString("ko-KR")}`)).join(" · ");
+                    return (
+                      <div key={t.id} className={`rpg-win-row ${has ? "" : "locked"} ${on ? "on" : ""}`}>
+                        <span className="rpg-stat-name"><b>{t.name}</b><em>{has && !titleMet(me, t) ? "얻음" : prog}</em></span>
+                        {has
+                          ? <button type="button" className="rpg-win-btn" onClick={() => act("title", on ? "" : t.id)}>{on ? "떼기" : "달기"}</button>
+                          : <span className="rpg-win-tag">잠김</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+          {me && partyOpen && (() => {
+            const mates = me.pty ? me.party.filter((h) => h.pty === me.pty) : [];
+            const full = mates.length >= PARTY.max;
+            return (
+              <>
+                <div className="rpg-menu-back" onClick={() => setPartyOpen(false)} />
+                <div className="rpg-stat rpg-win" role="dialog" aria-label="파티">
+                  <div className="rpg-stat-head">
+                    <b>파티</b>
+                    <span>{me.pty ? <>파티원 <em>{mates.length}</em> / {PARTY.max}</> : "아직 파티가 없습니다"}</span>
+                  </div>
+                  <p className="rpg-stat-rule">
+                    같은 맵의 파티원이 몹을 잡으면 그 경험치의 {Math.round(PARTY.share * 100)}%를 받습니다. 코인은 잡은 사람만 받습니다.
+                    채팅 칸에서 "파티"를 고르면 파티원에게만 보입니다.
+                  </p>
+                  <div className="rpg-stat-list">
+                    {me.party.map((h) => {
+                      const mine = h.pi === mySeat, mate = me.pty && h.pty === me.pty;
+                      return (
+                        <div key={h.pi} className={`rpg-win-row ${mate ? "on" : ""}`}>
+                          <span className="rpg-stat-name">
+                            <b>{names[h.pi] || "모험가"}{h.title && <small> 「{titleName(h.title)}」</small>}</b>
+                            <em>Lv {h.lv} · {who(h.pi)} · {MAPS[h.map].name}</em>
+                          </span>
+                          {mine ? <span className="rpg-win-tag">나</span>
+                            : mate ? <span className="rpg-win-tag">파티원</span>
+                              : h.pty ? <span className="rpg-win-tag">다른 파티</span>
+                                : <button type="button" className="rpg-win-btn" disabled={full}
+                                  onClick={() => act("party", { op: "invite", to: h.pi })}>초대</button>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {me.pty > 0 && (
+                    <div className="rpg-stat-foot">
+                      <button type="button" className="btn-ghost" onClick={() => act("party", { op: "leave" })}>파티 나가기</button>
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+          {keysOpen && (
+            <>
+              <div className="rpg-menu-back" onClick={() => { if (!waitKey) setKeysOpen(false); }} />
+              <div className="rpg-stat rpg-win rpg-keyset" role="dialog" aria-label="키 설정">
+                <div className="rpg-stat-head">
+                  <b>키 설정</b>
+                  <span>칸을 누르고 쓸 키를 누릅니다</span>
+                </div>
+                <p className="rpg-stat-rule">Backspace 는 칸 비우기 · Esc 는 그만두기. 다른 행동에 있던 키는 그 칸에서 빠집니다. 이 기기에 남습니다.</p>
+                <div className="rpg-stat-list">
+                  {KEY_ACTIONS.map((a, i) => (
+                    <div key={a.id} className={`rpg-key-row ${i > 0 && KEY_ACTIONS[i - 1].group !== a.group ? "gap" : ""}`}>
+                      <span className="rpg-key-name"><em>{a.group}</em><b>{a.name}</b></span>
+                      {Array.from({ length: KEY_SLOTS }, (_, slot) => {
+                        const wait = waitKey && waitKey.id === a.id && waitKey.slot === slot;
+                        return (
+                          <button key={slot} type="button" className={`rpg-key-slot ${wait ? "wait" : ""} ${binds[a.id][slot] ? "" : "empty"}`}
+                            onClick={() => setWaitKey(wait ? null : { id: a.id, slot })}>
+                            {wait ? "키를 누르세요" : keyLabel(binds[a.id][slot]) || "—"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div className="rpg-stat-foot">
+                  <button type="button" className="btn-ghost" onClick={() => { setWaitKey(null); setBinds(defaultKeys()); }}>기본값으로</button>
+                  <button type="button" className="btn-main" onClick={() => { setWaitKey(null); setKeysOpen(false); }}>닫기</button>
+                </div>
+              </div>
+            </>
+          )}
+          {me && me.inv >= 0 && nowMs - answeredAt > 1500 && (
+            <div className="rpg-invite" role="alertdialog" aria-label="파티 초대">
+              <span><b>{names[me.inv] || "모험가"}</b>님이 파티에 초대했습니다</span>
+              <button type="button" className="btn-main" onClick={() => { setAnsweredAt(nowMs + 1000); act("party", { op: "accept" }); }}>수락</button>
+              <button type="button" className="btn-ghost" onClick={() => { setAnsweredAt(nowMs + 1000); act("party", { op: "decline" }); }}>거절</button>
+            </div>
+          )}
           {me && shopOpen && (
             <ShopPanel shop={shopOpen} h={me.self} send={sendShop} note={note} onClose={() => setShopOpen(null)} />
           )}
           {me && bagOpen && (
             <BagPanel h={me.self} send={sendShop} note={note} onClose={() => setBagOpen(false)} />
           )}
-          {me && !menu && !statOpen && !shopOpen && !bagOpen && (me.quest.on || inField) && (
+          {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && (me.quest.on || inField) && (
             <div className="rpg-quest">
               {me.quest.on
                 ? <><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</>
@@ -822,7 +1041,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <span className="rpg-talk-who">{nearShopNpc.keeper}</span>
               <span className="rpg-talk-line">{nearShopNpc.line}</span>
               <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
-                {nearShopNpc.name} 열기{!touch && <kbd>E</kbd>}
+                {nearShopNpc.name} 열기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
               </button>
             </div>
           )}
@@ -834,9 +1053,39 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </span>
               {me.near && (
                 <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
-                  {me.quest.on ? "남은 수 묻기" : "퀘스트 받기"}{!touch && <kbd>E</kbd>}
+                  {me.quest.on ? "남은 수 묻기" : "퀘스트 받기"}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
                 </button>
               )}
+            </div>
+          )}
+
+          {me && (
+            <div className={`rpg-chat ${chatOpen ? "open" : ""}`}>
+              <div className="rpg-chat-log" aria-live="polite">
+                {chatLog.slice(-CHAT.show).map((l) => (
+                  <p key={l.id} className={`rpg-chat-line ${l.kind} ${!chatOpen && nowMs - l.at > CHAT.fade * 1000 ? "old" : ""}`}>
+                    {l.kind !== "sys" && <b>{l.kind === "party" ? "파티 · " : ""}{l.name}</b>}
+                    <span>{l.text}</span>
+                  </p>
+                ))}
+              </div>
+              {chatOpen ? (
+                <form className="rpg-chat-form" onSubmit={(e) => { e.preventDefault(); sendChat(); }}>
+                  <button type="button" className={`rpg-chat-scope ${chatScope}`}
+                    onClick={() => { setChatScope((v) => (v === "all" ? "party" : "all")); chatInput.current?.focus(); }}>
+                    {chatScope === "all" ? "전체" : "파티"}
+                  </button>
+                  <input ref={chatInput} value={chatText} maxLength={CHAT.max} placeholder="할 말을 적고 Enter" aria-label="채팅"
+                    onChange={(e) => { setChatText(e.target.value); setChatErr(""); }}
+                    onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setChatOpen(false); setChatErr(""); } }} />
+                  <button type="submit" className="rpg-chat-send">보내기</button>
+                </form>
+              ) : (
+                <button type="button" className="rpg-chat-open" onClick={openChat}>
+                  채팅{!touch && keyOf(binds, "chat") && <kbd>{keyOf(binds, "chat")}</kbd>}
+                </button>
+              )}
+              {chatErr && <p className="rpg-chat-err">{chatErr}</p>}
             </div>
           )}
 
@@ -844,7 +1093,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <div className="rpg-skillbar">
               <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
                 onPointerDown={(e) => { e.preventDefault(); act("dash"); }}>
-                <kbd>F</kbd>
+                {!touch && keyOf(binds, "dash") && <kbd>{keyOf(binds, "dash")}</kbd>}
                 <span>대쉬<small>회피 {DASH.inv}초</small></span>
                 {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
                 {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
@@ -852,7 +1101,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               {me.skills.map((s) => (
                 <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
                   onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
-                  <kbd>{s.key}</kbd>
+                  {!touch && keyOf(binds, `use${s.key}`) && <kbd>{keyOf(binds, `use${s.key}`)}</kbd>}
                   <span>{s.name}<small>Lv {s.lv}</small></span>
                   {s.cd > 0 && <em>{Math.ceil(s.cd)}</em>}
                   {s.cd > 0 && <i style={{ width: `${(s.cd / s.max) * 100}%` }} />}
@@ -922,8 +1171,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
         <div className="rpg-party">
           {(me ? me.party : []).map((h) => (
-            <span key={h.pi} className={`rpg-mate ${h.pi === mySeat ? "mine" : ""}`} style={{ "--pcl": elemOf(seats[h.pi]?.hero).light }}>
-              <b>{names[h.pi] || "모험가"}</b>
+            <span key={h.pi} className={`rpg-mate ${h.pi === mySeat ? "mine" : ""} ${me.pty && h.pty === me.pty && h.pi !== mySeat ? "mate" : ""}`}
+              style={{ "--pcl": elemOf(seats[h.pi]?.hero).light }}>
+              <b>{names[h.pi] || "모험가"}{me.pty > 0 && h.pty === me.pty && <small> 파티</small>}</b>
               <em>{who(h.pi)} · Lv {h.lv} · {MAPS[h.map].name}</em>
               <span className="rpg-mate-hp"><span style={{ width: `${Math.min(100, (h.hp / (h.max || 1)) * 100)}%` }} /></span>
             </span>
@@ -933,8 +1183,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         <p className="keyhint rpg-keys">
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_CREW_MAX}명 ·{" "}
           {touch
-            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 레벨 칸의 스탯 · 가방 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>이동 <kbd>W A S D</kbd> · 평타 <kbd>Space</kbd> · 스킬 <kbd>Shift</kbd> <kbd>Q</kbd> · 사냥꾼 · 상점 곁에서 <kbd>E</kbd> · 대쉬 <kbd>F</kbd> · 산 스킬 <kbd>1</kbd>~<kbd>4</kbd> · 스탯 <kbd>C</kbd> · 가방 <kbd>I</kbd> · ☰ 에서 자동 평타 켜고 끄기</>}
+            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
+            : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 사냥꾼 · 상점 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
@@ -947,7 +1197,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           멧돼지는 20~50레벨로 {SPAWNS[4].n}마리, 멧돼지 왕(보스 · 55레벨)은 {SPAWNS[5].n}마리까지 나옵니다. 멧돼지는 몸을 낮췄다가 일직선으로 돌진하니 옆으로 피하세요. 한 마리가 잡히면 한 마리가 새로 나옵니다.
           스킬 상점에서 산 액티브 스킬은 숫자키 1~4(휴대폰은 왼쪽 아래 칸)로 씁니다.
           대쉬(F)는 누른 방향으로 짧게 달려 나가고, 그동안 {DASH.inv}초는 맞지 않습니다. {DASH.cd}초마다 쓸 수 있습니다.
-          레벨이 높은 몹일수록 경험치와 코인을 더 줍니다. 1레벨 토끼는 경험치 2 · {coinOf(1)}코인, 10레벨 늑대는 경험치 20 · {coinOf(10)}코인입니다.
+          레벨이 높은 몹일수록 경험치와 코인을 더 줍니다. 1레벨 토끼는 경험치 {xpOf(2)} · {coinOf(1)}코인, 10레벨 늑대는 경험치 {xpOf(20)} · {coinOf(10)}코인입니다.
           {MOB_REGEN.calm}초 넘게 맞지 않은 몹은 체력이 조금씩 차오릅니다.
           토끼는 맞으면 달아나고 가끔 들이받지만, 늑대와 보스는 가까이 가거나 때리면 쫓아옵니다.
           레벨을 올리려면 처음엔 경험치 30, 그다음부터는 30씩 더 필요합니다.
@@ -964,6 +1214,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           산 무기 · 물약 · 배운 스킬은 가방(I)에서 보고, 무기 장착과 물약 마시기는 어디서나 할 수 있습니다.
           방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_CREW_MAX}명까지이고, 가득 차면 다음 서버로 넘어갑니다.
           판정을 맡은 사람이 나가도 서버는 닫히지 않습니다. 1초쯤 뒤 남은 사람이 이어받고 모두 있던 자리에서 그대로 이어 합니다.
+          Enter(휴대폰은 채팅 버튼)로 채팅합니다. 채팅 칸의 "전체 / 파티" 단추로 파티원에게만 말할 수도 있습니다. {CHAT.gap}초에 한 번 보낼 수 있습니다.
+          파티 창(P)에서 같은 서버 사람을 초대합니다. {PARTY.max}명까지이고, 같은 맵의 파티원이 몹을 잡으면 그 경험치의 {Math.round(PARTY.share * 100)}%를 함께 받습니다.
+          칭호는 레벨 · 사냥 수 · 보스 · 퀘스트 조건을 채우면 얻습니다. 칭호 창(T)에서 하나를 골라 이름 아래에 답니다.
+          ☰ 메뉴의 키 설정에서 키를 바꿀 수 있습니다(PC).
         </details>
       </div>
     </div>

@@ -44,7 +44,7 @@ export const WEAPON = {
   sellRate: 0.4,         // 되팔면 산 값의 40%
   bagMax: 30,            // 가방에 넣을 수 있는 무기 수
 };
-/* 특별 무기 — 이름과 그림이 있는 무기. 상점 목록에는 없고 오늘의 특가 · 랜덤 상자에서만 나온다.
+/* 특별 무기 — 이름과 그림이 있는 무기. 무기상점에서 코인으로 바로 산다(같은 무기는 한 자루만). 오늘의 특가 · 랜덤 상자에서도 나온다.
    lv 는 레벨 제한(무기 단계 가운데 하나), g 는 등급, stat 은 올리는 스탯.
    올리는 양 · 값은 같은 단계 · 등급의 일반 무기에 SPECIAL 배율을 곱한다. art 는 public/assets/game/rpg/weapons/<art>.webp */
 export const SPECIAL = { mul: 1.25, price: 1.5 };

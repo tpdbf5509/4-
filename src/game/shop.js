@@ -199,6 +199,19 @@ function base(h, shop, out) {
 }
 const lackCoin = (h, price, out) => { if (h && h.coins < price) out.push(`코인 ${won(price - h.coins)} 부족`); };
 
+// 특별 무기 사기 — 무기상점에서 코인으로 바로 산다. 같은 무기는 한 자루만
+export function whySpecialBuy(h, id) {
+  const out = [];
+  base(h, "weapon", out);
+  const sp = SPECIAL_BY_ID[id];
+  if (!sp) { out.push("없는 무기입니다"); return out; }
+  if (!h || !h.bag) return out;
+  if (h.bag.w.some((w) => w.sp === id)) { out.push("이미 가지고 있습니다"); return out; }
+  if (h.lv < sp.lv) out.push(`레벨 ${sp.lv} 필요 (지금 ${h.lv})`);
+  if (h.bag.w.length >= WEAPON.bagMax) out.push(`가방이 가득 찼습니다 (${WEAPON.bagMax}개)`);
+  lackCoin(h, specialPrice(sp), out);
+  return out;
+}
 // 오늘의 특가 사기 — key 는 화면이 본 특가. 그사이 날짜나 내 레벨 단계가 바뀌었으면 막는다
 export function whyDealBuy(h, key, day = todayKey()) {
   const out = [];
@@ -359,7 +372,18 @@ export function rpgShop(g, pi, req) {
   const op = req.op;
   let why;
 
-  // 무기는 오늘의 특가로만 산다 — 레벨 단계별 상점 목록은 없앴다
+  // 특별 무기는 코인으로 바로 산다
+  if (op === "spbuy") {
+    if ((why = whySpecialBuy(h, req.id)).length) return no(g, pi, why);
+    const sp = SPECIAL_BY_ID[req.id];
+    const price = specialPrice(sp);
+    h.coins -= price;
+    addWeapon(h, sp.t, specialTier(sp), sp.g, price, sp.id);
+    bump(h);
+    fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `-${won(price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
+    return note(g, pi, { ok: true, msg: `${jo(sp.name, "을", "를")} 샀습니다 (${won(price)}코인)` });
+  }
+  // 일반 무기는 오늘의 특가로 산다 — 레벨 단계별 상점 목록은 없앴다
   if (op === "deal") {
     if ((why = whyDealBuy(h, req.key, day)).length) return no(g, pi, why);
     const d = dealOf(h.lv, day);

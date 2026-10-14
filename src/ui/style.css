@@ -1269,64 +1269,85 @@ kbd {
 .pbtn.hit.ready { color: #fff3d0; box-shadow: 0 4px 0 #22180e, 0 0 0 2px rgba(255, 224, 138, 0.45); }
 .drop-note .btn-ghost { margin-left: 8px; }
 
-/* 광장 상점 · 가방 창 — 기능 확인용 단순한 모양. 스탯 창의 틀을 빌려 쓰고 조금 넓힌다 */
-.rpg-shop { width: min(560px, calc(100% - 24px)); top: 12px; max-height: calc(100% - 24px); }
-.rpg-shop .rpg-stat-head { align-items: center; }
-.rpg-shop .rpg-stat-head b { margin-right: auto; }
-.shop-coins { display: inline-flex; align-items: center; gap: 4px; font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: #f3d27f !important; }
-.shop-coins svg { width: 14px; height: 14px; display: block; }
-.shop-x {
-  width: 26px; height: 26px; padding: 0; cursor: pointer; border-radius: 7px; font-size: 18px; line-height: 1;
-  color: #e8d7ae; background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.5);
+/* 광장 상점 · 가방 창 — 배경 60 · 글자 30 · 포인트 10.
+   왼쪽 정렬, 1px 선으로 줄을 나눈다. 포인트 색(금빛)은 코인 · 주 버튼 · 고른 탭에만 쓴다 */
+.shop {
+  --sh-bg: #2a2119; --sh-row: rgba(255, 244, 222, 0.025); --sh-line: rgba(226, 205, 165, 0.14);
+  --sh-text: #ecdfc4; --sh-mute: #a99a7e; --sh-faint: #7f7360; --sh-gold: #e3c48a; --sh-warn: #dcae8c;
+  position: absolute; left: 12px; top: 12px; z-index: 5; width: min(640px, calc(100% - 24px));
+  max-height: calc(100% - 24px); display: flex; flex-direction: column; box-sizing: border-box;
+  border-radius: 12px; border: 1px solid rgba(226, 205, 165, 0.28); background: var(--sh-bg); color: var(--sh-text);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45); text-align: left; overflow: hidden;
 }
-.shop-result { margin: 6px 0; padding: 6px 9px; border-radius: 7px; font-size: 12px; line-height: 1.45; letter-spacing: -0.02em; border: 1px solid; }
-.shop-result.ok { color: #cfe6c4; border-color: rgba(150, 190, 140, 0.45); background: rgba(80, 110, 70, 0.18); }
-.shop-result.no { color: #f0c9b8; border-color: rgba(200, 140, 120, 0.45); background: rgba(120, 60, 40, 0.18); }
-.shop-sec { margin-top: 10px; }
-.shop-sec h4 {
-  margin: 0 0 4px; font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 14.5px; color: #f2e3c2; letter-spacing: -0.03em;
-  padding-bottom: 4px; border-bottom: 1px solid rgba(214, 186, 140, 0.18);
-}
-.shop-sec h4 small { margin-left: 6px; font-family: inherit; font-size: 10.5px; color: #8d8068; letter-spacing: -0.02em; }
-.shop-note, .shop-empty { margin: 4px 0; font-size: 11px; line-height: 1.5; color: #a8987a; letter-spacing: -0.02em; }
-.shop-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px;
-  padding: 6px 0; border-bottom: 1px solid rgba(214, 186, 140, 0.12);
-}
-.shop-row.slim { grid-template-columns: minmax(0, 1fr) auto; padding: 4px 0; }
-.shop-name { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.shop-name b { font-weight: 400; font-size: 13px; color: #f2e3c2; letter-spacing: -0.02em; }
-.shop-name b small, .shop-price small { font-size: 10.5px; color: #8d8068; }
-.shop-name em { font-style: normal; font-size: 10.5px; line-height: 1.4; color: #a8987a; letter-spacing: -0.02em; }
-.shop-price { font-family: 'Do Hyeon', sans-serif; font-size: 13.5px; color: #f3d27f; white-space: nowrap; text-align: right; }
-.shop-price s { color: #8d8068; font-size: 11px; margin-right: 2px; }
-.shop-act { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; max-width: 190px; }
-.shop-act .btn-ghost, .shop-act .btn-main { padding: 5px 12px; font-size: 12px; white-space: nowrap; box-shadow: none; }
-.shop-acts { display: flex; gap: 6px; align-items: flex-start; }
-.shop-why { font-style: normal; font-size: 10px; line-height: 1.35; color: #e9b98a; text-align: right; letter-spacing: -0.02em; }
-.shop-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
-.shop-tabs button {
-  padding: 3px 8px; cursor: pointer; border-radius: 6px; font-family: inherit; font-size: 11px; color: #e8d7ae;
-  background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.4);
-}
-.shop-tabs button.on { border-color: #d6b26a; color: #ffe08a; }
-.shop-tabs button.lock { opacity: 0.5; }
-.shop-line { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; margin-top: 6px; }
-.shop-bet { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #a8987a; }
-.shop-bet input {
-  width: 84px; padding: 4px 6px; border-radius: 6px; font-family: inherit; font-size: 12.5px; color: #f2e3c2;
-  background: rgba(20, 14, 8, 0.6); border: 1px solid rgba(160, 130, 90, 0.5);
-}
-/* 무기 그림 — 특별 무기만 그림이 있다 */
-.shop-wpn { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.shop-wpn-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.shop-art { flex: none; width: 40px; height: 40px; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
-.shop-specials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
-.shop-special { padding: 5px 0; border-bottom: 1px solid rgba(214, 186, 140, 0.12); }
-.shop-special.lock { opacity: 0.45; }
-.shop-odds { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 11px; color: #c9bb9c; }
-.shop-odds td { padding: 2px 0; border-bottom: 1px solid rgba(214, 186, 140, 0.1); }
-.shop-odds td + td { text-align: right; color: #e8dcc0; }
+.shop-top { display: flex; align-items: center; gap: 12px; padding: 14px 16px 12px; border-bottom: 1px solid var(--sh-line); }
+.shop-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin-right: auto; }
+.shop-title b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 22px; line-height: 1.1; letter-spacing: -0.03em; }
+.shop-title span { font-size: 12px; color: var(--sh-mute); letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-coins { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--sh-line); border-radius: 999px;
+  font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: var(--sh-gold); white-space: nowrap; }
+.shop-coins svg, .shop-price svg { width: 14px; height: 14px; display: block; flex: none; }
+.shop-x { width: 30px; height: 30px; padding: 0; cursor: pointer; border-radius: 8px; font-size: 20px; line-height: 1;
+  color: var(--sh-mute); background: transparent; border: 1px solid var(--sh-line); }
+.shop-x:hover { color: var(--sh-text); }
+.shop-result { margin: 10px 16px 0; padding: 8px 12px; border-radius: 8px; font-size: 13px; line-height: 1.45; letter-spacing: -0.02em; border: 1px solid; }
+.shop-result.ok { color: #d6e8cc; border-color: rgba(160, 196, 150, 0.4); background: rgba(120, 160, 110, 0.1); }
+.shop-result.no { color: #f0d0c0; border-color: rgba(214, 160, 136, 0.4); background: rgba(190, 120, 90, 0.1); }
+.shop-body { padding: 4px 16px 16px; overflow-y: auto; }
+/* 탭 — 밑줄 하나로 고른 것을 보인다 */
+.shop-tabs { display: flex; gap: 2px; margin: 8px 0 4px; border-bottom: 1px solid var(--sh-line); overflow-x: auto; }
+.shop-tabs button { flex: none; padding: 9px 12px 8px; cursor: pointer; background: none; border: 0; border-bottom: 1px solid transparent;
+  margin-bottom: -1px; font-family: inherit; font-size: 14px; color: var(--sh-mute); letter-spacing: -0.02em; }
+.shop-tabs button small { margin-left: 5px; font-size: 11px; color: var(--sh-faint); }
+.shop-tabs button.on { color: var(--sh-text); border-bottom-color: var(--sh-gold); }
+.shop-h { margin: 16px 0 4px; font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 16px; letter-spacing: -0.03em; color: var(--sh-text); }
+.shop-h small { margin-left: 8px; font-family: inherit; font-size: 11.5px; color: var(--sh-faint); letter-spacing: -0.02em; }
+.shop-note, .shop-empty { margin: 10px 0 2px; font-size: 12px; line-height: 1.55; color: var(--sh-mute); letter-spacing: -0.02em; }
+/* 한 줄 — [그림] [이름 · 설명] [값 · 버튼], 막힌 이유는 아래 */
+.shop-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 14px;
+  padding: 11px 0; border-bottom: 1px solid var(--sh-line); }
+.shop-item.has-art { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.shop-item.dim .shop-art, .shop-item.dim .shop-main { opacity: 0.5; }
+.shop-art { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.shop-main { min-width: 0; }
+.shop-name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 15px; letter-spacing: -0.03em; color: var(--sh-text); }
+.shop-meta { display: inline-flex; flex-wrap: wrap; gap: 8px; font-size: 11.5px; color: var(--sh-faint); letter-spacing: -0.02em; }
+.shop-meta .shop-tag { color: var(--sh-gold); }
+.shop-desc { margin-top: 3px; font-size: 12.5px; line-height: 1.5; color: var(--sh-mute); letter-spacing: -0.02em; }
+.shop-need { display: block; margin-top: 2px; color: var(--sh-faint); }
+.shop-side { display: flex; align-items: center; gap: 12px; justify-self: end; }
+.shop-price { display: inline-flex; align-items: center; gap: 4px; font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: var(--sh-gold); white-space: nowrap; }
+.shop-price s { margin-right: 4px; font-size: 12px; color: var(--sh-faint); }
+.shop-price.done { font-family: inherit; font-size: 12px; color: var(--sh-faint); }
+.shop-btns { display: flex; gap: 6px; }
+.shop-btn { min-width: 64px; padding: 7px 14px; cursor: pointer; border-radius: 8px; font-family: inherit; font-size: 13.5px; letter-spacing: -0.02em;
+  color: var(--sh-text); background: transparent; border: 1px solid rgba(226, 205, 165, 0.35); white-space: nowrap; }
+.shop-btn:hover:not(:disabled) { border-color: var(--sh-gold); }
+.shop-btn.main { color: #2a2119; background: var(--sh-gold); border-color: var(--sh-gold); }
+.shop-btn.main:hover:not(:disabled) { filter: brightness(1.08); }
+.shop-btn:disabled { opacity: 0.32; cursor: not-allowed; }
+.shop-why { grid-column: 1 / -1; font-size: 12px; line-height: 1.45; color: var(--sh-warn); letter-spacing: -0.02em; }
+.shop-item.has-art .shop-why { grid-column: 2 / -1; }
+.shop-why.solo { margin: 6px 0 0; }
+/* 등급 — 톤을 낮춘 다섯 색 */
+.shop-grade { font-size: 11.5px; }
+.shop-grade.g0 { color: #bdb6a6; } .shop-grade.g1 { color: #a9c3a0; } .shop-grade.g2 { color: #9db5cf; }
+.shop-grade.g3 { color: #bba3cf; } .shop-grade.g4 { color: #e2c28c; }
+/* 도박장 — 거는 칸과 버튼 */
+.shop-play { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--sh-line); }
+.shop-bet { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sh-mute); }
+.shop-bet small { font-size: 11px; color: var(--sh-faint); }
+.shop-bet input { width: 110px; padding: 7px 10px; border-radius: 8px; font-family: inherit; font-size: 15px; color: var(--sh-text);
+  background: rgba(0, 0, 0, 0.25); border: 1px solid var(--sh-line); }
+.shop-odds { width: 100%; border-collapse: collapse; font-size: 12.5px; color: var(--sh-mute); }
+.shop-odds td { padding: 6px 0; border-bottom: 1px solid var(--sh-line); }
+.shop-odds td + td { text-align: right; color: var(--sh-text); font-variant-numeric: tabular-nums; }
+/* 가방 — 능력치 */
+.shop-stats { margin-top: 6px; }
+.shop-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 0 12px; padding: 10px 0; border-bottom: 1px solid var(--sh-line); }
+.shop-stat span { font-size: 14px; }
+.shop-stat span small { margin-left: 8px; font-size: 11px; color: var(--sh-gold); }
+.shop-stat b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 18px; text-align: right; }
+.shop-stat em { grid-column: 2; font-style: normal; font-size: 11px; color: var(--sh-faint); text-align: right; }
 
 @media (max-width: 560px), (max-height: 560px) {
   .rpg-lv { left: 6px; top: 6px; width: 172px; padding: 4px 7px 4px 4px; gap: 5px; border-radius: 9px; }
@@ -1349,12 +1370,19 @@ kbd {
   .rpg-stat-name em { display: none; }
   .rpg-stat-rule { display: none; }
   .rpg-stat-btns button { width: 24px; height: 24px; }
-  .rpg-shop { top: 6px; max-height: calc(100% - 12px); }
-  .rpg-shop .rpg-stat-rule { display: block; }
-  .shop-row { gap: 6px; }
-  .shop-act { max-width: 130px; }
-  .shop-specials { grid-template-columns: minmax(0, 1fr); }
-  .shop-art { width: 32px; height: 32px; }
+  .shop { left: 6px; top: 6px; width: calc(100% - 12px); max-height: calc(100% - 12px); border-radius: 10px; }
+  .shop-top { padding: 10px 12px 8px; gap: 8px; }
+  .shop-title b { font-size: 18px; }
+  .shop-title span { display: none; }
+  .shop-body { padding: 2px 12px 12px; }
+  .shop-tabs button { padding: 7px 9px 6px; font-size: 13px; }
+  .shop-item { grid-template-columns: minmax(0, 1fr); padding: 9px 0; }
+  .shop-item.has-art { grid-template-columns: 34px minmax(0, 1fr); }
+  .shop-art { width: 34px; height: 34px; }
+  .shop-side { grid-column: 1 / -1; justify-self: stretch; justify-content: space-between; }
+  .shop-item.has-art .shop-side, .shop-item.has-art .shop-why { grid-column: 2 / -1; }
+  .shop-name { font-size: 14px; }
+  .shop-desc { font-size: 12px; }
   .rpg-lv-stat { padding: 0 6px; font-size: 9px; }
   .rpg-lv-stat b { font-size: 10px; }
   .rpg-menu-text b { font-size: 12.5px; }

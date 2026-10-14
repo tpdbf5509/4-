@@ -1,6 +1,6 @@
 /* ── RPG 광장 상점 창 · 가방 창 ──────────────────────────────
-   기능 확인용 단순한 화면이다. 디자인은 나중에 따로 다듬는다.
-   버튼을 누르면 send({ op, ... }) 로 방장에게 보내고, 결과는 note 로 돌아온다.
+   상점마다 탭으로 나눈다. 한 줄은 [그림] [이름 · 등급 · 설명] [값 · 버튼] 이고, 막힌 이유는 그 줄 아래에 한 줄로 적는다.
+   버튼을 누르면 send({ op, ... }) 로 방장에게 보내고, 결과는 note 로 돌아와 창 위쪽에 한 줄로 뜬다.
    막힌 이유는 방장과 같은 조건 함수(why*)로 미리 보여 준다. */
 import { useState } from "react";
 import { STATS, statValue } from "./game/rpg.js";
@@ -9,9 +9,10 @@ import {
   CASINO, BOX, DICE, SLOT,
 } from "./game/shopData.js";
 import {
-  SHOP_BY_ID, SKILL_BY_ID, POTION_BY_ID, FAM_BY_ID, todayKey, usedToday, tierOf, weaponName,
-  weaponLine, weaponArt, specOf, specialTier, specialsFor, sellPrice, dealOf, equipped, skillNext, extraStat,
-  whyDealBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse, whyGamble, boxPrice, boxShares, casinoEv,
+  SHOP_BY_ID, POTION_BY_ID, FAM_BY_ID, SKILL_BY_ID, todayKey, usedToday, tierOf, weaponName,
+  weaponLine, weaponArt, specOf, specialTier, specialPrice, specialsFor, sellPrice, dealOf, equipped,
+  skillNext, extraStat, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
+  whyGamble, boxPrice, boxShares, casinoEv,
 } from "./game/shop.js";
 import { Coin } from "./ui/icons.jsx";
 
@@ -19,31 +20,60 @@ const won = (n) => Math.round(n).toLocaleString("ko-KR");
 const pct = (v, d = 1) => `${(Math.round(v * 100 * 10 ** d) / 10 ** d).toLocaleString("ko-KR")}%`;
 const statDef = (id) => STATS.find((t) => t.id === id);
 
-// 사기 · 팔기 버튼 — 막혔으면 이유를 아래에 적는다
-function Act({ why, label, onClick, main, quiet }) {
-  const blocked = why.length > 0;
+/* ── 공통 조각 ─────────────────────────────────────────────── */
+function Tabs({ tabs, on, set }) {
   return (
-    <span className="shop-act">
-      <button type="button" className={main ? "btn-main" : "btn-ghost"} disabled={blocked} onClick={onClick}>{label}</button>
-      {blocked && !quiet && <em className="shop-why">{why.join(" · ")}</em>}
-    </span>
+    <div className="shop-tabs" role="tablist">
+      {tabs.map(([id, label, sub]) => (
+        <button key={id} type="button" role="tab" aria-selected={on === id} className={on === id ? "on" : ""} onClick={() => set(id)}>
+          {label}{sub !== undefined && <small>{sub}</small>}
+        </button>
+      ))}
+    </div>
   );
 }
+const Price = ({ n, old }) => (
+  <span className="shop-price">{old !== undefined && <s>{won(old)}</s>}<Coin />{won(n)}</span>
+);
+const Grade = ({ g }) => <span className={`shop-grade g${g}`}>{GRADES[g].name}</span>;
 
-/* 무기 이름 칸 — 특별 무기는 그림과 등급을 함께 보인다 */
-function WeaponTitle({ w, tag, line }) {
-  const art = weaponArt(w);
+/* 한 줄 — acts: [{ label, why, onClick, main, quiet }]. 막힌 버튼이 있으면 이유를 줄 아래에 적는다(quiet 는 적지 않는다) */
+function Item({ art, name, meta, desc, price, acts = [], dim }) {
+  const blocked = acts.filter((a) => a.why && a.why.length && !a.quiet);
+  const why = blocked.map((a) => (acts.length > 1 ? `${a.label} — ${a.why.join(" · ")}` : a.why.join(" · ")));
+  return (
+    <div className={`shop-item ${art ? "has-art" : ""} ${dim ? "dim" : ""}`}>
+      {art && <img className="shop-art" src={art} alt="" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />}
+      <div className="shop-main">
+        <div className="shop-name">{name}{meta}</div>
+        {desc && <div className="shop-desc">{desc}</div>}
+      </div>
+      <div className="shop-side">
+        {price}
+        {acts.length > 0 && (
+          <div className="shop-btns">
+            {acts.map((a) => (
+              <button key={a.label} type="button" className={`shop-btn ${a.main ? "main" : ""}`}
+                disabled={!!(a.why && a.why.length)} onClick={a.onClick}>{a.label}</button>
+            ))}
+          </div>
+        )}
+      </div>
+      {why.length > 0 && <div className="shop-why">{why.join("  /  ")}</div>}
+    </div>
+  );
+}
+const Head = ({ children, sub }) => <h4 className="shop-h">{children}{sub && <small>{sub}</small>}</h4>;
+const Empty = ({ children }) => <p className="shop-empty">{children}</p>;
+
+// 무기 한 줄 — 특별 무기는 그림 · 등급 · 레벨
+function WeaponItem({ w, tag, desc, price, acts, dim }) {
   const sp = specOf(w);
   return (
-    <span className="shop-name">
-      <span className="shop-wpn">
-        {art && <img className="shop-art" src={art} alt="" onError={(e) => { e.currentTarget.style.display = "none"; }} />}
-        <span className="shop-wpn-text">
-          <b>{weaponName(w)} <small>{sp ? `특별 · ${GRADES[w.g].name} · ` : ""}Lv {WEAPON_TIERS[w.r]}{tag || ""}</small></b>
-          <em>{line || weaponLine(w)}</em>
-        </span>
-      </span>
-    </span>
+    <Item art={weaponArt(w)} dim={dim} price={price} acts={acts}
+      name={weaponName(w)}
+      meta={<span className="shop-meta"><Grade g={w.g} /><span>Lv {WEAPON_TIERS[w.r]}</span>{sp && <span>특별</span>}{tag && <span className="shop-tag">{tag}</span>}</span>}
+      desc={desc || weaponLine(w)} />
   );
 }
 
@@ -53,207 +83,206 @@ function potionText(p) {
   return "찍은 스탯 포인트를 모두 돌려받는다";
 }
 
-/* ── 무기상점 ─────────────────────────────────────────────── */
+/* ── 무기상점 — 사기 · 되팔기 ───────────────────────────────── */
 function WeaponShop({ h, send }) {
+  const [tab, setTab] = useState("buy");
   const day = todayKey();
   const d = dealOf(h.lv, day);
-  const dealLeft = DEAL.perDay - usedToday(h.bag, "deal", day);
-  const eqU = h.bag.e;
+  const dealLeft = Math.max(0, DEAL.perDay - usedToday(h.bag, "deal", day));
   return (
     <>
-      <section className="shop-sec">
-        <h4>오늘의 특가 <small>{Math.round(DEAL.discount * 100)}% 할인 · 하루 {DEAL.perDay}번 · 남은 {Math.max(0, dealLeft)}번</small></h4>
-        <div className="shop-row">
-          <WeaponTitle w={d} />
-          <span className="shop-price"><s>{won(d.full)}</s> {won(d.price)}</span>
-          <Act main why={whyDealBuy(h, d.key, day)} label="특가 구매" onClick={() => send({ op: "deal", key: d.key })} />
-        </div>
-      </section>
-
-      <section className="shop-sec">
-        <h4>특별 무기 <small>상점에서 팔지 않습니다 · 오늘의 특가 · 랜덤 상자에서만 나옵니다</small></h4>
-        <div className="shop-specials">
+      <Tabs on={tab} set={setTab} tabs={[["buy", "무기 사기"], ["sell", "되팔기", h.bag.w.length]]} />
+      {tab === "buy" ? (
+        <>
+          <Head sub={`${Math.round(DEAL.discount * 100)}% 할인 · 하루 ${DEAL.perDay}번 · 남은 ${dealLeft}번`}>오늘의 특가</Head>
+          <WeaponItem w={d} price={<Price n={d.price} old={d.full} />}
+            acts={[{ label: "특가 구매", main: true, why: whyDealBuy(h, d.key, day), onClick: () => send({ op: "deal", key: d.key }) }]} />
+          <Head sub="코인으로 바로 삽니다 · 같은 무기는 한 자루만">무기</Head>
           {SPECIALS.map((sp) => {
             const w = { t: sp.t, r: specialTier(sp), g: sp.g, sp: sp.id };
             const have = h.bag.w.some((q) => q.sp === sp.id);
             return (
-              <div key={sp.id} className={`shop-special ${h.lv < sp.lv ? "lock" : ""}`}>
-                <WeaponTitle w={w} tag={have ? " · 가지고 있음" : ""} />
-              </div>
+              <WeaponItem key={sp.id} w={w} dim={h.lv < sp.lv} tag={have ? "가지고 있음" : ""}
+                price={<Price n={specialPrice(sp)} />}
+                acts={have ? [] : [{ label: "구매", why: whySpecialBuy(h, sp.id), onClick: () => send({ op: "spbuy", id: sp.id }) }]} />
             );
           })}
-        </div>
-      </section>
-
-      <section className="shop-sec">
-        <h4>되팔기 <small>산 값의 {Math.round(WEAPON.sellRate * 100)}% · 가방 {h.bag.w.length}/{WEAPON.bagMax}</small></h4>
-        {!h.bag.w.length && <p className="shop-empty">가방에 무기가 없습니다.</p>}
-        {h.bag.w.map((w) => (
-          <div key={w.u} className="shop-row">
-            <WeaponTitle w={w} tag={w.u === eqU ? " · 장착 중" : ""} line={`${weaponLine(w)} · 산 값 ${won(w.p)}`} />
-            <span className="shop-price">+{won(sellPrice(w))}</span>
-            <Act why={whyWeaponSell(h, w.u)} label="팔기" onClick={() => send({ op: "wsell", u: w.u })} />
-          </div>
-        ))}
-      </section>
+        </>
+      ) : (
+        <>
+          <Head sub={`산 값의 ${Math.round(WEAPON.sellRate * 100)}% · 가방 ${h.bag.w.length}/${WEAPON.bagMax}`}>되팔기</Head>
+          {!h.bag.w.length && <Empty>가방에 무기가 없습니다.</Empty>}
+          {h.bag.w.map((w) => (
+            <WeaponItem key={w.u} w={w} tag={w.u === h.bag.e ? "장착 중" : ""} desc={`${weaponLine(w)} · 산 값 ${won(w.p)}`}
+              price={<Price n={sellPrice(w)} />}
+              acts={[{ label: "팔기", why: whyWeaponSell(h, w.u), onClick: () => send({ op: "wsell", u: w.u }) }]} />
+          ))}
+        </>
+      )}
     </>
   );
 }
 
-/* ── 스킬 상점 ─────────────────────────────────────────────── */
+/* ── 스킬 상점 — 계열마다 탭 ─────────────────────────────────── */
 function SkillShop({ h, send }) {
-  return SKILL_FAMS.map((f) => (
-    <section key={f.id} className="shop-sec">
-      <h4>{f.name} 계열 <small>조건 스탯 {statDef(f.stat).name} (장비 · 버프 제외)</small></h4>
-      {SKILLS.filter((s) => s.fam === f.id).map((s) => {
+  const [tab, setTab] = useState(SKILL_FAMS[0].id);
+  const fam = FAM_BY_ID[tab];
+  const sd = statDef(fam.stat);
+  return (
+    <>
+      <Tabs on={tab} set={setTab} tabs={SKILL_FAMS.map((f) => [f.id, f.name])} />
+      <Head sub={`지금 ${sd.name} ${sd.fmt(statValue(fam.stat, h.st[fam.stat]))} · 장비 · 버프 제외`}>{fam.name} 계열</Head>
+      {SKILLS.filter((s) => s.fam === tab).map((s) => {
         const cur = h.bag.s[s.id] || 0;
         const nx = skillNext(h, s.id);
+        const nsd = nx && statDef(nx.stat);
         return (
-          <div key={s.id} className="shop-row">
-            <span className="shop-name">
-              <b>{s.name} <small>{s.kind === "active" ? "액티브" : "패시브"} · Lv {cur}/{s.gold.length}</small></b>
-              <em>
+          <Item key={s.id}
+            name={s.name}
+            meta={<span className="shop-meta"><span>{s.kind === "active" ? "액티브" : "패시브"}</span><span>Lv {cur}/{s.gold.length}</span></span>}
+            desc={
+              <>
                 {s.note}
                 {s.bonus && ` · 레벨마다 ${statDef(s.bonus.stat).name} +${statDef(s.bonus.stat).fmt(s.bonus.per)}`}
                 {s.kind === "active" && " · 전투에서 쓰기는 준비 중"}
-              </em>
-              {nx && (
-                <em>
-                  다음 Lv {nx.lv} 조건 — 레벨 {nx.needLv} · {statDef(nx.stat).name} {statDef(nx.stat).fmt(nx.need)}
-                  {" "}(지금 {statDef(nx.stat).fmt(statValue(nx.stat, h.st[nx.stat]))})
-                </em>
-              )}
-            </span>
-            <span className="shop-price">{nx ? won(nx.gold) : "—"}</span>
-            <Act why={whySkill(h, s.id)} label={cur ? "레벨업" : "배우기"} onClick={() => send({ op: "sbuy", id: s.id })} />
-          </div>
+                {nx && <span className="shop-need">다음 Lv {nx.lv} — 레벨 {nx.needLv} · {nsd.name} {nsd.fmt(nx.need)}</span>}
+              </>
+            }
+            price={nx ? <Price n={nx.gold} /> : <span className="shop-price done">최고 레벨</span>}
+            acts={nx ? [{ label: cur ? "레벨업" : "배우기", why: whySkill(h, s.id), onClick: () => send({ op: "sbuy", id: s.id }) }] : []} />
         );
       })}
-    </section>
-  ));
-}
-
-/* ── 물약 상점 ─────────────────────────────────────────────── */
-function PotionShop({ h, send }) {
-  return (
-    <section className="shop-sec">
-      <h4>물약 <small>마실 때 {pct(POTION.greatChance, 0)} 확률로 대성공(효과 {POTION.greatMul}배) · 초기화 물약 제외</small></h4>
-      {POTIONS.map((p) => (
-        <div key={p.id} className="shop-row">
-          <span className="shop-name">
-            <b>{p.name} <small>가진 수 {h.bag.p[p.id] || 0}</small></b>
-            <em>{potionText(p)}</em>
-          </span>
-          <span className="shop-price">{won(p.price)}</span>
-          <span className="shop-acts">
-            <Act why={whyPotionBuy(h, p.id)} label="사기" onClick={() => send({ op: "pbuy", id: p.id })} />
-            <Act why={whyPotionUse(h, p.id)} label="마시기" onClick={() => send({ op: "puse", id: p.id })} />
-          </span>
-        </div>
-      ))}
-    </section>
+    </>
   );
 }
 
-/* ── 도박장 ───────────────────────────────────────────────── */
+/* ── 물약 상점 — 종류별로 묶는다 ─────────────────────────────── */
+const POTION_GROUPS = [["heal", "회복 물약"], ["buff", "버프 물약"], ["reset", "스탯 초기화"]];
+function PotionShop({ h, send }) {
+  return (
+    <>
+      <p className="shop-note">마실 때 {pct(POTION.greatChance, 0)} 확률로 대성공이 터져 효과가 {POTION.greatMul}배가 됩니다. 초기화 물약에는 대성공이 없습니다. 산 물약은 가방(I)에서도 마실 수 있습니다.</p>
+      {POTION_GROUPS.map(([kind, title]) => (
+        <div key={kind}>
+          <Head>{title}</Head>
+          {POTIONS.filter((p) => p.kind === kind).map((p) => (
+            <Item key={p.id} name={p.name}
+              meta={<span className="shop-meta"><span>가진 수 {h.bag.p[p.id] || 0}</span></span>}
+              desc={potionText(p)} price={<Price n={p.price} />}
+              acts={[
+                { label: "사기", why: whyPotionBuy(h, p.id), onClick: () => send({ op: "pbuy", id: p.id }) },
+                { label: "마시기", quiet: true, why: whyPotionUse(h, p.id), onClick: () => send({ op: "puse", id: p.id }) },
+              ]} />
+          ))}
+        </div>
+      ))}
+    </>
+  );
+}
+
+/* ── 도박장 — 게임마다 탭 ────────────────────────────────────── */
 function BetInput({ value, onChange }) {
   return (
     <label className="shop-bet">
-      걸 코인
+      <span>걸 코인</span>
       <input type="number" inputMode="numeric" min={CASINO.minBet} max={CASINO.maxBet} step={10} value={value}
         onChange={(e) => onChange(Math.floor(Number(e.target.value) || 0))} />
+      <small>{won(CASINO.minBet)}~{won(CASINO.maxBet)}</small>
     </label>
   );
 }
+function Odds({ rows }) {
+  return (
+    <table className="shop-odds">
+      <tbody>{rows.map(([a, b, c]) => <tr key={a}><td>{a}</td>{c !== undefined && <td>{c}</td>}<td>{b}</td></tr>)}</tbody>
+    </table>
+  );
+}
 function Casino({ h, send }) {
-  const [diceBet, setDiceBet] = useState(100);
-  const [slotBet, setSlotBet] = useState(100);
+  const [tab, setTab] = useState("box");
+  const [bet, setBet] = useState(100);
   const day = todayKey();
   const ev = casinoEv(h.lv);
-  const left = (k) => CASINO.daily[k] - usedToday(h.bag, k, day);
+  const left = (k) => Math.max(0, CASINO.daily[k] - usedToday(h.bag, k, day));
   const gsum = BOX.grades.reduce((a, b) => a + b, 0);
   const psum = Object.values(BOX.potions).reduce((a, b) => a + b, 0);
   const share = boxShares(h.lv);
   const own = specialsFor(h.lv);
   const ssum = SLOT.reduce((a, s) => a + s.w, 0);
+  const tabs = [["box", "랜덤 상자", `${left("box")}/${CASINO.daily.box}`], ["dice", "주사위 홀짝", `${left("dice")}/${CASINO.daily.dice}`],
+    ["slot", "슬롯머신", `${left("slot")}/${CASINO.daily.slot}`]];
   return (
     <>
-      <p className="shop-note">
-        한 번에 {won(CASINO.minBet)}~{won(CASINO.maxBet)}코인. 하루 횟수는 한국 날짜 자정에 다시 찹니다.
-      </p>
-      <section className="shop-sec">
-        <h4>랜덤 상자 <small>오늘 남은 {Math.max(0, left("box"))}/{CASINO.daily.box}번 · 기댓값 {pct(ev.box, 0)}</small></h4>
-        <p className="shop-note">
-          내 레벨 단계(Lv {WEAPON_TIERS[tierOf(h.lv)]})의 무기 또는 물약이 나옵니다. 기댓값은 상점가로 셈합니다.
-          {own.length
-            ? ` 특별 무기는 내 레벨로 낄 수 있는 ${own.length}종 가운데 하나가 같은 확률로 나옵니다.`
-            : ` 특별 무기는 Lv ${SPECIALS[0].lv}부터 나옵니다. 그 전에는 그 몫이 일반 무기로 갑니다.`}
-        </p>
-        <table className="shop-odds">
-          <tbody>
-            {share.special > 0 && <tr><td>특별 무기</td><td>{pct(share.special)}</td></tr>}
-            {GRADES.map((gd) => (
-              <tr key={gd.id}><td>{gd.name} 무기</td><td>{pct(share.weapon * (BOX.grades[gd.id] / gsum))}</td></tr>
-            ))}
-            {Object.entries(BOX.potions).map(([id, w]) => (
-              <tr key={id}><td>{POTION_BY_ID[id].name}</td><td>{pct(share.potion * (w / psum))}</td></tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="shop-row">
-          <span className="shop-name"><b>상자 열기</b></span>
-          <span className="shop-price">{won(boxPrice(h.lv))}</span>
-          <Act why={whyGamble(h, "box", 0, day)} label="열기" onClick={() => send({ op: "box" })} />
-        </div>
-      </section>
-
-      <section className="shop-sec">
-        <h4>주사위 홀짝 <small>오늘 남은 {Math.max(0, left("dice"))}/{CASINO.daily.dice}번 · 기댓값 {pct(ev.dice, 0)}</small></h4>
-        <p className="shop-note">
-          맞히면 건 금액의 {DICE.pay}배. {pct(DICE.house, 0)} 확률로 주사위가 모서리에 서면 집이 가져갑니다.
-          맞힐 확률은 {pct((1 - DICE.house) * 0.5, 0)}입니다.
-        </p>
-        <div className="shop-line">
-          <BetInput value={diceBet} onChange={setDiceBet} />
-          <Act why={whyGamble(h, "dice", diceBet, day)} label="홀" onClick={() => send({ op: "dice", bet: diceBet, pick: "odd" })} />
-          <Act quiet why={whyGamble(h, "dice", diceBet, day)} label="짝" onClick={() => send({ op: "dice", bet: diceBet, pick: "even" })} />
-        </div>
-      </section>
-
-      <section className="shop-sec">
-        <h4>슬롯머신 <small>오늘 남은 {Math.max(0, left("slot"))}/{CASINO.daily.slot}번 · 기댓값 {pct(ev.slot, 0)}</small></h4>
-        <table className="shop-odds">
-          <tbody>
-            {SLOT.map((s) => (
-              <tr key={s.id}><td>{s.name} 3개</td><td>{s.mul}배</td><td>{pct(Math.pow(s.w / ssum, 3), 3)}</td></tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="shop-line">
-          <BetInput value={slotBet} onChange={setSlotBet} />
-          <Act why={whyGamble(h, "slot", slotBet, day)} label="당기기" onClick={() => send({ op: "slot", bet: slotBet })} />
-        </div>
-      </section>
+      <Tabs on={tab} set={setTab} tabs={tabs} />
+      <p className="shop-note">탭 옆 숫자는 오늘 남은 횟수입니다. 한국 날짜 자정에 다시 찹니다.</p>
+      {tab === "box" && (
+        <>
+          <Item name="랜덤 상자" meta={<span className="shop-meta"><span>기댓값 {pct(ev.box, 0)}</span></span>}
+            desc={`내 레벨 단계(Lv ${WEAPON_TIERS[tierOf(h.lv)]})의 무기 또는 물약이 나옵니다.${own.length ? ` 특별 무기는 낄 수 있는 ${own.length}종 가운데 하나입니다.` : ""}`}
+            price={<Price n={boxPrice(h.lv)} />}
+            acts={[{ label: "열기", main: true, why: whyGamble(h, "box", 0, day), onClick: () => send({ op: "box" }) }]} />
+          <Head sub="상점가 기준 기댓값">나오는 확률</Head>
+          <Odds rows={[
+            ...(share.special > 0 ? [["특별 무기", pct(share.special)]] : []),
+            ...GRADES.map((gd) => [`${gd.name} 무기`, pct(share.weapon * (BOX.grades[gd.id] / gsum))]),
+            ...Object.entries(BOX.potions).map(([id, w]) => [POTION_BY_ID[id].name, pct(share.potion * (w / psum))]),
+          ]} />
+        </>
+      )}
+      {tab === "dice" && (
+        <>
+          <Item name="주사위 홀짝" meta={<span className="shop-meta"><span>기댓값 {pct(ev.dice, 0)}</span></span>}
+            desc={`맞히면 건 코인의 ${DICE.pay}배. ${pct(DICE.house, 0)} 확률로 주사위가 모서리에 서면 집이 가져갑니다. 맞힐 확률은 ${pct((1 - DICE.house) * 0.5, 0)}입니다.`} />
+          <div className="shop-play">
+            <BetInput value={bet} onChange={setBet} />
+            <div className="shop-btns">
+              <button type="button" className="shop-btn main" disabled={whyGamble(h, "dice", bet, day).length > 0}
+                onClick={() => send({ op: "dice", bet, pick: "odd" })}>홀</button>
+              <button type="button" className="shop-btn main" disabled={whyGamble(h, "dice", bet, day).length > 0}
+                onClick={() => send({ op: "dice", bet, pick: "even" })}>짝</button>
+            </div>
+          </div>
+          {whyGamble(h, "dice", bet, day).length > 0 && <p className="shop-why solo">{whyGamble(h, "dice", bet, day).join(" · ")}</p>}
+        </>
+      )}
+      {tab === "slot" && (
+        <>
+          <Item name="슬롯머신" meta={<span className="shop-meta"><span>기댓값 {pct(ev.slot, 0)}</span></span>}
+            desc="세 칸이 같은 그림이면 건 코인에 배수를 곱해 줍니다." />
+          <div className="shop-play">
+            <BetInput value={bet} onChange={setBet} />
+            <div className="shop-btns">
+              <button type="button" className="shop-btn main" disabled={whyGamble(h, "slot", bet, day).length > 0}
+                onClick={() => send({ op: "slot", bet })}>당기기</button>
+            </div>
+          </div>
+          {whyGamble(h, "slot", bet, day).length > 0 && <p className="shop-why solo">{whyGamble(h, "slot", bet, day).join(" · ")}</p>}
+          <Head>배수와 확률</Head>
+          <Odds rows={SLOT.map((s) => [`${s.name} 3개`, pct(Math.pow(s.w / ssum, 3), 3), `${s.mul}배`])} />
+        </>
+      )}
     </>
   );
 }
 
 const BODIES = { weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino };
 
-// 창의 틀 — 머리 · 결과 한 줄 · 닫기
-function Frame({ title, sub, coins, note, onClose, children }) {
+// 창의 틀 — 머리(이름 · 한 줄 · 코인 · 닫기) · 결과 한 줄 · 내용
+function Frame({ title, sub, coins, admin, note, onClose, children }) {
   return (
     <>
       <div className="rpg-menu-back" onClick={onClose} />
-      <div className="rpg-stat rpg-shop" role="dialog" aria-label={title}>
-        <div className="rpg-stat-head">
-          <b>{title}</b>
-          <span className="shop-coins"><Coin />{won(coins)}</span>
+      <div className="shop" role="dialog" aria-label={title}>
+        <div className="shop-top">
+          <div className="shop-title">
+            <b>{title}</b>
+            {sub && <span>{sub}</span>}
+          </div>
+          <span className="shop-coins"><Coin />{admin ? "무제한" : won(coins)}</span>
           <button type="button" className="shop-x" aria-label="닫기" onClick={onClose}>×</button>
         </div>
-        {sub && <p className="rpg-stat-rule">{sub}</p>}
         {note && <p className={`shop-result ${note.ok ? "ok" : "no"}`} key={note.at}>{note.msg}</p>}
-        {children}
+        <div className="shop-body">{children}</div>
       </div>
     </>
   );
@@ -263,72 +292,70 @@ export function ShopPanel({ shop, h, send, note, onClose }) {
   const s = SHOP_BY_ID[shop] || SHOPS[0];
   const Body = BODIES[s.id];
   return (
-    <Frame title={s.name} sub={`${s.keeper} — "${s.line}"`} coins={h.coins} note={note} onClose={onClose}>
+    <Frame title={s.name} sub={`${s.keeper} · ${s.line}`} coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
       <Body h={h} send={send} />
     </Frame>
   );
 }
 
-/* ── 가방 — 어디서나 연다. 무기 장착 · 물약 마시기 · 배운 스킬 · 능력치 ── */
+/* ── 가방 — 어디서나 연다. 능력치 · 무기 장착 · 물약 마시기 · 배운 스킬 ── */
 export function BagPanel({ h, send, note, onClose }) {
+  const [tab, setTab] = useState("stat");
   const w = equipped(h.bag);
   const potions = POTIONS.filter((p) => h.bag.p[p.id] > 0);
   const skills = SKILLS.filter((s) => h.bag.s[s.id] > 0);
   return (
-    <Frame title="가방" sub="무기는 하나만 낍니다. 장비 · 스킬 · 버프로 오른 몫은 + 로 보입니다." coins={h.coins} note={note} onClose={onClose}>
-      <section className="shop-sec">
-        <h4>능력치</h4>
-        {STATS.map((t) => {
-          const base = statValue(t.id, h.st[t.id]);
-          const add = extraStat(h, t.id);
-          const buff = h.bf && h.bf[t.id];
-          return (
-            <div key={t.id} className="shop-row slim">
-              <span className="shop-name"><b>{t.name}</b>{buff && <em>버프 {Math.ceil(buff.t)}초 남음</em>}</span>
-              <span className="shop-price">{t.fmt(base + add)}{add > 0 && <small> ({t.fmt(base)} +{t.fmt(add)})</small>}</span>
-            </div>
-          );
-        })}
-      </section>
-
-      <section className="shop-sec">
-        <h4>무기 <small>{h.bag.w.length}/{WEAPON.bagMax} · 장착 {w ? weaponName(w) : "없음"}</small></h4>
-        {!h.bag.w.length && <p className="shop-empty">무기상점에서 살 수 있습니다.</p>}
-        {h.bag.w.map((q) => (
-          <div key={q.u} className="shop-row">
-            <WeaponTitle w={q} />
-            {q.u === h.bag.e
-              ? <Act why={whyEquip(h, 0)} label="해제" onClick={() => send({ op: "equip", u: 0 })} />
-              : <Act why={whyEquip(h, q.u)} label="장착" onClick={() => send({ op: "equip", u: q.u })} />}
-          </div>
-        ))}
-      </section>
-
-      <section className="shop-sec">
-        <h4>물약</h4>
-        {!potions.length && <p className="shop-empty">물약 상점에서 살 수 있습니다.</p>}
-        {potions.map((p) => (
-          <div key={p.id} className="shop-row">
-            <span className="shop-name"><b>{p.name} <small>× {h.bag.p[p.id]}</small></b><em>{potionText(p)}</em></span>
-            <Act why={whyPotionUse(h, p.id)} label="마시기" onClick={() => send({ op: "puse", id: p.id })} />
-          </div>
-        ))}
-      </section>
-
-      <section className="shop-sec">
-        <h4>배운 스킬</h4>
-        {!skills.length && <p className="shop-empty">스킬 상점에서 배울 수 있습니다.</p>}
-        {skills.map((s) => (
-          <div key={s.id} className="shop-row slim">
-            <span className="shop-name">
-              <b>{s.name} <small>{FAM_BY_ID[s.fam].name} · {s.kind === "active" ? "액티브" : "패시브"}</small></b>
-              <em>{s.note}</em>
-            </span>
-            <span className="shop-price">Lv {h.bag.s[s.id]}/{SKILL_BY_ID[s.id].gold.length}</span>
-          </div>
-        ))}
-      </section>
+    <Frame title="가방" sub="장비 · 스킬 · 버프로 오른 몫은 + 로 따로 보입니다." coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
+      <Tabs on={tab} set={setTab} tabs={[["stat", "능력치"], ["weapon", "무기", h.bag.w.length], ["potion", "물약", potions.length], ["skill", "스킬", skills.length]]} />
+      {tab === "stat" && (
+        <div className="shop-stats">
+          {STATS.map((t) => {
+            const base = statValue(t.id, h.st[t.id]);
+            const add = extraStat(h, t.id);
+            const buff = h.bf && h.bf[t.id];
+            return (
+              <div key={t.id} className="shop-stat">
+                <span>{t.name}{buff && <small>버프 {Math.ceil(buff.t)}초</small>}</span>
+                <b>{t.fmt(base + add)}</b>
+                <em>{add > 0 ? `${t.fmt(base)} + ${t.fmt(add)}` : ""}</em>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {tab === "weapon" && (
+        <>
+          <Head sub={`${h.bag.w.length}/${WEAPON.bagMax} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>
+          {!h.bag.w.length && <Empty>무기상점에서 살 수 있습니다.</Empty>}
+          {h.bag.w.map((q) => (
+            <WeaponItem key={q.u} w={q} tag={q.u === h.bag.e ? "장착 중" : ""}
+              acts={[q.u === h.bag.e
+                ? { label: "해제", why: whyEquip(h, 0), onClick: () => send({ op: "equip", u: 0 }) }
+                : { label: "장착", main: true, why: whyEquip(h, q.u), onClick: () => send({ op: "equip", u: q.u }) }]} />
+          ))}
+        </>
+      )}
+      {tab === "potion" && (
+        <>
+          {!potions.length && <Empty>물약 상점에서 살 수 있습니다.</Empty>}
+          {potions.map((p) => (
+            <Item key={p.id} name={p.name} meta={<span className="shop-meta"><span>× {h.bag.p[p.id]}</span></span>} desc={potionText(p)}
+              acts={[{ label: "마시기", why: whyPotionUse(h, p.id), onClick: () => send({ op: "puse", id: p.id }) }]} />
+          ))}
+        </>
+      )}
+      {tab === "skill" && (
+        <>
+          {!skills.length && <Empty>스킬 상점에서 배울 수 있습니다.</Empty>}
+          {skills.map((s) => (
+            <Item key={s.id} name={s.name}
+              meta={<span className="shop-meta"><span>{FAM_BY_ID[s.fam].name}</span><span>{s.kind === "active" ? "액티브" : "패시브"}</span><span>Lv {h.bag.s[s.id]}/{SKILL_BY_ID[s.id].gold.length}</span></span>}
+              desc={s.note} />
+          ))}
+        </>
+      )}
     </Frame>
   );
 }
+
 

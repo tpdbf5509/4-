@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount,
+  charRecord, setAccount, coinOf, MOB_REGEN,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
@@ -573,7 +573,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v, admin: !!me.admin,
           extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
-          self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins,
+          self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf } },
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max })),
         } : null);
@@ -855,7 +855,8 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           몹 머리 위에 레벨이 보이고, 레벨이 높을수록 크고 단단합니다. 입구에서 멀어질수록 높은 레벨이 나옵니다.
           토끼는 1~5레벨로 {SPAWNS[0].n}마리, 대왕 토끼(보스 · 10레벨)는 {SPAWNS[1].n}마리까지 나옵니다.
           늑대는 10~20레벨로 {SPAWNS[2].n}마리, 우두머리 늑대(보스 · 25레벨)는 {SPAWNS[3].n}마리까지 나옵니다. 한 마리가 잡히면 한 마리가 새로 나옵니다.
-          토끼는 레벨마다 경험치 2와 1코인씩 늘어납니다(1레벨 토끼는 경험치 2 · 1코인). 늑대도 같은 셈이라 10레벨 늑대는 경험치 20 · 10코인입니다.
+          레벨이 높은 몹일수록 경험치와 코인을 더 줍니다. 1레벨 토끼는 경험치 2 · {coinOf(1)}코인, 10레벨 늑대는 경험치 20 · {coinOf(10)}코인입니다.
+          {MOB_REGEN.calm}초 넘게 맞지 않은 몹은 체력이 조금씩 차오릅니다.
           토끼는 맞으면 달아나고 가끔 들이받지만, 늑대와 보스는 가까이 가거나 때리면 쫓아옵니다.
           레벨을 올리려면 처음엔 경험치 30, 그다음부터는 30씩 더 필요합니다.
           레벨이 오르면 체력이 가득 차고 스탯 포인트 {STAT_PER_LV}를 받습니다(처음 만들 때도 {STAT_PER_LV}포인트). 최고 레벨은 {LV_MAX}입니다.

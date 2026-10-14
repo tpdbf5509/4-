@@ -61,7 +61,12 @@ export const MAPS = {
 };
 const MAP_IDS = ["plaza", "field", "wolf"];
 
-export const QUEST = { name: "토끼 사냥", need: 5, xp: 10, coin: 15 };
+// 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
+export const COIN_RATE = 0.7;
+export const coinOf = (n) => Math.max(1, Math.round(n * COIN_RATE));
+export const QUEST = { name: "토끼 사냥", need: 5, xp: 10, coin: coinOf(15) };
+// 몹 자동 회복 — calm 초 동안 맞지 않으면 초당 최대 체력의 rate 만큼 차오른다
+export const MOB_REGEN = { calm: 5, rate: 0.08 };
 
 /* ── 몹 — 레벨이 오를수록 크고 단단하고 아프다 ─────────────────────
    토끼는 1~5레벨, 맞으면 달아나고 가끔 들이받는다. 대왕 토끼(보스)는 10레벨, 달아나지 않고 자주 들이받는다.
@@ -521,8 +526,8 @@ function spawnMob(g, gi) {
   g.mobs.push({
     id: g.nextId++, gi, type: sp.type, boss: sp.boss ? 1 : 0, lv, size, map: sp.map, x, y, hx: x, hy: y,
     ax: Math.random() < 0.5 ? -1 : 1,
-    hp, max: hp, rad: T.rad * size, age: 0,
-    dmg: sp.boss ? T.boss.dmg : T.dmg(lv), xp: sp.boss ? T.boss.xp : T.xp(lv), coin: sp.boss ? T.boss.coin : T.coin(lv),
+    hp, max: hp, rad: T.rad * size, age: 0, calm: 0,
+    dmg: sp.boss ? T.boss.dmg : T.dmg(lv), xp: sp.boss ? T.boss.xp : T.xp(lv), coin: coinOf(sp.boss ? T.boss.coin : T.coin(lv)),
     state: "idle", t: 0.5 + Math.random() * 1.5, vx: 0, vy: 0, tgt: -1, bumpCd: 2, biteCd: 1, bite: 0,
     slow: 0, freeze: 0, stun: 0, burn: 0, bdps: 0, bby: -1, poison: 0, pdps: 0, pby: -1,
     shred: 0, shredAmt: 0, flash: 0, dotT: 0.5, numAcc: 0, numT: 0, numCol: "#ffe9bd",
@@ -556,6 +561,7 @@ function hitMob(g, pi, m, raw, skill) {
   if (crit) dmg *= critMul(h);
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg;
+  m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   m.flash = 0.12;
   m.numAcc += dmg;
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
@@ -838,6 +844,8 @@ function nearestHero(g, m, range) {
 // 걸린 것 · 시간 — 모든 몹이 같다. 죽었거나 얼었거나 기절했으면 false
 function tickMob(g, m, dt) {
   m.age += dt;
+  m.calm += dt;
+  if (m.calm >= MOB_REGEN.calm && m.hp < m.max) m.hp = Math.min(m.max, m.hp + m.max * MOB_REGEN.rate * dt);
   m.flash = Math.max(0, m.flash - dt);
   m.slow = Math.max(0, m.slow - dt);
   m.freeze = Math.max(0, m.freeze - dt);

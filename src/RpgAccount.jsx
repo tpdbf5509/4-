@@ -1,6 +1,7 @@
 /* ── RPG 캐릭터 만들기의 01 칸 — 이름과 숫자 5자리 코드 ─────────────────
    새로 만들기: 이름 → 서버에서 쓸 수 있는지 확인 → 코드 두 번 → "꼭 적어 두세요" → 서버에 만든다.
    이어 하기: 이름 + 코드 → 서버 기록을 이 기기로 불러온다.
+   캐릭터가 서버에 있으면 새 캐릭터를 더 만들 수 있다. 지금 캐릭터는 서버에 남고 이 기기는 새 캐릭터로 바뀐다.
    이 기기에 예전 캐릭터(서버에 없는 것)가 있으면 코드를 정해 서버로 옮긴다. 이름이 겹치면 이때만 이름을 바꿀 수 있다.
    다른 기기가 나중에 들어와 입장권이 무효가 되었으면 코드를 다시 넣어 서버 기록을 불러온다.
    onChar(c) 는 바뀐 캐릭터(loadChar 결과)를 알린다. */
@@ -87,7 +88,7 @@ function LoginForm({ fixedName, busy, err, setErr, onLogin, onCancel, cancelText
 }
 
 export default function RpgAccount({ char, onChar }) {
-  const [mode, setMode] = useState("new");          // new 새로 만들기 · login 이어 하기 · switch 다른 캐릭터 불러오기
+  const [mode, setMode] = useState("new");          // new 새로 만들기 · login 이어 하기 · switch 다른 캐릭터 불러오기 · add 캐릭터 하나 더 만들기
   const [draft, setDraft] = useState("");
   const [picked, setPicked] = useState("");         // 쓸 수 있다고 확인한 이름 — 정해지면 코드 단계로
   const [rename, setRename] = useState("");         // 예전 캐릭터 이름이 서버에서 겹칠 때 새 이름
@@ -114,9 +115,12 @@ export default function RpgAccount({ char, onChar }) {
       if (r.err === "taken") { setPicked(""); }
       return setErr(errText(r));
     }
-    const c = makeChar(r.name, { tok: r.token });
+    // 캐릭터를 하나 더 만들 때는 이 기기의 지금 캐릭터를 새 캐릭터로 바꾼다(지금 캐릭터는 서버에 남아 있다)
+    const c = char ? adoptChar(r.name, { lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 } }, r.token, false)
+      : makeChar(r.name, { tok: r.token });
     if (!c) return setErr("이 기기에 저장하지 못했습니다. 다시 시도해 주세요.");
     setErr("");
+    setPicked(""); setDraft(""); setMode("new");
     onChar(c);
   });
   // 예전 캐릭터를 서버로 옮긴다 — 이름이 겹치면 새 이름으로
@@ -144,6 +148,31 @@ export default function RpgAccount({ char, onChar }) {
     onChar(c);
   });
 
+  // 새 이름 정하기 → 코드 정하기. onCancel 이 있으면 그만두는 단추를 단다
+  const newCharSteps = (onCancel) => {
+    if (picked) {
+      return (
+        <CodeSetter name={picked} busy={busy} err={err} setErr={setErr} onDone={create}
+          onBack={() => { setPicked(""); setErr(""); }} />
+      );
+    }
+    return (
+      <>
+        <div className="mk-row">
+          <input
+            className="mk-input" value={draft} maxLength={NAME_MAX} placeholder={`${NAME_MAX}글자까지`} autoFocus={!!onCancel}
+            onChange={(e) => { setDraft(e.target.value); setErr(""); }}
+            onKeyDown={(e) => { if (e.key === "Enter") checkName(draft, setPicked); }}
+          />
+          <button className="btn-ghost tall" disabled={busy} onClick={() => checkName(draft, setPicked)}>{busy ? "확인 중…" : "이름 정하기"}</button>
+          {onCancel && <button className="btn-ghost tall" disabled={busy} onClick={onCancel}>취소</button>}
+        </div>
+        <p className="mk-warn">이름은 변경 불가합니다. 다음 단계에서 숫자 {CODE_LEN}자리 코드를 정하면 서버에 저장되어 다른 기기에서도 이어 할 수 있습니다.</p>
+        {err && <p className="err">{err}</p>}
+      </>
+    );
+  };
+
   /* 캐릭터가 이미 있을 때 */
   if (char) {
     const head = (
@@ -162,12 +191,23 @@ export default function RpgAccount({ char, onChar }) {
         </div>
       );
     }
+    if (mode === "add") {
+      return (
+        <div>
+          <p className="mk-note">새 캐릭터를 만듭니다. 지금 캐릭터 <b>{char.name}</b>는 서버에 남아 있어 나중에 이름과 코드로 다시 불러올 수 있습니다.</p>
+          {newCharSteps(() => { setMode("new"); setPicked(""); setDraft(""); setErr(""); })}
+        </div>
+      );
+    }
     if (char.linked && char.tok) {
       return (
         <div>
           {head}
           <p className="mk-note">서버에 저장됩니다. 다른 기기에서는 이름과 코드로 이어 할 수 있습니다.</p>
-          <button className="btn-ghost" onClick={() => { setMode("switch"); setErr(""); }}>다른 캐릭터로 이어 하기</button>
+          <div className="mk-row">
+            <button className="btn-ghost" onClick={() => { setMode("switch"); setErr(""); }}>다른 캐릭터로 이어 하기</button>
+            <button className="btn-ghost" onClick={() => { setMode("add"); setPicked(""); setDraft(""); setErr(""); }}>새 캐릭터 만들기</button>
+          </div>
         </div>
       );
     }
@@ -214,24 +254,10 @@ export default function RpgAccount({ char, onChar }) {
       </div>
     );
   }
-  if (picked) {
-    return (
-      <CodeSetter name={picked} busy={busy} err={err} setErr={setErr} onDone={create}
-        onBack={() => { setPicked(""); setErr(""); }} />
-    );
-  }
+  if (picked) return newCharSteps();
   return (
     <div>
-      <div className="mk-row">
-        <input
-          className="mk-input" value={draft} maxLength={NAME_MAX} placeholder={`${NAME_MAX}글자까지`}
-          onChange={(e) => { setDraft(e.target.value); setErr(""); }}
-          onKeyDown={(e) => { if (e.key === "Enter") checkName(draft, setPicked); }}
-        />
-        <button className="btn-ghost tall" disabled={busy} onClick={() => checkName(draft, setPicked)}>{busy ? "확인 중…" : "이름 정하기"}</button>
-      </div>
-      <p className="mk-warn">이름은 변경 불가합니다. 다음 단계에서 숫자 {CODE_LEN}자리 코드를 정하면 서버에 저장되어 다른 기기에서도 이어 할 수 있습니다.</p>
-      {err && <p className="err">{err}</p>}
+      {newCharSteps()}
       <button className="btn-ghost mk-switch" onClick={() => { setMode("login"); setErr(""); }}>이미 캐릭터가 있나요? 코드로 이어 하기</button>
     </div>
   );

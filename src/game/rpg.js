@@ -1273,6 +1273,8 @@ export function rpgStep(g, dt) {
 
 /* ── 주고받기 ──────────────────────────────────────────── */
 const mapIdx = (id) => Math.max(0, MAP_IDS.indexOf(id));
+// 누르고 있는 방향을 짧은 글자로 — 방장이 받은 입력을 손님이 견주어 보려고 스냅샷에 싣는다(순서는 상관없다)
+export const holdKey = (dirs) => (dirs || []).map((d) => d[0]).sort().join("");
 
 /* 가방은 스냅샷마다 보내지 않는다 — 바뀐 사람 것과, 놓쳤을 때를 대비해 차례가 된 한 사람 것만 싣는다 */
 function packBags(g) {
@@ -1296,7 +1298,8 @@ export function rpgPack(g) {
         r1(h.sk), h.swing > 0 ? 1 : 0, mapIdx(h.map), h.coins, h.quest.on ? 1 : 0, h.quest.n, h.kills,
         h.flash > 0 ? 1 : 0, h.loaded ? 1 : 0, h.buff > 0 ? 1 : 0, h.guard > 0 ? 1 : 0, h.auto ? 1 : 0, h.face,
         STAT_IDS.map((k) => h.st[k]), packBuffs(h), h.admin ? 1 : 0,
-        ACTIVE_SKILLS.map((s) => r1((h.scd && h.scd[s.id]) || 0)), r1(h.dashCd || 0)]
+        ACTIVE_SKILLS.map((s) => r1((h.scd && h.scd[s.id]) || 0)), r1(h.dashCd || 0),
+        holdKey(h.hold), h.fire ? 1 : 0]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -1336,6 +1339,8 @@ export function rpgApply(g, s) {
     // 대쉬 대기 시간 — 내 화면에서 먼저 대쉬했으면 방장 값이 따라올 때까지 큰 쪽을 둔다
     h.dashCd = mine ? Math.max(row[25] || 0, h.dash > 0 ? h.dashCd || 0 : 0) : row[25] || 0;
     if (s.b && s.b[pi]) h.bag = s.b[pi];
+    // 방장이 알고 있는 내 입력 — 손님은 이것과 내 키를 견주어, 중간에 잃은 입력을 다시 보낸다
+    if (mine && row.length > 26) h.echo = { hold: row[26], fire: row[27] ? 1 : 0 };
   });
   const seen = new Set();
   s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite]) => {

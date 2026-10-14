@@ -24,6 +24,7 @@ import { RPG_CREW_MAX, RPG_SERVERS, loadChar, cleanLook } from "./game/rpg.js";
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
+const HOST_ALIVE_MS = 2000;   // RPG 서버 방장이 "살아 있다"는 소식을 보내는 간격 — 손님은 5초 넘게 못 들어야 이어받는다
 
 // 테스트 서버 비밀번호 — 원문은 두지 않고 SHA-256 값만 둔다. 한 번 맞히면 그 기기는 기억한다
 const TEST_HASH = "d86d84d945596a7836b26b9e06e05042ba9617bac697b793b008fb4c4f7c218a";
@@ -141,6 +142,8 @@ export default function App() {
     lobbyRef.current = null;
     let gotLobby = false;
     let subscribed = false;
+    let live = false;
+    let aliveAt = 0;                                // 방장이 "살아 있다"는 소식을 마지막으로 보낸 때                               // 지금 채널에 붙어 있다 — 끊긴 사이에는 방장을 이어받지 않는다
     let heardAt = Date.now();                        // 방장의 대기실 소식을 마지막으로 들은 때
     let lastJson = "";                               // 같은 소식이 다시 오면 화면을 다시 그리지 않는다
     // RPG 는 캐릭터를 만들고 들어오니 방장이 첫 자리에 바로 선다
@@ -166,6 +169,7 @@ export default function App() {
         if (hostRef.current) reseat();
       },
       onStatus: (st) => {
+        live = st === "SUBSCRIBED";
         if (st === "SUBSCRIBED") {
           setConnecting(false);
           setError("");
@@ -204,9 +208,14 @@ export default function App() {
        방장이 둘 생기면 아이디가 큰 쪽이 물러난다(아래 lobby). */
     const watch = setInterval(() => {
       if (roomRef.current !== room) return void clearInterval(watch);
-      if (!auto || !subscribed) return;
+      // 내 연결이 끊긴 사이에는 방장 소식이 안 들리는 게 당연하다 — 이때 이어받으면 방장이 둘이 된다
+      if (!auto || !subscribed || !live) return;
       if (hostRef.current) {
-        if (shared && lobbyRef.current) room.send("lobby", lobbyRef.current);   // 살아 있다는 소식 (RPG 서버만)
+        // 살아 있다는 소식 (RPG 서버만) — 메시지 한도를 아끼려고 2초마다
+        if (shared && lobbyRef.current && Date.now() - aliveAt >= HOST_ALIVE_MS) {
+          aliveAt = Date.now();
+          room.send("lobby", lobbyRef.current);
+        }
         return;
       }
       const L = lobbyRef.current;
@@ -1396,8 +1405,12 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
       }));
     } else {
       let last = Date.now();
-      offs.push(room.on("snap", (d) => { last = Date.now(); applySnapshot(G.current, d); }));
-      offs.push(room.on("out", (d) => applyOut(G.current, d)));
+      offs.push(room.on("snap", (d) => {
+        last = Date.now();
+        applySnapshot(G.current, d);
+        if (d.o) applyOut(G.current, d.o);          // 연출은 스냅샷에 함께 온다
+      }));
+      offs.push(room.on("out", (d) => applyOut(G.current, d)));   // 옛 버전 방장은 연출을 따로 보낸다
       const watch = setInterval(() => setDropped(Date.now() - last > 6000), 2000);
       offs.push(() => clearInterval(watch));
     }
@@ -1459,11 +1472,13 @@ function GameView({ room, isHost, seats, waves, diff, mySeat, startBoss, onBack,
         sinceSnap += dt;
         if (sinceSnap >= 1 / SNAP_HZ) {
           sinceSnap = 0;
-          room?.send("snap", packSnapshot(g));
+          // 연출도 스냅샷 한 통에 실어 메시지 수를 줄인다(실시간 서버는 초당 메시지 수에 한도가 있다)
+          const snap = packSnapshot(g);
           if (g.out.length) {
-            room?.send("out", g.out.splice(0, 40));
+            snap.o = g.out.splice(0, 40);
             if (g.out.length > 120) g.out.length = 0;
           }
+          room?.send("snap", snap);
         }
       } else {
         stepVisual(g, dt);

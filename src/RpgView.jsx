@@ -63,7 +63,8 @@ export function RpgSetup({ room, onStart, onLeave }) {
   const [delErr, setDelErr] = useState("");
 
   const named = !!char;
-  const fixed = named && char.picked;                 // 직업 · 원소 · 성별까지 정해 두었다
+  const admin = named && char.admin;                  // 관리자 캐릭터 — 직업 · 원소 · 성별을 언제든 바꾼다
+  const fixed = named && char.picked && !admin;       // 직업 · 원소 · 성별까지 정해 두었다
   const look = { name: char ? char.name : "", job: job || "warrior", elem: elem || "flame", gender: gender || "m" };
   const ready = named && job && elem && gender && !(room && room.full);
   const el = elem ? ELEM_BY_ID[elem] : null;
@@ -78,7 +79,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
     if (!ready) return;
     const l = cleanLook(fixed ? char : { name: char.name, job, elem, gender });
     if (!l) return;
-    if (!fixed && !sure) return setSure(true);
+    if (!fixed && !sure && !admin) return setSure(true);
     if (!fixed) {
       if (!saveLook(l)) return setLookErr("저장하지 못했습니다. 다시 시도해 주세요.");
       const c = loadChar();
@@ -125,7 +126,9 @@ export function RpgSetup({ room, onStart, onLeave }) {
           <div>
             <h1>{named ? "모험 준비" : "캐릭터 만들기"}</h1>
             <p className="tag">
-              {fixed
+              {admin
+                ? "관리자 캐릭터는 직업 · 원소 · 성별을 언제든 바꿀 수 있습니다. 고른 뒤 게임 시작하기를 누르면 바뀐 모습으로 나갑니다."
+                : fixed
                 ? "저장된 캐릭터를 불러왔습니다. 게임 시작하기를 누르면 광장으로 나갑니다."
                 : named
                   ? "직업 · 원소 · 성별을 고르고 광장으로 나가세요. 셋 다 한 번 정하면 바꿀 수 없습니다."
@@ -247,6 +250,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
                   <button className="btn-main wide" disabled={!ready} onClick={start}>게임 시작하기</button>
                   <p className={fixed || !(named && job && elem && gender) ? "mk-note" : "mk-warn"}>
                     {!named ? "이름을 먼저 정해 주세요."
+                      : admin && job && elem && gender ? "관리자 — 누르면 고른 모습으로 광장으로 이동합니다. 다음에 다시 바꿀 수 있습니다."
                       : !(job && elem && gender) ? "직업 · 원소 · 성별을 모두 고르면 시작할 수 있습니다. 셋 다 한 번 정하면 바꿀 수 없습니다."
                         : fixed ? "누르면 광장으로 이동합니다."
                           : "누르면 한 번 더 묻습니다. 직업 · 원소 · 성별은 변경 불가합니다."}

@@ -318,10 +318,10 @@ export function adoptChar(name, data, tok, admin) {
   if (!store({ ...rest, v: 3, name: n, linked: 1, tok, admin: admin ? 1 : 0 })) return null;
   return loadChar();
 }
-// 직업 · 원소 · 성별을 정한다 — 이미 정해 두었으면 그대로 두고 false
+// 직업 · 원소 · 성별을 정한다 — 이미 정해 두었으면 그대로 두고 false. 관리자 캐릭터는 언제든 다시 정한다
 export function saveLook(d) {
   const cur = loadSave();
-  if (!cur || cur.picked) return false;
+  if (!cur || (cur.picked && !cur.admin)) return false;
   return store({ ...cur, job: d.job, elem: d.elem, gender: d.gender, picked: 1 });
 }
 // 캐릭터를 지운다 — 이름 · 직업 · 원소 · 성별과 레벨 · 코인까지 모두 사라진다

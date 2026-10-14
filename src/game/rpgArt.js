@@ -39,9 +39,10 @@ const WEAPON_GRIP = {
 };
 const HELD_LEN = 30;                                  // 손잡이 → 칼끝 길이(화면 px). 원래 칼은 약 22
 const BASIC_LEN = 23;                                 // 특별 무기가 없을 때 코드로 그리는 기본 검 길이
-// 검 휘두르기 — 공격하면 SWING_T 초 동안: 머리 위로 들어 올렸다가(0~up) 앞으로 내리치고(~hit) 제자리로(~1).
+// 검 휘두르기 — 공격하면 t 초 동안: 머리 위로 들어 올렸다가(0~up) 앞으로 내리치고(~hit) 제자리로(~1).
+// 전사 평타는 친 순간 바로 맞고 베기 연출(slash)도 0.24초라, 거의 바로 올려 0.1초 안에 내리치고 0.24초에 끝낸다(평타 간격 0.55초보다 짧게).
 // 각도는 오른쪽을 보는 모습 기준(도). 왼쪽을 보는 그림(turn · side)은 좌우로 뒤집어 쓴다
-const SWING = { t: 0.36, up: 0.3, hit: 0.72, raise: 245, strike: 385 };
+const SWING = { t: 0.24, up: 0.12, hit: 0.5, raise: 245, strike: 385 };
 const HELD_TYPE = { dagger: 0.8, great: 1.15 };        // 단검은 짧게, 대검은 길게
 const weaponCache = {};
 function weaponImg(sp) {

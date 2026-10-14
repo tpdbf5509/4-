@@ -6,8 +6,8 @@ export const KEY_ACTIONS = [
   { id: "left", name: "왼쪽", group: "이동", keys: ["KeyA", "ArrowLeft"] },
   { id: "right", name: "오른쪽", group: "이동", keys: ["KeyD", "ArrowRight"] },
   { id: "fire", name: "평타", group: "전투", keys: ["Space", ""] },
-  { id: "skill", name: "큰 기술", group: "전투", keys: ["ShiftLeft", "KeyQ"] },
-  { id: "dash", name: "대쉬", group: "전투", keys: ["KeyF", ""] },
+  { id: "skill", name: "큰 기술", group: "전투", keys: ["ShiftLeft", "ShiftRight"] },
+  { id: "dash", name: "대쉬", group: "전투", keys: ["KeyQ", ""] },
   { id: "use1", name: "산 스킬 1", group: "전투", keys: ["Digit1", "Numpad1"] },
   { id: "use2", name: "산 스킬 2", group: "전투", keys: ["Digit2", "Numpad2"] },
   { id: "use3", name: "산 스킬 3", group: "전투", keys: ["Digit3", "Numpad3"] },
@@ -22,6 +22,9 @@ export const KEY_ACTIONS = [
 export const KEY_SLOTS = 2;
 const STORE = "flg:rpgKeys";
 const LOCKED = ["Escape"];
+const KEYS_V = 2;
+// 예전 기본 키 — 저장된 칸이 이것 그대로면(손대지 않았으면) 새 기본 키로 바꿔 준다. 큰 기술은 Shift 만, 대쉬는 Q 로 옮겼다
+const OLD_DEFAULTS = { skill: ["ShiftLeft", "KeyQ"], dash: ["KeyF", ""] };
 
 export const defaultKeys = () => Object.fromEntries(KEY_ACTIONS.map((a) => [a.id, a.keys.slice(0, KEY_SLOTS)]));
 
@@ -31,15 +34,24 @@ export function loadKeys() {
   try {
     const v = JSON.parse(localStorage.getItem(STORE) || "null");
     if (!v || typeof v !== "object") return base;
+    const old = v.v !== KEYS_V;
+    const moved = [];                               // 새 기본 키로 옮긴 행동
     KEY_ACTIONS.forEach((a) => {
       const k = v[a.id];
-      if (Array.isArray(k)) base[a.id] = [0, 1].map((i) => (typeof k[i] === "string" && !LOCKED.includes(k[i]) ? k[i] : ""));
+      if (!Array.isArray(k)) return;
+      if (old && OLD_DEFAULTS[a.id] && OLD_DEFAULTS[a.id].every((c, i) => (k[i] || "") === c)) { moved.push(a.id); return; }
+      base[a.id] = [0, 1].map((i) => (typeof k[i] === "string" && !LOCKED.includes(k[i]) ? k[i] : ""));
     });
+    // 옮긴 새 기본 키가 다른 칸과 겹치면 그 칸에서 뺀다
+    moved.forEach((id) => base[id].forEach((c) => {
+      if (!c) return;
+      KEY_ACTIONS.forEach((a) => { if (a.id !== id) base[a.id] = base[a.id].map((x) => (x === c ? "" : x)); });
+    }));
   } catch { /* 저장이 막혀 있으면 기본값 */ }
   return base;
 }
 export function saveKeys(binds) {
-  try { localStorage.setItem(STORE, JSON.stringify(binds)); } catch { /* 저장이 막혀 있으면 이번만 */ }
+  try { localStorage.setItem(STORE, JSON.stringify({ ...binds, v: KEYS_V })); } catch { /* 저장이 막혀 있으면 이번만 */ }
 }
 
 // 한 칸에 키를 넣는다 — 같은 키가 다른 칸에 있으면 그 칸은 비운다. Esc 는 받지 않는다

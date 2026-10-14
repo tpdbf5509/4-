@@ -38,6 +38,10 @@ const WEAPON_GRIP = {
   thunder: [24, 100, 120, 6], viper: [36, 44, 122, 118],
 };
 const HELD_LEN = 30;                                  // 손잡이 → 칼끝 길이(화면 px). 원래 칼은 약 22
+const BASIC_LEN = 23;                                 // 특별 무기가 없을 때 코드로 그리는 기본 검 길이
+// 검 휘두르기 — 공격하면 SWING_T 초 동안: 머리 위로 들어 올렸다가(0~up) 앞으로 내리치고(~hit) 제자리로(~1).
+// 각도는 오른쪽을 보는 모습 기준(도). 왼쪽을 보는 그림(turn · side)은 좌우로 뒤집어 쓴다
+const SWING = { t: 0.36, up: 0.3, hit: 0.72, raise: 245, strike: 385 };
 const HELD_TYPE = { dagger: 0.8, great: 1.15 };        // 단검은 짧게, 대검은 길게
 const weaponCache = {};
 function weaponImg(sp) {
@@ -51,26 +55,80 @@ function weaponImg(sp) {
   }
   return im && im.complete && im.naturalWidth ? im : null;
 }
-// 손에 들 특별 무기 — 전사가 장착했고 그림 두 장(칼 지운 몸 · 무기)이 다 있을 때만
+// 전사가 손에 든 검 — 칼 지운 몸 그림이 있으면 늘 이 길로 그린다(휘두를 수 있게).
+// 특별 무기를 장착했고 그 그림이 있으면 그 무기, 아니면 코드로 그린 기본 검
 function heldWeapon(h, view) {
   if (h.job !== "warrior") return null;
+  const hand = WARRIOR_HAND[h.gender === "f" ? "f" : "m"][view];
+  const body = hand && heroImg(h, `${view}-bare`);
+  if (!body) return null;
   const sp = SPECIAL_BY_ID[heldSpecial(h)];
   const grip = sp && WEAPON_GRIP[sp.art];
-  const hand = WARRIOR_HAND[h.gender === "f" ? "f" : "m"][view];
-  if (!grip || !hand) return null;
-  const body = heroImg(h, `${view}-bare`), wpn = weaponImg(sp);
-  return body && wpn ? { body, wpn, grip, hand, len: HELD_LEN * (HELD_TYPE[sp.t] || 1) } : null;
+  const wpn = grip ? weaponImg(sp) : null;
+  return { body, hand, wpn, grip, len: wpn ? HELD_LEN * (HELD_TYPE[sp.t] || 1) : BASIC_LEN,
+    left: view === "turn" || view === "side" };
 }
-function drawHeld(ctx, held, ww, top) {
+// 공격할 때 검 각도(도) — 휘두르는 중이 아니면 null
+function swingAngle(h, held, time) {
+  const a = h.anim;
+  if (!a) return null;
+  if (h.swing > 0 && !(a.sw > 0)) a.swAt = time;    // 새로 쳤다
+  a.sw = h.swing;
+  const p = a.swAt === undefined ? 1 : (time - a.swAt) / SWING.t;
+  if (p < 0 || p >= 1) return null;
+  const f = (d) => (held.left ? 180 - d : d);
+  const rest = held.hand[2], up = f(SWING.raise), hit = f(SWING.strike);
+  const back = held.left ? rest - 360 : rest + 360;
+  const ease = (x) => 1 - (1 - x) * (1 - x);
+  if (p < SWING.up) return { ang: rest + (up - rest) * ease(p / SWING.up), trail: 0 };
+  if (p < SWING.hit) {
+    const q = (p - SWING.up) / (SWING.hit - SWING.up);
+    return { ang: up + (hit - up) * ease(q), from: up, trail: 1 - q * 0.4 };
+  }
+  const q = (p - SWING.hit) / (1 - SWING.hit);
+  return { ang: hit + (back - hit) * q, from: up, to: hit, trail: (1 - q) * 0.6 };
+}
+// 코드로 그린 기본 검 — +x 쪽으로 뻗는다. 원래 그림의 칼처럼 옅은 회색 날 · 갈색 손잡이
+function drawBasicSword(ctx, len) {
+  ctx.lineJoin = "round";
+  ctx.fillStyle = "#6b4a32"; ctx.strokeStyle = "rgba(34,24,18,0.9)"; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.roundRect(-4, -1.3, 7, 2.6, 1); ctx.fill(); ctx.stroke();          // 손잡이
+  ctx.beginPath(); ctx.roundRect(2.6, -3.6, 1.8, 7.2, 0.8); ctx.fill(); ctx.stroke();      // 날밑
+  ctx.fillStyle = "#e8e4dc";
+  ctx.beginPath();
+  ctx.moveTo(4.4, -1.6); ctx.lineTo(len - 3.2, -1.6); ctx.lineTo(len, 0); ctx.lineTo(len - 3.2, 1.6); ctx.lineTo(4.4, 1.6);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(5.5, -0.5); ctx.lineTo(len - 4, -0.5); ctx.stroke();
+}
+function drawHeld(ctx, held, ww, top, sw, col) {
   const { wpn, grip, hand, len } = held;
-  const [gx, gy, tx, ty] = grip;
-  const rot = (hand[2] * Math.PI) / 180 - Math.atan2(ty - gy, tx - gx);
-  const k = len / Math.hypot(tx - gx, ty - gy);
+  const deg = sw ? sw.ang : hand[2];
   ctx.save();
   ctx.translate(-ww / 2 + hand[0] * HERO_K, top + hand[1] * HERO_K);
-  ctx.rotate(rot);
-  ctx.scale(k, k);
-  ctx.drawImage(wpn, -gx, -gy);
+  if (sw && sw.trail > 0 && sw.from !== undefined) {   // 휘두른 자리에 남는 빛 자국
+    const a0 = (sw.from * Math.PI) / 180, a1 = ((sw.to ?? sw.ang) * Math.PI) / 180;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.55 * sw.trail;
+    ctx.strokeStyle = col || "#fff1c8";
+    ctx.lineCap = "round";
+    [[len * 0.95, 4], [len * 0.7, 2.5]].forEach(([r, w]) => {
+      ctx.lineWidth = w;
+      ctx.beginPath(); ctx.arc(0, 0, r, a0, a1, held.left); ctx.stroke();
+    });
+    ctx.restore();
+  }
+  ctx.rotate((deg * Math.PI) / 180);
+  if (wpn) {
+    const [gx, gy, tx, ty] = grip;
+    const k = len / Math.hypot(tx - gx, ty - gy);
+    ctx.rotate(-Math.atan2(ty - gy, tx - gx));
+    ctx.scale(k, k);
+    ctx.drawImage(wpn, -gx, -gy);
+  } else {
+    drawBasicSword(ctx, len);
+  }
   ctx.restore();
 }
 
@@ -921,7 +979,7 @@ function drawHero(ctx, g, h, time) {
     const ww = im.naturalWidth * HERO_K, hh = im.naturalHeight * HERO_K;
     const top = -hh + HERO_PAD * HERO_K;
     ctx.drawImage(im, -ww / 2, top, ww, hh);
-    if (held) drawHeld(ctx, held, ww, top);
+    if (held) drawHeld(ctx, held, ww, top, down ? null : swingAngle(h, held, time), col.light);
     if (h.flash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(0.5, h.flash * 3);

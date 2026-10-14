@@ -3,7 +3,7 @@ import { W, H, MOVE_KEYS } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, saveLook, writeChar, deleteChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, needXp, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
@@ -285,16 +285,20 @@ export function RpgSetup({ room, onStart, onLeave }) {
 }
 
 /* ── 광장과 사냥터 ─────────────────────────────────────── */
-export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) {
+export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave }) {
   const cvsRef = useRef(null);
   const bgsRef = useRef(null);
   const names = useMemo(() => seats.map((s) => s?.name || ""), [seats]);
   const myLook = seats[mySeat]?.hero || null;
   const [auto, setAuto] = useState(loadAuto);        // 자동 평타
-  const [start] = useState(() => {                   // 이 기기에 남아 있던 내 기록
+  const autoRef = useRef(auto);
+  const dirsRef = useRef([]);                       // 누르고 있는 방향
+  // 이 기기에 남아 있는 내 기록 — 방장에게 알릴 때마다 새로 읽는다(방장이 바뀌면 그동안 쌓인 것까지 보낸다)
+  const myData = () => {
     const c = loadChar();
-    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin, auto: loadAuto() } : { auto: loadAuto() };
-  });
+    const extra = { auto: autoRef.current, hold: dirsRef.current.slice() };
+    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin, ...extra } : extra;
+  };
 
   const G = useRef(null);
   if (!G.current) {
@@ -307,13 +311,18 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   }
 
   // 자리가 바뀌면 — 방장은 세계에 세우거나 빼고, 손님은 겉모습만 맞춘다. 방장의 내 기록은 내가 바로 싣는다.
+  // 손님이던 내가 방장을 이어받았으면 받은 세계를 그대로 판정 세계로 바꾼다(모두의 자리 · 몹이 그대로 이어진다)
   useEffect(() => {
     const g = G.current;
     g.mySeat = mySeat;
-    if (!isHost) return void rpgLooks(g, seats);
+    if (!isHost) {
+      g.out = null;                                 // 방장에서 물러났으면 이제 받은 것만 그린다
+      return void rpgLooks(g, seats);
+    }
+    if (!g.out) rpgPromote(g);
     rpgSyncSeats(g, seats);
-    if (g.heroes[mySeat] && !g.heroes[mySeat].loaded) rpgJoin(g, mySeat, start);
-  }, [isHost, seats, mySeat, start]);
+    if (g.heroes[mySeat] && !g.heroes[mySeat].loaded) rpgJoin(g, mySeat, myData());
+  }, [isHost, seats, mySeat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const touch = useTouch();
   const [hud, setHud] = useState(null);
@@ -388,7 +397,6 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
     }
   }, [isHost, mySeat, room]);
 
-  const autoRef = useRef(auto);
   const toggleAuto = useCallback(() => {
     const next = !autoRef.current;
     autoRef.current = next;
@@ -422,7 +430,6 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
   }, [talk]);
 
   /* 누르고 있는 방향 — 키보드와 화면 버튼이 같은 곳으로 들어온다 */
-  const dirsRef = useRef([]);
   const pressDir = useCallback((d) => {
     const c = dirsRef.current;
     if (c.includes(d)) return;
@@ -528,8 +535,10 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));
       const watch = setInterval(() => setDropped(Date.now() - last > 6000), 2000);
       offs.push(() => clearInterval(watch));
-      // 내 기록을 방장에게 알린다 — 실렸다는 게 보일 때까지 다시 보낸다
-      const tell = () => room.send("rjoin", { cls: mySeat, data: { ...start, auto: autoRef.current } });
+      // 내 기록을 방장에게 알린다 — 실렸다는 게 보일 때까지 다시 보낸다. 방장이 바뀌면(hostId) 새 방장에게 다시 보낸다
+      const mine = G.current.heroes[mySeat];
+      if (mine) mine.loaded = 0;
+      const tell = () => room.send("rjoin", { cls: mySeat, data: myData() });
       tell();
       const again = setInterval(() => {
         const h = G.current.heroes[mySeat];
@@ -539,7 +548,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
       offs.push(() => clearInterval(again));
     }
     return () => offs.forEach((off) => off && off());
-  }, [room, isHost, mySeat, start]);
+  }, [room, isHost, hostId, mySeat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* 소리 — 내가 있는 맵에서 난 것만, 나에게 온 것만 */
   const playSounds = useCallback((g) => {
@@ -929,7 +938,7 @@ export default function RpgView({ room, isHost, seats, mySeat, code, onLeave }) 
           광장에는 무기상점 · 스킬 상점 · 물약 상점 · 도박장이 있습니다. 가까이 가서 E(휴대폰은 말풍선의 버튼)로 엽니다.
           산 무기 · 물약 · 배운 스킬은 가방(I)에서 보고, 무기 장착과 물약 마시기는 어디서나 할 수 있습니다.
           방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_CREW_MAX}명까지이고, 가득 차면 다음 서버로 넘어갑니다.
-          판정을 맡은 사람이 나가면 남은 사람이 이어받습니다. 이때 모두 광장에서 다시 서고 몹은 새로 나옵니다(레벨 · 코인 · 스탯은 그대로입니다).
+          판정을 맡은 사람이 나가도 서버는 닫히지 않습니다. 1초쯤 뒤 남은 사람이 이어받고 모두 있던 자리에서 그대로 이어 합니다.
         </details>
       </div>
     </div>

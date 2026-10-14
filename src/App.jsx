@@ -199,7 +199,7 @@ export default function App() {
        presence 목록에는 방금 닫은 탭이나 잠든 휴대폰처럼 응답 없는 사람이 한동안 남을 수 있다.
        그래서 "나보다 아이디가 작은 사람이 있으면 기다린다"를 영원히 하지 않고, 그런 사람 한 명마다 2초씩만 더 기다린다.
        - 아직 방장 소식을 못 들었으면: 2초 + (앞선 사람 수 × 2초) 뒤에 내가 방장이 된다
-       - RPG 서버에서 방장이 조용해졌으면(방장은 2초마다 소식을 보낸다): presence 에서 사라졌으면 1.5초,
+       - RPG 서버에서 방장이 조용해졌으면(방장은 2초마다 소식을 보낸다): presence 에서 사라졌으면 1초,
          남아 있는데 소식만 끊겼으면 5초 + (앞선 사람 수 × 2초) 뒤에 이어받는다
        방장이 둘 생기면 아이디가 큰 쪽이 물러난다(아래 lobby). */
     const watch = setInterval(() => {
@@ -214,7 +214,7 @@ export default function App() {
       const peers = peersRef.current;
       const ahead = peers.filter((q) => q.id < me && (!L || q.id !== L.hostId)).length;
       const hostHere = L && peers.some((q) => q.id === L.hostId);
-      const wait = !L ? 2000 + ahead * 2000 : hostHere ? 5000 + ahead * 2000 : 1500 + ahead * 2000;
+      const wait = !L ? 2000 + ahead * 2000 : hostHere ? 5000 + ahead * 2000 : 1000 + ahead * 2000;
       if (Date.now() - heardAt < wait) return;
       heardAt = Date.now();
       if (!L) return void becomeHost();
@@ -482,9 +482,10 @@ export default function App() {
     }
     return (
       <RpgView
-        key={lobby.hostId}
+        key={code}
         room={roomRef.current}
         isHost={isHost}
+        hostId={lobby.hostId}
         seats={lobby.seats}
         mySeat={mySeat}
         code={RPG_SERVERS.includes(code) ? `서버 ${server + 1}` : `방 코드 ${code}`}

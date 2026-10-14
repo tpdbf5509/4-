@@ -401,6 +401,7 @@ export function rpgJoin(g, pi, d) {
   const h = g.heroes[pi];
   if (!h) { g.pending[pi] = d; return; }
   if (!d || h.loaded) return;
+  const keepHp = h.migr && h.hp > 0 ? h.hp : 0;   // 방장을 이어받는 중이면 체력은 그대로
   h.lv = clamp(Math.floor(Number(d.lv) || 1), 1, LV_MAX);
   h.xp = clamp(Math.floor(Number(d.xp) || 0), 0, needXp(h.lv) - 1);
   h.coins = Math.max(0, Math.floor(Number(d.coins) || 0));
@@ -415,7 +416,10 @@ export function rpgJoin(g, pi, d) {
   h.bag = cleanBag(d.bag);
   h.bag.ld = 1;
   if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
+  if (Array.isArray(d.hold)) rpgHold(g, pi, d.hold);   // 누르고 있던 방향 — 이어받을 때 멈추지 않게
   refreshHp(h, true);
+  if (keepHp) h.hp = Math.min(h.max, keepHp);
+  h.migr = 0;
   h.loaded = 1;
 }
 
@@ -549,16 +553,45 @@ function spawnMob(g, gi) {
       || M.npcs.some((n) => dist(n.x, n.y, x, y) < 200) || M.gates.some((q) => dist(q.x, q.y, x, y) < 220);
     if (!busy) break;
   }
+  g.mobs.push(mobBody(g.nextId++, gi, lv, x, y));
+}
+// 몹 하나 — 판정에 쓰는 값을 모두 갖춘다. 방장을 이어받을 때 받은 몹을 다시 세울 때도 쓴다
+function mobBody(id, gi, lv, x, y) {
+  const sp = SPAWNS[gi];
+  const T = MOB[sp.type];
   const size = mobSize(sp.type, lv, sp.boss);
   const hp = sp.boss ? T.boss.hp : T.hp(lv);
-  g.mobs.push({
-    id: g.nextId++, gi, type: sp.type, boss: sp.boss ? 1 : 0, lv, size, map: sp.map, x, y, hx: x, hy: y,
+  return {
+    id, gi, type: sp.type, boss: sp.boss ? 1 : 0, lv, size, map: sp.map, x, y, hx: x, hy: y,
     ax: Math.random() < 0.5 ? -1 : 1,
     hp, max: hp, rad: T.rad * size, age: 0, calm: 0,
     dmg: sp.boss ? T.boss.dmg : T.dmg(lv), xp: sp.boss ? T.boss.xp : T.xp(lv), coin: coinOf(sp.boss ? T.boss.coin : T.coin(lv)),
     state: "idle", t: 0.5 + Math.random() * 1.5, vx: 0, vy: 0, tgt: -1, bumpCd: 2, biteCd: 1, bite: 0, chargeCd: 1.5, hitSet: null,
     slow: 0, freeze: 0, stun: 0, burn: 0, bdps: 0, bby: -1, poison: 0, pdps: 0, pby: -1,
     shred: 0, shredAmt: 0, flash: 0, dotT: 0.5, numAcc: 0, numT: 0, numCol: "#ffe9bd",
+  };
+}
+
+/* ── 방장 이어받기 — 모두가 방장인 것처럼 ──────────────────────────
+   방장이 나가면 남은 사람 가운데 하나가 판정을 이어받는다. 이때 세계를 새로 만들지 않고,
+   마지막으로 받은 세계(모두의 자리 · 몹 자리와 체력 · 대기 시간)를 판정용으로 바꿔 그대로 이어 간다.
+   사람마다의 기록(레벨 · 코인 · 가방 …)은 각자가 다시 보내 준다(rpgJoin). 그동안 체력은 그대로 둔다. */
+export function rpgPromote(g) {
+  g.out = [];
+  g.hits = []; g.respawn = []; g.pending = {};
+  g.mobs = g.mobs.filter((m) => !m.dead).map((m) => {
+    const gi = SPAWNS.findIndex((sp) => sp.map === m.map && sp.type === m.type && !!sp.boss === !!m.boss);
+    if (gi < 0) return null;
+    const b = mobBody(m.id, gi, m.lv, m.x, m.y);
+    b.hp = Math.max(1, Math.round((b.max * (m.hp || 0)) / (m.max || 100)));   // 받은 체력은 백분율이다
+    b.ax = m.ax || 1; b.age = 1;
+    return b;
+  }).filter(Boolean);
+  g.nextId = Math.max(g.nextId, ...g.mobs.map((m) => m.id + 1), 1);
+  g.heroes.forEach((h) => {
+    if (!h) return;
+    h.loaded = 0; h.migr = 1;                     // 기록이 다시 올 때까지 — 자리 · 체력은 그대로
+    h.tx = undefined; h.ty = undefined;
   });
 }
 

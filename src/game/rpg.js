@@ -7,11 +7,11 @@
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
-import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE } from "./shopData.js";
+import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION } from "./shopData.js";
 import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo } from "./shop.js";
 import { BUILD } from "../net/version.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY } from "./socialData.js";
-import { DROPS, MAT_BY_ID } from "./itemData.js";
+import { DROPS, MAT_BY_ID, GIFT } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 
 export const RPG_CREW_MAX = 16;
@@ -431,6 +431,7 @@ export function loadChar() {
     title: TITLE_BY_ID[r.title] ? r.title : "",  // 달고 있는 칭호
     honor: Math.max(0, Math.floor(Number(r.honor) || 0)),   // 명예
     reqs: cleanReqs(r.reqs),                     // 맡은 광장 의뢰
+    gift: typeof r.gift === "string" ? r.gift : "",   // 마지막으로 받은 업데이트 선물 id
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다. acct 는 서버에 만든 계정 { tok }
@@ -485,7 +486,8 @@ export function writeChar(d) {
   const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
   store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
-    honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs) });
+    honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs),
+    gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "" });
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -518,6 +520,7 @@ function makeHero(pi, look, map = "plaza") {
     rec: newRec(), titles: [], title: "",   // 잡은 수 · 얻은 칭호 · 달고 있는 칭호
     honor: 0,                               // 명예 — 결투에서 이기면 오른다
     reqs: {},                               // 맡은 광장 의뢰 { NPC id: { i, n } }
+    gift: "",                               // 받은 업데이트 선물 id(itemData.js GIFT)
     duelInv: null, dvs: -1, dph: 0, dtl: 0, ring: -1,   // 받은 결투 신청 · 결투 상대 자리 · 단계(1 준비 2 싸움 3 끝) · 남은 초 · 결투장 칸
   };
   wear(h, look);
@@ -600,6 +603,8 @@ export function rpgJoin(g, pi, d) {
   h.reqs = cleanReqs(d.reqs);
   h.titles = cleanTitles(d.titles);
   h.title = h.titles.includes(d.title) ? d.title : "";
+  h.gift = typeof d.gift === "string" ? d.gift : "";
+  if (h.gift !== GIFT.id) giveGift(g, h);         // 이번 업데이트 선물 — 캐릭터마다 한 번
   awardTitles(g, h, true);                        // 예전 캐릭터도 이미 채운 조건의 칭호는 조용히 받는다
   if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
   if (Array.isArray(d.hold)) rpgHold(g, pi, d.hold);   // 누르고 있던 방향 — 이어받을 때 멈추지 않게
@@ -607,6 +612,15 @@ export function rpgJoin(g, pi, d) {
   if (keepHp) h.hp = Math.min(h.max, keepHp);
   h.migr = 0;
   h.loaded = 1;
+}
+
+/* 업데이트 선물 — 물약 · 재료를 가방에 넣고 받았다고 적어 둔다. 손님 화면은 스냅샷의 선물 표시로 안내 창을 띄운다 */
+function giveGift(g, h) {
+  Object.entries(GIFT.potions).forEach(([id, n]) => { h.bag.p[id] = Math.min(POTION.stackMax, (h.bag.p[id] || 0) + n); });
+  Object.entries(GIFT.mats).forEach(([id, n]) => addMat(h.bag, id, n));
+  h.bag.v += 1;
+  h.gift = GIFT.id;
+  sys(g, h.pi, "업데이트 선물을 받았습니다. 가방(I)에서 확인하세요.");
 }
 
 /* 스탯을 찍는다 (방장만 판정) — add 는 { 스탯id: 올릴 포인트 }. 남은 포인트와 스탯 상한을 넘으면 받지 않는다.
@@ -2007,7 +2021,7 @@ export function rpgPack(g) {
         TITLES.reduce((bits, t, i) => (h.titles.includes(t.id) ? bits | (1 << i) : bits), 0),
         REC_IDS.map((k) => h.rec[k]), heldSpecial(h),
         h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring,
-        REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0))]
+        REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0)), h.gift === GIFT.id ? 1 : 0]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -2063,6 +2077,7 @@ export function rpgApply(g, s) {
       h.duelInv = row[35] >= 0 ? { from: row[35], t: h.duelInv && h.duelInv.from === row[35] ? h.duelInv.t : DUEL.reqT } : null;
       h.dvs = row[36]; h.dph = row[37]; h.dtl = row[38]; h.ring = row[39];
     }
+    if (row.length > 41) h.gift = row[41] ? GIFT.id : "";   // 이번 업데이트 선물을 받았는지
     if (Array.isArray(row[40])) {                  // 맡은 광장 의뢰
       h.reqs = {};
       REQ_NPCS.forEach((n, i) => { const r = row[40][i]; if (r) h.reqs[n.id] = { i: r[0], n: r[1] }; });

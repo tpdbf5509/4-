@@ -1315,6 +1315,13 @@ kbd {
 /* 결투 · 명예 */
 .rpg-win-acts { display: inline-flex; align-items: center; gap: 6px; }
 .rpg-win-btn.duel { color: #f0c2b2; border-color: rgba(233, 160, 138, 0.55); }
+/* 업데이트 안내 · 선물 — 선물 한 줄만 금빛 테두리로 강조한다 */
+.rpg-gift-box { display: flex; flex-direction: column; gap: 3px; margin: 10px 0 4px; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid rgba(227, 196, 138, 0.55); background: rgba(227, 196, 138, 0.06); }
+.rpg-gift-box b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 15px; color: #ffe08a; letter-spacing: -0.02em; }
+.rpg-gift-box span { font-size: 12.5px; color: #e8dcc0; letter-spacing: -0.02em; line-height: 1.5; }
+.rpg-gift-list { margin: 8px 0 4px; padding: 0 0 0 16px; font-size: 12.5px; line-height: 1.6; color: #cfc3a8; letter-spacing: -0.02em; }
+.rpg-gift-list li + li { margin-top: 3px; }
 .rpg-win-btn.ghost { color: #bfb39c; border-color: rgba(191, 179, 156, 0.35); }
 .rpg-win-btn.duel:hover:not(:disabled) { border-color: #e9a08a; }
 .rpg-invite.duel { border-color: rgba(233, 160, 138, 0.6); }

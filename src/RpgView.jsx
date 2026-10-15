@@ -9,10 +9,11 @@ import {
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
-import { rpgShop, nearShop, extraStat, SHOP_BY_ID } from "./game/shop.js";
+import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQUESTS, REQ_SHOW } from "./game/requestData.js";
-import { MAT_BY_ID, DROPS } from "./game/itemData.js";
+import { MAT_BY_ID, DROPS, GIFT } from "./game/itemData.js";
+import { UPDATES } from "./game/updates.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
@@ -318,7 +319,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const c = loadChar();
     const extra = { auto: autoRef.current, hold: dirsRef.current.slice() };
     return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
-      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, ...extra } : extra;
+      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, ...extra } : extra;
   };
 
   const G = useRef(null);
@@ -365,6 +366,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [duelAt, setDuelAt] = useState(0);           // 결투 신청에 답한 때
   const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
   const [reqOpen, setReqOpen] = useState(null);      // 열어 둔 의뢰 NPC id
+  const [giftOpen, setGiftOpen] = useState(false);   // 업데이트 안내 · 선물 창 — 이번 선물을 처음 받았을 때 한 번
+  const giftRef = useRef(null);                      // 들어올 때 이미 받은 선물이었는지 — 루프가 본다
+  if (giftRef.current === null) giftRef.current = (loadChar() || {}).gift === GIFT.id;
   const reqRef = useRef(null);                       // 루프가 보는 열린 의뢰 창
   const [rank, setRank] = useState({ list: null, err: "", busy: false });
   // 명예 순위 — 창을 열 때마다 서버에서 새로 읽는다
@@ -394,7 +398,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   // 창은 한 번에 하나만 연다
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
-    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null);
+    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setGiftOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -476,13 +480,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !giftOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, giftOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -772,6 +776,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 상점에서 멀어지면 상점 창을 닫는다
         if (me && shopRef.current && !nearShop(me, shopRef.current)) { shopRef.current = null; setShopOpen(null); }
         if (me && reqRef.current && !reqNear(me, reqRef.current)) { reqRef.current = null; setReqOpen(null); }
+        if (me && me.loaded && me.gift === GIFT.id && !giftRef.current) { giftRef.current = true; setGiftOpen(true); }
         if (me && me.map !== lastMap) {
           if (lastMap) setToast({ name: MAPS[me.map].name, at: now });
           lastMap = me.map;
@@ -779,7 +784,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
-            + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}`;
+            + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}`;
           if (key !== saved) {
             saved = key;
             writeChar(me);
@@ -1105,6 +1110,29 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </>
             );
           })()}
+          {me && giftOpen && (
+            <>
+              <div className="rpg-menu-back" onClick={() => setGiftOpen(false)} />
+              <div className="rpg-stat rpg-win rpg-gift" role="dialog" aria-label="업데이트 안내">
+                <div className="rpg-stat-head">
+                  <b>업데이트 안내</b>
+                  <span>{UPDATES.find((u) => u.id === GIFT.notes[0])?.date}</span>
+                </div>
+                <div className="rpg-gift-box">
+                  <b>선물이 가방에 들어왔습니다</b>
+                  <span>{[...Object.entries(GIFT.potions).map(([id, n]) => `${POTION_BY_ID[id].name} ${n}개`),
+                    ...Object.entries(GIFT.mats).map(([id, n]) => `${MAT_BY_ID[id].name} ${n}개`)].join(" · ")}</span>
+                </div>
+                <ul className="rpg-gift-list">
+                  {UPDATES.filter((u) => GIFT.notes.includes(u.id)).flatMap((u) => u.items).map((t) => <li key={t}>{t}</li>)}
+                </ul>
+                <div className="rpg-stat-foot">
+                  <button type="button" className="btn-main" onClick={() => setGiftOpen(false)}>확인</button>
+                  <button type="button" className="btn-ghost" onClick={() => { setGiftOpen(false); closeAll(); setBagOpen(true); }}>가방 열기</button>
+                </div>
+              </div>
+            </>
+          )}
           {me && reqOpen && REQ_BY_NPC[reqOpen] && (() => {
             const npc = REQ_BY_NPC[reqOpen];
             const list = REQUESTS[npc.id];

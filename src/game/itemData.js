@@ -47,3 +47,12 @@ export const ENHANCE = {
 export const STONE_IDS = Object.keys(ENHANCE.stones);
 // +k 로 올릴 때 이 강화석의 성공 확률(%) — 쓸 수 없으면 0
 export const enhRate = (stone, k) => (ENHANCE.stones[stone] && ENHANCE.stones[stone][k - 1]) || 0;
+
+/* 업데이트 선물 — 캐릭터마다 한 번, 이 id 를 처음 받을 때 준다(서버에 들어와 방장이 기록을 실을 때).
+   다음 선물을 줄 때는 id 를 새로 바꾼다. notes 는 함께 보여 줄 업데이트 노트 id(updates.js) */
+export const GIFT = {
+  id: "2026-10-30",
+  potions: { reset: 1 },                        // 스탯 초기화 물약
+  mats: { blue: 5, eye: 5, heart: 5 },          // 강화석 세 종류
+  notes: ["2026-10-30", "2026-10-29"],
+};

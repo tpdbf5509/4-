@@ -332,9 +332,9 @@ export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 
 export const LV_MAX = 200;
 
 /* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 200레벨까지 모두 400포인트).
-   스탯 하나에는 100까지만 찍을 수 있어, 다섯 가운데 넷만 가득 채울 수 있다.
+   스탯 하나에는 STAT_MAX 까지 찍는다. 400포인트로 한 스탯을 250까지 올리고 남은 150을 나눌 수 있다.
    물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
-export const STAT_MAX = 100;
+export const STAT_MAX = 250;          // 스탯 하나의 상한 — 100 에서 250 으로 늘렸다(한 스탯에 몰아 찍을 수 있게)
 // 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
 // 레벨은 최고 레벨로 두고, 코인은 쓰는 대로 이만큼 다시 채운다(돈 무제한)
 export const ADMIN = { coins: 99999999 };
@@ -357,7 +357,7 @@ export const statSpent = (st) => STAT_IDS.reduce((n, k) => n + ((st && st[k]) ||
 export const statLeft = (h) => Math.max(0, statEarned(h.lv) - statSpent(h.st));
 // 찍은 포인트에 따른 값 — 표의 기본값 + 포인트당 효과
 export const statValue = (id, pts) => STAT_BY_ID[id].base + STAT_BY_ID[id].per * (pts || 0);
-// 받은 값을 거른다 — 스탯마다 0~100, 모두 합쳐 받은 포인트를 넘지 않게
+// 받은 값을 거른다 — 스탯마다 0~STAT_MAX, 모두 합쳐 받은 포인트를 넘지 않게
 export function cleanStats(d, lv) {
   const st = noStats();
   let room = statEarned(lv);

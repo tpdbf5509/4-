@@ -14,7 +14,7 @@ import {
   skillNext, extraStat, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
   whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount,
 } from "./game/shop.js";
-import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate } from "./game/itemData.js";
+import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
 import { Coin } from "./ui/icons.jsx";
 
 const won = (n) => Math.round(n).toLocaleString("ko-KR");
@@ -279,8 +279,8 @@ function Forge({ h, send }) {
       {tab === "enh" ? (
         <>
           <p className="shop-note">
-            강화석 하나와 코인을 내고 한 단계씩 올립니다. 실패해도 단계는 내려가지 않고 강화석과 코인만 사라집니다.
-            한 단계마다 무기가 올려 주는 스탯이 {pct(ENHANCE.per, 0)}씩 늘어납니다. 강화석은 보스가 떨굽니다.
+            강화석 하나와 코인을 내고 한 단계씩 올립니다. 실패하면 강화석과 코인이 사라지고,
+            +{ENHANCE.down[0].from} 부터는 실패할 때 한 단계 떨어질 수 있습니다. 한 단계마다 무기가 올려 주는 스탯이 {pct(ENHANCE.per, 0)}씩 늘어납니다. 강화석은 보스가 떨굽니다.
           </p>
           <div className="shop-stones" role="radiogroup" aria-label="강화석">
             {STONE_IDS.map((id) => (
@@ -304,12 +304,13 @@ function Forge({ h, send }) {
               <WeaponItem key={w.u} w={w} tag={w.u === h.bag.e ? "장착 중" : ""}
                 desc={top ? `${weaponLine(w)} · 최고 단계` : `${weaponLine(w)} → +${sd.fmt(itemBonus(after))} (+${next} 강화)`}
                 price={top ? <span className="shop-price done">+{ENHANCE.max}</span>
-                  : <span className="shop-enh"><em>{rate ? `${rate}%` : "—"}</em><Price n={enhFee(w)} /></span>}
+                  : <span className="shop-enh"><em>{rate ? `${rate}%${enhDown(next) ? ` · 하락 ${enhDown(next)}%` : ""}` : "—"}</em><Price n={enhFee(w)} /></span>}
                 acts={top ? [] : [{ label: "강화", main: true, why: whyEnhance(h, w.u, stone), onClick: () => send({ op: "enh", u: w.u, stone }) }]} />
             );
           })}
-          <Head sub="올릴 단계마다의 성공 확률">{st.name} 확률표</Head>
-          <Odds rows={rates.map((r, i) => [`+${i + 1}`, `${r}%`, `${(ENHANCE.fee * (i + 1)).toLocaleString("ko-KR")}코인`])} />
+          <Head sub={`단계 · 비용 · 실패할 때 하락 · 성공`}>{st.name} 확률표</Head>
+          <Odds rows={rates.map((r, i) => [`+${i + 1} · ${(ENHANCE.fee * (i + 1)).toLocaleString("ko-KR")}코인`, `${r}%`,
+            enhDown(i + 1) ? `하락 ${enhDown(i + 1)}%` : "하락 없음"])} />
         </>
       ) : (
         <>

@@ -9,7 +9,7 @@ export const SHOPS = [
   { id: "skill", name: "스킬 상점", keeper: "현자", x: 200, y: 780, color: "#8a9ac2", line: "익힐 준비가 되었는가?" },
   { id: "potion", name: "물약 상점", keeper: "약사", x: 1600, y: 330, color: "#8fb59a", line: "다치면 언제든 오게." },
   { id: "casino", name: "도박장", keeper: "딜러", x: 1550, y: 950, color: "#c29a8a", line: "운을 시험해 보시겠어요?" },
-  // 무기 강화소 — 강화석으로 무기를 +1 ~ +20 까지 올리고, 보스가 떨군 재료를 판다. 확률 · 값은 itemData.js
+  // 무기 강화소 — 강화석으로 무기를 +1 ~ +30 까지 올리고, 보스가 떨군 재료를 판다. 확률 · 값은 itemData.js
   { id: "forge", name: "무기 강화소", keeper: "강화 장인", x: 430, y: 1020, color: "#a3907c", line: "강화석만 있으면 무기를 더 단단하게 해 주지." },
 ];
 export const SHOP_REACH = 110;            // 이만큼 가까우면 상점을 쓸 수 있다

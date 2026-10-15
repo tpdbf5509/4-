@@ -977,7 +977,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg;
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
-  if (m.boss && h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 보스를 친 사람 — 모두 재료를 받는다
+  if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
   m.flash = 0.12;
   m.numAcc += dmg;
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
@@ -995,6 +995,8 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
   return dmg;
 }
 
+/* 몹을 잡았다 — 그 몹을 한 번이라도 친 사람 가운데 같은 맵에 있는 사람이 모두 경험치 · 코인을 다 받는다(막타만이 아니다).
+   잡은 수 · 퀘스트 · 사냥 의뢰도 저마다 센다. 치지 않은 파티원은 같은 맵이면 경험치의 PARTY.share 만큼 받는다 */
 function killMob(g, m, pi) {
   if (m.dead) return;
   m.dead = true;
@@ -1002,30 +1004,34 @@ function killMob(g, m, pi) {
   flushNum(g, m, 1);
   fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" });
   g.respawn.push({ t: SPAWNS[m.gi].respawn, gi: m.gi });
-  const h = g.heroes[pi];
-  if (!h) return;
-  h.kills += 1;
-  h.coins += m.coin;
-  h.rec[m.type] += 1;
-  if (m.boss) h.rec.boss += 1;
-  if (h.pty) {
-    h.rec.party += 1;
-    // 같은 맵에 있는 파티원도 경험치를 나눠 받는다(코인은 잡은 사람만)
-    const part = Math.max(1, Math.round(m.xp * PARTY.share));
-    g.heroes.forEach((o) => {
-      if (!o || o === h || o.pty !== h.pty || o.map !== h.map || !o.loaded) return;
-      fx(g, o.map, { kind: "text", x: o.x, y: o.y - 100, text: `+${part} XP 파티`, color: "#a9e79c", t: 0.9, life: 0.9, who: o.pi });
-      giveXp(g, o, part);
-    });
-  }
+  if (!g.heroes[pi]) return;
+  const got = [...new Set([...(m.hitBy || []), pi])].map((qi) => g.heroes[qi])
+    .filter((q) => q && q.map === m.map && (q.loaded || q.pi === pi));
   if (m.boss) {
     fx(g, m.map, { kind: "call", x: m.x, y: m.y - 30 - 50 * m.size, text: `${mobName(m)} 처치!`, color: "#ffd873",
       t: 1.4, life: 1.4, snd: "clear", who: pi });
   }
-  fx(g, m.map, { kind: "text", x: m.x, y: m.y - 16, text: `+${m.xp} XP · +${m.coin} 코인`, color: "#f3d27f",
-    t: 0.9, life: 0.9, snd: "coin", who: pi });
+  got.forEach((h) => rewardKill(g, m, h, h.pi === pi));
+  // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
+  const part = Math.max(1, Math.round(m.xp * PARTY.share));
+  const ptys = new Set(got.filter((h) => h.pty).map((h) => h.pty));
+  g.heroes.forEach((o) => {
+    if (!o || !o.loaded || !o.pty || !ptys.has(o.pty) || o.map !== m.map || got.includes(o)) return;
+    fx(g, o.map, { kind: "text", x: o.x, y: o.y - 100, text: `+${part} XP 파티`, color: "#a9e79c", t: 0.9, life: 0.9, who: o.pi });
+    giveXp(g, o, part);
+  });
+  if (m.boss) dropLoot(g, got, m);
+}
+// 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
+function rewardKill(g, m, h, last) {
+  h.kills += 1;
+  h.coins += m.coin;
+  h.rec[m.type] += 1;
+  if (m.boss) h.rec.boss += 1;
+  if (h.pty) h.rec.party += 1;
+  fx(g, m.map, { kind: "text", x: last ? m.x : h.x, y: last ? m.y - 16 : h.y - 100, text: `+${m.xp} XP · +${m.coin} 코인`, color: "#f3d27f",
+    t: 0.9, life: 0.9, snd: "coin", who: h.pi });
   giveXp(g, h, m.xp);
-  if (m.boss) dropLoot(g, m, pi);
   huntReq(g, h, m);
   if (h.quest.on && m.type === "rabbit") {
     h.quest.n += 1;
@@ -1034,26 +1040,26 @@ function killMob(g, m, pi) {
       h.coins += QUEST.coin;
       h.rec.quest += 1;
       fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `퀘스트 완료! +${QUEST.xp} XP · +${QUEST.coin} 코인`,
-        color: "#a9e79c", t: 1.4, life: 1.4, snd: "clear", who: pi });
+        color: "#a9e79c", t: 1.4, life: 1.4, snd: "clear", who: h.pi });
       giveXp(g, h, QUEST.xp);
     }
   }
 }
 
-/* 보스 재료 — 그 보스를 친 사람 가운데 같은 맵에 있는 사람이 저마다 받는다(itemData.js DROPS) */
-function dropLoot(g, m, pi) {
+/* 보스 재료 — 그 보스를 친 사람 가운데 같은 맵에 있는 사람(got)이 저마다 받는다(itemData.js DROPS) */
+function dropLoot(g, got, m) {
   const d = DROPS[m.type];
   if (!d) return;
   const mat = MAT_BY_ID[d.id];
-  new Set([...(m.hitBy || []), pi]).forEach((qi) => {
-    const q = g.heroes[qi];
-    if (!q || !q.loaded || q.map !== m.map) return;
+  got.forEach((q) => {
+    const qi = q.pi;
+    if (!q.loaded) return;
     const n = d.n + (Math.random() < d.bonus ? 1 : 0);
-    const got = addMat(q.bag, d.id, n);
-    if (!got) return void sys(g, qi, `${jo(mat.name, "이", "가")} 가득 차 더 받지 못했습니다.`);
-    fx(g, q.map, { kind: "call", x: q.x, y: q.y - 128, text: `${mat.name} ×${got}`, color: mat.color, t: 1.5, life: 1.5,
+    const put = addMat(q.bag, d.id, n);
+    if (!put) return void sys(g, qi, `${jo(mat.name, "이", "가")} 가득 차 더 받지 못했습니다.`);
+    fx(g, q.map, { kind: "call", x: q.x, y: q.y - 128, text: `${mat.name} ×${put}`, color: mat.color, t: 1.5, life: 1.5,
       snd: mat.stone ? "clear" : "coin", who: qi });
-    sys(g, qi, `${mobName(m)}에게서 ${mat.name} ${got}개를 얻었습니다.${n > d.n ? " (행운! 하나 더)" : ""}`);
+    sys(g, qi, `${mobName(m)}에게서 ${mat.name} ${put}개를 얻었습니다.${n > d.n ? " (행운! 하나 더)" : ""}`);
   });
 }
 

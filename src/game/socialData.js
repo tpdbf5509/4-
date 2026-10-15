@@ -42,7 +42,7 @@ export const NEED_NAME = {
   goblin: "고블린", orc: "오크", ogre: "오우거", req: "광장 의뢰",
 };
 
-/* 파티 — 같은 맵에 있는 파티원이 몹을 잡으면 나도 그 경험치의 share 만큼 받는다(코인은 잡은 사람만).
+/* 파티 — 같은 맵에 있는 파티원이 몹을 잡으면 나도 그 경험치의 share 만큼 받는다(그 몹을 친 사람은 모두 경험치 · 코인을 다 받는다).
    max 명까지. 초대는 inviteT 초 동안 기다린다. */
 export const PARTY = { max: 4, share: 0.5, inviteT: 30 };
 

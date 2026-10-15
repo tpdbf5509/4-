@@ -6,7 +6,7 @@ import {
   SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIAL, SPECIALS,
   SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT,
 } from "./shopData.js";
-import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate } from "./itemData.js";
+import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
 import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist } from "./rpg.js";
 
@@ -521,27 +521,31 @@ export function rpgShop(g, pi, req) {
     return note(g, pi, { ok: true, great, msg: `${p.name} — ${msg}` });
   }
 
-  // 무기 강화소 — 실패해도 단계는 그대로, 강화석 · 코인만 사라진다
+  // 무기 강화소 — 실패하면 강화석 · 코인이 사라지고, 높은 단계에서는 일정 확률로 한 단계 떨어진다(enhDown)
   if (op === "enh") {
     const u = Number(req.u), stone = String(req.stone || "");
     if ((why = whyEnhance(h, u, stone)).length) return no(g, pi, why);
     const w = h.bag.w.find((q) => q.u === u);
-    const next = (w.up || 0) + 1, fee = enhFee(w), rate = enhRate(stone, next);
+    const cur = w.up || 0, next = cur + 1, fee = enhFee(w), rate = enhRate(stone, next);
     h.coins -= fee;
     h.bag.m[stone] -= 1;
     if (h.bag.m[stone] <= 0) delete h.bag.m[stone];
     const ok = Math.random() * 100 < rate;
+    const fall = !ok && cur > 0 && Math.random() * 100 < enhDown(next);
     const wasFull = h.hp >= h.max;
     if (ok) w.up = next;
+    else if (fall) { if (cur - 1 > 0) w.up = cur - 1; else delete w.up; }
     bump(h);
-    if (ok) hpChanged(h, wasFull);
+    hpChanged(h, wasFull);
     fx(g, h.map, ok
       ? { kind: "call", x: h.x, y: h.y - 110, text: `강화 성공! +${next}`, color: "#ffd873", t: 1.2, life: 1.2, snd: "clear", who: pi }
-      : { kind: "call", x: h.x, y: h.y - 110, text: "강화 실패", color: "#d9b8a8", t: 1, life: 1, who: pi });
+      : { kind: "call", x: h.x, y: h.y - 110, text: fall ? `강화 실패 · +${cur - 1} 로 하락` : "강화 실패", color: "#d9b8a8", t: 1.1, life: 1.1, who: pi });
     const nm = baseName(w);
-    return note(g, pi, { ok: true, enh: ok ? 1 : 0, msg: ok
-      ? `강화 성공! ${nm} +${next} (${rate}% · ${won(fee)}코인)`
-      : `강화 실패 — ${nm} +${next - 1} 그대로 (${rate}% · ${won(fee)}코인)` });
+    const tail = `(${rate}% · ${won(fee)}코인)`;
+    return note(g, pi, { ok: true, enh: ok ? 1 : fall ? -1 : 0, msg: ok
+      ? `강화 성공! ${nm} +${next} ${tail}`
+      : fall ? `강화 실패 — ${nm} +${cur} 에서 +${cur - 1} 로 떨어졌습니다 ${tail}`
+        : `강화 실패 — ${nm} +${cur} 그대로 ${tail}` });
   }
   if (op === "msell") {
     const id = String(req.id || ""), n = Number(req.n);

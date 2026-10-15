@@ -8,9 +8,11 @@
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE } from "./shopData.js";
-import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped } from "./shop.js";
+import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo } from "./shop.js";
 import { BUILD } from "../net/version.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY } from "./socialData.js";
+import { DROPS, MAT_BY_ID } from "./itemData.js";
+import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 
 export const RPG_CREW_MAX = 16;
 // RPG 서버 — 방 코드 없이 모두 서버 1에 모인다. 서버 1이 가득 차면 다음 서버로 넘어간다.
@@ -46,12 +48,15 @@ export const MAPS = {
   plaza: {
     id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: [900, 820],
     gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" }],
-    // 가운데 분수 · 상점 노점 · 명예 순위판
-    blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 }],
-    // 상점 네 곳 — 자리와 이름은 shopData.js 의 SHOPS. 위쪽 가운데는 명예 순위판(결투 명예 순위를 본다)
+    // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC
+    blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 },
+      ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 }))],
+    // 상점 — 자리와 이름은 shopData.js 의 SHOPS. 위쪽 가운데는 명예 순위판(결투 명예 순위를 본다).
+    // 의뢰 NPC 셋 — requestData.js 의 REQ_NPCS. 말을 걸면 의뢰 창이 열린다
     npcs: [
       ...SHOPS.map((sh) => ({ id: `shop-${sh.id}`, shop: sh.id, name: sh.name, keeper: sh.keeper, x: sh.x, y: sh.y })),
       { id: "honor", board: 1, name: "명예 순위", keeper: "명예의 전당", x: 900, y: 256 },
+      ...REQ_NPCS.map((n) => ({ id: `req-${n.id}`, req: n.id, name: n.name, x: n.x, y: n.y })),
     ],
   },
   field: {
@@ -92,10 +97,47 @@ export const MAPS = {
   gorilla: {
     id: "gorilla", name: "고릴라 사냥터", w: 4600, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
     tint: "rgba(16,64,36,0.30)",                  // 짙은 밀림
-    gates: [{ x: 90, y: 920, r: 64, to: "boar", at: [3990, 920], label: "멧돼지 사냥터" }],
+    gates: [
+      { x: 90, y: 920, r: 64, to: "boar", at: [3990, 920], label: "멧돼지 사냥터" },
+      { x: 4510, y: 920, r: 64, to: "goblin", at: [260, 920], label: "고블린 사냥터 · 100~130레벨" },
+    ],
     blocks: [],
     npcs: [],
-    zone: [520, 4450],
+    zone: [520, 4350],
+    paths: [[[4570, 920], [4400, 920], [4240, 880], [4080, 900]]],   // 고블린 사냥터로 가는 흙길
+  },
+  // 100레벨 넘어서는 세 곳 — 몹이 더 멀리서 알아채고, 더 오래 쫓고, 둘레의 같은 무리를 불러 함께 덤빈다(BRUTE)
+  goblin: {
+    id: "goblin", name: "고블린 사냥터", w: 4600, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
+    tint: "rgba(52,60,22,0.34)",                  // 축축한 늪지
+    gates: [
+      { x: 90, y: 920, r: 64, to: "gorilla", at: [4390, 920], label: "고릴라 사냥터" },
+      { x: 4510, y: 920, r: 64, to: "orc", at: [260, 920], label: "오크 사냥터 · 130~160레벨" },
+    ],
+    blocks: [],
+    npcs: [],
+    zone: [520, 4350],
+    paths: [[[4570, 920], [4400, 920], [4240, 880], [4080, 900]]],
+  },
+  orc: {
+    id: "orc", name: "오크 사냥터", w: 4800, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
+    tint: "rgba(92,48,28,0.34)",                  // 붉은 바위 언덕
+    gates: [
+      { x: 90, y: 920, r: 64, to: "goblin", at: [4390, 920], label: "고블린 사냥터" },
+      { x: 4710, y: 920, r: 64, to: "ogre", at: [260, 920], label: "오우거 사냥터 · 160~200레벨" },
+    ],
+    blocks: [],
+    npcs: [],
+    zone: [520, 4550],
+    paths: [[[4770, 920], [4600, 920], [4440, 880], [4280, 900]]],
+  },
+  ogre: {
+    id: "ogre", name: "오우거 사냥터", w: 5000, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
+    tint: "rgba(30,26,46,0.40)",                  // 어두운 골짜기
+    gates: [{ x: 90, y: 920, r: 64, to: "orc", at: [4590, 920], label: "오크 사냥터" }],
+    blocks: [],
+    npcs: [],
+    zone: [520, 4850],
   },
   // 결투장 — 문이 없다. 결투를 수락하면 비어 있는 칸(rings)으로 둘이 옮겨 오고, 끝나면 원래 자리로 돌아간다
   arena: {
@@ -108,7 +150,7 @@ export const MAPS = {
   },
 };
 // 스냅샷은 이 차례로 맵을 싣는다 — 새 맵은 뒤에만 더한다
-const MAP_IDS = ["plaza", "field", "wolf", "boar", "gorilla", "arena"];
+const MAP_IDS = ["plaza", "field", "wolf", "boar", "gorilla", "arena", "goblin", "orc", "ogre"];
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -125,6 +167,10 @@ export const MOB_REGEN = { calm: 5, rate: 0.08 };
    늑대는 10~20레벨, 가까이 오면 쫓아와 문다. 우두머리 늑대(보스)는 25레벨, 둘레를 한꺼번에 문다.
    멧돼지는 20~50레벨, 쫓아와 들이받고 가까우면 몸을 낮췄다가 일직선으로 돌진한다. 멧돼지 왕(보스)은 55레벨.
    고릴라는 50~100레벨, 쫓아와 주먹으로 치고 가까우면 가슴을 두드렸다가 둘레를 내려찍는다. 고릴라 왕(보스)은 110레벨.
+   고블린은 100~130레벨, 작고 빠르다. 떼로 몰려와 단검으로 쉴 새 없이 찌른다. 고블린 대장(보스)은 140레벨.
+   오크는 130~160레벨, 도끼로 찍고 가까우면 도끼를 치켜들었다가 둘레를 내려친다. 오크 족장(보스)은 170레벨.
+   오우거는 160~200레벨, 몸이 가장 크다. 몽둥이로 치고 넓은 둘레를 내려찍는다. 오우거 왕(보스)은 210레벨.
+   보스는 재료를 떨군다(itemData.js DROPS). 일반 몹은 떨구지 않는다.
    size 는 그리는 크기와 몸 반지름(rad)에 같이 곱한다. */
 export const MOB = {
   rabbit: {
@@ -159,6 +205,30 @@ export const MOB = {
     size: (lv) => 1.15 + 0.008 * (lv - 50),                             // 1.15 ~ 1.55
     boss: { name: "고릴라 왕", lv: 110, hp: 150000, dmg: 420, xp: 5000, coin: 3000, size: 2.2 },
   },
+  goblin: {
+    name: "고블린", rad: 20,
+    hp: (lv) => 14000 + 300 * (lv - 100),         // 14,000 ~ 23,000
+    dmg: (lv) => 220 + 3 * (lv - 100),            // 단검 220 ~ 310 — 대신 빨리 찌른다(GOBLIN.punchCd)
+    xp: (lv) => 3 * lv, coin: (lv) => Math.round(1.6 * lv),
+    size: (lv) => 0.95 + 0.004 * (lv - 100),      // 0.95 ~ 1.07 — 작다
+    boss: { name: "고블린 대장", lv: 140, hp: 220000, dmg: 420, xp: 6000, coin: 3600, size: 2 },
+  },
+  orc: {
+    name: "오크", rad: 26,
+    hp: (lv) => 22000 + 400 * (lv - 130),         // 22,000 ~ 34,000
+    dmg: (lv) => 330 + 4 * (lv - 130),            // 도끼 330 ~ 450 (내려치기는 slamMul 배)
+    xp: (lv) => Math.round(3.5 * lv), coin: (lv) => Math.round(1.8 * lv),
+    size: (lv) => 1.2 + 0.005 * (lv - 130),       // 1.2 ~ 1.35
+    boss: { name: "오크 족장", lv: 170, hp: 380000, dmg: 560, xp: 8000, coin: 5000, size: 2 },
+  },
+  ogre: {
+    name: "오우거", rad: 30,
+    hp: (lv) => 36000 + 500 * (lv - 160),         // 36,000 ~ 56,000
+    dmg: (lv) => 450 + 5 * (lv - 160),            // 몽둥이 450 ~ 650 (내려찍기는 slamMul 배)
+    xp: (lv) => 4 * lv, coin: (lv) => 2 * lv,
+    size: (lv) => 1.45 + 0.006 * (lv - 160),      // 1.45 ~ 1.69 — 가장 크다
+    boss: { name: "오우거 왕", lv: 210, hp: 600000, dmg: 760, xp: 11000, coin: 7000, size: 1.95 },
+  },
 };
 // 고릴라 — 멧돼지 다음이라 한 단계 더 세게. 레벨 식(멧돼지를 이은 값)에 hpMul · dmgMul 을 곱한다.
 // slamRange 안에 들면 wind 초 가슴을 두드렸다가 slamR 둘레를 내려찍는다(dmg × slamMul). 내려찍기는 cd 초마다
@@ -166,10 +236,18 @@ export const GORILLA = {
   hpMul: 1.5, dmgMul: 1.4,
   aggro: 290, walk: 165, punchCd: 1.3,
   slamRange: 170, wind: 0.7, slamR: 150, slamMul: 1.4, cd: 4.5, rest: 0.8,
+  call: 0, leash: 900,
 };
+/* 고블린 · 오크 · 오우거 — 고릴라와 같은 셈(stepBrute)에 더 공격적인 값을 넣는다.
+   aggro 알아채는 거리 · walk 쫓는 빠르기 · punchCd 한 대 치는 간격 · call 처음 덤빌 때 이 둘레의 같은 무리를 함께 부른다 ·
+   leash 제자리에서 이만큼 멀어질 때까지 쫓는다(고릴라 900). slamRange 0 이면 내려찍기가 없다 */
+export const GOBLIN = { aggro: 380, walk: 215, punchCd: 0.8, slamRange: 0, call: 340, leash: 1200 };
+export const ORC = { aggro: 400, walk: 190, punchCd: 1.05, slamRange: 170, wind: 0.55, slamR: 150, slamMul: 1.5, cd: 4, rest: 0.6, call: 320, leash: 1200 };
+export const OGRE = { aggro: 420, walk: 170, punchCd: 1.3, slamRange: 210, wind: 0.6, slamR: 200, slamMul: 1.7, cd: 4.5, rest: 0.7, call: 260, leash: 1200 };
+const BRUTE = { gorilla: GORILLA, goblin: GOBLIN, orc: ORC, ogre: OGRE };
 // 멧돼지 돌진 — 이 거리 안에 들면 wind 초 몸을 낮췄다가 speed 로 time 초 달린다. 돌진에 맞으면 dmg × chargeMul
 export const BOAR = { aggro: 270, chargeRange: 230, wind: 0.45, speed: 430, time: 0.7, rest: 1.1, cd: 3.6, chargeMul: 1.5, walk: 150 };
-const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla"];   // 스냅샷 차례 — 뒤에만 더한다
+const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre"];   // 스냅샷 차례 — 뒤에만 더한다
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -183,6 +261,12 @@ export const SPAWNS = [
   { map: "boar", type: "boar", boss: 1, n: 2, respawn: 8 },
   { map: "gorilla", type: "gorilla", n: 22, lv: [50, 100], respawn: 3 },
   { map: "gorilla", type: "gorilla", boss: 1, n: 2, respawn: 10 },
+  { map: "goblin", type: "goblin", n: 26, lv: [100, 130], respawn: 2.5 },
+  { map: "goblin", type: "goblin", boss: 1, n: 2, respawn: 12 },
+  { map: "orc", type: "orc", n: 24, lv: [130, 160], respawn: 3 },
+  { map: "orc", type: "orc", boss: 1, n: 2, respawn: 14 },
+  { map: "ogre", type: "ogre", n: 20, lv: [160, 200], respawn: 3.5 },
+  { map: "ogre", type: "ogre", boss: 1, n: 2, respawn: 16 },
 ];
 
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
@@ -245,10 +329,10 @@ export function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, (by - ay) / RP
 
 /* ── 성장 ──────────────────────────────────────────────── */
 export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 30씩 는다
-export const LV_MAX = 100;
+export const LV_MAX = 200;
 
-/* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 100레벨까지 모두 200포인트).
-   스탯 하나에는 100까지만 찍을 수 있어, 다섯 가운데 둘만 가득 채울 수 있다.
+/* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 200레벨까지 모두 400포인트).
+   스탯 하나에는 100까지만 찍을 수 있어, 다섯 가운데 넷만 가득 채울 수 있다.
    물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
 export const STAT_MAX = 100;
 // 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
@@ -292,6 +376,19 @@ export function cleanRec(d) {
   REC_IDS.forEach((k) => { r[k] = Math.max(0, Math.floor(Number(d && d[k]) || 0)); });
   return r;
 }
+// 맡은 의뢰 — { NPC id: { i 의뢰 차례, n 잡은 수 } }. 없는 의뢰는 버린다
+export function cleanReqs(d) {
+  const out = {};
+  if (!d || typeof d !== "object") return out;
+  REQ_NPCS.forEach((npc) => {
+    const r = d[npc.id], list = REQUESTS[npc.id] || [];
+    const i = r ? Math.floor(Number(r.i)) : -1;
+    if (!(i >= 0 && i < list.length)) return;
+    const q = list[i];
+    out[npc.id] = { i, n: q.kind === "hunt" ? clamp(Math.floor(Number(r.n) || 0), 0, q.n) : 0 };
+  });
+  return out;
+}
 export const cleanTitles = (list) => (Array.isArray(list) ? [...new Set(list.filter((id) => TITLE_BY_ID[id]))] : []);
 // 칭호 조건의 지금 값 — 레벨 · 코인은 캐릭터에서, 나머지는 기록에서
 export const needNow = (h, k) => (k === "lv" ? h.lv : k === "coins" ? h.coins : (h.rec && h.rec[k]) || 0);
@@ -333,6 +430,7 @@ export function loadChar() {
     titles: cleanTitles(r.titles),               // 얻은 칭호
     title: TITLE_BY_ID[r.title] ? r.title : "",  // 달고 있는 칭호
     honor: Math.max(0, Math.floor(Number(r.honor) || 0)),   // 명예
+    reqs: cleanReqs(r.reqs),                     // 맡은 광장 의뢰
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다. acct 는 서버에 만든 계정 { tok }
@@ -380,14 +478,14 @@ export function saveLook(d) {
 export function deleteChar() {
   try { localStorage.removeItem(SAVE_KEY); return true; } catch { return false; }
 }
-// 레벨 · 경험치 · 코인 · 퀘스트 · 스탯 · 가방 · 칭호 · 기록을 남긴다. 가방은 저장된 기록을 실은 뒤의 것만 남긴다.
+// 레벨 · 경험치 · 코인 · 퀘스트 · 스탯 · 가방 · 칭호 · 기록 · 명예 · 의뢰를 남긴다. 가방은 저장된 기록을 실은 뒤의 것만 남긴다.
 export function writeChar(d) {
   const cur = loadSave();
   if (!cur) return;
   const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
   store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
-    honor: Math.max(0, Math.floor(Number(d.honor) || 0)) });
+    honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs) });
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -419,6 +517,7 @@ function makeHero(pi, look, map = "plaza") {
     pty: 0, invite: null,             // 파티 번호(0 이면 없음) · 받은 초대 { from 보낸 사람 자리, t 남은 초 }
     rec: newRec(), titles: [], title: "",   // 잡은 수 · 얻은 칭호 · 달고 있는 칭호
     honor: 0,                               // 명예 — 결투에서 이기면 오른다
+    reqs: {},                               // 맡은 광장 의뢰 { NPC id: { i, n } }
     duelInv: null, dvs: -1, dph: 0, dtl: 0, ring: -1,   // 받은 결투 신청 · 결투 상대 자리 · 단계(1 준비 2 싸움 3 끝) · 남은 초 · 결투장 칸
   };
   wear(h, look);
@@ -498,6 +597,7 @@ export function rpgJoin(g, pi, d) {
   h.bag.ld = 1;
   h.rec = cleanRec(d.rec);
   h.honor = Math.max(0, Math.floor(Number(d.honor) || 0));
+  h.reqs = cleanReqs(d.reqs);
   h.titles = cleanTitles(d.titles);
   h.title = h.titles.includes(d.title) ? d.title : "";
   awardTitles(g, h, true);                        // 예전 캐릭터도 이미 채운 조건의 칭호는 조용히 받는다
@@ -622,7 +722,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop) return;   // 상점은 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (!h.quest.on) {
     h.quest = { on: true, n: 0 };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9,
@@ -863,6 +963,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg;
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
+  if (m.boss && h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 보스를 친 사람 — 모두 재료를 받는다
   m.flash = 0.12;
   m.numAcc += dmg;
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
@@ -910,6 +1011,8 @@ function killMob(g, m, pi) {
   fx(g, m.map, { kind: "text", x: m.x, y: m.y - 16, text: `+${m.xp} XP · +${m.coin} 코인`, color: "#f3d27f",
     t: 0.9, life: 0.9, snd: "coin", who: pi });
   giveXp(g, h, m.xp);
+  if (m.boss) dropLoot(g, m, pi);
+  huntReq(g, h, m);
   if (h.quest.on && m.type === "rabbit") {
     h.quest.n += 1;
     if (h.quest.n >= QUEST.need) {
@@ -921,6 +1024,93 @@ function killMob(g, m, pi) {
       giveXp(g, h, QUEST.xp);
     }
   }
+}
+
+/* 보스 재료 — 그 보스를 친 사람 가운데 같은 맵에 있는 사람이 저마다 받는다(itemData.js DROPS) */
+function dropLoot(g, m, pi) {
+  const d = DROPS[m.type];
+  if (!d) return;
+  const mat = MAT_BY_ID[d.id];
+  new Set([...(m.hitBy || []), pi]).forEach((qi) => {
+    const q = g.heroes[qi];
+    if (!q || !q.loaded || q.map !== m.map) return;
+    const n = d.n + (Math.random() < d.bonus ? 1 : 0);
+    const got = addMat(q.bag, d.id, n);
+    if (!got) return void sys(g, qi, `${jo(mat.name, "이", "가")} 가득 차 더 받지 못했습니다.`);
+    fx(g, q.map, { kind: "call", x: q.x, y: q.y - 128, text: `${mat.name} ×${got}`, color: mat.color, t: 1.5, life: 1.5,
+      snd: mat.stone ? "clear" : "coin", who: qi });
+    sys(g, qi, `${mobName(m)}에게서 ${mat.name} ${got}개를 얻었습니다.${n > d.n ? " (행운! 하나 더)" : ""}`);
+  });
+}
+
+/* ── 광장 의뢰 (requestData.js) ───────────────────────────── */
+// 잡은 몹이 맡은 사냥 의뢰의 몹이면 하나 센다
+function huntReq(g, h, m) {
+  REQ_NPCS.forEach((npc) => {
+    const r = h.reqs[npc.id];
+    const q = r && REQUESTS[npc.id][r.i];
+    if (!q || q.kind !== "hunt" || q.mob !== m.type || r.n >= q.n) return;
+    r.n += 1;
+    if (r.n >= q.n) sys(g, h.pi, `의뢰를 마쳤습니다. 광장의 ${npc.name}에게 알려 주세요.`);
+  });
+}
+// 의뢰를 끝낼 수 있는지 — 막히는 이유를 모은다(빈 목록이면 끝낼 수 있다)
+export function whyReqDone(h, npcId) {
+  const r = h && h.reqs && h.reqs[npcId];
+  const q = r && (REQUESTS[npcId] || [])[r.i];
+  if (!q) return ["맡은 의뢰가 없습니다"];
+  if (q.kind === "hunt") return r.n >= q.n ? [] : [`${MOB[q.mob].name} ${q.n - r.n}마리 남았습니다`];
+  const have = matCount(h.bag, q.mat);
+  return have >= q.n ? [] : [`${MAT_BY_ID[q.mat].name} ${q.n - have}개 모자랍니다`];
+}
+export const reqNear = (h, npcId) => {
+  const n = REQ_BY_NPC[npcId];
+  return !!(h && n && h.map === "plaza" && dist(h.x, h.y, n.x, n.y) <= RPG.talkR * 1.5);
+};
+/* 의뢰 — req = { op: "take", npc, i } · { op: "done", npc } · { op: "drop", npc } (방장만 판정) */
+export function rpgRequest(g, pi, req) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || !req || !REQ_BY_NPC[req.npc]) return false;
+  const npc = REQ_BY_NPC[req.npc], list = REQUESTS[npc.id];
+  if (!reqNear(h, npc.id)) return void sys(g, pi, `${npc.name} 가까이 가야 합니다.`);
+  const cur = h.reqs[npc.id];
+  if (req.op === "take") {
+    const i = Math.floor(Number(req.i));
+    const q = list[i];
+    if (!q) return false;
+    if (cur) return void sys(g, pi, "이미 맡은 의뢰가 있습니다. 끝내거나 포기한 뒤 받을 수 있습니다.");
+    if (h.lv < q.lv) return void sys(g, pi, `레벨 ${q.lv}부터 받을 수 있습니다.`);
+    h.reqs[npc.id] = { i, n: 0 };
+    fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "의뢰 받음", color: "#ffe08a", t: 0.9, life: 0.9, snd: "build", who: pi });
+    return true;
+  }
+  if (req.op === "drop") {
+    if (!cur) return false;
+    delete h.reqs[npc.id];
+    sys(g, pi, `${npc.name}의 의뢰를 포기했습니다.`);
+    return true;
+  }
+  if (req.op === "done") {
+    const why = whyReqDone(h, npc.id);
+    if (why.length) return void sys(g, pi, why.join(" · "));
+    const q = list[cur.i];
+    if (q.kind === "collect") {
+      h.bag.m[q.mat] -= q.n;
+      if (h.bag.m[q.mat] <= 0) delete h.bag.m[q.mat];
+      h.bag.v += 1;
+    }
+    delete h.reqs[npc.id];
+    h.coins += q.coin || 0;
+    h.rec.req += 1;
+    const got = Object.entries(q.mats || {}).map(([id, n]) => `${MAT_BY_ID[id].name} ${addMat(h.bag, id, n)}개`);
+    const xp = Math.max(1, Math.round(needXp(h.lv) * (q.xp || 0)));
+    const parts = [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", h.lv < LV_MAX ? `경험치 ${xp}` : "", ...got].filter(Boolean);
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "의뢰 완료!", color: "#a9e79c", t: 1.4, life: 1.4, snd: "clear", who: pi });
+    sys(g, pi, `${npc.name}의 의뢰를 끝냈습니다. ${parts.join(" · ")}`);
+    giveXp(g, h, xp);
+    return true;
+  }
+  return false;
 }
 
 function giveXp(g, h, amt) {
@@ -1534,25 +1724,26 @@ function stepBoar(g, m, dt) {
   keepMob(m);
 }
 
-/* 고릴라 — 쫓아와 주먹으로 치고, 가까우면 가슴을 두드렸다가(wind) 둘레를 내려찍는다(slam).
-   가슴을 두드리는 동안 bite 를 켜 둬 손님 화면에서도 일어선 모습이 보인다 */
-function stepGorilla(g, m, dt) {
+/* 고릴라 · 고블린 · 오크 · 오우거 — 쫓아와 치고, 가까우면 기운을 모았다가(wind) 둘레를 내려찍는다(slam). 값은 BRUTE 의 표.
+   고릴라는 가슴을 두드리고, 오크는 도끼를, 오우거는 몽둥이를 치켜든다. 고블린은 내려찍기 없이 빠르게 찌른다.
+   기운을 모으는 동안 bite 를 켜 둬 손님 화면에서도 일어선 모습이 보인다.
+   call 이 있으면 처음 덤빌 때 둘레의 같은 무리도 같은 사람에게 덤빈다 */
+function stepBrute(g, m, dt, P) {
   const spd = m.slow > 0 ? 0.5 : 1;
-  const G = GORILLA;
   m.chargeCd = Math.max(0, m.chargeCd - dt);
   if (m.state === "wind") {
     m.moving = 0; m.bite = 0.2;
     m.t -= dt;
     if (m.t <= 0) {                                  // 내려찍기 — 둘레의 사람 모두
-      const r = G.slamR * (m.boss ? 1.35 : 1);
+      const r = P.slamR * (m.boss ? 1.35 : 1);
       g.heroes.forEach((h) => {
         if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16) return;
-        hurtHero(g, h, m.dmg * G.slamMul);
+        hurtHero(g, h, m.dmg * P.slamMul);
         fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22, color: "#d8cbb8", n: 7, t: 0.32, life: 0.32 });
       });
       fx(g, m.map, { kind: "ring", x: m.x, y: m.y, r, color: "#cbb79a", t: 0.45, life: 0.45 });
       fx(g, m.map, { kind: "burst", x: m.x + m.ax * 20 * m.size, y: m.y - 6, r: 30 * m.size, color: "#a68f72", n: 12, t: 0.4, life: 0.4, snd: "boom" });
-      m.state = "rest"; m.t = G.rest; m.chargeCd = G.cd * (m.boss ? 0.7 : 1);
+      m.state = "rest"; m.t = P.rest; m.chargeCd = P.cd * (m.boss ? 0.7 : 1);
     }
     keepMob(m);
     return;
@@ -1563,33 +1754,43 @@ function stepGorilla(g, m, dt) {
     if (m.t <= 0) { m.state = "idle"; m.t = 0.3; }
     return;
   }
-  const aggro = m.boss ? G.aggro * 1.3 : G.aggro;
+  const aggro = m.boss ? P.aggro * 1.3 : P.aggro;
   const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
   let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
-  if (tg && (tg.map !== m.map || tg.down > 0 || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > 900)) { tg = null; m.tgt = -1; }
-  if (!tg && far < 700) {
+  if (tg && (tg.map !== m.map || tg.down > 0 || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > P.leash)) { tg = null; m.tgt = -1; }
+  if (!tg && far < P.leash * 0.78) {
     const near = nearestHero(g, m, aggro);
     if (near) { tg = near; m.tgt = near.pi; }
+  }
+  if (!tg) m.called = 0;
+  else if (P.call && !m.called) {                   // 둘레의 같은 무리를 부른다
+    m.called = 1;
+    g.mobs.forEach((q) => {
+      if (q === m || q.dead || q.type !== m.type || q.map !== m.map || q.tgt >= 0) return;
+      if (dist(m.x, m.y, q.x, q.y) > P.call) return;
+      q.tgt = tg.pi; q.called = 1;
+    });
   }
   if (tg) {
     const dx = tg.x - m.x, dy = (tg.y - m.y) / RPG.squash;
     const d = Math.hypot(dx, dy) || 1;
     const reach = m.rad + 16;
     if (Math.abs(dx) > 2) m.ax = dx < 0 ? -1 : 1;
-    if (m.chargeCd <= 0 && d < G.slamRange * (m.boss ? 1.3 : 1)) {
-      m.state = "wind"; m.t = G.wind * (m.boss ? 0.8 : 1); m.moving = 0;
+    if (P.slamRange && m.chargeCd <= 0 && d < P.slamRange * (m.boss ? 1.3 : 1)) {
+      m.state = "wind"; m.t = P.wind * (m.boss ? 0.8 : 1); m.moving = 0;
       return;
     }
     if (d > reach) {
-      const v = G.walk * (m.boss ? 1.1 : 1) * spd;
+      const v = P.walk * (m.boss ? 1.1 : 1) * spd;
       m.x += (dx / d) * v * dt; m.y += (dy / d) * v * RPG.squash * dt;
       m.moving = 1;
     } else {
       m.moving = 0;
-      if (m.biteCd <= 0) {                          // 주먹
+      if (m.biteCd <= 0) {                          // 한 대
         hurtHero(g, tg, m.dmg);
         fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 26, r: 18, color: "#d8cbb8", n: 6, t: 0.3, life: 0.3 });
-        m.biteCd = G.punchCd * (m.boss ? 0.85 : 1);
+        m.biteCd = P.punchCd * (m.boss ? 0.85 : 1);
+        if (!P.slamRange) m.bite = 0.2;             // 고블린 — 찌르는 모습(그림만)
       }
     }
   } else {
@@ -1618,7 +1819,7 @@ function stepGorilla(g, m, dt) {
 function stepMob(g, m, dt) {
   if (!tickMob(g, m, dt)) return;
   if (m.type === "wolf") { stepWolf(g, m, dt); spreadPack(g, m); }
-  else if (m.type === "gorilla") { stepGorilla(g, m, dt); spreadPack(g, m); }
+  else if (BRUTE[m.type]) { stepBrute(g, m, dt, BRUTE[m.type]); spreadPack(g, m); }
   else if (m.type === "boar") { stepBoar(g, m, dt); if (m.state !== "charge") spreadPack(g, m); }
   else stepRabbit(g, m, dt);
 }
@@ -1793,6 +1994,7 @@ function packBags(g) {
 }
 
 export function rpgPack(g) {
+  const busy = new Set(g.heroes.filter(Boolean).map((h) => h.map));
   return {
     h: g.heroes.map((h) => (h
       ? [Math.round(h.x), Math.round(h.y), h.dir, Math.round(h.hp), h.max, r1(h.down), h.lv, h.xp,
@@ -1804,11 +2006,13 @@ export function rpgPack(g) {
         h.pty, h.invite ? h.invite.from : -1, TITLES.findIndex((t) => t.id === h.title),
         TITLES.reduce((bits, t, i) => (h.titles.includes(t.id) ? bits | (1 << i) : bits), 0),
         REC_IDS.map((k) => h.rec[k]), heldSpecial(h),
-        h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring]
+        h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring,
+        REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0))]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
-    m: g.mobs.map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
+    // 몹은 사람이 있는 맵의 것만 — 사냥터가 늘어 모두 보내면 메시지가 너무 커진다(손님은 제 맵만 그린다)
+    m: g.mobs.filter((m) => busy.has(m.map)).map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
         | (m.stun > 0 ? 16 : 0) | (m.shred > 0 ? 32 : 0) | (m.flash > 0 ? 64 : 0),
       m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0]),
@@ -1858,6 +2062,10 @@ export function rpgApply(g, s) {
       h.honor = row[34] || 0;
       h.duelInv = row[35] >= 0 ? { from: row[35], t: h.duelInv && h.duelInv.from === row[35] ? h.duelInv.t : DUEL.reqT } : null;
       h.dvs = row[36]; h.dph = row[37]; h.dtl = row[38]; h.ring = row[39];
+    }
+    if (Array.isArray(row[40])) {                  // 맡은 광장 의뢰
+      h.reqs = {};
+      REQ_NPCS.forEach((n, i) => { const r = row[40][i]; if (r) h.reqs[n.id] = { i: r[0], n: r[1] }; });
     }
   });
   const seen = new Set();

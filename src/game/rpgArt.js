@@ -6,7 +6,8 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial } from "./rpg.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone } from "./rpg.js";
+import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -299,6 +300,9 @@ const MAP_TREES = {
   wolf: plantTrees(4403, 46, 500, 3450, 0.8, nearGate(MAPS.wolf)),
   boar: plantTrees(4404, 40, 500, 4050, 0.3, nearGate(MAPS.boar)),    // 멧돼지 사냥터 — 둥근 나무가 많다
   gorilla: plantTrees(4405, 62, 500, 4500, 0.12, nearGate(MAPS.gorilla)),   // 고릴라 사냥터 — 빽빽한 활엽수 밀림
+  goblin: plantTrees(4406, 34, 500, 4450, 0.25, nearGate(MAPS.goblin)),     // 고블린 늪지 — 듬성듬성
+  orc: plantTrees(4407, 24, 500, 4650, 0.7, nearGate(MAPS.orc)),            // 오크 언덕 — 바늘잎나무가 드물다
+  ogre: plantTrees(4408, 40, 500, 4850, 0.9, nearGate(MAPS.ogre)),          // 오우거 골짜기 — 어두운 바늘잎나무
 };
 const PLAZA_PROPS = [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
@@ -510,6 +514,7 @@ function drawShop(ctx, n, time) {
 function drawNpc(ctx, g, n, time) {
   if (n.shop) return drawShop(ctx, n, time);
   if (n.board) return drawHonorBoard(ctx, n, time);
+  if (n.req) return drawReqNpc(ctx, g, n, time);
   const { x, y } = n;
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
   const bob = Math.sin(time * 2) * 1.2;
@@ -826,6 +831,219 @@ function drawGorilla(ctx, m, time) {
   drawMobMarks(ctx, m, time, (m.bite > 0 ? 78 : 60) * k + bob);
 }
 
+/* ── 고블린 · 오크 · 오우거 — 코드로 그린다. 오른쪽을 보고, (0, 0)이 발밑이다 ─────────────
+   up 이 켜지면 고블린은 단검을 찌르고, 오크 · 오우거는 무기를 머리 위로 치켜든다(곧 내려친다). */
+const lineCol = "rgba(18,14,10,0.9)";
+function limbOf(ctx) {
+  return (x0, y0, x1, y1, w, col) => {
+    ctx.strokeStyle = lineCol; ctx.lineWidth = w + 3;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    ctx.strokeStyle = col; ctx.lineWidth = w;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  };
+}
+function blobOf(ctx) {
+  return (x, y, rx, ry, rot, col) => {
+    ctx.fillStyle = col; ctx.strokeStyle = lineCol; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  };
+}
+function poly(ctx, pts, col) {
+  ctx.fillStyle = col; ctx.strokeStyle = lineCol; ctx.lineWidth = 1.4;
+  ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+
+// 고블린 — 작은 초록 몸, 큰 귀, 등에 멘 자루와 허리춤 주머니. 고블린 대장은 붉은 두건과 금 귀걸이
+export function drawGoblinBody(ctx, ph, moving, boss, frozen, up) {
+  const skin = frozen ? "#cfe6f2" : boss ? "#6f9a4a" : "#86a95c";
+  const dark = frozen ? "#9dc0d6" : boss ? "#4c6e30" : "#5e7d3e";
+  const vest = frozen ? "#b9d3e2" : "#6b5638";
+  const sack = frozen ? "#dcecf4" : "#b8956a";
+  const sw = moving ? Math.sin(ph) * 4 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  limb(-3, -14, -5 - sw, 0, 5, dark);                         // 먼 다리
+  blob(-12, -27, 8, 10, -0.2, sack);                          // 등에 멘 자루
+  ctx.strokeStyle = "#7a5b36"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(-15, -36); ctx.lineTo(-8, -36); ctx.stroke();
+  limb(3, -14, 5 + sw, 0, 5, skin);                           // 가까운 다리
+  blob(0, -23, 9, 11, 0, vest);                               // 조끼
+  ctx.strokeStyle = "#3e2e1c"; ctx.lineWidth = 3;             // 허리띠
+  ctx.beginPath(); ctx.moveTo(-9, -16); ctx.lineTo(9, -16); ctx.stroke();
+  [[-6, -13, 4.5], [5, -12, 5]].forEach(([x, y, r]) => {      // 허리춤 주머니
+    blob(x, y, r, r * 0.9, 0, frozen ? "#e2eff6" : "#a3794a");
+    ctx.fillStyle = frozen ? "#c4dcea" : "#7c5732"; ctx.fillRect(x - r * 0.8, y - r * 0.9, r * 1.6, 2);
+  });
+  // 단검 든 팔 — 찌를 때 앞으로 뻗는다
+  const hx = up > 0 ? 18 : 11, hy = up > 0 ? -25 : -19;
+  limb(4, -28, hx, hy, 4, skin);
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (up > 0 ? 14 : 9), hy - (up > 0 ? 1 : 5)); ctx.stroke();
+  ctx.strokeStyle = frozen ? "#f2fbff" : "#d9dde2"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(hx + 1, hy); ctx.lineTo(hx + (up > 0 ? 14 : 9), hy - (up > 0 ? 1 : 5)); ctx.stroke();
+  // 머리 · 귀
+  poly(ctx, [[-1, -41], [-15, -50], [-2, -35]], skin);
+  blob(4, -39, 9, 8.5, 0, skin);
+  poly(ctx, [[9, -43], [19, -50], [11, -37]], skin);
+  if (boss) { blob(3, -46, 9, 4, 0, frozen ? "#e8f4fa" : "#b8483c"); ctx.fillStyle = "#e7c35a"; ctx.beginPath(); ctx.arc(-3, -33, 1.8, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = boss ? "#ff7a4a" : "#f2e27a";
+  ctx.beginPath(); ctx.arc(8, -40, 2.2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#1a120c"; ctx.beginPath(); ctx.arc(8.6, -40, 1, 0, Math.PI * 2); ctx.fill();
+  poly(ctx, [[11, -38], [16, -36], [11, -35]], skin);         // 뾰족한 코
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 1.2;              // 씩 웃는 입
+  ctx.beginPath(); ctx.moveTo(6, -33); ctx.quadraticCurveTo(9, -31, 12, -33); ctx.stroke();
+}
+
+// 오크 — 회녹색 근육, 아래 엄니, 도끼. 오크 족장은 뿔 투구와 붉은 전투 무늬
+export function drawOrcBody(ctx, ph, moving, boss, frozen, up) {
+  const skin = frozen ? "#cfe3ee" : boss ? "#6f8058" : "#7f9268";
+  const dark = frozen ? "#a2c2d4" : "#4a3c30";
+  const strap = frozen ? "#c0d7e4" : "#5d4630";
+  const sw = moving ? Math.sin(ph) * 5 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  limb(-6, -20, -8 - sw, 0, 8, dark);
+  limb(-10, -42, -16, up > 0 ? -66 : -24, 7, skin);           // 먼 팔
+  limb(6, -20, 8 + sw, 0, 8, dark);
+  blob(0, -34, 16, 18, 0, skin);                              // 몸통
+  ctx.strokeStyle = strap; ctx.lineWidth = 4;                 // 어깨끈
+  ctx.beginPath(); ctx.moveTo(-12, -46); ctx.lineTo(12, -22); ctx.stroke();
+  ctx.fillStyle = dark; ctx.fillRect(-14, -21, 28, 6);        // 허리
+  if (boss) { ctx.strokeStyle = "#b5473c"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-6, -40); ctx.lineTo(4, -36); ctx.moveTo(-6, -34); ctx.lineTo(4, -30); ctx.stroke(); }
+  // 도끼 — 평소에는 비스듬히 들고, 치켜들면 머리 위로
+  const hx = up > 0 ? 4 : 18, hy = up > 0 ? -76 : -28;
+  const tx = up > 0 ? -12 : 24, ty = up > 0 ? -104 : -64;
+  limb(10, -44, hx, hy, 8, skin);
+  limb(hx, hy, tx, ty, 3.5, frozen ? "#d6e8f2" : "#6e5236");
+  const a = Math.atan2(ty - hy, tx - hx);
+  ctx.save(); ctx.translate(tx, ty); ctx.rotate(a);
+  poly(ctx, [[-4, 0], [-10, 13], [6, 14], [4, 0]], frozen ? "#eef8fc" : "#b9bcc0");
+  ctx.restore();
+  blob(hx, hy, 4.5, 4.5, 0, skin);
+  // 머리 — 엄니 · 눈썹 · 상투(족장은 뿔 투구)
+  blob(8, -56, 11, 10.5, 0, skin);
+  if (boss) {
+    blob(7, -63, 11, 6, 0, frozen ? "#e6f2f8" : "#5a5550");
+    poly(ctx, [[-2, -66], [-9, -80], [2, -69]], "#e8dcc6"); poly(ctx, [[14, -67], [22, -80], [16, -64]], "#e8dcc6");
+  } else {
+    ctx.fillStyle = "#2a221c"; ctx.beginPath(); ctx.ellipse(3, -66, 4, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.moveTo(8, -59); ctx.lineTo(17, -58); ctx.stroke();
+  ctx.fillStyle = boss ? "#ff5b4a" : "#2a1a10"; ctx.beginPath(); ctx.arc(13, -56, 1.7, 0, Math.PI * 2); ctx.fill();
+  poly(ctx, [[12, -50], [13.5, -55], [15, -50]], "#f4ecd8");
+  poly(ctx, [[16, -50], [17.5, -54.5], [19, -50.5]], "#f4ecd8");
+}
+
+// 오우거 — 큰 배, 작은 머리, 가시 몽둥이. 오우거 왕은 왕관과 붉은 눈
+export function drawOgreBody(ctx, ph, moving, boss, frozen, up) {
+  const skin = frozen ? "#d5e6ef" : boss ? "#9a7a5e" : "#b59a78";
+  const dark = frozen ? "#a6c4d6" : boss ? "#6e5440" : "#87705a";
+  const cloth = frozen ? "#c6dbe7" : "#5f4a36";
+  const wood = frozen ? "#d9ebf4" : "#7a5a3a";
+  const sw = moving ? Math.sin(ph) * 5 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  limb(-9, -18, -11 - sw, 0, 11, dark);
+  limb(-16, -48, up > 0 ? -18 : -24, up > 0 ? -76 : -24, 10, dark);   // 먼 팔
+  limb(9, -18, 11 + sw, 0, 11, skin);
+  blob(0, -36, 23, 23, 0, skin);                              // 큰 배
+  blob(4, -30, 12, 11, 0, frozen ? "#e2eef5" : "#c9b08e");
+  poly(ctx, [[-20, -20], [20, -20], [14, -6], [-14, -6]], cloth);   // 허리 두른 천
+  // 몽둥이 — 평소에는 땅에 끌고, 치켜들면 머리 위로
+  const hx = up > 0 ? 6 : 24, hy = up > 0 ? -82 : -30;
+  const tx = up > 0 ? -16 : 40, ty = up > 0 ? -116 : -2;
+  limb(14, -50, hx, hy, 11, skin);
+  const a = Math.atan2(ty - hy, tx - hx), len = Math.hypot(tx - hx, ty - hy);
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(a);
+  poly(ctx, [[0, -3], [len, -8], [len + 4, 0], [len, 8], [0, 3]], wood);
+  ctx.fillStyle = frozen ? "#f2fbff" : "#d8d0c0";
+  [0.55, 0.75, 0.92].forEach((t) => {
+    ctx.beginPath(); ctx.moveTo(len * t, -6 * t - 2); ctx.lineTo(len * t + 2, -6 * t - 7); ctx.lineTo(len * t + 4, -6 * t - 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(len * t, 6 * t + 2); ctx.lineTo(len * t + 2, 6 * t + 7); ctx.lineTo(len * t + 4, 6 * t + 2); ctx.fill();
+  });
+  ctx.restore();
+  blob(hx, hy, 6, 6, 0, skin);
+  // 작은 머리 — 아래턱이 나온 얼굴
+  blob(12, -63, 10, 9.5, 0, skin);
+  blob(16, -57, 7, 4.5, 0, dark);
+  if (boss) poly(ctx, [[4, -70], [6, -79], [10, -73], [13, -80], [16, -73], [20, -78], [20, -69]], "#e2c063");
+  ctx.fillStyle = boss ? "#ff5b4a" : "#1c120c";
+  ctx.beginPath(); ctx.arc(17, -65, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(12, -68); ctx.lineTo(20, -67); ctx.stroke();
+  poly(ctx, [[15, -59], [16, -63], [17.5, -59]], "#f4ecd8");
+}
+
+// 셋을 같은 틀로 그린다 — 크기 · 그림자 · 맞았을 때 반짝임 · 머리 위 표시. top 은 머리 높이(크기 1 기준)
+function bruteDrawer(body, shadowR, top, upTop) {
+  return (ctx, m, time) => {
+    const k = m.size || 1;
+    const grow = Math.min(1, (m.age || 0) / 0.35);
+    const ph = (m.age || 0) * (m.boss ? 8 : 9);
+    const bob = m.moving ? Math.abs(Math.sin(ph)) * 2 * k : 0;
+    shadow(ctx, m.x, m.y + 2, shadowR * grow * k, shadowR * 0.28 * grow * k, 0.32);
+    ctx.save();
+    ctx.translate(m.x, m.y - bob);
+    ctx.scale((m.ax < 0 ? -1 : 1) * grow * k, grow * k);
+    body(ctx, ph, m.moving, m.boss, m.freeze > 0, m.bite);
+    if (m.flash > 0) {
+      ctx.globalAlpha = Math.min(0.6, m.flash * 5);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.ellipse(2, -top * 0.5, shadowR, top * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    drawMobMarks(ctx, m, time, (m.bite > 0 ? upTop : top) * k + bob);
+  };
+}
+const drawGoblin = bruteDrawer(drawGoblinBody, 16, 52, 52);
+const drawOrc = bruteDrawer(drawOrcBody, 22, 72, 100);
+const drawOgre = bruteDrawer(drawOgreBody, 28, 76, 112);
+const MOB_DRAW = { wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre };
+const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4" };
+
+/* 광장 의뢰 NPC — 망토 두른 마을 사람. 망토 색은 requestData.js 의 color.
+   머리 위: 받을 수 있으면 느낌표, 맡은 의뢰를 끝냈으면 금빛 물음표, 하는 중이면 흐린 물음표 */
+function drawReqNpc(ctx, g, n, time) {
+  const { x, y } = n;
+  const def = REQ_BY_NPC[n.req] || {};
+  const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
+  const bob = Math.sin(time * 2 + x) * 1.2;
+  shadow(ctx, x, y + 2, 17, 5, 0.3);
+  ctx.save();
+  ctx.translate(x, y + bob);
+  const col = def.color || "#9a8a70";
+  ctx.fillStyle = col; ctx.strokeStyle = "rgba(30,20,12,0.7)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-11, -38); ctx.lineTo(11, -38); ctx.lineTo(15, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,240,215,0.25)"; ctx.fillRect(-1, -36, 2, 34);
+  ctx.fillStyle = "#3a2c1c"; ctx.fillRect(-8, -2, 6, 3); ctx.fillRect(2, -2, 6, 3);
+  ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -46, 9.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#3a2c1c";
+  ctx.beginPath(); ctx.arc(-3.3, -46, 1.3, 0, Math.PI * 2); ctx.arc(3.3, -46, 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, -49, 11, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();   // 두건
+  ctx.restore();
+  // 머리 위 표시
+  const list = REQUESTS[n.req] || [];
+  const cur = me && me.reqs && me.reqs[n.req];
+  const ready = cur && !whyReqDone(me, n.req).length;
+  const mark = cur ? "?" : me && list.some((q) => me.lv >= q.lv) ? "!" : "";
+  ctx.save();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  if (mark) {
+    const jump = cur && !ready ? 0 : Math.abs(Math.sin(time * 3)) * -5;
+    ctx.font = "26px 'Do Hyeon', sans-serif";
+    ctx.lineWidth = 5; ctx.strokeStyle = "rgba(40,26,10,0.9)";
+    ctx.strokeText(mark, x, y - 88 + jump);
+    ctx.fillStyle = cur && !ready ? "#b9ad98" : "#ffd873";
+    ctx.fillText(mark, x, y - 88 + jump);
+  }
+  ctx.font = "12px 'Do Hyeon', sans-serif";
+  const w2 = ctx.measureText(n.name).width + 14;
+  ctx.fillStyle = "rgba(20,14,10,0.7)"; roundRect(ctx, x - w2 / 2, y + 6, w2, 16, 7); ctx.fill();
+  ctx.fillStyle = "#e8dcc0"; ctx.fillText(n.name, x, y + 14.5);
+  ctx.restore();
+}
+
 /* 몹 머리 위 — 걸린 것(불 · 독 · 기절), 체력, 레벨. top 은 발밑에서 머리 꼭대기까지의 높이 */
 function drawMobMarks(ctx, m, time, top) {
   const x = m.x, y = m.y;
@@ -864,7 +1082,7 @@ function drawMobMarks(ctx, m, time, top) {
   const w = ctx.measureText(label).width + 10;
   ctx.fillStyle = boss ? "rgba(70,20,16,0.82)" : "rgba(20,14,10,0.62)";
   roundRect(ctx, x - w / 2, barY - 7, w, 13, 6); ctx.fill();
-  ctx.fillStyle = boss ? "#ffd873" : m.type === "boar" ? "#f2b48a" : m.type === "gorilla" ? "#d9d0c4" : m.type === "wolf" ? "#f0c9a8" : "#f2ead6";
+  ctx.fillStyle = boss ? "#ffd873" : MOB_LABEL[m.type] || "#f2ead6";
   ctx.fillText(label, x, barY);
   ctx.restore();
 }
@@ -1185,7 +1403,7 @@ export function drawRpg(ctx, g, bgs) {
   drawDust(ctx, g, M.id, time);
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
-    if (o.m) (o.m.type === "wolf" ? drawWolf : o.m.type === "boar" ? drawBoar : o.m.type === "gorilla" ? drawGorilla : drawRabbit)(ctx, o.m, time);
+    if (o.m) (MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time);
     else if (o.h) drawHero(ctx, g, o.h, time);
     else if (o.gate) drawGate(ctx, o.gate, time);
     else if (o.npc) drawNpc(ctx, g, o.npc, time);

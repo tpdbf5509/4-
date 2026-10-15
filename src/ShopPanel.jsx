@@ -12,8 +12,9 @@ import {
   SHOP_BY_ID, POTION_BY_ID, FAM_BY_ID, SKILL_BY_ID, todayKey, usedToday, tierOf, weaponName,
   weaponLine, weaponArt, specOf, specialTier, specialPrice, specialsFor, sellPrice, dealOf, equipped,
   skillNext, extraStat, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
-  whyGamble, boxPrice, boxShares, casinoEv,
+  whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount,
 } from "./game/shop.js";
+import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate } from "./game/itemData.js";
 import { Coin } from "./ui/icons.jsx";
 
 const won = (n) => Math.round(n).toLocaleString("ko-KR");
@@ -265,7 +266,73 @@ function Casino({ h, send }) {
   );
 }
 
-const BODIES = { weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino };
+/* ── 무기 강화소 — 강화석을 골라 무기를 한 단계씩 올린다 · 보스 재료 팔기 ───────── */
+function Forge({ h, send }) {
+  const [tab, setTab] = useState("enh");
+  const [stone, setStone] = useState(() => STONE_IDS.find((id) => matCount(h.bag, id) > 0) || STONE_IDS[0]);
+  const sellable = MATERIALS.filter((m) => m.sell > 0);
+  const st = MAT_BY_ID[stone];
+  const rates = ENHANCE.stones[stone];
+  return (
+    <>
+      <Tabs on={tab} set={setTab} tabs={[["enh", "무기 강화"], ["sell", "재료 팔기", sellable.reduce((n, m) => n + matCount(h.bag, m.id), 0)]]} />
+      {tab === "enh" ? (
+        <>
+          <p className="shop-note">
+            강화석 하나와 코인을 내고 한 단계씩 올립니다. 실패해도 단계는 내려가지 않고 강화석과 코인만 사라집니다.
+            한 단계마다 무기가 올려 주는 스탯이 {pct(ENHANCE.per, 0)}씩 늘어납니다. 강화석은 보스가 떨굽니다.
+          </p>
+          <div className="shop-stones" role="radiogroup" aria-label="강화석">
+            {STONE_IDS.map((id) => (
+              <button key={id} type="button" role="radio" aria-checked={stone === id} className={`shop-stone ${stone === id ? "on" : ""}`}
+                onClick={() => setStone(id)}>
+                <i style={{ background: MAT_BY_ID[id].color }} />
+                <b>{MAT_BY_ID[id].name}</b>
+                <small>× {matCount(h.bag, id)} · +{ENHANCE.stones[id].length} 까지</small>
+              </button>
+            ))}
+          </div>
+          <Head sub={`${st.name} · ${st.note}`}>무기</Head>
+          {!h.bag.w.length && <Empty>가방에 무기가 없습니다. 무기상점에서 살 수 있습니다.</Empty>}
+          {h.bag.w.map((w) => {
+            const next = (w.up || 0) + 1;
+            const rate = enhRate(stone, next);
+            const top = next > ENHANCE.max;
+            const after = { ...w, up: next };
+            const sd = statDef(weaponStat(w));
+            return (
+              <WeaponItem key={w.u} w={w} tag={w.u === h.bag.e ? "장착 중" : ""}
+                desc={top ? `${weaponLine(w)} · 최고 단계` : `${weaponLine(w)} → +${sd.fmt(itemBonus(after))} (+${next} 강화)`}
+                price={top ? <span className="shop-price done">+{ENHANCE.max}</span>
+                  : <span className="shop-enh"><em>{rate ? `${rate}%` : "—"}</em><Price n={enhFee(w)} /></span>}
+                acts={top ? [] : [{ label: "강화", main: true, why: whyEnhance(h, w.u, stone), onClick: () => send({ op: "enh", u: w.u, stone }) }]} />
+            );
+          })}
+          <Head sub="올릴 단계마다의 성공 확률">{st.name} 확률표</Head>
+          <Odds rows={rates.map((r, i) => [`+${i + 1}`, `${r}%`, `${(ENHANCE.fee * (i + 1)).toLocaleString("ko-KR")}코인`])} />
+        </>
+      ) : (
+        <>
+          <Head sub="강화석은 팔 수 없습니다">재료 팔기</Head>
+          {sellable.map((m) => {
+            const have = matCount(h.bag, m.id);
+            return (
+              <Item key={m.id} name={<><i className="shop-mat" style={{ background: m.color }} />{m.name}</>} dim={!have}
+                meta={<span className="shop-meta"><span>× {have}</span></span>} desc={m.note}
+                price={<Price n={m.sell} />}
+                acts={[
+                  { label: "1개", quiet: true, why: whyMatSell(h, m.id, 1), onClick: () => send({ op: "msell", id: m.id, n: 1 }) },
+                  { label: "모두", quiet: true, why: whyMatSell(h, m.id, Math.max(1, have)), onClick: () => send({ op: "msell", id: m.id, n: have }) },
+                ]} />
+            );
+          })}
+        </>
+      )}
+    </>
+  );
+}
+
+const BODIES = { weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge };
 
 // 창의 틀 — 머리(이름 · 한 줄 · 코인 · 닫기) · 결과 한 줄 · 내용
 function Frame({ title, sub, coins, admin, note, onClose, children }) {
@@ -304,9 +371,10 @@ export function BagPanel({ h, send, note, onClose }) {
   const w = equipped(h.bag);
   const potions = POTIONS.filter((p) => h.bag.p[p.id] > 0);
   const skills = SKILLS.filter((s) => h.bag.s[s.id] > 0);
+  const mats = MATERIALS.filter((m) => matCount(h.bag, m.id) > 0);
   return (
     <Frame title="가방" sub="장비 · 스킬 · 버프로 오른 몫은 + 로 따로 보입니다." coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
-      <Tabs on={tab} set={setTab} tabs={[["stat", "능력치"], ["weapon", "무기", h.bag.w.length], ["potion", "물약", potions.length], ["skill", "스킬", skills.length]]} />
+      <Tabs on={tab} set={setTab} tabs={[["stat", "능력치"], ["weapon", "무기", h.bag.w.length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["skill", "스킬", skills.length]]} />
       {tab === "stat" && (
         <div className="shop-stats">
           {STATS.map((t) => {
@@ -341,6 +409,15 @@ export function BagPanel({ h, send, note, onClose }) {
           {potions.map((p) => (
             <Item key={p.id} name={p.name} meta={<span className="shop-meta"><span>× {h.bag.p[p.id]}</span></span>} desc={potionText(p)}
               acts={[{ label: "마시기", why: whyPotionUse(h, p.id), onClick: () => send({ op: "puse", id: p.id }) }]} />
+          ))}
+        </>
+      )}
+      {tab === "mat" && (
+        <>
+          {!mats.length && <Empty>보스를 잡으면 재료를 얻습니다. 강화석은 무기 강화소에서, 다른 재료는 광장 의뢰나 강화소에서 씁니다.</Empty>}
+          {mats.map((m) => (
+            <Item key={m.id} name={<><i className="shop-mat" style={{ background: m.color }} />{m.name}</>}
+              meta={<span className="shop-meta"><span>× {matCount(h.bag, m.id)}</span>{m.stone && <span>강화석</span>}</span>} desc={m.note} />
           ))}
         </>
       )}

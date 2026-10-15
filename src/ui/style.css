@@ -1245,6 +1245,10 @@ kbd {
   background: rgba(20, 14, 8, 0.78); border: 1px solid rgba(214, 178, 106, 0.5);
 }
 .rpg-quest b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; color: #ffe08a; margin-right: 6px; }
+/* 퀘스트 · 맡은 의뢰가 여러 줄이면 둥근 칸을 네모로 */
+.rpg-quest { display: flex; flex-direction: column; gap: 2px; }
+.rpg-quest:has(span + span) { border-radius: 10px; }
+.rpg-quest:empty { display: none; }
 
 /* 맵을 옮기면 잠깐 이름을 띄운다 */
 .rpg-toast {
@@ -1311,6 +1315,7 @@ kbd {
 /* 결투 · 명예 */
 .rpg-win-acts { display: inline-flex; align-items: center; gap: 6px; }
 .rpg-win-btn.duel { color: #f0c2b2; border-color: rgba(233, 160, 138, 0.55); }
+.rpg-win-btn.ghost { color: #bfb39c; border-color: rgba(191, 179, 156, 0.35); }
 .rpg-win-btn.duel:hover:not(:disabled) { border-color: #e9a08a; }
 .rpg-invite.duel { border-color: rgba(233, 160, 138, 0.6); }
 .rpg-invite.duel b { color: #f0b8a4; }
@@ -1464,6 +1469,17 @@ kbd {
 .shop-odds { width: 100%; border-collapse: collapse; font-size: 12.5px; color: var(--sh-mute); }
 .shop-odds td { padding: 6px 0; border-bottom: 1px solid var(--sh-line); }
 .shop-odds td + td { text-align: right; color: var(--sh-text); font-variant-numeric: tabular-nums; }
+/* 무기 강화소 — 강화석 고르기 · 확률 */
+.shop-stones { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 2px; }
+.shop-stone { display: grid; grid-template-columns: 10px auto; align-items: center; gap: 0 8px; padding: 7px 12px; cursor: pointer;
+  border-radius: 8px; font-family: inherit; text-align: left; color: var(--sh-mute); background: transparent; border: 1px solid var(--sh-line); }
+.shop-stone i { grid-row: span 2; width: 10px; height: 10px; border-radius: 3px; }
+.shop-stone b { font-weight: 400; font-size: 13.5px; letter-spacing: -0.02em; }
+.shop-stone small { font-size: 11px; color: var(--sh-faint); }
+.shop-stone.on { color: var(--sh-text); border-color: var(--sh-gold); }
+.shop-mat { display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 3px; vertical-align: 1px; }
+.shop-enh { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+.shop-enh em { font-style: normal; font-size: 12px; color: var(--sh-mute); font-variant-numeric: tabular-nums; }
 /* 가방 — 능력치 */
 .shop-stats { margin-top: 6px; }
 .shop-stat { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 0 12px; padding: 10px 0; border-bottom: 1px solid var(--sh-line); }

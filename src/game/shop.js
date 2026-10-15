@@ -1,11 +1,12 @@
 /* ── RPG 광장 상점 규칙 ─────────────────────────────────────
-   무기상점 · 스킬 상점 · 물약 상점 · 도박장. 수치는 모두 shopData.js 에 있다.
+   무기상점 · 스킬 상점 · 물약 상점 · 도박장 · 무기 강화소. 수치는 shopData.js · itemData.js 에 있다.
    사고팔기 · 도박은 방장이 판정한다(rpgShop). 화면은 같은 조건 함수(why*)로 막힌 이유를 미리 보여 준다.
    가방(h.bag)은 이름과 함께 이 기기에 남고, 바뀔 때만 손님에게 보낸다. */
 import {
   SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIAL, SPECIALS,
   SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT,
 } from "./shopData.js";
+import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
 import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist } from "./rpg.js";
 
@@ -76,8 +77,16 @@ export const specialArt = (sp) => `/assets/game/rpg/weapons/${sp.art}.webp`;
 // 가방의 무기 한 자루 — 특별 무기면 sp 가 붙어 있다
 export const specOf = (w) => (w && w.sp ? SPECIAL_BY_ID[w.sp] || null : null);
 export const weaponStat = (w) => (specOf(w) ? specOf(w).stat : WEAPON_BY_ID[w.t].stat);
-export const itemBonus = (w) => (specOf(w) ? specialBonus(specOf(w)) : weaponBonus(w.t, w.r, w.g));
-export const weaponName = (w) => (specOf(w) ? specOf(w).name : `${GRADES[w.g].name} ${WEAPON_BY_ID[w.t].name}`);
+// 강화 — +1 마다 올려 주는 스탯이 ENHANCE.per 만큼 는다. 정수 스탯은 정수로, 치명타 확률은 0.1 단위로 맞춘다
+export const enhMul = (w) => 1 + ENHANCE.per * ((w && w.up) || 0);
+export function itemBonus(w) {
+  const base = specOf(w) ? specialBonus(specOf(w)) : weaponBonus(w.t, w.r, w.g);
+  if (!w.up) return base;
+  const v = base * enhMul(w);
+  return Number.isInteger(statDef(weaponStat(w)).per) ? Math.round(v) : Math.round(v * 10) / 10;
+}
+const baseName = (w) => (specOf(w) ? specOf(w).name : `${GRADES[w.g].name} ${WEAPON_BY_ID[w.t].name}`);
+export const weaponName = (w) => (w.up ? `+${w.up} ${baseName(w)}` : baseName(w));
 export const weaponLine = (w) => `${statName(weaponStat(w))} +${fmtStat(weaponStat(w), itemBonus(w))}`;
 export const weaponArt = (w) => (specOf(w) ? specialArt(specOf(w)) : null);
 export const sellPrice = (w) => Math.floor(w.p * WEAPON.sellRate);
@@ -107,9 +116,10 @@ export function dealOf(lv, day = todayKey()) {
 
 /* ── 가방 ──────────────────────────────────────────────────
    w 무기 목록 [{ u 번호, t 종류, r 단계, g 등급, p 산 값, sp 특별 무기 id(있을 때만) }] · e 장착한 무기 번호(0 은 맨손)
-   p 물약 { id: 개수 } · s 스킬 { id: 레벨 } · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
+   무기의 up 은 강화 단계(0 이면 강화하지 않음, 있을 때만)
+   p 물약 { id: 개수 } · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
-export const newBag = () => ({ w: [], e: 0, p: {}, s: {}, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
+export const newBag = () => ({ w: [], e: 0, p: {}, s: {}, m: {}, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
 export function cleanBag(d) {
   const b = newBag();
   if (!d || typeof d !== "object") return b;
@@ -122,15 +132,12 @@ export function cleanBag(d) {
     if (!sp && !WEAPON_BY_ID[w.t]) return;
     const u = Math.floor(Number(w.u)), p = Math.max(0, Math.floor(Number(w.p) || 0));
     if (!(u > 0) || seen.has(u)) return;
-    if (sp) {                                     // 특별 무기는 종류 · 단계 · 등급을 표에서 다시 읽는다
-      seen.add(u);
-      b.w.push({ u, t: sp.t, r: specialTier(sp), g: sp.g, p, sp: sp.id });
-      return;
-    }
+    const up = Math.min(ENHANCE.max, Math.max(0, Math.floor(Number(w.up) || 0)));
+    const add = (q) => { seen.add(u); if (up) q.up = up; b.w.push(q); };
+    if (sp) return add({ u, t: sp.t, r: specialTier(sp), g: sp.g, p, sp: sp.id });   // 특별 무기는 종류 · 단계 · 등급을 표에서 다시 읽는다
     const r = Math.floor(Number(w.r)), g = Math.floor(Number(w.g));
     if (!(r >= 0 && r < WEAPON_TIERS.length) || !(g >= 0 && g < GRADES.length)) return;
-    seen.add(u);
-    b.w.push({ u, t: w.t, r, g, p });
+    add({ u, t: w.t, r, g, p });
   });
   b.n = Math.max(n0, ...b.w.map((w) => w.u + 1));
   b.e = seen.has(Number(d.e)) ? Number(d.e) : 0;
@@ -142,6 +149,10 @@ export function cleanBag(d) {
     const l = Math.floor(Number(d.s && d.s[s.id]) || 0);
     if (l > 0) b.s[s.id] = Math.min(s.gold.length, l);
   });
+  MATERIALS.forEach((m) => {
+    const c = Math.floor(Number(d.m && d.m[m.id]) || 0);
+    if (c > 0) b.m[m.id] = Math.min(MAT_MAX, c);
+  });
   const dy = d.day || {};
   if (typeof dy.d === "string") {
     b.day = { d: dy.d.slice(0, 10) };
@@ -151,6 +162,16 @@ export function cleanBag(d) {
   return b;
 }
 export const equipped = (bag) => (bag.e ? bag.w.find((w) => w.u === bag.e) || null : null);
+// 재료를 넣는다 — 종류마다 MAT_MAX 개까지. 실제로 넣은 수를 돌려준다
+export function addMat(bag, id, n) {
+  if (!MAT_BY_ID[id] || !(n > 0)) return 0;
+  if (!bag.m) bag.m = {};
+  const have = bag.m[id] || 0;
+  const got = Math.min(n, MAT_MAX - have);
+  if (got > 0) { bag.m[id] = have + got; bag.v += 1; }
+  return got;
+}
+export const matCount = (bag, id) => (bag && bag.m && bag.m[id]) || 0;
 
 /* ── 스탯에 더해지는 몫 — 장착한 무기 + 패시브 스킬 + 버프 물약 ── */
 export function extraStat(h, id) {
@@ -239,6 +260,34 @@ export function whyEquip(h, u) {
   const w = h.bag.w.find((q) => q.u === u);
   if (!w) out.push("가방에 없는 무기입니다");
   else if (h.lv < WEAPON_TIERS[w.r]) out.push(`레벨 ${WEAPON_TIERS[w.r]} 필요 (지금 ${h.lv})`);
+  return out;
+}
+
+// 무기 강화 — u 무기를 stone 강화석으로 한 단계 올린다
+export const enhFee = (w) => ENHANCE.fee * (((w && w.up) || 0) + 1);
+export function whyEnhance(h, u, stone) {
+  const out = [];
+  base(h, "forge", out);
+  if (!h || !h.bag) return out;
+  const w = h.bag.w.find((q) => q.u === u);
+  if (!w) { out.push("가방에 없는 무기입니다"); return out; }
+  const next = (w.up || 0) + 1;
+  if (next > ENHANCE.max) { out.push(`+${ENHANCE.max} 이 최고 단계입니다`); return out; }
+  if (!ENHANCE.stones[stone]) { out.push("강화석을 골라 주세요"); return out; }
+  if (!enhRate(stone, next)) out.push(`${MAT_BY_ID[stone].name}은 +${ENHANCE.stones[stone].length} 까지만 올립니다`);
+  if (matCount(h.bag, stone) < 1) out.push(`${MAT_BY_ID[stone].name}이 없습니다`);
+  lackCoin(h, enhFee(w), out);
+  return out;
+}
+// 재료 팔기 — 무기 강화소에서 판다
+export function whyMatSell(h, id, n) {
+  const out = [];
+  base(h, "forge", out);
+  const m = MAT_BY_ID[id];
+  if (!m) { out.push("없는 재료입니다"); return out; }
+  if (!m.sell) { out.push("팔 수 없는 재료입니다"); return out; }
+  if (!isInt(n) || n < 1) out.push("팔 수를 정해 주세요");
+  else if (matCount(h && h.bag, id) < n) out.push("가진 수가 모자랍니다");
   return out;
 }
 
@@ -470,6 +519,41 @@ export function rpgShop(g, pi, req) {
       msg = `대성공! ${msg}`;
     }
     return note(g, pi, { ok: true, great, msg: `${p.name} — ${msg}` });
+  }
+
+  // 무기 강화소 — 실패해도 단계는 그대로, 강화석 · 코인만 사라진다
+  if (op === "enh") {
+    const u = Number(req.u), stone = String(req.stone || "");
+    if ((why = whyEnhance(h, u, stone)).length) return no(g, pi, why);
+    const w = h.bag.w.find((q) => q.u === u);
+    const next = (w.up || 0) + 1, fee = enhFee(w), rate = enhRate(stone, next);
+    h.coins -= fee;
+    h.bag.m[stone] -= 1;
+    if (h.bag.m[stone] <= 0) delete h.bag.m[stone];
+    const ok = Math.random() * 100 < rate;
+    const wasFull = h.hp >= h.max;
+    if (ok) w.up = next;
+    bump(h);
+    if (ok) hpChanged(h, wasFull);
+    fx(g, h.map, ok
+      ? { kind: "call", x: h.x, y: h.y - 110, text: `강화 성공! +${next}`, color: "#ffd873", t: 1.2, life: 1.2, snd: "clear", who: pi }
+      : { kind: "call", x: h.x, y: h.y - 110, text: "강화 실패", color: "#d9b8a8", t: 1, life: 1, who: pi });
+    const nm = baseName(w);
+    return note(g, pi, { ok: true, enh: ok ? 1 : 0, msg: ok
+      ? `강화 성공! ${nm} +${next} (${rate}% · ${won(fee)}코인)`
+      : `강화 실패 — ${nm} +${next - 1} 그대로 (${rate}% · ${won(fee)}코인)` });
+  }
+  if (op === "msell") {
+    const id = String(req.id || ""), n = Number(req.n);
+    if ((why = whyMatSell(h, id, n)).length) return no(g, pi, why);
+    const m = MAT_BY_ID[id];
+    h.bag.m[id] -= n;
+    if (h.bag.m[id] <= 0) delete h.bag.m[id];
+    const got = m.sell * n;
+    h.coins += got;
+    bump(h);
+    fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `+${won(got)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
+    return note(g, pi, { ok: true, msg: `${m.name} ${n}개를 ${won(got)}코인에 팔았습니다` });
   }
 
   // 도박장

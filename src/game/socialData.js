@@ -2,7 +2,7 @@
    규칙(방장 판정)은 rpg.js, 창은 src/RpgView.jsx 에 있다. */
 
 /* 칭호 — 조건을 채우면 얻고, 하나를 골라 이름 아래에 단다. 겉모습만 바뀌고 능력치는 그대로다.
-   need 의 열쇠: lv 레벨 · coins 가진 코인 · rabbit / wolf / boar / gorilla 잡은 수(보스 포함) · boss 보스 · quest 퀘스트 완료 · party 파티로 잡은 수 · pvp 결투장에서 쓰러뜨린 사람 수.
+   need 의 열쇠: lv 레벨 · coins 가진 코인 · rabbit / wolf / boar / gorilla / goblin / orc / ogre 잡은 수(보스 포함) · boss 보스 · quest 퀘스트 완료 · party 파티로 잡은 수 · pvp 결투에서 이긴 수 · req 광장 의뢰 완료.
    스냅샷은 이 목록의 차례로 칭호를 싣는다 — 새 칭호는 맨 뒤에만 더하고, 차례를 바꾸거나 지우지 않는다(30개까지). */
 export const TITLES = [
   { id: "rookie", name: "새싹 모험가", need: { lv: 1 } },
@@ -26,13 +26,20 @@ export const TITLES = [
   { id: "gorilla1000", name: "고릴라의 천적", need: { gorilla: 1000 } },
   { id: "pvp10", name: "결투가", need: { pvp: 10 } },
   { id: "pvp100", name: "결투장의 주인", need: { pvp: 100 } },
+  { id: "lv150", name: "역전의 사냥꾼", need: { lv: 150 } },
+  { id: "lv200", name: "살아 있는 전설", need: { lv: 200 } },
+  { id: "goblin100", name: "고블린 사냥꾼", need: { goblin: 100 } },
+  { id: "orc100", name: "오크 사냥꾼", need: { orc: 100 } },
+  { id: "ogre100", name: "오우거 사냥꾼", need: { ogre: 100 } },
+  { id: "req30", name: "광장의 해결사", need: { req: 30 } },
 ];
 export const TITLE_BY_ID = Object.fromEntries(TITLES.map((t) => [t.id, t]));
 // 잡은 수 · 완료 수 — 캐릭터 기록에 남는다. 스냅샷에는 이 차례로 싣는다(뒤에만 더한다)
-export const REC_IDS = ["rabbit", "wolf", "boar", "boss", "quest", "party", "gorilla", "pvp"];
+export const REC_IDS = ["rabbit", "wolf", "boar", "boss", "quest", "party", "gorilla", "pvp", "goblin", "orc", "ogre", "req"];
 // 조건 이름 — 칭호 창에 "토끼 37/100" 처럼 보인다
 export const NEED_NAME = {
   lv: "레벨", coins: "코인", rabbit: "토끼", wolf: "늑대", boar: "멧돼지", boss: "보스", quest: "퀘스트", party: "파티 사냥", gorilla: "고릴라", pvp: "결투 승리",
+  goblin: "고블린", orc: "오크", ogre: "오우거", req: "광장 의뢰",
 };
 
 /* 파티 — 같은 맵에 있는 파티원이 몹을 잡으면 나도 그 경험치의 share 만큼 받는다(코인은 잡은 사람만).

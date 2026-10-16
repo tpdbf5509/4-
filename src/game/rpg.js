@@ -725,14 +725,8 @@ export function rpgFire(g, pi, on) {
   if (!on || h.down > 0) return;
   h.fireQ = 0.35;
   if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, "광장에서는 싸울 수 없다", "#d9c9a6");
-  if (isPvp(h.map)) {
-    if (h.dph === 1) return say(g, h.map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
-    if (h.dph === 2 && h.cd <= 0 && !nearFoes(g, h, h.x, h.y, heroRange(h)).length) say(g, h.map, h.x, h.y - 90, "사거리 안에 상대가 없다", "#d9c9a6");
-    return;
-  }
-  if (h.cd <= 0 && !nearMobs(g, h.map, h.x, h.y, heroRange(h), 1).length) {
-    say(g, h.map, h.x, h.y - 90, "사거리 안에 몹이 없다", "#d9c9a6");
-  }
+  if (isPvp(h.map) && h.dph === 1) say(g, h.map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
+  // 사거리 안에 아무도 없어도 친다 — 겨눈 쪽으로 허공을 벤다 · 쏜다(heroAttack)
 }
 
 export function npcNear(h) {
@@ -1215,19 +1209,21 @@ function afterHit(g, h, m, x, y, dmg) {
   }
 }
 
-/* ── 영웅의 공격 — 사거리 안의 토끼를 친다 ───────────────────── */
-function heroAttack(g, h) {
+/* ── 영웅의 공격 — 사거리 안의 몹을 친다 ───────────────────────
+   force 는 스페이스로 친 것 — 사거리 안에 아무도 없어도 겨눈 쪽으로 허공을 벤다 · 쏜다(사거리는 표시일 뿐).
+   자동 평타는 사거리 안에 몹이 있을 때만 나간다 */
+function heroAttack(g, h, force) {
   const pi = h.pi;
   const map = h.map;
   const job = jobOf(h), el = elemOf(h);
   const dmg = job.dmg * heroDmgMul(h);
   const rng = heroRange(h);
   const hy = h.y - 34;
-  if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy);
+  if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy, force);
 
   if (job.id === "warrior") {                     // 전사 — 둘레를 한 번에 벤다
     const list = nearMobs(g, map, h.x, h.y, rng);
-    if (!list.length) return false;
+    if (!list.length) return force && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
     h.face = 0;
     list.forEach((m) => { hitMob(g, pi, m, dmg); soak(g, h, m, 0); });
@@ -1237,9 +1233,9 @@ function heroAttack(g, h) {
     return true;
   }
 
-  // 마법사 · 궁수 — 가장 가까운 토끼에게 날린다
+  // 마법사 · 궁수 — 가장 가까운 몹에게 날린다. 없으면 겨눈 쪽 사거리 끝으로 날린다
   const [m] = nearMobs(g, map, h.x, h.y, rng, 1);
-  if (!m) return false;
+  if (!m) return force && shootAir(g, h, job, el, dmg, rng, hy);
   h.dir = m.x < h.x ? -1 : 1;
   h.face = 0;
   const fly = job.fly || 0.2;
@@ -1255,12 +1251,51 @@ function heroAttack(g, h) {
   return true;
 }
 
+// 겨누는 방향 — 누르고 있는 방향, 없으면 바라보는 쪽(좌우). 단위 벡터
+export function aimDir(h) {
+  let dx = 0, dy = 0;
+  (h.hold || []).forEach((d) => {
+    if (d === "left") dx -= 1; else if (d === "right") dx += 1; else if (d === "up") dy -= 1; else if (d === "down") dy += 1;
+  });
+  if (!dx && !dy) dx = h.dir || 1;
+  const l = Math.hypot(dx, dy);
+  return [dx / l, dy / l];
+}
+// 겨눈 곳 — 내 자리에서 r 만큼 떨어진 곳(위아래는 땅 비율로 줄인다)
+function aimAt(h, r) {
+  const [ax, ay] = aimDir(h);
+  if (ax) h.dir = ax < 0 ? -1 : 1;
+  return [h.x + ax * r, h.y + ay * r * RPG.squash];
+}
+// 허공 베기 — 맞는 것은 없고 베는 모습만
+function swingAir(g, h, el) {
+  aimAt(h, 1);
+  h.face = 0;
+  fx(g, h.map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
+    color: el.light, t: 0.24, life: 0.24, snd: "slash" });
+  return true;
+}
+// 허공 쏘기 — 사거리 끝까지 날아간다. 마법 구슬은 떨어진 자리 둘레를 친다(landHit)
+function shootAir(g, h, job, el, dmg, rng, hy) {
+  const [tx, ty] = aimAt(h, rng);
+  h.face = 0;
+  const fly = job.fly || 0.2;
+  if (job.id === "mage") {
+    fx(g, h.map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, style: "orb",
+      art: ELEM_ART[el.id].fly || 0, r: 22, color: el.light, t: fly, life: fly, snd: "orb" });
+  } else {
+    fx(g, h.map, { kind: "shot", x0: h.x, y0: hy, x1: tx, y1: ty - 10, style: "arrow", color: el.light, t: fly, life: fly, snd: "shot" });
+  }
+  if (job.splash && !isPvp(h.map)) g.hits.push({ t: fly, pi: h.pi, mid: -1, x: tx, y: ty, map: h.map, dmg, splash: job.splash });
+  return true;
+}
+
 // 결투장 평타 — 몹 대신 사람을 친다. 원소 효과는 싣지 않는다
-function pvpAttack(g, h, job, el, dmg, rng, hy) {
+function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
   const map = h.map, pi = h.pi;
   if (job.id === "warrior") {
     const list = nearFoes(g, h, h.x, h.y, rng);
-    if (!list.length) return false;
+    if (!list.length) return force && h.dph === 2 && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
     h.face = 0;
     list.forEach((o) => hitFoe(g, h, o, dmg));
@@ -1269,7 +1304,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy) {
     return true;
   }
   const [o] = nearFoes(g, h, h.x, h.y, rng);
-  if (!o) return false;
+  if (!o) return force && h.dph === 2 && shootAir(g, h, job, el, dmg, rng, hy);
   h.dir = o.x < h.x ? -1 : 1;
   h.face = 0;
   const fly = job.fly || 0.2;
@@ -1344,12 +1379,12 @@ export function rpgSkill(g, pi) {
     list = near(h.x, h.y, 240); mul = 3;
   } else if (job.id === "mage") {
     const [t] = near(h.x, h.y, 360, 1);
-    if (t) { cx = t.x; cy = t.y; }
-    list = t ? near(cx, cy, 200) : []; mul = 2.8;
+    if (t) { cx = t.x; cy = t.y; } else [cx, cy] = aimAt(h, 200);   // 아무도 없으면 겨눈 쪽에 터뜨린다
+    list = near(cx, cy, 200); mul = 2.8;
   } else {
     list = near(h.x, h.y, 300); mul = 2.6;
   }
-  if (!list.length) return say(g, map, h.x, h.y - 90, pvp ? "닿는 상대가 없다" : "닿는 몹이 없다", "#d9c9a6");
+  // 닿는 것이 없어도 기술은 나간다(대기 시간도 돈다) — 사거리는 표시일 뿐
   if (cx !== h.x) h.dir = cx < h.x ? -1 : 1;
   h.face = 0;
 
@@ -1384,14 +1419,9 @@ export function predictDash(h) {
 }
 export function startDash(h) {
   if (!h || h.down > 0 || (h.dashCd || 0) > 0) return false;
-  let dx = 0, dy = 0;
-  (h.hold || []).forEach((d) => {
-    if (d === "left") dx -= 1; else if (d === "right") dx += 1; else if (d === "up") dy -= 1; else if (d === "down") dy += 1;
-  });
-  if (!dx && !dy) dx = h.dir || 1;
-  const len = Math.hypot(dx, dy);
+  const [dx, dy] = aimDir(h);
   const v = DASH.dist / DASH.time;
-  h.dvx = (dx / len) * v; h.dvy = (dy / len) * v;
+  h.dvx = dx * v; h.dvy = dy * v;
   if (dx) h.dir = dx < 0 ? -1 : 1;
   h.dash = DASH.time; h.inv = DASH.inv; h.dashCd = DASH.cd;
   return true;
@@ -1414,8 +1444,12 @@ export function predictLunge(g, h, id) {
   if (!L || !h || h.down > 0 || !(h.bag && h.bag.s[id] > 0) || (h.scd && h.scd[id] > 0) || MAPS[h.map].safe) return false;
   const pvp = isPvp(h.map);
   if (pvp && h.dph !== 2) return false;
-  const o = pvp ? g.heroes[h.dvs] : nearMobs(g, h.map, h.x, h.y, L.reach, 1)[0];
-  if (!o || o.map !== h.map || dist(h.x, h.y, o.x, o.y) - (pvp ? 7 : (o.rad || 0) * 0.5) > L.reach) return false;
+  let o = pvp ? g.heroes[h.dvs] : nearMobs(g, h.map, h.x, h.y, L.reach, 1)[0];
+  if (o && (o.map !== h.map || o.down > 0 || dist(h.x, h.y, o.x, o.y) - (pvp ? 7 : (o.rad || 0) * 0.5) > L.reach)) o = null;
+  if (!o) {                                        // 아무도 없으면 겨눈 쪽으로 끝까지 — 방장 판정과 같다
+    const [tx, ty] = aimAt(h, L.reach);
+    o = { x: tx, y: ty, rad: -2 * LUNGE_GAP };
+  }
   lungeTo(h, o, L.time);
   h.predict = 0.6;
   return true;
@@ -1465,26 +1499,30 @@ export function rpgUseSkill(g, pi, id) {
     const strike = (m) => (pvp ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
     if (u.radius) {                                // 둘레를 모두
       const list = pvp ? nearFoes(g, h, h.x, h.y, u.radius) : nearMobs(g, map, h.x, h.y, u.radius);
-      if (!list.length) return say(g, map, h.x, h.y - 90, pvp ? "닿는 상대가 없다" : "닿는 몹이 없다", "#d9c9a6");
-      list.forEach(strike);
+      list.forEach(strike);                        // 닿는 것이 없어도 쓴다
       fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
     } else if (u.lunge) {                          // 급소 찌르기 — 가장 가까운 적 앞까지 돌진해 찌른다
       const L = u.lunge;
       const [m] = pvp ? nearFoes(g, h, h.x, h.y, L.reach) : nearMobs(g, map, h.x, h.y, L.reach, 1);
-      if (!m) return say(g, map, h.x, h.y - 90, pvp ? "돌진할 상대가 없다" : "돌진할 몹이 없다", "#d9c9a6");
       const x0 = h.x, y0 = h.y;
+      if (!m) {                                    // 아무도 없으면 겨눈 쪽으로 끝까지 돌진한다
+        const [tx, ty] = aimAt(h, L.reach);
+        lungeTo(h, { x: tx, y: ty, rad: -2 * LUNGE_GAP }, L.time);
+        fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#ffe9b0", n: 8, t: 0.3, life: 0.3, snd: "slash" });
+      } else {
       lungeTo(h, m, L.time);
       fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#ffe9b0", n: 8, t: 0.3, life: 0.3, snd: "slash" });
       // 닿는 순간에 찌른다 — 그사이 상대가 쓰러졌거나 맵을 떠났으면 빗나간다
       const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: 0, skill: true, sure: !!u.crit };
       g.hits.push(pvp ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
+      }
     } else {                                       // 가장 가까운 하나
       const reach = heroRange(h) * SKILL_USE.reach;
       const [m] = pvp ? nearFoes(g, h, h.x, h.y, reach) : nearMobs(g, map, h.x, h.y, reach, 1);
-      if (!m) return say(g, map, h.x, h.y - 90, pvp ? "사거리 안에 상대가 없다" : "사거리 안에 몹이 없다", "#d9c9a6");
-      h.dir = m.x < h.x ? -1 : 1;
-      strike(m);
-      fx(g, map, { kind: "burst", x: m.x, y: m.y - 14, r: 30, color: u.crit ? "#ffd873" : "#f2e3c2", n: 10, t: 0.4, life: 0.4, snd: "crit" });
+      // 아무도 없으면 겨눈 쪽 사거리 끝을 친다(맞는 것은 없다)
+      const [bx, by] = m ? [m.x, m.y] : aimAt(h, Math.min(reach, 140));
+      if (m) { h.dir = m.x < h.x ? -1 : 1; strike(m); }
+      fx(g, map, { kind: "burst", x: bx, y: by - 14, r: 30, color: u.crit ? "#ffd873" : "#f2e3c2", n: 10, t: 0.4, life: 0.4, snd: "crit" });
     }
     h.swing = 0.35;
   }
@@ -1539,8 +1577,9 @@ function stepHeroes(g, dt) {
     h.cd = Math.max(0, h.cd - dt);
     h.fireQ = Math.max(0, h.fireQ - dt);
     if (h.cd > 0 || MAPS[h.map].safe) return;
-    if ((!h.auto || isPvp(h.map)) && !h.fire && h.fireQ <= 0) return;   // 결투장에서는 자동 평타를 끈다
-    if (heroAttack(g, h)) { h.cd = heroCd(h); h.swing = 0.25; h.fireQ = 0; }
+    const force = !!h.fire || h.fireQ > 0;          // 스페이스 — 사거리 안에 아무도 없어도 친다
+    if ((!h.auto || isPvp(h.map)) && !force) return;   // 결투장에서는 자동 평타를 끈다
+    if (heroAttack(g, h, force)) { h.cd = heroCd(h); h.swing = 0.25; h.fireQ = 0; }
   });
 }
 

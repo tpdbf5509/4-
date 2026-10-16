@@ -13,7 +13,7 @@ import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/s
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQUESTS, REQ_SHOW } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, GIFT } from "./game/itemData.js";
-import { UPDATES } from "./game/updates.js";
+import { UPDATES, RPG_NOTICE } from "./game/updates.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
@@ -36,6 +36,7 @@ const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.m
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 const AUTO_KEY = "flg:rpgAuto";
+const NOTICE_KEY = "flg:rpgNotice";   // 이 기기에서 마지막으로 본 업데이트 공지 id(updates.js RPG_NOTICE)
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
 function loadAuto() {
   try { return localStorage.getItem(AUTO_KEY) !== "0"; } catch { return true; }
@@ -366,7 +367,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [duelAt, setDuelAt] = useState(0);           // 결투 신청에 답한 때
   const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
   const [reqOpen, setReqOpen] = useState(null);      // 열어 둔 의뢰 NPC id
-  const [giftOpen, setGiftOpen] = useState(false);   // 업데이트 안내 · 선물 창 — 이번 선물을 처음 받았을 때 한 번
+  // 업데이트 안내 창 — 새 공지(RPG_NOTICE)를 이 기기에서 아직 안 봤거나, 이번 선물을 처음 받았을 때 한 번. { gift, notes }
+  const [giftOpen, setGiftOpen] = useState(null);
   const giftRef = useRef(null);                      // 들어올 때 이미 받은 선물이었는지 — 루프가 본다
   if (giftRef.current === null) giftRef.current = (loadChar() || {}).gift === GIFT.id;
   const reqRef = useRef(null);                       // 루프가 보는 열린 의뢰 창
@@ -398,7 +400,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   // 창은 한 번에 하나만 연다
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
-    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setGiftOpen(false);
+    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setGiftOpen(null);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -722,7 +724,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bgsRef.current = {};                              // 그림 파일이 없을 때만 drawRpg 가 코드로 채운다
 
-    let raf, last = performance.now(), frame = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null;
+    let raf, last = performance.now(), frame = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null, noticeDone = false;
     const loop = (now) => {
       // 첫 프레임의 시각은 루프를 건 시각보다 앞설 수 있다 — 거꾸로 가지 않게 막는다
       const real = Math.max(0, (now - last) / 1000);
@@ -778,7 +780,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 상점에서 멀어지면 상점 창을 닫는다
         if (me && shopRef.current && !nearShop(me, shopRef.current)) { shopRef.current = null; setShopOpen(null); }
         if (me && reqRef.current && !reqNear(me, reqRef.current)) { reqRef.current = null; setReqOpen(null); }
-        if (me && me.loaded && me.gift === GIFT.id && !giftRef.current) { giftRef.current = true; setGiftOpen(true); }
+        if (me && me.loaded && !noticeDone) {
+          noticeDone = true;
+          const gift = me.gift === GIFT.id && !giftRef.current;
+          let seen = "";
+          try { seen = localStorage.getItem(NOTICE_KEY) || ""; localStorage.setItem(NOTICE_KEY, RPG_NOTICE.id); } catch { /* 저장이 막혀 있으면 이번만 */ }
+          const notes = [...new Set([...(seen !== RPG_NOTICE.id ? RPG_NOTICE.notes : []), ...(gift ? GIFT.notes : [])])];
+          if (gift || notes.length) setGiftOpen({ gift, notes });
+          giftRef.current = true;
+        }
         if (me && me.map !== lastMap) {
           if (lastMap) setToast({ name: MAPS[me.map].name, at: now });
           lastMap = me.map;
@@ -1114,23 +1124,23 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           })()}
           {me && giftOpen && (
             <>
-              <div className="rpg-menu-back" onClick={() => setGiftOpen(false)} />
+              <div className="rpg-menu-back" onClick={() => setGiftOpen(null)} />
               <div className="rpg-stat rpg-win rpg-gift" role="dialog" aria-label="업데이트 안내">
                 <div className="rpg-stat-head">
                   <b>업데이트 안내</b>
-                  <span>{UPDATES.find((u) => u.id === GIFT.notes[0])?.date}</span>
+                  <span>{UPDATES.find((u) => u.id === giftOpen.notes[0])?.date}</span>
                 </div>
-                <div className="rpg-gift-box">
+                {giftOpen.gift && <div className="rpg-gift-box">
                   <b>선물이 가방에 들어왔습니다</b>
                   <span>{[...Object.entries(GIFT.potions).map(([id, n]) => `${POTION_BY_ID[id].name} ${n}개`),
                     ...Object.entries(GIFT.mats).map(([id, n]) => `${MAT_BY_ID[id].name} ${n}개`)].join(" · ")}</span>
-                </div>
+                </div>}
                 <ul className="rpg-gift-list">
-                  {UPDATES.filter((u) => GIFT.notes.includes(u.id)).flatMap((u) => u.items).map((t) => <li key={t}>{t}</li>)}
+                  {UPDATES.filter((u) => giftOpen.notes.includes(u.id)).flatMap((u) => u.items).map((t) => <li key={t}>{t}</li>)}
                 </ul>
                 <div className="rpg-stat-foot">
-                  <button type="button" className="btn-main" onClick={() => setGiftOpen(false)}>확인</button>
-                  <button type="button" className="btn-ghost" onClick={() => { setGiftOpen(false); closeAll(); setBagOpen(true); }}>가방 열기</button>
+                  <button type="button" className="btn-main" onClick={() => setGiftOpen(null)}>확인</button>
+                  <button type="button" className="btn-ghost" onClick={() => { setGiftOpen(null); closeAll(); setBagOpen(true); }}>가방 열기</button>
                 </div>
               </div>
             </>

@@ -28,6 +28,7 @@ export const WEAPON_TYPES = [
   { id: "tome", name: "마도서", stat: "int", mul: 1.1, price: 1.1 },
   { id: "dagger", name: "단검", stat: "crit", mul: 0.6, price: 1 },     // 치명타 확률은 상한(80%)이 있어 적게 준다
   { id: "great", name: "대검", stat: "cdmg", mul: 0.8, price: 1 },
+  { id: "bow", name: "활", stat: "str", mul: 1, price: 1 },             // 궁수 공격력과 같은 물리력
 ];
 // 등급 — mul 은 스탯 배율, price 는 값 배율
 export const GRADES = [
@@ -63,6 +64,20 @@ export const SPECIALS = [
   { id: "star", name: "별의 검", t: "sword", lv: 80, g: 4, stat: "int", art: "star" },
   { id: "shadow", name: "암흑검", t: "great", lv: 90, g: 4, stat: "cdmg", art: "shadow" },
   { id: "holy", name: "신성검", t: "sword", lv: 100, g: 4, stat: "str", art: "holy" },
+  // 지팡이 — 마법사 공격력인 마법력을 올린다
+  { id: "moon_staff", name: "초승달 지팡이", t: "staff", lv: 10, g: 3, stat: "int", art: "moon_staff" },
+  { id: "ice_staff", name: "얼음 수정 지팡이", t: "staff", lv: 20, g: 3, stat: "int", art: "ice_staff" },
+  { id: "skull_staff", name: "해골 지팡이", t: "staff", lv: 40, g: 3, stat: "int", art: "skull_staff" },
+  { id: "flame_staff", name: "화염 지팡이", t: "staff", lv: 60, g: 4, stat: "int", art: "flame_staff" },
+  { id: "thunder_staff", name: "번개 지팡이", t: "staff", lv: 70, g: 4, stat: "int", art: "thunder_staff" },
+  { id: "galaxy_staff", name: "은하 지팡이", t: "staff", lv: 90, g: 4, stat: "int", art: "galaxy_staff" },
+  { id: "holy_staff", name: "신성 지팡이", t: "staff", lv: 100, g: 4, stat: "int", art: "holy_staff" },
+  // 활 — 궁수 공격력인 물리력을 올린다
+  { id: "thunder_bow", name: "번개 활", t: "bow", lv: 50, g: 3, stat: "str", art: "thunder_bow" },
+  { id: "lava_bow", name: "용암 활", t: "bow", lv: 60, g: 4, stat: "str", art: "lava_bow" },
+  { id: "shadow_bow", name: "그림자 활", t: "bow", lv: 80, g: 4, stat: "str", art: "shadow_bow" },
+  { id: "star_bow", name: "별자리 활", t: "bow", lv: 90, g: 4, stat: "str", art: "star_bow" },
+  { id: "gold_bow", name: "황금 날개 활", t: "bow", lv: 100, g: 4, stat: "str", art: "gold_bow" },
 ];
 
 // 오늘의 특가 — 날짜로 정한다. 특별 무기 날이면 내 레벨로 낄 수 있는 특별 무기 하나,

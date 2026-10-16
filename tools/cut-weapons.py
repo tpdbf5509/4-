@@ -15,8 +15,19 @@ SRC = "design/weapons/"
 DST = "public/assets/game/rpg/weapons/"
 # 그림마다 바탕 — white 흰 바탕 · black 검은 바탕 · checker 흰 바탕 + 가짜 체크무늬 · frame 액자 안 검은 바탕
 KIND = {"flame": "checker", "thunder": "black", "forest": "black", "viper": "white", "frost": "black",
-        "star": "white", "holy": "frame", "clockwork": "black", "coral": "white", "shadow": "white"}
-GLOW = {"thunder": 18, "forest": 18, "frost": 18, "holy": 18}   # 빛이 번진 그림 — 바탕 쪽 빛 띠의 폭
+        "star": "white", "holy": "frame", "clockwork": "black", "coral": "white", "shadow": "white",
+        # 지팡이
+        "flame_staff": "black", "galaxy_staff": "black", "moon_staff": "black", "ice_staff": "frame",
+        "skull_staff": "frame", "holy_staff": "black", "thunder_staff": "white",
+        # 활
+        "lava_bow": "black", "star_bow": "white", "gold_bow": "frame", "shadow_bow": "black", "thunder_bow": "black"}
+GLOW = {"thunder": 18, "forest": 18, "frost": 18, "holy": 18,   # 빛이 번진 그림 — 바탕 쪽 빛 띠의 폭
+        "flame_staff": 18, "galaxy_staff": 18, "moon_staff": 22, "ice_staff": 18, "holy_staff": 22,
+        "lava_bow": 18, "gold_bow": 18, "shadow_bow": 18, "thunder_bow": 18}
+# 흰 바탕 둘레에 검은 띠(그림자 · 구름)가 붙은 그림 — 흰 바탕과 이어진 검은 곳까지 바탕으로 본다
+DARK_RIM = {"thunder_staff", "star_bow"}
+# 액자 그림 — 잘라 낼 바깥 폭(px)과 액자 안 바탕
+FRAME = {"holy": (44, "black"), "ice_staff": (68, "black"), "skull_staff": (58, "white"), "gold_bow": (112, "black")}
 
 def flood(mask):
     lab, n = nd.label(mask)
@@ -27,15 +38,16 @@ def cut(i):
     im = np.asarray(Image.open(f"{SRC}{i}.webp").convert("RGB")).astype(np.float32)
     kind = KIND[i]
     if kind == "frame":
-        m = 44
+        m, kind = FRAME[i]
         im = im[m:-m, m:-m]
-        kind = "black"
     mx, mn = im.max(2), im.min(2)
     sat = mx - mn
     a = np.ones(mx.shape, np.float32)
     rgb = im.copy()
     if kind in ("white", "checker"):
         bg = flood(mn > 232)
+        if i in DARK_RIM:
+            bg = flood(bg | (mx < 34))
         hole = (mn > 240) & ~bg                      # 손잡이 고리 안처럼 갇힌 바탕
         lab, n = nd.label(hole)
         area = nd.sum(hole, lab, range(1, n + 1))

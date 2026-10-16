@@ -42,6 +42,8 @@ const WEAPON_GRIP = {
   thunder_staff: [68, 78, 24, 34], galaxy_staff: [64, 78, 64, 10], holy_staff: [50, 68, 96, 20],
   thunder_bow: [56, 64, 10, 8], lava_bow: [71, 64, 23, 8], shadow_bow: [66, 56, 22, 10], star_bow: [66, 60, 16, 12], gold_bow: [71, 52, 12, 12],
 };
+// 활 그림에서 활줄이 놓인 쪽 — 손잡이 → 위쪽 끝을 보고 왼쪽(-1) · 오른쪽(1). 손에 든 쪽과 다르면 뒤집어 활줄이 몸 쪽을 향하게 한다
+const BOW_STRING = { thunder_bow: -1, lava_bow: 1, shadow_bow: 1, star_bow: -1, gold_bow: -1 };
 /* 마법사는 특별 지팡이, 궁수는 특별 활을 장착하면 원래 무기를 지운 그림(<보기>-bare.webp, tools/bare-holders.py)에 그 무기를 손에 들려 그린다.
    HOLDER_HAND: 직업 · 성별 · 보기마다 손 [x, y]와 무기 방향(도, 손 → 지팡이 머리 · 활 위쪽 끝)과 그 길이(px) — 원래 그림 크기 기준.
    무기가 몸에 가려 보이지 않는 보기(마법사 옆 · 뒤 등)는 원래 그림을 그대로 쓴다 */
@@ -52,8 +54,9 @@ const HOLDER_HAND = {
     f: { front: [152, 193, -69, 70], turn: [37, 186, -103, 59] },
   },
   archer: {
-    m: { front: [126, 196, -65, 84], turn: [117, 194, -70, 79] },
-    f: { front: [150, 190, -72, 86], turn: [26, 176, -102, 57], side: [34, 160, -110, 69], back: [22, 168, -99, 61] },
+    // 다섯째 값 — 활줄이 놓여야 할 쪽(몸 쪽). 몸 오른쪽에 든 활은 -1, 왼쪽에 든 활은 1
+    m: { front: [126, 196, -65, 84, -1], turn: [117, 194, -70, 79, -1] },
+    f: { front: [150, 190, -72, 86, -1], turn: [26, 176, -102, 57, 1], side: [34, 160, -110, 69, 1], back: [22, 168, -99, 61, 1] },
   },
 };
 const HELD_LEN = 30;                                  // 손잡이 → 칼끝 길이(화면 px). 원래 칼은 약 22
@@ -85,7 +88,8 @@ function heldWeapon(h, view) {
     const wpn = grip && weaponImg(sp);
     const body = wpn && heroImg(h, `${view}-bare`);
     if (!body) return null;                         // 그림이 없으면 원래 그림(원래 무기)을 그대로
-    return { body, hand, wpn, grip, len: hand[3] * HERO_K, still: true };
+    const mirror = !!hand[4] && !!BOW_STRING[sp.art] && hand[4] !== BOW_STRING[sp.art];
+    return { body, hand, wpn, grip, len: hand[3] * HERO_K, still: true, mirror };
   }
   if (h.job !== "warrior") return null;
   const hand = WARRIOR_HAND[h.gender === "f" ? "f" : "m"][view];
@@ -149,6 +153,7 @@ function drawHeld(ctx, held, ww, top, sw, col) {
     ctx.restore();
   }
   ctx.rotate((deg * Math.PI) / 180);
+  if (held.mirror) ctx.scale(1, -1);               // 무기 축을 따라 뒤집는다(활줄을 몸 쪽으로)
   if (wpn) {
     const [gx, gy, tx, ty] = grip;
     const k = len / Math.hypot(tx - gx, ty - gy);

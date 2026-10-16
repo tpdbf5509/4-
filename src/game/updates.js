@@ -6,6 +6,13 @@ export const RPG_NOTICE = { id: "2026-10-36", notes: ["2026-10-36", "2026-10-35"
 
 export const UPDATES = [
   {
+    id: "2026-10-43",
+    date: "10월 16일",
+    items: [
+      "별자리 활 안쪽의 검은 바탕을 지웠습니다.",
+    ],
+  },
+  {
     id: "2026-10-42",
     date: "10월 16일",
     items: [

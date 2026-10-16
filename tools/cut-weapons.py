@@ -26,6 +26,8 @@ GLOW = {"thunder": 18, "forest": 18, "frost": 18, "holy": 18,   # 빛이 번진 
         "lava_bow": 18, "gold_bow": 18, "shadow_bow": 18, "thunder_bow": 18}
 # 흰 바탕 둘레에 검은 띠(그림자 · 구름)가 붙은 그림 — 흰 바탕과 이어진 검은 곳까지 바탕으로 본다
 DARK_RIM = {"thunder_staff", "star_bow"}
+# 활 안쪽에 어두운 바탕(밤하늘)이 칠해진 그림 — 어두운 곳은 밝기만큼만 남겨 별 · 활대 · 활줄만 보이게 한다. (완전히 지울 밝기, 다 남길 밝기)
+DARK_FILL = {"star_bow": (34, 80)}
 # 액자 그림 — 잘라 낼 바깥 폭(px)과 액자 안 바탕
 FRAME = {"holy": (44, "black"), "ice_staff": (68, "black"), "skull_staff": (58, "white"), "gold_bow": (112, "black")}
 
@@ -87,6 +89,10 @@ def cut(i):
         k = band & (a > 0.02)
         for c in range(3):
             rgb[..., c][k] = np.clip(im[..., c][k] / np.maximum(mx[k] / 110, 0.05), 0, 255)
+    if i in DARK_FILL:
+        lo, hi = DARK_FILL[i]
+        a = np.minimum(a, np.clip((mx - lo) / (hi - lo), 0, 1))   # 색은 그대로 두고 비침만 — 밝히면 활대가 바랜다
+        a[(sat < 22) & (mx > 105) & (mx < 215)] = 0   # 바깥의 흐린 회색 선 찌꺼기 — 흰 별(더 밝다)은 남긴다
     # 워터마크 별 · 떨어진 티끌 — 오른쪽 아래 구석의 작은 덩어리를 지운다
     lab, n = nd.label(a > 0.05)
     H, W = a.shape

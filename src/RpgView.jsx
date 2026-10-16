@@ -3,7 +3,7 @@ import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, freshInput, needXp, loadChar, saveLook, writeChar, deleteChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, freshInput, noteSent, needXp, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
@@ -440,7 +440,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     sfx.unlock();
     if (kind === "hold") {
       rpgHold(g, mySeat, dir);                      // 손님도 내 영웅은 먼저 걷는다
-      if (!isHost) { sentAt.current = Date.now(); room?.send("input", { cls: mySeat, kind, dir, q: nextSeq() }); }
+      if (!isHost) { sentAt.current = Date.now(); const q = nextSeq(); noteSent(g, q); room?.send("input", { cls: mySeat, kind, dir, q }); }
       return;
     }
     if (kind === "fire") { fireRef.current = !!dir; sentAt.current = Date.now(); }
@@ -652,7 +652,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       offs.push(room.on("input", (d) => {
         const g = G.current;
         if (!d || !g.heroes[d.cls]) return;
-        if (!freshInput(g.heroes[d.cls], d.kind, d.q)) return;   // 늦게 도착한 옛 누름 · 뗌은 버린다
+        if (!freshInput(g.heroes[d.cls], d.kind, d.q, g.t)) return;   // 늦게 도착한 옛 누름 · 뗌은 버린다
         if (d.kind === "hold") rpgHold(g, d.cls, d.dir);
         else if (d.kind === "skill") rpgSkill(g, d.cls);
         else if (d.kind === "talk") rpgTalk(g, d.cls);
@@ -692,7 +692,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         const want = holdKey(dirsRef.current), fire = fireRef.current ? 1 : 0;
         if (h.echo.hold === want && h.echo.fire === fire) return;
         sentAt.current = Date.now();
-        if (h.echo.hold !== want) room.send("input", { cls: mySeat, kind: "hold", dir: dirsRef.current.slice(), q: nextSeq() });
+        if (h.echo.hold !== want) { const q = nextSeq(); noteSent(g, q); room.send("input", { cls: mySeat, kind: "hold", dir: dirsRef.current.slice(), q }); }
         if (h.echo.fire !== fire) room.send("input", { cls: mySeat, kind: "fire", dir: !!fire, q: nextSeq() });
       }));
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));   // 옛 버전 방장은 연출을 따로 보낸다

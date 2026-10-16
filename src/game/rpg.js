@@ -28,6 +28,14 @@ export const honorGain = (loserHonor) => Math.round((loserHonor || 0) * DUEL.hon
 
 // 대쉬 — 모든 캐릭터의 기본 스킬(F). 누른 방향으로 dist 만큼 time 초에 달려 나가고, inv 초 동안 맞지 않는다
 export const DASH = { dist: 230, time: 0.16, inv: 0.3, cd: 4 };
+// 손님 화면의 내 위치 맞추기 — 방장 위치는 늘 조금 옛것이라, 지금 위치가 아니라 "같은 때의 내 위치"와 견준다.
+// 방장이 "네 몇 번 누름을 몇 ms 전에 받았다"를 알려 주면, 그 때의 내 위치(hist)와의 차이만큼만 고친다
+export const SYNC = {
+  hist: 2,      // 내 위치 기록을 이만큼(초) 남긴다
+  fix: 28,      // 차이가 이만큼(px) 넘을 때만 고친다 — 작은 차이는 그대로 둔다(실측 16 이면 평소에도 자잘하게 당겨졌다)
+  rate: 8,      // 고칠 차이를 초당 이 몫씩 나눠 옮긴다 — 한 번에 튀지 않게
+  jump: 260,    // 차이가 이만큼 넘으면 한 번에 옮긴다(워프 · 되살아남처럼 정말 자리가 바뀐 때)
+};
 export const RPG = {
   heroHp: 190,
   rangeMul: 1.25,        // 탑 사거리보다 조금 넓게
@@ -669,12 +677,38 @@ function say(g, map, x, y, text, color) {
 /* ── 조작 ──────────────────────────────────────────────── */
 // 손님의 누름 · 뗌(hold · fire)은 마지막 상태만 뜻이 있다 — 늦게 도착한 옛 것(번호가 작은 것)은 버린다.
 // 번호가 없으면(옛 버전 손님) 그대로 받는다. 대쉬 · 스킬 같은 한 번짜리 입력은 버리지 않는다
-export function freshInput(h, kind, q) {
+export function freshInput(h, kind, q, now) {
   if ((kind !== "hold" && kind !== "fire") || !q) return true;
   if (!h.inq) h.inq = {};
   if (q <= (h.inq[kind] || 0)) return false;
   h.inq[kind] = q;
+  if (kind === "hold") h.inqAt = now;           // 받은 때 — 스냅샷에 "몇 ms 전에 받았다"로 실어 손님이 견줄 때를 맞춘다
   return true;
+}
+// 손님이 누름 · 뗌을 보낸 때를 적어 둔다 — 방장이 그 번호를 알려 주면 그때의 내 위치와 견준다
+export function noteSent(g, q) {
+  if (!g.sentQ) g.sentQ = {};
+  g.sentQ[q] = g.t;
+  for (const k in g.sentQ) if (g.t - g.sentQ[k] > SYNC.hist + 1) delete g.sentQ[k];
+}
+// 내 위치 기록에서 at 때의 자리 — 기록보다 옛때면 null
+function histAt(h, at) {
+  const H = h.hist;
+  if (!H || !H.length || at < H[0].t) return null;
+  for (let i = H.length - 1; i >= 0; i--) {
+    if (H[i].t <= at) {
+      const b = H[i + 1];
+      if (!b) return H[i];
+      const u = (at - H[i].t) / Math.max(1e-6, b.t - H[i].t);
+      return { x: H[i].x + (b.x - H[i].x) * u, y: H[i].y + (b.y - H[i].y) * u };
+    }
+  }
+  return null;
+}
+// 내 자리를 옮기면 기록도 같이 옮긴다 — 같은 차이를 두 번 고치지 않게
+function shiftMe(h, dx, dy) {
+  h.x += dx; h.y += dy;
+  if (h.hist) h.hist.forEach((p) => { p.x += dx; p.y += dy; });
 }
 export function rpgHold(g, pi, dirs) {
   const h = g.heroes[pi];
@@ -2119,7 +2153,8 @@ export function rpgPack(g) {
         TITLES.reduce((bits, t, i) => (h.titles.includes(t.id) ? bits | (1 << i) : bits), 0),
         REC_IDS.map((k) => h.rec[k]), heldSpecial(h),
         h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring,
-        REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0)), h.gift === GIFT.id ? 1 : 0]
+        REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0)), h.gift === GIFT.id ? 1 : 0,
+        (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt || g.t)) * 1000) : 0]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -2144,8 +2179,19 @@ export function rpgApply(g, s) {
     // 내 영웅은 내 화면에서 먼저 걷는다. 맵을 옮겼거나 크게 벌어졌을 때만 맞춘다.
     // 방금 내 화면에서 대쉬했으면 방장 위치가 따라올 때까지 크게 벌어져도 기다린다
     const slack = mine && h.predict > 0 ? DASH.dist + 140 : h.hold.length ? 140 : 70;
-    if (moved || (mine && Math.hypot(row[0] - h.x, row[1] - h.y) > slack)) {
-      h.x = row[0]; h.y = row[1];
+    // 방장이 내 누름을 언제 받았는지 알려 주면 — 그 때의 내 위치와 견준다(지연 때문에 생긴 차이는 고치지 않는다)
+    const sent = mine && row.length > 43 && row[42] && g.sentQ ? g.sentQ[row[42]] : undefined;
+    const then = sent !== undefined && !moved && !(h.predict > 0) ? histAt(h, sent + row[43] / 1000) : null;
+    h.synced = !!then;
+    if (moved) {
+      h.x = row[0]; h.y = row[1]; h.hist = []; h.fixX = 0; h.fixY = 0;
+    } else if (then) {
+      const ex = row[0] - then.x, ey = row[1] - then.y, e = Math.hypot(ex, ey);
+      if (e > SYNC.jump) { shiftMe(h, ex, ey); h.fixX = 0; h.fixY = 0; }
+      else if (e > SYNC.fix) { h.fixX = ex; h.fixY = ey; }     // 나눠 옮긴다(rpgStepVisual)
+      else { h.fixX = 0; h.fixY = 0; }
+    } else if (mine && Math.hypot(row[0] - h.x, row[1] - h.y) > slack) {   // 옛 버전 방장 — 예전 방식
+      h.x = row[0]; h.y = row[1]; h.hist = [];
     }
     if (!mine) { h.dir = row[2]; h.face = row[20] || 0; }
     if (Array.isArray(row[21])) STAT_IDS.forEach((k, i) => { h.st[k] = row[21][i] || 0; });
@@ -2241,7 +2287,15 @@ export function rpgStepVisual(g, dt) {
       h.predict = Math.max(0, (h.predict || 0) - dt);
       if (h.dash > 0) dashStep(h, dt);             // 먼저 그린 대쉬
       else if (h.down <= 0 && h.hold.length) rpgWalk(h, dt);
-      else { h.x += (h.tx - h.x) * k * 0.5; h.y += (h.ty - h.y) * k * 0.5; }
+      else if (!h.synced) { h.x += (h.tx - h.x) * k * 0.5; h.y += (h.ty - h.y) * k * 0.5; }   // 옛 버전 방장 — 멈추면 방장 자리로
+      if (h.fixX || h.fixY) {                      // 같은 때끼리 견준 차이를 조금씩 옮긴다
+        const a = Math.min(1, dt * SYNC.rate), mx = h.fixX * a, my = h.fixY * a;
+        shiftMe(h, mx, my); h.fixX -= mx; h.fixY -= my;
+        if (Math.hypot(h.fixX, h.fixY) < 0.5) { h.fixX = 0; h.fixY = 0; }
+      }
+      if (!h.hist) h.hist = [];
+      h.hist.push({ t: g.t, x: h.x, y: h.y });
+      while (h.hist.length && g.t - h.hist[0].t > SYNC.hist) h.hist.shift();
     } else {
       const dx = h.tx - h.x;
       if (Math.abs(dx) > 1) h.dir = dx < 0 ? -1 : 1;

@@ -140,11 +140,17 @@ export const POTIONS = [
   { id: "buff_int", name: "지혜의 물약", kind: "buff", stat: "int", amt: 20, dur: 60, price: 150 },
   { id: "buff_crit", name: "집중의 물약", kind: "buff", stat: "crit", amt: 10, dur: 60, price: 200 },
   { id: "reset", name: "스탯 초기화 물약", kind: "reset", price: 5000 },
+  // 이속 물약 — amt 만큼 걷는 속도가 빨라진다. 다시 마시면 시간은 새로, 양은 큰 쪽
+  { id: "speed1", name: "이속 물약 I", kind: "speed", amt: 0.3, dur: 50, price: 300 },
+  { id: "speed2", name: "이속 물약 II", kind: "speed", amt: 0.5, dur: 120, price: 900 },
+  // 투명화 물약 — 일반 몹이 알아채지 못한다(공격해도 풀리지 않는다). 보스는 알아챈다. 결투장 · 던전에서는 마실 수 없다
+  { id: "hide1", name: "투명화 물약 I", kind: "hide", dur: 30, price: 600 },
+  { id: "hide2", name: "투명화 물약 II", kind: "hide", dur: 50, price: 1200 },
 ];
 export const POTION = {
   stackMax: 99,          // 한 종류를 이만큼까지 가질 수 있다
   slots: 3,              // 물약 칸 — 가방에서 물약을 넣어 두고 숫자키(5 · 6 · 7)나 화면 칸으로 바로 마신다
-  greatChance: 0.05,     // 마실 때 5% 확률로 효과 2배 — "대성공" (초기화 물약에는 없다)
+  greatChance: 0.05,     // 마실 때 5% 확률로 효과 2배 — "대성공" (회복 · 버프 물약만. 초기화 · 이속 · 투명화에는 없다)
   greatMul: 2,
 };
 
@@ -156,6 +162,9 @@ export const SCROLLS = [
   { id: "warp6", name: "지역 워프권 6회", n: 6, price: 2700 },    // 1회 450
   { id: "warp10", name: "지역 워프권 10회", n: 10, price: 4000 }, // 1회 400
 ];
+// 하락 방지권 — 강화에 실패해 단계가 떨어질 때 한 장을 써서 막는다(강화석 · 코인은 그대로 사라진다).
+// 강화소에서 "방지권 쓰기"를 켜 둔 때만 쓰고, 떨어지지 않은 실패 · 성공에는 쓰지 않는다
+export const GUARD = { name: "하락 방지권", price: 3000, max: 99 };
 export const WARP = {
   max: 999,                          // 가질 수 있는 횟수
   // 갈 수 있는 지역 — 차례대로 보인다. 결투장은 결투 신청으로만 간다

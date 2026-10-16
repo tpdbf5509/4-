@@ -4,7 +4,7 @@
    가방(h.bag)은 이름과 함께 이 기기에 남고, 바뀔 때만 손님에게 보낸다. */
 import {
   SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIAL, SPECIALS,
-  SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT, SCROLLS, WARP,
+  SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD,
 } from "./shopData.js";
 import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
@@ -18,6 +18,13 @@ export const POTION_BY_ID = Object.fromEntries(POTIONS.map((p) => [p.id, p]));
 export const SPECIAL_BY_ID = Object.fromEntries(SPECIALS.map((sp) => [sp.id, sp]));
 export const SCROLL_BY_ID = Object.fromEntries(SCROLLS.map((sc) => [sc.id, sc]));
 const BUFF_STATS = ["str", "int", "crit"];          // 버프 물약이 올릴 수 있는 스탯
+// 시간이 흐르고 손님에게 보내는 물약 효과 — 스탯 셋 + spd 이속(a = 빨라지는 몫) · hide 투명화. 뒤에만 더한다(스냅샷 차례)
+const BUFF_KEYS = [...BUFF_STATS, "spd", "hide"];
+// 물약 효과가 남아 있는가 — 이속은 빨라지는 몫, 투명화는 1 또는 0
+export const buffLeft = (h, k) => (h && h.bf && h.bf[k] && h.bf[k].t > 0 ? h.bf[k].a || 1 : 0);
+export const speedMul = (h) => 1 + (h && h.bf && h.bf.spd && h.bf.spd.t > 0 ? h.bf.spd.a : 0);
+// 투명화를 쓸 수 없는 곳 — 결투장(pvp) · 결투 중 · 던전(dungeon)
+const noHide = (h) => !!((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && (MAPS[h.map].pvp || MAPS[h.map].dungeon)));
 
 const statDef = (id) => STATS.find((t) => t.id === id);
 const statName = (id) => statDef(id).name;
@@ -25,7 +32,10 @@ const fmtStat = (id, v) => statDef(id).fmt(v);
 const won = (n) => Math.round(n).toLocaleString("ko-KR");
 const isInt = (v) => Number.isInteger(v);
 // 받침에 맞는 조사 — jo("검", "을", "를") → "검을"
+const ROMAN_TAIL = { I: true, II: false, III: true };   // 끝이 로마 숫자면 읽는 소리로 — 일(받침 있음) · 이(없음) · 삼(있음)
 export function jo(word, a, b) {
+  const roman = String(word).match(/\s(I{1,3})$/);
+  if (roman) return `${word}${ROMAN_TAIL[roman[1]] ? a : b}`;
   const last = [...String(word)].reverse().find((ch) => ch >= "가" && ch <= "힣");   // "회복 물약 (중)" 은 "중" 을 본다
   const c = last ? last.charCodeAt(0) - 0xac00 : 0;
   return `${word}${c % 28 !== 0 ? a : b}`;
@@ -120,7 +130,7 @@ export function dealOf(lv, day = todayKey()) {
    무기의 up 은 강화 단계(0 이면 강화하지 않음, 있을 때만)
    p 물약 { id: 개수 } · qs 물약 칸 [물약 id 또는 ""] · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · wp 지역 워프권 남은 횟수 · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
-export const newBag = () => ({ w: [], e: 0, p: {}, qs: [], s: {}, m: {}, wp: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
+export const newBag = () => ({ w: [], e: 0, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
 export function cleanBag(d) {
   const b = newBag();
   if (!d || typeof d !== "object") return b;
@@ -155,6 +165,7 @@ export function cleanBag(d) {
     if (c > 0) b.m[m.id] = Math.min(MAT_MAX, c);
   });
   b.wp = Math.min(WARP.max, Math.max(0, Math.floor(Number(d.wp) || 0)));
+  b.gd = Math.min(GUARD.max, Math.max(0, Math.floor(Number(d.gd) || 0)));
   b.qs = Array.from({ length: POTION.slots }, (_, i) => (Array.isArray(d.qs) && POTION_BY_ID[d.qs[i]] ? d.qs[i] : ""));
   const dy = d.day || {};
   if (typeof dy.d === "string") {
@@ -195,20 +206,21 @@ export function extraStat(h, id) {
 // 버프 시간이 흐른다 (방장)
 export function tickBuffs(h, dt) {
   if (!h.bf) return;
-  BUFF_STATS.forEach((k) => {
+  if (h.bf.hide && noHide(h)) delete h.bf.hide;   // 결투장 · 던전에 들어가면 투명화가 풀린다
+  BUFF_KEYS.forEach((k) => {
     const b = h.bf[k];
     if (b && b.t > 0) { b.t = Math.max(0, b.t - dt); if (b.t <= 0) delete h.bf[k]; }
   });
 }
-// 주고받기 — [물리 남은 초, 양, 마법 …, 치명 …] 또는 0
+// 주고받기 — [물리 남은 초, 양, 마법 …, 치명 …, 이속 …, 투명화 …] 또는 0
 export function packBuffs(h) {
-  if (!h.bf || !BUFF_STATS.some((k) => h.bf[k] && h.bf[k].t > 0)) return 0;
-  return BUFF_STATS.flatMap((k) => (h.bf[k] && h.bf[k].t > 0 ? [Math.ceil(h.bf[k].t), h.bf[k].a] : [0, 0]));
+  if (!h.bf || !BUFF_KEYS.some((k) => h.bf[k] && h.bf[k].t > 0)) return 0;
+  return BUFF_KEYS.flatMap((k) => (h.bf[k] && h.bf[k].t > 0 ? [Math.ceil(h.bf[k].t), h.bf[k].a] : [0, 0]));
 }
 export function applyBuffs(h, row) {
   h.bf = {};
   if (!Array.isArray(row)) return;
-  BUFF_STATS.forEach((k, i) => { if (row[i * 2] > 0) h.bf[k] = { t: row[i * 2], a: row[i * 2 + 1] }; });
+  BUFF_KEYS.forEach((k, i) => { if (row[i * 2] > 0) h.bf[k] = { t: row[i * 2], a: row[i * 2 + 1] }; });
 }
 
 /* ── 조건 — 막히는 이유를 모두 모아 돌려준다. 빈 목록이면 할 수 있다 ── */
@@ -359,6 +371,16 @@ export function whyPotionUse(h, id) {
   if (!(h.bag.p[id] > 0)) out.push("가지고 있지 않습니다");
   else if (p.kind === "heal" && h.hp >= h.max) out.push("체력이 이미 가득 찼습니다");
   else if (p.kind === "reset" && statSpent(h.st) <= 0) out.push("돌려받을 스탯 포인트가 없습니다");
+  else if (p.kind === "hide" && noHide(h)) out.push("결투장 · 던전에서는 마실 수 없습니다");
+  return out;
+}
+// 하락 방지권 사기 — 주문서 상점
+export function whyGuardBuy(h) {
+  const out = [];
+  base(h, "scroll", out);
+  if (!h || !h.bag) return out;
+  if ((h.bag.gd || 0) >= GUARD.max) out.push(`${GUARD.name}은 ${GUARD.max}장까지 가질 수 있습니다`);
+  lackCoin(h, GUARD.price, out);
   return out;
 }
 
@@ -517,7 +539,7 @@ export function rpgShop(g, pi, req) {
     h.bag.p[id] -= 1;
     if (h.bag.p[id] <= 0) delete h.bag.p[id];
     bump(h);
-    const great = p.kind !== "reset" && Math.random() < POTION.greatChance;
+    const great = (p.kind === "heal" || p.kind === "buff") && Math.random() < POTION.greatChance;
     const mul = great ? POTION.greatMul : 1;
     let msg = "";
     if (p.kind === "heal") {
@@ -533,6 +555,15 @@ export function rpgShop(g, pi, req) {
       h.bf[p.stat] = { t: p.dur, a: Math.max(amt, cur && cur.t > 0 ? cur.a : 0) };   // 다시 마시면 시간은 새로, 양은 큰 쪽
       hpChanged(h, wasFull);
       msg = `${p.dur}초 동안 ${statName(p.stat)} +${fmtStat(p.stat, h.bf[p.stat].a)}`;
+    } else if (p.kind === "speed") {
+      const cur = h.bf.spd;
+      h.bf.spd = { t: p.dur, a: Math.max(p.amt, cur && cur.t > 0 ? cur.a : 0) };   // 다시 마시면 시간은 새로, 양은 큰 쪽
+      msg = `${p.dur}초 동안 이동 속도 +${Math.round(h.bf.spd.a * 100)}%`;
+    } else if (p.kind === "hide") {
+      const cur = h.bf.hide;
+      h.bf.hide = { t: Math.max(p.dur, cur && cur.t > 0 ? cur.t : 0), a: 1 };     // 다시 마시면 남은 시간과 새 시간 가운데 긴 쪽
+      fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 44, color: "#cfd8e6", n: 8, t: 0.5, life: 0.5, who: pi });
+      msg = `${Math.ceil(h.bf.hide.t)}초 동안 몹이 알아채지 못합니다(보스는 알아챕니다)`;
     } else {
       const back = statSpent(h.st);
       h.st = noStats();
@@ -555,6 +586,15 @@ export function rpgShop(g, pi, req) {
     h.bag.qs[i] = id;
     bump(h);
     return note(g, pi, { ok: true, msg: id ? `${jo(POTION_BY_ID[id].name, "을", "를")} 물약 칸 ${i + 1}에 넣었습니다` : `물약 칸 ${i + 1}을 비웠습니다` });
+  }
+  // 주문서 상점 — 하락 방지권
+  if (op === "gdbuy") {
+    if ((why = whyGuardBuy(h)).length) return no(g, pi, why);
+    h.coins -= GUARD.price;
+    h.bag.gd = (h.bag.gd || 0) + 1;
+    bump(h);
+    fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `-${won(GUARD.price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
+    return note(g, pi, { ok: true, msg: `${jo(GUARD.name, "을", "를")} 샀습니다 (${h.bag.gd}장)` });
   }
   // 주문서 상점 — 지역 워프권
   if (op === "scbuy") {
@@ -590,7 +630,10 @@ export function rpgShop(g, pi, req) {
     h.bag.m[stone] -= 1;
     if (h.bag.m[stone] <= 0) delete h.bag.m[stone];
     const ok = Math.random() * 100 < rate;
-    const fall = !ok && cur > 0 && Math.random() * 100 < enhDown(next);
+    const drop = !ok && cur > 0 && Math.random() * 100 < enhDown(next);
+    const saved = drop && !!req.guard && (h.bag.gd || 0) > 0;     // 하락 방지권 — 떨어질 때만 한 장 쓴다
+    const fall = drop && !saved;
+    if (saved) h.bag.gd -= 1;
     const wasFull = h.hp >= h.max;
     if (ok) w.up = next;
     else if (fall) { if (cur - 1 > 0) w.up = cur - 1; else delete w.up; }
@@ -598,13 +641,14 @@ export function rpgShop(g, pi, req) {
     hpChanged(h, wasFull);
     fx(g, h.map, ok
       ? { kind: "call", x: h.x, y: h.y - 110, text: `강화 성공! +${next}`, color: "#ffd873", t: 1.2, life: 1.2, snd: "clear", who: pi }
-      : { kind: "call", x: h.x, y: h.y - 110, text: fall ? `강화 실패 · +${cur - 1} 로 하락` : "강화 실패", color: "#d9b8a8", t: 1.1, life: 1.1, who: pi });
+      : { kind: "call", x: h.x, y: h.y - 110, text: fall ? `강화 실패 · +${cur - 1} 로 하락` : saved ? "강화 실패 · 방지권으로 지킴" : "강화 실패", color: "#d9b8a8", t: 1.1, life: 1.1, who: pi });
     const nm = baseName(w);
     const tail = `(${rate}% · ${won(fee)}코인)`;
     return note(g, pi, { ok: true, enh: ok ? 1 : fall ? -1 : 0, msg: ok
       ? `강화 성공! ${nm} +${next} ${tail}`
       : fall ? `강화 실패 — ${nm} +${cur} 에서 +${cur - 1} 로 떨어졌습니다 ${tail}`
-        : `강화 실패 — ${nm} +${cur} 그대로 ${tail}` });
+        : saved ? `강화 실패 — ${GUARD.name}으로 +${cur} 을 지켰습니다(남은 ${h.bag.gd}장) ${tail}`
+          : `강화 실패 — ${nm} +${cur} 그대로 ${tail}` });
   }
   if (op === "msell") {
     const id = String(req.id || ""), n = Number(req.n);

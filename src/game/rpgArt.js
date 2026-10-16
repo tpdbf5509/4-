@@ -1221,6 +1221,7 @@ function drawHero(ctx, g, h, time) {
   shadow(ctx, h.x, h.y + 3, 15 * (1 - lift * 0.18), 5 * (1 - lift * 0.18), 0.3 * (1 - lift * 0.3));
   ctx.translate(h.x, h.y + (mo ? mo.hop : 0));
   if (down) { h.anim = null; ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
+  else if (h.bf && h.bf.hide && h.bf.hide.t > 0) ctx.globalAlpha = 0.45;   // 투명화 물약 — 비쳐 보인다
   if (mo) {                                          // 발밑을 축으로 기울이고 누른다
     ctx.translate(h.dir * mo.lunge, 0);
     ctx.rotate(mo.tilt + h.dir * mo.lean);

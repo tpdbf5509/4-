@@ -6,13 +6,14 @@ import { useState } from "react";
 import { STATS, statValue, MAPS } from "./game/rpg.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
-  CASINO, BOX, DICE, SLOT, SCROLLS, WARP,
+  CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD,
 } from "./game/shopData.js";
 import {
   SHOP_BY_ID, POTION_BY_ID, FAM_BY_ID, SKILL_BY_ID, todayKey, usedToday, tierOf, weaponName,
   weaponLine, weaponArt, specOf, specialTier, specialPrice, specialsFor, sellPrice, dealOf, equipped,
   skillNext, extraStat, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
   whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount, whyScrollBuy, whyWarp,
+  whyGuardBuy,
 } from "./game/shop.js";
 import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
 import { Coin } from "./ui/icons.jsx";
@@ -81,6 +82,8 @@ function WeaponItem({ w, tag, desc, price, acts, dim }) {
 function potionText(p) {
   if (p.kind === "heal") return `최대 체력의 ${pct(p.pct, 0)} 회복`;
   if (p.kind === "buff") return `${p.dur}초 동안 ${statDef(p.stat).name} +${statDef(p.stat).fmt(p.amt)}`;
+  if (p.kind === "speed") return `${p.dur >= 60 ? `${p.dur / 60}분` : `${p.dur}초`} 동안 이동 속도 +${Math.round(p.amt * 100)}%`;
+  if (p.kind === "hide") return `${p.dur}초 동안 몹이 알아채지 못합니다 · 보스는 알아챕니다 · 결투장 · 던전에서는 못 마십니다`;
   return "찍은 스탯 포인트를 모두 돌려받는다";
 }
 
@@ -158,11 +161,11 @@ function SkillShop({ h, send }) {
 }
 
 /* ── 물약 상점 — 종류별로 묶는다 ─────────────────────────────── */
-const POTION_GROUPS = [["heal", "회복 물약"], ["buff", "버프 물약"], ["reset", "스탯 초기화"]];
+const POTION_GROUPS = [["heal", "회복 물약"], ["buff", "버프 물약"], ["speed", "이속 물약"], ["hide", "투명화 물약"], ["reset", "스탯 초기화"]];
 function PotionShop({ h, send }) {
   return (
     <>
-      <p className="shop-note">마실 때 {pct(POTION.greatChance, 0)} 확률로 대성공이 터져 효과가 {POTION.greatMul}배가 됩니다. 초기화 물약에는 대성공이 없습니다. 산 물약은 가방(I)에서도 마실 수 있습니다.</p>
+      <p className="shop-note">회복 · 버프 물약은 마실 때 {pct(POTION.greatChance, 0)} 확률로 대성공이 터져 효과가 {POTION.greatMul}배가 됩니다. 산 물약은 가방(I)에서도 마실 수 있습니다.</p>
       {POTION_GROUPS.map(([kind, title]) => (
         <div key={kind}>
           <Head>{title}</Head>
@@ -270,6 +273,8 @@ function Casino({ h, send }) {
 function Forge({ h, send }) {
   const [tab, setTab] = useState("enh");
   const [stone, setStone] = useState(() => STONE_IDS.find((id) => matCount(h.bag, id) > 0) || STONE_IDS[0]);
+  const [guard, setGuard] = useState(false);          // 하락 방지권 쓰기 — 떨어질 때만 한 장 쓴다
+  const guards = h.bag.gd || 0;
   const sellable = MATERIALS.filter((m) => m.sell > 0);
   const st = MAT_BY_ID[stone];
   const rates = ENHANCE.stones[stone];
@@ -292,6 +297,10 @@ function Forge({ h, send }) {
               </button>
             ))}
           </div>
+          <label className="shop-guard">
+            <input type="checkbox" checked={guard && guards > 0} disabled={!guards} onChange={(e) => setGuard(e.target.checked)} />
+            <span>{GUARD.name} 쓰기 <small>가진 {guards}장 · 떨어질 때만 한 장 씁니다{guards ? "" : " · 주문서 상점에서 삽니다"}</small></span>
+          </label>
           <Head sub={`${st.name} · ${st.note}`}>무기</Head>
           {!h.bag.w.length && <Empty>가방에 무기가 없습니다. 무기상점에서 살 수 있습니다.</Empty>}
           {h.bag.w.map((w) => {
@@ -305,7 +314,7 @@ function Forge({ h, send }) {
                 desc={top ? `${weaponLine(w)} · 최고 단계` : `${weaponLine(w)} → +${sd.fmt(itemBonus(after))} (+${next} 강화)`}
                 price={top ? <span className="shop-price done">+{ENHANCE.max}</span>
                   : <span className="shop-enh"><em>{rate ? `${rate}%${enhDown(next) ? ` · 하락 ${enhDown(next)}%` : ""}` : "—"}</em><Price n={enhFee(w)} /></span>}
-                acts={top ? [] : [{ label: "강화", main: true, why: whyEnhance(h, w.u, stone), onClick: () => send({ op: "enh", u: w.u, stone }) }]} />
+                acts={top ? [] : [{ label: "강화", main: true, why: whyEnhance(h, w.u, stone), onClick: () => send({ op: "enh", u: w.u, stone, guard: guard && guards > 0 }) }]} />
             );
           })}
           <Head sub={`단계 · 비용 · 실패할 때 하락 · 성공`}>{st.name} 확률표</Head>
@@ -350,6 +359,11 @@ function ScrollShop({ h, send }) {
           desc={`${sc.n}번 쓸 수 있습니다`} price={<Price n={sc.price} />}
           acts={[{ label: "사기", why: whyScrollBuy(h, sc.id), onClick: () => send({ op: "scbuy", id: sc.id }) }]} />
       ))}
+      <Head sub={`가진 방지권 ${h.bag.gd || 0}장`}>{GUARD.name}</Head>
+      <Item name={GUARD.name}
+        desc="무기 강화에 실패해 단계가 떨어질 때 한 장을 써서 막습니다. 강화소에서 켜 둔 때만 씁니다."
+        price={<Price n={GUARD.price} />}
+        acts={[{ label: "사기", why: whyGuardBuy(h), onClick: () => send({ op: "gdbuy" }) }]} />
     </>
   );
 }
@@ -412,6 +426,13 @@ export function BagPanel({ h, send, note, onClose, tab0 = "stat" }) {
               </div>
             );
           })}
+          {[["spd", "이동 속도"], ["hide", "투명화"]].map(([k, name]) => (h.bf && h.bf[k] && h.bf[k].t > 0 ? (
+            <div key={k} className="shop-stat">
+              <span>{name}<small>물약 {Math.ceil(h.bf[k].t)}초</small></span>
+              <b>{k === "spd" ? `+${Math.round(h.bf[k].a * 100)}%` : "켜짐"}</b>
+              <em />
+            </div>
+          ) : null))}
         </div>
       )}
       {tab === "weapon" && (

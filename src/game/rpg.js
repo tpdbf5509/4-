@@ -8,7 +8,7 @@
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION } from "./shopData.js";
-import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo } from "./shop.js";
+import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { BUILD } from "../net/version.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY } from "./socialData.js";
 import { DROPS, MAT_BY_ID, GIFT } from "./itemData.js";
@@ -730,8 +730,9 @@ export function rpgWalk(h, dt) {
   const len = Math.hypot(dx, dy);
   if (dx) h.dir = dx < 0 ? -1 : 1;
   h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
-  h.x += (dx / len) * RPG.spd * dt;
-  h.y += (dy / len) * RPG.spd * RPG.squash * dt;
+  const v = RPG.spd * speedMul(h);                // 이속 물약 — 방장과 손님이 같은 값(스냅샷의 물약 효과)으로 걷는다
+  h.x += (dx / len) * v * dt;
+  h.y += (dy / len) * v * RPG.squash * dt;
   keepIn(h, MAPS[h.map], 20);
 }
 
@@ -1631,10 +1632,12 @@ function stepHeroes(g, dt) {
   });
 }
 
+// 몹이 이 사람을 알아채는가 — 투명화 물약을 마신 사람은 보스만 알아챈다
+const notices = (m, h) => m.boss || !buffLeft(h, "hide");
 function nearestHero(g, m, range) {
   let best = null, bd = range;
   g.heroes.forEach((h) => {
-    if (!h || h.down > 0 || h.map !== m.map) return;
+    if (!h || h.down > 0 || h.map !== m.map || !notices(m, h)) return;
     const d = dist(m.x, m.y, h.x, h.y);
     if (d < bd) { bd = d; best = h; }
   });
@@ -1802,7 +1805,7 @@ function stepBoar(g, m, dt) {
     if (Math.abs(m.vx) > 1) m.ax = m.vx < 0 ? -1 : 1;
     m.moving = 1;
     g.heroes.forEach((h) => {
-      if (!h || h.map !== m.map || h.down > 0 || m.hitSet.includes(h.pi)) return;
+      if (!h || h.map !== m.map || h.down > 0 || m.hitSet.includes(h.pi) || !notices(m, h)) return;
       if (dist(m.x, m.y, h.x, h.y) > m.rad + 18) return;
       m.hitSet.push(h.pi);
       hurtHero(g, h, m.dmg * BOAR.chargeMul);
@@ -1886,7 +1889,7 @@ function stepBrute(g, m, dt, P) {
     if (m.t <= 0) {                                  // 내려찍기 — 둘레의 사람 모두
       const r = P.slamR * (m.boss ? 1.35 : 1);
       g.heroes.forEach((h) => {
-        if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16) return;
+        if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16 || !notices(m, h)) return;
         hurtHero(g, h, m.dmg * P.slamMul);
         fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22, color: "#d8cbb8", n: 7, t: 0.32, life: 0.32 });
       });

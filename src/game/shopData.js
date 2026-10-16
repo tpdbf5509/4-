@@ -10,6 +10,8 @@ export const SHOPS = [
   { id: "potion", name: "물약 상점", keeper: "약사", x: 1600, y: 330, color: "#8fb59a", line: "다치면 언제든 오게." },
   { id: "casino", name: "도박장", keeper: "딜러", x: 1550, y: 950, color: "#c29a8a", line: "운을 시험해 보시겠어요?" },
   // 무기 강화소 — 강화석으로 무기를 +1 ~ +30 까지 올리고, 보스가 떨군 재료를 판다. 확률 · 값은 itemData.js
+  // 주문서 상점 — 지역 워프권을 판다(SCROLLS). 가방(I)의 "주문서" 탭에서 쓴다
+  { id: "scroll", name: "주문서 상점", keeper: "필경사", x: 1240, y: 300, color: "#9fb0a0", line: "먼 길도 한 장이면 충분하지요." },
   { id: "forge", name: "무기 강화소", keeper: "강화 장인", x: 430, y: 1020, color: "#a3907c", line: "강화석만 있으면 무기를 더 단단하게 해 주지." },
 ];
 export const SHOP_REACH = 110;            // 이만큼 가까우면 상점을 쓸 수 있다
@@ -126,8 +128,23 @@ export const POTIONS = [
 ];
 export const POTION = {
   stackMax: 99,          // 한 종류를 이만큼까지 가질 수 있다
+  slots: 3,              // 물약 칸 — 가방에서 물약을 넣어 두고 숫자키(5 · 6 · 7)나 화면 칸으로 바로 마신다
   greatChance: 0.05,     // 마실 때 5% 확률로 효과 2배 — "대성공" (초기화 물약에는 없다)
   greatMul: 2,
+};
+
+/* ── 주문서 — 지역 워프권 ───────────────────────────────────
+   쓰면 고른 지역(광장 · 사냥터)의 입구로 바로 옮겨 간다. 한 번 쓸 때마다 1회씩 줄어든다.
+   n 회짜리를 price 코인에 판다 — 많이 살수록 한 번 값이 싸다. 가진 횟수는 가방(bag.wp)에 쌓인다 */
+export const SCROLLS = [
+  { id: "warp3", name: "지역 워프권 3회", n: 3, price: 1500 },    // 1회 500
+  { id: "warp6", name: "지역 워프권 6회", n: 6, price: 2700 },    // 1회 450
+  { id: "warp10", name: "지역 워프권 10회", n: 10, price: 4000 }, // 1회 400
+];
+export const WARP = {
+  max: 999,                          // 가질 수 있는 횟수
+  // 갈 수 있는 지역 — 차례대로 보인다. 결투장은 결투 신청으로만 간다
+  maps: ["plaza", "field", "wolf", "boar", "gorilla", "goblin", "orc", "ogre"],
 };
 
 /* ── 도박장 ─────────────────────────────────────────────── */

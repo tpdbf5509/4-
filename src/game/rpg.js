@@ -336,7 +336,7 @@ export const LV_MAX = 200;
    물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
 export const STAT_MAX = 250;          // 스탯 하나의 상한 — 100 에서 250 으로 늘렸다(한 스탯에 몰아 찍을 수 있게)
 // 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
-// 레벨은 최고 레벨로 두고, 코인은 쓰는 대로 이만큼 다시 채운다(돈 무제한)
+// 레벨은 최고 레벨, 스탯은 다섯 모두 STAT_MAX 로 두고, 코인은 쓰는 대로 이만큼 다시 채운다(돈 무제한)
 export const ADMIN = { coins: 99999999 };
 export const STAT_PER_LV = 2;
 export const STAT_START = 2;
@@ -351,6 +351,7 @@ export const STATS = [
 export const STAT_IDS = STATS.map((t) => t.id);
 const STAT_BY_ID = Object.fromEntries(STATS.map((t) => [t.id, t]));
 export const noStats = () => Object.fromEntries(STAT_IDS.map((k) => [k, 0]));
+export const maxStats = () => Object.fromEntries(STAT_IDS.map((k) => [k, STAT_MAX]));   // 관리자 캐릭터
 // 이 레벨까지 받은 포인트
 export const statEarned = (lv) => STAT_START + STAT_PER_LV * (clamp(Math.floor(lv || 1), 1, LV_MAX) - 1);
 export const statSpent = (st) => STAT_IDS.reduce((n, k) => n + ((st && st[k]) || 0), 0);
@@ -603,7 +604,7 @@ export function rpgJoin(g, pi, d, who) {
     h.lv = LV_MAX; h.xp = 0;
     h.coins = Math.max(h.coins, ADMIN.coins);
   }
-  h.st = cleanStats(d.stats, h.lv);
+  h.st = h.admin ? maxStats() : cleanStats(d.stats, h.lv);   // 관리자는 모든 스탯이 최대
   h.bag = cleanBag(d.bag);
   h.bag.ld = 1;
   h.rec = cleanRec(d.rec);
@@ -1540,6 +1541,7 @@ function stepHeroes(g, dt) {
     tickBuffs(h, dt);                             // 버프 물약 시간
     if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - dt);   // 산 스킬 대기 시간
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
+    if (h.admin && STAT_IDS.some((k) => h.st[k] < STAT_MAX)) { h.st = maxStats(); refreshHp(h, true); }   // 초기화 물약을 마셔도 다시 최대
     h.guard = Math.max(0, h.guard - dt);
     h.numT = Math.max(0, h.numT - dt);
     h.gateCd = Math.max(0, h.gateCd - dt);

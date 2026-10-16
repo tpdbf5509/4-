@@ -3,16 +3,16 @@
    버튼을 누르면 send({ op, ... }) 로 방장에게 보내고, 결과는 note 로 돌아와 창 위쪽에 한 줄로 뜬다.
    막힌 이유는 방장과 같은 조건 함수(why*)로 미리 보여 준다. */
 import { useState } from "react";
-import { STATS, statValue } from "./game/rpg.js";
+import { STATS, statValue, MAPS } from "./game/rpg.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
-  CASINO, BOX, DICE, SLOT,
+  CASINO, BOX, DICE, SLOT, SCROLLS, WARP,
 } from "./game/shopData.js";
 import {
   SHOP_BY_ID, POTION_BY_ID, FAM_BY_ID, SKILL_BY_ID, todayKey, usedToday, tierOf, weaponName,
   weaponLine, weaponArt, specOf, specialTier, specialPrice, specialsFor, sellPrice, dealOf, equipped,
   skillNext, extraStat, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
-  whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount,
+  whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount, whyScrollBuy, whyWarp,
 } from "./game/shop.js";
 import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
 import { Coin } from "./ui/icons.jsx";
@@ -333,7 +333,28 @@ function Forge({ h, send }) {
   );
 }
 
-const BODIES = { weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge };
+/* ── 주문서 상점 — 지역 워프권 ─────────────────────────────── */
+// 지역의 레벨 — 그 지역으로 가는 문 이름("늑대 사냥터 · 10~20레벨")에서 읽는다
+const warpHint = (id) => {
+  const gate = Object.values(MAPS).flatMap((M) => M.gates).find((q) => q.to === id && q.label.includes("레벨"));
+  return gate ? gate.label.split(" · ")[1] : id === "plaza" ? "상점 · 의뢰 · 명예 순위" : "1~5레벨";
+};
+function ScrollShop({ h, send }) {
+  return (
+    <>
+      <p className="shop-note">지역 워프권을 쓰면 고른 지역의 입구로 바로 옮겨 갑니다. 한 번에 1회씩 줄어듭니다. 가방(I)의 "주문서" 탭에서 씁니다.</p>
+      <Head sub={`가진 워프권 ${h.bag.wp || 0}회`}>지역 워프권</Head>
+      {SCROLLS.map((sc) => (
+        <Item key={sc.id} name={sc.name}
+          meta={<span className="shop-meta"><span>1회 {won(sc.price / sc.n)}코인</span></span>}
+          desc={`${sc.n}번 쓸 수 있습니다`} price={<Price n={sc.price} />}
+          acts={[{ label: "사기", why: whyScrollBuy(h, sc.id), onClick: () => send({ op: "scbuy", id: sc.id }) }]} />
+      ))}
+    </>
+  );
+}
+
+const BODIES = { scroll: ScrollShop, weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge };
 
 // 창의 틀 — 머리(이름 · 한 줄 · 코인 · 닫기) · 결과 한 줄 · 내용
 function Frame({ title, sub, coins, admin, note, onClose, children }) {
@@ -367,15 +388,16 @@ export function ShopPanel({ shop, h, send, note, onClose }) {
 }
 
 /* ── 가방 — 어디서나 연다. 능력치 · 무기 장착 · 물약 마시기 · 배운 스킬 ── */
-export function BagPanel({ h, send, note, onClose }) {
-  const [tab, setTab] = useState("stat");
+export function BagPanel({ h, send, note, onClose, tab0 = "stat" }) {
+  const [tab, setTab] = useState(tab0);
+  const qs = h.bag.qs || [];
   const w = equipped(h.bag);
   const potions = POTIONS.filter((p) => h.bag.p[p.id] > 0);
   const skills = SKILLS.filter((s) => h.bag.s[s.id] > 0);
   const mats = MATERIALS.filter((m) => matCount(h.bag, m.id) > 0);
   return (
     <Frame title="가방" sub="장비 · 스킬 · 버프로 오른 몫은 + 로 따로 보입니다." coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
-      <Tabs on={tab} set={setTab} tabs={[["stat", "능력치"], ["weapon", "무기", h.bag.w.length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["skill", "스킬", skills.length]]} />
+      <Tabs on={tab} set={setTab} tabs={[["stat", "능력치"], ["weapon", "무기", h.bag.w.length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length]]} />
       {tab === "stat" && (
         <div className="shop-stats">
           {STATS.map((t) => {
@@ -406,10 +428,29 @@ export function BagPanel({ h, send, note, onClose }) {
       )}
       {tab === "potion" && (
         <>
+          <p className="shop-note">칸 1 · 2 · 3 에 넣어 두면 화면 왼쪽 아래 칸이나 숫자키 5 · 6 · 7 로 바로 마십니다. 넣은 칸을 다시 누르면 뺍니다.</p>
           {!potions.length && <Empty>물약 상점에서 살 수 있습니다.</Empty>}
-          {potions.map((p) => (
-            <Item key={p.id} name={p.name} meta={<span className="shop-meta"><span>× {h.bag.p[p.id]}</span></span>} desc={potionText(p)}
-              acts={[{ label: "마시기", why: whyPotionUse(h, p.id), onClick: () => send({ op: "puse", id: p.id }) }]} />
+          {potions.map((p) => {
+            const at = qs.indexOf(p.id);
+            return (
+              <Item key={p.id} name={p.name}
+                meta={<span className="shop-meta"><span>× {h.bag.p[p.id]}</span>{at >= 0 && <span className="shop-tag">칸 {at + 1}</span>}</span>}
+                desc={potionText(p)}
+                acts={[{ label: "마시기", why: whyPotionUse(h, p.id), onClick: () => send({ op: "puse", id: p.id }) },
+                  ...Array.from({ length: POTION.slots }, (_, i) => ({ label: `칸 ${i + 1}`, main: at === i,
+                    onClick: () => send({ op: "qset", i, id: at === i ? "" : p.id }) }))]} />
+            );
+          })}
+        </>
+      )}
+      {tab === "scroll" && (
+        <>
+          <Head sub={`남은 ${h.bag.wp || 0}회 · 한 번에 1회`}>지역 워프권</Head>
+          {!(h.bag.wp > 0) && <Empty>광장의 주문서 상점에서 살 수 있습니다.</Empty>}
+          {WARP.maps.map((id) => (
+            <Item key={id} name={MAPS[id].name} dim={h.map === id} desc={warpHint(id)}
+              meta={<span className="shop-meta">{h.map === id && <span className="shop-tag">지금 여기</span>}</span>}
+              acts={[{ label: "워프", quiet: true, why: whyWarp(h, id), onClick: () => send({ op: "warp", to: id }) }]} />
           ))}
         </>
       )}

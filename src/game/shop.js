@@ -4,11 +4,11 @@
    가방(h.bag)은 이름과 함께 이 기기에 남고, 바뀔 때만 손님에게 보낸다. */
 import {
   SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIAL, SPECIALS,
-  SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT,
+  SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT, SCROLLS, WARP,
 } from "./shopData.js";
 import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
-import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist } from "./rpg.js";
+import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS } from "./rpg.js";
 
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
 export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]));
@@ -16,6 +16,7 @@ export const SKILL_BY_ID = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
 export const FAM_BY_ID = Object.fromEntries(SKILL_FAMS.map((f) => [f.id, f]));
 export const POTION_BY_ID = Object.fromEntries(POTIONS.map((p) => [p.id, p]));
 export const SPECIAL_BY_ID = Object.fromEntries(SPECIALS.map((sp) => [sp.id, sp]));
+export const SCROLL_BY_ID = Object.fromEntries(SCROLLS.map((sc) => [sc.id, sc]));
 const BUFF_STATS = ["str", "int", "crit"];          // 버프 물약이 올릴 수 있는 스탯
 
 const statDef = (id) => STATS.find((t) => t.id === id);
@@ -117,9 +118,9 @@ export function dealOf(lv, day = todayKey()) {
 /* ── 가방 ──────────────────────────────────────────────────
    w 무기 목록 [{ u 번호, t 종류, r 단계, g 등급, p 산 값, sp 특별 무기 id(있을 때만) }] · e 장착한 무기 번호(0 은 맨손)
    무기의 up 은 강화 단계(0 이면 강화하지 않음, 있을 때만)
-   p 물약 { id: 개수 } · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
+   p 물약 { id: 개수 } · qs 물약 칸 [물약 id 또는 ""] · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · wp 지역 워프권 남은 횟수 · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
-export const newBag = () => ({ w: [], e: 0, p: {}, s: {}, m: {}, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
+export const newBag = () => ({ w: [], e: 0, p: {}, qs: [], s: {}, m: {}, wp: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
 export function cleanBag(d) {
   const b = newBag();
   if (!d || typeof d !== "object") return b;
@@ -153,6 +154,8 @@ export function cleanBag(d) {
     const c = Math.floor(Number(d.m && d.m[m.id]) || 0);
     if (c > 0) b.m[m.id] = Math.min(MAT_MAX, c);
   });
+  b.wp = Math.min(WARP.max, Math.max(0, Math.floor(Number(d.wp) || 0)));
+  b.qs = Array.from({ length: POTION.slots }, (_, i) => (Array.isArray(d.qs) && POTION_BY_ID[d.qs[i]] ? d.qs[i] : ""));
   const dy = d.day || {};
   if (typeof dy.d === "string") {
     b.day = { d: dy.d.slice(0, 10) };
@@ -260,6 +263,28 @@ export function whyEquip(h, u) {
   const w = h.bag.w.find((q) => q.u === u);
   if (!w) out.push("가방에 없는 무기입니다");
   else if (h.lv < WEAPON_TIERS[w.r]) out.push(`레벨 ${WEAPON_TIERS[w.r]} 필요 (지금 ${h.lv})`);
+  return out;
+}
+
+// 주문서 사기 · 워프 — 워프는 어디서나 쓴다(쓰러졌거나 결투 중이면 안 된다)
+export function whyScrollBuy(h, id) {
+  const out = [];
+  base(h, "scroll", out);
+  const sc = SCROLL_BY_ID[id];
+  if (!sc) { out.push("없는 주문서입니다"); return out; }
+  if (!h || !h.bag) return out;
+  if ((h.bag.wp || 0) + sc.n > WARP.max) out.push(`워프권은 ${WARP.max}회까지 가질 수 있습니다`);
+  lackCoin(h, sc.price, out);
+  return out;
+}
+export function whyWarp(h, to) {
+  const out = [];
+  base(h, null, out);
+  if (!WARP.maps.includes(to) || !MAPS[to]) { out.push("갈 수 없는 지역입니다"); return out; }
+  if (!h || !h.bag) return out;
+  if ((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && MAPS[h.map].pvp)) out.push("결투 중에는 쓸 수 없습니다");
+  else if (h.map === to) out.push("이미 이 지역에 있습니다");
+  if (!(h.bag.wp > 0)) out.push("지역 워프권이 없습니다");
   return out;
 }
 
@@ -521,6 +546,40 @@ export function rpgShop(g, pi, req) {
     return note(g, pi, { ok: true, great, msg: `${p.name} — ${msg}` });
   }
 
+  // 물약 칸 — i 번째 칸에 물약을 넣거나(id) 뺀다(""). 어디서나 한다
+  if (op === "qset") {
+    const i = Math.floor(Number(req.i)), id = String(req.id || "");
+    if (!(i >= 0 && i < POTION.slots) || (id && !POTION_BY_ID[id])) return no(g, pi, ["잘못된 물약 칸입니다"]);
+    if (!Array.isArray(h.bag.qs)) h.bag.qs = [];
+    for (let k = 0; k < POTION.slots; k++) if (h.bag.qs[k] === undefined || (id && h.bag.qs[k] === id)) h.bag.qs[k] = "";   // 같은 물약은 한 칸에만
+    h.bag.qs[i] = id;
+    bump(h);
+    return note(g, pi, { ok: true, msg: id ? `${jo(POTION_BY_ID[id].name, "을", "를")} 물약 칸 ${i + 1}에 넣었습니다` : `물약 칸 ${i + 1}을 비웠습니다` });
+  }
+  // 주문서 상점 — 지역 워프권
+  if (op === "scbuy") {
+    if ((why = whyScrollBuy(h, req.id)).length) return no(g, pi, why);
+    const sc = SCROLL_BY_ID[req.id];
+    h.coins -= sc.price;
+    h.bag.wp = (h.bag.wp || 0) + sc.n;
+    bump(h);
+    fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `-${won(sc.price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
+    return note(g, pi, { ok: true, msg: `${jo(sc.name, "을", "를")} 샀습니다 (워프권 ${h.bag.wp}회)` });
+  }
+  // 워프 — 고른 지역의 입구로 옮겨 간다
+  if (op === "warp") {
+    const to = String(req.to || "");
+    if ((why = whyWarp(h, to)).length) return no(g, pi, why);
+    const M = MAPS[to];
+    h.bag.wp -= 1;
+    bump(h);
+    fx(g, h.map, { kind: "ring", x: h.x, y: h.y - 10, r: 60, color: "#bfe6ff", t: 0.5, life: 0.5 });
+    h.map = to;
+    h.x = M.spawn[0] + (Math.random() - 0.5) * 60; h.y = M.spawn[1] + (Math.random() - 0.5) * 30;
+    h.hold = []; h.dash = 0; h.gateCd = 1.5;
+    fx(g, to, { kind: "ring", x: h.x, y: h.y - 10, r: 60, color: "#bfe6ff", t: 0.6, life: 0.6, snd: "bless", who: pi });
+    return note(g, pi, { ok: true, msg: `${jo(M.name, "으로", "로")} 워프했습니다 (남은 ${h.bag.wp}회)` });
+  }
   // 무기 강화소 — 실패하면 강화석 · 코인이 사라지고, 높은 단계에서는 일정 확률로 한 단계 떨어진다(enhDown)
   if (op === "enh") {
     const u = Number(req.u), stone = String(req.stone || "");

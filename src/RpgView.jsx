@@ -10,6 +10,7 @@ import {
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
+import { POTION } from "./game/shopData.js";
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQUESTS, REQ_SHOW } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, GIFT } from "./game/itemData.js";
@@ -358,6 +359,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [plan, setPlan] = useState(noStats);        // 스탯 창에서 적용하기 전에 올려 둔 포인트
   const [shopOpen, setShopOpen] = useState(null);   // 열어 둔 상점 id
   const [bagOpen, setBagOpen] = useState(false);    // 가방 창
+  const [bagTab, setBagTab] = useState("stat");     // 가방 창을 열 때 처음 보일 탭
   const [note, setNote] = useState(null);           // 상점 결과 한 줄 — 내 것만
   const shopRef = useRef(null);                     // 루프가 보는 열린 상점
   const [titleOpen, setTitleOpen] = useState(false); // 칭호 창
@@ -549,6 +551,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "skill") act("skill");
       else if (a === "dash") act("dash");
       else if (a === "talk") act("talk");
+      else if (a.startsWith("pot")) {                // 물약 칸 — 넣어 둔 물약을 마신다
+        const id = (G.current.heroes[mySeat]?.bag.qs || [])[Number(a.slice(3)) - 1];
+        if (id) act("shop", { op: "puse", id });
+      }
       else if (a.startsWith("use")) {
         const s = ACTIVE_SKILLS.find((q) => q.use.key === Number(a.slice(3)));
         if (s) act("use", s.id);
@@ -761,10 +767,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           skills: ACTIVE_SKILLS.filter((s) => me.bag.s[s.id] > 0).map((s) => ({ id: s.id, key: s.use.key, name: s.name,
             lv: me.bag.s[s.id], cd: (me.scd && me.scd[s.id]) || 0, max: s.use.cd })),
           dashCd: me.dashCd || 0,
+          // 물약 칸 — 넣어 둔 물약과 가진 수
+          pots: Array.from({ length: POTION.slots }, (_, i) => {
+            const id = (me.bag.qs || [])[i];
+            return id && POTION_BY_ID[id] ? { id, name: POTION_BY_ID[id].name, n: me.bag.p[id] || 0 } : null;
+          }),
           extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf },
+            dvs: me.dvs,
             reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])) },
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title,
             honor: h.honor || 0, dvs: h.dvs })),
@@ -1202,7 +1214,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <ShopPanel shop={shopOpen} h={me.self} send={sendShop} note={note} onClose={() => setShopOpen(null)} />
           )}
           {me && bagOpen && (
-            <BagPanel h={me.self} send={sendShop} note={note} onClose={() => setBagOpen(false)} />
+            <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} onClose={() => { setBagOpen(false); setBagTab("stat"); }} />
           )}
           {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !reqOpen
             && (me.quest.on || inField || Object.keys(me.self.reqs).length > 0) && (
@@ -1320,6 +1332,24 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   {s.cd > 0 && <i style={{ width: `${(s.cd / s.max) * 100}%` }} />}
                 </button>
               ))}
+            </div>
+          )}
+          {me && !shopOpen && !bagOpen && (
+            <div className="rpg-potbar" aria-label="물약 칸">
+                {me.pots.map((p, i) => (p ? (
+                  <button key={`pot${i}`} type="button" className={`rpg-skill pot ${p.n ? "" : "cool"}`}
+                    onPointerDown={(e) => { e.preventDefault(); if (p.n) act("shop", { op: "puse", id: p.id }); }}>
+                    {!touch && keyOf(binds, `pot${i + 1}`) && <kbd>{keyOf(binds, `pot${i + 1}`)}</kbd>}
+                    <span>{p.name.replace("물약 ", "")}<small>물약 칸 {i + 1}</small></span>
+                    <em>{p.n}</em>
+                  </button>
+                ) : (
+                  <button key={`pot${i}`} type="button" className="rpg-skill pot empty"
+                    onPointerDown={(e) => { e.preventDefault(); closeAll(); setBagTab("potion"); setBagOpen(true); }}>
+                    {!touch && keyOf(binds, `pot${i + 1}`) && <kbd>{keyOf(binds, `pot${i + 1}`)}</kbd>}
+                    <span>빈 칸<small>가방에서 넣기</small></span>
+                  </button>
+                )))}
             </div>
           )}
           {me && me.down > 0 && (

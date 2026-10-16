@@ -3136,6 +3136,8 @@ export function drawFx(ctx, f) {
     ctx.fillStyle = f.color || "#ffe9bd";
     ctx.fillText(f.text, 0, 0);
     ctx.restore();
+  } else if (k === "dmg" && f.boss) {
+    drawBossNum(ctx, f);
   } else if (k === "dmg") {
     const p = 1 - f.t / f.life;
     // 계급이 높을수록(평타→강타→치명타급→초대형) 크게, 살짝 더 튀어오르며 뜬다
@@ -3171,6 +3173,58 @@ export function drawFx(ctx, f) {
   }
 }
 
+
+/* RPG 보스 피해 숫자 — 세기(tier 0 평타 · 1 스킬 · 2 치명타)마다 크기 · 색 · 강조를 나누고, 피해가 클수록 조금 더 크게(1.35배까지).
+   위로 떠오르며 흐려진다. 강조는 숫자 둘레에만 짧게 — 체력바 · 화면은 번쩍이지 않는다 */
+const BOSS_NUM_PX = [15, 19, 24];
+function drawBossNum(ctx, f) {
+  const p = 1 - f.t / f.life;
+  const tier = Math.min(2, f.tier || 0);
+  const v = Number(f.text) || 0;
+  const big = Math.max(0.9, Math.min(1.35, 1 + 0.12 * Math.log10(Math.max(1, v) / 2000)));
+  const size = Math.round(BOSS_NUM_PX[tier] * big);
+  const pop = p < 0.15 ? 1 + (0.15 - p) * (2 + tier * 1.2) : 1;
+  ctx.save();
+  ctx.translate(f.x, f.y - (1 - Math.pow(1 - p, 2)) * (24 + tier * 8));
+  ctx.globalAlpha = 1 - Math.pow(p, 2.4);
+  if (tier >= 1 && p < 0.3) {                         // 스킬 · 치명타 — 숫자 뒤 짧은 빛
+    const q = p / 0.3;
+    const rr = size * (0.9 + q * (tier === 2 ? 1.4 : 0.8));
+    const gr = ctx.createRadialGradient(0, -size * 0.35, 1, 0, -size * 0.35, rr);
+    gr.addColorStop(0, tier === 2 ? `rgba(255,220,110,${0.55 * (1 - q)})` : `rgba(255,170,90,${0.38 * (1 - q)})`);
+    gr.addColorStop(1, "rgba(255,170,90,0)");
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.arc(0, -size * 0.35, rr, 0, Math.PI * 2); ctx.fill();
+  }
+  if (tier === 2 && p < 0.35) {                       // 치명타 — 퍼지는 빛살
+    const q = p / 0.35;
+    ctx.strokeStyle = `rgba(255,226,130,${0.85 * (1 - q)})`; ctx.lineWidth = 2;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + 0.2;
+      const r0 = size * (0.6 + q * 0.6), r1 = size * (1 + q * 1.1);
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * r0, -size * 0.35 + Math.sin(a) * r0 * 0.8);
+      ctx.lineTo(Math.cos(a) * r1, -size * 0.35 + Math.sin(a) * r1 * 0.8);
+      ctx.stroke();
+    }
+  }
+  ctx.scale(pop, pop);
+  ctx.textAlign = "center";
+  if (tier === 2) {                                   // 치명타 표시
+    ctx.font = "700 10px Jua, system-ui, sans-serif";
+    ctx.lineWidth = 3; ctx.strokeStyle = "rgba(26,20,12,0.9)";
+    ctx.strokeText("치명타", 0, -size - 1);
+    ctx.fillStyle = "#ffe6a0"; ctx.fillText("치명타", 0, -size - 1);
+  }
+  ctx.font = `${tier >= 2 ? 900 : 800} ${size}px Jua, system-ui, sans-serif`;
+  ctx.lineWidth = 3.2 + tier * 0.6;
+  ctx.strokeStyle = tier === 2 ? "rgba(70,30,6,0.95)" : "rgba(26,20,12,0.92)";
+  ctx.strokeText(f.text, 0, 0);
+  ctx.fillStyle = f.color || "#fff4e2";
+  ctx.fillText(f.text, 0, 0);
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
 
 /* ── 알림 띠 ────────────────────────────────────────────── */
 export function drawBanner(ctx, b) {

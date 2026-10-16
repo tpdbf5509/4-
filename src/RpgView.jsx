@@ -24,6 +24,7 @@ import RpgAccount from "./RpgAccount.jsx";
 import { compareBuild } from "./net/version.js";
 import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText, honorTop } from "./net/rpgSave.js";
 import { drawRpg } from "./game/rpgArt.js";
+import { ghostStep } from "./game/bossBar.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
 import { useTouch } from "./ui/touch.js";
@@ -382,6 +383,40 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [reqOpen, setReqOpen] = useState(null);      // 열어 둔 의뢰 NPC id
   const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
   const dgRef = useRef(false);                       // 루프가 보는 열린 던전 창 — 관리인에게서 멀어지면 닫는다
+  // 던전 보스 체력 칸 — 루프가 프레임마다 DOM 너비를 바로 고친다(React 상태를 매 프레임 바꾸지 않는다)
+  const bossMem = useRef(null);                      // { id, name, map, hp, max, fx } — 쓰러진 뒤에도 0% 까지 보여 주려고 남긴다
+  const bossRealRef = useRef(null), bossGhostRef = useRef(null), bossNumRef = useRef(null);
+  const bossDrawn = useRef("");
+  /* 보스 체력바 잔상(bossBar.js) — 내 맵의 보스마다 m.hpFx 를 돌리고, 던전 위 칸을 그린다.
+     실제 칸은 받은 체력 그대로, 주황 잔상만 늦게 따라온다. 보스가 쓰러져 사라져도 던전을 마쳤으면 0% 까지 그린다 */
+  const tickBossBars = useCallback((g, now) => {
+    const me = g.heroes[mySeat];
+    if (!me) return;
+    let dgBoss = null;
+    for (const m of g.mobs) {
+      if (!m.boss || m.dead || m.map !== me.map) continue;
+      m.hpFx = ghostStep(m.hpFx, m.hp / m.max, now);
+      if (m.dg) dgBoss = m;
+    }
+    const run = runOf(g, me);
+    let b = bossMem.current;
+    if (dgBoss) {
+      if (!b || b.id !== dgBoss.id) b = bossMem.current = { id: dgBoss.id, name: MOB[dgBoss.type].boss.name, map: me.map };
+      b.hp = dgBoss.hp; b.max = dgBoss.max; b.fx = dgBoss.hpFx;
+    } else if (b && run && (run.phase === "boss" || run.phase === "clear") && b.map === me.map) {
+      b.hp = 0; b.fx = ghostStep(b.fx, 0, now);      // 쓰러졌다(완료 판정 전 한 순간 포함) — 실제 0%, 잔상도 0% 까지 따라온다
+    } else if (b) {
+      b = bossMem.current = null;                    // 던전을 나갔거나 끝났다 — 남은 상태를 버린다
+    }
+    if (!b || !bossRealRef.current) { bossDrawn.current = ""; return; }
+    const real = b.fx ? b.fx.real : 0, ghost = b.fx ? b.fx.ghost : 0;
+    const key = `${b.id}/${real.toFixed(4)}/${ghost.toFixed(4)}/${Math.ceil(b.hp)}`;
+    if (key === bossDrawn.current) return;         // 바뀐 때만 고친다
+    bossDrawn.current = key;
+    bossRealRef.current.style.width = `${real * 100}%`;
+    bossGhostRef.current.style.width = `${ghost * 100}%`;
+    bossNumRef.current.textContent = `${Math.max(0, Math.ceil(b.hp)).toLocaleString("ko-KR")} / ${Math.round(b.max).toLocaleString("ko-KR")}`;
+  }, [mySeat]);
   // 업데이트 안내 창 — 새 공지(RPG_NOTICE)를 이 기기에서 아직 안 봤거나, 이번 선물을 처음 받았을 때 한 번. { gift, notes }
   const [giftOpen, setGiftOpen] = useState(null);
   const giftRef = useRef(null);                      // 들어올 때 이미 받은 선물이었는지 — 루프가 본다
@@ -784,6 +819,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         rpgStepVisual(g, dt);
       }
       playSounds(g);
+      tickBossBars(g, now / 1000);
       drawRpg(ctx, g, bgsRef.current);
       if (++frame % 5 === 0) {
         const me = g.heroes[mySeat];
@@ -818,8 +854,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           run: (() => {
             const r = runOf(g, me);
             if (!r) return null;
-            const boss = g.mobs.find((m) => m.map === me.map && m.boss && !m.dead);
-            return { id: r.id, t: r.t, wave: r.wave, phase: r.phase, end: r.end, boss: boss ? { name: MOB[boss.type].boss.name, pct: boss.hp / boss.max } : null };
+            const b = bossMem.current;                   // 체력 칸은 루프가 바로 그린다(tickBossBars) — 여기서는 보일지 · 이름만
+            return { id: r.id, t: r.t, wave: r.wave, phase: r.phase, end: r.end, boss: b ? { id: b.id, name: b.name } : null };
           })(),
           free: Object.fromEntries(DUNGEONS.map((d) => [d.id, DUNGEON.slots - (g.runs || []).filter((r) => r.id === d.id).length])),
           crew: dgCrew(g, me).map((o) => o.pi),
@@ -864,7 +900,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [isHost, room, playSounds, mySeat, pushChat]);
+  }, [isHost, room, playSounds, mySeat, pushChat, tickBossBars]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1301,9 +1337,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <button type="button" className="rpg-win-btn" onClick={() => act("dg", { op: "leave" })}>나가기</button>
                 </div>
                 {r.boss && (
-                  <div className="rpg-dg-boss">
+                  <div className="rpg-dg-boss" key={r.boss.id}>
                     <span>{r.boss.name}</span>
-                    <i><em style={{ width: `${Math.max(0, Math.min(1, r.boss.pct)) * 100}%` }} /></i>
+                    <b ref={bossNumRef} />
+                    <i><s ref={bossGhostRef} /><em ref={bossRealRef} /></i>
                   </div>
                 )}
                 {(r.phase === "clear" || r.phase === "fail") && (

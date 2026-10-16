@@ -1055,9 +1055,20 @@ function nearMobs(g, map, x, y, range, n = Infinity) {
   return out.slice(0, n).map((o) => o[1]);
 }
 
+/* 피해 숫자 — 맞힌 피해를 0.2초씩 모아 띄운다(치명타 · 스킬은 바로). 보스는 몸 위쪽에, 다섯 자리를 돌려 가며 띄워
+   겹치지 않게 하고 세기를 나눈다 — 0 평타 흰색 · 1 스킬 주황 · 2 치명타 금색(그리기는 art.js "dmg" boss) */
+const BOSS_NUM = { col: ["#fff4e2", "#ffbe72", "#ffd84a"], life: [0.65, 0.78, 0.95],
+  dx: [0, -48, 48, -24, 24], dy: [0, 14, 14, 28, 28] };
+// 발밑에서 숫자를 띄울 높이 — 몸통 가운데쯤. 머리 위 이름표 · 체력 칸과 겹치지 않게 그보다 낮게 띄운다
+const bossTop = (m) => (m.dg ? 120 : Math.min(120, m.rad * 1.4 + 14));
 function flushNum(g, m, tier = 0) {
   if (!(m.numAcc > 0)) return;
-  fx(g, m.map, { kind: "dmg", x: m.x + (Math.random() - 0.5) * 14, y: m.y - 30,
+  if (m.boss) {
+    const k = (m.numK = ((m.numK || 0) + 1) % BOSS_NUM.dx.length);
+    const t = Math.min(2, tier);
+    fx(g, m.map, { kind: "dmg", boss: 1, x: m.x + BOSS_NUM.dx[k] + (Math.random() - 0.5) * 8, y: m.y - bossTop(m) - BOSS_NUM.dy[k],
+      text: String(Math.round(m.numAcc)), color: BOSS_NUM.col[t], t: BOSS_NUM.life[t], life: BOSS_NUM.life[t], tier: t });
+  } else fx(g, m.map, { kind: "dmg", x: m.x + (Math.random() - 0.5) * 14, y: m.y - 30,
     text: String(Math.round(m.numAcc)), color: m.numCol, t: 0.65, life: 0.65, tier });
   m.numAcc = 0;
   m.numT = 0.2;
@@ -1102,7 +1113,7 @@ function killMob(g, m, pi) {
   if (m.dead) return;
   m.dead = true;
   m.hp = 0;
-  flushNum(g, m, 1);
+  flushNum(g, m, m.boss ? 0 : 1);                 // 남은 숫자 — 보스는 모아 둔 평타라 평타 세기로
   fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" });
   if (m.gi >= 0) g.respawn.push({ t: SPAWNS[m.gi].respawn, gi: m.gi });   // 던전 몹은 다시 나오지 않는다
   if (m.dg && m.boss) g.mobs.forEach((q) => {     // 던전 보스가 쓰러지면 부른 몹도 사라진다(보상 없음)
@@ -2521,7 +2532,9 @@ export function rpgPack(g) {
     m: g.mobs.filter((m) => busy.has(m.map)).map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
         | (m.stun > 0 ? 16 : 0) | (m.shred > 0 ? 32 : 0) | (m.flash > 0 ? 64 : 0),
-      m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0, m.warnR || 0]),
+      m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0, m.warnR || 0,
+      // 보스는 체력을 그대로도 싣는다 — 손님 체력바가 1% 단위로 끊기지 않게
+      m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0]),
     // 던전 — [던전 차례, 칸, 남은 초, 무리 차례, 단계, 돌아가기까지 남은 초]
     d: g.runs.map((r) => [DUNGEONS.findIndex((q) => q.id === r.id), r.slot, Math.ceil(r.t), r.wave, RUN_PHASES.indexOf(r.phase), r1(r.end)]),
   };
@@ -2597,7 +2610,7 @@ export function rpgApply(g, s) {
       return d ? { id: d.id, slot, map: dgMapId(d.id, slot), t, wave, phase: RUN_PHASES[ph] || "go", end, gap: 1 } : null;
     }).filter(Boolean);
   }
-  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR]) => {
+  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax]) => {
     seen.add(id);
     let m = g.mobs.find((q) => q.id === id);
     if (!m) {
@@ -2611,7 +2624,7 @@ export function rpgApply(g, s) {
     m.pose = pose || 0; m.warnR = warnR || 0;
     m.tx = x; m.ty = y;
     if (Math.hypot(x - m.x, y - m.y) > 160) { m.x = x; m.y = y; }
-    m.hp = pct; m.max = 100;
+    if (bmax > 0) { m.hp = bhp; m.max = bmax; } else { m.hp = pct; m.max = 100; }
     m.freeze = flags & 1 ? 0.3 : 0; m.slow = flags & 2 ? 0.3 : 0; m.poison = flags & 4 ? 0.3 : 0;
     m.burn = flags & 8 ? 0.3 : 0; m.stun = flags & 16 ? 0.3 : 0; m.shred = flags & 32 ? 0.3 : 0;
     if (flags & 64) m.flash = 0.1;

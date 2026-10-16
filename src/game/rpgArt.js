@@ -1197,6 +1197,7 @@ function drawReqNpc(ctx, g, n, time) {
   ctx.restore();
 }
 
+const BOSS_HP_COL = "#d8645a", BOSS_GHOST_COL = "#f0b052";   // 보스 체력 칸 · 피해 잔상(던전 위 칸과 같은 색 — style.css .rpg-dg-boss)
 /* 몹 머리 위 — 걸린 것(불 · 독 · 기절), 체력, 레벨. top 은 발밑에서 머리 꼭대기까지의 높이 */
 function drawMobMarks(ctx, m, time, top) {
   const x = m.x, y = m.y;
@@ -1223,11 +1224,14 @@ function drawMobMarks(ctx, m, time, top) {
   // 체력 — 보스는 늘 보이고, 나머지는 다쳤을 때만
   let barY = tagY;
   if (boss || m.hp < m.max) {
-    const bw = boss ? 70 : 28, r = Math.max(0, m.hp / m.max);
+    const bw = boss ? 70 : 28, r = Math.max(0, Math.min(1, m.hp / m.max));
     barY = tagY - 1;
     ctx.fillStyle = "rgba(20,16,12,0.75)"; roundRect(ctx, x - bw / 2 - 1, tagY + 6, bw + 2, boss ? 6 : 5, 2); ctx.fill();
-    ctx.fillStyle = boss ? "#e2705f" : r > 0.5 ? "#8fd07f" : "#e5a93e";
-    roundRect(ctx, x - bw / 2, tagY + 7, Math.max(1.5, bw * r), boss ? 4 : 3, 1.5); ctx.fill();
+    // 보스 — 실제 칸 뒤에 주황 잔상(bossBar.js, 화면 루프가 m.hpFx 를 돌린다)
+    const ghost = boss && m.hpFx ? Math.max(r, m.hpFx.ghost) : r;
+    if (ghost > r) { ctx.fillStyle = BOSS_GHOST_COL; roundRect(ctx, x - bw / 2, tagY + 7, bw * ghost, 4, 1.5); ctx.fill(); }
+    ctx.fillStyle = boss ? BOSS_HP_COL : r > 0.5 ? "#8fd07f" : "#e5a93e";
+    if (r > 0) { roundRect(ctx, x - bw / 2, tagY + 7, Math.max(1.5, bw * r), boss ? 4 : 3, 1.5); ctx.fill(); }
   }
   // 레벨 — 보스는 이름도 붙인다
   const label = boss ? `Lv${m.lv} ${mobName(m)}` : `Lv${m.lv}`;

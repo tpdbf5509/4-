@@ -655,7 +655,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
-        if (d && Number.isInteger(d.cls) && d.cls >= 0 && d.cls < RPG_CREW_MAX) rpgJoin(g, d.cls, d.data);
+        // 보낸 사람 id(who)가 그 자리 주인과 같을 때만 싣는다 — 떠난 사람의 늦은 기록이 새 사람에게 실리지 않게
+        if (d && Number.isInteger(d.cls) && d.cls >= 0 && d.cls < RPG_CREW_MAX && typeof d.who === "string") rpgJoin(g, d.cls, d.data, d.who);
       }));
     } else {
       let last = Date.now();
@@ -681,7 +682,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       // 내 기록을 방장에게 알린다 — 실렸다는 게 보일 때까지 다시 보낸다. 방장이 바뀌면(hostId) 새 방장에게 다시 보낸다
       const mine = G.current.heroes[mySeat];
       if (mine) mine.loaded = 0;
-      const tell = () => room.send("rjoin", { cls: mySeat, data: myData() });
+      const tell = () => room.send("rjoin", { cls: mySeat, who: seatsRef.current[mySeat]?.id, data: myData() });
       tell();
       const again = setInterval(() => {
         const h = G.current.heroes[mySeat];

@@ -483,6 +483,8 @@ export function deleteChar() {
 export function writeChar(d) {
   const cur = loadSave();
   if (!cur) return;
+  // 레벨은 내려가는 일이 없다 — 내려간 기록이 오면 남의 기록이 섞인 것이니 남기지 않는다(서버 저장도 이 기록을 쓴다)
+  if (Math.floor(Number(d.lv) || 1) < Math.floor(Number(cur.lv) || 1)) return;
   const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
   store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
@@ -573,16 +575,22 @@ export function rpgSyncSeats(g, seats) {
     if (cur && (!look || cur.who !== look.who)) g.heroes[pi] = null;     // 떠났거나 다른 사람이 앉았다
     if (look && !g.heroes[pi]) {
       const h = g.heroes[pi] = makeHero(pi, look);
-      if (g.pending[pi]) { rpgJoin(g, pi, g.pending[pi]); delete g.pending[pi]; }
+      const pend = g.pending[pi];
+      delete g.pending[pi];
+      if (pend) rpgJoin(g, pi, pend.d, pend.who);       // 같은 사람이 보낸 기록일 때만 싣는다(rpgJoin 이 본다)
       fx(g, "plaza", { kind: "nova", x: h.x, y: h.y - 10, r: 60, color: elemOf(h).light, n: 8, t: 0.6, life: 0.6 });
     }
   });
 }
 
-/* 들어온 사람이 알려 준 제 기록 — 아직 세워지지 않았으면 세울 때 쓴다 */
-export function rpgJoin(g, pi, d) {
+/* 들어온 사람이 알려 준 제 기록 — 아직 세워지지 않았으면 세울 때 쓴다.
+   who 는 보낸 사람의 접속 id. 자리 번호만 믿으면, 그 자리를 떠난 사람이 늦게 보낸 기록이
+   새로 앉은 사람에게 실려 남의 캐릭터를 덮어쓴다(레벨 100 → 36 사고). 그래서 자리 주인과 같을 때만 싣는다 */
+export function rpgJoin(g, pi, d, who) {
   const h = g.heroes[pi];
-  if (!h) { g.pending[pi] = d; return; }
+  const owner = h ? h.who : g.looks[pi] && g.looks[pi].who;
+  if (who !== undefined && owner && who !== owner) return;
+  if (!h) { g.pending[pi] = { d, who }; return; }
   if (!d || h.loaded) return;
   const keepHp = h.migr && h.hp > 0 ? h.hp : 0;   // 방장을 이어받는 중이면 체력은 그대로
   h.lv = clamp(Math.floor(Number(d.lv) || 1), 1, LV_MAX);

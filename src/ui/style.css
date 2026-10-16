@@ -1278,6 +1278,7 @@ kbd {
 .rpg-dg-boss em { display: block; height: 100%; background: #d9826c; }
 .rpg-dg-end { margin: 0; font-size: 11.5px; color: #d9c9a6; }
 .rpg-dg-why { color: #e0a090 !important; }
+.rpg-dg-group { margin: 10px 0 2px; font-family: 'Do Hyeon', sans-serif; font-size: 12px; color: #e3c48a; letter-spacing: -0.02em; }
 
 /* 맵을 옮기면 잠깐 이름을 띄운다 */
 .rpg-toast {

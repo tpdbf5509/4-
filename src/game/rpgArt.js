@@ -8,7 +8,6 @@ import {
 } from "./art.js";
 import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
-import { GRAMOR } from "./dungeonData.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -1035,11 +1034,19 @@ const drawOrc = bruteDrawer(drawOrcBody, 22, 72, 100);
 const drawOgre = bruteDrawer(drawOgreBody, 28, 76, 112);
 
 /* 던전 보스 — 그림 시트에서 자른 자세(tools/cut-bosses.py)를 같은 배율로 발밑 가운데에 맞춰 그린다.
-   그림을 못 불러오면 오우거 몸을 크게 그려 대신한다. pose 비트는 rpg.js stepGramor */
-const BOSS_ART = { gramor: { scale: 2.2, slamR: GRAMOR.slam.r } };
+   idle · move 는 프레임 목록(돌아가며), 기술 자세(slam · charge · attack)는 있는 보스만. 그림을 못 불러오면 오우거 몸을 크게 그려 대신한다.
+   pose 비트는 rpg.js stepDgBoss — 1 기술 준비(warnR 둘레) · 2 돌진 준비 · 4 돌진 · 8 철벽 · 16 광폭화 · 32 잔상 */
+const frames = (name, n) => Array.from({ length: n }, (_, i) => `${name}${i}`);
+const BOSS_ART = {
+  gramor: { scale: 2.2, idle: ["idle"], move: ["idle", "move"], slam: "slam", charge: "charge", attack: "attack" },
+  argas: { scale: 2.05, idle: ["idle"], move: ["idle", "move"], slam: "slam", charge: "charge", attack: "attack" },
+  morgas: { scale: 0.95, idle: frames("idle", 4), move: frames("walk", 4), glow: "#7fe0a0" },
+  barkanon: { scale: 1.15, idle: ["idle"], move: frames("walk", 4), glow: "#ff7a50" },
+  serka: { scale: 1.12, idle: ["idle"], move: frames("walk", 4), glow: "#8fc8ff" },
+};
 const bossImg = (type, pose) => mapImg(`${RPG_ART}/boss/${type}-${pose}.webp`);
 function drawDungeonBoss(ctx, m, time) {
-  const A = BOSS_ART[m.type];
+  const A = BOSS_ART[m.type] || BOSS_ART.gramor;
   const grow = Math.min(1, (m.age || 0) / 0.5);
   const pose = m.pose || 0;
   const x = m.x, y = m.y;
@@ -1050,13 +1057,36 @@ function drawDungeonBoss(ctx, m, time) {
     ctx.translate(x, y); ctx.scale(1, RPG.squash);
     ctx.fillStyle = `rgba(230,90,50,${0.12 + 0.12 * p})`;
     ctx.strokeStyle = `rgba(255,150,90,${0.5 + 0.4 * p})`; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(0, 0, A.slamR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, m.warnR || 200, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.restore();
   }
   shadow(ctx, x, y + 2, 70 * grow, 20 * grow, 0.35);
-  const name = pose & 4 ? "charge" : pose & 1 ? "slam" : pose & 2 || m.bite > 0 ? "attack"
-    : m.moving && Math.floor(time * 4) % 2 ? "move" : "idle";   // 맞을 때는 자세를 바꾸지 않고 밝게만(쉴 새 없이 맞아 깜빡이지 않게)
-  const img = bossImg(m.type, name) || bossImg(m.type, "idle");
+  // 맞을 때는 자세를 바꾸지 않고 밝게만(쉴 새 없이 맞아 깜빡이지 않게)
+  const list = m.moving ? A.move : A.idle;
+  const name = (pose & 4 && A.charge) || (pose & 1 && A.slam) || ((pose & 2 || m.bite > 0) && A.attack)
+    || list[Math.floor(time * (m.moving ? 6 : 3)) % list.length];
+  const img = bossImg(m.type, name) || bossImg(m.type, A.idle[0]);
+  // 잔상 — 뒤로 흐린 그림 둘
+  if (pose & 32 && img) {
+    const w = img.width * A.scale, h = img.height * A.scale;
+    [-1, 1].forEach((k) => {
+      ctx.save(); ctx.globalAlpha = 0.28;
+      ctx.translate(x + k * 46 + Math.sin(time * 9 + k) * 6, y);
+      ctx.scale(m.ax < 0 ? -1 : 1, 1);
+      ctx.drawImage(img, -w / 2, -h, w, h);
+      ctx.restore();
+    });
+  }
+  // 기술 준비 · 광폭화 — 몸 둘레 빛(그림에 기술 자세가 없는 보스)
+  if ((pose & 16 || (pose & 3 && !A.slam)) && img) {
+    const h = img.height * A.scale;
+    ctx.save();
+    const glow = pose & 16 ? "rgba(255,80,60,0.42)" : A.glow || "#ffb070";
+    const gr = ctx.createRadialGradient(x, y - h * 0.45, 10, x, y - h * 0.45, h * 0.6);
+    gr.addColorStop(0, pose & 16 ? glow : `${glow}66`); gr.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gr; ctx.fillRect(x - h * 0.6, y - h * 1.05, h * 1.2, h * 1.2);
+    ctx.restore();
+  }
   const breathe = m.moving ? 0 : Math.sin(time * 2.2) * 0.012;
   ctx.save();
   ctx.translate(x, y);
@@ -1088,7 +1118,7 @@ function drawDungeonBoss(ctx, m, time) {
   }
   drawMobMarks(ctx, m, time, top * grow);
 }
-const MOB_DRAW = { wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss };
+const MOB_DRAW = { wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss };
 const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4" };
 
 /* 던전 관리인 — 짙은 망토에 등불을 든 사람. 머리 위에 칼 모양 표시 */

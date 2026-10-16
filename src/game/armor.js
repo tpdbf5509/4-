@@ -34,6 +34,17 @@ export function cleanArmor(d, b, seen) {
   });
 }
 
+// 방어구 던전 보상 — 부위 s 를 등급 몫(ARMOR_GRADES drop)으로 굴려 가방에 넣는다. 넣은 등급, 가방이 가득이면 -1
+export function rollArmor(bag, s, rnd = Math.random()) {
+  if (!bag.a) bag.a = [];
+  if (bag.a.length >= ARMOR.bagMax) return -1;
+  let r = rnd * 100, g = 0;
+  for (; g < ARMOR_GRADES.length - 1; g++) { r -= ARMOR_GRADES[g].drop; if (r < 0) break; }
+  bag.a.push({ u: bag.n++, s, g });
+  bag.v += 1;
+  return g;
+}
+
 /* ── 효과 ─────────────────────────────────────────────── */
 // 최대 체력 배율 — 투구
 export const armorHpMul = (h) => 1 + base(h, "head");

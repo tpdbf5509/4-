@@ -15,7 +15,8 @@ import { POTION } from "./game/shopData.js";
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQUESTS, REQ_SHOW } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, GIFT } from "./game/itemData.js";
-import { DUNGEON, DUNGEONS, DG_BY_ID } from "./game/dungeonData.js";
+import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
+import { ARMOR_SLOTS, ARMOR_GRADES } from "./game/armorData.js";
 import { UPDATES, RPG_NOTICE } from "./game/updates.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
@@ -1260,24 +1261,27 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     무리 {DUNGEONS[0].waves.length}번을 잡으면 보스가 나옵니다. {Math.round(DUNGEON.time / 60)}분 안에 보스를 잡으면 안에 있는 사람이 저마다 보상을 받습니다.
                     실패하면 입장료는 돌려받지 못합니다.
                   </p>
+                  <p className="rpg-stat-rule">방어구 던전은 그 부위 방어구 하나를 줍니다. 등급은 {ARMOR_GRADES.map((q) => `${q.name} ${q.drop}%`).join(" · ")}입니다.</p>
                   <p className="rpg-stat-rule">함께 들어갈 사람 {crew.length}명 · {crew.map((pi) => names[pi] || "모험가").join(", ")}</p>
                   <div className="rpg-stat-list">
-                    {DUNGEONS.map((d) => {
+                    {DG_GROUPS.map((grp) => [<p key={grp.name} className="rpg-dg-group">{grp.name}</p>, ...grp.ids.map((id) => {
+                      const d = DG_BY_ID[id];
                       const why = whyDungeon(me.self, d.id, me.runs);
-                      const mat = MAT_BY_ID[d.reward.id];
+                      const prize = d.reward.armor ? `${ARMOR_SLOTS.find((q) => q.id === d.reward.armor).name} 하나`
+                        : `${MAT_BY_ID[d.reward.id].name} ${d.reward.n}개`;
                       return (
                         <div key={d.id} className="rpg-win-row">
                           <span className="rpg-stat-name">
                             <b>{d.name}</b>
                             <em>{MOB[d.mob].name} {d.lv[0]}~{d.lv[1]}레벨 · 보스 {MOB[d.boss.type].boss.name}</em>
-                            <em>보상 {mat.name} {d.reward.n}개 · 입장료 {d.fee.toLocaleString("ko-KR")}코인 · 빈 칸 {me.free[d.id]}/{DUNGEON.slots}</em>
+                            <em>보상 {prize} · 입장료 {d.fee.toLocaleString("ko-KR")}코인 · 빈 칸 {me.free[d.id]}/{DUNGEON.slots}</em>
                             {why.length > 0 && <em className="rpg-dg-why">{why[0]}</em>}
                           </span>
                           <button type="button" className="rpg-win-btn" disabled={why.length > 0}
                             onClick={() => { act("dg", { op: "enter", id: d.id }); setDgOpen(false); }}>입장</button>
                         </div>
                       );
-                    })}
+                    })])}
                   </div>
                 </div>
               </>
@@ -1378,7 +1382,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me && me.near && me.near.dungeon && !dgOpen && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">던전 관리인</span>
-              <span className="rpg-talk-line">강화석 던전에 들어가겠나? 파티와 함께라면 더 든든하지.</span>
+              <span className="rpg-talk-line">강화석 · 방어구 던전에 들어가겠나? 파티와 함께라면 더 든든하지.</span>
               <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
                 던전 보기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
               </button>

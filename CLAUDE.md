@@ -56,7 +56,7 @@
 | `src/game/requestData.js` | RPG 광장 의뢰 NPC(`REQ_NPCS`) · 의뢰 목록(`REQUESTS`, 차례는 저장에 쓰니 뒤에만 더한다). 규칙은 rpg.js `rpgRequest` |
 | `src/game/socialData.js` | RPG 칭호 목록(`TITLES`, 뒤에만 더한다) · 파티(`PARTY`) · 채팅(`CHAT`) 수치. 규칙(`rpgParty` · `rpgTitle` · 칭호 주기)은 rpg.js |
 | `src/game/armorData.js` · `armor.js` | RPG 방어구. **수치는 armorData.js 한 곳**(부위 · 등급 · 기본 효과 · 영웅 · 전설 특수 효과 · 되팔기 값), 규칙(효과 셈 · 장착 · 주고받기 `packArmor`)은 armor.js. 장착 · 되팔기 요청은 shop.js(`awear` · `asell` · 관리자 `agive`) |
-| `src/game/dungeonData.js` | RPG 던전. **수치는 여기 한 곳**(`DUNGEON` 시간 · 칸 · 몹 체력 배율, `DUNGEONS` 입장료 · 몹 · 무리 · 보스 세기 · 보상, `GRAMOR` 보스 기술). 규칙은 rpg.js(`rpgDungeon` · `tickRuns` · `stepGramor`), 창은 RpgView.jsx |
+| `src/game/dungeonData.js` | RPG 던전. **수치는 여기 한 곳**(`DUNGEON` 시간 · 칸 · 몹 배율, `DUNGEONS` 입장료 · 몹 · 무리 · 보스 세기 · 보상, `BOSS_AI` 보스 기술). 규칙은 rpg.js(`rpgDungeon` · `tickRuns` · `stepDgBoss`), 창은 RpgView.jsx |
 | `src/game/keys.js` | RPG 키 설정 — 기본 키 표(`KEY_ACTIONS`) · 저장(`flg:rpgKeys`) · 키 이름 |
 | `src/game/shopData.js` · `shop.js` · `src/ShopPanel.jsx` | RPG 광장 상점. **가격 · 확률 · 제한은 shopData.js 한 곳**, 규칙(방장 판정 `rpgShop`, 조건 `why*`)은 shop.js, 상점 · 가방 창은 ShopPanel.jsx |
 | `src/game/towerInfo.js` | 탑 "자세히 보기" 창 설명. **숫자를 손으로 적어 둔 곳이라 logic.js 를 고치면 여기도 고친다** |
@@ -89,8 +89,8 @@
 - **RPG 처치 보상**: 몹을 친 사람(`m.hitBy`) 가운데 같은 맵에 있는 사람은 막타가 아니어도 모두 경험치 · 코인을 다 받는다(`killMob` · `rewardKill`).
 - **RPG 공격 · 스킬**: 사거리 안에 아무도 없어도 Space 평타 · Shift · 산 스킬이 모두 나간다(겨눈 쪽으로 허공 베기 · 쏘기, `aimDir`). 사거리 원은 표시일 뿐이다. 자동 평타만 사거리 안에 몹이 있을 때 나간다.
 - **RPG 주문서 · 물약 칸**: 주문서 상점에서 지역 워프권(`SCROLLS` 3 · 6 · 10회, `bag.wp`)을 사고 가방 "주문서" 탭에서 지역 입구로 워프한다(`WARP`, 결투 중 불가). 물약 칸 3개(`bag.qs`, 숫자키 5 · 6 · 7, 오른쪽 아래)에 물약을 넣어 바로 마신다.
-- **RPG 방어구**: 투구 · 갑옷 · 바지 · 신발 × 초급 · 희귀 · 영웅 · 전설, 부위마다 하나. 기본 효과는 등급마다 5%씩(신발은 2% 에서 2.5%씩). 영웅 · 전설 특수 효과는 armorData.js `ARMOR_SPECIAL`. 엘리트 몹은 없다(일반 · 보스만). 전설 갑옷 부활은 5분에 한 번 · 체력 30% · 3초 무적. 던전이 생기기 전까지 관리자만 시험용으로 받는다(`agive`). 손님 걷기에 쓰는 신발 · 추격 값은 스냅샷 줄 44(`h.arm`).
-- **RPG 던전**: 광장 던전 관리인 → 입장 창. 들어가는 사람이 입장료를 내고 같은 파티로 광장에 있는 사람이 함께 간다. 던전마다 칸 3개(맵 `<던전id>-<칸>`, `MAP_IDS` 뒤에 붙는다), 무리 3번 → 보스, 5분. 성공하면 안의 사람이 저마다 보상, 실패(시간 · 모두 쓰러짐)는 입장료를 돌려주지 않는다. 레벨 제한 없음. 문 없음 — "나가기"로 광장. 던전 몹은 무리(SPAWNS)에 없다(`gi` -1, `m.dg`), 다시 나오지 않는다. 강화석 던전 셋의 보스는 그라모르(`MOB.gramor`, 세기는 던전마다). 진행은 스냅샷 `d`, 보스 자세는 몹 줄 끝 `pose`. 갑옷 던전 보스는 아르가스(`design/bosses/argas.webp`, 그림은 이미 잘라 둠).
+- **RPG 방어구**: 투구 · 갑옷 · 바지 · 신발 × 초급 · 희귀 · 영웅 · 전설, 부위마다 하나. 기본 효과는 등급마다 5%씩(신발은 2% 에서 2.5%씩). 영웅 · 전설 특수 효과는 armorData.js `ARMOR_SPECIAL`. 엘리트 몹은 없다(일반 · 보스만). 전설 갑옷 부활은 5분에 한 번 · 체력 30% · 3초 무적. 방어구 던전(투구 묘지 · 신발 첨탑 · 바지 투기장 · 갑옷 성채)을 마치면 그 부위 하나를 등급 몫으로 받는다(`rollArmor`). 관리자는 시험용으로도 받는다(`agive`). 손님 걷기에 쓰는 신발 · 추격 값은 스냅샷 줄 44(`h.arm`).
+- **RPG 던전**: 광장 던전 관리인 → 입장 창. 들어가는 사람이 입장료를 내고 같은 파티로 광장에 있는 사람이 함께 간다. 던전마다 칸 3개(맵 `<던전id>-<칸>`, `MAP_IDS` 뒤에 붙는다), 무리 3번 → 보스, 5분. 성공하면 안의 사람이 저마다 보상, 실패(시간 · 모두 쓰러짐)는 입장료를 돌려주지 않는다. 레벨 제한 없음. 문 없음 — "나가기"로 광장. 던전 몹은 무리(SPAWNS)에 없다(`gi` -1, `m.dg`), 다시 나오지 않는다. 보스 다섯(그라모르 · 아르가스 · 모르가스 · 바르카논 · 세르카)은 `BOSS_AI` 데이터의 기술(slam · multi · charge · wall · rage · summon · mirage)을 한 셈(`stepDgBoss`)으로 돌린다. 세기는 `DUNGEONS[].boss`. 진행은 스냅샷 `d`, 보스 자세 · 준비 둘레는 몹 줄 끝 `pose` · `warnR`. 던전 몹은 사냥터의 1.2배 거리에서 알아채고(한꺼번에 몰리지 않게) 보스는 맵 전체에서 알아챈다.
 - **RPG 업데이트 공지**: `RPG_NOTICE`(`updates.js`) id 를 바꾸면 RPG 서버에 들어올 때 모두에게 "업데이트 안내" 창이 한 번 뜬다(기기마다 `flg:rpgNotice`).
 - **RPG 업데이트 선물**: `GIFT`(`itemData.js`). 캐릭터마다 `gift` id 가 다르면 들어올 때 한 번 주고 안내 창을 띄운다. 새 선물은 `GIFT.id` 만 바꾼다.
 - **RPG 광장 의뢰**: NPC 마다 하나씩 맡는다(`h.reqs`). 사냥 의뢰는 받은 뒤 잡은 수, 재료 의뢰는 완료 때 가방에서 뺀다. 보상 경험치는 그때 레벨 필요 경험치 × 몫.

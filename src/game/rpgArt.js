@@ -37,6 +37,24 @@ const WEAPON_GRIP = {
   clockwork: [28, 26, 122, 122], coral: [26, 102, 120, 4], flame: [102, 100, 8, 6], forest: [95, 104, 12, 6],
   frost: [100, 100, 6, 4], holy: [92, 94, 12, 10], shadow: [104, 108, 12, 6], star: [102, 102, 6, 6],
   thunder: [24, 100, 120, 6], viper: [36, 44, 122, 118],
+  // 지팡이 — 손잡이 → 머리, 활 — 손잡이 → 위쪽 끝
+  moon_staff: [64, 72, 63, 8], ice_staff: [55, 68, 112, 10], skull_staff: [70, 66, 12, 10], flame_staff: [52, 50, 104, 104],
+  thunder_staff: [68, 78, 24, 34], galaxy_staff: [64, 78, 64, 10], holy_staff: [50, 68, 96, 20],
+  thunder_bow: [56, 64, 10, 8], lava_bow: [71, 64, 23, 8], shadow_bow: [66, 56, 22, 10], star_bow: [66, 60, 16, 12], gold_bow: [71, 52, 12, 12],
+};
+/* 마법사는 특별 지팡이, 궁수는 특별 활을 장착하면 원래 무기를 지운 그림(<보기>-bare.webp, tools/bare-holders.py)에 그 무기를 손에 들려 그린다.
+   HOLDER_HAND: 직업 · 성별 · 보기마다 손 [x, y]와 무기 방향(도, 손 → 지팡이 머리 · 활 위쪽 끝)과 그 길이(px) — 원래 그림 크기 기준.
+   무기가 몸에 가려 보이지 않는 보기(마법사 옆 · 뒤 등)는 원래 그림을 그대로 쓴다 */
+const HOLDER = { mage: "staff", archer: "bow" };     // 직업 → 손에 드는 무기 종류
+const HOLDER_HAND = {
+  mage: {
+    m: { front: [148, 200, -72, 76], turn: [40, 200, -92, 62] },
+    f: { front: [152, 193, -69, 70], turn: [37, 186, -103, 59] },
+  },
+  archer: {
+    m: { front: [126, 196, -65, 84], turn: [117, 194, -70, 79] },
+    f: { front: [150, 190, -72, 86], turn: [26, 176, -102, 57], side: [34, 160, -110, 69], back: [22, 168, -99, 61] },
+  },
 };
 const HELD_LEN = 30;                                  // 손잡이 → 칼끝 길이(화면 px). 원래 칼은 약 22
 const BASIC_LEN = 23;                                 // 특별 무기가 없을 때 코드로 그리는 기본 검 길이
@@ -60,6 +78,15 @@ function weaponImg(sp) {
 // 전사가 손에 든 검 — 칼 지운 몸 그림이 있으면 늘 이 길로 그린다(휘두를 수 있게).
 // 특별 무기를 장착했고 그 그림이 있으면 그 무기, 아니면 코드로 그린 기본 검
 function heldWeapon(h, view) {
+  if (HOLDER[h.job]) {
+    const sp = SPECIAL_BY_ID[heldSpecial(h)];
+    const hand = sp && sp.t === HOLDER[h.job] && HOLDER_HAND[h.job][h.gender === "f" ? "f" : "m"][view];
+    const grip = hand && WEAPON_GRIP[sp.art];
+    const wpn = grip && weaponImg(sp);
+    const body = wpn && heroImg(h, `${view}-bare`);
+    if (!body) return null;                         // 그림이 없으면 원래 그림(원래 무기)을 그대로
+    return { body, hand, wpn, grip, len: hand[3] * HERO_K, still: true };
+  }
   if (h.job !== "warrior") return null;
   const hand = WARRIOR_HAND[h.gender === "f" ? "f" : "m"][view];
   const body = hand && heroImg(h, `${view}-bare`);
@@ -73,7 +100,7 @@ function heldWeapon(h, view) {
 // 공격할 때 검 각도(도) — 휘두르는 중이 아니면 null
 function swingAngle(h, held, time) {
   const a = h.anim;
-  if (!a) return null;
+  if (!a || held.still) return null;               // 지팡이 · 활은 휘두르지 않는다
   if (h.swing > 0 && !(a.sw > 0)) a.swAt = time;    // 새로 쳤다
   a.sw = h.swing;
   const p = a.swAt === undefined ? 1 : (time - a.swAt) / SWING.t;

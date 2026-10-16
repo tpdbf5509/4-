@@ -13,9 +13,11 @@ import {
   weaponLine, weaponArt, specOf, specialTier, specialPrice, specialsFor, sellPrice, dealOf, equipped,
   skillNext, extraStat, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
   whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount, whyScrollBuy, whyWarp,
-  whyGuardBuy,
+  whyGuardBuy, whyArmorWear, whyArmorSell, whyArmorGive,
 } from "./game/shop.js";
 import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
+import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR_BASE, ARMOR_SPECIAL, ARMOR, armorName, armorArt } from "./game/armorData.js";
+import { wornArmor } from "./game/armor.js";
 import { Coin } from "./ui/icons.jsx";
 
 const won = (n) => Math.round(n).toLocaleString("ko-KR");
@@ -79,6 +81,32 @@ function WeaponItem({ w, tag, desc, price, acts, dim }) {
   );
 }
 
+/* ── 방어구 — 등급 표시 · 효과 글 ─────────────────────────────── */
+const ARMOR_GRADE_CLS = ["g0", "g2", "g3", "g4"];      // 무기 등급 색을 빌려 쓴다 — 초급 회색 · 희귀 파랑 · 영웅 보라 · 전설 금빛
+const pc = (v) => `${Math.round(v * 1000) / 10}%`;
+function armorText(sl, g) {
+  const b = ARMOR_BASE[sl][g];
+  const base = { head: `최대 체력 +${pc(b)}`, body: `받는 피해 ${pc(b)} 감소`, legs: `공격력 +${pc(b)}`, feet: `이동 속도 +${pc(b)}` }[sl];
+  const sp = ARMOR_SPECIAL[sl] && ARMOR_SPECIAL[sl][g];
+  if (!sp) return base;
+  const more = {
+    head: () => `처치하면 체력 회복(일반 몹 ${pc(sp.mob)} · 보스 ${pc(sp.boss)})`,
+    body: () => `체력 ${pc(sp.below)} 이하가 되면 ${sp.dur}초 동안 받는 피해 ${pc(sp.cut)} 감소(${sp.cd}초에 한 번)`
+      + (sp.revive ? ` · 쓰러지면 한 번 체력 ${pc(sp.revive.hp)}로 일어나 ${sp.revive.inv}초 무적(${sp.revive.cd / 60}분에 한 번)` : ""),
+    legs: () => `체력 ${pc(sp.below)} 이하에서 공격력 +${pc(sp.atk)}` + (sp.aspd ? ` · 공격 속도 +${pc(sp.aspd)}` : ""),
+    feet: () => `몹을 맞히면 ${sp.per}초(최대 ${sp.max}초) 동안 그 몹 쪽으로 걸을 때 이동 속도 +${pc(sp.spd)}`
+      + (sp.atk ? ` · 공격 속도 · 공격력 +${pc(sp.atk)}` : ""),
+  }[sl]();
+  return `${base} · ${more}`;
+}
+function ArmorItem({ a, tag, price, acts, desc }) {
+  return (
+    <Item art={armorArt(a.s, a.g)} name={armorName(a.s, a.g)}
+      meta={<span className="shop-meta"><span className={`shop-grade ${ARMOR_GRADE_CLS[a.g]}`}>{ARMOR_GRADES[a.g].name}</span>{tag && <span className="shop-tag">{tag}</span>}</span>}
+      desc={desc || armorText(a.s, a.g)} price={price} acts={acts} />
+  );
+}
+
 function potionText(p) {
   if (p.kind === "heal") return `최대 체력의 ${pct(p.pct, 0)} 회복`;
   if (p.kind === "buff") return `${p.dur}초 동안 ${statDef(p.stat).name} +${statDef(p.stat).fmt(p.amt)}`;
@@ -120,6 +148,12 @@ function WeaponShop({ h, send }) {
             <WeaponItem key={w.u} w={w} tag={w.u === h.bag.e ? "장착 중" : ""} desc={`${weaponLine(w)} · 산 값 ${won(w.p)}`}
               price={<Price n={sellPrice(w)} />}
               acts={[{ label: "팔기", why: whyWeaponSell(h, w.u), onClick: () => send({ op: "wsell", u: w.u }) }]} />
+          ))}
+          <Head sub={`등급마다 정한 값 · 가방 ${(h.bag.a || []).length}/${ARMOR.bagMax}`}>방어구 되팔기</Head>
+          {!(h.bag.a || []).length && <Empty>가방에 방어구가 없습니다.</Empty>}
+          {(h.bag.a || []).map((a) => (
+            <ArmorItem key={a.u} a={a} tag={wornArmor(h.bag, a.s) === a ? "착용 중" : ""} price={<Price n={ARMOR_GRADES[a.g].sell} />}
+              acts={[{ label: "팔기", why: whyArmorSell(h, a.u), onClick: () => send({ op: "asell", u: a.u }) }]} />
           ))}
         </>
       )}
@@ -411,7 +445,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "stat" }) {
   const mats = MATERIALS.filter((m) => matCount(h.bag, m.id) > 0);
   return (
     <Frame title="가방" sub="장비 · 스킬 · 버프로 오른 몫은 + 로 따로 보입니다." coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
-      <Tabs on={tab} set={setTab} tabs={[["stat", "능력치"], ["weapon", "무기", h.bag.w.length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length]]} />
+      <Tabs on={tab} set={setTab} tabs={[["stat", "능력치"], ["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length]]} />
       {tab === "stat" && (
         <div className="shop-stats">
           {STATS.map((t) => {
@@ -445,6 +479,36 @@ export function BagPanel({ h, send, note, onClose, tab0 = "stat" }) {
                 ? { label: "해제", why: whyEquip(h, 0), onClick: () => send({ op: "equip", u: 0 }) }
                 : { label: "장착", main: true, why: whyEquip(h, q.u), onClick: () => send({ op: "equip", u: q.u }) }]} />
           ))}
+        </>
+      )}
+      {tab === "armor" && (
+        <>
+          <Head sub="부위마다 하나씩 낍니다 · 같은 부위의 다른 것을 끼면 바뀝니다">착용 중</Head>
+          <div className="shop-worn">
+            {ARMOR_SLOTS.map((sl) => {
+              const a = wornArmor(h.bag, sl.id);
+              return (
+                <div key={sl.id} className={`shop-worn-slot ${a ? "" : "empty"}`}>
+                  {a ? <img src={armorArt(a.s, a.g)} alt="" /> : <i />}
+                  <span>{sl.name}<small>{a ? `${ARMOR_GRADES[a.g].name}` : "비어 있음"}</small></span>
+                </div>
+              );
+            })}
+          </div>
+          <Head sub={`${(h.bag.a || []).length}/${ARMOR.bagMax} · 던전 보스가 떨굽니다`}>가방</Head>
+          {!(h.bag.a || []).length && <Empty>아직 방어구가 없습니다. 방어구 던전 보스가 떨굽니다.</Empty>}
+          {(h.bag.a || []).map((a) => {
+            const on = wornArmor(h.bag, a.s) === a;
+            return (
+              <ArmorItem key={a.u} a={a} tag={on ? "착용 중" : ""}
+                acts={[on ? { label: "빼기", why: whyArmorWear(h, a.u), onClick: () => send({ op: "awear", u: a.u }) }
+                  : { label: "끼기", main: true, why: whyArmorWear(h, a.u), onClick: () => send({ op: "awear", u: a.u }) }]} />
+            );
+          })}
+          {h.admin && (
+            <Item name="시험용 방어구 받기" desc="관리자만 — 네 부위 × 네 등급 16개를 한 번에 받습니다."
+              acts={[{ label: "받기", why: whyArmorGive(h), onClick: () => send({ op: "agive" }) }]} />
+          )}
         </>
       )}
       {tab === "potion" && (

@@ -9,6 +9,8 @@ import {
 import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
 import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS } from "./rpg.js";
+import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR, armorName } from "./armorData.js";
+import { cleanArmor, wornArmor } from "./armor.js";
 
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
 export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]));
@@ -130,7 +132,7 @@ export function dealOf(lv, day = todayKey()) {
    무기의 up 은 강화 단계(0 이면 강화하지 않음, 있을 때만)
    p 물약 { id: 개수 } · qs 물약 칸 [물약 id 또는 ""] · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · wp 지역 워프권 남은 횟수 · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
-export const newBag = () => ({ w: [], e: 0, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
+export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
 export function cleanBag(d) {
   const b = newBag();
   if (!d || typeof d !== "object") return b;
@@ -150,7 +152,8 @@ export function cleanBag(d) {
     if (!(r >= 0 && r < WEAPON_TIERS.length) || !(g >= 0 && g < GRADES.length)) return;
     add({ u, t: w.t, r, g, p });
   });
-  b.n = Math.max(n0, ...b.w.map((w) => w.u + 1));
+  cleanArmor(d, b, seen);                         // 방어구 — 번호는 무기와 같은 셈을 쓴다
+  b.n = Math.max(n0, ...b.w.map((w) => w.u + 1), ...b.a.map((q) => q.u + 1));
   b.e = seen.has(Number(d.e)) ? Number(d.e) : 0;
   POTIONS.forEach((p) => {
     const c = Math.floor(Number(d.p && d.p[p.id]) || 0);
@@ -374,6 +377,29 @@ export function whyPotionUse(h, id) {
   else if (p.kind === "hide" && noHide(h)) out.push("결투장 · 던전에서는 마실 수 없습니다");
   return out;
 }
+// 방어구 — 끼기 · 빼기는 어디서나(쓰러졌으면 안 된다), 되팔기는 무기상점에서
+export function whyArmorWear(h, u) {
+  const out = [];
+  base(h, null, out);
+  if (!h || !h.bag) return out;
+  if (!(h.bag.a || []).some((q) => q.u === u)) out.push("가방에 없는 방어구입니다");
+  return out;
+}
+export function whyArmorSell(h, u) {
+  const out = [];
+  base(h, "weapon", out);
+  if (!h || !h.bag) return out;
+  if (!(h.bag.a || []).some((q) => q.u === u)) out.push("가방에 없는 방어구입니다");
+  return out;
+}
+// 관리자 시험용 — 방어구 16종을 한 번에 받는다(던전이 생기기 전까지 시험하려고)
+export function whyArmorGive(h) {
+  const out = [];
+  if (!h || !h.bag) return out;
+  if (!h.admin) out.push("관리자만 받을 수 있습니다");
+  else if ((h.bag.a || []).length + ARMOR_SLOTS.length * ARMOR_GRADES.length > ARMOR.bagMax) out.push(`가방 방어구 칸이 모자랍니다(${ARMOR.bagMax}개까지)`);
+  return out;
+}
 // 하락 방지권 사기 — 주문서 상점
 export function whyGuardBuy(h) {
   const out = [];
@@ -586,6 +612,39 @@ export function rpgShop(g, pi, req) {
     h.bag.qs[i] = id;
     bump(h);
     return note(g, pi, { ok: true, msg: id ? `${jo(POTION_BY_ID[id].name, "을", "를")} 물약 칸 ${i + 1}에 넣었습니다` : `물약 칸 ${i + 1}을 비웠습니다` });
+  }
+  // 방어구 끼기 — 같은 부위에 낀 것은 빠진다. 이미 낀 것을 다시 누르면 뺀다
+  if (op === "awear") {
+    const u = Number(req.u);
+    if ((why = whyArmorWear(h, u)).length) return no(g, pi, why);
+    const a = h.bag.a.find((q) => q.u === u);
+    const wasFull = h.hp >= h.max;
+    if (!h.bag.ae) h.bag.ae = {};
+    const off = h.bag.ae[a.s] === u;
+    if (off) delete h.bag.ae[a.s]; else h.bag.ae[a.s] = u;
+    bump(h);
+    hpChanged(h, wasFull);
+    return note(g, pi, { ok: true, msg: off ? `${jo(armorName(a.s, a.g), "을", "를")} 뺐습니다` : `${jo(armorName(a.s, a.g), "을", "를")} 꼈습니다` });
+  }
+  if (op === "asell") {
+    const u = Number(req.u);
+    if ((why = whyArmorSell(h, u)).length) return no(g, pi, why);
+    const a = h.bag.a.find((q) => q.u === u);
+    const wasFull = h.hp >= h.max;
+    if (wornArmor(h.bag, a.s) === a) delete h.bag.ae[a.s];
+    h.bag.a = h.bag.a.filter((q) => q.u !== u);
+    const price = ARMOR_GRADES[a.g].sell;
+    h.coins += price;
+    bump(h);
+    hpChanged(h, wasFull);
+    fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `+${won(price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
+    return note(g, pi, { ok: true, msg: `${jo(armorName(a.s, a.g), "을", "를")} ${won(price)}코인에 팔았습니다` });
+  }
+  if (op === "agive") {
+    if ((why = whyArmorGive(h)).length) return no(g, pi, why);
+    ARMOR_GRADES.forEach((gr) => ARMOR_SLOTS.forEach((sl) => { h.bag.a.push({ u: h.bag.n++, s: sl.id, g: gr.id }); }));
+    bump(h);
+    return note(g, pi, { ok: true, msg: `시험용 방어구 ${ARMOR_SLOTS.length * ARMOR_GRADES.length}개를 받았습니다` });
   }
   // 주문서 상점 — 하락 방지권
   if (op === "gdbuy") {

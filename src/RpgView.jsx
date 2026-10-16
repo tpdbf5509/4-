@@ -36,6 +36,7 @@ let sendSeq = Date.now();
 const nextSeq = () => ++sendSeq;
 // 화면 오른쪽에 남은 시간을 띄우는 물약 효과 — h.bf 의 열쇠와 보이는 이름
 const BUFF_SHOW = [["str", "힘의 물약"], ["int", "지혜의 물약"], ["crit", "집중의 물약"], ["spd", "이속 물약"], ["hide", "투명화"]];
+const ARMOR_SHOW = [["cht", "신발 추격"], ["cri", "갑옷 위기 방어"], ["revCd", "부활 대기"]];
 const fmtLeft = (t) => { const n = Math.ceil(t); return n >= 60 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}` : `${n}초`; };   // 2:00 · 59초
 const RESEND_AFTER = 700;  // 방장이 내 입력을 이만큼(ms) 지나도 모르면 다시 보낸다 — 끊긴 사이 잃은 입력을 되살린다
 const STEP_MAX = 0.05;     // 한 번에 돌리는 판정 시간(초)
@@ -791,7 +792,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           }),
           extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
           // 마신 물약 효과 — 남은 시간이 있는 것만(화면 오른쪽에 띄운다)
-          buffs: BUFF_SHOW.filter(([k]) => me.bf && me.bf[k] && me.bf[k].t > 0).map(([k, name]) => ({ k, name, t: me.bf[k].t })),
+          buffs: [...BUFF_SHOW.filter(([k]) => me.bf && me.bf[k] && me.bf[k].t > 0).map(([k, name]) => ({ k, name, t: me.bf[k].t })),
+            // 방어구 효과 — 추격 이속 · 위기 피해 감소 · 전설 갑옷 부활 대기
+            ...ARMOR_SHOW.filter(([k]) => me.arm && me.arm[k] > 0).map(([k, name]) => ({ k, name, t: me.arm[k] }))],
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf },

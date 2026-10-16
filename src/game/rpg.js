@@ -9,6 +9,7 @@
 import { P, towerIdx } from "./world.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION } from "./shopData.js";
 import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
+import { armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY } from "./socialData.js";
 import { DROPS, MAT_BY_ID, GIFT } from "./itemData.js";
@@ -548,7 +549,7 @@ function wear(h, look) {
 // 실제로 쓰는 스탯 — 찍은 포인트의 값 + 장착한 무기 · 패시브 스킬 · 버프 물약
 export const statTotal = (h, id) => statValue(id, h.st[id]) + extraStat(h, id);
 // 최대 체력 = 체력 스탯 × 직업 배율 — 레벨은 포인트로만 오른다
-const heroMaxHp = (h) => Math.round(statTotal(h, "hp") * jobOf(h).hp);
+const heroMaxHp = (h) => Math.round(statTotal(h, "hp") * jobOf(h).hp * armorHpMul(h));   // 투구가 최대 체력을 올린다
 export function refreshHp(h, full) {
   h.max = heroMaxHp(h);
   if (full) h.hp = h.max;
@@ -556,13 +557,13 @@ export function refreshHp(h, full) {
 }
 // 공격력 배율 — 스탯 10 이 1배. 마법사는 마법력, 전사 · 궁수는 물리력을 쓴다
 const buffMul = (h) => (h.buff > 0 ? 1 + h.buffAmt : 1);
-export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h);
-export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h);
+export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h) * armorAtkMul(h);   // 바지 · 전설 신발이 공격력을 올린다
+export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkMul(h);
 export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h));
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100;
 export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul;
-const heroCd = (h) => jobOf(h).cd;
+const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h));   // 전설 바지 · 신발 — 공격 속도
 
 /* 자리마다 앉은 사람의 겉모습 — 방장과 손님 모두 자리가 바뀔 때마다 넣는다.
    seats[pi] = { id, name, hero: { name, job, elem, gender } } 또는 null */
@@ -730,7 +731,8 @@ export function rpgWalk(h, dt) {
   const len = Math.hypot(dx, dy);
   if (dx) h.dir = dx < 0 ? -1 : 1;
   h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
-  const v = RPG.spd * speedMul(h);                // 이속 물약 — 방장과 손님이 같은 값(스냅샷의 물약 효과)으로 걷는다
+  // 이속 물약 · 신발 — 방장과 손님이 같은 값(스냅샷의 물약 효과 · h.arm)으로 걷는다
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len));
   h.x += (dx / len) * v * dt;
   h.y += (dy / len) * v * RPG.squash * dt;
   keepIn(h, MAPS[h.map], 20);
@@ -1026,6 +1028,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
   m.hp -= dmg;
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
+  if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
   m.flash = 0.12;
   m.numAcc += dmg;
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
@@ -1080,6 +1083,8 @@ function rewardKill(g, m, h, last) {
   fx(g, m.map, { kind: "text", x: last ? m.x : h.x, y: last ? m.y - 16 : h.y - 100, text: `+${m.xp} XP · +${m.coin} 코인`, color: "#f3d27f",
     t: 0.9, life: 0.9, snd: "coin", who: h.pi });
   giveXp(g, h, m.xp);
+  const healed = armorOnKill(h, m.boss);          // 영웅 · 전설 투구 — 잡으면 회복
+  if (healed > 0) fx(g, h.map, { kind: "heal", x: h.x, y: h.y - 56, text: `+${Math.round(healed)}`, t: 0.8, life: 0.8, who: h.pi });
   huntReq(g, h, m);
   if (h.quest.on && m.type === "rabbit") {
     h.quest.n += 1;
@@ -1204,7 +1209,7 @@ function hurtHero(g, h, raw) {
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
     return;
   }
-  const dmg = raw * (h.guard > 0 ? 0.5 : 1);
+  const dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더)
   h.hp -= dmg;
   h.flash = 0.18;
   h.calm = 0;
@@ -1214,6 +1219,13 @@ function hurtHero(g, h, raw) {
     h.numAcc = 0;
     h.numT = 0.3;
   }
+  const arm = armorOnHurt(h, isPvp(h.map));
+  if (arm === "revive") {                         // 전설 갑옷 — 한 번 일어난다
+    fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 24, r: 70, color: "#ffe3a0", n: 12, t: 0.7, life: 0.7, snd: "bless", who: h.pi });
+    say(g, h.map, h.x, h.y - 96, "전설 갑옷 — 부활!", "#ffe3a0");
+    return;
+  }
+  if (arm === "crisis") say(g, h.map, h.x, h.y - 96, "위기 — 받는 피해 감소", "#cfe0f2");
   if (h.hp <= 0) {
     h.hp = 0;
     h.down = isPvp(h.map) ? DUEL.end + 1 : RPG.down;   // 결투에서 쓰러지면 결투가 끝날 때 일어난다
@@ -1586,6 +1598,7 @@ function stepHeroes(g, dt) {
     h.swing = Math.max(0, h.swing - dt);
     h.buff = Math.max(0, h.buff - dt);
     tickBuffs(h, dt);                             // 버프 물약 시간
+    armorTick(h, dt, (id) => g.mobs.find((m) => m.id === id && !m.dead && m.map === h.map));   // 방어구 효과 시간
     if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - dt);   // 산 스킬 대기 시간
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && STAT_IDS.some((k) => h.st[k] < STAT_MAX)) { h.st = maxStats(); refreshHp(h, true); }   // 초기화 물약을 마셔도 다시 최대
@@ -2160,7 +2173,8 @@ export function rpgPack(g) {
         REC_IDS.map((k) => h.rec[k]), heldSpecial(h),
         h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring,
         REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0)), h.gift === GIFT.id ? 1 : 0,
-        (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt || g.t)) * 1000) : 0]
+        (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt || g.t)) * 1000) : 0,
+        packArmor(h)]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -2229,6 +2243,7 @@ export function rpgApply(g, s) {
       h.dvs = row[36]; h.dph = row[37]; h.dtl = row[38]; h.ring = row[39];
     }
     if (row.length > 41) h.gift = row[41] ? GIFT.id : "";   // 이번 업데이트 선물을 받았는지
+    if (row.length > 44) applyArmor(h, row[44]);   // 방어구 — 신발 · 추격 · 위기 · 부활 대기
     if (Array.isArray(row[40])) {                  // 맡은 광장 의뢰
       h.reqs = {};
       REQ_NPCS.forEach((n, i) => { const r = row[40][i]; if (r) h.reqs[n.id] = { i: r[0], n: r[1] }; });

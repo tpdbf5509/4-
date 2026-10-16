@@ -1497,6 +1497,14 @@ kbd {
 .shop-stone b { font-weight: 400; font-size: 13.5px; letter-spacing: -0.02em; }
 .shop-stone small { font-size: 11px; color: var(--sh-faint); }
 .shop-stone.on { color: var(--sh-text); border-color: var(--sh-gold); }
+/* 가방 — 방어구 착용 칸 넷 */
+.shop-worn { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0 6px; }
+.shop-worn-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border: 1px solid var(--sh-line); border-radius: 8px; }
+.shop-worn-slot img { width: 44px; height: 44px; object-fit: contain; }
+.shop-worn-slot i { width: 44px; height: 44px; border: 1px dashed var(--sh-line); border-radius: 6px; }
+.shop-worn-slot span { display: flex; flex-direction: column; align-items: center; font-size: 13px; letter-spacing: -0.02em; }
+.shop-worn-slot small { font-size: 11px; color: var(--sh-faint); }
+.shop-worn-slot.empty span { color: var(--sh-faint); }
 /* 강화소 — 하락 방지권 쓰기 */
 .shop-guard { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 13.5px; color: var(--sh-text); cursor: pointer; }
 .shop-guard input { accent-color: var(--sh-gold); }

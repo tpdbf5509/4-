@@ -55,6 +55,7 @@
 | `src/game/itemData.js` | RPG 재료(`MATERIALS`) · 보스 드롭(`DROPS`) · 무기 강화 확률 · 값(`ENHANCE`). 규칙은 rpg.js(`dropLoot`) · shop.js(`enh` · `msell`) |
 | `src/game/requestData.js` | RPG 광장 의뢰 NPC(`REQ_NPCS`) · 의뢰 목록(`REQUESTS`, 차례는 저장에 쓰니 뒤에만 더한다). 규칙은 rpg.js `rpgRequest` |
 | `src/game/socialData.js` | RPG 칭호 목록(`TITLES`, 뒤에만 더한다) · 파티(`PARTY`) · 채팅(`CHAT`) 수치. 규칙(`rpgParty` · `rpgTitle` · 칭호 주기)은 rpg.js |
+| `src/game/armorData.js` · `armor.js` | RPG 방어구. **수치는 armorData.js 한 곳**(부위 · 등급 · 기본 효과 · 영웅 · 전설 특수 효과 · 되팔기 값), 규칙(효과 셈 · 장착 · 주고받기 `packArmor`)은 armor.js. 장착 · 되팔기 요청은 shop.js(`awear` · `asell` · 관리자 `agive`) |
 | `src/game/keys.js` | RPG 키 설정 — 기본 키 표(`KEY_ACTIONS`) · 저장(`flg:rpgKeys`) · 키 이름 |
 | `src/game/shopData.js` · `shop.js` · `src/ShopPanel.jsx` | RPG 광장 상점. **가격 · 확률 · 제한은 shopData.js 한 곳**, 규칙(방장 판정 `rpgShop`, 조건 `why*`)은 shop.js, 상점 · 가방 창은 ShopPanel.jsx |
 | `src/game/towerInfo.js` | 탑 "자세히 보기" 창 설명. **숫자를 손으로 적어 둔 곳이라 logic.js 를 고치면 여기도 고친다** |
@@ -66,7 +67,7 @@
 | `src/ui/style.css` | 모든 스타일 |
 | `public/assets/` | 그림. 판 위 그림은 `public/assets/game/`(움직이는 것은 36프레임 6열 시트 + `manifest.json`) |
 | `design/` | 원본 디자인 시트와 자르는 스크립트(게임이 직접 쓰지 않음) |
-| `tools/` | `png-to-webp.py`, `export-art.mjs`, `recut-character.py`(캐릭터 누끼), `cut-weapons.py`(특별 무기 그림 바탕 지우기 — 원본은 `design/weapons/`), `bare-warrior.py`(전사 그림에서 칼 지우기 → `<보기>-bare.webp`, 손 위치는 rpgArt.js `WARRIOR_HAND`), `bare-holders.py`(마법사 지팡이 · 궁수 활 지우기, 손 위치는 `HOLDER_HAND`) |
+| `tools/` | `png-to-webp.py`, `export-art.mjs`, `recut-character.py`(캐릭터 누끼), `cut-weapons.py`(특별 무기 그림 바탕 지우기 — 원본은 `design/weapons/`), `bare-warrior.py`(전사 그림에서 칼 지우기 → `<보기>-bare.webp`, 손 위치는 rpgArt.js `WARRIOR_HAND`), `bare-holders.py`(마법사 지팡이 · 궁수 활 지우기, 손 위치는 `HOLDER_HAND`), `cut-armor.py`(방어구 그림 자르기 — 원본은 `design/armor/`) |
 | `docs/기능-명세서.md` | 기능 명세서. 기능 ID(예: `DEF-LOBBY-03`)로 정리 |
 
 ## 5. 지금 정해진 핵심 규칙 (바꿀 때 사용자 확인)
@@ -87,6 +88,7 @@
 - **RPG 처치 보상**: 몹을 친 사람(`m.hitBy`) 가운데 같은 맵에 있는 사람은 막타가 아니어도 모두 경험치 · 코인을 다 받는다(`killMob` · `rewardKill`).
 - **RPG 공격 · 스킬**: 사거리 안에 아무도 없어도 Space 평타 · Shift · 산 스킬이 모두 나간다(겨눈 쪽으로 허공 베기 · 쏘기, `aimDir`). 사거리 원은 표시일 뿐이다. 자동 평타만 사거리 안에 몹이 있을 때 나간다.
 - **RPG 주문서 · 물약 칸**: 주문서 상점에서 지역 워프권(`SCROLLS` 3 · 6 · 10회, `bag.wp`)을 사고 가방 "주문서" 탭에서 지역 입구로 워프한다(`WARP`, 결투 중 불가). 물약 칸 3개(`bag.qs`, 숫자키 5 · 6 · 7, 오른쪽 아래)에 물약을 넣어 바로 마신다.
+- **RPG 방어구**: 투구 · 갑옷 · 바지 · 신발 × 초급 · 희귀 · 영웅 · 전설, 부위마다 하나. 기본 효과는 등급마다 5%씩(신발은 2% 에서 2.5%씩). 영웅 · 전설 특수 효과는 armorData.js `ARMOR_SPECIAL`. 엘리트 몹은 없다(일반 · 보스만). 전설 갑옷 부활은 5분에 한 번 · 체력 30% · 3초 무적. 던전이 생기기 전까지 관리자만 시험용으로 받는다(`agive`). 손님 걷기에 쓰는 신발 · 추격 값은 스냅샷 줄 44(`h.arm`).
 - **RPG 업데이트 공지**: `RPG_NOTICE`(`updates.js`) id 를 바꾸면 RPG 서버에 들어올 때 모두에게 "업데이트 안내" 창이 한 번 뜬다(기기마다 `flg:rpgNotice`).
 - **RPG 업데이트 선물**: `GIFT`(`itemData.js`). 캐릭터마다 `gift` id 가 다르면 들어올 때 한 번 주고 안내 창을 띄운다. 새 선물은 `GIFT.id` 만 바꾼다.
 - **RPG 광장 의뢰**: NPC 마다 하나씩 맡는다(`h.reqs`). 사냥 의뢰는 받은 뒤 잡은 수, 재료 의뢰는 완료 때 가방에서 뺀다. 보상 경험치는 그때 레벨 필요 경험치 × 몫.

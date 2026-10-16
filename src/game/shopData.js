@@ -144,8 +144,8 @@ export const POTIONS = [
   { id: "speed1", name: "이속 물약 I", kind: "speed", amt: 0.3, dur: 50, price: 300 },
   { id: "speed2", name: "이속 물약 II", kind: "speed", amt: 0.5, dur: 120, price: 900 },
   // 투명화 물약 — 몹이 알아채지 못한다(보스도 · 공격해도 풀리지 않는다). 결투장 · 던전에서는 마실 수 없다
-  { id: "hide1", name: "투명화 물약 I", kind: "hide", dur: 30, price: 600 },
-  { id: "hide2", name: "투명화 물약 II", kind: "hide", dur: 50, price: 1200 },
+  { id: "hide1", name: "투명화 물약 I", kind: "hide", dur: 30, price: 1750 },   // 반격 없이 사냥할 수 있어 600 에서 올렸다
+  { id: "hide2", name: "투명화 물약 II", kind: "hide", dur: 50, price: 3000 },  // 1,200 에서 올렸다
 ];
 export const POTION = {
   stackMax: 99,          // 한 종류를 이만큼까지 가질 수 있다

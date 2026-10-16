@@ -3,7 +3,7 @@ import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, freshInput, noteSent, needXp, loadChar, saveLook, writeChar, deleteChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, freshInput, noteSent, aimDir, needXp, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
@@ -459,7 +459,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         ? `아직 ${QUEST.need - h.quest.n}마리 남았네. 토끼도 가끔 들이받으니 조심하게.`
         : `토끼 ${QUEST.need}마리만 잡아 주게. 경험치 ${QUEST.xp}과 ${QUEST.coin}코인을 주겠네.`);
     }
-    if (kind === "dash" && !isHost) predictDash(g.heroes[mySeat]);   // 손님도 내 대쉬는 먼저 그린다
+    if (kind === "dash" && !isHost && g.heroes[mySeat]) {   // 손님도 내 대쉬는 먼저 그린다 — 방향은 방장에게도 보낸다
+      dir = aimDir(g.heroes[mySeat]).map((v) => Math.round(v * 1000) / 1000);
+      predictDash(g.heroes[mySeat]);
+    }
     if (kind === "use" && !isHost) predictLunge(g, g.heroes[mySeat], dir);   // 급소 찌르기 돌진도 먼저 그린다
     if (isHost) {
       if (kind === "dash") rpgDash(g, mySeat);
@@ -660,7 +663,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         else if (d.kind === "auto") rpgAuto(g, d.cls, !!d.dir);
         else if (d.kind === "stat") rpgStat(g, d.cls, d.dir);
         else if (d.kind === "use") rpgUseSkill(g, d.cls, d.dir);
-        else if (d.kind === "dash") rpgDash(g, d.cls);
+        else if (d.kind === "dash") rpgDash(g, d.cls, d.dir);
         else if (d.kind === "shop") rpgShop(g, d.cls, d.dir);
         else if (d.kind === "party") rpgParty(g, d.cls, d.dir);
         else if (d.kind === "title") rpgTitle(g, d.cls, d.dir);

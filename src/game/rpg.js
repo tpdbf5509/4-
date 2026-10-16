@@ -689,7 +689,8 @@ export function freshInput(h, kind, q, now) {
 export function noteSent(g, q) {
   if (!g.sentQ) g.sentQ = {};
   g.sentQ[q] = g.t;
-  for (const k in g.sentQ) if (g.t - g.sentQ[k] > SYNC.hist + 1) delete g.sentQ[k];
+  // 오래된 것은 지우되 마지막 것은 남긴다 — 한참 서 있다가 대쉬해도 그때의 내 위치와 견줄 수 있게
+  for (const k in g.sentQ) if (+k !== q && g.t - g.sentQ[k] > SYNC.hist + 1) delete g.sentQ[k];
 }
 // 내 위치 기록에서 at 때의 자리 — 기록보다 옛때면 null
 function histAt(h, at) {
@@ -1461,9 +1462,11 @@ export function predictDash(h) {
   h.predict = 0.6;
   return true;
 }
-export function startDash(h) {
+// aim — 손님이 대쉬한 방향. 방향키와 대쉬를 같이 누르면 방장에게 순서가 바뀌어 닿을 수 있어 방향을 함께 보낸다
+export function startDash(h, aim) {
   if (!h || h.down > 0 || (h.dashCd || 0) > 0) return false;
-  const [dx, dy] = aimDir(h);
+  const al = Array.isArray(aim) && aim.length === 2 && aim.every(Number.isFinite) ? Math.hypot(aim[0], aim[1]) : 0;
+  const [dx, dy] = al > 0.5 && al < 1.5 ? [aim[0] / al, aim[1] / al] : aimDir(h);
   const v = DASH.dist / DASH.time;
   h.dvx = dx * v; h.dvy = dy * v;
   if (dx) h.dir = dx < 0 ? -1 : 1;
@@ -1505,12 +1508,12 @@ function dashStep(h, dt) {
   h.dash = Math.max(0, h.dash - dt);
   keepIn(h, MAPS[h.map], 20);
 }
-export function rpgDash(g, pi) {
+export function rpgDash(g, pi, aim) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || h.down > 0) return;
   if ((h.dashCd || 0) > 0) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
   const x0 = h.x, y0 = h.y;
-  if (!startDash(h)) return;
+  if (!startDash(h, aim)) return;
   fx(g, h.map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#e8f2ff", n: 8, t: 0.3, life: 0.3, snd: "slash", who: pi });
 }
 
@@ -2181,8 +2184,9 @@ export function rpgApply(g, s) {
     const slack = mine && h.predict > 0 ? DASH.dist + 140 : h.hold.length ? 140 : 70;
     // 방장이 내 누름을 언제 받았는지 알려 주면 — 그 때의 내 위치와 견준다(지연 때문에 생긴 차이는 고치지 않는다)
     const sent = mine && row.length > 43 && row[42] && g.sentQ ? g.sentQ[row[42]] : undefined;
-    const then = sent !== undefined && !moved && !(h.predict > 0) ? histAt(h, sent + row[43] / 1000) : null;
-    h.synced = !!then;
+    // 대쉬 중에도 견준다 — 방장도 같은 때에 대쉬했으니 기록 속 대쉬와 맞는다
+    const then = sent !== undefined && !moved ? histAt(h, sent + row[43] / 1000) : null;
+    if (mine && row.length > 43) h.syncOk = 1;      // 새 버전 방장 — 멈출 때 옛 방장 자리로 다가가지 않는다
     if (moved) {
       h.x = row[0]; h.y = row[1]; h.hist = []; h.fixX = 0; h.fixY = 0;
     } else if (then) {
@@ -2287,7 +2291,7 @@ export function rpgStepVisual(g, dt) {
       h.predict = Math.max(0, (h.predict || 0) - dt);
       if (h.dash > 0) dashStep(h, dt);             // 먼저 그린 대쉬
       else if (h.down <= 0 && h.hold.length) rpgWalk(h, dt);
-      else if (!h.synced) { h.x += (h.tx - h.x) * k * 0.5; h.y += (h.ty - h.y) * k * 0.5; }   // 옛 버전 방장 — 멈추면 방장 자리로
+      else if (!h.syncOk) { h.x += (h.tx - h.x) * k * 0.5; h.y += (h.ty - h.y) * k * 0.5; }   // 옛 버전 방장 — 멈추면 방장 자리로
       if (h.fixX || h.fixY) {                      // 같은 때끼리 견준 차이를 조금씩 옮긴다
         const a = Math.min(1, dt * SYNC.rate), mx = h.fixX * a, my = h.fixY * a;
         shiftMe(h, mx, my); h.fixX -= mx; h.fixY -= my;

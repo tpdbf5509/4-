@@ -667,6 +667,15 @@ function say(g, map, x, y, text, color) {
 }
 
 /* ── 조작 ──────────────────────────────────────────────── */
+// 손님의 누름 · 뗌(hold · fire)은 마지막 상태만 뜻이 있다 — 늦게 도착한 옛 것(번호가 작은 것)은 버린다.
+// 번호가 없으면(옛 버전 손님) 그대로 받는다. 대쉬 · 스킬 같은 한 번짜리 입력은 버리지 않는다
+export function freshInput(h, kind, q) {
+  if ((kind !== "hold" && kind !== "fire") || !q) return true;
+  if (!h.inq) h.inq = {};
+  if (q <= (h.inq[kind] || 0)) return false;
+  h.inq[kind] = q;
+  return true;
+}
 export function rpgHold(g, pi, dirs) {
   const h = g.heroes[pi];
   if (h) h.hold = Array.isArray(dirs) ? dirs.filter((d) => typeof d === "string").slice(0, 4) : [];

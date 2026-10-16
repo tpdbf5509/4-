@@ -3,7 +3,7 @@ import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, needXp, loadChar, saveLook, writeChar, deleteChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, freshInput, needXp, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
@@ -30,6 +30,10 @@ import { useTouch } from "./ui/touch.js";
 const SNAP_BUDGET = 48;    // 스냅샷에 쓰는 초당 메시지 수(보냄 + 받는 사람 수) — 나머지는 입력 · 대기실 몫
 const SNAP_MAX = 10;       // 사람이 적을 때 초당 스냅샷
 const SNAP_MIN = 3;        // 사람이 많아도 이만큼은 보낸다
+// 보내는 차례 번호 — Supabase 는 같은 사람이 보낸 메시지도 순서를 바꿔 전할 때가 있다(실측 25초에 5~15번).
+// 받는 쪽은 번호가 더 작은 스냅샷 · 입력을 버려, 옛 위치로 당겨지지 않게 한다. 새로 고쳐도 줄지 않게 지금 시각에서 시작한다
+let sendSeq = Date.now();
+const nextSeq = () => ++sendSeq;
 const RESEND_AFTER = 700;  // 방장이 내 입력을 이만큼(ms) 지나도 모르면 다시 보낸다 — 끊긴 사이 잃은 입력을 되살린다
 const STEP_MAX = 0.05;     // 한 번에 돌리는 판정 시간(초)
 const CATCH_UP = 0.25;     // 방장 화면이 잠깐 멈췄을 때 따라잡는 최대 시간(초)
@@ -436,7 +440,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     sfx.unlock();
     if (kind === "hold") {
       rpgHold(g, mySeat, dir);                      // 손님도 내 영웅은 먼저 걷는다
-      if (!isHost) { sentAt.current = Date.now(); room?.send("input", { cls: mySeat, kind, dir }); }
+      if (!isHost) { sentAt.current = Date.now(); room?.send("input", { cls: mySeat, kind, dir, q: nextSeq() }); }
       return;
     }
     if (kind === "fire") { fireRef.current = !!dir; sentAt.current = Date.now(); }
@@ -471,7 +475,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "duel") rpgDuel(g, mySeat, dir);
       else if (kind === "req") rpgRequest(g, mySeat, dir);
     } else {
-      room?.send("input", { cls: mySeat, kind, dir });
+      room?.send("input", { cls: mySeat, kind, dir, q: nextSeq() });
     }
   }, [isHost, mySeat, room, closeAll, loadRank]);
 
@@ -648,6 +652,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       offs.push(room.on("input", (d) => {
         const g = G.current;
         if (!d || !g.heroes[d.cls]) return;
+        if (!freshInput(g.heroes[d.cls], d.kind, d.q)) return;   // 늦게 도착한 옛 누름 · 뗌은 버린다
         if (d.kind === "hold") rpgHold(g, d.cls, d.dir);
         else if (d.kind === "skill") rpgSkill(g, d.cls);
         else if (d.kind === "talk") rpgTalk(g, d.cls);
@@ -670,11 +675,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     } else {
       let last = Date.now();
       let verSeen;
-      offs.push(room.on("rsnap", (d) => {
+      let snapFrom = "", snapQ = 0;                 // 마지막으로 반영한 스냅샷 — 방장이 바뀌면 처음부터 센다
+      offs.push(room.on("rsnap", (d, from) => {
         last = Date.now();
         const g = G.current;
-        rpgApply(g, d);
+        if (from !== snapFrom) { snapFrom = from; snapQ = 0; }
+        const stale = d.q && d.q <= snapQ;          // 늦게 도착한 옛 스냅샷 — 상태는 버리고 연출만 쓴다
+        if (d.q && !stale) snapQ = d.q;
+        if (!stale) rpgApply(g, d);
         if (d.o) rpgApplyOut(g, d.o);               // 연출은 스냅샷에 함께 온다
+        if (stale) return;
         if (d.ver !== verSeen) { verSeen = d.ver; setOldHost(compareBuild(d.ver)); }
         // 방장이 아는 내 입력이 내 키와 다르면(끊긴 사이 잃었다) 잠시 기다렸다가 다시 보낸다
         const h = g.heroes[mySeat];
@@ -682,8 +692,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         const want = holdKey(dirsRef.current), fire = fireRef.current ? 1 : 0;
         if (h.echo.hold === want && h.echo.fire === fire) return;
         sentAt.current = Date.now();
-        if (h.echo.hold !== want) room.send("input", { cls: mySeat, kind: "hold", dir: dirsRef.current.slice() });
-        if (h.echo.fire !== fire) room.send("input", { cls: mySeat, kind: "fire", dir: !!fire });
+        if (h.echo.hold !== want) room.send("input", { cls: mySeat, kind: "hold", dir: dirsRef.current.slice(), q: nextSeq() });
+        if (h.echo.fire !== fire) room.send("input", { cls: mySeat, kind: "fire", dir: !!fire, q: nextSeq() });
       }));
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));   // 옛 버전 방장은 연출을 따로 보낸다
       const watch = setInterval(() => setDropped(Date.now() - last > 6000), 2000);
@@ -746,6 +756,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           sinceSnap = Math.min(sinceSnap - every, every);   // 프레임이 듬성해도 정한 빈도를 지킨다
           // 연출도 스냅샷 한 통에 실어 메시지 수를 줄인다
           const snap = rpgPack(g);
+          snap.q = nextSeq();                       // 손님은 이 번호보다 작은 스냅샷이 늦게 오면 버린다
           if (g.out.length) {
             snap.o = g.out.splice(0, 60);
             if (g.out.length > 150) g.out.length = 0;

@@ -14,6 +14,7 @@ import { BUILD } from "../net/version.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY } from "./socialData.js";
 import { DROPS, MAT_BY_ID, GIFT } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
+import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, GRAMOR } from "./dungeonData.js";
 
 export const RPG_CREW_MAX = 16;
 // RPG 서버 — 방 코드 없이 모두 서버 1에 모인다. 서버 1이 가득 차면 다음 서버로 넘어간다.
@@ -59,13 +60,14 @@ export const MAPS = {
     gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" }],
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC
     blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 },
-      ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 }))],
+      ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 }],
     // 상점 — 자리와 이름은 shopData.js 의 SHOPS. 위쪽 가운데는 명예 순위판(결투 명예 순위를 본다).
     // 의뢰 NPC 셋 — requestData.js 의 REQ_NPCS. 말을 걸면 의뢰 창이 열린다
     npcs: [
       ...SHOPS.map((sh) => ({ id: `shop-${sh.id}`, shop: sh.id, name: sh.name, keeper: sh.keeper, x: sh.x, y: sh.y })),
       { id: "honor", board: 1, name: "명예 순위", keeper: "명예의 전당", x: 900, y: 256 },
       ...REQ_NPCS.map((n) => ({ id: `req-${n.id}`, req: n.id, name: n.name, x: n.x, y: n.y })),
+      { id: "dungeon", dungeon: 1, name: "던전 관리인", x: DUNGEON.npc.x, y: DUNGEON.npc.y },   // 던전 입장 창(dungeonData.js)
     ],
   },
   field: {
@@ -160,6 +162,18 @@ export const MAPS = {
 };
 // 스냅샷은 이 차례로 맵을 싣는다 — 새 맵은 뒤에만 더한다
 const MAP_IDS = ["plaza", "field", "wolf", "boar", "gorilla", "arena", "goblin", "orc", "ogre"];
+/* 던전 — 던전마다 칸(slots)만큼 맵을 따로 둔다(id "stone1-0" 처럼). 문이 없고 화면의 "나가기"로 광장에 돌아간다.
+   dungeon 이 있는 맵에서는 워프 · 투명화를 쓸 수 없다(shop.js) */
+DUNGEONS.forEach((d) => {
+  for (let slot = 0; slot < DUNGEON.slots; slot++) {
+    const id = dgMapId(d.id, slot);
+    MAPS[id] = {
+      id, name: `${d.name} ${slot + 1}`, w: DUNGEON.w, h: DUNGEON.h, top: 170, spawn: [280, 800], bg: "field", tile: 2600,
+      tint: d.tint, dungeon: d.id, slot, gates: [], blocks: [], npcs: [],
+    };
+    MAP_IDS.push(id);
+  }
+});
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -256,7 +270,12 @@ export const OGRE = { aggro: 420, walk: 170, punchCd: 1.3, slamRange: 210, wind:
 const BRUTE = { gorilla: GORILLA, goblin: GOBLIN, orc: ORC, ogre: OGRE };
 // 멧돼지 돌진 — 이 거리 안에 들면 wind 초 몸을 낮췄다가 speed 로 time 초 달린다. 돌진에 맞으면 dmg × chargeMul
 export const BOAR = { aggro: 270, chargeRange: 230, wind: 0.45, speed: 430, time: 0.7, rest: 1.1, cd: 3.6, chargeMul: 1.5, walk: 150 };
-const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre"];   // 스냅샷 차례 — 뒤에만 더한다
+// 그라모르 — 던전 보스로만 나온다. 세기(체력 · 피해 · 보상)는 던전마다 다르다(dungeonData.js). boss 값은 이름 · 크기만 쓴다
+MOB.gramor = {
+  name: "그라모르", rad: GRAMOR.rad, hp: () => 1, dmg: () => 1, xp: () => 1, coin: () => 1, size: () => 1,
+  boss: { name: "강철 파괴자 그라모르", lv: 140, hp: 1, dmg: 1, xp: 1, coin: 1, size: GRAMOR.size },
+};
+const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor"];   // 스냅샷 차례 — 뒤에만 더한다
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -514,6 +533,7 @@ export function makeWorld() {
     sys: [],                                      // 알림 한 줄(파티 · 칭호) — { who, msg, at } 내 것만 채팅 칸에 띄운다
     duels: [],                                    // 진행 중인 결투 — 방장만 { a, b, wa, wb, ring, phase, t, cnt, ret }
     nextParty: 1, titleT: 0,                      // 새 파티 번호 · 칭호 조건을 다시 보는 때
+    runs: [],                                     // 진행 중인 던전 — { id, slot, map, t 남은 초, wave, phase, end, gap } (손님도 스냅샷으로 받는다)
   };
   SPAWNS.forEach((sp, gi) => { for (let i = 0; i < sp.n; i++) spawnMob(g, gi); });
   return g;
@@ -786,7 +806,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (!h.quest.on) {
     h.quest = { on: true, n: 0 };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9,
@@ -820,16 +840,30 @@ function spawnMob(g, gi) {
 function mobBody(id, gi, lv, x, y) {
   const sp = SPAWNS[gi];
   const T = MOB[sp.type];
-  const size = mobSize(sp.type, lv, sp.boss);
-  const hp = sp.boss ? T.boss.hp : T.hp(lv);
+  return bodyOf(id, gi, sp.type, sp.boss ? 1 : 0, lv, sp.map, x, y, sp.boss ? T.boss : null);
+}
+// 던전 몹 — 무리(SPAWNS)에 속하지 않는다(gi -1). 일반 몹은 체력이 DUNGEON.hpMul 배, 보스 세기는 그 던전의 boss 값
+function dgMobBody(id, map, type, lv, boss, x, y) {
+  const d = DG_BY_ID[MAPS[map].dungeon];
+  const m = bodyOf(id, -1, type, boss ? 1 : 0, lv, map, x, y, boss ? d.boss : null);
+  if (!boss) { m.hp = m.max = Math.round(m.max * DUNGEON.hpMul); }
+  m.dg = 1;
+  return m;
+}
+// 몹 몸 — B 는 보스 값(lv · hp · dmg · xp · coin), 일반 몹이면 null
+function bodyOf(id, gi, type, boss, lv, map, x, y, B) {
+  const T = MOB[type];
+  const size = mobSize(type, lv, boss);
+  const hp = B ? B.hp : T.hp(lv);
   return {
-    id, gi, type: sp.type, boss: sp.boss ? 1 : 0, lv, size, map: sp.map, x, y, hx: x, hy: y,
+    id, gi, type, boss, lv, size, map, x, y, hx: x, hy: y,
     ax: Math.random() < 0.5 ? -1 : 1,
     hp, max: hp, rad: T.rad * size, age: 0, calm: 0,
-    dmg: sp.boss ? T.boss.dmg : T.dmg(lv), xp: xpOf(sp.boss ? T.boss.xp : T.xp(lv)), coin: coinOf(sp.boss ? T.boss.coin : T.coin(lv)),
+    dmg: B ? B.dmg : T.dmg(lv), xp: xpOf(B ? B.xp : T.xp(lv)), coin: coinOf(B ? B.coin : T.coin(lv)),
     state: "idle", t: 0.5 + Math.random() * 1.5, vx: 0, vy: 0, tgt: -1, bumpCd: 2, biteCd: 1, bite: 0, chargeCd: 1.5, hitSet: null,
     slow: 0, freeze: 0, stun: 0, burn: 0, bdps: 0, bby: -1, poison: 0, pdps: 0, pby: -1,
     shred: 0, shredAmt: 0, flash: 0, dotT: 0.5, numAcc: 0, numT: 0, numCol: "#ffe9bd",
+    pose: 0, wall: 0, wallN: 0, slamCd: 3, chgCd: 5,   // 그라모르 — 그림 자세 · 철벽 남은 초 · 쓴 철벽 수 · 기술 대기
   };
 }
 
@@ -841,6 +875,12 @@ export function rpgPromote(g) {
   g.out = [];
   g.hits = []; g.respawn = []; g.pending = {};
   g.mobs = g.mobs.filter((m) => !m.dead).map((m) => {
+    if (MAPS[m.map] && MAPS[m.map].dungeon) {     // 던전 몹 — 그 던전 값으로 다시 세운다
+      const b = dgMobBody(m.id, m.map, m.type, m.lv, m.boss, m.x, m.y);
+      b.hp = Math.max(1, Math.round((b.max * (m.hp || 0)) / (m.max || 100)));
+      b.ax = m.ax || 1; b.age = 1;
+      return b;
+    }
     const gi = SPAWNS.findIndex((sp) => sp.map === m.map && sp.type === m.type && !!sp.boss === !!m.boss);
     if (gi < 0) return null;
     const b = mobBody(m.id, gi, m.lv, m.x, m.y);
@@ -851,6 +891,7 @@ export function rpgPromote(g) {
   g.nextId = Math.max(g.nextId, ...g.mobs.map((m) => m.id + 1), 1);
   g.nextParty = Math.max(g.nextParty || 1, ...g.heroes.map((h) => (h ? h.pty + 1 : 1)));
   g.duels = [];
+  g.runs = (g.runs || []).filter((r) => DG_BY_ID[r.id]);   // 던전은 받은 그대로 잇는다
   g.heroes.forEach((h) => {
     if (!h) return;
     h.loaded = 0; h.migr = 1;                     // 기록이 다시 올 때까지 — 자리 · 체력은 그대로
@@ -1022,6 +1063,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
   if (!m || m.dead) return 0;
   const h = g.heroes[pi];
   let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0));
+  if (m.wall > 0) dmg *= 1 - GRAMOR.wall.cut;     // 그라모르 철벽 자세
   const crit = h ? sureCrit || Math.random() < critChance(h) : false;
   if (crit) dmg *= critMul(h);
   dmg = Math.max(1, Math.round(dmg));
@@ -1054,7 +1096,7 @@ function killMob(g, m, pi) {
   m.hp = 0;
   flushNum(g, m, 1);
   fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" });
-  g.respawn.push({ t: SPAWNS[m.gi].respawn, gi: m.gi });
+  if (m.gi >= 0) g.respawn.push({ t: SPAWNS[m.gi].respawn, gi: m.gi });   // 던전 몹은 다시 나오지 않는다
   if (!g.heroes[pi]) return;
   const got = [...new Set([...(m.hitBy || []), pi])].map((qi) => g.heroes[qi])
     .filter((q) => q && q.map === m.map && (q.loaded || q.pi === pi));
@@ -1919,11 +1961,12 @@ function stepBrute(g, m, dt, P) {
     if (m.t <= 0) { m.state = "idle"; m.t = 0.3; }
     return;
   }
-  const aggro = m.boss ? P.aggro * 1.3 : P.aggro;
+  const aggro = m.dg ? DUNGEON.aggro : m.boss ? P.aggro * 1.3 : P.aggro;
+  const leash = m.dg ? Infinity : P.leash;          // 던전 몹은 끝까지 쫓는다
   const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
   let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
-  if (tg && (tg.map !== m.map || tg.down > 0 || !notices(m, tg) || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > P.leash)) { tg = null; m.tgt = -1; }
-  if (!tg && far < P.leash * 0.78) {
+  if (tg && (tg.map !== m.map || tg.down > 0 || !notices(m, tg) || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > leash)) { tg = null; m.tgt = -1; }
+  if (!tg && far < leash * 0.78) {
     const near = nearestHero(g, m, aggro);
     if (near) { tg = near; m.tgt = near.pi; }
   }
@@ -1981,9 +2024,110 @@ function stepBrute(g, m, dt, P) {
   keepMob(m);
 }
 
+/* 그라모르 — 강화석 던전 보스(dungeonData.js GRAMOR). 쫓아와 망치로 치고, 대지 강타 · 방패 돌진 · 철벽 자세를 쓴다.
+   pose 는 그림 자세 — 1 망치를 듦(대지 강타 준비) · 2 방패를 세움(돌진 준비) · 4 돌진 · 8 철벽. 손님에게도 스냅샷으로 간다 */
+function stepGramor(g, m, dt) {
+  const G = GRAMOR;
+  const spd = m.slow > 0 ? 0.6 : 1;
+  m.slamCd = Math.max(0, m.slamCd - dt);
+  m.chgCd = Math.max(0, m.chgCd - dt);
+  // 철벽 자세 — 체력이 정해진 몫 아래로 내려갈 때마다 한 번. 다른 기술을 쓰면서도 이어진다
+  if (m.wallN < G.wall.at.length && m.hp <= m.max * G.wall.at[m.wallN]) {
+    m.wallN += 1;
+    m.wall = G.wall.dur;
+    say(g, m.map, m.x, m.y - 70 * m.size, "철벽 자세 — 받는 피해 감소", "#ffd59a");
+    fx(g, m.map, { kind: "ring", x: m.x, y: m.y - 20, r: 120, color: "#ffc070", t: 0.6, life: 0.6, snd: "bless" });
+  }
+  const wall = m.wall > 0 ? 8 : 0;
+  if (m.state === "slam") {                          // 망치를 들고 있다 — 다 들면 둘레를 내려친다
+    m.moving = 0;
+    m.t -= dt;
+    m.pose = 1 | wall;
+    if (m.t <= 0) {
+      g.heroes.forEach((h) => {
+        if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > G.slam.r + 16 || !notices(m, h)) return;
+        hurtHero(g, h, m.dmg * G.slam.mul);
+        fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 24, color: "#ff9a5a", n: 8, t: 0.35, life: 0.35 });
+      });
+      fx(g, m.map, { kind: "ring", x: m.x, y: m.y, r: G.slam.r, color: "#ff8a4a", t: 0.5, life: 0.5 });
+      fx(g, m.map, { kind: "burst", x: m.x + m.ax * 40, y: m.y - 6, r: 70, color: "#f0743a", n: 18, t: 0.5, life: 0.5, snd: "boom" });
+      m.state = "rest"; m.t = G.slam.rest; m.slamCd = G.slam.cd;
+    }
+    return;
+  }
+  if (m.state === "brace") {                         // 방패를 세웠다 — 다 세우면 겨눈 쪽으로 달린다
+    m.moving = 0;
+    m.t -= dt;
+    m.pose = 2 | wall;
+    if (m.t <= 0) { m.state = "charge"; m.t = G.charge.time; m.hitSet = []; }
+    return;
+  }
+  if (m.state === "charge") {                        // 돌진 — 길에 닿은 사람을 치고 밀어낸다
+    m.t -= dt;
+    m.moving = 1;
+    m.pose = 4 | wall;
+    m.x += m.vx * dt; m.y += m.vy * RPG.squash * dt;
+    const len = Math.hypot(m.vx, m.vy) || 1;
+    g.heroes.forEach((h) => {
+      if (!h || h.map !== m.map || h.down > 0 || m.hitSet.includes(h.pi) || !notices(m, h)) return;
+      if (dist(m.x, m.y, h.x, h.y) > m.rad + G.charge.width * 0.5) return;
+      m.hitSet.push(h.pi);
+      hurtHero(g, h, m.dmg * G.charge.mul);
+      h.x += (m.vx / len) * G.charge.push; h.y += (m.vy / len) * G.charge.push * RPG.squash;
+      keepIn(h, MAPS[h.map], 20);
+      fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22, color: "#ffb36a", n: 8, t: 0.32, life: 0.32, snd: "boom" });
+    });
+    const bx = m.x, by = m.y;
+    keepMob(m);
+    if (m.t <= 0 || bx !== m.x || by !== m.y) {      // 다 달렸거나 벽에 닿았다
+      m.state = "rest"; m.t = G.charge.rest; m.chgCd = G.charge.cd; m.vx = 0; m.vy = 0;
+    }
+    return;
+  }
+  m.pose = wall;
+  if (m.state === "rest") {
+    m.moving = 0;
+    m.t -= dt;
+    if (m.t <= 0) { m.state = "idle"; m.t = 0.3; }
+    return;
+  }
+  let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
+  if (tg && (tg.map !== m.map || tg.down > 0 || !notices(m, tg))) { tg = null; m.tgt = -1; }
+  if (!tg) { const near = nearestHero(g, m, DUNGEON.aggro); if (near) { tg = near; m.tgt = near.pi; } }
+  if (!tg) { m.moving = 0; return; }
+  const dx = tg.x - m.x, dy = (tg.y - m.y) / RPG.squash;
+  const d = Math.hypot(dx, dy) || 1;
+  if (Math.abs(dx) > 2) m.ax = dx < 0 ? -1 : 1;
+  if (m.slamCd <= 0 && d < G.slam.range) {
+    m.state = "slam"; m.t = G.slam.wind; m.moving = 0; m.pose = 1 | wall;
+    return;
+  }
+  if (m.chgCd <= 0 && d > G.charge.min) {
+    m.state = "brace"; m.t = G.charge.wind; m.moving = 0; m.pose = 2 | wall;
+    m.vx = (dx / d) * G.charge.speed; m.vy = (dy / d) * G.charge.speed;
+    return;
+  }
+  if (d > m.rad + 16) {
+    const v = G.walk * spd;
+    m.x += (dx / d) * v * dt; m.y += (dy / d) * v * RPG.squash * dt;
+    m.moving = 1;
+  } else {
+    m.moving = 0;
+    if (m.biteCd <= 0) {                             // 망치로 한 대
+      hurtHero(g, tg, m.dmg);
+      fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 26, r: 20, color: "#ff9a5a", n: 7, t: 0.3, life: 0.3 });
+      m.biteCd = G.punchCd;
+      m.bite = 0.3;
+    }
+  }
+  keepMob(m);
+}
+
 function stepMob(g, m, dt) {
-  if (!tickMob(g, m, dt)) return;
-  if (m.type === "wolf") { stepWolf(g, m, dt); spreadPack(g, m); }
+  m.wall = Math.max(0, (m.wall || 0) - dt);
+  if (!tickMob(g, m, dt)) { if (m.type === "gramor") m.pose = m.wall > 0 ? 8 : 0; return; }
+  if (m.type === "gramor") stepGramor(g, m, dt);
+  else if (m.type === "wolf") { stepWolf(g, m, dt); spreadPack(g, m); }
   else if (BRUTE[m.type]) { stepBrute(g, m, dt, BRUTE[m.type]); spreadPack(g, m); }
   else if (m.type === "boar") { stepBoar(g, m, dt); if (m.state !== "charge") spreadPack(g, m); }
   else stepRabbit(g, m, dt);
@@ -2000,6 +2144,132 @@ function spreadPack(g, m) {
     const ux = d > 0.01 ? dx / d : Math.random() - 0.5, uy = d > 0.01 ? dy / d : Math.random() - 0.5;
     m.x += ux * push; m.y += uy * push * RPG.squash;
   }
+}
+
+/* ── 던전 (dungeonData.js) — 방장만 판정 ─────────────────────
+   g.runs 하나가 던전 칸 하나다. 손님은 스냅샷으로 받은 g.runs 로 남은 시간 · 무리 차례를 그린다 */
+const RUN_PHASES = ["go", "boss", "clear", "fail"];
+export const freeSlot = (runs, id) => {
+  for (let s = 0; s < DUNGEON.slots; s++) if (!(runs || []).some((r) => r.id === id && r.slot === s)) return s;
+  return -1;
+};
+export const dgNear = (h) => !!h && h.map === "plaza" && dist(h.x, h.y, DUNGEON.npc.x, DUNGEON.npc.y) <= RPG.talkR + 30;
+export const inDungeon = (h) => !!(h && MAPS[h.map] && MAPS[h.map].dungeon);
+export const runOf = (g, h) => (h ? (g.runs || []).find((r) => r.map === h.map) || null : null);
+// 들어갈 수 있는지 — 막히는 이유를 모은다(빈 목록이면 들어갈 수 있다)
+export function whyDungeon(h, id, runs) {
+  const out = [];
+  const d = DG_BY_ID[id];
+  if (!d) { out.push("없는 던전입니다"); return out; }
+  if (!h || !h.loaded) { out.push("아직 불러오는 중입니다"); return out; }
+  if (!dgNear(h)) out.push("던전 관리인 곁에서만 들어갈 수 있습니다");
+  if (h.down > 0) out.push("쓰러진 동안은 들어갈 수 없습니다");
+  if (h.dvs !== undefined && h.dvs >= 0) out.push("결투 중에는 들어갈 수 없습니다");
+  if (!h.admin && h.coins < d.fee) out.push("코인이 모자랍니다");
+  if (freeSlot(runs, id) < 0) out.push("모든 칸이 차 있습니다 · 잠시 뒤에 오세요");
+  return out;
+}
+// 함께 들어갈 사람 — 나와, 같은 파티로 광장에 있는 사람(쓰러졌거나 결투 중이면 빼고)
+export const dgCrew = (g, h) => [h, ...(h.pty ? g.heroes.filter((o) => o && o !== h && o.pty === h.pty && o.loaded
+  && o.map === "plaza" && o.down <= 0 && !(o.dvs >= 0)) : [])];
+function toPlaza(g, h) {
+  h.map = "plaza";
+  [h.x, h.y] = MAPS.plaza.spawn;
+  h.x += (Math.random() - 0.5) * 120; h.y += (Math.random() - 0.5) * 60;
+  h.gateCd = 1;
+  fx(g, "plaza", { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#bfe6ff", t: 0.5, life: 0.5 });
+}
+export function rpgDungeon(g, pi, req) {
+  const h = g.heroes[pi];
+  if (!h || !req) return false;
+  if (req.op === "leave") {
+    if (!inDungeon(h)) return false;
+    toPlaza(g, h);
+    sys(g, pi, "던전에서 나왔습니다.");
+    return true;
+  }
+  if (req.op !== "enter") return false;
+  const d = DG_BY_ID[req.id];
+  const why = whyDungeon(h, req.id, g.runs);
+  if (why.length) return void sys(g, pi, why[0]);
+  const slot = freeSlot(g.runs, d.id);
+  const map = dgMapId(d.id, slot);
+  if (!h.admin) h.coins -= d.fee;
+  g.mobs = g.mobs.filter((m) => m.map !== map);
+  g.runs.push({ id: d.id, slot, map, t: DUNGEON.time, wave: 0, phase: "go", end: 0, gap: DUNGEON.waveGap });
+  const crew = dgCrew(g, h);
+  crew.forEach((o, i) => {
+    const [sx, sy] = MAPS[map].spawn;
+    o.map = map; o.x = sx + (i % 2) * 60; o.y = sy + (i - 1.5) * 50; o.gateCd = 1;
+    fx(g, map, { kind: "ring", x: o.x, y: o.y - 10, r: 50, color: "#ffc58a", t: 0.5, life: 0.5 });
+    sys(g, o.pi, `${d.name}에 들어왔습니다. ${Math.round(DUNGEON.time / 60)}분 안에 보스를 잡으세요.`);
+  });
+  sys(g, pi, `입장료 ${d.fee.toLocaleString("ko-KR")}코인을 냈습니다.`);
+  return true;
+}
+// 던전 안의 사람마다 머리 위에 큰 글자를 띄운다
+function dgCall(g, r, text, color, snd) {
+  g.heroes.forEach((h) => { if (h && h.map === r.map) fx(g, r.map, { kind: "call", x: h.x, y: h.y - 130, text, color, t: 1.8, life: 1.8, snd, who: h.pi }); });
+}
+function spawnWave(g, r, d) {
+  const M = MAPS[r.map];
+  for (let i = 0; i < d.waves[r.wave - 1]; i++) {
+    const lv = d.lv[0] + Math.floor(Math.random() * (d.lv[1] - d.lv[0] + 1));
+    const x = M.w * (0.45 + Math.random() * 0.45), y = M.top + 80 + Math.random() * (M.h - M.top - 160);
+    g.mobs.push(dgMobBody(g.nextId++, r.map, d.mob, lv, 0, x, y));
+  }
+}
+function tickRuns(g, dt) {
+  g.runs = g.runs.filter((r) => {
+    const d = DG_BY_ID[r.id];
+    const inside = g.heroes.filter((h) => h && h.map === r.map);
+    const close = () => { inside.forEach((h) => toPlaza(g, h)); g.mobs.forEach((m) => { if (m.map === r.map) m.dead = true; }); return false; };
+    if (!d || !inside.length) return close();       // 모두 나갔다
+    if (r.phase === "clear" || r.phase === "fail") {
+      r.end -= dt;
+      return r.end > 0 ? true : close();
+    }
+    r.t -= dt;
+    const fail = (why) => {
+      r.phase = "fail"; r.end = DUNGEON.failWait;
+      g.mobs.forEach((m) => { if (m.map === r.map) m.dead = true; });
+      dgCall(g, r, "던전 실패", "#ffb0a0", "over");
+      inside.forEach((h) => sys(g, h.pi, `던전 실패 — ${why}. 곧 광장으로 돌아갑니다.`));
+      return true;
+    };
+    if (r.t <= 0) { r.t = 0; return fail("시간이 다 되었습니다"); }
+    if (inside.every((h) => h.down > 0)) return fail("모두 쓰러졌습니다");
+    if (g.mobs.some((m) => !m.dead && m.map === r.map)) return true;
+    if (r.phase === "boss") {                        // 보스를 잡았다 — 안에 있는 사람이 저마다 보상을 받는다
+      r.phase = "clear"; r.end = DUNGEON.clearWait;
+      const mat = MAT_BY_ID[d.reward.id];
+      dgCall(g, r, "던전 완료!", "#ffd873", "clear");
+      inside.forEach((h) => {
+        if (!h.loaded) return;
+        h.rec.dg += 1;
+        const put = addMat(h.bag, d.reward.id, d.reward.n);
+        if (put) fx(g, h.map, { kind: "call", x: h.x, y: h.y - 160, text: `${mat.name} ×${put}`, color: mat.color, t: 2, life: 2, who: h.pi });
+        sys(g, h.pi, put ? `던전 보상 — ${mat.name} ${put}개를 얻었습니다.${put < d.reward.n ? " (가방이 가득 차 일부만)" : ""}`
+          : `${jo(mat.name, "이", "가")} 가득 차 보상을 받지 못했습니다.`);
+      });
+      return true;
+    }
+    r.gap -= dt;
+    if (r.gap > 0) return true;
+    r.gap = DUNGEON.waveGap;
+    if (r.wave < d.waves.length) {
+      r.wave += 1;
+      spawnWave(g, r, d);
+      dgCall(g, r, `${r.wave}번째 무리`, "#f0dcb4", "wave");
+    } else {
+      r.wave += 1;
+      r.phase = "boss";
+      const B = d.boss;
+      g.mobs.push(dgMobBody(g.nextId++, r.map, B.type, B.lv, 1, DUNGEON.w * 0.78, 800));
+      dgCall(g, r, `${MOB[B.type].boss.name} 등장`, "#ff9a7a", "boss");
+    }
+    return true;
+  });
 }
 
 /* ── 칭호 · 파티 (방장만 판정) ──────────────────────────────
@@ -2107,6 +2377,7 @@ export function rpgStep(g, dt) {
   stepHeroes(g, dt);
   tickSocial(g, dt);
   tickDuels(g, dt);
+  tickRuns(g, dt);
   g.hits = g.hits.filter((s) => {
     s.t -= dt;
     if (s.t > 0) return true;
@@ -2118,7 +2389,7 @@ export function rpgStep(g, dt) {
 
   // 무리마다 한 마리가 죽으면 한 마리 — 정해진 수를 넘지 않는다
   const alive = SPAWNS.map(() => 0), wait = SPAWNS.map(() => 0);
-  g.mobs.forEach((m) => { alive[m.gi] += 1; });
+  g.mobs.forEach((m) => { if (m.gi >= 0) alive[m.gi] += 1; });
   g.respawn = g.respawn.filter((r) => {
     r.t -= dt;
     if (r.t > 0) { wait[r.gi] += 1; return true; }
@@ -2182,7 +2453,9 @@ export function rpgPack(g) {
     m: g.mobs.filter((m) => busy.has(m.map)).map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
         | (m.stun > 0 ? 16 : 0) | (m.shred > 0 ? 32 : 0) | (m.flash > 0 ? 64 : 0),
-      m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0]),
+      m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0]),
+    // 던전 — [던전 차례, 칸, 남은 초, 무리 차례, 단계, 돌아가기까지 남은 초]
+    d: g.runs.map((r) => [DUNGEONS.findIndex((q) => q.id === r.id), r.slot, Math.ceil(r.t), r.wave, RUN_PHASES.indexOf(r.phase), r1(r.end)]),
   };
 }
 
@@ -2250,7 +2523,13 @@ export function rpgApply(g, s) {
     }
   });
   const seen = new Set();
-  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite]) => {
+  if (Array.isArray(s.d)) {
+    g.runs = s.d.map(([di, slot, t, wave, ph, end]) => {
+      const d = DUNGEONS[di];
+      return d ? { id: d.id, slot, map: dgMapId(d.id, slot), t, wave, phase: RUN_PHASES[ph] || "go", end, gap: 1 } : null;
+    }).filter(Boolean);
+  }
+  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose]) => {
     seen.add(id);
     let m = g.mobs.find((q) => q.id === id);
     if (!m) {
@@ -2261,6 +2540,7 @@ export function rpgApply(g, s) {
       g.mobs.push(m);
     }
     m.bite = bite ? 0.25 : 0;
+    m.pose = pose || 0;
     m.tx = x; m.ty = y;
     if (Math.hypot(x - m.x, y - m.y) > 160) { m.x = x; m.y = y; }
     m.hp = pct; m.max = 100;

@@ -50,6 +50,7 @@
 | `tree-3~5.webp` | 100 × 76 | (50, 58) | 둥근 나무 3종 |
 | `weapons/<id>.webp` | 64 × 64 | 가운데 | 특별 무기 그림(상점 · 가방 창). 칼끝이 오른쪽 위를 향한 모습. id 는 `shopData.js` 의 `SPECIALS[].art` — `clockwork` 태엽검 · `forest` 숲의 검 · `coral` 산호검 · `viper` 독사 단검 · `thunder` 번개검 · `frost` 서리검 · `flame` 화염검 · `star` 별의 검 · `shadow` 암흑검 · `holy` 신성검, 지팡이 `moon_staff` · `ice_staff` · `skull_staff` · `flame_staff` · `thunder_staff` · `galaxy_staff` · `holy_staff`, 활 `thunder_bow` · `lava_bow` · `shadow_bow` · `star_bow` · `gold_bow`(원본은 `design/weapons/`, 바탕 지우기는 `tools/cut-weapons.py`). 못 불러오면 그림 없이 이름만 보입니다 |
 | `armor/<부위>-<등급>.webp` | 128 × 128 | 가운데 | 방어구 그림(가방 · 상점 창). 부위 `head` 투구 · `body` 갑옷 · `legs` 바지 · `feet` 신발, 등급 `0` 초급 · `1` 희귀 · `2` 영웅 · `3` 전설. 원본은 `design/armor/`, 자르기는 `tools/cut-armor.py` |
+| `boss/<보스>-<자세>.webp` | 원본 크기(약 100px) | 발밑 가운데 | 던전 보스. 자세 `idle` · `move` · `attack` · `hurt` · `dead` · `slam` · `charge`. 게임은 모두 같은 배율(×2.2)로 그린다(`rpgArt.js` `BOSS_ART`). 원본은 `design/bosses/`, 자르기는 `tools/cut-bosses.py` |
 
 ## 예전 코드 그림으로 다시 뽑기
 

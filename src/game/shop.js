@@ -298,6 +298,7 @@ export function whyWarp(h, to) {
   if (!WARP.maps.includes(to) || !MAPS[to]) { out.push("갈 수 없는 지역입니다"); return out; }
   if (!h || !h.bag) return out;
   if ((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && MAPS[h.map].pvp)) out.push("결투 중에는 쓸 수 없습니다");
+  else if (MAPS[h.map] && MAPS[h.map].dungeon) out.push("던전에서는 쓸 수 없습니다");
   else if (h.map === to) out.push("이미 이 지역에 있습니다");
   if (!(h.bag.wp > 0)) out.push("지역 워프권이 없습니다");
   return out;

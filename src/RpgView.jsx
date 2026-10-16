@@ -7,6 +7,7 @@ import {
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
+  rpgDungeon, whyDungeon, dgNear, dgCrew, runOf,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
@@ -14,6 +15,7 @@ import { POTION } from "./game/shopData.js";
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQUESTS, REQ_SHOW } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, GIFT } from "./game/itemData.js";
+import { DUNGEON, DUNGEONS, DG_BY_ID } from "./game/dungeonData.js";
 import { UPDATES, RPG_NOTICE } from "./game/updates.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
@@ -377,6 +379,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [duelAt, setDuelAt] = useState(0);           // 결투 신청에 답한 때
   const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
   const [reqOpen, setReqOpen] = useState(null);      // 열어 둔 의뢰 NPC id
+  const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
+  const dgRef = useRef(false);                       // 루프가 보는 열린 던전 창 — 관리인에게서 멀어지면 닫는다
   // 업데이트 안내 창 — 새 공지(RPG_NOTICE)를 이 기기에서 아직 안 봤거나, 이번 선물을 처음 받았을 때 한 번. { gift, notes }
   const [giftOpen, setGiftOpen] = useState(null);
   const giftRef = useRef(null);                      // 들어올 때 이미 받은 선물이었는지 — 루프가 본다
@@ -411,6 +415,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setGiftOpen(null);
+    setDgOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -430,6 +435,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, []);
   useEffect(() => { shopRef.current = shopOpen; }, [shopOpen]);
   useEffect(() => { reqRef.current = reqOpen; }, [reqOpen]);
+  useEffect(() => { dgRef.current = dgOpen; }, [dgOpen]);
 
   const toggleMute = useCallback(() => {
     sfx.unlock();
@@ -454,6 +460,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (!npc) return;
       if (npc.board) { closeAll(); setHonorOpen(true); loadRank(); return; }   // 명예 순위판 — 창만 연다
       if (npc.req) { closeAll(); setReqOpen(npc.req); return; }                // 의뢰 NPC — 창을 열고, 받기 · 완료는 창에서 보낸다
+      if (npc.dungeon) { closeAll(); setDgOpen(true); return; }                 // 던전 관리인 — 입장 창
       if (npc.shop) {                               // 상점은 창만 연다 — 사고파는 것은 창에서 보낸다
         setStatOpen(false); setMenu(false); setBagOpen(false); setNote(null);
         setShopOpen(npc.shop);
@@ -481,6 +488,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "title") rpgTitle(g, mySeat, dir);
       else if (kind === "duel") rpgDuel(g, mySeat, dir);
       else if (kind === "req") rpgRequest(g, mySeat, dir);
+      else if (kind === "dg") rpgDungeon(g, mySeat, dir);
     } else {
       room?.send("input", { cls: mySeat, kind, dir, q: nextSeq() });
     }
@@ -496,13 +504,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !giftOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !giftOpen && !dgOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, giftOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, giftOpen, dgOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -673,6 +681,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         else if (d.kind === "title") rpgTitle(g, d.cls, d.dir);
         else if (d.kind === "duel") rpgDuel(g, d.cls, d.dir);
         else if (d.kind === "req") rpgRequest(g, d.cls, d.dir);
+        else if (d.kind === "dg") rpgDungeon(g, d.cls, d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
@@ -804,6 +813,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             honor: h.honor || 0, dvs: h.dvs })),
           honor: me.honor || 0, duelInv: me.duelInv ? me.duelInv.from : -1, dvs: me.dvs, dph: me.dph, dtl: me.dtl || 0,
           pty: me.pty, inv: me.invite ? me.invite.from : -1, title: me.title, titles: me.titles.slice(), rec: { ...me.rec },
+          // 던전 — 들어가 있는 칸(남은 시간 · 무리 차례 · 보스 체력), 입장 창에 쓰는 빈 칸 수 · 함께 갈 사람
+          run: (() => {
+            const r = runOf(g, me);
+            if (!r) return null;
+            const boss = g.mobs.find((m) => m.map === me.map && m.boss && !m.dead);
+            return { id: r.id, t: r.t, wave: r.wave, phase: r.phase, end: r.end, boss: boss ? { name: MOB[boss.type].boss.name, pct: boss.hp / boss.max } : null };
+          })(),
+          free: Object.fromEntries(DUNGEONS.map((d) => [d.id, DUNGEON.slots - (g.runs || []).filter((r) => r.id === d.id).length])),
+          crew: dgCrew(g, me).map((o) => o.pi),
+          runs: (g.runs || []).map((r) => ({ id: r.id, slot: r.slot })),
         } : null);
         // 파티 · 칭호 알림 — 내 것 가운데 새로 온 것만 채팅 칸에
         g.sys.forEach((n) => { if (n.who === mySeat && !n.seen) { n.seen = true; pushChat({ kind: "sys", text: n.msg }); } });
@@ -814,6 +833,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 상점에서 멀어지면 상점 창을 닫는다
         if (me && shopRef.current && !nearShop(me, shopRef.current)) { shopRef.current = null; setShopOpen(null); }
         if (me && reqRef.current && !reqNear(me, reqRef.current)) { reqRef.current = null; setReqOpen(null); }
+        if (me && dgRef.current && !dgNear(me)) { dgRef.current = false; setDgOpen(false); }
         if (me && me.loaded && !noticeDone) {
           noticeDone = true;
           const gift = me.gift === GIFT.id && !giftRef.current;
@@ -1225,6 +1245,69 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </>
             );
           })()}
+          {me && dgOpen && (() => {
+            const crew = me.crew || [];
+            return (
+              <>
+                <div className="rpg-menu-back" onClick={() => setDgOpen(false)} />
+                <div className="rpg-stat rpg-win" role="dialog" aria-label="던전 관리인">
+                  <div className="rpg-stat-head">
+                    <b>던전 관리인</b>
+                    <span>끝낸 던전 <em>{me.rec.dg || 0}</em></span>
+                  </div>
+                  <p className="rpg-stat-rule">
+                    들어가는 사람이 입장료를 냅니다. 같은 파티로 광장에 있는 사람이 함께 들어갑니다.
+                    무리 {DUNGEONS[0].waves.length}번을 잡으면 보스가 나옵니다. {Math.round(DUNGEON.time / 60)}분 안에 보스를 잡으면 안에 있는 사람이 저마다 보상을 받습니다.
+                    실패하면 입장료는 돌려받지 못합니다.
+                  </p>
+                  <p className="rpg-stat-rule">함께 들어갈 사람 {crew.length}명 · {crew.map((pi) => names[pi] || "모험가").join(", ")}</p>
+                  <div className="rpg-stat-list">
+                    {DUNGEONS.map((d) => {
+                      const why = whyDungeon(me.self, d.id, me.runs);
+                      const mat = MAT_BY_ID[d.reward.id];
+                      return (
+                        <div key={d.id} className="rpg-win-row">
+                          <span className="rpg-stat-name">
+                            <b>{d.name}</b>
+                            <em>{MOB[d.mob].name} {d.lv[0]}~{d.lv[1]}레벨 · 보스 {MOB[d.boss.type].boss.name}</em>
+                            <em>보상 {mat.name} {d.reward.n}개 · 입장료 {d.fee.toLocaleString("ko-KR")}코인 · 빈 칸 {me.free[d.id]}/{DUNGEON.slots}</em>
+                            {why.length > 0 && <em className="rpg-dg-why">{why[0]}</em>}
+                          </span>
+                          <button type="button" className="rpg-win-btn" disabled={why.length > 0}
+                            onClick={() => { act("dg", { op: "enter", id: d.id }); setDgOpen(false); }}>입장</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+          {me && me.run && (() => {
+            const r = me.run, d = DG_BY_ID[r.id];
+            const left = Math.max(0, Math.ceil(r.t));
+            const step = r.phase === "clear" ? "완료" : r.phase === "fail" ? "실패"
+              : r.phase === "boss" ? "보스" : r.wave > 0 ? `무리 ${r.wave}/${d.waves.length}` : "준비";
+            return (
+              <div className="rpg-dg">
+                <div className="rpg-dg-top">
+                  <b>{d.name}</b>
+                  <span>{step}</span>
+                  <span className={`rpg-dg-time ${left <= 30 && r.phase !== "clear" ? "low" : ""}`}>{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</span>
+                  <button type="button" className="rpg-win-btn" onClick={() => act("dg", { op: "leave" })}>나가기</button>
+                </div>
+                {r.boss && (
+                  <div className="rpg-dg-boss">
+                    <span>{r.boss.name}</span>
+                    <i><em style={{ width: `${Math.max(0, Math.min(1, r.boss.pct)) * 100}%` }} /></i>
+                  </div>
+                )}
+                {(r.phase === "clear" || r.phase === "fail") && (
+                  <p className="rpg-dg-end">{Math.ceil(r.end)}초 뒤 광장으로 돌아갑니다</p>
+                )}
+              </div>
+            );
+          })()}
           {me && me.inv >= 0 && nowMs - answeredAt > 1500 && (
             <div className="rpg-invite" role="alertdialog" aria-label="파티 초대">
               <span><b>{names[me.inv] || "모험가"}</b>님이 파티에 초대했습니다</span>
@@ -1292,7 +1375,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             );
           })()}
-          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req)) && (talk || me.near) && (
+          {me && me.near && me.near.dungeon && !dgOpen && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">던전 관리인</span>
+              <span className="rpg-talk-line">강화석 던전에 들어가겠나? 파티와 함께라면 더 든든하지.</span>
+              <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                던전 보기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
+          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon)) && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">

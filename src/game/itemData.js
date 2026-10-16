@@ -8,9 +8,9 @@ export const MATERIALS = [
   { id: "fang", name: "늑대 이빨", color: "#ece4d0", sell: 60, note: "우두머리 늑대가 떨군다" },
   { id: "tusk", name: "멧돼지 엄니", color: "#f1e2c4", sell: 150, note: "멧돼지 왕이 떨군다" },
   { id: "hide", name: "고릴라 가죽", color: "#7a6c62", sell: 300, note: "고릴라 왕이 떨군다" },
-  { id: "blue", name: "파랑 강화석", color: "#86b6e6", sell: 0, stone: true, note: "고블린 대장이 떨군다 · +10 까지 강화" },
-  { id: "eye", name: "경화된 눈알", color: "#d9c37c", sell: 0, stone: true, note: "오크 족장이 떨군다 · +20 까지 강화" },
-  { id: "heart", name: "심장결정", color: "#e08a98", sell: 0, stone: true, note: "오우거 왕이 떨군다 · +30 까지 · 가장 잘 붙는다" },
+  { id: "blue", name: "파랑 강화석", color: "#86b6e6", sell: 0, stone: true, note: "고블린 대장 · 강화석 던전 일반 · +10 까지 강화" },
+  { id: "eye", name: "경화된 눈알", color: "#d9c37c", sell: 0, stone: true, note: "오크 족장 · 강화석 던전 중급 · +20 까지 강화" },
+  { id: "heart", name: "심장결정", color: "#e08a98", sell: 0, stone: true, note: "오우거 왕 · 강화석 던전 고급 · +30 까지 · 가장 잘 붙는다" },
 ];
 export const MAT_BY_ID = Object.fromEntries(MATERIALS.map((m) => [m.id, m]));
 export const MAT_MAX = 999;

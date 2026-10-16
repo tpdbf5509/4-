@@ -8,6 +8,7 @@ import {
 } from "./art.js";
 import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
+import { GRAMOR } from "./dungeonData.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -547,6 +548,7 @@ function drawNpc(ctx, g, n, time) {
   if (n.shop) return drawShop(ctx, n, time);
   if (n.board) return drawHonorBoard(ctx, n, time);
   if (n.req) return drawReqNpc(ctx, g, n, time);
+  if (n.dungeon) return drawDungeonNpc(ctx, n, time);
   const { x, y } = n;
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
   const bob = Math.sin(time * 2) * 1.2;
@@ -1031,8 +1033,97 @@ function bruteDrawer(body, shadowR, top, upTop) {
 const drawGoblin = bruteDrawer(drawGoblinBody, 16, 52, 52);
 const drawOrc = bruteDrawer(drawOrcBody, 22, 72, 100);
 const drawOgre = bruteDrawer(drawOgreBody, 28, 76, 112);
-const MOB_DRAW = { wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre };
+
+/* 던전 보스 — 그림 시트에서 자른 자세(tools/cut-bosses.py)를 같은 배율로 발밑 가운데에 맞춰 그린다.
+   그림을 못 불러오면 오우거 몸을 크게 그려 대신한다. pose 비트는 rpg.js stepGramor */
+const BOSS_ART = { gramor: { scale: 2.2, slamR: GRAMOR.slam.r } };
+const bossImg = (type, pose) => mapImg(`${RPG_ART}/boss/${type}-${pose}.webp`);
+function drawDungeonBoss(ctx, m, time) {
+  const A = BOSS_ART[m.type];
+  const grow = Math.min(1, (m.age || 0) / 0.5);
+  const pose = m.pose || 0;
+  const x = m.x, y = m.y;
+  // 대지 강타 준비 — 내려칠 둘레를 붉게 깜빡인다
+  if (pose & 1) {
+    const p = 0.5 + 0.5 * Math.sin(time * 14);
+    ctx.save();
+    ctx.translate(x, y); ctx.scale(1, RPG.squash);
+    ctx.fillStyle = `rgba(230,90,50,${0.12 + 0.12 * p})`;
+    ctx.strokeStyle = `rgba(255,150,90,${0.5 + 0.4 * p})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, A.slamR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  shadow(ctx, x, y + 2, 70 * grow, 20 * grow, 0.35);
+  const name = pose & 4 ? "charge" : pose & 1 ? "slam" : pose & 2 || m.bite > 0 ? "attack"
+    : m.moving && Math.floor(time * 4) % 2 ? "move" : "idle";   // 맞을 때는 자세를 바꾸지 않고 밝게만(쉴 새 없이 맞아 깜빡이지 않게)
+  const img = bossImg(m.type, name) || bossImg(m.type, "idle");
+  const breathe = m.moving ? 0 : Math.sin(time * 2.2) * 0.012;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale((m.ax < 0 ? -1 : 1) * grow, grow * (1 + breathe));
+  let top = 230;
+  if (img) {
+    const w = img.width * A.scale, h = img.height * A.scale;
+    ctx.drawImage(img, -w / 2, -h, w, h);
+    top = h;
+    if (m.flash > 0) {                               // 맞으면 잠깐 밝게
+      ctx.globalAlpha = Math.min(0.35, m.flash * 3);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.drawImage(img, -w / 2, -h, w, h);
+    }
+  } else {
+    ctx.scale(2.2, 2.2);
+    drawOgreBody(ctx, (m.age || 0) * 8, m.moving, 1, m.freeze > 0, m.bite);
+  }
+  ctx.restore();
+  // 철벽 자세 — 금빛 고리
+  if (pose & 8) {
+    const p = 0.5 + 0.5 * Math.sin(time * 6);
+    ctx.save();
+    ctx.translate(x, y - top * 0.45);
+    ctx.strokeStyle = `rgba(255,196,110,${0.55 + 0.3 * p})`; ctx.lineWidth = 3;
+    ctx.shadowColor = "rgba(255,170,80,0.9)"; ctx.shadowBlur = 16;
+    ctx.beginPath(); ctx.ellipse(0, 0, top * 0.62, top * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  drawMobMarks(ctx, m, time, top * grow);
+}
+const MOB_DRAW = { wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss };
 const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4" };
+
+/* 던전 관리인 — 짙은 망토에 등불을 든 사람. 머리 위에 칼 모양 표시 */
+function drawDungeonNpc(ctx, n, time) {
+  const { x, y } = n;
+  const bob = Math.sin(time * 2 + x) * 1.2;
+  shadow(ctx, x, y + 2, 17, 5, 0.3);
+  ctx.save();
+  ctx.translate(x, y + bob);
+  ctx.fillStyle = "#5e4a52"; ctx.strokeStyle = "rgba(30,20,12,0.7)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-11, -38); ctx.lineTo(11, -38); ctx.lineTo(15, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#3a2c1c"; ctx.fillRect(-8, -2, 6, 3); ctx.fillRect(2, -2, 6, 3);
+  ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -46, 9.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#3a2c1c";
+  ctx.beginPath(); ctx.arc(-3.3, -46, 1.3, 0, Math.PI * 2); ctx.arc(3.3, -46, 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#5e4a52"; ctx.beginPath(); ctx.arc(0, -49, 11, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  // 등불
+  ctx.strokeStyle = "#4a3a2a"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(14, -24); ctx.lineTo(18, -30); ctx.stroke();
+  const glow = 0.7 + 0.3 * Math.sin(time * 5);
+  ctx.fillStyle = `rgba(255,190,100,${glow})`; ctx.fillRect(15, -24, 7, 9);
+  ctx.restore();
+  ctx.save();
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const jump = Math.abs(Math.sin(time * 3)) * -4;
+  ctx.font = "22px 'Do Hyeon', sans-serif";
+  ctx.lineWidth = 5; ctx.strokeStyle = "rgba(40,26,10,0.9)";
+  ctx.strokeText("⚔", x, y - 86 + jump);
+  ctx.fillStyle = "#f0b28a"; ctx.fillText("⚔", x, y - 86 + jump);
+  ctx.font = "12px 'Do Hyeon', sans-serif";
+  const w2 = ctx.measureText(n.name).width + 14;
+  ctx.fillStyle = "rgba(20,14,10,0.7)"; roundRect(ctx, x - w2 / 2, y + 6, w2, 16, 7); ctx.fill();
+  ctx.fillStyle = "#e8dcc0"; ctx.fillText(n.name, x, y + 14.5);
+  ctx.restore();
+}
 
 /* 광장 의뢰 NPC — 망토 두른 마을 사람. 망토 색은 requestData.js 의 color.
    머리 위: 받을 수 있으면 느낌표, 맡은 의뢰를 끝냈으면 금빛 물음표, 하는 중이면 흐린 물음표 */

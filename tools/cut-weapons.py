@@ -14,7 +14,7 @@ from scipy import ndimage as nd
 SRC = "design/weapons/"
 DST = "public/assets/game/rpg/weapons/"
 # 그림마다 바탕 — white 흰 바탕 · black 검은 바탕 · checker 흰 바탕 + 가짜 체크무늬 · frame 액자 안 검은 바탕
-KIND = {"flame": "checker", "thunder": "black", "forest": "black", "viper": "white", "frost": "black",
+KIND = {"flame": "black", "thunder": "black", "forest": "black", "viper": "white", "frost": "black",
         "star": "white", "holy": "frame", "clockwork": "black", "coral": "white", "shadow": "white",
         # 지팡이
         "flame_staff": "black", "galaxy_staff": "black", "moon_staff": "black", "ice_staff": "frame",
@@ -30,6 +30,8 @@ DARK_RIM = {"thunder_staff", "star_bow"}
 DARK_FILL = {"star_bow": (34, 80), "gold_bow": (34, 80)}
 # 번개 선에 갇혀 바탕 지우기가 닿지 않은 검은 덩어리 — 원본 좌표 상자 안의 검은 곳만 지운다
 ERASE_DARK = {"thunder_staff": [(0, 110, 95, 200), (60, 200, 170, 270)]}
+# 검은 바탕과 그림 사이에 얇은 흰 테두리(스티커 선)가 있는 그림 — 바탕과 이어진 흰 선까지 지운다
+WHITE_RIM = {"flame"}
 # 액자 그림 — 잘라 낼 바깥 폭(px)과 액자 안 바탕
 FRAME = {"holy": (44, "black"), "ice_staff": (68, "black"), "skull_staff": (58, "white"), "gold_bow": (112, "black")}
 
@@ -78,6 +80,9 @@ def cut(i):
             rgb[..., c][k] = np.clip((im[..., c][k] - 255 * (1 - a[k])) / a[k], 0, 255)
     else:
         bg = flood(mx < 26)
+        if i in WHITE_RIM:
+            rim = (mn > 150) & (sat < 50) & nd.binary_dilation(bg, iterations=4)   # 바탕 바로 옆의 흰 선만 — 칼자루의 밝은 쇠는 남긴다
+            bg = flood(bg | rim)
         hole = (mx < 18) & ~bg                       # 손잡이 고리 안처럼 갇힌 바탕
         lab, n = nd.label(hole)
         area = nd.sum(hole, lab, range(1, n + 1))

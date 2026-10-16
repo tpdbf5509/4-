@@ -143,7 +143,7 @@ export const POTIONS = [
   // 이속 물약 — amt 만큼 걷는 속도가 빨라진다. 다시 마시면 시간은 새로, 양은 큰 쪽
   { id: "speed1", name: "이속 물약 I", kind: "speed", amt: 0.3, dur: 50, price: 300 },
   { id: "speed2", name: "이속 물약 II", kind: "speed", amt: 0.5, dur: 120, price: 900 },
-  // 투명화 물약 — 일반 몹이 알아채지 못한다(공격해도 풀리지 않는다). 보스는 알아챈다. 결투장 · 던전에서는 마실 수 없다
+  // 투명화 물약 — 몹이 알아채지 못한다(보스도 · 공격해도 풀리지 않는다). 결투장 · 던전에서는 마실 수 없다
   { id: "hide1", name: "투명화 물약 I", kind: "hide", dur: 30, price: 600 },
   { id: "hide2", name: "투명화 물약 II", kind: "hide", dur: 50, price: 1200 },
 ];

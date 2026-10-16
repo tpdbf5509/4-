@@ -34,6 +34,9 @@ const SNAP_MIN = 3;        // 사람이 많아도 이만큼은 보낸다
 // 받는 쪽은 번호가 더 작은 스냅샷 · 입력을 버려, 옛 위치로 당겨지지 않게 한다. 새로 고쳐도 줄지 않게 지금 시각에서 시작한다
 let sendSeq = Date.now();
 const nextSeq = () => ++sendSeq;
+// 화면 오른쪽에 남은 시간을 띄우는 물약 효과 — h.bf 의 열쇠와 보이는 이름
+const BUFF_SHOW = [["str", "힘의 물약"], ["int", "지혜의 물약"], ["crit", "집중의 물약"], ["spd", "이속 물약"], ["hide", "투명화"]];
+const fmtLeft = (t) => { const n = Math.ceil(t); return n >= 60 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}` : `${n}초`; };   // 2:00 · 59초
 const RESEND_AFTER = 700;  // 방장이 내 입력을 이만큼(ms) 지나도 모르면 다시 보낸다 — 끊긴 사이 잃은 입력을 되살린다
 const STEP_MAX = 0.05;     // 한 번에 돌리는 판정 시간(초)
 const CATCH_UP = 0.25;     // 방장 화면이 잠깐 멈췄을 때 따라잡는 최대 시간(초)
@@ -787,6 +790,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             return id && POTION_BY_ID[id] ? { id, name: POTION_BY_ID[id].name, n: me.bag.p[id] || 0 } : null;
           }),
           extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
+          // 마신 물약 효과 — 남은 시간이 있는 것만(화면 오른쪽에 띄운다)
+          buffs: BUFF_SHOW.filter(([k]) => me.bf && me.bf[k] && me.bf[k].t > 0).map(([k, name]) => ({ k, name, t: me.bf[k].t })),
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf },
@@ -1345,6 +1350,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   {s.cd > 0 && <em>{Math.ceil(s.cd)}</em>}
                   {s.cd > 0 && <i style={{ width: `${(s.cd / s.max) * 100}%` }} />}
                 </button>
+              ))}
+            </div>
+          )}
+          {me && me.buffs.length > 0 && (
+            <div className="rpg-buffs" aria-label="물약 효과">
+              {me.buffs.map((b) => (
+                <div key={b.k} className={`rpg-buff ${b.t <= 5 ? "end" : ""}`}>
+                  <span>{b.name}</span><em>{fmtLeft(b.t)}</em>
+                </div>
               ))}
             </div>
           )}

@@ -1134,6 +1134,12 @@ kbd {
 .rpg-skillbar { position: absolute; left: 12px; bottom: 12px; z-index: 3; display: flex; gap: 6px; pointer-events: auto; }
 /* 물약 칸 — 오른쪽 아래. 산 스킬 칸과 같은 모양을 작게 */
 .rpg-potbar { position: absolute; right: 12px; bottom: 12px; z-index: 3; display: flex; gap: 6px; pointer-events: auto; }
+/* 물약 효과 — 물약 칸 위 오른쪽. 끝나기 5초 전부터 흐려진다 */
+.rpg-buffs { position: absolute; right: 12px; bottom: 64px; z-index: 3; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; pointer-events: none; }
+.rpg-buff { display: flex; align-items: baseline; gap: 10px; min-width: 128px; justify-content: space-between; padding: 4px 10px;
+  border-radius: 8px; border: 1px solid rgba(190, 210, 228, 0.35); background: rgba(34, 26, 18, 0.78); color: #ecdfc4; font-size: 12.5px; letter-spacing: -0.02em; }
+.rpg-buff em { font-style: normal; color: #bcd3e6; font-variant-numeric: tabular-nums; }
+.rpg-buff.end { opacity: 0.6; }
 .rpg-potbar .rpg-skill { min-width: 0; }
 .rpg-skill {
   position: relative; display: inline-flex; align-items: center; gap: 6px; min-width: 96px; padding: 6px 10px 6px 6px; cursor: pointer; overflow: hidden;
@@ -1510,6 +1516,8 @@ kbd {
 @media (max-width: 560px), (max-height: 560px) {
   .rpg-skillbar { left: 6px; bottom: 6px; gap: 4px; }
   .rpg-potbar { right: 6px; bottom: 6px; gap: 4px; }
+  .rpg-buffs { right: 6px; bottom: 48px; }
+  .rpg-buff { min-width: 96px; padding: 3px 8px; font-size: 11px; }
   .rpg-skill { min-width: 0; padding: 4px 7px 4px 4px; gap: 4px; }
   .rpg-skill span { font-size: 11px; }
   .rpg-skill span small { display: none; }

@@ -83,7 +83,7 @@ function potionText(p) {
   if (p.kind === "heal") return `최대 체력의 ${pct(p.pct, 0)} 회복`;
   if (p.kind === "buff") return `${p.dur}초 동안 ${statDef(p.stat).name} +${statDef(p.stat).fmt(p.amt)}`;
   if (p.kind === "speed") return `${p.dur >= 60 ? `${p.dur / 60}분` : `${p.dur}초`} 동안 이동 속도 +${Math.round(p.amt * 100)}%`;
-  if (p.kind === "hide") return `${p.dur}초 동안 몹이 알아채지 못합니다 · 보스는 알아챕니다 · 결투장 · 던전에서는 못 마십니다`;
+  if (p.kind === "hide") return `${p.dur}초 동안 보스도 몹도 알아채지 못합니다 · 공격해도 풀리지 않습니다 · 결투장 · 던전에서는 못 마십니다`;
   return "찍은 스탯 포인트를 모두 돌려받는다";
 }
 

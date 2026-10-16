@@ -563,7 +563,7 @@ export function rpgShop(g, pi, req) {
       const cur = h.bf.hide;
       h.bf.hide = { t: Math.max(p.dur, cur && cur.t > 0 ? cur.t : 0), a: 1 };     // 다시 마시면 남은 시간과 새 시간 가운데 긴 쪽
       fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 44, color: "#cfd8e6", n: 8, t: 0.5, life: 0.5, who: pi });
-      msg = `${Math.ceil(h.bf.hide.t)}초 동안 몹이 알아채지 못합니다(보스는 알아챕니다)`;
+      msg = `${Math.ceil(h.bf.hide.t)}초 동안 몹이 알아채지 못합니다(보스도)`;
     } else {
       const back = statSpent(h.st);
       h.st = noStats();

@@ -1031,7 +1031,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
   if (crit || skill || m.numT <= 0) flushNum(g, m, crit ? 2 : skill ? 1 : 0);
   // 늑대와 대왕 토끼는 때린 쪽을 노린다
-  if (h && m.hp > 0 && (m.type !== "rabbit" || m.boss)) { m.tgt = pi; m.bumpCd = Math.min(m.bumpCd, 0.6); }
+  if (h && m.hp > 0 && (m.type !== "rabbit" || m.boss) && notices(m, h)) { m.tgt = pi; m.bumpCd = Math.min(m.bumpCd, 0.6); }   // 투명화한 사람은 맞아도 못 알아챈다
   // 작은 토끼는 때린 쪽 반대로 달아난다
   else if (h && m.hp > 0 && m.freeze <= 0 && m.stun <= 0) {
     const dx = m.x - h.x, dy = (m.y - h.y) / RPG.squash;
@@ -1632,8 +1632,8 @@ function stepHeroes(g, dt) {
   });
 }
 
-// 몹이 이 사람을 알아채는가 — 투명화 물약을 마신 사람은 보스만 알아챈다
-const notices = (m, h) => m.boss || !buffLeft(h, "hide");
+// 몹이 이 사람을 알아채는가 — 투명화 물약을 마신 사람은 보스도 일반 몹도 알아채지 못한다(공격해도 그대로)
+const notices = (m, h) => !buffLeft(h, "hide");
 function nearestHero(g, m, range) {
   let best = null, bd = range;
   g.heroes.forEach((h) => {
@@ -1694,7 +1694,7 @@ function stepRabbit(g, m, dt) {
   // 들이받기 — 닿으면 아프고 튕겨 나온다
   if (m.state === "charge") {
     const tg = g.heroes[m.tgt];
-    if (tg && tg.map === m.map && tg.down <= 0 && dist(m.x, m.y, tg.x, tg.y) < m.rad + 13) {
+    if (tg && tg.map === m.map && tg.down <= 0 && notices(m, tg) && dist(m.x, m.y, tg.x, tg.y) < m.rad + 13) {
       hurtHero(g, tg, m.dmg);
       fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 24, r: 16 * m.size, color: "#ffd7c2", n: 5, t: 0.25, life: 0.25 });
       m.bumpCd = m.boss ? 2.4 : 3.5;
@@ -1729,7 +1729,7 @@ function stepWolf(g, m, dt) {
   const aggro = m.boss ? 340 : 250;
   const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
   let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
-  if (tg && (tg.map !== m.map || tg.down > 0 || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > 900)) { tg = null; m.tgt = -1; }
+  if (tg && (tg.map !== m.map || tg.down > 0 || !notices(m, tg) || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > 900)) { tg = null; m.tgt = -1; }
   if (!tg && far < 700) {
     const near = nearestHero(g, m, aggro);
     if (near) { tg = near; m.tgt = near.pi; }
@@ -1747,7 +1747,7 @@ function stepWolf(g, m, dt) {
       m.moving = 0;
       if (m.biteCd <= 0) {
         const list = m.boss
-          ? g.heroes.filter((h) => h && h.map === m.map && h.down <= 0 && dist(m.x, m.y, h.x, h.y) < reach * 1.7)
+          ? g.heroes.filter((h) => h && h.map === m.map && h.down <= 0 && dist(m.x, m.y, h.x, h.y) < reach * 1.7 && notices(m, h))
           : [tg];
         list.forEach((h) => {
           hurtHero(g, h, m.dmg);
@@ -1790,7 +1790,7 @@ function stepBoar(g, m, dt) {
     m.moving = 0; m.bite = 0.2;
     m.t -= dt;
     if (m.t <= 0) {
-      const tg = g.heroes[m.tgt];
+      const tg = g.heroes[m.tgt] && notices(m, g.heroes[m.tgt]) ? g.heroes[m.tgt] : null;
       const tx = tg ? tg.x : m.x + m.ax * 100, ty = tg ? tg.y : m.y;
       const dx = tx - m.x, dy = (ty - m.y) / RPG.squash, d = Math.hypot(dx, dy) || 1;
       m.vx = (dx / d) * BOAR.speed; m.vy = (dy / d) * BOAR.speed;
@@ -1826,7 +1826,7 @@ function stepBoar(g, m, dt) {
   const aggro = m.boss ? BOAR.aggro * 1.3 : BOAR.aggro;
   const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
   let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
-  if (tg && (tg.map !== m.map || tg.down > 0 || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > 900)) { tg = null; m.tgt = -1; }
+  if (tg && (tg.map !== m.map || tg.down > 0 || !notices(m, tg) || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > 900)) { tg = null; m.tgt = -1; }
   if (!tg && far < 700) {
     const near = nearestHero(g, m, aggro);
     if (near) { tg = near; m.tgt = near.pi; }
@@ -1909,7 +1909,7 @@ function stepBrute(g, m, dt, P) {
   const aggro = m.boss ? P.aggro * 1.3 : P.aggro;
   const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
   let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
-  if (tg && (tg.map !== m.map || tg.down > 0 || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > P.leash)) { tg = null; m.tgt = -1; }
+  if (tg && (tg.map !== m.map || tg.down > 0 || !notices(m, tg) || dist(m.x, m.y, tg.x, tg.y) > aggro * 2.2 || far > P.leash)) { tg = null; m.tgt = -1; }
   if (!tg && far < P.leash * 0.78) {
     const near = nearestHero(g, m, aggro);
     if (near) { tg = near; m.tgt = near.pi; }

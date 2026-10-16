@@ -1315,7 +1315,7 @@ function landHit(g, s) {
     fx(g, s.map, { kind: "art", art: ELEM_ART[el.id].hit, x, y: y - 4, r: 34, t: 0.4, life: 0.4 });
   } else {
     if (!m) return;
-    hitMob(g, s.pi, m, s.dmg);
+    hitMob(g, s.pi, m, s.dmg, s.skill, s.sure);
     soak(g, h, m, 0);
     fx(g, s.map, { kind: "burst", x, y: y - 10, r: 18, color: el.light, n: 6, t: 0.3, life: 0.3 });
   }
@@ -1396,6 +1396,30 @@ export function startDash(h) {
   h.dash = DASH.time; h.inv = DASH.inv; h.dashCd = DASH.cd;
   return true;
 }
+// 돌진 — 상대 바로 앞(몸 반지름 + LUNGE_GAP)까지 time 초에 달려간다. 대쉬와 같은 걸음(dashStep)으로 움직이고 그동안 맞지 않는다
+const LUNGE_GAP = 26;
+function lungeTo(h, o, time) {
+  const dx = o.x - h.x, dy = (o.y - h.y) / RPG.squash;
+  const d = Math.hypot(dx, dy) || 1;
+  const go = Math.max(0, d - ((o.rad || 16) * 0.5 + LUNGE_GAP));
+  h.dvx = (dx / d) * (go / time); h.dvy = (dy / d) * (go / time);
+  if (Math.abs(dx) > 1) h.dir = dx < 0 ? -1 : 1;
+  h.face = 0;
+  h.dash = time; h.inv = Math.max(h.inv || 0, time + 0.1);
+}
+// 손님 화면에서 먼저 그리는 급소 찌르기 돌진 — 방장 판정과 같은 상대를 고른다. 판정(피해)은 방장만 한다
+export function predictLunge(g, h, id) {
+  const s = ACTIVE_SKILLS.find((q) => q.id === id);
+  const L = s && s.use.lunge;
+  if (!L || !h || h.down > 0 || !(h.bag && h.bag.s[id] > 0) || (h.scd && h.scd[id] > 0) || MAPS[h.map].safe) return false;
+  const pvp = isPvp(h.map);
+  if (pvp && h.dph !== 2) return false;
+  const o = pvp ? g.heroes[h.dvs] : nearMobs(g, h.map, h.x, h.y, L.reach, 1)[0];
+  if (!o || o.map !== h.map || dist(h.x, h.y, o.x, o.y) - (pvp ? 7 : (o.rad || 0) * 0.5) > L.reach) return false;
+  lungeTo(h, o, L.time);
+  h.predict = 0.6;
+  return true;
+}
 // 대쉬 중 한 걸음 — 방장 · 손님 화면이 같은 식으로 움직인다
 function dashStep(h, dt) {
   const t = Math.min(dt, h.dash);
@@ -1444,6 +1468,16 @@ export function rpgUseSkill(g, pi, id) {
       if (!list.length) return say(g, map, h.x, h.y - 90, pvp ? "닿는 상대가 없다" : "닿는 몹이 없다", "#d9c9a6");
       list.forEach(strike);
       fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
+    } else if (u.lunge) {                          // 급소 찌르기 — 가장 가까운 적 앞까지 돌진해 찌른다
+      const L = u.lunge;
+      const [m] = pvp ? nearFoes(g, h, h.x, h.y, L.reach) : nearMobs(g, map, h.x, h.y, L.reach, 1);
+      if (!m) return say(g, map, h.x, h.y - 90, pvp ? "돌진할 상대가 없다" : "돌진할 몹이 없다", "#d9c9a6");
+      const x0 = h.x, y0 = h.y;
+      lungeTo(h, m, L.time);
+      fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#ffe9b0", n: 8, t: 0.3, life: 0.3, snd: "slash" });
+      // 닿는 순간에 찌른다 — 그사이 상대가 쓰러졌거나 맵을 떠났으면 빗나간다
+      const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: 0, skill: true, sure: !!u.crit };
+      g.hits.push(pvp ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
     } else {                                       // 가장 가까운 하나
       const reach = heroRange(h) * SKILL_USE.reach;
       const [m] = pvp ? nearFoes(g, h, h.x, h.y, reach) : nearMobs(g, map, h.x, h.y, reach, 1);

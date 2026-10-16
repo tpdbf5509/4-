@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, DASH,
+  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
@@ -452,6 +452,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         : `토끼 ${QUEST.need}마리만 잡아 주게. 경험치 ${QUEST.xp}과 ${QUEST.coin}코인을 주겠네.`);
     }
     if (kind === "dash" && !isHost) predictDash(g.heroes[mySeat]);   // 손님도 내 대쉬는 먼저 그린다
+    if (kind === "use" && !isHost) predictLunge(g, g.heroes[mySeat], dir);   // 급소 찌르기 돌진도 먼저 그린다
     if (isHost) {
       if (kind === "dash") rpgDash(g, mySeat);
       else if (kind === "stat") rpgStat(g, mySeat, dir);

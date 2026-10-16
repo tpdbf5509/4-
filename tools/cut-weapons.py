@@ -21,13 +21,15 @@ KIND = {"flame": "checker", "thunder": "black", "forest": "black", "viper": "whi
         "skull_staff": "frame", "holy_staff": "black", "thunder_staff": "white",
         # 활
         "lava_bow": "black", "star_bow": "white", "gold_bow": "frame", "shadow_bow": "black", "thunder_bow": "black"}
-GLOW = {"thunder": 18, "forest": 18, "frost": 18, "holy": 18,   # 빛이 번진 그림 — 바탕 쪽 빛 띠의 폭
+GLOW = {"thunder": 18, "forest": 4, "frost": 18, "holy": 18,   # 빛이 번진 그림 — 바탕 쪽 빛 띠의 폭(넓으면 얇은 손잡이까지 밝혀 바랜다)
         "flame_staff": 18, "galaxy_staff": 18, "moon_staff": 22, "ice_staff": 18, "holy_staff": 22,
-        "lava_bow": 18, "gold_bow": 18, "shadow_bow": 18, "thunder_bow": 18}
+        "lava_bow": 5, "gold_bow": 18, "shadow_bow": 18, "thunder_bow": 18}
 # 흰 바탕 둘레에 검은 띠(그림자 · 구름)가 붙은 그림 — 흰 바탕과 이어진 검은 곳까지 바탕으로 본다
 DARK_RIM = {"thunder_staff", "star_bow"}
 # 활 안쪽에 어두운 바탕(밤하늘)이 칠해진 그림 — 어두운 곳은 밝기만큼만 남겨 별 · 활대 · 활줄만 보이게 한다. (완전히 지울 밝기, 다 남길 밝기)
-DARK_FILL = {"star_bow": (34, 80)}
+DARK_FILL = {"star_bow": (34, 80), "gold_bow": (34, 80)}
+# 번개 선에 갇혀 바탕 지우기가 닿지 않은 검은 덩어리 — 원본 좌표 상자 안의 검은 곳만 지운다
+ERASE_DARK = {"thunder_staff": [(0, 110, 95, 200), (60, 200, 170, 270)]}
 # 액자 그림 — 잘라 낼 바깥 폭(px)과 액자 안 바탕
 FRAME = {"holy": (44, "black"), "ice_staff": (68, "black"), "skull_staff": (58, "white"), "gold_bow": (112, "black")}
 
@@ -89,6 +91,10 @@ def cut(i):
         k = band & (a > 0.02)
         for c in range(3):
             rgb[..., c][k] = np.clip(im[..., c][k] / np.maximum(mx[k] / 110, 0.05), 0, 255)
+    for x0, y0, x1, y1 in ERASE_DARK.get(i, []):
+        box = np.zeros_like(a, bool)
+        box[y0:y1, x0:x1] = True
+        a[box & (mx < 40)] = 0
     if i in DARK_FILL:
         lo, hi = DARK_FILL[i]
         a = np.minimum(a, np.clip((mx - lo) / (hi - lo), 0, 1))   # 색은 그대로 두고 비침만 — 밝히면 활대가 바랜다

@@ -354,6 +354,21 @@ const shade = (hex, k) => {
   return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
 };
 const TORCH_GAP = 400;                                  // 벽의 횃불 간격
+// 이끼 — 바닥 줄눈 · 벽돌 틈에 낀 작은 덩어리. 빛깔은 DG_LOOKS[].moss(없으면 이 색), 수는 바닥 · 벽
+const DG_MOSS = { col: ["#56703f", "#6d8a4c", "#86a25e"], floor: 170, wall: 40 };
+function mossClump(ctx, rnd, x, y, len, along, cols) {
+  const n = 5 + Math.floor(rnd() * 7);
+  for (let i = 0; i < n; i++) {
+    const t = (rnd() - 0.5) * len;                       // 틈을 따라 길게 퍼진다
+    const px = x + (along ? t : (rnd() - 0.5) * 6), py = y + (along ? (rnd() - 0.5) * 5 : t * 0.6);
+    ctx.globalAlpha = 0.55 + rnd() * 0.35;
+    ctx.fillStyle = cols[Math.floor(rnd() * cols.length)];
+    ctx.beginPath(); ctx.ellipse(px, py, 2 + rnd() * 4, 1.5 + rnd() * 2.5, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 0.8; ctx.fillStyle = cols[cols.length - 1];   // 밝은 잎 점
+  for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(x + (rnd() - 0.5) * len * 0.6, y + (rnd() - 0.5) * 4, 1, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 1;
+}
 export function paintDungeon(M) {
   const L = DG_LOOKS[M.dungeon] || DG_LOOKS.stone1;
   const c = document.createElement("canvas");
@@ -395,6 +410,16 @@ export function paintDungeon(M) {
     ctx.fillStyle = shade(L.tile, 0.6 + rnd() * 0.5);
     ctx.beginPath(); ctx.ellipse(x, y, 3 + rnd() * 7, 2 + rnd() * 4, rnd() * 3, 0, Math.PI * 2); ctx.fill();
   }
+  // 바닥 이끼 — 타일 사이 줄눈(가로줄 · 세로 틈)에 낀다
+  const moss = L.moss || DG_MOSS.col;
+  for (let i = 0; i < DG_MOSS.floor; i++) {
+    const r = Math.floor(rnd() * ((M.h - M.top) / TH)), y0 = M.top + r * TH;
+    if (rnd() < 0.5) mossClump(ctx, rnd, rnd() * M.w, y0, 24 + rnd() * 30, true, moss);           // 가로 줄눈
+    else {
+      const c = Math.floor(rnd() * (M.w / TW)), x0 = c * TW + (r % 2 ? -TW / 2 : 0);
+      mossClump(ctx, rnd, x0, y0 + 8 + rnd() * (TH - 16), 18 + rnd() * 16, false, moss);         // 세로 틈
+    }
+  }
   // 위쪽 벽 — 벽돌 · 기둥 · 횃불 받침
   ctx.fillStyle = L.wall; ctx.fillRect(0, 0, M.w, M.top);
   const BW = 64, BH = 26;
@@ -403,6 +428,10 @@ export function paintDungeon(M) {
       ctx.fillStyle = shade(L.wall, 1.05 + rnd() * 0.3);
       ctx.fillRect(x + 2, y + 2, BW - 4, BH - 4);
     }
+  }
+  for (let i = 0; i < DG_MOSS.wall; i++) {                // 벽돌 틈 이끼 — 아래쪽(축축한 곳)에 더 많이
+    const r = Math.floor(Math.pow(rnd(), 0.6) * Math.floor((M.top - 8) / BH));
+    mossClump(ctx, rnd, rnd() * M.w, r * BH + 1, 14 + rnd() * 18, true, moss);
   }
   for (let x = TORCH_GAP / 2 - 200; x < M.w + 100; x += TORCH_GAP) {   // 기둥 — 횃불 사이
     ctx.fillStyle = shade(L.wall, 1.5); ctx.fillRect(x - 22, 0, 44, M.top + 10);

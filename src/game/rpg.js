@@ -13,9 +13,9 @@ import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
-import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX } from "./itemData.js";
+import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
-import { armorName } from "./armorData.js";
+import { armorName, ARMOR } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 
 export const RPG_CREW_MAX = 16;
@@ -684,6 +684,20 @@ function giveGift(g, h) {
   h.bag.v += 1;
   h.gift = GIFT.id;
   sys(g, h.pi, "업데이트 선물을 받았습니다. 가방(I)에서 확인하세요.");
+}
+
+// 한 사람 선물 — 이름이 같으면 한 번 준다(이름은 공백을 고르게 해서 견준다). 가방이 가득 차면 다음에 다시 본다
+const sameName = (a, b) => String(a || "").trim().replace(/\s+/g, " ") === String(b || "").trim().replace(/\s+/g, " ");
+function givePersonal(g, h) {
+  if (!h.bag || !g.names) return;
+  PERSONAL_GIFTS.forEach((pg) => {
+    if (!sameName(g.names[h.pi], pg.name) || (h.bag.pg || []).includes(pg.id)) return;
+    if ((h.bag.a || []).length + (pg.armor || []).length > ARMOR.bagMax) return;
+    (pg.armor || []).forEach((q) => { h.bag.a.push({ u: h.bag.n++, s: q.s, g: q.g }); });
+    h.bag.pg = [...(h.bag.pg || []), pg.id];
+    h.bag.v += 1;
+    sys(g, h.pi, pg.msg);
+  });
 }
 
 /* 스탯을 찍는다 (방장만 판정) — add 는 { 스탯id: 올릴 포인트 }. 남은 포인트와 스탯 상한을 넘으면 받지 않는다.
@@ -2916,7 +2930,7 @@ function tickSocial(g, dt) {
   g.titleT -= dt;
   if (g.titleT <= 0) {
     g.titleT = 0.5;
-    g.heroes.forEach((h) => { if (h && h.loaded) awardTitles(g, h, false); });
+    g.heroes.forEach((h) => { if (h && h.loaded) { awardTitles(g, h, false); givePersonal(g, h); } });
   }
 }
 

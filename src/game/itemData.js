@@ -56,6 +56,11 @@ export const enhDown = (k) => ENHANCE.down.reduce((r, d) => (k >= d.from ? d.rat
 
 /* 업데이트 선물 — 캐릭터마다 한 번, 이 id 를 처음 받을 때 준다(서버에 들어와 방장이 기록을 실을 때).
    다음 선물을 줄 때는 id 를 새로 바꾼다. notes 는 함께 보여 줄 업데이트 노트 id(updates.js) */
+/* 한 사람에게만 주는 선물 — name 은 캐릭터 이름(서버 rpg_chars.name). 들어와 있으면 방장이 한 번 주고 그 사람 채팅 칸에만 msg 를 띄운다.
+   받은 id 는 가방(bag.pg)에 남아 다시 주지 않는다. armor 는 [{ s 부위, g 등급(0 초급 ~ 3 전설) }]. 새 선물은 id 를 새로 쓴다 */
+export const PERSONAL_GIFTS = [
+  { id: "pg-2026-10-17-1", name: "극우몰이 김도현", armor: [{ s: "body", g: 3 }], msg: "이번 한번만 주는거다" },
+];
 export const GIFT = {
   id: "2026-10-30",
   potions: { reset: 1 },                        // 스탯 초기화 물약

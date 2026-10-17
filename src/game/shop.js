@@ -182,6 +182,7 @@ export function cleanBag(d) {
   }
   b.v = Math.max(0, Math.floor(Number(d.v) || 0));
   b.oc = d.oc ? 1 : 0;
+  b.pg = Array.isArray(d.pg) ? d.pg.filter((x) => typeof x === "string").slice(0, 50) : [];   // 받은 한 사람 선물 id(itemData.js PERSONAL_GIFTS)
   return b;
 }
 export const equipped = (bag) => (bag.e ? bag.w.find((w) => w.u === bag.e) || null : null);

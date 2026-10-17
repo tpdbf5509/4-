@@ -2,6 +2,7 @@
    무기상점 · 스킬 상점 · 물약 상점 · 도박장 · 무기 강화소. 수치는 shopData.js · itemData.js 에 있다.
    사고팔기 · 도박은 방장이 판정한다(rpgShop). 화면은 같은 조건 함수(why*)로 막힌 이유를 미리 보여 준다.
    가방(h.bag)은 이름과 함께 이 기기에 남고, 바뀔 때만 손님에게 보낸다. */
+import { WEAPON_SKILLS } from "./skillData.js";
 import {
   SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIAL, SPECIALS,
   SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD,
@@ -24,7 +25,9 @@ const BUFF_STATS = ["str", "int", "crit"];          // 버프 물약이 올릴 �
 const BUFF_KEYS = [...BUFF_STATS, "spd", "hide"];
 // 물약 효과가 남아 있는가 — 이속은 빨라지는 몫, 투명화는 1 또는 0
 export const buffLeft = (h, k) => (h && h.bf && h.bf[k] && h.bf[k].t > 0 ? h.bf[k].a || 1 : 0);
-export const speedMul = (h) => 1 + (h && h.bf && h.bf.spd && h.bf.spd.t > 0 ? h.bf.spd.a : 0);
+// 걷기 속도 배율 — 이속 물약은 빨라지고, 암흑검 분노는 느려진다(분노는 암흑검을 든 동안만 쌓인다 · 방장 · 손님 같은 셈)
+export const speedMul = (h) => (1 + (h && h.bf && h.bf.spd && h.bf.spd.t > 0 ? h.bf.spd.a : 0))
+  * (1 - (h && h.ws ? h.ws.rage || 0 : 0) * WEAPON_SKILLS.shadow.passive.slow);
 // 투명화를 쓸 수 없는 곳 — 결투장(pvp) · 결투 중 · 던전(dungeon)
 const noHide = (h) => !!((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && (MAPS[h.map].pvp || MAPS[h.map].dungeon)));
 
@@ -75,6 +78,7 @@ export function weaponPrice(t, r, g) {
    치명타처럼 상한이 있는 스탯은 그 스탯을 쓰는 일반 무기 종류의 배율(mul)도 함께 곱한다. */
 export const specialTier = (sp) => Math.max(0, WEAPON_TIERS.indexOf(sp.lv));
 export function specialBonus(sp) {
+  if (sp.amt) return sp.amt;                      // 기획에서 정한 고정 값(전설 무기)
   const statMul = (WEAPON_TYPES.find((t) => t.stat === sp.stat) || { mul: 1 }).mul;
   const pts = (WEAPON.pts + WEAPON.ptsPerTier * specialTier(sp)) * GRADES[sp.g].mul * statMul * SPECIAL.mul;
   return Math.max(1, Math.round(pts)) * statDef(sp.stat).per;
@@ -340,8 +344,8 @@ export function skillNext(h, id) {
   const s = SKILL_BY_ID[id];
   const cur = (h && h.bag && h.bag.s[id]) || 0;
   if (!s || cur >= s.gold.length) return null;
-  const fam = FAM_BY_ID[s.fam];
-  return { lv: cur + 1, gold: s.gold[cur], needLv: s.lv[cur], stat: fam.stat, need: s.need[cur] };
+  const stat = s.job ? (s.job === "mage" ? "int" : "str") : FAM_BY_ID[s.fam].stat;   // 직업 스킬은 그 직업의 공격 스탯
+  return { lv: cur + 1, gold: s.gold[cur], needLv: s.lv[cur], stat, need: s.need[cur] };
 }
 export function whySkill(h, id) {
   const out = [];
@@ -349,6 +353,7 @@ export function whySkill(h, id) {
   const s = SKILL_BY_ID[id];
   if (!s) { out.push("없는 스킬입니다"); return out; }
   if (!h || !h.bag) return out;
+  if (s.job && s.job !== h.job) { out.push("다른 직업의 스킬입니다"); return out; }
   const nx = skillNext(h, id);
   if (!nx) { out.push("최고 레벨입니다"); return out; }
   if (h.lv < nx.needLv) out.push(`레벨 ${nx.needLv - h.lv} 부족 (${nx.needLv} 필요)`);

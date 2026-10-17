@@ -9,6 +9,7 @@ import {
 import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
+import { drawSkillFx, drawHeroSkill } from "./skillArt.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -1839,6 +1840,7 @@ export function drawRpg(ctx, g, bgs) {
 
   const here = (f) => !f.map || f.map === M.id;
   g.fx.forEach((f) => { if (here(f) && f.kind === "art" && !(FX_ART[f.art] || {}).over) drawFx(ctx, f); });
+  g.fx.forEach((f) => { if (here(f) && f.kind === "sk_ice") drawSkillFx(ctx, f, time); });   // 빙판길 — 땅에 깔린다
 
   // 앞뒤로 겹치게 — 위에 선 것부터 그린다
   const order = [];
@@ -1858,7 +1860,7 @@ export function drawRpg(ctx, g, bgs) {
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
     if (o.m) (MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time);
-    else if (o.h) drawHero(ctx, g, o.h, time);
+    else if (o.h) { drawHero(ctx, g, o.h, time); drawHeroSkill(ctx, o.h, time); }
     else if (o.gate) drawGate(ctx, o.gate, time);
     else if (o.npc) drawNpc(ctx, g, o.npc, time);
     else if (o.fountain) drawFountain(ctx, time);
@@ -1868,7 +1870,11 @@ export function drawRpg(ctx, g, bgs) {
   });
 
   if (M.dungeon) drawDungeonDark(ctx, me, cam);
-  g.fx.forEach((f) => { if (here(f) && (f.kind !== "art" || (FX_ART[f.art] || {}).over)) drawFx(ctx, f); });
+  g.fx.forEach((f) => {
+    if (!here(f) || f.kind === "sk_ice") return;
+    if (f.kind.startsWith("sk_")) drawSkillFx(ctx, f, time);   // 직업 · 무기 스킬 연출(skillArt.js)
+    else if (f.kind !== "art" || (FX_ART[f.art] || {}).over) drawFx(ctx, f);
+  });
   ctx.globalAlpha = 1;
   // 채팅 말풍선 — 모든 것 위에
   if (g.bubbles) {

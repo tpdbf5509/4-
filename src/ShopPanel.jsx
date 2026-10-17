@@ -4,7 +4,8 @@
    막힌 이유는 방장과 같은 조건 함수(why*)로 미리 보여 준다. */
 import { useEffect, useRef, useState } from "react";
 import sfx from "./game/sfx.js";
-import { STATS, statValue, MAPS } from "./game/rpg.js";
+import { STATS, statValue, MAPS, JOB_BY_ID } from "./game/rpg.js";
+import { JOB_KEYS, WEAPON_SKILLS } from "./game/skillData.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
   CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD,
@@ -78,8 +79,15 @@ function WeaponItem({ w, tag, desc, price, acts, dim }) {
     <Item art={weaponArt(w)} dim={dim} price={price} acts={acts}
       name={weaponName(w)}
       meta={<span className="shop-meta"><Grade g={w.g} /><span>Lv {WEAPON_TIERS[w.r]}</span>{sp && <span>특별</span>}{tag && <span className="shop-tag">{tag}</span>}</span>}
-      desc={desc || weaponLine(w)} />
+      desc={<>{desc || weaponLine(w)}{sp && WEAPON_SKILLS[sp.id] && <span className="shop-need">{weaponSkillLine(sp.id)}</span>}</>} />
   );
+}
+// 전설 무기 스킬 한 줄 — 패시브 · 스킬(X 키) · 원소 연계
+function weaponSkillLine(id) {
+  const W = WEAPON_SKILLS[id];
+  return `${W.role} — 패시브 「${W.passive.name}」 ${W.passive.note} · 스킬 「${W.name}」 ${W.skill.note} · X 키 · ${W.skill.cd}초마다`
+    + (W.dot ? ` · 화상 · 독 피해 +${Math.round(W.dot * 100)}%` : "")
+    + (W.elem ? ` · ${W.elem.note}` : W.note ? ` · ${W.note}` : "");
 }
 
 /* ── 방어구 — 등급 표시 · 효과 글 ─────────────────────────────── */
@@ -180,12 +188,12 @@ function WeaponShop({ h, send }) {
 function SkillShop({ h, send }) {
   const [tab, setTab] = useState(SKILL_FAMS[0].id);
   const fam = FAM_BY_ID[tab];
-  const sd = statDef(fam.stat);
+  const sd = statDef(tab === "job" ? (h.job === "mage" ? "int" : "str") : fam.stat);   // 직업 스킬은 그 직업의 공격 스탯을 본다
   return (
     <>
       <Tabs on={tab} set={setTab} tabs={SKILL_FAMS.map((f) => [f.id, f.name])} />
-      <Head sub={`지금 ${sd.name} ${sd.fmt(statValue(fam.stat, h.st[fam.stat]))} · 장비 · 버프 제외`}>{fam.name} 계열</Head>
-      {SKILLS.filter((s) => s.fam === tab).map((s) => {
+      <Head sub={`지금 ${sd.name} ${sd.fmt(statValue(sd.id, h.st[sd.id]))} · 장비 · 버프 제외`}>{tab === "job" ? `${(JOB_BY_ID[h.job] || {}).name || ""} 직업 스킬` : `${fam.name} 계열`}</Head>
+      {SKILLS.filter((s) => s.fam === tab && (!s.job || s.job === h.job)).map((s) => {
         const cur = h.bag.s[s.id] || 0;
         const nx = skillNext(h, s.id);
         const nsd = nx && statDef(nx.stat);
@@ -197,7 +205,7 @@ function SkillShop({ h, send }) {
               <>
                 {s.note}
                 {s.bonus && ` · 레벨마다 ${statDef(s.bonus.stat).name} +${statDef(s.bonus.stat).fmt(s.bonus.per)}`}
-                {s.use && ` · 숫자키 ${s.use.key} · ${s.use.cd}초마다`}
+                {s.use && ` · ${JOB_KEYS[s.use.key] ? `${JOB_KEYS[s.use.key]} 키` : `숫자키 ${s.use.key}`} · ${s.use.cd}초마다`}
                 {nx && <span className="shop-need">다음 Lv {nx.lv} — 레벨 {nx.needLv} · {nsd.name} {nsd.fmt(nx.need)}</span>}
               </>
             }

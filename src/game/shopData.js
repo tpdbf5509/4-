@@ -1,3 +1,4 @@
+import { JOB_SKILLS } from "./skillData.js";
 /* ── RPG 광장 상점 설정 ─────────────────────────────────────
    가격 · 확률 · 제한 수치를 모두 여기 한 곳에 모은다. 밸런스를 바꿀 때는 이 파일만 고치면 된다.
    화폐는 기존 "코인"을 그대로 쓴다.
@@ -59,17 +60,18 @@ export const OFF_HAND = { dmg: { sword: 45, bow: 35, staff: 40 } };   // 기획 
    lv 는 레벨 제한(무기 단계 가운데 하나), g 는 등급, stat 은 올리는 스탯.
    올리는 양 · 값은 같은 단계 · 등급의 일반 무기에 SPECIAL 배율을 곱한다. art 는 public/assets/game/rpg/weapons/<art>.webp */
 export const SPECIAL = { mul: 1.25, price: 1.5 };
+// amt 가 있으면 올리는 양을 셈하지 않고 그 값으로 둔다(전설 무기 스킬 기획 값). 무기 스킬은 skillData.js WEAPON_SKILLS
 export const SPECIALS = [
   { id: "clockwork", name: "태엽검", t: "sword", lv: 10, g: 3, stat: "str", art: "clockwork" },
   { id: "forest", name: "숲의 검", t: "sword", lv: 20, g: 3, stat: "hp", art: "forest" },
   { id: "coral", name: "산호검", t: "sword", lv: 30, g: 3, stat: "int", art: "coral" },
   { id: "viper", name: "독사 단검", t: "dagger", lv: 40, g: 3, stat: "crit", art: "viper" },
   { id: "thunder", name: "번개검", t: "sword", lv: 50, g: 3, stat: "str", art: "thunder" },
-  { id: "frost", name: "서리검", t: "sword", lv: 60, g: 4, stat: "cdmg", art: "frost" },
+  { id: "frost", name: "서리검", t: "sword", lv: 60, g: 4, stat: "crit", amt: 20, art: "frost" },
   { id: "flame", name: "화염검", t: "sword", lv: 70, g: 4, stat: "str", art: "flame" },
-  { id: "star", name: "별의 검", t: "sword", lv: 80, g: 4, stat: "int", art: "star" },
-  { id: "shadow", name: "암흑검", t: "great", lv: 90, g: 4, stat: "cdmg", art: "shadow" },
-  { id: "holy", name: "신성검", t: "sword", lv: 100, g: 4, stat: "str", art: "holy" },
+  { id: "star", name: "별의 검", t: "sword", lv: 80, g: 4, stat: "int", amt: 200, art: "star" },
+  { id: "shadow", name: "암흑검", t: "great", lv: 90, g: 4, stat: "cdmg", amt: 80, art: "shadow" },
+  { id: "holy", name: "신성검", t: "sword", lv: 100, g: 4, stat: "str", amt: 200, art: "holy" },
   // 지팡이 — 마법사 공격력인 마법력을 올린다
   { id: "moon_staff", name: "초승달 지팡이", t: "staff", lv: 10, g: 3, stat: "int", art: "moon_staff" },
   { id: "ice_staff", name: "얼음 수정 지팡이", t: "staff", lv: 20, g: 3, stat: "int", art: "ice_staff" },
@@ -102,6 +104,7 @@ export const SKILL_FAMS = [
   { id: "magic", name: "마법", stat: "int" },
   { id: "crit", name: "치명타", stat: "crit" },
   { id: "life", name: "생존", stat: "hp" },
+  { id: "job", name: "직업", stat: "str" },   // 직업 스킬(skillData.js) — 조건 스탯은 직업을 따른다(마법사 마법력 · 전사 · 궁수 물리력)
 ];
 /* 스킬 — 배열의 n번째 값이 n+1레벨로 올릴 때의 조건이다(첫 값은 처음 배울 때).
    gold 비용 · lv 캐릭터 레벨 · need 계열 스탯 수치(장비 · 버프를 뺀, 찍은 포인트로 만든 값).
@@ -112,7 +115,7 @@ export const SKILL_USE = {
   base: 40,              // 공격 스킬의 기본 피해 — 스탯 10 일 때 mul 1 이면 이만큼
   reach: 1.3,            // 한 마리를 노리는 스킬의 사거리 — 내 평타 사거리의 배수
 };
-export const SKILLS = [
+export const SKILLS = [...[
   { id: "smash", name: "강타", kind: "active", fam: "phys", note: "가장 가까운 적 하나를 세게 내려친다",
     use: { key: 1, cd: 6, dmg: "str", mul: [3, 3.6, 4.2, 4.8, 5.4] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [30, 40, 50, 60, 70] },
@@ -134,7 +137,7 @@ export const SKILLS = [
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [200, 300, 400, 500, 600] },
   { id: "tough", name: "강인함", kind: "passive", fam: "life", note: "최대 체력이 오른다", bonus: { stat: "hp", per: 30 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [130, 200, 270, 340, 410] },
-];
+], ...JOB_SKILLS];   // 직업 스킬은 skillData.js
 
 /* ── 물약 ──────────────────────────────────────────────── */
 // kind: heal(최대 체력의 pct 만큼 회복) · buff(dur 초 동안 stat 이 amt 만큼) · reset(찍은 스탯 포인트를 모두 돌려받는다)

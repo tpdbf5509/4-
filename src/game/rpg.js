@@ -11,6 +11,7 @@ import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAM
 import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
+import { WEAPON_SKILLS } from "./skillData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
@@ -905,7 +906,7 @@ function bodyOf(id, gi, type, boss, lv, map, x, y, B) {
    사람마다의 기록(레벨 · 코인 · 가방 …)은 각자가 다시 보내 준다(rpgJoin). 그동안 체력은 그대로 둔다. */
 export function rpgPromote(g) {
   g.out = [];
-  g.hits = []; g.respawn = []; g.pending = {};
+  g.hits = []; g.respawn = []; g.pending = {}; g.later = []; g.zones = [];
   g.mobs = g.mobs.filter((m) => !m.dead).map((m) => {
     if (MAPS[m.map] && MAPS[m.map].dungeon) {     // 던전 몹 — 그 던전 값으로 다시 세운다
       const b = dgMobBody(m.id, m.map, m.type, m.lv, m.boss, m.x, m.y);
@@ -951,7 +952,8 @@ function nearFoes(g, h, x, y, range) {
 function hitFoe(g, h, o, raw) {
   if (!o || o.down > 0) return;
   const off = offHand(h);
-  hurtHero(g, o, (off ? OFF_HAND.dmg[off] : raw) * DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
+  hurtHero(g, o, (off ? OFF_HAND.dmg[off] : raw * rageMul(h)) * DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
+  weaponOnHit(h, null);
 }
 
 /* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
@@ -1103,10 +1105,10 @@ function flushNum(g, m, tier = 0) {
   m.numT = 0.2;
 }
 
-function hitMob(g, pi, m, raw, skill, sureCrit) {
+function hitMob(g, pi, m, raw, skill, sureCrit, dot) {
   if (!m || m.dead) return 0;
   const h = g.heroes[pi];
-  let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0));
+  let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0)) * rageMul(h);   // 암흑검 분노
   if (m.mirage > 0 && Math.random() < m.dodge) {  // 잔상 분신 — 피했다
     if (m.numT <= 0) { say(g, m.map, m.x, m.y - 90, "빗나감", "#cfe6ff"); m.numT = 0.3; }
     return 0;
@@ -1121,6 +1123,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
+  if (h && !dot) weaponOnHit(h, m);               // 전설 무기 패시브 — 서리의 흔적 · 별의 축적
   m.flash = 0.12;
   m.numAcc += dmg;
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
@@ -1143,6 +1146,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
 function killMob(g, m, pi) {
   if (m.dead) return;
   m.dead = true;
+  addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
   m.hp = 0;
   flushNum(g, m, m.boss ? 0 : 1);                 // 남은 숫자 — 보스는 모아 둔 평타라 평타 세기로
   fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" });
@@ -1306,7 +1310,9 @@ function hurtHero(g, h, raw) {
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
     return;
   }
-  const dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더)
+  let dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더)
+  dmg = skillTake(g, h, dmg);                     // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세
+  if (dmg <= 0) return;
   h.hp -= dmg;
   h.flash = 0.18;
   h.calm = 0;
@@ -1335,7 +1341,7 @@ function hurtHero(g, h, raw) {
 /* ── 원소를 싣는다 — 평타는 약하게(big 0), 큰 기술은 세게(big 1) ─────── */
 function soak(g, h, m, big) {
   if (!m || m.dead) return;
-  const mul = magMul(h);                          // 화상 · 독은 직업과 상관없이 마법력을 따른다
+  const mul = magMul(h) * (heldSpecial(h) === "flame" ? 1 + WEAPON_SKILLS.flame.dot : 1);   // 화상 · 독은 직업과 상관없이 마법력을 따른다 · 화염검은 지속 피해 증가
   const e = elemOf(h).id;
   if (e === "flame") { m.burn = big ? 6 : 3; m.bdps = Math.max(m.bdps, (big ? 32 : 10) * mul); m.bby = h.pi; }
   else if (e === "frost") { if (big) m.freeze = 3; else m.slow = 2; }
@@ -1371,7 +1377,7 @@ function heroAttack(g, h, force) {
   const pi = h.pi;
   const map = h.map;
   const job = jobOf(h), el = elemOf(h);
-  const dmg = job.dmg * heroDmgMul(h);
+  const dmg = job.dmg * heroDmgMul(h) * (h.hb || 1);   // 신성검 — 수호 에너지가 가득 차면 다음 평타가 세다
   const rng = heroRange(h);
   const hy = h.y - 34;
   if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy, force);
@@ -1453,7 +1459,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
     if (!list.length) return force && h.dph === 2 && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
     h.face = 0;
-    list.forEach((o) => hitFoe(g, h, o, dmg));
+    list.forEach((o) => { hitFoe(g, h, o, dmg); addEmber(g, h, 1); });   // 화염검 — 결투에서 평타를 맞히면 불똥
     fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
       color: el.light, t: 0.24, life: 0.24, snd: "slash" });
     return true;
@@ -1485,6 +1491,7 @@ function landFoe(g, s, h) {
   } else {
     if (!nearFoes(g, h, o.x, o.y, 1).includes(o)) return;   // 쉼터로 들어갔거나 같은 파티가 됐다
     hitFoe(g, h, o, s.dmg);
+    if (!s.skill) addEmber(g, h, 1);              // 화염검 — 결투에서 평타를 맞히면 불똥
     fx(g, s.map, { kind: "burst", x: o.x, y: o.y - 30, r: 18, color: el.light, n: 6, t: 0.3, life: 0.3 });
   }
 }
@@ -1499,13 +1506,14 @@ function landHit(g, s) {
   const x = m ? m.x : s.x, y = m ? m.y : s.y;
   if (s.splash) {                                 // 마법 — 맞은 자리 둘레도 다친다
     nearMobs(g, s.map, x, y, s.splash).forEach((q) => {
-      hitMob(g, s.pi, q, s.dmg * (q === m ? 1 : 0.5));
+      hitMob(g, s.pi, q, s.dmg * (q === m || s.full ? 1 : 0.5), s.skill);
       soak(g, h, q, 0);
     });
     fx(g, s.map, { kind: "art", art: ELEM_ART[el.id].hit, x, y: y - 4, r: 34, t: 0.4, life: 0.4 });
   } else {
     if (!m) return;
     hitMob(g, s.pi, m, s.dmg, s.skill, s.sure);
+    if (s.slow) m.slow = Math.max(m.slow, s.slow);  // 후퇴 사격 — 느리게
     soak(g, h, m, 0);
     fx(g, s.map, { kind: "burst", x, y: y - 10, r: 18, color: el.light, n: 6, t: 0.3, life: 0.3 });
   }
@@ -1598,9 +1606,11 @@ function lungeTo(h, o, time) {
 export function predictLunge(g, h, id) {
   const s = ACTIVE_SKILLS.find((q) => q.id === id);
   const L = s && s.use.lunge;
-  if (!L || !h || h.down > 0 || !(h.bag && h.bag.s[id] > 0) || (h.scd && h.scd[id] > 0) || MAPS[h.map].safe) return false;
+  const leap = s && s.use.kind === "leap";        // 후퇴 사격도 먼저 물러나 그린다
+  if ((!L && !leap) || !h || h.down > 0 || !(h.bag && h.bag.s[id] > 0) || (h.scd && h.scd[id] > 0) || MAPS[h.map].safe) return false;
   const pvp = isPvp(h.map);
   if (pvp && h.dph !== 2) return false;
+  if (leap) { lungeTo(h, leapSpot(g, h, s.use), s.use.time); h.predict = 0.6; return true; }
   let o = pvp ? g.heroes[h.dvs] : nearMobs(g, h.map, h.x, h.y, L.reach, 1)[0];
   if (o && (o.map !== h.map || o.down > 0 || dist(h.x, h.y, o.x, o.y) - (pvp ? 7 : (o.rad || 0) * 0.5) > L.reach)) o = null;
   if (!o) {                                        // 아무도 없으면 겨눈 쪽으로 끝까지 — 방장 판정과 같다
@@ -1641,7 +1651,7 @@ export function rpgUseSkill(g, pi, id) {
   h.scd = h.scd || {};
   if (h.scd[id] > 0) return say(g, map, h.x, h.y - 90, `${s.name} ${Math.ceil(h.scd[id])}초`, "#f0dcb4");
   const u = s.use;
-  const i = Math.min(lv, u.mul ? u.mul.length : u.heal.length) - 1;
+  const i = Math.min(lv, (u.mul || u.heal || u.cut || u.amt).length) - 1;
   if (u.heal) {                                    // 응급 처치 — 어디서나 쓸 수 있다
     if (h.hp >= h.max) return say(g, map, h.x, h.y - 90, "체력이 이미 가득 찼습니다", "#d9c9a6");
     const before = h.hp;
@@ -1649,12 +1659,13 @@ export function rpgUseSkill(g, pi, id) {
     fx(g, map, { kind: "heal", x: h.x, y: h.y - 56, text: `+${Math.round(h.hp - before)}`, t: 0.9, life: 0.9, snd: "bless", who: pi });
   } else {
     if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
-    const dmg = SKILL_USE.base * skillStatMul(h, u.dmg) * u.mul[i];
+    const dmg = u.mul ? SKILL_USE.base * skillStatMul(h, u.dmg) * u.mul[i] : 0;
     const pvp = isPvp(map);
     if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
     // 결투장이면 사람에게 — 치명타 보장 스킬은 치명타 피해 배율을 곱한다
     const strike = (m) => (pvp ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
-    if (u.radius) {                                // 둘레를 모두
+    if (u.kind) jobSkill(g, h, u, i, dmg);         // 직업 스킬(skillData.js)
+    else if (u.radius) {                           // 둘레를 모두
       const list = pvp ? nearFoes(g, h, h.x, h.y, u.radius) : nearMobs(g, map, h.x, h.y, u.radius);
       list.forEach(strike);                        // 닿는 것이 없어도 쓴다
       fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
@@ -1670,7 +1681,8 @@ export function rpgUseSkill(g, pi, id) {
       lungeTo(h, m, L.time);
       fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#ffe9b0", n: 8, t: 0.3, life: 0.3, snd: "slash" });
       // 닿는 순간에 찌른다 — 그사이 상대가 쓰러졌거나 맵을 떠났으면 빗나간다
-      const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: 0, skill: true, sure: !!u.crit };
+      const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: u.splash || 0, full: u.splash ? 1 : 0, skill: true, sure: !!u.crit };   // 돌진 베기는 닿은 자리 둘레를 모두
+      if (u.splash) later(g, L.time, () => fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.splash, color: elemOf(h).light, n: 14, t: 0.5, life: 0.5, snd: "boom" }));
       g.hits.push(pvp ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
       }
     } else {                                       // 가장 가까운 하나
@@ -1687,6 +1699,317 @@ export function rpgUseSkill(g, pi, id) {
   fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: s.name, color: "#ffd873", t: 0.8, life: 0.8, who: pi });
 }
 
+/* ── 직업 스킬 · 전설 무기 스킬 (방장만 판정) ─────────────────────────
+   수치는 skillData.js. 무기 · 스킬 상태는 h.ws(불똥 · 별빛 · 분노 · 수호 에너지 · 반격 · 무기 스킬 대기),
+   직업 버프는 h.jb(철벽 · 마나 보호막) — 둘 다 스냅샷 줄 46 으로 손님에게 간다(그림 · 걷기 속도) */
+const WS = WEAPON_SKILLS;
+const later = (g, t, fn) => (g.later || (g.later = [])).push({ t, fn });
+function tickLater(g, dt) {
+  if (!g.later || !g.later.length) return;
+  const due = [];
+  g.later = g.later.filter((q) => { q.t -= dt; if (q.t > 0) return true; due.push(q); return false; });
+  due.forEach((q) => q.fn());
+}
+export const wsOf = (h) => h.ws || (h.ws = { emb: 0, star: 0, rage: 0, calm: 0, holy: 0, ctr: 0, ctrAcc: 0, wcd: 0 });
+const jbOf = (h) => h.jb || (h.jb = { iron: 0, ironCut: 0, sh: 0, shT: 0 });
+// 암흑검 분노 — 공격력 배율 · 걷기 속도는 shop.js speedMul 이 같은 값을 쓴다
+const rageMul = (h) => (h && h.ws && h.ws.rage > 0 && heldSpecial(h) === "shadow" ? 1 + h.ws.rage * WS.shadow.passive.atk : 1);
+const holyReady = (h) => heldSpecial(h) === "holy" && wsOf(h).holy >= 100;
+// 노릴 것 — 결투장이면 상대, 아니면 몹
+const foesNear = (g, h, x, y, r, n) => (isPvp(h.map) ? nearFoes(g, h, x, y, r) : nearMobs(g, h.map, x, y, r, n));
+const strikeAny = (g, h, o, dmg, dot) => (isPvp(h.map) ? hitFoe(g, h, o, dmg) : hitMob(g, h.pi, o, dmg, !dot, false, dot));
+// 겨눌 방향 — reach 안에 노릴 것이 있으면 그쪽, 없으면 누르고 있는 쪽. 땅 비율을 뺀 단위 벡터
+function aimTo(g, h, reach) {
+  const [o] = foesNear(g, h, h.x, h.y, reach, 1);
+  if (o) {
+    const dx = o.x - h.x, dy = (o.y - h.y) / RPG.squash, d = Math.hypot(dx, dy) || 1;
+    if (Math.abs(dx) > 1) h.dir = dx < 0 ? -1 : 1;
+    return [dx / d, dy / d];
+  }
+  const a = aimDir(h);
+  if (a[0]) h.dir = a[0] < 0 ? -1 : 1;
+  return a;
+}
+// 한 줄 — 내 자리에서 [ax, ay] 쪽으로 len 길이, width 폭 안
+function lineFoes(g, h, ax, ay, len, width) {
+  return foesNear(g, h, h.x, h.y, len + 40).filter((o) => {
+    const dx = o.x - h.x, dy = (o.y - h.y) / RPG.squash;
+    const along = dx * ax + dy * ay, side = Math.abs(dx * ay - dy * ax);
+    return along >= -20 && along <= len && side <= width + (o.rad || 16) * 0.5;
+  });
+}
+const lineEnd = (h, ax, ay, len) => [h.x + ax * len, h.y + ay * len * RPG.squash];
+// 스킬 기본 피해 — 직업의 공격 스탯을 따른다
+const skillBase = (h) => SKILL_USE.base * heroDmgMul(h);
+
+// 후퇴 사격이 물러날 자리 — 손님 화면도 같은 셈으로 먼저 그린다(predictLunge)
+function leapSpot(g, h, u) {
+  const [o] = isPvp(h.map) ? [g.heroes[h.dvs]].filter((q) => q && q.map === h.map) : nearMobs(g, h.map, h.x, h.y, heroRange(h) * 1.5, 1);
+  let ax, ay;
+  if (o) { const dx = h.x - o.x, dy = (h.y - o.y) / RPG.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
+  else { const a = aimDir(h); ax = -a[0]; ay = -a[1]; }
+  return { x: h.x + ax * u.back, y: h.y + ay * u.back * RPG.squash, rad: -2 * LUNGE_GAP };
+}
+
+function jobSkill(g, h, u, i, dmg) {
+  const map = h.map, pi = h.pi, el = elemOf(h), hy = h.y - 34;
+  const pvp = isPvp(map);
+  if (u.kind === "line") {                        // 대지 가르기 · 관통 화살 — 앞으로 한 줄
+    const [ax, ay] = aimTo(g, h, u.len);
+    lineFoes(g, h, ax, ay, u.len, u.width).forEach((o) => strikeAny(g, h, o, dmg));
+    const [x1, y1] = lineEnd(h, ax, ay, u.len);
+    if (u.arrow) {
+      fx(g, map, { kind: "beam", x0: h.x, y0: hy, x1, y1: y1 - 34, color: el.light, w: 6, t: 0.4, life: 0.4, snd: "shot" });
+      fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1, y1: y1 - 34, style: "arrow", color: "#fff6dc", t: 0.22, life: 0.22 });
+    } else {
+      fx(g, map, { kind: "beam", x0: h.x, y0: h.y - 4, x1, y1: y1 - 4, color: "#b98f62", w: 18, t: 0.55, life: 0.55, snd: "boom" });
+      for (let k = 1; k <= 4; k++) {
+        const [bx, by] = lineEnd(h, ax, ay, (u.len * k) / 4);
+        fx(g, map, { kind: "burst", x: bx, y: by - 8, r: 26, color: "#d9b88a", n: 7, t: 0.45, life: 0.45 });
+      }
+    }
+  } else if (u.kind === "volley") {               // 연사 — 한 대상에게 잇달아
+    const [o] = foesNear(g, h, h.x, h.y, heroRange(h) * 1.4, 1);
+    const [tx, ty] = o ? [o.x, o.y] : aimAt(h, heroRange(h));
+    if (o) h.dir = o.x < h.x ? -1 : 1;
+    for (let k = 0; k < u.n; k++) {
+      later(g, k * u.gap, () => {
+        if (h.map !== map || h.down > 0) return;
+        const alive = !!o && (pvp ? o.down <= 0 : !o.dead) && o.map === map;
+        const x1 = alive ? o.x : tx, y1 = alive ? o.y : ty;
+        fx(g, map, { kind: "shot", x0: h.x, y0: h.y - 34, x1, y1: y1 - 10, style: "arrow", color: el.light, t: 0.18, life: 0.18, snd: "shot" });
+        if (!alive) return;
+        g.hits.push(pvp ? { t: 0.18, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
+          : { t: 0.18, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true });
+      });
+    }
+  } else if (u.kind === "leap") {                 // 후퇴 사격 — 뒤로 물러나며 쏜다
+    const x0 = h.x, y0 = h.y;
+    lungeTo(h, leapSpot(g, h, u), u.time);
+    fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#e8f2ff", n: 8, t: 0.3, life: 0.3, snd: "slash" });
+    later(g, u.time, () => {
+      if (h.map !== map || h.down > 0) return;
+      const [o] = foesNear(g, h, h.x, h.y, heroRange(h) * 1.5, 1);
+      if (!o) return;
+      h.dir = o.x < h.x ? -1 : 1;
+      fx(g, map, { kind: "shot", x0: h.x, y0: h.y - 34, x1: o.x, y1: o.y - 10, style: "arrow", color: "#cfe6ff", t: 0.2, life: 0.2, snd: "shot" });
+      g.hits.push(pvp ? { t: 0.2, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
+        : { t: 0.2, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true, slow: u.slow });
+    });
+  } else if (u.kind === "orb") {                  // 원소 구체 — 큰 구슬 · 맞은 자리 둘레를 모두
+    const reach = heroRange(h) * 1.4;
+    const [o] = foesNear(g, h, h.x, h.y, reach, 1);
+    const [tx, ty] = o ? [o.x, o.y] : aimAt(h, reach);
+    if (o) h.dir = o.x < h.x ? -1 : 1;
+    const fly = 0.32, art = ELEM_ART[el.id];
+    fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, style: "orb", art: art.fly || 0, r: 40, color: el.light, t: fly, life: fly, snd: "orb" });
+    later(g, fly, () => fx(g, map, { kind: "nova", x: tx, y: ty - 6, r: u.splash, color: el.light, n: 16, t: 0.5, life: 0.5, snd: "boom" }));
+    g.hits.push(o
+      ? (pvp ? { t: fly, pi, hid: o.pi, x: tx, y: ty, map, dmg, splash: u.splash, full: 1, skill: true }
+        : { t: fly, pi, mid: o.id, x: tx, y: ty, map, dmg, splash: u.splash, full: 1, skill: true })
+      : { t: fly, pi, mid: -1, x: tx, y: ty, map, dmg, splash: pvp ? 0 : u.splash, full: 1, skill: true });
+  } else if (u.kind === "chain") {                // 연쇄 번개 — 옮겨 갈 때마다 약해진다
+    const reach = heroRange(h) * 1.3;
+    let [cur] = foesNear(g, h, h.x, h.y, reach, 1);
+    let px = h.x, py = h.y - 34, d = dmg;
+    const done = new Set();
+    if (!cur) {
+      const [tx, ty] = aimAt(h, reach);
+      fx(g, map, { kind: "zap", x0: px, y0: py, x1: tx, y1: ty - 10, color: "#e6ecff", t: 0.3, life: 0.3, snd: "zap" });
+    }
+    for (let k = 0; k < u.jumps && cur; k++) {
+      done.add(cur);
+      fx(g, map, { kind: "zap", x0: px, y0: py, x1: cur.x, y1: cur.y - 10, color: "#e6ecff", t: 0.3, life: 0.3, snd: k ? undefined : "zap" });
+      strikeAny(g, h, cur, d);
+      px = cur.x; py = cur.y - 10; d *= u.fall;
+      cur = pvp ? null : nearMobs(g, map, cur.x, cur.y, u.hop).find((q) => !done.has(q));
+    }
+  } else if (u.kind === "guard") {                // 철벽
+    const jb = jbOf(h);
+    jb.iron = u.dur; jb.ironCut = u.cut[i];
+    fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 70, color: "#cfd8e6", t: 0.7, life: 0.7, snd: "bless" });
+  } else if (u.kind === "shield") {               // 마나 보호막
+    const jb = jbOf(h);
+    jb.sh = Math.round(h.max * u.amt[i]); jb.shT = u.dur;
+    fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 70, color: "#a9c8f5", t: 0.7, life: 0.7, snd: "bless" });
+  }
+}
+
+// 스냅샷 줄 46 — [무기 스킬 대기, 불똥, 별빛, 분노, 수호 에너지, 반격 남은 초, 철벽 남은 초, 보호막 양, 보호막 남은 초]
+function packSkillState(h) {
+  const w = h.ws, jb = h.jb;
+  if (!w && !jb) return 0;
+  return [w ? r1(w.wcd) : 0, w ? w.emb : 0, w ? w.star : 0, w ? Math.round(w.rage * 10) / 10 : 0, w ? Math.round(w.holy) : 0,
+    w ? r1(w.ctr) : 0, jb ? r1(jb.iron) : 0, jb ? Math.round(jb.sh) : 0, jb ? r1(jb.shT) : 0];
+}
+function applySkillState(h, a) {
+  const w = wsOf(h), jb = jbOf(h);
+  [w.wcd, w.emb, w.star, w.rage, w.holy, w.ctr, jb.iron, jb.sh, jb.shT] = a.map((v) => Number(v) || 0);
+}
+/* 받는 피해 — 철벽 · 성광 반격이 줄이고, 마나 보호막이 막는다. 신성검은 받은 만큼 수호 에너지가 찬다 */
+function skillTake(g, h, dmg) {
+  const jb = h.jb, ws = h.ws;
+  if (jb && jb.iron > 0) dmg *= 1 - jb.ironCut;
+  if (ws && ws.ctr > 0) { ws.ctrAcc += dmg; dmg *= 1 - WS.holy.skill.cut; }
+  if (heldSpecial(h) === "holy" && h.max > 0) {
+    const w = wsOf(h);
+    w.holy = Math.min(100, w.holy + (dmg / h.max) * 100 * WS.holy.passive.fill);
+  }
+  if (jb && jb.sh > 0) {
+    const a = Math.min(jb.sh, dmg);
+    jb.sh -= a; dmg -= a;
+    if (jb.sh <= 0) { jb.sh = 0; jb.shT = 0; }
+  }
+  return dmg;
+}
+
+// 맞혔을 때 — 서리의 흔적(둔화가 쌓인다) · 별의 축적
+function weaponOnHit(h, m) {
+  const sp = heldSpecial(h);
+  if (sp === "frost" && m) { const P = WS.frost.passive; m.slow = Math.min(P.max, Math.max(m.slow, 0) + P.per); }
+  else if (sp === "star") { const w = wsOf(h); w.star = Math.min(WS.star.passive.max, w.star + 1); }
+}
+// 화염검 불똥
+function addEmber(g, h, n) {
+  if (!h || heldSpecial(h) !== "flame") return;
+  const w = wsOf(h);
+  w.emb = Math.min(WS.flame.passive.max, w.emb + n);
+}
+// 불 캐릭터 화염검 — 화상에 걸린 적에게 더
+const burnBonus = (h, o) => (elemOf(h).id === "flame" && o && o.burn > 0 ? WS.flame.elem.flame : 1);
+// 평타를 친 뒤 — 분노 · 수호 에너지 · 불꽃 회오리
+function weaponOnAttack(g, h) {
+  const sp = heldSpecial(h), w = wsOf(h);
+  if (sp === "shadow") { w.rage = Math.min(WS.shadow.passive.max, Math.floor(w.rage) + 1); w.calm = 0; }
+  if (h.hb > 1) {                                 // 신성검 — 가득 찬 수호 에너지를 썼다
+    w.holy = 0;
+    fx(g, h.map, { kind: "sigil", x: h.x, y: h.y - 30, r: 60, color: "#ffe9a8", t: 0.5, life: 0.5, snd: "bless" });
+  }
+  if (sp === "flame" && w.emb >= WS.flame.passive.need) {
+    const P = WS.flame.passive;
+    w.emb -= P.need;
+    const base = skillBase(h) * P.mul;
+    foesNear(g, h, h.x, h.y, P.r).forEach((o) => strikeAny(g, h, o, base * burnBonus(h, o)));
+    fx(g, h.map, { kind: "sk_tornado", x: h.x, y: h.y, r: P.r, t: 0.9, life: 0.9, snd: "boom" });
+  }
+}
+// 시간 — 분노가 식고 · 반격이 끝나면 내뿜고 · 직업 버프가 끝난다
+function tickWeapon(g, h, dt) {
+  const w = h.ws, jb = h.jb;
+  if (w) {
+    w.wcd = Math.max(0, w.wcd - dt);
+    if (heldSpecial(h) !== "shadow") w.rage = 0;  // 다른 무기로 바꾸면 분노는 사라진다(걷기 속도가 돌아온다)
+    else if (w.rage > 0) {
+      w.calm += dt;
+      if (w.calm >= WS.shadow.passive.calm) w.rage = Math.max(0, w.rage - WS.shadow.passive.decay * dt);
+    }
+    if (w.ctr > 0) {
+      w.ctr = Math.max(0, w.ctr - dt);
+      if (w.ctr <= 0) holyRelease(g, h);
+    }
+  }
+  if (jb) {
+    jb.iron = Math.max(0, jb.iron - dt);
+    jb.shT = Math.max(0, jb.shT - dt);
+    if (jb.shT <= 0) jb.sh = 0;
+  }
+}
+// 성광 반격이 끝났다 — 받은 피해 일부와 기본 피해를 앞으로 내뿜는다
+function holyRelease(g, h) {
+  const S = WS.holy.skill, w = wsOf(h);
+  if (h.down > 0) { w.ctrAcc = 0; return; }
+  const dmg = w.ctrAcc * S.back + skillBase(h) * S.mul;
+  w.ctrAcc = 0;
+  if (MAPS[h.map].safe) return;
+  const [ax, ay] = aimTo(g, h, S.len);
+  lineFoes(g, h, ax, ay, S.len, S.width).forEach((o) => strikeAny(g, h, o, dmg));
+  const [x1, y1] = lineEnd(h, ax, ay, S.len);
+  fx(g, h.map, { kind: "beam", x0: h.x, y0: h.y - 30, x1, y1: y1 - 30, color: "#ffe39a", w: 22, t: 0.6, life: 0.6, snd: "boom" });
+  fx(g, h.map, { kind: "call", x: h.x, y: h.y - 104, text: `성광 반격 ${Math.round(dmg)}`, color: "#ffe39a", t: 0.9, life: 0.9, who: h.pi });
+}
+
+/* 빙판길 — 남아 있는 동안 위의 적을 느리게 하고 tick 초마다 깎는다 */
+function tickZones(g, dt) {
+  if (!g.zones || !g.zones.length) return;
+  g.zones = g.zones.filter((z) => {
+    z.t -= dt; z.acc += dt;
+    const h = g.heroes[z.pi];
+    if (!h || h.map !== z.map) return false;     // 맵을 떠나면 사라진다
+    while (z.acc >= z.tick) {
+      z.acc -= z.tick;
+      foesNear(g, h, z.x, z.y, z.r).forEach((o) => {
+        if (!isPvp(h.map)) o.slow = Math.max(o.slow, z.tick + z.linger);
+        strikeAny(g, h, o, z.dmg, true);
+      });
+    }
+    return z.t > 0;
+  });
+}
+
+// 무기 스킬 — X 키. 낀 전설 무기의 스킬을 쓴다
+export function rpgWeaponSkill(g, pi) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || h.down > 0) return;
+  const sp = heldSpecial(h), W = WS[sp], map = h.map;
+  if (!W) return say(g, map, h.x, h.y - 90, "전설 무기(서리검 · 화염검 · 별의 검 · 암흑검 · 신성검)를 들면 쓸 수 있다", "#d9c9a6");
+  if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
+  if (isPvp(map) && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
+  const w = wsOf(h), S = W.skill;
+  if (w.wcd > 0) return say(g, map, h.x, h.y - 90, `${W.name} ${Math.ceil(w.wcd)}초`, "#f0dcb4");
+  const el = elemOf(h);
+  if (sp === "frost") {                           // 빙판길 — 앞에 빙판을 깐다
+    const [ax, ay] = aimTo(g, h, S.ahead + S.r);
+    const [x, y] = lineEnd(h, ax, ay, S.ahead);
+    const k = el.id === "frost" ? W.elem.frost : 1;
+    (g.zones || (g.zones = [])).push({ pi, map, x, y, r: S.r, t: S.dur, tick: S.tick, acc: S.tick, linger: k > 1 ? 1 : 0.3, dmg: skillBase(h) * S.mul * k });
+    fx(g, map, { kind: "sk_ice", x, y, r: S.r, t: S.dur, life: S.dur, snd: "ice" });
+  } else if (sp === "flame") {                    // 화염베기 — 둘레를 빠르게 연달아 벤다 · 불똥 9개
+    addEmber(g, h, S.embers);
+    for (let k = 0; k < S.hits; k++) {
+      later(g, (k * S.dur) / S.hits, () => {
+        if (h.map !== map || h.down > 0) return;
+        foesNear(g, h, h.x, h.y, S.r).forEach((o) => strikeAny(g, h, o, skillBase(h) * S.mul * burnBonus(h, o)));
+        const a = (k * 2.4) % (Math.PI * 2);
+        fx(g, map, { kind: "slash", x: h.x + Math.cos(a) * 40, y: h.y - 30 + Math.sin(a) * 18, a, color: "#ffb26a", t: 0.25, life: 0.25, snd: k % 2 ? undefined : "slash" });
+        fx(g, map, { kind: "firering", x: h.x, y: h.y - 4, r: S.r, t: 0.3, life: 0.3 });
+      });
+    }
+  } else if (sp === "star") {                     // 유성 낙하 — 별빛을 모두 써서 정한 곳에 떨어뜨린다
+    if (w.star < S.min) return say(g, map, h.x, h.y - 90, `별빛이 ${S.min} 이상 필요합니다 (지금 ${w.star})`, "#d9c9a6");
+    const n = w.star;
+    w.star = 0;
+    const [o] = foesNear(g, h, h.x, h.y, S.reach, 1);
+    const [x, y] = o ? [o.x, o.y] : aimAt(h, S.reach * 0.6);
+    const r = Math.min(S.rMax, S.r0 + n * S.rPer);
+    const dmg = SKILL_USE.base * magMul(h) * Math.min(S.mulMax, S.mul0 + n * S.mulPer);   // 원소 효과 없이 마법력과 충전량으로
+    fx(g, map, { kind: "sk_meteor", x, y, r, t: 0.9, life: 0.9, snd: "orb" });
+    later(g, 0.55, () => {
+      if (h.map !== map) return;
+      foesNear(g, h, x, y, r).forEach((q) => strikeAny(g, h, q, dmg));
+      g.shake = Math.max(g.shake, 0.5);
+      fx(g, map, { kind: "nova", x, y: y - 6, r, color: "#cbb8ff", n: 20, t: 0.6, life: 0.6, snd: "boom" });
+    });
+  } else if (sp === "shadow") {                   // 종말의 일격 — 분노를 모두 써서 한 대
+    if (w.rage < S.min) return say(g, map, h.x, h.y - 90, `분노가 ${S.min} 이상 필요합니다 (지금 ${Math.floor(w.rage)})`, "#d9c9a6");
+    const n = Math.floor(w.rage);
+    const reach = heroRange(h) * S.reach;
+    const [o] = foesNear(g, h, h.x, h.y, reach, 1);
+    w.rage = 0;                                   // 분노를 비운 뒤 친다 — 분노 배율은 일격 배율에 이미 들어 있다
+    const dmg = skillBase(h) * (S.mul0 + n * S.mulPer);
+    const [x, y] = o ? [o.x, o.y] : aimAt(h, Math.min(reach, 140));
+    if (o) { h.dir = o.x < h.x ? -1 : 1; strikeAny(g, h, o, dmg); }
+    fx(g, map, { kind: "slash", x, y: y - 30, a: h.dir > 0 ? 0 : Math.PI, color: "#b77bd8", t: 0.45, life: 0.45, snd: "crit" });
+    fx(g, map, { kind: "burst", x, y: y - 20, r: 60, color: "#7b3fa0", n: 16, t: 0.6, life: 0.6 });
+    g.shake = Math.max(g.shake, 0.4);
+  } else if (sp === "holy") {                     // 성광 반격 — 잠시 받는 피해를 줄이고, 끝날 때 내뿜는다
+    w.ctr = S.dur; w.ctrAcc = 0;
+    fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 80, color: "#ffe39a", t: 0.8, life: 0.8, snd: "bless" });
+  }
+  w.wcd = S.cd;
+  h.swing = 0.35;
+  fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: W.name, color: "#ffd873", t: 0.8, life: 0.8, who: pi });
+}
+
 /* ── 한 걸음 ───────────────────────────────────────────── */
 function stepHeroes(g, dt) {
   g.heroes.forEach((h) => {
@@ -1697,6 +2020,7 @@ function stepHeroes(g, dt) {
     tickBuffs(h, dt);                             // 버프 물약 시간
     armorTick(h, dt, (id) => g.mobs.find((m) => m.id === id && !m.dead && m.map === h.map));   // 방어구 효과 시간
     if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - dt);   // 산 스킬 대기 시간
+    tickWeapon(g, h, dt);                         // 전설 무기 · 직업 스킬 효과 시간
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < MAT_MAX)) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다)
       MATERIALS.forEach((m) => { h.bag.m[m.id] = MAT_MAX; });
@@ -1742,7 +2066,9 @@ function stepHeroes(g, dt) {
     if (h.cd > 0 || MAPS[h.map].safe) return;
     const force = !!h.fire || h.fireQ > 0;          // 스페이스 — 사거리 안에 아무도 없어도 친다
     if ((!h.auto || isPvp(h.map)) && !force) return;   // 결투장에서는 자동 평타를 끈다
-    if (heroAttack(g, h, force)) { h.cd = heroCd(h); h.swing = 0.25; h.fireQ = 0; }
+    h.hb = holyReady(h) ? 1 + WEAPON_SKILLS.holy.passive.bonus : 1;
+    if (heroAttack(g, h, force)) { h.cd = heroCd(h); h.swing = 0.25; h.fireQ = 0; weaponOnAttack(g, h); }
+    h.hb = 1;
   });
 }
 
@@ -1778,8 +2104,8 @@ function tickMob(g, m, dt) {
     m.dotT -= dt;
     if (m.dotT <= 0) {
       m.dotT = 0.5;
-      if (m.burn > 0) hitMob(g, m.bby, m, m.bdps * 0.5);
-      if (!m.dead && m.poison > 0) hitMob(g, m.pby, m, m.pdps * 0.5);
+      if (m.burn > 0) hitMob(g, m.bby, m, m.bdps * 0.5, false, false, true);
+      if (!m.dead && m.poison > 0) hitMob(g, m.pby, m, m.pdps * 0.5, false, false, true);
       if (m.dead) return false;
     }
     m.burn = Math.max(0, m.burn - dt);
@@ -2513,6 +2839,8 @@ export function rpgStep(g, dt) {
   g.fx = g.fx.filter((f) => { f.t -= dt; return f.t > 0; });
 
   stepHeroes(g, dt);
+  tickLater(g, dt);                               // 잇달아 나가는 스킬(연사 · 화염베기 · 유성)
+  tickZones(g, dt);                               // 빙판길
   tickSocial(g, dt);
   tickDuels(g, dt);
   tickRuns(g, dt);
@@ -2584,7 +2912,8 @@ export function rpgPack(g) {
         REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0)), h.gift === GIFT.id ? 1 : 0,
         (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt || g.t)) * 1000) : 0,
         packArmor(h),
-        TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0)]
+        TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
+        packSkillState(h)]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -2658,6 +2987,7 @@ export function rpgApply(g, s) {
     }
     if (row.length > 41) h.gift = row[41] ? GIFT.id : "";   // 이번 업데이트 선물을 받았는지
     if (row.length > 44) applyArmor(h, row[44]);   // 방어구 — 신발 · 추격 · 위기 · 부활 대기
+    if (Array.isArray(row[46])) applySkillState(h, row[46]);   // 전설 무기 · 직업 스킬 — 불똥 · 별빛 · 분노 · 수호 · 철벽 · 보호막
     if (Array.isArray(row[40])) {                  // 맡은 광장 의뢰
       h.reqs = {};
       REQ_NPCS.forEach((n, i) => { const r = row[40][i]; if (r) h.reqs[n.id] = { i: r[0], n: r[1] }; });

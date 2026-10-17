@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, freshInput, noteSent, aimDir, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgDash, predictDash, predictLunge, DASH,
+  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
   rpgDungeon, whyDungeon, dgNear, dgCrew, runOf,
@@ -12,6 +12,20 @@ import {
 } from "./game/rpg.js";
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
+import { WEAPON_SKILLS } from "./game/skillData.js";
+
+// 무기 스킬 칸 — 낀 전설 무기의 스킬 이름 · 대기 · 쌓인 것
+function weaponHud(me) {
+  const sp = heldSpecial(me), W = WEAPON_SKILLS[sp];
+  if (!W) return null;
+  const w = me.ws || {};
+  const stack = sp === "flame" ? `불똥 ${w.emb || 0}`
+    : sp === "star" ? `별빛 ${w.star || 0}`
+    : sp === "shadow" ? `분노 ${Math.floor(w.rage || 0)}/${W.passive.max}`
+    : sp === "holy" ? `수호 ${Math.round(w.holy || 0)}%`
+    : W.passive.name;
+  return { name: W.name, cd: w.wcd || 0, max: W.skill.cd, stack };
+}
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQUESTS, REQ_SHOW } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, GIFT } from "./game/itemData.js";
@@ -517,6 +531,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "shop") rpgShop(g, mySeat, dir);
       else if (kind === "use") rpgUseSkill(g, mySeat, dir);
       else if (kind === "skill") rpgSkill(g, mySeat);
+      else if (kind === "wskill") rpgWeaponSkill(g, mySeat);
       else if (kind === "talk") rpgTalk(g, mySeat);
       else if (kind === "fire") rpgFire(g, mySeat, dir);
       else if (kind === "auto") rpgAuto(g, mySeat, dir);
@@ -604,6 +619,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (e.repeat) return;
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
+      else if (a === "wskill") act("wskill");
       else if (a === "dash") act("dash");
       else if (a === "talk") act("talk");
       else if (a.startsWith("pot")) {                // 물약 칸 — 넣어 둔 물약을 마신다
@@ -611,7 +627,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (id) act("shop", { op: "puse", id });
       }
       else if (a.startsWith("use")) {
-        const s = ACTIVE_SKILLS.find((q) => q.use.key === Number(a.slice(3)));
+        const bag = G.current.heroes[mySeat]?.bag;   // 직업 스킬은 키가 같아 배운 것을 먼저 고른다
+        const list = ACTIVE_SKILLS.filter((q) => q.use.key === Number(a.slice(3)));
+        const s = list.find((q) => bag && bag.s[q.id] > 0) || list.find((q) => !q.job);
         if (s) act("use", s.id);
       }
       else if (a === "chat") openChat();
@@ -706,6 +724,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (!freshInput(g.heroes[d.cls], d.kind, d.q, g.t)) return;   // 늦게 도착한 옛 누름 · 뗌은 버린다
         if (d.kind === "hold") rpgHold(g, d.cls, d.dir);
         else if (d.kind === "skill") rpgSkill(g, d.cls);
+        else if (d.kind === "wskill") rpgWeaponSkill(g, d.cls);
         else if (d.kind === "talk") rpgTalk(g, d.cls);
         else if (d.kind === "fire") rpgFire(g, d.cls, !!d.dir);
         else if (d.kind === "auto") rpgAuto(g, d.cls, !!d.dir);
@@ -840,10 +859,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           // 마신 물약 효과 — 남은 시간이 있는 것만(화면 오른쪽에 띄운다)
           buffs: [...BUFF_SHOW.filter(([k]) => me.bf && me.bf[k] && me.bf[k].t > 0).map(([k, name]) => ({ k, name, t: me.bf[k].t })),
             // 방어구 효과 — 추격 이속 · 위기 피해 감소 · 전설 갑옷 부활 대기
-            ...ARMOR_SHOW.filter(([k]) => me.arm && me.arm[k] > 0).map(([k, name]) => ({ k, name, t: me.arm[k] }))],
+            ...ARMOR_SHOW.filter(([k]) => me.arm && me.arm[k] > 0).map(([k, name]) => ({ k, name, t: me.arm[k] })),
+            // 직업 스킬 · 신성검 — 철벽 · 마나 보호막 · 성광 반격
+            ...(me.jb && me.jb.iron > 0 ? [{ k: "iron", name: "철벽", t: me.jb.iron }] : []),
+            ...(me.jb && me.jb.shT > 0 && me.jb.sh > 0 ? [{ k: "msh", name: `보호막 ${Math.round(me.jb.sh)}`, t: me.jb.shT }] : []),
+            ...(me.ws && me.ws.ctr > 0 ? [{ k: "ctr", name: "성광 반격", t: me.ws.ctr }] : [])],
+          // 무기 스킬 칸 — 전설 무기를 들었을 때만
+          wsk: weaponHud(me),
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
-            hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf },
+            hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
             dvs: me.dvs,
             reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])) },
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title,
@@ -1478,6 +1503,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
                 {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
               </button>
+              {me.wsk && (
+                <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
+                  onPointerDown={(e) => { e.preventDefault(); act("wskill"); }}>
+                  {!touch && keyOf(binds, "wskill") && <kbd>{keyOf(binds, "wskill")}</kbd>}
+                  <span>{me.wsk.name}<small>{me.wsk.stack}</small></span>
+                  {me.wsk.cd > 0 && <em>{Math.ceil(me.wsk.cd)}</em>}
+                  {me.wsk.cd > 0 && <i style={{ width: `${(me.wsk.cd / me.wsk.max) * 100}%` }} />}
+                </button>
+              )}
               {me.skills.map((s) => (
                 <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
                   onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
@@ -1591,7 +1625,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_CREW_MAX}명 ·{" "}
           {touch
             ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
+            : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 직업 스킬 <kbd>{["use5", "use6", "use7"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>

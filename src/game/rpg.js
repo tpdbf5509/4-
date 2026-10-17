@@ -169,7 +169,7 @@ DUNGEONS.forEach((d) => {
   for (let slot = 0; slot < DUNGEON.slots; slot++) {
     const id = dgMapId(d.id, slot);
     MAPS[id] = {
-      id, name: `${d.name} ${slot + 1}`, w: DUNGEON.w, h: DUNGEON.h, top: 170, spawn: [280, 800], bg: "field", tile: 2600,
+      id, name: `${d.name} ${slot + 1}`, w: DUNGEON.w, h: DUNGEON.h, top: 170, spawn: [DUNGEON.w / 2, (170 + DUNGEON.h) / 2], bg: "field", tile: 2600,
       tint: d.tint, dungeon: d.id, slot, gates: [], blocks: [], npcs: [],
     };
     MAP_IDS.push(id);

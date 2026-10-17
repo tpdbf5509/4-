@@ -8,6 +8,7 @@ import {
 } from "./art.js";
 import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
+import { DG_LOOKS } from "./dungeonData.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -342,6 +343,113 @@ const PLAZA_PROPS = [
 ];
 
 function drawFieldTree(ctx, t) { drawTreeArt(ctx, t.x, t.y, t.s, t.pine, t.seed); }
+
+
+/* ── 던전 바닥 — 그림 파일 없이 코드로 그린다(빛깔은 dungeonData.js DG_LOOKS) ─────────────
+   위쪽은 벽돌 벽과 기둥 · 횃불 받침, 바닥은 엇갈린 돌 타일 · 금 · 빛나는 틈 · 돌 부스러기, 가장자리는 어둡게.
+   던전마다 한 번 그려 두고(한 번에 하나만 남긴다), 횃불 불꽃만 매 프레임 흔들어 그린다(drawTorches) */
+const shade = (hex, k) => {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v) => Math.max(0, Math.min(255, Math.round(v * k)));
+  return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`;
+};
+const TORCH_GAP = 400;                                  // 벽의 횃불 간격
+export function paintDungeon(M) {
+  const L = DG_LOOKS[M.dungeon] || DG_LOOKS.stone1;
+  const c = document.createElement("canvas");
+  c.width = M.w; c.height = M.h;
+  const ctx = c.getContext("2d");
+  const rnd = mulberry32(7000 + (M.slot || 0) * 13 + M.dungeon.length * 101);
+  ctx.fillStyle = L.floor; ctx.fillRect(0, 0, M.w, M.h);
+  // 바닥 돌 타일 — 줄마다 반 칸씩 엇갈린다
+  const TW = 120, TH = 62;
+  for (let r = 0, y = M.top; y < M.h; r++, y += TH) {
+    for (let x = (r % 2 ? -TW / 2 : 0); x < M.w; x += TW) {
+      ctx.fillStyle = shade(L.tile, 0.86 + rnd() * 0.24);
+      roundRect(ctx, x + 2, y + 2, TW - 4, TH - 4, 5); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fillRect(x + 6, y + 4, TW - 12, 2);   // 윗면 빛
+    }
+  }
+  ctx.strokeStyle = L.line; ctx.lineWidth = 2;
+  for (let y = M.top; y < M.h; y += TH) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(M.w, y); ctx.stroke(); }
+  // 금 · 빛나는 틈
+  const crack = () => {
+    let x = rnd() * M.w, y = M.top + 30 + rnd() * (M.h - M.top - 60);
+    ctx.beginPath(); ctx.moveTo(x, y);
+    for (let k = 0; k < 4; k++) { x += (rnd() - 0.5) * 70; y += (rnd() - 0.5) * 30; ctx.lineTo(x, y); }
+    ctx.stroke();
+  };
+  ctx.strokeStyle = shade(L.line, 0.9); ctx.lineWidth = 1.2;
+  for (let i = 0; i < 45; i++) crack();
+  ctx.save();
+  ctx.strokeStyle = L.glow; ctx.globalAlpha = 0.55; ctx.lineWidth = 2; ctx.shadowColor = L.glow; ctx.shadowBlur = 10;
+  for (let i = 0; i < 16; i++) crack();
+  ctx.restore();
+  // 얼룩 · 돌 부스러기
+  for (let i = 0; i < 60; i++) {
+    ctx.fillStyle = `rgba(0,0,0,${0.08 + rnd() * 0.1})`;
+    ctx.beginPath(); ctx.ellipse(rnd() * M.w, M.top + rnd() * (M.h - M.top), 30 + rnd() * 80, 10 + rnd() * 24, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = 0; i < 90; i++) {
+    const x = rnd() * M.w, y = rnd() < 0.5 ? M.top + 6 + rnd() * 40 : M.top + rnd() * (M.h - M.top);
+    ctx.fillStyle = shade(L.tile, 0.6 + rnd() * 0.5);
+    ctx.beginPath(); ctx.ellipse(x, y, 3 + rnd() * 7, 2 + rnd() * 4, rnd() * 3, 0, Math.PI * 2); ctx.fill();
+  }
+  // 위쪽 벽 — 벽돌 · 기둥 · 횃불 받침
+  ctx.fillStyle = L.wall; ctx.fillRect(0, 0, M.w, M.top);
+  const BW = 64, BH = 26;
+  for (let r = 0, y = 0; y < M.top - 8; r++, y += BH) {
+    for (let x = (r % 2 ? -BW / 2 : 0); x < M.w; x += BW) {
+      ctx.fillStyle = shade(L.wall, 1.05 + rnd() * 0.3);
+      ctx.fillRect(x + 2, y + 2, BW - 4, BH - 4);
+    }
+  }
+  for (let x = TORCH_GAP / 2 - 200; x < M.w + 100; x += TORCH_GAP) {   // 기둥 — 횃불 사이
+    ctx.fillStyle = shade(L.wall, 1.5); ctx.fillRect(x - 22, 0, 44, M.top + 10);
+    ctx.fillStyle = shade(L.wall, 0.8); ctx.fillRect(x + 14, 0, 8, M.top + 10);
+    ctx.fillStyle = shade(L.wall, 1.8); ctx.fillRect(x - 28, M.top - 4, 56, 14);
+  }
+  for (let x = TORCH_GAP / 2; x < M.w; x += TORCH_GAP) {              // 횃불 받침
+    ctx.fillStyle = "#2a1e14"; ctx.fillRect(x - 3, M.top - 64, 6, 26);
+    ctx.fillStyle = "#4a3624"; ctx.fillRect(x - 9, M.top - 70, 18, 8);
+  }
+  const wallShade = ctx.createLinearGradient(0, M.top - 6, 0, M.top + 60);   // 벽 밑 그늘
+  wallShade.addColorStop(0, "rgba(0,0,0,0.55)"); wallShade.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = wallShade; ctx.fillRect(0, M.top - 6, M.w, 66);
+  // 가장자리를 어둡게
+  const edge = (x0, y0, x1, y1, w, h) => {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, "rgba(0,0,0,0.5)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g; ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), w, h);
+  };
+  edge(0, 0, 160, 0, 160, M.h); edge(M.w, 0, M.w - 160, 0, 160, M.h); edge(0, M.h, 0, M.h - 140, M.w, 140);
+  return c;
+}
+// 던전 어둠 — 내 캐릭터 둘레는 밝고 멀수록 어둡다(피해 숫자 · 연출은 이 위에 그려 가리지 않는다)
+const DG_DARK = { near: 260, far: 760, alpha: 0.5 };
+function drawDungeonDark(ctx, me, cam) {               // 월드 좌표로 그린다(카메라만큼 옮겨진 상태)
+  const x = me ? me.x : cam.x + W / 2, y = me ? me.y - 40 : cam.y + H / 2;
+  const g = ctx.createRadialGradient(x, y, DG_DARK.near, x, y, DG_DARK.far);
+  g.addColorStop(0, "rgba(6,4,2,0)"); g.addColorStop(1, `rgba(6,4,2,${DG_DARK.alpha})`);
+  ctx.fillStyle = g; ctx.fillRect(cam.x - 20, cam.y - 20, W + 40, H + 40);
+}
+// 횃불 불꽃 — 흔들리는 불과 둘레 빛
+function drawTorches(ctx, M, cam, time) {
+  const L = DG_LOOKS[M.dungeon] || DG_LOOKS.stone1;
+  for (let x = TORCH_GAP / 2; x < M.w; x += TORCH_GAP) {
+    if (x < cam.x - 120 || x > cam.x + W + 120) continue;
+    const y = M.top - 76, f = Math.sin(time * 11 + x) * 0.5 + Math.sin(time * 17 + x * 0.3) * 0.5;
+    ctx.save();
+    const glow = ctx.createRadialGradient(x, y, 4, x, y, 120 + f * 8);
+    glow.addColorStop(0, `${L.fire}55`); glow.addColorStop(1, `${L.fire}00`);
+    ctx.fillStyle = glow; ctx.fillRect(x - 130, y - 130, 260, 260);
+    ctx.fillStyle = L.fire;
+    ctx.beginPath(); ctx.ellipse(x, y - 4 - f, 6, 12 + f * 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff4d0";
+    ctx.beginPath(); ctx.ellipse(x, y - 1, 3, 6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
 
 export function paintMap(id) {
   const M = MAPS[id];
@@ -1513,8 +1621,17 @@ export function drawRpg(ctx, g, bgs) {
   }
   warmRpgArt();
   const bgName = M.bg || M.id;
-  const bim = mapImg(rpgFile(bgName));
-  if (bim) {
+  const bim = M.dungeon ? null : mapImg(rpgFile(bgName));
+  if (M.dungeon) {                                    // 던전 — 코드로 그린 바닥(던전마다 하나만 남긴다)
+    const key = `dg:${M.dungeon}`;
+    let bg = bgs && bgs[key];
+    if (bgs && !bg) {
+      Object.keys(bgs).forEach((k) => { if (k.startsWith("dg:")) delete bgs[k]; });
+      bg = bgs[key] = paintDungeon(M);
+    }
+    if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
+    else { ctx.fillStyle = (DG_LOOKS[M.dungeon] || DG_LOOKS.stone1).floor; ctx.fillRect(0, 0, W, H); }
+  } else if (bim) {
     drawTiled(ctx, bim, M, cam);
     if (M.tint) { ctx.fillStyle = M.tint; ctx.fillRect(0, 0, W, H); }
   } else if (mapImgFailed(rpgFile(bgName))) {          // 파일이 없을 때만 예전처럼 코드로 그린다
@@ -1523,6 +1640,7 @@ export function drawRpg(ctx, g, bgs) {
   } else { ctx.fillStyle = M.id === "plaza" ? "#4f6e34" : "#557a37"; ctx.fillRect(0, 0, W, H); }
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
   (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
+  if (M.dungeon) drawTorches(ctx, M, cam, time);
   if (M.pvp) drawArenaFloor(ctx, M);
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
 
@@ -1570,6 +1688,7 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.tree) drawFieldTree(ctx, o.tree);
   });
 
+  if (M.dungeon) drawDungeonDark(ctx, me, cam);
   g.fx.forEach((f) => { if (here(f) && (f.kind !== "art" || (FX_ART[f.art] || {}).over)) drawFx(ctx, f); });
   ctx.globalAlpha = 1;
   // 채팅 말풍선 — 모든 것 위에

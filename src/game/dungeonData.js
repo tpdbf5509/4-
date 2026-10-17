@@ -18,7 +18,7 @@ export const DUNGEON = {
   clearWait: 8,         // 보스를 잡고 광장으로 돌아가기까지(초)
   failWait: 4,          // 실패한 뒤 광장으로 돌아가기까지(초)
   npc: { x: 760, y: 1070 },   // 광장의 던전 관리인 자리
-  w: 2800, h: 1400,     // 던전 맵 크기
+  w: 2800, h: 1400,     // 던전 맵 크기 — 들어가면 가운데에 선다(무리도 가운데로 몰려온다)
 };
 
 // 강화석 던전 셋 — 몹 종류(rpg.js MOB) · 레벨 · 무리 수 · 보스(그라모르) 세기 · 보상 강화석
@@ -64,6 +64,16 @@ DUNGEONS.push(
     reward: { armor: "feet" }, tint: "rgba(18,30,52,0.48)",
   },
 );
+/* 던전 바닥 빛깔 — 바닥 돌 · 줄눈 · 벽 · 갈라진 틈의 빛 · 횃불 빛. 그림은 rpgArt.js paintDungeon(파일 없이 코드로 그린다) */
+export const DG_LOOKS = {
+  stone1: { floor: "#46403a", tile: "#524a42", line: "#2a241f", wall: "#2c2622", glow: "#ff9a4a", fire: "#ffb060" },
+  stone2: { floor: "#4a3a32", tile: "#57453a", line: "#2c1f1a", wall: "#2e211c", glow: "#ff7a3a", fire: "#ffa050" },
+  stone3: { floor: "#3a2a2a", tile: "#463232", line: "#221616", wall: "#251818", glow: "#ff5a3a", fire: "#ff9040" },
+  helm: { floor: "#36403a", tile: "#404c45", line: "#1e2622", wall: "#222a26", glow: "#7fe0a0", fire: "#9ff0b8" },
+  body: { floor: "#443c36", tile: "#504740", line: "#28221e", wall: "#2a2420", glow: "#ff8a40", fire: "#ffb060" },
+  legs: { floor: "#5a4636", tile: "#6a5240", line: "#33261c", wall: "#3a2a20", glow: "#e05a4a", fire: "#ff8a60" },
+  feet: { floor: "#363e4a", tile: "#414a58", line: "#1e242e", wall: "#222a36", glow: "#8fc8ff", fire: "#b0dcff" },
+};
 export const DG_GROUPS = [
   { name: "강화석 던전", ids: ["stone1", "stone2", "stone3"] },
   { name: "방어구 던전", ids: ["helm", "feet", "legs", "body"] },

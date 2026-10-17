@@ -849,7 +849,12 @@ function mobBody(id, gi, lv, x, y) {
 function dgMobBody(id, map, type, lv, boss, x, y) {
   const d = DG_BY_ID[MAPS[map].dungeon];
   const m = bodyOf(id, -1, type, boss ? 1 : 0, lv, map, x, y, boss ? d.boss : null);
-  if (!boss) { m.hp = m.max = Math.round(m.max * DUNGEON.hpMul); m.dmg = Math.round(m.dmg * DUNGEON.dmgMul); }
+  if (!boss) {
+    m.hp = m.max = Math.round(m.max * DUNGEON.hpMul); m.dmg = Math.round(m.dmg * DUNGEON.dmgMul);
+    // 돌아갈 자리를 맵 가운데 둘레로 — 사람을 알아채기 전에는 가운데로 몰려온다(방장이 바뀌어 다시 세워도 같다)
+    const M = MAPS[map], a = Math.random() * Math.PI * 2, rr = Math.random() * DUNGEON.rally;
+    m.hx = M.w / 2 + Math.cos(a) * rr; m.hy = (M.top + M.h) / 2 + Math.sin(a) * rr * RPG.squash;
+  }
   m.dg = 1;
   return m;
 }
@@ -1727,7 +1732,8 @@ function nearestHero(g, m, range) {
 function tickMob(g, m, dt) {
   m.age += dt;
   m.calm += dt;
-  if (m.calm >= MOB_REGEN.calm && m.hp < m.max) m.hp = Math.min(m.max, m.hp + m.max * MOB_REGEN.rate * dt);
+  const regen = m.dg && m.boss ? MOB_REGEN.rate * DUNGEON.bossRegen : MOB_REGEN.rate;   // 던전 보스는 DUNGEON.bossRegen(0 이면 회복 없음)
+  if (regen > 0 && m.calm >= MOB_REGEN.calm && m.hp < m.max) m.hp = Math.min(m.max, m.hp + m.max * regen * dt);
   m.flash = Math.max(0, m.flash - dt);
   m.slow = Math.max(0, m.slow - dt);
   m.freeze = Math.max(0, m.freeze - dt);
@@ -2031,11 +2037,11 @@ function stepBrute(g, m, dt, P) {
       if (m.state === "idle") {
         const back = far > 260;
         const a = back ? Math.atan2((m.hy - m.y) / RPG.squash, m.hx - m.x) : Math.random() * Math.PI * 2;
-        const v = back ? 120 : 50 + Math.random() * 40;
+        const v = back ? (m.dg ? P.walk : 120) : 50 + Math.random() * 40;   // 던전 몹은 가운데로 제 빠르기로 몰려온다
         m.state = "walk"; m.t = back ? 1.2 : 0.8 + Math.random() * 1.2;
         m.vx = Math.cos(a) * v; m.vy = Math.sin(a) * v;
       } else {
-        m.state = "idle"; m.t = 1 + Math.random() * 2.2; m.vx = 0; m.vy = 0;
+        m.state = "idle"; m.t = m.dg && far > 260 ? 0.05 : 1 + Math.random() * 2.2; m.vx = 0; m.vy = 0;   // 던전 몹은 가운데에 닿을 때까지 쉬지 않는다
       }
     }
     if (m.state === "walk") {
@@ -2282,12 +2288,18 @@ export function rpgDungeon(g, pi, req) {
 function dgCall(g, r, text, color, snd) {
   g.heroes.forEach((h) => { if (h && h.map === r.map) fx(g, r.map, { kind: "call", x: h.x, y: h.y - 130, text, color, t: 1.8, life: 1.8, snd, who: h.pi }); });
 }
+/* 무리 — 맵 가장자리(위 · 아래 · 오른쪽)에서 나와 가운데(DUNGEON.rally 둘레)로 몰려온다.
+   돌아갈 자리(hx · hy)는 dgMobBody 가 가운데로 둔다 — stepBrute 가 그쪽으로 걷고, 가다가 사람을 알아채면 덤빈다 */
 function spawnWave(g, r, d) {
   const M = MAPS[r.map];
   for (let i = 0; i < d.waves[r.wave - 1]; i++) {
     const lv = d.lv[0] + Math.floor(Math.random() * (d.lv[1] - d.lv[0] + 1));
-    const x = M.w * (0.45 + Math.random() * 0.45), y = M.top + 80 + Math.random() * (M.h - M.top - 160);
-    g.mobs.push(dgMobBody(g.nextId++, r.map, d.mob, lv, 0, x, y));
+    const side = Math.floor(Math.random() * 3);   // 0 위 · 1 아래 · 2 오른쪽
+    const x = side === 2 ? M.w - 80 : M.w * (0.3 + Math.random() * 0.6);
+    const y = side === 0 ? M.top + 30 : side === 1 ? M.h - 60 : M.top + 80 + Math.random() * (M.h - M.top - 160);
+    const m = dgMobBody(g.nextId++, r.map, d.mob, lv, 0, x, y);
+    m.state = "idle"; m.t = Math.random() * 0.4;
+    g.mobs.push(m);
   }
 }
 function tickRuns(g, dt) {

@@ -355,7 +355,7 @@ const shade = (hex, k) => {
 };
 const TORCH_GAP = 400;                                  // 벽의 횃불 간격
 // 이끼 — 바닥 줄눈 · 벽돌 틈에 낀 작은 덩어리. 빛깔은 DG_LOOKS[].moss(없으면 이 색), 수는 바닥 · 벽
-const DG_MOSS = { col: ["#56703f", "#6d8a4c", "#86a25e"], floor: 170, wall: 40 };
+const DG_MOSS = { col: ["#323c23", "#42502f", "#4e5e36"], floor: 170, wall: 40 };   // 너무 밝다는 의견으로 어두운 올리브빛 이끼 색으로
 function mossClump(ctx, rnd, x, y, len, along, cols) {
   const n = 5 + Math.floor(rnd() * 7);
   for (let i = 0; i < n; i++) {

@@ -131,8 +131,9 @@ export function dealOf(lv, day = todayKey()) {
    w 무기 목록 [{ u 번호, t 종류, r 단계, g 등급, p 산 값, sp 특별 무기 id(있을 때만) }] · e 장착한 무기 번호(0 은 맨손)
    무기의 up 은 강화 단계(0 이면 강화하지 않음, 있을 때만)
    p 물약 { id: 개수 } · qs 물약 칸 [물약 id 또는 ""] · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · wp 지역 워프권 남은 횟수 · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
+   oc 는 직업과 다른 무기 정리를 마쳤는지(업데이트 뒤 처음 들어올 때 한 번, rpg.js rpgJoin)
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
-export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0 });
+export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0, oc: 0 });
 export function cleanBag(d) {
   const b = newBag();
   if (!d || typeof d !== "object") return b;
@@ -176,6 +177,7 @@ export function cleanBag(d) {
     ["box", "dice", "slot", "deal"].forEach((k) => { b.day[k] = Math.max(0, Math.floor(Number(dy[k]) || 0)); });
   }
   b.v = Math.max(0, Math.floor(Number(d.v) || 0));
+  b.oc = d.oc ? 1 : 0;
   return b;
 }
 export const equipped = (bag) => (bag.e ? bag.w.find((w) => w.u === bag.e) || null : null);

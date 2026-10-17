@@ -659,6 +659,14 @@ export function rpgJoin(g, pi, d, who) {
   h.title = h.titles.includes(d.title) ? d.title : "";
   h.gift = typeof d.gift === "string" ? d.gift : "";
   if (h.gift !== GIFT.id) giveGift(g, h);         // 이번 업데이트 선물 — 캐릭터마다 한 번
+  if (!h.bag.oc) {                                // 직업과 다른 무기 정리 — 고정 피해가 생기기 전에 들고 있던 것은 한 번 풀어 가방에 둔다(빼앗지 않는다)
+    h.bag.oc = 1; h.bag.v++;
+    if (offHand(h)) {
+      h.bag.e = 0;
+      fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "무기를 잘못 들었어요", color: "#e9d39a", t: 1.8, life: 1.8, who: h.pi });
+      sys(g, h.pi, "무기를 잘못 들었어요. 들고 있던 무기는 가방에 넣어 두었습니다.");
+    }
+  }
   awardTitles(g, h, true);                        // 예전 캐릭터도 이미 채운 조건의 칭호는 조용히 받는다
   if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
   if (Array.isArray(d.hold)) rpgHold(g, pi, d.hold);   // 누르고 있던 방향 — 이어받을 때 멈추지 않게

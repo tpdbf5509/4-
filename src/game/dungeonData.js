@@ -85,7 +85,8 @@ export const DG_GROUPS = [
    charge min 보다 멀면 wind 초 준비했다가 speed 로 time 초 달린다. 길에 닿으면 dmg × mul, push 만큼 밀려난다
    wall   체력이 at 몫 아래로 내려갈 때마다 dur 초 동안 받는 피해가 cut 만큼 준다
    rage   체력이 at 몫 아래로 내려가면 한 번 — 끝까지 걷기 · 치는 빠르기 × spd, 피해 × dmg
-   summon cd 초마다 그 던전 몹 n 마리를 둘레에 부른다(보스가 쓰러지면 함께 사라진다)
+   summon cd 초마다 mob(없으면 그 던전 몹) n 마리를 둘레에 부른다(보스가 쓰러지면 함께 사라진다)
+   absorb every 초마다 부른 몹(mob)이 min 마리 이상 살아 있으면 chance 확률로 모두 빨아들여, 한 마리마다 최대 체력의 per 만큼 회복한다
    mirage cd 초마다 dur 초 동안 잔상을 남긴다 — 그동안 맞을 때 dodge 확률로 피한다
    첫 기술 대기는 cd 의 절반. name 은 기술을 쓸 때 머리 위에 띄운다 */
 export const BOSS_AI = {
@@ -112,7 +113,8 @@ export const BOSS_AI = {
     rad: 26, size: 2, walk: 130, punchCd: 1.4,
     skills: [
       { k: "slam", name: "영혼 흡수", range: 340, wind: 1.3, r: 340, mul: 1.0, heal: 0.02, cd: 12, rest: 0.8 },
-      { k: "summon", name: "망령 소환", n: 4, cd: 22 },
+      { k: "summon", name: "해골 소환", mob: "skeleton", n: 6, cd: 22 },   // 해골 — 고블린과 같은 세기(rpg.js MOB.skeleton)
+      { k: "absorb", name: "해골 흡수", mob: "skeleton", every: 8, chance: 0.35, per: 0.05, min: 1 },   // 6마리 모두면 30% 회복
       { k: "slam", name: "생명력 폭발", range: 230, wind: 1.2, r: 280, mul: 2.0, cd: 9, rest: 0.9 },
     ],
   },

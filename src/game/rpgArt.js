@@ -1035,6 +1035,41 @@ export function drawGoblinBody(ctx, ph, moving, boss, frozen, up) {
   ctx.beginPath(); ctx.moveTo(6, -33); ctx.quadraticCurveTo(9, -31, 12, -33); ctx.stroke();
 }
 
+// 해골 — 모르가스가 부르는 졸개. 빛바랜 뼈 · 갈비뼈 · 녹슨 칼 · 초록 눈빛(모르가스와 같은 빛)
+export function drawSkeletonBody(ctx, ph, moving, boss, frozen, up) {
+  const bone = frozen ? "#e2f0f8" : "#ddd6c2";
+  const shade = frozen ? "#b4d0e0" : "#a69d86";
+  const sw = moving ? Math.sin(ph) * 4 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  limb(-3, -14, -5 - sw, 0, 3, shade);                        // 먼 다리
+  limb(3, -14, 5 + sw, 0, 3, bone);                           // 가까운 다리
+  blob(0, -14, 6, 3, 0, shade);                               // 골반
+  ctx.strokeStyle = bone; ctx.lineWidth = 2.6;                // 등뼈
+  ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(0, -34); ctx.stroke();
+  ctx.lineWidth = 2;                                           // 갈비뼈
+  for (let k = 0; k < 4; k++) {
+    const y = -31 + k * 4, w = 8 - k;
+    ctx.beginPath(); ctx.moveTo(-w, y + 1.5); ctx.quadraticCurveTo(0, y - 2.5, w, y + 1.5); ctx.stroke();
+  }
+  // 칼 든 팔 — 칠 때 앞으로 뻗는다
+  const hx = up > 0 ? 17 : 10, hy = up > 0 ? -27 : -20;
+  limb(3, -32, hx, hy, 2.6, bone);
+  ctx.strokeStyle = frozen ? "#f2fbff" : "#8a6a4a"; ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (up > 0 ? 16 : 10), hy - (up > 0 ? 2 : 12)); ctx.stroke();
+  ctx.strokeStyle = frozen ? "#ffffff" : "#b8b2a4"; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(hx + 1, hy); ctx.lineTo(hx + (up > 0 ? 16 : 10), hy - (up > 0 ? 2 : 12)); ctx.stroke();
+  // 머리 — 해골 · 턱 · 초록 눈빛
+  blob(3, -42, 8.5, 8, 0, bone);
+  blob(5, -35.5, 5, 2.6, 0, shade);
+  ctx.fillStyle = "#1a1612";
+  ctx.beginPath(); ctx.arc(1, -42, 2.4, 0, Math.PI * 2); ctx.arc(7.5, -42, 2.4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = frozen ? "#bfe6ff" : "#7fe0a0";
+  ctx.beginPath(); ctx.arc(1.4, -42, 1.1, 0, Math.PI * 2); ctx.arc(7.9, -42, 1.1, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#1a1612"; ctx.lineWidth = 0.8;           // 이빨 줄
+  ctx.beginPath(); ctx.moveTo(2, -36.5); ctx.lineTo(9, -36.5); ctx.stroke();
+}
+
 // 오크 — 회녹색 근육, 아래 엄니, 도끼. 오크 족장은 뿔 투구와 붉은 전투 무늬
 export function drawOrcBody(ctx, ph, moving, boss, frozen, up) {
   const skin = frozen ? "#cfe3ee" : boss ? "#6f8058" : "#7f9268";
@@ -1140,6 +1175,7 @@ function bruteDrawer(body, shadowR, top, upTop) {
 const drawGoblin = bruteDrawer(drawGoblinBody, 16, 52, 52);
 const drawOrc = bruteDrawer(drawOrcBody, 22, 72, 100);
 const drawOgre = bruteDrawer(drawOgreBody, 28, 76, 112);
+const drawSkeleton = bruteDrawer(drawSkeletonBody, 15, 52, 52);
 
 /* 던전 보스 — 그림 시트에서 자른 자세(tools/cut-bosses.py)를 같은 배율로 발밑 가운데에 맞춰 그린다.
    idle · move 는 프레임 목록(돌아가며), 기술 자세(slam · charge · attack)는 있는 보스만. 그림을 못 불러오면 오우거 몸을 크게 그려 대신한다.
@@ -1226,8 +1262,8 @@ function drawDungeonBoss(ctx, m, time) {
   }
   drawMobMarks(ctx, m, time, top * grow);
 }
-const MOB_DRAW = { wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss };
-const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4" };
+const MOB_DRAW = { wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton };
+const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4" };
 
 /* 던전 관리인 — 짙은 망토에 등불을 든 사람. 머리 위에 칼 모양 표시 */
 function drawDungeonNpc(ctx, n, time) {

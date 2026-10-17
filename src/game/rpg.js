@@ -268,7 +268,7 @@ export const GORILLA = {
 export const GOBLIN = { aggro: 380, walk: 215, punchCd: 0.8, slamRange: 0, call: 340, leash: 1200 };
 export const ORC = { aggro: 400, walk: 190, punchCd: 1.05, slamRange: 170, wind: 0.55, slamR: 150, slamMul: 1.5, cd: 4, rest: 0.6, call: 320, leash: 1200 };
 export const OGRE = { aggro: 420, walk: 170, punchCd: 1.3, slamRange: 210, wind: 0.6, slamR: 200, slamMul: 1.7, cd: 4.5, rest: 0.7, call: 260, leash: 1200 };
-const BRUTE = { gorilla: GORILLA, goblin: GOBLIN, orc: ORC, ogre: OGRE };
+const BRUTE = { gorilla: GORILLA, goblin: GOBLIN, orc: ORC, ogre: OGRE };   // 해골은 아래에서 더한다
 // 멧돼지 돌진 — 이 거리 안에 들면 wind 초 몸을 낮췄다가 speed 로 time 초 달린다. 돌진에 맞으면 dmg × chargeMul
 export const BOAR = { aggro: 270, chargeRange: 230, wind: 0.45, speed: 430, time: 0.7, rest: 1.1, cd: 3.6, chargeMul: 1.5, walk: 150 };
 // 던전 보스 — 던전에서만 나온다. 세기(체력 · 피해 · 보상)는 던전마다 다르다(dungeonData.js DUNGEONS[].boss). 여기 boss 값은 이름 · 크기만 쓴다
@@ -278,7 +278,10 @@ Object.entries(BOSS_AI).forEach(([type, A]) => {
     boss: { name: BOSS_NAMES[type], lv: 1, hp: 1, dmg: 1, xp: 1, coin: 1, size: A.size },
   };
 });
-const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka"];   // 스냅샷 차례 — 뒤에만 더한다
+// 해골 — 모르가스가 부르는 졸개. 세기 · 움직임은 고블린과 같다(BRUTE.skeleton = GOBLIN)
+MOB.skeleton = { ...MOB.goblin, name: "해골", boss: { ...MOB.goblin.boss, name: "해골 대장" } };
+BRUTE.skeleton = GOBLIN;
+const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton"];   // 스냅샷 차례 — 뒤에만 더한다
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -2087,6 +2090,21 @@ function stepDgBoss(g, m, dt) {
       m.marks[i] += 1; m.wall = q.dur; m.wallCut = q.cut;
       bossCall(g, m, `${q.name} — 받는 피해 감소`);
       fx(g, m.map, { kind: "ring", x: m.x, y: m.y - 20, r: 120, color: "#ffc070", t: 0.6, life: 0.6, snd: "bless" });
+    } else if (q.k === "absorb") {                 // 해골 흡수 — every 초마다 chance 확률로 부른 몹을 모두 빨아들인다
+      m.absT = (m.absT || 0) + dt;
+      if (m.absT < q.every) return;
+      m.absT = 0;
+      const mine = g.mobs.filter((o) => !o.dead && o.map === m.map && o.type === q.mob && !o.boss);
+      if (mine.length < q.min || Math.random() >= q.chance) return;
+      mine.forEach((o) => {
+        o.dead = true;                               // 보상 없이 사라진다
+        fx(g, m.map, { kind: "zap", x0: o.x, y0: o.y - 20, x1: m.x, y1: m.y - 60, color: "#9fe8b8", t: 0.45, life: 0.45 });
+        fx(g, m.map, { kind: "poof", x: o.x, y: o.y - 6, t: 0.5, life: 0.5, color: "rgba(140,230,170,1)" });
+      });
+      const add = Math.round(m.max * q.per * mine.length);
+      m.hp = Math.min(m.max, m.hp + add);
+      bossCall(g, m, `${q.name} — 해골 ${mine.length}마리`, "#9fe8b8");
+      fx(g, m.map, { kind: "heal", x: m.x, y: m.y - 120, text: `+${add.toLocaleString("ko-KR")}`, t: 1.1, life: 1.1, snd: "bless" });
     } else if (q.k === "rage" && !m.rage && m.hp <= m.max * q.at) {
       m.rage = 1; m.rageSpd = q.spd; m.dmg = Math.round(m.dmg * q.dmg);
       bossCall(g, m, `${q.name}!`, "#ff8a7a");
@@ -2157,7 +2175,7 @@ function stepDgBoss(g, m, dt) {
   if (Math.abs(dx) > 2) m.ax = dx < 0 ? -1 : 1;
   // 쓸 수 있는 기술 — 대기가 끝났고 거리가 맞는 것 가운데 첫째
   const i = S.findIndex((k, j) => m.cds[j] <= 0 && (
-    ((k.k === "slam" || k.k === "multi") && d < k.range) || (k.k === "charge" && d > k.min) || k.k === "summon" || k.k === "mirage"));
+    ((k.k === "slam" || k.k === "multi") && d < k.range) || (k.k === "charge" && d > k.min) || k.k === "summon" || k.k === "mirage"));   // absorb · wall · rage 는 위에서
   if (i >= 0) {
     const k = S[i];
     m.cds[i] = k.cd;
@@ -2166,7 +2184,7 @@ function stepDgBoss(g, m, dt) {
       for (let n = 0; n < k.n; n++) {
         const a = (n / k.n) * Math.PI * 2;
         const x = m.x + Math.cos(a) * 150, y = m.y + Math.sin(a) * 110;
-        const q2 = dgMobBody(g.nextId++, m.map, D.mob, D.lv[0], 0, x, y);
+        const q2 = dgMobBody(g.nextId++, m.map, k.mob || D.mob, D.lv[0], 0, x, y);
         keepMob(q2);
         g.mobs.push(q2);
         fx(g, m.map, { kind: "poof", x: q2.x, y: q2.y - 6, t: 0.5, life: 0.5, color: "rgba(140,230,170,1)" });

@@ -305,9 +305,35 @@ function Casino({ h, send }) {
 }
 
 /* ── 무기 강화소 — 장착한 무기를 강화석으로 한 단계씩 올린다 · 보스 재료 팔기 ─────────
-   강화 연출: 누르면 FORGE.strike 초 동안 망치질(불꽃 · 떨림)을 보여 주고, 방장 결과(note.enh)가 오면
+   강화 연출: 무기는 마법진 위에 떠 있다. 누르면 FORGE.strike 초 동안 망치질(마법진이 빨리 돌고 · 불꽃 · 떨림)을 보여 주고, 방장 결과(note.enh)가 오면
    성공(금빛 고리) · 실패(회색 연기) · 하락(붉은 금) 을 FORGE.show 초 띄운다. 결과는 방장이 정한다 — 연출은 기다릴 뿐 */
 const FORGE = { strike: 1.2, show: 1.6, hits: 3 };
+// 마법진 — 무기가 그 위에 떠 있다. 바깥 고리 · 룬 점 · 육망성 · 안쪽 고리. 색은 무기 등급(--fg), 비스듬히 눕혀 그린다(style.css .forge-circle)
+const RUNES = Array.from({ length: 12 }, (_, i) => (i / 12) * Math.PI * 2);
+const star = (r, k) => Array.from({ length: 3 }, (_, i) => {
+  const a = k + (i / 3) * Math.PI * 2 - Math.PI / 2;
+  return `${50 + Math.cos(a) * r},${50 + Math.sin(a) * r}`;
+}).join(" ");
+function MagicCircle() {
+  return (
+    <svg className="forge-circle" viewBox="0 0 100 100" aria-hidden="true">
+      <g className="forge-circle-spin">
+        <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="1.2" />
+        <circle cx="50" cy="50" r="41" fill="none" stroke="currentColor" strokeWidth="0.6" strokeDasharray="2 2.6" />
+        {RUNES.map((a, i) => (
+          <rect key={i} x={50 + Math.cos(a) * 43.5 - 1.1} y={50 + Math.sin(a) * 43.5 - 1.1} width="2.2" height="2.2"
+            transform={`rotate(${(a * 180) / Math.PI + 45} ${50 + Math.cos(a) * 43.5} ${50 + Math.sin(a) * 43.5})`} fill="currentColor" />
+        ))}
+        <polygon points={star(36, 0)} fill="none" stroke="currentColor" strokeWidth="0.8" />
+        <polygon points={star(36, Math.PI)} fill="none" stroke="currentColor" strokeWidth="0.8" />
+      </g>
+      <g className="forge-circle-back">
+        <circle cx="50" cy="50" r="20" fill="none" stroke="currentColor" strokeWidth="0.9" />
+        <circle cx="50" cy="50" r="15" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 1.6" />
+      </g>
+    </svg>
+  );
+}
 const FORGE_RES = { 1: ["ok", "강화 성공"], 0: ["keep", "강화 실패"], [-1]: ["down", "단계 하락"] };
 function Forge({ h, send, note, setQuiet }) {
   const [tab, setTab] = useState("enh");
@@ -385,6 +411,7 @@ function Forge({ h, send, note, setQuiet }) {
             <div className={`forge forge-${stage.phase} ${stage.kind ? `forge-${stage.kind}` : ""} fg${w.g}`} key={stage.key || 0}>
               <button type="button" className="forge-stage" disabled={busy} aria-label="강화할 무기 바꾸기"
                 title="눌러서 강화할 무기를 바꿉니다" onClick={() => setPick((v) => !v)}>
+                <MagicCircle />
                 <span className="forge-glow" />
                 {weaponArt(w) ? <img className="forge-art" src={weaponArt(w)} alt="" /> : <span className="forge-blade" />}
                 {stage.phase === "forge" && Array.from({ length: FORGE.hits }, (_, i) => (

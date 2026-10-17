@@ -49,6 +49,12 @@ export const WEAPON = {
   sellRate: 0.4,         // 되팔면 산 값의 40%
   bagMax: 30,            // 가방에 넣을 수 있는 무기 수
 };
+/* 직업과 맞지 않는 무기 — 무기 종류를 검 · 활 · 마법봉 셋으로 묶는다(전사 검 · 궁수 활 · 마법사 마법봉).
+   다른 묶음의 무기를 들면 등급 · 강화 · 스탯과 상관없이 한 대 피해가 dmg 로 고정되고 치명타도 없다. */
+export const WEAPON_FAMILY = { sword: "sword", axe: "sword", dagger: "sword", great: "sword", staff: "staff", tome: "staff", bow: "bow" };
+export const JOB_FAMILY = { warrior: "sword", archer: "bow", mage: "staff" };
+export const OFF_HAND = { dmg: { sword: 45, bow: 35, staff: 40 } };   // 기획 값 — 검 45 · 활 35 · 마법봉 40
+
 /* 특별 무기 — 이름과 그림이 있는 무기. 무기상점에서 코인으로 바로 산다(같은 무기는 한 자루만). 오늘의 특가 · 랜덤 상자에서도 나온다.
    lv 는 레벨 제한(무기 단계 가운데 하나), g 는 등급, stat 은 올리는 스탯.
    올리는 양 · 값은 같은 단계 · 등급의 일반 무기에 SPECIAL 배율을 곱한다. art 는 public/assets/game/rpg/weapons/<art>.webp */

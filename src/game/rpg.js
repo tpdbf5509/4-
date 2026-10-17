@@ -7,11 +7,11 @@
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
-import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION } from "./shopData.js";
+import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND } from "./shopData.js";
 import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
-import { TITLES, TITLE_BY_ID, REC_IDS, PARTY } from "./socialData.js";
+import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName } from "./armorData.js";
@@ -430,7 +430,14 @@ export function cleanReqs(d) {
 export const cleanTitles = (list) => (Array.isArray(list) ? [...new Set(list.filter((id) => TITLE_BY_ID[id]))] : []);
 // 칭호 조건의 지금 값 — 레벨 · 코인은 캐릭터에서, 나머지는 기록에서
 export const needNow = (h, k) => (k === "lv" ? h.lv : k === "coins" ? h.coins : (h.rec && h.rec[k]) || 0);
-export const titleMet = (h, t) => Object.entries(t.need).every(([k, n]) => needNow(h, k) >= n);
+export const titleMet = (h, t) => (t.off ? offKey(h) === t.off : Object.entries(t.need).every(([k, n]) => needNow(h, k) >= n));
+// 직업과 다른 묶음의 무기를 들었으면 그 묶음(sword · bow · staff), 아니면 "" — 방장만 가방을 본다
+export function offHand(h) {
+  const w = h && h.bag && equipped(h.bag);
+  const fam = w ? WEAPON_FAMILY[w.t] : "";
+  return fam && fam !== JOB_FAMILY[jobOf(h).id] ? fam : "";
+}
+const offKey = (h) => { const f = offHand(h); return f ? `${jobOf(h).id}:${f}` : ""; };
 export const titleName = (id) => (TITLE_BY_ID[id] ? TITLE_BY_ID[id].name : "");
 
 /* 이 기기의 내 캐릭터 — 이름을 처음 한 번 정하고, 처음 게임을 시작할 때 직업 · 원소 · 성별을 정한다.
@@ -935,7 +942,8 @@ function nearFoes(g, h, x, y, range) {
 // 결투 상대를 친다 — 쓰러지면 결투가 끝난다(tickDuels)
 function hitFoe(g, h, o, raw) {
   if (!o || o.down > 0) return;
-  hurtHero(g, o, raw * DUEL.dmgMul);
+  const off = offHand(h);
+  hurtHero(g, o, (off ? OFF_HAND.dmg[off] : raw) * DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
 }
 
 /* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
@@ -1095,8 +1103,10 @@ function hitMob(g, pi, m, raw, skill, sureCrit) {
     if (m.numT <= 0) { say(g, m.map, m.x, m.y - 90, "빗나감", "#cfe6ff"); m.numT = 0.3; }
     return 0;
   }
+  const off = h ? offHand(h) : "";
+  if (off) dmg = OFF_HAND.dmg[off];               // 직업과 다른 무기 — 한 대 피해 고정 · 치명타 없음
   if (m.wall > 0) dmg *= 1 - m.wallCut;          // 철벽 자세
-  const crit = h ? sureCrit || Math.random() < critChance(h) : false;
+  const crit = h && !off ? sureCrit || Math.random() < critChance(h) : false;
   if (crit) dmg *= critMul(h);
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg;
@@ -2560,12 +2570,13 @@ export function rpgPack(g) {
         ACTIVE_SKILLS.map((s) => r1((h.scd && h.scd[s.id]) || 0)), r1(h.dashCd || 0),
         holdKey(h.hold), h.fire ? 1 : 0,
         h.pty, h.invite ? h.invite.from : -1, TITLES.findIndex((t) => t.id === h.title),
-        TITLES.reduce((bits, t, i) => (h.titles.includes(t.id) ? bits | (1 << i) : bits), 0),
+        TITLES.reduce((bits, t, i) => (i < TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << i) : bits), 0),
         REC_IDS.map((k) => h.rec[k]), heldSpecial(h),
         h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring,
         REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0)), h.gift === GIFT.id ? 1 : 0,
         (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt || g.t)) * 1000) : 0,
-        packArmor(h)]
+        packArmor(h),
+        TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0)]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -2628,7 +2639,7 @@ export function rpgApply(g, s) {
       h.pty = row[28] || 0;
       h.invite = row[29] >= 0 ? { from: row[29], t: h.invite && h.invite.from === row[29] ? h.invite.t : PARTY.inviteT } : null;
       h.title = TITLES[row[30]] ? TITLES[row[30]].id : "";
-      h.titles = TITLES.filter((t, i) => row[31] & (1 << i)).map((t) => t.id);
+      h.titles = TITLES.filter((t, i) => (i < TITLE_BITS ? row[31] & (1 << i) : (row[45] || 0) & (1 << (i - TITLE_BITS)))).map((t) => t.id);
       if (Array.isArray(row[32])) REC_IDS.forEach((k, i) => { h.rec[k] = row[32][i] || 0; });
     }
     if (row.length > 33) h.wsp = row[33] || "";      // 장착한 특별 무기 — 그림에 들려 그린다

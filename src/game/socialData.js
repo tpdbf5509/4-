@@ -32,7 +32,17 @@ export const TITLES = [
   { id: "orc100", name: "오크 사냥꾼", need: { orc: 100 } },
   { id: "ogre100", name: "오우거 사냥꾼", need: { ogre: 100 } },
   { id: "req30", name: "광장의 해결사", need: { req: 30 } },
+  // 숨은 칭호 — 직업과 다른 무기를 들면 얻는다(off: "직업:무기 묶음", shopData.js WEAPON_FAMILY).
+  // secret 은 얻기 전에는 칭호 창에 보이지 않는다. 업데이트 노트에도 적지 않는다
+  { id: "off_wb", name: "칼은 장식품", need: {}, off: "warrior:bow", secret: 1 },
+  { id: "off_ws", name: "호그와트 검술과", need: {}, off: "warrior:staff", secret: 1 },
+  { id: "off_aw", name: "화살값 아끼는 중", need: {}, off: "archer:sword", secret: 1 },
+  { id: "off_as", name: "마법소녀 오디션", need: {}, off: "archer:staff", secret: 1 },
+  { id: "off_mb", name: "마법보다 장력", need: {}, off: "mage:bow", secret: 1 },
+  { id: "off_mw", name: "주문 외우기 귀찮음", need: {}, off: "mage:sword", secret: 1 },
 ];
+// 칭호는 스냅샷에 비트로 싣는다 — 한 숫자에 TITLE_BITS 개까지, 넘는 것은 줄 끝(45)의 둘째 숫자에
+export const TITLE_BITS = 31;
 export const TITLE_BY_ID = Object.fromEntries(TITLES.map((t) => [t.id, t]));
 // 잡은 수 · 완료 수 — 캐릭터 기록에 남는다. 스냅샷에는 이 차례로 싣는다(뒤에만 더한다)
 export const REC_IDS = ["rabbit", "wolf", "boar", "boss", "quest", "party", "gorilla", "pvp", "goblin", "orc", "ogre", "req", "gramor", "dg", "argas", "morgas", "barkanon", "serka", "skeleton"];

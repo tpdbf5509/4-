@@ -1054,18 +1054,18 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <div className="rpg-stat rpg-win" role="dialog" aria-label="칭호">
                 <div className="rpg-stat-head">
                   <b>칭호</b>
-                  <span>얻은 칭호 <em>{me.titles.length}</em> / {TITLES.length}</span>
+                  <span>얻은 칭호 <em>{me.titles.length}</em> / {TITLES.filter((t) => !t.secret || me.titles.includes(t.id)).length}</span>
                 </div>
                 <p className="rpg-stat-rule">조건을 채우면 칭호를 얻습니다. 하나를 골라 이름 아래에 답니다. 능력치는 바뀌지 않습니다.</p>
                 <div className="rpg-stat-list">
-                  {TITLES.map((t) => {
+                  {TITLES.filter((t) => !t.secret || me.titles.includes(t.id)).map((t) => {   // 숨은 칭호는 얻기 전에 보이지 않는다
                     const has = me.titles.includes(t.id), on = me.title === t.id;
                     const prog = Object.entries(t.need).map(([k, n]) => (k === "lv"
                       ? `${n}레벨`
                       : `${NEED_NAME[k]} ${Math.min(needNow(me, k), n).toLocaleString("ko-KR")}/${n.toLocaleString("ko-KR")}`)).join(" · ");
                     return (
                       <div key={t.id} className={`rpg-win-row ${has ? "" : "locked"} ${on ? "on" : ""}`}>
-                        <span className="rpg-stat-name"><b>{t.name}</b><em>{has && !titleMet(me, t) ? "얻음" : prog}</em></span>
+                        <span className="rpg-stat-name"><b>{t.name}</b><em>{t.secret ? "숨은 칭호" : has && !titleMet(me, t) ? "얻음" : prog}</em></span>
                         {has
                           ? <button type="button" className="rpg-win-btn" onClick={() => act("title", on ? "" : t.id)}>{on ? "떼기" : "달기"}</button>
                           : <span className="rpg-win-tag">잠김</span>}

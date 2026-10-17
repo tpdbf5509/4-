@@ -12,7 +12,7 @@ import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY } from "./socialData.js";
-import { DROPS, MAT_BY_ID, GIFT } from "./itemData.js";
+import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
@@ -1672,6 +1672,10 @@ function stepHeroes(g, dt) {
     armorTick(h, dt, (id) => g.mobs.find((m) => m.id === id && !m.dead && m.map === h.map));   // 방어구 효과 시간
     if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - dt);   // 산 스킬 대기 시간
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
+    if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < MAT_MAX)) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다)
+      MATERIALS.forEach((m) => { h.bag.m[m.id] = MAT_MAX; });
+      h.bag.v += 1;
+    }
     if (h.admin && STAT_IDS.some((k) => h.st[k] < STAT_MAX)) { h.st = maxStats(); refreshHp(h, true); }   // 초기화 물약을 마셔도 다시 최대
     h.guard = Math.max(0, h.guard - dt);
     h.numT = Math.max(0, h.numT - dt);

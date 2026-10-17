@@ -2,7 +2,8 @@
    상점마다 탭으로 나눈다. 한 줄은 [그림] [이름 · 등급 · 설명] [값 · 버튼] 이고, 막힌 이유는 그 줄 아래에 한 줄로 적는다.
    버튼을 누르면 send({ op, ... }) 로 방장에게 보내고, 결과는 note 로 돌아와 창 위쪽에 한 줄로 뜬다.
    막힌 이유는 방장과 같은 조건 함수(why*)로 미리 보여 준다. */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import sfx from "./game/sfx.js";
 import { STATS, statValue, MAPS } from "./game/rpg.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
@@ -303,28 +304,96 @@ function Casino({ h, send }) {
   );
 }
 
-/* ── 무기 강화소 — 강화석을 골라 무기를 한 단계씩 올린다 · 보스 재료 팔기 ───────── */
-function Forge({ h, send }) {
+/* ── 무기 강화소 — 장착한 무기를 강화석으로 한 단계씩 올린다 · 보스 재료 팔기 ─────────
+   강화 연출: 누르면 FORGE.strike 초 동안 망치질(불꽃 · 떨림)을 보여 주고, 방장 결과(note.enh)가 오면
+   성공(금빛 고리) · 실패(회색 연기) · 하락(붉은 금) 을 FORGE.show 초 띄운다. 결과는 방장이 정한다 — 연출은 기다릴 뿐 */
+const FORGE = { strike: 1.2, show: 1.6, hits: 3 };
+const FORGE_RES = { 1: ["ok", "강화 성공"], 0: ["keep", "강화 실패"], [-1]: ["down", "단계 하락"] };
+function Forge({ h, send, note, setQuiet }) {
   const [tab, setTab] = useState("enh");
   const [stone, setStone] = useState(() => STONE_IDS.find((id) => matCount(h.bag, id) > 0) || STONE_IDS[0]);
   const [guard, setGuard] = useState(false);          // 하락 방지권 쓰기 — 떨어질 때만 한 장 쓴다
+  const [stage, setStage] = useState({ phase: "idle" });   // idle · forge(망치질) · done(결과)
+  const sent = useRef(null);                          // 누를 때의 note — 이것과 다른 note 가 오면 그게 결과다
+  const timers = useRef([]);
+  const runs = useRef(0);                             // 연출 차례 — 바뀔 때마다 처음부터 다시 그린다
+  const startAt = useRef(0);
+  const [frozen, setFrozen] = useState(null);         // 망치질 동안 보일 무기 — 결과가 미리 보이지 않게 누른 때 그대로
+  const later = (fn, s) => { timers.current.push(setTimeout(fn, s * 1000)); };
+  useEffect(() => () => { timers.current.forEach(clearTimeout); if (setQuiet) setQuiet(false); }, [setQuiet]);
+  // 결과가 오면 — 망치질을 다 보여 준 뒤 결과를 띄운다
+  useEffect(() => {
+    if (stage.phase !== "forge" || !sent.current || note === sent.current.note || !note) return;
+    const res = note.enh !== undefined && FORGE_RES[note.enh];
+    sent.current = null;
+    if (!res) { later(() => { setStage({ phase: "idle" }); setFrozen(null); if (setQuiet) setQuiet(false); }, 0); return; }   // 막혔다 — 이유는 창 위 한 줄에 뜬다
+    const wait = Math.max(0, FORGE.strike - (performance.now() - startAt.current) / 1000);
+    const msg = note.msg;
+    later(() => { setStage({ phase: "done", kind: res[0], title: res[1], msg, key: ++runs.current }); setFrozen(null); if (setQuiet) setQuiet(false); }, wait);
+    later(() => setStage({ phase: "idle" }), wait + FORGE.show);
+  }, [note, stage, setQuiet]);
   const guards = h.bag.gd || 0;
   const sellable = MATERIALS.filter((m) => m.sell > 0);
   const st = MAT_BY_ID[stone];
   const rates = ENHANCE.stones[stone];
+  const busy = stage.phase !== "idle";
+  const w = (stage.phase === "forge" && frozen) || equipped(h.bag);
+  const forge = (e) => {
+    if (!w || busy) return;
+    sent.current = { note };
+    startAt.current = e.timeStamp;                    // 누른 때(performance.now 와 같은 기준)
+    setFrozen({ ...w });
+    if (setQuiet) setQuiet(true);
+    setStage({ phase: "forge", key: ++runs.current });
+    for (let i = 0; i < FORGE.hits; i++) later(() => sfx.shot("blade"), (i + 0.6) * (FORGE.strike / (FORGE.hits + 0.4)));
+    send({ op: "enh", u: w.u, stone, guard: guard && guards > 0 });
+  };
+  const next = w ? (w.up || 0) + 1 : 0;
+  const top = w && next > ENHANCE.max;
+  const rate = w ? enhRate(stone, next) : 0;
+  const why = w ? whyEnhance(h, w.u, stone) : [];
   return (
     <>
       <Tabs on={tab} set={setTab} tabs={[["enh", "무기 강화"], ["sell", "재료 팔기", sellable.reduce((n, m) => n + matCount(h.bag, m.id), 0)]]} />
       {tab === "enh" ? (
         <>
           <p className="shop-note">
-            강화석 하나와 코인을 내고 한 단계씩 올립니다. 실패하면 강화석과 코인이 사라지고,
-            +{ENHANCE.down[0].from} 부터는 실패할 때 한 단계 떨어질 수 있습니다. 한 단계마다 무기가 올려 주는 스탯이 {pct(ENHANCE.per, 0)}씩 늘어납니다. 강화석은 보스가 떨굽니다.
+            장착한 무기만 강화합니다. 강화석 하나와 코인을 내고 한 단계씩 올립니다. 실패하면 강화석과 코인이 사라지고,
+            +{ENHANCE.down[0].from} 부터는 한 단계 떨어질 수 있습니다. 한 단계마다 무기 스탯이 {pct(ENHANCE.per, 0)}씩 늘어납니다.
           </p>
+          {!w ? <Empty>장착한 무기가 없습니다. 가방(I)의 무기 탭에서 장착해 주세요.</Empty> : (
+            <div className={`forge forge-${stage.phase} ${stage.kind ? `forge-${stage.kind}` : ""} fg${w.g}`} key={stage.key || 0}>
+              <div className="forge-stage">
+                <span className="forge-glow" />
+                {weaponArt(w) ? <img className="forge-art" src={weaponArt(w)} alt="" /> : <span className="forge-blade" />}
+                {stage.phase === "forge" && Array.from({ length: FORGE.hits }, (_, i) => (
+                  <span key={i} className="forge-hit" style={{ animationDelay: `${(i + 0.6) * (FORGE.strike / (FORGE.hits + 0.4))}s` }}>
+                    {Array.from({ length: 8 }, (_, k) => <i key={k} style={{ "--a": `${k * 45 + i * 20}deg` }} />)}
+                  </span>
+                ))}
+                {stage.phase === "done" && <span className="forge-burst" />}
+                {stage.phase === "done" && <b className="forge-title">{stage.title}</b>}
+              </div>
+              <div className="forge-info">
+                <div className="shop-name">{weaponName(w)}<span className="shop-meta"><Grade g={w.g} /><span className="shop-tag">장착 중</span></span></div>
+                <div className="shop-desc">{top ? `${weaponLine(w)} · 최고 단계` : `${weaponLine(w)} → +${statDef(weaponStat(w)).fmt(itemBonus({ ...w, up: next }))} (+${next})`}</div>
+                {!top && <div className="forge-odds">
+                  <span>성공 <b>{rate ? `${rate}%` : "—"}</b></span>
+                  {enhDown(next) > 0 && <span>실패 때 하락 <b>{enhDown(next)}%</b></span>}
+                  <span>비용 <Price n={enhFee(w)} /></span>
+                </div>}
+                {stage.phase === "done" && <p className={`forge-msg ${stage.kind}`}>{stage.msg}</p>}
+                {why.length > 0 && !busy && <p className="shop-why">{why.join(" · ")}</p>}
+                <button type="button" className="shop-btn main forge-btn" disabled={busy || top || why.length > 0} onClick={forge}>
+                  {stage.phase === "forge" ? "강화하는 중…" : top ? `+${ENHANCE.max} 최고 단계` : `+${next} 강화`}
+                </button>
+              </div>
+            </div>
+          )}
           <div className="shop-stones" role="radiogroup" aria-label="강화석">
             {STONE_IDS.map((id) => (
               <button key={id} type="button" role="radio" aria-checked={stone === id} className={`shop-stone ${stone === id ? "on" : ""}`}
-                onClick={() => setStone(id)}>
+                disabled={busy} onClick={() => setStone(id)}>
                 <i style={{ background: MAT_BY_ID[id].color }} />
                 <b>{MAT_BY_ID[id].name}</b>
                 <small>× {matCount(h.bag, id)} · +{ENHANCE.stones[id].length} 까지</small>
@@ -332,25 +401,9 @@ function Forge({ h, send }) {
             ))}
           </div>
           <label className="shop-guard">
-            <input type="checkbox" checked={guard && guards > 0} disabled={!guards} onChange={(e) => setGuard(e.target.checked)} />
+            <input type="checkbox" checked={guard && guards > 0} disabled={!guards || busy} onChange={(e) => setGuard(e.target.checked)} />
             <span>{GUARD.name} 쓰기 <small>가진 {guards}장 · 떨어질 때만 한 장 씁니다{guards ? "" : " · 주문서 상점에서 삽니다"}</small></span>
           </label>
-          <Head sub={`${st.name} · ${st.note}`}>무기</Head>
-          {!h.bag.w.length && <Empty>가방에 무기가 없습니다. 무기상점에서 살 수 있습니다.</Empty>}
-          {h.bag.w.map((w) => {
-            const next = (w.up || 0) + 1;
-            const rate = enhRate(stone, next);
-            const top = next > ENHANCE.max;
-            const after = { ...w, up: next };
-            const sd = statDef(weaponStat(w));
-            return (
-              <WeaponItem key={w.u} w={w} tag={w.u === h.bag.e ? "장착 중" : ""}
-                desc={top ? `${weaponLine(w)} · 최고 단계` : `${weaponLine(w)} → +${sd.fmt(itemBonus(after))} (+${next} 강화)`}
-                price={top ? <span className="shop-price done">+{ENHANCE.max}</span>
-                  : <span className="shop-enh"><em>{rate ? `${rate}%${enhDown(next) ? ` · 하락 ${enhDown(next)}%` : ""}` : "—"}</em><Price n={enhFee(w)} /></span>}
-                acts={top ? [] : [{ label: "강화", main: true, why: whyEnhance(h, w.u, stone), onClick: () => send({ op: "enh", u: w.u, stone, guard: guard && guards > 0 }) }]} />
-            );
-          })}
           <Head sub={`단계 · 비용 · 실패할 때 하락 · 성공`}>{st.name} 확률표</Head>
           <Odds rows={rates.map((r, i) => [`+${i + 1} · ${(ENHANCE.fee * (i + 1)).toLocaleString("ko-KR")}코인`, `${r}%`,
             enhDown(i + 1) ? `하락 ${enhDown(i + 1)}%` : "하락 없음"])} />
@@ -428,9 +481,10 @@ function Frame({ title, sub, coins, admin, note, onClose, children }) {
 export function ShopPanel({ shop, h, send, note, onClose }) {
   const s = SHOP_BY_ID[shop] || SHOPS[0];
   const Body = BODIES[s.id];
+  const [quiet, setQuiet] = useState(false);          // 강화 망치질 중에는 결과 줄을 숨긴다(연출이 끝날 때 보인다)
   return (
-    <Frame title={s.name} sub={`${s.keeper} · ${s.line}`} coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
-      <Body h={h} send={send} />
+    <Frame title={s.name} sub={`${s.keeper} · ${s.line}`} coins={h.coins} admin={h.admin} note={quiet ? null : note} onClose={onClose}>
+      <Body h={h} send={send} note={note} setQuiet={setQuiet} />
     </Frame>
   );
 }

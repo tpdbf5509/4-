@@ -1552,6 +1552,58 @@ kbd {
 .shop-guard input:disabled + span { color: var(--sh-faint); }
 .shop-guard small { margin-left: 6px; font-size: 11px; color: var(--sh-faint); }
 .shop-mat { display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 3px; vertical-align: 1px; }
+/* 강화소 — 장착한 무기 한 자루를 모루 위에 올린다. 망치질(불꽃 · 떨림) → 결과(성공 금빛 고리 · 실패 회색 · 하락 붉은빛) */
+.forge { --fg: #bdb6a6; display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; align-items: center;
+  margin: 10px 0 4px; padding: 12px; border-radius: 10px; background: rgba(12, 9, 6, 0.55); border: 1px solid rgba(214, 186, 140, 0.22); }
+.forge.fg1 { --fg: #a9c3a0; } .forge.fg2 { --fg: #9db5cf; } .forge.fg3 { --fg: #bba3cf; } .forge.fg4 { --fg: #e2c28c; }
+.forge-stage { position: relative; width: 132px; height: 120px; display: grid; place-items: center; overflow: visible;
+  border-radius: 8px; background: radial-gradient(ellipse at 50% 85%, rgba(255, 150, 70, 0.22), rgba(0, 0, 0, 0) 62%), #1a130d; }
+.forge-stage::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 12px; height: 12px; border-radius: 3px;   /* 모루 */
+  background: linear-gradient(#4a4038, #2a221c); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset; }
+.forge-glow { position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--fg) 45%, transparent), transparent 70%); opacity: 0.5; }
+.forge-art { position: relative; z-index: 1; width: 84px; height: 84px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
+.forge-blade { position: relative; z-index: 1; width: 12px; height: 78px; border-radius: 6px 6px 2px 2px; transform: rotate(35deg);
+  background: linear-gradient(90deg, #d8d2c4, #8f887a); box-shadow: 0 30px 0 -2px var(--fg); }
+.forge-info { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.forge-odds { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--sh-mute); letter-spacing: -0.02em; }
+.forge-odds b { font-weight: 400; color: var(--sh-text); font-variant-numeric: tabular-nums; }
+.forge-odds .shop-price { font-size: 13px; }
+.forge-btn { align-self: flex-start; min-width: 120px; padding: 6px 16px; font-size: 14px; }
+.forge-msg { margin: 0; font-size: 12px; line-height: 1.45; letter-spacing: -0.02em; color: var(--sh-mute); }
+.forge-msg.ok { color: #f0d48c; } .forge-msg.down { color: #e6a090; }
+/* 망치질 — 무기가 떨리고 빛이 차오르며 세 번 불꽃이 튄다 */
+.forge-forge .forge-art, .forge-forge .forge-blade { animation: forge-shake 0.4s ease-in-out infinite; }
+.forge-forge .forge-glow { animation: forge-charge 1.2s ease-in forwards; }
+.forge-hit { position: absolute; left: 50%; top: 58%; z-index: 2; width: 0; height: 0; opacity: 0; animation: forge-hit 0.38s ease-out forwards; }
+.forge-hit::before { content: ""; position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; border-radius: 50%;
+  background: radial-gradient(circle, #fff4d0, rgba(255, 190, 90, 0.6) 40%, transparent 70%); }
+.forge-hit i { position: absolute; left: 0; top: 0; width: 3px; height: 3px; border-radius: 50%; background: #ffd27a;
+  transform: rotate(var(--a)) translateX(0); animation: forge-spark 0.38s ease-out forwards; animation-delay: inherit; }
+@keyframes forge-shake { 0%, 100% { transform: translate(0, 0) rotate(0); } 25% { transform: translate(-1.5px, 1px) rotate(-1.5deg); } 75% { transform: translate(1.5px, -1px) rotate(1.5deg); } }
+@keyframes forge-charge { from { opacity: 0.3; transform: scale(0.8); } to { opacity: 1; transform: scale(1.15); } }
+@keyframes forge-hit { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes forge-spark { from { transform: rotate(var(--a)) translateX(4px); opacity: 1; } to { transform: rotate(var(--a)) translateX(38px); opacity: 0; } }
+/* 결과 */
+.forge-burst { position: absolute; left: 50%; top: 50%; z-index: 0; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%;
+  border: 3px solid #ffd873; animation: forge-ring 0.9s ease-out forwards; }
+.forge-title { position: absolute; left: 0; right: 0; top: 4px; z-index: 3; text-align: center; font-family: 'Do Hyeon', sans-serif; font-weight: 400;
+  font-size: 20px; letter-spacing: -0.03em; text-shadow: 0 2px 0 #1a120a, 0 0 10px rgba(0, 0, 0, 0.7); animation: forge-pop 0.5s ease-out; }
+.forge-ok .forge-title { color: #ffd873; }
+.forge-ok .forge-glow { opacity: 1; background: radial-gradient(circle, rgba(255, 216, 115, 0.75), transparent 70%); animation: forge-flash 1.2s ease-out forwards; }
+.forge-ok .forge-art, .forge-ok .forge-blade { animation: forge-rise 0.6s ease-out; }
+.forge-keep .forge-title { color: #cfc6b4; }
+.forge-keep .forge-burst { border-color: rgba(190, 180, 165, 0.6); }
+.forge-keep .forge-art, .forge-keep .forge-blade { filter: grayscale(0.7) brightness(0.8); animation: forge-shake 0.12s 3; }
+.forge-down .forge-title { color: #f09080; }
+.forge-down .forge-burst { border-color: #e0604a; }
+.forge-down .forge-glow { opacity: 1; background: radial-gradient(circle, rgba(220, 70, 50, 0.6), transparent 70%); }
+.forge-down .forge-art, .forge-down .forge-blade { filter: sepia(0.5) hue-rotate(-30deg) brightness(0.85); animation: forge-shake 0.1s 5; }
+@keyframes forge-ring { from { transform: scale(0.6); opacity: 1; } to { transform: scale(3.4); opacity: 0; } }
+@keyframes forge-pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes forge-flash { 0% { transform: scale(0.9); } 30% { transform: scale(1.3); } 100% { transform: scale(1); opacity: 0.7; } }
+@keyframes forge-rise { 0% { transform: translateY(0) scale(1); } 40% { transform: translateY(-6px) scale(1.08); } 100% { transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .forge * { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; } }
+@media (max-width: 520px) { .forge { grid-template-columns: 1fr; justify-items: center; } .forge-info { align-items: stretch; } }
 .shop-enh { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 1px; }
 .shop-enh em { font-style: normal; font-size: 12px; color: var(--sh-mute); font-variant-numeric: tabular-nums; }
 /* 가방 — 능력치 */

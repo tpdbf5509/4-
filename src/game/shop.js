@@ -312,6 +312,7 @@ export function whyEnhance(h, u, stone) {
   if (!h || !h.bag) return out;
   const w = h.bag.w.find((q) => q.u === u);
   if (!w) { out.push("가방에 없는 무기입니다"); return out; }
+  if (w.u !== h.bag.e) { out.push("장착한 무기만 강화할 수 있습니다"); return out; }   // 강화소는 낀 무기 하나만 올린다
   const next = (w.up || 0) + 1;
   if (next > ENHANCE.max) { out.push(`+${ENHANCE.max} 이 최고 단계입니다`); return out; }
   if (!ENHANCE.stones[stone]) { out.push("강화석을 골라 주세요"); return out; }

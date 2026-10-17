@@ -61,7 +61,10 @@ export const MAPS = {
     gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" }],
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC
     blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 },
-      ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 }],
+      ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 },
+      // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
+      ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
+      ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
     // 상점 — 자리와 이름은 shopData.js 의 SHOPS. 위쪽 가운데는 명예 순위판(결투 명예 순위를 본다).
     // 의뢰 NPC 셋 — requestData.js 의 REQ_NPCS. 말을 걸면 의뢰 창이 열린다
     npcs: [
@@ -805,7 +808,9 @@ export function rpgFire(g, pi, on) {
 
 export function npcNear(h) {
   if (!h) return null;
-  return MAPS[h.map].npcs.find((n) => dist(h.x, h.y, n.x, n.y) <= RPG.talkR) || null;
+  const n = MAPS[h.map].npcs.find((q) => dist(h.x, h.y, q.x, q.y) <= RPG.talkR) || null;
+  if (n || h.map !== "plaza" || !atDgGate(h)) return n;
+  return MAPS.plaza.npcs.find((q) => q.dungeon) || null;   // 던전 입구 앞에 서도 던전 관리인과 말한다
 }
 
 /* 사냥꾼에게 말을 건다 — 퀘스트를 받거나, 얼마나 남았는지 듣는다 */
@@ -2252,7 +2257,9 @@ export const freeSlot = (runs, id) => {
   for (let s = 0; s < DUNGEON.slots; s++) if (!(runs || []).some((r) => r.id === id && r.slot === s)) return s;
   return -1;
 };
-export const dgNear = (h) => !!h && h.map === "plaza" && dist(h.x, h.y, DUNGEON.npc.x, DUNGEON.npc.y) <= RPG.talkR + 30;
+// 던전 입구(돌계단 윗단)에서 이만큼 안이면 관리인 곁과 같다
+const atDgGate = (h) => dist(h.x, h.y, DUNGEON.gate.x, DUNGEON.gate.y) <= RPG.talkR;
+export const dgNear = (h) => !!h && h.map === "plaza" && (dist(h.x, h.y, DUNGEON.npc.x, DUNGEON.npc.y) <= RPG.talkR + 30 || atDgGate(h));
 export const inDungeon = (h) => !!(h && MAPS[h.map] && MAPS[h.map].dungeon);
 export const runOf = (g, h) => (h ? (g.runs || []).find((r) => r.map === h.map) || null : null);
 // 들어갈 수 있는지 — 막히는 이유를 모은다(빈 목록이면 들어갈 수 있다)

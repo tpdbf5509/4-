@@ -8,7 +8,7 @@ import {
 } from "./art.js";
 import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
-import { DG_LOOKS } from "./dungeonData.js";
+import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -339,7 +339,7 @@ const MAP_TREES = {
 };
 const PLAZA_PROPS = [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
-  { k: "bench", x: 700, y: 900 }, { k: "bench", x: 1100, y: 900 }, { k: "bench", x: 700, y: 360 }, { k: "bench", x: 1100, y: 360 },
+  { k: "bench", x: 1100, y: 900 }, { k: "bench", x: 700, y: 360 }, { k: "bench", x: 1100, y: 360 },   // 왼쪽 아래 의자(700, 900)는 던전 입구 아치가 덮어 뺐다
 ];
 
 function drawFieldTree(ctx, t) { drawTreeArt(ctx, t.x, t.y, t.s, t.pine, t.seed); }
@@ -487,6 +487,117 @@ export function paintMap(id) {
   const ctx = c.getContext("2d");
   if (id === "plaza") paintPlaza(ctx); else paintField(ctx, M);
   return c;
+}
+
+/* ── 광장의 던전 입구 — 그림 파일 없이 코드로 그린다(자리 · 크기는 dungeonData.js DUNGEON.gate) ─────
+   땅에는 아래로 내려가는 돌계단 구덩이(drawDgPit, 사람보다 먼저), 그 위에 돌기둥 둘과 아치 · 횃불(drawDgGate, 앞뒤 차례로).
+   계단 밑은 보랏빛으로 일렁이고 빛 알갱이가 올라온다 */
+const DG_GATE = { stone: "#8f8779", dark: "#3e3830", steps: 6, rune: "#b89ae0", fire: "#ffae5a" };
+function drawDgPit(ctx, time) {
+  const { x, y, w } = DUNGEON.gate, S = DG_GATE, deep = S.steps * 16;
+  ctx.save();
+  // 바깥 돌 테두리
+  ctx.fillStyle = shade(S.stone, 0.92); ctx.strokeStyle = "rgba(40,32,24,0.55)"; ctx.lineWidth = 1;
+  roundRect(ctx, x - w / 2 - 16, y - 10, w + 32, deep + 18, 6); ctx.fill(); ctx.stroke();
+  for (let i = 0; i < 7; i++) {                          // 테두리 돌 줄눈
+    const bx = x - w / 2 - 16 + (i + 0.5) * ((w + 32) / 7);
+    ctx.beginPath(); ctx.moveTo(bx, y - 10); ctx.lineTo(bx, y - 2); ctx.stroke();
+  }
+  // 구덩이 안 — 아래로 갈수록 어둡다
+  const hole = ctx.createLinearGradient(0, y, 0, y + deep);
+  hole.addColorStop(0, "#4a443c"); hole.addColorStop(1, "#0e0b14");
+  ctx.fillStyle = hole; ctx.fillRect(x - w / 2, y - 2, w, deep + 2);
+  // 계단 — 아랫단일수록 좁고 어둡다
+  for (let i = 0; i < S.steps; i++) {
+    const k = 1 - i / S.steps, sw = w * (1 - i * 0.05), sy = y + i * 16;
+    ctx.fillStyle = shade("#a69c8b", 0.35 + 0.65 * k); ctx.fillRect(x - sw / 2, sy, sw, 6);       // 디딤판
+    ctx.fillStyle = shade("#6e665a", 0.3 + 0.6 * k); ctx.fillRect(x - sw / 2, sy + 6, sw, 10);     // 챌판
+    ctx.fillStyle = `rgba(20,14,10,${0.25 + 0.3 * (1 - k)})`; ctx.fillRect(x - sw / 2, sy + 6, sw, 1);
+  }
+  // 양옆 벽 그늘
+  ctx.fillStyle = "rgba(10,8,12,0.55)";
+  ctx.beginPath(); ctx.moveTo(x - w / 2, y - 2); ctx.lineTo(x - w / 2 + 12, y - 2); ctx.lineTo(x - w * 0.36, y + deep); ctx.lineTo(x - w / 2, y + deep); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x + w / 2, y - 2); ctx.lineTo(x + w / 2 - 12, y - 2); ctx.lineTo(x + w * 0.36, y + deep); ctx.lineTo(x + w / 2, y + deep); ctx.fill();
+  // 계단 밑 보랏빛
+  const pulse = 0.75 + 0.25 * Math.sin(time * 2.2);
+  const glow = ctx.createRadialGradient(x, y + deep, 4, x, y + deep, w * 0.7);
+  glow.addColorStop(0, `rgba(160,120,220,${0.55 * pulse})`); glow.addColorStop(1, "rgba(160,120,220,0)");
+  ctx.fillStyle = glow; ctx.fillRect(x - w / 2, y - 2, w, deep + 2);
+  // 올라오는 빛 알갱이
+  for (let i = 0; i < 9; i++) {
+    const t = (time * 0.35 + i / 9) % 1;
+    const px = x + Math.sin(i * 2.7 + time * 0.8) * w * 0.3, py = y + deep - t * (deep + 30);
+    ctx.globalAlpha = Math.sin(t * Math.PI) * 0.8; ctx.fillStyle = S.rune;
+    ctx.beginPath(); ctx.arc(px, py, 1.6, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // 테두리에 낀 이끼 · 굴러다니는 돌
+  const rnd = mulberry32(7301);
+  for (let i = 0; i < 6; i++) mossClump(ctx, rnd, x - w / 2 - 10 + rnd() * (w + 20), y - 6 + (rnd() < 0.5 ? 0 : deep + 4), 18, true, DG_MOSS.col);
+  [[-w / 2 - 34, 10, 7], [w / 2 + 30, 30, 6], [-w / 2 - 26, deep - 4, 5], [w / 2 + 40, deep - 14, 8]].forEach(([dx, dy, r]) => {
+    ctx.fillStyle = "#7d766b"; ctx.strokeStyle = "rgba(40,32,24,0.5)";
+    ctx.beginPath(); ctx.ellipse(x + dx, y + dy, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  });
+  ctx.restore();
+}
+function drawDgGate(ctx, time) {
+  const { x, y, w, h } = DUNGEON.gate, S = DG_GATE, px = w / 2 + 16;
+  ctx.save();
+  [-1, 1].forEach((k) => {
+    const cx = x + k * px;
+    shadow(ctx, cx, y + 2, 24, 7, 0.35);
+    ctx.fillStyle = shade(S.stone, 0.8); ctx.strokeStyle = "rgba(36,28,20,0.6)"; ctx.lineWidth = 1;
+    ctx.fillRect(cx - 19, y - 14, 38, 14); ctx.strokeRect(cx - 19, y - 14, 38, 14);           // 받침
+    for (let j = 0; j < 4; j++) {                                                               // 기둥 돌 네 덩이
+      const by = y - 14 - (j + 1) * ((h - 26) / 4), bh = (h - 26) / 4;
+      ctx.fillStyle = shade(S.stone, 0.95 - (j % 2) * 0.08);
+      ctx.fillRect(cx - 14, by, 28, bh); ctx.strokeRect(cx - 14, by, 28, bh);
+      ctx.fillStyle = "rgba(255,245,225,0.12)"; ctx.fillRect(cx - 14, by + 1, 5, bh - 2);       // 왼쪽 밝은 면
+    }
+    ctx.fillStyle = shade(S.stone, 0.85); ctx.fillRect(cx - 18, y - h, 36, 12); ctx.strokeRect(cx - 18, y - h, 36, 12);   // 머리돌
+    ctx.strokeStyle = "rgba(36,28,20,0.5)";                                                     // 금
+    ctx.beginPath(); ctx.moveTo(cx + k * 6, y - 60); ctx.lineTo(cx + k * 2, y - 52); ctx.lineTo(cx + k * 8, y - 44); ctx.stroke();
+    // 바깥쪽 횃불
+    const tx = cx + k * 24, ty = y - 72, f = Math.sin(time * 11 + k * 3) * 0.5 + Math.sin(time * 17 + k) * 0.5;
+    ctx.strokeStyle = "#3a3026"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx + k * 14, ty + 10); ctx.lineTo(tx, ty + 4); ctx.stroke();
+    ctx.fillStyle = "#4a3c2c"; ctx.fillRect(tx - 4, ty - 2, 8, 9);
+    const gl = ctx.createRadialGradient(tx, ty - 6, 2, tx, ty - 6, 70 + f * 6);
+    gl.addColorStop(0, `${S.fire}66`); gl.addColorStop(1, `${S.fire}00`);
+    ctx.fillStyle = gl; ctx.fillRect(tx - 80, ty - 86, 160, 160);
+    ctx.fillStyle = S.fire; ctx.beginPath(); ctx.ellipse(tx, ty - 8 - f, 5, 10 + f * 2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#fff2cc"; ctx.beginPath(); ctx.ellipse(tx, ty - 5, 2.5, 5, 0, 0, Math.PI * 2); ctx.fill();
+  });
+  // 아치 — 기둥 머리돌 사이를 잇는 돌 띠
+  const ay = y - h, R = px, band = 20;
+  ctx.lineWidth = 1; ctx.strokeStyle = "rgba(36,28,20,0.6)";
+  for (let i = 0; i < 9; i++) {
+    const a0 = Math.PI + (i / 9) * Math.PI, a1 = Math.PI + ((i + 1) / 9) * Math.PI;
+    ctx.fillStyle = shade(S.stone, 0.88 + (i % 2) * 0.08);
+    ctx.beginPath(); ctx.arc(x, ay, R + band / 2, a0, a1); ctx.arc(x, ay, R - band / 2, a1, a0, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  // 이맛돌 — 빛나는 룬
+  const ky = ay - R, pulse = 0.6 + 0.4 * Math.sin(time * 2.2);
+  ctx.fillStyle = shade(S.stone, 0.78);
+  ctx.beginPath(); ctx.moveTo(x - 13, ky - 14); ctx.lineTo(x + 13, ky - 14); ctx.lineTo(x + 9, ky + 14); ctx.lineTo(x - 9, ky + 14); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.shadowColor = S.rune; ctx.shadowBlur = 10 * pulse;
+  ctx.strokeStyle = S.rune; ctx.globalAlpha = 0.5 + 0.5 * pulse; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(x, ky - 9); ctx.lineTo(x, ky + 9); ctx.moveTo(x - 5, ky - 3); ctx.lineTo(x, ky + 2); ctx.lineTo(x + 5, ky - 3); ctx.stroke();
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  // 아치 위 덩굴 · 이끼
+  const rnd = mulberry32(7302);
+  for (let i = 0; i < 5; i++) {
+    const a = Math.PI * (1.15 + rnd() * 0.7);
+    mossClump(ctx, rnd, x + Math.cos(a) * (R + 6), ay + Math.sin(a) * (R + 6), 14, true, DG_MOSS.col);
+  }
+  // 걸린 돌 현판
+  ctx.strokeStyle = "#3a3026"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x - 16, ky + 14); ctx.lineTo(x - 18, ky + 26); ctx.moveTo(x + 16, ky + 14); ctx.lineTo(x + 18, ky + 26); ctx.stroke();
+  ctx.fillStyle = "rgba(34,26,20,0.88)"; roundRect(ctx, x - 30, ky + 26, 60, 20, 4); ctx.fill();
+  ctx.strokeStyle = "rgba(240,200,150,0.5)"; ctx.stroke();
+  ctx.font = "13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#f0c896"; ctx.fillText("던전", x, ky + 36.5);
+  ctx.restore();
 }
 
 /* ── 움직이는 것들 ─────────────────────────────────────── */
@@ -1735,12 +1846,14 @@ export function drawRpg(ctx, g, bgs) {
   M.npcs.forEach((n) => order.push({ y: n.y, npc: n }));
   if (M.id === "plaza") {
     order.push({ y: 620, fountain: 1 });
+    order.push({ y: DUNGEON.gate.y, dgGate: 1 });
     PLAZA_PROPS.forEach((o) => order.push({ y: o.y, prop: o }));
   } else {
     (MAP_TREES[M.id] || []).forEach((t) => { if (inView(t.x, t.y)) order.push({ y: t.y, tree: t }); });
   }
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
+  if (M.id === "plaza") drawDgPit(ctx, time);
   drawDust(ctx, g, M.id, time);
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
@@ -1749,6 +1862,7 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.gate) drawGate(ctx, o.gate, time);
     else if (o.npc) drawNpc(ctx, g, o.npc, time);
     else if (o.fountain) drawFountain(ctx, time);
+    else if (o.dgGate) drawDgGate(ctx, time);
     else if (o.prop) drawProp(ctx, o.prop);
     else if (o.tree) drawFieldTree(ctx, o.tree);
   });

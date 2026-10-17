@@ -1560,6 +1560,24 @@ kbd {
   border-radius: 8px; background: radial-gradient(ellipse at 50% 85%, rgba(255, 150, 70, 0.22), rgba(0, 0, 0, 0) 62%), #1a130d; }
 .forge-stage::after { content: ""; position: absolute; left: 22px; right: 22px; bottom: 12px; height: 12px; border-radius: 3px;   /* 모루 */
   background: linear-gradient(#4a4038, #2a221c); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset; }
+button.forge-stage { padding: 0; border: 1px solid rgba(214, 186, 140, 0.25); cursor: pointer; font: inherit; color: inherit; }
+button.forge-stage:hover:not(:disabled) { border-color: var(--sh-gold); }
+button.forge-stage:disabled { cursor: default; }
+.forge-swap { position: absolute; left: 50%; bottom: -10px; z-index: 3; transform: translateX(-50%); white-space: nowrap;
+  padding: 2px 9px; border-radius: 999px; font-size: 11px; letter-spacing: -0.02em; color: #2a2119; background: var(--sh-gold); }
+.forge-pick { margin: 8px 0 2px; display: flex; flex-direction: column; gap: 4px; }
+.forge-opt { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 10px; cursor: pointer;
+  text-align: left; font: inherit; color: var(--sh-text); border-radius: 8px; background: rgba(12, 9, 6, 0.45); border: 1px solid rgba(214, 186, 140, 0.16); }
+.forge-opt:hover:not(:disabled) { border-color: var(--sh-gold); }
+.forge-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+.forge-opt.on { border-color: rgba(227, 196, 138, 0.6); background: rgba(227, 196, 138, 0.08); }
+.forge-opt img { width: 36px; height: 36px; object-fit: contain; }
+.forge-opt-blade { justify-self: center; width: 6px; height: 30px; border-radius: 3px; transform: rotate(35deg); background: linear-gradient(90deg, #d8d2c4, #8f887a); }
+.forge-opt-name { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.forge-opt-name b { font-weight: 400; font-size: 13.5px; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.forge-opt-name small { font-size: 11px; color: var(--sh-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.forge-opt em { font-style: normal; font-size: 11.5px; color: var(--sh-mute); white-space: nowrap; }
+.forge-opt.on em { color: var(--sh-gold); }
 .forge-glow { position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--fg) 45%, transparent), transparent 70%); opacity: 0.5; }
 .forge-art { position: relative; z-index: 1; width: 84px; height: 84px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6)); }
 .forge-blade { position: relative; z-index: 1; width: 12px; height: 78px; border-radius: 6px 6px 2px 2px; transform: rotate(35deg);

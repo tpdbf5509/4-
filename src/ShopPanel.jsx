@@ -319,6 +319,7 @@ function Forge({ h, send, note, setQuiet }) {
   const runs = useRef(0);                             // 연출 차례 — 바뀔 때마다 처음부터 다시 그린다
   const startAt = useRef(0);
   const [frozen, setFrozen] = useState(null);         // 망치질 동안 보일 무기 — 결과가 미리 보이지 않게 누른 때 그대로
+  const [pick, setPick] = useState(false);            // 모루 위 무기를 누르면 가방 무기 가운데 골라 바꿔 낀다
   const later = (fn, s) => { timers.current.push(setTimeout(fn, s * 1000)); };
   useEffect(() => () => { timers.current.forEach(clearTimeout); if (setQuiet) setQuiet(false); }, [setQuiet]);
   // 결과가 오면 — 망치질을 다 보여 준 뒤 결과를 띄운다
@@ -361,9 +362,29 @@ function Forge({ h, send, note, setQuiet }) {
             장착한 무기만 강화합니다. 강화석 하나와 코인을 내고 한 단계씩 올립니다. 실패하면 강화석과 코인이 사라지고,
             +{ENHANCE.down[0].from} 부터는 한 단계 떨어질 수 있습니다. 한 단계마다 무기 스탯이 {pct(ENHANCE.per, 0)}씩 늘어납니다.
           </p>
-          {!w ? <Empty>장착한 무기가 없습니다. 가방(I)의 무기 탭에서 장착해 주세요.</Empty> : (
+          {(pick || !w) && (
+            <div className="forge-pick" role="listbox" aria-label="강화할 무기 고르기">
+              <Head sub="고르면 그 무기를 장착합니다">{w ? "강화할 무기 바꾸기" : "강화할 무기를 고르세요"}</Head>
+              {!h.bag.w.length && <Empty>가방에 무기가 없습니다. 무기상점에서 살 수 있습니다.</Empty>}
+              {h.bag.w.map((q) => {
+                const on = q.u === h.bag.e;
+                const no = on ? [] : whyEquip(h, q.u);
+                return (
+                  <button key={q.u} type="button" role="option" aria-selected={on} className={`forge-opt ${on ? "on" : ""}`}
+                    disabled={no.length > 0} title={no.join(" · ")}
+                    onClick={() => { if (!on) send({ op: "equip", u: q.u }); setPick(false); }}>
+                    {weaponArt(q) ? <img src={weaponArt(q)} alt="" /> : <span className="forge-opt-blade" />}
+                    <span className="forge-opt-name"><b>{weaponName(q)}</b><small><Grade g={q.g} /> · {weaponLine(q)}{no.length ? ` · ${no[0]}` : ""}</small></span>
+                    <em>{on ? "장착 중" : "고르기"}</em>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {w && (
             <div className={`forge forge-${stage.phase} ${stage.kind ? `forge-${stage.kind}` : ""} fg${w.g}`} key={stage.key || 0}>
-              <div className="forge-stage">
+              <button type="button" className="forge-stage" disabled={busy} aria-label="강화할 무기 바꾸기"
+                title="눌러서 강화할 무기를 바꿉니다" onClick={() => setPick((v) => !v)}>
                 <span className="forge-glow" />
                 {weaponArt(w) ? <img className="forge-art" src={weaponArt(w)} alt="" /> : <span className="forge-blade" />}
                 {stage.phase === "forge" && Array.from({ length: FORGE.hits }, (_, i) => (
@@ -373,7 +394,8 @@ function Forge({ h, send, note, setQuiet }) {
                 ))}
                 {stage.phase === "done" && <span className="forge-burst" />}
                 {stage.phase === "done" && <b className="forge-title">{stage.title}</b>}
-              </div>
+                {!busy && <span className="forge-swap">{pick ? "닫기" : "무기 바꾸기"}</span>}
+              </button>
               <div className="forge-info">
                 <div className="shop-name">{weaponName(w)}<span className="shop-meta"><Grade g={w.g} /><span className="shop-tag">장착 중</span></span></div>
                 <div className="shop-desc">{top ? `${weaponLine(w)} · 최고 단계` : `${weaponLine(w)} → +${statDef(weaponStat(w)).fmt(itemBonus({ ...w, up: next }))} (+${next})`}</div>

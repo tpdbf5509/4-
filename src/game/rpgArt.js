@@ -1183,7 +1183,7 @@ const drawSkeleton = bruteDrawer(drawSkeletonBody, 15, 52, 52);
 const frames = (name, n) => Array.from({ length: n }, (_, i) => `${name}${i}`);
 const BOSS_ART = {
   gramor: { scale: 2.2, idle: ["idle"], move: ["idle", "move"], slam: "slam", charge: "charge", attack: "attack" },
-  argas: { scale: 2.05, idle: ["idle"], move: ["idle", "move"], slam: "slam", charge: "charge", attack: "attack" },
+  argas: { scale: 1.25, idle: ["idle"], move: frames("walk", 4), glow: "#ff9a50" },   // 방패 기사(bosses-3 가운데 줄)
   morgas: { scale: 0.95, idle: frames("idle", 4), move: frames("walk", 4), glow: "#7fe0a0" },
   barkanon: { scale: 1.15, idle: ["idle"], move: frames("walk", 4), glow: "#ff7a50" },
   serka: { scale: 1.12, idle: ["idle"], move: frames("walk", 4), glow: "#8fc8ff" },

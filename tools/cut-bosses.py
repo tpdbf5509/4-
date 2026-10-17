@@ -19,7 +19,7 @@ DST = "public/assets/game/rpg/boss/"
 # 자세마다 칸 — (x0, y0, x1, y1), 원본 시트 좌표. 글자 · 칸 선은 빼고 잡는다
 # 그라모르 · 아르가스 외 — 시트 파일 · 줄이는 배율(원본이 커서 줄여 저장한다) · 칸
 SHEETS = {"morgas": ("design/armor/boss-morgas.jpg", 0.5), "barkanon": ("design/armor/bosses-3.jpg", 0.6),
-          "serka": ("design/armor/bosses-3.jpg", 0.6)}
+          "serka": ("design/armor/bosses-3.jpg", 0.6), "argas": ("design/armor/bosses-3.jpg", 0.6)}
 MORGAS_X = [(160, 580), (612, 1035), (1056, 1495), (1515, 1965)]
 GRID_X = [(10, 394), (408, 794), (808, 1194), (1208, 1594), (1608, 1992)]   # bosses-3 의 칸(격자선 안쪽)
 GRID_Y = [(76, 412), (426, 762), (776, 1110)]
@@ -29,11 +29,8 @@ BOXES = {
         "hurt": (1296, 122, 1404, 243), "dead": (1408, 140, 1520, 243),
         "slam": (1208, 318, 1345, 442), "charge": (1290, 476, 1490, 580),
     },
-    "argas": {
-        "idle": (916, 124, 1034, 246), "move": (1040, 124, 1156, 246), "attack": (1166, 118, 1294, 246),
-        "hurt": (1300, 124, 1394, 246), "dead": (1400, 130, 1504, 246),
-        "slam": (1172, 336, 1350, 462), "charge": (1276, 500, 1494, 594),
-    },
+    # 아르가스(갑옷 던전) — bosses-3 가운데 줄의 방패 기사. 예전 용암 바위 시트(design/bosses/argas.webp)는 쓰지 않는다
+    "argas": {("idle" if i == 0 else f"walk{i - 1}"): (x0, GRID_Y[1][0], x1, GRID_Y[1][1]) for i, (x0, x1) in enumerate(GRID_X)},
     "morgas": {**{f"idle{i}": (x0, 40, x1, 548) for i, (x0, x1) in enumerate(MORGAS_X)},
                **{f"walk{i}": (x0, 578, x1, 1092) for i, (x0, x1) in enumerate(MORGAS_X)}},
     "barkanon": {("idle" if i == 0 else f"walk{i - 1}"): (x0, GRID_Y[0][0], x1, GRID_Y[0][1]) for i, (x0, x1) in enumerate(GRID_X)},

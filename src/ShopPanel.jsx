@@ -100,12 +100,26 @@ function armorText(sl, g) {
   }[sl]();
   return `${base} · ${more}`;
 }
-function ArmorItem({ a, tag, price, acts, desc }) {
+function ArmorItem({ a, n = 1, tag, price, acts, desc }) {
   return (
     <Item art={armorArt(a.s, a.g)} name={armorName(a.s, a.g)}
-      meta={<span className="shop-meta"><span className={`shop-grade ${ARMOR_GRADE_CLS[a.g]}`}>{ARMOR_GRADES[a.g].name}</span>{tag && <span className="shop-tag">{tag}</span>}</span>}
+      meta={<span className="shop-meta"><span className={`shop-grade ${ARMOR_GRADE_CLS[a.g]}`}>{ARMOR_GRADES[a.g].name}</span>{n > 1 && <span>× {n}</span>}{tag && <span className="shop-tag">{tag}</span>}</span>}
       desc={desc || armorText(a.s, a.g)} price={price} acts={acts} />
   );
+}
+
+// 같은 부위 · 같은 등급은 한 줄로 모아 개수로 보인다. wear 는 끼기 · 빼기에 쓸 것(낀 것이 있으면 그것), sell 은 팔 것(낀 것은 맨 나중)
+function armorGroups(bag) {
+  const groups = new Map();
+  (bag.a || []).forEach((a) => {
+    const k = `${a.s}:${a.g}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(a);
+  });
+  return [...groups.values()].map((list) => {
+    const worn = list.find((a) => wornArmor(bag, a.s) === a);
+    return { n: list.length, worn, wear: worn || list[0], sell: list.find((a) => a !== worn) || worn };
+  });
 }
 
 function potionText(p) {
@@ -152,8 +166,8 @@ function WeaponShop({ h, send }) {
           ))}
           <Head sub={`등급마다 정한 값 · 가방 ${(h.bag.a || []).length}/${ARMOR.bagMax}`}>방어구 되팔기</Head>
           {!(h.bag.a || []).length && <Empty>가방에 방어구가 없습니다.</Empty>}
-          {(h.bag.a || []).map((a) => (
-            <ArmorItem key={a.u} a={a} tag={wornArmor(h.bag, a.s) === a ? "착용 중" : ""} price={<Price n={ARMOR_GRADES[a.g].sell} />}
+          {armorGroups(h.bag).map(({ n, worn, sell: a }) => (
+            <ArmorItem key={a.u} a={a} n={n} tag={worn ? "착용 중" : ""} price={<Price n={ARMOR_GRADES[a.g].sell} />}
               acts={[{ label: "팔기", why: whyArmorSell(h, a.u), onClick: () => send({ op: "asell", u: a.u }) }]} />
           ))}
         </>
@@ -600,10 +614,10 @@ export function BagPanel({ h, send, note, onClose, tab0 = "stat" }) {
           </div>
           <Head sub={`${(h.bag.a || []).length}/${ARMOR.bagMax} · 던전 보스가 떨굽니다`}>가방</Head>
           {!(h.bag.a || []).length && <Empty>아직 방어구가 없습니다. 방어구 던전 보스가 떨굽니다.</Empty>}
-          {(h.bag.a || []).map((a) => {
-            const on = wornArmor(h.bag, a.s) === a;
+          {armorGroups(h.bag).map(({ n, worn, wear: a }) => {
+            const on = !!worn;
             return (
-              <ArmorItem key={a.u} a={a} tag={on ? "착용 중" : ""}
+              <ArmorItem key={a.u} a={a} n={n} tag={on ? "착용 중" : ""}
                 acts={[on ? { label: "빼기", why: whyArmorWear(h, a.u), onClick: () => send({ op: "awear", u: a.u }) }
                   : { label: "끼기", main: true, why: whyArmorWear(h, a.u), onClick: () => send({ op: "awear", u: a.u }) }]} />
             );

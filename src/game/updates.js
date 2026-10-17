@@ -6,6 +6,13 @@ export const RPG_NOTICE = { id: "2026-10-61", notes: ["2026-10-61", "2026-10-60"
 
 export const UPDATES = [
   {
+    id: "2026-10-62",
+    date: "10월 17일",
+    items: [
+      "가방과 되팔기 창에서 같은 방어구는 한 줄로 모아 개수로 보입니다.",
+    ],
+  },
+  {
     id: "2026-10-61",
     date: "10월 17일",
     items: [

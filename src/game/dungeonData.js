@@ -40,7 +40,7 @@ export const DUNGEONS = [
   },
 ];
 
-/* 방어구 던전 넷 — 보상은 그 부위 방어구 하나. 등급은 armorData.js ARMOR_GRADES 의 drop 몫(초급 50 · 희귀 30 · 영웅 17 · 전설 3%).
+/* 방어구 던전 넷 — 보상은 그 부위 방어구 하나. 등급은 armorData.js ARMOR_GRADES 의 drop 몫(초급 52 · 희귀 30 · 영웅 17 · 전설 1%).
    몹은 사냥터 몹을 쓰고 맵 빛깔로 분위기를 낸다 */
 DUNGEONS.push(
   {

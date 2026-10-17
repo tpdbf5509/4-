@@ -11,10 +11,10 @@ export const ARMOR_SLOTS = [
 ];
 // drop — 보스가 방어구를 떨굴 때 등급이 정해지는 몫(%), 합 100. sell — 무기상점에서 되파는 값
 export const ARMOR_GRADES = [
-  { id: 0, name: "초급", drop: 50, sell: 500 },
+  { id: 0, name: "초급", drop: 52, sell: 500 },
   { id: 1, name: "희귀", drop: 30, sell: 2000 },
   { id: 2, name: "영웅", drop: 17, sell: 8000 },
-  { id: 3, name: "전설", drop: 3, sell: 30000 },
+  { id: 3, name: "전설", drop: 1, sell: 30000 },   // 너무 잘 뜬다는 의견으로 3% → 1%(줄인 2% 는 초급으로)
 ];
 // 기본 효과 — 등급 0~3 의 값. 투구 최대 체력 · 갑옷 피해 감소 · 바지 공격력은 5%씩, 신발 이동 속도는 2% 에서 2.5%씩 오른다
 export const ARMOR_BASE = {

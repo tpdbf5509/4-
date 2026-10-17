@@ -23,6 +23,9 @@ function weaponHud(me) {
     : sp === "star" ? `별빛 ${w.star || 0}`
     : sp === "shadow" ? `분노 ${Math.floor(w.rage || 0)}/${W.passive.max}`
     : sp === "holy" ? `수호 ${Math.round(w.holy || 0)}%`
+    : sp === "thunder_staff" ? `집중 ${w.foc || 0}/${W.passive.max}`
+    : sp === "galaxy_staff" ? `주문 ${w.spell || 0}/${W.passive.max}`
+    : sp === "holy_staff" ? (w.ward ? "결계 중" : `장벽 ${w.hitN || 0}/${W.passive.hits}`)
     : W.passive.name;
   return { name: W.name, cd: w.wcd || 0, max: W.skill.cd, stack };
 }
@@ -863,7 +866,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             // 직업 스킬 · 신성검 — 철벽 · 마나 보호막 · 성광 반격
             ...(me.jb && me.jb.iron > 0 ? [{ k: "iron", name: "철벽", t: me.jb.iron }] : []),
             ...(me.jb && me.jb.shT > 0 && me.jb.sh > 0 ? [{ k: "msh", name: `보호막 ${Math.round(me.jb.sh)}`, t: me.jb.shT }] : []),
-            ...(me.ws && me.ws.ctr > 0 ? [{ k: "ctr", name: "성광 반격", t: me.ws.ctr }] : [])],
+            ...(me.ws && me.ws.ctr > 0 ? [{ k: "ctr", name: "성광 반격", t: me.ws.ctr }] : []),
+            ...(me.ws && me.ws.ward > 0 && me.jb && me.jb.shT > 0 ? [{ k: "ward", name: "신성한 결계", t: me.jb.shT }] : [])],
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
           wsk: weaponHud(me),
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습

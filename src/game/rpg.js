@@ -1971,7 +1971,8 @@ function holyRelease(g, h) {
   const [ax, ay] = aimTo(g, h, S.len);
   lineFoes(g, h, ax, ay, S.len, S.width).forEach((o) => strikeAny(g, h, o, dmg));
   const [x1, y1] = lineEnd(h, ax, ay, S.len);
-  fx(g, h.map, { kind: "beam", x0: h.x, y0: h.y - 30, x1, y1: y1 - 30, color: "#ffe39a", w: 22, t: 0.6, life: 0.6, snd: "boom" });
+  fx(g, h.map, { kind: "sk_holybeam", x: h.x, y: h.y - 30, x0: h.x, y0: h.y - 30, x1, y1: y1 - 30, w: 34, t: 0.7, life: 0.7, snd: "boom" });
+  g.shake = Math.max(g.shake, 0.5);
   fx(g, h.map, { kind: "call", x: h.x, y: h.y - 104, text: `성광 반격 ${Math.round(dmg)}`, color: "#ffe39a", t: 0.9, life: 0.9, who: h.pi });
 }
 
@@ -2013,6 +2014,8 @@ export function rpgWeaponSkill(g, pi) {
     const k = el.id === "frost" ? W.elem.frost : 1;
     (g.zones || (g.zones = [])).push({ pi, map, x, y, r: S.r, t: S.dur, tick: S.tick, acc: S.tick, linger: k > 1 ? 1 : 0.3, dmg: skillBase(h) * S.mul * k });
     fx(g, map, { kind: "sk_ice", x, y, r: S.r, t: S.dur, life: S.dur, snd: "ice" });
+    fx(g, map, { kind: "sk_icespike", x, y, r: S.r, t: 0.9, life: 0.9 });   // 깔리는 순간 얼음 가시가 솟는다
+    g.shake = Math.max(g.shake, 0.3);
   } else if (sp === "flame") {                    // 화염베기 — 둘레를 빠르게 연달아 벤다 · 불똥 9개
     addEmber(g, h, S.embers);
     for (let k = 0; k < S.hits; k++) {
@@ -2059,13 +2062,17 @@ export function rpgWeaponSkill(g, pi) {
     w.rage = 0;                                   // 분노를 비운 뒤 친다 — 분노 배율은 일격 배율에 이미 들어 있다
     const dmg = skillBase(h) * (S.mul0 + n * S.mulPer);
     const [x, y] = o ? [o.x, o.y] : aimAt(h, Math.min(reach, 140));
-    if (o) { h.dir = o.x < h.x ? -1 : 1; strikeAny(g, h, o, dmg); }
-    fx(g, map, { kind: "slash", x, y: y - 30, a: h.dir > 0 ? 0 : Math.PI, color: "#b77bd8", t: 0.45, life: 0.45, snd: "crit" });
-    fx(g, map, { kind: "burst", x, y: y - 20, r: 60, color: "#7b3fa0", n: 16, t: 0.6, life: 0.6 });
-    g.shake = Math.max(g.shake, 0.4);
+    if (o) h.dir = o.x < h.x ? -1 : 1;
+    // 검은 기운이 빨려 든 뒤(0.2초) X 자로 갈라지며 친다 — 분노가 많을수록 크게
+    fx(g, map, { kind: "sk_doom", x, y: y - 26, r: 70 + n * 3, dir: h.dir, t: 0.8, life: 0.8, snd: "crit" });
+    later(g, 0.2, () => {
+      if (h.map !== map) return;
+      if (o && (isPvp(map) ? o.down <= 0 : !o.dead) && o.map === map) strikeAny(g, h, o, dmg);
+      g.shake = Math.max(g.shake, 0.6);
+    });
   } else if (sp === "holy") {                     // 성광 반격 — 잠시 받는 피해를 줄이고, 끝날 때 내뿜는다
     w.ctr = S.dur; w.ctrAcc = 0;
-    fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 80, color: "#ffe39a", t: 0.8, life: 0.8, snd: "bless" });
+    fx(g, map, { kind: "sk_halo", x: h.x, y: h.y - 2, r: 80, rgb: "255,226,150", t: 1, life: 1, snd: "bless" });
   } else if (!staffSkill(g, h, sp, W, S, w)) return;   // 지팡이 넷 — 쓸 수 없으면(주문 부족) 대기 시간을 걸지 않는다
   if (sp !== "galaxy_staff") noteSpell(h, `w:${sp}`);
   w.wcd = S.cd;
@@ -2084,8 +2091,9 @@ function staffSkill(g, h, sp, W, S, w) {
     if (o) h.dir = o.x < h.x ? -1 : 1;
     const burnMul = elemOf(h).id === "flame" ? W.elem.burn : S.burn;
     foesNear(g, h, x, y, S.r).forEach((q) => strikeAny(g, h, q, base * S.mul * (q.burn > 0 ? burnMul : 1)));
-    fx(g, map, { kind: "pillar", x, y, r: 70, h: 120, t: 0.8, life: 0.8, snd: "boom" });
-    fx(g, map, { kind: "nova", x, y: y - 6, r: S.r, color: "#c9b8a8", n: 18, t: 0.6, life: 0.6 });   // 잿빛 재가 흩어진다
+    fx(g, map, { kind: "pillar", x, y, r: 90, h: 170, t: 0.9, life: 0.9, snd: "boom" });
+    fx(g, map, { kind: "sk_ashburst", x, y, r: S.r, t: 0.9, life: 0.9 });   // 불 충격파 · 잿가루
+    g.shake = Math.max(g.shake, 0.45);
     return true;
   }
   if (sp === "thunder_staff") {                   // 낙뢰 지정 — 한 적에게 · 집중을 모두 쓴다
@@ -2095,9 +2103,8 @@ function staffSkill(g, h, sp, W, S, w) {
     const n = o && w.focId === focKey(isPvp(map) ? null : o, isPvp(map) ? o : null) ? w.foc : 0;
     w.foc = 0; w.focId = "";
     if (o) { h.dir = o.x < h.x ? -1 : 1; strikeAny(g, h, o, base * (S.mul + n * S.perStack)); }
-    fx(g, map, { kind: "zap", x0: x + 30, y0: y - 420, x1: x, y1: y - 10, color: "#e8f0ff", t: 0.4, life: 0.4, snd: "zap" });
-    fx(g, map, { kind: "zap", x0: x - 20, y0: y - 380, x1: x, y1: y - 10, color: "#bcd4ff", t: 0.35, life: 0.35 });
-    fx(g, map, { kind: "burst", x, y: y - 14, r: 50, color: "#dfe8ff", n: 14, t: 0.5, life: 0.5 });
+    fx(g, map, { kind: "sk_thunder", x, y, t: 0.55, life: 0.55, snd: "zap" });
+    g.shake = Math.max(g.shake, 0.4 + n * 0.03);
     if (n) fx(g, map, { kind: "call", x, y: y - 96, text: `집중 ${n}`, color: "#cfe0ff", t: 0.8, life: 0.8, who: pi });
     return true;
   }
@@ -2112,7 +2119,7 @@ function staffSkill(g, h, sp, W, S, w) {
         if (h.map !== map) return;
         const a = k * 2.39, d = k ? S.r * (0.25 + ((k * 37) % 70) / 100) : 0;
         const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d * RPG.squash;
-        fx(g, map, { kind: "sk_meteor", x, y, r: S.hit, t: 0.6, life: 0.6, snd: k % 2 ? undefined : "orb" });
+        fx(g, map, { kind: "sk_meteor", x, y, r: S.hit, tone: "galaxy", t: 0.6, life: 0.6, snd: k % 2 ? undefined : "orb" });
         later(g, 0.36, () => { if (h.map === map) foesNear(g, h, x, y, S.hit).forEach((q) => strikeAny(g, h, q, base * S.mul)); });
       });
     }
@@ -2122,7 +2129,7 @@ function staffSkill(g, h, sp, W, S, w) {
     const jb = jbOf(h);
     jb.sh = Math.max(jb.sh, Math.round(h.max * S.amt)); jb.shT = Math.max(jb.shT, S.dur);
     w.ward = 1;
-    fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 84, color: "#f3e7c0", t: 0.9, life: 0.9, snd: "bless" });
+    fx(g, map, { kind: "sk_halo", x: h.x, y: h.y - 2, r: 86, rgb: "246,236,200", t: 1, life: 1, snd: "bless" });
     return true;
   }
   return false;

@@ -28,7 +28,10 @@ export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4", "RPG5"];
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
 // 피해는 몹을 칠 때의 dmgMul(한 방에 끝나지 않게). 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
 // 명예 — 이기면 진 사람 명예의 honorRate 에 honorBase 를 더한 만큼 오른다(지는 쪽은 그대로). 경험치 · 코인은 없다
-export const DUEL = { dmgMul: 0.3, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10 };
+export const DUEL = { dmgMul: 0.3, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
+  // 결투 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 skillCap 을 넘지 않는다(스킬 한 방에 쓰러져 막았다).
+  // 딱 자르면 센 스킬 · 약한 스킬이 모두 같아져서 skillSoft 로 부드럽게 누른다 — 원래 2500 이면 약 950, 6000 이면 약 1360, 10000 이면 약 1470
+  skillCap: 1500, skillSoft: 2500 };
 export const honorGain = (loserHonor) => Math.round((loserHonor || 0) * DUEL.honorRate) + DUEL.honorBase;
 
 // 대쉬 — 모든 캐릭터의 기본 스킬(F). 누른 방향으로 dist 만큼 time 초에 달려 나가고, inv 초 동안 맞지 않는다
@@ -976,12 +979,23 @@ function nearFoes(g, h, x, y, range) {
   return dist(x, y, o.x, o.y) - 7 <= range ? [o] : [];
 }
 // 결투 상대를 친다 — 쓰러지면 결투가 끝난다(tickDuels)
-function hitFoe(g, h, o, raw) {
+// basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 DUEL.skillCap 을 넘지 않게 누른다(pvpSoft)
+function hitFoe(g, h, o, raw, basic) {
   if (!o || o.down > 0) return;
   const off = offHand(h);
-  hurtHero(g, o, (off ? OFF_HAND.dmg[off] : raw * wpnMul(h, null, o)) * DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
+  let dmg = (off ? OFF_HAND.dmg[off] : raw * wpnMul(h, null, o)) * DUEL.dmgMul;   // 직업과 다른 무기 — 한 대 피해 고정
+  if (!basic) {
+    const c = h.cast || newCast(h), before = pvpSoft(c.raw);
+    c.raw += dmg;
+    dmg = pvpSoft(c.raw) - before;
+    if (dmg <= 0.5) return;
+  }
+  hurtHero(g, o, dmg);
   weaponOnHit(h, null, o);
 }
+// 스킬을 새로 쓴다 — 결투 스킬 피해를 처음부터 센다(raw 는 이번 스킬이 지금까지 준 원래 피해)
+const newCast = (h) => (h.cast = { raw: 0 });
+const pvpSoft = (raw) => DUEL.skillCap * (1 - Math.exp(-raw / DUEL.skillSoft));
 
 /* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
 export function rpgDuel(g, pi, req) {
@@ -1487,7 +1501,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
     if (!list.length) return force && h.dph === 2 && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
     h.face = 0;
-    list.forEach((o) => { hitFoe(g, h, o, dmg); addEmber(g, h, 1); });   // 화염검 — 결투에서 평타를 맞히면 불똥
+    list.forEach((o) => { hitFoe(g, h, o, dmg, true); addEmber(g, h, 1); });   // 화염검 — 결투에서 평타를 맞히면 불똥
     fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
       color: el.light, t: 0.24, life: 0.24, snd: "slash" });
     return true;
@@ -1514,11 +1528,11 @@ function landFoe(g, s, h) {
   const el = elemOf(h);
   if (!o || o.map !== s.map || o.down > 0) return;
   if (s.splash) {
-    nearFoes(g, h, o.x, o.y, s.splash).forEach((q) => hitFoe(g, h, q, s.dmg * (q === o ? 1 : 0.5)));
+    nearFoes(g, h, o.x, o.y, s.splash).forEach((q) => hitFoe(g, h, q, s.dmg * (q === o ? 1 : 0.5), !s.skill));
     fx(g, s.map, { kind: "art", art: ELEM_ART[el.id].hit, x: o.x, y: o.y - 4, r: 34, t: 0.4, life: 0.4 });
   } else {
     if (!nearFoes(g, h, o.x, o.y, 1).includes(o)) return;   // 쉼터로 들어갔거나 같은 파티가 됐다
-    hitFoe(g, h, o, s.dmg);
+    hitFoe(g, h, o, s.dmg, !s.skill);
     if (!s.skill) addEmber(g, h, 1);              // 화염검 — 결투에서 평타를 맞히면 불똥
     fx(g, s.map, { kind: "burst", x: o.x, y: o.y - 30, r: 18, color: el.light, n: 6, t: 0.3, life: 0.3 });
   }
@@ -1564,6 +1578,7 @@ export function rpgSkill(g, pi) {
   // 결투장이면 몹 대신 사람을 고른다
   const pvp = isPvp(map);
   if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
+  newCast(h);                                     // 결투 스킬 피해 한도
   const near = (x, y, r, n) => (pvp ? nearFoes(g, h, x, y, r) : nearMobs(g, map, x, y, r, n));
   let cx = h.x, cy = h.y, list, mul;
   if (job.id === "warrior") {
@@ -1691,6 +1706,7 @@ export function rpgUseSkill(g, pi, id) {
     const dmg = u.mul ? SKILL_USE.base * skillStatMul(h, u.dmg) * u.mul[i] : 0;
     const pvp = isPvp(map);
     if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
+    newCast(h);                                   // 결투 스킬 피해 한도
     // 결투장이면 사람에게 — 치명타 보장 스킬은 치명타 피해 배율을 곱한다
     const strike = (m) => (pvp ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
     if (u.kind) jobSkill(g, h, u, i, dmg);         // 직업 스킬(skillData.js)
@@ -1948,6 +1964,7 @@ function weaponOnAttack(g, h) {
   if (sp === "flame" && w.emb >= WS.flame.passive.need) {
     const P = WS.flame.passive;
     w.emb -= P.need;
+    newCast(h);                                   // 불꽃 회오리도 스킬 한 번
     const base = skillBase(h) * P.mul;
     foesNear(g, h, h.x, h.y, P.r).forEach((o) => strikeAny(g, h, o, base * burnBonus(h, o)));
     fx(g, h.map, { kind: "sk_tornado", x: h.x, y: h.y, r: P.r, t: 0.9, life: 0.9, snd: "boom" });
@@ -1982,6 +1999,7 @@ function holyRelease(g, h) {
   if (h.down > 0) { w.ctrAcc = 0; return; }
   const dmg = w.ctrAcc * S.back + skillBase(h) * S.mul;
   w.ctrAcc = 0;
+  newCast(h);                                     // 반격도 스킬 한 번
   if (MAPS[h.map].safe) return;
   const [ax, ay] = aimTo(g, h, S.len);
   lineFoes(g, h, ax, ay, S.len, S.width).forEach((o) => strikeAny(g, h, o, dmg));
@@ -2098,6 +2116,7 @@ export function rpgWeaponSkill(g, pi) {
   if (isPvp(map) && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
   const w = wsOf(h), S = W.skill;
   if (w.wcd > 0) return say(g, map, h.x, h.y - 90, `${W.name} ${Math.ceil(w.wcd)}초`, "#f0dcb4");
+  newCast(h);                                     // 결투 스킬 피해 한도
   const el = elemOf(h);
   if (sp === "frost") {                           // 빙판길 — 앞에 빙판을 깐다
     const [ax, ay] = aimTo(g, h, S.ahead + S.r);

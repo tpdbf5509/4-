@@ -42,7 +42,8 @@
 |---|---|
 | 화면 | React 19 + Vite 8. 판은 `<canvas>` 에 직접 그린다 |
 | 실시간 | Supabase Realtime 채널 1개 = 방 1개(`flg:<코드>`). presence + broadcast. DB 테이블은 `feedback`(의견)과 `rpg_chars` · `rpg_fails`(RPG 캐릭터 서버 저장, `supabase/rpg.sql`) |
-| RPG 전용 서버 | **이전 중.** `?srv=cf` 를 켠 기기는 방장 없이 `server/`(Cloudflare)에 붙는다. 서버가 예전 방장 노릇(자리 · 판정 · 스냅샷 · 채팅 중계 · 캐릭터 불러오기/저장)을 하고, 화면은 손님 경로를 그대로 쓴다. 주고받는 말도 같다(lobby · rsnap · chat ↔ hello · pick · rjoin · input · chat, 서버만의 말: `deny` 입장권 틀림 · `kick` 다른 기기 · `bye` 나감) |
+| RPG 전용 서버 | **보류(꺼 둠, 2026-10-18).** 사용자 인터넷에서 Cloudflare(workers.dev) 입구가 파리(CDG)로 잡혀 서울 방까지 왕복 0.5초였다 — 통신사 경로라 코드로 못 고친다. 서울 일반 서버(카드 필요)를 마련할 때까지 예전 방식(Supabase 서울)이 기본이다. 서버 코드 · 자동 배포는 남겨 두었다(`?srv=cf` 로만 붙는다). 연결 진단 칸은 `?diag=1` 로 켠다(입구 → 방 위치 · 왕복 · 스냅샷 · 위치 고침 · fps). |
+| (예전 기록) RPG 전용 서버 | **이전 중이었다.** `?srv=cf` 를 켠 기기는 방장 없이 `server/`(Cloudflare)에 붙는다. 서버가 예전 방장 노릇(자리 · 판정 · 스냅샷 · 채팅 중계 · 캐릭터 불러오기/저장)을 하고, 화면은 손님 경로를 그대로 쓴다. 주고받는 말도 같다(lobby · rsnap · chat ↔ hello · pick · rjoin · input · chat, 서버만의 말: `deny` 입장권 틀림 · `kick` 다른 기기 · `bye` 나감) |
 | 판정 | **방장 권위형.** 방장 브라우저가 모든 규칙을 돌리고 손님은 입력만 보낸다. 방장이 스냅샷과 연출 이벤트(`out` fx)를 한 메시지로 뿌린다(방어전 초당 12회, RPG 는 인원에 따라 3~10회) |
 | 저장 | RPG 캐릭터는 이름 + 숫자 5자리 코드로 서버(Supabase 함수 `rpg_*`)와 localStorage 둘 다. 홈 이름 · 설정은 localStorage |
 | 소리 | 파일 없이 웹오디오 합성(`sfx.js`) |

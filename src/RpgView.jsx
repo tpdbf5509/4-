@@ -76,6 +76,15 @@ const STEP_MAX = 0.05;     // 한 번에 돌리는 판정 시간(초)
 const CATCH_UP = 0.25;     // 방장 화면이 잠깐 멈췄을 때 따라잡는 최대 시간(초)
 // 연결 진단 칸 — every 초마다 새로 · 스냅샷은 window 초 동안 · 왕복은 마지막 keep 번 · ping 초마다 잰다
 const NET_DIAG = { every: 1, window: 5, keep: 5, ping: 2 };
+// 연결 진단 칸은 켠 기기만 — 주소 ?diag=1 로 켜고 ?diag=0 으로 끈다(이 기기에 기억한다)
+function diagOn() {
+  try {
+    const q = new URLSearchParams(location.search).get("diag");
+    if (q === "1") localStorage.setItem("flg:diag", "1");
+    if (q === "0") localStorage.removeItem("flg:diag");
+    return localStorage.getItem("flg:diag") === "1";
+  } catch { return false; }
+}
 const GUEST_CATCH_UP = 1;  // 손님 화면이 따라잡는 최대 시간(초) — 이보다 길게 멈췄으면(탭을 내렸다 올림) 서버 위치로 맞춘다
 const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.max(1, n)));
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
@@ -497,6 +506,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const netRef = useRef({ rtt: [], snaps: [], frames: 0, fix0: 0 });
   const [net, setNet] = useState(null);
   useEffect(() => {
+    if (!diagOn()) return;
     const t = setInterval(() => {
       const n = netRef.current, g = G.current, now = performance.now();
       n.snaps = n.snaps.filter((x) => now - x < NET_DIAG.window * 1000);

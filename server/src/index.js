@@ -18,6 +18,8 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (url.pathname === "/health") return new Response("ok");
+    // 이 기기가 들어온 Cloudflare 입구(데이터센터) — 연결 진단 칸이 묻는다. 방(서울)과 멀면 그 사이를 오가느라 늦다
+    if (url.pathname === "/edge") return new Response(String((req.cf && req.cf.colo) || "?"), { headers: { "Access-Control-Allow-Origin": "*" } });
     // 방이 실제로 어디서 도는지 — 점검용(smoke.mjs)
     const w = url.pathname.match(/^\/where\/([A-Z0-9]+)$/);
     if (w && known(w[1])) {                         // 화면의 연결 진단 칸도 묻는다(다른 주소라 CORS 를 연다)

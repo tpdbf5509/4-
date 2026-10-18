@@ -519,7 +519,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [where, setWhere] = useState("");          // 전용 서버 방이 도는 곳(Cloudflare 데이터센터)
   useEffect(() => {
     if (!room || !room.viaServer || !room.httpBase) return;
-    fetch(`${room.httpBase}/where/${room.code}`).then((r) => r.text()).then((t) => setWhere(t.slice(0, 8))).catch(() => {});
+    // 방 위치와 이 기기가 들어온 Cloudflare 입구 — "입구 → 방" 처럼 보인다(둘이 멀면 왕복이 길다)
+    Promise.all([`/edge`, `/where/${room.code}`].map((u) => fetch(`${room.httpBase}${u}`).then((r) => r.text()).catch(() => "?")))
+      .then(([edge, at]) => setWhere(`입구 ${edge.slice(0, 8)} → 방 ${at.slice(0, 8)}`));
   }, [room]);    // 방장이 옛 버전 — 새 기능이 안 될 수 있다
   useEffect(() => {
     const c = loadChar();

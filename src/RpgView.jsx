@@ -4,7 +4,7 @@ import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, freshInput, noteSent, aimDir, needXp, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgDash, predictDash, predictLunge, DASH,
+  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgTrain, trainView, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
   rpgDungeon, whyDungeon, dgNear, dgCrew, runOf,
@@ -13,6 +13,7 @@ import {
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
+import { TRAIN, TRAIN_TOGGLES } from "./game/trainData.js";
 
 // 무기 스킬 칸 — 낀 전설 무기의 스킬 이름 · 대기 · 쌓인 것
 function weaponHud(me) {
@@ -399,6 +400,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
   const [reqOpen, setReqOpen] = useState(null);      // 열어 둔 의뢰 NPC id
   const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
+  const [trainOpen, setTrainOpen] = useState(false); // 훈련 교관 창
   const dgRef = useRef(false);                       // 루프가 보는 열린 던전 창 — 관리인에게서 멀어지면 닫는다
   // 던전 보스 체력 칸 — 루프가 프레임마다 DOM 너비를 바로 고친다(React 상태를 매 프레임 바꾸지 않는다)
   const bossMem = useRef(null);                      // { id, name, map, hp, max, fx } — 쓰러진 뒤에도 0% 까지 보여 주려고 남긴다
@@ -468,7 +470,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setGiftOpen(null);
-    setDgOpen(false);
+    setDgOpen(false); setTrainOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -514,6 +516,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (npc.board) { closeAll(); setHonorOpen(true); loadRank(); return; }   // 명예 순위판 — 창만 연다
       if (npc.req) { closeAll(); setReqOpen(npc.req); return; }                // 의뢰 NPC — 창을 열고, 받기 · 완료는 창에서 보낸다
       if (npc.dungeon) { closeAll(); setDgOpen(true); return; }                 // 던전 관리인 — 입장 창
+      if (npc.train) { closeAll(); setTrainOpen(true); return; }               // 훈련 교관 — 기능 창
       if (npc.shop) {                               // 상점은 창만 연다 — 사고파는 것은 창에서 보낸다
         setStatOpen(false); setMenu(false); setBagOpen(false); setNote(null);
         setShopOpen(npc.shop);
@@ -543,6 +546,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "duel") rpgDuel(g, mySeat, dir);
       else if (kind === "req") rpgRequest(g, mySeat, dir);
       else if (kind === "dg") rpgDungeon(g, mySeat, dir);
+      else if (kind === "train") rpgTrain(g, mySeat, dir);
     } else {
       room?.send("input", { cls: mySeat, kind, dir, q: nextSeq() });
     }
@@ -558,13 +562,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !giftOpen && !dgOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !giftOpen && !dgOpen && !trainOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, giftOpen, dgOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, giftOpen, dgOpen, trainOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -740,6 +744,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         else if (d.kind === "duel") rpgDuel(g, d.cls, d.dir);
         else if (d.kind === "req") rpgRequest(g, d.cls, d.dir);
         else if (d.kind === "dg") rpgDungeon(g, d.cls, d.dir);
+        else if (d.kind === "train") rpgTrain(g, d.cls, d.dir);
       }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
@@ -870,6 +875,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             ...(me.ws && me.ws.ward > 0 && me.jb && me.jb.shT > 0 ? [{ k: "ward", name: "신성한 결계", t: me.jb.shT }] : [])],
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
           wsk: weaponHud(me),
+          trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
@@ -1445,6 +1451,50 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             );
           })()}
+          {me && trainOpen && me.map === "train" && (() => {
+            const t = me.trn || {};
+            return (
+              <>
+                <div className="rpg-menu-back" onClick={() => setTrainOpen(false)} />
+                <div className="rpg-stat rpg-win" role="dialog" aria-label="훈련 교관">
+                  <div className="rpg-stat-head">
+                    <b>훈련 교관</b>
+                    <span>초당 피해 <em>{(t.dps || 0).toLocaleString("ko-KR")}</em></span>
+                  </div>
+                  <p className="rpg-stat-rule">
+                    허수아비는 맞아도 쓰러지지 않고 반격하지 않습니다. 경험치 · 코인은 없습니다.
+                    초당 피해는 마지막 {TRAIN.dpsWindow}초 동안 허수아비에게 준 피해로 셉니다. 아래 기능은 훈련장 안에서만 됩니다.
+                  </p>
+                  <p className="rpg-stat-rule">쌓인 피해 {(t.tot || 0).toLocaleString("ko-KR")} · 맞힌 수 {(t.hits || 0).toLocaleString("ko-KR")}</p>
+                  <div className="rpg-stat-list">
+                    {TRAIN_TOGGLES.map((q) => (
+                      <div key={q.id} className={`rpg-win-row ${t[q.id] ? "on" : ""}`}>
+                        <span className="rpg-stat-name"><b>{q.name}</b><em>{q.note}</em></span>
+                        <button type="button" className="rpg-win-btn" onClick={() => act("train", { op: q.id })}>{t[q.id] ? "끄기" : "켜기"}</button>
+                      </div>
+                    ))}
+                    <div className="rpg-win-row">
+                      <span className="rpg-stat-name"><b>기록 지우기</b><em>쌓인 피해 · 맞힌 수 · 초당 피해를 0 으로 · 허수아비 상태이상도 풉니다</em></span>
+                      <button type="button" className="rpg-win-btn" onClick={() => act("train", { op: "reset" })}>지우기</button>
+                    </div>
+                    <div className="rpg-win-row">
+                      <span className="rpg-stat-name"><b>회복</b><em>체력을 가득 채우고 모든 대기 시간을 0 으로</em></span>
+                      <button type="button" className="rpg-win-btn" onClick={() => act("train", { op: "heal" })}>회복</button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+          {me && me.near && me.near.train && !trainOpen && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">훈련 교관</span>
+              <span className="rpg-talk-line">허수아비를 마음껏 쳐 보게. 쿨타임 끄기 같은 도움은 내게 말하게.</span>
+              <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                훈련 기능{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
           {me && me.near && me.near.dungeon && !dgOpen && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">던전 관리인</span>
@@ -1454,7 +1504,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
-          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon)) && (talk || me.near) && (
+          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train)) && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">

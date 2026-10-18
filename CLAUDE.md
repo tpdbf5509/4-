@@ -58,6 +58,7 @@
 | `src/game/armorData.js` · `armor.js` | RPG 방어구. **수치는 armorData.js 한 곳**(부위 · 등급 · 기본 효과 · 영웅 · 전설 특수 효과 · 되팔기 값), 규칙(효과 셈 · 장착 · 주고받기 `packArmor`)은 armor.js. 장착 · 되팔기 요청은 shop.js(`awear` · `asell` · 관리자 `agive`) |
 | `src/game/dungeonData.js` | RPG 던전. **수치는 여기 한 곳**(`DUNGEON` 시간 · 칸 · 몹 배율, `DUNGEONS` 입장료 · 몹 · 무리 · 보스 세기 · 보상, `BOSS_AI` 보스 기술). 규칙은 rpg.js(`rpgDungeon` · `tickRuns` · `stepDgBoss`), 창은 RpgView.jsx |
 | `src/game/skillData.js` · `skillArt.js` | RPG 직업 스킬(`JOB_SKILLS`, 상점 `SKILLS` 뒤에 붙는다 · 키 R · F · G) · 전설 무기 스킬(`WEAPON_SKILLS`, 키 X). **수치는 skillData.js 한 곳**, 규칙은 rpg.js(`jobSkill` · `rpgWeaponSkill` · 패시브 `weaponOnHit` · `weaponOnAttack` · `skillTake`), 그림은 skillArt.js(`drawSkillFx` 의 `sk_` 연출 · 영웅 둘레 `drawHeroSkill`) |
+| `src/game/trainData.js` | RPG 훈련장(광장 왼쪽 문 · 맵 `train` · 허수아비 `dummy` 셋 · 교관 창 켜기/끄기 `TRAIN_TOGGLES`). 규칙은 rpg.js(`rpgTrain` · `trainTick` · `keepDummies`), 기록은 스냅샷 줄 47 |
 | `src/game/bossBar.js` | 보스 체력바 주황 잔상 셈(`ghostStep`, 머무는 · 따라오는 시간 `BOSS_BAR`). 그리기 전용 — 루프(`tickBossBars`, RpgView.jsx)가 내 맵 보스마다 `m.hpFx` 를 돌리고, 던전 위 칸은 DOM 너비를 바로 고친다 |
 | `src/game/keys.js` | RPG 키 설정 — 기본 키 표(`KEY_ACTIONS`) · 저장(`flg:rpgKeys`) · 키 이름 |
 | `src/game/shopData.js` · `shop.js` · `src/ShopPanel.jsx` | RPG 광장 상점. **가격 · 확률 · 제한은 shopData.js 한 곳**, 규칙(방장 판정 `rpgShop`, 조건 `why*`)은 shop.js, 상점 · 가방 창은 ShopPanel.jsx |

@@ -1403,7 +1403,35 @@ function drawDungeonBoss(ctx, m, time) {
   }
   drawMobMarks(ctx, m, time, top * grow);
 }
-const MOB_DRAW = { wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton };
+/* 허수아비 더미(훈련장) — 땅에 박힌 나무 기둥, 짚을 감은 몸 · 가로 막대 팔 · 자루 머리 · 가슴의 과녁.
+   맞으면(m.flash) 뒤로 기우뚱 흔들린다 */
+function drawDummy(ctx, m, time) {
+  const { x, y } = m;
+  shadow(ctx, x, y + 2, 20, 6, 0.32);
+  const wob = m.flash > 0 ? Math.sin(time * 60) * 0.12 * (m.flash / 0.12) : Math.sin(time * 1.5 + x) * 0.015;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(wob);
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.fillStyle = "#7a5634"; ctx.strokeStyle = "rgba(40,26,14,0.7)"; ctx.lineWidth = 1;
+  ctx.fillRect(-3.5, -40, 7, 40); ctx.strokeRect(-3.5, -40, 7, 40);          // 기둥
+  ctx.fillRect(-26, -50, 52, 6); ctx.strokeRect(-26, -50, 52, 6);           // 팔 막대
+  ctx.fillStyle = "#d9c08a";                                                 // 짚 몸
+  ctx.beginPath(); ctx.ellipse(0, -46, 14, 20, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(150,110,50,0.8)";                                  // 묶은 끈
+  [-58, -36].forEach((yy) => { ctx.beginPath(); ctx.moveTo(-12, yy); ctx.lineTo(12, yy); ctx.stroke(); });
+  ctx.fillStyle = "#e9dfc6"; ctx.strokeStyle = "rgba(40,26,14,0.6)";        // 자루 머리
+  ctx.beginPath(); ctx.arc(0, -74, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(90,70,40,0.8)"; ctx.lineWidth = 1.4;               // 꿰맨 눈
+  ctx.beginPath(); ctx.moveTo(-5, -77); ctx.lineTo(-2, -74); ctx.moveTo(-2, -77); ctx.lineTo(-5, -74);
+  ctx.moveTo(2, -77); ctx.lineTo(5, -74); ctx.moveTo(5, -77); ctx.lineTo(2, -74); ctx.stroke();
+  [[8, "#c8574a"], [5, "#f3ead6"], [2.4, "#c8574a"]].forEach(([r, c]) => {   // 과녁
+    ctx.fillStyle = c; ctx.beginPath(); ctx.arc(0, -46, r, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+  drawMobMarks(ctx, m, time, 90);
+}
+const MOB_DRAW = { dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton };
 const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4" };
 
 /* 던전 관리인 — 짙은 망토에 등불을 든 사람. 머리 위에 칼 모양 표시 */

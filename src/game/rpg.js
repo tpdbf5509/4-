@@ -12,6 +12,7 @@ import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
+import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
@@ -59,7 +60,8 @@ export const RPG = {
 export const MAPS = {
   plaza: {
     id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: [900, 820],
-    gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" }],
+    gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" },
+      { x: TRAIN.gate.x, y: TRAIN.gate.y, r: 56, to: "train", at: TRAIN.spawn, label: "훈련장" }],   // 왼쪽 — 허수아비 더미 · 교관(trainData.js)
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC
     blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 },
       ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 },
@@ -179,6 +181,15 @@ DUNGEONS.forEach((d) => {
     MAP_IDS.push(id);
   }
 });
+// 훈련장 — 허수아비 더미를 치며 스킬을 시험한다(trainData.js). 던전 칸 뒤에 붙는다(맵 차례는 뒤에만 더한다)
+MAPS.train = {
+  id: "train", name: "훈련장", w: TRAIN.map.w, h: TRAIN.map.h, top: 170, spawn: TRAIN.spawn, bg: "field", tile: 2600, train: 1,
+  tint: "rgba(70,50,20,0.18)",
+  gates: [{ x: 90, y: 920, r: 64, to: "plaza", at: TRAIN.plazaAt, label: "광장" }],
+  blocks: [...TRAIN.dummies.map(([x, y]) => ({ x, y: y - 4, r: 22 })), { x: TRAIN.npc.x, y: TRAIN.npc.y - 4, r: 18 }],
+  npcs: [{ id: "trainer", train: 1, name: "훈련 교관", x: TRAIN.npc.x, y: TRAIN.npc.y }],
+};
+MAP_IDS.push("train");
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -284,8 +295,10 @@ Object.entries(BOSS_AI).forEach(([type, A]) => {
 });
 // 해골 — 모르가스가 부르는 졸개. 세기 · 움직임은 고블린과 같다(BRUTE.skeleton = GOBLIN)
 MOB.skeleton = { ...MOB.goblin, name: "해골", boss: { ...MOB.goblin.boss, name: "해골 대장" } };
+// 허수아비 더미 — 훈련장에만 있다. 움직이지도 반격하지도 않고 보상도 없다(trainData.js)
+MOB.dummy = { name: "허수아비", rad: 22, hp: () => TRAIN.dummyHp, dmg: () => 0, xp: () => 0, coin: () => 0, size: () => 1 };
 BRUTE.skeleton = GOBLIN;
-const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton"];   // 스냅샷 차례 — 뒤에만 더한다
+const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy"];   // 스냅샷 차례 — 뒤에만 더한다
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -1134,6 +1147,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (crit) dmg *= critMul(h);
   dmg = Math.max(1, Math.round(dmg));
   m.hp -= dmg;
+  if (m.type === "dummy" && h) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
@@ -1941,6 +1955,7 @@ function weaponOnAttack(g, h) {
 }
 // 시간 — 분노가 식고 · 반격이 끝나면 내뿜고 · 직업 버프가 끝난다
 function tickWeapon(g, h, dt) {
+  trainTick(g, h);                                // 훈련장 — 쿨타임 끄기 · 스택 가득 · 체력 고정
   const w = h.ws, jb = h.jb;
   if (w) {
     w.wcd = Math.max(0, w.wcd - dt);
@@ -1992,6 +2007,82 @@ function tickZones(g, dt) {
     }
     return z.t > 0;
   });
+}
+
+/* ── 훈련장 (trainData.js) — 방장만 판정 ─────────────────────
+   h.trn = { nocd, stack, god, tot 쌓인 피해, hits 맞힌 수, log [[시각, 피해]] } — 기능은 훈련장 안에서만 듣는다 */
+const trnOf = (h) => h.trn || (h.trn = { nocd: 0, stack: 0, god: 0, tot: 0, hits: 0, log: [] });
+function keepDummies(g) {
+  if (!g.heroes.some((h) => h && h.map === "train")) return;   // 아무도 없으면 세우지 않는다(스냅샷에도 싣지 않는다)
+  TRAIN.dummies.forEach(([x, y], i) => {
+    if (g.mobs.some((m) => m.type === "dummy" && m.di === i && !m.dead)) return;
+    const m = bodyOf(g.nextId++, -1, "dummy", 0, 1, "train", x, y);
+    m.di = i;
+    g.mobs.push(m);
+  });
+}
+function trainLog(g, h, dmg) {
+  const t = trnOf(h);
+  t.tot += dmg; t.hits += 1;
+  t.log.push([g.t, dmg]);
+  if (t.log.length > 400) t.log.splice(0, t.log.length - 400);
+}
+// 초당 피해 — 마지막 dpsWindow 초(처음 친 뒤 그보다 짧으면 그만큼)의 피해를 나눈다
+function trainDps(g, h) {
+  const t = h.trn;
+  if (!t || !t.log.length) return 0;
+  const from = g.t - TRAIN.dpsWindow, list = t.log.filter(([at]) => at >= from);
+  if (!list.length) return 0;
+  const span = Math.max(1, Math.min(TRAIN.dpsWindow, g.t - list[0][0]));
+  return list.reduce((a, [, d]) => a + d, 0) / span;
+}
+function trainTick(g, h) {
+  const t = h.trn;
+  if (!t || h.map !== "train") return;
+  if (t.nocd) {
+    h.sk = 0; h.dashCd = 0;
+    if (h.scd) for (const k in h.scd) h.scd[k] = 0;
+    if (h.ws) h.ws.wcd = 0;
+  }
+  if (t.stack) {
+    const w = wsOf(h), S = TRAIN.stacks, sp = heldSpecial(h);
+    Object.assign(w, { emb: S.emb, star: S.star, holy: S.holy, spell: S.spell });
+    if (sp === "shadow") { w.rage = S.rage; w.calm = 0; }
+    if (sp === "thunder_staff" && w.focId) w.foc = S.foc;
+  }
+  if (t.god && h.down <= 0) h.hp = h.max;
+}
+// 교관 창 — req = { op: "nocd" | "stack" | "god" } 켜고 끄기 · { op: "reset" } 기록 지우기 · { op: "heal" } 체력 · 대기 시간 처음으로
+export function rpgTrain(g, pi, req) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || !req || h.map !== "train") return false;
+  const t = trnOf(h);
+  if (["nocd", "stack", "god"].includes(req.op)) { t[req.op] = t[req.op] ? 0 : 1; return true; }
+  if (req.op === "reset") {
+    t.tot = 0; t.hits = 0; t.log = [];
+    g.mobs.forEach((m) => { if (m.type === "dummy") { m.hp = m.max; m.burn = 0; m.poison = 0; m.slow = 0; m.freeze = 0; m.stun = 0; m.shred = 0; } });
+    return true;
+  }
+  if (req.op === "heal") {
+    h.hp = h.max; h.sk = 0; h.dashCd = 0;
+    if (h.scd) for (const k in h.scd) h.scd[k] = 0;
+    if (h.ws) h.ws.wcd = 0;
+    return true;
+  }
+  return false;
+}
+// 화면에 보이는 훈련 기록 — 방장은 기록으로 셈하고, 손님은 스냅샷 값을 쓴다
+export function trainView(g, h) {
+  const t = h && h.trn;
+  if (!t) return null;
+  return { nocd: t.nocd, stack: t.stack, god: t.god, tot: t.tot || 0, hits: t.hits || 0,
+    dps: t.log && t.log.length ? Math.round(trainDps(g, h)) : t.dps || 0 };
+}
+// 스냅샷 줄 47 — [쿨타임 끄기, 스택 가득, 체력 고정, 초당 피해, 쌓인 피해, 맞힌 수]
+function packTrain(g, h) {
+  const t = h.trn;
+  if (!t) return 0;
+  return [t.nocd, t.stack, t.god, Math.round(trainDps(g, h)), Math.round(t.tot), t.hits];
 }
 
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
@@ -2697,6 +2788,7 @@ function stepDgBoss(g, m, dt) {
 function stepMob(g, m, dt) {
   m.wall = Math.max(0, (m.wall || 0) - dt);
   if (!tickMob(g, m, dt)) { if (BOSS_AI[m.type]) m.pose = bossPose(m); return; }   // 얼었거나 기절했다
+  if (m.type === "dummy") { if (m.hp < m.max * TRAIN.refill) m.hp = m.max; return; }   // 허수아비 — 서 있기만 한다
   if (BOSS_AI[m.type]) stepDgBoss(g, m, dt);
   else if (m.type === "wolf") { stepWolf(g, m, dt); spreadPack(g, m); }
   else if (BRUTE[m.type]) { stepBrute(g, m, dt, BRUTE[m.type]); spreadPack(g, m); }
@@ -2965,6 +3057,7 @@ export function rpgStep(g, dt) {
   stepHeroes(g, dt);
   tickLater(g, dt);                               // 잇달아 나가는 스킬(연사 · 화염베기 · 유성)
   tickZones(g, dt);                               // 빙판길
+  keepDummies(g);                                 // 훈련장 허수아비
   tickSocial(g, dt);
   tickDuels(g, dt);
   tickRuns(g, dt);
@@ -3037,7 +3130,7 @@ export function rpgPack(g) {
         (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt || g.t)) * 1000) : 0,
         packArmor(h),
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
-        packSkillState(h)]
+        packSkillState(h), packTrain(g, h)]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -3111,7 +3204,11 @@ export function rpgApply(g, s) {
     }
     if (row.length > 41) h.gift = row[41] ? GIFT.id : "";   // 이번 업데이트 선물을 받았는지
     if (row.length > 44) applyArmor(h, row[44]);   // 방어구 — 신발 · 추격 · 위기 · 부활 대기
-    if (Array.isArray(row[46])) applySkillState(h, row[46]);   // 전설 무기 · 직업 스킬 — 불똥 · 별빛 · 분노 · 수호 · 철벽 · 보호막
+    if (Array.isArray(row[46])) applySkillState(h, row[46]);
+    if (Array.isArray(row[47])) {                  // 훈련장 — 교관 창에 보이는 켜기/끄기 · 초당 피해
+      const [nocd, stack, god, dps, tot, hits] = row[47];
+      h.trn = { ...(h.trn || { log: [] }), nocd, stack, god, dps, tot, hits };
+    }   // 전설 무기 · 직업 스킬 — 불똥 · 별빛 · 분노 · 수호 · 철벽 · 보호막
     if (Array.isArray(row[40])) {                  // 맡은 광장 의뢰
       h.reqs = {};
       REQ_NPCS.forEach((n, i) => { const r = row[40][i]; if (r) h.reqs[n.id] = { i: r[0], n: r[1] }; });

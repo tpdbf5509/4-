@@ -19,7 +19,8 @@ const OUT_PER_SNAP = 120;    // 스냅샷 한 통에 싣는 연출 수(RpgView.j
 const OUT_KEEP = 240;
 const GRACE = 6;             // 끊긴 사람의 자리를 남겨 두는 초 — 휴대폰이 잠깐 끊겼다 붙어도 그대로 잇는다
 const SAVE_EVERY = 10;       // 서버 저장 간격(초)
-const SRV_ID = "srv";        // 대기실의 방장 id — 화면은 이 값으로 "내가 방장이 아니다"를 안다
+const SRV_ID = "srv";
+const RUSH_MS = 15;          // 입력 때 바로 보내는 스냅샷 사이 최소 간격 — 여럿이 한꺼번에 눌러도 이보다 자주 보내지 않는다        // 대기실의 방장 id — 화면은 이 값으로 "내가 방장이 아니다"를 안다
 
 export class RpgRoom {
   constructor(ctx, env) {
@@ -34,6 +35,7 @@ export class RpgRoom {
     this.last = 0;
     this.sinceSnap = 0;
     this.sinceSave = 0;
+    this.rushAt = 0;
   }
 
   async fetch(req) {
@@ -85,7 +87,11 @@ export class RpgRoom {
     if (m.k === "hello") { c.name = String((d && d.name) || "").slice(0, 8); this.send(c, "lobby", this.lobby()); }
     else if (m.k === "pick") this.pick(c, d);
     else if (m.k === "rjoin") this.rjoin(c, d);
-    else if (m.k === "input") { if (this.seatOf(c.id) === (d && d.cls)) rpgInput(this.g, d); }   // 남의 자리 입력은 받지 않는다
+    else if (m.k === "input") {                   // 남의 자리 입력은 받지 않는다
+      if (this.seatOf(c.id) !== (d && d.cls)) return;
+      rpgInput(this.g, d);
+      this.now();                                   // 받자마자 판정하고 결과를 보낸다 — 다음 스냅샷 때까지 기다리지 않는다
+    }
     else if (m.k === "chat") this.chat(c, d);
     else if (m.k === "bye") this.drop(c.id);
     else if (m.k === "ping") this.send(c, "pong", d);   // 왕복 시간 재기
@@ -184,7 +190,15 @@ export class RpgRoom {
     clearInterval(this.timer);
     this.timer = null;
   }
-  tick() {
+  // 입력을 받았다 — 지금까지 흐른 만큼 판정을 돌리고 곧바로 스냅샷을 보낸다(평타 · 스킬 연출 · 소리가 덜 늦다)
+  now() {
+    if (!this.timer || !this.g) return;
+    const t = Date.now();
+    if (t - this.rushAt < RUSH_MS) return;
+    this.rushAt = t;
+    this.tick(true);
+  }
+  tick(rush) {
     const now = Date.now();
     const real = Math.min(0.25, Math.max(0, (now - this.last) / 1000));
     this.last = now;
@@ -199,7 +213,8 @@ export class RpgRoom {
     const g = this.g;
     for (let left = real; left > 0; left -= STEP_MAX) rpgStep(g, Math.min(left, STEP_MAX));
     this.sinceSnap += real;
-    if (this.sinceSnap >= 1 / SNAP_HZ) {
+    if (rush) { this.sinceSnap = 0; this.snap(); }
+    else if (this.sinceSnap >= 1 / SNAP_HZ) {
       this.sinceSnap = Math.min(this.sinceSnap - 1 / SNAP_HZ, 1 / SNAP_HZ);
       this.snap();
     }

@@ -74,6 +74,7 @@ const OUT_KEEP = 240;
 const RESEND_AFTER = 700;  // 방장이 내 입력을 이만큼(ms) 지나도 모르면 다시 보낸다 — 끊긴 사이 잃은 입력을 되살린다
 const STEP_MAX = 0.05;     // 한 번에 돌리는 판정 시간(초)
 const CATCH_UP = 0.25;     // 방장 화면이 잠깐 멈췄을 때 따라잡는 최대 시간(초)
+const GUEST_CATCH_UP = 1;  // 손님 화면이 따라잡는 최대 시간(초) — 이보다 길게 멈췄으면(탭을 내렸다 올림) 서버 위치로 맞춘다
 const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.max(1, n)));
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
@@ -816,7 +817,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       // 첫 프레임의 시각은 루프를 건 시각보다 앞설 수 있다 — 거꾸로 가지 않게 막는다
       const real = Math.max(0, (now - last) / 1000);
       last = now;
-      const dt = Math.min(real, STEP_MAX);
       const g = G.current;
       if (isHost) {
         // 방장 기기가 느려도(초당 프레임이 적어도) 세계 시간은 제 속도로 흐르게 잘게 나눠 돌린다
@@ -835,7 +835,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           room?.send("rsnap", snap);
         }
       } else {
-        rpgStepVisual(g, dt);
+        // 손님 화면도 실제로 흐른 시간만큼 잘게 나눠 돈다 — 한 프레임을 STEP_MAX 로 자르면 프레임이 끊길 때마다
+        // 내 시계가 실제보다 뒤처져, 서버 위치와 견주는 때가 어긋나 걷다가 뒤로 당겨졌다(느린 기기 · 스킬 연출이 많을 때)
+        for (let left = Math.min(real, GUEST_CATCH_UP); left > 0; left -= STEP_MAX) rpgStepVisual(g, Math.min(left, STEP_MAX));
       }
       playSounds(g);
       tickBossBars(g, now / 1000);

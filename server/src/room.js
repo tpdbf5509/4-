@@ -12,9 +12,9 @@ import { rpgInput } from "../../src/game/rpgInput.js";
 import { CHAT } from "../../src/game/socialData.js";
 import { loadChar, saveChar, saveOn } from "./save.js";
 
-const TICK_MS = 50;          // 판정 간격 — 한 번에 STEP_MAX 초씩 잘게 돈다
+const TICK_MS = 25;          // 판정 간격 — 입력은 받자마자 규칙에 넘기고, 결과는 다음 스냅샷으로 간다
 const STEP_MAX = 0.05;
-const SNAP_HZ = 12;          // 초당 스냅샷 — 서버는 받는 사람 수로 셈하는 한도가 없다
+const SNAP_HZ = 20;          // 초당 스냅샷 — 서버는 받는 사람 수로 셈하는 한도가 없다(한 통 0.5KB 안팎). 많을수록 스킬 · 걷기가 덜 늦다
 const OUT_PER_SNAP = 120;    // 스냅샷 한 통에 싣는 연출 수(RpgView.jsx 와 같은 값)
 const OUT_KEEP = 240;
 const GRACE = 6;             // 끊긴 사람의 자리를 남겨 두는 초 — 휴대폰이 잠깐 끊겼다 붙어도 그대로 잇는다
@@ -37,7 +37,12 @@ export class RpgRoom {
   }
 
   async fetch(req) {
-    const id = String(new URL(req.url).searchParams.get("id") || "").slice(0, 40);
+    const url = new URL(req.url);
+    if (url.pathname === "/where") {               // 이 방이 도는 곳(Cloudflare 데이터센터) — 점검용
+      const t = await fetch("https://www.cloudflare.com/cdn-cgi/trace").then((r) => r.text()).catch(() => "");
+      return new Response((t.match(/colo=(\w+)/) || [])[1] || "?");
+    }
+    const id = String(url.searchParams.get("id") || "").slice(0, 40);
     if (!id) return new Response("id", { status: 400 });
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
@@ -83,6 +88,7 @@ export class RpgRoom {
     else if (m.k === "input") { if (this.seatOf(c.id) === (d && d.cls)) rpgInput(this.g, d); }   // 남의 자리 입력은 받지 않는다
     else if (m.k === "chat") this.chat(c, d);
     else if (m.k === "bye") this.drop(c.id);
+    else if (m.k === "ping") this.send(c, "pong", d);   // 왕복 시간 재기
   }
   seatOf(id) { return this.seats.findIndex((s) => s && s.id === id); }
 

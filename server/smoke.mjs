@@ -6,6 +6,8 @@ const fail = (m) => { console.error("실패:", m); process.exit(1); };
 const health = await fetch(`${BASE}/health`).then((r) => r.text()).catch((e) => String(e));
 if (health !== "ok") fail(`health ${health}`);
 console.log("① health ok");
+// 방이 도는 곳 — 아시아(서울 ICN · 도쿄 NRT · 홍콩 HKG 등)여야 한국에서 빠르다. 처음 부르면 그곳에 방이 생긴다
+for (const sv of ["RPG1", "RPG2", "RPG3", "RPG4", "RPG5"]) console.log(`   ${sv} 방 위치:`, await fetch(`${BASE}/where/${sv}`).then((r) => r.text()).catch(() => "?"));
 const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/rpg/RPG5?id=smoke${Date.now()}`);
 const got = new Set();
 const done = new Promise((resolve) => {

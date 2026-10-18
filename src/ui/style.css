@@ -1612,7 +1612,21 @@ button.forge-stage:disabled { cursor: default; }
 .forge-odds .shop-price { font-size: 13px; }
 .forge-btn { align-self: flex-start; min-width: 120px; padding: 6px 16px; font-size: 14px; }
 .forge-msg { margin: 0; font-size: 12px; line-height: 1.45; letter-spacing: -0.02em; color: var(--sh-mute); }
-.forge-msg.ok { color: #f0d48c; } .forge-msg.down { color: #e6a090; }
+.forge-msg.ok { color: #f0d48c; } .forge-msg.down { color: #e6a090; } .forge-msg.guard { color: #a9c8e6; }
+/* 하락 방지 성공 — 푸른 막이 무기를 감싼다 */
+.forge-guard .forge-circle { color: #9fc3e6; opacity: 1; }
+.forge-guard .forge-title { color: #b9d6f2; }
+.forge-guard .forge-glow { opacity: 1; background: radial-gradient(circle, rgba(150, 195, 240, 0.6), transparent 70%); animation: forge-flash 1.2s ease-out forwards; }
+.forge-guard .forge-burst { border-color: rgba(160, 200, 240, 0.8); }
+/* 강화 모션 건너뛰기 — 망치질 떨림 · 빠른 회전을 끈다 */
+.forge-quick.forge-forge .forge-art, .forge-quick.forge-forge .forge-blade, .forge-quick.forge-forge .forge-circle-spin, .forge-quick.forge-forge .forge-circle-back { animation: none; }
+/* 한 번 더 묻기 */
+.shop-confirm { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: rgba(10, 8, 6, 0.55); }
+.shop-confirm-box { width: min(360px, 100%); padding: 18px 18px 14px; border-radius: 10px; background: #1d1711; border: 1px solid rgba(214, 186, 140, 0.35);
+  color: var(--sh-text, #eadfca); text-align: left; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); }
+.shop-confirm-title { display: block; font-size: 15px; letter-spacing: -0.03em; color: #f0d48c; }
+.shop-confirm-box p { margin: 8px 0 4px; font-size: 13px; line-height: 1.5; letter-spacing: -0.02em; color: var(--sh-mute, #cbbfa8); }
+.shop-confirm-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 /* 망치질 — 무기가 떨리고 빛이 차오르며 세 번 불꽃이 튄다 */
 .forge-forge .forge-art, .forge-forge .forge-blade { animation: forge-shake 0.4s ease-in-out infinite; }
 .forge-forge .forge-glow { animation: forge-charge 1.2s ease-in forwards; }

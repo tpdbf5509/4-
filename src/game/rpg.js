@@ -7,8 +7,8 @@
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
-import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND } from "./shopData.js";
-import { skillEquipped, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
+import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WEAPON } from "./shopData.js";
+import { specialTier, specialPrice, skillEquipped, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
@@ -704,6 +704,19 @@ function giveGift(g, h) {
 
 // 한 사람 선물 — 이름이 같으면 한 번 준다(이름은 공백을 고르게 해서 견준다). 가방이 가득 차면 다음에 다시 본다
 const sameName = (a, b) => String(a || "").trim().replace(/\s+/g, " ") === String(b || "").trim().replace(/\s+/g, " ");
+// 관리자 — 전설 특별 무기를 모두 한 번 준다(id 를 바꾸면 다시 본다 · 가진 것은 건너뛴다 · 가방에 자리가 없으면 다음에 다시 본다)
+export const ADMIN_LEGEND = { id: 1, grade: 4 };
+function giveAdminLegends(g, h) {
+  if (!h.admin || !h.bag || h.bag.lg === ADMIN_LEGEND.id) return;
+  const want = SPECIALS.filter((sp) => sp.g === ADMIN_LEGEND.grade && !h.bag.w.some((w) => w.sp === sp.id));
+  const n = Math.max(0, Math.min(want.length, WEAPON.bagMax - h.bag.w.length));
+  want.slice(0, n).forEach((sp) => { h.bag.w.push({ u: h.bag.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
+  if (n === want.length) h.bag.lg = ADMIN_LEGEND.id;
+  if (!n) return;                                  // 넣은 것이 없으면 알리지 않는다(0.5초마다 다시 본다)
+  h.bag.v += 1;
+  sys(g, h.pi, n === want.length ? `관리자 — 전설 무기 ${n}자루를 가방에 넣었습니다.`
+    : `관리자 — 가방 자리가 모자라 전설 무기 ${n}자루만 넣었습니다. 무기를 팔면 나머지를 넣습니다.`);
+}
 function givePersonal(g, h) {
   if (!h.bag || !g.names) return;
   PERSONAL_GIFTS.forEach((pg) => {
@@ -3466,7 +3479,7 @@ function tickSocial(g, dt) {
   g.titleT -= dt;
   if (g.titleT <= 0) {
     g.titleT = 0.5;
-    g.heroes.forEach((h) => { if (h && h.loaded) { awardTitles(g, h, false); givePersonal(g, h); } });
+    g.heroes.forEach((h) => { if (h && h.loaded) { awardTitles(g, h, false); givePersonal(g, h); giveAdminLegends(g, h); } });
   }
 }
 

@@ -138,9 +138,37 @@ function potionText(p) {
   return "찍은 스탯 포인트를 모두 돌려받는다";
 }
 
+/* ── 한 번 더 묻기 — "다시 묻지 않기"를 고르면 이 기기에서는 다시 묻지 않는다(localStorage) ─────── */
+const ASK_OFF = { sell: "flg:askLegendSell", guard: "flg:askGuard" };
+const FORGE_SKIP = "flg:forgeSkip";               // 강화 연출 건너뛰기 — 켜 두면 망치질 없이 결과만 짧게
+const LEGEND_G = GRADES.length - 1;               // 전설 등급 — 되팔 때 한 번 더 묻는다
+const readFlag = (k) => { try { return localStorage.getItem(k) === "1"; } catch { return false; } };
+const writeFlag = (k, on) => { try { if (on) localStorage.setItem(k, "1"); else localStorage.removeItem(k); } catch { /* 저장 못 하면 이번만 */ } };
+function Confirm({ title, text, ok, onOk, onCancel }) {
+  const [never, setNever] = useState(false);
+  return (
+    <div className="shop-confirm" role="alertdialog" aria-modal="true" aria-label={title}>
+      <div className="shop-confirm-box">
+        <b className="shop-confirm-title">{title}</b>
+        <p>{text}</p>
+        <label className="shop-guard">
+          <input type="checkbox" checked={never} onChange={(e) => setNever(e.target.checked)} />
+          <span>다시 묻지 않기</span>
+        </label>
+        <div className="shop-confirm-acts">
+          <button type="button" className="shop-btn" onClick={onCancel}>취소</button>
+          <button type="button" className="shop-btn main" onClick={() => onOk(never)}>{ok}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── 무기상점 — 사기 · 되팔기 ───────────────────────────────── */
 function WeaponShop({ h, send }) {
   const [tab, setTab] = useState("buy");
+  const [ask, setAsk] = useState(null);              // 되팔기 전에 한 번 더 묻는 전설 무기
+  const sell = (w) => (w.g >= LEGEND_G && !readFlag(ASK_OFF.sell) ? setAsk(w) : send({ op: "wsell", u: w.u }));
   const day = todayKey();
   const d = dealOf(h.lv, day);
   const dealLeft = Math.max(0, DEAL.perDay - usedToday(h.bag, "deal", day));
@@ -170,8 +198,14 @@ function WeaponShop({ h, send }) {
           {h.bag.w.map((w) => (
             <WeaponItem key={w.u} w={w} tag={w.u === h.bag.e ? "장착 중" : ""} desc={`${weaponLine(w)} · 산 값 ${won(w.p)}`}
               price={<Price n={sellPrice(w)} />}
-              acts={[{ label: "팔기", why: whyWeaponSell(h, w.u), onClick: () => send({ op: "wsell", u: w.u }) }]} />
+              acts={[{ label: "팔기", why: whyWeaponSell(h, w.u), onClick: () => sell(w) }]} />
           ))}
+          {ask && (
+            <Confirm title="전설 무기를 팔까요?" ok="팔기"
+              text={`${weaponName(ask)} · ${won(sellPrice(ask))}코인에 팝니다. 판 무기는 되돌릴 수 없습니다.`}
+              onCancel={() => setAsk(null)}
+              onOk={(never) => { if (never) writeFlag(ASK_OFF.sell, true); send({ op: "wsell", u: ask.u }); setAsk(null); }} />
+          )}
           <Head sub={`등급마다 정한 값 · 가방 ${(h.bag.a || []).length}/${ARMOR.bagMax}`}>방어구 되팔기</Head>
           {!(h.bag.a || []).length && <Empty>가방에 방어구가 없습니다.</Empty>}
           {armorGroups(h.bag).map(({ n, worn, sell: a }) => (
@@ -356,7 +390,8 @@ function MagicCircle() {
     </svg>
   );
 }
-const FORGE_RES = { 1: ["ok", "강화 성공"], 0: ["keep", "강화 실패"], [-1]: ["down", "단계 하락"] };
+const FORGE_RES = { 1: ["ok", "강화 성공"], 0: ["keep", "강화 실패"], [-1]: ["down", "단계 하락"], 2: ["guard", "하락 방지 성공"] };
+const FORGE_SKIP_SHOW = 0.9;                          // 연출을 건너뛸 때 결과를 띄우는 초
 function Forge({ h, send, note, setQuiet }) {
   const [tab, setTab] = useState("enh");
   const [stone, setStone] = useState(() => STONE_IDS.find((id) => matCount(h.bag, id) > 0) || STONE_IDS[0]);
@@ -368,6 +403,8 @@ function Forge({ h, send, note, setQuiet }) {
   const startAt = useRef(0);
   const [frozen, setFrozen] = useState(null);         // 망치질 동안 보일 무기 — 결과가 미리 보이지 않게 누른 때 그대로
   const [pick, setPick] = useState(false);            // 모루 위 무기를 누르면 가방 무기 가운데 골라 바꿔 낀다
+  const [skip, setSkip] = useState(() => readFlag(FORGE_SKIP));   // 강화 연출 건너뛰기
+  const [askGuard, setAskGuard] = useState(false);    // 방지권 없이 누르면 한 번 더 묻는다
   const later = (fn, s) => { timers.current.push(setTimeout(fn, s * 1000)); };
   useEffect(() => () => { timers.current.forEach(clearTimeout); if (setQuiet) setQuiet(false); }, [setQuiet]);
   // 결과가 오면 — 망치질을 다 보여 준 뒤 결과를 띄운다
@@ -376,28 +413,31 @@ function Forge({ h, send, note, setQuiet }) {
     const res = note.enh !== undefined && FORGE_RES[note.enh];
     sent.current = null;
     if (!res) { later(() => { setStage({ phase: "idle" }); setFrozen(null); if (setQuiet) setQuiet(false); }, 0); return; }   // 막혔다 — 이유는 창 위 한 줄에 뜬다
-    const wait = Math.max(0, FORGE.strike - (performance.now() - startAt.current) / 1000);
+    const wait = skip ? 0 : Math.max(0, FORGE.strike - (performance.now() - startAt.current) / 1000);
     const msg = note.msg;
     later(() => { setStage({ phase: "done", kind: res[0], title: res[1], msg, key: ++runs.current }); setFrozen(null); if (setQuiet) setQuiet(false); }, wait);
-    later(() => setStage({ phase: "idle" }), wait + FORGE.show);
-  }, [note, stage, setQuiet]);
+    later(() => setStage({ phase: "idle" }), wait + (skip ? FORGE_SKIP_SHOW : FORGE.show));
+  }, [note, stage, setQuiet, skip]);
   const guards = h.bag.gd || 0;
   const sellable = MATERIALS.filter((m) => m.sell > 0);
   const st = MAT_BY_ID[stone];
   const rates = ENHANCE.stones[stone];
   const busy = stage.phase !== "idle";
   const w = (stage.phase === "forge" && frozen) || equipped(h.bag);
-  const forge = (e) => {
+  const next = w ? (w.up || 0) + 1 : 0;
+  const useGuard = guard && guards > 0;
+  const go = () => {
     if (!w || busy) return;
     sent.current = { note };
-    startAt.current = e.timeStamp;                    // 누른 때(performance.now 와 같은 기준)
+    startAt.current = performance.now();
     setFrozen({ ...w });
     if (setQuiet) setQuiet(true);
     setStage({ phase: "forge", key: ++runs.current });
-    for (let i = 0; i < FORGE.hits; i++) later(() => sfx.shot("blade"), (i + 0.6) * (FORGE.strike / (FORGE.hits + 0.4)));
-    send({ op: "enh", u: w.u, stone, guard: guard && guards > 0 });
+    if (!skip) for (let i = 0; i < FORGE.hits; i++) later(() => sfx.shot("blade"), (i + 0.6) * (FORGE.strike / (FORGE.hits + 0.4)));
+    send({ op: "enh", u: w.u, stone, guard: useGuard });
   };
-  const next = w ? (w.up || 0) + 1 : 0;
+  // 떨어질 수 있는 단계인데 방지권을 쓰지 않으면 한 번 더 묻는다
+  const forge = () => (!useGuard && enhDown(next) > 0 && !readFlag(ASK_OFF.guard) ? setAskGuard(true) : go());
   const top = w && next > ENHANCE.max;
   const rate = w ? enhRate(stone, next) : 0;
   const why = w ? whyEnhance(h, w.u, stone) : [];
@@ -430,13 +470,13 @@ function Forge({ h, send, note, setQuiet }) {
             </div>
           )}
           {w && (
-            <div className={`forge forge-${stage.phase} ${stage.kind ? `forge-${stage.kind}` : ""} fg${w.g}`} key={stage.key || 0}>
+            <div className={`forge forge-${stage.phase} ${stage.kind ? `forge-${stage.kind}` : ""} ${skip ? "forge-quick" : ""} fg${w.g}`} key={stage.key || 0}>
               <button type="button" className="forge-stage" disabled={busy} aria-label="강화할 무기 바꾸기"
                 title="눌러서 강화할 무기를 바꿉니다" onClick={() => setPick((v) => !v)}>
                 <MagicCircle />
                 <span className="forge-glow" />
                 {weaponArt(w) ? <img className="forge-art" src={weaponArt(w)} alt="" /> : <span className="forge-blade" />}
-                {stage.phase === "forge" && Array.from({ length: FORGE.hits }, (_, i) => (
+                {stage.phase === "forge" && !skip && Array.from({ length: FORGE.hits }, (_, i) => (
                   <span key={i} className="forge-hit" style={{ animationDelay: `${(i + 0.6) * (FORGE.strike / (FORGE.hits + 0.4))}s` }}>
                     {Array.from({ length: 8 }, (_, k) => <i key={k} style={{ "--a": `${k * 45 + i * 20}deg` }} />)}
                   </span>
@@ -475,6 +515,16 @@ function Forge({ h, send, note, setQuiet }) {
             <input type="checkbox" checked={guard && guards > 0} disabled={!guards || busy} onChange={(e) => setGuard(e.target.checked)} />
             <span>{GUARD.name} 쓰기 <small>가진 {guards}장 · 떨어질 때만 한 장 씁니다{guards ? "" : " · 주문서 상점에서 삽니다"}</small></span>
           </label>
+          <label className="shop-guard">
+            <input type="checkbox" checked={skip} disabled={busy} onChange={(e) => { setSkip(e.target.checked); writeFlag(FORGE_SKIP, e.target.checked); }} />
+            <span>강화 모션 건너뛰기 <small>망치질 없이 결과만 바로 봅니다</small></span>
+          </label>
+          {askGuard && (
+            <Confirm title="하락 방지권 없이 강화할까요?" ok="그대로 강화"
+              text={`${GUARD.name}을 사용하지 않으면 무기 강화가 하락할 수도 있습니다. (+${next} 실패 때 하락 ${enhDown(next)}%)`}
+              onCancel={() => setAskGuard(false)}
+              onOk={(never) => { if (never) writeFlag(ASK_OFF.guard, true); setAskGuard(false); go(); }} />
+          )}
           <Head sub={`단계 · 비용 · 실패할 때 하락 · 성공`}>{st.name} 확률표</Head>
           <Odds rows={rates.map((r, i) => [`+${i + 1} · ${(ENHANCE.fee * (i + 1)).toLocaleString("ko-KR")}코인`, `${r}%`,
             enhDown(i + 1) ? `하락 ${enhDown(i + 1)}%` : "하락 없음"])} />

@@ -211,6 +211,7 @@ export function cleanBag(d) {
   }
   b.v = Math.max(0, Math.floor(Number(d.v) || 0));
   b.oc = d.oc ? 1 : 0;
+  b.lg = Math.floor(Number(d.lg)) || 0;          // 관리자 전설 무기를 받은 차례(rpg.js ADMIN_LEGEND)
   b.ks = cleanKs(d.ks, b.s);                      // 스킬 칸(직업 하나 · 일반 둘)
   b.pg = Array.isArray(d.pg) ? d.pg.filter((x) => typeof x === "string").slice(0, 50) : [];   // 받은 한 사람 선물 id(itemData.js PERSONAL_GIFTS)
   return b;
@@ -762,13 +763,14 @@ export function rpgShop(g, pi, req) {
     hpChanged(h, wasFull);
     fx(g, h.map, ok
       ? { kind: "call", x: h.x, y: h.y - 110, text: `강화 성공! +${next}`, color: "#ffd873", t: 1.2, life: 1.2, snd: "clear", who: pi }
-      : { kind: "call", x: h.x, y: h.y - 110, text: fall ? `강화 실패 · +${cur - 1} 로 하락` : saved ? "강화 실패 · 방지권으로 지킴" : "강화 실패", color: "#d9b8a8", t: 1.1, life: 1.1, who: pi });
+      : { kind: "call", x: h.x, y: h.y - 110, text: fall ? `강화 실패 · +${cur - 1} 로 하락` : saved ? "하락 방지 성공" : "강화 실패", color: "#d9b8a8", t: 1.1, life: 1.1, who: pi });
     const nm = baseName(w);
     const tail = `(${rate}% · ${won(fee)}코인)`;
-    return note(g, pi, { ok: true, enh: ok ? 1 : fall ? -1 : 0, msg: ok
+    // enh — 1 성공 · 0 실패 · -1 하락 · 2 하락 방지 성공(방지권이 떨어지는 것을 막았다)
+    return note(g, pi, { ok: true, enh: ok ? 1 : fall ? -1 : saved ? 2 : 0, msg: ok
       ? `강화 성공! ${nm} +${next} ${tail}`
       : fall ? `강화 실패 — ${nm} +${cur} 에서 +${cur - 1} 로 떨어졌습니다 ${tail}`
-        : saved ? `강화 실패 — ${GUARD.name}으로 +${cur} 을 지켰습니다(남은 ${h.bag.gd}장) ${tail}`
+        : saved ? `하락 방지 성공 — ${GUARD.name}으로 ${nm} +${cur} 을 지켰습니다(남은 ${h.bag.gd}장) ${tail}`
           : `강화 실패 — ${nm} +${cur} 그대로 ${tail}` });
   }
   if (op === "msell") {

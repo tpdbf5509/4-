@@ -16,6 +16,36 @@ import { cleanArmor, wornArmor } from "./armor.js";
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
 export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]));
 export const SKILL_BY_ID = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
+/* 스킬 칸 — 쓸 수 있는 스킬은 궁극기(큰 기술 · Shift) 하나, 직업 스킬 칸 하나(R), 일반 스킬 칸 둘(1 · 2), 무기 스킬 하나(X, 낀 전설 무기).
+   직업 · 일반 칸은 가방 "스킬" 탭에서 배운 액티브 스킬로 채운다(bag.ks = { job, g: [칸1, 칸2] }). 패시브는 칸 없이 늘 듣는다 */
+export const SKILL_SLOTS = { gen: 2 };
+const isJobActive = (s) => !!(s && s.use && s.job);
+const isGenActive = (s) => !!(s && s.use && !s.job);
+export const skillEquipped = (bag, id) => !!(bag && bag.ks && (bag.ks.job === id || bag.ks.g.includes(id)));
+// 칸 정리 — 배운 것만 · 맞는 종류만 · 일반 두 칸은 겹치지 않게. 옛 기록(칸이 없던 때)은 배운 것으로 앞에서부터 채운다
+function cleanKs(d, learned) {
+  const has = (id) => (learned[id] || 0) > 0;
+  if (!d || typeof d !== "object") {
+    const gen = SKILLS.filter((s) => isGenActive(s) && has(s.id)).sort((a, b) => a.use.key - b.use.key).map((s) => s.id);
+    const job = SKILLS.find((s) => isJobActive(s) && has(s.id));
+    return { job: job ? job.id : "", g: Array.from({ length: SKILL_SLOTS.gen }, (_, i) => gen[i] || "") };
+  }
+  const job = isJobActive(SKILL_BY_ID[d.job]) && has(d.job) ? d.job : "";
+  const g = Array.from({ length: SKILL_SLOTS.gen }, (_, i) => {
+    const id = Array.isArray(d.g) ? d.g[i] : "";
+    return isGenActive(SKILL_BY_ID[id]) && has(id) ? id : "";
+  });
+  if (g[0] && g[0] === g[1]) g[1] = "";
+  return { job, g };
+}
+// 새로 배운 액티브 스킬은 빈 칸이 있으면 바로 넣는다
+function autoSlot(bag, id) {
+  const s = SKILL_BY_ID[id];
+  if (!bag.ks) bag.ks = { job: "", g: ["", ""] };
+  if (skillEquipped(bag, id)) return;
+  if (isJobActive(s) && !bag.ks.job) bag.ks.job = id;
+  else if (isGenActive(s)) { const i = bag.ks.g.indexOf(""); if (i >= 0) bag.ks.g[i] = id; }
+}
 export const FAM_BY_ID = Object.fromEntries(SKILL_FAMS.map((f) => [f.id, f]));
 export const POTION_BY_ID = Object.fromEntries(POTIONS.map((p) => [p.id, p]));
 export const SPECIAL_BY_ID = Object.fromEntries(SPECIALS.map((sp) => [sp.id, sp]));
@@ -137,7 +167,7 @@ export function dealOf(lv, day = todayKey()) {
    p 물약 { id: 개수 } · qs 물약 칸 [물약 id 또는 ""] · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · wp 지역 워프권 남은 횟수 · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
    oc 는 직업과 다른 무기 정리를 마쳤는지(업데이트 뒤 처음 들어올 때 한 번, rpg.js rpgJoin)
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
-export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0, oc: 0 });
+export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0, oc: 0, ks: { job: "", g: ["", ""] } });
 export function cleanBag(d) {
   const b = newBag();
   if (!d || typeof d !== "object") return b;
@@ -182,6 +212,7 @@ export function cleanBag(d) {
   }
   b.v = Math.max(0, Math.floor(Number(d.v) || 0));
   b.oc = d.oc ? 1 : 0;
+  b.ks = cleanKs(d.ks, b.s);                      // 스킬 칸(직업 하나 · 일반 둘)
   b.pg = Array.isArray(d.pg) ? d.pg.filter((x) => typeof x === "string").slice(0, 50) : [];   // 받은 한 사람 선물 id(itemData.js PERSONAL_GIFTS)
   return b;
 }
@@ -553,6 +584,7 @@ export function rpgShop(g, pi, req) {
     const wasFull = h.hp >= h.max;
     h.coins -= nx.gold;
     h.bag.s[id] = nx.lv;
+    autoSlot(h.bag, id);                          // 빈 스킬 칸이 있으면 바로 넣는다
     bump(h);
     hpChanged(h, wasFull);
     const s = SKILL_BY_ID[id];
@@ -614,6 +646,27 @@ export function rpgShop(g, pi, req) {
   }
 
   // 물약 칸 — i 번째 칸에 물약을 넣거나(id) 뺀다(""). 어디서나 한다
+  // 스킬 칸 — req = { slot: "job" | 0 | 1, id } (빈 id 는 칸을 비운다). 일반 칸 둘에 같은 스킬은 못 넣는다(다른 칸에 있으면 자리를 바꾼다)
+  if (op === "kset") {
+    const id = String(req.id || ""), s = SKILL_BY_ID[id];
+    if (!h.bag.ks) h.bag.ks = { job: "", g: ["", ""] };
+    const ks = h.bag.ks;
+    if (id && !(h.bag.s[id] > 0)) return no(g, pi, ["배운 스킬만 넣을 수 있습니다"]);
+    if (req.slot === "job") {
+      if (id && (!isJobActive(s) || s.job !== h.job)) return no(g, pi, ["직업 칸에는 내 직업 스킬만 넣습니다"]);
+      ks.job = id;
+    } else {
+      const i = Math.floor(Number(req.slot));
+      if (!(i >= 0 && i < SKILL_SLOTS.gen)) return no(g, pi, ["잘못된 스킬 칸입니다"]);
+      if (id && !isGenActive(s)) return no(g, pi, ["일반 칸에는 일반 액티브 스킬만 넣습니다"]);
+      const other = ks.g.indexOf(id);
+      if (id && other >= 0 && other !== i) ks.g[other] = ks.g[i];   // 다른 칸에 있던 것과 자리를 바꾼다
+      ks.g[i] = id;
+    }
+    bump(h);
+    const where = req.slot === "job" ? "직업 칸" : `일반 칸 ${Number(req.slot) + 1}`;
+    return note(g, pi, { ok: true, msg: id ? `${jo(s.name, "을", "를")} ${where}에 넣었습니다` : `${where}을 비웠습니다` });
+  }
   if (op === "qset") {
     const i = Math.floor(Number(req.i)), id = String(req.id || "");
     if (!(i >= 0 && i < POTION.slots) || (id && !POTION_BY_ID[id])) return no(g, pi, ["잘못된 물약 칸입니다"]);

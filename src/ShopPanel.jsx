@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import sfx from "./game/sfx.js";
 import { STATS, statValue, MAPS, JOB_BY_ID } from "./game/rpg.js";
-import { JOB_KEYS, WEAPON_SKILLS } from "./game/skillData.js";
+import { WEAPON_SKILLS } from "./game/skillData.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
   CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD,
@@ -205,7 +205,7 @@ function SkillShop({ h, send }) {
               <>
                 {s.note}
                 {s.bonus && ` · 레벨마다 ${statDef(s.bonus.stat).name} +${statDef(s.bonus.stat).fmt(s.bonus.per)}`}
-                {s.use && ` · ${JOB_KEYS[s.use.key] ? `${JOB_KEYS[s.use.key]} 키` : `숫자키 ${s.use.key}`} · ${s.use.cd}초마다`}
+                {s.use && ` · ${s.job ? "직업 칸(R)" : "일반 칸(1 · 2)"}에 넣어 씁니다 · ${s.use.cd}초마다`}
                 {nx && <span className="shop-need">다음 Lv {nx.lv} — 레벨 {nx.needLv} · {nsd.name} {nsd.fmt(nx.need)}</span>}
               </>
             }
@@ -650,16 +650,49 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
           ))}
         </>
       )}
-      {tab === "skill" && (
-        <>
-          {!skills.length && <Empty>스킬 상점에서 배울 수 있습니다.</Empty>}
-          {skills.map((s) => (
-            <Item key={s.id} name={s.name}
-              meta={<span className="shop-meta"><span>{FAM_BY_ID[s.fam].name}</span><span>{s.kind === "active" ? "액티브" : "패시브"}</span><span>Lv {h.bag.s[s.id]}/{SKILL_BY_ID[s.id].gold.length}</span></span>}
-              desc={s.note} />
-          ))}
-        </>
-      )}
+      {tab === "skill" && (() => {
+        const ks = h.bag.ks || { job: "", g: ["", ""] };
+        const ws = w && w.sp && WEAPON_SKILLS[w.sp];
+        const slots = [
+          { k: "ult", key: "Shift", name: "궁극기", what: "큰 기술 — 직업 · 원소마다 정해져 있습니다" },
+          { k: "job", key: "R", name: "직업 스킬", id: ks.job },
+          { k: 0, key: "1", name: "일반 스킬 1", id: ks.g[0] },
+          { k: 1, key: "2", name: "일반 스킬 2", id: ks.g[1] },
+          { k: "wpn", key: "X", name: "무기 스킬", what: ws ? `${ws.name} — 낀 무기를 따릅니다` : "전설 무기를 끼면 생깁니다" },
+        ];
+        const set = (slot, id) => send({ op: "kset", slot, id });
+        return (
+          <>
+            <Head sub="쓸 수 있는 스킬은 이 다섯 칸뿐입니다 · 패시브는 칸 없이 늘 듣습니다">스킬 칸</Head>
+            <div className="shop-kslots">
+              {slots.map((q) => {
+                const s = q.id && SKILL_BY_ID[q.id];
+                return (
+                  <div key={q.k} className={`shop-kslot ${s || q.what ? "" : "empty"}`}>
+                    <kbd>{q.key}</kbd>
+                    <span>{q.name}<small>{s ? `${s.name} Lv ${h.bag.s[s.id]}` : q.what || "비어 있음"}</small></span>
+                    {s && <button type="button" className="shop-btn" onClick={() => set(q.k, "")}>빼기</button>}
+                  </div>
+                );
+              })}
+            </div>
+            <Head sub="배운 액티브 스킬을 칸에 넣습니다">배운 스킬</Head>
+            {!skills.length && <Empty>스킬 상점에서 배울 수 있습니다.</Empty>}
+            {skills.map((s) => {
+              const on = s.job ? ks.job === s.id : ks.g.indexOf(s.id);
+              const acts = !s.use ? [] : s.job
+                ? [on ? { label: "칸에 있음", why: ["이미 직업 칸에 있습니다"], quiet: true } : { label: "직업 칸에", main: true, onClick: () => set("job", s.id) }]
+                : [0, 1].map((i) => (on === i ? { label: `칸 ${i + 1} 사용 중`, why: ["이미 이 칸에 있습니다"], quiet: true }
+                  : { label: `칸 ${i + 1}에`, main: on < 0 && !ks.g[i], onClick: () => set(i, s.id) }));
+              return (
+                <Item key={s.id} name={s.name}
+                  meta={<span className="shop-meta"><span>{FAM_BY_ID[s.fam].name}</span><span>{s.kind === "active" ? "액티브" : "패시브"}</span><span>Lv {h.bag.s[s.id]}/{SKILL_BY_ID[s.id].gold.length}</span></span>}
+                  desc={s.note} acts={acts} />
+              );
+            })}
+          </>
+        );
+      })()}
     </Frame>
   );
 }

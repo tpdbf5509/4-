@@ -1546,6 +1546,16 @@ kbd {
 .shop-worn-slot span { display: flex; flex-direction: column; align-items: center; font-size: 13px; letter-spacing: -0.02em; }
 .shop-worn-slot small { font-size: 11px; color: var(--sh-faint); }
 .shop-worn-slot.empty span { color: var(--sh-faint); }
+/* 가방 스킬 칸 — 궁극기 · 직업 · 일반 둘 · 무기, 다섯 칸 */
+.shop-kslots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 10px 0 6px; }
+.shop-kslot { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 8px; border: 1px solid var(--sh-line); border-radius: 8px; min-width: 0; }
+.shop-kslot kbd { font-size: 11px; padding: 1px 6px; border: 1px solid var(--sh-line); border-radius: 4px; color: var(--sh-gold); }
+.shop-kslot span { display: flex; flex-direction: column; font-size: 13px; letter-spacing: -0.02em; min-width: 0; }
+.shop-kslot small { font-size: 11px; color: var(--sh-faint); overflow: hidden; text-overflow: ellipsis; }
+.shop-kslot.empty span { color: var(--sh-faint); }
+.shop-kslot.empty { border-style: dashed; }
+.shop-kslot .shop-btn { padding: 2px 8px; font-size: 11px; }
+@media (max-width: 600px) { .shop-kslots { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 /* 강화소 — 하락 방지권 쓰기 */
 .shop-guard { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; font-size: 13.5px; color: var(--sh-text); cursor: pointer; }
 .shop-guard input { accent-color: var(--sh-gold); }

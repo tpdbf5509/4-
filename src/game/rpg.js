@@ -8,7 +8,7 @@
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND } from "./shopData.js";
-import { newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
+import { skillEquipped, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
@@ -1651,7 +1651,7 @@ export function predictLunge(g, h, id) {
   const s = ACTIVE_SKILLS.find((q) => q.id === id);
   const L = s && s.use.lunge;
   const leap = s && s.use.kind === "leap";        // 후퇴 사격도 먼저 물러나 그린다
-  if ((!L && !leap) || !h || h.down > 0 || !(h.bag && h.bag.s[id] > 0) || (h.scd && h.scd[id] > 0) || MAPS[h.map].safe) return false;
+  if ((!L && !leap) || !h || h.down > 0 || !(h.bag && h.bag.s[id] > 0) || !skillEquipped(h.bag, id) || (h.scd && h.scd[id] > 0) || MAPS[h.map].safe) return false;
   const pvp = isPvp(h.map);
   if (pvp && h.dph !== 2) return false;
   if (leap) { lungeTo(h, leapSpot(g, h, s.use), s.use.time); h.predict = 0.6; return true; }
@@ -1692,6 +1692,7 @@ export function rpgUseSkill(g, pi, id) {
   const lv = (h.bag && h.bag.s[id]) || 0;
   const map = h.map;
   if (!lv) return say(g, map, h.x, h.y - 90, `${s.name} — 스킬 상점에서 배워야 합니다`, "#d9c9a6");
+  if (!skillEquipped(h.bag, id)) return say(g, map, h.x, h.y - 90, `${s.name} — 가방 스킬 칸에 넣어야 씁니다`, "#d9c9a6");
   h.scd = h.scd || {};
   if (h.scd[id] > 0) return say(g, map, h.x, h.y - 90, `${s.name} ${Math.ceil(h.scd[id])}초`, "#f0dcb4");
   const u = s.use;

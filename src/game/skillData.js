@@ -1,5 +1,5 @@
 /* ── RPG 직업 스킬 · 전설 무기 스킬 — 수치는 모두 여기 한 곳 ─────────────
-   직업 스킬은 스킬 상점 "직업" 탭에서 배운다(제 직업 것만). 키는 use5 · use6 · use7(기본 R · F · G).
+   직업 스킬은 스킬 상점 "직업" 탭에서 배운다(제 직업 것만). 가방 "스킬" 탭의 직업 칸(use5 · 기본 R) 하나에 넣어 쓴다(shop.js SKILL_SLOTS).
    무기 스킬은 전설 특별 무기(서리검 · 화염검 · 별의 검 · 암흑검 · 신성검)를 들면 쓴다. 키는 wskill(기본 X).
    피해는 SKILL_USE.base(shopData.js) × 스탯 배율 × mul. 규칙은 rpg.js(rpgUseSkill · rpgWeaponSkill · 무기 패시브),
    연출은 skillArt.js. */

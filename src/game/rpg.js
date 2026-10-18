@@ -820,6 +820,7 @@ export function rpgWalk(h, dt) {
   const len = Math.hypot(dx, dy);
   if (dx) h.dir = dx < 0 ? -1 : 1;
   h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
+  h.look = [dx / len, dy / len]; h.lookF = h.face;   // 마지막으로 걸은 쪽 — 키를 떼도 이쪽을 바라본다(aimDir)
   // 이속 물약 · 신발 — 방장과 손님이 같은 값(스냅샷의 물약 효과 · h.arm)으로 걷는다
   const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len));
   h.x += (dx / len) * v * dt;
@@ -1474,7 +1475,12 @@ export function aimDir(h) {
   (h.hold || []).forEach((d) => {
     if (d === "left") dx -= 1; else if (d === "right") dx += 1; else if (d === "up") dy -= 1; else if (d === "down") dy += 1;
   });
-  if (!dx && !dy) dx = h.dir || 1;
+  if (!dx && !dy) {
+    // 키를 뗐으면 마지막으로 걸은 쪽(위 · 아래 · 대각선도). 그 뒤 공격하며 몸을 돌렸으면(얼굴 · 좌우가 달라졌으면) 좌우로 바라보는 쪽
+    const L = h.look;
+    if (L && h.face === h.lookF && (!L[0] || (L[0] < 0 ? -1 : 1) === (h.dir || 1))) return [L[0], L[1]];
+    dx = h.dir || 1;
+  }
   const l = Math.hypot(dx, dy);
   return [dx / l, dy / l];
 }

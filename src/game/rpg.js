@@ -1994,7 +1994,7 @@ function tickZones(g, dt) {
 }
 
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
-const FIRE_SLASH = { life: 0.7, span: 3.4, size: [1.25, 1.05, 1.35, 1.15], tilt: [0.45, 0.85, 0.3, 0.65] };
+const FIRE_SLASH = { life: 0.4, span: 3.4, size: [1.25, 1.05, 1.35, 1.15], tilt: [0.45, 0.85, 0.3, 0.65] };   // life — 마지막 타 뒤 0.4초 만에 사라진다(기획 영상)
 // 무기 스킬 — X 키. 낀 전설 무기의 스킬을 쓴다
 export function rpgWeaponSkill(g, pi) {
   const h = g.heroes[pi];
@@ -2022,7 +2022,7 @@ export function rpgWeaponSkill(g, pi) {
         const L = FIRE_SLASH;
         fx(g, map, { kind: "sk_fireslash", x: h.x, y: h.y - 34, r: S.r * L.size[k % L.size.length], a: (k * 2.2) % (Math.PI * 2),
           tilt: L.tilt[k % L.tilt.length], a0: k * 1.7, span: L.span, dir: k % 2 ? -1 : 1, t: L.life, life: L.life, snd: k % 2 ? undefined : "slash" });
-        fx(g, map, { kind: "sk_blaze", x: h.x, y: h.y - 24, r: S.r * 0.8, t: 0.6, life: 0.6 });
+        fx(g, map, { kind: "sk_blaze", x: h.x, y: h.y - 24, r: S.r * 0.8, t: 0.4, life: 0.4 });
         g.shake = Math.max(g.shake, 0.18);
       });
     }

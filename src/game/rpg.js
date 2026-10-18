@@ -1993,6 +1993,8 @@ function tickZones(g, dt) {
   });
 }
 
+// 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
+const FIRE_SLASH = { life: 0.7, span: 3.4, size: [1.25, 1.05, 1.35, 1.15], tilt: [0.45, 0.85, 0.3, 0.65] };
 // 무기 스킬 — X 키. 낀 전설 무기의 스킬을 쓴다
 export function rpgWeaponSkill(g, pi) {
   const h = g.heroes[pi];
@@ -2016,9 +2018,12 @@ export function rpgWeaponSkill(g, pi) {
       later(g, (k * S.dur) / S.hits, () => {
         if (h.map !== map || h.down > 0) return;
         foesNear(g, h, h.x, h.y, S.r).forEach((o) => strikeAny(g, h, o, skillBase(h) * S.mul * burnBonus(h, o)));
-        const a = (k * 2.4) % (Math.PI * 2);
-        fx(g, map, { kind: "slash", x: h.x + Math.cos(a) * 40, y: h.y - 30 + Math.sin(a) * 18, a, color: "#ffb26a", t: 0.25, life: 0.25, snd: k % 2 ? undefined : "slash" });
-        fx(g, map, { kind: "firering", x: h.x, y: h.y - 4, r: S.r, t: 0.3, life: 0.3 });
+        // 불꽃 초승달 — 베는 방향 · 기울기 · 도는 쪽을 번갈아 바꿔 여러 겹이 휘몰아치게 한다
+        const L = FIRE_SLASH;
+        fx(g, map, { kind: "sk_fireslash", x: h.x, y: h.y - 34, r: S.r * L.size[k % L.size.length], a: (k * 2.2) % (Math.PI * 2),
+          tilt: L.tilt[k % L.tilt.length], a0: k * 1.7, span: L.span, dir: k % 2 ? -1 : 1, t: L.life, life: L.life, snd: k % 2 ? undefined : "slash" });
+        fx(g, map, { kind: "sk_blaze", x: h.x, y: h.y - 24, r: S.r * 0.8, t: 0.6, life: 0.6 });
+        g.shake = Math.max(g.shake, 0.18);
       });
     }
   } else if (sp === "star") {                     // 유성 낙하 — 별빛을 모두 써서 정한 곳에 떨어뜨린다

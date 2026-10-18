@@ -3636,8 +3636,8 @@ export function rpgApply(g, s) {
       h.x = row[0]; h.y = row[1]; h.hist = []; h.fixX = 0; h.fixY = 0;
     } else if (then) {
       const ex = row[0] - then.x, ey = row[1] - then.y, e = Math.hypot(ex, ey);
-      if (e > SYNC.jump) { shiftMe(h, ex, ey); h.fixX = 0; h.fixY = 0; }
-      else if (e > SYNC.fix) { h.fixX = ex; h.fixY = ey; }     // 나눠 옮긴다(rpgStepVisual)
+      if (e > SYNC.jump) { shiftMe(h, ex, ey); h.fixX = 0; h.fixY = 0; g.netFix = (g.netFix || 0) + 1; }
+      else if (e > SYNC.fix) { h.fixX = ex; h.fixY = ey; g.netFix = (g.netFix || 0) + 1; }     // 나눠 옮긴다(rpgStepVisual) · 고친 횟수는 연결 진단 칸에
       else { h.fixX = 0; h.fixY = 0; }
     } else if (mine && Math.hypot(row[0] - h.x, row[1] - h.y) > slack) {   // 옛 버전 방장 — 예전 방식
       h.x = row[0]; h.y = row[1]; h.hist = [];

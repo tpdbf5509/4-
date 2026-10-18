@@ -20,7 +20,10 @@ export default {
     if (url.pathname === "/health") return new Response("ok");
     // 방이 실제로 어디서 도는지 — 점검용(smoke.mjs)
     const w = url.pathname.match(/^\/where\/([A-Z0-9]+)$/);
-    if (w && known(w[1])) return roomOf(env, w[1]).fetch(new Request(`${url.origin}/where`));
+    if (w && known(w[1])) {                         // 화면의 연결 진단 칸도 묻는다(다른 주소라 CORS 를 연다)
+      const r = await roomOf(env, w[1]).fetch(new Request(`${url.origin}/where`));
+      return new Response(await r.text(), { headers: { "Access-Control-Allow-Origin": "*" } });
+    }
     // 방 자리 고르기 — 그 이름끝으로 방을 만들어(이미 있으면 그대로) 도는 곳을 알려 준다. 게임 방 이름끝에는 "p" 를 붙인 것만 받는다
     const pl = url.pathname.match(/^\/place\/([A-Z0-9]+)\/(p[0-9]{1,3})$/);
     if (pl && known(pl[1])) return roomOf(env, pl[1], pl[2]).fetch(new Request(`${url.origin}/where`));

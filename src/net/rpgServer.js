@@ -62,5 +62,6 @@ export function joinRpgServer(base, code, { id, onPeers, onStatus }) {
       handlers.clear();
     },
     viaServer: true,
+    httpBase: base.replace(/^ws/, "http"),            // 연결 진단 칸이 방 위치(/where)를 물을 때
   };
 }

@@ -74,6 +74,8 @@ const OUT_KEEP = 240;
 const RESEND_AFTER = 700;  // 방장이 내 입력을 이만큼(ms) 지나도 모르면 다시 보낸다 — 끊긴 사이 잃은 입력을 되살린다
 const STEP_MAX = 0.05;     // 한 번에 돌리는 판정 시간(초)
 const CATCH_UP = 0.25;     // 방장 화면이 잠깐 멈췄을 때 따라잡는 최대 시간(초)
+// 연결 진단 칸 — every 초마다 새로 · 스냅샷은 window 초 동안 · 왕복은 마지막 keep 번 · ping 초마다 잰다
+const NET_DIAG = { every: 1, window: 5, keep: 5, ping: 2 };
 const GUEST_CATCH_UP = 1;  // 손님 화면이 따라잡는 최대 시간(초) — 이보다 길게 멈췄으면(탭을 내렸다 올림) 서버 위치로 맞춘다
 const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.max(1, n)));
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
@@ -490,7 +492,35 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   // 서버 저장 — 코드를 정한 캐릭터만. 다른 기기가 나중에 들어오면 이 기기의 서버 저장을 멈추고 알린다
   const acctRef = useRef(null);                     // { name, tok }
   const [kicked, setKicked] = useState(false);
-  const [oldHost, setOldHost] = useState(false);    // 방장이 옛 버전 — 새 기능이 안 될 수 있다
+  const [oldHost, setOldHost] = useState(false);
+  // 연결 진단 칸 — 왕복 시간 · 스냅샷 간격 · 위치 고친 횟수 · 초당 프레임(NET_DIAG.every 초마다 새로)
+  const netRef = useRef({ rtt: [], snaps: [], frames: 0, fix0: 0 });
+  const [net, setNet] = useState(null);
+  useEffect(() => {
+    const t = setInterval(() => {
+      const n = netRef.current, g = G.current, now = performance.now();
+      n.snaps = n.snaps.filter((x) => now - x < NET_DIAG.window * 1000);
+      n.rtt = n.rtt.slice(-NET_DIAG.keep);
+      const gaps = n.snaps.slice(1).map((x, i) => x - n.snaps[i]);
+      const fix = (g.netFix || 0) - n.fix0;
+      n.fix0 = g.netFix || 0;
+      setNet({
+        mode: room && room.viaServer ? "새 서버" : isHost ? "예전 방식 · 내가 방장" : "예전 방식 · 손님",
+        rtt: n.rtt.length ? Math.round(n.rtt.reduce((a, b) => a + b, 0) / n.rtt.length) : null,
+        rttMax: n.rtt.length ? Math.round(Math.max(...n.rtt)) : null,
+        hz: Math.round((n.snaps.length / NET_DIAG.window) * 10) / 10,
+        gapMax: gaps.length ? Math.round(Math.max(...gaps)) : null,
+        fix, fps: Math.round(n.frames / NET_DIAG.every),
+      });
+      n.frames = 0;
+    }, NET_DIAG.every * 1000);
+    return () => clearInterval(t);
+  }, [room, isHost]);
+  const [where, setWhere] = useState("");          // 전용 서버 방이 도는 곳(Cloudflare 데이터센터)
+  useEffect(() => {
+    if (!room || !room.viaServer || !room.httpBase) return;
+    fetch(`${room.httpBase}/where/${room.code}`).then((r) => r.text()).then((t) => setWhere(t.slice(0, 8))).catch(() => {});
+  }, [room]);    // 방장이 옛 버전 — 새 기능이 안 될 수 있다
   useEffect(() => {
     const c = loadChar();
     acctRef.current = c && c.linked && c.tok ? { name: c.name, tok: c.tok } : null;
@@ -748,6 +778,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       let snapFrom = "", snapQ = 0;                 // 마지막으로 반영한 스냅샷 — 방장이 바뀌면 처음부터 센다
       offs.push(room.on("rsnap", (d, from) => {
         last = Date.now();
+        netRef.current.snaps.push(performance.now());   // 연결 진단 — 스냅샷 간격
         const g = G.current;
         if (from !== snapFrom) { snapFrom = from; snapQ = 0; }
         const stale = d.q && d.q <= snapQ;          // 늦게 도착한 옛 스냅샷 — 상태는 버리고 연출만 쓴다
@@ -767,6 +798,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       }));
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));   // 옛 버전 방장은 연출을 따로 보낸다
       // 전용 서버 — 다른 기기가 이 캐릭터로 나중에 들어왔다. 서버는 이 기기의 저장을 멈췄다
+      // 연결 진단 — 전용 서버와 2초마다 왕복 시간을 잰다
+      if (room.viaServer) {
+        offs.push(room.on("pong", (d) => { if (d && d.t) netRef.current.rtt.push(performance.now() - d.t); }));
+        const ping = setInterval(() => room.send("ping", { t: performance.now() }), NET_DIAG.ping * 1000);
+        offs.push(() => clearInterval(ping));
+      }
       offs.push(room.on("kick", () => { acctRef.current = null; setAccount({ tok: "" }); setKicked(true); }));
       const watch = setInterval(() => setDropped(Date.now() - last > 6000), 2000);
       offs.push(() => clearInterval(watch));
@@ -839,6 +876,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 내 시계가 실제보다 뒤처져, 서버 위치와 견주는 때가 어긋나 걷다가 뒤로 당겨졌다(느린 기기 · 스킬 연출이 많을 때)
         for (let left = Math.min(real, GUEST_CATCH_UP); left > 0; left -= STEP_MAX) rpgStepVisual(g, Math.min(left, STEP_MAX));
       }
+      netRef.current.frames += 1;
       playSounds(g);
       tickBossBars(g, now / 1000);
       drawRpg(ctx, g, bgsRef.current);
@@ -1606,6 +1644,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {oldHost && (
             <div className="drop-note">
               판정을 맡은 사람의 게임이 옛 버전이라 새 기능(멧돼지 사냥터 · 무기 구매 등)이 안 될 수 있습니다. 그 사람이 새로 고침하면 해결됩니다.
+            </div>
+          )}
+          {net && (
+            <div className="rpg-net" aria-label="연결 진단">
+              <b>{net.mode}{where ? ` · ${where}` : ""}</b>
+              <span>왕복 {net.rtt === null ? "—" : `${net.rtt}ms (최대 ${net.rttMax})`}</span>
+              <span>스냅샷 초당 {net.hz} · 최대 간격 {net.gapMax === null ? "—" : `${net.gapMax}ms`}</span>
+              <span>위치 고침 {net.fix}번/초 · 화면 {net.fps}fps</span>
             </div>
           )}
           {kicked && (

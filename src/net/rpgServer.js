@@ -4,7 +4,8 @@
 
    어느 서버로 붙을지 — 주소 ?srv=cf 로 켜고 ?srv=off 로 끈다(이 기기에 기억한다).
    개발 중 ?srv=local 이면 내 컴퓨터의 서버(wrangler dev, 127.0.0.1:8787)로 붙는다 */
-const SRV_URL = import.meta.env.VITE_RPG_SERVER || "";   // 배포된 서버 주소(wss://…) — Vercel 환경 변수로 넣는다
+// 배포된 서버 주소 — Cloudflare 워커 이름(server/wrangler.toml name) + 계정의 workers.dev 주소. 바꿀 때는 Vercel 환경 변수 VITE_RPG_SERVER 로 덮어쓴다
+const SRV_URL = import.meta.env.VITE_RPG_SERVER || "wss://four-lane-rpg.four-lane.workers.dev";
 const LOCAL_URL = "ws://127.0.0.1:8787";
 const PICK_KEY = "flg:srv";
 const RETRY = [0.5, 1, 2, 4];   // 다시 붙는 간격(초) — 끝까지 가면 마지막 값으로 계속

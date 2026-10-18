@@ -22,7 +22,7 @@
   - push 하면 `four-lane` 에 자동 배포된다. 보통 1~3분 안에 READY.
   - Vercel MCP `list_deployments` 는 **projectId 만** 넘긴다. teamId 를 넣으면 403 이 난다.
 - RPG 모드는 **다른 세션이 다른 브랜치(`claude/funny-fermat-*`)에서 만들고 PR 로 이 브랜치에 합친다.** 그래서 push 가 거절되면 `git fetch origin <브랜치>` 후 merge 하고(리베이스 · 강제 push 금지) 다시 빌드 · 확인 후 push 한다.
-- **RPG 전용 서버**(`server/`, Cloudflare Workers + Durable Objects, 이름 `four-lane-rpg`)는 GitHub Actions(`.github/workflows/rpg-server.yml`)가 push 때 배포한다. 저장소 비밀값: `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_ACCOUNT_ID` · `SUPABASE_SECRET_KEY`. 화면은 Vercel 환경 변수 `VITE_RPG_SERVER`(wss://…)로 서버 주소를 안다. 내 컴퓨터 시험은 `cd server && npx wrangler dev --port 8787` + 화면 주소 `?srv=local`(저장 시험은 `server/.dev.vars` 에 가짜 저장소 주소).
+- **RPG 전용 서버**(`server/`, Cloudflare Workers + Durable Objects, 이름 `four-lane-rpg`)는 GitHub Actions(`.github/workflows/rpg-server.yml`)가 push 때 배포한다. 저장소 비밀값: `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_ACCOUNT_ID` · `SUPABASE_SECRET_KEY`. 서버 주소는 `wss://four-lane-rpg.four-lane.workers.dev`(rpgServer.js `SRV_URL`, Vercel 환경 변수 `VITE_RPG_SERVER` 로 덮어쓸 수 있다). 내 컴퓨터 시험은 `cd server && npx wrangler dev --port 8787` + 화면 주소 `?srv=local`(저장 시험은 `server/.dev.vars` 에 가짜 저장소 주소).
 - 사용자가 요청하지 않으면 PR 을 만들지 않는다.
 - 커밋 메시지는 한국어 한 줄, "무엇을 어떻게 한다" 꼴. 예: `궁수탑 4단계 공격력을 55% 낮추고 강화 비용을 260으로 올린다`
 

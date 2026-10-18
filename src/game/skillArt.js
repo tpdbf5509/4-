@@ -38,8 +38,7 @@ function drawFireSlash(ctx, f, p, time) {
   ctx.scale(1, f.tilt || 0.6);
   ctx.lineCap = "butt";                           // 마디가 겹쳐 구슬처럼 보이지 않게
   // 겉 불 — 진한 붉은 주황(덧칠하지 않고 색을 지킨다) → 안쪽은 빛을 더해 달아오르게
-  // 빛깔은 기획 그림(화염 회오리)에서 뽑았다 — 몸은 짙은 적갈색, 붉은 주황 결, 밝은 주황 · 노란 줄은 가늘게만
-  const passes = [[FIRE_COL.dark, 1, 0.8, 0], [FIRE_COL.brown, 0.8, 0.85, 0], [FIRE_COL.red, 0.52, 0.85, 0], [FIRE_COL.orange, 0.24, 0.55, 1], [FIRE_COL.yellow, 0.08, 0.7, 1]];
+  const passes = [["170,35,12", 1, 0.5, 0], ["235,85,20", 0.72, 0.7, 0], ["255,140,40", 0.42, 0.55, 1], ["255,215,120", 0.16, 0.75, 1]];
   passes.forEach(([rgb, wk, al, glow]) => {
     ctx.globalCompositeOperation = glow ? "lighter" : "source-over";
     for (let i = 0; i < N; i++) {
@@ -54,8 +53,8 @@ function drawFireSlash(ctx, f, p, time) {
   });
   // 바깥 가장자리의 밝은 선 — 칼날이 지나간 자리
   ctx.globalCompositeOperation = "lighter";
-  ctx.strokeStyle = `rgba(${FIRE_COL.white},${0.4 * fade})`;
-  ctx.lineWidth = Math.max(1, W * 0.04);
+  ctx.strokeStyle = `rgba(255,236,170,${0.6 * fade})`;
+  ctx.lineWidth = Math.max(1, W * 0.06);
   ctx.beginPath();
   ctx.arc(0, 0, R + W * 0.32, Math.min(arcAt(0.15), arcAt(1)), Math.max(arcAt(0.15), arcAt(1)));
   ctx.stroke();
@@ -70,40 +69,43 @@ function drawFireSlash(ctx, f, p, time) {
     const x = Math.cos(a) * d, y = Math.sin(a) * d, r = W * 0.42 * flick * taperOf(t) * fade;
     if (r <= 0.8) continue;
     const gl = ctx.createRadialGradient(x, y, 0, x, y, r);
-    gl.addColorStop(0, `rgba(${FIRE_COL.red},${0.6 * fade})`);
-    gl.addColorStop(0.6, `rgba(${FIRE_COL.brown},${0.45 * fade})`);
-    gl.addColorStop(1, `rgba(${FIRE_COL.dark},0)`);
-    ctx.globalCompositeOperation = "source-over";
+    gl.addColorStop(0, `rgba(255,170,60,${0.55 * fade})`);
+    gl.addColorStop(0.6, `rgba(230,70,20,${0.35 * fade})`);
+    gl.addColorStop(1, "rgba(160,30,10,0)");
+    ctx.globalCompositeOperation = i % 3 ? "source-over" : "lighter";
     ctx.fillStyle = gl;
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
 }
-// 화염 빛깔 — 기획 그림에서 밝기별로 뽑은 값(어두운 쪽이 대부분)
-const FIRE_COL = { dark: "84,22,17", brown: "132,53,32", red: "209,82,37", orange: "246,134,59", yellow: "250,201,115", white: "251,243,194" };
 
-// 베인 자리 — 가운데서 불길이 터지고 불티가 흩어진다
+// 베인 자리 — 가운데서 불길이 터지고 그을음 조각과 불티가 흩어진다
 function drawBlaze(ctx, f, p) {
   const fade = 1 - p;
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   const gl = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, f.r * (0.6 + p * 0.5));
-  gl.addColorStop(0, `rgba(${FIRE_COL.yellow},${0.6 * fade})`);
-  gl.addColorStop(0.35, `rgba(${FIRE_COL.red},${0.5 * fade})`);
-  gl.addColorStop(1, `rgba(${FIRE_COL.dark},0)`);
+  gl.addColorStop(0, `rgba(255,230,150,${0.8 * fade})`);
+  gl.addColorStop(0.5, `rgba(255,120,30,${0.5 * fade})`);
+  gl.addColorStop(1, "rgba(180,40,10,0)");
   ctx.fillStyle = gl;
   ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.6 + p * 0.5), f.r * (0.6 + p * 0.5) * 0.75, 0, 0, Math.PI * 2); ctx.fill();
   for (let i = 0; i < 9; i++) {                   // 불길 덩어리 — 밖으로 퍼지며 위로 오른다
     const a = i * 0.7 + f.x * 0.01, d = f.r * (0.2 + p * 0.9) * (0.6 + (i % 3) * 0.2);
     const x = f.x + Math.cos(a) * d, y = f.y + Math.sin(a) * d * 0.6 - p * 26, r = f.r * 0.22 * fade;
     const g2 = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g2.addColorStop(0, `rgba(${FIRE_COL.red},${0.75 * fade})`);
-    g2.addColorStop(1, `rgba(${FIRE_COL.dark},0)`);
+    g2.addColorStop(0, `rgba(255,170,60,${0.8 * fade})`);
+    g2.addColorStop(1, "rgba(200,50,10,0)");
     ctx.fillStyle = g2;
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalCompositeOperation = "source-over";
-  ctx.fillStyle = `rgba(${FIRE_COL.orange},${fade})`;
+  for (let i = 0; i < 10; i++) {                  // 그을음 조각
+    const a = i * 2.39 + f.y * 0.01, d = f.r * (0.15 + p * 1.1) * (0.5 + ((i * 37) % 50) / 100);
+    ctx.fillStyle = `rgba(40,18,10,${0.8 * fade})`;
+    ctx.fillRect(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.6 - p * 10, 3, 2);
+  }
+  ctx.fillStyle = `rgba(255,236,170,${fade})`;
   for (let i = 0; i < 8; i++) {                   // 불티
     const a = i * 0.8 + 0.4, d = f.r * (0.3 + p * 1.3);
     ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.6 - p * 30, 1.6, 0, Math.PI * 2); ctx.fill();

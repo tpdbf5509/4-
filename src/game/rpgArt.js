@@ -9,7 +9,7 @@ import {
 import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
-import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX } from "./skillArt.js";
+import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -1813,8 +1813,34 @@ function follow(g, M) {
   return g.cam;
 }
 
+/* 연출 덜어내기 — 여러 사람이 스킬을 몰아 쓰면 그리기가 무거워져 화면이 끊긴다.
+   ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
+   ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
+const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
+  cap: { sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
+const lod = { at: 0, ms: 16, q: 1 };
+function stepLod() {
+  const now = performance.now(), d = lod.at ? Math.min(100, now - lod.at) : 16;
+  lod.at = now;
+  lod.ms += (d - lod.ms) * FX_LOD.ease;
+  const q = lod.ms > FX_LOD.slow ? FX_LOD.low : lod.ms < FX_LOD.fast ? 1 : lod.q;
+  if (q !== lod.q) { lod.q = q; setFxQuality(q); }
+}
+// 그릴 스킬 연출 — 종류마다 최근 것부터 cap 개까지
+function pickSkillFx(list) {
+  const seen = {}, keep = new Set();
+  for (let i = list.length - 1; i >= 0; i--) {
+    const f = list[i], cap = FX_LOD.cap[f.kind];
+    if (!cap) { keep.add(f); continue; }
+    const n = (seen[f.kind] = (seen[f.kind] || 0) + 1);
+    if (n <= (lod.q < 1 ? Math.ceil(cap / 2) : cap)) keep.add(f);
+  }
+  return keep;
+}
+
 export function drawRpg(ctx, g, bgs) {
   fxWarmUp();
+  stepLod();
   const time = g.t;
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
   const M = MAPS[me ? me.map : "plaza"];
@@ -1868,7 +1894,10 @@ export function drawRpg(ctx, g, bgs) {
 
   const here = (f) => !f.map || f.map === M.id;
   g.fx.forEach((f) => { if (here(f) && f.kind === "art" && !(FX_ART[f.art] || {}).over) drawFx(ctx, f); });
-  g.fx.forEach((f) => { if (here(f) && GROUND_FX.has(f.kind)) drawSkillFx(ctx, f, time, g); });   // 빙판길 · 잔화 · 균열 — 땅에 깔린다
+  // 스킬 연출 — 화면 안 · 종류마다 최근 것만(FX_LOD)
+  const fxSeen = (f) => inView(f.x, f.y, 320) || (f.x1 !== undefined && inView(f.x1, f.y1, 320));
+  const skFx = pickSkillFx(g.fx.filter((f) => here(f) && f.kind.startsWith("sk_") && fxSeen(f)));
+  g.fx.forEach((f) => { if (skFx.has(f) && GROUND_FX.has(f.kind)) drawSkillFx(ctx, f, time, g); });   // 빙판길 · 잔화 · 균열 — 땅에 깔린다
 
   // 앞뒤로 겹치게 — 위에 선 것부터 그린다
   const order = [];
@@ -1905,7 +1934,7 @@ export function drawRpg(ctx, g, bgs) {
   if (M.dungeon) drawDungeonDark(ctx, me, cam);
   g.fx.forEach((f) => {
     if (!here(f) || GROUND_FX.has(f.kind)) return;
-    if (f.kind.startsWith("sk_")) drawSkillFx(ctx, f, time, g);   // 직업 · 무기 스킬 연출(skillArt.js)
+    if (f.kind.startsWith("sk_")) { if (skFx.has(f)) drawSkillFx(ctx, f, time, g); }   // 직업 · 무기 스킬 연출(skillArt.js)
     else if (f.kind !== "art" || (FX_ART[f.art] || {}).over) drawFx(ctx, f);
   });
   ctx.globalAlpha = 1;

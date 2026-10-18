@@ -67,6 +67,9 @@ const nextSeq = () => ++sendSeq;
 const BUFF_SHOW = [["str", "힘의 물약"], ["int", "지혜의 물약"], ["crit", "집중의 물약"], ["spd", "이속 물약"], ["hide", "투명화"]];
 const ARMOR_SHOW = [["cht", "신발 추격"], ["cri", "갑옷 위기 방어"], ["revCd", "부활 대기"]];
 const fmtLeft = (t) => { const n = Math.ceil(t); return n >= 60 ? `${Math.floor(n / 60)}:${String(n % 60).padStart(2, "0")}` : `${n}초`; };   // 2:00 · 59초
+// 스냅샷 한 통에 싣는 연출 수 · 밀려도 남겨 두는 수 — 여럿이 스킬을 몰아 쓰면 한 통에 60개를 넘어 연출이 늦게 보였다
+const OUT_PER_SNAP = 120;
+const OUT_KEEP = 240;
 const RESEND_AFTER = 700;  // 방장이 내 입력을 이만큼(ms) 지나도 모르면 다시 보낸다 — 끊긴 사이 잃은 입력을 되살린다
 const STEP_MAX = 0.05;     // 한 번에 돌리는 판정 시간(초)
 const CATCH_UP = 0.25;     // 방장 화면이 잠깐 멈췄을 때 따라잡는 최대 시간(초)
@@ -843,8 +846,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           const snap = rpgPack(g);
           snap.q = nextSeq();                       // 손님은 이 번호보다 작은 스냅샷이 늦게 오면 버린다
           if (g.out.length) {
-            snap.o = g.out.splice(0, 60);
-            if (g.out.length > 150) g.out.length = 0;
+            snap.o = g.out.splice(0, OUT_PER_SNAP);
+            if (g.out.length > OUT_KEEP) g.out.splice(0, g.out.length - OUT_KEEP);   // 너무 밀리면 오래된 것부터 버린다(새 연출은 남긴다)
           }
           room?.send("rsnap", snap);
         }

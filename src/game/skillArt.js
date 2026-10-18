@@ -6,6 +6,39 @@ import { WEAPON_SKILLS } from "./skillData.js";
 import { heldSpecial, RPG } from "./rpg.js";
 
 const SQ = () => RPG.squash;
+/* 연출 품질 — 프레임이 무거우면 rpgArt.js 가 낮춘다(1 가득 · FX_LOW 덜 그림). 알갱이 · 마디 수에 곱한다 */
+let Q = 1;
+export const setFxQuality = (q) => { Q = q; };
+const nq = (n) => Math.max(1, Math.round(n * Q));
+/* 둥근 빛 — 그라데이션을 그릴 때마다 만들지 않고 빛깔마다 한 번 그려 둔 그림(64px)을 늘려 찍는다.
+   빛깔 가짓수가 GLOW_MAX 를 넘으면(투명도를 매번 바꿔 넣는 곳) 예전처럼 바로 그린다 */
+const GLOW = new Map(), GLOW_MAX = 256, GLOW_PX = 64;
+function glowSprite(inner, mid, outer) {
+  const key = `${inner}|${mid}|${outer}`;
+  let c = GLOW.get(key);
+  if (c || GLOW.size >= GLOW_MAX || typeof document === "undefined") return c || null;
+  c = document.createElement("canvas");
+  c.width = c.height = GLOW_PX;
+  const x = c.getContext("2d"), h = GLOW_PX / 2, gl = x.createRadialGradient(h, h, 0, h, h, h);
+  gl.addColorStop(0, inner);
+  if (mid) gl.addColorStop(mid[0], mid[1]);
+  gl.addColorStop(1, outer);
+  x.fillStyle = gl;
+  x.fillRect(0, 0, GLOW_PX, GLOW_PX);
+  GLOW.set(key, c);
+  return c;
+}
+function glowAt(ctx, x, y, r, inner, outer, mid) {
+  if (!(r > 0)) return;
+  const c = glowSprite(inner, mid, outer);
+  if (c) { ctx.drawImage(c, x - r, y - r, r * 2, r * 2); return; }
+  const gl = ctx.createRadialGradient(x, y, 0, x, y, r);
+  gl.addColorStop(0, inner);
+  if (mid) gl.addColorStop(mid[0], mid[1]);
+  gl.addColorStop(1, outer);
+  ctx.fillStyle = gl;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
 
 export function drawSkillFx(ctx, f, time, g) {
   if (!Number.isFinite(f.x) || !Number.isFinite(f.y)) return;
@@ -40,7 +73,7 @@ export const GROUND_FX = new Set(["sk_ice", "sk_ember", "sk_rift"]);
    겉은 붉은 불, 가운데는 주황, 안쪽 심지는 노란 흰빛. 바깥 가장자리에 불길이 일렁인다 */
 function drawFireSlash(ctx, f, p, time) {
   const grow = Math.min(1, p / (f.grow || 0.3)), fade = p < 0.45 ? 1 : Math.max(0, 1 - (p - 0.45) / 0.55);
-  const span = f.span * grow, R = f.r, dir = f.dir || 1, N = 48;
+  const span = f.span * grow, R = f.r, dir = f.dir || 1, N = nq(48);
   const W = R * 0.55 * (0.75 + 0.25 * fade);         // 가장 굵은 곳의 두께
   const turn = dir * (f.spin || 0) * p;              // 그은 뒤에도 베는 쪽으로 계속 휘돌아 간다
   const arcAt = (t) => f.a0 + turn + dir * span * t;
@@ -72,8 +105,9 @@ function drawFireSlash(ctx, f, p, time) {
   ctx.arc(0, 0, R + W * 0.32, Math.min(arcAt(0.15), arcAt(1)), Math.max(arcAt(0.15), arcAt(1)));
   ctx.stroke();
   // 불길 — 초승달을 따라 안팎으로 일렁이는 불꽃 덩어리
-  for (let i = 0; i < 22; i++) {
-    const t = (i + 0.5) / 22;
+  const tips = nq(22);
+  for (let i = 0; i < tips; i++) {
+    const t = (i + 0.5) / tips;
     if (t > grow) break;
     const a = arcAt(t);
     const flick = 0.55 + 0.45 * Math.sin(time * 22 + i * 2.3 + f.a0);
@@ -81,14 +115,11 @@ function drawFireSlash(ctx, f, p, time) {
     const d = R + side * W * (0.35 + 0.35 * flick) * taperOf(t);
     const x = Math.cos(a) * d, y = Math.sin(a) * d, r = W * 0.42 * flick * taperOf(t) * fade;
     if (r <= 0.8) continue;
-    const gl = ctx.createRadialGradient(x, y, 0, x, y, r);
-    gl.addColorStop(0, `rgba(255,170,60,${0.55 * fade})`);
-    gl.addColorStop(0.6, `rgba(230,70,20,${0.35 * fade})`);
-    gl.addColorStop(1, "rgba(160,30,10,0)");
     ctx.globalCompositeOperation = i % 3 ? "source-over" : "lighter";
-    ctx.fillStyle = gl;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = fade;                       // 빛깔은 그려 둔 그림 · 옅어지는 것은 투명도로
+    glowAt(ctx, x, y, r, "rgba(255,170,60,0.55)", "rgba(160,30,10,0)", [0.6, "rgba(230,70,20,0.35)"]);
   }
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -103,23 +134,21 @@ function drawBlaze(ctx, f, p) {
   gl.addColorStop(1, "rgba(180,40,10,0)");
   ctx.fillStyle = gl;
   ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.6 + p * 0.5), f.r * (0.6 + p * 0.5) * 0.75, 0, 0, Math.PI * 2); ctx.fill();
-  for (let i = 0; i < 9; i++) {                   // 불길 덩어리 — 밖으로 퍼지며 위로 오른다
+  ctx.globalAlpha = fade;
+  for (let i = 0, n = nq(9); i < n; i++) {        // 불길 덩어리 — 밖으로 퍼지며 위로 오른다
     const a = i * 0.7 + f.x * 0.01, d = f.r * (0.2 + p * 0.9) * (0.6 + (i % 3) * 0.2);
     const x = f.x + Math.cos(a) * d, y = f.y + Math.sin(a) * d * 0.6 - p * 26, r = f.r * 0.22 * fade;
-    const g2 = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g2.addColorStop(0, `rgba(255,170,60,${0.8 * fade})`);
-    g2.addColorStop(1, "rgba(200,50,10,0)");
-    ctx.fillStyle = g2;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    glowAt(ctx, x, y, r, "rgba(255,170,60,0.8)", "rgba(200,50,10,0)");
   }
+  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
-  for (let i = 0; i < 10; i++) {                  // 그을음 조각
+  for (let i = 0, n = nq(10); i < n; i++) {       // 그을음 조각
     const a = i * 2.39 + f.y * 0.01, d = f.r * (0.15 + p * 1.1) * (0.5 + ((i * 37) % 50) / 100);
     ctx.fillStyle = `rgba(40,18,10,${0.8 * fade})`;
     ctx.fillRect(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.6 - p * 10, 3, 2);
   }
   ctx.fillStyle = `rgba(255,236,170,${fade})`;
-  for (let i = 0; i < 8; i++) {                   // 불티
+  for (let i = 0, n = nq(8); i < n; i++) {        // 불티
     const a = i * 0.8 + 0.4, d = f.r * (0.3 + p * 1.3);
     ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.6 - p * 30, 1.6, 0, Math.PI * 2); ctx.fill();
   }
@@ -331,7 +360,7 @@ function drawIceSpikes(ctx, f, p) {
   ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * 1.2, f.r * 1.2 * SQ(), 0, 0, Math.PI * 2); ctx.fill();
   ctx.globalCompositeOperation = "source-over";
   const spikes = [];
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0, n = nq(22); i < n; i++) {
     const a = i * 2.39, d = f.r * (0.15 + 0.85 * (((i * 53) % 100) / 100));
     spikes.push({ x: f.x + Math.cos(a) * d, y: f.y + Math.sin(a) * d * SQ(), h: 34 + ((i * 31) % 44), w: 10 + (i % 3) * 5, lean: Math.cos(a) * 0.35 });
   }
@@ -350,7 +379,7 @@ function drawIceSpikes(ctx, f, p) {
     ctx.fill(); ctx.stroke();
   });
   ctx.fillStyle = "rgba(240,250,255,0.9)";        // 튀는 얼음 조각
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0, n = nq(12); i < n; i++) {
     const a = i * 0.52, d = f.r * (0.2 + p * 1.2);
     ctx.globalAlpha = Math.max(0, 1 - p * 1.6);
     const x = f.x + Math.cos(a) * d, y = f.y + Math.sin(a) * d * SQ() - Math.sin(p * Math.PI) * 30;
@@ -472,8 +501,8 @@ function drawHalo(ctx, f, p, time) {
     const a = time * 1.6 + (i / 6) * Math.PI * 2, x = f.x + Math.cos(a) * r, y = f.y + Math.sin(a) * r * SQ() - 6;
     ctx.fillRect(x - 1.5, y - 7, 3, 14); ctx.fillRect(x - 5, y - 3, 10, 3);
   }
-  for (let i = 0; i < 12; i++) {                  // 오르는 빛 알갱이
-    const u = (i / 12 + p * 1.5) % 1, a = i * 2.39;
+  for (let i = 0, n = nq(12); i < n; i++) {       // 오르는 빛 알갱이
+    const u = (i / n + p * 1.5) % 1, a = i * 2.39;
     ctx.globalAlpha = fade * Math.sin(u * Math.PI);
     ctx.beginPath(); ctx.arc(f.x + Math.cos(a) * r * 0.8, f.y + Math.sin(a) * r * 0.8 * SQ() - u * 120, 2, 0, Math.PI * 2); ctx.fill();
   }
@@ -561,12 +590,7 @@ function drawThunder(ctx, f, p, time) {
 /* ── 연계 · 투사체 무기 스킬 연출 (암흑검 · 신성검 · 지팡이 넷 · 활 넷) ───────────── */
 const TAU = Math.PI * 2;
 const hashOf = (s) => { let h = 0; for (const ch of String(s || "")) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; };
-const glow = (ctx, x, y, r, inner, outer) => {
-  const gl = ctx.createRadialGradient(x, y, 0, x, y, r);
-  gl.addColorStop(0, inner); gl.addColorStop(1, outer);
-  ctx.fillStyle = gl;
-  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-};
+const glow = (ctx, x, y, r, inner, outer) => glowAt(ctx, x, y, r, inner, outer);
 // 투사체 빛깔 — 겉 · 속 · 꼬리
 const MISSILE = {
   zap: { a: "rgba(150,190,255,", b: "#f4f8ff", tail: 70, r: 15 },
@@ -744,8 +768,8 @@ function drawFlamer(ctx, f, p, time, g) {
   const a = Math.atan2(f.ay * SQ(), f.ax), fade = p > 0.9 ? (1 - p) / 0.1 : Math.min(1, p / 0.06);
   ctx.save();
   ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = fade;
-  for (let i = 0; i < 26; i++) {                  // 불덩이가 흘러간다 — 멀수록 크고 옅다
-    const k = (time * 2.6 + i / 26) % 1, spread = (Math.sin(i * 12.9898) * 0.5) * 2 * f.half * k;
+  for (let i = 0, n = nq(26); i < n; i++) {       // 불덩이가 흘러간다 — 멀수록 크고 옅다
+    const k = (time * 2.6 + i / n) % 1, spread = (Math.sin(i * 12.9898) * 0.5) * 2 * f.half * k;
     const d = f.len * k, x = ox + Math.cos(a + spread) * d, y = oy + Math.sin(a + spread) * d * 0.8;
     const r = 8 + 26 * k;
     glow(ctx, x, y, r, k < 0.3 ? "rgba(255,245,200,0.9)" : "rgba(255,150,50,0.7)", "rgba(200,40,10,0)");
@@ -808,8 +832,8 @@ function drawComboHero(ctx, h, time) {
     ctx.globalAlpha = 0.55;
     glow(ctx, hx, (y0 + y1) / 2, 46, "rgba(40,0,60,0.75)", "rgba(20,0,30,0)");   // 칼을 덮는 어둠
     for (let s2 = 0; s2 < 2; s2++) {
-      for (let i = 0; i < 14; i++) {
-        const u = i / 13, a = time * 7 + u * 9 + s2 * Math.PI;
+      for (let i = 0, n = nq(14); i < n; i++) {
+        const u = i / Math.max(1, n - 1), a = time * 7 + u * 9 + s2 * Math.PI;
         const x = hx + Math.cos(a) * (10 + 6 * u), y = y0 + (y1 - y0) * u + Math.sin(a) * 4;
         ctx.globalAlpha = 0.85 * (1 - u * 0.5);
         glow(ctx, x, y, 11 - u * 4, "rgba(30,0,45,0.95)", "rgba(30,0,45,0)");

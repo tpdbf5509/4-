@@ -754,8 +754,11 @@ export function rpgStat(g, pi, add) {
 }
 
 /* ── 연출 — 어느 맵에서 일어났는지 함께 적는다 ─────────────── */
+// 연출 숫자는 소수 둘째 자리까지만 — 스냅샷에 실려 가는 글자 수를 줄인다(그림에는 차이가 없다)
+const FX_ROUND = 100;
 export function fx(g, map, item) {
-  const it = { ...item, map };
+  const it = { map };
+  for (const k in item) { const v = item[k]; it[k] = typeof v === "number" ? Math.round(v * FX_ROUND) / FX_ROUND : v; }
   if (it.kind === "cut") g.fx = g.fx.filter((f) => f.fid !== it.ref);   // 맞은 투사체 그림을 지운다
   else g.fx.push(it);
   if (g.out) g.out.push({ k: "fx", ...it });

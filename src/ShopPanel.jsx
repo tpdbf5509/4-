@@ -493,8 +493,10 @@ function Forge({ h, send, note, setQuiet }) {
                   {enhDown(next) > 0 && <span>실패 때 하락 <b>{enhDown(next)}%</b></span>}
                   <span>비용 <Price n={enhFee(w)} /></span>
                 </div>}
-                {stage.phase === "done" && <p className={`forge-msg ${stage.kind}`}>{stage.msg}</p>}
-                {why.length > 0 && !busy && <p className="shop-why">{why.join(" · ")}</p>}
+                {/* 결과 · 막힌 이유는 늘 같은 자리 한 칸 — 생겼다 사라지며 높이가 바뀌지 않게 */}
+                <p className={`forge-msg ${stage.phase === "done" ? stage.kind : why.length && !busy ? "why" : ""}`}>
+                  {stage.phase === "done" ? stage.msg : why.length && !busy ? why.join(" · ") : ""}
+                </p>
                 <button type="button" className="shop-btn main forge-btn" disabled={busy || top || why.length > 0} onClick={forge}>
                   {stage.phase === "forge" ? "강화하는 중…" : top ? `+${ENHANCE.max} 최고 단계` : `+${next} 강화`}
                 </button>
@@ -579,7 +581,7 @@ function ScrollShop({ h, send }) {
 const BODIES = { scroll: ScrollShop, weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge };
 
 // 창의 틀 — 머리(이름 · 한 줄 · 코인 · 닫기) · 결과 한 줄 · 내용
-function Frame({ title, sub, coins, admin, note, onClose, children }) {
+function Frame({ title, sub, coins, admin, note, quiet, onClose, children }) {
   return (
     <>
       <div className="rpg-menu-back" onClick={onClose} />
@@ -592,7 +594,8 @@ function Frame({ title, sub, coins, admin, note, onClose, children }) {
           <span className="shop-coins"><Coin />{admin ? "무제한" : won(coins)}</span>
           <button type="button" className="shop-x" aria-label="닫기" onClick={onClose}>×</button>
         </div>
-        {note && <p className={`shop-result ${note.ok ? "ok" : "no"}`} key={note.at}>{note.msg}</p>}
+        {/* 강화 망치질 중(quiet)에는 글만 숨기고 자리는 남긴다 — 줄이 사라졌다 나타나며 창이 위아래로 흔들리지 않게 */}
+        {note && <p className={`shop-result ${note.ok ? "ok" : "no"} ${quiet ? "hold" : ""}`} key={quiet ? "hold" : note.at}>{note.msg}</p>}
         <div className="shop-body">{children}</div>
       </div>
     </>
@@ -604,7 +607,7 @@ export function ShopPanel({ shop, h, send, note, onClose }) {
   const Body = BODIES[s.id];
   const [quiet, setQuiet] = useState(false);          // 강화 망치질 중에는 결과 줄을 숨긴다(연출이 끝날 때 보인다)
   return (
-    <Frame title={s.name} sub={`${s.keeper} · ${s.line}`} coins={h.coins} admin={h.admin} note={quiet ? null : note} onClose={onClose}>
+    <Frame title={s.name} sub={`${s.keeper} · ${s.line}`} coins={h.coins} admin={h.admin} note={note} quiet={quiet} onClose={onClose}>
       <Body h={h} send={send} note={note} setQuiet={setQuiet} />
     </Frame>
   );

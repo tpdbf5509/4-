@@ -6,6 +6,11 @@ export const RPG_NOTICE = { id: "2026-10-71", notes: ["2026-10-71", "2026-10-70"
 
 export const UPDATES = [
   {
+    id: "2026-10-72",
+    date: "10월 18일",
+    items: ["강화할 때마다 강화소 창이 위아래로 흔들리던 문제를 고쳤습니다."],
+  },
+  {
     id: "2026-10-71",
     date: "10월 18일",
     items: [

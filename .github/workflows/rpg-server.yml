@@ -32,3 +32,5 @@ jobs:
         run: npx wrangler deploy
       - name: 저장소 비밀 키 넣기
         run: printf '%s' "$SUPABASE_SECRET_KEY" | npx wrangler secret put SUPABASE_SECRET_KEY
+      - name: 배포 확인(health · 접속 · 저장소)
+        run: sleep 5 && node smoke.mjs

@@ -53,7 +53,9 @@ export const WEAPON_SKILLS = {
   star: {
     name: "유성 낙하", role: "마력 충전과 폭발",
     passive: { name: "별의 축적", note: "맞힐 때마다 별빛 1 · 최대 999", max: 999 },
-    skill: { note: "별빛을 모두 써서 유성을 떨어뜨린다 · 많이 모을수록 넓고 세다(10 이상)", cd: 10, min: 10, reach: 360, r0: 90, rPer: 0.14, rMax: 260, mul0: 1.5, mulPer: 0.012, mulMax: 13 },
+    skill: { note: "별빛을 모두 써서 유성 여러 개를 흩뿌린다 · 많이 모을수록 넓고 많고 세다(10 이상)", cd: 10, min: 10, reach: 360, r0: 90, rPer: 0.14, rMax: 260, mul0: 1.5, mulPer: 0.012, mulMax: 13,
+      // 유성 수 = n0 + 별빛 nPer 마다 1(최대 nMax) · 하나는 넓이 rEach 배 · 피해 each 배(겹쳐 맞으면 더 아프다) · gap 초마다 하나씩
+      n0: 3, nPer: 100, nMax: 9, rEach: 0.5, each: 0.5, gap: 0.12 },
     note: "모든 원소가 충전한다 · 원소 효과는 없고 마법력과 충전량으로 셈한다",
   },
   shadow: {

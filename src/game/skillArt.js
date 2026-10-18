@@ -20,10 +20,11 @@ export function drawSkillFx(ctx, f, time) {
 /* 화염베기 — 커다란 불꽃 초승달. 앞 35% 동안 휘어 나가며 그어지고(머리가 가장 굵다), 뒤로 가늘어지며 사라진다.
    겉은 붉은 불, 가운데는 주황, 안쪽 심지는 노란 흰빛. 바깥 가장자리에 불길이 일렁인다 */
 function drawFireSlash(ctx, f, p, time) {
-  const grow = Math.min(1, p / 0.3), fade = p < 0.45 ? 1 : Math.max(0, 1 - (p - 0.45) / 0.55);
+  const grow = Math.min(1, p / (f.grow || 0.3)), fade = p < 0.45 ? 1 : Math.max(0, 1 - (p - 0.45) / 0.55);
   const span = f.span * grow, R = f.r, dir = f.dir || 1, N = 48;
   const W = R * 0.55 * (0.75 + 0.25 * fade);         // 가장 굵은 곳의 두께
-  const arcAt = (t) => f.a0 + dir * span * t;
+  const turn = dir * (f.spin || 0) * p;              // 그은 뒤에도 베는 쪽으로 계속 휘돌아 간다
+  const arcAt = (t) => f.a0 + turn + dir * span * t;
   const taperOf = (t) => Math.sin(Math.PI * Math.min(1, t * 0.8 + 0.12)) * (0.3 + 0.7 * t);   // 꼬리는 가늘고 머리 쪽이 굵다
   ctx.save();
   ctx.translate(f.x, f.y);

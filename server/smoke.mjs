@@ -1,14 +1,14 @@
 /* 배포 뒤 확인 — GitHub Actions 가 돌린다(node 22 의 WebSocket).
-   ① /health ② RPG5 에 붙어 대기실(lobby)을 받는다 ③ 없는 계정으로 자리를 부탁해 deny 를 받는다
+   ① /health ② 점검 방(CHECK)에 붙어 대기실(lobby)을 받는다 ③ 없는 계정으로 자리를 부탁해 deny 를 받는다
    ③이 오면 서버가 Supabase 에 비밀 키로 닿았다는 뜻이다(키가 틀리면 저장소에 닿지 못해 아무 답이 없다) */
 const BASE = process.argv[2] || "https://four-lane-rpg.four-lane.workers.dev";
 const fail = (m) => { console.error("실패:", m); process.exit(1); };
 const health = await fetch(`${BASE}/health`).then((r) => r.text()).catch((e) => String(e));
 if (health !== "ok") fail(`health ${health}`);
 console.log("① health ok");
-// 방이 도는 곳 — 아시아(서울 ICN · 도쿄 NRT · 홍콩 HKG 등)여야 한국에서 빠르다. 처음 부르면 그곳에 방이 생긴다
-for (const sv of ["RPG1", "RPG2", "RPG3", "RPG4", "RPG5"]) console.log(`   ${sv} 방 위치:`, await fetch(`${BASE}/where/${sv}`).then((r) => r.text()).catch(() => "?"));
-const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/rpg/RPG5?id=smoke${Date.now()}`);
+// 게임 방(RPG1~5)은 건드리지 않는다 — 처음 부른 곳 가까이에 방이 생기므로 한국 사람이 먼저 만들게 둔다. 점검은 CHECK 방으로
+console.log("   점검 방 위치:", await fetch(`${BASE}/where/CHECK`).then((r) => r.text()).catch(() => "?"));
+const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/rpg/CHECK?id=smoke${Date.now()}`);
 const got = new Set();
 const done = new Promise((resolve) => {
   ws.onmessage = (e) => {

@@ -4,7 +4,10 @@
 import { RPG_SERVERS } from "../../src/game/rpg.js";
 export { RpgRoom } from "./room.js";
 
-const ROOM = { gen: "a1", hint: "apac" };   // 방을 옮겨야 하면 gen 을 바꾼다(그 서버의 방이 새로 생긴다 — 사람이 없을 때 배포)
+const ROOM = { gen: "a2", hint: "apac" };   // 방을 옮겨야 하면 gen 을 바꾼다(그 서버의 방이 새로 생긴다 — 사람이 없을 때 배포)
+// 배포 점검(smoke.mjs)만 쓰는 방 — 게임 방(RPG1~5)을 미국의 점검 기계가 먼저 만들지 않게 따로 둔다
+const CHECK = "CHECK";
+const known = (name) => RPG_SERVERS.includes(name) || name === CHECK;
 
 const roomOf = (env, name) => env.RPG_ROOM.get(env.RPG_ROOM.idFromName(`${name}@${ROOM.gen}`), { locationHint: ROOM.hint });
 
@@ -14,9 +17,9 @@ export default {
     if (url.pathname === "/health") return new Response("ok");
     // 방이 실제로 어디서 도는지 — 점검용(smoke.mjs)
     const w = url.pathname.match(/^\/where\/([A-Z0-9]+)$/);
-    if (w && RPG_SERVERS.includes(w[1])) return roomOf(env, w[1]).fetch(new Request(`${url.origin}/where`));
+    if (w && known(w[1])) return roomOf(env, w[1]).fetch(new Request(`${url.origin}/where`));
     const m = url.pathname.match(/^\/rpg\/([A-Z0-9]+)$/);
-    if (!m || !RPG_SERVERS.includes(m[1])) return new Response("not found", { status: 404 });
+    if (!m || !known(m[1])) return new Response("not found", { status: 404 });
     if (req.headers.get("Upgrade") !== "websocket") return new Response("websocket only", { status: 426 });
     return roomOf(env, m[1]).fetch(req);
   },

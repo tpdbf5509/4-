@@ -19,15 +19,22 @@ import { TRAIN, TRAIN_TOGGLES } from "./game/trainData.js";
 function weaponHud(me) {
   const sp = heldSpecial(me), W = WEAPON_SKILLS[sp];
   if (!W) return null;
-  const w = me.ws || {};
-  const stack = sp === "flame" ? `불똥 ${w.emb || 0}`
+  const w = me.ws || {}, c = w.cmb, jb = me.jb || {};
+  // 연계 중이면 다음 입력을 알려 준다(단계는 rpg.js w.cmb)
+  const next = !c ? ""
+    : sp === "shadow" ? (c.st === 2 ? "2타 ▶" : c.st === 3 ? "마무리 ▶" : "")
+    : sp === "holy" ? (c.st === 1 ? "반격 자세" : c.st === 2 ? "X 내려치기 · 평타 밀기" : "")
+    : sp === "star_bow" ? (c.st === 1 ? "조준 중 ▶" : "")
+    : sp === "lava_bow" ? (c.st === 2 ? "관통 ▶" : "")
+    : sp === "gold_bow" ? (c.st === 2 ? "전진 ▶" : c.st === 3 ? "부채꼴 ▶" : "")
+    : sp === "galaxy_staff" ? (c.st === 2 ? "균열 ▶" : "") : "";
+  const stack = next || (sp === "flame" ? `불똥 ${w.emb || 0}`
     : sp === "star" ? `별빛 ${w.star || 0}`
-    : sp === "shadow" ? `분노 ${Math.floor(w.rage || 0)}/${W.passive.max}`
-    : sp === "holy" ? `수호 ${Math.round(w.holy || 0)}%`
-    : sp === "thunder_staff" ? `집중 ${w.foc || 0}/${W.passive.max}`
-    : sp === "galaxy_staff" ? `주문 ${w.spell || 0}/${W.passive.max}`
-    : sp === "holy_staff" ? (w.ward ? "결계 중" : `장벽 ${w.hitN || 0}/${W.passive.hits}`)
-    : W.passive.name;
+    : sp === "thunder_staff" ? `전류 ${w.zap || 0}/${W.passive.max}`
+    : sp === "holy_staff" ? `보호막 ${me.max ? Math.round(((jb.sh || 0) / me.max) * 100) : 0}%`
+    : sp === "lava_bow" ? `표식 ${w.mark || 0}/${W.passive.max}`
+    : sp === "star_bow" ? `조준 ${w.aim || 0}/${W.passive.max}`
+    : W.passive.name);
   return { name: W.name, cd: w.wcd || 0, max: W.skill.cd, stack };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
@@ -872,8 +879,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             // 직업 스킬 · 신성검 — 철벽 · 마나 보호막 · 성광 반격
             ...(me.jb && me.jb.iron > 0 ? [{ k: "iron", name: "철벽", t: me.jb.iron }] : []),
             ...(me.jb && me.jb.shT > 0 && me.jb.sh > 0 ? [{ k: "msh", name: `보호막 ${Math.round(me.jb.sh)}`, t: me.jb.shT }] : []),
-            ...(me.ws && me.ws.ctr > 0 ? [{ k: "ctr", name: "성광 반격", t: me.ws.ctr }] : []),
-            ...(me.ws && me.ws.ward > 0 && me.jb && me.jb.shT > 0 ? [{ k: "ward", name: "신성한 결계", t: me.jb.shT }] : [])],
+            ...(me.ws && me.ws.cmb && me.ws.cmb.t > 0 ? [{ k: "cmb", name: "연계 입력", t: me.ws.cmb.t }] : [])],
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
           wsk: weaponHud(me),
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해

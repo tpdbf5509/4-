@@ -13,7 +13,7 @@ import {
 import {
   SHOP_BY_ID, POTION_BY_ID, FAM_BY_ID, SKILL_BY_ID, todayKey, usedToday, tierOf, weaponName,
   weaponLine, weaponArt, specOf, specialTier, specialPrice, specialsFor, sellPrice, dealOf, equipped,
-  skillNext, extraStat, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
+  skillNext, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
   whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount, whyScrollBuy, whyWarp,
   whyGuardBuy, whyArmorWear, whyArmorSell, whyArmorGive,
 } from "./game/shop.js";
@@ -561,39 +561,16 @@ export function ShopPanel({ shop, h, send, note, onClose }) {
 }
 
 /* ── 가방 — 어디서나 연다. 능력치 · 무기 장착 · 물약 마시기 · 배운 스킬 ── */
-export function BagPanel({ h, send, note, onClose, tab0 = "stat" }) {
-  const [tab, setTab] = useState(tab0);
+export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
+  const [tab, setTab] = useState(tab0 === "stat" ? "weapon" : tab0);   // 능력치 탭은 뺐다(스탯 창에서 본다)
   const qs = h.bag.qs || [];
   const w = equipped(h.bag);
   const potions = POTIONS.filter((p) => h.bag.p[p.id] > 0);
   const skills = SKILLS.filter((s) => h.bag.s[s.id] > 0);
   const mats = MATERIALS.filter((m) => matCount(h.bag, m.id) > 0);
   return (
-    <Frame title="가방" sub="장비 · 스킬 · 버프로 오른 몫은 + 로 따로 보입니다." coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
-      <Tabs on={tab} set={setTab} tabs={[["stat", "능력치"], ["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length]]} />
-      {tab === "stat" && (
-        <div className="shop-stats">
-          {STATS.map((t) => {
-            const base = statValue(t.id, h.st[t.id]);
-            const add = extraStat(h, t.id);
-            const buff = h.bf && h.bf[t.id];
-            return (
-              <div key={t.id} className="shop-stat">
-                <span>{t.name}{buff && <small>버프 {Math.ceil(buff.t)}초</small>}</span>
-                <b>{t.fmt(base + add)}</b>
-                <em>{add > 0 ? `${t.fmt(base)} + ${t.fmt(add)}` : ""}</em>
-              </div>
-            );
-          })}
-          {[["spd", "이동 속도"], ["hide", "투명화"]].map(([k, name]) => (h.bf && h.bf[k] && h.bf[k].t > 0 ? (
-            <div key={k} className="shop-stat">
-              <span>{name}<small>물약 {Math.ceil(h.bf[k].t)}초</small></span>
-              <b>{k === "spd" ? `+${Math.round(h.bf[k].a * 100)}%` : "켜짐"}</b>
-              <em />
-            </div>
-          ) : null))}
-        </div>
-      )}
+    <Frame title="가방" sub="무기 · 방어구 · 물약 · 재료 · 주문서 · 스킬" coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
+      <Tabs on={tab} set={setTab} tabs={[["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length]]} />
       {tab === "weapon" && (
         <>
           <Head sub={`${h.bag.w.length}/${WEAPON.bagMax} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>

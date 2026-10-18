@@ -389,7 +389,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [plan, setPlan] = useState(noStats);        // 스탯 창에서 적용하기 전에 올려 둔 포인트
   const [shopOpen, setShopOpen] = useState(null);   // 열어 둔 상점 id
   const [bagOpen, setBagOpen] = useState(false);    // 가방 창
-  const [bagTab, setBagTab] = useState("stat");     // 가방 창을 열 때 처음 보일 탭
+  const [bagTab, setBagTab] = useState("weapon");     // 가방 창을 열 때 처음 보일 탭
   const [note, setNote] = useState(null);           // 상점 결과 한 줄 — 내 것만
   const shopRef = useRef(null);                     // 루프가 보는 열린 상점
   const [titleOpen, setTitleOpen] = useState(false); // 칭호 창
@@ -1395,7 +1395,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <ShopPanel shop={shopOpen} h={me.self} send={sendShop} note={note} onClose={() => setShopOpen(null)} />
           )}
           {me && bagOpen && (
-            <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} onClose={() => { setBagOpen(false); setBagTab("stat"); }} />
+            <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} onClose={() => { setBagOpen(false); setBagTab("weapon"); }} />
           )}
           {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !reqOpen
             && (me.quest.on || inField || Object.keys(me.self.reqs).length > 0) && (

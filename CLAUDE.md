@@ -22,6 +22,7 @@
   - push 하면 `four-lane` 에 자동 배포된다. 보통 1~3분 안에 READY.
   - Vercel MCP `list_deployments` 는 **projectId 만** 넘긴다. teamId 를 넣으면 403 이 난다.
 - RPG 모드는 **다른 세션이 다른 브랜치(`claude/funny-fermat-*`)에서 만들고 PR 로 이 브랜치에 합친다.** 그래서 push 가 거절되면 `git fetch origin <브랜치>` 후 merge 하고(리베이스 · 강제 push 금지) 다시 빌드 · 확인 후 push 한다.
+- **RPG 전용 서버**(`server/`, Cloudflare Workers + Durable Objects, 이름 `four-lane-rpg`)는 GitHub Actions(`.github/workflows/rpg-server.yml`)가 push 때 배포한다. 저장소 비밀값: `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_ACCOUNT_ID` · `SUPABASE_SECRET_KEY`. 화면은 Vercel 환경 변수 `VITE_RPG_SERVER`(wss://…)로 서버 주소를 안다. 내 컴퓨터 시험은 `cd server && npx wrangler dev --port 8787` + 화면 주소 `?srv=local`(저장 시험은 `server/.dev.vars` 에 가짜 저장소 주소).
 - 사용자가 요청하지 않으면 PR 을 만들지 않는다.
 - 커밋 메시지는 한국어 한 줄, "무엇을 어떻게 한다" 꼴. 예: `궁수탑 4단계 공격력을 55% 낮추고 강화 비용을 260으로 올린다`
 
@@ -40,6 +41,7 @@
 |---|---|
 | 화면 | React 19 + Vite 8. 판은 `<canvas>` 에 직접 그린다 |
 | 실시간 | Supabase Realtime 채널 1개 = 방 1개(`flg:<코드>`). presence + broadcast. DB 테이블은 `feedback`(의견)과 `rpg_chars` · `rpg_fails`(RPG 캐릭터 서버 저장, `supabase/rpg.sql`) |
+| RPG 전용 서버 | **이전 중.** `?srv=cf` 를 켠 기기는 방장 없이 `server/`(Cloudflare)에 붙는다. 서버가 예전 방장 노릇(자리 · 판정 · 스냅샷 · 채팅 중계 · 캐릭터 불러오기/저장)을 하고, 화면은 손님 경로를 그대로 쓴다. 주고받는 말도 같다(lobby · rsnap · chat ↔ hello · pick · rjoin · input · chat, 서버만의 말: `deny` 입장권 틀림 · `kick` 다른 기기 · `bye` 나감) |
 | 판정 | **방장 권위형.** 방장 브라우저가 모든 규칙을 돌리고 손님은 입력만 보낸다. 방장이 스냅샷과 연출 이벤트(`out` fx)를 한 메시지로 뿌린다(방어전 초당 12회, RPG 는 인원에 따라 3~10회) |
 | 저장 | RPG 캐릭터는 이름 + 숫자 5자리 코드로 서버(Supabase 함수 `rpg_*`)와 localStorage 둘 다. 홈 이름 · 설정은 localStorage |
 | 소리 | 파일 없이 웹오디오 합성(`sfx.js`) |
@@ -66,6 +68,7 @@
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
 | `src/net/room.js` | Supabase 채널 연결 |
+| `src/net/rpgServer.js` · `server/` | RPG 전용 서버 연결(room.js 와 같은 모양) · 서버(`server/src/room.js` 가 RPG1~5 방 하나, `save.js` 가 Supabase `rpg_srv_load` · `rpg_srv_save` — 서버 비밀 키로만). 규칙은 `src/game/` 를 그대로 묶어 쓴다. 입력 나누기는 `src/game/rpgInput.js`(방장 화면과 서버가 같이 쓴다) |
 | `src/net/version.js` | 새 버전 알아채기. 빌드 번호(`__BUILD__`, `vite.config.js`)와 `dist/version.json` 을 견주어 옛 화면을 스스로 새로 고친다. RPG 스냅샷에 방장 빌드(`ver`)를 싣는다 |
 | `src/net/rpgSave.js` · `src/RpgAccount.jsx` | RPG 캐릭터 서버 저장(만들기 · 이어 하기 · 10초마다 저장 · 입장권)과 캐릭터 만들기 화면의 이름 · 코드 칸. 표와 함수는 `supabase/rpg.sql` |
 | `src/ui/style.css` | 모든 스타일 |

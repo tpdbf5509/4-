@@ -554,6 +554,21 @@ export function writeChar(d) {
     gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "" });
 }
 
+// 전용 서버가 저장할 기록 — 불러온 기록(base) 위에 지금 영웅 상태를 덮는다(writeChar 와 같은 칸). 레벨이 내려갔으면 null
+export function heroRecord(h, base, look) {
+  const b = base && typeof base === "object" ? base : {};
+  if (!h || !h.loaded) return null;
+  if (Math.floor(Number(h.lv) || 1) < Math.floor(Number(b.lv) || 1)) return null;
+  const { tok: _tok, linked: _linked, admin: _admin, ...rest } = b;
+  const bag = { ...h.bag };
+  delete bag.ld;
+  return { ...rest, v: 3, ...(look ? { name: look.name, job: look.job, elem: look.elem, gender: look.gender, picked: 1 } : {}),
+    lv: h.lv, xp: h.xp, coins: h.coins, quest: { on: !!h.quest.on, n: h.quest.n }, stats: { ...h.st }, bag,
+    rec: cleanRec(h.rec), titles: cleanTitles(h.titles), title: TITLE_BY_ID[h.title] ? h.title : "",
+    honor: Math.max(0, Math.floor(Number(h.honor) || 0)), reqs: cleanReqs(h.reqs),
+    gift: h.gift === GIFT.id ? GIFT.id : b.gift || "" };
+}
+
 /* ── 세계 ──────────────────────────────────────────────── */
 export function makeWorld() {
   const g = {
@@ -3545,7 +3560,7 @@ export function heldSpecial(h) {
 }
 
 /* ── 주고받기 ──────────────────────────────────────────── */
-const mapIdx = (id) => Math.max(0, MAP_IDS.indexOf(id));
+export const mapIdx = (id) => Math.max(0, MAP_IDS.indexOf(id));   // 스냅샷의 맵 차례 — 전용 서버가 사람마다 제 맵 몹만 골라 보낼 때도 쓴다
 // 누르고 있는 방향을 짧은 글자로 — 방장이 받은 입력을 손님이 견주어 보려고 스냅샷에 싣는다(순서는 상관없다)
 export const holdKey = (dirs) => (dirs || []).map((d) => d[0]).sort().join("");
 

@@ -148,6 +148,32 @@ revoke execute on function public.rpg_key(text), public.rpg_code_ok(text), publi
 grant execute on function public.rpg_name_free(text), public.rpg_create(text, text, jsonb),
   public.rpg_login(text, text), public.rpg_save(text, text, jsonb), public.rpg_delete(text, text) to anon, authenticated;
 
+-- RPG 전용 서버(server/, Cloudflare)만 부르는 불러오기 · 저장 — 서버 비밀 키(service_role)로만 부를 수 있다.
+-- 서버가 캐릭터를 직접 불러와 판정하고 저장하므로 브라우저가 기록을 고쳐 보낼 수 없다.
+create or replace function public.rpg_srv_load(p_name text, p_token text)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  v_char public.rpg_chars;
+begin
+  select * into v_char from public.rpg_chars
+  where name_key = public.rpg_key(p_name) and token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex');
+  if not found then return jsonb_build_object('ok', false, 'err', 'token'); end if;
+  return jsonb_build_object('ok', true, 'name', v_char.name, 'data', v_char.data, 'admin', v_char.admin);
+end $$;
+
+create or replace function public.rpg_srv_save(p_name text, p_token text, p_data jsonb)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if p_data is null or octet_length(p_data::text) > 30000 then return jsonb_build_object('ok', false, 'err', 'data'); end if;
+  update public.rpg_chars set data = p_data, updated_at = now()
+  where name_key = public.rpg_key(p_name) and token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex');
+  if not found then return jsonb_build_object('ok', false, 'err', 'token'); end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+revoke execute on function public.rpg_srv_load(text, text), public.rpg_srv_save(text, text, jsonb) from public, anon, authenticated;
+grant execute on function public.rpg_srv_load(text, text), public.rpg_srv_save(text, text, jsonb) to service_role;
+
 -- 관리자 캐릭터 만들기 — 대시보드 SQL Editor 에서 이름과 코드를 넣어 실행한다(코드는 저장소에 적지 않는다).
 -- 코드 규칙(rpg_code_ok)을 거치지 않으므로 쉬운 코드도 넣을 수 있다.
 -- insert into public.rpg_chars (name_key, name, code_hash, data, admin)

@@ -3,13 +3,14 @@ import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, freshInput, noteSent, aimDir, needXp, loadChar, saveLook, writeChar, deleteChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgTrain, trainView, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
   rpgDungeon, whyDungeon, dgNear, dgCrew, runOf,
   rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
+import { rpgInput } from "./game/rpgInput.js";
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
@@ -734,27 +735,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (!room) return;
     const offs = [];
     if (isHost) {
-      offs.push(room.on("input", (d) => {
-        const g = G.current;
-        if (!d || !g.heroes[d.cls]) return;
-        if (!freshInput(g.heroes[d.cls], d.kind, d.q, g.t)) return;   // 늦게 도착한 옛 누름 · 뗌은 버린다
-        if (d.kind === "hold") rpgHold(g, d.cls, d.dir);
-        else if (d.kind === "skill") rpgSkill(g, d.cls);
-        else if (d.kind === "wskill") rpgWeaponSkill(g, d.cls);
-        else if (d.kind === "talk") rpgTalk(g, d.cls);
-        else if (d.kind === "fire") rpgFire(g, d.cls, !!d.dir);
-        else if (d.kind === "auto") rpgAuto(g, d.cls, !!d.dir);
-        else if (d.kind === "stat") rpgStat(g, d.cls, d.dir);
-        else if (d.kind === "use") rpgUseSkill(g, d.cls, d.dir);
-        else if (d.kind === "dash") rpgDash(g, d.cls, d.dir);
-        else if (d.kind === "shop") rpgShop(g, d.cls, d.dir);
-        else if (d.kind === "party") rpgParty(g, d.cls, d.dir);
-        else if (d.kind === "title") rpgTitle(g, d.cls, d.dir);
-        else if (d.kind === "duel") rpgDuel(g, d.cls, d.dir);
-        else if (d.kind === "req") rpgRequest(g, d.cls, d.dir);
-        else if (d.kind === "dg") rpgDungeon(g, d.cls, d.dir);
-        else if (d.kind === "train") rpgTrain(g, d.cls, d.dir);
-      }));
+      offs.push(room.on("input", (d) => rpgInput(G.current, d)));   // 규칙에 넘기기는 서버와 같이 쓴다(rpgInput.js)
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
         // 보낸 사람 id(who)가 그 자리 주인과 같을 때만 싣는다 — 떠난 사람의 늦은 기록이 새 사람에게 실리지 않게
@@ -773,7 +754,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (!stale) rpgApply(g, d);
         if (d.o) rpgApplyOut(g, d.o);               // 연출은 스냅샷에 함께 온다
         if (stale) return;
-        if (d.ver !== verSeen) { verSeen = d.ver; setOldHost(compareBuild(d.ver)); }
+        if (d.ver !== verSeen) { verSeen = d.ver; setOldHost(d.ver === "srv" ? false : compareBuild(d.ver)); }   // 전용 서버는 화면과 함께 배포된다
         // 방장이 아는 내 입력이 내 키와 다르면(끊긴 사이 잃었다) 잠시 기다렸다가 다시 보낸다
         const h = g.heroes[mySeat];
         if (!h || !h.echo || !h.loaded || h.down > 0 || Date.now() - sentAt.current < RESEND_AFTER) return;
@@ -784,6 +765,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (h.echo.fire !== fire) room.send("input", { cls: mySeat, kind: "fire", dir: !!fire, q: nextSeq() });
       }));
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));   // 옛 버전 방장은 연출을 따로 보낸다
+      // 전용 서버 — 다른 기기가 이 캐릭터로 나중에 들어왔다. 서버는 이 기기의 저장을 멈췄다
+      offs.push(room.on("kick", () => { acctRef.current = null; setAccount({ tok: "" }); setKicked(true); }));
       const watch = setInterval(() => setDropped(Date.now() - last > 6000), 2000);
       offs.push(() => clearInterval(watch));
       // 내 기록을 방장에게 알린다 — 실렸다는 게 보일 때까지 다시 보낸다. 방장이 바뀌면(hostId) 새 방장에게 다시 보낸다
@@ -937,7 +920,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             saved = key;
             writeChar(me);
             const a = acctRef.current;
-            if (a) cloudQueue(a.name, a.tok, charRecord());
+            if (a && !(room && room.viaServer)) cloudQueue(a.name, a.tok, charRecord());   // 전용 서버면 서버가 저장한다
           }
         }
       }

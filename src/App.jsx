@@ -20,7 +20,14 @@ import { UPDATES } from "./game/updates.js";
 import { TOWER_INFO } from "./game/towerInfo.js";
 import { useTouch } from "./ui/touch.js";
 import RpgView, { RpgSetup } from "./RpgView.jsx";
-import { RPG_CREW_MAX, RPG_SERVERS, loadChar, cleanLook } from "./game/rpg.js";
+import { rpgServerUrl, joinRpgServer } from "./net/rpgServer.js";
+import { RPG_CREW_MAX, RPG_SERVERS, loadChar, cleanLook, setAccount } from "./game/rpg.js";
+
+// 자리 부탁 — 서버 계정(이름 + 입장권)이 있으면 함께 보낸다. 전용 서버는 이것으로 캐릭터를 직접 불러온다(옛 방장은 모른 체한다)
+function pickMsg(hero) {
+  const c = loadChar();
+  return c && c.linked && c.tok ? { hero, acct: { name: c.name, tok: c.tok } } : { hero };
+}
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
@@ -161,7 +168,9 @@ export default function App() {
       else publishLobby();
     };
 
-    const room = joinRoom(roomCode, {
+    // RPG 서버 — 전용 서버(server/)를 켠 기기는 방장 없이 서버에 붙는다(rpgServer.js). 서버가 방장 노릇을 한다
+    const srvBase = shared ? rpgServerUrl() : "";
+    const room = (srvBase ? (code, opts) => joinRpgServer(srvBase, code, opts) : joinRoom)(roomCode, {
       id: me,
       name: nick,
       onPeers: (peers) => {
@@ -209,7 +218,7 @@ export default function App() {
     const watch = setInterval(() => {
       if (roomRef.current !== room) return void clearInterval(watch);
       // 내 연결이 끊긴 사이에는 방장 소식이 안 들리는 게 당연하다 — 이때 이어받으면 방장이 둘이 된다
-      if (!auto || !subscribed || !live) return;
+      if (!auto || !subscribed || !live || room.viaServer) return;   // 전용 서버면 방장을 정하지 않는다
       if (hostRef.current) {
         // 살아 있다는 소식 (RPG 서버만) — 메시지 한도를 아끼려고 2초마다
         if (shared && lobbyRef.current && Date.now() - aliveAt >= HOST_ALIVE_MS) {
@@ -235,6 +244,11 @@ export default function App() {
     }, 500);
 
     room.on("hello", () => { if (hostRef.current) reseat(); });
+    // 전용 서버 — 입장권이 맞지 않는다(다른 기기가 나중에 들어왔다). 이 기기의 서버 저장을 멈추고 이 기기 기록으로 들어간다
+    room.on("deny", () => {
+      setAccount({ tok: "" });
+      setError("다른 기기에서 이 캐릭터로 들어왔습니다. 이 기기의 기록으로 들어갑니다. 서버에 이어 하려면 코드를 다시 넣어 주세요.");
+    });
     room.on("lobby", (d) => {
       gotLobby = true;
       heardAt = Date.now();
@@ -339,7 +353,7 @@ export default function App() {
   const pickRpg = useCallback((hero) => {
     if (!lobby) return;
     if (hostRef.current) seatRpg(me, hero);
-    else roomRef.current?.send("pick", { hero });
+    else roomRef.current?.send("pick", pickMsg(hero));
   }, [lobby, me, seatRpg]);
 
   // RPG 서버에 들어간다 — 방 코드 없이 모두 같은 서버에 모인다. 가득 차 있으면 다음 서버로 넘어간다.
@@ -364,7 +378,7 @@ export default function App() {
       else setError("모든 서버가 가득 찼습니다. 잠시 뒤 다시 들어와 주세요.");
       return;
     }
-    const ask = () => roomRef.current?.send("pick", { hero });
+    const ask = () => roomRef.current?.send("pick", pickMsg(hero));
     ask();
     const t = setInterval(ask, 1500);
     return () => clearInterval(t);

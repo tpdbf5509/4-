@@ -77,25 +77,12 @@ function drawFireSlash(ctx, f, p, time) {
     ctx.fillStyle = gl;
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
-  // 숯 조각 — 검붉은 돌덩이가 초승달 꼬리를 따라 바깥으로 튄다
-  ctx.globalCompositeOperation = "source-over";
-  for (let i = 0; i < 7; i++) {
-    const t = (i + 0.3) / 7;
-    if (t > grow) break;
-    const a = arcAt(t), d = R + W * (0.5 + ((i * 37) % 60) / 100) * (0.6 + p), r = W * (0.08 + (i % 3) * 0.03);
-    const x = Math.cos(a) * d, y = Math.sin(a) * d;
-    ctx.fillStyle = `rgba(${i % 2 ? "58,26,20" : FIRE_COL.dark},${0.9 * fade})`;
-    ctx.beginPath(); ctx.ellipse(x, y, r * 1.3, r, a, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = `rgba(${FIRE_COL.red},${0.7 * fade})`;   // 달아오른 테두리
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
   ctx.restore();
 }
 // 화염 빛깔 — 기획 그림에서 밝기별로 뽑은 값(어두운 쪽이 대부분)
 const FIRE_COL = { dark: "84,22,17", brown: "132,53,32", red: "209,82,37", orange: "246,134,59", yellow: "250,201,115", white: "251,243,194" };
 
-// 베인 자리 — 가운데서 불길이 터지고 그을음 조각과 불티가 흩어진다
+// 베인 자리 — 가운데서 불길이 터지고 불티가 흩어진다
 function drawBlaze(ctx, f, p) {
   const fade = 1 - p;
   ctx.save();
@@ -116,11 +103,6 @@ function drawBlaze(ctx, f, p) {
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalCompositeOperation = "source-over";
-  for (let i = 0; i < 10; i++) {                  // 그을음 조각
-    const a = i * 2.39 + f.y * 0.01, d = f.r * (0.15 + p * 1.1) * (0.5 + ((i * 37) % 50) / 100);
-    ctx.fillStyle = `rgba(${FIRE_COL.dark},${0.9 * fade})`;
-    ctx.beginPath(); ctx.ellipse(f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * 0.6 - p * 10, 4, 3, a, 0, Math.PI * 2); ctx.fill();
-  }
   ctx.fillStyle = `rgba(${FIRE_COL.orange},${fade})`;
   for (let i = 0; i < 8; i++) {                   // 불티
     const a = i * 0.8 + 0.4, d = f.r * (0.3 + p * 1.3);

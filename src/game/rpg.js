@@ -2499,13 +2499,18 @@ function lavaPierce(g, h, S, w) {
   g.shake = Math.max(g.shake, full ? 0.5 : 0.3);
   h.swing = 0.35;
 }
-/* 황금 날개 활 — 2 앞으로 나아가며 화살 · 3 부채꼴 화살. 방향은 처음 겨눈 쪽(c.ax · c.ay) */
+/* 황금 날개 활 — 2 앞으로 나아가며 화살 · 3 부채꼴 화살. 단계마다 사거리 안의 가장 가까운 적을 겨눈다(goldAim) */
 function goldArrow(g, h, S, ax, ay, mul, onHit, onMiss) {
   missile(g, h, { ax, ay, v: S.v, range: S.range, r: S.hitR, style: "gold", snd: "shot",
     hit: (o) => { strikeAny(g, h, o, skillBase(h) * mul); if (onHit) onHit(o); }, miss: onMiss });
 }
+// 황금 날개 활은 사거리(range) 안의 가장 가까운 적을 스스로 겨눈다 — 없으면 바라보는 쪽. 단계마다 다시 겨눈다
+function goldAim(g, h, S, c) {
+  [c.ax, c.ay] = aimTo(g, h, S.range);
+}
 function goldStep(g, h, S, c) {
   const w = wsOf(h);
+  goldAim(g, h, S, c);
   h.dvx = (c.ax * S.fwd) / 0.2; h.dvy = (c.ay * S.fwd) / 0.2; h.dash = 0.2;
   h.dir = c.ax < 0 ? -1 : c.ax > 0 ? 1 : h.dir;
   c.st = 0; c.t = S.range / S.v + S.gap;
@@ -2518,6 +2523,7 @@ function goldStep(g, h, S, c) {
 function goldFan(g, h, S, c) {
   const w = wsOf(h);
   w.cmb = null;
+  goldAim(g, h, S, c);
   const a0 = Math.atan2(c.ay, c.ax);
   for (let k = 0; k < S.fan; k++) {
     const a = a0 + (k / (S.fan - 1) - 0.5) * 2 * S.spread;
@@ -2630,7 +2636,7 @@ function rangedSkill(g, h, sp, S, w) {
     return true;
   }
   if (sp === "gold_bow") {                        // 비상 연계 1 — 뒤로 도약하며 앞으로 화살
-    const [ax, ay] = faceDir(h);
+    const [ax, ay] = aimTo(g, h, S.range);        // 사거리 안의 가장 가까운 적 — 없으면 바라보는 쪽
     const c = (w.cmb = { sp, st: 0, t: S.time + S.gap, el: 0, ax, ay, h1: 0, h2: 0 });
     h.dvx = (-ax * S.back) / S.time; h.dvy = (-ay * S.back) / S.time; h.dash = S.time;
     h.inv = Math.max(h.inv || 0, S.time);

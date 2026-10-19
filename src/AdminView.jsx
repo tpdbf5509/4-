@@ -3,13 +3,13 @@
    RPG 서버마다 방장 화면에 ADMIN.ping 초마다 묻고, 답으로 인원 · 방장 · 왕복 시간을 그린다.
    방장 부여 · 퇴장은 일회용 명령 표를 받아 그 서버의 방장 화면에 보낸다(src/net/admin.js) */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RPG_SERVERS } from "./game/rpg.js";
+import { RPG_SERVERS, JOB_BY_ID } from "./game/rpg.js";
 import { UPDATES } from "./game/updates.js";
 import { myId } from "./net/room.js";
-import { ADMIN, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
+import { ADMIN, adminAccounts, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
 import "./ui/admin.css";
 
-const TABS = [["people", "인원"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
+const TABS = [["people", "인원"], ["accounts", "계정"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
 const LOG_MAX = 300;                 // 로그에 남기는 줄 수(이 화면을 연 동안만)
 const BLOCKS_EVERY = 30;             // 로그 탭을 보는 동안 막힌 저장 기록을 다시 읽는 간격(초)
 const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀" };
@@ -228,6 +228,8 @@ function AdminBoard({ auth, onOut }) {
         </section>
       )}
 
+      {tab === "accounts" && <AccountsTab auth={auth} />}
+
       {tab === "log" && (
         <section className="adm-sec">
           <p className="adm-count">저장을 막은 기록<span>섞인 기록을 서버가 막았습니다. 그 사람은 코드를 다시 넣으면 서버 기록으로 이어 합니다</span></p>
@@ -314,5 +316,78 @@ function RttChart({ series, now }) {
         <circle cx={x(series[series.length - 1].t)} cy={y(series[series.length - 1].ms)} r="3.5" className="dot" />
       )}
     </svg>
+  );
+}
+
+// 계정 탭 — 서버에 저장된 모든 캐릭터. 코드 · 입장권은 서버가 보내지 않는다
+const ACC_PAGE = 20;                 // 한 쪽에 보이는 계정 수
+const ACC_SORT = [
+  ["saved", "최근 저장", (a, b) => Date.parse(b.saved) - Date.parse(a.saved)],
+  ["lv", "레벨", (a, b) => b.lv - a.lv],
+  ["coins", "코인", (a, b) => b.coins - a.coins],
+  ["honor", "명예", (a, b) => b.honor - a.honor],
+  ["made", "만든 날", (a, b) => Date.parse(b.made) - Date.parse(a.made)],
+];
+const day = (t) => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${clock(t).slice(0, 5)}`; };
+
+function AccountsTab({ auth }) {
+  const [list, setList] = useState(null);
+  const [err, setErr] = useState("");
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState("saved");
+  const [page, setPage] = useState(0);
+  const load = useCallback(async () => {
+    setErr("");
+    const r = await adminAccounts(auth.name, auth.code);
+    if (r && r.ok) setList(r.list);
+    else setErr(errOf(r));
+  }, [auth]);
+  useEffect(() => { load(); }, [load]);
+  const shown = useMemo(() => {
+    const k = q.trim().toLowerCase();
+    const by = (ACC_SORT.find((x) => x[0] === sort) || ACC_SORT[0])[2];
+    return (list || []).filter((a) => !k || a.name.toLowerCase().includes(k)).slice().sort(by);
+  }, [list, q, sort]);
+  const pages = Math.max(1, Math.ceil(shown.length / ACC_PAGE));
+  const pg = Math.min(page, pages - 1);
+  const live = (list || []).filter((a) => a.live).length;
+  return (
+    <section className="adm-sec">
+      <p className="adm-count">전체 계정: <b>{list ? list.length : "—"}개</b><span>지금 접속 중 {live}명</span></p>
+      <div className="adm-tools">
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="이름 찾기" maxLength={8} />
+        <select value={sort} onChange={(e) => { setSort(e.target.value); setPage(0); }}>
+          {ACC_SORT.map(([id, label]) => <option key={id} value={id}>{label} 순</option>)}
+        </select>
+        <button onClick={load}>새로 읽기</button>
+      </div>
+      {err && <p className="adm-err">{err}</p>}
+      {!list && !err && <p className="adm-empty">불러오는 중…</p>}
+      {list && (
+        <div className="adm-rows">
+          <div className="adm-row acc head"><span>이름</span><span>레벨</span><span>코인</span><span>명예</span><span>만든 날</span><span>마지막 저장</span><span>접속</span></div>
+          {shown.slice(pg * ACC_PAGE, (pg + 1) * ACC_PAGE).map((a) => (
+            <div className="adm-row acc" key={a.name}>
+              <span className="nm">{a.name}<em>{a.admin ? "관리자" : (JOB_BY_ID[a.job] || {}).name || "직업 없음"}</em></span>
+              <span>Lv {a.lv}</span>
+              <span>{a.coins.toLocaleString("ko-KR")}</span>
+              <span>{a.honor.toLocaleString("ko-KR")}</span>
+              <span className="map">{day(a.made)}</span>
+              <span className="map">{day(a.saved)}</span>
+              <span>{a.live ? <i className="adm-tag host">{srvName(a.live)}</i> : <span className="map">—</span>}</span>
+            </div>
+          ))}
+          {!shown.length && <p className="adm-empty">찾는 이름이 없습니다.</p>}
+        </div>
+      )}
+      {pages > 1 && (
+        <div className="adm-pager">
+          <button disabled={pg <= 0} onClick={() => setPage(pg - 1)}>‹</button>
+          <span>{pg + 1}/{pages}</span>
+          <button disabled={pg >= pages - 1} onClick={() => setPage(pg + 1)}>›</button>
+        </div>
+      )}
+      <p className="adm-label">코드는 서버에 지문(해시)으로만 남아 보이지 않습니다. 접속은 지금 그 캐릭터가 들어가 있는 서버입니다.</p>
+    </section>
   );
 }

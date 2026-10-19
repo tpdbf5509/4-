@@ -71,7 +71,7 @@
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
 | `src/net/room.js` | Supabase 채널 연결 |
 | `src/net/rpgServer.js` · `server/` | RPG 전용 서버 연결(room.js 와 같은 모양) · 서버(`server/src/room.js` 가 RPG1~5 방 하나, `save.js` 가 Supabase `rpg_srv_load` · `rpg_srv_save` — 서버 비밀 키로만). 규칙은 `src/game/` 를 그대로 묶어 쓴다. 입력 나누기는 `src/game/rpgInput.js`(방장 화면과 서버가 같이 쓴다) |
-| `src/AdminView.jsx` · `src/net/admin.js` · `src/ui/admin.css` | 관리 화면 「데이터 시스템」(`?admin`, 관리자 이름 + 코드). 서버마다 관리 채널로 방장 화면에 묻고(인원 · 왕복 · fps) 방장 부여 · 퇴장을 보낸다. 방장 쪽 답은 RpgView.jsx, 명령 표 함수는 `supabase/rpg.sql`(`rpg_admin_*`) |
+| `src/AdminView.jsx` · `src/net/admin.js` · `src/ui/admin.css` | 관리 화면 「데이터 시스템」(`?admin`, 관리자 이름 + 코드). 계정 탭은 모든 캐릭터(`rpg_admin_accounts`). 서버마다 관리 채널로 방장 화면에 묻고(인원 · 왕복 · fps) 방장 부여 · 퇴장을 보낸다. 방장 쪽 답은 RpgView.jsx, 명령 표 함수는 `supabase/rpg.sql`(`rpg_admin_*`) |
 | `src/net/version.js` | 새 버전 알아채기. 빌드 번호(`__BUILD__`, `vite.config.js`)와 `dist/version.json` 을 견주어 옛 화면을 스스로 새로 고친다. RPG 스냅샷에 방장 빌드(`ver`)를 싣는다 |
 | `src/net/rpgSave.js` · `src/RpgAccount.jsx` | RPG 캐릭터 서버 저장(만들기 · 이어 하기 · 10초마다 저장 · 입장권)과 캐릭터 만들기 화면의 이름 · 코드 칸. 표와 함수는 `supabase/rpg.sql` |
 | `src/ui/style.css` | 모든 스타일 |

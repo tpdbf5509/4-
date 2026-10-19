@@ -371,3 +371,25 @@ end $$;
 revoke execute on function public.rpg_live_secs() from public, anon, authenticated;
 revoke execute on function public.rpg_live(text, text, text, text), public.rpg_unlive(text, text, text) from public, anon, authenticated;
 grant execute on function public.rpg_live(text, text, text, text), public.rpg_unlive(text, text, text) to anon, authenticated;
+
+-- 관리 화면 "계정" 탭 — 모든 캐릭터(최근 저장 순). 코드 · 입장권은 싣지 않는다
+create or replace function public.rpg_admin_accounts(p_name text, p_code text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_ok jsonb := public.rpg_admin_ok(p_name, p_code);
+begin
+  if not (v_ok->>'ok')::boolean then return v_ok; end if;
+  return jsonb_build_object('ok', true, 'list', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'name', c.name, 'admin', c.admin,
+      'lv', public.rpg_lv(c.data),
+      'job', c.data->>'job',
+      'coins', case when c.data->>'coins' ~ '^[0-9]{1,12}$' then (c.data->>'coins')::bigint else 0 end,
+      'honor', case when c.data->>'honor' ~ '^[0-9]{1,9}$' then (c.data->>'honor')::int else 0 end,
+      'made', c.created_at, 'saved', c.updated_at,
+      'live', case when c.live_at > now() - make_interval(secs => public.rpg_live_secs()) then c.live_srv end
+    ) order by c.updated_at desc)
+    from (select * from public.rpg_chars limit 2000) c), '[]'::jsonb));
+end $$;
+revoke execute on function public.rpg_admin_accounts(text, text) from public, anon, authenticated;
+grant execute on function public.rpg_admin_accounts(text, text) to anon, authenticated;

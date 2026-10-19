@@ -111,3 +111,17 @@
   .adm-log li span { display: none; }
 }
 .adm-rows + .adm-label { margin-top: 12px; }
+/* 계정 탭 */
+.adm-tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.adm-tools input, .adm-tools select, .adm-tools button {
+  font: inherit; font-size: 13px; padding: 7px 10px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink);
+}
+.adm-tools input { width: 160px; }
+.adm-row.acc { grid-template-columns: minmax(130px, 1.5fr) 0.7fr 1fr 0.7fr 1fr 1fr 0.8fr; }
+.adm-row.acc .adm-tag { width: auto; padding: 4px 10px; font-size: 12px; }
+@media (max-width: 640px) {
+  .adm-row.acc { grid-template-columns: 1fr 1fr; }
+  .adm-row.acc .map { display: none; }
+}
+.adm-pager + .adm-label { margin-top: 14px; }

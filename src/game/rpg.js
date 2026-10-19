@@ -785,6 +785,9 @@ export function rpgJoin(g, pi, d, who) {
   if (who !== undefined && owner && who !== owner) return;
   if (!h) { g.pending[pi] = { d, who }; return; }
   if (!d || h.loaded) return;
+  // 기록의 이름이 자리에 앉은 캐릭터와 다르면 싣지 않는다 — 같은 브라우저 다른 탭의 캐릭터 기록이 섞여 왔다(남의 레벨 · 관리자 표시가 옮겨 간 사고)
+  const look = g.looks[pi];
+  if (d.name && look && look.name && d.name !== look.name) return;
   if (!d.admin && d.rs !== RESET.id) d = resetRecord(d);   // 서버 초기화 — 관리자만 빼고 처음으로
   const keepHp = h.migr && h.hp > 0 ? h.hp : 0;   // 방장을 이어받는 중이면 체력은 그대로
   h.lv = clamp(Math.floor(Number(d.lv) || 1), 1, LV_MAX);

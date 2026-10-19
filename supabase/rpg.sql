@@ -88,7 +88,7 @@ begin
   end if;
   select * into v_char from public.rpg_chars where name_key = v_key;
   if found and extensions.crypt(coalesce(p_code, ''), v_char.code_hash) = v_char.code_hash then
-    delete from public.rpg_fails where name_key = v_key;
+    update public.rpg_fails set n = 0, until = null where name_key = v_key;
     v_tok := encode(extensions.gen_random_bytes(16), 'hex');
     update public.rpg_chars set token_hash = encode(extensions.digest(v_tok, 'sha256'), 'hex') where name_key = v_key;
     return jsonb_build_object('ok', true, 'token', v_tok, 'name', v_char.name, 'data', v_char.data, 'admin', v_char.admin);
@@ -104,16 +104,66 @@ begin
   return jsonb_build_object('ok', false, 'err', 'wrong', 'left', c_max - v_n);
 end $$;
 
+-- 저장 지킴에 막힌 기록 — 관리 화면 로그(rpg_admin_blocks)로 본다
+create table if not exists public.rpg_save_blocks (
+  id      bigserial primary key,
+  at      timestamptz not null default now(),
+  name    text not null,                         -- 저장하려던 캐릭터
+  why     text not null,                         -- name 기록 이름이 다름 · down 레벨이 내려감 · jump 레벨이 너무 뜀
+  lv_old  int,
+  lv_new  int,
+  sent    text                                   -- 보내 온 기록의 이름
+);
+alter table public.rpg_save_blocks enable row level security;
+revoke all on public.rpg_save_blocks from anon, authenticated;
+
+create or replace function public.rpg_lv(p jsonb)
+returns int language sql immutable set search_path = '' as $$
+  select case when p->>'lv' ~ '^[0-9]{1,4}$' then (p->>'lv')::int else 1 end
+$$;
+
 -- 저장 — 입장권이 맞아야 한다. 다른 기기가 나중에 들어왔으면 'token' 으로 거절한다
+-- 저장 지킴(관리자 제외): 렉으로 방장이 여럿 생기면 남의 영웅이 내 자리에 실려 저장될 수 있다(10월 19일 13명 사고).
+--   기록 이름이 다르거나, 레벨이 내려가거나(서버 초기화 · 한 사람 되돌리기 제외), 지난 저장보다 너무 많이 뛰면 막는다.
+--   막으면 rpg_save_blocks 에 남기고 이 기기의 입장권을 지운다 — 코드를 다시 넣으면 서버 기록으로 이어 한다
 create or replace function public.rpg_save(p_name text, p_token text, p_data jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  c_jump      constant int := 15;        -- 저장 사이에 오를 수 있는 레벨
+  c_jump_min  constant numeric := 1;     -- 지난 저장 뒤 1분마다 더 오를 수 있는 레벨
+  v_char public.rpg_chars;
+  v_old  int;
+  v_new  int;
+  v_why  text;
 begin
   if p_data is null or octet_length(p_data::text) > 30000 then return jsonb_build_object('ok', false, 'err', 'data'); end if;
-  update public.rpg_chars set data = p_data, updated_at = now()
+  select * into v_char from public.rpg_chars
   where name_key = public.rpg_key(p_name) and token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex');
   if not found then return jsonb_build_object('ok', false, 'err', 'token'); end if;
+  if not v_char.admin then
+    v_old := public.rpg_lv(v_char.data);
+    v_new := public.rpg_lv(p_data);
+    if p_data ? 'name' and public.rpg_key(p_data->>'name') <> v_char.name_key then
+      v_why := 'name';
+    elsif v_new < v_old
+      and (p_data->>'rs') is not distinct from (v_char.data->>'rs')
+      and not exists (select 1 from jsonb_array_elements_text(case when jsonb_typeof(p_data#>'{bag,pg}') = 'array' then p_data#>'{bag,pg}' else '[]'::jsonb end) x
+                      where not (case when jsonb_typeof(v_char.data#>'{bag,pg}') = 'array' then v_char.data#>'{bag,pg}' else '[]'::jsonb end) ? x.value) then
+      v_why := 'down';
+    elsif v_new > v_old + c_jump + floor(extract(epoch from now() - v_char.updated_at) / 60 * c_jump_min) then
+      v_why := 'jump';
+    end if;
+    if v_why is not null then
+      insert into public.rpg_save_blocks (name, why, lv_old, lv_new, sent)
+      values (v_char.name, v_why, v_old, v_new, left(coalesce(p_data->>'name', ''), 16));
+      update public.rpg_chars set token_hash = null where name_key = v_char.name_key;
+      return jsonb_build_object('ok', false, 'err', 'guard', 'why', v_why);
+    end if;
+  end if;
+  update public.rpg_chars set data = p_data, updated_at = now() where name_key = v_char.name_key;
   return jsonb_build_object('ok', true);
 end $$;
+revoke execute on function public.rpg_lv(jsonb) from public, anon, authenticated;
 
 -- 삭제 — 입장권이 맞아야 한다
 create or replace function public.rpg_delete(p_name text, p_token text)
@@ -259,3 +309,17 @@ revoke execute on function public.rpg_admin_ticket(text, text, text, text, text)
   from public, anon, authenticated;
 grant execute on function public.rpg_admin_ok(text, text), public.rpg_admin_ticket(text, text, text, text, text),
   public.rpg_admin_redeem(text, text, text, text) to anon, authenticated;
+
+-- 관리 화면 — 저장 지킴에 막힌 기록(최근 100개)
+create or replace function public.rpg_admin_blocks(p_name text, p_code text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_ok jsonb := public.rpg_admin_ok(p_name, p_code);
+begin
+  if not (v_ok->>'ok')::boolean then return v_ok; end if;
+  return jsonb_build_object('ok', true, 'list', coalesce((
+    select jsonb_agg(jsonb_build_object('at', b.at, 'name', b.name, 'why', b.why, 'old', b.lv_old, 'new', b.lv_new, 'sent', b.sent) order by b.id desc)
+    from (select * from public.rpg_save_blocks order by id desc limit 100) b), '[]'::jsonb));
+end $$;
+revoke execute on function public.rpg_admin_blocks(text, text) from public, anon, authenticated;
+grant execute on function public.rpg_admin_blocks(text, text) to anon, authenticated;

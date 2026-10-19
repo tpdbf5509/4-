@@ -1,16 +1,18 @@
 /* ── 관리 화면 「데이터 시스템」 — four-lane.vercel.app/?admin ─────────────────
    관리자 캐릭터의 이름 + 코드로만 열린다(코드는 이 화면의 메모리에만 두고 저장하지 않는다).
-   RPG 서버 다섯의 방장 화면에 ADMIN.ping 초마다 묻고, 답으로 인원 · 방장 · 왕복 시간을 그린다.
+   RPG 서버마다 방장 화면에 ADMIN.ping 초마다 묻고, 답으로 인원 · 방장 · 왕복 시간을 그린다.
    방장 부여 · 퇴장은 일회용 명령 표를 받아 그 서버의 방장 화면에 보낸다(src/net/admin.js) */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RPG_SERVERS } from "./game/rpg.js";
 import { UPDATES } from "./game/updates.js";
 import { myId } from "./net/room.js";
-import { ADMIN, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
+import { ADMIN, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
 import "./ui/admin.css";
 
 const TABS = [["people", "인원"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
 const LOG_MAX = 300;                 // 로그에 남기는 줄 수(이 화면을 연 동안만)
+const BLOCKS_EVERY = 30;             // 로그 탭을 보는 동안 막힌 저장 기록을 다시 읽는 간격(초)
+const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀" };
 const CONFIRM_MS = 3000;             // 퇴장 · 방장 부여는 한 번 더 눌러야 한다 — 이 시간 안에
 const srvName = (s) => `서버 ${RPG_SERVERS.indexOf(s) + 1}`;
 const clock = (t) => { const d = new Date(t); return [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, "0")).join(":"); };
@@ -63,6 +65,7 @@ function AdminBoard({ auth, onOut }) {
   const [now, setNow] = useState(() => Date.now());
   const [ask, setAsk] = useState(null);              // 한 번 더 누르기를 기다리는 단추 — "act:id"
   const [busy, setBusy] = useState("");
+  const [blocks, setBlocks] = useState(null);         // 저장 지킴에 막힌 기록 — 서버에 남아 있다
   const links = useRef({});
   const prev = useRef({});                           // 서버 → 지난번 답(로그를 만들 때 견준다)
   const waits = useRef(new Map());                   // 명령 cid → 기다리는 정보
@@ -71,7 +74,16 @@ function AdminBoard({ auth, onOut }) {
     setLog((l) => [{ t: Date.now(), server, text, kind }, ...l].slice(0, LOG_MAX));
   }, []);
 
-  // 다섯 서버의 관리 채널에 붙어 묻고 답을 모은다
+  // 로그 탭 — 서버가 막은 저장 기록(섞인 기록)을 읽는다
+  useEffect(() => {
+    if (tab !== "log") return;
+    const read = () => adminBlocks(auth.name, auth.code).then((r) => setBlocks(r && r.ok ? r.list : []));
+    read();
+    const t = setInterval(read, BLOCKS_EVERY * 1000);
+    return () => clearInterval(t);
+  }, [tab, auth]);
+
+  // 서버마다 관리 채널에 붙어 묻고 답을 모은다
   useEffect(() => {
     const ls = {};
     RPG_SERVERS.forEach((s) => {
@@ -218,7 +230,19 @@ function AdminBoard({ auth, onOut }) {
 
       {tab === "log" && (
         <section className="adm-sec">
-          <p className="adm-label">이 화면을 연 뒤의 기록입니다. 닫으면 지워집니다.</p>
+          <p className="adm-count">저장을 막은 기록<span>섞인 기록을 서버가 막았습니다. 그 사람은 코드를 다시 넣으면 서버 기록으로 이어 합니다</span></p>
+          {blocks && !blocks.length && <p className="adm-empty">막은 기록이 없습니다.</p>}
+          {blocks && blocks.length > 0 && (
+            <ul className="adm-log">
+              {blocks.map((b, i) => (
+                <li key={`${b.at}-${i}`} className="bad">
+                  <time>{clock(Date.parse(b.at))}</time><span>{new Date(b.at).getMonth() + 1}/{new Date(b.at).getDate()}</span>
+                  <p>{b.name} · {WHY[b.why] || b.why} · Lv {b.old} → {b.new}{b.sent && b.sent !== b.name ? ` · 보낸 기록 이름 ${b.sent}` : ""}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="adm-count">이 화면의 기록<span>이 화면을 연 뒤의 기록입니다. 닫으면 지워집니다</span></p>
           {!log.length && <p className="adm-empty">아직 기록이 없습니다.</p>}
           <ul className="adm-log">
             {log.map((l, i) => (

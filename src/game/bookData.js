@@ -4,6 +4,7 @@
    쪽은 { h 제목, p 문단 목록 } 이다. 문단은 짧은 문장으로 쓰고 쉼표를 아낀다. 숫자는 가능하면 규칙 파일의 상수를 읽어 와 어긋나지 않게 한다. */
 import {
   MAPS, SPAWNS, MOB, FAR_EASE, JOBS, ELEMS, LV_MAX, STAT_MAX, STAT_PER_LV, statEarned, XP_RATE, FAR_MAPS, FIELD_PVP, DUEL, DASH, RPG,
+  RPG_SERVERS, RPG_SERVER_CAP,
 } from "./rpg.js";
 import { DROP_ROLL, MATERIALS } from "./itemData.js";
 import { PARTY, CHAT } from "./socialData.js";
@@ -19,6 +20,24 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 
 /* ── 패치노트 — 새 책은 맨 위에 더한다 ───────────────────────── */
 export const PATCH_BOOKS = [
+  {
+    id: "patch-2026-10-19g", title: "패치노트 · 10월 19일 (7)", sub: "서버 · 기록 지킴", color: "#9fb0a2",
+    pages: [
+      { h: "서버", p: [
+        `서버는 ${RPG_SERVERS.length}개입니다. 예전에는 5개였습니다.`,
+        `서버마다 ${RPG_SERVER_CAP}명까지 들어옵니다. 예전에는 16명이었습니다.`,
+        "게임 안 ☰ 메뉴에서 서버를 옮길 수 있습니다. 결투 · 던전 중에는 옮길 수 없습니다.",
+        "옮길 서버가 가득 차 있으면 원래 서버로 돌아옵니다.",
+      ] },
+      { h: "기록 섞임", p: [
+        "13명이 한 서버에 모이자 주고받는 메시지가 한도를 넘었습니다.",
+        "방장 소식이 끊기며 여러 캐릭터의 기록이 섞였습니다.",
+        "이제 키 입력은 방장에게만 갑니다. 주고받는 양이 크게 줄었습니다.",
+        "서버도 저장 전에 한 번 더 확인합니다. 레벨이 내려가거나 너무 많이 뛰면 저장하지 않습니다.",
+        "막히면 코드를 다시 넣어 주세요. 서버의 기록으로 이어 합니다.",
+      ] },
+    ],
+  },
   {
     id: "patch-2026-10-19f", title: "패치노트 · 10월 19일 (6)", sub: "레벨 섞임 수정", color: "#9aa8b3",
     pages: [

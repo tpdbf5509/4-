@@ -21,7 +21,7 @@ import { TOWER_INFO } from "./game/towerInfo.js";
 import { useTouch } from "./ui/touch.js";
 import RpgView, { RpgSetup } from "./RpgView.jsx";
 import { rpgServerUrl, joinRpgServer } from "./net/rpgServer.js";
-import { RPG_CREW_MAX, RPG_SERVERS, loadChar, cleanLook, setAccount } from "./game/rpg.js";
+import { RPG_CREW_MAX, RPG_SERVER_CAP, RPG_SERVERS, loadChar, cleanLook, setAccount } from "./game/rpg.js";
 
 // 자리 부탁 — 서버 계정(이름 + 입장권)이 있으면 함께 보낸다. 전용 서버는 이것으로 캐릭터를 직접 불러온다(옛 방장은 모른 체한다)
 function pickMsg(hero) {
@@ -78,7 +78,7 @@ export default function App() {
   const heroRef = useRef(null);           // RPG — 서버에 들어가며 곧바로 광장에 세울 내 캐릭터
   const lobbyRef = useRef(null);          // 마지막으로 받은(또는 보낸) 대기실 — 방장이 나갔을 때 이어받는 데 쓴다
   const [server, setServer] = useState(0); // RPG — 지금 들어간 서버 차례(0 = 서버 1)
-  const crewMax = () => (modeRef.current === "rpg" ? RPG_CREW_MAX : CREW_MAX);
+  const crewMax = () => (modeRef.current === "rpg" ? RPG_SERVER_CAP : CREW_MAX);
   // 방장 차례(ep) — 방장이 바뀔 때마다 1씩 오른다. 더 작은 차례의 대기실 소식은 옛 방장이 늦게 보낸 것이라 버린다
   // (Supabase 는 메시지 순서를 바꿔 전할 때가 있어, 넘긴 뒤에 옛 방장의 소식이 와서 되돌리지 않게)
   const epRef = useRef(0);
@@ -152,7 +152,7 @@ export default function App() {
     const seats = seatsRef.current.slice();
     if (seats.some((s) => s && s.id === id)) return;         // 이미 광장에 서 있다
     const free = seats.findIndex((s) => !s);
-    if (free < 0 || seats.filter(Boolean).length >= RPG_CREW_MAX) return;   // 정원이 찼다
+    if (free < 0 || seats.filter(Boolean).length >= RPG_SERVER_CAP) return;   // 정원이 찼다
     seats[free] = { id, name: look.name, hero: look };
     seatsRef.current = seats;
     publishLobby();
@@ -420,12 +420,25 @@ export default function App() {
 
   // RPG 서버에 들어간다 — 방 코드 없이 모두 같은 서버에 모인다. 가득 차 있으면 다음 서버로 넘어간다.
   const enterRpg = useCallback((hero, at = 0) => {
+    if (hostRef.current && modeRef.current === "rpg") handoffRef.current?.();   // 방장이 서버를 옮기면 남은 사람에게 넘긴다
     roomRef.current?.leave();
+    hostRef.current = false;
     roomRef.current = null;
     setLobby(null);
     setServer(at);
     connect(RPG_SERVERS[at], false, "rpg", hero);
   }, [connect]);
+
+  // 게임 안 ☰ 메뉴의 서버 이동 — 옮길 서버가 가득 찼으면 원래 서버로 돌아온다(moveRef)
+  const moveRef = useRef(null);
+  const [srvNote, setSrvNote] = useState(null);
+  const moveServer = useCallback((at) => {
+    const hero = heroRef.current;
+    if (!hero || at === server || at < 0 || at >= RPG_SERVERS.length) return;
+    moveRef.current = { from: server };
+    enterRpg(hero, at);
+  }, [server, enterRpg]);
+  useEffect(() => { if (mySeat >= 0) moveRef.current = null; }, [mySeat]);   // 자리를 받았다 — 옮기기 끝
 
   // RPG 서버에 붙었으면 내 캐릭터를 세운다 — 방장이면 바로, 손님이면 방장에게 부탁해 자리를 받을 때까지 다시 묻는다
   useEffect(() => {
@@ -433,7 +446,15 @@ export default function App() {
     const hero = heroRef.current;
     if (!hero) return;
     if (hostRef.current) return void seatRpg(me, hero);
-    const full = lobby.seats.filter(Boolean).length >= RPG_CREW_MAX;
+    const full = lobby.seats.filter(Boolean).length >= RPG_SERVER_CAP;
+    if (full && RPG_SERVERS.includes(code) && moveRef.current) {
+      // ☰ 메뉴로 옮기려던 서버가 가득 찼다 — 원래 서버로 돌아간다
+      const { from } = moveRef.current;
+      moveRef.current = null;
+      setSrvNote({ text: `서버 ${RPG_SERVERS.indexOf(code) + 1}이 가득 찼습니다`, at: Date.now() });
+      enterRpg(hero, from);
+      return;
+    }
     if (full && RPG_SERVERS.includes(code)) {
       const next = RPG_SERVERS.indexOf(code) + 1;
       if (next < RPG_SERVERS.length) enterRpg(hero, next);
@@ -558,7 +579,7 @@ export default function App() {
       return (
         <RpgSetup
           room={{
-            code, filled, full: filled >= RPG_CREW_MAX, connecting, error,
+            code, filled, full: filled >= RPG_SERVER_CAP, connecting, error,
             link: `${location.origin}${location.pathname}?room=${code}`,
           }}
           onStart={pickRpg} onLeave={leave}
@@ -575,6 +596,8 @@ export default function App() {
         mySeat={mySeat}
         code={RPG_SERVERS.includes(code) ? `서버 ${server + 1}` : `방 코드 ${code}`}
         onLeave={leave} onHandoff={handoff} onKick={kick}
+        servers={RPG_SERVERS.includes(code) ? { at: server, n: RPG_SERVERS.length, note: srvNote } : null}
+        onMoveServer={moveServer}
       />
     );
   }
@@ -631,7 +654,7 @@ function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, 
         <div className="rpg-entry">
           <button className="btn-ghost tall rpg-entry-btn" onClick={onEnterRpg}>RPG 모드 들어가기</button>
           <p className="rpg-entry-note">
-            캐릭터를 만들고 광장에서 모여 사냥터로 나갑니다. 방 코드 없이 모두 같은 서버에 들어갑니다(서버마다 {RPG_CREW_MAX}명).
+            캐릭터를 만들고 광장에서 모여 사냥터로 나갑니다. 방 코드 없이 모두 같은 서버에 들어갑니다(서버마다 {RPG_SERVER_CAP}명).
             {mine ? ` 내 캐릭터 — ${mine.name} Lv.${mine.lv}` : " 이름과 레벨 · 코인은 이 기기에 남습니다."}
           </p>
         </div>

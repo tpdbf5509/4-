@@ -27,6 +27,8 @@ export const adminCheck = (name, code) => rpc("rpg_admin_ok", { p_name: name, p_
 // 명령 표 받기(60초 동안 한 번)
 export const adminTicket = (name, code, server, act, target) =>
   rpc("rpg_admin_ticket", { p_name: name, p_code: code, p_server: server, p_act: act, p_target: target });
+// 저장 지킴에 막힌 기록(최근 100개) — 섞인 기록을 서버가 막은 때
+export const adminBlocks = (name, code) => rpc("rpg_admin_blocks", { p_name: name, p_code: code });
 // 방장 화면 — 받은 명령의 표가 맞는가
 export const adminRedeem = async (nonce, server, act, target) =>
   (await rpc("rpg_admin_redeem", { p_nonce: nonce, p_server: server, p_act: act, p_target: target })) === true;

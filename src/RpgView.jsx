@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { W, H } from "./game/world.js";
 import {
-  RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
+  RPG, RPG_CREW_MAX, RPG_SERVER_CAP, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgPvp, rpgFire, FIELD_PVP,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgTrain, trainView, rpgDash, predictDash, predictLunge, DASH,
@@ -215,7 +215,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
           <div className="mk-room">
             <span className="mk-label">방 코드</span>
             <strong>{room.code}</strong>
-            <span className="mk-room-n">{room.filled}/{RPG_CREW_MAX}명</span>
+            <span className="mk-room-n">{room.filled}/{RPG_SERVER_CAP}명</span>
             <button className="btn-ghost" onClick={() => copy(room.code, "code")}>{copied === "code" ? "복사됨" : "코드 복사"}</button>
             <button className="btn-ghost" onClick={() => copy(room.link, "link")}>{copied === "link" ? "복사됨" : "초대 링크 복사"}</button>
             {room.connecting && <span className="muted">연결하는 중…</span>}
@@ -365,7 +365,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
 }
 
 /* ── 광장과 사냥터 ─────────────────────────────────────── */
-export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave, onHandoff, onKick }) {
+export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave, onHandoff, onKick, servers, onMoveServer }) {
   const cvsRef = useRef(null);
   const bgsRef = useRef(null);
   const names = useMemo(() => seats.map((s) => s?.name || ""), [seats]);
@@ -425,6 +425,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [mute, setMute] = useState(() => sfx.isMuted());
   const [dropped, setDropped] = useState(false);
   const [toast, setToast] = useState(null);         // 맵을 옮기면 잠깐 이름을 띄운다
+  // 서버 이동이 막혔다(가득 참) — 원래 서버로 돌아와 잠깐 알린다
+  const srvNote = servers && servers.note;
+  useEffect(() => {
+    if (srvNote && Date.now() - srvNote.at < 10000) setToast({ name: srvNote.text, at: srvNote.at });
+  }, [srvNote]);
   const [talk, setTalk] = useState(null);           // 사냥꾼의 말
   const [menu, setMenu] = useState(false);          // 레벨 칸의 ☰ 메뉴
   const [statOpen, setStatOpen] = useState(false);  // 스탯 창
@@ -521,6 +526,21 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const acctRef = useRef(null);                     // { name, tok }
   const [kicked, setKicked] = useState(false);
   const [oldHost, setOldHost] = useState(false);
+  // 손님의 입력은 방장과 둘만 있는 통로로 보낸다(room.js makePipes) — 방 채널로 보내면 모두가 받아 메시지 한도를 넘는다.
+  // 방장이 옛 화면이면 통로를 듣지 않으니 방 채널로 보낸다
+  const oldHostRef = useRef(false);
+  useEffect(() => { oldHostRef.current = oldHost; }, [oldHost]);
+  const sendInput = useCallback((d) => {
+    if (!room) return;
+    if (room.toHost && !oldHostRef.current) room.toHost("input", d);
+    else room.send("input", d);
+  }, [room]);
+  // 방장은 지금 손님들의 통로에 붙는다 — 손님이 바뀌거나 방장이 바뀌면 다시 맞춘다
+  const guestIds = seats.map((st) => (st ? st.id : "")).join(",");
+  useEffect(() => {
+    if (!room || !room.hostInbox) return;
+    room.hostInbox(isHost ? guestIds.split(",").filter(Boolean) : []);
+  }, [room, isHost, guestIds]);
   // 연결 진단 칸 — 왕복 시간 · 스냅샷 간격 · 위치 고친 횟수 · 초당 프레임(NET_DIAG.every 초마다 새로)
   const netRef = useRef({ rtt: [], snaps: [], frames: 0, fix0: 0, total: 0 });
   const [net, setNet] = useState(null);
@@ -585,10 +605,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   useEffect(() => {
     const c = loadChar();
     acctRef.current = c && c.linked && c.tok ? { name: c.name, tok: c.tok } : null;
-    return cloudStart(() => {
+    return cloudStart((why) => {
       acctRef.current = null;
       setAccount({ tok: "" });
-      setKicked(true);
+      setKicked(why || "token");
     });
   }, []);
   useEffect(() => { shopRef.current = shopOpen; }, [shopOpen]);
@@ -608,7 +628,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     sfx.unlock();
     if (kind === "hold") {
       rpgHold(g, mySeat, dir);                      // 손님도 내 영웅은 먼저 걷는다
-      if (!isHost) { sentAt.current = Date.now(); const q = nextSeq(); noteSent(g, q); room?.send("input", { cls: mySeat, kind, dir, q }); }
+      if (!isHost) { sentAt.current = Date.now(); const q = nextSeq(); noteSent(g, q); sendInput({ cls: mySeat, kind, dir, q }); }
       return;
     }
     if (kind === "fire") { fireRef.current = !!dir; sentAt.current = Date.now(); }
@@ -652,9 +672,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "dg") rpgDungeon(g, mySeat, dir);
       else if (kind === "train") rpgTrain(g, mySeat, dir);
     } else {
-      room?.send("input", { cls: mySeat, kind, dir, q: nextSeq() });
+      sendInput({ cls: mySeat, kind, dir, q: nextSeq() });
     }
-  }, [isHost, mySeat, room, closeAll, loadRank]);
+  }, [isHost, mySeat, sendInput, closeAll, loadRank]);
 
   const toggleAuto = useCallback(() => {
     const next = !autoRef.current;
@@ -870,8 +890,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         const want = holdKey(dirsRef.current), fire = fireRef.current ? 1 : 0;
         if (h.echo.hold === want && h.echo.fire === fire) return;
         sentAt.current = Date.now();
-        if (h.echo.hold !== want) { const q = nextSeq(); noteSent(g, q); room.send("input", { cls: mySeat, kind: "hold", dir: dirsRef.current.slice(), q }); }
-        if (h.echo.fire !== fire) room.send("input", { cls: mySeat, kind: "fire", dir: !!fire, q: nextSeq() });
+        if (h.echo.hold !== want) { const q = nextSeq(); noteSent(g, q); sendInput({ cls: mySeat, kind: "hold", dir: dirsRef.current.slice(), q }); }
+        if (h.echo.fire !== fire) sendInput({ cls: mySeat, kind: "fire", dir: !!fire, q: nextSeq() });
       }));
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));   // 옛 버전 방장은 연출을 따로 보낸다
       // 전용 서버 — 다른 기기가 이 캐릭터로 나중에 들어왔다. 서버는 이 기기의 저장을 멈췄다
@@ -1056,6 +1076,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [toast]);
 
   const me = hud;
+  const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run);   // 결투 · 던전 중에는 서버를 옮기지 않는다
   const inField = me && me.map === "field";
   const nearShopNpc = me && me.near && me.near.shop ? SHOP_BY_ID[me.near.shop] : null;
   const myEl = elemOf(myLook);
@@ -1137,6 +1158,20 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   </span>
                   <span className={`rpg-switch ${pvp ? "on" : ""}`}><span /></span>
                 </button>
+                {servers && (
+                  <div className="rpg-menu-srv">
+                    <span className="rpg-menu-text">
+                      <b>서버 이동</b>
+                      <em>{inDuelOrDg ? "결투 · 던전 중에는 옮길 수 없습니다" : "지금 서버를 나가 다른 서버로 들어갑니다"}</em>
+                    </span>
+                    <span className="rpg-srv-row">
+                      {Array.from({ length: servers.n }, (_, i) => (
+                        <button key={i} type="button" className={i === servers.at ? "on" : ""} disabled={i === servers.at || inDuelOrDg}
+                          onClick={() => { setMenu(false); onMoveServer?.(i); }}>{i + 1}</button>
+                      ))}
+                    </span>
+                  </div>
+                )}
                 {!touch && (
                   <button type="button" role="menuitem" className="rpg-menu-row" onClick={() => toggleWin(false, setKeysOpen)}>
                     <span className="rpg-menu-text">
@@ -1748,7 +1783,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           )}
           {kicked && (
             <div className="drop-note">
-              다른 기기에서 이 캐릭터로 들어왔습니다. 이 기기의 진행은 이제 서버에 저장되지 않습니다.
+              {kicked === "guard"
+                ? "기록이 다른 캐릭터와 섞인 것 같아 서버 저장을 멈췄습니다. 서버의 기록은 그대로 있습니다. 처음 화면에서 코드를 다시 넣어 이어 해 주세요."
+                : "다른 기기에서 이 캐릭터로 들어왔습니다. 이 기기의 진행은 이제 서버에 저장되지 않습니다."}
               <button className="btn-ghost" onClick={onLeave}>처음 화면으로</button>
             </div>
           )}
@@ -1809,7 +1846,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         </div>
 
         <p className="keyhint rpg-keys">
-          <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_CREW_MAX}명 ·{" "}
+          <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_SERVER_CAP}명 ·{" "}
           {touch
             ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
             : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
@@ -1846,7 +1883,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트 · 가방과 함께 이 기기와 서버에 남습니다. 다른 기기에서는 캐릭터 만들기 화면의 "코드로 이어 하기"에 이름과 숫자 5자리 코드를 넣으면 이어집니다.
           광장에는 무기상점 · 스킬 상점 · 물약 상점 · 도박장 · 무기 강화소가 있습니다. 가까이 가서 E(휴대폰은 말풍선의 버튼)로 엽니다.
           산 무기 · 물약 · 배운 스킬은 가방(I)에서 보고, 무기 장착과 물약 마시기는 어디서나 할 수 있습니다.
-          방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_CREW_MAX}명까지이고, 가득 차면 다음 서버로 넘어갑니다.
+          방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_SERVER_CAP}명까지이고, 가득 차면 다음 서버로 넘어갑니다. ☰ 메뉴에서 서버를 옮길 수 있습니다.
           판정을 맡은 사람이 나가도 서버는 닫히지 않습니다. 1초쯤 뒤 남은 사람이 이어받고 모두 있던 자리에서 그대로 이어 합니다.
           Enter(휴대폰은 채팅 버튼)로 채팅합니다. 채팅 칸의 "전체 / 파티" 단추로 파티원에게만 말할 수도 있습니다. {CHAT.gap}초에 한 번 보낼 수 있습니다.
           파티 창(P)에서 같은 서버 사람을 초대합니다. {PARTY.max}명까지이고, 같은 맵의 파티원이 몹을 잡으면 그 경험치의 {Math.round(PARTY.share * 100)}%를 함께 받습니다.

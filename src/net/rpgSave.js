@@ -40,6 +40,7 @@ export function errText(res) {
     case "wrong": return `이름이나 코드가 맞지 않습니다. ${res.left}번 더 틀리면 잠시 막힙니다.`;
     case "locked": return `여러 번 틀려 잠시 막혔습니다. ${Math.max(1, Math.ceil((res.wait || 0) / 60))}분 뒤에 다시 해 주세요.`;
     case "token": return "다른 기기에서 이 캐릭터로 들어왔습니다. 이어 하려면 코드를 다시 넣어 주세요.";
+    case "guard": return "기록이 다른 캐릭터와 섞인 것 같아 저장을 멈췄습니다. 코드를 다시 넣으면 서버 기록으로 이어 합니다.";
     case "data": return "저장할 내용이 너무 큽니다.";
     default: return "서버에 연결하지 못했습니다. 잠시 뒤 다시 해 주세요.";
   }
@@ -79,9 +80,9 @@ export async function cloudFlush() {
   const r = await rpc("rpg_save", { p_name: job.name, p_token: job.tok, p_data: job.data });
   busy = false;
   if (r && r.ok) { sentKey = key; return; }
-  if (r && r.err === "token") {          // 다른 기기가 나중에 들어왔다 — 이 기기의 저장은 멈춘다
+  if (r && (r.err === "token" || r.err === "guard")) {   // 다른 기기가 나중에 들어왔다 · 서버가 섞인 기록을 막았다 — 이 기기의 저장은 멈춘다
     pending = null;
-    if (onKick) onKick();
+    if (onKick) onKick(r.err);
   }
 }
 // 게임 화면이 열려 있는 동안 간격마다 보낸다. 닫으면 남은 것을 한 번 보낸다

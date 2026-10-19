@@ -47,6 +47,64 @@ export function myId() {
   return v;
 }
 
+/* ── 방장에게만 가는 통로 ─────────────────────────────────────
+   방 채널로 보내면 방 안의 모두가 받고, Supabase 는 받는 사람마다 한 통으로 센다.
+   그런데 손님의 키 입력은 방장만 쓴다. 13명이면 입력 한 번이 12통이 되어 무료 한도(초당 100통)를 넘었다(10월 19일 기록 섞임 사고).
+   그래서 손님마다 방장과 둘만 있는 통로(<코드>:in:<손님 id>)를 하나씩 둔다. 입력 한 번이 1통이 되고, 웹소켓이라 빠르기는 같다.
+   (보내기만 하는 REST 길은 120~280ms 더 느려 쓰지 않는다)
+   - 손님: toHost(k, d, fallback) — 통로가 아직 붙지 않았으면 fallback(방 채널)으로 보낸다
+   - 방장: hostInbox(ids) — 지금 손님들의 통로에 붙는다. 받은 말은 방 채널과 같은 handlers 로 간다 */
+function makePipes(code, id, handlers, open) {
+  let mine = null;
+  const inbox = new Map();
+  const deliver = (m) => { if (m && typeof m.k === "string") handlers.get(m.k)?.(m.d, m.from); };
+  return {
+    toHost(k, d, fallback) {
+      if (!mine) mine = open(`${code}:in:${id}`, () => {});
+      if (mine.ready()) mine.send({ k, d, from: id });
+      else fallback(k, d);
+    },
+    hostInbox(ids) {
+      const want = new Set((ids || []).filter((x) => x && x !== id));
+      for (const [gid, p] of inbox) if (!want.has(gid)) { p.close(); inbox.delete(gid); }
+      for (const gid of want) if (!inbox.has(gid)) inbox.set(gid, open(`${code}:in:${gid}`, deliver));
+    },
+    close() {
+      mine?.close();
+      mine = null;
+      for (const p of inbox.values()) p.close();
+      inbox.clear();
+    },
+  };
+}
+
+const localPipe = (topic, onMsg) => {
+  const bc = new BroadcastChannel(`flg-local:${topic}`);
+  bc.onmessage = ({ data }) => onMsg(data);
+  let open = true;
+  return { ready: () => open, send: (m) => { if (open) bc.postMessage(m); }, close: () => { open = false; bc.close(); } };
+};
+
+const realtimePipe = (topic, onMsg) => {
+  const sb = supabase();
+  let ok = false, gone = false, ch = null;
+  const start = () => {
+    if (gone) return;
+    ch = sb.channel(`flg:${topic}`, { config: { broadcast: { self: false, ack: false } } });
+    ch.on("broadcast", { event: "msg" }, ({ payload }) => onMsg(payload));
+    ch.subscribe((s) => { ok = !gone && s === "SUBSCRIBED"; });
+  };
+  // 같은 이름의 채널이 닫히는 중이면(방장이 바뀌어 다시 붙을 때) 다 치운 뒤에 새로 연다
+  const old = sb.getChannels().find((c) => c.topic === `realtime:flg:${topic}`);
+  if (old) sb.removeChannel(old).catch(() => {}).finally(start);
+  else start();
+  return {
+    ready: () => ok,
+    send: (m) => ch?.send({ type: "broadcast", event: "msg", payload: m }),
+    close: () => { gone = true; ok = false; if (ch) sb.removeChannel(ch); },
+  };
+};
+
 /* 개발 중 같은 브라우저의 여러 탭으로 손쉽게 확인하려고 쓰는 전송 (?net=local) */
 function wantsLocal() {
   if (!import.meta.env.DEV) return false;
@@ -80,16 +138,20 @@ function joinLocal(code, { id, name, onPeers, onStatus }) {
   peers.set(id, mine);
   setTimeout(() => { onStatus?.("SUBSCRIBED"); announce(); pushPeers(); }, 60);
   const beat = setInterval(announce, 1500);
+  const pipes = makePipes(code, id, handlers, localPipe);
 
   return {
     code,
     send(k, d) { if (!closed) bc.postMessage({ t: "msg", k, d, from: id }); },
+    toHost(k, d) { if (!closed) pipes.toHost(k, d, (k2, d2) => bc.postMessage({ t: "msg", k: k2, d: d2, from: id })); },
+    hostInbox(ids) { if (!closed) pipes.hostInbox(ids); },
     on(k, fn) { handlers.set(k, fn); return () => handlers.delete(k); },
     setPresence(patch) { mine = { ...mine, ...patch }; announce(); },
     leave() {
       if (closed) return;
       closed = true;
       clearInterval(beat);
+      pipes.close();
       bc.postMessage({ t: "gone", p: id });
       handlers.clear();
       bc.close();
@@ -150,11 +212,14 @@ function joinRealtime(code, { id, name, onPeers, onStatus }) {
     open();
   }
 
+  const pipes = makePipes(code, id, handlers, realtimePipe);
+  const send = (k, d) => ch?.send({ type: "broadcast", event: "msg", payload: { k, d, from: id } });
+
   return {
     code,
-    send(k, d) {
-      ch?.send({ type: "broadcast", event: "msg", payload: { k, d, from: id } });
-    },
+    send,
+    toHost(k, d) { if (!gone) pipes.toHost(k, d, send); },
+    hostInbox(ids) { if (!gone) pipes.hostInbox(ids); },
     on(k, fn) {
       handlers.set(k, fn);
       return () => handlers.delete(k);
@@ -164,6 +229,7 @@ function joinRealtime(code, { id, name, onPeers, onStatus }) {
     },
     leave() {
       gone = true;
+      pipes.close();
       handlers.clear();
       if (ch) sb.removeChannel(ch);
     },

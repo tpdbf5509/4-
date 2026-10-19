@@ -19,10 +19,12 @@ import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 
-export const RPG_CREW_MAX = 16;
-// RPG 서버 — 방 코드 없이 모두 서버 1에 모인다. 서버 1이 가득 차면 다음 서버로 넘어간다.
+export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
+// 서버마다 들어올 수 있는 사람 수 — 13명이 모이자 Supabase 무료 한도(초당 100통)를 넘어 기록이 섞였다(10월 19일)
+export const RPG_SERVER_CAP = 10;
+// RPG 서버 — 방 코드 없이 모두 서버 1에 모인다. 서버 1이 가득 차면 다음 서버로 넘어간다. 게임 안 ☰ 메뉴에서 옮길 수도 있다.
 // (방 만들기 코드에는 숫자 1이 나오지 않아 이 이름과 겹치지 않는다)
-export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4", "RPG5"];
+export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
 
 // 결투 — 1대1. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.

@@ -3,7 +3,7 @@
    새 업데이트가 나오면 PATCH_BOOKS 맨 위에 책 한 권을 더한다(밸런스 수치를 바꿨다면 바꾸기 전후 값을 적는다).
    쪽은 { h 제목, p 문단 목록 } 이다. 문단은 짧은 문장으로 쓰고 쉼표를 아낀다. 숫자는 가능하면 규칙 파일의 상수를 읽어 와 어긋나지 않게 한다. */
 import {
-  MAPS, SPAWNS, MOB, JOBS, ELEMS, LV_MAX, STAT_MAX, STAT_PER_LV, statEarned, XP_RATE, FAR_MAPS, FIELD_PVP, DUEL, DASH, RPG,
+  MAPS, SPAWNS, MOB, FAR_EASE, JOBS, ELEMS, LV_MAX, STAT_MAX, STAT_PER_LV, statEarned, XP_RATE, FAR_MAPS, FIELD_PVP, DUEL, DASH, RPG,
 } from "./rpg.js";
 import { DROP_ROLL, MATERIALS } from "./itemData.js";
 import { PARTY, CHAT } from "./socialData.js";
@@ -19,6 +19,27 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 
 /* ── 패치노트 — 새 책은 맨 위에 더한다 ───────────────────────── */
 export const PATCH_BOOKS = [
+  {
+    id: "patch-2026-10-19c", title: "패치노트 · 10월 19일 (3)", sub: "200~400레벨 사냥터 난이도", color: "#b8a38d",
+    pages: [
+      { h: "난이도 조정", p: [
+        `200~400레벨 사냥터가 너무 어렵다는 의견으로 "조금 어렵게" 낮췄습니다.`,
+        `몹과 보스의 체력: 변경 전 100% → 변경 후 ${Math.round(FAR_EASE.hp * 100)}%.`,
+        `몹과 보스의 공격력: 변경 전 100% → 변경 후 ${Math.round(FAR_EASE.dmg * 100)}%.`,
+        "경험치 · 코인 · 재료 드랍은 그대로입니다.",
+      ] },
+      { h: "바뀐 값", p: [
+        `일반 몹 체력 (변경 전 → 변경 후)`,
+        ...["skeletal", "zombie", "necro", "golem", "chimera", "spider"].map((id) => {
+          const f = SPAWNS.find((q) => q.map === id && !q.boss).lv, d = MOB[id];
+          const b = (lv) => Math.round(d.hp(lv) / FAR_EASE.hp);
+          return `${d.name}: ${won(b(f[0]))}~${won(b(f[1]))} → ${won(d.hp(f[0]))}~${won(d.hp(f[1]))}`;
+        }),
+        `보스 체력 (변경 전 → 변경 후)`,
+        ...["skeletal", "zombie", "necro", "golem", "chimera", "spider"].map((id) => `${MOB[id].boss.name}: ${won(Math.round(MOB[id].boss.hp / FAR_EASE.hp))} → ${won(MOB[id].boss.hp)}`),
+      ] },
+    ],
+  },
   {
     id: "patch-2026-10-19b", title: "패치노트 · 10월 19일 (2)", sub: "스탯 상한 확대", color: "#a8b39a",
     pages: [

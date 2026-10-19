@@ -214,6 +214,7 @@ export function cleanBag(d) {
   b.lg = Math.floor(Number(d.lg)) || 0;          // 관리자 전설 무기를 받은 차례(rpg.js ADMIN_LEGEND)
   b.ks = cleanKs(d.ks, b.s);                      // 스킬 칸(직업 하나 · 일반 둘)
   b.pg = Array.isArray(d.pg) ? d.pg.filter((x) => typeof x === "string").slice(0, 50) : [];   // 받은 한 사람 선물 id(itemData.js PERSONAL_GIFTS)
+  b.mt = Array.isArray(d.mt) ? [...new Set(d.mt.filter((x) => typeof x === "string" && x.length <= 16))].slice(0, 20) : [];   // 말을 걸어 본 의뢰인(rpg.js metNpc) — 그 뒤로는 내 화면에서 의뢰를 받는다
   return b;
 }
 export const equipped = (bag) => (bag.e ? bag.w.find((w) => w.u === bag.e) || null : null);

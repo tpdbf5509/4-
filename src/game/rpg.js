@@ -1076,6 +1076,7 @@ export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
   if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
     h.quest = { on: true, n: 0 };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9,
@@ -1085,11 +1086,23 @@ export function rpgTalk(g, pi) {
   }
 }
 
-/* 사냥꾼의 토끼 퀘스트 — 내 화면의 의뢰 창에서 받고 포기한다. 다 잡으면 저절로 끝난다(op: "take" · "drop") */
+/* 의뢰인을 만났는지 — 처음 한 번은 그 NPC 에게 말을 걸어 받아야 하고, 그 뒤로는 내 화면의 의뢰 창에서 받는다(사용자 결정 10월 19일).
+   만난 NPC id 는 가방 bag.mt 에 남는다(저장 · 스냅샷이 가방과 함께 간다). 이 결정 전부터 맡고 있던 의뢰 · 퀘스트도 만난 것으로 본다 */
+export const QUEST_NPC = "hunter";                // 토끼 퀘스트를 주는 사냥꾼(MAPS.field.npcs)
+export const metNpc = (h, id) => !!h && (((h.bag && h.bag.mt) || []).includes(id)
+  || (id === QUEST_NPC ? !!(h.quest && h.quest.on) : !!(h.reqs && h.reqs[id])));
+function meetNpc(h, id) {
+  if (!h.bag || ((h.bag.mt || (h.bag.mt = [])).includes(id))) return;
+  h.bag.mt.push(id);
+  h.bag.v += 1;                                   // 가방이 바뀌었다 — 손님에게도 보낸다(packBags)
+}
+
+/* 사냥꾼의 토끼 퀘스트 — 처음은 사냥꾼에게 말을 걸어 받고, 그 뒤로는 내 화면의 의뢰 창에서 받고 포기한다. 다 잡으면 저절로 끝난다(op: "take" · "drop") */
 export function rpgQuest(g, pi, op) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || h.down > 0) return false;
   if (op === "take" && !h.quest.on) {
+    if (!metNpc(h, QUEST_NPC)) return void sys(g, pi, "처음에는 토끼 사냥터의 사냥꾼에게 말을 걸어 받아야 합니다.");
     h.quest = { on: true, n: 0 };
     fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9, snd: "build", who: pi });
     return true;
@@ -1553,7 +1566,7 @@ export const reqNear = (h, npcId) => {
   return !!(h && n && h.map === "plaza" && dist(h.x, h.y, n.x, n.y) <= RPG.talkR * 1.5);
 };
 /* 의뢰 — req = { op: "take", npc, i } · { op: "done", npc } · { op: "drop", npc } (방장만 판정)
-   NPC 곁에 가지 않아도 내 화면의 의뢰 창에서 받고 · 끝내고 · 포기한다(사용자 결정 10월 19일) */
+   처음 받을 때만 그 NPC 곁에서(말을 걸어 연 창), 그 뒤로는 내 화면의 의뢰 창에서 받고 · 끝내고 · 포기한다(metNpc) */
 export function rpgRequest(g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req || !REQ_BY_NPC[req.npc]) return false;
@@ -1565,6 +1578,8 @@ export function rpgRequest(g, pi, req) {
     if (!q) return false;
     if (cur) return void sys(g, pi, "이미 맡은 의뢰가 있습니다. 끝내거나 포기한 뒤 받을 수 있습니다.");
     if (h.lv < q.lv) return void sys(g, pi, `레벨 ${q.lv}부터 받을 수 있습니다.`);
+    if (!metNpc(h, npc.id) && !reqNear(h, npc.id)) return void sys(g, pi, `처음에는 광장의 ${npc.name}에게 말을 걸어 받아야 합니다.`);
+    meetNpc(h, npc.id);
     h.reqs[npc.id] = { i, n: 0 };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "의뢰 받음", color: "#ffe08a", t: 0.9, life: 0.9, snd: "build", who: pi });
     return true;

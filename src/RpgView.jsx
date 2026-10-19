@@ -6,7 +6,7 @@ import {
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgTrain, trainView, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
-  rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, rpgQuest, whyReqDone, MOB,
+  rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, rpgQuest, metNpc, QUEST_NPC, whyReqDone, MOB,
   rpgDungeon, whyDungeon, dgNear, dgCrew, runOf,
   RPG_SERVERS, rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
@@ -1570,30 +1570,36 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <b>의뢰 · 퀘스트</b>
                   <span>끝낸 의뢰 <em>{me.rec.req || 0}</em></span>
                 </div>
-                <p className="rpg-stat-rule">어디서든 받고 · 끝내고 · 포기할 수 있습니다. 의뢰인에게 가지 않아도 됩니다.</p>
+                <p className="rpg-stat-rule">처음 한 번은 의뢰인에게 말을 걸어 받습니다. 그 뒤로는 여기서 받고 · 끝내고 · 포기할 수 있습니다.</p>
                 <div className="rpg-stat-list">
                   <div className={`rpg-win-row ${me.quest.on ? "on" : ""}`}>
                     <span className="rpg-stat-name">
                       <b>사냥꾼 · {QUEST.name}</b>
-                      <em>{me.quest.on ? `토끼 ${me.quest.n}/${QUEST.need} · 다 잡으면 저절로 끝납니다` : `토끼 ${QUEST.need}마리 · 보상 경험치 ${QUEST.xp} · ${QUEST.coin}코인`}</em>
+                      <em>{me.quest.on ? `토끼 ${me.quest.n}/${QUEST.need} · 다 잡으면 저절로 끝납니다`
+                        : metNpc(me.self, QUEST_NPC) ? `토끼 ${QUEST.need}마리 · 보상 경험치 ${QUEST.xp} · ${QUEST.coin}코인`
+                          : "처음에는 토끼 사냥터의 사냥꾼에게 말을 걸어 받습니다"}</em>
                     </span>
                     {me.quest.on
                       ? <button type="button" className="rpg-win-btn ghost" onClick={() => act("quest", "drop")}>포기</button>
-                      : <button type="button" className="rpg-win-btn" onClick={() => act("quest", "take")}>받기</button>}
+                      : metNpc(me.self, QUEST_NPC) ? <button type="button" className="rpg-win-btn" onClick={() => act("quest", "take")}>받기</button>
+                        : <span className="rpg-win-tag">말 걸기 전</span>}
                   </div>
                   {REQ_NPCS.map((npc) => {
                     const r = me.self.reqs[npc.id];
                     const q = r && REQUESTS[npc.id][r.i];
                     const done = q && !whyReqDone(me.self, npc.id).length;
+                    const met = metNpc(me.self, npc.id);
                     return (
                       <div key={npc.id} className={`rpg-win-row ${q ? "on" : ""}`}>
                         <span className="rpg-stat-name">
                           <b>{npc.name}{q ? ` · ${reqTitle(q)}` : ""}</b>
-                          <em>{q ? `${reqProg(q, r, me.self)}${done ? " · 완료할 수 있습니다" : ""}` : "맡은 의뢰가 없습니다"}</em>
+                          <em>{q ? `${reqProg(q, r, me.self)}${done ? " · 완료할 수 있습니다" : ""}` : met ? "맡은 의뢰가 없습니다" : "처음에는 광장에서 말을 걸어 받습니다"}</em>
                         </span>
                         <span className="rpg-win-acts">
                           {done && <button type="button" className="rpg-win-btn" onClick={() => act("req", { op: "done", npc: npc.id })}>완료</button>}
-                          <button type="button" className="rpg-win-btn ghost" onClick={() => { setQuestOpen(false); setReqOpen(npc.id); }}>{q ? "보기" : "의뢰 고르기"}</button>
+                          {met
+                            ? <button type="button" className="rpg-win-btn ghost" onClick={() => { setQuestOpen(false); setReqOpen(npc.id); }}>{q ? "보기" : "의뢰 고르기"}</button>
+                            : <span className="rpg-win-tag">말 걸기 전</span>}
                         </span>
                       </div>
                     );

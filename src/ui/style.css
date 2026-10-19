@@ -1463,6 +1463,10 @@ kbd {
 .rpg-mate.mate { border-color: rgba(169, 217, 154, 0.6); }
 .rpg-mate b small { font-family: 'Jua', sans-serif; font-size: 10px; color: #a9d99a; }
 .rpg-mate b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 12.5px; color: var(--pcl); }
+.rpg-mate-host {
+  margin-left: 6px; padding: 0 5px; border-radius: 4px; font-style: normal; font-family: 'Jua', sans-serif; font-size: 10px;
+  color: #2a1f10; background: #e6cf8f; vertical-align: 1px;
+}
 .rpg-mate em { font-style: normal; font-size: 10.5px; color: #a8987a; }
 .rpg-mate-hp { display: block; height: 4px; border-radius: 2px; background: rgba(0, 0, 0, 0.45); overflow: hidden; }
 .rpg-mate-hp span { display: block; height: 100%; background: #8fd07f; }

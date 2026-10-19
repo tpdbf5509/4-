@@ -1839,7 +1839,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {(me ? me.party : []).map((h) => (
             <span key={h.pi} className={`rpg-mate ${h.pi === mySeat ? "mine" : ""} ${me.pty && h.pty === me.pty && h.pi !== mySeat ? "mate" : ""}`}
               style={{ "--pcl": elemOf(seats[h.pi]?.hero).light }}>
-              <b>{names[h.pi] || "모험가"}{me.pty > 0 && h.pty === me.pty && <small> 파티</small>}</b>
+              <b>{names[h.pi] || "모험가"}{me.pty > 0 && h.pty === me.pty && <small> 파티</small>}{hostId && seats[h.pi]?.id === hostId && <i className="rpg-mate-host">방장</i>}</b>
               <em>{who(h.pi)} · Lv {h.lv} · {MAPS[h.map].name}</em>
               <span className="rpg-mate-hp"><span style={{ width: `${Math.min(100, (h.hp / (h.max || 1)) * 100)}%` }} /></span>
             </span>

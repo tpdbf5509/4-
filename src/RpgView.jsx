@@ -376,11 +376,22 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const dirsRef = useRef([]);                       // 누르고 있는 방향
   const fireRef = useRef(false);                    // 스페이스를 누르고 있다
   const sentAt = useRef(0);                         // 손님이 방장에게 이동 · 평타 입력을 마지막으로 보낸 때
+  // 이 탭이 들어온 캐릭터 이름 — 같은 브라우저의 다른 탭이 다른 캐릭터로 들어오면 이 기기의 기록(localStorage 하나)이 그 캐릭터로 바뀐다.
+  // 그때 바뀐 기록을 방장에게 보내거나 내 이름으로 저장하면 두 캐릭터가 섞인다(남의 레벨 · 코인 · 관리자 표시가 옮겨 갔다). 이름이 다르면 멈춘다
+  const selfName = useRef(null);
+  if (selfName.current === null) selfName.current = (loadChar() || {}).name || "";
+  const [mixed, setMixed] = useState(false);
+  const ownChar = () => {
+    const c = loadChar();
+    if (c && selfName.current && c.name !== selfName.current) { setMixed(true); return null; }
+    return c;
+  };
   // 이 기기에 남아 있는 내 기록 — 방장에게 알릴 때마다 새로 읽는다(방장이 바뀌면 그동안 쌓인 것까지 보낸다)
   const myData = () => {
     const c = loadChar();
+    if (c && selfName.current && c.name !== selfName.current) { setMixed(true); return null; }   // 다른 캐릭터의 기록 — 보내지 않는다
     const extra = { auto: autoRef.current, pvp: pvpRef.current, hold: dirsRef.current.slice() };
-    return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
+    return c ? { name: c.name, lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
       rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, rs: c.rs, ...extra } : extra;
   };
 
@@ -989,7 +1000,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (me && me.loaded) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
             + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`;
-          if (key !== saved) {
+          if (key !== saved && ownChar()) {          // 다른 탭이 이 기기의 기록을 다른 캐릭터로 바꿨으면 저장하지 않는다
             saved = key;
             writeChar(me);
             const a = acctRef.current;
@@ -1692,6 +1703,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <span>왕복 {net.rtt === null ? "—" : `${net.rtt}ms (최대 ${net.rttMax})`}</span>
               <span>스냅샷 초당 {net.hz} · 최대 간격 {net.gapMax === null ? "—" : `${net.gapMax}ms`}</span>
               <span>위치 고침 {net.fix}번/초 · 화면 {net.fps}fps</span>
+            </div>
+          )}
+          {mixed && (
+            <div className="drop-note">
+              같은 브라우저의 다른 탭에서 다른 캐릭터로 들어왔습니다. 기록이 섞이지 않게 이 탭의 진행은 저장하지 않습니다.
+              <button className="btn-ghost" onClick={onLeave}>처음 화면으로</button>
             </div>
           )}
           {kicked && (

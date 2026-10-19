@@ -121,7 +121,7 @@ const VIEWS = [["front", "앞"], ["side", "옆"], ["back", "뒤"], ["turn", "사
    이름 · 코드는 01 칸(RpgAccount)에서 정하고 서버에 만든다. 직업 · 원소 · 성별은 처음 게임을 시작할 때 한 번 더 묻고 굳힌다.
    이름 · 직업 · 원소 · 성별은 바꿀 수 없다. 이 기기와 서버에 남아, 다른 기기에서도 이름 + 코드로 이어 한다.
    room 이 있으면(코드로 들어온 방) 방 코드와 인원을 함께 보여 준다. */
-export function RpgSetup({ room, onStart, onLeave }) {
+export function RpgSetup({ room, onStart, onLeave, error }) {
   const [char, setChar] = useState(() => loadChar());
   const [job, setJob] = useState(() => (char && char.picked ? char.job : null));
   const [elem, setElem] = useState(() => (char && char.picked ? char.elem : null));
@@ -319,6 +319,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
               ) : (
                 <>
                   <button className="btn-main wide" disabled={!ready} onClick={start}>게임 시작하기</button>
+                  {error && <p className="err">{error}</p>}
                   <p className={fixed || !(named && job && elem && gender) ? "mk-note" : "mk-warn"}>
                     {!named ? "이름을 먼저 정해 주세요."
                       : admin && job && elem && gender ? "관리자 — 누르면 고른 모습으로 광장으로 이동합니다. 다음에 다시 바꿀 수 있습니다."

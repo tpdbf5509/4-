@@ -13,6 +13,7 @@ import {
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
+import { liveEnter, liveLeave, errText, LIVE_BEAT } from "./net/rpgSave.js";
 import { sendFeedback, loadDraft, saveDraft, FEEDBACK_MAX } from "./net/feedback.js";
 import { Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
 import { TowerChar, charOf } from "./ui/chars.jsx";
@@ -64,6 +65,9 @@ export default function App() {
   const roomRef = useRef(null);
   const handoffRef = useRef(null);         // 방장이 나갈 때 다음 사람에게 넘기는 함수(아래 handoff 를 담는다)
   const bootRef = useRef(null);            // 관리자가 나를 퇴장시켰다 — 방을 나가고 까닭을 띄운다(아래 leave 뒤에 담는다)
+  const leaveRef = useRef(null);           // 다른 곳이 이 캐릭터로 들어왔을 때 나가기(아래 leave)
+  // 접속 중 표시 풀기 — 나가기 · 창 닫기 때
+  const unliveRef = useRef(() => { const c = loadChar(); if (c && c.linked && c.tok) liveLeave(c.name, c.tok, myId()); });
   const hostRef = useRef(false);
   const bossRef = useRef(false);        // 대기실에서 바로 들어간 결전 — false · "boss" · "titan"
   const seatsRef = useRef(new Array(SEATS).fill(null));
@@ -356,6 +360,7 @@ export default function App() {
   useEffect(() => {
     const bye = () => {
       if (hostRef.current && modeRef.current === "rpg") handoffRef.current?.();   // 방장이면 다음 사람에게 넘기고 떠난다
+      if (modeRef.current === "rpg") unliveRef.current?.();
       roomRef.current?.leave();
     };
     window.addEventListener("pagehide", bye);
@@ -364,6 +369,7 @@ export default function App() {
 
   const leave = useCallback(() => {
     if (hostRef.current && modeRef.current === "rpg") handoffRef.current?.();   // 방장이 나가면 남은 사람이 멈추지 않게 바로 넘긴다
+    if (modeRef.current === "rpg") unliveRef.current?.();                       // 접속 중 표시를 바로 푼다(다른 기기에서 곧장 들어오게)
     roomRef.current?.leave();
     roomRef.current = null;
     hostRef.current = false;
@@ -379,6 +385,7 @@ export default function App() {
 
   useEffect(() => {
     bootRef.current = () => { leave(); setError("관리자가 서버에서 퇴장시켰습니다."); };
+    leaveRef.current = leave;
   }, [leave]);
   // 관리 화면의 "퇴장" — 방장 화면이 명령 표를 확인한 뒤 부른다. 나 자신이면 다음 사람에게 방장을 넘기고 나간다
   const kick = useCallback((id) => {
@@ -428,6 +435,31 @@ export default function App() {
     setServer(at);
     connect(RPG_SERVERS[at], false, "rpg", hero);
   }, [connect]);
+
+  // 한 캐릭터는 한 곳에서만 — 서버에 계정이 있는 캐릭터는 들어가기 전에 다른 창 · 기기가 접속 중인지 묻는다(rpgSave.js liveEnter)
+  const [rpgErr, setRpgErr] = useState("");
+  const startRpg = useCallback(async (hero) => {
+    const c = loadChar();
+    if (c && c.linked && c.tok) {
+      const r = await liveEnter(c.name, c.tok, me, RPG_SERVERS[0]);
+      if (r && r.err === "live") return void setRpgErr(errText(r));
+    }
+    setRpgErr("");
+    enterRpg(hero, 0);
+  }, [me, enterRpg]);
+  // 서버에 있는 동안 접속 중 표시를 이어 남긴다. 그사이 다른 곳이 차지했으면(표시가 끊겼던 때) 이 창이 나간다
+  const liveCode = screen === "lobby" && RPG_SERVERS.includes(code) ? code : "";
+  useEffect(() => {
+    const c = loadChar();
+    if (!liveCode || !c || !c.linked || !c.tok) return;
+    const beat = async () => {
+      const r = await liveEnter(c.name, c.tok, me, liveCode);
+      if (r && r.err === "live") { leaveRef.current?.(); setRpgErr(errText(r)); setScreen("rpgMake"); }
+    };
+    beat();
+    const t = setInterval(beat, LIVE_BEAT * 1000);
+    return () => clearInterval(t);
+  }, [liveCode, me]);
 
   // 게임 안 ☰ 메뉴의 서버 이동 — 옮길 서버가 가득 찼으면 원래 서버로 돌아온다(moveRef)
   const moveRef = useRef(null);
@@ -539,8 +571,9 @@ export default function App() {
   if (screen === "rpgMake") {
     return (
       <RpgSetup
-        onStart={(hero) => enterRpg(hero, 0)}
-        onLeave={() => setScreen("home")}
+        onStart={startRpg}
+        error={rpgErr}
+        onLeave={() => { setRpgErr(""); setScreen("home"); }}
       />
     );
   }

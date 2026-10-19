@@ -40,6 +40,7 @@ export function errText(res) {
     case "wrong": return `이름이나 코드가 맞지 않습니다. ${res.left}번 더 틀리면 잠시 막힙니다.`;
     case "locked": return `여러 번 틀려 잠시 막혔습니다. ${Math.max(1, Math.ceil((res.wait || 0) / 60))}분 뒤에 다시 해 주세요.`;
     case "token": return "다른 기기에서 이 캐릭터로 들어왔습니다. 이어 하려면 코드를 다시 넣어 주세요.";
+    case "live": return `이 캐릭터는 지금 ${srvLabel(res.srv)}에 접속 중입니다. 한 캐릭터는 한 곳에서만 할 수 있습니다.${res.wait ? ` 그 창을 닫았다면 ${Math.max(1, res.wait)}초 뒤에 다시 해 주세요.` : ""}`;
     case "guard": return "기록이 다른 캐릭터와 섞인 것 같아 저장을 멈췄습니다. 코드를 다시 넣으면 서버 기록으로 이어 합니다.";
     case "data": return "저장할 내용이 너무 큽니다.";
     default: return "서버에 연결하지 못했습니다. 잠시 뒤 다시 해 주세요.";
@@ -58,6 +59,15 @@ export async function honorTop(limit = 20) {
   const r = await rpc("rpg_honor_top", { p_limit: limit });
   return Array.isArray(r) ? { ok: true, list: r } : { ok: false, ...(r || {}) };
 }
+
+/* ── 접속 중 표시 — 한 캐릭터는 한 곳(한 서버 · 한 창)에서만 ───────────────
+   서버에 들어갈 때 rpg_live 로 "이 창(sid)이 이 서버에 있다"를 남기고 LIVE_BEAT 초마다 다시 남긴다.
+   다른 창이 LIVE 초 안에 남긴 표시가 있으면 들어가지 못한다(이어 하기 rpg_login 도 막힌다).
+   창을 그냥 닫으면 LIVE 초 뒤에 풀린다. 숫자는 supabase/rpg.sql rpg_live_secs 와 맞춘다 */
+export const LIVE_BEAT = 10;           // 접속 중 표시를 다시 남기는 간격(초)
+const srvLabel = (s) => (/^RPG\d$/.test(s || "") ? `서버 ${s.slice(3)}` : "다른 곳");
+export const liveEnter = (name, tok, sid, srv) => rpc("rpg_live", { p_name: name, p_token: tok, p_sid: sid, p_srv: srv });
+export const liveLeave = (name, tok, sid) => rpc("rpg_unlive", { p_name: name, p_token: tok, p_sid: sid });
 
 /* ── 게임 중 저장 — 마지막 기록만 들고 있다가 간격마다 보낸다 ── */
 let pending = null;        // { name, tok, data }

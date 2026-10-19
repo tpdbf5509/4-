@@ -19,6 +19,13 @@ create table if not exists public.rpg_chars (
 -- 관리자 캐릭터 — 게임이 최고 레벨 · 코인 무제한으로 다룬다. rpg_save 로는 바꿀 수 없고 대시보드에서만 켠다.
 alter table public.rpg_chars add column if not exists admin boolean not null default false;
 
+-- 접속 중 표시 — 한 캐릭터는 한 곳(한 서버 · 한 창)에서만. rpg_live 가 채우고 10초마다 다시 채운다
+alter table public.rpg_chars add column if not exists live_sid text;          -- 접속 중인 창(탭마다 다른 접속 id)
+alter table public.rpg_chars add column if not exists live_srv text;          -- 그 창이 있는 서버(RPG1~RPG4)
+alter table public.rpg_chars add column if not exists live_at timestamptz;    -- 마지막으로 남긴 때 — rpg_live_secs 초가 지나면 풀린다
+create or replace function public.rpg_live_secs()
+returns int language sql immutable set search_path = '' as $$ select 30 $$;   -- 창을 그냥 닫으면 이만큼 뒤에 풀린다
+
 -- 코드를 틀린 횟수 — 이름마다. 5번 틀리면 10분 막는다.
 create table if not exists public.rpg_fails (
   name_key  text primary key,
@@ -89,6 +96,11 @@ begin
   select * into v_char from public.rpg_chars where name_key = v_key;
   if found and extensions.crypt(coalesce(p_code, ''), v_char.code_hash) = v_char.code_hash then
     update public.rpg_fails set n = 0, until = null where name_key = v_key;
+    -- 다른 창 · 기기가 지금 접속 중이면 입장권을 바꾸지 않는다(바꾸면 그쪽 저장이 끊긴다) — 아래 rpg_live
+    if v_char.live_at is not null and v_char.live_at > now() - make_interval(secs => public.rpg_live_secs()) then
+      return jsonb_build_object('ok', false, 'err', 'live', 'srv', v_char.live_srv,
+        'wait', ceil(extract(epoch from v_char.live_at + make_interval(secs => public.rpg_live_secs()) - now())));
+    end if;
     v_tok := encode(extensions.gen_random_bytes(16), 'hex');
     update public.rpg_chars set token_hash = encode(extensions.digest(v_tok, 'sha256'), 'hex') where name_key = v_key;
     return jsonb_build_object('ok', true, 'token', v_tok, 'name', v_char.name, 'data', v_char.data, 'admin', v_char.admin);
@@ -323,3 +335,39 @@ begin
 end $$;
 revoke execute on function public.rpg_admin_blocks(text, text) from public, anon, authenticated;
 grant execute on function public.rpg_admin_blocks(text, text) to anon, authenticated;
+
+-- 접속 중 표시 남기기 — 서버에 들어갈 때와 10초마다(src/net/rpgSave.js liveEnter). 다른 창이 남긴 표시가 살아 있으면 'live'
+create or replace function public.rpg_live(p_name text, p_token text, p_sid text, p_srv text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_char public.rpg_chars;
+begin
+  if coalesce(p_sid, '') !~ '^[a-z0-9]{1,16}$' or coalesce(p_srv, '') !~ '^[A-Z0-9]{1,8}$' then
+    return jsonb_build_object('ok', false, 'err', 'bad');
+  end if;
+  select * into v_char from public.rpg_chars
+  where name_key = public.rpg_key(p_name) and token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex')
+  for update;
+  if not found then return jsonb_build_object('ok', false, 'err', 'token'); end if;
+  if v_char.live_sid is distinct from p_sid and v_char.live_at is not null
+     and v_char.live_at > now() - make_interval(secs => public.rpg_live_secs()) then
+    return jsonb_build_object('ok', false, 'err', 'live', 'srv', v_char.live_srv,
+      'wait', ceil(extract(epoch from v_char.live_at + make_interval(secs => public.rpg_live_secs()) - now())));
+  end if;
+  update public.rpg_chars set live_sid = p_sid, live_srv = p_srv, live_at = now() where name_key = v_char.name_key;
+  return jsonb_build_object('ok', true);
+end $$;
+
+-- 접속 중 표시 풀기 — 나가기 · 창 닫기 때. 그 창이 남긴 표시일 때만
+create or replace function public.rpg_unlive(p_name text, p_token text, p_sid text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+begin
+  update public.rpg_chars set live_at = null
+  where name_key = public.rpg_key(p_name) and token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex')
+    and live_sid = p_sid;
+  return jsonb_build_object('ok', true);
+end $$;
+
+revoke execute on function public.rpg_live_secs() from public, anon, authenticated;
+revoke execute on function public.rpg_live(text, text, text, text), public.rpg_unlive(text, text, text) from public, anon, authenticated;
+grant execute on function public.rpg_live(text, text, text, text), public.rpg_unlive(text, text, text) to anon, authenticated;

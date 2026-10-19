@@ -8,7 +8,7 @@ import {
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
   rpgDungeon, whyDungeon, dgNear, dgCrew, runOf,
-  rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
+  RPG_SERVERS, rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
@@ -47,7 +47,8 @@ import { UPDATES, RPG_NOTICE } from "./game/updates.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
-import { compareBuild } from "./net/version.js";
+import { compareBuild, BUILD } from "./net/version.js";
+import { adminRedeem, joinAdminLink } from "./net/admin.js";
 import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText, honorTop } from "./net/rpgSave.js";
 import { drawRpg } from "./game/rpgArt.js";
 import { ghostStep } from "./game/bossBar.js";
@@ -364,7 +365,7 @@ export function RpgSetup({ room, onStart, onLeave }) {
 }
 
 /* ── 광장과 사냥터 ─────────────────────────────────────── */
-export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave }) {
+export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave, onHandoff, onKick }) {
   const cvsRef = useRef(null);
   const bgsRef = useRef(null);
   const names = useMemo(() => seats.map((s) => s?.name || ""), [seats]);
@@ -521,7 +522,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [kicked, setKicked] = useState(false);
   const [oldHost, setOldHost] = useState(false);
   // 연결 진단 칸 — 왕복 시간 · 스냅샷 간격 · 위치 고친 횟수 · 초당 프레임(NET_DIAG.every 초마다 새로)
-  const netRef = useRef({ rtt: [], snaps: [], frames: 0, fix0: 0 });
+  const netRef = useRef({ rtt: [], snaps: [], frames: 0, fix0: 0, total: 0 });
   const [net, setNet] = useState(null);
   useEffect(() => {
     if (!diagOn()) return;
@@ -544,6 +545,36 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }, NET_DIAG.every * 1000);
     return () => clearInterval(t);
   }, [room, isHost]);
+  // 관리 화면(?admin) — 내가 RPG 서버의 방장일 때만 관리 채널에 붙어 묻는 말에 답하고 명령을 따른다(src/net/admin.js)
+  const seatsNow = useRef(seats);
+  const adminFns = useRef({});
+  useEffect(() => { seatsNow.current = seats; adminFns.current = { onHandoff, onKick }; });
+  useEffect(() => {
+    if (!isHost || !room || room.viaServer || !RPG_SERVERS.includes(room.code)) return;
+    const srv = room.code;
+    const link = joinAdminLink(srv, hostId, "방장");
+    let at = performance.now(), frames = netRef.current.total;
+    link.on("ping", (d) => {
+      const now = performance.now(), g = G.current;
+      const fps = Math.round(((netRef.current.total - frames) * 1000) / Math.max(1, now - at));
+      at = now; frames = netRef.current.total;
+      const people = seatsNow.current.map((st, pi) => {
+        const h = g.heroes[pi];
+        if (!st || !h) return null;
+        return { id: st.id, name: st.name || "", lv: h.lv, job: jobOf(h).name, map: (MAPS[h.map] || {}).name || h.map };
+      }).filter(Boolean);
+      link.send("stat", { t: d && d.t, srv, host: hostId, ver: BUILD, fps, people });
+    });
+    link.on("cmd", async (d) => {
+      if (!d || typeof d.nonce !== "string" || typeof d.target !== "string") return;
+      const ok = await adminRedeem(d.nonce, srv, d.act, d.target);
+      let done = false;
+      if (ok && d.act === "host") done = !!adminFns.current.onHandoff?.(d.target);
+      if (ok && d.act === "kick") done = !!adminFns.current.onKick?.(d.target);
+      link.send("done", { cid: d.cid, srv, ok: done, why: ok ? (done ? "" : "그 사람이 서버에 없습니다") : "명령 표가 맞지 않습니다" });
+    });
+    return () => link.leave();
+  }, [isHost, room, hostId]);
   const [where, setWhere] = useState("");          // 전용 서버 방이 도는 곳(Cloudflare 데이터센터)
   useEffect(() => {
     if (!room || !room.viaServer || !room.httpBase) return;
@@ -923,6 +954,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         for (let left = Math.min(real, GUEST_CATCH_UP); left > 0; left -= STEP_MAX) rpgStepVisual(g, Math.min(left, STEP_MAX));
       }
       netRef.current.frames += 1;
+      netRef.current.total += 1;                   // 관리 화면에 알리는 fps
       playSounds(g);
       tickBossBars(g, now / 1000);
       drawRpg(ctx, g, bgsRef.current);

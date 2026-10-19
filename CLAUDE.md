@@ -71,6 +71,7 @@
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
 | `src/net/room.js` | Supabase 채널 연결 |
 | `src/net/rpgServer.js` · `server/` | RPG 전용 서버 연결(room.js 와 같은 모양) · 서버(`server/src/room.js` 가 RPG1~5 방 하나, `save.js` 가 Supabase `rpg_srv_load` · `rpg_srv_save` — 서버 비밀 키로만). 규칙은 `src/game/` 를 그대로 묶어 쓴다. 입력 나누기는 `src/game/rpgInput.js`(방장 화면과 서버가 같이 쓴다) |
+| `src/AdminView.jsx` · `src/net/admin.js` · `src/ui/admin.css` | 관리 화면 「데이터 시스템」(`?admin`, 관리자 이름 + 코드). 서버마다 관리 채널로 방장 화면에 묻고(인원 · 왕복 · fps) 방장 부여 · 퇴장을 보낸다. 방장 쪽 답은 RpgView.jsx, 명령 표 함수는 `supabase/rpg.sql`(`rpg_admin_*`) |
 | `src/net/version.js` | 새 버전 알아채기. 빌드 번호(`__BUILD__`, `vite.config.js`)와 `dist/version.json` 을 견주어 옛 화면을 스스로 새로 고친다. RPG 스냅샷에 방장 빌드(`ver`)를 싣는다 |
 | `src/net/rpgSave.js` · `src/RpgAccount.jsx` | RPG 캐릭터 서버 저장(만들기 · 이어 하기 · 10초마다 저장 · 입장권)과 캐릭터 만들기 화면의 이름 · 코드 칸. 표와 함수는 `supabase/rpg.sql` |
 | `src/ui/style.css` | 모든 스타일 |
@@ -114,6 +115,7 @@
 - **RPG 경험치**: 몹 경험치는 `XP_RATE`(0.2, 5배 줄임)를 곱한다. 퀘스트 경험치는 그대로. 파티원은 같은 맵이면 몹 경험치의 50%를 받는다.
 - **RPG 채팅**은 방장을 거치지 않고 모두에게 바로 보낸다(1초에 한 번). 파티 · 칭호 알림은 방장이 `sys` 로 보낸다.
 - **RPG 방장 승계**: 방장이 나가도 서버는 닫히지 않는다. 남은 사람이 받은 스냅샷을 판정 세계로 바꿔(`rpgPromote`) 자리 · 체력 · 몹을 그대로 잇는다. 손님은 새 방장에게 기록을 다시 보낸다. 손님에게 보이는 새 상태는 스냅샷에 넣어야 승계 뒤에도 남는다.
+- **RPG 방장 넘기기**: 방장이 나가기 · 창 닫기를 하면 다음 사람에게 방장을 넘기고 나간다(`handoff`, App.jsx). 대기실 소식의 방장 차례 `ep` 가 작은 소식은 버린다. 30초마다 돌려 바꾸는 방식은 쓰지 않는다 — 바꿀 때마다 모두가 잠깐 끊긴다. 관리 화면(`?admin`)의 "방장 부여"도 같은 `handoff` 를 쓴다.
 - **방장 전용**: 시작 · 난이도 · 라운드 · 일시정지(결전 중에도) · 속도. 손님 화면에서는 버튼이 비활성.
 
 ## 6. 작업할 때 지킬 것

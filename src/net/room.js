@@ -58,9 +58,10 @@ function joinLocal(code, { id, name, onPeers, onStatus }) {
   const handlers = new Map();
   const peers = new Map();
   let mine = { id, name, at: Date.now() };
+  let closed = false;                    // 나간 뒤 늦게 도는 타이머가 닫힌 채널에 보내지 않게
 
   const pushPeers = () => onPeers?.([...peers.values()]);
-  const announce = () => bc.postMessage({ t: "here", p: mine });
+  const announce = () => { if (!closed) bc.postMessage({ t: "here", p: mine }); };
 
   bc.onmessage = ({ data }) => {
     if (data.t === "here") {
@@ -82,10 +83,12 @@ function joinLocal(code, { id, name, onPeers, onStatus }) {
 
   return {
     code,
-    send(k, d) { bc.postMessage({ t: "msg", k, d, from: id }); },
+    send(k, d) { if (!closed) bc.postMessage({ t: "msg", k, d, from: id }); },
     on(k, fn) { handlers.set(k, fn); return () => handlers.delete(k); },
     setPresence(patch) { mine = { ...mine, ...patch }; announce(); },
     leave() {
+      if (closed) return;
+      closed = true;
       clearInterval(beat);
       bc.postMessage({ t: "gone", p: id });
       handlers.clear();

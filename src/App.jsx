@@ -63,6 +63,7 @@ export default function App() {
 
   const roomRef = useRef(null);
   const handoffRef = useRef(null);         // 방장이 나갈 때 다음 사람에게 넘기는 함수(아래 handoff 를 담는다)
+  const bootRef = useRef(null);            // 관리자가 나를 퇴장시켰다 — 방을 나가고 까닭을 띄운다(아래 leave 뒤에 담는다)
   const hostRef = useRef(false);
   const bossRef = useRef(false);        // 대기실에서 바로 들어간 결전 — false · "boss" · "titan"
   const seatsRef = useRef(new Array(SEATS).fill(null));
@@ -270,6 +271,8 @@ export default function App() {
     }, 500);
 
     room.on("hello", () => { if (hostRef.current) reseat(); });
+    // 관리 화면의 "퇴장" — 방장이 자리를 비우고 알린다
+    room.on("boot", (d) => { if (d && d.id === me) bootRef.current?.(); });
     // 전용 서버 — 입장권이 맞지 않는다(다른 기기가 나중에 들어왔다). 이 기기의 서버 저장을 멈추고 이 기기 기록으로 들어간다
     room.on("deny", () => {
       setAccount({ tok: "" });
@@ -373,6 +376,23 @@ export default function App() {
     setScreen("home");
     history.replaceState(null, "", location.pathname);
   }, []);
+
+  useEffect(() => {
+    bootRef.current = () => { leave(); setError("관리자가 서버에서 퇴장시켰습니다."); };
+  }, [leave]);
+  // 관리 화면의 "퇴장" — 방장 화면이 명령 표를 확인한 뒤 부른다. 나 자신이면 다음 사람에게 방장을 넘기고 나간다
+  const kick = useCallback((id) => {
+    if (!hostRef.current || !id) return false;
+    if (id === me) { setTimeout(() => bootRef.current?.(), 300); return true; }   // 답("done")을 보낼 틈을 둔다
+    const at = seatsRef.current.findIndex((st) => st && st.id === id);
+    if (at < 0) return false;
+    const seats = seatsRef.current.slice();
+    seats[at] = null;
+    seatsRef.current = seats;
+    roomRef.current?.send("boot", { id });
+    publishLobby();
+    return true;
+  }, [me, publishLobby]);
 
   const pick = useCallback((cls) => {
     if (!lobby || lobby.mode === "rpg") return;
@@ -554,7 +574,7 @@ export default function App() {
         seats={lobby.seats}
         mySeat={mySeat}
         code={RPG_SERVERS.includes(code) ? `서버 ${server + 1}` : `방 코드 ${code}`}
-        onLeave={leave}
+        onLeave={leave} onHandoff={handoff} onKick={kick}
       />
     );
   }

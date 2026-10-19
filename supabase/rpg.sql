@@ -181,3 +181,81 @@ grant execute on function public.rpg_srv_load(text, text), public.rpg_srv_save(t
 -- insert into public.rpg_chars (name_key, name, code_hash, data, admin)
 -- values (public.rpg_key('<이름>'), '<이름>', extensions.crypt('<코드>', extensions.gen_salt('bf', 8)),
 --   '{"v":3,"name":"<이름>","lv":100,"xp":0,"coins":99999999,"quest":{"on":false,"n":0},"stats":{}}'::jsonb, true);
+
+-- ── 관리 화면(?admin) ─────────────────────────────────────────────
+-- 관리자 캐릭터의 이름 + 코드로만 열린다. 이어 하기(rpg_login)와 달리 입장권을 바꾸지 않아 게임 중인 기기가 끊기지 않는다.
+-- 명령(방장 부여 · 퇴장)은 서버마다 표 한 줄에 남긴 일회용 표(nonce)로 보낸다. 방장 화면은 그 표가 맞는지 묻고 한 번만 쓴다.
+create table if not exists public.rpg_admin_tickets (
+  server      text primary key,                 -- RPG1~RPG5 — 서버마다 마지막 명령 하나만 둔다(표가 쌓이지 않게)
+  nonce_hash  text not null,
+  act         text not null,                    -- 'host' 방장 부여 · 'kick' 퇴장
+  target      text not null,                    -- 대상의 접속 id
+  until       timestamptz not null,
+  used        boolean not null default false
+);
+alter table public.rpg_admin_tickets enable row level security;
+revoke all on public.rpg_admin_tickets from anon, authenticated;
+
+-- 관리자 이름 + 코드가 맞는가 — 틀린 횟수는 rpg_login 과 같은 표로 센다(5번 틀리면 10분)
+create or replace function public.rpg_admin_ok(p_name text, p_code text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  c_max  constant int := 5;
+  c_lock constant interval := interval '10 minutes';
+  v_key  text := public.rpg_key(p_name);
+  v_fail public.rpg_fails;
+  v_char public.rpg_chars;
+  v_n    int;
+begin
+  select * into v_fail from public.rpg_fails where name_key = v_key;
+  if found and v_fail.until is not null and v_fail.until > now() then
+    return jsonb_build_object('ok', false, 'err', 'locked', 'wait', ceil(extract(epoch from v_fail.until - now())));
+  end if;
+  select * into v_char from public.rpg_chars where name_key = v_key;
+  if found and v_char.admin and extensions.crypt(coalesce(p_code, ''), v_char.code_hash) = v_char.code_hash then
+    update public.rpg_fails set n = 0, until = null where name_key = v_key;
+    return jsonb_build_object('ok', true, 'name', v_char.name);
+  end if;
+  insert into public.rpg_fails (name_key, n, until) values (v_key, 1, null)
+  on conflict (name_key) do update set n = public.rpg_fails.n + 1, until = null
+  returning n into v_n;
+  if v_n >= c_max then
+    update public.rpg_fails set n = 0, until = now() + c_lock where name_key = v_key;
+    return jsonb_build_object('ok', false, 'err', 'locked', 'wait', extract(epoch from c_lock)::int);
+  end if;
+  return jsonb_build_object('ok', false, 'err', 'wrong', 'left', c_max - v_n);
+end $$;
+
+-- 명령 표 만들기 — 60초 안에 한 번만 쓸 수 있다
+create or replace function public.rpg_admin_ticket(p_name text, p_code text, p_server text, p_act text, p_target text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_ok    jsonb := public.rpg_admin_ok(p_name, p_code);
+  v_nonce text := encode(extensions.gen_random_bytes(16), 'hex');
+begin
+  if not (v_ok->>'ok')::boolean then return v_ok; end if;
+  if p_server !~ '^RPG[1-5]$' or p_act not in ('host', 'kick') or coalesce(p_target, '') !~ '^[a-z0-9]{1,16}$' then
+    return jsonb_build_object('ok', false, 'err', 'bad');
+  end if;
+  insert into public.rpg_admin_tickets (server, nonce_hash, act, target, until, used)
+  values (p_server, encode(extensions.digest(v_nonce, 'sha256'), 'hex'), p_act, p_target, now() + interval '60 seconds', false)
+  on conflict (server) do update set nonce_hash = excluded.nonce_hash, act = excluded.act, target = excluded.target,
+    until = excluded.until, used = false;
+  return jsonb_build_object('ok', true, 'nonce', v_nonce);
+end $$;
+
+-- 명령 표 쓰기 — 방장 화면이 부른다. 맞으면 true, 그 뒤로는 다시 쓸 수 없다
+create or replace function public.rpg_admin_redeem(p_nonce text, p_server text, p_act text, p_target text)
+returns boolean language plpgsql volatile security definer set search_path = '' as $$
+begin
+  update public.rpg_admin_tickets set used = true
+  where server = p_server and nonce_hash = encode(extensions.digest(coalesce(p_nonce, ''), 'sha256'), 'hex')
+    and act = p_act and target = p_target and not used and until > now();
+  return found;
+end $$;
+
+revoke execute on function public.rpg_admin_ok(text, text) from public, anon, authenticated;
+revoke execute on function public.rpg_admin_ticket(text, text, text, text, text), public.rpg_admin_redeem(text, text, text, text)
+  from public, anon, authenticated;
+grant execute on function public.rpg_admin_ok(text, text), public.rpg_admin_ticket(text, text, text, text, text),
+  public.rpg_admin_redeem(text, text, text, text) to anon, authenticated;

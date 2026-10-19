@@ -14,7 +14,7 @@ import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
-import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS } from "./itemData.js";
+import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, RESET, rollDrop } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
@@ -155,7 +155,10 @@ export const MAPS = {
   ogre: {
     id: "ogre", name: "오우거 사냥터", w: 5000, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600,
     tint: "rgba(30,26,46,0.40)",                  // 어두운 골짜기
-    gates: [{ x: 90, y: 920, r: 64, to: "orc", at: [4590, 920], label: "오크 사냥터" }],
+    gates: [
+      { x: 90, y: 920, r: 64, to: "orc", at: [4590, 920], label: "오크 사냥터" },
+      { x: 4910, y: 920, r: 64, to: "skeletal", at: [260, 920], label: "스켈레톤 사냥터 · 200~230레벨" },
+    ],
     blocks: [],
     npcs: [],
     zone: [520, 4850],
@@ -192,6 +195,29 @@ MAPS.train = {
   blocks: [...TRAIN.dummies.map(([x, y]) => ({ x, y: y - 4, r: 22 })), { x: TRAIN.npc.x, y: TRAIN.npc.y - 4, r: 18 }],
   npcs: [{ id: "trainer", train: 1, name: "훈련 교관", x: TRAIN.npc.x, y: TRAIN.npc.y }],
 };
+/* 200레벨 넘어서는 여섯 곳 — 30레벨 단위 테마(언데드: 스켈레톤 → 좀비 → 마법사, 인조 몬스터: 골렘 → 키메라 → 포식거미).
+   오우거 사냥터 끝에서 이어지는 한 줄 길이다. 훈련장 뒤에 붙는다(맵 차례는 뒤에만 더한다) */
+export const FAR_MAPS = [
+  { id: "skeletal", name: "스켈레톤 사냥터", lv: [200, 230], w: 5000, tint: "rgba(34,40,54,0.44)" },       // 차가운 돌무덤
+  { id: "zombie", name: "좀비 사냥터", lv: [230, 260], w: 5200, tint: "rgba(40,62,30,0.44)" },            // 썩은 늪
+  { id: "necro", name: "언데드 마법사 사냥터", lv: [260, 300], w: 5400, tint: "rgba(56,30,74,0.46)" },     // 보랏빛 마력이 서린 폐허
+  { id: "golem", name: "골렘 사냥터", lv: [300, 330], w: 5600, tint: "rgba(86,74,56,0.34)" },             // 돌가루 날리는 채석장
+  { id: "chimera", name: "키메라 사냥터", lv: [330, 360], w: 5800, tint: "rgba(92,40,36,0.36)" },         // 붉은 바위 협곡
+  { id: "spider", name: "포식거미 사냥터", lv: [360, 400], w: 6000, tint: "rgba(24,20,36,0.52)" },       // 거미줄 걸린 어두운 숲
+];
+FAR_MAPS.forEach((f, i) => {
+  const prev = i ? FAR_MAPS[i - 1] : { id: "ogre", name: "오우거 사냥터", w: MAPS.ogre.w };
+  const next = FAR_MAPS[i + 1];
+  MAPS[f.id] = {
+    id: f.id, name: f.name, w: f.w, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600, tint: f.tint,
+    gates: [
+      { x: 90, y: 920, r: 64, to: prev.id, at: [prev.w - 410, 920], label: prev.name },
+      ...(next ? [{ x: f.w - 90, y: 920, r: 64, to: next.id, at: [260, 920], label: `${next.name} · ${next.lv[0]}~${next.lv[1]}레벨` }] : []),
+    ],
+    blocks: [], npcs: [], zone: [520, f.w - 150],
+  };
+  MAP_IDS.push(f.id);
+});
 MAP_IDS.push("train");
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
@@ -301,7 +327,69 @@ MOB.skeleton = { ...MOB.goblin, name: "해골", boss: { ...MOB.goblin.boss, name
 // 허수아비 더미 — 훈련장에만 있다. 움직이지도 반격하지도 않고 보상도 없다(trainData.js)
 MOB.dummy = { name: "허수아비", rad: 22, hp: () => TRAIN.dummyHp, dmg: () => 0, xp: () => 0, coin: () => 0, size: () => 1 };
 BRUTE.skeleton = GOBLIN;
-const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy"];   // 스냅샷 차례 — 뒤에만 더한다
+
+/* 200~400레벨 몹 — 오우거 다음을 이어 한 단계씩 더 세게. 모두 같은 셈(stepBrute)을 쓰고 값만 다르다.
+   언데드(스켈레톤 200~230 · 좀비 230~260 · 언데드 마법사 260~300)와 인조 몬스터(골렘 300~330 · 키메라 330~360 · 포식거미 360~400).
+   경험치 배수는 3.5 → 4.5 ~ 7 로 천천히 올린다(필요 경험치가 레벨의 30배라 한 레벨에 잡는 수가 33 → 21마리쯤으로 줄어든다).
+   보스는 구간 한가운데 레벨보다 조금 높고, 재료를 1~5개 떨군다(itemData.js DROPS) */
+MOB.skeletal = {
+  name: "스켈레톤", rad: 22,
+  hp: (lv) => 60000 + 800 * (lv - 200),           // 60,000 ~ 84,000
+  dmg: (lv) => 680 + 6 * (lv - 200),              // 칼 680 ~ 860 — 고블린처럼 빨리 벤다
+  xp: (lv) => Math.round(4.5 * lv), coin: (lv) => Math.round(2.2 * lv),
+  size: (lv) => 1.1 + 0.004 * (lv - 200),         // 1.1 ~ 1.22
+  boss: { name: "스켈레톤 킹", lv: 240, hp: 900000, dmg: 1000, xp: 14000, coin: 9000, size: 2 },
+};
+MOB.zombie = {
+  name: "좀비", rad: 26,
+  hp: (lv) => 90000 + 900 * (lv - 230),           // 90,000 ~ 117,000 — 느리지만 질기다
+  dmg: (lv) => 900 + 6 * (lv - 230),              // 900 ~ 1,080
+  xp: (lv) => Math.round(5 * lv), coin: (lv) => Math.round(2.4 * lv),
+  size: (lv) => 1.3 + 0.004 * (lv - 230),         // 1.3 ~ 1.42
+  boss: { name: "좀비 군주", lv: 270, hp: 1400000, dmg: 1300, xp: 18000, coin: 12000, size: 2 },
+};
+MOB.necro = {
+  name: "언데드 마법사", rad: 22,
+  hp: (lv) => 125000 + 1000 * (lv - 260),         // 125,000 ~ 165,000
+  dmg: (lv) => 1100 + 8 * (lv - 260),             // 마력 폭발 1,100 ~ 1,420 — 넓은 둘레를 터뜨린다
+  xp: (lv) => Math.round(5.5 * lv), coin: (lv) => Math.round(2.6 * lv),
+  size: (lv) => 1.15 + 0.003 * (lv - 260),        // 1.15 ~ 1.27
+  boss: { name: "리치 대마법사", lv: 310, hp: 2000000, dmg: 1700, xp: 24000, coin: 16000, size: 2 },
+};
+MOB.golem = {
+  name: "골렘", rad: 32,
+  hp: (lv) => 180000 + 1500 * (lv - 300),         // 180,000 ~ 225,000 — 가장 단단하다
+  dmg: (lv) => 1450 + 8 * (lv - 300),             // 주먹 1,450 ~ 1,690 (내려찍기는 slamMul 배)
+  xp: (lv) => Math.round(6 * lv), coin: (lv) => Math.round(2.8 * lv),
+  size: (lv) => 1.55 + 0.004 * (lv - 300),        // 1.55 ~ 1.67
+  boss: { name: "고대 골렘", lv: 340, hp: 2800000, dmg: 2000, xp: 30000, coin: 20000, size: 1.95 },
+};
+MOB.chimera = {
+  name: "키메라", rad: 30,
+  hp: (lv) => 235000 + 1700 * (lv - 330),         // 235,000 ~ 286,000
+  dmg: (lv) => 1700 + 9 * (lv - 330),             // 물어뜯기 1,700 ~ 1,970 — 빠르다
+  xp: (lv) => Math.round(6.5 * lv), coin: (lv) => Math.round(3 * lv),
+  size: (lv) => 1.4 + 0.004 * (lv - 330),         // 1.4 ~ 1.52
+  boss: { name: "키메라 왕", lv: 370, hp: 3800000, dmg: 2400, xp: 38000, coin: 26000, size: 1.95 },
+};
+MOB.spider = {
+  name: "포식거미", rad: 26,
+  hp: (lv) => 295000 + 2000 * (lv - 360),         // 295,000 ~ 375,000
+  dmg: (lv) => 2000 + 10 * (lv - 360),            // 독니 2,000 ~ 2,400 — 가장 빠르고 아프다
+  xp: (lv) => Math.round(7 * lv), coin: (lv) => Math.round(3.2 * lv),
+  size: (lv) => 1.3 + 0.004 * (lv - 360),         // 1.3 ~ 1.46
+  boss: { name: "포식거미 여왕", lv: 410, hp: 5000000, dmg: 2900, xp: 48000, coin: 34000, size: 1.95 },
+};
+// 값의 뜻은 GOBLIN · ORC · OGRE 와 같다
+export const SKELETAL = { aggro: 440, walk: 225, punchCd: 0.8, slamRange: 0, call: 360, leash: 1200 };
+export const ZOMBIE = { aggro: 400, walk: 120, punchCd: 1.2, slamRange: 190, wind: 0.7, slamR: 180, slamMul: 1.6, cd: 5, rest: 0.8, call: 300, leash: 1200 };
+export const NECRO = { aggro: 520, walk: 175, punchCd: 1.1, slamRange: 240, wind: 0.6, slamR: 230, slamMul: 1.8, cd: 4, rest: 0.6, call: 280, leash: 1300 };
+export const GOLEM = { aggro: 420, walk: 130, punchCd: 1.5, slamRange: 230, wind: 0.8, slamR: 240, slamMul: 2, cd: 5, rest: 0.9, call: 240, leash: 1200 };
+export const CHIMERA = { aggro: 520, walk: 235, punchCd: 0.9, slamRange: 220, wind: 0.5, slamR: 210, slamMul: 1.8, cd: 3.8, rest: 0.5, call: 300, leash: 1400 };
+export const SPIDER = { aggro: 560, walk: 255, punchCd: 0.7, slamRange: 200, wind: 0.45, slamR: 190, slamMul: 1.7, cd: 3.5, rest: 0.4, call: 360, leash: 1500 };
+Object.assign(BRUTE, { skeletal: SKELETAL, zombie: ZOMBIE, necro: NECRO, golem: GOLEM, chimera: CHIMERA, spider: SPIDER });
+const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
+  "skeletal", "zombie", "necro", "golem", "chimera", "spider"];   // 스냅샷 차례 — 뒤에만 더한다
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -321,6 +409,19 @@ export const SPAWNS = [
   { map: "orc", type: "orc", boss: 1, n: 2, respawn: 14 },
   { map: "ogre", type: "ogre", n: 20, lv: [160, 200], respawn: 3.5 },
   { map: "ogre", type: "ogre", boss: 1, n: 2, respawn: 16 },
+  // 200~400레벨 — 30레벨 단위 테마(FAR_MAPS)
+  { map: "skeletal", type: "skeletal", n: 26, lv: [200, 230], respawn: 3 },
+  { map: "skeletal", type: "skeletal", boss: 1, n: 2, respawn: 18 },
+  { map: "zombie", type: "zombie", n: 24, lv: [230, 260], respawn: 3.5 },
+  { map: "zombie", type: "zombie", boss: 1, n: 2, respawn: 20 },
+  { map: "necro", type: "necro", n: 22, lv: [260, 300], respawn: 4 },
+  { map: "necro", type: "necro", boss: 1, n: 2, respawn: 22 },
+  { map: "golem", type: "golem", n: 20, lv: [300, 330], respawn: 4 },
+  { map: "golem", type: "golem", boss: 1, n: 2, respawn: 24 },
+  { map: "chimera", type: "chimera", n: 22, lv: [330, 360], respawn: 4 },
+  { map: "chimera", type: "chimera", boss: 1, n: 2, respawn: 26 },
+  { map: "spider", type: "spider", n: 24, lv: [360, 400], respawn: 4.5 },
+  { map: "spider", type: "spider", boss: 1, n: 2, respawn: 28 },
 ];
 
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
@@ -383,10 +484,10 @@ export function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, (by - ay) / RP
 
 /* ── 성장 ──────────────────────────────────────────────── */
 export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 30씩 는다
-export const LV_MAX = 200;
+export const LV_MAX = 400;               // 200 에서 400 으로 늘렸다(200~400 은 언데드 · 인조 몬스터 사냥터)
 
-/* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 200레벨까지 모두 400포인트).
-   스탯 하나에는 STAT_MAX 까지 찍는다. 400포인트로 한 스탯을 250까지 올리고 남은 150을 나눌 수 있다.
+/* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 400레벨까지 모두 800포인트).
+   스탯 하나에는 STAT_MAX 까지 찍는다. 800포인트로 세 스탯을 250까지 올리고 남은 50을 나눌 수 있다.
    물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
 export const STAT_MAX = 250;          // 스탯 하나의 상한 — 100 에서 250 으로 늘렸다(한 스탯에 몰아 찍을 수 있게)
 // 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
@@ -494,6 +595,7 @@ export function loadChar() {
     honor: Math.max(0, Math.floor(Number(r.honor) || 0)),   // 명예
     reqs: cleanReqs(r.reqs),                     // 맡은 광장 의뢰
     gift: typeof r.gift === "string" ? r.gift : "",   // 마지막으로 받은 업데이트 선물 id
+    rs: typeof r.rs === "string" ? r.rs : "",    // 마지막으로 겪은 서버 초기화 id(itemData.js RESET)
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다. acct 는 서버에 만든 계정 { tok }
@@ -546,19 +648,21 @@ export function writeChar(d) {
   const cur = loadSave();
   if (!cur) return;
   // 레벨은 내려가는 일이 없다 — 내려간 기록이 오면 남의 기록이 섞인 것이니 남기지 않는다(서버 저장도 이 기록을 쓴다)
-  if (Math.floor(Number(d.lv) || 1) < Math.floor(Number(cur.lv) || 1)) return;
+  // 단, 서버 초기화(RESET)를 방금 겪은 기록은 레벨이 내려가도 남긴다
+  const reset = d.rs === RESET.id && cur.rs !== RESET.id;
+  if (!reset && Math.floor(Number(d.lv) || 1) < Math.floor(Number(cur.lv) || 1)) return;
   const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
   store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
     honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs),
-    gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "" });
+    gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "", rs: d.rs === RESET.id ? RESET.id : cur.rs || "" });
 }
 
 // 전용 서버가 저장할 기록 — 불러온 기록(base) 위에 지금 영웅 상태를 덮는다(writeChar 와 같은 칸). 레벨이 내려갔으면 null
 export function heroRecord(h, base, look) {
   const b = base && typeof base === "object" ? base : {};
   if (!h || !h.loaded) return null;
-  if (Math.floor(Number(h.lv) || 1) < Math.floor(Number(b.lv) || 1)) return null;
+  if (h.rs !== RESET.id && Math.floor(Number(h.lv) || 1) < Math.floor(Number(b.lv) || 1)) return null;   // 서버 초기화를 겪은 기록은 레벨이 내려가도 남긴다
   const { tok: _tok, linked: _linked, admin: _admin, ...rest } = b;
   const bag = { ...h.bag };
   delete bag.ld;
@@ -566,7 +670,7 @@ export function heroRecord(h, base, look) {
     lv: h.lv, xp: h.xp, coins: h.coins, quest: { on: !!h.quest.on, n: h.quest.n }, stats: { ...h.st }, bag,
     rec: cleanRec(h.rec), titles: cleanTitles(h.titles), title: TITLE_BY_ID[h.title] ? h.title : "",
     honor: Math.max(0, Math.floor(Number(h.honor) || 0)), reqs: cleanReqs(h.reqs),
-    gift: h.gift === GIFT.id ? GIFT.id : b.gift || "" };
+    gift: h.gift === GIFT.id ? GIFT.id : b.gift || "", rs: h.rs === RESET.id ? RESET.id : b.rs || "" };
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -601,6 +705,8 @@ function makeHero(pi, look, map = "plaza") {
     honor: 0,                               // 명예 — 결투에서 이기면 오른다
     reqs: {},                               // 맡은 광장 의뢰 { NPC id: { i, n } }
     gift: "",                               // 받은 업데이트 선물 id(itemData.js GIFT)
+    rs: "",                                 // 겪은 서버 초기화 id(itemData.js RESET)
+    pvpOn: 0, pvpT: 0,                      // 사냥터 PvP 를 켰는지 · 다시 바꿀 수 있을 때까지 남은 초
     duelInv: null, dvs: -1, dph: 0, dtl: 0, ring: -1,   // 받은 결투 신청 · 결투 상대 자리 · 단계(1 준비 2 싸움 3 끝) · 남은 초 · 결투장 칸
   };
   wear(h, look);
@@ -670,6 +776,7 @@ export function rpgJoin(g, pi, d, who) {
   if (who !== undefined && owner && who !== owner) return;
   if (!h) { g.pending[pi] = { d, who }; return; }
   if (!d || h.loaded) return;
+  if (!d.admin && d.rs !== RESET.id) d = resetRecord(d);   // 서버 초기화 — 관리자만 빼고 처음으로
   const keepHp = h.migr && h.hp > 0 ? h.hp : 0;   // 방장을 이어받는 중이면 체력은 그대로
   h.lv = clamp(Math.floor(Number(d.lv) || 1), 1, LV_MAX);
   h.xp = clamp(Math.floor(Number(d.xp) || 0), 0, needXp(h.lv) - 1);
@@ -690,6 +797,7 @@ export function rpgJoin(g, pi, d, who) {
   h.titles = cleanTitles(d.titles);
   h.title = h.titles.includes(d.title) ? d.title : "";
   h.gift = typeof d.gift === "string" ? d.gift : "";
+  h.rs = d.admin ? RESET.id : typeof d.rs === "string" ? d.rs : "";
   if (h.gift !== GIFT.id) giveGift(g, h);         // 이번 업데이트 선물 — 캐릭터마다 한 번
   if (!h.bag.oc) {                                // 직업과 다른 무기 정리 — 고정 피해가 생기기 전에 들고 있던 것은 한 번 풀어 가방에 둔다(빼앗지 않는다)
     h.bag.oc = 1; h.bag.v++;
@@ -701,11 +809,21 @@ export function rpgJoin(g, pi, d, who) {
   }
   awardTitles(g, h, true);                        // 예전 캐릭터도 이미 채운 조건의 칭호는 조용히 받는다
   if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
+  if (d.pvp !== undefined) h.pvpOn = d.pvp ? 1 : 0;
   if (Array.isArray(d.hold)) rpgHold(g, pi, d.hold);   // 누르고 있던 방향 — 이어받을 때 멈추지 않게
   refreshHp(h, true);
   if (keepHp) h.hp = Math.min(h.max, keepHp);
   h.migr = 0;
   h.loaded = 1;
+}
+
+/* 서버 초기화(itemData.js RESET) — 이름 · 직업 · 원소 · 성별은 두고, 레벨 · 경험치 · 코인 · 스탯 · 가방(무기 · 방어구 · 물약 · 재료 · 스킬) ·
+   기록 · 칭호 · 명예 · 의뢰를 처음으로 돌린다. 한 사람 선물을 또 받지 않게 받은 표시(bag.pg)만 남기고,
+   업데이트 선물도 받은 것으로 친다(초기화 직후에 또 주지 않는다) */
+function resetRecord(d) {
+  const bag = cleanBag({ pg: d.bag && d.bag.pg, oc: 1 });
+  return { lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, stats: {}, bag, rec: {}, titles: [], title: "", honor: 0, reqs: {},
+    gift: GIFT.id, rs: RESET.id, auto: d.auto, pvp: d.pvp, hold: d.hold, admin: 0 };
 }
 
 /* 업데이트 선물 — 물약 · 재료를 가방에 넣고 받았다고 적어 둔다. 손님 화면은 스냅샷의 선물 표시로 안내 창을 띄운다 */
@@ -1004,9 +1122,41 @@ export function rpgPromote(g) {
 
 /* ── 결투 (방장만 판정) ─────────────────────────────────── */
 export const isPvp = (map) => !!(MAPS[map] && MAPS[map].pvp);
-// 칠 수 있는 상대 — 결투가 시작된 뒤의 내 결투 상대 하나뿐
+
+/* ── 사냥터 PvP — 설정에서 켠 사람끼리만 서로 칠 수 있다(기본은 꺼짐) ─────────────────
+   광장 · 던전 · 훈련장 · 결투장에서는 켜 두어도 듣지 않는다(결투장은 결투 규칙을 따른다). 같은 파티는 칠 수 없다.
+   몹을 칠 때와 같은 기술이 그대로 나간다 — 노릴 것을 고르는 곳(foesNear · nearFoes)이 몹과 PvP 를 켠 사람을 함께 본다.
+   피해는 결투와 같이 줄여서 한 방에 끝나지 않게 한다(FIELD_PVP.dmgMul, 스킬 한 번 한도는 결투와 같은 DUEL.skillCap) */
+export const FIELD_PVP = { dmgMul: 0.3, toggleCd: 5 };   // toggleCd — 켜고 끄기를 다시 바꿀 수 있을 때까지(초)
+export const fieldPvpMap = (map) => { const M = MAPS[map]; return !!M && !M.safe && !M.pvp && !M.dungeon && !M.train; };
+const fieldPvpOn = (h) => !!h && !!h.pvpOn && !!h.loaded && fieldPvpMap(h.map);
+// 몹이 아니라 사람인가 — 몹은 type 이 있다
+const isHeroT = (o) => !!o && o.type === undefined;
+export function rpgPvp(g, pi, on) {
+  const h = g.heroes[pi];
+  const v = on ? 1 : 0;
+  if (!h || h.pvpOn === v) return;
+  if (h.pvpT > 0) return void sys(g, pi, `PvP 설정은 ${Math.ceil(h.pvpT)}초 뒤에 바꿀 수 있습니다.`);
+  h.pvpOn = v; h.pvpT = FIELD_PVP.toggleCd;
+  sys(g, pi, v ? "사냥터 PvP 를 켰습니다. 켠 사람끼리 서로 칠 수 있습니다." : "사냥터 PvP 를 껐습니다.");
+}
+// 사냥터에서 칠 수 있는 사람 — 나도 상대도 PvP 를 켠 사람, 가까운 차례
+function fieldFoes(g, h, x, y, range) {
+  if (!fieldPvpOn(h)) return [];
+  const out = [];
+  g.heroes.forEach((o) => {
+    if (!o || o === h || !fieldPvpOn(o) || o.map !== h.map || o.down > 0) return;
+    if (h.pty && o.pty === h.pty) return;          // 같은 파티는 칠 수 없다
+    const d = dist(x, y, o.x, o.y) - 7;
+    if (d <= range) out.push([d, o]);
+  });
+  out.sort((a, b) => a[0] - b[0]);
+  return out.map((q) => q[1]);
+}
+// 칠 수 있는 상대 — 결투장이면 결투가 시작된 뒤의 내 결투 상대 하나뿐, 사냥터면 PvP 를 켠 사람
 function nearFoes(g, h, x, y, range) {
-  if (!isPvp(h.map) || h.dph !== 2) return [];
+  if (!isPvp(h.map)) return fieldFoes(g, h, x, y, range);
+  if (h.dph !== 2) return [];
   const o = g.heroes[h.dvs];
   if (!o || o.map !== h.map || o.down > 0 || o.dph !== 2) return [];
   return dist(x, y, o.x, o.y) - 7 <= range ? [o] : [];
@@ -1015,15 +1165,22 @@ function nearFoes(g, h, x, y, range) {
 // basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 DUEL.skillCap 을 넘지 않게 누른다(pvpSoft)
 function hitFoe(g, h, o, raw, basic, dot) {
   if (!o || o.down > 0) return;
+  const field = !isPvp(h.map);
+  if (field && !(fieldPvpOn(h) && fieldPvpOn(o) && o.map === h.map)) return;   // 그 사이 꺼졌거나 광장으로 들어갔다
   const off = offHand(h);
-  let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * DUEL.dmgMul;   // 직업과 다른 무기 — 한 대 피해 고정
+  let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
   if (!basic) {
     const c = h.cast || newCast(h), before = pvpSoft(c.raw);
     c.raw += dmg;
     dmg = pvpSoft(c.raw) - before;
     if (dmg <= 0.5) return;
   }
+  const was = o.down;
   hurtHero(g, o, dmg);
+  if (field && !was && o.down > 0) {              // 사냥터에서 쓰러뜨렸다 — 광장에서 일어난다
+    sys(g, h.pi, `${nameOf(g, o.pi)}님을 쓰러뜨렸습니다.`);
+    sys(g, o.pi, `${nameOf(g, h.pi)}님에게 쓰러졌습니다.`);
+  }
   if (!dot) weaponOnHit(g, h, null, o, false, !!basic);
 }
 // 스킬을 새로 쓴다 — 결투 스킬 피해를 처음부터 센다(raw 는 이번 스킬이 지금까지 준 원래 피해)
@@ -1283,12 +1440,12 @@ function dropLoot(g, got, m) {
   got.forEach((q) => {
     const qi = q.pi;
     if (!q.loaded) return;
-    const n = d.n + (Math.random() < d.bonus ? 1 : 0);
+    const n = d.roll ? rollDrop() : d.n + (Math.random() < d.bonus ? 1 : 0);   // 재료 보스는 1~5개 확률(DROP_ROLL)
     const put = addMat(q.bag, d.id, n);
     if (!put) return void sys(g, qi, `${jo(mat.name, "이", "가")} 가득 차 더 받지 못했습니다.`);
     fx(g, q.map, { kind: "call", x: q.x, y: q.y - 128, text: `${mat.name} ×${put}`, color: mat.color, t: 1.5, life: 1.5,
       snd: mat.stone ? "clear" : "coin", who: qi });
-    sys(g, qi, `${mobName(m)}에게서 ${mat.name} ${put}개를 얻었습니다.${n > d.n ? " (행운! 하나 더)" : ""}`);
+    sys(g, qi, `${mobName(m)}에게서 ${mat.name} ${put}개를 얻었습니다.${!d.roll && n > d.n ? " (행운! 하나 더)" : ""}`);
   });
 }
 
@@ -1456,6 +1613,18 @@ function heroAttack(g, h, force) {
   const rng = heroRange(h);
   const hy = h.y - 34;
   if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy, force);
+  if (fieldPvpOn(h)) {                            // 사냥터 PvP — 사거리 안의 사람을 함께 친다
+    const foes = nearFoes(g, h, h.x, h.y, rng);
+    if (foes.length) {
+      const [m0] = nearMobs(g, map, h.x, h.y, rng, 1);
+      if (job.id === "warrior") {                 // 전사 — 둘레의 사람도 한꺼번에 벤다(몹은 아래에서)
+        foes.forEach((o) => { hitFoe(g, h, o, dmg, true); addEmber(g, h, 1); });
+        if (!m0) { h.dir = foes[0].x < h.x ? -1 : 1; h.face = 0; fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI, color: el.light, t: 0.24, life: 0.24, snd: "slash" }); return true; }
+      } else if (!m0 || dist(h.x, h.y, foes[0].x, foes[0].y) < dist(h.x, h.y, m0.x, m0.y)) {
+        return pvpAttack(g, h, job, el, dmg, rng, hy, force);   // 몹보다 사람이 가까우면 사람을 쏜다
+      }
+    }
+  }
 
   if (job.id === "warrior") {                     // 전사 — 둘레를 한 번에 벤다
     const list = nearMobs(g, map, h.x, h.y, rng);
@@ -1619,7 +1788,7 @@ export function rpgSkill(g, pi) {
   const pvp = isPvp(map);
   if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
   newCast(h);                                     // 결투 스킬 피해 한도
-  const near = (x, y, r, n) => (pvp ? nearFoes(g, h, x, y, r) : nearMobs(g, map, x, y, r, n));
+  const near = (x, y, r, n) => foesNear(g, h, x, y, r, n);
   let cx = h.x, cy = h.y, list, mul;
   if (job.id === "warrior") {
     list = near(h.x, h.y, 240); mul = 3;
@@ -1635,7 +1804,7 @@ export function rpgSkill(g, pi) {
   h.face = 0;
 
   list.forEach((m) => {
-    if (pvp) return hitFoe(g, h, m, base * mul);
+    if (isHeroT(m)) return hitFoe(g, h, m, base * mul);
     if (el.id === "gravity") { m.x += (cx - m.x) * 0.6; m.y += (cy - m.y) * 0.6; }
     hitMob(g, pi, m, base * mul, true);
     soak(g, h, m, 1);
@@ -1694,8 +1863,8 @@ export function predictLunge(g, h, id) {
   const pvp = isPvp(h.map);
   if (pvp && h.dph !== 2) return false;
   if (leap) { lungeTo(h, leapSpot(g, h, s.use), s.use.time); h.predict = 0.6; return true; }
-  let o = pvp ? g.heroes[h.dvs] : nearMobs(g, h.map, h.x, h.y, L.reach, 1)[0];
-  if (o && (o.map !== h.map || o.down > 0 || dist(h.x, h.y, o.x, o.y) - (pvp ? 7 : (o.rad || 0) * 0.5) > L.reach)) o = null;
+  let o = pvp ? g.heroes[h.dvs] : foesNear(g, h, h.x, h.y, L.reach, 1)[0];
+  if (o && (o.map !== h.map || o.down > 0 || dist(h.x, h.y, o.x, o.y) - (isHeroT(o) ? 7 : (o.rad || 0) * 0.5) > L.reach)) o = null;
   if (!o) {                                        // 아무도 없으면 겨눈 쪽으로 끝까지 — 방장 판정과 같다
     const [tx, ty] = aimAt(h, L.reach);
     o = { x: tx, y: ty, rad: -2 * LUNGE_GAP };
@@ -1750,15 +1919,15 @@ export function rpgUseSkill(g, pi, id) {
     const cast = newCast(h);                      // 결투 스킬 피해 한도
     if (s.fam === "job") cast.job = 1;             // 직업 스킬 — 암흑검 파괴의 낙인
     // 결투장이면 사람에게 — 치명타 보장 스킬은 치명타 피해 배율을 곱한다
-    const strike = (m) => (pvp ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
+    const strike = (m) => (isHeroT(m) ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
     if (u.kind) jobSkill(g, h, u, i, dmg);         // 직업 스킬(skillData.js)
     else if (u.radius) {                           // 둘레를 모두
-      const list = pvp ? nearFoes(g, h, h.x, h.y, u.radius) : nearMobs(g, map, h.x, h.y, u.radius);
+      const list = foesNear(g, h, h.x, h.y, u.radius);
       list.forEach(strike);                        // 닿는 것이 없어도 쓴다
       fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
     } else if (u.lunge) {                          // 급소 찌르기 — 가장 가까운 적 앞까지 돌진해 찌른다
       const L = u.lunge;
-      const [m] = pvp ? nearFoes(g, h, h.x, h.y, L.reach) : nearMobs(g, map, h.x, h.y, L.reach, 1);
+      const [m] = foesNear(g, h, h.x, h.y, L.reach, 1);
       const x0 = h.x, y0 = h.y;
       if (!m) {                                    // 아무도 없으면 겨눈 쪽으로 끝까지 돌진한다
         const [tx, ty] = aimAt(h, L.reach);
@@ -1770,11 +1939,11 @@ export function rpgUseSkill(g, pi, id) {
       // 닿는 순간에 찌른다 — 그사이 상대가 쓰러졌거나 맵을 떠났으면 빗나간다
       const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: u.splash || 0, full: u.splash ? 1 : 0, skill: true, sure: !!u.crit };   // 돌진 베기는 닿은 자리 둘레를 모두
       if (u.splash) later(g, L.time, () => fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.splash, color: elemOf(h).light, n: 14, t: 0.5, life: 0.5, snd: "boom" }));
-      g.hits.push(pvp ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
+      g.hits.push(isHeroT(m) ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
       }
     } else {                                       // 가장 가까운 하나
       const reach = heroRange(h) * SKILL_USE.reach;
-      const [m] = pvp ? nearFoes(g, h, h.x, h.y, reach) : nearMobs(g, map, h.x, h.y, reach, 1);
+      const [m] = foesNear(g, h, h.x, h.y, reach, 1);
       // 아무도 없으면 겨눈 쪽 사거리 끝을 친다(맞는 것은 없다)
       const [bx, by] = m ? [m.x, m.y] : aimAt(h, Math.min(reach, 140));
       if (m) { h.dir = m.x < h.x ? -1 : 1; strike(m); }
@@ -1813,8 +1982,14 @@ function wpnMul(h) {
 }
 const focKey = (m, foe) => (foe ? `h${foe.pi}` : m ? `m${m.id}` : "");
 // 노릴 것 — 결투장이면 상대, 아니면 몹
-const foesNear = (g, h, x, y, r, n) => (isPvp(h.map) ? nearFoes(g, h, x, y, r) : nearMobs(g, h.map, x, y, r, n));
-const strikeAny = (g, h, o, dmg, dot) => (isPvp(h.map) ? hitFoe(g, h, o, dmg, false, dot) : hitMob(g, h.pi, o, dmg, !dot, false, dot));
+function foesNear(g, h, x, y, r, n) {
+  if (isPvp(h.map)) return nearFoes(g, h, x, y, r);
+  const mobs = nearMobs(g, h.map, x, y, r, n);
+  const foes = fieldFoes(g, h, x, y, r);              // 사냥터 PvP — PvP 를 켠 사람도 함께 노린다
+  if (!foes.length) return mobs;
+  return [...mobs, ...foes].sort((a, b) => dist(x, y, a.x, a.y) - dist(x, y, b.x, b.y)).slice(0, n);
+}
+const strikeAny = (g, h, o, dmg, dot) => (isHeroT(o) ? hitFoe(g, h, o, dmg, false, dot) : hitMob(g, h.pi, o, dmg, !dot, false, dot));
 // 겨눌 방향 — reach 안에 노릴 것이 있으면 그쪽, 없으면 누르고 있는 쪽. 땅 비율을 뺀 단위 벡터
 function aimTo(g, h, reach) {
   const [o] = foesNear(g, h, h.x, h.y, reach, 1);
@@ -1841,7 +2016,7 @@ const skillBase = (h) => SKILL_USE.base * heroDmgMul(h);
 
 // 후퇴 사격이 물러날 자리 — 손님 화면도 같은 셈으로 먼저 그린다(predictLunge)
 function leapSpot(g, h, u) {
-  const [o] = isPvp(h.map) ? [g.heroes[h.dvs]].filter((q) => q && q.map === h.map) : nearMobs(g, h.map, h.x, h.y, heroRange(h) * 1.5, 1);
+  const [o] = isPvp(h.map) ? [g.heroes[h.dvs]].filter((q) => q && q.map === h.map) : foesNear(g, h, h.x, h.y, heroRange(h) * 1.5, 1);
   let ax, ay;
   if (o) { const dx = h.x - o.x, dy = (h.y - o.y) / RPG.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
   else { const a = aimDir(h); ax = -a[0]; ay = -a[1]; }
@@ -1872,11 +2047,11 @@ function jobSkill(g, h, u, i, dmg) {
     for (let k = 0; k < u.n; k++) {
       later(g, k * u.gap, () => {
         if (h.map !== map || h.down > 0) return;
-        const alive = !!o && (pvp ? o.down <= 0 : !o.dead) && o.map === map;
+        const alive = !!o && (isHeroT(o) ? o.down <= 0 : !o.dead) && o.map === map;
         const x1 = alive ? o.x : tx, y1 = alive ? o.y : ty;
         fx(g, map, { kind: "shot", x0: h.x, y0: h.y - 34, x1, y1: y1 - 10, style: "arrow", color: el.light, t: 0.18, life: 0.18, snd: "shot" });
         if (!alive) return;
-        g.hits.push(pvp ? { t: 0.18, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
+        g.hits.push(isHeroT(o) ? { t: 0.18, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
           : { t: 0.18, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true });
       });
     }
@@ -1890,7 +2065,7 @@ function jobSkill(g, h, u, i, dmg) {
       if (!o) return;
       h.dir = o.x < h.x ? -1 : 1;
       fx(g, map, { kind: "shot", x0: h.x, y0: h.y - 34, x1: o.x, y1: o.y - 10, style: "arrow", color: "#cfe6ff", t: 0.2, life: 0.2, snd: "shot" });
-      g.hits.push(pvp ? { t: 0.2, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
+      g.hits.push(isHeroT(o) ? { t: 0.2, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
         : { t: 0.2, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true, slow: u.slow });
     });
   } else if (u.kind === "orb") {                  // 원소 구체 — 큰 구슬 · 맞은 자리 둘레를 모두
@@ -1902,7 +2077,7 @@ function jobSkill(g, h, u, i, dmg) {
     fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, style: "orb", art: art.fly || 0, r: 40, color: el.light, t: fly, life: fly, snd: "orb" });
     later(g, fly, () => fx(g, map, { kind: "nova", x: tx, y: ty - 6, r: u.splash, color: el.light, n: 16, t: 0.5, life: 0.5, snd: "boom" }));
     g.hits.push(o
-      ? (pvp ? { t: fly, pi, hid: o.pi, x: tx, y: ty, map, dmg, splash: u.splash, full: 1, skill: true }
+      ? (isHeroT(o) ? { t: fly, pi, hid: o.pi, x: tx, y: ty, map, dmg, splash: isPvp(map) ? 0 : u.splash, full: 1, skill: true }
         : { t: fly, pi, mid: o.id, x: tx, y: ty, map, dmg, splash: u.splash, full: 1, skill: true })
       : { t: fly, pi, mid: -1, x: tx, y: ty, map, dmg, splash: pvp ? 0 : u.splash, full: 1, skill: true });
   } else if (u.kind === "chain") {                // 연쇄 번개 — 옮겨 갈 때마다 약해진다
@@ -1965,12 +2140,12 @@ function ccHero(o, c) {
     q.stun = Math.max(q.stun, KB_TIME);
   }
 }
-const ccAny = (g, h, o, c) => (isPvp(h.map) ? ccHero(o, c) : ccMob(o, c));
+const ccAny = (g, h, o, c) => (isHeroT(o) ? ccHero(o, c) : ccMob(o, c));
 // 걸려 있나 — 경직 · 띄움 · 속박 · 얼음
 const ccOn = (o) => !!o && (o.cc ? o.cc.stun > 0 || o.cc.air > 0 || o.cc.root > 0 : o.stun > 0 || o.air > 0 || o.bind > 0 || o.freeze > 0);
 const branded = (o) => !!o && (o.cc ? o.cc.brand > 0 : o.brand > 0);
 const unbrand = (o) => { if (o.cc) o.cc.brand = 0; else o.brand = 0; };
-const aliveFoe = (g, h, o, map) => !!o && o.map === map && (isPvp(map) ? o.down <= 0 : !o.dead);
+const aliveFoe = (g, h, o, map) => !!o && o.map === map && (isHeroT(o) ? o.down <= 0 : !o.dead);
 // 내 자리에서 o 쪽 — 땅 비율을 뺀 단위 벡터(밀어낼 때)
 const awayFrom = (h, o, ax, ay) => {
   const dx = o.x - h.x, dy = (o.y - h.y) / RPG.squash, d = Math.hypot(dx, dy);
@@ -2226,7 +2401,7 @@ function tickZones(g, dt) {
     while (z.acc >= z.tick) {
       z.acc -= z.tick;
       foesNear(g, h, z.x, z.y, z.r).forEach((o) => {
-        if (!isPvp(h.map) && !z.ember) o.slow = Math.max(o.slow, z.tick + z.linger);
+        if (!isHeroT(o) && !z.ember) o.slow = Math.max(o.slow, z.tick + z.linger);
         strikeAny(g, h, o, z.dmg, true);
       });
     }
@@ -2600,7 +2775,7 @@ function rangedSkill(g, h, sp, S, w) {
       missile(g, h, { ax, ay, v: S.v, range: S.range, r: S.hitR, style: "zap", snd: "zap",
         hit: (o) => {
           strikeAny(g, h, o, mag * S.mul);
-          const P = WS.thunder_staff.passive, pvp = isPvp(map);
+          const P = WS.thunder_staff.passive, pvp = isHeroT(o);
           w.zap = Math.min(P.max, w.zap + 1); w.zapT = P.fade;
           w.zapKey = focKey(pvp ? null : o, pvp ? o : null); w.zapWin = S.win;
           fx(g, map, { kind: "burst", x: o.x, y: o.y - 30, r: 30, color: "#cfe0ff", n: 10, t: 0.4, life: 0.4 });
@@ -2703,6 +2878,7 @@ function stepHeroes(g, dt) {
     h.gateCd = Math.max(0, h.gateCd - dt);
     h.inv = Math.max(0, (h.inv || 0) - dt);
     h.dashCd = Math.max(0, (h.dashCd || 0) - dt);
+    h.pvpT = Math.max(0, (h.pvpT || 0) - dt);
     if (h.down > 0) {
       if (h.dvs >= 0) return;                     // 결투에서 쓰러졌다 — 결투가 끝나면 원래 자리로 돌아간다(tickDuels)
       h.down -= dt;
@@ -3597,7 +3773,7 @@ export function rpgPack(g) {
         (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt || g.t)) * 1000) : 0,
         packArmor(h),
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
-        packSkillState(h), packTrain(g, h)]
+        packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0]
       : 0)),
     b: packBags(g),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
@@ -3672,6 +3848,7 @@ export function rpgApply(g, s) {
     }
     if (row.length > 41) h.gift = row[41] ? GIFT.id : "";   // 이번 업데이트 선물을 받았는지
     if (row.length > 44) applyArmor(h, row[44]);   // 방어구 — 신발 · 추격 · 위기 · 부활 대기
+    if (row.length > 49) { h.rs = row[48] ? RESET.id : ""; h.pvpOn = row[49] ? 1 : 0; }   // 서버 초기화를 겪었는지 · 사냥터 PvP
     if (Array.isArray(row[46])) applySkillState(h, row[46]);
     if (Array.isArray(row[47])) {                  // 훈련장 — 교관 창에 보이는 켜기/끄기 · 초당 피해
       const [nocd, stack, god, dps, tot, hits] = row[47];

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
-  makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgFire,
+  makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgPvp, rpgFire, FIELD_PVP,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgTrain, trainView, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
@@ -40,7 +40,7 @@ function weaponHud(me) {
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQUESTS, REQ_SHOW } from "./game/requestData.js";
-import { MAT_BY_ID, DROPS, GIFT } from "./game/itemData.js";
+import { MAT_BY_ID, DROPS, DROP_ROLL, GIFT } from "./game/itemData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./game/armorData.js";
 import { UPDATES, RPG_NOTICE } from "./game/updates.js";
@@ -90,10 +90,15 @@ const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.m
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 const AUTO_KEY = "flg:rpgAuto";
+const PVP_KEY = "flg:rpgPvp";
 const NOTICE_KEY = "flg:rpgNotice";   // 이 기기에서 마지막으로 본 업데이트 공지 id(updates.js RPG_NOTICE)
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
 function loadAuto() {
   try { return localStorage.getItem(AUTO_KEY) !== "0"; } catch { return true; }
+}
+// 사냥터 PvP 설정도 이 기기에 남긴다 — 처음엔 꺼져 있다
+function loadPvp() {
+  try { return localStorage.getItem(PVP_KEY) === "1"; } catch { return false; }
 }
 // 광장 의뢰 한 줄 — 무엇을 · 얼마나 했는지 · 보상
 const reqTitle = (q) => (q.kind === "hunt" ? `${MOB[q.mob].name} ${q.n}마리 잡기` : `${MAT_BY_ID[q.mat].name} ${q.n}개 가져오기`);
@@ -366,15 +371,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const myLook = seats[mySeat]?.hero || null;
   const [auto, setAuto] = useState(loadAuto);        // 자동 평타
   const autoRef = useRef(auto);
+  const [pvp, setPvp] = useState(loadPvp);           // 사냥터 PvP
+  const pvpRef = useRef(pvp);
   const dirsRef = useRef([]);                       // 누르고 있는 방향
   const fireRef = useRef(false);                    // 스페이스를 누르고 있다
   const sentAt = useRef(0);                         // 손님이 방장에게 이동 · 평타 입력을 마지막으로 보낸 때
   // 이 기기에 남아 있는 내 기록 — 방장에게 알릴 때마다 새로 읽는다(방장이 바뀌면 그동안 쌓인 것까지 보낸다)
   const myData = () => {
     const c = loadChar();
-    const extra = { auto: autoRef.current, hold: dirsRef.current.slice() };
+    const extra = { auto: autoRef.current, pvp: pvpRef.current, hold: dirsRef.current.slice() };
     return c ? { lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
-      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, ...extra } : extra;
+      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, rs: c.rs, ...extra } : extra;
   };
 
   const G = useRef(null);
@@ -595,6 +602,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "talk") rpgTalk(g, mySeat);
       else if (kind === "fire") rpgFire(g, mySeat, dir);
       else if (kind === "auto") rpgAuto(g, mySeat, dir);
+      else if (kind === "pvp") rpgPvp(g, mySeat, dir);
       else if (kind === "party") rpgParty(g, mySeat, dir);
       else if (kind === "title") rpgTitle(g, mySeat, dir);
       else if (kind === "duel") rpgDuel(g, mySeat, dir);
@@ -613,6 +621,19 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     try { localStorage.setItem(AUTO_KEY, next ? "1" : "0"); } catch { /* 저장이 막혀 있으면 이번만 */ }
     act("auto", next);
   }, [act]);
+
+  // 사냥터 PvP — 켠 사람끼리만 서로 칠 수 있다. 바꾸고 FIELD_PVP.toggleCd 초 동안은 다시 바꾸지 못한다(방장도 같은 규칙으로 막는다)
+  const pvpAt = useRef(0);
+  const togglePvp = useCallback(() => {
+    const now = Date.now();
+    if (now - pvpAt.current < FIELD_PVP.toggleCd * 1000) return void pushChat({ kind: "sys", text: `PvP 설정은 바꾼 뒤 ${FIELD_PVP.toggleCd}초 동안 다시 바꿀 수 없습니다.` });
+    pvpAt.current = now;
+    const next = !pvpRef.current;
+    pvpRef.current = next;
+    setPvp(next);
+    try { localStorage.setItem(PVP_KEY, next ? "1" : "0"); } catch { /* 저장이 막혀 있으면 이번만 */ }
+    act("pvp", next);
+  }, [act, pushChat]);
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
@@ -967,7 +988,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
-            + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}`;
+            + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`;
           if (key !== saved) {
             saved = key;
             writeChar(me);
@@ -1062,6 +1083,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <em>{auto ? "사거리 안의 몹을 저절로 칩니다" : touch ? "공격 버튼을 누르고 있는 동안 칩니다" : "스페이스를 누르고 있는 동안 칩니다"}</em>
                   </span>
                   <span className={`rpg-switch ${auto ? "on" : ""}`}><span /></span>
+                </button>
+                <button type="button" role="menuitemcheckbox" aria-checked={pvp} className="rpg-menu-row" onClick={togglePvp}>
+                  <span className="rpg-menu-text">
+                    <b>사냥터 PvP</b>
+                    <em>{pvp ? "사냥터에서 PvP 를 켠 사람끼리 서로 칠 수 있습니다" : "꺼져 있어 다른 사람을 치지도, 맞지도 않습니다"}</em>
+                  </span>
+                  <span className={`rpg-switch ${pvp ? "on" : ""}`}><span /></span>
                 </button>
                 {!touch && (
                   <button type="button" role="menuitem" className="rpg-menu-row" onClick={() => toggleWin(false, setKeysOpen)}>
@@ -1736,7 +1764,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
-          광장 오른쪽의 사냥문으로 들어가면 토끼 사냥터입니다. 토끼 사냥터 오른쪽 끝의 문으로 가면 늑대 사냥터(10~20레벨), 늑대 사냥터 오른쪽 끝의 문으로 가면 멧돼지 사냥터(20~50레벨), 멧돼지 사냥터 오른쪽 끝의 문으로 가면 고릴라 사냥터(50~100레벨)입니다. 그 뒤로 고블린(100~130레벨) · 오크(130~160레벨) · 오우거(160~200레벨) 사냥터가 이어집니다. 각 사냥터 왼쪽 끝의 문으로 돌아옵니다.
+          광장 오른쪽의 사냥문으로 들어가면 토끼 사냥터입니다. 토끼 사냥터 오른쪽 끝의 문으로 가면 늑대 사냥터(10~20레벨), 늑대 사냥터 오른쪽 끝의 문으로 가면 멧돼지 사냥터(20~50레벨), 멧돼지 사냥터 오른쪽 끝의 문으로 가면 고릴라 사냥터(50~100레벨)입니다. 그 뒤로 고블린(100~130레벨) · 오크(130~160레벨) · 오우거(160~200레벨) 사냥터가 이어집니다. 오우거 사냥터 끝의 문으로 가면 스켈레톤(200~230레벨) · 좀비(230~260레벨) · 언데드 마법사(260~300레벨) · 골렘(300~330레벨) · 키메라(330~360레벨) · 포식거미(360~400레벨) 사냥터가 차례로 이어집니다. 각 사냥터 왼쪽 끝의 문으로 돌아옵니다.
           자동 평타가 켜져 있으면 사거리 안의 몹을 저절로 칩니다. 레벨 칸의 ☰ 메뉴에서 끌 수 있고,
           끄면 스페이스(휴대폰은 공격 버튼)를 누르고 있는 동안 칩니다. 켜져 있어도 스페이스로 칠 수 있습니다.
           몹 머리 위에 레벨이 보이고, 레벨이 높을수록 크고 단단합니다. 입구에서 멀어질수록 높은 레벨이 나옵니다.
@@ -1746,7 +1774,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           고릴라는 50~100레벨로 {SPAWNS[6].n}마리, 고릴라 왕(보스 · 110레벨)은 {SPAWNS[7].n}마리까지 나옵니다. 지금까지 몹 가운데 가장 셉니다. 일어서서 가슴을 두드리면 곧 둘레를 내려찍으니 그때 물러나거나 대쉬로 피하세요.
           고블린 · 오크 · 오우거는 더 멀리서 알아채고 더 오래 쫓아오며, 하나가 덤비면 둘레의 같은 무리도 함께 덤빕니다. 오크와 오우거는 무기를 치켜들면 곧 둘레를 내려칩니다.
           한 마리가 잡히면 한 마리가 새로 나옵니다.
-          보스를 잡으면 그 보스를 친 사람 모두가 재료를 받습니다. 대왕 토끼 · 우두머리 늑대 · 멧돼지 왕 · 고릴라 왕은 재료 {DROPS.rabbit.n}개를, 고블린 대장 · 오크 족장 · 오우거 왕은 강화석 {DROPS.goblin.n}개를 떨구고 {Math.round(DROPS.goblin.bonus * 100)}% 확률로 하나 더 떨굽니다. 일반 몹은 떨구지 않습니다.
+          보스를 잡으면 그 보스를 친 사람 모두가 재료를 받습니다. 대왕 토끼 · 우두머리 늑대 · 멧돼지 왕 · 고릴라 왕과 200레벨 넘어서는 사냥터의 보스는 재료를 {DROP_ROLL[0][0]}~{DROP_ROLL[DROP_ROLL.length - 1][0]}개 가운데 확률로 떨구고, 고블린 대장 · 오크 족장 · 오우거 왕은 강화석 {DROPS.goblin.n}개를 떨구고 {Math.round(DROPS.goblin.bonus * 100)}% 확률로 하나 더 떨굽니다. 일반 몹은 떨구지 않습니다.
           광장 왼쪽 아래의 무기 강화소에서 강화석으로 무기를 +1부터 +30까지 올립니다. 파랑 강화석은 +10까지, 경화된 눈알은 +20까지, 심장결정은 +30까지 씁니다. 높은 단계일수록 성공 확률이 매우 낮고, +6부터는 실패하면 일정 확률로 한 단계 떨어집니다. 강화소에서 재료를 팔 수도 있습니다.
           광장의 경비대장 · 수집가 · 연금술사에게 의뢰를 받습니다. 몹 사냥 · 재료 모으기 의뢰를 끝내면 코인 · 경험치 · 강화석을 줍니다.
           스킬 상점에서 산 액티브 스킬은 숫자키 1~4(휴대폰은 왼쪽 아래 칸)로 씁니다.

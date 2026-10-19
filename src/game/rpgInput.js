@@ -1,7 +1,7 @@
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
    d = { cls: 자리, kind, dir, q }. 늦게 도착한 옛 누름 · 뗌(hold · fire)은 버린다(freshInput) */
 import {
-  rpgHold, rpgSkill, rpgWeaponSkill, rpgTalk, rpgFire, rpgAuto, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
+  rpgHold, rpgSkill, rpgWeaponSkill, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
   rpgDuel, rpgRequest, rpgDungeon, rpgTrain, freshInput,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
@@ -13,6 +13,7 @@ const ACTS = {
   talk: (g, pi) => rpgTalk(g, pi),
   fire: (g, pi, dir) => rpgFire(g, pi, !!dir),
   auto: (g, pi, dir) => rpgAuto(g, pi, !!dir),
+  pvp: (g, pi, dir) => rpgPvp(g, pi, !!dir),
   stat: (g, pi, dir) => rpgStat(g, pi, dir),
   use: (g, pi, dir) => rpgUseSkill(g, pi, dir),
   dash: (g, pi, dir) => rpgDash(g, pi, dir),

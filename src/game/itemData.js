@@ -11,21 +11,43 @@ export const MATERIALS = [
   { id: "blue", name: "파랑 강화석", color: "#86b6e6", sell: 0, stone: true, note: "고블린 대장 · 강화석 던전 일반 · +10 까지 강화" },
   { id: "eye", name: "경화된 눈알", color: "#d9c37c", sell: 0, stone: true, note: "오크 족장 · 강화석 던전 중급 · +20 까지 강화" },
   { id: "heart", name: "심장결정", color: "#e08a98", sell: 0, stone: true, note: "오우거 왕 · 강화석 던전 고급 · +30 까지 · 가장 잘 붙는다" },
+  // 200레벨 넘어서는 사냥터의 보스 재료 — 강화에는 쓰지 못하고 강화소에서 팔 수 있다(뒤에만 더한다)
+  { id: "bone", name: "왕의 뼛조각", color: "#e3dcc6", sell: 500, note: "스켈레톤 킹이 떨군다" },
+  { id: "rot", name: "썩은 심장", color: "#a3b27a", sell: 800, note: "좀비 군주가 떨군다" },
+  { id: "soul", name: "리치의 영혼석", color: "#b79be0", sell: 1200, note: "리치 대마법사가 떨군다" },
+  { id: "core", name: "골렘 핵", color: "#c9b27e", sell: 1800, note: "고대 골렘이 떨군다" },
+  { id: "mane", name: "키메라 갈기", color: "#e0a87a", sell: 2500, note: "키메라 왕이 떨군다" },
+  { id: "silk", name: "포식거미 비단", color: "#d5d2e6", sell: 3500, note: "포식거미 여왕이 떨군다" },
 ];
 export const MAT_BY_ID = Object.fromEntries(MATERIALS.map((m) => [m.id, m]));
 export const MAT_MAX = 999;
 
 /* 드롭 — 보스만 떨군다(일반 몹은 떨구지 않는다). 몹 종류마다 그 보스가 떨구는 재료.
    보스를 잡으면 그 보스를 한 번이라도 친 사람 가운데 같은 맵에 있는 사람이 저마다 받는다.
-   n 개는 반드시, bonus 확률로 하나를 더 받는다. 강화석은 귀해서 1개 + 5% 로 둔다 */
+   roll 이 있으면 DROP_ROLL 의 확률로 1~5개 가운데 하나를 받는다(예전에는 3개 고정).
+   없으면 n 개는 반드시, bonus 확률로 하나를 더 받는다. 강화석은 귀해서 1개 + 5% 로 둔다 */
+// 개수별 무게 — [개수, 무게]. 무게를 모두 더한 값이 분모다(지금 100). 평균이 3개라 예전(3개 고정)과 벌이가 같다
+export const DROP_ROLL = [[1, 15], [2, 20], [3, 30], [4, 20], [5, 15]];
+export const rollDrop = (r = Math.random()) => {
+  const total = DROP_ROLL.reduce((n, [, w]) => n + w, 0);
+  let acc = 0;
+  for (const [n, w] of DROP_ROLL) { acc += w; if (r * total < acc) return n; }
+  return DROP_ROLL[DROP_ROLL.length - 1][0];
+};
 export const DROPS = {
-  rabbit: { id: "fur", n: 3, bonus: 0 },
-  wolf: { id: "fang", n: 3, bonus: 0 },
-  boar: { id: "tusk", n: 3, bonus: 0 },
-  gorilla: { id: "hide", n: 3, bonus: 0 },
+  rabbit: { id: "fur", roll: 1 },
+  wolf: { id: "fang", roll: 1 },
+  boar: { id: "tusk", roll: 1 },
+  gorilla: { id: "hide", roll: 1 },
   goblin: { id: "blue", n: 1, bonus: 0.05 },
   orc: { id: "eye", n: 1, bonus: 0.05 },
   ogre: { id: "heart", n: 1, bonus: 0.05 },
+  skeletal: { id: "bone", roll: 1 },
+  zombie: { id: "rot", roll: 1 },
+  necro: { id: "soul", roll: 1 },
+  golem: { id: "core", roll: 1 },
+  chimera: { id: "mane", roll: 1 },
+  spider: { id: "silk", roll: 1 },
 };
 
 /* 무기 강화 — 무기 강화소에서 강화석 하나와 코인(fee × 올릴 단계)을 내고 한 단계씩 올린다.
@@ -53,6 +75,10 @@ export const STONE_IDS = Object.keys(ENHANCE.stones);
 export const enhRate = (stone, k) => (ENHANCE.stones[stone] && ENHANCE.stones[stone][k - 1]) || 0;
 // +k 로 올리다 실패했을 때 한 단계 떨어질 확률(%)
 export const enhDown = (k) => ENHANCE.down.reduce((r, d) => (k >= d.from ? d.rate : r), 0);
+
+/* 서버 초기화 — 캐릭터의 rs 가 이 id 와 다르면 들어올 때 한 번 모든 진행(레벨 · 코인 · 스탯 · 가방 · 스킬 · 기록 · 칭호 · 명예 · 의뢰)을 처음으로 돌린다.
+   이름 · 직업 · 원소 · 성별은 그대로 둔다. 관리자 캐릭터는 건드리지 않는다. 다시 초기화하려면 id 를 새로 쓴다 */
+export const RESET = { id: "2026-10-19" };
 
 /* 업데이트 선물 — 캐릭터마다 한 번, 이 id 를 처음 받을 때 준다(서버에 들어와 방장이 기록을 실을 때).
    다음 선물을 줄 때는 id 를 새로 바꾼다. notes 는 함께 보여 줄 업데이트 노트 id(updates.js) */

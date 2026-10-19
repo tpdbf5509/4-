@@ -135,6 +135,8 @@ language sql stable security definer set search_path = '' as $$
          case when c.data->>'lv' ~ '^[0-9]{1,3}$' then (c.data->>'lv')::int else 1 end as lv
   from public.rpg_chars c
   where c.data->>'honor' ~ '^[0-9]{1,9}$' and (c.data->>'honor')::int > 0
+    -- 서버 초기화(itemData.js RESET) 뒤 아직 들어오지 않은 캐릭터의 옛 명예는 순위에서 뺀다. 관리자는 늘 보인다. 초기화 id 를 바꾸면 이 값도 같이 바꾼다
+    and (c.admin or c.data->>'rs' = '2026-10-19')
   order by 2 desc, c.updated_at asc
   limit least(greatest(coalesce(p_limit, 20), 1), 50)
 $$;

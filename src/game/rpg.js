@@ -397,6 +397,25 @@ export const GOLEM = { aggro: 420, walk: 130, punchCd: 1.5, slamRange: 230, wind
 export const CHIMERA = { aggro: 520, walk: 235, punchCd: 0.9, slamRange: 220, wind: 0.5, slamR: 210, slamMul: 1.8, cd: 3.8, rest: 0.5, call: 300, leash: 1400 };
 export const SPIDER = { aggro: 560, walk: 255, punchCd: 0.7, slamRange: 200, wind: 0.45, slamR: 190, slamMul: 1.7, cd: 3.5, rest: 0.4, call: 360, leash: 1500 };
 Object.assign(BRUTE, { skeletal: SKELETAL, zombie: ZOMBIE, necro: NECRO, golem: GOLEM, chimera: CHIMERA, spider: SPIDER });
+/* 200~400레벨 몹 고유 기술 — 다 같던 내려찍기 대신 몹마다 다른 기술을 쓴다(stepBrute · farSkill).
+   모두 준비하는 동안이나 날아가는 동안 바닥에 표시가 뜨고, 그 자리를 비키면 피한다.
+   피해 배율 mul 은 예전 내려찍기(slamMul)보다 낮게 두어 난이도를 올리지 않는다. 상태이상은 짧게 둔다.
+   range 이 거리 안에 들면 쓴다(보스 ×1.3) · min 이보다 가까우면 쓰지 않는다 · wind 준비 초(보스 ×0.8) · cd 대기 초(보스 ×0.7)
+   r 맞는 둘레(보스 ×1.3) · speed 날아가는 빠르기 · n 한 번에 던지는 수(보스 nBoss) · spread 부채꼴 간격(라디안) */
+export const FAR_SKILL = {
+  // 스켈레톤 — 뼈 던지기. 멀리서 도망치는 사람에게만 던진다(가까우면 그대로 주먹)
+  skeletal: { kind: "bone", range: 360, min: 120, wind: 0.5, cd: 5, mul: 0.8, r: 46, speed: 560, n: 1, nBoss: 3, spread: 0.32 },
+  // 좀비 — 썩은 토사물을 높이 뱉는다. 떨어진 자리에 있으면 1.5초 35% 느려진다(예전 내려찍기 ×1.6)
+  zombie: { kind: "bile", range: 320, wind: 0.6, cd: 5, mul: 1.3, r: 95, fly: 0.8, slow: 1.5, slowAmt: 0.35 },
+  // 언데드 마법사 — 발밑에 저주 문양을 새기고 1초 뒤 터뜨린다. 보스는 셋에게(예전 ×1.8)
+  necro: { kind: "curse", range: 380, wind: 0.5, cd: 4, mul: 1.6, r: 80, delay: 1, n: 1, nBoss: 3 },
+  // 골렘 — 땅 가르기. 앞으로 곧게 갈라지고 맞으면 조금 밀려난다(예전 ×2)
+  golem: { kind: "quake", range: 260, wind: 0.9, cd: 5, mul: 1.7, len: 380, w: 72, kb: 110 },
+  // 키메라 — 불꽃 숨결. 준비 때 정한 쪽 부채꼴(arc 반각)을 태운다. 옆으로 비키면 된다(예전 ×1.8)
+  chimera: { kind: "breath", range: 280, wind: 0.75, cd: 3.8, mul: 1.5, len: 290, arc: 0.5 },
+  // 포식거미 — 거미줄 발사. 떨어진 자리에 있으면 1초 묶인다(보스 1.4초 · 묶여도 공격 · 스킬은 쓴다, 예전 ×1.7)
+  spider: { kind: "web", range: 420, wind: 0.45, cd: 3.5, mul: 0.8, r: 70, speed: 720, root: 1, rootBoss: 1.4, n: 1, nBoss: 3, spread: 0.3 },
+};
 const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
   "skeletal", "zombie", "necro", "golem", "chimera", "spider"];   // 스냅샷 차례 — 뒤에만 더한다
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
@@ -3220,7 +3239,11 @@ function stepBrute(g, m, dt, P) {
   if (m.state === "wind") {
     m.moving = 0; m.bite = 0.2;
     m.t -= dt;
-    if (m.t <= 0) {                                  // 내려찍기 — 둘레의 사람 모두
+    if (m.t <= 0 && FAR_SKILL[m.type]) {             // 200~400레벨 몹 — 고유 기술
+      const S = FAR_SKILL[m.type];
+      farSkill(g, m, S);
+      m.state = "rest"; m.t = P.rest || 0.4; m.chargeCd = S.cd * (m.boss ? 0.7 : 1);
+    } else if (m.t <= 0) {                           // 내려찍기 — 둘레의 사람 모두
       const r = P.slamR * (m.boss ? 1.35 : 1);
       g.heroes.forEach((h) => {
         if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16 || !notices(m, h)) return;
@@ -3263,8 +3286,11 @@ function stepBrute(g, m, dt, P) {
     const d = Math.hypot(dx, dy) || 1;
     const reach = m.rad + 16;
     if (Math.abs(dx) > 2) m.ax = dx < 0 ? -1 : 1;
-    if (P.slamRange && m.chargeCd <= 0 && d < P.slamRange * (m.boss ? 1.3 : 1)) {
-      m.state = "wind"; m.t = P.wind * (m.boss ? 0.8 : 1); m.moving = 0;
+    const S = FAR_SKILL[m.type];
+    const range = (S ? S.range : P.slamRange) * (m.boss ? 1.3 : 1);
+    if (range && m.chargeCd <= 0 && d < range && !(S && S.min && d < S.min)) {
+      m.state = "wind"; m.t = (S ? S.wind : P.wind) * (m.boss ? 0.8 : 1); m.moving = 0;
+      if (S) farAim(g, m, S, tg);
       return;
     }
     if (d > reach) {
@@ -3301,6 +3327,87 @@ function stepBrute(g, m, dt, P) {
     m.moving = m.state === "walk" ? 1 : 0;
   }
   keepMob(m);
+}
+
+/* 200~400레벨 몹 고유 기술(FAR_SKILL) — 준비를 시작할 때 노릴 쪽을 정하고(farAim), 준비가 끝나면 쓴다(farSkill).
+   날아가는 것 · 문양은 later 로 떨어질 때 그 자리에 있는 사람만 맞힌다 — 비키면 피한다 */
+const FAR_LOOK = { bone: "#e8dcc4", bile: "#9fc46a", curse: "#b48ad8", web: "#eef0f2" };
+function farAim(g, m, S, tg) {
+  const dx = tg.x - m.x, dy = (tg.y - m.y) / RPG.squash, d = Math.hypot(dx, dy) || 1;
+  m.fax = dx / d; m.fay = dy / d;                    // 땅 위 방향(위아래 비율을 뺀 값)
+  const t = S.wind * (m.boss ? 0.8 : 1), len = (S.len || 0) * (m.boss ? 1.2 : 1);
+  if (S.kind === "quake") fx(g, m.map, { kind: "sk_mquake", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, w: S.w * (m.boss ? 1.3 : 1), ph: 0, t, life: t });
+  else if (S.kind === "breath") fx(g, m.map, { kind: "sk_mbreath", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, arc: S.arc, ph: 0, t, life: t });
+  else fx(g, m.map, { kind: "sk_mcharge", x: m.x, y: m.y - 34 * m.size, r: 26 * m.size, color: FAR_LOOK[S.kind], t, life: t });
+}
+// 떨어진 자리 둘레의 사람 — 피해와 짧은 상태이상. once 는 한 번에 여럿 던진 것 가운데 이미 맞은 사람(한 번만 맞는다)
+function farLand(g, m, map, x, y, r, S, once) {
+  const dmg = m.dmg * S.mul;
+  g.heroes.forEach((h) => {
+    if (!h || h.map !== map || h.down > 0 || dist(x, y, h.x, h.y) > r + 16 || !notices(m, h) || once.has(h.pi)) return;
+    once.add(h.pi);
+    const dodged = h.inv > 0;                        // 대쉬로 피했으면 상태이상도 없다
+    hurtHero(g, h, dmg);
+    if (dodged) return;
+    if (S.slow) ccHero(h, { slow: S.slow, slowAmt: S.slowAmt });
+    if (S.root) ccHero(h, { bind: m.boss ? S.rootBoss : S.root });
+  });
+  if (S.kind === "web") fx(g, map, { kind: "sk_mweb", x, y, r, t: 1.1, life: 1.1, snd: "ice" });
+  else if (S.kind === "curse") {
+    fx(g, map, { kind: "nova", x, y: y - 10, r, color: "#c49ae8", n: 10, t: 0.5, life: 0.5, snd: "boom" });
+    fx(g, map, { kind: "burst", x, y: y - 20, r: r * 0.5, color: "#7a4aa8", n: 8, t: 0.45, life: 0.45 });
+  } else {
+    fx(g, map, { kind: "ring", x, y, r, color: FAR_LOOK[S.kind], t: 0.4, life: 0.4 });
+    fx(g, map, { kind: "burst", x, y: y - 10, r: r * 0.55, color: FAR_LOOK[S.kind], n: 9, t: 0.4, life: 0.4, snd: "boom" });
+  }
+}
+function farSkill(g, m, S) {
+  const map = m.map, boss = m.boss, size = boss ? 1.3 : 1;
+  const tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
+  if (!Number.isFinite(m.fax)) { m.fax = m.ax || 1; m.fay = 0; }   // 방장이 바뀌어 준비 쪽을 모르면 바라보는 쪽으로
+  if (S.kind === "quake" || S.kind === "breath") {   // 준비 때 정한 쪽으로 — 곧은 줄 · 부채꼴
+    const len = S.len * (boss ? 1.2 : 1), w = (S.w || 0) * size;
+    g.heroes.forEach((h) => {
+      if (!h || h.map !== map || h.down > 0 || !notices(m, h)) return;
+      const dx = h.x - m.x, dy = (h.y - m.y) / RPG.squash;
+      const along = dx * m.fax + dy * m.fay, side = Math.abs(dx * m.fay - dy * m.fax);
+      const hit = S.kind === "quake" ? along > -20 && along < len + 16 && side < w / 2 + 16
+        : Math.hypot(dx, dy) < len + 16 && along > 0 && Math.atan2(side, along) < S.arc;
+      if (!hit) return;
+      const dodged = h.inv > 0;
+      hurtHero(g, h, m.dmg * S.mul);
+      if (!dodged && S.kb) ccHero(h, { kb: [m.fax, m.fay, S.kb] });
+    });
+    fx(g, map, { kind: S.kind === "quake" ? "sk_mquake" : "sk_mbreath", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, w, arc: S.arc, ph: 1, t: 0.6, life: 0.6, snd: "boom" });
+    return;
+  }
+  if (!tg || tg.map !== map || tg.down > 0) return;
+  const r = S.r * size;
+  if (S.kind === "curse") {                          // 노린 사람(보스는 둘레의 둘 더) 발밑에 문양
+    const list = [tg];
+    if (boss) g.heroes.forEach((h) => {
+      if (list.length >= S.nBoss || !h || h === tg || h.map !== map || h.down > 0 || !notices(m, h)) return;
+      if (dist(m.x, m.y, h.x, h.y) < S.range * 1.3) list.push(h);
+    });
+    list.forEach((h) => {
+      const x = h.x, y = h.y;
+      fx(g, map, { kind: "sk_mcurse", x, y, r, t: S.delay, life: S.delay });
+      later(g, S.delay, () => farLand(g, m, map, x, y, r, S, new Set()));
+    });
+    return;
+  }
+  // 날아가는 것 — 지금 서 있는 자리로(보스는 부채꼴로 여럿)
+  const n = boss ? S.nBoss || 1 : S.n || 1;
+  const dx = tg.x - m.x, dy = (tg.y - m.y) / RPG.squash, d = Math.max(40, Math.hypot(dx, dy));
+  const a0 = Math.atan2(dy, dx), x0 = m.x + Math.cos(a0) * 20 * m.size, y0 = m.y - 30 * m.size, once = new Set();
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (i - (n - 1) / 2) * (S.spread || 0);
+    const x = m.x + Math.cos(a) * d, y = m.y + Math.sin(a) * d * RPG.squash;
+    const fly = S.fly || Math.max(0.25, d / S.speed);
+    fx(g, map, { kind: "sk_mshot", style: S.kind, x: x0, y: y0, x1: x, y1: y, t: fly, life: fly, ...(i ? {} : { snd: "shot" }) });
+    fx(g, map, { kind: "sk_mwarn", x, y, r, color: FAR_LOOK[S.kind], t: fly, life: fly });
+    later(g, fly, () => farLand(g, m, map, x, y, r, S, once));
+  }
 }
 
 /* 던전 보스 — dungeonData.js BOSS_AI. 쫓아와 치고, 기술 셋을 대기 시간마다 돌려 쓴다.

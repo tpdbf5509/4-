@@ -849,7 +849,10 @@ function rollbackHero(g, h, rb) {
   h.lv = clamp(rb.lv, 1, LV_MAX); h.xp = 0; h.coins = rb.coins;
   h.st = cleanStats({}, h.lv);                     // 찍은 스탯 없음 — 그 레벨 몫의 포인트를 모두 돌려준다
   h.admin = 0;
-  if (rb.legends) {
+  if (rb.items) {                                  // 아이템 전부 — 배운 스킬 · 스킬 칸 · 받은 표시만 남기고 새 가방으로
+    const keep = { s: h.bag.s, ks: h.bag.ks, pg: h.bag.pg, oc: 1, v: h.bag.v, n: h.bag.n };
+    h.bag = Object.assign(cleanBag({}), keep, { ld: 1 });
+  } else if (rb.legends) {
     const ids = new Set(SPECIALS.filter((sp) => sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
     h.bag.w = h.bag.w.filter((w) => !(w.sp && ids.has(w.sp)));
     if (!h.bag.w.some((w) => w.u === h.bag.e)) h.bag.e = 0;

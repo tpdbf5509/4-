@@ -3,7 +3,7 @@ import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgPvp, rpgFire, FIELD_PVP,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, loadChar, saveLook, writeChar, deleteChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgTrain, trainView, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
@@ -821,6 +821,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       let verSeen;
       let snapFrom = "", snapQ = 0;                 // 마지막으로 반영한 스냅샷 — 방장이 바뀌면 처음부터 센다
       offs.push(room.on("rsnap", (d, from) => {
+        // 지금 방장이 보낸 것만 — 방장이 둘 생긴 사이 다른 방장의 스냅샷은 자리 번호가 달라 남의 영웅이 내 자리에 실린다
+        if (!room.viaServer && hostId && from && from !== hostId) return;
         last = Date.now();
         netRef.current.snaps.push(performance.now());   // 연결 진단 — 스냅샷 간격
         const g = G.current;
@@ -1000,7 +1002,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (me && me.loaded) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
             + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`;
-          if (key !== saved && ownChar()) {          // 다른 탭이 이 기기의 기록을 다른 캐릭터로 바꿨으면 저장하지 않는다
+          // 다른 탭이 이 기기의 기록을 다른 캐릭터로 바꿨거나, 내 자리에 남의 영웅이 실려 있으면 저장하지 않는다
+          if (key !== saved && ownChar() && (isHost || ownHero(me, seatsRef.current[mySeat]?.id))) {
             saved = key;
             writeChar(me);
             const a = acctRef.current;

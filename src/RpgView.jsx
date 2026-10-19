@@ -6,7 +6,7 @@ import {
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgTrain, trainView, rpgDash, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
-  rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, whyReqDone, reqNear, MOB,
+  rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, rpgQuest, whyReqDone, MOB,
   rpgDungeon, whyDungeon, dgNear, dgCrew, runOf,
   RPG_SERVERS, rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
@@ -39,7 +39,7 @@ function weaponHud(me) {
   return { name: W.name, cd: w.wcd || 0, max: W.skill.cd, stack };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
-import { REQ_BY_NPC, REQUESTS, REQ_SHOW } from "./game/requestData.js";
+import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, DROP_ROLL, GIFT } from "./game/itemData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./game/armorData.js";
@@ -447,6 +447,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [duelAt, setDuelAt] = useState(0);           // 결투 신청에 답한 때
   const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
   const [reqOpen, setReqOpen] = useState(null);      // 열어 둔 의뢰 NPC id
+  const [questOpen, setQuestOpen] = useState(false); // 내 화면의 의뢰 · 퀘스트 목록 — NPC 곁에 가지 않아도 연다
   const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
   const [trainOpen, setTrainOpen] = useState(false); // 훈련 교관 창
   const dgRef = useRef(false);                       // 루프가 보는 열린 던전 창 — 관리인에게서 멀어지면 닫는다
@@ -517,7 +518,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   // 창은 한 번에 하나만 연다
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
-    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setGiftOpen(null);
+    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
     setDgOpen(false); setTrainOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
@@ -670,6 +671,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "title") rpgTitle(g, mySeat, dir);
       else if (kind === "duel") rpgDuel(g, mySeat, dir);
       else if (kind === "req") rpgRequest(g, mySeat, dir);
+      else if (kind === "quest") rpgQuest(g, mySeat, dir);
       else if (kind === "dg") rpgDungeon(g, mySeat, dir);
       else if (kind === "train") rpgTrain(g, mySeat, dir);
     } else {
@@ -700,13 +702,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !giftOpen && !dgOpen && !trainOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, giftOpen, dgOpen, trainOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -1036,7 +1038,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (top && top !== lastNote) { lastNote = top; setNote(top); }
         // 상점에서 멀어지면 상점 창을 닫는다
         if (me && shopRef.current && !nearShop(me, shopRef.current)) { shopRef.current = null; setShopOpen(null); }
-        if (me && reqRef.current && !reqNear(me, reqRef.current)) { reqRef.current = null; setReqOpen(null); }
         if (me && dgRef.current && !dgNear(me)) { dgRef.current = false; setDgOpen(false); }
         if (me && me.loaded && !noticeDone) {
           noticeDone = true;
@@ -1078,7 +1079,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   const me = hud;
   const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run);   // 결투 · 던전 중에는 서버를 옮기지 않는다
-  const inField = me && me.map === "field";
   const nearShopNpc = me && me.near && me.near.shop ? SHOP_BY_ID[me.near.shop] : null;
   const myEl = elemOf(myLook);
   const who = (pi) => {                              // 파티 칸 — 직업 · 원소
@@ -1442,7 +1442,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <b>{npc.name}</b>
                     <span>끝낸 의뢰 <em>{me.rec.req || 0}</em></span>
                   </div>
-                  <p className="rpg-stat-rule">{npc.line} 의뢰는 한 사람에게 하나씩 맡깁니다. 끝낸 의뢰는 다시 받을 수 있습니다.</p>
+                  <p className="rpg-stat-rule">{npc.line} 의뢰는 한 사람에게 하나씩 맡깁니다. 끝낸 의뢰는 다시 받을 수 있습니다. 어디서든 받고 끝낼 수 있습니다.</p>
                   <div className="rpg-stat-list">
                     {curQ && (
                       <div className="rpg-win-row on">
@@ -1552,17 +1552,55 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me && bagOpen && (
             <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} onClose={() => { setBagOpen(false); setBagTab("weapon"); }} />
           )}
-          {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !reqOpen
-            && (me.quest.on || inField || Object.keys(me.self.reqs).length > 0) && (
-            <div className="rpg-quest">
-              {me.quest.on
-                ? <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>
-                : inField ? <span>사냥꾼에게 퀘스트를 받을 수 있습니다</span> : null}
+          {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
+            <button type="button" className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
+              {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
               {Object.entries(me.self.reqs).map(([id, r]) => {
                 const q = REQUESTS[id] && REQUESTS[id][r.i];
                 return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}</span> : null;
               })}
-            </div>
+              <span className="rpg-quest-open">의뢰 · 퀘스트 ›</span>
+            </button>
+          )}
+          {me && questOpen && (
+            <>
+              <div className="rpg-menu-back" onClick={() => setQuestOpen(false)} />
+              <div className="rpg-stat rpg-win" role="dialog" aria-label="의뢰 · 퀘스트">
+                <div className="rpg-stat-head">
+                  <b>의뢰 · 퀘스트</b>
+                  <span>끝낸 의뢰 <em>{me.rec.req || 0}</em></span>
+                </div>
+                <p className="rpg-stat-rule">어디서든 받고 · 끝내고 · 포기할 수 있습니다. 의뢰인에게 가지 않아도 됩니다.</p>
+                <div className="rpg-stat-list">
+                  <div className={`rpg-win-row ${me.quest.on ? "on" : ""}`}>
+                    <span className="rpg-stat-name">
+                      <b>사냥꾼 · {QUEST.name}</b>
+                      <em>{me.quest.on ? `토끼 ${me.quest.n}/${QUEST.need} · 다 잡으면 저절로 끝납니다` : `토끼 ${QUEST.need}마리 · 보상 경험치 ${QUEST.xp} · ${QUEST.coin}코인`}</em>
+                    </span>
+                    {me.quest.on
+                      ? <button type="button" className="rpg-win-btn ghost" onClick={() => act("quest", "drop")}>포기</button>
+                      : <button type="button" className="rpg-win-btn" onClick={() => act("quest", "take")}>받기</button>}
+                  </div>
+                  {REQ_NPCS.map((npc) => {
+                    const r = me.self.reqs[npc.id];
+                    const q = r && REQUESTS[npc.id][r.i];
+                    const done = q && !whyReqDone(me.self, npc.id).length;
+                    return (
+                      <div key={npc.id} className={`rpg-win-row ${q ? "on" : ""}`}>
+                        <span className="rpg-stat-name">
+                          <b>{npc.name}{q ? ` · ${reqTitle(q)}` : ""}</b>
+                          <em>{q ? `${reqProg(q, r, me.self)}${done ? " · 완료할 수 있습니다" : ""}` : "맡은 의뢰가 없습니다"}</em>
+                        </span>
+                        <span className="rpg-win-acts">
+                          {done && <button type="button" className="rpg-win-btn" onClick={() => act("req", { op: "done", npc: npc.id })}>완료</button>}
+                          <button type="button" className="rpg-win-btn ghost" onClick={() => { setQuestOpen(false); setReqOpen(npc.id); }}>{q ? "보기" : "의뢰 고르기"}</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
           )}
 
           <div className="hud hud-right">

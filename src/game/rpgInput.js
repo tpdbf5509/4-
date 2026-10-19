@@ -2,7 +2,7 @@
    d = { cls: 자리, kind, dir, q }. 늦게 도착한 옛 누름 · 뗌(hold · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgSkill, rpgWeaponSkill, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgDuel, rpgRequest, rpgDungeon, rpgTrain, freshInput,
+  rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 
@@ -22,6 +22,7 @@ const ACTS = {
   title: (g, pi, dir) => rpgTitle(g, pi, dir),
   duel: (g, pi, dir) => rpgDuel(g, pi, dir),
   req: (g, pi, dir) => rpgRequest(g, pi, dir),
+  quest: (g, pi, dir) => rpgQuest(g, pi, dir),
   dg: (g, pi, dir) => rpgDungeon(g, pi, dir),
   train: (g, pi, dir) => rpgTrain(g, pi, dir),
 };

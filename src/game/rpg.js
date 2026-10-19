@@ -1085,6 +1085,23 @@ export function rpgTalk(g, pi) {
   }
 }
 
+/* 사냥꾼의 토끼 퀘스트 — 내 화면의 의뢰 창에서 받고 포기한다. 다 잡으면 저절로 끝난다(op: "take" · "drop") */
+export function rpgQuest(g, pi, op) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || h.down > 0) return false;
+  if (op === "take" && !h.quest.on) {
+    h.quest = { on: true, n: 0 };
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9, snd: "build", who: pi });
+    return true;
+  }
+  if (op === "drop" && h.quest.on) {
+    h.quest = { on: false, n: 0 };
+    sys(g, pi, `${QUEST.name} 퀘스트를 포기했습니다.`);
+    return true;
+  }
+  return false;
+}
+
 /* ── 몹이 나온다 ──────────────────────────────────────────── */
 function spawnMob(g, gi) {
   const sp = SPAWNS[gi];
@@ -1519,7 +1536,7 @@ function huntReq(g, h, m) {
     const q = r && REQUESTS[npc.id][r.i];
     if (!q || q.kind !== "hunt" || q.mob !== m.type || r.n >= q.n) return;
     r.n += 1;
-    if (r.n >= q.n) sys(g, h.pi, `의뢰를 마쳤습니다. 광장의 ${npc.name}에게 알려 주세요.`);
+    if (r.n >= q.n) sys(g, h.pi, `${npc.name}의 의뢰를 마쳤습니다. 의뢰 창에서 완료를 눌러 주세요.`);
   });
 }
 // 의뢰를 끝낼 수 있는지 — 막히는 이유를 모은다(빈 목록이면 끝낼 수 있다)
@@ -1535,12 +1552,12 @@ export const reqNear = (h, npcId) => {
   const n = REQ_BY_NPC[npcId];
   return !!(h && n && h.map === "plaza" && dist(h.x, h.y, n.x, n.y) <= RPG.talkR * 1.5);
 };
-/* 의뢰 — req = { op: "take", npc, i } · { op: "done", npc } · { op: "drop", npc } (방장만 판정) */
+/* 의뢰 — req = { op: "take", npc, i } · { op: "done", npc } · { op: "drop", npc } (방장만 판정)
+   NPC 곁에 가지 않아도 내 화면의 의뢰 창에서 받고 · 끝내고 · 포기한다(사용자 결정 10월 19일) */
 export function rpgRequest(g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req || !REQ_BY_NPC[req.npc]) return false;
   const npc = REQ_BY_NPC[req.npc], list = REQUESTS[npc.id];
-  if (!reqNear(h, npc.id)) return void sys(g, pi, `${npc.name} 가까이 가야 합니다.`);
   const cur = h.reqs[npc.id];
   if (req.op === "take") {
     const i = Math.floor(Number(req.i));

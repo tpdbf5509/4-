@@ -6,6 +6,13 @@ export const RPG_NOTICE = { id: "2026-10-81", notes: ["2026-10-81"] };
 
 export const UPDATES = [
   {
+    id: "2026-10-82",
+    date: "10월 19일",
+    items: [
+      "렉이 걸릴 때 다른 사람의 레벨 · 기록이 내 캐릭터에 저장되던 문제를 고쳤습니다.",
+    ],
+  },
+  {
     id: "2026-10-81",
     date: "10월 19일",
     items: [

@@ -674,6 +674,9 @@ export function deleteChar() {
   try { localStorage.removeItem(SAVE_KEY); return true; } catch { return false; }
 }
 // 레벨 · 경험치 · 코인 · 퀘스트 · 스탯 · 가방 · 칭호 · 기록 · 명예 · 의뢰를 남긴다. 가방은 저장된 기록을 실은 뒤의 것만 남긴다.
+// 이 영웅이 정말 이 기기 사람의 것인가 — 손님은 방장이 스냅샷에 실어 준 자리 주인(h.sw)과 내 id 를 견준다.
+// 방장이 둘 생기거나 자리 소식과 스냅샷이 엇갈리면 내 자리 번호에 남의 영웅이 올 수 있다(모두의 레벨이 섞인 사고)
+export const ownHero = (h, myId) => !!h && (h.sw === undefined || (!!myId && h.sw === myId));
 export function writeChar(d) {
   const cur = loadSave();
   if (!cur) return;
@@ -777,8 +780,8 @@ export function rpgLooks(g, seats) {
     return l ? { ...l, who: s.id } : null;
   });
   g.names = seats.map((s) => (s && s.name) || "");
-  // 손님 화면에 이미 선 영웅도 겉모습을 맞춘다
-  g.heroes.forEach((h, pi) => { if (h && g.looks[pi]) wear(h, g.looks[pi]); });
+  // 손님 화면에 이미 선 영웅도 겉모습을 맞춘다 — 주인 id(who)는 그대로 둔다. 여기서 바꾸면 rpgSyncSeats 가 자리 주인이 바뀐 것을 못 알아챈다
+  g.heroes.forEach((h, pi) => { if (h && g.looks[pi]) { const who = h.who; wear(h, g.looks[pi]); if (who) h.who = who; } });
 }
 
 /* 자리에 앉은 사람을 세계에 세우고, 떠난 사람은 뺀다 (방장만) */
@@ -1165,6 +1168,7 @@ export function rpgPromote(g) {
   g.heroes.forEach((h) => {
     if (!h) return;
     h.loaded = 0; h.migr = 1;                     // 기록이 다시 올 때까지 — 자리 · 체력은 그대로
+    if (h.sw !== undefined) h.who = h.sw;         // 옛 방장이 알던 주인 — 지금 자리 주인과 다르면 rpgSyncSeats 가 새로 세운다
     delete h.wsp;                                 // 이제 가방에서 바로 본다
     // 진행 중이던 결투는 무르고 광장으로 — 결투 기록(돌아갈 자리)은 옛 방장에게만 있었다
     if (h.dvs >= 0) {
@@ -3920,6 +3924,7 @@ export function rpgPack(g) {
         packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0]
       : 0)),
     b: packBags(g),
+    w: g.heroes.map((h) => (h && h.who) || ""),    // 자리마다 앉은 사람 id — 손님이 제 자리 영웅인지 견준다(남의 기록을 제 것으로 저장하지 않게)
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
     // 몹은 사람이 있는 맵의 것만 — 사냥터가 늘어 모두 보내면 메시지가 너무 커진다(손님은 제 맵만 그린다)
     m: g.mobs.filter((m) => busy.has(m.map)).map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
@@ -3940,6 +3945,7 @@ export function rpgApply(g, s) {
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
+    h.sw = Array.isArray(s.w) ? s.w[pi] || "" : undefined;   // 방장이 아는 이 자리 주인(옛 방장이면 모른다)
     const mine = pi === g.mySeat;
     const moved = h.map !== map;
     h.map = map;

@@ -87,6 +87,12 @@ export const RESET = { id: "2026-10-19" };
 export const PERSONAL_GIFTS = [
   { id: "pg-2026-10-17-1", name: "극우몰이 김도현", armor: [{ s: "body", g: 3 }], msg: "이번 한번만 주는거다" },
 ];
+/* 한 사람 되돌리기 — 관리자 기록이 섞여 레벨 · 코인이 부풀려진 캐릭터를 들어올 때 한 번 되돌린다(받은 id 는 가방 bag.pg 에 남는다).
+   lv 로 낮추고(경험치 0 · 찍은 스탯 없음 = 그 레벨 몫의 포인트를 모두 돌려준다) 코인을 coins 로 두며, 전설 특별 무기(관리자 선물)만 가방에서 뺀다.
+   그 레벨보다 높아야 얻는 칭호와 코인 칭호도 뗀다. 이 이름은 관리자 표시가 실려 와도 관리자로 치지 않는다. DB 를 직접 고치면 접속 중에 10초마다 덮어써지므로 이 방법을 쓴다 */
+export const PERSONAL_ROLLBACKS = [
+  { id: "rb-2026-10-19-1", name: "니여친레보탱", lv: 17, coins: 0, legends: true },
+];
 export const GIFT = {
   id: "2026-10-30",
   potions: { reset: 1 },                        // 스탯 초기화 물약

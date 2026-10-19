@@ -14,7 +14,7 @@ import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
-import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, RESET, rollDrop } from "./itemData.js";
+import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
@@ -648,6 +648,8 @@ export function saveLook(d) {
   if (!cur || (cur.picked && !cur.admin)) return false;
   return store({ ...cur, job: d.job, elem: d.elem, gender: d.gender, picked: 1 });
 }
+// 한 사람 되돌리기(PERSONAL_ROLLBACKS)를 방금 겪은 가방인가 — 새 가방에 받은 id 가 있고 옛 가방에는 없다. 레벨이 내려가도 저장해야 한다
+const rolledBack = (nb, ob) => PERSONAL_ROLLBACKS.some((r) => ((nb && nb.pg) || []).includes(r.id) && !((ob && ob.pg) || []).includes(r.id));
 // 캐릭터를 지운다 — 이름 · 직업 · 원소 · 성별과 레벨 · 코인까지 모두 사라진다
 export function deleteChar() {
   try { localStorage.removeItem(SAVE_KEY); return true; } catch { return false; }
@@ -659,7 +661,7 @@ export function writeChar(d) {
   // 레벨은 내려가는 일이 없다 — 내려간 기록이 오면 남의 기록이 섞인 것이니 남기지 않는다(서버 저장도 이 기록을 쓴다)
   // 단, 서버 초기화(RESET)를 방금 겪은 기록은 레벨이 내려가도 남긴다
   const reset = d.rs === RESET.id && cur.rs !== RESET.id;
-  if (!reset && Math.floor(Number(d.lv) || 1) < Math.floor(Number(cur.lv) || 1)) return;
+  if (!reset && !rolledBack(d.bag, cur.bag) && Math.floor(Number(d.lv) || 1) < Math.floor(Number(cur.lv) || 1)) return;
   const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
   store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
@@ -671,7 +673,7 @@ export function writeChar(d) {
 export function heroRecord(h, base, look) {
   const b = base && typeof base === "object" ? base : {};
   if (!h || !h.loaded) return null;
-  if (h.rs !== RESET.id && Math.floor(Number(h.lv) || 1) < Math.floor(Number(b.lv) || 1)) return null;   // 서버 초기화를 겪은 기록은 레벨이 내려가도 남긴다
+  if (h.rs !== RESET.id && !rolledBack(h.bag, b.bag) && Math.floor(Number(h.lv) || 1) < Math.floor(Number(b.lv) || 1)) return null;   // 서버 초기화를 겪은 기록은 레벨이 내려가도 남긴다
   const { tok: _tok, linked: _linked, admin: _admin, ...rest } = b;
   const bag = { ...h.bag };
   delete bag.ld;
@@ -788,6 +790,8 @@ export function rpgJoin(g, pi, d, who) {
   // 기록의 이름이 자리에 앉은 캐릭터와 다르면 싣지 않는다 — 같은 브라우저 다른 탭의 캐릭터 기록이 섞여 왔다(남의 레벨 · 관리자 표시가 옮겨 간 사고)
   const look = g.looks[pi];
   if (d.name && look && look.name && d.name !== look.name) return;
+  const rb = PERSONAL_ROLLBACKS.find((r) => sameName(g.names[pi] || (look && look.name), r.name));
+  if (rb && d.admin) d = { ...d, admin: 0 };       // 되돌리기 대상은 관리자 표시가 실려 와도 관리자가 아니다
   if (!d.admin && d.rs !== RESET.id) d = resetRecord(d);   // 서버 초기화 — 관리자만 빼고 처음으로
   const keepHp = h.migr && h.hp > 0 ? h.hp : 0;   // 방장을 이어받는 중이면 체력은 그대로
   h.lv = clamp(Math.floor(Number(d.lv) || 1), 1, LV_MAX);
@@ -810,6 +814,7 @@ export function rpgJoin(g, pi, d, who) {
   h.title = h.titles.includes(d.title) ? d.title : "";
   h.gift = typeof d.gift === "string" ? d.gift : "";
   h.rs = d.admin ? RESET.id : typeof d.rs === "string" ? d.rs : "";
+  if (rb) rollbackHero(g, h, rb);
   if (h.gift !== GIFT.id) giveGift(g, h);         // 이번 업데이트 선물 — 캐릭터마다 한 번
   if (!h.bag.oc) {                                // 직업과 다른 무기 정리 — 고정 피해가 생기기 전에 들고 있던 것은 한 번 풀어 가방에 둔다(빼앗지 않는다)
     h.bag.oc = 1; h.bag.v++;
@@ -836,6 +841,23 @@ function resetRecord(d) {
   const bag = cleanBag({ pg: d.bag && d.bag.pg, oc: 1 });
   return { lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, stats: {}, bag, rec: {}, titles: [], title: "", honor: 0, reqs: {},
     gift: GIFT.id, rs: RESET.id, auto: d.auto, pvp: d.pvp, hold: d.hold, admin: 0 };
+}
+
+/* 한 사람 되돌리기(itemData.js PERSONAL_ROLLBACKS) — 한 번만. 레벨 · 코인을 낮추고 전설 특별 무기를 가방에서 빼며 그 몫이 아닌 칭호를 뗀다 */
+function rollbackHero(g, h, rb) {
+  if ((h.bag.pg || []).includes(rb.id)) return;
+  h.lv = clamp(rb.lv, 1, LV_MAX); h.xp = 0; h.coins = rb.coins;
+  h.st = cleanStats({}, h.lv);                     // 찍은 스탯 없음 — 그 레벨 몫의 포인트를 모두 돌려준다
+  h.admin = 0;
+  if (rb.legends) {
+    const ids = new Set(SPECIALS.filter((sp) => sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
+    h.bag.w = h.bag.w.filter((w) => !(w.sp && ids.has(w.sp)));
+    if (!h.bag.w.some((w) => w.u === h.bag.e)) h.bag.e = 0;
+  }
+  h.titles = (h.titles || []).filter((id) => { const t = TITLE_BY_ID[id]; return !t || !((t.need && t.need.lv > h.lv) || (t.need && t.need.coins > h.coins)); });
+  h.title = h.titles.includes(h.title) ? h.title : "";
+  h.bag.pg = [...(h.bag.pg || []), rb.id]; h.bag.v += 1;
+  sys(g, h.pi, `기록이 잘못 부풀려져 레벨 ${h.lv}로 되돌렸습니다. 스탯 포인트는 모두 다시 찍을 수 있습니다.`);
 }
 
 /* 업데이트 선물 — 물약 · 재료를 가방에 넣고 받았다고 적어 둔다. 손님 화면은 스냅샷의 선물 표시로 안내 창을 띄운다 */

@@ -380,6 +380,15 @@ MOB.spider = {
   size: (lv) => 1.3 + 0.004 * (lv - 360),         // 1.3 ~ 1.46
   boss: { name: "포식거미 여왕", lv: 410, hp: 5000000, dmg: 2900, xp: 48000, coin: 34000, size: 1.95 },
 };
+/* 200~400레벨 사냥터가 너무 어렵다는 의견으로 "조금 어렵게" 낮춘다 — 여섯 몹과 보스의 체력 · 공격력에 곱한다.
+   처음 값(위 식) 대비 체력 30%, 공격력 25% 를 줄였다. 더 낮추려면 이 두 숫자만 고친다 */
+export const FAR_EASE = { hp: 0.7, dmg: 0.75 };
+["skeletal", "zombie", "necro", "golem", "chimera", "spider"].forEach((id) => {
+  const d = MOB[id], hp = d.hp, dmg = d.dmg;
+  d.hp = (lv) => Math.round(hp(lv) * FAR_EASE.hp);
+  d.dmg = (lv) => Math.round(dmg(lv) * FAR_EASE.dmg);
+  d.boss = { ...d.boss, hp: Math.round(d.boss.hp * FAR_EASE.hp), dmg: Math.round(d.boss.dmg * FAR_EASE.dmg) };
+});
 // 값의 뜻은 GOBLIN · ORC · OGRE 와 같다
 export const SKELETAL = { aggro: 440, walk: 225, punchCd: 0.8, slamRange: 0, call: 360, leash: 1200 };
 export const ZOMBIE = { aggro: 400, walk: 120, punchCd: 1.2, slamRange: 190, wind: 0.7, slamR: 180, slamMul: 1.6, cd: 5, rest: 0.8, call: 300, leash: 1200 };

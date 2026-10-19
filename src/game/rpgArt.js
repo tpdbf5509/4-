@@ -6,7 +6,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone } from "./rpg.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
@@ -337,6 +337,12 @@ const MAP_TREES = {
   goblin: plantTrees(4406, 34, 500, 4450, 0.25, nearGate(MAPS.goblin)),     // 고블린 늪지 — 듬성듬성
   orc: plantTrees(4407, 24, 500, 4650, 0.7, nearGate(MAPS.orc)),            // 오크 언덕 — 바늘잎나무가 드물다
   ogre: plantTrees(4408, 40, 500, 4850, 0.9, nearGate(MAPS.ogre)),          // 오우거 골짜기 — 어두운 바늘잎나무
+  skeletal: plantTrees(4409, 18, 500, 4850, 0.95, nearGate(MAPS.skeletal)),     // 스켈레톤 무덤 — 앙상한 바늘잎나무가 드물다
+  zombie: plantTrees(4410, 26, 500, 5050, 0.2, nearGate(MAPS.zombie)),          // 좀비 늪 — 활엽수가 듬성듬성
+  necro: plantTrees(4411, 16, 500, 5250, 0.8, nearGate(MAPS.necro)),            // 마법사 폐허 — 거의 비어 있다
+  golem: plantTrees(4412, 12, 500, 5450, 0.6, nearGate(MAPS.golem)),            // 골렘 채석장 — 거의 맨땅
+  chimera: plantTrees(4413, 20, 500, 5650, 0.85, nearGate(MAPS.chimera)),       // 키메라 협곡
+  spider: plantTrees(4414, 50, 500, 5850, 0.9, nearGate(MAPS.spider)),          // 포식거미 숲 — 빽빽하고 어둡다
 };
 const PLAZA_PROPS = [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
@@ -1176,6 +1182,159 @@ export function drawGoblinBody(ctx, ph, moving, boss, frozen, up) {
   ctx.beginPath(); ctx.moveTo(6, -33); ctx.quadraticCurveTo(9, -31, 12, -33); ctx.stroke();
 }
 
+/* ── 200~400레벨 몹 — 언데드(스켈레톤 · 좀비 · 언데드 마법사)와 인조 몬스터(골렘 · 키메라 · 포식거미). 코드로 그린다 ───────────── */
+// 스켈레톤 — 해골 몸에 쇠투구 · 어깨갑옷 · 푸른 눈빛. 스켈레톤 킹은 금관과 붉은 망토
+export function drawSkeletalBody(ctx, ph, moving, boss, frozen, up) {
+  const poly_ = (pts, col) => poly(ctx, pts, col);
+  const steel = frozen ? "#d6e8f2" : "#59606b";
+  drawSkeletonBody(ctx, ph, moving, boss, frozen, up);
+  const blob = blobOf(ctx);
+  if (boss) poly_([[-2, -36], [-14, -14], [-6, -12], [2, -30]], frozen ? "#e8f4fa" : "#8a2f3a");   // 망토
+  blob(-2, -34, 6, 4, -0.3, steel);                           // 어깨갑옷
+  blob(3.5, -45, 9.5, 6.5, 0, steel);                         // 투구
+  ctx.fillStyle = frozen ? "#bfe6ff" : "#8fd0ff";             // 푸른 눈빛
+  ctx.beginPath(); ctx.arc(1.4, -42, 1.3, 0, Math.PI * 2); ctx.arc(7.9, -42, 1.3, 0, Math.PI * 2); ctx.fill();
+  if (boss) { poly_([[-3, -51], [-1, -58], [2, -52], [5, -59], [8, -52], [11, -58], [12, -51]], frozen ? "#fff6dc" : "#e7c35a"); }
+}
+
+// 좀비 — 구부정한 회녹색 몸, 찢어진 옷, 앞으로 뻗은 두 팔. 좀비 군주는 썩은 갑옷 조각과 붉은 눈
+export function drawZombieBody(ctx, ph, moving, boss, frozen, up) {
+  const skin = frozen ? "#d3e6ee" : boss ? "#6f8a58" : "#82996a";
+  const dark = frozen ? "#a6c4d6" : "#56684a";
+  const rag = frozen ? "#c6dbe7" : "#5e5646";
+  const sw = moving ? Math.sin(ph) * 3 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  limb(-4, -16, -6 - sw, 0, 6, dark);
+  limb(4, -16, 6 + sw, 0, 6, skin);
+  blob(0, -26, 10, 13, 0.18, rag);                            // 구부정한 몸통
+  poly(ctx, [[-8, -14], [-5, -8], [-1, -13], [3, -7], [8, -14]], rag);   // 찢어진 옷자락
+  if (boss) blob(-1, -32, 8, 6, 0, frozen ? "#bcd2e0" : "#6a6258");   // 썩은 어깨갑옷
+  const reach = up > 0 ? 8 : 0;                               // 덮칠 때 팔이 더 앞으로
+  limb(4, -33, 15 + reach, -29, 4.5, skin);
+  limb(-1, -33, 12 + reach, -24, 4.5, dark);
+  blob(5, -41, 8, 8, 0.1, skin);                              // 머리 — 앞으로 숙였다
+  ctx.fillStyle = boss ? "#ff5b4a" : "#e8e3a0";
+  ctx.beginPath(); ctx.arc(8, -42, 1.7, 0, Math.PI * 2); ctx.arc(3, -42, 1.4, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 1.2;             // 벌어진 입
+  ctx.beginPath(); ctx.moveTo(5, -37); ctx.lineTo(10, -37); ctx.stroke();
+}
+
+// 언데드 마법사 — 해진 보랏빛 로브 · 두건 아래 해골 얼굴 · 영혼구슬 지팡이. 리치 대마법사는 뼈 왕관과 큰 구슬
+export function drawNecroBody(ctx, ph, moving, boss, frozen, up) {
+  const robe = frozen ? "#cbd9ec" : boss ? "#4a2e6e" : "#5a3d80";
+  const trim = frozen ? "#e2eef8" : "#8e6cc0";
+  const bone = frozen ? "#e2f0f8" : "#ddd6c2";
+  const glow = frozen ? "#bfe6ff" : boss ? "#e08bff" : "#b79be0";
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  const sway = moving ? Math.sin(ph) * 2 : 0;
+  poly(ctx, [[-11 + sway, 0], [-8, -30], [8, -30], [12 - sway, 0]], robe);   // 로브
+  ctx.strokeStyle = trim; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-11 + sway, -1); ctx.lineTo(12 - sway, -1); ctx.stroke();
+  // 지팡이 든 팔 — 구슬을 치켜들면 곧 터뜨린다
+  const hx = up > 0 ? 12 : 13, hy = up > 0 ? -44 : -24;
+  limb(5, -30, hx, hy, 3.5, robe);
+  limb(hx, hy + 14, hx + 1, hy - 24, 2.5, frozen ? "#d9ebf4" : "#6e5236");
+  const ox = hx + 1, oy = hy - 28, or_ = up > 0 ? (boss ? 11 : 8.5) : boss ? 8 : 6;
+  const gr = ctx.createRadialGradient(ox, oy, 1, ox, oy, or_ * 2.4);
+  gr.addColorStop(0, glow); gr.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = gr; ctx.fillRect(ox - or_ * 2.4, oy - or_ * 2.4, or_ * 4.8, or_ * 4.8);
+  ctx.fillStyle = "#f4ecff"; ctx.beginPath(); ctx.arc(ox, oy, or_ * 0.6, 0, Math.PI * 2); ctx.fill();
+  blob(0, -36, 9, 9.5, 0, robe);                              // 두건
+  blob(3, -34, 5.5, 6, 0, bone);                              // 해골 얼굴
+  ctx.fillStyle = "#1a1612"; ctx.beginPath(); ctx.arc(1.5, -35, 1.6, 0, Math.PI * 2); ctx.arc(6, -35, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(1.7, -35, 0.8, 0, Math.PI * 2); ctx.arc(6.2, -35, 0.8, 0, Math.PI * 2); ctx.fill();
+  if (boss) poly(ctx, [[-5, -43], [-3, -50], [0, -44], [3, -51], [6, -44], [9, -50], [9, -43]], frozen ? "#fff6dc" : "#e3dcc6");   // 뼈 왕관
+}
+
+// 골렘 — 이끼 낀 바위 덩어리 몸, 큰 주먹, 가슴의 빛나는 핵. 고대 골렘은 금빛 룬이 박힌다
+export function drawGolemBody(ctx, ph, moving, boss, frozen, up) {
+  const rock = frozen ? "#d3e4ee" : boss ? "#8b8070" : "#8f8a80";
+  const dark = frozen ? "#a2c0d2" : boss ? "#625848" : "#66625a";
+  const moss = frozen ? "#dcecf4" : "#6f8a5a";
+  const core = frozen ? "#bfe6ff" : boss ? "#ffcf6a" : "#ff9a5a";
+  const sw = moving ? Math.sin(ph) * 3 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  limb(-8, -22, -10 - sw, 0, 13, dark);
+  limb(8, -22, 10 + sw, 0, 13, rock);
+  blob(0, -42, 20, 22, 0, rock);                              // 몸통
+  poly(ctx, [[-16, -52], [-8, -64], [-2, -54]], dark);
+  blob(-9, -60, 8, 4, 0, moss);                               // 어깨의 이끼
+  const ay = up > 0 ? -82 : -34;                              // 팔 — 치켜들면 곧 내려찍는다
+  limb(-17, -52, -26, up > 0 ? -76 : -30, 11, dark);
+  blob(-26, up > 0 ? -78 : -28, 8, 8, 0, dark);
+  limb(15, -52, 28, ay, 11, rock);
+  blob(28, ay - 2, 9, 9, 0, rock);
+  blob(4, -64, 8, 7.5, 0, rock);                              // 머리
+  ctx.fillStyle = core; ctx.beginPath(); ctx.arc(8, -65, 2.2, 0, Math.PI * 2); ctx.arc(1, -65, 1.8, 0, Math.PI * 2); ctx.fill();
+  const gr = ctx.createRadialGradient(2, -44, 1, 2, -44, 14);   // 가슴 핵
+  gr.addColorStop(0, core); gr.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = gr; ctx.fillRect(-12, -58, 28, 28);
+  ctx.fillStyle = "#fff2cc"; ctx.beginPath(); ctx.arc(2, -44, 3, 0, Math.PI * 2); ctx.fill();
+  if (boss) { ctx.strokeStyle = core; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-10, -34); ctx.lineTo(-4, -28); ctx.lineTo(0, -34); ctx.moveTo(8, -34); ctx.lineTo(13, -28); ctx.stroke(); }   // 룬
+}
+
+// 키메라 — 사자 몸에 사자 머리와 염소 머리, 뱀 꼬리. 키메라 왕은 박쥐 날개가 돋는다
+export function drawChimeraBody(ctx, ph, moving, boss, frozen, up) {
+  const fur = frozen ? "#e2eef6" : boss ? "#c98a4e" : "#d49a5e";
+  const dark = frozen ? "#a8c6d8" : "#8a5a34";
+  const goat = frozen ? "#e8f2f8" : "#cfc6b4";
+  const snake = frozen ? "#c0dcea" : "#5f8a4a";
+  const sw = moving ? Math.sin(ph) * 5 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  if (boss) poly(ctx, [[-4, -36], [-24, -62], [-16, -40], [-30, -46], [-18, -30]], frozen ? "#c6dbe7" : "#5a3a4a");   // 날개
+  limb(-16, -20, -18 - sw, 0, 6, dark);                       // 뒷다리
+  limb(14, -20, 16 + sw, 0, 6, dark);                         // 앞다리
+  limb(-10, -20, -10 + sw, 0, 6, fur);
+  limb(20, -20, 24 - sw, 0, 6, fur);
+  blob(0, -28, 24, 12, 0, fur);                               // 몸통
+  // 뱀 꼬리
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(-22, -30); ctx.quadraticCurveTo(-36, -44 + sw, -30, -54); ctx.stroke();
+  ctx.strokeStyle = snake; ctx.lineWidth = 3.4;
+  ctx.beginPath(); ctx.moveTo(-22, -30); ctx.quadraticCurveTo(-36, -44 + sw, -30, -54); ctx.stroke();
+  blob(-30, -56, 3.5, 3, 0, snake);
+  // 염소 머리(등 쪽) · 사자 머리
+  blob(6, -46, 6, 6, 0, goat);
+  poly(ctx, [[3, -50], [-2, -60], [6, -52]], frozen ? "#fff" : "#7a6a52");
+  poly(ctx, [[9, -50], [13, -60], [11, -51]], frozen ? "#fff" : "#7a6a52");
+  const bite = up > 0 ? 4 : 0;
+  blob(26 + bite, -36, 10, 9.5, 0, dark);                     // 갈기
+  blob(28 + bite, -34, 7.5, 7, 0, fur);
+  ctx.fillStyle = boss ? "#ff5b4a" : "#2a1a10";
+  ctx.beginPath(); ctx.arc(31 + bite, -37, 1.6, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(31 + bite, -31); ctx.lineTo(36 + bite, up > 0 ? -28 : -31); ctx.stroke();
+  poly(ctx, [[33 + bite, -31], [34 + bite, -27], [35.5 + bite, -31]], "#f6efe0");
+}
+
+// 포식거미 — 검은 몸 · 붉은 눈 여럿 · 여덟 다리. 포식거미 여왕은 등의 붉은 무늬와 큰 몸집
+export function drawSpiderBody(ctx, ph, moving, boss, frozen, up) {
+  const body = frozen ? "#d6e6f0" : boss ? "#2a2036" : "#2c2a36";
+  const leg = frozen ? "#a8c6d8" : "#1c1a24";
+  const mark = frozen ? "#f2fbff" : "#d8483c";
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  for (let k = 0; k < 4; k++) {                               // 다리 — 앞뒤 번갈아 걷는다
+    const sw = moving ? Math.sin(ph + k * 1.6) * 4 : 0;
+    const bx = -10 + k * 8, kx = bx + (k < 2 ? -10 : 8) + sw, tipx = bx + (k < 2 ? -18 : 16) + sw * 1.4;
+    limb(bx, -22, kx, -40, 3, leg); limb(kx, -40, tipx, 0, 3, leg);       // 가까운 쪽
+    limb(bx + 3, -22, kx + 4, -34, 2.4, leg); limb(kx + 4, -34, tipx + 5, 0, 2.4, leg);   // 먼 쪽
+  }
+  blob(-9, -24, 13, 11, 0, body);                             // 배
+  if (boss) { poly(ctx, [[-14, -28], [-8, -36], [-2, -28], [-8, -20]], mark); }
+  else { ctx.fillStyle = mark; ctx.beginPath(); ctx.arc(-9, -26, 2.4, 0, Math.PI * 2); ctx.fill(); }
+  blob(8, -24, 8, 7.5, 0, body);                              // 머리가슴
+  const bite = up > 0 ? 4 : 0;
+  poly(ctx, [[14 + bite, -20], [19 + bite, -14], [15 + bite, -17]], frozen ? "#fff" : "#c9c2b4");   // 독니
+  poly(ctx, [[11 + bite, -19], [15 + bite, -12], [12 + bite, -16]], frozen ? "#fff" : "#c9c2b4");
+  ctx.fillStyle = frozen ? "#bfe6ff" : "#ff5b4a";             // 눈 여럿
+  [[11, -28, 1.6], [7, -29, 1.3], [13.5, -25, 1.2], [9, -26, 1], [5, -26, 1]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); });
+}
+
 // 해골 — 모르가스가 부르는 졸개. 빛바랜 뼈 · 갈비뼈 · 녹슨 칼 · 초록 눈빛(모르가스와 같은 빛)
 export function drawSkeletonBody(ctx, ph, moving, boss, frozen, up) {
   const bone = frozen ? "#e2f0f8" : "#ddd6c2";
@@ -1317,6 +1476,12 @@ const drawGoblin = bruteDrawer(drawGoblinBody, 16, 52, 52);
 const drawOrc = bruteDrawer(drawOrcBody, 22, 72, 100);
 const drawOgre = bruteDrawer(drawOgreBody, 28, 76, 112);
 const drawSkeleton = bruteDrawer(drawSkeletonBody, 15, 52, 52);
+const drawSkeletal = bruteDrawer(drawSkeletalBody, 17, 60, 60);
+const drawZombie = bruteDrawer(drawZombieBody, 18, 54, 62);
+const drawNecro = bruteDrawer(drawNecroBody, 16, 66, 78);
+const drawGolem = bruteDrawer(drawGolemBody, 30, 76, 100);
+const drawChimera = bruteDrawer(drawChimeraBody, 32, 66, 66);
+const drawSpider = bruteDrawer(drawSpiderBody, 26, 46, 50);
 
 /* 던전 보스 — 그림 시트에서 자른 자세(tools/cut-bosses.py)를 같은 배율로 발밑 가운데에 맞춰 그린다.
    idle · move 는 프레임 목록(돌아가며), 기술 자세(slam · charge · attack)는 있는 보스만. 그림을 못 불러오면 오우거 몸을 크게 그려 대신한다.
@@ -1431,8 +1596,10 @@ function drawDummy(ctx, m, time) {
   ctx.restore();
   drawMobMarks(ctx, m, time, 90);
 }
-const MOB_DRAW = { dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton };
-const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4" };
+const MOB_DRAW = { dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
+  skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider };
+const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4",
+  skeletal: "#c9d6e6", zombie: "#bfd6a8", necro: "#d2bcf0", golem: "#d6ccb8", chimera: "#f0c9a0", spider: "#d8d0e8" };
 
 /* 던전 관리인 — 짙은 망토에 등불을 든 사람. 머리 위에 칼 모양 표시 */
 function drawDungeonNpc(ctx, n, time) {
@@ -1698,6 +1865,7 @@ function drawHero(ctx, g, h, time) {
   ctx.fillStyle = "rgba(20,14,10,0.72)"; roundRect(ctx, h.x - wdt / 2, h.y + 6, wdt, 15, 7); ctx.fill();
   if (mate) { ctx.strokeStyle = "#a9d99a"; ctx.lineWidth = 1; ctx.stroke(); }
   else if (MAPS[h.map].pvp && me && h !== me && me.dvs === h.pi) { ctx.strokeStyle = "#e9a08a"; ctx.lineWidth = 1; ctx.stroke(); }   // 내 결투 상대
+  else if (h.pvpOn && fieldPvpMap(h.map)) { ctx.strokeStyle = "#e08a7a"; ctx.lineWidth = 1; ctx.stroke(); }   // 사냥터 PvP 를 켠 사람
   ctx.fillStyle = down ? "#a89a90" : col.light; ctx.fillText(nm, h.x, h.y + 14);
   if (h.title) {                                  // 칭호 — 이름 아래
     ctx.font = "10px 'Jua', sans-serif";

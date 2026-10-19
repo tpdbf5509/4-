@@ -23,10 +23,11 @@ export const REQUESTS = {
     { lv: 160, kind: "hunt", mob: "ogre", n: 10, coin: 6500, xp: 0.25, mats: { heart: 1 } },
   ],
   collector: [
-    { lv: 1, kind: "collect", mat: "fur", n: 6, coin: 300, xp: 0.5 },
-    { lv: 10, kind: "collect", mat: "fang", n: 6, coin: 900, xp: 0.4 },
-    { lv: 20, kind: "collect", mat: "tusk", n: 6, coin: 2200, xp: 0.35 },
-    { lv: 50, kind: "collect", mat: "hide", n: 6, coin: 4500, xp: 0.3 },
+    // 수집가 보리가 주는 경험치 — 20% 낮췄다(예전 0.5 · 0.4 · 0.35 · 0.3)
+    { lv: 1, kind: "collect", mat: "fur", n: 6, coin: 300, xp: 0.4 },
+    { lv: 10, kind: "collect", mat: "fang", n: 6, coin: 900, xp: 0.32 },
+    { lv: 20, kind: "collect", mat: "tusk", n: 6, coin: 2200, xp: 0.28 },
+    { lv: 50, kind: "collect", mat: "hide", n: 6, coin: 4500, xp: 0.24 },
   ],
   alchemist: [
     { lv: 30, kind: "collect", mat: "tusk", n: 9, coin: 0, xp: 0.1, mats: { blue: 1 } },

@@ -20,6 +20,7 @@ import {
 import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR_BASE, ARMOR_SPECIAL, ARMOR, armorName, armorArt } from "./game/armorData.js";
 import { wornArmor } from "./game/armor.js";
+import { BOOKS, BOOK_BY_ID, PATCH_BOOKS } from "./game/bookData.js";
 import { Coin } from "./ui/icons.jsx";
 
 const won = (n) => Math.round(n).toLocaleString("ko-KR");
@@ -613,17 +614,60 @@ export function ShopPanel({ shop, h, send, note, onClose }) {
   );
 }
 
+/* ── 책 — 패치노트와 가이드(bookData.js). 책장에서 한 권을 고르면 쪽을 넘기며 읽는다 ── */
+function Books({ tab0 }) {
+  const [id, setId] = useState(tab0 === "book" ? PATCH_BOOKS[0].id : "");   // 가방을 "책"으로 바로 열면 가장 새 패치노트
+  const [pg, setPg] = useState(0);
+  const book = BOOK_BY_ID[id];
+  if (!book) {
+    const row = (b) => (
+      <div key={b.id} className="book-row" style={{ "--bk": b.color }}>
+        <i className="book-spine" />
+        <div className="book-main"><b>{b.title}</b><span>{b.sub} · {b.pages.length}쪽</span></div>
+        <button type="button" className="shop-btn" onClick={() => { setId(b.id); setPg(0); }}>읽기</button>
+      </div>
+    );
+    return (
+      <>
+        <Head sub="늘 가지고 있는 책입니다 · 가방 칸을 차지하지 않습니다">패치노트</Head>
+        {BOOKS.filter((b) => PATCH_BOOKS.includes(b)).map(row)}
+        <Head sub="게임의 모든 안내">가이드</Head>
+        {BOOKS.filter((b) => !PATCH_BOOKS.includes(b)).map(row)}
+      </>
+    );
+  }
+  const page = book.pages[Math.min(pg, book.pages.length - 1)];
+  return (
+    <div className="book" style={{ "--bk": book.color }}>
+      <div className="book-top">
+        <button type="button" className="shop-btn" onClick={() => setId("")}>책장</button>
+        <b>{book.title}</b>
+      </div>
+      <div className="book-page">
+        <h4>{page.h}</h4>
+        {page.p.map((t, i) => <p key={i}>{t}</p>)}
+      </div>
+      <div className="book-nav">
+        <button type="button" className="shop-btn" disabled={pg <= 0} onClick={() => setPg(pg - 1)}>이전</button>
+        <span>{Math.min(pg, book.pages.length - 1) + 1} / {book.pages.length}</span>
+        <button type="button" className="shop-btn" disabled={pg >= book.pages.length - 1} onClick={() => setPg(pg + 1)}>다음</button>
+      </div>
+    </div>
+  );
+}
+
 /* ── 가방 — 어디서나 연다. 능력치 · 무기 장착 · 물약 마시기 · 배운 스킬 ── */
 export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
-  const [tab, setTab] = useState(tab0 === "stat" ? "weapon" : tab0);   // 능력치 탭은 뺐다(스탯 창에서 본다)
+  const [tab, setTab] = useState(tab0 === "stat" ? "weapon" : tab0);   // 능력치 탭은 뺐다(스탯 창에서 본다) · "book" 으로 열면 책 탭
   const qs = h.bag.qs || [];
   const w = equipped(h.bag);
   const potions = POTIONS.filter((p) => h.bag.p[p.id] > 0);
   const skills = SKILLS.filter((s) => h.bag.s[s.id] > 0);
   const mats = MATERIALS.filter((m) => matCount(h.bag, m.id) > 0);
   return (
-    <Frame title="가방" sub="무기 · 방어구 · 물약 · 재료 · 주문서 · 스킬" coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
-      <Tabs on={tab} set={setTab} tabs={[["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length]]} />
+    <Frame title="가방" sub="무기 · 방어구 · 물약 · 재료 · 주문서 · 스킬 · 책" coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
+      <Tabs on={tab} set={setTab} tabs={[["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length], ["book", "책", BOOKS.length]]} />
+      {tab === "book" && <Books tab0={tab0} />}
       {tab === "weapon" && (
         <>
           <Head sub={`${h.bag.w.length}/${WEAPON.bagMax} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>

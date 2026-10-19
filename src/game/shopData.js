@@ -177,7 +177,7 @@ export const GUARD = { name: "하락 방지권", price: 3000, max: 99 };
 export const WARP = {
   max: 999,                          // 가질 수 있는 횟수
   // 갈 수 있는 지역 — 차례대로 보인다. 결투장은 결투 신청으로만 간다
-  maps: ["plaza", "field", "wolf", "boar", "gorilla", "goblin", "orc", "ogre"],
+  maps: ["plaza", "field", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "skeletal", "zombie", "necro", "golem", "chimera", "spider"],
 };
 
 /* ── 도박장 ─────────────────────────────────────────────── */

@@ -62,6 +62,7 @@ export default function App() {
   const [testPw, setTestPw] = useState("");
 
   const roomRef = useRef(null);
+  const handoffRef = useRef(null);         // 방장이 나갈 때 다음 사람에게 넘기는 함수(아래 handoff 를 담는다)
   const hostRef = useRef(false);
   const bossRef = useRef(false);        // 대기실에서 바로 들어간 결전 — false · "boss" · "titan"
   const seatsRef = useRef(new Array(SEATS).fill(null));
@@ -77,14 +78,37 @@ export default function App() {
   const lobbyRef = useRef(null);          // 마지막으로 받은(또는 보낸) 대기실 — 방장이 나갔을 때 이어받는 데 쓴다
   const [server, setServer] = useState(0); // RPG — 지금 들어간 서버 차례(0 = 서버 1)
   const crewMax = () => (modeRef.current === "rpg" ? RPG_CREW_MAX : CREW_MAX);
+  // 방장 차례(ep) — 방장이 바뀔 때마다 1씩 오른다. 더 작은 차례의 대기실 소식은 옛 방장이 늦게 보낸 것이라 버린다
+  // (Supabase 는 메시지 순서를 바꿔 전할 때가 있어, 넘긴 뒤에 옛 방장의 소식이 와서 되돌리지 않게)
+  const epRef = useRef(0);
   const publishLobby = useCallback(() => {
     const next = {
-      hostId: me, seats: seatsRef.current, waves: wavesRef.current, diff: diffRef.current, mode: modeRef.current,
+      hostId: me, seats: seatsRef.current, waves: wavesRef.current, diff: diffRef.current, mode: modeRef.current, ep: epRef.current,
     };
     lobbyRef.current = next;
     setLobby(next);
     roomRef.current?.send("lobby", next);
   }, [me]);
+
+  // 방장을 넘긴다 — 나가기 전(다음 사람) · 관리 화면의 "방장 부여". 받은 사람은 마지막 스냅샷에서 세계를 이어받는다(rpgPromote)
+  const handoff = useCallback((to) => {
+    if (!hostRef.current || !to || to === me) return false;
+    if (!seatsRef.current.some((st) => st && st.id === to)) return false;
+    epRef.current += 1;
+    hostRef.current = false;
+    const next = { ...lobbyRef.current, hostId: to, seats: seatsRef.current, ep: epRef.current };
+    lobbyRef.current = next;
+    setLobby(next);
+    roomRef.current?.send("lobby", next);
+    return true;
+  }, [me]);
+  // 나가는 방장이 넘길 사람 — 남은 사람 가운데 자리 차례가 가장 앞선 사람
+  useEffect(() => {
+    handoffRef.current = () => {
+      const to = (seatsRef.current.find((st) => st && st.id !== me) || {}).id;
+      if (to) handoff(to);
+    };
+  }, [me, handoff]);
 
   /* 라운드 수 · 난이도 · 시작은 방장만 정한다. 대기실로 돌아가기는 손님도 방장에게 부탁할 수 있다. */
   const setWaves = useCallback((n) => {
@@ -163,6 +187,7 @@ export default function App() {
     };
     const becomeHost = () => {
       hostRef.current = true;
+      epRef.current = Math.max(epRef.current, (lobbyRef.current && lobbyRef.current.ep) || 0) + 1;
       seatsRef.current = firstSeats();
       if (peersRef.current.some((p) => p.id === me)) reseat();
       else publishLobby();
@@ -238,6 +263,7 @@ export default function App() {
       if (!L) return void becomeHost();
       // 방장을 이어받는다 — 지금 있는 사람의 자리는 그대로 둔다
       hostRef.current = true;
+      epRef.current = Math.max(epRef.current, L.ep || 0) + 1;
       const ids = new Set([...peers.map((q) => q.id), me]);
       seatsRef.current = L.seats.map((st) => (st && ids.has(st.id) && st.id !== L.hostId ? st : null));
       publishLobby();
@@ -250,11 +276,23 @@ export default function App() {
       setError("다른 기기에서 이 캐릭터로 들어왔습니다. 이 기기의 기록으로 들어갑니다. 서버에 이어 하려면 코드를 다시 넣어 주세요.");
     });
     room.on("lobby", (d) => {
+      if (!d) return;
+      if ((d.ep || 0) < epRef.current) return;         // 옛 방장이 늦게 보낸 소식
+      epRef.current = Math.max(epRef.current, d.ep || 0);
       gotLobby = true;
       heardAt = Date.now();
-      if (d && d.hostId && !hostRef.current) lobbyRef.current = d;
+      // 방장을 넘겨받았다 — 이제 내가 판정한다. 자리는 받은 그대로
+      if (d.hostId === me && !hostRef.current) {
+        hostRef.current = true;
+        seatsRef.current = d.seats;
+        lobbyRef.current = d;
+        if (d.mode) modeRef.current = d.mode;
+        publishLobby();
+        return;
+      }
+      if (d.hostId && !hostRef.current) lobbyRef.current = d;
       // 테스트 서버에서 방장이 둘 생겼으면 아이디가 큰 쪽이 물러나 손님이 된다
-      if (auto && hostRef.current && d && d.hostId && d.hostId < me) {
+      if (auto && hostRef.current && d.hostId && d.hostId !== me && d.hostId < me && (d.ep || 0) === epRef.current) {
         hostRef.current = false;
         lobbyRef.current = d;
         room.send("hello", { name: nick });
@@ -313,12 +351,16 @@ export default function App() {
   useEffect(() => () => roomRef.current?.leave(), []);
   // 창을 닫거나 다른 곳으로 가면 곧바로 방을 떠난다 — 남은 사람 화면에서 바로 빠지게
   useEffect(() => {
-    const bye = () => roomRef.current?.leave();
+    const bye = () => {
+      if (hostRef.current && modeRef.current === "rpg") handoffRef.current?.();   // 방장이면 다음 사람에게 넘기고 떠난다
+      roomRef.current?.leave();
+    };
     window.addEventListener("pagehide", bye);
     return () => window.removeEventListener("pagehide", bye);
   }, []);
 
   const leave = useCallback(() => {
+    if (hostRef.current && modeRef.current === "rpg") handoffRef.current?.();   // 방장이 나가면 남은 사람이 멈추지 않게 바로 넘긴다
     roomRef.current?.leave();
     roomRef.current = null;
     hostRef.current = false;

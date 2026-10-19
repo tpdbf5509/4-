@@ -65,9 +65,10 @@ export function drawSkillFx(ctx, f, time, g) {
   else if (f.kind === "sk_flamer") drawFlamer(ctx, f, p, time, g);
   else if (f.kind === "sk_pierce") drawPierce(ctx, f, p, time);
   else if (f.kind === "sk_wingdash") drawWingDash(ctx, f, p);
+  else if (MOB_FX[f.kind]) MOB_FX[f.kind](ctx, f, p, time);   // 200~400레벨 몹 기술
 }
 // 땅에 깔리는 것 — 몸보다 먼저 그린다(rpgArt.js)
-export const GROUND_FX = new Set(["sk_ice", "sk_ember", "sk_rift"]);
+export const GROUND_FX = new Set(["sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake"]);
 
 /* 화염베기 — 커다란 불꽃 초승달. 앞 35% 동안 휘어 나가며 그어지고(머리가 가장 굵다), 뒤로 가늘어지며 사라진다.
    겉은 붉은 불, 가운데는 주황, 안쪽 심지는 노란 흰빛. 바깥 가장자리에 불길이 일렁인다 */
@@ -938,3 +939,164 @@ export function liftOf(o, dt) {
   o.liftV = (o.liftV || 0) + ((air ? 46 : 0) - (o.liftV || 0)) * Math.min(1, dt * 12);
   return o.liftV < 0.5 ? 0 : o.liftV;
 }
+
+/* ── 200~400레벨 몹 기술(rpg.js FAR_SKILL) ─────────────────────────────
+   sk_mcharge 준비하는 몸의 빛 · sk_mwarn 떨어질 자리 표시 · sk_mshot 날아가는 것(뼈 · 토사물 · 거미줄)
+   sk_mweb 바닥의 거미줄 · sk_mcurse 저주 문양 · sk_mquake 땅 가르기 · sk_mbreath 불꽃 숨결.
+   quake · breath 는 ph 0 이 준비 표시, ph 1 이 실제 공격이다. 방향 ax · ay 는 땅 위 값이라 그릴 때 위아래를 눌러 준다 */
+const rgba = (hex, a) => {
+  const n = parseInt((hex || "#ffffff").slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
+const fadeOut = (p, from) => (p < from ? 1 : Math.max(0, 1 - (p - from) / (1 - from)));
+// 땅 위 좌표계 — (x, y) 에서 위아래를 누르고 ax · ay 쪽을 오른쪽으로
+function groundAt(ctx, f) {
+  ctx.translate(f.x, f.y); ctx.scale(1, SQ());
+  if (f.ax !== undefined) ctx.rotate(Math.atan2(f.ay || 0, f.ax || 1));
+}
+function drawMCharge(ctx, f, p, time) {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = 0.5 + 0.5 * Math.sin(time * 22);
+  glowAt(ctx, f.x, f.y, f.r * (0.5 + 0.7 * p), rgba(f.color, 0.7), rgba(f.color, 0));
+  ctx.restore();
+}
+function drawMWarn(ctx, f, p) {
+  ctx.save();
+  groundAt(ctx, f);
+  ctx.strokeStyle = rgba(f.color, 0.75); ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, 0, f.r, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = rgba(f.color, 0.22);
+  ctx.beginPath(); ctx.arc(0, 0, f.r * p, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+const SHOT_LIFT = { bone: 60, bile: 120, web: 12 };
+function drawMShot(ctx, f, p, time) {
+  const x = f.x + (f.x1 - f.x) * p, y = f.y + (f.y1 - f.y) * p - Math.sin(p * Math.PI) * (SHOT_LIFT[f.style] || 0);
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(1.4, 1.4);
+  if (f.style === "bone") {                       // 빙글 도는 뼈
+    ctx.rotate(time * 14);
+    ctx.strokeStyle = "#efe4cc"; ctx.lineWidth = 4; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.stroke();
+    ctx.fillStyle = "#f6eedb";
+    [-1, 1].forEach((k) => {
+      ctx.beginPath(); ctx.arc(k * 10, -3, 3.4, 0, Math.PI * 2); ctx.arc(k * 10, 3, 3.4, 0, Math.PI * 2); ctx.fill();
+    });
+  } else if (f.style === "bile") {                // 출렁이는 토사물 덩이와 떨어지는 방울
+    ctx.fillStyle = "rgba(150,190,90,0.95)";
+    ctx.beginPath(); ctx.ellipse(0, 0, 11 + Math.sin(time * 18) * 1.5, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(200,225,140,0.9)";
+    ctx.beginPath(); ctx.arc(-3, -3, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(120,160,70,0.7)";
+    for (let i = 0; i < nq(3); i++) {
+      const k = (time * 2.4 + i * 0.33) % 1;
+      ctx.beginPath(); ctx.arc(Math.sin(i * 2.1) * 6, 8 + k * 18, 2.4 * (1 - k) + 0.6, 0, Math.PI * 2); ctx.fill();
+    }
+  } else {                                        // 거미줄 — 뭉친 실과 뻗은 가닥
+    ctx.rotate(time * 6);
+    ctx.strokeStyle = "rgba(240,242,246,0.9)"; ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 14, Math.sin(a) * 14); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = "rgba(250,250,252,0.95)";
+    ctx.beginPath(); ctx.arc(0, 0, 4.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+function drawMWeb(ctx, f, p) {
+  const grow = Math.min(1, p / 0.12), R = f.r * (0.7 + 0.3 * grow);
+  ctx.save();
+  ctx.globalAlpha = fadeOut(p, 0.7) * 0.85;
+  groundAt(ctx, f);
+  ctx.strokeStyle = "rgba(236,238,242,0.9)"; ctx.lineWidth = 1;
+  const N = 8;
+  for (let i = 0; i < N; i++) {                   // 바퀴살
+    const a = (i / N) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * R, Math.sin(a) * R); ctx.stroke();
+  }
+  [0.35, 0.65, 0.95].forEach((k) => {             // 둘레 실 — 살 사이가 안으로 살짝 처진다
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2, b = ((i + 0.5) / N) * Math.PI * 2, r = R * k;
+      if (!i) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.quadraticCurveTo(Math.cos(b - Math.PI / N) * r * 0.86, Math.sin(b - Math.PI / N) * r * 0.86, Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+function drawMCurse(ctx, f, p, time) {
+  ctx.save();
+  groundAt(ctx, f);
+  ctx.rotate(time * 1.4);
+  ctx.strokeStyle = "rgba(196,154,232,0.85)"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, 0, f.r, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, f.r * 0.8, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath();                                // 다섯 끝 별
+  for (let i = 0; i <= 5; i++) {
+    const a = (i * 2 * (Math.PI * 2)) / 5 - Math.PI / 2;
+    const x = Math.cos(a) * f.r * 0.78, y = Math.sin(a) * f.r * 0.78;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = `rgba(120,70,170,${0.12 + 0.28 * p})`;   // 터질 때가 가까울수록 짙어진다
+  ctx.beginPath(); ctx.arc(0, 0, f.r * (1 - 0.25 * Math.sin(p * Math.PI * 6) * (1 - p)), 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function drawMQuake(ctx, f, p, time) {
+  ctx.save();
+  groundAt(ctx, f);
+  const L = f.len, W = f.w;
+  if (!f.ph) {                                    // 준비 — 갈라질 줄이 앞으로 차오른다
+    ctx.strokeStyle = "rgba(214,160,104,0.75)"; ctx.lineWidth = 1.5;
+    ctx.strokeRect(0, -W / 2, L, W);
+    ctx.fillStyle = "rgba(196,130,80,0.24)";
+    ctx.fillRect(0, -W / 2, L * p, W);
+  } else {                                        // 갈라진 땅 — 들쭉날쭉한 금과 튀는 돌
+    const fade = fadeOut(p, 0.4), seed = f.len % 7;
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = "rgba(170,110,70,0.3)";
+    ctx.fillRect(0, -W / 2, L, W);
+    ctx.strokeStyle = "rgba(70,44,30,0.9)"; ctx.lineWidth = 3; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    const N = 14;
+    for (let i = 1; i <= N; i++) {
+      const x = (L * i) / N, y = Math.sin(i * 2.7 + seed) * W * 0.22;
+      ctx.lineTo(x, y);
+      if (i % 3 === 0) { ctx.moveTo(x, y); ctx.lineTo(x + 14, y + (i % 2 ? 1 : -1) * W * 0.35); ctx.moveTo(x, y); }
+    }
+    ctx.stroke();
+    ctx.fillStyle = "#a88a6a";
+    for (let i = 0; i < nq(10); i++) {
+      const x = ((i + 0.5) / 10) * L, up = Math.sin(Math.min(1, p * 1.6) * Math.PI) * (16 + (i % 3) * 10);
+      ctx.beginPath(); ctx.arc(x, Math.sin(i * 1.9) * W * 0.3 - up, 3 + (i % 2) * 2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+function drawMBreath(ctx, f, p, time) {
+  ctx.save();
+  groundAt(ctx, f);
+  const L = f.len, A = f.arc || 0.5;
+  if (!f.ph) {                                    // 준비 — 탈 부채꼴이 차오른다
+    ctx.strokeStyle = "rgba(240,160,100,0.75)"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, L, -A, A); ctx.closePath(); ctx.stroke();
+    ctx.fillStyle = "rgba(240,130,80,0.22)";
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, L * p, -A, A); ctx.closePath(); ctx.fill();
+  } else {                                        // 불길 — 입에서 앞으로 퍼져 나간다
+    const fade = fadeOut(p, 0.35);
+    ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = fade;
+    const N = nq(22);
+    for (let i = 0; i < N; i++) {
+      const k = ((i * 0.618) % 1), a = (((i * 0.37) % 1) * 2 - 1) * A * 0.9;
+      const r = L * Math.min(1, k * 0.6 + p * 1.2) , s = 10 + k * 22;
+      glowAt(ctx, Math.cos(a) * r, Math.sin(a) * r, s, "rgba(255,210,130,0.8)", "rgba(220,70,30,0)", [0.5, "rgba(250,130,60,0.45)"]);
+    }
+  }
+  ctx.restore();
+}
+const MOB_FX = { sk_mcharge: drawMCharge, sk_mwarn: drawMWarn, sk_mshot: drawMShot, sk_mweb: drawMWeb,
+  sk_mcurse: drawMCurse, sk_mquake: drawMQuake, sk_mbreath: drawMBreath };

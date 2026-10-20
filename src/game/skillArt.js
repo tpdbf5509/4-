@@ -3,7 +3,7 @@
    drawHeroSkill — 영웅 둘레에 늘 붙는 것: 화염검 불똥 · 별빛 · 철벽 · 보호막 · 연계 중인 무기(그림자 칼 · 천사 날개 · 조준선) · 쌓인 패시브.
    상태는 스냅샷 줄 46(h.ws · h.jb)으로 손님에게도 온다. */
 import { WEAPON_SKILLS } from "./skillData.js";
-import { heldSpecial, RPG } from "./rpg.js";
+import { heldSpecial, RPG, aimDir } from "./rpg.js";
 
 const SQ = () => RPG.squash;
 /* 연출 품질 — 프레임이 무거우면 rpgArt.js 가 낮춘다(1 가득 · FX_LOW 덜 그림). 알갱이 · 마디 수에 곱한다 */
@@ -784,19 +784,27 @@ function drawPierce(ctx, f, p, time) {
   const grow = Math.min(1, p / 0.12), fade = p < 0.35 ? 1 : Math.max(0, 1 - (p - 0.35) / 0.65);
   const x1 = f.x0 + (f.x1 - f.x0) * grow, y1 = f.y0 + (f.y1 - f.y0) * grow;
   ctx.save();
-  ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = fade; ctx.lineCap = "round";
+  ctx.globalAlpha = fade; ctx.lineCap = "round";
   const line = (w, col) => { ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+  // 밝은 풀밭 · 숫자 위에서도 보이게 — 더하기 빛 아래에 어두운 테를 먼저 깐다(좌우로 쏘면 줄이 숫자 · 몸과 겹쳐 묻혔다)
+  if (star) line((f.w || 24) * 1.5, "rgba(30,36,90,0.32)");
+  ctx.globalCompositeOperation = "lighter";
   line((f.w || 24) * (1 + 0.1 * Math.sin(time * 40)), star ? "rgba(120,150,255,0.45)" : "rgba(255,90,30,0.5)");
   line((f.w || 24) * 0.35, star ? "rgba(225,235,255,0.95)" : "rgba(255,220,150,0.95)");
-  if (star) {                                     // 줄을 따라 별자리 점과 선
-    ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "rgba(220,230,255,0.6)"; ctx.lineWidth = 1;
-    let px = f.x0, py = f.y0;
+  if (star) {                                     // 줄을 따라 별자리 점과 선 — 줄에 수직으로 흩어 어느 쪽으로 쏴도 별자리 모양이 같다
+    const a = Math.atan2(f.y1 - f.y0, f.x1 - f.x0), nx = -Math.sin(a), ny = Math.cos(a);
+    const pts = [];
     for (let i = 1; i <= 6; i++) {
-      const u = (i / 7) * grow, j = Math.sin(i * 4.1) * 18;
-      const x = f.x0 + (f.x1 - f.x0) * u - Math.sin(Math.atan2(f.y1 - f.y0, f.x1 - f.x0)) * j, y = f.y0 + (f.y1 - f.y0) * u + j * 0.3;
-      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke();
-      star4(ctx, x, y, 4); px = x; py = y;
+      const u = (i / 7) * grow, j = Math.sin(i * 4.1) * 26;
+      pts.push([f.x0 + (f.x1 - f.x0) * u + nx * j, f.y0 + (f.y1 - f.y0) * u + ny * j]);
     }
+    ctx.globalCompositeOperation = "source-over";
+    ctx.strokeStyle = "rgba(225,232,255,0.85)"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(f.x0, f.y0); pts.forEach(([x, y]) => ctx.lineTo(x, y)); ctx.stroke();
+    ctx.globalCompositeOperation = "lighter";
+    pts.forEach(([x, y]) => glow(ctx, x, y, 14, "rgba(220,230,255,0.85)", "rgba(140,110,255,0)"));
+    ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "#ffffff";
+    pts.forEach(([x, y]) => star4(ctx, x, y, 6));
   } else {
     for (let i = 0; i < 8; i++) {                 // 용암 불똥
       const u = ((i * 0.13 + p * 1.5) % 1) * grow;
@@ -889,11 +897,13 @@ function drawComboHero(ctx, h, time) {
     ctx.restore();
   }
   if (c && sp === "star_bow" && c.st === 1) {     // 조준 자세 — 앞으로 뻗는 조준선 · 차오르는 고리
-    const S = WEAPON_SKILLS.star_bow.skill, u = Math.min(1, (c.el || 0) / S.full), d = h.dir || 1;
+    // 조준선은 쏠 쪽(aimDir — 누르는 방향, 없으면 마지막으로 걸은 쪽)을 따른다. 판정(rpg.js starShot 의 faceDir)과 같은 셈
+    const S = WEAPON_SKILLS.star_bow.skill, u = Math.min(1, (c.el || 0) / S.full);
+    const [ax, ay] = aimDir(h), len = 120 + 260 * u;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.strokeStyle = `rgba(200,215,255,${0.35 + 0.5 * u})`; ctx.lineWidth = 1 + 2 * u; ctx.setLineDash([10, 8]);
-    ctx.beginPath(); ctx.moveTo(h.x + d * 20, h.y - 34); ctx.lineTo(h.x + d * (120 + 260 * u), h.y - 34); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(h.x + ax * 20, h.y - 34 + ay * 20); ctx.lineTo(h.x + ax * len, h.y - 34 + ay * len); ctx.stroke();
     ctx.setLineDash([]);
     ctx.strokeStyle = u >= 1 ? "rgba(255,240,170,0.95)" : "rgba(210,225,255,0.85)"; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.arc(cx, cy - 34, 12, -Math.PI / 2, -Math.PI / 2 + TAU * u); ctx.stroke();

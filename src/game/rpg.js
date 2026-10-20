@@ -33,10 +33,13 @@ export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
 // 결투장 칸 크기 — 좁다는 의견으로 키웠다(10월 20일). 예전 rx 540 · ry 380 · 칸 사이 1300
 const ARENA_RING = { rx: 820, ry: 560, gap: 1850, x0: 1000, y: 900 };
 export const DUEL = { dmgMul: 0.3, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
-  // 결투 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 skillCap 을 넘지 않는다(스킬 한 방에 쓰러져 막았다).
-  // 딱 자르면 센 스킬 · 약한 스킬이 모두 같아져서 skillSoft 로 부드럽게 누른다 — 원래 2500 이면 약 770, 6000 이면 약 970, 10000 이면 약 1000
-  // 관리자 스탯 · 기본 검(전사끼리)으로 스킬 6번이면 체력 절반쯤 깎이게 1500 · 2500 → 1000 · 1700 으로 낮췄다(10월 20일, 한 번 7~9%)
-  skillCap: 1000, skillSoft: 1700 };
+  // 결투 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 한도를 넘지 않는다(스킬 한 방에 쓰러져 막았다).
+  // 한도는 맞는 사람 최대 체력의 skillPct 몫이다 — 고정 숫자(1000)면 체력 500 이하인 대부분의 사람이 화염검 한 번에 쓰러졌다(10월 20일).
+  // 딱 자르면 센 스킬 · 약한 스킬이 모두 같아져서 한도 × skillSoft 를 기준으로 부드럽게 누른다 — 원래가 한도의 2.5배면 약 77%, 6배면 약 97%
+  // 센 사람이 스킬 6번 맞히면 체력 절반쯤(한 번 약 8%)
+  skillPct: 0.12, skillSoft: 1.7,
+  // 평타 한 대도 맞는 사람 최대 체력의 basicPct 를 넘지 않는다 — 관리자 평타가 한 대 1100쯤이라 체력 1000 아래는 한 대에 쓰러졌다
+  basicPct: 0.03 };
 export const honorGain = (loserHonor) => Math.round((loserHonor || 0) * DUEL.honorRate) + DUEL.honorBase;
 
 // 대쉬 — 모든 캐릭터의 기본 스킬(F). 누른 방향으로 dist 만큼 time 초에 달려 나가고, inv 초 동안 맞지 않는다
@@ -1256,7 +1259,7 @@ export const isPvp = (map) => !!(MAPS[map] && MAPS[map].pvp);
 /* ── 사냥터 PvP — 설정에서 켠 사람끼리만 서로 칠 수 있다(기본은 꺼짐) ─────────────────
    광장 · 던전 · 훈련장 · 결투장에서는 켜 두어도 듣지 않는다(결투장은 결투 규칙을 따른다). 같은 파티는 칠 수 없다.
    몹을 칠 때와 같은 기술이 그대로 나간다 — 노릴 것을 고르는 곳(foesNear · nearFoes)이 몹과 PvP 를 켠 사람을 함께 본다.
-   피해는 결투와 같이 줄여서 한 방에 끝나지 않게 한다(FIELD_PVP.dmgMul, 스킬 한 번 한도는 결투와 같은 DUEL.skillCap) */
+   피해는 결투와 같이 줄여서 한 방에 끝나지 않게 한다(FIELD_PVP.dmgMul, 스킬 한 번 한도는 결투와 같은 DUEL.skillPct) */
 export const FIELD_PVP = { dmgMul: 0.3, toggleCd: 5 };   // toggleCd — 켜고 끄기를 다시 바꿀 수 있을 때까지(초)
 export const fieldPvpMap = (map) => { const M = MAPS[map]; return !!M && !M.safe && !M.pvp && !M.dungeon && !M.train; };
 const fieldPvpOn = (h) => !!h && !!h.pvpOn && !!h.loaded && fieldPvpMap(h.map);
@@ -1292,17 +1295,18 @@ function nearFoes(g, h, x, y, range) {
   return dist(x, y, o.x, o.y) - 7 <= range ? [o] : [];
 }
 // 결투 상대를 친다 — 쓰러지면 결투가 끝난다(tickDuels)
-// basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 DUEL.skillCap 을 넘지 않게 누른다(pvpSoft)
+// basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 상대 최대 체력의 DUEL.skillPct 를 넘지 않게 누른다(pvpSoft)
 function hitFoe(g, h, o, raw, basic, dot) {
   if (!o || o.down > 0) return;
   const field = !isPvp(h.map);
   if (field && !(fieldPvpOn(h) && fieldPvpOn(o) && o.map === h.map)) return;   // 그 사이 꺼졌거나 광장으로 들어갔다
   const off = offHand(h);
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
-  if (!basic) {
-    const c = h.cast || newCast(h), before = pvpSoft(c.raw);
+  if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
+  else {
+    const c = h.cast || newCast(h), cap = DUEL.skillPct * (o.max || 1), before = pvpSoft(c.raw, cap);
     c.raw += dmg;
-    dmg = pvpSoft(c.raw) - before;
+    dmg = pvpSoft(c.raw, cap) - before;
     if (dmg <= 0.5) return;
   }
   const was = o.down;
@@ -1315,7 +1319,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
 }
 // 스킬을 새로 쓴다 — 결투 스킬 피해를 처음부터 센다(raw 는 이번 스킬이 지금까지 준 원래 피해)
 const newCast = (h) => (h.cast = { raw: 0 });
-const pvpSoft = (raw) => DUEL.skillCap * (1 - Math.exp(-raw / DUEL.skillSoft));
+const pvpSoft = (raw, cap) => cap * (1 - Math.exp(-raw / (cap * DUEL.skillSoft)));
 
 /* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
 export function rpgDuel(g, pi, req) {

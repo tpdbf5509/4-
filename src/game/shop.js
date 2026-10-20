@@ -38,7 +38,7 @@ function cleanKs(d, learned) {
   return { job, g };
 }
 // 새로 배운 액티브 스킬은 빈 칸이 있으면 바로 넣는다
-function autoSlot(bag, id) {
+export function autoSlot(bag, id) {
   const s = SKILL_BY_ID[id];
   if (!bag.ks) bag.ks = { job: "", g: ["", ""] };
   if (skillEquipped(bag, id)) return;
@@ -212,6 +212,7 @@ export function cleanBag(d) {
   b.v = Math.max(0, Math.floor(Number(d.v) || 0));
   b.oc = d.oc ? 1 : 0;
   b.lg = Math.floor(Number(d.lg)) || 0;          // 관리자 전설 무기를 받은 차례(rpg.js ADMIN_LEGEND)
+  b.ak = Math.floor(Number(d.ak)) || 0;          // 관리자 장비(특별 무기 · 강화 · 전설 방어구)를 받은 차례(rpg.js ADMIN_KIT)
   b.ks = cleanKs(d.ks, b.s);                      // 스킬 칸(직업 하나 · 일반 둘)
   b.pg = Array.isArray(d.pg) ? d.pg.filter((x) => typeof x === "string").slice(0, 50) : [];   // 받은 한 사람 선물 id(itemData.js PERSONAL_GIFTS)
   b.mt = Array.isArray(d.mt) ? [...new Set(d.mt.filter((x) => typeof x === "string" && x.length <= 16))].slice(0, 20) : [];   // 말을 걸어 본 의뢰인(rpg.js metNpc) — 그 뒤로는 내 화면에서 의뢰를 받는다

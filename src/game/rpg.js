@@ -7,16 +7,16 @@
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
-import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WEAPON } from "./shopData.js";
-import { specialTier, specialPrice, skillEquipped, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
+import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WEAPON, WARP, GUARD } from "./shopData.js";
+import { specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
-import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop } from "./itemData.js";
+import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
-import { armorName, ARMOR } from "./armorData.js";
+import { armorName, ARMOR, ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
@@ -910,6 +910,41 @@ function giveAdminLegends(g, h) {
   h.bag.v += 1;
   sys(g, h.pi, n === want.length ? `관리자 — 전설 무기 ${n}자루를 가방에 넣었습니다.`
     : `관리자 — 가방 자리가 모자라 전설 무기 ${n}자루만 넣었습니다. 무기를 팔면 나머지를 넣습니다.`);
+}
+/* 관리자 장비 — 기록이 섞인 사고(10월 19일)로 관리자의 무기 강화 · 방어구 · 주문서 · 스킬이 비어 다시 채운다(사용자 요청 10월 20일).
+   한 번만(받은 차례 bag.ak, id 를 올리면 다시): 특별 무기 스물둘 모두 · 특별 무기 강화 최대 · 전설 방어구 넷(끼워 준다).
+   늘 채우는 것(재료처럼 쓰면 바로 다시 찬다): 모든 스킬 최고 레벨 · 지역 워프권 · 하락 방지권 */
+export const ADMIN_KIT = { id: 1, up: ENHANCE.max, armor: ARMOR_GRADES.length - 1 };
+function giveAdminKit(g, h) {
+  if (!h.admin || !h.bag) return;
+  const b = h.bag;
+  let changed = false;
+  SHOP_SKILLS.forEach((s) => {
+    if ((b.s[s.id] || 0) >= s.gold.length) return;
+    b.s[s.id] = s.gold.length;
+    autoSlot(b, s.id);
+    changed = true;
+  });
+  if (b.wp < WARP.max) { b.wp = WARP.max; changed = true; }
+  if (b.gd < GUARD.max) { b.gd = GUARD.max; changed = true; }
+  if (b.ak !== ADMIN_KIT.id) {
+    const room = WEAPON.bagMax - b.w.length;
+    const want = SPECIALS.filter((sp) => !b.w.some((w) => w.sp === sp.id));
+    want.slice(0, Math.max(0, room)).forEach((sp) => { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
+    b.w.forEach((w) => { if (w.sp) w.up = ADMIN_KIT.up; });
+    if (!b.a) b.a = [];
+    if (!b.ae) b.ae = {};
+    ARMOR_SLOTS.forEach((sl) => {
+      let a = b.a.find((q) => q.s === sl.id && q.g === ADMIN_KIT.armor);
+      if (!a && b.a.length < ARMOR.bagMax) { a = { u: b.n++, s: sl.id, g: ADMIN_KIT.armor }; b.a.push(a); }
+      if (a) b.ae[sl.id] = a.u;
+    });
+    b.ak = ADMIN_KIT.id;
+    changed = true;
+    refreshHp(h, true);                             // 투구가 최대 체력을 올린다
+    sys(g, h.pi, `관리자 — 특별 무기 ${SPECIALS.length}자루(강화 +${ADMIN_KIT.up}) · 전설 방어구 넷 · 모든 스킬 · 주문서를 채웠습니다.`);
+  }
+  if (changed) b.v += 1;
 }
 function givePersonal(g, h) {
   if (!h.bag || !g.names) return;
@@ -3867,7 +3902,7 @@ function tickSocial(g, dt) {
   g.titleT -= dt;
   if (g.titleT <= 0) {
     g.titleT = 0.5;
-    g.heroes.forEach((h) => { if (h && h.loaded) { awardTitles(g, h, false); givePersonal(g, h); giveAdminLegends(g, h); } });
+    g.heroes.forEach((h) => { if (h && h.loaded) { awardTitles(g, h, false); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
   }
 }
 

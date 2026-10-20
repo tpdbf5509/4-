@@ -30,10 +30,13 @@ export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
 // 피해는 몹을 칠 때의 dmgMul(한 방에 끝나지 않게). 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
 // 명예 — 이기면 진 사람 명예의 honorRate 에 honorBase 를 더한 만큼 오른다(지는 쪽은 그대로). 경험치 · 코인은 없다
+// 결투장 칸 크기 — 좁다는 의견으로 키웠다(10월 20일). 예전 rx 540 · ry 380 · 칸 사이 1300
+const ARENA_RING = { rx: 820, ry: 560, gap: 1850, x0: 1000, y: 900 };
 export const DUEL = { dmgMul: 0.3, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
   // 결투 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 skillCap 을 넘지 않는다(스킬 한 방에 쓰러져 막았다).
-  // 딱 자르면 센 스킬 · 약한 스킬이 모두 같아져서 skillSoft 로 부드럽게 누른다 — 원래 2500 이면 약 950, 6000 이면 약 1360, 10000 이면 약 1470
-  skillCap: 1500, skillSoft: 2500 };
+  // 딱 자르면 센 스킬 · 약한 스킬이 모두 같아져서 skillSoft 로 부드럽게 누른다 — 원래 2500 이면 약 770, 6000 이면 약 970, 10000 이면 약 1000
+  // 관리자 스탯 · 기본 검(전사끼리)으로 스킬 6번이면 체력 절반쯤 깎이게 1500 · 2500 → 1000 · 1700 으로 낮췄다(10월 20일, 한 번 7~9%)
+  skillCap: 1000, skillSoft: 1700 };
 export const honorGain = (loserHonor) => Math.round((loserHonor || 0) * DUEL.honorRate) + DUEL.honorBase;
 
 // 대쉬 — 모든 캐릭터의 기본 스킬(F). 누른 방향으로 dist 만큼 time 초에 달려 나가고, inv 초 동안 맞지 않는다
@@ -167,12 +170,12 @@ export const MAPS = {
   },
   // 결투장 — 문이 없다. 결투를 수락하면 비어 있는 칸(rings)으로 둘이 옮겨 오고, 끝나면 원래 자리로 돌아간다
   arena: {
-    id: "arena", name: "결투장", w: 5400, h: 1400, top: 170, pvp: true, spawn: [700, 780], bg: "field", tile: 2600,
+    id: "arena", name: "결투장", w: ARENA_RING.x0 * 2 + ARENA_RING.gap * 3, h: 1640, top: 170, pvp: true, spawn: [ARENA_RING.x0, ARENA_RING.y], bg: "field", tile: 2600,
     tint: "rgba(96,64,36,0.30)",                  // 모래빛 — 바닥 무늬는 rpgArt.js drawArenaFloor
     gates: [],
     blocks: [],
     npcs: [],
-    rings: [0, 1, 2, 3].map((i) => ({ x: 700 + i * 1300, y: 780, rx: 540, ry: 380 })),   // 칸 하나에 결투 하나
+    rings: [0, 1, 2, 3].map((i) => ({ x: ARENA_RING.x0 + i * ARENA_RING.gap, y: ARENA_RING.y, rx: ARENA_RING.rx, ry: ARENA_RING.ry })),   // 칸 하나에 결투 하나
   },
 };
 // 스냅샷은 이 차례로 맵을 싣는다 — 새 맵은 뒤에만 더한다
@@ -1358,7 +1361,7 @@ function startDuel(g, a, b, ring) {
   g.duels.push(d);
   [[a, b, -1], [b, a, 1]].forEach(([q, vs, side]) => {
     q.ret = null;
-    q.map = "arena"; q.x = R.x + side * R.rx * 0.45; q.y = R.y;
+    q.map = "arena"; q.x = R.x + side * R.rx * 0.3; q.y = R.y;   // 칸을 키워도 시작할 때 서로 한 화면에 보이게
     q.dir = -side; q.face = 0; q.hold = []; q.fire = 0; q.dash = 0;
     q.hp = q.max; q.down = 0; q.duelInv = null;
     q.dvs = vs.pi; q.dph = 1; q.dtl = DUEL.ready; q.ring = ring;

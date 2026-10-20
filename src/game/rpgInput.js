@@ -5,6 +5,7 @@ import {
   rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
+import { rpgAdminCmd } from "./adminCmd.js";
 
 const ACTS = {
   hold: (g, pi, dir) => rpgHold(g, pi, dir),
@@ -23,6 +24,7 @@ const ACTS = {
   duel: (g, pi, dir) => rpgDuel(g, pi, dir),
   req: (g, pi, dir) => rpgRequest(g, pi, dir),
   quest: (g, pi, dir) => rpgQuest(g, pi, dir),
+  cmd: (g, pi, dir) => rpgAdminCmd(g, pi, dir),   // 관리자 명령어(채팅 "/")
   dg: (g, pi, dir) => rpgDungeon(g, pi, dir),
   train: (g, pi, dir) => rpgTrain(g, pi, dir),
 };

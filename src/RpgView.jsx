@@ -11,6 +11,7 @@ import {
   RPG_SERVERS, rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
+import { rpgAdminCmd } from "./game/adminCmd.js";
 import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
@@ -672,6 +673,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (kind === "duel") rpgDuel(g, mySeat, dir);
       else if (kind === "req") rpgRequest(g, mySeat, dir);
       else if (kind === "quest") rpgQuest(g, mySeat, dir);
+      else if (kind === "cmd") rpgAdminCmd(g, mySeat, dir);
       else if (kind === "dg") rpgDungeon(g, mySeat, dir);
       else if (kind === "train") rpgTrain(g, mySeat, dir);
     } else {
@@ -842,6 +844,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (wait > 0) return setChatErr(`${Math.ceil(wait / 100) / 10}초 뒤에 보낼 수 있습니다.`);
     const g = G.current;
     const me = g.heroes[mySeat];
+    // 관리자 명령어 — "/" 로 시작하면 채팅으로 보내지 않고 방장에게 명령으로 보낸다(adminCmd.js). 결과는 알림 줄로 온다
+    if (text.startsWith("/")) {
+      if (!me || !me.admin) return setChatErr("관리자만 쓸 수 있는 명령입니다.");
+      act("cmd", text);
+      setChatText(""); setChatErr(""); setChatOpen(false);
+      return;
+    }
     const party = chatScope === "party";
     if (party && (!me || !me.pty)) return setChatErr("파티에 들어가야 파티 채팅을 쓸 수 있습니다.");
     chatAt.current = Date.now();

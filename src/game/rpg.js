@@ -3819,7 +3819,7 @@ function tickRuns(g, dt) {
 
 /* ── 칭호 · 파티 (방장만 판정) ──────────────────────────────
    알림은 g.sys 에 남기고 손님에게도 보낸다 — 그 사람 채팅 칸에만 뜬다 */
-function sys(g, pi, msg) {
+export function sys(g, pi, msg) {
   const it = { who: pi, msg, at: g.t };
   g.sys.push(it);
   if (g.sys.length > 30) g.sys.shift();

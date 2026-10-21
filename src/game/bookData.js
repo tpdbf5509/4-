@@ -21,6 +21,15 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 /* ── 패치노트 — 새 책은 맨 위에 더한다 ───────────────────────── */
 export const PATCH_BOOKS = [
   {
+    id: "patch-2026-10-21b", title: "패치노트 · 10월 21일 (2)", sub: "신성검", color: "#d9cf9a",
+    pages: [
+      { h: "신성검", p: [
+        "신성검 물리력: +200 → +300.",
+        "이미 가진 신성검에도 바로 적용됩니다.",
+      ] },
+    ],
+  },
+  {
     id: "patch-2026-10-21a", title: "패치노트 · 10월 21일", sub: "활 값 · 레벨", color: "#a9b98f",
     pages: [
       { h: "활", p: [

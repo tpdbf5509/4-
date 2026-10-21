@@ -71,7 +71,7 @@ export const SPECIALS = [
   { id: "flame", name: "화염검", t: "sword", lv: 70, g: 4, stat: "str", art: "flame" },
   { id: "star", name: "별의 검", t: "sword", lv: 80, g: 4, stat: "int", amt: 200, art: "star" },
   { id: "shadow", name: "암흑검", t: "great", lv: 90, g: 4, stat: "cdmg", amt: 80, art: "shadow" },
-  { id: "holy", name: "신성검", t: "sword", lv: 100, g: 4, stat: "str", amt: 200, art: "holy" },
+  { id: "holy", name: "신성검", t: "sword", lv: 100, g: 4, stat: "str", amt: 300, art: "holy" },   // 물리력 200 → 300(10월 21일)
   // 지팡이 — 마법사 공격력인 마법력을 올린다
   { id: "moon_staff", name: "초승달 지팡이", t: "staff", lv: 10, g: 3, stat: "int", art: "moon_staff" },
   { id: "ice_staff", name: "얼음 수정 지팡이", t: "staff", lv: 20, g: 3, stat: "int", art: "ice_staff" },

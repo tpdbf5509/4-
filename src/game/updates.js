@@ -6,6 +6,13 @@ export const RPG_NOTICE = { id: "2026-10-87", notes: ["2026-10-87", "2026-10-86"
 
 export const UPDATES = [
   {
+    id: "2026-10-92",
+    date: "10월 21일",
+    items: [
+      "신성검이 올려 주는 물리력이 200에서 300으로 늘었습니다.",
+    ],
+  },
+  {
     id: "2026-10-91",
     date: "10월 21일",
     items: [

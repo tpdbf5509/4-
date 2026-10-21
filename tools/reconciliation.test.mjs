@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgApply, rpgPack, noteSent, SYNC } from '../src/game/rpg.js';
+import { makeWorld, rpgApply, rpgPack, noteSent, SYNC, predictDash, predictLunge } from '../src/game/rpg.js';
 
 function fixture() {
   const g = makeWorld(); g.mySeat = 0;
@@ -61,4 +61,47 @@ test('host hold age includes inputs received at simulation time zero', () => {
 test('obsolete unacknowledged anchors expire', () => {
   const { g } = fixture(); noteSent(g, 1); g.t = SYNC.hist + 2; noteSent(g, 2);
   assert.equal(g.sentQ[1], undefined);
+});
+
+test('pre-dash snapshot cannot schedule a backwards correction during prediction', () => {
+  const { g, h, row } = fixture();
+  g.t = 1; noteSent(g, 1); row[42] = 1;
+  h.hist = [{ t: 1.1, x: 700, y: 500 }]; h.x = 730;
+  h.predict = 0.5; h.fixX = -40; row[43] = 100;
+  rpgApply(g, { h: [row], m: [] });
+  assert.equal(h.x, 730); assert.equal(h.fixX, 0); assert.equal(g.netFix || 0, 0);
+});
+
+test('prediction grace is bounded: rejected movement is corrected afterwards', () => {
+  const { g, h, row } = fixture();
+  g.t = 1; noteSent(g, 1); row[42] = 1;
+  h.x = 730; h.hist = [{ t: 1.7, x: 730, y: 500 }];
+  h.predict = 0; row[43] = 700;
+  rpgApply(g, { h: [row], m: [] });
+  assert.equal(h.fixX, -230); assert.equal(g.netFix, 1);
+});
+
+test('starting a successful dash or lunge cancels a pending smooth correction', () => {
+  const { g, h } = fixture();
+  h.fixX = -80; h.fixY = 20; h.dashCd = 0;
+  assert.equal(predictDash(h), true);
+  assert.equal(h.fixX, 0); assert.equal(h.fixY, 0);
+  h.dash = 0; h.map = 'train'; h.bag.s.pierce = 1; h.bag.ks.g = ['pierce', ''];
+  h.fixX = -80; h.fixY = 20;
+  assert.equal(predictLunge(g, h, 'pierce'), true);
+  assert.equal(h.fixX, 0); assert.equal(h.fixY, 0);
+});
+
+test('prediction grace still applies map changes, damage and death state', () => {
+  const { g, h, row } = fixture(); h.predict = 0.5;
+  row[10] = 1; row[0] = 200; row[3] = 0; row[5] = 5;
+  rpgApply(g, { h: [row], m: [] });
+  assert.equal(h.x, 200); assert.equal(h.hp, 0); assert.equal(h.down, 5);
+});
+
+test('a rejected local prediction does not erase an existing correction', () => {
+  const { g, h } = fixture(); h.dashCd = 2; h.fixX = -80;
+  assert.equal(predictDash(h), false); assert.equal(h.fixX, -80);
+  h.map = 'plaza';
+  assert.equal(predictLunge(g, h, 'pierce'), false); assert.equal(h.fixX, -80);
 });

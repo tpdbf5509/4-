@@ -1966,6 +1966,7 @@ export function rpgSkill(g, pi) {
 // 손님 화면에서 먼저 그리는 대쉬 — 방장의 판정이 돌아올 동안(predict 초) 위치를 되돌리지 않는다
 export function predictDash(h) {
   if (!startDash(h)) return false;
+  h.fixX = 0; h.fixY = 0;                       // 이전 걷기의 보정이 대쉬를 뒤로 끌지 않게
   h.predict = 0.6;
   return true;
 }
@@ -1999,7 +2000,7 @@ export function predictLunge(g, h, id) {
   if ((!L && !leap) || !h || h.down > 0 || !(h.bag && h.bag.s[id] > 0) || !skillEquipped(h.bag, id) || (h.scd && h.scd[id] > 0) || MAPS[h.map].safe) return false;
   const pvp = isPvp(h.map);
   if (pvp && h.dph !== 2) return false;
-  if (leap) { lungeTo(h, leapSpot(g, h, s.use), s.use.time); h.predict = 0.6; return true; }
+  if (leap) { lungeTo(h, leapSpot(g, h, s.use), s.use.time); h.fixX = 0; h.fixY = 0; h.predict = 0.6; return true; }
   let o = pvp ? g.heroes[h.dvs] : foesNear(g, h, h.x, h.y, L.reach, 1)[0];
   if (o && (o.map !== h.map || o.down > 0 || dist(h.x, h.y, o.x, o.y) - (isHeroT(o) ? 7 : (o.rad || 0) * 0.5) > L.reach)) o = null;
   if (!o) {                                        // 아무도 없으면 겨눈 쪽으로 끝까지 — 방장 판정과 같다
@@ -2007,6 +2008,7 @@ export function predictLunge(g, h, id) {
     o = { x: tx, y: ty, rad: -2 * LUNGE_GAP };
   }
   lungeTo(h, o, L.time);
+  h.fixX = 0; h.fixY = 0;
   h.predict = 0.6;
   return true;
 }
@@ -4033,11 +4035,14 @@ export function rpgApply(g, s) {
     const slack = mine && h.predict > 0 ? DASH.dist + 140 : h.hold.length ? 140 : 70;
     // 방장이 내 누름을 언제 받았는지 알려 주면 — 그 때의 내 위치와 견준다(지연 때문에 생긴 차이는 고치지 않는다)
     const sent = mine && row.length > 43 && row[42] && g.sentQ ? g.sentQ[row[42]] : undefined;
-    // 대쉬 중에도 견준다 — 방장도 같은 때에 대쉬했으니 기록 속 대쉬와 맞는다
+    // 대쉬·돌진은 hold와 다른 입력이다. 아직 반영되지 않은 스냅샷은 아래 예측 대기 중에 보정하지 않는다.
     const then = sent !== undefined && !moved ? histAt(h, sent + row[43] / 1000) : null;
     if (mine && row.length > 43) h.syncOk = 1;      // 새 버전 방장 — 멈출 때 옛 방장 자리로 다가가지 않는다
     if (moved) {
       h.x = row[0]; h.y = row[1]; h.hist = []; h.fixX = 0; h.fixY = 0;
+    } else if (mine && h.predict > 0) {
+      // hold 시각만으로는 대쉬·돌진의 도착 지연을 알 수 없다. 기존 0.6초 뒤에는 방장 보정을 다시 받는다.
+      h.fixX = 0; h.fixY = 0;
     } else if (then) {
       const ex = row[0] - then.x, ey = row[1] - then.y, e = Math.hypot(ex, ey);
       if (e > SYNC.jump) { shiftMe(h, ex, ey); h.fixX = 0; h.fixY = 0; g.netFix = (g.netFix || 0) + 1; }

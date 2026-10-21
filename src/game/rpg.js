@@ -1017,8 +1017,9 @@ export function freshInput(h, kind, q, now) {
 export function noteSent(g, q) {
   if (!g.sentQ) g.sentQ = {};
   g.sentQ[q] = g.t;
-  // 오래된 것은 지우되 마지막 것은 남긴다 — 한참 서 있다가 대쉬해도 그때의 내 위치와 견줄 수 있게
-  for (const k in g.sentQ) if (+k !== q && g.t - g.sentQ[k] > SYNC.hist + 1) delete g.sentQ[k];
+  // 마지막 전송과 방장이 확인 중인 입력의 기준 시각은 남긴다.
+  // 오래 누른 뒤 새 입력을 보내도 이전 번호를 담은 진행 중 스냅샷을 비교할 수 있게.
+  for (const k in g.sentQ) if (+k !== q && +k !== g.ackHoldQ && g.t - g.sentQ[k] > SYNC.hist + 1) delete g.sentQ[k];
 }
 // 내 위치 기록에서 at 때의 자리 — 기록보다 옛때면 null
 function histAt(h, at) {
@@ -3994,7 +3995,7 @@ export function rpgPack(g) {
         REC_IDS.map((k) => h.rec[k]), heldSpecial(h),
         h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring,
         REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0)), h.gift === GIFT.id ? 1 : 0,
-        (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt || g.t)) * 1000) : 0,
+        (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt ?? g.t)) * 1000) : 0,
         packArmor(h),
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
         packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0]
@@ -4023,6 +4024,7 @@ export function rpgApply(g, s) {
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
     h.sw = Array.isArray(s.w) ? s.w[pi] || "" : undefined;   // 방장이 아는 이 자리 주인(옛 방장이면 모른다)
     const mine = pi === g.mySeat;
+    if (mine && row.length > 43) g.ackHoldQ = row[42];
     const moved = h.map !== map;
     h.map = map;
     h.tx = row[0]; h.ty = row[1];
@@ -4041,6 +4043,10 @@ export function rpgApply(g, s) {
       if (e > SYNC.jump) { shiftMe(h, ex, ey); h.fixX = 0; h.fixY = 0; g.netFix = (g.netFix || 0) + 1; }
       else if (e > SYNC.fix) { h.fixX = ex; h.fixY = ey; g.netFix = (g.netFix || 0) + 1; }     // 나눠 옮긴다(rpgStepVisual) · 고친 횟수는 연결 진단 칸에
       else { h.fixX = 0; h.fixY = 0; }
+    } else if (mine && row.length > 43) {
+      // 기준 입력/위치가 없으면 서로 다른 시각의 좌표를 비교하지 않는다.
+      h.fixX = 0; h.fixY = 0;
+      g.netSyncMiss = (g.netSyncMiss || 0) + 1;
     } else if (mine && Math.hypot(row[0] - h.x, row[1] - h.y) > slack) {   // 옛 버전 방장 — 예전 방식
       h.x = row[0]; h.y = row[1]; h.hist = [];
     }

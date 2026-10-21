@@ -545,7 +545,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     room.hostInbox(isHost ? guestIds.split(",").filter(Boolean) : []);
   }, [room, isHost, guestIds]);
   // 연결 진단 칸 — 왕복 시간 · 스냅샷 간격 · 위치 고친 횟수 · 초당 프레임(NET_DIAG.every 초마다 새로)
-  const netRef = useRef({ rtt: [], snaps: [], frames: 0, fix0: 0, total: 0 });
+  const netRef = useRef({ rtt: [], snaps: [], frames: 0, fix0: 0, miss0: 0, total: 0 });
   const [net, setNet] = useState(null);
   useEffect(() => {
     if (!diagOn()) return;
@@ -555,6 +555,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       n.rtt = n.rtt.slice(-NET_DIAG.keep);
       const gaps = n.snaps.slice(1).map((x, i) => x - n.snaps[i]);
       const fix = (g.netFix || 0) - n.fix0;
+      const miss = (g.netSyncMiss || 0) - n.miss0;
+      n.miss0 = g.netSyncMiss || 0;
       n.fix0 = g.netFix || 0;
       setNet({
         mode: room && room.viaServer ? "새 서버" : isHost ? "예전 방식 · 내가 방장" : "예전 방식 · 손님",
@@ -562,7 +564,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         rttMax: n.rtt.length ? Math.round(Math.max(...n.rtt)) : null,
         hz: Math.round((n.snaps.length / NET_DIAG.window) * 10) / 10,
         gapMax: gaps.length ? Math.round(Math.max(...gaps)) : null,
-        fix, fps: Math.round(n.frames / NET_DIAG.every),
+        fix, miss, fps: Math.round(n.frames / NET_DIAG.every),
       });
       n.frames = 0;
     }, NET_DIAG.every * 1000);
@@ -874,6 +876,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const offs = [];
     if (isHost) {
       offs.push(room.on("input", (d) => rpgInput(G.current, d)));   // 규칙에 넘기기는 서버와 같이 쓴다(rpgInput.js)
+      offs.push(room.on("ping", (d, from) => {
+        if (d && Number.isFinite(d.t) && seatsRef.current[d.cls]?.id === from)
+          room.send("pong", { t: d.t, cls: d.cls });
+      }));
       offs.push(room.on("rjoin", (d) => {
         const g = G.current;
         // 보낸 사람 id(who)가 그 자리 주인과 같을 때만 싣는다 — 떠난 사람의 늦은 기록이 새 사람에게 실리지 않게
@@ -907,10 +913,21 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       }));
       offs.push(room.on("rout", (d) => rpgApplyOut(G.current, d)));   // 옛 버전 방장은 연출을 따로 보낸다
       // 전용 서버 — 다른 기기가 이 캐릭터로 나중에 들어왔다. 서버는 이 기기의 저장을 멈췄다
-      // 연결 진단 — 전용 서버와 2초마다 왕복 시간을 잰다
-      if (room.viaServer) {
-        offs.push(room.on("pong", (d) => { if (d && d.t) netRef.current.rtt.push(performance.now() - d.t); }));
-        const ping = setInterval(() => room.send("ping", { t: performance.now() }), NET_DIAG.ping * 1000);
+      // 연결 진단을 켠 손님만 같은 입력 통로로 2초마다 왕복 시간을 잰다.
+      if (diagOn()) {
+        let pendingPing = null;
+        offs.push(room.on("pong", (d, from) => {
+          if (d && d.t === pendingPing && (room.viaServer || (from === hostId && d.cls === mySeat))) {
+            netRef.current.rtt.push(performance.now() - d.t);
+            pendingPing = null;
+          }
+        }));
+        const ping = setInterval(() => {
+          pendingPing = performance.now();
+          const d = { t: pendingPing, cls: mySeat };
+          if (room.toHost && !oldHostRef.current) room.toHost("ping", d);
+          else room.send("ping", d);
+        }, NET_DIAG.ping * 1000);
         offs.push(() => clearInterval(ping));
       }
       offs.push(room.on("kick", () => { acctRef.current = null; setAccount({ tok: "" }); setKicked(true); }));
@@ -1826,7 +1843,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <b>{net.mode}{where ? ` · ${where}` : ""}</b>
               <span>왕복 {net.rtt === null ? "—" : `${net.rtt}ms (최대 ${net.rttMax})`}</span>
               <span>스냅샷 초당 {net.hz} · 최대 간격 {net.gapMax === null ? "—" : `${net.gapMax}ms`}</span>
-              <span>위치 고침 {net.fix}번/초 · 화면 {net.fps}fps</span>
+              <span>위치 고침 {net.fix}번/초 · 비교 누락 {net.miss}번/초 · 화면 {net.fps}fps</span>
             </div>
           )}
           {mixed && (

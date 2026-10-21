@@ -80,12 +80,13 @@ export const SPECIALS = [
   { id: "thunder_staff", name: "번개 지팡이", t: "staff", lv: 70, g: 4, stat: "int", amt: 170, art: "thunder_staff" },
   { id: "galaxy_staff", name: "은하 지팡이", t: "staff", lv: 90, g: 4, stat: "int", amt: 200, art: "galaxy_staff" },
   { id: "holy_staff", name: "신성 지팡이", t: "staff", lv: 100, g: 4, stat: "int", amt: 240, art: "holy_staff" },
-  // 활 — 궁수 공격력인 물리력을 올린다
-  { id: "thunder_bow", name: "번개 활", t: "bow", lv: 50, g: 3, stat: "str", art: "thunder_bow" },
-  { id: "lava_bow", name: "용암 활", t: "bow", lv: 60, g: 4, stat: "str", art: "lava_bow" },
-  { id: "shadow_bow", name: "그림자 활", t: "bow", lv: 80, g: 4, stat: "str", art: "shadow_bow" },
-  { id: "star_bow", name: "별자리 활", t: "bow", lv: 90, g: 4, stat: "str", art: "star_bow" },
-  { id: "gold_bow", name: "황금 날개 활", t: "bow", lv: 100, g: 4, stat: "str", art: "gold_bow" },
+  // 활 — 궁수 공격력인 물리력을 올린다. 초보 궁수가 살 활이 50레벨까지 없어 레벨 · 값을 낮췄다(10월 21일).
+  // 번개 활 Lv 50 → 20(올리는 양도 20레벨 몫). 전설 활은 한 단계씩 낮추고(값도 그만큼 싸진다) 올리는 양은 예전 그대로 amt 로 둔다
+  { id: "thunder_bow", name: "번개 활", t: "bow", lv: 20, g: 3, stat: "str", art: "thunder_bow" },
+  { id: "lava_bow", name: "용암 활", t: "bow", lv: 50, g: 4, stat: "str", amt: 150, art: "lava_bow" },     // 예전 Lv 60
+  { id: "shadow_bow", name: "그림자 활", t: "bow", lv: 70, g: 4, stat: "str", amt: 196, art: "shadow_bow" }, // 예전 Lv 80
+  { id: "star_bow", name: "별자리 활", t: "bow", lv: 80, g: 4, stat: "str", amt: 218, art: "star_bow" },     // 예전 Lv 90
+  { id: "gold_bow", name: "황금 날개 활", t: "bow", lv: 90, g: 4, stat: "str", amt: 240, art: "gold_bow" }, // 예전 Lv 100
 ];
 
 // 오늘의 특가 — 날짜로 정한다. 특별 무기 날이면 내 레벨로 낄 수 있는 특별 무기 하나,

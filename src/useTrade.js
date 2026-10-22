@@ -6,7 +6,7 @@ import { TRADE } from './game/tradeData.js';
 import { cloudFlush, cloudQueue, cloudReset, loadRemote, tradeAction, tradeOpen } from './net/rpgSave.js';
 
 export const tradeError = (r) => ({
-  changed: '내용이 바뀌었습니다. 다시 확인해 주세요.', account: '서버 계정이 있는 일반 캐릭터끼리 거래할 수 있습니다.',
+  changed: '내용이 바뀌었습니다. 다시 확인해 주세요.', account: '서버 계정이 있는 캐릭터끼리 거래할 수 있습니다.',
   live: '같은 서버에 접속한 사람과 거래할 수 있습니다.', busy: '이미 진행 중인 거래가 있습니다.', rate: '잠시 뒤 다시 신청해 주세요.',
   token: '접속 정보를 확인하지 못했습니다. 다시 로그인해 주세요.', trade_equipped: '장착 중인 물품은 올릴 수 없습니다.',
   trade_item: '물품이나 수량이 바뀌었습니다.', trade_capacity: '받을 사람의 가방이 가득 찼습니다.',
@@ -104,7 +104,7 @@ export function useTrade(options) {
     working.current = true; setBusy(true); setError('');
     try {
       const c = account(), o = current.current;
-      if (!c || c.admin || o.room?.viaServer) throw Error('서버 계정이 있는 일반 캐릭터끼리 거래할 수 있습니다.');
+      if (!c || o.room?.viaServer) throw Error('서버 계정이 있는 캐릭터끼리 거래할 수 있습니다.');
       await flush();
       const r = await tradeOpen(c.name, c.tok, target, o.seats[o.seat]?.id);
       if (!r?.ok) throw Error(tradeError(r));

@@ -50,10 +50,23 @@ begin
   r:=public.rpg_trade_action(b,b,'qab',tid,'accept',null,h);
   assert r#>>'{trade,state}'='fail' and r#>>'{trade,error}'='trade_capacity','가방 용량 초과';
   assert (select data=before_data and trade_seq=0 from public.rpg_chars where name=c),'실패하면 양쪽 모두 롤백';
-  -- 관리자 제외, 장착품 차단, 접속 만료 취소도 확인한다.
+  -- 일반 계정의 신청을 관리자가 수락하고 양쪽 물품·코인을 교환한다.
   update public.rpg_chars set admin=true where name=c;
-  r:=public.rpg_trade_open(b,b,c,'qab'); assert r->>'err'='account','관리자 거래 제외';
-  update public.rpg_chars set admin=false,data=jsonb_set(data,'{bag,e}','1') where name=c;
+  r:=public.rpg_trade_open(b,b,c,'qab'); assert (r->>'ok')::boolean,'관리자에게 거래 신청'; tid:=(r->>'id')::uuid;
+  perform public.rpg_trade_action(c,c,'qac',tid,'join');
+  r:=public.rpg_trade_action(b,b,'qab',tid,'offer','{"coins":5,"items":[]}');
+  r:=public.rpg_trade_action(c,c,'qac',tid,'offer','{"coins":10,"items":[{"k":"p","u":"heal_s","n":1}]}');
+  h:=r#>>'{trade,hash}';
+  perform public.rpg_trade_action(b,b,'qab',tid,'accept',null,h);
+  r:=public.rpg_trade_action(c,c,'qac',tid,'accept',null,h);
+  assert r#>>'{trade,state}'='done','관리자 거래 확정';
+  assert (select admin and trade_seq=1 and data->>'coins'='995' and data#>>'{bag,p,heal_s}'='4' from public.rpg_chars where name=c),'관리자 기록과 보유량';
+  assert (select not admin and trade_seq=2 and data->>'coins'='1085' and data#>>'{bag,p,heal_s}'='8' from public.rpg_chars where name=b),'일반 계정은 받은 물품만 반영';
+  update public.rpg_trades t set created_at=now()-interval '6 seconds' where t.a in(public.rpg_key('QA거래나'),public.rpg_key('QA거래다'));
+  r:=public.rpg_trade_open(c,c,a,'qac'); assert (r->>'ok')::boolean,'관리자가 거래 신청'; tid:=(r->>'id')::uuid;
+  perform public.rpg_trade_action(c,c,'qac',tid,'cancel');
+  -- 장착품 차단과 접속 만료 취소는 관리자에게도 똑같이 적용한다.
+  update public.rpg_chars set data=jsonb_set(data,'{bag,e}','1') where name=c;
   r:=public.rpg_trade_open(b,b,c,'qab'); tid:=(r->>'id')::uuid; assert tid is not null;
   perform public.rpg_trade_action(c,c,'qac',tid,'join');
   r:=public.rpg_trade_action(c,c,'qac',tid,'offer','{"coins":0,"items":[{"k":"w","u":"1"}]}');

@@ -157,7 +157,7 @@ begin
   select * into c from public.rpg_chars where name_key=k and token_hash=encode(extensions.digest(coalesce(p_token,''),'sha256'),'hex');
   if not found then return jsonb_build_object('ok',false,'err','token'); end if;
   select * into o from public.rpg_chars where name_key=target;
-  if not found or k=target or c.admin or o.admin then return jsonb_build_object('ok',false,'err','account'); end if;
+  if not found or k=target then return jsonb_build_object('ok',false,'err','account'); end if;
   if c.live_sid is distinct from p_sid or c.live_srv is distinct from o.live_srv or c.live_srv !~ '^RPG[1-4]$'
     or c.live_at is null or o.live_at is null or least(c.live_at,o.live_at)<now()-interval '30 seconds' then
     return jsonb_build_object('ok',false,'err','live'); end if;
@@ -209,7 +209,6 @@ begin
       t.accepted:=jsonb_set(t.accepted,array[i::text],'true');
       if t.accepted='[true,true]'::jsonb then
         begin
-          if arow.admin or brow.admin then raise exception 'trade_account'; end if;
           if public.rpg_trade_offer(arow.data,t.offers->0) is distinct from t.offers->0
             or public.rpg_trade_offer(brow.data,t.offers->1) is distinct from t.offers->1 then raise exception 'trade_changed'; end if;
           if t.offers='[{"coins":0,"items":[]},{"coins":0,"items":[]}]'::jsonb then raise exception 'trade_empty'; end if;

@@ -3917,7 +3917,7 @@ function tickSocial(g, dt) {
   g.titleT -= dt;
   if (g.titleT <= 0) {
     g.titleT = 0.5;
-    g.heroes.forEach((h) => { if (h && h.loaded) { awardTitles(g, h, false); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
+    g.heroes.forEach((h) => { if (h && h.loaded && !trading(h)) { awardTitles(g, h, false); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
   }
 }
 

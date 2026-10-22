@@ -5,7 +5,7 @@ export function rpgTrade(g, pi, d) {
   if (!h || !h.loaded || !d || !Number.isSafeInteger(d.q) || d.q <= (h.tradeQ || 0)) return;
   h.tradeQ = d.q;
   if (d.op === 'clear') { h.trade = null; return; }
-  if (d.op !== 'lock' || h.admin || h.map !== 'plaza' || h.down > 0 || h.dvs >= 0) return;
+  if (d.op !== 'lock' || h.map !== 'plaza' || h.down > 0 || h.dvs >= 0) return;
   h.trade = { q: d.q, until: Date.now() + TRADE.lockMs };
   h.hold = []; h.fire = 0; h.fireQ = 0; h.dash = 0;
 }

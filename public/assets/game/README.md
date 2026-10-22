@@ -83,3 +83,5 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 월드보스 장비: `rpg/items/world-equipment.webp` — 투명 1916×821, 7열×3행. 행은 드래곤·거대 뱀·고대 번개 기계. 열은 전사 무기·지팡이·활·투구·갑옷·바지·신발. 원본/생성 기록은 `docs/월드보스-장비-이미지-생성.md`. 인벤토리와 손에 든 무기가 같은 시트 칸을 사용한다.
 
 용아쌍검 손에 든 그림: `rpg/items/dragon-dual-held.webp` — 투명 1774×887, 2열×1행. 왼쪽 장검, 오른쪽 단검. `rpgArt.js`가 각 칸을 128px 기준으로 캐시하고 성별·방향별 양손 좌표에 따로 그린다. 가방·거래의 기존 쌍검 아이콘은 유지한다.
+
+비룡육연사 비행 그림: `rpg/effects/dragon-flight.webp` — 투명 1536×1024, 3열×2행, 칸당512×512. 왼쪽 위부터 날개 위·내리는 중·수평·아래·돌아오는 중·올리는 중의 6프레임이다. 붉은 비늘과 금빛 뿔의 용이 오른쪽을 향한다. `worldEquipmentData.js`의 `DRAGON_FLIGHT_ART`가 각 프레임의 주둥이 기준점과 표시 크기230을 정의한다. `dragonFlightArt.js`가 발사 방향으로 돌려 그린다. RPG 진입 때 미리 읽고 실패하면 코드로 그린 용으로 대신한다.

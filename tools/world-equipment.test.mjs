@@ -75,7 +75,7 @@ test('광장에서는 발동 불가·수량 부족 관리자 지급은 전체 �
 test('비룡육연사: 화살 30발·마지막 비룡 1회',()=>{
  const {g}=setup('dragon_bow');g.out=[];rpgWeaponSkill(g,0);advance(g,2);
  assert.equal(g.out.filter(f=>f.kind==='sk_wb_volley').reduce((n,f)=>n+f.arrows,0),30);
- assert.equal(g.out.filter(f=>f.kind==='sk_wb_beast'&&f.dragon).length,1);
+ assert.equal(g.out.filter(f=>f.kind==='sk_wb_dragon_flight').length,1);
 });
 test('다단 스킬이 결투 피해 상한을 공유한다',()=>{
  const {g,h}=setup('dragon_bow'),o=g.heroes[1];
@@ -104,5 +104,23 @@ test('월드보스 무기는 기존 스킬 연출을 발동시키지 않는다',
  for(const sp of WORLD_WEAPONS){const {g}=setup(sp.id);g.out=[];rpgWeaponSkill(g,0);advance(g,2);
    const skills=g.out.filter(f=>f.kind?.startsWith('sk_'));assert(skills.length>0);
    assert(skills.every(f=>f.kind.startsWith('sk_wb_')),`${sp.id}: 기존 스킬 효과 재사용 금지`);
+ }
+});
+test('비룡육연사: 마지막 비룡이 이동한 목표에 도착하고 한 번만 명중한다',()=>{
+ const {g,h}=setup('dragon_bow');g.out=[];rpgWeaponSkill(g,0);advance(g,1.14);
+ assert.equal(g.out.filter(f=>f.kind==='sk_wb_dragon_flight').length,1);
+ const flight=h.ws.world.flights[0];assert(flight);
+ const m=g.mobs.find(m=>`m${m.id}`===flight.key);assert(m);m.x+=75;m.y+=35;
+ const x=m.x,y=m.y;advance(g,.6);
+ const hits=g.out.filter(f=>f.kind==='sk_wb_dragon_hit');assert.equal(hits.length,1);
+ assert.equal(hits[0].x,x);assert.equal(hits[0].y,y-28);assert.equal(h.ws.world.flights.length,0);
+ advance(g,.5);assert.equal(g.out.filter(f=>f.kind==='sk_wb_dragon_hit').length,1);
+});
+test('비룡은 목표 사망이나 시전자 맵 이동 뒤 추가 피해를 주지 않는다',()=>{
+ for(const cancel of ['dead','map']){
+   const {g,h}=setup('dragon_bow');g.out=[];rpgWeaponSkill(g,0);advance(g,1.14);
+   const f=h.ws.world.flights[0],m=g.mobs.find(m=>`m${m.id}`===f.key);
+   if(cancel==='dead')m.dead=1;else h.map='plaza';
+   advance(g,.6);assert.equal(g.out.filter(f=>f.kind==='sk_wb_dragon_hit').length,0);
  }
 });

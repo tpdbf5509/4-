@@ -1,3 +1,4 @@
+import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
@@ -231,6 +232,7 @@ export const RFRAME = {
 };
 let rpgWarm = 0;
 export function warmRpgArt() {
+  warmDragonFlightArt();
   if (rpgWarm) return;
   rpgWarm = 1;
   ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
@@ -2032,7 +2034,7 @@ function follow(g, M) {
    ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
    ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
-  cap: { sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
+  cap: { sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
 const lod = { at: 0, ms: 16, q: 1 };
 function stepLod() {
   const now = performance.now(), d = lod.at ? Math.min(100, now - lod.at) : 16;

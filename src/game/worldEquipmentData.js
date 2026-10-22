@@ -4,6 +4,12 @@ export const WORLD_EQUIPMENT = {
   level: 100, stat: 320, grade: 4, armorGrade: 3,
   atlas: '/assets/game/rpg/items/world-equipment.webp', columns: 7, rows: 3,
 };
+// 비룡육연사 전용 비행 그림. 머리를 이동 좌표에 맞추고 몸과 꼬리는 뒤로 이어진다.
+export const DRAGON_FLIGHT_ART = {
+  src: '/assets/game/rpg/effects/dragon-flight.webp', columns: 3, rows: 2, frames: 6,
+  // 생성 그림의 각 프레임에서 주둥이 위치를 맞춰 날갯짓 중 본체가 흔들리지 않게 한다.
+  anchors: [[.975,.68],[.945,.68],[.925,.68],[.985,.64],[.955,.64],[.955,.64]], size: 230,
+};
 export const WORLD_SETS = [
   { id: 'dragon', name: '용왕', boss: '드래곤 괴수', color: '#efb07c',
     two: '치명타 피해 +15%', four: '무기 스킬 적중 시 5초 동안 공격력 +15% · 12초마다',

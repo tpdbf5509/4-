@@ -80,8 +80,9 @@ function stepCast(E, g, h, c) {
     if(last){
       const [o]=E.near(g,h,h.x,h.y,S.len,1);
       const [x1,y1]=o?[o.x,o.y]:E.end(h,c.ax,c.ay,S.len);
-      effect(E,g,h,'sk_wb_beast',{x0:h.x,y0:h.y-30,x1,y1:y1-30,color:'#f4b16d',dragon:true},S.fly);
-      if(o)state(h).flights.push({key:key(o),map:h.map,t:S.fly,mul:S.finish,cap:c.cap});
+      const targetOwner=o && !o.type ? o.who||o.sw : undefined;
+      effect(E,g,h,'sk_wb_dragon_flight',{x0:h.x,y0:h.y-30,x1,y1:y1-30,target:o?key(o):'',targetOwner,pi:h.pi},S.fly);
+      if(o)state(h).flights.push({key:key(o),targetOwner,map:h.map,t:S.fly,mul:S.finish,cap:c.cap});
     }
   } else if(c.id==='serpent_sword'){
     E.arc(g,h,c.ax,c.ay,S.r,S.arc).forEach(o=>{
@@ -155,7 +156,11 @@ export function tickWorldWeapon(E,g,h,dt){
   w.flights=w.flights.filter(f=>{
     if(id!=='dragon_bow'||f.map!==h.map)return false;
     f.t-=dt;if(f.t>0)return true;
-    const o=target(g,f.key);if(E.alive(g,h,o,h.map))damage(E,g,h,o,E.base(h)*f.mul,f);
+    const o=target(g,f.key);
+    if(E.alive(g,h,o,h.map) && (!f.targetOwner || f.targetOwner===(o.who||o.sw))){
+      damage(E,g,h,o,E.base(h)*f.mul,f);
+      effect(E,g,h,'sk_wb_dragon_hit',{x:o.x,y:o.y-28,r:105,snd:'boom',kick:.18},.42);
+    }
     return false;
   });
 }

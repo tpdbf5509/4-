@@ -1,3 +1,4 @@
+import { drawDragonFlightFx } from "./dragonFlightArt.js";
 /* 월드보스 무기 연출 — 예고·궤적·명중·잔광을 나눈다. 광원은 캐시하고 품질에 따라 마디 수를 줄인다. */
 import { FX_TONES, bloom, sparks, ribbon, ring, bolt } from './combatFx.js';
 const TAU=Math.PI*2;
@@ -135,6 +136,7 @@ function rail(ctx,f,p,q){
 }
 export function drawWorldWeaponFx(ctx,f,p,time,squash,g,quality=1){
   if(!f.kind.startsWith('sk_wb_'))return false;
+  if(drawDragonFlightFx(ctx,f,p,g,quality))return true;
   ctx.save();ctx.lineJoin='round';ctx.lineCap='round';
   const T=FX_TONES.dragon,r=f.r||100;
   if(f.kind==='sk_wb_dual_charge'){

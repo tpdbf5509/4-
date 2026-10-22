@@ -1807,24 +1807,46 @@ button.forge-stage:disabled { cursor: default; }
   font-size: 11px; line-height: 1.35; letter-spacing: -0.02em; color: #d9cdb4; pointer-events: none; text-align: left; }
 .rpg-net b { font-weight: 600; color: #f0d48c; }
 
-/* 개인 거래 — 상점/가방의 공통 틀과 색을 그대로 쓴다. */
-.shop.trade-panel { width: min(720px, calc(100% - 24px)); }
+/* 개인 거래 — 가방 격자 왼쪽, 상대 물품/교환/내 물품 오른쪽. 상점의 공통 색을 쓴다. */
+.shop.trade-panel { width: min(800px, calc(100% - 24px)); }
 .trade-panel:focus { outline: none; }
 .trade-panel .shop-title span { display: block; }
-.trade-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.trade-columns > section { min-width: 0; }
-.trade-columns > section + section { border-left: 1px solid var(--sh-line); padding-left: 20px; }
-.trade-field { display: grid; gap: 6px; margin: 12px 0 0; }
-.trade-field input, .trade-field select { width: 100%; min-width: 0; box-sizing: border-box; }
-.trade-field select { padding: 7px 10px; border-radius: 8px; font-family: inherit; font-size: 13.5px; color: var(--sh-text);
-  background: var(--sh-bg); border: 1px solid var(--sh-line); }
-.trade-field select:focus-visible { outline: 2px solid var(--sh-gold); outline-offset: 2px; }
-.trade-items { margin: 8px 0; padding: 0; list-style: none; }
-.trade-panel .shop-body > .shop-btn, .trade-columns .shop-btn { margin-top: 8px; }
-.trade-columns .shop-item .shop-btn { margin-top: 0; }
+.trade-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.trade-inventory { padding-right: 18px; min-width: 0; }
+.trade-inventory .shop-tabs { margin-top: 0; }
+.trade-exchange { min-width: 0; border-left: 1px solid var(--sh-line); padding-left: 18px; }
+.trade-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.trade-slot { position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; min-width: 0; box-sizing: border-box;
+  padding: 6px; border: 1px solid var(--sh-line); border-radius: 6px; background: rgba(0, 0, 0, 0.2); color: var(--sh-text); cursor: pointer; }
+.trade-slot.selected, .trade-slot:hover:not(:disabled):not(.empty) { border-color: var(--sh-gold); background: rgba(227, 196, 138, 0.08); }
+.trade-slot:disabled { cursor: default; }
+.trade-slot.empty { cursor: default; opacity: 0.45; }
+.trade-slot img { width: 85%; height: 85%; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
+.trade-slot-name { font-size: 12px; line-height: 1.4; text-align: center; overflow-wrap: anywhere; }
+.trade-slot-count, .trade-slot-up { position: absolute; right: 5px; bottom: 3px; font-size: 11px; color: var(--sh-gold); text-shadow: 0 1px 2px #000; }
+.trade-slot-up { right: auto; left: 5px; top: 3px; bottom: auto; }
+.trade-offer .shop-h { margin-top: 12px; }
+.trade-offer .trade-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-width: 252px; }
+.trade-offer .shop-price { margin: 6px 0; }
+.trade-arrows { padding: 8px; border-top: 1px solid var(--sh-line); border-bottom: 1px solid var(--sh-line); text-align: center;
+  font-family: 'Do Hyeon', sans-serif; font-size: 30px; line-height: 1; color: var(--sh-gold); }
+.trade-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 12px; }
+.trade-picker .shop-note { flex-basis: 100%; min-height: 20px; }
+.trade-picker .shop-bet input { width: 65px; }
+.trade-coins input { width: 110px; min-width: 0; box-sizing: border-box; }
+.trade-footer { border-top: 1px solid var(--sh-line); padding-top: 4px; margin-top: 12px; }
+.trade-footer .shop-btns { flex-wrap: wrap; margin-top: 10px; }
 .trade-toast { z-index: 6; grid-template-columns: 1fr; }
 @media (max-width: 600px) {
   .shop.trade-panel { left: 6px; top: 6px; width: calc(100% - 12px); max-height: calc(100% - 12px); }
-  .trade-columns { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .trade-columns > section + section { border-left: 0; border-top: 1px solid var(--sh-line); padding-left: 0; }
+  .trade-inventory { padding-right: 10px; }
+  .trade-exchange { padding-left: 10px; }
+  .trade-grid { gap: 5px; }
+  .trade-inventory .shop-tabs button { padding: 8px 5px; font-size: 11px; }
+  .trade-slot { padding: 3px; border-radius: 4px; }
+  .trade-slot-name { font-size: 10px; }
+  .trade-offer .shop-h { font-size: 13px; }
+  .trade-offer .shop-h small { display: block; margin-left: 0; }
+  .trade-coins { flex-wrap: wrap; gap: 4px; }
+  .trade-coins input { width: 100%; }
 }

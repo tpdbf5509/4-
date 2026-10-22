@@ -1,3 +1,4 @@
+import { cleanWorldBossBag } from "./worldBoss.js";
 import { WORLD_SET_BY_ID, WORLD_WEAPONS, worldArt } from "./worldEquipmentData.js";
 import { trading } from "./tradeData.js";
 /* ── RPG 광장 상점 규칙 ─────────────────────────────────────
@@ -60,7 +61,7 @@ export const buffLeft = (h, k) => (h && h.bf && h.bf[k] && h.bf[k].t > 0 ? h.bf[
 export const speedMul = (h) => (1 + (h && h.bf && h.bf.spd && h.bf.spd.t > 0 ? h.bf.spd.a : 0))
   * (h && h.cc && h.cc.slow > 0 ? 1 - h.cc.slowAmt : 1);   // 결투에서 화염방사에 닿으면 느려진다(rpg.js ccHero)
 // 투명화를 쓸 수 없는 곳 — 결투장(pvp) · 결투 중 · 던전(dungeon)
-const noHide = (h) => !!((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && (MAPS[h.map].pvp || MAPS[h.map].dungeon)));
+const noHide = (h) => !!((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && (MAPS[h.map].pvp || MAPS[h.map].dungeon || MAPS[h.map].worldBoss)));
 
 const statDef = (id) => STATS.find((t) => t.id === id);
 const statName = (id) => statDef(id).name;
@@ -218,6 +219,7 @@ export function cleanBag(d) {
   b.ks = cleanKs(d.ks, b.s);                      // 스킬 칸(직업 하나 · 일반 둘)
   b.pg = Array.isArray(d.pg) ? d.pg.filter((x) => typeof x === "string").slice(0, 50) : [];   // 받은 한 사람 선물 id(itemData.js PERSONAL_GIFTS)
   b.mt = Array.isArray(d.mt) ? [...new Set(d.mt.filter((x) => typeof x === "string" && x.length <= 16))].slice(0, 20) : [];   // 말을 걸어 본 의뢰인(rpg.js metNpc) — 그 뒤로는 내 화면에서 의뢰를 받는다
+  cleanWorldBossBag(d,b);
   return b;
 }
 export const equipped = (bag) => (bag.e ? bag.w.find((w) => w.u === bag.e) || null : null);
@@ -342,7 +344,7 @@ export function whyWarp(h, to) {
   if (!WARP.maps.includes(to) || !MAPS[to]) { out.push("갈 수 없는 지역입니다"); return out; }
   if (!h || !h.bag) return out;
   if ((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && MAPS[h.map].pvp)) out.push("결투 중에는 쓸 수 없습니다");
-  else if (MAPS[h.map] && MAPS[h.map].dungeon) out.push("던전에서는 쓸 수 없습니다");
+  else if (MAPS[h.map] && (MAPS[h.map].dungeon || MAPS[h.map].worldBoss)) out.push("전투 지역에서는 쓸 수 없습니다");
   else if (h.map === to) out.push("이미 이 지역에 있습니다");
   if (!(h.bag.wp > 0)) out.push("지역 워프권이 없습니다");
   return out;

@@ -1,3 +1,4 @@
+import {drawWorldBossFx} from "./worldBossArt.js";
 import { skillAccent } from "./combatFx.js";
 import { drawWorldWeaponFx } from "./worldWeaponArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
@@ -45,6 +46,7 @@ function glowAt(ctx, x, y, r, inner, outer, mid) {
 export function drawSkillFx(ctx, f, time, g) {
   if (!Number.isFinite(f.x) || !Number.isFinite(f.y)) return;
   const p = 1 - f.t / f.life;                     // 0 → 1
+  if (drawWorldBossFx(ctx,f,p,Q)) return;
   if (drawWorldWeaponFx(ctx, f, p, time, SQ(), g, Q)) return;
   skillAccent(ctx, f, p, Q);
   if (f.kind === "sk_ice") drawIce(ctx, f, p, time);

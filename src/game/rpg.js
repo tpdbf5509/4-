@@ -1,3 +1,5 @@
+import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
+import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb } from "./armor.js";
 import { trading } from "./tradeData.js";
@@ -230,6 +232,8 @@ FAR_MAPS.forEach((f, i) => {
   MAP_IDS.push(f.id);
 });
 MAP_IDS.push("train");
+MAPS.worldboss={id:"worldboss",name:"월드보스 성역",w:WORLD_BOSS.w,h:WORLD_BOSS.h,top:170,spawn:WORLD_BOSS.spawn,bg:"field",tile:2600,tint:"rgba(40,28,45,.3)",worldBoss:1,gates:[],blocks:[],npcs:[]};
+MAP_IDS.push("worldboss");
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -427,8 +431,9 @@ export const FAR_SKILL = {
   // 포식거미 — 거미줄 발사. 떨어진 자리에 있으면 1초 묶인다(보스 1.4초 · 묶여도 공격 · 스킬은 쓴다, 예전 ×1.7)
   spider: { kind: "web", range: 420, wind: 0.45, cd: 3.5, mul: 0.8, r: 70, speed: 720, root: 1, rootBoss: 1.4, n: 1, nBoss: 3, spread: 0.3 },
 };
+WORLD_BOSSES.forEach(b=>{MOB[b.type]={name:b.name,rad:88,hp:()=>b.hp,dmg:()=>1,xp:()=>0,coin:()=>0,size:()=>1,boss:{name:b.name,lv:200,hp:b.hp,dmg:1,xp:0,coin:0,size:1}};});
 const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
-  "skeletal", "zombie", "necro", "golem", "chimera", "spider"];   // 스냅샷 차례 — 뒤에만 더한다
+  "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.map(b=>b.type)];   // 스냅샷 차례 — 뒤에만 더한다
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -721,7 +726,7 @@ export function heroRecord(h, base, look) {
 /* ── 세계 ──────────────────────────────────────────────── */
 export function makeWorld() {
   const g = {
-    mode: "rpg", t: 0,
+    mode: "rpg", t: 0, wb:newWorldBossState(), wbServer:"RPG1",
     heroes: new Array(RPG_CREW_MAX).fill(null), mobs: [], hits: [], respawn: [], pending: {},
     fx: [], out: null, banner: null, shake: 0, nextId: 1,
     looks: new Array(RPG_CREW_MAX).fill(null), names: [], mySeat: -1,
@@ -1243,6 +1248,7 @@ export function rpgPromote(g) {
     return b;
   }).filter(Boolean);
   g.nextId = Math.max(g.nextId, ...g.mobs.map((m) => m.id + 1), 1);
+  worldBossRestore(worldBossEngine,g);
   g.nextParty = Math.max(g.nextParty || 1, ...g.heroes.map((h) => (h ? h.pty + 1 : 1)));
   g.duels = [];
   g.runs = (g.runs || []).filter((r) => DG_BY_ID[r.id]);   // 던전은 받은 그대로 잇는다
@@ -1269,7 +1275,7 @@ export const isPvp = (map) => !!(MAPS[map] && MAPS[map].pvp);
    몹을 칠 때와 같은 기술이 그대로 나간다 — 노릴 것을 고르는 곳(foesNear · nearFoes)이 몹과 PvP 를 켠 사람을 함께 본다.
    피해는 결투와 같이 줄여서 한 방에 끝나지 않게 한다(FIELD_PVP.dmgMul, 스킬 한 번 한도는 결투와 같은 DUEL.skillPct) */
 export const FIELD_PVP = { dmgMul: 0.3, toggleCd: 5 };   // toggleCd — 켜고 끄기를 다시 바꿀 수 있을 때까지(초)
-export const fieldPvpMap = (map) => { const M = MAPS[map]; return !!M && !M.safe && !M.pvp && !M.dungeon && !M.train; };
+export const fieldPvpMap = (map) => { const M = MAPS[map]; return !!M && !M.safe && !M.pvp && !M.dungeon && !M.train && !M.worldBoss; };
 const fieldPvpOn = (h) => !!h && !!h.pvpOn && !!h.loaded && fieldPvpMap(h.map);
 // 몹이 아니라 사람인가 — 몹은 type 이 있다
 const isHeroT = (o) => !!o && o.type === undefined;
@@ -1483,6 +1489,7 @@ function flushNum(g, m, tier = 0) {
 function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (!m || m.dead) return 0;
   const h = g.heroes[pi];
+  if(isWorldBoss(m)&&(!h?.loaded||h.map!==m.map||g.wb?.active?.mob!==m.id))return 0;
   if (dot && h) raw *= worldDotMul(h);
   let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0)) * (dot ? 1 : wpnMul(h));   // 무기 패시브(별자리 활 조준) — 화상 · 독 틱에는 붙지 않는다
   if (m.mirage > 0 && Math.random() < m.dodge) {  // 잔상 분신 — 피했다
@@ -1495,6 +1502,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   const crit = h && !off ? sureCrit || Math.random() < critChance(h) : false;
   if (crit) dmg *= critMul(h);
   dmg = Math.max(1, Math.round(dmg));
+  if(isWorldBoss(m))worldBossHit(g,m,h,dmg);
   m.hp -= dmg;
   if (m.type === "dummy" && h) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
@@ -1524,6 +1532,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
 function killMob(g, m, pi) {
   if (m.dead) return;
   m.dead = true;
+  if(isWorldBoss(m)){m.hp=0;worldBossKilled(worldBossEngine,g,m);return;}
   addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
   m.hp = 0;
   flushNum(g, m, m.boss ? 0 : 1);                 // 남은 숫자 — 보스는 모아 둔 평타라 평타 세기로
@@ -3098,7 +3107,7 @@ function nearestHero(g, m, range) {
 function tickMob(g, m, dt) {
   m.age += dt;
   m.calm += dt;
-  const regen = m.dg && m.boss ? MOB_REGEN.rate * DUNGEON.bossRegen : MOB_REGEN.rate;   // 던전 보스는 DUNGEON.bossRegen(0 이면 회복 없음)
+  const regen = isWorldBoss(m) ? 0 : m.dg && m.boss ? MOB_REGEN.rate * DUNGEON.bossRegen : MOB_REGEN.rate;   // 던전 보스는 DUNGEON.bossRegen(0 이면 회복 없음)
   if (regen > 0 && m.calm >= MOB_REGEN.calm && m.hp < m.max) m.hp = Math.min(m.max, m.hp + m.max * regen * dt);
   m.flash = Math.max(0, m.flash - dt);
   m.slow = Math.max(0, m.slow - dt);
@@ -3678,6 +3687,7 @@ function stepDgBoss(g, m, dt) {
 }
 
 function stepMob(g, m, dt) {
+  if(isWorldBoss(m)){m.freeze=0;m.stun=0;m.bind=0;m.kbT=0;tickMob(g,m,dt);return;}
   m.wall = Math.max(0, (m.wall || 0) - dt);
   if (!tickMob(g, m, dt)) { if (BOSS_AI[m.type]) m.pose = bossPose(m); return; }   // 얼었거나 기절했다
   if (m.type === "dummy") { if (m.hp < m.max * TRAIN.refill) m.hp = m.max; return; }   // 허수아비 — 서 있기만 한다
@@ -3715,7 +3725,7 @@ export const dgNear = (h) => !!h && h.map === "plaza" && (dist(h.x, h.y, DUNGEON
 export const inDungeon = (h) => !!(h && MAPS[h.map] && MAPS[h.map].dungeon);
 export const runOf = (g, h) => (h ? (g.runs || []).find((r) => r.map === h.map) || null : null);
 // 들어갈 수 있는지 — 막히는 이유를 모은다(빈 목록이면 들어갈 수 있다)
-export function whyDungeon(h, id, runs) {
+export function whyDungeon(h, id, runs, ticket=false) {
   const out = [];
   const d = DG_BY_ID[id];
   if (!d) { out.push("없는 던전입니다"); return out; }
@@ -3723,7 +3733,8 @@ export function whyDungeon(h, id, runs) {
   if (!dgNear(h)) out.push("던전 관리인 곁에서만 들어갈 수 있습니다");
   if (h.down > 0) out.push("쓰러진 동안은 들어갈 수 없습니다");
   if (h.dvs !== undefined && h.dvs >= 0) out.push("결투 중에는 들어갈 수 없습니다");
-  if (!h.admin && h.coins < d.fee) out.push("코인이 모자랍니다");
+  if(ticket){if(!(h.bag?.m?.dungeon_ticket>0))out.push("던전 입장권이 없습니다");}
+  else if (!h.admin && h.coins < d.fee) out.push("코인이 모자랍니다");
   if (freeSlot(runs, id) < 0) out.push("모든 칸이 차 있습니다 · 잠시 뒤에 오세요");
   return out;
 }
@@ -3748,11 +3759,12 @@ export function rpgDungeon(g, pi, req) {
   }
   if (req.op !== "enter") return false;
   const d = DG_BY_ID[req.id];
-  const why = whyDungeon(h, req.id, g.runs);
+  const why = whyDungeon(h, req.id, g.runs,!!req.ticket);
   if (why.length) return void sys(g, pi, why[0]);
   const slot = freeSlot(g.runs, d.id);
   const map = dgMapId(d.id, slot);
-  if (!h.admin) h.coins -= d.fee;
+  if(req.ticket){h.bag.m.dungeon_ticket--;h.bag.v++;}
+  else if (!h.admin) h.coins -= d.fee;
   g.mobs = g.mobs.filter((m) => m.map !== map);
   g.runs.push({ id: d.id, slot, map, t: DUNGEON.time, wave: 0, phase: "go", end: 0, gap: DUNGEON.waveGap });
   const crew = dgCrew(g, h);
@@ -3762,7 +3774,7 @@ export function rpgDungeon(g, pi, req) {
     fx(g, map, { kind: "ring", x: o.x, y: o.y - 10, r: 50, color: "#ffc58a", t: 0.5, life: 0.5 });
     sys(g, o.pi, `${d.name}에 들어왔습니다. ${Math.round(DUNGEON.time / 60)}분 안에 보스를 잡으세요.`);
   });
-  sys(g, pi, `입장료 ${d.fee.toLocaleString("ko-KR")}코인을 냈습니다.`);
+  sys(g, pi, req.ticket?"던전 입장권 한 장을 사용했습니다.":`입장료 ${d.fee.toLocaleString("ko-KR")}코인을 냈습니다.`);
   return true;
 }
 // 던전 안의 사람마다 머리 위에 큰 글자를 띄운다
@@ -3955,6 +3967,7 @@ export function rpgStep(g, dt) {
   tickSocial(g, dt);
   tickDuels(g, dt);
   tickRuns(g, dt);
+  tickWorldBoss(worldBossEngine,g,dt);
   g.hits = g.hits.filter((s) => {
     s.t -= dt;
     if (s.t > 0) return true;
@@ -4028,6 +4041,7 @@ export function rpgPack(g) {
       : 0)),
     b: packBags(g),
     w: g.heroes.map((h) => (h && h.who) || ""),    // 자리마다 앉은 사람 id — 손님이 제 자리 영웅인지 견준다(남의 기록을 제 것으로 저장하지 않게)
+    wb: structuredClone(g.wb), wbServer:g.wbServer,
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
     // 몹은 사람이 있는 맵의 것만 — 사냥터가 늘어 모두 보내면 메시지가 너무 커진다(손님은 제 맵만 그린다)
     m: g.mobs.filter((m) => busy.has(m.map)).map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
@@ -4043,6 +4057,8 @@ export function rpgPack(g) {
 }
 
 export function rpgApply(g, s) {
+  if(s.wb)g.wb=structuredClone(s.wb);
+  if(s.wbServer)g.wbServer=s.wbServer;
   s.h.forEach((row, pi) => {
     if (!row) { g.heroes[pi] = null; return; }
     const map = MAP_IDS[row[10]] || "plaza";
@@ -4181,6 +4197,8 @@ export function rpgApplyOut(g, list) {
 // 손님 화면 — 소식 사이를 메운다
 export function rpgStepVisual(g, dt) {
   g.t += dt;
+  if(g.wb)g.wb.clock+=dt*1000;
+  if(g.wb?.active?.attack)g.wb.active.attack.t=Math.max(0,g.wb.active.attack.t-dt);
   g.shake = Math.max(0, g.shake - dt * 1.6);
   if (g.banner) { g.banner.t -= dt; if (g.banner.t <= 0) g.banner = null; }
   g.fx = g.fx.filter((f) => { f.t -= dt; return f.t > 0; });
@@ -4216,3 +4234,7 @@ export function rpgStepVisual(g, dt) {
     if (m.tx !== undefined) { m.x += (m.tx - m.x) * k; m.y += (m.ty - m.y) * k; }
   });
 }
+
+// 월드보스는 기존 방장 판정과 연출 묶음을 사용한다.
+const worldBossEngine={body:bodyOf,fx,hurt:hurtHero,plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
+export function rpgWorldBoss(g,pi,req){return worldBossInput(worldBossEngine,g,pi,req);}

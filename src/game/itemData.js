@@ -18,6 +18,7 @@ export const MATERIALS = [
   { id: "core", name: "골렘 핵", color: "#c9b27e", sell: 1800, note: "고대 골렘이 떨군다" },
   { id: "mane", name: "키메라 갈기", color: "#e0a87a", sell: 2500, note: "키메라 왕이 떨군다" },
   { id: "silk", name: "포식거미 비단", color: "#d5d2e6", sell: 3500, note: "포식거미 여왕이 떨군다" },
+  {id:"dungeon_ticket",name:"던전 입장권",color:"#e5c47c",sell:0,note:"던전 입장료 대신 한 장 사용 · 월드보스 보상"},
 ];
 export const MAT_BY_ID = Object.fromEntries(MATERIALS.map((m) => [m.id, m]));
 export const MAT_MAX = 999;

@@ -1,3 +1,4 @@
+import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
@@ -232,7 +233,7 @@ export const RFRAME = {
 };
 let rpgWarm = 0;
 export function warmRpgArt() {
-  warmDragonFlightArt();
+  warmDragonFlightArt();warmWorldBossArt();
   if (rpgWarm) return;
   rpgWarm = 1;
   ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
@@ -1637,7 +1638,8 @@ function drawDummy(ctx, m, time) {
   ctx.restore();
   drawMobMarks(ctx, m, time, 90);
 }
-const MOB_DRAW = { dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
+function drawWorldBoss(ctx,m,time){drawWorldBossSprite(ctx,m,time);drawMobMarks(ctx,m,time,340);}
+const MOB_DRAW = {world_dragon:drawWorldBoss,world_serpent:drawWorldBoss,world_machine:drawWorldBoss, dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
   skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider };
 const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4",
   skeletal: "#c9d6e6", zombie: "#bfd6a8", necro: "#d2bcf0", golem: "#d6ccb8", chimera: "#f0c9a0", spider: "#d8d0e8" };
@@ -2092,6 +2094,7 @@ export function drawRpg(ctx, g, bgs) {
   if (M.pvp) drawArenaFloor(ctx, M);
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
 
+  drawWorldBossGround(ctx,g,M.id);
   // 내 사거리 — 토끼가 들어오면 또렷해진다
   if (me && me.down <= 0 && !M.safe) {
     const rr = heroRange(me);
@@ -2167,4 +2170,6 @@ export function drawRpg(ctx, g, bgs) {
   }
   ctx.restore();
   if (g.banner) drawBanner(ctx, g.banner);
+  const raidNotice=g.fx.findLast(f=>f.kind==="raid_notice"&&(f.who===-1||f.who===g.mySeat));
+  if(raidNotice){ctx.save();ctx.translate(0,170);drawBanner(ctx,raidNotice);ctx.restore();}
 }

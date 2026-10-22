@@ -4,7 +4,7 @@ import { trading } from "./tradeData.js";
    d = { cls: 자리, kind, dir, q }. 늦게 도착한 옛 누름 · 뗌(hold · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgSkill, rpgWeaponSkill, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput,
+  rpgWorldBoss, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -29,6 +29,7 @@ const ACTS = {
   quest: (g, pi, dir) => rpgQuest(g, pi, dir),
   cmd: (g, pi, dir) => rpgAdminCmd(g, pi, dir),   // 관리자 명령어(채팅 "/")
   dg: (g, pi, dir) => rpgDungeon(g, pi, dir),
+  wb: (g, pi, dir) => rpgWorldBoss(g, pi, dir),
   train: (g, pi, dir) => rpgTrain(g, pi, dir),
 };
 export function rpgInput(g, d) {

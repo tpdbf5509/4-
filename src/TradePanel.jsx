@@ -11,7 +11,7 @@ const label = (x) => x.k === 'w' ? weaponName(x.item) : x.k === 'a' ? armorName(
 const identity = (x) => `${x.k}:${x.u || ''}`;
 export default function TradePanel({ api, self }) {
   const t = api.trade;
-  if (!t) return api.error ? <div className="trade-toast" role="status">{api.error}</div> : null;
+  if (!t) return api.error ? <div className="rpg-talk trade-toast" role="status"><span className="rpg-talk-line">{api.error}</span></div> : null;
   return <TradeDialog key={`${t.id}/${t.revision}`} api={api} self={self} />;
 }
 function TradeDialog({ api, self }) {
@@ -51,34 +51,37 @@ function TradeDialog({ api, self }) {
     if (x.max && (!/^\d+$/.test(count) || Number(count) < 1 || Number(count) > x.max)) return;
     setItems([...items, x.max ? { k: x.k, u: x.u, n: Number(count) } : { k: x.k, u: x.u, item: x.item }]);
   };
-  const offered = (o) => <><p>{o.coins.toLocaleString('ko-KR')}코인</p>{o.items.length ? <ul>{o.items.map((x) => <li key={identity(x)}>{label(x)}{x.n ? ` × ${x.n}` : ''}</li>)}</ul> : <p>물품 없음</p>}</>;
-  return <div className="trade-back">
-    <section ref={dialog} tabIndex={-1} onKeyDown={keys} className="trade-panel" role="dialog" aria-modal="true" aria-label="개인 거래">
-      <header><h2>{other}님과 거래</h2><button type="button" disabled={api.busy} onClick={api.cancel}>거래 취소</button></header>
+  const offered = (o) => <><p className="shop-price">{o.coins.toLocaleString('ko-KR')}코인</p>{o.items.length ? <ul className="trade-items">{o.items.map((x) => <li className="shop-item" key={identity(x)}><span className="shop-name">{label(x)}{x.n ? ` × ${x.n}` : ''}</span></li>)}</ul> : <p className="shop-empty">물품 없음</p>}</>;
+  return <>
+    <div className="rpg-menu-back" />
+    <section ref={dialog} tabIndex={-1} onKeyDown={keys} className="shop trade-panel" role="dialog" aria-modal="true" aria-label="개인 거래">
+      <header className="shop-top"><div className="shop-title"><b>개인 거래</b><span>{other}님과 교환합니다</span></div><button type="button" className="shop-btn" disabled={api.busy} onClick={api.cancel}>거래 취소</button></header>
+      <div className="shop-body">
       {t.state === 'invite' ? <>
-        <p>{t.side === 0 ? '상대의 수락을 기다리고 있습니다.' : `${other}님이 거래를 신청했습니다.`}</p>
-        {t.side === 1 && <button type="button" className="btn-main" disabled={api.busy} onClick={api.join}>수락</button>}
+        <p className="shop-note">{t.side === 0 ? '상대의 수락을 기다리고 있습니다.' : `${other}님이 거래를 신청했습니다.`}</p>
+        {t.side === 1 && <button type="button" className="shop-btn main" disabled={api.busy} onClick={api.join}>수락</button>}
       </> : <>
-        <p>광장에서 거래합니다. 거래 중에는 이동과 가방 변경이 잠깁니다. 내용이 바뀌면 두 사람 모두 다시 확인합니다.</p>
+        <p className="shop-note">물품과 코인을 등록한 뒤 확인해 주세요. 거래 중에는 이동과 가방 변경이 잠깁니다.</p>
         <div className="trade-columns">
-          <section><h3>내가 주는 것 {t.accepted[t.side] ? '· 확인함' : ''}</h3>
-            <label>코인<input aria-label="거래 코인" inputMode="numeric" value={coins} onChange={(e) => setCoins(e.target.value)} disabled={api.busy} /></label>
-            <p>보유 {(self?.coins || 0).toLocaleString('ko-KR')}코인</p>
-            <ul>{items.map((x) => <li key={identity(x)}>{label(x)}{x.n ? ` × ${x.n}` : ''} <button type="button" disabled={api.busy} aria-label={`${label(x)} 빼기`} onClick={() => setItems(items.filter((i) => identity(i) !== identity(x)))}>빼기</button></li>)}</ul>
-            <label>물품<select aria-label="거래 물품" value={selected} onChange={(e) => setSelected(e.target.value)} disabled={api.busy}>
+          <section><h3 className="shop-h">내가 주는 것 {t.accepted[t.side] ? '· 확인함' : ''}</h3>
+            <label className="shop-bet trade-field">코인<input aria-label="거래 코인" inputMode="numeric" value={coins} onChange={(e) => setCoins(e.target.value)} disabled={api.busy} /></label>
+            <p className="shop-note">보유 {(self?.coins || 0).toLocaleString('ko-KR')}코인</p>
+            <ul className="trade-items">{items.map((x) => <li className="shop-item" key={identity(x)}><span className="shop-name">{label(x)}{x.n ? ` × ${x.n}` : ''}</span><button type="button" className="shop-btn" disabled={api.busy} aria-label={`${label(x)} 빼기`} onClick={() => setItems(items.filter((i) => identity(i) !== identity(x)))}>빼기</button></li>)}</ul>
+            <label className="shop-bet trade-field">물품<select aria-label="거래 물품" value={selected} onChange={(e) => setSelected(e.target.value)} disabled={api.busy}>
               <option value="">물품 선택</option>{choices.filter((x) => !items.some((i) => identity(i) === identity(x))).map((x) => <option key={identity(x)} value={identity(x)}>{label(x)}{x.max ? ` (${x.max}개)` : ''}</option>)}
             </select></label>
-            <label>개수<input aria-label="거래 물품 개수" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} disabled={api.busy} /></label>
-            <button type="button" disabled={api.busy || !selected || items.length >= TRADE.maxItems} onClick={add}>물품 추가</button>
-            <button type="button" disabled={api.busy || !changed || !validCoins} onClick={() => api.change({ coins: Number(coins), items })}>등록 내용 반영</button>
+            <label className="shop-bet trade-field">개수<input aria-label="거래 물품 개수" inputMode="numeric" value={count} onChange={(e) => setCount(e.target.value)} disabled={api.busy} /></label>
+            <button type="button" className="shop-btn" disabled={api.busy || !selected || items.length >= TRADE.maxItems} onClick={add}>물품 추가</button>
+            <button type="button" className="shop-btn" disabled={api.busy || !changed || !validCoins} onClick={() => api.change({ coins: Number(coins), items })}>등록 내용 반영</button>
           </section>
-          <section><h3>상대가 주는 것 {t.accepted[1 - t.side] ? '· 확인함' : ''}</h3>{offered(theirs)}</section>
+          <section><h3 className="shop-h">상대가 주는 것 {t.accepted[1 - t.side] ? '· 확인함' : ''}</h3>{offered(theirs)}</section>
         </div>
-        <p>확정 전에는 물품이 옮겨지지 않습니다. 가방이 가득 차면 거래 전체가 취소됩니다.</p>
-        <button type="button" className="btn-main" disabled={api.busy || changed || t.accepted[t.side]} onClick={api.confirm}>{api.busy ? '확인 중…' : t.accepted[t.side] ? '상대 확인을 기다리는 중' : '내용 확인 · 거래 확정'}</button>
+        <p className="shop-note">내용이 바뀌면 양쪽 확인이 풀립니다. 가방이 가득 차면 거래가 취소됩니다.</p>
+        <button type="button" className="shop-btn main" disabled={api.busy || changed || t.accepted[t.side]} onClick={api.confirm}>{api.busy ? '확인 중…' : t.accepted[t.side] ? '상대 확인을 기다리는 중' : '내용 확인 · 거래 확정'}</button>
       </>}
-      {api.error && <p role="alert">{api.error}</p>}
-      {t.state === 'fail' && <p role="alert">{tradeError(t)}</p>}
+      {api.error && <p className="shop-why solo" role="alert">{api.error}</p>}
+      {t.state === 'fail' && <p className="shop-why solo" role="alert">{tradeError(t)}</p>}
+      </div>
     </section>
-  </div>;
+  </>;
 }

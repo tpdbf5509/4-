@@ -5,6 +5,7 @@
 export const RPG_NOTICE = { id: "2026-10-95", notes: ["2026-10-95"] };
 
 export const UPDATES = [
+  { id: "2026-10-96", date: "10월 22일", items: ["거래 창을 기존 상점·가방과 같은 색과 버튼으로 맞추고 게임 화면 안에 배치했습니다."] },
   {
     id: "2026-10-95", date: "10월 22일",
     items: [

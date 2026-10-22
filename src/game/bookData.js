@@ -20,6 +20,8 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 
 /* ── 패치노트 — 새 책은 맨 위에 더한다 ───────────────────────── */
 export const PATCH_BOOKS = [
+  { id: "patch-2026-10-22b", title: "패치노트 · 10월 22일 (2)", sub: "거래 창 디자인", color: "#a9b98f",
+    pages: [{ h: "거래 창", p: ["거래 창에 기존 상점·가방의 색과 글꼴, 버튼을 적용했습니다.", "창은 게임 화면 안에 열리고 좁은 화면에서는 위아래로 나뉩니다."] }] },
   {
     id: "patch-2026-10-22", title: "패치노트 · 10월 22일", sub: "모험가끼리 거래", color: "#a9b98f",
     pages: [{ h: "개인 거래", p: [

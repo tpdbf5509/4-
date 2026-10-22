@@ -1502,8 +1502,6 @@ kbd {
 .shop-result.no { color: #f0d0c0; border-color: rgba(214, 160, 136, 0.4); background: rgba(190, 120, 90, 0.1); }
 .shop-body { padding: 4px 16px 16px; overflow-y: auto; }
 .wb-panel { width: min(850px,94%); max-height: 85%; }
-.wb-entry { position: absolute; right: 18px; top: 95px; min-height: 44px; padding: 8px 16px; font-size: 17px; background: #3e2e1c; color: #ffe0a0; }
-.frame:has(.wb-hud) .wb-entry { display: none; }
 .wb-content { font-size: 15px; line-height: 1.6; color: var(--sh-text); }
 .wb-content h3 { margin: 14px 0 4px; font-size: 19px; letter-spacing: -.03em; }
 .wb-rule { color: var(--sh-mute); font-size: 13px; }
@@ -1519,7 +1517,11 @@ kbd {
 .wb-hud>div { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size: 13px; }
 .wb-hud progress { width: 100%; height: 12px; accent-color: #dda458; }
 .wb-hud .rpg-win-btn { min-height: 36px; margin-top: 6px; }
-@media(max-width:700px) { .frame:has(.wb-panel) { min-height: min(720px,calc(100svh - 56px)); } .wb-bosses { grid-template-columns: 1fr; } .wb-portrait { width: 150px; height: 150px; } .wb-hud { top: 6px; right: 6px; width: calc(100% - 198px); padding: 5px; } .wb-hud>div { font-size: 10px; flex-wrap: wrap; gap: 2px; } .wb-hud .rpg-win-btn { font-size: 10px; min-height: 30px; padding: 3px 5px; } .frame:has(.wb-hud) .wb-entry { display: none; } .wb-entry { top: 55px; right: 6px; min-height: 32px; font-size: 12px; } .wb-content { font-size: 14px; } }
+.wb-hud .wb-pattern { margin-top:6px; padding:7px; border:1px solid #a98859; border-radius:6px; background:#37251c; color:#f6d7bd; flex-wrap:wrap; }
+.wb-pattern small { width:100%; font-size:12px; line-height:1.5; }
+.wb-hud .wb-pattern.open,.wb-hud .wb-pattern.stunned { background:#6a4a19; color:#fff3c5; border-color:#ffe4a1; }
+.wb-pattern.open b { font-size:19px; }
+@media(max-width:700px) { .frame:has(.wb-panel) { min-height: min(720px,calc(100svh - 56px)); } .wb-bosses { grid-template-columns: 1fr; } .wb-portrait { width: 150px; height: 150px; } .wb-hud { top: 6px; right: 6px; width: calc(100% - 198px); padding: 5px; } .wb-hud>div { font-size: 10px; flex-wrap: wrap; gap: 2px; } .wb-hud .rpg-win-btn { font-size: 10px; min-height: 30px; padding: 3px 5px; }   .wb-content { font-size: 14px; } }
 /* 탭 — 밑줄 하나로 고른 것을 보인다 */
 .shop-tabs { display: flex; gap: 2px; margin: 8px 0 4px; border-bottom: 1px solid var(--sh-line); overflow-x: auto; }
 .shop-tabs button { flex: none; padding: 9px 12px 8px; cursor: pointer; background: none; border: 0; border-bottom: 1px solid transparent;

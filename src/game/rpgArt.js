@@ -1,4 +1,4 @@
-import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround} from "./worldBossArt.js";
+import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
@@ -841,6 +841,7 @@ function drawShop(ctx, n, time) {
 }
 
 function drawNpc(ctx, g, n, time) {
+  if(n.worldBoss)return drawWorldBossPortal(ctx,g,n,time);
   if (n.shop) return drawShop(ctx, n, time);
   if (n.board) return drawHonorBoard(ctx, n, time);
   if (n.req) return drawReqNpc(ctx, g, n, time);
@@ -1638,7 +1639,7 @@ function drawDummy(ctx, m, time) {
   ctx.restore();
   drawMobMarks(ctx, m, time, 90);
 }
-function drawWorldBoss(ctx,m,time){drawWorldBossSprite(ctx,m,time);drawMobMarks(ctx,m,time,340);}
+function drawWorldBoss(ctx,m,time,g){drawWorldBossSprite(ctx,m,time,g?.wb?.active,lod.q);drawMobMarks(ctx,m,time,340);}
 const MOB_DRAW = {world_dragon:drawWorldBoss,world_serpent:drawWorldBoss,world_machine:drawWorldBoss, dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
   skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider };
 const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4",
@@ -2036,7 +2037,7 @@ function follow(g, M) {
    ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
    ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
-  cap: { sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
+  cap: { sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
 const lod = { at: 0, ms: 16, q: 1 };
 function stepLod() {
   const now = performance.now(), d = lod.at ? Math.min(100, now - lod.at) : 16;
@@ -2094,7 +2095,7 @@ export function drawRpg(ctx, g, bgs) {
   if (M.pvp) drawArenaFloor(ctx, M);
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
 
-  drawWorldBossGround(ctx,g,M.id);
+  drawWorldBossGround(ctx,g,M.id,lod.q);
   // 내 사거리 — 토끼가 들어오면 또렷해진다
   if (me && me.down <= 0 && !M.safe) {
     const rr = heroRange(me);
@@ -2139,7 +2140,7 @@ export function drawRpg(ctx, g, bgs) {
     // 띄움에 걸린 것은 위로 떠서 그린다 · 걸린 표시(경직 · 속박 · 낙인)는 그 위에
     const who = o.m || o.h, lift = who ? liftOf(who, 1 / 60) : 0;
     if (lift) { ctx.save(); ctx.translate(0, -lift); }
-    if (o.m) (MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time);
+    if (o.m) (MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time,g);
     else if (o.h) { drawHero(ctx, g, o.h, time); drawHeroSkill(ctx, o.h, time); }
     if (lift) ctx.restore();
     if (who && (o.m || o.h.cc)) drawCcMark(ctx, who, time);

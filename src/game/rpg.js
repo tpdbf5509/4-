@@ -81,6 +81,7 @@ export const MAPS = {
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC
     blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 },
       ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 },
+      {x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y,r:38},
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
@@ -91,6 +92,7 @@ export const MAPS = {
       { id: "honor", board: 1, name: "명예 순위", keeper: "명예의 전당", x: 900, y: 256 },
       ...REQ_NPCS.map((n) => ({ id: `req-${n.id}`, req: n.id, name: n.name, x: n.x, y: n.y })),
       { id: "dungeon", dungeon: 1, name: "던전 관리인", x: DUNGEON.npc.x, y: DUNGEON.npc.y },   // 던전 입장 창(dungeonData.js)
+      {id:'worldboss',worldBoss:1,name:'월드보스 성역',x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y},
     ],
   },
   field: {
@@ -1120,7 +1122,7 @@ export function rpgFire(g, pi, on) {
 
 export function npcNear(h) {
   if (!h) return null;
-  const n = MAPS[h.map].npcs.find((q) => dist(h.x, h.y, q.x, q.y) <= RPG.talkR) || null;
+  const n = MAPS[h.map].npcs.find((q) => dist(h.x, h.y, q.x, q.y) <= (q.worldBoss?WORLD_BOSS.portal.reach:RPG.talkR)) || null;
   if (n || h.map !== "plaza" || !atDgGate(h)) return n;
   return MAPS.plaza.npcs.find((q) => q.dungeon) || null;   // 던전 입구 앞에 서도 던전 관리인과 말한다
 }
@@ -1129,7 +1131,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
     h.quest = { on: true, n: 0 };
@@ -1502,7 +1504,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   const crit = h && !off ? sureCrit || Math.random() < critChance(h) : false;
   if (crit) dmg *= critMul(h);
   dmg = Math.max(1, Math.round(dmg));
-  if(isWorldBoss(m))worldBossHit(g,m,h,dmg);
+  if(isWorldBoss(m))worldBossHit(g,m,h,dmg,{direct:!!skill&&!dot&&!side&&procOff===0});
   m.hp -= dmg;
   if (m.type === "dummy" && h) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
@@ -4199,6 +4201,7 @@ export function rpgStepVisual(g, dt) {
   g.t += dt;
   if(g.wb)g.wb.clock+=dt*1000;
   if(g.wb?.active?.attack)g.wb.active.attack.t=Math.max(0,g.wb.active.attack.t-dt);
+  if(g.wb?.active?.stun>0)g.wb.active.stun=Math.max(0,g.wb.active.stun-dt);
   g.shake = Math.max(0, g.shake - dt * 1.6);
   if (g.banner) { g.banner.t -= dt; if (g.banner.t <= 0) g.banner = null; }
   g.fx = g.fx.filter((f) => { f.t -= dt; return f.t > 0; });

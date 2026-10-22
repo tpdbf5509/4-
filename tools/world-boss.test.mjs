@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {makeWorld,rpgSyncSeats,rpgJoin,rpgWorldBoss,rpgStep,rpgPack,rpgApply,rpgPromote,rpgWeaponSkill,rpgDungeon,MAPS} from '../src/game/rpg.js';
-import {WORLD_BOSS as C,WORLD_BOSSES} from '../src/game/worldBossData.js';
-import {worldBossHit,worldBossKilled,rollWorldBossReward,collectWorldBossMail,worldBossAreaContains} from '../src/game/worldBoss.js';
+import {makeWorld,rpgSyncSeats,rpgJoin,rpgWorldBoss,rpgStep,rpgPack,rpgApply,rpgPromote,rpgWeaponSkill,rpgDungeon,npcNear,MAPS} from '../src/game/rpg.js';
+import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_PATTERNS} from '../src/game/worldBossData.js';
+import {worldBossHit,worldBossKilled,rollWorldBossReward,collectWorldBossMail,worldBossAreaContains,worldBossCoopOpen} from '../src/game/worldBoss.js';
 import {cleanBag} from '../src/game/shop.js';
 import {RESET,GIFT,MAT_MAX} from '../src/game/itemData.js';
 import {DUNGEONS,DUNGEON} from '../src/game/dungeonData.js';
@@ -10,7 +10,7 @@ const seats=Array.from({length:3},(_,i)=>({id:`wb${i}`,name:`토벌${i}`,hero:{n
 function setup(){
  const g=makeWorld();g.mySeat=0;g.wb.lastHour=Math.floor(g.wb.clock/C.period);g.out=[];
  rpgSyncSeats(g,seats);for(let i=0;i<3;i++)rpgJoin(g,i,{name:seats[i].name,rs:RESET.id,gift:GIFT.id,lv:100,ts:0,coins:300000,stats:{str:100,hp:100},bag:{oc:1,w:[{u:1,t:'bow',r:10,g:4,p:100,sp:'dragon_bow'}],e:1,n:2}},seats[i].id);
- g.heroes.forEach(h=>{if(h)h.auto=0;});return g;
+ g.heroes.forEach(h=>{if(h){h.auto=0;h.x=C.portal.x;h.y=C.portal.y+70;}});return g;
 }
 function advance(g,t){for(let n=0;n<Math.ceil(t/.02);n++)rpgStep(g,.02);}
 const E={notice(){}};
@@ -65,14 +65,18 @@ test('입장자가 없어 스냅샷에서 몹이 생략돼도 승계하면 복�
  const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});const snap=JSON.parse(JSON.stringify(rpgPack(g)));assert(!snap.m.some(row=>row[0]===g.wb.active.mob));
  const guest=makeWorld();rpgSyncSeats(guest,seats);rpgApply(guest,snap);rpgPromote(guest);assert(guest.mobs.some(m=>m.id===guest.wb.active.mob));
 });
-test('보스마다 두 공격을 예고하고 명중은 경고 범위 안에서만 판정한다',()=>{
- for(const B of WORLD_BOSSES){const g=setup();rpgWorldBoss(g,0,{op:'summon',id:B.id});rpgWorldBoss(g,0,{op:'enter'});const a=g.wb.active;
-  for(let n=0;n<2;n++){a.cd=0;advance(g,.02);assert.equal(a.attack.kind,B.attacks[n]);const h=g.heroes[0];h.x=2100;h.y=1400;advance(g,C.wind+.04);assert(!a.attack);assert(g.out.some(f=>f.kind==='sk_raid_hit'));}
+test('보스마다 세 패턴이 순서대로 나오고 모든 연속 타격이 끝난다',()=>{
+ for(const B of WORLD_BOSSES){const g=setup();rpgWorldBoss(g,0,{op:'summon',id:B.id});rpgWorldBoss(g,0,{op:'enter'});const a=g.wb.active,h=g.heroes[0];h.inv=999;
+  for(let n=0;n<3;n++){a.cd=0;advance(g,.02);assert.equal(a.attack.kind,B.attacks[n]);assert.equal(a.attack.major,n===2);
+   const expected=WORLD_BOSS_PATTERNS[B.attacks[n]].hits,seen=new Set();
+   for(let t=0;t<12&&a.attack;t+=.02){seen.add(a.attack.step);advance(g,.02);}
+   assert(!a.attack);assert.equal(seen.size,expected);assert(g.out.some(f=>f.kind==='sk_raid_hit'&&f.pattern===B.attacks[n]));
+  }
  }
  assert(worldBossAreaContains({shape:'ring',x:0,y:0,inner:100,r:300},{x:200,y:0}));assert(!worldBossAreaContains({shape:'ring',x:0,y:0,inner:100,r:300},{x:50,y:0}));
 });
 test('시간 초과는 보상 없이 종료하고 광장으로 돌아간다',()=>{
- const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});rpgWorldBoss(g,0,{op:'enter'});g.wb.active.expires=g.wb.clock;advance(g,.02);assert.equal(g.wb.active.phase,'fail');advance(g,C.endWait+.1);assert.equal(g.wb.active,null);assert.equal(g.heroes[0].map,'plaza');assert(!g.heroes[0].bag.m.heart);
+ const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});rpgWorldBoss(g,0,{op:'enter'});g.wb.active.expires=g.wb.clock;g.wb.active.stun=4;g.wb.active.breakPending=true;advance(g,.02);assert.equal(g.wb.active.phase,'fail');assert.equal(g.wb.active.stun,0);assert.equal(g.wb.active.breakPending,false);advance(g,C.endWait+.1);assert.equal(g.wb.active,null);assert.equal(g.heroes[0].map,'plaza');assert(!g.heroes[0].bag.m.heart);
 });
 test('경고 범위에 남으면 피해를 받고 대쉬 무적이면 피한다',()=>{
  for(const inv of [0,3]){
@@ -92,4 +96,52 @@ test('던전 입장권은 코인 대신 한 장 소비하고 중복 요청은 �
  const g=setup(),h=g.heroes[0],d=DUNGEONS[0];h.x=DUNGEON.npc.x;h.y=DUNGEON.npc.y;h.coins=0;h.bag.m.dungeon_ticket=2;
  assert(rpgDungeon(g,0,{op:'enter',id:d.id,ticket:true}));assert.equal(h.bag.m.dungeon_ticket,1);assert.equal(h.coins,0);
  rpgDungeon(g,0,{op:'enter',id:d.id,ticket:true});assert.equal(h.bag.m.dungeon_ticket,1);assert(MAPS[h.map].dungeon);
+});
+
+function major(id='dragon'){
+ const g=setup();rpgWorldBoss(g,0,{op:'summon',id});
+ for(let i=0;i<3;i++){rpgWorldBoss(g,i,{op:'enter'});g.heroes[i].lv=400;g.heroes[i].inv=999;}
+ const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);a.seq=2;a.cd=0;advance(g,.02);
+ advance(g,1.7);assert(worldBossCoopOpen(a));return {g,a,m};
+}
+test('만렙 세 명의 실제 무기 스킬을 맞추면 패턴을 취소하고 4초 기절한다',()=>{
+ const {g,a,m}=major();g.heroes.filter(Boolean).forEach(h=>{h.x=m.x-100;h.y=m.y;h.look=[1,0];});
+ rpgWeaponSkill(g,0);rpgWeaponSkill(g,1);advance(g,.04);assert(!a.stun);assert.equal(a.attack.coop.length,2);
+ rpgWeaponSkill(g,2);advance(g,.04);assert(a.stun>3.9);assert.equal(a.attack,null);assert(g.out.some(f=>f.kind==='sk_raid_break'));
+ const hits=g.out.filter(f=>f.kind==='sk_raid_hit').length;advance(g,3.5);assert.equal(g.out.filter(f=>f.kind==='sk_raid_hit').length,hits);assert(a.stun>0);
+});
+test('한 사람의 다단 공격·평타·지속 피해·만렙 미만은 합동 인원을 채우지 않는다',()=>{
+ const {g,a,m}=major();for(let i=0;i<20;i++)worldBossHit(g,m,g.heroes[0],10);
+ assert.equal(a.attack.coop.length,1);worldBossHit(g,m,g.heroes[1],10,{direct:false});assert.equal(a.attack.coop.length,1);
+ g.heroes[1].lv=399;worldBossHit(g,m,g.heroes[1],10);assert.equal(a.attack.coop.length,1);
+ worldBossHit(g,m,g.heroes[2],10);assert.equal(a.attack.coop.length,2);assert(!a.stun);
+});
+test('만렙 세 명이 자동 평타를 유지해도 합동 차단이 저절로 발동하지 않는다',()=>{
+ const {g,a,m}=major();g.heroes.filter(Boolean).forEach(h=>{h.x=m.x-100;h.y=m.y;h.auto=1;h.cd=0;});
+ advance(g,.4);assert(!a.stun);assert.equal(a.attack.coop.length,0);assert(a.contrib.length>0);
+});
+test('너무 이른 타격과 0.85초 넘게 어긋난 타격은 차단에 실패한다',()=>{
+ const {g,a,m}=major();a.attack.t=2;for(const h of g.heroes.filter(Boolean))worldBossHit(g,m,h,10);assert.equal(a.attack.coop.length,0);
+ a.attack.t=1.5;worldBossHit(g,m,g.heroes[0],10);advance(g,.9);worldBossHit(g,m,g.heroes[1],10);worldBossHit(g,m,g.heroes[2],10);assert(!a.stun);assert.equal(a.attack.coop.length,2);
+ worldBossHit(g,m,g.heroes[0],10);assert.equal(a.stun,C.coop.stun);assert.equal(a.attack,null);
+});
+test('세 보스의 합동 차단과 기절은 방장 승계 후에도 유지된다',()=>{
+ for(const B of WORLD_BOSSES){const {g,a,m}=major(B.id);g.heroes.filter(Boolean).forEach(h=>worldBossHit(g,m,h,10));assert(a.stun>0);
+ const guest=makeWorld();rpgSyncSeats(guest,seats);rpgApply(guest,JSON.parse(JSON.stringify(rpgPack(g))));rpgPromote(guest);
+ assert.equal(guest.wb.active.stun,4);assert.equal(guest.wb.active.attack,null);advance(guest,.5);assert(guest.wb.active.stun<4&&guest.wb.active.stun>3.4);assert(!guest.out.some(f=>f.kind==='sk_raid_hit'));
+ }
+});
+test('기절 차단에 실패하면 큰 기술이 여러 단계로 터지고 공격력이 증가했다',()=>{
+ const {g,a}=major('machine'),h=g.heroes[0];h.inv=0;const s=a.attack.areas[0];h.x=s.x+100;h.y=s.y;const before=h.hp;
+ advance(g,a.attack.t+.02);assert(h.hp<before*.6);assert.equal(a.attack.step,1);assert(a.attack.major);assert(!a.stun);
+});
+test('이전 버전 보스도 남은 체력과 기여 비율을 보존해 상향한다',()=>{
+ const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);
+ a.balance=0;m.max=a.max=1800000;m.hp=a.hp=900000;a.contrib=[{name:'토벌0',damage:900000}];advance(g,.02);
+ assert.equal(m.max,115000000);assert.equal(m.hp,57500000);assert.equal(a.contrib[0].damage,57500000);
+});
+test('광장 포탈 근처에서만 소환·입장하고 포탈은 대화 대상이다',()=>{
+ const g=setup(),h=g.heroes[0];h.x=900;h.y=820;assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));
+ h.x=C.portal.x;h.y=C.portal.y+70;assert(npcNear(h).worldBoss);assert(rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));
+ h.x=900;h.y=820;assert(!rpgWorldBoss(g,0,{op:'enter'}));h.x=C.portal.x;h.y=C.portal.y+70;assert(rpgWorldBoss(g,0,{op:'enter'}));
 });

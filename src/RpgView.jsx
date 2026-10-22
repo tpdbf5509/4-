@@ -1,4 +1,5 @@
-import {worldBossView} from "./game/worldBoss.js";
+import {WORLD_BOSS} from "./game/worldBossData.js";
+import {worldBossView,worldBossPortalNear} from "./game/worldBoss.js";
 import WorldBossPanel,{WorldBossHud} from "./WorldBossPanel.jsx";
 import TradePanel from "./TradePanel.jsx";
 import { useTrade } from "./useTrade.js";
@@ -654,6 +655,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (!npc) return;
       if (npc.board) { closeAll(); setHonorOpen(true); loadRank(); return; }   // 명예 순위판 — 창만 연다
       if (npc.req) { closeAll(); setReqOpen(npc.req); return; }                // 의뢰 NPC — 창을 열고, 받기 · 완료는 창에서 보낸다
+      if(npc.worldBoss){closeAll();setWbOpen(true);return;}
       if (npc.dungeon) { closeAll(); setDgOpen(true); return; }                 // 던전 관리인 — 입장 창
       if (npc.train) { closeAll(); setTrainOpen(true); return; }               // 훈련 교관 — 기능 창
       if (npc.shop) {                               // 상점은 창만 연다 — 사고파는 것은 창에서 보낸다
@@ -1111,7 +1113,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     <div className={`page ${touch ? "touch" : ""}`}>
       <div className="stage">
         <div className="frame">
-          <canvas ref={cvsRef} />
+          <canvas ref={cvsRef} onClick={e=>{
+            const g=G.current,h=g.heroes[mySeat];if(h?.map!=='plaza'||!g.cam)return;
+            const r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W+g.cam.x,y=(e.clientY-r.top)/r.height*H+g.cam.y;
+            if(Math.abs(x-WORLD_BOSS.portal.x)<90&&y<WORLD_BOSS.portal.y+30&&y>WORLD_BOSS.portal.y-230){
+              if(worldBossPortalNear(h))act('talk');else setToast({name:'월드보스 포탈 가까이 이동해 주세요',at:Date.now()});
+            }
+          }} />
 
           {/* 왼쪽 위 — 레벨 · 경험치 · 체력 · 코인 */}
           {me && (
@@ -1180,7 +1188,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   </span>
                   <span className={`rpg-switch ${pvp ? "on" : ""}`}><span /></span>
                 </button>
-                <button type="button" role="menuitem" className="rpg-menu-row" onClick={()=>toggleWin(false,setWbOpen)}><span className="rpg-menu-text"><b>월드보스{me?.wb?.active?.phase==="fight"?" · 출현 중":""}</b><em>소환 · 토벌 참여 · 보상 수령</em></span><span className="rpg-menu-go">›</span></button>
                 {servers && (
                   <div className="rpg-menu-srv">
                     <span className="rpg-menu-text">
@@ -1288,7 +1295,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             </>
           )}
-          {me&&<button type="button" className="rpg-win-btn wb-entry" aria-expanded={wbOpen} onClick={()=>toggleWin(wbOpen,setWbOpen)}>월드보스{me.wb.active?.phase==="fight"?" · 출현 중":""}</button>}
           {me&&<WorldBossHud state={me.wb} map={me.map} onOpen={()=>toggleWin(wbOpen,setWbOpen)} onLeave={()=>act("wb",{op:"leave"})}/>}
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
           <TradePanel api={trades} self={me?.self} />
@@ -1723,6 +1729,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
+          {me?.near?.worldBoss&&!wbOpen&&<div className="rpg-talk"><span className="rpg-talk-who">월드보스 성역</span><span className="rpg-talk-line">만렙 3인과 함께 도전하세요. 소환과 보상은 포탈에서 확인합니다.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act('talk')}>포탈 살펴보기{!touch&&keyOf(binds,'talk')&&<kbd>{keyOf(binds,'talk')}</kbd>}</button></div>}
           {me && me.near && me.near.dungeon && !dgOpen && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">던전 관리인</span>
@@ -1732,7 +1739,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
-          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train)) && (talk || me.near) && (
+          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss)) && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">

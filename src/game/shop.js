@@ -1,3 +1,4 @@
+import { trading } from "./tradeData.js";
 /* ── RPG 광장 상점 규칙 ─────────────────────────────────────
    무기상점 · 스킬 상점 · 물약 상점 · 도박장 · 무기 강화소. 수치는 shopData.js · itemData.js 에 있다.
    사고팔기 · 도박은 방장이 판정한다(rpgShop). 화면은 같은 조건 함수(why*)로 막힌 이유를 미리 보여 준다.
@@ -273,6 +274,7 @@ export function nearShop(h, id) {
 }
 function base(h, shop, out) {
   if (!h || !h.loaded) out.push("캐릭터를 불러오는 중입니다");
+  else if (trading(h)) out.push("거래를 마치거나 취소해 주세요");
   else if (h.down > 0) out.push("쓰러진 동안은 할 수 없습니다");
   else if (shop && !nearShop(h, shop)) out.push("상점 가까이 가야 합니다");
 }
@@ -532,6 +534,7 @@ function hpChanged(h, wasFull) {
 export function rpgShop(g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.bag || !req || typeof req !== "object") return { ok: false, msg: "잘못된 요청입니다" };
+  if (trading(h)) return no(g, pi, ["거래를 마치거나 취소해 주세요"]);
   const day = todayKey();
   rollDay(h.bag, day);
   const op = req.op;

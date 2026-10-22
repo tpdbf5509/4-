@@ -41,3 +41,6 @@ export const joinAdminLink = (server, id, name) => joinRoom(`adm-${server}`, { i
 // 이름 변경 — 관리자 확인과 접속·중복 검사는 서버가 수행한다
 export const adminRename = (name, code, target, next) =>
   rpc("rpg_admin_rename", { p_name: name, p_code: code, p_target: target, p_new_name: next });
+
+// 거래 기록은 관리자 인증 뒤에만 읽는다.
+export const adminTrades = (name, code) => rpc("rpg_admin_trades", { p_name: name, p_code: code });

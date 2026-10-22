@@ -1,3 +1,4 @@
+import { trading } from "./tradeData.js";
 /* ── RPG 관리자 명령어 — 채팅 칸에 "/" 로 시작해 쓴다(방장만 판정) ─────────────
    /도움                       명령어 목록
    /지급 <이름> <물품> [개수]   물약 · 재료 · 특별 무기 · 방어구(예: 전설 투구) · 워프권 · 하락 방지권
@@ -83,6 +84,7 @@ export function rpgAdminCmd(g, pi, text) {
     if (!it) return void say("그런 물품이 없습니다. 예) 회복 물약 (대) · 토끼 털 · 서리검 · 전설 투구 · 워프권 · 하락 방지권");
     if (it.many) return void say(`물품 이름을 더 정확히 써 주세요: ${it.many.join(" · ")}`);
     const t = g.heroes[ti];
+    if (trading(t)) return void say("그 사람은 거래 중입니다. 거래가 끝난 뒤 다시 해 주세요.");
     if (!t.loaded || !t.bag) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
     const put = it.give(t.bag, n);
     if (!put) return void say(`${who(g, ti)}님의 가방에 ${it.name}을(를) 더 넣을 수 없습니다(가득 참).`);
@@ -99,6 +101,7 @@ export function rpgAdminCmd(g, pi, text) {
     if (!/^-?\d+$/.test(last)) return void say("금액은 숫자로 써 주세요. 예) /돈 나 10000");
     const amt = Math.max(-ADMIN_CMD.coinMax, Math.min(ADMIN_CMD.coinMax, Number(last)));
     const t = g.heroes[ti];
+    if (trading(t)) return void say("그 사람은 거래 중입니다. 거래가 끝난 뒤 다시 해 주세요.");
     if (!t.loaded) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
     const before = t.coins;
     t.coins = Math.max(0, t.coins + amt);
@@ -113,6 +116,7 @@ export function rpgAdminCmd(g, pi, text) {
     if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /소환 홍길동");
     if (ti === pi) return void say("나 자신은 소환할 수 없습니다.");
     const t = g.heroes[ti];
+    if (trading(t)) return void say("그 사람은 거래 중입니다. 거래가 끝난 뒤 다시 해 주세요.");
     const busy = (o) => (o.dvs ?? -1) >= 0 || !!runOf(g, o) || !!(MAPS[o.map] && (MAPS[o.map].dungeon || MAPS[o.map].pvp));
     if (busy(h)) return void say("결투장 · 던전에서는 소환할 수 없습니다.");
     if (busy(t)) return void say(`${who(g, ti)}님이 결투 · 던전 중이라 소환할 수 없습니다.`);

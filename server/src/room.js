@@ -89,6 +89,7 @@ export class RpgRoom {
     else if (m.k === "rjoin") this.rjoin(c, d);
     else if (m.k === "input") {                   // 남의 자리 입력은 받지 않는다
       if (this.seatOf(c.id) !== (d && d.cls)) return;
+      if (d.kind === "trade") return; // 전용 서버에서는 개인 거래를 지원하지 않는다
       rpgInput(this.g, d);
       this.now();                                   // 받자마자 판정하고 결과를 보낸다 — 다음 스냅샷 때까지 기다리지 않는다
     }

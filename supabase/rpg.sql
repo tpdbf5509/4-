@@ -174,6 +174,14 @@ begin
   end if;
   update public.rpg_chars set data = p_data, updated_at = now() where name_key = v_char.name_key;
   return jsonb_build_object('ok', true);
+exception when raise_exception then
+  if sqlerrm in ('trade_stale','trade_busy','trade_moved') then
+    if sqlerrm='trade_moved' then
+      insert into public.rpg_save_blocks(name,why) values(p_name,'moved');
+    end if;
+    return jsonb_build_object('ok',false,'err',substring(sqlerrm from 7));
+  end if;
+  raise;
 end $$;
 revoke execute on function public.rpg_lv(jsonb) from public, anon, authenticated;
 
@@ -355,7 +363,7 @@ begin
       'wait', ceil(extract(epoch from v_char.live_at + make_interval(secs => public.rpg_live_secs()) - now())));
   end if;
   update public.rpg_chars set live_sid = p_sid, live_srv = p_srv, live_at = now() where name_key = v_char.name_key;
-  return jsonb_build_object('ok', true);
+  return jsonb_build_object('ok', true, 'ts', coalesce((to_jsonb(v_char)->>'trade_seq')::bigint,0));
 end $$;
 
 -- 접속 중 표시 풀기 — 나가기 · 창 닫기 때. 그 창이 남긴 표시일 때만

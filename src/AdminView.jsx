@@ -6,13 +6,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RPG_SERVERS, JOB_BY_ID } from "./game/rpg.js";
 import { UPDATES } from "./game/updates.js";
 import { myId } from "./net/room.js";
-import { ADMIN, adminAccounts, adminRename, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
+import { ADMIN, adminTrades, adminAccounts, adminRename, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
 import "./ui/admin.css";
 
-const TABS = [["people", "인원"], ["accounts", "계정"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
+const TABS = [["people", "인원"], ["accounts", "계정"], ["trades", "거래"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
 const LOG_MAX = 300;                 // 로그에 남기는 줄 수(이 화면을 연 동안만)
 const BLOCKS_EVERY = 30;             // 로그 탭을 보는 동안 막힌 저장 기록을 다시 읽는 간격(초)
-const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀" };
+const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀", moved: "넘긴 물품이 다시 나타남" };
 const CONFIRM_MS = 3000;             // 퇴장 · 방장 부여는 한 번 더 눌러야 한다 — 이 시간 안에
 const srvName = (s) => `서버 ${RPG_SERVERS.indexOf(s) + 1}`;
 const clock = (t) => { const d = new Date(t); return [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, "0")).join(":"); };
@@ -230,6 +230,7 @@ function AdminBoard({ auth, onOut }) {
 
       {tab === "accounts" && <AccountsTab auth={auth} onOut={onOut} />}
 
+      {tab === "trades" && <TradesTab auth={auth} />}
       {tab === "log" && (
         <section className="adm-sec">
           <p className="adm-count">저장을 막은 기록<span>섞인 기록을 서버가 막았습니다. 그 사람은 코드를 다시 넣으면 서버 기록으로 이어 합니다</span></p>
@@ -425,4 +426,30 @@ function AccountsTab({ auth, onOut }) {
       <p className="adm-label">코드는 서버에 지문(해시)으로만 남아 보이지 않습니다. 접속은 지금 그 캐릭터가 들어가 있는 서버입니다.</p>
     </section>
   );
+}
+
+
+function TradesTab({ auth }) {
+  const [result, setResult] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    setBusy(true);
+    setResult(await adminTrades(auth.name, auth.code));
+    setBusy(false);
+  }, [auth]);
+  useEffect(() => { load(); }, [load]);
+  const states = { invite: "수락 대기", open: "진행 중", done: "완료", cancel: "취소", fail: "실패" };
+  return <section className="adm-box">
+    <div className="adm-tools"><h2>개인 거래 기록</h2><button disabled={busy} onClick={load}>{busy ? "불러오는 중…" : "새로 읽기"}</button></div>
+    {result && !result.ok && <p role="alert">{errOf(result)}</p>}
+    {result?.ok && !result.list.length && <p>거래 기록이 없습니다.</p>}
+    {result?.list?.map((t) => <div className="adm-tools" key={t.id}>
+      <span>{new Date(t.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</span>
+      <b>{t.a} ↔ {t.b}</b><span>{t.server} · {states[t.state]}</span>
+      {t.error && <span className="adm-err">{t.error}</span>}
+      <button onClick={() => setSelected(selected?.id === t.id ? null : t)}>상세 보기</button>
+    </div>)}
+    {selected && <div><h3>등록 내용과 확인 상태</h3><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify({ id: selected.id, offers: selected.offers, accepted: selected.accepted, error: selected.error }, null, 2)}</pre></div>}
+  </section>;
 }

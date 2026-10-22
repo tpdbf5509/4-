@@ -13,7 +13,7 @@ import {
 import sfx from "./game/sfx.js";
 import { paintTerrain, draw } from "./game/art.js";
 import { joinRoom, makeCode, myId, netReady } from "./net/room.js";
-import { liveEnter, liveLeave, errText, LIVE_BEAT } from "./net/rpgSave.js";
+import { liveEnter, liveLeave, loadRemote, errText, LIVE_BEAT } from "./net/rpgSave.js";
 import { sendFeedback, loadDraft, saveDraft, FEEDBACK_MAX } from "./net/feedback.js";
 import { Coin, ClassIcon, PerkIcon, HomeIcon } from "./ui/icons.jsx";
 import { TowerChar, charOf } from "./ui/chars.jsx";
@@ -22,7 +22,7 @@ import { TOWER_INFO } from "./game/towerInfo.js";
 import { useTouch } from "./ui/touch.js";
 import RpgView, { RpgSetup } from "./RpgView.jsx";
 import { rpgServerUrl, joinRpgServer } from "./net/rpgServer.js";
-import { RPG_CREW_MAX, RPG_SERVER_CAP, RPG_SERVERS, loadChar, cleanLook, setAccount } from "./game/rpg.js";
+import { RPG_CREW_MAX, RPG_SERVER_CAP, RPG_SERVERS, loadChar, adoptChar, cleanLook, setAccount } from "./game/rpg.js";
 
 // 자리 부탁 — 서버 계정(이름 + 입장권)이 있으면 함께 보낸다. 전용 서버는 이것으로 캐릭터를 직접 불러온다(옛 방장은 모른 체한다)
 function pickMsg(hero) {
@@ -442,7 +442,12 @@ export default function App() {
     const c = loadChar();
     if (c && c.linked && c.tok) {
       const r = await liveEnter(c.name, c.tok, me, RPG_SERVERS[0]);
-      if (r && r.err === "live") return void setRpgErr(errText(r));
+      if (!r?.ok) return void setRpgErr(errText(r));
+      if ((r.ts || 0) !== (c.ts || 0)) {
+        const fresh = await loadRemote(c.name, c.tok);
+        if (!fresh?.ok) return void setRpgErr(errText(fresh));
+        if (!adoptChar(fresh.name, fresh.data, c.tok, fresh.admin)) return void setRpgErr("기기에 기록을 저장하지 못했습니다.");
+      }
     }
     setRpgErr("");
     enterRpg(hero, 0);

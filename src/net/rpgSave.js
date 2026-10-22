@@ -23,7 +23,7 @@ export const onlyDigits = (v) => String(v || "").replace(/\D/g, "").slice(0, COD
 async function rpc(fn, args) {
   try {
     const { data, error } = await supabase().rpc(fn, args);
-    if (error) return { ok: false, err: "net", detail: error.message };
+    if (error) return { ok: false, err: error.message?.startsWith("trade_") ? error.message.slice(6) : "net", detail: error.message };
     return data;
   } catch (e) {
     return { ok: false, err: "net", detail: String(e && e.message) };
@@ -42,6 +42,8 @@ export function errText(res) {
     case "token": return "다른 기기에서 이 캐릭터로 들어왔습니다. 이어 하려면 코드를 다시 넣어 주세요.";
     case "live": return `이 캐릭터는 지금 ${srvLabel(res.srv)}에 접속 중입니다. 한 캐릭터는 한 곳에서만 할 수 있습니다.${res.wait ? ` 그 창을 닫았다면 ${Math.max(1, res.wait)}초 뒤에 다시 해 주세요.` : ""}`;
     case "guard": return "기록이 다른 캐릭터와 섞인 것 같아 저장을 멈췄습니다. 코드를 다시 넣으면 서버 기록으로 이어 합니다.";
+    case "stale": case "moved": return "거래 뒤의 서버 기록을 다시 불러오는 중입니다.";
+    case "busy": return "거래 확인 중에는 저장을 잠시 기다립니다.";
     case "data": return "저장할 내용이 너무 큽니다.";
     default: return "서버에 연결하지 못했습니다. 잠시 뒤 다시 해 주세요.";
   }
@@ -72,31 +74,45 @@ export const liveLeave = (name, tok, sid) => rpc("rpg_unlive", { p_name: name, p
 /* ── 게임 중 저장 — 마지막 기록만 들고 있다가 간격마다 보낸다 ── */
 let pending = null;        // { name, tok, data }
 let sentKey = "";
-let busy = false;
+let inFlight = null;
+let onRecover = null;
 let timer = null;
 let onKick = null;
 
 // 보낼 기록을 바꿔 둔다 — 입장권이 없으면(서버에 연결되지 않은 캐릭터) 보내지 않는다
 export function cloudQueue(name, tok, data) {
   if (!name || !tok || !data) return;
-  pending = { name, tok, data };
+  pending = { name, tok, data: structuredClone(data) };
 }
 export async function cloudFlush() {
-  if (busy || !pending) return;
+  if (inFlight) { await inFlight; return cloudFlush(); }
+  if (!pending) return { ok: true };
   const job = pending;
   const key = JSON.stringify(job.data);
-  if (key === sentKey) return;
-  busy = true;
-  const r = await rpc("rpg_save", { p_name: job.name, p_token: job.tok, p_data: job.data });
-  busy = false;
-  if (r && r.ok) { sentKey = key; return; }
-  if (r && (r.err === "token" || r.err === "guard")) {   // 다른 기기가 나중에 들어왔다 · 서버가 섞인 기록을 막았다 — 이 기기의 저장은 멈춘다
+  if (key === sentKey) return { ok: true };
+  inFlight = rpc("rpg_save", { p_name: job.name, p_token: job.tok, p_data: job.data });
+  const r = await inFlight;
+  inFlight = null;
+  if (r?.ok) { sentKey = key; return r; }
+  if (r?.err === "stale" || r?.err === "moved") {
+    if (pending === job) pending = null;
+    if (onRecover) await onRecover();
+  }
+  if (r && (r.err === "token" || r.err === "guard")) {
     pending = null;
     if (onKick) onKick(r.err);
   }
+  return r || { ok: false, err: "net" };
 }
+export const loadRemote = (name, tok) => rpc("rpg_load", { p_name: name, p_token: tok });
+export const tradeOpen = (name, tok, target, sid) => rpc("rpg_trade_open", { p_name: name, p_token: tok, p_target: target, p_sid: sid });
+export const tradeAction = (name, tok, sid, id = null, op = "get", offer = null, hash = null) =>
+  rpc("rpg_trade_action", { p_name: name, p_token: tok, p_sid: sid, p_id: id, p_op: op, p_offer: offer, p_hash: hash });
+// DB 확정 뒤의 옛 대기 저장을 버린다. 진행 중 요청은 DB의 차례 검사로 막힌다.
+export function cloudReset() { pending = null; sentKey = ""; }
 // 게임 화면이 열려 있는 동안 간격마다 보낸다. 닫으면 남은 것을 한 번 보낸다
-export function cloudStart(kick) {
+export function cloudStart(kick, recover) {
+  onRecover = recover;
   onKick = kick;
   clearInterval(timer);
   timer = setInterval(cloudFlush, SAVE_EVERY * 1000);
@@ -108,7 +124,7 @@ export function cloudStart(kick) {
     clearInterval(timer);
     window.removeEventListener("pagehide", bye);
     document.removeEventListener("visibilitychange", hide);
-    onKick = null;
+    onKick = null; onRecover = null;
     cloudFlush();
   };
 }

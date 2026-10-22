@@ -1,18 +1,20 @@
+import TradePanel from "./TradePanel.jsx";
+import { useTrade } from "./useTrade.js";
+import { trading } from "./game/tradeData.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, RPG_SERVER_CAP, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
-  makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgSkill, rpgTalk, rpgAuto, rpgPvp, rpgFire, FIELD_PVP,
+  makeWorld, rpgStep, rpgStepVisual, rpgHold, FIELD_PVP,
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, writeChar, deleteChar,
-  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, rpgDuel, MOB_REGEN, ACTIVE_SKILLS, rpgUseSkill, rpgWeaponSkill, heldSpecial, rpgTrain, trainView, rpgDash, predictDash, predictLunge, DASH,
+  charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, MOB_REGEN, ACTIVE_SKILLS, heldSpecial, trainView, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
-  rpgParty, rpgTitle, titleName, needNow, titleMet, rpgRequest, rpgQuest, metNpc, QUEST_NPC, whyReqDone, MOB,
-  rpgDungeon, whyDungeon, dgNear, dgCrew, runOf,
-  RPG_SERVERS, rpgStat, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
+  titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, MOB,
+  whyDungeon, dgNear, dgCrew, runOf,
+  RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
-import { rpgAdminCmd } from "./game/adminCmd.js";
-import { rpgShop, nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
+import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
 import { TRAIN, TRAIN_TOGGLES } from "./game/trainData.js";
@@ -395,7 +397,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (c && selfName.current && c.name !== selfName.current) { setMixed(true); return null; }   // 다른 캐릭터의 기록 — 보내지 않는다
     const extra = { auto: autoRef.current, pvp: pvpRef.current, hold: dirsRef.current.slice() };
     return c ? { name: c.name, lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
-      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, rs: c.rs, ...extra } : extra;
+      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, rs: c.rs, ts: c.ts, ...extra } : extra;
   };
 
   const G = useRef(null);
@@ -538,6 +540,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (room.toHost && !oldHostRef.current) room.toHost("input", d);
     else room.send("input", d);
   }, [room]);
+  const trades = useTrade({ g: G.current, seat: mySeat, room, seats, isHost, hostId, sendInput, nextSeq,
+    selfName: selfName.current, pushChat, closeAll });
+  const recoverTrade = useRef(trades.recover);
+  useEffect(() => { recoverTrade.current = trades.recover; }, [trades.recover]);
   // 방장은 지금 손님들의 통로에 붙는다 — 손님이 바뀌거나 방장이 바뀌면 다시 맞춘다
   const guestIds = seats.map((st) => (st ? st.id : "")).join(",");
   useEffect(() => {
@@ -614,7 +620,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       acctRef.current = null;
       setAccount({ tok: "" });
       setKicked(why || "token");
-    });
+    }, () => recoverTrade.current());
   }, []);
   useEffect(() => { shopRef.current = shopOpen; }, [shopOpen]);
   useEffect(() => { reqRef.current = reqOpen; }, [reqOpen]);
@@ -631,6 +637,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const act = useCallback((kind, dir) => {
     const g = G.current;
     sfx.unlock();
+    if (trading(g.heroes[mySeat]) && kind !== "trade") return;
     if (kind === "hold") {
       rpgHold(g, mySeat, dir);                      // 손님도 내 영웅은 먼저 걷는다
       if (!isHost) { sentAt.current = Date.now(); const q = nextSeq(); noteSent(g, q); sendInput({ cls: mySeat, kind, dir, q }); }
@@ -660,24 +667,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     if (kind === "use" && !isHost) predictLunge(g, g.heroes[mySeat], dir);   // 급소 찌르기 돌진도 먼저 그린다
     if (isHost) {
-      if (kind === "dash") rpgDash(g, mySeat);
-      else if (kind === "stat") rpgStat(g, mySeat, dir);
-      else if (kind === "shop") rpgShop(g, mySeat, dir);
-      else if (kind === "use") rpgUseSkill(g, mySeat, dir);
-      else if (kind === "skill") rpgSkill(g, mySeat);
-      else if (kind === "wskill") rpgWeaponSkill(g, mySeat);
-      else if (kind === "talk") rpgTalk(g, mySeat);
-      else if (kind === "fire") rpgFire(g, mySeat, dir);
-      else if (kind === "auto") rpgAuto(g, mySeat, dir);
-      else if (kind === "pvp") rpgPvp(g, mySeat, dir);
-      else if (kind === "party") rpgParty(g, mySeat, dir);
-      else if (kind === "title") rpgTitle(g, mySeat, dir);
-      else if (kind === "duel") rpgDuel(g, mySeat, dir);
-      else if (kind === "req") rpgRequest(g, mySeat, dir);
-      else if (kind === "quest") rpgQuest(g, mySeat, dir);
-      else if (kind === "cmd") rpgAdminCmd(g, mySeat, dir);
-      else if (kind === "dg") rpgDungeon(g, mySeat, dir);
-      else if (kind === "train") rpgTrain(g, mySeat, dir);
+      rpgInput(g, { cls: mySeat, kind, dir });
     } else {
       sendInput({ cls: mySeat, kind, dir, q: nextSeq() });
     }
@@ -904,7 +894,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (d.ver !== verSeen) { verSeen = d.ver; setOldHost(d.ver === "srv" ? false : compareBuild(d.ver)); }   // 전용 서버는 화면과 함께 배포된다
         // 방장이 아는 내 입력이 내 키와 다르면(끊긴 사이 잃었다) 잠시 기다렸다가 다시 보낸다
         const h = g.heroes[mySeat];
-        if (!h || !h.echo || !h.loaded || h.down > 0 || Date.now() - sentAt.current < RESEND_AFTER) return;
+        if (!h || trading(h) || !h.echo || !h.loaded || h.down > 0 || Date.now() - sentAt.current < RESEND_AFTER) return;
         const want = holdKey(dirsRef.current), fire = fireRef.current ? 1 : 0;
         if (h.echo.hold === want && h.echo.fire === fire) return;
         sentAt.current = Date.now();
@@ -1037,12 +1027,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           wsk: weaponHud(me),
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
-          self: { loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
+          self: { trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
             dvs: me.dvs,
             reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])) },
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title,
-            honor: h.honor || 0, dvs: h.dvs })),
+            admin: h.admin, honor: h.honor || 0, dvs: h.dvs })),
           honor: me.honor || 0, duelInv: me.duelInv ? me.duelInv.from : -1, dvs: me.dvs, dph: me.dph, dtl: me.dtl || 0,
           pty: me.pty, inv: me.invite ? me.invite.from : -1, title: me.title, titles: me.titles.slice(), rec: { ...me.rec },
           // 던전 — 들어가 있는 칸(남은 시간 · 무리 차례 · 보스 체력), 입장 창에 쓰는 빈 칸 수 · 함께 갈 사람
@@ -1079,9 +1069,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           lastMap = me.map;
         }
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
-        if (me && me.loaded) {
+        if (me && me.loaded && !me.tradeLocal) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
-            + `/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`;
+            + `/${me.ts || 0}/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`;
           // 다른 탭이 이 기기의 기록을 다른 캐릭터로 바꿨거나, 내 자리에 남의 영웅이 실려 있으면 저장하지 않는다
           if (key !== saved && ownChar() && (isHost || ownHero(me, seatsRef.current[mySeat]?.id))) {
             saved = key;
@@ -1193,7 +1183,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     </span>
                     <span className="rpg-srv-row">
                       {Array.from({ length: servers.n }, (_, i) => (
-                        <button key={i} type="button" className={i === servers.at ? "on" : ""} disabled={i === servers.at || inDuelOrDg}
+                        <button key={i} type="button" className={i === servers.at ? "on" : ""} disabled={i === servers.at || inDuelOrDg || !!trades.trade}
                           onClick={() => { setMenu(false); onMoveServer?.(i); }}>{i + 1}</button>
                       ))}
                     </span>
@@ -1292,6 +1282,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             </>
           )}
+          <TradePanel api={trades} self={me?.self} />
           {me && partyOpen && (() => {
             const mates = me.pty ? me.party.filter((h) => h.pty === me.pty) : [];
             const full = mates.length >= PARTY.max;
@@ -1323,6 +1314,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                                 : h.pty ? <span className="rpg-win-tag">다른 파티</span>
                                   : <button type="button" className="rpg-win-btn" disabled={full}
                                     onClick={() => act("party", { op: "invite", to: h.pi })}>초대</button>}
+                            {!mine && <button type="button" className="rpg-win-btn" disabled={trades.busy || !!trades.trade || me.self.admin || h.admin || me.self.map !== "plaza" || h.map !== "plaza" || me.dvs >= 0 || h.dvs >= 0 || room?.viaServer}
+                              onClick={() => trades.request(names[h.pi])}>거래</button>}
                             {!mine && (h.dvs >= 0
                               ? <span className="rpg-win-tag">결투 중</span>
                               : <button type="button" className="rpg-win-btn duel" disabled={me.dvs >= 0} title={`명예 ${h.honor} · 이기면 +${honorGain(h.honor)}`}

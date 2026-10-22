@@ -1,3 +1,4 @@
+import { trading } from "./tradeData.js";
 /* ── RPG 모드 ──────────────────────────────────────────────
    처음 들어오면 이름을 정한다. 이름은 이 기기에 남고 다시 바꿀 수 없다.
    그다음 직업(전사 · 마법사 · 궁수) · 원소 · 성별을 고르고 광장에 선다. 광장의 사냥문을 지나면 사냥터다.
@@ -615,6 +616,7 @@ export function loadChar() {
   const look = cleanLook({ ...BASE_LOOK, ...r, name: r.name }) || { ...BASE_LOOK, name: cleanName(r.name) };
   return {
     ...look,
+    ts: Math.max(0, Math.floor(Number(r.ts) || 0)),
     picked: !!r.picked,                          // 직업 · 원소 · 성별을 정했는지 — 정했으면 바꿀 수 없다
     lv: clamp(Math.floor(r.lv || 1), 1, LV_MAX),
     xp: Math.max(0, Math.floor(r.xp || 0)),
@@ -687,13 +689,13 @@ export function deleteChar() {
 export const ownHero = (h, myId) => !!h && (h.sw === undefined || (!!myId && h.sw === myId));
 export function writeChar(d) {
   const cur = loadSave();
-  if (!cur) return;
+  if (!cur || (Number(d.ts) || 0) < (Number(cur.ts) || 0)) return;
   // 레벨은 내려가는 일이 없다 — 내려간 기록이 오면 남의 기록이 섞인 것이니 남기지 않는다(서버 저장도 이 기록을 쓴다)
   // 단, 서버 초기화(RESET)를 방금 겪은 기록은 레벨이 내려가도 남긴다
   const reset = d.rs === RESET.id && cur.rs !== RESET.id;
   if (!reset && !rolledBack(d.bag, cur.bag) && Math.floor(Number(d.lv) || 1) < Math.floor(Number(cur.lv) || 1)) return;
   const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
-  store({ ...cur, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
+  store({ ...cur, ts: d.ts || 0, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
     honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs),
     gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "", rs: d.rs === RESET.id ? RESET.id : cur.rs || "" });
@@ -707,7 +709,7 @@ export function heroRecord(h, base, look) {
   const { tok: _tok, linked: _linked, admin: _admin, ...rest } = b;
   const bag = { ...h.bag };
   delete bag.ld;
-  return { ...rest, v: 3, ...(look ? { name: look.name, job: look.job, elem: look.elem, gender: look.gender, picked: 1 } : {}),
+  return { ...rest, ts: h.ts || 0, v: 3, ...(look ? { name: look.name, job: look.job, elem: look.elem, gender: look.gender, picked: 1 } : {}),
     lv: h.lv, xp: h.xp, coins: h.coins, quest: { on: !!h.quest.on, n: h.quest.n }, stats: { ...h.st }, bag,
     rec: cleanRec(h.rec), titles: cleanTitles(h.titles), title: TITLE_BY_ID[h.title] ? h.title : "",
     honor: Math.max(0, Math.floor(Number(h.honor) || 0)), reqs: cleanReqs(h.reqs),
@@ -735,6 +737,7 @@ export function makeWorld() {
 function makeHero(pi, look, map = "plaza") {
   const [sx, sy] = MAPS[map].spawn;
   const h = {
+    ts: 0, trade: null,
     pi, map, x: sx + (Math.random() - 0.5) * 120, y: sy + (Math.random() - 0.5) * 60, dir: 1, face: 0, hold: [],
     hp: 0, max: 0, down: 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, loaded: 0, st: noStats(),
     cd: 0.5, sk: 0, swing: 0, kills: 0, flash: 0, numAcc: 0, numT: 0, calm: 0, gateCd: 0,
@@ -816,7 +819,7 @@ export function rpgJoin(g, pi, d, who) {
   const owner = h ? h.who : g.looks[pi] && g.looks[pi].who;
   if (who !== undefined && owner && who !== owner) return;
   if (!h) { g.pending[pi] = { d, who }; return; }
-  if (!d || h.loaded) return;
+  if (!d || (Number(d.ts) || 0) < (h.ts || 0) || (h.loaded && (Number(d.ts) || 0) === (h.ts || 0))) return;
   // 기록의 이름이 자리에 앉은 캐릭터와 다르면 싣지 않는다 — 같은 브라우저 다른 탭의 캐릭터 기록이 섞여 왔다(남의 레벨 · 관리자 표시가 옮겨 간 사고)
   const look = g.looks[pi];
   if (d.name && look && look.name && d.name !== look.name) return;
@@ -824,6 +827,7 @@ export function rpgJoin(g, pi, d, who) {
   if (rb && d.admin) d = { ...d, admin: 0 };       // 되돌리기 대상은 관리자 표시가 실려 와도 관리자가 아니다
   if (!d.admin && d.rs !== RESET.id) d = resetRecord(d);   // 서버 초기화 — 관리자만 빼고 처음으로
   const keepHp = h.migr && h.hp > 0 ? h.hp : 0;   // 방장을 이어받는 중이면 체력은 그대로
+  h.ts = Math.max(0, Math.floor(Number(d.ts) || 0));
   h.lv = clamp(Math.floor(Number(d.lv) || 1), 1, LV_MAX);
   h.xp = clamp(Math.floor(Number(d.xp) || 0), 0, needXp(h.lv) - 1);
   h.coins = Math.max(0, Math.floor(Number(d.coins) || 0));
@@ -868,8 +872,8 @@ export function rpgJoin(g, pi, d, who) {
    기록 · 칭호 · 명예 · 의뢰를 처음으로 돌린다. 한 사람 선물을 또 받지 않게 받은 표시(bag.pg)만 남기고,
    업데이트 선물도 받은 것으로 친다(초기화 직후에 또 주지 않는다) */
 function resetRecord(d) {
-  const bag = cleanBag({ pg: d.bag && d.bag.pg, oc: 1 });
-  return { lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, stats: {}, bag, rec: {}, titles: [], title: "", honor: 0, reqs: {},
+  const bag = cleanBag({ pg: d.bag && d.bag.pg, n: d.bag && d.bag.n, oc: 1 });
+  return { ts: d.ts || 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, stats: {}, bag, rec: {}, titles: [], title: "", honor: 0, reqs: {},
     gift: GIFT.id, rs: RESET.id, auto: d.auto, pvp: d.pvp, hold: d.hold, admin: 0 };
 }
 
@@ -1328,7 +1332,7 @@ export function rpgDuel(g, pi, req) {
   if (!h || !h.loaded || !req) return false;
   if (req.op === "ask") {
     const o = g.heroes[req.to];
-    if (!o || o === h || !o.loaded) return false;
+    if (!o || o === h || !o.loaded || trading(o) || trading(h)) return false;
     if (h.dvs >= 0) return void sys(g, pi, "결투 중에는 신청할 수 없습니다.");
     if (o.dvs >= 0) return void sys(g, pi, `${nameOf(g, o.pi)}님은 지금 결투 중입니다.`);
     if (h.down > 0) return void sys(g, pi, "쓰러진 동안은 신청할 수 없습니다.");
@@ -1543,6 +1547,7 @@ function killMob(g, m, pi) {
 }
 // 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
 function rewardKill(g, m, h, last) {
+  if (trading(h)) return;
   h.kills += 1;
   h.coins += m.coin;
   h.rec[m.type] += 1;
@@ -2998,7 +3003,7 @@ function zapBoom(g, h, o) {
 /* ── 한 걸음 ───────────────────────────────────────────── */
 function stepHeroes(g, dt) {
   g.heroes.forEach((h) => {
-    if (!h) return;
+    if (!h || trading(h)) return;
     h.flash = Math.max(0, h.flash - dt);
     h.swing = Math.max(0, h.swing - dt);
     h.buff = Math.max(0, h.buff - dt);
@@ -3705,7 +3710,7 @@ export function whyDungeon(h, id, runs) {
 }
 // 함께 들어갈 사람 — 나와, 같은 파티로 광장에 있는 사람(쓰러졌거나 결투 중이면 빼고)
 export const dgCrew = (g, h) => [h, ...(h.pty ? g.heroes.filter((o) => o && o !== h && o.pty === h.pty && o.loaded
-  && o.map === "plaza" && o.down <= 0 && !(o.dvs >= 0)) : [])];
+  && !trading(o) && o.map === "plaza" && o.down <= 0 && !(o.dvs >= 0)) : [])];
 function toPlaza(g, h) {
   h.map = "plaza";
   [h.x, h.y] = MAPS.plaza.spawn;
@@ -3859,7 +3864,7 @@ export function rpgParty(g, pi, req) {
   if (!h || !h.loaded || !req) return false;
   if (req.op === "invite") {
     const o = g.heroes[req.to];
-    if (!o || o === h || !o.loaded) return false;
+    if (!o || o === h || !o.loaded || trading(o) || trading(h)) return false;
     if (o.pty && o.pty === h.pty) return void sys(g, pi, `${nameOf(g, o.pi)}님은 이미 같은 파티입니다.`);
     if (o.pty) return void sys(g, pi, `${nameOf(g, o.pi)}님은 다른 파티에 있습니다.`);
     if (h.pty && partyOf(g, h.pty).length >= PARTY.max) return void sys(g, pi, `파티는 ${PARTY.max}명까지입니다.`);
@@ -4000,7 +4005,7 @@ export function rpgPack(g) {
         (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt ?? g.t)) * 1000) : 0,
         packArmor(h),
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
-        packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0]
+        packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0, h.ts || 0, trading(h) ? h.trade : null]
       : 0)),
     b: packBags(g),
     w: g.heroes.map((h) => (h && h.who) || ""),    // 자리마다 앉은 사람 id — 손님이 제 자리 영웅인지 견준다(남의 기록을 제 것으로 저장하지 않게)
@@ -4024,6 +4029,10 @@ export function rpgApply(g, s) {
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
+    h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
+    if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
+    h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;
+    g.tradeVersion = row.length > 51;
     h.sw = Array.isArray(s.w) ? s.w[pi] || "" : undefined;   // 방장이 아는 이 자리 주인(옛 방장이면 모른다)
     const mine = pi === g.mySeat;
     if (mine && row.length > 43) g.ackHoldQ = row[42];
@@ -4160,7 +4169,7 @@ export function rpgStepVisual(g, dt) {
     if (!h) return;
     h.swing = Math.max(0, h.swing - dt);
     h.flash = Math.max(0, h.flash - dt);
-    if (h.tx === undefined) return;
+    if (h.tx === undefined || trading(h) || h.tradeLocal) return;
     if (h.pi === g.mySeat) {
       h.predict = Math.max(0, (h.predict || 0) - dt);
       tickCc(h, dt);                               // 결투 군중 제어 — 스냅샷 사이에도 줄어든다

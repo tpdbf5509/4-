@@ -1806,3 +1806,23 @@ button.forge-stage:disabled { cursor: default; }
   padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(214, 186, 140, 0.3); background: rgba(16, 12, 8, 0.72);
   font-size: 11px; line-height: 1.35; letter-spacing: -0.02em; color: #d9cdb4; pointer-events: none; text-align: left; }
 .rpg-net b { font-weight: 600; color: #f0d48c; }
+
+/* 개인 거래 — 강조는 확정 단추에만 둔다. */
+.trade-back { position: fixed; inset: 0; z-index: 150; display: grid; place-items: center; background: #16191caa; padding: 16px; }
+.trade-panel { width: min(740px, 100%); max-height: 90dvh; overflow: auto; padding: 24px; background: #252b30; color: #e1dfd5; border: 1px solid #596267; border-radius: 8px; text-align: left; }
+.trade-panel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.trade-panel h2 { font-size: 20px; letter-spacing: -.04em; }
+.trade-panel h3 { font-size: 15px; }
+.trade-panel p { font-size: 13px; line-height: 1.7; color: #b6bebc; }
+.trade-panel button, .trade-panel input, .trade-panel select { padding: 8px; border: 1px solid #596267; border-radius: 4px; background: #30393e; color: #e1dfd5; font: inherit; }
+.trade-panel button { cursor: pointer; margin: 4px; }
+.trade-panel button:disabled { opacity: .45; cursor: default; }
+.trade-panel .btn-main { background: #a9b98f; color: #202624; }
+.trade-panel label { display: grid; gap: 6px; margin: 10px 0; font-size: 13px; }
+.trade-panel ul { padding-left: 20px; line-height: 1.8; font-size: 13px; }
+.trade-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.trade-columns > section { min-width: 0; border-top: 1px solid #596267; }
+.trade-toast { position: fixed; bottom: 80px; left: 20px; z-index: 151; max-width: 85vw; padding: 12px; background: #30393e; color: #eee; border: 1px solid #596267; }
+@media (max-width: 560px) { .trade-panel { padding: 14px; } .trade-columns { grid-template-columns: 1fr; } }
+.trade-panel { box-sizing: border-box; outline: none; }
+.trade-panel input, .trade-panel select { width: 100%; box-sizing: border-box; }

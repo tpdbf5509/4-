@@ -1,4 +1,4 @@
-import { WORLD_EQUIPMENT, worldArtCell } from "./worldEquipmentData.js";
+import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
 import { W, H } from "./world.js";
@@ -124,6 +124,7 @@ function heldWeapon(h, view) {
   if (!body) return null;
   const sp = SPECIAL_BY_ID[heldSpecial(h)];
   if (sp?.id === 'dragon_dual') {
+    for (const v of ['front','turn','side','back']) heroImg(h, `${v}-bare`);
     const offHand = DUAL_OFF_HAND[h.gender === 'f' ? 'f' : 'm'][view];
     return { body, hand, wpn: weaponImg(sp), grip: DUAL_HELD.grips[0], len: DUAL_HELD.lengths[0],
       left: view === 'turn' || view === 'side',
@@ -202,6 +203,13 @@ function drawHeld(ctx, held, ww, top, sw, col) {
 /* 보는 쪽에 맞는 그림 — 앞 그림은 오른쪽을, turn 은 왼쪽을 비스듬히 본다. 옆 그림은 왼쪽을 본다.
    flip 은 좌우로 뒤집어 그릴지 */
 function heroView(h) {
+  const c=h.ws?.world?.cast;
+  const dual = WORLD_WEAPON_SKILLS.dragon_dual.skill;
+  if(c?.id==='dragon_dual' && c.t>=dual.delay && c.t<dual.delay+dual.gap*dual.surgeAt){
+    // 회전 중 보는 방향만 바꾼다. 좌표와 피해는 받은 판정 그대로 쓴다.
+    const phase=Math.floor((c.t-dual.delay)/(dual.gap/2))%4;
+    return {view:['front','side','back','turn'][phase],flip:phase===1&&h.dir>0};
+  }
   if (h.face === 2) return { view: "back", flip: false };
   if (h.face === 1) return { view: "side", flip: h.dir > 0 };
   return { view: h.dir < 0 ? "turn" : "front", flip: false };
@@ -2024,7 +2032,7 @@ function follow(g, M) {
    ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
    ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
-  cap: { sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
+  cap: { sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
 const lod = { at: 0, ms: 16, q: 1 };
 function stepLod() {
   const now = performance.now(), d = lod.at ? Math.min(100, now - lod.at) : 16;

@@ -74,7 +74,7 @@ test('광장에서는 발동 불가·수량 부족 관리자 지급은 전체 �
 });
 test('비룡육연사: 화살 30발·마지막 비룡 1회',()=>{
  const {g}=setup('dragon_bow');g.out=[];rpgWeaponSkill(g,0);advance(g,2);
- assert.equal(g.out.filter(f=>f.kind==='sk_pierce').length,30);
+ assert.equal(g.out.filter(f=>f.kind==='sk_wb_volley').reduce((n,f)=>n+f.arrows,0),30);
  assert.equal(g.out.filter(f=>f.kind==='sk_wb_beast'&&f.dragon).length,1);
 });
 test('다단 스킬이 결투 피해 상한을 공유한다',()=>{
@@ -83,4 +83,26 @@ test('다단 스킬이 결투 피해 상한을 공유한다',()=>{
  h.bag.w[0].up=30;g.mobs=[];h.calm=o.calm=-100;h.auto=o.auto=0;o.inv=0;
  const before=o.hp;rpgWeaponSkill(g,0);advance(g,2);
  assert(o.hp<before);assert(before-o.hp <= o.max*.12+1,`누적 피해 ${before-o.hp}는 최대 체력 12% 이하여야 함`);
+});
+test('용아쌍검: 회전 뒤 한 번 돌진·교차 폭발·장비 교체로 중단',()=>{
+ const {g,h}=setup();g.out=[];h.y=400;g.mobs=[];const x=h.x;rpgWeaponSkill(g,0);
+ advance(g,.08);assert.equal(h.x,x,'준비 중에는 이동하지 않음');
+ advance(g,.2);assert.equal(h.x,x,'회전 중에는 이동하지 않음');
+ advance(g,.14);assert(h.x>x && h.x<x+360,'돌진 구간에서 이동');
+ advance(g,.3);assert(Math.abs(h.x-x-360)<5,`한 번의 360 거리 돌진: ${h.x-x}, ${h.y}, ${JSON.stringify(h.ws.world.cast)}`);
+ for(const kind of ['sk_wb_dual_spin','sk_wb_dual_dash','sk_wb_cross'])assert.equal(g.out.filter(f=>f.kind===kind).length,1);
+ const second=setup();rpgWeaponSkill(second.g,0);advance(second.g,.4);second.h.bag.e=0;advance(second.g,.02);
+ const stopped=second.h.x;advance(second.g,.1);assert.equal(second.h.x,stopped);
+});
+test('용아쌍검: 돌진 중 방장 승계해도 남은 이동과 마지막 타격이 이어진다',()=>{
+ const {g,ss}=setup();rpgWeaponSkill(g,0);advance(g,.42);
+ const guest=makeWorld();rpgSyncSeats(guest,ss);rpgApply(guest,JSON.parse(JSON.stringify(rpgPack(g))));
+ const h=guest.heroes[0],x=h.x;rpgPromote(guest);h.loaded=1;h.auto=0;guest.heroes[1].auto=0;
+ advance(guest,.3);assert(h.x>x+100,`승계: ${x} → ${h.x}, ${JSON.stringify(h.ws.world)}`);assert.equal(h.ws.world.cast,null);
+});
+test('월드보스 무기는 기존 스킬 연출을 발동시키지 않는다',()=>{
+ for(const sp of WORLD_WEAPONS){const {g}=setup(sp.id);g.out=[];rpgWeaponSkill(g,0);advance(g,2);
+   const skills=g.out.filter(f=>f.kind?.startsWith('sk_'));assert(skills.length>0);
+   assert(skills.every(f=>f.kind.startsWith('sk_wb_')),`${sp.id}: 기존 스킬 효과 재사용 금지`);
+ }
 });

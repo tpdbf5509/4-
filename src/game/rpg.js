@@ -1002,6 +1002,7 @@ export function fx(g, map, item) {
   for (const k in item) { const v = item[k]; it[k] = typeof v === "number" ? Math.round(v * FX_ROUND) / FX_ROUND : v; }
   if (it.kind === "cut") g.fx = g.fx.filter((f) => f.fid !== it.ref);   // 맞은 투사체 그림을 지운다
   else g.fx.push(it);
+  if (it.kick && g.heroes[g.mySeat]?.map === map) g.shake = Math.max(g.shake, Math.min(.6, it.kick));
   if (g.out) g.out.push({ k: "fx", ...it });
 }
 function say(g, map, x, y, text, color) {
@@ -4162,6 +4163,7 @@ export function rpgApplyOut(g, list) {
       delete item.k;
       if (item.kind === "cut") g.fx = g.fx.filter((f) => f.fid !== item.ref);
       else g.fx.push(item);
+      if (item.kick && g.heroes[g.mySeat]?.map === item.map) g.shake = Math.max(g.shake, Math.min(.6, item.kick));
     } else if (o.k === "note") {
       const item = { ...o };
       delete item.k;

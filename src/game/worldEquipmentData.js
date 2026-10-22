@@ -32,7 +32,7 @@ export const WORLD_WEAPONS = [
 const passive = { name: '괴수의 유산', note: '직업에 맞는 공격 능력치를 높이는 월드보스 전설 무기' };
 export const WORLD_WEAPON_SKILLS = {
   dragon_dual: { name: '용아선풍', role: '회전 돌진과 마무리', passive,
-    skill: { note: '회전하며 앞으로 돌진해 6번 베고 마지막에 교차 베기', cd: 16, hits: 6, gap: 0.12, step: 34, r: 140, mul: 0.55, finish: 2 } },
+    skill: { note: '붉은 회전 구체로 6번 베고 360 거리 돌진 후 교차 폭발 · 총 위력은 이전과 동일', cd: 16, hits: 7, gap: 0.08, delay: 0.1, surgeAt: 3, surge: 0.22, distance: 360, reach: 420, r: 140, mul: 0.55, finish: 2 } },
   dragon_staff: { name: '용성우', role: '지정 지역 집중 폭격', passive,
     skill: { note: '목표 지역에 운석 5회 낙하 · 마지막은 거대 운석', cd: 20, reach: 550, hits: 5, gap: 0.32, delay: 0.6, r: 110, mul: 0.8, finish: 2.4, finalRadius: 175 } },
   dragon_bow: { name: '비룡육연사', role: '전진 연사와 비룡 추격', passive,

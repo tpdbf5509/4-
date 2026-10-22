@@ -1,3 +1,4 @@
+import { skillAccent } from "./combatFx.js";
 import { drawWorldWeaponFx } from "./worldWeaponArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
    drawSkillFx — 이 파일이 맡은 연출(kind 가 "sk_" 로 시작): 빙판길 · 얼음 가시 · 불꽃 회오리 · 화염베기 · 유성(별 · 은하) · 종말의 일격 · 성광 빛줄기 · 빛의 결계 · 잿빛 폭발 · 낙뢰.
@@ -44,7 +45,8 @@ function glowAt(ctx, x, y, r, inner, outer, mid) {
 export function drawSkillFx(ctx, f, time, g) {
   if (!Number.isFinite(f.x) || !Number.isFinite(f.y)) return;
   const p = 1 - f.t / f.life;                     // 0 → 1
-  if (drawWorldWeaponFx(ctx, f, p, time, SQ())) return;
+  if (drawWorldWeaponFx(ctx, f, p, time, SQ(), g, Q)) return;
+  skillAccent(ctx, f, p, Q);
   if (f.kind === "sk_ice") drawIce(ctx, f, p, time);
   else if (f.kind === "sk_tornado") drawTornado(ctx, f, p);
   else if (f.kind === "sk_meteor") drawMeteor(ctx, f, p);

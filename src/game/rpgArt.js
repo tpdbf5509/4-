@@ -36,6 +36,15 @@ const WARRIOR_HAND = {
   m: { front: [60, 213, 124], turn: [122, 201, 48], side: [72, 194, 134], back: [103, 188, 59] },
   f: { front: [94, 205, 123], turn: [71, 197, 133], side: [46, 197, 125], back: [95, 198, 62] },
 };
+// 쌍검의 반대 손. 몸 그림의 실제 장갑 위치에 맞추며 먼 손의 단검은 몸 뒤에서 그린다.
+const DUAL_OFF_HAND = {
+  m: { front: [139, 209, 55], turn: [40, 194, 125], side: [112, 181, 45], back: [30, 188, 125] },
+  f: { front: [166, 198, 55], turn: [138, 187, 55], side: [92, 181, 45], back: [27, 190, 125] },
+};
+const DUAL_HELD = {
+  src: '/assets/game/rpg/items/dragon-dual-held.webp',
+  grips: [[64, 107, 64, 5], [64, 107, 64, 44]], lengths: [32, 22],
+};
 const WEAPON_GRIP = {
   dragon_dual: [26, 104, 109, 15], dragon_staff: [64, 100, 65, 16], dragon_bow: [66, 67, 60, 12],
   serpent_sword: [24, 108, 108, 20], serpent_staff: [62, 100, 62, 15], serpent_bow: [62, 64, 75, 14],
@@ -73,9 +82,10 @@ const BASIC_LEN = 23;                                 // 특별 무기가 없을
 const SWING = { t: 0.24, up: 0.12, hit: 0.5, raise: 245, strike: 385 };
 const HELD_TYPE = { dagger: 0.8, great: 1.15 };        // 단검은 짧게, 대검은 길게
 const weaponCache = {};
-function weaponImg(sp) {
+function weaponImg(sp, part = 0) {
   if (typeof Image === "undefined") return null;
-  const src = sp.world ? WORLD_EQUIPMENT.atlas : specialArt(sp);
+  const dual = sp.id === 'dragon_dual';
+  const src = dual ? DUAL_HELD.src : sp.world ? WORLD_EQUIPMENT.atlas : specialArt(sp);
   let im = weaponCache[src];
   if (im === undefined) {
     im = weaponCache[src] = new Image();
@@ -84,12 +94,13 @@ function weaponImg(sp) {
   }
   if (!(im && im.complete && im.naturalWidth)) return null;
   if (!sp.world) return im;
-  const cell = worldArtCell(specialArt(sp)), cacheKey = `world:${sp.id}`;
+  const cell = dual ? part : worldArtCell(specialArt(sp)), cacheKey = `world:${sp.id}:${part}`;
   if (!weaponCache[cacheKey]) {
     const c = document.createElement('canvas'); c.width = c.height = 128;
     const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
-    const cw = im.naturalWidth / 7, ch = im.naturalHeight / 3;
-    ctx.drawImage(im, (cell % 7) * cw, Math.floor(cell / 7) * ch, cw, ch, 0, 0, 128, 128);
+    const columns = dual ? 2 : WORLD_EQUIPMENT.columns, rows = dual ? 1 : WORLD_EQUIPMENT.rows;
+    const cw = im.naturalWidth / columns, ch = im.naturalHeight / rows;
+    ctx.drawImage(im, (cell % columns) * cw, Math.floor(cell / columns) * ch, cw, ch, 0, 0, 128, 128);
     weaponCache[cacheKey] = c;
   }
   return weaponCache[cacheKey];
@@ -112,6 +123,12 @@ function heldWeapon(h, view) {
   const body = hand && heroImg(h, `${view}-bare`);
   if (!body) return null;
   const sp = SPECIAL_BY_ID[heldSpecial(h)];
+  if (sp?.id === 'dragon_dual') {
+    const offHand = DUAL_OFF_HAND[h.gender === 'f' ? 'f' : 'm'][view];
+    return { body, hand, wpn: weaponImg(sp), grip: DUAL_HELD.grips[0], len: DUAL_HELD.lengths[0],
+      left: view === 'turn' || view === 'side',
+      off: { hand: offHand, wpn: weaponImg(sp, 1), grip: DUAL_HELD.grips[1], len: DUAL_HELD.lengths[1], left: offHand[2] > 90 } };
+  }
   const grip = sp && WEAPON_GRIP[sp.art];
   const wpn = grip ? weaponImg(sp) : null;
   return { body, hand, wpn, grip, len: wpn ? HELD_LEN * (HELD_TYPE[sp.t] || 1) : BASIC_LEN,
@@ -1850,8 +1867,16 @@ function drawHero(ctx, g, h, time) {
   if (im) {
     const ww = im.naturalWidth * HERO_K, hh = im.naturalHeight * HERO_K;
     const top = -hh + HERO_PAD * HERO_K;
+    const sw = held && !down ? swingAngle(h, held, time) : null;
+    if (held?.off) {
+      // 두 검은 각각 자기 손을 축으로 반대 방향으로 벤다. 몸을 먼저 관통해 보이지 않게 먼 손은 뒤에 둔다.
+      const off = held.off, counter = a => off.hand[2] - (a - held.hand[2]);
+      const offSwing = sw ? { ...sw, ang: counter(sw.ang), from: sw.from === undefined ? undefined : counter(sw.from),
+        to: sw.to === undefined ? undefined : counter(sw.to), trail: sw.trail * 0.7 } : null;
+      drawHeld(ctx, off, ww, top, offSwing, col.light);
+    }
     ctx.drawImage(im, -ww / 2, top, ww, hh);
-    if (held) drawHeld(ctx, held, ww, top, down ? null : swingAngle(h, held, time), col.light);
+    if (held) drawHeld(ctx, held, ww, top, sw, col.light);
     if (h.flash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(0.5, h.flash * 3);

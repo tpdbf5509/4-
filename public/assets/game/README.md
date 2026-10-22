@@ -81,3 +81,5 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 `rpg/items/trade-icons.webp`는 내장 이미지 생성 도구로 만든 1254×1254 투명 그림입니다. 6열×6행이며 칸당 209×209입니다. 주문서·물약·재료·기본 무기 아이콘이 들어 있습니다. 각 칸 연결표는 `src/TradePanel.jsx`의 `ITEM_ART` · `WEAPON_ART`입니다. 글자와 수량은 그림에 넣지 않고 화면에서 표시합니다.
 
 월드보스 장비: `rpg/items/world-equipment.webp` — 투명 1916×821, 7열×3행. 행은 드래곤·거대 뱀·고대 번개 기계. 열은 전사 무기·지팡이·활·투구·갑옷·바지·신발. 원본/생성 기록은 `docs/월드보스-장비-이미지-생성.md`. 인벤토리와 손에 든 무기가 같은 시트 칸을 사용한다.
+
+용아쌍검 손에 든 그림: `rpg/items/dragon-dual-held.webp` — 투명 1774×887, 2열×1행. 왼쪽 장검, 오른쪽 단검. `rpgArt.js`가 각 칸을 128px 기준으로 캐시하고 성별·방향별 양손 좌표에 따로 그린다. 가방·거래의 기존 쌍검 아이콘은 유지한다.

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RPG_SERVERS, JOB_BY_ID } from "./game/rpg.js";
 import { UPDATES } from "./game/updates.js";
 import { myId } from "./net/room.js";
-import { ADMIN, adminAccounts, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
+import { ADMIN, adminAccounts, adminRename, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
 import "./ui/admin.css";
 
 const TABS = [["people", "인원"], ["accounts", "계정"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
@@ -228,7 +228,7 @@ function AdminBoard({ auth, onOut }) {
         </section>
       )}
 
-      {tab === "accounts" && <AccountsTab auth={auth} />}
+      {tab === "accounts" && <AccountsTab auth={auth} onOut={onOut} />}
 
       {tab === "log" && (
         <section className="adm-sec">
@@ -330,7 +330,33 @@ const ACC_SORT = [
 ];
 const day = (t) => { const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${clock(t).slice(0, 5)}`; };
 
-function AccountsTab({ auth }) {
+function AccountsTab({ auth, onOut }) {
+  const [editing, setEditing] = useState("");
+  const [nextName, setNextName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const changing = useRef(false);
+  const renameAccount = async (e) => {
+    e.preventDefault();
+    if (changing.current) return;
+    const next = nextName.trim().replace(/\s+/g, " ");
+    if (!next || [...next].length > 8) { setErr("새 이름은 1~8글자로 적어 주세요."); return; }
+    if (next === editing) { setErr("지금과 다른 이름을 적어 주세요."); return; }
+    changing.current = true;
+    setBusy(true); setErr(""); setNotice("");
+    try {
+      const r = await adminRename(auth.name, auth.code, editing, next);
+      if (!r || !r.ok) {
+        const messages = { taken: "이미 쓰는 이름입니다.", live: "접속 중인 계정입니다. 게임에서 나온 뒤 30초 후 다시 시도해 주세요.",
+          name: "새 이름은 1~8글자로 적어 주세요.", missing: "계정을 찾을 수 없습니다. 새로 읽어 주세요.", same: "지금과 다른 이름을 적어 주세요." };
+        setErr(messages[r?.err] || errOf(r)); return;
+      }
+      if (editing === auth.name) { onOut(); return; }
+      setNotice(`${editing} → ${r.name} 변경 완료. 새 이름과 기존 코드로 다시 로그인해 주세요.`);
+      setEditing(""); setNextName(""); setQ(""); setPage(0);
+      await load();
+    } finally { changing.current = false; setBusy(false); }
+  };
   const [list, setList] = useState(null);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
@@ -361,14 +387,23 @@ function AccountsTab({ auth }) {
         </select>
         <button onClick={load}>새로 읽기</button>
       </div>
-      {err && <p className="adm-err">{err}</p>}
+      {notice && <p role="status">{notice}</p>}
+      {editing && <form className="adm-tools" onSubmit={renameAccount}>
+        <label>{editing} → <input aria-label="새 계정 이름" autoFocus value={nextName} maxLength={8} disabled={busy} onChange={(e) => setNextName(e.target.value)} /></label>
+        <button disabled={busy || !nextName.trim()} type="submit">{busy ? "변경 중…" : "이 이름으로 변경"}</button>
+        <button disabled={busy} type="button" onClick={() => { setEditing(""); setErr(""); }}>취소</button>
+        <p className="adm-label">게임에서 나온 계정만 변경할 수 있습니다. 변경 후 새 이름과 기존 코드로 로그인하세요. 관리자 본인의 이름을 바꾸면 관리 화면도 다시 로그인해야 합니다.</p>
+      </form>}
+      {err && <p className="adm-err" role="alert">{err}</p>}
       {!list && !err && <p className="adm-empty">불러오는 중…</p>}
       {list && (
         <div className="adm-rows">
           <div className="adm-row acc head"><span>이름</span><span>레벨</span><span>코인</span><span>명예</span><span>만든 날</span><span>마지막 저장</span><span>접속</span></div>
           {shown.slice(pg * ACC_PAGE, (pg + 1) * ACC_PAGE).map((a) => (
             <div className="adm-row acc" key={a.name}>
-              <span className="nm">{a.name}<em>{a.admin ? "관리자" : (JOB_BY_ID[a.job] || {}).name || "직업 없음"}</em></span>
+              <span className="nm">{a.name}<em>{a.admin ? "관리자" : (JOB_BY_ID[a.job] || {}).name || "직업 없음"}</em>
+                <button className="adm-rename" disabled={busy || !!a.live} title={a.live ? "게임에서 나온 뒤 변경할 수 있습니다" : "계정 이름 변경"}
+                  onClick={() => { setEditing(a.name); setNextName(a.name); setErr(""); setNotice(""); }}>이름 변경</button></span>
               <span>Lv {a.lv}</span>
               <span>{a.coins.toLocaleString("ko-KR")}</span>
               <span>{a.honor.toLocaleString("ko-KR")}</span>

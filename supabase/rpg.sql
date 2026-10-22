@@ -150,7 +150,7 @@ declare
 begin
   if p_data is null or octet_length(p_data::text) > 30000 then return jsonb_build_object('ok', false, 'err', 'data'); end if;
   select * into v_char from public.rpg_chars
-  where name_key = public.rpg_key(p_name) and token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex');
+  where name_key = public.rpg_key(p_name) and token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex') for update;
   if not found then return jsonb_build_object('ok', false, 'err', 'token'); end if;
   if not v_char.admin then
     v_old := public.rpg_lv(v_char.data);
@@ -393,3 +393,38 @@ begin
 end $$;
 revoke execute on function public.rpg_admin_accounts(text, text) from public, anon, authenticated;
 grant execute on function public.rpg_admin_accounts(text, text) to anon, authenticated;
+
+-- 관리자 계정 이름 변경. 계정 기록·코드·관리자 권한을 보존한다.
+create or replace function public.rpg_admin_rename(p_name text, p_code text, p_target text, p_new_name text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_ok jsonb := public.rpg_admin_ok(p_name, p_code);
+  v_name text := regexp_replace(btrim(coalesce(p_new_name, '')), '\s+', ' ', 'g');
+  v_key text := public.rpg_key(v_name);
+  v_char public.rpg_chars;
+begin
+  if not coalesce((v_ok->>'ok')::boolean, false) then return v_ok; end if;
+  if char_length(v_name) not between 1 and 8 or v_name ~ '[[:cntrl:]]' then
+    return jsonb_build_object('ok', false, 'err', 'name');
+  end if;
+  select * into v_char from public.rpg_chars where name_key = public.rpg_key(p_target) for update;
+  if not found then return jsonb_build_object('ok', false, 'err', 'missing'); end if;
+  if v_char.name = v_name then return jsonb_build_object('ok', false, 'err', 'same'); end if;
+  if v_char.live_at > now() - make_interval(secs => public.rpg_live_secs()) then
+    return jsonb_build_object('ok', false, 'err', 'live');
+  end if;
+  if v_key <> v_char.name_key and exists (select 1 from public.rpg_chars where name_key = v_key) then
+    return jsonb_build_object('ok', false, 'err', 'taken');
+  end if;
+  update public.rpg_chars set name_key = v_key, name = v_name,
+    data = jsonb_set(data, '{name}', to_jsonb(v_name)),
+    token_hash = null, live_sid = null, live_srv = null, live_at = null
+  where name_key = v_char.name_key;
+  -- 이전 이름과 새 이름의 로그인 실패 횟수를 초기화한다.
+  delete from public.rpg_fails where name_key in (v_char.name_key, v_key);
+  return jsonb_build_object('ok', true, 'name', v_name);
+exception when unique_violation then
+  return jsonb_build_object('ok', false, 'err', 'taken');
+end $$;
+revoke execute on function public.rpg_admin_rename(text, text, text, text) from public, anon, authenticated;
+grant execute on function public.rpg_admin_rename(text, text, text, text) to anon, authenticated;

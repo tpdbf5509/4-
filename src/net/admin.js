@@ -37,3 +37,7 @@ export const adminRedeem = async (nonce, server, act, target) =>
 
 // 관리 채널에 붙는다 — 방장 화면과 관리 화면이 같이 쓴다
 export const joinAdminLink = (server, id, name) => joinRoom(`adm-${server}`, { id, name });
+
+// 이름 변경 — 관리자 확인과 접속·중복 검사는 서버가 수행한다
+export const adminRename = (name, code, target, next) =>
+  rpc("rpg_admin_rename", { p_name: name, p_code: code, p_target: target, p_new_name: next });

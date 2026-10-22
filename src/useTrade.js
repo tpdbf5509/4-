@@ -5,6 +5,8 @@ import { rpgTrade } from './game/trade.js';
 import { TRADE } from './game/tradeData.js';
 import { cloudFlush, cloudQueue, cloudReset, loadRemote, tradeAction, tradeOpen } from './net/rpgSave.js';
 
+const ACTION_WAIT_MS = 50; // 상태 조회가 끝나기를 기다릴 때 버튼 입력을 버리지 않는 간격
+
 export const tradeError = (r) => ({
   changed: '내용이 바뀌었습니다. 다시 확인해 주세요.', account: '서버 계정이 있는 캐릭터끼리 거래할 수 있습니다.',
   live: '같은 서버에 접속한 사람과 거래할 수 있습니다.', busy: '이미 진행 중인 거래가 있습니다.', rate: '잠시 뒤 다시 신청해 주세요.',
@@ -77,12 +79,17 @@ export function useTrade(options) {
   }, [lock, recover]);
   const call = useCallback(async (op, offer, hash) => {
     const c = account(), o = current.current;
-    if (!c || working.current) return;
+    if (!c) return { ok: false, err: 'token' };
+    // 상태를 읽는 중에 누른 버튼도 버리지 않고 읽기가 끝난 뒤 처리한다.
+    const deadline = Date.now() + TRADE.lockMs;
+    while (working.current && Date.now() < deadline) await new Promise((r) => setTimeout(r, ACTION_WAIT_MS));
+    if (working.current) return { ok: false, err: 'net' };
     working.current = true; setBusy(true); setError('');
     try {
       const id = active.current?.id;
       const r = await tradeAction(c.name, c.tok, o.seats[o.seat]?.id, id, op, offer, hash);
       await receive(r);
+      return r;
     } finally { working.current = false; setBusy(false); }
   }, [receive]);
   const flush = useCallback(async () => {
@@ -116,12 +123,12 @@ export function useTrade(options) {
     finally { working.current = false; setBusy(false); }
   }, [flush, lock, receive]);
   const confirm = useCallback(async () => {
-    if (working.current || !active.current) return;
+    if (!active.current) return { ok: false };
     // 확인 후 물품을 바꾸면 다시 저장한다. 이미 확인한 쪽은 서버 저장이 잠겨 있으므로 재확인은 읽기만 한다.
     try {
       if (!active.current.accepted[active.current.side]) await flush();
-      await call('accept', null, active.current.hash);
-    } catch (e) { setError(e.message); }
+      return await call('accept', null, active.current.hash);
+    } catch (e) { setError(e.message); return { ok: false }; }
   }, [call, flush]);
   useEffect(() => {
     let stop = false, timer;
@@ -153,7 +160,7 @@ export function useTrade(options) {
       try {
         // 첫 확인 전 최신 가방을 DB에 먼저 남긴다. 확인한 뒤 변경할 때는 DB의 잠긴 기록을 쓴다.
         if (!active.current?.accepted[active.current.side]) await flush();
-        await call('offer', offer);
-      } catch (e) { setError(e.message); }
+        return await call('offer', offer);
+      } catch (e) { setError(e.message); return { ok: false }; }
     } };
 }

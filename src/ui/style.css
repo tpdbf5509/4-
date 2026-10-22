@@ -1832,12 +1832,44 @@ button.forge-stage:disabled { cursor: default; }
 .trade-offer .shop-price { margin: 6px 0; }
 .trade-arrows { padding: 8px; border-top: 1px solid var(--sh-line); border-bottom: 1px solid var(--sh-line); text-align: center;
   font-family: 'Do Hyeon', sans-serif; font-size: 30px; line-height: 1; color: var(--sh-gold); }
-.trade-picker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 12px; }
-.trade-picker .shop-note { flex-basis: 100%; min-height: 20px; }
-.trade-picker .shop-bet input { width: 65px; }
 .trade-coins input { width: 110px; min-width: 0; box-sizing: border-box; }
-.trade-footer { border-top: 1px solid var(--sh-line); padding-top: 4px; margin-top: 12px; }
-.trade-footer .shop-btns { flex-wrap: wrap; margin-top: 10px; }
+.trade-panel { --sh-mute: #d0c2a6; --sh-faint: #bcae90; --sh-line: rgba(226, 205, 165, 0.3); }
+.trade-panel .shop-top { flex-shrink: 0; }
+.trade-panel .shop-body { min-height: 0; flex: 1 1 auto; }
+.trade-panel .shop-note { font-size: 13px; line-height: 1.6; }
+.trade-panel .shop-btn, .trade-panel .shop-tabs button { min-height: 44px; }
+.trade-panel .shop-tabs button { font-size: 15px; padding: 10px 12px; }
+.trade-panel .shop-tabs button.on { color: #fff2d3; background: rgba(227, 196, 138, 0.12); border-bottom-width: 2px; }
+.trade-help { margin: 8px 0; color: var(--sh-text); }
+.trade-slot { min-height: 44px; padding: 0; overflow: hidden; }
+.trade-slot-visual { position: absolute; inset: 7px 7px 26px; display: grid; place-items: center; }
+.trade-slot-visual > img { width: 100%; height: 100%; }
+.trade-slot-visual .trade-slot-atlas { height: 100%; width: auto; max-width: 100%; aspect-ratio: 1; }
+.trade-slot-name { position: absolute; bottom: 5px; left: 4px; right: 4px; font-size: 12px; line-height: 1.3;
+  color: #f5ead5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trade-slot-count, .trade-slot-up { top: 3px; bottom: auto; padding: 1px 4px; border-radius: 3px; background: #211a12; font-size: 12px; }
+.trade-slot:focus-visible { outline: 3px solid #ffe5a8; outline-offset: -3px; }
+.trade-offer { padding: 8px; border: 1px solid transparent; border-radius: 8px; }
+.trade-offer.confirmed { border-color: #a9cd94; background: rgba(116, 154, 95, 0.12); }
+.trade-offer .shop-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-top: 0; font-size: 17px; }
+.trade-state { display: inline-flex; align-items: center; min-height: 28px; padding: 2px 8px; border: 1px solid #817156;
+  border-radius: 5px; font-size: 13px; color: #dfd2b9; background: #332a1e; white-space: nowrap; box-sizing: border-box; }
+.trade-state.ready { color: #e2f6d4; background: #34482b; border-color: #a9cd94; font-weight: 700; }
+.trade-quantity { display: flex; align-items: center; gap: 6px; margin: 6px 0; font-size: 13px; color: var(--sh-text); }
+.trade-quantity > span:first-child { flex: 1; min-width: 0; }
+.trade-quantity input { box-sizing: border-box; width: 76px; min-height: 44px; padding: 6px; border: 1px solid var(--sh-line); border-radius: 6px;
+  background: #1e180f; color: #fff1d2; font: inherit; font-size: 16px; }
+.trade-coins { margin-top: 10px; font-size: 15px; }
+.trade-coins input { min-height: 44px; font-size: 16px; }
+.trade-footer { flex-shrink: 0; border-top: 1px solid var(--sh-line); padding: 10px 16px 14px; background: var(--sh-bg); }
+.trade-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--sh-text); }
+.trade-checks > span { display: inline-flex; align-items: center; gap: 8px; }
+.trade-status { min-height: 20px; margin: 8px 0; color: #e5d8bd; font-size: 13px; line-height: 1.5; }
+.trade-panel .trade-confirm { display: block; width: 100%; min-height: 52px; font-size: 18px; font-weight: 700; white-space: normal; }
+.trade-panel .trade-confirm:disabled { opacity: 1; color: #c7b99c; background: #3a3021; border-color: #7e6b4c; }
+.trade-panel .trade-confirm.complete:disabled { color: #e2f6d4; background: #34482b; border-color: #a9cd94; }
+.trade-error { flex-shrink: 0; margin: 0; padding: 8px 16px; background: #492a20; color: #ffe0c6; font-size: 14px; }
+.trade-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .trade-toast { z-index: 6; grid-template-columns: 1fr; }
 @media (max-width: 600px) {
   .shop.trade-panel { left: 6px; top: 6px; width: calc(100% - 12px); max-height: calc(100% - 12px); }
@@ -1851,4 +1883,18 @@ button.forge-stage:disabled { cursor: default; }
   .trade-offer .shop-h small { display: block; margin-left: 0; }
   .trade-coins { flex-wrap: wrap; gap: 4px; }
   .trade-coins input { width: 100%; }
+}
+
+@media (max-width: 600px) {
+  .frame:has(.trade-panel) { min-height: min(700px, calc(100svh - 64px)); }
+  .trade-panel .shop-top { padding: 8px 12px; }
+  .trade-footer { padding: 8px 12px 10px; }
+  .trade-checks { gap: 6px 12px; }
+  .trade-panel .shop-tabs button { min-height: 44px; padding: 8px; font-size: 14px; }
+  .trade-panel .trade-layout { grid-template-columns: minmax(0, 1fr); }
+  .trade-panel .trade-inventory { padding-right: 0; }
+  .trade-panel .trade-exchange { padding-left: 0; border-left: 0; border-top: 1px solid var(--sh-line); }
+  .trade-panel .trade-slot-name { font-size: 12px; }
+  .trade-panel .trade-offer .shop-h { font-size: 16px; }
+  .trade-panel .trade-offer .trade-grid { max-width: none; }
 }

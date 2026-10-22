@@ -49,7 +49,12 @@ function SlotGrid({ items, onChoose, busy, name, minimum = 9, action }) {
 export default function TradePanel({ api, self }) {
   const t = api.trade;
   const [tab, setTab] = useState('scroll');
-  if (!t) return api.error ? <div className="rpg-talk trade-toast" role="status"><span className="rpg-talk-line">{api.error}</span></div> : null;
+  if (!t) {
+    const notice = api.error ? { title: '거래 불가', text: api.error } : api.notice;
+    return notice ? <div className={`trade-result ${notice.success ? 'success' : ''}`} role="status" aria-live="polite" aria-atomic="true">
+      <strong>{notice.success && '✓ '}{notice.title}</strong><span>{notice.text}</span>
+    </div> : null;
+  }
   return <TradeDialog key={t.id} api={api} self={self} tab={tab} setTab={setTab} />;
 }
 function TradeDialog({ api, self, tab, setTab }) {

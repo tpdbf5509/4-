@@ -6,6 +6,7 @@ import { TRADE } from './game/tradeData.js';
 import { cloudFlush, cloudQueue, cloudReset, loadRemote, tradeAction, tradeOpen } from './net/rpgSave.js';
 
 const ACTION_WAIT_MS = 50; // 상태 조회가 끝나기를 기다릴 때 버튼 입력을 버리지 않는 간격
+const NOTICE_MS = 5000; // 거래 결과와 오류는 읽을 시간을 준 뒤 화면에서 지운다
 
 export const tradeError = (r) => ({
   changed: '내용이 바뀌었습니다. 다시 확인해 주세요.', account: '서버 계정이 있는 캐릭터끼리 거래할 수 있습니다.',
@@ -21,6 +22,17 @@ export function useTrade(options) {
   const [trade, setTrade] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState(null);
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(''), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [error]);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
   const active = useRef(null), working = useRef(false), lastQ = useRef(0), seenDone = useRef(''), syncRecord = useRef(null);
   const account = () => {
     const c = loadChar();
@@ -66,13 +78,15 @@ export function useTrade(options) {
       lock(true);
       if (!await recover()) return; // 불확실하면 잠금을 유지하고 다음 읽기에서 다시 복구한다
       seenDone.current = t.id;
-      current.current.pushChat({ kind: 'sys', text: '거래를 마쳤습니다.' });
+      setError('');
+      setNotice({ title: '거래 완료', text: '물품과 코인을 교환했습니다.', success: true });
     }
     if (t && ['invite', 'open'].includes(t.state)) {
       if (t.state === 'open' || t.side === 0) lock(true);
       active.current = t; setTrade(t);
     } else {
       if (t?.state === 'fail') setError(tradeError(t));
+      if (t?.state === 'cancel' && active.current) setNotice({ title: '거래 취소', text: t.error === 'expired' ? '시간이 지나거나 접속이 끊겨 취소되었습니다.' : '거래를 취소했습니다.' });
       if (active.current) lock(false);
       active.current = null; setTrade(null);
     }
@@ -154,7 +168,7 @@ export function useTrade(options) {
     tick();
     return () => { stop = true; clearTimeout(timer); };
   }, [receive]);
-  return { trade, busy, error, request, recover, lock, confirm,
+  return { trade, busy, error, notice, request, recover, lock, confirm,
     join: async () => { try { await flush(); await call('join'); } catch (e) { setError(e.message); lock(false); } }, cancel: () => call('cancel'),
     change: async (offer) => {
       try {

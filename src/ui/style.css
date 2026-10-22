@@ -1870,7 +1870,17 @@ button.forge-stage:disabled { cursor: default; }
 .trade-panel .trade-confirm.complete:disabled { color: #e2f6d4; background: #34482b; border-color: #a9cd94; }
 .trade-error { flex-shrink: 0; margin: 0; padding: 8px 16px; background: #492a20; color: #ffe0c6; font-size: 14px; }
 .trade-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-.trade-toast { z-index: 6; grid-template-columns: 1fr; }
+.trade-result {
+  position: absolute; z-index: 12; top: 42%; left: 50%; transform: translate(-50%, -50%);
+  width: min(560px, calc(100% - 32px)); box-sizing: border-box; padding: 24px 20px;
+  display: grid; gap: 10px; text-align: center; pointer-events: none;
+  border: 1px solid #d4ae66; border-radius: 16px; background: rgba(43, 31, 17, .96);
+  color: #fff1cf; box-shadow: 0 8px 30px #0008; overflow-wrap: anywhere;
+}
+.trade-result strong { font-family: 'Do Hyeon', sans-serif; font-size: clamp(28px, 4vw, 44px); line-height: 1.2; }
+.trade-result span { font-size: clamp(16px, 2vw, 20px); line-height: 1.5; }
+.trade-result.success { border-color: #a6cd86; }
+.trade-result.success strong { color: #c8efac; }
 @media (max-width: 600px) {
   .shop.trade-panel { left: 6px; top: 6px; width: calc(100% - 12px); max-height: calc(100% - 12px); }
   .trade-inventory { padding-right: 10px; }

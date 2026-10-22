@@ -541,7 +541,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     else room.send("input", d);
   }, [room]);
   const trades = useTrade({ g: G.current, seat: mySeat, room, seats, isHost, hostId, sendInput, nextSeq,
-    selfName: selfName.current, pushChat, closeAll });
+    selfName: selfName.current, closeAll });
   const recoverTrade = useRef(trades.recover);
   useEffect(() => { recoverTrade.current = trades.recover; }, [trades.recover]);
   // 방장은 지금 손님들의 통로에 붙는다 — 손님이 바뀌거나 방장이 바뀌면 다시 맞춘다

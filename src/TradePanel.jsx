@@ -9,19 +9,30 @@ const label = (x) => x.k === 'w' ? weaponName(x.item) : x.k === 'a' ? armorName(
   : x.k === 'p' ? POTION_BY_ID[x.u]?.name || x.u : x.k === 'm' ? MATERIALS.find((m) => m.id === x.u)?.name || x.u
     : x.k === 'wp' ? '워프권' : '하락 방지권';
 const identity = (x) => `${x.k}:${x.u || ''}`;
-// 주문서·물약·재료는 Google Flow에서 생성한 그림을 받은 뒤 여기에 등록한다.
-const ITEM_ART = {};
-const artOf = (x) => x.k === 'w' ? weaponArt(x.item) : x.k === 'a' ? armorArt(x.item.s, x.item.g) : ITEM_ART[identity(x)];
+// 내장 이미지 생성 도구로 만든 6×6 물품 그림. 칸 차례는 생성 기록과 함께 보존한다.
+const ATLAS = '/assets/game/rpg/items/trade-icons.webp';
+const ITEM_ART = {
+  'wp:': 0, 'gd:': 1,
+  'p:heal_s': 2, 'p:heal_m': 3, 'p:heal_l': 4, 'p:buff_str': 5,
+  'p:buff_int': 6, 'p:buff_crit': 7, 'p:reset': 8, 'p:speed1': 9, 'p:speed2': 10, 'p:hide1': 11, 'p:hide2': 12,
+  'm:fur': 13, 'm:fang': 14, 'm:tusk': 15, 'm:hide': 16, 'm:blue': 17,
+  'm:eye': 18, 'm:heart': 19, 'm:bone': 20, 'm:rot': 21, 'm:soul': 22, 'm:core': 23, 'm:mane': 24, 'm:silk': 25,
+};
+const WEAPON_ART = { sword: 26, axe: 27, staff: 28, tome: 29, dagger: 30, great: 31, bow: 32 };
+const artOf = (x) => x.k === 'w' ? weaponArt(x.item) : x.k === 'a' ? armorArt(x.item.s, x.item.g) : null;
+const atlasOf = (x) => x.k === 'w' && !weaponArt(x.item) ? WEAPON_ART[x.item.t] : ITEM_ART[identity(x)];
 const categories = [['scroll', '주문서'], ['item', '아이템'], ['potion', '물약']];
 const category = (x) => x.k === 'p' ? 'potion' : ['wp', 'gd'].includes(x.k) ? 'scroll' : 'item';
 
 function ItemTile({ item, selected, onClick, disabled }) {
   const [failed, setFailed] = useState(false);
-  const name = label(item), src = artOf(item), amount = item.n || item.max;
+  const name = label(item), src = artOf(item), cell = atlasOf(item), amount = item.n || item.max;
   return <button type="button" className={`trade-slot${selected ? ' selected' : ''}`} disabled={disabled}
     aria-label={`${name}${amount ? ` ${amount}개` : ''}`} aria-pressed={onClick ? !!selected : undefined}
     title={name} onClick={onClick}>
-    {src && !failed ? <img src={src} alt="" draggable={false} onError={() => setFailed(true)} /> : <span className="trade-slot-name">{name}</span>}
+    {cell !== undefined && !failed ? <span className="trade-slot-atlas" aria-hidden="true">
+      <img src={ATLAS} alt="" draggable={false} style={{ left: `${-(cell % 6) * 100}%`, top: `${-Math.floor(cell / 6) * 100}%` }} onError={() => setFailed(true)} />
+    </span> : src && !failed ? <img src={src} alt="" draggable={false} onError={() => setFailed(true)} /> : <span className="trade-slot-name">{name}</span>}
     {amount > 0 && <small className="trade-slot-count">{amount}</small>}
     {item.item?.up > 0 && <small className="trade-slot-up">+{item.item.up}</small>}
   </button>;

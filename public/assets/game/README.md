@@ -75,3 +75,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 - 움직임이 없는 탑(예: 1단계 궁수탑 몸통)은 정지 그림 한 장입니다.
 
 정지 그림으로 바꾸고 싶으면 그 파일을 한 프레임 크기의 그림으로 바꾸고 `manifest.json` 에서 이름을 지우세요.
+
+### 거래 물품 아이콘
+
+`rpg/items/trade-icons.webp`는 내장 이미지 생성 도구로 만든 1254×1254 투명 그림입니다. 6열×6행이며 칸당 209×209입니다. 주문서·물약·재료·기본 무기 아이콘이 들어 있습니다. 각 칸 연결표는 `src/TradePanel.jsx`의 `ITEM_ART` · `WEAPON_ART`입니다. 글자와 수량은 그림에 넣지 않고 화면에서 표시합니다.

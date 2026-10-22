@@ -25,7 +25,8 @@ function weaponHud(me) {
   if (!W) return null;
   const w = me.ws || {}, c = w.cmb, jb = me.jb || {};
   // 연계 중이면 다음 입력을 알려 준다(단계는 rpg.js w.cmb)
-  const next = !c ? ""
+  const worldCast = w.world?.cast;
+  const next = worldCast ? `시전 중 ${worldCast.index}/${WEAPON_SKILLS[worldCast.id]?.skill.hits || 1}` : !c ? ""
     : sp === "shadow" ? (c.st === 2 ? "2타 ▶" : c.st === 3 ? "마무리 ▶" : "")
     : sp === "holy" ? (c.st === 1 ? "반격 자세" : c.st === 2 ? "X 내려치기 · 평타 밀기" : "")
     : sp === "star_bow" ? (c.st === 1 ? "조준 중 ▶" : "")

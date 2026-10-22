@@ -1,3 +1,4 @@
+import { WORLD_WEAPON_SKILLS } from "./worldEquipmentData.js";
 /* ── RPG 직업 스킬 · 전설 무기 스킬 — 수치는 모두 여기 한 곳 ─────────────
    직업 스킬은 스킬 상점 "직업" 탭에서 배운다(제 직업 것만). 가방 "스킬" 탭의 직업 칸(use5 · 기본 R) 하나에 넣어 쓴다(shop.js SKILL_SLOTS).
    무기 스킬은 전설 특별 무기(검 다섯 · 지팡이 넷 · 활 넷)를 들면 쓴다. 키는 wskill(기본 X). 여러 번 누르는 연계는 rpg.js w.cmb
@@ -37,6 +38,7 @@ export const JOB_KEYS = { 5: "R", 6: "F", 7: "G" };    // 상점 설명에 보�
 
 /* 전설 무기 스킬 — 특별 무기 id 로 찾는다. passive 는 무기를 든 동안 늘, skill 은 wskill 키로 쓴다 */
 export const WEAPON_SKILLS = {
+  ...WORLD_WEAPON_SKILLS,
   frost: {
     name: "빙판길", role: "제어와 추격 차단",
     passive: { name: "서리의 흔적", note: "맞히면 이동 속도를 줄인다 · 맞힐 때마다 0.5초씩 쌓여 최대 2초", per: 0.5, max: 2 },

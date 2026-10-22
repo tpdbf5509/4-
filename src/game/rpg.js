@@ -1,3 +1,5 @@
+import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
+import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb } from "./armor.js";
 import { trading } from "./tradeData.js";
 /* ── RPG 모드 ──────────────────────────────────────────────
    처음 들어오면 이름을 정한다. 이름은 이 기기에 남고 다시 바꿀 수 없다.
@@ -779,7 +781,7 @@ export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h) * armorAtk
 export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkMul(h);
 export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h));
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
-export const critMul = (h) => statTotal(h, "cdmg") / 100;
+export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
 export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul;
 const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h));   // 전설 바지 · 신발 — 공격 속도
 
@@ -887,7 +889,7 @@ function rollbackHero(g, h, rb) {
     const keep = { s: h.bag.s, ks: h.bag.ks, pg: h.bag.pg, oc: 1, v: h.bag.v, n: h.bag.n };
     h.bag = Object.assign(cleanBag({}), keep, { ld: 1 });
   } else if (rb.legends) {
-    const ids = new Set(SPECIALS.filter((sp) => sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
+    const ids = new Set(SPECIALS.filter((sp) => !sp.world && sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
     h.bag.w = h.bag.w.filter((w) => !(w.sp && ids.has(w.sp)));
     if (!h.bag.w.some((w) => w.u === h.bag.e)) h.bag.e = 0;
   }
@@ -912,7 +914,7 @@ const sameName = (a, b) => String(a || "").trim().replace(/\s+/g, " ") === Strin
 export const ADMIN_LEGEND = { id: 1, grade: 4 };
 function giveAdminLegends(g, h) {
   if (!h.admin || !h.bag || h.bag.lg === ADMIN_LEGEND.id) return;
-  const want = SPECIALS.filter((sp) => sp.g === ADMIN_LEGEND.grade && !h.bag.w.some((w) => w.sp === sp.id));
+  const want = SPECIALS.filter((sp) => !sp.world && sp.g === ADMIN_LEGEND.grade && !h.bag.w.some((w) => w.sp === sp.id));
   const n = Math.max(0, Math.min(want.length, WEAPON.bagMax - h.bag.w.length));
   want.slice(0, n).forEach((sp) => { h.bag.w.push({ u: h.bag.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
   if (n === want.length) h.bag.lg = ADMIN_LEGEND.id;
@@ -939,7 +941,7 @@ function giveAdminKit(g, h) {
   if (b.gd < GUARD.max) { b.gd = GUARD.max; changed = true; }
   if (b.ak !== ADMIN_KIT.id) {
     const room = WEAPON.bagMax - b.w.length;
-    const want = SPECIALS.filter((sp) => !b.w.some((w) => w.sp === sp.id));
+    const want = SPECIALS.filter((sp) => !sp.world && !b.w.some((w) => w.sp === sp.id));
     want.slice(0, Math.max(0, room)).forEach((sp) => { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
     b.w.forEach((w) => { if (w.sp) w.up = ADMIN_KIT.up; });
     if (!b.a) b.a = [];
@@ -952,7 +954,7 @@ function giveAdminKit(g, h) {
     b.ak = ADMIN_KIT.id;
     changed = true;
     refreshHp(h, true);                             // 투구가 최대 체력을 올린다
-    sys(g, h.pi, `관리자 — 특별 무기 ${SPECIALS.length}자루(강화 +${ADMIN_KIT.up}) · 전설 방어구 넷 · 모든 스킬 · 주문서를 채웠습니다.`);
+    sys(g, h.pi, `관리자 — 특별 무기 ${SPECIALS.filter(sp => !sp.world).length}자루(강화 +${ADMIN_KIT.up}) · 전설 방어구 넷 · 모든 스킬 · 주문서를 채웠습니다.`);
   }
   if (changed) b.v += 1;
 }
@@ -1306,6 +1308,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
   const field = !isPvp(h.map);
   if (field && !(fieldPvpOn(h) && fieldPvpOn(o) && o.map === h.map)) return;   // 그 사이 꺼졌거나 광장으로 들어갔다
   const off = offHand(h);
+  if (dot) raw *= worldDotMul(h);
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
   if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
   else {
@@ -1320,6 +1323,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
     sys(g, h.pi, `${nameOf(g, o.pi)}님을 쓰러뜨렸습니다.`);
     sys(g, o.pi, `${nameOf(g, h.pi)}님에게 쓰러졌습니다.`);
   }
+  if (procOff === 0) worldSetHit(worldEngine, g, h, o, { dot: !!dot, basic: !!basic, weapon: !basic && !!h.cast?.weapon });
   if (!dot) weaponOnHit(g, h, null, o, false, !!basic);
 }
 // 스킬을 새로 쓴다 — 결투 스킬 피해를 처음부터 센다(raw 는 이번 스킬이 지금까지 준 원래 피해)
@@ -1478,6 +1482,7 @@ function flushNum(g, m, tier = 0) {
 function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (!m || m.dead) return 0;
   const h = g.heroes[pi];
+  if (dot && h) raw *= worldDotMul(h);
   let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0)) * (dot ? 1 : wpnMul(h));   // 무기 패시브(별자리 활 조준) — 화상 · 독 틱에는 붙지 않는다
   if (m.mirage > 0 && Math.random() < m.dodge) {  // 잔상 분신 — 피했다
     if (m.numT <= 0) { say(g, m.map, m.x, m.y - 90, "빗나감", "#cfe6ff"); m.numT = 0.3; }
@@ -1493,6 +1498,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (m.type === "dummy" && h) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
+  if (h && procOff === 0) worldSetHit(worldEngine, g, h, m, { dot: !!dot, basic: !skill && !dot, weapon: !!skill && !!h.cast?.weapon });
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
   if (h && !dot) weaponOnHit(g, h, m, null, side, !skill);   // 전설 무기 패시브 — side 는 튄 피해(옆 몹)
   m.flash = 0.12;
@@ -1685,6 +1691,7 @@ function hurtHero(g, h, raw) {
     return;
   }
   let dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더)
+  dmg = worldArmorAbsorb(h, dmg);
   dmg = skillTake(g, h, dmg);                     // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세
   if (dmg <= 0) return;
   h.hp -= dmg;
@@ -2385,10 +2392,11 @@ function packSkillState(h) {
   return [w ? r1(w.wcd) : 0, w ? w.emb : 0, w ? w.star : 0, c ? c.st + 1 : 0, c ? r1(c.t) : 0, c ? r1(c.el) : 0,
     jb ? r1(jb.iron) : 0, jb ? Math.round(jb.sh) : 0, jb ? r1(jb.shT) : 0,
     w ? w.zap || 0 : 0, w ? w.mark || 0 : 0, w ? w.aim || 0 : 0,
-    q ? r1(q.stun) : 0, q ? r1(q.air) : 0, q ? r1(q.root) : 0, q ? r1(q.slow) : 0, q ? q.slowAmt || 0 : 0, q ? r1(q.brand) : 0];
+    q ? r1(q.stun) : 0, q ? r1(q.air) : 0, q ? r1(q.root) : 0, q ? r1(q.slow) : 0, q ? q.slowAmt || 0 : 0, q ? r1(q.brand) : 0, w?.world || null];
 }
 function applySkillState(h, a) {
-  const v = a.map((x) => Number(x) || 0);
+  const v = a.slice(0, 18).map((x) => Number(x) || 0);
+  wsOf(h).world = a[18] ? structuredClone(a[18]) : null;
   const w = wsOf(h), jb = jbOf(h);
   let cst, ct, cel;
   [w.wcd, w.emb, w.star, cst, ct, cel, jb.iron, jb.sh, jb.shT, w.zap, w.mark, w.aim] = v;
@@ -2415,6 +2423,7 @@ function skillTake(g, h, dmg) {
 function weaponOnHit(g, h, m, foe, side, basic) {
   if (procOff) return;
   const sp = heldSpecial(h), o = m || foe;
+  if (basic && !side && o) worldWeaponBasicHit(worldEngine, g, h, o);
   if (!sp || !o) return;
   const w = wsOf(h);
   if (sp === "frost" && m) { const P = WS.frost.passive; m.slow = Math.min(P.max, Math.max(m.slow, 0) + P.per); }
@@ -2519,6 +2528,7 @@ function tickWeapon(g, h, dt) {
     if (sp !== "lava_bow") w.mark = 0;
     if (sp !== "star_bow") w.aim = 0;
   }
+  tickWorldWeapon(worldEngine, g, h, dt);
   if (jb) {
     jb.iron = Math.max(0, jb.iron - dt);
     jb.shT = Math.max(0, jb.shT - dt);
@@ -2631,6 +2641,12 @@ function packTrain(g, h) {
   return [t.nocd, t.stack, t.god, Math.round(trainDps(g, h)), Math.round(t.tot), t.hits];
 }
 
+// 월드보스 무기도 기존 피해·대상·이동 판정을 공유한다.
+const worldEngine = { fx, near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc,
+  alive: aliveFoe, base: skillBase, aim: aimTo, end: lineEnd, move: (h, o, time) => {
+    h.dvx = (o.x - h.x) / time; h.dvy = (o.y - h.y) / (RPG.squash * time); h.dash = time;
+  }, squash: RPG.squash, held: heldSpecial };
+
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
 // grow 는 그어지는 데 드는 몫(life 의 10% = 0.04초 · 영상처럼 순식간에) · spin 은 사라지는 동안 더 휘돌아 가는 각
 const FIRE_SLASH = { grow: 0.1, spin: 1.4, life: 0.4, span: 3.4, size: [1.25, 1.05, 1.35, 1.15], tilt: [0.45, 0.85, 0.3, 0.65] };   // life — 마지막 타 뒤 0.4초 만에 사라진다(기획 영상)
@@ -2646,6 +2662,8 @@ export function rpgWeaponSkill(g, pi) {
   if (w.cmb && w.cmb.sp === sp) return comboNext(g, h, sp, S, w, w.cmb);
   if (w.wcd > 0) return say(g, map, h.x, h.y - 90, `${W.name} ${Math.ceil(w.wcd)}초`, "#f0dcb4");
   newCast(h);                                     // 결투 스킬 피해 한도 — 연계 전체가 스킬 한 번
+  h.cast.weapon = true;
+  if (castWorldWeapon(worldEngine, g, h, sp)) return;
   const el = elemOf(h);
   if (sp === "frost") {                           // 빙판길 — 앞에 빙판을 깐다
     const [ax, ay] = aimTo(g, h, S.ahead + S.r);
@@ -2703,7 +2721,7 @@ export function rpgWeaponSkill(g, pi) {
     fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: "조준", color: "#d8e4ff", t: 0.7, life: 0.7, who: pi });
     return;
   } else if (!rangedSkill(g, h, sp, S, w)) return;   // 지팡이 · 활 — 쓸 수 없으면 대기 시간을 걸지 않는다
-  w.wcd = S.cd;
+  w.wcd = S.cd * worldCooldownMul(h);
   h.swing = 0.35;
   fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: W.name, color: "#ffd873", t: 0.8, life: 0.8, who: pi });
 }
@@ -2825,7 +2843,7 @@ function starShot(g, h, S, c) {
   fx(g, map, { kind: "sk_pierce", tone: "star", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1, y1: y1 - 34, w: S.width * (0.6 + 0.4 * power / S.max), t: 0.55, life: 0.55, snd: "shot" });
   if (power >= S.max - 0.01) fx(g, map, { kind: "call", x: h.x, y: h.y - 120, text: "완전 조준!", color: "#d8e4ff", t: 0.8, life: 0.8, who: h.pi });
   g.shake = Math.max(g.shake, 0.25 + 0.15 * power);
-  w.wcd = S.cd;
+  w.wcd = S.cd * worldCooldownMul(h);
   h.swing = 0.35;
 }
 /* 용암 활 — 1타가 맞은 뒤 다시 누르면 관통 화살 */

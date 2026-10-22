@@ -1,3 +1,4 @@
+import { WORLD_SET_BY_ID, WORLD_WEAPONS, worldArt } from "./worldEquipmentData.js";
 import { trading } from "./tradeData.js";
 /* ── RPG 광장 상점 규칙 ─────────────────────────────────────
    무기상점 · 스킬 상점 · 물약 상점 · 도박장 · 무기 강화소. 수치는 shopData.js · itemData.js 에 있다.
@@ -118,8 +119,8 @@ export function specialPrice(sp) {
   return Math.max(10, Math.round(raw / 10) * 10);
 }
 // 내 레벨로 낄 수 있는 특별 무기
-export const specialsFor = (lv) => SPECIALS.filter((sp) => lv >= sp.lv);
-export const specialArt = (sp) => `/assets/game/rpg/weapons/${sp.art}.webp`;
+export const specialsFor = (lv) => SPECIALS.filter((sp) => !sp.world && lv >= sp.lv);
+export const specialArt = (sp) => sp.world ? worldArt(sp.id) : `/assets/game/rpg/weapons/${sp.art}.webp`;
 
 // 가방의 무기 한 자루 — 특별 무기면 sp 가 붙어 있다
 export const specOf = (w) => (w && w.sp ? SPECIAL_BY_ID[w.sp] || null : null);
@@ -286,6 +287,7 @@ export function whySpecialBuy(h, id) {
   base(h, "weapon", out);
   const sp = SPECIAL_BY_ID[id];
   if (!sp) { out.push("없는 무기입니다"); return out; }
+  if (sp.world) out.push("월드보스 전용 장비입니다");
   if (!h || !h.bag) return out;
   if (h.bag.w.some((w) => w.sp === id)) { out.push("이미 가지고 있습니다"); return out; }
   if (h.lv < sp.lv) out.push(`레벨 ${sp.lv} 필요 (지금 ${h.lv})`);
@@ -540,6 +542,16 @@ export function rpgShop(g, pi, req) {
   const op = req.op;
   let why;
 
+  // 월드보스 장비는 관리자 시험에서만 지급한다. 전부 들어갈 때만 한 번에 넣는다.
+  if (op === "wbgive") {
+    if (!h.loaded || h.down > 0) return no(g, pi, ["움직일 수 있을 때 장비를 받아 주세요"]);
+    if (!h.admin || !WORLD_SET_BY_ID[req.set]) return no(g, pi, ["관리자만 시험할 수 있습니다"]);
+    if (h.bag.w.length + 3 > WEAPON.bagMax || h.bag.a.length + 4 > ARMOR.bagMax) return no(g, pi, ["무기 3칸과 방어구 4칸이 필요합니다"]);
+    WORLD_WEAPONS.filter(sp => sp.set === req.set).forEach(sp => addWeapon(h, sp.t, specialTier(sp), sp.g, specialPrice(sp), sp.id));
+    ARMOR_SLOTS.forEach(sl => h.bag.a.push({ u: h.bag.n++, s: sl.id, g: 3, set: req.set }));
+    bump(h);
+    return note(g, pi, { ok: true, msg: `${WORLD_SET_BY_ID[req.set].name} 무기 3종과 방어구 4종을 받았습니다` });
+  }
   // 특별 무기는 코인으로 바로 산다
   if (op === "spbuy") {
     if ((why = whySpecialBuy(h, req.id)).length) return no(g, pi, why);
@@ -692,7 +704,7 @@ export function rpgShop(g, pi, req) {
     if (off) delete h.bag.ae[a.s]; else h.bag.ae[a.s] = u;
     bump(h);
     hpChanged(h, wasFull);
-    return note(g, pi, { ok: true, msg: off ? `${jo(armorName(a.s, a.g), "을", "를")} 뺐습니다` : `${jo(armorName(a.s, a.g), "을", "를")} 꼈습니다` });
+    return note(g, pi, { ok: true, msg: off ? `${jo(armorName(a.s, a.g, a.set), "을", "를")} 뺐습니다` : `${jo(armorName(a.s, a.g, a.set), "을", "를")} 꼈습니다` });
   }
   if (op === "asell") {
     const u = Number(req.u);
@@ -706,7 +718,7 @@ export function rpgShop(g, pi, req) {
     bump(h);
     hpChanged(h, wasFull);
     fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `+${won(price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
-    return note(g, pi, { ok: true, msg: `${jo(armorName(a.s, a.g), "을", "를")} ${won(price)}코인에 팔았습니다` });
+    return note(g, pi, { ok: true, msg: `${jo(armorName(a.s, a.g, a.set), "을", "를")} ${won(price)}코인에 팔았습니다` });
   }
   if (op === "agive") {
     if ((why = whyArmorGive(h)).length) return no(g, pi, why);

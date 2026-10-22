@@ -1,3 +1,4 @@
+import { WORLD_WEAPONS } from "./worldEquipmentData.js";
 import { JOB_SKILLS } from "./skillData.js";
 /* ── RPG 광장 상점 설정 ─────────────────────────────────────
    가격 · 확률 · 제한 수치를 모두 여기 한 곳에 모은다. 밸런스를 바꿀 때는 이 파일만 고치면 된다.
@@ -87,6 +88,7 @@ export const SPECIALS = [
   { id: "shadow_bow", name: "그림자 활", t: "bow", lv: 70, g: 4, stat: "str", amt: 196, art: "shadow_bow" }, // 예전 Lv 80
   { id: "star_bow", name: "별자리 활", t: "bow", lv: 80, g: 4, stat: "str", amt: 218, art: "star_bow" },     // 예전 Lv 90
   { id: "gold_bow", name: "황금 날개 활", t: "bow", lv: 90, g: 4, stat: "str", amt: 240, art: "gold_bow" }, // 예전 Lv 100
+  ...WORLD_WEAPONS,
 ];
 
 // 오늘의 특가 — 날짜로 정한다. 특별 무기 날이면 내 레벨로 낄 수 있는 특별 무기 하나,

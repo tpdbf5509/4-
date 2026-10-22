@@ -1,3 +1,4 @@
+import { WORLD_SET_BY_ID, worldArmorName, worldArt } from "./worldEquipmentData.js";
 /* ── RPG 방어구 — 수치는 모두 여기 한 곳 ─────────────────────────
    부위 넷(투구 · 갑옷 · 바지 · 신발) × 등급 넷(초급 · 희귀 · 영웅 · 전설). 부위마다 하나씩 낀다.
    규칙(효과 셈 · 장착 · 되팔기)은 armor.js, 그림은 public/assets/game/rpg/armor/<부위>-<등급>.webp(tools/cut-armor.py).
@@ -42,5 +43,5 @@ export const ARMOR_SPECIAL = {
 export const ARMOR = {
   bagMax: 30,           // 가방에 넣을 수 있는 방어구 수
 };
-export const armorName = (s, g) => `${ARMOR_GRADES[g].name} ${ARMOR_SLOTS.find((q) => q.id === s).name}`;
-export const armorArt = (s, g) => `/assets/game/rpg/armor/${s}-${g}.webp`;
+export const armorName = (s, g, set) => WORLD_SET_BY_ID[set] ? worldArmorName(s, set) : `${ARMOR_GRADES[g].name} ${ARMOR_SLOTS.find((q) => q.id === s).name}`;
+export const armorArt = (s, g, set) => WORLD_SET_BY_ID[set] ? worldArt(`${set}:${s}`) : `/assets/game/rpg/armor/${s}-${g}.webp`;

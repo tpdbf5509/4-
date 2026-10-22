@@ -1,3 +1,4 @@
+import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
 /* ── RPG 방어구 규칙 ─────────────────────────────────────────
    수치는 armorData.js. 효과는 방장이 셈하고, 손님 화면이 걷기를 먼저 그리는 데 필요한 값(이동 속도 · 추격)과
    화면에 띄울 시간(위기 피해 감소 · 부활 대기)은 h.arm 에 담아 스냅샷으로 보낸다(packArmor · applyArmor).
@@ -26,7 +27,7 @@ export function cleanArmor(d, b, seen) {
     const u = Math.floor(Number(q.u)), g = Math.floor(Number(q.g));
     if (!(u > 0) || seen.has(u) || !SLOT_IDS.includes(q.s) || !(g >= 0 && g < ARMOR_GRADES.length)) return;
     seen.add(u);
-    b.a.push({ u, s: q.s, g });
+    b.a.push({ u, s: q.s, g, ...(g === 3 && WORLD_SET_BY_ID[q.set] ? { set: q.set } : {}) });
   });
   SLOT_IDS.forEach((s) => {
     const u = Math.floor(Number(d.ae && d.ae[s]));
@@ -62,6 +63,7 @@ export function armorAtkMul(h) {
   if (legs && hpPart(h) <= legs.below) add += legs.atk;
   const feet = special(h, "feet");
   if (feet && feet.atk) add += feet.atk;
+  if (worldSetCount(h, "dragon") >= 4 && h.arm?.sets?.rage > 0) add += WORLD_SET_BY_ID.dragon.rage;
   return 1 + add;
 }
 // 공격 속도 — 전설 바지 · 전설 신발. 평타 간격을 (1 + 이 값)으로 나눈다
@@ -85,6 +87,7 @@ const newArm = () => ({ spd: 0, chs: 0, cht: 0, chx: 0, chy: 0, chm: 0, cri: 0, 
 export function armorTick(h, dt, mobAt) {
   if (!h.arm) h.arm = newArm();
   const A = h.arm;
+  worldArmorTick(h, dt);
   A.spd = base(h, "feet");
   const feet = special(h, "feet");
   A.chs = feet ? feet.spd : 0;
@@ -138,11 +141,51 @@ export function armorOnHurt(h, pvp) {
 /* ── 주고받기 — [신발, 추격 몫, 추격 남은 초, 몹 x, y, 위기 남은 초, 위기 대기, 부활 대기] 또는 0 ── */
 export function packArmor(h) {
   const A = h.arm;
-  if (!A || !(A.spd || A.chs || A.cht > 0 || A.cri > 0 || A.criCd > 0 || A.revCd > 0)) return 0;
-  return [A.spd, A.chs, r1(A.cht), Math.round(A.chx), Math.round(A.chy), r1(A.cri), Math.ceil(A.criCd), Math.ceil(A.revCd)];
+  if (!A || !(A.spd || A.chs || A.cht > 0 || A.cri > 0 || A.criCd > 0 || A.revCd > 0 || A.sets)) return 0;
+  return [A.spd, A.chs, r1(A.cht), Math.round(A.chx), Math.round(A.chy), r1(A.cri), Math.ceil(A.criCd), Math.ceil(A.revCd), A.sets || null];
 }
 export function applyArmor(h, row) {
   if (!Array.isArray(row)) { h.arm = null; return; }
   h.arm = { spd: row[0] || 0, chs: row[1] || 0, cht: row[2] || 0, chx: row[3] || 0, chy: row[4] || 0, chm: 0,
-    cri: row[5] || 0, criCd: row[6] || 0, revCd: row[7] || 0 };
+    cri: row[5] || 0, criCd: row[6] || 0, revCd: row[7] || 0, sets: row[8] ? { ...row[8] } : null };
+}
+
+/* 월드보스 세트 — 무기 종류와 상관없이 낀 방어구만 센다. 같은 부위 중복은 세지 않는다. */
+export const worldSetCount = (h, id) => SLOT_IDS.reduce((n, slot) => n + (wornArmor(h?.bag, slot)?.set === id ? 1 : 0), 0);
+export const worldCritBonus = h => worldSetCount(h, 'dragon') >= 2 ? WORLD_SET_BY_ID.dragon.crit : 0;
+export const worldDotMul = h => worldSetCount(h, 'serpent') >= 2 ? 1 + WORLD_SET_BY_ID.serpent.dot : 1;
+export const worldCooldownMul = h => worldSetCount(h, 'machine') >= 2 ? 1 - WORLD_SET_BY_ID.machine.cd : 1;
+const setState = h => {
+  if (!h.arm) h.arm = newArm();
+  return h.arm.sets || (h.arm.sets = { rage: 0, rageCd: 0, dotHits: 0, shield: 0, shieldT: 0, shieldCd: 0, charge: 0, chargeCd: 0 });
+};
+export function worldArmorTick(h, dt) {
+  if (!h.arm?.sets && !SLOT_IDS.some(slot => wornArmor(h.bag, slot)?.set)) return;
+  const s = setState(h);
+  for (const k of ['rage', 'rageCd', 'shieldT', 'shieldCd', 'chargeCd']) s[k] = Math.max(0, s[k] - dt);
+  if (h.down > 0 || worldSetCount(h, 'dragon') < 4) s.rage = 0;
+  if (h.down > 0 || worldSetCount(h, 'serpent') < 4 || s.shieldT <= 0) s.shield = 0;
+  if (worldSetCount(h, 'serpent') < 4) s.dotHits = 0;
+  if (h.down > 0 || worldSetCount(h, 'machine') < 4) s.charge = 0;
+}
+// 실제 적중한 피해만 센다. 추가 낙뢰는 새 효과를 다시 발동시키지 않는다.
+export function worldArmorOnHit(h, { dot = false, basic = false, weapon = false }) {
+  if (!SLOT_IDS.some(slot => wornArmor(h.bag, slot)?.set)) return false;
+  const s = setState(h), D = WORLD_SET_BY_ID.dragon, V = WORLD_SET_BY_ID.serpent, M = WORLD_SET_BY_ID.machine;
+  if (weapon && !dot && worldSetCount(h, 'dragon') >= 4 && s.rageCd <= 0) { s.rage = D.duration; s.rageCd = D.cooldown; }
+  if (dot && worldSetCount(h, 'serpent') >= 4 && s.shieldCd <= 0) {
+    s.dotHits++;
+    if (s.dotHits >= V.hits) { s.dotHits = 0; s.shield = h.max * V.shield; s.shieldT = V.duration; s.shieldCd = V.cooldown; }
+  }
+  if (worldSetCount(h, 'machine') >= 4) {
+    if (basic && !dot && s.chargeCd <= 0) { s.charge = Math.min(M.charges, s.charge + 1); s.chargeCd = M.gap; }
+    if (weapon && !dot && s.charge >= M.charges) { s.charge = 0; return true; }
+  }
+  return false;
+}
+export function worldArmorAbsorb(h, dmg) {
+  const s = h.arm?.sets;
+  if (!s || s.shieldT <= 0 || worldSetCount(h, 'serpent') < 4) return dmg;
+  const used = Math.min(dmg, s.shield); s.shield -= used;
+  return dmg - used;
 }

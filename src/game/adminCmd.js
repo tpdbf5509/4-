@@ -1,3 +1,4 @@
+import { WORLD_SETS, worldArmorName } from "./worldEquipmentData.js";
 import { trading } from "./tradeData.js";
 /* ── RPG 관리자 명령어 — 채팅 칸에 "/" 로 시작해 쓴다(방장만 판정) ─────────────
    /도움                       명령어 목록
@@ -34,6 +35,11 @@ const ITEMS = [
     while (put < n && b.w.length < WEAPON.bagMax) { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); put += 1; }
     return put;
   } })),
+  ...WORLD_SETS.flatMap(set => ARMOR_SLOTS.map(sl => ({ name: worldArmorName(sl.id, set.id), give: (b, n) => {
+    let put = 0;
+    while (put < n && b.a.length < ARMOR.bagMax) { b.a.push({ u: b.n++, s: sl.id, g: 3, set: set.id }); put++; }
+    return put;
+  } }))),
   ...ARMOR_GRADES.flatMap((gr) => ARMOR_SLOTS.map((sl) => ({ name: `${gr.name} ${sl.name}`, give: (b, n) => {
     if (!b.a) b.a = [];
     let put = 0;

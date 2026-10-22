@@ -1,3 +1,6 @@
+import EquipmentArt from "./EquipmentArt.jsx";
+import { WORLD_SETS, WORLD_SET_BY_ID } from "./game/worldEquipmentData.js";
+import { worldSetCount } from "./game/armor.js";
 /* ── RPG 광장 상점 창 · 가방 창 ──────────────────────────────
    상점마다 탭으로 나눈다. 한 줄은 [그림] [이름 · 등급 · 설명] [값 · 버튼] 이고, 막힌 이유는 그 줄 아래에 한 줄로 적는다.
    버튼을 누르면 send({ op, ... }) 로 방장에게 보내고, 결과는 note 로 돌아와 창 위쪽에 한 줄로 뜬다.
@@ -49,8 +52,8 @@ function Item({ art, name, meta, desc, price, acts = [], dim }) {
   const blocked = acts.filter((a) => a.why && a.why.length && !a.quiet);
   const why = blocked.map((a) => (acts.length > 1 ? `${a.label} — ${a.why.join(" · ")}` : a.why.join(" · ")));
   return (
-    <div className={`shop-item ${art ? "has-art" : ""} ${dim ? "dim" : ""}`}>
-      {art && <img className="shop-art" src={art} alt="" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />}
+    <div className={`shop-item ${art ? "has-art" : ""} ${art?.includes("#world=") ? "world-equipment-item" : ""} ${dim ? "dim" : ""}`}>
+      {art && <EquipmentArt className="shop-art" src={art} onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />}
       <div className="shop-main">
         <div className="shop-name">{name}{meta}</div>
         {desc && <div className="shop-desc">{desc}</div>}
@@ -111,9 +114,9 @@ function armorText(sl, g) {
 }
 function ArmorItem({ a, n = 1, tag, price, acts, desc }) {
   return (
-    <Item art={armorArt(a.s, a.g)} name={armorName(a.s, a.g)}
+    <Item art={armorArt(a.s, a.g, a.set)} name={armorName(a.s, a.g, a.set)}
       meta={<span className="shop-meta"><span className={`shop-grade ${ARMOR_GRADE_CLS[a.g]}`}>{ARMOR_GRADES[a.g].name}</span>{n > 1 && <span>× {n}</span>}{tag && <span className="shop-tag">{tag}</span>}</span>}
-      desc={desc || armorText(a.s, a.g)} price={price} acts={acts} />
+      desc={desc || <>{armorText(a.s, a.g)}{a.set && <span className="shop-need">{WORLD_SET_BY_ID[a.set].name} 세트 · 2세트: {WORLD_SET_BY_ID[a.set].two} · 4세트: {WORLD_SET_BY_ID[a.set].four}</span>}</>} price={price} acts={acts} />
   );
 }
 
@@ -121,7 +124,7 @@ function ArmorItem({ a, n = 1, tag, price, acts, desc }) {
 function armorGroups(bag) {
   const groups = new Map();
   (bag.a || []).forEach((a) => {
-    const k = `${a.s}:${a.g}`;
+    const k = `${a.s}:${a.g}:${a.set || ""}`;
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(a);
   });
@@ -182,7 +185,7 @@ function WeaponShop({ h, send }) {
           <WeaponItem w={d} price={<Price n={d.price} old={d.full} />}
             acts={[{ label: "특가 구매", main: true, why: whyDealBuy(h, d.key, day), onClick: () => send({ op: "deal", key: d.key }) }]} />
           <Head sub="코인으로 바로 삽니다 · 같은 무기는 한 자루만">무기</Head>
-          {SPECIALS.map((sp) => {
+          {SPECIALS.filter(sp => !sp.world).map((sp) => {
             const w = { t: sp.t, r: specialTier(sp), g: sp.g, sp: sp.id };
             const have = h.bag.w.some((q) => q.sp === sp.id);
             return (
@@ -462,7 +465,7 @@ function Forge({ h, send, note, setQuiet }) {
                   <button key={q.u} type="button" role="option" aria-selected={on} className={`forge-opt ${on ? "on" : ""}`}
                     disabled={no.length > 0} title={no.join(" · ")}
                     onClick={() => { if (!on) send({ op: "equip", u: q.u }); setPick(false); }}>
-                    {weaponArt(q) ? <img src={weaponArt(q)} alt="" /> : <span className="forge-opt-blade" />}
+                    {weaponArt(q) ? <EquipmentArt src={weaponArt(q)} /> : <span className="forge-opt-blade" />}
                     <span className="forge-opt-name"><b>{weaponName(q)}</b><small><Grade g={q.g} /> · {weaponLine(q)}{no.length ? ` · ${no[0]}` : ""}</small></span>
                     <em>{on ? "장착 중" : "고르기"}</em>
                   </button>
@@ -476,7 +479,7 @@ function Forge({ h, send, note, setQuiet }) {
                 title="눌러서 강화할 무기를 바꿉니다" onClick={() => setPick((v) => !v)}>
                 <MagicCircle />
                 <span className="forge-glow" />
-                {weaponArt(w) ? <img className="forge-art" src={weaponArt(w)} alt="" /> : <span className="forge-blade" />}
+                {weaponArt(w) ? <EquipmentArt className="forge-art" src={weaponArt(w)} /> : <span className="forge-blade" />}
                 {stage.phase === "forge" && !skip && Array.from({ length: FORGE.hits }, (_, i) => (
                   <span key={i} className="forge-hit" style={{ animationDelay: `${(i + 0.6) * (FORGE.strike / (FORGE.hits + 0.4))}s` }}>
                     {Array.from({ length: 8 }, (_, k) => <i key={k} style={{ "--a": `${k * 45 + i * 20}deg` }} />)}
@@ -688,12 +691,17 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
               const a = wornArmor(h.bag, sl.id);
               return (
                 <div key={sl.id} className={`shop-worn-slot ${a ? "" : "empty"}`}>
-                  {a ? <img src={armorArt(a.s, a.g)} alt="" /> : <i />}
+                  {a ? <EquipmentArt src={armorArt(a.s, a.g, a.set)} /> : <i />}
                   <span>{sl.name}<small>{a ? `${ARMOR_GRADES[a.g].name}` : "비어 있음"}</small></span>
                 </div>
               );
             })}
           </div>
+          {WORLD_SETS.filter(set => worldSetCount(h, set.id) > 0).map(set => {
+            const count = worldSetCount(h, set.id);
+            return <div className="world-set-effects" key={set.id}><b>{set.name} 세트 {count}/4</b>
+              <p>{count >= 2 ? '✓' : '○'} 2세트: {set.two}</p><p>{count >= 4 ? '✓' : '○'} 4세트: {set.four}</p></div>;
+          })}
           <Head sub={`${(h.bag.a || []).length}/${ARMOR.bagMax} · 던전 보스가 떨굽니다`}>가방</Head>
           {!(h.bag.a || []).length && <Empty>아직 방어구가 없습니다. 방어구 던전 보스가 떨굽니다.</Empty>}
           {armorGroups(h.bag).map(({ n, worn, wear: a }) => {
@@ -704,6 +712,8 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
                   : { label: "끼기", main: true, why: whyArmorWear(h, a.u), onClick: () => send({ op: "awear", u: a.u }) }]} />
             );
           })}
+          {h.admin && WORLD_SETS.map(set => <Item key={set.id} name={`${set.name} 장비 시험`} desc="관리자 전용 · 전설 무기 3종과 세트 방어구 4종을 받습니다. 월드보스 획득은 추후 연결됩니다."
+            acts={[{ label: '장비 받기', why: h.bag.w.length + 3 > WEAPON.bagMax || h.bag.a.length + 4 > ARMOR.bagMax ? ['무기 3칸과 방어구 4칸이 필요합니다'] : [], onClick: () => send({ op: 'wbgive', set: set.id }) }]} />)}
           {h.admin && (
             <Item name="시험용 방어구 받기" desc="관리자만 — 네 부위 × 네 등급 16개를 한 번에 받습니다."
               acts={[{ label: "받기", why: whyArmorGive(h), onClick: () => send({ op: "agive" }) }]} />

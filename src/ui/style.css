@@ -1908,3 +1908,22 @@ button.forge-stage:disabled { cursor: default; }
   .trade-panel .trade-offer .shop-h { font-size: 16px; }
   .trade-panel .trade-offer .trade-grid { max-width: none; }
 }
+
+/* 월드보스 장비 시트 — 그림 원본을 자르지 않고 각 칸만 표시한다 */
+.equipment-art { display: inline-block; position: relative; overflow: hidden; flex-shrink: 0; width: 64px; height: 64px; vertical-align: middle; }
+.equipment-art > img { position: absolute; max-width: none !important; max-height: none !important; object-fit: fill !important; image-rendering: pixelated; }
+.trade-slot-visual > .equipment-art { width: 100%; height: 100%; }
+.world-set-effects { margin: 10px 0; padding: 12px; border: 1px solid #897449; border-radius: 8px; color: #f2dfb4; }
+.world-set-effects p { margin: 6px 0; line-height: 1.6; }
+.shop-worn-slot > .equipment-art { width: 44px; height: 44px; }
+.forge-opt > .equipment-art { width: 36px; height: 36px; }
+.equipment-art.forge-art { width: 84px; height: 84px; }
+.equipment-art.shop-art { width: 44px; height: 44px; }
+@media (max-width: 600px) { .equipment-art.shop-art { width: 34px; height: 34px; } }
+.shop-item.world-equipment-item { grid-template-columns: 64px minmax(0, 1fr) auto; }
+.world-equipment-item .equipment-art.shop-art { width: 64px; height: 64px; }
+.world-equipment-item .shop-desc, .world-equipment-item .shop-need { color: #d8c69f; font-size: 13px; line-height: 1.65; }
+@media (max-width: 600px) {
+  .shop-item.world-equipment-item { grid-template-columns: 44px minmax(0, 1fr); }
+  .world-equipment-item .equipment-art.shop-art { width: 44px; height: 44px; }
+}

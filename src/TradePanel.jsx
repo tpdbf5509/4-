@@ -1,3 +1,4 @@
+import EquipmentArt from "./EquipmentArt.jsx";
 import { useEffect, useRef, useState } from 'react';
 import { weaponName, weaponArt, POTION_BY_ID } from './game/shop.js';
 import { MATERIALS } from './game/itemData.js';
@@ -5,7 +6,7 @@ import { armorName, armorArt } from './game/armorData.js';
 import { TRADE } from './game/tradeData.js';
 import { tradeError } from './useTrade.js';
 
-const label = (x) => x.k === 'w' ? weaponName(x.item) : x.k === 'a' ? armorName(x.item.s, x.item.g)
+const label = (x) => x.k === 'w' ? weaponName(x.item) : x.k === 'a' ? armorName(x.item.s, x.item.g, x.item.set)
   : x.k === 'p' ? POTION_BY_ID[x.u]?.name || x.u : x.k === 'm' ? MATERIALS.find((m) => m.id === x.u)?.name || x.u
     : x.k === 'wp' ? '워프권' : '하락 방지권';
 const identity = (x) => `${x.k}:${x.u || ''}`;
@@ -19,7 +20,7 @@ const ITEM_ART = {
   'm:eye': 18, 'm:heart': 19, 'm:bone': 20, 'm:rot': 21, 'm:soul': 22, 'm:core': 23, 'm:mane': 24, 'm:silk': 25,
 };
 const WEAPON_ART = { sword: 26, axe: 27, staff: 28, tome: 29, dagger: 30, great: 31, bow: 32 };
-const artOf = (x) => x.k === 'w' ? weaponArt(x.item) : x.k === 'a' ? armorArt(x.item.s, x.item.g) : null;
+const artOf = (x) => x.k === 'w' ? weaponArt(x.item) : x.k === 'a' ? armorArt(x.item.s, x.item.g, x.item.set) : null;
 const atlasOf = (x) => x.k === 'w' && !weaponArt(x.item) ? WEAPON_ART[x.item.t] : ITEM_ART[identity(x)];
 const categories = [['scroll', '주문서'], ['item', '아이템'], ['potion', '물약']];
 const category = (x) => x.k === 'p' ? 'potion' : ['wp', 'gd'].includes(x.k) ? 'scroll' : 'item';
@@ -32,7 +33,7 @@ function ItemTile({ item, onClick, disabled, action }) {
     title={name} onClick={onClick}>
     <span className="trade-slot-visual">{cell !== undefined && !failed ? <span className="trade-slot-atlas" aria-hidden="true">
       <img src={ATLAS} alt="" draggable={false} style={{ left: `${-(cell % 6) * 100}%`, top: `${-Math.floor(cell / 6) * 100}%` }} onError={() => setFailed(true)} />
-    </span> : src && !failed ? <img src={src} alt="" draggable={false} onError={() => setFailed(true)} /> : null}</span>
+    </span> : src && !failed ? <EquipmentArt src={src} draggable={false} onError={() => setFailed(true)} /> : null}</span>
     <span className="trade-slot-name">{name}</span>
     {amount > 0 && <small className="trade-slot-count">{amount}</small>}
     {item.item?.up > 0 && <small className="trade-slot-up">+{item.item.up}</small>}

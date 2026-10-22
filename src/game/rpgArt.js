@@ -1,3 +1,4 @@
+import { WORLD_EQUIPMENT, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
 import { W, H } from "./world.js";
@@ -36,6 +37,9 @@ const WARRIOR_HAND = {
   f: { front: [94, 205, 123], turn: [71, 197, 133], side: [46, 197, 125], back: [95, 198, 62] },
 };
 const WEAPON_GRIP = {
+  dragon_dual: [26, 104, 109, 15], dragon_staff: [64, 100, 65, 16], dragon_bow: [66, 67, 60, 12],
+  serpent_sword: [24, 108, 108, 20], serpent_staff: [62, 100, 62, 15], serpent_bow: [62, 64, 75, 14],
+  machine_sword: [25, 105, 100, 20], machine_staff: [62, 100, 62, 15], machine_bow: [63, 64, 76, 14],
   clockwork: [28, 26, 122, 122], coral: [26, 102, 120, 4], flame: [97, 94, 4, 4], forest: [95, 104, 12, 6],
   frost: [100, 100, 6, 4], holy: [92, 94, 12, 10], shadow: [104, 108, 12, 6], star: [102, 102, 6, 6],
   thunder: [24, 100, 120, 6], viper: [36, 44, 122, 118],
@@ -45,7 +49,7 @@ const WEAPON_GRIP = {
   thunder_bow: [56, 64, 10, 8], lava_bow: [71, 64, 23, 8], shadow_bow: [66, 56, 22, 10], star_bow: [66, 60, 16, 12], gold_bow: [71, 52, 12, 12],
 };
 // 활 그림에서 활줄이 놓인 쪽 — 손잡이 → 위쪽 끝을 보고 왼쪽(-1) · 오른쪽(1). 손에 든 쪽과 다르면 뒤집어 활줄이 몸 쪽을 향하게 한다
-const BOW_STRING = { thunder_bow: -1, lava_bow: 1, shadow_bow: 1, star_bow: -1, gold_bow: -1 };
+const BOW_STRING = { thunder_bow: -1, lava_bow: 1, shadow_bow: 1, star_bow: -1, gold_bow: -1, dragon_bow: 1, serpent_bow: 1, machine_bow: 1 };
 /* 마법사는 특별 지팡이, 궁수는 특별 활을 장착하면 원래 무기를 지운 그림(<보기>-bare.webp, tools/bare-holders.py)에 그 무기를 손에 들려 그린다.
    HOLDER_HAND: 직업 · 성별 · 보기마다 손 [x, y]와 무기 방향(도, 손 → 지팡이 머리 · 활 위쪽 끝)과 그 길이(px) — 원래 그림 크기 기준.
    무기가 몸에 가려 보이지 않는 보기(마법사 옆 · 뒤 등)는 원래 그림을 그대로 쓴다 */
@@ -71,14 +75,24 @@ const HELD_TYPE = { dagger: 0.8, great: 1.15 };        // 단검은 짧게, 대�
 const weaponCache = {};
 function weaponImg(sp) {
   if (typeof Image === "undefined") return null;
-  const src = specialArt(sp);
+  const src = sp.world ? WORLD_EQUIPMENT.atlas : specialArt(sp);
   let im = weaponCache[src];
   if (im === undefined) {
     im = weaponCache[src] = new Image();
     im.onerror = () => { weaponCache[src] = null; };
     im.src = src;
   }
-  return im && im.complete && im.naturalWidth ? im : null;
+  if (!(im && im.complete && im.naturalWidth)) return null;
+  if (!sp.world) return im;
+  const cell = worldArtCell(specialArt(sp)), cacheKey = `world:${sp.id}`;
+  if (!weaponCache[cacheKey]) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const ctx = c.getContext('2d'); ctx.imageSmoothingEnabled = false;
+    const cw = im.naturalWidth / 7, ch = im.naturalHeight / 3;
+    ctx.drawImage(im, (cell % 7) * cw, Math.floor(cell / 7) * ch, cw, ch, 0, 0, 128, 128);
+    weaponCache[cacheKey] = c;
+  }
+  return weaponCache[cacheKey];
 }
 // 전사가 손에 든 검 — 칼 지운 몸 그림이 있으면 늘 이 길로 그린다(휘두를 수 있게).
 // 특별 무기를 장착했고 그 그림이 있으면 그 무기, 아니면 코드로 그린 기본 검

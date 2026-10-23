@@ -1,5 +1,5 @@
 /* 길드 성전과 세 보스의 전용 그림. 캐릭터 스킬 연출은 재사용하지 않는다. */
-import {GUILD_BOSS_BY_TYPE,GUILD_BOSSES,GUILD_BOSS_ART as ART} from './guildData.js';
+import {GUILD_BOSS_BY_TYPE,GUILD_BOSSES,GUILD_BOSS_ART as ART,GUILD_HALL as HALL} from './guildData.js';
 import {guildRunOf} from './guild.js';
 import {bloom,ring,sparks} from './combatFx.js';
 const TAU=Math.PI*2;
@@ -20,7 +20,29 @@ export function drawGuildStatue(ctx,g,n,time){
  ctx.beginPath();ctx.moveTo(-11,-112);ctx.lineTo(-39,-81);ctx.lineTo(-50,-120);ctx.moveTo(11,-112);ctx.lineTo(39,-81);ctx.lineTo(50,-120);ctx.stroke();
  ring(ctx,0,-147,30,.5,'#f4dd9b',.75,3);ring(ctx,0,9,80,.27,'#e9d7a2',.5,1);
  for(let i=0;i<6;i++){const a=time*.6+i*TAU/6;ctx.fillStyle='#f7eac3';ctx.fillRect(Math.cos(a)*62-2,-68+Math.sin(a)*35,4,4);}
- ctx.fillStyle='#372819';ctx.strokeStyle='#ad915b';ctx.fillRect(-72,-211,144,29);ctx.strokeRect(-72,-211,144,29);ctx.font="20px 'Do Hyeon',sans-serif";ctx.fillStyle='#f1dfb8';ctx.textAlign='center';ctx.fillText('길드 성전',0,-190);ctx.restore();
+ ctx.fillStyle='#372819';ctx.strokeStyle='#ad915b';ctx.fillRect(-72,-211,144,29);ctx.strokeRect(-72,-211,144,29);ctx.font="20px 'Do Hyeon',sans-serif";ctx.fillStyle='#f1dfb8';ctx.textAlign='center';ctx.fillText('여신 조각상',0,-190);ctx.restore();
+}
+// 문 하나 — 돌 아치 · 안쪽 빛 · 위 이름판. 광장의 길드 문과 길드 광장의 토벌전 문이 같이 쓴다
+function drawArchDoor(ctx,x,y,time,label,sub,color,inner){
+ ctx.save();ctx.translate(x,y);ctx.fillStyle='rgba(18,13,9,.35)';ctx.beginPath();ctx.ellipse(0,8,80,22,0,0,TAU);ctx.fill();
+ bloom(ctx,0,-80,95,color,.28+.08*Math.sin(time*2));
+ ctx.fillStyle='#5b4c3a';ctx.strokeStyle='#2e241a';ctx.lineWidth=3;
+ ctx.beginPath();ctx.moveTo(-66,6);ctx.lineTo(-66,-110);ctx.arc(0,-110,66,Math.PI,0);ctx.lineTo(66,6);ctx.lineTo(44,6);ctx.lineTo(44,-108);ctx.arc(0,-108,44,0,Math.PI,true);ctx.lineTo(-44,6);ctx.closePath();ctx.fill();ctx.stroke();
+ ctx.save();ctx.beginPath();ctx.moveTo(-44,6);ctx.lineTo(-44,-108);ctx.arc(0,-108,44,Math.PI,0);ctx.lineTo(44,6);ctx.closePath();ctx.clip();
+ ctx.fillStyle=inner;ctx.fillRect(-46,-156,92,164);
+ for(let i=0;i<6;i++){const p=(i/6+time*.18)%1;ctx.globalAlpha=(1-p)*.7;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,-60,6+p*40,10+p*70,0,0,TAU);ctx.stroke();}
+ ctx.restore();
+ ctx.fillStyle='#8c7a5c';for(let i=0;i<5;i++){const a=Math.PI+i*Math.PI/4;ctx.fillRect(Math.cos(a)*55-5,-110+Math.sin(a)*55-5,10,10);}
+ ctx.fillStyle='#372819';ctx.strokeStyle='#ad915b';ctx.lineWidth=2;ctx.fillRect(-78,-214,156,29);ctx.strokeRect(-78,-214,156,29);
+ ctx.font="20px 'Do Hyeon',sans-serif";ctx.textAlign='center';ctx.fillStyle='#f1dfb8';ctx.fillText(label,0,-193);
+ if(sub){ctx.font="14px 'Do Hyeon',sans-serif";ctx.fillStyle=color;ctx.fillText(sub,0,36);}
+ ctx.restore();
+}
+export function drawGuildDoor(ctx,g,n,time){
+ const me=g.heroes[g.mySeat];drawArchDoor(ctx,n.x,n.y,time,'길드 문',me?.guild?.id?'내 길드 광장으로':'길드 찾기','#e6c98f','#2c2440');
+}
+export function drawGuildRaidDoor(ctx,g,n,time){
+ const me=g.heroes[g.mySeat],raid=me?.guild?.raid;drawArchDoor(ctx,n.x,n.y,time,'토벌전 문',raid?'토벌 진행 중':'보스 선택','#e79a7a','#3a1f22');
 }
 export function drawGuildBoss(ctx,m,time){
  const B=GUILD_BOSS_BY_TYPE[m.type];if(!B)return;
@@ -55,8 +77,24 @@ export function drawGuildBoss(ctx,m,time){
 function shape(ctx,s){ctx.beginPath();if(s.shape==='line'){ctx.rotate(s.a);ctx.rect(-40,-s.width,s.len+40,s.width*2);}else{ctx.arc(0,0,s.r,0,TAU);if(s.shape==='ring')ctx.arc(0,0,s.inner,0,TAU,true);}}
 function paint(ctx,s,color,alpha){ctx.save();ctx.translate(s.x,s.y);ctx.scale(1,.78);shape(ctx,s);ctx.globalAlpha*=alpha;ctx.fillStyle=color;ctx.fill('evenodd');ctx.globalAlpha=1;ctx.lineWidth=3;ctx.strokeStyle=color;ctx.stroke();ctx.restore();}
 export function drawGuildGround(ctx,g,map){
+ if(typeof map==='string'&&map.startsWith('guildhall-'))return drawHallFloor(ctx);
  const r=guildRunOf(g,{map});if(!r?.attack)return;const a=r.attack,p=1-Math.max(0,a.t)/a.life;
  a.areas.forEach(s=>paint(ctx,s,'#edbb79',.12+p*.2));ctx.save();ctx.font="24px 'Do Hyeon',sans-serif";ctx.textAlign='center';ctx.lineWidth=5;ctx.strokeStyle='#382b21';ctx.fillStyle='#f6e5b9';const text=`${a.name} · ${Math.max(0,a.t).toFixed(1)}초`;ctx.strokeText(text,r.x,r.y+80);ctx.fillText(text,r.x,r.y+80);ctx.restore();
+}
+// 길드 광장 바닥 — 조각상을 가운데 둔 둥근 돌바닥과 문 셋을 잇는 붉은 길(코드로 그린다)
+function drawHallFloor(ctx){
+ const {statue:S,raidDoor:R,exit:E}=HALL,sq=.78;
+ ctx.save();
+ const road=(x0,y0,x1,y1)=>{ctx.strokeStyle='#8a7a62';ctx.lineWidth=96;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+   ctx.strokeStyle='#7a3f3a';ctx.lineWidth=54;ctx.stroke();ctx.strokeStyle='rgba(230,200,140,.55)';ctx.lineWidth=2;ctx.setLineDash([14,10]);ctx.stroke();ctx.setLineDash([]);};
+ road(E.x,E.y,S.x,S.y+170);road(S.x,S.y+170,R.x,R.y+40);
+ ctx.translate(S.x,S.y+60);ctx.scale(1,sq);
+ ctx.fillStyle='#b9ae98';ctx.beginPath();ctx.arc(0,0,330,0,TAU);ctx.fill();ctx.strokeStyle='#8d826c';ctx.lineWidth=6;ctx.stroke();
+ ctx.strokeStyle='rgba(120,108,88,.55)';ctx.lineWidth=2;
+ for(const r of [110,200,270]){ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.stroke();}
+ for(let i=0;i<16;i++){const a=i*TAU/16;ctx.beginPath();ctx.moveTo(Math.cos(a)*110,Math.sin(a)*110);ctx.lineTo(Math.cos(a)*330,Math.sin(a)*330);ctx.stroke();}
+ ctx.fillStyle='rgba(230,214,160,.35)';ctx.beginPath();ctx.arc(0,0,105,0,TAU);ctx.fill();
+ ctx.restore();
 }
 export function drawGuildFx(ctx,f,p,q){
  if(f.kind!=='sk_guild_hit')return false;

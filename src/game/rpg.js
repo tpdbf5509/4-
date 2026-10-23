@@ -1,4 +1,4 @@
-import {GUILD,GUILD_BOSSES,guildMap,guildBuff,guildAspd} from './guildData.js';
+import {GUILD,GUILD_BOSSES,guildMap,guildBuff,guildAspd,GUILD_HALL,guildHallMap} from './guildData.js';
 import {isGuildBoss,guildInput,guildHit,guildKilled,guildRestore,tickGuild} from './guild.js';
 import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
@@ -83,7 +83,7 @@ export const MAPS = {
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC
     blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 },
       ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 },
-      {x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y,r:38},{...GUILD.statue,r:35},
+      {x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y,r:38},{...GUILD_HALL.door,r:35},
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
@@ -95,7 +95,7 @@ export const MAPS = {
       ...REQ_NPCS.map((n) => ({ id: `req-${n.id}`, req: n.id, name: n.name, x: n.x, y: n.y })),
       { id: "dungeon", dungeon: 1, name: "던전 관리인", x: DUNGEON.npc.x, y: DUNGEON.npc.y },   // 던전 입장 창(dungeonData.js)
       {id:'worldboss',worldBoss:1,name:'월드보스 성역',x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y},
-      {id:'guild',guild:1,name:'길드 성전',...GUILD.statue},
+      {id:'guilddoor',guildDoor:1,name:'길드 문',...GUILD_HALL.door},   // 길드가 있으면 길드 광장, 없으면 길드 찾기(guildData.js GUILD_HALL)
     ],
   },
   field: {
@@ -242,6 +242,14 @@ MAP_IDS.push("worldboss");
 for(let slot=0;slot<GUILD.slots;slot++){
   const id=guildMap(slot);MAP_IDS.push(id);
   MAPS[id]={id,name:'길드 토벌',w:GUILD.w,h:GUILD.h,top:170,spawn:GUILD.spawn,bg:'field',tile:2600,tint:'rgba(43,35,67,.3)',dungeon:'guild',guildRaid:1,gates:[],blocks:[],npcs:[]};
+}
+// 길드 광장 — 길드마다 칸 하나(guild.js guildHallOf). 싸울 수 없는 곳(safe). 왼쪽 문으로 광장의 길드 문 앞에 나간다
+for(let slot=0;slot<GUILD_HALL.slots;slot++){
+  const id=guildHallMap(slot),H=GUILD_HALL;MAP_IDS.push(id);
+  MAPS[id]={id,name:'길드 광장',w:H.w,h:H.h,top:170,safe:true,spawn:H.spawn,bg:'field',tile:2600,tint:'rgba(70,58,96,.28)',guildHall:1,
+    gates:[{x:H.exit.x,y:H.exit.y,r:60,to:'plaza',at:[H.door.x+70,H.door.y+90],label:'광장'}],
+    blocks:[{x:H.statue.x,y:H.statue.y,r:40},{x:H.raidDoor.x,y:H.raidDoor.y,r:38}],
+    npcs:[{id:'guild',guild:1,name:'여신 조각상',...H.statue},{id:'guildraid',guildRaidDoor:1,name:'토벌전 문',...H.raidDoor}]};
 }
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
@@ -1140,7 +1148,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
     h.quest = { on: true, n: 0 };

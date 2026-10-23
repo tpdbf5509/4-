@@ -1961,6 +1961,11 @@ button.forge-stage:disabled { cursor: default; }
 .guild-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:12px 0; border-bottom:1px solid var(--sh-line); }
 .guild-row small { display:block; color:var(--sh-mute); font-size:13px; }
 .guild-row>div,.guild-actions,.guild-confirm { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.guild-crew { margin-top:18px; padding-top:6px; border-top:1px solid var(--sh-line); }
+.guild-crew h3 small { margin-left:8px; font-size:13px; color:var(--sh-mute); font-weight:400; }
+.guild-row.off b { opacity:.6; }
+.guild-tag { font-style:normal; font-size:12px; padding:3px 9px; border-radius:999px; border:1px solid var(--sh-line); color:var(--sh-mute); }
+.guild-tag.on { color:#e8d7a6; border-color:#b89a5c; }
 .guild-actions { margin-top:20px; }
 .guild-confirm { padding:8px; border:1px solid #cead6d; border-radius:5px; }
 .guild-form { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-bottom:16px; }

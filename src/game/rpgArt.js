@@ -1,4 +1,4 @@
-import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop} from './guildArt.js';
+import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor} from './guildArt.js';
 import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
@@ -843,6 +843,8 @@ function drawShop(ctx, n, time) {
 
 function drawNpc(ctx, g, n, time) {
   if(n.guild)return drawGuildStatue(ctx,g,n,time);
+  if(n.guildDoor)return drawGuildDoor(ctx,g,n,time);
+  if(n.guildRaidDoor)return drawGuildRaidDoor(ctx,g,n,time);
   if(n.worldBoss)return drawWorldBossPortal(ctx,g,n,time);
   if (n.shop) return drawShop(ctx, n, time);
   if (n.board) return drawHonorBoard(ctx, n, time);

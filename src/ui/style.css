@@ -1501,27 +1501,50 @@ kbd {
 .shop-result.ok { color: #d6e8cc; border-color: rgba(160, 196, 150, 0.4); background: rgba(120, 160, 110, 0.1); }
 .shop-result.no { color: #f0d0c0; border-color: rgba(214, 160, 136, 0.4); background: rgba(190, 120, 90, 0.1); }
 .shop-body { padding: 4px 16px 16px; overflow-y: auto; }
-.wb-panel { width: min(850px,94%); max-height: 85%; }
-.wb-content { font-size: 15px; line-height: 1.6; color: var(--sh-text); }
-.wb-content h3 { margin: 14px 0 4px; font-size: 19px; letter-spacing: -.03em; }
-.wb-rule { color: var(--sh-mute); font-size: 13px; }
-.wb-bosses { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
-.wb-bosses article { padding: 10px; border: 1px solid var(--sh-line); border-radius: 10px; background: rgba(20,13,7,.2); }
-.wb-bosses h3 { font-size: 17px; }
-.wb-bosses p { margin: 4px 0; font-size: 13px; }
-.wb-portrait { width: 160px; height: 160px; max-width: 100%; margin: auto; background-size: 500% 333.3333%; background-repeat: no-repeat; image-rendering: pixelated; }
-.wb-panel .rpg-win-btn { min-height: 44px; white-space: normal; font-size: 15px; }
-.wb-panel .wb-primary { background: #cfad64; color: #291d12; border-color: #efd19a; padding: 10px 22px; font-weight: 700; }
-.wb-panel button:focus-visible,.wb-hud button:focus-visible { outline: 3px solid #ffe0a0; outline-offset: 3px; }
-.wb-hud { position: absolute; top: 18px; right: 96px; width: min(400px,42%); padding: 10px 14px; background: rgba(43,30,17,.93); color: #f4e5c3; border: 1px solid #a98b50; border-radius: 12px; pointer-events: auto; }
-.wb-hud>div { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size: 13px; }
-.wb-hud progress { width: 100%; height: 12px; accent-color: #dda458; }
-.wb-hud .rpg-win-btn { min-height: 36px; margin-top: 6px; }
-.wb-hud .wb-pattern { margin-top:6px; padding:7px; border:1px solid #a98859; border-radius:6px; background:#37251c; color:#f6d7bd; flex-wrap:wrap; }
-.wb-pattern small { width:100%; font-size:12px; line-height:1.5; }
-.wb-hud .wb-pattern.open,.wb-hud .wb-pattern.stunned { background:#6a4a19; color:#fff3c5; border-color:#ffe4a1; }
-.wb-pattern.open b { font-size:19px; }
-@media(max-width:700px) { .frame:has(.wb-panel) { min-height: min(720px,calc(100svh - 56px)); } .wb-bosses { grid-template-columns: 1fr; } .wb-portrait { width: 150px; height: 150px; } .wb-hud { top: 6px; right: 6px; width: calc(100% - 198px); padding: 5px; } .wb-hud>div { font-size: 10px; flex-wrap: wrap; gap: 2px; } .wb-hud .rpg-win-btn { font-size: 10px; min-height: 30px; padding: 3px 5px; }   .wb-content { font-size: 14px; } }
+/* 월드보스 · 길드 창 — 상점 틀(.shop)을 그대로 쓴다. 보스 셋만 칸으로 나눈다 */
+.wb-panel, .guild-panel { width: min(760px, calc(100% - 24px)); }
+.wb-content, .guild-content { font-size: 12.5px; line-height: 1.55; color: var(--sh-mute); letter-spacing: -0.02em; }
+.wb-content p, .guild-content p { margin: 6px 0; }
+.wb-content b, .wb-content strong, .guild-content b { font-weight: 400; color: var(--sh-text); }
+.wb-content ul { margin: 6px 0; padding-left: 18px; color: var(--sh-text); }
+.wb-rule { font-size: 12px; color: var(--sh-faint); }
+.wb-bosses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.wb-bosses article { display: flex; flex-direction: column; gap: 2px; padding: 10px; border: 1px solid var(--sh-line); border-radius: 8px; }
+.wb-bosses .shop-h { margin: 6px 0 0; }
+.wb-bosses p { margin: 0; }
+.wb-bosses .shop-btn { margin-top: 8px; align-self: flex-start; justify-self: start; }
+.wb-portrait { width: 140px; height: 140px; max-width: 100%; margin: 0 auto; background-size: 500% 333.3333%; background-repeat: no-repeat; image-rendering: pixelated; }
+.wb-panel button:focus-visible, .guild-panel button:focus-visible, .guild-panel input:focus-visible, .wb-hud button:focus-visible { outline: 2px solid var(--sh-gold); outline-offset: 2px; }
+/* 월드보스 · 길드 토벌 진행 칸 — 던전 진행 칸(.rpg-dg)과 같은 바탕 · 선 */
+.wb-hud { position: absolute; top: 12px; right: 96px; z-index: 3; width: min(400px, 42%); box-sizing: border-box; display: flex; flex-direction: column; gap: 6px;
+  padding: 8px 14px 10px; border-radius: 10px; background: rgba(20, 14, 8, 0.84); border: 1px solid rgba(214, 178, 106, 0.45);
+  color: #d9c9a6; font-size: 12px; letter-spacing: -0.02em; text-align: left; pointer-events: auto; }
+.wb-hud > b { font-family: "Do Hyeon", sans-serif; font-weight: 400; font-size: 13px; color: #e8dcc0; letter-spacing: -0.03em; }
+.wb-hud > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.wb-hud > div > b { font-family: "Do Hyeon", sans-serif; font-weight: 400; font-size: 13px; color: #e8dcc0; }
+.wb-hud strong { font-weight: 400; color: #e8dcc0; }
+.wb-hud .rpg-win-btn { min-width: 0; padding: 3px 10px; font-size: 11.5px; }
+.wb-hud > div:last-child { justify-content: flex-start; }
+.wb-hud > .rpg-win-btn { align-self: flex-start; }
+/* 보스 기술 줄 — 평소엔 1px 선, 합동 공격 때만 금빛(강조 한 곳) */
+.wb-hud .wb-pattern { flex-wrap: wrap; padding: 6px 8px; border: 1px solid rgba(214, 178, 106, 0.3); border-radius: 6px; color: #e8dcc0; }
+.wb-pattern small { width: 100%; font-size: 11px; line-height: 1.45; color: #a99a7e; }
+.wb-hud .wb-pattern.open, .wb-hud .wb-pattern.stunned { border-color: #e3c48a; background: rgba(227, 196, 138, 0.12); color: #f6e5bb; }
+.wb-pattern.open b { font-size: 16px; color: #e3c48a; }
+@media (max-width: 700px) {
+  .frame:has(.wb-panel) { min-height: min(720px, calc(100svh - 56px)); }
+  .wb-bosses { grid-template-columns: 1fr; }
+  /* 좁으면 보스 칸을 [그림 | 이름 · 설명 · 버튼] 한 줄로 */
+  .wb-bosses article { display: grid; grid-template-columns: 96px minmax(0, 1fr); column-gap: 10px; align-content: start; }
+  .wb-bosses article > :first-child { grid-row: 1 / span 6; width: 96px; height: 86px; align-self: center; }
+  .wb-bosses .wb-portrait { height: 96px; }
+  .wb-bosses .shop-h { margin-top: 0; }
+  .wb-hud { top: 6px; right: 6px; width: calc(100% - 198px); padding: 5px 7px; gap: 3px; }
+  .wb-hud > div { font-size: 10px; flex-wrap: wrap; gap: 2px; }
+  .wb-hud .rpg-win-btn { font-size: 10px; padding: 2px 6px; }
+  .wb-pattern.open b { font-size: 14px; }
+  .wb-pattern small { font-size: 10px; }
+}
 /* 탭 — 밑줄 하나로 고른 것을 보인다 */
 .shop-tabs { display: flex; gap: 2px; margin: 8px 0 4px; border-bottom: 1px solid var(--sh-line); overflow-x: auto; }
 .shop-tabs button { flex: none; padding: 9px 12px 8px; cursor: pointer; background: none; border: 0; border-bottom: 1px solid transparent;
@@ -1891,17 +1914,18 @@ button.forge-stage:disabled { cursor: default; }
 .trade-panel .trade-confirm.complete:disabled { color: #e2f6d4; background: #34482b; border-color: #a9cd94; }
 .trade-error { flex-shrink: 0; margin: 0; padding: 8px 16px; background: #492a20; color: #ffe0c6; font-size: 14px; }
 .trade-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+/* 거래 · 길드 결과 알림 — 화면 가운데 위에 잠깐. 상점 창과 같은 바탕 · 선, 성공만 초록 줄 */
 .trade-result {
-  position: absolute; z-index: 12; top: 42%; left: 50%; transform: translate(-50%, -50%);
-  width: min(560px, calc(100% - 32px)); box-sizing: border-box; padding: 24px 20px;
-  display: grid; gap: 10px; text-align: center; pointer-events: none;
-  border: 1px solid #d4ae66; border-radius: 16px; background: rgba(43, 31, 17, .96);
-  color: #fff1cf; box-shadow: 0 8px 30px #0008; overflow-wrap: anywhere;
+  position: absolute; z-index: 12; top: 38%; left: 50%; transform: translate(-50%, -50%);
+  width: min(420px, calc(100% - 32px)); box-sizing: border-box; padding: 14px 18px;
+  display: grid; gap: 4px; text-align: left; pointer-events: none;
+  border: 1px solid rgba(226, 205, 165, 0.28); border-radius: 12px; background: #2a2119;
+  color: #a99a7e; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45); overflow-wrap: anywhere; word-break: keep-all;
 }
-.trade-result strong { font-family: 'Do Hyeon', sans-serif; font-size: clamp(28px, 4vw, 44px); line-height: 1.2; }
-.trade-result span { font-size: clamp(16px, 2vw, 20px); line-height: 1.5; }
-.trade-result.success { border-color: #a6cd86; }
-.trade-result.success strong { color: #c8efac; }
+.trade-result strong { font-family: "Do Hyeon", sans-serif; font-weight: 400; font-size: 22px; line-height: 1.15; letter-spacing: -0.03em; color: #ecdfc4; }
+.trade-result span { font-size: 13.5px; line-height: 1.5; letter-spacing: -0.02em; }
+.trade-result.success { border-color: rgba(160, 196, 150, 0.5); }
+.trade-result.success strong { color: #d6e8cc; }
 @media (max-width: 600px) {
   .shop.trade-panel { left: 6px; top: 6px; width: calc(100% - 12px); max-height: calc(100% - 12px); }
   .trade-inventory { padding-right: 10px; }
@@ -1949,42 +1973,45 @@ button.forge-stage:disabled { cursor: default; }
   .world-equipment-item .equipment-art.shop-art { width: 44px; height: 44px; }
 }
 
-/* 길드도 상점과 같은 갈색·금빛 틀을 쓴다. */
-.guild-panel { width:min(850px,94%); max-height:85%; }
-.guild-content { color:var(--sh-text); font-size:15px; line-height:1.6; }
-.guild-content h3 { margin:16px 0 8px; font-size:20px; }
-.guild-content .rpg-win-btn { min-height:44px; font-size:14px; white-space:normal; }
-.guild-content button:focus-visible,.guild-content input:focus-visible { outline:3px solid #ffe0a0; outline-offset:3px; }
-.guild-content .wb-primary { background:#cfad64; color:#291d12; font-weight:700; border-color:#efd19a; }
-.guild-wallet { display:flex; flex-wrap:wrap; gap:8px 20px; padding:10px; background:#302417; border:1px solid var(--sh-line); border-radius:7px; }
-.guild-wallet b { color:#ffe0a0; }
-.guild-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:12px 0; border-bottom:1px solid var(--sh-line); }
-.guild-row small { display:block; color:var(--sh-mute); font-size:13px; }
-.guild-row>div,.guild-actions,.guild-confirm { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-.guild-crew { margin-top:18px; padding-top:6px; border-top:1px solid var(--sh-line); }
-.guild-crew h3 small { margin-left:8px; font-size:13px; color:var(--sh-mute); font-weight:400; }
-.guild-row.off b { opacity:.6; }
-.guild-tag { font-style:normal; font-size:12px; padding:3px 9px; border-radius:999px; border:1px solid var(--sh-line); color:var(--sh-mute); }
-.guild-tag.on { color:#e8d7a6; border-color:#b89a5c; }
-.guild-actions { margin-top:20px; }
-.guild-confirm { padding:8px; border:1px solid #cead6d; border-radius:5px; }
-.guild-form { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-bottom:16px; }
-.guild-form label { display:grid; gap:5px; }
-.guild-form input { max-width:100%; width:210px; min-height:44px; padding:8px 10px; border:1px solid var(--sh-line); border-radius:5px; background:#2e2319; color:#f5e5c5; font:inherit; box-sizing:border-box; }
-.guild-error { padding:10px; border:1px solid #d4a080; color:#ffd2bb; border-radius:6px; }
-.guild-content progress { width:100%; accent-color:#d9bd73; }
-.guild-table { width:100%; border-collapse:collapse; font-size:14px; margin:16px 0; }
-.guild-table caption { text-align:left; font-weight:bold; padding:6px 0; }
-.guild-table th,.guild-table td { padding:8px 4px; text-align:left; border-bottom:1px solid var(--sh-line); }
-.guild-portrait { display:block; width:180px; max-width:100%; height:160px; margin:0 auto; image-rendering:pixelated; }
-@media(max-width:700px) { .frame:has(.guild-panel) { min-height:min(720px,calc(100svh - 56px)); } .guild-content { font-size:14px; } .guild-form label { flex:1; min-width:0; } .guild-form input { width:100%; } .guild-table { font-size:12px; } .wb-pattern.open b { font-size:14px; } .wb-pattern small { font-size:10px; } }
-
-.guild-panel .guild-portrait { width:180px; height:160px; max-width:100%; flex:none; }
-.guild-panel .shop-top,.guild-panel .shop-tabs { flex-shrink:0; }
-.guild-notice strong { font-size:clamp(24px,3vw,36px); word-break:keep-all; }
+/* 길드 — 상점 틀 · 1px 선 줄 · 상점 버튼을 쓴다 */
+.guild-panel > .shop-tabs { flex-shrink: 0; margin: 6px 16px 0; }
+.guild-wallet { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 10px 0 0; padding-bottom: 8px; border-bottom: 1px solid var(--sh-line); font-size: 12px; }
+.guild-wallet b { color: var(--sh-gold); }
+.guild-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px; padding: 10px 0; border-bottom: 1px solid var(--sh-line);
+  font-size: 14px; color: var(--sh-text); letter-spacing: -0.03em; }
+.guild-row > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.guild-row small { display: block; font-size: 11.5px; color: var(--sh-faint); letter-spacing: -0.02em; }
+.guild-row > div, .guild-actions, .guild-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.guild-row.off { opacity: 0.6; }
+.guild-crew { margin-top: 6px; }
+.guild-crew .shop-h small { margin-left: 8px; }
+.guild-tag { font-style: normal; font-size: 11.5px; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--sh-line); color: var(--sh-faint); }
+.guild-tag.on { color: var(--sh-gold); border-color: var(--sh-gold); }
+.guild-actions { margin-top: 14px; }
+.guild-confirm { color: var(--sh-warn); }
+.guild-form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin: 8px 0 10px; }
+.guild-form label { display: grid; gap: 4px; font-size: 12px; color: var(--sh-mute); }
+.guild-form input { width: 200px; max-width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 8px; font-family: inherit; font-size: 15px;
+  color: var(--sh-text); background: rgba(0, 0, 0, 0.25); border: 1px solid var(--sh-line); }
+.guild-content .shop-result { margin: 10px 0 0; }
+.guild-content progress { display: block; width: 100%; height: 6px; margin: 8px 0 2px; border: 0; border-radius: 3px; overflow: hidden; background: rgba(0, 0, 0, 0.3); accent-color: var(--sh-gold); }
+.guild-content progress::-webkit-progress-bar { background: rgba(0, 0, 0, 0.3); }
+.guild-content progress::-webkit-progress-value { background: var(--sh-gold); }
+.guild-content progress::-moz-progress-bar { background: var(--sh-gold); }
+.guild-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px; color: var(--sh-mute); }
+.guild-table caption { text-align: left; padding: 0 0 4px; font-family: "Do Hyeon", sans-serif; font-size: 15px; color: var(--sh-text); }
+.guild-table th, .guild-table td { padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--sh-line); }
+.guild-table th { font-weight: 400; color: var(--sh-faint); }
+.guild-table td + td { color: var(--sh-text); font-variant-numeric: tabular-nums; }
+.frame .guild-portrait { display: block; width: 160px; max-width: 100%; height: 142px; margin: 0 auto; flex: none; image-rendering: pixelated; }
+@media (max-width: 700px) {
+  .frame:has(.guild-panel) { min-height: min(720px, calc(100svh - 56px)); }
+  .guild-form label { flex: 1; min-width: 0; }
+  .guild-form input { width: 100%; }
+}
 
 /* 월드·길드 보스도 기존 던전의 실제 체력/피해 잔상 바를 쓴다. */
-.wb-hud .rpg-dg-boss { display:grid; grid-template-columns:minmax(0,1fr); align-items:baseline; gap:4px; margin:7px 0; }
+.wb-hud .rpg-dg-boss { display:grid; grid-template-columns:minmax(0,1fr); align-items:baseline; gap:4px; margin:0; }
 .wb-hud .rpg-dg-boss span { white-space:normal; overflow:visible; }
 .wb-hud .rpg-dg-boss b { font-size:13px; }
 .wb-hud .rpg-dg-boss i { height:16px; }

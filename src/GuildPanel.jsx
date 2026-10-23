@@ -1,5 +1,5 @@
 import BossHealthBar from './BossHealthBar.jsx';
-import {drawGuildBoss,drawGuildStatue,warmGuildArt} from './game/guildArt.js';
+import {drawGuildBoss,drawGuildStatue,warmGuildArt,warmStatueArt} from './game/guildArt.js';
 import {useEffect,useRef,useState} from 'react';
 import {GUILD as C,GUILD_BOSSES,GUILD_BOSS_ART,templeCost} from './game/guildData.js';
 const won=n=>(n||0).toLocaleString('ko-KR');
@@ -10,7 +10,7 @@ const MODE_TITLE={find:'길드 찾기',raid:'길드 토벌전'};
 function GuildPortrait({boss}){
  const canvas=useRef(null);
  useEffect(()=>{
-   const ctx=canvas.current.getContext('2d'),atlas=boss?warmGuildArt():null;
+   const ctx=canvas.current.getContext('2d'),atlas=boss?warmGuildArt():warmStatueArt();
    const paint=()=>{ctx.clearRect(0,0,360,320);ctx.save();ctx.translate(180,280);const scale=boss?270/GUILD_BOSS_ART.size:.85;ctx.scale(scale,scale);
      if(boss)drawGuildBoss(ctx,{type:boss.type,x:0,y:0},0);else drawGuildStatue(ctx,{mySeat:0,heroes:[]},{x:0,y:0},0);ctx.restore();};
    paint();if(atlas&&!atlas.complete)atlas.addEventListener('load',paint,{once:true});return()=>atlas?.removeEventListener('load',paint);

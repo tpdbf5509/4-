@@ -2044,6 +2044,15 @@ function follow(g, M) {
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
   cap: {sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
 const lod = { at: 0, ms: 16, q: 1 };
+/* 사람이 많은 화면 — 월드보스처럼 한 맵에 모이면 손님 기기마다 남의 연출을 모두 그려 휴대폰에서 초당 화면이 반으로 떨어졌다.
+   (실측: 월드보스 무기 연출 하나가 휴대폰 속도에서 3~5ms. 남의 것이 스무 개 넘게 겹친다)
+   같은 맵에 heroes 명 이상이면(또는 설정의 "연출 줄이기") 남의 스킬 연출은 최근 budget 개 · 종류마다 kind 개 · 알갱이 q 몫만 그리고,
+   남이 주고받은 피해 숫자 · 남의 스킬 이름은 숨긴다. 내 것은 그대로. 주인(by)은 rpg.js fx 가 싣는다.
+   주인이 없는 연출(보스 경고 · 몹 기술)은 피해야 하는 것이라 줄이지 않는다 */
+const CROWD = { heroes: 5, budget: 6, kind: 2, q: 0.5,
+  low: { budget: 3, kind: 1, q: 0.35, mine: 0.6 } };   // 연출 줄이기 — 남의 것은 더 덜고 내 것도 알갱이를 줄인다
+let lowFx = false;
+export const setLowFx = (on) => { lowFx = !!on; };
 function stepLod() {
   const now = performance.now(), d = lod.at ? Math.min(100, now - lod.at) : 16;
   lod.at = now;
@@ -2052,15 +2061,29 @@ function stepLod() {
   if (q !== lod.q) { lod.q = q; setFxQuality(q); }
 }
 // 그릴 스킬 연출 — 종류마다 최근 것부터 cap 개까지
-function pickSkillFx(list) {
-  const seen = {}, keep = new Set();
+const othersFx = (f, crowd, mySeat) => crowd && f.by !== undefined && f.by !== mySeat;
+function pickSkillFx(list, crowd, mySeat) {
+  const seen = {}, keep = new Set(), C = lowFx ? CROWD.low : CROWD;
+  let others = 0;
   for (let i = list.length - 1; i >= 0; i--) {
-    const f = list[i], cap = FX_LOD.cap[f.kind];
+    const f = list[i], other = othersFx(f, crowd, mySeat);
+    if (other && ++others > C.budget) continue;   // 남의 연출은 최근 몇 개만
+    let cap = FX_LOD.cap[f.kind];
+    if (other) cap = Math.min(cap || C.kind, C.kind);
     if (!cap) { keep.add(f); continue; }
-    const n = (seen[f.kind] = (seen[f.kind] || 0) + 1);
+    const key = other ? f.kind + "/o" : f.kind;
+    const n = (seen[key] = (seen[key] || 0) + 1);
     if (n <= (lod.q < 1 ? Math.ceil(cap / 2) : cap)) keep.add(f);
   }
   return keep;
+}
+// 남의 연출은 알갱이를 덜 — 그리는 동안만 품질을 낮췄다가 되돌린다
+function drawSkillTuned(ctx, f, time, g, crowd) {
+  const C = lowFx ? CROWD.low : CROWD;
+  const q = !crowd && !lowFx ? lod.q : Math.min(lod.q, othersFx(f, crowd, g.mySeat) ? C.q : f.by === g.mySeat && lowFx ? C.mine : 1);
+  if (q === lod.q) return drawSkillFx(ctx, f, time, g);
+  setFxQuality(q);
+  try { drawSkillFx(ctx, f, time, g); } finally { setFxQuality(lod.q); }
 }
 
 export function drawRpg(ctx, g, bgs) {
@@ -2122,8 +2145,9 @@ export function drawRpg(ctx, g, bgs) {
   g.fx.forEach((f) => { if (here(f) && f.kind === "art" && !(FX_ART[f.art] || {}).over) drawFx(ctx, f); });
   // 스킬 연출 — 화면 안 · 종류마다 최근 것만(FX_LOD)
   const fxSeen = (f) => inView(f.x, f.y, 320) || (f.x1 !== undefined && inView(f.x1, f.y1, 320));
-  const skFx = pickSkillFx(g.fx.filter((f) => here(f) && f.kind.startsWith("sk_") && fxSeen(f)));
-  g.fx.forEach((f) => { if (skFx.has(f) && GROUND_FX.has(f.kind)) drawSkillFx(ctx, f, time, g); });   // 빙판길 · 잔화 · 균열 — 땅에 깔린다
+  const crowd = lowFx || g.heroes.filter((h) => h && h.map === M.id).length >= CROWD.heroes;
+  const skFx = pickSkillFx(g.fx.filter((f) => here(f) && f.kind.startsWith("sk_") && fxSeen(f)), crowd, g.mySeat);
+  g.fx.forEach((f) => { if (skFx.has(f) && GROUND_FX.has(f.kind)) drawSkillTuned(ctx, f, time, g, crowd); });   // 빙판길 · 잔화 · 균열 — 땅에 깔린다
 
   // 앞뒤로 겹치게 — 위에 선 것부터 그린다
   const order = [];
@@ -2160,7 +2184,9 @@ export function drawRpg(ctx, g, bgs) {
   if (M.dungeon) drawDungeonDark(ctx, me, cam);
   g.fx.forEach((f) => {
     if (!here(f) || GROUND_FX.has(f.kind)) return;
-    if (f.kind.startsWith("sk_")) { if (skFx.has(f)) drawSkillFx(ctx, f, time, g); }   // 직업 · 무기 스킬 연출(skillArt.js)
+    if (f.kind.startsWith("sk_")) { if (skFx.has(f)) drawSkillTuned(ctx, f, time, g, crowd); }   // 직업 · 무기 스킬 연출(skillArt.js)
+    else if (crowd && f.kind === "dmg" && f.by >= 0 && f.by !== g.mySeat) return;   // 남이 주고받은 피해 숫자 — 보스 체력바로 본다
+    else if (crowd && f.kind === "call" && f.who >= 0 && f.who !== g.mySeat) return;   // 남의 스킬 이름 외침
     else if (f.kind !== "art" || (FX_ART[f.art] || {}).over) drawFx(ctx, f);
   });
   ctx.globalAlpha = 1;

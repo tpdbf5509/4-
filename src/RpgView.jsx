@@ -61,7 +61,7 @@ import RpgAccount from "./RpgAccount.jsx";
 import { compareBuild, BUILD } from "./net/version.js";
 import { adminRedeem, joinAdminLink } from "./net/admin.js";
 import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText, honorTop } from "./net/rpgSave.js";
-import { drawRpg } from "./game/rpgArt.js";
+import { drawRpg, setLowFx } from "./game/rpgArt.js";
 import { ghostStep } from "./game/bossBar.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
@@ -103,12 +103,18 @@ const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.m
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 const AUTO_KEY = "flg:rpgAuto";
 const PVP_KEY = "flg:rpgPvp";
+const LOWFX_KEY = "flg:rpgLowFx";   // 연출 줄이기 — 느린 기기에서 남의 연출을 더 덜고 내 연출 알갱이도 줄인다(rpgArt.js CROWD.low)
+// 화면 칸(체력 · 버튼 · 창)을 다시 그리는 간격(ms) — 예전엔 5프레임마다(초당 12번) 그려 사람이 많을 때 손님 기기가 무거웠다
+const HUD_MS = 160;
 const NOTICE_KEY = "flg:rpgNotice";   // 이 기기에서 마지막으로 본 업데이트 공지 id(updates.js RPG_NOTICE)
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
 function loadAuto() {
   try { return localStorage.getItem(AUTO_KEY) !== "0"; } catch { return true; }
 }
 // 사냥터 PvP 설정도 이 기기에 남긴다 — 처음엔 꺼져 있다
+function loadLowFx() {
+  try { return localStorage.getItem(LOWFX_KEY) === "1"; } catch { return false; }
+}
 function loadPvp() {
   try { return localStorage.getItem(PVP_KEY) === "1"; } catch { return false; }
 }
@@ -385,6 +391,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [auto, setAuto] = useState(loadAuto);        // 자동 평타
   const autoRef = useRef(auto);
   const [pvp, setPvp] = useState(loadPvp);           // 사냥터 PvP
+  const [lowFxOn, setLowFxOn] = useState(loadLowFx);   // 연출 줄이기
+  useEffect(() => { setLowFx(lowFxOn); }, [lowFxOn]);
+  const toggleLowFx = useCallback(() => setLowFxOn((on) => {
+    try { localStorage.setItem(LOWFX_KEY, on ? "0" : "1"); } catch { /* 저장이 막혀 있으면 이번만 */ }
+    return !on;
+  }), []);
   const pvpRef = useRef(pvp);
   const dirsRef = useRef([]);                       // 누르고 있는 방향
   const fireRef = useRef(false);                    // 스페이스를 누르고 있다
@@ -997,7 +1009,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bgsRef.current = {};                              // 그림 파일이 없을 때만 drawRpg 가 코드로 채운다
 
-    let raf, last = performance.now(), frame = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null, noticeDone = false;
+    let raf, last = performance.now(), hudAt = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null, noticeDone = false;
     const loop = (now) => {
       // 첫 프레임의 시각은 루프를 건 시각보다 앞설 수 있다 — 거꾸로 가지 않게 막는다
       const real = Math.max(0, (now - last) / 1000);
@@ -1029,7 +1041,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       playSounds(g);
       tickBossBars(g, now / 1000);
       drawRpg(ctx, g, bgsRef.current);
-      if (++frame % 5 === 0) {
+      if (now - hudAt >= HUD_MS) {
+        hudAt = now;
         const me = g.heroes[mySeat];
         setHud(me ? {
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
@@ -1213,6 +1226,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <em>{pvp ? "사냥터에서 PvP 를 켠 사람끼리 서로 칠 수 있습니다" : "꺼져 있어 다른 사람을 치지도, 맞지도 않습니다"}</em>
                   </span>
                   <span className={`rpg-switch ${pvp ? "on" : ""}`}><span /></span>
+                </button>
+                <button type="button" role="menuitemcheckbox" aria-checked={lowFxOn} className="rpg-menu-row" onClick={toggleLowFx}>
+                  <span className="rpg-menu-text">
+                    <b>연출 줄이기</b>
+                    <em>{lowFxOn ? "남의 스킬 연출 · 피해 숫자를 덜 그립니다. 느린 기기에 맞습니다" : "사람이 많은 곳에서만 남의 연출을 덜 그립니다"}</em>
+                  </span>
+                  <span className={`rpg-switch ${lowFxOn ? "on" : ""}`}><span /></span>
                 </button>
                 <button type="button" role="menuitem" className="rpg-menu-row" onClick={()=>toggleWin(guildOpen,()=>setGuildOpen("menu"))}><span className="rpg-menu-text"><b>길드 성전</b><em>길드원 · 봉헌 · 토벌 · 주간 순위</em></span><span className="rpg-menu-go">›</span></button>
                 {servers && (

@@ -1021,9 +1021,14 @@ export function rpgStat(g, pi, add) {
 /* ── 연출 — 어느 맵에서 일어났는지 함께 적는다 ─────────────── */
 // 연출 숫자는 소수 둘째 자리까지만 — 스냅샷에 실려 가는 글자 수를 줄인다(그림에는 차이가 없다)
 const FX_ROUND = 100;
+/* 스킬 연출의 주인(by) — 지금 판정 중인 사람의 자리. 사람이 많은 맵에서 손님 화면이 남의 연출을 덜 그리는 데 쓴다(rpgArt.js CROWD).
+   스킬 · 입력 · 사람마다 도는 판정 · 늦게 나가는 타격(later · 투사체 · 균열 · 장판) 동안만 정해 둔다. 모르면 -1(남의 것으로 본다) */
+let fxBy = -1;
+export const setFxBy = (pi) => { const prev = fxBy; fxBy = Number.isInteger(pi) ? pi : -1; return prev; };
 export function fx(g, map, item) {
   const it = { map };
   for (const k in item) { const v = item[k]; it[k] = typeof v === "number" ? Math.round(v * FX_ROUND) / FX_ROUND : v; }
+  if (fxBy >= 0 && it.by === undefined && typeof it.kind === "string" && it.kind.startsWith("sk_")) it.by = fxBy;
   if (it.kind === "cut") g.fx = g.fx.filter((f) => f.fid !== it.ref);   // 맞은 투사체 그림을 지운다
   else g.fx.push(it);
   if (it.kick && g.heroes[g.mySeat]?.map === map) g.shake = Math.max(g.shake, Math.min(.6, it.kick));
@@ -1493,15 +1498,17 @@ const BOSS_NUM = { col: ["#fff4e2", "#ffbe72", "#ffd84a"], life: [0.65, 0.78, 0.
   dx: [0, -48, 48, -24, 24], dy: [0, 14, 14, 28, 28] };
 // 발밑에서 숫자를 띄울 높이 — 몸통 가운데쯤. 머리 위 이름표 · 체력 칸과 겹치지 않게 그보다 낮게 띄운다
 const bossTop = (m) => (m.dg ? 120 : Math.min(120, m.rad * 1.4 + 14));
+// 숫자마다 때린 사람(by)을 싣는다 — 사람이 많은 맵에서 손님 화면은 내가 준 숫자만 띄운다(rpgArt.js CROWD)
 function flushNum(g, m, tier = 0) {
   if (!(m.numAcc > 0)) return;
+  const by = m.numBy ?? -1;
   if (m.boss) {
     const k = (m.numK = ((m.numK || 0) + 1) % BOSS_NUM.dx.length);
     const t = Math.min(2, tier);
     fx(g, m.map, { kind: "dmg", boss: 1, x: m.x + BOSS_NUM.dx[k] + (Math.random() - 0.5) * 8, y: m.y - bossTop(m) - BOSS_NUM.dy[k],
-      text: String(Math.round(m.numAcc)), color: BOSS_NUM.col[t], t: BOSS_NUM.life[t], life: BOSS_NUM.life[t], tier: t });
+      text: String(Math.round(m.numAcc)), color: BOSS_NUM.col[t], t: BOSS_NUM.life[t], life: BOSS_NUM.life[t], tier: t, by });
   } else fx(g, m.map, { kind: "dmg", x: m.x + (Math.random() - 0.5) * 14, y: m.y - 30,
-    text: String(Math.round(m.numAcc)), color: m.numCol, t: 0.65, life: 0.65, tier });
+    text: String(Math.round(m.numAcc)), color: m.numCol, t: 0.65, life: 0.65, tier, by });
   m.numAcc = 0;
   m.numT = 0.2;
 }
@@ -1532,6 +1539,8 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
   if (h && !dot) weaponOnHit(g, h, m, null, side, !skill);   // 전설 무기 패시브 — side 는 튄 피해(옆 몹)
   m.flash = 0.12;
+  if (m.numAcc > 0 && (m.numBy ?? -1) !== pi) flushNum(g, m, 0);   // 다른 사람이 친 숫자는 따로 — 모아 둔 것을 먼저 띄운다
+  m.numBy = pi;
   m.numAcc += dmg;
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
   if (crit || skill || m.numT <= 0) flushNum(g, m, crit ? 2 : skill ? 1 : 0);
@@ -1731,7 +1740,7 @@ function hurtHero(g, h, raw) {
   h.calm = 0;
   h.numAcc += dmg;
   if (h.numT <= 0) {
-    fx(g, h.map, { kind: "dmg", x: h.x, y: h.y - 76, text: `-${Math.round(h.numAcc)}`, color: "#ff9a8a", t: 0.6, life: 0.6 });
+    fx(g, h.map, { kind: "dmg", x: h.x, y: h.y - 76, text: `-${Math.round(h.numAcc)}`, color: "#ff9a8a", t: 0.6, life: 0.6, by: h.pi });   // 내가 받은 피해
     h.numAcc = 0;
     h.numT = 0.3;
   }
@@ -2142,12 +2151,12 @@ export function rpgUseSkill(g, pi, id) {
    수치는 skillData.js. 무기 · 스킬 상태는 h.ws(불똥 · 별빛 · 분노 · 수호 에너지 · 반격 · 무기 스킬 대기),
    직업 버프는 h.jb(철벽 · 마나 보호막) — 둘 다 스냅샷 줄 46 으로 손님에게 간다(그림 · 걷기 속도) */
 const WS = WEAPON_SKILLS;
-const later = (g, t, fn) => (g.later || (g.later = [])).push({ t, fn });
+const later = (g, t, fn) => (g.later || (g.later = [])).push({ t, fn, by: fxBy });
 function tickLater(g, dt) {
   if (!g.later || !g.later.length) return;
   const due = [];
   g.later = g.later.filter((q) => { q.t -= dt; if (q.t > 0) return true; due.push(q); return false; });
-  due.forEach((q) => q.fn());
+  due.forEach((q) => { const prev = setFxBy(q.by ?? -1); try { q.fn(); } finally { setFxBy(prev); } });
 }
 export const wsOf = (h) => h.ws || (h.ws = { emb: 0, star: 0, wcd: 0, cmb: null, zap: 0, zapT: 0, zapKey: "", zapWin: 0,
   mark: 0, markT: 0, aim: 0, aimWalk: 0, dashT: 0, dashUsed: 0, emT: 0, riftT: 0 });
@@ -2376,6 +2385,7 @@ function tickMissiles(g, dt) {
   const list = g.missiles;
   g.missiles = [];
   const keep = list.filter((s) => {
+    setFxBy(s.pi);
     const h = g.heroes[s.pi];
     if (!h || h.who !== s.who || h.map !== s.map || h.down > 0) { cutFx(g, s.map, s.fid); return false; }
     let go = Math.min(s.left, s.v * dt);
@@ -2403,7 +2413,8 @@ function tickRifts(g, dt) {
   if (!g.rifts || !g.rifts.length) return;
   const due = [];
   g.rifts = g.rifts.filter((r) => { r.t -= dt; if (r.t > 0) return true; due.push(r); return false; });
-  due.forEach((r) => riftBoom(g, r));
+  due.forEach((r) => { setFxBy(r.pi); riftBoom(g, r); });
+  setFxBy(-1);
 }
 function riftBoom(g, r) {
   const h = g.heroes[r.pi], P = WS.galaxy_staff.passive;
@@ -2582,6 +2593,7 @@ function tickZones(g, dt) {
   if (!g.zones || !g.zones.length) return;
   g.zones = g.zones.filter((z) => {
     z.t -= dt; z.acc += dt;
+    setFxBy(z.pi);
     const h = g.heroes[z.pi];
     if (!h || h.map !== z.map) return false;     // 맵을 떠나면 사라진다
     while (z.acc >= z.tick) {
@@ -3054,6 +3066,7 @@ function zapBoom(g, h, o) {
 function stepHeroes(g, dt) {
   g.heroes.forEach((h) => {
     if (!h || trading(h)) return;
+    setFxBy(h.pi);
     h.flash = Math.max(0, h.flash - dt);
     h.swing = Math.max(0, h.swing - dt);
     h.buff = Math.max(0, h.buff - dt);
@@ -3981,10 +3994,10 @@ export function rpgStep(g, dt) {
   if (g.banner) { g.banner.t -= dt; if (g.banner.t <= 0) g.banner = null; }
   g.fx = g.fx.filter((f) => { f.t -= dt; return f.t > 0; });
 
-  stepHeroes(g, dt);
+  stepHeroes(g, dt); setFxBy(-1);
   tickLater(g, dt);                               // 잇달아 나가는 스킬(연사 · 화염베기 · 유성)
-  tickZones(g, dt);                               // 빙판길 · 잔화
-  tickMissiles(g, dt);                            // 날아가는 무기 스킬(구체 · 화살)
+  tickZones(g, dt); setFxBy(-1);                  // 빙판길 · 잔화
+  tickMissiles(g, dt); setFxBy(-1);               // 날아가는 무기 스킬(구체 · 화살)
   tickRifts(g, dt);                               // 은하 지팡이 균열
   keepDummies(g);                                 // 훈련장 허수아비
   tickSocial(g, dt);

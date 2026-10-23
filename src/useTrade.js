@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { adoptChar, charRecord, loadChar, rpgJoin, writeChar, ownHero } from './game/rpg.js';
 import { rpgTrade } from './game/trade.js';
-import { TRADE } from './game/tradeData.js';
+import { TRADE, lockPlace } from './game/tradeData.js';
 import { cloudFlush, cloudQueue, cloudReset, loadRemote, tradeAction, tradeOpen } from './net/rpgSave.js';
 
 const ACTION_WAIT_MS = 50; // 상태 조회가 끝나기를 기다릴 때 버튼 입력을 버리지 않는 간격
@@ -106,9 +106,14 @@ export function useTrade(options) {
       return r;
     } finally { working.current = false; setBusy(false); }
   }, [receive]);
-  const flush = useCallback(async () => {
+  // hall: 길드 동작은 길드 광장에서도 저장한다(거래 자체는 광장에서만)
+  const flush = useCallback(async ({ hall = false } = {}) => {
     const c = account(), o = current.current, h = o.g.heroes[o.seat];
-    if (!c || !h?.loaded || !ownHero(h, o.seats[o.seat]?.id) || h.map !== 'plaza' || h.down > 0 || h.dvs >= 0 || (!o.isHost && !o.g.tradeVersion)) throw Error('광장에서 새 버전의 방장과 거래할 수 있습니다.');
+    if (!c || !h?.loaded || !ownHero(h, o.seats[o.seat]?.id)) throw Error('기록을 불러오는 중입니다. 잠시 뒤 다시 해 주세요.');
+    if (!lockPlace(h.map, hall)) throw Error(hall ? '광장이나 길드 광장에서 할 수 있습니다.' : '거래는 광장에서만 할 수 있습니다.');
+    if (h.down > 0) throw Error('쓰러진 동안에는 할 수 없습니다.');
+    if (h.dvs >= 0) throw Error('결투 중에는 할 수 없습니다.');
+    if (!o.isHost && !o.g.tradeVersion) throw Error('방장 화면이 옛 버전입니다. 잠시 뒤 다시 해 주세요.');
     const q = lock(true);
     // 손님은 방장이 잠근 것을 확인한 다음 저장한다.
     if (!o.isHost) {

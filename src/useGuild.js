@@ -2,6 +2,7 @@ import {useCallback,useEffect,useRef,useState} from 'react';
 import {loadChar,ownHero} from './game/rpg.js';
 import {guildReport} from './game/guild.js';
 import {guildAction} from './net/rpgSave.js';
+import {lockPlace} from './game/tradeData.js';
 const ERR={token:'접속 정보를 확인하지 못했습니다. 다시 로그인해 주세요.',live:'현재 서버 접속 상태를 확인해 주세요.',busy:'거래가 끝난 뒤 이용해 주세요.',
  name:'길드 이름은 2~12글자로 적어 주세요.',member:'길드 소속이 바뀌었습니다. 목록을 확인해 주세요.',level:'길드 생성은 50레벨부터 가능합니다.',funds:'길드 생성에 5만 코인이 필요합니다.',
  taken:'이미 사용 중인 길드 이름이거나 처리한 요청입니다.',full:'길드 정원 4명이 가득 찼습니다.',leader:'길드장만 할 수 있습니다.',account:'서버 계정이 있는 이름을 넣어 주세요.',
@@ -37,7 +38,7 @@ export function useGuild(options){
    if(working.current||o.trades.trade||o.trades.busy)return {ok:false};
    working.current=true;setBusy(true);setError('');
    try{
-     if(op!=='finish')await o.trades.flush();
+     if(op!=='finish')await o.trades.flush({hall:true});
      const r=await guildAction(c.name,c.tok,o.seats[o.seat]?.id,op,args);
      if(account()?.tok!==c.tok)throw Error(ERR.token);
      if(!r?.ok)throw Error(ERR[r?.err]||ERR.net);
@@ -53,7 +54,7 @@ export function useGuild(options){
      }else if(SUCCESS[op])setNotice({title:SUCCESS[op],success:true});
      return r;
    }catch(e){if(mounted.current)setError(e.message);return {ok:false};}
-   finally{if(op!=='finish')o.trades.lock(false);working.current=false;if(mounted.current)setBusy(false);if(h&&h.map==='plaza')h.fire=0;}
+   finally{if(op!=='finish')o.trades.lock(false);working.current=false;if(mounted.current)setBusy(false);if(h&&lockPlace(h.map,true))h.fire=0;}
  },[receive]);
  useEffect(()=>{
    let stopped=false,timer;const tick=async()=>{

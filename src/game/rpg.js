@@ -497,6 +497,11 @@ export const JOBS = [
     hp: 0.85, dmg: 45, cd: 0.9, rng: 158, fly: 0.2, skill: "화살비" },
 ];
 export const JOB_BY_ID = Object.fromEntries(JOBS.map((j) => [j.id, j]));
+// 직업별 몹 · 보스에게 주는 피해 배율 — 평타 · 스킬 · 화상 · 독 모두(결투 · 사냥터 PvP 는 그대로). 10월 23일 마법사 1 → 1.05
+export const JOB_DMG = { mage: 1.05 };
+/* 지속 피해 중첩 — jobs 직업이 화상 · 독을 다시 걸면 겹이 하나씩 쌓인다(최대 max 겹, 틱 피해 × 겹).
+   여러 번 치는 스킬이 한 번에 다 쌓지 않게 같은 몹에는 gap 초에 한 겹만. 다른 직업이 걸면 겹은 그대로 두고 시간만 새로 */
+export const DOT_STACK = { jobs: ["mage"], max: 3, gap: 0.5 };
 
 /* ── 원소 — 디펜스의 원소 탑 여섯에서 가져왔다. 색 · 효과 그림도 그 탑의 것을 쓴다.
    평타에는 약하게, 큰 기술에는 세게 실린다. */
@@ -1525,6 +1530,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   }
   const off = h ? offHand(h) : "";
   if (off) dmg = OFF_HAND.dmg[off];               // 직업과 다른 무기 — 한 대 피해 고정 · 치명타 없음
+  else if (h) dmg *= JOB_DMG[h.job] || 1;         // 직업 피해 배율(마법사 +5%)
   if (m.wall > 0) dmg *= 1 - m.wallCut;          // 철벽 자세
   const crit = h && !off ? sureCrit || Math.random() < critChance(h) : false;
   if (crit) dmg *= critMul(h);
@@ -1765,10 +1771,16 @@ function soak(g, h, m, big) {
   if (!m || m.dead) return;
   const mul = magMul(h) * (heldSpecial(h) === "flame" ? 1 + WEAPON_SKILLS.flame.dot : 1);   // 화상 · 독은 직업과 상관없이 마법력을 따른다 · 화염검은 지속 피해 증가
   const e = elemOf(h).id;
-  if (e === "flame") { m.burn = big ? 6 : 3; m.bdps = Math.max(m.bdps, (big ? 32 : 10) * mul); m.bby = h.pi; }
+  // 겹 — 이미 걸려 있을 때 중첩 직업이 다시 걸면 하나 더(gap 초에 한 번), 다 풀렸으면 한 겹부터
+  const stack = (on, n, at) => {
+    if (!(on > 0)) return [1, g.t];
+    if (DOT_STACK.jobs.includes(h.job) && g.t - (at ?? -1e9) >= DOT_STACK.gap) return [Math.min(DOT_STACK.max, (n || 1) + 1), g.t];
+    return [n || 1, at ?? g.t];
+  };
+  if (e === "flame") { [m.bst, m.bAt] = stack(m.burn, m.bst, m.bAt); m.burn = big ? 6 : 3; m.bdps = Math.max(m.bdps, (big ? 32 : 10) * mul); m.bby = h.pi; }
   else if (e === "frost") { if (big) m.freeze = 3; else m.slow = 2; }
   else if (e === "bolt") { if (big) m.stun = 1.5; }
-  else if (e === "poison") { m.poison = big ? 6 : 4; m.pdps = Math.max(m.pdps, (big ? 34 : 12) * mul); m.pby = h.pi; }
+  else if (e === "poison") { [m.pst, m.pAt] = stack(m.poison, m.pst, m.pAt); m.poison = big ? 6 : 4; m.pdps = Math.max(m.pdps, (big ? 34 : 12) * mul); m.pby = h.pi; }
   else if (e === "corrode") { m.shred = big ? 8 : 4; m.shredAmt = Math.max(m.shredAmt, big ? 0.4 : 0.2); }
   else if (e === "gravity") { if (big) m.stun = 2; else m.slow = Math.max(m.slow, 1); }
 }
@@ -3167,12 +3179,14 @@ function tickMob(g, m, dt) {
     m.dotT -= dt;
     if (m.dotT <= 0) {
       m.dotT = 0.5;
-      if (m.burn > 0) hitMob(g, m.bby, m, m.bdps * 0.5, false, false, true);
-      if (!m.dead && m.poison > 0) hitMob(g, m.pby, m, m.pdps * 0.5, false, false, true);
+      if (m.burn > 0) hitMob(g, m.bby, m, m.bdps * 0.5 * (m.bst || 1), false, false, true);   // 겹만큼(DOT_STACK)
+      if (!m.dead && m.poison > 0) hitMob(g, m.pby, m, m.pdps * 0.5 * (m.pst || 1), false, false, true);
       if (m.dead) return false;
     }
     m.burn = Math.max(0, m.burn - dt);
     m.poison = Math.max(0, m.poison - dt);
+    if (m.burn <= 0) m.bst = 0;                   // 다 풀리면 겹도 처음으로
+    if (m.poison <= 0) m.pst = 0;
   }
   if (m.freeze > 0 || m.stun > 0) { m.moving = 0; return false; }
   return true;

@@ -87,3 +87,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 비룡육연사 비행 그림: `rpg/effects/dragon-flight.webp` — 투명 1536×1024, 3열×2행, 칸당512×512. 왼쪽 위부터 날개 위·내리는 중·수평·아래·돌아오는 중·올리는 중의 6프레임이다. 붉은 비늘과 금빛 뿔의 용이 오른쪽을 향한다. `worldEquipmentData.js`의 `DRAGON_FLIGHT_ART`가 각 프레임의 주둥이 기준점과 표시 크기230을 정의한다. `dragonFlightArt.js`가 발사 방향으로 돌려 그린다. RPG 진입 때 미리 읽고 실패하면 코드로 그린 용으로 대신한다.
 
 월드보스: `rpg/boss/world-bosses.webp` — 투명1536×1024, 3열×2행, 칸당512×512. 열은 드래곤·거대 뱀·고대 번개 기계, 행은 기본·공격 준비다. 그림 사이 여백을 넓혀 날개와 꼬리가 옆 보스에 섞이지 않게 했다. `worldBossData.js`의 `artSize`와 프레임별 `artFeet`가 표시 크기와 발밑 기준점을 정의한다. `worldBossArt.js`가 그림과 위험지역을 그린다. 로딩 실패 시 전용 코드 그림을 사용한다.
+
+## 길드 성전·토벌 그림 (2026년10월23일)
+
+`src/game/guildArt.js`가 광장 여신 조각상과 강화된 슬라임·바다세이렌·불사조를 코드로 그립니다. 패널의 작은 그림도 같은 함수를 씁니다. 기준점은 발밑 가운데입니다. 토벌 전용 효과는 `sk_guild_hit`이며 기존 캐릭터 스킬 효과를 호출하지 않습니다. `combatFx.js`의 저수준 광원·입자만 공유합니다. 현재 별도의 길드 WebP 파일은 없습니다.

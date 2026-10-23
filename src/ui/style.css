@@ -1948,3 +1948,32 @@ button.forge-stage:disabled { cursor: default; }
   .shop-item.world-equipment-item { grid-template-columns: 44px minmax(0, 1fr); }
   .world-equipment-item .equipment-art.shop-art { width: 44px; height: 44px; }
 }
+
+/* 길드도 상점과 같은 갈색·금빛 틀을 쓴다. */
+.guild-panel { width:min(850px,94%); max-height:85%; }
+.guild-content { color:var(--sh-text); font-size:15px; line-height:1.6; }
+.guild-content h3 { margin:16px 0 8px; font-size:20px; }
+.guild-content .rpg-win-btn { min-height:44px; font-size:14px; white-space:normal; }
+.guild-content button:focus-visible,.guild-content input:focus-visible { outline:3px solid #ffe0a0; outline-offset:3px; }
+.guild-content .wb-primary { background:#cfad64; color:#291d12; font-weight:700; border-color:#efd19a; }
+.guild-wallet { display:flex; flex-wrap:wrap; gap:8px 20px; padding:10px; background:#302417; border:1px solid var(--sh-line); border-radius:7px; }
+.guild-wallet b { color:#ffe0a0; }
+.guild-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding:12px 0; border-bottom:1px solid var(--sh-line); }
+.guild-row small { display:block; color:var(--sh-mute); font-size:13px; }
+.guild-row>div,.guild-actions,.guild-confirm { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.guild-actions { margin-top:20px; }
+.guild-confirm { padding:8px; border:1px solid #cead6d; border-radius:5px; }
+.guild-form { display:flex; flex-wrap:wrap; align-items:end; gap:10px; margin-bottom:16px; }
+.guild-form label { display:grid; gap:5px; }
+.guild-form input { max-width:100%; width:210px; min-height:44px; padding:8px 10px; border:1px solid var(--sh-line); border-radius:5px; background:#2e2319; color:#f5e5c5; font:inherit; box-sizing:border-box; }
+.guild-error { padding:10px; border:1px solid #d4a080; color:#ffd2bb; border-radius:6px; }
+.guild-content progress { width:100%; accent-color:#d9bd73; }
+.guild-table { width:100%; border-collapse:collapse; font-size:14px; margin:16px 0; }
+.guild-table caption { text-align:left; font-weight:bold; padding:6px 0; }
+.guild-table th,.guild-table td { padding:8px 4px; text-align:left; border-bottom:1px solid var(--sh-line); }
+.guild-portrait { display:block; width:180px; max-width:100%; height:160px; margin:0 auto; image-rendering:pixelated; }
+@media(max-width:700px) { .frame:has(.guild-panel) { min-height:min(720px,calc(100svh - 56px)); } .guild-content { font-size:14px; } .guild-form label { flex:1; min-width:0; } .guild-form input { width:100%; } .guild-table { font-size:12px; } .wb-pattern.open b { font-size:14px; } .wb-pattern small { font-size:10px; } }
+
+.guild-panel .guild-portrait { width:180px; height:160px; max-width:100%; flex:none; }
+.guild-panel .shop-top,.guild-panel .shop-tabs { flex-shrink:0; }
+.guild-notice strong { font-size:clamp(24px,3vw,36px); word-break:keep-all; }

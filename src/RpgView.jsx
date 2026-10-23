@@ -1,3 +1,6 @@
+import GuildPanel,{GuildHud} from './GuildPanel.jsx';
+import {useGuild} from './useGuild.js';
+import {guildView} from './game/guild.js';
 import {WORLD_BOSS} from "./game/worldBossData.js";
 import {worldBossView,worldBossPortalNear} from "./game/worldBoss.js";
 import WorldBossPanel,{WorldBossHud} from "./WorldBossPanel.jsx";
@@ -440,6 +443,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [srvNote]);
   const [talk, setTalk] = useState(null);           // 사냥꾼의 말
   const [menu, setMenu] = useState(false);          // 레벨 칸의 ☰ 메뉴
+  const [guildOpen,setGuildOpen]=useState(false);
   const [statOpen, setStatOpen] = useState(false);  // 스탯 창
   const [plan, setPlan] = useState(noStats);        // 스탯 창에서 적용하기 전에 올려 둔 포인트
   const [shopOpen, setShopOpen] = useState(null);   // 열어 둔 상점 id
@@ -527,7 +531,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
-    setDgOpen(false); setTrainOpen(false);setWbOpen(false);
+    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -547,6 +551,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [room]);
   const trades = useTrade({ g: G.current, seat: mySeat, room, seats, isHost, hostId, sendInput, nextSeq,
     selfName: selfName.current, closeAll });
+  const guild=useGuild({g:G.current,seat:mySeat,room,seats,isHost,hostId,act:(kind,dir)=>act(kind,dir),selfName:selfName.current,closeAll,trades});
   const recoverTrade = useRef(trades.recover);
   useEffect(() => { recoverTrade.current = trades.recover; }, [trades.recover]);
   // 방장은 지금 손님들의 통로에 붙는다 — 손님이 바뀌거나 방장이 바뀌면 다시 맞춘다
@@ -642,7 +647,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const act = useCallback((kind, dir) => {
     const g = G.current;
     sfx.unlock();
-    if (trading(g.heroes[mySeat]) && kind !== "trade") return;
+    if (trading(g.heroes[mySeat]) && kind !== "trade" && !(kind==="guild"&&["sync","settled"].includes(dir?.op))) return;
     if (kind === "hold") {
       rpgHold(g, mySeat, dir);                      // 손님도 내 영웅은 먼저 걷는다
       if (!isHost) { sentAt.current = Date.now(); const q = nextSeq(); noteSent(g, q); sendInput({ cls: mySeat, kind, dir, q }); }
@@ -655,6 +660,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (!npc) return;
       if (npc.board) { closeAll(); setHonorOpen(true); loadRank(); return; }   // 명예 순위판 — 창만 연다
       if (npc.req) { closeAll(); setReqOpen(npc.req); return; }                // 의뢰 NPC — 창을 열고, 받기 · 완료는 창에서 보낸다
+      if(npc.guild){closeAll();setGuildOpen(true);return;}
       if(npc.worldBoss){closeAll();setWbOpen(true);return;}
       if (npc.dungeon) { closeAll(); setDgOpen(true); return; }                 // 던전 관리인 — 입장 창
       if (npc.train) { closeAll(); setTrainOpen(true); return; }               // 훈련 교관 — 기능 창
@@ -702,13 +708,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -1031,10 +1037,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             ...(me.ws && me.ws.cmb && me.ws.cmb.t > 0 ? [{ k: "cmb", name: "연계 입력", t: me.ws.cmb.t }] : [])],
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
           wsk: weaponHud(me),
-          wb:worldBossView(g,me),
+          wb:worldBossView(g,me),guild:guildView(g,me),
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
-          self: { trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
+          self: {server:g.wbServer, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
             dvs: me.dvs,
             reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])) },
@@ -1101,7 +1107,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [toast]);
 
   const me = hud;
-  const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run || me.map==="worldboss");   // 결투 · 던전 중에는 서버를 옮기지 않는다
+  const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run || (me.map==="worldboss"||me.map.startsWith("guildraid-")));   // 결투 · 던전 중에는 서버를 옮기지 않는다
   const nearShopNpc = me && me.near && me.near.shop ? SHOP_BY_ID[me.near.shop] : null;
   const myEl = elemOf(myLook);
   const who = (pi) => {                              // 파티 칸 — 직업 · 원소
@@ -1188,6 +1194,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   </span>
                   <span className={`rpg-switch ${pvp ? "on" : ""}`}><span /></span>
                 </button>
+                <button type="button" role="menuitem" className="rpg-menu-row" onClick={()=>toggleWin(guildOpen,setGuildOpen)}><span className="rpg-menu-text"><b>길드 성전</b><em>길드원 · 봉헌 · 토벌 · 주간 순위</em></span><span className="rpg-menu-go">›</span></button>
                 {servers && (
                   <div className="rpg-menu-srv">
                     <span className="rpg-menu-text">
@@ -1295,6 +1302,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             </>
           )}
+          {me&&<GuildHud run={me.guild?.run} onLeave={()=>act("guild",{op:"leave"})}/>}
+          {me&&guildOpen&&<GuildPanel api={guild} self={me.self} selfName={selfName.current} onClose={()=>setGuildOpen(false)}/>}
+          {(guild.notice||guild.error)&&<div className={`trade-result guild-notice ${guild.notice?.success?"success":""}`} role="status" aria-live="polite" aria-atomic="true"><strong>{guild.error?"길드 안내":guild.notice.title}</strong><span>{guild.error||guild.notice.text}</span></div>}
           {me&&<WorldBossHud state={me.wb} map={me.map} onOpen={()=>toggleWin(wbOpen,setWbOpen)} onLeave={()=>act("wb",{op:"leave"})}/>}
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
           <TradePanel api={trades} self={me?.self} />
@@ -1729,6 +1739,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
+          {me?.near?.guild&&!guildOpen&&<div className="rpg-talk"><span className="rpg-talk-who">길드 성전</span><span className="rpg-talk-line">길드석을 바쳐 여신의 축복을 키우세요.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act("talk")}>성전 살펴보기{!touch&&keyOf(binds,"talk")&&<kbd>{keyOf(binds,"talk")}</kbd>}</button></div>}
           {me?.near?.worldBoss&&!wbOpen&&<div className="rpg-talk"><span className="rpg-talk-who">월드보스 성역</span><span className="rpg-talk-line">만렙 3인과 함께 도전하세요. 소환과 보상은 포탈에서 확인합니다.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act('talk')}>포탈 살펴보기{!touch&&keyOf(binds,'talk')&&<kbd>{keyOf(binds,'talk')}</kbd>}</button></div>}
           {me && me.near && me.near.dungeon && !dgOpen && (
             <div className="rpg-talk">
@@ -1739,7 +1750,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
-          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss)) && (talk || me.near) && (
+          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss || me.near.guild)) && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">

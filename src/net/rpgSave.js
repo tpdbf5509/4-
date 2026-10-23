@@ -128,3 +128,5 @@ export function cloudStart(kick, recover) {
     cloudFlush();
   };
 }
+
+export const guildAction=(name,tok,sid,op='get',args={})=>rpc('rpg_guild_action',{p_name:name,p_token:tok,p_sid:sid,p_op:op,p_args:args});

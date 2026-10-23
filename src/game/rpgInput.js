@@ -4,7 +4,7 @@ import { trading } from "./tradeData.js";
    d = { cls: 자리, kind, dir, q }. 늦게 도착한 옛 누름 · 뗌(hold · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgSkill, rpgWeaponSkill, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgWorldBoss, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput,
+  rpgWorldBoss, rpgGuild, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -30,11 +30,12 @@ const ACTS = {
   cmd: (g, pi, dir) => rpgAdminCmd(g, pi, dir),   // 관리자 명령어(채팅 "/")
   dg: (g, pi, dir) => rpgDungeon(g, pi, dir),
   wb: (g, pi, dir) => rpgWorldBoss(g, pi, dir),
+  guild: (g, pi, dir) => rpgGuild(g, pi, dir),
   train: (g, pi, dir) => rpgTrain(g, pi, dir),
 };
 export function rpgInput(g, d) {
   if (!d || !Number.isInteger(d.cls) || !g.heroes[d.cls]) return;
-  if (d.kind !== "trade" && trading(g.heroes[d.cls])) return;
+  if (d.kind !== "trade" && !(d.kind==="guild"&&["sync","settled"].includes(d.dir?.op)) && trading(g.heroes[d.cls])) return;
   const act = Object.prototype.hasOwnProperty.call(ACTS, d.kind) ? ACTS[d.kind] : null;
   if (!act || !freshInput(g.heroes[d.cls], d.kind, d.q, g.t)) return;
   act(g, d.cls, d.dir);

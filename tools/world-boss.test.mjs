@@ -138,7 +138,7 @@ test('기절 차단에 실패하면 큰 기술이 여러 단계로 터지고 공
 test('이전 버전 보스도 남은 체력과 기여 비율을 보존해 상향한다',()=>{
  const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);
  a.balance=0;m.max=a.max=1800000;m.hp=a.hp=900000;a.contrib=[{name:'토벌0',damage:900000}];advance(g,.02);
- assert.equal(m.max,115000000);assert.equal(m.hp,57500000);assert.equal(a.contrib[0].damage,57500000);
+ assert.equal(m.max,1150000000);assert.equal(m.hp,575000000);assert.equal(a.contrib[0].damage,575000000);
 });
 test('광장 포탈 근처에서만 소환·입장하고 포탈은 대화 대상이다',()=>{
  const g=setup(),h=g.heroes[0];h.x=900;h.y=820;assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));

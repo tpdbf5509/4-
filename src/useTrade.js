@@ -168,7 +168,7 @@ export function useTrade(options) {
     tick();
     return () => { stop = true; clearTimeout(timer); };
   }, [receive]);
-  return { trade, busy, error, notice, request, recover, lock, confirm,
+  return { trade, busy, error, notice, request, recover, lock, confirm, flush,
     join: async () => { try { await flush(); await call('join'); } catch (e) { setError(e.message); lock(false); } }, cancel: () => call('cancel'),
     change: async (offer) => {
       try {

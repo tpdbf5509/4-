@@ -248,6 +248,6 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 
 ## 길드 보스 그림 (2026년10월23일)
 
-`public/assets/game/rpg/goddess.webp`는 길드 광장 여신 조각상입니다. Codex 이미지 생성으로 만든 뒤 자홍 바탕을 지워 투명하게 했습니다(188×480). 크기 · 기준점은 `src/game/guildData.js`의 `GUILD_STATUE_ART`, 그리기는 `guildArt.js` `drawGuildStatue`이며 못 불러오면 예전 코드 그림을 씁니다.
+`public/assets/game/rpg/goddess.webp`는 길드 광장 여신 조각상(길드의 여신 — 흑요석 · 금 · 보랏빛 길드석 수정)입니다. Codex 이미지 생성으로 만든 뒤 초록 바탕을 지워 투명하게 했습니다(205×480). 크기 · 기준점은 `src/game/guildData.js`의 `GUILD_STATUE_ART`, 그리기는 `guildArt.js` `drawGuildStatue`이며 못 불러오면 예전 코드 그림을 씁니다.
 
 `public/assets/game/rpg/boss/guild-bosses.webp`는 생성한 투명 도트 아틀라스입니다.1536×1024,3열×2행. 슬라임·세이렌·불사조의 준비/공격 자세를 담았습니다. `src/game/guildArt.js`가 전투와 길드 선택 화면에 그리며 크기와 발 기준점은 `src/game/guildData.js`의 `GUILD_BOSS_ART`에 있습니다. 로드 실패 시 기존 코드 그림을 사용합니다.

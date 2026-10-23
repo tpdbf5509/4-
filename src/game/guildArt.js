@@ -20,14 +20,14 @@ export function warmStatueArt(){
 export const guildBossTop=()=>ART.size*.94;
 export function drawGuildStatue(ctx,g,n,time){
  const {x,y}=n,level=g.heroes[g.mySeat]?.guild?.level||0,im=warmStatueArt();
- if(im?.complete&&im.naturalWidth){   // 그림 — 받침 바닥이 기준점에 오게. 성전 레벨이 오를수록 둘레 빛이 짙어진다
+ if(im?.complete&&im.naturalWidth){   // 그림(길드의 여신 · 길드석 수정) — 받침 바닥이 기준점에 오게. 성전 레벨이 오를수록 둘레 빛이 짙어진다
   const h=STATUE.h,w=h*im.naturalWidth/im.naturalHeight,top=STATUE.foot-h;
   ctx.save();ctx.translate(x,y);
   ctx.fillStyle='rgba(18,13,9,.3)';ctx.beginPath();ctx.ellipse(0,STATUE.foot-4,w*.5,16,0,0,TAU);ctx.fill();
-  bloom(ctx,0,top+h*.45,h*.55,'#e6d6a0',.16+level/350);
+  bloom(ctx,0,top+h*.45,h*.55,'#a983e0',.16+level/350);
   ctx.drawImage(im,-w/2,top,w,h);
-  bloom(ctx,w*.36,top+h*.06,22+4*Math.sin(time*2.4),'#ffe7a3',.55);   // 손에 든 금빛 구슬
-  for(let i=0;i<6;i++){const a=time*.6+i*TAU/6;ctx.fillStyle='#f7eac3';ctx.fillRect(Math.cos(a)*w*.62-2,top+h*.55+Math.sin(a)*h*.18,4,4);}
+  bloom(ctx,-w*.32,top+h*.06,24+4*Math.sin(time*2.4),'#c9a2ff',.6);   // 높이 든 길드석 수정
+  for(let i=0;i<6;i++){const a=time*.6+i*TAU/6;ctx.fillStyle=i%2?'#e3c48a':'#d6bdff';ctx.fillRect(Math.cos(a)*w*.62-2,top+h*.55+Math.sin(a)*h*.18,4,4);}
   ctx.fillStyle='#372819';ctx.strokeStyle='#ad915b';ctx.lineWidth=2;ctx.fillRect(-72,top-40,144,29);ctx.strokeRect(-72,top-40,144,29);
   ctx.font="20px 'Do Hyeon',sans-serif";ctx.fillStyle='#f1dfb8';ctx.textAlign='center';ctx.fillText('여신 조각상',0,top-19);ctx.restore();
   return;

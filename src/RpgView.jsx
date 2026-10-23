@@ -482,6 +482,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const bossRealRef = useRef(null), bossGhostRef = useRef(null), bossNumRef = useRef(null),bossTrackRef=useRef(null);
   const bossBarRefs={realRef:bossRealRef,ghostRef:bossGhostRef,numRef:bossNumRef,trackRef:bossTrackRef};
   const bossDrawn = useRef("");
+  const bossNode = useRef(null);                     // 마지막으로 그린 체력 칸 DOM — 칸이 새로 붙으면(다시 그려짐) 값이 같아도 다시 채운다
   /* 보스 체력바 잔상(bossBar.js) — 내 맵의 보스마다 m.hpFx 를 돌리고, 공통 보스바를 그린다.
      실제 칸은 받은 체력 그대로, 주황 잔상만 늦게 따라온다. 보스가 쓰러져 사라져도 토벌을 마쳤으면 0% 까지 그린다 */
   const tickBossBars = useCallback((g, now) => {
@@ -491,12 +492,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     for (const m of g.mobs) {
       if (!m.boss || m.dead || m.map !== me.map) continue;
       m.hpFx = ghostStep(m.hpFx, m.hp / m.max, now);
-      if (m.dg||g.runs?.some(r=>r.map===m.map)||g.wb?.active?.mob===m.id||g.gruns?.some(r=>r.mob===m.id)) boss = m;
+      // 던전 보스는 던전 맵의 보스면 된다 — 진행(g.runs)이 늦게 와도 칸이 빠지지 않게
+      if (m.dg||MAPS[m.map]?.dungeon||g.runs?.some(r=>r.map===m.map)||g.wb?.active?.mob===m.id||g.gruns?.some(r=>r.mob===m.id)) boss = m;
     }
     const run = runOf(g, me)||(me.map===WORLD_BOSS.map?g.wb?.active:null)||g.gruns?.find(r=>r.map===me.map);
     let b = bossMem.current;
     if (boss) {
-      if (!b || b.id !== boss.id) b = bossMem.current = { id: boss.id, name: MOB[boss.type].boss.name, map: me.map };
+      if (!b || b.id !== boss.id) b = bossMem.current = { id: boss.id, name: MOB[boss.type]?.boss?.name || "보스", map: me.map };
       b.hp = boss.hp; b.max = boss.max; b.fx = boss.hpFx;
     } else if (b && run && b.map === me.map && (!run.mob||run.mob===b.id) && (["boss","clear"].includes(run.phase)||(run.mob&&Number.isFinite(run.hp)&&["fight","fail"].includes(run.phase)))) {
       b.hp = run.phase==="clear"||run.phase==="boss"?0:run.hp;
@@ -505,6 +507,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       b = bossMem.current = null;                    // 던전을 나갔거나 끝났다 — 남은 상태를 버린다
     }
     if (!b || !bossRealRef.current||!bossGhostRef.current||!bossNumRef.current||!bossTrackRef.current) { bossDrawn.current = ""; return; }
+    // 칸이 새로 붙었다(창 다시 그림 · 다른 보스 칸) — 예전엔 값이 같으면 건너뛰어 새 칸이 빈 채로 남았다
+    if (bossNode.current !== bossRealRef.current) { bossNode.current = bossRealRef.current; bossDrawn.current = ""; }
     const real = b.fx ? b.fx.real : 0, ghost = b.fx ? b.fx.ghost : 0;
     const key = `${b.id}/${real.toFixed(4)}/${ghost.toFixed(4)}/${Math.ceil(b.hp)}`;
     if (key === bossDrawn.current) return;         // 바뀐 때만 고친다
@@ -1085,7 +1089,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           run: (() => {
             const r = runOf(g, me);
             if (!r) return null;
-            const b = bossMem.current;                   // 체력 칸은 루프가 바로 그린다(tickBossBars) — 여기서는 표시 대상과 초기값만
+            // 체력 칸은 루프가 바로 그린다(tickBossBars) — 여기서는 표시 대상과 초기값만. 루프가 아직 못 봤어도 보스가 있으면 칸을 붙인다
+            const mb = !bossMem.current && g.mobs.find((m) => m.boss && !m.dead && m.map === me.map);
+            const b = bossMem.current || (mb ? { id: mb.id, name: MOB[mb.type]?.boss?.name || "보스", hp: mb.hp, max: mb.max } : null);
             return { id: r.id, t: r.t, wave: r.wave, phase: r.phase, end: r.end, boss: b ? { id: b.id, name: b.name,hp:b.hp,max:b.max } : null };
           })(),
           free: Object.fromEntries(DUNGEONS.map((d) => [d.id, DUNGEON.slots - (g.runs || []).filter((r) => r.id === d.id).length])),

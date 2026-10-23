@@ -1514,23 +1514,16 @@ kbd {
 .wb-bosses p { margin: 0; }
 .wb-bosses .shop-btn { margin-top: 8px; align-self: flex-start; justify-self: start; }
 .wb-portrait { width: 140px; height: 140px; max-width: 100%; margin: 0 auto; background-size: 500% 333.3333%; background-repeat: no-repeat; image-rendering: pixelated; }
-.wb-panel button:focus-visible, .guild-panel button:focus-visible, .guild-panel input:focus-visible, .wb-hud button:focus-visible { outline: 2px solid var(--sh-gold); outline-offset: 2px; }
-/* 월드보스 · 길드 토벌 진행 칸 — 던전 진행 칸(.rpg-dg)과 같은 바탕 · 선 */
-.wb-hud { position: absolute; top: 12px; right: 96px; z-index: 3; width: min(400px, 42%); box-sizing: border-box; display: flex; flex-direction: column; gap: 6px;
-  padding: 8px 14px 10px; border-radius: 10px; background: rgba(20, 14, 8, 0.84); border: 1px solid rgba(214, 178, 106, 0.45);
-  color: #d9c9a6; font-size: 12px; letter-spacing: -0.02em; text-align: left; pointer-events: auto; }
-.wb-hud > b { font-family: "Do Hyeon", sans-serif; font-weight: 400; font-size: 13px; color: #e8dcc0; letter-spacing: -0.03em; }
-.wb-hud > div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.wb-hud > div > b { font-family: "Do Hyeon", sans-serif; font-weight: 400; font-size: 13px; color: #e8dcc0; }
-.wb-hud strong { font-weight: 400; color: #e8dcc0; }
-.wb-hud .rpg-win-btn { min-width: 0; padding: 3px 10px; font-size: 11.5px; }
-.wb-hud > div:last-child { justify-content: flex-start; }
-.wb-hud > .rpg-win-btn { align-self: flex-start; }
-/* 보스 기술 줄 — 평소엔 1px 선, 합동 공격 때만 금빛(강조 한 곳) */
-.wb-hud .wb-pattern { flex-wrap: wrap; padding: 6px 8px; border: 1px solid rgba(214, 178, 106, 0.3); border-radius: 6px; color: #e8dcc0; }
-.wb-pattern small { width: 100%; font-size: 11px; line-height: 1.45; color: #a99a7e; }
-.wb-hud .wb-pattern.open, .wb-hud .wb-pattern.stunned { border-color: #e3c48a; background: rgba(227, 196, 138, 0.12); color: #f6e5bb; }
-.wb-pattern.open b { font-size: 16px; color: #e3c48a; }
+.wb-panel button:focus-visible, .guild-panel button:focus-visible, .guild-panel input:focus-visible, .rpg-raid button:focus-visible { outline: 2px solid var(--sh-gold); outline-offset: 2px; }
+/* 월드보스 · 길드 토벌 진행 칸 — 던전 진행 칸(.rpg-dg)을 그대로 쓰고, 보스 기술 줄만 더한다.
+   평소엔 1px 선, 합동 공격 · 기절 때만 금빛(강조 한 곳) */
+.rpg-raid-warn { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0; padding: 5px 8px;
+  border: 1px solid rgba(214, 178, 106, 0.3); border-radius: 6px; font-size: 12px; color: #d9c9a6; letter-spacing: -0.02em; }
+.rpg-raid-warn b { font-family: "Do Hyeon", sans-serif; font-weight: 400; font-size: 14px; color: #f2e3c2; letter-spacing: -0.03em; }
+.rpg-raid-warn span { margin-left: auto; font-variant-numeric: tabular-nums; }
+.rpg-raid-warn small { width: 100%; font-size: 11px; line-height: 1.45; color: #a99a7e; }
+.rpg-raid-warn.on { border-color: #e3c48a; background: rgba(227, 196, 138, 0.12); }
+.rpg-raid-warn.on b { color: #e3c48a; }
 @media (max-width: 700px) {
   .frame:has(.wb-panel) { min-height: min(720px, calc(100svh - 56px)); }
   .wb-bosses { grid-template-columns: 1fr; }
@@ -1539,11 +1532,8 @@ kbd {
   .wb-bosses article > :first-child { grid-row: 1 / span 6; width: 96px; height: 86px; align-self: center; }
   .wb-bosses .wb-portrait { height: 96px; }
   .wb-bosses .shop-h { margin-top: 0; }
-  .wb-hud { top: 6px; right: 6px; width: calc(100% - 198px); padding: 5px 7px; gap: 3px; }
-  .wb-hud > div { font-size: 10px; flex-wrap: wrap; gap: 2px; }
-  .wb-hud .rpg-win-btn { font-size: 10px; padding: 2px 6px; }
-  .wb-pattern.open b { font-size: 14px; }
-  .wb-pattern small { font-size: 10px; }
+  .rpg-raid-warn b { font-size: 13px; }
+  .rpg-raid-warn small { font-size: 10px; }
 }
 /* 탭 — 밑줄 하나로 고른 것을 보인다 */
 .shop-tabs { display: flex; gap: 2px; margin: 8px 0 4px; border-bottom: 1px solid var(--sh-line); overflow-x: auto; }
@@ -2010,11 +2000,4 @@ button.forge-stage:disabled { cursor: default; }
   .guild-form input { width: 100%; }
 }
 
-/* 월드·길드 보스도 기존 던전의 실제 체력/피해 잔상 바를 쓴다. */
-.wb-hud .rpg-dg-boss { display:grid; grid-template-columns:minmax(0,1fr); align-items:baseline; gap:4px; margin:0; }
-.wb-hud .rpg-dg-boss span { white-space:normal; overflow:visible; }
-.wb-hud .rpg-dg-boss b { font-size:13px; }
-.wb-hud .rpg-dg-boss i { height:16px; }
-@media(max-width:700px) { .wb-hud .rpg-dg-boss span { font-size:14px; } .wb-hud .rpg-dg-boss b { font-size:10px; letter-spacing:-.04em; } .wb-hud .rpg-dg-boss i { height:12px; } }
-/* 넓은 화면에서는 보스 얼굴을 가리지 않도록 체력 창을 상단 가운데로 옮긴다. */
-@media(min-width:1050px) { .wb-hud { left:calc(50% - 150px); right:auto; width:360px; } }
+

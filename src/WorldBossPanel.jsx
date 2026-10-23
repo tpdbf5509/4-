@@ -9,17 +9,24 @@ import {useEffect,useRef} from 'react';
 import {RPG_SERVER_CAP} from './game/rpg.js';
 const left=ms=>{const n=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;};
 const lootName=x=>x.k==='weapon'?WORLD_WEAPONS.find(w=>w.id===x.id)?.name:x.k==='armor'?worldArmorName(x.id,x.set):x.k==='potion'?POTIONS.find(p=>p.id===x.id)?.name:MAT_BY_ID[x.id]?.name;
+// 토벌 진행 칸 — 던전 진행 칸(.rpg-dg)과 같은 틀 · 같은 보스 체력바를 쓴다(RpgView.jsx 던전 칸)
 export function WorldBossHud({state,map,barRefs,onOpen,onLeave}){
   const a=state?.active;if(!a||map!==C.map)return null;
-  return <div className="wb-hud"><div><b>월드보스 토벌</b><span>{a.phase==='fight'?`남은 시간 ${left(a.expires-state.clock)}`:a.phase==='clear'?'토벌 완료':'토벌 종료'}</span></div>
-    <BossHealthBar key={a.key||a.id} name={WORLD_BOSS_BY_ID[a.id].name} hp={a.hp} max={a.max} {...barRefs}/><div><strong>내 기여도 {(a.damage/a.max*100).toFixed(1)}%</strong></div>
-    {(a.attack||a.stun>0)&&<div className={`wb-pattern ${a.stun>0?'stunned':a.attack?.open?'open':''}`}>
-      <b aria-live="polite">{a.stun>0?'합동 공격 성공 · 기절':a.attack.open?'지금 함께 공격!':a.attack.name}</b>
+  const sec=Math.max(0,Math.ceil((a.expires-state.clock)/1000));
+  const step=a.phase==='fight'?'전투':a.phase==='clear'?'완료':'실패';
+  return <div className="rpg-dg rpg-raid">
+    <div className="rpg-dg-top"><b>월드보스 토벌</b><span>{step} · 기여 {(a.damage/a.max*100).toFixed(1)}%</span>
+      <span className={`rpg-dg-time ${a.phase==='fight'&&sec<=60?'low':''}`}>{a.phase==='fight'?left(a.expires-state.clock):'0:00'}</span>
+      <button type="button" className="rpg-win-btn" onClick={onOpen}>보상</button><button type="button" className="rpg-win-btn" onClick={onLeave}>나가기</button></div>
+    <BossHealthBar key={a.key||a.id} name={WORLD_BOSS_BY_ID[a.id].name} hp={a.hp} max={a.max} {...barRefs}/>
+    {(a.attack||a.stun>0)&&<p className={`rpg-raid-warn ${a.stun>0||a.attack?.open?'on':''}`} aria-live="polite">
+      <b>{a.stun>0?'합동 공격 성공 · 기절':a.attack.open?'지금 함께 공격!':a.attack.name}</b>
       <span>{a.stun>0?`${a.stun.toFixed(1)}초`:a.attack.open?`${a.attack.coop}/${C.coop.players}명 · ${a.attack.t.toFixed(1)}초`:`${a.attack.step+1}/${a.attack.stages} · ${a.attack.t.toFixed(1)}초`}</span>
       {a.attack?.open&&<small>만렙 3명이 0.85초 안에 스킬 적중 · 4초 기절</small>}
       {a.attack?.major&&!a.attack.open&&!a.attack.step&&<small>금빛 약점이 나타나면 함께 공격하세요</small>}
-    </div>}
-    <div><button type="button" className="rpg-win-btn" onClick={onOpen}>보상 확인</button><button type="button" className="rpg-win-btn" onClick={onLeave}>광장으로</button></div></div>;
+    </p>}
+    {a.phase!=='fight'&&<p className="rpg-dg-end">곧 광장으로 돌아갑니다</p>}
+  </div>;
 }
 export default function WorldBossPanel({state,self,act,onClose}){
   const dialog=useRef(null);

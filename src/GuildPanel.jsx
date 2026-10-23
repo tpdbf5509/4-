@@ -31,13 +31,18 @@ function RaidCrew({g,self,here}){
  {!raid&&<p className="wb-rule">토벌을 시작하면 지금 이 서버에 접속한 길드원이 참여합니다. 다른 서버 · 오프라인 길드원은 참여할 수 없습니다.</p>}
  </div>;
 }
+// 토벌 진행 칸 — 던전 진행 칸(.rpg-dg)과 같은 틀 · 같은 보스 체력바
 export function GuildHud({run,barRefs,onLeave}){
  if(!run)return null;
- return <div className="wb-hud guild-hud"><b>길드 토벌</b>
- <div><span>{run.phase==='fight'?`남은 시간 ${Math.floor(run.t/60)}분 ${Math.floor(run.t%60)}초`:run.phase==='clear'?'토벌 완료':'토벌 종료'}</span><span>{Math.round(run.hp/run.max*100)}%</span></div>
+ const sec=Math.max(0,Math.ceil(run.t)),step=run.phase==='fight'?'전투':run.phase==='clear'?'완료':'실패';
+ return <div className="rpg-dg rpg-raid">
+ <div className="rpg-dg-top"><b>길드 토벌</b><span>{step}</span>
+ <span className={`rpg-dg-time ${run.phase==='fight'&&sec<=60?'low':''}`}>{Math.floor(sec/60)}:{String(sec%60).padStart(2,'0')}</span>
+ <button type="button" className="rpg-win-btn" onClick={onLeave}>나가기</button></div>
  <BossHealthBar key={run.id} name={GUILD_BOSSES.find(b=>b.id===run.boss)?.name} hp={run.hp} max={run.max} {...barRefs}/>
- {run.attack&&<div className="wb-pattern"><b>{run.attack.name}</b><span>{run.attack.t.toFixed(1)}초</span></div>}
- <button type="button" className="rpg-win-btn" onClick={onLeave}>길드 광장으로</button></div>;
+ {run.attack&&<p className="rpg-raid-warn"><b>{run.attack.name}</b><span>{run.attack.t.toFixed(1)}초</span></p>}
+ {run.phase!=='fight'&&<p className="rpg-dg-end">곧 길드 광장으로 돌아갑니다</p>}
+ </div>;
 }
 export default function GuildPanel({api,self,selfName,onClose,mode='menu',here=[]}){
  const shown=MODE_TABS[mode]||MODE_TABS.menu;

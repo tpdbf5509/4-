@@ -270,7 +270,8 @@ export default function App() {
       hostRef.current = true;
       epRef.current = Math.max(epRef.current, L.ep || 0) + 1;
       const ids = new Set([...peers.map((q) => q.id), me]);
-      seatsRef.current = L.seats.map((st) => (st && ids.has(st.id) && st.id !== L.hostId ? st : null));
+      // 옛 방장이 아직 붙어 있으면(멈췄을 뿐) 자리를 남긴다 — 비우면 돌아왔을 때 새 사람으로 광장에 다시 섰다(토벌에서 사라짐)
+      seatsRef.current = L.seats.map((st) => (st && ids.has(st.id) && (st.id !== L.hostId || hostHere) ? st : null));
       publishLobby();
     }, 500);
 
@@ -285,6 +286,9 @@ export default function App() {
     room.on("lobby", (d) => {
       if (!d) return;
       if ((d.ep || 0) < epRef.current) return;         // 옛 방장이 늦게 보낸 소식
+      // 내가 방장인데 나보다 나중에 방장을 이어받은 사람이 있다(ep 가 더 크다) — 내가 멈춘 사이(잠든 휴대폰 · 긴 프레임) 손님이 이어받았다.
+      // 예전엔 아이디만 견줘 멈췄던 옛 방장이 다시 이기면 세계가 멈춘 때로 되돌아갔다(월드보스 체력 · 기여가 되돌아감). 이제는 무조건 물러난다
+      const newer = (d.ep || 0) > epRef.current;
       epRef.current = Math.max(epRef.current, d.ep || 0);
       gotLobby = true;
       heardAt = Date.now();
@@ -299,7 +303,7 @@ export default function App() {
       }
       if (d.hostId && !hostRef.current) lobbyRef.current = d;
       // 테스트 서버에서 방장이 둘 생겼으면 아이디가 큰 쪽이 물러나 손님이 된다
-      if (auto && hostRef.current && d.hostId && d.hostId !== me && d.hostId < me && (d.ep || 0) === epRef.current) {
+      if (auto && hostRef.current && d.hostId && d.hostId !== me && (newer || d.hostId < me)) {
         hostRef.current = false;
         lobbyRef.current = d;
         room.send("hello", { name: nick });

@@ -1,7 +1,7 @@
 import BossHealthBar from './BossHealthBar.jsx';
 import {drawGuildBoss,drawGuildStatue,warmGuildArt,warmStatueArt} from './game/guildArt.js';
 import {useEffect,useRef,useState} from 'react';
-import {GUILD as C,GUILD_BOSSES,GUILD_BOSS_ART,templeCost} from './game/guildData.js';
+import {GUILD as C,GUILD_BOSSES,GUILD_BOSS_ART,GUILD_STATUE_ART,templeCost} from './game/guildData.js';
 const won=n=>(n||0).toLocaleString('ko-KR');
 const tabs=[['home','길드'],['temple','성전'],['raid','토벌전'],['rank','주간 순위']];
 // 어디서 열었나 — find 광장의 길드 문(길드 찾기) · hall 길드 광장의 여신 조각상 · raid 토벌전 문(보스 선택 · 참여 인원) · menu ☰ 메뉴(모든 탭)
@@ -11,7 +11,7 @@ function GuildPortrait({boss}){
  const canvas=useRef(null);
  useEffect(()=>{
    const ctx=canvas.current.getContext('2d'),atlas=boss?warmGuildArt():warmStatueArt();
-   const paint=()=>{ctx.clearRect(0,0,360,320);ctx.save();ctx.translate(180,280);const scale=boss?270/GUILD_BOSS_ART.size:.85;ctx.scale(scale,scale);
+   const paint=()=>{ctx.clearRect(0,0,360,320);ctx.save();ctx.translate(180,280);const scale=boss?270/GUILD_BOSS_ART.size:GUILD_STATUE_ART.portrait;ctx.scale(scale,scale);
      if(boss)drawGuildBoss(ctx,{type:boss.type,x:0,y:0},0);else drawGuildStatue(ctx,{mySeat:0,heroes:[]},{x:0,y:0},0);ctx.restore();};
    paint();if(atlas&&!atlas.complete)atlas.addEventListener('load',paint,{once:true});return()=>atlas?.removeEventListener('load',paint);
  },[boss]);

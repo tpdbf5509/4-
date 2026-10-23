@@ -22,6 +22,6 @@ export const guildKey=(g,h)=>String(g.names[h.pi]||'').normalize('NFKC').trim().
 
 // 길드 보스 전용 3열×2행 그림. 위 준비 자세·아래 공격 자세, 기준점은 발밑이다.
 // 길드 광장 여신 조각상 그림(투명 배경). h 는 맵에서 그리는 높이, foot 은 기준점 아래로 내려 받침 바닥을 맞추는 몫. 못 불러오면 코드 그림
-export const GUILD_STATUE_ART={path:'/assets/game/rpg/goddess.webp',h:250,foot:22};
+export const GUILD_STATUE_ART={path:'/assets/game/rpg/goddess.webp',h:300,foot:22,portrait:.7};   // 날개를 편 넓은 그림 — 성전 창에서는 portrait 배율로 줄여 그린다
 export const GUILD_BOSS_ART={path:'/assets/game/rpg/boss/guild-bosses.webp',cols:3,rows:2,size:360,
  feet:[[.95,.95,.95],[.96,.97,.96]]};

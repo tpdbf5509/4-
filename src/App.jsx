@@ -32,7 +32,11 @@ function pickMsg(hero) {
 import "./ui/style.css";
 
 const SNAP_HZ = 12;
-const HOST_ALIVE_MS = 2000;   // RPG 서버 방장이 "살아 있다"는 소식을 보내는 간격 — 손님은 5초 넘게 못 들어야 이어받는다
+const HOST_ALIVE_MS = 2000;   // RPG 서버 방장이 "살아 있다"는 소식을 보내는 간격
+// 방장이 붙어 있는데 조용하면 이만큼(ms) 뒤에 이어받는다. 방장의 스냅샷(초당 3~10번)도 살아 있다는 소식으로 센다.
+// 예전엔 대기실 소식만 세어 5초를 기다려 그동안 화면이 멈췄다. 잘못 이어받아도 이제는 되돌아가지 않는다(lobby 의 newer)
+const HOST_QUIET_MS = 3000;
+const HOST_AHEAD_MS = 1500;   // 나보다 먼저 이어받을 차례인 사람 한 명마다 더 기다린다(둘이 한꺼번에 이어받지 않게)
 
 // 테스트 서버 비밀번호 — 원문은 두지 않고 SHA-256 값만 둔다. 한 번 맞히면 그 기기는 기억한다
 const TEST_HASH = "d86d84d945596a7836b26b9e06e05042ba9617bac697b793b008fb4c4f7c218a";
@@ -107,13 +111,26 @@ export default function App() {
     roomRef.current?.send("lobby", next);
     return true;
   }, [me]);
-  // 나가는 방장이 넘길 사람 — 남은 사람 가운데 자리 차례가 가장 앞선 사람
+  // 나가는 방장이 넘길 사람 — 남은 사람 가운데 자리 차례가 가장 앞선 사람. 화면을 내려 둔 사람(presence hid)은 뒤로 미룬다
   useEffect(() => {
     handoffRef.current = () => {
-      const to = (seatsRef.current.find((st) => st && st.id !== me) || {}).id;
+      const others = seatsRef.current.filter((st) => st && st.id !== me);
+      const awake = others.find((st) => { const p = peersRef.current.find((q) => q.id === st.id); return p && !p.hid; });
+      const to = (awake || others[0] || {}).id;
       if (to) handoff(to);
     };
   }, [me, handoff]);
+  // 화면을 내리면(휴대폰 잠금 · 다른 앱) 방장은 곧바로 다음 사람에게 넘긴다 — 잠든 방장을 3초 기다리며 모두가 멈추지 않게.
+  // 내린 사람은 presence 에 hid 를 남겨 방장을 받지도 이어받지도 않는다
+  useEffect(() => {
+    const vis = () => {
+      const hidden = document.visibilityState === "hidden";
+      roomRef.current?.setPresence?.({ hid: hidden ? 1 : 0 });
+      if (hidden && hostRef.current && modeRef.current === "rpg") handoffRef.current?.();
+    };
+    document.addEventListener("visibilitychange", vis);
+    return () => document.removeEventListener("visibilitychange", vis);
+  }, []);
 
   /* 라운드 수 · 난이도 · 시작은 방장만 정한다. 대기실로 돌아가기는 손님도 방장에게 부탁할 수 있다. */
   const setWaves = useCallback((n) => {
@@ -203,6 +220,7 @@ export default function App() {
     const room = (srvBase ? (code, opts) => joinRpgServer(srvBase, code, opts) : joinRoom)(roomCode, {
       id: me,
       name: nick,
+      onHeard: (k, from) => { if (k === "rsnap" && lobbyRef.current && from === lobbyRef.current.hostId) heardAt = Date.now(); },
       onPeers: (peers) => {
         peersRef.current = peers;
         if (hostRef.current) reseat();
@@ -243,7 +261,7 @@ export default function App() {
        그래서 "나보다 아이디가 작은 사람이 있으면 기다린다"를 영원히 하지 않고, 그런 사람 한 명마다 2초씩만 더 기다린다.
        - 아직 방장 소식을 못 들었으면: 2초 + (앞선 사람 수 × 2초) 뒤에 내가 방장이 된다
        - RPG 서버에서 방장이 조용해졌으면(방장은 2초마다 소식을 보낸다): presence 에서 사라졌으면 1초,
-         남아 있는데 소식만 끊겼으면 5초 + (앞선 사람 수 × 2초) 뒤에 이어받는다
+         남아 있는데 소식(대기실 · 스냅샷)이 끊겼으면 3초 + (앞선 사람 수 × 1.5초) 뒤에 이어받는다
        방장이 둘 생기면 아이디가 큰 쪽이 물러난다(아래 lobby). */
     const watch = setInterval(() => {
       if (roomRef.current !== room) return void clearInterval(watch);
@@ -259,10 +277,11 @@ export default function App() {
       }
       const L = lobbyRef.current;
       if (gotLobby && !shared) return;              // 테스트 서버는 판이 도는 중에 방장을 바꾸지 않는다
+      if (shared && L && document.visibilityState === "hidden") return;   // 화면을 내린 사람은 방장을 이어받지 않는다
       const peers = peersRef.current;
-      const ahead = peers.filter((q) => q.id < me && (!L || q.id !== L.hostId)).length;
+      const ahead = peers.filter((q) => q.id < me && !q.hid && (!L || q.id !== L.hostId)).length;   // 화면을 내린 사람은 차례에서 뺀다
       const hostHere = L && peers.some((q) => q.id === L.hostId);
-      const wait = !L ? 2000 + ahead * 2000 : hostHere ? 5000 + ahead * 2000 : 1000 + ahead * 2000;
+      const wait = !L ? 2000 + ahead * 2000 : hostHere ? HOST_QUIET_MS + ahead * HOST_AHEAD_MS : 1000 + ahead * HOST_AHEAD_MS;
       if (Date.now() - heardAt < wait) return;
       heardAt = Date.now();
       if (!L) return void becomeHost();

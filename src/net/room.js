@@ -111,7 +111,7 @@ function wantsLocal() {
   return new URLSearchParams(location.search).get("net") === "local";
 }
 
-function joinLocal(code, { id, name, onPeers, onStatus }) {
+function joinLocal(code, { id, name, onPeers, onStatus, onHeard }) {
   const bc = new BroadcastChannel(`flg-local:${code}`);
   const handlers = new Map();
   const peers = new Map();
@@ -131,6 +131,7 @@ function joinLocal(code, { id, name, onPeers, onStatus }) {
       peers.delete(data.p);
       pushPeers();
     } else if (data.t === "msg" && data.from !== id) {
+      onHeard?.(data.k, data.from);
       handlers.get(data.k)?.(data.d, data.from);
     }
   };
@@ -168,7 +169,8 @@ export function joinRoom(code, opts) {
   return joinRealtime(code, opts);
 }
 
-function joinRealtime(code, { id, name, onPeers, onStatus }) {
+// onHeard(k, from) — 받은 말마다 부른다(방장이 살아 있는지 스냅샷으로도 알아채려고, App.jsx)
+function joinRealtime(code, { id, name, onPeers, onStatus, onHeard }) {
   const sb = supabase();
   const topic = `realtime:flg:${code}`;
   const handlers = new Map();
@@ -184,6 +186,7 @@ function joinRealtime(code, { id, name, onPeers, onStatus }) {
       },
     });
     ch.on("broadcast", { event: "msg" }, ({ payload }) => {
+      onHeard?.(payload.k, payload.from);
       const fn = handlers.get(payload.k);
       if (fn) fn(payload.d, payload.from);
     });

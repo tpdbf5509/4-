@@ -135,10 +135,10 @@ test('기절 차단에 실패하면 큰 기술이 여러 단계로 터지고 공
  const {g,a}=major('machine'),h=g.heroes[0];h.inv=0;const s=a.attack.areas[0];h.x=s.x+100;h.y=s.y;const before=h.hp;
  advance(g,a.attack.t+.02);assert(h.hp<before*.6);assert.equal(a.attack.step,1);assert(a.attack.major);assert(!a.stun);
 });
-test('이전 버전 보스도 남은 체력과 기여 비율을 보존해 상향한다',()=>{
+test('이전 버전 보스도 남은 체력과 기여 비율을 보존해 새 체력으로 바꾼다',()=>{
  const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);
- a.balance=0;m.max=a.max=1800000;m.hp=a.hp=900000;a.contrib=[{name:'토벌0',damage:900000}];advance(g,.02);
- assert.equal(m.max,1150000000);assert.equal(m.hp,575000000);assert.equal(a.contrib[0].damage,575000000);
+ a.balance=3;m.max=a.max=1150000000;m.hp=a.hp=575000000;a.contrib=[{name:'토벌0',damage:575000000}];advance(g,.02);
+ assert.equal(m.max,11500000);assert.equal(m.hp,5750000);assert.equal(a.contrib[0].damage,5750000);
 });
 test('광장 포탈 근처에서만 소환·입장하고 포탈은 대화 대상이다',()=>{
  const g=setup(),h=g.heroes[0];h.x=900;h.y=820;assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));

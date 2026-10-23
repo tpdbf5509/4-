@@ -244,3 +244,8 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 | `design/map/` | 관문·소리 단추·성채 체력 아이콘의 원본 목업 4장, `cut.py`(연결 성분으로 낱장을 잘라 `public/assets/map/`·`public/assets/ui/`로 저장). 길 타일 원본은 시도 후 되돌려 더 이상 없습니다 — `design/map/README.md` 참고 |
 
 각 폴더의 `README.md`에 어떤 방식으로 배경을 지우고 캐릭터만 남겼는지 자세히 적혀 있습니다.
+
+
+## 길드 보스 그림 (2026년10월23일)
+
+`public/assets/game/rpg/boss/guild-bosses.webp`는 생성한 투명 도트 아틀라스입니다.1536×1024,3열×2행. 슬라임·세이렌·불사조의 준비/공격 자세를 담았습니다. `src/game/guildArt.js`가 전투와 길드 선택 화면에 그리며 크기와 발 기준점은 `src/game/guildData.js`의 `GUILD_BOSS_ART`에 있습니다. 로드 실패 시 기존 코드 그림을 사용합니다.

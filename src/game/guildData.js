@@ -14,3 +14,7 @@ export const templeCost=lv=>20+lv*10;
 export const guildBuff=h=>1+Math.min(GUILD.templeMax,Math.max(0,h?.guild?.level||0))*GUILD.templePct;
 export const guildAspd=h=>Math.min(GUILD.coreMax,Math.max(0,h?.guild?.used||0))*GUILD.coreStep;
 export const guildKey=(g,h)=>String(g.names[h.pi]||'').normalize('NFKC').trim().toLowerCase();
+
+// 길드 보스 전용 3열×2행 그림. 위 준비 자세·아래 공격 자세, 기준점은 발밑이다.
+export const GUILD_BOSS_ART={path:'/assets/game/rpg/boss/guild-bosses.webp',cols:3,rows:2,size:360,
+ feet:[[.95,.95,.95],[.96,.97,.96]]};

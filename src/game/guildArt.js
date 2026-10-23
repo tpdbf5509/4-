@@ -1,8 +1,15 @@
 /* 길드 성전과 세 보스의 전용 그림. 캐릭터 스킬 연출은 재사용하지 않는다. */
-import {GUILD_BOSS_BY_TYPE} from './guildData.js';
+import {GUILD_BOSS_BY_TYPE,GUILD_BOSSES,GUILD_BOSS_ART as ART} from './guildData.js';
 import {guildRunOf} from './guild.js';
 import {bloom,ring,sparks} from './combatFx.js';
 const TAU=Math.PI*2;
+let atlas;
+export function warmGuildArt(){
+ if(typeof Image==='undefined')return null;
+ if(atlas===undefined){atlas=new Image();atlas.onerror=()=>{atlas=null;};atlas.src=ART.path;}
+ return atlas;
+}
+export const guildBossTop=()=>ART.size*.94;
 export function drawGuildStatue(ctx,g,n,time){
  const {x,y}=n,level=g.heroes[g.mySeat]?.guild?.level||0;
  ctx.save();ctx.translate(x,y);bloom(ctx,0,-60,105,'#e6d6a0',.2+level/350);
@@ -19,6 +26,12 @@ export function drawGuildBoss(ctx,m,time){
  const B=GUILD_BOSS_BY_TYPE[m.type];if(!B)return;
  ctx.save();ctx.translate(m.x,m.y);ctx.fillStyle='rgba(10,10,12,.3)';ctx.beginPath();ctx.ellipse(0,4,110,32,0,0,TAU);ctx.fill();ctx.strokeStyle='#342c2b';ctx.lineWidth=5;
  const bob=Math.sin(time*2)*5;ctx.translate(0,bob);
+ const im=warmGuildArt();
+ if(im?.complete&&im.naturalWidth){
+   const col=GUILD_BOSSES.indexOf(B),row=m.pose?1:0,cw=im.naturalWidth/ART.cols,ch=im.naturalHeight/ART.rows;
+   ctx.imageSmoothingEnabled=false;ctx.drawImage(im,col*cw,row*ch,cw,ch,-ART.size/2,-ART.size*ART.feet[row][col],ART.size,ART.size);ctx.restore();return;
+ }
+
  if(B.id==='slime'){
    ctx.fillStyle='#86b967';ctx.beginPath();ctx.moveTo(-116,-12);ctx.quadraticCurveTo(-133,-81,-75,-120);ctx.quadraticCurveTo(-14,-194,55,-133);ctx.quadraticCurveTo(135,-103,117,-12);ctx.quadraticCurveTo(0,26,-116,-12);ctx.fill();ctx.stroke();
    ctx.fillStyle='#cfe7ab';ctx.fillRect(-65,-113,33,13);ctx.fillStyle='#dbcf99';ctx.fillRect(-90,-139,180,20);ctx.fillRect(-73,-163,18,24);ctx.fillRect(-10,-175,20,36);ctx.fillRect(55,-163,18,24);

@@ -1,20 +1,24 @@
-import {drawGuildBoss,drawGuildStatue} from './game/guildArt.js';
+import BossHealthBar from './BossHealthBar.jsx';
+import {drawGuildBoss,drawGuildStatue,warmGuildArt} from './game/guildArt.js';
 import {useEffect,useRef,useState} from 'react';
-import {GUILD as C,GUILD_BOSSES,templeCost} from './game/guildData.js';
+import {GUILD as C,GUILD_BOSSES,GUILD_BOSS_ART,templeCost} from './game/guildData.js';
 const won=n=>(n||0).toLocaleString('ko-KR');
 const tabs=[['home','길드'],['temple','성전'],['raid','토벌전'],['rank','주간 순위']];
 function GuildPortrait({boss}){
  const canvas=useRef(null);
- useEffect(()=>{const ctx=canvas.current.getContext('2d');ctx.clearRect(0,0,360,320);ctx.save();ctx.translate(180,280);ctx.scale(.85,.85);
-   if(boss)drawGuildBoss(ctx,{type:boss.type,x:0,y:0},0);else drawGuildStatue(ctx,{mySeat:0,heroes:[]},{x:0,y:0},0);ctx.restore();},[boss]);
+ useEffect(()=>{
+   const ctx=canvas.current.getContext('2d'),atlas=boss?warmGuildArt():null;
+   const paint=()=>{ctx.clearRect(0,0,360,320);ctx.save();ctx.translate(180,280);const scale=boss?270/GUILD_BOSS_ART.size:.85;ctx.scale(scale,scale);
+     if(boss)drawGuildBoss(ctx,{type:boss.type,x:0,y:0},0);else drawGuildStatue(ctx,{mySeat:0,heroes:[]},{x:0,y:0},0);ctx.restore();};
+   paint();if(atlas&&!atlas.complete)atlas.addEventListener('load',paint,{once:true});return()=>atlas?.removeEventListener('load',paint);
+ },[boss]);
  return <canvas ref={canvas} width={360} height={320} className="guild-portrait" aria-hidden="true"/>;
 }
-export function GuildHud({run,onLeave}){
+export function GuildHud({run,barRefs,onLeave}){
  if(!run)return null;
- return <div className="wb-hud guild-hud"><b>길드 토벌 · {GUILD_BOSSES.find(b=>b.id===run.boss)?.name}</b>
- <div><span>{run.phase==='fight'?`남은 시간 ${Math.floor(run.t/60)}분 ${Math.floor(run.t%60)}초`:run.phase==='clear'?'토벌 완료':'토벌 종료'}</span><span>{Math.ceil(run.hp/run.max*100)}%</span></div>
- <progress value={run.hp} max={run.max} aria-label="길드 보스 체력"/>
- <div><span>{won(Math.ceil(run.hp))} / {won(run.max)}</span></div>
+ return <div className="wb-hud guild-hud"><b>길드 토벌</b>
+ <div><span>{run.phase==='fight'?`남은 시간 ${Math.floor(run.t/60)}분 ${Math.floor(run.t%60)}초`:run.phase==='clear'?'토벌 완료':'토벌 종료'}</span><span>{Math.round(run.hp/run.max*100)}%</span></div>
+ <BossHealthBar key={run.id} name={GUILD_BOSSES.find(b=>b.id===run.boss)?.name} hp={run.hp} max={run.max} {...barRefs}/>
  {run.attack&&<div className="wb-pattern"><b>{run.attack.name}</b><span>{run.attack.t.toFixed(1)}초</span></div>}
  <button type="button" className="rpg-win-btn" onClick={onLeave}>광장으로</button></div>;
 }

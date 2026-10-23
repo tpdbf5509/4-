@@ -1,3 +1,4 @@
+import BossHealthBar from './BossHealthBar.jsx';
 import {worldBossPortalNear} from "./game/worldBoss.js";
 import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_ID} from './game/worldBossData.js';
 import {WORLD_WEAPONS,worldArmorName} from './game/worldEquipmentData.js';
@@ -7,10 +8,10 @@ import {useEffect,useRef} from 'react';
 import {RPG_SERVER_CAP} from './game/rpg.js';
 const left=ms=>{const n=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;};
 const lootName=x=>x.k==='weapon'?WORLD_WEAPONS.find(w=>w.id===x.id)?.name:x.k==='armor'?worldArmorName(x.id,x.set):x.k==='potion'?POTIONS.find(p=>p.id===x.id)?.name:MAT_BY_ID[x.id]?.name;
-export function WorldBossHud({state,map,onOpen,onLeave}){
+export function WorldBossHud({state,map,barRefs,onOpen,onLeave}){
   const a=state?.active;if(!a||map!==C.map)return null;
-  return <div className="wb-hud"><div><b>{WORLD_BOSS_BY_ID[a.id].name}</b><span>{a.phase==='fight'?`남은 시간 ${left(a.expires-state.clock)}`:a.phase==='clear'?'토벌 완료':'토벌 종료'}</span></div>
-    <progress aria-label="월드보스 체력" max={a.max} value={a.hp}/><div><span>{Math.ceil(a.hp).toLocaleString('ko-KR')} / {a.max.toLocaleString('ko-KR')}</span><strong>내 기여도 {(a.damage/a.max*100).toFixed(1)}%</strong></div>
+  return <div className="wb-hud"><div><b>월드보스 토벌</b><span>{a.phase==='fight'?`남은 시간 ${left(a.expires-state.clock)}`:a.phase==='clear'?'토벌 완료':'토벌 종료'}</span></div>
+    <BossHealthBar key={a.key||a.id} name={WORLD_BOSS_BY_ID[a.id].name} hp={a.hp} max={a.max} {...barRefs}/><div><strong>내 기여도 {(a.damage/a.max*100).toFixed(1)}%</strong></div>
     {(a.attack||a.stun>0)&&<div className={`wb-pattern ${a.stun>0?'stunned':a.attack?.open?'open':''}`}>
       <b aria-live="polite">{a.stun>0?'합동 공격 성공 · 기절':a.attack.open?'지금 함께 공격!':a.attack.name}</b>
       <span>{a.stun>0?`${a.stun.toFixed(1)}초`:a.attack.open?`${a.attack.coop}/${C.coop.players}명 · ${a.attack.t.toFixed(1)}초`:`${a.attack.step+1}/${a.attack.stages} · ${a.attack.t.toFixed(1)}초`}</span>

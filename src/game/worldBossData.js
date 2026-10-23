@@ -1,6 +1,6 @@
 /* 월드보스 첫 시험 수치. 출현·판정·드롭 확률은 여기서 조절한다. */
 export const WORLD_BOSS = {
-  revision:3, // 진행 중인 보스도 체력 비율과 기여도를 보존하며 새 수치로 옮긴다.
+  revision:4, // 진행 중인 보스도 체력 비율과 기여도를 보존하며 새 수치로 옮긴다.
   map: 'worldboss', fee: 100000, period: 3600000, duration: 900000, endWait: 20,
   contribution: .1, wind: 1.5, gap: 2.8, rageGap: 1.8, rageAt: .3,
   hitPct: .45, poolPct: .14, poolTime: 7, poolTick: 1, // 경고를 보고 피해야 하는 강한 연속 공격으로 바꾼다.
@@ -14,10 +14,10 @@ export const WORLD_BOSS = {
   potions: [{id:'heal_l',chance:.65,n:5},{id:'buff_str',chance:.25,n:2},{id:'buff_int',chance:.25,n:2},{id:'buff_crit',chance:.2,n:2}],
 };
 export const WORLD_BOSSES = [
-  // 사용자 요청으로 이전 체력의 10배. 공격 패턴·보상·15분 제한은 유지한다.
-  { id:'dragon',type:'world_dragon',name:'드래곤 괴수',hp:1150000000,color:'#f3aa74',sub:'삼연 숨결 · 추적 운석 · 종말의 화염폭풍',attacks:['cone','meteors','inferno'] },
-  { id:'serpent',type:'world_serpent',name:'거대 뱀 괴수',hp:1200000000,color:'#b7d58b',sub:'맹독 추격 · 이중 휩쓸기 · 독왕의 탈피',attacks:['poison','ring','molt'] },
-  { id:'machine',type:'world_machine',name:'고대 번개 기계형 괴수',hp:1250000000,color:'#9edcf0',sub:'회전 전류 · 연속 낙뢰 · 천벌 과부하',attacks:['cross','lightning','overload'] },
+  // 사용자 예시인 뱀1200만에 맞춰 이전 체력의 1/100로 조정한다. 공격 패턴·보상·15분 제한은 유지한다.
+  { id:'dragon',type:'world_dragon',name:'드래곤 괴수',hp:11500000,color:'#f3aa74',sub:'삼연 숨결 · 추적 운석 · 종말의 화염폭풍',attacks:['cone','meteors','inferno'] },
+  { id:'serpent',type:'world_serpent',name:'거대 뱀 괴수',hp:12000000,color:'#b7d58b',sub:'맹독 추격 · 이중 휩쓸기 · 독왕의 탈피',attacks:['poison','ring','molt'] },
+  { id:'machine',type:'world_machine',name:'고대 번개 기계형 괴수',hp:12500000,color:'#9edcf0',sub:'회전 전류 · 연속 낙뢰 · 천벌 과부하',attacks:['cross','lightning','overload'] },
 ];
 // damage는 최대 체력에 대한 방어 적용 전 비율이다. 큰 기술의 첫 타격만 합동 공격으로 끊을 수 있다.
 export const WORLD_BOSS_PATTERNS = {

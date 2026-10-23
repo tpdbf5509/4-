@@ -1977,3 +1977,12 @@ button.forge-stage:disabled { cursor: default; }
 .guild-panel .guild-portrait { width:180px; height:160px; max-width:100%; flex:none; }
 .guild-panel .shop-top,.guild-panel .shop-tabs { flex-shrink:0; }
 .guild-notice strong { font-size:clamp(24px,3vw,36px); word-break:keep-all; }
+
+/* 월드·길드 보스도 기존 던전의 실제 체력/피해 잔상 바를 쓴다. */
+.wb-hud .rpg-dg-boss { display:grid; grid-template-columns:minmax(0,1fr); align-items:baseline; gap:4px; margin:7px 0; }
+.wb-hud .rpg-dg-boss span { white-space:normal; overflow:visible; }
+.wb-hud .rpg-dg-boss b { font-size:13px; }
+.wb-hud .rpg-dg-boss i { height:16px; }
+@media(max-width:700px) { .wb-hud .rpg-dg-boss span { font-size:14px; } .wb-hud .rpg-dg-boss b { font-size:10px; letter-spacing:-.04em; } .wb-hud .rpg-dg-boss i { height:12px; } }
+/* 넓은 화면에서는 보스 얼굴을 가리지 않도록 체력 창을 상단 가운데로 옮긴다. */
+@media(min-width:1050px) { .wb-hud { left:calc(50% - 150px); right:auto; width:360px; } }

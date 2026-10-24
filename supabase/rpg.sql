@@ -26,6 +26,19 @@ alter table public.rpg_chars add column if not exists live_at timestamptz;    --
 create or replace function public.rpg_live_secs()
 returns int language sql immutable set search_path = '' as $$ select 30 $$;   -- 창을 그냥 닫으면 이만큼 뒤에 풀린다
 
+-- 코인 저장 지킴 수치 — 이 두 함수만 고친다(rpg_save 가 쓴다).
+-- 지난 저장 뒤 늘 수 있는 코인 = 한 번에 몰려 드는 몫 100만 + 1분마다 50만.
+--   1분 50만: 400레벨 포식거미 사냥터를 쉼 없이 다 잡는 이론 최대(몹 24마리 × 896코인 / 4.5초 + 보스 2마리 × 23,800 / 28초 ≈ 분당 39만) + 여유.
+--   한 번 100만: 월드보스 최대 15만 + 전설 무기 되팔기 10.6만 × 2 + 전설 방어구 3만 × 4 + 슬롯 별 20만 + 재료 판매 여유.
+--   넘을 수 있는 정상 경우: 슬롯 7 잭팟 150만 · 쌓아 둔 재료를 한꺼번에 판매(비단 999개 350만) · 관리자 /돈. 그래서 처음에는 막지 않고 남기기만 한다.
+create or replace function public.rpg_coin_cap(p_mins numeric)
+returns bigint language sql immutable set search_path = '' as $$
+  select (1000000 + 500000 * least(greatest(coalesce(p_mins, 0), 0), 1000000))::bigint
+$$;
+-- false — 막지 않고 rpg_save_blocks 에 why 'coins' 로 남기기만 한다. true — 다른 저장 지킴처럼 막고 입장권을 지운다
+create or replace function public.rpg_coin_block()
+returns boolean language sql immutable set search_path = '' as $$ select false $$;
+
 -- 코드를 틀린 횟수 — 이름마다. 5번 틀리면 10분 막는다.
 create table if not exists public.rpg_fails (
   name_key  text primary key,
@@ -121,11 +134,13 @@ create table if not exists public.rpg_save_blocks (
   id      bigserial primary key,
   at      timestamptz not null default now(),
   name    text not null,                         -- 저장하려던 캐릭터
-  why     text not null,                         -- name 기록 이름이 다름 · down 레벨이 내려감 · jump 레벨이 너무 뜀
+  why     text not null,                         -- name 기록 이름이 다름 · down 레벨이 내려감 · jump 레벨이 너무 뜀 · coins 코인이 너무 늚 · moved 거래로 옮긴 장비
   lv_old  int,
   lv_new  int,
   sent    text                                   -- 보내 온 기록의 이름
 );
+alter table public.rpg_save_blocks add column if not exists coins_old bigint;   -- why 'coins' 일 때 — 지난 저장의 코인
+alter table public.rpg_save_blocks add column if not exists coins_new bigint;   -- 보내 온 코인(숫자가 아니면 비운다)
 alter table public.rpg_save_blocks enable row level security;
 revoke all on public.rpg_save_blocks from anon, authenticated;
 
@@ -133,11 +148,20 @@ create or replace function public.rpg_lv(p jsonb)
 returns int language sql immutable set search_path = '' as $$
   select case when p->>'lv' ~ '^[0-9]{1,4}$' then (p->>'lv')::int else 1 end
 $$;
+-- 기록의 코인 — 없으면 0. 숫자가 아니면(문자 · 목록) null 로 돌려 저장 지킴이 걸리게 한다(게임은 늘 숫자로 보낸다)
+create or replace function public.rpg_coins(p jsonb)
+returns numeric language sql immutable set search_path = '' as $$
+  select case when p->'coins' is null or jsonb_typeof(p->'coins') = 'null' then 0
+              when jsonb_typeof(p->'coins') = 'number' then greatest(floor((p->'coins')::numeric), 0)
+              else null end
+$$;
 
 -- 저장 — 입장권이 맞아야 한다. 다른 기기가 나중에 들어왔으면 'token' 으로 거절한다
 -- 저장 지킴(관리자 제외): 렉으로 방장이 여럿 생기면 남의 영웅이 내 자리에 실려 저장될 수 있다(10월 19일 13명 사고).
 --   기록 이름이 다르거나, 레벨이 내려가거나(서버 초기화 · 한 사람 되돌리기 제외), 지난 저장보다 너무 많이 뛰면 막는다.
 --   막으면 rpg_save_blocks 에 남기고 이 기기의 입장권을 지운다 — 코드를 다시 넣으면 서버 기록으로 이어 한다
+-- 코인 지킴: 지난 저장보다 rpg_coin_cap 넘게 늘면 'coins'. rpg_coin_block() 이 false 면 남기기만 하고 저장한다.
+--   거래 · 길드 지갑 · 주간 보상은 DB 가 기록을 직접 고치므로 다음 저장의 비교 기준이 이미 바뀌어 있다(걸리지 않는다)
 create or replace function public.rpg_save(p_name text, p_token text, p_data jsonb)
 returns jsonb language plpgsql volatile security definer set search_path = '' as $$
 declare
@@ -147,6 +171,10 @@ declare
   v_old  int;
   v_new  int;
   v_why  text;
+  v_fresh boolean;                       -- 서버 초기화(rs) · 한 사람 되돌리기(bag.pg 새 id) — 기록이 일부러 바뀌었다
+  v_c_old numeric;
+  v_c_new numeric;
+  v_c_shown bigint;
 begin
   if p_data is null or octet_length(p_data::text) > 30000 then return jsonb_build_object('ok', false, 'err', 'data'); end if;
   select * into v_char from public.rpg_chars
@@ -155,19 +183,31 @@ begin
   if not v_char.admin then
     v_old := public.rpg_lv(v_char.data);
     v_new := public.rpg_lv(p_data);
+    v_fresh := (p_data->>'rs') is distinct from (v_char.data->>'rs')
+      or exists (select 1 from jsonb_array_elements_text(case when jsonb_typeof(p_data#>'{bag,pg}') = 'array' then p_data#>'{bag,pg}' else '[]'::jsonb end) x
+                 where not (case when jsonb_typeof(v_char.data#>'{bag,pg}') = 'array' then v_char.data#>'{bag,pg}' else '[]'::jsonb end) ? x.value);
+    v_c_old := coalesce(public.rpg_coins(v_char.data), 0);
+    v_c_new := public.rpg_coins(p_data);
+    v_c_shown := case when v_c_new is not null then least(v_c_new, 9e18) end;   -- 남길 값(bigint 칸에 들어가게) — 숫자가 아니면 비운다
     if p_data ? 'name' and public.rpg_key(p_data->>'name') <> v_char.name_key then
       v_why := 'name';
-    elsif v_new < v_old
-      and (p_data->>'rs') is not distinct from (v_char.data->>'rs')
-      and not exists (select 1 from jsonb_array_elements_text(case when jsonb_typeof(p_data#>'{bag,pg}') = 'array' then p_data#>'{bag,pg}' else '[]'::jsonb end) x
-                      where not (case when jsonb_typeof(v_char.data#>'{bag,pg}') = 'array' then v_char.data#>'{bag,pg}' else '[]'::jsonb end) ? x.value) then
+    elsif v_new < v_old and not v_fresh then
       v_why := 'down';
     elsif v_new > v_old + c_jump + floor(extract(epoch from now() - v_char.updated_at) / 60 * c_jump_min) then
       v_why := 'jump';
+    elsif not v_fresh and (v_c_new is null
+      or v_c_new > v_c_old + public.rpg_coin_cap(extract(epoch from now() - v_char.updated_at) / 60)) then
+      if public.rpg_coin_block() then
+        v_why := 'coins';
+      else                                 -- 기록만 — 막지 않고 저장한다
+        insert into public.rpg_save_blocks (name, why, lv_old, lv_new, sent, coins_old, coins_new)
+        values (v_char.name, 'coins', v_old, v_new, left(coalesce(p_data->>'name', ''), 16), v_c_old, v_c_shown);
+      end if;
     end if;
     if v_why is not null then
-      insert into public.rpg_save_blocks (name, why, lv_old, lv_new, sent)
-      values (v_char.name, v_why, v_old, v_new, left(coalesce(p_data->>'name', ''), 16));
+      insert into public.rpg_save_blocks (name, why, lv_old, lv_new, sent, coins_old, coins_new)
+      values (v_char.name, v_why, v_old, v_new, left(coalesce(p_data->>'name', ''), 16),
+              case when v_why = 'coins' then v_c_old end, case when v_why = 'coins' then v_c_shown end);
       update public.rpg_chars set token_hash = null where name_key = v_char.name_key;
       return jsonb_build_object('ok', false, 'err', 'guard', 'why', v_why);
     end if;
@@ -183,7 +223,7 @@ exception when raise_exception then
   end if;
   raise;
 end $$;
-revoke execute on function public.rpg_lv(jsonb) from public, anon, authenticated;
+revoke execute on function public.rpg_lv(jsonb), public.rpg_coins(jsonb), public.rpg_coin_cap(numeric), public.rpg_coin_block() from public, anon, authenticated;
 
 -- 삭제 — 입장권이 맞아야 한다
 create or replace function public.rpg_delete(p_name text, p_token text)
@@ -241,6 +281,16 @@ begin
   where name_key = public.rpg_key(p_name) and token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex');
   if not found then return jsonb_build_object('ok', false, 'err', 'token'); end if;
   return jsonb_build_object('ok', true);
+-- 거래 트리거(trade.sql rpg_trade_save_fence)가 막으면 rpg_save 와 같이 답으로 돌려준다.
+-- 예전엔 예외가 그대로 나가 400 이 되었고 서버는 'net' 으로 알아 10초마다 다시 보냈다
+exception when raise_exception then
+  if sqlerrm in ('trade_stale','trade_busy','trade_moved') then
+    if sqlerrm='trade_moved' then
+      insert into public.rpg_save_blocks(name,why) values(p_name,'moved');
+    end if;
+    return jsonb_build_object('ok',false,'err',substring(sqlerrm from 7));
+  end if;
+  raise;
 end $$;
 
 revoke execute on function public.rpg_srv_load(text, text), public.rpg_srv_save(text, text, jsonb) from public, anon, authenticated;
@@ -256,7 +306,7 @@ grant execute on function public.rpg_srv_load(text, text), public.rpg_srv_save(t
 -- 관리자 캐릭터의 이름 + 코드로만 열린다. 이어 하기(rpg_login)와 달리 입장권을 바꾸지 않아 게임 중인 기기가 끊기지 않는다.
 -- 명령(방장 부여 · 퇴장)은 서버마다 표 한 줄에 남긴 일회용 표(nonce)로 보낸다. 방장 화면은 그 표가 맞는지 묻고 한 번만 쓴다.
 create table if not exists public.rpg_admin_tickets (
-  server      text primary key,                 -- RPG1~RPG5 — 서버마다 마지막 명령 하나만 둔다(표가 쌓이지 않게)
+  server      text primary key,                 -- RPG1~RPG4 — 서버마다 마지막 명령 하나만 둔다(표가 쌓이지 않게)
   nonce_hash  text not null,
   act         text not null,                    -- 'host' 방장 부여 · 'kick' 퇴장
   target      text not null,                    -- 대상의 접속 id
@@ -338,7 +388,8 @@ declare
 begin
   if not (v_ok->>'ok')::boolean then return v_ok; end if;
   return jsonb_build_object('ok', true, 'list', coalesce((
-    select jsonb_agg(jsonb_build_object('at', b.at, 'name', b.name, 'why', b.why, 'old', b.lv_old, 'new', b.lv_new, 'sent', b.sent) order by b.id desc)
+    select jsonb_agg(jsonb_build_object('at', b.at, 'name', b.name, 'why', b.why, 'old', b.lv_old, 'new', b.lv_new, 'sent', b.sent,
+                                        'cold', b.coins_old, 'cnew', b.coins_new) order by b.id desc)
     from (select * from public.rpg_save_blocks order by id desc limit 100) b), '[]'::jsonb));
 end $$;
 revoke execute on function public.rpg_admin_blocks(text, text) from public, anon, authenticated;

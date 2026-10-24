@@ -12,7 +12,8 @@ import "./ui/admin.css";
 const TABS = [["people", "인원"], ["accounts", "계정"], ["trades", "거래"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
 const LOG_MAX = 300;                 // 로그에 남기는 줄 수(이 화면을 연 동안만)
 const BLOCKS_EVERY = 30;             // 로그 탭을 보는 동안 막힌 저장 기록을 다시 읽는 간격(초)
-const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀", moved: "넘긴 물품이 다시 나타남" };
+const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀", moved: "넘긴 물품이 다시 나타남", coins: "코인이 너무 늚" };
+const coinText = (n) => (n === null || n === undefined ? "숫자 아님" : Number(n).toLocaleString("ko-KR"));
 const CONFIRM_MS = 3000;             // 퇴장 · 방장 부여는 한 번 더 눌러야 한다 — 이 시간 안에
 const srvName = (s) => `서버 ${RPG_SERVERS.indexOf(s) + 1}`;
 const clock = (t) => { const d = new Date(t); return [d.getHours(), d.getMinutes(), d.getSeconds()].map((v) => String(v).padStart(2, "0")).join(":"); };
@@ -240,7 +241,7 @@ function AdminBoard({ auth, onOut }) {
               {blocks.map((b, i) => (
                 <li key={`${b.at}-${i}`} className="bad">
                   <time>{clock(Date.parse(b.at))}</time><span>{new Date(b.at).getMonth() + 1}/{new Date(b.at).getDate()}</span>
-                  <p>{b.name} · {WHY[b.why] || b.why} · Lv {b.old} → {b.new}{b.sent && b.sent !== b.name ? ` · 보낸 기록 이름 ${b.sent}` : ""}</p>
+                  <p>{b.name} · {WHY[b.why] || b.why} · Lv {b.old} → {b.new}{b.why === "coins" ? ` · 코인 ${coinText(b.cold)} → ${coinText(b.cnew)}` : ""}{b.sent && b.sent !== b.name ? ` · 보낸 기록 이름 ${b.sent}` : ""}</p>
                 </li>
               ))}
             </ul>

@@ -1,6 +1,8 @@
 /* ── RPG 전용 서버 연결(server/) — 방장 없이 서버가 판정한다 ─────────────
    room.js 의 joinRoom 과 같은 모양(send · on · setPresence · leave · code)이라 App · RpgView 는 손님 경로를 그대로 쓴다.
    끊기면 RETRY 초 간격으로 다시 붙는다(서버는 GRACE 초 동안 자리를 남겨 둔다).
+   붙자마자 첫 말(auth)로 이 창만 아는 비밀값을 보낸다 — 서버는 같은 접속 id 의 다시 붙기를 비밀값이 맞을 때만 받는다(남의 자리 탈취 막기).
+   비밀값은 주소에 넣지 않는다(서버 기록 · 방문 기록에 남는다).
 
    어느 서버로 붙을지 — 주소 ?srv=cf 로 켜고 ?srv=off 로 끈다(이 기기에 기억한다).
    개발 중 ?srv=local 이면 내 컴퓨터의 서버(wrangler dev, 127.0.0.1:8787)로 붙는다 */
@@ -9,6 +11,18 @@ const SRV_URL = import.meta.env.VITE_RPG_SERVER || "wss://four-lane-rpg.four-lan
 const LOCAL_URL = "ws://127.0.0.1:8787";
 const PICK_KEY = "flg:srv";
 const RETRY = [0.5, 1, 2, 4];   // 다시 붙는 간격(초) — 끝까지 가면 마지막 값으로 계속
+const SECRET_KEY = "flg:srvKey";
+
+// 이 창의 비밀값 — 접속 id(room.js myId)와 따로 만든다. sessionStorage 라 탭마다 다르고 다른 사람에게 보내지 않는다
+export function mySecret() {
+  let v = "";
+  try { v = sessionStorage.getItem(SECRET_KEY) || ""; } catch { /* 저장이 막혀 있으면 이 창 메모리에만 */ }
+  if (!/^[0-9a-f]{64}$/.test(v)) {
+    v = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    try { sessionStorage.setItem(SECRET_KEY, v); } catch { /* 위와 같다 */ }
+  }
+  return v;
+}
 
 // 이 기기가 전용 서버를 쓰는가 — 주소의 ?srv= 를 기억해 둔다
 export function rpgServerUrl() {
@@ -27,10 +41,12 @@ export function rpgServerUrl() {
 export function joinRpgServer(base, code, { id, onPeers, onStatus }) {
   const handlers = new Map();
   let ws = null, gone = false, tries = 0, timer = null, wasOpen = false;
+  const secret = mySecret();
   const open = () => {
     if (gone) return;
     ws = new WebSocket(`${base}/rpg/${encodeURIComponent(code)}?id=${encodeURIComponent(id)}`);
     ws.onopen = () => {
+      ws.send(JSON.stringify({ k: "auth", d: { s: secret } }));   // 첫 말 — 다른 말보다 먼저
       tries = 0;
       wasOpen = true;
       onPeers?.([]);

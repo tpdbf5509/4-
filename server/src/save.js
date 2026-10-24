@@ -8,7 +8,13 @@ async function rpc(env, fn, args) {
       headers: { "Content-Type": "application/json", apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` },
       body: JSON.stringify(args),
     });
-    if (!res.ok) return { ok: false, err: "net", detail: `${res.status}` };
+    if (!res.ok) {
+      // 거래 트리거(trade.sql)가 막은 저장 — supabase/rpg.sql 을 다시 실행하기 전에는 400 오류로 온다. 고친 뒤의 답과 같은 이름으로 바꾼다
+      const body = await res.text().catch(() => "");
+      const trade = body.match(/"message"\s*:\s*"trade_(stale|busy|moved)"/);
+      if (trade) return { ok: false, err: trade[1] };
+      return { ok: false, err: "net", detail: `${res.status}` };
+    }
     return await res.json();
   } catch (e) {
     return { ok: false, err: "net", detail: String(e && e.message) };

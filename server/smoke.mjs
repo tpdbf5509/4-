@@ -6,7 +6,7 @@ const fail = (m) => { console.error("실패:", m); process.exit(1); };
 const health = await fetch(`${BASE}/health`).then((r) => r.text()).catch((e) => String(e));
 if (health !== "ok") fail(`health ${health}`);
 console.log("① health ok");
-// 게임 방(RPG1~5)은 건드리지 않는다 — 처음 부른 곳 가까이에 방이 생기므로 한국 사람이 먼저 만들게 둔다. 점검은 CHECK 방으로
+// 게임 방(RPG1~4)은 건드리지 않는다 — 처음 부른 곳 가까이에 방이 생기므로 한국 사람이 먼저 만들게 둔다. 점검은 CHECK 방으로
 console.log("   점검 방 위치:", await fetch(`${BASE}/where/CHECK`).then((r) => r.text()).catch(() => "?"));
 const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/rpg/CHECK?id=smoke${Date.now()}`);
 const got = new Set();
@@ -20,7 +20,9 @@ const done = new Promise((resolve) => {
     }
     if (m.k === "deny") { got.add("deny"); console.log("③ deny — 저장소 연결 ok"); resolve(); }
   };
-  ws.onopen = () => ws.send(JSON.stringify({ k: "hello", d: { name: "점검" } }));
+  // 첫 말은 비밀값(auth) — 없으면 서버가 끊는다(room.js auth)
+  const s = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
+  ws.onopen = () => { ws.send(JSON.stringify({ k: "auth", d: { s } })); ws.send(JSON.stringify({ k: "hello", d: { name: "점검" } })); };
   ws.onerror = () => fail("websocket error");
 });
 await Promise.race([done, new Promise((r) => setTimeout(r, 15000))]);

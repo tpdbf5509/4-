@@ -44,7 +44,7 @@
 | 화면 | React 19 + Vite 8. 판은 `<canvas>` 에 직접 그린다 |
 | 실시간 | Supabase Realtime 채널 1개 = 방 1개(`flg:<코드>`). presence + broadcast. DB 테이블은 `feedback`(의견)과 `rpg_chars` · `rpg_fails`(RPG 캐릭터 서버 저장, `supabase/rpg.sql`) |
 | RPG 전용 서버 | **보류(꺼 둠, 2026-10-18).** 사용자 인터넷에서 Cloudflare(workers.dev) 입구가 파리(CDG)로 잡혀 서울 방까지 왕복 0.5초였다 — 통신사 경로라 코드로 못 고친다. 서울 일반 서버(카드 필요)를 마련할 때까지 예전 방식(Supabase 서울)이 기본이다. 서버 코드 · 자동 배포는 남겨 두었다(`?srv=cf` 로만 붙는다). 연결 진단 칸은 `?diag=1` 로 켠다(입구 → 방 위치 · 왕복 · 스냅샷 · 위치 고침 · fps). |
-| (예전 기록) RPG 전용 서버 | **이전 중이었다.** `?srv=cf` 를 켠 기기는 방장 없이 `server/`(Cloudflare)에 붙는다. 서버가 예전 방장 노릇(자리 · 판정 · 스냅샷 · 채팅 중계 · 캐릭터 불러오기/저장)을 하고, 화면은 손님 경로를 그대로 쓴다. 주고받는 말도 같다(lobby · rsnap · chat ↔ hello · pick · rjoin · input · chat, 서버만의 말: `deny` 입장권 틀림 · `kick` 다른 기기 · `bye` 나감) |
+| (예전 기록) RPG 전용 서버 | **이전 중이었다.** `?srv=cf` 를 켠 기기는 방장 없이 `server/`(Cloudflare)에 붙는다. 서버가 예전 방장 노릇(자리 · 판정 · 스냅샷 · 채팅 중계 · 캐릭터 불러오기/저장)을 하고, 화면은 손님 경로를 그대로 쓴다. 주고받는 말도 같다(lobby · rsnap · chat ↔ hello · pick · rjoin · input · chat, 서버만의 말: `auth` 첫 말 비밀값 · `deny` 입장권 틀림 · `kick` 다른 기기 · `bye` 나감). **자리 지킴**: 붙은 뒤 첫 말 `auth` 로 창마다 비밀값(sessionStorage `flg:srvKey`, rpgServer.js `mySecret`)을 보내고, 서버는 같은 접속 id 의 다시 붙기를 그 해시가 맞을 때만 받는다(틀리면 4003 · 5초 안에 없으면 4001). 남에게는 접속 id 대신 `~` 로 시작하는 id(pub)만 보낸다(대기실 · 스냅샷 `w` · 월드보스 owner · 채팅 from). 정원 `RPG_SERVER_CAP` 은 서버 `seat()` 가 센다. 시험 `node tools/rpg-server-seat.mjs`(wrangler dev 를 먼저 띄운다) · `node --test tools/rpg-server-save.test.mjs` |
 | 판정 | **방장 권위형.** 방장 브라우저가 모든 규칙을 돌리고 손님은 입력만 보낸다. 방장이 스냅샷과 연출 이벤트(`out` fx)를 한 메시지로 뿌린다(방어전 초당 12회, RPG 는 인원에 따라 3~10회) |
 | 저장 | RPG 캐릭터는 이름 + 숫자 5자리 코드로 서버(Supabase 함수 `rpg_*`)와 localStorage 둘 다. 홈 이름 · 설정은 localStorage |
 | 소리 | 파일 없이 웹오디오 합성(`sfx.js`) |
@@ -72,7 +72,7 @@
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
 | `src/net/room.js` | Supabase 채널 연결 |
-| `src/net/rpgServer.js` · `server/` | RPG 전용 서버 연결(room.js 와 같은 모양) · 서버(`server/src/room.js` 가 RPG1~5 방 하나, `save.js` 가 Supabase `rpg_srv_load` · `rpg_srv_save` — 서버 비밀 키로만). 규칙은 `src/game/` 를 그대로 묶어 쓴다. 입력 나누기는 `src/game/rpgInput.js`(방장 화면과 서버가 같이 쓴다) |
+| `src/net/rpgServer.js` · `server/` | RPG 전용 서버 연결(room.js 와 같은 모양) · 서버(`server/src/room.js` 가 RPG1~4 방 하나, `save.js` 가 Supabase `rpg_srv_load` · `rpg_srv_save` — 서버 비밀 키로만). 규칙은 `src/game/` 를 그대로 묶어 쓴다. 입력 나누기는 `src/game/rpgInput.js`(방장 화면과 서버가 같이 쓴다) |
 | `src/AdminView.jsx` · `src/net/admin.js` · `src/ui/admin.css` | 관리 화면 「데이터 시스템」(`?admin`, 관리자 이름 + 코드). 계정 탭은 모든 캐릭터(`rpg_admin_accounts`). 서버마다 관리 채널로 방장 화면에 묻고(인원 · 왕복 · fps) 방장 부여 · 퇴장을 보낸다. 방장 쪽 답은 RpgView.jsx, 명령 표 함수는 `supabase/rpg.sql`(`rpg_admin_*`) |
 | `src/net/version.js` | 새 버전 알아채기. 빌드 번호(`__BUILD__`, `vite.config.js`)와 `dist/version.json` 을 견주어 옛 화면을 스스로 새로 고친다. RPG 스냅샷에 방장 빌드(`ver`)를 싣는다 |
 | `src/net/rpgSave.js` · `src/RpgAccount.jsx` | RPG 캐릭터 서버 저장(만들기 · 이어 하기 · 10초마다 저장 · 입장권)과 캐릭터 만들기 화면의 이름 · 코드 칸. 표와 함수는 `supabase/rpg.sql` |
@@ -130,7 +130,7 @@
 - **RPG 경험치**: 몹 경험치는 `XP_RATE`(0.2, 5배 줄임)를 곱한다. 퀘스트 경험치는 그대로. 파티원은 같은 맵이면 몹 경험치의 50%를 받는다.
 - **RPG 채팅**은 방장을 거치지 않고 모두에게 바로 보낸다(1초에 한 번). 파티 · 칭호 알림은 방장이 `sys` 로 보낸다.
 - **RPG 방장 승계**: 방장이 나가도 서버는 닫히지 않는다. 남은 사람이 받은 스냅샷을 판정 세계로 바꿔(`rpgPromote`) 자리 · 체력 · 몹을 그대로 잇는다. 손님은 새 방장에게 기록을 다시 보낸다. 손님에게 보이는 새 상태는 스냅샷에 넣어야 승계 뒤에도 남는다.
-- **RPG 메시지 한도 · 저장 지킴**: 손님의 키 입력은 방 채널이 아니라 손님마다 방장과 둘만 있는 통로(`<코드>:in:<손님 id>`, room.js `makePipes` · `toHost` · `hostInbox`)로 보낸다 — 방 채널로 보내면 모두가 받아 13명에서 초당 300통이 넘었다. 보내기만 하는 REST 길은 120~280ms 느려 쓰지 않는다. 방장이 옛 화면이면 방 채널로 보낸다(`oldHost`). 서버 저장 `rpg_save` 는 관리자가 아니면 기록 이름이 다르거나 · 레벨이 내려가거나(서버 초기화 `rs` · 되돌리기 `bag.pg` 제외) · 지난 저장보다 15 + 1분마다 1 넘게 뛰면 막고 `rpg_save_blocks` 에 남긴 뒤 입장권을 지운다(그 기기는 "섞인 것 같아 저장을 멈췄습니다", 코드를 다시 넣으면 서버 기록으로). 막은 기록은 관리 화면 로그 탭.
+- **RPG 메시지 한도 · 저장 지킴**: 손님의 키 입력은 방 채널이 아니라 손님마다 방장과 둘만 있는 통로(`<코드>:in:<손님 id>`, room.js `makePipes` · `toHost` · `hostInbox`)로 보낸다 — 방 채널로 보내면 모두가 받아 13명에서 초당 300통이 넘었다. 보내기만 하는 REST 길은 120~280ms 느려 쓰지 않는다. 방장이 옛 화면이면 방 채널로 보낸다(`oldHost`). 서버 저장 `rpg_save` 는 관리자가 아니면 기록 이름이 다르거나 · 레벨이 내려가거나(서버 초기화 `rs` · 되돌리기 `bag.pg` 제외) · 지난 저장보다 15 + 1분마다 1 넘게 뛰면 막고 `rpg_save_blocks` 에 남긴 뒤 입장권을 지운다(그 기기는 "섞인 것 같아 저장을 멈췄습니다", 코드를 다시 넣으면 서버 기록으로). 막은 기록은 관리 화면 로그 탭. **코인 지킴**: 지난 저장보다 코인이 `rpg_coin_cap`(rpg.sql 위쪽, 100만 + 1분마다 50만) 넘게 늘거나 숫자가 아니면 why `coins` — 지금은 `rpg_coin_block()` false 라 남기기만 하고 저장한다(슬롯 7 잭팟 · 재료 몰아 팔기 · 관리자 `/돈` 은 정상인데 넘을 수 있다). `rpg_srv_save` 도 거래 트리거 오류를 `{ok:false, err}` 로 돌려주고 서버는 그 접속의 저장을 멈춘다. 시험 `node --test tools/rpg-save-db.test.mjs`.
 - **RPG 한 캐릭터 한 곳**: 서버 계정이 있는 캐릭터는 들어갈 때 · 10초마다 `rpg_live`(이름 · 입장권 · 창 id `myId` · 서버)로 접속 중 표시를 남긴다(App.jsx `startRpg` · `liveCode` 효과, rpgSave.js `liveEnter` · `LIVE_BEAT`). 다른 창의 표시가 30초(`rpg_live_secs`) 안이면 들어가기 · 이어 하기(`rpg_login`)가 'live' 로 막힌다. 같은 창의 서버 이동은 된다. 나가기 · 창 닫기 때 `rpg_unlive`. 그사이 다른 곳이 차지했으면 이 창이 나간다.
 - **RPG 방장 넘기기**: 방장이 나가기 · 창 닫기를 하면 다음 사람에게 방장을 넘기고 나간다(`handoff`, App.jsx). 화면을 내리면(휴대폰 잠금 · 다른 앱 · `visibilitychange`) 방장은 곧바로 넘기고, 내린 사람은 presence `hid` 로 표시해 방장을 받지도 이어받지도 않는다. 방장이 붙어 있는데 조용하면 `HOST_QUIET_MS`(3초) + 앞선 사람마다 `HOST_AHEAD_MS`(1.5초) 뒤 이어받는다 — 대기실 소식과 방장 스냅샷(room.js `onHeard`) 모두 살아 있는 소식으로 센다. 대기실 소식의 방장 차례 `ep` 가 작은 소식은 버린다. 30초마다 돌려 바꾸는 방식은 쓰지 않는다 — 바꿀 때마다 모두가 잠깐 끊긴다. 관리 화면(`?admin`)의 "방장 부여"도 같은 `handoff` 를 쓴다.
 - **방장 전용**: 시작 · 난이도 · 라운드 · 일시정지(결전 중에도) · 속도. 손님 화면에서는 버튼이 비활성.

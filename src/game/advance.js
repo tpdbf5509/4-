@@ -247,7 +247,7 @@ export function advUse(E, g, h) {
     if (boost) E.say(g, map, h.x, h.y - 120, "투지 폭발", "#ffb4a0");
   } else if (c.id === "knight") {
     a.gT = A.dur; a.gN = A.max; a.gGap = 0; a.gCap = { raw: 0, adv: 1 };
-    E.fx(g, map, { kind: "sk_adv_guard", x: h.x, y: h.y - 34, r: 70, t: 0.7, life: 0.7, snd: "bless" });
+    E.fx(g, map, { kind: "sk_adv_guard", x: h.x + (h.dir || 1) * 24, y: h.y - 30, r: 70, t: 0.7, life: 0.7, snd: "bless" });   // 몸 앞쪽
     if (!E.pvpMap(map) && !E.fieldPvp(h)) {       // 파티 보호 — 결투 · 사냥터 PvP 에서는 본인만
       g.heroes.forEach((o) => {
         if (!o || o === h || !h.pty || o.pty !== h.pty || o.map !== map || o.down > 0 || E.dist(h.x, h.y, o.x, o.y) > A.party.r) return;
@@ -259,7 +259,8 @@ export function advUse(E, g, h) {
   } else if (c.id === "marksman") {
     const [ax, ay] = E.aim(g, h, A.len);
     const [x1, y1] = E.end(h, ax, ay, A.len);
-    E.fx(g, map, { kind: "sk_adv_snipe", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1, y1: y1 - 34, aim: A.aim, t: A.aim + 0.35, life: A.aim + 0.35, snd: "shot" });
+    const [sx, sy] = E.end(h, ax, ay, MUZZLE.bow);   // 활 앞에서 나간다(몸 한가운데가 아니라)
+    E.fx(g, map, { kind: "sk_adv_snipe", x: sx, y: sy - MUZZLE.y, x0: sx, y0: sy - MUZZLE.y, x1, y1: y1 - MUZZLE.y, aim: A.aim, t: A.aim + 0.35, life: A.aim + 0.35, snd: "shot" });
     E.later(g, A.aim, () => {
       if (h.map !== map || h.down > 0) return;
       withCap(h, cast, () => E.line(g, h, ax, ay, A.len, A.width).forEach((o) => {
@@ -275,8 +276,9 @@ export function advUse(E, g, h) {
       const list = E.arc(g, h, ax, ay, A.range, 0.9);
       const o = list.sort((p, q) => E.dist(h.x, h.y, p.x, p.y) - E.dist(h.x, h.y, q.x, q.y))[0];
       const [tx, ty] = o ? [o.x, o.y] : E.end(h, ax, ay, A.range);
-      const side = i % 2 ? 1 : -1;
-      E.fx(g, map, { kind: "sk_adv_shot", x: h.x, y: h.y - 34, x0: h.x + side * 8, y0: h.y - 36 + side * 3, x1: tx, y1: ty - 30, side, t: A.fly + 0.12, life: A.fly + 0.12, snd: i % 2 ? undefined : "shot" });
+      const side = i % 2 ? 1 : -1;                  // 두 자루가 번갈아 — 총구 높이를 조금씩 달리한다
+      const [mx, my] = E.end(h, ax, ay, MUZZLE.gun);
+      E.fx(g, map, { kind: "sk_adv_shot", x: mx, y: my - MUZZLE.y, x0: mx, y0: my - MUZZLE.y + side * 3, x1: tx, y1: ty - 30, side, t: A.fly + 0.12, life: A.fly + 0.12, snd: i % 2 ? undefined : "shot" });
       h.swing = 0.12;
       if (!o) return;
       E.later(g, A.fly, () => {
@@ -321,6 +323,8 @@ export function advUse(E, g, h) {
   E.fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: A.name, color: "#ffd873", t: 0.8, life: 0.8, who: h.pi });
   return true;
 }
+// 쏘는 자리 — 발밑에서 겨눈 쪽으로 이만큼 앞 · 이만큼 위(손 높이). 몸 한가운데서 나가면 캐릭터를 뚫고 나가 보였다
+const MUZZLE = { bow: 18, gun: 22, y: 30 };
 const SPIRIT_HOVER = { x: 44, y: 66 };            // 정령이 떠 있는 자리 — 주인 뒤쪽 위
 const newSpirit = (h, life, trial) => ({ t: life, trial: trial ? 1 : 0, x: h.x - (h.dir || 1) * SPIRIT_HOVER.x, y: h.y - SPIRIT_HOVER.y,
   cd: 0.5, cap: { raw: 0, adv: 1 }, lk: "", lt: -9 });

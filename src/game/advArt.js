@@ -78,9 +78,11 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
     ctx.translate(f.x, f.y); ctx.scale(1, SQ());
     if (!cell(ctx, "fx", FX.shock, 0, 0, s, s)) { ctx.strokeStyle = "#ffb0a0"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, s / 2, 0, TAU); ctx.stroke(); }
   } else if (k === "guard") {                      // 철벽 방어 — 앞에 금빛 방패 문양이 솟는다
-    const s = (f.small ? 46 : 96) * (0.6 + 0.4 * Math.min(1, p * 5));
-    ctx.globalAlpha = fade(p, 0.45);
-    if (!cell(ctx, "fx", FX.shield, f.x, f.y - p * 10, s, s)) glow(ctx, f.x, f.y, s / 2, "#ffe08a", 0.6);
+    // 몸 앞쪽(f.x 는 이미 앞)에 솟았다 가라앉는다 — 캐릭터를 통째로 덮지 않게 작게 · 옅게
+    const s = (f.small ? 34 : 58) * (0.6 + 0.4 * Math.min(1, p * 5));
+    ctx.globalCompositeOperation = "source-over";   // 더하기 합성은 흰 덩어리가 되어 몸을 가렸다
+    ctx.globalAlpha = fade(p, 0.4) * 0.85;
+    if (!cell(ctx, "fx", FX.shield, f.x, f.y - p * 8, s, s)) glow(ctx, f.x, f.y, s / 2, "#ffe08a", 0.6);
   } else if (k === "hex") {                        // 막아 낸 반격 — 육각 충격파
     const s = f.r * 2 * (0.4 + 0.8 * p);
     ctx.globalAlpha = fade(p, 0.25);
@@ -110,7 +112,7 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
     const x = f.x0 + (f.x1 - f.x0) * fly, y = f.y0 + (f.y1 - f.y0) * fly;
     if (p < 0.45) {
       ctx.save(); ctx.globalAlpha = 1 - p / 0.45;
-      ctx.translate(f.x0 + Math.cos(ang) * 16, f.y0 + Math.sin(ang) * 16); ctx.rotate(ang);
+      ctx.translate(f.x0 + Math.cos(ang) * 4, f.y0 + Math.sin(ang) * 4); ctx.rotate(ang);   // x0 이 이미 총구 자리
       if (!cell(ctx, "fx", FX.muzzle, 6, 0, 46, 46)) glow(ctx, 0, 0, 12, "#ffb45a", 0.9);
       ctx.restore();
     }
@@ -126,13 +128,13 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
     ctx.save(); ctx.translate(cx, cy); ctx.rotate(p * 14); ctx.fillRect(-2.5, -1.2, 5, 2.4); ctx.restore();
   } else if (k === "circle") {                     // 마력 폭발 예고 — 원소 빛 마법진
     const c = tintCell(FX.circle, elemCol(f.elem), 0.75), s = f.r * 2 * (0.7 + 0.3 * Math.min(1, p * 3));
-    ctx.globalAlpha = Math.min(1, p * 4) * fade(p, 0.8);
+    ctx.globalAlpha = Math.min(1, p * 4) * fade(p, 0.8) * 0.6;   // 판정 넓이 그대로라 크다 — 몹 · 캐릭터가 비쳐 보이게 옅게
     ctx.translate(f.x, f.y); ctx.scale(1, SQ()); ctx.rotate(time * 0.8);
     if (c) ctx.drawImage(c, -s / 2, -s / 2, s, s);
     else { ctx.strokeStyle = elemCol(f.elem); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, s / 2, 0, TAU); ctx.stroke(); }
   } else if (k === "burst") {                      // 마력 폭발 — 가운데서 터져 원형 충격파가 퍼진다
-    const col = elemCol(f.elem), c = tintCell(FX.burst, col, 0.55), s = f.r * 2.1 * (0.45 + 0.75 * p);
-    ctx.globalAlpha = fade(p, 0.35);
+    const col = elemCol(f.elem), c = tintCell(FX.burst, col, 0.7), s = f.r * 1.5 * (0.45 + 0.65 * p);   // 판정 반지름 안에서 터진다
+    ctx.globalAlpha = fade(p, 0.3) * 0.75;
     if (c) ctx.drawImage(c, f.x - s / 2, f.y - s / 2, s, s);
     else glow(ctx, f.x, f.y, s / 2, col, 0.8);
     ctx.globalAlpha = fade(p, 0.2) * 0.8;
@@ -170,10 +172,9 @@ export function drawAdvHero(ctx, h, time) {
   if (!a || h.down > 0) return;
   ctx.save();
   if (a.gT > 0) {                                  // 철벽 방어 — 앞에 금빛 방패가 떠 있다
-    ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.45 + 0.15 * Math.sin(time * 5);
-    const x = h.x + (h.dir || 1) * 20, y = h.y - 36;
-    if (!cell(ctx, "fx", FX.shield, x, y, 46, 46)) glow(ctx, x, y, 22, "#ffe08a", 0.5);
+    ctx.globalAlpha = 0.45 + 0.1 * Math.sin(time * 5);   // 얼굴 · 몸을 가리지 않게 옅게 · 작게, 바라보는 쪽 앞에
+    const x = h.x + (h.dir || 1) * 24, y = h.y - 30;
+    if (!cell(ctx, "fx", FX.shield, x, y, 32, 32)) glow(ctx, x, y, 16, "#ffe08a", 0.5);
     ctx.globalAlpha = 0.35;
     ctx.strokeStyle = "#ffd873"; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.ellipse(h.x, h.y, 30, 30 * SQ(), 0, 0, TAU); ctx.stroke();
@@ -198,7 +199,7 @@ export function drawAdvHero(ctx, h, time) {
 }
 function drawSpirit(ctx, h, sp, time) {
   const i = Math.max(0, ELEMS.findIndex((e) => e.id === h.elem));
-  const bob = Math.sin(time * 3 + h.pi) * 4, s = 38;
+  const bob = Math.sin(time * 3 + h.pi) * 4, s = 44;
   const fadeOut = sp.trial ? 0.7 : Math.min(1, sp.t / 1.2);   // 시험 정령은 반쯤 비친다 · 사라질 때 흐려진다
   ctx.globalAlpha = 0.3 * fadeOut;
   ctx.fillStyle = "rgba(20,14,10,0.6)";
@@ -221,9 +222,11 @@ export function drawAdvHeldItem(ctx, held, ww, top, K, back) {
       ctx.restore();
     };
     const dirX = held.left ? -1 : 1;
+    // 손이 바라보는 쪽 반대편(뒤쪽 손)이면 총이 몸통을 가로지른다 — 그때는 두 자루 모두 몸 뒤에 그려 총구만 앞으로 나오게 한다
+    const trailing = (hx - ww / K / 2) * dirX < 0;
     // 쌍권총 — 둘째 자루는 같은 손 쪽 조금 뒤 · 위에(몸 뒤에 그린다). 먼 손으로 옮기면 몸을 가로질러 긴 총처럼 보였다
-    if (back) pistol(x - dirX * 5, y - 5, dirX, 1, 22);
-    else pistol(x, y, dirX, 0, 24);
+    if (back) pistol(x - dirX * 5, y - 5, dirX, 1, 20);
+    if (back === trailing) pistol(x, y, dirX, 0, 21);
   } else if (held.adv === "grim" && !back) {
     ctx.save(); ctx.translate(x, y - 4); ctx.rotate(held.left ? 0.25 : -0.25);
     if (!cell(ctx, "items", ADV_ART.ITEM.book, 0, 0, 22, 22)) { ctx.fillStyle = "#2f4f8f"; ctx.fillRect(-7, -9, 14, 18); }

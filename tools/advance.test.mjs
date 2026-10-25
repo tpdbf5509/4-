@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgPromote, rpgSkill, rpgUseSkill, rpgDuel, heroRecord, MAPS, DUEL } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
-import { ADV, ADV_BY_ID, ADV_CLASSES } from '../src/game/advData.js';
+import { ADV, ADV_BY_ID, ADV_CLASSES, trialText } from '../src/game/advData.js';
 
 // 1차 전직 — 시험 · 확정 · 저장 · 액티브 6 · 패시브 6 · PvP 한도 · 스냅샷 · 방장 승계. 실행: node --test tools/advance.test.mjs
 const JOB = { gladiator: 'warrior', knight: 'warrior', marksman: 'archer', gunner: 'archer', archmage: 'mage', summoner: 'mage' };
@@ -37,6 +37,9 @@ function advanced(cid, elem = 'flame', extra = {}) {
   return { g, h };
 }
 
+const Q = (c, n, m) => ({ c, n, v: ADV.trialVer, ...(m ? { m } : {}) });
+function withRandom(v, fn) { const r = Math.random; Math.random = () => v; try { return fn(); } finally { Math.random = r; } }
+
 test('200레벨 미만은 전직 시험을 받을 수 없고 200레벨부터 교관 곁에서 받는다', () => {
   const g = world([{ job: 'warrior', lv: 199 }, { job: 'warrior', lv: 200 }]);
   const [a, b] = g.heroes;
@@ -51,36 +54,100 @@ test('200레벨 미만은 전직 시험을 받을 수 없고 200레벨부터 교
   send(g, 1, 'adv', { op: 'start', c: 'marksman' });   // 다른 직업 전직은 못 받는다
   assert.equal(b.advQ, null);
   send(g, 1, 'adv', { op: 'start', c: 'knight' });
-  assert.deepEqual(b.advQ, { c: 'knight', n: 0 });
+  assert.deepEqual(b.advQ, Q('knight', 0));
 });
 
-test('시험 진행은 저장 기록에 남고 다시 들어오면 이어진다 · 시험 전에는 확정할 수 없다', () => {
-  const g = world([{ job: 'archer', advQ: { c: 'gunner', n: 12 } }]);
+test('시험 진행은 저장 기록에 남고 다시 들어오면 이어진다 · 옛 판 진행은 처음부터 · 시험 전에는 확정할 수 없다', () => {
+  const m = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0];
+  const g = world([{ job: 'archer', advQ: Q('gunner', 0, m) }]);
   const h = g.heroes[0];
-  assert.deepEqual(h.advQ, { c: 'gunner', n: 12 });
+  assert.deepEqual(h.advQ, Q('gunner', 3, m));
   at(h, ADV.npc.x, ADV.npc.y + 40);
   send(g, 0, 'adv', { op: 'confirm', c: 'gunner' });
   assert.equal(h.advClass, '');
   const rec = heroRecord(h, { name: '시험0', lv: 250 });
-  assert.deepEqual(rec.advQ, { c: 'gunner', n: 12 });
+  assert.deepEqual(rec.advQ, Q('gunner', 3, m));
   const g2 = world([{ job: 'archer', advQ: rec.advQ }]);
-  assert.deepEqual(g2.heroes[0].advQ, { c: 'gunner', n: 12 });
+  assert.deepEqual(g2.heroes[0].advQ, Q('gunner', 3, m));
+  const g3 = world([{ job: 'warrior', advQ: { c: 'knight', n: 30 } }]);   // 판 표시가 없는 예전 시험
+  assert.deepEqual(g3.heroes[0].advQ, Q('knight', 0));
+  // 손님 화면 — 스냅샷으로 목록 진행이 간다
+  const q = makeWorld(); q.mySeat = 0;
+  rpgApply(q, rpgPack(g));
+  assert.deepEqual(q.heroes[0].advQ, Q('gunner', 3, m));
 });
 
-test('총사 시험 — 걸으며 평타로 160레벨 이상 몹을 맞히면 오르고 다 채우면 확정 · 무기를 받고 되돌릴 수 없다', () => {
+test('검투사 시험 — 결투에서 이기면 80% 확률로 시험 레벨이 오르고 15레벨에서 끝난다', () => {
+  const g = world([{ job: 'warrior', advQ: Q('gladiator', 0) }, { job: 'warrior' }]);
+  const [h] = g.heroes;
+  const duel = (r) => withRandom(r, () => {
+    g.heroes.filter(Boolean).forEach((q) => at(q, 900, 820, 'plaza'));
+    rpgDuel(g, 0, { op: 'ask', to: 1 }); rpgDuel(g, 1, { op: 'accept' });
+    rpgDuel(g, 1, { op: 'giveup' });
+    run(g, DUEL.end + 1.5);
+  });
+  duel(0.9);                                         // 80% 를 넘으면 오르지 않는다
+  assert.equal(h.advQ.n, 0);
+  assert(sysOf(g, 0).some((t) => /승급 실패/.test(t)));
+  for (let i = 0; i < 20 && h.advQ.n < 14; i++) duel(0.1);
+  assert.equal(h.advQ.n, 14);
+  assert.equal(trialText(ADV_BY_ID.gladiator, h.advQ), '시험 레벨 15/15');
+  duel(0.1);
+  assert.equal(h.advQ.n, 14, '다 채운 뒤에는 더 오르지 않는다');
+});
+
+test('기사 시험 — 사람 · 몬스터에게 맞은 수를 0.25초에 한 대씩 세고 쓰러져도 처음으로 돌아가지 않는다', () => {
+  const g = world([{ job: 'warrior', advQ: Q('knight', 5) }]);
+  const h = g.heroes[0];
+  at(h, 1000, 900, 'skeletal');
+  g.mobs = [];
+  const m = dummyMob(g, 'skeletal', 1030, 900, 220, 5);
+  m.tgt = 0; m.state = 'chase';
+  h.auto = 0;
+  run(g, 3);
+  assert(h.advQ.n > 5, `진행 ${h.advQ.n}`);
+  const n = h.advQ.n;
+  h.hp = 1;
+  for (let i = 0; i < 500 && h.down <= 0; i++) rpgStep(g, 0.02);
+  assert(h.down > 0);
+  assert(h.advQ.n >= n, '쓰러져도 남는다');
+});
+
+test('명사수 시험 — 관통 화살이 160레벨 이상 몹을 맞히면 연속 +1, 빗나가면 0', () => {
+  const g = world([{ job: 'archer', advQ: Q('marksman', 0), bag: { s: { j_pierce: 5 }, ks: { job: 'j_pierce', g: ['', ''] } } }]);
+  const h = g.heroes[0];
+  g.mobs = [];
+  at(h, 1000, 900, 'skeletal'); h.auto = 0; h.dir = 1;
+  const m = dummyMob(g, 'skeletal', 1200, 900);
+  const calm = () => { h.hp = h.max; h.inv = 99; [m.x, m.y] = [1200, 900]; };   // 몹에게 맞아 쓰러지지 않게(대쉬 무적)
+  for (let k = 0; k < 3; k++) { calm(); rpgUseSkill(g, 0, 'j_pierce'); run(g, 8); }
+  assert.equal(h.advQ.n, 3);
+  g.mobs = [];
+  rpgUseSkill(g, 0, 'j_pierce');                     // 아무도 없다 — 빗나감
+  assert.equal(h.advQ.n, 0);
+  const dummy = dummyMob(g, 'skeletal', 1200, 900); dummy.type = 'dummy';   // 허수아비는 명중으로 세지 않는다
+  calm(); run(g, 8);
+  g.mobs = [dummy];                                  // 그사이 다시 나온 사냥터 몹은 치운다
+  rpgUseSkill(g, 0, 'j_pierce');
+  assert.equal(h.advQ.n, 0);
+  assert(dummy.hp < dummy.max, '피해는 준다');
+});
+
+test('총사 시험 — 300레벨까지의 몬스터를 종류마다 한 번 잡으면 끝나고 확정 · 무기를 받고 되돌릴 수 없다', () => {
   fixedRandom(() => {
-    const g = world([{ job: 'archer', advQ: { c: 'gunner', n: ADV_BY_ID.gunner.trial.n - 2 } }]);
+    const T = ADV_BY_ID.gunner.trial;
+    const g = world([{ job: 'archer', advQ: Q('gunner', 0, T.list.map((id) => (id === 'zombie' || id === 'necro' ? 0 : 1))) }]);
     g.mobs = [];
     const h = g.heroes[0];
-    at(h, 1000, 900, 'skeletal');
-    const m = dummyMob(g, 'skeletal', 1100, 900);
-    const low = dummyMob(g, 'skeletal', 1100, 905, 50);   // 낮은 레벨 몹은 세지 않는다
-    low.hp = low.max = 1;
-    g.mobs = g.mobs.filter((q) => q !== low);
-    h.auto = 1; h.hold = ['up']; m.pin = 1;
-    for (let i = 0; i < 200 && h.advQ.n < ADV_BY_ID.gunner.trial.n; i++) { rpgStep(g, 0.02); [m.x, m.y] = [h.x + 100, h.y]; h.y = Math.max(h.y, 600); }
-    assert.equal(h.advQ.n, ADV_BY_ID.gunner.trial.n);
-    h.hold = [];
+    at(h, 1000, 900, 'skeletal'); h.auto = 1;
+    for (const type of ['zombie', 'zombie', 'golem', 'necro']) {
+      const m = dummyMob(g, 'skeletal', 1080, 900); m.type = type; m.hp = m.max = 1;
+      for (let i = 0; i < 200 && !m.dead; i++) rpgStep(g, 0.02);
+      assert(m.dead, type);
+      if (type === 'golem') assert.equal(h.advQ.n, T.n - 1, '300레벨 넘는 몹 · 이미 잡은 종류는 세지 않는다');
+    }
+    assert.equal(h.advQ.n, T.n);
+    h.auto = 0;
     at(h, ADV.npc.x, ADV.npc.y + 40);
     send(g, 0, 'adv', { op: 'confirm', c: 'gunner' });
     assert.equal(h.advClass, 'gunner', sysOf(g, 0).join(' / '));
@@ -97,49 +164,37 @@ test('총사 시험 — 걸으며 평타로 160레벨 이상 몹을 맞히면 �
   });
 });
 
-test('기사 시험 — 큰 사냥터에서 맞으면 오르고 쓰러지면 처음부터', () => {
-  const g = world([{ job: 'warrior', advQ: { c: 'knight', n: 5 } }]);
-  const h = g.heroes[0];
-  at(h, 1000, 900, 'skeletal');
-  g.mobs = [];
-  const m = dummyMob(g, 'skeletal', 1030, 900, 220, 5);
-  m.tgt = 0; m.state = 'chase';
-  h.auto = 0;
-  run(g, 3);
-  assert(h.advQ.n > 5, `진행 ${h.advQ.n}`);
-  h.hp = 1;
-  for (let i = 0; i < 500 && h.down <= 0; i++) rpgStep(g, 0.02);
-  assert(h.down > 0);
-  assert.equal(h.advQ.n, 0);
-});
-
-test('소환술사 시험 — 큰 사냥터에서 임시 정령이 따라오고 정령이 친 몹을 잡으면 오른다', () => {
-  const g = world([{ job: 'mage', advQ: { c: 'summoner', n: 0 } }]);
-  const h = g.heroes[0];
-  g.mobs = [];
-  at(h, 1000, 900, 'skeletal'); h.auto = 1;
-  const m = dummyMob(g, 'skeletal', 1080, 900); m.hp = m.max = 1;
-  rpgStep(g, 0.02);
-  assert(h.as && h.as.sp && h.as.sp.trial, '임시 정령');
-  for (let i = 0; i < 300 && !m.dead; i++) { rpgStep(g, 0.02); if (m.hp <= 0) break; m.hp = Math.max(m.hp, 0.5); }
-  const m2 = dummyMob(g, 'skeletal', 1080, 900); m2.hp = m2.max = 1e9;
-  h.auto = 0;
-  run(g, 1.5);                                       // 정령만 친다
-  m2.hp = 1; h.auto = 1;
-  run(g, 2);
-  assert(h.advQ.n >= 1, `진행 ${h.advQ.n}`);
-  at(h, 900, 820, 'plaza'); run(g, 0.1);
-  assert.equal(h.as.sp, null, '광장에서는 임시 정령이 돌아간다');
-});
-
-test('마도사 시험 — 스킬 한 번으로 셋 이상을 맞히면 한 번 오른다', () => {
-  const g = world([{ job: 'mage', advQ: { c: 'archmage', n: 0 } }]);
+test('마도사 시험 — 시험 동안 마력 폭발을 쓸 수 있고 그것으로 잡은 몹만 센다 · 5마리마다 시험 레벨', () => {
+  const g = world([{ job: 'mage', advQ: Q('archmage', 4) }]);
   const h = g.heroes[0];
   g.mobs = [];
   at(h, 1000, 900, 'skeletal'); h.auto = 0;
-  [0, 1, 2].forEach((k) => dummyMob(g, 'skeletal', 1150 + k * 20, 900));
-  rpgSkill(g, 0);
-  assert.equal(h.advQ.n, 1);
+  const m = dummyMob(g, 'skeletal', 1100, 900); m.hp = m.max = 1;
+  send(g, 0, 'adv', { op: 'use' });
+  run(g, 1);
+  assert(m.dead, '마력 폭발이 나간다');
+  assert.equal(h.advQ.n, 5);
+  assert.equal(trialText(ADV_BY_ID.archmage, h.advQ), '시험 레벨 2/10 · 다음까지 5마리');
+  assert(h.as.cd > 0, '대기 시간');
+  const m2 = dummyMob(g, 'skeletal', 1100, 900); m2.hp = m2.max = 1;
+  h.auto = 1; run(g, 2);                             // 평타로 잡은 몹은 세지 않는다
+  assert(m2.dead);
+  assert.equal(h.advQ.n, 5);
+});
+
+test('소환술사 시험 — 시험을 받은 뒤 보스에게서 얻은 재료를 종류마다 5개까지 센다', () => {
+  const g = world([{ job: 'mage', advQ: Q('summoner', 0) }]);
+  const h = g.heroes[0];
+  g.mobs = [];
+  at(h, 1000, 900, 'skeletal'); h.auto = 1;
+  const i = ADV_BY_ID.summoner.trial.list.indexOf('bone');
+  for (let k = 0; k < 3; k++) {
+    const m = dummyMob(g, 'skeletal', 1080, 900); m.boss = 1; m.hp = m.max = 1;
+    for (let s = 0; s < 200 && !m.dead; s++) rpgStep(g, 0.02);
+    assert(m.dead);
+  }
+  assert(h.advQ.m[i] >= 3 && h.advQ.m[i] <= 5, `뼛조각 ${h.advQ.m[i]}`);
+  assert.equal(h.advQ.n, h.advQ.m[i], '다른 재료는 그대로');
 });
 
 test('전직 액티브 6개 — 모두 몹에게 피해를 주고 대기 시간 동안 다시 나가지 않는다', () => {

@@ -2,7 +2,7 @@
    수치는 advData.js. E 는 rpg.js 의 대상 고르기 · 피해 · 연출 함수(advEngine) — 피해 · 결투 한도 · 원소는 기존 판정을 그대로 거친다.
    영구 기록: h.advClass(전직 id) · h.advQ({ c, n } 시험). 싸우는 동안만: h.as(쿨타임 · 중첩 · 철벽 · 정령) — 스냅샷 줄 53 으로 손님에게 간다.
    클라이언트 예측은 쓰지 않는다 — 손님 화면은 방장이 보낸 연출과 상태만 그린다 */
-import { ADV, ADV_BY_ID, ADV_IDS } from "./advData.js";
+import { ADV, ADV_BY_ID, ADV_IDS, cleanAdvQ, trialText } from "./advData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const keyOf = (o) => (o.type !== undefined ? `m${o.id}` : `h${o.pi}`);
@@ -49,15 +49,14 @@ export function advInput(E, g, pi, req) {
   if (req.op === "start") {
     const why = whyAdvStart(h, req.c, E.dist);
     if (why.length) return void E.sys(g, pi, why[0]);
-    h.advQ = { c: req.c, n: 0 };
-    asOf(h).sp = null;                              // 다른 시험의 임시 정령은 돌려보낸다
+    h.advQ = cleanAdvQ({ c: req.c, n: 0, v: ADV.trialVer });
     E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "전직 시험 시작", color: "#ffe08a", t: 1, life: 1, snd: "build", who: pi });
     E.sys(g, pi, `${ADV_BY_ID[req.c].trial.name}을 시작했습니다. ${ADV_BY_ID[req.c].trial.note}.`);
     return true;
   }
   if (req.op === "drop") {
     if (!h.advQ) return false;
-    h.advQ = null; asOf(h).sp = null;
+    h.advQ = null;
     E.sys(g, pi, "전직 시험을 그만두었습니다. 진행은 처음으로 돌아갑니다.");
     return true;
   }
@@ -66,7 +65,7 @@ export function advInput(E, g, pi, req) {
     const why = whyAdvConfirm(h, req.c, E.dist, E.bagRoom(h));
     if (why.length) return void E.sys(g, pi, why[0]);
     h.advClass = req.c; h.advQ = null;
-    h.as = null;                                    // 시험 정령 · 중첩을 비운다
+    h.as = null;                                    // 중첩 · 쿨타임을 비운다
     if (c.gear) E.gear(h, c.gear);
     E.fx(g, h.map, { kind: "lvup", x: h.x, y: h.y, text: `전직 — ${c.name}`, t: 2, life: 2, snd: "lvup", who: pi });
     E.sys(g, pi, `${c.name}(으)로 전직했습니다. 전직 스킬 「${c.active.name}」은 전직 스킬 키(기본 Z)로 씁니다.${c.gear ? " 전직 무기를 가방에 넣었습니다." : ""}`);
@@ -83,32 +82,61 @@ export function advInput(E, g, pi, req) {
 /* ── 시험 진행 ─────────────────────────────────────────── */
 // 시험에 세는 몹 — 허수아비는 빼고 160레벨 이상 · 던전 · 월드보스
 const trialMob = (E, o) => !!o && !isHero(o) && o.type !== "dummy" && (o.lv >= ADV.trialLv || E.bigMap(o.map));
-function trialAdd(E, g, h, cid) {
-  const c = trialOf(h);
-  if (!c || c.id !== cid || h.advQ.n >= c.trial.n) return;
-  h.advQ.n += 1;
-  if (h.advQ.n >= c.trial.n) {
-    E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "전직 시험 완료!", color: "#ffd873", t: 1.6, life: 1.6, snd: "clear", who: h.pi });
-    E.sys(g, h.pi, `${c.trial.name}을 마쳤습니다. 광장의 전직 교관에게서 「${c.name}」 전직을 확정하세요.`);
+// 한 칸 나아간다 — 목록 시험(list)은 i 번째 종류를 하나. 다 채우면 알린다
+function trialAdd(E, g, h, cid, i = -1) {
+  const c = trialOf(h), T = c && c.trial, q = h.advQ;
+  if (!c || c.id !== cid || q.n >= T.n) return false;
+  if (T.list) {
+    if (!q.m) q.m = T.list.map(() => 0);
+    if (i < 0 || q.m[i] >= T.each) return false;
+    q.m[i] += 1;
   }
+  q.n += 1;
+  if (q.n >= T.n) {
+    E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "전직 시험 완료!", color: "#ffd873", t: 1.6, life: 1.6, snd: "clear", who: h.pi });
+    E.sys(g, h.pi, `${T.name}을 마쳤습니다. 광장의 전직 교관에게서 「${c.name}」 전직을 확정하세요.`);
+  }
+  return true;
+}
+// 시험 레벨이 오르면 머리 위에 알린다(검투사 · 마도사)
+function trialLevelUp(E, g, h, c) {
+  E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 120, text: trialText(c, h.advQ), color: "#ffe08a", t: 1.2, life: 1.2, snd: "lvup", who: h.pi });
+}
+// 결투에서 이겼다 — 검투사 시험. 이길 때마다 up 확률로 시험 레벨 +1
+export function advDuelWin(E, g, h) {
+  const T = trialOf(h);
+  if (!T || T.id !== "gladiator" || h.advQ.n >= T.trial.n) return;
+  if (Math.random() >= T.trial.up) return void E.sys(g, h.pi, `결투장 승급 실패 — ${trialText(T, h.advQ)}. 다음 승리를 노리세요.`);
+  trialAdd(E, g, h, "gladiator");
+  trialLevelUp(E, g, h, T);
+}
+/* 비타겟팅 스킬을 한 번 썼다 — hits 는 맞은 대상 목록(빗나가면 빈 목록). 명사수 시험: 160레벨 이상 몹을 맞히면 연속 +1, 못 맞히면 0 */
+export function advAimShot(E, g, h, hits) {
+  const T = trialOf(h);
+  if (!T || T.id !== "marksman" || h.advQ.n >= T.trial.n) return;
+  if ((hits || []).some((o) => trialMob(E, o))) {
+    trialAdd(E, g, h, "marksman");
+    if (h.advQ.n < T.trial.n) E.say(g, h.map, h.x, h.y - 120, `연속 명중 ${h.advQ.n}`, "#9ff0e6");
+  } else if (h.advQ.n > 0) {
+    h.advQ.n = 0;
+    E.say(g, h.map, h.x, h.y - 120, "빗나감 — 연속 0", "#e9b0a0");
+  }
+}
+// 보스 재료를 받았다 — 소환술사 시험(종류마다 each 개까지)
+export function advLoot(E, g, h, mat, n) {
+  const T = trialOf(h);
+  if (!T || T.id !== "summoner") return;
+  const i = T.trial.list.indexOf(mat);
+  if (i < 0) return;
+  let got = 0;
+  for (let k = 0; k < n; k++) if (trialAdd(E, g, h, "summoner", i)) got += 1;
+  if (got && h.advQ.n < T.trial.n) E.sys(g, h.pi, `수집 시험 — ${trialText(T, h.advQ)}`);
 }
 
 /* ── 맞혔을 때 (rpg.js hitMob · hitFoe 가 부른다 — 패시브가 낳은 피해(procOff)는 부르지 않는다) ── */
 export function advOnHit(E, g, h, o, basic, side) {
   if (!h || !o) return;
-  const a = asOf(h), k = keyOf(o), cast = h.cast, T = trialOf(h);
-  // 시험
-  if (T && trialMob(E, o)) {
-    if (T.id === "gladiator") {
-      if (basic) a.lb = g.t;
-      else if (cast && cast.job && !cast.tq && g.t - a.lb <= T.trial.win) { cast.tq = 1; trialAdd(E, g, h, "gladiator"); }
-    } else if (T.id === "marksman" && basic && !side && o.moving && E.dist(h.x, h.y, o.x, o.y) >= T.trial.far) trialAdd(E, g, h, "marksman");
-    else if (T.id === "gunner" && basic && !side && h.hold && h.hold.length) trialAdd(E, g, h, "gunner");
-    else if (T.id === "archmage" && !basic && cast && !cast.tq) {
-      (cast.tset || (cast.tset = new Set())).add(k);
-      if (cast.tset.size >= T.trial.many) { cast.tq = 1; trialAdd(E, g, h, "archmage"); }
-    }
-  }
+  const a = asOf(h), k = keyOf(o), cast = h.cast;
   const c = advOf(h);
   if (!c) return;
   const P = c.passive;
@@ -133,7 +161,7 @@ export function advOnHit(E, g, h, o, basic, side) {
   } else if (c.id === "summoner") {               // 영혼 연결 — 정령이 2초 안에 친 적을 내가 치면
     a.lk = k; a.lt = g.t;
     const sp = a.sp;
-    if (sp && sp.t > 0 && !sp.trial && sp.lk === k && g.t - sp.lt <= P.win) soulLink(E, g, h, o);
+    if (sp && sp.t > 0 && sp.lk === k && g.t - sp.lt <= P.win) soulLink(E, g, h, o);
   }
 }
 function soulLink(E, g, h, o) {
@@ -192,25 +220,41 @@ export function advHurt(E, g, h) {
     E.fx(g, h.map, { kind: "sk_adv_hex", x: h.x, y: h.y - 30, r: A.r, t: 0.45, life: 0.45, snd: "boom" });
   }
   const T = trialOf(h);
-  if (T && T.id === "knight" && E.bigMap(h.map) && !E.pvpMap(h.map)) trialAdd(E, g, h, "knight");
+  if (T && T.id === "knight" && g.t - (asOf(h).kq ?? -9) >= T.trial.gap) {   // 맷집 시험 — 사람 · 몬스터에게 맞은 수
+    asOf(h).kq = g.t;
+    trialAdd(E, g, h, "knight");
+    if (h.advQ.n < T.trial.n && h.advQ.n % 10 === 0) E.say(g, h.map, h.x, h.y - 120, `맷집 ${h.advQ.n}/${T.trial.n}`, "#cfe0f2");
+  }
 }
-// 쓰러졌다 — 기사 시험은 처음부터 · 정령은 돌아간다
+// 쓰러졌다 — 정령은 돌아간다
 export function advDown(E, g, h) {
-  const T = trialOf(h);
-  if (T && T.id === "knight" && h.advQ.n > 0 && h.advQ.n < T.trial.n) { h.advQ.n = 0; E.sys(g, h.pi, "쓰러져서 생존 시험이 처음으로 돌아갔습니다."); }
   if (h.as) h.as.sp = null;
 }
-// 몹이 쓰러졌다 — 정령이 친 몹이면 소환술사 시험
-export function advOnKill(E, g, m) {
-  (m.spBy || []).forEach((pi) => {
-    const h = g.heroes[pi];
-    if (h && trialMob(E, m) && h.map === m.map) trialAdd(E, g, h, "summoner");
+/* 몹이 쓰러졌다 — got 은 그 몹을 친 사람 가운데 같은 맵에 있는 사람(보상을 받는 사람).
+   총사 시험: 친 사람 모두 그 종류를 한 번 */
+export function advOnKill(E, g, m, got) {
+  (got || []).forEach((h) => {
+    const T = trialOf(h);
+    if (T && T.id === "gunner") {
+      const i = T.trial.list.indexOf(m.type);
+      if (i >= 0 && trialAdd(E, g, h, "gunner", i) && h.advQ.n < T.trial.n) E.sys(g, h.pi, `사냥 도감 시험 — ${E.mobName(m)} · ${trialText(T, h.advQ)}`);
+    }
   });
+}
+// 마도사 시험 — 마력 폭발이 잡은 몹(advUse 가 폭발로 친 뒤 쓰러졌는지 본다)
+function blastKill(E, g, h, o) {
+  const T = trialOf(h);
+  if (!T || T.id !== "archmage" || isHero(o) || !o.dead || !trialMob(E, o)) return;
+  const lv = Math.floor(h.advQ.n / T.trial.per);
+  if (trialAdd(E, g, h, "archmage") && Math.floor(h.advQ.n / T.trial.per) > lv) trialLevelUp(E, g, h, T);
 }
 
 /* ── 전직 액티브 (키 adv · 기본 Z) ───────────────────────────── */
+// 시험 동안 쓸 수 있는 전직 스킬(마도사 시험의 마력 폭발) — 패시브는 없다
+const trialSkill = (h) => { const T = trialOf(h); return T && T.trial.skill ? T : null; };
+export const advSkillOf = (h) => advOf(h) || trialSkill(h);
 export function advUse(E, g, h) {
-  const c = advOf(h), map = h.map;
+  const c = advSkillOf(h), map = h.map;
   if (h.down > 0 || E.locked(h)) return false;
   if (!c) return void E.say(g, map, h.x, h.y - 90, `${ADV.lv}레벨에 전직하면 쓸 수 있다`, "#d9c9a6");
   if (E.safe(map)) return void E.say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
@@ -288,7 +332,7 @@ export function advUse(E, g, h) {
       });
     });
   } else if (c.id === "archmage") {
-    const P = c.passive, n = a.st;
+    const P = c.passive, n = advOf(h) ? a.st : 0;   // 시험 중에는 마력 순환이 없다
     a.st = 0;
     const [o] = E.near(g, h, h.x, h.y, A.reach, 1);
     const [tx, ty] = o ? [o.x, o.y] : E.aimAt(h, A.aim);
@@ -300,6 +344,7 @@ export function advUse(E, g, h) {
       const X = A.elem[el] || {};
       withCap(h, cast, () => E.near(g, h, tx, ty, r).forEach((q) => {
         E.strike(g, h, q, base * mul);
+        blastKill(E, g, h, q);                      // 마도사 시험 — 이 폭발로 잡았다
         if (isHero(q)) {
           if (X.stun) E.cc(g, h, q, { stun: X.stun * ADV.pvpCc });
           if (X.slow) E.cc(g, h, q, { slow: X.slow * ADV.pvpCc, slowAmt: 0.3 });
@@ -315,7 +360,7 @@ export function advUse(E, g, h) {
     if (n) E.say(g, map, h.x, h.y - 120, `마력 ${n}`, "#d8c8ff");
   } else if (c.id === "summoner") {
     if (a.sp && a.sp.t > 0) E.fx(g, map, { kind: "poof", x: a.sp.x, y: a.sp.y, t: 0.4, life: 0.4, color: "rgba(200,220,255,1)" });   // 있던 정령은 돌려보낸다
-    a.sp = newSpirit(h, A.life, 0);
+    a.sp = newSpirit(h, A.life);
     E.fx(g, map, { kind: "sk_adv_summon", x: h.x, y: h.y, r: 80, elem: E.elem(h), t: 0.9, life: 0.9, snd: "bless" });
   }
   a.cd = A.cd;
@@ -326,18 +371,13 @@ export function advUse(E, g, h) {
 // 쏘는 자리 — 발밑에서 겨눈 쪽으로 이만큼 앞 · 이만큼 위(손 높이). 몸 한가운데서 나가면 캐릭터를 뚫고 나가 보였다
 const MUZZLE = { bow: 18, gun: 22, y: 30 };
 const SPIRIT_HOVER = { x: 44, y: 66 };            // 정령이 떠 있는 자리 — 주인 뒤쪽 위
-const newSpirit = (h, life, trial) => ({ t: life, trial: trial ? 1 : 0, x: h.x - (h.dir || 1) * SPIRIT_HOVER.x, y: h.y - SPIRIT_HOVER.y,
+const newSpirit = (h, life) => ({ t: life, x: h.x - (h.dir || 1) * SPIRIT_HOVER.x, y: h.y - SPIRIT_HOVER.y,
   cd: 0.5, cap: { raw: 0, adv: 1 }, lk: "", lt: -9 });
 export const spiritSpot = (h) => [h.x - (h.dir || 1) * SPIRIT_HOVER.x, h.y - SPIRIT_HOVER.y];
 
 /* ── 시간 (방장 · stepHeroes) ─────────────────────────────── */
 export function tickAdv(E, g, h, dt) {
-  const a = h.as, T = trialOf(h);
-  // 소환술사 시험 — 160레벨 이상 사냥터 · 던전에서는 임시 정령이 따라온다
-  if (T && T.id === "summoner" && h.down <= 0 && E.bigMap(h.map) && h.advQ.n < T.trial.n) {
-    const b = asOf(h);
-    if (!b.sp) b.sp = newSpirit(h, 1e6, 1);
-  } else if (a && a.sp && a.sp.trial) a.sp = null;
+  const a = h.as;
   if (!a) return;
   a.cd = Math.max(0, a.cd - dt);
   a.gT = Math.max(0, a.gT - dt); a.gGap = Math.max(0, a.gGap - dt);
@@ -346,7 +386,7 @@ export function tickAdv(E, g, h, dt) {
   if (a.stT > 0 && (a.stT -= dt) <= 0) { a.stT = 0; if (h.advClass === "gladiator" || h.advClass === "gunner") a.st = 0; }
   const sp = a.sp;
   if (!sp) return;
-  if (h.down > 0 || E.safe(h.map) || (sp.t -= dt) <= 0) { if (!sp.trial || h.down > 0) a.sp = null; return; }
+  if (h.down > 0 || E.safe(h.map) || (sp.t -= dt) <= 0) { a.sp = null; return; }
   const [hx, hy] = spiritSpot(h), k = Math.min(1, dt * 6);
   if (sp.map !== h.map) { sp.x = hx; sp.y = hy; sp.map = h.map; }
   sp.x += (hx - sp.x) * k; sp.y += (hy - sp.y) * k;
@@ -357,35 +397,34 @@ export function tickAdv(E, g, h, dt) {
   sp.cd = A.every;
   const map = h.map, el = E.elem(h);
   E.fx(g, map, { kind: "sk_adv_spshot", x: sp.x, y: sp.y, x0: sp.x, y0: sp.y, x1: o.x, y1: o.y - 28, elem: el, t: A.fly, life: A.fly });
-  const dmg = E.base(h, A.dmg) * A.mul * (sp.trial ? ADV_BY_ID.summoner.trial.trialMul : 1);
+  const dmg = E.base(h, A.dmg) * A.mul;
   E.later(g, A.fly, () => {
     if (a.sp !== sp || !E.alive(g, h, o, map)) return;
-    if (!isHero(o) && !(o.spBy || (o.spBy = [])).includes(h.pi)) o.spBy.push(h.pi);
     E.noProc(() => withCap(h, sp.cap, () => E.strike(g, h, o, dmg)));
     const k2 = keyOf(o);
     sp.lk = k2; sp.lt = g.t;
-    if (!sp.trial && a.lk === k2 && g.t - a.lt <= ADV_BY_ID.summoner.passive.win && advOf(h)) soulLink(E, g, h, o);
+    if (a.lk === k2 && g.t - a.lt <= ADV_BY_ID.summoner.passive.win && advOf(h)) soulLink(E, g, h, o);
   });
 }
 
-/* ── 스냅샷 줄 53 — [전직, 시험 전직, 시험 진행, 쿨타임, 중첩, 철벽 방어 남은 초, 정령 남은 초(시험 정령 -1), 파티 보호 남은 초, 노출 여부] ── */
+/* ── 스냅샷 줄 53 — [전직, 시험 전직, 시험 진행, 쿨타임, 중첩, 철벽 방어 남은 초, 정령 남은 초, 파티 보호 남은 초, 노출 여부, 목록 시험의 종류마다 수(없으면 0)] ── */
 export function packAdv(h) {
   const a = h.as, ci = ADV_IDS.indexOf(h.advClass), qi = h.advQ ? ADV_IDS.indexOf(h.advQ.c) : -1;
   if (ci < 0 && qi < 0 && !a) return 0;
   const sp = a && a.sp;
   return [ci, qi, h.advQ ? h.advQ.n : 0, a ? r1(a.cd) : 0, a ? a.st : 0, a ? r1(a.gT) : 0,
-    sp ? (sp.trial ? -1 : r1(sp.t)) : 0, a ? r1(a.pT) : 0, a && a.ex ? 1 : 0];
+    sp ? r1(sp.t) : 0, a ? r1(a.pT) : 0, a && a.ex ? 1 : 0, h.advQ && h.advQ.m ? h.advQ.m.slice() : 0];
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.as = null; return; }
-  const [ci, qi, qn, cd, st, gT, spT, pT, ex] = v.map((x) => Number(x) || 0);
+  const [ci, qi, qn, cd, st, gT, spT, pT, ex] = v.slice(0, 9).map((x) => Number(x) || 0);
   h.advClass = ADV_IDS[ci] || "";
-  h.advQ = ADV_IDS[qi] ? { c: ADV_IDS[qi], n: qn } : null;
+  h.advQ = ADV_IDS[qi] ? cleanAdvQ({ c: ADV_IDS[qi], n: qn, v: ADV.trialVer, m: v[9] }) : null;   // 방장이 보낸 진행은 지금 판
   const a = asOf(h);
   a.cd = cd; a.st = st; a.gT = gT; a.pT = pT; a.ex = ex ? "on" : "";
-  if (spT) {
+  if (spT > 0) {
     if (!a.sp) { const [x, y] = spiritSpot(h); a.sp = { x, y, cd: 0.5, cap: { raw: 0, adv: 1 }, lk: "", lt: -9 }; }
-    a.sp.t = spT < 0 ? 1e6 : spT; a.sp.trial = spT < 0 ? 1 : 0;
+    a.sp.t = spT;
   } else a.sp = null;
 }
 // 손님 화면 — 정령이 주인을 따라 떠다닌다(그림만. 공격 · 피해는 방장이 보낸 연출)

@@ -10,6 +10,7 @@ export const ADV = {
   npc: { x: 640, y: 360 },       // 광장의 전직 교관 자리 — 무기상점과 명예 순위판 사이 빈 풀밭
   reach: 110,                    // 이만큼 가까우면 교관 창을 연다
   trialLv: 160,                  // 시험에 세는 몹 레벨(오우거 사냥터부터) — 허수아비는 세지 않는다
+  trialVer: 2,                   // 시험 판 — 시험 내용을 바꾸면 올린다. 판이 다른 진행은 처음부터(10월 26일 판 1 → 사용자 요청 시험 판 2)
   pvpBonusMax: 0.15,             // 결투 · 사냥터 PvP 에서 패시브 추가 피해 합계 상한(+15%)
   pvpCc: 0.5,                    // 결투 · 사냥터 PvP 에서 전직 스킬 경직 · 둔화 시간 배율
   pveBonusMax: 0.6,              // 몹에게 주는 패시브 추가 피해 합계 상한(+60%)
@@ -35,7 +36,8 @@ export const ADV_CLASSES = [
       name: "전투 본능", note: "평타 · 직업 스킬을 맞힐 때마다 투지 · 가득(8)이면 다음 삼연참 피해 +40% · 범위 +25% · 4초 동안 못 맞히면 사라진다",
       basic: 1, job: 2, max: 8, fade: 4, mul: 1.4, grow: 1.25,
     },
-    trial: { name: "검술 콤보 시험", note: "평타를 맞힌 뒤 3초 안에 직업 스킬(R)을 맞힌다 · 160레벨 이상 몹", n: 20, win: 3 },
+    // 시험 레벨 lv0 에서 lv0 + n 까지 — 결투장에서 이길 때마다 up 확률로 한 레벨(무승부 · 패배는 그대로)
+    trial: { name: "결투장 승급 시험", note: "결투장 결투에서 이기면 80% 확률로 시험 레벨이 오른다 · 1레벨에서 15레벨까지", n: 14, lv0: 1, up: 0.8 },
   },
   {
     id: "knight", job: "warrior", line: "special", name: "기사", weapon: "검과 방패",
@@ -52,7 +54,8 @@ export const ADV_CLASSES = [
       hp: 0.4, cut: 0.2,
     },
     cap: 0.7,                                       // 철벽(직업) · 철벽 방어 · 불굴 · 파티 보호를 모두 합친 감소 상한 — 무적이 되지 않게
-    trial: { name: "공격 방어와 생존 시험", note: "160레벨 이상 사냥터 · 던전에서 공격을 40번 받아 낸다 · 쓰러지면 처음부터", n: 40 },
+    // 사람(결투 · 사냥터 PvP) · 몬스터에게 맞은 수. 화상 · 장판처럼 잇달아 드는 피해가 한꺼번에 세지 않게 gap 초에 한 대
+    trial: { name: "맷집 시험", note: "사람과 몬스터에게 100대 맞는다", n: 100, gap: 0.25 },
   },
   {
     id: "marksman", job: "archer", line: "main", name: "명사수", weapon: "활",
@@ -65,7 +68,9 @@ export const ADV_CLASSES = [
       name: "약점 포착", note: "같은 적을 세 번 이어 맞히면 약점 노출 · 표식이나 노출된 적에게 다음 공격 피해 +30%",
       need: 3, bonus: 0.3,
     },
-    trial: { name: "움직이는 표적 시험", note: "움직이는 160레벨 이상 몹을 180 거리 밖에서 평타로 40번 맞힌다", n: 40, far: 180 },
+    // 비타겟팅 스킬 — 겨눈 쪽으로 나가 빗나갈 수 있는 스킬(관통 화살 · 용암 · 그림자 · 별자리 활 스킬). 한 번 쓸 때 160레벨 이상 몹을 맞히면 1,
+    // 아무것도 못 맞히면 0 으로 돌아간다(연속)
+    trial: { name: "명중 시험", note: "비타겟팅 스킬(관통 화살 · 용암 · 그림자 · 별자리 활 스킬)로 160레벨 이상 몹을 연속 20번 맞힌다 · 빗나가면 처음부터", n: 20, streak: 1 },
   },
   {
     id: "gunner", job: "archer", line: "special", name: "총사", weapon: "쌍권총",
@@ -79,7 +84,8 @@ export const ADV_CLASSES = [
       name: "탄도 숙련", note: "같은 적에게 이어 맞히면 다음 탄환 피해 +6%씩(최대 5) · 2초 동안 못 맞히면 사라진다",
       per: 0.06, max: 5, fade: 2,
     },
-    trial: { name: "이동 사격 시험", note: "걸으면서 160레벨 이상 몹을 평타로 40번 맞힌다", n: 40 },
+    // 300레벨까지의 사냥터 몬스터 — 종류마다 한 번(보스도 같은 종류로 센다). 차례는 저장(advQ.m)에 쓰니 뒤에만 더한다
+    trial: { name: "사냥 도감 시험", note: "300레벨까지의 모든 몬스터를 한 번씩 잡는다", list: ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "skeletal", "zombie", "necro"], each: 1 },
   },
   {
     id: "archmage", job: "mage", line: "main", name: "마도사", weapon: "지팡이",
@@ -94,7 +100,8 @@ export const ADV_CLASSES = [
       name: "마력 순환", note: "마법 공격이 맞으면 마력 1(0.25초에 한 번 · 최대 10) · 마력 폭발이 모두 써서 하나에 피해 +6% · 넓이 +4",
       max: 10, gap: 0.25, per: 0.06, grow: 4,
     },
-    trial: { name: "마력 제어 시험", note: "스킬 한 번으로 160레벨 이상 몹 셋 이상을 맞힌다 · 15번", n: 15, many: 3 },
+    // 시험 동안은 마력 폭발(Z)을 쓸 수 있다(마력 순환은 없다). 160레벨 이상 몹을 마력 폭발로 잡은 수 per 마다 시험 레벨 +1
+    trial: { name: "마력 폭발 시험", note: "시험 동안 쓸 수 있는 마력 폭발(Z)로 160레벨 이상 적을 잡아 시험 레벨을 1에서 10까지 올린다 · 5마리마다 1레벨", n: 45, lv0: 1, per: 5, skill: 1 },
   },
   {
     id: "summoner", job: "mage", line: "special", name: "소환술사", weapon: "소환서",
@@ -108,17 +115,39 @@ export const ADV_CLASSES = [
       name: "영혼 연결", note: "나와 정령이 2초 안에 같은 적을 치면 영혼 피해(2초에 한 번) · 정령이 없으면 없다",
       win: 2, gap: 2, mul: 0.6,
     },
-    // 시험용 임시 정령 — 시험 중 160레벨 이상 사냥터 · 던전에서 저절로 따라온다. 피해는 정령의 trialMul 몫
-    trial: { name: "정령 협동 시험", note: "시험 중 따라오는 임시 정령과 함께 160레벨 이상 몹을 15마리 잡는다(정령이 친 몹)", n: 15, trialMul: 0.5 },
+    // 300레벨까지의 보스가 떨구는 재료 — 시험을 받은 뒤 보스에게서 얻은 것만 종류마다 each 개(가방에서 빼지 않는다). 차례는 저장(advQ.m)에 쓰니 뒤에만 더한다
+    trial: { name: "수집 시험", note: "300레벨까지의 보스가 떨구는 재료를 종류마다 5개씩 모은다(시험을 받은 뒤 얻은 것)", list: ["fur", "fang", "tusk", "hide", "blue", "eye", "heart", "bone", "rot", "soul"], each: 5 },
   },
 ];
+// 목록 시험(list)은 종류마다 each 개를 채운 합이 n
+ADV_CLASSES.forEach((c) => { if (c.trial.list) c.trial.n = c.trial.list.length * c.trial.each; });
 export const ADV_BY_ID = Object.fromEntries(ADV_CLASSES.map((c) => [c.id, c]));
 export const advForJob = (job) => ADV_CLASSES.filter((c) => c.job === job);
 // 저장된 값 거르기 — 없는 전직이면 ""
 export const cleanAdvClass = (v) => (typeof v === "string" && ADV_BY_ID[v] ? v : "");
+// { c 시험 전직, n 진행, v 시험 판, m 목록 시험의 종류마다 모은 수 } — 판이 다르면 진행을 처음으로
 export function cleanAdvQ(q) {
   if (!q || typeof q !== "object" || !ADV_BY_ID[q.c]) return null;
-  return { c: q.c, n: Math.max(0, Math.min(ADV_BY_ID[q.c].trial.n, Math.floor(Number(q.n) || 0))) };
+  const T = ADV_BY_ID[q.c].trial, old = q.v !== ADV.trialVer;
+  if (T.list) {
+    const m = T.list.map((_, i) => (old ? 0 : Math.max(0, Math.min(T.each, Math.floor(Number(Array.isArray(q.m) ? q.m[i] : 0) || 0)))));
+    return { c: q.c, n: m.reduce((s, x) => s + x, 0), v: ADV.trialVer, m };
+  }
+  return { c: q.c, n: old ? 0 : Math.max(0, Math.min(T.n, Math.floor(Number(q.n) || 0))), v: ADV.trialVer };
+}
+// 시험 진행 글 — 창 · 알림이 같이 쓴다
+export function trialText(c, q) {
+  const T = c.trial, n = Math.min(T.n, q ? q.n : 0);
+  if (c.id === "gladiator") return `시험 레벨 ${T.lv0 + n}/${T.lv0 + T.n}`;
+  if (c.id === "archmage") {
+    const lv = T.lv0 + Math.floor(n / T.per), top = T.lv0 + T.n / T.per;
+    return lv >= top ? `시험 레벨 ${top}/${top}` : `시험 레벨 ${lv}/${top} · 다음까지 ${T.per - (n % T.per)}마리`;
+  }
+  if (c.id === "knight") return `${n}/${T.n}대`;
+  if (c.id === "marksman") return `연속 ${n}/${T.n}번`;
+  if (c.id === "gunner") return `${n}/${T.list.length}종`;
+  if (c.id === "summoner") return `${n}/${T.n}개`;
+  return `${n}/${T.n}`;
 }
 
 /* 그림 — 생성한 투명 아틀라스(design/advance 원본 · 2026-10-25). 칸 크기는 원본 픽셀

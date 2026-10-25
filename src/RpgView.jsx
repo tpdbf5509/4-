@@ -7,7 +7,7 @@ import {worldBossView,worldBossPortalNear} from "./game/worldBoss.js";
 import WorldBossPanel,{WorldBossHud} from "./WorldBossPanel.jsx";
 import TradePanel from "./TradePanel.jsx";
 import AdvPanel from "./AdvPanel.jsx";
-import { ADV, ADV_BY_ID } from "./game/advData.js";
+import { ADV, ADV_BY_ID, trialText } from "./game/advData.js";
 import { useTrade } from "./useTrade.js";
 import { trading } from "./game/tradeData.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -51,8 +51,10 @@ function weaponHud(me) {
     : W.passive.name);
   return { name: W.name, cd: w.wcd || 0, max: W.skill.cd, stack };
 }
-// 전직 스킬 칸 — 1차 전직을 마친 사람만. 쌓인 패시브를 작은 글자로
+// 전직 스킬 칸 — 1차 전직을 마친 사람과 시험 동안 스킬을 쓰는 사람(마도사 시험). 쌓인 패시브를 작은 글자로
 function advHud(me) {
+  const q = !me.advClass && me.advQ && ADV_BY_ID[me.advQ.c];
+  if (q && q.trial.skill && q.job === me.job) return { name: q.active.name, cd: (me.as && me.as.cd) || 0, max: q.active.cd, stack: `시험 · ${trialText(q, me.advQ)}` };
   const c = ADV_BY_ID[me.advClass];
   if (!c || c.job !== me.job) return null;
   const a = me.as || {}, P = c.passive;

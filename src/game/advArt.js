@@ -200,7 +200,7 @@ export function drawAdvHero(ctx, h, time) {
 function drawSpirit(ctx, h, sp, time) {
   const i = Math.max(0, ELEMS.findIndex((e) => e.id === h.elem));
   const bob = Math.sin(time * 3 + h.pi) * 4, s = 44;
-  const fadeOut = sp.trial ? 0.7 : Math.min(1, sp.t / 1.2);   // 시험 정령은 반쯤 비친다 · 사라질 때 흐려진다
+  const fadeOut = Math.min(1, sp.t / 1.2);            // 사라질 때 흐려진다
   ctx.globalAlpha = 0.3 * fadeOut;
   ctx.fillStyle = "rgba(20,14,10,0.6)";
   ctx.beginPath(); ctx.ellipse(sp.x, sp.y + 58, 10, 4, 0, 0, TAU); ctx.fill();

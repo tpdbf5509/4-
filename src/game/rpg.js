@@ -26,7 +26,7 @@ import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR, ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, ADV_BY_ID } from "./advData.js";
-import { advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf } from "./advance.js";
+import { advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
 // 서버마다 들어올 수 있는 사람 수 — 13명이 모이자 Supabase 무료 한도(초당 100통)를 넘어 기록이 섞였다(10월 19일)
@@ -1458,6 +1458,7 @@ function endDuel(g, d, win, why) {
     const gain = honorGain(l ? l.honor : 0);
     w.honor += gain;
     w.rec.pvp += 1;
+    advDuelWin(advEngine, g, w);                  // 검투사 시험 — 이기면 확률로 시험 레벨
     fx(g, "arena", { kind: "call", x: w.x, y: w.y - 110, text: `승리! 명예 +${gain}`, color: "#ffd873", t: 1.6, life: 1.6, snd: "clear", who: w.pi });
     sys(g, w.pi, `결투에서 이겼습니다${why ? ` — ${why}` : ""}. 명예 +${gain} (지금 ${w.honor})`);
     if (l) {
@@ -1603,7 +1604,6 @@ function killMob(g, m, pi) {
   if(isGuildBoss(m)){m.hp=0;guildKilled(guildEngine,g,m);return;}
   addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
   m.hp = 0;
-  advOnKill(advEngine, g, m);                     // 소환술사 시험 — 정령이 친 몹
   flushNum(g, m, m.boss ? 0 : 1);                 // 남은 숫자 — 보스는 모아 둔 평타라 평타 세기로
   fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" });
   if (m.gi >= 0) g.respawn.push({ t: SPAWNS[m.gi].respawn, gi: m.gi });   // 던전 몹은 다시 나오지 않는다
@@ -1620,6 +1620,7 @@ function killMob(g, m, pi) {
       t: 1.4, life: 1.4, snd: "clear", who: pi });
   }
   got.forEach((h) => rewardKill(g, m, h, h.pi === pi));
+  advOnKill(advEngine, g, m, got);                // 전직 시험 — 총사 사냥 도감
   // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
   const part = Math.max(1, Math.round(m.xp * PARTY.share));
   const ptys = new Set(got.filter((h) => h.pty).map((h) => h.pty));
@@ -1668,6 +1669,7 @@ function dropLoot(g, got, m) {
     const n = d.roll ? rollDrop() : d.n + (Math.random() < d.bonus ? 1 : 0);   // 재료 보스는 1~5개 확률(DROP_ROLL)
     const put = addMat(q.bag, d.id, n);
     if (!put) return void sys(g, qi, `${jo(mat.name, "이", "가")} 가득 차 더 받지 못했습니다.`);
+    advLoot(advEngine, g, q, d.id, put);          // 소환술사 시험 — 보스 재료 수집
     fx(g, q.map, { kind: "call", x: q.x, y: q.y - 128, text: `${mat.name} ×${put}`, color: mat.color, t: 1.5, life: 1.5,
       snd: mat.stone ? "clear" : "coin", who: qi });
     sys(g, qi, `${mobName(m)}에게서 ${mat.name} ${put}개를 얻었습니다.${!d.roll && n > d.n ? " (행운! 하나 더)" : ""}`);
@@ -2267,7 +2269,9 @@ function jobSkill(g, h, u, i, dmg) {
   const pvp = isPvp(map);
   if (u.kind === "line") {                        // 대지 가르기 · 관통 화살 — 앞으로 한 줄
     const [ax, ay] = aimTo(g, h, u.len);
-    lineFoes(g, h, ax, ay, u.len, u.width).forEach((o) => strikeAny(g, h, o, dmg));
+    const hits = lineFoes(g, h, ax, ay, u.len, u.width);
+    hits.forEach((o) => strikeAny(g, h, o, dmg));
+    if (u.arrow) advAimShot(advEngine, g, h, hits);   // 명사수 시험 — 관통 화살은 비타겟팅
     const [x1, y1] = lineEnd(h, ax, ay, u.len);
     if (u.arrow) {
       fx(g, map, { kind: "beam", x0: h.x, y0: hy, x1, y1: y1 - 34, color: el.light, w: 6, t: 0.4, life: 0.4, snd: "shot" });
@@ -2738,7 +2742,7 @@ const advBigMap = (map) => { const M = MAPS[map]; return !!M && (!!M.dungeon || 
 const advEngine = { fx, say, sys, dist, near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc, soak, later,
   cc: ccAny, alive: aliveFoe, aim: aimTo, aimAt, end: lineEnd, newCast, squash: RPG.squash, bigMap: advBigMap,
   base: (h, k) => SKILL_USE.base * skillStatMul(h, k), elem: (h) => elemOf(h).id, locked: ccLocked,
-  safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn,
+  safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,
   gunHeld: (h) => { const w = h.bag && equipped(h.bag); return !!w && w.t === "gun"; },
   bagRoom: (h) => !!h.bag && h.bag.w.length < WEAPON.bagMax,
   gear: (h, id) => {                              // 전직 무기 한 자루 — 이미 가졌으면 주지 않는다
@@ -2749,7 +2753,7 @@ const advEngine = { fx, say, sys, dist, near: foesNear, line: lineFoes, arc: arc
   } };
 // 1차 전직 — 시험 받기 · 그만두기 · 확정 · 전직 스킬(op "use", 키 adv)
 export function rpgAdv(g, pi, req) { return advInput(advEngine, g, pi, req); }
-export { advOf };
+export { advOf, advSkillOf };
 
 // 월드보스 무기도 기존 피해·대상·이동 판정을 공유한다.
 const worldEngine = { fx, near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc,
@@ -2948,6 +2952,7 @@ function starShot(g, h, S, c) {
   const [ax, ay] = faceDir(h);
   const list = lineFoes(g, h, ax, ay, S.len, S.width);
   list.forEach((o) => strikeAny(g, h, o, skillBase(h) * S.mul * power));
+  advAimShot(advEngine, g, h, list);              // 명사수 시험
   if (!list.length) weaponMiss(h);
   const [x1, y1] = lineEnd(h, ax, ay, S.len);
   fx(g, map, { kind: "sk_pierce", tone: "star", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1, y1: y1 - 34, w: S.width * (0.6 + 0.4 * power / S.max), t: 0.55, life: 0.55, snd: "shot" });
@@ -2962,7 +2967,9 @@ function lavaPierce(g, h, S, w) {
   w.cmb = null;
   const full = w.mark >= WS.lava_bow.passive.max;
   const [ax, ay] = faceDir(h);
-  lineFoes(g, h, ax, ay, S.len, S.width).forEach((o) => strikeAny(g, h, o, skillBase(h) * S.mul2 * (full ? S.mark3 : 1)));
+  const hits = lineFoes(g, h, ax, ay, S.len, S.width);
+  hits.forEach((o) => strikeAny(g, h, o, skillBase(h) * S.mul2 * (full ? S.mark3 : 1)));
+  advAimShot(advEngine, g, h, hits);              // 명사수 시험
   if (full) { w.mark = 0; w.markT = 0; }          // 표식 3을 썼다 — 꿰뚫은 화살로는 다시 쌓지 않는다
   const [x1, y1] = lineEnd(h, ax, ay, S.len);
   fx(g, map, { kind: "sk_pierce", tone: "lava", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1, y1: y1 - 34, w: full ? 30 : 20, t: 0.5, life: 0.5, snd: "boom" });
@@ -3091,9 +3098,10 @@ function rangedSkill(g, h, sp, S, w) {
     missile(g, h, { ax, ay, v: S.v, range: S.range, r: S.hitR, style: "lava", snd: "shot",
       hit: (o) => {
         strikeAny(g, h, o, phys * S.mul1);
+        advAimShot(advEngine, g, h, [o]);         // 명사수 시험
         if (w.cmb === c) { c.st = 2; c.t = S.gap; fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: "다시 눌러 관통", color: "#ffb27a", t: 0.7, life: 0.7, who: h.pi }); }
       },
-      miss: () => { if (w.cmb === c) w.cmb = null; } });
+      miss: () => { if (w.cmb === c) w.cmb = null; advAimShot(advEngine, g, h, []); } });
     return true;
   }
   if (sp === "shadow_bow") {                      // 잔영 추격 — 맞으면 띄우고 잔영 화살이 따라간다(패시브)
@@ -3102,8 +3110,10 @@ function rangedSkill(g, h, sp, S, w) {
       hit: (o) => {
         ccAny(g, h, o, { air: S.air });
         strikeAny(g, h, o, phys * S.mul);
+        advAimShot(advEngine, g, h, [o]);         // 명사수 시험
         fx(g, map, { kind: "burst", x: o.x, y: o.y - 30, r: 34, color: "#b9a0e8", n: 12, t: 0.5, life: 0.5 });
-      } });
+      },
+      miss: () => advAimShot(advEngine, g, h, []) });
     return true;
   }
   if (sp === "gold_bow") {                        // 비상 연계 1 — 뒤로 도약하며 앞으로 화살

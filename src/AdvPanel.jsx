@@ -1,14 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { Coin } from "./ui/icons.jsx";
-import { ADV, ADV_BY_ID, advForJob } from "./game/advData.js";
+import { ADV, ADV_BY_ID, advForJob, trialText } from "./game/advData.js";
 import { whyAdvStart, whyAdvConfirm } from "./game/advance.js";
-import { advArtPath, dist, JOB_BY_ID } from "./game/rpg.js";
+import { advArtPath, dist, JOB_BY_ID, mobName } from "./game/rpg.js";
+import { MAT_BY_ID } from "./game/itemData.js";
 import { WEAPON } from "./game/shopData.js";
 import { keyLabel } from "./game/keys.js";
 
 /* 광장 전직 교관 창 — 상점 · 가방과 같은 .shop 틀 · 공통 버튼. 내 기본 직업의 전직 둘을 보여 주고 시험 받기 · 그만두기 · 확정을 보낸다.
    판정은 방장이 다시 한다(advance.js). 확정은 되돌릴 수 없어 한 번 더 묻는다(다시 묻지 않기 없음) */
 const LINE = { main: "정통 강화", special: "특수" };
+// 목록 시험(총사 몬스터 · 소환술사 재료) — 종류마다 채운 수
+const itemName = (c, id) => (c.id === "gunner" ? mobName({ type: id }) : MAT_BY_ID[id]?.name || id);
+function TrialList({ c, q }) {
+  const T = c.trial;
+  return (
+    <ul className="adv-tlist">
+      {T.list.map((id, i) => {
+        const n = (q.m && q.m[i]) || 0;
+        return <li key={id} className={n >= T.each ? "ok" : ""}>{itemName(c, id)}{T.each > 1 ? ` ${n}/${T.each}` : n ? " ✓" : ""}</li>;
+      })}
+    </ul>
+  );
+}
 // 전직 모습 — 내 성별의 전직 그림(앞)
 function AdvLook({ id, gender }) {
   return <span className="adv-look" aria-hidden="true"><img src={advArtPath({ job: ADV_BY_ID[id].job, gender, advClass: id }, "front")} alt="" /></span>;
@@ -38,7 +52,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
         <div className="shop-body adv-body">
           <p className="adv-now">
             {cur ? <>지금 전직 <b>{cur.name}</b> · 전직 스킬 「{cur.active.name}」 키 <kbd>{keyName}</kbd></>
-              : q ? <>{ADV_BY_ID[q.c].trial.name} <b>{q.n}/{ADV_BY_ID[q.c].trial.n}</b>{q.n >= ADV_BY_ID[q.c].trial.n ? " · 완료" : ""}</>
+              : q ? <>{ADV_BY_ID[q.c].trial.name} <b>{trialText(ADV_BY_ID[q.c], q)}</b>{q.n >= ADV_BY_ID[q.c].trial.n ? " · 완료" : ""}</>
               : self.lv >= ADV.lv ? <>{JOB_BY_ID[self.job]?.name} 전직 둘 가운데 하나의 시험을 받으세요.</>
               : <>{ADV.lv}레벨부터 전직할 수 있습니다. 지금 {self.lv}레벨.</>}
           </p>
@@ -56,9 +70,10 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
                   <dl className="adv-skills">
                     <dt>액티브</dt><dd><b>{c.active.name}</b> · 대기 {c.active.cd}초<br />{c.active.note}</dd>
                     <dt>패시브</dt><dd><b>{c.passive.name}</b><br />{c.passive.note}</dd>
-                    <dt>시험</dt><dd><b>{c.trial.name}</b><br />{c.trial.note}{trying ? ` · ${Math.min(q.n, c.trial.n)}/${c.trial.n}` : ""}</dd>
+                    <dt>시험</dt><dd><b>{c.trial.name}</b><br />{c.trial.note}{trying ? ` · ${trialText(c, q)}` : ""}</dd>
                   </dl>
                   {trying && <div className="adv-prog" aria-hidden="true"><i style={{ width: `${Math.min(100, (q.n / c.trial.n) * 100)}%` }} /></div>}
+                  {trying && c.trial.list && <TrialList c={c} q={q} />}
                   {!cur && (
                     <div className="adv-acts">
                       {!trying && !qDone && <button type="button" className="shop-btn" disabled={whyStart.length > 0} title={whyStart[0] || ""}

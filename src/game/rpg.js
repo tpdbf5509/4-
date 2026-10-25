@@ -547,6 +547,11 @@ export const elemOf = (h) => ELEM_BY_ID[h && h.elem] || ELEMS[0];
 export const skillName = (h) => `${elemOf(h).name} ${jobOf(h).skill}`;
 // 캐릭터 그림 — public/assets/characters/rpg/<직업>-<성별>/<방향>.webp
 export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobOf(h).id}-${h && h.gender === "f" ? "f" : "m"}/${view}.webp`;
+// 전직한 캐릭터 그림 — <전직>-<성별>/<방향>.webp(무기를 든 그림, tools/cut-adv-classes.py). 전직 전이면 null
+export const advArtPath = (h, view = "front") => {
+  const c = advOf(h);
+  return c ? `/assets/characters/rpg/${c.id}-${h.gender === "f" ? "f" : "m"}/${view}.webp` : null;
+};
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

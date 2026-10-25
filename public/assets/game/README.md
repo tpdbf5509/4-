@@ -112,4 +112,4 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 | `rpg/advance/adv-items.webp` | 960 × 192 | 5열 × 1행 · 192px | 0 쌍권총 · 1 기사 방패 · 2 소환서 · 3 · 4 권총 한 자루씩(손에 든다) |
 | `rpg/weapons/adv_guns.webp` · `adv_grim.webp` | 128 × 128 | — | 가방 · 상점 창의 전직 무기 그림(위 아틀라스에서 잘랐다) |
 
-캐릭터 그림은 새로 만들지 않았다. 기존 `<직업>-<성별>/<보기>-bare.webp` 위에 총 · 소환서를 손에 들리고(`HOLDER_HAND`), 기사 방패는 반대 손(`DUAL_OFF_HAND`)에 든다.
+전직 캐릭터 그림은 `characters/rpg/<전직>-<m|f>/<front|side|back|turn>.webp`(전직 = gladiator · knight · marksman · gunner · archmage · summoner). 사용자가 코덱스로 만든 전직 시트(`design/advance/classes/<전직>.webp`, 1536 × 1024 투명 · 위 줄 남 · 아래 줄 여 · 앞 · 옆 · 뒤 · 비스듬히)를 `python3 tools/cut-adv-classes.py` 로 잘랐다. 무기 · 방패를 이미 들고 있어 그 위에 아무것도 얹지 않는다. 그림을 못 불러오면 기존 `<직업>-<성별>/<보기>-bare.webp` 위에 총 · 소환서(`HOLDER_HAND`) · 기사 방패(`DUAL_OFF_HAND`)를 얹는다.

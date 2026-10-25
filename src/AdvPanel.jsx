@@ -1,21 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Coin } from "./ui/icons.jsx";
-import { ADV, ADV_ART, ADV_BY_ID, advForJob } from "./game/advData.js";
+import { ADV, ADV_BY_ID, advForJob } from "./game/advData.js";
 import { whyAdvStart, whyAdvConfirm } from "./game/advance.js";
-import { dist, JOB_BY_ID } from "./game/rpg.js";
+import { advArtPath, dist, JOB_BY_ID } from "./game/rpg.js";
 import { WEAPON } from "./game/shopData.js";
 import { keyLabel } from "./game/keys.js";
 
 /* 광장 전직 교관 창 — 상점 · 가방과 같은 .shop 틀 · 공통 버튼. 내 기본 직업의 전직 둘을 보여 주고 시험 받기 · 그만두기 · 확정을 보낸다.
    판정은 방장이 다시 한다(advance.js). 확정은 되돌릴 수 없어 한 번 더 묻는다(다시 묻지 않기 없음) */
 const LINE = { main: "정통 강화", special: "특수" };
-const ICON = { gladiator: ["fx", ADV_ART.FX.slash], knight: ["items", ADV_ART.ITEM.shield], marksman: ["fx", ADV_ART.FX.arrow],
-  gunner: ["items", ADV_ART.ITEM.guns], archmage: ["fx", ADV_ART.FX.circle], summoner: ["items", ADV_ART.ITEM.book] };
-function AdvIcon({ id }) {
-  const [name, i] = ICON[id], A = ADV_ART[name], rows = Math.ceil((name === "fx" ? 11 : 5) / A.cols);
-  return <span className="adv-icon" aria-hidden="true"
-    style={{ backgroundImage: `url(${A.src})`, backgroundSize: `${A.cols * 100}% ${rows * 100}%`,
-      backgroundPosition: `${((i % A.cols) / Math.max(1, A.cols - 1)) * 100}% ${(Math.floor(i / A.cols) / Math.max(1, rows - 1)) * 100}%` }} />;
+// 전직 모습 — 내 성별의 전직 그림(앞)
+function AdvLook({ id, gender }) {
+  return <span className="adv-look" aria-hidden="true"><img src={advArtPath({ job: ADV_BY_ID[id].job, gender, advClass: id }, "front")} alt="" /></span>;
 }
 
 export default function AdvPanel({ self, act, advKey, onClose }) {
@@ -53,7 +49,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
               return (
                 <article key={c.id} className={`adv-card ${mine ? "on" : ""}`}>
                   <div className="adv-head">
-                    <AdvIcon id={c.id} />
+                    <AdvLook id={c.id} gender={self.gender} />
                     <div><h3 className="shop-h">{c.name}</h3><span className="adv-line">{LINE[c.line]} · {c.weapon}</span></div>
                   </div>
                   <p className="adv-note">{c.note}</p>

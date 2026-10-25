@@ -11,7 +11,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap } from "./rpg.js";
+import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
@@ -22,9 +22,11 @@ import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 const HERO_K = 66 / 280;
 const HERO_PAD = 6;
 const heroCache = {};
-function heroImg(h, view) {
+function heroImg(h, view) { return artImg(heroArtPath(h, view)); }
+// 전직한 캐릭터는 전직 그림(무기를 든 그림)으로 — 못 불러오면 null, 원래 그림 길로 그린다
+function advBody(h, view) { const src = advArtPath(h, view); return src ? artImg(src) : null; }
+function artImg(src) {
   if (typeof Image === "undefined") return null;
-  const src = heroArtPath(h, view);
   let im = heroCache[src];
   if (im === undefined) {
     im = heroCache[src] = new Image();
@@ -1854,8 +1856,9 @@ function drawHero(ctx, g, h, time) {
   const mine = g.mySeat === pi;
   const down = h.down > 0;
   const { view, flip } = heroView(h);
-  const held = heldWeapon(h, view);
-  const im = held ? held.body : heroImg(h, view) || heroImg(h, "front");
+  const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다
+  const held = advIm ? null : heldWeapon(h, view);
+  const im = advIm || (held ? held.body : heroImg(h, view) || heroImg(h, "front"));
   const mo = down ? null : heroMotion(g, h, time);
 
   ctx.save();
@@ -1902,7 +1905,7 @@ function drawHero(ctx, g, h, time) {
         to: sw.to === undefined ? undefined : counter(sw.to), trail: sw.trail * 0.7 } : null;
       drawHeld(ctx, off, ww, top, offSwing, col.light);
     }
-    const shield = h.advClass === "knight" && h.job === "warrior" ? DUAL_OFF_HAND[h.gender === "f" ? "f" : "m"][view] : null;   // 기사 방패
+    const shield = !advIm && h.advClass === "knight" && h.job === "warrior" ? DUAL_OFF_HAND[h.gender === "f" ? "f" : "m"][view] : null;   // 기사 방패
     if (shield && view === "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, true);
     ctx.drawImage(im, -ww / 2, top, ww, hh);

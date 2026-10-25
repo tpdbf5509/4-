@@ -25,6 +25,8 @@ import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_RO
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR, ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
+import { ADV, cleanAdvClass, cleanAdvQ, ADV_BY_ID } from "./advData.js";
+import { advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
 // 서버마다 들어올 수 있는 사람 수 — 13명이 모이자 Supabase 무료 한도(초당 100통)를 넘어 기록이 섞였다(10월 19일)
@@ -84,6 +86,7 @@ export const MAPS = {
     blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 },
       ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 },
       {x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y,r:38},{...GUILD_HALL.door,r:35},
+      { x: ADV.npc.x, y: ADV.npc.y - 4, r: 18 },   // 전직 교관
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
@@ -96,6 +99,7 @@ export const MAPS = {
       { id: "dungeon", dungeon: 1, name: "던전 관리인", x: DUNGEON.npc.x, y: DUNGEON.npc.y },   // 던전 입장 창(dungeonData.js)
       {id:'worldboss',worldBoss:1,name:'월드보스 성역',x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y},
       {id:'guilddoor',guildDoor:1,name:'길드 문',...GUILD_HALL.door},   // 길드가 있으면 길드 광장, 없으면 길드 찾기(guildData.js GUILD_HALL)
+      { id: "adv", adv: 1, name: "전직 교관", x: ADV.npc.x, y: ADV.npc.y },   // 200레벨 1차 전직 — 시험 · 확정 창(advData.js)
     ],
   },
   field: {
@@ -489,7 +493,7 @@ export const SPAWNS = [
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
    hp 는 버티는 몫, rng 는 사거리(RPG.rangeMul 을 곱하기 전), splash 는 맞은 자리 둘레로 번지는 폭 */
 export const JOBS = [
-  { id: "warrior", name: "전사", weapon: "검", note: "붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다",
+  { id: "warrior", name: "검사", weapon: "검",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: "붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다",
     hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: "회오리" },
   { id: "mage", name: "마법사", weapon: "지팡이", note: "원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다",
     hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: "폭발" },
@@ -564,7 +568,7 @@ export const STAT_PER_LV = 2;
 export const STAT_START = 2;
 export const CRIT_MAX = 0.8;          // 치명타 확률 전체 상한 — 장비가 붙어도 확정 치명타가 되지 않게
 export const STATS = [
-  { id: "str", name: "물리력", note: "전사 · 궁수 공격력", base: 10, per: 2, fmt: (v) => String(v) },
+  { id: "str", name: "물리력", note: "검사 · 궁수 공격력", base: 10, per: 2, fmt: (v) => String(v) },
   { id: "int", name: "마법력", note: "마법사 공격력 · 화상 · 독 피해", base: 10, per: 2, fmt: (v) => String(v) },
   { id: "hp", name: "체력", note: "최대 체력 (직업 배율을 곱한다)", base: 100, per: 15, fmt: (v) => v.toLocaleString("ko-KR") },
   { id: "crit", name: "치명타 확률", note: "치명타가 터질 확률", base: 5, per: 0.5, fmt: (v) => `${r1(v)}%` },
@@ -664,6 +668,8 @@ export function loadChar() {
     reqs: cleanReqs(r.reqs),                     // 맡은 광장 의뢰
     gift: typeof r.gift === "string" ? r.gift : "",   // 마지막으로 받은 업데이트 선물 id
     rs: typeof r.rs === "string" ? r.rs : "",    // 마지막으로 겪은 서버 초기화 id(itemData.js RESET)
+    advClass: cleanAdvClass(r.advClass),         // 1차 전직(advData.js) — 기본 직업(job)은 그대로 둔다
+    advQ: cleanAdvQ(r.advQ),                     // 전직 시험 { c 전직, n 진행 }
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다. acct 는 서버에 만든 계정 { tok }
@@ -728,14 +734,22 @@ export function writeChar(d) {
   store({ ...cur, ts: d.ts || 0, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
     honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs),
-    gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "", rs: d.rs === RESET.id ? RESET.id : cur.rs || "" });
+    gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "", rs: d.rs === RESET.id ? RESET.id : cur.rs || "",
+    ...advRecord(d, cur, reset || rolledBack(d.bag, cur.bag)) });
+}
+/* 전직 기록 — 전직은 되돌릴 수 없어, 전직이 빈 기록이 와도(옛 방장 스냅샷 · 섞인 기록) 남겨 둔 전직을 지우지 않는다.
+   서버 초기화 · 한 사람 되돌리기 · 관리자(시험용으로 비운다)만 비울 수 있다 */
+function advRecord(d, base, clear) {
+  const adv = cleanAdvClass(d.advClass);
+  return { advClass: adv || (clear || d.admin ? "" : cleanAdvClass(base && base.advClass)), advQ: adv ? null : cleanAdvQ(d.advQ) };
 }
 
 // 전용 서버가 저장할 기록 — 불러온 기록(base) 위에 지금 영웅 상태를 덮는다(writeChar 와 같은 칸). 레벨이 내려갔으면 null
 export function heroRecord(h, base, look) {
   const b = base && typeof base === "object" ? base : {};
   if (!h || !h.loaded) return null;
-  if (h.rs !== RESET.id && !rolledBack(h.bag, b.bag) && Math.floor(Number(h.lv) || 1) < Math.floor(Number(b.lv) || 1)) return null;   // 서버 초기화를 겪은 기록은 레벨이 내려가도 남긴다
+  const rb = rolledBack(h.bag, b.bag);
+  if (h.rs !== RESET.id && !rb && Math.floor(Number(h.lv) || 1) < Math.floor(Number(b.lv) || 1)) return null;   // 서버 초기화를 겪은 기록은 레벨이 내려가도 남긴다
   const { tok: _tok, linked: _linked, admin: _admin, ...rest } = b;
   const bag = { ...h.bag };
   delete bag.ld;
@@ -743,7 +757,8 @@ export function heroRecord(h, base, look) {
     lv: h.lv, xp: h.xp, coins: h.coins, quest: { on: !!h.quest.on, n: h.quest.n }, stats: { ...h.st }, bag,
     rec: cleanRec(h.rec), titles: cleanTitles(h.titles), title: TITLE_BY_ID[h.title] ? h.title : "",
     honor: Math.max(0, Math.floor(Number(h.honor) || 0)), reqs: cleanReqs(h.reqs),
-    gift: h.gift === GIFT.id ? GIFT.id : b.gift || "", rs: h.rs === RESET.id ? RESET.id : b.rs || "" };
+    gift: h.gift === GIFT.id ? GIFT.id : b.gift || "", rs: h.rs === RESET.id ? RESET.id : b.rs || "",
+    ...advRecord(h, b, (h.rs === RESET.id && b.rs !== RESET.id) || rb) };
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -782,6 +797,7 @@ function makeHero(pi, look, map = "plaza") {
     gift: "",                               // 받은 업데이트 선물 id(itemData.js GIFT)
     rs: "",                                 // 겪은 서버 초기화 id(itemData.js RESET)
     pvpOn: 0, pvpT: 0,                      // 사냥터 PvP 를 켰는지 · 다시 바꿀 수 있을 때까지 남은 초
+    advClass: "", advQ: null,               // 1차 전직 · 전직 시험(advData.js) — 싸우는 동안의 상태는 h.as(advance.js)
     duelInv: null, dvs: -1, dph: 0, dtl: 0, ring: -1,   // 받은 결투 신청 · 결투 상대 자리 · 단계(1 준비 2 싸움 3 끝) · 남은 초 · 결투장 칸
   };
   wear(h, look);
@@ -879,6 +895,11 @@ export function rpgJoin(g, pi, d, who) {
   h.title = h.titles.includes(d.title) ? d.title : "";
   h.gift = typeof d.gift === "string" ? d.gift : "";
   h.rs = d.admin ? RESET.id : typeof d.rs === "string" ? d.rs : "";
+  // 1차 전직 — 기본 직업과 맞고 전직 레벨을 넘은 것만(서버 초기화로 레벨이 내려가면 비어 온다). 시험은 전직 전에만
+  const adv = ADV_BY_ID[cleanAdvClass(d.advClass)];
+  h.advClass = adv && adv.job === h.job && (h.lv >= ADV.lv || h.admin) ? adv.id : "";
+  const aq = cleanAdvQ(d.advQ);
+  h.advQ = !h.advClass && aq && ADV_BY_ID[aq.c].job === h.job ? aq : null;
   if (rb) rollbackHero(g, h, rb);
   if (h.gift !== GIFT.id) giveGift(g, h);         // 이번 업데이트 선물 — 캐릭터마다 한 번
   if (!h.bag.oc) {                                // 직업과 다른 무기 정리 — 고정 피해가 생기기 전에 들고 있던 것은 한 번 풀어 가방에 둔다(빼앗지 않는다)
@@ -918,10 +939,11 @@ function rollbackHero(g, h, rb) {
     const keep = { s: h.bag.s, ks: h.bag.ks, pg: h.bag.pg, oc: 1, v: h.bag.v, n: h.bag.n };
     h.bag = Object.assign(cleanBag({}), keep, { ld: 1 });
   } else if (rb.legends) {
-    const ids = new Set(SPECIALS.filter((sp) => !sp.world && sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
+    const ids = new Set(SPECIALS.filter((sp) => !sp.world && !sp.adv && sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
     h.bag.w = h.bag.w.filter((w) => !(w.sp && ids.has(w.sp)));
     if (!h.bag.w.some((w) => w.u === h.bag.e)) h.bag.e = 0;
   }
+  if (h.lv < ADV.lv) { h.advClass = ""; h.advQ = null; h.as = null; }   // 전직 레벨 아래로 되돌렸으면 전직도 비운다
   h.titles = (h.titles || []).filter((id) => { const t = TITLE_BY_ID[id]; return !t || !((t.need && t.need.lv > h.lv) || (t.need && t.need.coins > h.coins)); });
   h.title = h.titles.includes(h.title) ? h.title : "";
   h.bag.pg = [...(h.bag.pg || []), rb.id]; h.bag.v += 1;
@@ -943,7 +965,7 @@ const sameName = (a, b) => String(a || "").trim().replace(/\s+/g, " ") === Strin
 export const ADMIN_LEGEND = { id: 1, grade: 4 };
 function giveAdminLegends(g, h) {
   if (!h.admin || !h.bag || h.bag.lg === ADMIN_LEGEND.id) return;
-  const want = SPECIALS.filter((sp) => !sp.world && sp.g === ADMIN_LEGEND.grade && !h.bag.w.some((w) => w.sp === sp.id));
+  const want = SPECIALS.filter((sp) => !sp.world && !sp.adv && sp.g === ADMIN_LEGEND.grade && !h.bag.w.some((w) => w.sp === sp.id));
   const n = Math.max(0, Math.min(want.length, WEAPON.bagMax - h.bag.w.length));
   want.slice(0, n).forEach((sp) => { h.bag.w.push({ u: h.bag.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
   if (n === want.length) h.bag.lg = ADMIN_LEGEND.id;
@@ -970,7 +992,7 @@ function giveAdminKit(g, h) {
   if (b.gd < GUARD.max) { b.gd = GUARD.max; changed = true; }
   if (b.ak !== ADMIN_KIT.id) {
     const room = WEAPON.bagMax - b.w.length;
-    const want = SPECIALS.filter((sp) => !sp.world && !b.w.some((w) => w.sp === sp.id));
+    const want = SPECIALS.filter((sp) => !sp.world && !sp.adv && !b.w.some((w) => w.sp === sp.id));
     want.slice(0, Math.max(0, room)).forEach((sp) => { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
     b.w.forEach((w) => { if (w.sp) w.up = ADMIN_KIT.up; });
     if (!b.a) b.a = [];
@@ -983,7 +1005,7 @@ function giveAdminKit(g, h) {
     b.ak = ADMIN_KIT.id;
     changed = true;
     refreshHp(h, true);                             // 투구가 최대 체력을 올린다
-    sys(g, h.pi, `관리자 — 특별 무기 ${SPECIALS.filter(sp => !sp.world).length}자루(강화 +${ADMIN_KIT.up}) · 전설 방어구 넷 · 모든 스킬 · 주문서를 채웠습니다.`);
+    sys(g, h.pi, `관리자 — 특별 무기 ${SPECIALS.filter(sp => !sp.world && !sp.adv).length}자루(강화 +${ADMIN_KIT.up}) · 전설 방어구 넷 · 모든 스킬 · 주문서를 채웠습니다.`);
   }
   if (changed) b.v += 1;
 }
@@ -1158,7 +1180,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
     h.quest = { on: true, n: 0 };
@@ -1346,6 +1368,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
   if (field && !(fieldPvpOn(h) && fieldPvpOn(o) && o.map === h.map)) return;   // 그 사이 꺼졌거나 광장으로 들어갔다
   const off = offHand(h);
   if (dot) raw *= worldDotMul(h);
+  if (!dot && procOff === 0) raw *= advDmgMul(advEngine, g, h, o, !!basic, true);   // 전직 패시브(표식 · 약점 · 탄도) — PvP 는 +15% 까지
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
   if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
   else {
@@ -1362,6 +1385,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
   }
   if (procOff === 0) worldSetHit(worldEngine, g, h, o, { dot: !!dot, basic: !!basic, weapon: !basic && !!h.cast?.weapon });
   if (!dot) weaponOnHit(g, h, null, o, false, !!basic);
+  if (!dot && procOff === 0) advOnHit(advEngine, g, h, o, !!basic, false);   // 전직 패시브 · 시험
 }
 // 스킬을 새로 쓴다 — 결투 스킬 피해를 처음부터 센다(raw 는 이번 스킬이 지금까지 준 원래 피해)
 const newCast = (h) => (h.cast = { raw: 0 });
@@ -1524,6 +1548,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if(isWorldBoss(m)&&(!h?.loaded||h.map!==m.map||g.wb?.active?.mob!==m.id))return 0;
   if (dot && h) raw *= worldDotMul(h);
   let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0)) * (dot ? 1 : wpnMul(h));   // 무기 패시브(별자리 활 조준) — 화상 · 독 틱에는 붙지 않는다
+  if (h && !dot && procOff === 0) dmg *= advDmgMul(advEngine, g, h, m, !skill, false);   // 전직 패시브(표식 · 약점 · 탄도)
   if (m.mirage > 0 && Math.random() < m.dodge) {  // 잔상 분신 — 피했다
     if (m.numT <= 0) { say(g, m.map, m.x, m.y - 90, "빗나감", "#cfe6ff"); m.numT = 0.3; }
     return 0;
@@ -1544,6 +1569,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (h && procOff === 0) worldSetHit(worldEngine, g, h, m, { dot: !!dot, basic: !skill && !dot, weapon: !!skill && !!h.cast?.weapon });
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
   if (h && !dot) weaponOnHit(g, h, m, null, side, !skill);   // 전설 무기 패시브 — side 는 튄 피해(옆 몹)
+  if (h && !dot && procOff === 0) advOnHit(advEngine, g, h, m, !skill, side);   // 전직 패시브 · 시험
   m.flash = 0.12;
   if (m.numAcc > 0 && (m.numBy ?? -1) !== pi) flushNum(g, m, 0);   // 다른 사람이 친 숫자는 따로 — 모아 둔 것을 먼저 띄운다
   m.numBy = pi;
@@ -1572,6 +1598,7 @@ function killMob(g, m, pi) {
   if(isGuildBoss(m)){m.hp=0;guildKilled(guildEngine,g,m);return;}
   addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
   m.hp = 0;
+  advOnKill(advEngine, g, m);                     // 소환술사 시험 — 정령이 친 몹
   flushNum(g, m, m.boss ? 0 : 1);                 // 남은 숫자 — 보스는 모아 둔 평타라 평타 세기로
   fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" });
   if (m.gi >= 0) g.respawn.push({ t: SPAWNS[m.gi].respawn, gi: m.gi });   // 던전 몹은 다시 나오지 않는다
@@ -1742,6 +1769,7 @@ function hurtHero(g, h, raw) {
   dmg = skillTake(g, h, dmg);                     // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세
   if (dmg <= 0) return;
   h.hp -= dmg;
+  advHurt(advEngine, g, h);                       // 기사 — 철벽 방어 반격 · 생존 시험
   h.flash = 0.18;
   h.calm = 0;
   h.numAcc += dmg;
@@ -1761,6 +1789,7 @@ function hurtHero(g, h, raw) {
     h.hp = 0;
     h.down = isPvp(h.map) ? DUEL.end + 1 : RPG.down;   // 결투에서 쓰러지면 결투가 끝날 때 일어난다
     h.hold = [];
+    advDown(advEngine, g, h);                     // 생존 시험은 처음부터 · 정령은 돌아간다
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
     say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
   }
@@ -1851,12 +1880,14 @@ function heroAttack(g, h, force) {
     fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: m.x, y1: m.y - 10, style: "orb",
       art: art.fly || 0, r: 22, color: el.light, t: fly, life: fly, snd: "orb" });
   } else {
-    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, style: "arrow",
-      color: el.light, t: fly, life: fly, snd: "shot" });
+    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, ...archerShot(h, el), t: fly, life: fly, snd: "shot" });
   }
   g.hits.push({ t: fly, pi, mid: m.id, x: m.x, y: m.y, map, dmg, splash: job.splash || 0 });
   return true;
 }
+
+// 궁수 평타 모양 — 총사가 총을 들었으면 화살 대신 주황 탄환(art.js "slug"). 판정은 같다
+const archerShot = (h, el) => (h.advClass === "gunner" && advOf(h) && advEngine.gunHeld(h) ? { style: "slug", color: "#ffb45a" } : { style: "arrow", color: el.light });
 
 // 겨누는 방향 — 누르고 있는 방향, 없으면 바라보는 쪽(좌우). 단위 벡터
 export function aimDir(h) {
@@ -1898,7 +1929,7 @@ function shootAir(g, h, job, el, dmg, rng, hy) {
     fx(g, h.map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, style: "orb",
       art: ELEM_ART[el.id].fly || 0, r: 22, color: el.light, t: fly, life: fly, snd: "orb" });
   } else {
-    fx(g, h.map, { kind: "shot", x0: h.x, y0: hy, x1: tx, y1: ty - 10, style: "arrow", color: el.light, t: fly, life: fly, snd: "shot" });
+    fx(g, h.map, { kind: "shot", x0: h.x, y0: hy, x1: tx, y1: ty - 10, ...archerShot(h, el), t: fly, life: fly, snd: "shot" });
   }
   if (job.splash && !isPvp(h.map)) g.hits.push({ t: fly, pi: h.pi, mid: -1, x: tx, y: ty, map: h.map, dmg, splash: job.splash });
   return true;
@@ -1927,8 +1958,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
     fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: o.x, y1: o.y - 30, style: "orb",
       art: art.fly || 0, r: 22, color: el.light, t: fly, life: fly, snd: "orb" });
   } else {
-    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: o.x, y1: o.y - 30, style: "arrow",
-      color: el.light, t: fly, life: fly, snd: "shot" });
+    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: o.x, y1: o.y - 30, ...archerShot(h, el), t: fly, life: fly, snd: "shot" });
   }
   g.hits.push({ t: fly, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: job.splash || 0 });
   return true;
@@ -2464,7 +2494,7 @@ function applySkillState(h, a) {
 /* 받는 피해 — 철벽이 줄이고, 마나 보호막 · 성역 보호막이 막는다. 신성검 반격 자세면 막고 벤다 */
 function skillTake(g, h, dmg) {
   const jb = h.jb, w = h.ws;
-  if (jb && jb.iron > 0) dmg *= 1 - jb.ironCut;
+  dmg *= 1 - advTakeCut(h, jb && jb.iron > 0 ? jb.ironCut : 0);   // 직업 철벽 + 기사 철벽 방어 · 불굴의 의지 · 파티 보호(합쳐 70% 까지)
   if (w && w.cmb && w.cmb.sp === "holy" && w.cmb.st === 1 && heldSpecial(h) === "holy") { holyCounter(g, h); return 0; }
   if (jb && jb.sh > 0) {
     const a = Math.min(jb.sh, dmg);
@@ -2696,6 +2726,25 @@ function packTrain(g, h) {
   if (!t) return 0;
   return [t.nocd, t.stack, t.god, Math.round(trainDps(g, h)), Math.round(t.tot), t.hits];
 }
+
+/* 1차 전직(advance.js)도 기존 대상 고르기 · 피해 · 결투 한도 · 원소 판정을 그대로 쓴다 */
+// 160레벨 이상 몹이 나오는 맵 · 던전 · 월드보스 — 전직 시험을 세는 곳
+const advBigMap = (map) => { const M = MAPS[map]; return !!M && (!!M.dungeon || !!M.worldBoss || SPAWNS.some((sp) => sp.map === map && Array.isArray(sp.lv) && sp.lv[0] >= ADV.trialLv)); };
+const advEngine = { fx, say, sys, dist, near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc, soak, later,
+  cc: ccAny, alive: aliveFoe, aim: aimTo, aimAt, end: lineEnd, newCast, squash: RPG.squash, bigMap: advBigMap,
+  base: (h, k) => SKILL_USE.base * skillStatMul(h, k), elem: (h) => elemOf(h).id, locked: ccLocked,
+  safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn,
+  gunHeld: (h) => { const w = h.bag && equipped(h.bag); return !!w && w.t === "gun"; },
+  bagRoom: (h) => !!h.bag && h.bag.w.length < WEAPON.bagMax,
+  gear: (h, id) => {                              // 전직 무기 한 자루 — 이미 가졌으면 주지 않는다
+    const sp = SPECIALS.find((q) => q.id === id), b = h.bag;
+    if (!sp || !b || b.w.some((w) => w.sp === id) || b.w.length >= WEAPON.bagMax) return;
+    b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id });
+    b.v += 1;
+  } };
+// 1차 전직 — 시험 받기 · 그만두기 · 확정 · 전직 스킬(op "use", 키 adv)
+export function rpgAdv(g, pi, req) { return advInput(advEngine, g, pi, req); }
+export { advOf };
 
 // 월드보스 무기도 기존 피해·대상·이동 판정을 공유한다.
 const worldEngine = { fx, near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc,
@@ -3086,6 +3135,7 @@ function stepHeroes(g, dt) {
     armorTick(h, dt, (id) => g.mobs.find((m) => m.id === id && !m.dead && m.map === h.map));   // 방어구 효과 시간
     if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - dt);   // 산 스킬 대기 시간
     tickWeapon(g, h, dt);                         // 전설 무기 · 직업 스킬 효과 시간
+    tickAdv(advEngine, g, h, dt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < MAT_MAX)) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다)
       MATERIALS.forEach((m) => { h.bag.m[m.id] = MAT_MAX; });
@@ -4087,7 +4137,8 @@ export function rpgPack(g) {
         (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt ?? g.t)) * 1000) : 0,
         packArmor(h),
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
-        packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0, h.ts || 0, trading(h) ? h.trade : null,h.guild||null]
+        packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0, h.ts || 0, trading(h) ? h.trade : null,h.guild||null,
+        packAdv(h)]                                 // 53 — 1차 전직 · 시험 · 전직 스킬 상태(advance.js)
       : 0)),
     b: packBags(g),
     w: g.heroes.map((h) => (h && h.who) || ""),    // 자리마다 앉은 사람 id — 손님이 제 자리 영웅인지 견준다(남의 기록을 제 것으로 저장하지 않게)
@@ -4097,7 +4148,7 @@ export function rpgPack(g) {
     m: g.mobs.filter((m) => busy.has(m.map)).map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
         | (m.stun > 0 ? 16 : 0) | (m.shred > 0 ? 32 : 0) | (m.flash > 0 ? 64 : 0)
-        | (m.air > 0 ? 128 : 0) | (m.brand > 0 ? 256 : 0) | (m.bind > 0 ? 512 : 0),
+        | (m.air > 0 ? 128 : 0) | (m.brand > 0 ? 256 : 0) | (m.bind > 0 ? 512 : 0) | (m.wkUntil > g.t ? 1024 : 0),   // 1024 명사수 약점 표식
       m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0, m.warnR || 0,
       // 보스는 체력을 그대로도 싣는다 — 손님 체력바가 1% 단위로 끊기지 않게
       m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0]),
@@ -4182,6 +4233,7 @@ export function rpgApply(g, s) {
     if (row.length > 44) applyArmor(h, row[44]);   // 방어구 — 신발 · 추격 · 위기 · 부활 대기
     if (row.length > 49) { h.rs = row[48] ? RESET.id : ""; h.pvpOn = row[49] ? 1 : 0; }   // 서버 초기화를 겪었는지 · 사냥터 PvP
     if (Array.isArray(row[46])) applySkillState(h, row[46]);
+    if (row.length > 53) applyAdv(h, row[53]);     // 1차 전직 · 시험 · 전직 스킬 상태
     if (Array.isArray(row[47])) {                  // 훈련장 — 교관 창에 보이는 켜기/끄기 · 초당 피해
       const [nocd, stack, god, dps, tot, hits] = row[47];
       h.trn = { ...(h.trn || { log: [] }), nocd, stack, god, dps, tot, hits };
@@ -4217,6 +4269,7 @@ export function rpgApply(g, s) {
     m.burn = flags & 8 ? 0.3 : 0; m.stun = flags & 16 ? 0.3 : 0; m.shred = flags & 32 ? 0.3 : 0;
     if (flags & 64) m.flash = 0.1;
     m.air = flags & 128 ? 0.3 : 0; m.brand = flags & 256 ? 0.3 : 0; m.bind = flags & 512 ? 0.3 : 0;
+    m.wk = flags & 1024 ? 1 : 0;                   // 명사수 약점 표식 — 그림만(advArt.js)
     m.ax = flip ? -1 : 1;
     m.moving = moving;
   });
@@ -4260,6 +4313,7 @@ export function rpgStepVisual(g, dt) {
     if (!h) return;
     h.swing = Math.max(0, h.swing - dt);
     h.flash = Math.max(0, h.flash - dt);
+    stepAdvVisual(h, dt);                          // 정령이 주인을 따라 떠다닌다(그림만)
     if (h.tx === undefined || trading(h) || h.tradeLocal) return;
     if (h.pi === g.mySeat) {
       h.predict = Math.max(0, (h.predict || 0) - dt);

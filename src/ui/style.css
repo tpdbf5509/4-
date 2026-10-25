@@ -1515,6 +1515,31 @@ kbd {
 .wb-bosses .shop-btn { margin-top: 8px; align-self: flex-start; justify-self: start; }
 .wb-portrait { width: 140px; height: 140px; max-width: 100%; margin: 0 auto; background-size: 500% 333.3333%; background-repeat: no-repeat; image-rendering: pixelated; }
 .wb-panel button:focus-visible, .guild-panel button:focus-visible, .guild-panel input:focus-visible, .rpg-raid button:focus-visible { outline: 2px solid var(--sh-gold); outline-offset: 2px; }
+/* 전직 교관 창 — 상점 틀(.shop) 그대로. 전직 둘을 칸으로 나누고, 지금 전직만 금빛 선(강조 한 곳) */
+.adv-panel { width: min(760px, calc(100% - 24px)); }
+.adv-body { font-size: 12.5px; line-height: 1.55; color: var(--sh-mute); letter-spacing: -0.02em; }
+.adv-now { margin: 8px 0 10px; color: var(--sh-text); }
+.adv-now b { font-weight: 400; color: var(--sh-gold); }
+.adv-now kbd { padding: 0 5px; border: 1px solid var(--sh-line); border-radius: 4px; font-size: 11px; color: var(--sh-text); }
+.adv-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.adv-card { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--sh-line); border-radius: 8px; background: var(--sh-row); }
+.adv-card.on { border-color: var(--sh-gold); }
+.adv-head { display: flex; align-items: center; gap: 10px; }
+.adv-head .shop-h { margin: 0; letter-spacing: -0.03em; }
+.adv-icon { width: 44px; height: 44px; flex: none; background-repeat: no-repeat; image-rendering: pixelated; }
+.adv-line { font-size: 11.5px; color: var(--sh-faint); }
+.adv-note { margin: 0; color: var(--sh-text); }
+.adv-skills { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 8px; margin: 0; }
+.adv-skills dt { color: var(--sh-faint); font-size: 11.5px; }
+.adv-skills dd { margin: 0; }
+.adv-skills b { font-weight: 400; color: var(--sh-text); }
+.adv-prog { height: 4px; border-radius: 2px; background: rgba(255, 244, 222, 0.08); overflow: hidden; }
+.adv-prog i { display: block; height: 100%; background: #b9c9a2; }
+.adv-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.adv-why { margin: 0; font-size: 11.5px; color: var(--sh-warn); }
+.adv-rule { margin: 12px 0 6px; font-size: 12px; color: var(--sh-faint); }
+.adv-panel button:focus-visible { outline: 2px solid var(--sh-gold); outline-offset: 2px; }
+@media (max-width: 700px) { .adv-list { grid-template-columns: 1fr; } }
 /* 월드보스 · 길드 토벌 진행 칸 — 던전 진행 칸(.rpg-dg)을 그대로 쓰고, 보스 기술 줄만 더한다.
    평소엔 1px 선, 합동 공격 · 기절 때만 금빛(강조 한 곳) */
 .rpg-raid-warn { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 0; padding: 5px 8px;

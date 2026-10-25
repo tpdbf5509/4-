@@ -1,6 +1,7 @@
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor} from './guildArt.js';
 import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
+import { warmAdvArt, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
@@ -66,6 +67,7 @@ const BOW_STRING = { thunder_bow: -1, lava_bow: 1, shadow_bow: 1, star_bow: -1, 
    HOLDER_HAND: 직업 · 성별 · 보기마다 손 [x, y]와 무기 방향(도, 손 → 지팡이 머리 · 활 위쪽 끝)과 그 길이(px) — 원래 그림 크기 기준.
    무기가 몸에 가려 보이지 않는 보기(마법사 옆 · 뒤 등)는 원래 그림을 그대로 쓴다 */
 const HOLDER = { mage: "staff", archer: "bow" };     // 직업 → 손에 드는 무기 종류
+const ADV_HELD = { gun: "archer", grim: "mage" };    // 전직 무기 종류 → 드는 직업(shopData.js WEAPON_TYPES adv)
 const HOLDER_HAND = {
   mage: {
     m: { front: [148, 200, -72, 76], turn: [40, 200, -92, 62] },
@@ -113,6 +115,12 @@ function weaponImg(sp, part = 0) {
 function heldWeapon(h, view) {
   if (HOLDER[h.job]) {
     const sp = SPECIAL_BY_ID[heldSpecial(h)];
+    // 전직 무기 — 총사가 총을, 소환술사가 소환서를 들면 원래 무기를 지운 그림에 그것을 들린다(advArt.js). 지운 그림이 없는 보기는 원래 그림
+    if (sp && ADV_HELD[sp.t] === h.job) {
+      const hand = HOLDER_HAND[h.job][h.gender === "f" ? "f" : "m"][view];
+      const body = hand && heroImg(h, `${view}-bare`);
+      return body ? { body, hand, adv: sp.t, still: true, left: view === "turn" || view === "side" || view === "back" } : null;
+    }
     const hand = sp && sp.t === HOLDER[h.job] && HOLDER_HAND[h.job][h.gender === "f" ? "f" : "m"][view];
     const grip = hand && WEAPON_GRIP[sp.art];
     const wpn = grip && weaponImg(sp);
@@ -234,7 +242,7 @@ export const RFRAME = {
 };
 let rpgWarm = 0;
 export function warmRpgArt() {
-  warmDragonFlightArt();warmWorldBossArt();warmGuildArt();
+  warmDragonFlightArt();warmWorldBossArt();warmGuildArt();warmAdvArt();
   if (rpgWarm) return;
   rpgWarm = 1;
   ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
@@ -850,6 +858,7 @@ function drawNpc(ctx, g, n, time) {
   if (n.board) return drawHonorBoard(ctx, n, time);
   if (n.req) return drawReqNpc(ctx, g, n, time);
   if (n.dungeon) return drawDungeonNpc(ctx, n, time);
+  if (n.adv) return drawAdvNpc(ctx, g, n, time, roundRect, shadow);   // 광장 전직 교관(advArt.js)
   const { x, y } = n;
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
   const bob = Math.sin(time * 2) * 1.2;
@@ -1893,8 +1902,13 @@ function drawHero(ctx, g, h, time) {
         to: sw.to === undefined ? undefined : counter(sw.to), trail: sw.trail * 0.7 } : null;
       drawHeld(ctx, off, ww, top, offSwing, col.light);
     }
+    const shield = h.advClass === "knight" && h.job === "warrior" ? DUAL_OFF_HAND[h.gender === "f" ? "f" : "m"][view] : null;   // 기사 방패
+    if (shield && view === "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
+    if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, true);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
-    if (held) drawHeld(ctx, held, ww, top, sw, col.light);
+    if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
+    else if (held) drawHeld(ctx, held, ww, top, sw, col.light);
+    if (shield && view !== "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (h.flash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(0.5, h.flash * 3);
@@ -2169,8 +2183,8 @@ export function drawRpg(ctx, g, bgs) {
     // 띄움에 걸린 것은 위로 떠서 그린다 · 걸린 표시(경직 · 속박 · 낙인)는 그 위에
     const who = o.m || o.h, lift = who ? liftOf(who, 1 / 60) : 0;
     if (lift) { ctx.save(); ctx.translate(0, -lift); }
-    if (o.m) (MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time,g);
-    else if (o.h) { drawHero(ctx, g, o.h, time); drawHeroSkill(ctx, o.h, time); }
+    if (o.m) { (MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time,g); drawAdvMob(ctx, o.m, time, (o.m.rad || 16) * 1.5 + 24); }   // 명사수 약점 표식
+    else if (o.h) { drawHero(ctx, g, o.h, time); drawHeroSkill(ctx, o.h, time); drawAdvHero(ctx, o.h, time); }
     if (lift) ctx.restore();
     if (who && (o.m || o.h.cc)) drawCcMark(ctx, who, time);
     else if (o.gate) drawGate(ctx, o.gate, time);

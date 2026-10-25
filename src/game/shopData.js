@@ -31,6 +31,9 @@ export const WEAPON_TYPES = [
   { id: "dagger", name: "단검", stat: "crit", mul: 0.6, price: 1 },     // 치명타 확률은 상한(80%)이 있어 적게 준다
   { id: "great", name: "대검", stat: "cdmg", mul: 0.8, price: 1 },
   { id: "bow", name: "활", stat: "str", mul: 1, price: 1 },             // 궁수 공격력과 같은 물리력
+  // 전직 무기 — 총사 · 소환술사가 전직할 때 받는다(advData.js gear). adv 가 붙은 종류는 특가 · 랜덤 상자에 나오지 않는다
+  { id: "gun", name: "총", stat: "str", mul: 1, price: 1, adv: 1 },
+  { id: "grim", name: "소환서", stat: "int", mul: 1.1, price: 1.1, adv: 1 },
 ];
 // 등급 — mul 은 스탯 배율, price 는 값 배율
 export const GRADES = [
@@ -53,7 +56,7 @@ export const WEAPON = {
 };
 /* 직업과 맞지 않는 무기 — 무기 종류를 검 · 활 · 마법봉 셋으로 묶는다(전사 검 · 궁수 활 · 마법사 마법봉).
    다른 묶음의 무기를 들면 등급 · 강화 · 스탯과 상관없이 한 대 피해가 dmg 로 고정되고 치명타도 없다. */
-export const WEAPON_FAMILY = { sword: "sword", axe: "sword", dagger: "sword", great: "sword", staff: "staff", tome: "staff", bow: "bow" };
+export const WEAPON_FAMILY = { sword: "sword", axe: "sword", dagger: "sword", great: "sword", staff: "staff", tome: "staff", bow: "bow", gun: "bow", grim: "staff" };   // 총은 궁수 · 소환서는 마법사 묶음
 export const JOB_FAMILY = { warrior: "sword", archer: "bow", mage: "staff" };
 export const OFF_HAND = { dmg: { sword: 45, bow: 35, staff: 40 } };   // 기획 값 — 검 45 · 활 35 · 마법봉 40
 
@@ -89,6 +92,10 @@ export const SPECIALS = [
   { id: "star_bow", name: "별자리 활", t: "bow", lv: 80, g: 4, stat: "str", amt: 218, art: "star_bow" },     // 예전 Lv 90
   { id: "gold_bow", name: "황금 날개 활", t: "bow", lv: 90, g: 4, stat: "str", amt: 240, art: "gold_bow" }, // 예전 Lv 100
   ...WORLD_WEAPONS,
+  // 전직 무기(adv) — 전직을 확정하면 한 자루 받는다. 상점 · 특가 · 랜덤 상자 · 관리자 자동 지급에 나오지 않는다.
+  // 올리는 양은 전설 활 · 지팡이(240)보다 조금 낮게 — 이미 전설 무기를 가진 사람이 손해 보지 않도록 바꿔 들지 않아도 스킬은 쓴다
+  { id: "adv_guns", name: "총사의 쌍권총", t: "gun", lv: 100, g: 3, stat: "str", amt: 230, art: "adv_guns", adv: 1 },
+  { id: "adv_grim", name: "소환술사의 소환서", t: "grim", lv: 100, g: 3, stat: "int", amt: 220, art: "adv_grim", adv: 1 },
 ];
 
 // 오늘의 특가 — 날짜로 정한다. 특별 무기 날이면 내 레벨로 낄 수 있는 특별 무기 하나,

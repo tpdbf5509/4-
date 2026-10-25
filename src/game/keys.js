@@ -13,6 +13,8 @@ export const KEY_ACTIONS = [
   { id: "use2", name: "일반 스킬 칸 2", group: "전투", keys: ["Digit2", "Numpad2"] },
   { id: "use5", name: "직업 스킬 칸", group: "전투", keys: ["KeyR", ""] },
   { id: "wskill", name: "무기 스킬", group: "전투", keys: ["KeyX", ""] },
+  // 전직 스킬 칸 — 200레벨 1차 전직 액티브 하나. Z 는 다른 기본 키와 겹치지 않는다(저장된 키에 Z 를 이미 쓰면 loadKeys 가 비워 둔다)
+  { id: "adv", name: "전직 스킬", group: "전투", keys: ["KeyZ", ""] },
   { id: "pot1", name: "물약 칸 1", group: "전투", keys: ["Digit5", "Numpad5"] },
   { id: "pot2", name: "물약 칸 2", group: "전투", keys: ["Digit6", "Numpad6"] },
   { id: "pot3", name: "물약 칸 3", group: "전투", keys: ["Digit7", "Numpad7"] },
@@ -51,6 +53,9 @@ export function loadKeys() {
       if (!c) return;
       KEY_ACTIONS.forEach((a) => { if (a.id !== id) base[a.id] = base[a.id].map((x) => (x === c ? "" : x)); });
     }));
+    // 새로 생긴 행동(예: 전직 스킬 Z)의 기본 키를 사람이 이미 다른 행동에 쓰고 있으면 새 행동 칸을 비운다 — 쓰던 키를 빼앗지 않는다
+    const taken = new Set(KEY_ACTIONS.filter((a) => Array.isArray(v[a.id])).flatMap((a) => base[a.id]).filter(Boolean));
+    KEY_ACTIONS.forEach((a) => { if (!Array.isArray(v[a.id])) base[a.id] = base[a.id].map((x) => (taken.has(x) ? "" : x)); });
   } catch { /* 저장이 막혀 있으면 기본값 */ }
   return base;
 }

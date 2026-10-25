@@ -17,6 +17,8 @@ import { cleanArmor, wornArmor } from "./armor.js";
 
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
 export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]));
+// 특가 · 랜덤 상자가 고르는 무기 종류 — 전직 무기(총 · 소환서)는 빼서 예전 확률을 그대로 둔다
+const ROLL_TYPES = WEAPON_TYPES.filter((t) => !t.adv);
 export const SKILL_BY_ID = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
 /* 스킬 칸 — 쓸 수 있는 스킬은 궁극기(큰 기술 · Shift) 하나, 직업 스킬 칸 하나(R), 일반 스킬 칸 둘(1 · 2), 무기 스킬 하나(X, 낀 전설 무기).
    직업 · 일반 칸은 가방 "스킬" 탭에서 배운 액티브 스킬로 채운다(bag.ks = { job, g: [칸1, 칸2] }). 패시브는 칸 없이 늘 듣는다 */
@@ -120,7 +122,7 @@ export function specialPrice(sp) {
   return Math.max(10, Math.round(raw / 10) * 10);
 }
 // 내 레벨로 낄 수 있는 특별 무기
-export const specialsFor = (lv) => SPECIALS.filter((sp) => !sp.world && lv >= sp.lv);
+export const specialsFor = (lv) => SPECIALS.filter((sp) => !sp.world && !sp.adv && lv >= sp.lv);   // 월드보스 · 전직 무기는 빼고
 export const specialArt = (sp) => sp.world ? worldArt(sp.id) : `/assets/game/rpg/weapons/${sp.art}.webp`;
 
 // 가방의 무기 한 자루 — 특별 무기면 sp 가 붙어 있다
@@ -156,8 +158,8 @@ export function dealOf(lv, day = todayKey()) {
     const full = specialPrice(sp);
     return { sp: sp.id, t: sp.t, r: specialTier(sp), g: sp.g, full, price: dealCut(full), key: `${day}/${sp.id}` };
   }
-  const t = WEAPON_TYPES[h % WEAPON_TYPES.length].id;
-  const g = DEAL.grades[Math.floor(h / WEAPON_TYPES.length) % DEAL.grades.length];
+  const t = ROLL_TYPES[h % ROLL_TYPES.length].id;
+  const g = DEAL.grades[Math.floor(h / ROLL_TYPES.length) % DEAL.grades.length];
   const r = tierOf(lv);
   const full = weaponPrice(t, r, g);
   return { t, r, g, full, price: dealCut(full), key: `${day}/${t}/${r}/${g}` };
@@ -290,6 +292,7 @@ export function whySpecialBuy(h, id) {
   const sp = SPECIAL_BY_ID[id];
   if (!sp) { out.push("없는 무기입니다"); return out; }
   if (sp.world) out.push("월드보스 전용 장비입니다");
+  if (sp.adv) out.push("전직하면 받는 무기입니다");
   if (!h || !h.bag) return out;
   if (h.bag.w.some((w) => w.sp === id)) { out.push("이미 가지고 있습니다"); return out; }
   if (h.lv < sp.lv) out.push(`레벨 ${sp.lv} 필요 (지금 ${h.lv})`);
@@ -472,7 +475,7 @@ export function boxValue(lv) {
   const sEv = own.length ? own.reduce((a, sp) => a + specialPrice(sp), 0) / own.length : 0;
   const wsum = BOX.grades.reduce((a, b) => a + b, 0);
   const wEv = BOX.grades.reduce((acc, pct, g) =>
-    acc + (pct / wsum) * (WEAPON_TYPES.reduce((s, t) => s + weaponPrice(t.id, r, g), 0) / WEAPON_TYPES.length), 0);
+    acc + (pct / wsum) * (ROLL_TYPES.reduce((s, t) => s + weaponPrice(t.id, r, g), 0) / ROLL_TYPES.length), 0);
   const psum = Object.values(BOX.potions).reduce((a, b) => a + b, 0);
   const pEv = Object.entries(BOX.potions).reduce((acc, [id, pct]) => acc + (pct / psum) * POTION_BY_ID[id].price, 0);
   return share.special * sEv + share.weapon * wEv + share.potion * pEv;
@@ -823,7 +826,7 @@ export function rpgShop(g, pi, req) {
       fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `${sp.name}!`, color: "#ffd873", t: 1.4, life: 1.4, snd: "clear", who: pi });
     } else if (roll < share.special + share.weapon) {
       const gi = pickWeighted(GRADES, (gd) => BOX.grades[gd.id]).id;
-      const t = WEAPON_TYPES[Math.floor(Math.random() * WEAPON_TYPES.length)].id;
+      const t = ROLL_TYPES[Math.floor(Math.random() * ROLL_TYPES.length)].id;
       const r = tierOf(h.lv);
       const w = addWeapon(h, t, r, gi, weaponPrice(t, r, gi));     // 되팔 때는 상점가의 40%
       got = { kind: "weapon", g: gi };

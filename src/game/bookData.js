@@ -12,6 +12,7 @@ import { PARTY, CHAT } from "./socialData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEONS, DUNGEON } from "./dungeonData.js";
 import { UPDATES } from "./updates.js";
+import { ADV, ADV_CLASSES } from "./advData.js";
 
 const won = (n) => n.toLocaleString("ko-KR");
 const pct = (w) => `${w}%`;
@@ -21,6 +22,16 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 
 /* ── 패치노트 — 새 책은 맨 위에 더한다 ───────────────────────── */
 export const PATCH_BOOKS = [
+  { id: "patch-2026-10-26a", title: "패치노트 · 10월 26일", sub: "1차 전직", color: "#c9b37c",
+    pages: [
+      { h: "1차 전직", p: [`${ADV.lv}레벨부터 광장의 전직 교관(무기상점과 명예 순위판 사이)에게서 전직 시험을 받습니다.`,
+        "직업마다 두 갈래입니다. 검사 → 검투사 · 기사, 궁수 → 명사수 · 총사, 마법사 → 마도사 · 소환술사.",
+        "시험을 마치고 교관에게 확정하면 전직합니다. 전직은 되돌릴 수 없습니다.",
+        "기본 직업 · 직업 스킬 · 궁극기 · 무기 스킬은 그대로입니다. 전직 액티브 하나는 새 칸(기본 Z)에서 쓰고 패시브는 저절로 듣습니다."] },
+      { h: "전직 무기", p: ["총사는 「총사의 쌍권총」, 소환술사는 「소환술사의 소환서」를 받습니다. 상점 · 특가 · 랜덤 상자에는 나오지 않습니다.",
+        "총사가 총을 들면 평타가 주황 탄환으로 나갑니다. 기사는 늘 방패를 듭니다."] },
+      { h: "바뀐 이름", p: ["직업 이름 전사 → 검사. 저장 · 칭호 · 무기 묶음은 그대로입니다."] },
+    ] },
   { id: "patch-2026-10-23s", title: "패치노트 · 10월 23일 (19)", sub: "날개 단 여신", color: "#c9b37c",
     pages: [{ h: "새 여신 조각상", p: ["길드 광장 여신 조각상을 날개를 편 여신으로 바꿨습니다. 검과 방패를 들고 빛고리를 두릅니다.", "성전 레벨이 오를수록 둘레 금빛이 짙어집니다. 성전 창의 그림도 같습니다."] }] },
   { id: "patch-2026-10-23r", title: "패치노트 · 10월 23일 (18)", sub: "길드의 여신", color: "#b9a3d6",
@@ -163,7 +174,7 @@ export const PATCH_BOOKS = [
       { h: "결투장", p: [
         "결투 칸이 넓어졌습니다. 가로 1080 → 1640 · 세로 760 → 1120.",
         "결투 스킬 한 번 최대 피해 1500 → 1000. 누르는 기준 2500 → 1700.",
-        "최고 스탯 전사끼리 기본 검으로 스킬 6번이면 체력이 절반쯤 깎입니다.",
+        "최고 스탯 검사끼리 기본 검으로 스킬 6번이면 체력이 절반쯤 깎입니다.",
       ] },
     ],
   },
@@ -370,13 +381,26 @@ export const GUIDE_BOOKS = [
     ],
   },
   {
-    id: "guide-job", title: "직업과 원소", sub: "전사 · 마법사 · 궁수", color: "#b79be0",
+    id: "guide-job", title: "직업과 원소", sub: "검사 · 마법사 · 궁수", color: "#b79be0",
     pages: [
       { h: "직업", p: JOBS.map((j) => `${j.name} · ${j.weapon} · ${j.note}`).concat(["직업과 다른 무기 묶음을 들면 한 대 피해가 고정되고 치명타가 나지 않습니다."]) },
       { h: "원소", p: [
         `원소는 ${ELEMS.map((e) => e.name).join(" · ")} 입니다.`,
         ...ELEMS.map((e) => `${e.name} · 평타는 ${e.hit} · 큰 기술은 ${e.big}`),
       ] },
+    ],
+  },
+  {
+    id: "guide-adv", title: "1차 전직", sub: `${ADV.lv}레벨 · 전직 여섯`, color: "#9fb0c8",
+    pages: [
+      { h: "전직하는 법", p: [`${ADV.lv}레벨부터 광장의 전직 교관에게 말을 걸어 시험을 받습니다.`,
+        `시험은 ${ADV.trialLv}레벨 이상 몹 · 던전 · 월드보스에서 셉니다. 허수아비는 세지 않습니다.`,
+        "시험을 바꾸면 진행은 처음부터입니다. 마친 뒤 교관에게 확정하면 끝납니다. 되돌릴 수 없습니다.",
+        `결투 · 사냥터 PvP 에서는 패시브 추가 피해가 +${Math.round(ADV.pvpBonusMax * 100)}% 까지이고 경직 · 둔화는 ${Math.round(ADV.pvpCc * 100)}% 로 짧습니다.`] },
+      ...ADV_CLASSES.map((c) => ({ h: `${c.name} · ${c.weapon}`, p: [c.note,
+        `액티브 ${c.active.name} · 대기 ${c.active.cd}초 — ${c.active.note}`,
+        `패시브 ${c.passive.name} — ${c.passive.note}`,
+        `시험 ${c.trial.name} — ${c.trial.note}`] })),
     ],
   },
   {
@@ -390,7 +414,7 @@ export const GUIDE_BOOKS = [
       ] },
       { h: "스탯", p: [
         `레벨이 오를 때마다 ${STAT_PER_LV}포인트를 받습니다. 스탯 하나에는 ${STAT_MAX}까지 찍습니다.`,
-        "물리력은 전사 · 궁수의 공격력입니다. 마법력은 마법사의 공격력과 화상 · 독 피해입니다.",
+        "물리력은 검사 · 궁수의 공격력입니다. 마법력은 마법사의 공격력과 화상 · 독 피해입니다.",
         "체력 · 치명타 확률 · 치명타 피해도 있습니다. 치명타 확률은 80%까지입니다.",
         "스탯은 한 번 찍으면 되돌릴 수 없습니다. 초기화 물약이 있으면 다시 나눕니다.",
       ] },

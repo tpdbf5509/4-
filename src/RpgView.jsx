@@ -6,6 +6,8 @@ import {WORLD_BOSS} from "./game/worldBossData.js";
 import {worldBossView,worldBossPortalNear} from "./game/worldBoss.js";
 import WorldBossPanel,{WorldBossHud} from "./WorldBossPanel.jsx";
 import TradePanel from "./TradePanel.jsx";
+import AdvPanel from "./AdvPanel.jsx";
+import { ADV, ADV_BY_ID } from "./game/advData.js";
 import { useTrade } from "./useTrade.js";
 import { trading } from "./game/tradeData.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -48,6 +50,19 @@ function weaponHud(me) {
     : sp === "star_bow" ? `조준 ${w.aim || 0}/${W.passive.max}`
     : W.passive.name);
   return { name: W.name, cd: w.wcd || 0, max: W.skill.cd, stack };
+}
+// 전직 스킬 칸 — 1차 전직을 마친 사람만. 쌓인 패시브를 작은 글자로
+function advHud(me) {
+  const c = ADV_BY_ID[me.advClass];
+  if (!c || c.job !== me.job) return null;
+  const a = me.as || {}, P = c.passive;
+  const stack = c.id === "gladiator" ? `투지 ${a.st || 0}/${P.max}`
+    : c.id === "knight" ? (a.gT > 0 ? `방어 ${Math.ceil(a.gT)}초` : P.name)
+    : c.id === "marksman" ? (a.ex ? "약점 노출" : `포착 ${a.st || 0}/${P.need}`)
+    : c.id === "gunner" ? `탄도 ${a.st || 0}/${P.max}`
+    : c.id === "archmage" ? `마력 ${a.st || 0}/${P.max}`
+    : a.sp && a.sp.t > 0 ? `정령 ${Math.ceil(a.sp.t)}초` : P.name;
+  return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW } from "./game/requestData.js";
@@ -417,7 +432,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (c && selfName.current && c.name !== selfName.current) { setMixed(true); return null; }   // 다른 캐릭터의 기록 — 보내지 않는다
     const extra = { auto: autoRef.current, pvp: pvpRef.current, hold: dirsRef.current.slice() };
     return c ? { name: c.name, lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
-      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, rs: c.rs, ts: c.ts, ...extra } : extra;
+      rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, rs: c.rs, ts: c.ts,
+      advClass: c.advClass, advQ: c.advQ, ...extra } : extra;
   };
 
   const G = useRef(null);
@@ -476,6 +492,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [wbOpen,setWbOpen]=useState(false);
   const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
   const [trainOpen, setTrainOpen] = useState(false); // 훈련 교관 창
+  const [advOpen, setAdvOpen] = useState(false);     // 전직 교관 창(AdvPanel)
   const dgRef = useRef(false);                       // 루프가 보는 열린 던전 창 — 관리인에게서 멀어지면 닫는다
   // 던전·월드·길드 보스 공통 체력 칸 — 루프가 프레임마다 DOM 너비를 바로 고친다(React 상태를 매 프레임 바꾸지 않는다)
   const bossMem = useRef(null);                      // { id, name, map, hp, max, fx } — 쓰러진 뒤에도 0% 까지 보여 주려고 남긴다
@@ -553,7 +570,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
-    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false);
+    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -700,6 +717,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if(npc.worldBoss){closeAll();setWbOpen(true);return;}
       if (npc.dungeon) { closeAll(); setDgOpen(true); return; }                 // 던전 관리인 — 입장 창
       if (npc.train) { closeAll(); setTrainOpen(true); return; }               // 훈련 교관 — 기능 창
+      if (npc.adv) { closeAll(); setAdvOpen(true); return; }                   // 전직 교관 — 시험 · 확정 창
       if (npc.shop) {                               // 상점은 창만 연다 — 사고파는 것은 창에서 보낸다
         setStatOpen(false); setMenu(false); setBagOpen(false); setNote(null);
         setShopOpen(npc.shop);
@@ -744,13 +762,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -809,6 +827,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
       else if (a === "wskill") act("wskill");
+      else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "dash") act("dash");
       else if (a === "talk") act("talk");
       else if (a.startsWith("pot")) {                // 물약 칸 — 넣어 둔 물약을 마신다
@@ -1070,14 +1089,19 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             ...ARMOR_SHOW.filter(([k]) => me.arm && me.arm[k] > 0).map(([k, name]) => ({ k, name, t: me.arm[k] })),
             // 직업 스킬 · 신성검 — 철벽 · 마나 보호막 · 성광 반격
             ...(me.jb && me.jb.iron > 0 ? [{ k: "iron", name: "철벽", t: me.jb.iron }] : []),
+            // 전직 — 철벽 방어 · 기사가 걸어 준 파티 보호
+            ...(me.as && me.as.gT > 0 ? [{ k: "aguard", name: "철벽 방어", t: me.as.gT }] : []),
+            ...(me.as && me.as.pT > 0 && !(me.as.gT > 0) ? [{ k: "aparty", name: "기사의 보호", t: me.as.pT }] : []),
             ...(me.jb && me.jb.shT > 0 && me.jb.sh > 0 ? [{ k: "msh", name: `보호막 ${Math.round(me.jb.sh)}`, t: me.jb.shT }] : []),
             ...(me.ws && me.ws.cmb && me.ws.cmb.t > 0 ? [{ k: "cmb", name: "연계 입력", t: me.ws.cmb.t }] : [])],
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
           wsk: weaponHud(me),
+          adv: advHud(me),                          // 전직 스킬 칸
           wb:worldBossView(g,me),guild:guildView(g,me),
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: {server:g.wbServer, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
+            advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
             dvs: me.dvs,
             reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])) },
@@ -1123,7 +1147,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded && !me.tradeLocal) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
-            + `/${me.ts || 0}/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`;
+            + `/${me.ts || 0}/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`
+            + `/${me.advClass || ""}/${me.advQ ? `${me.advQ.c}:${me.advQ.n}` : ""}`;   // 1차 전직 · 시험 진행도 바뀌면 남긴다
           // 다른 탭이 이 기기의 기록을 다른 캐릭터로 바꿨거나, 내 자리에 남의 영웅이 실려 있으면 저장하지 않는다
           if (key !== saved && ownChar() && (isHost || ownHero(me, seatsRef.current[mySeat]?.id))) {
             saved = key;
@@ -1353,6 +1378,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {(guild.notice||guild.error)&&<div className={`trade-result guild-notice ${guild.notice?.success?"success":""}`} role="status" aria-live="polite" aria-atomic="true"><strong>{guild.error?"길드 안내":guild.notice.title}</strong><span>{guild.error||guild.notice.text}</span></div>}
           {me&&<WorldBossHud state={me.wb} map={me.map} barRefs={bossBarRefs} onOpen={()=>toggleWin(wbOpen,setWbOpen)} onLeave={()=>act("wb",{op:"leave"})}/>}
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
+          {me && advOpen && <AdvPanel self={me.self} act={act} advKey={(binds.adv || []).find(Boolean)} onClose={() => setAdvOpen(false)} />}
           <TradePanel api={trades} self={me?.self} />
           {me && partyOpen && (() => {
             const mates = me.pty ? me.party.filter((h) => h.pty === me.pty) : [];
@@ -1785,6 +1811,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me?.near?.guildDoor&&!guildOpen&&<div className="rpg-talk"><span className="rpg-talk-who">길드 문</span><span className="rpg-talk-line">{me.guild?.id||G.current.heroes[mySeat]?.guild?.id?"내 길드 광장으로 들어갑니다.":"길드가 없으면 길드 찾기 화면이 열립니다."}</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act("talk")}>들어가기{!touch&&keyOf(binds,"talk")&&<kbd>{keyOf(binds,"talk")}</kbd>}</button></div>}
           {me?.near?.guildRaidDoor&&!guildOpen&&<div className="rpg-talk"><span className="rpg-talk-who">토벌전 문</span><span className="rpg-talk-line">토벌할 보스를 고르고 참여 인원을 확인하세요.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act("talk")}>토벌전 보기{!touch&&keyOf(binds,"talk")&&<kbd>{keyOf(binds,"talk")}</kbd>}</button></div>}
           {me?.near?.worldBoss&&!wbOpen&&<div className="rpg-talk"><span className="rpg-talk-who">월드보스 성역</span><span className="rpg-talk-line">만렙 3인과 함께 도전하세요. 소환과 보상은 포탈에서 확인합니다.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act('talk')}>포탈 살펴보기{!touch&&keyOf(binds,'talk')&&<kbd>{keyOf(binds,'talk')}</kbd>}</button></div>}
+          {me?.near?.adv && !advOpen && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">전직 교관</span>
+              <span className="rpg-talk-line">{me.lv >= ADV.lv ? "더 강해질 준비가 되었나? 시험을 통과하면 새 길을 열어 주지." : `${ADV.lv}레벨이 되면 다시 찾아오게.`}</span>
+              <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                전직 보기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
           {me && me.near && me.near.dungeon && !dgOpen && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">던전 관리인</span>
@@ -1794,7 +1829,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
-          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss || me.near.guild || me.near.guildDoor || me.near.guildRaidDoor)) && (talk || me.near) && (
+          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss || me.near.guild || me.near.guildDoor || me.near.guildRaidDoor || me.near.adv)) && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">
@@ -1854,6 +1889,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span>{me.wsk.name}<small>{me.wsk.stack}</small></span>
                   {me.wsk.cd > 0 && <em>{Math.ceil(me.wsk.cd)}</em>}
                   {me.wsk.cd > 0 && <i style={{ width: `${(me.wsk.cd / me.wsk.max) * 100}%` }} />}
+                </button>
+              )}
+              {me.adv && (
+                <button type="button" className={`rpg-skill adv ${me.adv.cd > 0 ? "cool" : ""}`}
+                  onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "use" }); }}>
+                  {!touch && keyOf(binds, "adv") && <kbd>{keyOf(binds, "adv")}</kbd>}
+                  <span>{me.adv.name}<small>{me.adv.stack}</small></span>
+                  {me.adv.cd > 0 && <em>{Math.ceil(me.adv.cd)}</em>}
+                  {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
                 </button>
               )}
               {me.skills.map((s) => (
@@ -1985,7 +2029,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_SERVER_CAP}명 ·{" "}
           {touch
             ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
+            : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 전직 스킬 <kbd>{keyOf(binds, "adv")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>
@@ -2011,10 +2055,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           레벨이 오르면 체력이 가득 차고 스탯 포인트 {STAT_PER_LV}를 받습니다(처음 만들 때도 {STAT_PER_LV}포인트). 최고 레벨은 {LV_MAX}입니다.
           레벨 칸의 스탯 버튼(키보드는 C)에서 물리력 · 마법력 · 체력 · 치명타 확률 · 치명타 피해에 나눠 찍습니다.
           스탯마다 {STAT_MAX}까지 찍을 수 있고, 적용하면 되돌릴 수 없습니다.
-          물리력은 전사 · 궁수, 마법력은 마법사의 공격력을 올리고, 화상 · 독 피해는 직업과 상관없이 마법력을 따릅니다.
+          물리력은 검사 · 궁수, 마법력은 마법사의 공격력을 올리고, 화상 · 독 피해는 직업과 상관없이 마법력을 따릅니다.
           사냥꾼에게 퀘스트를 받아 토끼 {QUEST.need}마리를 잡으면 경험치 {QUEST.xp}과 {QUEST.coin}코인을 더 받습니다. 다시 받을 수 있습니다.
           {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
-          전사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
+          검사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
           고른 원소는 평타에 약하게, 큰 기술에 세게 실립니다.
           이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트 · 가방과 함께 이 기기와 서버에 남습니다. 다른 기기에서는 캐릭터 만들기 화면의 "코드로 이어 하기"에 이름과 숫자 5자리 코드를 넣으면 이어집니다.
           광장에는 무기상점 · 스킬 상점 · 물약 상점 · 도박장 · 무기 강화소가 있습니다. 가까이 가서 E(휴대폰은 말풍선의 버튼)로 엽니다.

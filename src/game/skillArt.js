@@ -2,6 +2,7 @@ import {drawGuildFx} from './guildArt.js';
 import {drawWorldBossFx} from "./worldBossArt.js";
 import { skillAccent } from "./combatFx.js";
 import { drawWorldWeaponFx } from "./worldWeaponArt.js";
+import { drawAdvFx, ADV_GROUND } from "./advArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
    drawSkillFx — 이 파일이 맡은 연출(kind 가 "sk_" 로 시작): 빙판길 · 얼음 가시 · 불꽃 회오리 · 화염베기 · 유성(별 · 은하) · 종말의 일격 · 성광 빛줄기 · 빛의 결계 · 잿빛 폭발 · 낙뢰.
    drawHeroSkill — 영웅 둘레에 늘 붙는 것: 화염검 불똥 · 별빛 · 철벽 · 보호막 · 연계 중인 무기(그림자 칼 · 천사 날개 · 조준선) · 쌓인 패시브.
@@ -49,6 +50,7 @@ export function drawSkillFx(ctx, f, time, g) {
   const p = 1 - f.t / f.life;                     // 0 → 1
   if (drawWorldBossFx(ctx,f,p,Q)||drawGuildFx(ctx,f,p,Q)) return;
   if (drawWorldWeaponFx(ctx, f, p, time, SQ(), g, Q)) return;
+  if (drawAdvFx(ctx, f, p, time, Q)) return;      // 1차 전직(advArt.js)
   skillAccent(ctx, f, p, Q);
   if (f.kind === "sk_ice") drawIce(ctx, f, p, time);
   else if (f.kind === "sk_tornado") drawTornado(ctx, f, p);
@@ -75,7 +77,7 @@ export function drawSkillFx(ctx, f, time, g) {
   else if (MOB_FX[f.kind]) MOB_FX[f.kind](ctx, f, p, time);   // 200~400레벨 몹 기술
 }
 // 땅에 깔리는 것 — 몸보다 먼저 그린다(rpgArt.js)
-export const GROUND_FX = new Set(["sk_wb_warn", "sk_wb_pool", "sk_wb_grid", "sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake"]);
+export const GROUND_FX = new Set(["sk_wb_warn", "sk_wb_pool", "sk_wb_grid", "sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake", ...ADV_GROUND]);
 
 /* 화염베기 — 커다란 불꽃 초승달. 앞 35% 동안 휘어 나가며 그어지고(머리가 가장 굵다), 뒤로 가늘어지며 사라진다.
    겉은 붉은 불, 가운데는 주황, 안쪽 심지는 노란 흰빛. 바깥 가장자리에 불길이 일렁인다 */

@@ -100,3 +100,16 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 - 표시 크기360, 발 기준점은 `src/game/guildData.js`의 `GUILD_BOSS_ART.feet`에 정의합니다.
 - 전투와 길드 선택 화면이 같은 `drawGuildBoss`를 사용합니다. 공격 중에는 아래 행을 선택합니다. 파일이 없으면 코드 그림을 씁니다.
 - 내장 이미지 도구에 “2D 도트형 RPG 게임”을 명시해 원본과 투명 배경 보정본을 생성했습니다. 생성 PNG는 작업 공간 `generated_images/exec-0129ea1a-418a-4d45-9b6e-895469de02d6.png`, 게임에는 WebP로 변환해 넣었습니다.
+
+## 1차 전직 그림 (2026년 10월 26일)
+
+생성한 투명 아틀라스 셋. 칸 크기 · 차례는 `src/game/advData.js` 의 `ADV_ART`. 그리기는 `src/game/advArt.js`, 못 불러오면 코드 그림으로 대신한다. 원본 PNG 는 `design/advance/`, 생성 기록은 `docs/전직-이미지-생성.md`.
+
+| 파일 | 크기 | 칸 | 설명 |
+|---|---|---|---|
+| `rpg/advance/adv-fx.webp` | 704 × 528 | 4열 × 3행 · 176px | 0 붉은 · 은빛 검격 · 1 붉은 충격파 · 2 금빛 방패 문양 · 3 육각 충격파 · 4 청록 화살 · 5 청록 섬광 · 6 총구 화염 · 7 탄환 · 탄피 · 8 흰 마법진(원소 빛깔로 물들인다) · 9 푸른 소환진 · 10 마력 폭발 |
+| `rpg/advance/adv-spirits.webp` | 480 × 320 | 3열 × 2행 · 160px | 원소 정령 — 화염 · 서리 · 번개 / 독 · 부식 · 중력(`ELEMS` 차례) |
+| `rpg/advance/adv-items.webp` | 960 × 192 | 5열 × 1행 · 192px | 0 쌍권총 · 1 기사 방패 · 2 소환서 · 3 · 4 권총 한 자루씩(손에 든다) |
+| `rpg/weapons/adv_guns.webp` · `adv_grim.webp` | 128 × 128 | — | 가방 · 상점 창의 전직 무기 그림(위 아틀라스에서 잘랐다) |
+
+캐릭터 그림은 새로 만들지 않았다. 기존 `<직업>-<성별>/<보기>-bare.webp` 위에 총 · 소환서를 손에 들리고(`HOLDER_HAND`), 기사 방패는 반대 손(`DUAL_OFF_HAND`)에 든다.

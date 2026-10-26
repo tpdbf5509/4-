@@ -63,6 +63,7 @@ function advHud(me) {
     : c.id === "marksman" ? (a.ex ? "약점 노출" : `포착 ${a.st || 0}/${P.need}`)
     : c.id === "gunner" ? `탄도 ${a.st || 0}/${P.max}`
     : c.id === "archmage" ? `마력 ${a.st || 0}/${P.max}`
+    : c.id === "healer" ? (a.blT > 0 ? `축복 ${Math.ceil(a.blT)}초` : P.name)
     : a.sps && a.sps.length ? `정령 ${a.sps.length}/${c.active.max} · ${Math.ceil(Math.max(...a.sps.map((sp) => sp.t)))}초` : P.name;
   return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack };
 }

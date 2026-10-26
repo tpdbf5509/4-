@@ -5,8 +5,10 @@
       건너는 데 비용이 큰 최단 경로로 가장 가까운 씨앗에 나눈다 — 경계가 윤곽선을 따라간다.
    ③ 크기 — 검투사 시트의 키를 기존 검사 그림 키에 맞춘 배율을 모든 전직에 쓴다(시트끼리 같은 크기로 그려졌다).
       모자 · 두건이 있어도 몸 크기는 같게. 발밑은 가운데 장화 폭으로 잡는다(칼끝이 발보다 내려가도 발이 바닥에 닿게).
-   실행: python3 tools/cut-adv-classes.py  →  public/assets/characters/rpg/<전직>-<m|f>/<front|side|back|turn>.webp"""
+   실행: python3 tools/cut-adv-classes.py [전직 ...]  → (전직을 적으면 그 전직만 새로 쓴다 — 배율은 늘 검투사 시트로)
+    public/assets/characters/rpg/<전직>-<m|f>/<front|side|back|turn>.webp"""
 import os
+import sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage, sparse
@@ -15,7 +17,8 @@ from scipy.sparse.csgraph import dijkstra
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "design/advance/classes")
 OUT = os.path.join(ROOT, "public/assets/characters/rpg")
-CLASSES = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner"]
+CLASSES = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner", "healer"]   # 치유사 시트는 Codex 로 생성(10월 26일 · 초록 바탕을 지워 둠)
+ONLY = set(sys.argv[1:])
 VIEWS = ["front", "side", "back", "turn"]
 SOLID = 60        # 이만큼 넘는 알파가 그림 몸
 FAINT = 14        # 이 아래 알파는 지운다(시트 전체에 깔린 옅은 얼룩)
@@ -115,13 +118,15 @@ def figures(path):
 def ref_h(job, g, v):
     return Image.open(os.path.join(OUT, f"{job}-{g}", f"{v}.webp")).size[1]
 
-cuts = {cls: figures(os.path.join(SRC, f"{cls}.webp")) for cls in CLASSES}
+cuts = {cls: figures(os.path.join(SRC, f"{cls}.webp")) for cls in CLASSES if not ONLY or cls in ONLY or cls == "gladiator"}
 # 배율 — 검투사(남 · 여)의 발밑 ~ 머리 꼭대기를 기존 검사 키에 맞춘다(방향마다)
 scale = {}
 for r, c, crop, feet, _ in cuts["gladiator"]:
     g = "m" if r == 0 else "f"
     scale[(g, c)] = (ref_h("warrior", g, VIEWS[c]) - PAD * 2) / feet
 for cls, figs in cuts.items():
+    if ONLY and cls not in ONLY:
+        continue
     for r, c, crop, feet, _ in figs:
         g = "m" if r == 0 else "f"
         s = scale[(g, c)]

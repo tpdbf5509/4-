@@ -19,7 +19,7 @@ export const TRAIN = {
 
 // 교관 창의 켜기/끄기 — id 는 h.trn 의 키, 화면 문구만 여기서 고친다
 export const TRAIN_TOGGLES = [
-  { id: "nocd", name: "쿨타임 끄기", note: "평타 빼고 큰 기술 · 산 스킬 · 직업 스킬 · 무기 스킬 · 대쉬 대기 시간이 바로 0" },
+  { id: "nocd", name: "쿨타임 끄기", note: "평타 빼고 큰 기술 · 산 스킬 · 직업 스킬 · 무기 스킬 · 전직 스킬 · 대쉬 대기 시간이 바로 0" },
   { id: "stack", name: "스택 가득", note: "불똥 · 별빛 · 전류 · 관통 표식 · 별의 조준 · 성역 보호막을 늘 최대로" },
   { id: "god", name: "체력 고정", note: "체력이 줄지 않고 늘 가득" },
 ];

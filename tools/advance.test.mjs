@@ -211,7 +211,7 @@ test('전직 액티브 6개 — 모두 몹에게 피해를 주고 대기 시간 
       assert.equal(h.as.cd, cd);
       run(g, c.id === 'summoner' ? 3 : c.id === 'knight' ? 3 : 1.2);
       assert(m.hp < 1e9, `${c.name} 피해 없음`);
-      if (c.id === 'summoner') assert(h.as.sp && h.as.sp.t > 0);
+      if (c.id === 'summoner') assert(h.as.sps.length === 1 && h.as.sps[0].t > 0);
     }
   });
 });
@@ -290,17 +290,20 @@ test('명사수 · 총사 · 마도사 · 소환술사 패시브', () => {
     assert(am.h.as.st >= 2, `마력 ${am.h.as.st}`);
     send(am.g, 0, 'adv', { op: 'use' });
     assert.equal(am.h.as.st, 0);
-    // 소환술사 — 정령과 같은 적을 치면 영혼 연결 · 다시 쓰면 새 정령 · 시간이 다 되면 사라진다
+    // 소환술사 — 정령과 같은 적을 치면 영혼 연결 · 쓸 때마다 하나 더(최대 10) · 시간이 다 되면 사라진다
     const su = advanced('summoner');
     const sm = dummyMob(su.g, 'skeletal', 1100, 900);
     send(su.g, 0, 'adv', { op: 'use' });
-    const first = su.h.as.sp;
+    const first = su.h.as.sps[0];
     su.h.auto = 1; run(su.g, 4);
     assert(su.g.out.some((o) => o.kind === 'sk_adv_link') || su.h.as.slT > 0, '영혼 연결');
-    su.h.as.cd = 0; send(su.g, 0, 'adv', { op: 'use' });
-    assert.notEqual(su.h.as.sp, first, '새로 부른다');
-    su.h.auto = 0; run(su.g, ADV_BY_ID.summoner.active.life + 0.5);
-    assert.equal(su.h.as.sp, null, '시간이 다 되면 사라진다');
+    const A = ADV_BY_ID.summoner.active;
+    for (let i = 0; i < A.max + 3; i++) { su.h.as.cd = 0; send(su.g, 0, 'adv', { op: 'use' }); }
+    assert.equal(su.h.as.sps.length, A.max, '최대 10마리');
+    assert.equal(su.h.as.sps[0], first, '있던 정령은 남는다');
+    assert(su.h.as.sps.every((sp) => sp.t > A.life - 0.1), '모두 시간이 다시 찬다');
+    su.h.auto = 0; run(su.g, A.life + 0.5);
+    assert.equal(su.h.as.sps.length, 0, '시간이 다 되면 사라진다');
     assert(sm.hp < 1e9);
   });
 });
@@ -329,6 +332,8 @@ test('스냅샷 — 손님 화면에 전직 · 시험 · 정령이 실리고 방
   h.advQ = null;
   dummyMob(g, 'skeletal', 1100, 900);
   send(g, 0, 'adv', { op: 'use' });
+  h.as.cd = 0; send(g, 0, 'adv', { op: 'use' });
+  h.as.cd = 0; send(g, 0, 'adv', { op: 'use' });
   run(g, 0.5);
   const snap = JSON.parse(JSON.stringify(rpgPack(g)));
   const guest = makeWorld(); guest.mySeat = 1;
@@ -336,12 +341,12 @@ test('스냅샷 — 손님 화면에 전직 · 시험 · 정령이 실리고 방
   rpgApply(guest, snap);
   const gh = guest.heroes[0];
   assert.equal(gh.advClass, 'summoner');
-  assert(gh.as.sp && gh.as.sp.t > 0, '정령');
+  assert.equal(gh.as.sps.length, 3, '정령 셋');
   assert(gh.as.cd > 0);
   rpgPromote(guest);
   guest.heroes[0].loaded = 1;                       // 기록이 다시 왔다고 친다
   rpgStep(guest, 0.1);
-  assert(guest.heroes[0].as.sp && guest.heroes[0].as.sp.t > 0, '승계 뒤 정령');
+  assert.equal(guest.heroes[0].as.sps.length, 3, '승계 뒤 정령 셋');
 });
 
 test('서버 초기화 · 다른 기본 직업이면 전직은 비어 온다', () => {
@@ -421,4 +426,15 @@ test('전직을 확정하면 전직 연출(sk_adv_up)이 나가고 추가 체력
   assert(h.max > before && h.hp === h.max, `체력 ${before} → ${h.max}`);
   const up = g.out.find((o) => o.k === 'fx' && o.kind === 'sk_adv_up');
   assert(up && up.c === 'knight' && up.by === 0, '전직 연출 · 주인');
+});
+
+test('훈련장 쿨타임 끄기 — 전직 스킬(Z) 대기 시간도 바로 0', () => {
+  const { g, h } = advanced('summoner');
+  h.map = 'train'; h.x = 600; h.y = 900;
+  send(g, 0, 'train', { op: 'nocd' });
+  send(g, 0, 'adv', { op: 'use' });
+  run(g, 0.1);
+  assert.equal(h.as.cd, 0);
+  send(g, 0, 'adv', { op: 'use' });
+  assert.equal(h.as.sps.length, 2, '바로 다시 써서 둘');
 });

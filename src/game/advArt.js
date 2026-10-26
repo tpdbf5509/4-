@@ -203,7 +203,7 @@ export function drawAdvHero(ctx, h, time) {
       ctx.beginPath(); ctx.arc(h.x + Math.cos(ang) * 22, h.y + Math.sin(ang) * 22 * SQ(), n >= max ? 2.8 : 2.2, 0, TAU); ctx.fill();
     }
   }
-  if (a.sp && a.sp.t > 0 && Number.isFinite(a.sp.x)) drawSpirit(ctx, h, a.sp, time);
+  (a.sps || []).forEach((sp, i) => { if (sp.t > 0 && Number.isFinite(sp.x)) drawSpirit(ctx, h, sp, time + i * 0.7); });
   ctx.restore();
 }
 function drawSpirit(ctx, h, sp, time) {

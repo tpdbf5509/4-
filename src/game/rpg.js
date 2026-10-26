@@ -2698,6 +2698,7 @@ function trainTick(g, h) {
     h.sk = 0; h.dashCd = 0;
     if (h.scd) for (const k in h.scd) h.scd[k] = 0;
     if (h.ws) h.ws.wcd = 0;
+    if (h.as) h.as.cd = 0;                          // 전직 스킬(Z)
   }
   if (t.stack) {
     const w = wsOf(h), S = TRAIN.stacks, sp = heldSpecial(h);
@@ -2724,6 +2725,7 @@ export function rpgTrain(g, pi, req) {
     h.hp = h.max; h.sk = 0; h.dashCd = 0;
     if (h.scd) for (const k in h.scd) h.scd[k] = 0;
     if (h.ws) h.ws.wcd = 0;
+    if (h.as) h.as.cd = 0;
     return true;
   }
   return false;

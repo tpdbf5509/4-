@@ -1,5 +1,5 @@
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
-import { DEEP, DEEP_MAPS } from './deepData.js';
+import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
 import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmAdvArt, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
@@ -905,10 +905,38 @@ function drawShop(ctx, n, time) {
   ctx.restore();
 }
 
-/* 계몽의 문(deepData.js) — 길드 문과 같은 돌 아치에 보랏빛 문 · 가운데 떠 있는 계몽의 눈(그림을 못 불러오면 빛만) */
+/* 계몽의 문(deepData.js) — 생성한 문 그림(DEEP_DOOR_ART) · 문 안쪽이 숨 쉬듯 빛나고 이름판 · 안내 글. 그림을 못 불러오면 길드 문과 같은 돌 아치 */
 function drawDeepDoor(ctx, g, n, time) {
   const me = g.heroes[g.mySeat], eye = me && (me.admin || (me.bag && me.bag.m && me.bag.m[DEEP.eye] > 0));
-  drawArchDoor(ctx, n.x, n.y, time, "계몽의 문", eye ? "400~800레벨 사냥터" : "계몽의 눈 필요", "#c9a8f0", "#1e1636");
+  const sub = eye ? "400~800레벨 사냥터" : "계몽의 눈 필요", door = artImg(DEEP_DOOR_ART.src);
+  if (door) {
+    const A = DEEP_DOOR_ART, H = A.h, W = (H * door.naturalWidth) / door.naturalHeight, top = n.y - H * A.foot;
+    shadow(ctx, n.x, n.y + 4, W * 0.46, 14, 0.3);
+    ctx.drawImage(door, n.x - W / 2, top, W, H);
+    const px = n.x - W / 2 + W * A.portal[0], py = top + H * A.portal[1], pr = W * A.portal[2];
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const gl = ctx.createRadialGradient(px, py, 0, px, py, pr * 1.6);
+    gl.addColorStop(0, `rgba(210,180,255,${(eye ? 0.32 : 0.16) + 0.1 * Math.sin(time * 2)})`); gl.addColorStop(1, "rgba(120,80,200,0)");
+    ctx.fillStyle = gl; ctx.fillRect(px - pr * 1.6, py - pr * 1.6, pr * 3.2, pr * 3.2);
+    for (let i = 0; i < 6; i++) {                     // 문 안에서 떠오르는 빛 알갱이
+      const k = (time * 0.35 + i / 6) % 1, x = px + Math.sin(i * 2.4 + time) * pr * 0.6, y = py + pr * 1.1 - k * pr * 2.4;
+      ctx.globalAlpha = Math.sin(k * Math.PI) * 0.8; ctx.fillStyle = "#f2e6ff";
+      ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.font = "18px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    const lw = ctx.measureText("계몽의 문").width + 22;
+    ctx.fillStyle = "rgba(34,24,18,0.86)"; ctx.strokeStyle = "#b99a62"; ctx.lineWidth = 1;
+    roundRect(ctx, n.x - lw / 2, top - 30, lw, 24, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#f1dfb8"; ctx.fillText("계몽의 문", n.x, top - 18);
+    ctx.font = "13px 'Do Hyeon', sans-serif"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(24,16,30,0.85)";
+    ctx.strokeText(sub, n.x, n.y + 30); ctx.fillStyle = eye ? "#e2d0ff" : "#c9a8f0"; ctx.fillText(sub, n.x, n.y + 30);
+    ctx.restore();
+    return;
+  }
+  drawArchDoor(ctx, n.x, n.y, time, "계몽의 문", sub, "#c9a8f0", "#1e1636");
   const im = artImg(DEEP.img), bob = Math.sin(time * 2.2) * 4, s = 58;
   ctx.save();
   ctx.globalAlpha = eye ? 1 : 0.55;

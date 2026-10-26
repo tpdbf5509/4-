@@ -14,6 +14,9 @@ export const DEEP = {
   exitAt: [205, 980],                        // 사냥터 첫 맵 왼쪽 문으로 나오면 광장의 이 자리(문 오른쪽)
   img: "/assets/game/rpg/items/eye-enlight.webp",
 };
+/* 계몽의 문 그림(rpg/deep-door.webp, Codex 생성 · 원본 design/deep/deep-door.webp) — h 맵에서 그리는 높이 · foot 그림 위에서 발판 가운데까지의 몫 ·
+   portal 문 안쪽 빛의 가운데(그림 폭 · 높이에 대한 몫)와 반지름 몫. 못 불러오면 돌 아치(guildArt.js drawArchDoor)로 그린다 */
+export const DEEP_DOOR_ART = { src: "/assets/game/rpg/deep-door.webp", h: 275, foot: 0.9, portal: [0.5, 0.56, 0.2] };
 
 /* 체력은 아래 표의 값 그대로(곱하는 배율 없음). 10월 26일 사용자 요청 — "만렙 올 스탯이 800레벨 몹을 평타 2번 안에 · 600레벨은 한 방에".
    관리자(800레벨 · 스탯 모두 800 · 전설 무기 +30) 평타 한 대는 치명타(80%)면 검사 약 14.5만 · 궁수 19만 · 마법사 19.7만, 아니면 1만 남짓이다.

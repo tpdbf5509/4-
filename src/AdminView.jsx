@@ -6,10 +6,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RPG_SERVERS, JOB_BY_ID } from "./game/rpg.js";
 import { UPDATES } from "./game/updates.js";
 import { myId } from "./net/room.js";
-import { ADMIN, adminTrades, adminAccounts, adminRename, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
+import { ADMIN, adminTrades, adminAccounts, adminFeedback, adminRename, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
 import "./ui/admin.css";
 
-const TABS = [["people", "인원"], ["accounts", "계정"], ["trades", "거래"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
+const TABS = [["people", "인원"], ["accounts", "계정"], ["trades", "거래"], ["inquiry", "문의"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
 const LOG_MAX = 300;                 // 로그에 남기는 줄 수(이 화면을 연 동안만)
 const BLOCKS_EVERY = 30;             // 로그 탭을 보는 동안 막힌 저장 기록을 다시 읽는 간격(초)
 const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀", moved: "넘긴 물품이 다시 나타남", coins: "코인이 너무 늚" };
@@ -232,6 +232,7 @@ function AdminBoard({ auth, onOut }) {
       {tab === "accounts" && <AccountsTab auth={auth} onOut={onOut} />}
 
       {tab === "trades" && <TradesTab auth={auth} />}
+      {tab === "inquiry" && <InquiryTab auth={auth} />}
       {tab === "log" && (
         <section className="adm-sec">
           <p className="adm-count">저장을 막은 기록<span>섞인 기록을 서버가 막았습니다. 그 사람은 코드를 다시 넣으면 서버 기록으로 이어 합니다</span></p>
@@ -453,4 +454,79 @@ function TradesTab({ auth }) {
     </div>)}
     {selected && <div><h3>등록 내용과 확인 상태</h3><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify({ id: selected.id, offers: selected.offers, accepted: selected.accepted, error: selected.error }, null, 2)}</pre></div>}
   </section>;
+}
+
+// 문의 탭 — 게임 안에서 보낸 문의 · 의견(최근 300개). RPG 문의는 글 앞에 "[RPG 문의]"가 붙어 온다(InquiryPanel.jsx)
+const INQ_PAGE = 20;                 // 한 쪽에 보이는 글 수
+const INQ_TAG = "[RPG 문의]";
+const INQ_KIND = [["all", "전체"], ["rpg", "RPG 문의"], ["def", "방어전 의견"]];
+const INQ_RESULT = { lobby: "대기실", play: "플레이 중", clear: "클리어", over: "패배", wipe: "전멸" };
+
+function InquiryTab({ auth }) {
+  const [list, setList] = useState(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [kind, setKind] = useState("all");
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const load = useCallback(async () => {
+    setBusy(true); setErr("");
+    const r = await adminFeedback(auth.name, auth.code);
+    if (r && r.ok) setList(r.list);
+    // 함수를 아직 설치하지 않은 서버는 net 오류로 온다 — supabase/feedback.sql 의 끝부분
+    else setErr(r && r.err === "net" ? "문의를 읽지 못했습니다. 연결이 끊겼거나 서버에 문의 읽기 함수(supabase/feedback.sql)가 아직 없습니다" : errOf(r));
+    setBusy(false);
+  }, [auth]);
+  useEffect(() => { load(); }, [load]);
+  const rows = useMemo(() => (list || []).map((f) => {
+    const rpg = f.body.startsWith(INQ_TAG);
+    return { ...f, rpg, text: rpg ? f.body.slice(INQ_TAG.length).trim() : f.body };
+  }), [list]);
+  const shown = useMemo(() => {
+    const k = q.trim().toLowerCase();
+    return rows.filter((f) => (kind === "all" || (kind === "rpg") === f.rpg)
+      && (!k || f.text.toLowerCase().includes(k) || (f.name || "").toLowerCase().includes(k)));
+  }, [rows, kind, q]);
+  const pages = Math.max(1, Math.ceil(shown.length / INQ_PAGE));
+  const pg = Math.min(page, pages - 1);
+  return (
+    <section className="adm-sec">
+      <p className="adm-count">받은 문의: <b>{list ? list.length : "—"}개</b><span>최근 300개까지 최근 순으로 보입니다</span></p>
+      <div className="adm-tools">
+        <select value={kind} onChange={(e) => { setKind(e.target.value); setPage(0); }} aria-label="종류">
+          {INQ_KIND.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="글 · 이름 찾기" maxLength={20} />
+        <button onClick={load} disabled={busy}>{busy ? "읽는 중…" : "새로 읽기"}</button>
+      </div>
+      {err && <p className="adm-err" role="alert">{err}</p>}
+      {!list && !err && <p className="adm-empty">불러오는 중…</p>}
+      {list && !shown.length && <p className="adm-empty">{list.length ? "찾는 글이 없습니다." : "받은 문의가 없습니다."}</p>}
+      {list && shown.length > 0 && (
+        <ul className="adm-inq">
+          {shown.slice(pg * INQ_PAGE, (pg + 1) * INQ_PAGE).map((f) => (
+            <li key={f.id}>
+              <div className="meta">
+                <i className={`adm-tag${f.rpg ? " host" : ""}`}>{f.rpg ? "RPG 문의" : "방어전 의견"}</i>
+                <b>{f.name || "이름 없음"}</b>
+                {f.cls && <em>{(JOB_BY_ID[f.cls] || {}).name || f.cls}</em>}
+                {f.room && <em>{f.rpg ? srvName(f.room) : `방 ${f.room}`}</em>}
+                {!f.rpg && <em>{INQ_RESULT[f.result] || f.result}{f.wave ? ` · ${f.wave}${f.total ? `/${f.total}` : ""}웨이브` : ""}{f.diff ? ` · ${f.diff}` : ""}</em>}
+                <time>{day(f.at)}</time>
+              </div>
+              <p>{f.text}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      {pages > 1 && (
+        <div className="adm-pager">
+          <button disabled={pg <= 0} onClick={() => setPage(pg - 1)}>‹</button>
+          <span>{pg + 1}/{pages}</span>
+          <button disabled={pg >= pages - 1} onClick={() => setPage(pg + 1)}>›</button>
+        </div>
+      )}
+      <p className="adm-label">글은 읽기만 됩니다. 이름 · 서버 · 직업은 보낼 때 함께 온 값입니다.</p>
+    </section>
+  );
 }

@@ -44,3 +44,6 @@ export const adminRename = (name, code, target, next) =>
 
 // 거래 기록은 관리자 인증 뒤에만 읽는다.
 export const adminTrades = (name, code) => rpc("rpg_admin_trades", { p_name: name, p_code: code });
+
+// 접수된 문의 · 의견(최근 300개) — feedback 표는 읽기가 막혀 있어 관리자 확인 뒤 이 함수로만 읽는다(supabase/feedback.sql)
+export const adminFeedback = (name, code) => rpc("rpg_admin_feedback", { p_name: name, p_code: code });

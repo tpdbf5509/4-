@@ -26,3 +26,22 @@ create policy "anyone may write feedback"
   with check (true);
 
 create index if not exists feedback_created_at_idx on public.feedback (created_at desc);
+
+-- 관리 화면(?admin) "문의" 탭 — 받은 글을 최근 순으로 읽는다(최근 300개).
+-- 표 자체는 여전히 읽기가 막혀 있고, 관리자 이름 + 코드가 맞을 때만 이 함수가 돌려준다.
+-- 먼저 supabase/rpg.sql 의 rpg_admin_ok 가 있어야 한다.
+create or replace function public.rpg_admin_feedback(p_name text, p_code text)
+returns jsonb language plpgsql volatile security definer set search_path = '' as $$
+declare
+  v_ok jsonb := public.rpg_admin_ok(p_name, p_code);
+begin
+  if not (v_ok->>'ok')::boolean then return v_ok; end if;
+  return jsonb_build_object('ok', true, 'list', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id', f.id, 'at', f.created_at, 'body', f.body, 'name', f.name, 'room', f.room,
+      'result', f.result, 'wave', f.wave, 'total', f.total, 'diff', f.diff, 'cls', f.cls
+    ) order by f.id desc)
+    from (select * from public.feedback order by id desc limit 300) f), '[]'::jsonb));
+end $$;
+revoke execute on function public.rpg_admin_feedback(text, text) from public, anon, authenticated;
+grant execute on function public.rpg_admin_feedback(text, text) to anon, authenticated;

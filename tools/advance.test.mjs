@@ -496,3 +496,16 @@ test('치유사 — 결투에서는 나에게만 · 시험은 축복으로 찬 �
   assert.equal(m.advQ.n, Math.min(T.n, Math.floor(healed / T.unit)));
   assert.match(trialText(ADV_BY_ID.healer, m.advQ), /회복/);
 });
+
+test('치유사 시험 — 혼자 자신만 치유해도(체력이 가득이어도) 치유량만큼 게이지가 찬다', () => {
+  const t = world([{ job: 'mage', advQ: Q('healer', 0) }]);
+  t.mobs = [];
+  const m = t.heroes[0];
+  at(m, 600, 900, 'train'); m.auto = 0;
+  m.max = m.hp = 10000;
+  send(t, 0, 'adv', { op: 'use' });
+  assert(m.hp >= m.max, '체력은 그대로 가득');
+  assert(m.advQ.n >= 1, `진행 ${m.advQ.n}`);
+  const A = ADV_BY_ID.healer.active;
+  assert.equal(m.advQ.n, Math.floor((m.max * A.heal) / ADV_BY_ID.healer.trial.unit));
+});

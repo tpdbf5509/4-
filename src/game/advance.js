@@ -183,17 +183,17 @@ function soulLink(E, g, h, o) {
   E.noProc(() => withCap(h, a.sps && a.sps[0] && a.sps[0].cap, () => E.strike(g, h, o, dmg)));
   E.fx(g, h.map, { kind: "sk_adv_link", x: o.x, y: o.y - 30, x0: h.x, y0: h.y - 40, elem: E.elem(h), t: 0.45, life: 0.45, snd: "zap" });
 }
-/* 치유 — by 가 o 를 amt 만큼. 실제로 찬 몫만 숫자로 띄우고, 축복(trial)이면 치유사 시험에 센다 */
+/* 치유 — by 가 o 를 amt 만큼. 실제로 찬 몫만 숫자로 띄우고, 축복(trial)이면 치유량(amt)을 치유사 시험에 센다 */
 function healHero(E, g, by, o, amt, trial) {
   if (!o || o.down > 0 || amt <= 0) return 0;
   const before = o.hp;
   o.hp = Math.min(o.max, o.hp + amt);
   const d = o.hp - before;
   if (d >= 1) E.fx(g, o.map, { kind: "heal", x: o.x, y: o.y - 56, text: `+${Math.round(d)}`, t: 0.8, life: 0.8, who: o.pi });
-  if (trial && d > 0 && by) healTrial(E, g, by, d);
+  if (trial && by && !(o.down > 0)) healTrial(E, g, by, amt);   // 체력이 가득이어도 치유량 그대로 센다 — 혼자 자신을 치유해도 시험이 찬다
   return d;
 }
-// 치유사 시험 — 축복으로 찬 체력을 모아 unit 마다 한 칸
+// 치유사 시험 — 축복의 치유량을 모아 unit 마다 한 칸
 function healTrial(E, g, h, d) {
   const T = trialOf(h);
   if (!T || T.id !== "healer" || h.advQ.n >= T.trial.n) return;

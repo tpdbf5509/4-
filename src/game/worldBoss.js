@@ -1,8 +1,8 @@
 /* 서버별 보스. 방장만 판정하며 진행·기여·미지급 결과를 통째로 스냅샷에 싣는다. */
 import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_ID,WORLD_BOSS_BY_TYPE,WORLD_BOSS_PATTERNS,worldBossIdentity} from './worldBossData.js';
 import {WORLD_WEAPONS,WORLD_SET_BY_ID} from './worldEquipmentData.js';
-import {WEAPON,POTION,POTIONS} from './shopData.js';
-import {ARMOR,ARMOR_SLOTS} from './armorData.js';
+import {POTION,POTIONS,weaponCap} from './shopData.js';
+import {ARMOR_SLOTS,armorCap} from './armorData.js';
 import {MAT_MAX} from './itemData.js';
 import {specialTier,specialPrice} from './shop.js'; // 물품을 지급할 때만 읽어 기존 장비 생성 규칙을 맞춘다.
 import {trading} from './tradeData.js';
@@ -34,9 +34,9 @@ export function collectWorldBossMail(h){
   for(const item of b.wbMail||[]){let n=item.n;
     if(item.k==='weapon'){
       const sp=WORLD_WEAPONS.find(w=>w.id===item.id);
-      while(n>0&&b.w.length<WEAPON.bagMax){b.w.push({u:b.n++,t:sp.t,r:specialTier(sp),g:sp.g,p:specialPrice(sp),sp:sp.id});n--;received++;}
+      while(n>0&&b.w.length<weaponCap(h)){b.w.push({u:b.n++,t:sp.t,r:specialTier(sp),g:sp.g,p:specialPrice(sp),sp:sp.id});n--;received++;}
     }else if(item.k==='armor'){
-      while(n>0&&b.a.length<ARMOR.bagMax){b.a.push({u:b.n++,s:item.id,g:3,set:item.set});n--;received++;}
+      while(n>0&&b.a.length<armorCap(h)){b.a.push({u:b.n++,s:item.id,g:3,set:item.set});n--;received++;}
     }else{
       const store=item.k==='potion'?b.p:b.m,cap=item.k==='potion'?POTION.stackMax:MAT_MAX;
       const put=Math.min(n,Math.max(0,cap-(store[item.id]||0)));if(put){store[item.id]=(store[item.id]||0)+put;n-=put;received+=put;}

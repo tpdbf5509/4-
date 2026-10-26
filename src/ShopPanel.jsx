@@ -21,7 +21,7 @@ import {
   whyGuardBuy, whyArmorWear, whyArmorSell, whyArmorGive,
 } from "./game/shop.js";
 import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
-import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR_BASE, ARMOR_SPECIAL, ARMOR, armorName, armorArt } from "./game/armorData.js";
+import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR_BASE, ARMOR_SPECIAL, armorName, armorArt, armorCap } from "./game/armorData.js";
 import { wornArmor } from "./game/armor.js";
 import { BOOKS, BOOK_BY_ID, PATCH_BOOKS } from "./game/bookData.js";
 import { Coin } from "./ui/icons.jsx";
@@ -197,7 +197,7 @@ function WeaponShop({ h, send }) {
         </>
       ) : (
         <>
-          <Head sub={`산 값의 ${Math.round(WEAPON.sellRate * 100)}% · 가방 ${h.bag.w.length}/${WEAPON.bagMax}`}>되팔기</Head>
+          <Head sub={`산 값의 ${Math.round(WEAPON.sellRate * 100)}% · 가방 ${h.bag.w.length}/${weaponCap(h)}`}>되팔기</Head>
           {!h.bag.w.length && <Empty>가방에 무기가 없습니다.</Empty>}
           {h.bag.w.map((w) => (
             <WeaponItem key={w.u} w={w} tag={w.u === h.bag.e ? "장착 중" : ""} desc={`${weaponLine(w)} · 산 값 ${won(w.p)}`}
@@ -210,7 +210,7 @@ function WeaponShop({ h, send }) {
               onCancel={() => setAsk(null)}
               onOk={(never) => { if (never) writeFlag(ASK_OFF.sell, true); send({ op: "wsell", u: ask.u }); setAsk(null); }} />
           )}
-          <Head sub={`등급마다 정한 값 · 가방 ${(h.bag.a || []).length}/${ARMOR.bagMax}`}>방어구 되팔기</Head>
+          <Head sub={`등급마다 정한 값 · 가방 ${(h.bag.a || []).length}/${armorCap(h)}`}>방어구 되팔기</Head>
           {!(h.bag.a || []).length && <Empty>가방에 방어구가 없습니다.</Empty>}
           {armorGroups(h.bag).map(({ n, worn, sell: a }) => (
             <ArmorItem key={a.u} a={a} n={n} tag={worn ? "착용 중" : ""} price={<Price n={ARMOR_GRADES[a.g].sell} />}
@@ -676,7 +676,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
       {tab === "book" && <Books tab0={tab0} />}
       {tab === "weapon" && (
         <>
-          <Head sub={`${h.bag.w.length}/${WEAPON.bagMax} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>
+          <Head sub={`${h.bag.w.length}/${weaponCap(h)} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>
           {!h.bag.w.length && <Empty>무기상점에서 살 수 있습니다.</Empty>}
           {h.bag.w.length > 0 && (
             <Tabs on={weaponTabs.some(([id]) => id === wtab) ? wtab : "all"} set={setWtab} tabs={weaponTabs} />
@@ -708,7 +708,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
             return <div className="world-set-effects" key={set.id}><b>{set.name} 세트 {count}/4</b>
               <p>{count >= 2 ? '✓' : '○'} 2세트: {set.two}</p><p>{count >= 4 ? '✓' : '○'} 4세트: {set.four}</p></div>;
           })}
-          <Head sub={`${(h.bag.a || []).length}/${ARMOR.bagMax} · 던전 보스가 떨굽니다`}>가방</Head>
+          <Head sub={`${(h.bag.a || []).length}/${armorCap(h)} · 던전 보스가 떨굽니다`}>가방</Head>
           {!(h.bag.a || []).length && <Empty>아직 방어구가 없습니다. 방어구 던전 보스가 떨굽니다.</Empty>}
           {armorGroups(h.bag).map(({ n, worn, wear: a }) => {
             const on = !!worn;
@@ -719,7 +719,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
             );
           })}
           {h.admin && WORLD_SETS.map(set => <Item key={set.id} name={`${set.name} 장비 시험`} desc="관리자 전용 · 전설 무기 3종과 세트 방어구 4종을 받습니다. 월드보스 획득은 추후 연결됩니다."
-            acts={[{ label: '장비 받기', why: h.bag.w.length + 3 > WEAPON.bagMax || h.bag.a.length + 4 > ARMOR.bagMax ? ['무기 3칸과 방어구 4칸이 필요합니다'] : [], onClick: () => send({ op: 'wbgive', set: set.id }) }]} />)}
+            acts={[{ label: '장비 받기', why: h.bag.w.length + 3 > weaponCap(h) || h.bag.a.length + 4 > armorCap(h) ? ['무기 3칸과 방어구 4칸이 필요합니다'] : [], onClick: () => send({ op: 'wbgive', set: set.id }) }]} />)}
           {h.admin && (
             <Item name="시험용 방어구 받기" desc="관리자만 — 네 부위 × 네 등급 16개를 한 번에 받습니다."
               acts={[{ label: "받기", why: whyArmorGive(h), onClick: () => send({ op: "agive" }) }]} />

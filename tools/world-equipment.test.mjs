@@ -6,6 +6,7 @@ import { WORLD_WEAPONS, WORLD_SETS, WORLD_WEAPON_SKILLS, worldArtCell, worldArt 
 import { cleanBag, specialsFor, whySpecialBuy, specialTier, rpgShop } from '../src/game/shop.js';
 import { armorAtkMul, worldSetCount, worldCritBonus, worldDotMul, worldCooldownMul, worldArmorOnHit, worldArmorTick, worldArmorAbsorb, packArmor, applyArmor } from '../src/game/armor.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
+import { WEAPON } from '../src/game/shopData.js';
 const seats = WORLD_WEAPONS.slice(0,2).map((_,i)=>({id:`test${i}`,name:`장비시험${i}`,hero:{name:`장비시험${i}`,job:'warrior',elem:'frost',gender:'m'}}));
 function setup(id='dragon_dual', set=null){
   const sp=WORLD_WEAPONS.find(w=>w.id===id),g=makeWorld();
@@ -67,8 +68,8 @@ test('세계 스킬 스냅샷·방장 승계 후 이어짐·장비 교체 취소
 });
 test('광장에서는 발동 불가·수량 부족 관리자 지급은 전체 거절',()=>{
  const {g,h}=setup();h.map='plaza';rpgWeaponSkill(g,0);assert(!h.ws?.world);
- h.admin=1;h.bag.w=Array.from({length:29},(_,i)=>({u:i+1,t:'sword',r:0,g:0,p:1}));const n=h.bag.a.length;
- rpgShop(g,0,{op:'wbgive',set:'dragon'});assert.equal(h.bag.w.length,29);assert.equal(h.bag.a.length,n);
+ h.admin=1;h.bag.w=Array.from({length:WEAPON.adminBagMax-1},(_,i)=>({u:i+1,t:'sword',r:0,g:0,p:1}));const n=h.bag.a.length;
+ rpgShop(g,0,{op:'wbgive',set:'dragon'});assert.equal(h.bag.w.length,WEAPON.adminBagMax-1);assert.equal(h.bag.a.length,n);
  h.bag.w=[];rpgShop(g,0,{op:'wbgive',set:'dragon'});assert.equal(h.bag.w.length,3);assert.equal(h.bag.a.length,4);
  h.admin=0;rpgShop(g,0,{op:'wbgive',set:'machine'});assert.equal(h.bag.w.length,3);
 });

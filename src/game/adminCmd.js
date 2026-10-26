@@ -9,11 +9,11 @@ import { trading } from "./tradeData.js";
    <이름> 자리에 "나" 를 쓰면 나 자신. 이름에 띄어쓰기가 있어도 된다(지금 서버에 있는 사람 이름과 앞에서부터 견준다).
    관리자(h.admin) 만 쓸 수 있다. 화면 쪽은 RpgView.jsx sendChat 이 "/" 를 채팅 대신 입력 kind "cmd" 로 보낸다 */
 import { MAPS, JOBS, runOf, sys } from "./rpg.js";
-import { POTIONS, POTION, SPECIALS, WEAPON, WARP, GUARD, WEAPON_FAMILY, JOB_FAMILY } from "./shopData.js";
+import { POTIONS, POTION, SPECIALS, WARP, GUARD, WEAPON_FAMILY, JOB_FAMILY, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, addMat, equipped } from "./shop.js";
 import { ADV_CLASSES } from "./advData.js";
 import { MATERIALS } from "./itemData.js";
-import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR } from "./armorData.js";
+import { ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 
 export const ADMIN_CMD = {
   max: 80,               // 명령 한 줄 길이
@@ -33,20 +33,20 @@ const flat = (s) => String(s || "").toLowerCase().replace(/[\s()·]/g, "");
 const ITEMS = [
   ...POTIONS.map((p) => ({ name: p.name, give: (b, n) => { const have = b.p[p.id] || 0; const put = Math.min(n, POTION.stackMax - have); if (put > 0) b.p[p.id] = have + put; return put; } })),
   ...MATERIALS.map((m) => ({ name: m.name, give: (b, n) => addMat(b, m.id, n) })),
-  ...SPECIALS.map((sp) => ({ name: sp.name, give: (b, n) => {
+  ...SPECIALS.map((sp) => ({ name: sp.name, give: (b, n, t) => {
     let put = 0;
-    while (put < n && b.w.length < WEAPON.bagMax) { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); put += 1; }
+    while (put < n && b.w.length < weaponCap(t)) { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); put += 1; }
     return put;
   } })),
-  ...WORLD_SETS.flatMap(set => ARMOR_SLOTS.map(sl => ({ name: worldArmorName(sl.id, set.id), give: (b, n) => {
+  ...WORLD_SETS.flatMap(set => ARMOR_SLOTS.map(sl => ({ name: worldArmorName(sl.id, set.id), give: (b, n, t) => {
     let put = 0;
-    while (put < n && b.a.length < ARMOR.bagMax) { b.a.push({ u: b.n++, s: sl.id, g: 3, set: set.id }); put++; }
+    while (put < n && b.a.length < armorCap(t)) { b.a.push({ u: b.n++, s: sl.id, g: 3, set: set.id }); put++; }
     return put;
   } }))),
-  ...ARMOR_GRADES.flatMap((gr) => ARMOR_SLOTS.map((sl) => ({ name: `${gr.name} ${sl.name}`, give: (b, n) => {
+  ...ARMOR_GRADES.flatMap((gr) => ARMOR_SLOTS.map((sl) => ({ name: `${gr.name} ${sl.name}`, give: (b, n, t) => {
     if (!b.a) b.a = [];
     let put = 0;
-    while (put < n && b.a.length < ARMOR.bagMax) { b.a.push({ u: b.n++, s: sl.id, g: gr.id }); put += 1; }
+    while (put < n && b.a.length < armorCap(t)) { b.a.push({ u: b.n++, s: sl.id, g: gr.id }); put += 1; }
     return put;
   } }))),
   { name: "워프권", give: (b, n) => { const put = Math.min(n, WARP.max - b.wp); b.wp += Math.max(0, put); return Math.max(0, put); } },
@@ -90,7 +90,7 @@ function changeJob(g, t, pick) {
     if (w && WEAPON_FAMILY[w.t] && WEAPON_FAMILY[w.t] !== JOB_FAMILY[pick.job]) b.e = 0;
     if (b.ks) b.ks.job = "";
     const sp = pick.gear && SPECIALS.find((q) => q.id === pick.gear);   // 총사 · 소환술사 전직 무기 — 없으면 한 자루
-    if (sp && !b.w.some((x) => x.sp === sp.id) && b.w.length < WEAPON.bagMax) b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id });
+    if (sp && !b.w.some((x) => x.sp === sp.id) && b.w.length < weaponCap(t)) b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id });
     bump(t);
   }
   (g.relook || (g.relook = [])).push({ pi: t.pi, who: t.who, job: pick.job });
@@ -119,7 +119,7 @@ export function rpgAdminCmd(g, pi, text) {
     const t = g.heroes[ti];
     if (trading(t)) return void say("그 사람은 거래 중입니다. 거래가 끝난 뒤 다시 해 주세요.");
     if (!t.loaded || !t.bag) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
-    const put = it.give(t.bag, n);
+    const put = it.give(t.bag, n, t);
     if (!put) return void say(`${who(g, ti)}님의 가방에 ${it.name}을(를) 더 넣을 수 없습니다(가득 참).`);
     bump(t);
     say(`${who(g, ti)}님에게 ${it.name} ${put}개를 주었습니다.`);

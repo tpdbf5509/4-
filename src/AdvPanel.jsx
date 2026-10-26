@@ -4,7 +4,7 @@ import { ADV, ADV_BY_ID, ADV_BONUS, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, advFor
 import { whyAdvStart, whyAdvConfirm } from "./game/advance.js";
 import { advArtPath, dist, JOB_BY_ID, mobName, STATS } from "./game/rpg.js";
 import { MAT_BY_ID } from "./game/itemData.js";
-import { WEAPON } from "./game/shopData.js";
+import { weaponCap } from "./game/shopData.js";
 import { keyLabel } from "./game/keys.js";
 // 전직 추가 스탯 한 줄 — 체력 +450 · 물리력 +20 (치명타 · 치명타 피해는 %)
 const bonusText = (id) => Object.entries(ADV_BONUS[id] || {}).map(([k, v]) => {
@@ -77,7 +77,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
   const list = advForJob(self.job);
   const cur = ADV_BY_ID[self.advClass];
   const q = self.advQ && ADV_BY_ID[self.advQ.c] ? self.advQ : null;
-  const bagRoom = self.bag && self.bag.w.length < WEAPON.bagMax;
+  const bagRoom = self.bag && self.bag.w.length < weaponCap(self);
   const qDone = !!q && q.n >= ADV_BY_ID[q.c].trial.n;   // 마친 시험이 있으면 다른 시험으로 바꾸는 버튼을 숨긴다(한 번 눌러 진행을 잃지 않게)
   const keyName = keyLabel(advKey) || "없음";
   return (

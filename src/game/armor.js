@@ -19,10 +19,10 @@ const base = (h, s) => { const g = armorGrade(h, s); return g >= 0 ? ARMOR_BASE[
 const hpPart = (h) => (h.max > 0 ? h.hp / h.max : 1);
 
 // 가방 정리 — 저장된 기록에서 읽을 때(cleanBag)
-export function cleanArmor(d, b, seen) {
+export function cleanArmor(d, b, seen, cap = ARMOR.bagMax) {
   b.a = [];
   b.ae = {};
-  (Array.isArray(d.a) ? d.a : []).slice(0, ARMOR.bagMax).forEach((q) => {
+  (Array.isArray(d.a) ? d.a : []).slice(0, cap).forEach((q) => {
     if (!q) return;
     const u = Math.floor(Number(q.u)), g = Math.floor(Number(q.g));
     if (!(u > 0) || seen.has(u) || !SLOT_IDS.includes(q.s) || !(g >= 0 && g < ARMOR_GRADES.length)) return;
@@ -36,9 +36,9 @@ export function cleanArmor(d, b, seen) {
 }
 
 // 방어구 던전 보상 — 부위 s 를 등급 몫(ARMOR_GRADES drop)으로 굴려 가방에 넣는다. 넣은 등급, 가방이 가득이면 -1
-export function rollArmor(bag, s, rnd = Math.random()) {
+export function rollArmor(bag, s, rnd = Math.random(), cap = ARMOR.bagMax) {
   if (!bag.a) bag.a = [];
-  if (bag.a.length >= ARMOR.bagMax) return -1;
+  if (bag.a.length >= cap) return -1;
   let r = rnd * 100, g = 0;
   for (; g < ARMOR_GRADES.length - 1; g++) { r -= ARMOR_GRADES[g].drop; if (r < 0) break; }
   bag.a.push({ u: bag.n++, s, g });

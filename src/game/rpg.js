@@ -14,7 +14,7 @@ import { trading } from "./tradeData.js";
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
-import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WEAPON, WARP, GUARD } from "./shopData.js";
+import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WARP, GUARD, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
 import { BUILD } from "../net/version.js";
@@ -23,7 +23,7 @@ import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
-import { armorName, ARMOR, ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
+import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.js";
 import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
@@ -711,7 +711,7 @@ export function loadChar() {
     coins: Math.max(0, Math.floor(r.coins || 0)),
     quest: { on: !!q.on, n: clamp(Math.floor(q.n || 0), 0, QUEST.need) },
     stats: cleanStats(r.stats, r.lv || 1),
-    bag: cleanBag(r.bag),                        // 상점 — 무기 · 물약 · 스킬 · 오늘 쓴 횟수
+    bag: cleanBag(r.bag, r.admin),                        // 상점 — 무기 · 물약 · 스킬 · 오늘 쓴 횟수
     linked: !!r.linked,                          // 서버에 이 캐릭터가 있다(이름 + 코드로 이어 할 수 있다)
     tok: typeof r.tok === "string" ? r.tok : "", // 서버 입장권 — 없으면 서버에 저장하지 않는다(다른 기기가 나중에 들어왔다)
     admin: !!r.admin,                            // 관리자 — 서버가 알려 준 것만 쓴다
@@ -950,7 +950,7 @@ export function rpgJoin(g, pi, d, who) {
     h.coins = Math.max(h.coins, ADMIN.coins);
   }
   h.st = h.admin ? maxStats() : cleanStats(d.stats, h.lv);   // 관리자는 모든 스탯이 최대
-  h.bag = cleanBag(d.bag);
+  h.bag = cleanBag(d.bag, h.admin);
   h.bag.ld = 1;
   h.rec = cleanRec(d.rec);
   h.honor = Math.max(0, Math.floor(Number(d.honor) || 0));
@@ -1031,7 +1031,7 @@ export const ADMIN_LEGEND = { id: 1, grade: 4 };
 function giveAdminLegends(g, h) {
   if (!h.admin || !h.bag || h.bag.lg === ADMIN_LEGEND.id) return;
   const want = SPECIALS.filter((sp) => !sp.world && !sp.adv && !sp.hold && sp.g === ADMIN_LEGEND.grade && !h.bag.w.some((w) => w.sp === sp.id));
-  const n = Math.max(0, Math.min(want.length, WEAPON.bagMax - h.bag.w.length));
+  const n = Math.max(0, Math.min(want.length, weaponCap(h) - h.bag.w.length));
   want.slice(0, n).forEach((sp) => { h.bag.w.push({ u: h.bag.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
   if (n === want.length) h.bag.lg = ADMIN_LEGEND.id;
   if (!n) return;                                  // 넣은 것이 없으면 알리지 않는다(0.5초마다 다시 본다)
@@ -1056,7 +1056,7 @@ function giveAdminKit(g, h) {
   if (b.wp < WARP.max) { b.wp = WARP.max; changed = true; }
   if (b.gd < GUARD.max) { b.gd = GUARD.max; changed = true; }
   if (b.ak !== ADMIN_KIT.id) {
-    const room = WEAPON.bagMax - b.w.length;
+    const room = weaponCap(h) - b.w.length;
     const want = SPECIALS.filter((sp) => !sp.world && !sp.adv && !sp.hold && !b.w.some((w) => w.sp === sp.id));
     want.slice(0, Math.max(0, room)).forEach((sp) => { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
     b.w.forEach((w) => { if (w.sp) w.up = ADMIN_KIT.up; });
@@ -1064,7 +1064,7 @@ function giveAdminKit(g, h) {
     if (!b.ae) b.ae = {};
     ARMOR_SLOTS.forEach((sl) => {
       let a = b.a.find((q) => q.s === sl.id && q.g === ADMIN_KIT.armor);
-      if (!a && b.a.length < ARMOR.bagMax) { a = { u: b.n++, s: sl.id, g: ADMIN_KIT.armor }; b.a.push(a); }
+      if (!a && b.a.length < armorCap(h)) { a = { u: b.n++, s: sl.id, g: ADMIN_KIT.armor }; b.a.push(a); }
       if (a) b.ae[sl.id] = a.u;
     });
     b.ak = ADMIN_KIT.id;
@@ -1078,7 +1078,7 @@ function givePersonal(g, h) {
   if (!h.bag || !g.names) return;
   PERSONAL_GIFTS.forEach((pg) => {
     if (!sameName(g.names[h.pi], pg.name) || (h.bag.pg || []).includes(pg.id)) return;
-    if ((h.bag.a || []).length + (pg.armor || []).length > ARMOR.bagMax) return;
+    if ((h.bag.a || []).length + (pg.armor || []).length > armorCap(h)) return;
     (pg.armor || []).forEach((q) => { h.bag.a.push({ u: h.bag.n++, s: q.s, g: q.g }); });
     h.bag.pg = [...(h.bag.pg || []), pg.id];
     h.bag.v += 1;
@@ -2848,10 +2848,10 @@ const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near
   shield: (h, amt, dur) => { const jb = jbOf(h); if (jb.sh >= amt) return false; jb.sh = Math.round(amt); jb.shT = Math.max(jb.shT, dur); return true; },
   train: (map) => !!(MAPS[map] && MAPS[map].train), trading,
   gunHeld: (h) => { const w = h.bag && equipped(h.bag); return !!w && w.t === "gun"; },
-  bagRoom: (h) => !!h.bag && h.bag.w.length < WEAPON.bagMax,
+  bagRoom: (h) => !!h.bag && h.bag.w.length < weaponCap(h),
   gear: (h, id) => {                              // 전직 무기 한 자루 — 이미 가졌으면 주지 않는다
     const sp = SPECIALS.find((q) => q.id === id), b = h.bag;
-    if (!sp || !b || b.w.some((w) => w.sp === id) || b.w.length >= WEAPON.bagMax) return;
+    if (!sp || !b || b.w.some((w) => w.sp === id) || b.w.length >= weaponCap(h)) return;
     b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id });
     b.v += 1;
   } };
@@ -4115,7 +4115,7 @@ function tickRuns(g, dt) {
         if (!h.loaded) return;
         h.rec.dg += 1;
         if (d.reward.armor) {                        // 방어구 던전 — 그 부위 하나, 등급은 몫대로
-          const gr = rollArmor(h.bag, d.reward.armor);
+          const gr = rollArmor(h.bag, d.reward.armor, Math.random(), armorCap(h));
           if (gr < 0) return void sys(g, h.pi, "가방의 방어구 칸이 가득 차 보상을 받지 못했습니다.");
           const name = armorName(d.reward.armor, gr);
           fx(g, h.map, { kind: "call", x: h.x, y: h.y - 160, text: name, color: ARMOR_GRADE_COL[gr], t: 2.4, life: 2.4, who: h.pi });

@@ -53,7 +53,9 @@ export const WEAPON = {
   priceGrow: 1.6,        // 단계마다 값이 이만큼 곱해진다
   sellRate: 0.4,         // 되팔면 산 값의 40%
   bagMax: 30,            // 가방에 넣을 수 있는 무기 수
+  adminBagMax: 500,      // 관리자 가방 — 사실상 무제한. 가방은 바뀔 때 스냅샷에 통째로 실려 너무 크면 메시지가 무거워진다
 };
+export const weaponCap = (h) => (h && h.admin ? WEAPON.adminBagMax : WEAPON.bagMax);   // 이 사람이 가방에 넣을 수 있는 무기 수
 /* 직업과 맞지 않는 무기 — 무기 종류를 검 · 활 · 마법봉 셋으로 묶는다(전사 검 · 궁수 활 · 마법사 마법봉).
    다른 묶음의 무기를 들면 등급 · 강화 · 스탯과 상관없이 한 대 피해가 dmg 로 고정되고 치명타도 없다. */
 export const WEAPON_FAMILY = { sword: "sword", axe: "sword", dagger: "sword", great: "sword", staff: "staff", tome: "staff", bow: "bow", gun: "bow", grim: "staff" };   // 총은 궁수 · 소환서는 마법사 묶음

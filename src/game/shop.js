@@ -7,12 +7,12 @@ import { trading } from "./tradeData.js";
    가방(h.bag)은 이름과 함께 이 기기에 남고, 바뀔 때만 손님에게 보낸다. */
 import {
   SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIAL, SPECIALS,
-  SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD,
+  SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD, weaponCap,
 } from "./shopData.js";
 import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
 import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS } from "./rpg.js";
-import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR, armorName } from "./armorData.js";
+import { ARMOR_SLOTS, ARMOR_GRADES, armorName, armorCap } from "./armorData.js";
 import { cleanArmor, wornArmor } from "./armor.js";
 import { ADV_BONUS } from "./advData.js";
 
@@ -173,12 +173,12 @@ export function dealOf(lv, day = todayKey()) {
    oc 는 직업과 다른 무기 정리를 마쳤는지(업데이트 뒤 처음 들어올 때 한 번, rpg.js rpgJoin)
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
 export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0, oc: 0, ks: { job: "", g: ["", ""] } });
-export function cleanBag(d) {
+export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(adminBagMax)까지 싣는다
   const b = newBag();
   if (!d || typeof d !== "object") return b;
   const n0 = Math.max(1, Math.floor(Number(d.n) || 1));
   const seen = new Set();
-  (Array.isArray(d.w) ? d.w : []).slice(0, WEAPON.bagMax).forEach((w) => {
+  (Array.isArray(d.w) ? d.w : []).slice(0, weaponCap({ admin })).forEach((w) => {
     if (!w) return;
     const sp = w.sp ? SPECIAL_BY_ID[w.sp] : null;
     if (w.sp && !sp) return;
@@ -192,7 +192,7 @@ export function cleanBag(d) {
     if (!(r >= 0 && r < WEAPON_TIERS.length) || !(g >= 0 && g < GRADES.length)) return;
     add({ u, t: w.t, r, g, p });
   });
-  cleanArmor(d, b, seen);                         // 방어구 — 번호는 무기와 같은 셈을 쓴다
+  cleanArmor(d, b, seen, armorCap({ admin }));                         // 방어구 — 번호는 무기와 같은 셈을 쓴다
   b.n = Math.max(n0, ...b.w.map((w) => w.u + 1), ...b.a.map((q) => q.u + 1));
   b.e = seen.has(Number(d.e)) ? Number(d.e) : 0;
   POTIONS.forEach((p) => {
@@ -298,7 +298,7 @@ export function whySpecialBuy(h, id) {
   if (!h || !h.bag) return out;
   if (h.bag.w.some((w) => w.sp === id)) { out.push("이미 가지고 있습니다"); return out; }
   if (h.lv < sp.lv) out.push(`레벨 ${sp.lv} 필요 (지금 ${h.lv})`);
-  if (h.bag.w.length >= WEAPON.bagMax) out.push(`가방이 가득 찼습니다 (${WEAPON.bagMax}개)`);
+  if (h.bag.w.length >= weaponCap(h)) out.push(`가방이 가득 찼습니다 (${weaponCap(h)}개)`);
   lackCoin(h, specialPrice(sp), out);
   return out;
 }
@@ -310,7 +310,7 @@ export function whyDealBuy(h, key, day = todayKey()) {
   const d = dealOf(h.lv, day);
   if (key !== d.key) out.push("오늘의 특가가 바뀌었습니다");
   if (usedToday(h.bag, "deal", day) >= DEAL.perDay) out.push(`오늘의 특가는 하루 ${DEAL.perDay}번까지입니다`);
-  if (h.bag.w.length >= WEAPON.bagMax) out.push(`가방이 가득 찼습니다 (${WEAPON.bagMax}개)`);
+  if (h.bag.w.length >= weaponCap(h)) out.push(`가방이 가득 찼습니다 (${weaponCap(h)}개)`);
   lackCoin(h, d.price, out);
   return out;
 }
@@ -451,7 +451,7 @@ export function whyArmorGive(h) {
   const out = [];
   if (!h || !h.bag) return out;
   if (!h.admin) out.push("관리자만 받을 수 있습니다");
-  else if ((h.bag.a || []).length + ARMOR_SLOTS.length * ARMOR_GRADES.length > ARMOR.bagMax) out.push(`가방 방어구 칸이 모자랍니다(${ARMOR.bagMax}개까지)`);
+  else if ((h.bag.a || []).length + ARMOR_SLOTS.length * ARMOR_GRADES.length > armorCap(h)) out.push(`가방 방어구 칸이 모자랍니다(${armorCap(h)}개까지)`);
   return out;
 }
 // 하락 방지권 사기 — 주문서 상점
@@ -500,7 +500,7 @@ export function whyGamble(h, game, bet, day = todayKey()) {
   if (lim === undefined) { out.push("없는 게임입니다"); return out; }
   if (usedToday(h.bag, game, day) >= lim) out.push(`오늘은 더 할 수 없습니다 (하루 ${lim}번)`);
   if (game === "box") {
-    if (h.bag.w.length >= WEAPON.bagMax) out.push(`가방이 가득 찼습니다 (${WEAPON.bagMax}개)`);
+    if (h.bag.w.length >= weaponCap(h)) out.push(`가방이 가득 찼습니다 (${weaponCap(h)}개)`);
     if (Object.keys(BOX.potions).some((id) => (h.bag.p[id] || 0) >= POTION.stackMax)) out.push(`가득 찬 물약이 있습니다 (${POTION.stackMax}개)`);
     lackCoin(h, boxPrice(h.lv), out);
   } else {
@@ -553,7 +553,7 @@ export function rpgShop(g, pi, req) {
   if (op === "wbgive") {
     if (!h.loaded || h.down > 0) return no(g, pi, ["움직일 수 있을 때 장비를 받아 주세요"]);
     if (!h.admin || !WORLD_SET_BY_ID[req.set]) return no(g, pi, ["관리자만 시험할 수 있습니다"]);
-    if (h.bag.w.length + 3 > WEAPON.bagMax || h.bag.a.length + 4 > ARMOR.bagMax) return no(g, pi, ["무기 3칸과 방어구 4칸이 필요합니다"]);
+    if (h.bag.w.length + 3 > weaponCap(h) || h.bag.a.length + 4 > armorCap(h)) return no(g, pi, ["무기 3칸과 방어구 4칸이 필요합니다"]);
     WORLD_WEAPONS.filter(sp => sp.set === req.set).forEach(sp => addWeapon(h, sp.t, specialTier(sp), sp.g, specialPrice(sp), sp.id));
     ARMOR_SLOTS.forEach(sl => h.bag.a.push({ u: h.bag.n++, s: sl.id, g: 3, set: req.set }));
     bump(h);

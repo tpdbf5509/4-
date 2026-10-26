@@ -26,7 +26,7 @@ import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR, ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, ADV_BY_ID } from "./advData.js";
-import { advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf } from "./advance.js";
+import { advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
 // 서버마다 들어올 수 있는 사람 수 — 13명이 모이자 Supabase 무료 한도(초당 100통)를 넘어 기록이 섞였다(10월 19일)
@@ -1857,6 +1857,8 @@ function heroAttack(g, h, force) {
   const rng = heroRange(h);
   const hy = h.y - 34;
   if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy, force);
+  const heal = advHealShot(advEngine, g, h, rng);  // 치유사 치유 평타 — 켜 두었으면 몹을 치지 않는다
+  if (heal !== null) return heal;
   if (fieldPvpOn(h)) {                            // 사냥터 PvP — 사거리 안의 사람을 함께 친다
     const foes = nearFoes(g, h, h.x, h.y, rng);
     if (foes.length) {

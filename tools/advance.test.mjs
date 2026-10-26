@@ -5,6 +5,8 @@ import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { ADV, ADV_BY_ID, ADV_CLASSES, ADV_BONUS, trialText } from '../src/game/advData.js';
 import { statTotal } from '../src/game/rpg.js';
+import { advDmgMul } from '../src/game/advance.js';
+const advDmgMulOf = (g, h, m) => advDmgMul({ gunHeld: () => false }, g, h, m, true, false);
 
 // 1차 전직 — 시험 · 확정 · 저장 · 액티브 6 · 패시브 6 · PvP 한도 · 스냅샷 · 방장 승계. 실행: node --test tools/advance.test.mjs
 const JOB = { gladiator: 'warrior', knight: 'warrior', marksman: 'archer', gunner: 'archer', archmage: 'mage', summoner: 'mage', healer: 'mage' };
@@ -528,4 +530,33 @@ test('치유사 시험 — 1000 이 안 되는 치유도 남은 몫(advQ.r)으�
   assert.equal(heroRecord(m, { name: '시험0', lv: 250, rs: RESET.id }).advQ.r, m.advQ.r, '저장에도 남는다');
   for (let i = 0; i < 3; i++) { m.as.cd = 0; send(t, 0, 'adv', { op: 'use' }); }
   assert.equal(m.advQ.n * 1000 + m.advQ.r, Math.floor(2000 * A.heal) * 4);
+});
+
+test('치유사 — 평타 바꾸기(치유 평타는 다친 사람을 치유하고 몹을 치지 않는다) · 축복은 공격력도 올린다', () => {
+  const g = world([{ job: 'mage', advClass: 'healer' }, { job: 'warrior' }]);
+  g.mobs = [];
+  const [h, w] = g.heroes;
+  at(h, 1000, 900, 'skeletal'); at(w, 1080, 900, 'skeletal');
+  h.auto = w.auto = 0; h.inv = 99; w.inv = 99;
+  const m = dummyMob(g, 'skeletal', 1120, 900);
+  send(g, 1, 'adv', { op: 'mode' });                 // 치유사가 아니면 못 바꾼다
+  assert(!w.healMode);
+  send(g, 0, 'adv', { op: 'mode' });
+  assert.equal(h.healMode, true);
+  w.hp = 100;
+  const mhp = m.hp;
+  send(g, 0, 'fire', true); run(g, 1.5); send(g, 0, 'fire', false);
+  assert(w.hp > 100, `치유 ${w.hp}`);
+  assert.equal(m.hp, mhp, '몹은 치지 않는다');
+  // 손님 화면도 평타 모드를 안다
+  const q = makeWorld(); q.mySeat = 0;
+  rpgApply(q, rpgPack(g));
+  assert.equal(q.heroes[0].healMode, true);
+  send(g, 0, 'adv', { op: 'mode' });
+  assert.equal(h.healMode, false);
+  // 축복 — 받은 사람의 공격력 +15%
+  const before = advDmgMulOf(g, w, m);
+  send(g, 0, 'adv', { op: 'use' });
+  assert(w.as.blT > 0);
+  assert.equal(+(advDmgMulOf(g, w, m) / before).toFixed(3), +(1 + ADV_BY_ID.healer.active.atk).toFixed(3));
 });

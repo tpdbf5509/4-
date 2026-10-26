@@ -46,6 +46,12 @@ export function advInput(E, g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req) return false;
   if (req.op === "use") return advUse(E, g, h);
+  if (req.op === "mode") {                          // 치유사 — 평타를 치유 · 공격으로 바꾼다
+    if (!advOf(h) || h.advClass !== "healer") return void E.sys(g, pi, "치유사만 평타를 바꿀 수 있습니다.");
+    h.healMode = !h.healMode;
+    E.say(g, h.map, h.x, h.y - 110, h.healMode ? "치유 평타" : "공격 평타", h.healMode ? "#fff0b0" : "#f0dcb4");
+    return true;
+  }
   if (req.op === "start") {
     const why = whyAdvStart(h, req.c, E.dist);
     if (why.length) return void E.sys(g, pi, why[0]);
@@ -203,10 +209,28 @@ function healTrial(E, g, h, d) {
   while (q.r >= T.trial.unit && trialAdd(E, g, h, "healer")) q.r -= T.trial.unit;
   if (q.n >= T.trial.n) q.r = 0;
 }
+/* 치유 평타(rpg.js heroAttack 이 부른다) — 치유 평타로 나갔으면 true. 결투장 · 다친 사람이 없으면 false(평타가 나가지 않는다) */
+export function advHealShot(E, g, h, rng) {
+  if (!h.healMode || h.advClass !== "healer" || !advOf(h) || E.pvpMap(h.map)) return null;
+  const S = ADV_BY_ID.healer.healShot, solo = E.fieldPvp(h);
+  let best = null;
+  g.heroes.forEach((q) => {
+    if (!q || q.down > 0 || q.map !== h.map || !q.loaded || q.hp >= q.max) return;
+    if (q !== h && (solo || E.dist(h.x, h.y, q.x, q.y) > rng)) return;
+    if (!best || q.hp / q.max < best.hp / best.max) best = q;
+  });
+  if (!best) return false;
+  if (best !== h && Math.abs(best.x - h.x) > 1) h.dir = best.x < h.x ? -1 : 1;
+  h.face = 0;
+  const map = h.map;
+  E.fx(g, map, { kind: "shot", x0: h.x + (h.dir || 1) * 14, y0: h.y - 34, x1: best.x, y1: best.y - 30, style: "orb", r: 18, color: S.color, t: S.fly, life: S.fly, snd: "orb" });
+  E.later(g, S.fly, () => { if (best.map === map) healHero(E, g, h, best, best.max * S.heal, false); });
+  return true;
+}
 // 축복을 건다 — 받는 피해 감소 · 바로 회복 · 이어 회복(tickAdv)
 function bless(E, g, h, o, A) {
   const b = asOf(o);
-  b.blT = A.dur; b.blCut = A.cut; b.blReg = A.regen; b.blTk = A.tick; b.blBy = h.pi;
+  b.blT = A.dur; b.blCut = A.cut; b.blReg = A.regen; b.blTk = A.tick; b.blBy = h.pi; b.blAtk = A.atk;
   healHero(E, g, h, o, o.max * A.heal, true);
 }
 // 정령 · 연속 공격이 같은 결투 피해 한도(스킬 한 번)를 나눠 쓰게 — 잠깐 h.cast 를 바꿔 친다
@@ -219,10 +243,11 @@ function withCap(h, cap, fn) {
 
 /* 주는 피해 배율 — 표식 · 약점 노출(명사수) · 탄도 숙련(총사). 결투 · PvP 는 ADV.pvpBonusMax 까지 */
 export function advDmgMul(E, g, h, o, basic, pvp) {
+  if (!o) return 1;
   const c = advOf(h);
-  if (!c || !o) return 1;
   const a = asOf(h), k = keyOf(o), cast = h.cast;
-  let bonus = 0;
+  let bonus = a.blT > 0 ? a.blAtk || 0 : 0;         // 수호의 축복 — 받은 사람 누구나 공격력 증가
+  if (!c) return 1 + Math.min(bonus, pvp ? ADV.pvpBonusMax : ADV.pveBonusMax);
   if (c.id === "marksman") {
     if (a.ex === k) { bonus += c.passive.bonus; a.ex = ""; a.st = 0; }
     if (o.wkBy === h.pi && o.wkUntil > g.t && (basic || !(cast && cast.adv))) { bonus += c.passive.bonus; o.wkUntil = 0; }   // 관통 저격의 표식 — 다음 공격(평타 · 직업 스킬)이 터뜨린다
@@ -480,7 +505,7 @@ export function packAdv(h) {
   const sps = (a && a.sps) || [];
   return [ci, qi, h.advQ ? h.advQ.n : 0, a ? r1(a.cd) : 0, a ? a.st : 0, a ? r1(a.gT) : 0,
     sps.length ? r1(Math.max(...sps.map((sp) => sp.t))) : 0, a ? r1(a.pT) : 0, a && a.ex ? 1 : 0, h.advQ && h.advQ.m ? h.advQ.m.slice() : 0,
-    sps.length ? sps.map((sp) => r1(sp.t)) : 0, a ? r1(a.blT || 0) : 0, h.advQ && h.advQ.r ? h.advQ.r : 0];
+    sps.length ? sps.map((sp) => r1(sp.t)) : 0, a ? r1(a.blT || 0) : 0, h.advQ && h.advQ.r ? h.advQ.r : 0, h.healMode ? 1 : 0];
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.as = null; return; }
@@ -491,7 +516,8 @@ export function applyAdv(h, v) {
   a.cd = cd; a.st = st; a.gT = gT; a.pT = pT; a.ex = ex ? "on" : "";
   // 정령마다 남은 초 — 옛 방장 화면은 줄 끝이 없어 가장 긴 초 하나로 한 마리
   a.blT = Number(v[11]) || 0;
-  if (a.blT > 0 && !a.blCut) { const A = ADV_BY_ID.healer.active; a.blCut = A.cut; a.blReg = A.regen; a.blTk = A.tick; }   // 방장이 되면 남은 축복을 그대로 잇는다
+  if (a.blT > 0 && !a.blCut) { const A = ADV_BY_ID.healer.active; a.blCut = A.cut; a.blReg = A.regen; a.blTk = A.tick; a.blAtk = A.atk; }
+  h.healMode = !!v[13];   // 방장이 되면 남은 축복을 그대로 잇는다
   const ts = Array.isArray(v[10]) ? v[10].map((x) => Number(x) || 0).filter((x) => x > 0) : spT > 0 ? [spT] : [];
   const sps = a.sps || (a.sps = []);
   sps.length = Math.min(sps.length, ts.length);

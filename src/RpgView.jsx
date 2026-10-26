@@ -63,9 +63,9 @@ function advHud(me) {
     : c.id === "marksman" ? (a.ex ? "약점 노출" : `포착 ${a.st || 0}/${P.need}`)
     : c.id === "gunner" ? `탄도 ${a.st || 0}/${P.max}`
     : c.id === "archmage" ? `마력 ${a.st || 0}/${P.max}`
-    : c.id === "healer" ? (a.blT > 0 ? `축복 ${Math.ceil(a.blT)}초` : P.name)
+    : c.id === "healer" ? `${me.healMode ? "치유 평타" : "공격 평타"}${a.blT > 0 ? ` · 축복 ${Math.ceil(a.blT)}초` : ""}`
     : a.sps && a.sps.length ? `정령 ${a.sps.length}/${c.active.max} · ${Math.ceil(Math.max(...a.sps.map((sp) => sp.t)))}초` : P.name;
-  return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack };
+  return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW } from "./game/requestData.js";
@@ -835,6 +835,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "skill") act("skill");
       else if (a === "wskill") act("wskill");
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
+      else if (a === "healMode") act("adv", { op: "mode" });   // 치유사 평타 바꾸기 — 방장이 판정한다
       else if (a === "dash") act("dash");
       else if (a === "talk") act("talk");
       else if (a.startsWith("pot")) {                // 물약 칸 — 넣어 둔 물약을 마신다
@@ -1921,6 +1922,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span>{me.adv.name}<small>{me.adv.stack}</small></span>
                   {me.adv.cd > 0 && <em>{Math.ceil(me.adv.cd)}</em>}
                   {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
+                </button>
+              )}
+              {me.adv && me.adv.heal !== undefined && (
+                <button type="button" className={`rpg-skill adv ${me.adv.heal ? "" : "cool"}`} aria-pressed={me.adv.heal}
+                  onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "mode" }); }}>
+                  {!touch && keyOf(binds, "healMode") && <kbd>{keyOf(binds, "healMode")}</kbd>}
+                  <span>{me.adv.heal ? "치유 평타" : "공격 평타"}<small>눌러 바꾸기</small></span>
                 </button>
               )}
               {me.skills.map((s) => (

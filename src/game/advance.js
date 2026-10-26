@@ -2,13 +2,13 @@
    수치는 advData.js. E 는 rpg.js 의 대상 고르기 · 피해 · 연출 함수(advEngine) — 피해 · 결투 한도 · 원소는 기존 판정을 그대로 거친다.
    영구 기록: h.advClass(전직 id) · h.advQ({ c, n } 시험). 싸우는 동안만: h.as(쿨타임 · 중첩 · 철벽 · 정령 목록 sps) — 스냅샷 줄 53 으로 손님에게 간다.
    클라이언트 예측은 쓰지 않는다 — 손님 화면은 방장이 보낸 연출과 상태만 그린다 */
-import { ADV, ADV_BY_ID, ADV_IDS, ADV_UP, cleanAdvQ, trialText } from "./advData.js";
+import { ADV, ADV_BY_ID, ADV_IDS, ADV_UP, cleanAdvQ, trialText, healDone } from "./advData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const keyOf = (o) => (o.type !== undefined ? `m${o.id}` : `h${o.pi}`);
 const isHero = (o) => !!o && o.type === undefined;
 export const asOf = (h) => h.as || (h.as = { cd: 0, st: 0, stT: 0, fk: "", fn: 0, ex: "", gT: 0, gN: 0, gGap: 0, pT: 0, pCut: 0,
-  sps: [], blT: 0, blCut: 0, blReg: 0, blTk: 0, blBy: -1, gcT: 0, hq: 0, lb: -9, lk: "", lt: -9, slT: 0, mgT: 0, bT: 0 });
+  sps: [], blT: 0, blCut: 0, blReg: 0, blTk: 0, blBy: -1, gcT: 0, lb: -9, lk: "", lt: -9, slT: 0, mgT: 0, bT: 0 });
 
 // 지금 전직 — 기본 직업과 맞을 때만(관리자가 직업을 바꾸면 맞지 않는 전직은 없는 것으로 본다)
 export const advOf = (h) => { const c = h && ADV_BY_ID[h.advClass]; return c && c.job === h.job ? c : null; };
@@ -193,15 +193,15 @@ function healHero(E, g, by, o, amt, trial) {
   if (trial && by && !(o.down > 0)) healTrial(E, g, by, amt);   // 체력이 가득이어도 치유량 그대로 센다 — 혼자 자신을 치유해도 시험이 찬다
   return d;
 }
-// 치유사 시험 — 축복의 치유량을 모아 unit 마다 한 칸
+/* 치유사 시험 — 축복의 치유량을 모은다. 칸(n)은 unit 마다, 모자란 몫은 advQ.r 에 남겨 저장 · 스냅샷으로 화면에 1 단위로 보인다.
+   예전에는 남은 몫을 방장만 들고 있어 1000 이 찰 때만 게이지가 뛰었다(축복을 써도 안 오르다가 이어 회복 틱에 갑자기 +1000) */
 function healTrial(E, g, h, d) {
   const T = trialOf(h);
   if (!T || T.id !== "healer" || h.advQ.n >= T.trial.n) return;
-  const a = asOf(h);
-  a.hq += d;
-  let got = 0;
-  while (a.hq >= T.trial.unit && trialAdd(E, g, h, "healer")) { a.hq -= T.trial.unit; got += 1; }
-  if (got && h.advQ.n < T.trial.n && h.advQ.n % 5 === 0) E.say(g, h.map, h.x, h.y - 120, trialText(T, h.advQ), "#fff0c0");
+  const q = h.advQ;
+  q.r = (q.r || 0) + Math.floor(d);
+  while (q.r >= T.trial.unit && trialAdd(E, g, h, "healer")) q.r -= T.trial.unit;
+  if (q.n >= T.trial.n) q.r = 0;
 }
 // 축복을 건다 — 받는 피해 감소 · 바로 회복 · 이어 회복(tickAdv)
 function bless(E, g, h, o, A) {
@@ -398,12 +398,14 @@ export function advUse(E, g, h) {
     if (n) E.say(g, map, h.x, h.y - 120, `마력 ${n}`, "#d8c8ff");
   } else if (c.id === "healer") {
     const solo = E.pvpMap(map) || E.fieldPvp(h);   // 결투 · 사냥터 PvP 에서는 나에게만
+    const T = trialOf(h), before = T ? healDone(T.trial, h.advQ) : 0;
     g.heroes.forEach((o) => {
       if (!o || o.down > 0 || o.map !== map || !o.loaded) return;
       if (o !== h && (solo || E.dist(h.x, h.y, o.x, o.y) > A.r)) return;
       bless(E, g, h, o, A);
     });
     E.fx(g, map, { kind: "sk_adv_bless", x: h.x, y: h.y, r: A.r, t: 1, life: 1, snd: "bless" });
+    if (T && h.advQ) E.say(g, map, h.x, h.y - 124, `치유 시험 +${(healDone(T.trial, h.advQ) - before).toLocaleString()}`, "#fff0c0");   // 이번에 센 몫
   } else if (c.id === "summoner") {
     const sps = a.sps || (a.sps = []);
     sps.forEach((sp) => { sp.t = A.life; });       // 있던 정령은 시간이 다시 찬다
@@ -478,13 +480,13 @@ export function packAdv(h) {
   const sps = (a && a.sps) || [];
   return [ci, qi, h.advQ ? h.advQ.n : 0, a ? r1(a.cd) : 0, a ? a.st : 0, a ? r1(a.gT) : 0,
     sps.length ? r1(Math.max(...sps.map((sp) => sp.t))) : 0, a ? r1(a.pT) : 0, a && a.ex ? 1 : 0, h.advQ && h.advQ.m ? h.advQ.m.slice() : 0,
-    sps.length ? sps.map((sp) => r1(sp.t)) : 0, a ? r1(a.blT || 0) : 0];
+    sps.length ? sps.map((sp) => r1(sp.t)) : 0, a ? r1(a.blT || 0) : 0, h.advQ && h.advQ.r ? h.advQ.r : 0];
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.as = null; return; }
   const [ci, qi, qn, cd, st, gT, spT, pT, ex] = v.slice(0, 9).map((x) => Number(x) || 0);
   h.advClass = ADV_IDS[ci] || "";
-  h.advQ = ADV_IDS[qi] ? cleanAdvQ({ c: ADV_IDS[qi], n: qn, v: ADV.trialVer, m: v[9] }) : null;   // 방장이 보낸 진행은 지금 판
+  h.advQ = ADV_IDS[qi] ? cleanAdvQ({ c: ADV_IDS[qi], n: qn, v: ADV.trialVer, m: v[9], r: v[12] }) : null;   // 방장이 보낸 진행은 지금 판
   const a = asOf(h);
   a.cd = cd; a.st = st; a.gT = gT; a.pT = pT; a.ex = ex ? "on" : "";
   // 정령마다 남은 초 — 옛 방장 화면은 줄 끝이 없어 가장 긴 초 하나로 한 마리

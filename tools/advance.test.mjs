@@ -509,3 +509,23 @@ test('치유사 시험 — 혼자 자신만 치유해도(체력이 가득이어�
   const A = ADV_BY_ID.healer.active;
   assert.equal(m.advQ.n, Math.floor((m.max * A.heal) / ADV_BY_ID.healer.trial.unit));
 });
+
+test('치유사 시험 — 1000 이 안 되는 치유도 남은 몫(advQ.r)으로 바로 보이고 저장 · 스냅샷으로 간다', () => {
+  const t = world([{ job: 'mage', advQ: Q('healer', 0) }]);
+  t.mobs = [];
+  const m = t.heroes[0];
+  at(m, 600, 900, 'skeletal'); m.auto = 0;
+  m.max = 2000; m.hp = 500;
+  send(t, 0, 'adv', { op: 'use' });
+  const A = ADV_BY_ID.healer.active;
+  assert.equal(m.advQ.n, 0);
+  assert.equal(m.advQ.r, Math.floor(2000 * A.heal));
+  assert.equal(trialText(ADV_BY_ID.healer, m.advQ), `회복 ${Math.floor(2000 * A.heal)}/30,000`);
+  assert(t.out.some((o) => o.k === 'fx' && /치유 시험 \+400/.test(o.text || '')), '쓸 때 센 몫을 띄운다');
+  const q = makeWorld(); q.mySeat = 0;
+  rpgApply(q, rpgPack(t));
+  assert.equal(q.heroes[0].advQ.r, m.advQ.r, '손님 화면도 남은 몫을 안다');
+  assert.equal(heroRecord(m, { name: '시험0', lv: 250, rs: RESET.id }).advQ.r, m.advQ.r, '저장에도 남는다');
+  for (let i = 0; i < 3; i++) { m.as.cd = 0; send(t, 0, 'adv', { op: 'use' }); }
+  assert.equal(m.advQ.n * 1000 + m.advQ.r, Math.floor(2000 * A.heal) * 4);
+});

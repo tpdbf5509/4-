@@ -1166,7 +1166,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (me && me.loaded && !me.tradeLocal) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
             + `/${me.ts || 0}/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`
-            + `/${me.advClass || ""}/${me.advQ ? `${me.advQ.c}:${me.advQ.n}` : ""}`;   // 1차 전직 · 시험 진행도 바뀌면 남긴다
+            + `/${me.advClass || ""}/${me.advQ ? `${me.advQ.c}:${me.advQ.n}:${me.advQ.r || 0}` : ""}`;   // 1차 전직 · 시험 진행도 바뀌면 남긴다
           // 다른 탭이 이 기기의 기록을 다른 캐릭터로 바꿨거나, 내 자리에 남의 영웅이 실려 있으면 저장하지 않는다
           if (key !== saved && ownChar() && (isHost || ownHero(me, seatsRef.current[mySeat]?.id))) {
             saved = key;

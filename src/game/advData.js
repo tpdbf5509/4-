@@ -150,8 +150,12 @@ export function cleanAdvQ(q) {
     const m = T.list.map((_, i) => (old ? 0 : Math.max(0, Math.min(T.each, Math.floor(Number(Array.isArray(q.m) ? q.m[i] : 0) || 0)))));
     return { c: q.c, n: m.reduce((s, x) => s + x, 0), v: ADV.trialVer, m };
   }
-  return { c: q.c, n: old ? 0 : Math.max(0, Math.min(T.n, Math.floor(Number(q.n) || 0))), v: ADV.trialVer };
+  const out = { c: q.c, n: old ? 0 : Math.max(0, Math.min(T.n, Math.floor(Number(q.n) || 0))), v: ADV.trialVer };
+  if (T.unit) out.r = old ? 0 : Math.max(0, Math.min(T.unit - 1, Math.floor(Number(q.r) || 0)));   // 치유사 — 한 칸(unit)이 안 된 남은 치유량
+  return out;
 }
+// 치유사 시험의 지금 치유량 — 칸 수 × unit + 남은 몫
+export const healDone = (T, q) => Math.min(T.n * T.unit, (q ? q.n : 0) * T.unit + ((q && q.r) || 0));
 // 시험 진행 글 — 창 · 알림이 같이 쓴다
 export function trialText(c, q) {
   const T = c.trial, n = Math.min(T.n, q ? q.n : 0);
@@ -164,7 +168,7 @@ export function trialText(c, q) {
   if (c.id === "marksman") return `연속 ${n}/${T.n}번`;
   if (c.id === "gunner") return `${n}/${T.list.length}종`;
   if (c.id === "summoner") return `${n}/${T.n}개`;
-  if (c.id === "healer") return `회복 ${(n * T.unit).toLocaleString()}/${(T.n * T.unit).toLocaleString()}`;
+  if (c.id === "healer") return `회복 ${healDone(T, q).toLocaleString()}/${(T.n * T.unit).toLocaleString()}`;
   return `${n}/${T.n}`;
 }
 

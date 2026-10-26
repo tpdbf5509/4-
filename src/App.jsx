@@ -423,6 +423,17 @@ export default function App() {
     publishLobby();
     return true;
   }, [me, publishLobby]);
+  // 관리자 /직업 — 방장은 그 사람 자리의 겉모습(직업)을 고쳐 모두에게 알린다. 바뀐 사람(mine)은 다시 들어갈 때 쓸 내 모습도 고친다
+  const relook = useCallback((id, job, mine) => {
+    if (mine && heroRef.current) heroRef.current = { ...heroRef.current, job };
+    if (!hostRef.current || !id) return;
+    const at = seatsRef.current.findIndex((st) => st && st.id === id);
+    if (at < 0 || !seatsRef.current[at].hero) return;
+    const seats = seatsRef.current.slice();
+    seats[at] = { ...seats[at], hero: { ...seats[at].hero, job } };
+    seatsRef.current = seats;
+    publishLobby();
+  }, [publishLobby]);
 
   const pick = useCallback((cls) => {
     if (!lobby || lobby.mode === "rpg") return;
@@ -656,7 +667,7 @@ export default function App() {
         seats={lobby.seats}
         mySeat={mySeat}
         code={RPG_SERVERS.includes(code) ? `서버 ${server + 1}` : `방 코드 ${code}`}
-        onLeave={leave} onHandoff={handoff} onKick={kick}
+        onLeave={leave} onHandoff={handoff} onKick={kick} onRelook={relook}
         servers={RPG_SERVERS.includes(code) ? { at: server, n: RPG_SERVERS.length, note: srvNote } : null}
         onMoveServer={moveServer}
       />

@@ -5,11 +5,13 @@ import { trading } from "./tradeData.js";
    /지급 <이름> <물품> [개수]   물약 · 재료 · 특별 무기 · 방어구(예: 전설 투구) · 워프권 · 하락 방지권
    /돈 <이름> <금액>            코인을 준다(빼려면 -금액)
    /소환 <이름>                 그 사람을 내 자리로 옮긴다
+   /직업 <이름> <직업>          기본 직업(검사 · 궁수 · 마법사)이나 전직(검투사 · 기사 · 명사수 · 총사 · 마도사 · 소환술사)으로 바꾼다
    <이름> 자리에 "나" 를 쓰면 나 자신. 이름에 띄어쓰기가 있어도 된다(지금 서버에 있는 사람 이름과 앞에서부터 견준다).
    관리자(h.admin) 만 쓸 수 있다. 화면 쪽은 RpgView.jsx sendChat 이 "/" 를 채팅 대신 입력 kind "cmd" 로 보낸다 */
-import { MAPS, runOf, sys } from "./rpg.js";
-import { POTIONS, POTION, SPECIALS, WEAPON, WARP, GUARD } from "./shopData.js";
-import { specialTier, specialPrice, addMat } from "./shop.js";
+import { MAPS, JOBS, runOf, sys } from "./rpg.js";
+import { POTIONS, POTION, SPECIALS, WEAPON, WARP, GUARD, WEAPON_FAMILY, JOB_FAMILY } from "./shopData.js";
+import { specialTier, specialPrice, addMat, equipped } from "./shop.js";
+import { ADV_CLASSES } from "./advData.js";
 import { MATERIALS } from "./itemData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR } from "./armorData.js";
 
@@ -22,6 +24,7 @@ const HELP = [
   "/지급 <이름> <물품> [개수] — 물약 · 재료 · 특별 무기 · 방어구(예: 전설 투구) · 워프권 · 방지권",
   "/돈 <이름> <금액> — 코인 주기(빼려면 -금액)",
   "/소환 <이름> — 그 사람을 내 자리로",
+  "/직업 <이름> <직업> — 검사 · 궁수 · 마법사 · 검투사 · 기사 · 명사수 · 총사 · 마도사 · 소환술사",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
 ];
 const flat = (s) => String(s || "").toLowerCase().replace(/[\s()·]/g, "");
@@ -69,6 +72,30 @@ function takeName(g, pi, words) {
   return [-1, words];
 }
 const who = (g, i) => (g.names && g.names[i]) || "모험가";
+// 바꿀 수 있는 직업 — 기본 직업 셋과 전직 여섯. 예전 이름 "전사" 도 받는다
+const JOB_PICKS = [
+  ...JOBS.map((j) => ({ name: j.name, job: j.id, adv: "" })),
+  { name: "전사", job: "warrior", adv: "" },
+  ...ADV_CLASSES.map((c) => ({ name: c.name, job: c.job, adv: c.id, gear: c.gear })),
+];
+const jobLabel = (p) => (p.adv ? `${JOBS.find((j) => j.id === p.job).name} · ${p.name}` : p.name);
+/* 직업을 바꾼다(방장) — 기본 직업은 겉모습(자리 소식)이라 화면 쪽이 자리 · 기기 기록도 바꾼다(g.relook · out "relook").
+   다른 묶음 무기를 들고 있으면 장착만 풀고, 직업 스킬 칸 · 전직 시험 · 싸우는 동안의 전직 상태는 비운다 */
+function changeJob(g, t, pick) {
+  t.job = pick.job;
+  t.advClass = pick.adv; t.advQ = null; t.as = null;
+  const b = t.bag;
+  if (b) {
+    const w = equipped(b);
+    if (w && WEAPON_FAMILY[w.t] && WEAPON_FAMILY[w.t] !== JOB_FAMILY[pick.job]) b.e = 0;
+    if (b.ks) b.ks.job = "";
+    const sp = pick.gear && SPECIALS.find((q) => q.id === pick.gear);   // 총사 · 소환술사 전직 무기 — 없으면 한 자루
+    if (sp && !b.w.some((x) => x.sp === sp.id) && b.w.length < WEAPON.bagMax) b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id });
+    bump(t);
+  }
+  (g.relook || (g.relook = [])).push({ pi: t.pi, who: t.who, job: pick.job });
+  if (g.out) g.out.push({ k: "relook", who: t.pi, job: pick.job });
+}
 const bump = (h) => { h.bag.v += 1; };
 
 /* 방장이 판정한다 — 입력 kind "cmd", dir 은 명령 한 줄 */
@@ -131,6 +158,22 @@ export function rpgAdminCmd(g, pi, text) {
     t.hold = []; t.dash = 0; t.gateCd = 1.5;
     say(`${who(g, ti)}님을 내 자리로 불렀습니다.`);
     sys(g, ti, "관리자가 불러 자리를 옮겼습니다.");
+    return true;
+  }
+
+  if (cmd === "직업") {
+    const k = flat(words.pop() || "");
+    const pick = JOB_PICKS.find((p) => flat(p.name) === k);
+    const [ti, rest] = takeName(g, pi, words);
+    if (!pick) return void say("그런 직업이 없습니다. 예) /직업 나 검투사 · 검사 · 궁수 · 마법사 · 기사 · 명사수 · 총사 · 마도사 · 소환술사");
+    if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /직업 나 소환술사");
+    const t = g.heroes[ti];
+    if (trading(t)) return void say("그 사람은 거래 중입니다. 거래가 끝난 뒤 다시 해 주세요.");
+    if (!t.loaded) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
+    if ((t.dvs ?? -1) >= 0) return void say(`${who(g, ti)}님이 결투 중이라 바꿀 수 없습니다.`);
+    changeJob(g, t, pick);
+    say(`${who(g, ti)}님의 직업을 ${jobLabel(pick)}(으)로 바꿨습니다.`);
+    if (ti !== pi) sys(g, ti, `관리자가 직업을 ${jobLabel(pick)}(으)로 바꿨습니다.`);
     return true;
   }
 

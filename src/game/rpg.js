@@ -713,6 +713,11 @@ export function adoptChar(name, data, tok, admin) {
   return loadChar();
 }
 // 직업 · 원소 · 성별을 정한다 — 이미 정해 두었으면 그대로 두고 false. 관리자 캐릭터는 언제든 다시 정한다
+// 관리자 /직업 으로 바뀐 직업을 이 기기 기록에 남긴다(한 번 정한 직업도 바꾼다)
+export function forceJob(job) {
+  const cur = loadSave();
+  return !!cur && !!JOB_BY_ID[job] && store({ ...cur, job });
+}
 export function saveLook(d) {
   const cur = loadSave();
   if (!cur || (cur.picked && !cur.admin)) return false;
@@ -740,13 +745,14 @@ export function writeChar(d) {
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
     honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs),
     gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "", rs: d.rs === RESET.id ? RESET.id : cur.rs || "",
-    ...advRecord(d, cur, reset || rolledBack(d.bag, cur.bag)) });
+    ...advRecord(d, cur, reset || rolledBack(d.bag, cur.bag), cur.job) });
 }
 /* 전직 기록 — 전직은 되돌릴 수 없어, 전직이 빈 기록이 와도(옛 방장 스냅샷 · 섞인 기록) 남겨 둔 전직을 지우지 않는다.
    서버 초기화 · 한 사람 되돌리기 · 관리자(시험용으로 비운다)만 비울 수 있다 */
-function advRecord(d, base, clear) {
-  const adv = cleanAdvClass(d.advClass);
-  return { advClass: adv || (clear || d.admin ? "" : cleanAdvClass(base && base.advClass)), advQ: adv ? null : cleanAdvQ(d.advQ) };
+function advRecord(d, base, clear, job) {
+  const adv = cleanAdvClass(d.advClass), kept = cleanAdvClass(base && base.advClass);
+  const keep = kept && (!job || ADV_BY_ID[kept].job === job) ? kept : "";   // 관리자가 직업을 바꿨으면 옛 직업의 전직은 남기지 않는다
+  return { advClass: adv || (clear || d.admin ? "" : keep), advQ: adv ? null : cleanAdvQ(d.advQ) };
 }
 
 // 전용 서버가 저장할 기록 — 불러온 기록(base) 위에 지금 영웅 상태를 덮는다(writeChar 와 같은 칸). 레벨이 내려갔으면 null
@@ -763,7 +769,7 @@ export function heroRecord(h, base, look) {
     rec: cleanRec(h.rec), titles: cleanTitles(h.titles), title: TITLE_BY_ID[h.title] ? h.title : "",
     honor: Math.max(0, Math.floor(Number(h.honor) || 0)), reqs: cleanReqs(h.reqs),
     gift: h.gift === GIFT.id ? GIFT.id : b.gift || "", rs: h.rs === RESET.id ? RESET.id : b.rs || "",
-    ...advRecord(h, b, (h.rs === RESET.id && b.rs !== RESET.id) || rb) };
+    ...advRecord(h, b, (h.rs === RESET.id && b.rs !== RESET.id) || rb, h.job) };
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -4307,6 +4313,8 @@ export function rpgApplyOut(g, list) {
     } else if (o.k === "sys") {
       g.sys.push({ who: o.who, msg: o.msg, at: o.at });
       if (g.sys.length > 30) g.sys.shift();
+    } else if (o.k === "relook") {                 // 관리자 /직업 — 바뀐 사람의 화면이 기기 기록을 고친다(RpgView)
+      (g.relooks || (g.relooks = [])).push({ who: o.who, job: o.job });
     } else if (o.k === "banner") {
       g.banner = { text: o.text, sub: o.sub, tone: o.tone, t: o.t, life: o.life };
     }

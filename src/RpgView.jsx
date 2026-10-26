@@ -15,7 +15,7 @@ import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, RPG_SERVER_CAP, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, FIELD_PVP,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, writeChar, deleteChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, forceJob, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, MOB_REGEN, ACTIVE_SKILLS, heldSpecial, trainView, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, MOB,
@@ -400,7 +400,9 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
 }
 
 /* ── 광장과 사냥터 ─────────────────────────────────────── */
-export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave, onHandoff, onKick, servers, onMoveServer }) {
+export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave, onHandoff, onKick, onRelook, servers, onMoveServer }) {
+  const relookRef = useRef(onRelook);
+  relookRef.current = onRelook;
   const cvsRef = useRef(null);
   const bgsRef = useRef(null);
   const names = useMemo(() => seats.map((s) => s?.name || ""), [seats]);
@@ -1061,6 +1063,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 내 시계가 실제보다 뒤처져, 서버 위치와 견주는 때가 어긋나 걷다가 뒤로 당겨졌다(느린 기기 · 스킬 연출이 많을 때)
         for (let left = Math.min(real, GUEST_CATCH_UP); left > 0; left -= STEP_MAX) rpgStepVisual(g, Math.min(left, STEP_MAX));
       }
+      // 관리자 /직업 — 방장은 자리 소식의 겉모습을 고치고, 바뀐 사람은 이 기기 기록 · 다시 들어갈 때의 모습을 고친다
+      if (g.relook && g.relook.length) g.relook.splice(0).forEach((r) => {
+        const mine = r.pi === g.mySeat;
+        if (mine) forceJob(r.job);
+        relookRef.current?.(r.who, r.job, mine);
+      });
+      if (g.relooks && g.relooks.length) g.relooks.splice(0).forEach((r) => {
+        if (r.who !== g.mySeat) return;
+        forceJob(r.job);
+        relookRef.current?.(null, r.job, true);
+      });
       netRef.current.frames += 1;
       netRef.current.total += 1;                   // 관리 화면에 알리는 fps
       playSounds(g);

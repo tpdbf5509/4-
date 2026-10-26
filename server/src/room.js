@@ -287,6 +287,14 @@ export class RpgRoom {
     }
     const g = this.g;
     for (let left = real; left > 0; left -= STEP_MAX) rpgStep(g, Math.min(left, STEP_MAX));
+    // 관리자 /직업 — 자리의 겉모습(직업)을 고쳐 모두에게 알린다. 바뀐 사람의 기기 기록은 그 화면이 out "relook" 으로 고친다
+    if (g.relook && g.relook.length) {
+      g.relook.splice(0).forEach((r) => {
+        const at = this.seats.findIndex((s) => s && s.id === r.who);
+        if (at >= 0 && this.seats[at].hero) this.seats[at] = { ...this.seats[at], hero: { ...this.seats[at].hero, job: r.job } };
+      });
+      this.publish();
+    }
     this.sinceSnap += real;
     if (rush) { this.sinceSnap = 0; this.snap(); }
     else if (this.sinceSnap >= 1 / SNAP_HZ) {

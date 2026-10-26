@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgPromote, rpgSkill, rpgUseSkill, rpgDuel, heroRecord, MAPS, DUEL } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgApplyOut, rpgPromote, rpgSkill, rpgUseSkill, rpgDuel, heroRecord, MAPS, DUEL } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { ADV, ADV_BY_ID, ADV_CLASSES, trialText } from '../src/game/advData.js';
@@ -365,4 +365,31 @@ test('피해 감소 합계 70% 상한 · 직업 철벽만이면 예전 그대로
   const foe = { pi: 1 };
   assert(Math.abs(advDmgMul(E, { t: 0 }, gunner, foe, false, true) - (1 + ADV.pvpBonusMax)) < 1e-9);
   assert(Math.abs(advDmgMul(E, { t: 0 }, gunner, { id: 3, type: 'orc' }, false, false) - 1.3) < 1e-9);
+});
+
+test('관리자 /직업 — 기본 직업 · 전직으로 바꾸고 자리 · 기기 기록을 고치게 알린다 · 관리자가 아니면 막는다', () => {
+  const g = world([{ job: 'warrior', admin: 1, name: '관리' }, { job: 'mage', advClass: 'archmage', name: '손님' }]);
+  const [a, b] = g.heroes;
+  g.out = [];
+  send(g, 1, 'cmd', '/직업 나 검사');                   // 관리자가 아니다
+  assert.equal(b.job, 'mage');
+  send(g, 0, 'cmd', '/직업 손님 총사');
+  assert.equal(b.job, 'archer');
+  assert.equal(b.advClass, 'gunner');
+  assert(b.bag.w.some((w) => w.sp === 'adv_guns'), '전직 무기');
+  assert.deepEqual(g.relook.at(-1), { pi: 1, who: 'p1', job: 'archer' });
+  assert(g.out.some((o) => o.k === 'relook' && o.who === 1 && o.job === 'archer'));
+  // 손님 화면 — out 을 받아 바뀐 사람이 기록을 고칠 차례에 둔다
+  const q = makeWorld(); q.mySeat = 1;
+  rpgApplyOut(q, g.out);
+  assert.deepEqual(q.relooks.at(-1), { who: 1, job: 'archer' });
+  // 기본 직업으로 바꾸면 전직이 비고, 옛 직업의 전직은 저장 기록에 남지 않는다
+  send(g, 0, 'cmd', '/직업 손님 마법사');
+  assert.equal(b.job, 'mage'); assert.equal(b.advClass, '');
+  assert.equal(heroRecord(b, { name: '손님', lv: 250, rs: RESET.id, advClass: 'gunner' }).advClass, '');
+  assert.equal(heroRecord(b, { name: '손님', lv: 250, rs: RESET.id, advClass: 'archmage' }).advClass, 'archmage', '같은 직업의 전직은 그대로 지킨다');
+  send(g, 0, 'cmd', '/직업 나 소환술사');
+  assert.equal(a.job, 'mage'); assert.equal(a.advClass, 'summoner');
+  send(g, 0, 'cmd', '/직업 나 해적');
+  assert.match(sysOf(g, 0).at(-1), /그런 직업이 없습니다/);
 });

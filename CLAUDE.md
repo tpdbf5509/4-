@@ -71,6 +71,7 @@
 | `src/game/shopData.js` · `shop.js` · `src/ShopPanel.jsx` | RPG 광장 상점. **가격 · 확률 · 제한은 shopData.js 한 곳**, 규칙(방장 판정 `rpgShop`, 조건 `why*`)은 shop.js, 상점 · 가방 창은 ShopPanel.jsx |
 | `src/game/towerInfo.js` | 탑 "자세히 보기" 창 설명. **숫자를 손으로 적어 둔 곳이라 logic.js 를 고치면 여기도 고친다** |
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
+| `src/InquiryPanel.jsx` | RPG ☰ 메뉴 "문의하기" 창(`.shop` 틀). 글은 의견 남기기와 같은 `feedback` 표(`sendFeedback`, 앞에 "[RPG 문의]")로 간다 |
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
 | `src/net/room.js` | Supabase 채널 연결 |
 | `src/net/rpgServer.js` · `server/` | RPG 전용 서버 연결(room.js 와 같은 모양) · 서버(`server/src/room.js` 가 RPG1~4 방 하나, `save.js` 가 Supabase `rpg_srv_load` · `rpg_srv_save` — 서버 비밀 키로만). 규칙은 `src/game/` 를 그대로 묶어 쓴다. 입력 나누기는 `src/game/rpgInput.js`(방장 화면과 서버가 같이 쓴다) |

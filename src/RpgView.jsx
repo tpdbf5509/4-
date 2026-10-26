@@ -75,6 +75,7 @@ import { UPDATES, RPG_NOTICE } from "./game/updates.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
+import InquiryPanel from "./InquiryPanel.jsx";
 import { compareBuild, BUILD } from "./net/version.js";
 import { adminRedeem, joinAdminLink } from "./net/admin.js";
 import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText, honorTop } from "./net/rpgSave.js";
@@ -488,6 +489,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [titleOpen, setTitleOpen] = useState(false); // 칭호 창
   const [partyOpen, setPartyOpen] = useState(false); // 파티 창
   const [keysOpen, setKeysOpen] = useState(false);   // 키 설정 창
+  const [inqOpen, setInqOpen] = useState(false);     // 문의하기 창
   const [answeredAt, setAnsweredAt] = useState(0);   // 초대에 답한 때 — 방장 답이 올 때까지 초대 창을 숨긴다
   const [duelAt, setDuelAt] = useState(0);           // 결투 신청에 답한 때
   const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
@@ -573,7 +575,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   // 창은 한 번에 하나만 연다
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
-    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
+    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
     setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
@@ -1295,6 +1297,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     </span>
                   </div>
                 )}
+                <button type="button" role="menuitem" className="rpg-menu-row" onClick={() => toggleWin(false, setInqOpen)}>
+                  <span className="rpg-menu-text"><b>문의하기</b><em>불편한 점 · 오류 · 궁금한 것을 보냅니다</em></span>
+                  <span className="rpg-menu-go">›</span>
+                </button>
                 {!touch && (
                   <button type="button" role="menuitem" className="rpg-menu-row" onClick={() => toggleWin(false, setKeysOpen)}>
                     <span className="rpg-menu-text">
@@ -1307,6 +1313,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             </>
           )}
+          {me && inqOpen && <InquiryPanel name={selfName.current || seats[mySeat]?.name || ""} server={code} job={me.job} onClose={() => setInqOpen(false)} />}
           {me && statOpen && (() => {
             const planned = STAT_IDS.reduce((n, k) => n + plan[k], 0);
             const room = me.left - planned;

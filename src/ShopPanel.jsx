@@ -11,7 +11,7 @@ import { STATS, statValue, MAPS, JOB_BY_ID } from "./game/rpg.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
-  CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD,
+  CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD, WEAPON_TYPES,
 } from "./game/shopData.js";
 import {
   SHOP_BY_ID, POTION_BY_ID, FAM_BY_ID, SKILL_BY_ID, todayKey, usedToday, tierOf, weaponName,
@@ -661,12 +661,15 @@ function Books({ tab0 }) {
 
 /* ── 가방 — 어디서나 연다. 능력치 · 무기 장착 · 물약 마시기 · 배운 스킬 ── */
 export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
+  const [wtab, setWtab] = useState("all");            // 무기 탭 안의 종류 탭
   const [tab, setTab] = useState(tab0 === "stat" ? "weapon" : tab0);   // 능력치 탭은 뺐다(스탯 창에서 본다) · "book" 으로 열면 책 탭
   const qs = h.bag.qs || [];
   const w = equipped(h.bag);
   const potions = POTIONS.filter((p) => h.bag.p[p.id] > 0);
   const skills = SKILLS.filter((s) => h.bag.s[s.id] > 0);
   const mats = MATERIALS.filter((m) => matCount(h.bag, m.id) > 0);
+  // 무기 종류별 탭 — 가방에 있는 종류만 보인다
+  const weaponTabs = [["all", "전체", h.bag.w.length], ...WEAPON_TYPES.filter((t) => h.bag.w.some((q) => q.t === t.id)).map((t) => [t.id, t.name, h.bag.w.filter((q) => q.t === t.id).length])];
   return (
     <Frame title="가방" sub="무기 · 방어구 · 물약 · 재료 · 주문서 · 스킬 · 책" coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
       <Tabs on={tab} set={setTab} tabs={[["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length], ["book", "책", BOOKS.length]]} />
@@ -675,7 +678,10 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
         <>
           <Head sub={`${h.bag.w.length}/${WEAPON.bagMax} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>
           {!h.bag.w.length && <Empty>무기상점에서 살 수 있습니다.</Empty>}
-          {h.bag.w.map((q) => (
+          {h.bag.w.length > 0 && (
+            <Tabs on={weaponTabs.some(([id]) => id === wtab) ? wtab : "all"} set={setWtab} tabs={weaponTabs} />
+          )}
+          {h.bag.w.filter((q) => wtab === "all" || q.t === wtab).map((q) => (
             <WeaponItem key={q.u} w={q} tag={q.u === h.bag.e ? "장착 중" : ""}
               acts={[q.u === h.bag.e
                 ? { label: "해제", why: whyEquip(h, 0), onClick: () => send({ op: "equip", u: 0 }) }

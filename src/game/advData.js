@@ -150,6 +150,19 @@ export function trialText(c, q) {
   return `${n}/${T.n}`;
 }
 
+/* 전직 추가 스탯 — 전직을 확정하면 스탯 값에 더한다(찍은 포인트와 별개 · 스탯 창에 초록 몫으로 보인다, shop.js extraStat).
+   전직마다 포인트로 따져 약 40점어치(물리력 · 마법력 2 · 체력 15 · 치명타 0.5% · 치명타 피해 1% 가 1점). 10월 26일 처음 넣음 */
+export const ADV_BONUS = {
+  gladiator: { str: 60, cdmg: 10 },   // 검투사 — 공격 · 콤보
+  knight: { hp: 450, str: 20 },       // 기사 — 체력(방패로 버틴다)
+  marksman: { crit: 10, cdmg: 20 },   // 명사수 — 치명타
+  gunner: { str: 40, crit: 10 },      // 총사 — 공격 · 치명타
+  archmage: { int: 80 },              // 마도사 — 마법력
+  summoner: { int: 40, hp: 300 },     // 소환술사 — 마법력 · 체력(정령과 버틴다)
+};
+// 전직할 때 연출(adv-up.webp 6칸) — life 초 동안 차례로, w 는 맵에서 그리는 한 칸 폭, foot 은 칸 위에서 땅(마법진 가운데)까지의 몫
+export const ADV_UP = { life: 2.4, w: 330, foot: 0.72, alpha: 0.7 };   // alpha — 밝은 광장 바닥 위에서 캐릭터가 하얗게 묻히지 않게 빛을 덜 더한다
+
 /* 그림 — 생성한 투명 아틀라스(design/advance 원본 · 2026-10-25). 칸 크기는 원본 픽셀
    fx: 4열 × 3행(176px) — 0 붉은 검격 · 1 붉은 충격파 · 2 금빛 방패 · 3 육각 충격파 · 4 청록 화살 · 5 청록 섬광 · 6 총구 화염 · 7 탄환과 탄피 · 8 흰 마법진 · 9 푸른 소환진 · 10 마력 폭발
    spirits: 3열 × 2행(160px) — ELEMS 차례(화염 · 서리 · 번개 · 독 · 부식 · 중력)
@@ -158,6 +171,7 @@ export const ADV_ART = {
   fx: { src: "/assets/game/rpg/advance/adv-fx.webp", cols: 4, cell: 176 },
   spirits: { src: "/assets/game/rpg/advance/adv-spirits.webp", cols: 3, cell: 160 },
   items: { src: "/assets/game/rpg/advance/adv-items.webp", cols: 5, cell: 192 },
+  up: { src: "/assets/game/rpg/advance/adv-up.webp", cols: 3, cell: 384 },   // 전직 연출 3열 × 2행 — 검은 바탕이라 빛을 더하듯(lighter) 그린다
   FX: { slash: 0, shock: 1, shield: 2, hex: 3, arrow: 4, flash: 5, muzzle: 6, bullet: 7, circle: 8, summon: 9, burst: 10 },
   ITEM: { guns: 0, shield: 1, book: 2, pistol: 3, pistol2: 4 },
 };

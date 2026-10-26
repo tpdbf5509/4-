@@ -1331,7 +1331,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                         <div key={t.id} className="rpg-stat-row">
                           <span className="rpg-stat-name">
                             <b>{t.name}</b>
-                            <em>{t.id === "hp" ? `최대 체력 ${Math.round(v1 * hpMul).toLocaleString("ko-KR")}` : t.note}</em>
+                            <em>{t.id === "hp" ? `최대 체력 ${Math.round((v1 + (me.extra.hp || 0)) * hpMul).toLocaleString("ko-KR")}` : t.note}</em>
                           </span>
                           <span className="rpg-stat-val">
                             {t.fmt(v0)}{add > 0 && <> <i>→</i> <strong>{t.fmt(v1)}</strong></>}

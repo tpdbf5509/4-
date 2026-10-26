@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgApplyOut, rpgPromote, rpgSkill, rpgUseSkill, rpgDuel, heroRecord, MAPS, DUEL } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
-import { ADV, ADV_BY_ID, ADV_CLASSES, trialText } from '../src/game/advData.js';
+import { ADV, ADV_BY_ID, ADV_CLASSES, ADV_BONUS, trialText } from '../src/game/advData.js';
+import { statTotal } from '../src/game/rpg.js';
 
 // 1차 전직 — 시험 · 확정 · 저장 · 액티브 6 · 패시브 6 · PvP 한도 · 스냅샷 · 방장 승계. 실행: node --test tools/advance.test.mjs
 const JOB = { gladiator: 'warrior', knight: 'warrior', marksman: 'archer', gunner: 'archer', archmage: 'mage', summoner: 'mage' };
@@ -392,4 +393,32 @@ test('관리자 /직업 — 기본 직업 · 전직으로 바꾸고 자리 · �
   assert.equal(a.job, 'mage'); assert.equal(a.advClass, 'summoner');
   send(g, 0, 'cmd', '/직업 나 해적');
   assert.match(sysOf(g, 0).at(-1), /그런 직업이 없습니다/);
+});
+
+test('전직 추가 스탯 — 전직마다 정한 몫이 스탯에 더해지고 약 40점어치로 고르다', () => {
+  const PT = { str: 2, int: 2, hp: 15, crit: 0.5, cdmg: 1 };      // 포인트 하나의 값(rpg.js STATS per)
+  for (const c of ADV_CLASSES) {
+    const plain = world([{ job: c.job }]).heroes[0], adv = world([{ job: c.job, advClass: c.id }]).heroes[0];
+    let pts = 0;
+    for (const [k, v] of Object.entries(ADV_BONUS[c.id])) {
+      assert.equal(statTotal(adv, k) - statTotal(plain, k), v, `${c.id} ${k}`);
+      pts += v / PT[k];
+    }
+    assert(Math.abs(pts - 40) <= 0.5, `${c.id} 포인트 몫 ${pts}`);
+  }
+  // 기사는 최대 체력이 늘어난다
+  const kn = world([{ job: 'warrior', advClass: 'knight' }]).heroes[0], wr = world([{ job: 'warrior' }]).heroes[0];
+  assert(kn.max > wr.max, `기사 ${kn.max} · 전사 ${wr.max}`);
+});
+
+test('전직을 확정하면 전직 연출(sk_adv_up)이 나가고 추가 체력이 바로 실린다', () => {
+  const T = ADV_BY_ID.knight.trial;
+  const g = world([{ job: 'warrior', advQ: Q('knight', T.n) }]);
+  const h = g.heroes[0], before = h.max;
+  at(h, ADV.npc.x, ADV.npc.y + 40);
+  send(g, 0, 'adv', { op: 'confirm', c: 'knight' });
+  assert.equal(h.advClass, 'knight', sysOf(g, 0).join(' / '));
+  assert(h.max > before && h.hp === h.max, `체력 ${before} → ${h.max}`);
+  const up = g.out.find((o) => o.k === 'fx' && o.kind === 'sk_adv_up');
+  assert(up && up.c === 'knight' && up.by === 0, '전직 연출 · 주인');
 });

@@ -2,7 +2,7 @@
    수치는 advData.js. E 는 rpg.js 의 대상 고르기 · 피해 · 연출 함수(advEngine) — 피해 · 결투 한도 · 원소는 기존 판정을 그대로 거친다.
    영구 기록: h.advClass(전직 id) · h.advQ({ c, n } 시험). 싸우는 동안만: h.as(쿨타임 · 중첩 · 철벽 · 정령) — 스냅샷 줄 53 으로 손님에게 간다.
    클라이언트 예측은 쓰지 않는다 — 손님 화면은 방장이 보낸 연출과 상태만 그린다 */
-import { ADV, ADV_BY_ID, ADV_IDS, cleanAdvQ, trialText } from "./advData.js";
+import { ADV, ADV_BY_ID, ADV_IDS, ADV_UP, cleanAdvQ, trialText } from "./advData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const keyOf = (o) => (o.type !== undefined ? `m${o.id}` : `h${o.pi}`);
@@ -67,7 +67,9 @@ export function advInput(E, g, pi, req) {
     h.advClass = req.c; h.advQ = null;
     h.as = null;                                    // 중첩 · 쿨타임을 비운다
     if (c.gear) E.gear(h, c.gear);
-    E.fx(g, h.map, { kind: "lvup", x: h.x, y: h.y, text: `전직 — ${c.name}`, t: 2, life: 2, snd: "lvup", who: pi });
+    E.refresh?.(h);                                 // 전직 추가 스탯(체력 등)을 바로 싣는다
+    E.fx(g, h.map, { kind: "sk_adv_up", x: h.x, y: h.y, c: req.c, t: ADV_UP.life, life: ADV_UP.life, snd: "lvup", who: pi });   // 전직 연출(advArt.js)
+    E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 150, text: `전직 — ${c.name}`, color: "#ffd873", t: 2.2, life: 2.2 });
     E.sys(g, pi, `${c.name}(으)로 전직했습니다. 전직 스킬 「${c.active.name}」은 전직 스킬 키(기본 Z)로 씁니다.${c.gear ? " 전직 무기를 가방에 넣었습니다." : ""}`);
     return true;
   }

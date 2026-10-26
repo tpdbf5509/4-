@@ -3,7 +3,7 @@
    drawAdvFx — 스킬 연출(kind "sk_adv_*") · drawAdvHero — 영웅 둘레(철벽 방어 · 중첩 · 정령) · drawAdvHeldItem — 손에 든 총 · 소환서 ·
    drawAdvShield — 기사 방패 · drawAdvMob — 명사수 표식 · drawAdvNpc — 광장 전직 교관.
    판정은 하지 않는다 — 방장이 보낸 연출 · 스냅샷 상태만 그린다 */
-import { ADV, ADV_ART, ADV_BY_ID, advForJob } from "./advData.js";
+import { ADV, ADV_ART, ADV_BY_ID, ADV_UP, advForJob } from "./advData.js";
 import { ELEM_BY_ID, ELEMS, RPG } from "./rpg.js";
 
 const SQ = () => RPG.squash;
@@ -20,7 +20,7 @@ function atlas(name) {
   return im && im.complete && im.naturalWidth ? im : null;
 }
 // RPG 에 들어올 때 미리 읽는다(rpgArt.js warmRpgArt)
-export const warmAdvArt = () => { atlas("fx"); atlas("spirits"); atlas("items"); };
+export const warmAdvArt = () => { atlas("fx"); atlas("spirits"); atlas("items"); atlas("up"); };
 // 아틀라스 한 칸을 (x, y) 가운데에 w × h 로 — 그림이 없으면 false
 function cell(ctx, name, i, x, y, w, h) {
   const im = atlas(name);
@@ -63,6 +63,15 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   const k = f.kind.slice(7);
+  if (k === "up") {                                // 전직 — 마법진 → 빛기둥 → 왕관 → 사그라듦(6칸). 칸 사이는 겹쳐 부드럽게 넘긴다
+    const n = 6, at = Math.min(n - 1e-3, p * n), i = Math.floor(at), mix = at - i, w = ADV_UP.w, top = f.y - w * ADV_UP.foot, k0 = ADV_UP.alpha;
+    ctx.globalAlpha = (1 - mix) * fade(p, 0.85) * k0;
+    const drew = cell(ctx, "up", i, f.x, top + w / 2, w, w);
+    if (drew && i < n - 1) { ctx.globalAlpha = mix * fade(p, 0.85) * k0; cell(ctx, "up", i + 1, f.x, top + w / 2, w, w); }
+    if (!drew) { glow(ctx, f.x, f.y - 90, 120, "#ffe2a0", 0.6 * (1 - p)); glow(ctx, f.x, f.y, 90, "#fff2c8", 0.5 * (1 - p)); }   // 그림이 없으면 빛만
+    ctx.restore();
+    return true;
+  }
   if (k === "slash") {                             // 삼연참 — 붉은 · 은빛 초승달. 세 번째는 크고 뒤집혀 교차한다
     const s = f.r * (f.i === 2 ? 1.5 : 1.25) * (0.8 + 0.2 * Math.min(1, p * 4));   // 몸을 덮지 않게 앞쪽에 알맞은 크기로
     ctx.globalAlpha = fade(p, 0.3) * 0.85;

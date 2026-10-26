@@ -6,7 +6,7 @@ export const WORLD_BOSS = {
   hitPct: .45, poolPct: .14, poolTime: 7, poolTick: 1, // 경고를 보고 피해야 하는 강한 연속 공격으로 바꾼다.
   coop: {window:1.6,sync:.85,players:3,stun:4}, // 만렙 3명이 스킬을 맞춰 큰 기술을 4초간 끊는다.
   w: 2200, h: 1500, spawn: [900,950], center: [1250,1100], squash: .78,
-  portal:{x:1280,y:800,reach:115},
+  portal:{x:1660,y:1115,reach:115},
   art: '/assets/game/rpg/boss/world-bosses.webp', artCols: 3, artRows: 2, artSize: 700,
   artFeet: [[.75,.755,.77],[.738,.715,.72]],
   heart: [10,20], coins: [50000,150000], coinStep: 100,

@@ -124,6 +124,11 @@ const ADV_HAND = {
   summoner: { m: { front: [42, 171], side: [18, 152], turn: [50, 159] }, f: { front: [44, 156], side: [19, 147], turn: [66, 155] } },
   healer: { m: { front: [165, 187], side: [26, 173], back: [139, 170], turn: [25, 171] }, f: { front: [175, 169], side: [21, 164], turn: [24, 165] } },
 };
+// 검투사 쌍검의 반대 손 [x, y](지운 그림 크기 기준). 전직 그림은 반대 손이 몸에 가려 자홍 점이 없어, 몸 바깥쪽 허리 둘레에 맞춘다.
+// 먼 손이라 몸 뒤에서 그리므로 칼날이 몸 밖으로 나오는 자리에 둔다. 방향은 주 손 반대쪽(좌우 대칭)
+const ADV_OFF_HAND = {
+  gladiator: { m: { front: [122, 190], side: [92, 172], turn: [104, 186] }, f: { front: [132, 186], side: [96, 168], turn: [126, 182] } },
+};
 const ADV_HOLD = { mage: { front: [-72, 74], turn: [-95, 60], side: [-100, 62], back: [-85, 62] }, archer: { front: [-68, 84], turn: [-86, 70], side: [-110, 69], back: [-99, 61] } };
 const ADV_OWN = { gunner: "gun", summoner: "grim" };   // 전직 그림에 이미 든 전직 무기 — 이 무기면 그림 그대로
 // 무기 방향을 몸 바깥쪽으로 — 기본 직업과 전직 그림은 무기를 든 손이 반대편일 수 있다(몸을 가로지르지 않게 좌우로 뒤집는다)
@@ -150,7 +155,13 @@ function advHeld(h, view) {
   if (h.job !== "warrior") return null;
   const ang = outward(WARRIOR_HAND[g][view][2], xy[0] < body.naturalWidth / 2);   // 쌍검은 한 손 단검만(전직 그림에 반대 손 자리가 없다)
   const len = sp.id === "dragon_dual" ? DUAL_HELD.lengths[0] : HELD_LEN * (HELD_TYPE[sp.t] || 1);
-  return { body, hand: [xy[0], xy[1], ang], wpn, grip, len, left: view === "turn" || view === "side" };
+  const held = { body, hand: [xy[0], xy[1], ang], wpn, grip, len, left: view === "turn" || view === "side" };
+  const oxy = sp.id === "dragon_dual" && ADV_OFF_HAND[h.advClass]?.[g]?.[view];
+  if (oxy) {                                         // 쌍검 — 반대 손에도 단검 한 자루
+    const oang = 180 - ang;
+    held.off = { hand: [oxy[0], oxy[1], oang], wpn: weaponImg(sp, 1), grip: DUAL_HELD.grips[1], len: DUAL_HELD.lengths[1], left: Math.cos((oang * Math.PI) / 180) < 0 };
+  }
+  return held;
 }
 // 전사가 손에 든 검 — 칼 지운 몸 그림이 있으면 늘 이 길로 그린다(휘두를 수 있게).
 // 특별 무기를 장착했고 그 그림이 있으면 그 무기, 아니면 코드로 그린 기본 검
@@ -1943,14 +1954,18 @@ function drawHero(ctx, g, h, time) {
       const off = held.off, counter = a => off.hand[2] - (a - held.hand[2]);
       const offSwing = sw ? { ...sw, ang: counter(sw.ang), from: sw.from === undefined ? undefined : counter(sw.from),
         to: sw.to === undefined ? undefined : counter(sw.to), trail: sw.trail * 0.7 } : null;
-      drawHeld(ctx, off, ww, top, offSwing, col.light);
+      if (!advIm) drawHeld(ctx, off, ww, top, offSwing, col.light);
+      else held.offSwing = offSwing;
     }
     const shield = !advIm && h.advClass === "knight" && h.job === "warrior" ? DUAL_OFF_HAND[h.gender === "f" ? "f" : "m"][view] : null;   // 기사 방패
     if (shield && view === "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, true);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
-    else if (held) drawHeld(ctx, held, ww, top, sw, col.light);
+    else if (held) {
+      if (held.off && advIm) drawHeld(ctx, held.off, ww, top, held.offSwing, col.light);   // 전직 그림은 반대 손이 몸 앞 허리에 있다
+      drawHeld(ctx, held, ww, top, sw, col.light);
+    }
     if (shield && view !== "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (h.flash > 0) {
       ctx.globalCompositeOperation = "lighter";

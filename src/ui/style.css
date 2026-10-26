@@ -1543,6 +1543,18 @@ kbd {
 .adv-why { margin: 0; font-size: 11.5px; color: var(--sh-warn); }
 .adv-rule { margin: 12px 0 6px; font-size: 12px; color: var(--sh-faint); }
 .adv-panel button:focus-visible { outline: 2px solid var(--sh-gold); outline-offset: 2px; }
+/* 전직 숙련도 — 단계 · 진행 · 전투 특성 · 단계 목록(1px 선 · 금빛은 지금 단계 하나에만) */
+.adv-mastery { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--sh-line); border-radius: 8px; background: var(--sh-row); }
+.adv-mhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.adv-mhead .shop-h { margin: 0; letter-spacing: -0.03em; }
+.adv-mhead .shop-h b { font-weight: 400; color: var(--sh-gold); }
+.adv-mhead span { font-size: 11.5px; color: var(--sh-faint); }
+.adv-mastery .adv-skills { grid-template-columns: 56px minmax(0, 1fr); }
+.adv-steps { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--sh-line); }
+.adv-steps li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--sh-line); color: var(--sh-faint); font-size: 11.5px; }
+.adv-steps li b { font-weight: 400; }
+.adv-steps li em { font-style: normal; }
+.adv-steps li.ok { color: var(--sh-text); }
 @media (max-width: 700px) { .adv-list { grid-template-columns: 1fr; } }
 /* 월드보스 · 길드 토벌 진행 칸 — 던전 진행 칸(.rpg-dg)을 그대로 쓰고, 보스 기술 줄만 더한다.
    평소엔 1px 선, 합동 공격 · 기절 때만 금빛(강조 한 곳) */

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Coin } from "./ui/icons.jsx";
-import { ADV, ADV_BY_ID, ADV_BONUS, advForJob, trialText } from "./game/advData.js";
+import { ADV, ADV_BY_ID, ADV_BONUS, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, advForJob, masteryLv, traitAt, trialText } from "./game/advData.js";
 import { whyAdvStart, whyAdvConfirm } from "./game/advance.js";
 import { advArtPath, dist, JOB_BY_ID, mobName, STATS } from "./game/rpg.js";
 import { MAT_BY_ID } from "./game/itemData.js";
@@ -26,6 +26,42 @@ function TrialList({ c, q }) {
         return <li key={id} className={n >= T.each ? "ok" : ""}>{itemName(c, id)}{T.each > 1 ? ` ${n}/${T.each}` : n ? " ✓" : ""}</li>;
       })}
     </ul>
+  );
+}
+/* 전직 숙련도 — 지금 단계 · 다음 단계까지 · 열린 전투 특성과 정확한 발동 조건 · 다음 보상 · 얻는 법. 관리자는 단계를 바로 정해 시험한다 */
+const STEP_NAME = ["전직 완료", "전투 특성 개방", "전투 특성 강화", "최종 강화 · 전용 연출"];
+function Mastery({ c, pts, admin, act }) {
+  const T = ADV_TRAITS[c.id], P = ADV_MASTERY.pts, lv = masteryLv(pts), max = lv >= P.length;
+  const from = P[lv - 1], to = max ? MASTERY_MAX : P[lv];
+  const pct = max ? 100 : Math.min(100, ((pts - from) / (to - from)) * 100);
+  const next = lv === 1 ? `「${T.name}」 개방` : lv === 2 ? T.up3 : lv === 3 ? T.up4 : "";
+  const steps = ["전직 액티브 · 패시브 · 추가 스탯", `「${T.name}」 개방`, T.up3, T.up4];
+  return (
+    <section className="adv-mastery" aria-label="전직 숙련도">
+      <div className="adv-mhead">
+        <h3 className="shop-h">전직 숙련도 <b>{lv}단계</b>{max ? " · 최대 단계" : ""}</h3>
+        <span>{max ? `${pts.toLocaleString("ko-KR")} · 최대` : `${pts.toLocaleString("ko-KR")} / ${to.toLocaleString("ko-KR")}`}</span>
+      </div>
+      <div className="adv-prog" aria-hidden="true"><i style={{ width: `${pct}%` }} /></div>
+      <dl className="adv-skills">
+        <dt>전투 특성</dt>
+        <dd><b>{T.name}</b> · {lv >= 2 ? "열림" : "2단계에 열림"}<br />{T.text(traitAt(c.id, Math.max(2, lv)))}</dd>
+        <dt>다음 보상</dt><dd>{max ? "모든 단계를 마쳤습니다" : `${lv + 1}단계 — ${next}`}</dd>
+        <dt>얻는 법</dt>
+        <dd>{ADV_MASTERY.minLv}레벨 이상 몬스터 {ADV_MASTERY.mob} · 사냥터 보스 {ADV_MASTERY.boss} · 던전 보스 {ADV_MASTERY.dgBoss} · 월드 · 길드 보스 {ADV_MASTERY.raid}.
+          1분에 {ADV_MASTERY.perMin}까지 · 허수아비 · 훈련장 · 결투 · PvP 는 세지 않습니다</dd>
+      </dl>
+      <ol className="adv-steps">
+        {steps.map((t, i) => (
+          <li key={i} className={lv > i ? "ok" : ""}><b>{i + 1}단계</b><span>{STEP_NAME[i]} — {t}</span><em>{P[i] ? P[i].toLocaleString("ko-KR") : "전직"}</em></li>
+        ))}
+      </ol>
+      {!!admin && (
+        <div className="adv-acts">
+          {P.map((_, i) => <button key={i} type="button" className={`shop-btn ${lv === i + 1 ? "main" : ""}`} onClick={() => act("adv", { op: "mastery", lv: i + 1 })}>관리자 — {i + 1}단계</button>)}
+        </div>
+      )}
+    </section>
   );
 }
 // 전직 모습 — 내 성별의 전직 그림(앞)
@@ -56,11 +92,12 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
         </header>
         <div className="shop-body adv-body">
           <p className="adv-now">
-            {cur ? <>지금 전직 <b>{cur.name}</b> · 전직 스킬 「{cur.active.name}」 키 <kbd>{keyName}</kbd></>
+            {cur ? <>지금 전직 <b>{cur.name}</b> · 숙련도 {masteryLv(self.advM)}단계 · 전직 스킬 「{cur.active.name}」 키 <kbd>{keyName}</kbd></>
               : q ? <>{ADV_BY_ID[q.c].trial.name} <b>{trialText(ADV_BY_ID[q.c], q)}</b>{q.n >= ADV_BY_ID[q.c].trial.n ? " · 완료" : ""}</>
               : self.lv >= ADV.lv ? <>{JOB_BY_ID[self.job]?.name} 전직 둘 가운데 하나의 시험을 받으세요.</>
               : <>{ADV.lv}레벨부터 전직할 수 있습니다. 지금 {self.lv}레벨.</>}
           </p>
+          {cur && <Mastery c={cur} pts={self.advM || 0} admin={self.admin} act={act} />}
           <div className="adv-list">
             {list.map((c) => {
               const mine = self.advClass === c.id, trying = q && q.c === c.id, done = trying && q.n >= c.trial.n;
@@ -76,6 +113,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
                     <dt>액티브</dt><dd><b>{c.active.name}</b> · 대기 {c.active.cd}초<br />{c.active.note}</dd>
                     <dt>패시브</dt><dd><b>{c.passive.name}</b><br />{c.passive.note}</dd>
                     <dt>추가 스탯</dt><dd>{bonusText(c.id)}</dd>
+                    <dt>전투 특성</dt><dd><b>{ADV_TRAITS[c.id].name}</b> · 숙련도 2단계<br />{ADV_TRAITS[c.id].text(traitAt(c.id, 2))}</dd>
                     <dt>시험</dt><dd><b>{c.trial.name}</b><br />{c.trial.note}{trying ? ` · ${trialText(c, q)}` : ""}</dd>
                   </dl>
                   {trying && <div className="adv-prog" aria-hidden="true"><i style={{ width: `${Math.min(100, (q.n / c.trial.n) * 100)}%` }} /></div>}

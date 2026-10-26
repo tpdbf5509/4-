@@ -8,7 +8,7 @@ import WorldBossPanel,{WorldBossHud} from "./WorldBossPanel.jsx";
 import TradePanel from "./TradePanel.jsx";
 import AdvPanel from "./AdvPanel.jsx";
 import DeepPanel from "./DeepPanel.jsx";
-import { ADV, ADV_BY_ID, trialText } from "./game/advData.js";
+import { ADV, ADV_BY_ID, ADV_TRAITS, masteryLv, trialText } from "./game/advData.js";
 import { useTrade } from "./useTrade.js";
 import { trading } from "./game/tradeData.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -58,14 +58,20 @@ function advHud(me) {
   if (q && q.trial.skill && q.job === me.job) return { name: q.active.name, cd: (me.as && me.as.cd) || 0, max: q.active.cd, stack: `시험 · ${trialText(q, me.advQ)}` };
   const c = ADV_BY_ID[me.advClass];
   if (!c || c.job !== me.job) return null;
-  const a = me.as || {}, P = c.passive;
-  const stack = c.id === "gladiator" ? `투지 ${a.st || 0}/${P.max}`
+  const a = me.as || {}, P = c.passive, mlv = masteryLv(me.advM);
+  // 전투 특성(숙련도 2단계부터) — 준비 · 지속 · 대기를 짧게
+  const trait = mlv < 2 ? "" : c.id === "marksman" && a.pr ? "정밀 사격 준비"
+    : c.id === "gunner" && a.mvT > 0 ? `기동 사격 ${Math.ceil(a.mvT)}초`
+    : c.id === "archmage" && a.rs > 0 ? `공명 ${a.rs}/${ADV_TRAITS.archmage.max}`
+    : a.tcd > 0 ? `${ADV_TRAITS[c.id].name} ${Math.ceil(a.tcd)}초` : "";
+  const stack0 = c.id === "gladiator" ? `투지 ${a.st || 0}/${P.max}`
     : c.id === "knight" ? (a.gT > 0 ? `방어 ${Math.ceil(a.gT)}초` : P.name)
     : c.id === "marksman" ? (a.ex ? "약점 노출" : `포착 ${a.st || 0}/${P.need}`)
     : c.id === "gunner" ? `탄도 ${a.st || 0}/${P.max}`
     : c.id === "archmage" ? `마력 ${a.st || 0}/${P.max}`
     : c.id === "healer" ? `${me.healMode ? "치유 평타" : "공격 평타"}${a.blT > 0 ? ` · 축복 ${Math.ceil(a.blT)}초` : ""}`
     : a.sps && a.sps.length ? `정령 ${a.sps.length}/${c.active.max} · ${Math.ceil(Math.max(...a.sps.map((sp) => sp.t)))}초` : P.name;
+  const stack = trait ? `${stack0} · ${trait}` : stack0;
   return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
@@ -440,7 +446,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const extra = { auto: autoRef.current, pvp: pvpRef.current, hold: dirsRef.current.slice() };
     return c ? { name: c.name, lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
       rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, rs: c.rs, ts: c.ts,
-      advClass: c.advClass, advQ: c.advQ, ...extra } : extra;
+      advClass: c.advClass, advQ: c.advQ, advM: c.advM, ...extra } : extra;
   };
 
   const G = useRef(null);
@@ -1114,6 +1120,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             // 전직 — 철벽 방어 · 기사가 걸어 준 파티 보호
             ...(me.as && me.as.gT > 0 ? [{ k: "aguard", name: "철벽 방어", t: me.as.gT }] : []),
             ...(me.as && me.as.pT > 0 && !(me.as.gT > 0) ? [{ k: "aparty", name: "기사의 보호", t: me.as.pT }] : []),
+            // 전투 특성 — 기동 사격 · 원소 공명
+            ...(me.as && me.as.mvT > 0 && me.advClass === "gunner" ? [{ k: "amove", name: "기동 사격", t: me.as.mvT }] : []),
+            ...(me.as && me.as.rs > 0 && me.advClass === "archmage" ? [{ k: "areso", name: `원소 공명 ${me.as.rs}`, t: me.as.rsT }] : []),
             ...(me.jb && me.jb.shT > 0 && me.jb.sh > 0 ? [{ k: "msh", name: `보호막 ${Math.round(me.jb.sh)}`, t: me.jb.shT }] : []),
             ...(me.ws && me.ws.cmb && me.ws.cmb.t > 0 ? [{ k: "cmb", name: "연계 입력", t: me.ws.cmb.t }] : [])],
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
@@ -1123,7 +1132,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: {server:g.wbServer, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
-            advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null,
+            advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null, advM: me.advM || 0,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
             dvs: me.dvs,
             reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])) },
@@ -1170,7 +1179,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (me && me.loaded && !me.tradeLocal) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
             + `/${me.ts || 0}/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`
-            + `/${me.advClass || ""}/${me.advQ ? `${me.advQ.c}:${me.advQ.n}:${me.advQ.r || 0}` : ""}`;   // 1차 전직 · 시험 진행도 바뀌면 남긴다
+            + `/${me.advClass || ""}/${me.advQ ? `${me.advQ.c}:${me.advQ.n}:${me.advQ.r || 0}` : ""}/${me.advM || 0}`;   // 1차 전직 · 시험 진행 · 전직 숙련도도 바뀌면 남긴다
           // 다른 탭이 이 기기의 기록을 다른 캐릭터로 바꿨거나, 내 자리에 남의 영웅이 실려 있으면 저장하지 않는다
           if (key !== saved && ownChar() && (isHost || ownHero(me, seatsRef.current[mySeat]?.id))) {
             saved = key;
@@ -1288,6 +1297,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span className={`rpg-switch ${lowFxOn ? "on" : ""}`}><span /></span>
                 </button>
                 <button type="button" role="menuitem" className="rpg-menu-row" onClick={()=>toggleWin(guildOpen,()=>setGuildOpen("menu"))}><span className="rpg-menu-text"><b>길드 성전</b><em>길드원 · 봉헌 · 토벌 · 주간 순위</em></span><span className="rpg-menu-go">›</span></button>
+                {me?.self?.advClass && (   // 전직한 사람 — 어디서든 전직 숙련도 · 전투 특성을 본다(시험 · 확정은 교관 곁에서만 된다)
+                  <button type="button" role="menuitem" className="rpg-menu-row" onClick={() => toggleWin(advOpen, () => setAdvOpen(true))}>
+                    <span className="rpg-menu-text"><b>전직 숙련도</b><em>숙련도 단계 · 전투 특성 · 다음 보상</em></span>
+                    <span className="rpg-menu-go">›</span>
+                  </button>
+                )}
                 {servers && (
                   <div className="rpg-menu-srv">
                     <span className="rpg-menu-text">

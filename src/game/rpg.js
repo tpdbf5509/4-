@@ -25,9 +25,10 @@ import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_RO
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR, ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
-import { ADV, cleanAdvClass, cleanAdvQ, ADV_BY_ID } from "./advData.js";
+import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.js";
 import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
-import { advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf } from "./advance.js";
+import { advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
+  advLowHp, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
 // 서버마다 들어올 수 있는 사람 수 — 13명이 모이자 Supabase 무료 한도(초당 100통)를 넘어 기록이 섞였다(10월 19일)
@@ -723,6 +724,7 @@ export function loadChar() {
     rs: typeof r.rs === "string" ? r.rs : "",    // 마지막으로 겪은 서버 초기화 id(itemData.js RESET)
     advClass: cleanAdvClass(r.advClass),         // 1차 전직(advData.js) — 기본 직업(job)은 그대로 둔다
     advQ: cleanAdvQ(r.advQ),                     // 전직 시험 { c 전직, n 진행 }
+    advM: r.advClass ? cleanAdvM(r.advM) : 0,     // 전직 숙련도(advData.js ADV_MASTERY) — 예전 기록은 0 = 1단계
   };
 }
 // 이름을 정한다 — 이미 정해 둔 이름이 있으면 그대로 둔다. acct 는 서버에 만든 계정 { tok }
@@ -800,7 +802,10 @@ export function writeChar(d) {
 function advRecord(d, base, clear, job) {
   const adv = cleanAdvClass(d.advClass), kept = cleanAdvClass(base && base.advClass);
   const keep = kept && (!job || ADV_BY_ID[kept].job === job) ? kept : "";   // 관리자가 직업을 바꿨으면 옛 직업의 전직은 남기지 않는다
-  return { advClass: adv || (clear || d.admin ? "" : keep), advQ: adv ? null : cleanAdvQ(d.advQ) };
+  const cls = adv || (clear || d.admin ? "" : keep);
+  // 전직 숙련도 — 오르기만 한다. 같은 전직이면 남겨 둔 값보다 낮은 기록(옛 스냅샷 · 섞인 기록)이 와도 내리지 않는다. 비울 때 · 관리자는 온 값 그대로
+  const m = !cls ? 0 : clear || d.admin ? cleanAdvM(d.advM) : Math.max(cleanAdvM(d.advM), cls === kept ? cleanAdvM(base && base.advM) : 0);
+  return { advClass: cls, advQ: adv ? null : cleanAdvQ(d.advQ), advM: m };
 }
 
 // 전용 서버가 저장할 기록 — 불러온 기록(base) 위에 지금 영웅 상태를 덮는다(writeChar 와 같은 칸). 레벨이 내려갔으면 null
@@ -856,7 +861,7 @@ function makeHero(pi, look, map = "plaza") {
     gift: "",                               // 받은 업데이트 선물 id(itemData.js GIFT)
     rs: "",                                 // 겪은 서버 초기화 id(itemData.js RESET)
     pvpOn: 0, pvpT: 0,                      // 사냥터 PvP 를 켰는지 · 다시 바꿀 수 있을 때까지 남은 초
-    advClass: "", advQ: null,               // 1차 전직 · 전직 시험(advData.js) — 싸우는 동안의 상태는 h.as(advance.js)
+    advClass: "", advQ: null, advM: 0,      // 1차 전직 · 전직 시험 · 전직 숙련도(advData.js) — 싸우는 동안의 상태는 h.as(advance.js)
     duelInv: null, dvs: -1, dph: 0, dtl: 0, ring: -1,   // 받은 결투 신청 · 결투 상대 자리 · 단계(1 준비 2 싸움 3 끝) · 남은 초 · 결투장 칸
   };
   wear(h, look);
@@ -959,6 +964,7 @@ export function rpgJoin(g, pi, d, who) {
   h.advClass = adv && adv.job === h.job && (h.lv >= ADV.lv || h.admin) ? adv.id : "";
   const aq = cleanAdvQ(d.advQ);
   h.advQ = !h.advClass && aq && ADV_BY_ID[aq.c].job === h.job ? aq : null;
+  h.advM = h.advClass ? cleanAdvM(d.advM) : 0;   // 전직 숙련도 — 전직했을 때만(없던 기록은 0 = 1단계)
   if (rb) rollbackHero(g, h, rb);
   if (h.gift !== GIFT.id) giveGift(g, h);         // 이번 업데이트 선물 — 캐릭터마다 한 번
   if (!h.bag.oc) {                                // 직업과 다른 무기 정리 — 고정 피해가 생기기 전에 들고 있던 것은 한 번 풀어 가방에 둔다(빼앗지 않는다)
@@ -1002,7 +1008,7 @@ function rollbackHero(g, h, rb) {
     h.bag.w = h.bag.w.filter((w) => !(w.sp && ids.has(w.sp)));
     if (!h.bag.w.some((w) => w.u === h.bag.e)) h.bag.e = 0;
   }
-  if (h.lv < ADV.lv) { h.advClass = ""; h.advQ = null; h.as = null; }   // 전직 레벨 아래로 되돌렸으면 전직도 비운다
+  if (h.lv < ADV.lv) { h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; }   // 전직 레벨 아래로 되돌렸으면 전직도 비운다
   h.titles = (h.titles || []).filter((id) => { const t = TITLE_BY_ID[id]; return !t || !((t.need && t.need.lv > h.lv) || (t.need && t.need.coins > h.coins)); });
   h.title = h.titles.includes(h.title) ? h.title : "";
   h.bag.pg = [...(h.bag.pg || []), rb.id]; h.bag.v += 1;
@@ -1637,7 +1643,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   m.numCol = crit ? "#ffd873" : h ? elemOf(h).light : "#ffe9bd";
   if (crit || skill || m.numT <= 0) flushNum(g, m, crit ? 2 : skill ? 1 : 0);
   // 늑대와 대왕 토끼는 때린 쪽을 노린다
-  if (h && m.hp > 0 && (m.type !== "rabbit" || m.boss) && notices(m, h)) { m.tgt = pi; m.bumpCd = Math.min(m.bumpCd, 0.6); }   // 투명화한 사람은 맞아도 못 알아챈다
+  if (h && m.hp > 0 && (m.type !== "rabbit" || m.boss) && notices(m, h)) { if (!taunted(g, m, pi)) m.tgt = pi; m.bumpCd = Math.min(m.bumpCd, 0.6); }   // 투명화한 사람은 맞아도 못 알아챈다 · 기사에게 도발된 몹은 기사만 노린다
   // 작은 토끼는 때린 쪽 반대로 달아난다
   else if (h && m.hp > 0 && m.freeze <= 0 && m.stun <= 0) {
     const dx = m.x - h.x, dy = (m.y - h.y) / RPG.squash;
@@ -1649,13 +1655,16 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   return dmg;
 }
 
+// 기사 수호의 방패 도발(advance.js shieldWave) — 도발한 기사가 같은 맵에 서 있는 동안 다른 사람이 쳐도 노리는 대상이 바뀌지 않는다
+const taunted = (g, m, pi) => { if (!(m.taunt > 0) || m.tgt === pi) return false; const k = g.heroes[m.tgt]; return !!k && k.map === m.map && k.down <= 0; };
+
 /* 몹을 잡았다 — 그 몹을 한 번이라도 친 사람 가운데 같은 맵에 있는 사람이 모두 경험치 · 코인을 다 받는다(막타만이 아니다).
    잡은 수 · 퀘스트 · 사냥 의뢰도 저마다 센다. 치지 않은 파티원은 같은 맵이면 경험치의 PARTY.share 만큼 받는다 */
 function killMob(g, m, pi) {
   if (m.dead) return;
   m.dead = true;
-  if(isWorldBoss(m)){m.hp=0;worldBossKilled(worldBossEngine,g,m);return;}
-  if(isGuildBoss(m)){m.hp=0;guildKilled(guildEngine,g,m);return;}
+  if(isWorldBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);worldBossKilled(worldBossEngine,g,m);return;}   // 전직 숙련도 — 친 사람
+  if(isGuildBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);guildKilled(guildEngine,g,m);return;}
   addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
   m.hp = 0;
   flushNum(g, m, m.boss ? 0 : 1);                 // 남은 숫자 — 보스는 모아 둔 평타라 평타 세기로
@@ -1846,6 +1855,7 @@ function hurtHero(g, h, raw) {
     return;
   }
   if (arm === "crisis") say(g, h.map, h.x, h.y - 96, "위기 — 받는 피해 감소", "#cfe0f2");
+  if (h.hp > 0) advLowHp(advEngine, g, h);         // 치유사 긴급 보호막 — 체력 30% 이하
   if (h.hp <= 0) {
     h.hp = 0;
     h.down = isPvp(h.map) ? DUEL.end + 1 : RPG.down;   // 결투에서 쓰러지면 결투가 끝날 때 일어난다
@@ -1902,7 +1912,7 @@ function heroAttack(g, h, force) {
   const map = h.map;
   const job = jobOf(h), el = elemOf(h);
   const dmg = job.dmg * heroDmgMul(h);
-  const rng = heroRange(h);
+  const rng = heroRange(h) * advRangeMul(advEngine, h);   // 총사 기동 사격 — 물러나며 쏘아도 끊기지 않게 자동 평타 사거리를 늘린다
   const hy = h.y - 34;
   if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy, force);
   const heal = advHealShot(advEngine, g, h, rng);  // 치유사 치유 평타 — 켜 두었으면 몹을 치지 않는다
@@ -1939,13 +1949,15 @@ function heroAttack(g, h, force) {
   h.face = 0;
   const fly = job.fly || 0.2;
   const art = ELEM_ART[el.id];
+  const prec = job.id === "archer" ? advPrecFire(advEngine, g, h) : null;   // 명사수 정밀 사격 — 준비됐으면 이번 평타가 꿰뚫는다
   if (job.id === "mage") {
     fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: m.x, y1: m.y - 10, style: "orb",
       art: art.fly || 0, r: 22, color: el.light, t: fly, life: fly, snd: "orb" });
   } else {
-    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, ...archerShot(h, el), t: fly, life: fly, snd: "shot" });
+    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, ...(prec ? { style: "arrow", color: "#bffcf3" } : archerShot(h, el)), t: fly, life: fly, snd: "shot" });
   }
-  g.hits.push({ t: fly, pi, mid: m.id, x: m.x, y: m.y, map, dmg, splash: job.splash || 0 });
+  g.hits.push({ t: fly, pi, mid: m.id, x: m.x, y: m.y, map, dmg, splash: job.splash || 0, ...(prec ? { prec } : {}) });
+  if (job.id === "archer") advGunShot(advEngine, g, h, m, dmg, fly);   // 총사 기동 사격 — 평타 몇 번마다 추가 탄환
   return true;
 }
 
@@ -2017,13 +2029,16 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
   h.face = 0;
   const fly = job.fly || 0.2;
   const art = ELEM_ART[el.id];
+  // 명사수 정밀 사격 — 사람에게는 관통하지 않고 한 발만 세진다(전직 PvP 한도 +15% · 평타 한도 3% 는 그대로)
+  const prec = job.id === "archer" ? advPrecFire(advEngine, g, h) : null;
   if (job.id === "mage") {
     fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: o.x, y1: o.y - 30, style: "orb",
       art: art.fly || 0, r: 22, color: el.light, t: fly, life: fly, snd: "orb" });
   } else {
-    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: o.x, y1: o.y - 30, ...archerShot(h, el), t: fly, life: fly, snd: "shot" });
+    fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: o.x, y1: o.y - 30, ...(prec ? { style: "arrow", color: "#bffcf3" } : archerShot(h, el)), t: fly, life: fly, snd: "shot" });
   }
-  g.hits.push({ t: fly, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: job.splash || 0 });
+  g.hits.push({ t: fly, pi, hid: o.pi, x: o.x, y: o.y, map, dmg: prec ? dmg * Math.min(prec.first, 1 + ADV.pvpBonusMax) : dmg, splash: job.splash || 0, ...(prec ? { prec } : {}) });
+  if (job.id === "archer") advGunShot(advEngine, g, h, o, dmg, fly);
   return true;
 }
 // 결투장에서 날아간 것이 닿았다 — 그 사이 맵을 떠났거나 쓰러졌으면 빗나간다
@@ -2031,6 +2046,7 @@ function landFoe(g, s, h) {
   const o = g.heroes[s.hid];
   const el = elemOf(h);
   if (!o || o.map !== s.map || o.down > 0) return;
+  if (s.prec) { const a = h.as || {}; a.pNow = 1; try { hitFoe(g, h, o, s.dmg, true); } finally { a.pNow = 0; } return; }   // 정밀 사격 — 약점 노출과 겹치지 않게
   if (s.splash) {
     nearFoes(g, h, o.x, o.y, s.splash).forEach((q) => hitFoe(g, h, q, s.dmg * (q === o ? 1 : 0.5), !s.skill));
     fx(g, s.map, { kind: "art", art: ELEM_ART[el.id].hit, x: o.x, y: o.y - 4, r: 34, t: 0.4, life: 0.4 });
@@ -2042,12 +2058,19 @@ function landFoe(g, s, h) {
   }
 }
 
-// 날아간 것이 닿았다
+// 날아간 것이 닿았다 — 스킬이 실어 둔 cast 가 있으면 닿는 동안 그 스킬로 친다(그사이 다른 스킬을 써도 결투 한도 · 전직 연계가 섞이지 않게)
 function landHit(g, s) {
   const h = g.heroes[s.pi];
+  if (!h || !s.cast) return landHit0(g, s, h);
+  const prev = h.cast;
+  h.cast = s.cast;
+  try { landHit0(g, s, h); } finally { h.cast = prev; }
+}
+function landHit0(g, s, h) {
   if (h && s.hid !== undefined) return landFoe(g, s, h);
   const m = g.mobs.find((q) => q.id === s.mid && !q.dead);
   if (!h) return;
+  if (s.prec) { if (m) advPrecLand(advEngine, g, h, m, s); return; }   // 명사수 정밀 사격 — 첫 적 · 뒤로 꿰뚫기
   const el = elemOf(h);
   const x = m ? m.x : s.x, y = m ? m.y : s.y;
   if (s.splash) {                                 // 마법 — 맞은 자리 둘레도 다친다
@@ -2082,7 +2105,7 @@ export function rpgSkill(g, pi) {
   // 결투장이면 몹 대신 사람을 고른다
   const pvp = isPvp(map);
   if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
-  newCast(h);                                     // 결투 스킬 피해 한도
+  newCast(h).sid = "ult";                         // 결투 스킬 피해 한도 · 검투사 연계 참격이 세는 스킬 이름
   const near = (x, y, r, n) => foesNear(g, h, x, y, r, n);
   let cx = h.x, cy = h.y, list, mul;
   if (job.id === "warrior") {
@@ -2214,6 +2237,7 @@ export function rpgUseSkill(g, pi, id) {
     const pvp = isPvp(map);
     if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
     const cast = newCast(h);                      // 결투 스킬 피해 한도
+    cast.sid = id;                                // 스킬 이름 — 검투사 연계 참격 · 마도사 원소 공명 · 소환술사 정령 협동 공격이 본다
     if (s.fam === "job") cast.job = 1;             // 직업 스킬 — 암흑검 파괴의 낙인
     // 결투장이면 사람에게 — 치명타 보장 스킬은 치명타 피해 배율을 곱한다
     const strike = (m) => (isHeroT(m) ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
@@ -2234,7 +2258,7 @@ export function rpgUseSkill(g, pi, id) {
       lungeTo(h, m, L.time);
       fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#ffe9b0", n: 8, t: 0.3, life: 0.3, snd: "slash" });
       // 닿는 순간에 찌른다 — 그사이 상대가 쓰러졌거나 맵을 떠났으면 빗나간다
-      const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: u.splash || 0, full: u.splash ? 1 : 0, skill: true, sure: !!u.crit };   // 돌진 베기는 닿은 자리 둘레를 모두
+      const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: u.splash || 0, full: u.splash ? 1 : 0, skill: true, sure: !!u.crit, cast };   // 돌진 베기는 닿은 자리 둘레를 모두
       if (u.splash) later(g, L.time, () => fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.splash, color: elemOf(h).light, n: 14, t: 0.5, life: 0.5, snd: "boom" }));
       g.hits.push(isHeroT(m) ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
       }
@@ -2357,6 +2381,7 @@ function jobSkill(g, h, u, i, dmg) {
   } else if (u.kind === "leap") {                 // 후퇴 사격 — 뒤로 물러나며 쏜다
     const x0 = h.x, y0 = h.y;
     lungeTo(h, leapSpot(g, h, u), u.time);
+    advLeap(advEngine, g, h);                     // 총사 기동 사격
     fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#e8f2ff", n: 8, t: 0.3, life: 0.3, snd: "slash" });
     later(g, u.time, () => {
       if (h.map !== map || h.down > 0) return;
@@ -2375,10 +2400,11 @@ function jobSkill(g, h, u, i, dmg) {
     const fly = 0.32, art = ELEM_ART[el.id];
     fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, style: "orb", art: art.fly || 0, r: 40, color: el.light, t: fly, life: fly, snd: "orb" });
     later(g, fly, () => fx(g, map, { kind: "nova", x: tx, y: ty - 6, r: u.splash, color: el.light, n: 16, t: 0.5, life: 0.5, snd: "boom" }));
+    const cast = h.cast;                          // 닿을 때 이 스킬로 친다(landHit)
     g.hits.push(o
-      ? (isHeroT(o) ? { t: fly, pi, hid: o.pi, x: tx, y: ty, map, dmg, splash: isPvp(map) ? 0 : u.splash, full: 1, skill: true }
-        : { t: fly, pi, mid: o.id, x: tx, y: ty, map, dmg, splash: u.splash, full: 1, skill: true })
-      : { t: fly, pi, mid: -1, x: tx, y: ty, map, dmg, splash: pvp ? 0 : u.splash, full: 1, skill: true });
+      ? (isHeroT(o) ? { t: fly, pi, hid: o.pi, x: tx, y: ty, map, dmg, splash: isPvp(map) ? 0 : u.splash, full: 1, skill: true, cast }
+        : { t: fly, pi, mid: o.id, x: tx, y: ty, map, dmg, splash: u.splash, full: 1, skill: true, cast })
+      : { t: fly, pi, mid: -1, x: tx, y: ty, map, dmg, splash: pvp ? 0 : u.splash, full: 1, skill: true, cast });
   } else if (u.kind === "chain") {                // 연쇄 번개 — 옮겨 갈 때마다 약해진다
     const reach = heroRange(h) * 1.3;
     let [cur] = foesNear(g, h, h.x, h.y, reach, 1);
@@ -2801,6 +2827,12 @@ const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near
   cc: ccAny, alive: aliveFoe, aim: aimTo, aimAt, end: lineEnd, newCast, squash: RPG.squash, bigMap: advBigMap,
   base: (h, k) => SKILL_USE.base * skillStatMul(h, k), elem: (h) => elemOf(h).id, locked: ccLocked,
   safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,
+  // 전투 특성 — hit 평타로 친다 · side 튄 피해(몹) · extra 추가 탄환(몹은 튄 피해, 사람은 평타 한도) · shield 긴급 보호막(이미 더 크면 false)
+  hit: (g, h, m, dmg) => hitMob(g, h.pi, m, dmg), after: afterHit,
+  side: (g, h, m, dmg) => hitMob(g, h.pi, m, dmg, false, false, false, true),
+  extra: (g, h, o, dmg) => (isHeroT(o) ? hitFoe(g, h, o, dmg, true) : hitMob(g, h.pi, o, dmg, false, false, false, true)),
+  shield: (h, amt, dur) => { const jb = jbOf(h); if (jb.sh >= amt) return false; jb.sh = Math.round(amt); jb.shT = Math.max(jb.shT, dur); return true; },
+  train: (map) => !!(MAPS[map] && MAPS[map].train), trading,
   gunHeld: (h) => { const w = h.bag && equipped(h.bag); return !!w && w.t === "gun"; },
   bagRoom: (h) => !!h.bag && h.bag.w.length < WEAPON.bagMax,
   gear: (h, id) => {                              // 전직 무기 한 자루 — 이미 가졌으면 주지 않는다
@@ -2834,7 +2866,7 @@ export function rpgWeaponSkill(g, pi) {
   if (w.cmb && w.cmb.sp === sp) return comboNext(g, h, sp, S, w, w.cmb);
   if (w.wcd > 0) return say(g, map, h.x, h.y - 90, `${W.name} ${Math.ceil(w.wcd)}초`, "#f0dcb4");
   newCast(h);                                     // 결투 스킬 피해 한도 — 연계 전체가 스킬 한 번
-  h.cast.weapon = true;
+  h.cast.weapon = true; h.cast.sid = "wpn";
   if (castWorldWeapon(worldEngine, g, h, sp)) return;
   const el = elemOf(h);
   if (sp === "frost") {                           // 빙판길 — 앞에 빙판을 깐다
@@ -3287,6 +3319,7 @@ function tickMob(g, m, dt) {
   m.air = Math.max(0, (m.air || 0) - dt);        // 띄움 · 중력 속박 · 낙인(무기 스킬)
   m.bind = Math.max(0, (m.bind || 0) - dt);
   m.brand = Math.max(0, (m.brand || 0) - dt);
+  if (m.taunt > 0) m.taunt = Math.max(0, m.taunt - dt);   // 기사 도발
   if (m.stun <= 0 && m.freeze <= 0) m.chase = 0; // 그림자 활 잔영 — 다음에 걸리면 다시 한 발
   if (m.kbT > 0) {                               // 밀려난다
     const t = Math.min(dt, m.kbT);

@@ -13,7 +13,7 @@ import { PARTY, CHAT } from "./socialData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEONS, DUNGEON } from "./dungeonData.js";
 import { UPDATES } from "./updates.js";
-import { ADV, ADV_CLASSES } from "./advData.js";
+import { ADV, ADV_CLASSES, ADV_MASTERY, ADV_TRAITS, traitAt } from "./advData.js";
 
 const won = (n) => n.toLocaleString("ko-KR");
 const pct = (w) => `${w}%`;
@@ -25,6 +25,18 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-10-27a", title: "패치노트 · 10월 27일", sub: "전직 숙련도 · 전투 특성", color: "#c9b37c",
+    pages: [
+      { h: "전직 숙련도", p: ["전직한 캐릭터에게 숙련도 1~4단계가 생겼습니다. 전직하면 1단계입니다. 이미 전직한 캐릭터도 1단계부터 시작합니다.",
+        `단계마다 필요한 숙련도: 2단계 ${won(ADV_MASTERY.pts[1])} · 3단계 ${won(ADV_MASTERY.pts[2])} · 4단계 ${won(ADV_MASTERY.pts[3])}.`,
+        "2단계에 전투 특성이 열립니다. 3단계에 조금 세지고 4단계에 마지막으로 세지며 연출이 커집니다.",
+        "전직 창(교관 · ☰ 전직 숙련도)에서 지금 단계 · 진행 · 특성의 정확한 조건을 볼 수 있습니다."] },
+      { h: "숙련도 얻는 법", p: [`${ADV_MASTERY.minLv}레벨 이상 사냥터 몬스터 ${ADV_MASTERY.mob} · 사냥터 보스 ${ADV_MASTERY.boss} · 던전 보스 ${ADV_MASTERY.dgBoss} · 월드 · 길드 보스 ${ADV_MASTERY.raid}.`,
+        "몬스터를 잡았을 때만 오릅니다. 같은 적을 오래 치기 · 허수아비 · 훈련장 · 결투 · PvP 는 세지 않습니다.",
+        `1분에 ${ADV_MASTERY.perMin}까지 오릅니다. 파티로 같은 맵에서 함께 친 사람은 저마다 받습니다.`] },
+      ...ADV_CLASSES.map((c) => ({ h: `${c.name} — ${ADV_TRAITS[c.id].name}`, p: [`${ADV_TRAITS[c.id].text(traitAt(c.id, 2))}.`, `3단계: ${ADV_TRAITS[c.id].up3}.`, `4단계: ${ADV_TRAITS[c.id].up4}.`] })),
+      { h: "결투 · PvP", p: ["전투 특성도 기존 한도 안에서만 듣습니다. 결투 스킬 한 번 맞는 사람 최대 체력 12% · 평타 3% · 전직 패시브 추가 피해 +15% 그대로입니다.", "사람은 도발하지 않습니다. 긴급 보호막은 결투 · 사냥터 PvP 에서 나에게만 겁니다."] },
+    ] },
   { id: "patch-2026-10-26i", title: "패치노트 · 10월 26일 (9)", sub: "계몽의 문 새 그림", color: "#b8a0d8",
     pages: [{ h: "계몽의 문", p: ["광장 왼쪽 풀밭의 계몽의 문을 새 그림으로 바꿨습니다.", "금빛 계몽의 눈이 얹힌 돌기둥 문 · 떠 있는 룬 돌 · 보랏빛 소용돌이 문입니다.", "계몽의 눈을 가지고 있으면 문 안쪽이 더 밝게 빛납니다."] }] },
   { id: "patch-2026-10-26h", title: "패치노트 · 10월 26일 (8)", sub: "스탯 효과 · 몹 체력", color: "#a8c0a0",

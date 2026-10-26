@@ -3,7 +3,8 @@
    drawAdvFx — 스킬 연출(kind "sk_adv_*") · drawAdvHero — 영웅 둘레(철벽 방어 · 중첩 · 정령) · drawAdvHeldItem — 손에 든 총 · 소환서 ·
    drawAdvShield — 기사 방패 · drawAdvMob — 명사수 표식 · drawAdvNpc — 광장 전직 교관.
    판정은 하지 않는다 — 방장이 보낸 연출 · 스냅샷 상태만 그린다 */
-import { ADV, ADV_ART, ADV_BY_ID, ADV_UP, ADV_BLESS, advForJob } from "./advData.js";
+import { ADV, ADV_ART, ADV_BY_ID, ADV_UP, ADV_BLESS, ADV_TRAITS, advForJob } from "./advData.js";
+import { spiritSpot } from "./advance.js";
 import { ELEM_BY_ID, ELEMS, RPG } from "./rpg.js";
 
 const SQ = () => RPG.squash;
@@ -173,6 +174,114 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
   } else if (k === "spshot") {                     // 정령의 공격 — 원소 빛 구슬
     const x = f.x0 + (f.x1 - f.x0) * p, y = f.y0 + (f.y1 - f.y0) * p, col = elemCol(f.elem);
     glow(ctx, x, y, 14, col, 0.95); glow(ctx, x, y, 5, "#ffffff", 1);
+  } else if (k === "combo") {                      // 검투사 연계 참격 — 붉은 검격 둘이 엇갈린다(4단계는 셋 · 더 크다)
+    const n = f.big ? 3 : 2, s = f.r * 1.9 * (0.75 + 0.35 * Math.min(1, p * 4));
+    for (let i = 0; i < n; i++) {
+      ctx.save();
+      ctx.globalAlpha = fade(p, 0.35) * (0.9 - i * 0.15);
+      ctx.translate(f.x, f.y); ctx.rotate(-0.7 + i * (Math.PI / n) + p * 0.6);
+      if (i % 2) ctx.scale(1, -1);
+      const c = tintCell(FX.slash, "#ff5a48", 0.45);
+      if (c) ctx.drawImage(c, -s / 2, -s / 2, s, s);
+      else { ctx.strokeStyle = "#ff7a6a"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(0, 0, s * 0.38, -1.1, 1.1); ctx.stroke(); }
+      ctx.restore();
+    }
+    glow(ctx, f.x, f.y, f.r * 0.5, "#ff8a70", 0.5 * fade(p, 0.2));
+  } else if (k === "wave") {                       // 기사 수호의 방패 — 금빛 방패 충격파 · 도발한 몹 머리 위 ! (4단계는 두 겹)
+    const rings = f.big ? 2 : 1;
+    for (let i = 0; i < rings; i++) {
+      const pp = Math.max(0, p - i * 0.18), s = f.r * 2 * (0.25 + 0.85 * pp);
+      ctx.save(); ctx.globalAlpha = fade(pp, 0.3) * 0.8;
+      ctx.translate(f.x, f.y + 20); ctx.scale(1, SQ());
+      const c = tintCell(FX.hex, "#ffd873", 0.35);
+      if (c) ctx.drawImage(c, -s / 2, -s / 2, s, s);
+      ctx.strokeStyle = "#ffe3a0"; ctx.lineWidth = 3 * (1 - pp) + 1;
+      ctx.beginPath(); ctx.arc(0, 0, s / 2, 0, TAU); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.globalAlpha = fade(p, 0.5) * 0.9;
+    if (!cell(ctx, "fx", FX.shield, f.x, f.y - 16 - p * 10, 46, 46)) glow(ctx, f.x, f.y - 16, 20, "#ffe08a", 0.6);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.font = "15px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    (f.marks || []).forEach(([mx, my]) => {
+      ctx.globalAlpha = fade(p, 0.6);
+      ctx.lineWidth = 3; ctx.strokeStyle = "rgba(40,26,10,0.85)"; ctx.strokeText("!", mx, my - p * 6);
+      ctx.fillStyle = "#ffd873"; ctx.fillText("!", mx, my - p * 6);
+    });
+  } else if (k === "prec") {                       // 명사수 정밀 사격 — 첫 적에서 뒤로 꿰뚫는 청록 궤적
+    const ang = Math.atan2(f.y1 - f.y0, f.x1 - f.x0), a = Math.min(1, p * 3);
+    const x = f.x0 + (f.x1 - f.x0) * a, y = f.y0 + (f.y1 - f.y0) * a;
+    ctx.globalAlpha = fade(p, 0.35);
+    ctx.strokeStyle = "#7ff3e4"; ctx.lineWidth = f.big ? 4 : 2.5;
+    ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(x, y); ctx.stroke();
+    if (f.big) { ctx.globalAlpha *= 0.4; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(x, y); ctx.stroke(); ctx.globalAlpha = fade(p, 0.35); }
+    if (!cell(ctx, "fx", FX.flash, f.x0, f.y0, 60 * (0.6 + p), 60 * (0.6 + p))) glow(ctx, f.x0, f.y0, 24, "#9ff0e6", 0.8);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+    if (!cell(ctx, "fx", FX.arrow, -36, 0, 100, 100)) { ctx.fillStyle = "#e9fffb"; ctx.fillRect(-26, -2, 30, 4); }
+    ctx.restore();
+  } else if (k === "mshot") {                      // 총사 기동 사격 — 추가 탄환 · 총구 화염 · 튀는 탄피(4단계는 탄피 둘)
+    const ang = Math.atan2(f.y1 - f.y0, f.x1 - f.x0), fly = Math.min(1, p * 2.2);
+    if (p < 0.35) {
+      ctx.save(); ctx.globalAlpha = 1 - p / 0.35; ctx.translate(f.x0, f.y0); ctx.rotate(ang);
+      if (!cell(ctx, "fx", FX.muzzle, 6, 0, 40, 40)) glow(ctx, 0, 0, 10, "#ffb45a", 0.9);
+      ctx.restore();
+    }
+    if (fly < 1) {
+      const x = f.x0 + (f.x1 - f.x0) * fly, y = f.y0 + (f.y1 - f.y0) * fly;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+      if (!cell(ctx, "fx", FX.bullet, -8, 6, 50, 50)) { ctx.fillStyle = "#ffcf7a"; ctx.fillRect(-12, -1.5, 16, 3); }
+      ctx.restore();
+    }
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#d6a443";
+    for (let i = 0; i < (f.big ? 2 : 1); i++) {
+      ctx.globalAlpha = fade(p, 0.6);
+      const cx = f.x0 - (f.side || 1) * (5 + p * (18 + i * 8)), cy = f.y0 + 8 + p * p * (36 + i * 10);
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(p * (12 + i * 5)); ctx.fillRect(-2.5, -1.2, 5, 2.4); ctx.restore();
+    }
+  } else if (k === "reso") {                       // 마도사 원소 공명 — 원소 빛 고리가 공명 수만큼 퍼진다
+    const col = elemCol(f.elem);
+    for (let i = 0; i < (f.n || 1); i++) {
+      const pp = Math.max(0, p - i * 0.12), rr = f.r * (0.3 + 0.9 * pp) * (f.big ? 1.15 : 1);
+      ctx.globalAlpha = fade(pp, 0.25) * 0.8;
+      ctx.strokeStyle = col; ctx.lineWidth = 3 * (1 - pp) + 1;
+      ctx.beginPath(); ctx.ellipse(f.x, f.y + 20, rr, rr * SQ(), 0, 0, TAU); ctx.stroke();
+    }
+    const c = tintCell(FX.burst, col, 0.7), s = f.r * (0.6 + 0.5 * p);
+    ctx.globalAlpha = fade(p, 0.2) * 0.55;
+    if (c) ctx.drawImage(c, f.x - s / 2, f.y - s / 2, s, s); else glow(ctx, f.x, f.y, s / 2, col, 0.7);
+  } else if (k === "coop") {                       // 소환술사 정령 협동 공격 — 정령마다 적에게 이어지는 빛줄기 하나(판정은 한 번)
+    const col = elemCol(f.elem), n = Math.min(10, f.n || 1), head = { x: f.x0, y: f.y0, dir: f.d || 1 };
+    ctx.globalAlpha = fade(p, 0.35) * 0.85;
+    ctx.strokeStyle = col; ctx.lineWidth = f.big ? 2.5 : 1.6;
+    for (let i = 0; i < n; i++) {
+      const [sx, sy] = spiritSpot(head, i, n), a = Math.min(1, p * 3);
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo((sx + f.x) / 2, Math.min(sy, f.y) - 30, sx + (f.x - sx) * a, sy + (f.y - sy) * a); ctx.stroke();
+    }
+    glow(ctx, f.x, f.y, (18 + n * 2.5) * (0.6 + p), col, fade(p, 0.3));
+    glow(ctx, f.x, f.y, 8, "#ffffff", fade(p, 0.3));
+  } else if (k === "esh") {                        // 치유사 긴급 보호막 — 치유사에서 이어진 금빛 실 · 몸을 감싸는 방벽(4단계는 날개 문양)
+    if (!f.self) {
+      ctx.globalAlpha = fade(p, 0.3) * 0.7; ctx.strokeStyle = "#fff0b0"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.quadraticCurveTo((f.x0 + f.x) / 2, Math.min(f.y0, f.y) - 40, f.x, f.y); ctx.stroke();
+    }
+    const rr = 34 * (0.7 + 0.3 * Math.min(1, p * 4));
+    ctx.globalAlpha = fade(p, 0.5) * 0.75;
+    ctx.strokeStyle = "#ffe8a8"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, rr, rr * 1.15, 0, 0, TAU); ctx.stroke();
+    glow(ctx, f.x, f.y, rr, "#fff2c8", 0.35 * fade(p, 0.4));
+    if (f.big) [-1, 1].forEach((sd) => {
+      ctx.beginPath(); ctx.ellipse(f.x + sd * rr * 0.9, f.y - 8, rr * 0.45, rr * 0.8, sd * 0.5, 0, TAU); ctx.stroke();
+    });
+  } else if (k === "mastery") {                    // 전직 숙련도 단계 상승 — 발밑 금빛 고리 · 단계 수만큼 별
+    const col = (ADV_TRAITS[f.c] && ADV_TRAITS[f.c].color) || "#ffd873";
+    ctx.globalAlpha = fade(p, 0.5) * 0.8;
+    ctx.strokeStyle = col; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, 40 + p * 40, (40 + p * 40) * SQ(), 0, 0, TAU); ctx.stroke();
+    for (let i = 0; i < (f.lv || 1); i++) {
+      const a = (i / (f.lv || 1)) * TAU + time * 2;
+      glow(ctx, f.x + Math.cos(a) * 30, f.y - 60 - p * 40 + Math.sin(a) * 10, 8, col, fade(p, 0.5));
+    }
   } else if (k === "link") {                       // 영혼 연결 — 나와 적 사이 푸른 실
     ctx.globalAlpha = fade(p, 0.3);
     ctx.strokeStyle = "#b9d8ff"; ctx.lineWidth = 2.5;
@@ -215,7 +324,29 @@ export function drawAdvHero(ctx, h, time) {
     }
   }
   (a.sps || []).forEach((sp, i) => { if (sp.t > 0 && Number.isFinite(sp.x)) drawSpirit(ctx, h, sp, time + i * 0.7); });
+  drawTraitState(ctx, h, a, time);
   ctx.restore();
+}
+/* 전투 특성 상태 — 명사수 정밀 사격 준비(앞쪽 청록 조준점) · 총사 기동 사격(발밑 주황 고리) · 마도사 원소 공명(머리 위 도는 원소 구슬) */
+function drawTraitState(ctx, h, a, time) {
+  if (a.pr && h.advClass === "marksman") {
+    const x = h.x + (h.dir || 1) * 30, y = h.y - 40, r = 6 + Math.sin(time * 8) * 1.2;
+    ctx.globalAlpha = 0.9; ctx.strokeStyle = "#7ff3e4"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - r - 3, y); ctx.lineTo(x + r + 3, y); ctx.moveTo(x, y - r - 3); ctx.lineTo(x, y + r + 3); ctx.stroke();
+  }
+  if (a.mvT > 0 && h.advClass === "gunner") {
+    ctx.globalAlpha = 0.35 + 0.15 * Math.sin(time * 10); ctx.strokeStyle = "#ffb45a"; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.ellipse(h.x, h.y, 26, 26 * SQ(), time * 2, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (a.rs > 0 && h.advClass === "archmage") {
+    const col = elemCol(h.elem);
+    for (let i = 0; i < a.rs; i++) {
+      const ang = (i / ADV_TRAITS.archmage.max) * TAU + time * 2.2;
+      glow(ctx, h.x + Math.cos(ang) * 18, h.y - 92 + Math.sin(ang) * 5, 7, col, 0.85);
+      glow(ctx, h.x + Math.cos(ang) * 18, h.y - 92 + Math.sin(ang) * 5, 2.5, "#ffffff", 0.9);
+    }
+  }
 }
 // 축복 고리 — adv-bless.webp 6칸을 돌려 그린다(검은 바탕이라 lighter). 끝나기 fade 초 전부터 흐려진다
 function drawBlessAura(ctx, h, left, time) {

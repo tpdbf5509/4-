@@ -112,6 +112,46 @@ function weaponImg(sp, part = 0) {
   }
   return weaponCache[cacheKey];
 }
+/* 전직 캐릭터가 특별 무기를 장착하면 — 무기를 지운 전직 그림(<보기>-bare.webp, tools/bare-adv.py)에 그 무기를 손에 들린다.
+   ADV_HAND: 전직 · 성별 · 보기마다 빈 주먹 [x, y](지운 그림 크기 기준, bare-adv.py 가 찾은 자홍 점). 손이 몸에 가린 보기는 없다 — 전직 그림 그대로.
+   무기 방향 · 길이는 기본 직업 손(WARRIOR_HAND · HOLDER_HAND)의 같은 보기 값, 없으면 ADV_HOLD */
+const ADV_HAND = {
+  gladiator: { m: { front: [30, 197], side: [72, 178], turn: [31, 180] }, f: { front: [60, 177], side: [68, 170], turn: [71, 171] } },
+  knight: { m: { front: [23, 212], side: [36, 191], turn: [26, 194] }, f: { front: [53, 188], side: [29, 179], turn: [61, 189] } },
+  marksman: { m: { front: [42, 200], side: [23, 188], turn: [35, 190] }, f: { front: [41, 184], side: [26, 176], turn: [73, 176] } },
+  gunner: { m: { front: [168, 187], side: [47, 160], back: [29, 198], turn: [153, 173] }, f: { front: [188, 155], side: [34, 150], back: [46, 192], turn: [183, 149] } },
+  archmage: { m: { front: [60, 172], side: [42, 162], turn: [50, 165] }, f: { front: [65, 165], side: [44, 166], turn: [56, 158] } },
+  summoner: { m: { front: [42, 171], side: [18, 152], turn: [50, 159] }, f: { front: [44, 156], side: [19, 147], turn: [66, 155] } },
+  healer: { m: { front: [165, 187], side: [26, 173], back: [139, 170], turn: [25, 171] }, f: { front: [175, 169], side: [21, 164], turn: [24, 165] } },
+};
+const ADV_HOLD = { mage: { front: [-72, 74], turn: [-95, 60], side: [-100, 62], back: [-85, 62] }, archer: { front: [-68, 84], turn: [-86, 70], side: [-110, 69], back: [-99, 61] } };
+const ADV_OWN = { gunner: "gun", summoner: "grim" };   // 전직 그림에 이미 든 전직 무기 — 이 무기면 그림 그대로
+// 무기 방향을 몸 바깥쪽으로 — 기본 직업과 전직 그림은 무기를 든 손이 반대편일 수 있다(몸을 가로지르지 않게 좌우로 뒤집는다)
+const outward = (deg, onLeft) => (Math.cos((deg * Math.PI) / 180) > 0 === onLeft ? 180 - deg : deg);
+function advHeld(h, view) {
+  const g = h.gender === "f" ? "f" : "m", xy = ADV_HAND[h.advClass]?.[g]?.[view];
+  const sp = SPECIAL_BY_ID[heldSpecial(h)];
+  if (!xy || !sp || ADV_OWN[h.advClass] === sp.t) return null;
+  const body = artImg(advArtPath(h, `${view}-bare`));
+  if (!body) return null;                           // 못 불러오면 전직 그림(그림 속 무기) 그대로
+  const left = view === "turn" || view === "side" || view === "back";
+  if (ADV_HELD[sp.t] === h.job) return { body, hand: xy, adv: sp.t, still: true, left };   // 총사가 아닌 궁수 전직의 총 · 소환술사가 아닌 마법사 전직의 소환서
+  const grip = sp.id === "dragon_dual" ? DUAL_HELD.grips[0] : WEAPON_GRIP[sp.art];
+  const wpn = grip && weaponImg(sp);
+  if (!wpn) return null;
+  if (HOLDER[h.job]) {
+    if (sp.t !== HOLDER[h.job]) return null;
+    const [ang0, len] = HOLDER_HAND[h.job][g][view]?.slice(2, 4) || ADV_HOLD[h.job][view];
+    const onLeft = xy[0] < body.naturalWidth / 2, ang = outward(ang0, onLeft);
+    const str = onLeft ? 1 : -1;                     // 몸 오른쪽에 든 활은 활줄이 왼쪽(몸 쪽)
+    const mirror = !!BOW_STRING[sp.art] && str !== BOW_STRING[sp.art];
+    return { body, hand: [xy[0], xy[1], ang, len, str], wpn, grip, len: len * HERO_K, still: true, mirror };
+  }
+  if (h.job !== "warrior") return null;
+  const ang = outward(WARRIOR_HAND[g][view][2], xy[0] < body.naturalWidth / 2);   // 쌍검은 한 손 단검만(전직 그림에 반대 손 자리가 없다)
+  const len = sp.id === "dragon_dual" ? DUAL_HELD.lengths[0] : HELD_LEN * (HELD_TYPE[sp.t] || 1);
+  return { body, hand: [xy[0], xy[1], ang], wpn, grip, len, left: view === "turn" || view === "side" };
+}
 // 전사가 손에 든 검 — 칼 지운 몸 그림이 있으면 늘 이 길로 그린다(휘두를 수 있게).
 // 특별 무기를 장착했고 그 그림이 있으면 그 무기, 아니면 코드로 그린 기본 검
 function heldWeapon(h, view) {
@@ -1856,9 +1896,9 @@ function drawHero(ctx, g, h, time) {
   const mine = g.mySeat === pi;
   const down = h.down > 0;
   const { view, flip } = heroView(h);
-  const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다
-  const held = advIm ? null : heldWeapon(h, view);
-  const im = advIm || (held ? held.body : heroImg(h, view) || heroImg(h, "front"));
+  const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다 — 특별 무기를 끼면 무기 지운 그림에 그 무기를 들린다
+  const held = advIm ? advHeld(h, view) : heldWeapon(h, view);
+  const im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
   const mo = down ? null : heroMotion(g, h, time);
 
   ctx.save();

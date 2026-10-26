@@ -112,30 +112,39 @@ def figures(path):
         rgba[..., 3] = np.where(m, rgba[..., 3], 0)
         wide = (m & solid)[:, cx - 40:cx + 41].sum(1) >= 10   # 장화 폭 — 가운데 ±40 에서 10픽셀 넘는 가장 아래 줄
         feet = int(np.where(wide)[0].max()) + 1
-        out.append((r, c, Image.fromarray(rgba[y0:y1, x0:x1], "RGBA"), feet - y0, y0))
+        out.append((r, c, Image.fromarray(rgba[y0:y1, x0:x1], "RGBA"), feet - y0, y0, x0))
     return out
 
 def ref_h(job, g, v):
     return Image.open(os.path.join(OUT, f"{job}-{g}", f"{v}.webp")).size[1]
 
-cuts = {cls: figures(os.path.join(SRC, f"{cls}.webp")) for cls in CLASSES if not ONLY or cls in ONLY or cls == "gladiator"}
-# 배율 — 검투사(남 · 여)의 발밑 ~ 머리 꼭대기를 기존 검사 키에 맞춘다(방향마다)
-scale = {}
-for r, c, crop, feet, _ in cuts["gladiator"]:
-    g = "m" if r == 0 else "f"
-    scale[(g, c)] = (ref_h("warrior", g, VIEWS[c]) - PAD * 2) / feet
-for cls, figs in cuts.items():
-    if ONLY and cls not in ONLY:
-        continue
-    for r, c, crop, feet, _ in figs:
+def scales():
+    """검투사(남 · 여)의 발밑 ~ 머리 꼭대기를 기존 검사 키에 맞춘 배율 — 방향마다(tools/bare-adv.py 도 쓴다)"""
+    out = {}
+    for r, c, crop, feet, *_ in figures(os.path.join(SRC, "gladiator.webp")):
         g = "m" if r == 0 else "f"
-        s = scale[(g, c)]
-        w2, h2 = max(1, round(crop.size[0] * s)), max(1, round(crop.size[1] * s))
-        im = crop.resize((w2, h2), Image.LANCZOS)
-        fy = round(feet * s)
-        outim = Image.new("RGBA", (w2 + PAD * 2, fy + PAD * 2), (0, 0, 0, 0))
-        outim.alpha_composite(im.crop((0, 0, w2, min(h2, fy + PAD))), (PAD, PAD))   # 발밑 아래로 내려간 칼끝은 여백까지만
-        dpath = os.path.join(OUT, f"{cls}-{g}")
-        os.makedirs(dpath, exist_ok=True)
-        outim.save(os.path.join(dpath, f"{VIEWS[c]}.webp"), "WEBP", quality=92, alpha_quality=100, method=6)
-        print(cls, g, VIEWS[c], outim.size, f"x{s:.3f}")
+        out[(g, c)] = (ref_h("warrior", g, VIEWS[c]) - PAD * 2) / feet
+    return out
+
+def place(crop, feet, s):
+    """떼어 낸 그림을 배율 s 로 줄여 둘레 여백을 두고 발밑에 맞춘다"""
+    w2, h2 = max(1, round(crop.size[0] * s)), max(1, round(crop.size[1] * s))
+    im = crop.resize((w2, h2), Image.LANCZOS)
+    fy = round(feet * s)
+    outim = Image.new("RGBA", (w2 + PAD * 2, fy + PAD * 2), (0, 0, 0, 0))
+    outim.alpha_composite(im.crop((0, 0, w2, min(h2, fy + PAD))), (PAD, PAD))   # 발밑 아래로 내려간 칼끝은 여백까지만
+    return outim
+
+if __name__ == "__main__":
+    scale = scales()
+    for cls in CLASSES:
+        if ONLY and cls not in ONLY:
+            continue
+        for r, c, crop, feet, *_ in figures(os.path.join(SRC, f"{cls}.webp")):
+            g = "m" if r == 0 else "f"
+            s = scale[(g, c)]
+            outim = place(crop, feet, s)
+            dpath = os.path.join(OUT, f"{cls}-{g}")
+            os.makedirs(dpath, exist_ok=True)
+            outim.save(os.path.join(dpath, f"{VIEWS[c]}.webp"), "WEBP", quality=92, alpha_quality=100, method=6)
+            print(cls, g, VIEWS[c], outim.size, f"x{s:.3f}")

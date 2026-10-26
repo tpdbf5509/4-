@@ -43,7 +43,7 @@ export function drawGuildStatue(ctx,g,n,time){
  ctx.fillStyle='#372819';ctx.strokeStyle='#ad915b';ctx.fillRect(-72,-211,144,29);ctx.strokeRect(-72,-211,144,29);ctx.font="20px 'Do Hyeon',sans-serif";ctx.fillStyle='#f1dfb8';ctx.textAlign='center';ctx.fillText('여신 조각상',0,-190);ctx.restore();
 }
 // 문 하나 — 돌 아치 · 안쪽 빛 · 위 이름판. 광장의 길드 문과 길드 광장의 토벌전 문이 같이 쓴다
-function drawArchDoor(ctx,x,y,time,label,sub,color,inner){
+export function drawArchDoor(ctx,x,y,time,label,sub,color,inner){
  ctx.save();ctx.translate(x,y);ctx.fillStyle='rgba(18,13,9,.35)';ctx.beginPath();ctx.ellipse(0,8,80,22,0,0,TAU);ctx.fill();
  bloom(ctx,0,-80,95,color,.28+.08*Math.sin(time*2));
  ctx.fillStyle='#5b4c3a';ctx.strokeStyle='#2e241a';ctx.lineWidth=3;

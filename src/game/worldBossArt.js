@@ -142,5 +142,5 @@ export function drawWorldBossPortal(ctx,g,n,time){
   for(let i=0;i<8;i++){const p=(i/8+time*.1)%1;ctx.strokeStyle=i%2?color:'#afdfe8';ctx.globalAlpha=.2+(1-p)*.6;ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(Math.sin(time+i)*10,-93,8+p*53,12+p*80,Math.sin(time)*.2,0,TAU);ctx.stroke();}ctx.restore();
   ctx.fillStyle='#746244';ctx.strokeStyle='#c3a16a';ctx.lineWidth=2;
   for(const k of [-1,1]){ctx.fillRect(k*72-12,-105,24,120);ctx.strokeRect(k*72-12,-105,24,120);for(let i=0;i<3;i++){ctx.strokeStyle=color;ctx.beginPath();ctx.moveTo(k*72-5,-82+i*32);ctx.lineTo(k*72+5,-75+i*32);ctx.lineTo(k*72-5,-68+i*32);ctx.stroke();}}
-  ctx.font="15px 'Do Hyeon',sans-serif";ctx.textAlign='center';ctx.fillStyle=color;ctx.fillText(open?'보스 출현 · 입장 가능':'만렙 3인 이상 도전',0,40);ctx.restore();
+  ctx.font="15px 'Do Hyeon',sans-serif";ctx.textAlign='center';ctx.fillStyle=color;ctx.fillText(open?'보스 출현 · 입장 가능':'400레벨 3인 이상 도전',0,40);ctx.restore();
 }

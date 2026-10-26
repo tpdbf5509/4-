@@ -7,6 +7,7 @@ import {worldBossView,worldBossPortalNear} from "./game/worldBoss.js";
 import WorldBossPanel,{WorldBossHud} from "./WorldBossPanel.jsx";
 import TradePanel from "./TradePanel.jsx";
 import AdvPanel from "./AdvPanel.jsx";
+import DeepPanel from "./DeepPanel.jsx";
 import { ADV, ADV_BY_ID, trialText } from "./game/advData.js";
 import { useTrade } from "./useTrade.js";
 import { trading } from "./game/tradeData.js";
@@ -500,6 +501,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
   const [trainOpen, setTrainOpen] = useState(false); // 훈련 교관 창
   const [advOpen, setAdvOpen] = useState(false);     // 전직 교관 창(AdvPanel)
+  const [deepOpen, setDeepOpen] = useState(false);   // 계몽의 문 창(DeepPanel)
   const dgRef = useRef(false);                       // 루프가 보는 열린 던전 창 — 관리인에게서 멀어지면 닫는다
   // 던전·월드·길드 보스 공통 체력 칸 — 루프가 프레임마다 DOM 너비를 바로 고친다(React 상태를 매 프레임 바꾸지 않는다)
   const bossMem = useRef(null);                      // { id, name, map, hp, max, fx } — 쓰러진 뒤에도 0% 까지 보여 주려고 남긴다
@@ -577,7 +579,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
-    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false);
+    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -725,6 +727,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (npc.dungeon) { closeAll(); setDgOpen(true); return; }                 // 던전 관리인 — 입장 창
       if (npc.train) { closeAll(); setTrainOpen(true); return; }               // 훈련 교관 — 기능 창
       if (npc.adv) { closeAll(); setAdvOpen(true); return; }                   // 전직 교관 — 시험 · 확정 창
+      if (npc.deep) { closeAll(); setDeepOpen(true); return; }                 // 계몽의 문 — 계몽의 눈 만들기 · 400~800레벨 입장
       if (npc.shop) {                               // 상점은 창만 연다 — 사고파는 것은 창에서 보낸다
         setStatOpen(false); setMenu(false); setBagOpen(false); setNote(null);
         setShopOpen(npc.shop);
@@ -769,13 +772,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -1402,6 +1405,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {(guild.notice||guild.error)&&<div className={`trade-result guild-notice ${guild.notice?.success?"success":""}`} role="status" aria-live="polite" aria-atomic="true"><strong>{guild.error?"길드 안내":guild.notice.title}</strong><span>{guild.error||guild.notice.text}</span></div>}
           {me&&<WorldBossHud state={me.wb} map={me.map} barRefs={bossBarRefs} onOpen={()=>toggleWin(wbOpen,setWbOpen)} onLeave={()=>act("wb",{op:"leave"})}/>}
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
+          {me && deepOpen && <DeepPanel self={me.self} act={act} onClose={() => setDeepOpen(false)} />}
           {me && advOpen && <AdvPanel self={me.self} act={act} advKey={(binds.adv || []).find(Boolean)} onClose={() => setAdvOpen(false)} />}
           <TradePanel api={trades} self={me?.self} />
           {me && partyOpen && (() => {
@@ -1834,7 +1838,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me?.near?.guild&&!guildOpen&&<div className="rpg-talk"><span className="rpg-talk-who">여신 조각상</span><span className="rpg-talk-line">길드석을 바쳐 여신의 축복을 키우세요.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act("talk")}>성전 살펴보기{!touch&&keyOf(binds,"talk")&&<kbd>{keyOf(binds,"talk")}</kbd>}</button></div>}
           {me?.near?.guildDoor&&!guildOpen&&<div className="rpg-talk"><span className="rpg-talk-who">길드 문</span><span className="rpg-talk-line">{me.guild?.id||G.current.heroes[mySeat]?.guild?.id?"내 길드 광장으로 들어갑니다.":"길드가 없으면 길드 찾기 화면이 열립니다."}</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act("talk")}>들어가기{!touch&&keyOf(binds,"talk")&&<kbd>{keyOf(binds,"talk")}</kbd>}</button></div>}
           {me?.near?.guildRaidDoor&&!guildOpen&&<div className="rpg-talk"><span className="rpg-talk-who">토벌전 문</span><span className="rpg-talk-line">토벌할 보스를 고르고 참여 인원을 확인하세요.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act("talk")}>토벌전 보기{!touch&&keyOf(binds,"talk")&&<kbd>{keyOf(binds,"talk")}</kbd>}</button></div>}
-          {me?.near?.worldBoss&&!wbOpen&&<div className="rpg-talk"><span className="rpg-talk-who">월드보스 성역</span><span className="rpg-talk-line">만렙 3인과 함께 도전하세요. 소환과 보상은 포탈에서 확인합니다.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act('talk')}>포탈 살펴보기{!touch&&keyOf(binds,'talk')&&<kbd>{keyOf(binds,'talk')}</kbd>}</button></div>}
+          {me?.near?.worldBoss&&!wbOpen&&<div className="rpg-talk"><span className="rpg-talk-who">월드보스 성역</span><span className="rpg-talk-line">400레벨 3인과 함께 도전하세요. 소환과 보상은 포탈에서 확인합니다.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act('talk')}>포탈 살펴보기{!touch&&keyOf(binds,'talk')&&<kbd>{keyOf(binds,'talk')}</kbd>}</button></div>}
+          {me?.near?.deep && !deepOpen && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">계몽의 문</span>
+              <span className="rpg-talk-line">{me.lv >= 400 ? "계몽의 눈을 가진 자만 문 너머를 볼 수 있다." : "400레벨이 되면 문이 열린다."}</span>
+              <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                문 살펴보기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
           {me?.near?.adv && !advOpen && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">전직 교관</span>
@@ -1853,7 +1866,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
-          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss || me.near.guild || me.near.guildDoor || me.near.guildRaidDoor || me.near.adv)) && (talk || me.near) && (
+          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss || me.near.guild || me.near.guildDoor || me.near.guildRaidDoor || me.near.adv || me.near.deep)) && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">

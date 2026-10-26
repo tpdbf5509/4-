@@ -7,7 +7,8 @@ import {
   MAPS, SPAWNS, MOB, FAR_EASE, JOBS, ELEMS, LV_MAX, STAT_MAX, STAT_PER_LV, statEarned, XP_RATE, FAR_MAPS, FIELD_PVP, DUEL, DASH, RPG,
   RPG_SERVERS, RPG_SERVER_CAP,
 } from "./rpg.js";
-import { DROP_ROLL, MATERIALS } from "./itemData.js";
+import { DROP_ROLL, MATERIALS, MAT_BY_ID } from "./itemData.js";
+import { DEEP, DEEP_MAPS } from "./deepData.js";
 import { PARTY, CHAT } from "./socialData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEONS, DUNGEON } from "./dungeonData.js";
@@ -22,6 +23,15 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 
 /* ── 패치노트 — 새 책은 맨 위에 더한다 ───────────────────────── */
 export const PATCH_BOOKS = [
+  { id: "patch-2026-10-26g", title: "패치노트 · 10월 26일 (7)", sub: "계몽의 문 · 400~800레벨", color: "#b8a0d8",
+    pages: [
+      { h: "레벨 · 스탯 상한", p: ["최고 레벨 400 → 800.", "스탯 하나 상한 400 → 800. 800레벨까지 받는 포인트 1,600으로 두 스탯을 최대로 올릴 수 있습니다.", "월드보스 합동 차단은 그대로 400레벨 3명이 기준입니다."] },
+      { h: "계몽의 문 · 계몽의 눈", p: ["광장 왼쪽 풀밭(스킬 상점 아래)에 계몽의 문이 있습니다.", `계몽의 눈 재료: ${DEEP.recipe.map(([id, n]) => `${MAT_BY_ID[id].name} ${n}`).join(" · ")}.`, "한 번 만들면 계속 남는 열쇠입니다. 들어갈 때 쓰지 않습니다.", `${DEEP.lv}레벨부터 계몽의 눈을 가지고 들어갑니다.`] },
+      { h: "새 사냥터 8곳", p: DEEP_MAPS.map((d) => `${d.name} ${d.lv[0]}~${d.lv[1]}레벨 · ${MOB[d.id].name} · 보스 ${MOB[d.id].boss.name}(${MOB[d.id].boss.lv}) 체력 ${won(MOB[d.id].boss.hp)}`) },
+      { h: "몹 수치", p: ["200~400 사냥터의 식을 이어서 늘렸습니다. 처음 보여 드린 표에서 체력을 15% 더 낮췄습니다.",
+        ...DEEP_MAPS.map((d) => `${MOB[d.id].name} 체력 ${won(MOB[d.id].hp(d.lv[0]))}~${won(MOB[d.id].hp(d.lv[1]))} · 공격 ${won(MOB[d.id].dmg(d.lv[0]))}~${won(MOB[d.id].dmg(d.lv[1]))}`)] },
+      { h: "고유 기술", p: ["불정령 불덩이 · 용암골렘 용암 덩이(느려짐) · 화염룡 불꽃 숨결 · 이프리트 불기둥", "망령기사 망령의 검기(밀려남) · 심해괴수 물덩이(느려짐) · 공허술사 공허 문양 · 타락천사 검은 깃털(묶임)", "모두 바닥 표시를 보고 비키면 피합니다."] },
+    ] },
   { id: "patch-2026-10-26h", title: "패치노트 · 10월 26일 (8)", sub: "치유사 강화", color: "#c9b37c",
     pages: [{ h: "치유사 강화", p: ["V 키(키 설정에서 바꿀 수 있습니다)나 스킬 칸 버튼으로 평타를 치유 · 공격으로 바꿉니다.", "치유 평타는 사거리 안에서 체력이 가장 모자란 사람(나 포함)을 최대 체력의 3% 회복합니다. 몹은 치지 않고 다친 사람이 없으면 나가지 않습니다. 결투장에서는 공격 평타입니다.", "수호의 축복 — 공격력 증가 없음 → 40초 동안 공격력 +15%(결투 · PvP 는 +15% 한도 안)."] }] },
   { id: "patch-2026-10-26g", title: "패치노트 · 10월 26일 (7)", sub: "문의하기 · 무기 탭", color: "#c9b37c",
@@ -318,8 +328,8 @@ export const PATCH_BOOKS = [
     id: "patch-2026-10-19b", title: "패치노트 · 10월 19일 (2)", sub: "스탯 상한 확대", color: "#a8b39a",
     pages: [
       { h: "스탯 상한", p: [
-        `스탯 하나에 찍을 수 있는 포인트: 변경 전 250 → 변경 후 ${STAT_MAX}.`,
-        `${LV_MAX}레벨까지 받는 포인트는 모두 ${won(statEarned(LV_MAX))}입니다. 두 스탯을 ${STAT_MAX}까지 올리면 딱 맞습니다.`,
+        "스탯 하나에 찍을 수 있는 포인트: 변경 전 250 → 변경 후 400.",   // 지난 패치노트 — 그때 값으로 적는다(지금 상한은 10월 26일 책)
+        `400레벨까지 받는 포인트는 모두 ${won(statEarned(400))}입니다. 두 스탯을 400까지 올리면 딱 맞습니다.`,
         "변경 전에는 세 스탯을 250까지 올리고 50포인트가 남았습니다.",
         "포인트당 효과는 그대로입니다. 치명타 확률은 80%가 상한이라 150포인트 넘게 찍어도 더 오르지 않습니다.",
         "관리자 캐릭터의 스탯도 모두 최대로 맞춰집니다.",
@@ -336,7 +346,7 @@ export const PATCH_BOOKS = [
         "각자 이 업데이트 뒤 처음 들어올 때 한 번 적용됩니다.",
       ] },
       { h: "레벨 확장 · 새 사냥터", p: [
-        `최고 레벨을 200에서 ${LV_MAX}으로 늘렸습니다. 스탯 포인트는 ${LV_MAX}레벨까지 모두 ${won(statEarned(LV_MAX))}포인트입니다. 예전에는 ${won(statEarned(200))}포인트였습니다.`,
+        `최고 레벨을 200에서 400으로 늘렸습니다. 스탯 포인트는 400레벨까지 모두 ${won(statEarned(400))}포인트입니다. 예전에는 ${won(statEarned(200))}포인트였습니다.`,
         "오우거 사냥터 끝의 문으로 이어집니다. 30레벨 단위로 테마 몬스터가 나옵니다.",
         ...FAR_MAPS.map((f) => `${f.name} ${f.lv[0]}~${f.lv[1]}레벨 · ${MOB[SPAWNS.find((s) => s.map === f.id && !s.boss).type].name} · 보스 ${MOB[SPAWNS.find((s) => s.map === f.id && s.boss).type].boss.name}`),
         "언데드 테마는 200~300레벨, 인조 몬스터 테마는 300~400레벨입니다.",

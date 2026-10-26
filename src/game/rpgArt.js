@@ -1,4 +1,5 @@
-import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor} from './guildArt.js';
+import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
+import { DEEP, DEEP_MAPS } from './deepData.js';
 import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmAdvArt, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
@@ -447,6 +448,8 @@ const MAP_TREES = {
   golem: plantTrees(4412, 12, 500, 5450, 0.6, nearGate(MAPS.golem)),            // 골렘 채석장 — 거의 맨땅
   chimera: plantTrees(4413, 20, 500, 5650, 0.85, nearGate(MAPS.chimera)),       // 키메라 협곡
   spider: plantTrees(4414, 50, 500, 5850, 0.9, nearGate(MAPS.spider)),          // 포식거미 숲 — 빽빽하고 어둡다
+  // 400~800레벨(deepData.js) — 화염 쪽은 그을린 나무가 드문드문, 심연 쪽은 조금 더 짙게
+  ...Object.fromEntries(DEEP_MAPS.map((d, i) => [d.id, plantTrees(4500 + i, i < 4 ? 10 : 22, 500, d.w - 150, 0.85, nearGate(MAPS[d.id]))])),
 };
 const PLAZA_PROPS = [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
@@ -902,7 +905,20 @@ function drawShop(ctx, n, time) {
   ctx.restore();
 }
 
+/* 계몽의 문(deepData.js) — 길드 문과 같은 돌 아치에 보랏빛 문 · 가운데 떠 있는 계몽의 눈(그림을 못 불러오면 빛만) */
+function drawDeepDoor(ctx, g, n, time) {
+  const me = g.heroes[g.mySeat], eye = me && (me.admin || (me.bag && me.bag.m && me.bag.m[DEEP.eye] > 0));
+  drawArchDoor(ctx, n.x, n.y, time, "계몽의 문", eye ? "400~800레벨 사냥터" : "계몽의 눈 필요", "#c9a8f0", "#1e1636");
+  const im = artImg(DEEP.img), bob = Math.sin(time * 2.2) * 4, s = 58;
+  ctx.save();
+  ctx.globalAlpha = eye ? 1 : 0.55;
+  if (im) ctx.drawImage(im, n.x - s / 2, n.y - 92 - s / 2 + bob, s, s);
+  else { ctx.fillStyle = "rgba(220,200,255,0.6)"; ctx.beginPath(); ctx.ellipse(n.x, n.y - 92 + bob, 20, 12, 0, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
+
 function drawNpc(ctx, g, n, time) {
+  if (n.deep) return drawDeepDoor(ctx, g, n, time);
   if(n.guild)return drawGuildStatue(ctx,g,n,time);
   if(n.guildDoor)return drawGuildDoor(ctx,g,n,time);
   if(n.guildRaidDoor)return drawGuildRaidDoor(ctx,g,n,time);
@@ -1444,6 +1460,166 @@ export function drawSpiderBody(ctx, ph, moving, boss, frozen, up) {
   [[11, -28, 1.6], [7, -29, 1.3], [13.5, -25, 1.2], [9, -26, 1], [5, -26, 1]].forEach(([x, y, r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); });
 }
 
+/* ── 400~800레벨 몹 — 화염(불정령 · 용암골렘 · 화염룡 · 이프리트)과 심연(망령기사 · 심해괴수 · 공허술사 · 타락천사). 코드로 그린다 ─────
+   그라데이션은 쓰지 않는다(한 프레임에 수십 마리 — 둥근 빛은 반투명 원 겹으로) */
+const glowDot = (ctx, x, y, r, col, a) => {
+  ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = col;
+  [1, 0.65, 0.35].forEach((k) => { ctx.beginPath(); ctx.arc(x, y, r * k, 0, Math.PI * 2); ctx.fill(); });
+  ctx.restore();
+};
+// 불정령 — 떠 있는 불꽃 몸 · 일렁이는 머리 불길 · 하얀 눈. 군주는 불꽃 왕관과 큰 불길
+export function drawFspiritBody(ctx, ph, moving, boss, frozen, up) {
+  const outer = frozen ? "#cfe4f0" : boss ? "#e2502c" : "#f07a3a", inner = frozen ? "#eef8fc" : "#ffc46a", core = frozen ? "#fff" : "#fff2c8";
+  const fl = Math.sin(ph * 1.6) * 2, lift = -8 + Math.sin(ph * 0.8) * 2;
+  glowDot(ctx, 0, -30 + lift, 22, inner, 0.18);
+  poly(ctx, [[-11, -14 + lift], [-14, -32 + lift], [-8 + fl, -50 + lift], [-2, -40 + lift], [3 - fl, -60 + lift], [8, -42 + lift], [13 + fl, -52 + lift], [14, -30 + lift], [10, -14 + lift], [0, -6 + lift]], outer);
+  poly(ctx, [[-6, -16 + lift], [-8, -30 + lift], [-2, -38 + lift], [3, -46 + lift], [7, -34 + lift], [7, -18 + lift], [0, -12 + lift]], inner);
+  const reach = up > 0 ? 6 : 0;                                 // 던질 때 불덩이를 앞으로
+  glowDot(ctx, 14 + reach, -28 + lift, 6, core, 0.9);
+  ctx.fillStyle = core; ctx.beginPath(); ctx.ellipse(-1, -30 + lift, 2, 2.8, 0, 0, Math.PI * 2); ctx.ellipse(5, -30 + lift, 2, 2.8, 0, 0, Math.PI * 2); ctx.fill();
+  if (boss) poly(ctx, [[-7, -52 + lift], [-5, -62 + lift], [-1, -55 + lift], [3, -64 + lift], [6, -55 + lift], [10, -62 + lift], [11, -52 + lift]], frozen ? "#fff6dc" : "#ffd36a");
+}
+// 용암골렘 — 검게 굳은 용암 바위 몸 · 갈라진 틈의 붉은 빛 · 큰 주먹. 거신은 등의 화산 봉우리
+export function drawLavagolemBody(ctx, ph, moving, boss, frozen, up) {
+  const rock = frozen ? "#d3e4ee" : boss ? "#3c2c28" : "#4a3a34", dark = frozen ? "#a2c0d2" : "#2a1e1a", lava = frozen ? "#bfe6ff" : "#ff7a3a";
+  const sw = moving ? Math.sin(ph) * 3 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  limb(-8, -22, -10 - sw, 0, 13, dark); limb(8, -22, 10 + sw, 0, 13, rock);
+  if (boss) poly(ctx, [[-16, -56], [-10, -74], [-4, -70], [0, -80], [6, -60]], dark);
+  blob(0, -42, 20, 22, 0, rock);
+  ctx.strokeStyle = lava; ctx.lineWidth = 2.2;                  // 갈라진 틈
+  ctx.beginPath(); ctx.moveTo(-12, -52); ctx.lineTo(-4, -44); ctx.lineTo(-8, -34); ctx.moveTo(6, -56); ctx.lineTo(10, -46); ctx.lineTo(4, -36); ctx.lineTo(9, -26); ctx.stroke();
+  if (boss) glowDot(ctx, 0, -78, 7, lava, 0.7);
+  const ay = up > 0 ? -84 : -34;                                // 치켜들면 곧 던진다
+  limb(-17, -52, -26, -30, 11, dark); blob(-26, -28, 8, 8, 0, dark);
+  limb(15, -52, 26, ay, 11, rock); blob(26, ay - 2, 9, 9, 0, rock);
+  if (up > 0) glowDot(ctx, 26, ay - 14, 9, lava, 0.85);
+  blob(4, -64, 8, 7.5, 0, rock);
+  ctx.fillStyle = lava; ctx.beginPath(); ctx.arc(8, -65, 2.2, 0, Math.PI * 2); ctx.arc(1, -65, 1.8, 0, Math.PI * 2); ctx.fill();
+}
+// 화염룡 — 붉은 비늘 · 날개 · 긴 목과 뿔. 숨결을 준비하면 입이 빛난다. 왕은 금빛 뿔과 큰 날개
+export function drawFiredrakeBody(ctx, ph, moving, boss, frozen, up) {
+  const scale = frozen ? "#e2eef6" : boss ? "#a8302a" : "#c44a32", belly = frozen ? "#f2f8fc" : "#f0b070", wing = frozen ? "#c6dbe7" : "#7a2a2a";
+  const horn = frozen ? "#fff" : boss ? "#e7c35a" : "#e8dcc4";
+  const sw = moving ? Math.sin(ph) * 5 : 0, flap = Math.sin(ph * 0.9) * 6;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  poly(ctx, [[-6, -34], [-30, -66 - flap], [-22, -46], [-38, -52 - flap], [-20, -32]], wing);   // 날개
+  limb(-14, -18, -16 - sw, 0, 6, scale); limb(12, -18, 14 + sw, 0, 6, scale);
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(-20, -26); ctx.quadraticCurveTo(-36, -22, -40, -10 + sw * 0.4); ctx.stroke();   // 꼬리
+  ctx.strokeStyle = scale; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.moveTo(-20, -26); ctx.quadraticCurveTo(-36, -22, -40, -10 + sw * 0.4); ctx.stroke();
+  blob(0, -26, 22, 12, 0, scale); blob(2, -21, 14, 5, 0, belly);
+  limb(16, -32, 24, -48, 7, scale);                             // 목
+  blob(28, -50, 9, 7, 0.2, scale);                              // 머리
+  poly(ctx, [[24, -55], [18, -66], [27, -57]], horn); poly(ctx, [[29, -56], [27, -68], [32, -57]], horn);
+  ctx.fillStyle = "#ffd36a"; ctx.beginPath(); ctx.arc(30, -52, 1.5, 0, Math.PI * 2); ctx.fill();
+  if (up > 0) glowDot(ctx, 37, -48, 8, "#ffc46a", 0.8);
+  if (boss) poly(ctx, [[2, -34], [28, -78 - flap], [20, -52], [36, -60 - flap], [14, -36]], wing);   // 큰 날개 한 쌍 더
+}
+// 이프리트 — 아래가 불꽃으로 흩어지는 붉은 몸 · 금 팔찌 · 뿔. 대군주는 불꽃 왕관과 금 목걸이
+export function drawIfritBody(ctx, ph, moving, boss, frozen, up) {
+  const skin = frozen ? "#d6e8f2" : boss ? "#b8402a" : "#d0583a", fire = frozen ? "#eef8fc" : "#ffb04a", gold = frozen ? "#fff6dc" : "#e7c35a";
+  const fl = Math.sin(ph * 1.7) * 2, lift = Math.sin(ph * 0.7) * 2 - 4;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  poly(ctx, [[-10, -24 + lift], [-8 + fl, -6 + lift], [-2, -12 + lift], [2 - fl, 0 + lift], [6, -12 + lift], [10 + fl, -4 + lift], [10, -24 + lift]], fire);   // 불꽃 하반신
+  blob(0, -34 + lift, 12, 14, 0, skin);
+  const hy = up > 0 ? -66 : -30;                                // 팔을 치켜들면 불기둥
+  limb(-10, -42 + lift, -18, hy + lift, 5, skin); limb(10, -42 + lift, 18, hy + lift, 5, skin);
+  blob(-18, hy + lift, 3.5, 2.5, 0, gold); blob(18, hy + lift, 3.5, 2.5, 0, gold);
+  if (up > 0) { glowDot(ctx, -18, hy - 8 + lift, 7, fire, 0.8); glowDot(ctx, 18, hy - 8 + lift, 7, fire, 0.8); }
+  blob(2, -54 + lift, 8, 8, 0, skin);
+  poly(ctx, [[-3, -59 + lift], [-8, -70 + lift], [-1, -61 + lift]], gold); poly(ctx, [[6, -60 + lift], [10, -71 + lift], [8, -60 + lift]], gold);
+  ctx.fillStyle = "#fff2c8"; ctx.beginPath(); ctx.arc(1, -55 + lift, 1.6, 0, Math.PI * 2); ctx.arc(6, -55 + lift, 1.6, 0, Math.PI * 2); ctx.fill();
+  if (boss) { poly(ctx, [[-4, -63 + lift], [-1, -74 + lift + fl], [2, -64 + lift], [5, -76 + lift - fl], [8, -63 + lift]], fire); blob(1, -44 + lift, 7, 2.5, 0, gold); }
+}
+// 망령기사 — 금이 간 검은 갑옷 · 투구 틈의 푸른 혼불 · 낡은 망토 · 긴 검. 기사단장은 깃털 장식과 푸른 갑옷 테
+export function drawWraithBody(ctx, ph, moving, boss, frozen, up) {
+  const plate = frozen ? "#d6e6f0" : boss ? "#2e3448" : "#3a4052", trim = frozen ? "#fff" : boss ? "#8fb0e8" : "#6a7488";
+  const cloak = frozen ? "#c6dbe7" : "#22283a", soul = frozen ? "#e8f8ff" : "#9fd0ff";
+  const sw = moving ? Math.sin(ph) * 4 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  poly(ctx, [[-4, -40], [-16 - sw * 0.5, -4], [-6, -8], [-2, -2], [2, -30]], cloak);   // 망토
+  limb(-3, -16, -5 - sw, 0, 5, plate); limb(3, -16, 5 + sw, 0, 5, plate);
+  blob(0, -28, 9, 14, 0, plate);
+  ctx.strokeStyle = trim; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-6, -36); ctx.lineTo(6, -22); ctx.stroke();
+  // 검 — 치켜들면 곧 검기를 날린다
+  const a = up > 0 ? -1.9 : -0.5, hx = 9, hy = up > 0 ? -44 : -28;
+  limb(5, -36, hx, hy, 4, plate);
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(a);
+  ctx.fillStyle = frozen ? "#fff" : "#c8d4e8"; ctx.strokeStyle = lineCol; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(0, -2); ctx.lineTo(30, -1.5); ctx.lineTo(33, 0); ctx.lineTo(30, 1.5); ctx.lineTo(0, 2); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = trim; ctx.fillRect(-2, -5, 3, 10);
+  ctx.restore();
+  if (up > 0) glowDot(ctx, hx + Math.cos(a) * 26, hy + Math.sin(a) * 26, 6, soul, 0.6);
+  blob(2, -48, 7.5, 8, 0, plate);                               // 투구
+  ctx.fillStyle = "#0c0e14"; ctx.fillRect(1, -50, 8, 2.6);
+  ctx.fillStyle = soul; ctx.beginPath(); ctx.arc(3, -49, 1.2, 0, Math.PI * 2); ctx.arc(7, -49, 1.2, 0, Math.PI * 2); ctx.fill();
+  if (boss) poly(ctx, [[-2, -55], [-10, -70], [-4, -66], [-6, -76], [2, -58]], frozen ? "#fff" : "#8fb0e8");   // 깃털 장식
+}
+// 심해괴수 — 푸른 아귀 몸 · 머리의 등불 촉수 · 큰 입과 이빨 · 지느러미 다리. 레비아탄은 등지느러미와 큰 몸
+export function drawAbyssBody(ctx, ph, moving, boss, frozen, up) {
+  const skin = frozen ? "#d6e8f2" : boss ? "#24486a" : "#2e5a7a", belly = frozen ? "#f2f8fc" : "#7aa8c0", lure = frozen ? "#fff" : "#bff0ff";
+  const sw = moving ? Math.sin(ph) * 4 : 0;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  limb(-12, -14, -16 - sw, 0, 7, skin); limb(10, -14, 14 + sw, 0, 7, skin);
+  poly(ctx, [[-24, -30], [-36, -42 + sw * 0.5], [-34, -20 + sw * 0.5]], skin);   // 꼬리지느러미
+  if (boss) poly(ctx, [[-14, -44], [-8, -60], [-2, -48], [4, -62], [10, -46]], frozen ? "#c6dbe7" : "#1a3a58");
+  blob(0, -30, 24, 17, 0, skin); blob(4, -22, 16, 7, 0, belly);
+  const gape = up > 0 ? 7 : 2;                                  // 뱉을 때 입을 크게 벌린다
+  poly(ctx, [[14, -32], [28, -36 - gape], [28, -26 + gape], [14, -24]], "#1a1418");
+  ctx.fillStyle = "#f4ecd8";
+  [0, 1, 2].forEach((i) => { poly(ctx, [[17 + i * 4, -33 - gape * 0.6], [18.5 + i * 4, -29], [20 + i * 4, -33 - gape * 0.6]], "#f4ecd8"); });
+  ctx.strokeStyle = lineCol; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(8, -46); ctx.quadraticCurveTo(18, -62, 26, -54); ctx.stroke();
+  ctx.strokeStyle = skin; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(8, -46); ctx.quadraticCurveTo(18, -62, 26, -54); ctx.stroke();
+  glowDot(ctx, 26, -52, 5 + Math.sin(ph) * 0.8, lure, 0.85);
+  ctx.fillStyle = "#e8f6ff"; ctx.beginPath(); ctx.arc(10, -38, 2.4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#0c1018"; ctx.beginPath(); ctx.arc(10.6, -38, 1.1, 0, Math.PI * 2); ctx.fill();
+}
+// 공허술사 — 검보랏빛 로브 · 얼굴 대신 빈 어둠 속 두 눈 · 떠도는 공허 구슬. 대현자는 떠 있는 고리와 큰 구슬
+export function drawVoidmageBody(ctx, ph, moving, boss, frozen, up) {
+  const robe = frozen ? "#cbd9ec" : boss ? "#24163a" : "#2e1e48", trim = frozen ? "#e2eef8" : "#9a7ae8", eye = frozen ? "#e8f8ff" : "#d8c8ff";
+  const sway = moving ? Math.sin(ph) * 2 : 0, lift = Math.sin(ph * 0.8) * 1.5;
+  const blob = blobOf(ctx);
+  poly(ctx, [[-12 + sway, 0], [-8, -32], [8, -32], [13 - sway, 0], [6, -4], [0, 2], [-6, -4]], robe);
+  ctx.strokeStyle = trim; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-3, -30); ctx.lineTo(-1, -2); ctx.moveTo(4, -30); ctx.lineTo(3, -2); ctx.stroke();
+  blob(0, -40, 9.5, 10, 0, robe);                               // 두건
+  ctx.fillStyle = "#06040c"; ctx.beginPath(); ctx.ellipse(3, -38, 5.5, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = eye; ctx.beginPath(); ctx.arc(1.5, -39, 1.2, 0, Math.PI * 2); ctx.arc(5.5, -39, 1.2, 0, Math.PI * 2); ctx.fill();
+  const r = up > 0 ? (boss ? 10 : 8) : boss ? 7 : 5.5, ox = 16, oy = (up > 0 ? -58 : -36) + lift;   // 공허 구슬 — 치켜들면 곧 터뜨린다
+  glowDot(ctx, ox, oy, r * 2, "#7a5ad8", 0.35);
+  ctx.fillStyle = "#0a0614"; ctx.beginPath(); ctx.arc(ox, oy, r * 0.75, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = trim; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(ox, oy, r * 0.75, 0, Math.PI * 2); ctx.stroke();
+  if (boss) { ctx.strokeStyle = trim; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(1, -54 + lift, 12, 3.5, 0, 0, Math.PI * 2); ctx.stroke(); }
+}
+// 타락천사 — 검게 물든 날개 · 깨진 후광 · 잿빛 갑옷 · 붉은 눈. 천사장은 여섯 날개와 금이 간 금빛 후광
+export function drawFallenBody(ctx, ph, moving, boss, frozen, up) {
+  const wing = frozen ? "#d6e6f0" : boss ? "#2a1e2e" : "#3a2c3e", feather = frozen ? "#fff" : "#6a5070", armor = frozen ? "#e2eef6" : "#8a8494";
+  const skin = frozen ? "#e8f2f8" : "#e6d2c8", halo = frozen ? "#fff6dc" : boss ? "#e7c35a" : "#b8a8a0";
+  const flap = Math.sin(ph * 0.9) * 5, sw = moving ? Math.sin(ph) * 3 : 0, lift = -4 + Math.sin(ph * 0.7) * 2;
+  const limb = limbOf(ctx), blob = blobOf(ctx);
+  ctx.lineJoin = "round"; ctx.lineCap = "round";
+  const wingAt = (dy, k) => {
+    poly(ctx, [[-2, -40 + lift + dy], [-26 * k, -70 - flap + lift + dy], [-20 * k, -56 + lift + dy], [-34 * k, -58 - flap + lift + dy], [-18 * k, -42 + lift + dy], [-28 * k, -36 + lift + dy], [-6, -30 + lift + dy]], wing);
+    ctx.strokeStyle = feather; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-8, -40 + lift + dy); ctx.lineTo(-24 * k, -60 - flap + lift + dy); ctx.stroke();
+  };
+  if (boss) wingAt(-10, 1.15);
+  wingAt(0, 1);
+  limb(-3, -16 + lift, -5 - sw, 0 + lift, 4.5, armor); limb(3, -16 + lift, 5 + sw, 0 + lift, 4.5, armor);
+  blob(0, -30 + lift, 9, 13, 0, armor);
+  const hx = up > 0 ? 16 : 10, hy = up > 0 ? -50 : -26;        // 깃털을 날리려 팔을 든다
+  limb(5, -38 + lift, hx, hy + lift, 3.5, skin);
+  if (up > 0) glowDot(ctx, hx, hy - 4 + lift, 6, "#c8a0d8", 0.7);
+  blob(2, -48 + lift, 7, 7.5, 0, skin);
+  ctx.fillStyle = "#3a2a2a"; ctx.beginPath(); ctx.arc(-1, -52 + lift, 7, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();   // 머리카락
+  ctx.fillStyle = "#e0484a"; ctx.beginPath(); ctx.arc(5, -48 + lift, 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = halo; ctx.lineWidth = 1.8;                 // 깨진 후광
+  ctx.beginPath(); ctx.ellipse(1, -60 + lift, 8, 2.6, 0, 0.3, Math.PI * 1.6); ctx.stroke();
+}
+
 // 해골 — 모르가스가 부르는 졸개. 빛바랜 뼈 · 갈비뼈 · 녹슨 칼 · 초록 눈빛(모르가스와 같은 빛)
 export function drawSkeletonBody(ctx, ph, moving, boss, frozen, up) {
   const bone = frozen ? "#e2f0f8" : "#ddd6c2";
@@ -1591,6 +1767,14 @@ const drawNecro = bruteDrawer(drawNecroBody, 16, 66, 78);
 const drawGolem = bruteDrawer(drawGolemBody, 30, 76, 100);
 const drawChimera = bruteDrawer(drawChimeraBody, 32, 66, 66);
 const drawSpider = bruteDrawer(drawSpiderBody, 26, 46, 50);
+const drawFspirit = bruteDrawer(drawFspiritBody, 14, 66, 70);
+const drawLavagolem = bruteDrawer(drawLavagolemBody, 30, 76, 100);
+const drawFiredrake = bruteDrawer(drawFiredrakeBody, 30, 64, 70);
+const drawIfrit = bruteDrawer(drawIfritBody, 16, 70, 80);
+const drawWraith = bruteDrawer(drawWraithBody, 16, 60, 64);
+const drawAbyss = bruteDrawer(drawAbyssBody, 30, 56, 62);
+const drawVoidmage = bruteDrawer(drawVoidmageBody, 16, 56, 70);
+const drawFallen = bruteDrawer(drawFallenBody, 16, 68, 74);
 
 /* 던전 보스 — 그림 시트에서 자른 자세(tools/cut-bosses.py)를 같은 배율로 발밑 가운데에 맞춰 그린다.
    idle · move 는 프레임 목록(돌아가며), 기술 자세(slam · charge · attack)는 있는 보스만. 그림을 못 불러오면 오우거 몸을 크게 그려 대신한다.
@@ -1708,9 +1892,11 @@ function drawDummy(ctx, m, time) {
 function drawWorldBoss(ctx,m,time,g){drawWorldBossSprite(ctx,m,time,g?.wb?.active,lod.q);drawMobMarks(ctx,m,time,340);}
 function guildBossDraw(ctx,m,time){drawGuildBoss(ctx,m,time);drawMobMarks(ctx,m,time,guildBossTop(m));}
 const MOB_DRAW = {guild_slime:guildBossDraw,guild_siren:guildBossDraw,guild_phoenix:guildBossDraw,world_dragon:drawWorldBoss,world_serpent:drawWorldBoss,world_machine:drawWorldBoss, dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
-  skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider };
+  skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider,
+  fspirit: drawFspirit, lavagolem: drawLavagolem, firedrake: drawFiredrake, ifrit: drawIfrit, wraith: drawWraith, abyss: drawAbyss, voidmage: drawVoidmage, fallen: drawFallen };
 const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4",
-  skeletal: "#c9d6e6", zombie: "#bfd6a8", necro: "#d2bcf0", golem: "#d6ccb8", chimera: "#f0c9a0", spider: "#d8d0e8" };
+  skeletal: "#c9d6e6", zombie: "#bfd6a8", necro: "#d2bcf0", golem: "#d6ccb8", chimera: "#f0c9a0", spider: "#d8d0e8",
+  fspirit: "#ffc896", lavagolem: "#f0a080", firedrake: "#f0a888", ifrit: "#ffc080", wraith: "#b8c8e8", abyss: "#a8d0e8", voidmage: "#c8b8f0", fallen: "#dcc0e0" };
 
 /* 던전 관리인 — 짙은 망토에 등불을 든 사람. 머리 위에 칼 모양 표시 */
 function drawDungeonNpc(ctx, n, time) {

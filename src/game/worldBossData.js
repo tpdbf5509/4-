@@ -4,7 +4,7 @@ export const WORLD_BOSS = {
   map: 'worldboss', fee: 100000, period: 3600000, duration: 900000, endWait: 20,
   contribution: .1, wind: 1.5, gap: 2.8, rageGap: 1.8, rageAt: .3,
   hitPct: .45, poolPct: .14, poolTime: 7, poolTick: 1, // 경고를 보고 피해야 하는 강한 연속 공격으로 바꾼다.
-  coop: {window:1.6,sync:.85,players:3,stun:4}, // 만렙 3명이 스킬을 맞춰 큰 기술을 4초간 끊는다.
+  coop: {window:1.6,sync:.85,players:3,stun:4,lv:400}, // 400레벨 3명이 스킬을 맞춰 큰 기술을 4초간 끊는다. lv — 최고 레벨이 800 으로 올라도(10월 26일) 예전 만렙 400 기준을 그대로 둔다
   w: 2200, h: 1500, spawn: [900,950], center: [1250,1100], squash: .78,
   portal:{x:1660,y:1115,reach:115},
   art: '/assets/game/rpg/boss/world-bosses.webp', artCols: 3, artRows: 2, artSize: 700,

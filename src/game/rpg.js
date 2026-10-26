@@ -26,6 +26,7 @@ import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR, ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, ADV_BY_ID } from "./advData.js";
+import { DEEP, DEEP_MAPS, DEEP_EASE, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
 import { advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
@@ -87,6 +88,7 @@ export const MAPS = {
       ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 },
       {x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y,r:38},{...GUILD_HALL.door,r:35},
       { x: ADV.npc.x, y: ADV.npc.y - 4, r: 18 },   // 전직 교관
+      { x: DEEP.door.x, y: DEEP.door.y - 6, r: 34 },   // 계몽의 문(deepData.js)
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
@@ -100,6 +102,7 @@ export const MAPS = {
       {id:'worldboss',worldBoss:1,name:'월드보스 성역',x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y},
       {id:'guilddoor',guildDoor:1,name:'길드 문',...GUILD_HALL.door},   // 길드가 있으면 길드 광장, 없으면 길드 찾기(guildData.js GUILD_HALL)
       { id: "adv", adv: 1, name: "전직 교관", x: ADV.npc.x, y: ADV.npc.y },   // 200레벨 1차 전직 — 시험 · 확정 창(advData.js)
+      { id: "deep", deep: 1, name: "계몽의 문", x: DEEP.door.x, y: DEEP.door.y },   // 400~800레벨 사냥터 — 계몽의 눈 만들기 · 입장 창(deepData.js)
     ],
   },
   field: {
@@ -255,6 +258,19 @@ for(let slot=0;slot<GUILD_HALL.slots;slot++){
     blocks:[{x:H.statue.x,y:H.statue.y,r:40},{x:H.raidDoor.x,y:H.raidDoor.y,r:38}],
     npcs:[{id:'guild',guild:1,name:'여신 조각상',...H.statue},{id:'guildraid',guildRaidDoor:1,name:'토벌전 문',...H.raidDoor}]};
 }
+// 400~800레벨 사냥터(deepData.js) — 광장의 계몽의 문으로만 들어간다(rpgDeep). 첫 맵 왼쪽 문은 광장의 문 앞으로, 나머지는 앞뒤 구역으로 잇는다
+DEEP_MAPS.forEach((f, i) => {
+  const prev = DEEP_MAPS[i - 1], next = DEEP_MAPS[i + 1];
+  MAPS[f.id] = {
+    id: f.id, name: f.name, w: f.w, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600, tint: f.tint, deep: 1,
+    gates: [
+      prev ? { x: 90, y: 920, r: 64, to: prev.id, at: [prev.w - 410, 920], label: prev.name } : { x: 90, y: 920, r: 64, to: "plaza", at: DEEP.exitAt, label: "광장" },
+      ...(next ? [{ x: f.w - 90, y: 920, r: 64, to: next.id, at: [260, 920], label: `${next.name} · ${next.lv[0]}~${next.lv[1]}레벨` }] : []),
+    ],
+    blocks: [], npcs: [], zone: [520, f.w - 150],
+  };
+  MAP_IDS.push(f.id);
+});
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -453,9 +469,23 @@ export const FAR_SKILL = {
   // 포식거미 — 거미줄 발사. 떨어진 자리에 있으면 1초 묶인다(보스 1.4초 · 묶여도 공격 · 스킬은 쓴다, 예전 ×1.7)
   spider: { kind: "web", range: 420, wind: 0.45, cd: 3.5, mul: 0.8, r: 70, speed: 720, root: 1, rootBoss: 1.4, n: 1, nBoss: 3, spread: 0.3 },
 };
+/* 400~800레벨 몹(deepData.js) — 구역 처음 · 끝 레벨 값 사이를 곧게 잇고 FAR_EASE · DEEP_EASE 를 곱한다. 움직임 · 기술은 200~400 과 같은 셈 */
+DEEP_MAPS.forEach((d) => {
+  const M = d.mob, [l0, l1] = d.lv, at = (v, lv) => v[0] + ((v[1] - v[0]) * (Math.min(l1, Math.max(l0, lv)) - l0)) / (l1 - l0);
+  const B = d.boss, hpK = FAR_EASE.hp * DEEP_EASE.hp;
+  MOB[d.id] = {
+    name: M.name, rad: M.rad,
+    hp: (lv) => Math.round(at(M.hp, lv) * hpK), dmg: (lv) => Math.round(at(M.dmg, lv) * FAR_EASE.dmg),
+    xp: (lv) => Math.round(M.xp * lv), coin: (lv) => Math.round(M.coin * lv), size: (lv) => at(M.size, lv),
+    boss: { ...B, hp: Math.round(B.hp * hpK), dmg: Math.round(B.dmg * FAR_EASE.dmg) },
+  };
+  BRUTE[d.id] = DEEP_BRUTE[d.id];
+  FAR_SKILL[d.id] = DEEP_SKILL[d.id];
+});
 WORLD_BOSSES.forEach(b=>{MOB[b.type]={name:b.name,rad:88,hp:()=>b.hp,dmg:()=>1,xp:()=>0,coin:()=>0,size:()=>1,boss:{name:b.name,lv:200,hp:b.hp,dmg:1,xp:0,coin:0,size:1}};});
 const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
-  "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.map(b=>b.type),...GUILD_BOSSES.map(b=>b.type)];   // 스냅샷 차례 — 뒤에만 더한다
+  "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.map(b=>b.type),...GUILD_BOSSES.map(b=>b.type),
+  ...DEEP_MAPS.map((d) => d.id)];   // 스냅샷 차례 — 뒤에만 더한다(400~800레벨 몹은 맵 id 와 같다)
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -488,6 +518,9 @@ export const SPAWNS = [
   { map: "chimera", type: "chimera", boss: 1, n: 2, respawn: 26 },
   { map: "spider", type: "spider", n: 24, lv: [360, 400], respawn: 4.5 },
   { map: "spider", type: "spider", boss: 1, n: 2, respawn: 28 },
+  // 400~800레벨 — 50레벨 단위 테마(deepData.js)
+  ...DEEP_MAPS.flatMap((d) => [{ map: d.id, type: d.id, n: DEEP_SPAWN.n, lv: d.lv, respawn: DEEP_SPAWN.respawn },
+    { map: d.id, type: d.id, boss: 1, n: DEEP_SPAWN.bossN, respawn: DEEP_SPAWN.bossRespawn }]),
 ];
 
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
@@ -560,12 +593,12 @@ export function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, (by - ay) / RP
 
 /* ── 성장 ──────────────────────────────────────────────── */
 export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 30씩 는다
-export const LV_MAX = 400;               // 200 에서 400 으로 늘렸다(200~400 은 언데드 · 인조 몬스터 사냥터)
+export const LV_MAX = 800;               // 200 → 400 → 800(10월 26일 · 400~800 은 화염 · 심연 사냥터, deepData.js)
 
-/* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 400레벨까지 모두 800포인트).
-   스탯 하나에는 STAT_MAX 까지 찍는다. 800포인트로 두 스탯을 400까지 올리면 딱 맞다(만렙에서 둘을 최대로).
+/* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 800레벨까지 모두 1,600포인트).
+   스탯 하나에는 STAT_MAX 까지 찍는다. 1,600포인트로 두 스탯을 800까지 올리면 딱 맞다(만렙에서 둘을 최대로).
    물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
-export const STAT_MAX = 400;          // 스탯 하나의 상한 — 250 에서 400 으로 늘렸다(400레벨 포인트 800 = 둘을 최대로. 효과는 포인트당 그대로)
+export const STAT_MAX = 800;          // 스탯 하나의 상한 — 250 → 400 → 800(800레벨 포인트 1,600 = 둘을 최대로. 효과는 포인트당 그대로)
 // 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
 // 레벨은 최고 레벨, 스탯은 다섯 모두 STAT_MAX 로 두고, 코인은 쓰는 대로 이만큼 다시 채운다(돈 무제한)
 export const ADMIN = { coins: 99999999 };
@@ -3572,13 +3605,14 @@ function stepBrute(g, m, dt, P) {
 /* 200~400레벨 몹 고유 기술(FAR_SKILL) — 준비를 시작할 때 노릴 쪽을 정하고(farAim), 준비가 끝나면 쓴다(farSkill).
    날아가는 것 · 문양은 later 로 떨어질 때 그 자리에 있는 사람만 맞힌다 — 비키면 피한다 */
 const FAR_LOOK = { bone: "#e8dcc4", bile: "#9fc46a", curse: "#b48ad8", web: "#eef0f2" };
+const farLook = (S) => S.color || FAR_LOOK[S.kind];   // 400~800레벨 몹은 기술마다 제 빛깔(deepData.js DEEP_SKILL)
 function farAim(g, m, S, tg) {
   const dx = tg.x - m.x, dy = (tg.y - m.y) / RPG.squash, d = Math.hypot(dx, dy) || 1;
   m.fax = dx / d; m.fay = dy / d;                    // 땅 위 방향(위아래 비율을 뺀 값)
   const t = S.wind * (m.boss ? 0.8 : 1), len = (S.len || 0) * (m.boss ? 1.2 : 1);
-  if (S.kind === "quake") fx(g, m.map, { kind: "sk_mquake", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, w: S.w * (m.boss ? 1.3 : 1), ph: 0, t, life: t });
-  else if (S.kind === "breath") fx(g, m.map, { kind: "sk_mbreath", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, arc: S.arc, ph: 0, t, life: t });
-  else fx(g, m.map, { kind: "sk_mcharge", x: m.x, y: m.y - 34 * m.size, r: 26 * m.size, color: FAR_LOOK[S.kind], t, life: t });
+  if (S.kind === "quake") fx(g, m.map, { kind: "sk_mquake", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, w: S.w * (m.boss ? 1.3 : 1), ph: 0, t, life: t, style: S.style, color: S.color });
+  else if (S.kind === "breath") fx(g, m.map, { kind: "sk_mbreath", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, arc: S.arc, ph: 0, t, life: t, color: S.color });
+  else fx(g, m.map, { kind: "sk_mcharge", x: m.x, y: m.y - 34 * m.size, r: 26 * m.size, color: farLook(S), t, life: t });
 }
 // 떨어진 자리 둘레의 사람 — 피해와 짧은 상태이상. once 는 한 번에 여럿 던진 것 가운데 이미 맞은 사람(한 번만 맞는다)
 function farLand(g, m, map, x, y, r, S, once) {
@@ -3592,13 +3626,14 @@ function farLand(g, m, map, x, y, r, S, once) {
     if (S.slow) ccHero(h, { slow: S.slow, slowAmt: S.slowAmt });
     if (S.root) ccHero(h, { bind: m.boss ? S.rootBoss : S.root });
   });
-  if (S.kind === "web") fx(g, map, { kind: "sk_mweb", x, y, r, t: 1.1, life: 1.1, snd: "ice" });
+  if (S.kind === "web" && !S.style) fx(g, map, { kind: "sk_mweb", x, y, r, t: 1.1, life: 1.1, snd: "ice" });
+  else if (S.style === "pillar") fx(g, map, { kind: "sk_mpillar", x, y, r, color: S.color, t: 0.7, life: 0.7, snd: "boom" });   // 이프리트 불기둥
   else if (S.kind === "curse") {
-    fx(g, map, { kind: "nova", x, y: y - 10, r, color: "#c49ae8", n: 10, t: 0.5, life: 0.5, snd: "boom" });
-    fx(g, map, { kind: "burst", x, y: y - 20, r: r * 0.5, color: "#7a4aa8", n: 8, t: 0.45, life: 0.45 });
+    fx(g, map, { kind: "nova", x, y: y - 10, r, color: S.color || "#c49ae8", n: 10, t: 0.5, life: 0.5, snd: "boom" });
+    fx(g, map, { kind: "burst", x, y: y - 20, r: r * 0.5, color: S.style === "void" ? "#3a2266" : "#7a4aa8", n: 8, t: 0.45, life: 0.45 });
   } else {
-    fx(g, map, { kind: "ring", x, y, r, color: FAR_LOOK[S.kind], t: 0.4, life: 0.4 });
-    fx(g, map, { kind: "burst", x, y: y - 10, r: r * 0.55, color: FAR_LOOK[S.kind], n: 9, t: 0.4, life: 0.4, snd: "boom" });
+    fx(g, map, { kind: "ring", x, y, r, color: farLook(S), t: 0.4, life: 0.4 });
+    fx(g, map, { kind: "burst", x, y: y - 10, r: r * 0.55, color: farLook(S), n: 9, t: 0.4, life: 0.4, snd: "boom" });
   }
 }
 function farSkill(g, m, S) {
@@ -3618,7 +3653,7 @@ function farSkill(g, m, S) {
       hurtHero(g, h, m.dmg * S.mul);
       if (!dodged && S.kb) ccHero(h, { kb: [m.fax, m.fay, S.kb] });
     });
-    fx(g, map, { kind: S.kind === "quake" ? "sk_mquake" : "sk_mbreath", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, w, arc: S.arc, ph: 1, t: 0.6, life: 0.6, snd: "boom" });
+    fx(g, map, { kind: S.kind === "quake" ? "sk_mquake" : "sk_mbreath", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, w, arc: S.arc, ph: 1, t: 0.6, life: 0.6, snd: "boom", style: S.style, color: S.color });
     return;
   }
   if (!tg || tg.map !== map || tg.down > 0) return;
@@ -3631,7 +3666,7 @@ function farSkill(g, m, S) {
     });
     list.forEach((h) => {
       const x = h.x, y = h.y;
-      fx(g, map, { kind: "sk_mcurse", x, y, r, t: S.delay, life: S.delay });
+      fx(g, map, { kind: "sk_mcurse", x, y, r, t: S.delay, life: S.delay, style: S.style, color: S.color });
       later(g, S.delay, () => farLand(g, m, map, x, y, r, S, new Set()));
     });
     return;
@@ -3644,8 +3679,8 @@ function farSkill(g, m, S) {
     const a = a0 + (i - (n - 1) / 2) * (S.spread || 0);
     const x = m.x + Math.cos(a) * d, y = m.y + Math.sin(a) * d * RPG.squash;
     const fly = S.fly || Math.max(0.25, d / S.speed);
-    fx(g, map, { kind: "sk_mshot", style: S.kind, x: x0, y: y0, x1: x, y1: y, t: fly, life: fly, ...(i ? {} : { snd: "shot" }) });
-    fx(g, map, { kind: "sk_mwarn", x, y, r, color: FAR_LOOK[S.kind], t: fly, life: fly });
+    fx(g, map, { kind: "sk_mshot", style: S.style || S.kind, x: x0, y: y0, x1: x, y1: y, t: fly, life: fly, ...(i ? {} : { snd: "shot" }) });
+    fx(g, map, { kind: "sk_mwarn", x, y, r, color: farLook(S), t: fly, life: fly });
     later(g, fly, () => farLand(g, m, map, x, y, r, S, once));
   }
 }
@@ -3846,6 +3881,50 @@ export const freeSlot = (runs, id) => {
 };
 // 던전 입구(돌계단 윗단)에서 이만큼 안이면 관리인 곁과 같다
 const atDgGate = (h) => dist(h.x, h.y, DUNGEON.gate.x, DUNGEON.gate.y) <= RPG.talkR;
+/* ── 계몽의 문(deepData.js) — 광장 왼쪽 풀밭. 재료로 계몽의 눈을 만들고(한 번 만들면 남는 열쇠), 400레벨부터 400~800레벨 사냥터로 들어간다 ── */
+export const deepNear = (h) => !!h && h.map === "plaza" && dist(h.x, h.y, DEEP.door.x, DEEP.door.y) <= DEEP.reach;
+export const hasEye = (h) => !!h && (!!h.admin || matCount(h.bag, DEEP.eye) > 0);
+// 막힌 이유 — 화면(DeepPanel.jsx)과 방장이 같이 쓴다
+export function whyDeepCraft(h) {
+  const out = [];
+  if (!h || !h.loaded || !h.bag) return ["기록을 불러오는 중입니다"];
+  if (matCount(h.bag, DEEP.eye) > 0) out.push("이미 계몽의 눈을 가지고 있습니다");
+  DEEP.recipe.forEach(([id, n]) => { const have = matCount(h.bag, id); if (have < n) out.push(`${MAT_BY_ID[id].name} ${n - have}개가 모자랍니다`); });
+  return out;
+}
+export function whyDeepEnter(h) {
+  const out = [];
+  if (!h || !h.loaded) return ["기록을 불러오는 중입니다"];
+  if (h.lv < DEEP.lv && !h.admin) out.push(`레벨 ${DEEP.lv} 필요 (지금 ${h.lv})`);
+  if (!hasEye(h)) out.push("계몽의 눈이 있어야 들어갈 수 있습니다");
+  return out;
+}
+// req = { op: "craft" | "enter" }
+export function rpgDeep(g, pi, req) {
+  const h = g.heroes[pi];
+  if (!h || !req || h.down > 0) return false;
+  if (!deepNear(h)) return void sys(g, pi, "광장의 계몽의 문 곁에서 할 수 있습니다");
+  if (req.op === "craft") {
+    const why = whyDeepCraft(h);
+    if (why.length) return void sys(g, pi, why[0]);
+    DEEP.recipe.forEach(([id, n]) => { h.bag.m[id] -= n; if (h.bag.m[id] <= 0) delete h.bag.m[id]; });
+    addMat(h.bag, DEEP.eye, 1);
+    h.bag.v += 1;
+    fx(g, h.map, { kind: "nova", x: DEEP.door.x, y: DEEP.door.y - 60, r: 90, color: "#c9a8f0", n: 14, t: 0.8, life: 0.8, snd: "lvup" });
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "계몽의 눈", color: "#e6d4ff", t: 1.4, life: 1.4, who: pi });
+    sys(g, pi, "계몽의 눈을 만들었습니다. 이제 400레벨부터 계몽의 문으로 들어갈 수 있습니다.");
+    return true;
+  }
+  if (req.op === "enter") {
+    const why = whyDeepEnter(h);
+    if (why.length) return void sys(g, pi, why[0]);
+    const to = DEEP_MAPS[0];
+    h.map = to.id; [h.x, h.y] = MAPS[to.id].spawn; h.gateCd = 1;
+    fx(g, to.id, { kind: "nova", x: h.x, y: h.y - 20, r: 70, color: "#c9a8f0", n: 10, t: 0.6, life: 0.6, snd: "bless" });
+    return true;
+  }
+  return false;
+}
 export const dgNear = (h) => !!h && h.map === "plaza" && (dist(h.x, h.y, DUNGEON.npc.x, DUNGEON.npc.y) <= RPG.talkR + 30 || atDgGate(h));
 export const inDungeon = (h) => !!(h && MAPS[h.map] && MAPS[h.map].dungeon);
 export const runOf = (g, h) => (h ? (g.runs || []).find((r) => r.map === h.map) || null : null);
@@ -4099,7 +4178,9 @@ export function rpgStep(g, dt) {
     landHit(g, s);
     return false;
   });
-  g.mobs.forEach((m) => { if (!m.dead) stepMob(g, m, dt); });
+  // 사람이 없는 사냥터(zone 이 있는 맵)의 몹은 움직이지 않는다 — 400~800레벨 사냥터로 몹이 500마리를 넘어 방장 한 틱이 무거워졌다(10월 26일)
+  const awake = new Set(g.heroes.filter(Boolean).map((h) => h.map));
+  g.mobs.forEach((m) => { if (!m.dead && (awake.has(m.map) || !MAPS[m.map]?.zone)) stepMob(g, m, dt); });
   g.mobs = g.mobs.filter((m) => !m.dead);
 
   // 무리마다 한 마리가 죽으면 한 마리 — 정해진 수를 넘지 않는다

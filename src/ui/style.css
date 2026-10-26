@@ -1656,6 +1656,7 @@ kbd {
 .shop-guard input:disabled + span { color: var(--sh-faint); }
 .shop-guard small { margin-left: 6px; font-size: 11px; color: var(--sh-faint); }
 .shop-mat { display: inline-block; width: 9px; height: 9px; margin-right: 7px; border-radius: 3px; vertical-align: 1px; }
+.shop-mat-img { width: 18px; height: 18px; margin: -4px 5px -4px -3px; object-fit: contain; vertical-align: middle; }   /* 그림이 있는 재료(계몽의 눈) */
 /* 강화소 — 장착한 무기 한 자루를 모루 위에 올린다. 망치질(불꽃 · 떨림) → 결과(성공 금빛 고리 · 실패 회색 · 하락 붉은빛) */
 .forge { --fg: #bdb6a6; display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; align-items: center;
   margin: 10px 0 4px; padding: 12px; border-radius: 10px; background: rgba(12, 9, 6, 0.55); border: 1px solid rgba(214, 186, 140, 0.22); }
@@ -2030,3 +2031,23 @@ button.forge-stage:disabled { cursor: default; }
 }
 
 
+
+/* 계몽의 문 창(DeepPanel.jsx) — .shop 틀 위에 계몽의 눈 · 재료 · 사냥터 목록만 더한다 */
+.deep-panel { width: min(520px, calc(100% - 24px)); }
+.deep-body { font-size: 12.5px; line-height: 1.55; color: var(--sh-mute); letter-spacing: -0.02em; }
+.deep-eye { display: flex; align-items: center; gap: 12px; padding: 4px 0 10px; border-bottom: 1px solid var(--sh-line); }
+.deep-eye img { width: 72px; height: 72px; object-fit: contain; flex: none; }
+.deep-eye img.off { filter: grayscale(0.85) brightness(0.7); }
+.deep-eye .shop-h { margin: 0 0 2px; letter-spacing: -0.03em; }
+.deep-eye p { margin: 0; color: var(--sh-text); }
+.deep-recipe, .deep-zones { margin: 10px 0 8px; padding: 0; list-style: none; display: grid; gap: 4px 12px; }
+.deep-recipe { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.deep-recipe li { display: flex; justify-content: space-between; padding: 3px 8px; border: 1px solid var(--sh-line); border-radius: 6px; color: var(--sh-faint); }
+.deep-recipe li b { font-weight: 400; }
+.deep-recipe li.ok { color: var(--sh-text); border-color: rgba(226, 205, 165, 0.4); }
+.deep-recipe li.ok b { color: var(--sh-gold); }
+.deep-h { margin: 12px 0 0; }
+.deep-zones { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.deep-zones li { display: flex; flex-direction: column; color: var(--sh-text); }
+.deep-zones small { color: var(--sh-faint); font-size: 11px; }
+@media (max-width: 520px) { .deep-recipe, .deep-zones { grid-template-columns: 1fr; } }

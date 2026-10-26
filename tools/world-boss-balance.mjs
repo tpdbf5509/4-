@@ -1,6 +1,6 @@
 /* node tools/world-boss-balance.mjs
    만렙 3인 +30 용왕 장비의 공격 전념 측정. 회피·사망·장비 조합 차이를 제외한 표본이다. */
-import {makeWorld,rpgSyncSeats,rpgJoin,rpgStep,rpgWeaponSkill,rpgSkill,rpgUseSkill,rpgWorldBoss,LV_MAX} from '../src/game/rpg.js';
+import {makeWorld,rpgSyncSeats,rpgJoin,rpgStep,rpgWeaponSkill,rpgSkill,rpgUseSkill,rpgWorldBoss} from '../src/game/rpg.js';
 import {SKILLS} from '../src/game/shopData.js';
 import {RESET,GIFT} from '../src/game/itemData.js';
 import {WORLD_BOSS as C,WORLD_BOSSES} from '../src/game/worldBossData.js';
@@ -13,7 +13,7 @@ for(let i=0;i<jobs.length;i++){
   const armor=['head','body','legs','feet'].map((s,n)=>({u:10+n,s,g:3,set:'dragon'}));
   const skills=Object.fromEntries(SKILLS.filter(s=>!s.job||s.job===job).map(s=>[s.id,s.gold.length]));
   const active=SKILLS.filter(s=>s.use&&(!s.job||s.job===job)),jb=active.find(s=>s.job),general=active.filter(s=>!s.job).slice(-2);
-  rpgJoin(g,i,{name:seats[i].name,rs:RESET.id,gift:GIFT.id,lv:LV_MAX,coins:C.fee,ts:0,stats:{[job==='mage'?'int':'str']:400,crit:400},
+  rpgJoin(g,i,{name:seats[i].name,rs:RESET.id,gift:GIFT.id,lv:C.coop.lv,coins:C.fee,ts:0,stats:{[job==='mage'?'int':'str']:400,crit:400},
     bag:{oc:1,w:[w],e:1,a:armor,ae:Object.fromEntries(armor.map(a=>[a.s,a.u])),n:20,s:skills,ks:{job:jb.id,g:general.map(s=>s.id)}}},seats[i].id);
   const h=g.heroes[i];h.x=C.portal.x;h.y=C.portal.y+70;h.auto=1;h.inv=99999;
 }

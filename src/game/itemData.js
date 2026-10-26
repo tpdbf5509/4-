@@ -1,5 +1,6 @@
 /* ── RPG 재료 · 드롭 · 무기 강화 — 숫자와 목록은 이 파일 한 곳에서 고친다 ─────────────
    규칙은 rpg.js(드롭) · shop.js(강화 · 재료 팔기), 창은 src/ShopPanel.jsx 에 있다. */
+import { DEEP_MAPS, DEEP_MATS, EYE_MAT } from "./deepData.js";
 
 /* 재료 — 가방(bag.m)에 종류마다 MAT_MAX 개까지 쌓인다. sell 은 하나를 팔 때 받는 코인(0 이면 팔 수 없다).
    강화석(stone)은 무기 강화소에서 쓴다. 차례는 화면에 보이는 차례다 */
@@ -19,6 +20,7 @@ export const MATERIALS = [
   { id: "mane", name: "키메라 갈기", color: "#e0a87a", sell: 2500, note: "키메라 왕이 떨군다" },
   { id: "silk", name: "포식거미 비단", color: "#d5d2e6", sell: 3500, note: "포식거미 여왕이 떨군다" },
   {id:"dungeon_ticket",name:"던전 입장권",color:"#e5c47c",sell:0,note:"던전 입장료 대신 한 장 사용 · 월드보스 보상"},
+  ...DEEP_MATS, EYE_MAT,                       // 400~800레벨 보스 재료 · 계몽의 눈(deepData.js)
 ];
 export const MAT_BY_ID = Object.fromEntries(MATERIALS.map((m) => [m.id, m]));
 export const MAT_MAX = 999;
@@ -49,6 +51,7 @@ export const DROPS = {
   golem: { id: "core", roll: 1 },
   chimera: { id: "mane", roll: 1 },
   spider: { id: "silk", roll: 1 },
+  ...Object.fromEntries(DEEP_MAPS.map((d) => [d.id, { id: d.drop, roll: 1 }])),   // 400~800레벨 보스(deepData.js)
 };
 
 /* 무기 강화 — 무기 강화소에서 강화석 하나와 코인(fee × 올릴 단계)을 내고 한 단계씩 올린다.

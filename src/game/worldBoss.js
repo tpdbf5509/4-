@@ -6,7 +6,6 @@ import {ARMOR,ARMOR_SLOTS} from './armorData.js';
 import {MAT_MAX} from './itemData.js';
 import {specialTier,specialPrice} from './shop.js'; // 물품을 지급할 때만 읽어 기존 장비 생성 규칙을 맞춘다.
 import {trading} from './tradeData.js';
-import {LV_MAX} from './rpg.js'; // 만렙 수치는 기존 RPG 상수를 따른다. 판정할 때만 읽는다.
 const distance=(x,y,a,b)=>Math.hypot(x-a,(y-b)/C.squash);
 const activeHeroes=g=>g.heroes.filter(h=>h?.loaded&&h.map===C.map&&h.down<=0);
 const randomInt=(lo,hi,rng)=>lo+Math.floor(rng()*(hi-lo+1));
@@ -106,13 +105,13 @@ export function worldBossHit(g,m,h,amount,{direct=true}={}){
   let c=a.contrib.find(c=>c.name===name);if(!c){c={name,damage:0};a.contrib.push(c);}
   c.damage+=Math.max(0,Math.min(m.hp,amount));a.hp=Math.max(0,m.hp-amount);
   const attack=a.attack;
-  if(direct&&h.lv>=LV_MAX&&h.down<=0&&h.map===m.map&&worldBossCoopOpen(a)){
+  if(direct&&h.lv>=C.coop.lv&&h.down<=0&&h.map===m.map&&worldBossCoopOpen(a)){
     const now=a.elapsed||0;
     attack.coop=(attack.coop||[]).filter(c=>now-c.at<=C.coop.sync);
     // 같은 캐릭터의 다단 공격과 자리 재사용은 인원을 늘리지 않는다.
     const previous=attack.coop.find(c=>c.name===name);
     if(previous)previous.at=now;else attack.coop.push({name,owner:h.who||h.sw,at:now});
-    const present=new Set(activeHeroes(g).filter(h=>h.lv>=LV_MAX).map(h=>`${worldBossIdentity(g,h)}:${h.who||h.sw}`));
+    const present=new Set(activeHeroes(g).filter(h=>h.lv>=C.coop.lv).map(h=>`${worldBossIdentity(g,h)}:${h.who||h.sw}`));
     attack.coop=attack.coop.filter(c=>present.has(`${c.name}:${c.owner}`));
     if(attack.coop.length>=C.coop.players){a.stun=C.coop.stun;a.attack=null;a.breakPending=true;m.pose=0;}
   }

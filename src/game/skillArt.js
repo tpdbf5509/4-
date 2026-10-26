@@ -989,7 +989,7 @@ function drawMWarn(ctx, f, p) {
   ctx.beginPath(); ctx.arc(0, 0, f.r * p, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
-const SHOT_LIFT = { bone: 60, bile: 120, web: 12 };
+const SHOT_LIFT = { bone: 60, bile: 120, web: 12, fire: 40, lava: 130, water: 110, feather: 8 };
 function drawMShot(ctx, f, p, time) {
   const x = f.x + (f.x1 - f.x) * p, y = f.y + (f.y1 - f.y) * p - Math.sin(p * Math.PI) * (SHOT_LIFT[f.style] || 0);
   ctx.save();
@@ -1012,6 +1012,17 @@ function drawMShot(ctx, f, p, time) {
       const k = (time * 2.4 + i * 0.33) % 1;
       ctx.beginPath(); ctx.arc(Math.sin(i * 2.1) * 6, 8 + k * 18, 2.4 * (1 - k) + 0.6, 0, Math.PI * 2); ctx.fill();
     }
+  } else if (f.style === "fire" || f.style === "lava" || f.style === "water") {   // 400~800 — 불덩이 · 용암 덩이 · 물덩이와 꼬리
+    const C = { fire: ["rgba(255,200,110,0.95)", "rgba(255,120,50,0.6)"], lava: ["rgba(255,150,70,0.95)", "rgba(90,40,30,0.9)"], water: ["rgba(200,240,255,0.95)", "rgba(80,150,210,0.7)"] }[f.style];
+    ctx.fillStyle = C[1];
+    for (let i = 0; i < nq(4); i++) { const k = (time * 3 + i * 0.25) % 1; ctx.beginPath(); ctx.arc(-6 - k * 14, Math.sin(i * 2.3) * 3, 4.5 * (1 - k) + 1, 0, Math.PI * 2); ctx.fill(); }
+    ctx.beginPath(); ctx.arc(0, 0, f.style === "fire" ? 8 : 10, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = C[0]; ctx.beginPath(); ctx.arc(-1, -1, f.style === "fire" ? 5 : 6, 0, Math.PI * 2); ctx.fill();
+  } else if (f.style === "feather") {             // 검은 깃털 — 날아가는 쪽으로 눕는다
+    ctx.rotate(Math.atan2(f.y1 - f.y, f.x1 - f.x));
+    ctx.fillStyle = "rgba(60,40,70,0.95)"; ctx.strokeStyle = "rgba(200,160,216,0.9)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(12, 0); ctx.quadraticCurveTo(0, -6, -12, -1); ctx.quadraticCurveTo(0, 5, 12, 0); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-14, 0); ctx.stroke();
   } else {                                        // 거미줄 — 뭉친 실과 뻗은 가닥
     ctx.rotate(time * 6);
     ctx.strokeStyle = "rgba(240,242,246,0.9)"; ctx.lineWidth = 1;
@@ -1051,7 +1062,7 @@ function drawMCurse(ctx, f, p, time) {
   ctx.save();
   groundAt(ctx, f);
   ctx.rotate(time * 1.4);
-  ctx.strokeStyle = "rgba(196,154,232,0.85)"; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = rgba(f.color || "#c49ae8", 0.85); ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(0, 0, f.r, 0, Math.PI * 2); ctx.stroke();
   ctx.beginPath(); ctx.arc(0, 0, f.r * 0.8, 0, Math.PI * 2); ctx.stroke();
   ctx.beginPath();                                // 다섯 끝 별
@@ -1061,7 +1072,7 @@ function drawMCurse(ctx, f, p, time) {
     i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
   }
   ctx.stroke();
-  ctx.fillStyle = `rgba(120,70,170,${0.12 + 0.28 * p})`;   // 터질 때가 가까울수록 짙어진다
+  ctx.fillStyle = f.style === "pillar" ? rgba("#ff8a3a", 0.12 + 0.28 * p) : f.style === "void" ? rgba("#1a0e30", 0.2 + 0.4 * p) : `rgba(120,70,170,${0.12 + 0.28 * p})`;   // 터질 때가 가까울수록 짙어진다
   ctx.beginPath(); ctx.arc(0, 0, f.r * (1 - 0.25 * Math.sin(p * Math.PI * 6) * (1 - p)), 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
@@ -1070,10 +1081,18 @@ function drawMQuake(ctx, f, p, time) {
   groundAt(ctx, f);
   const L = f.len, W = f.w;
   if (!f.ph) {                                    // 준비 — 갈라질 줄이 앞으로 차오른다
-    ctx.strokeStyle = "rgba(214,160,104,0.75)"; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = rgba(f.color || "#d6a068", 0.75); ctx.lineWidth = 1.5;
     ctx.strokeRect(0, -W / 2, L, W);
-    ctx.fillStyle = "rgba(196,130,80,0.24)";
+    ctx.fillStyle = rgba(f.color || "#c48250", 0.24);
     ctx.fillRect(0, -W / 2, L * p, W);
+  } else if (f.style === "spectral") {            // 망령의 검기 — 푸른 혼불 초승달이 앞으로 지나간다
+    ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = fadeOut(p, 0.35);
+    const x = L * Math.min(1, p * 1.6);
+    ctx.fillStyle = rgba(f.color, 0.18); ctx.fillRect(0, -W / 2, x, W);
+    for (let i = 0; i < nq(3); i++) {
+      ctx.strokeStyle = rgba(i ? "#e8f2ff" : f.color, 0.8 - i * 0.2); ctx.lineWidth = 4 - i;
+      ctx.beginPath(); ctx.arc(x - 30 - i * 14, 0, W * 0.6, -1.1, 1.1); ctx.stroke();
+    }
   } else {                                        // 갈라진 땅 — 들쭉날쭉한 금과 튀는 돌
     const fade = fadeOut(p, 0.4), seed = f.len % 7;
     ctx.globalAlpha = fade;
@@ -1101,7 +1120,7 @@ function drawMBreath(ctx, f, p, time) {
   groundAt(ctx, f);
   const L = f.len, A = f.arc || 0.5;
   if (!f.ph) {                                    // 준비 — 탈 부채꼴이 차오른다
-    ctx.strokeStyle = "rgba(240,160,100,0.75)"; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = rgba(f.color || "#f0a064", 0.75); ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, L, -A, A); ctx.closePath(); ctx.stroke();
     ctx.fillStyle = "rgba(240,130,80,0.22)";
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, L * p, -A, A); ctx.closePath(); ctx.fill();
@@ -1117,5 +1136,16 @@ function drawMBreath(ctx, f, p, time) {
   }
   ctx.restore();
 }
+// 이프리트 불기둥 — 문양 자리에서 불길이 솟았다 사그라든다
+function drawMPillar(ctx, f, p, time) {
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = fadeOut(p, 0.3);
+  const H = f.r * 2.6 * Math.min(1, p * 4), N = nq(9);
+  for (let i = 0; i < N; i++) {
+    const k = i / N, w = f.r * (0.55 - k * 0.35), y = f.y - H * k - Math.sin(time * 12 + i) * 4;
+    glowAt(ctx, f.x + Math.sin(time * 9 + i * 1.7) * w * 0.25, y, w, "rgba(255,220,140,0.75)", "rgba(220,70,30,0)", [0.5, "rgba(255,140,60,0.4)"]);
+  }
+  ctx.restore();
+}
 const MOB_FX = { sk_mcharge: drawMCharge, sk_mwarn: drawMWarn, sk_mshot: drawMShot, sk_mweb: drawMWeb,
-  sk_mcurse: drawMCurse, sk_mquake: drawMQuake, sk_mbreath: drawMBreath };
+  sk_mcurse: drawMCurse, sk_mquake: drawMQuake, sk_mbreath: drawMBreath, sk_mpillar: drawMPillar };

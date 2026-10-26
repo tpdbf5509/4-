@@ -758,7 +758,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
         <>
           {!mats.length && <Empty>보스를 잡으면 재료를 얻습니다. 강화석은 무기 강화소에서, 다른 재료는 광장 의뢰나 강화소에서 씁니다.</Empty>}
           {mats.map((m) => (
-            <Item key={m.id} name={<><i className="shop-mat" style={{ background: m.color }} />{m.name}</>}
+            <Item key={m.id} name={<>{m.img ? <img className="shop-mat-img" src={m.img} alt="" /> : <i className="shop-mat" style={{ background: m.color }} />}{m.name}</>}
               meta={<span className="shop-meta"><span>× {matCount(h.bag, m.id)}</span>{m.stone && <span>강화석</span>}</span>} desc={m.note} />
           ))}
         </>

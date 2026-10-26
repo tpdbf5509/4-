@@ -49,18 +49,31 @@ export const TITLES = [
   { id: "spider100", name: "거미 사냥꾼", need: { spider: 100 } },
   { id: "lv300", name: "죽음을 넘어선 자", need: { lv: 300 } },
   { id: "lv400", name: "끝에 선 자", need: { lv: 400 } },
+  // 400~800레벨 사냥터(화염 · 심연, deepData.js)
+  { id: "fspirit100", name: "불씨를 끈 자", need: { fspirit: 100 } },
+  { id: "lavagolem100", name: "용암을 건넌 자", need: { lavagolem: 100 } },
+  { id: "firedrake100", name: "용 사냥꾼", need: { firedrake: 100 } },
+  { id: "ifrit100", name: "불꽃 정복자", need: { ifrit: 100 } },
+  { id: "wraith100", name: "망령 퇴치자", need: { wraith: 100 } },
+  { id: "abyss100", name: "심해 탐험가", need: { abyss: 100 } },
+  { id: "voidmage100", name: "공허를 본 자", need: { voidmage: 100 } },
+  { id: "fallen100", name: "천사 사냥꾼", need: { fallen: 100 } },
+  { id: "lv600", name: "계몽한 자", need: { lv: 600 } },
+  { id: "lv800", name: "모든 것을 넘어선 자", need: { lv: 800 } },
 ];
 // 칭호는 스냅샷에 비트로 싣는다 — 한 숫자에 TITLE_BITS 개까지, 넘는 것은 줄 끝(45)의 둘째 숫자에
 export const TITLE_BITS = 31;
 export const TITLE_BY_ID = Object.fromEntries(TITLES.map((t) => [t.id, t]));
 // 잡은 수 · 완료 수 — 캐릭터 기록에 남는다. 스냅샷에는 이 차례로 싣는다(뒤에만 더한다)
 export const REC_IDS = ["rabbit", "wolf", "boar", "boss", "quest", "party", "gorilla", "pvp", "goblin", "orc", "ogre", "req", "gramor", "dg", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
-  "skeletal", "zombie", "necro", "golem", "chimera", "spider", "guild_slime", "guild_siren", "guild_phoenix"];
+  "skeletal", "zombie", "necro", "golem", "chimera", "spider", "guild_slime", "guild_siren", "guild_phoenix",
+  "fspirit", "lavagolem", "firedrake", "ifrit", "wraith", "abyss", "voidmage", "fallen"];
 // 조건 이름 — 칭호 창에 "토끼 37/100" 처럼 보인다
 export const NEED_NAME = {
   lv: "레벨", coins: "코인", rabbit: "토끼", wolf: "늑대", boar: "멧돼지", boss: "보스", quest: "퀘스트", party: "파티 사냥", gorilla: "고릴라", pvp: "결투 승리",
   goblin: "고블린", orc: "오크", ogre: "오우거", req: "광장 의뢰", gramor: "그라모르", dg: "던전 완료", argas: "아르가스", morgas: "모르가스", barkanon: "바르카논", serka: "세르카", skeleton: "해골", dummy: "허수아비",
   skeletal: "스켈레톤", zombie: "좀비", necro: "언데드 마법사", golem: "골렘", chimera: "키메라", spider: "포식거미",
+  fspirit: "불정령", lavagolem: "용암골렘", firedrake: "화염룡", ifrit: "이프리트", wraith: "망령기사", abyss: "심해괴수", voidmage: "공허술사", fallen: "타락천사",
 };
 
 /* 파티 — 같은 맵에 있는 파티원이 몹을 잡으면 나도 그 경험치의 share 만큼 받는다(그 몹을 친 사람은 모두 경험치 · 코인을 다 받는다).

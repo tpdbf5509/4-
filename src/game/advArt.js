@@ -78,10 +78,14 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
     ctx.globalAlpha = fade(p, 0.3) * 0.85;
     ctx.translate(f.x, f.y); ctx.rotate(f.a + (f.i === 1 ? 0.9 : f.i === 2 ? -0.5 : -0.9));
     if (f.i === 1) ctx.scale(1, -1);
-    if (!cell(ctx, "fx", FX.slash, 0, 0, s, s)) {
+    // 그림의 초승달은 볼록한 쪽이 왼쪽("(")이라 좌우로 뒤집어 볼록한 쪽이 벤 쪽(앞)을 보게 한다(10월 27일, 반대로 나간다는 제보)
+    ctx.save(); ctx.scale(-1, 1);
+    const drew = cell(ctx, "fx", FX.slash, 0, 0, s, s);
+    if (drew && f.boost) { ctx.globalAlpha *= 0.35; cell(ctx, "fx", FX.slash, -4, 0, s * 1.05, s * 1.05); }   // 투지 폭발 — 한 겹 더
+    ctx.restore();
+    if (!drew) {                                   // 코드 그림은 처음부터 볼록한 쪽이 앞이다
       ctx.strokeStyle = "#ff8a8a"; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(0, 0, s * 0.4, -1.2, 1.2); ctx.stroke();
     }
-    if (f.boost) { ctx.globalAlpha *= 0.35; cell(ctx, "fx", FX.slash, 4, 0, s * 1.05, s * 1.05); }   // 투지 폭발 — 한 겹 더
   } else if (k === "shock") {                      // 삼연참 마지막 충격파
     const s = f.r * 2 * (0.5 + 0.7 * p);
     ctx.globalAlpha = fade(p, 0.3);

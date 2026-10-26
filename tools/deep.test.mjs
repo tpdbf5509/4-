@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, MAPS, MOB, SPAWNS, LV_MAX, STAT_MAX, statEarned, FAR_EASE } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT, MAT_BY_ID, DROPS } from '../src/game/itemData.js';
-import { DEEP, DEEP_MAPS, DEEP_EASE } from '../src/game/deepData.js';
+import { DEEP, DEEP_MAPS } from '../src/game/deepData.js';
 import { TITLES, TITLE_BITS, REC_IDS } from '../src/game/socialData.js';
 
 // 400~800레벨 사냥터 · 계몽의 문(deepData.js). 실행: node --test tools/deep.test.mjs
@@ -25,13 +25,15 @@ test('최고 레벨 800 · 스탯 상한 800 — 800레벨 포인트로 두 스�
   assert.equal(statEarned(800), STAT_MAX * 2);
 });
 
-test('사냥터 8곳 · 몹 · 보스 수치 — 표 값에 FAR_EASE · DEEP_EASE(체력 15% 더 낮춤)', () => {
+test('사냥터 8곳 · 몹 · 보스 수치 — 체력은 표 값 그대로(400레벨 11만 → 800레벨 15만), 공격은 FAR_EASE', () => {
   assert.equal(DEEP_MAPS.length, 8);
   const d = DEEP_MAPS[0], m = MOB[d.id];
-  assert.equal(m.hp(400), Math.round(380000 * FAR_EASE.hp * DEEP_EASE.hp));
-  assert.equal(m.hp(450), Math.round(470000 * FAR_EASE.hp * DEEP_EASE.hp));
+  assert.equal(m.hp(400), 110000);
+  assert.equal(MOB.wraith.hp(600), 130000);
+  assert.equal(MOB.fallen.hp(800), 150000);
+  assert(Math.abs(MOB.spider.hp(400) - m.hp(400)) < 1000, '200~400 끝과 이어진다');
   assert.equal(m.dmg(400), Math.round(2450 * FAR_EASE.dmg));
-  assert.equal(MOB.fallen.boss.hp, Math.round(20000000 * FAR_EASE.hp * DEEP_EASE.hp));
+  assert.equal(MOB.fallen.boss.hp, 2380000);
   DEEP_MAPS.forEach((z, i) => {
     assert(MAPS[z.id], z.id);
     assert(SPAWNS.some((s) => s.map === z.id && !s.boss) && SPAWNS.some((s) => s.map === z.id && s.boss), `${z.id} 무리`);

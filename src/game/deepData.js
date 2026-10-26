@@ -15,38 +15,40 @@ export const DEEP = {
   img: "/assets/game/rpg/items/eye-enlight.webp",
 };
 
-/* 체력을 한 번 더 낮춘다 — 표로 보여 드린 값(200~400 의 FAR_EASE 를 이은 값)에서 사용자 요청 "피는 조금 낮추자"로 15% 더 낮췄다.
-   보스 체력에도 곱한다. 더 낮추려면 이 숫자만 고친다 */
-export const DEEP_EASE = { hp: 0.85 };
+/* 체력은 아래 표의 값 그대로(곱하는 배율 없음). 10월 26일 사용자 요청 — "만렙 올 스탯이 800레벨 몹을 평타 2번 안에 · 600레벨은 한 방에".
+   관리자(800레벨 · 스탯 모두 800 · 전설 무기 +30) 평타 한 대는 치명타(80%)면 검사 약 14.5만 · 궁수 19만 · 마법사 19.7만, 아니면 1만 남짓이다.
+   치명타 한 번 + 아무 평타 한 번(검사 15.5만)이면 잡히게 800레벨을 15만, 600레벨을 13만(치명타 한 방)으로 두고 400레벨 11만에서 곧게 잇는다.
+   200~400 사냥터도 이 높이로 이어지게 줄였다(rpg.js MOB_HP_EASE · FAR_TAPER).
+   예전 값(처음 표 × 0.7 × 0.85)은 불정령 22.6만~타락천사 82.1만 · 보스 369만~1,190만이었다. 보스는 구역마다 예전과 같은 비율로 줄였다 */
 
 /* 사냥터 8곳 — lv [시작, 끝], w 맵 폭, tint 바탕 빛깔.
-   mob: hp · dmg 는 [시작 레벨 값, 끝 레벨 값](FAR_EASE · DEEP_EASE 를 곱하기 전), xp · coin 은 레벨에 곱하는 배수,
-   size [시작, 끝], rad 몸 반지름. boss 는 그 구역 보스(lv · hp · dmg · xp · coin 은 곱하기 전 값). drop 은 보스가 떨구는 재료 id */
+   mob: hp 는 [시작 레벨 값, 끝 레벨 값] 그대로 · dmg 는 FAR_EASE.dmg 를 곱하기 전, xp · coin 은 레벨에 곱하는 배수,
+   size [시작, 끝], rad 몸 반지름. boss 는 그 구역 보스(hp 는 그대로, dmg 는 FAR_EASE.dmg 를 곱하기 전). drop 은 보스가 떨구는 재료 id */
 export const DEEP_MAPS = [
   { id: "fspirit", name: "불정령의 화원", lv: [400, 450], w: 6200, tint: "rgba(120,46,20,0.36)",
-    mob: { name: "불정령", rad: 22, hp: [380000, 470000], dmg: [2450, 2850], xp: 7.5, coin: 3.4, size: [1.15, 1.27] },
-    boss: { name: "불정령 군주", lv: 440, hp: 6200000, dmg: 3300, xp: 60000, coin: 42000, size: 1.95 }, drop: "ember" },
+    mob: { name: "불정령", rad: 22, hp: [110000, 115000], dmg: [2450, 2850], xp: 7.5, coin: 3.4, size: [1.15, 1.27] },
+    boss: { name: "불정령 군주", lv: 440, hp: 1790000, dmg: 3300, xp: 60000, coin: 42000, size: 1.95 }, drop: "ember" },
   { id: "lavagolem", name: "용암 분지", lv: [450, 500], w: 6200, tint: "rgba(110,40,18,0.42)",
-    mob: { name: "용암골렘", rad: 32, hp: [470000, 570000], dmg: [2850, 3300], xp: 8, coin: 3.6, size: [1.55, 1.67] },
-    boss: { name: "용암 거신", lv: 490, hp: 7500000, dmg: 3800, xp: 72000, coin: 50000, size: 1.95 }, drop: "magma" },
+    mob: { name: "용암골렘", rad: 32, hp: [115000, 120000], dmg: [2850, 3300], xp: 8, coin: 3.6, size: [1.55, 1.67] },
+    boss: { name: "용암 거신", lv: 490, hp: 1840000, dmg: 3800, xp: 72000, coin: 50000, size: 1.95 }, drop: "magma" },
   { id: "firedrake", name: "화염룡의 둥지", lv: [500, 550], w: 6400, tint: "rgba(130,52,28,0.4)",
-    mob: { name: "화염룡", rad: 30, hp: [570000, 680000], dmg: [3300, 3800], xp: 8.5, coin: 3.8, size: [1.4, 1.52] },
-    boss: { name: "화염룡 왕", lv: 540, hp: 9000000, dmg: 4400, xp: 86000, coin: 60000, size: 1.95 }, drop: "dscale" },
+    mob: { name: "화염룡", rad: 30, hp: [120000, 125000], dmg: [3300, 3800], xp: 8.5, coin: 3.8, size: [1.4, 1.52] },
+    boss: { name: "화염룡 왕", lv: 540, hp: 1890000, dmg: 4400, xp: 86000, coin: 60000, size: 1.95 }, drop: "dscale" },
   { id: "ifrit", name: "이프리트의 제단", lv: [550, 600], w: 6400, tint: "rgba(140,60,22,0.38)",
-    mob: { name: "이프리트", rad: 26, hp: [680000, 800000], dmg: [3800, 4350], xp: 9, coin: 4, size: [1.3, 1.42] },
-    boss: { name: "이프리트 대군주", lv: 590, hp: 10800000, dmg: 5000, xp: 100000, coin: 70000, size: 1.95 }, drop: "ifflame" },
+    mob: { name: "이프리트", rad: 26, hp: [125000, 130000], dmg: [3800, 4350], xp: 9, coin: 4, size: [1.3, 1.42] },
+    boss: { name: "이프리트 대군주", lv: 590, hp: 1990000, dmg: 5000, xp: 100000, coin: 70000, size: 1.95 }, drop: "ifflame" },
   { id: "wraith", name: "망령의 성채", lv: [600, 650], w: 6600, tint: "rgba(30,36,60,0.5)",
-    mob: { name: "망령기사", rad: 24, hp: [800000, 930000], dmg: [4350, 4950], xp: 9.5, coin: 4.2, size: [1.25, 1.37] },
-    boss: { name: "망령 기사단장", lv: 640, hp: 12800000, dmg: 5700, xp: 118000, coin: 82000, size: 1.95 }, drop: "wplate" },
+    mob: { name: "망령기사", rad: 24, hp: [130000, 135000], dmg: [4350, 4950], xp: 9.5, coin: 4.2, size: [1.25, 1.37] },
+    boss: { name: "망령 기사단장", lv: 640, hp: 2080000, dmg: 5700, xp: 118000, coin: 82000, size: 1.95 }, drop: "wplate" },
   { id: "abyss", name: "심해 해구", lv: [650, 700], w: 6600, tint: "rgba(14,40,70,0.52)",
-    mob: { name: "심해괴수", rad: 30, hp: [930000, 1070000], dmg: [4950, 5600], xp: 10, coin: 4.4, size: [1.4, 1.52] },
-    boss: { name: "심연의 레비아탄", lv: 690, hp: 15000000, dmg: 6400, xp: 136000, coin: 94000, size: 1.95 }, drop: "pearl" },
+    mob: { name: "심해괴수", rad: 30, hp: [135000, 140000], dmg: [4950, 5600], xp: 10, coin: 4.4, size: [1.4, 1.52] },
+    boss: { name: "심연의 레비아탄", lv: 690, hp: 2180000, dmg: 6400, xp: 136000, coin: 94000, size: 1.95 }, drop: "pearl" },
   { id: "voidmage", name: "공허의 서고", lv: [700, 750], w: 6800, tint: "rgba(30,16,52,0.54)",
-    mob: { name: "공허술사", rad: 22, hp: [1070000, 1220000], dmg: [5600, 6300], xp: 10.5, coin: 4.6, size: [1.15, 1.27] },
-    boss: { name: "공허의 대현자", lv: 740, hp: 17500000, dmg: 7200, xp: 156000, coin: 108000, size: 1.95 }, drop: "voidc" },
+    mob: { name: "공허술사", rad: 22, hp: [140000, 145000], dmg: [5600, 6300], xp: 10.5, coin: 4.6, size: [1.15, 1.27] },
+    boss: { name: "공허의 대현자", lv: 740, hp: 2290000, dmg: 7200, xp: 156000, coin: 108000, size: 1.95 }, drop: "voidc" },
   { id: "fallen", name: "타락한 천궁", lv: [750, 800], w: 7000, tint: "rgba(48,30,48,0.48)",
-    mob: { name: "타락천사", rad: 24, hp: [1220000, 1380000], dmg: [6300, 7050], xp: 11, coin: 4.8, size: [1.25, 1.37] },
-    boss: { name: "타락천사장", lv: 790, hp: 20000000, dmg: 8000, xp: 178000, coin: 124000, size: 1.95 }, drop: "dfeather" },
+    mob: { name: "타락천사", rad: 24, hp: [145000, 150000], dmg: [6300, 7050], xp: 11, coin: 4.8, size: [1.25, 1.37] },
+    boss: { name: "타락천사장", lv: 790, hp: 2380000, dmg: 8000, xp: 178000, coin: 124000, size: 1.95 }, drop: "dfeather" },
 ];
 
 // 무리 — 맵마다 일반 n · 보스 2 · 다시 나오는 초(respawn)

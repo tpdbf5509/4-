@@ -4,7 +4,7 @@ import { WORLD_SETS, WORLD_WEAPONS, WORLD_WEAPON_SKILLS } from "./worldEquipment
    새 업데이트가 나오면 PATCH_BOOKS 맨 위에 책 한 권을 더한다(밸런스 수치를 바꿨다면 바꾸기 전후 값을 적는다).
    쪽은 { h 제목, p 문단 목록 } 이다. 문단은 짧은 문장으로 쓰고 쉼표를 아낀다. 숫자는 가능하면 규칙 파일의 상수를 읽어 와 어긋나지 않게 한다. */
 import {
-  MAPS, SPAWNS, MOB, FAR_EASE, JOBS, ELEMS, LV_MAX, STAT_MAX, STAT_PER_LV, statEarned, XP_RATE, FAR_MAPS, FIELD_PVP, DUEL, DASH, RPG,
+  MAPS, SPAWNS, MOB, FAR_EASE, lateEase, JOBS, ELEMS, LV_MAX, STAT_MAX, STAT_PER_LV, statEarned, XP_RATE, FAR_MAPS, FIELD_PVP, DUEL, DASH, RPG,
   RPG_SERVERS, RPG_SERVER_CAP,
 } from "./rpg.js";
 import { DROP_ROLL, MATERIALS, MAT_BY_ID } from "./itemData.js";
@@ -22,14 +22,24 @@ const dropLine = DROP_ROLL.map(([n, w]) => `${n}개 ${pct(Math.round((w / total)
 const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 
 /* ── 패치노트 — 새 책은 맨 위에 더한다 ───────────────────────── */
+// 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
+const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-10-26h", title: "패치노트 · 10월 26일 (8)", sub: "스탯 효과 · 몹 체력", color: "#a8c0a0",
+    pages: [
+      { h: "스탯 포인트 효과 1.5배", p: ["물리력 · 마법력 포인트당 2 → 3.", "체력 포인트당 15 → 22.", "치명타 피해 포인트당 1% → 1.5%.", "치명타 확률은 상한(80%)이 있어 0.5% 그대로입니다.", "무기가 올려 주는 물리력 · 마법력 · 체력도 포인트로 셈해 같이 오릅니다.", "이미 찍은 포인트에도 바로 적용됩니다."] },
+      { h: "몹 체력", p: ["1~200레벨 사냥터 몹 · 보스 체력 100% → 80%.", "200~400레벨은 80%에 레벨이 높을수록 더 곱합니다. 200레벨 ×1 → 400레벨 ×0.52.",
+        ...["skeletal", "golem", "spider"].map((id) => { const s = SPAWNS.find((q) => q.map === id && !q.boss), B = MOB[id].boss; return `${MOB[id].name} ${s.lv[0]}~${s.lv[1]}레벨 체력 ${won(MOB[id].hp(s.lv[0]))}~${won(MOB[id].hp(s.lv[1]))} · ${B.name} ${won(B.hp)}`; })] },
+      { h: "400~800레벨 몹 체력", p: ["만렙에 스탯을 모두 찍은 캐릭터가 800레벨 몹을 평타 2번, 600레벨 몹을 치명타 한 방에 잡도록 맞췄습니다.",
+        ...DEEP_MAPS.map((d, i) => `${MOB[d.id].name} ${won(DEEP_WAS.mob[i])}~${won(DEEP_WAS.mob[i + 1])} → ${won(MOB[d.id].hp(d.lv[0]))}~${won(MOB[d.id].hp(d.lv[1]))} · ${MOB[d.id].boss.name} ${won(DEEP_WAS.boss[i])} → ${won(MOB[d.id].boss.hp)}`)] },
+    ] },
   { id: "patch-2026-10-26g", title: "패치노트 · 10월 26일 (7)", sub: "계몽의 문 · 400~800레벨", color: "#b8a0d8",
     pages: [
       { h: "레벨 · 스탯 상한", p: ["최고 레벨 400 → 800.", "스탯 하나 상한 400 → 800. 800레벨까지 받는 포인트 1,600으로 두 스탯을 최대로 올릴 수 있습니다.", "월드보스 합동 차단은 그대로 400레벨 3명이 기준입니다."] },
       { h: "계몽의 문 · 계몽의 눈", p: ["광장 왼쪽 풀밭(스킬 상점 아래)에 계몽의 문이 있습니다.", `계몽의 눈 재료: ${DEEP.recipe.map(([id, n]) => `${MAT_BY_ID[id].name} ${n}`).join(" · ")}.`, "한 번 만들면 계속 남는 열쇠입니다. 들어갈 때 쓰지 않습니다.", `${DEEP.lv}레벨부터 계몽의 눈을 가지고 들어갑니다.`] },
-      { h: "새 사냥터 8곳", p: DEEP_MAPS.map((d) => `${d.name} ${d.lv[0]}~${d.lv[1]}레벨 · ${MOB[d.id].name} · 보스 ${MOB[d.id].boss.name}(${MOB[d.id].boss.lv}) 체력 ${won(MOB[d.id].boss.hp)}`) },
+      { h: "새 사냥터 8곳", p: DEEP_MAPS.map((d, i) => `${d.name} ${d.lv[0]}~${d.lv[1]}레벨 · ${MOB[d.id].name} · 보스 ${MOB[d.id].boss.name}(${MOB[d.id].boss.lv}) 체력 ${won(DEEP_WAS.boss[i])}`) },   // 체력은 그때 값(DEEP_WAS) — 같은 날 (8)에서 낮췄다
       { h: "몹 수치", p: ["200~400 사냥터의 식을 이어서 늘렸습니다. 처음 보여 드린 표에서 체력을 15% 더 낮췄습니다.",
-        ...DEEP_MAPS.map((d) => `${MOB[d.id].name} 체력 ${won(MOB[d.id].hp(d.lv[0]))}~${won(MOB[d.id].hp(d.lv[1]))} · 공격 ${won(MOB[d.id].dmg(d.lv[0]))}~${won(MOB[d.id].dmg(d.lv[1]))}`)] },
+        ...DEEP_MAPS.map((d, i) => `${MOB[d.id].name} 체력 ${won(DEEP_WAS.mob[i])}~${won(DEEP_WAS.mob[i + 1])} · 공격 ${won(MOB[d.id].dmg(d.lv[0]))}~${won(MOB[d.id].dmg(d.lv[1]))}`)] },
       { h: "고유 기술", p: ["불정령 불덩이 · 용암골렘 용암 덩이(느려짐) · 화염룡 불꽃 숨결 · 이프리트 불기둥", "망령기사 망령의 검기(밀려남) · 심해괴수 물덩이(느려짐) · 공허술사 공허 문양 · 타락천사 검은 깃털(묶임)", "모두 바닥 표시를 보고 비키면 피합니다."] },
     ] },
   { id: "patch-2026-10-26h", title: "패치노트 · 10월 26일 (8)", sub: "치유사 강화", color: "#c9b37c",
@@ -316,11 +326,11 @@ export const PATCH_BOOKS = [
         `일반 몹 체력 (변경 전 → 변경 후)`,
         ...["skeletal", "zombie", "necro", "golem", "chimera", "spider"].map((id) => {
           const f = SPAWNS.find((q) => q.map === id && !q.boss).lv, d = MOB[id];
-          const b = (lv) => Math.round(d.hp(lv) / FAR_EASE.hp);
-          return `${d.name}: ${won(b(f[0]))}~${won(b(f[1]))} → ${won(d.hp(f[0]))}~${won(d.hp(f[1]))}`;
+          const a = (lv) => Math.round(d.hp(lv) / lateEase(lv)), b = (lv) => Math.round(a(lv) / FAR_EASE.hp);   // 그때 값 — 10월 26일에 더 낮춘 몫을 뺀다
+          return `${d.name}: ${won(b(f[0]))}~${won(b(f[1]))} → ${won(a(f[0]))}~${won(a(f[1]))}`;
         }),
         `보스 체력 (변경 전 → 변경 후)`,
-        ...["skeletal", "zombie", "necro", "golem", "chimera", "spider"].map((id) => `${MOB[id].boss.name}: ${won(Math.round(MOB[id].boss.hp / FAR_EASE.hp))} → ${won(MOB[id].boss.hp)}`),
+        ...["skeletal", "zombie", "necro", "golem", "chimera", "spider"].map((id) => { const B = MOB[id].boss, a = Math.round(B.hp / lateEase(B.lv)); return `${B.name}: ${won(Math.round(a / FAR_EASE.hp))} → ${won(a)}`; }),
       ] },
     ],
   },

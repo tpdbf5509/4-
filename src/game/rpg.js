@@ -26,7 +26,7 @@ import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { armorName, ARMOR, ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, ADV_BY_ID } from "./advData.js";
-import { DEEP, DEEP_MAPS, DEEP_EASE, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
+import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
 import { advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
@@ -442,6 +442,19 @@ export const FAR_EASE = { hp: 0.7, dmg: 0.75 };
   d.dmg = (lv) => Math.round(dmg(lv) * FAR_EASE.dmg);
   d.boss = { ...d.boss, hp: Math.round(d.boss.hp * FAR_EASE.hp), dmg: Math.round(d.boss.dmg * FAR_EASE.dmg) };
 });
+/* 1~400레벨 사냥터 몹 · 보스 체력을 한 번 더 낮춘다 — 10월 26일 사용자 요청 "모든 몹 체력을 좀 낮추자"(스탯 포인트당 효과도 1.5배로 올렸다).
+   MOB_HP_EASE 는 모두에 곱한다(위 식 — 200~400 은 FAR_EASE 를 곱한 값). FAR_TAPER 는 200~400 사냥터에만 레벨에 따라 더 곱한다 —
+   200레벨 1 → 400레벨 at400. 400레벨 포식거미 끝이 26.3만 → 11만으로 400~800 사냥터 시작(deepData.js)과 이어진다 */
+export const MOB_HP_EASE = 0.8;
+export const FAR_TAPER = { from: 200, to: 400, at400: 0.524 };
+// 지난 패치노트(bookData.js)가 그때 값을 다시 셈할 때 나눈다
+export const lateEase = (lv) => MOB_HP_EASE * taper(lv);
+const taper = (lv) => 1 - (1 - FAR_TAPER.at400) * Math.min(1, Math.max(0, (lv - FAR_TAPER.from) / (FAR_TAPER.to - FAR_TAPER.from)));
+["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "skeletal", "zombie", "necro", "golem", "chimera", "spider"].forEach((id) => {
+  const d = MOB[id], hp = d.hp;
+  d.hp = (lv) => Math.max(1, Math.round(hp(lv) * MOB_HP_EASE * taper(lv)));
+  d.boss = { ...d.boss, hp: Math.round(d.boss.hp * MOB_HP_EASE * taper(d.boss.lv)) };
+});
 // 값의 뜻은 GOBLIN · ORC · OGRE 와 같다
 export const SKELETAL = { aggro: 440, walk: 225, punchCd: 0.8, slamRange: 0, call: 360, leash: 1200 };
 export const ZOMBIE = { aggro: 400, walk: 120, punchCd: 1.2, slamRange: 190, wind: 0.7, slamR: 180, slamMul: 1.6, cd: 5, rest: 0.8, call: 300, leash: 1200 };
@@ -469,10 +482,10 @@ export const FAR_SKILL = {
   // 포식거미 — 거미줄 발사. 떨어진 자리에 있으면 1초 묶인다(보스 1.4초 · 묶여도 공격 · 스킬은 쓴다, 예전 ×1.7)
   spider: { kind: "web", range: 420, wind: 0.45, cd: 3.5, mul: 0.8, r: 70, speed: 720, root: 1, rootBoss: 1.4, n: 1, nBoss: 3, spread: 0.3 },
 };
-/* 400~800레벨 몹(deepData.js) — 구역 처음 · 끝 레벨 값 사이를 곧게 잇고 FAR_EASE · DEEP_EASE 를 곱한다. 움직임 · 기술은 200~400 과 같은 셈 */
+/* 400~800레벨 몹(deepData.js) — 구역 처음 · 끝 레벨 값 사이를 곧게 잇는다. 체력은 표 값 그대로, 공격력만 FAR_EASE 를 곱한다. 움직임 · 기술은 200~400 과 같은 셈 */
 DEEP_MAPS.forEach((d) => {
   const M = d.mob, [l0, l1] = d.lv, at = (v, lv) => v[0] + ((v[1] - v[0]) * (Math.min(l1, Math.max(l0, lv)) - l0)) / (l1 - l0);
-  const B = d.boss, hpK = FAR_EASE.hp * DEEP_EASE.hp;
+  const B = d.boss, hpK = 1;
   MOB[d.id] = {
     name: M.name, rad: M.rad,
     hp: (lv) => Math.round(at(M.hp, lv) * hpK), dmg: (lv) => Math.round(at(M.dmg, lv) * FAR_EASE.dmg),
@@ -605,12 +618,14 @@ export const ADMIN = { coins: 99999999 };
 export const STAT_PER_LV = 2;
 export const STAT_START = 2;
 export const CRIT_MAX = 0.8;          // 치명타 확률 전체 상한 — 장비가 붙어도 확정 치명타가 되지 않게
+// per — 포인트 하나의 효과. 10월 26일 사용자 요청으로 1.5배(물리력 · 마법력 2 → 3 · 체력 15 → 22 · 치명타 피해 1 → 1.5).
+// 치명타 확률은 상한(CRIT_MAX)이 있어 그대로. 무기 스탯도 포인트 × per 라 같이 오른다(shop.js)
 export const STATS = [
-  { id: "str", name: "물리력", note: "검사 · 궁수 공격력", base: 10, per: 2, fmt: (v) => String(v) },
-  { id: "int", name: "마법력", note: "마법사 공격력 · 화상 · 독 피해", base: 10, per: 2, fmt: (v) => String(v) },
-  { id: "hp", name: "체력", note: "최대 체력 (직업 배율을 곱한다)", base: 100, per: 15, fmt: (v) => v.toLocaleString("ko-KR") },
+  { id: "str", name: "물리력", note: "검사 · 궁수 공격력", base: 10, per: 3, fmt: (v) => String(v) },
+  { id: "int", name: "마법력", note: "마법사 공격력 · 화상 · 독 피해", base: 10, per: 3, fmt: (v) => String(v) },
+  { id: "hp", name: "체력", note: "최대 체력 (직업 배율을 곱한다)", base: 100, per: 22, fmt: (v) => v.toLocaleString("ko-KR") },
   { id: "crit", name: "치명타 확률", note: "치명타가 터질 확률", base: 5, per: 0.5, fmt: (v) => `${r1(v)}%` },
-  { id: "cdmg", name: "치명타 피해", note: "치명타가 터졌을 때 피해", base: 150, per: 1, fmt: (v) => `${v}%` },
+  { id: "cdmg", name: "치명타 피해", note: "치명타가 터졌을 때 피해", base: 150, per: 1.5, fmt: (v) => `${r1(v)}%` },
 ];
 export const STAT_IDS = STATS.map((t) => t.id);
 const STAT_BY_ID = Object.fromEntries(STATS.map((t) => [t.id, t]));

@@ -2698,6 +2698,7 @@ function trainTick(g, h) {
     h.sk = 0; h.dashCd = 0;
     if (h.scd) for (const k in h.scd) h.scd[k] = 0;
     if (h.ws) h.ws.wcd = 0;
+    if (h.as) h.as.cd = 0;                          // 전직 스킬(Z)
   }
   if (t.stack) {
     const w = wsOf(h), S = TRAIN.stacks, sp = heldSpecial(h);
@@ -2724,6 +2725,7 @@ export function rpgTrain(g, pi, req) {
     h.hp = h.max; h.sk = 0; h.dashCd = 0;
     if (h.scd) for (const k in h.scd) h.scd[k] = 0;
     if (h.ws) h.ws.wcd = 0;
+    if (h.as) h.as.cd = 0;
     return true;
   }
   return false;
@@ -2745,7 +2747,7 @@ function packTrain(g, h) {
 /* 1차 전직(advance.js)도 기존 대상 고르기 · 피해 · 결투 한도 · 원소 판정을 그대로 쓴다 */
 // 160레벨 이상 몹이 나오는 맵 · 던전 · 월드보스 — 전직 시험을 세는 곳
 const advBigMap = (map) => { const M = MAPS[map]; return !!M && (!!M.dungeon || !!M.worldBoss || SPAWNS.some((sp) => sp.map === map && Array.isArray(sp.lv) && sp.lv[0] >= ADV.trialLv)); };
-const advEngine = { fx, say, sys, dist, near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc, soak, later,
+const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc, soak, later,
   cc: ccAny, alive: aliveFoe, aim: aimTo, aimAt, end: lineEnd, newCast, squash: RPG.squash, bigMap: advBigMap,
   base: (h, k) => SKILL_USE.base * skillStatMul(h, k), elem: (h) => elemOf(h).id, locked: ccLocked,
   safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,

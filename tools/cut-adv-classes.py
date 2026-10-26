@@ -5,8 +5,10 @@
       건너는 데 비용이 큰 최단 경로로 가장 가까운 씨앗에 나눈다 — 경계가 윤곽선을 따라간다.
    ③ 크기 — 검투사 시트의 키를 기존 검사 그림 키에 맞춘 배율을 모든 전직에 쓴다(시트끼리 같은 크기로 그려졌다).
       모자 · 두건이 있어도 몸 크기는 같게. 발밑은 가운데 장화 폭으로 잡는다(칼끝이 발보다 내려가도 발이 바닥에 닿게).
-   실행: python3 tools/cut-adv-classes.py  →  public/assets/characters/rpg/<전직>-<m|f>/<front|side|back|turn>.webp"""
+   실행: python3 tools/cut-adv-classes.py [전직 ...]  → (전직을 적으면 그 전직만 새로 쓴다 — 배율은 늘 검투사 시트로)
+    public/assets/characters/rpg/<전직>-<m|f>/<front|side|back|turn>.webp"""
 import os
+import sys
 import numpy as np
 from PIL import Image
 from scipy import ndimage, sparse
@@ -15,7 +17,8 @@ from scipy.sparse.csgraph import dijkstra
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "design/advance/classes")
 OUT = os.path.join(ROOT, "public/assets/characters/rpg")
-CLASSES = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner"]
+CLASSES = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner", "healer"]   # 치유사 시트는 Codex 로 생성(10월 26일 · 초록 바탕을 지워 둠)
+ONLY = set(sys.argv[1:])
 VIEWS = ["front", "side", "back", "turn"]
 SOLID = 60        # 이만큼 넘는 알파가 그림 몸
 FAINT = 14        # 이 아래 알파는 지운다(시트 전체에 깔린 옅은 얼룩)
@@ -109,28 +112,39 @@ def figures(path):
         rgba[..., 3] = np.where(m, rgba[..., 3], 0)
         wide = (m & solid)[:, cx - 40:cx + 41].sum(1) >= 10   # 장화 폭 — 가운데 ±40 에서 10픽셀 넘는 가장 아래 줄
         feet = int(np.where(wide)[0].max()) + 1
-        out.append((r, c, Image.fromarray(rgba[y0:y1, x0:x1], "RGBA"), feet - y0, y0))
+        out.append((r, c, Image.fromarray(rgba[y0:y1, x0:x1], "RGBA"), feet - y0, y0, x0))
     return out
 
 def ref_h(job, g, v):
     return Image.open(os.path.join(OUT, f"{job}-{g}", f"{v}.webp")).size[1]
 
-cuts = {cls: figures(os.path.join(SRC, f"{cls}.webp")) for cls in CLASSES}
-# 배율 — 검투사(남 · 여)의 발밑 ~ 머리 꼭대기를 기존 검사 키에 맞춘다(방향마다)
-scale = {}
-for r, c, crop, feet, _ in cuts["gladiator"]:
-    g = "m" if r == 0 else "f"
-    scale[(g, c)] = (ref_h("warrior", g, VIEWS[c]) - PAD * 2) / feet
-for cls, figs in cuts.items():
-    for r, c, crop, feet, _ in figs:
+def scales():
+    """검투사(남 · 여)의 발밑 ~ 머리 꼭대기를 기존 검사 키에 맞춘 배율 — 방향마다(tools/bare-adv.py 도 쓴다)"""
+    out = {}
+    for r, c, crop, feet, *_ in figures(os.path.join(SRC, "gladiator.webp")):
         g = "m" if r == 0 else "f"
-        s = scale[(g, c)]
-        w2, h2 = max(1, round(crop.size[0] * s)), max(1, round(crop.size[1] * s))
-        im = crop.resize((w2, h2), Image.LANCZOS)
-        fy = round(feet * s)
-        outim = Image.new("RGBA", (w2 + PAD * 2, fy + PAD * 2), (0, 0, 0, 0))
-        outim.alpha_composite(im.crop((0, 0, w2, min(h2, fy + PAD))), (PAD, PAD))   # 발밑 아래로 내려간 칼끝은 여백까지만
-        dpath = os.path.join(OUT, f"{cls}-{g}")
-        os.makedirs(dpath, exist_ok=True)
-        outim.save(os.path.join(dpath, f"{VIEWS[c]}.webp"), "WEBP", quality=92, alpha_quality=100, method=6)
-        print(cls, g, VIEWS[c], outim.size, f"x{s:.3f}")
+        out[(g, c)] = (ref_h("warrior", g, VIEWS[c]) - PAD * 2) / feet
+    return out
+
+def place(crop, feet, s):
+    """떼어 낸 그림을 배율 s 로 줄여 둘레 여백을 두고 발밑에 맞춘다"""
+    w2, h2 = max(1, round(crop.size[0] * s)), max(1, round(crop.size[1] * s))
+    im = crop.resize((w2, h2), Image.LANCZOS)
+    fy = round(feet * s)
+    outim = Image.new("RGBA", (w2 + PAD * 2, fy + PAD * 2), (0, 0, 0, 0))
+    outim.alpha_composite(im.crop((0, 0, w2, min(h2, fy + PAD))), (PAD, PAD))   # 발밑 아래로 내려간 칼끝은 여백까지만
+    return outim
+
+if __name__ == "__main__":
+    scale = scales()
+    for cls in CLASSES:
+        if ONLY and cls not in ONLY:
+            continue
+        for r, c, crop, feet, *_ in figures(os.path.join(SRC, f"{cls}.webp")):
+            g = "m" if r == 0 else "f"
+            s = scale[(g, c)]
+            outim = place(crop, feet, s)
+            dpath = os.path.join(OUT, f"{cls}-{g}")
+            os.makedirs(dpath, exist_ok=True)
+            outim.save(os.path.join(dpath, f"{VIEWS[c]}.webp"), "WEBP", quality=92, alpha_quality=100, method=6)
+            print(cls, g, VIEWS[c], outim.size, f"x{s:.3f}")

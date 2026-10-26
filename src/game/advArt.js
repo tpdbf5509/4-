@@ -3,7 +3,7 @@
    drawAdvFx — 스킬 연출(kind "sk_adv_*") · drawAdvHero — 영웅 둘레(철벽 방어 · 중첩 · 정령) · drawAdvHeldItem — 손에 든 총 · 소환서 ·
    drawAdvShield — 기사 방패 · drawAdvMob — 명사수 표식 · drawAdvNpc — 광장 전직 교관.
    판정은 하지 않는다 — 방장이 보낸 연출 · 스냅샷 상태만 그린다 */
-import { ADV, ADV_ART, ADV_BY_ID, advForJob } from "./advData.js";
+import { ADV, ADV_ART, ADV_BY_ID, ADV_UP, ADV_BLESS, advForJob } from "./advData.js";
 import { ELEM_BY_ID, ELEMS, RPG } from "./rpg.js";
 
 const SQ = () => RPG.squash;
@@ -20,7 +20,7 @@ function atlas(name) {
   return im && im.complete && im.naturalWidth ? im : null;
 }
 // RPG 에 들어올 때 미리 읽는다(rpgArt.js warmRpgArt)
-export const warmAdvArt = () => { atlas("fx"); atlas("spirits"); atlas("items"); };
+export const warmAdvArt = () => { atlas("fx"); atlas("spirits"); atlas("items"); atlas("up"); atlas("bless"); };
 // 아틀라스 한 칸을 (x, y) 가운데에 w × h 로 — 그림이 없으면 false
 function cell(ctx, name, i, x, y, w, h) {
   const im = atlas(name);
@@ -63,6 +63,15 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   const k = f.kind.slice(7);
+  if (k === "up") {                                // 전직 — 마법진 → 빛기둥 → 왕관 → 사그라듦(6칸). 칸 사이는 겹쳐 부드럽게 넘긴다
+    const n = 6, at = Math.min(n - 1e-3, p * n), i = Math.floor(at), mix = at - i, w = ADV_UP.w, top = f.y - w * ADV_UP.foot, k0 = ADV_UP.alpha;
+    ctx.globalAlpha = (1 - mix) * fade(p, 0.85) * k0;
+    const drew = cell(ctx, "up", i, f.x, top + w / 2, w, w);
+    if (drew && i < n - 1) { ctx.globalAlpha = mix * fade(p, 0.85) * k0; cell(ctx, "up", i + 1, f.x, top + w / 2, w, w); }
+    if (!drew) { glow(ctx, f.x, f.y - 90, 120, "#ffe2a0", 0.6 * (1 - p)); glow(ctx, f.x, f.y, 90, "#fff2c8", 0.5 * (1 - p)); }   // 그림이 없으면 빛만
+    ctx.restore();
+    return true;
+  }
   if (k === "slash") {                             // 삼연참 — 붉은 · 은빛 초승달. 세 번째는 크고 뒤집혀 교차한다
     const s = f.r * (f.i === 2 ? 1.5 : 1.25) * (0.8 + 0.2 * Math.min(1, p * 4));   // 몸을 덮지 않게 앞쪽에 알맞은 크기로
     ctx.globalAlpha = fade(p, 0.3) * 0.85;
@@ -140,6 +149,16 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
     ctx.globalAlpha = fade(p, 0.2) * 0.8;
     ctx.strokeStyle = col; ctx.lineWidth = 4 * (1 - p) + 1;
     ctx.beginPath(); ctx.ellipse(f.x, f.y + 20, f.r * (0.3 + 0.8 * p), f.r * (0.3 + 0.8 * p) * SQ(), 0, 0, TAU); ctx.stroke();
+  } else if (k === "bless") {                      // 수호의 축복 — 발밑 흰 마법진이 범위만큼 퍼지고 금빛 고리가 번진다
+    const s = f.r * 2 * Math.min(1, 0.35 + p * 2);
+    ctx.globalAlpha = Math.min(1, p * 6) * fade(p, 0.4) * 0.5;
+    ctx.save(); ctx.translate(f.x, f.y); ctx.scale(1, SQ()); ctx.rotate(time * 0.8);
+    if (!cell(ctx, "fx", FX.circle, 0, 0, s, s)) { ctx.strokeStyle = "#ffe8a8"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, s / 2.2, 0, TAU); ctx.stroke(); }
+    ctx.restore();
+    ctx.globalAlpha = fade(p, 0.3) * 0.7;
+    ctx.strokeStyle = "#fff0c0"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * p, f.r * p * SQ(), 0, 0, TAU); ctx.stroke();
+    glow(ctx, f.x, f.y - 50, 70, "#fff2c8", 0.5 * fade(p, 0.2));
   } else if (k === "summon") {                     // 정령 소환 — 푸른 소환진과 빛 알갱이
     const s = f.r * 2.4;
     ctx.globalAlpha = Math.min(1, p * 5) * fade(p, 0.55);
@@ -182,6 +201,7 @@ export function drawAdvHero(ctx, h, time) {
     ctx.globalAlpha = 0.4; ctx.strokeStyle = "#ffe3a0"; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.ellipse(h.x, h.y, 24, 24 * SQ(), 0, 0, TAU); ctx.stroke();
   }
+  if (a.blT > 0) drawBlessAura(ctx, h, a.blT, time);   // 치유사 수호의 축복을 받은 사람 — 둘레 빛 고리
   ctx.globalCompositeOperation = "source-over";
   const c = ADV_BY_ID[h.advClass];
   if (c && a.st > 0 && c.id !== "knight" && c.id !== "summoner") {   // 쌓인 것 — 발밑에 작은 점
@@ -194,7 +214,23 @@ export function drawAdvHero(ctx, h, time) {
       ctx.beginPath(); ctx.arc(h.x + Math.cos(ang) * 22, h.y + Math.sin(ang) * 22 * SQ(), n >= max ? 2.8 : 2.2, 0, TAU); ctx.fill();
     }
   }
-  if (a.sp && a.sp.t > 0 && Number.isFinite(a.sp.x)) drawSpirit(ctx, h, a.sp, time);
+  (a.sps || []).forEach((sp, i) => { if (sp.t > 0 && Number.isFinite(sp.x)) drawSpirit(ctx, h, sp, time + i * 0.7); });
+  ctx.restore();
+}
+// 축복 고리 — adv-bless.webp 6칸을 돌려 그린다(검은 바탕이라 lighter). 끝나기 fade 초 전부터 흐려진다
+function drawBlessAura(ctx, h, left, time) {
+  const B = ADV_BLESS, w = B.w, at = (time * B.fps + h.pi * 1.7) % 6, i = Math.floor(at), mix = at - i;
+  const k0 = B.alpha * Math.min(1, left / B.fade), cy = h.y - w * B.foot + w / 2;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.globalAlpha = (1 - mix) * k0;
+  const drew = cell(ctx, "bless", i, h.x, cy, w, w);
+  if (drew) { ctx.globalAlpha = mix * k0; cell(ctx, "bless", (i + 1) % 6, h.x, cy, w, w); }
+  else {                                           // 그림이 없으면 금빛 고리만
+    ctx.globalAlpha = k0 * 0.6; ctx.strokeStyle = "#ffe8a8"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(h.x, h.y, 34, 34 * SQ(), 0, 0, TAU); ctx.stroke();
+    glow(ctx, h.x, h.y - 40, 30, "#fff2c8", 0.25 * k0);
+  }
   ctx.restore();
 }
 function drawSpirit(ctx, h, sp, time) {

@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Coin } from "./ui/icons.jsx";
-import { ADV, ADV_BY_ID, advForJob, trialText } from "./game/advData.js";
+import { ADV, ADV_BY_ID, ADV_BONUS, advForJob, trialText } from "./game/advData.js";
 import { whyAdvStart, whyAdvConfirm } from "./game/advance.js";
-import { advArtPath, dist, JOB_BY_ID, mobName } from "./game/rpg.js";
+import { advArtPath, dist, JOB_BY_ID, mobName, STATS } from "./game/rpg.js";
 import { MAT_BY_ID } from "./game/itemData.js";
 import { WEAPON } from "./game/shopData.js";
 import { keyLabel } from "./game/keys.js";
+// 전직 추가 스탯 한 줄 — 체력 +450 · 물리력 +20 (치명타 · 치명타 피해는 %)
+const bonusText = (id) => Object.entries(ADV_BONUS[id] || {}).map(([k, v]) => {
+  const st = STATS.find((t) => t.id === k);
+  return `${st ? st.name : k} +${v.toLocaleString("ko-KR")}${k === "crit" || k === "cdmg" ? "%" : ""}`;
+}).join(" · ") || "없음";
 
 /* 광장 전직 교관 창 — 상점 · 가방과 같은 .shop 틀 · 공통 버튼. 내 기본 직업의 전직 둘을 보여 주고 시험 받기 · 그만두기 · 확정을 보낸다.
    판정은 방장이 다시 한다(advance.js). 확정은 되돌릴 수 없어 한 번 더 묻는다(다시 묻지 않기 없음) */
@@ -70,6 +75,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
                   <dl className="adv-skills">
                     <dt>액티브</dt><dd><b>{c.active.name}</b> · 대기 {c.active.cd}초<br />{c.active.note}</dd>
                     <dt>패시브</dt><dd><b>{c.passive.name}</b><br />{c.passive.note}</dd>
+                    <dt>추가 스탯</dt><dd>{bonusText(c.id)}</dd>
                     <dt>시험</dt><dd><b>{c.trial.name}</b><br />{c.trial.note}{trying ? ` · ${trialText(c, q)}` : ""}</dd>
                   </dl>
                   {trying && <div className="adv-prog" aria-hidden="true"><i style={{ width: `${Math.min(100, (q.n / c.trial.n) * 100)}%` }} /></div>}

@@ -17,7 +17,7 @@ export const ADV = {
 };
 
 // 스냅샷 · 저장 차례 — 뒤에만 더한다
-export const ADV_IDS = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner"];
+export const ADV_IDS = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner", "healer"];
 
 /* 전직 여섯 — job 기본 직업 · line 정통 강화(main) · 특수(special) · weapon 쓰는 무기(화면 설명) · gear 확정 때 받는 무기(SPECIALS id)
    active.mul 은 SKILL_USE.base × 스탯 배율에 곱한다. 비교 기준(10월 25일): 직업 스킬 5레벨 2.2~4.4배 · 대기 7~9초,
@@ -108,15 +108,32 @@ export const ADV_CLASSES = [
     note: "소환서를 든다 · 원소 정령과 함께 싸운다",
     gear: "adv_grim",
     active: {
-      name: "정령 소환", note: "지금 원소의 정령 하나를 20초 동안 부른다 · 둘레 적을 스스로 공격 · 다시 쓰면 새로 부른다",
-      cd: 16, dmg: "int", life: 20, range: 300, every: 1.2, mul: 0.7, fly: 0.22,   // 초당 약 0.58배
+      name: "정령 소환", note: "쓸 때마다 지금 원소의 정령을 하나 더 부른다(최대 10마리) · 부를 때 모든 정령이 다시 20초 · 둘레 적을 스스로 공격",
+      cd: 16, dmg: "int", life: 20, range: 300, every: 1.2, mul: 0.7, fly: 0.22,   // 한 마리 초당 약 0.58배
+      max: 10,                                    // 함께 있는 정령 수 한도 — 부를 때 모두의 시간이 life 로 다시 차서 쿨타임(16초)마다 하나씩 늘어난다
     },
     passive: {
-      name: "영혼 연결", note: "나와 정령이 2초 안에 같은 적을 치면 영혼 피해(2초에 한 번) · 정령이 없으면 없다",
+      name: "영혼 연결", note: "나와 정령 하나가 2초 안에 같은 적을 치면 영혼 피해(2초에 한 번) · 정령이 없으면 없다",
       win: 2, gap: 2, mul: 0.6,
     },
     // 300레벨까지의 보스가 떨구는 재료 — 시험을 받은 뒤 보스에게서 얻은 것만 종류마다 each 개(가방에서 빼지 않는다). 차례는 저장(advQ.m)에 쓰니 뒤에만 더한다
     trial: { name: "수집 시험", note: "300레벨까지의 보스가 떨구는 재료를 종류마다 5개씩 모은다(시험을 받은 뒤 얻은 것)", list: ["fur", "fang", "tusk", "hide", "blue", "eye", "heart", "bone", "rot", "soul"], each: 5 },
+  },
+  {
+    // 10월 26일 사용자 요청 — 마법사의 셋째 전직. 범위 안 사람에게 방어 · 치유를 건다
+    id: "healer", job: "mage", line: "special", name: "치유사", weapon: "성광 지팡이",
+    note: "성스러운 지팡이를 든다 · 둘레 사람을 지키고 치유한다",
+    active: {
+      name: "수호의 축복", note: "둘레 사람 모두(나 포함)에게 40초 축복 · 받는 피해 15% 감소 · 바로 체력 20% 회복 · 2초마다 체력 2% 회복",
+      cd: 45, dmg: "int", r: 320, dur: 40, cut: 0.15, heal: 0.2, tick: 2, regen: 0.02,   // 40초 동안 합 60%(바로 20% + 2% × 20번). 쿨타임이 지속보다 길어 늘 켜 두지는 못한다
+      // 결투 · 사냥터 PvP 에서는 나에게만 건다. 받는 피해 감소는 기사 cap(70%) 안에서 다른 감소와 곱해 합친다
+    },
+    passive: {
+      name: "은총", note: "평타가 맞으면 둘레에서 체력이 가장 모자란 사람(나 포함)을 최대 체력의 2% 회복(1초에 한 번)",
+      r: 400, heal: 0.02, gap: 1,
+    },
+    // 시험 동안은 수호의 축복(Z)을 쓸 수 있다(은총은 없다). 축복으로 실제 회복한 체력(나 · 다른 사람 모두)을 unit 마다 1 — 넘치는 회복은 세지 않는다
+    trial: { name: "치유 시험", note: "시험 동안 쓸 수 있는 수호의 축복(Z)으로 나와 다른 사람의 체력을 모두 3만 회복한다", n: 30, unit: 1000, skill: 1 },
   },
 ];
 // 목록 시험(list)은 종류마다 each 개를 채운 합이 n
@@ -147,8 +164,25 @@ export function trialText(c, q) {
   if (c.id === "marksman") return `연속 ${n}/${T.n}번`;
   if (c.id === "gunner") return `${n}/${T.list.length}종`;
   if (c.id === "summoner") return `${n}/${T.n}개`;
+  if (c.id === "healer") return `회복 ${(n * T.unit).toLocaleString()}/${(T.n * T.unit).toLocaleString()}`;
   return `${n}/${T.n}`;
 }
+
+/* 전직 추가 스탯 — 전직을 확정하면 스탯 값에 더한다(찍은 포인트와 별개 · 스탯 창에 초록 몫으로 보인다, shop.js extraStat).
+   전직마다 포인트로 따져 약 40점어치(물리력 · 마법력 2 · 체력 15 · 치명타 0.5% · 치명타 피해 1% 가 1점). 10월 26일 처음 넣음 */
+export const ADV_BONUS = {
+  gladiator: { str: 60, cdmg: 10 },   // 검투사 — 공격 · 콤보
+  knight: { hp: 450, str: 20 },       // 기사 — 체력(방패로 버틴다)
+  marksman: { crit: 10, cdmg: 20 },   // 명사수 — 치명타
+  gunner: { str: 40, crit: 10 },      // 총사 — 공격 · 치명타
+  archmage: { int: 80 },              // 마도사 — 마법력
+  summoner: { int: 40, hp: 300 },     // 소환술사 — 마법력 · 체력(정령과 버틴다)
+  healer: { int: 30, hp: 375 },       // 치유사 — 체력을 조금 더(앞에서 버티며 치유한다)
+};
+// 전직할 때 연출(adv-up.webp 6칸) — life 초 동안 차례로, w 는 맵에서 그리는 한 칸 폭, foot 은 칸 위에서 땅(마법진 가운데)까지의 몫
+export const ADV_UP = { life: 2.4, w: 330, foot: 0.72, alpha: 0.7 };   // alpha — 밝은 광장 바닥 위에서 캐릭터가 하얗게 묻히지 않게 빛을 덜 더한다
+// 축복 받은 사람 둘레 고리(adv-bless.webp 6칸) — fps 초당 칸 · w 맵에서 한 칸 폭 · foot 칸 위에서 발밑까지의 몫 · alpha 밝기 · fade 끝나기 전 흐려지는 초
+export const ADV_BLESS = { fps: 8, w: 130, foot: 0.69, alpha: 0.55, fade: 2 };   // alpha — 둥근 막이 캐릭터 위에 겹쳐 그려져 얼굴 · 옷이 하얗게 묻히지 않게 낮췄다
 
 /* 그림 — 생성한 투명 아틀라스(design/advance 원본 · 2026-10-25). 칸 크기는 원본 픽셀
    fx: 4열 × 3행(176px) — 0 붉은 검격 · 1 붉은 충격파 · 2 금빛 방패 · 3 육각 충격파 · 4 청록 화살 · 5 청록 섬광 · 6 총구 화염 · 7 탄환과 탄피 · 8 흰 마법진 · 9 푸른 소환진 · 10 마력 폭발
@@ -158,6 +192,8 @@ export const ADV_ART = {
   fx: { src: "/assets/game/rpg/advance/adv-fx.webp", cols: 4, cell: 176 },
   spirits: { src: "/assets/game/rpg/advance/adv-spirits.webp", cols: 3, cell: 160 },
   items: { src: "/assets/game/rpg/advance/adv-items.webp", cols: 5, cell: 192 },
+  up: { src: "/assets/game/rpg/advance/adv-up.webp", cols: 3, cell: 384 },   // 전직 연출 3열 × 2행 — 검은 바탕이라 빛을 더하듯(lighter) 그린다
+  bless: { src: "/assets/game/rpg/advance/adv-bless.webp", cols: 3, cell: 384 },   // 치유사 축복 둘레 3열 × 2행 고리 — 검은 바탕 · lighter
   FX: { slash: 0, shock: 1, shield: 2, hex: 3, arrow: 4, flash: 5, muzzle: 6, bullet: 7, circle: 8, summon: 9, burst: 10 },
   ITEM: { guns: 0, shield: 1, book: 2, pistol: 3, pistol2: 4 },
 };

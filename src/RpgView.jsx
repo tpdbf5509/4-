@@ -63,7 +63,8 @@ function advHud(me) {
     : c.id === "marksman" ? (a.ex ? "약점 노출" : `포착 ${a.st || 0}/${P.need}`)
     : c.id === "gunner" ? `탄도 ${a.st || 0}/${P.max}`
     : c.id === "archmage" ? `마력 ${a.st || 0}/${P.max}`
-    : a.sp && a.sp.t > 0 ? `정령 ${Math.ceil(a.sp.t)}초` : P.name;
+    : c.id === "healer" ? (a.blT > 0 ? `축복 ${Math.ceil(a.blT)}초` : P.name)
+    : a.sps && a.sps.length ? `정령 ${a.sps.length}/${c.active.max} · ${Math.ceil(Math.max(...a.sps.map((sp) => sp.t)))}초` : P.name;
   return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
@@ -1338,7 +1339,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                         <div key={t.id} className="rpg-stat-row">
                           <span className="rpg-stat-name">
                             <b>{t.name}</b>
-                            <em>{t.id === "hp" ? `최대 체력 ${Math.round(v1 * hpMul).toLocaleString("ko-KR")}` : t.note}</em>
+                            <em>{t.id === "hp" ? `최대 체력 ${Math.round((v1 + (me.extra.hp || 0)) * hpMul).toLocaleString("ko-KR")}` : t.note}</em>
                           </span>
                           <span className="rpg-stat-val">
                             {t.fmt(v0)}{add > 0 && <> <i>→</i> <strong>{t.fmt(v1)}</strong></>}

@@ -1,14 +1,14 @@
 /* ── RPG 1차 전직 규칙 (방장만 판정) ─────────────────────────────
    수치는 advData.js. E 는 rpg.js 의 대상 고르기 · 피해 · 연출 함수(advEngine) — 피해 · 결투 한도 · 원소는 기존 판정을 그대로 거친다.
-   영구 기록: h.advClass(전직 id) · h.advQ({ c, n } 시험). 싸우는 동안만: h.as(쿨타임 · 중첩 · 철벽 · 정령) — 스냅샷 줄 53 으로 손님에게 간다.
+   영구 기록: h.advClass(전직 id) · h.advQ({ c, n } 시험). 싸우는 동안만: h.as(쿨타임 · 중첩 · 철벽 · 정령 목록 sps) — 스냅샷 줄 53 으로 손님에게 간다.
    클라이언트 예측은 쓰지 않는다 — 손님 화면은 방장이 보낸 연출과 상태만 그린다 */
-import { ADV, ADV_BY_ID, ADV_IDS, cleanAdvQ, trialText } from "./advData.js";
+import { ADV, ADV_BY_ID, ADV_IDS, ADV_UP, cleanAdvQ, trialText } from "./advData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const keyOf = (o) => (o.type !== undefined ? `m${o.id}` : `h${o.pi}`);
 const isHero = (o) => !!o && o.type === undefined;
 export const asOf = (h) => h.as || (h.as = { cd: 0, st: 0, stT: 0, fk: "", fn: 0, ex: "", gT: 0, gN: 0, gGap: 0, pT: 0, pCut: 0,
-  sp: null, lb: -9, lk: "", lt: -9, slT: 0, mgT: 0, bT: 0 });
+  sps: [], blT: 0, blCut: 0, blReg: 0, blTk: 0, blBy: -1, gcT: 0, hq: 0, lb: -9, lk: "", lt: -9, slT: 0, mgT: 0, bT: 0 });
 
 // 지금 전직 — 기본 직업과 맞을 때만(관리자가 직업을 바꾸면 맞지 않는 전직은 없는 것으로 본다)
 export const advOf = (h) => { const c = h && ADV_BY_ID[h.advClass]; return c && c.job === h.job ? c : null; };
@@ -67,7 +67,9 @@ export function advInput(E, g, pi, req) {
     h.advClass = req.c; h.advQ = null;
     h.as = null;                                    // 중첩 · 쿨타임을 비운다
     if (c.gear) E.gear(h, c.gear);
-    E.fx(g, h.map, { kind: "lvup", x: h.x, y: h.y, text: `전직 — ${c.name}`, t: 2, life: 2, snd: "lvup", who: pi });
+    E.refresh?.(h);                                 // 전직 추가 스탯(체력 등)을 바로 싣는다
+    E.fx(g, h.map, { kind: "sk_adv_up", x: h.x, y: h.y, c: req.c, t: ADV_UP.life, life: ADV_UP.life, snd: "lvup", who: pi });   // 전직 연출(advArt.js)
+    E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 150, text: `전직 — ${c.name}`, color: "#ffd873", t: 2.2, life: 2.2 });
     E.sys(g, pi, `${c.name}(으)로 전직했습니다. 전직 스킬 「${c.active.name}」은 전직 스킬 키(기본 Z)로 씁니다.${c.gear ? " 전직 무기를 가방에 넣었습니다." : ""}`);
     return true;
   }
@@ -158,10 +160,19 @@ export function advOnHit(E, g, h, o, basic, side) {
   } else if (c.id === "archmage") {               // 마력 순환 — 마법 공격이 맞으면 마력(화상 · 독 틱은 세지 않는다)
     if (a.mgT > 0) return;
     a.mgT = P.gap; a.st = Math.min(P.max, a.st + 1);
+  } else if (c.id === "healer") {                 // 은총 — 평타가 맞으면 둘레에서 체력이 가장 모자란 사람을 조금 회복
+    if (!basic || side || a.gcT > 0) return;
+    a.gcT = P.gap;
+    let best = null;
+    g.heroes.forEach((q) => {
+      if (!q || q.down > 0 || q.map !== h.map || q.hp >= q.max || E.dist(h.x, h.y, q.x, q.y) > P.r) return;
+      if (q !== h && (E.pvpMap(h.map) || E.fieldPvp(h))) return;   // 결투 · 사냥터 PvP 에서는 나만
+      if (!best || q.hp / q.max < best.hp / best.max) best = q;
+    });
+    if (best) healHero(E, g, h, best, best.max * P.heal, false);
   } else if (c.id === "summoner") {               // 영혼 연결 — 정령이 2초 안에 친 적을 내가 치면
     a.lk = k; a.lt = g.t;
-    const sp = a.sp;
-    if (sp && sp.t > 0 && sp.lk === k && g.t - sp.lt <= P.win) soulLink(E, g, h, o);
+    if ((a.sps || []).some((sp) => sp.t > 0 && sp.lk === k && g.t - sp.lt <= P.win)) soulLink(E, g, h, o);
   }
 }
 function soulLink(E, g, h, o) {
@@ -169,8 +180,34 @@ function soulLink(E, g, h, o) {
   if (a.slT > 0 || !E.alive(g, h, o, h.map)) return;
   a.slT = P.gap;
   const dmg = E.base(h, c.active.dmg) * P.mul;
-  E.noProc(() => withCap(h, a.sp && a.sp.cap, () => E.strike(g, h, o, dmg)));
+  E.noProc(() => withCap(h, a.sps && a.sps[0] && a.sps[0].cap, () => E.strike(g, h, o, dmg)));
   E.fx(g, h.map, { kind: "sk_adv_link", x: o.x, y: o.y - 30, x0: h.x, y0: h.y - 40, elem: E.elem(h), t: 0.45, life: 0.45, snd: "zap" });
+}
+/* 치유 — by 가 o 를 amt 만큼. 실제로 찬 몫만 숫자로 띄우고, 축복(trial)이면 치유사 시험에 센다 */
+function healHero(E, g, by, o, amt, trial) {
+  if (!o || o.down > 0 || amt <= 0) return 0;
+  const before = o.hp;
+  o.hp = Math.min(o.max, o.hp + amt);
+  const d = o.hp - before;
+  if (d >= 1) E.fx(g, o.map, { kind: "heal", x: o.x, y: o.y - 56, text: `+${Math.round(d)}`, t: 0.8, life: 0.8, who: o.pi });
+  if (trial && d > 0 && by) healTrial(E, g, by, d);
+  return d;
+}
+// 치유사 시험 — 축복으로 찬 체력을 모아 unit 마다 한 칸
+function healTrial(E, g, h, d) {
+  const T = trialOf(h);
+  if (!T || T.id !== "healer" || h.advQ.n >= T.trial.n) return;
+  const a = asOf(h);
+  a.hq += d;
+  let got = 0;
+  while (a.hq >= T.trial.unit && trialAdd(E, g, h, "healer")) { a.hq -= T.trial.unit; got += 1; }
+  if (got && h.advQ.n < T.trial.n && h.advQ.n % 5 === 0) E.say(g, h.map, h.x, h.y - 120, trialText(T, h.advQ), "#fff0c0");
+}
+// 축복을 건다 — 받는 피해 감소 · 바로 회복 · 이어 회복(tickAdv)
+function bless(E, g, h, o, A) {
+  const b = asOf(o);
+  b.blT = A.dur; b.blCut = A.cut; b.blReg = A.regen; b.blTk = A.tick; b.blBy = h.pi;
+  healHero(E, g, h, o, o.max * A.heal, true);
 }
 // 정령 · 연속 공격이 같은 결투 피해 한도(스킬 한 번)를 나눠 쓰게 — 잠깐 h.cast 를 바꿔 친다
 function withCap(h, cap, fn) {
@@ -204,6 +241,7 @@ export function advTakeCut(h, ironCut) {
   if (a && a.gT > 0 && advOf(h) === K) parts.push(K.active.cut);
   if (advOf(h) === K && h.hp <= h.max * K.passive.hp) parts.push(K.passive.cut);
   if (a && a.pT > 0) parts.push(a.pCut);
+  if (a && a.blT > 0) parts.push(a.blCut);           // 치유사 수호의 축복
   if (!parts.length) return ironCut || 0;
   const keep = [ironCut || 0, ...parts].reduce((v, c) => v * (1 - c), 1);
   return Math.min(K.cap, 1 - keep);
@@ -228,7 +266,7 @@ export function advHurt(E, g, h) {
 }
 // 쓰러졌다 — 정령은 돌아간다
 export function advDown(E, g, h) {
-  if (h.as) h.as.sp = null;
+  if (h.as) { h.as.sps = []; h.as.blT = 0; }
 }
 /* 몹이 쓰러졌다 — got 은 그 몹을 친 사람 가운데 같은 맵에 있는 사람(보상을 받는 사람).
    총사 시험: 친 사람 모두 그 종류를 한 번 */
@@ -358,9 +396,18 @@ export function advUse(E, g, h) {
       E.fx(g, map, { kind: "sk_adv_burst", x: tx, y: ty - 20, r, elem: el, t: 0.55, life: 0.55, snd: "boom", kick: 0.25 });
     });
     if (n) E.say(g, map, h.x, h.y - 120, `마력 ${n}`, "#d8c8ff");
+  } else if (c.id === "healer") {
+    const solo = E.pvpMap(map) || E.fieldPvp(h);   // 결투 · 사냥터 PvP 에서는 나에게만
+    g.heroes.forEach((o) => {
+      if (!o || o.down > 0 || o.map !== map || !o.loaded) return;
+      if (o !== h && (solo || E.dist(h.x, h.y, o.x, o.y) > A.r)) return;
+      bless(E, g, h, o, A);
+    });
+    E.fx(g, map, { kind: "sk_adv_bless", x: h.x, y: h.y, r: A.r, t: 1, life: 1, snd: "bless" });
   } else if (c.id === "summoner") {
-    if (a.sp && a.sp.t > 0) E.fx(g, map, { kind: "poof", x: a.sp.x, y: a.sp.y, t: 0.4, life: 0.4, color: "rgba(200,220,255,1)" });   // 있던 정령은 돌려보낸다
-    a.sp = newSpirit(h, A.life);
+    const sps = a.sps || (a.sps = []);
+    sps.forEach((sp) => { sp.t = A.life; });       // 있던 정령은 시간이 다시 찬다
+    if (sps.length < A.max) sps.push(newSpirit(h, A.life, sps.length, sps.length + 1));
     E.fx(g, map, { kind: "sk_adv_summon", x: h.x, y: h.y, r: 80, elem: E.elem(h), t: 0.9, life: 0.9, snd: "bless" });
   }
   a.cd = A.cd;
@@ -370,10 +417,15 @@ export function advUse(E, g, h) {
 }
 // 쏘는 자리 — 발밑에서 겨눈 쪽으로 이만큼 앞 · 이만큼 위(손 높이). 몸 한가운데서 나가면 캐릭터를 뚫고 나가 보였다
 const MUZZLE = { bow: 18, gun: 22, y: 30 };
-const SPIRIT_HOVER = { x: 44, y: 66 };            // 정령이 떠 있는 자리 — 주인 뒤쪽 위
-const newSpirit = (h, life) => ({ t: life, x: h.x - (h.dir || 1) * SPIRIT_HOVER.x, y: h.y - SPIRIT_HOVER.y,
-  cd: 0.5, cap: { raw: 0, adv: 1 }, lk: "", lt: -9 });
-export const spiritSpot = (h) => [h.x - (h.dir || 1) * SPIRIT_HOVER.x, h.y - SPIRIT_HOVER.y];
+const SPIRIT_HOVER = { x: 44, y: 66, ring: 62, flat: 0.55 };   // 정령이 떠 있는 자리 — 하나면 주인 뒤쪽 위, 여럿이면 주인 둘레 고리(ring 반지름 · flat 세로 눌림)
+// i 번째 정령의 자리(n 마리 가운데) — 첫째는 뒤쪽 위에서 시작해 고리를 고르게 나눈다
+export const spiritSpot = (h, i = 0, n = 1) => {
+  const d = h.dir || 1;
+  if (n <= 1) return [h.x - d * SPIRIT_HOVER.x, h.y - SPIRIT_HOVER.y];
+  const ang = (d > 0 ? Math.PI : 0) + (i / n) * Math.PI * 2;
+  return [h.x + Math.cos(ang) * SPIRIT_HOVER.ring, h.y - SPIRIT_HOVER.y + Math.sin(ang) * SPIRIT_HOVER.ring * SPIRIT_HOVER.flat];
+};
+const newSpirit = (h, life, i, n) => { const [x, y] = spiritSpot(h, i, n); return { t: life, x, y, cd: 0.5, cap: { raw: 0, adv: 1 }, lk: "", lt: -9 }; };
 
 /* ── 시간 (방장 · stepHeroes) ─────────────────────────────── */
 export function tickAdv(E, g, h, dt) {
@@ -384,10 +436,22 @@ export function tickAdv(E, g, h, dt) {
   a.pT = Math.max(0, a.pT - dt);
   a.slT = Math.max(0, a.slT - dt); a.mgT = Math.max(0, a.mgT - dt);
   if (a.stT > 0 && (a.stT -= dt) <= 0) { a.stT = 0; if (h.advClass === "gladiator" || h.advClass === "gunner") a.st = 0; }
-  const sp = a.sp;
-  if (!sp) return;
-  if (h.down > 0 || E.safe(h.map) || (sp.t -= dt) <= 0) { a.sp = null; return; }
-  const [hx, hy] = spiritSpot(h), k = Math.min(1, dt * 6);
+  a.gcT = Math.max(0, (a.gcT || 0) - dt);
+  if (a.blT > 0) {                                 // 수호의 축복 — tick 초마다 최대 체력의 regen 만큼
+    a.blT = Math.max(0, a.blT - dt);
+    if ((a.blTk -= dt) <= 0 && h.down <= 0) {
+      a.blTk += ADV_BY_ID.healer.active.tick;
+      healHero(E, g, g.heroes[a.blBy] || null, h, h.max * a.blReg, true);
+    }
+  }
+  if (!a.sps || !a.sps.length) return;
+  if (h.down > 0 || E.safe(h.map)) { a.sps = []; return; }
+  a.sps = a.sps.filter((sp) => (sp.t -= dt) > 0);
+  const n = a.sps.length;
+  a.sps.forEach((sp, i) => spiritAct(E, g, h, a, sp, i, n, dt));
+}
+function spiritAct(E, g, h, a, sp, i, n, dt) {
+  const [hx, hy] = spiritSpot(h, i, n), k = Math.min(1, dt * 6);
   if (sp.map !== h.map) { sp.x = hx; sp.y = hy; sp.map = h.map; }
   sp.x += (hx - sp.x) * k; sp.y += (hy - sp.y) * k;
   if ((sp.cd -= dt) > 0) return;
@@ -399,7 +463,7 @@ export function tickAdv(E, g, h, dt) {
   E.fx(g, map, { kind: "sk_adv_spshot", x: sp.x, y: sp.y, x0: sp.x, y0: sp.y, x1: o.x, y1: o.y - 28, elem: el, t: A.fly, life: A.fly });
   const dmg = E.base(h, A.dmg) * A.mul;
   E.later(g, A.fly, () => {
-    if (a.sp !== sp || !E.alive(g, h, o, map)) return;
+    if (!(a.sps || []).includes(sp) || !E.alive(g, h, o, map)) return;
     E.noProc(() => withCap(h, sp.cap, () => E.strike(g, h, o, dmg)));
     const k2 = keyOf(o);
     sp.lk = k2; sp.lt = g.t;
@@ -407,13 +471,14 @@ export function tickAdv(E, g, h, dt) {
   });
 }
 
-/* ── 스냅샷 줄 53 — [전직, 시험 전직, 시험 진행, 쿨타임, 중첩, 철벽 방어 남은 초, 정령 남은 초, 파티 보호 남은 초, 노출 여부, 목록 시험의 종류마다 수(없으면 0)] ── */
+/* ── 스냅샷 줄 53 — [전직, 시험 전직, 시험 진행, 쿨타임, 중첩, 철벽 방어 남은 초, 정령 가장 긴 남은 초, 파티 보호 남은 초, 노출 여부, 목록 시험의 종류마다 수(없으면 0), 정령마다 남은 초, 축복 남은 초] ── */
 export function packAdv(h) {
   const a = h.as, ci = ADV_IDS.indexOf(h.advClass), qi = h.advQ ? ADV_IDS.indexOf(h.advQ.c) : -1;
   if (ci < 0 && qi < 0 && !a) return 0;
-  const sp = a && a.sp;
+  const sps = (a && a.sps) || [];
   return [ci, qi, h.advQ ? h.advQ.n : 0, a ? r1(a.cd) : 0, a ? a.st : 0, a ? r1(a.gT) : 0,
-    sp ? r1(sp.t) : 0, a ? r1(a.pT) : 0, a && a.ex ? 1 : 0, h.advQ && h.advQ.m ? h.advQ.m.slice() : 0];
+    sps.length ? r1(Math.max(...sps.map((sp) => sp.t))) : 0, a ? r1(a.pT) : 0, a && a.ex ? 1 : 0, h.advQ && h.advQ.m ? h.advQ.m.slice() : 0,
+    sps.length ? sps.map((sp) => r1(sp.t)) : 0, a ? r1(a.blT || 0) : 0];
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.as = null; return; }
@@ -422,17 +487,24 @@ export function applyAdv(h, v) {
   h.advQ = ADV_IDS[qi] ? cleanAdvQ({ c: ADV_IDS[qi], n: qn, v: ADV.trialVer, m: v[9] }) : null;   // 방장이 보낸 진행은 지금 판
   const a = asOf(h);
   a.cd = cd; a.st = st; a.gT = gT; a.pT = pT; a.ex = ex ? "on" : "";
-  if (spT > 0) {
-    if (!a.sp) { const [x, y] = spiritSpot(h); a.sp = { x, y, cd: 0.5, cap: { raw: 0, adv: 1 }, lk: "", lt: -9 }; }
-    a.sp.t = spT;
-  } else a.sp = null;
+  // 정령마다 남은 초 — 옛 방장 화면은 줄 끝이 없어 가장 긴 초 하나로 한 마리
+  a.blT = Number(v[11]) || 0;
+  if (a.blT > 0 && !a.blCut) { const A = ADV_BY_ID.healer.active; a.blCut = A.cut; a.blReg = A.regen; a.blTk = A.tick; }   // 방장이 되면 남은 축복을 그대로 잇는다
+  const ts = Array.isArray(v[10]) ? v[10].map((x) => Number(x) || 0).filter((x) => x > 0) : spT > 0 ? [spT] : [];
+  const sps = a.sps || (a.sps = []);
+  sps.length = Math.min(sps.length, ts.length);
+  ts.forEach((t, i) => { if (!sps[i]) sps[i] = newSpirit(h, t, i, ts.length); sps[i].t = t; });
 }
 // 손님 화면 — 정령이 주인을 따라 떠다닌다(그림만. 공격 · 피해는 방장이 보낸 연출)
 export function stepAdvVisual(h, dt) {
-  const sp = h.as && h.as.sp;
-  if (!sp) return;
+  if (h.as && h.as.blT > 0) h.as.blT = Math.max(0, h.as.blT - dt);   // 축복 고리 — 스냅샷 사이에도 줄어든다
+  const sps = h.as && h.as.sps;
+  if (!sps || !sps.length) return;
   if (h.as.cd > 0) h.as.cd = Math.max(0, h.as.cd - dt);
-  const [hx, hy] = spiritSpot(h), k = Math.min(1, dt * 6);
-  if (Math.hypot(hx - sp.x, hy - sp.y) > 400) { sp.x = hx; sp.y = hy; }
-  sp.x += (hx - sp.x) * k; sp.y += (hy - sp.y) * k;
+  const n = sps.length, k = Math.min(1, dt * 6);
+  sps.forEach((sp, i) => {
+    const [hx, hy] = spiritSpot(h, i, n);
+    if (Math.hypot(hx - sp.x, hy - sp.y) > 400) { sp.x = hx; sp.y = hy; }
+    sp.x += (hx - sp.x) * k; sp.y += (hy - sp.y) * k;
+  });
 }

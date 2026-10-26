@@ -14,6 +14,7 @@ import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./item
 import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS } from "./rpg.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR, armorName } from "./armorData.js";
 import { cleanArmor, wornArmor } from "./armor.js";
+import { ADV_BONUS } from "./advData.js";
 
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
 export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]));
@@ -236,9 +237,9 @@ export function addMat(bag, id, n) {
 }
 export const matCount = (bag, id) => (bag && bag.m && bag.m[id]) || 0;
 
-/* ── 스탯에 더해지는 몫 — 장착한 무기 + 패시브 스킬 + 버프 물약 ── */
+/* ── 스탯에 더해지는 몫 — 장착한 무기 + 패시브 스킬 + 버프 물약 + 전직 추가 스탯 ── */
 export function extraStat(h, id) {
-  let v = 0;
+  let v = (ADV_BONUS[h.advClass] && ADV_BONUS[h.advClass][id]) || 0;
   const bag = h.bag;
   if (bag) {
     const w = equipped(bag);

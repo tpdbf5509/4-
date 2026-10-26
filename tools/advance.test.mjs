@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgApplyOut, rpgPromote, rpgSkill, rpgUseSkill, rpgDuel, heroRecord, MAPS, DUEL } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
-import { ADV, ADV_BY_ID, ADV_CLASSES, trialText } from '../src/game/advData.js';
+import { ADV, ADV_BY_ID, ADV_CLASSES, ADV_BONUS, trialText } from '../src/game/advData.js';
+import { statTotal } from '../src/game/rpg.js';
 
 // 1차 전직 — 시험 · 확정 · 저장 · 액티브 6 · 패시브 6 · PvP 한도 · 스냅샷 · 방장 승계. 실행: node --test tools/advance.test.mjs
-const JOB = { gladiator: 'warrior', knight: 'warrior', marksman: 'archer', gunner: 'archer', archmage: 'mage', summoner: 'mage' };
+const JOB = { gladiator: 'warrior', knight: 'warrior', marksman: 'archer', gunner: 'archer', archmage: 'mage', summoner: 'mage', healer: 'mage' };
 function world(people) {
   const g = makeWorld(); g.mySeat = 0; g.out = [];
   const seats = people.map((p, i) => ({ id: `p${i}`, name: p.name || `시험${i}`, hero: { name: p.name || `시험${i}`, job: p.job, elem: p.elem || 'flame', gender: 'm' } }));
@@ -197,9 +198,9 @@ test('소환술사 시험 — 시험을 받은 뒤 보스에게서 얻은 재료
   assert.equal(h.advQ.n, h.advQ.m[i], '다른 재료는 그대로');
 });
 
-test('전직 액티브 6개 — 모두 몹에게 피해를 주고 대기 시간 동안 다시 나가지 않는다', () => {
+test('전직 공격 액티브 — 모두 몹에게 피해를 주고 대기 시간 동안 다시 나가지 않는다', () => {
   fixedRandom(() => {
-    for (const c of ADV_CLASSES) {
+    for (const c of ADV_CLASSES.filter((q) => q.id !== 'healer')) {   // 치유사 축복은 피해가 없다 — 따로 시험
       const { g, h } = advanced(c.id);
       const m = dummyMob(g, 'skeletal', 1090, 900, 220, c.id === 'knight' ? 5 : 0);
       if (c.id === 'knight') { m.tgt = 0; m.state = 'chase'; }
@@ -210,7 +211,7 @@ test('전직 액티브 6개 — 모두 몹에게 피해를 주고 대기 시간 
       assert.equal(h.as.cd, cd);
       run(g, c.id === 'summoner' ? 3 : c.id === 'knight' ? 3 : 1.2);
       assert(m.hp < 1e9, `${c.name} 피해 없음`);
-      if (c.id === 'summoner') assert(h.as.sp && h.as.sp.t > 0);
+      if (c.id === 'summoner') assert(h.as.sps.length === 1 && h.as.sps[0].t > 0);
     }
   });
 });
@@ -289,17 +290,20 @@ test('명사수 · 총사 · 마도사 · 소환술사 패시브', () => {
     assert(am.h.as.st >= 2, `마력 ${am.h.as.st}`);
     send(am.g, 0, 'adv', { op: 'use' });
     assert.equal(am.h.as.st, 0);
-    // 소환술사 — 정령과 같은 적을 치면 영혼 연결 · 다시 쓰면 새 정령 · 시간이 다 되면 사라진다
+    // 소환술사 — 정령과 같은 적을 치면 영혼 연결 · 쓸 때마다 하나 더(최대 10) · 시간이 다 되면 사라진다
     const su = advanced('summoner');
     const sm = dummyMob(su.g, 'skeletal', 1100, 900);
     send(su.g, 0, 'adv', { op: 'use' });
-    const first = su.h.as.sp;
+    const first = su.h.as.sps[0];
     su.h.auto = 1; run(su.g, 4);
     assert(su.g.out.some((o) => o.kind === 'sk_adv_link') || su.h.as.slT > 0, '영혼 연결');
-    su.h.as.cd = 0; send(su.g, 0, 'adv', { op: 'use' });
-    assert.notEqual(su.h.as.sp, first, '새로 부른다');
-    su.h.auto = 0; run(su.g, ADV_BY_ID.summoner.active.life + 0.5);
-    assert.equal(su.h.as.sp, null, '시간이 다 되면 사라진다');
+    const A = ADV_BY_ID.summoner.active;
+    for (let i = 0; i < A.max + 3; i++) { su.h.as.cd = 0; send(su.g, 0, 'adv', { op: 'use' }); }
+    assert.equal(su.h.as.sps.length, A.max, '최대 10마리');
+    assert.equal(su.h.as.sps[0], first, '있던 정령은 남는다');
+    assert(su.h.as.sps.every((sp) => sp.t > A.life - 0.1), '모두 시간이 다시 찬다');
+    su.h.auto = 0; run(su.g, A.life + 0.5);
+    assert.equal(su.h.as.sps.length, 0, '시간이 다 되면 사라진다');
     assert(sm.hp < 1e9);
   });
 });
@@ -328,6 +332,8 @@ test('스냅샷 — 손님 화면에 전직 · 시험 · 정령이 실리고 방
   h.advQ = null;
   dummyMob(g, 'skeletal', 1100, 900);
   send(g, 0, 'adv', { op: 'use' });
+  h.as.cd = 0; send(g, 0, 'adv', { op: 'use' });
+  h.as.cd = 0; send(g, 0, 'adv', { op: 'use' });
   run(g, 0.5);
   const snap = JSON.parse(JSON.stringify(rpgPack(g)));
   const guest = makeWorld(); guest.mySeat = 1;
@@ -335,12 +341,12 @@ test('스냅샷 — 손님 화면에 전직 · 시험 · 정령이 실리고 방
   rpgApply(guest, snap);
   const gh = guest.heroes[0];
   assert.equal(gh.advClass, 'summoner');
-  assert(gh.as.sp && gh.as.sp.t > 0, '정령');
+  assert.equal(gh.as.sps.length, 3, '정령 셋');
   assert(gh.as.cd > 0);
   rpgPromote(guest);
   guest.heroes[0].loaded = 1;                       // 기록이 다시 왔다고 친다
   rpgStep(guest, 0.1);
-  assert(guest.heroes[0].as.sp && guest.heroes[0].as.sp.t > 0, '승계 뒤 정령');
+  assert.equal(guest.heroes[0].as.sps.length, 3, '승계 뒤 정령 셋');
 });
 
 test('서버 초기화 · 다른 기본 직업이면 전직은 비어 온다', () => {
@@ -392,4 +398,101 @@ test('관리자 /직업 — 기본 직업 · 전직으로 바꾸고 자리 · �
   assert.equal(a.job, 'mage'); assert.equal(a.advClass, 'summoner');
   send(g, 0, 'cmd', '/직업 나 해적');
   assert.match(sysOf(g, 0).at(-1), /그런 직업이 없습니다/);
+});
+
+test('전직 추가 스탯 — 전직마다 정한 몫이 스탯에 더해지고 약 40점어치로 고르다', () => {
+  const PT = { str: 2, int: 2, hp: 15, crit: 0.5, cdmg: 1 };      // 포인트 하나의 값(rpg.js STATS per)
+  for (const c of ADV_CLASSES) {
+    const plain = world([{ job: c.job }]).heroes[0], adv = world([{ job: c.job, advClass: c.id }]).heroes[0];
+    let pts = 0;
+    for (const [k, v] of Object.entries(ADV_BONUS[c.id])) {
+      assert.equal(statTotal(adv, k) - statTotal(plain, k), v, `${c.id} ${k}`);
+      pts += v / PT[k];
+    }
+    assert(Math.abs(pts - 40) <= 0.5, `${c.id} 포인트 몫 ${pts}`);
+  }
+  // 기사는 최대 체력이 늘어난다
+  const kn = world([{ job: 'warrior', advClass: 'knight' }]).heroes[0], wr = world([{ job: 'warrior' }]).heroes[0];
+  assert(kn.max > wr.max, `기사 ${kn.max} · 전사 ${wr.max}`);
+});
+
+test('전직을 확정하면 전직 연출(sk_adv_up)이 나가고 추가 체력이 바로 실린다', () => {
+  const T = ADV_BY_ID.knight.trial;
+  const g = world([{ job: 'warrior', advQ: Q('knight', T.n) }]);
+  const h = g.heroes[0], before = h.max;
+  at(h, ADV.npc.x, ADV.npc.y + 40);
+  send(g, 0, 'adv', { op: 'confirm', c: 'knight' });
+  assert.equal(h.advClass, 'knight', sysOf(g, 0).join(' / '));
+  assert(h.max > before && h.hp === h.max, `체력 ${before} → ${h.max}`);
+  const up = g.out.find((o) => o.k === 'fx' && o.kind === 'sk_adv_up');
+  assert(up && up.c === 'knight' && up.by === 0, '전직 연출 · 주인');
+});
+
+test('훈련장 쿨타임 끄기 — 전직 스킬(Z) 대기 시간도 바로 0', () => {
+  const { g, h } = advanced('summoner');
+  h.map = 'train'; h.x = 600; h.y = 900;
+  send(g, 0, 'train', { op: 'nocd' });
+  send(g, 0, 'adv', { op: 'use' });
+  run(g, 0.1);
+  assert.equal(h.as.cd, 0);
+  send(g, 0, 'adv', { op: 'use' });
+  assert.equal(h.as.sps.length, 2, '바로 다시 써서 둘');
+});
+
+test('치유사 수호의 축복 — 범위 안 사람에게 40초 · 피해 감소 · 바로 회복 · 이어 회복', async () => {
+  const { advTakeCut } = await import('../src/game/advance.js');
+  const A = ADV_BY_ID.healer.active;
+  const g = world([{ job: 'mage', advClass: 'healer' }, { job: 'warrior' }, { job: 'archer' }]);
+  g.mobs = [];
+  const [h, near, far] = g.heroes;
+  at(h, 600, 900, 'train'); at(near, 700, 900, 'train'); at(far, 600 + A.r + 200, 900, 'train');   // 훈련장 — 몹이 치지 않는다
+  [h, near, far].forEach((q) => { q.auto = 0; q.hp = Math.round(q.max * 0.3); });
+  const hp0 = near.hp;
+  send(g, 0, 'adv', { op: 'use' });
+  assert.equal(near.as.blT, A.dur, '곁의 사람은 받는다');
+  assert.equal(h.as.blT, A.dur, '나도 받는다');
+  assert(!far.as || !far.as.blT, '범위 밖은 받지 않는다');
+  assert(Math.abs(near.hp - (hp0 + near.max * A.heal)) < 1, '바로 20%');
+  assert(Math.abs(advTakeCut(near, 0) - A.cut) < 1e-9, '받는 피해 15% 감소');
+  assert(g.out.some((o) => o.kind === 'sk_adv_bless'));
+  far.max = near.max; far.hp = near.hp;            // 축복 없는 사람과 견줘 저절로 차는 체력을 뺀다
+  const hp1 = near.hp;
+  run(g, A.tick * 3 + 0.05);
+  const extra = (near.hp - hp1) - (far.hp - hp1);
+  assert(Math.abs(extra - near.max * A.regen * 3) < 2, `이어 회복 ${extra}`);
+  const snap = JSON.parse(JSON.stringify(rpgPack(g)));
+  const guest = makeWorld(); guest.mySeat = 2; guest.looks = g.looks; guest.names = g.names;
+  rpgApply(guest, snap);
+  assert(guest.heroes[1].as.blT > 30, '손님 화면에 축복 고리');
+  run(g, A.dur);
+  assert.equal(near.as.blT, 0, '40초 뒤 끝');
+  assert.equal(advTakeCut(near, 0), 0);
+});
+
+test('치유사 — 결투에서는 나에게만 · 시험은 축복으로 찬 체력을 센다', () => {
+  const g = world([{ job: 'mage', advClass: 'healer' }, { job: 'warrior' }]);
+  g.mobs = [];
+  rpgDuel(g, 0, { op: 'ask', to: 1 }); rpgDuel(g, 1, { op: 'accept' });
+  run(g, DUEL.ready + 0.2);
+  const [a, b] = g.heroes;
+  a.auto = b.auto = 0; b.x = a.x + 60; b.y = a.y;
+  send(g, 0, 'adv', { op: 'use' });
+  assert(a.as.blT > 0);
+  assert(!b.as || !b.as.blT, '상대는 받지 않는다');
+  // 시험 — 마법사가 시험 동안 축복을 써서 3만 회복
+  const t = world([{ job: 'mage', advQ: Q('healer', 0) }, { job: 'warrior' }]);
+  t.mobs = [];
+  const [m, w] = t.heroes;
+  at(m, 600, 900, 'train'); at(w, 650, 900, 'train');
+  m.auto = w.auto = 0;
+  const T = ADV_BY_ID.healer.trial;
+  let healed = 0;
+  for (let i = 0; i < 40 && m.advQ.n < T.n; i++) {
+    m.hp = 1; w.hp = 1; if (m.as) m.as.cd = 0;
+    const before = m.hp + w.hp;
+    send(t, 0, 'adv', { op: 'use' });
+    healed += m.hp + w.hp - before;
+  }
+  assert.equal(m.advQ.n, Math.min(T.n, Math.floor(healed / T.unit)));
+  assert.match(trialText(ADV_BY_ID.healer, m.advQ), /회복/);
 });

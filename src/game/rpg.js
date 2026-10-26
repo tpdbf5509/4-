@@ -1004,7 +1004,7 @@ function rollbackHero(g, h, rb) {
     const keep = { s: h.bag.s, ks: h.bag.ks, pg: h.bag.pg, oc: 1, v: h.bag.v, n: h.bag.n };
     h.bag = Object.assign(cleanBag({}), keep, { ld: 1 });
   } else if (rb.legends) {
-    const ids = new Set(SPECIALS.filter((sp) => !sp.world && !sp.adv && sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
+    const ids = new Set(SPECIALS.filter((sp) => !sp.world && !sp.adv && !sp.hold && sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
     h.bag.w = h.bag.w.filter((w) => !(w.sp && ids.has(w.sp)));
     if (!h.bag.w.some((w) => w.u === h.bag.e)) h.bag.e = 0;
   }
@@ -1030,7 +1030,7 @@ const sameName = (a, b) => String(a || "").trim().replace(/\s+/g, " ") === Strin
 export const ADMIN_LEGEND = { id: 1, grade: 4 };
 function giveAdminLegends(g, h) {
   if (!h.admin || !h.bag || h.bag.lg === ADMIN_LEGEND.id) return;
-  const want = SPECIALS.filter((sp) => !sp.world && !sp.adv && sp.g === ADMIN_LEGEND.grade && !h.bag.w.some((w) => w.sp === sp.id));
+  const want = SPECIALS.filter((sp) => !sp.world && !sp.adv && !sp.hold && sp.g === ADMIN_LEGEND.grade && !h.bag.w.some((w) => w.sp === sp.id));
   const n = Math.max(0, Math.min(want.length, WEAPON.bagMax - h.bag.w.length));
   want.slice(0, n).forEach((sp) => { h.bag.w.push({ u: h.bag.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
   if (n === want.length) h.bag.lg = ADMIN_LEGEND.id;
@@ -1057,7 +1057,7 @@ function giveAdminKit(g, h) {
   if (b.gd < GUARD.max) { b.gd = GUARD.max; changed = true; }
   if (b.ak !== ADMIN_KIT.id) {
     const room = WEAPON.bagMax - b.w.length;
-    const want = SPECIALS.filter((sp) => !sp.world && !sp.adv && !b.w.some((w) => w.sp === sp.id));
+    const want = SPECIALS.filter((sp) => !sp.world && !sp.adv && !sp.hold && !b.w.some((w) => w.sp === sp.id));
     want.slice(0, Math.max(0, room)).forEach((sp) => { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); });
     b.w.forEach((w) => { if (w.sp) w.up = ADMIN_KIT.up; });
     if (!b.a) b.a = [];
@@ -1070,7 +1070,7 @@ function giveAdminKit(g, h) {
     b.ak = ADMIN_KIT.id;
     changed = true;
     refreshHp(h, true);                             // 투구가 최대 체력을 올린다
-    sys(g, h.pi, `관리자 — 특별 무기 ${SPECIALS.filter(sp => !sp.world && !sp.adv).length}자루(강화 +${ADMIN_KIT.up}) · 전설 방어구 넷 · 모든 스킬 · 주문서를 채웠습니다.`);
+    sys(g, h.pi, `관리자 — 특별 무기 ${SPECIALS.filter(sp => !sp.world && !sp.adv && !sp.hold).length}자루(강화 +${ADMIN_KIT.up}) · 전설 방어구 넷 · 모든 스킬 · 주문서를 채웠습니다.`);
   }
   if (changed) b.v += 1;
 }
@@ -2288,7 +2288,7 @@ function tickLater(g, dt) {
   due.forEach((q) => { const prev = setFxBy(q.by ?? -1); try { q.fn(); } finally { setFxBy(prev); } });
 }
 export const wsOf = (h) => h.ws || (h.ws = { emb: 0, star: 0, wcd: 0, cmb: null, zap: 0, zapT: 0, zapKey: "", zapWin: 0,
-  mark: 0, markT: 0, aim: 0, aimWalk: 0, dashT: 0, dashUsed: 0, emT: 0, riftT: 0 });
+  mark: 0, markT: 0, aim: 0, aimWalk: 0, dashT: 0, dashUsed: 0, emT: 0, riftT: 0, fyT: 0 });
 const jbOf = (h) => h.jb || (h.jb = { iron: 0, ironCut: 0, sh: 0, shT: 0 });
 // 결투에서 맞은 사람의 군중 제어 — 경직 · 띄움 · 속박(걷지 못함) · 둔화 · 낙인(암흑검) · 잔영(그림자 활 추가 화살을 이미 받았나)
 const ccOf = (h) => h.cc || (h.cc = { stun: 0, air: 0, root: 0, slow: 0, slowAmt: 0, brand: 0, chase: 0 });
@@ -2327,6 +2327,14 @@ function aimTo(g, h, reach) {
 function lineFoes(g, h, ax, ay, len, width) {
   return foesNear(g, h, h.x, h.y, len + 40).filter((o) => {
     const dx = o.x - h.x, dy = (o.y - h.y) / RPG.squash;
+    const along = dx * ax + dy * ay, side = Math.abs(dx * ay - dy * ax);
+    return along >= -20 && along <= len && side <= width + (o.rad || 16) * 0.5;
+  });
+}
+// 한 줄 — (x, y) 에서 [ax, ay] 쪽으로(적룡 지팡이 광선처럼 내 자리가 아닌 곳에서 나갈 때)
+function lineFrom(g, h, x, y, ax, ay, len, width) {
+  return foesNear(g, h, x, y, len + 40).filter((o) => {
+    const dx = o.x - x, dy = (o.y - y) / RPG.squash;
     const along = dx * ax + dy * ay, side = Math.abs(dx * ay - dy * ax);
     return along >= -20 && along <= len && side <= width + (o.rad || 16) * 0.5;
   });
@@ -2625,6 +2633,11 @@ function weaponOnHit(g, h, m, foe, side, basic) {
     (g.zones || (g.zones = [])).push({ pi: h.pi, map: h.map, x: o.x, y: o.y, r: P.r, t: P.life, tick: P.tick, acc: 0, linger: 0,
       dmg: SKILL_USE.base * magMul(h) * P.mul, ember: 1 });
     fx(g, h.map, { kind: "sk_ember", x: o.x, y: o.y, r: P.r, t: P.life, life: P.life });
+  } else if (sp === "fury_staff") {              // 용의 불씨 — 평타가 맞으면 용의 격노 대기 시간이 준다
+    if (!basic || side || w.fyT > 0) return;
+    const P = WS.fury_staff.passive;
+    w.fyT = P.gap;
+    w.wcd = Math.max(0, w.wcd - P.cut);
   } else if (sp === "lava_bow") {                 // 관통 표식
     if (side) return;
     const P = WS.lava_bow.passive;
@@ -2699,6 +2712,7 @@ function tickWeapon(g, h, dt) {
     }
     w.dashT = Math.max(0, w.dashT - dt);
     w.emT = Math.max(0, w.emT - dt);
+    w.fyT = Math.max(0, w.fyT - dt);
     w.riftT = Math.max(0, w.riftT - dt);
     if (sp !== "thunder_staff") w.zap = 0;        // 다른 무기로 바꾸면 쌓인 것은 사라진다
     if (sp !== "lava_bow") w.mark = 0;
@@ -3134,6 +3148,31 @@ function rangedSkill(g, h, sp, S, w) {
         });
       });
     }
+    return true;
+  }
+  if (sp === "fury_staff") {                      // 용의 격노 — 영상 그대로: 마법진 → 초승달 베기 → 화염구 폭발 → 폭발 자리에서 화염 광선
+    const [ax, ay] = faceDir(h), a = angOf(ax, ay);
+    const [bx, by] = lineEnd(h, ax, ay, S.burst.ahead);
+    // 연출은 한 통 — 단계마다 시간은 furyArt.js 가 같은 S 로 그린다(메시지를 늘리지 않는다)
+    fx(g, map, { kind: "sk_fury", x: h.x, y: h.y, a, bx, by, t: S.life, life: S.life, snd: "slash" });
+    later(g, S.slash.at, () => {
+      if (h.map !== map || h.down > 0) return;
+      arcFoes(g, h, ax, ay, S.slash.r, S.slash.half).forEach((o) => {
+        strikeAny(g, h, o, mag * S.slash.mul);
+        fx(g, map, { kind: "sk_fury_hit", x: o.x, y: o.y - 30, t: 0.35, life: 0.35 });   // 맞은 자리 십자 섬광
+      });
+    });
+    later(g, S.burst.at, () => {
+      if (h.map !== map || h.down > 0) return;
+      foesNear(g, h, bx, by, S.burst.r).forEach((o) => strikeAny(g, h, o, mag * S.burst.mul));
+      g.shake = Math.max(g.shake, 0.35);
+      fx(g, map, { kind: "sk_fury_hit", x: bx, y: by - 30, big: 1, t: 0.4, life: 0.4, snd: "boom" });
+    });
+    later(g, S.beam.at, () => {
+      if (h.map !== map || h.down > 0) return;
+      lineFrom(g, h, bx, by, ax, ay, S.beam.len, S.beam.width).forEach((o) => strikeAny(g, h, o, mag * S.beam.mul));   // 광선은 폭발 자리에서 앞으로
+      g.shake = Math.max(g.shake, 0.3);
+    });
     return true;
   }
   if (sp === "thunder_staff") {                   // 전류 방출 — 마법진 뒤 앞으로 구체

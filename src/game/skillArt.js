@@ -3,6 +3,7 @@ import {drawWorldBossFx} from "./worldBossArt.js";
 import { skillAccent } from "./combatFx.js";
 import { drawWorldWeaponFx } from "./worldWeaponArt.js";
 import { drawAdvFx, ADV_GROUND } from "./advArt.js";
+import { drawFuryFx } from "./furyArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
    drawSkillFx — 이 파일이 맡은 연출(kind 가 "sk_" 로 시작): 빙판길 · 얼음 가시 · 불꽃 회오리 · 화염베기 · 유성(별 · 은하) · 종말의 일격 · 성광 빛줄기 · 빛의 결계 · 잿빛 폭발 · 낙뢰.
    drawHeroSkill — 영웅 둘레에 늘 붙는 것: 화염검 불똥 · 별빛 · 철벽 · 보호막 · 연계 중인 무기(그림자 칼 · 천사 날개 · 조준선) · 쌓인 패시브.
@@ -51,6 +52,7 @@ export function drawSkillFx(ctx, f, time, g) {
   if (drawWorldBossFx(ctx,f,p,Q)||drawGuildFx(ctx,f,p,Q)) return;
   if (drawWorldWeaponFx(ctx, f, p, time, SQ(), g, Q)) return;
   if (drawAdvFx(ctx, f, p, time, Q)) return;      // 1차 전직(advArt.js)
+  if (drawFuryFx(ctx, f, p, Q)) return;           // 적룡 지팡이(furyArt.js)
   skillAccent(ctx, f, p, Q);
   if (f.kind === "sk_ice") drawIce(ctx, f, p, time);
   else if (f.kind === "sk_tornado") drawTornado(ctx, f, p);

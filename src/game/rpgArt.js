@@ -2,6 +2,7 @@ import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,
 import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
 import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
+import { warmFuryArt } from "./furyArt.js";
 import { warmAdvArt, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
@@ -61,7 +62,7 @@ const WEAPON_GRIP = {
   thunder: [24, 100, 120, 6], viper: [36, 44, 122, 118],
   // 지팡이 — 손잡이 → 머리, 활 — 손잡이 → 위쪽 끝
   moon_staff: [64, 72, 63, 8], ice_staff: [55, 68, 112, 10], skull_staff: [70, 66, 12, 10], flame_staff: [52, 50, 104, 104],
-  thunder_staff: [68, 78, 24, 34], galaxy_staff: [64, 78, 64, 10], holy_staff: [50, 68, 96, 20],
+  thunder_staff: [68, 78, 24, 34], galaxy_staff: [64, 78, 64, 10], holy_staff: [50, 68, 96, 20], fury_staff: [64, 80, 64, 18],
   thunder_bow: [56, 64, 10, 8], lava_bow: [71, 64, 23, 8], shadow_bow: [66, 56, 22, 10], star_bow: [66, 60, 16, 12], gold_bow: [71, 52, 12, 12],
 };
 // 활 그림에서 활줄이 놓인 쪽 — 손잡이 → 위쪽 끝을 보고 왼쪽(-1) · 오른쪽(1). 손에 든 쪽과 다르면 뒤집어 활줄이 몸 쪽을 향하게 한다
@@ -296,7 +297,7 @@ export const RFRAME = {
 };
 let rpgWarm = 0;
 export function warmRpgArt() {
-  warmDragonFlightArt();warmWorldBossArt();warmGuildArt();warmAdvArt();
+  warmDragonFlightArt();warmWorldBossArt();warmGuildArt();warmAdvArt();warmFuryArt();
   if (rpgWarm) return;
   rpgWarm = 1;
   ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
@@ -2328,7 +2329,7 @@ function follow(g, M) {
    ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
    ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
-  cap: {sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
+  cap: {sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
 const lod = { at: 0, ms: 16, q: 1 };
 /* 사람이 많은 화면 — 월드보스처럼 한 맵에 모이면 손님 기기마다 남의 연출을 모두 그려 휴대폰에서 초당 화면이 반으로 떨어졌다.
    (실측: 월드보스 무기 연출 하나가 휴대폰 속도에서 3~5ms. 남의 것이 스무 개 넘게 겹친다)

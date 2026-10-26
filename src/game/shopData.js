@@ -84,6 +84,8 @@ export const SPECIALS = [
   { id: "thunder_staff", name: "번개 지팡이", t: "staff", lv: 70, g: 4, stat: "int", amt: 170, art: "thunder_staff" },
   { id: "galaxy_staff", name: "은하 지팡이", t: "staff", lv: 90, g: 4, stat: "int", amt: 200, art: "galaxy_staff" },
   { id: "holy_staff", name: "신성 지팡이", t: "staff", lv: 100, g: 4, stat: "int", amt: 240, art: "holy_staff" },
+  // 획득처를 정하기 전(hold) — 상점 · 특가 · 랜덤 상자 · 관리자 자동 지급에 나오지 않는다. 관리자 /지급 으로만 받는다(10월 26일)
+  { id: "fury_staff", name: "적룡 지팡이", t: "staff", lv: 100, g: 4, stat: "int", amt: 260, art: "fury_staff", hold: 1 },
   // 활 — 궁수 공격력인 물리력을 올린다. 초보 궁수가 살 활이 50레벨까지 없어 레벨 · 값을 낮췄다(10월 21일).
   // 번개 활 Lv 50 → 20(올리는 양도 20레벨 몫). 전설 활은 한 단계씩 낮추고(값도 그만큼 싸진다) 올리는 양은 예전 그대로 amt 로 둔다
   { id: "thunder_bow", name: "번개 활", t: "bow", lv: 20, g: 3, stat: "str", art: "thunder_bow" },

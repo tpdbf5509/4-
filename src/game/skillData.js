@@ -118,6 +118,20 @@ export const WEAPON_SKILLS = {
       cd: 8, len0: 260, lenPer: 900, w0: 50, wPer: 300, mul0: 1.5, mulPer: 8, air: 0.9 },
     note: "강한 공격을 위해 방어를 내려놓는다 · 빈틈을 보고 쓴다",
   },
+  // 적룡 지팡이(10월 26일) — 사용자가 준 영상의 스킬을 그대로 옮겼다: 바닥 마법진 → 초승달 베기 · 십자 섬광 → 불똥 →
+  // 앞의 화염구 폭발 → 폭발 자리에서 앞으로 긴 화염 광선 → 붉은 X 표식이 남아 사라진다. 그림은 rpg/effects/fury-fx.webp(furyArt.js)
+  fury_staff: {
+    name: "용의 격노", role: "근접 견제 · 전방 일직선 마무리",
+    // 평타가 맞으면 무기 스킬 대기 시간이 cut 초 준다(gap 초에 한 번)
+    passive: { name: "용의 불씨", note: "평타가 맞으면 용의 격노 대기 시간이 0.4초 준다", cut: 0.4, gap: 0.3 },
+    // 시간(초)은 영상의 한 번(약 1.2초)을 따른다. slash 앞 부채꼴(r · half) → burst 앞 ahead 자리 둘레 r → beam 그 자리에서 앞으로 len · width
+    skill: { note: "앞을 초승달로 베고 화염구를 터뜨린 뒤 그 자리에서 긴 화염 광선을 쏜다",
+      cd: 12, life: 1.4,
+      slash: { at: 0.15, r: 190, half: 0.75, mul: 1.2 },
+      burst: { at: 0.42, ahead: 170, r: 110, mul: 1.6 },
+      beam: { at: 0.58, len: 460, width: 46, mul: 2.2 } },
+    note: "세 번 모두 맞히면 마법력 기준 5배 · 광선은 폭발 자리부터 나간다",
+  },
   // 활 넷 — 궁수용(활 묶음). 피해는 물리력(skillBase)으로 셈한다
   lava_bow: {
     name: "관통 연사", role: "조준 · 연속 입력 · 마무리",
@@ -153,4 +167,14 @@ export const WEAPON_SKILLS = {
       cd: 10, back: 190, time: 0.25, fwd: 150, gap: 1.2, v: 1000, range: 520, hitR: 28, mul: 1.4, fan: 5, spread: 0.55, fanMul: 1.1 },
     note: "상대는 도약 길을 읽어 노릴 수 있다",
   },
+};
+
+/* 적룡 지팡이 연출 그림 — 생성한 4열 × 2행 아틀라스(검은 바탕이라 빛을 더하듯 lighter 로 그린다, 원본 design/weapons/fury-fx.webp).
+   칸: rune 바닥 마법진 · slash 초승달 · star 십자 섬광 · puff 불똥 · ball 화염구 · beam 광선(오른쪽으로) · ring 연기 고리 · mark X 표식.
+   step 은 영상 한 번(약 1.2초)의 단계마다 [시작 초, 끝 초] — rpg.js 판정 시각(skill.slash.at 등)과 맞춘다 */
+export const FURY_ART = {
+  src: "/assets/game/rpg/effects/fury-fx.webp", cols: 4, cell: 256,
+  CELL: { rune: 0, slash: 1, star: 2, puff: 3, ball: 4, beam: 5, ring: 6, mark: 7 },
+  step: { rune: [0, 0.38], slash: [0.08, 0.34], puff: [0.24, 0.48], ball: [0.38, 0.68], beam: [0.54, 0.88], ring: [0.56, 0.95], mark: [0.8, 1.4] },
+  size: { rune: 230, slash: 210, star: 150, puff: 70, ball: 230, beamW: 120, ring: 260, mark: 150 },
 };

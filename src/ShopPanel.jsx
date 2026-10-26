@@ -185,7 +185,7 @@ function WeaponShop({ h, send }) {
           <WeaponItem w={d} price={<Price n={d.price} old={d.full} />}
             acts={[{ label: "특가 구매", main: true, why: whyDealBuy(h, d.key, day), onClick: () => send({ op: "deal", key: d.key }) }]} />
           <Head sub="코인으로 바로 삽니다 · 같은 무기는 한 자루만">무기</Head>
-          {SPECIALS.filter(sp => !sp.world && !sp.adv).map((sp) => {
+          {SPECIALS.filter(sp => !sp.world && !sp.adv && !sp.hold).map((sp) => {
             const w = { t: sp.t, r: specialTier(sp), g: sp.g, sp: sp.id };
             const have = h.bag.w.some((q) => q.sp === sp.id);
             return (

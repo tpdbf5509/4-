@@ -49,7 +49,7 @@
 | `rabbit-frozen.webp` | 64 × 56 | (32, 46) | 얼어붙은 토끼 |
 | `tree-0~2.webp` | 100 × 76 | 나뭇등걸 (50, 58) | 소나무 3종. 사냥터와 결전장에서 함께 씁니다 |
 | `tree-3~5.webp` | 100 × 76 | (50, 58) | 둥근 나무 3종 |
-| `weapons/<id>.webp` | 64 × 64 | 가운데 | 특별 무기 그림(상점 · 가방 창). 칼끝이 오른쪽 위를 향한 모습. id 는 `shopData.js` 의 `SPECIALS[].art` — `clockwork` 태엽검 · `forest` 숲의 검 · `coral` 산호검 · `viper` 독사 단검 · `thunder` 번개검 · `frost` 서리검 · `flame` 화염검 · `star` 별의 검 · `shadow` 암흑검 · `holy` 신성검, 지팡이 `moon_staff` · `ice_staff` · `skull_staff` · `flame_staff` · `thunder_staff` · `galaxy_staff` · `holy_staff`, 활 `thunder_bow` · `lava_bow` · `shadow_bow` · `star_bow` · `gold_bow`(원본은 `design/weapons/`, 바탕 지우기는 `tools/cut-weapons.py`). 못 불러오면 그림 없이 이름만 보입니다 |
+| `weapons/<id>.webp` | 64 × 64 | 가운데 | 특별 무기 그림(상점 · 가방 창). 칼끝이 오른쪽 위를 향한 모습. id 는 `shopData.js` 의 `SPECIALS[].art` — `clockwork` 태엽검 · `forest` 숲의 검 · `coral` 산호검 · `viper` 독사 단검 · `thunder` 번개검 · `frost` 서리검 · `flame` 화염검 · `star` 별의 검 · `shadow` 암흑검 · `holy` 신성검, 지팡이 `moon_staff` · `ice_staff` · `skull_staff` · `flame_staff` · `thunder_staff` · `galaxy_staff` · `holy_staff` · `fury_staff`(적룡 지팡이 128×128, 세로로 선 모습), 활 `thunder_bow` · `lava_bow` · `shadow_bow` · `star_bow` · `gold_bow`(원본은 `design/weapons/`, 바탕 지우기는 `tools/cut-weapons.py`). 못 불러오면 그림 없이 이름만 보입니다 |
 | `armor/<부위>-<등급>.webp` | 128 × 128 | 가운데 | 방어구 그림(가방 · 상점 창). 부위 `head` 투구 · `body` 갑옷 · `legs` 바지 · `feet` 신발, 등급 `0` 초급 · `1` 희귀 · `2` 영웅 · `3` 전설. 원본은 `design/armor/`, 자르기는 `tools/cut-armor.py` |
 | `boss/<보스>-<자세>.webp` | 원본 크기(그라모르 약 100px, 나머지는 줄여 180~250px) | 발밑 가운데 | 던전 보스 `gramor` · `argas` · `morgas` · `barkanon` · `serka`. 그라모르는 `idle` · `move` · `attack` · `hurt` · `dead` · `slam` · `charge`, 나머지는 `idle`(또는 `idle0~3`) · `walk0~3`. 아르가스는 bosses-3 가운데 줄의 방패 기사다. 보스마다 같은 배율로 그린다(`rpgArt.js` `BOSS_ART`). 원본은 `design/bosses/` · `design/armor/boss-morgas.jpg` · `bosses-3.jpg`, 자르기는 `tools/cut-bosses.py` |
 
@@ -84,6 +84,8 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 월드보스 장비: `rpg/items/world-equipment.webp` — 투명 1916×821, 7열×3행. 행은 드래곤·거대 뱀·고대 번개 기계. 열은 전사 무기·지팡이·활·투구·갑옷·바지·신발. 원본/생성 기록은 `docs/월드보스-장비-이미지-생성.md`. 인벤토리와 손에 든 무기가 같은 시트 칸을 사용한다.
 
 용아쌍검 손에 든 그림: `rpg/items/dragon-dual-held.webp` — 투명 1774×887, 2열×1행. 왼쪽 장검, 오른쪽 단검. `rpgArt.js`가 각 칸을 128px 기준으로 캐시하고 성별·방향별 양손 좌표에 따로 그린다. 가방·거래의 기존 쌍검 아이콘은 유지한다.
+
+적룡 지팡이 용의 격노 그림: `rpg/effects/fury-fx.webp` — 검은 바탕 1024×512, 4열×2행, 칸당 256×256(Codex 생성, 원본 `design/weapons/fury-fx.webp`). 칸은 바닥 마법진 · 초승달(오른쪽으로 볼록) · 십자 섬광 · 불똥 · 화염구 · 광선(오른쪽으로) · 연기 고리 · X 표식. 빛을 더하듯(lighter) 그린다. 단계 시각과 크기는 `skillData.js` `FURY_ART`, 그리기는 `furyArt.js`. 못 불러오면 코드 빛으로 대신한다.
 
 비룡육연사 비행 그림: `rpg/effects/dragon-flight.webp` — 투명 1536×1024, 3열×2행, 칸당512×512. 왼쪽 위부터 날개 위·내리는 중·수평·아래·돌아오는 중·올리는 중의 6프레임이다. 붉은 비늘과 금빛 뿔의 용이 오른쪽을 향한다. `worldEquipmentData.js`의 `DRAGON_FLIGHT_ART`가 각 프레임의 주둥이 기준점과 표시 크기230을 정의한다. `dragonFlightArt.js`가 발사 방향으로 돌려 그린다. RPG 진입 때 미리 읽고 실패하면 코드로 그린 용으로 대신한다.
 

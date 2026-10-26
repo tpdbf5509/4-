@@ -123,7 +123,7 @@ export function specialPrice(sp) {
   return Math.max(10, Math.round(raw / 10) * 10);
 }
 // 내 레벨로 낄 수 있는 특별 무기
-export const specialsFor = (lv) => SPECIALS.filter((sp) => !sp.world && !sp.adv && lv >= sp.lv);   // 월드보스 · 전직 무기는 빼고
+export const specialsFor = (lv) => SPECIALS.filter((sp) => !sp.world && !sp.adv && !sp.hold && lv >= sp.lv);   // 월드보스 · 전직 무기는 빼고
 export const specialArt = (sp) => sp.world ? worldArt(sp.id) : `/assets/game/rpg/weapons/${sp.art}.webp`;
 
 // 가방의 무기 한 자루 — 특별 무기면 sp 가 붙어 있다
@@ -294,6 +294,7 @@ export function whySpecialBuy(h, id) {
   if (!sp) { out.push("없는 무기입니다"); return out; }
   if (sp.world) out.push("월드보스 전용 장비입니다");
   if (sp.adv) out.push("전직하면 받는 무기입니다");
+  if (sp.hold) out.push("아직 얻는 곳이 정해지지 않은 무기입니다");
   if (!h || !h.bag) return out;
   if (h.bag.w.some((w) => w.sp === id)) { out.push("이미 가지고 있습니다"); return out; }
   if (h.lv < sp.lv) out.push(`레벨 ${sp.lv} 필요 (지금 ${h.lv})`);

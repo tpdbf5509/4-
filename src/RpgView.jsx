@@ -98,6 +98,7 @@ import { useTouch } from "./ui/touch.js";
 const SNAP_BUDGET = 48;    // 스냅샷에 쓰는 초당 메시지 수(보냄 + 받는 사람 수) — 나머지는 입력 · 대기실 몫
 const SNAP_MAX = 10;       // 사람이 적을 때 초당 스냅샷
 const SNAP_MIN = 3;        // 사람이 많아도 이만큼은 보낸다
+const SNAP_MIN_SEATED = 2; // 앉은 사람이 이보다 적으면(혼자) 스냅샷을 보내지 않는다 — 실시간 한도(월 200만 통)를 아낀다
 // 보내는 차례 번호 — Supabase 는 같은 사람이 보낸 메시지도 순서를 바꿔 전할 때가 있다(실측 25초에 5~15번).
 // 받는 쪽은 번호가 더 작은 스냅샷 · 입력을 버려, 옛 위치로 당겨지지 않게 한다. 새로 고쳐도 줄지 않게 지금 시각에서 시작한다
 let sendSeq = Date.now();
@@ -1059,8 +1060,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 방장 기기가 느려도(초당 프레임이 적어도) 세계 시간은 제 속도로 흐르게 잘게 나눠 돌린다
         for (let left = Math.min(real, CATCH_UP); left > 0; left -= STEP_MAX) rpgStep(g, Math.min(left, STEP_MAX));
         sinceSnap += real;
-        const every = 1 / snapHz(g.heroes.filter(Boolean).length);
-        if (sinceSnap >= every) {
+        const seated = g.heroes.filter(Boolean).length;
+        const every = 1 / snapHz(seated);
+        if (seated < SNAP_MIN_SEATED) {
+          // 혼자일 때는 받을 손님이 없다 — 받는 사람이 없어도 보낸 1통은 한도로 세므로 보내지 않는다.
+          // 연출(g.out)은 보낼 곳이 없으니 비운다(방장 화면은 g.fx 로 직접 그린다)
+          sinceSnap = 0;
+          if (g.out.length) g.out.length = 0;
+        } else if (sinceSnap >= every) {
           sinceSnap = Math.min(sinceSnap - every, every);   // 프레임이 듬성해도 정한 빈도를 지킨다
           // 연출도 스냅샷 한 통에 실어 메시지 수를 줄인다
           const snap = rpgPack(g);

@@ -4,10 +4,12 @@
    붙자마자 첫 말(auth)로 이 창만 아는 비밀값을 보낸다 — 서버는 같은 접속 id 의 다시 붙기를 비밀값이 맞을 때만 받는다(남의 자리 탈취 막기).
    비밀값은 주소에 넣지 않는다(서버 기록 · 방문 기록에 남는다).
 
-   어느 서버로 붙을지 — 주소 ?srv=cf 로 켜고 ?srv=off 로 끈다(이 기기에 기억한다).
+   어느 서버로 붙을지 — 기본은 전용 서버(2026-10-28 Supabase 한도로 옮김). 주소 ?srv=off 로 방장 브라우저 방식으로 돌아가고 ?srv=cf 로 다시 켠다(이 기기에 기억한다).
    개발 중 ?srv=local 이면 내 컴퓨터의 서버(wrangler dev, 127.0.0.1:8787)로 붙는다 */
+import { SRV_WS } from "./api.js";
+
 // 배포된 서버 주소 — Cloudflare 워커 이름(server/wrangler.toml name) + 계정의 workers.dev 주소. 바꿀 때는 Vercel 환경 변수 VITE_RPG_SERVER 로 덮어쓴다
-const SRV_URL = import.meta.env.VITE_RPG_SERVER || "wss://four-lane-rpg.four-lane.workers.dev";
+const SRV_URL = SRV_WS;
 const LOCAL_URL = "ws://127.0.0.1:8787";
 const PICK_KEY = "flg:srv";
 const RETRY = [0.5, 1, 2, 4];   // 다시 붙는 간격(초) — 끝까지 가면 마지막 값으로 계속
@@ -29,13 +31,12 @@ export function rpgServerUrl() {
   let pick = "";
   try {
     const q = new URLSearchParams(location.search).get("srv");
-    if (q === "cf" || q === "local") localStorage.setItem(PICK_KEY, q);
-    if (q === "off") localStorage.removeItem(PICK_KEY);
+    if (q === "cf" || q === "local" || q === "off") localStorage.setItem(PICK_KEY, q);
     pick = localStorage.getItem(PICK_KEY) || "";
   } catch { /* 저장이 막혀 있으면 쓰지 않는다 */ }
   if (pick === "local" && import.meta.env.DEV) return LOCAL_URL;
-  if (pick === "cf" && SRV_URL) return SRV_URL;
-  return "";
+  if (pick === "off") return "";
+  return SRV_URL;
 }
 
 export function joinRpgServer(base, code, { id, onPeers, onStatus }) {

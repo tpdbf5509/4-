@@ -1,12 +1,13 @@
-import { supabase, netReady } from "./room.js";
+import { ledger } from "./api.js";
+import { netReady } from "./room.js";
 
 /* ────────────────────────────────────────────────────────────
    게임에 대한 의견을 적어 보내는 곳.
-   Supabase 의 feedback 표에 한 줄씩 쌓인다.
+   Cloudflare D1 의 feedback 표에 한 줄씩 쌓인다(server/src/ledger.js feedback_insert).
 
-   적는 것만 열려 있고 읽는 것은 막혀 있다(RLS). 그래서 남이 쓴 글은
+   적는 것만 열려 있고 읽는 것은 관리자 확인 뒤에만 된다. 그래서 남이 쓴 글은
    게임 안에서 볼 수 없고, 받은 사람이 대시보드에서 본다.
-   표를 만드는 문은 supabase/feedback.sql 에 두었다.
+   표는 server/schema.sql 에 있다.
    ──────────────────────────────────────────────────────────── */
 
 export const FEEDBACK_MAX = 500;      // 한 번에 적을 수 있는 글자 수
@@ -53,8 +54,8 @@ export async function sendFeedback(note = {}) {
   };
 
   try {
-    const { error } = await supabase().from("feedback").insert(row);
-    if (error) throw error;
+    const r = await ledger("feedback_insert", row);
+    if (!r || r.ok === false) throw new Error("feedback");
   } catch {
     saveDraft(body);                 // 적은 글은 잃지 않게 남겨 둔다
     return { ok: false, why: "보내지 못했습니다. 적은 글은 남겨 두었으니 잠시 뒤 다시 눌러 주세요." };

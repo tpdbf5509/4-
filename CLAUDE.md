@@ -24,7 +24,7 @@
   - push 하면 `four-lane` 에 자동 배포된다. 보통 1~3분 안에 READY.
   - Vercel MCP `list_deployments` 는 **projectId 만** 넘긴다. teamId 를 넣으면 403 이 난다.
 - RPG 모드는 **다른 세션이 다른 브랜치(`claude/funny-fermat-*`)에서 만들고 PR 로 이 브랜치에 합친다.** 그래서 push 가 거절되면 `git fetch origin <브랜치>` 후 merge 하고(리베이스 · 강제 push 금지) 다시 빌드 · 확인 후 push 한다.
-- **RPG 전용 서버**(`server/`, Cloudflare Workers + Durable Objects, 이름 `four-lane-rpg`)는 GitHub Actions(`.github/workflows/rpg-server.yml`)가 push 때 배포한다. 저장소 비밀값: `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_ACCOUNT_ID` · `SUPABASE_SECRET_KEY`. 서버 주소는 `wss://four-lane-rpg.four-lane.workers.dev`(rpgServer.js `SRV_URL`, Vercel 환경 변수 `VITE_RPG_SERVER` 로 덮어쓸 수 있다). 내 컴퓨터 시험은 `cd server && npx wrangler dev --port 8787` + 화면 주소 `?srv=local`(저장 시험은 `server/.dev.vars` 에 가짜 저장소 주소).
+- **RPG 전용 서버**(`server/`, Cloudflare Workers + Durable Objects, 이름 `four-lane-rpg`)는 GitHub Actions(`.github/workflows/rpg-server.yml`)가 push 때 배포한다. 저장소 비밀값: `CLOUDFLARE_API_TOKEN` · `CLOUDFLARE_ACCOUNT_ID`(Supabase 비밀 키는 이제 쓰지 않는다). 서버 주소는 `wss://four-lane-rpg.four-lane.workers.dev`(rpgServer.js `SRV_URL`, Vercel 환경 변수 `VITE_RPG_SERVER` 로 덮어쓸 수 있다). 내 컴퓨터 시험은 `cd server && npx wrangler dev --port 8787` + 화면 주소 `?srv=local`(저장 시험은 `server/.dev.vars` 에 가짜 저장소 주소).
 - 사용자가 요청하지 않으면 PR 을 만들지 않는다.
 - 커밋 메시지는 한국어 한 줄, "무엇을 어떻게 한다" 꼴. 예: `궁수탑 4단계 공격력을 55% 낮추고 강화 비용을 260으로 올린다`
 
@@ -42,11 +42,12 @@
 | 구분 | 내용 |
 |---|---|
 | 화면 | React 19 + Vite 8. 판은 `<canvas>` 에 직접 그린다 |
-| 실시간 | Supabase Realtime 채널 1개 = 방 1개(`flg:<코드>`). presence + broadcast. DB 테이블은 `feedback`(의견)과 `rpg_chars` · `rpg_fails`(RPG 캐릭터 서버 저장, `supabase/rpg.sql`) |
-| RPG 전용 서버 | **보류(꺼 둠, 2026-10-18).** 사용자 인터넷에서 Cloudflare(workers.dev) 입구가 파리(CDG)로 잡혀 서울 방까지 왕복 0.5초였다 — 통신사 경로라 코드로 못 고친다. 서울 일반 서버(카드 필요)를 마련할 때까지 예전 방식(Supabase 서울)이 기본이다. 서버 코드 · 자동 배포는 남겨 두었다(`?srv=cf` 로만 붙는다). 연결 진단 칸은 `?diag=1` 로 켠다(입구 → 방 위치 · 왕복 · 스냅샷 · 위치 고침 · fps). |
-| (예전 기록) RPG 전용 서버 | **이전 중이었다.** `?srv=cf` 를 켠 기기는 방장 없이 `server/`(Cloudflare)에 붙는다. 서버가 예전 방장 노릇(자리 · 판정 · 스냅샷 · 채팅 중계 · 캐릭터 불러오기/저장)을 하고, 화면은 손님 경로를 그대로 쓴다. 주고받는 말도 같다(lobby · rsnap · chat ↔ hello · pick · rjoin · input · chat, 서버만의 말: `auth` 첫 말 비밀값 · `deny` 입장권 틀림 · `kick` 다른 기기 · `bye` 나감). **자리 지킴**: 붙은 뒤 첫 말 `auth` 로 창마다 비밀값(sessionStorage `flg:srvKey`, rpgServer.js `mySecret`)을 보내고, 서버는 같은 접속 id 의 다시 붙기를 그 해시가 맞을 때만 받는다(틀리면 4003 · 5초 안에 없으면 4001). 남에게는 접속 id 대신 `~` 로 시작하는 id(pub)만 보낸다(대기실 · 스냅샷 `w` · 월드보스 owner · 채팅 from). 정원 `RPG_SERVER_CAP` 은 서버 `seat()` 가 센다. 시험 `node tools/rpg-server-seat.mjs`(wrangler dev 를 먼저 띄운다) · `node --test tools/rpg-server-save.test.mjs` |
-| 판정 | **방장 권위형.** 방장 브라우저가 모든 규칙을 돌리고 손님은 입력만 보낸다. 방장이 스냅샷과 연출 이벤트(`out` fx)를 한 메시지로 뿌린다(방어전 초당 12회, RPG 는 인원에 따라 3~10회) |
-| 저장 | RPG 캐릭터는 이름 + 숫자 5자리 코드로 서버(Supabase 함수 `rpg_*`)와 localStorage 둘 다. 홈 이름 · 설정은 localStorage |
+| 실시간 | **Cloudflare 워커 `four-lane-rpg`**(2026-10-28 Supabase 무료 한도 초과 402 로 옮김). 방어전 방 · 관리 채널은 `Relay` Durable Object(`server/src/relay.js`, 화면 `src/net/relay.js`, 웹소켓 `/room/<코드>`) — 접속자 목록 + 방송. 화면 쪽 `joinRoom`(room.js)은 같은 모양이라 호출부는 그대로 |
+| RPG 전용 서버 | **기본**(2026-10-28). RPG1~4 는 방장 없이 서버(`RpgRoom`, `/rpg/<서버>`)가 판정한다. `?srv=off` 로 방장 브라우저 방식(Relay 위)으로 돌아간다. 연결 진단 칸은 `?diag=1`. 서버 주소는 `src/net/api.js`(`VITE_RPG_SERVER` 로 덮어씀) |
+| 장부(계정 · 저장) | **D1 `four-lane`**(id b11b5090-…, 도쿄) + 장부 Durable Object `Ledger`(`server/src/ledger-do.js`, 요청을 한 줄로 세워 Postgres 행 잠금 대신). 옛 Supabase 함수를 JS 로 옮긴 것이 `server/src/ledger.js`(`LedgerCore`, 함수 이름 · 인자 `p_*` 가 옛 rpc 와 같다). 화면은 `POST /rpc/<함수>`(`src/net/api.js` `ledger`). 표는 `server/schema.sql`. 접속 중 표시(live)는 메모리뿐. 거래 · 길드 함수는 아직 `maint` 를 돌려준다(2단계). 시험 `node --test tools/ledger.test.mjs` |
+| (예전 기록) RPG 전용 서버 | 방장 없이 `server/` 가 판정하는 구조의 설명이다. 주고받는 말(lobby · rsnap · chat ↔ hello · pick · rjoin · input · chat, 서버만의 말: `auth` 첫 말 비밀값 · `deny` 입장권 틀림 · `kick` 다른 기기 · `bye` 나감), 자리 지킴(`auth` 비밀값 해시, 틀리면 4003 · 5초 안에 없으면 4001, 남에게는 `~` id), 정원 `RPG_SERVER_CAP` 은 `seat()` 가 센다. 저장은 이제 장부(`server/src/save.js` → `Ledger`). 시험 `node tools/rpg-server-seat.mjs`(wrangler dev 를 먼저 띄운다) |
+| 판정 | **방장 권위형**(`?srv=off` 일 때. 기본은 서버 판정). 방장 브라우저가 모든 규칙을 돌리고 손님은 입력만 보낸다. 방장이 스냅샷과 연출 이벤트(`out` fx)를 한 메시지로 뿌린다(방어전 초당 12회, RPG 는 인원에 따라 3~10회) |
+| 저장 | RPG 캐릭터는 이름 + 숫자 5자리 코드로 서버(D1 장부)와 localStorage 둘 다. 옛 Supabase 데이터는 그대로 남겨 두었다(원본, 읽기만). 홈 이름 · 설정은 localStorage |
 | 소리 | 파일 없이 웹오디오 합성(`sfx.js`) |
 
 ### 파일 지도
@@ -74,7 +75,7 @@
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
 | `src/InquiryPanel.jsx` | RPG ☰ 메뉴 "문의하기" 창(`.shop` 틀). 글은 의견 남기기와 같은 `feedback` 표(`sendFeedback`, 앞에 "[RPG 문의]")로 간다 |
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
-| `src/net/room.js` | Supabase 채널 연결 |
+| `src/net/room.js` · `relay.js` · `api.js` | 방 연결(`joinRoom` → Relay 웹소켓, 개발용 `?net=local`) · 워커 주소와 장부 호출 `ledger(fn, args)` |
 | `src/net/rpgServer.js` · `server/` | RPG 전용 서버 연결(room.js 와 같은 모양) · 서버(`server/src/room.js` 가 RPG1~4 방 하나, `save.js` 가 Supabase `rpg_srv_load` · `rpg_srv_save` — 서버 비밀 키로만). 규칙은 `src/game/` 를 그대로 묶어 쓴다. 입력 나누기는 `src/game/rpgInput.js`(방장 화면과 서버가 같이 쓴다) |
 | `src/AdminView.jsx` · `src/net/admin.js` · `src/ui/admin.css` | 관리 화면 「데이터 시스템」(`?admin`, 관리자 이름 + 코드). 계정 탭은 모든 캐릭터(`rpg_admin_accounts`). 서버마다 관리 채널로 방장 화면에 묻고(인원 · 왕복 · fps) 방장 부여 · 퇴장을 보낸다. 방장 쪽 답은 RpgView.jsx, 명령 표 함수는 `supabase/rpg.sql`(`rpg_admin_*`) |
 | `src/net/version.js` | 새 버전 알아채기. 빌드 번호(`__BUILD__`, `vite.config.js`)와 `dist/version.json` 을 견주어 옛 화면을 스스로 새로 고친다. RPG 스냅샷에 방장 빌드(`ver`)를 싣는다 |
@@ -192,3 +193,4 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 월드보스 중 사람이 사라지고 · 멈추고 · 보스 체력이 되돌아갔다(10월 23일) → 메시지 한도 · 배포가 아니었다(Supabase 로그 깨끗). 방장 기기가 잠들거나 오래 멈추면 손님이 이어받는데(ep +1), 돌아온 옛 방장이 아이디만 견줘 다시 이기면 **세계가 멈춘 때로 되돌아갔다.** 지금은 더 큰 ep 의 대기실 소식을 들은 방장은 무조건 물러나고(App.jsx `lobby` 의 `newer`), 이어받을 때 아직 붙어 있는 옛 방장의 자리는 남긴다(`hostHere`). 재현은 방장 창을 `while` 로 15초 멈추고 그 사이 새 방장에서 보스 체력을 바꾼 뒤 견준다(옛 방장 아이디를 가장 작게 — sessionStorage `flg:id`).
 - 던전 보스 체력바가 가끔 비거나 안 떴다 · 월드 · 길드 체력바가 던전과 달라졌다(10월 23일) → 루프(`tickBossBars`)가 값이 같으면 건너뛰어 새로 붙은 칸이 빈 채로 남았다(지금은 DOM 이 바뀌면 다시 채운다 `bossNode`), 처음 체력을 모르면 너비가 NaN% 였다(`BossHealthBar` 처음 값 가드), 던전 보스는 진행(`g.runs`)이 늦어도 던전 맵 보스면 잡는다. 월드 · 길드 진행 칸은 던전 칸 `.rpg-dg` 를 그대로 쓴다(`.rpg-raid` · 기술 줄 `.rpg-raid-warn` 만 더함) — 따로 스타일을 덧입히지 않는다.
 - 배포 뒤 "알 수 없는 요청입니다" · 새 맵 문이 안 열림 → 방장이 옛 화면을 띄워 둔 것(판정은 방장 코드가 한다). 지금은 `version.js` 가 옛 화면을 스스로 새로 고친다. 새 요청 · 새 맵을 더할 때 이 점을 기억한다.
+- Supabase 가 402 로 막혔다(2026-10-28) → 무료 한도의 **Realtime 메시지**를 넘은 것(DB 크기가 아니다). 혼자 있는 RPG 방장도 스냅샷을 쏴서 한도를 먹었다(지금은 2명 미만이면 보내지 않는다, `SNAP_MIN_SEATED`). 결국 Cloudflare 로 옮겼다 — 이 작업 환경은 supabase.co · workers.dev 에 직접 못 닿아 MCP 로만 읽고 썼고, 계정 43명은 글자 검산(길이 + 가중합)이 맞는 것만 옮겼다. 거래 · 길드는 `maint` 로 막아 두고 2단계로 옮긴다(옛 `supabase/trade.sql` · `guild.sql` 이 기준).

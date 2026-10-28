@@ -1,30 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
+import { joinRelay } from "./relay.js";
 
 /* ────────────────────────────────────────────────────────────
-   방 연결. Supabase Realtime 채널 하나를 방 하나로 쓴다.
-   - presence : 지금 방에 누가 있는지
-   - broadcast: 로비 상태 · 입력 · 게임 상태
+   방 연결. Cloudflare 워커의 방 중계(Relay) 하나를 방 하나로 쓴다.
+   - 접속자 목록: 지금 방에 누가 있는지
+   - 방송: 로비 상태 · 입력 · 게임 상태
    판정은 방장(호스트) 한 명만 하고 나머지는 결과를 받아 그린다.
+   (예전에는 Supabase Realtime 이었으나 무료 한도를 넘어 2026-10-28 에 옮겼다)
    ──────────────────────────────────────────────────────────── */
 
-// 브라우저에 노출되는 공개 값이라 기본값으로 둔다.
-// (publishable 키는 노출을 전제로 만들어진 키이고, 이 프로젝트엔 테이블 없이 실시간 채널만 있다)
-// 다른 Supabase 프로젝트를 쓰고 싶으면 환경변수로 덮어쓰면 된다.
-const URL = import.meta.env.VITE_SUPABASE_URL || "https://jgxtbtpxmnsfghqmtsnq.supabase.co";
-const KEY = import.meta.env.VITE_SUPABASE_KEY || "sb_publishable_lwm7FIU-HhslF5ofSikbtQ_G4BNXh9u";
-
-export const netReady = Boolean(URL && KEY);
-
-let client = null;
-export function supabase() {
-  if (!client) {
-    client = createClient(URL, KEY, {
-      auth: { persistSession: false },
-      realtime: { params: { eventsPerSecond: 40 } },
-    });
-  }
-  return client;
-}
+export const netReady = true;
 
 // 헷갈리는 글자(0/O, 1/I)는 뺀다
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -47,13 +31,9 @@ export function myId() {
   return v;
 }
 
-/* ── 방장에게만 가는 통로 ─────────────────────────────────────
-   방 채널로 보내면 방 안의 모두가 받고, Supabase 는 받는 사람마다 한 통으로 센다.
-   그런데 손님의 키 입력은 방장만 쓴다. 13명이면 입력 한 번이 12통이 되어 무료 한도(초당 100통)를 넘었다(10월 19일 기록 섞임 사고).
-   그래서 손님마다 방장과 둘만 있는 통로(<코드>:in:<손님 id>)를 하나씩 둔다. 입력 한 번이 1통이 되고, 웹소켓이라 빠르기는 같다.
-   (보내기만 하는 REST 길은 120~280ms 더 느려 쓰지 않는다)
-   - 손님: toHost(k, d, fallback) — 통로가 아직 붙지 않았으면 fallback(방 채널)으로 보낸다
-   - 방장: hostInbox(ids) — 지금 손님들의 통로에 붙는다. 받은 말은 방 채널과 같은 handlers 로 간다 */
+/* ── 방장에게만 가는 통로(개발용 ?net=local 에서만) ─────────────────────
+   Cloudflare 중계는 방 채널로 보내는 입력도 메시지 한도에 걸리지 않아 따로 통로를 두지 않는다
+   (그래서 중계 방은 toHost · hostInbox 가 없고 RpgView 가 방 채널로 보낸다). */
 function makePipes(code, id, handlers, open) {
   let mine = null;
   const inbox = new Map();
@@ -83,26 +63,6 @@ const localPipe = (topic, onMsg) => {
   bc.onmessage = ({ data }) => onMsg(data);
   let open = true;
   return { ready: () => open, send: (m) => { if (open) bc.postMessage(m); }, close: () => { open = false; bc.close(); } };
-};
-
-const realtimePipe = (topic, onMsg) => {
-  const sb = supabase();
-  let ok = false, gone = false, ch = null;
-  const start = () => {
-    if (gone) return;
-    ch = sb.channel(`flg:${topic}`, { config: { broadcast: { self: false, ack: false } } });
-    ch.on("broadcast", { event: "msg" }, ({ payload }) => onMsg(payload));
-    ch.subscribe((s) => { ok = !gone && s === "SUBSCRIBED"; });
-  };
-  // 같은 이름의 채널이 닫히는 중이면(방장이 바뀌어 다시 붙을 때) 다 치운 뒤에 새로 연다
-  const old = sb.getChannels().find((c) => c.topic === `realtime:flg:${topic}`);
-  if (old) sb.removeChannel(old).catch(() => {}).finally(start);
-  else start();
-  return {
-    ready: () => ok,
-    send: (m) => ch?.send({ type: "broadcast", event: "msg", payload: m }),
-    close: () => { gone = true; ok = false; if (ch) sb.removeChannel(ch); },
-  };
 };
 
 /* 개발 중 같은 브라우저의 여러 탭으로 손쉽게 확인하려고 쓰는 전송 (?net=local) */
@@ -166,75 +126,5 @@ function joinLocal(code, { id, name, onPeers, onStatus, onHeard }) {
  */
 export function joinRoom(code, opts) {
   if (wantsLocal()) return joinLocal(code, opts);
-  return joinRealtime(code, opts);
-}
-
-// onHeard(k, from) — 받은 말마다 부른다(방장이 살아 있는지 스냅샷으로도 알아채려고, App.jsx)
-function joinRealtime(code, { id, name, onPeers, onStatus, onHeard }) {
-  const sb = supabase();
-  const topic = `realtime:flg:${code}`;
-  const handlers = new Map();
-  let ch = null;
-  let gone = false;
-
-  const open = () => {
-    if (gone) return;
-    ch = sb.channel(`flg:${code}`, {
-      config: {
-        broadcast: { self: false, ack: false },
-        presence: { key: id },
-      },
-    });
-    ch.on("broadcast", { event: "msg" }, ({ payload }) => {
-      onHeard?.(payload.k, payload.from);
-      const fn = handlers.get(payload.k);
-      if (fn) fn(payload.d, payload.from);
-    });
-    ch.on("presence", { event: "sync" }, () => {
-      const raw = ch.presenceState();
-      const peers = Object.entries(raw).map(([key, arr]) => ({ id: key, ...(arr[0] || {}) }));
-      onPeers?.(peers);
-    });
-    ch.subscribe(async (status) => {
-      if (gone) return;
-      onStatus?.(status);
-      // 끊겼다가 다시 붙을 때도 접속자 목록에 나를 다시 올린다
-      if (status === "SUBSCRIBED") await ch.track({ name, at: Date.now() });
-    });
-  };
-
-  /* 같은 이름의 채널이 아직 남아 있으면(방금 나간 RPG 서버처럼) 라이브러리가 그 채널을 그대로 돌려준다.
-     닫히는 중인 채널을 다시 쓰면 붙지 못하므로, 다 치운 뒤에 새로 연다. */
-  const old = sb.getChannels().find((c) => c.topic === topic);
-  if (old) {
-    sb.removeChannel(old).catch(() => {}).finally(() => {
-      if (sb.getChannels().includes(old)) sb.realtime?._remove?.(old);
-      open();
-    });
-  } else {
-    open();
-  }
-
-  const pipes = makePipes(code, id, handlers, realtimePipe);
-  const send = (k, d) => ch?.send({ type: "broadcast", event: "msg", payload: { k, d, from: id } });
-
-  return {
-    code,
-    send,
-    toHost(k, d) { if (!gone) pipes.toHost(k, d, send); },
-    hostInbox(ids) { if (!gone) pipes.hostInbox(ids); },
-    on(k, fn) {
-      handlers.set(k, fn);
-      return () => handlers.delete(k);
-    },
-    setPresence(patch) {
-      return ch?.track({ name, at: Date.now(), ...patch });
-    },
-    leave() {
-      gone = true;
-      pipes.close();
-      handlers.clear();
-      if (ch) sb.removeChannel(ch);
-    },
-  };
+  return joinRelay(code, opts);
 }

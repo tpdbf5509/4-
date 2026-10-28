@@ -571,7 +571,7 @@ export default function App() {
       <div className="page center-page">
         <div className="scroll-panel">
           <h2>서버 설정이 필요합니다</h2>
-          <p>VITE_SUPABASE_URL 과 VITE_SUPABASE_KEY 를 .env 에 넣고 다시 실행해 주세요.</p>
+          <p>VITE_RPG_SERVER 를 확인하고 다시 실행해 주세요.</p>
         </div>
       </div>
     );

@@ -1,25 +1,15 @@
-/* 캐릭터 불러오기 · 저장 — Supabase 함수 rpg_srv_load · rpg_srv_save(supabase/rpg.sql). 서버 비밀 키로만 부를 수 있다.
-   비밀값이 없으면(내 컴퓨터 시험) 저장 없이 돌린다 */
-async function rpc(env, fn, args) {
-  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) return { ok: false, err: "off" };
+/* 캐릭터 불러오기 · 저장 — 장부(ledger.js)의 rpg_srv_load · rpg_srv_save. 장부 Durable Object 를 바인딩(LEDGER)으로만 부른다.
+   바인딩이 없으면(내 컴퓨터 시험에서 장부를 안 띄웠을 때) 저장 없이 돌린다 */
+const stub = (env) => env.LEDGER.get(env.LEDGER.idFromName("main"), { locationHint: "apac" });
+async function call(env, fn, args) {
+  if (!env.LEDGER) return { ok: false, err: "off" };
   try {
-    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: env.SUPABASE_SECRET_KEY, Authorization: `Bearer ${env.SUPABASE_SECRET_KEY}` },
-      body: JSON.stringify(args),
-    });
-    if (!res.ok) {
-      // 거래 트리거(trade.sql)가 막은 저장 — supabase/rpg.sql 을 다시 실행하기 전에는 400 오류로 온다. 고친 뒤의 답과 같은 이름으로 바꾼다
-      const body = await res.text().catch(() => "");
-      const trade = body.match(/"message"\s*:\s*"trade_(stale|busy|moved)"/);
-      if (trade) return { ok: false, err: trade[1] };
-      return { ok: false, err: "net", detail: `${res.status}` };
-    }
+    const res = await stub(env).fetch(`https://ledger/${fn}`, { method: "POST", body: JSON.stringify(args) });
     return await res.json();
   } catch (e) {
     return { ok: false, err: "net", detail: String(e && e.message) };
   }
 }
-export const loadChar = (env, name, tok) => rpc(env, "rpg_srv_load", { p_name: name, p_token: tok });
-export const saveChar = (env, name, tok, data) => rpc(env, "rpg_srv_save", { p_name: name, p_token: tok, p_data: data });
-export const saveOn = (env) => !!(env.SUPABASE_URL && env.SUPABASE_SECRET_KEY);
+export const loadChar = (env, name, tok) => call(env, "rpg_srv_load", { p_name: name, p_token: tok });
+export const saveChar = (env, name, tok, data) => call(env, "rpg_srv_save", { p_name: name, p_token: tok, p_data: data });
+export const saveOn = (env) => !!env.LEDGER;

@@ -11,7 +11,7 @@ import { STATS, statValue, MAPS, JOB_BY_ID } from "./game/rpg.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
-  CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD, WEAPON_TYPES,
+  CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD, WEAPON_TYPES, weaponCap,
 } from "./game/shopData.js";
 import {
   SHOP_BY_ID, POTION_BY_ID, FAM_BY_ID, SKILL_BY_ID, todayKey, usedToday, tierOf, weaponName,

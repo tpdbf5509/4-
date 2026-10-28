@@ -1461,7 +1461,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                                 : h.pty ? <span className="rpg-win-tag">다른 파티</span>
                                   : <button type="button" className="rpg-win-btn" disabled={full}
                                     onClick={() => act("party", { op: "invite", to: h.pi })}>초대</button>}
-                            {!mine && <button type="button" className="rpg-win-btn" disabled={trades.busy || !!trades.trade || me.self.map !== "plaza" || h.map !== "plaza" || me.dvs >= 0 || h.dvs >= 0 || room?.viaServer}
+                            {!mine && <button type="button" className="rpg-win-btn" disabled={trades.busy || !!trades.trade || me.self.map !== "plaza" || h.map !== "plaza" || me.dvs >= 0 || h.dvs >= 0}
                               onClick={() => trades.request(names[h.pi])}>거래</button>}
                             {!mine && (h.dvs >= 0
                               ? <span className="rpg-win-tag">결투 중</span>

@@ -14,6 +14,7 @@ const LOCAL_URL = "ws://127.0.0.1:8787";
 const PICK_KEY = "flg:srv";
 const RETRY = [0.5, 1, 2, 4];   // 다시 붙는 간격(초) — 끝까지 가면 마지막 값으로 계속
 const SECRET_KEY = "flg:srvKey";
+const LEDGER_WAIT = 15;         // 거래 · 길드 답을 기다리는 시간(초) — 서버가 저장 → 장부 → 다시 불러오기를 하는 동안
 
 // 이 창의 비밀값 — 접속 id(room.js myId)와 따로 만든다. sessionStorage 라 탭마다 다르고 다른 사람에게 보내지 않는다
 export function mySecret() {
@@ -43,6 +44,21 @@ export function joinRpgServer(base, code, { id, onPeers, onStatus }) {
   const handlers = new Map();
   let ws = null, gone = false, tries = 0, timer = null, wasOpen = false;
   const secret = mySecret();
+  // 거래 · 길드 요청 — 입장권은 서버가 쥐고 있으니 서버에 부탁하고 답(ledger)을 rid 로 맞춘다.
+  // 끊겨 있거나 LEDGER_WAIT 초 안에 답이 없으면 net 으로 돌려준다
+  const asks = new Map();
+  let rid = 0;
+  const ledger = (fn, args = {}) => new Promise((done) => {
+    if (!ws || ws.readyState !== 1) return done({ ok: false, err: "net" });
+    const id = ++rid;
+    const timer = setTimeout(() => { asks.delete(id); done({ ok: false, err: "net" }); }, LEDGER_WAIT * 1000);
+    asks.set(id, (res) => { clearTimeout(timer); done(res); });
+    ws.send(JSON.stringify({ k: "ledger", d: { rid: id, fn, args } }));
+  });
+  handlers.set("ledger", (d) => {
+    const fin = d && asks.get(d.rid);
+    if (fin) { asks.delete(d.rid); fin(d.res || { ok: false, err: "net" }); }
+  });
   const open = () => {
     if (gone) return;
     ws = new WebSocket(`${base}/rpg/${encodeURIComponent(code)}?id=${encodeURIComponent(id)}`);
@@ -71,12 +87,15 @@ export function joinRpgServer(base, code, { id, onPeers, onStatus }) {
     code,
     send(k, d) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ k, d })); },
     on(k, fn) { handlers.set(k, fn); return () => { if (handlers.get(k) === fn) handlers.delete(k); }; },
+    ledger,
     setPresence() { /* 서버가 자리를 안다 */ },
     leave() {
       gone = true;
       clearTimeout(timer);
       try { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ k: "bye" })); ws && ws.close(1000); } catch { /* 이미 닫혔다 */ }
       handlers.clear();
+      asks.forEach((fin) => fin({ ok: false, err: "net" }));
+      asks.clear();
     },
     viaServer: true,
     httpBase: base.replace(/^ws/, "http"),            // 연결 진단 칸이 방 위치(/where)를 물을 때

@@ -9,15 +9,18 @@ const ERR={token:'접속 정보를 확인하지 못했습니다. 다시 로그�
  missing:'길드를 찾을 수 없습니다.',request:'가입 요청이나 초대가 만료되었습니다.',raid_busy:'진행 중인 토벌이 끝난 뒤 이용해 주세요.',transfer:'다른 길드원에게 길드장을 위임해 주세요.',
  target:'대상 또는 토벌 참여 정보가 바뀌었습니다.',daily:'오늘 출석 보상은 이미 받았습니다.',amount:'봉헌할 길드석 개수를 확인해 주세요.',max:'최대 단계에 도달했습니다.',
  stones:'길드석이 모자랍니다.',cores:'제어 불능 코어가 없습니다.',raids:'오늘 길드 토벌 3회를 모두 사용했습니다.',reward:'지난주 토벌 참여 보상이 없습니다.',claimed:'이번 주 보상을 이미 받았습니다.',
- capacity:'던전 입장권 공간을 비운 뒤 다시 받아 주세요.',early:'토벌 결과를 확인하고 있습니다.',net:'연결을 확인하지 못했습니다. 다시 시도해 주세요.'};
+ capacity:'던전 입장권 공간을 비운 뒤 다시 받아 주세요.',early:'토벌 결과를 확인하고 있습니다.',rate:'요청이 몰렸습니다. 잠시 뒤 다시 시도해 주세요.',net:'연결을 확인하지 못했습니다. 다시 시도해 주세요.'};
 const SUCCESS={create:'길드가 생성되었습니다',apply:'가입 신청을 보냈습니다',invite:'길드 초대를 보냈습니다',join:'길드에 가입했습니다',approve:'가입을 승인했습니다',leave:'길드에서 탈퇴했습니다',kick:'길드원을 내보냈습니다',transfer:'길드장을 위임했습니다',disband:'길드를 해산했습니다',attendance:'길드석 10개 획득',donate:'길드석 봉헌 완료',core:'공격속도가 0.5% 증가했습니다',claim:'주간 길드 보상을 받았습니다'};
+const REFRESH_MS=15000,REFRESH_SRV_MS=90000; // 전용 서버는 장부 요청을 아끼려 느리게 다시 읽는다(문을 열 때는 바로 읽는다)
+// 전용 서버 방이면 서버가 입장권으로 장부를 부른다(room.ledger)
+const remoteGuild=(o,c,op,args)=>o.room?.viaServer?o.room.ledger('guild_action',{op,args}):guildAction(c.name,c.tok,o.seats[o.seat]?.id,op,args);
 export function useGuild(options){
  const current=useRef(options);useEffect(()=>{current.current=options;});
  const [state,setState]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(null);
  const working=useRef(false),synced=useRef(''),mounted=useRef(true);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
  useEffect(()=>{if(!notice&&!error)return;const t=setTimeout(()=>{setNotice(null);setError('');},5000);return()=>clearTimeout(t);},[notice,error]);
- const account=()=>{const o=current.current,c=loadChar();return c?.linked&&c.tok&&c.name===o.selfName&&!o.room?.viaServer?c:null;};
+ const account=()=>{const o=current.current,c=loadChar();return c?.linked&&c.tok&&c.name===o.selfName?c:null;};
  const receive=useCallback(async(r)=>{
    if(!r?.ok)return;
    const o=current.current,h=o.g.heroes[o.seat];if(!h||!ownHero(h,o.seats[o.seat]?.id)||!account())return;
@@ -30,7 +33,7 @@ export function useGuild(options){
  const refresh=useCallback(async()=>{
    const c=account(),o=current.current;if(!c||working.current||!o.g.heroes[o.seat]?.loaded)return;
    working.current=true;
-   try{const r=await guildAction(c.name,c.tok,o.seats[o.seat]?.id);if(account()?.tok===c.tok)await receive(r);if(!r?.ok&&mounted.current)setError(ERR[r?.err]||ERR.net);}
+   try{const r=await remoteGuild(o,c,'get',{});if(account()?.tok===c.tok)await receive(r);if(!r?.ok&&mounted.current)setError(ERR[r?.err]||ERR.net);}
    catch(e){if(mounted.current)setError(e.message);}finally{working.current=false;}
  },[receive]);
  const action=useCallback(async(op,args={})=>{
@@ -39,7 +42,7 @@ export function useGuild(options){
    working.current=true;setBusy(true);setError('');
    try{
      if(op!=='finish')await o.trades.flush({hall:true});
-     const r=await guildAction(c.name,c.tok,o.seats[o.seat]?.id,op,args);
+     const r=await remoteGuild(o,c,op,args);
      if(account()?.tok!==c.tok)throw Error(ERR.token);
      if(!r?.ok)throw Error(ERR[r?.err]||ERR.net);
      await receive(r);
@@ -63,6 +66,6 @@ export function useGuild(options){
      if(!stopped)timer=setTimeout(tick,1000);
    };tick();return()=>{stopped=true;clearTimeout(timer);};
  },[action]);
- useEffect(()=>{refresh();const t=setInterval(refresh,15000);return()=>clearInterval(t);},[refresh]);
+ useEffect(()=>{refresh();const t=setInterval(()=>{if(document.visibilityState!=='hidden')refresh();},current.current.room?.viaServer?REFRESH_SRV_MS:REFRESH_MS);return()=>clearInterval(t);},[refresh]);
  return {state,busy,error,notice,action,refresh,joinRaid:()=>{current.current.act('guild',{op:'enter'});current.current.closeAll();}};
 }

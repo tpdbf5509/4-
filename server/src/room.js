@@ -12,7 +12,8 @@ import {
 } from "../../src/game/rpg.js";
 import { rpgInput } from "../../src/game/rpgInput.js";
 import { CHAT } from "../../src/game/socialData.js";
-import { loadChar, saveChar, saveOn } from "./save.js";
+import { loadChar, saveChar, saveOn, ledgerCall } from "./save.js";
+import { rpgKey } from "./ledger-util.js";
 
 const TICK_MS = 25;          // 판정 간격 — 입력은 받자마자 규칙에 넘기고, 결과는 다음 스냅샷으로 간다
 const STEP_MAX = 0.05;
@@ -22,7 +23,10 @@ const OUT_KEEP = 240;
 const GRACE = 6;             // 끊긴 사람의 자리를 남겨 두는 초 — 휴대폰이 잠깐 끊겼다 붙어도 그대로 잇는다
 const SAVE_EVERY = 10;       // 서버 저장 간격(초)
 const SRV_ID = "srv";        // 대기실의 방장 id — 화면은 이 값으로 "내가 방장이 아니다"를 안다
-const STOP_SAVE = ["stale", "busy", "moved"];   // 거래 트리거(trade.sql)가 막은 저장 — 다시 보내지 않는다(save.js 가 옛 400 답도 이 이름으로 바꾼다)
+// 장부가 막은 저장 — busy(확인한 거래가 끝나기 전)는 잠깐이라 다음에 다시 보내고, stale · moved(거래 · 길드가 기록을 앞서 고쳤다)는 장부 기록을 다시 불러온 뒤 이어 한다
+const RESYNC = ["stale", "moved"];
+const RESYNC_MAX = 3;        // 다시 불러와도 계속 막히면 이 접속은 저장을 멈춘다
+const LEDGER_QUEUE = 8;      // 한 사람이 장부 요청을 이만큼 쌓아 두면 더 받지 않는다
 const RUSH_MS = 15;          // 입력 때 바로 보내는 스냅샷 사이 최소 간격 — 여럿이 한꺼번에 눌러도 이보다 자주 보내지 않는다
 const AUTH_MS = 5000;        // 붙은 뒤 이 안에 비밀값(auth)을 보내지 않으면 끊는다
 const AUTH_WAIT = 20;        // 비밀값을 확인하는 동안 쌓아 두는 말 수 — 넘으면 버린다
@@ -56,6 +60,7 @@ export class RpgRoom {
     this.seats = new Array(RPG_CREW_MAX).fill(null);   // { id, name, hero }
     this.accts = new Map();          // 접속 id → { name, tok, base, admin, look, savedKey, dead }
     this.loading = new Set();        // 계정을 불러오는 중인 접속 id
+    this.trades = new Map();         // 이름 열쇠 → 진행 중인 거래 id — 거래 창이 묻는 "받은 신청이 있나"를 장부까지 가지 않고 답한다
     this.g = null;
     this.timer = null;
     this.last = 0;
@@ -157,10 +162,10 @@ export class RpgRoom {
     else if (m.k === "rjoin") this.rjoin(c, d);
     else if (m.k === "input") {                   // 남의 자리 입력은 받지 않는다
       if (this.seatOf(c.id) !== (d && d.cls)) return;
-      if (d.kind === "trade") return; // 전용 서버에서는 개인 거래를 지원하지 않는다
       rpgInput(this.g, d);
       this.now();                                   // 받자마자 판정하고 결과를 보낸다 — 다음 스냅샷 때까지 기다리지 않는다
     }
+    else if (m.k === "ledger") this.ledger(c, d);
     else if (m.k === "chat") this.chat(c, d);
     else if (m.k === "bye") this.drop(c.id);
     else if (m.k === "ping") this.send(c, "pong", d);   // 왕복 시간 재기
@@ -223,6 +228,8 @@ export class RpgRoom {
   drop(id) {
     const c = this.conns.get(id);
     this.saveOne(id);
+    const gone = this.accts.get(id);
+    if (gone) this.trades.delete(rpgKey(gone.name));
     this.accts.delete(id);
     this.loading.delete(id);
     if (c) { try { c.ws.close(1000, "bye"); } catch { /* 이미 닫혔다 */ } }
@@ -233,25 +240,105 @@ export class RpgRoom {
   }
 
   /* ── 저장 ─────────────────────────────────────────── */
+  // 지금 기록을 장부에 남긴다. 앞선 저장이 가는 중이면 끝난 뒤에 보낸다(차례가 섞이지 않게). 끝나면 다 풀리는 약속을 돌려준다
   saveOne(id) {
     const a = this.accts.get(id);
     const pi = this.seatOf(id);
-    if (!a || a.dead || pi < 0 || !this.g) return;
+    if (!a || a.dead || pi < 0 || !this.g) return Promise.resolve();
     const rec = heroRecord(this.g.heroes[pi], a.base, a.look);
-    if (!rec) return;
+    if (!rec) return Promise.resolve();
     const key = JSON.stringify(rec);
-    if (key === a.savedKey) return;               // 바뀐 것이 없다
+    if (key === a.savedKey) return a.saving || Promise.resolve();   // 바뀐 것이 없다(가는 중인 저장이 있으면 그것을 기다리게 한다)
     a.savedKey = key;
     a.base = rec;
-    saveChar(this.env, a.name, a.tok, rec).then((r) => {
+    const prev = a.saving;
+    const run = (async () => {
+      if (prev) await prev;
+      if (a.dead) return;
+      const r = await saveChar(this.env, a.name, a.tok, rec);
       if (r && r.err === "token") {                 // 다른 기기가 나중에 들어왔다 — 이 접속은 더 저장하지 않는다
         a.dead = true;
         this.send(this.conns.get(id), "kick", {});
-      } else if (r && STOP_SAVE.includes(r.err)) {  // 거래 트리거가 막았다 — 다시 보내도 똑같이 막힌다. 한 번 남기고 이 접속은 저장을 멈춘다
-        a.dead = true;
-        console.warn(`저장 멈춤 ${a.name}: ${r.err}`);
+      } else if (r && r.err === "busy") a.savedKey = "";   // 확인한 거래가 끝나기 전 — 잠깐이다. 다음에 다시
+      else if (r && RESYNC.includes(r.err)) {       // 거래 · 길드가 기록을 앞서 고쳤다 — 장부 기록을 다시 불러와 이어 한다
+        a.resync = (a.resync || 0) + 1;
+        if (a.resync > RESYNC_MAX) { a.dead = true; console.warn(`저장 멈춤 ${a.name}: ${r.err}`); }
+        else { a.savedKey = ""; await this.reload(id); }
       } else if (!r || !r.ok) a.savedKey = "";        // 다음에 다시
-    });
+      else a.resync = 0;
+    })().catch(() => { a.savedKey = ""; }).finally(() => { if (a.saving === run) a.saving = null; });
+    a.saving = run;
+    return run;
+  }
+  // 장부에 있는 기록으로 이 사람의 영웅을 다시 채운다 — 거래 · 길드가 장부 기록을 고친 뒤(코인 · 가방이 바뀐다).
+  // 기록의 거래 차례(ts)가 영웅보다 높을 때만 싣는다(rpgJoin) — 자동 평타는 그대로 둔다
+  async reload(id) {
+    const a = this.accts.get(id);
+    const pi = this.seatOf(id);
+    if (!a || a.dead || pi < 0 || !this.g) return false;
+    const r = await loadChar(this.env, a.name, a.tok);
+    if (!r || !r.ok || !r.data || this.accts.get(id) !== a || this.seatOf(id) !== pi) return false;
+    const h = this.g.heroes[pi];
+    a.base = r.data;
+    a.savedKey = "";
+    rpgJoin(this.g, pi, { ...r.data, admin: a.admin, auto: h ? h.auto : undefined }, id);
+    return true;
+  }
+  // 이름 열쇠로 접속 중인 계정 찾기 — 거래 상대도 같은 서버에 있어야 거래가 열린다
+  idOfKey(key) {
+    for (const [id, a] of this.accts) if (rpgKey(a.name) === key) return id;
+    return null;
+  }
+
+  /* ── 거래 · 길드 — 장부는 입장권을 아는 서버가 대신 부른다 ─────────────
+     서버가 영웅을 쥐고 10초마다 저장하니, 장부가 기록을 고치기 전에 먼저 저장하고(flush) 고친 뒤에 다시 불러온다(reload).
+     화면 → { rid, fn, args } · 서버 → { rid, res }. 같은 사람의 요청은 한 줄로 세운다 */
+  ledger(c, d) {
+    const rid = d && Number.isSafeInteger(d.rid) ? d.rid : 0;
+    const reply = (res) => this.send(c, "ledger", { rid, res });
+    const a = this.accts.get(c.id);
+    if (!d || typeof d.fn !== "string" || !a || a.dead || this.seatOf(c.id) < 0) return reply({ ok: false, err: "token" });
+    if ((a.lq || 0) >= LEDGER_QUEUE) return reply({ ok: false, err: "rate" });
+    a.lq = (a.lq || 0) + 1;
+    a.lchain = (a.lchain || Promise.resolve()).then(() => this.ledgerRun(c, a, d)).catch((e) => ({ ok: false, err: "net", detail: String(e && e.message) }))
+      .then((res) => { a.lq -= 1; reply(res); });
+  }
+  async ledgerRun(c, a, d) {
+    const args = d.args && typeof d.args === "object" ? d.args : {};
+    const me = { p_name: a.name, p_token: a.tok };
+    const key = rpgKey(a.name);
+    if (d.fn === "load") return ledgerCall(this.env, "rpg_load", me);
+    if (d.fn === "flush") { await this.saveOne(c.id); return { ok: true }; }
+    if (d.fn === "trade_open") {
+      await this.saveOne(c.id);
+      const r = await ledgerCall(this.env, "rpg_trade_open", { ...me, p_target: String(args.target || ""), p_sid: c.id });
+      if (r && r.ok && r.id) { this.trades.set(key, r.id); this.trades.set(rpgKey(String(args.target || "")), r.id); }
+      return r;
+    }
+    if (d.fn === "trade_action") {
+      const id = typeof args.id === "string" && args.id ? args.id : this.trades.get(key) || null;
+      if (!id) return { ok: true, trade: null };    // 받은 신청이 없다 — 장부까지 묻지 않는다
+      const op = typeof args.op === "string" ? args.op : "get";
+      if (op === "offer" || op === "accept" || op === "join") await this.saveOne(c.id);   // 장부가 보는 가방이 지금 가방이어야 한다
+      const r = await ledgerCall(this.env, "rpg_trade_action", { ...me, p_sid: c.id, p_id: id, p_op: op, p_offer: args.offer ?? null, p_hash: args.hash ?? null });
+      const t = r && r.ok ? r.trade : null;
+      if (t && (t.state === "done" || t.state === "cancel" || t.state === "fail")) {
+        for (const who of [t.a, t.b]) {
+          const k = rpgKey(who);
+          if (this.trades.get(k) === t.id) this.trades.delete(k);
+          if (t.state === "done") { const pid = this.idOfKey(k); if (pid) await this.reload(pid); }   // 둘 다 새 가방 · 코인으로
+        }
+      } else if (r && r.ok && !t) this.trades.delete(key);
+      return r;
+    }
+    if (d.fn === "guild_action") {
+      const op = typeof args.op === "string" ? args.op : "get";
+      if (op !== "get") await this.saveOne(c.id);
+      const r = await ledgerCall(this.env, "rpg_guild_action", { ...me, p_sid: c.id, p_op: op, p_args: args.args && typeof args.args === "object" ? args.args : {} });
+      if (r && r.ok && r.changed) await this.reload(c.id);   // 생성비 · 주간 보상이 기록을 고쳤다
+      return r;
+    }
+    return { ok: false, err: "op" };
   }
 
   /* ── 판정 루프 ────────────────────────────────────── */

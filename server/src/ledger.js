@@ -5,6 +5,11 @@
    접속 중 표시(live)는 메모리에만 둔다 — 배포로 장부가 다시 뜨면 비지만 화면이 10초마다 다시 남긴다 */
 import bcrypt from "bcryptjs";
 import { RESET } from "../../src/game/itemData.js";
+import { rpgKey, len, sha256, iso, isObj, txt, jeq, lvOf } from "./ledger-util.js";
+import { tradeMethods } from "./ledger-trade.js";
+import { guildMethods } from "./ledger-guild.js";
+
+export { rpgKey, sha256, jeq };
 
 export const LIVE_SECS = 30;           // 창을 그냥 닫으면 이만큼 뒤에 풀린다(rpg_live_secs)
 const LIVE_MS = LIVE_SECS * 1000;
@@ -18,29 +23,10 @@ const coinCap = (mins) => 1000000 + 500000 * Math.min(Math.max(Number(mins) || 0
 const COIN_BLOCK = false;              // false — 막지 않고 save_blocks 에 why 'coins' 로 남기기만 한다
 
 /* ── 작은 도구 ─────────────────────────────────────── */
-export const rpgKey = (name) => String(name == null ? "" : name).trim().replace(/\s+/g, " ").toLowerCase();
 const cleanName = (name) => String(name == null ? "" : name).trim().replace(/\s+/g, " ");
-const len = (s) => [...s].length;
-const hex = (u8) => [...u8].map((b) => b.toString(16).padStart(2, "0")).join("");
-export const sha256 = async (t) => hex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t))));
-const randHex = (n) => hex(crypto.getRandomValues(new Uint8Array(n)));
-const iso = (ms) => (ms == null ? null : new Date(ms).toISOString());
+const randHex = (n) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, "0")).join("");
 const bytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
-const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
-// jsonb 의 ->> 처럼 글자로(없거나 null 이면 null)
-const txt = (v) => (v == null ? null : typeof v === "object" ? JSON.stringify(v) : String(v));
-// jsonb 끼리 견주기 — 열쇠 차례와 상관없이 같은가
-export function jeq(a, b) {
-  if (a === b) return true;
-  if (typeof a !== typeof b || a === null || b === null || typeof a !== "object") return false;
-  if (Array.isArray(a) !== Array.isArray(b)) return false;
-  if (Array.isArray(a)) return a.length === b.length && a.every((x, i) => jeq(x, b[i]));
-  const ka = Object.keys(a), kb = Object.keys(b);
-  return ka.length === kb.length && ka.every((k) => Object.hasOwn(b, k) && jeq(a[k], b[k]));
-}
 export const codeOk = (c) => typeof c === "string" && /^[0-9]{5}$/.test(c) && !/^([0-9])\1{4}$/.test(c) && !"0123456789".includes(c) && !"9876543210".includes(c);
-// 기록의 레벨 — 숫자 1~4자리가 아니면 1(rpg_lv)
-const lvOf = (p) => { const s = txt(p && p.lv); return s !== null && /^[0-9]{1,4}$/.test(s) ? parseInt(s, 10) : 1; };
 // 기록의 코인 — 없으면 0. 숫자가 아니면 null 로 돌려 저장 지킴이 걸리게 한다(rpg_coins)
 const coinsOf = (p) => {
   const v = p && p.coins;
@@ -386,8 +372,7 @@ export class LedgerCore {
     return { ok: true, list };
   }
 
-  /* ── 거래 · 길드 — 2단계에서 옮긴다(지금은 점검 중으로 답한다) ── */
-  async fn_rpg_trade_open() { return { ok: false, err: "maint" }; }
-  async fn_rpg_trade_action() { return { ok: false, err: "maint" }; }
-  async fn_rpg_guild_action() { return { ok: false, err: "maint" }; }
 }
+
+// 거래 · 길드 함수는 따로 파일에 두고 클래스에 붙인다(trade.sql · guild.sql 을 옮긴 것)
+Object.assign(LedgerCore.prototype, tradeMethods, guildMethods);

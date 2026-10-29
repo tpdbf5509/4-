@@ -1,4 +1,4 @@
-/* Video Project 2: 0.3초 표본과 빠른 구간의 30fps 표본을 기준으로 한 세 무기.
+/* Video Project 2: 30fps 원본에서 추출한 0.3초 표본을 기준으로 한 세 무기.
    시간·색·궤적은 판정과 그림이 공유한다. 피해·사거리는 웹 RPG 좌표에 맞춘 임시 밸런스다. */
 export const STORM_WEAPONS = [
   { id: 'storm_staff', name: '뇌명 지팡이', t: 'staff', lv: 100, g: 4, stat: 'int', amt: 260, art: 'storm_staff', hold: 1 },

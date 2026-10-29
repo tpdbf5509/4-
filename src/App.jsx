@@ -1,3 +1,4 @@
+import HomeScreen from './HomeScreen.jsx';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   W, H, CX, CY, P, CLASSES, PERKS, PERK_BY_ID, PERK_IDS, SEATS, CREW_MAX, RARITY,
@@ -571,7 +572,7 @@ export default function App() {
       <div className="page center-page">
         <div className="scroll-panel">
           <h2>서버 설정이 필요합니다</h2>
-          <p>VITE_SUPABASE_URL 과 VITE_SUPABASE_KEY 를 .env 에 넣고 다시 실행해 주세요.</p>
+          <p>VITE_RPG_SERVER 를 확인하고 다시 실행해 주세요.</p>
         </div>
       </div>
     );
@@ -702,61 +703,12 @@ export default function App() {
 
 /* ── 홈 ─────────────────────────────────────────────────── */
 function Home({ name, setName, code, setCode, error, needPw, testPw, setTestPw, onCreate, onEnterRpg, onJoin }) {
-  // 이 기기에 저장된 RPG 캐릭터 — RPG 단추 아래에 한 줄로 보여 준다
-  const [mine] = useState(() => loadChar());
-  return (
-    <div className="page center-page">
-      <div className="home">
-        <h1>네 갈래 방어선</h1>
-        <p className="tag">
-          북·동·남·서에서 밀려오는 적을 네 명이 나눠 막는 협동 디펜스.
-          각자 자기 컴퓨터나 휴대폰에서 들어와 한 방에서 함께 지킵니다.
-        </p>
-
-        <label className="field">
-          <span>이름</span>
-          <input
-            id="nick" value={name} maxLength={8} placeholder="수비대원"
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-
-        <button className="btn-main wide" onClick={onCreate}>새 방 만들기</button>
-
-        <div className="rpg-entry">
-          <button className="btn-ghost tall rpg-entry-btn" onClick={onEnterRpg}>RPG 모드 들어가기</button>
-          <p className="rpg-entry-note">
-            캐릭터를 만들고 광장에서 모여 사냥터로 나갑니다. 방 코드 없이 모두 같은 서버에 들어갑니다(서버마다 {RPG_SERVER_CAP}명).
-            {mine ? ` 내 캐릭터 — ${mine.name} Lv.${mine.lv}` : " 이름과 레벨 · 코인은 이 기기에 남습니다."}
-          </p>
-        </div>
-
-        <div className="or"><span>또는 코드로 입장</span></div>
-
-        <div className="join-row">
-          <input
-            id="code" className="code-input" value={code} maxLength={4} placeholder="ABCD"
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-            onKeyDown={(e) => e.key === "Enter" && onJoin()}
-          />
-          <button className="btn-ghost tall" onClick={onJoin} disabled={code.length !== 4 || (needPw && !testPw)}>입장</button>
-        </div>
-
-        {needPw && (
-          <label className="field test-pw">
-            <span>테스트 서버 비밀번호</span>
-            <input
-              id="test-pw" type="password" value={testPw} maxLength={32} autoComplete="off"
-              onChange={(e) => setTestPw(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && testPw && onJoin()}
-            />
-          </label>
-        )}
-
-        {error && <p className="err">{error}</p>}
-      </div>
-    </div>
-  );
+  const [notesOpen,setNotesOpen]=useState(false);
+  const [prevSeen]=useState(()=>{try{return localStorage.getItem('flg:notes')||'';}catch{return '';}});
+  const [seen,setSeen]=useState(prevSeen);
+  const openNotes=()=>{setNotesOpen(true);setSeen(UPDATES[0].id);try{localStorage.setItem('flg:notes',UPDATES[0].id);}catch{/* 소식은 저장 없이도 읽을 수 있다 */}};
+  return <><HomeScreen {...{name,setName,code,setCode,error,needPw,testPw,setTestPw,onCreate,onEnterRpg,onJoin}} onUpdates={openNotes} hasNews={seen!==UPDATES[0].id}/>
+    {notesOpen&&<UpdateNotes seenId={prevSeen} onClose={()=>setNotesOpen(false)}/>}</>;
 }
 
 /* ── 업데이트 내용 ──────────────────────────────────────── */

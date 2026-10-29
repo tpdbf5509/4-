@@ -1,10 +1,10 @@
 /* ── RPG 캐릭터 서버 저장 ─────────────────────────────────────
-   이름 + 숫자 5자리 코드로 어느 기기에서든 이어 한다. 표와 함수는 supabase/rpg.sql.
+   이름 + 숫자 5자리 코드로 어느 기기에서든 이어 한다. 표는 server/schema.sql, 함수는 server/src/ledger.js(옛 supabase/rpg.sql 과 같은 규칙).
    - 만들기 · 이어 하기를 하면 서버가 입장권(token)을 준다. 이 기기에 저장해 두고 저장할 때 같이 보낸다.
    - 다른 기기에서 이어 하기를 하면 입장권이 새로 나와, 먼저 있던 기기의 저장은 'token' 으로 거절된다.
    - 저장은 SAVE_EVERY 초마다 바뀐 것이 있을 때 한 번, 그리고 나갈 때 한 번 보낸다.
    틀린 횟수 · 잠금 시간은 서버(rpg_login)가 정하고 결과에 담아 준다. */
-import { supabase } from "./room.js";
+import { ledger } from "./api.js";
 
 export const CODE_LEN = 5;
 export const SAVE_EVERY = 10;          // 서버에 저장하는 간격(초)
@@ -20,15 +20,8 @@ export function codeProblem(code) {
 // 입력 칸 — 숫자만 남긴다
 export const onlyDigits = (v) => String(v || "").replace(/\D/g, "").slice(0, CODE_LEN);
 
-async function rpc(fn, args) {
-  try {
-    const { data, error } = await supabase().rpc(fn, args);
-    if (error) return { ok: false, err: error.message?.startsWith("trade_") ? error.message.slice(6) : "net", detail: error.message };
-    return data;
-  } catch (e) {
-    return { ok: false, err: "net", detail: String(e && e.message) };
-  }
-}
+// 장부 호출(워커 /rpc/<함수>) — 연결이 안 되면 { ok:false, err:"net" }
+const rpc = ledger;
 
 // 서버 결과 → 화면 문구
 export function errText(res) {
@@ -45,6 +38,7 @@ export function errText(res) {
     case "stale": case "moved": return "거래 뒤의 서버 기록을 다시 불러오는 중입니다.";
     case "busy": return "거래 확인 중에는 저장을 잠시 기다립니다.";
     case "data": return "저장할 내용이 너무 큽니다.";
+    case "maint": return "이 기능은 서버를 옮기는 중이라 잠시 쓸 수 없습니다. 곧 다시 열립니다.";
     default: return "서버에 연결하지 못했습니다. 잠시 뒤 다시 해 주세요.";
   }
 }

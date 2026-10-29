@@ -7,6 +7,12 @@ import { cloudFlush, cloudQueue, cloudReset, loadRemote, tradeAction, tradeOpen 
 
 const ACTION_WAIT_MS = 50; // 상태 조회가 끝나기를 기다릴 때 버튼 입력을 버리지 않는 간격
 const NOTICE_MS = 5000; // 거래 결과와 오류는 읽을 시간을 준 뒤 화면에서 지운다
+const SYNC_WAIT_MS = 6000; // 전용 서버가 거래 뒤 기록을 다시 싣기를 기다리는 시간
+
+// 전용 서버 방이면 서버가 입장권으로 장부를 부른다(room.ledger). 예전 방식은 화면이 직접 RPC 를 부른다
+const remoteTrade = (o, c, id, op = 'get', offer = null, hash = null) => (o.room?.viaServer
+  ? o.room.ledger('trade_action', { id, op, offer, hash })
+  : tradeAction(c.name, c.tok, o.seats[o.seat]?.id, id, op, offer, hash));
 
 export const tradeError = (r) => ({
   changed: '내용이 바뀌었습니다. 다시 확인해 주세요.', account: '서버 계정이 있는 캐릭터끼리 거래할 수 있습니다.',
@@ -52,6 +58,19 @@ export function useTrade(options) {
   const recover = useCallback(async () => {
     const c = account();
     if (!c) return false;
+    const o0 = current.current;
+    if (o0.room?.viaServer) {
+      // 전용 서버가 장부에서 다시 불러와 영웅에 싣는다 — 스냅샷의 거래 차례가 장부를 따라올 때까지 기다린다
+      const r = await o0.room.ledger('load');
+      if (!r?.ok) { setError(tradeError(r)); return false; }
+      const until = Date.now() + SYNC_WAIT_MS;
+      while (Date.now() < until) {
+        const h = current.current.g.heroes[current.current.seat];
+        if (h && (h.ts || 0) >= (r.data.ts || 0)) return true;
+        await new Promise((res) => setTimeout(res, 100));
+      }
+      return false;
+    }
     const r = await loadRemote(c.name, c.tok);
     if (!r?.ok) { setError(tradeError(r)); return false; }
     const o = current.current, h = o.g.heroes[o.seat];
@@ -101,7 +120,7 @@ export function useTrade(options) {
     working.current = true; setBusy(true); setError('');
     try {
       const id = active.current?.id;
-      const r = await tradeAction(c.name, c.tok, o.seats[o.seat]?.id, id, op, offer, hash);
+      const r = await remoteTrade(o, c, id, op, offer, hash);
       await receive(r);
       return r;
     } finally { working.current = false; setBusy(false); }
@@ -121,8 +140,9 @@ export function useTrade(options) {
       while ((h.tradeAck || 0) < q && Date.now() < until) await new Promise((r) => setTimeout(r, 100));
       if ((h.tradeAck || 0) < q) throw Error('방장 응답을 기다리고 있습니다. 다시 시도해 주세요.');
     }
-    writeChar(h); cloudQueue(c.name, c.tok, charRecord());
-    const r = await cloudFlush();
+    let r;
+    if (o.room?.viaServer) r = await o.room.ledger('flush');   // 서버가 쥔 영웅을 장부에 먼저 남긴다
+    else { writeChar(h); cloudQueue(c.name, c.tok, charRecord()); r = await cloudFlush(); }
     if (!r?.ok) throw Error(tradeError(r));
   }, [lock]);
   const request = useCallback(async (target) => {
@@ -130,11 +150,11 @@ export function useTrade(options) {
     working.current = true; setBusy(true); setError('');
     try {
       const c = account(), o = current.current;
-      if (!c || o.room?.viaServer) throw Error('서버 계정이 있는 캐릭터끼리 거래할 수 있습니다.');
+      if (!c) throw Error('서버 계정이 있는 캐릭터끼리 거래할 수 있습니다.');
       await flush();
-      const r = await tradeOpen(c.name, c.tok, target, o.seats[o.seat]?.id);
+      const r = o.room?.viaServer ? await o.room.ledger('trade_open', { target }) : await tradeOpen(c.name, c.tok, target, o.seats[o.seat]?.id);
       if (!r?.ok) throw Error(tradeError(r));
-      const state = await tradeAction(c.name, c.tok, o.seats[o.seat]?.id, r.id);
+      const state = await remoteTrade(o, c, r.id);
       if (!state?.ok) throw Error(tradeError(state));
       await receive(state);
       o.closeAll();
@@ -160,10 +180,10 @@ export function useTrade(options) {
           if (h) h.tradeLocal = !!active.current;
         } else o.room?.send('rjoin', syncRecord.current);
       }
-      if (!working.current && c && !o.room?.viaServer && o.g.heroes[o.seat]?.loaded) {
+      if (!working.current && c && o.g.heroes[o.seat]?.loaded) {
         working.current = true;
         try {
-          const r = await tradeAction(c.name, c.tok, o.seats[o.seat]?.id, active.current?.id);
+          const r = await remoteTrade(o, c, active.current?.id);
           if (!stop && (r?.ok || active.current)) await receive(r);
         }
         finally { working.current = false; }

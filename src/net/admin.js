@@ -2,9 +2,10 @@
    서버마다 관리 채널 하나(flg:adm-RPG1 …)를 따로 둔다. 그 서버의 방장과 관리 화면만 붙는다.
    - 관리 화면이 ADMIN.ping 초마다 "ping" 을 보내면 방장이 "stat"(인원 · 방장 · 빌드 · fps)으로 답한다.
      답이 돌아오는 시간이 그 서버의 왕복 시간이다. 묻지 않으면 아무것도 보내지 않는다(메시지 한도)
-   - 명령(방장 부여 · 퇴장)은 Supabase 함수로 받은 일회용 표(nonce)를 싣는다.
-     방장 화면은 rpg_admin_redeem 으로 표가 맞는지 묻고 맞을 때만 따른다. 표와 함수는 supabase/rpg.sql */
-import { joinRoom, supabase } from "./room.js";
+   - 명령(방장 부여 · 퇴장)은 장부 함수로 받은 일회용 표(nonce)를 싣는다.
+     방장 화면은 rpg_admin_redeem 으로 표가 맞는지 묻고 맞을 때만 따른다. 함수는 server/src/ledger.js */
+import { joinRoom } from "./room.js";
+import { ledger } from "./api.js";
 
 export const ADMIN = {
   ping: 3,          // 관리 화면이 묻는 간격(초) — 서버당 3초에 2통(묻기 + 답)
@@ -13,14 +14,7 @@ export const ADMIN = {
   page: 8,          // 인원 표 한 쪽에 보이는 사람 수
 };
 
-const rpc = async (fn, args) => {
-  try {
-    const { data, error } = await supabase().rpc(fn, args);
-    return error ? { ok: false, err: "net" } : data;
-  } catch {
-    return { ok: false, err: "net" };
-  }
-};
+const rpc = ledger;
 
 // 관리자 확인 — 입장권을 바꾸지 않아 게임 중인 기기가 끊기지 않는다
 export const adminCheck = (name, code) => rpc("rpg_admin_ok", { p_name: name, p_code: code });
@@ -45,5 +39,5 @@ export const adminRename = (name, code, target, next) =>
 // 거래 기록은 관리자 인증 뒤에만 읽는다.
 export const adminTrades = (name, code) => rpc("rpg_admin_trades", { p_name: name, p_code: code });
 
-// 접수된 문의 · 의견(최근 300개) — feedback 표는 읽기가 막혀 있어 관리자 확인 뒤 이 함수로만 읽는다(supabase/feedback.sql)
+// 접수된 문의 · 의견(최근 300개) — feedback 표는 읽기가 막혀 있어 관리자 확인 뒤 이 함수로만 읽는다(server/src/ledger.js)
 export const adminFeedback = (name, code) => rpc("rpg_admin_feedback", { p_name: name, p_code: code });

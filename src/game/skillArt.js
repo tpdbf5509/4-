@@ -3,6 +3,7 @@ import {drawWorldBossFx} from "./worldBossArt.js";
 import { skillAccent } from "./combatFx.js";
 import { drawWorldWeaponFx } from "./worldWeaponArt.js";
 import { drawAdvFx, ADV_GROUND } from "./advArt.js";
+import { drawStormFx, drawStormCharge } from './stormWeaponArt.js';
 import { drawFuryFx } from "./furyArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
    drawSkillFx — 이 파일이 맡은 연출(kind 가 "sk_" 로 시작): 빙판길 · 얼음 가시 · 불꽃 회오리 · 화염베기 · 유성(별 · 은하) · 종말의 일격 · 성광 빛줄기 · 빛의 결계 · 잿빛 폭발 · 낙뢰.
@@ -52,6 +53,7 @@ export function drawSkillFx(ctx, f, time, g) {
   if (drawWorldBossFx(ctx,f,p,Q)||drawGuildFx(ctx,f,p,Q)) return;
   if (drawWorldWeaponFx(ctx, f, p, time, SQ(), g, Q)) return;
   if (drawAdvFx(ctx, f, p, time, Q)) return;      // 1차 전직(advArt.js)
+  if (drawStormFx(ctx, f, p, SQ(), g, Q)) return;
   if (drawFuryFx(ctx, f, p, Q)) return;           // 적룡 지팡이(furyArt.js)
   skillAccent(ctx, f, p, Q);
   if (f.kind === "sk_ice") drawIce(ctx, f, p, time);
@@ -309,6 +311,7 @@ function drawMeteor(ctx, f, p) {
 export function drawHeroSkill(ctx, h, time) {
   if (!h || h.down > 0) return;
   const w = h.ws, jb = h.jb, sp = heldSpecial(h);
+  drawStormCharge(ctx,h,time,Q);
   const cx = h.x, cy = h.y - 40;
   ctx.save();
   if (jb && jb.iron > 0) bubble(ctx, cx, cy, 42, "rgba(207,216,230,", time);          // 철벽 — 잿빛 막

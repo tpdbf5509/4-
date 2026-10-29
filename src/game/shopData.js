@@ -1,3 +1,4 @@
+import { STORM_WEAPONS } from './stormWeaponData.js';
 import { WORLD_WEAPONS } from "./worldEquipmentData.js";
 import { JOB_SKILLS } from "./skillData.js";
 /* ── RPG 광장 상점 설정 ─────────────────────────────────────
@@ -68,6 +69,7 @@ export const OFF_HAND = { dmg: { sword: 45, bow: 35, staff: 40 } };   // 기획 
 export const SPECIAL = { mul: 1.25, price: 1.5 };
 // amt 가 있으면 올리는 양을 셈하지 않고 그 값으로 둔다(전설 무기 스킬 기획 값). 무기 스킬은 skillData.js WEAPON_SKILLS
 export const SPECIALS = [
+  ...STORM_WEAPONS,
   { id: "clockwork", name: "태엽검", t: "sword", lv: 10, g: 3, stat: "str", art: "clockwork" },
   { id: "forest", name: "숲의 검", t: "sword", lv: 20, g: 3, stat: "hp", art: "forest" },
   { id: "coral", name: "산호검", t: "sword", lv: 30, g: 3, stat: "int", art: "coral" },

@@ -1,9 +1,10 @@
 import { rpgTrade } from "./trade.js";
 import { trading } from "./tradeData.js";
+import { stormBusy } from './stormWeaponCombat.js';
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
    d = { cls: 자리, kind, dir, q }. 늦게 도착한 옛 누름 · 뗌(hold · fire)은 버린다(freshInput) */
 import {
-  rpgHold, rpgSkill, rpgWeaponSkill, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
+  rpgHold, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
   rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
@@ -14,6 +15,7 @@ const ACTS = {
   hold: (g, pi, dir) => rpgHold(g, pi, dir),
   skill: (g, pi) => rpgSkill(g, pi),
   wskill: (g, pi) => rpgWeaponSkill(g, pi),
+  wcharge: (g, pi, dir) => dir === true ? rpgWeaponSkill(g, pi) : rpgWeaponRelease(g, pi, dir === "cancel"),
   talk: (g, pi) => rpgTalk(g, pi),
   fire: (g, pi, dir) => rpgFire(g, pi, !!dir),
   auto: (g, pi, dir) => rpgAuto(g, pi, !!dir),
@@ -37,6 +39,7 @@ const ACTS = {
 };
 export function rpgInput(g, d) {
   if (!d || !Number.isInteger(d.cls) || !g.heroes[d.cls]) return;
+  if(stormBusy(g.heroes[d.cls]) && ['skill','use','adv','dash'].includes(d.kind))return;
   if (d.kind !== "trade" && !(d.kind==="guild"&&["sync","settled"].includes(d.dir?.op)) && trading(g.heroes[d.cls])) return;
   const act = Object.prototype.hasOwnProperty.call(ACTS, d.kind) ? ACTS[d.kind] : null;
   if (!act || !freshInput(g.heroes[d.cls], d.kind, d.q, g.t)) return;

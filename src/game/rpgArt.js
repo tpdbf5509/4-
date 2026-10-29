@@ -3,6 +3,7 @@ import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
 import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
+import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { warmAdvArt, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
@@ -53,7 +54,10 @@ const DUAL_HELD = {
   src: '/assets/game/rpg/items/dragon-dual-held.webp',
   grips: [[64, 107, 64, 5], [64, 107, 64, 44]], lengths: [32, 22],
 };
+const AZURE_HELD = { src: '/assets/game/rpg/weapons/azure-dual-held.webp', grips: [[64,107,64,8],[64,107,64,8]], lengths: [33,33] };
+const dualSpec = sp => sp?.dual ? AZURE_HELD : DUAL_HELD;
 const WEAPON_GRIP = {
+  storm_staff: [64,106,64,14], violet_bow: [64,64,68,9], azure_dual: [64,107,64,8],
   dragon_dual: [26, 104, 109, 15], dragon_staff: [64, 100, 65, 16], dragon_bow: [66, 67, 60, 12],
   serpent_sword: [24, 108, 108, 20], serpent_staff: [62, 100, 62, 15], serpent_bow: [62, 64, 75, 14],
   machine_sword: [25, 105, 100, 20], machine_staff: [62, 100, 62, 15], machine_bow: [63, 64, 76, 14],
@@ -66,7 +70,7 @@ const WEAPON_GRIP = {
   thunder_bow: [56, 64, 10, 8], lava_bow: [71, 64, 23, 8], shadow_bow: [66, 56, 22, 10], star_bow: [66, 60, 16, 12], gold_bow: [71, 52, 12, 12],
 };
 // 활 그림에서 활줄이 놓인 쪽 — 손잡이 → 위쪽 끝을 보고 왼쪽(-1) · 오른쪽(1). 손에 든 쪽과 다르면 뒤집어 활줄이 몸 쪽을 향하게 한다
-const BOW_STRING = { thunder_bow: -1, lava_bow: 1, shadow_bow: 1, star_bow: -1, gold_bow: -1, dragon_bow: 1, serpent_bow: 1, machine_bow: 1 };
+const BOW_STRING = { violet_bow: -1, thunder_bow: -1, lava_bow: 1, shadow_bow: 1, star_bow: -1, gold_bow: -1, dragon_bow: 1, serpent_bow: 1, machine_bow: 1 };
 /* 마법사는 특별 지팡이, 궁수는 특별 활을 장착하면 원래 무기를 지운 그림(<보기>-bare.webp, tools/bare-holders.py)에 그 무기를 손에 들려 그린다.
    HOLDER_HAND: 직업 · 성별 · 보기마다 손 [x, y]와 무기 방향(도, 손 → 지팡이 머리 · 활 위쪽 끝)과 그 길이(px) — 원래 그림 크기 기준.
    무기가 몸에 가려 보이지 않는 보기(마법사 옆 · 뒤 등)는 원래 그림을 그대로 쓴다 */
@@ -93,8 +97,8 @@ const HELD_TYPE = { dagger: 0.8, great: 1.15 };        // 단검은 짧게, 대�
 const weaponCache = {};
 function weaponImg(sp, part = 0) {
   if (typeof Image === "undefined") return null;
-  const dual = sp.id === 'dragon_dual';
-  const src = dual ? DUAL_HELD.src : sp.world ? WORLD_EQUIPMENT.atlas : specialArt(sp);
+  const dual = sp.id === 'dragon_dual' || !!sp.dual;
+  const src = dual ? dualSpec(sp).src : sp.world ? WORLD_EQUIPMENT.atlas : specialArt(sp);
   let im = weaponCache[src];
   if (im === undefined) {
     im = weaponCache[src] = new Image();
@@ -102,7 +106,7 @@ function weaponImg(sp, part = 0) {
     im.src = src;
   }
   if (!(im && im.complete && im.naturalWidth)) return null;
-  if (!sp.world) return im;
+  if (!sp.world && !dual) return im;
   const cell = dual ? part : worldArtCell(specialArt(sp)), cacheKey = `world:${sp.id}:${part}`;
   if (!weaponCache[cacheKey]) {
     const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -143,7 +147,7 @@ function advHeld(h, view) {
   if (!body) return null;                           // 못 불러오면 전직 그림(그림 속 무기) 그대로
   const left = view === "turn" || view === "side" || view === "back";
   if (ADV_HELD[sp.t] === h.job) return { body, hand: xy, adv: sp.t, still: true, left };   // 총사가 아닌 궁수 전직의 총 · 소환술사가 아닌 마법사 전직의 소환서
-  const grip = sp.id === "dragon_dual" ? DUAL_HELD.grips[0] : WEAPON_GRIP[sp.art];
+  const grip = (sp.id === "dragon_dual" || sp.dual) ? dualSpec(sp).grips[0] : WEAPON_GRIP[sp.art];
   const wpn = grip && weaponImg(sp);
   if (!wpn) return null;
   if (HOLDER[h.job]) {
@@ -156,12 +160,12 @@ function advHeld(h, view) {
   }
   if (h.job !== "warrior") return null;
   const ang = outward(WARRIOR_HAND[g][view][2], xy[0] < body.naturalWidth / 2);   // 쌍검은 한 손 단검만(전직 그림에 반대 손 자리가 없다)
-  const len = sp.id === "dragon_dual" ? DUAL_HELD.lengths[0] : HELD_LEN * (HELD_TYPE[sp.t] || 1);
+  const len = (sp.id === "dragon_dual" || sp.dual) ? dualSpec(sp).lengths[0] : HELD_LEN * (HELD_TYPE[sp.t] || 1);
   const held = { body, hand: [xy[0], xy[1], ang], wpn, grip, len, left: view === "turn" || view === "side" };
-  const oxy = sp.id === "dragon_dual" && ADV_OFF_HAND[h.advClass]?.[g]?.[view];
+  const oxy = (sp.id === "dragon_dual" || sp.dual) && ADV_OFF_HAND[h.advClass]?.[g]?.[view];
   if (oxy) {                                         // 쌍검 — 반대 손에도 단검 한 자루
     const oang = 180 - ang;
-    held.off = { hand: [oxy[0], oxy[1], oang], wpn: weaponImg(sp, 1), grip: DUAL_HELD.grips[1], len: DUAL_HELD.lengths[1], left: Math.cos((oang * Math.PI) / 180) < 0 };
+    held.off = { hand: [oxy[0], oxy[1], oang], wpn: weaponImg(sp, 1), grip: dualSpec(sp).grips[1], len: dualSpec(sp).lengths[1], left: Math.cos((oang * Math.PI) / 180) < 0 };
   }
   return held;
 }
@@ -189,12 +193,12 @@ function heldWeapon(h, view) {
   const body = hand && heroImg(h, `${view}-bare`);
   if (!body) return null;
   const sp = SPECIAL_BY_ID[heldSpecial(h)];
-  if (sp?.id === 'dragon_dual') {
+  if (sp?.id === 'dragon_dual' || sp?.dual) {
     for (const v of ['front','turn','side','back']) heroImg(h, `${v}-bare`);
     const offHand = DUAL_OFF_HAND[h.gender === 'f' ? 'f' : 'm'][view];
-    return { body, hand, wpn: weaponImg(sp), grip: DUAL_HELD.grips[0], len: DUAL_HELD.lengths[0],
+    return { body, hand, wpn: weaponImg(sp), grip: dualSpec(sp).grips[0], len: dualSpec(sp).lengths[0],
       left: view === 'turn' || view === 'side',
-      off: { hand: offHand, wpn: weaponImg(sp, 1), grip: DUAL_HELD.grips[1], len: DUAL_HELD.lengths[1], left: offHand[2] > 90 } };
+      off: { hand: offHand, wpn: weaponImg(sp, 1), grip: dualSpec(sp).grips[1], len: dualSpec(sp).lengths[1], left: offHand[2] > 90 } };
   }
   const grip = sp && WEAPON_GRIP[sp.art];
   const wpn = grip ? weaponImg(sp) : null;
@@ -203,6 +207,8 @@ function heldWeapon(h, view) {
 }
 // 공격할 때 검 각도(도) — 휘두르는 중이 아니면 null
 function swingAngle(h, held, time) {
+  const cast = h.ws?.storm;
+  if (cast?.id === "azure_dual" && (cast.phase === "charge" || cast.phase === "dash")) return { ang: held.left ? 235 : 305, trail: cast.phase === "dash" ? .7 : 0 };
   const a = h.anim;
   if (!a || held.still) return null;               // 지팡이 · 활은 휘두르지 않는다
   if (h.swing > 0 && !(a.sw > 0)) a.swAt = time;    // 새로 쳤다
@@ -2329,7 +2335,7 @@ function follow(g, M) {
    ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
    ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
-  cap: {sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
+  cap: {sk_storm_staff:6,sk_storm_bow:10,sk_storm_dash:8,sk_storm_finish:8,sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3 } };
 const lod = { at: 0, ms: 16, q: 1 };
 /* 사람이 많은 화면 — 월드보스처럼 한 맵에 모이면 손님 기기마다 남의 연출을 모두 그려 휴대폰에서 초당 화면이 반으로 떨어졌다.
    (실측: 월드보스 무기 연출 하나가 휴대폰 속도에서 3~5ms. 남의 것이 스무 개 넘게 겹친다)
@@ -2488,6 +2494,7 @@ export function drawRpg(ctx, g, bgs) {
     });
   }
   ctx.restore();
+  drawStormScreenFlash(ctx,g,W,H);
   if (g.banner) drawBanner(ctx, g.banner);
   const raidNotice=g.fx.findLast(f=>f.kind==="raid_notice"&&(f.who===-1||f.who===g.mySeat));
   if(raidNotice){ctx.save();ctx.translate(0,170);drawBanner(ctx,raidNotice);ctx.restore();}

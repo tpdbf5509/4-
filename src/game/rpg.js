@@ -2,6 +2,7 @@ import {GUILD,GUILD_BOSSES,guildMap,guildBuff,guildAspd,GUILD_HALL,guildHallMap}
 import {isGuildBoss,guildInput,guildHit,guildKilled,guildRestore,tickGuild} from './guild.js';
 import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
+import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb } from "./armor.js";
 import { trading } from "./tradeData.js";
@@ -1134,7 +1135,7 @@ function say(g, map, x, y, text, color) {
 // 손님의 누름 · 뗌(hold · fire)은 마지막 상태만 뜻이 있다 — 늦게 도착한 옛 것(번호가 작은 것)은 버린다.
 // 번호가 없으면(옛 버전 손님) 그대로 받는다. 대쉬 · 스킬 같은 한 번짜리 입력은 버리지 않는다
 export function freshInput(h, kind, q, now) {
-  if ((kind !== "hold" && kind !== "fire") || !q) return true;
+  if ((kind !== "hold" && kind !== "fire" && kind !== "wcharge") || !q) return true;
   if (!h.inq) h.inq = {};
   if (q <= (h.inq[kind] || 0)) return false;
   h.inq[kind] = q;
@@ -1175,7 +1176,7 @@ export function rpgHold(g, pi, dirs) {
 
 // 누르고 있는 만큼 걷는다 — 방장과 손님 화면 양쪽에서 같은 식으로 돈다
 export function rpgWalk(h, dt) {
-  if (!h || h.down > 0 || !h.hold || !h.hold.length || ccRooted(h)) return;   // 결투에서 경직 · 띄움 · 속박이면 걷지 못한다
+  if (!h || h.down > 0 || !h.hold || !h.hold.length || ccRooted(h) || stormBusy(h)) return;   // 결투에서 경직 · 띄움 · 속박이면 걷지 못한다
   let dx = 0, dy = 0;
   h.hold.forEach((d) => {
     if (d === "left") dx -= 1;
@@ -2202,7 +2203,7 @@ function dashStep(h, dt) {
 }
 export function rpgDash(g, pi, aim) {
   const h = g.heroes[pi];
-  if (!h || !h.loaded || h.down > 0) return;
+  if (!h || !h.loaded || h.down > 0 || stormBusy(h)) return;
   if ((h.dashCd || 0) > 0) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
   const x0 = h.x, y0 = h.y;
   if (!startDash(h, aim)) return;
@@ -2576,11 +2577,12 @@ function packSkillState(h) {
   return [w ? r1(w.wcd) : 0, w ? w.emb : 0, w ? w.star : 0, c ? c.st + 1 : 0, c ? r1(c.t) : 0, c ? r1(c.el) : 0,
     jb ? r1(jb.iron) : 0, jb ? Math.round(jb.sh) : 0, jb ? r1(jb.shT) : 0,
     w ? w.zap || 0 : 0, w ? w.mark || 0 : 0, w ? w.aim || 0 : 0,
-    q ? r1(q.stun) : 0, q ? r1(q.air) : 0, q ? r1(q.root) : 0, q ? r1(q.slow) : 0, q ? q.slowAmt || 0 : 0, q ? r1(q.brand) : 0, w?.world || null];
+    q ? r1(q.stun) : 0, q ? r1(q.air) : 0, q ? r1(q.root) : 0, q ? r1(q.slow) : 0, q ? q.slowAmt || 0 : 0, q ? r1(q.brand) : 0, w?.world || null, w?.storm ? structuredClone(w.storm) : null];
 }
 function applySkillState(h, a) {
   const v = a.slice(0, 18).map((x) => Number(x) || 0);
   wsOf(h).world = a[18] ? structuredClone(a[18]) : null;
+  wsOf(h).storm = a[19] ? structuredClone(a[19]) : null;
   const w = wsOf(h), jb = jbOf(h);
   let cst, ct, cel;
   [w.wcd, w.emb, w.star, cst, ct, cel, jb.iron, jb.sh, jb.shT, w.zap, w.mark, w.aim] = v;
@@ -2719,6 +2721,7 @@ function tickWeapon(g, h, dt) {
     if (sp !== "star_bow") w.aim = 0;
   }
   tickWorldWeapon(worldEngine, g, h, dt);
+  tickStormWeapon(stormEngine, g, h, dt);
   if (jb) {
     jb.iron = Math.max(0, jb.iron - dt);
     jb.shT = Math.max(0, jb.shT - dt);
@@ -2865,6 +2868,9 @@ const worldEngine = { fx, near: foesNear, line: lineFoes, arc: arcFoes, strike: 
     h.dvx = (o.x - h.x) / time; h.dvy = (o.y - h.y) / (RPG.squash * time); h.dash = time;
   }, squash: RPG.squash, held: heldSpecial };
 
+const stormEngine = { ...worldEngine, face: faceDir, lineFrom, locked: ccLocked, safe: map => !!MAPS[map]?.safe, trading, cooldown: worldCooldownMul };
+export function rpgWeaponRelease(g, pi, cancel=false) { releaseStormWeapon(stormEngine,g,g.heroes[pi],cancel); }
+
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
 // grow 는 그어지는 데 드는 몫(life 의 10% = 0.04초 · 영상처럼 순식간에) · spin 은 사라지는 동안 더 휘돌아 가는 각
 const FIRE_SLASH = { grow: 0.1, spin: 1.4, life: 0.4, span: 3.4, size: [1.25, 1.05, 1.35, 1.15], tilt: [0.45, 0.85, 0.3, 0.65] };   // life — 마지막 타 뒤 0.4초 만에 사라진다(기획 영상)
@@ -2881,6 +2887,7 @@ export function rpgWeaponSkill(g, pi) {
   if (w.wcd > 0) return say(g, map, h.x, h.y - 90, `${W.name} ${Math.ceil(w.wcd)}초`, "#f0dcb4");
   newCast(h);                                     // 결투 스킬 피해 한도 — 연계 전체가 스킬 한 번
   h.cast.weapon = true; h.cast.sid = "wpn";
+  if (castStormWeapon(stormEngine, g, h, sp)) return;
   if (castWorldWeapon(worldEngine, g, h, sp)) return;
   const el = elemOf(h);
   if (sp === "frost") {                           // 빙판길 — 앞에 빙판을 깐다
@@ -3323,7 +3330,7 @@ function stepHeroes(g, dt) {
     h.sk = Math.max(0, h.sk - dt);
     h.cd = Math.max(0, h.cd - dt);
     h.fireQ = Math.max(0, h.fireQ - dt);
-    if (h.cd > 0 || MAPS[h.map].safe) return;
+    if (h.cd > 0 || MAPS[h.map].safe || stormBusy(h)) return;
     const force = !!h.fire || h.fireQ > 0;          // 스페이스 — 사거리 안에 아무도 없어도 친다
     if ((!h.auto || isPvp(h.map)) && !force) return;   // 결투장에서는 자동 평타를 끈다
     if (ccLocked(h)) return;                      // 결투에서 경직 · 띄움 — 치지 못한다

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs>
+<linearGradient id="metal" x1="0" x2="1"><stop stop-color="#131c43"/><stop offset=".4" stop-color="#6777ab"/><stop offset=".56" stop-color="#c4e9ff"/><stop offset=".67" stop-color="#263956"/><stop offset="1" stop-color="#11172b"/></linearGradient>
+<linearGradient id="blade" x1="0" x2="1"><stop stop-color="#15798e"/><stop offset=".45" stop-color="#3dd7eb"/><stop offset=".51" stop-color="#f0ffff"/><stop offset=".7" stop-color="#8cfaef"/><stop offset="1" stop-color="#358bba"/></linearGradient>
+<linearGradient id="purple" x1="0" y1="1" x2=".4" y2="0"><stop stop-color="#372c6d"/><stop offset=".5" stop-color="#9480f4"/><stop offset="1" stop-color="#dcf9ff"/></linearGradient>
+<filter id="glow" x="-.8" y="-.8" width="2.6" height="2.6"><feGaussianBlur stdDeviation="2.1"/></filter>
+</defs><g transform="translate(8 -3) rotate(-27 64 64) scale(.84)"><path d="M60 116L59 94L69 94L68 116Z" fill="url(#metal)" stroke="#151e34"/>
+<path d="M58 101L69 104M58 107L69 110" stroke="#0b2330" stroke-width="3"/>
+<path d="M48 93L55 86L72 86L81 93L75 98L67 93L59 93L52 98Z" fill="url(#metal)" stroke="#5cc7d9"/>
+<path d="M60 87L51 40L64 8L77 40L68 87Z" fill="url(#blade)" stroke="#12364a" stroke-width="1.5"/>
+<path d="M64 10L64 86" stroke="#e4ffff" stroke-width="1.5"/>
+<path d="M57 47L61 55L58 61L63 71M71 37L66 45L69 52" fill="none" stroke="#f4ffff"/>
+<path d="M51 38L49 57L54 63M77 39L80 57L74 67" fill="none" stroke="#47e6f6" stroke-width="1.4"/>
+<circle cx="64" cy="90" r="3" fill="#b5ffff"/></g><g transform="translate(13 6) rotate(27 64 64) scale(.84)"><path d="M60 116L59 94L69 94L68 116Z" fill="url(#metal)" stroke="#151e34"/>
+<path d="M58 101L69 104M58 107L69 110" stroke="#0b2330" stroke-width="3"/>
+<path d="M48 93L55 86L72 86L81 93L75 98L67 93L59 93L52 98Z" fill="url(#metal)" stroke="#5cc7d9"/>
+<path d="M60 87L51 40L64 8L77 40L68 87Z" fill="url(#blade)" stroke="#12364a" stroke-width="1.5"/>
+<path d="M64 10L64 86" stroke="#e4ffff" stroke-width="1.5"/>
+<path d="M57 47L61 55L58 61L63 71M71 37L66 45L69 52" fill="none" stroke="#f4ffff"/>
+<path d="M51 38L49 57L54 63M77 39L80 57L74 67" fill="none" stroke="#47e6f6" stroke-width="1.4"/>
+<circle cx="64" cy="90" r="3" fill="#b5ffff"/></g></svg>

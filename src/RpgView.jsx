@@ -36,7 +36,7 @@ function weaponHud(me) {
   const w = me.ws || {}, c = w.cmb, jb = me.jb || {};
   // 연계 중이면 다음 입력을 알려 준다(단계는 rpg.js w.cmb)
   const worldCast = w.world?.cast;
-  const next = worldCast ? `시전 중 ${worldCast.index}/${WEAPON_SKILLS[worldCast.id]?.skill.hits || 1}` : !c ? ""
+  const next = w.storm?.id === "azure_dual" && w.storm.phase === "charge" ? "충전 중 · 놓으면 돌진" : worldCast ? `시전 중 ${worldCast.index}/${WEAPON_SKILLS[worldCast.id]?.skill.hits || 1}` : !c ? ""
     : sp === "shadow" ? (c.st === 2 ? "2타 ▶" : c.st === 3 ? "마무리 ▶" : "")
     : sp === "holy" ? (c.st === 1 ? "반격 자세" : c.st === 2 ? "X 내려치기 · 평타 밀기" : "")
     : sp === "star_bow" ? (c.st === 1 ? "조준 중 ▶" : "")
@@ -49,7 +49,7 @@ function weaponHud(me) {
     : sp === "holy_staff" ? `보호막 ${me.max ? Math.round(((jb.sh || 0) / me.max) * 100) : 0}%`
     : sp === "lava_bow" ? `표식 ${w.mark || 0}/${W.passive.max}`
     : sp === "star_bow" ? `조준 ${w.aim || 0}/${W.passive.max}`
-    : W.passive.name);
+    : W.passive?.name || (sp === "azure_dual" ? "누르고 충전 · 놓아서 발동" : W.role));
   return { name: W.name, cd: w.wcd || 0, max: W.skill.cd, stack };
 }
 // 전직 스킬 칸 — 1차 전직을 마친 사람과 시험 동안 스킬을 쓰는 사람(마도사 시험). 쌓인 패시브를 작은 글자로
@@ -826,6 +826,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const openChat = useCallback(() => {
     clearDirs();
     act("fire", false);
+    act("wcharge", "cancel");
     setChatOpen(true);
     setChatErr("");
     setTimeout(() => chatInput.current?.focus(), 0);
@@ -843,7 +844,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (e.repeat) return;
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
-      else if (a === "wskill") act("wskill");
+      else if (a === "wskill") act(heldSpecial(G.current.heroes[mySeat] || {}) === "azure_dual" ? "wcharge" : "wskill", true);
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "healMode") act("adv", { op: "mode" });   // 치유사 평타 바꾸기 — 방장이 판정한다
       else if (a === "dash") act("dash");
@@ -867,10 +868,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const a = keyMap(bindsRef.current)[e.code];
       if (MOVE_ACTS[a]) releaseDir(MOVE_ACTS[a]);
       if (a === "fire") act("fire", false);
+      if (a === "wskill") act("wcharge", false);
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
-    const onBlur = () => { clearDirs(); act("fire", false); };
+    const onBlur = () => { clearDirs(); act("fire", false); act("wcharge", "cancel"); };
     window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKey);
@@ -1943,7 +1945,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
               {me.wsk && (
                 <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
-                  onPointerDown={(e) => { e.preventDefault(); act("wskill"); }}>
+                  onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); act(heldSpecial(G.current.heroes[mySeat] || {}) === "azure_dual" ? "wcharge" : "wskill", true); }}
+                  onPointerUp={() => act("wcharge", false)}
+                  onPointerCancel={() => act("wcharge", "cancel")}>
                   {!touch && keyOf(binds, "wskill") && <kbd>{keyOf(binds, "wskill")}</kbd>}
                   <span>{me.wsk.name}<small>{me.wsk.stack}</small></span>
                   {me.wsk.cd > 0 && <em>{Math.ceil(me.wsk.cd)}</em>}

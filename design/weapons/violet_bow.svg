@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs>
+<linearGradient id="metal" x1="0" x2="1"><stop stop-color="#131c43"/><stop offset=".4" stop-color="#6777ab"/><stop offset=".56" stop-color="#c4e9ff"/><stop offset=".67" stop-color="#263956"/><stop offset="1" stop-color="#11172b"/></linearGradient>
+<linearGradient id="blade" x1="0" x2="1"><stop stop-color="#15798e"/><stop offset=".45" stop-color="#3dd7eb"/><stop offset=".51" stop-color="#f0ffff"/><stop offset=".7" stop-color="#8cfaef"/><stop offset="1" stop-color="#358bba"/></linearGradient>
+<linearGradient id="purple" x1="0" y1="1" x2=".4" y2="0"><stop stop-color="#372c6d"/><stop offset=".5" stop-color="#9480f4"/><stop offset="1" stop-color="#dcf9ff"/></linearGradient>
+<filter id="glow" x="-.8" y="-.8" width="2.6" height="2.6"><feGaussianBlur stdDeviation="2.1"/></filter>
+</defs><path d="M44 13Q102 26 78 56L72 64L78 72Q102 102 44 115L58 99Q79 88 62 73L58 64L62 55Q79 40 58 29Z" fill="url(#metal)" stroke="#25203f" stroke-width="2"/>
+<path d="M45 13Q93 30 72 56M72 72Q93 98 45 115" fill="none" stroke="#a9a5ff" stroke-width="3"/>
+<path d="M44 13L52 64L44 115" fill="none" stroke="#c6b5ff" stroke-width="1"/>
+<path d="M57 53L73 53L73 76L57 76Z" fill="#262039" stroke="#ad8cce"/><path d="M57 58L73 61M57 64L73 67M57 70L73 73" stroke="#9b82b0"/>
+<path d="M42 12L67 12L54 25L57 18Z M42 116L67 116L54 103L57 110Z" fill="url(#purple)" stroke="#ddceff"/>
+<path d="M88 34L93 48L84 47L90 58M88 92L94 80L84 81L89 69" fill="none" stroke="#8161ff" stroke-width="2"/>
+<path d="M42 64L96 64L87 59M96 64L87 69" fill="none" stroke="#ddeaff" stroke-width="1.5"/></svg>

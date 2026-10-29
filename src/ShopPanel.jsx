@@ -89,7 +89,7 @@ function WeaponItem({ w, tag, desc, price, acts, dim }) {
 // 전설 무기 스킬 한 줄 — 패시브 · 스킬(X 키) · 원소 연계
 function weaponSkillLine(id) {
   const W = WEAPON_SKILLS[id];
-  return `${W.role} — 패시브 「${W.passive.name}」 ${W.passive.note} · 스킬 「${W.name}」 ${W.skill.note} · X 키 · ${W.skill.cd}초마다`
+  return `${W.role} — ${W.passive ? `패시브 「${W.passive.name}」 ${W.passive.note} · ` : ""}스킬 「${W.name}」 ${W.skill.note} · X 키 · ${W.skill.cd}초마다`
     + (W.dot ? ` · 화상 · 독 피해 +${Math.round(W.dot * 100)}%` : "")
     + (W.elem ? ` · ${W.elem.note}` : W.note ? ` · ${W.note}` : "");
 }

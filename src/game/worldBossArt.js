@@ -1,5 +1,5 @@
 /* 월드보스 전용 그림과 위험지역. 기존 캐릭터 스킬 효과는 재사용하지 않는다. */
-import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_TYPE} from './worldBossData.js';
+import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_TYPE,WORLD_BOSS_PATTERNS} from './worldBossData.js';
 import {bloom,sparks,ring,bolt} from './combatFx.js';
 import {worldBossCoopOpen} from './worldBoss.js';
 const TAU=Math.PI*2;
@@ -20,6 +20,7 @@ export function warmWorldBossArt(){
 function path(ctx,s){
   ctx.beginPath();
   if(s.shape==='ring'){ctx.arc(0,0,s.r,0,Math.PI*2);ctx.arc(0,0,s.inner,0,Math.PI*2,true);}
+  else if(s.shape==='outside'){ctx.rect(-s.x,-s.y/C.squash,C.w,C.h/C.squash);ctx.moveTo(s.r,0);ctx.arc(0,0,s.r,0,TAU,true);}
   else if(s.shape==='circle')ctx.arc(0,0,s.r,0,Math.PI*2);
   else if(s.shape==='cone'){ctx.moveTo(0,0);ctx.arc(0,0,s.len,s.a-s.arc,s.a+s.arc);ctx.closePath();}
   else{ctx.rotate(s.a);ctx.rect(-40,-s.width,s.len+40,s.width*2);}
@@ -54,6 +55,20 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
     const attack=a.attack,p=Math.max(0,Math.min(1,1-attack.t/attack.life)),open=worldBossCoopOpen(a);
     attack.areas.forEach((s,i)=>{
       paintArea(ctx,s,open?'#ffe49c':attack.major?'#ee956e':'#f7b267',.12+p*.2,true);
+      if(s.shape==='outside'){
+        ring(ctx,s.x,s.y,s.r,C.squash,'#96f7ec',.95,4);
+        ring(ctx,s.x,s.y,s.r*.88,C.squash,'#96f7ec',.4,1);
+        ctx.save();ctx.fillStyle='#b9fff0';ctx.strokeStyle='#203333';ctx.lineWidth=4;ctx.textAlign='center';ctx.font="18px 'Do Hyeon',sans-serif";
+        ctx.strokeText('안전지대',s.x,s.y+12);ctx.fillText('안전지대',s.x,s.y+12);ctx.restore();
+      }
+      if(a.id==='thunderbird'&&s.shape==='line'){
+        ctx.save();ctx.translate(s.x,s.y);ctx.scale(1,C.squash);ctx.rotate(s.a);
+        // 화살촉과 깃털 표식으로 경로 방향을 표시한다.
+        ctx.strokeStyle=tone[2];ctx.lineWidth=2;ctx.globalAlpha=.5+p*.5;
+        const n=attack.kind==='thunder_feathers'?3:5;
+        for(let j=1;j<=n;j++){const x=s.len*j/(n+1);ctx.beginPath();ctx.moveTo(x-12,-9);ctx.lineTo(x,0);ctx.lineTo(x-12,9);ctx.stroke();}
+        ctx.restore();
+      }
       if(s.shape==='circle'){
         ring(ctx,s.x,s.y,s.r*(.2+.8*p),C.squash,tone[1],.65,2);
         if(a.id==='dragon'&&p>.35)fallingRock(ctx,s.x,s.y,(p-.35)/.65,attack.major?28:19,tone);
@@ -65,8 +80,10 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
       bloom(ctx,a.x,a.y-150,150,color,.18+p*.3);
     }
     ctx.save();ctx.fillStyle=open?'#ffe49c':'#fff0c2';ctx.strokeStyle='#2d1b13';ctx.lineWidth=5;ctx.font="bold 24px 'Do Hyeon',sans-serif";ctx.textAlign='center';
-    const label=open?`약점 노출! 함께 공격 ${(attack.coop||[]).length}/${C.coop.players}`:`${attack.name||'공격 준비'} ${attack.step+1}/${attack.stages} · ${Math.max(0,attack.t).toFixed(1)}초`;
+    const P=WORLD_BOSS_PATTERNS[attack.kind],hint=attack.kind==='thunder_dive'&&attack.step?P.landHint:P?.hint;
+    const label=open?`약점 노출! 함께 공격 ${(attack.coop||[]).length}/${C.coop.players}`:`${attack.name||'공격 준비'} ${attack.step+1}/${attack.stages} · ${attack.diving?'급강하!':`${Math.max(0,attack.t).toFixed(1)}초`}`;
     ctx.strokeText(label,a.x,a.y+65);ctx.fillText(label,a.x,a.y+65);ctx.restore();
+    if(hint&&!open){ctx.save();ctx.textAlign='center';ctx.font="18px 'Do Hyeon',sans-serif";ctx.lineWidth=4;ctx.strokeStyle='#211b2b';ctx.fillStyle='#d7f5ff';ctx.strokeText(hint,a.x,a.y+91);ctx.fillText(hint,a.x,a.y+91);ctx.restore();}
   }
 }
 export function drawWorldBossSprite(ctx,m,time,state,quality=1){
@@ -76,6 +93,12 @@ export function drawWorldBossSprite(ctx,m,time,state,quality=1){
   const size=B.art?.size||C.artSize,bob=m.pose?0:Math.sin(time*2)*3;
   ctx.save();ctx.translate(m.x,m.y+bob);
   ctx.fillStyle='rgba(15,10,10,.3)';ctx.beginPath();ctx.ellipse(0,0,105,28,0,0,Math.PI*2);ctx.fill();
+  if(B.id==='thunderbird'&&state?.attack?.kind==='thunder_dive'&&!state.attack.step){
+    const attack=state.attack,p=Math.max(0,Math.min(1,1-attack.t/attack.life));
+    const lift=attack.diving?80*(1-p):80*p;ctx.translate(0,-lift);
+    if(attack.diving){const s=attack.areas[0];ctx.save();ctx.scale(1,C.squash);ctx.rotate(s.a);
+      for(const side of [-1,1]){ctx.strokeStyle='#a7eaff';ctx.lineWidth=4;ctx.globalAlpha=.65;ctx.beginPath();ctx.moveTo(-160,side*40);ctx.lineTo(30,side*22);ctx.stroke();}ctx.restore();}
+  }
   if(im){const cw=im.naturalWidth/(B.art?.cols||C.artCols),ch=im.naturalHeight/(B.art?.rows||C.artRows);
     const feet=B.art?B.art.feet[row]:C.artFeet[row][col];ctx.imageSmoothingEnabled=false;
     ctx.drawImage(im,col*cw,(B.art?0:row)*ch,cw,ch,-size*.5,-size*feet,size,size);}
@@ -139,6 +162,30 @@ function electricImpact(ctx,f,p,q,tone){
     const n=Math.max(4,Math.round(8*q));for(let i=0;i<n;i++){const a=i*TAU/n;bolt(ctx,f.x,f.y,f.x+Math.cos(a)*r,f.y+Math.sin(a)*r*C.squash,tone,p,2,i);}
   }
 }
+function thunderbirdImpact(ctx,f,p,q,tone){
+  const s=f.area;
+  if(f.pattern==='thunder_feathers'&&s?.shape==='line'){
+    ctx.save();ctx.translate(s.x,s.y);ctx.scale(1,C.squash);ctx.rotate(s.a);
+    const x=s.len,fade=(1-p)**.7;
+    ctx.globalAlpha=fade;ctx.strokeStyle=tone[1];ctx.lineWidth=s.width*1.2;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(x,0);ctx.stroke();
+    // 깃털의 뾰족한 끝이 예고한 좁은 경로를 따라 날아간다.
+    ctx.fillStyle=tone[2];
+    for(let j=1;j<=3;j++){const at=x*Math.min(1,j*.28+p*.12);ctx.beginPath();ctx.moveTo(at+22,0);ctx.lineTo(at-30,-12);ctx.lineTo(at-8,0);ctx.lineTo(at-30,12);ctx.closePath();ctx.fill();}ctx.restore();
+  }else if(s?.shape==='outside'){
+    // 안전 원 안에는 낙뢰를 그리지 않는다. 폭풍은 안전 경계 밖에서 번쩍인다.
+    const n=Math.max(4,Math.round(10*q));
+    for(let i=0;i<n;i++){const a=i*TAU/n,r=s.r+100+(i%3)*85,x=s.x+Math.cos(a)*r,y=s.y+Math.sin(a)*r*C.squash;
+      if(f.nextSafe&&Math.hypot(x-f.nextSafe.x,(y-f.nextSafe.y)/C.squash)<f.nextSafe.r+40)continue;
+      bolt(ctx,x+10,y-220,x,y,tone,p,3,i);}
+  }else if(s?.shape==='ring'){
+    ring(ctx,s.x,s.y,s.r,C.squash,tone[1],1-p,6);
+    ring(ctx,s.x,s.y,s.inner,C.squash,tone[2],1-p,3);
+    const n=Math.max(4,Math.round(12*q));
+    for(let i=0;i<n;i++){const a=i*TAU/n,r=(s.r+s.inner)/2;
+      const x=s.x+Math.cos(a)*r,y=s.y+Math.sin(a)*r*C.squash;bolt(ctx,x,y-70,x,y,tone,p,2,i);}
+  }else electricImpact(ctx,f,p,q,tone);
+}
 export function drawWorldBossFx(ctx,f,p,quality){
   if(f.kind==='sk_raid_break'){
     const tone=['#9d6f2c','#ffe09a','#fff9de'];
@@ -147,12 +194,15 @@ export function drawWorldBossFx(ctx,f,p,quality){
   }
   if(f.kind!=='sk_raid_hit')return false;
   const tone=TONES[f.tone]||TONES.dragon;
-  ctx.save();if(f.area)paintArea(ctx,f.area,tone[1],(1-p)*.23);
+  ctx.save();if(f.area&&f.area.shape!=='outside')paintArea(ctx,f.area,tone[1],(1-p)*.23);
   if(f.tone==='serpent')poisonImpact(ctx,f,p,quality,tone);
-  else if(f.tone==='machine'||f.tone==='thunderbird')electricImpact(ctx,f,p,quality,tone);
+  else if(f.tone==='thunderbird')thunderbirdImpact(ctx,f,p,quality,tone);
+  else if(f.tone==='machine')electricImpact(ctx,f,p,quality,tone);
   else fireImpact(ctx,f,p,quality,tone);
-  bloom(ctx,f.x,f.y-25,f.major?160:90,tone[1],.6*(1-p));
-  sparks(ctx,f.x,f.y-25,f.major?260:170,p,tone,quality,f.major?28:18,f.seed||2);
+  if(f.tone!=='thunderbird'||!['outside','ring'].includes(f.area?.shape)){
+    bloom(ctx,f.x,f.y-25,f.major?160:90,tone[1],.6*(1-p));
+    sparks(ctx,f.x,f.y-25,f.major?260:170,p,tone,quality,f.major?28:18,f.seed||2);
+  }
   ctx.restore();return true;
 }
 

@@ -6,6 +6,7 @@ import {ARMOR_SLOTS,armorCap} from './armorData.js';
 import {MAT_MAX} from './itemData.js';
 import {specialTier,specialPrice} from './shop.js'; // 물품을 지급할 때만 읽어 기존 장비 생성 규칙을 맞춘다.
 import {trading} from './tradeData.js';
+import {thunderbirdAreas,startThunderbirdDive,tickThunderbirdDive} from './thunderbirdCombat.js';
 const distance=(x,y,a,b)=>Math.hypot(x-a,(y-b)/C.squash);
 const activeHeroes=g=>g.heroes.filter(h=>h?.loaded&&h.map===C.map&&h.down<=0);
 const randomInt=(lo,hi,rng)=>lo+Math.floor(rng()*(hi-lo+1));
@@ -137,6 +138,7 @@ function area(shape,x,y,extra={}){return {shape,x,y,...extra};}
 export function worldBossAreaContains(s,h){
   const dx=h.x-s.x,dy=(h.y-s.y)/C.squash,d=Math.hypot(dx,dy);
   if(s.shape==='circle')return d<=s.r;
+  if(s.shape==='outside')return d>s.r;
   if(s.shape==='ring')return d<=s.r&&d>=s.inner;
   const c=Math.cos(s.a),t=Math.sin(s.a),along=dx*c+dy*t,across=-dx*t+dy*c;
   if(s.shape==='line')return along>=-40&&along<=s.len&&Math.abs(across)<=s.width;
@@ -146,6 +148,7 @@ export function worldBossCoopOpen(a){
   return !!(a?.phase==='fight'&&!a.stun&&a.attack?.major&&(a.attack.step||0)===0&&a.attack.t>0&&a.attack.t<=C.coop.window);
 }
 function patternAreas(kind,step,m,heroes,angle){
+  const bird=thunderbirdAreas(kind,step,m,heroes,angle);if(bird)return bird;
   const targets=heroes.slice(step%heroes.length).concat(heroes.slice(0,step%heroes.length));
   const circles=(r,n=5)=>targets.slice(0,n).map(h=>area('circle',h.x,h.y,{r}));
   const spokes=(n,a,width=60)=>Array.from({length:n},(_,i)=>area('line',m.x,m.y,{a:a+i*Math.PI*2/n,len:1050,width}));
@@ -172,16 +175,20 @@ function beginAttack(g,m,a,heroes){
   const B=WORLD_BOSS_BY_ID[a.id],kind=B.attacks[a.seq++%B.attacks.length],P=WORLD_BOSS_PATTERNS[kind];
   const target=heroes[a.seq%heroes.length],angle=Math.atan2((target.y-m.y)/C.squash,target.x-m.x);
   const wind=P.wind||C.wind;
-  a.attack={kind,name:P.name,major:!!P.major,step:0,stages:P.hits,angle,areas:patternAreas(kind,0,m,heroes,angle),t:wind,life:wind,coop:[]};m.pose=1;
+  const targets=kind==='thunder_dive'?[target,...heroes.filter(h=>h!==target)]:heroes;
+  a.attack={kind,name:P.name,major:!!P.major,step:0,stages:P.hits,angle,areas:patternAreas(kind,0,m,targets,angle),t:wind,life:wind,coop:[]};m.pose=1;
 }
 function impact(E,g,m,a,heroes){
   const attack=a.attack,P=WORLD_BOSS_PATTERNS[attack.kind],last=(attack.step||0)===P.hits-1;
+  if(startThunderbirdDive(attack))return; // 준비가 끝나면 실제 경로를 따라 움직이며 한 번씩 친다.
   const damage=last&&P.final?P.final:P.damage;
-  heroes.forEach(h=>{if(a.phase==='fight'&&attack.areas.some(s=>worldBossAreaContains(s,h)))E.hurt(g,h,h.max*damage);});
+  if(!attack.diving)heroes.forEach(h=>{if(a.phase==='fight'&&attack.areas.some(s=>worldBossAreaContains(s,h)))E.hurt(g,h,h.max*damage);});
   if(a.phase!=='fight'){a.attack=null;return;}
   if(P.pool&&(!P.major||last))a.pools.push(...attack.areas.filter(s=>s.shape==='circle').map(s=>({...s,t:C.poolTime,next:C.poolTick})));
-  attack.areas.forEach((s,i)=>E.fx(g,C.map,{kind:'sk_raid_hit',x:s.x,y:s.y,area:s,t:P.major?.85:.65,life:P.major?.85:.65,tone:a.id,pattern:attack.kind,major:P.major,final:last,seed:i+attack.step*7,snd:['machine','thunderbird'].includes(a.id)?'zap':'boom',kick:i===0?(P.major?.45:.2):0}));
+  const nextSafe=attack.kind==='thunder_eye'&&!last?patternAreas(attack.kind,attack.step+1,m,heroes,attack.angle)[0]:null;
+  attack.areas.forEach((s,i)=>E.fx(g,C.map,{...(nextSafe?{nextSafe}:{}),kind:'sk_raid_hit',x:s.x,y:s.y,area:s,t:P.major?.85:.65,life:P.major?.85:.65,tone:a.id,pattern:attack.kind,major:P.major,final:last,seed:i+attack.step*7,snd:['machine','thunderbird'].includes(a.id)?'zap':'boom',kick:i===0?(P.major?.45:.2):0}));
   if(!last){
+    if(attack.diving)attack.diving=false;
     attack.step++;attack.t=attack.life=P.gap;attack.coop=[];
     attack.areas=heroes.length?patternAreas(attack.kind,attack.step,m,heroes,attack.angle):[];
   }else{a.attack=null;m.pose=0;a.cd=m.hp/m.max<C.rageAt?C.rageGap:C.gap;}
@@ -228,6 +235,7 @@ export function tickWorldBoss(E,g,dt){
   if(a.phase!=='fight')return;
   if(a.stun>0){a.stun=Math.max(0,a.stun-dt);m.pose=0;a.cd=C.gap;return;}
   if(a.attack){
+    tickThunderbirdDive(E,g,m,a,heroes,dt);
     if(worldBossCoopOpen(a))a.attack.coop=(a.attack.coop||[]).filter(c=>a.elapsed-c.at<=C.coop.sync);
     a.attack.t-=dt;
     if(a.attack.t<=0)impact(E,g,m,a,heroes);
@@ -241,5 +249,5 @@ export function tickWorldBoss(E,g,dt){
 export function worldBossView(g,h){
   const w=g.wb,a=w?.active,name=worldBossIdentity(g,h);
   const damage=a?.contrib.find(c=>c.name===name)?.damage||0;
-  return {clock:w?.clock||0,tradeBlocked:trading(h),active:a?{id:a.id,phase:a.phase,hp:a.hp,max:a.max,expires:a.expires,end:a.end,damage,stun:a.stun||0,attack:a.attack?{name:a.attack.name,t:a.attack.t,step:a.attack.step||0,stages:a.attack.stages,major:a.attack.major,open:worldBossCoopOpen(a),coop:a.attack.coop?.length||0}:null}:null,mail:h.bag.wbMail||[]};
+  return {clock:w?.clock||0,tradeBlocked:trading(h),active:a?{id:a.id,phase:a.phase,hp:a.hp,max:a.max,expires:a.expires,end:a.end,damage,stun:a.stun||0,attack:a.attack?{name:a.attack.name,hint:a.attack.kind==='thunder_dive'&&a.attack.step?WORLD_BOSS_PATTERNS[a.attack.kind].landHint:WORLD_BOSS_PATTERNS[a.attack.kind]?.hint,t:a.attack.t,step:a.attack.step||0,stages:a.attack.stages,major:a.attack.major,open:worldBossCoopOpen(a),coop:a.attack.coop?.length||0}:null}:null,mail:h.bag.wbMail||[]};
 }

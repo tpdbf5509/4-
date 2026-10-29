@@ -24,6 +24,7 @@ export function WorldBossHud({state,map,barRefs,onOpen,onLeave}){
       <span>{a.stun>0?`${a.stun.toFixed(1)}초`:a.attack.open?`${a.attack.coop}/${C.coop.players}명 · ${a.attack.t.toFixed(1)}초`:`${a.attack.step+1}/${a.attack.stages} · ${a.attack.t.toFixed(1)}초`}</span>
       {a.attack?.open&&<small>400레벨 3명이 0.85초 안에 스킬 적중 · 4초 기절</small>}
       {a.attack?.major&&!a.attack.open&&!a.attack.step&&<small>금빛 약점이 나타나면 함께 공격하세요</small>}
+      {a.attack?.hint&&!a.attack.open&&<small>{a.attack.hint}</small>}
     </p>}
     {a.phase!=='fight'&&<p className="rpg-dg-end">곧 광장으로 돌아갑니다</p>}
   </div>;
@@ -52,7 +53,7 @@ export default function WorldBossPanel({state,self,act,onClose}){
         <button type="button" className="shop-btn" disabled={!ready||!atPlaza||!!a||self.coins<C.fee} onClick={()=>act('wb',{op:'summon',id:b.id})}>10만 코인으로 소환</button>
       </article>)}</div>
       {!atPlaza&&<p className="wb-rule">소환과 입장은 광장 포탈 가까이에서 가능합니다.</p>}
-      <h3 className="shop-h">강력 패턴과 합동 공격</h3><p>공격이 여러 차례 이어집니다. 드래곤은 화염폭풍, 거대 뱀은 안팎을 번갈아 피하는 탈피, 기계는 회전하는 8방향 전류를 사용합니다. 뇌조는 안쪽과 바깥쪽을 번갈아 피한 뒤 추적 낙뢰를 피해야 합니다.</p>
+      <h3 className="shop-h">강력 패턴과 합동 공격</h3><p>공격이 여러 차례 이어집니다. 드래곤은 화염폭풍, 거대 뱀은 안팎을 번갈아 피하는 탈피, 기계는 회전하는 8방향 전류를 사용합니다. 뇌조는 깃털 탄막 사이를 피하고 급강하 경로에서 벗어나세요. 착지 충격파는 안쪽이 안전합니다. 폭풍의 눈에서는 푸른 안전 원을 따라 이동하세요.</p>
       <p>400레벨 3인과 강화한 전설 장비를 기준으로 조정했습니다. 큰 기술 준비 마지막 1.6초에 금빛 약점이 나타납니다. 400레벨 3명이 0.85초 안에 스킬을 적중시키면 기술이 취소되고 4초 기절합니다. 평타·화상·독은 합동 공격 인원으로 세지 않습니다.</p>
       <h3 className="shop-h">토벌 보상</h3><p>보스 총 체력의 10%를 초과해 피해를 준 모험가가 받습니다. 10%는 제외합니다. 같은 캐릭터의 기여도는 재입장해도 합산합니다.</p>
       <p>확정: 심장결정 10~20개 · 코인 5만~15만 (100 단위)</p><p>각 무기 2% · 각 방어구 3% · 던전 입장권 30%<br/>대형 회복 물약 65% · 힘·지혜 물약 각25% · 집중 물약 20%</p>

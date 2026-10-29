@@ -24,7 +24,7 @@ export const WORLD_BOSSES = [
   { id:'serpent',type:'world_serpent',name:'거대 뱀 괴수',hp:12000000,color:'#b7d58b',sub:'맹독 추격 · 이중 휩쓸기 · 독왕의 탈피',attacks:['poison','ring','molt'] },
   { id:'machine',type:'world_machine',name:'고대 번개 기계형 괴수',hp:12500000,color:'#9edcf0',sub:'회전 전류 · 연속 낙뢰 · 천벌 과부하',attacks:['cross','lightning','overload'] },
   // 새 보스는 기존 기계보다 체력 50만 증가. 무기 셋만 전용 보상으로 준다.
-  { id:'thunderbird',type:'world_thunderbird',name:'뇌조',hp:13000000,color:'#b4b9fa',sub:'뇌익 전류 · 깃털 낙뢰 · 뇌우 폭풍',attacks:['thunder_wings','thunder_hunt','thunderstorm'],
+  { id:'thunderbird',type:'world_thunderbird',name:'뇌조',hp:13000000,color:'#b4b9fa',sub:'전격 깃털 · 뇌광 급강하 · 폭풍의 눈',attacks:['thunder_feathers','thunder_dive','thunder_eye'],
     art:{src:'/assets/game/rpg/boss/thunderbird.webp',cols:2,rows:1,size:700,feet:[.80,.885]} },
 ];
 // damage는 최대 체력에 대한 방어 적용 전 비율이다. 큰 기술의 첫 타격만 합동 공격으로 끊을 수 있다.
@@ -41,6 +41,13 @@ export const WORLD_BOSS_PATTERNS = {
   thunder_wings:{name:'뇌익 전류',hits:2,gap:1.2,damage:.5},
   thunder_hunt:{name:'깃털 낙뢰',hits:3,gap:1,damage:.5},
   thunderstorm:{name:'뇌우 폭풍',major:true,wind:3.2,hits:3,gap:1.5,damage:.7,final:.85},
+  // 옛 세 패턴은 진행 중인 전투·스냅샷을 끝까지 처리하려고 남긴다. 새 수치는 이곳에서만 조절한다.
+  thunder_feathers:{name:'전격 깃털',hint:'깃털 사이로 피하세요',hits:2,wind:1.8,gap:1.3,damage:.42,
+    angles:[-.72,-.36,0,.36,.72],shift:.18,len:900,width:24},
+  thunder_dive:{name:'뇌광 급강하',hint:'경로 옆으로 피하세요',landHint:'안쪽으로 들어오세요',hits:2,wind:1.8,gap:1.35,damage:.5,
+    dive:.48,minLen:260,maxLen:650,overshoot:100,width:70,margin:100,inner:140,r:330},
+  thunder_eye:{name:'폭풍의 눈',hint:'푸른 원 안으로 이동하세요',major:true,wind:3.2,hits:3,gap:1.8,damage:.7,final:.85,
+    radii:[260,190,210],offsets:[0,300,0],margin:220},
 };
 export const WORLD_BOSS_BY_TYPE=Object.fromEntries(WORLD_BOSSES.map(b=>[b.type,b]));
 export const WORLD_BOSS_BY_ID=Object.fromEntries(WORLD_BOSSES.map(b=>[b.id,b]));

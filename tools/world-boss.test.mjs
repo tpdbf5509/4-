@@ -6,6 +6,7 @@ import {worldBossHit,worldBossKilled,rollWorldBossReward,collectWorldBossMail,wo
 import {cleanBag} from '../src/game/shop.js';
 import {RESET,GIFT,MAT_MAX} from '../src/game/itemData.js';
 import {DUNGEONS,DUNGEON} from '../src/game/dungeonData.js';
+import {thunderbirdAreas} from '../src/game/thunderbirdCombat.js';
 const seats=Array.from({length:3},(_,i)=>({id:`wb${i}`,name:`토벌${i}`,hero:{name:`토벌${i}`,job:'archer',elem:'frost',gender:'m'}}));
 function setup(){
  const g=makeWorld();g.mySeat=0;g.wb.lastHour=Math.floor(g.wb.clock/C.period);g.out=[];
@@ -14,6 +15,49 @@ function setup(){
 }
 function advance(g,t){for(let n=0;n<Math.ceil(t/.02);n++)rpgStep(g,.02);}
 const E={notice(){}};
+test('전격 깃털은 다섯 좁은 경로 사이에 피할 틈이 있고 두 번째 탄막은 틈을 바꾼다',()=>{
+ const m={x:1000,y:800},P=WORLD_BOSS_PATTERNS.thunder_feathers;
+ const first=thunderbirdAreas('thunder_feathers',0,m,[],0),second=thunderbirdAreas('thunder_feathers',1,m,[],0);
+ assert.equal(first.length,5);assert(first.every(s=>s.width===P.width));
+ const angle=P.shift,d=600,h={x:m.x+Math.cos(angle)*d,y:m.y+Math.sin(angle)*d*C.squash};
+ assert(!first.some(s=>worldBossAreaContains(s,h)));assert(second.some(s=>worldBossAreaContains(s,h)));
+});
+function birdAttack(index){
+ const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'thunderbird'});rpgWorldBoss(g,0,{op:'enter'});
+ const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob),h=g.heroes[0];h.x=m.x-400;h.y=m.y;h.inv=0;
+ a.seq=index;a.cd=0;advance(g,.02);return {g,a,m,h};
+}
+test('뇌광 급강하는 예고 동안 멈추고 경로를 실제로 이동하며 같은 사람은 한 번만 친다',()=>{
+ const {g,a,m,h}=birdAttack(1),P=WORLD_BOSS_PATTERNS.thunder_dive,s=a.attack.areas[0],x=m.x,y=m.y,before=h.hp;
+ advance(g,1);assert.equal(m.x,x);assert.equal(m.y,y);assert.equal(h.hp,before);
+ advance(g,.84);assert(a.attack.diving);assert(m.x<x);assert(m.x>x+Math.cos(s.a)*s.len);
+ advance(g,.55);assert.equal(a.attack.step,1);assert.equal(a.attack.areas[0].shape,'ring');
+ assert(Math.abs(m.x-(x+Math.cos(s.a)*s.len))<.001);assert.equal(a.attack.hitNames.length,1);
+ assert(h.hp<before);const after=h.hp;advance(g,.3);assert.equal(h.hp,after);
+ assert.equal(a.attack.areas[0].inner,P.inner);
+});
+test('급강하 경고 옆으로 피하면 피해가 없고 착지 원 안쪽은 안전하다',()=>{
+ const {g,a,m,h}=birdAttack(1),s=a.attack.areas[0];h.x=s.x+Math.cos(s.a)*s.len*.5;h.y=s.y+Math.sin(s.a)*s.len*.5*C.squash+150*C.squash;
+ const hp=h.hp;advance(g,2.4);assert.equal(h.hp,hp);assert.equal(a.attack.step,1);
+ h.x=m.x;h.y=m.y;advance(g,1.5);assert.equal(h.hp,hp);assert(!a.attack);
+});
+test('폭풍의 눈은 매 단계 안전 원 안을 보호하고 밖에만 피해를 준다',()=>{
+ const {g,a,h}=birdAttack(2),P=WORLD_BOSS_PATTERNS.thunder_eye;
+ for(let step=0;step<P.hits;step++){
+   const s=a.attack.areas[0];assert.equal(s.shape,'outside');assert(s.x>=P.margin&&s.x<=C.w-P.margin);
+   assert(!worldBossAreaContains(s,{x:s.x,y:s.y}));assert(worldBossAreaContains(s,{x:s.x+s.r+1,y:s.y}));
+   h.x=s.x;h.y=s.y;const hp=h.hp;advance(g,a.attack.t+.02);assert.equal(h.hp,hp);
+ }
+ assert(!a.attack);
+ const other=birdAttack(2);other.h.x=100;other.h.y=100;const hp=other.h.hp;advance(other.g,other.a.attack.t+.02);assert(other.h.hp<hp);
+});
+test('급강하 도중 승계해도 같은 위치에서 이어지고 이미 맞은 사람을 다시 치지 않는다',()=>{
+ const {g,a,m,h}=birdAttack(1);const s=a.attack.areas[0];h.x=s.x+Math.cos(s.a)*80;h.y=s.y+Math.sin(s.a)*80*C.squash;
+ advance(g,2);assert(a.attack.diving);assert.equal(a.attack.hitNames.length,1);
+ const guest=makeWorld();rpgSyncSeats(guest,seats);rpgApply(guest,JSON.parse(JSON.stringify(rpgPack(g))));rpgPromote(guest);
+ const copy=guest.heroes[0],gm=guest.mobs.find(q=>q.id===m.id),hp=copy.hp;assert(Math.abs(gm.x-m.x)<1);
+ advance(guest,.4);assert.equal(copy.hp,hp);assert.equal(guest.wb.active.attack.step,1);
+});
 test('소환은 광장·코인 확인 후 한 번만 차감하며 중복 출현을 거절한다',()=>{
  const g=setup(),h=g.heroes[0];h.coins=C.fee-1;assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));assert(!g.wb.active);
  h.coins=300000;h.map='train';assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));h.map='plaza';

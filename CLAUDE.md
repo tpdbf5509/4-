@@ -201,3 +201,5 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 가방을 열면 흰 화면으로 튕겼다(10월 28일) → 서버 이전 탓이 아니었다. 관리자 가방 500칸 작업(10월 27일)이 `ShopPanel.jsx` 에서 `weaponCap` 을 import 하지 않아 가방 · 무기상점이 그릴 때 멈췄다. 빌드는 통과해서 몰랐다. 지금은 `.oxlintrc.json` 의 `no-undef` 가 `npm run lint` 에서 잡는다.
 
 - **논타겟 조준**(10월 30일): `skillAim.js`의 `pointerSkillAim`이 캔버스·카메라·몸 높이로 마우스 방향을 만들고 RpgView의 스킬 입력에만 `aim`을 싣는다. `rpgInput.js`가 검증한 `h.inputAim`은 입력 호출 동안만 존재한다. `aimTo`·`faceDir`가 방향 스킬에 사용하며 이동용 `aimDir`는 그대로다. 창뢰 쌍검은 놓는 순간 확정한다. 터치·비활성화 시 포인터를 지운다. 시험 `node --test tools/skill-aim.test.mjs`.
+
+- **뇌조 전용 패턴 개편**(10월 30일): 전격 깃털(두 번의 좁은 탄막) · 뇌광 급강하(경로 고정 → 실제 이동 → 안쪽이 안전한 고리 충격파) · 폭풍의 눈(청록색 안전 원 이동). 수치는 `WORLD_BOSS_PATTERNS`, 범위·이동 판정은 `thunderbirdCombat.js`. 급강하 시간·맞은 캐릭터는 기존 `wb.active.attack`에 넣는다. 새 범위 `outside`는 안전 원 바깥을 뜻하며 그림과 판정이 같은 원을 쓴다. 체력·보상은 그대로다.

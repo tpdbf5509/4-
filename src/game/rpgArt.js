@@ -54,10 +54,11 @@ const DUAL_HELD = {
   src: '/assets/game/rpg/items/dragon-dual-held.webp',
   grips: [[64, 107, 64, 5], [64, 107, 64, 44]], lengths: [32, 22],
 };
-const AZURE_HELD = { src: '/assets/game/rpg/weapons/azure-dual-held.webp', grips: [[64,107,64,8],[64,107,64,8]], lengths: [33,33] };
+const AZURE_HELD = { src: '/assets/game/rpg/weapons/azure-dual-held.webp', grips: [[64,99,64,8],[64,99,64,8]], lengths: [33,33] };
 const dualSpec = sp => sp?.dual ? AZURE_HELD : DUAL_HELD;
 const WEAPON_GRIP = {
-  storm_staff: [64,106,64,14], violet_bow: [64,64,68,9], azure_dual: [64,107,64,8],
+  // 생성 원화의 손잡이 → 끝. 활줄은 왼쪽에 놓인다.
+  storm_staff: [63,98,64,12], violet_bow: [73,64,45,10], azure_dual: [64,99,64,8],
   dragon_dual: [26, 104, 109, 15], dragon_staff: [64, 100, 65, 16], dragon_bow: [66, 67, 60, 12],
   serpent_sword: [24, 108, 108, 20], serpent_staff: [62, 100, 62, 15], serpent_bow: [62, 64, 75, 14],
   machine_sword: [25, 105, 100, 20], machine_staff: [62, 100, 62, 15], machine_bow: [63, 64, 76, 14],

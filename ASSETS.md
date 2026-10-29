@@ -264,3 +264,7 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 | `defense.webp` | 1160×760 | 실제 방어전 렌더러의 성채·네 갈래 길·탑·몬스터 화면 |
 
 왼쪽 장식은 `characters/enemies/grunt.webp`, `characters/rpg/warrior-m/front.webp`. 오른쪽은 `game/defense/towers/archer-1.webp`와 `archer-1-turret.webp`, `characters/players/archer/portrait.webp`. 아래 직업 10명도 `characters/rpg/<직업>-<성별>/front.webp`를 그대로 쓴다.
+
+### 영상 무기 3종 새 원화 (2026년 10월 30일)
+
+`rpg/weapons/storm_staff.webp` 뇌명 지팡이 · `violet_bow.webp` 자전궁 · `azure_dual.webp` 창뢰 쌍검은 128×128 투명 WebP입니다. 손에 드는 쌍검은 `azure-dual-held.webp` 256×128의 두 칸입니다. 원본은 `design/weapons/storm-generated.png`이며 내장 이미지 생성 도구로 제작했습니다. `python3 tools/cut-storm-weapons.py`로 다시 자릅니다. 기존 SVG는 임시 그림 기록으로만 남깁니다. 손잡이 좌표는 `rpgArt.js`의 `WEAPON_GRIP` · `AZURE_HELD`입니다.

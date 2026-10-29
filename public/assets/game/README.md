@@ -124,3 +124,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 ### 첫 화면의 게임 미리 보기
 
 `/assets/home/rpg.webp`와 `/assets/home/defense.webp`는 실제 게임 렌더러를 사용해 캡처한 1160×760 정지 화면이다. `/assets/home/meadow.webp`는 새로 생성한 1586×992 하늘·풀밭 배경이다. `HomeScreen.jsx`에서 모드별 카드와 장식을 배치한다. 첫 화면의 캐릭터와 궁수탑은 이 문서의 기존 그림을 재사용한다.
+
+### 영상 무기 3종 새 원화 (2026년 10월 30일)
+
+`rpg/weapons/storm_staff.webp` 뇌명 지팡이 · `violet_bow.webp` 자전궁 · `azure_dual.webp` 창뢰 쌍검은 128×128 투명 WebP입니다. 손에 드는 쌍검은 `azure-dual-held.webp` 256×128의 두 칸입니다. 원본은 `design/weapons/storm-generated.png`이며 내장 이미지 생성 도구로 제작했습니다. `python3 tools/cut-storm-weapons.py`로 다시 자릅니다. 기존 SVG는 임시 그림 기록으로만 남깁니다. 손잡이 좌표는 `rpgArt.js`의 `WEAPON_GRIP` · `AZURE_HELD`입니다.

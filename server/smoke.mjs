@@ -41,8 +41,23 @@ const wsBase = BASE.replace(/^http/, "ws");
 const a = new WebSocket(`${wsBase}/room/${room}?id=smokeA&name=A`);
 const b = new WebSocket(`${wsBase}/room/${room}?id=smokeB&name=B`);
 const heard = new Promise((resolve) => {
-  b.onmessage = (e) => { const m = JSON.parse(e.data); if (m.t === "msg" && m.k === "hi" && m.from === "smokeA") resolve(true); };
-  a.onopen = () => setTimeout(() => a.send(JSON.stringify({ t: "msg", k: "hi", d: 1 })), 800);
+  let readyA = false, readyB = false, together = false, sent = false;
+  const send = () => {
+    if (!readyA || !readyB || !together || sent) return;
+    sent = true;
+    a.send(JSON.stringify({ t: "msg", k: "hi", d: 1 }));
+  };
+  b.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.t === "peers") {
+      together = ["smokeA", "smokeB"].every((id) => m.peers.some((p) => p.id === id));
+      send();
+    }
+    if (m.t === "msg" && m.k === "hi" && m.from === "smokeA") resolve(true);
+  };
+  // 지역·연결별 접속 속도가 다르므로 두 사람이 서버 목록에 들어온 뒤에만 전송한다.
+  a.onopen = () => { readyA = true; send(); };
+  b.onopen = () => { readyB = true; send(); };
 });
 if (!(await Promise.race([heard, new Promise((r) => setTimeout(() => r(false), 8000))]))) fail("방 중계가 말을 전하지 못했다");
 a.close(); b.close();

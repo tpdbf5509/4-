@@ -251,3 +251,16 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 `public/assets/game/rpg/goddess.webp`는 길드 광장 여신 조각상입니다(사용자가 준 그림 — 날개 단 여신 · 검 · 방패). 흰 바탕을 지워 투명하게 했습니다. 테두리에 닿은 순백과 고르게 밝은 갇힌 순백만 지우고 흰 깃털 · 옷은 남겼습니다(891×600). 크기 · 기준점은 `src/game/guildData.js`의 `GUILD_STATUE_ART`, 그리기는 `guildArt.js` `drawGuildStatue`이며 못 불러오면 예전 코드 그림을 씁니다.
 
 `public/assets/game/rpg/boss/guild-bosses.webp`는 생성한 투명 도트 아틀라스입니다.1536×1024,3열×2행. 슬라임·세이렌·불사조의 준비/공격 자세를 담았습니다. `src/game/guildArt.js`가 전투와 길드 선택 화면에 그리며 크기와 발 기준점은 `src/game/guildData.js`의 `GUILD_BOSS_ART`에 있습니다. 로드 실패 시 기존 코드 그림을 사용합니다.
+
+
+## 첫 화면 · `public/assets/home/`
+
+`src/HomeScreen.jsx`와 `src/ui/home.css`가 사용자 배치 그림을 따라 사용하는 그림이다.
+
+| 파일 | 크기 | 내용 · 출처 |
+|---|---|---|
+| `meadow.webp` | 1586×992 | 새로 생성한 2D 도트형 RPG 게임 하늘·풀밭. 글자·카드·캐릭터는 HTML과 기존 게임 그림으로 따로 배치한다 |
+| `rpg.webp` | 1160×760 | 실제 RPG 렌더러의 광장 화면. 캐릭터 3명과 분수·길드문·던전 |
+| `defense.webp` | 1160×760 | 실제 방어전 렌더러의 성채·네 갈래 길·탑·몬스터 화면 |
+
+왼쪽 장식은 `characters/enemies/grunt.webp`, `characters/rpg/warrior-m/front.webp`. 오른쪽은 `game/defense/towers/archer-1.webp`와 `archer-1-turret.webp`, `characters/players/archer/portrait.webp`. 아래 직업 10명도 `characters/rpg/<직업>-<성별>/front.webp`를 그대로 쓴다.

@@ -74,6 +74,7 @@
 | `src/game/towerInfo.js` | 탑 "자세히 보기" 창 설명. **숫자를 손으로 적어 둔 곳이라 logic.js 를 고치면 여기도 고친다** |
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
 | `src/InquiryPanel.jsx` | RPG ☰ 메뉴 "문의하기" 창(`.shop` 틀). 글은 의견 남기기와 같은 `feedback` 표(`sendFeedback`, 앞에 "[RPG 문의]")로 간다 |
+| `src/HomeScreen.jsx` · `src/ui/home.css` | 사용자 그림을 따른 홈. 하늘·풀밭·나무 간판, 실제 게임 이미지와 모드별 입장 카드. 방어전 이름·코드·TEST 입력 창과 홈 문의. 업데이트 창은 App.jsx의 기존 창 재사용. 장식은 기존 게임 캐릭터·탑 그림 |
 | `src/App.jsx` | 화면 흐름 · 방 연결 · 대기실 · 방장 권한 · 테스트 패널 · 비용 칸 |
 | `src/net/room.js` · `relay.js` · `api.js` | 방 연결(`joinRoom` → Relay 웹소켓, 개발용 `?net=local`) · 워커 주소와 장부 호출 `ledger(fn, args)` |
 | `src/net/rpgServer.js` · `server/` | RPG 전용 서버 연결(room.js 와 같은 모양) · 서버(`server/src/room.js` 가 RPG1~4 방 하나, `save.js` 가 Supabase `rpg_srv_load` · `rpg_srv_save` — 서버 비밀 키로만). 규칙은 `src/game/` 를 그대로 묶어 쓴다. 입력 나누기는 `src/game/rpgInput.js`(방장 화면과 서버가 같이 쓴다) |

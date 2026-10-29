@@ -1508,7 +1508,7 @@ kbd {
 .wb-content b, .wb-content strong, .guild-content b { font-weight: 400; color: var(--sh-text); }
 .wb-content ul { margin: 6px 0; padding-left: 18px; color: var(--sh-text); }
 .wb-rule { font-size: 12px; color: var(--sh-faint); }
-.wb-bosses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
+.wb-bosses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 10px 0; }
 .wb-bosses article { display: flex; flex-direction: column; gap: 2px; padding: 10px; border: 1px solid var(--sh-line); border-radius: 8px; }
 .wb-bosses .shop-h { margin: 6px 0 0; }
 .wb-bosses p { margin: 0; }

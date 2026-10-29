@@ -4,7 +4,7 @@ export const STORM_WEAPONS = [
   { id: 'storm_staff', name: '뇌명 지팡이', t: 'staff', lv: 100, g: 4, stat: 'int', amt: 260, art: 'storm_staff', hold: 1 },
   { id: 'violet_bow', name: '자전궁', t: 'bow', lv: 100, g: 4, stat: 'str', amt: 260, art: 'violet_bow', hold: 1 },
   { id: 'azure_dual', name: '창뢰 쌍검', t: 'sword', lv: 100, g: 4, stat: 'str', amt: 260, art: 'azure_dual', hold: 1, dual: 1 },
-];
+].map(w => ({ ...w, rewardBoss: 'thunderbird' })); // 뇌조 토벌 보상. hold는 상점·특가·상자 제외용으로 유지한다.
 export const STORM_PALETTE = {
   core: '#efffff', ice: '#adf5ff', blue: '#639dff', violet: '#7755ff', violetDark: '#322083', cyan: '#39efff', teal: '#12a6cc',
 };

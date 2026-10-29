@@ -499,8 +499,8 @@ DEEP_MAPS.forEach((d) => {
 });
 WORLD_BOSSES.forEach(b=>{MOB[b.type]={name:b.name,rad:88,hp:()=>b.hp,dmg:()=>1,xp:()=>0,coin:()=>0,size:()=>1,boss:{name:b.name,lv:200,hp:b.hp,dmg:1,xp:0,coin:0,size:1}};});
 const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
-  "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.map(b=>b.type),...GUILD_BOSSES.map(b=>b.type),
-  ...DEEP_MAPS.map((d) => d.id)];   // 스냅샷 차례 — 뒤에만 더한다(400~800레벨 몹은 맵 id 와 같다)
+  "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.filter(b=>b.id!=='thunderbird').map(b=>b.type),...GUILD_BOSSES.map(b=>b.type),
+  ...DEEP_MAPS.map((d) => d.id), 'world_thunderbird'];   // 스냅샷 차례 — 새 보스도 맨 뒤에 붙여 기존 몹 번호를 보존한다.
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 

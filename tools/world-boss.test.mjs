@@ -125,11 +125,48 @@ test('너무 이른 타격과 0.85초 넘게 어긋난 타격은 차단에 실�
  a.attack.t=1.5;worldBossHit(g,m,g.heroes[0],10);advance(g,.9);worldBossHit(g,m,g.heroes[1],10);worldBossHit(g,m,g.heroes[2],10);assert(!a.stun);assert.equal(a.attack.coop.length,2);
  worldBossHit(g,m,g.heroes[0],10);assert.equal(a.stun,C.coop.stun);assert.equal(a.attack,null);
 });
-test('세 보스의 합동 차단과 기절은 방장 승계 후에도 유지된다',()=>{
+test('모든 보스의 합동 차단과 기절은 방장 승계 후에도 유지된다',()=>{
  for(const B of WORLD_BOSSES){const {g,a,m}=major(B.id);g.heroes.filter(Boolean).forEach(h=>worldBossHit(g,m,h,10));assert(a.stun>0);
  const guest=makeWorld();rpgSyncSeats(guest,seats);rpgApply(guest,JSON.parse(JSON.stringify(rpgPack(g))));rpgPromote(guest);
  assert.equal(guest.wb.active.stun,4);assert.equal(guest.wb.active.attack,null);advance(guest,.5);assert(guest.wb.active.stun<4&&guest.wb.active.stun>3.4);assert(!guest.out.some(f=>f.kind==='sk_raid_hit'));
  }
+});
+test('뇌조만 새 무기 셋을 독립 추첨하고 없는 방어구 세트를 지급하지 않는다',()=>{
+ const expected=['storm_staff','violet_bow','azure_dual'];
+ const all=rollWorldBossReward('thunderbird',()=>0);
+ assert.deepEqual(all.items.filter(x=>x.k==='weapon').map(x=>x.id),expected);
+ assert(!all.items.some(x=>x.k==='armor'));
+ for(const id of ['dragon','serpent','machine'])assert(!rollWorldBossReward(id,()=>0).items.some(x=>expected.includes(x.id)));
+ const none=rollWorldBossReward('thunderbird',()=>.02);assert(!none.items.some(x=>x.k==='weapon'));
+ let draws=0;
+ const single=rollWorldBossReward('thunderbird',()=>[0,.019,.02,.5][draws++]??1-Number.EPSILON);
+ assert.deepEqual(single.items.filter(x=>x.k==='weapon').map(x=>x.id),['storm_staff']);
+});
+test('뇌조 무기는 가방이 가득 차도 재접속·승계 뒤 수령할 수 있다',()=>{
+ const g=setup(),h=g.heroes[0],ids=['storm_staff','violet_bow','azure_dual'];
+ h.bag.w=Array.from({length:30},(_,i)=>({u:i+1,t:'sword',r:0,g:0,p:1}));h.bag.n=31;
+ h.bag.wbMail=ids.map(id=>({k:'weapon',id,n:1}));
+ assert.equal(collectWorldBossMail(h),0);
+ h.bag=cleanBag(JSON.parse(JSON.stringify(h.bag)));assert.equal(h.bag.wbMail.length,3);
+ h.bag.w.splice(0,3);assert.equal(collectWorldBossMail(h),3);assert.equal(h.bag.wbMail.length,0);
+ assert.deepEqual(h.bag.w.slice(-3).map(w=>w.sp),ids);
+ assert(h.bag.w.slice(-3).every(w=>w.g===4&&w.r>=0));
+ rpgWorldBoss(g,0,{op:'summon',id:'thunderbird'});rpgWorldBoss(g,0,{op:'enter'});
+ const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);worldBossHit(g,m,h,200);m.hp-=200;
+ const guest=makeWorld();rpgSyncSeats(guest,seats);rpgApply(guest,JSON.parse(JSON.stringify(rpgPack(g))));rpgPromote(guest);
+ assert.equal(guest.wb.active.id,'thunderbird');assert.equal(guest.mobs.find(m=>m.id===a.mob).type,'world_thunderbird');
+ assert.deepEqual(guest.heroes[0].bag.w.slice(-3).map(w=>w.sp),ids);
+});
+test('뇌조 실제 토벌은 기여자에게 전용 무기 셋을 한 번만 지급한다',()=>{
+ const g=setup(),h=g.heroes[0];rpgWorldBoss(g,0,{op:'summon',id:'thunderbird'});
+ const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob),rng=Math.random;
+ worldBossHit(g,m,h,m.hp);
+ try{Math.random=()=>0;worldBossKilled(E,g,m);}finally{Math.random=rng;}
+ assert.equal(a.phase,'clear');assert.equal(h.bag.wbDone.filter(k=>k===a.key).length,1);
+ const weapons=h.bag.w.filter(w=>['storm_staff','violet_bow','azure_dual'].includes(w.sp));
+ assert.equal(weapons.length,3);const before=h.bag.w.length;
+ worldBossKilled(E,g,m);assert.equal(h.bag.w.length,before);
+ assert.equal(cleanBag(JSON.parse(JSON.stringify(h.bag))).w.filter(w=>weapons.some(q=>q.sp===w.sp)).length,3);
 });
 test('기절 차단에 실패하면 큰 기술이 여러 단계로 터지고 공격력이 증가했다',()=>{
  const {g,a}=major('machine'),h=g.heroes[0];h.inv=0;const s=a.attack.areas[0];h.x=s.x+100;h.y=s.y;const before=h.hp;

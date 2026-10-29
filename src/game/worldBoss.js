@@ -1,6 +1,6 @@
 /* 서버별 보스. 방장만 판정하며 진행·기여·미지급 결과를 통째로 스냅샷에 싣는다. */
-import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_ID,WORLD_BOSS_BY_TYPE,WORLD_BOSS_PATTERNS,worldBossIdentity} from './worldBossData.js';
-import {WORLD_WEAPONS,WORLD_SET_BY_ID} from './worldEquipmentData.js';
+import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_ID,WORLD_BOSS_BY_TYPE,WORLD_BOSS_PATTERNS,worldBossIdentity,WORLD_BOSS_WEAPONS,worldBossWeapons} from './worldBossData.js';
+import {WORLD_SET_BY_ID} from './worldEquipmentData.js';
 import {POTION,POTIONS,weaponCap} from './shopData.js';
 import {ARMOR_SLOTS,armorCap} from './armorData.js';
 import {MAT_MAX} from './itemData.js';
@@ -16,14 +16,14 @@ export const worldBossPortalNear=h=>!!h&&h.map==='plaza'&&distance(h.x,h.y,C.por
 export function cleanWorldBossBag(d,b){
   b.wbDone=Array.isArray(d?.wbDone)?[...new Set(d.wbDone.filter(x=>typeof x==='string'&&x.length<100))].slice(-64):[];
   b.wbMail=Array.isArray(d?.wbMail)?d.wbMail.filter(x=>x&&Number.isSafeInteger(x.n)&&x.n>0&&x.n<=1000&&(
-    x.k==='weapon'&&WORLD_WEAPONS.some(w=>w.id===x.id)||x.k==='armor'&&WORLD_SET_BY_ID[x.set]&&ARMOR_SLOTS.some(s=>s.id===x.id)||
+    x.k==='weapon'&&WORLD_BOSS_WEAPONS.some(w=>w.id===x.id)||x.k==='armor'&&WORLD_SET_BY_ID[x.set]&&ARMOR_SLOTS.some(s=>s.id===x.id)||
     x.k==='material'&&['heart','dungeon_ticket'].includes(x.id)||x.k==='potion'&&POTIONS.some(p=>p.id===x.id)
   )).slice(0,500).map(x=>({k:x.k,id:x.id,n:x.n,...(x.set?{set:x.set}:{})})):[];
 }
 export function rollWorldBossReward(id,rng=Math.random){
   const items=[{k:'material',id:'heart',n:randomInt(...C.heart,rng)}];
-  WORLD_WEAPONS.filter(w=>w.set===id).forEach(w=>{if(rng()<C.weaponChance)items.push({k:'weapon',id:w.id,n:1});});
-  ARMOR_SLOTS.forEach(s=>{if(rng()<C.armorChance)items.push({k:'armor',id:s.id,set:id,n:1});});
+  worldBossWeapons(id).forEach(w=>{if(rng()<C.weaponChance)items.push({k:'weapon',id:w.id,n:1});});
+  if(WORLD_SET_BY_ID[id])ARMOR_SLOTS.forEach(s=>{if(rng()<C.armorChance)items.push({k:'armor',id:s.id,set:id,n:1});});
   if(rng()<C.ticketChance)items.push({k:'material',id:'dungeon_ticket',n:1});
   C.potions.forEach(p=>{if(rng()<p.chance)items.push({k:'potion',id:p.id,n:p.n});});
   return {coins:randomInt(C.coins[0]/C.coinStep,C.coins[1]/C.coinStep,rng)*C.coinStep,items};
@@ -33,7 +33,8 @@ export function collectWorldBossMail(h){
   const b=h.bag,remain=[];let received=0;
   for(const item of b.wbMail||[]){let n=item.n;
     if(item.k==='weapon'){
-      const sp=WORLD_WEAPONS.find(w=>w.id===item.id);
+      const sp=WORLD_BOSS_WEAPONS.find(w=>w.id===item.id);
+      if(!sp){remain.push(item);continue;}
       while(n>0&&b.w.length<weaponCap(h)){b.w.push({u:b.n++,t:sp.t,r:specialTier(sp),g:sp.g,p:specialPrice(sp),sp:sp.id});n--;received++;}
     }else if(item.k==='armor'){
       while(n>0&&b.a.length<armorCap(h)){b.a.push({u:b.n++,s:item.id,g:3,set:item.set});n--;received++;}
@@ -161,6 +162,10 @@ function patternAreas(kind,step,m,heroes,angle){
   }
   if(kind==='molt')return step===0?[area('ring',m.x,m.y,{inner:245,r:850})]:step===1?[area('circle',m.x,m.y,{r:310})]:circles(195);
   if(kind==='overload')return step===2?[area('ring',m.x,m.y,{inner:215,r:1050})]:spokes(8,angle+step*Math.PI/8,45);
+  if(kind==='thunder_wings')return spokes(4,angle+step*Math.PI/4,65);
+  if(kind==='thunder_hunt')return circles(step===2?175:115);
+  // 안쪽 안전 → 바깥쪽 안전 → 추적 낙뢰. 각 단계의 경고를 보고 피한다.
+  if(kind==='thunderstorm')return step===0?[area('ring',m.x,m.y,{inner:240,r:950})]:step===1?[area('circle',m.x,m.y,{r:340})]:circles(190);
   return [];
 }
 function beginAttack(g,m,a,heroes){
@@ -175,7 +180,7 @@ function impact(E,g,m,a,heroes){
   heroes.forEach(h=>{if(a.phase==='fight'&&attack.areas.some(s=>worldBossAreaContains(s,h)))E.hurt(g,h,h.max*damage);});
   if(a.phase!=='fight'){a.attack=null;return;}
   if(P.pool&&(!P.major||last))a.pools.push(...attack.areas.filter(s=>s.shape==='circle').map(s=>({...s,t:C.poolTime,next:C.poolTick})));
-  attack.areas.forEach((s,i)=>E.fx(g,C.map,{kind:'sk_raid_hit',x:s.x,y:s.y,area:s,t:P.major?.85:.65,life:P.major?.85:.65,tone:a.id,pattern:attack.kind,major:P.major,final:last,seed:i+attack.step*7,snd:a.id==='machine'?'zap':'boom',kick:i===0?(P.major?.45:.2):0}));
+  attack.areas.forEach((s,i)=>E.fx(g,C.map,{kind:'sk_raid_hit',x:s.x,y:s.y,area:s,t:P.major?.85:.65,life:P.major?.85:.65,tone:a.id,pattern:attack.kind,major:P.major,final:last,seed:i+attack.step*7,snd:['machine','thunderbird'].includes(a.id)?'zap':'boom',kick:i===0?(P.major?.45:.2):0}));
   if(!last){
     attack.step++;attack.t=attack.life=P.gap;attack.coop=[];
     attack.areas=heroes.length?patternAreas(attack.kind,attack.step,m,heroes,attack.angle):[];

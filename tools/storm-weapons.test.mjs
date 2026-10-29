@@ -24,7 +24,7 @@ test('세 무기는 관리자 명령으로 지급·장착·저장되고 상점�
   for(const sp of STORM_WEAPONS){
     rpgAdminCmd(g,0,`/지급 나 ${sp.name}`);assert(h.bag.w.some(w=>w.sp===sp.id));
     const w=h.bag.w.find(w=>w.sp===sp.id);rpgShop(g,0,{op:'equip',u:w.u});assert.equal(h.bag.e,w.u);
-    assert(!specialsFor(800).some(s=>s.id===sp.id));assert(whySpecialBuy(h,sp.id).some(s=>s.includes('정해지지')));
+    assert(!specialsFor(800).some(s=>s.id===sp.id));assert(whySpecialBuy(h,sp.id).some(s=>s.includes('뇌조 토벌')));
   }
   const b=cleanBag(JSON.parse(JSON.stringify(h.bag)),true);assert.equal(b.w.length,3);assert.deepEqual(b.w.map(w=>w.sp),STORM_WEAPONS.map(s=>s.id));
 });

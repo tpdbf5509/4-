@@ -268,3 +268,7 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 ### 영상 무기 3종 새 원화 (2026년 10월 30일)
 
 `rpg/weapons/storm_staff.webp` 뇌명 지팡이 · `violet_bow.webp` 자전궁 · `azure_dual.webp` 창뢰 쌍검은 128×128 투명 WebP입니다. 손에 드는 쌍검은 `azure-dual-held.webp` 256×128의 두 칸입니다. 원본은 `design/weapons/storm-generated.png`이며 내장 이미지 생성 도구로 제작했습니다. `python3 tools/cut-storm-weapons.py`로 다시 자릅니다. 기존 SVG는 임시 그림 기록으로만 남깁니다. 손잡이 좌표는 `rpgArt.js`의 `WEAPON_GRIP` · `AZURE_HELD`입니다.
+
+### 월드보스 뇌조 (2026년 10월 30일)
+
+`public/assets/game/rpg/boss/thunderbird.webp` — 1024×512 투명 WebP. 2열×1행이며 왼쪽은 기본 자세, 오른쪽은 공격 준비입니다. 원본 `design/bosses/thunderbird.png`는 내장 이미지 생성 도구로 생성하고 가장자리를 정리했습니다. `python3 tools/cut-thunderbird.py`로 다시 자릅니다. 칸은 512×512이고 발밑 기준점은 `worldBossData.js`의 보스별 `art.feet`입니다. 선택 창과 전투에 같은 시트를 사용합니다. 로딩 실패 시 날개와 부리가 있는 코드 그림을 사용합니다. 기존 3종 보스 시트는 유지합니다.

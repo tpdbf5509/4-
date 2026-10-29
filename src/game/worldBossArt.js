@@ -3,10 +3,17 @@ import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_TYPE} from './worldBossData.j
 import {bloom,sparks,ring,bolt} from './combatFx.js';
 import {worldBossCoopOpen} from './worldBoss.js';
 const TAU=Math.PI*2;
-const TONES={dragon:['#96351d','#ff873b','#fff1bf'],serpent:['#48315e','#a9e66e','#f2ffd4'],machine:['#235476','#68dafa','#f0fcff']};
+const TONES={dragon:['#96351d','#ff873b','#fff1bf'],serpent:['#48315e','#a9e66e','#f2ffd4'],machine:['#235476','#68dafa','#f0fcff'],thunderbird:['#403879','#a7a2ff','#e6fbff']};
 let atlas;
+const bossImages={};
+function bossImage(src){
+  if(typeof Image==='undefined')return null;
+  if(bossImages[src]===undefined){const im=bossImages[src]=new Image();im.onerror=()=>{bossImages[src]=null;};im.src=src;}
+  const im=bossImages[src];return im?.complete&&im.naturalWidth?im:null;
+}
 export function warmWorldBossArt(){
   if(typeof Image==='undefined')return null;
+  WORLD_BOSSES.forEach(b=>{if(b.art)bossImage(b.art.src);});
   if(atlas===undefined){atlas=new Image();atlas.onerror=()=>{atlas=null;};atlas.src=C.art;}
   return atlas?.complete&&atlas.naturalWidth?atlas:null;
 }
@@ -50,7 +57,7 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
       if(s.shape==='circle'){
         ring(ctx,s.x,s.y,s.r*(.2+.8*p),C.squash,tone[1],.65,2);
         if(a.id==='dragon'&&p>.35)fallingRock(ctx,s.x,s.y,(p-.35)/.65,attack.major?28:19,tone);
-        if(a.id==='machine')bolt(ctx,s.x+18,s.y-170,s.x,s.y-15,tone,1-p,2,i);
+        if(a.id==='machine'||a.id==='thunderbird')bolt(ctx,s.x+18,s.y-170,s.x,s.y-15,tone,1-p,2,i);
       }
     });
     if(attack.major&&attack.step===0){
@@ -64,11 +71,15 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
 }
 export function drawWorldBossSprite(ctx,m,time,state,quality=1){
   const B=WORLD_BOSS_BY_TYPE[m.type];if(!B)return false;
-  const im=warmWorldBossArt(),col=WORLD_BOSSES.indexOf(B),row=m.pose?1:0;
-  const size=C.artSize,bob=m.pose?0:Math.sin(time*2)*3;
+  const shared=warmWorldBossArt(),row=m.pose?1:0;
+  const im=B.art?bossImage(B.art.src):shared,col=B.art?row:WORLD_BOSSES.indexOf(B);
+  const size=B.art?.size||C.artSize,bob=m.pose?0:Math.sin(time*2)*3;
   ctx.save();ctx.translate(m.x,m.y+bob);
   ctx.fillStyle='rgba(15,10,10,.3)';ctx.beginPath();ctx.ellipse(0,0,105,28,0,0,Math.PI*2);ctx.fill();
-  if(im){const cw=im.naturalWidth/C.artCols,ch=im.naturalHeight/C.artRows;ctx.imageSmoothingEnabled=false;ctx.drawImage(im,col*cw,row*ch,cw,ch,-size*.5,-size*C.artFeet[row][col],size,size);}
+  if(im){const cw=im.naturalWidth/(B.art?.cols||C.artCols),ch=im.naturalHeight/(B.art?.rows||C.artRows);
+    const feet=B.art?B.art.feet[row]:C.artFeet[row][col];ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(im,col*cw,(B.art?0:row)*ch,cw,ch,-size*.5,-size*feet,size,size);}
+  else if(B.id==='thunderbird')drawThunderbirdFallback(ctx,m.pose);
   else{ctx.fillStyle=B.color;ctx.strokeStyle='#362315';ctx.lineWidth=5;ctx.beginPath();ctx.ellipse(0,-110,105,110,0,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.fillStyle='#fff2bb';ctx.fillRect(-50,-155,20,10);ctx.fillRect(30,-155,20,10);ctx.beginPath();ctx.moveTo(-80,-185);ctx.lineTo(-100,-260);ctx.lineTo(-30,-205);ctx.moveTo(80,-185);ctx.lineTo(100,-260);ctx.lineTo(30,-205);ctx.fill();}
   ctx.restore();
@@ -80,6 +91,19 @@ export function drawWorldBossSprite(ctx,m,time,state,quality=1){
     ctx.save();ctx.strokeStyle='#fff5cf';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(m.x-18,y);ctx.lineTo(m.x+18,y);ctx.moveTo(m.x,y-18);ctx.lineTo(m.x,y+18);ctx.stroke();ctx.restore();
   }
   return true;
+}
+// 원화 로딩 실패 시에도 새 실루엣을 알아볼 수 있게 날개·부리·꼬리를 남긴다.
+function drawThunderbirdFallback(ctx,charged){
+  ctx.fillStyle='#444975';ctx.strokeStyle='#9adfff';ctx.lineWidth=3;
+  for(const sign of [-1,1]){
+    ctx.beginPath();ctx.moveTo(sign*35,-140);ctx.lineTo(sign*225,charged?-330:-210);
+    ctx.lineTo(sign*190,-120);ctx.lineTo(sign*150,-150);ctx.lineTo(sign*100,-90);ctx.closePath();ctx.fill();ctx.stroke();
+  }
+  ctx.beginPath();ctx.moveTo(-28,-75);ctx.lineTo(-50,10);ctx.lineTo(0,-10);ctx.lineTo(40,10);ctx.lineTo(25,-75);ctx.fill();
+  ctx.fillStyle='#7581b5';ctx.beginPath();ctx.ellipse(0,-110,45,75,0,0,TAU);ctx.fill();ctx.stroke();
+  ctx.beginPath();ctx.arc(-5,-185,32,0,TAU);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#e4faff';ctx.beginPath();ctx.moveTo(-25,-190);ctx.lineTo(-65,-174);ctx.lineTo(-28,-165);ctx.fill();
+  ctx.fillStyle='#b7ffff';ctx.fillRect(-21,-194,11,5);
 }
 function fireImpact(ctx,f,p,q,tone){
   const s=f.area;if(!s)return;
@@ -125,7 +149,7 @@ export function drawWorldBossFx(ctx,f,p,quality){
   const tone=TONES[f.tone]||TONES.dragon;
   ctx.save();if(f.area)paintArea(ctx,f.area,tone[1],(1-p)*.23);
   if(f.tone==='serpent')poisonImpact(ctx,f,p,quality,tone);
-  else if(f.tone==='machine')electricImpact(ctx,f,p,quality,tone);
+  else if(f.tone==='machine'||f.tone==='thunderbird')electricImpact(ctx,f,p,quality,tone);
   else fireImpact(ctx,f,p,quality,tone);
   bloom(ctx,f.x,f.y-25,f.major?160:90,tone[1],.6*(1-p));
   sparks(ctx,f.x,f.y-25,f.major?260:170,p,tone,quality,f.major?28:18,f.seed||2);

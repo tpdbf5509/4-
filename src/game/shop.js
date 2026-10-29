@@ -294,7 +294,7 @@ export function whySpecialBuy(h, id) {
   if (!sp) { out.push("없는 무기입니다"); return out; }
   if (sp.world) out.push("월드보스 전용 장비입니다");
   if (sp.adv) out.push("전직하면 받는 무기입니다");
-  if (sp.hold) out.push("아직 얻는 곳이 정해지지 않은 무기입니다");
+  if (sp.hold) out.push(sp.rewardBoss ? "뇌조 토벌 보상으로 얻는 무기입니다" : "아직 얻는 곳이 정해지지 않은 무기입니다");
   if (!h || !h.bag) return out;
   if (h.bag.w.some((w) => w.sp === id)) { out.push("이미 가지고 있습니다"); return out; }
   if (h.lv < sp.lv) out.push(`레벨 ${sp.lv} 필요 (지금 ${h.lv})`);

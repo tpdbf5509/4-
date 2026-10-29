@@ -24,6 +24,7 @@ import {
   RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
+import { pointerSkillAim, aimedSkillInput } from "./game/skillAim.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
@@ -414,6 +415,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const relookRef = useRef(onRelook);
   relookRef.current = onRelook;
   const cvsRef = useRef(null);
+  const skillPointer = useRef(null);
   const bgsRef = useRef(null);
   const names = useMemo(() => seats.map((s) => s?.name || ""), [seats]);
   const myLook = seats[mySeat]?.hero || null;
@@ -749,10 +751,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       predictDash(g.heroes[mySeat]);
     }
     if (kind === "use" && !isHost) predictLunge(g, g.heroes[mySeat], dir);   // 급소 찌르기 돌진도 먼저 그린다
+    const aim = aimedSkillInput(kind, dir) ? pointerSkillAim(g.heroes[mySeat], g.cam, skillPointer.current, RPG.squash) : null;
     if (isHost) {
-      rpgInput(g, { cls: mySeat, kind, dir });
+      rpgInput(g, { cls: mySeat, kind, dir, aim });
     } else {
-      sendInput({ cls: mySeat, kind, dir, q: nextSeq() });
+      sendInput({ cls: mySeat, kind, dir, aim, q: nextSeq() });
     }
   }, [isHost, mySeat, sendInput, closeAll, loadRank]);
 
@@ -872,7 +875,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
-    const onBlur = () => { clearDirs(); act("fire", false); act("wcharge", "cancel"); };
+    const onBlur = () => { skillPointer.current=null; clearDirs(); act("fire", false); act("wcharge", "cancel"); };
     window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKey);
@@ -1220,10 +1223,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   };
 
   return (
-    <div className={`page ${touch ? "touch" : ""}`}>
+    <div className={`page ${touch ? "touch" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch')skillPointer.current=null;}}>
       <div className="stage">
         <div className="frame">
-          <canvas ref={cvsRef} onClick={e=>{
+          <canvas ref={cvsRef} onPointerMove={e=>{
+            if(e.pointerType==='touch'){skillPointer.current=null;return;}
+            const r=e.currentTarget.getBoundingClientRect();
+            if(r.width&&r.height)skillPointer.current={x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H,map:G.current.heroes[mySeat]?.map};
+          }} onPointerDown={e=>{if(e.pointerType==='touch')skillPointer.current=null;}} onClick={e=>{
             const g=G.current,h=g.heroes[mySeat];if(h?.map!=='plaza'||!g.cam)return;
             const r=e.currentTarget.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*W+g.cam.x,y=(e.clientY-r.top)/r.height*H+g.cam.y;
             if(Math.abs(x-WORLD_BOSS.portal.x)<90&&y<WORLD_BOSS.portal.y+30&&y>WORLD_BOSS.portal.y-230){
@@ -2099,7 +2106,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_SERVER_CAP}명 ·{" "}
           {touch
             ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 전직 스킬 <kbd>{keyOf(binds, "adv")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
+            : <>논타겟 조준: 마우스 포인터 · 이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 전직 스킬 <kbd>{keyOf(binds, "adv")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>

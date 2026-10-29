@@ -1,8 +1,9 @@
 import { rpgTrade } from "./trade.js";
 import { trading } from "./tradeData.js";
 import { stormBusy } from './stormWeaponCombat.js';
+import { cleanSkillAim, aimedSkillInput } from './skillAim.js';
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
-   d = { cls: 자리, kind, dir, q }. 늦게 도착한 옛 누름 · 뗌(hold · fire)은 버린다(freshInput) */
+   d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향 }. 늦게 도착한 옛 누름 · 뗌(hold · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
   rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
@@ -44,5 +45,7 @@ export function rpgInput(g, d) {
   const act = Object.prototype.hasOwnProperty.call(ACTS, d.kind) ? ACTS[d.kind] : null;
   if (!act || !freshInput(g.heroes[d.cls], d.kind, d.q, g.t)) return;
   const prev = setFxBy(d.cls);                     // 이 입력이 낸 스킬 연출의 주인
-  try { act(g, d.cls, d.dir); } finally { setFxBy(prev); }
+  const h = g.heroes[d.cls];
+  h.inputAim = aimedSkillInput(d.kind, d.dir) ? cleanSkillAim(d.aim) : null;
+  try { act(g, d.cls, d.dir); } finally { delete h.inputAim; setFxBy(prev); }
 }

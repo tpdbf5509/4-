@@ -2314,6 +2314,7 @@ function foesNear(g, h, x, y, r, n) {
 const strikeAny = (g, h, o, dmg, dot) => (isHeroT(o) ? hitFoe(g, h, o, dmg, false, dot) : hitMob(g, h.pi, o, dmg, !dot, false, dot));
 // 겨눌 방향 — reach 안에 노릴 것이 있으면 그쪽, 없으면 누르고 있는 쪽. 땅 비율을 뺀 단위 벡터
 function aimTo(g, h, reach) {
+  if (h.inputAim) return faceDir(h);             // 직접 겨눈 논타겟 스킬은 가까운 적에게 방향을 빼앗기지 않는다.
   const [o] = foesNear(g, h, h.x, h.y, reach, 1);
   if (o) {
     const dx = o.x - h.x, dy = (o.y - h.y) / RPG.squash, d = Math.hypot(dx, dy) || 1;
@@ -2496,7 +2497,7 @@ function tickCc(h, dt) {
 
 // 바라보는 쪽 — 누르고 있는 방향, 없으면 좌우로 바라보는 쪽("앞으로 쏜다"는 모두 이쪽이다)
 function faceDir(h) {
-  const a = aimDir(h);
+  const a = h.inputAim || aimDir(h);
   if (a[0]) h.dir = a[0] < 0 ? -1 : 1;
   return a;
 }

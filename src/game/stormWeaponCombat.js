@@ -30,6 +30,7 @@ export function castStormWeapon(E,g,h,id) {
 export function releaseStormWeapon(E,g,h,cancel=false) {
   const c=h?.ws?.storm;if(!c || c.id!=='azure_dual' || c.phase!=='charge')return;
   if(cancel || !valid(E,g,h,c)){stop(h);return;}
+  if(h.inputAim)[c.ax,c.ay]=E.face(h); // 충전 중 옮긴 포인터는 놓는 순간의 방향으로 확정한다.
   c.released=true;
   if(c.t<STORM_SKILLS.azure_dual.skill.minCharge)return;
   launch(E,g,h,c);

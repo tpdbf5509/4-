@@ -232,3 +232,12 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 시작 레벨부터 수락 가능하다. 상한을 넘기면 상한 레벨의 필요 경험치를 기준으로 20%만 준다. `requestXp`를 화면과 완료에서 함께 쓴다. 기존 NPC 의뢰의 `coinOnly` 규칙은 유지한다.
 - 일반·보스는 해당 사냥터에서만 각각 센다. 진행이 끝난 의뢰는 잡몹 코인 감소 면제에서 제외한다. 보스 코인은 그대로다. 코인 소수점은 버린다.
 - 시험: `node --test tools/quest-master.test.mjs tools/combat-update.test.mjs tools/deep.test.mjs`.
+
+## 2026년 10월 30일 직업 능력 조정
+
+- 수치는 `jobTuneData.js` 한 곳(`JOB_TUNE`). 검사 기본 방어력 3%(검투사·기사 포함). 기사 기본 피해 감소 10% · 마법/물리 저항력 10%. 받는 피해 종류는 `damageKind`(마법사·`MAGIC_MOBS` 는 마법, 그 밖은 물리). `classCut` 을 `skillTake` → `advTakeCut(h, iron, base)` 에 넘긴다. 전직 감소와 겹치면 기사 상한 70% 안. 보스 피해의 `defended` 판정에는 기본 감소를 넣지 않는다.
+- 기사 무효화 방어막: `advNullShield`(hurtHero 에서 감소 뒤 한 대를 막음) · `tickAdv` 가 20초 쉬면 다시 만든다. 상태 `h.as.nul` · `nulIdle` 은 스냅샷 줄 53 끝 20 · 21. 그림은 advArt.js `drawAdvHero` 육각 막.
+- 도발 표시: `drawTauntMark`(advArt.js) — 몹 `m.taunt` · 사람 `h.tauntT` 머리 위.
+- 마법사 최대 체력 비례 피해: `mageHpBonus` — 최대 체력 1%, 그 한 대의 25%까지. 지속 피해 제외. 몹(hitMob) · 사람(hitFoe) 모두.
+- 궁수: `JOB_DMG.archer` 0.9(hitFoe 도 같은 값) · `heroRange` 1.15배 · 방어력 있는 사람(`hasDefense`)에게 0.85배 더.
+- 시험 `node --test tools/job-tune.test.mjs`.

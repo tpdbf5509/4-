@@ -30,7 +30,8 @@ import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.js";
 import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
-import { advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
+import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
+import { advNullShield, advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
   advLowHp, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
@@ -568,7 +569,7 @@ export const JOBS = [
 ];
 export const JOB_BY_ID = Object.fromEntries(JOBS.map((j) => [j.id, j]));
 // 직업별 몹 · 보스에게 주는 피해 배율 — 평타 · 스킬 · 화상 · 독 모두(결투 · 사냥터 PvP 는 그대로). 10월 23일 마법사 1 → 1.05
-export const JOB_DMG = { mage: 1.05 };
+export const JOB_DMG = { mage: 1.05, archer: JOB_TUNE.archer.dmg };   // 10월 30일 궁수 1 → 0.9(jobTuneData.js)
 /* 지속 피해 중첩 — jobs 직업이 화상 · 독을 다시 걸면 겹이 하나씩 쌓인다(최대 max 겹, 틱 피해 × 겹).
    여러 번 치는 스킬이 한 번에 다 쌓지 않게 같은 몹에는 gap 초에 한 겹만. 다른 직업이 걸면 겹은 그대로 두고 시간만 새로 */
 export const DOT_STACK = { jobs: ["mage"], max: 3, gap: 0.5 };
@@ -910,7 +911,7 @@ export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkM
 export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h));
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
-export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul;
+export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul * (jobOf(h).id === "archer" ? JOB_TUNE.archer.range : 1);   // 10월 30일 궁수 사거리 +15%
 const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h) + guildAspd(h));   // 전설 바지 · 신발 — 공격 속도
 
 /* 자리마다 앉은 사람의 겉모습 — 방장과 손님 모두 자리가 바뀔 때마다 넣는다.
@@ -1544,6 +1545,8 @@ function nearFoes(g, h, x, y, range) {
 }
 // 결투 상대를 친다 — 쓰러지면 결투가 끝난다(tickDuels)
 // basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 상대 최대 체력의 DUEL.skillPct 를 넘지 않게 누른다(pvpSoft)
+// 방어력 있는 사람 — 방어구 감소나 직업 기본 방어력(검사 · 기사)이 있다. 궁수 피해가 더 줄어든다
+const hasDefense = (o) => armorTakeMul(o) < 1 || classCut(o, advOf(o)?.id, "phys") > 0;
 function hitFoe(g, h, o, raw, basic, dot) {
   if (!o || o.down > 0) return;
   if(isPvp(h.map)&&!duelOpponents(g,h).includes(o))return;
@@ -1553,6 +1556,8 @@ function hitFoe(g, h, o, raw, basic, dot) {
   if (dot) raw *= worldDotMul(h);
   if (!dot && procOff === 0) raw *= advDmgMul(advEngine, g, h, o, !!basic, true);   // 전직 패시브(표식 · 약점 · 탄도) — PvP 는 +15% 까지
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
+  if (!off && h.job === "archer") dmg *= JOB_TUNE.archer.dmg * (hasDefense(o) ? JOB_TUNE.archer.vsArmor : 1);   // 궁수 — 피해 감소 · 방어력 있는 사람에게 더 감소
+  if (!off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, o.max);   // 마법사 — 최대 체력 비례 피해
   if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
   else {
     const c=h.cast||newCast(h),cap=DUEL.skillPct*(o.max||1),key=`${o.pi}:${o.who}`;
@@ -1563,7 +1568,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
     if (dmg <= 0.5) return;
   }
   const was = o.down;
-  hurtHero(g, o, dmg);
+  hurtHero(g, o, dmg, { hero: h });
   if (field && !was && o.down > 0) {              // 사냥터에서 쓰러뜨렸다 — 광장에서 일어난다
     sys(g, h.pi, `${nameOf(g, o.pi)}님을 쓰러뜨렸습니다.`);
     sys(g, o.pi, `${nameOf(g, h.pi)}님에게 쓰러졌습니다.`);
@@ -1626,7 +1631,8 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   }
   const off = h ? offHand(h) : "";
   if (off) dmg = OFF_HAND.dmg[off];               // 직업과 다른 무기 — 한 대 피해 고정 · 치명타 없음
-  else if (h) dmg *= JOB_DMG[h.job] || 1;         // 직업 피해 배율(마법사 +5%)
+  else if (h) dmg *= JOB_DMG[h.job] || 1;         // 직업 피해 배율(마법사 +5% · 궁수 -10%)
+  if (h && !off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, m.max);   // 마법사 — 최대 체력 비례 피해(jobTuneData.js)
   if (m.wall > 0) dmg *= 1 - m.wallCut;          // 철벽 자세
   const crit = h && !off ? sureCrit || Math.random() < critChance(h) : false;
   if (crit) dmg *= critMul(h);
@@ -1872,8 +1878,9 @@ function hurtHero(g, h, raw, source) {
   if(source?.boss)raw*=COMBAT_RULES.bossDamage*(defended?COMBAT_RULES.defendedBossDamage:1);
   let dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더)
   dmg = worldArmorAbsorb(h, dmg);
-  dmg = skillTake(g, h, dmg);                     // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세
+  dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
   if (dmg <= 0) return;
+  if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
   h.hp -= dmg;
   advHurt(advEngine, g, h);                       // 기사 — 철벽 방어 반격 · 생존 시험
   h.flash = 0.18;
@@ -2639,9 +2646,9 @@ function applySkillState(h, a) {
   }
 }
 /* 받는 피해 — 철벽이 줄이고, 마나 보호막 · 성역 보호막이 막는다. 신성검 반격 자세면 막고 벤다 */
-function skillTake(g, h, dmg) {
-  const jb = h.jb, w = h.ws;
-  dmg *= 1 - advTakeCut(h, jb && jb.iron > 0 ? jb.ironCut : 0);   // 직업 철벽 + 기사 철벽 방어 · 불굴의 의지 · 파티 보호(합쳐 70% 까지)
+function skillTake(g, h, dmg, source) {
+  const jb = h.jb, w = h.ws, base = classCut(h, advOf(h)?.id, damageKind(source));   // 검사 기본 방어력 · 기사 기본 감소 · 저항력
+  dmg *= 1 - advTakeCut(h, jb && jb.iron > 0 ? jb.ironCut : 0, base);   // 직업 철벽 + 기사 철벽 방어 · 불굴의 의지 · 파티 보호(전직 감소가 있으면 합쳐 70% 까지)
   if (w && w.cmb && w.cmb.sp === "holy" && w.cmb.st === 1 && heldSpecial(h) === "holy") { holyCounter(g, h); return 0; }
   if (jb && jb.sh > 0) {
     const a = Math.min(jb.sh, dmg);

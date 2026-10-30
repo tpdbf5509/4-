@@ -300,9 +300,19 @@ export const ADV_GROUND = ["sk_adv_circle", "sk_adv_summon"];
 
 /* 영웅 둘레 — 철벽 방어 방패 · 파티 보호 · 중첩 표시 · 정령 */
 export function drawAdvHero(ctx, h, time) {
+  if (h && h.tauntT > 0 && h.down <= 0) drawTauntMark(ctx, h.x, h.y - 126, time);   // 기사에게 도발당한 사람
   const a = h && h.as;
   if (!a || h.down > 0) return;
   ctx.save();
+  if (a.nul && h.advClass === "knight") {          // 무효화 방어막 — 몸을 감싸는 옅은 육각 막
+    ctx.globalAlpha = 0.22 + 0.08 * Math.sin(time * 3);
+    ctx.strokeStyle = "#cfe6ff"; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i <= 6; i++) { const t = (i / 6) * TAU + Math.PI / 6; const x = h.x + Math.cos(t) * 34, y = h.y - 40 + Math.sin(t) * 46; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
+    ctx.stroke();
+    ctx.globalAlpha *= 0.35; ctx.fillStyle = "#cfe6ff"; ctx.fill();
+    ctx.globalAlpha = 1;
+  }
   if (a.gT > 0) {                                  // 철벽 방어 — 앞에 금빛 방패가 떠 있다
     ctx.globalAlpha = 0.45 + 0.1 * Math.sin(time * 5);   // 얼굴 · 몸을 가리지 않게 옅게 · 작게, 바라보는 쪽 앞에
     const x = h.x + (h.dir || 1) * 24, y = h.y - 30;
@@ -417,6 +427,7 @@ export function drawAdvShield(ctx, off, ww, top, K) {
 
 /* 명사수 약점 표식 — 표식이 붙은 몹 머리 위 청록 조준 고리 */
 export function drawAdvMob(ctx, m, time, top) {
+  if (m.taunt > 0) drawTauntMark(ctx, m.x, m.y - top - 14 - (m.wk ? 24 : 0), time);   // 기사 도발 — 약점 표식 위에
   if (!(m.wk || m.wkUntil > time)) return;
   const y = m.y - top - 14, r = 9 + Math.sin(time * 6) * 1.5;
   ctx.save();
@@ -426,6 +437,23 @@ export function drawAdvMob(ctx, m, time, top) {
     const a = (i / 4) * TAU + time;
     ctx.beginPath(); ctx.moveTo(m.x + Math.cos(a) * (r - 3), y + Math.sin(a) * (r - 3)); ctx.lineTo(m.x + Math.cos(a) * (r + 4), y + Math.sin(a) * (r + 4)); ctx.stroke();
   });
+  ctx.restore();
+}
+
+/* 기사 도발 표시 — 도발이 묻은 몹 · 사람 머리 위. 붉은 고리 안에 방패와 느낌표가 맥박친다 */
+export function drawTauntMark(ctx, x, y, time) {
+  const p = 1 + Math.sin(time * 8) * 0.08;
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(p, p);
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = "rgba(70,24,18,0.72)";
+  ctx.beginPath(); ctx.arc(0, 0, 11, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "#ff9a7a"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(0, 0, 11, 0, TAU); ctx.stroke();
+  ctx.strokeStyle = "#ffd873"; ctx.lineWidth = 1;   // 작은 방패 테두리
+  ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(6, -6); ctx.lineTo(6, 1); ctx.quadraticCurveTo(0, 8, 0, 8); ctx.quadraticCurveTo(0, 8, -6, 1); ctx.closePath(); ctx.stroke();
+  ctx.fillStyle = "#ffb49a";
+  ctx.fillRect(-1, -4, 2, 6); ctx.fillRect(-1, 3.5, 2, 2);
   ctx.restore();
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { JOB_TUNE } from "./game/jobTuneData.js";
 import { Coin } from "./ui/icons.jsx";
 import { ADV, ADV_BY_ID, ADV_BONUS, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, advForJob, masteryLv, traitAt, trialText } from "./game/advData.js";
 import { whyAdvStart, whyAdvConfirm } from "./game/advance.js";
@@ -6,6 +7,7 @@ import { advArtPath, dist, JOB_BY_ID, mobName, STATS } from "./game/rpg.js";
 import { MAT_BY_ID } from "./game/itemData.js";
 import { weaponCap } from "./game/shopData.js";
 import { keyLabel } from "./game/keys.js";
+const KN = JOB_TUNE.knight;   // 기사 기본 방어 · 무효화 방어막(jobTuneData.js)
 // 전직 추가 스탯 한 줄 — 체력 +450 · 물리력 +20 (치명타 · 치명타 피해는 %)
 const bonusText = (id) => Object.entries(ADV_BONUS[id] || {}).map(([k, v]) => {
   const st = STATS.find((t) => t.id === k);
@@ -111,7 +113,8 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
                   <p className="adv-note">{c.note}</p>
                   <dl className="adv-skills">
                     <dt>액티브</dt><dd><b>{c.active.name}</b> · 대기 {c.active.cd}초<br />{c.active.note}</dd>
-                    <dt>패시브</dt><dd><b>{c.passive.name}</b><br />{c.passive.note}</dd>
+                    <dt>패시브</dt><dd><b>{c.passive.name}</b><br />{c.passive.note}
+                      {c.id === "knight" && <><br /><b>{KN.nullShield.name}</b><br />{KN.nullShield.note}<br /><b>기본 방어</b><br />받는 피해 {KN.cut * 100}% 감소 · 마법 · 물리 저항력 {KN.magicRes * 100}%</>}</dd>
                     <dt>추가 스탯</dt><dd>{bonusText(c.id)}</dd>
                     <dt>전투 특성</dt><dd><b>{ADV_TRAITS[c.id].name}</b> · 숙련도 2단계<br />{ADV_TRAITS[c.id].text(traitAt(c.id, 2))}</dd>
                     <dt>시험</dt><dd><b>{c.trial.name}</b><br />{c.trial.note}{trying ? ` · ${trialText(c, q)}` : ""}</dd>

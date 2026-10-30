@@ -1,3 +1,4 @@
+import { bagExtra } from "./junkData.js";
 import { WORLD_SET_BY_ID, worldArmorName, worldArt } from "./worldEquipmentData.js";
 /* ── RPG 방어구 — 수치는 모두 여기 한 곳 ─────────────────────────
    부위 넷(투구 · 갑옷 · 바지 · 신발) × 등급 넷(초급 · 희귀 · 영웅 · 전설). 부위마다 하나씩 낀다.
@@ -44,6 +45,6 @@ export const ARMOR = {
   bagMax: 30,           // 가방에 넣을 수 있는 방어구 수
   adminBagMax: 500,     // 관리자 가방 — 사실상 무제한(무기 adminBagMax 와 같은 까닭)
 };
-export const armorCap = (h) => (h && h.admin ? ARMOR.adminBagMax : ARMOR.bagMax);   // 이 사람이 가방에 넣을 수 있는 방어구 수
+export const armorCap = (h) => (h && h.admin ? ARMOR.adminBagMax : ARMOR.bagMax + bagExtra(h && h.bag));   // 이 사람이 가방에 넣을 수 있는 방어구 수
 export const armorName = (s, g, set) => WORLD_SET_BY_ID[set] ? worldArmorName(s, set) : `${ARMOR_GRADES[g].name} ${ARMOR_SLOTS.find((q) => q.id === s).name}`;
 export const armorArt = (s, g, set) => WORLD_SET_BY_ID[set] ? worldArt(`${set}:${s}`) : `/assets/game/rpg/armor/${s}-${g}.webp`;

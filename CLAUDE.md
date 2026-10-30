@@ -73,6 +73,7 @@
 | `src/game/adminCmd.js` | RPG 관리자 채팅 명령어(`/지급` · `/돈` · `/소환` · `/도움`). 방장이 판정 |
 | `src/game/keys.js` | RPG 키 설정 — 기본 키 표(`KEY_ACTIONS`) · 저장(`flg:rpgKeys`) · 키 이름 |
 | `src/game/shopData.js` · `shop.js` · `src/ShopPanel.jsx` | RPG 광장 상점. **가격 · 확률 · 제한은 shopData.js 한 곳**, 규칙(방장 판정 `rpgShop`, 조건 `why*`)은 shop.js, 상점 · 가방 창은 ShopPanel.jsx |
+| `src/game/junkData.js` | RPG 잡동산이 상점(광장 `SHOPS` 의 `junk`). **수치는 여기 한 곳**(`JUNK` 넓히기 단계 · 사는 재료 · 값 배율 · 하루 한도), 규칙은 shop.js(`whyBagExpand` · `whyMatBuy` · op `bagx` · `mbuy`, 팔기는 `msell` 에 `shop: "junk"`), 창은 ShopPanel.jsx `JunkShop`. 다른 파일을 부르지 않는다(거래 장부가 `bagExtra` 를 부른다) |
 | `src/game/towerInfo.js` | 탑 "자세히 보기" 창 설명. **숫자를 손으로 적어 둔 곳이라 logic.js 를 고치면 여기도 고친다** |
 | `src/game/updates.js` | 대기실 "업데이트" 창 내용 |
 | `src/InquiryPanel.jsx` | RPG ☰ 메뉴 "문의하기" 창(`.shop` 틀). 글은 의견 남기기와 같은 `feedback` 표(`sendFeedback`, 앞에 "[RPG 문의]")로 간다 |
@@ -101,7 +102,7 @@
 - **대군주(titan)**: 잡는 시간이 길다는 의견으로 모든 난이도에서 체력 ×0.7, 사람이 주는 피해 ×1.4(`ARENA.titanHp` · `titanDmg`).
 - **보스 결전 중 성채 체력**: 결전 중 맞은 피해는 성채에 바로 반영하지 않는다. **기절(쓰러짐)하면 그때 성채에서 깎고**, 결전이 끝나면 줄어든 체력만큼 정산한다. 0 이 되면 패배.
 - **RPG 관리자 캐릭터**: 전설 특별 무기 열셋을 한 번 받는다(`giveAdminLegends` · `ADMIN_LEGEND.id`, 받은 차례는 `bag.lg` — 팔아도 다시 주지 않는다, id 를 올리면 빠진 것만 다시). 최고 레벨 · 코인 무제한 · 스탯 다섯 모두 최대(`maxStats`) · 보스 재료 · 강화석 모두 늘 999개(`MAT_MAX`, `stepHeroes` 에서 다시 채운다). 관리자 장비(`giveAdminKit` · `ADMIN_KIT`, 받은 차례 `bag.ak`): 한 번 특별 무기 스물둘 모두 · 특별 무기 강화 +30 · 전설 방어구 넷을 끼워 주고, 모든 스킬 최고 레벨 · 지역 워프권 999 · 하락 방지권 99 는 늘 다시 채운다(10월 19일 섞임 사고로 비어 다시 넣음)이고, 직업 · 원소 · 성별을 모험 준비 화면에서 언제든 바꾼다(`saveLook`). 일반 캐릭터는 한 번 정하면 바꿀 수 없다.
-- **RPG 관리자 가방 칸**(10월 27일): 관리자는 무기 · 방어구 가방이 500칸(`WEAPON.adminBagMax` · `ARMOR.adminBagMax`), 일반은 30칸(`bagMax`). 칸은 늘 `weaponCap(h)` · `armorCap(h)` 로 묻는다. 기록을 실을 때 `cleanBag(d, admin)` 이 그 칸까지 남긴다. 가방은 바뀔 때 스냅샷에 통째로 실려 무한으로 두지 않았다(500 + 500 이 약 49KB). 개인 거래로 받는 칸은 DB `trade.sql` 의 30 그대로다.
+- **RPG 관리자 가방 칸**(10월 27일): 관리자는 무기 · 방어구 가방이 500칸(`WEAPON.adminBagMax` · `ARMOR.adminBagMax`), 일반은 30칸(`bagMax`) + 잡동산이 상점에서 넓힌 칸(`bagExtra(bag)`, 가방 `bx` 단계 × 5, 최대 60칸). 칸은 늘 `weaponCap(h)` · `armorCap(h)` 로 묻는다. 기록을 실을 때 `cleanBag(d, admin)` 이 그 칸까지 남긴다. 가방은 바뀔 때 스냅샷에 통째로 실려 무한으로 두지 않았다(500 + 500 이 약 49KB). 개인 거래로 받는 칸은 30 + 넓힌 칸이다(server/src/ledger-trade.js `bagExtra`, 관리자도 30 기준).
 - **RPG 관리자 명령어**: 관리자가 채팅 칸에 "/" 로 쓰면 채팅 대신 입력 kind `cmd` 로 방장에게 간다(RpgView.jsx `sendChat`, 판정 src/game/adminCmd.js `rpgAdminCmd`, 숫자 `ADMIN_CMD`). `/도움` · `/지급 <이름> <물품> [개수]`(물약 · 재료 · 특별 무기 · "전설 투구" 같은 방어구 · 워프권 · 하락 방지권) · `/돈 <이름> <금액>`(음수면 뺀다) · `/소환 <이름>`(내 자리로, 결투 · 던전 중은 막는다) · `/직업 <이름> <직업>`(기본 직업 셋 · 전직 여섯. 직업은 겉모습이라 방장이 자리 소식을 고치고 — `g.relook` → App.jsx `relook` — 바뀐 사람 화면이 기기 기록을 고친다 — out `relook` → `forceJob`. 전용 서버는 server/src/room.js 가 자리를 고친다). 이름 "나" 는 자신, 띄어쓰기 이름은 앞에서부터 견준다. 결과는 `sys` 알림 줄. 관리자가 아니면 화면에서 "관리자만 쓸 수 있는 명령입니다".
 - **RPG 맵 · 몹 추가**: `MAP_IDS` · `MOB_TYPES` · `REC_IDS` · `TITLES` 는 스냅샷 차례라 **뒤에만 더한다**. 몹 종류를 더하면 `REC_IDS` 에도 꼭 더한다(잡은 수를 센다). 고릴라는 `GORILLA`(체력 ×1.5 · 공격 ×1.4). 해골(`skeleton`)은 모르가스가 부르는 졸개로 고블린과 같은 값(`MOB.skeleton` · `BRUTE.skeleton`). 고블린 · 오크 · 오우거는 `GOBLIN` · `ORC` · `OGRE` 값으로 같은 셈(`stepBrute`)을 쓴다 — 더 멀리 알아채고(`aggro`) 더 오래 쫓고(`leash` 1200) 둘레 무리를 부른다(`call`). 스냅샷에는 사람이 있는 맵의 몹만 싣는다.
 - **RPG 보스 재료 · 강화**: 재료는 **보스만** 떨군다(일반 몹은 없음). 보스를 친 사람(`m.hitBy`) 가운데 같은 맵에 있는 사람이 저마다 받는다. 재료는 1~5개 확률(`DROP_ROLL`, 평균 3개), 강화석은 1개 + 5% 로 1개 더(`DROPS`). 강화는 +30 까지, 강화석 1 + 코인 250 × 단계, +1 마다 무기 스탯 +8%. 실패하면 +11 부터 한 단계 하락(+11~20 30% · +21~30 40%, `ENHANCE.down`). 파랑 강화석 +10(95%→30%) · 경화된 눈알 +20(95%→11%) · 심장결정 +30(97%→4%). 하락 방지권(`GUARD` 3,000코인, `bag.gd`)은 켜 둔 때 떨어질 때만 한 장 쓴다. 강화소는 **장착한 무기만** 강화한다(`whyEnhance`). 방지권이 하락을 막으면 결과는 `enh: 2`("하락 방지 성공"). 방지권 없이 하락할 수 있는 단계를 누르면 한 번 더 묻고, 전설 무기를 되팔 때도 묻는다 — "다시 묻지 않기"는 기기마다(`flg:askGuard` · `flg:askLegendSell`), 강화 모션 건너뛰기는 `flg:forgeSkip`(ShopPanel.jsx `Confirm`). 강화 연출은 ShopPanel.jsx `Forge`(`FORGE` 망치질 1.2초 → 결과 1.6초, 그동안 결과 줄을 숨긴다).
@@ -216,6 +217,13 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - `j_shield` ID는 유지하며 강화 마법진으로 변경. 반경180·20초·재사용25초, 위의 아군 공격력·치유력 +20%. 중첩은 한 번, 범위 밖은 즉시 해제. `powerCircles`로 스냅샷 보존. 급소 찌르기 `pierce`는 돌진을 없애고 사거리100의 제자리 공격으로 변경(직업 돌진 베기는 유지).
 - 사냥터 최고 레벨보다 캐릭터가 높으면 직접·파티 경험치 ×0.01. 던전·훈련·토벌은 제외. 자기보다 낮은 의뢰는 받을 때 `coinOnly`를 기록해 돈만 지급한다. 재료 보상도 제외한다.
 - 400→401부터 레벨당 스탯 3개. 기존 캐릭터도 `statEarned`로 재계산해 소급 적용하며 800레벨 총2,000개다. 테스트 `tools/combat-update.test.mjs`.
+
+## 2026년 10월 30일 잡동산이 상점
+
+- 광장 (1390, 1090) 도박장 아래 풀밭. `SHOPS` 끝에 `junk` 를 더했다(NPC 는 id 로 찾아 차례와 상관없다).
+- 가방 넓히기: `JUNK.steps` 6단계(코인 + 사냥터 보스 재료), 한 단계마다 무기 · 방어구 각 5칸. 넓힌 횟수는 가방 `bx`(cleanBag 이 지키고 서버 초기화 때 사라진다). 관리자는 막는다.
+- 재료 사기: `JUNK.buy` 10종(토끼 털 ~ 포식거미 비단), 값 = `sell × buyMul`(6), 하루 합계 `buyDaily`(20, `bag.day.junk`). 수집 의뢰를 돈으로 몰아 깨지 못하게 한도를 둔다. 강화석 · 입장권 · 400레벨 이후 재료는 팔지 않는다.
+- 시험 `node --test tools/junk-shop.test.mjs`.
 
 ## 2026년 10월 30일 퀘스트 마스터
 

@@ -2,11 +2,12 @@
    오류 이름(trade_offer · trade_funds · trade_item · trade_equipped · trade_capacity · trade_changed · trade_empty)과 답 모양은 trade.sql 과 같다.
    행 잠금은 장부(Durable Object 하나)가 요청을 한 줄로 세워서 대신한다. 확정은 D1 batch 한 번이라 반만 반영되는 일이 없다 */
 import { rpgKey, sha256, jeq, isObj, txt, iso } from "./ledger-util.js";
+import { bagExtra } from "../../src/game/junkData.js";
 
 export const TRADE_MS = 3 * 60 * 1000;          // 거래 한 건의 제한 시간(tradeData.js TRADE.lockMs 와 같은 3분)
 const RATE_MS = 5000;                           // 같은 사람이 이 안에 또 신청하면 rate
 const ITEM_MAX = 12;                            // 한 쪽이 올릴 수 있는 품목
-const BAG_MAX = 30;                             // 받는 사람의 무기 · 방어구 가방 칸(일반 캐릭터 기준 — trade.sql 과 같다)
+const BAG_MAX = 30;                             // 받는 사람의 무기 · 방어구 가방 칸(일반 캐릭터 기준 — trade.sql 과 같다). 잡동산이 상점에서 넓힌 칸(bagExtra)을 더한다
 const STACK_MAX = { p: 99, gd: 99 };            // 개수 물품의 한 칸 최대(나머지는 999)
 const STACK_DEFAULT = 999;
 const EMPTY = [{ coins: 0, items: [] }, { coins: 0, items: [] }];
@@ -63,7 +64,7 @@ export function tradeExchange(data, out, inn) {
   for (const x of inn.items) {
     if (x.k === "w" || x.k === "a") {
       const arr = (Array.isArray(b[x.k]) ? b[x.k] : []).concat([{ ...x.item, u: seq }]);
-      if (arr.length > BAG_MAX) fail("trade_capacity");
+      if (arr.length > BAG_MAX + bagExtra(b)) fail("trade_capacity");
       b[x.k] = arr;
       seq += 1;
     } else {

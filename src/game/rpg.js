@@ -66,6 +66,22 @@ export const SYNC = {
   rate: 8,      // 고칠 차이를 초당 이 몫씩 나눠 옮긴다 — 한 번에 튀지 않게
   jump: 260,    // 차이가 이만큼 넘으면 한 번에 옮긴다(워프 · 되살아남처럼 정말 자리가 바뀐 때)
 };
+// 마우스 오른쪽 클릭 이동(롤식) — 목적지 h.dest 로 걷는다. 키보드와 같은 걷기 식(속도 · 세로 squash)을 쓰고 서버 · 방장 · 손님 화면이 같은 rpgWalk 를 돈다.
+export const MOVE = {
+  arrive: 6,        // 목적지에서 이 안(px)이면 닿은 것으로 본다 — 한 걸음이 이보다 길면 그 걸음 안에서 닿은 것으로 친다
+  pad: 20,          // 분수 · 노점 둘레로 비켜 걸을 때 장애물 반지름에 더하는 몸 반지름(px) — keepIn 이 밀어내는 거리와 같다
+  stuckFrac: 0.3,   // 한 걸음 중 이 몫도 못 나아가면 막힌 것으로 센다
+  stuckT: 0.35,     // 막힌 채로 이만큼(초) 지나면 목적지를 버린다
+  steer: 1,         // 1 이면 둥근 장애물 둘레로 비켜 걷는다(0 이면 부딪혀 미끄러지다 멈춘다)
+  probe: 180,       // 비켜 걸을 때 앞이 트였는지 내다보는 길이(px)
+  turn: Math.PI / 12,   // 방향을 틀어 보는 한 칸(15도) — 180도까지 센다
+  flip: 3,          // 도는 쪽을 바꾸는 기준 — 반대쪽이 이만큼(칸) 넘게 덜 틀어도 되면 바꾼다
+  free: 0.4,        // 이만큼(초) 곧장 가도 되면 도는 쪽 기억을 지운다
+  prog: 8,          // 목적지와의 거리가 가장 가까웠던 때보다 이만큼(px) 더 가까워져야 나아간 것으로 센다
+  progT: 3,         // 나아가지 못한 채 이만큼(초) 지나면 목적지를 버린다 — 좁은 틈에서 왔다 갔다 하는 것을 끝낸다
+  look: 0.38,       // 걷는 쪽의 좌우 · 위아래 몫이 이보다 커야 그쪽을 바라본다 — 8방향으로 끊어 그림이 떨지 않게(sin 22.5도)
+  max: 1e5,         // 받은 좌표가 이보다 크면 버린다
+};
 export const RPG = {
   heroHp: 190,
   rangeMul: 1.25,        // 탑 사거리보다 조금 넓게
@@ -851,7 +867,7 @@ function makeHero(pi, look, map = "plaza") {
   const [sx, sy] = MAPS[map].spawn;
   const h = {
     ts: 0, trade: null,
-    pi, map, x: sx + (Math.random() - 0.5) * 120, y: sy + (Math.random() - 0.5) * 60, dir: 1, face: 0, hold: [],
+    pi, map, x: sx + (Math.random() - 0.5) * 120, y: sy + (Math.random() - 0.5) * 60, dir: 1, face: 0, hold: [], dest: null,
     hp: 0, max: 0, down: 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, loaded: 0, st: noStats(),
     cd: 0.5, sk: 0, swing: 0, kills: 0, flash: 0, numAcc: 0, numT: 0, calm: 0, gateCd: 0,
     buff: 0, buffAmt: 0, guard: 0,
@@ -986,6 +1002,7 @@ export function rpgJoin(g, pi, d, who) {
   if (keepHp) h.hp = Math.min(h.max, keepHp);
   h.migr = 0;
   h.loaded = 1;
+  if (d.mv) rpgMove(g, pi, d.mv);                 // 가던 목적지 — 이어받을 때 멈추지 않게(맵이 다르면 버려진다)
 }
 
 /* 서버 초기화(itemData.js RESET) — 이름 · 직업 · 원소 · 성별은 두고, 레벨 · 경험치 · 코인 · 스탯 · 가방(무기 · 방어구 · 물약 · 재료 · 스킬) ·
@@ -1136,12 +1153,14 @@ function say(g, map, x, y, text, color) {
 /* ── 조작 ──────────────────────────────────────────────── */
 // 손님의 누름 · 뗌(hold · fire)은 마지막 상태만 뜻이 있다 — 늦게 도착한 옛 것(번호가 작은 것)은 버린다.
 // 번호가 없으면(옛 버전 손님) 그대로 받는다. 대쉬 · 스킬 같은 한 번짜리 입력은 버리지 않는다
+const FRESH_SLOT = { hold: "hold", mv: "hold", fire: "fire", wcharge: "wcharge" };   // 마우스 이동(mv)은 누름(hold)과 번호 칸을 같이 쓴다 — 둘 다 "마지막 걷는 뜻"이다
 export function freshInput(h, kind, q, now) {
-  if ((kind !== "hold" && kind !== "fire" && kind !== "wcharge") || !q) return true;
+  const slot = Object.prototype.hasOwnProperty.call(FRESH_SLOT, kind) ? FRESH_SLOT[kind] : null;
+  if (!slot || !q) return true;
   if (!h.inq) h.inq = {};
-  if (q <= (h.inq[kind] || 0)) return false;
-  h.inq[kind] = q;
-  if (kind === "hold") h.inqAt = now;           // 받은 때 — 스냅샷에 "몇 ms 전에 받았다"로 실어 손님이 견줄 때를 맞춘다
+  if (q <= (h.inq[slot] || 0)) return false;
+  h.inq[slot] = q;
+  if (slot === "hold") h.inqAt = now;           // 받은 때 — 스냅샷에 "몇 ms 전에 받았다"로 실어 손님이 견줄 때를 맞춘다
   return true;
 }
 // 손님이 누름 · 뗌을 보낸 때를 적어 둔다 — 방장이 그 번호를 알려 주면 그때의 내 위치와 견준다
@@ -1173,12 +1192,35 @@ function shiftMe(h, dx, dy) {
 }
 export function rpgHold(g, pi, dirs) {
   const h = g.heroes[pi];
-  if (h && !(h.tauntT>0)) h.hold = Array.isArray(dirs) ? dirs.filter((d) => typeof d === "string").slice(0, 4) : [];
+  if (h && !(h.tauntT>0)) {
+    h.hold = Array.isArray(dirs) ? dirs.filter((d) => typeof d === "string").slice(0, 4) : [];
+    if (h.hold.length) h.dest = null;             // 방향키가 이긴다 — 마우스 목적지는 버린다
+  }
+}
+
+/* ── 마우스 오른쪽 클릭 이동 ─────────────────────────────────
+   입력 mv = { x, y, m } — 땅 좌표와 그 좌표를 본 맵. 방장 · 서버 · 손님 화면이 같은 rpgWalk 로 목적지까지 걷는다.
+   목적지 h.dest = { map, x, y, mob } (mob 은 몹 따라가기용 자리 — 1단계는 늘 -1). 스냅샷 영웅 줄 55 에 x · y 를 싣는다 */
+export function stopMove(h) {
+  if (!h) return;
+  h.dest = null; h.destT = 0; h.destSide = 0; h.destFree = 0; h.destBest = Infinity; h.destP = 0;
+}
+export function rpgMove(g, pi, d) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || h.down > 0 || h.tauntT > 0 || trading(h) || (h.hold && h.hold.length)) return;
+  if (!d || typeof d !== "object" || d.m !== h.map || !MAPS[h.map]) return;   // 옛 맵 좌표는 버린다(맵을 옮긴 뒤 늦게 닿은 입력)
+  if (!Number.isFinite(d.x) || !Number.isFinite(d.y) || Math.abs(d.x) > MOVE.max || Math.abs(d.y) > MOVE.max) return;
+  const o = { x: d.x, y: d.y, ring: h.ring };
+  keepIn(o, MAPS[h.map], 20);                      // 맵 밖 · 분수 안 · 결투 칸 밖을 눌러도 가장 가까운 걸을 수 있는 곳으로
+  h.dest = { map: h.map, x: o.x, y: o.y, mob: -1 };
+  h.destT = 0; h.destSide = 0; h.destFree = 0; h.destBest = Infinity; h.destP = 0;
 }
 
 // 누르고 있는 만큼 걷는다 — 방장과 손님 화면 양쪽에서 같은 식으로 돈다
 export function rpgWalk(h, dt) {
-  if (!h || h.down > 0 || !h.hold || !h.hold.length || ccRooted(h) || stormBusy(h)) return;   // 결투에서 경직 · 띄움 · 속박이면 걷지 못한다
+  if (!h || h.down > 0 || ccRooted(h) || stormBusy(h)) return;   // 결투에서 경직 · 띄움 · 속박이면 걷지 못한다 — 목적지는 남겨 둔다
+  if (!h.hold || !h.hold.length) { if (h.dest) walkTo(h, dt); return; }
+  if (h.dest) stopMove(h);                        // 방향키가 이긴다
   let dx = 0, dy = 0;
   h.hold.forEach((d) => {
     if (d === "left") dx -= 1;
@@ -1196,6 +1238,75 @@ export function rpgWalk(h, dt) {
   h.x += (dx / len) * v * dt;
   h.y += (dy / len) * v * RPG.squash * dt;
   keepIn(h, MAPS[h.map], 20);
+}
+
+// 목적지까지 한 걸음 — 닿으면 목적지를 지운다. 길이 막혀 거의 못 나아가면 잠깐 두고 보다가 버린다
+function walkTo(h, dt) {
+  const D = h.dest, M = MAPS[h.map];
+  if (!D || !M || D.map !== h.map) return void stopMove(h);   // 맵이 바뀌었다 — 어느 문으로 왔든 목적지를 버린다(안전망)
+  const sq = RPG.squash;
+  const dx = D.x - h.x, dy = (D.y - h.y) / sq;      // 위아래는 땅 비율로 줄여 센다
+  const d = Math.hypot(dx, dy);
+  if (d < (h.destBest ?? Infinity) - MOVE.prog) { h.destBest = d; h.destP = 0; }   // 더 가까워졌다
+  else if ((h.destP = (h.destP || 0) + dt) >= MOVE.progT) return void stopMove(h);   // 한참 나아가지 못했다 — 좁은 틈에서 왔다 갔다 한다
+  const ux = dx / (d || 1), uy = dy / (d || 1);
+  const [sx, sy] = MOVE.steer ? steerAround(h, M, D, ux, uy, d, dt) : [ux, uy];
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy));
+  const step = v * dt;
+  if (d <= Math.max(MOVE.arrive, step)) {          // 닿았다
+    h.x = D.x; h.y = D.y;
+    keepIn(h, M, 20);
+    return void stopMove(h);
+  }
+  const hx = Math.abs(sx) > MOVE.look ? Math.sign(sx) : 0, hy = Math.abs(sy) > MOVE.look ? Math.sign(sy) : 0;
+  if (hx) h.dir = hx;                              // 8방향으로 끊어 바라본다 — 거의 위아래로 걸을 때 좌우가 떨지 않게
+  h.face = hy < 0 ? 2 : hx ? 1 : 0;
+  h.look = [sx, sy]; h.lookF = h.face;
+  const ox = h.x, oy = h.y;
+  h.x += sx * step;
+  h.y += sy * step * sq;
+  keepIn(h, M, 20);
+  const moved = Math.hypot(h.x - ox, (h.y - oy) / sq);
+  if (moved < step * MOVE.stuckFrac) {              // 거의 못 나아갔다 — 막힌 곳
+    h.destT = (h.destT || 0) + dt;
+    if (h.destT >= MOVE.stuckT) stopMove(h);
+  } else h.destT = 0;
+}
+
+// 가는 길이 둥근 장애물(분수 · 노점 · 문 · 던전 구덩이)에 걸리면 목적지 쪽에 가장 가까우면서 앞이 트인 방향으로 튼다.
+// 방향을 turn 씩 돌려 가며 probe 만큼 앞이 트이는지 본다. 도는 쪽은 한 번 정해 길이 한동안 트일 때까지 고정한다(떨림 방지) —
+// 단 반대쪽이 flip 칸 넘게 더 가까우면 바꾼다(맵 끝에 막힌 쪽으로 계속 돌지 않게). 목적지가 장애물 바로 곁이면 그 장애물은 건너뛴다(둘레만 돌지 않게)
+function pathBlocked(h, M, tx, ty, hx, hy, len) {
+  const sq = RPG.squash, px = h.x, py = h.y / sq;
+  const ex = px + hx * len, ey = (py + hy * len) * sq;
+  if (ex < RPG.edge || ex > M.w - RPG.edge || ey < M.top || ey > M.h - RPG.edge) return true;   // 맵 밖으로 가는 길
+  for (const b of M.blocks) {
+    const cx = b.x, cy = b.y / sq, R = b.r + MOVE.pad;
+    if (Math.hypot(tx - cx, ty - cy) < R) continue;                  // 목적지가 이 장애물의 여유 안 — 곁으로 바로 간다(미끄러진다)
+    const along = (cx - px) * hx + (cy - py) * hy;
+    if (along <= 0) continue;                                        // 장애물이 뒤에 있다
+    const t = Math.min(along, len);
+    if (Math.hypot(px + hx * t - cx, py + hy * t - cy) < R) return true;
+  }
+  return false;
+}
+function steerAround(h, M, D, ux, uy, d, dt) {
+  const tx = D.x, ty = D.y / RPG.squash, len = Math.min(d, MOVE.probe);
+  if (!pathBlocked(h, M, tx, ty, ux, uy, len)) {                    // 곧장 가도 된다
+    h.destFree = (h.destFree || 0) + dt;
+    if (h.destFree >= MOVE.free) h.destSide = 0;
+    return [ux, uy];
+  }
+  h.destFree = 0;
+  const turns = Math.round(Math.PI / MOVE.turn);                    // 180도까지
+  const turn = (side, i) => { const a = side * i * MOVE.turn, c = Math.cos(a), s = Math.sin(a); return [ux * c - uy * s, ux * s + uy * c]; };
+  const probe = (side) => { for (let i = 1; i <= turns; i++) { const [hx, hy] = turn(side, i); if (!pathBlocked(h, M, tx, ty, hx, hy, len)) return i; } return Infinity; };
+  let side = h.destSide;
+  if (!side) side = probe(1) <= probe(-1) ? 1 : -1;                  // 처음 — 더 적게 트는 쪽(같으면 오른쪽)
+  else if (probe(-side) + MOVE.flip < probe(side)) side = -side;     // 고른 쪽이 훨씬 막혔다 — 반대쪽으로 바꾼다
+  h.destSide = side;
+  const i = probe(side);
+  return i === Infinity ? [ux, uy] : turn(side, i);                  // 어느 쪽도 막혔으면 그대로 간다 — 막힘 규칙이 곧 목적지를 버린다
 }
 
 // 맵 가장자리와 막힌 곳(분수) 밖으로 밀어낸다
@@ -1551,7 +1662,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
 // 기사 수호의 방패 도발(advance.js shieldWave) — 도발한 기사가 같은 맵에 서 있는 동안 다른 사람이 쳐도 노리는 대상이 바뀌지 않는다
 function tauntAround(g,h,r,t){
   for(const o of foesNear(g,h,h.x,h.y,r)){
-    if(isHeroT(o)){o.tauntBy=h.pi;o.tauntT=t;o.dash=0;o.inputAim=null;}
+    if(isHeroT(o)){o.tauntBy=h.pi;o.tauntT=t;o.dash=0;o.inputAim=null;stopMove(o);}
     else if(o.type!=='dummy'){o.tgt=h.pi;o.taunt=t;}
   }
   fx(g,h.map,{kind:'call',x:h.x,y:h.y-100,text:'도발',color:'#ffc98c',t:.8,life:.8});
@@ -1783,7 +1894,7 @@ function hurtHero(g, h, raw, source) {
   if (h.hp <= 0) {
     h.hp = 0;
     h.down = isPvp(h.map) ? DUEL.end + 1 : RPG.down;   // 결투에서 쓰러지면 결투가 끝날 때 일어난다
-    h.hold = [];
+    h.hold = []; stopMove(h);
     advDown(advEngine, g, h);                     // 생존 시험은 처음부터 · 정령은 돌아간다
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
     say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
@@ -1897,7 +2008,7 @@ export function aimDir(h) {
   if (!dx && !dy) {
     // 키를 뗐으면 마지막으로 걸은 쪽(위 · 아래 · 대각선도). 그 뒤 공격하며 몸을 돌렸으면(얼굴 · 좌우가 달라졌으면) 좌우로 바라보는 쪽
     const L = h.look;
-    if (L && h.face === h.lookF && (!L[0] || (L[0] < 0 ? -1 : 1) === (h.dir || 1))) return [L[0], L[1]];
+    if (L && h.face === h.lookF && (Math.abs(L[0]) < MOVE.look || (L[0] < 0 ? -1 : 1) === (h.dir || 1))) return [L[0], L[1]];   // 마우스로 걸으면 look 이 연속값 — 거의 위아래면 좌우는 따지지 않는다
     dx = h.dir || 1;
   }
   const l = Math.hypot(dx, dy);
@@ -2084,6 +2195,7 @@ export function startDash(h, aim) {
   h.dvx = dx * v; h.dvy = dy * v;
   if (dx) h.dir = dx < 0 ? -1 : 1;
   h.dash = DASH.time; h.inv = DASH.inv; h.dashCd = DASH.cd;
+  stopMove(h);                                    // 대쉬하면 마우스 목적지는 버린다 — 달린 뒤 다시 끌려가지 않게
   return true;
 }
 // 돌진 — 상대 바로 앞(몸 반지름 + LUNGE_GAP)까지 time 초에 달려간다. 대쉬와 같은 걸음(dashStep)으로 움직이고 그동안 맞지 않는다
@@ -3239,7 +3351,7 @@ function stepHeroes(g, dt) {
     if(h.tauntT>0&&forced&&forced.map===h.map&&forced.down<=0&&isPvp(h.map)){
       const dx=forced.x-h.x,dy=(forced.y-h.y)/RPG.squash;
       h.hold=dist(h.x,h.y,forced.x,forced.y)>75?[...(Math.abs(dx)>20?[dx>0?'right':'left']:[]),...(Math.abs(dy)>20?[dy>0?'down':'up']:[])]:[];
-    }else if(h.tauntBy>=0){h.tauntBy=-1;h.tauntT=0;h.hold=[];}
+    }else if(h.tauntBy>=0){h.tauntBy=-1;h.tauntT=0;h.hold=[];stopMove(h);}
 
     if (h.down > 0) {
       if (h.dvs >= 0) return;                     // 결투에서 쓰러졌다 — 결투가 끝나면 원래 자리로 돌아간다(tickDuels)
@@ -3248,6 +3360,7 @@ function stepHeroes(g, dt) {
         h.down = 0;
         h.map = "plaza";
         [h.x, h.y] = MAPS.plaza.spawn;
+        stopMove(h);
         h.hp = h.max;
         fx(g, "plaza", { kind: "heal", x: h.x, y: h.y - 56, text: "다시 일어남", t: 0.9, life: 0.9, snd: "bless", who: h.pi });
       }
@@ -3264,6 +3377,7 @@ function stepHeroes(g, dt) {
       if (gate) {
         h.map = gate.to;
         [h.x, h.y] = gate.at;
+        stopMove(h);                              // 문을 지나면 가던 목적지는 버린다
         h.gateCd = 1;
         fx(g, h.map, { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#bfe6ff", t: 0.5, life: 0.5 });
       }
@@ -3956,7 +4070,7 @@ export function rpgDeep(g, pi, req) {
     const why = whyDeepEnter(h);
     if (why.length) return void sys(g, pi, why[0]);
     const to = DEEP_MAPS[0];
-    h.map = to.id; [h.x, h.y] = MAPS[to.id].spawn; h.gateCd = 1;
+    h.map = to.id; [h.x, h.y] = MAPS[to.id].spawn; h.gateCd = 1; stopMove(h);
     fx(g, to.id, { kind: "nova", x: h.x, y: h.y - 20, r: 70, color: "#c9a8f0", n: 10, t: 0.6, life: 0.6, snd: "bless" });
     return true;
   }
@@ -3986,7 +4100,7 @@ function toPlaza(g, h) {
   h.map = "plaza";
   [h.x, h.y] = MAPS.plaza.spawn;
   h.x += (Math.random() - 0.5) * 120; h.y += (Math.random() - 0.5) * 60;
-  h.gateCd = 1;
+  h.gateCd = 1; stopMove(h);
   fx(g, "plaza", { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#bfe6ff", t: 0.5, life: 0.5 });
 }
 export function rpgDungeon(g, pi, req) {
@@ -4011,7 +4125,7 @@ export function rpgDungeon(g, pi, req) {
   g.runs.push({ hpScale, id: d.id, slot, map, t: DUNGEON.time, wave: 0, phase: "go", end: 0, gap: DUNGEON.waveGap });
   crew.forEach((o, i) => {
     const [sx, sy] = MAPS[map].spawn;
-    o.map = map; o.x = sx + (i % 2) * 60; o.y = sy + (i - 1.5) * 50; o.gateCd = 1;
+    o.map = map; o.x = sx + (i % 2) * 60; o.y = sy + (i - 1.5) * 50; o.gateCd = 1; stopMove(o);
     fx(g, map, { kind: "ring", x: o.x, y: o.y - 10, r: 50, color: "#ffc58a", t: 0.5, life: 0.5 });
     sys(g, o.pi, `${d.name}에 들어왔습니다. ${Math.round(DUNGEON.time / 60)}분 안에 보스를 잡으세요.`);
   });
@@ -4282,7 +4396,8 @@ export function rpgPack(g) {
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
         packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0, h.ts || 0, trading(h) ? h.trade : null,h.guild||null,
         packAdv(h),                             // 53 — 전직 상태
-        {team:h.duelTeam,size:h.duelSize||0,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0}] // 54 — 결투 팀·물약·도발·의뢰·마법진 상태
+        {team:h.duelTeam,size:h.duelSize||0,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0},
+        h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0] // 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
     w: g.heroes.map((h) => (h && h.who) || ""),    // 자리마다 앉은 사람 id — 손님이 제 자리 영웅인지 견준다(남의 기록을 제 것으로 저장하지 않게)
@@ -4322,10 +4437,16 @@ export function rpgApply(g, s) {
     if (mine && row.length > 43) g.ackHoldQ = row[42];
     const moved = h.map !== map;
     h.map = map;
+    if (mine) {                                    // 마우스 이동 — 55번 줄이 없으면 옛 방장 · 서버라 목적지를 쓰지 못한다
+      h.mvOk = row.length > 55 ? 1 : 0;
+      if (!h.mvOk || moved) stopMove(h);
+      // 서버가 내 mv 를 이미 받았는데(번호가 내 마지막 mv 이상) 목적지가 없다 — 닿았거나 막혀서 서버가 취소했다. 나도 멈춘다
+      else if (h.dest && !row[55] && (g.ackHoldQ || 0) >= (h.mvQ || 0)) stopMove(h);
+    }
     h.tx = row[0]; h.ty = row[1];
     // 내 영웅은 내 화면에서 먼저 걷는다. 맵을 옮겼거나 크게 벌어졌을 때만 맞춘다.
     // 방금 내 화면에서 대쉬했으면 방장 위치가 따라올 때까지 크게 벌어져도 기다린다
-    const slack = mine && h.predict > 0 ? DASH.dist + 140 : h.hold.length ? 140 : 70;
+    const slack = mine && h.predict > 0 ? DASH.dist + 140 : h.hold.length || h.dest ? 140 : 70;
     // 방장이 내 누름을 언제 받았는지 알려 주면 — 그 때의 내 위치와 견준다(지연 때문에 생긴 차이는 고치지 않는다)
     const sent = mine && row.length > 43 && row[42] && g.sentQ ? g.sentQ[row[42]] : undefined;
     // 대쉬·돌진은 hold와 다른 입력이다. 아직 반영되지 않은 스냅샷은 아래 예측 대기 중에 보정하지 않는다.
@@ -4469,7 +4590,7 @@ export function rpgStepVisual(g, dt) {
       h.predict = Math.max(0, (h.predict || 0) - dt);
       tickCc(h, dt);                               // 결투 군중 제어 — 스냅샷 사이에도 줄어든다
       if (h.dash > 0) dashStep(h, dt);             // 먼저 그린 대쉬
-      else if (h.down <= 0 && h.hold.length) rpgWalk(h, dt);
+      else if (h.down <= 0 && (h.hold.length || h.dest)) rpgWalk(h, dt);
       else if (!h.syncOk) { h.x += (h.tx - h.x) * k * 0.5; h.y += (h.ty - h.y) * k * 0.5; }   // 옛 버전 방장 — 멈추면 방장 자리로
       if (h.fixX || h.fixY) {                      // 같은 때끼리 견준 차이를 조금씩 옮긴다
         const a = Math.min(1, dt * SYNC.rate), mx = h.fixX * a, my = h.fixY * a;

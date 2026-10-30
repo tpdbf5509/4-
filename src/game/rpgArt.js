@@ -2381,6 +2381,29 @@ function drawSkillTuned(ctx, f, time, g, crowd) {
   try { drawSkillFx(ctx, f, time, g); } finally { setFxQuality(lod.q); }
 }
 
+/* 마우스 오른쪽 클릭 이동의 도착 표시 — 땅에 얇은 고리 하나가 천천히 오므라들고 가운데 작은 점이 있다. 도착하면 fade 초 동안 흐려진다.
+   g.moveMark = { map, x, y, t 누른 때 } 는 RpgView 가 누를 때 만들고, 서버가 보정한 목적지(me.dest)를 따라간다 */
+const MOVE_MARK = { r0: 7, r1: 16, pulse: 1.1, fade: 0.35, dot: 1.6, alpha: 0.85, width: 1 };
+function drawMoveMark(ctx, g, me, time) {
+  const m = g.moveMark;
+  if (!m) return;
+  if (!me || m.map !== me.map) { g.moveMark = null; return; }
+  if (me.dest) { m.x = me.dest.x; m.y = me.dest.y; m.end = undefined; }
+  else if (m.end === undefined) m.end = time;
+  const gone = m.end === undefined ? 0 : (time - m.end) / MOVE_MARK.fade;
+  if (gone >= 1) { g.moveMark = null; return; }
+  const k = (((time - m.t) % MOVE_MARK.pulse) + MOVE_MARK.pulse) % MOVE_MARK.pulse / MOVE_MARK.pulse;   // 0 → 1 로 오므라든다
+  const light = elemOf(me).light;
+  ctx.save();
+  ctx.strokeStyle = light; ctx.fillStyle = light; ctx.lineWidth = MOVE_MARK.width;
+  const r = MOVE_MARK.r1 - (MOVE_MARK.r1 - MOVE_MARK.r0) * k;
+  ctx.globalAlpha = MOVE_MARK.alpha * (1 - gone) * (0.4 + 0.6 * (1 - k));
+  ctx.beginPath(); ctx.ellipse(m.x, m.y, r, r * RPG.squash, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = MOVE_MARK.alpha * (1 - gone);
+  ctx.beginPath(); ctx.ellipse(m.x, m.y, MOVE_MARK.dot, MOVE_MARK.dot * RPG.squash, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
 export function drawRpg(ctx, g, bgs) {
   fxWarmUp();
   stepLod();
@@ -2437,6 +2460,7 @@ export function drawRpg(ctx, g, bgs) {
     ctx.restore();
   }
 
+  drawMoveMark(ctx, g, me, time);                      // 클릭한 곳 표시 — 땅 위, 몸 아래
   const here = (f) => !f.map || f.map === M.id;
   g.fx.forEach((f) => { if (here(f) && f.kind === "art" && !(FX_ART[f.art] || {}).over) drawFx(ctx, f); });
   // 스킬 연출 — 화면 안 · 종류마다 최근 것만(FX_LOD)

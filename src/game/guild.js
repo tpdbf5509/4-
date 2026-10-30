@@ -13,7 +13,7 @@ function toHall(E,g,h){
   const id=h.guild?.id;if(!id)return false;
   let x=hallOf(g,id);
   if(!x){let slot=0;while((g.ghalls||[]).some(q=>q.slot===slot))slot++;if(slot>=H.slots)return false;x={guild:id,slot};(g.ghalls||=[]).push(x);}
-  h.map=guildHallMap(x.slot);h.x=H.spawn[0]+(Math.random()-.5)*120;h.y=H.spawn[1]+(Math.random()-.5)*40;h.hold=[];h.fire=0;h.gateCd=1;
+  h.map=guildHallMap(x.slot);h.x=H.spawn[0]+(Math.random()-.5)*120;h.y=H.spawn[1]+(Math.random()-.5)*40;h.hold=[];h.dest=null;h.fire=0;h.gateCd=1;
   E.fx(g,h.map,{kind:'ring',x:h.x,y:h.y-10,r:50,color:'#e6d6a0',t:.5,life:.5});return true;
 }
 // 토벌을 마치면 그 길드의 광장으로, 길드가 없으면 광장으로
@@ -57,7 +57,7 @@ export function guildInput(E,g,pi,d){
       t:Math.min(C.raidSeconds,(t.expires-Date.now())/1000),phase:'fight',end:0,seq:0,cd:2,attack:null,contrib:[],reported:false};
     (g.gruns||=[]).push(run);g.mobs=g.mobs.filter(m=>m.map!==run.map);g.mobs.push(bossBody(E,g,run));
   }
-  h.map=run.map;h.x=C.spawn[0]+pi%2*40;h.y=C.spawn[1]+pi%3*30;h.hold=[];h.fire=0;h.gateCd=1;
+  h.map=run.map;h.x=C.spawn[0]+pi%2*40;h.y=C.spawn[1]+pi%3*30;h.hold=[];h.dest=null;h.fire=0;h.gateCd=1;
   notice(E,g,h,'길드 토벌 시작',GUILD_BOSS_BY_ID[run.boss].name);return true;
 }
 export function guildHit(g,m,h,damage){

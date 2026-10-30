@@ -7,5 +7,5 @@ export function rpgTrade(g, pi, d) {
   if (d.op === 'clear') { h.trade = null; return; }
   if (d.op !== 'lock' || !lockPlace(h.map, true) || h.down > 0 || h.dvs >= 0) return;
   h.trade = { q: d.q, until: Date.now() + TRADE.lockMs };
-  h.hold = []; h.fire = 0; h.fireQ = 0; h.dash = 0;
+  h.hold = []; h.dest = null; h.fire = 0; h.fireQ = 0; h.dash = 0;
 }

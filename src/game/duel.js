@@ -44,7 +44,7 @@ export function duelInput(E,g,pi,req){
   g.duels.push(d);
   sides.forEach((side,t)=>side.forEach((q,i)=>{
     q.ret=null;q.map='arena';q.x=R.x+(t?1:-1)*R.rx*.3;q.y=R.y+(i-(size-1)/2)*130;
-    q.dir=t?-1:1;q.face=0;q.hold=[];q.fire=0;q.dash=0;q.hp=q.max;q.down=0;q.duelInv=null;
+    q.dir=t?-1:1;q.face=0;q.hold=[];q.dest=null;q.fire=0;q.dash=0;q.hp=q.max;q.down=0;q.duelInv=null;
     q.dvs=sides[1-t][0].pi;q.dph=1;q.dtl=C.ready;q.ring=ring;q.duelTeam=t;q.duelSize=size;q.duelPotions=COMBAT_RULES.duelPotions;
     q.bf={};q.buff=0;q.guard=0;q.tauntBy=-1;q.tauntT=0;
     E.sys(g,q.pi,`${size}대${size} 결투 시작 · 결투용 회복 물약 (소) 5개 지급`);
@@ -73,7 +73,7 @@ export function tickDuelMatches(E,g,dt){
     else if(d.phase==='fight'&&d.t<=0)finish(E,g,d,-1,'시간 초과');
     else if(d.phase==='end'&&d.t<=0){
       members.forEach((p,i)=>{const h=present(g,p);if(!h)return;const r=d.ret[i];
-        const back=E.map(r.map)&&r.map!=='arena'?r:E.plaza;h.map=back.map;h.x=back.x;h.y=back.y;
+        const back=E.map(r.map)&&r.map!=='arena'?r:E.plaza;h.map=back.map;h.x=back.x;h.y=back.y;h.dest=null;
         h.down=0;h.hp=h.max;h.dvs=-1;h.dph=0;h.dtl=0;h.ring=-1;h.duelPotions=0;delete h.duelTeam;h.duelSize=0;h.gateCd=1;
       });return false;
     }

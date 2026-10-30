@@ -770,7 +770,7 @@ export function rpgShop(g, pi, req) {
     fx(g, h.map, { kind: "ring", x: h.x, y: h.y - 10, r: 60, color: "#bfe6ff", t: 0.5, life: 0.5 });
     h.map = to;
     h.x = M.spawn[0] + (Math.random() - 0.5) * 60; h.y = M.spawn[1] + (Math.random() - 0.5) * 30;
-    h.hold = []; h.dash = 0; h.gateCd = 1.5;
+    h.hold = []; h.dest = null; h.dash = 0; h.gateCd = 1.5;
     fx(g, to, { kind: "ring", x: h.x, y: h.y - 10, r: 60, color: "#bfe6ff", t: 0.6, life: 0.6, snd: "bless", who: pi });
     return note(g, pi, { ok: true, msg: `${jo(M.name, "으로", "로")} 워프했습니다 (남은 ${h.bag.wp}회)` });
   }

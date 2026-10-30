@@ -3,9 +3,9 @@ import { trading } from "./tradeData.js";
 import { stormBusy } from './stormWeaponCombat.js';
 import { cleanSkillAim, aimedSkillInput } from './skillAim.js';
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
-   d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향 }. 늦게 도착한 옛 누름 · 뗌(hold · fire)은 버린다(freshInput) */
+   d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
-  rpgHold, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
+  rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
   rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
@@ -14,6 +14,7 @@ import { rpgAdminCmd } from "./adminCmd.js";
 const ACTS = {
   trade: (g, pi, dir) => rpgTrade(g, pi, dir),
   hold: (g, pi, dir) => rpgHold(g, pi, dir),
+  mv: (g, pi, dir) => rpgMove(g, pi, dir),         // 마우스 오른쪽 클릭 이동 — { x, y, m }
   skill: (g, pi) => rpgSkill(g, pi),
   wskill: (g, pi) => rpgWeaponSkill(g, pi),
   wcharge: (g, pi, dir) => dir === true ? rpgWeaponSkill(g, pi) : rpgWeaponRelease(g, pi, dir === "cancel"),

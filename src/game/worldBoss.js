@@ -96,7 +96,7 @@ export function worldBossInput(E,g,pi,req){
     return true;
   }
   if(req.op==='enter'&&w.active?.phase==='fight'){
-    h.map=C.map;h.x=C.spawn[0]+pi*18;h.y=C.spawn[1]+pi%3*25;h.gateCd=1;h.hold=[];h.fire=0;
+    h.map=C.map;h.x=C.spawn[0]+pi*18;h.y=C.spawn[1]+pi%3*25;h.gateCd=1;h.hold=[];h.dest=null;h.fire=0;
     return true;
   }
   return false;

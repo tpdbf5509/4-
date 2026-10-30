@@ -50,7 +50,7 @@ export function useTrade(options) {
     const q = lastQ.current = Math.max(lastQ.current + 1, Date.now());
     const d = { op: on ? 'lock' : 'clear', q };
     h.tradeLocal = on || !!syncRecord.current;
-    if (on) { h.hold = []; h.fire = 0; h.dash = 0; }
+    if (on) { h.hold = []; h.dest = null; h.fire = 0; h.dash = 0; }
     if (o.isHost) rpgTrade(o.g, o.seat, d);
     else o.sendInput({ cls: o.seat, kind: 'trade', dir: d, q: o.nextSeq() });
     return q;

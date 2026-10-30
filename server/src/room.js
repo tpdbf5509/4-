@@ -163,7 +163,7 @@ export class RpgRoom {
     else if (m.k === "input") {                   // 남의 자리 입력은 받지 않는다
       if (this.seatOf(c.id) !== (d && d.cls)) return;
       rpgInput(this.g, d);
-      this.now();                                   // 받자마자 판정하고 결과를 보낸다 — 다음 스냅샷 때까지 기다리지 않는다
+      if (d.kind !== "mv") this.now();              // 받자마자 판정하고 결과를 보낸다 — 다음 스냅샷까지 기다리지 않는다. 마우스 이동(mv)은 끌 때 초당 10번이라 제외한다(손님이 먼저 걷고 있다)
     }
     else if (m.k === "ledger") this.ledger(c, d);
     else if (m.k === "chat") this.chat(c, d);
@@ -212,7 +212,7 @@ export class RpgRoom {
     if (!d || this.seatOf(c.id) !== d.cls) return;
     const a = this.accts.get(c.id);
     const data = d.data && typeof d.data === "object" ? d.data : {};
-    const use = a ? { ...a.base, admin: a.admin, auto: data.auto, hold: data.hold } : { ...data, admin: false };   // 계정 없는 캐릭터는 관리자가 될 수 없다
+    const use = a ? { ...a.base, admin: a.admin, auto: data.auto, hold: data.hold, mv: data.mv } : { ...data, admin: false };   // 계정 없는 캐릭터는 관리자가 될 수 없다
     rpgJoin(this.g, d.cls, use, c.id);
   }
   chat(c, d) {

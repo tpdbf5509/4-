@@ -155,7 +155,7 @@ export function rpgAdminCmd(g, pi, text) {
     if (busy(t)) return void say(`${who(g, ti)}님이 결투 · 던전 중이라 소환할 수 없습니다.`);
     t.map = h.map;
     t.x = h.x + (h.dir || 1) * 60; t.y = h.y;
-    t.hold = []; t.dash = 0; t.gateCd = 1.5;
+    t.hold = []; t.dest = null; t.dash = 0; t.gateCd = 1.5;
     say(`${who(g, ti)}님을 내 자리로 불렀습니다.`);
     sys(g, ti, "관리자가 불러 자리를 옮겼습니다.");
     return true;

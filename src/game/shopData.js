@@ -1,6 +1,7 @@
 import { STORM_WEAPONS } from './stormWeaponData.js';
 import { WORLD_WEAPONS } from "./worldEquipmentData.js";
 import { JOB_SKILLS } from "./skillData.js";
+import { bagExtra } from "./junkData.js";
 /* ── RPG 광장 상점 설정 ─────────────────────────────────────
    가격 · 확률 · 제한 수치를 모두 여기 한 곳에 모은다. 밸런스를 바꿀 때는 이 파일만 고치면 된다.
    화폐는 기존 "코인"을 그대로 쓴다.
@@ -16,6 +17,8 @@ export const SHOPS = [
   // 주문서 상점 — 지역 워프권을 판다(SCROLLS). 가방(I)의 "주문서" 탭에서 쓴다
   { id: "scroll", name: "주문서 상점", keeper: "필경사", x: 1240, y: 300, color: "#9fb0a0", line: "먼 길도 한 장이면 충분하지요." },
   { id: "forge", name: "무기 강화소", keeper: "강화 장인", x: 430, y: 1020, color: "#a3907c", line: "강화석만 있으면 무기를 더 단단하게 해 주지." },
+  // 잡동산이 상점 — 가방 넓히기 · 사냥터 보스 재료 사고팔기(junkData.js)
+  { id: "junk", name: "잡동산이 상점", keeper: "잡화상", x: 1390, y: 1090, color: "#b0a088", line: "쓸 만한 건 다 있다네. 가방도 넓혀 주지." },
 ];
 export const SHOP_REACH = 110;            // 이만큼 가까우면 상점을 쓸 수 있다
 
@@ -56,7 +59,7 @@ export const WEAPON = {
   bagMax: 30,            // 가방에 넣을 수 있는 무기 수
   adminBagMax: 500,      // 관리자 가방 — 사실상 무제한. 가방은 바뀔 때 스냅샷에 통째로 실려 너무 크면 메시지가 무거워진다
 };
-export const weaponCap = (h) => (h && h.admin ? WEAPON.adminBagMax : WEAPON.bagMax);   // 이 사람이 가방에 넣을 수 있는 무기 수
+export const weaponCap = (h) => (h && h.admin ? WEAPON.adminBagMax : WEAPON.bagMax + bagExtra(h && h.bag));   // 이 사람이 가방에 넣을 수 있는 무기 수 — 잡동산이 상점에서 넓힌 칸(junkData.js)을 더한다
 /* 직업과 맞지 않는 무기 — 무기 종류를 검 · 활 · 마법봉 셋으로 묶는다(전사 검 · 궁수 활 · 마법사 마법봉).
    다른 묶음의 무기를 들면 등급 · 강화 · 스탯과 상관없이 한 대 피해가 dmg 로 고정되고 치명타도 없다. */
 export const WEAPON_FAMILY = { sword: "sword", axe: "sword", dagger: "sword", great: "sword", staff: "staff", tome: "staff", bow: "bow", gun: "bow", grim: "staff" };   // 총은 궁수 · 소환서는 마법사 묶음

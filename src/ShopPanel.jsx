@@ -18,8 +18,9 @@ import {
   weaponLine, weaponArt, specOf, specialTier, specialPrice, specialsFor, sellPrice, dealOf, equipped,
   skillNext, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
   whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount, whyScrollBuy, whyWarp,
-  whyGuardBuy, whyArmorWear, whyArmorSell, whyArmorGive,
+  whyGuardBuy, whyArmorWear, whyArmorSell, whyArmorGive, whyBagExpand, whyMatBuy, bagNext, matBuyPrice,
 } from "./game/shop.js";
+import { JUNK, bagSteps } from "./game/junkData.js";
 import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR_BASE, ARMOR_SPECIAL, armorName, armorArt, armorCap } from "./game/armorData.js";
 import { wornArmor } from "./game/armor.js";
@@ -535,23 +536,82 @@ function Forge({ h, send, note, setQuiet }) {
           <Odds rows={rates.map((r, i) => [`+${i + 1} · ${(ENHANCE.fee * (i + 1)).toLocaleString("ko-KR")}코인`, `${r}%`,
             enhDown(i + 1) ? `하락 ${enhDown(i + 1)}%` : "하락 없음"])} />
         </>
-      ) : (
+      ) : <MatSell h={h} send={send} shop="forge" />}
+    </>
+  );
+}
+
+// 재료 팔기 — 무기 강화소 · 잡동산이 상점이 같은 목록을 쓴다(값도 같다)
+function MatSell({ h, send, shop }) {
+  return (
+    <>
+      <Head sub="강화석은 팔 수 없습니다">재료 팔기</Head>
+      {MATERIALS.filter((m) => m.sell > 0).map((m) => {
+        const have = matCount(h.bag, m.id);
+        return (
+          <Item key={m.id} name={<><i className="shop-mat" style={{ background: m.color }} />{m.name}</>} dim={!have}
+            meta={<span className="shop-meta"><span>× {have}</span></span>} desc={m.note}
+            price={<Price n={m.sell} />}
+            acts={[
+              { label: "1개", quiet: true, why: whyMatSell(h, m.id, 1, shop), onClick: () => send({ op: "msell", id: m.id, n: 1, shop }) },
+              { label: "모두", quiet: true, why: whyMatSell(h, m.id, Math.max(1, have), shop), onClick: () => send({ op: "msell", id: m.id, n: have, shop }) },
+            ]} />
+        );
+      })}
+    </>
+  );
+}
+
+/* ── 잡동산이 상점 — 가방 넓히기 · 사냥터 보스 재료 사기 · 팔기(junkData.js) ── */
+const matLine = (mats) => Object.entries(mats).map(([id, n]) => `${MAT_BY_ID[id].name} ${n}`).join(" · ");
+function JunkShop({ h, send }) {
+  const [tab, setTab] = useState("bag");
+  const steps = bagSteps(h.bag), next = bagNext(h.bag);
+  const left = Math.max(0, JUNK.buyDaily - usedToday(h.bag, "junk"));
+  return (
+    <>
+      <Tabs on={tab} set={setTab} tabs={[["bag", "가방 넓히기", `${steps}/${JUNK.steps.length}`], ["buy", "재료 사기", left], ["sell", "재료 팔기"]]} />
+      {tab === "bag" && (
         <>
-          <Head sub="강화석은 팔 수 없습니다">재료 팔기</Head>
-          {sellable.map((m) => {
-            const have = matCount(h.bag, m.id);
+          <p className="shop-note">
+            사냥터 보스 재료와 코인을 내고 가방을 넓힙니다. 한 번에 무기 · 방어구 칸이 {JUNK.step}칸씩 늘어납니다.
+            넓힌 칸은 계속 남습니다.
+          </p>
+          <Head sub={`무기 ${h.bag.w.length}/${weaponCap(h)} · 방어구 ${(h.bag.a || []).length}/${armorCap(h)}`}>지금 가방</Head>
+          {JUNK.steps.map((st, i) => {
+            const done = i < steps, now = i === steps;
             return (
-              <Item key={m.id} name={<><i className="shop-mat" style={{ background: m.color }} />{m.name}</>} dim={!have}
-                meta={<span className="shop-meta"><span>× {have}</span></span>} desc={m.note}
-                price={<Price n={m.sell} />}
+              <Item key={i} dim={!now}
+                name={`${i + 1}단계 · ${WEAPON.bagMax + (i + 1) * JUNK.step}칸`}
+                meta={<span className="shop-meta"><span>{done ? "넓힘" : now ? "다음" : "잠김"}</span></span>}
+                desc={matLine(st.mats)} price={<Price n={st.coins} />}
+                acts={now ? [{ label: "넓히기", main: true, why: whyBagExpand(h), onClick: () => send({ op: "bagx" }) }] : []} />
+            );
+          })}
+          {!next && <Empty>가방을 모두 넓혔습니다.</Empty>}
+        </>
+      )}
+      {tab === "buy" && (
+        <>
+          <p className="shop-note">
+            사냥터 보스가 떨구는 재료를 팝니다. 값은 되파는 값의 {JUNK.buyMul}배입니다. 하루에 모두 합쳐 {JUNK.buyDaily}개까지 삽니다.
+          </p>
+          <Head sub={`오늘 남은 수 ${left}개`}>재료 사기</Head>
+          {JUNK.buy.map((id) => {
+            const m = MAT_BY_ID[id];
+            return (
+              <Item key={id} name={<><i className="shop-mat" style={{ background: m.color }} />{m.name}</>}
+                meta={<span className="shop-meta"><span>가진 수 {matCount(h.bag, id)}</span></span>} desc={m.note}
+                price={<Price n={matBuyPrice(id)} />}
                 acts={[
-                  { label: "1개", quiet: true, why: whyMatSell(h, m.id, 1), onClick: () => send({ op: "msell", id: m.id, n: 1 }) },
-                  { label: "모두", quiet: true, why: whyMatSell(h, m.id, Math.max(1, have)), onClick: () => send({ op: "msell", id: m.id, n: have }) },
+                  { label: "1개", why: whyMatBuy(h, id, 1), onClick: () => send({ op: "mbuy", id, n: 1 }) },
+                  { label: "5개", quiet: true, why: whyMatBuy(h, id, 5), onClick: () => send({ op: "mbuy", id, n: 5 }) },
                 ]} />
             );
           })}
         </>
       )}
+      {tab === "sell" && <MatSell h={h} send={send} shop="junk" />}
     </>
   );
 }
@@ -582,7 +642,7 @@ function ScrollShop({ h, send }) {
   );
 }
 
-const BODIES = { scroll: ScrollShop, weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge };
+const BODIES = { scroll: ScrollShop, weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge, junk: JunkShop };
 
 // 창의 틀 — 머리(이름 · 한 줄 · 코인 · 닫기) · 결과 한 줄 · 내용
 function Frame({ title, sub, coins, admin, note, quiet, onClose, children }) {

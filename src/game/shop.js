@@ -15,6 +15,7 @@ import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS } from 
 import { ARMOR_SLOTS, ARMOR_GRADES, armorName, armorCap } from "./armorData.js";
 import { cleanArmor, wornArmor } from "./armor.js";
 import { ADV_BONUS } from "./advData.js";
+import { JUNK, bagSteps } from "./junkData.js";
 
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
 export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]));
@@ -88,7 +89,7 @@ export function todayKey(now = Date.now()) {
 // 오늘 쓴 횟수 — 날짜가 바뀌었으면 0
 export const usedToday = (bag, key, day = todayKey()) => (bag.day.d === day ? bag.day[key] || 0 : 0);
 function rollDay(bag, day) {
-  if (bag.day.d !== day) bag.day = { d: day, box: 0, dice: 0, slot: 0, deal: 0 };
+  if (bag.day.d !== day) bag.day = { d: day, box: 0, dice: 0, slot: 0, deal: 0, junk: 0 };
 }
 
 /* ── 무기 ──────────────────────────────────────────────── */
@@ -172,13 +173,14 @@ export function dealOf(lv, day = todayKey()) {
    p 물약 { id: 개수 } · qs 물약 칸 [물약 id 또는 ""] · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · wp 지역 워프권 남은 횟수 · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
    oc 는 직업과 다른 무기 정리를 마쳤는지(업데이트 뒤 처음 들어올 때 한 번, rpg.js rpgJoin)
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
-export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0 }, n: 1, v: 0, ld: 0, oc: 0, ks: { job: "", g: ["", ""] } });
+export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0, junk: 0 }, n: 1, bx: 0, v: 0, ld: 0, oc: 0, ks: { job: "", g: ["", ""] } });
 export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(adminBagMax)까지 싣는다
   const b = newBag();
   if (!d || typeof d !== "object") return b;
   const n0 = Math.max(1, Math.floor(Number(d.n) || 1));
   const seen = new Set();
-  (Array.isArray(d.w) ? d.w : []).slice(0, weaponCap({ admin })).forEach((w) => {
+  const room = { admin, bag: d };                                       // 잡동산이 상점에서 넓힌 칸(d.bx)까지 싣는다
+  (Array.isArray(d.w) ? d.w : []).slice(0, weaponCap(room)).forEach((w) => {
     if (!w) return;
     const sp = w.sp ? SPECIAL_BY_ID[w.sp] : null;
     if (w.sp && !sp) return;
@@ -192,7 +194,7 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
     if (!(r >= 0 && r < WEAPON_TIERS.length) || !(g >= 0 && g < GRADES.length)) return;
     add({ u, t: w.t, r, g, p });
   });
-  cleanArmor(d, b, seen, armorCap({ admin }));                         // 방어구 — 번호는 무기와 같은 셈을 쓴다
+  cleanArmor(d, b, seen, armorCap(room));                         // 방어구 — 번호는 무기와 같은 셈을 쓴다
   b.n = Math.max(n0, ...b.w.map((w) => w.u + 1), ...b.a.map((q) => q.u + 1));
   b.e = seen.has(Number(d.e)) ? Number(d.e) : 0;
   POTIONS.forEach((p) => {
@@ -213,9 +215,10 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   const dy = d.day || {};
   if (typeof dy.d === "string") {
     b.day = { d: dy.d.slice(0, 10) };
-    ["box", "dice", "slot", "deal"].forEach((k) => { b.day[k] = Math.max(0, Math.floor(Number(dy[k]) || 0)); });
+    ["box", "dice", "slot", "deal", "junk"].forEach((k) => { b.day[k] = Math.max(0, Math.floor(Number(dy[k]) || 0)); });
   }
   b.v = Math.max(0, Math.floor(Number(d.v) || 0));
+  b.bx = bagSteps(d);                             // 잡동산이 상점에서 가방을 넓힌 횟수(junkData.js)
   b.oc = d.oc ? 1 : 0;
   b.lg = Math.floor(Number(d.lg)) || 0;          // 관리자 전설 무기를 받은 차례(rpg.js ADMIN_LEGEND)
   b.ak = Math.floor(Number(d.ak)) || 0;          // 관리자 장비(특별 무기 · 강화 · 전설 방어구)를 받은 차례(rpg.js ADMIN_KIT)
@@ -372,15 +375,45 @@ export function whyEnhance(h, u, stone) {
   lackCoin(h, enhFee(w), out);
   return out;
 }
-// 재료 팔기 — 무기 강화소에서 판다
-export function whyMatSell(h, id, n) {
+// 재료 팔기 — 무기 강화소와 잡동산이 상점에서 판다(값은 같다)
+export function whyMatSell(h, id, n, shop = "forge") {
   const out = [];
-  base(h, "forge", out);
+  base(h, shop === "junk" ? "junk" : "forge", out);
   const m = MAT_BY_ID[id];
   if (!m) { out.push("없는 재료입니다"); return out; }
   if (!m.sell) { out.push("팔 수 없는 재료입니다"); return out; }
   if (!isInt(n) || n < 1) out.push("팔 수를 정해 주세요");
   else if (matCount(h && h.bag, id) < n) out.push("가진 수가 모자랍니다");
+  return out;
+}
+
+/* ── 잡동산이 상점 — 가방 넓히기 · 사냥터 보스 재료 사기(junkData.js) ── */
+export const bagNext = (bag) => JUNK.steps[bagSteps(bag)] || null;          // 다음에 넓힐 단계(다 넓혔으면 null)
+export const matBuyPrice = (id) => (MAT_BY_ID[id] ? MAT_BY_ID[id].sell * JUNK.buyMul : 0);
+export function whyBagExpand(h) {
+  const out = [];
+  base(h, "junk", out);
+  if (!h || !h.bag) return out;
+  if (h.admin) { out.push("관리자 가방은 이미 넓습니다"); return out; }
+  const st = bagNext(h.bag);
+  if (!st) { out.push(`가방을 모두 넓혔습니다 (${JUNK.steps.length}단계)`); return out; }
+  Object.entries(st.mats).forEach(([id, n]) => {
+    const have = matCount(h.bag, id);
+    if (have < n) out.push(`${MAT_BY_ID[id].name} ${n - have}개 부족`);
+  });
+  lackCoin(h, st.coins, out);
+  return out;
+}
+export function whyMatBuy(h, id, n, day = todayKey()) {
+  const out = [];
+  base(h, "junk", out);
+  if (!JUNK.buy.includes(id) || !MAT_BY_ID[id]) { out.push("팔지 않는 재료입니다"); return out; }
+  if (!isInt(n) || n < 1) { out.push("살 수를 정해 주세요"); return out; }
+  if (!h || !h.bag) return out;
+  const left = JUNK.buyDaily - usedToday(h.bag, "junk", day);
+  if (left < n) out.push(left > 0 ? `오늘은 ${left}개만 더 살 수 있습니다` : `재료는 하루 ${JUNK.buyDaily}개까지 삽니다`);
+  if (matCount(h.bag, id) + n > MAT_MAX) out.push(`한 종류는 ${MAT_MAX}개까지 가집니다`);
+  lackCoin(h, matBuyPrice(id) * n, out);
   return out;
 }
 
@@ -807,7 +840,7 @@ export function rpgShop(g, pi, req) {
   }
   if (op === "msell") {
     const id = String(req.id || ""), n = Number(req.n);
-    if ((why = whyMatSell(h, id, n)).length) return no(g, pi, why);
+    if ((why = whyMatSell(h, id, n, req.shop)).length) return no(g, pi, why);
     const m = MAT_BY_ID[id];
     h.bag.m[id] -= n;
     if (h.bag.m[id] <= 0) delete h.bag.m[id];
@@ -816,6 +849,29 @@ export function rpgShop(g, pi, req) {
     bump(h);
     fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `+${won(got)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
     return note(g, pi, { ok: true, msg: `${m.name} ${n}개를 ${won(got)}코인에 팔았습니다` });
+  }
+  // 잡동산이 상점 — 재료와 코인을 내고 무기 · 방어구 칸을 JUNK.step 씩 넓힌다
+  if (op === "bagx") {
+    if ((why = whyBagExpand(h)).length) return no(g, pi, why);
+    const st = bagNext(h.bag);
+    h.coins -= st.coins;
+    Object.entries(st.mats).forEach(([id, n]) => { h.bag.m[id] -= n; if (h.bag.m[id] <= 0) delete h.bag.m[id]; });
+    h.bag.bx = bagSteps(h.bag) + 1;
+    bump(h);
+    fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `-${won(st.coins)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
+    return note(g, pi, { ok: true, msg: `가방을 넓혔습니다 — 무기 ${weaponCap(h)}칸 · 방어구 ${armorCap(h)}칸` });
+  }
+  // 잡동산이 상점 — 사냥터 보스 재료를 산다(하루 JUNK.buyDaily 개까지)
+  if (op === "mbuy") {
+    const id = String(req.id || ""), n = Number(req.n);
+    if ((why = whyMatBuy(h, id, n, day)).length) return no(g, pi, why);
+    const price = matBuyPrice(id) * n;
+    h.coins -= price;
+    addMat(h.bag, id, n);
+    h.bag.day.junk = (h.bag.day.junk || 0) + n;
+    bump(h);
+    fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `-${won(price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
+    return note(g, pi, { ok: true, msg: `${MAT_BY_ID[id].name} ${n}개를 ${won(price)}코인에 샀습니다` });
   }
 
   // 도박장

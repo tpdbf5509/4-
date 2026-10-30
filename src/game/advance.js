@@ -4,6 +4,7 @@
    전투 특성 tcd 대기 · pr 정밀 사격 준비 · mvT 기동 사격 · rs 원소 공명 · esT 긴급 보호막 대기) — 스냅샷 줄 53 으로 손님에게 간다.
    클라이언트 예측은 쓰지 않는다 — 손님 화면은 방장이 보낸 연출과 상태만 그린다 */
 import { ADV, ADV_BY_ID, ADV_IDS, ADV_UP, cleanAdvQ, trialText, healDone, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, cleanAdvM, masteryLv, traitAt } from "./advData.js";
+import { JOB_TUNE } from "./jobTuneData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const keyOf = (o) => (o.type !== undefined ? `m${o.id}` : `h${o.pi}`);
@@ -329,17 +330,31 @@ export function advDmgMul(E, g, h, o, basic, pvp) {
 
 /* 받는 피해 감소 — 직업 철벽(ironCut)과 철벽 방어 · 불굴의 의지 · 파티 보호를 곱해 합친다.
    전직 감소가 하나라도 있으면 합계는 기사 cap(70%)을 넘지 않는다(직업 철벽만이면 예전 그대로) */
-export function advTakeCut(h, ironCut) {
+export function advTakeCut(h, ironCut, base = 0) {   // base — 직업 · 전직 기본 감소(jobTuneData.js classCut)
   const a = h.as;
   const K = ADV_BY_ID.knight;
-  const parts = [];
+  const parts = base > 0 ? [base] : [];
   if (a && a.gT > 0 && advOf(h) === K) parts.push(K.active.cut);
   if (advOf(h) === K && h.hp <= h.max * K.passive.hp) parts.push(K.passive.cut);
   if (a && a.pT > 0) parts.push(a.pCut);
   if (a && a.blT > 0) parts.push(a.blCut);           // 치유사 수호의 축복
   if (!parts.length) return ironCut || 0;
+  if (parts.length === 1 && parts[0] === base) return 1 - (1 - (ironCut || 0)) * (1 - base);   // 기본 감소만 — 상한 없이 예전처럼
   const keep = [ironCut || 0, ...parts].reduce((v, c) => v * (1 - c), 1);
   return Math.min(K.cap, 1 - keep);
+}
+/* 기사 무효화 방어막 — 피해가 들어오려 할 때 부른다. 방어막이 있으면 그 한 대를 통째로 막고 true.
+   맞을 때마다(막아도) 쉰 시간 nulIdle 을 0 으로 — tickAdv 가 regen 초 쉬면 다시 만든다 */
+export function advNullShield(E, g, h) {
+  if (advOf(h)?.id !== "knight") return false;
+  const a = asOf(h);
+  a.nulIdle = 0;
+  if (a.nul === undefined) a.nul = 1;              // 처음 들어온 기사는 방어막을 가진 채 시작한다
+  if (!a.nul) return false;
+  a.nul = 0;
+  E.fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 30, r: 46, color: "#cfe6ff", n: 10, t: 0.45, life: 0.45, snd: "bless" });
+  E.say(g, h.map, h.x, h.y - 96, "무효화", "#cfe6ff");
+  return true;
 }
 // 맞았다(피해가 들어갔다) — 철벽 방어 반격 · 기사 시험
 export function advHurt(E, g, h) {
@@ -694,6 +709,14 @@ const newSpirit = (h, life, i, n) => { const [x, y] = spiritSpot(h, i, n); retur
 
 /* ── 시간 (방장 · stepHeroes) ─────────────────────────────── */
 export function tickAdv(E, g, h, dt) {
+  if (advOf(h)?.id === "knight") {                // 무효화 방어막 — 깨진 뒤 쉬면 다시 생긴다
+    const n = asOf(h);
+    if (n.nul === undefined) n.nul = 1;
+    if (!n.nul && h.down <= 0 && (n.nulIdle = (n.nulIdle || 0) + dt) >= JOB_TUNE.knight.nullShield.regen) {
+      n.nul = 1; n.nulIdle = 0;
+      E.fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 30, r: 40, color: "#cfe6ff", n: 8, t: 0.4, life: 0.4 });
+    }
+  }
   const a = h.as;
   if (!a) return;
   a.cd = Math.max(0, a.cd - dt);
@@ -748,7 +771,8 @@ export function packAdv(h) {
   return [ci, qi, h.advQ ? h.advQ.n : 0, a ? r1(a.cd) : 0, a ? a.st : 0, a ? r1(a.gT) : 0,
     sps.length ? r1(Math.max(...sps.map((sp) => sp.t))) : 0, a ? r1(a.pT) : 0, a && a.ex ? 1 : 0, h.advQ && h.advQ.m ? h.advQ.m.slice() : 0,
     sps.length ? sps.map((sp) => r1(sp.t)) : 0, a ? r1(a.blT || 0) : 0, h.advQ && h.advQ.r ? h.advQ.r : 0, h.healMode ? 1 : 0,
-    h.advClass ? cleanAdvM(h.advM) : 0, a ? r1(a.tcd || 0) : 0, a && a.pr ? 1 : 0, a ? r1(a.mvT || 0) : 0, a ? a.rs || 0 : 0, a ? r1(a.rsT || 0) : 0];
+    h.advClass ? cleanAdvM(h.advM) : 0, a ? r1(a.tcd || 0) : 0, a && a.pr ? 1 : 0, a ? r1(a.mvT || 0) : 0, a ? a.rs || 0 : 0, a ? r1(a.rsT || 0) : 0,
+    a && a.nul ? 1 : 0, a ? r1(a.nulIdle || 0) : 0];   // 20 · 21 기사 무효화 방어막(있음 · 쉰 초)
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; return; }
@@ -764,6 +788,7 @@ export function applyAdv(h, v) {
   h.advM = h.advClass ? cleanAdvM(v[14]) : 0;     // 전직 숙련도 — 손님은 방장이 보낸 값만 쓴다(저장 · 방장 승계도 이 값)
   a.tcd = Number(v[15]) || 0; a.pr = v[16] ? 1 : 0; a.mvT = Number(v[17]) || 0;
   a.rs = Math.max(0, Math.min(ADV_TRAITS.archmage.max, Math.floor(Number(v[18]) || 0))); a.rsT = a.rs ? Number(v[19]) || 0 : 0;
+  if (v.length > 20) { a.nul = v[20] ? 1 : 0; a.nulIdle = Number(v[21]) || 0; }   // 옛 방장은 줄 끝이 없다 — 방장이 되면 처음 값으로
   const ts = Array.isArray(v[10]) ? v[10].map((x) => Number(x) || 0).filter((x) => x > 0) : spT > 0 ? [spT] : [];
   const sps = a.sps || (a.sps = []);
   sps.length = Math.min(sps.length, ts.length);

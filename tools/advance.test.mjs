@@ -565,6 +565,8 @@ test('치유사 — 평타 바꾸기(치유 평타는 다친 사람을 치유하
 import { ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, masteryLv, traitAt } from '../src/game/advData.js';
 import { traitOf, advMasteryLv, advGunShot, advRangeMul, asOf } from '../src/game/advance.js';
 import { physMul, magMul, loadChar, writeChar, makeChar } from '../src/game/rpg.js';
+import { JOB_TUNE } from '../src/game/jobTuneData.js';
+const MAGE_HP = 1 + JOB_TUNE.mage.cap;   // 마법사 최대 체력 비례 피해 — 체력 1e9 허수 몹은 늘 한도(한 대의 25%)
 const PTS = ADV_MASTERY.pts;
 const fxOf = (g, kind, by) => g.out.filter((o) => o.kind === kind && (by === undefined || o.by === by));
 // 다시 나오는 사냥터 몹(무리)은 빼고 시험 몹만 남긴다 — 자동 평타가 다른 몹을 노려 결과가 흔들리지 않게
@@ -866,7 +868,7 @@ test('마도사 원소 공명 — 구체 · 연쇄 번개가 맞으면 1(최대 
       return { d: 1e9 - zm.hp, h: z.h };
     };
     const a0 = blast(0), a3 = blast(3);
-    const extra = 40 * magMul(a3.h) * ADV_TRAITS.archmage.flame * 3 * 1.05;
+    const extra = 40 * magMul(a3.h) * ADV_TRAITS.archmage.flame * 3 * 1.05 * MAGE_HP;
     assert(near(a3.d - a0.d, extra, 0.05), `추가 폭발 ${a3.d - a0.d} · 기대 ${extra}`);
     // 서리 — 둘레 일반 몹 둔화 확산(보스는 절반)
     const f = advanced('archmage', 'frost', { advM: PTS[1], bag }); const fm = dummyMob(f.g, 'skeletal', 1100, 900);
@@ -898,7 +900,7 @@ test('소환술사 정령 협동 공격 — 구체 · 연쇄 번개가 맞으면
     h.scd = {}; rpgUseSkill(g, 0, 'j_orb'); runC(g, 0.6);
     const coop = fxOf(g, 'sk_adv_coop');
     assert.equal(coop.length, 1); assert.equal(coop[0].n, 3, '연출 하나에 정령 셋');
-    const expect = 40 * magMul(h) * 0.15 * 3 * 1.05;
+    const expect = 40 * magMul(h) * 0.15 * 3 * 1.05 * MAGE_HP;
     assert(near(hp0 - m.hp - orb, expect), `협동 ${hp0 - m.hp - orb} · 기대 ${expect}`);
     assert.equal(h.as.slT, slT, '영혼 연결이 이어지지 않는다');
     h.scd = {}; rpgUseSkill(g, 0, 'j_orb'); runC(g, 0.6);
@@ -976,6 +978,7 @@ test('PvP — 전투 특성도 기존 한도 안(스킬 한 번 12% · 평타 3%
     // 기사 — 충격파는 사람을 도발하지 않는다
     const kn = duel({ job: 'warrior', advClass: 'knight', advM: PTS[3] }, { job: 'warrior', bag: { s: { j_cleave: 5 }, ks: { job: 'j_cleave', g: ['', ''] } } });
     send(kn.g, 0, 'adv', { op: 'use' });
+    asOf(kn.x).nul = 0;                                // 무효화 방어막은 따로 본다(job-tune.test.mjs) — 맞아야 충격파가 나간다
     kn.y.dir = -1; rpgUseSkill(kn.g, 1, 'j_cleave'); runC(kn.g, 0.3);
     assert.equal(fxOf(kn.g, 'sk_adv_wave').length, 1);
     assert(!(kn.y.taunt > 0));

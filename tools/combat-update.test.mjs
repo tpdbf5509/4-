@@ -8,6 +8,7 @@ import {WORLD_BOSS} from '../src/game/worldBossData.js';
 import {armorTakeMul} from '../src/game/armor.js';
 import {COMBAT_RULES,refreshPowerCircles,empowerHealing} from '../src/game/combatRules.js';
 import {REQUESTS,REQ_BY_NPC} from '../src/game/requestData.js';
+import {JOB_TUNE} from '../src/game/jobTuneData.js';
 const run=(g,t)=>{for(let n=0;n<Math.ceil(t/.02);n++)rpgStep(g,.02);};
 function setup(count=4){
  const g=makeWorld();g.mySeat=0;g.out=[];g.wb.lastHour=Math.floor(g.wb.clock/WORLD_BOSS.period);
@@ -34,7 +35,7 @@ test('팀원은 공격하지 않으며 범위 공격은 양쪽 적에게 각자 
  const {g}=duel(),[a,b,c,d]=g.heroes;for(const h of [a,b,c,d]){h.x=1000;h.y=900;h.inv=0;}
  d.max=c.max;d.hp=c.hp;const hp=[a,b,c,d].map(h=>h.hp);rpgSkill(g,0);
  assert.equal(b.hp,hp[1]);assert(c.hp<hp[2]&&d.hp<hp[3]);
- assert(Math.abs((hp[2]-c.hp)-(hp[3]-d.hp))<.01);
+ assert(Math.abs((hp[2]-c.hp)-(hp[3]-d.hp)*(1-JOB_TUNE.warrior.cut))<.01);   // c 는 검사 — 기본 방어력 3%
  assert(hp[2]-c.hp<=c.max*DUEL.skillPct);assert(hp[3]-d.hp<=d.max*DUEL.skillPct);
 });
 test('결투용 물약만 5번 사용하며 구매 물약·응급 처치를 차단하고 가방 수량은 유지한다',()=>{
@@ -119,7 +120,7 @@ test('보스 피해는 5% 증가하고 방어가 있으면 방어 적용 전부�
  if(armored){h.bag.a=[{u:11,s:'body',g:0}];h.bag.ae.body=11;}
  rpgWorldBoss(g,0,{op:'summon',id:'dragon'});rpgWorldBoss(g,0,{op:'enter'});const a=g.wb.active;a.cd=0;run(g,.02);
  const s=a.attack.areas[0];h.x=s.x+Math.cos(s.a)*100;h.y=s.y+Math.sin(s.a)*100*.78;h.inv=0;h.calm=0;
- const hp=h.hp,expected=h.max*.45*1.05*armorTakeMul(h)*(armored?.55:1);run(g,1.51);
+ const hp=h.hp,expected=h.max*.45*1.05*armorTakeMul(h)*(armored?.55:1)*(1-JOB_TUNE.warrior.cut);run(g,1.51);   // 검사 기본 방어력 3%
  assert(Math.abs(hp-h.hp-expected)<.01,`${armored}: ${hp-h.hp} != ${expected}`);
  }
 });
@@ -127,5 +128,5 @@ test('뇌조 급강하 중 기사 반격으로 보스가 죽어도 판정이 안
  const {g,h}=setup(1);h.advClass='knight';h.x=WORLD_BOSS.portal.x;h.y=WORLD_BOSS.portal.y;
  rpgWorldBoss(g,0,{op:'summon',id:'thunderbird'});rpgWorldBoss(g,0,{op:'enter'});
  const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);h.x=m.x-400;h.y=m.y;m.hp=1;a.hp=1;
- rpgAdv(g,0,{op:'use'});a.seq=1;a.cd=0;run(g,2.6);assert.equal(a.phase,'clear');
+ rpgAdv(g,0,{op:'use'});h.as.nul=0;a.seq=1;a.cd=0;run(g,2.6);assert.equal(a.phase,'clear');
 });

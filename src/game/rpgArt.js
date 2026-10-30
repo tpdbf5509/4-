@@ -18,6 +18,8 @@ import {
 import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
+import { paintFieldLook, fieldTrails } from "./fieldArt.js";
+import { FIELD_LOOKS, FIELD_TRAIL } from "./fieldLookData.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
@@ -344,12 +346,12 @@ function treeLine(ctx, M, seed) {
   ctx.fillRect(0, M.top - 30, M.w, 54);
 }
 
-function dirtPath(ctx, pts, w) {
+function dirtPath(ctx, pts, w, col = ["#8a7148", "#b39868"]) {
   ctx.save();
   ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.strokeStyle = "#8a7148"; ctx.lineWidth = w + 8;
+  ctx.strokeStyle = col[0]; ctx.lineWidth = w + 8;
   ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
-  ctx.strokeStyle = "#b39868"; ctx.lineWidth = w;
+  ctx.strokeStyle = col[1]; ctx.lineWidth = w;
   ctx.stroke();
   ctx.restore();
 }
@@ -2303,7 +2305,7 @@ function drawBubble(ctx, x, y, text, alpha) {
 /* 바탕 그림 — 그림 한 장이 가로 tile 만큼을 덮는다. 맵이 더 넓으면 좌우로 뒤집어 이어 붙여 이음새가 보이지 않게 한다 */
 function drawTiled(ctx, im, M, cam) {
   const TW = M.tile || M.w;
-  const kx = im.naturalWidth / TW, ky = im.naturalHeight / M.h;
+  const kx = (im.naturalWidth || im.width) / TW, ky = (im.naturalHeight || im.height) / M.h;   // 그림 파일 · 캔버스 모두
   const sy = cam.y * ky, sh = H * ky;
   for (let k = Math.floor(cam.x / TW); k * TW < cam.x + W; k++) {
     const x0 = k * TW;
@@ -2418,16 +2420,25 @@ export function drawRpg(ctx, g, bgs) {
   }
   warmRpgArt();
   const bgName = M.bg || M.id;
-  const bim = M.dungeon ? null : mapImg(rpgFile(bgName));
-  if (M.dungeon) {                                    // 던전 — 코드로 그린 바닥(던전마다 하나만 남긴다)
-    const key = `dg:${M.dungeon}`;
+  const look = !M.dungeon && FIELD_LOOKS[M.id];        // 사냥터 — 맵마다 다른 바탕(fieldLookData.js)
+  const bim = M.dungeon || look ? null : mapImg(rpgFile(bgName));
+  // 코드로 그린 큰 바탕은 한 장만 남긴다(던전 · 사냥터 합쳐)
+  const bigBg = (key, paint) => {
     let bg = bgs && bgs[key];
     if (bgs && !bg) {
-      Object.keys(bgs).forEach((k) => { if (k.startsWith("dg:")) delete bgs[k]; });
-      bg = bgs[key] = paintDungeon(M);
+      Object.keys(bgs).forEach((k) => { if (k.startsWith("dg:") || k.startsWith("fl:")) delete bgs[k]; });
+      bg = bgs[key] = paint();
     }
+    return bg;
+  };
+  if (M.dungeon) {                                    // 던전 — 코드로 그린 바닥(던전마다 하나만 남긴다)
+    const bg = bigBg(`dg:${M.dungeon}`, () => paintDungeon(M));
     if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
     else { ctx.fillStyle = (DG_LOOKS[M.dungeon] || DG_LOOKS.stone1).floor; ctx.fillRect(0, 0, W, H); }
+  } else if (look) {
+    const bg = bigBg(`fl:${M.id}`, () => paintFieldLook(M));
+    if (bg) drawTiled(ctx, bg, M, cam);
+    else { ctx.fillStyle = look.ground[0]; ctx.fillRect(0, 0, W, H); }
   } else if (bim) {
     drawTiled(ctx, bim, M, cam);
     if (M.tint) { ctx.fillStyle = M.tint; ctx.fillRect(0, 0, W, H); }
@@ -2436,7 +2447,8 @@ export function drawRpg(ctx, g, bgs) {
     if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
   } else { ctx.fillStyle = M.id === "plaza" ? "#4f6e34" : "#557a37"; ctx.fillRect(0, 0, W, H); }
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
-  (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
+  if (look) fieldTrails(M, FIELD_TRAIL).forEach((pts) => dirtPath(ctx, pts, 60, look.path));
+  else (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
   if (M.dungeon) drawTorches(ctx, M, cam, time);
   if (M.pvp) drawArenaFloor(ctx, M);
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;

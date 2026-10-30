@@ -43,8 +43,8 @@ export const ADV_CLASSES = [
     id: "knight", job: "warrior", line: "special", name: "기사", weapon: "검과 방패",
     note: "방패를 든다 · 막아 내고 되받아친다",
     active: {
-      name: "철벽 방어", note: "5초 동안 받는 피해 35% 감소 · 그동안 맞으면 둘레 적에게 반격(최대 4번 · 0.5초 간격)",
-      cd: 20, dmg: "str", dur: 5, cut: 0.35, r: 160, mul: 1.8, max: 4, gap: 0.5,
+      name: "철벽 방어", note: "40초 동안 받는 피해 50% 감소 · 둘레 적을 4초 도발 · 결투 상대도 도발한다 · 맞으면 반격(최대 4번)",
+      cd: 20, dmg: "str", dur: 40, cut: 0.5, r: 160, mul: 1.8, max: 4, gap: 0.5, taunt: 4, tauntRadius: 260,
       // 파티 보호 — 사냥터 · 던전 · 토벌에서만 곁의 파티원에게 피해 15% 감소(결투 · PvP 는 본인만). 기존 성기사 보호막 · 마나 보호막과
       // 겹쳐도 아래 cap 을 넘지 않는다. 월드보스 합동 공격 기준(공격량)에는 영향이 없어 작게 넣었다
       party: { r: 220, cut: 0.15 },

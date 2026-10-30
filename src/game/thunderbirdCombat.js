@@ -36,6 +36,7 @@ export function tickThunderbirdDive(E,g,m,a,heroes,dt){
     const fromStart=(h.x-s.x)*Math.cos(s.a)+(h.y-s.y)/C.squash*Math.sin(s.a);
     if(!seen.has(name)&&fromStart>=-40&&fromStart<=s.len&&along>=-P.width&&along<=travelled+P.width&&across<=s.width){
       seen.add(name);attack.hitNames.push(name);E.hurt(g,h,h.max*P.damage);
+      if(a.phase!=='fight'||a.attack!==attack)return; // 기사의 반격으로 뇌조가 쓰러졌으면 돌진도 끝낸다.
     }
   }
   m.x=a.x=x;m.y=a.y=y;

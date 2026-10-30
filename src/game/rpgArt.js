@@ -1,3 +1,4 @@
+import {drawPowerCircles} from './combatRulesArt.js';
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
 import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
 import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
@@ -2417,6 +2418,7 @@ export function drawRpg(ctx, g, bgs) {
   if (M.pvp) drawArenaFloor(ctx, M);
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
 
+  drawPowerCircles(ctx,g,M.id);
   drawWorldBossGround(ctx,g,M.id,lod.q);drawGuildGround(ctx,g,M.id);
   // 내 사거리 — 토끼가 들어오면 또렷해진다
   if (me && me.down <= 0 && !M.safe) {

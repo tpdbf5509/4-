@@ -189,7 +189,7 @@ export function advOnHit(E, g, h, o, basic, side) {
     let best = null;
     g.heroes.forEach((q) => {
       if (!q || q.down > 0 || q.map !== h.map || q.hp >= q.max || E.dist(h.x, h.y, q.x, q.y) > P.r) return;
-      if (q !== h && (E.pvpMap(h.map) || E.fieldPvp(h))) return;   // 결투 · 사냥터 PvP 에서는 나만
+      if (q !== h && ((E.pvpMap(h.map)&&!E.allies?.(h,q)) || E.fieldPvp(h))) return;   // 결투 · 사냥터 PvP 에서는 나만
       if (!best || q.hp / q.max < best.hp / best.max) best = q;
     });
     if (best) healHero(E, g, h, best, best.max * P.heal, false);
@@ -258,6 +258,8 @@ function soulLink(E, g, h, o) {
 /* 치유 — by 가 o 를 amt 만큼. 실제로 찬 몫만 숫자로 띄우고, 축복(trial)이면 치유량(amt)을 치유사 시험에 센다 */
 function healHero(E, g, by, o, amt, trial) {
   if (!o || o.down > 0 || amt <= 0) return 0;
+  if(by&&E.pvpMap(by.map)&&o!==by&&!E.allies?.(by,o))return 0;
+  amt*=E.healMul?.(by)||1;
   const before = o.hp;
   o.hp = Math.min(o.max, o.hp + amt);
   const d = o.hp - before;
@@ -277,11 +279,12 @@ function healTrial(E, g, h, d) {
 }
 /* 치유 평타(rpg.js heroAttack 이 부른다) — 치유 평타로 나갔으면 true. 결투장 · 다친 사람이 없으면 false(평타가 나가지 않는다) */
 export function advHealShot(E, g, h, rng) {
-  if (!h.healMode || h.advClass !== "healer" || !advOf(h) || E.pvpMap(h.map)) return null;
+  if (!h.healMode || h.advClass !== "healer" || !advOf(h) || (E.pvpMap(h.map)&&h.duelSize!==2)) return null;
   const S = ADV_BY_ID.healer.healShot, solo = E.fieldPvp(h);
   let best = null;
   g.heroes.forEach((q) => {
     if (!q || q.down > 0 || q.map !== h.map || !q.loaded || q.hp >= q.max) return;
+    if(E.pvpMap(h.map)&&q!==h&&!E.allies?.(h,q))return;
     if (q !== h && (solo || E.dist(h.x, h.y, q.x, q.y) > rng)) return;
     if (!best || q.hp / q.max < best.hp / best.max) best = q;
   });
@@ -380,7 +383,7 @@ export function advLowHp(E, g, h) {
   if (!h || !h.loaded || h.down > 0 || h.hp <= 0 || h.hp > h.max * T.hp) return;
   const b = asOf(h);
   if (b.esT > 0) return;
-  const solo = E.pvpMap(h.map) || E.fieldPvp(h);   // 결투 · 사냥터 PvP — 치유사 자신에게만
+  const solo = (E.pvpMap(h.map)&&h.duelSize!==2) || E.fieldPvp(h);   // 결투 · 사냥터 PvP — 치유사 자신에게만
   let best = null, bd = Infinity, bv = null;
   g.heroes.forEach((q) => {
     if (!q || !q.loaded || q.down > 0 || q.map !== h.map) return;
@@ -586,6 +589,7 @@ export function advUse(E, g, h) {
     if (boost) E.say(g, map, h.x, h.y - 120, "투지 폭발", "#ffb4a0");
   } else if (c.id === "knight") {
     a.gT = A.dur; a.gN = A.max; a.gGap = 0; a.gCap = { raw: 0, adv: 1 };
+    E.taunt?.(g,h,A.tauntRadius,A.taunt);
     E.fx(g, map, { kind: "sk_adv_guard", x: h.x + (h.dir || 1) * 24, y: h.y - 30, r: 70, t: 0.7, life: 0.7, snd: "bless" });   // 몸 앞쪽
     if (!E.pvpMap(map) && !E.fieldPvp(h)) {       // 파티 보호 — 결투 · 사냥터 PvP 에서는 본인만
       g.heroes.forEach((o) => {
@@ -656,11 +660,11 @@ export function advUse(E, g, h) {
     });
     if (n || R) E.say(g, map, h.x, h.y - 120, [n ? `마력 ${n}` : "", R ? `공명 ${R.n}` : ""].filter(Boolean).join(" · "), "#d8c8ff");
   } else if (c.id === "healer") {
-    const solo = E.pvpMap(map) || E.fieldPvp(h);   // 결투 · 사냥터 PvP 에서는 나에게만
+    const solo = (E.pvpMap(map)&&h.duelSize!==2) || E.fieldPvp(h);   // 결투 · 사냥터 PvP 에서는 나에게만
     const T = trialOf(h), before = T ? healDone(T.trial, h.advQ) : 0;
     g.heroes.forEach((o) => {
       if (!o || o.down > 0 || o.map !== map || !o.loaded) return;
-      if (o !== h && (solo || E.dist(h.x, h.y, o.x, o.y) > A.r)) return;
+      if (o !== h && (solo || (E.pvpMap(map)&&!E.allies?.(h,o)) || E.dist(h.x, h.y, o.x, o.y) > A.r)) return;
       bless(E, g, h, o, A);
     });
     E.fx(g, map, { kind: "sk_adv_bless", x: h.x, y: h.y, r: A.r, t: 1, life: 1, snd: "bless" });

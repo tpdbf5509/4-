@@ -47,5 +47,6 @@ export function rpgInput(g, d) {
   const prev = setFxBy(d.cls);                     // 이 입력이 낸 스킬 연출의 주인
   const h = g.heroes[d.cls];
   h.inputAim = aimedSkillInput(d.kind, d.dir) ? cleanSkillAim(d.aim) : null;
+  const taunter=g.heroes[h.tauntBy];if(h.tauntT>0&&taunter?.map===h.map&&taunter.down<=0)h.inputAim=cleanSkillAim([taunter.x-h.x,(taunter.y-h.y)/.78]);
   try { act(g, d.cls, d.dir); } finally { delete h.inputAim; setFxBy(prev); }
 }

@@ -151,8 +151,8 @@ const reqTitle = (q) => (q.kind === "hunt" ? `${MOB[q.mob].name} ${q.n}마리 �
 const reqProg = (q, r, h) => (q.kind === "hunt"
   ? `${Math.min(r.n, q.n)}/${q.n}마리`
   : `가진 수 ${Math.min((h.bag.m && h.bag.m[q.mat]) || 0, q.n)}/${q.n}`);
-const reqPay = (q, lv) => [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", lv < LV_MAX && q.xp ? `경험치 ${Math.max(1, Math.round(needXp(lv) * q.xp)).toLocaleString("ko-KR")}` : "",
-  ...Object.entries(q.mats || {}).map(([id, n]) => `${MAT_BY_ID[id].name} ${n}`)].filter(Boolean).join(" · ");
+const reqPay = (q, lv, coinOnly=lv>q.lv) => [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", !coinOnly && lv < LV_MAX && q.xp ? `경험치 ${Math.max(1, Math.round(needXp(lv) * q.xp)).toLocaleString("ko-KR")}` : "",
+  ...Object.entries(coinOnly?{}:(q.mats || {})).map(([id, n]) => `${MAT_BY_ID[id].name} ${n}`)].filter(Boolean).join(" · ");
 // 받침에 맞는 조사 — "하늘로" · "바람으로"
 function ro(word) {
   const c = word.charCodeAt(word.length - 1) - 0xac00;
@@ -744,7 +744,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       }
       setTalk(h.quest.on
         ? `아직 ${QUEST.need - h.quest.n}마리 남았네. 토끼도 가끔 들이받으니 조심하게.`
-        : `토끼 ${QUEST.need}마리만 잡아 주게. 경험치 ${QUEST.xp}과 ${QUEST.coin}코인을 주겠네.`);
+        : `토끼 ${QUEST.need}마리만 잡아 주게. ${h.lv>QUEST.lv?"":`경험치 ${QUEST.xp}과 `}${QUEST.coin}코인을 주겠네.`);
     }
     if (kind === "dash" && !isHost && g.heroes[mySeat]) {   // 손님도 내 대쉬는 먼저 그린다 — 방향은 방장에게도 보낸다
       dir = aimDir(g.heroes[mySeat]).map((v) => Math.round(v * 1000) / 1000);
@@ -853,7 +853,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "dash") act("dash");
       else if (a === "talk") act("talk");
       else if (a.startsWith("pot")) {                // 물약 칸 — 넣어 둔 물약을 마신다
-        const id = (G.current.heroes[mySeat]?.bag.qs || [])[Number(a.slice(3)) - 1];
+        const hero=G.current.heroes[mySeat];
+        const id = hero?.dvs>=0&&a==="pot1"?"heal_s":(hero?.bag.qs||[])[Number(a.slice(3))-1];
         if (id) act("shop", { op: "puse", id });
       }
       else if (a.startsWith("use")) {                // 스킬 칸 — 일반 칸 1 · 2 · 직업 칸(가방 "스킬" 탭에서 넣은 것)
@@ -1120,11 +1121,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           // 물약 칸 — 넣어 둔 물약과 가진 수
           pots: Array.from({ length: POTION.slots }, (_, i) => {
             const id = (me.bag.qs || [])[i];
-            return id && POTION_BY_ID[id] ? { id, name: POTION_BY_ID[id].name, n: me.bag.p[id] || 0 } : null;
+            return id && POTION_BY_ID[id] ? { id, name: POTION_BY_ID[id].name, n: me.dvs>=0?(id==="heal_s"?me.duelPotions||0:0):me.bag.p[id]||0 } : null;
           }),
           extra: Object.fromEntries(STAT_IDS.map((k) => [k, extraStat(me, k)])),
           // 마신 물약 효과 — 남은 시간이 있는 것만(화면 오른쪽에 띄운다)
-          buffs: [...BUFF_SHOW.filter(([k]) => me.bf && me.bf[k] && me.bf[k].t > 0).map(([k, name]) => ({ k, name, t: me.bf[k].t })),
+          buffs: [...(me.empower?[{k:'empower',name:'강화 마법진 · 공격·치유 +20%',t:.3}]:[]),...(me.tauntT>0?[{k:'taunt',name:'도발당함',t:me.tauntT}]:[]),...BUFF_SHOW.filter(([k]) => me.bf && me.bf[k] && me.bf[k].t > 0).map(([k, name]) => ({ k, name, t: me.bf[k].t })),
             // 방어구 효과 — 추격 이속 · 위기 피해 감소 · 전설 갑옷 부활 대기
             ...ARMOR_SHOW.filter(([k]) => me.arm && me.arm[k] > 0).map(([k, name]) => ({ k, name, t: me.arm[k] })),
             // 직업 스킬 · 신성검 — 철벽 · 마나 보호막 · 성광 반격
@@ -1146,10 +1147,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           self: {server:g.wbServer, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null, advM: me.advM || 0,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
-            dvs: me.dvs,
+            dvs: me.dvs, dph:me.dph,duelPotions:me.duelPotions,
             reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])) },
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title,
             admin: h.admin, honor: h.honor || 0, dvs: h.dvs })),
+          duelSize:me.duelSize||1,duelPotions:me.duelPotions||0,duelTeam:me.duelTeam,duelInvSize:me.duelInv?.size||1,
           honor: me.honor || 0, duelInv: me.duelInv ? me.duelInv.from : -1, dvs: me.dvs, dph: me.dph, dtl: me.dtl || 0,
           pty: me.pty, inv: me.invite ? me.invite.from : -1, title: me.title, titles: me.titles.slice(), rec: { ...me.rec },
           // 던전 — 들어가 있는 칸(남은 시간 · 무리 차례 · 보스 체력), 입장 창에 쓰는 빈 칸 수 · 함께 갈 사람
@@ -1363,7 +1365,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <span>남은 포인트 <em>{room}</em></span>
                   </div>
                   <p className="rpg-stat-rule">
-                    레벨이 오를 때마다 {STAT_PER_LV}포인트 · 스탯마다 최대 {STAT_MAX} · {LV_MAX}레벨까지 모두 {statEarned(LV_MAX)}포인트
+                    400레벨까지 레벨당 2포인트 · 이후 3포인트 · 스탯마다 최대 {STAT_MAX} · {LV_MAX}레벨까지 모두 {statEarned(LV_MAX)}포인트
                   </p>
                   <div className="rpg-stat-list">
                     {STATS.map((t) => {
@@ -1453,7 +1455,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <p className="rpg-stat-rule">
                     몹을 함께 친 사람은 모두 경험치와 코인을 다 받습니다. 치지 않은 같은 맵의 파티원은 경험치의 {Math.round(PARTY.share * 100)}%를 받습니다.
                     채팅 칸에서 "파티"를 고르면 파티원에게만 보입니다.
-                    "결투"를 누르면 1대1 결투를 신청합니다. 이기면 상대 명예의 {Math.round(DUEL.honorRate * 100)}% + {DUEL.honorBase} 만큼 명예가 오릅니다.
+                    "결투"는 1대1입니다. 2인 파티끼리는 "2대2 결투"를 신청할 수 있습니다. 팀원 전원이 쓰러지면 패배합니다. 이기면 상대 명예의 {Math.round(DUEL.honorRate * 100)}% + {DUEL.honorBase} 만큼 명예가 오릅니다.
                   </p>
                   <div className="rpg-stat-list">
                     {me.party.map((h) => {
@@ -1476,6 +1478,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                               ? <span className="rpg-win-tag">결투 중</span>
                               : <button type="button" className="rpg-win-btn duel" disabled={me.dvs >= 0} title={`명예 ${h.honor} · 이기면 +${honorGain(h.honor)}`}
                                 onClick={() => act("duel", { op: "ask", to: h.pi })}>결투</button>)}
+                            {!mine&&!mate&&me.pty&&h.pty&&mates.length===2&&me.party.filter(q=>q.pty===h.pty).length===2&&<button type="button" className="rpg-win-btn duel" disabled={me.dvs>=0||h.dvs>=0} onClick={()=>act('duel',{op:'ask',to:h.pi,size:2})}>2대2 결투</button>}
                           </span>
                         </div>
                       );
@@ -1524,7 +1527,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           )}
           {me && me.duelInv >= 0 && me.dvs < 0 && nowMs - duelAt > 1500 && (
             <div className={`rpg-invite duel ${me.inv >= 0 ? "second" : ""}`} role="alertdialog" aria-label="결투 신청">
-              <span><b>{names[me.duelInv] || "모험가"}</b>님이 결투를 신청했습니다
+              <span><b>{names[me.duelInv] || "모험가"}</b>님이 {me.duelInvSize}대{me.duelInvSize} 결투를 신청했습니다
                 <small>명예 {(me.party.find((h) => h.pi === me.duelInv) || {}).honor ?? 0} · 이기면 +{honorGain((me.party.find((h) => h.pi === me.duelInv) || {}).honor)}</small>
               </span>
               <button type="button" className="btn-main" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "accept" }); }}>수락</button>
@@ -1533,10 +1536,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           )}
           {me && me.dvs >= 0 && (
             <div className="rpg-duelbar" role="status">
-              <span className="rpg-duelbar-vs">결투 · <b>{names[me.dvs] || "모험가"}</b></span>
+              <span className="rpg-duelbar-vs">{me.duelSize}대{me.duelSize} 결투 · <b>{names[me.dvs] || "모험가"}</b></span>
               <span className="rpg-duelbar-t">
                 {me.dph === 1 ? `${Math.ceil(me.dtl)}초 뒤 시작` : me.dph === 2 ? `남은 시간 ${Math.ceil(me.dtl)}초` : "끝"}
               </span>
+              <span className="rpg-duelbar-rule">구매 물약·응급 처치 사용 불가</span>
+              <button type="button" className="btn-ghost" disabled={me.dph!==2||me.duelPotions<=0||me.self.hp>=me.self.max||me.self.down>0} onClick={()=>act('shop',{op:'puse',id:'heal_s'})}>회복 물약 (소) {me.duelPotions}/5</button>
               {me.dph !== 3 && <button type="button" className="btn-ghost" onClick={() => act("duel", { op: "giveup" })}>기권</button>}
             </div>
           )}
@@ -1623,7 +1628,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                       <div className="rpg-win-row on">
                         <span className="rpg-stat-name">
                           <b>맡은 의뢰 · {reqTitle(curQ)}</b>
-                          <em>{reqProg(curQ, cur, me.self)} · 보상 {reqPay(curQ, me.lv)}{why.length ? ` · ${why.join(" · ")}` : ""}</em>
+                          <em>{reqProg(curQ, cur, me.self)} · 보상 {reqPay(curQ, me.lv, cur.coinOnly??(me.lv>curQ.lv))}{why.length ? ` · ${why.join(" · ")}` : ""}</em>
                         </span>
                         <span className="rpg-win-acts">
                           <button type="button" className="rpg-win-btn" disabled={why.length > 0}
@@ -1664,6 +1669,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   </p>
                   <p className="rpg-stat-rule">방어구 던전은 그 부위 방어구 하나를 줍니다. 등급은 {ARMOR_GRADES.map((q) => `${q.name} ${q.drop}%`).join(" · ")}입니다.</p>
                   <p className="rpg-stat-rule">함께 들어갈 사람 {crew.length}명 · {crew.map((pi) => names[pi] || "모험가").join(", ")}</p>
+                  <p className="rpg-stat-rule">300레벨부터 가장 높은 입장자 레벨 ÷ 300배로 잡몹·보스 체력이 증가합니다. 600레벨은 2배입니다.</p>
                   <div className="rpg-stat-list">
                     {DG_GROUPS.map((grp) => [<p key={grp.name} className="rpg-dg-group">{grp.name}</p>, ...grp.ids.map((id) => {
                       const d = DG_BY_ID[id];
@@ -1748,7 +1754,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <span className="rpg-stat-name">
                       <b>사냥꾼 · {QUEST.name}</b>
                       <em>{me.quest.on ? `토끼 ${me.quest.n}/${QUEST.need} · 다 잡으면 저절로 끝납니다`
-                        : metNpc(me.self, QUEST_NPC) ? `토끼 ${QUEST.need}마리 · 보상 경험치 ${QUEST.xp} · ${QUEST.coin}코인`
+                        : metNpc(me.self, QUEST_NPC) ? `토끼 ${QUEST.need}마리 · 보상 ${me.lv>QUEST.lv?"코인만 · ":`경험치 ${QUEST.xp} · `} ${QUEST.coin}코인`
                           : "처음에는 토끼 사냥터의 사냥꾼에게 말을 걸어 받습니다"}</em>
                     </span>
                     {me.quest.on
@@ -2129,7 +2135,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {MOB_REGEN.calm}초 넘게 맞지 않은 몹은 체력이 조금씩 차오릅니다.
           토끼는 맞으면 달아나고 가끔 들이받지만, 늑대와 보스는 가까이 가거나 때리면 쫓아옵니다.
           레벨을 올리려면 처음엔 경험치 30, 그다음부터는 30씩 더 필요합니다.
-          레벨이 오르면 체력이 가득 차고 스탯 포인트 {STAT_PER_LV}를 받습니다(처음 만들 때도 {STAT_PER_LV}포인트). 최고 레벨은 {LV_MAX}입니다.
+          레벨이 오르면 체력이 가득 차고 스탯 포인트를 받습니다. 400레벨까지 2개 · 이후 3개입니다(처음 만들 때도 {STAT_PER_LV}포인트). 최고 레벨은 {LV_MAX}입니다.
           레벨 칸의 스탯 버튼(키보드는 C)에서 물리력 · 마법력 · 체력 · 치명타 확률 · 치명타 피해에 나눠 찍습니다.
           스탯마다 {STAT_MAX}까지 찍을 수 있고, 적용하면 되돌릴 수 없습니다.
           물리력은 검사 · 궁수, 마법력은 마법사의 공격력을 올리고, 화상 · 독 피해는 직업과 상관없이 마법력을 따릅니다.
@@ -2146,8 +2152,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           파티 창(P)에서 같은 서버 사람을 초대합니다. {PARTY.max}명까지이고, 같은 맵의 파티원이 몹을 잡으면 그 경험치의 {Math.round(PARTY.share * 100)}%를 함께 받습니다.
           칭호는 레벨 · 사냥 수 · 보스 · 퀘스트 조건을 채우면 얻습니다. 칭호 창(T)에서 하나를 골라 이름 아래에 답니다.
           ☰ 메뉴의 키 설정에서 키를 바꿀 수 있습니다(PC).
-          파티 창(P)의 "결투"로 다른 사람에게 1대1 결투를 신청합니다. 상대가 수락하면 둘만 결투장으로 옮겨 가 {DUEL.ready}초를 센 뒤 싸웁니다.
-          결투장에서는 자동 평타가 꺼지고 몹을 칠 때의 {Math.round(DUEL.dmgMul * 100)}% 피해가 들어갑니다. 한 사람이 쓰러지면 끝나고 {DUEL.time}초가 지나면 무승부입니다. 끝나면 둘 다 원래 자리로 돌아가고 체력이 찹니다.
+          파티 창(P)의 "결투"로 다른 사람에게 1대1 결투를 신청합니다. 2인 파티끼리는 2대2로 신청할 수 있습니다. 상대가 수락하면 결투장으로 옮겨 가 {DUEL.ready}초를 센 뒤 싸웁니다.
+          결투장에서는 자동 평타가 꺼지고 몹을 칠 때의 {Math.round(DUEL.dmgMul * 100)}% 피해가 들어갑니다. 한 팀이 모두 쓰러지면 끝나고 {DUEL.time}초가 지나면 무승부입니다. 결투용 소형 물약 5개만 쓸 수 있으며 응급 처치는 금지입니다. 끝나면 원래 자리로 돌아가고 남은 결투용 물약은 회수합니다.
           이기면 상대 명예의 {Math.round(DUEL.honorRate * 100)}% + {DUEL.honorBase} 만큼 명예가 오릅니다. 지는 쪽 명예는 그대로입니다. 광장 위쪽의 명예 순위판(E)에서 순위를 봅니다.
         </details>
       </div>

@@ -367,7 +367,7 @@ test('피해 감소 합계 70% 상한 · 직업 철벽만이면 예전 그대로
   assert.equal(advTakeCut(knight, 0.6), ADV_BY_ID.knight.cap);
   assert.equal(advTakeCut({ job: 'warrior', advClass: '', hp: 10, max: 100 }, 0.6), 0.6);
   const healthy = { job: 'warrior', advClass: 'knight', hp: 100, max: 100, as: { gT: 3 } };
-  assert(Math.abs(advTakeCut(healthy, 0) - 0.35) < 1e-9);
+  assert(Math.abs(advTakeCut(healthy, 0) - 0.5) < 1e-9);
   const E = { gunHeld: () => true };
   const gunner = { pi: 0, job: 'archer', advClass: 'gunner', as: { st: 5 }, cast: { adv: 1 } };
   const foe = { pi: 1 };
@@ -752,7 +752,7 @@ test('기사 수호의 방패 — 철벽 방어 중 맞으면 충격파 · 일�
     assert(near(hp.r - ring.hp, base * 0.5), `바깥 몹 충격파 ${hp.r - ring.hp} · 기대 ${base * 0.5}`);
     assert(near(hp.h - hitter.hp, base * ADV_BY_ID.knight.active.mul), `반격에 맞은 몹은 반격만 ${hp.h - hitter.hp}`);
     assert.equal(ring.tgt, 0); assert(ring.taunt > 2.5, '도발 3초');
-    assert(!(boss.taunt > 0), '보스는 도발하지 않는다');
+    assert(boss.taunt>0&&boss.taunt<=4, 'Z 시전 도발은 보스에도 적용되며 특성 충격파는 갱신하지 않는다');
     // 대기 — 계속 맞아도 4초 안에는 다시 나가지 않는다
     step(g, 1, pin);
     assert.equal(fxOf(g, 'sk_adv_wave').length, 1, '대기 4초');

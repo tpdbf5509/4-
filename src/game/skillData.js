@@ -1,3 +1,4 @@
+import {COMBAT_RULES} from './combatRules.js';
 import { STORM_SKILLS } from './stormWeaponData.js';
 import { WORLD_WEAPON_SKILLS } from "./worldEquipmentData.js";
 /* ── RPG 직업 스킬 · 전설 무기 스킬 — 수치는 모두 여기 한 곳 ─────────────
@@ -32,8 +33,8 @@ export const JOB_SKILLS = [
     use: { key: 5, cd: 8, kind: "orb", dmg: "int", splash: 140, mul: LV5(2.4, 4.2) } },
   { id: "j_chain", job: "mage", name: "연쇄 번개", note: "번개가 적 사이를 다섯 번 옮겨 다닌다 · 옮길 때마다 약해진다",
     use: { key: 6, cd: 9, kind: "chain", dmg: "int", jumps: 5, hop: 190, fall: 0.8, mul: LV5(2, 3.4) } },
-  { id: "j_shield", job: "mage", name: "마나 보호막", note: "최대 체력의 일부만큼 피해를 막는 보호막",
-    use: { key: 7, cd: 28, kind: "shield", dur: 6, amt: LV5(0.3, 0.5) } },
+  { id: "j_shield", job: "mage", name: "강화 마법진", note: "발밑에 20초 마법진 · 위에 선 아군의 공격력과 치유력 20% 증가",
+    use: { key: 7, cd: COMBAT_RULES.circle.cooldown, kind: "empower" } },
 ].map((s) => ({ ...s, kind: "active", fam: "job", gold: GOLD, lv: NEED_LV, need: [40, 60, 80, 100, 130] }));
 export const JOB_KEYS = { 5: "R", 6: "F", 7: "G" };    // 상점 설명에 보이는 기본 키
 

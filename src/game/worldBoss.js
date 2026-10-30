@@ -173,7 +173,7 @@ function patternAreas(kind,step,m,heroes,angle){
 }
 function beginAttack(g,m,a,heroes){
   const B=WORLD_BOSS_BY_ID[a.id],kind=B.attacks[a.seq++%B.attacks.length],P=WORLD_BOSS_PATTERNS[kind];
-  const target=heroes[a.seq%heroes.length],angle=Math.atan2((target.y-m.y)/C.squash,target.x-m.x);
+  const target=(m.taunt>0&&heroes.find(h=>h.pi===m.tgt))||heroes[a.seq%heroes.length],angle=Math.atan2((target.y-m.y)/C.squash,target.x-m.x);
   const wind=P.wind||C.wind;
   const targets=kind==='thunder_dive'?[target,...heroes.filter(h=>h!==target)]:heroes;
   a.attack={kind,name:P.name,major:!!P.major,step:0,stages:P.hits,angle,areas:patternAreas(kind,0,m,targets,angle),t:wind,life:wind,coop:[]};m.pose=1;
@@ -236,6 +236,7 @@ export function tickWorldBoss(E,g,dt){
   if(a.stun>0){a.stun=Math.max(0,a.stun-dt);m.pose=0;a.cd=C.gap;return;}
   if(a.attack){
     tickThunderbirdDive(E,g,m,a,heroes,dt);
+    if(a.phase!=='fight'||!a.attack)return;
     if(worldBossCoopOpen(a))a.attack.coop=(a.attack.coop||[]).filter(c=>a.elapsed-c.at<=C.coop.sync);
     a.attack.t-=dt;
     if(a.attack.t<=0)impact(E,g,m,a,heroes);

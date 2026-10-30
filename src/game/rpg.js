@@ -1,3 +1,5 @@
+import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
+import {COMBAT_RULES, refreshPowerCircles, empowerAttack, empowerHealing, duelAllies} from './combatRules.js';
 import {GUILD,GUILD_BOSSES,guildMap,guildBuff,guildAspd,GUILD_HALL,guildHallMap} from './guildData.js';
 import {isGuildBoss,guildInput,guildHit,guildKilled,guildRestore,tickGuild} from './guild.js';
 import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
@@ -38,7 +40,7 @@ export const RPG_SERVER_CAP = 10;
 // (방 만들기 코드에는 숫자 1이 나오지 않아 이 이름과 겹치지 않는다)
 export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
 
-// 결투 — 1대1. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
+// 결투 — 1대1 · 2인 파티의 2대2. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
 // 피해는 몹을 칠 때의 dmgMul(한 방에 끝나지 않게). 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
 // 명예 — 이기면 진 사람 명예의 honorRate 에 honorBase 를 더한 만큼 오른다(지는 쪽은 그대로). 경험치 · 코인은 없다
@@ -280,7 +282,7 @@ export const coinOf = (n) => Math.max(1, Math.round(n * COIN_RATE));
 // 경험치 — 몹이 주는 경험치에 곱한다(레벨이 너무 빨리 올라 5배 줄였다). 1보다 적게 주지는 않는다. 퀘스트 경험치는 그대로
 export const XP_RATE = 0.2;
 export const xpOf = (n) => Math.max(1, Math.round(n * XP_RATE));
-export const QUEST = { name: "토끼 사냥", need: 5, xp: 10, coin: coinOf(15) };
+export const QUEST = { lv:1, name: "토끼 사냥", need: 5, xp: 10, coin: coinOf(15) };
 // 몹 자동 회복 — calm 초 동안 맞지 않으면 초당 최대 체력의 rate 만큼 차오른다
 export const MOB_REGEN = { calm: 5, rate: 0.08 };
 
@@ -610,10 +612,10 @@ export function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, (by - ay) / RP
 export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 30씩 는다
 export const LV_MAX = 800;               // 200 → 400 → 800(10월 26일 · 400~800 은 화염 · 심연 사냥터, deepData.js)
 
-/* ── 스탯 — 레벨이 오를 때마다 2포인트, 처음 만들 때 2포인트를 받는다(1 → 800레벨까지 모두 1,600포인트).
-   스탯 하나에는 STAT_MAX 까지 찍는다. 1,600포인트로 두 스탯을 800까지 올리면 딱 맞다(만렙에서 둘을 최대로).
+/* ── 스탯 — 처음 2포인트. 400레벨까지 레벨당 2개, 이후 3개를 받는다.
+   스탯 하나에는 STAT_MAX 까지 찍는다. 400레벨 이후에는 3포인트를 받아 800레벨 누적 2,000포인트다.
    물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
-export const STAT_MAX = 800;          // 스탯 하나의 상한 — 250 → 400 → 800(800레벨 포인트 1,600 = 둘을 최대로. 효과는 포인트당 그대로)
+export const STAT_MAX = 800;          // 스탯 하나의 상한 — 250 → 400 → 800(800레벨 누적 2,000포인트. 효과는 포인트당 그대로)
 // 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
 // 레벨은 최고 레벨, 스탯은 다섯 모두 STAT_MAX 로 두고, 코인은 쓰는 대로 이만큼 다시 채운다(돈 무제한)
 export const ADMIN = { coins: 99999999 };
@@ -634,7 +636,7 @@ const STAT_BY_ID = Object.fromEntries(STATS.map((t) => [t.id, t]));
 export const noStats = () => Object.fromEntries(STAT_IDS.map((k) => [k, 0]));
 export const maxStats = () => Object.fromEntries(STAT_IDS.map((k) => [k, STAT_MAX]));   // 관리자 캐릭터
 // 이 레벨까지 받은 포인트
-export const statEarned = (lv) => STAT_START + STAT_PER_LV * (clamp(Math.floor(lv || 1), 1, LV_MAX) - 1);
+export const statEarned = (lv) => { const level=clamp(Math.floor(lv||1),1,LV_MAX); return STAT_START+STAT_PER_LV*(level-1)+Math.max(0,level-COMBAT_RULES.highStatLevel)*(COMBAT_RULES.highStatPoints-STAT_PER_LV); };
 export const statSpent = (st) => STAT_IDS.reduce((n, k) => n + ((st && st[k]) || 0), 0);
 export const statLeft = (h) => Math.max(0, statEarned(h.lv) - statSpent(h.st));
 // 찍은 포인트에 따른 값 — 표의 기본값 + 포인트당 효과
@@ -667,7 +669,7 @@ export function cleanReqs(d) {
     const i = r ? Math.floor(Number(r.i)) : -1;
     if (!(i >= 0 && i < list.length)) return;
     const q = list[i];
-    out[npc.id] = { i, n: q.kind === "hunt" ? clamp(Math.floor(Number(r.n) || 0), 0, q.n) : 0 };
+    out[npc.id] = { ...(typeof r.coinOnly==='boolean'?{coinOnly:r.coinOnly}:{}), i, n: q.kind === "hunt" ? clamp(Math.floor(Number(r.n) || 0), 0, q.n) : 0 };
   });
   return out;
 }
@@ -710,7 +712,7 @@ export function loadChar() {
     lv: clamp(Math.floor(r.lv || 1), 1, LV_MAX),
     xp: Math.max(0, Math.floor(r.xp || 0)),
     coins: Math.max(0, Math.floor(r.coins || 0)),
-    quest: { on: !!q.on, n: clamp(Math.floor(q.n || 0), 0, QUEST.need) },
+    quest: { coinOnly:q.coinOnly, on: !!q.on, n: clamp(Math.floor(q.n || 0), 0, QUEST.need) },
     stats: cleanStats(r.stats, r.lv || 1),
     bag: cleanBag(r.bag, r.admin),                        // 상점 — 무기 · 물약 · 스킬 · 오늘 쓴 횟수
     linked: !!r.linked,                          // 서버에 이 캐릭터가 있다(이름 + 코드로 이어 할 수 있다)
@@ -792,7 +794,7 @@ export function writeChar(d) {
   const reset = d.rs === RESET.id && cur.rs !== RESET.id;
   if (!reset && !rolledBack(d.bag, cur.bag) && Math.floor(Number(d.lv) || 1) < Math.floor(Number(cur.lv) || 1)) return;
   const bag = d.bag && d.bag.ld ? { ...d.bag, ld: undefined } : cur.bag;
-  store({ ...cur, ts: d.ts || 0, lv: d.lv, xp: d.xp, coins: d.coins, quest: { on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
+  store({ ...cur, ts: d.ts || 0, lv: d.lv, xp: d.xp, coins: d.coins, quest: { coinOnly:d.quest.coinOnly,on: !!d.quest.on, n: d.quest.n }, stats: { ...d.st }, bag,
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
     honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs),
     gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "", rs: d.rs === RESET.id ? RESET.id : cur.rs || "",
@@ -819,7 +821,7 @@ export function heroRecord(h, base, look) {
   const bag = { ...h.bag };
   delete bag.ld;
   return { ...rest, ts: h.ts || 0, v: 3, ...(look ? { name: look.name, job: look.job, elem: look.elem, gender: look.gender, picked: 1 } : {}),
-    lv: h.lv, xp: h.xp, coins: h.coins, quest: { on: !!h.quest.on, n: h.quest.n }, stats: { ...h.st }, bag,
+    lv: h.lv, xp: h.xp, coins: h.coins, quest: { coinOnly:h.quest.coinOnly, on: !!h.quest.on, n: h.quest.n }, stats: { ...h.st }, bag,
     rec: cleanRec(h.rec), titles: cleanTitles(h.titles), title: TITLE_BY_ID[h.title] ? h.title : "",
     honor: Math.max(0, Math.floor(Number(h.honor) || 0)), reqs: cleanReqs(h.reqs),
     gift: h.gift === GIFT.id ? GIFT.id : b.gift || "", rs: h.rs === RESET.id ? RESET.id : b.rs || "",
@@ -887,8 +889,8 @@ export function refreshHp(h, full) {
 }
 // 공격력 배율 — 스탯 10 이 1배. 마법사는 마법력, 전사 · 궁수는 물리력을 쓴다
 const buffMul = (h) => (h.buff > 0 ? 1 + h.buffAmt : 1);
-export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h);   // 바지 · 전설 신발이 공격력을 올린다
-export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h);
+export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h);   // 바지 · 전설 신발이 공격력을 올린다
+export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h);
 export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h));
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
@@ -944,7 +946,7 @@ export function rpgJoin(g, pi, d, who) {
   h.xp = clamp(Math.floor(Number(d.xp) || 0), 0, needXp(h.lv) - 1);
   h.coins = Math.max(0, Math.floor(Number(d.coins) || 0));
   const q = d.quest || {};
-  h.quest = { on: !!q.on, n: clamp(Math.floor(Number(q.n) || 0), 0, QUEST.need - 1) };
+  h.quest = { coinOnly:q.coinOnly,on: !!q.on, n: clamp(Math.floor(Number(q.n) || 0), 0, QUEST.need - 1) };
   if (d.admin) {                                  // 관리자 — 최고 레벨 · 코인 가득
     h.admin = 1;
     h.lv = LV_MAX; h.xp = 0;
@@ -1171,7 +1173,7 @@ function shiftMe(h, dx, dy) {
 }
 export function rpgHold(g, pi, dirs) {
   const h = g.heroes[pi];
-  if (h) h.hold = Array.isArray(dirs) ? dirs.filter((d) => typeof d === "string").slice(0, 4) : [];
+  if (h && !(h.tauntT>0)) h.hold = Array.isArray(dirs) ? dirs.filter((d) => typeof d === "string").slice(0, 4) : [];
 }
 
 // 누르고 있는 만큼 걷는다 — 방장과 손님 화면 양쪽에서 같은 식으로 돈다
@@ -1249,7 +1251,7 @@ export function rpgTalk(g, pi) {
   if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
-    h.quest = { on: true, n: 0 };
+    h.quest = { on: true, n: 0, coinOnly:h.lv>QUEST.lv };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9,
       snd: "build", who: pi });
   } else {
@@ -1274,7 +1276,7 @@ export function rpgQuest(g, pi, op) {
   if (!h || !h.loaded || h.down > 0) return false;
   if (op === "take" && !h.quest.on) {
     if (!metNpc(h, QUEST_NPC)) return void sys(g, pi, "처음에는 토끼 사냥터의 사냥꾼에게 말을 걸어 받아야 합니다.");
-    h.quest = { on: true, n: 0 };
+    h.quest = { on: true, n: 0, coinOnly:h.lv>QUEST.lv };
     fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9, snd: "build", who: pi });
     return true;
   }
@@ -1313,7 +1315,7 @@ function mobBody(id, gi, lv, x, y) {
   return bodyOf(id, gi, sp.type, sp.boss ? 1 : 0, lv, sp.map, x, y, sp.boss ? T.boss : null);
 }
 // 던전 몹 — 무리(SPAWNS)에 속하지 않는다(gi -1). 일반 몹은 체력이 DUNGEON.hpMul 배, 보스 세기는 그 던전의 boss 값
-function dgMobBody(id, map, type, lv, boss, x, y) {
+function dgMobBody(id, map, type, lv, boss, x, y, hpScale=1) {
   const d = DG_BY_ID[MAPS[map].dungeon];
   const m = bodyOf(id, -1, type, boss ? 1 : 0, lv, map, x, y, boss ? d.boss : null);
   if (!boss) {
@@ -1322,6 +1324,7 @@ function dgMobBody(id, map, type, lv, boss, x, y) {
     const M = MAPS[map], a = Math.random() * Math.PI * 2, rr = Math.random() * DUNGEON.rally;
     m.hx = M.w / 2 + Math.cos(a) * rr; m.hy = (M.top + M.h) / 2 + Math.sin(a) * rr * RPG.squash;
   }
+  m.hp=m.max=Math.round(m.max*hpScale);
   m.dg = 1;
   return m;
 }
@@ -1348,12 +1351,13 @@ function bodyOf(id, gi, type, boss, lv, map, x, y, B) {
    마지막으로 받은 세계(모두의 자리 · 몹 자리와 체력 · 대기 시간)를 판정용으로 바꿔 그대로 이어 간다.
    사람마다의 기록(레벨 · 코인 · 가방 …)은 각자가 다시 보내 준다(rpgJoin). 그동안 체력은 그대로 둔다. */
 export function rpgPromote(g) {
+  const mobTaunts=new Map(g.mobs.filter(m=>m.taunt>0).map(m=>[m.id,{taunt:m.taunt,tgt:m.tgt}]));
   g.out = [];
   g.hits = []; g.respawn = []; g.pending = {}; g.later = []; g.zones = [];
   g.mobs = g.mobs.filter((m) => !m.dead).map((m) => {
     if(isGuildBoss(m))return null;
     if (MAPS[m.map] && MAPS[m.map].dungeon) {     // 던전 몹 — 그 던전 값으로 다시 세운다
-      const b = dgMobBody(m.id, m.map, m.type, m.lv, m.boss, m.x, m.y);
+      const b = dgMobBody(m.id, m.map, m.type, m.lv, m.boss, m.x, m.y, g.runs.find(r=>r.map===m.map)?.hpScale||1);
       b.hp = Math.max(1, Math.round((b.max * (m.hp || 0)) / (m.max || 100)));
       b.ax = m.ax || 1; b.age = 1;
       return b;
@@ -1367,20 +1371,20 @@ export function rpgPromote(g) {
   }).filter(Boolean);
   g.nextId = Math.max(g.nextId, ...g.mobs.map((m) => m.id + 1), 1);
   worldBossRestore(worldBossEngine,g);guildRestore(guildEngine,g);
+  for(const m of g.mobs){const t=mobTaunts.get(m.id);if(t)Object.assign(m,t);}
   g.nextParty = Math.max(g.nextParty || 1, ...g.heroes.map((h) => (h ? h.pty + 1 : 1)));
-  g.duels = [];
+  g.duels ||= [];
   g.runs = (g.runs || []).filter((r) => DG_BY_ID[r.id]);   // 던전은 받은 그대로 잇는다
   g.heroes.forEach((h) => {
     if (!h) return;
     h.loaded = 0; h.migr = 1;                     // 기록이 다시 올 때까지 — 자리 · 체력은 그대로
     if (h.sw !== undefined) h.who = h.sw;         // 옛 방장이 알던 주인 — 지금 자리 주인과 다르면 rpgSyncSeats 가 새로 세운다
     delete h.wsp;                                 // 이제 가방에서 바로 본다
-    // 진행 중이던 결투는 무르고 광장으로 — 결투 기록(돌아갈 자리)은 옛 방장에게만 있었다
-    if (h.dvs >= 0) {
+    // 새 스냅샷은 결투 팀·귀환 위치를 보존한다. 기록 없는 옛 결투만 광장으로 돌려보낸다.
+    if (h.dvs >= 0 && !g.duels.some(d=>duelMembers(d).some(p=>p.pi===h.pi&&p.owner===h.who))) {
       h.map = "plaza"; [h.x, h.y] = MAPS.plaza.spawn;
       h.down = 0; h.hp = h.max; h.dvs = -1; h.dph = 0; h.dtl = 0; h.ring = -1;
     }
-    h.duelInv = null;
     h.tx = undefined; h.ty = undefined;
   });
 }
@@ -1422,14 +1426,15 @@ function fieldFoes(g, h, x, y, range) {
 function nearFoes(g, h, x, y, range) {
   if (!isPvp(h.map)) return fieldFoes(g, h, x, y, range);
   if (h.dph !== 2) return [];
-  const o = g.heroes[h.dvs];
-  if (!o || o.map !== h.map || o.down > 0 || o.dph !== 2) return [];
-  return dist(x, y, o.x, o.y) - 7 <= range ? [o] : [];
+  let foes=duelOpponents(g,h);
+  const forced=g.heroes[h.tauntBy];if(h.tauntT>0&&foes.includes(forced))foes=[forced];
+  return foes.filter(o=>dist(x,y,o.x,o.y)-7<=range).sort((a,b)=>dist(x,y,a.x,a.y)-dist(x,y,b.x,b.y));
 }
 // 결투 상대를 친다 — 쓰러지면 결투가 끝난다(tickDuels)
 // basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 상대 최대 체력의 DUEL.skillPct 를 넘지 않게 누른다(pvpSoft)
 function hitFoe(g, h, o, raw, basic, dot) {
   if (!o || o.down > 0) return;
+  if(isPvp(h.map)&&!duelOpponents(g,h).includes(o))return;
   const field = !isPvp(h.map);
   if (field && !(fieldPvpOn(h) && fieldPvpOn(o) && o.map === h.map)) return;   // 그 사이 꺼졌거나 광장으로 들어갔다
   const off = offHand(h);
@@ -1438,9 +1443,11 @@ function hitFoe(g, h, o, raw, basic, dot) {
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
   if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
   else {
-    const c = h.cast || newCast(h), cap = DUEL.skillPct * (o.max || 1), before = pvpSoft(c.raw, cap);
-    c.raw += dmg;
-    dmg = pvpSoft(c.raw, cap) - before;
+    const c=h.cast||newCast(h),cap=DUEL.skillPct*(o.max||1),key=`${o.pi}:${o.who}`;
+    if(!c.pvpRaw)c.pvpRaw={[key]:c.raw||0};
+    const previous=c.pvpRaw[key]||0,before=pvpSoft(previous,cap);
+    c.pvpRaw[key]=previous+dmg;c.raw+=dmg;
+    dmg=pvpSoft(c.pvpRaw[key],cap)-before;
     if (dmg <= 0.5) return;
   }
   const was = o.down;
@@ -1458,124 +1465,9 @@ const newCast = (h) => (h.cast = { raw: 0 });
 const pvpSoft = (raw, cap) => cap * (1 - Math.exp(-raw / (cap * DUEL.skillSoft)));
 
 /* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
-export function rpgDuel(g, pi, req) {
-  const h = g.heroes[pi];
-  if (!h || !h.loaded || !req) return false;
-  if (req.op === "ask") {
-    const o = g.heroes[req.to];
-    if (!o || o === h || !o.loaded || trading(o) || trading(h)) return false;
-    if (h.dvs >= 0) return void sys(g, pi, "결투 중에는 신청할 수 없습니다.");
-    if (o.dvs >= 0) return void sys(g, pi, `${nameOf(g, o.pi)}님은 지금 결투 중입니다.`);
-    if (h.down > 0) return void sys(g, pi, "쓰러진 동안은 신청할 수 없습니다.");
-    o.duelInv = { from: pi, t: DUEL.reqT };
-    sys(g, pi, `${nameOf(g, o.pi)}님에게 결투를 신청했습니다.`);
-    sys(g, o.pi, `${nameOf(g, pi)}님이 결투를 신청했습니다. (명예 ${h.honor})`);
-    return true;
-  }
-  if (req.op === "accept" || req.op === "decline") {
-    const inv = h.duelInv;
-    h.duelInv = null;
-    const o = inv && g.heroes[inv.from];
-    if (!o) return void sys(g, pi, "신청한 사람이 서버에 없습니다.");
-    if (req.op === "decline") { sys(g, o.pi, `${nameOf(g, pi)}님이 결투를 거절했습니다.`); return true; }
-    if (h.dvs >= 0 || o.dvs >= 0) return void sys(g, pi, "둘 가운데 한 사람이 이미 결투 중입니다.");
-    if (h.down > 0 || o.down > 0) return void sys(g, pi, "쓰러진 사람이 있어 결투를 시작할 수 없습니다.");
-    const used = g.duels.map((d) => d.ring);
-    const ring = MAPS.arena.rings.findIndex((_, i) => !used.includes(i));
-    if (ring < 0) return void [h, o].forEach((q) => sys(g, q.pi, "결투장이 모두 차 있습니다. 잠시 뒤 다시 신청해 주세요."));
-    startDuel(g, o, h, ring);
-    return true;
-  }
-  if (req.op === "giveup") {
-    const d = g.duels.find((q) => (q.a === pi || q.b === pi) && q.phase !== "end");
-    if (!d) return false;
-    endDuel(g, d, d.a === pi ? d.b : d.a, `${nameOf(g, pi)}님이 기권했습니다`);
-    return true;
-  }
-  return false;
-}
-function startDuel(g, a, b, ring) {
-  const R = MAPS.arena.rings[ring];
-  const d = { a: a.pi, b: b.pi, wa: a.who, wb: b.who, ring, phase: "ready", t: DUEL.ready, cnt: DUEL.ready + 1,
-    ret: [a, b].map((q) => ({ map: q.map, x: q.x, y: q.y })) };
-  g.duels.push(d);
-  [[a, b, -1], [b, a, 1]].forEach(([q, vs, side]) => {
-    q.ret = null;
-    q.map = "arena"; q.x = R.x + side * R.rx * 0.3; q.y = R.y;   // 칸을 키워도 시작할 때 서로 한 화면에 보이게
-    q.dir = -side; q.face = 0; q.hold = []; q.fire = 0; q.dash = 0;
-    q.hp = q.max; q.down = 0; q.duelInv = null;
-    q.dvs = vs.pi; q.dph = 1; q.dtl = DUEL.ready; q.ring = ring;
-    sys(g, q.pi, `${nameOf(g, vs.pi)}님과 결투를 시작합니다. (상대 명예 ${vs.honor})`);
-  });
-  fx(g, "arena", { kind: "ring", x: R.x, y: R.y, r: 120, color: "#ffe08a", t: 0.6, life: 0.6, snd: "boss" });
-}
-// 결투를 끝낸다 — win 은 이긴 사람 자리(-1 이면 무승부). why 는 알림에 붙는 말
-function endDuel(g, d, win, why) {
-  if (d.phase === "end") return;
-  d.phase = "end"; d.t = DUEL.end;
-  const R = MAPS.arena.rings[d.ring];
-  const w = win >= 0 ? g.heroes[win] : null, l = win >= 0 ? g.heroes[win === d.a ? d.b : d.a] : null;
-  if (w) {
-    const gain = honorGain(l ? l.honor : 0);
-    w.honor += gain;
-    w.rec.pvp += 1;
-    advDuelWin(advEngine, g, w);                  // 검투사 시험 — 이기면 확률로 시험 레벨
-    fx(g, "arena", { kind: "call", x: w.x, y: w.y - 110, text: `승리! 명예 +${gain}`, color: "#ffd873", t: 1.6, life: 1.6, snd: "clear", who: w.pi });
-    sys(g, w.pi, `결투에서 이겼습니다${why ? ` — ${why}` : ""}. 명예 +${gain} (지금 ${w.honor})`);
-    if (l) {
-      fx(g, "arena", { kind: "call", x: l.x, y: l.y - 110, text: "패배", color: "#e9b0a0", t: 1.6, life: 1.6, who: l.pi });
-      sys(g, l.pi, `결투에서 졌습니다${why ? ` — ${why}` : ""}.`);
-    }
-  } else {
-    fx(g, "arena", { kind: "call", x: R.x, y: R.y - 140, text: "무승부", color: "#e8dcc0", t: 1.6, life: 1.6 });
-    [d.a, d.b].forEach((pi) => g.heroes[pi] && sys(g, pi, "결투가 무승부로 끝났습니다. 명예는 그대로입니다."));
-  }
-  [d.a, d.b].forEach((pi) => { const q = g.heroes[pi]; if (q && q.dvs >= 0) { q.dph = 3; q.dtl = DUEL.end; } });
-}
-// 결투 진행 — 신청 시간 · 세기 · 승부 · 돌려보내기
-function tickDuels(g, dt) {
-  g.heroes.forEach((h) => {
-    if (!h || !h.duelInv) return;
-    h.duelInv.t -= dt;
-    if (h.duelInv.t <= 0 || !g.heroes[h.duelInv.from]) h.duelInv = null;
-  });
-  g.duels = g.duels.filter((d) => {
-    const a = g.heroes[d.a], b = g.heroes[d.b];
-    const aOk = a && a.who === d.wa, bOk = b && b.who === d.wb;
-    if (d.phase !== "end" && (!aOk || !bOk)) {     // 한 사람이 서버를 떠났다 — 남은 사람이 이긴다
-      endDuel(g, d, aOk ? d.a : bOk ? d.b : -1, "상대가 서버를 떠났습니다");
-    }
-    d.t -= dt;
-    const R = MAPS.arena.rings[d.ring];
-    if (d.phase === "ready") {
-      const n = Math.ceil(d.t);
-      if (n < d.cnt && n > 0) {
-        d.cnt = n;
-        fx(g, "arena", { kind: "call", x: R.x, y: R.y - 150, text: String(n), color: "#ffe08a", t: 0.8, life: 0.8, snd: "build" });
-      }
-      if (d.t <= 0) {
-        d.phase = "fight"; d.t = DUEL.time;
-        fx(g, "arena", { kind: "call", x: R.x, y: R.y - 150, text: "시작!", color: "#ffd873", t: 0.9, life: 0.9, snd: "wave" });
-      }
-    } else if (d.phase === "fight") {
-      if (a.down > 0 || b.down > 0) endDuel(g, d, a.down > 0 ? d.b : d.a, "");
-      else if (d.t <= 0) endDuel(g, d, -1, "");
-    } else if (d.t <= 0) {                         // 끝 — 둘 다 원래 자리로 돌려보낸다
-      [[d.a, aOk, 0], [d.b, bOk, 1]].forEach(([pi, ok, i]) => {
-        const q = g.heroes[pi];
-        if (!q || !ok) return;
-        const r = d.ret[i];
-        const back = MAPS[r.map] && !MAPS[r.map].pvp ? r : { map: "plaza", x: MAPS.plaza.spawn[0], y: MAPS.plaza.spawn[1] };
-        q.map = back.map; q.x = back.x; q.y = back.y;
-        q.down = 0; q.hp = q.max; q.dvs = -1; q.dph = 0; q.dtl = 0; q.ring = -1; q.gateCd = 1;
-      });
-      return false;
-    }
-    const ph = d.phase === "ready" ? 1 : d.phase === "fight" ? 2 : 3;
-    [a, b].forEach((q, i) => { if (q && (i ? bOk : aOk)) { q.dph = ph; q.dtl = Math.max(0, d.t); } });
-    return true;
-  });
-}
+const duelEngine={config:DUEL,rings:MAPS.arena.rings,sys,name:(g,pi)=>nameOf(g,pi),fx,honorGain,win:(g,h)=>advDuelWin(advEngine,g,h),map:id=>MAPS[id],plaza:{map:'plaza',x:MAPS.plaza.spawn[0],y:MAPS.plaza.spawn[1]}};
+export const rpgDuel=(g,pi,req)=>duelInput(duelEngine,g,pi,req);
+const tickDuels=(g,dt)=>tickDuelMatches(duelEngine,g,dt);
 
 function nearMobs(g, map, x, y, range, n = Infinity) {
   const out = [];
@@ -1657,6 +1549,13 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
 }
 
 // 기사 수호의 방패 도발(advance.js shieldWave) — 도발한 기사가 같은 맵에 서 있는 동안 다른 사람이 쳐도 노리는 대상이 바뀌지 않는다
+function tauntAround(g,h,r,t){
+  for(const o of foesNear(g,h,h.x,h.y,r)){
+    if(isHeroT(o)){o.tauntBy=h.pi;o.tauntT=t;o.dash=0;o.inputAim=null;}
+    else if(o.type!=='dummy'){o.tgt=h.pi;o.taunt=t;}
+  }
+  fx(g,h.map,{kind:'call',x:h.x,y:h.y-100,text:'도발',color:'#ffc98c',t:.8,life:.8});
+}
 const taunted = (g, m, pi) => { if (!(m.taunt > 0) || m.tgt === pi) return false; const k = g.heroes[m.tgt]; return !!k && k.map === m.map && k.down <= 0; };
 
 /* 몹을 잡았다 — 그 몹을 한 번이라도 친 사람 가운데 같은 맵에 있는 사람이 모두 경험치 · 코인을 다 받는다(막타만이 아니다).
@@ -1686,16 +1585,21 @@ function killMob(g, m, pi) {
   got.forEach((h) => rewardKill(g, m, h, h.pi === pi));
   advOnKill(advEngine, g, m, got);                // 전직 시험 — 총사 사냥 도감
   // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
-  const part = Math.max(1, Math.round(m.xp * PARTY.share));
+  const part = m.xp * PARTY.share;
   const ptys = new Set(got.filter((h) => h.pty).map((h) => h.pty));
   g.heroes.forEach((o) => {
     if (!o || !o.loaded || !o.pty || !ptys.has(o.pty) || o.map !== m.map || got.includes(o)) return;
-    fx(g, o.map, { kind: "text", x: o.x, y: o.y - 100, text: `+${part} XP 파티`, color: "#a9e79c", t: 0.9, life: 0.9, who: o.pi });
-    giveXp(g, o, part);
+    fx(g, o.map, { kind: "text", x: o.x, y: o.y - 100, text: `+${Math.round(huntingXp(o,m,part)*100)/100} XP 파티`, color: "#a9e79c", t: 0.9, life: 0.9, who: o.pi });
+    giveXp(g, o, huntingXp(o,m,part));
   });
   if (m.boss) dropLoot(g, got, m);
 }
 // 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
+export function huntingXp(h,m,amount=m.xp){
+  const sp=SPAWNS.filter(s=>s.map===m.map&&Array.isArray(s.lv));
+  const top=sp.length?Math.max(...sp.map(s=>s.lv[1])):Infinity;
+  return amount*(h.lv>top?COMBAT_RULES.lowAreaXp:1);
+}
 function rewardKill(g, m, h, last) {
   if (trading(h)) return;
   h.kills += 1;
@@ -1703,21 +1607,24 @@ function rewardKill(g, m, h, last) {
   h.rec[m.type] += 1;
   if (m.boss) h.rec.boss += 1;
   if (h.pty) h.rec.party += 1;
-  fx(g, m.map, { kind: "text", x: last ? m.x : h.x, y: last ? m.y - 16 : h.y - 100, text: `+${m.xp} XP · +${m.coin} 코인`, color: "#f3d27f",
+  const xp=huntingXp(h,m);
+  fx(g, m.map, { kind: "text", x: last ? m.x : h.x, y: last ? m.y - 16 : h.y - 100, text: `+${Math.round(xp*100)/100} XP · +${m.coin} 코인`, color: "#f3d27f",
     t: 0.9, life: 0.9, snd: "coin", who: h.pi });
-  giveXp(g, h, m.xp);
+  giveXp(g, h, xp);
   const healed = armorOnKill(h, m.boss);          // 영웅 · 전설 투구 — 잡으면 회복
   if (healed > 0) fx(g, h.map, { kind: "heal", x: h.x, y: h.y - 56, text: `+${Math.round(healed)}`, t: 0.8, life: 0.8, who: h.pi });
   huntReq(g, h, m);
   if (h.quest.on && m.type === "rabbit") {
     h.quest.n += 1;
     if (h.quest.n >= QUEST.need) {
+      const coinOnly=h.quest.coinOnly??(h.lv>QUEST.lv);
       h.quest = { on: false, n: 0 };
       h.coins += QUEST.coin;
       h.rec.quest += 1;
-      fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `퀘스트 완료! +${QUEST.xp} XP · +${QUEST.coin} 코인`,
+      const questXp=coinOnly?0:QUEST.xp;
+      fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `퀘스트 완료! +${questXp} XP · +${QUEST.coin} 코인`,
         color: "#a9e79c", t: 1.4, life: 1.4, snd: "clear", who: h.pi });
-      giveXp(g, h, QUEST.xp);
+      if(questXp)giveXp(g, h, questXp);
     }
   }
 }
@@ -1779,7 +1686,7 @@ export function rpgRequest(g, pi, req) {
     if (h.lv < q.lv) return void sys(g, pi, `레벨 ${q.lv}부터 받을 수 있습니다.`);
     if (!metNpc(h, npc.id) && !reqNear(h, npc.id)) return void sys(g, pi, `처음에는 광장의 ${npc.name}에게 말을 걸어 받아야 합니다.`);
     meetNpc(h, npc.id);
-    h.reqs[npc.id] = { i, n: 0 };
+    h.reqs[npc.id] = { i, n: 0, coinOnly:h.lv>q.lv };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "의뢰 받음", color: "#ffe08a", t: 0.9, life: 0.9, snd: "build", who: pi });
     return true;
   }
@@ -1801,9 +1708,10 @@ export function rpgRequest(g, pi, req) {
     delete h.reqs[npc.id];
     h.coins += q.coin || 0;
     h.rec.req += 1;
-    const got = Object.entries(q.mats || {}).map(([id, n]) => `${MAT_BY_ID[id].name} ${addMat(h.bag, id, n)}개`);
-    const xp = Math.max(1, Math.round(needXp(h.lv) * (q.xp || 0)));
-    const parts = [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", h.lv < LV_MAX ? `경험치 ${xp}` : "", ...got].filter(Boolean);
+    const lowQuest=cur.coinOnly??(h.lv>q.lv);
+    const got = Object.entries(lowQuest?{}:(q.mats || {})).map(([id, n]) => `${MAT_BY_ID[id].name} ${addMat(h.bag, id, n)}개`);
+    const xp = lowQuest?0:Math.max(1, Math.round(needXp(h.lv) * (q.xp || 0)));
+    const parts = [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", xp&&h.lv < LV_MAX ? `경험치 ${xp}` : "", ...got].filter(Boolean);
     fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "의뢰 완료!", color: "#a9e79c", t: 1.4, life: 1.4, snd: "clear", who: pi });
     sys(g, pi, `${npc.name}의 의뢰를 끝냈습니다. ${parts.join(" · ")}`);
     giveXp(g, h, xp);
@@ -1813,6 +1721,7 @@ export function rpgRequest(g, pi, req) {
 }
 
 function giveXp(g, h, amt) {
+  const beforePoints=statEarned(h.lv);
   h.xp += amt;
   let up = 0;
   while (h.lv < LV_MAX && h.xp >= needXp(h.lv)) {
@@ -1825,16 +1734,18 @@ function giveXp(g, h, amt) {
   if (h.lv >= LV_MAX) h.xp = 0;
   if (!up) return;
   // 레벨업 연출 — 빛기둥 · 고리 · 반짝이 · 글자(art.js "lvup"). 여러 레벨이 한꺼번에 올라도 한 번만. 소리는 그 사람에게만
-  fx(g, h.map, { kind: "lvup", x: h.x, y: h.y, text: `Lv ${h.lv} · 스탯 +${STAT_PER_LV * up}`, t: 1.8, life: 1.8, snd: "lvup", who: h.pi });
+  fx(g, h.map, { kind: "lvup", x: h.x, y: h.y, text: `Lv ${h.lv} · 스탯 +${statEarned(h.lv)-beforePoints}`, t: 1.8, life: 1.8, snd: "lvup", who: h.pi });
   fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 10, r: 70, color: "#ffe08a", n: 14, t: 0.7, life: 0.7 });
 }
 
-function hurtHero(g, h, raw) {
+function hurtHero(g, h, raw, source) {
   if (!h || h.down > 0 || MAPS[h.map].safe) return;
   if (h.inv > 0) {                                // 대쉬로 피했다
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
     return;
   }
+  const defended=advTakeCut(h,0)>0||armorTakeMul(h)<1||h.guard>0||h.jb?.iron>0||h.as?.gT>0||h.as?.pT>0||h.as?.blT>0;
+  if(source?.boss)raw*=COMBAT_RULES.bossDamage*(defended?COMBAT_RULES.defendedBossDamage:1);
   let dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더)
   dmg = worldArmorAbsorb(h, dmg);
   dmg = skillTake(g, h, dmg);                     // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세
@@ -2174,8 +2085,9 @@ function lungeTo(h, o, time) {
   h.face = 0;
   h.dash = time; h.inv = Math.max(h.inv || 0, time + 0.1);
 }
-// 손님 화면에서 먼저 그리는 급소 찌르기 돌진 — 방장 판정과 같은 상대를 고른다. 판정(피해)은 방장만 한다
+// 손님 화면에서 먼저 그리는 직업 돌진 베기 — 방장 판정과 같은 상대를 고른다. 판정(피해)은 방장만 한다
 export function predictLunge(g, h, id) {
+  if(id==="pierce")return false;
   const s = ACTIVE_SKILLS.find((q) => q.id === id);
   const L = s && s.use.lunge;
   const leap = s && s.use.kind === "leap";        // 후퇴 사격도 먼저 물러나 그린다
@@ -2183,7 +2095,7 @@ export function predictLunge(g, h, id) {
   const pvp = isPvp(h.map);
   if (pvp && h.dph !== 2) return false;
   if (leap) { lungeTo(h, leapSpot(g, h, s.use), s.use.time); h.fixX = 0; h.fixY = 0; h.predict = 0.6; return true; }
-  let o = pvp ? g.heroes[h.dvs] : foesNear(g, h, h.x, h.y, L.reach, 1)[0];
+  let o = foesNear(g, h, h.x, h.y, L.reach, 1)[0];
   if (o && (o.map !== h.map || o.down > 0 || dist(h.x, h.y, o.x, o.y) - (isHeroT(o) ? 7 : (o.rad || 0) * 0.5) > L.reach)) o = null;
   if (!o) {                                        // 아무도 없으면 겨눈 쪽으로 끝까지 — 방장 판정과 같다
     const [tx, ty] = aimAt(h, L.reach);
@@ -2202,6 +2114,7 @@ function dashStep(h, dt) {
   keepIn(h, MAPS[h.map], 20);
 }
 export function rpgDash(g, pi, aim) {
+  if(g.heroes[pi]?.tauntT>0)return;
   const h = g.heroes[pi];
   if (!h || !h.loaded || h.down > 0 || stormBusy(h)) return;
   if ((h.dashCd || 0) > 0) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
@@ -2226,7 +2139,8 @@ export function rpgUseSkill(g, pi, id) {
   h.scd = h.scd || {};
   if (h.scd[id] > 0) return say(g, map, h.x, h.y - 90, `${s.name} ${Math.ceil(h.scd[id])}초`, "#f0dcb4");
   const u = s.use;
-  const i = Math.min(lv, (u.mul || u.heal || u.cut || u.amt).length) - 1;
+  const i = Math.min(lv, (u.mul || u.heal || u.cut || u.amt || s.gold).length) - 1;
+  if (isPvp(map)&&id==="aid")return say(g,map,h.x,h.y-90,"결투장에서는 응급 처치를 쓸 수 없습니다","#d9c9a6");
   if (u.heal) {                                    // 응급 처치 — 어디서나 쓸 수 있다
     if (h.hp >= h.max) return say(g, map, h.x, h.y - 90, "체력이 이미 가득 찼습니다", "#d9c9a6");
     const before = h.hp;
@@ -2247,7 +2161,7 @@ export function rpgUseSkill(g, pi, id) {
       const list = foesNear(g, h, h.x, h.y, u.radius);
       list.forEach(strike);                        // 닿는 것이 없어도 쓴다
       fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
-    } else if (u.lunge) {                          // 급소 찌르기 — 가장 가까운 적 앞까지 돌진해 찌른다
+    } else if (u.lunge) {                          // 직업 돌진 베기 — 가장 가까운 적 앞까지 돌진해 찌른다
       const L = u.lunge;
       const [m] = foesNear(g, h, h.x, h.y, L.reach, 1);
       const x0 = h.x, y0 = h.y;
@@ -2264,7 +2178,7 @@ export function rpgUseSkill(g, pi, id) {
       g.hits.push(isHeroT(m) ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
       }
     } else {                                       // 가장 가까운 하나
-      const reach = heroRange(h) * SKILL_USE.reach;
+      const reach = u.reach || heroRange(h) * SKILL_USE.reach;
       const [m] = foesNear(g, h, h.x, h.y, reach, 1);
       // 아무도 없으면 겨눈 쪽 사거리 끝을 친다(맞는 것은 없다)
       const [bx, by] = m ? [m.x, m.y] : aimAt(h, Math.min(reach, 140));
@@ -2347,7 +2261,7 @@ const skillBase = (h) => SKILL_USE.base * heroDmgMul(h);
 
 // 후퇴 사격이 물러날 자리 — 손님 화면도 같은 셈으로 먼저 그린다(predictLunge)
 function leapSpot(g, h, u) {
-  const [o] = isPvp(h.map) ? [g.heroes[h.dvs]].filter((q) => q && q.map === h.map) : foesNear(g, h, h.x, h.y, heroRange(h) * 1.5, 1);
+  const [o] = foesNear(g, h, h.x, h.y, heroRange(h) * 1.5, 1);
   let ax, ay;
   if (o) { const dx = h.x - o.x, dy = (h.y - o.y) / RPG.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
   else { const a = aimDir(h); ax = -a[0]; ay = -a[1]; }
@@ -2435,6 +2349,12 @@ function jobSkill(g, h, u, i, dmg) {
     const jb = jbOf(h);
     jb.iron = u.dur; jb.ironCut = u.cut[i];
     fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 70, color: "#cfd8e6", t: 0.7, life: 0.7, snd: "bless" });
+  } else if (u.kind === "empower") {
+    const C=COMBAT_RULES.circle;
+    g.powerCircles=(g.powerCircles||[]).filter(c=>c.by!==pi);
+    g.powerCircles.push({by:pi,owner:h.who,map:h.map,x:h.x,y:h.y,r:C.radius,t:C.duration});
+    refreshPowerCircles(g);
+    fx(g,map,{kind:'sigil',x:h.x,y:h.y,r:C.radius,color:'#b9d3f1',t:.7,life:.7,snd:'bless'});
   } else if (u.kind === "shield") {               // 마나 보호막
     const jb = jbOf(h);
     jb.sh = Math.round(h.max * u.amt[i]); jb.shT = u.dur;
@@ -2480,7 +2400,7 @@ const ccAny = (g, h, o, c) => (isHeroT(o) ? ccHero(o, c) : ccMob(o, c));
 const ccOn = (o) => !!o && (o.cc ? o.cc.stun > 0 || o.cc.air > 0 || o.cc.root > 0 : o.stun > 0 || o.air > 0 || o.bind > 0 || o.freeze > 0);
 const branded = (o) => !!o && (o.cc ? o.cc.brand > 0 : o.brand > 0);
 const unbrand = (o) => { if (o.cc) o.cc.brand = 0; else o.brand = 0; };
-const aliveFoe = (g, h, o, map) => !!o && o.map === map && (isHeroT(o) ? o.down <= 0 : !o.dead);
+const aliveFoe = (g,h,o,map)=>!!o&&o.map===map&&(isHeroT(o)?o.down<=0&&(!isPvp(map)||duelOpponents(g,h).includes(o)):!o.dead);
 // 내 자리에서 o 쪽 — 땅 비율을 뺀 단위 벡터(밀어낼 때)
 const awayFrom = (h, o, ax, ay) => {
   const dx = o.x - h.x, dy = (o.y - h.y) / RPG.squash, d = Math.hypot(dx, dy);
@@ -2842,6 +2762,7 @@ function packTrain(g, h) {
 // 160레벨 이상 몹이 나오는 맵 · 던전 · 월드보스 — 전직 시험을 세는 곳
 const advBigMap = (map) => { const M = MAPS[map]; return !!M && (!!M.dungeon || !!M.worldBoss || SPAWNS.some((sp) => sp.map === map && Array.isArray(sp.lv) && sp.lv[0] >= ADV.trialLv)); };
 const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc, soak, later,
+  healMul:empowerHealing, allies:duelAllies, taunt:(g,h,r,t)=>tauntAround(g,h,r,t),
   cc: ccAny, alive: aliveFoe, aim: aimTo, aimAt, end: lineEnd, newCast, squash: RPG.squash, bigMap: advBigMap,
   base: (h, k) => SKILL_USE.base * skillStatMul(h, k), elem: (h) => elemOf(h).id, locked: ccLocked,
   safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,
@@ -3277,6 +3198,7 @@ function zapBoom(g, h, o) {
 }
 /* ── 한 걸음 ───────────────────────────────────────────── */
 function stepHeroes(g, dt) {
+  refreshPowerCircles(g,dt);
   g.heroes.forEach((h) => {
     if (!h || trading(h)) return;
     setFxBy(h.pi);
@@ -3300,6 +3222,13 @@ function stepHeroes(g, dt) {
     h.inv = Math.max(0, (h.inv || 0) - dt);
     h.dashCd = Math.max(0, (h.dashCd || 0) - dt);
     h.pvpT = Math.max(0, (h.pvpT || 0) - dt);
+    h.tauntT=Math.max(0,(h.tauntT||0)-dt);
+    const forced=g.heroes[h.tauntBy];
+    if(h.tauntT>0&&forced&&forced.map===h.map&&forced.down<=0&&isPvp(h.map)){
+      const dx=forced.x-h.x,dy=(forced.y-h.y)/RPG.squash;
+      h.hold=dist(h.x,h.y,forced.x,forced.y)>75?[...(Math.abs(dx)>20?[dx>0?'right':'left']:[]),...(Math.abs(dy)>20?[dy>0?'down':'up']:[])]:[];
+    }else if(h.tauntBy>=0){h.tauntBy=-1;h.tauntT=0;h.hold=[];}
+
     if (h.down > 0) {
       if (h.dvs >= 0) return;                     // 결투에서 쓰러졌다 — 결투가 끝나면 원래 자리로 돌아간다(tickDuels)
       h.down -= dt;
@@ -3343,6 +3272,7 @@ function stepHeroes(g, dt) {
 // 몹이 이 사람을 알아채는가 — 투명화 물약을 마신 사람은 보스도 일반 몹도 알아채지 못한다(공격해도 그대로)
 const notices = (m, h) => !buffLeft(h, "hide");
 function nearestHero(g, m, range) {
+  const forced=g.heroes[m.tgt];if(m.taunt>0&&forced?.map===m.map&&forced.down<=0)return forced;
   let best = null, bd = range;
   g.heroes.forEach((h) => {
     if (!h || h.down > 0 || h.map !== m.map || !notices(m, h)) return;
@@ -3416,7 +3346,7 @@ function stepRabbit(g, m, dt) {
   if (m.state === "charge") {
     const tg = g.heroes[m.tgt];
     if (tg && tg.map === m.map && tg.down <= 0 && notices(m, tg) && dist(m.x, m.y, tg.x, tg.y) < m.rad + 13) {
-      hurtHero(g, tg, m.dmg);
+      hurtHero(g, tg, m.dmg, m);
       fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 24, r: 16 * m.size, color: "#ffd7c2", n: 5, t: 0.25, life: 0.25 });
       m.bumpCd = m.boss ? 2.4 : 3.5;
       m.state = "flee"; m.t = 0.5; m.vx = -m.vx * 0.6; m.vy = -m.vy * 0.6;
@@ -3471,7 +3401,7 @@ function stepWolf(g, m, dt) {
           ? g.heroes.filter((h) => h && h.map === m.map && h.down <= 0 && dist(m.x, m.y, h.x, h.y) < reach * 1.7 && notices(m, h))
           : [tg];
         list.forEach((h) => {
-          hurtHero(g, h, m.dmg);
+          hurtHero(g, h, m.dmg, m);
           fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 18, color: "#ffb4a8", n: 6, t: 0.3, life: 0.3 });
         });
         m.biteCd = m.boss ? 1.6 : 1.3;
@@ -3529,7 +3459,7 @@ function stepBoar(g, m, dt) {
       if (!h || h.map !== m.map || h.down > 0 || m.hitSet.includes(h.pi) || !notices(m, h)) return;
       if (dist(m.x, m.y, h.x, h.y) > m.rad + 18) return;
       m.hitSet.push(h.pi);
-      hurtHero(g, h, m.dmg * BOAR.chargeMul);
+      hurtHero(g, h, m.dmg * BOAR.chargeMul, m);
       fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22 * m.size, color: "#ffc9a0", n: 7, t: 0.32, life: 0.32 });
     });
     m.t -= dt;
@@ -3568,7 +3498,7 @@ function stepBoar(g, m, dt) {
     } else {
       m.moving = 0;
       if (m.biteCd <= 0) {
-        hurtHero(g, tg, m.dmg);
+        hurtHero(g, tg, m.dmg, m);
         fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 26, r: 18, color: "#ffc9a0", n: 6, t: 0.3, life: 0.3 });
         m.biteCd = m.boss ? 1.4 : 1.6;
         m.bite = 0.25;
@@ -3615,7 +3545,7 @@ function stepBrute(g, m, dt, P) {
       const r = P.slamR * (m.boss ? 1.35 : 1);
       g.heroes.forEach((h) => {
         if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16 || !notices(m, h)) return;
-        hurtHero(g, h, m.dmg * P.slamMul);
+        hurtHero(g, h, m.dmg * P.slamMul, m);
         fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22, color: "#d8cbb8", n: 7, t: 0.32, life: 0.32 });
       });
       fx(g, m.map, { kind: "ring", x: m.x, y: m.y, r, color: "#cbb79a", t: 0.45, life: 0.45 });
@@ -3668,7 +3598,7 @@ function stepBrute(g, m, dt, P) {
     } else {
       m.moving = 0;
       if (m.biteCd <= 0) {                          // 한 대
-        hurtHero(g, tg, m.dmg);
+        hurtHero(g, tg, m.dmg, m);
         fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 26, r: 18, color: "#d8cbb8", n: 6, t: 0.3, life: 0.3 });
         m.biteCd = P.punchCd * (m.boss ? 0.85 : 1);
         if (!P.slamRange) m.bite = 0.2;             // 고블린 — 찌르는 모습(그림만)
@@ -3716,7 +3646,7 @@ function farLand(g, m, map, x, y, r, S, once) {
     if (!h || h.map !== map || h.down > 0 || dist(x, y, h.x, h.y) > r + 16 || !notices(m, h) || once.has(h.pi)) return;
     once.add(h.pi);
     const dodged = h.inv > 0;                        // 대쉬로 피했으면 상태이상도 없다
-    hurtHero(g, h, dmg);
+    hurtHero(g, h, dmg, m);
     if (dodged) return;
     if (S.slow) ccHero(h, { slow: S.slow, slowAmt: S.slowAmt });
     if (S.root) ccHero(h, { bind: m.boss ? S.rootBoss : S.root });
@@ -3745,7 +3675,7 @@ function farSkill(g, m, S) {
         : Math.hypot(dx, dy) < len + 16 && along > 0 && Math.atan2(side, along) < S.arc;
       if (!hit) return;
       const dodged = h.inv > 0;
-      hurtHero(g, h, m.dmg * S.mul);
+      hurtHero(g, h, m.dmg * S.mul, m);
       if (!dodged && S.kb) ccHero(h, { kb: [m.fax, m.fay, S.kb] });
     });
     fx(g, map, { kind: S.kind === "quake" ? "sk_mquake" : "sk_mbreath", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, w, arc: S.arc, ph: 1, t: 0.6, life: 0.6, snd: "boom", style: S.style, color: S.color });
@@ -3789,7 +3719,7 @@ function bossHit(g, m, r, mul, color) {
   let n = 0;
   g.heroes.forEach((h) => {
     if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16 || !notices(m, h)) return;
-    hurtHero(g, h, m.dmg * mul);
+    hurtHero(g, h, m.dmg * mul, m);
     n += 1;
     fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 24, color, n: 8, t: 0.35, life: 0.35 });
   });
@@ -3868,7 +3798,7 @@ function stepDgBoss(g, m, dt) {
       if (!h || h.map !== m.map || h.down > 0 || m.hitSet.includes(h.pi) || !notices(m, h)) return;
       if (dist(m.x, m.y, h.x, h.y) > m.rad + q.width * 0.5) return;
       m.hitSet.push(h.pi);
-      hurtHero(g, h, m.dmg * q.mul);
+      hurtHero(g, h, m.dmg * q.mul, m);
       h.x += (m.vx / len) * q.push; h.y += (m.vy / len) * q.push * RPG.squash;
       keepIn(h, MAPS[h.map], 20);
       fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22, color: "#ffb36a", n: 8, t: 0.32, life: 0.32, snd: "boom" });
@@ -3903,7 +3833,7 @@ function stepDgBoss(g, m, dt) {
       for (let n = 0; n < k.n; n++) {
         const a = (n / k.n) * Math.PI * 2;
         const x = m.x + Math.cos(a) * 150, y = m.y + Math.sin(a) * 110;
-        const q2 = dgMobBody(g.nextId++, m.map, k.mob || D.mob, D.lv[0], 0, x, y);
+        const q2 = dgMobBody(g.nextId++, m.map, k.mob || D.mob, D.lv[0], 0, x, y, g.runs.find(r=>r.map===m.map)?.hpScale||1);
         keepMob(q2);
         g.mobs.push(q2);
         fx(g, m.map, { kind: "poof", x: q2.x, y: q2.y - 6, t: 0.5, life: 0.5, color: "rgba(140,230,170,1)" });
@@ -3931,7 +3861,7 @@ function stepDgBoss(g, m, dt) {
   } else {
     m.moving = 0;
     if (m.biteCd <= 0) {                             // 한 대
-      hurtHero(g, tg, m.dmg);
+      hurtHero(g, tg, m.dmg, m);
       fx(g, m.map, { kind: "burst", x: tg.x, y: tg.y - 26, r: 20, color: "#ff9a5a", n: 7, t: 0.3, life: 0.3 });
       m.biteCd = A.punchCd / (m.rage ? m.rageSpd : 1);
       m.bite = 0.3;
@@ -4065,8 +3995,8 @@ export function rpgDungeon(g, pi, req) {
   if(req.ticket){h.bag.m.dungeon_ticket--;h.bag.v++;}
   else if (!h.admin) h.coins -= d.fee;
   g.mobs = g.mobs.filter((m) => m.map !== map);
-  g.runs.push({ id: d.id, slot, map, t: DUNGEON.time, wave: 0, phase: "go", end: 0, gap: DUNGEON.waveGap });
-  const crew = dgCrew(g, h);
+  const crew = dgCrew(g, h), hpScale=Math.max(1,Math.max(...crew.map(o=>o.lv))/COMBAT_RULES.dungeonScaleLevel);
+  g.runs.push({ hpScale, id: d.id, slot, map, t: DUNGEON.time, wave: 0, phase: "go", end: 0, gap: DUNGEON.waveGap });
   crew.forEach((o, i) => {
     const [sx, sy] = MAPS[map].spawn;
     o.map = map; o.x = sx + (i % 2) * 60; o.y = sy + (i - 1.5) * 50; o.gateCd = 1;
@@ -4089,7 +4019,7 @@ function spawnWave(g, r, d) {
     const side = Math.floor(Math.random() * 3);   // 0 위 · 1 아래 · 2 오른쪽
     const x = side === 2 ? M.w - 80 : M.w * (0.3 + Math.random() * 0.6);
     const y = side === 0 ? M.top + 30 : side === 1 ? M.h - 60 : M.top + 80 + Math.random() * (M.h - M.top - 160);
-    const m = dgMobBody(g.nextId++, r.map, d.mob, lv, 0, x, y);
+    const m = dgMobBody(g.nextId++, r.map, d.mob, lv, 0, x, y, r.hpScale||1);
     m.state = "idle"; m.t = Math.random() * 0.4;
     g.mobs.push(m);
   }
@@ -4148,7 +4078,7 @@ function tickRuns(g, dt) {
       r.wave += 1;
       r.phase = "boss";
       const B = d.boss;
-      g.mobs.push(dgMobBody(g.nextId++, r.map, B.type, B.lv, 1, DUNGEON.w * 0.78, 800));
+      g.mobs.push(dgMobBody(g.nextId++, r.map, B.type, B.lv, 1, DUNGEON.w * 0.78, 800, r.hpScale||1));
       dgCall(g, r, `${MOB[B.type].boss.name} 등장`, "#ff9a7a", "boss");
     }
     return true;
@@ -4334,15 +4264,17 @@ export function rpgPack(g) {
         TITLES.reduce((bits, t, i) => (i < TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << i) : bits), 0),
         REC_IDS.map((k) => h.rec[k]), heldSpecial(h),
         h.honor || 0, h.duelInv ? h.duelInv.from : -1, h.dvs, h.dph, r1(h.dtl || 0), h.ring,
-        REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n] : 0)), h.gift === GIFT.id ? 1 : 0,
+        REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n,(h.reqs[n.id].coinOnly??(h.lv>REQUESTS[n.id][h.reqs[n.id].i].lv))?1:0] : 0)), h.gift === GIFT.id ? 1 : 0,
         (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt ?? g.t)) * 1000) : 0,
         packArmor(h),
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
         packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0, h.ts || 0, trading(h) ? h.trade : null,h.guild||null,
-        packAdv(h)]                                 // 53 — 1차 전직 · 시험 · 전직 스킬 상태(advance.js)
+        packAdv(h),                             // 53 — 전직 상태
+        {team:h.duelTeam,size:h.duelSize||0,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0}] // 54 — 결투 팀·물약·도발·의뢰·마법진 상태
       : 0)),
     b: packBags(g),
     w: g.heroes.map((h) => (h && h.who) || ""),    // 자리마다 앉은 사람 id — 손님이 제 자리 영웅인지 견준다(남의 기록을 제 것으로 저장하지 않게)
+    duels:structuredClone(g.duels),powerCircles:structuredClone(g.powerCircles||[]),
     wb: structuredClone(g.wb), wbServer:g.wbServer,gr:structuredClone(g.gruns||[]),grr:structuredClone(g.gresults||[]),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
     // 몹은 사람이 있는 맵의 것만 — 사냥터가 늘어 모두 보내면 메시지가 너무 커진다(손님은 제 맵만 그린다)
@@ -4352,13 +4284,14 @@ export function rpgPack(g) {
         | (m.air > 0 ? 128 : 0) | (m.brand > 0 ? 256 : 0) | (m.bind > 0 ? 512 : 0) | (m.wkUntil > g.t ? 1024 : 0),   // 1024 명사수 약점 표식
       m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0, m.warnR || 0,
       // 보스는 체력을 그대로도 싣는다 — 손님 체력바가 1% 단위로 끊기지 않게
-      m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0]),
+      m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0, r1(m.taunt||0),m.tgt]),
     // 던전 — [던전 차례, 칸, 남은 초, 무리 차례, 단계, 돌아가기까지 남은 초]
-    d: g.runs.map((r) => [DUNGEONS.findIndex((q) => q.id === r.id), r.slot, Math.ceil(r.t), r.wave, RUN_PHASES.indexOf(r.phase), r1(r.end)]),
+    d: g.runs.map((r) => [DUNGEONS.findIndex((q) => q.id === r.id), r.slot, Math.ceil(r.t), r.wave, RUN_PHASES.indexOf(r.phase), r1(r.end),r.hpScale||1]),
   };
 }
 
 export function rpgApply(g, s) {
+  if(s.duels)g.duels=structuredClone(s.duels);if(s.powerCircles)g.powerCircles=structuredClone(s.powerCircles);
   if(s.wb)g.wb=structuredClone(s.wb);
   if(s.gr)g.gruns=structuredClone(s.gr);if(s.grr)g.gresults=structuredClone(s.grr);
   if(s.wbServer)g.wbServer=s.wbServer;
@@ -4367,6 +4300,7 @@ export function rpgApply(g, s) {
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
+    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.duelInv=extra.inv?structuredClone(extra.inv):null;}
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;
@@ -4406,7 +4340,7 @@ export function rpgApply(g, s) {
     if (Array.isArray(row[21])) STAT_IDS.forEach((k, i) => { h.st[k] = row[21][i] || 0; });
     h.hp = row[3]; h.max = row[4]; h.down = row[5]; h.lv = row[6]; h.xp = row[7]; h.sk = row[8];
     if (row[9]) h.swing = Math.max(h.swing, 0.2);
-    h.coins = row[11]; h.quest = { on: !!row[12], n: row[13] }; h.kills = row[14];
+    h.coins = row[11]; h.quest = { on: !!row[12], n: row[13],coinOnly:row[54]?.questCoinOnly }; h.kills = row[14];
     if (row[15]) h.flash = 0.15;
     h.loaded = row[16]; h.buff = row[17] ? 0.3 : 0; h.guard = row[18] ? 0.3 : 0; h.auto = row[19] ? 1 : 0;
     applyBuffs(h, row[22]);
@@ -4427,7 +4361,7 @@ export function rpgApply(g, s) {
     if (row.length > 33) h.wsp = row[33] || "";      // 장착한 특별 무기 — 그림에 들려 그린다
     if (row.length > 39) {                         // 명예 · 결투
       h.honor = row[34] || 0;
-      h.duelInv = row[35] >= 0 ? { from: row[35], t: h.duelInv && h.duelInv.from === row[35] ? h.duelInv.t : DUEL.reqT } : null;
+      h.duelInv = row[54]?h.duelInv:row[35] >= 0 ? { from: row[35], t: h.duelInv && h.duelInv.from === row[35] ? h.duelInv.t : DUEL.reqT } : null;
       h.dvs = row[36]; h.dph = row[37]; h.dtl = row[38]; h.ring = row[39];
     }
     if (row.length > 41) h.gift = row[41] ? GIFT.id : "";   // 이번 업데이트 선물을 받았는지
@@ -4441,17 +4375,17 @@ export function rpgApply(g, s) {
     }   // 전설 무기 · 직업 스킬 — 불똥 · 별빛 · 분노 · 수호 · 철벽 · 보호막
     if (Array.isArray(row[40])) {                  // 맡은 광장 의뢰
       h.reqs = {};
-      REQ_NPCS.forEach((n, i) => { const r = row[40][i]; if (r) h.reqs[n.id] = { i: r[0], n: r[1] }; });
+      REQ_NPCS.forEach((n, i) => { const r = row[40][i]; if (r) h.reqs[n.id] = { i: r[0], n: r[1],coinOnly:r.length>2?!!r[2]:undefined }; });
     }
   });
   const seen = new Set();
   if (Array.isArray(s.d)) {
-    g.runs = s.d.map(([di, slot, t, wave, ph, end]) => {
+    g.runs = s.d.map(([di, slot, t, wave, ph, end, hpScale=1]) => {
       const d = DUNGEONS[di];
-      return d ? { id: d.id, slot, map: dgMapId(d.id, slot), t, wave, phase: RUN_PHASES[ph] || "go", end, gap: 1 } : null;
+      return d ? { id: d.id, slot, map: dgMapId(d.id, slot), t, wave, phase: RUN_PHASES[ph] || "go", end, hpScale, gap: 1 } : null;
     }).filter(Boolean);
   }
-  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax]) => {
+  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax, taunt=0, target=-1]) => {
     seen.add(id);
     let m = g.mobs.find((q) => q.id === id);
     if (!m) {
@@ -4462,6 +4396,7 @@ export function rpgApply(g, s) {
       g.mobs.push(m);
     }
     m.bite = bite ? 0.25 : 0;
+    m.taunt=taunt;m.tgt=target;
     m.pose = pose || 0; m.warnR = warnR || 0;
     m.tx = x; m.ty = y;
     if (Math.hypot(x - m.x, y - m.y) > 160) { m.x = x; m.y = y; }
@@ -4546,7 +4481,7 @@ export function rpgStepVisual(g, dt) {
 }
 
 // 월드보스는 기존 방장 판정과 연출 묶음을 사용한다.
-const worldBossEngine={body:bodyOf,fx,hurt:hurtHero,plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
+const worldBossEngine={body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
 export function rpgWorldBoss(g,pi,req){return worldBossInput(worldBossEngine,g,pi,req);}
 
 const guildEngine={...worldBossEngine,refresh:h=>refreshHp(h,false)};

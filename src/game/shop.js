@@ -425,6 +425,13 @@ export function whyPotionUse(h, id) {
   const p = POTION_BY_ID[id];
   if (!p) { out.push("없는 물약입니다"); return out; }
   if (!h || !h.bag) return out;
+  if(MAPS[h.map]?.pvp){
+    if(id!=='heal_s')out.push('결투용 회복 물약 (소)만 사용할 수 있습니다');
+    else if(h.dph!==2)out.push('결투 시작 후 사용할 수 있습니다');
+    else if(!(h.duelPotions>0))out.push('결투용 물약을 모두 사용했습니다');
+    else if(h.hp>=h.max)out.push('체력이 이미 가득 찼습니다');
+    return out;
+  }
   if (!(h.bag.p[id] > 0)) out.push("가지고 있지 않습니다");
   else if (p.kind === "heal" && h.hp >= h.max) out.push("체력이 이미 가득 찼습니다");
   else if (p.kind === "reset" && statSpent(h.st) <= 0) out.push("돌려받을 스탯 포인트가 없습니다");
@@ -628,10 +635,11 @@ export function rpgShop(g, pi, req) {
     const id = req.id;
     if ((why = whyPotionUse(h, id)).length) return no(g, pi, why);
     const p = POTION_BY_ID[id];
-    h.bag.p[id] -= 1;
-    if (h.bag.p[id] <= 0) delete h.bag.p[id];
+    const duel=!!MAPS[h.map]?.pvp;
+    if(duel)h.duelPotions--;
+    else { h.bag.p[id] -= 1;if (h.bag.p[id] <= 0) delete h.bag.p[id]; }
     bump(h);
-    const great = (p.kind === "heal" || p.kind === "buff") && Math.random() < POTION.greatChance;
+    const great = !duel && (p.kind === "heal" || p.kind === "buff") && Math.random() < POTION.greatChance;
     const mul = great ? POTION.greatMul : 1;
     let msg = "";
     if (p.kind === "heal") {

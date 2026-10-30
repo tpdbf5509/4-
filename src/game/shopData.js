@@ -142,9 +142,9 @@ export const SKILLS = [...[
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [30, 40, 50, 60, 70] },
   { id: "mana", name: "마나 친화", kind: "passive", fam: "magic", note: "마법력이 오른다", bonus: { stat: "int", per: 4 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [20, 30, 40, 50, 60] },
-  { id: "pierce", name: "급소 찌르기", kind: "active", fam: "crit", note: "가장 가까운 적에게 돌진해 찌른다 · 반드시 치명타가 터진다",
-    // lunge — reach 안의 가장 가까운 적 앞까지 time 초에 달려가 찌른다. 달려가는 동안은 맞지 않는다
-    use: { key: 3, cd: 8, dmg: "job", crit: 1, mul: [2.2, 2.6, 3, 3.4, 3.8], lunge: { reach: 320, time: 0.18 } },
+  { id: "pierce", name: "급소 찌르기", kind: "active", fam: "crit", note: "제자리에서 가까운 적을 찌른다 · 반드시 치명타가 터진다",
+    // 급소 찌르기는 제자리 근접 공격이다. 돌진 베기의 lunge와 분리한다.
+    use: { key: 3, cd: 8, dmg: "job", crit: 1, reach: 100, mul: [2.2, 2.6, 3, 3.4, 3.8] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [10, 15, 20, 25, 30] },
   { id: "eye", name: "날카로운 눈", kind: "passive", fam: "crit", note: "치명타 확률이 오른다", bonus: { stat: "crit", per: 1 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [8, 12, 16, 20, 24] },

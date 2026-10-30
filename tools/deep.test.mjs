@@ -19,10 +19,10 @@ const sysOf = (g, pi) => g.out.filter((o) => o.k === 'sys' && o.who === pi).map(
 const atDoor = (h) => { h.map = 'plaza'; h.x = DEEP.door.x + 40; h.y = DEEP.door.y + 20; };
 const full = () => Object.fromEntries(DEEP.recipe.map(([id, n]) => [id, n + 3]));
 
-test('최고 레벨 800 · 스탯 상한 800 — 800레벨 포인트로 두 스탯을 최대로', () => {
+test('최고 레벨 800 · 스탯 상한 800 — 400레벨 이후 3포인트로 총 2000', () => {
   assert.equal(LV_MAX, 800);
   assert.equal(STAT_MAX, 800);
-  assert.equal(statEarned(800), STAT_MAX * 2);
+  assert.equal(statEarned(800), 2000);
 });
 
 test('사냥터 8곳 · 몹 · 보스 수치 — 체력은 표 값 그대로(400레벨 11만 → 800레벨 15만), 공격은 FAR_EASE', () => {

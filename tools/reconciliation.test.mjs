@@ -86,9 +86,9 @@ test('starting a successful dash or lunge cancels a pending smooth correction', 
   h.fixX = -80; h.fixY = 20; h.dashCd = 0;
   assert.equal(predictDash(h), true);
   assert.equal(h.fixX, 0); assert.equal(h.fixY, 0);
-  h.dash = 0; h.map = 'train'; h.bag.s.pierce = 1; h.bag.ks.g = ['pierce', ''];
+  h.dash = 0; h.map = 'train'; h.job='warrior'; h.bag.s.j_rush=1; h.bag.ks.job='j_rush';
   h.fixX = -80; h.fixY = 20;
-  assert.equal(predictLunge(g, h, 'pierce'), true);
+  assert.equal(predictLunge(g, h, 'j_rush'), true);
   assert.equal(h.fixX, 0); assert.equal(h.fixY, 0);
 });
 

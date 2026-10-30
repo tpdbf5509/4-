@@ -1401,6 +1401,13 @@ kbd {
   position: absolute; left: 50%; top: 14px; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 12px;
   padding: 6px 8px 6px 14px; border-radius: 10px; font-size: 13px; color: #ecdfc4; letter-spacing: -0.02em; white-space: nowrap;
   background: #2a2119; border: 1px solid rgba(233, 160, 138, 0.55); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  max-width: calc(100% - 20px); flex-wrap: wrap; justify-content: center;
+}
+.rpg-duelbar-rule { font-size: 11px; }
+@media (max-width: 600px) {
+  .rpg-duelbar { top: 104px; width: calc(100% - 20px); gap: 4px 8px; padding: 5px; font-size: 11px; white-space: normal; }
+  .rpg-duelbar-rule { display: none; }
+  .rpg-duelbar .btn-ghost { font-size: 11px; padding: 4px 7px; }
 }
 .rpg-duelbar b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; color: #f0b8a4; }
 .rpg-duelbar-t { font-family: 'Do Hyeon', sans-serif; color: #e3c48a; }

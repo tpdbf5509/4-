@@ -25,7 +25,7 @@ import {
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
 import { pointerSkillAim, aimedSkillInput } from "./game/skillAim.js";
-import { canvasToWorld, pickNpc, npcStopPoint, MV_UI } from "./game/mouseMove.js";
+import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
@@ -132,7 +132,6 @@ const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.m
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 const AUTO_KEY = "flg:rpgAuto";
 const PVP_KEY = "flg:rpgPvp";
-const MOUSEMOVE_KEY = "flg:rpgMouseMove";   // 마우스 오른쪽 클릭 이동 — PC 에서는 처음부터 켜져 있다(mouseMove.js)
 const LOWFX_KEY = "flg:rpgLowFx";   // 연출 줄이기 — 느린 기기에서 남의 연출을 더 덜고 내 연출 알갱이도 줄인다(rpgArt.js CROWD.low)
 // 화면 칸(체력 · 버튼 · 창)을 다시 그리는 간격(ms) — 예전엔 5프레임마다(초당 12번) 그려 사람이 많을 때 손님 기기가 무거웠다
 const HUD_MS = 160;
@@ -144,9 +143,6 @@ function loadAuto() {
 // 사냥터 PvP 설정도 이 기기에 남긴다 — 처음엔 꺼져 있다
 function loadLowFx() {
   try { return localStorage.getItem(LOWFX_KEY) === "1"; } catch { return false; }
-}
-function loadMouseMove() {
-  try { return localStorage.getItem(MOUSEMOVE_KEY) !== "0"; } catch { return true; }
 }
 function loadPvp() {
   try { return localStorage.getItem(PVP_KEY) === "1"; } catch { return false; }
@@ -433,14 +429,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     try { localStorage.setItem(LOWFX_KEY, on ? "0" : "1"); } catch { /* 저장이 막혀 있으면 이번만 */ }
     return !on;
   }), []);
-  const toggleMouseMove = useCallback(() => setMouseMoveOn((on) => {
-    try { localStorage.setItem(MOUSEMOVE_KEY, on ? "0" : "1"); } catch { /* 저장이 막혀 있으면 이번만 */ }
-    return !on;
-  }), []);
   const pvpRef = useRef(pvp);
-  const [mouseMoveOn, setMouseMoveOn] = useState(loadMouseMove);   // 마우스 오른쪽 클릭 이동
-  const mouseMoveRef = useRef(mouseMoveOn);
-  useEffect(() => { mouseMoveRef.current = mouseMoveOn; }, [mouseMoveOn]);
+  const [moveChoice, setMoveChoice] = useState(() => loadMoveMode());   // 이동 방식 — 키보드(기본) 아니면 마우스(오른쪽 클릭 이동, 이동키는 꺼짐)
+  const moveModeRef = useRef(moveChoice);           // 지금 쓰는 방식(터치 기기는 늘 키보드) — 키 · 마우스 처리기가 읽는다
   const winOpenRef = useRef(false);                 // 창이 열려 있다 — 마우스 이동을 무시한다
   const dragRef = useRef(null);                     // 오른쪽 버튼을 누른 채 끄는 중 { id, at 마지막 전송 ms, x, y 마지막 보낸 점 }
   const lastMvRef = useRef(null);                   // 마지막으로 보낸 이동 { x, y, m, at } — 같은 점 재전송 방지 · 다시 보내기
@@ -495,6 +486,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [isHost, seats, mySeat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const touch = useTouch();
+  const moveMode = effectiveMoveMode(moveChoice, touch);
+  const mouseMoveOn = isMouseMode(moveMode);
+  useEffect(() => { moveModeRef.current = moveMode; }, [moveMode]);
   const [hud, setHud] = useState(null);
   const [mute, setMute] = useState(() => sfx.isMuted());
   const [dropped, setDropped] = useState(false);
@@ -743,6 +737,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (kind === "mv") {                            // 마우스 오른쪽 클릭 이동 — 방장은 바로 판정하고 손님도 먼저 걷는다(방향키와 같은 범위)
       const h = g.heroes[mySeat];
       if (!h) return;
+      if (dir && dir.stop === true) {               // 이동 방식을 키보드로 바꿨다 — 가던 목적지를 취소한다
+        lastMvRef.current = null;
+        if (isHost) rpgInput(g, { cls: mySeat, kind, dir });
+        else {
+          rpgMove(g, mySeat, dir);
+          if (h.mvOk !== 0) { sentAt.current = Date.now(); const q = nextSeq(); noteSent(g, q); sendInput({ cls: mySeat, kind, dir, q }); }   // 옛 방장 · 서버는 목적지가 없으니 보낼 것이 없다
+        }
+        return;
+      }
       if (!isHost && h.mvOk === 0) return void setToast({ name: "이 서버는 아직 마우스 이동을 쓸 수 없습니다", at: Date.now() });   // 옛 방장 · 서버
       if (isHost) rpgInput(g, { cls: mySeat, kind, dir });
       else {
@@ -803,7 +806,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   /* 마우스 오른쪽 클릭 이동 — 땅을 누르면 그곳으로 걷고, 누른 채 끌면 따라간다. NPC · 포탈을 누르면 곁으로 가서 말을 건다.
      창이 열려 있거나 채팅 중이거나 방향키로 걷는 중에는 쓰지 않는다. 터치는 기존 화살표 패드 그대로 */
   const moveButton = (e) => e.pointerType !== "touch" && (e.button === 2 || (e.button === 0 && e.ctrlKey));   // 오른쪽 버튼(맥은 Ctrl+클릭)
-  const moveBlocked = () => !mouseMoveRef.current || winOpenRef.current || dirsRef.current.length > 0;
+  const moveBlocked = () => !isMouseMode(moveModeRef.current) || winOpenRef.current;   // 키보드 방식에서는 오른쪽 클릭 이동을 듣지 않는다
   const worldAt = (e) => {
     const g = G.current, h = g.heroes[mySeat];
     if (!h || !g.cam || g.cam.map !== h.map) return null;
@@ -921,6 +924,19 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     act("hold", []);
   }, [act]);
 
+  // 이동 방식 바꾸기(☰ 설정) — 키보드→마우스는 누르고 있던 방향을 놓고, 마우스→키보드는 가던 목적지를 취소한다
+  const chooseMoveMode = useCallback((next) => {
+    const prev = moveModeRef.current;
+    if (next === prev) return;
+    moveModeRef.current = next;
+    setMoveChoice(next);
+    saveMoveMode(next);
+    const t = moveSwitchTasks(prev, next);
+    dragRef.current = null; talkRef.current = null;
+    if (t.clearDirs) clearDirs();
+    if (t.stopDest) act("mv", { stop: true });
+  }, [act, clearDirs]);
+
   // 채팅 칸을 연다 — 걷던 것은 멈춘다
   const openChat = useCallback(() => {
     clearDirs();
@@ -939,7 +955,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const a = keyMap(bindsRef.current)[e.code];
       if (!a) return;
       e.preventDefault();
-      if (MOVE_ACTS[a]) { if (!e.repeat) pressDir(MOVE_ACTS[a]); return; }
+      if (MOVE_ACTS[a]) { if (!e.repeat && moveKeysOn(moveModeRef.current)) pressDir(MOVE_ACTS[a]); return; }   // 마우스 방식에서는 이동키가 꺼져 있다
       if (e.repeat) return;
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
@@ -966,7 +982,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     function onUp(e) {
       const a = keyMap(bindsRef.current)[e.code];
-      if (MOVE_ACTS[a]) releaseDir(MOVE_ACTS[a]);
+      if (MOVE_ACTS[a] && moveKeysOn(moveModeRef.current)) releaseDir(MOVE_ACTS[a]);
       if (a === "fire") act("fire", false);
       if (a === "wskill") act("wcharge", false);
     }
@@ -1421,13 +1437,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span className={`rpg-switch ${pvp ? "on" : ""}`}><span /></span>
                 </button>
                 {!touch && (
-                  <button type="button" role="menuitemcheckbox" aria-checked={mouseMoveOn} className="rpg-menu-row" onClick={toggleMouseMove}>
+                  <div className="rpg-menu-row rpg-menu-pick" role="radiogroup" aria-label="이동 방식">
                     <span className="rpg-menu-text">
-                      <b>마우스 오른쪽 클릭 이동</b>
-                      <em>{mouseMoveOn ? "땅을 오른쪽 클릭하면 그곳으로 걷습니다. 누른 채 끌면 따라갑니다" : "꺼져 있어 방향키로만 걷습니다"}</em>
+                      <b>이동 방식</b>
+                      <em>{mouseMoveOn ? "마우스는 오른쪽 클릭으로 걷고 이동키는 꺼집니다" : "키보드는 이동키로 걷습니다"}</em>
                     </span>
-                    <span className={`rpg-switch ${mouseMoveOn ? "on" : ""}`}><span /></span>
-                  </button>
+                    <span className="rpg-pick">
+                      {[["keyboard", "키보드"], ["mouse", "마우스"]].map(([id, name]) => (
+                        <button key={id} type="button" role="radio" aria-checked={moveMode === id} className={moveMode === id ? "on" : ""} onClick={() => chooseMoveMode(id)}>{name}</button>
+                      ))}
+                    </span>
+                  </div>
                 )}
                 <button type="button" role="menuitemcheckbox" aria-checked={lowFxOn} className="rpg-menu-row" onClick={toggleLowFx}>
                   <span className="rpg-menu-text">
@@ -1624,7 +1644,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span>칸을 누르고 쓸 키를 누릅니다</span>
                 </div>
                 <p className="rpg-stat-rule">Backspace 는 칸 비우기 · Esc 는 그만두기. 다른 행동에 있던 키는 그 칸에서 빠집니다. 이 기기에 남습니다.</p>
-                <p className="rpg-stat-rule">마우스 오른쪽 클릭으로도 걷습니다. 누른 채 끌면 따라가고 NPC 를 누르면 곁으로 가서 말을 겁니다. 창이 열려 있거나 방향키로 걷는 중에는 쓰지 않습니다. ☰ 메뉴에서 끌 수 있습니다.</p>
+                <p className="rpg-stat-rule">{mouseMoveOn
+                  ? "지금은 마우스 이동입니다. 이동키는 꺼져 있고 오른쪽 클릭으로 걷습니다. 누른 채 끌면 따라가고 NPC 를 누르면 곁으로 가서 말을 겁니다. ☰ 메뉴에서 키보드로 바꿉니다."
+                  : "지금은 키보드 이동입니다. 마우스 이동은 ☰ 메뉴의 이동 방식에서 고릅니다. 마우스로 바꾸면 이동키는 꺼집니다."}</p>
                 <div className="rpg-stat-list">
                   {KEY_ACTIONS.map((a, i) => (
                     <div key={a.id} className={`rpg-key-row ${i > 0 && KEY_ACTIONS[i - 1].group !== a.group ? "gap" : ""}`}>
@@ -2247,7 +2269,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_SERVER_CAP}명 ·{" "}
           {touch
             ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>논타겟 조준: 마우스 포인터 · 이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd>{mouseMoveOn && <> · 오른쪽 클릭 이동</>} · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 전직 스킬 <kbd>{keyOf(binds, "adv")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
+            : <>논타겟 조준: 마우스 포인터 · {mouseMoveOn ? <>이동 오른쪽 클릭</> : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd></>} · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 전직 스킬 <kbd>{keyOf(binds, "adv")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>

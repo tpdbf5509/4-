@@ -5,7 +5,7 @@ import {makeWorld,rpgLooks,rpgSyncSeats,rpgJoin,rpgStep,rpgStepVisual,rpgPack,rp
 import {rpgInput} from '../src/game/rpgInput.js';
 import {rpgShop} from '../src/game/shop.js';
 import {RESET,GIFT} from '../src/game/itemData.js';
-import {canvasToWorld,pickNpc,portalHit,npcStopPoint,talkReach,MV_UI} from '../src/game/mouseMove.js';
+import {canvasToWorld,pickNpc,portalHit,npcStopPoint,talkReach,MV_UI,MOVE_MODE_KEY,loadMoveMode,saveMoveMode,effectiveMoveMode,moveKeysOn,mouseMoveOn,moveSwitchTasks} from '../src/game/mouseMove.js';
 import {worldBossPortalNear} from '../src/game/worldBoss.js';
 import {WORLD_BOSS} from '../src/game/worldBossData.js';
 import {W,H} from '../src/game/world.js';
@@ -235,4 +235,55 @@ test('이미 NPC 곁이면 npcNear 가 그 NPC 를 알려 바로 말을 걸 수 
 test('MV_UI 와 MOVE 상수가 계획서 값이다',()=>{
  assert.deepEqual([MOVE.arrive,MOVE.pad,MOVE.stuckFrac,MOVE.stuckT,MOVE.steer],[6,20,0.3,0.35,1]);
  assert.equal(MV_UI.gap,100);assert.equal(MV_UI.min,20);
+});
+
+// ── 이동 방식 선택(키보드 기본 · 마우스) ──
+const fakeStore=(init={})=>{const m=new Map(Object.entries(init));return {getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>void m.set(k,String(v)),m};};
+test('이동 방식 — 기본은 키보드이고 저장값이 mouse 일 때만 마우스다',()=>{
+ assert.equal(MOVE_MODE_KEY,'flg:rpgMoveMode');
+ assert.equal(loadMoveMode(fakeStore()),'keyboard');
+ for(const bad of ['','0','1','true','Mouse','keyboard','{}'])assert.equal(loadMoveMode(fakeStore({[MOVE_MODE_KEY]:bad})),'keyboard',bad);
+ assert.equal(loadMoveMode(fakeStore({[MOVE_MODE_KEY]:'mouse'})),'mouse');
+ // 저장이 막혀 있어도 키보드
+ assert.equal(loadMoveMode({getItem(){throw new Error('blocked');}}),'keyboard');
+ // 저장 → 읽기
+ const st=fakeStore();saveMoveMode('mouse',st);assert.equal(loadMoveMode(st),'mouse');
+ saveMoveMode('keyboard',st);assert.equal(loadMoveMode(st),'keyboard');
+ saveMoveMode('아무거나',st);assert.equal(st.m.get(MOVE_MODE_KEY),'keyboard');
+ assert.doesNotThrow(()=>saveMoveMode('mouse',{setItem(){throw new Error('blocked');}}));
+});
+test('옛 켜짐 · 꺼짐 키(flg:rpgMouseMove)는 어떤 값이어도 무시하고 키보드로 시작한다',()=>{
+ for(const v of ['1','0','true'])assert.equal(loadMoveMode(fakeStore({'flg:rpgMouseMove':v})),'keyboard',v);
+ assert.equal(loadMoveMode(fakeStore({'flg:rpgMouseMove':'1',[MOVE_MODE_KEY]:'mouse'})),'mouse');
+});
+test('터치 기기는 마우스를 골라 둬도 늘 키보드 방식이다',()=>{
+ assert.equal(effectiveMoveMode('mouse',false),'mouse');
+ assert.equal(effectiveMoveMode('mouse',true),'keyboard');
+ assert.equal(effectiveMoveMode('keyboard',false),'keyboard');
+ assert.equal(effectiveMoveMode(undefined,false),'keyboard');
+});
+test('마우스 방식에서는 이동키가 꺼지고 키보드 방식에서는 우클릭 이동이 꺼진다',()=>{
+ assert.equal(moveKeysOn('keyboard'),true);assert.equal(mouseMoveOn('keyboard'),false);
+ assert.equal(moveKeysOn('mouse'),false);assert.equal(mouseMoveOn('mouse'),true);
+});
+test('방식을 바꿀 때 — 키보드→마우스는 방향을 놓고 마우스→키보드는 목적지를 취소한다',()=>{
+ assert.deepEqual(moveSwitchTasks('keyboard','mouse'),{clearDirs:true,stopDest:false});
+ assert.deepEqual(moveSwitchTasks('mouse','keyboard'),{clearDirs:false,stopDest:true});
+ assert.deepEqual(moveSwitchTasks('mouse','mouse'),{clearDirs:false,stopDest:false});
+ assert.deepEqual(moveSwitchTasks('keyboard','keyboard'),{clearDirs:false,stopDest:false});
+});
+test('mv {stop:true} 는 가던 목적지만 지우고 쓰러짐 · 도발 · 거래 중에도 듣는다 — 다른 입력은 그대로',()=>{
+ const {g,h}=setup();mv(g,1500,820);assert(h.dest);
+ rpgInput(g,{cls:0,kind:'mv',dir:{stop:true}});assert.equal(h.dest,null);assert.equal(h.destT,0);
+ // 걷던 도중에 취소하면 더는 나아가지 않는다
+ mv(g,1500,820);run(g,.3);const x=h.x;rpgInput(g,{cls:0,kind:'mv',dir:{stop:true}});run(g,.5);assert.equal(h.x,x);
+ // 쓰러져 있어도 취소는 된다(새 목적지는 못 정한다)
+ mv(g,1500,820);h.down=3;rpgInput(g,{cls:0,kind:'mv',dir:{stop:true}});assert.equal(h.dest,null);h.down=0;
+ // stop 이 참이 아니면 취소가 아니라 잘못된 입력이다
+ mv(g,1500,820);for(const bad of [{stop:1},{stop:'true'},{stop:false}]){rpgInput(g,{cls:0,kind:'mv',dir:bad});assert(h.dest,JSON.stringify(bad));}
+ // 목적지 없이 stop 을 보내도 탈이 없다
+ for(let i=0;i<2;i++)rpgInput(g,{cls:0,kind:'mv',dir:{stop:true}});assert.equal(h.dest,null);
+});
+test('방향키 이동은 방식과 상관없이 규칙 쪽에서 그대로 듣는다 — 끄는 일은 화면의 키 처리기가 한다',()=>{
+ const {g,h}=setup();const y=h.y;rpgHold(g,0,['up']);run(g,.5);assert(h.y<y);
 });

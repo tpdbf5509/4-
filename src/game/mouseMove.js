@@ -15,6 +15,29 @@ export const MV_UI = {
   hitBig: { w: 80, up: 150, down: 30 },      // 노점 · 문처럼 큰 그림
 };
 
+/* 이동 방식 — 기본은 키보드(WASD · 방향키). 설정(☰)에서 마우스로 바꾸면 오른쪽 클릭으로 걷고 이동키는 꺼진다.
+   터치 기기는 패드가 있어야 하므로 늘 키보드 방식이다. 옛 켜짐 · 꺼짐 키(flg:rpgMouseMove)는 읽지 않는다 */
+export const MOVE_MODE_KEY = "flg:rpgMoveMode";
+export const MOVE_MODES = ["keyboard", "mouse"];
+// 저장된 방식 — 'mouse' 일 때만 마우스, 없거나 망가졌거나 저장이 막혀 있으면 키보드
+export function loadMoveMode(storage) {
+  try { return (storage || localStorage).getItem(MOVE_MODE_KEY) === "mouse" ? "mouse" : "keyboard"; } catch { return "keyboard"; }
+}
+export function saveMoveMode(mode, storage) {
+  try { (storage || localStorage).setItem(MOVE_MODE_KEY, mode === "mouse" ? "mouse" : "keyboard"); } catch { /* 저장이 막혀 있으면 이번만 */ }
+}
+// 실제로 쓰는 방식 — 터치 기기는 마우스를 고를 수 없다
+export const effectiveMoveMode = (mode, touch) => (!touch && mode === "mouse" ? "mouse" : "keyboard");
+// 이동키(WASD · 방향키 · 키 설정에서 바꾼 키)가 듣는 방식인가
+export const moveKeysOn = (mode) => mode !== "mouse";
+// 오른쪽 클릭 이동이 듣는 방식인가
+export const mouseMoveOn = (mode) => mode === "mouse";
+// 방식을 바꾸는 순간 정리할 일 — 키보드→마우스는 누르고 있던 방향을 놓고, 마우스→키보드는 가던 목적지를 취소한다
+export function moveSwitchTasks(prev, next) {
+  if (prev === next) return { clearDirs: false, stopDest: false };
+  return { clearDirs: next === "mouse", stopDest: prev === "mouse" };
+}
+
 // 화면(캔버스 안 비율)의 점을 땅 좌표로 — 그리기와 같은 카메라(반올림)를 쓴다
 export function canvasToWorld(clientX, clientY, rect, cam) {
   if (!rect || !rect.width || !rect.height || !cam) return null;

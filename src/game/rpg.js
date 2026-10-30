@@ -1207,6 +1207,7 @@ export function stopMove(h) {
 }
 export function rpgMove(g, pi, d) {
   const h = g.heroes[pi];
+  if (h && d && d.stop === true) return void stopMove(h);   // 이동 방식을 키보드로 바꿀 때 — 가던 목적지만 취소한다
   if (!h || !h.loaded || h.down > 0 || h.tauntT > 0 || trading(h) || (h.hold && h.hold.length)) return;
   if (!d || typeof d !== "object" || d.m !== h.map || !MAPS[h.map]) return;   // 옛 맵 좌표는 버린다(맵을 옮긴 뒤 늦게 닿은 입력)
   if (!Number.isFinite(d.x) || !Number.isFinite(d.y) || Math.abs(d.x) > MOVE.max || Math.abs(d.y) > MOVE.max) return;

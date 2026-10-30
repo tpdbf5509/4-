@@ -1254,6 +1254,15 @@ kbd {
 .rpg-srv-row button:hover:not(:disabled) { border-color: #d6b26a; }
 .rpg-srv-row button.on { background: rgba(122, 90, 46, 0.8); border-color: #d6b26a; color: #ffe08a; cursor: default; }
 .rpg-srv-row button:disabled:not(.on) { opacity: 0.4; cursor: not-allowed; }
+/* ☰ 메뉴 — 둘 중 하나를 고르는 줄(이동 방식). 줄 모양은 .rpg-menu-row 그대로 */
+.rpg-menu-pick { cursor: default; }
+.rpg-pick { flex: none; display: flex; gap: 4px; }
+.rpg-pick button {
+  padding: 5px 10px; border-radius: 7px; cursor: pointer; font-family: inherit; font-size: 12px;
+  background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(160, 130, 90, 0.5); color: #e8d7ae;
+}
+.rpg-pick button:hover { border-color: #d6b26a; }
+.rpg-pick button.on { background: rgba(122, 90, 46, 0.8); border-color: #d6b26a; color: #ffe08a; cursor: default; }
 .rpg-switch {
   flex: none; position: relative; width: 38px; height: 22px; border-radius: 999px;
   background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(160, 130, 90, 0.5); transition: background 0.15s;

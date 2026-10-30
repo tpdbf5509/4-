@@ -25,7 +25,7 @@ import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop, ENHANCE } from "./itemData.js";
-import { REQ_NPCS, REQ_BY_NPC, REQUESTS } from "./requestData.js";
+import { REQ_NPCS, REQ_BY_NPC, REQUESTS, QUEST_MASTER, questXpRate, questMatches } from "./requestData.js";
 import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.js";
@@ -1600,15 +1600,24 @@ export function huntingXp(h,m,amount=m.xp){
   const top=sp.length?Math.max(...sp.map(s=>s.lv[1])):Infinity;
   return amount*(h.lv>top?COMBAT_RULES.lowAreaXp:1);
 }
+// 보상 계산은 진행 수를 올리기 전에 한다. 완료된 의뢰는 더 이상 사냥 의뢰로 세지 않는다.
+export function killCoins(h, m) {
+  const active = (h.quest?.on && h.quest.n < QUEST.need && m.type === "rabbit") || REQ_NPCS.some(n => {
+    const r = h.reqs?.[n.id], q = r && REQUESTS[n.id][r.i];
+    return q && r.n < q.n && questMatches(q,m);
+  });
+  return !m.boss && !active ? Math.max(0, Math.floor(m.coin * QUEST_MASTER.unassignedCoin)) : m.coin;
+}
 function rewardKill(g, m, h, last) {
   if (trading(h)) return;
   h.kills += 1;
-  h.coins += m.coin;
+  const coins = killCoins(h, m);
+  h.coins += coins;
   h.rec[m.type] += 1;
   if (m.boss) h.rec.boss += 1;
   if (h.pty) h.rec.party += 1;
   const xp=huntingXp(h,m);
-  fx(g, m.map, { kind: "text", x: last ? m.x : h.x, y: last ? m.y - 16 : h.y - 100, text: `+${Math.round(xp*100)/100} XP · +${m.coin} 코인`, color: "#f3d27f",
+  fx(g, m.map, { kind: "text", x: last ? m.x : h.x, y: last ? m.y - 16 : h.y - 100, text: `+${Math.round(xp*100)/100} XP · +${coins} 코인`, color: "#f3d27f",
     t: 0.9, life: 0.9, snd: "coin", who: h.pi });
   giveXp(g, h, xp);
   const healed = armorOnKill(h, m.boss);          // 영웅 · 전설 투구 — 잡으면 회복
@@ -1653,7 +1662,7 @@ function huntReq(g, h, m) {
   REQ_NPCS.forEach((npc) => {
     const r = h.reqs[npc.id];
     const q = r && REQUESTS[npc.id][r.i];
-    if (!q || q.kind !== "hunt" || q.mob !== m.type || r.n >= q.n) return;
+    if (!q || !questMatches(q, m) || r.n >= q.n) return;
     r.n += 1;
     if (r.n >= q.n) sys(g, h.pi, `${npc.name}의 의뢰를 마쳤습니다. 의뢰 창에서 완료를 눌러 주세요.`);
   });
@@ -1667,6 +1676,9 @@ export function whyReqDone(h, npcId) {
   const have = matCount(h.bag, q.mat);
   return have >= q.n ? [] : [`${MAT_BY_ID[q.mat].name} ${q.n - have}개 모자랍니다`];
 }
+// 화면의 보상 미리보기와 실제 완료가 같은 수식을 쓴다.
+export const requestXp = (q, lv) => Math.max(1, Math.round(
+  needXp(q.area ? Math.min(lv, q.maxLv) : lv) * (q.xp || 0) * questXpRate(q, lv)));
 export const reqNear = (h, npcId) => {
   const n = REQ_BY_NPC[npcId];
   return !!(h && n && h.map === "plaza" && dist(h.x, h.y, n.x, n.y) <= RPG.talkR * 1.5);
@@ -1686,7 +1698,7 @@ export function rpgRequest(g, pi, req) {
     if (h.lv < q.lv) return void sys(g, pi, `레벨 ${q.lv}부터 받을 수 있습니다.`);
     if (!metNpc(h, npc.id) && !reqNear(h, npc.id)) return void sys(g, pi, `처음에는 광장의 ${npc.name}에게 말을 걸어 받아야 합니다.`);
     meetNpc(h, npc.id);
-    h.reqs[npc.id] = { i, n: 0, coinOnly:h.lv>q.lv };
+    h.reqs[npc.id] = { i, n: 0, coinOnly:!q.area && h.lv>q.lv };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "의뢰 받음", color: "#ffe08a", t: 0.9, life: 0.9, snd: "build", who: pi });
     return true;
   }
@@ -1708,9 +1720,9 @@ export function rpgRequest(g, pi, req) {
     delete h.reqs[npc.id];
     h.coins += q.coin || 0;
     h.rec.req += 1;
-    const lowQuest=cur.coinOnly??(h.lv>q.lv);
+    const lowQuest=q.area ? false : (cur.coinOnly??(h.lv>q.lv));
     const got = Object.entries(lowQuest?{}:(q.mats || {})).map(([id, n]) => `${MAT_BY_ID[id].name} ${addMat(h.bag, id, n)}개`);
-    const xp = lowQuest?0:Math.max(1, Math.round(needXp(h.lv) * (q.xp || 0)));
+    const xp = lowQuest?0:requestXp(q, h.lv);
     const parts = [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", xp&&h.lv < LV_MAX ? `경험치 ${xp}` : "", ...got].filter(Boolean);
     fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "의뢰 완료!", color: "#a9e79c", t: 1.4, life: 1.4, snd: "clear", who: pi });
     sys(g, pi, `${npc.name}의 의뢰를 끝냈습니다. ${parts.join(" · ")}`);

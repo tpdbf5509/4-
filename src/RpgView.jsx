@@ -19,7 +19,7 @@ import {
   rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, forceJob, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, MOB_REGEN, ACTIVE_SKILLS, heldSpecial, trainView, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
-  titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, MOB,
+  titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, requestXp, MOB,
   whyDungeon, dgNear, dgCrew, runOf,
   RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
@@ -76,7 +76,7 @@ function advHud(me) {
   return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
-import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW } from "./game/requestData.js";
+import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW, QUEST_AREAS, QUEST_MASTER } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, DROP_ROLL, GIFT } from "./game/itemData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./game/armorData.js";
@@ -147,11 +147,11 @@ function loadPvp() {
   try { return localStorage.getItem(PVP_KEY) === "1"; } catch { return false; }
 }
 // 광장 의뢰 한 줄 — 무엇을 · 얼마나 했는지 · 보상
-const reqTitle = (q) => (q.kind === "hunt" ? `${MOB[q.mob].name} ${q.n}마리 잡기` : `${MAT_BY_ID[q.mat].name} ${q.n}개 가져오기`);
+const reqTitle = (q) => (q.kind === "hunt" ? `${MOB[q.mob].name}${q.area ? q.boss ? " 보스" : " 일반 몬스터" : ""} ${q.n}마리 잡기` : `${MAT_BY_ID[q.mat].name} ${q.n}개 가져오기`);
 const reqProg = (q, r, h) => (q.kind === "hunt"
   ? `${Math.min(r.n, q.n)}/${q.n}마리`
   : `가진 수 ${Math.min((h.bag.m && h.bag.m[q.mat]) || 0, q.n)}/${q.n}`);
-const reqPay = (q, lv, coinOnly=lv>q.lv) => [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", !coinOnly && lv < LV_MAX && q.xp ? `경험치 ${Math.max(1, Math.round(needXp(lv) * q.xp)).toLocaleString("ko-KR")}` : "",
+const reqPay = (q, lv, coinOnly=!q.area && lv>q.lv) => [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", (!coinOnly || q.area) && lv < LV_MAX && q.xp ? `경험치 ${requestXp(q, lv).toLocaleString("ko-KR")}` : "",
   ...Object.entries(coinOnly?{}:(q.mats || {})).map(([id, n]) => `${MAT_BY_ID[id].name} ${n}`)].filter(Boolean).join(" · ");
 // 받침에 맞는 조사 — "하늘로" · "바람으로"
 function ro(word) {
@@ -504,6 +504,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [answeredAt, setAnsweredAt] = useState(0);   // 초대에 답한 때 — 방장 답이 올 때까지 초대 창을 숨긴다
   const [duelAt, setDuelAt] = useState(0);           // 결투 신청에 답한 때
   const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
+  const [questArea, setQuestArea] = useState("field");
   const [reqOpen, setReqOpen] = useState(null);      // 열어 둔 의뢰 NPC id
   const [questOpen, setQuestOpen] = useState(false); // 내 화면의 의뢰 · 퀘스트 목록 — NPC 곁에 가지 않아도 연다
   const [wbOpen,setWbOpen]=useState(false);
@@ -1611,19 +1612,31 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             const list = REQUESTS[npc.id];
             const cur = me.self.reqs[npc.id];
             const curQ = cur && list[cur.i];
-            const open = list.map((q, i) => ({ q, i })).filter(({ q }) => me.lv >= q.lv).slice(-REQ_SHOW).reverse();
+            const master = npc.id === "questmaster";
+            const open = master ? list.map((q,i)=>({q,i})).filter(({q})=>q.area===questArea) : list.map((q, i) => ({ q, i })).filter(({ q }) => me.lv >= q.lv).slice(-REQ_SHOW).reverse();
             const next = list.find((q) => me.lv < q.lv);
             const why = curQ ? whyReqDone(me.self, npc.id) : [];
             return (
               <>
                 <div className="rpg-menu-back" onClick={() => setReqOpen(null)} />
-                <div className="rpg-stat rpg-win" role="dialog" aria-label={npc.name}>
+                <div className={`rpg-stat rpg-win ${master ? "quest-master" : ""}`} role="dialog" aria-label={npc.name}>
                   <div className="rpg-stat-head">
                     <b>{npc.name}</b>
                     <span>끝낸 의뢰 <em>{me.rec.req || 0}</em></span>
+                    <button type="button" className="rpg-win-btn ghost" onClick={() => setReqOpen(null)}>닫기</button>
                   </div>
-                  <p className="rpg-stat-rule">{npc.line} 의뢰는 한 사람에게 하나씩 맡깁니다. 끝낸 의뢰는 다시 받을 수 있습니다. 어디서든 받고 끝낼 수 있습니다.</p>
-                  <div className="rpg-stat-list">
+                  <p className="rpg-stat-rule">{npc.line} {master ? "사냥터 시작 레벨부터 수락 가능합니다. 권장 레벨 상한을 넘기면 상한 레벨 기준 경험치의 " + QUEST_MASTER.lowAreaXp * 100 + "%를 받습니다." : ""} 의뢰는 한 사람에게 하나씩 맡깁니다. 끝낸 의뢰는 다시 받을 수 있습니다. 어디서든 받고 끝낼 수 있습니다.</p>
+                  {master && <div className="quest-area-tabs" role="tablist" aria-label="사냥터">
+                    {QUEST_AREAS.map(a=><button type="button" role="tab" aria-selected={questArea===a.id} aria-controls="quest-area-panel" id={`quest-tab-${a.id}`} tabIndex={questArea===a.id?0:-1} onKeyDown={e=>{
+                      const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+                      if (!step && e.key !== "Home" && e.key !== "End") return;
+                      e.preventDefault();
+                      const index = e.key === "Home" ? 0 : e.key === "End" ? QUEST_AREAS.length-1 : (QUEST_AREAS.indexOf(a)+step+QUEST_AREAS.length)%QUEST_AREAS.length;
+                      setQuestArea(QUEST_AREAS[index].id);
+                      document.getElementById(`quest-tab-${QUEST_AREAS[index].id}`)?.focus();
+                    }} key={a.id} className="rpg-win-btn" onClick={()=>setQuestArea(a.id)}>{a.name} · {a.lv[0]}~{a.lv[1]}{me.lv<a.lv[0]?" 🔒":""}</button>)}
+                  </div>}
+                  <div className="rpg-stat-list" id={master ? "quest-area-panel" : undefined} role={master ? "tabpanel" : undefined} aria-labelledby={master ? `quest-tab-${questArea}` : undefined}>
                     {curQ && (
                       <div className="rpg-win-row on">
                         <span className="rpg-stat-name">
@@ -1639,15 +1652,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     )}
                     {open.map(({ q, i }) => (
                       <div key={i} className={`rpg-win-row ${cur ? "locked" : ""}`}>
-                        <span className="rpg-stat-name"><b>{reqTitle(q)}</b><em>{q.lv}레벨부터 · 보상 {reqPay(q, me.lv)}</em></span>
+                        <span className="rpg-stat-name"><b>{reqTitle(q)}</b><em>{q.lv}레벨부터 · 보상 {reqPay(q, me.lv)}{q.area && me.lv>q.maxLv ? ` · 경험치 ${QUEST_MASTER.lowAreaXp * 100}% 적용` : ""}</em></span>
                         {cur && cur.i === i
                           ? <span className="rpg-win-tag">맡음</span>
-                          : <button type="button" className="rpg-win-btn" disabled={!!cur} onClick={() => act("req", { op: "take", npc: npc.id, i })}>받기</button>}
+                          : <button type="button" className="rpg-win-btn" disabled={!!cur || me.lv < q.lv} onClick={() => act("req", { op: "take", npc: npc.id, i })}>받기</button>}
                       </div>
                     ))}
                     {!open.length && <p className="rpg-stat-rule">{list[0].lv}레벨부터 의뢰를 받을 수 있습니다.</p>}
                   </div>
-                  {next && <p className="rpg-stat-rule">다음 의뢰는 {next.lv}레벨에 열립니다.</p>}
+                  {!master && next && <p className="rpg-stat-rule">다음 의뢰는 {next.lv}레벨에 열립니다.</p>}
                 </div>
               </>
             );

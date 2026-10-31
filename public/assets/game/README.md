@@ -119,6 +119,10 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 | `rpg/advance/adv-giant.webp` | 1152 × 768 | 3열 × 2행 · 384px | 10월 31일 Codex 생성 소환술사 거대 정령 — `ELEMS` 차례(화염 · 서리 · 번개 · 독 · 부식 · 중력). 초록 바탕을 지운 투명 그림, 발은 칸 아래에서 약 9% 위(`ADV_ART.giant`, 원본 `design/advance/adv-giant.webp`) |
 | `rpg/advance/adv-fx3.webp` | 1024 × 256 | 4열 × 1행 · 256px | 10월 31일 Codex 생성 — 0 금빛 소환진 · 1 내려치기 균열 충격파 · 2 주먹 폭발 · 3 수호 막(아직 안 씀). **검은 바탕** · lighter(`ADV_ART.fx3` · `FX3`, 원본 `design/advance/adv-fx3.webp`) |
 | `rpg/abyss/guardians.webp` · `guardians-attack.webp` | 1536 × 1024 | 3열 × 2행 · 512px | 11월 1일 Codex 생성 심연의 탑 수호자 6종(`GUARDIANS` 차례 — 재의 용기사 · 얼어붙은 사제 · 뇌운 파수꾼 / 썩은 연꽃의 마녀 · 녹슨 심판관 · 틈새의 거신). 위는 기본 자세, 아래 파일은 같은 배치의 공격 준비 자세. 초록 바탕을 지운 투명 그림, 칸마다 가운데 · 발밑 0.94(`ABYSS_ART.guards`, 원본 `design/abyss/*-src.webp`) |
+| `rpg/abyss/abyss-gate.webp` | 503 × 640 | 한 장 | 11월 1일 Codex 생성 광장 탑 입구. 초록 바탕을 지운 투명 그림, 발밑(계단 맨 아래)이 높이의 0.94, 입구 빛 `ABYSS_ART.gate.portal` |
+| `rpg/abyss/abyss-shard.webp` · `abyss-seal.webp` | 128 × 128 | 한 장씩 | 심연의 파편 · 탑의 인장 재료 그림(Codex 생성, 투명) |
+| `rpg/abyss/abyss-fx.webp` | 1536 × 1536 | 6열 × 6행 · 256px | 수호자 기술 연출. 열은 수호자 차례(화염 · 서리 · 번개 · 독 · 부식 · 중력), 행은 내려치기 · 돌진 자국(오른쪽이 머리) · 연타 한 방 · 광폭화 기운 · 철벽 돔 · 분신 안개. **검은 바탕** · lighter(`ABYSS_ART.fx`, 원본 `design/abyss/fx{A,B,C}-src.webp`) |
+| `rpg/abyss/ice-rain.webp` | 146 × 940 | 한 줄기 | 얼음 비 한 줄기(검은 바탕 · lighter). 폭 · 길이만 늘려 여러 개 겹쳐 쓴다(`sk_ab_icerain` — `s` 폭 · `len` 길이 · `n` 개수 · `r` 떨어지는 범위) |
 | `characters/rpg/assassin-<m\|f>/` · `elf-<m\|f>/` | 시트 배율 | 방향 넷 + `-bare` | 10월 31일 Codex 생성 전직 시트(`design/advance/classes/assassin.webp` · `elf.webp`, 기존 얼굴 · 체형 유지 · 푼 머리). 초록 바탕은 순수 초록과 그 둘레 2px 만 지워 엘프 옷의 세이지 빛깔을 남겼다. `python3 tools/cut-adv-classes.py assassin elf` · 무기를 지운 원본 `design/advance/bare/` → `python3 tools/bare-adv.py assassin elf`(손 자리 rpgArt.js `ADV_HAND`) |
 | `rpg/advance/adv-spirits.webp` | 480 × 320 | 3열 × 2행 · 160px | 원소 정령 — 화염 · 서리 · 번개 / 독 · 부식 · 중력(`ELEMS` 차례) |
 | `rpg/advance/adv-items.webp` | 960 × 192 | 5열 × 1행 · 192px | 0 쌍권총 · 1 기사 방패 · 2 소환서 · 3 · 4 권총 한 자루씩(손에 든다) |

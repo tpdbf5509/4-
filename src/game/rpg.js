@@ -33,7 +33,7 @@ import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dun
 import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.js";
 import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
 import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, SEAL, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
-  isGuardFloor, rankReward, abyssWeek, cleanAw, rollAw } from "./abyssData.js";
+  isGuardFloor, rankReward, abyssWeek, cleanAw, rollAw, GUARD_BY_TYPE } from "./abyssData.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
 import { advNullShield, advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
   advLowHp, advGiantTake, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill,
@@ -3922,7 +3922,8 @@ function farSkill(g, m, S) {
 const bossPose = (m) => (m.wall > 0 ? 8 : 0) | (m.rage ? 16 : 0) | (m.mirage > 0 ? 32 : 0);
 function bossCall(g, m, text, color) { say(g, m.map, m.x, m.y - 70 * m.size, text, color || "#ffd59a"); }
 // 둘레를 친다 — 맞힌 사람 수를 돌려준다
-function bossHit(g, m, r, mul, color) {
+/* kind — "slam" 내려치기 · "multi" 연타 한 방. 심연의 탑 수호자는 원소 그림 연출(abyssArt.js drawAbyssFx), 던전 보스는 예전 고리 */
+function bossHit(g, m, r, mul, color, kind = "slam") {
   let n = 0;
   g.heroes.forEach((h) => {
     if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16 || !notices(m, h)) return;
@@ -3930,7 +3931,16 @@ function bossHit(g, m, r, mul, color) {
     n += 1;
     fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 24, color, n: 8, t: 0.35, life: 0.35 });
   });
-  fx(g, m.map, { kind: "ring", x: m.x, y: m.y, r, color, t: 0.5, life: 0.5, snd: "boom" });
+  const gd = GUARD_BY_TYPE[m.type];
+  if (!gd) fx(g, m.map, { kind: "ring", x: m.x, y: m.y, r, color, t: 0.5, life: 0.5, snd: "boom" });
+  else if (kind === "slam") fx(g, m.map, { kind: "sk_ab_slam", x: m.x, y: m.y, r, col: gd.i, t: 0.7, life: 0.7, snd: "boom", kick: 0.3 });
+  else if (m.type === "tg_frost") fx(g, m.map, { kind: "sk_ab_icerain", x: m.x, y: m.y, r, n: 14, s: 34, len: 230, col: gd.i, t: 0.9, life: 0.9, snd: "boom" });   // 얼음 비 — 한 줄기를 크기 · 길이만 바꿔 여러 개
+  else {
+    for (let i = 0; i < 3; i++) {                  // 연타 — 둘레 세 곳에 한 방씩
+      const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * r;
+      fx(g, m.map, { kind: "sk_ab_strike", x: m.x + Math.cos(a) * d, y: m.y + Math.sin(a) * d * RPG.squash, s: r * 1.1, col: gd.i, t: 0.45, life: 0.45, snd: i ? undefined : "boom" });
+    }
+  }
   return n;
 }
 function stepDgBoss(g, m, dt) {
@@ -3974,9 +3984,14 @@ function stepDgBoss(g, m, dt) {
     m.t -= dt;
     m.pose = (q.k === "charge" ? 2 : 1) | base;
     if (m.t > 0) return;
-    if (q.k === "charge") { m.state = "charge"; m.t = q.time; m.hitSet = []; m.warnR = 0; return; }
+    if (q.k === "charge") {
+      m.state = "charge"; m.t = q.time; m.hitSet = []; m.warnR = 0;
+      const gd = GUARD_BY_TYPE[m.type];
+      if (gd) fx(g, m.map, { kind: "sk_ab_charge", x: m.x, y: m.y - 30, a: Math.atan2(m.vy * RPG.squash, m.vx), len: q.speed * q.time, w: q.width, col: gd.i, t: 0.7, life: 0.7, snd: "boom" });   // 돌진 자국
+      return;
+    }
     if (q.k === "multi") { m.state = "multi"; m.hitN = q.n; m.t = 0; return; }
-    const n = bossHit(g, m, q.r, q.mul, q.heal ? "#7fe0a0" : "#ff8a4a");
+    const n = bossHit(g, m, q.r, q.mul, q.heal ? "#7fe0a0" : "#ff8a4a", "slam");
     if (q.heal && n) {                               // 영혼 흡수 — 맞힌 사람마다 회복
       const add = Math.round(m.max * q.heal * n);
       m.hp = Math.min(m.max, m.hp + add);
@@ -3990,7 +4005,7 @@ function stepDgBoss(g, m, dt) {
     m.pose = 1 | base;
     m.t -= dt;
     if (m.t > 0) return;
-    bossHit(g, m, q.r, q.mul, "#ffb070");
+    bossHit(g, m, q.r, q.mul, "#ffb070", "multi");
     m.hitN -= 1; m.t = q.gap;
     if (m.hitN <= 0) { m.state = "rest"; m.t = q.rest; m.warnR = 0; }
     return;

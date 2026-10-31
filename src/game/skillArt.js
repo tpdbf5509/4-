@@ -3,6 +3,7 @@ import {drawWorldBossFx} from "./worldBossArt.js";
 import { skillAccent } from "./combatFx.js";
 import { drawWorldWeaponFx } from "./worldWeaponArt.js";
 import { drawAdvFx, ADV_GROUND } from "./advArt.js";
+import { drawAbyssFx, ABYSS_GROUND_FX } from "./abyssArt.js";
 import { drawStormFx, drawStormCharge } from './stormWeaponArt.js';
 import { drawFuryFx } from "./furyArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
@@ -53,6 +54,7 @@ export function drawSkillFx(ctx, f, time, g) {
   if (drawWorldBossFx(ctx,f,p,Q)||drawGuildFx(ctx,f,p,Q)) return;
   if (drawWorldWeaponFx(ctx, f, p, time, SQ(), g, Q)) return;
   if (drawAdvFx(ctx, f, p, time, Q)) return;      // 1차 전직(advArt.js)
+  if (drawAbyssFx(ctx, f, p, time, Q)) return;    // 심연의 탑 수호자 기술(abyssArt.js)
   if (drawStormFx(ctx, f, p, SQ(), g, Q)) return;
   if (drawFuryFx(ctx, f, p, Q)) return;           // 적룡 지팡이(furyArt.js)
   skillAccent(ctx, f, p, Q);
@@ -81,7 +83,7 @@ export function drawSkillFx(ctx, f, time, g) {
   else if (MOB_FX[f.kind]) MOB_FX[f.kind](ctx, f, p, time);   // 200~400레벨 몹 기술
 }
 // 땅에 깔리는 것 — 몸보다 먼저 그린다(rpgArt.js)
-export const GROUND_FX = new Set(["sk_wb_warn", "sk_wb_pool", "sk_wb_grid", "sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake", ...ADV_GROUND]);
+export const GROUND_FX = new Set(["sk_wb_warn", "sk_wb_pool", "sk_wb_grid", "sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake", ...ADV_GROUND, ...ABYSS_GROUND_FX]);
 
 /* 화염베기 — 커다란 불꽃 초승달. 앞 35% 동안 휘어 나가며 그어지고(머리가 가장 굵다), 뒤로 가늘어지며 사라진다.
    겉은 붉은 불, 가운데는 주황, 안쪽 심지는 노란 흰빛. 바깥 가장자리에 불길이 일렁인다 */

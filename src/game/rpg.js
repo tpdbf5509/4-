@@ -32,6 +32,8 @@ import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.js";
 import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
+import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, SEAL, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
+  isGuardFloor, rankReward, abyssWeek, cleanAw, rollAw } from "./abyssData.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
 import { advNullShield, advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
   advLowHp, advGiantTake, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill,
@@ -114,6 +116,7 @@ export const MAPS = {
       { x: ADV.npc.x, y: ADV.npc.y - 4, r: 18 },   // 전직 교관
       { x: DEEP.door.x, y: DEEP.door.y - 6, r: 34 },   // 계몽의 문(deepData.js)
       { x: MARKET.npc.x, y: MARKET.npc.y - 6, r: 40 },   // 장터 게시판(marketData.js)
+      { x: ABYSS.gate.x, y: ABYSS.gate.y - 10, r: ABYSS.gate.r },   // 심연의 탑 입구(abyssData.js)
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
@@ -128,7 +131,8 @@ export const MAPS = {
       {id:'guilddoor',guildDoor:1,name:'길드 문',...GUILD_HALL.door},   // 길드가 있으면 길드 광장, 없으면 길드 찾기(guildData.js GUILD_HALL)
       { id: "adv", adv: 1, name: "전직 교관", x: ADV.npc.x, y: ADV.npc.y },   // 200레벨 1차 전직 — 시험 · 확정 창(advData.js)
       { id: "deep", deep: 1, name: "계몽의 문", x: DEEP.door.x, y: DEEP.door.y },   // 400~800레벨 사냥터 — 계몽의 눈 만들기 · 입장 창(deepData.js)
-      { id: "market", market: 1, name: "장터 게시판", x: MARKET.npc.x, y: MARKET.npc.y },   // 올려 두면 나중에 팔리는 게시판 — 창은 화면이 연다(MarketPanel.jsx)
+      { id: "market", market: 1, name: "장터 게시판", x: MARKET.npc.x, y: MARKET.npc.y },
+      { id: "abyss", abyss: 1, name: "심연의 탑", x: ABYSS.gate.x, y: ABYSS.gate.y },   // 끝없이 오르는 협동 도전 — 입장 · 순위 · 교환 창(AbyssPanel.jsx)   // 올려 두면 나중에 팔리는 게시판 — 창은 화면이 연다(MarketPanel.jsx)
     ],
   },
   field: {
@@ -297,6 +301,18 @@ DEEP_MAPS.forEach((f, i) => {
   };
   MAP_IDS.push(f.id);
 });
+
+/* 심연의 탑(abyssData.js) — 칸(ABYSS.slots)마다 맵 하나("abyss-0" …). 광장의 탑 입구로만 들어가고 화면의 "나가기"로 돌아간다.
+   dungeon 을 두어 던전처럼 다룬다(워프 · 투명화 막기, 코드 바닥 그림). 맵 차례는 뒤에만 더한다 */
+export const abyssMap = (slot) => `abyss-${slot}`;
+for (let slot = 0; slot < ABYSS.slots; slot++) {
+  const id = abyssMap(slot);
+  MAPS[id] = {
+    id, name: `심연의 탑 ${slot + 1}`, w: ABYSS.w, h: ABYSS.h, top: 170, spawn: [ABYSS.w / 2, (170 + ABYSS.h) / 2], bg: "field", tile: 2600,
+    tint: "rgba(20,24,52,0.5)", dungeon: "abyss", abyss: 1, slot, gates: [], blocks: [], npcs: [],
+  };
+  MAP_IDS.push(id);
+}
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -525,7 +541,7 @@ DEEP_MAPS.forEach((d) => {
 WORLD_BOSSES.forEach(b=>{MOB[b.type]={name:b.name,rad:88,hp:()=>b.hp,dmg:()=>1,xp:()=>0,coin:()=>0,size:()=>1,boss:{name:b.name,lv:200,hp:b.hp,dmg:1,xp:0,coin:0,size:1}};});
 const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
   "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.filter(b=>b.id!=='thunderbird').map(b=>b.type),...GUILD_BOSSES.map(b=>b.type),
-  ...DEEP_MAPS.map((d) => d.id), 'world_thunderbird'];   // 스냅샷 차례 — 새 보스도 맨 뒤에 붙여 기존 몹 번호를 보존한다.
+  ...DEEP_MAPS.map((d) => d.id), 'world_thunderbird', ...GUARD_IDS];   // 스냅샷 차례 — 새 보스도 맨 뒤에 붙여 기존 몹 번호를 보존한다.
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -871,6 +887,7 @@ export function makeWorld() {
     nextParty: 1, titleT: 0,                      // 새 파티 번호 · 칭호 조건을 다시 보는 때
     gruns: [], gresults: [],
     runs: [],                                     // 진행 중인 던전 — { id, slot, map, t 남은 초, wave, phase, end, gap } (손님도 스냅샷으로 받는다)
+    aruns: [],                                    // 진행 중인 심연의 탑 — { slot, map, f 층, t 남은 초, phase, end, hpScale } (스냅샷 ab)
   };
   SPAWNS.forEach((sp, gi) => { for (let i = 0; i < sp.n; i++) spawnMob(g, gi); });
   return g;
@@ -1373,7 +1390,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv || npc.market) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv || npc.market || npc.abyss) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
     h.quest = { on: true, n: 0, coinOnly:h.lv>QUEST.lv };
@@ -1453,6 +1470,20 @@ function dgMobBody(id, map, type, lv, boss, x, y, hpScale=1) {
   m.dg = 1;
   return m;
 }
+/* 탑 몹 — f 층 배율(abyssData.js floorHp · floorDmg)과 파티 배율(hpScale)을 곱한다. 수호자는 GUARD_BASE 에 같은 배율.
+   일반 몹은 맵 가운데 둘레로 몰려온다(던전 몹과 같다) */
+function abyssMobBody(id, map, type, lv, boss, x, y, f, hpScale = 1) {
+  const B = boss ? { lv, hp: Math.round(GUARD_BASE.hp * floorHp(f)), dmg: Math.round(GUARD_BASE.dmg * FAR_EASE.dmg * floorDmg(f)), xp: GUARD_BASE.xp, coin: GUARD_BASE.coin } : null;
+  const m = bodyOf(id, -1, type, boss ? 1 : 0, lv, map, x, y, B);
+  if (!boss) {
+    m.hp = m.max = Math.round(m.max * ABYSS_SCALE.mobHp * floorHp(f)); m.dmg = Math.round(m.dmg * floorDmg(f));
+    const M = MAPS[map], a = Math.random() * Math.PI * 2, rr = Math.random() * ABYSS.rally;
+    m.hx = M.w / 2 + Math.cos(a) * rr; m.hy = (M.top + M.h) / 2 + Math.sin(a) * rr * RPG.squash;
+  }
+  m.hp = m.max = Math.round(m.max * hpScale);
+  m.dg = 1;
+  return m;
+}
 // 몹 몸 — B 는 보스 값(lv · hp · dmg · xp · coin), 일반 몹이면 null
 function bodyOf(id, gi, type, boss, lv, map, x, y, B) {
   const T = MOB[type];
@@ -1481,6 +1512,14 @@ export function rpgPromote(g) {
   g.hits = []; g.respawn = []; g.pending = {}; g.later = []; g.zones = [];
   g.mobs = g.mobs.filter((m) => !m.dead).map((m) => {
     if(isGuildBoss(m))return null;
+    if (MAPS[m.map] && MAPS[m.map].abyss) {       // 탑 몹 — 그 층 값으로 다시 세운다
+      const r = (g.aruns || []).find((q) => q.map === m.map);
+      if (!r) return null;
+      const b = abyssMobBody(m.id, m.map, m.type, m.lv, m.boss, m.x, m.y, Math.max(1, r.f), r.hpScale || 1);
+      b.hp = Math.max(1, Math.round((b.max * (m.hp || 0)) / (m.max || 100)));
+      b.ax = m.ax || 1; b.age = 1;
+      return b;
+    }
     if (MAPS[m.map] && MAPS[m.map].dungeon) {     // 던전 몹 — 그 던전 값으로 다시 세운다
       const b = dgMobBody(m.id, m.map, m.type, m.lv, m.boss, m.x, m.y, g.runs.find(r=>r.map===m.map)?.hpScale||1);
       b.hp = Math.max(1, Math.round((b.max * (m.hp || 0)) / (m.max || 100)));
@@ -1500,6 +1539,7 @@ export function rpgPromote(g) {
   g.nextParty = Math.max(g.nextParty || 1, ...g.heroes.map((h) => (h ? h.pty + 1 : 1)));
   g.duels ||= [];
   g.runs = (g.runs || []).filter((r) => DG_BY_ID[r.id]);   // 던전은 받은 그대로 잇는다
+  g.aruns ||= [];                                 // 탑도 받은 그대로 잇는다
   g.heroes.forEach((h) => {
     if (!h) return;
     h.loaded = 0; h.migr = 1;                     // 기록이 다시 올 때까지 — 자리 · 체력은 그대로
@@ -4252,6 +4292,191 @@ function tickRuns(g, dt) {
   });
 }
 
+/* ── 심연의 탑 (abyssData.js) — 방장(전용 서버)만 판정 ─────────────────
+   g.aruns 하나가 탑 칸 하나다. f 는 지금 오르는 층(다음 층을 기다리는 동안은 막 깬 층).
+   phase: go 싸우는 중 · next 깨고 다음 층을 기다림 · fail 도전 끝(end 초 뒤 광장으로).
+   손님은 스냅샷 ab 로 받은 g.aruns 로 층 · 남은 시간을 그린다 */
+const ABYSS_PHASES = ["go", "next", "fail"];
+// 테스트가 시계를 바꿀 수 있게 — 주(week) · 닿은 때(at)에 쓴다
+const abyssNow = (g) => (typeof g.nowMs === "function" ? g.nowMs() : Date.now());
+export const abyssNear = (h) => !!h && h.map === "plaza" && dist(h.x, h.y, ABYSS.gate.x, ABYSS.gate.y) <= ABYSS.reach;
+export const inAbyss = (h) => !!(h && MAPS[h.map] && MAPS[h.map].abyss);
+export const abyssRunOf = (g, h) => (h ? (g.aruns || []).find((r) => r.map === h.map) || null : null);
+export const abyssFree = (aruns) => {
+  for (let s = 0; s < ABYSS.slots; s++) if (!(aruns || []).some((r) => r.slot === s)) return s;
+  return -1;
+};
+// 가방의 탑 기록 — 없거나 주가 바뀌었으면 고친다
+function awOf(g, h) {
+  const aw = rollAw(cleanAw(h.bag.aw), abyssWeek(abyssNow(g)));
+  h.bag.aw = aw;
+  return aw;
+}
+// 함께 들어갈 사람 — 던전과 같고(dgCrew), 400레벨이 안 되면 빠진다
+export const abyssCrew = (g, h) => dgCrew(g, h).filter((o) => o === h || o.admin || o.lv >= ABYSS.lv);
+// 들어갈 수 있는지 — 막히는 이유를 모은다. 화면(AbyssPanel.jsx)과 방장이 같이 쓴다
+export function whyAbyss(h, aruns) {
+  const out = [];
+  if (!h || !h.loaded) return ["기록을 불러오는 중입니다"];
+  if (!abyssNear(h)) out.push("광장의 탑 입구 곁에서 들어갈 수 있습니다");
+  if (h.lv < ABYSS.lv && !h.admin) out.push(`레벨 ${ABYSS.lv} 필요 (지금 ${h.lv})`);
+  if (h.down > 0) out.push("쓰러진 동안은 들어갈 수 없습니다");
+  if (h.dvs !== undefined && h.dvs >= 0) out.push("결투 중에는 들어갈 수 없습니다");
+  if (!h.admin && h.coins < ABYSS.fee) out.push("코인이 모자랍니다");
+  if (abyssFree(aruns) < 0) out.push("모든 칸이 차 있습니다 · 잠시 뒤에 오세요");
+  return out;
+}
+function toAbyssExit(g, h) {
+  h.map = "plaza";
+  [h.x, h.y] = ABYSS.exitAt;
+  h.x += (Math.random() - 0.5) * 100; h.y += (Math.random() - 0.5) * 40;
+  h.gateCd = 1; stopMove(h);
+  fx(g, "plaza", { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#9fd4ff", t: 0.5, life: 0.5 });
+}
+// 탑 안의 사람마다 머리 위에 큰 글자
+function abyssCall(g, r, text, color, snd) {
+  g.heroes.forEach((h) => { if (h && h.map === r.map) fx(g, r.map, { kind: "call", x: h.x, y: h.y - 130, text, color, t: 1.8, life: 1.8, snd, who: h.pi }); });
+}
+// req = { op: "enter" | "leave" | "buy", id }
+export function rpgAbyss(g, pi, req) {
+  const h = g.heroes[pi];
+  if (!h || !req) return false;
+  if (req.op === "leave") {
+    if (!inAbyss(h)) return false;
+    const r = abyssRunOf(g, h);
+    toAbyssExit(g, h);
+    sys(g, pi, `심연의 탑에서 나왔습니다.${r && r.best ? ` 이번 도전 ${r.best}층까지 올랐습니다.` : ""}`);
+    return true;
+  }
+  if (req.op === "buy") return abyssBuy(g, h, req.id);
+  if (req.op !== "enter") return false;
+  const why = whyAbyss(h, g.aruns);
+  if (why.length) return void sys(g, pi, why[0]);
+  const slot = abyssFree(g.aruns), map = abyssMap(slot);
+  if (!h.admin) h.coins -= ABYSS.fee;
+  g.mobs = g.mobs.filter((m) => m.map !== map);
+  const crew = abyssCrew(g, h);
+  const hpScale = Math.max(1, Math.max(...crew.map((o) => o.lv)) / COMBAT_RULES.dungeonScaleLevel);   // 던전과 같은 파티 배율
+  g.aruns.push({ slot, map, f: 0, best: 0, t: 0, phase: "next", end: 1.5, hpScale });
+  crew.forEach((o, i) => {
+    const [sx, sy] = MAPS[map].spawn;
+    o.map = map; o.x = sx - 120 + (i % 2) * 60; o.y = sy + (i - 1.5) * 50; o.gateCd = 1; stopMove(o);
+    fx(g, map, { kind: "ring", x: o.x, y: o.y - 10, r: 50, color: "#9fd4ff", t: 0.5, life: 0.5 });
+    sys(g, o.pi, `심연의 탑에 들어왔습니다. 층마다 ${ABYSS.time}초 · 수호자 층은 ${ABYSS.guardTime}초 안에 모두 잡으세요.`);
+  });
+  if (!h.admin) sys(g, pi, `입장료 ${ABYSS.fee.toLocaleString("ko-KR")}코인을 냈습니다.`);
+  return true;
+}
+// 층을 연다 — 수호자 층이면 수호자 하나, 아니면 몹 무리
+function abyssFloor(g, r) {
+  r.f += 1; r.phase = "go"; r.t = floorTime(r.f);
+  const M = MAPS[r.map];
+  if (isGuardFloor(r.f)) {
+    const q = floorGuard(r.f);
+    g.mobs.push(abyssMobBody(g.nextId++, r.map, q.type, ABYSS.lv + r.f, 1, M.w * 0.74, (M.top + M.h) / 2, r.f, r.hpScale));
+    abyssCall(g, r, `${r.f}층 · ${q.name}`, "#ffd38a", "boss");
+    return;
+  }
+  const { type, lv } = floorMob(r.f);
+  for (let i = 0; i < floorMobs(r.f); i++) {
+    const side = Math.floor(Math.random() * 3);   // 0 위 · 1 아래 · 2 오른쪽
+    const x = side === 2 ? M.w - 80 : M.w * (0.3 + Math.random() * 0.6);
+    const y = side === 0 ? M.top + 30 : side === 1 ? M.h - 60 : M.top + 80 + Math.random() * (M.h - M.top - 160);
+    const m = abyssMobBody(g.nextId++, r.map, type, lv, 0, x, y, r.f, r.hpScale);
+    m.state = "idle"; m.t = Math.random() * 0.4;
+    g.mobs.push(m);
+  }
+  abyssCall(g, r, `${r.f}층`, "#cfe6ff", "wave");
+}
+// 층을 깼다 — 안에 있는 사람이 저마다 파편을 받고 이번 주 기록이 오른다
+function abyssClear(g, r, inside) {
+  const f = r.f, guard = isGuardFloor(f), now = abyssNow(g);
+  r.best = Math.max(r.best || 0, f);
+  inside.forEach((h) => {
+    if (!h.loaded || trading(h)) return;
+    const aw = awOf(g, h);
+    let n = guard ? ABYSS_REWARD.guard(f) : ABYSS_REWARD.floor(f), bonus = 0;
+    if (guard && f > aw.fc) { bonus = ABYSS_REWARD.weekBonus(f); aw.fc = f; }   // 이번 주 처음 넘은 10층 단위
+    if (f > aw.top) { aw.top = f; aw.at = now; }
+    h.rec.atop = Math.max(h.rec.atop || 0, f);
+    const put = addMat(h.bag, SHARD, n + bonus);
+    h.bag.v += 1;
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 160, text: `${f}층 돌파 · 파편 +${put}`, color: "#9fd4ff", t: 1.6, life: 1.6, snd: guard ? "clear" : "coin", who: h.pi });
+    if (bonus) sys(g, h.pi, `이번 주 처음 ${f}층을 넘었습니다. 보너스 파편 ${bonus}개를 더 받았습니다.`);
+    if (put < n + bonus) sys(g, h.pi, "심연의 파편이 가득 차 일부만 받았습니다.");
+  });
+}
+function tickAbyss(g, dt) {
+  g.aruns = (g.aruns || []).filter((r) => {
+    const inside = g.heroes.filter((h) => h && h.map === r.map);
+    const close = () => { inside.forEach((h) => toAbyssExit(g, h)); g.mobs.forEach((m) => { if (m.map === r.map) m.dead = true; }); return false; };
+    if (!inside.length) return close();            // 모두 나갔다
+    if (r.phase === "fail") { r.end -= dt; return r.end > 0 ? true : close(); }
+    if (r.phase === "next") { r.end -= dt; if (r.end <= 0) abyssFloor(g, r); return true; }
+    r.t -= dt;
+    const fail = (why) => {
+      r.phase = "fail"; r.end = ABYSS.failWait; r.t = Math.max(0, r.t);
+      g.mobs.forEach((m) => { if (m.map === r.map) m.dead = true; });
+      abyssCall(g, r, r.best ? `도전 끝 · ${r.best}층` : "도전 끝", "#ffb0a0", "over");
+      inside.forEach((h) => sys(g, h.pi, `심연의 탑 도전이 끝났습니다 — ${why}. ${r.best ? `${r.best}층까지 올랐습니다. ` : ""}곧 광장으로 돌아갑니다.`));
+      return true;
+    };
+    if (r.t <= 0) return fail("시간이 다 되었습니다");
+    if (inside.every((h) => h.down > 0)) return fail("모두 쓰러졌습니다");
+    if (g.mobs.some((m) => !m.dead && m.map === r.map)) return true;
+    abyssClear(g, r, inside);
+    r.phase = "next"; r.end = ABYSS.gap;
+    return true;
+  });
+}
+// 파편 교환 — 탑 입구 곁에서(abyssData.js ABYSS_SHOP)
+function abyssBuy(g, h, id) {
+  const it = ABYSS_SHOP_BY_ID[id];
+  if (!it || !h.loaded || h.down > 0) return false;
+  if (!abyssNear(h)) return void sys(g, h.pi, "광장의 탑 입구 곁에서 교환할 수 있습니다");
+  const why = whyAbyssBuy(h, id);
+  if (why) return void sys(g, h.pi, why);
+  const [mat, cost] = it.cost, G = it.give;
+  h.bag.m[mat] -= cost; if (h.bag.m[mat] <= 0) delete h.bag.m[mat];
+  if (G.guard) h.bag.gd += G.guard;
+  if (G.mat) addMat(h.bag, G.mat, G.n);
+  if (G.title) h.rec[G.title] = 1;               // 칭호는 칭호 규칙(awardTitles)이 곧 준다
+  h.bag.v += 1;
+  fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: it.name, color: "#cfe6ff", t: 1.4, life: 1.4, snd: "coin", who: h.pi });
+  sys(g, h.pi, `${it.name} — 교환했습니다.`);
+  return true;
+}
+// 교환이 막힌 이유(없으면 "") — 화면과 방장이 같이 쓴다
+export function whyAbyssBuy(h, id) {
+  const it = ABYSS_SHOP_BY_ID[id];
+  if (!it) return "없는 물품입니다";
+  if (!h || !h.loaded || !h.bag) return "기록을 불러오는 중입니다";
+  const [mat, cost] = it.cost, G = it.give;
+  if (matCount(h.bag, mat) < cost) return `${MAT_BY_ID[mat].name}이 모자랍니다`;
+  if (G.guard && (h.bag.gd || 0) + G.guard > GUARD.max) return "하락 방지권을 더 가질 수 없습니다";
+  if (G.mat && matCount(h.bag, G.mat) + G.n > MAT_MAX) return "가방이 가득 찼습니다";
+  if (G.title && (h.rec[G.title] || 0) > 0) return "이미 받은 칭호입니다";
+  return "";
+}
+/* 주간 순위 보상 — 전용 서버(server/src/room.js)가 장부에서 지난주 순위를 읽고 부른다. week 는 그 주 월요일, rank 는 순위(1~10).
+   받은 주는 가방 bag.aw.cl 에 남아 한 번만 받는다 */
+export function abyssClaim(g, pi, week, rank) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded) return { ok: false, err: "token" };
+  const rw = rankReward(rank);
+  if (!rw) return { ok: false, err: "reward" };
+  const aw = awOf(g, h);
+  if (aw.cl === week) return { ok: false, err: "claimed" };
+  if (matCount(h.bag, SHARD) + rw.shard > MAT_MAX || matCount(h.bag, SEAL) + rw.seal > MAT_MAX) return { ok: false, err: "capacity" };
+  addMat(h.bag, SHARD, rw.shard); addMat(h.bag, SEAL, rw.seal);
+  h.rec.awk = (h.rec.awk || 0) + 1;
+  if (rank === 1) h.rec.awin = (h.rec.awin || 0) + 1;
+  aw.cl = week; h.bag.v += 1;
+  fx(g, h.map, { kind: "call", x: h.x, y: h.y - 120, text: `주간 ${rank}위 보상`, color: "#ffd38a", t: 1.8, life: 1.8, snd: "clear", who: pi });
+  sys(g, pi, `심연의 탑 지난주 ${rank}위 보상 — 심연의 파편 ${rw.shard}개 · 탑의 인장 ${rw.seal}개를 받았습니다.`);
+  return { ok: true, rank, ...rw };
+}
+
 /* ── 칭호 · 파티 (방장만 판정) ──────────────────────────────
    알림은 g.sys 에 남기고 손님에게도 보낸다 — 그 사람 채팅 칸에만 뜬다 */
 export function sys(g, pi, msg) {
@@ -4384,6 +4609,7 @@ export function rpgStep(g, dt) {
   tickSocial(g, dt);
   tickDuels(g, dt);
   tickRuns(g, dt);
+  tickAbyss(g, dt);
   tickWorldBoss(worldBossEngine,g,dt);tickGuild(guildEngine,g,dt);
   g.hits = g.hits.filter((s) => {
     s.t -= dt;
@@ -4476,6 +4702,8 @@ export function rpgPack(g) {
       m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0, r1(m.taunt||0),m.tgt]),
     // 던전 — [던전 차례, 칸, 남은 초, 무리 차례, 단계, 돌아가기까지 남은 초]
     d: g.runs.map((r) => [DUNGEONS.findIndex((q) => q.id === r.id), r.slot, Math.ceil(r.t), r.wave, RUN_PHASES.indexOf(r.phase), r1(r.end),r.hpScale||1]),
+    // 심연의 탑 — [칸, 층, 남은 초, 단계, 돌아가기 · 다음 층까지 남은 초, 파티 배율, 이번 도전 최고 층]. 필드는 뒤에만 더한다
+    ab: (g.aruns || []).map((r) => [r.slot, r.f, Math.ceil(r.t), ABYSS_PHASES.indexOf(r.phase), r1(r.end), r.hpScale || 1, r.best || 0]),
   };
 }
 
@@ -4579,6 +4807,10 @@ export function rpgApply(g, s) {
       const d = DUNGEONS[di];
       return d ? { id: d.id, slot, map: dgMapId(d.id, slot), t, wave, phase: RUN_PHASES[ph] || "go", end, hpScale, gap: 1 } : null;
     }).filter(Boolean);
+  }
+  if (Array.isArray(s.ab)) {
+    g.aruns = s.ab.map(([slot, f, t, ph, end, hpScale = 1, best = 0]) => (MAPS[abyssMap(slot)]
+      ? { slot, map: abyssMap(slot), f, t, phase: ABYSS_PHASES[ph] || "go", end, hpScale, best } : null)).filter(Boolean);
   }
   s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax, taunt=0, target=-1]) => {
     seen.add(id);

@@ -56,6 +56,12 @@ export async function honorTop(limit = 20) {
   return Array.isArray(r) ? { ok: true, list: r } : { ok: false, ...(r || {}) };
 }
 
+// 심연의 탑 주간 순위(장부 fn_rpg_abyss_top) — 이번 주 · 지난주 상위 10, 이름을 주면 내 지난주 순위도
+export async function abyssTop(name) {
+  const r = await rpc("rpg_abyss_top", name ? { p_name: name } : {});
+  return r && r.ok ? r : { ok: false, ...(r || {}) };
+}
+
 /* ── 접속 중 표시 — 한 캐릭터는 한 곳(한 서버 · 한 창)에서만 ───────────────
    서버에 들어갈 때 rpg_live 로 "이 창(sid)이 이 서버에 있다"를 남기고 LIVE_BEAT 초마다 다시 남긴다.
    다른 창이 LIVE 초 안에 남긴 표시가 있으면 들어가지 못한다(이어 하기 rpg_login 도 막힌다).

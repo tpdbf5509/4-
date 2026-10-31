@@ -8,7 +8,7 @@
      계정이 없는(이 기기에만 있는) 캐릭터는 예전처럼 화면이 보낸 기록을 싣고 저장하지 않는다
    화면과 주고받는 말은 예전 방장과 같다 — lobby · rsnap · chat 을 보내고 hello · pick · rjoin · input · chat 을 받는다(서버만의 말: auth) */
 import {
-  RPG_CREW_MAX, RPG_SERVER_CAP, makeWorld, rpgStep, rpgSyncSeats, rpgJoin, rpgPack, cleanLook, heroRecord, mapIdx,
+  RPG_CREW_MAX, RPG_SERVER_CAP, makeWorld, rpgStep, rpgSyncSeats, rpgJoin, rpgPack, cleanLook, heroRecord, mapIdx, abyssClaim,
 } from "../../src/game/rpg.js";
 import { rpgInput } from "../../src/game/rpgInput.js";
 import { CHAT } from "../../src/game/socialData.js";
@@ -346,6 +346,14 @@ export class RpgRoom {
       const r = await ledgerCall(this.env, "rpg_market", { ...me, p_sid: c.id, p_op: op, p_args: args.args && typeof args.args === "object" ? args.args : {} });
       if (r && r.ok && r.changed) await this.reload(c.id);   // 가방 · 코인이 바뀌었다
       return r;
+    }
+    if (d.fn === "abyss_claim") {                    // 심연의 탑 주간 보상 — 장부에서 지난주 순위를 읽고 서버가 가방에 넣는다(rpg.js abyssClaim)
+      const seat = this.seatOf(c.id);
+      if (!this.g || seat < 0) return { ok: false, err: "token" };
+      const r = await ledgerCall(this.env, "rpg_abyss_top", { p_name: a.name });
+      if (!r || !r.ok) return r || { ok: false, err: "net" };
+      if (!r.me || !r.me.prev) return { ok: false, err: "reward" };
+      return abyssClaim(this.g, seat, r.prev, r.me.prev);
     }
     return { ok: false, err: "op" };
   }

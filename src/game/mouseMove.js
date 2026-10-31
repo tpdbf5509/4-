@@ -57,7 +57,7 @@ export function pickNpc(mapId, x, y) {
   if (!M) return null;
   let best = null, bestD = Infinity;
   for (const n of M.npcs) {
-    const box = n.worldBoss ? null : (n.shop || n.deep || n.guildDoor || n.guild || n.guildRaidDoor || n.dungeon) ? MV_UI.hitBig : MV_UI.hit;
+    const box = n.worldBoss ? null : (n.shop || n.deep || n.abyss || n.guildDoor || n.guild || n.guildRaidDoor || n.dungeon) ? MV_UI.hitBig : MV_UI.hit;
     const inside = n.worldBoss
       ? mapId === "plaza" && portalHit(x, y)
       : Math.abs(x - n.x) <= box.w && y >= n.y - box.up && y <= n.y + box.down;

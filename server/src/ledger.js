@@ -5,6 +5,7 @@
    접속 중 표시(live)는 메모리에만 둔다 — 배포로 장부가 다시 뜨면 비지만 화면이 10초마다 다시 남긴다 */
 import bcrypt from "bcryptjs";
 import { RESET } from "../../src/game/itemData.js";
+import { ABYSS_RANK, abyssWeek, prevWeek, weekReset, weekTop, cleanAw } from "../../src/game/abyssData.js";
 import { rpgKey, len, sha256, iso, isObj, txt, jeq, lvOf } from "./ledger-util.js";
 import { tradeMethods } from "./ledger-trade.js";
 import { guildMethods } from "./ledger-guild.js";
@@ -21,6 +22,7 @@ const JUMP = 15;                       // 저장 사이에 오를 수 있는 레
 const JUMP_MIN = 1;                    // 지난 저장 뒤 1분마다 더 오를 수 있는 레벨
 // 코인 저장 지킴 — 지난 저장 뒤 늘 수 있는 코인 = 한 번에 몰려 드는 몫 100만 + 1분마다 50만(rpg.sql rpg_coin_cap)
 const coinCap = (mins) => 1000000 + 500000 * Math.min(Math.max(Number(mins) || 0, 0), 1000000);
+const ABYSS_CACHE_MS = 30 * 1000;      // 심연의 탑 순위를 다시 읽기까지 — 창을 여러 번 열어도 모든 캐릭터를 매번 읽지 않게
 const COIN_BLOCK = false;              // false — 막지 않고 save_blocks 에 why 'coins' 로 남기기만 한다
 
 /* ── 작은 도구 ─────────────────────────────────────── */
@@ -149,6 +151,39 @@ export class LedgerCore {
     }
     out.sort((x, y) => y.honor - x.honor || x.at - y.at);
     return out.slice(0, lim).map(({ name, honor, lv }) => ({ name, honor, lv }));
+  }
+
+  /* ── 심연의 탑 주간 순위(src/game/abyssData.js) — 저장된 기록의 가방 bag.aw 에서 바로 셈한다(따로 쓰는 표가 없어 D1 쓰기가 늘지 않는다).
+     이번 주 · 지난주 상위 10. 동점이면 먼저 닿은 쪽(at)이 위. 관리자 캐릭터 · 초기화 전 기록은 빼다.
+     모든 캐릭터를 읽으니 ABYSS_CACHE_MS 동안 기억해 둔다(창을 열 때만 부른다). p_name 이 있으면 그 캐릭터의 지난주 순위도 준다 ── */
+  async abyssBoard(week) {
+    const now = this.now(), memo = (this.abyssMemo ||= new Map()), hit = memo.get(week);
+    if (hit && now - hit.at < ABYSS_CACHE_MS) return hit.list;
+    const list = [];
+    for (const r of await this.rows("SELECT name, name_key, data, admin FROM chars")) {
+      if (r.admin) continue;
+      const d = JSON.parse(r.data);
+      if (txt(d.rs) !== RESET.id) continue;
+      const w = weekTop(cleanAw(d.bag && d.bag.aw), week);
+      if (w) list.push({ name: r.name, key: r.name_key, floor: w.top, at: w.at, lv: num(d.lv, /^[0-9]{1,3}$/) || 1 });
+    }
+    list.sort((x, y) => y.floor - x.floor || x.at - y.at || (x.name < y.name ? -1 : 1));
+    list.forEach((x, i) => { x.rank = i + 1; });
+    memo.set(week, { at: now, list });
+    if (memo.size > 4) memo.delete(memo.keys().next().value);
+    return list;
+  }
+  async fn_rpg_abyss_top(a) {
+    const week = abyssWeek(this.now()), prev = prevWeek(week);
+    const cur = await this.abyssBoard(week), last = await this.abyssBoard(prev);
+    const key = a.p_name ? rpgKey(a.p_name) : "";
+    const strip = (x) => ({ rank: x.rank, name: x.name, floor: x.floor, lv: x.lv });
+    const mine = key ? last.find((x) => x.key === key) : null;
+    return {
+      ok: true, week, prev, reset: iso(weekReset(week)),
+      top: cur.slice(0, ABYSS_RANK.top).map(strip), last: last.slice(0, ABYSS_RANK.top).map(strip),
+      me: key ? { now: (cur.find((x) => x.key === key) || {}).rank || 0, prev: mine && mine.rank <= ABYSS_RANK.top ? mine.rank : 0 } : null,
+    };
   }
 
   /* ── 접속 중 표시 — 한 캐릭터는 한 곳(한 서버 · 한 창)에서만 ── */

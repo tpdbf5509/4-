@@ -173,16 +173,16 @@ test('손님이 먼저 걷고 방장이 지연 뒤 받아도 두 화면의 자�
 });
 test('방장 승계 — 가던 목적지는 기록(mv)으로 이어받고 맵이 다르면 버린다',()=>{
  const {g,seats}=setup();
- mv(g,1500,820);const snap=JSON.parse(JSON.stringify(rpgPack(g)));
+ mv(g,1300,880);const snap=JSON.parse(JSON.stringify(rpgPack(g)));
  const guest=makeWorld();guest.mySeat=0;rpgLooks(guest,seats);rpgApply(guest,snap);
- rpgMove(guest,0,{x:1500,y:820,m:'plaza'});
+ rpgMove(guest,0,{x:1300,y:880,m:'plaza'});
  const d=guest.heroes[0].dest;rpgPromote(guest);assert.equal(guest.heroes[0].dest,d);
  // 새 방장에게 기록을 다시 보낸다
  const g2=makeWorld();g2.mySeat=1;g2.out=[];rpgSyncSeats(g2,seats);
- rpgJoin(g2,0,{name:'클릭0',rs:RESET.id,gift:GIFT.id,lv:50,ts:0,stats:{str:20,hp:20},bag:{oc:1,w:[],n:1},mv:{x:1500,y:820,m:'plaza'}},'mv0');
+ rpgJoin(g2,0,{name:'클릭0',rs:RESET.id,gift:GIFT.id,lv:50,ts:0,stats:{str:20,hp:20},bag:{oc:1,w:[],n:1},mv:{x:1300,y:880,m:'plaza'}},'mv0');
  g2.heroes[0].map='plaza';
- assert(g2.heroes[0].dest&&g2.heroes[0].dest.x===1500);
- rpgJoin(g2,0,{name:'클릭0',rs:RESET.id,gift:GIFT.id,lv:50,ts:0,stats:{str:20,hp:20},bag:{oc:1,w:[],n:1},mv:{x:1500,y:820,m:'field'}},'mv0');
+ assert(g2.heroes[0].dest&&g2.heroes[0].dest.x===1300);
+ rpgJoin(g2,0,{name:'클릭0',rs:RESET.id,gift:GIFT.id,lv:50,ts:0,stats:{str:20,hp:20},bag:{oc:1,w:[],n:1},mv:{x:1300,y:880,m:'field'}},'mv0');
 });
 test('여럿이 동시에 걸어도 서로의 목적지가 섞이지 않는다',()=>{
  const {g}=setup(3);

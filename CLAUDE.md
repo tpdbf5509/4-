@@ -37,7 +37,7 @@
 - 모드 ① **방어전**: 대기실 → 웨이브 → 중간중간 **보스 결전**(각자 캐릭터로 보스를 친다) → 능력 카드 → 결과. 방 코드 4글자, `TEST` 는 테스트 서버.
   - 병과(= 탑) 11종 `archer` `sniper` `cannon` `bolt` `flame` `poison` `frost` `gravity` `supply` `corrode` `paladin`, 1~4단계. 난이도 쉬움 · 보통 · 어려움 · 지옥.
   - **방장 전용**: 시작 · 난이도 · 라운드 · 일시정지(결전 중에도) · 속도. 손님 화면에서는 버튼이 비활성.
-- 모드 ② **RPG**: 서버 RPG1~RPG4(서버당 10명 `RPG_SERVER_CAP`). 광장 · 사냥터 21곳(1~400) · 계몽의 문 뒤 400~800 사냥터 8곳 · 던전 · 월드보스 · 길드 · 결투 · 거래 · 장터 게시판 · 의뢰. 최고 800레벨(`LV_MAX`), 200레벨 1차 전직, 스탯 5종(하나에 800 `STAT_MAX`).
+- 모드 ② **RPG**: 서버 RPG1~RPG4(서버당 10명 `RPG_SERVER_CAP`). 광장 · 사냥터 21곳(1~400) · 계몽의 문 뒤 400~800 사냥터 8곳 · 던전 · 심연의 탑(400레벨 · 끝없는 층 · 주간 순위) · 월드보스 · 길드 · 결투 · 거래 · 장터 게시판 · 의뢰. 최고 800레벨(`LV_MAX`), 200레벨 1차 전직, 스탯 5종(하나에 800 `STAT_MAX`).
 
 ## 4. 기술 구조
 
@@ -54,7 +54,7 @@
 
 - **수치는 데이터 파일 한 곳**, 규칙은 짝 파일, 그림은 `*Art.js`, 창은 `src/*Panel.jsx`.
   - 방어전: `world.js`(상수 · `TOWERS` · `DIFFS` · `makeGame`) · `logic.js`(규칙, 위쪽에 밸런스 상수, 스냅샷 `packSnapshot`/`applySnapshot`) · `art.js`.
-  - RPG: `rpg.js`(규칙 본체) · `rpgArt.js` · `src/RpgView.jsx`(화면 · 입력). 기능별 수치는 `*Data.js`(item · shop · junk · armor · dungeon · skill · adv · deep · fieldLook · train · request · social · book · guild · worldBoss · worldEquipment · stormWeapon · jobTune · combatRules …).
+  - RPG: `rpg.js`(규칙 본체) · `rpgArt.js` · `src/RpgView.jsx`(화면 · 입력). 기능별 수치는 `*Data.js`(item · shop · junk · armor · dungeon · abyss · skill · adv · deep · fieldLook · train · request · social · book · guild · worldBoss · worldEquipment · stormWeapon · jobTune · combatRules …).
 - `src/game/towerInfo.js`: 탑 설명 숫자를 손으로 적은 곳 — logic.js 를 고치면 같이 고친다.
 - `src/game/updates.js`: 대기실 업데이트 노트 · `RPG_NOTICE`. `bookData.js`: RPG 패치노트 책.
 - `src/App.jsx`: 화면 흐름 · 방 연결 · 방장 권한 · 테스트 패널. `src/net/`: 방 연결 · 전용 서버 · 장부 호출 · 버전 확인(`version.js`).
@@ -87,7 +87,7 @@
 - 패치노트 책: `bookData.js` `PATCH_BOOKS` **맨 위에 한 권**. 밸런스 수치를 바꾸면 전후 값을 적는다.
 - 접속 때 안내 창이 필요하면 `RPG_NOTICE`(`updates.js`) id 를 바꾼다.
 
-기능별 상세 규칙(관리자 캐릭터 · 명령어, 보스 재료 · 강화, 방어구, 던전, 스킬 칸, 직업 · 무기 스킬, 전직 · 숙련도, 400~800 사냥터, 사냥터 PvP, 월드보스, 길드, 거래, 의뢰 · 퀘스트 마스터, 장터 게시판, 결투, 경험치, 방장 승계 · 넘기기, 한 캐릭터 한 곳, 마우스 이동, 잡동산이 상점, 직업 능력 조정)은 `docs/작업-상세-기록.md` 5장과 끝의 "10월 30일" 장들에 있다. 그 기능을 고치기 전에 해당 항목을 먼저 읽는다.
+기능별 상세 규칙(심연의 탑 · 관리자 캐릭터 · 명령어, 보스 재료 · 강화, 방어구, 던전, 스킬 칸, 직업 · 무기 스킬, 전직 · 숙련도, 400~800 사냥터, 사냥터 PvP, 월드보스, 길드, 거래, 의뢰 · 퀘스트 마스터, 장터 게시판, 결투, 경험치, 방장 승계 · 넘기기, 한 캐릭터 한 곳, 마우스 이동, 잡동산이 상점, 직업 능력 조정)은 `docs/작업-상세-기록.md` 5장과 끝의 "10월 30일" 장들에 있다. 그 기능을 고치기 전에 해당 항목을 먼저 읽는다.
 
 ## 6. 작업할 때 지킬 것
 

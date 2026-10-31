@@ -18,6 +18,7 @@ import { CODEX_IDS, CODEX_STARS, ACHIEVES } from "./codexData.js";
 import { ADV, ADV_CLASSES, ADV_MASTERY, ADV_TRAITS, traitAt, ADV_BY_ID, ADV_BODY } from "./advData.js";
 import { TRIAL } from "./trainData.js";
 import { GUIDE } from "./guideData.js";
+import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP, GUARDIANS, rankReward } from "./abyssData.js";
 // 지난 패치노트는 그때 있던 전직만 — 10월 31일 암살자 · 엘프를 더하기 전
 const ADV_BEFORE_1031 = ADV_CLASSES.filter((c) => c.id !== "assassin" && c.id !== "elf");
 
@@ -31,6 +32,22 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-11-01a", title: "패치노트 · 11월 1일", sub: "심연의 탑", color: "#8fa8c8",
+    pages: [
+      { h: "끝없이 오르는 탑", p: [`광장 오른쪽 경비대장과 사냥문 사이에 심연의 탑이 생겼습니다. ${ABYSS.lv}레벨부터 들어갑니다. 계몽의 눈은 필요 없습니다.`,
+        `입장료는 ${ABYSS.fee.toLocaleString("ko-KR")}코인입니다. 같은 파티로 광장에 있는 ${ABYSS.lv}레벨 이상이 함께 들어갑니다. 칸은 ${ABYSS.slots}개입니다.`,
+        `한 층에 몹 무리 하나입니다. 모두 잡으면 ${ABYSS.gap}초 뒤 다음 층입니다. 층마다 ${ABYSS.time}초입니다.`,
+        `${ABYSS.guardEvery}층마다 수호자가 나옵니다. 수호자 층은 ${ABYSS.guardTime}초입니다. 시간이 다 되거나 모두 쓰러지면 도전이 끝납니다.`] },
+      { h: "세기", p: [`층마다 몹 체력 × ${ABYSS_SCALE.hp} · 공격 × ${ABYSS_SCALE.dmg}입니다. 던전처럼 파티 최고 레벨 ÷ 300 배율도 겹칩니다.`,
+        `몹은 ${ABYSS_SCALE.mobBase}마리에서 ${ABYSS_SCALE.mobPer}층마다 한 마리씩 늘어 ${ABYSS_SCALE.mobMax}마리에서 멈춥니다.`,
+        "몹은 400~800 사냥터 몹 8종을 10층마다 차례로 씁니다.",
+        `수호자는 ${GUARDIANS.map((q) => q.name).join(" · ")} 여섯입니다. 60층 뒤로는 처음부터 다시 나오며 더 세집니다.`] },
+      { h: "보상과 순위", p: [`층을 깨면 안에 있는 모두가 심연의 파편을 받습니다. 1층 ${ABYSS_REWARD.floor(1)}개 · 10층 수호자 ${ABYSS_REWARD.guard(10)}개처럼 오를수록 많습니다.`,
+        `한 주에 처음 넘는 10층 단위마다 보너스 파편을 더 받습니다. 10층 ${ABYSS_REWARD.weekBonus(10)}개 · 20층 ${ABYSS_REWARD.weekBonus(20)}개입니다.`,
+        "주간 순위는 서버 RPG1~4를 합쳐 이번 주 가장 높이 깬 층으로 셉니다. 같은 층이면 먼저 닿은 사람이 위입니다. 한국 시간 월요일 0시에 새로 셉니다.",
+        `지난주 상위 10명은 탑 창 순위 탭에서 보상을 받습니다. 1위 파편 ${rankReward(1).shard} · 인장 ${rankReward(1).seal}, 2~3위 파편 ${rankReward(2).shard} · 인장 ${rankReward(2).seal}, 4~10위 파편 ${rankReward(4).shard} · 인장 ${rankReward(4).seal}입니다.`,
+        `교환 탭: ${ABYSS_SHOP.map((it) => it.name).join(" · ")}.`] },
+    ] },
   { id: "patch-2026-10-31g", title: "패치노트 · 10월 31일 (7)", sub: "장터 게시판", color: "#c9b37c",
     pages: [
       { h: "올려 두면 팔린다", p: ["광장 분수 아래에 장터 게시판이 생겼습니다. 가까이 가서 E 로 엽니다.",

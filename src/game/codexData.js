@@ -4,6 +4,8 @@
    칭호 보상은 socialData.js TITLES 에 같은 조건으로 따로 두어, 칭호 규칙(awardTitles)이 준다.
    숨은 칭호(TITLES[].secret)는 여기에 적지 않는다 — 얻기 전에는 어디에도 보이지 않아야 한다. */
 
+import { GUARD_IDS } from "./abyssData.js";
+
 // 도감 — 무리마다 몹 차례. id 는 기록(REC_IDS) 열쇠다. 허수아비(dummy)는 넣지 않는다
 export const CODEX_GROUPS = [
   { id: "field", name: "들판 · 숲", note: "1~200레벨", mobs: ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre"] },
@@ -11,6 +13,7 @@ export const CODEX_GROUPS = [
   { id: "deep", name: "계몽의 문 너머", note: "400~800레벨", mobs: ["fspirit", "lavagolem", "firedrake", "ifrit", "wraith", "abyss", "voidmage", "fallen"] },
   { id: "dungeon", name: "던전", note: "던전 보스와 졸개", mobs: ["gramor", "argas", "morgas", "skeleton", "barkanon", "serka"], boss: 1 },
   { id: "guild", name: "길드 토벌", note: "길드 보스", mobs: ["guild_slime", "guild_siren", "guild_phoenix"], boss: 1 },
+  { id: "abyss", name: "심연의 탑", note: "10층마다 나오는 수호자", mobs: GUARD_IDS, boss: 1 },
 ];
 export const CODEX_IDS = CODEX_GROUPS.flatMap((c) => c.mobs);
 // 사냥터 몹(던전 · 길드 보스는 빼고) — "모두 100마리" 업적에 쓴다
@@ -27,14 +30,15 @@ export const starsOf = (n) => CODEX_STARS.filter((s) => n >= s).length;
    dex 도감에 드러난 몹 수 · dex100 100마리 넘게 잡은 사냥터 몹 수 · dgboss 던전 보스 다섯을 모두 잡았는지(종류 수) · gboss 길드 보스 종류 수 */
 const DG_BOSSES = ["gramor", "argas", "morgas", "barkanon", "serka"];
 const GUILD_BOSS_IDS = ["guild_slime", "guild_siren", "guild_phoenix"];
-export const CODEX_BOSS_IDS = [...DG_BOSSES, ...GUILD_BOSS_IDS];   // 보스 모습으로 그리는 몹
+export const CODEX_BOSS_IDS = [...DG_BOSSES, ...GUILD_BOSS_IDS, ...GUARD_IDS];   // 보스 모습으로 그리는 몹
 export const CODEX_NEED = {
   dex: (rec) => dexCount(rec),
   dex100: (rec) => dexCount(rec, 100, CODEX_FIELD_IDS),
   dgboss: (rec) => dexCount(rec, 1, DG_BOSSES),
   gboss: (rec) => dexCount(rec, 1, GUILD_BOSS_IDS),
+  tguard: (rec) => dexCount(rec, 1, GUARD_IDS),
 };
-export const CODEX_NEED_NAME = { dex: "도감", dex100: "100마리 넘게 잡은 몹", dgboss: "잡아 본 던전 보스", gboss: "잡아 본 길드 보스" };
+export const CODEX_NEED_NAME = { dex: "도감", dex100: "100마리 넘게 잡은 몹", dgboss: "잡아 본 던전 보스", gboss: "잡아 본 길드 보스", tguard: "잡아 본 탑 수호자" };
 
 /* 업적 — 차례대로 보인다. coin 은 받는 코인(소량), title 은 함께 얻는 칭호 id(TITLES 에 같은 조건으로 있다).
    이미 나간 id 는 바꾸지 않는다(가방 b.ac 에 남는다). 새 업적은 아무 곳에나 더해도 된다 */
@@ -58,5 +62,10 @@ export const ACHIEVES = [
   { id: "quest300", group: "모험", name: "사냥꾼의 단골", need: { quest: 300 }, coin: 4000 },
   { id: "req100", group: "모험", name: "광장의 일꾼", need: { req: 100 }, coin: 5000 },
   { id: "party1000", group: "모험", name: "함께라서 든든", need: { party: 1000 }, coin: 4000 },
+  // 심연의 탑(abyssData.js)
+  { id: "abyss10", group: "심연의 탑", name: "탑의 첫 수호자", need: { atop: 10 }, coin: 5000 },
+  { id: "abyss25", group: "심연의 탑", name: "심연의 중턱", need: { atop: 25 }, coin: 15000 },
+  { id: "abyss50", group: "심연의 탑", name: "심연을 정복한 자", need: { atop: 50 }, coin: 40000, title: "abyss50" },
+  { id: "tguard", group: "심연의 탑", name: "여섯 수호자", need: { tguard: GUARD_IDS.length }, coin: 20000 },
 ];
 export const ACHIEVE_BY_ID = Object.fromEntries(ACHIEVES.map((a) => [a.id, a]));

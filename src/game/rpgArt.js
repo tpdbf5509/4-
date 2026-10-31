@@ -9,6 +9,8 @@ import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
+import { warmAbyssArt, drawAbyssGate, drawGuardian } from "./abyssArt.js";
+import { GUARD_IDS } from "./abyssData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
 import { W, H } from "./world.js";
@@ -311,7 +313,7 @@ export const RFRAME = {
 };
 let rpgWarm = 0;
 export function warmRpgArt() {
-  warmDragonFlightArt();warmWorldBossArt();warmGuildArt();warmAdvArt();warmFuryArt();
+  warmDragonFlightArt();warmWorldBossArt();warmGuildArt();warmAdvArt();warmFuryArt();warmAbyssArt();
   if (rpgWarm) return;
   rpgWarm = 1;
   ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
@@ -962,6 +964,7 @@ function drawDeepDoor(ctx, g, n, time) {
 
 function drawNpc(ctx, g, n, time) {
   if (n.deep) return drawDeepDoor(ctx, g, n, time);
+  if (n.abyss) return drawAbyssGate(ctx, g, n, time, ABYSS_T);   // 심연의 탑 입구(abyssArt.js)
   if(n.guild)return drawGuildStatue(ctx,g,n,time);
   if(n.guildDoor)return drawGuildDoor(ctx,g,n,time);
   if(n.guildRaidDoor)return drawGuildRaidDoor(ctx,g,n,time);
@@ -1938,6 +1941,10 @@ function guildBossDraw(ctx,m,time){drawGuildBoss(ctx,m,time);drawMobMarks(ctx,m,
 const MOB_DRAW = {guild_slime:guildBossDraw,guild_siren:guildBossDraw,guild_phoenix:guildBossDraw,world_dragon:drawWorldBoss,world_serpent:drawWorldBoss,world_machine:drawWorldBoss, world_thunderbird:drawWorldBoss, dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
   skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider,
   fspirit: drawFspirit, lavagolem: drawLavagolem, firedrake: drawFiredrake, ifrit: drawIfrit, wraith: drawWraith, abyss: drawAbyss, voidmage: drawVoidmage, fallen: drawFallen };
+// 심연의 탑 수호자 · 입구(abyssArt.js)에 넘기는 그리기 도구 — 그림이 없을 때는 같은 원소 느낌의 몹 몸으로 대신한다
+const ABYSS_T = { shadow, roundRect, marks: (ctx, m, time, top) => drawMobMarks(ctx, m, time, top),
+  fallback: (ctx, m, time) => (MOB_DRAW[m.type] || drawRabbit)(ctx, m, time, null) };
+GUARD_IDS.forEach((id) => { MOB_DRAW[id] = (ctx, m, time) => drawGuardian(ctx, m, time, ABYSS_T); });
 /* 도감 그림 — 몹 하나를 넓은 판에 그린 뒤 그려진 곳만 잘라 둔다(몹마다 크기가 달라서). 한 번 그리면 기억한다.
    그림 파일이 아직 덜 불러와졌으면 다음에 다시 그린다 */
 const ICON_PAD = 320, ICON_FOOT = 0.78;                  // 넓은 판 한 변(px) · 발밑 높이(판 높이의 몫)

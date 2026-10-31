@@ -8,6 +8,7 @@ import WorldBossPanel,{WorldBossHud} from "./WorldBossPanel.jsx";
 import TradePanel from "./TradePanel.jsx";
 import AdvPanel from "./AdvPanel.jsx";
 import DeepPanel from "./DeepPanel.jsx";
+import AbyssPanel from "./AbyssPanel.jsx";
 import CodexPanel from "./CodexPanel.jsx";
 import { ADV, ADV_BY_ID, ADV_TRAITS, masteryLv, trialText } from "./game/advData.js";
 import { useTrade } from "./useTrade.js";
@@ -23,7 +24,7 @@ import {
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, MOB_REGEN, ACTIVE_SKILLS, heldSpecial, trainView, predictDash, predictLunge, DASH,
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
   titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, requestXp, MOB,
-  whyDungeon, dgNear, dgCrew, runOf,
+  whyDungeon, dgNear, dgCrew, runOf, abyssCrew, abyssRunOf, abyssNear,
   RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
@@ -566,6 +567,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [trainOpen, setTrainOpen] = useState(false); // 훈련 교관 창
   const [advOpen, setAdvOpen] = useState(false);     // 전직 교관 창(AdvPanel)
   const [deepOpen, setDeepOpen] = useState(false);   // 계몽의 문 창(DeepPanel)
+  const [abyssOpen, setAbyssOpen] = useState(false); // 심연의 탑 창(AbyssPanel)
+  const abyssRef = useRef(false);                    // 루프가 보는 열린 탑 창 — 입구에서 멀어지면 닫는다
   const [marketOpen, setMarketOpen] = useState(false); // 장터 게시판 창(MarketPanel)
   const dgRef = useRef(false);                       // 루프가 보는 열린 던전 창 — 관리인에게서 멀어지면 닫는다
   const marketRef = useRef(false);                   // 루프가 보는 열린 장터 창 — 게시판에서 멀어지면 닫는다
@@ -645,7 +648,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setCodexOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
-    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setMarketOpen(false);
+    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -763,9 +766,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   useEffect(() => { reqRef.current = reqOpen; }, [reqOpen]);
   useEffect(() => { dgRef.current = dgOpen; }, [dgOpen]);
   useEffect(() => { marketRef.current = marketOpen; }, [marketOpen]);
+  useEffect(() => { abyssRef.current = abyssOpen; }, [abyssOpen]);
   // 창이 하나라도 열려 있거나 채팅 중이면 마우스 이동을 무시한다(onMoveDown)
   const anyWin = menu || statOpen || !!shopOpen || bagOpen || titleOpen || codexOpen || partyOpen || keysOpen || inqOpen || honorOpen || !!reqOpen || questOpen
-    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || marketOpen || chatOpen || !!waitKey;
+    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || chatOpen || !!waitKey;
   useEffect(() => { winOpenRef.current = anyWin; }, [anyWin]);
 
   const toggleMute = useCallback(() => {
@@ -825,6 +829,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (npc.train) { closeAll(); setTrainOpen(true); return; }               // 훈련 교관 — 기능 창
       if (npc.adv) { closeAll(); setAdvOpen(true); return; }                   // 전직 교관 — 시험 · 확정 창
       if (npc.deep) { closeAll(); setDeepOpen(true); return; }
+      if (npc.abyss) { closeAll(); setAbyssOpen(true); return; }               // 심연의 탑 입구 — 도전 · 순위 · 교환 창
       if (npc.market) { closeAll(); setMarketOpen(true); return; }             // 장터 게시판 — 창만 연다. 사고팔기는 장부(useMarket)                 // 계몽의 문 — 계몽의 눈 만들기 · 400~800레벨 입장
       if (npc.shop) {                               // 상점은 창만 연다 — 사고파는 것은 창에서 보낸다
         setStatOpen(false); setMenu(false); setBagOpen(false); setNote(null);
@@ -929,13 +934,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen && !marketOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen && !abyssOpen && !marketOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, codexOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, marketOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, codexOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, abyssOpen, marketOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -1392,7 +1397,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null, advM: me.advM || 0,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
             dvs: me.dvs, dph:me.dph,duelPotions:me.duelPotions,
-            reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])) },
+            reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])),
+            rec: { ...me.rec }, aruns: (g.aruns || []).map((r) => ({ slot: r.slot })) },
+          // 심연의 탑 — 들어가 있는 칸(층 · 남은 시간 · 단계)과 함께 들어갈 사람
+          arun: (() => {
+            const r = abyssRunOf(g, me);
+            if (!r) return null;
+            const mb = !bossMem.current && g.mobs.find((m) => m.boss && !m.dead && m.map === me.map);   // 수호자 체력 칸(tickBossBars 가 그린다)
+            const b = bossMem.current || (mb ? { id: mb.id, name: MOB[mb.type]?.boss?.name || "수호자", hp: mb.hp, max: mb.max } : null);
+            return { f: r.f, t: r.t, phase: r.phase, end: r.end, best: r.best || 0, boss: b ? { id: b.id, name: b.name, hp: b.hp, max: b.max } : null };
+          })(),
+          acrew: abyssCrew(g, me).map((o) => o.pi),
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title,
             admin: h.admin, honor: h.honor || 0, dvs: h.dvs })),
           duelSize:me.duelSize||1,duelPotions:me.duelPotions||0,duelTeam:me.duelTeam,duelInvSize:me.duelInv?.size||1,
@@ -1420,7 +1435,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 상점에서 멀어지면 상점 창을 닫는다
         if (me && shopRef.current && !nearShop(me, shopRef.current)) { shopRef.current = null; setShopOpen(null); }
         if (me && dgRef.current && !dgNear(me)) { dgRef.current = false; setDgOpen(false); }
-        if (me && marketRef.current && !(npcNear(me) || {}).market) { marketRef.current = false; setMarketOpen(false); }   // 게시판에서 멀어지면 닫는다
+        if (me && marketRef.current && !(npcNear(me) || {}).market) { marketRef.current = false; setMarketOpen(false); }
+        if (me && abyssRef.current && !abyssNear(me)) { abyssRef.current = false; setAbyssOpen(false); }   // 탑 입구에서 멀어지면 닫는다   // 게시판에서 멀어지면 닫는다
         if (me && me.loaded && !noticeDone) {
           noticeDone = true;
           const gift = me.gift === GIFT.id && !giftRef.current;
@@ -1463,7 +1479,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const me = hud;
   const guide = !guideDone && me ? guideStep(me, metNpc(me.self, QUEST_NPC) || me.quest.on, (id) => (touch ? "" : keyOf(binds, id))) : null;
   guideRef.current = guide && guide.target;
-  const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run || (me.map==="worldboss"||me.map.startsWith("guildraid-")));   // 결투 · 던전 중에는 서버를 옮기지 않는다
+  const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run || !!me.arun || (me.map==="worldboss"||me.map.startsWith("guildraid-")));   // 결투 · 던전 중에는 서버를 옮기지 않는다
   const nearShopNpc = me && me.near && me.near.shop ? SHOP_BY_ID[me.near.shop] : null;
   const myEl = elemOf(myLook);
   const who = (pi) => {                              // 파티 칸 — 직업 · 원소
@@ -1706,6 +1722,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
           {me && marketOpen && <MarketPanel api={market} h={me.self} selfName={selfName.current} onClose={() => setMarketOpen(false)} />}
           {me && deepOpen && <DeepPanel self={me.self} act={act} onClose={() => setDeepOpen(false)} />}
+          {me && abyssOpen && <AbyssPanel self={me.self} crew={me.acrew} names={names} room={room} selfName={selfName.current} act={act} onClose={() => setAbyssOpen(false)} />}
           {me && advOpen && <AdvPanel self={me.self} act={act} advKey={(binds.adv || []).find(Boolean)} onClose={() => setAdvOpen(false)} />}
           <TradePanel api={trades} self={me?.self} />
           {me && partyOpen && (() => {
@@ -2000,6 +2017,22 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             );
           })()}
+          {me && me.arun && (() => {
+            const r = me.arun, left = Math.max(0, Math.ceil(r.t));
+            const step = r.phase === "fail" ? `도전 끝 · ${r.best}층` : r.phase === "next" ? (r.f ? `${r.f}층 돌파` : "준비") : `${r.f}층`;
+            return (
+              <div className="rpg-dg abyss-hud">
+                <div className="rpg-dg-top">
+                  <b>심연의 탑</b>
+                  <span>{step}</span>
+                  {r.phase === "go" && <span className={`rpg-dg-time ${left <= 15 ? "low" : ""}`}>{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</span>}
+                  <button type="button" className="rpg-win-btn" onClick={() => act("abyss", { op: "leave" })}>나가기</button>
+                </div>
+                {r.boss && <BossHealthBar key={r.boss.id} {...r.boss} {...bossBarRefs}/>}
+                {r.phase === "fail" && <p className="rpg-dg-end">{Math.ceil(r.end)}초 뒤 광장으로 돌아갑니다</p>}
+              </div>
+            );
+          })()}
           {me && me.inv >= 0 && nowMs - answeredAt > 1500 && (
             <div className="rpg-invite" role="alertdialog" aria-label="파티 초대">
               <span><b>{names[me.inv] || "모험가"}</b>님이 파티에 초대했습니다</span>
@@ -2188,6 +2221,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
+          {me?.near?.abyss && !abyssOpen && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">심연의 탑</span>
+              <span className="rpg-talk-line">{me.lv >= 400 ? "끝이 보이지 않는 탑이다. 어디까지 오를 수 있을까." : "400레벨이 되면 탑에 들어갈 수 있다."}</span>
+              <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                탑 살펴보기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
           {me?.near?.adv && !advOpen && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">전직 교관</span>
@@ -2206,7 +2248,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
-          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss || me.near.guild || me.near.guildDoor || me.near.guildRaidDoor || me.near.adv || me.near.deep || me.near.market)) && (talk || me.near) && (
+          {me && !nearShopNpc && !(me.near && (me.near.board || me.near.req || me.near.dungeon || me.near.train || me.near.worldBoss || me.near.guild || me.near.guildDoor || me.near.guildRaidDoor || me.near.adv || me.near.deep || me.near.abyss || me.near.market)) && (talk || me.near) && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">사냥꾼</span>
               <span className="rpg-talk-line">

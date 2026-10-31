@@ -5,6 +5,7 @@
    need 의 열쇠: lv 레벨 · coins 가진 코인 · rabbit / wolf / boar / gorilla / goblin / orc / ogre 잡은 수(보스 포함) · boss 보스 · quest 퀘스트 완료 · party 파티로 잡은 수 · pvp 결투에서 이긴 수 · req 광장 의뢰 완료.
    스냅샷은 이 목록의 차례로 칭호를 싣는다 — 새 칭호는 맨 뒤에만 더하고, 차례를 바꾸거나 지우지 않는다(30개까지). */
 import { CODEX_IDS, CODEX_FIELD_IDS, CODEX_NEED_NAME } from "./codexData.js";
+import { GUARD_IDS, GUARDIANS } from "./abyssData.js";
 
 export const TITLES = [
   { id: "rookie", name: "새싹 모험가", need: { lv: 1 } },
@@ -67,6 +68,12 @@ export const TITLES = [
   { id: "dex100", name: "도감의 주인", need: { dex100: CODEX_FIELD_IDS.length } },
   { id: "dg100", name: "던전 정복자", need: { dg: 100 } },
   { id: "boss1000", name: "우두머리 수집가", need: { boss: 1000 } },
+  // 심연의 탑(abyssData.js) — 50층 업적 · 주간 순위 상위 10 · 1위 · 파편 교환 · 인장 교환
+  { id: "abyss50", name: "심연을 정복한 자", need: { atop: 50 } },
+  { id: "awk", name: "심연의 도전자", need: { awk: 1 } },
+  { id: "awin", name: "탑의 주인", need: { awin: 1 } },
+  { id: "atb", name: "심연을 걷는 자", need: { atb: 1 } },
+  { id: "aking", name: "심연의 군주", need: { aking: 1 } },
 ];
 // 칭호는 스냅샷에 비트로 싣는다 — 한 숫자에 TITLE_BITS 개까지, 넘는 것은 줄 끝(45)의 둘째 숫자에
 export const TITLE_BITS = 31;
@@ -74,7 +81,9 @@ export const TITLE_BY_ID = Object.fromEntries(TITLES.map((t) => [t.id, t]));
 // 잡은 수 · 완료 수 — 캐릭터 기록에 남는다. 스냅샷에는 이 차례로 싣는다(뒤에만 더한다)
 export const REC_IDS = ["rabbit", "wolf", "boar", "boss", "quest", "party", "gorilla", "pvp", "goblin", "orc", "ogre", "req", "gramor", "dg", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
   "skeletal", "zombie", "necro", "golem", "chimera", "spider", "guild_slime", "guild_siren", "guild_phoenix",
-  "fspirit", "lavagolem", "firedrake", "ifrit", "wraith", "abyss", "voidmage", "fallen"];
+  "fspirit", "lavagolem", "firedrake", "ifrit", "wraith", "abyss", "voidmage", "fallen",
+  // 심연의 탑 — atop 가장 높이 깬 층 · awk 주간 상위 10에 든 주 · awin 주간 1위 · atb · aking 교환으로 받은 칭호(1) · 수호자 6종 잡은 수
+  "atop", "awk", "awin", "atb", "aking", ...GUARD_IDS];
 // 조건 이름 — 칭호 창에 "토끼 37/100" 처럼 보인다
 export const NEED_NAME = {
   lv: "레벨", coins: "코인", rabbit: "토끼", wolf: "늑대", boar: "멧돼지", boss: "보스", quest: "퀘스트", party: "파티 사냥", gorilla: "고릴라", pvp: "결투 승리",
@@ -82,6 +91,8 @@ export const NEED_NAME = {
   skeletal: "스켈레톤", zombie: "좀비", necro: "언데드 마법사", golem: "골렘", chimera: "키메라", spider: "포식거미",
   fspirit: "불정령", lavagolem: "용암골렘", firedrake: "화염룡", ifrit: "이프리트", wraith: "망령기사", abyss: "심해괴수", voidmage: "공허술사", fallen: "타락천사",
   guild_slime: "강화된 슬라임", guild_siren: "바다세이렌", guild_phoenix: "불사조",
+  atop: "심연의 탑 최고 층", awk: "주간 순위 상위 10", awin: "주간 순위 1위", atb: "파편 교환", aking: "인장 교환",
+  ...Object.fromEntries(GUARDIANS.map((q) => [q.type, q.name])),
   ...CODEX_NEED_NAME,
 };
 

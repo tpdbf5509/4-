@@ -25,10 +25,10 @@ export default function AbyssPanel({ self, crew, names, room, selfName, act, onC
     if (r.ok) setBoard(r); else setNote(ERR[r.err] || ERR.net);
   }, [selfName]);
   useEffect(() => { if (tab === "rank" && !board) load(); }, [tab, board, load]);
+  const [week] = useState(() => abyssWeek(Date.now()));   // 훅은 early return 앞에(self 가 늦게 오면 훅 수가 달라져 멈춘다)
   if (!self) return null;
   const why = whyAbyss(self, self.aruns);
   const have = (id) => (self.bag && self.bag.m && self.bag.m[id]) || 0;
-  const [week] = useState(() => abyssWeek(Date.now()));
   const aw = cleanAw(self.bag && self.bag.aw);
   const mine = weekTop(aw, week);
   const claim = async () => {

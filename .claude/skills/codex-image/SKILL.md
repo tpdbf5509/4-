@@ -41,6 +41,7 @@ python3 tools/key-green.py 이름.png public/assets/game/.../이름.webp --cols 
 ```
 - 방식: `strict`(기본 — 갇힌 초록 틈까지 모두 지움, 몸에 초록이 없을 때) · `pocket`(노랑 · 연두 몸) · `edge`(몸이 초록이어도 안전, 갇힌 틈은 남을 수 있다). 실제로 독 정령은 `edge`, 부식 정령은 `pocket`, 나머지는 `strict` 로 맞았다.
 - 끝나면 `이름-check.png`(어두운 바탕 위)를 `Read` 로 본다. **초록 틈이 남았는지, 몸이 파였는지** 둘 다 확인하고 칸마다 방식을 바꿔 다시 돌린다. 누끼 때 흰 깃털 · 옷이 지워지지 않아야 한다.
+- 그림이 칸 밖으로 나갔거나(칼 · 날개) 칸마다 위치가 들쭉날쭉하면 `python3 tools/relayout-sheet.py 지운것.webp 출력.webp` 로 칸 가운데 · 발밑에 다시 앉힌다(위쪽 상수 `FOOT` · `CELL` · `COLS` · `ROWS` 를 시트에 맞춘다). 만들어진 `-layout.png` 를 본다.
 - 효과 시트(검은 바탕)는 `python3 tools/key-green.py 이름.png 출력.webp --black --size 1024x256`.
 - 캐릭터 시트의 4방향 자르기 · 무기 지우기는 기존 스크립트: `tools/cut-adv-classes.py` · `tools/bare-adv.py` · `tools/recut-character.py` · `tools/cut-weapons.py`.
 

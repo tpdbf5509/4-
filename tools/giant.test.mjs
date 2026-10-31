@@ -61,7 +61,7 @@ test('받는 피해의 share 몫을 정령이 대신 맞고 체력이 다하면 
 
 test('every 초마다 둘레 적을 모두 치고 기절시킨다 · 멀리 있는 적은 안 친다', () => {
   const g = world(), h = g.heroes[0];
-  const a = mob(g, 1100, 900), b = mob(g, 1140, 930), far = mob(g, 1000 + U.follow + U.r + 400, 900);
+  const a = mob(g, 1100, 900), b = mob(g, 1140, 930), far = mob(g, 1000 + U.roam + U.r + 300, 900);
   ult(g);
   run(g, 1.6);
   assert(a.hp < a.max && b.hp < b.max, '둘레 적 모두 맞는다');
@@ -88,4 +88,17 @@ test('쓰러지면 정령도 돌아간다', () => {
   mob(g, 1020, 900, { dmg: 1e9, tgt: 0, state: 'chase' });
   run(g, 4);
   if (h.down > 0) assert.equal(h.as.gi, null);
+});
+
+test('돌아다닌다 — 가까운 적에게 가고 주인 둘레 roam 을 넘지 않는다', () => {
+  const g = world(), h = g.heroes[0];
+  ult(g);
+  const gi = h.as.gi;
+  mob(g, 1000 + 400, 900, { stun: 99, hp: 1e12, max: 1e12 });                          // 처음 자리(앞 130)에서 멀리 있는 적
+  const x0 = gi.x;
+  run(g, 2);
+  assert(gi.x > x0 + 100, `적 쪽으로 걸었다 ${x0} → ${gi.x}`);
+  g.mobs = [];
+  run(g, 8);
+  assert(Math.abs(gi.x - h.x) <= U.roam + 1, '범위 안');
 });

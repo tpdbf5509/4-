@@ -806,9 +806,23 @@ function tickGiant(E, g, h, a, dt) {
     a.gi = null;
     return;
   }
-  const hx = h.x + (h.dir || 1) * U.follow, hy = h.y, k = Math.min(1, dt * 2.2);
-  if (gi.map !== h.map) { gi.x = hx; gi.y = hy; gi.map = h.map; }
-  gi.x += (hx - gi.x) * k; gi.y += (hy - gi.y) * k;
+  if (gi.map !== h.map) { gi.x = h.x + (h.dir || 1) * U.follow; gi.y = h.y; gi.map = h.map; gi.tx = null; }
+  // 돌아다닌다 — 내 둘레 roam 안에서 가장 가까운 적에게 가고, 적이 없으면 wander 초마다 새 곳으로 어슬렁거린다
+  const inRoam = (x, y) => Math.hypot(x - h.x, (y - h.y) / E.squash) <= U.roam;
+  let foe = null, fd = Infinity;
+  E.near(g, h, gi.x, gi.y, U.roam + U.r, 99).forEach((o) => { const d = E.dist(gi.x, gi.y, o.x, o.y); if (inRoam(o.x, o.y) && d < fd) { fd = d; foe = o; } });
+  if (foe) { gi.tx = foe.x; gi.ty = foe.y; gi.wT = 0; }
+  else if (gi.tx == null || (gi.wT = (gi.wT || 0) - dt) <= 0 || E.dist(gi.x, gi.y, gi.tx, gi.ty) < 24) {
+    const ang = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * U.roam * 0.8;
+    gi.tx = h.x + Math.cos(ang) * d; gi.ty = h.y + Math.sin(ang) * d * E.squash; gi.wT = U.wander;
+  }
+  const dx = gi.tx - gi.x, dy = gi.ty - gi.y, dd = Math.hypot(dx, dy), stop = foe ? U.r * 0.35 : 0;   // 적에게는 발이 닿을 만큼만 다가선다
+  if (dd > stop) { const st = Math.min(dd - stop, U.speed * dt); gi.x += (dx / dd) * st; gi.y += (dy / dd) * st; }
+  if (!inRoam(gi.x, gi.y)) {                       // 범위 밖이면 가장자리로 끌어온다
+    const ex = gi.x - h.x, ey = (gi.y - h.y) / E.squash, e = Math.hypot(ex, ey) || 1;
+    gi.x = h.x + (ex / e) * U.roam; gi.y = h.y + (ey / e) * U.roam * E.squash;
+  }
+  E.keep(gi, h.map);
   if ((gi.cd -= dt) > 0) return;
   gi.cd = U.every;
   const map = h.map, list = E.near(g, h, gi.x, gi.y, U.r, 99);
@@ -970,7 +984,7 @@ export function packAdv(h) {
     h.advClass ? cleanAdvM(h.advM) : 0, a ? r1(a.tcd || 0) : 0, a && a.pr ? 1 : 0, a ? r1(a.mvT || 0) : 0, a ? a.rs || 0 : 0, a ? r1(a.rsT || 0) : 0,
     a && a.nul ? 1 : 0, a ? r1(a.nulIdle || 0) : 0,   // 20 · 21 기사 무효화 방어막(있음 · 쉰 초)
     a ? r1(a.ut || 0) : 0, a ? r1(a.rush || 0) : 0, a ? r1(a.wdT || 0) : 0, a ? a.ammo ?? -1 : -1, a ? r1(a.rl || 0) : 0,   // 22~26 암살자 지정 불가 · 질주 / 엘프 바람 걸음 / 총사 탄창 · 장전(10월 30일)
-    a ? r1(a.ucd || 0) : 0, a && a.gi ? [Math.round(a.gi.hp), a.gi.mhp, r1(a.gi.t)] : 0];   // 27 · 28 소환술사 궁극기 대기 · 거대 정령 [체력, 최대 체력, 남은 초](10월 31일)
+    a ? r1(a.ucd || 0) : 0, a && a.gi ? [Math.round(a.gi.hp), a.gi.mhp, r1(a.gi.t), Math.round(a.gi.x), Math.round(a.gi.y)] : 0];   // 27 · 28 소환술사 궁극기 대기 · 거대 정령 [체력, 최대 체력, 남은 초](10월 31일)
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; return; }
@@ -990,7 +1004,8 @@ export function applyAdv(h, v) {
   if (v.length > 27) {                              // 소환술사 궁극기 — 옛 방장은 줄 끝이 없다
     a.ucd = Number(v[27]) || 0;
     const G = v[28];
-    if (Array.isArray(G) && G[2] > 0) { const gi = a.gi || (a.gi = { x: h.x, y: h.y, map: h.map, cd: 0, cap: { raw: 0, adv: 1 } }); gi.hp = Number(G[0]) || 0; gi.mhp = Number(G[1]) || 1; gi.t = Number(G[2]) || 0; }
+    if (Array.isArray(G) && G[2] > 0) { const gi = a.gi || (a.gi = { x: h.x, y: h.y, map: h.map, cd: 0, cap: { raw: 0, adv: 1 } }); gi.hp = Number(G[0]) || 0; gi.mhp = Number(G[1]) || 1; gi.t = Number(G[2]) || 0;
+      if (G.length > 4) { gi.sx = Number(G[3]); gi.sy = Number(G[4]); if (!Number.isFinite(gi.x) || Math.hypot(gi.x - gi.sx, gi.y - gi.sy) > 700) { gi.x = gi.sx; gi.y = gi.sy; } } }
     else a.gi = null;
   }
   if (v.length > 22) { a.ut = Number(v[22]) || 0; a.rush = Number(v[23]) || 0; a.wdT = Number(v[24]) || 0; a.ammo = Number(v[25] ?? -1); a.rl = Number(v[26]) || 0; }
@@ -1008,9 +1023,7 @@ export function stepAdvVisual(h, dt) {
   const gi = h.as && h.as.gi;                      // 거대 정령 — 주인 앞으로 따라온다(그림만)
   if (gi) {
     gi.t = Math.max(0, gi.t - dt);
-    const U = ADV_BY_ID.summoner.ultimate, hx = h.x + (h.dir || 1) * U.follow, k = Math.min(1, dt * 2.2);
-    if (Math.hypot(hx - gi.x, h.y - gi.y) > 500) { gi.x = hx; gi.y = h.y; }
-    gi.x += (hx - gi.x) * k; gi.y += (h.y - gi.y) * k;
+    if (Number.isFinite(gi.sx)) { const k = Math.min(1, dt * 8); gi.x += (gi.sx - gi.x) * k; gi.y += (gi.sy - gi.y) * k; }   // 방장이 보낸 자리로 부드럽게
   }
   const sps = h.as && h.as.sps;
   if (!sps || !sps.length) return;

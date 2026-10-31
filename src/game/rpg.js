@@ -2907,6 +2907,7 @@ const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near
   safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,
   // 10월 31일 암살자 · 엘프 · 명사수 — lose 몹이 놓친다 · place 순간 이동(맵 안) · slower 나보다 느린가 · calmT 쉼 회복까지 초
   lose: (g, h) => g.mobs.forEach((m) => { if (m.tgt === h.pi && m.map === h.map) m.tgt = -1; }),
+  keep: (o, map) => keepIn(o, MAPS[map], 20),   // 거대 정령이 맵 밖으로 나가지 않게
   place: (h, x, y) => { h.x = x; h.y = y; keepIn(h, MAPS[h.map], 20); stopMove(h); },
   slower: (h, o) => moveSpeedOf(o) < heroSpeed(h), calmT: RPG.calm,
   // 전투 특성 — hit 평타로 친다 · side 튄 피해(몹) · extra 추가 탄환(몹은 튄 피해, 사람은 평타 한도) · shield 긴급 보호막(이미 더 크면 false)

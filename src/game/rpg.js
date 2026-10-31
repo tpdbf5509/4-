@@ -24,6 +24,7 @@ import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
+import { ACHIEVES, CODEX_NEED } from "./codexData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS, QUEST_MASTER, questXpRate, questMatches } from "./requestData.js";
 import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
@@ -696,7 +697,11 @@ export function cleanReqs(d) {
 }
 export const cleanTitles = (list) => (Array.isArray(list) ? [...new Set(list.filter((id) => TITLE_BY_ID[id]))] : []);
 // 칭호 조건의 지금 값 — 레벨 · 코인은 캐릭터에서, 나머지는 기록에서
-export const needNow = (h, k) => (k === "lv" ? h.lv : k === "coins" ? h.coins : (h.rec && h.rec[k]) || 0);
+// 도감 열쇠(dex 등, codexData.js CODEX_NEED)는 기록에서 센다
+export const needNow = (h, k) => (k === "lv" ? h.lv : k === "coins" ? h.coins : CODEX_NEED[k] ? CODEX_NEED[k](h.rec) : (h.rec && h.rec[k]) || 0);
+// 업적 — 조건을 채웠는지 · 이미 보상을 받았는지(가방 b.ac)
+export const achMet = (h, a) => Object.entries(a.need).every(([k, n]) => needNow(h, k) >= n);
+export const achGot = (h, a) => (((h && h.bag && h.bag.ac) || []).includes(a.id));
 export const titleMet = (h, t) => (t.off ? offKey(h) === t.off : Object.entries(t.need).every(([k, n]) => needNow(h, k) >= n));
 // 직업과 다른 묶음의 무기를 들었으면 그 묶음(sword · bow · staff), 아니면 "" — 방장만 가방을 본다
 export function offHand(h) {
@@ -4268,6 +4273,27 @@ function awardTitles(g, h, quiet) {
   });
 }
 
+// 조건을 채운 업적의 코인을 준다(codexData.js ACHIEVES). 한꺼번에 여럿이면(예전 기록) 한 줄로 알린다
+// 칭호 보상은 같은 조건의 칭호를 awardTitles 가 준다
+const ACH_SAY_MAX = 2;                            // 이만큼까지는 업적마다 알리고, 넘으면 한 줄로 묶는다
+function awardAchieves(g, h) {
+  const got = ACHIEVES.filter((a) => !achGot(h, a) && achMet(h, a));
+  if (!got.length) return;
+  const coin = got.reduce((n, a) => n + a.coin, 0);
+  h.bag.ac = [...(h.bag.ac || []), ...got.map((a) => a.id)];
+  h.bag.v += 1;
+  h.coins += coin;
+  if (got.length > ACH_SAY_MAX) {
+    sys(g, h.pi, `업적 ${got.length}개를 이뤄 코인 ${coin.toLocaleString("ko-KR")}을 받았습니다. 도감 창에서 볼 수 있습니다.`);
+    return;
+  }
+  got.forEach((a, i) => {
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 140 - i * 22, text: `업적 「${a.name}」`, color: "#e9d39a", t: 1.4, life: 1.4,
+      snd: "clear", who: h.pi });
+    sys(g, h.pi, `업적 「${a.name}」을 이뤄 코인 ${a.coin.toLocaleString("ko-KR")}을 받았습니다.`);
+  });
+}
+
 // 칭호를 단다 — 얻은 것만. 빈 값이면 뗀다
 export function rpgTitle(g, pi, id) {
   const h = g.heroes[pi];
@@ -4336,7 +4362,7 @@ function tickSocial(g, dt) {
   g.titleT -= dt;
   if (g.titleT <= 0) {
     g.titleT = 0.5;
-    g.heroes.forEach((h) => { if (h && h.loaded && !trading(h)) { awardTitles(g, h, false); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
+    g.heroes.forEach((h) => { if (h && h.loaded && !trading(h)) { awardTitles(g, h, false); awardAchieves(g, h); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
   }
 }
 

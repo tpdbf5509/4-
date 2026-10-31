@@ -8,6 +8,7 @@ import WorldBossPanel,{WorldBossHud} from "./WorldBossPanel.jsx";
 import TradePanel from "./TradePanel.jsx";
 import AdvPanel from "./AdvPanel.jsx";
 import DeepPanel from "./DeepPanel.jsx";
+import CodexPanel from "./CodexPanel.jsx";
 import { ADV, ADV_BY_ID, ADV_TRAITS, masteryLv, trialText } from "./game/advData.js";
 import { useTrade } from "./useTrade.js";
 import { trading } from "./game/tradeData.js";
@@ -520,6 +521,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [note, setNote] = useState(null);           // 상점 결과 한 줄 — 내 것만
   const shopRef = useRef(null);                     // 루프가 보는 열린 상점
   const [titleOpen, setTitleOpen] = useState(false); // 칭호 창
+  const [codexOpen, setCodexOpen] = useState(false); // 도감 · 업적 창
   const [partyOpen, setPartyOpen] = useState(false); // 파티 창
   const [keysOpen, setKeysOpen] = useState(false);   // 키 설정 창
   const [inqOpen, setInqOpen] = useState(false);     // 문의하기 창
@@ -610,7 +612,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   // 창은 한 번에 하나만 연다
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
-    setTitleOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
+    setTitleOpen(false); setCodexOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
     setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
@@ -728,7 +730,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   useEffect(() => { reqRef.current = reqOpen; }, [reqOpen]);
   useEffect(() => { dgRef.current = dgOpen; }, [dgOpen]);
   // 창이 하나라도 열려 있거나 채팅 중이면 마우스 이동을 무시한다(onMoveDown)
-  const anyWin = menu || statOpen || !!shopOpen || bagOpen || titleOpen || partyOpen || keysOpen || inqOpen || honorOpen || !!reqOpen || questOpen
+  const anyWin = menu || statOpen || !!shopOpen || bagOpen || titleOpen || codexOpen || partyOpen || keysOpen || inqOpen || honorOpen || !!reqOpen || questOpen
     || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || chatOpen || !!waitKey;
   useEffect(() => { winOpenRef.current = anyWin; }, [anyWin]);
 
@@ -892,13 +894,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, codexOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -1487,6 +1489,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     onClick={() => toggleWin(titleOpen, setTitleOpen)}>
                     칭호
                   </button>
+                  <button type="button" className={`rpg-lv-stat ${codexOpen ? "on" : ""}`} aria-expanded={codexOpen}
+                    onClick={() => toggleWin(codexOpen, setCodexOpen)}>
+                    도감
+                  </button>
                   <button type="button" className={`rpg-lv-stat ${me.pty ? "has" : ""} ${partyOpen ? "on" : ""}`} aria-expanded={partyOpen}
                     onClick={() => toggleWin(partyOpen, setPartyOpen)}>
                     파티{me.pty > 0 && <b>{me.party.filter((h) => h.pty === me.pty).length}</b>}
@@ -1653,6 +1659,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
             </>
           )}
+          {me && codexOpen && <CodexPanel me={{ lv: me.lv, coins: me.coins, rec: me.rec, bag: me.self.bag }} onClose={() => setCodexOpen(false)} />}
           {me&&<GuildHud run={me.guild?.run} barRefs={bossBarRefs} onLeave={()=>act("guild",{op:"leave"})}/>}
           {me&&guildOpen&&<GuildPanel api={guild} self={me.self} selfName={selfName.current} mode={guildOpen} here={seats.filter((st,i)=>st&&me.party.some((p)=>p.pi===i&&p.map===me.map)).map((st)=>st.name)} onClose={()=>setGuildOpen(false)}/>}
           {(guild.notice||guild.error)&&<div className={`trade-result guild-notice ${guild.notice?.success?"success":""}`} role="status" aria-live="polite" aria-atomic="true"><strong>{guild.error?"길드 안내":guild.notice.title}</strong><span>{guild.error||guild.notice.text}</span></div>}
@@ -1966,7 +1973,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me && bagOpen && (
             <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} onClose={() => { setBagOpen(false); setBagTab("weapon"); }} />
           )}
-          {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
+          {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
             <button type="button" className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
               {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
               {Object.entries(me.self.reqs).map(([id, r]) => {

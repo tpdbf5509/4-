@@ -16,7 +16,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap } from "./rpg.js";
+import { RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { paintFieldLook, fieldTrails } from "./fieldArt.js";
@@ -1936,6 +1936,54 @@ function guildBossDraw(ctx,m,time){drawGuildBoss(ctx,m,time);drawMobMarks(ctx,m,
 const MOB_DRAW = {guild_slime:guildBossDraw,guild_siren:guildBossDraw,guild_phoenix:guildBossDraw,world_dragon:drawWorldBoss,world_serpent:drawWorldBoss,world_machine:drawWorldBoss, world_thunderbird:drawWorldBoss, dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
   skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider,
   fspirit: drawFspirit, lavagolem: drawLavagolem, firedrake: drawFiredrake, ifrit: drawIfrit, wraith: drawWraith, abyss: drawAbyss, voidmage: drawVoidmage, fallen: drawFallen };
+/* 도감 그림 — 몹 하나를 넓은 판에 그린 뒤 그려진 곳만 잘라 둔다(몹마다 크기가 달라서). 한 번 그리면 기억한다.
+   그림 파일이 아직 덜 불러와졌으면 다음에 다시 그린다 */
+const ICON_PAD = 320, ICON_FOOT = 0.78;                  // 넓은 판 한 변(px) · 발밑 높이(판 높이의 몫)
+const iconMemo = new Map();
+function mobIconSheet(type, boss) {
+  const key = `${type}:${boss ? 1 : 0}`;
+  const kept = iconMemo.get(key);
+  if (kept && (kept.done || performance.now() - kept.at < 800)) return kept;
+  const c = document.createElement("canvas");
+  c.width = c.height = ICON_PAD;
+  const x = c.getContext("2d");
+  const def = MOB[type];
+  let box = null;
+  if (def) {
+    const sp = SPAWNS.find((q) => q.type === type && q.lv);   // 몹 크기는 레벨을 따른다 — 사냥터 가운데 레벨로 그린다
+    const sz = Math.max(0.3, mobSize(type, sp ? (sp.lv[0] + sp.lv[1]) / 2 : 1, boss) || 1);
+    const m = { type, id: 0, x: ICON_PAD / 2, y: ICON_PAD * ICON_FOOT, size: sz, age: 9, moving: false, hp: 1, max: 1, lv: 1,
+      boss: boss ? 1 : 0, ax: 1, pose: 0, freeze: 0, flash: 0, portrait: 1 };
+    try {
+      const fit = Math.min(1, 1 / Math.max(1, sz * 0.9));   // 큰 보스는 판에 들어오게 줄여 그린다
+      x.save(); x.translate(m.x, m.y); x.scale(fit, fit); x.translate(-m.x, -m.y);
+      (MOB_DRAW[type] || drawRabbit)(x, m, 0, null);
+      x.restore();
+      const px = x.getImageData(0, 0, ICON_PAD, ICON_PAD).data;
+      let l = ICON_PAD, t = ICON_PAD, r = -1, b = -1;
+      for (let yy = 0; yy < ICON_PAD; yy++) for (let xx = 0; xx < ICON_PAD; xx++) {
+        if (px[(yy * ICON_PAD + xx) * 4 + 3] < 90) continue;   // 옅은 그림자는 빼고 잰다
+        if (xx < l) l = xx; if (xx > r) r = xx; if (yy < t) t = yy; if (yy > b) b = yy;
+      }
+      if (r >= l) box = { l, t, w: r - l + 1, h: b - t + 1 };
+    } catch { box = null; }
+  }
+  const out = { c, box, at: performance.now(), done: !!box && !!kept && !!kept.box && kept.box.w === box.w && kept.box.h === box.h };   // 두 번 같게 그려지면(그림 파일까지 불러옴) 끝
+  iconMemo.set(key, out);
+  return out;
+}
+// 도감 칸에 몹을 그린다 — hide 면 아직 못 잡은 몹이라 검은 그림자만
+export function drawMobIcon(ctx, type, w, h, hide, boss) {
+  ctx.clearRect(0, 0, w, h);
+  const s = mobIconSheet(type, boss);
+  if (!s.box) return;
+  const k = Math.min((w * 0.86) / s.box.w, (h * 0.86) / s.box.h, 2.2);
+  const dw = s.box.w * k, dh = s.box.h * k;
+  ctx.save();
+  ctx.drawImage(s.c, s.box.l, s.box.t, s.box.w, s.box.h, (w - dw) / 2, h - dh - h * 0.07, dw, dh);
+  if (hide) { ctx.globalCompositeOperation = "source-in"; ctx.fillStyle = "#1b140d"; ctx.fillRect(0, 0, w, h); }
+  ctx.restore();
+}
 const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4",
   skeletal: "#c9d6e6", zombie: "#bfd6a8", necro: "#d2bcf0", golem: "#d6ccb8", chimera: "#f0c9a0", spider: "#d8d0e8",
   fspirit: "#ffc896", lavagolem: "#f0a080", firedrake: "#f0a888", ifrit: "#ffc080", wraith: "#b8c8e8", abyss: "#a8d0e8", voidmage: "#c8b8f0", fallen: "#dcc0e0" };
@@ -2019,6 +2067,7 @@ function drawReqNpc(ctx, g, n, time) {
 const BOSS_HP_COL = "#d8645a", BOSS_GHOST_COL = "#f0b052";   // 보스 체력 칸 · 피해 잔상(던전 위 칸과 같은 색 — style.css .rpg-dg-boss)
 /* 몹 머리 위 — 걸린 것(불 · 독 · 기절), 체력, 레벨. top 은 발밑에서 머리 꼭대기까지의 높이 */
 function drawMobMarks(ctx, m, time, top) {
+  if (m.portrait) return;                               // 도감 그림 — 체력 · 이름표 없이 몸만
   const x = m.x, y = m.y;
   if (m.burn > 0 || m.poison > 0) {
     ctx.fillStyle = m.burn > 0 ? "rgba(245,140,40,0.8)" : "rgba(150,220,90,0.7)";

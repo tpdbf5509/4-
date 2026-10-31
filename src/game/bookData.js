@@ -13,6 +13,7 @@ import { PARTY, CHAT } from "./socialData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEONS, DUNGEON } from "./dungeonData.js";
 import { UPDATES } from "./updates.js";
+import { CODEX_IDS, CODEX_STARS, ACHIEVES } from "./codexData.js";
 import { ADV, ADV_CLASSES, ADV_MASTERY, ADV_TRAITS, traitAt, ADV_BY_ID, ADV_BODY } from "./advData.js";
 // 지난 패치노트는 그때 있던 전직만 — 10월 31일 암살자 · 엘프를 더하기 전
 const ADV_BEFORE_1031 = ADV_CLASSES.filter((c) => c.id !== "assassin" && c.id !== "elf");
@@ -27,6 +28,14 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-10-31e", title: "패치노트 · 10월 31일 (5)", sub: "도감 · 업적", color: "#c9b37c",
+    pages: [
+      { h: "도감", p: ["레벨 칸의 도감 버튼으로 엽니다.", `사냥터 몹과 던전 · 길드 보스 ${CODEX_IDS.length}종이 실려 있습니다. 처음 한 마리를 잡으면 검은 그림자가 걷히고 모습이 드러납니다.`,
+        `${CODEX_STARS.map((n) => n.toLocaleString("ko-KR")).join(" · ")}마리를 잡을 때마다 별을 하나씩 받습니다. 지금까지 잡은 수도 그대로 셉니다.`] },
+      { h: "업적", p: [`업적은 ${ACHIEVES.length}개입니다. 도감 · 던전 · 보스 · 모험 기록을 채우면 이룹니다.`,
+        `이루면 코인이 바로 들어옵니다. ${Math.min(...ACHIEVES.map((a) => a.coin)).toLocaleString("ko-KR")}~${Math.max(...ACHIEVES.map((a) => a.coin)).toLocaleString("ko-KR")}코인입니다.`,
+        "도감 완성 · 모든 사냥터의 기록 · 던전 정복자 · 우두머리 천 마리는 칭호도 함께 줍니다.", "예전 기록으로 이미 채운 업적은 접속하면 곧바로 받습니다."] },
+    ] },
   { id: "patch-2026-10-31d", title: "패치노트 · 10월 31일 (4)", sub: "소환술사 궁극기", color: "#c9b37c",
     pages: [
       { h: "거대 정령", p: [`소환술사의 궁극기입니다. 키는 기본 G 이고 ☰ 키 설정에서 바꿉니다.`,

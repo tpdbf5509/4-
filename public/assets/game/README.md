@@ -114,6 +114,8 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 | `rpg/advance/adv-bless.webp` | 1152 × 768 | 3열 × 2행 · 384px | 치유사 수호의 축복을 받은 사람 둘레 고리 6칸(되풀이) — 금빛 마법진 · 빛의 막 · 깃털. Codex 생성. **검은 바탕** · lighter(`ADV_BLESS`) |
 | `rpg/items/eye-enlight.webp` | 256 × 256 | 한 장 | 계몽의 눈 — 가방 재료 칸 · 계몽의 문 창 · 문 가운데에 떠 있는 그림. Codex 생성(원본 `design/deep/eye-enlight.webp`, 초록 바탕을 지움) |
 | `rpg/deep-door.webp` | 420 × 613 | 한 장 | 광장 계몽의 문 — 발판 가운데가 그림 높이의 0.9(`DEEP_DOOR_ART`). Codex 생성(원본 `design/deep/deep-door.webp`, 초록 바탕을 지움) |
+| `rpg/advance/adv-fx2.webp` | 1024 × 256 | 4열 × 1행 · 256px | 10월 31일 Codex 생성 — 0 암살자 그림자 연기 · 1 보랏빛 단검 초승달(오른쪽으로 볼록) · 2 엘프 바람 화살(오른쪽으로) · 3 총사 장전 고리. **검은 바탕** · lighter(`ADV_ART.fx2` · `FX2`, 원본 `design/advance/adv-fx2.webp`) |
+| `characters/rpg/assassin-<m\|f>/` · `elf-<m\|f>/` | 시트 배율 | 방향 넷 + `-bare` | 10월 31일 Codex 생성 전직 시트(`design/advance/classes/assassin.webp` · `elf.webp`, 기존 얼굴 · 체형 유지 · 푼 머리). 초록 바탕은 순수 초록과 그 둘레 2px 만 지워 엘프 옷의 세이지 빛깔을 남겼다. `python3 tools/cut-adv-classes.py assassin elf` · 무기를 지운 원본 `design/advance/bare/` → `python3 tools/bare-adv.py assassin elf`(손 자리 rpgArt.js `ADV_HAND`) |
 | `rpg/advance/adv-spirits.webp` | 480 × 320 | 3열 × 2행 · 160px | 원소 정령 — 화염 · 서리 · 번개 / 독 · 부식 · 중력(`ELEMS` 차례) |
 | `rpg/advance/adv-items.webp` | 960 × 192 | 5열 × 1행 · 192px | 0 쌍권총 · 1 기사 방패 · 2 소환서 · 3 · 4 권총 한 자루씩(손에 든다) |
 | `rpg/weapons/adv_guns.webp` · `adv_grim.webp` | 128 × 128 | — | 가방 · 상점 창의 전직 무기 그림(위 아틀라스에서 잘랐다) |

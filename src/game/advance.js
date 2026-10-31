@@ -3,7 +3,7 @@
    영구 기록: h.advClass(전직 id) · h.advQ({ c, n } 시험) · h.advM(전직 숙련도). 싸우는 동안만: h.as(쿨타임 · 중첩 · 철벽 · 정령 목록 sps ·
    전투 특성 tcd 대기 · pr 정밀 사격 준비 · mvT 기동 사격 · rs 원소 공명 · esT 긴급 보호막 대기) — 스냅샷 줄 53 으로 손님에게 간다.
    클라이언트 예측은 쓰지 않는다 — 손님 화면은 방장이 보낸 연출과 상태만 그린다 */
-import { ADV, ADV_BY_ID, ADV_IDS, ADV_UP, cleanAdvQ, trialText, healDone, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, cleanAdvM, masteryLv, traitAt } from "./advData.js";
+import { ADV, ADV_BY_ID, ADV_IDS, ADV_UP, cleanAdvQ, trialText, healDone, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, cleanAdvM, masteryLv, traitAt, ADV_BODY, ADV_SPD_MAX } from "./advData.js";
 import { JOB_TUNE } from "./jobTuneData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -11,7 +11,8 @@ const keyOf = (o) => (o.type !== undefined ? `m${o.id}` : `h${o.pi}`);
 const isHero = (o) => !!o && o.type === undefined;
 export const asOf = (h) => h.as || (h.as = { cd: 0, st: 0, stT: 0, fk: "", fn: 0, ex: "", gT: 0, gN: 0, gGap: 0, pT: 0, pCut: 0,
   sps: [], blT: 0, blCut: 0, blReg: 0, blTk: 0, blBy: -1, gcT: 0, lb: -9, lk: "", lt: -9, slT: 0, mgT: 0, bT: 0,
-  tcd: 0, cb: [], pr: 0, pNow: 0, mvT: 0, mvN: 0, rs: 0, rsT: 0, esT: 0, mqB: ADV_MASTERY.perMin });
+  tcd: 0, cb: [], pr: 0, pNow: 0, mvT: 0, mvN: 0, rs: 0, rsT: 0, esT: 0, mqB: ADV_MASTERY.perMin,
+  ut: 0, rush: 0, fh: {}, wdT: 0, ewN: 0, ammo: -1, rl: 0 });   // 암살자 지정 불가 · 질주 · 첫 일격 기록 / 엘프 바람 걸음 · 바람 화살 / 총사 탄창 · 장전
 
 // 지금 전직 — 기본 직업과 맞을 때만(관리자가 직업을 바꾸면 맞지 않는 전직은 없는 것으로 본다)
 export const advOf = (h) => { const c = h && ADV_BY_ID[h.advClass]; return c && c.job === h.job ? c : null; };
@@ -21,6 +22,20 @@ export const trialDone = (h) => { const c = trialOf(h); return !!c && h.advQ.n >
 // 전직 숙련도 단계(전직 전이면 0) · 열린 전투 특성 값(2단계부터 · 없으면 null)
 export const advMasteryLv = (h) => (advOf(h) ? masteryLv(h.advM) : 0);
 export const traitOf = (h) => { const c = advOf(h); return c ? traitAt(c.id, masteryLv(h.advM)) : null; };
+/* 10월 30일 — 전직마다 몸(advData.js ADV_BODY). 방장 · 손님이 같은 값(스냅샷 줄 53 의 전직 · 상태)으로 걷는다 */
+const bodyOf = (h) => { const c = advOf(h); return (c && ADV_BODY[c.id]) || null; };
+export const advHpMul = (h) => (bodyOf(h) ? bodyOf(h).hp || 1 : 1);
+export const advTakeMul = (h) => (bodyOf(h) ? bodyOf(h).take || 1 : 1);
+// 지정 불가(암살자 그림자 일섬) — 몹이 알아채지 못하고 어떤 공격 · 상태이상도 닿지 않는다(rpg.js notices · h.inv)
+export const advHidden = (h) => !!(h && h.as && h.as.ut > 0);
+export function advSpeedMul(h) {
+  const c = advOf(h), b = bodyOf(h), a = h && h.as;
+  let k = b ? b.spd || 1 : 1;
+  if (c && c.id === "assassin" && a && a.rush > 0) k = ADV_SPD_MAX;            // 그림자 일섬 뒤 — 엘프만큼(그보다 빠르지 않다)
+  if (c && c.id === "elf" && a && a.wdT > 0) k *= 1 + c.active.windSpd;          // 숲바람 화살 뒤 바람 걸음
+  if (c && c.id === "gunner" && a && a.rl > 0) k *= 1 - c.reload.slow;           // 장전 중 둔화
+  return k;
+}
 export const advNear = (h, dist) => !!h && h.map === "plaza" && dist(h.x, h.y, ADV.npc.x, ADV.npc.y) <= ADV.reach;
 
 /* 시험을 받을 수 있나 · 전직을 확정할 수 있나 — 막힌 이유(화면 · 방장이 같이 쓴다). dist 는 rpg.js 의 땅 거리 */
@@ -194,6 +209,8 @@ export function advOnHit(E, g, h, o, basic, side) {
       if (!best || q.hp / q.max < best.hp / best.max) best = q;
     });
     if (best) healHero(E, g, h, best, best.max * P.heal, false);
+  } else if (c.id === "assassin") {               // 급소 노리기 — 이 적을 친 때를 적어 둔다(advDmgMul 이 본다)
+    a.fh[k] = g.t;
   } else if (c.id === "summoner") {               // 영혼 연결 — 정령이 2초 안에 친 적을 내가 치면
     a.lk = k; a.lt = g.t;
     if ((a.sps || []).some((sp) => sp.t > 0 && sp.lk === k && g.t - sp.lt <= P.win)) soulLink(E, g, h, o);
@@ -319,11 +336,16 @@ export function advDmgMul(E, g, h, o, basic, pvp) {
   let bonus = a.blT > 0 ? a.blAtk || 0 : 0;         // 수호의 축복 — 받은 사람 누구나 공격력 증가
   if (!c) return 1 + Math.min(bonus, pvp ? ADV.pvpBonusMax : ADV.pveBonusMax);
   if (c.id === "marksman") {
+    if (E.slower && E.slower(h, o)) bonus += c.passive.slower;   // 나보다 느린 적 — 늘 추가 피해(10월 30일)
     if (a.pNow) return 1 + Math.min(bonus, pvp ? ADV.pvpBonusMax : ADV.pveBonusMax);   // 정밀 사격 한 발 — 제 배율만(약점 노출 · 표식과 겹쳐 두 번 커지지 않게, 노출 · 표식도 남긴다)
     if (a.ex === k) { bonus += c.passive.bonus; a.ex = ""; a.st = 0; }
     if (o.wkBy === h.pi && o.wkUntil > g.t && (basic || !(cast && cast.adv))) { bonus += c.passive.bonus; o.wkUntil = 0; }   // 관통 저격의 표식 — 다음 공격(평타 · 직업 스킬)이 터뜨린다
   } else if (c.id === "gunner") {
     if ((!basic && cast && cast.adv) || (basic && E.gunHeld(h))) bonus += a.st * c.passive.per;   // h.cast 는 스킬 뒤에도 남아 있어 평타는 basic 으로 가른다
+  } else if (c.id === "assassin") {               // 급소 노리기 — 한동안 치지 않은 적에게 첫 일격 · 평타는 낮게
+    const P = c.passive;
+    if (g.t - (a.fh[k] ?? -99) >= P.gap) bonus += P.bonus;
+    if (basic) return P.basic * (1 + Math.min(bonus, pvp ? ADV.pvpBonusMax : ADV.pveBonusMax));
   }
   return 1 + Math.min(bonus, pvp ? ADV.pvpBonusMax : ADV.pveBonusMax);
 }
@@ -370,6 +392,10 @@ export function advHurt(E, g, h) {
     shieldWave(E, g, h, hit);
   } else if (c && c.id === "knight" && a && a.gT > 0) shieldWave(E, g, h, []);
   const T = trialOf(h);
+  if (T && T.id === "elf" && h.advQ.n > 0 && h.advQ.n < T.trial.n) {   // 바람 걸음 시험 — 맞으면 처음부터
+    h.advQ.n = 0;
+    E.say(g, h.map, h.x, h.y - 120, "맞았다 — 연속 0", "#e9b0a0");
+  }
   if (T && T.id === "knight" && g.t - (asOf(h).kq ?? -9) >= T.trial.gap) {   // 맷집 시험 — 사람 · 몬스터에게 맞은 수
     asOf(h).kq = g.t;
     trialAdd(E, g, h, "knight");
@@ -540,7 +566,7 @@ export function advRaidKill(E, g, m) {
 
 // 쓰러졌다 — 정령은 돌아간다
 export function advDown(E, g, h) {
-  if (h.as) { h.as.sps = []; h.as.blT = 0; }
+  if (h.as) { h.as.sps = []; h.as.blT = 0; h.as.ut = 0; h.as.rush = 0; }
 }
 /* 몹이 쓰러졌다 — got 은 그 몹을 친 사람 가운데 같은 맵에 있는 사람(보상을 받는 사람).
    총사 시험: 친 사람 모두 그 종류를 한 번 */
@@ -548,6 +574,7 @@ export function advOnKill(E, g, m, got) {
   (got || []).forEach((h) => {
     masteryKill(E, g, h, m);                      // 전직 숙련도
     const T = trialOf(h);
+    if (T && T.id === "elf" && trialMob(E, m) && trialAdd(E, g, h, "elf") && h.advQ.n < T.trial.n && h.advQ.n % 5 === 0) E.say(g, h.map, h.x, h.y - 120, `바람 걸음 ${trialText(T, h.advQ)}`, "#cdeeb8");
     if (T && T.id === "gunner") {
       const i = T.trial.list.indexOf(m.type);
       if (i >= 0 && trialAdd(E, g, h, "gunner", i) && h.advQ.n < T.trial.n) E.sys(g, h.pi, `사냥 도감 시험 — ${E.mobName(m)} · ${trialText(T, h.advQ)}`);
@@ -684,6 +711,43 @@ export function advUse(E, g, h) {
     });
     E.fx(g, map, { kind: "sk_adv_bless", x: h.x, y: h.y, r: A.r, t: 1, life: 1, snd: "bless" });
     if (T && h.advQ) E.say(g, map, h.x, h.y - 124, `치유 시험 +${(healDone(T.trial, h.advQ) - before).toLocaleString()}`, "#fff0c0");   // 이번에 센 몫
+  } else if (c.id === "assassin") {
+    const P = c.passive;
+    a.ut = A.ut; h.inv = Math.max(h.inv || 0, A.ut);   // 지정 불가 — 맞지 않고 상태이상도 없다(h.inv) · 몹이 놓친다(notices)
+    E.lose(g, h);
+    const [o] = E.near(g, h, h.x, h.y, A.reach, 1);
+    E.fx(g, map, { kind: "sk_adv_vanish", x: h.x, y: h.y, t: 0.5, life: 0.5, snd: "slash" });
+    E.later(g, A.at, () => {
+      if (h.map !== map || h.down > 0) return;
+      const x0 = h.x, y0 = h.y;
+      if (o && E.alive(g, h, o, map)) {
+        // 등 뒤 — 적을 지나 반대편에 나타나 돌아서서 벤다
+        const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1;
+        E.place(h, o.x + (dx / d) * A.behind, o.y + (dy / d) * A.behind * E.squash);
+        h.dir = o.x < h.x ? -1 : 1; h.face = 0;
+        withCap(h, cast, () => { E.strike(g, h, o, base * A.mul); E.cc(g, h, o, { stun: A.stun * pvpCc(o) }); });
+        if (!isHero(o)) E.soak(g, h, o, 0);
+        E.fx(g, map, { kind: "sk_adv_assa", x: o.x, y: o.y - 30, x0, y0: y0 - 30, d: h.dir, big: masteryLv(h.advM) >= 4 ? 1 : 0, t: 0.45, life: 0.45, snd: "slash", kick: 0.2 });
+        if (o.dead || (isHero(o) && o.down > 0)) shadowKill(E, g, h, o);
+      } else {                                      // 적이 없다 — 겨눈 쪽으로 빠져나간다(연사를 피하는 데 쓴다)
+        const [ax, ay] = E.aim(g, h, A.dash);
+        const [x, y] = E.end(h, ax, ay, A.dash);
+        E.place(h, x, y);
+        E.fx(g, map, { kind: "sk_adv_vanish", x: h.x, y: h.y, out: 1, t: 0.4, life: 0.4 });
+      }
+      h.swing = 0.3;
+      a.rush = P.rushT + (A.ut - A.at);             // 다시 나타난 뒤 rushT 초 — 엘프만큼 빠르다
+    });
+  } else if (c.id === "elf") {
+    const [ax, ay] = E.aim(g, h, A.len);
+    const a0 = Math.atan2(ay, ax);
+    for (let i = 0; i < A.n; i++) {
+      const ang = a0 + (A.n > 1 ? (i / (A.n - 1) - 0.5) * 2 * A.spread : 0), ux = Math.cos(ang), uy = Math.sin(ang);
+      const [x1, y1] = E.end(h, ux, uy, A.len), [sx, sy] = E.end(h, ux, uy, MUZZLE.bow);
+      withCap(h, cast, () => E.line(g, h, ux, uy, A.len, A.width).forEach((o) => E.strike(g, h, o, base * A.mul)));
+      E.fx(g, map, { kind: "sk_adv_wind", x: sx, y: sy - MUZZLE.y, x0: sx, y0: sy - MUZZLE.y, x1, y1: y1 - MUZZLE.y, t: 0.45, life: 0.45, snd: i ? undefined : "shot" });
+    }
+    a.wdT = A.wind;
   } else if (c.id === "summoner") {
     const sps = a.sps || (a.sps = []);
     sps.forEach((sp) => { sp.t = A.life; });       // 있던 정령은 시간이 다시 찬다
@@ -694,6 +758,47 @@ export function advUse(E, g, h) {
   h.swing = Math.max(h.swing || 0, 0.35);
   E.fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: A.name, color: "#ffd873", t: 0.8, life: 0.8, who: h.pi });
   return true;
+}
+/* 암살자 — 그림자 일섬 한 방으로 쓰러뜨렸다: 시험(160레벨 이상 몹) · 전투 특성 그림자 회수(대기 시간을 돌려받는다) */
+function shadowKill(E, g, h, o) {
+  const T = trialOf(h);
+  if (T && T.id === "assassin" && !isHero(o) && trialMob(E, o) && trialAdd(E, g, h, "assassin") && h.advQ.n < T.trial.n) E.say(g, h.map, h.x, h.y - 120, `암살 ${trialText(T, h.advQ)}`, "#d9b8f0");
+  const v = traitOf(h);
+  if (!v || h.advClass !== "assassin") return;
+  const a = asOf(h), back = ADV_BY_ID.assassin.active.cd * v.refund * (o.boss || isHero(o) ? 0.5 : 1);
+  a.cd = Math.max(0, (a.cd || ADV_BY_ID.assassin.active.cd) - back);
+  E.say(g, h.map, h.x, h.y - 118, "그림자 회수", ADV_TRAITS.assassin.color);
+}
+/* 엘프 바람 화살 — 엘프가 평타를 쐈다(rpg.js heroAttack). every 번마다 첫 적 쪽으로 한 줄을 꿰뚫는 화살 한 발(noProc · 튄 피해) */
+export function advElfShot(E, g, h, o, dmg) {
+  const c = advOf(h), v = c && c.id === "elf" ? traitOf(h) : null;
+  if (!v || !o) return;
+  const a = asOf(h);
+  a.ewN = (a.ewN || 0) + 1;
+  if (a.ewN % v.every) return;
+  const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+  const [x1, y1] = E.end(h, ux, uy, v.len), [sx, sy] = E.end(h, ux, uy, MUZZLE.bow);
+  E.noProc(() => E.line(g, h, ux, uy, v.len, v.width).forEach((q) => E.extra(g, h, q, dmg * v.mul)));
+  E.fx(g, h.map, { kind: "sk_adv_wind", x: sx, y: sy - MUZZLE.y, x0: sx, y0: sy - MUZZLE.y, x1, y1: y1 - MUZZLE.y, small: 1, big: masteryLv(h.advM) >= 4 ? 1 : 0, t: 0.4, life: 0.4 });
+}
+/* 총사 장전 — 쌍권총 평타를 쏠 수 있나(rpg.js heroAttack · pvpAttack 이 쏘기 전에 묻는다). 장전 중이면 false */
+export function advGunReady(E, h) {
+  const c = advOf(h);
+  if (!c || c.id !== "gunner" || !E.gunHeld(h)) return true;
+  const a = asOf(h);
+  if (a.ammo < 0) a.ammo = c.reload.mag;            // 처음 — 탄창 가득
+  return !(a.rl > 0);
+}
+// 쌍권총 평타를 한 발 쐈다 — 탄창을 다 쓰면 장전을 시작한다(그동안 걷는 속도가 준다 · advSpeedMul)
+export function advGunFired(E, g, h) {
+  const c = advOf(h);
+  if (!c || c.id !== "gunner" || !E.gunHeld(h)) return;
+  const a = asOf(h), R = c.reload;
+  if (a.ammo < 0) a.ammo = R.mag;
+  a.ammo -= 1;
+  if (a.ammo > 0) return;
+  a.rl = R.time; a.ammo = 0;
+  E.say(g, h.map, h.x, h.y - 100, "장전", "#ffcf8a");
 }
 // 쏘는 자리 — 발밑에서 겨눈 쪽으로 이만큼 앞 · 이만큼 위(손 높이). 몸 한가운데서 나가면 캐릭터를 뚫고 나가 보였다
 const MUZZLE = { bow: 18, gun: 22, y: 30 };
@@ -717,6 +822,10 @@ export function tickAdv(E, g, h, dt) {
       E.fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 30, r: 40, color: "#cfe6ff", n: 8, t: 0.4, life: 0.4 });
     }
   }
+  if (advOf(h)?.id === "elf" && h.down <= 0 && h.hp < h.max && !E.safe(h.map)) {   // 숲의 숨결 — 싸우는 중에도 차오른다 · 쉬면 두 배
+    const P = ADV_BY_ID.elf.passive;
+    h.hp = Math.min(h.max, h.hp + h.max * P.regen * (h.calm >= E.calmT ? P.calm : 1) * dt);
+  }
   const a = h.as;
   if (!a) return;
   a.cd = Math.max(0, a.cd - dt);
@@ -724,6 +833,13 @@ export function tickAdv(E, g, h, dt) {
   a.pT = Math.max(0, a.pT - dt);
   a.slT = Math.max(0, a.slT - dt); a.mgT = Math.max(0, a.mgT - dt);
   a.tcd = Math.max(0, (a.tcd || 0) - dt); a.esT = Math.max(0, (a.esT || 0) - dt); a.mvT = Math.max(0, (a.mvT || 0) - dt);
+  a.ut = Math.max(0, (a.ut || 0) - dt); a.rush = Math.max(0, (a.rush || 0) - dt); a.wdT = Math.max(0, (a.wdT || 0) - dt);
+  if (a.rl > 0 && (a.rl -= dt) <= 0) { a.rl = 0; a.ammo = ADV_BY_ID.gunner.reload.mag; }   // 장전 끝 — 탄창 가득
+  if (a.fh && g.t - (a.fhT || 0) > 5) {             // 첫 일격 기록 — 오래된 것은 지운다
+    a.fhT = g.t;
+    const gap = ADV_BY_ID.assassin.passive.gap;
+    Object.keys(a.fh).forEach((k) => { if (g.t - a.fh[k] >= gap) delete a.fh[k]; });
+  }
   if (a.rsT > 0 && (a.rsT -= dt) <= 0) { a.rsT = 0; a.rs = 0; }   // 원소 공명이 흩어진다
   a.mqB = Math.min(ADV_MASTERY.perMin, (a.mqB ?? ADV_MASTERY.perMin) + (ADV_MASTERY.perMin / 60) * dt);   // 숙련도 통이 1분에 perMin 만큼 다시 찬다
   if (a.stT > 0 && (a.stT -= dt) <= 0) { a.stT = 0; if (h.advClass === "gladiator" || h.advClass === "gunner") a.st = 0; }
@@ -772,7 +888,8 @@ export function packAdv(h) {
     sps.length ? r1(Math.max(...sps.map((sp) => sp.t))) : 0, a ? r1(a.pT) : 0, a && a.ex ? 1 : 0, h.advQ && h.advQ.m ? h.advQ.m.slice() : 0,
     sps.length ? sps.map((sp) => r1(sp.t)) : 0, a ? r1(a.blT || 0) : 0, h.advQ && h.advQ.r ? h.advQ.r : 0, h.healMode ? 1 : 0,
     h.advClass ? cleanAdvM(h.advM) : 0, a ? r1(a.tcd || 0) : 0, a && a.pr ? 1 : 0, a ? r1(a.mvT || 0) : 0, a ? a.rs || 0 : 0, a ? r1(a.rsT || 0) : 0,
-    a && a.nul ? 1 : 0, a ? r1(a.nulIdle || 0) : 0];   // 20 · 21 기사 무효화 방어막(있음 · 쉰 초)
+    a && a.nul ? 1 : 0, a ? r1(a.nulIdle || 0) : 0,   // 20 · 21 기사 무효화 방어막(있음 · 쉰 초)
+    a ? r1(a.ut || 0) : 0, a ? r1(a.rush || 0) : 0, a ? r1(a.wdT || 0) : 0, a ? a.ammo ?? -1 : -1, a ? r1(a.rl || 0) : 0];   // 22~26 암살자 지정 불가 · 질주 / 엘프 바람 걸음 / 총사 탄창 · 장전(10월 30일)
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; return; }
@@ -789,6 +906,7 @@ export function applyAdv(h, v) {
   a.tcd = Number(v[15]) || 0; a.pr = v[16] ? 1 : 0; a.mvT = Number(v[17]) || 0;
   a.rs = Math.max(0, Math.min(ADV_TRAITS.archmage.max, Math.floor(Number(v[18]) || 0))); a.rsT = a.rs ? Number(v[19]) || 0 : 0;
   if (v.length > 20) { a.nul = v[20] ? 1 : 0; a.nulIdle = Number(v[21]) || 0; }   // 옛 방장은 줄 끝이 없다 — 방장이 되면 처음 값으로
+  if (v.length > 22) { a.ut = Number(v[22]) || 0; a.rush = Number(v[23]) || 0; a.wdT = Number(v[24]) || 0; a.ammo = Number(v[25] ?? -1); a.rl = Number(v[26]) || 0; }
   const ts = Array.isArray(v[10]) ? v[10].map((x) => Number(x) || 0).filter((x) => x > 0) : spT > 0 ? [spT] : [];
   const sps = a.sps || (a.sps = []);
   sps.length = Math.min(sps.length, ts.length);
@@ -798,6 +916,7 @@ export function applyAdv(h, v) {
 export function stepAdvVisual(h, dt) {
   if (h.as && h.as.blT > 0) h.as.blT = Math.max(0, h.as.blT - dt);   // 축복 고리 — 스냅샷 사이에도 줄어든다
   if (h.as) { const a = h.as; a.tcd = Math.max(0, (a.tcd || 0) - dt); a.mvT = Math.max(0, (a.mvT || 0) - dt); a.rsT = Math.max(0, (a.rsT || 0) - dt); }   // 전투 특성 칸 — 스냅샷 사이에도
+  if (h.as) { const a = h.as; a.ut = Math.max(0, (a.ut || 0) - dt); a.rush = Math.max(0, (a.rush || 0) - dt); a.wdT = Math.max(0, (a.wdT || 0) - dt); a.rl = Math.max(0, (a.rl || 0) - dt); }   // 걷는 속도 · 비침 — 스냅샷 사이에도
   const sps = h.as && h.as.sps;
   if (!sps || !sps.length) return;
   if (h.as.cd > 0) h.as.cd = Math.max(0, h.as.cd - dt);

@@ -17,7 +17,7 @@ export const ADV = {
 };
 
 // 스냅샷 · 저장 차례 — 뒤에만 더한다
-export const ADV_IDS = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner", "healer"];
+export const ADV_IDS = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner", "healer", "assassin", "elf"];
 
 /* 전직 여섯 — job 기본 직업 · line 정통 강화(main) · 특수(special) · weapon 쓰는 무기(화면 설명) · gear 확정 때 받는 무기(SPECIALS id)
    active.mul 은 SKILL_USE.base × 스탯 배율에 곱한다. 비교 기준(10월 25일): 직업 스킬 5레벨 2.2~4.4배 · 대기 7~9초,
@@ -65,8 +65,9 @@ export const ADV_CLASSES = [
       cd: 9, dmg: "str", len: 680, width: 42, mul: 4.6, aim: 0.22, mark: 6,   // aim — 조준선이 보인 뒤 쏘기까지(초)
     },
     passive: {
-      name: "약점 포착", note: "같은 적을 세 번 이어 맞히면 약점 노출 · 표식이나 노출된 적에게 다음 공격 피해 +30%",
+      name: "약점 포착", note: "같은 적을 세 번 이어 맞히면 약점 노출 · 표식이나 노출된 적에게 다음 공격 피해 +30% · 나보다 느린 적에게 늘 피해 +15%",
       need: 3, bonus: 0.3,
+      slower: 0.15,                                 // 10월 30일 사용자 요청 — 나보다 이동 속도가 낮은 적에게 주는 피해 +15%(몹 · 사람 모두, ADV.pvpBonusMax · pveBonusMax 안)
     },
     // 비타겟팅 스킬 — 겨눈 쪽으로 나가 빗나갈 수 있는 스킬(관통 화살 · 용암 · 그림자 · 별자리 활 스킬). 한 번 쓸 때 160레벨 이상 몹을 맞히면 1,
     // 아무것도 못 맞히면 0 으로 돌아간다(연속)
@@ -84,6 +85,9 @@ export const ADV_CLASSES = [
       name: "탄도 숙련", note: "같은 적에게 이어 맞히면 다음 탄환 피해 +6%씩(최대 5) · 2초 동안 못 맞히면 사라진다",
       per: 0.06, max: 5, fade: 2,
     },
+    // 10월 30일 사용자 요청 — 장전. 쌍권총 평타는 탄창(mag 발)을 쓰고, 다 쓰면 time 초 동안 장전한다(그동안 평타가 나가지 않는다).
+    // 장전 중에는 걷는 속도가 slow 만큼 준다(둔화 시간 = 장전 시간 · 사용자가 "미정"이라 한 값 — 여기 한 곳만 고친다). 속사(Z)는 탄창과 따로
+    reload: { mag: 12, time: 1.6, slow: 0.35 },
     // 300레벨까지의 사냥터 몬스터 — 종류마다 한 번(보스도 같은 종류로 센다). 차례는 저장(advQ.m)에 쓰니 뒤에만 더한다
     trial: { name: "사냥 도감 시험", note: "300레벨까지의 모든 몬스터를 한 번씩 잡는다", list: ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "skeletal", "zombie", "necro"], each: 1 },
   },
@@ -139,7 +143,49 @@ export const ADV_CLASSES = [
     // 시험 동안은 수호의 축복(Z)을 쓸 수 있다(은총은 없다). 축복으로 실제 회복한 체력(나 · 다른 사람 모두)을 unit 마다 1 — 넘치는 회복은 세지 않는다
     trial: { name: "치유 시험", note: "시험 동안 쓸 수 있는 수호의 축복(Z)으로 나와 다른 사람의 체력을 모두 3만 회복한다", n: 30, unit: 1000, skill: 1 },
   },
+  {
+    // 10월 30일 사용자 요청 — 검사의 셋째 전직. 체력이 낮고 빠르다 · 오래 치기보다 한 방
+    id: "assassin", job: "warrior", line: "special", name: "암살자", weapon: "단검",
+    note: "단검을 든다 · 사라졌다가 등 뒤에서 한 방에 끝낸다",
+    active: {
+      // 지정 불가 — ut 초 동안 사라진다(어떤 공격 · 상태이상도 닿지 않고 몹이 놓친다). 총사 속사(0.8초) 같은 연사를 통째로 피할 만큼.
+      // 사라진 뒤 at 초에 reach 안 가장 가까운 적 등 뒤(behind)에 나타나 한 방(mul). 적이 없으면 겨눈 쪽으로 dash 만큼 빠져나간다
+      name: "그림자 일섬", note: "1초 동안 지정 불가(모든 공격 · 상태이상을 피하고 몹이 놓친다) · 가장 가까운 적 등 뒤로 순간 이동해 한 방에 벤다 · 적이 없으면 앞으로 빠져나간다",
+      cd: 11, dmg: "str", ut: 1, at: 0.3, reach: 340, behind: 46, mul: 7.2, stun: 0.3, dash: 260,
+    },
+    passive: {
+      // 첫 일격 — 이 적을 gap 초 동안 치지 않았으면 다음 한 대 +bonus. 대신 평타는 basic 배(오래 치는 피해는 낮게)
+      name: "급소 노리기", note: "한동안(3초) 치지 않은 적에게 주는 첫 일격 피해 +50% · 평타 피해는 15% 낮다 · 그림자 일섬 뒤 3초 동안 엘프만큼 빨라진다",
+      gap: 3, bonus: 0.5, basic: 0.85, rushT: 3,
+    },
+    // 시험 동안은 그림자 일섬(Z)을 쓸 수 있다. 그림자 일섬 한 방으로 160레벨 이상 적을 잡은 수
+    trial: { name: "암살 시험", note: "시험 동안 쓸 수 있는 그림자 일섬(Z)으로 160레벨 이상 적을 20마리 잡는다", n: 20, skill: 1 },
+  },
+  {
+    // 10월 30일 사용자 요청 — 궁수의 셋째 전직. 가장 빠르고 체력 · 방어는 낮지만 체력이 빨리 찬다
+    id: "elf", job: "archer", line: "special", name: "엘프", weapon: "숲의 장궁",
+    note: "장궁을 든다 · 바람처럼 달리며 쏘고 금방 회복한다",
+    active: {
+      // 앞 부채꼴로 n 발(반각 spread) — 저마다 한 줄로 꿰뚫는다(len · width · mul). 쏜 뒤 wind 초 동안 걷는 속도 +windSpd
+      name: "숲바람 화살", note: "앞으로 바람 화살 다섯 발을 부채꼴로 쏜다 · 저마다 꿰뚫는다 · 쏜 뒤 4초 동안 더 빨라진다",
+      cd: 9, dmg: "str", n: 5, spread: 0.32, len: 560, width: 34, mul: 1.5, wind: 4, windSpd: 0.15,
+    },
+    passive: {
+      name: "숲의 숨결", note: "싸우는 중에도 1초마다 최대 체력 1.2% 회복 · 맞지 않고 쉬면 회복이 두 배",
+      regen: 0.012, calm: 2,
+    },
+    // 160레벨 이상 몹을 n 마리 잡는 동안 한 대도 맞지 않는다 — 맞으면 0 으로(연속)
+    trial: { name: "바람 걸음 시험", note: "160레벨 이상 몬스터를 15마리 잡는 동안 한 대도 맞지 않는다 · 맞으면 처음부터", n: 15, streak: 1 },
+  },
 ];
+
+/* 10월 30일 사용자 요청 — 전직마다 몸(체력 · 걷는 속도 · 받는 피해 · 회복). 1 이 보통.
+   엘프가 가장 빠르고, 암살자는 평소 그보다 조금 느리다가 그림자 일섬 뒤(급소 노리기 rushT 초) 엘프만큼 빨라진다 — 그보다 빠르지는 않다 */
+export const ADV_BODY = {
+  assassin: { hp: 0.78, spd: 1.2 },                 // 검사 계열(검투사 · 기사)보다 체력 22% 낮게
+  elf: { hp: 0.8, spd: 1.3, take: 1.12 },           // 체력 20% 낮고 받는 피해 12% 많다(방어력이 낮다)
+};
+export const ADV_SPD_MAX = ADV_BODY.elf.spd;        // 암살자가 빨라져도 이 배율까지(엘프 속도)
 // 목록 시험(list)은 종류마다 each 개를 채운 합이 n
 ADV_CLASSES.forEach((c) => { if (c.trial.list) c.trial.n = c.trial.list.length * c.trial.each; });
 export const ADV_BY_ID = Object.fromEntries(ADV_CLASSES.map((c) => [c.id, c]));
@@ -173,6 +219,8 @@ export function trialText(c, q) {
   if (c.id === "gunner") return `${n}/${T.list.length}종`;
   if (c.id === "summoner") return `${n}/${T.n}개`;
   if (c.id === "healer") return `회복 ${healDone(T, q).toLocaleString()}/${(T.n * T.unit).toLocaleString()}`;
+  if (c.id === "assassin") return `${n}/${T.n}마리`;
+  if (c.id === "elf") return `연속 ${n}/${T.n}마리`;
   return `${n}/${T.n}`;
 }
 
@@ -186,6 +234,8 @@ export const ADV_BONUS = {
   archmage: { int: 80 },              // 마도사 — 마법력
   summoner: { int: 40, hp: 300 },     // 소환술사 — 마법력 · 체력(정령과 버틴다)
   healer: { int: 30, hp: 375 },       // 치유사 — 체력을 조금 더(앞에서 버티며 치유한다)
+  assassin: { str: 40, cdmg: 20 },    // 암살자 — 한 방(치명타 피해)
+  elf: { str: 40, crit: 10 },         // 엘프 — 공격 · 치명타(체력은 몸 배율로 낮다)
 };
 // 전직할 때 연출(adv-up.webp 6칸) — life 초 동안 차례로, w 는 맵에서 그리는 한 칸 폭, foot 은 칸 위에서 땅(마법진 가운데)까지의 몫
 export const ADV_UP = { life: 2.4, w: 330, foot: 0.72, alpha: 0.7 };   // alpha — 밝은 광장 바닥 위에서 캐릭터가 하얗게 묻히지 않게 빛을 덜 더한다
@@ -202,8 +252,11 @@ export const ADV_ART = {
   items: { src: "/assets/game/rpg/advance/adv-items.webp", cols: 5, cell: 192 },
   up: { src: "/assets/game/rpg/advance/adv-up.webp", cols: 3, cell: 384 },   // 전직 연출 3열 × 2행 — 검은 바탕이라 빛을 더하듯(lighter) 그린다
   bless: { src: "/assets/game/rpg/advance/adv-bless.webp", cols: 3, cell: 384 },   // 치유사 축복 둘레 3열 × 2행 고리 — 검은 바탕 · lighter
+  // 암살자 · 엘프 · 총사 장전(10월 31일, Codex 생성 4열 × 1행 · 검은 바탕 lighter) — 0 그림자 연기 · 1 보랏빛 단검 초승달(오른쪽으로 볼록) · 2 바람 화살(오른쪽으로) · 3 장전 고리
+  fx2: { src: "/assets/game/rpg/advance/adv-fx2.webp", cols: 4, cell: 256 },
   FX: { slash: 0, shock: 1, shield: 2, hex: 3, arrow: 4, flash: 5, muzzle: 6, bullet: 7, circle: 8, summon: 9, burst: 10 },
   ITEM: { guns: 0, shield: 1, book: 2, pistol: 3, pistol2: 4 },
+  FX2: { smoke: 0, slash: 1, wind: 2, reload: 3 },
 };
 
 /* ── 전직 숙련도 — 전직한 뒤에도 자라는 목표(10월 26일 추가) ─────────────────
@@ -286,6 +339,20 @@ export const ADV_TRAITS = {
     hp: 0.3, r: [350, 420, 420], amt: [0.15, 0.15, 0.2], dur: [5, 5, 6], cd: [30, 30, 25],
     text: (v) => `같은 파티원(나 포함)이 맞아 체력 30% 이하가 되면 ${v.r} 안의 치유사가 저절로 최대 체력 ${Math.round(v.amt * 100)}% 보호막(${v.dur}초) · 받는 사람마다 ${v.cd}초에 한 번 · 치유사가 여럿이어도 겹치지 않는다 · 이미 더 큰 보호막이 있으면 나가지 않는다 · 결투 · PvP 는 나에게만`,
     up3: "거리 350 → 420", up4: "보호막 15% → 20% · 6초 · 대기 25초 · 금빛 방벽",
+  },
+  assassin: {
+    name: "그림자 회수", color: "#c9a4e8",
+    // 그림자 일섬 한 방으로 적을 쓰러뜨리면 그림자 일섬 대기 시간을 refund 몫 돌려받는다(보스 · 사람은 쓰러뜨려도 절반)
+    refund: [0.4, 0.5, 0.6],
+    text: (v) => `그림자 일섬으로 적을 쓰러뜨리면 대기 시간 ${Math.round(v.refund * 100)}%를 돌려받는다 · 보스 · 사람은 절반`,
+    up3: "돌려받는 몫 40% → 50%", up4: "돌려받는 몫 60% · 보랏빛 잔상",
+  },
+  elf: {
+    name: "바람 화살", color: "#b8e6a0",
+    // 평타 every 번마다 바람 화살 한 발이 더 나가 첫 적을 꿰뚫는다(평타 mul 배 · 길이 len · 원소 · 다른 추가 타격 없음)
+    every: [5, 4, 4], mul: [0.6, 0.6, 0.8], len: 420, width: 30,
+    text: (v) => `평타 ${v.every}번마다 바람 화살 한 발이 더 나가 한 줄(${v.len})을 꿰뚫는다 · 평타 ${v.mul}배 · 원소 · 다른 추가 타격 없음`,
+    up3: "평타 5번마다 → 4번마다", up4: "바람 화살 0.6배 → 0.8배 · 초록 바람 궤적",
   },
 };
 // 지금 단계(2~4)의 특성 값 — 배열이면 그 단계 몫

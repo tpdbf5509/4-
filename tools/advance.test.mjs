@@ -9,7 +9,7 @@ import { advDmgMul } from '../src/game/advance.js';
 const advDmgMulOf = (g, h, m) => advDmgMul({ gunHeld: () => false }, g, h, m, true, false);
 
 // 1차 전직 — 시험 · 확정 · 저장 · 액티브 7 · 패시브 7 · 전투 특성 7 · 전직 숙련도 · PvP 한도 · 스냅샷 · 방장 승계. 실행: node --test tools/advance.test.mjs
-const JOB = { gladiator: 'warrior', knight: 'warrior', marksman: 'archer', gunner: 'archer', archmage: 'mage', summoner: 'mage', healer: 'mage' };
+const JOB = { gladiator: 'warrior', knight: 'warrior', marksman: 'archer', gunner: 'archer', archmage: 'mage', summoner: 'mage', healer: 'mage', assassin: 'warrior', elf: 'archer' };
 function world(people) {
   const g = makeWorld(); g.mySeat = 0; g.out = [];
   const seats = people.map((p, i) => ({ id: `p${i}`, name: p.name || `시험${i}`, hero: { name: p.name || `시험${i}`, job: p.job, elem: p.elem || 'flame', gender: 'm' } }));
@@ -790,7 +790,8 @@ test('명사수 정밀 사격 — 같은 적 3번이면 준비 · 다음 평타�
     assert(near(drops[1], drops[0]), `${drops}`);
     assert(fxOf(g, 'sk_adv_prec').length === 1, '정밀 사격 연출');
     assert(near(drops[3], drops[0] * 1.4), `정밀 사격 ${drops[3]} · 평타 ${drops[0]}`);
-    assert(near(1e9 - back.hp, drops[0] * 0.7), `뒤 적 ${1e9 - back.hp}`);
+    // 서 있는(기절한) 적은 나보다 느려 평타에 +15%(10월 31일) — 뒤 적 관통은 패시브가 낳은 피해(noProc)라 그 몫이 없다
+    assert(near(1e9 - back.hp, (drops[0] / (1 + ADV_BY_ID.marksman.passive.slower)) * 0.7), `뒤 적 ${1e9 - back.hp}`);
     assert(h.as.tcd > 3 && !h.as.pr);
     // 대기 동안은 다시 준비되지 않는다
     for (let i = 0; i < 100; i++) tick(g, 0.02);

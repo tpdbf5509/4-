@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { JOB_TUNE } from "./game/jobTuneData.js";
 import { Coin } from "./ui/icons.jsx";
-import { ADV, ADV_BY_ID, ADV_BONUS, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, advForJob, masteryLv, traitAt, trialText } from "./game/advData.js";
+import { ADV, ADV_BY_ID, ADV_BONUS, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, advForJob, masteryLv, traitAt, trialText, ADV_BODY } from "./game/advData.js";
 import { whyAdvStart, whyAdvConfirm } from "./game/advance.js";
 import { advArtPath, dist, JOB_BY_ID, mobName, STATS } from "./game/rpg.js";
 import { MAT_BY_ID } from "./game/itemData.js";
@@ -71,6 +71,15 @@ function AdvLook({ id, gender }) {
   return <span className="adv-look" aria-hidden="true"><img src={advArtPath({ job: ADV_BY_ID[id].job, gender, advClass: id }, "front")} alt="" /></span>;
 }
 
+// 전직마다 몸(체력 · 걷는 속도 · 받는 피해 · 장전) — advData.js ADV_BODY · reload
+function bodyText(c) {
+  const b = ADV_BODY[c.id] || {}, pct = (v) => `${Math.round(Math.abs(v - 1) * 100)}%`, out = [];
+  if (b.hp) out.push(`최대 체력 ${pct(b.hp)} ${b.hp < 1 ? "낮음" : "높음"}`);
+  if (b.spd) out.push(`걷는 속도 ${pct(b.spd)} 빠름`);
+  if (b.take) out.push(`받는 피해 ${pct(b.take)} 많음`);
+  if (c.reload) out.push(`평타 ${c.reload.mag}발마다 장전 ${c.reload.time}초 · 장전 중 걷는 속도 ${Math.round(c.reload.slow * 100)}% 감소`);
+  return out.join(" · ");
+}
 export default function AdvPanel({ self, act, advKey, onClose }) {
   const dialog = useRef(null);
   const [ask, setAsk] = useState(null);             // 확정 전에 묻는 전직 id
@@ -96,7 +105,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
           <p className="adv-now">
             {cur ? <>지금 전직 <b>{cur.name}</b> · 숙련도 {masteryLv(self.advM)}단계 · 전직 스킬 「{cur.active.name}」 키 <kbd>{keyName}</kbd></>
               : q ? <>{ADV_BY_ID[q.c].trial.name} <b>{trialText(ADV_BY_ID[q.c], q)}</b>{q.n >= ADV_BY_ID[q.c].trial.n ? " · 완료" : ""}</>
-              : self.lv >= ADV.lv ? <>{JOB_BY_ID[self.job]?.name} 전직 둘 가운데 하나의 시험을 받으세요.</>
+              : self.lv >= ADV.lv ? <>{JOB_BY_ID[self.job]?.name} 전직 {list.length}개 가운데 하나의 시험을 받으세요.</>
               : <>{ADV.lv}레벨부터 전직할 수 있습니다. 지금 {self.lv}레벨.</>}
           </p>
           {cur && <Mastery c={cur} pts={self.advM || 0} admin={self.admin} act={act} />}
@@ -115,6 +124,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
                     <dt>액티브</dt><dd><b>{c.active.name}</b> · 대기 {c.active.cd}초<br />{c.active.note}</dd>
                     <dt>패시브</dt><dd><b>{c.passive.name}</b><br />{c.passive.note}
                       {c.id === "knight" && <><br /><b>{KN.nullShield.name}</b><br />{KN.nullShield.note}<br /><b>기본 방어</b><br />받는 피해 {KN.cut * 100}% 감소 · 마법 · 물리 저항력 {KN.magicRes * 100}%</>}</dd>
+                    {(ADV_BODY[c.id] || c.reload) && <><dt>몸</dt><dd>{bodyText(c)}</dd></>}
                     <dt>추가 스탯</dt><dd>{bonusText(c.id)}</dd>
                     <dt>전투 특성</dt><dd><b>{ADV_TRAITS[c.id].name}</b> · 숙련도 2단계<br />{ADV_TRAITS[c.id].text(traitAt(c.id, 2))}</dd>
                     <dt>시험</dt><dd><b>{c.trial.name}</b><br />{c.trial.note}{trying ? ` · ${trialText(c, q)}` : ""}</dd>

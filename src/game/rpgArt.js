@@ -133,6 +133,8 @@ const ADV_HAND = {
   archmage: { m: { front: [60, 172], side: [42, 162], turn: [50, 165] }, f: { front: [65, 165], side: [44, 166], turn: [56, 158] } },
   summoner: { m: { front: [42, 171], side: [18, 152], turn: [50, 159] }, f: { front: [44, 156], side: [19, 147], turn: [66, 155] } },
   healer: { m: { front: [165, 187], side: [26, 173], back: [139, 170], turn: [25, 171] }, f: { front: [175, 169], side: [21, 164], turn: [24, 165] } },
+  assassin: { m: { front: [24, 205], side: [28, 189], back: [154, 187], turn: [32, 190] }, f: { front: [54, 190], side: [20, 180], turn: [51, 182] } },   // 10월 31일
+  elf: { m: { front: [42, 204], side: [26, 188], turn: [37, 193] }, f: { front: [62, 186], side: [26, 174], turn: [181, 183] } },
 };
 // 검투사 쌍검의 반대 손 [x, y](지운 그림 크기 기준). 전직 그림은 반대 손이 몸에 가려 자홍 점이 없어, 몸 바깥쪽 허리 둘레에 맞춘다.
 // 먼 손이라 몸 뒤에서 그리므로 칼날이 몸 밖으로 나오는 자리에 둔다. 방향은 주 손 반대쪽(좌우 대칭)
@@ -2163,6 +2165,7 @@ function drawHero(ctx, g, h, time) {
   shadow(ctx, h.x, h.y + 3, 15 * (1 - lift * 0.18), 5 * (1 - lift * 0.18), 0.3 * (1 - lift * 0.3));
   ctx.translate(h.x, h.y + (mo ? mo.hop : 0));
   if (down) { h.anim = null; ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
+  else if (h.as && h.as.ut > 0) ctx.globalAlpha = 0.18;   // 암살자 그림자 일섬 — 지정 불가 동안 거의 사라진다
   else if (h.bf && h.bf.hide && h.bf.hide.t > 0) ctx.globalAlpha = 0.45;   // 투명화 물약 — 비쳐 보인다
   if (mo) {                                          // 발밑을 축으로 기울이고 누른다
     ctx.translate(h.dir * mo.lunge, 0);

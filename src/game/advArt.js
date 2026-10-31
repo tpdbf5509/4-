@@ -21,7 +21,7 @@ function atlas(name) {
   return im && im.complete && im.naturalWidth ? im : null;
 }
 // RPG 에 들어올 때 미리 읽는다(rpgArt.js warmRpgArt)
-export const warmAdvArt = () => { atlas("fx"); atlas("spirits"); atlas("items"); atlas("up"); atlas("bless"); };
+export const warmAdvArt = () => { atlas("fx"); atlas("spirits"); atlas("items"); atlas("up"); atlas("bless"); atlas("fx2"); };
 // 아틀라스 한 칸을 (x, y) 가운데에 w × h 로 — 그림이 없으면 false
 function cell(ctx, name, i, x, y, w, h) {
   const im = atlas(name);
@@ -56,7 +56,7 @@ function glow(ctx, x, y, r, col, a) {
   ctx.globalAlpha = a; ctx.fillStyle = gl;
   ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
 }
-const FX = ADV_ART.FX;
+const FX = ADV_ART.FX, FX2 = ADV_ART.FX2;
 
 /* 스킬 연출 — 그렸으면 true(skillArt.js drawSkillFx 가 먼저 묻는다). q 는 알갱이 몫(연출 줄이기) */
 export function drawAdvFx(ctx, f, p, time, q = 1) {
@@ -223,6 +223,28 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
     if (!cell(ctx, "fx", FX.arrow, -36, 0, 100, 100)) { ctx.fillStyle = "#e9fffb"; ctx.fillRect(-26, -2, 30, 4); }
     ctx.restore();
+  } else if (k === "vanish") {                     // 암살자 그림자 일섬 — 사라질 때 · 빠져나간 자리의 보랏빛 연기(out 은 작게)
+    const w = (f.out ? 110 : 150) * (0.7 + 0.5 * p);
+    ctx.globalAlpha = fade(p, 0.3) * 0.9;
+    if (!cell(ctx, "fx2", FX2.smoke, f.x, f.y - 34, w, w)) glow(ctx, f.x, f.y - 34, w * 0.4, "#9a5ad0", 0.6 * (1 - p));
+  } else if (k === "assa") {                       // 암살자 — 등 뒤에서 벤 초승달 둘(엇갈림) + 지나온 길 보랏빛 줄
+    ctx.globalAlpha = fade(p, 0.25) * 0.5;
+    ctx.strokeStyle = "#b07ae0"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(f.x, f.y); ctx.stroke();
+    const s = 150 * (f.big ? 1.25 : 1) * (0.8 + 0.3 * Math.min(1, p * 4));
+    [0, 1].forEach((i) => {
+      ctx.save(); ctx.translate(f.x - (f.d || 1) * 10, f.y); ctx.scale(-(f.d || 1), i ? -1 : 1); ctx.rotate(i ? 0.5 : -0.5);
+      ctx.globalAlpha = fade(p, 0.3) * 0.95;
+      if (!cell(ctx, "fx2", FX2.slash, 0, 0, s, s)) { ctx.strokeStyle = "#d8b8ff"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(-s * 0.2, 0, s * 0.35, -1.1, 1.1); ctx.stroke(); }
+      ctx.restore();
+    });
+  } else if (k === "wind") {                       // 엘프 숲바람 화살 · 바람 화살 — 앞으로 뻗는 초록 바람(small 은 가늘게)
+    const ang = Math.atan2(f.y1 - f.y0, f.x1 - f.x0), len = Math.hypot(f.x1 - f.x0, f.y1 - f.y0), u = Math.min(1, p * 3);
+    const w = (f.small ? 70 : 100) * (f.big ? 1.2 : 1);
+    ctx.save(); ctx.translate(f.x0, f.y0); ctx.rotate(ang); ctx.globalAlpha = fade(p, 0.35) * 0.95;
+    const L = Math.max(10, len * u);
+    if (!cell(ctx, "fx2", FX2.wind, L / 2, 0, L, w)) { ctx.fillStyle = "#b8f0a0"; ctx.fillRect(0, -2, L, 4); }
+    ctx.restore();
   } else if (k === "mshot") {                      // 총사 기동 사격 — 추가 탄환 · 총구 화염 · 튀는 탄피(4단계는 탄피 둘)
     const ang = Math.atan2(f.y1 - f.y0, f.x1 - f.x0), fly = Math.min(1, p * 2.2);
     if (p < 0.35) {
@@ -304,6 +326,13 @@ export function drawAdvHero(ctx, h, time) {
   const a = h && h.as;
   if (!a || h.down > 0) return;
   ctx.save();
+  if (a.rl > 0 && h.advClass === "gunner") {        // 총사 장전 — 발밑 금빛 탄환 고리가 돈다(장전 남은 동안)
+    const w = 110;
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.translate(h.x, h.y - 4); ctx.rotate(time * 3); ctx.scale(1, 0.45);
+    ctx.globalAlpha = 0.85;
+    if (!cell(ctx, "fx2", FX2.reload, 0, 0, w, w)) { ctx.strokeStyle = "#ffcf8a"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, w * 0.4, 0, TAU); ctx.stroke(); }
+    ctx.restore();
+  }
   if (a.nul && h.advClass === "knight") {          // 무효화 방어막 — 몸을 감싸는 옅은 육각 막
     ctx.globalAlpha = 0.22 + 0.08 * Math.sin(time * 3);
     ctx.strokeStyle = "#cfe6ff"; ctx.lineWidth = 1.2;

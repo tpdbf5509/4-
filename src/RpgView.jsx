@@ -69,7 +69,9 @@ function advHud(me) {
   const stack0 = c.id === "gladiator" ? `투지 ${a.st || 0}/${P.max}`
     : c.id === "knight" ? (a.gT > 0 ? `방어 ${Math.ceil(a.gT)}초` : P.name)
     : c.id === "marksman" ? (a.ex ? "약점 노출" : `포착 ${a.st || 0}/${P.need}`)
-    : c.id === "gunner" ? `탄도 ${a.st || 0}/${P.max}`
+    : c.id === "gunner" ? `탄도 ${a.st || 0}/${P.max} · ${a.rl > 0 ? `장전 ${a.rl.toFixed(1)}초` : `탄 ${a.ammo >= 0 ? a.ammo : c.reload.mag}/${c.reload.mag}`}`
+    : c.id === "assassin" ? (a.ut > 0 ? "지정 불가" : a.rush > 0 ? `질주 ${Math.ceil(a.rush)}초` : P.name)
+    : c.id === "elf" ? (a.wdT > 0 ? `바람 걸음 ${Math.ceil(a.wdT)}초` : P.name)
     : c.id === "archmage" ? `마력 ${a.st || 0}/${P.max}`
     : c.id === "healer" ? `${me.healMode ? "치유 평타" : "공격 평타"}${a.blT > 0 ? ` · 축복 ${Math.ceil(a.blT)}초` : ""}`
     : a.sps && a.sps.length ? `정령 ${a.sps.length}/${c.active.max} · ${Math.ceil(Math.max(...a.sps.map((sp) => sp.t)))}초` : P.name;

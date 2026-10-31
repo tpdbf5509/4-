@@ -17,7 +17,7 @@ from scipy.sparse.csgraph import dijkstra
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "design/advance/classes")
 OUT = os.path.join(ROOT, "public/assets/characters/rpg")
-CLASSES = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner", "healer"]   # 치유사 시트는 Codex 로 생성(10월 26일 · 초록 바탕을 지워 둠)
+CLASSES = ["gladiator", "knight", "marksman", "gunner", "archmage", "summoner", "healer", "assassin", "elf"]   # 치유사(10월 26일) · 암살자 · 엘프(10월 31일) 시트는 Codex 로 생성(초록 바탕을 지워 둠)
 ONLY = set(sys.argv[1:])
 VIEWS = ["front", "side", "back", "turn"]
 SOLID = 60        # 이만큼 넘는 알파가 그림 몸

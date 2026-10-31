@@ -32,7 +32,8 @@ import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.j
 import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
 import { advNullShield, advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
-  advLowHp, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill } from "./advance.js";
+  advLowHp, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill,
+  advHpMul, advTakeMul, advHidden, advSpeedMul, advElfShot, advGunReady, advGunFired } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
 // 서버마다 들어올 수 있는 사람 수 — 13명이 모이자 Supabase 무료 한도(초당 100통)를 넘어 기록이 섞였다(10월 19일)
@@ -570,6 +571,8 @@ export const JOBS = [
 export const JOB_BY_ID = Object.fromEntries(JOBS.map((j) => [j.id, j]));
 // 직업별 몹 · 보스에게 주는 피해 배율 — 평타 · 스킬 · 화상 · 독 모두(결투 · 사냥터 PvP 는 그대로). 10월 23일 마법사 1 → 1.05
 export const JOB_DMG = { mage: 1.05, archer: JOB_TUNE.archer.dmg };   // 10월 30일 궁수 1 → 0.9(jobTuneData.js)
+// 궁수 피해 감소를 받나 — 총사(전직)는 받지 않는다(10월 31일 "딜 원래대로", JOB_TUNE.archer.gunnerFull)
+const archerCut = (h) => h.job === "archer" && !(JOB_TUNE.archer.gunnerFull && advOf(h)?.id === "gunner");
 /* 지속 피해 중첩 — jobs 직업이 화상 · 독을 다시 걸면 겹이 하나씩 쌓인다(최대 max 겹, 틱 피해 × 겹).
    여러 번 치는 스킬이 한 번에 다 쌓지 않게 같은 몹에는 gap 초에 한 겹만. 다른 직업이 걸면 겹은 그대로 두고 시간만 새로 */
 export const DOT_STACK = { jobs: ["mage"], max: 3, gap: 0.5 };
@@ -898,7 +901,7 @@ function wear(h, look) {
 // 실제로 쓰는 스탯 — 찍은 포인트의 값 + 장착한 무기 · 패시브 스킬 · 버프 물약
 export const statTotal = (h, id) => statValue(id, h.st[id]) + extraStat(h, id);
 // 최대 체력 = 체력 스탯 × 직업 배율 — 레벨은 포인트로만 오른다
-const heroMaxHp = (h) => Math.round(statTotal(h, "hp") * jobOf(h).hp * armorHpMul(h) * guildBuff(h));   // 투구가 최대 체력을 올린다
+const heroMaxHp = (h) => Math.round(statTotal(h, "hp") * jobOf(h).hp * armorHpMul(h) * guildBuff(h) * advHpMul(h));   // 암살자 · 엘프는 체력이 낮다(advData.js ADV_BODY)   // 투구가 최대 체력을 올린다
 export function refreshHp(h, full) {
   h.max = heroMaxHp(h);
   if (full) h.hp = h.max;
@@ -1236,7 +1239,7 @@ export function rpgWalk(h, dt) {
   h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
   h.look = [dx / len, dy / len]; h.lookF = h.face;   // 마지막으로 걸은 쪽 — 키를 떼도 이쪽을 바라본다(aimDir)
   // 이속 물약 · 신발 — 방장과 손님이 같은 값(스냅샷의 물약 효과 · h.arm)으로 걷는다
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len));
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화)
   h.x += (dx / len) * v * dt;
   h.y += (dy / len) * v * RPG.squash * dt;
   keepIn(h, MAPS[h.map], 20);
@@ -1253,7 +1256,7 @@ function walkTo(h, dt) {
   else if ((h.destP = (h.destP || 0) + dt) >= MOVE.progT) return void stopMove(h);   // 한참 나아가지 못했다 — 좁은 틈에서 왔다 갔다 한다
   const ux = dx / (d || 1), uy = dy / (d || 1);
   const [sx, sy] = MOVE.steer ? steerAround(h, M, D, ux, uy, d, dt) : [ux, uy];
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy));
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h);
   const step = v * dt;
   if (d <= Math.max(MOVE.arrive, step)) {          // 닿았다
     h.x = D.x; h.y = D.y;
@@ -1556,7 +1559,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
   if (dot) raw *= worldDotMul(h);
   if (!dot && procOff === 0) raw *= advDmgMul(advEngine, g, h, o, !!basic, true);   // 전직 패시브(표식 · 약점 · 탄도) — PvP 는 +15% 까지
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
-  if (!off && h.job === "archer") dmg *= JOB_TUNE.archer.dmg * (hasDefense(o) ? JOB_TUNE.archer.vsArmor : 1);   // 궁수 — 피해 감소 · 방어력 있는 사람에게 더 감소
+  if (!off && archerCut(h)) dmg *= JOB_TUNE.archer.dmg * (hasDefense(o) ? JOB_TUNE.archer.vsArmor : 1);   // 궁수 — 피해 감소 · 방어력 있는 사람에게 더 감소
   if (!off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, o.max);   // 마법사 — 최대 체력 비례 피해
   if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
   else {
@@ -1631,7 +1634,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   }
   const off = h ? offHand(h) : "";
   if (off) dmg = OFF_HAND.dmg[off];               // 직업과 다른 무기 — 한 대 피해 고정 · 치명타 없음
-  else if (h) dmg *= JOB_DMG[h.job] || 1;         // 직업 피해 배율(마법사 +5% · 궁수 -10%)
+  else if (h) dmg *= h.job === "archer" && !archerCut(h) ? 1 : JOB_DMG[h.job] || 1;   // 직업 피해 배율(마법사 +5% · 궁수 -10% · 총사는 그대로)
   if (h && !off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, m.max);   // 마법사 — 최대 체력 비례 피해(jobTuneData.js)
   if (m.wall > 0) dmg *= 1 - m.wallCut;          // 철벽 자세
   const crit = h && !off ? sureCrit || Math.random() < critChance(h) : false;
@@ -1876,7 +1879,7 @@ function hurtHero(g, h, raw, source) {
   }
   const defended=advTakeCut(h,0)>0||armorTakeMul(h)<1||h.guard>0||h.jb?.iron>0||h.as?.gT>0||h.as?.pT>0||h.as?.blT>0;
   if(source?.boss)raw*=COMBAT_RULES.bossDamage*(defended?COMBAT_RULES.defendedBossDamage:1);
-  let dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더)
+  let dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
   dmg = worldArmorAbsorb(h, dmg);
   dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
   if (dmg <= 0) return;
@@ -1957,6 +1960,7 @@ function heroAttack(g, h, force) {
   const dmg = job.dmg * heroDmgMul(h);
   const rng = heroRange(h) * advRangeMul(advEngine, h);   // 총사 기동 사격 — 물러나며 쏘아도 끊기지 않게 자동 평타 사거리를 늘린다
   const hy = h.y - 34;
+  if (!advGunReady(advEngine, h)) return false;  // 총사 장전 중 — 평타가 나가지 않는다
   if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy, force);
   const heal = advHealShot(advEngine, g, h, rng);  // 치유사 치유 평타 — 켜 두었으면 몹을 치지 않는다
   if (heal !== null) return heal;
@@ -2000,7 +2004,7 @@ function heroAttack(g, h, force) {
     fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, ...(prec ? { style: "arrow", color: "#bffcf3" } : archerShot(h, el)), t: fly, life: fly, snd: "shot" });
   }
   g.hits.push({ t: fly, pi, mid: m.id, x: m.x, y: m.y, map, dmg, splash: job.splash || 0, ...(prec ? { prec } : {}) });
-  if (job.id === "archer") advGunShot(advEngine, g, h, m, dmg, fly);   // 총사 기동 사격 — 평타 몇 번마다 추가 탄환
+  if (job.id === "archer") { advGunShot(advEngine, g, h, m, dmg, fly); advGunFired(advEngine, g, h); advElfShot(advEngine, g, h, m, dmg); }   // 총사 기동 사격 · 탄창 / 엘프 바람 화살
   return true;
 }
 
@@ -2050,6 +2054,7 @@ function shootAir(g, h, job, el, dmg, rng, hy) {
     fx(g, h.map, { kind: "shot", x0: h.x, y0: hy, x1: tx, y1: ty - 10, ...archerShot(h, el), t: fly, life: fly, snd: "shot" });
   }
   if (job.splash && !isPvp(h.map)) g.hits.push({ t: fly, pi: h.pi, mid: -1, x: tx, y: ty, map: h.map, dmg, splash: job.splash });
+  if (job.id === "archer") advGunFired(advEngine, g, h);   // 허공에 쏴도 탄창을 쓴다
   return true;
 }
 
@@ -2081,7 +2086,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
     fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: o.x, y1: o.y - 30, ...(prec ? { style: "arrow", color: "#bffcf3" } : archerShot(h, el)), t: fly, life: fly, snd: "shot" });
   }
   g.hits.push({ t: fly, pi, hid: o.pi, x: o.x, y: o.y, map, dmg: prec ? dmg * Math.min(prec.first, 1 + ADV.pvpBonusMax) : dmg, splash: job.splash || 0, ...(prec ? { prec } : {}) });
-  if (job.id === "archer") advGunShot(advEngine, g, h, o, dmg, fly);
+  if (job.id === "archer") { advGunShot(advEngine, g, h, o, dmg, fly); advGunFired(advEngine, g, h); }
   return true;
 }
 // 결투장에서 날아간 것이 닿았다 — 그 사이 맵을 떠났거나 쓰러졌으면 빗나간다
@@ -2898,6 +2903,10 @@ const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near
   cc: ccAny, alive: aliveFoe, aim: aimTo, aimAt, end: lineEnd, newCast, squash: RPG.squash, bigMap: advBigMap,
   base: (h, k) => SKILL_USE.base * skillStatMul(h, k), elem: (h) => elemOf(h).id, locked: ccLocked,
   safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,
+  // 10월 31일 암살자 · 엘프 · 명사수 — lose 몹이 놓친다 · place 순간 이동(맵 안) · slower 나보다 느린가 · calmT 쉼 회복까지 초
+  lose: (g, h) => g.mobs.forEach((m) => { if (m.tgt === h.pi && m.map === h.map) m.tgt = -1; }),
+  place: (h, x, y) => { h.x = x; h.y = y; keepIn(h, MAPS[h.map], 20); stopMove(h); },
+  slower: (h, o) => moveSpeedOf(o) < heroSpeed(h), calmT: RPG.calm,
   // 전투 특성 — hit 평타로 친다 · side 튄 피해(몹) · extra 추가 탄환(몹은 튄 피해, 사람은 평타 한도) · shield 긴급 보호막(이미 더 크면 false)
   hit: (g, h, m, dmg) => hitMob(g, h.pi, m, dmg), after: afterHit,
   side: (g, h, m, dmg) => hitMob(g, h.pi, m, dmg, false, false, false, true),
@@ -3403,8 +3412,18 @@ function stepHeroes(g, dt) {
   });
 }
 
+/* 걷는 속도(px/초) — 명사수 약점 포착(나보다 느린 적)이 견준다. 사람은 걷는 식 그대로(신발은 앞쪽 몫),
+   몹은 종류마다 쫓는 속도 · 둔화 · 기절이면 0 */
+const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
+const MOB_WALK = { rabbit: 160, wolf: 175, boar: BOAR.walk };   // 그 밖은 BRUTE 값 · 보스 AI 값, 모르면 180
+function moveSpeedOf(o) {
+  if (isHeroT(o)) return heroSpeed(o);
+  if (o.stun > 0 || o.freeze > 0 || o.type === "dummy") return 0;
+  const base = (BRUTE[o.type] && BRUTE[o.type].walk) || (BOSS_AI[o.type] && BOSS_AI[o.type].walk) || MOB_WALK[o.type] || 180;
+  return base * (o.boss ? 1.1 : 1) * (o.slow > 0 ? 0.5 : 1);
+}
 // 몹이 이 사람을 알아채는가 — 투명화 물약을 마신 사람은 보스도 일반 몹도 알아채지 못한다(공격해도 그대로)
-const notices = (m, h) => !buffLeft(h, "hide");
+const notices = (m, h) => !buffLeft(h, "hide") && !advHidden(h);   // 암살자 그림자 일섬(지정 불가)도 놓친다
 function nearestHero(g, m, range) {
   const forced=g.heroes[m.tgt];if(m.taunt>0&&forced?.map===m.map&&forced.down<=0)return forced;
   let best = null, bd = range;

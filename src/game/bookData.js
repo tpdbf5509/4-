@@ -13,7 +13,9 @@ import { PARTY, CHAT } from "./socialData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEONS, DUNGEON } from "./dungeonData.js";
 import { UPDATES } from "./updates.js";
-import { ADV, ADV_CLASSES, ADV_MASTERY, ADV_TRAITS, traitAt } from "./advData.js";
+import { ADV, ADV_CLASSES, ADV_MASTERY, ADV_TRAITS, traitAt, ADV_BY_ID, ADV_BODY } from "./advData.js";
+// 지난 패치노트는 그때 있던 전직만 — 10월 31일 암살자 · 엘프를 더하기 전
+const ADV_BEFORE_1031 = ADV_CLASSES.filter((c) => c.id !== "assassin" && c.id !== "elf");
 
 const won = (n) => n.toLocaleString("ko-KR");
 const pct = (w) => `${w}%`;
@@ -25,6 +27,23 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-10-31a", title: "패치노트 · 10월 31일", sub: "암살자 · 엘프 · 명사수 · 총사", color: "#c9b37c",
+    pages: [
+      { h: "새 전직 암살자", p: ["검사의 셋째 전직입니다. 단검을 들고 한 방을 노립니다.",
+        `몸: 최대 체력 ${Math.round((1 - ADV_BODY.assassin.hp) * 100)}% 낮음 · 걷는 속도 ${Math.round((ADV_BODY.assassin.spd - 1) * 100)}% 빠름.`,
+        `그림자 일섬(Z) — ${ADV_BY_ID.assassin.active.ut}초 동안 지정 불가입니다. 공격과 상태이상이 닿지 않고 몹이 놓칩니다. 연사도 피합니다.`,
+        "사라진 뒤 가장 가까운 적 등 뒤에 나타나 한 방에 벱니다. 적이 없으면 앞으로 빠져나갑니다.",
+        `급소 노리기 — ${ADV_BY_ID.assassin.passive.gap}초 동안 치지 않은 적에게 첫 일격 +${Math.round(ADV_BY_ID.assassin.passive.bonus * 100)}%. 평타는 ${Math.round((1 - ADV_BY_ID.assassin.passive.basic) * 100)}% 낮습니다.`,
+        `일섬 뒤 ${ADV_BY_ID.assassin.passive.rushT}초 동안 엘프만큼 빨라집니다. 엘프보다 빠르지는 않습니다.`] },
+      { h: "새 전직 엘프", p: ["궁수의 셋째 전직입니다. 가장 빠르고 금방 회복합니다.",
+        `몸: 최대 체력 ${Math.round((1 - ADV_BODY.elf.hp) * 100)}% 낮음 · 받는 피해 ${Math.round((ADV_BODY.elf.take - 1) * 100)}% 많음 · 걷는 속도 ${Math.round((ADV_BODY.elf.spd - 1) * 100)}% 빠름.`,
+        `숲의 숨결 — 싸우는 중에도 1초마다 최대 체력 ${ADV_BY_ID.elf.passive.regen * 100}% 회복. 맞지 않고 쉬면 두 배.`,
+        `숲바람 화살(Z) — 앞으로 바람 화살 ${ADV_BY_ID.elf.active.n}발을 부채꼴로 쏩니다. 저마다 꿰뚫습니다. 쏜 뒤 ${ADV_BY_ID.elf.active.wind}초 동안 더 빨라집니다.`] },
+      { h: "명사수", p: [`나보다 느린 적에게 주는 피해 +${Math.round(ADV_BY_ID.marksman.passive.slower * 100)}%. 서 있는 적 · 느린 몹 · 기절한 적이 모두 해당합니다.`] },
+      { h: "총사", p: ["피해를 원래대로 돌렸습니다. 10월 30일 궁수 피해 감소(10%)와 방어력 있는 사람에게 더 줄던 몫(15%)을 받지 않습니다.",
+        `대신 장전이 생겼습니다. 쌍권총 평타 ${ADV_BY_ID.gunner.reload.mag}발마다 ${ADV_BY_ID.gunner.reload.time}초 장전합니다.`,
+        `장전 중에는 평타가 나가지 않고 걷는 속도가 ${Math.round(ADV_BY_ID.gunner.reload.slow * 100)}% 줄어듭니다. 속사(Z)는 탄창과 따로입니다.`] },
+    ] },
   { id: "patch-2026-10-30e", title: "패치노트 · 10월 30일 (5)", sub: "잡동산이 상점", color: "#c9b37c",
     pages: [
       { h: "새 상점", p: ["광장 오른쪽 아래 풀밭, 도박장 아래에 잡동산이 상점이 생겼습니다.", "탭은 셋입니다. 가방 넓히기 · 재료 사기 · 재료 팔기."] },
@@ -95,7 +114,7 @@ export const PATCH_BOOKS = [
       { h: "숙련도 얻는 법", p: [`${ADV_MASTERY.minLv}레벨 이상 사냥터 몬스터 ${ADV_MASTERY.mob} · 사냥터 보스 ${ADV_MASTERY.boss} · 던전 보스 ${ADV_MASTERY.dgBoss} · 월드 · 길드 보스 ${ADV_MASTERY.raid}.`,
         "몬스터를 잡았을 때만 오릅니다. 같은 적을 오래 치기 · 허수아비 · 훈련장 · 결투 · PvP 는 세지 않습니다.",
         `1분에 ${ADV_MASTERY.perMin}까지 오릅니다. 파티로 같은 맵에서 함께 친 사람은 저마다 받습니다.`] },
-      ...ADV_CLASSES.map((c) => ({ h: `${c.name} — ${ADV_TRAITS[c.id].name}`, p: [`${ADV_TRAITS[c.id].text(traitAt(c.id, 2))}.`, `3단계: ${ADV_TRAITS[c.id].up3}.`, `4단계: ${ADV_TRAITS[c.id].up4}.`] })),
+      ...ADV_BEFORE_1031.map((c) => ({ h: `${c.name} — ${ADV_TRAITS[c.id].name}`, p: [`${ADV_TRAITS[c.id].text(traitAt(c.id, 2))}.`, `3단계: ${ADV_TRAITS[c.id].up3}.`, `4단계: ${ADV_TRAITS[c.id].up4}.`] })),
       { h: "결투 · PvP", p: ["전투 특성도 기존 한도 안에서만 듣습니다. 결투 스킬 한 번 맞는 사람 최대 체력 12% · 평타 3% · 전직 패시브 추가 피해 +15% 그대로입니다.", "사람은 도발하지 않습니다. 긴급 보호막은 결투 · 사냥터 PvP 에서 나에게만 겁니다."] },
     ] },
   { id: "patch-2026-10-26i", title: "패치노트 · 10월 26일 (9)", sub: "계몽의 문 새 그림", color: "#b8a0d8",
@@ -137,7 +156,7 @@ export const PATCH_BOOKS = [
   { id: "patch-2026-10-26b", title: "패치노트 · 10월 26일 (2)", sub: "새 전직 시험", color: "#c9b37c",
     pages: [
       { h: "전직 시험이 바뀌었습니다", p: ["여섯 전직의 시험을 새로 만들었습니다. 이미 받던 시험은 처음부터 다시 셉니다.", "이미 전직한 사람은 그대로입니다."] },
-      ...ADV_CLASSES.map((c) => ({ h: `${c.name} — ${c.trial.name}`, p: [c.trial.note] })),
+      ...ADV_BEFORE_1031.map((c) => ({ h: `${c.name} — ${c.trial.name}`, p: [c.trial.note] })),
       { h: "바뀐 내용", p: ["검투사 검술 콤보 20번 → 결투 승리로 시험 레벨 1 → 15(이기면 80%).", "기사 공격 40번 받기(쓰러지면 처음부터) → 사람 · 몬스터에게 100대 맞기(처음으로 돌아가지 않음).",
         "명사수 먼 거리 평타 40번 → 비타겟팅 스킬 연속 20번 명중.", "총사 걸으며 평타 40번 → 300레벨까지의 몬스터 10종 한 번씩 잡기.",
         "마도사 몹 셋 맞히기 15번 → 마력 폭발로 잡아 시험 레벨 1 → 10(5마리마다 1레벨). 시험 동안 마력 폭발을 쓸 수 있습니다.",
@@ -513,7 +532,7 @@ export const GUIDE_BOOKS = [
     ],
   },
   {
-    id: "guide-adv", title: "1차 전직", sub: `${ADV.lv}레벨 · 전직 여섯`, color: "#9fb0c8",
+    id: "guide-adv", title: "1차 전직", sub: `${ADV.lv}레벨 · 전직 ${ADV_CLASSES.length}`, color: "#9fb0c8",
     pages: [
       { h: "전직하는 법", p: [`${ADV.lv}레벨부터 광장의 전직 교관에게 말을 걸어 시험을 받습니다.`,
         `시험마다 세는 것이 다릅니다. 몹을 세는 시험은 ${ADV.trialLv}레벨 이상 몹 · 던전 · 월드보스만 셉니다. 허수아비는 세지 않습니다.`,

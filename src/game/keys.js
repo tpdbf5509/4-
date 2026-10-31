@@ -1,5 +1,6 @@
 /* ── RPG 키 설정 — 행동마다 키 두 칸. 이 기기에 남는다 ─────────────────
-   기본 키는 이 표 한 곳에서 고친다. Esc 는 창을 닫는 데 쓰여 바꿀 수 없다. */
+   기본 키는 이 표 한 곳에서 고친다. Esc 는 창을 닫는 데 쓰여 바꿀 수 없다.
+   칸에는 키보드 키(e.code)나 마우스 버튼(MOUSE_BUTTONS 의 code)을 넣는다. 휠 굴리기 · DPI 버튼은 브라우저가 버튼으로 알려 주지 않아 넣지 못한다 */
 export const KEY_ACTIONS = [
   { id: "up", name: "위로", group: "이동", keys: ["KeyW", "ArrowUp"] },
   { id: "down", name: "아래로", group: "이동", keys: ["KeyS", "ArrowDown"] },
@@ -86,6 +87,19 @@ export function keyMap(binds) {
   return m;
 }
 
+// 마우스 버튼 — MouseEvent.button 값 차례. B1~B5 는 마우스 버튼 번호(왼쪽 · 오른쪽 · 휠 클릭 · 옆 버튼 둘)
+export const MOUSE_BUTTONS = [
+  { code: "Mouse0", label: "좌클릭" },
+  { code: "Mouse2", label: "우클릭" },
+  { code: "Mouse1", label: "휠 클릭" },
+  { code: "Mouse3", label: "옆 버튼 뒤" },
+  { code: "Mouse4", label: "옆 버튼 앞" },
+];
+const MOUSE_LABEL = Object.fromEntries(MOUSE_BUTTONS.map((b) => [b.code, b.label]));
+// 누른 마우스 버튼 → 칸에 넣는 이름. 다섯 밖의 버튼은 ""
+export const mouseCode = (button) => (MOUSE_LABEL[`Mouse${button}`] ? `Mouse${button}` : "");
+export const isMouseCode = (code) => !!MOUSE_LABEL[code];
+
 // 화면에 보이는 키 이름
 const NAMED = {
   Space: "Space", Enter: "Enter", Tab: "Tab", Backspace: "Backspace",
@@ -96,6 +110,7 @@ const NAMED = {
 export function keyLabel(code) {
   if (!code) return "";
   if (NAMED[code]) return NAMED[code];
+  if (MOUSE_LABEL[code]) return MOUSE_LABEL[code];
   if (code.startsWith("Key")) return code.slice(3);
   if (code.startsWith("Digit")) return code.slice(5);
   if (code.startsWith("Numpad")) return `숫자판 ${code.slice(6)}`;

@@ -124,3 +124,5 @@ export function cloudStart(kick, recover) {
 }
 
 export const guildAction=(name,tok,sid,op='get',args={})=>rpc('rpg_guild_action',{p_name:name,p_token:tok,p_sid:sid,p_op:op,p_args:args});
+// 광장 장터 게시판(server/src/ledger-market.js) — 예전 방식(방장 브라우저)일 때 화면이 직접 부른다
+export const marketAction = (name, tok, sid, op = 'get', args = {}) => rpc('rpg_market', { p_name: name, p_token: tok, p_sid: sid, p_op: op, p_args: args });

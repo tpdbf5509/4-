@@ -17,6 +17,7 @@ import { trading } from "./tradeData.js";
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
+import { MARKET } from "./marketData.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WARP, GUARD, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
@@ -24,6 +25,7 @@ import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
+import { ACHIEVES, CODEX_NEED } from "./codexData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS, QUEST_MASTER, questXpRate, questMatches } from "./requestData.js";
 import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
@@ -111,6 +113,7 @@ export const MAPS = {
       {x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y,r:38},{...GUILD_HALL.door,r:35},
       { x: ADV.npc.x, y: ADV.npc.y - 4, r: 18 },   // 전직 교관
       { x: DEEP.door.x, y: DEEP.door.y - 6, r: 34 },   // 계몽의 문(deepData.js)
+      { x: MARKET.npc.x, y: MARKET.npc.y - 6, r: 40 },   // 장터 게시판(marketData.js)
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
@@ -125,6 +128,7 @@ export const MAPS = {
       {id:'guilddoor',guildDoor:1,name:'길드 문',...GUILD_HALL.door},   // 길드가 있으면 길드 광장, 없으면 길드 찾기(guildData.js GUILD_HALL)
       { id: "adv", adv: 1, name: "전직 교관", x: ADV.npc.x, y: ADV.npc.y },   // 200레벨 1차 전직 — 시험 · 확정 창(advData.js)
       { id: "deep", deep: 1, name: "계몽의 문", x: DEEP.door.x, y: DEEP.door.y },   // 400~800레벨 사냥터 — 계몽의 눈 만들기 · 입장 창(deepData.js)
+      { id: "market", market: 1, name: "장터 게시판", x: MARKET.npc.x, y: MARKET.npc.y },   // 올려 두면 나중에 팔리는 게시판 — 창은 화면이 연다(MarketPanel.jsx)
     ],
   },
   field: {
@@ -299,6 +303,7 @@ export const COIN_RATE = 0.7;
 export const coinOf = (n) => Math.max(1, Math.round(n * COIN_RATE));
 // 경험치 — 몹이 주는 경험치에 곱한다(레벨이 너무 빨리 올라 5배 줄였다). 1보다 적게 주지는 않는다. 퀘스트 경험치는 그대로
 export const XP_RATE = 0.2;
+const XP_DECIMALS = 100;   // 경험치는 소수 둘째 자리까지만 쌓는다(부동소수점 오차 방지)
 export const xpOf = (n) => Math.max(1, Math.round(n * XP_RATE));
 export const QUEST = { lv:1, name: "토끼 사냥", need: 5, xp: 10, coin: coinOf(15) };
 // 몹 자동 회복 — calm 초 동안 맞지 않으면 초당 최대 체력의 rate 만큼 차오른다
@@ -695,7 +700,11 @@ export function cleanReqs(d) {
 }
 export const cleanTitles = (list) => (Array.isArray(list) ? [...new Set(list.filter((id) => TITLE_BY_ID[id]))] : []);
 // 칭호 조건의 지금 값 — 레벨 · 코인은 캐릭터에서, 나머지는 기록에서
-export const needNow = (h, k) => (k === "lv" ? h.lv : k === "coins" ? h.coins : (h.rec && h.rec[k]) || 0);
+// 도감 열쇠(dex 등, codexData.js CODEX_NEED)는 기록에서 센다
+export const needNow = (h, k) => (k === "lv" ? h.lv : k === "coins" ? h.coins : CODEX_NEED[k] ? CODEX_NEED[k](h.rec) : (h.rec && h.rec[k]) || 0);
+// 업적 — 조건을 채웠는지 · 이미 보상을 받았는지(가방 b.ac)
+export const achMet = (h, a) => Object.entries(a.need).every(([k, n]) => needNow(h, k) >= n);
+export const achGot = (h, a) => (((h && h.bag && h.bag.ac) || []).includes(a.id));
 export const titleMet = (h, t) => (t.off ? offKey(h) === t.off : Object.entries(t.need).every(([k, n]) => needNow(h, k) >= n));
 // 직업과 다른 묶음의 무기를 들었으면 그 묶음(sword · bow · staff), 아니면 "" — 방장만 가방을 본다
 export function offHand(h) {
@@ -1364,7 +1373,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv || npc.market) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
     h.quest = { on: true, n: 0, coinOnly:h.lv>QUEST.lv };
@@ -1855,10 +1864,11 @@ export function rpgRequest(g, pi, req) {
 
 function giveXp(g, h, amt) {
   const beforePoints=statEarned(h.lv);
-  h.xp += amt;
+  // 파티 몫 · 낮은 사냥터 경험치는 소수라 더하다 보면 0.1+0.2 같은 오차가 쌓인다 — 소수 둘째 자리에서 끊는다
+  h.xp = Math.round((h.xp + amt) * XP_DECIMALS) / XP_DECIMALS;
   let up = 0;
   while (h.lv < LV_MAX && h.xp >= needXp(h.lv)) {
-    h.xp -= needXp(h.lv);
+    h.xp = Math.round((h.xp - needXp(h.lv)) * XP_DECIMALS) / XP_DECIMALS;
     h.lv += 1;
     up += 1;
     refreshHp(h, false);
@@ -4266,6 +4276,27 @@ function awardTitles(g, h, quiet) {
   });
 }
 
+// 조건을 채운 업적의 코인을 준다(codexData.js ACHIEVES). 한꺼번에 여럿이면(예전 기록) 한 줄로 알린다
+// 칭호 보상은 같은 조건의 칭호를 awardTitles 가 준다
+const ACH_SAY_MAX = 2;                            // 이만큼까지는 업적마다 알리고, 넘으면 한 줄로 묶는다
+function awardAchieves(g, h) {
+  const got = ACHIEVES.filter((a) => !achGot(h, a) && achMet(h, a));
+  if (!got.length) return;
+  const coin = got.reduce((n, a) => n + a.coin, 0);
+  h.bag.ac = [...(h.bag.ac || []), ...got.map((a) => a.id)];
+  h.bag.v += 1;
+  h.coins += coin;
+  if (got.length > ACH_SAY_MAX) {
+    sys(g, h.pi, `업적 ${got.length}개를 이뤄 코인 ${coin.toLocaleString("ko-KR")}을 받았습니다. 도감 창에서 볼 수 있습니다.`);
+    return;
+  }
+  got.forEach((a, i) => {
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 140 - i * 22, text: `업적 「${a.name}」`, color: "#e9d39a", t: 1.4, life: 1.4,
+      snd: "clear", who: h.pi });
+    sys(g, h.pi, `업적 「${a.name}」을 이뤄 코인 ${a.coin.toLocaleString("ko-KR")}을 받았습니다.`);
+  });
+}
+
 // 칭호를 단다 — 얻은 것만. 빈 값이면 뗀다
 export function rpgTitle(g, pi, id) {
   const h = g.heroes[pi];
@@ -4334,7 +4365,7 @@ function tickSocial(g, dt) {
   g.titleT -= dt;
   if (g.titleT <= 0) {
     g.titleT = 0.5;
-    g.heroes.forEach((h) => { if (h && h.loaded && !trading(h)) { awardTitles(g, h, false); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
+    g.heroes.forEach((h) => { if (h && h.loaded && !trading(h)) { awardTitles(g, h, false); awardAchieves(g, h); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
   }
 }
 

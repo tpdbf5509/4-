@@ -15,7 +15,7 @@ const CHECK = "CHECK";
 // 화면이 /rpc/<함수> 로 부를 수 있는 장부 함수 — rpg_srv_* 는 RPG 서버(RpgRoom)만 쓰므로 열지 않는다
 const PUBLIC_RPC = new Set([
   "rpg_name_free", "rpg_create", "rpg_login", "rpg_delete", "rpg_honor_top", "rpg_live", "rpg_unlive", "rpg_save", "rpg_load",
-  "rpg_trade_open", "rpg_trade_action", "rpg_guild_action", "rpg_admin_ok", "rpg_admin_ticket", "rpg_admin_redeem",
+  "rpg_trade_open", "rpg_trade_action", "rpg_guild_action", "rpg_market", "rpg_admin_ok", "rpg_admin_ticket", "rpg_admin_redeem",
   "rpg_admin_accounts", "rpg_admin_blocks", "rpg_admin_rename", "rpg_admin_trades", "rpg_admin_feedback", "feedback_insert",
 ]);
 const RPC_BODY_MAX = 65536;          // 요청 크기 한도(바이트) — 기록 한도 30000 + 여유

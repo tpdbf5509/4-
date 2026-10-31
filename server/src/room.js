@@ -338,6 +338,15 @@ export class RpgRoom {
       if (r && r.ok && r.changed) await this.reload(c.id);   // 생성비 · 주간 보상이 기록을 고쳤다
       return r;
     }
+    if (d.fn === "market") {                         // 광장 장터 게시판(ledger-market.js)
+      const op = typeof args.op === "string" ? args.op : "get";
+      const h = this.g && this.g.heroes[this.seatOf(c.id)];
+      if (!h || h.map !== "plaza") return { ok: false, err: "place" };
+      if (op !== "get") await this.saveOne(c.id);   // 장부가 보는 가방이 지금 가방이어야 한다
+      const r = await ledgerCall(this.env, "rpg_market", { ...me, p_sid: c.id, p_op: op, p_args: args.args && typeof args.args === "object" ? args.args : {} });
+      if (r && r.ok && r.changed) await this.reload(c.id);   // 가방 · 코인이 바뀌었다
+      return r;
+    }
     return { ok: false, err: "op" };
   }
 

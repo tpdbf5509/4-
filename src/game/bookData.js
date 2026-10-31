@@ -34,7 +34,7 @@ export const PATCH_BOOKS = [
         `정령은 체력이 있습니다. 내 최대 체력의 ${ADV_BY_ID.summoner.ultimate.hpMul}배이고 내가 받는 피해의 ${Math.round(ADV_BY_ID.summoner.ultimate.share * 100)}%를 대신 맞습니다. 체력이 다하면 흩어집니다.`,
         `${ADV_BY_ID.summoner.ultimate.every}초마다 발밑 둘레 적을 모두 내려치고 ${ADV_BY_ID.summoner.ultimate.stun}초 기절시킵니다. 마법 기본 피해 ${ADV_BY_ID.summoner.ultimate.mul}배입니다.`,
         `거대 정령은 내 둘레 ${ADV_BY_ID.summoner.ultimate.roam} 안을 돌아다닙니다. 가까운 적에게 걸어가 내려치고 적이 없으면 어슬렁거립니다.`,
-        `대기 ${ADV_BY_ID.summoner.ultimate.cd}초. 광장과 결투에서는 쓸 수 없습니다. 쓰러지면 정령도 사라집니다. 정령 소환(Z)과 따로 쓰입니다.`] },
+        `대기 ${ADV_BY_ID.summoner.ultimate.cd}초. 결투에서는 쓸 수 없습니다. 쓰러지면 정령도 사라집니다. 정령 소환(Z)과 따로 쓰입니다.`] },
     ] },
   { id: "patch-2026-10-31c", title: "패치노트 · 10월 31일 (3)", sub: "그림자 일섬 조준", color: "#c9b37c",
     pages: [

@@ -768,15 +768,14 @@ export function advUlt(E, g, h) {
   const c = advOf(h), map = h.map;
   if (h.down > 0 || E.locked(h)) return false;
   if (!c || c.id !== "summoner") return void E.say(g, map, h.x, h.y - 90, "소환술사만 쓸 수 있다", "#d9c9a6");
-  if (E.safe(map)) return void E.say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
   if (E.pvpMap(map)) return void E.say(g, map, h.x, h.y - 90, "결투에서는 쓸 수 없다", "#d9c9a6");
-  const a = asOf(h), U = c.ultimate;
+  const a = asOf(h), U = c.ultimate, pet = E.safe(map);   // 광장 — 공격하지 않는 작은 펫
   if (a.ucd > 0) return void E.say(g, map, h.x, h.y - 90, `${U.name} ${Math.ceil(a.ucd)}초`, "#f0dcb4");
-  const x = h.x + (h.dir || 1) * U.follow, y = h.y, mhp = Math.round(h.max * U.hpMul);
-  a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, cap: { raw: 0, adv: 1 } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
+  const x = h.x + (h.dir || 1) * (pet ? -U.petNear : U.follow), y = h.y, mhp = Math.round(h.max * U.hpMul);
+  a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, pet: pet ? 1 : 0, cap: { raw: 0, adv: 1 } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
   a.ucd = U.cd;
   h.swing = Math.max(h.swing || 0, 0.4);
-  E.fx(g, map, { kind: "sk_adv_gsummon", x, y, r: U.r, elem: E.elem(h), t: 1.1, life: 1.1, snd: "boom", kick: 0.3 });
+  E.fx(g, map, { kind: "sk_adv_gsummon", x, y, r: pet ? 70 : U.r, elem: E.elem(h), t: 1.1, life: 1.1, snd: "boom", kick: 0.3 });
   E.fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: U.name, color: "#ffd873", t: 0.9, life: 0.9, who: h.pi });
   return true;
 }
@@ -801,12 +800,24 @@ function tickGiant(E, g, h, a, dt) {
   const gi = a.gi;
   if (!gi) return;
   const U = ADV_BY_ID.summoner.ultimate;
-  if (h.down > 0 || E.safe(h.map) || E.pvpMap(h.map) || (gi.t -= dt) <= 0 || gi.hp <= 0) {
+  if (h.down > 0 || E.pvpMap(h.map) || (gi.t -= dt) <= 0 || gi.hp <= 0) {
     if (gi.t > 0 && gi.hp > 0 && h.down <= 0 && gi.map === h.map) E.fx(g, gi.map, { kind: "sk_adv_gbreak", x: gi.x, y: gi.y, r: U.r * 0.5, elem: E.elem(h), t: 0.7, life: 0.7 });
     a.gi = null;
     return;
   }
+  const pet = E.safe(h.map) ? 1 : 0;
   if (gi.map !== h.map) { gi.x = h.x + (h.dir || 1) * U.follow; gi.y = h.y; gi.map = h.map; gi.tx = null; }
+  if (gi.pet !== pet) { gi.pet = pet; gi.tx = null; gi.cd = 0.9; }
+  if (pet) {                                       // 펫 — 공격 없이 충분히 떨어져 따라온다(petFar 보다 멀면 petNear 거리까지 다가선다)
+    const dx = gi.x - h.x, dy = (gi.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1;
+    if (d > 1200) { gi.x = h.x - (h.dir || 1) * U.petNear; gi.y = h.y; }
+    else if (d > U.petFar) {
+      const st = Math.min(d - U.petNear, U.petSpeed * dt * (1 + (d - U.petFar) / 300));
+      gi.x -= (dx / d) * st; gi.y -= (dy / d) * st * E.squash;
+    }
+    E.keep(gi, h.map);
+    return;
+  }
   // 돌아다닌다 — 내 둘레 roam 안에서 가장 가까운 적에게 가고, 적이 없으면 wander 초마다 새 곳으로 어슬렁거린다
   const inRoam = (x, y) => Math.hypot(x - h.x, (y - h.y) / E.squash) <= U.roam;
   let foe = null, fd = Infinity;
@@ -984,7 +995,7 @@ export function packAdv(h) {
     h.advClass ? cleanAdvM(h.advM) : 0, a ? r1(a.tcd || 0) : 0, a && a.pr ? 1 : 0, a ? r1(a.mvT || 0) : 0, a ? a.rs || 0 : 0, a ? r1(a.rsT || 0) : 0,
     a && a.nul ? 1 : 0, a ? r1(a.nulIdle || 0) : 0,   // 20 · 21 기사 무효화 방어막(있음 · 쉰 초)
     a ? r1(a.ut || 0) : 0, a ? r1(a.rush || 0) : 0, a ? r1(a.wdT || 0) : 0, a ? a.ammo ?? -1 : -1, a ? r1(a.rl || 0) : 0,   // 22~26 암살자 지정 불가 · 질주 / 엘프 바람 걸음 / 총사 탄창 · 장전(10월 30일)
-    a ? r1(a.ucd || 0) : 0, a && a.gi ? [Math.round(a.gi.hp), a.gi.mhp, r1(a.gi.t), Math.round(a.gi.x), Math.round(a.gi.y)] : 0];   // 27 · 28 소환술사 궁극기 대기 · 거대 정령 [체력, 최대 체력, 남은 초](10월 31일)
+    a ? r1(a.ucd || 0) : 0, a && a.gi ? [Math.round(a.gi.hp), a.gi.mhp, r1(a.gi.t), Math.round(a.gi.x), Math.round(a.gi.y), a.gi.pet ? 1 : 0] : 0];   // 27 · 28 소환술사 궁극기 대기 · 거대 정령 [체력, 최대 체력, 남은 초](10월 31일)
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; return; }
@@ -1005,6 +1016,7 @@ export function applyAdv(h, v) {
     a.ucd = Number(v[27]) || 0;
     const G = v[28];
     if (Array.isArray(G) && G[2] > 0) { const gi = a.gi || (a.gi = { x: h.x, y: h.y, map: h.map, cd: 0, cap: { raw: 0, adv: 1 } }); gi.hp = Number(G[0]) || 0; gi.mhp = Number(G[1]) || 1; gi.t = Number(G[2]) || 0;
+      gi.pet = G[5] ? 1 : 0;
       if (G.length > 4) { gi.sx = Number(G[3]); gi.sy = Number(G[4]); if (!Number.isFinite(gi.x) || Math.hypot(gi.x - gi.sx, gi.y - gi.sy) > 700) { gi.x = gi.sx; gi.y = gi.sy; } } }
     else a.gi = null;
   }

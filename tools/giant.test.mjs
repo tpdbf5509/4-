@@ -35,11 +35,9 @@ test('부르면 체력이 있는 거대 정령이 서고 대기가 돈다', () =
   assert.equal(h.as.gi, gi);
 });
 
-test('소환술사만 · 광장 · 결투에서는 못 쓴다', () => {
+test('소환술사만 쓴다 · 결투에서는 못 쓴다', () => {
   const g = world('healer'); g.heroes[0].job = 'mage';
   ult(g); assert(!g.heroes[0].as || !g.heroes[0].as.gi);
-  const g2 = world(); g2.heroes[0].map = 'plaza';
-  ult(g2); assert(!(g2.heroes[0].as && g2.heroes[0].as.gi));
 });
 
 test('받는 피해의 share 몫을 정령이 대신 맞고 체력이 다하면 사라진다', () => {
@@ -101,4 +99,40 @@ test('돌아다닌다 — 가까운 적에게 가고 주인 둘레 roam 을 넘�
   g.mobs = [];
   run(g, 8);
   assert(Math.abs(gi.x - h.x) <= U.roam + 1, '범위 안');
+});
+
+test('광장 — 공격 없는 작은 펫으로 멀찍이 따라다닌다', () => {
+  const g = world(), h = g.heroes[0];
+  h.map = 'plaza'; h.x = 1000; h.y = 900;
+  ult(g);
+  const gi = h.as.gi;
+  assert(gi && gi.pet === 1, '광장에서도 부를 수 있고 펫이다');
+  const d0 = Math.hypot(gi.x - h.x, (gi.y - h.y) / 0.78);
+  assert(Math.abs(d0 - U.petNear) < 5, `처음 거리 ${d0}`);
+  const m = mob(g, 1100, 900); m.map = 'plaza';
+  run(g, 3);
+  assert.equal(m.hp, m.max, '펫은 공격하지 않는다');
+  h.x = 1800; run(g, 4);                            // 멀리 가면 따라온다
+  const d = Math.hypot(gi.x - h.x, (gi.y - h.y) / 0.78);
+  assert(d <= U.petFar + 30 && d >= U.petNear - 30, `따라온 거리 ${d}`);
+  assert(U.petSize < 100, '캐릭터보다 작다');
+});
+
+test('광장 펫이 사냥터에 나가면 다시 싸운다', () => {
+  const g = world(), h = g.heroes[0];
+  h.map = 'plaza';
+  ult(g);
+  h.map = 'skeletal'; h.x = 1000; h.y = 900;
+  const m = mob(g, 1040, 900);
+  run(g, 3);
+  assert.equal(h.as.gi.pet, 0);
+  assert(m.hp < m.max, '사냥터에서는 내려친다');
+});
+
+test('펫 상태가 손님 스냅샷에 간다', () => {
+  const g = world(), h = g.heroes[0];
+  h.map = 'plaza'; ult(g); run(g, 0.5);
+  const g2 = world();
+  rpgApply(g2, JSON.parse(JSON.stringify(rpgPack(g))));
+  assert.equal(g2.heroes[0].as.gi.pet, 1);
 });

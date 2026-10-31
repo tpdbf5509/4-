@@ -484,13 +484,14 @@ function drawBlessAura(ctx, h, left, time) {
 }
 /* 거대 정령 — 원소마다 한 칸(adv-giant.webp). 발이 gi.y 에 닿고 머리 위에 체력 막대. 사라지기 전 1.2초 흐려진다 */
 function drawGiant(ctx, h, gi, time) {
-  const U = ADV_BY_ID.summoner.ultimate, i = Math.max(0, ELEMS.findIndex((e) => e.id === h.elem)), s = U.size;
+  const U = ADV_BY_ID.summoner.ultimate, i = Math.max(0, ELEMS.findIndex((e) => e.id === h.elem)), s = gi.pet ? U.petSize : U.size;   // 광장 펫은 캐릭터보다 작게
   const bob = Math.sin(time * 2 + h.pi) * 3, fadeOut = Math.min(1, gi.t / 1.2), col = elemCol(h.elem);
   ctx.save();
   ctx.globalAlpha = 0.35 * fadeOut; ctx.fillStyle = "rgba(20,14,10,0.6)";
   ctx.beginPath(); ctx.ellipse(gi.x, gi.y + 4, s * 0.3, s * 0.3 * SQ(), 0, 0, TAU); ctx.fill();
   ctx.globalAlpha = fadeOut;
   if (!cell(ctx, "giant", i, gi.x, gi.y - s * 0.41 + bob, s, s)) glow(ctx, gi.x, gi.y - s * 0.4, s * 0.35, col, fadeOut);   // 그림이 없으면 큰 빛덩이
+  if (gi.pet) { ctx.restore(); return; }            // 펫은 체력 막대 없이
   const w = s * 0.55, y = gi.y - s * 0.86, k = gi.mhp > 0 ? Math.max(0, Math.min(1, gi.hp / gi.mhp)) : 0;   // 체력 막대 — 1px 테두리
   ctx.globalAlpha = 0.85 * fadeOut; ctx.fillStyle = "rgba(24,18,14,0.75)"; ctx.fillRect(gi.x - w / 2, y, w, 6);
   ctx.fillStyle = col; ctx.fillRect(gi.x - w / 2 + 1, y + 1, (w - 2) * k, 4);

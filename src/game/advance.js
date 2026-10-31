@@ -773,7 +773,7 @@ export function advUlt(E, g, h) {
   if (a.ucd > 0) return void E.say(g, map, h.x, h.y - 90, `${U.name} ${Math.ceil(a.ucd)}초`, "#f0dcb4");
   const x = h.x + (h.dir || 1) * (pet ? -U.petNear : U.follow), y = h.y, mhp = Math.round(h.max * U.hpMul);
   a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, pet: pet ? 1 : 0, cap: { raw: 0, adv: 1 } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
-  a.ucd = U.cd;
+  if (!pet) a.ucd = U.cd;                          // 광장 펫은 대기를 쓰지 않는다 — 싸우는 곳에 들어가는 때부터(tickGiant) 돈다
   h.swing = Math.max(h.swing || 0, 0.4);
   E.fx(g, map, { kind: "sk_adv_gsummon", x, y, r: pet ? 70 : U.r, elem: E.elem(h), t: 1.1, life: 1.1, snd: "boom", kick: 0.3 });
   E.fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: U.name, color: "#ffd873", t: 0.9, life: 0.9, who: h.pi });
@@ -800,14 +800,17 @@ function tickGiant(E, g, h, a, dt) {
   const gi = a.gi;
   if (!gi) return;
   const U = ADV_BY_ID.summoner.ultimate;
-  if (h.down > 0 || E.pvpMap(h.map) || (gi.t -= dt) <= 0 || gi.hp <= 0) {
+  const pet = E.safe(h.map) ? 1 : 0;
+  if (h.down > 0 || E.pvpMap(h.map) || (pet ? gi.t : (gi.t -= dt)) <= 0 || gi.hp <= 0) {
     if (gi.t > 0 && gi.hp > 0 && h.down <= 0 && gi.map === h.map) E.fx(g, gi.map, { kind: "sk_adv_gbreak", x: gi.x, y: gi.y, r: U.r * 0.5, elem: E.elem(h), t: 0.7, life: 0.7 });
     a.gi = null;
     return;
   }
-  const pet = E.safe(h.map) ? 1 : 0;
   if (gi.map !== h.map) { gi.x = h.x + (h.dir || 1) * U.follow; gi.y = h.y; gi.map = h.map; gi.tx = null; }
-  if (gi.pet !== pet) { gi.pet = pet; gi.tx = null; gi.cd = 0.9; }
+  if (gi.pet !== pet) {                            // 광장 ↔ 싸우는 곳
+    gi.pet = pet; gi.tx = null; gi.cd = 0.9;
+    if (!pet && !(a.ucd > 0)) a.ucd = U.cd;       // 싸우러 나가는 때부터 지속 30초와 대기가 함께 돈다
+  }
   if (pet) {                                       // 펫 — 공격 없이 충분히 떨어져 따라온다(petFar 보다 멀면 petNear 거리까지 다가선다)
     const dx = gi.x - h.x, dy = (gi.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1;
     if (d > 1200) { gi.x = h.x - (h.dir || 1) * U.petNear; gi.y = h.y; }

@@ -30,10 +30,11 @@ export const PATCH_BOOKS = [
   { id: "patch-2026-10-31d", title: "패치노트 · 10월 31일 (4)", sub: "소환술사 궁극기", color: "#c9b37c",
     pages: [
       { h: "거대 정령", p: [`소환술사의 궁극기입니다. 키는 기본 G 이고 ☰ 키 설정에서 바꿉니다.`,
-        `지금 원소의 거대 정령을 ${ADV_BY_ID.summoner.ultimate.life}초 동안 부릅니다. 원소마다 모습이 다릅니다.`,
+        `지금 원소의 거대 정령을 부릅니다. 사냥터 · 던전 · 보스전에서 ${ADV_BY_ID.summoner.ultimate.life}초 동안 싸웁니다. 원소마다 모습이 다릅니다.`,
         `정령은 체력이 있습니다. 내 최대 체력의 ${ADV_BY_ID.summoner.ultimate.hpMul}배이고 내가 받는 피해의 ${Math.round(ADV_BY_ID.summoner.ultimate.share * 100)}%를 대신 맞습니다. 체력이 다하면 흩어집니다.`,
         `${ADV_BY_ID.summoner.ultimate.every}초마다 발밑 둘레 적을 모두 내려치고 ${ADV_BY_ID.summoner.ultimate.stun}초 기절시킵니다. 마법 기본 피해 ${ADV_BY_ID.summoner.ultimate.mul}배입니다.`,
         `거대 정령은 내 둘레 ${ADV_BY_ID.summoner.ultimate.roam} 안을 돌아다닙니다. 가까운 적에게 걸어가 내려치고 적이 없으면 어슬렁거립니다.`,
+        `광장에서는 시간이 가지 않고 공격 없는 작은 펫으로 따라다닙니다. 싸우는 곳에 들어가면 ${ADV_BY_ID.summoner.ultimate.life}초가 돌고 대기 ${ADV_BY_ID.summoner.ultimate.cd}초도 함께 돕니다.`,
         `대기 ${ADV_BY_ID.summoner.ultimate.cd}초. 결투에서는 쓸 수 없습니다. 쓰러지면 정령도 사라집니다. 정령 소환(Z)과 따로 쓰입니다.`] },
     ] },
   { id: "patch-2026-10-31c", title: "패치노트 · 10월 31일 (3)", sub: "그림자 일섬 조준", color: "#c9b37c",

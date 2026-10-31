@@ -76,7 +76,7 @@ function advHud(me) {
     : c.id === "healer" ? `${me.healMode ? "치유 평타" : "공격 평타"}${a.blT > 0 ? ` · 축복 ${Math.ceil(a.blT)}초` : ""}`
     : a.sps && a.sps.length ? `정령 ${a.sps.length}/${c.active.max} · ${Math.ceil(Math.max(...a.sps.map((sp) => sp.t)))}초` : P.name;
   const stack = trait ? `${stack0} · ${trait}` : stack0;
-  const U = c.ultimate, ult = U ? { name: U.name, cd: a.ucd || 0, max: U.cd, stack: a.gi && a.gi.t > 0 ? `체력 ${Math.round((a.gi.hp / a.gi.mhp) * 100)}% · ${Math.ceil(a.gi.t)}초` : `${U.life}초 · 피해 ${Math.round(U.share * 100)}% 대신 맞음` } : undefined;   // 소환술사 궁극기 칸
+  const U = c.ultimate, ult = U ? { name: U.name, cd: a.ucd || 0, max: U.cd, stack: a.gi && a.gi.t > 0 ? (a.gi.pet ? "펫 · 광장" : `체력 ${Math.round((a.gi.hp / a.gi.mhp) * 100)}% · ${Math.ceil(a.gi.t)}초`) : `${U.life}초 · 피해 ${Math.round(U.share * 100)}% 대신 맞음` } : undefined;   // 소환술사 궁극기 칸
   return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined, ult };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";

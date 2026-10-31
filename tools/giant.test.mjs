@@ -136,3 +136,20 @@ test('펫 상태가 손님 스냅샷에 간다', () => {
   rpgApply(g2, JSON.parse(JSON.stringify(rpgPack(g))));
   assert.equal(g2.heroes[0].as.gi.pet, 1);
 });
+
+test('광장 펫은 시간도 대기도 쓰지 않고 싸우는 곳에 들어가면 30초와 대기가 돈다', () => {
+  const g = world(), h = g.heroes[0];
+  h.map = 'plaza'; ult(g);
+  const gi = h.as.gi;
+  assert.equal(U.life, 30);
+  assert(!(h.as.ucd > 0), '광장에서는 대기를 쓰지 않는다');
+  run(g, 40);
+  assert(h.as.gi === gi && gi.t === U.life, '광장에서는 시간이 가지 않는다');
+  h.map = 'skeletal'; h.x = 1000; h.y = 900;
+  run(g, 1);
+  assert.equal(gi.pet, 0);
+  assert(h.as.ucd > U.cd - 2 && h.as.ucd <= U.cd, `대기가 돈다 ${h.as.ucd}`);
+  assert(gi.t < U.life && gi.t > U.life - 2, `시간이 돈다 ${gi.t}`);
+  run(g, 30);
+  assert.equal(h.as.gi, null, '30초 뒤 사라진다');
+});

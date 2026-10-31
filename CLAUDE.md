@@ -71,7 +71,7 @@
 | `src/game/trainData.js` | RPG 훈련장(광장 왼쪽 문 · 맵 `train` · 허수아비 `dummy` 셋 · 교관 창 켜기/끄기 `TRAIN_TOGGLES`). 규칙은 rpg.js(`rpgTrain` · `trainTick` · `keepDummies`), 기록은 스냅샷 줄 47 |
 | `src/game/bossBar.js` | 보스 체력바 주황 잔상 셈(`ghostStep`, 머무는 · 따라오는 시간 `BOSS_BAR`). 그리기 전용 — 루프(`tickBossBars`, RpgView.jsx)가 내 맵 보스마다 `m.hpFx` 를 돌리고, 던전·월드·길드 공통 `BossHealthBar.jsx`의 DOM 너비를 바로 고친다 |
 | `src/game/adminCmd.js` | RPG 관리자 채팅 명령어(`/지급` · `/돈` · `/소환` · `/도움`). 방장이 판정 |
-| `src/game/keys.js` | RPG 키 설정 — 기본 키 표(`KEY_ACTIONS`) · 저장(`flg:rpgKeys`) · 키 이름 |
+| `src/game/keys.js` | RPG 키 설정 — 기본 키 표(`KEY_ACTIONS`) · 저장(`flg:rpgKeys`) · 키 이름. 칸에 마우스 버튼(`MOUSE_BUTTONS`, `Mouse0`~`Mouse4`)도 넣는다(10월 31일). 듣는 곳은 RpgView.jsx — 좌 · 우 · 휠 클릭은 캔버스 위에서만, 옆 버튼은 어디서나(뒤로 가기 막음), 마우스 이동 방식에서는 우클릭 · Ctrl+좌클릭이 걷기 몫. 키 설정 창에서 좌클릭은 기다리는 칸 위에서만 넣고 다른 곳 좌클릭은 그만두기. 휠 굴리기 · DPI 버튼은 브라우저가 버튼으로 알려 주지 않아 없다 |
 | `src/game/shopData.js` · `shop.js` · `src/ShopPanel.jsx` | RPG 광장 상점. **가격 · 확률 · 제한은 shopData.js 한 곳**, 규칙(방장 판정 `rpgShop`, 조건 `why*`)은 shop.js, 상점 · 가방 창은 ShopPanel.jsx |
 | `src/game/junkData.js` | RPG 잡동산이 상점(광장 `SHOPS` 의 `junk`). **수치는 여기 한 곳**(`JUNK` 넓히기 단계 · 사는 재료 · 값 배율 · 하루 한도), 규칙은 shop.js(`whyBagExpand` · `whyMatBuy` · op `bagx` · `mbuy`, 팔기는 `msell` 에 `shop: "junk"`), 창은 ShopPanel.jsx `JunkShop`. 다른 파일을 부르지 않는다(거래 장부가 `bagExtra` 를 부른다) |
 | `src/game/towerInfo.js` | 탑 "자세히 보기" 창 설명. **숫자를 손으로 적어 둔 곳이라 logic.js 를 고치면 여기도 고친다** |

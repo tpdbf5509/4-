@@ -84,7 +84,7 @@ import { MAT_BY_ID, DROPS, DROP_ROLL, GIFT } from "./game/itemData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./game/armorData.js";
 import { UPDATES, RPG_NOTICE } from "./game/updates.js";
-import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf } from "./game/keys.js";
+import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf, mouseCode } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
 import InquiryPanel from "./InquiryPanel.jsx";
@@ -132,6 +132,8 @@ const GUEST_CATCH_UP = 1;  // 손님 화면이 따라잡는 최대 시간(초) �
 const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.max(1, n)));
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
+const BIND_EAT_MS = 80;       // 키 설정에서 마우스 버튼을 넣은 뒤 뒤따르는 클릭 · 오른쪽 메뉴를 막는 시간(ms) — 짧게 둬 다음 칸 클릭을 먹지 않는다
+const TOUCH_MOUSE_MS = 800;   // 터치 뒤 이만큼(ms)은 브라우저가 흉내 내는 마우스 클릭을 키 설정 버튼으로 세지 않는다
 const AUTO_KEY = "flg:rpgAuto";
 const PVP_KEY = "flg:rpgPvp";
 const LOWFX_KEY = "flg:rpgLowFx";   // 연출 줄이기 — 느린 기기에서 남의 연출을 더 덜고 내 연출 알갱이도 줄인다(rpgArt.js CROWD.low)
@@ -419,6 +421,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   relookRef.current = onRelook;
   const cvsRef = useRef(null);
   const skillPointer = useRef(null);
+  const mouseHeld = useRef(new Map());              // 누르고 있는 마우스 버튼 → 행동(뗄 때 놓는다)
+  const touchAt = useRef(-1e9);                     // 마지막 터치 — 터치 뒤 따라오는 흉내 클릭을 마우스 버튼으로 세지 않는다
   const bgsRef = useRef(null);
   const names = useMemo(() => seats.map((s) => s?.name || ""), [seats]);
   const myLook = seats[mySeat]?.hero || null;
@@ -950,15 +954,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [act, clearDirs]);
 
   useEffect(() => {
-    function onKey(e) {
-      const t = e.target;
-      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-      if (waitKey) return;                          // 키 설정 창이 새 키를 기다린다
-      const a = keyMap(bindsRef.current)[e.code];
-      if (!a) return;
-      e.preventDefault();
-      if (MOVE_ACTS[a]) { if (!e.repeat && moveKeysOn(moveModeRef.current)) pressDir(MOVE_ACTS[a]); return; }   // 마우스 방식에서는 이동키가 꺼져 있다
-      if (e.repeat) return;
+    // 행동 하나를 누른다 — 키보드 키와 마우스 버튼이 같은 곳으로 들어온다
+    function pressAct(a) {
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
       else if (a === "wskill") act(heldSpecial(G.current.heroes[mySeat] || {}) === "azure_dual" ? "wcharge" : "wskill", true);
@@ -982,24 +979,73 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "title") toggleWin(titleOpen, setTitleOpen);
       else if (a === "party") toggleWin(partyOpen, setPartyOpen);
     }
-    function onUp(e) {
-      const a = keyMap(bindsRef.current)[e.code];
+    function releaseAct(a) {
       if (MOVE_ACTS[a] && moveKeysOn(moveModeRef.current)) releaseDir(MOVE_ACTS[a]);
       if (a === "fire") act("fire", false);
       if (a === "wskill") act("wcharge", false);
     }
+    function onKey(e) {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      if (waitKey) return;                          // 키 설정 창이 새 키를 기다린다
+      const a = keyMap(bindsRef.current)[e.code];
+      if (!a) return;
+      e.preventDefault();
+      if (MOVE_ACTS[a]) { if (!e.repeat && moveKeysOn(moveModeRef.current)) pressDir(MOVE_ACTS[a]); return; }   // 마우스 방식에서는 이동키가 꺼져 있다
+      if (e.repeat) return;
+      pressAct(a);
+    }
+    function onUp(e) { releaseAct(keyMap(bindsRef.current)[e.code]); }
+    /* 마우스 버튼 — 키 설정에서 넣은 버튼만. 좌클릭 · 우클릭 · 휠 클릭은 게임 판(캔버스) 위에서 누를 때만 듣는다(창 · 버튼 클릭은 그대로).
+       옆 버튼은 어디서 눌러도 듣고 브라우저 뒤로 · 앞으로 가기를 막는다. 마우스 이동 방식에서는 우클릭(맥 Ctrl+클릭)이 걷기 몫이라 쉰다 */
+    function mouseAct(e) {
+      const code = mouseCode(e.button);
+      if (!code || waitKey || performance.now() - touchAt.current < TOUCH_MOUSE_MS) return null;   // 터치가 흉내 낸 클릭은 버린다
+      const a = keyMap(bindsRef.current)[code];
+      if (!a) return null;
+      const side = e.button >= 3;
+      if (!side && e.target !== cvsRef.current) return null;
+      const t = e.target;
+      if (side && t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return null;
+      if (isMouseMode(moveModeRef.current) && (e.button === 2 || (e.button === 0 && e.ctrlKey))) return null;
+      return { code, a, side };
+    }
+    function onMouseDown(e) {
+      const m = mouseAct(e);
+      if (!m) return;
+      e.preventDefault();                           // 휠 클릭 자동 스크롤 · 옆 버튼 페이지 이동을 막는다
+      if (mouseHeld.current.has(m.code)) return;
+      mouseHeld.current.set(m.code, m.a);
+      if (MOVE_ACTS[m.a]) { if (moveKeysOn(moveModeRef.current)) pressDir(MOVE_ACTS[m.a]); return; }
+      pressAct(m.a);
+    }
+    function onMouseUp(e) {
+      const code = mouseCode(e.button);
+      if (code && e.button >= 3 && keyMap(bindsRef.current)[code]) e.preventDefault();
+      const a = code && mouseHeld.current.get(code);
+      if (!a) return;
+      mouseHeld.current.delete(code);
+      releaseAct(a);
+    }
+    const onAux = (e) => { if (e.button >= 3 && keyMap(bindsRef.current)[mouseCode(e.button)]) e.preventDefault(); };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
-    const onBlur = () => { skillPointer.current=null; dragRef.current=null; clearDirs(); act("fire", false); act("wcharge", "cancel"); };
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("auxclick", onAux);
+    const onBlur = () => { skillPointer.current=null; dragRef.current=null; mouseHeld.current.clear(); clearDirs(); act("fire", false); act("wcharge", "cancel"); };
     window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onUp);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("auxclick", onAux);
       window.removeEventListener("blur", onBlur);
     };
   }, [act, mySeat, pressDir, releaseDir, clearDirs, openChat, toggleWin, waitKey, statOpen, bagOpen, titleOpen, partyOpen]);
 
-  // 키 설정 창 — 고른 칸에 다음으로 누른 키를 넣는다. Esc 는 그만두기, Backspace · Delete 는 비우기
+  // 키 설정 창 — 고른 칸에 다음으로 누른 키나 마우스 버튼을 넣는다. Esc 는 그만두기, Backspace · Delete 는 비우기
   useEffect(() => {
     if (!waitKey) return;
     const onKey = (e) => {
@@ -1010,8 +1056,32 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else setBinds((b) => bindKey(b, waitKey.id, waitKey.slot, e.code));
       setWaitKey(null);
     };
+    // 좌클릭은 기다리는 그 칸 위에서 눌러야 넣는다 — 다른 곳 좌클릭은 그만두기(다른 칸 · 닫기 버튼을 그대로 누른다). 다른 버튼은 어디서 눌러도 넣는다
+    const onMouse = (e) => {
+      const code = mouseCode(e.button);
+      if (!code || performance.now() - touchAt.current < TOUCH_MOUSE_MS) return;
+      if (e.button === 0 && !e.target?.closest?.(".rpg-key-slot.wait")) return setWaitKey(null);
+      e.preventDefault();
+      e.stopPropagation();
+      setBinds((b) => bindKey(b, waitKey.id, waitKey.slot, code));
+      setWaitKey(null);
+      // 같은 버튼의 뒤따르는 클릭 · 오른쪽 메뉴 · 옆 버튼 페이지 이동을 막는다(칸이 다시 기다림으로 바뀌지 않게). 버튼을 뗀 뒤 잠깐만
+      const eat = (ev) => { if (ev.type === "contextmenu" || ev.button === e.button) { ev.preventDefault(); ev.stopPropagation(); } };
+      const kinds = ["click", "auxclick", "contextmenu", "mouseup"];
+      kinds.forEach((k) => window.addEventListener(k, eat, true));
+      const done = (ev) => {
+        if (ev.button !== e.button) return;
+        window.removeEventListener("mouseup", done, true);
+        setTimeout(() => kinds.forEach((k) => window.removeEventListener(k, eat, true)), BIND_EAT_MS);
+      };
+      window.addEventListener("mouseup", done, true);
+    };
     window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
+    window.addEventListener("mousedown", onMouse, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("mousedown", onMouse, true);
+    };
   }, [waitKey]);
 
   /* 채팅 — 방장을 거치지 않고 서버의 모두에게 바로 보낸다. 파티 채팅은 같은 파티만 띄운다 */
@@ -1355,7 +1425,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   };
 
   return (
-    <div className={`page ${touch ? "touch" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch')skillPointer.current=null;}}>
+    <div className={`page ${touch ? "touch" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch'){skillPointer.current=null;touchAt.current=performance.now();}}}>
       <div className="stage">
         <div className="frame">
           <canvas ref={cvsRef} onContextMenu={e=>e.preventDefault()} onPointerMove={e=>{
@@ -1646,6 +1716,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span>칸을 누르고 쓸 키를 누릅니다</span>
                 </div>
                 <p className="rpg-stat-rule">Backspace 는 칸 비우기 · Esc 는 그만두기. 다른 행동에 있던 키는 그 칸에서 빠집니다. 이 기기에 남습니다.</p>
+                <p className="rpg-stat-rule">마우스 버튼도 넣을 수 있습니다. 우클릭 · 휠 클릭 · 옆 버튼은 칸을 누른 뒤 그 버튼을 누릅니다. 좌클릭은 기다리는 칸 위에서 한 번 더 누릅니다. 좌클릭 · 우클릭 · 휠 클릭은 게임 화면 위에서만 듣습니다. 휠 굴리기와 DPI 버튼은 넣을 수 없습니다.{mouseMoveOn ? " 마우스 이동 중에는 우클릭이 걷기에 쓰여 우클릭 칸은 쉽니다." : ""}</p>
                 <p className="rpg-stat-rule">{mouseMoveOn
                   ? "지금은 마우스 이동입니다. 이동키는 꺼져 있고 오른쪽 클릭으로 걷습니다. 누른 채 끌면 따라가고 NPC 를 누르면 곁으로 가서 말을 겁니다. ☰ 메뉴에서 키보드로 바꿉니다."
                   : "지금은 키보드 이동입니다. 마우스 이동은 ☰ 메뉴의 이동 방식에서 고릅니다. 마우스로 바꾸면 이동키는 꺼집니다."}</p>
@@ -1658,7 +1729,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                         return (
                           <button key={slot} type="button" className={`rpg-key-slot ${wait ? "wait" : ""} ${binds[a.id][slot] ? "" : "empty"}`}
                             onClick={() => setWaitKey(wait ? null : { id: a.id, slot })}>
-                            {wait ? "키를 누르세요" : keyLabel(binds[a.id][slot]) || "—"}
+                            {wait ? "키 · 버튼 입력" : keyLabel(binds[a.id][slot]) || "—"}
                           </button>
                         );
                       })}

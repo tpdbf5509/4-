@@ -4,6 +4,8 @@
 /* 칭호 — 조건을 채우면 얻고, 하나를 골라 이름 아래에 단다. 겉모습만 바뀌고 능력치는 그대로다.
    need 의 열쇠: lv 레벨 · coins 가진 코인 · rabbit / wolf / boar / gorilla / goblin / orc / ogre 잡은 수(보스 포함) · boss 보스 · quest 퀘스트 완료 · party 파티로 잡은 수 · pvp 결투에서 이긴 수 · req 광장 의뢰 완료.
    스냅샷은 이 목록의 차례로 칭호를 싣는다 — 새 칭호는 맨 뒤에만 더하고, 차례를 바꾸거나 지우지 않는다(30개까지). */
+import { CODEX_IDS, CODEX_FIELD_IDS, CODEX_NEED_NAME } from "./codexData.js";
+
 export const TITLES = [
   { id: "rookie", name: "새싹 모험가", need: { lv: 1 } },
   { id: "lv10", name: "견습 사냥꾼", need: { lv: 10 } },
@@ -60,6 +62,11 @@ export const TITLES = [
   { id: "fallen100", name: "천사 사냥꾼", need: { fallen: 100 } },
   { id: "lv600", name: "계몽한 자", need: { lv: 600 } },
   { id: "lv800", name: "모든 것을 넘어선 자", need: { lv: 800 } },
+  // 도감 · 업적 보상(codexData.js ACHIEVES 의 title 과 같은 조건)
+  { id: "dexall", name: "살아 있는 도감", need: { dex: CODEX_IDS.length } },
+  { id: "dex100", name: "도감의 주인", need: { dex100: CODEX_FIELD_IDS.length } },
+  { id: "dg100", name: "던전 정복자", need: { dg: 100 } },
+  { id: "boss1000", name: "우두머리 수집가", need: { boss: 1000 } },
 ];
 // 칭호는 스냅샷에 비트로 싣는다 — 한 숫자에 TITLE_BITS 개까지, 넘는 것은 줄 끝(45)의 둘째 숫자에
 export const TITLE_BITS = 31;
@@ -74,6 +81,8 @@ export const NEED_NAME = {
   goblin: "고블린", orc: "오크", ogre: "오우거", req: "광장 의뢰", gramor: "그라모르", dg: "던전 완료", argas: "아르가스", morgas: "모르가스", barkanon: "바르카논", serka: "세르카", skeleton: "해골", dummy: "허수아비",
   skeletal: "스켈레톤", zombie: "좀비", necro: "언데드 마법사", golem: "골렘", chimera: "키메라", spider: "포식거미",
   fspirit: "불정령", lavagolem: "용암골렘", firedrake: "화염룡", ifrit: "이프리트", wraith: "망령기사", abyss: "심해괴수", voidmage: "공허술사", fallen: "타락천사",
+  guild_slime: "강화된 슬라임", guild_siren: "바다세이렌", guild_phoenix: "불사조",
+  ...CODEX_NEED_NAME,
 };
 
 /* 파티 — 같은 맵에 있는 파티원이 몹을 잡으면 나도 그 경험치의 share 만큼 받는다(그 몹을 친 사람은 모두 경험치 · 코인을 다 받는다).

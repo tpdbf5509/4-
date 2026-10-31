@@ -16,6 +16,8 @@ import { DUNGEONS, DUNGEON } from "./dungeonData.js";
 import { UPDATES } from "./updates.js";
 import { CODEX_IDS, CODEX_STARS, ACHIEVES } from "./codexData.js";
 import { ADV, ADV_CLASSES, ADV_MASTERY, ADV_TRAITS, traitAt, ADV_BY_ID, ADV_BODY } from "./advData.js";
+import { TRIAL } from "./trainData.js";
+import { GUIDE } from "./guideData.js";
 // 지난 패치노트는 그때 있던 전직만 — 10월 31일 암살자 · 엘프를 더하기 전
 const ADV_BEFORE_1031 = ADV_CLASSES.filter((c) => c.id !== "assassin" && c.id !== "elf");
 
@@ -29,7 +31,7 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
-  { id: "patch-2026-10-31f", title: "패치노트 · 10월 31일 (6)", sub: "장터 게시판", color: "#c9b37c",
+  { id: "patch-2026-10-31g", title: "패치노트 · 10월 31일 (7)", sub: "장터 게시판", color: "#c9b37c",
     pages: [
       { h: "올려 두면 팔린다", p: ["광장 분수 아래에 장터 게시판이 생겼습니다. 가까이 가서 E 로 엽니다.",
         `물건과 값을 정해 올려 두면 접속하지 않아도 다른 사람이 사 갑니다. 한 사람이 ${MARKET.slots}개까지 ${MARKET.hours}시간 올려 둡니다.`,
@@ -39,6 +41,18 @@ export const PATCH_BOOKS = [
         "보관함 탭의 모두 받기로 코인을 받습니다. 기간이 지나 돌아온 물건도 여기서 받습니다.",
         "내 물건 탭에서 내리면 가방으로 돌아옵니다. 가방이 가득 차면 보관함으로 갑니다.",
         "1:1 거래(12품목 · 3분)는 그대로입니다."] },
+    ] },
+  { id: "patch-2026-10-31f", title: "패치노트 · 10월 31일 (6)", sub: "직업 체험 · 첫 10분 안내", color: "#c9b37c",
+    pages: [
+      { h: "직업 체험", p: ["직업 · 원소는 한 번 정하면 바꿀 수 없습니다. 그래서 고르기 전에 한 판 해 볼 수 있습니다.",
+        `캐릭터 만들기 화면에서 직업 체험을 누르면 훈련장에서 ${TRIAL.sec}초 동안 허수아비를 칩니다. 처음 움직일 때부터 시간이 갑니다.`,
+        `처음 시작하는 ${TRIAL.lv}레벨 그대로입니다. 체험 중에 직업 · 원소를 바꾸면 새 판이 시작됩니다.`,
+        "끝나면 쌓인 피해와 맞힌 수를 보여 줍니다. 마음에 들면 이 조합으로 고르기를 누르세요.",
+        "체험은 이 기기에서만 돕니다. 경험치 · 코인 · 기록은 남지 않습니다."] },
+      { h: "첫 10분 안내", p: ["새 캐릭터는 첫 레벨업까지 화면 위 가운데에 할 일이 한 줄씩 뜹니다.",
+        "광장 사냥문 → 사냥꾼에게 퀘스트 받기 → 토끼 잡기 → 첫 레벨업 → 스탯 찍기 순서입니다.",
+        "갈 곳이 있으면 판 위 금빛 화살표가 가리킵니다. 화면 밖이면 가장자리에서 그쪽을 가리킵니다.",
+        `닫기를 누르면 다시 뜨지 않습니다. ${GUIDE.untilLv}레벨을 넘은 캐릭터에게는 뜨지 않습니다.`] },
     ] },
   { id: "patch-2026-10-31e", title: "패치노트 · 10월 31일 (5)", sub: "도감 · 업적", color: "#c9b37c",
     pages: [

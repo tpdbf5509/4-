@@ -299,6 +299,7 @@ export const COIN_RATE = 0.7;
 export const coinOf = (n) => Math.max(1, Math.round(n * COIN_RATE));
 // 경험치 — 몹이 주는 경험치에 곱한다(레벨이 너무 빨리 올라 5배 줄였다). 1보다 적게 주지는 않는다. 퀘스트 경험치는 그대로
 export const XP_RATE = 0.2;
+const XP_DECIMALS = 100;   // 경험치는 소수 둘째 자리까지만 쌓는다(부동소수점 오차 방지)
 export const xpOf = (n) => Math.max(1, Math.round(n * XP_RATE));
 export const QUEST = { lv:1, name: "토끼 사냥", need: 5, xp: 10, coin: coinOf(15) };
 // 몹 자동 회복 — calm 초 동안 맞지 않으면 초당 최대 체력의 rate 만큼 차오른다
@@ -1855,10 +1856,11 @@ export function rpgRequest(g, pi, req) {
 
 function giveXp(g, h, amt) {
   const beforePoints=statEarned(h.lv);
-  h.xp += amt;
+  // 파티 몫 · 낮은 사냥터 경험치는 소수라 더하다 보면 0.1+0.2 같은 오차가 쌓인다 — 소수 둘째 자리에서 끊는다
+  h.xp = Math.round((h.xp + amt) * XP_DECIMALS) / XP_DECIMALS;
   let up = 0;
   while (h.lv < LV_MAX && h.xp >= needXp(h.lv)) {
-    h.xp -= needXp(h.lv);
+    h.xp = Math.round((h.xp - needXp(h.lv)) * XP_DECIMALS) / XP_DECIMALS;
     h.lv += 1;
     up += 1;
     refreshHp(h, false);

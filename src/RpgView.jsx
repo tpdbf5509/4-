@@ -1463,7 +1463,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 <span className="rpg-lv-row">
                   <span className="rpg-lv-tag">XP</span>
                   <span className="rpg-lv-bar xp"><span style={{ width: `${me.lv >= LV_MAX ? 100 : Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
-                  <span className="rpg-lv-num">{me.lv >= LV_MAX ? "MAX" : `${me.xp}/${me.need}`}</span>
+                  <span className="rpg-lv-num">{me.lv >= LV_MAX ? "MAX" : `${Math.floor(me.xp)}/${me.need}`}</span>
                 </span>
                 <span className="rpg-lv-row">
                   <span className="rpg-lv-tag">HP</span>

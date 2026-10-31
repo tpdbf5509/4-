@@ -211,7 +211,8 @@ test('NPC 를 누르면 그 NPC 를 고르고 빈 땅이면 고르지 않는다'
   if(n.worldBoss)continue;
   const got=pickNpc('plaza',n.x,n.y-20);assert(got,n.id);
  }
- assert.equal(pickNpc('plaza',60,300),null);assert.equal(pickNpc('nowhere',1,1),null);
+ assert.equal(pickNpc('plaza',60,700),null);   // 빈 풀밭(노점 일곱을 위쪽 한 줄로 옮겼다 — 예전 빈 땅 60,300 은 무기상점 자리)
+ assert.equal(pickNpc('nowhere',1,1),null);
  assert.equal(pickNpc('field',430,740-30).id,'hunter');
 });
 test('NPC 곁 자리로 걸어가면 모든 방향에서 말을 걸 수 있는 거리에 선다(분수 뒤 · 반대편 포함)',()=>{

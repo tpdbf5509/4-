@@ -8,17 +8,18 @@ import { bagExtra } from "./junkData.js";
    스탯 수치는 스탯 창에 보이는 값과 같은 단위다(물리력 10 · 체력 100 · 치명타 확률 5 = 5%). */
 
 /* 광장 상점 다섯 곳 — 자리(x, y)는 광장 맵 좌표(바닥 그림의 꽃밭 · 바위를 비켜 둔 풀밭). 가까이 가서 대화 키(E)를 누르면 창이 열린다. */
+// 11월 1일 — 노점 일곱을 광장 위쪽에 한 줄로 세웠다(y 310, 간격 약 165). 아래쪽 빈 땅은 심연의 탑 입구가 쓴다
 export const SHOPS = [
-  { id: "weapon", name: "무기상점", keeper: "대장장이", x: 300, y: 330, color: "#b98a6a", line: "좋은 무기는 사냥을 바꾸지." },
-  { id: "skill", name: "스킬 상점", keeper: "현자", x: 200, y: 780, color: "#8a9ac2", line: "익힐 준비가 되었는가?" },
-  { id: "potion", name: "물약 상점", keeper: "약사", x: 1600, y: 330, color: "#8fb59a", line: "다치면 언제든 오게." },
-  { id: "casino", name: "도박장", keeper: "딜러", x: 1550, y: 950, color: "#c29a8a", line: "운을 시험해 보시겠어요?" },
+  { id: "weapon", name: "무기상점", keeper: "대장장이", x: 135, y: 310, color: "#b98a6a", line: "좋은 무기는 사냥을 바꾸지." },
+  { id: "skill", name: "스킬 상점", keeper: "현자", x: 465, y: 310, color: "#8a9ac2", line: "익힐 준비가 되었는가?" },
+  { id: "potion", name: "물약 상점", keeper: "약사", x: 1335, y: 310, color: "#8fb59a", line: "다치면 언제든 오게." },
+  { id: "casino", name: "도박장", keeper: "딜러", x: 1665, y: 310, color: "#c29a8a", line: "운을 시험해 보시겠어요?" },
   // 무기 강화소 — 강화석으로 무기를 +1 ~ +30 까지 올리고, 보스가 떨군 재료를 판다. 확률 · 값은 itemData.js
   // 주문서 상점 — 지역 워프권을 판다(SCROLLS). 가방(I)의 "주문서" 탭에서 쓴다
-  { id: "scroll", name: "주문서 상점", keeper: "필경사", x: 1240, y: 300, color: "#9fb0a0", line: "먼 길도 한 장이면 충분하지요." },
-  { id: "forge", name: "무기 강화소", keeper: "강화 장인", x: 430, y: 1020, color: "#a3907c", line: "강화석만 있으면 무기를 더 단단하게 해 주지." },
+  { id: "scroll", name: "주문서 상점", keeper: "필경사", x: 1170, y: 310, color: "#9fb0a0", line: "먼 길도 한 장이면 충분하지요." },
+  { id: "forge", name: "무기 강화소", keeper: "강화 장인", x: 300, y: 310, color: "#a3907c", line: "강화석만 있으면 무기를 더 단단하게 해 주지." },
   // 잡동산이 상점 — 가방 넓히기 · 사냥터 보스 재료 사고팔기(junkData.js)
-  { id: "junk", name: "잡동산이 상점", keeper: "잡화상", x: 1390, y: 1090, color: "#b0a088", line: "쓸 만한 건 다 있다네. 가방도 넓혀 주지." },
+  { id: "junk", name: "잡동산이 상점", keeper: "잡화상", x: 1500, y: 310, color: "#b0a088", line: "쓸 만한 건 다 있다네. 가방도 넓혀 주지." },
 ];
 export const SHOP_REACH = 110;            // 이만큼 가까우면 상점을 쓸 수 있다
 

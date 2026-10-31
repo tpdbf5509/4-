@@ -727,7 +727,7 @@ export function advUse(E, g, h) {
         h.dir = o.x < h.x ? -1 : 1; h.face = 0;
         withCap(h, cast, () => { E.strike(g, h, o, base * A.mul); E.cc(g, h, o, { stun: A.stun * pvpCc(o) }); });
         if (!isHero(o)) E.soak(g, h, o, 0);
-        E.fx(g, map, { kind: "sk_adv_assa", x: o.x, y: o.y - 30, x0, y0: y0 - 30, d: h.dir, big: masteryLv(h.advM) >= 4 ? 1 : 0, t: 0.45, life: 0.45, snd: "slash", kick: 0.2 });
+        E.fx(g, map, { kind: "sk_adv_assa", x: o.x, y: o.y - 30, x0, y0: y0 - 30, bx: h.x, by: h.y - 30, d: h.dir, big: masteryLv(h.advM) >= 4 ? 1 : 0, t: 0.7, life: 0.7, snd: "slash", kick: 0.2 });   // bx · by — 내려앉은 등 뒤 자리(연출만)
         if (o.dead || (isHero(o) && o.down > 0)) shadowKill(E, g, h, o);
       } else {                                      // 적이 없다 — 겨눈 쪽으로 빠져나간다(연사를 피하는 데 쓴다)
         const [ax, ay] = E.aim(g, h, A.dash);

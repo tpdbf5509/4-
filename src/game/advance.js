@@ -815,10 +815,14 @@ function tickGiant(E, g, h, a, dt) {
     const ax = h.x + U.petOff[0], ay = h.y + U.petOff[1], dx = ax - gi.x, dy = ay - gi.y, d = Math.hypot(dx, dy);
     if (d > 1200) { gi.x = ax; gi.y = ay; }
     else if (d > U.petSlack) {
-      const st = Math.min(d, U.petSpeed * dt * (1 + d / 300));
-      gi.x += (dx / d) * st; gi.y += (dy / d) * st;
+      const st = Math.min(d, U.petSpeed * dt * (1 + d / 300)), a0 = Math.atan2(dy, dx);
+      // 막힌 곳(분수 · 가게)은 넘지 않는다 — 곧장 가다 막히면 비스듬히 돌아간다
+      for (const turn of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9]) {
+        const nx = gi.x + Math.cos(a0 + turn) * st, ny = gi.y + Math.sin(a0 + turn) * st;
+        if (!E.blocked(nx, ny, h.map)) { gi.x = nx; gi.y = ny; break; }
+      }
     }
-    E.bound(gi, h.map);
+    E.keep(gi, h.map);                             // 자리가 막힌 곳 안이면 그 가장자리에 선다
     return;
   }
   // 돌아다닌다 — 내 둘레 roam 안에서 가장 가까운 적에게 가고, 적이 없으면 wander 초마다 새 곳으로 어슬렁거린다

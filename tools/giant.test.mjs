@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, MAPS } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { ADV_BY_ID } from '../src/game/advData.js';
@@ -111,7 +111,7 @@ test('광장 — 공격 없는 작은 펫으로 멀찍이 따라다닌다', () =
   const m = mob(g, 1100, 900); m.map = 'plaza';
   run(g, 3);
   assert.equal(m.hp, m.max, '펫은 공격하지 않는다');
-  h.x = 1500; h.y = 900; run(g, 6);                 // 가게 · 분수가 있는 쪽에서도 자리까지 간다                            // 멀리 가면 따라온다
+  h.x = 1300; h.y = 800; run(g, 6);                            // 멀리 가면 따라온다
   assert(Math.hypot(gi.x - (h.x + U.petOff[0]), gi.y - (h.y + U.petOff[1])) <= U.petSlack + 5, `따라온 자리 ${gi.x - h.x},${gi.y - h.y}`);
   assert(U.petSize < 100, '캐릭터보다 작다');
 });
@@ -150,4 +150,14 @@ test('광장 펫은 시간도 대기도 쓰지 않고 싸우는 곳에 들어가
   assert(gi.t < U.life && gi.t > U.life - 2, `시간이 돈다 ${gi.t}`);
   run(g, 30);
   assert.equal(h.as.gi, null, '30초 뒤 사라진다');
+});
+
+test('광장 펫은 분수 · 가게를 넘지 않는다', () => {
+  const g = world(), h = g.heroes[0];
+  h.map = 'plaza'; h.x = 1000; h.y = 900;
+  ult(g);
+  const gi = h.as.gi;
+  const inBlock = () => MAPS.plaza.blocks.some((b) => Math.hypot(gi.x - b.x, (gi.y - b.y) / 0.78) < b.r - 1);
+  const spots = [[1000, 900], [1500, 900], [600, 800], [1300, 800], [1000, 900]];
+  for (const [x, y] of spots) { h.x = x; h.y = y; for (let i = 0; i < 150; i++) { rpgStep(g, 0.02); assert(!inBlock(), `막힌 곳 안 ${gi.x},${gi.y}`); } }
 });

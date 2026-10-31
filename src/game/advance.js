@@ -12,7 +12,8 @@ const isHero = (o) => !!o && o.type === undefined;
 export const asOf = (h) => h.as || (h.as = { cd: 0, st: 0, stT: 0, fk: "", fn: 0, ex: "", gT: 0, gN: 0, gGap: 0, pT: 0, pCut: 0,
   sps: [], blT: 0, blCut: 0, blReg: 0, blTk: 0, blBy: -1, gcT: 0, lb: -9, lk: "", lt: -9, slT: 0, mgT: 0, bT: 0,
   tcd: 0, cb: [], pr: 0, pNow: 0, mvT: 0, mvN: 0, rs: 0, rsT: 0, esT: 0, mqB: ADV_MASTERY.perMin,
-  ut: 0, rush: 0, fh: {}, wdT: 0, ewN: 0, ammo: -1, rl: 0 });   // 암살자 지정 불가 · 질주 · 첫 일격 기록 / 엘프 바람 걸음 · 바람 화살 / 총사 탄창 · 장전
+  ut: 0, rush: 0, fh: {}, wdT: 0, ewN: 0, ammo: -1, rl: 0,   // 암살자 지정 불가 · 질주 · 첫 일격 기록 / 엘프 바람 걸음 · 바람 화살 / 총사 탄창 · 장전
+  ucd: 0, gi: null });   // 소환술사 궁극기 대기 · 거대 정령 { hp, mhp, t, x, y, map, cd, cap }
 
 // 지금 전직 — 기본 직업과 맞을 때만(관리자가 직업을 바꾸면 맞지 않는 전직은 없는 것으로 본다)
 export const advOf = (h) => { const c = h && ADV_BY_ID[h.advClass]; return c && c.job === h.job ? c : null; };
@@ -67,6 +68,7 @@ export function advInput(E, g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req) return false;
   if (req.op === "use") return advUse(E, g, h);
+  if (req.op === "ult") return advUlt(E, g, h);
   if (req.op === "mode") {                          // 치유사 — 평타를 치유 · 공격으로 바꾼다
     if (!advOf(h) || h.advClass !== "healer") return void E.sys(g, pi, "치유사만 평타를 바꿀 수 있습니다.");
     h.healMode = !h.healMode;
@@ -566,7 +568,7 @@ export function advRaidKill(E, g, m) {
 
 // 쓰러졌다 — 정령은 돌아간다
 export function advDown(E, g, h) {
-  if (h.as) { h.as.sps = []; h.as.blT = 0; h.as.ut = 0; h.as.rush = 0; }
+  if (h.as) { h.as.sps = []; h.as.blT = 0; h.as.ut = 0; h.as.rush = 0; h.as.gi = null; }
 }
 /* 몹이 쓰러졌다 — got 은 그 몹을 친 사람 가운데 같은 맵에 있는 사람(보상을 받는 사람).
    총사 시험: 친 사람 모두 그 종류를 한 번 */
@@ -759,6 +761,68 @@ export function advUse(E, g, h) {
   E.fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: A.name, color: "#ffd873", t: 0.8, life: 0.8, who: h.pi });
   return true;
 }
+/* 소환술사 궁극기 거대 정령 — 지금 원소의 거대 정령 하나를 앞에 부른다(다시 부르면 체력 · 시간이 다시 찬다). 체력이 있다:
+   소환술사가 받는 피해의 share 몫을 대신 맞고(advGiantTake) 0 이 되면 부서진다. every 초마다 발밑 둘레를 내려친다(tickGiant) */
+export function advUlt(E, g, h) {
+  const c = advOf(h), map = h.map;
+  if (h.down > 0 || E.locked(h)) return false;
+  if (!c || c.id !== "summoner") return void E.say(g, map, h.x, h.y - 90, "소환술사만 쓸 수 있다", "#d9c9a6");
+  if (E.safe(map)) return void E.say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
+  if (E.pvpMap(map)) return void E.say(g, map, h.x, h.y - 90, "결투에서는 쓸 수 없다", "#d9c9a6");
+  const a = asOf(h), U = c.ultimate;
+  if (a.ucd > 0) return void E.say(g, map, h.x, h.y - 90, `${U.name} ${Math.ceil(a.ucd)}초`, "#f0dcb4");
+  const x = h.x + (h.dir || 1) * U.follow, y = h.y, mhp = Math.round(h.max * U.hpMul);
+  a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, cap: { raw: 0, adv: 1 } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
+  a.ucd = U.cd;
+  h.swing = Math.max(h.swing || 0, 0.4);
+  E.fx(g, map, { kind: "sk_adv_gsummon", x, y, r: U.r, elem: E.elem(h), t: 1.1, life: 1.1, snd: "boom", kick: 0.3 });
+  E.fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: U.name, color: "#ffd873", t: 0.9, life: 0.9, who: h.pi });
+  return true;
+}
+// 소환술사가 맞으려 한다 — 거대 정령이 share 몫을 대신 맞는다. 남은 몫만 돌려준다
+export function advGiantTake(E, g, h, dmg) {
+  const gi = h.as && h.as.gi;
+  if (!gi || gi.t <= 0 || gi.hp <= 0) return dmg;
+  const U = ADV_BY_ID.summoner.ultimate, take = Math.min(gi.hp, dmg * U.share);
+  gi.hp -= take;
+  if (gi.hp <= 0) {                                // 부서졌다
+    gi.hp = 0; gi.t = 0;
+    E.fx(g, h.map, { kind: "sk_adv_gbreak", x: gi.x, y: gi.y, r: U.r * 0.6, elem: E.elem(h), t: 0.8, life: 0.8, snd: "boom", kick: 0.2 });
+    E.say(g, h.map, gi.x, gi.y - 150, "거대 정령이 흩어졌다", "#d9c9a6");
+  } else if (!gi.hurtT || g.t - gi.hurtT > 0.4) {
+    gi.hurtT = g.t;
+    E.fx(g, h.map, { kind: "dmg", x: gi.x, y: gi.y - 140, text: `-${Math.round(take)}`, color: "#ffd0a0", t: 0.6, life: 0.6, by: h.pi });
+  }
+  return dmg - take;
+}
+// 거대 정령의 시간 — 주인 앞으로 천천히 따라오고 every 초마다 둘레를 내려친다
+function tickGiant(E, g, h, a, dt) {
+  const gi = a.gi;
+  if (!gi) return;
+  const U = ADV_BY_ID.summoner.ultimate;
+  if (h.down > 0 || E.safe(h.map) || E.pvpMap(h.map) || (gi.t -= dt) <= 0 || gi.hp <= 0) {
+    if (gi.t > 0 && gi.hp > 0 && h.down <= 0 && gi.map === h.map) E.fx(g, gi.map, { kind: "sk_adv_gbreak", x: gi.x, y: gi.y, r: U.r * 0.5, elem: E.elem(h), t: 0.7, life: 0.7 });
+    a.gi = null;
+    return;
+  }
+  const hx = h.x + (h.dir || 1) * U.follow, hy = h.y, k = Math.min(1, dt * 2.2);
+  if (gi.map !== h.map) { gi.x = hx; gi.y = hy; gi.map = h.map; }
+  gi.x += (hx - gi.x) * k; gi.y += (hy - gi.y) * k;
+  if ((gi.cd -= dt) > 0) return;
+  gi.cd = U.every;
+  const map = h.map, list = E.near(g, h, gi.x, gi.y, U.r, 99);
+  E.fx(g, map, { kind: "sk_adv_gstomp", x: gi.x, y: gi.y, r: U.r, elem: E.elem(h), t: 0.6, life: 0.6, snd: "boom", kick: 0.3 });
+  if (!list.length) return;
+  const dmg = E.base(h, U.dmg) * U.mul;
+  E.later(g, 0.22, () => {                         // 발이 닿는 순간에 맞는다
+    if (a.gi !== gi) return;
+    E.noProc(() => withCap(h, gi.cap, () => list.forEach((o) => {
+      if (!E.alive(g, h, o, map)) return;
+      E.strike(g, h, o, dmg);
+      E.cc(g, h, o, { stun: U.stun });
+    })));
+  });
+}
 /* 암살자 — 그림자 일섬 한 방으로 쓰러뜨렸다: 시험(160레벨 이상 몹) · 전투 특성 그림자 회수(대기 시간을 돌려받는다) */
 function shadowKill(E, g, h, o) {
   const T = trialOf(h);
@@ -851,6 +915,8 @@ export function tickAdv(E, g, h, dt) {
       healHero(E, g, g.heroes[a.blBy] || null, h, h.max * a.blReg, true);
     }
   }
+  if (a.ucd > 0) a.ucd = Math.max(0, a.ucd - dt);
+  if (a.gi) tickGiant(E, g, h, a, dt);
   if (!a.sps || !a.sps.length) return;
   if (h.down > 0 || E.safe(h.map)) { a.sps = []; return; }
   a.sps = a.sps.filter((sp) => (sp.t -= dt) > 0);
@@ -889,7 +955,8 @@ export function packAdv(h) {
     sps.length ? sps.map((sp) => r1(sp.t)) : 0, a ? r1(a.blT || 0) : 0, h.advQ && h.advQ.r ? h.advQ.r : 0, h.healMode ? 1 : 0,
     h.advClass ? cleanAdvM(h.advM) : 0, a ? r1(a.tcd || 0) : 0, a && a.pr ? 1 : 0, a ? r1(a.mvT || 0) : 0, a ? a.rs || 0 : 0, a ? r1(a.rsT || 0) : 0,
     a && a.nul ? 1 : 0, a ? r1(a.nulIdle || 0) : 0,   // 20 · 21 기사 무효화 방어막(있음 · 쉰 초)
-    a ? r1(a.ut || 0) : 0, a ? r1(a.rush || 0) : 0, a ? r1(a.wdT || 0) : 0, a ? a.ammo ?? -1 : -1, a ? r1(a.rl || 0) : 0];   // 22~26 암살자 지정 불가 · 질주 / 엘프 바람 걸음 / 총사 탄창 · 장전(10월 30일)
+    a ? r1(a.ut || 0) : 0, a ? r1(a.rush || 0) : 0, a ? r1(a.wdT || 0) : 0, a ? a.ammo ?? -1 : -1, a ? r1(a.rl || 0) : 0,   // 22~26 암살자 지정 불가 · 질주 / 엘프 바람 걸음 / 총사 탄창 · 장전(10월 30일)
+    a ? r1(a.ucd || 0) : 0, a && a.gi ? [Math.round(a.gi.hp), a.gi.mhp, r1(a.gi.t)] : 0];   // 27 · 28 소환술사 궁극기 대기 · 거대 정령 [체력, 최대 체력, 남은 초](10월 31일)
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; return; }
@@ -906,6 +973,12 @@ export function applyAdv(h, v) {
   a.tcd = Number(v[15]) || 0; a.pr = v[16] ? 1 : 0; a.mvT = Number(v[17]) || 0;
   a.rs = Math.max(0, Math.min(ADV_TRAITS.archmage.max, Math.floor(Number(v[18]) || 0))); a.rsT = a.rs ? Number(v[19]) || 0 : 0;
   if (v.length > 20) { a.nul = v[20] ? 1 : 0; a.nulIdle = Number(v[21]) || 0; }   // 옛 방장은 줄 끝이 없다 — 방장이 되면 처음 값으로
+  if (v.length > 27) {                              // 소환술사 궁극기 — 옛 방장은 줄 끝이 없다
+    a.ucd = Number(v[27]) || 0;
+    const G = v[28];
+    if (Array.isArray(G) && G[2] > 0) { const gi = a.gi || (a.gi = { x: h.x, y: h.y, map: h.map, cd: 0, cap: { raw: 0, adv: 1 } }); gi.hp = Number(G[0]) || 0; gi.mhp = Number(G[1]) || 1; gi.t = Number(G[2]) || 0; }
+    else a.gi = null;
+  }
   if (v.length > 22) { a.ut = Number(v[22]) || 0; a.rush = Number(v[23]) || 0; a.wdT = Number(v[24]) || 0; a.ammo = Number(v[25] ?? -1); a.rl = Number(v[26]) || 0; }
   const ts = Array.isArray(v[10]) ? v[10].map((x) => Number(x) || 0).filter((x) => x > 0) : spT > 0 ? [spT] : [];
   const sps = a.sps || (a.sps = []);
@@ -917,6 +990,14 @@ export function stepAdvVisual(h, dt) {
   if (h.as && h.as.blT > 0) h.as.blT = Math.max(0, h.as.blT - dt);   // 축복 고리 — 스냅샷 사이에도 줄어든다
   if (h.as) { const a = h.as; a.tcd = Math.max(0, (a.tcd || 0) - dt); a.mvT = Math.max(0, (a.mvT || 0) - dt); a.rsT = Math.max(0, (a.rsT || 0) - dt); }   // 전투 특성 칸 — 스냅샷 사이에도
   if (h.as) { const a = h.as; a.ut = Math.max(0, (a.ut || 0) - dt); a.rush = Math.max(0, (a.rush || 0) - dt); a.wdT = Math.max(0, (a.wdT || 0) - dt); a.rl = Math.max(0, (a.rl || 0) - dt); }   // 걷는 속도 · 비침 — 스냅샷 사이에도
+  if (h.as && h.as.ucd > 0) h.as.ucd = Math.max(0, h.as.ucd - dt);
+  const gi = h.as && h.as.gi;                      // 거대 정령 — 주인 앞으로 따라온다(그림만)
+  if (gi) {
+    gi.t = Math.max(0, gi.t - dt);
+    const U = ADV_BY_ID.summoner.ultimate, hx = h.x + (h.dir || 1) * U.follow, k = Math.min(1, dt * 2.2);
+    if (Math.hypot(hx - gi.x, h.y - gi.y) > 500) { gi.x = hx; gi.y = h.y; }
+    gi.x += (hx - gi.x) * k; gi.y += (h.y - gi.y) * k;
+  }
   const sps = h.as && h.as.sps;
   if (!sps || !sps.length) return;
   if (h.as.cd > 0) h.as.cd = Math.max(0, h.as.cd - dt);

@@ -122,6 +122,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
                   <p className="adv-note">{c.note}</p>
                   <dl className="adv-skills">
                     <dt>액티브</dt><dd><b>{c.active.name}</b> · 대기 {c.active.cd}초<br />{c.active.note}</dd>
+                    {c.ultimate && <><dt>궁극기</dt><dd><b>{c.ultimate.name}</b> · 대기 {c.ultimate.cd}초<br />{c.ultimate.note}</dd></>}
                     <dt>패시브</dt><dd><b>{c.passive.name}</b><br />{c.passive.note}
                       {c.id === "knight" && <><br /><b>{KN.nullShield.name}</b><br />{KN.nullShield.note}<br /><b>기본 방어</b><br />받는 피해 {KN.cut * 100}% 감소 · 마법 · 물리 저항력 {KN.magicRes * 100}%</>}</dd>
                     {(ADV_BODY[c.id] || c.reload) && <><dt>몸</dt><dd>{bodyText(c)}</dd></>}

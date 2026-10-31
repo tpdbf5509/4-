@@ -116,6 +116,16 @@ export const ADV_CLASSES = [
       cd: 16, dmg: "int", life: 20, range: 300, every: 1.2, mul: 0.7, fly: 0.22,   // 한 마리 초당 약 0.58배
       max: 10,                                    // 함께 있는 정령 수 한도 — 부를 때 모두의 시간이 life 로 다시 차서 쿨타임(16초)마다 하나씩 늘어난다
     },
+    // 10월 31일 사용자 요청 — 궁극기(키 G): 체력이 있는 거대 정령을 부른다. 소환술사가 받는 피해의 share 몫을 대신 맞고(체력이 다하면 사라진다) every 초마다 둘레를 내려친다
+    ultimate: {
+      name: "거대 정령", note: "지금 원소의 거대 정령을 25초 동안 부른다 · 정령은 체력이 있어 내가 받는 피해의 60%를 대신 맞는다 · 2.2초마다 발밑 둘레 적을 내려친다 · 체력이 다하면 사라진다",
+      cd: 90, life: 25, dmg: "int",
+      hpMul: 4,                                   // 정령 체력 = 내 최대 체력의 4배 — 받는 피해의 60% 를 대신 맞으니 내가 6.7배 오래 버틴다
+      share: 0.6,
+      every: 2.2, r: 200, mul: 6, stun: 0.35,     // 내려치기 한 번: 반경 r 안 모든 적에 마법 기본 피해 6배 · 잠깐 기절
+      follow: 130,                                // 주인 앞 거리 — 정령은 이만큼 앞에 서서 천천히 따라온다
+      size: 300,                                  // 맵에서 그리는 한 칸 폭(px) — 그림이 칸의 80% 높이라 약 240px, 캐릭터의 두 배 남짓
+    },
     passive: {
       name: "영혼 연결", note: "나와 정령 하나가 2초 안에 같은 적을 치면 영혼 피해(2초에 한 번) · 정령이 없으면 없다",
       win: 2, gap: 2, mul: 0.6,
@@ -254,9 +264,13 @@ export const ADV_ART = {
   bless: { src: "/assets/game/rpg/advance/adv-bless.webp", cols: 3, cell: 384 },   // 치유사 축복 둘레 3열 × 2행 고리 — 검은 바탕 · lighter
   // 암살자 · 엘프 · 총사 장전(10월 31일, Codex 생성 4열 × 1행 · 검은 바탕 lighter) — 0 그림자 연기 · 1 보랏빛 단검 초승달(오른쪽으로 볼록) · 2 바람 화살(오른쪽으로) · 3 장전 고리
   fx2: { src: "/assets/game/rpg/advance/adv-fx2.webp", cols: 4, cell: 256 },
+  // 소환술사 거대 정령(10월 31일, Codex 생성) — giant: 3열 × 2행(384px, ELEMS 차례) · fx3: 4열 × 1행(검은 바탕 lighter) 0 소환진 · 1 내려치기 충격파 · 2 주먹 폭발 · 3 수호 막
+  giant: { src: "/assets/game/rpg/advance/adv-giant.webp", cols: 3, cell: 384 },
+  fx3: { src: "/assets/game/rpg/advance/adv-fx3.webp", cols: 4, cell: 256 },
   FX: { slash: 0, shock: 1, shield: 2, hex: 3, arrow: 4, flash: 5, muzzle: 6, bullet: 7, circle: 8, summon: 9, burst: 10 },
   ITEM: { guns: 0, shield: 1, book: 2, pistol: 3, pistol2: 4 },
   FX2: { smoke: 0, slash: 1, wind: 2, reload: 3 },
+  FX3: { circle: 0, stomp: 1, smash: 2, dome: 3 },
 };
 
 /* ── 전직 숙련도 — 전직한 뒤에도 자라는 목표(10월 26일 추가) ─────────────────

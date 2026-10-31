@@ -76,7 +76,8 @@ function advHud(me) {
     : c.id === "healer" ? `${me.healMode ? "치유 평타" : "공격 평타"}${a.blT > 0 ? ` · 축복 ${Math.ceil(a.blT)}초` : ""}`
     : a.sps && a.sps.length ? `정령 ${a.sps.length}/${c.active.max} · ${Math.ceil(Math.max(...a.sps.map((sp) => sp.t)))}초` : P.name;
   const stack = trait ? `${stack0} · ${trait}` : stack0;
-  return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined };
+  const U = c.ultimate, ult = U ? { name: U.name, cd: a.ucd || 0, max: U.cd, stack: a.gi && a.gi.t > 0 ? `체력 ${Math.round((a.gi.hp / a.gi.mhp) * 100)}% · ${Math.ceil(a.gi.t)}초` : `${U.life}초 · 피해 ${Math.round(U.share * 100)}% 대신 맞음` } : undefined;   // 소환술사 궁극기 칸
+  return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined, ult };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
 import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW, QUEST_AREAS, QUEST_MASTER } from "./game/requestData.js";
@@ -963,6 +964,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "skill") act("skill");
       else if (a === "wskill") act(heldSpecial(G.current.heroes[mySeat] || {}) === "azure_dual" ? "wcharge" : "wskill", true);
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
+      else if (a === "advUlt") act("adv", { op: "ult" });   // 소환술사 궁극기 거대 정령 — 방장이 판정한다
       else if (a === "healMode") act("adv", { op: "mode" });   // 치유사 평타 바꾸기 — 방장이 판정한다
       else if (a === "dash") act("dash");
       else if (a === "talk") act("talk");
@@ -2135,6 +2137,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
                 </button>
               )}
+              {me.adv && me.adv.ult && (
+                <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
+                  onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>
+                  {!touch && keyOf(binds, "advUlt") && <kbd>{keyOf(binds, "advUlt")}</kbd>}
+                  <span>{me.adv.ult.name}<small>{me.adv.ult.stack}</small></span>
+                  {me.adv.ult.cd > 0 && <em>{Math.ceil(me.adv.ult.cd)}</em>}
+                  {me.adv.ult.cd > 0 && <i style={{ width: `${(me.adv.ult.cd / me.adv.ult.max) * 100}%` }} />}
+                </button>
+              )}
               {me.adv && me.adv.heal !== undefined && (
                 <button type="button" className={`rpg-skill adv ${me.adv.heal ? "" : "cool"}`} aria-pressed={me.adv.heal}
                   onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "mode" }); }}>
@@ -2271,7 +2282,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_SERVER_CAP}명 ·{" "}
           {touch
             ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
-            : <>논타겟 조준: 마우스 포인터 · {mouseMoveOn ? <>이동 오른쪽 클릭</> : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd></>} · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 전직 스킬 <kbd>{keyOf(binds, "adv")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
+            : <>논타겟 조준: 마우스 포인터 · {mouseMoveOn ? <>이동 오른쪽 클릭</> : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd></>} · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 전직 스킬 <kbd>{keyOf(binds, "adv")}</kbd> · 전직 궁극기(소환술사) <kbd>{keyOf(binds, "advUlt")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
         </p>
         <details className="footnote">
           <summary>RPG 모드 방법</summary>

@@ -21,7 +21,7 @@ function atlas(name) {
   return im && im.complete && im.naturalWidth ? im : null;
 }
 // RPG 에 들어올 때 미리 읽는다(rpgArt.js warmRpgArt)
-export const warmAdvArt = () => { atlas("fx"); atlas("spirits"); atlas("items"); atlas("up"); atlas("bless"); atlas("fx2"); };
+export const warmAdvArt = () => { atlas("fx"); atlas("spirits"); atlas("items"); atlas("up"); atlas("bless"); atlas("fx2"); atlas("giant"); atlas("fx3"); };
 // 아틀라스 한 칸을 (x, y) 가운데에 w × h 로 — 그림이 없으면 false
 function cell(ctx, name, i, x, y, w, h) {
   const im = atlas(name);
@@ -56,7 +56,7 @@ function glow(ctx, x, y, r, col, a) {
   ctx.globalAlpha = a; ctx.fillStyle = gl;
   ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
 }
-const FX = ADV_ART.FX, FX2 = ADV_ART.FX2;
+const FX = ADV_ART.FX, FX2 = ADV_ART.FX2, FX3 = ADV_ART.FX3;
 
 /* 스킬 연출 — 그렸으면 true(skillArt.js drawSkillFx 가 먼저 묻는다). q 는 알갱이 몫(연출 줄이기) */
 export function drawAdvFx(ctx, f, p, time, q = 1) {
@@ -154,6 +154,38 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
     ctx.globalAlpha = fade(p, 0.2) * 0.8;
     ctx.strokeStyle = col; ctx.lineWidth = 4 * (1 - p) + 1;
     ctx.beginPath(); ctx.ellipse(f.x, f.y + 20, f.r * (0.3 + 0.8 * p), f.r * (0.3 + 0.8 * p) * SQ(), 0, 0, TAU); ctx.stroke();
+  } else if (k === "gsummon") {                    // 거대 정령 소환 — 땅에 금빛 소환진이 돌고 빛기둥이 솟는다(원소 빛깔 테두리)
+    const col = elemCol(f.elem), s = f.r * 2.3;
+    ctx.globalAlpha = Math.min(1, p * 5) * fade(p, 0.6);
+    if (!cell(ctx, "fx3", FX3.circle, f.x, f.y - s * 0.18, s, s)) {
+      ctx.strokeStyle = col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * SQ(), 0, 0, TAU); ctx.stroke();
+      glow(ctx, f.x, f.y - 60, 90, "#fff2c8", 0.6 * fade(p, 0.4));
+    }
+    ctx.globalAlpha = fade(p, 0.3) * 0.7;
+    ctx.strokeStyle = col; ctx.lineWidth = 2.5 * (1 - p) + 1;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.4 + 0.7 * p), f.r * (0.4 + 0.7 * p) * SQ(), 0, 0, TAU); ctx.stroke();
+    glow(ctx, f.x, f.y - 40, 110, col, 0.35 * fade(p, 0.5));
+  } else if (k === "gstomp") {                     // 거대 정령 내려치기 — 발밑에서 균열 충격파가 판정 반지름까지 퍼진다
+    const col = elemCol(f.elem), s = f.r * 2.5 * (0.5 + 0.5 * Math.min(1, p * 2.5));
+    ctx.globalAlpha = fade(p, 0.35) * 0.95;
+    if (!cell(ctx, "fx3", FX3.stomp, f.x, f.y - s * 0.12, s, s)) {
+      ctx.strokeStyle = col; ctx.lineWidth = 4 * (1 - p) + 1;
+      ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * p, f.r * p * SQ(), 0, 0, TAU); ctx.stroke();
+    }
+    ctx.globalAlpha = fade(p, 0.2) * 0.8;
+    ctx.strokeStyle = col; ctx.lineWidth = 3 * (1 - p) + 1;
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * (0.2 + 0.85 * p), f.r * (0.2 + 0.85 * p) * SQ(), 0, 0, TAU); ctx.stroke();
+    if (p > 0.25 && p < 0.75) cell(ctx, "fx3", FX3.smash, f.x, f.y - f.r * 0.3, f.r * 1.1, f.r * 1.1);   // 닿는 순간 주먹 폭발
+  } else if (k === "gbreak") {                     // 거대 정령이 흩어진다 — 폭발 하나와 원소 빛 알갱이
+    const col = elemCol(f.elem), s = f.r * 3 * (0.5 + 0.5 * Math.min(1, p * 3));
+    ctx.globalAlpha = fade(p, 0.25);
+    if (!cell(ctx, "fx3", FX3.smash, f.x, f.y - f.r * 0.8, s, s)) glow(ctx, f.x, f.y - 60, f.r, col, 0.7 * fade(p, 0.3));
+    const n = Math.max(4, Math.round(14 * q));
+    for (let i = 0; i < n; i++) {
+      const ang = (i / n) * TAU + i * 0.7, d = f.r * (0.2 + 0.9 * p) * (0.6 + ((i * 29) % 10) / 20);
+      glow(ctx, f.x + Math.cos(ang) * d, f.y - 60 + Math.sin(ang) * d * 0.7 - 40 * p, 7, col, 0.8 * fade(p, 0.2));
+    }
   } else if (k === "bless") {                      // 수호의 축복 — 발밑 흰 마법진이 범위만큼 퍼지고 금빛 고리가 번진다
     const s = f.r * 2 * Math.min(1, 0.35 + p * 2);
     ctx.globalAlpha = Math.min(1, p * 6) * fade(p, 0.4) * 0.5;
@@ -318,7 +350,7 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
   return true;
 }
 // 땅에 깔리는 것 — 몸보다 먼저(skillArt.js GROUND_FX 에 더한다)
-export const ADV_GROUND = ["sk_adv_circle", "sk_adv_summon"];
+export const ADV_GROUND = ["sk_adv_circle", "sk_adv_summon", "sk_adv_gsummon", "sk_adv_gstomp"];
 
 /* 영웅 둘레 — 철벽 방어 방패 · 파티 보호 · 중첩 표시 · 정령 */
 export function drawAdvHero(ctx, h, time) {
@@ -366,6 +398,7 @@ export function drawAdvHero(ctx, h, time) {
       ctx.beginPath(); ctx.arc(h.x + Math.cos(ang) * 22, h.y + Math.sin(ang) * 22 * SQ(), n >= max ? 2.8 : 2.2, 0, TAU); ctx.fill();
     }
   }
+  if (a.gi && a.gi.t > 0 && Number.isFinite(a.gi.x)) drawGiant(ctx, h, a.gi, time);
   (a.sps || []).forEach((sp, i) => { if (sp.t > 0 && Number.isFinite(sp.x)) drawSpirit(ctx, h, sp, time + i * 0.7); });
   drawTraitState(ctx, h, a, time);
   ctx.restore();
@@ -405,6 +438,21 @@ function drawBlessAura(ctx, h, left, time) {
     ctx.beginPath(); ctx.ellipse(h.x, h.y, 34, 34 * SQ(), 0, 0, TAU); ctx.stroke();
     glow(ctx, h.x, h.y - 40, 30, "#fff2c8", 0.25 * k0);
   }
+  ctx.restore();
+}
+/* 거대 정령 — 원소마다 한 칸(adv-giant.webp). 발이 gi.y 에 닿고 머리 위에 체력 막대. 사라지기 전 1.2초 흐려진다 */
+function drawGiant(ctx, h, gi, time) {
+  const U = ADV_BY_ID.summoner.ultimate, i = Math.max(0, ELEMS.findIndex((e) => e.id === h.elem)), s = U.size;
+  const bob = Math.sin(time * 2 + h.pi) * 3, fadeOut = Math.min(1, gi.t / 1.2), col = elemCol(h.elem);
+  ctx.save();
+  ctx.globalAlpha = 0.35 * fadeOut; ctx.fillStyle = "rgba(20,14,10,0.6)";
+  ctx.beginPath(); ctx.ellipse(gi.x, gi.y + 4, s * 0.3, s * 0.3 * SQ(), 0, 0, TAU); ctx.fill();
+  ctx.globalAlpha = fadeOut;
+  if (!cell(ctx, "giant", i, gi.x, gi.y - s * 0.41 + bob, s, s)) glow(ctx, gi.x, gi.y - s * 0.4, s * 0.35, col, fadeOut);   // 그림이 없으면 큰 빛덩이
+  const w = s * 0.55, y = gi.y - s * 0.86, k = gi.mhp > 0 ? Math.max(0, Math.min(1, gi.hp / gi.mhp)) : 0;   // 체력 막대 — 1px 테두리
+  ctx.globalAlpha = 0.85 * fadeOut; ctx.fillStyle = "rgba(24,18,14,0.75)"; ctx.fillRect(gi.x - w / 2, y, w, 6);
+  ctx.fillStyle = col; ctx.fillRect(gi.x - w / 2 + 1, y + 1, (w - 2) * k, 4);
+  ctx.strokeStyle = "rgba(255,240,210,0.7)"; ctx.lineWidth = 1; ctx.strokeRect(gi.x - w / 2 + 0.5, y + 0.5, w - 1, 5);
   ctx.restore();
 }
 function drawSpirit(ctx, h, sp, time) {

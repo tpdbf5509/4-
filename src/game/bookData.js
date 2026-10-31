@@ -27,6 +27,14 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-10-31b", title: "패치노트 · 10월 31일 (2)", sub: "소환술사 궁극기", color: "#c9b37c",
+    pages: [
+      { h: "거대 정령", p: [`소환술사의 궁극기입니다. 키는 기본 G 이고 ☰ 키 설정에서 바꿉니다.`,
+        `지금 원소의 거대 정령을 ${ADV_BY_ID.summoner.ultimate.life}초 동안 부릅니다. 원소마다 모습이 다릅니다.`,
+        `정령은 체력이 있습니다. 내 최대 체력의 ${ADV_BY_ID.summoner.ultimate.hpMul}배이고 내가 받는 피해의 ${Math.round(ADV_BY_ID.summoner.ultimate.share * 100)}%를 대신 맞습니다. 체력이 다하면 흩어집니다.`,
+        `${ADV_BY_ID.summoner.ultimate.every}초마다 발밑 둘레 적을 모두 내려치고 ${ADV_BY_ID.summoner.ultimate.stun}초 기절시킵니다. 마법 기본 피해 ${ADV_BY_ID.summoner.ultimate.mul}배입니다.`,
+        `대기 ${ADV_BY_ID.summoner.ultimate.cd}초. 광장과 결투에서는 쓸 수 없습니다. 쓰러지면 정령도 사라집니다. 정령 소환(Z)과 따로 쓰입니다.`] },
+    ] },
   { id: "patch-2026-10-31a", title: "패치노트 · 10월 31일", sub: "암살자 · 엘프 · 명사수 · 총사", color: "#c9b37c",
     pages: [
       { h: "새 전직 암살자", p: ["검사의 셋째 전직입니다. 단검을 들고 한 방을 노립니다.",

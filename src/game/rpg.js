@@ -32,7 +32,7 @@ import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.j
 import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
 import { advNullShield, advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
-  advLowHp, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill,
+  advLowHp, advGiantTake, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill,
   advHpMul, advTakeMul, advHidden, advSpeedMul, advElfShot, advGunReady, advGunFired } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
@@ -1884,6 +1884,8 @@ function hurtHero(g, h, raw, source) {
   dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
   if (dmg <= 0) return;
   if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
+  dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
+  if (dmg <= 0) return;
   h.hp -= dmg;
   advHurt(advEngine, g, h);                       // 기사 — 철벽 방어 반격 · 생존 시험
   h.flash = 0.18;

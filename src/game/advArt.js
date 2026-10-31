@@ -50,6 +50,8 @@ function tintCell(i, color, keep) {
 }
 const elemCol = (id) => (ELEM_BY_ID[id] || ELEMS[0]).light;
 const fade = (p, from) => (p < from ? 1 : Math.max(0, 1 - (p - from) / (1 - from)));
+// 그림자 일섬 초승달 검기가 솟는 모양(연출만) — 진행도 비율(연출 0.7초 기준) · 아래에서 올라오는 거리(px)
+const ASSA_RISE_T = 0.14, ASSA_RISE_GAP = 0.04, ASSA_RISE_DY = 46;
 function glow(ctx, x, y, r, col, a) {
   const gl = ctx.createRadialGradient(x, y, 0, x, y, r);
   gl.addColorStop(0, col); gl.addColorStop(1, "rgba(0,0,0,0)");
@@ -266,7 +268,12 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
       ctx.beginPath(); ctx.moveTo(cx0, cy0); ctx.lineTo(tx, ty); ctx.stroke();
       const hp = Math.min(1, (p - 0.2) / 0.1), s = 150 * (f.big ? 1.25 : 1) * (0.8 + 0.3 * hp);
       [0, 1].forEach((i) => {
-        ctx.save(); ctx.translate(ex + ux * 8, ey); ctx.scale(-(f.d || 1), i ? -1 : 1); ctx.rotate(i ? 0.5 : -0.5);
+        // 초승달 검기 — 한 번에 뜨지 않고 아래에서 위로 빠르게 솟으며 아랫부분부터 드러난다(둘째는 조금 늦게)
+        const rp = Math.min(1, Math.max(0, (p - 0.2 - i * ASSA_RISE_GAP) / ASSA_RISE_T)), re = 1 - (1 - rp) * (1 - rp) * (1 - rp);
+        if (rp <= 0) return;
+        const cyR = ey + (1 - re) * ASSA_RISE_DY, top = cyR + s * 0.5 - s * re;
+        ctx.save(); ctx.beginPath(); ctx.rect(ex - s, top, s * 2, ey + s - top); ctx.clip();   // 아래서부터 드러나는 창
+        ctx.translate(ex + ux * 8 - (f.d || 1) * (1 - re) * 10, cyR); ctx.scale(-(f.d || 1), i ? -1 : 1); ctx.rotate(i ? 0.5 : -0.5);
         ctx.globalAlpha = fade(p, 0.5) * 0.95;
         if (!cell(ctx, "fx2", FX2.slash, 0, 0, s, s)) { ctx.strokeStyle = "#d8b8ff"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(-s * 0.2, 0, s * 0.35, -1.1, 1.1); ctx.stroke(); }
         ctx.restore();

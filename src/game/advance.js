@@ -818,7 +818,7 @@ function tickGiant(E, g, h, a, dt) {
       const st = Math.min(d, U.petSpeed * dt * (1 + d / 300));
       gi.x += (dx / d) * st; gi.y += (dy / d) * st;
     }
-    E.keep(gi, h.map);
+    E.bound(gi, h.map);
     return;
   }
   // 돌아다닌다 — 내 둘레 roam 안에서 가장 가까운 적에게 가고, 적이 없으면 wander 초마다 새 곳으로 어슬렁거린다

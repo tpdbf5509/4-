@@ -6,7 +6,7 @@ import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
 import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { ADV_BY_ID } from "./advData.js";
-import { warmAdvArt, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
+import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
@@ -2498,6 +2498,7 @@ export function drawRpg(ctx, g, bgs) {
   }
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
+  g.heroes.forEach((h) => { const gi = h && h.map === M.id && h.as && h.as.gi; if (gi && gi.t > 0 && Number.isFinite(gi.y)) order.push({ y: gi.y, giant: h }); });   // 거대 정령 — 제 발 높이로 줄을 선다
   if (M.id === "plaza") drawDgPit(ctx, time);
   drawDust(ctx, g, M.id, time);
   order.sort((a, b) => a.y - b.y);
@@ -2511,6 +2512,7 @@ export function drawRpg(ctx, g, bgs) {
     if (who && (o.m || o.h.cc)) drawCcMark(ctx, who, time);
     else if (o.gate) drawGate(ctx, o.gate, time);
     else if (o.npc) drawNpc(ctx, g, o.npc, time);
+    else if (o.giant) drawAdvGiant(ctx, o.giant, time);
     else if (o.fountain) drawFountain(ctx, time);
     else if (o.dgGate) drawDgGate(ctx, time);
     else if (o.prop) drawProp(ctx, o.prop);

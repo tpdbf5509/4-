@@ -440,7 +440,6 @@ export function drawAdvHero(ctx, h, time) {
       ctx.beginPath(); ctx.arc(h.x + Math.cos(ang) * 22, h.y + Math.sin(ang) * 22 * SQ(), n >= max ? 2.8 : 2.2, 0, TAU); ctx.fill();
     }
   }
-  if (a.gi && a.gi.t > 0 && Number.isFinite(a.gi.x)) drawGiant(ctx, h, a.gi, time);
   (a.sps || []).forEach((sp, i) => { if (sp.t > 0 && Number.isFinite(sp.x)) drawSpirit(ctx, h, sp, time + i * 0.7); });
   drawTraitState(ctx, h, a, time);
   ctx.restore();
@@ -483,6 +482,11 @@ function drawBlessAura(ctx, h, left, time) {
   ctx.restore();
 }
 /* 거대 정령 — 원소마다 한 칸(adv-giant.webp). 발이 gi.y 에 닿고 머리 위에 체력 막대. 사라지기 전 1.2초 흐려진다 */
+export function drawAdvGiant(ctx, h, time) {   // rpgArt.js 가 거대 정령 자신의 발 높이(gi.y)로 앞뒤를 맞춰 부른다 — 분수 · 가게 뒤에서는 가려진다
+  const gi = h.as && h.as.gi;
+  if (!gi || !(gi.t > 0) || !Number.isFinite(gi.x) || h.down > 0) return;
+  drawGiant(ctx, h, gi, time);
+}
 function drawGiant(ctx, h, gi, time) {
   const U = ADV_BY_ID.summoner.ultimate, i = Math.max(0, ELEMS.findIndex((e) => e.id === h.elem)), s = gi.pet ? U.petSize : U.size;   // 광장 펫은 캐릭터보다 작게
   const bob = Math.sin(time * 2 + h.pi) * 3, fadeOut = Math.min(1, gi.t / 1.2), col = elemCol(h.elem);

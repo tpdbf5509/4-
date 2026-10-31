@@ -9,5 +9,14 @@ export function pointerSkillAim(h, cam, pointer, squash) {
   if (!h || !cam || !pointer || pointer.map !== h.map) return null;
   return cleanSkillAim([pointer.x + cam.x - h.x, (pointer.y + cam.y - (h.y - 34)) / squash]);
 }
+// 포인터가 가리킨 땅 자리(월드 좌표) — 그림자 일섬처럼 "포인터 가까운 적"을 고르는 스킬이 쓴다
+export function cleanSkillPt(pt) {
+  if (!Array.isArray(pt) || pt.length !== 2 || !pt.every(Number.isFinite) || pt.some(v => Math.abs(v) > 1e6)) return null;
+  return [pt[0], pt[1]];
+}
+export function pointerSkillPt(h, cam, pointer) {
+  if (!h || !cam || !pointer || pointer.map !== h.map) return null;
+  return [Math.round(pointer.x + cam.x), Math.round(pointer.y + cam.y)];
+}
 export const aimedSkillInput = (kind, dir) => ['skill', 'use', 'wskill'].includes(kind)
   || (kind === 'wcharge' && dir !== 'cancel') || (kind === 'adv' && dir?.op === 'use');

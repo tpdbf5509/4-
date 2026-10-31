@@ -5,6 +5,7 @@ import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPo
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
 import { drawStormScreenFlash } from './stormWeaponArt.js';
+import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
@@ -2165,7 +2166,7 @@ function drawHero(ctx, g, h, time) {
   shadow(ctx, h.x, h.y + 3, 15 * (1 - lift * 0.18), 5 * (1 - lift * 0.18), 0.3 * (1 - lift * 0.3));
   ctx.translate(h.x, h.y + (mo ? mo.hop : 0));
   if (down) { h.anim = null; ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
-  else if (h.as && h.as.ut > 0) ctx.globalAlpha = 0.18;   // 암살자 그림자 일섬 — 지정 불가 동안 거의 사라진다
+  else if (h.as && h.as.ut > 0) ctx.globalAlpha = h.as.ut > ADV_BY_ID.assassin.active.ut - ADV_BY_ID.assassin.active.at ? 0.18 : 0.7;   // 암살자 그림자 일섬 — 사라진 동안 거의 안 보이고 · 등 뒤에 내려앉으면 또렷이 비친다(지정 불가는 그대로)
   else if (h.bf && h.bf.hide && h.bf.hide.t > 0) ctx.globalAlpha = 0.45;   // 투명화 물약 — 비쳐 보인다
   if (mo) {                                          // 발밑을 축으로 기울이고 누른다
     ctx.translate(h.dir * mo.lunge, 0);

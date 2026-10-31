@@ -50,6 +50,8 @@ function tintCell(i, color, keep) {
 }
 const elemCol = (id) => (ELEM_BY_ID[id] || ELEMS[0]).light;
 const fade = (p, from) => (p < from ? 1 : Math.max(0, 1 - (p - from) / (1 - from)));
+// 그림자 일섬 초승달 검기가 솟는 모양(연출만) — 진행도 비율(연출 0.7초 기준) · 아래에서 올라오는 거리(px)
+const ASSA_RISE_T = 0.14, ASSA_RISE_GAP = 0.04, ASSA_RISE_DY = 46;
 function glow(ctx, x, y, r, col, a) {
   const gl = ctx.createRadialGradient(x, y, 0, x, y, r);
   gl.addColorStop(0, col); gl.addColorStop(1, "rgba(0,0,0,0)");
@@ -259,17 +261,57 @@ export function drawAdvFx(ctx, f, p, time, q = 1) {
     const w = (f.out ? 110 : 150) * (0.7 + 0.5 * p);
     ctx.globalAlpha = fade(p, 0.3) * 0.9;
     if (!cell(ctx, "fx2", FX2.smoke, f.x, f.y - 34, w, w)) glow(ctx, f.x, f.y - 34, w * 0.4, "#9a5ad0", 0.6 * (1 - p));
-  } else if (k === "assa") {                       // 암살자 — 등 뒤에서 벤 초승달 둘(엇갈림) + 지나온 길 보랏빛 줄
-    ctx.globalAlpha = fade(p, 0.25) * 0.5;
-    ctx.strokeStyle = "#b07ae0"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(f.x, f.y); ctx.stroke();
-    const s = 150 * (f.big ? 1.25 : 1) * (0.8 + 0.3 * Math.min(1, p * 4));
-    [0, 1].forEach((i) => {
-      ctx.save(); ctx.translate(f.x - (f.d || 1) * 10, f.y); ctx.scale(-(f.d || 1), i ? -1 : 1); ctx.rotate(i ? 0.5 : -0.5);
-      ctx.globalAlpha = fade(p, 0.3) * 0.95;
-      if (!cell(ctx, "fx2", FX2.slash, 0, 0, s, s)) { ctx.strokeStyle = "#d8b8ff"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(-s * 0.2, 0, s * 0.35, -1.1, 1.1); ctx.stroke(); }
-      ctx.restore();
-    });
+  } else if (k === "assa") {                       // 암살자 그림자 일섬 — 그림자가 적을 가로질러 등 뒤에 내려앉고, 돌아서며 뒤에서 앞으로 베어 낸다
+    const bx = f.bx ?? f.x - (f.d || 1) * 46, by = f.by ?? f.y;               // 내려앉은 자리(등 뒤)
+    const ex = f.x, ey = f.y, dx = ex - bx, dy = ey - by, dl = Math.hypot(dx, dy) || 1, ux = dx / dl, uy = dy / dl;
+    const sw = Math.min(1, p / 0.28);               // 0~0.28 그림자가 지나간다 · 0.2 부터 벤다
+    // ① 지나온 길 — 시작 자리에서 적을 지나 등 뒤까지 이어지는 보랏빛 줄(굵다가 가늘어진다)
+    ctx.globalAlpha = fade(p, 0.15) * 0.75;
+    ctx.strokeStyle = "#8a52c8"; ctx.lineWidth = 9 * (1 - p * 0.7); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(f.x0 + (bx - f.x0) * sw, f.y0 + (by - f.y0) * sw); ctx.stroke();
+    ctx.globalAlpha = fade(p, 0.15) * 0.9; ctx.strokeStyle = "#e6d0ff"; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(f.x0, f.y0); ctx.lineTo(f.x0 + (bx - f.x0) * sw, f.y0 + (by - f.y0) * sw); ctx.stroke();
+    // ② 잔상 — 길 위에 남는 어두운 사람 모양 다섯(앞쪽일수록 옅다). 적 위를 지나쳐 가는 것이 보인다
+    ctx.globalCompositeOperation = "source-over";
+    for (let i = 0; i < 5; i++) {
+      const u = (i + 1) / 5, gp = Math.max(0, p - u * 0.16);
+      if (gp <= 0 || gp > 0.5) continue;
+      const gx = f.x0 + (bx - f.x0) * u, gy = f.y0 + (by - f.y0) * u, ga = (1 - gp / 0.5) * 0.5 * (0.45 + 0.55 * u);
+      ctx.globalAlpha = ga; ctx.fillStyle = "#2a1640";
+      ctx.beginPath(); ctx.ellipse(gx, gy - 6, 9, 20, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(gx, gy - 32, 8, 0, TAU); ctx.fill();
+      ctx.globalAlpha = ga * 0.6; ctx.strokeStyle = "#b88af0"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(gx, gy - 6, 9, 20, 0, 0, TAU); ctx.stroke();
+    }
+    ctx.globalCompositeOperation = "lighter";
+    // ③ 내려앉는 자리 — 등 뒤에 보랏빛 연기가 피어오른다
+    if (p > 0.12) {
+      const lp = (p - 0.12) / 0.88, w = 120 * (0.6 + 0.6 * lp);
+      ctx.globalAlpha = fade(lp, 0.15) * 0.85;
+      if (!cell(ctx, "fx2", FX2.smoke, bx, by - 30, w, w)) glow(ctx, bx, by - 30, w * 0.4, "#9a5ad0", 0.6 * (1 - lp));
+    }
+    // ④ 베기 — 등 뒤에서 적을 지나 앞까지 곧게 뻗는 흰 칼빛 · 적 몸에서 터지는 초승달 둘
+    if (p > 0.2) {
+      const cp = Math.min(1, (p - 0.2) / 0.16), fa = fade(p, 0.45), len = dl + 76, cx0 = bx - ux * 14, cy0 = by - uy * 14;
+      const tx = cx0 + ux * len * cp, ty = cy0 + uy * len * cp;
+      ctx.globalAlpha = fa; ctx.strokeStyle = "#f4e8ff"; ctx.lineWidth = 6 * (1 - p * 0.6);
+      ctx.beginPath(); ctx.moveTo(cx0, cy0); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.globalAlpha = fa * 0.55; ctx.strokeStyle = "#b07ae0"; ctx.lineWidth = 16 * (1 - p * 0.6);
+      ctx.beginPath(); ctx.moveTo(cx0, cy0); ctx.lineTo(tx, ty); ctx.stroke();
+      const hp = Math.min(1, (p - 0.2) / 0.1), s = 150 * (f.big ? 1.25 : 1) * (0.8 + 0.3 * hp);
+      [0, 1].forEach((i) => {
+        // 초승달 검기 — 한 번에 뜨지 않고 아래에서 위로 빠르게 솟으며 아랫부분부터 드러난다(둘째는 조금 늦게)
+        const rp = Math.min(1, Math.max(0, (p - 0.2 - i * ASSA_RISE_GAP) / ASSA_RISE_T)), re = 1 - (1 - rp) * (1 - rp) * (1 - rp);
+        if (rp <= 0) return;
+        const cyR = ey + (1 - re) * ASSA_RISE_DY, top = cyR + s * 0.5 - s * re;
+        ctx.save(); ctx.beginPath(); ctx.rect(ex - s, top, s * 2, ey + s - top); ctx.clip();   // 아래서부터 드러나는 창
+        ctx.translate(ex + ux * 8 - (f.d || 1) * (1 - re) * 10, cyR); ctx.scale(-(f.d || 1), i ? -1 : 1); ctx.rotate(i ? 0.5 : -0.5);
+        ctx.globalAlpha = fade(p, 0.5) * 0.95;
+        if (!cell(ctx, "fx2", FX2.slash, 0, 0, s, s)) { ctx.strokeStyle = "#d8b8ff"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(-s * 0.2, 0, s * 0.35, -1.1, 1.1); ctx.stroke(); }
+        ctx.restore();
+      });
+      glow(ctx, ex, ey, 46 * (1 + hp), "#f0e0ff", 0.7 * fade(p, 0.3));
+    }
   } else if (k === "wind") {                       // 엘프 숲바람 화살 · 바람 화살 — 앞으로 뻗는 초록 바람(small 은 가늘게)
     const ang = Math.atan2(f.y1 - f.y0, f.x1 - f.x0), len = Math.hypot(f.x1 - f.x0, f.y1 - f.y0), u = Math.min(1, p * 3);
     const w = (f.small ? 70 : 100) * (f.big ? 1.2 : 1);

@@ -5,11 +5,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RPG_SERVERS, JOB_BY_ID } from "./game/rpg.js";
 import { UPDATES } from "./game/updates.js";
+import { GUIDE, GUIDE_GROUPS, GUIDE_HOW } from "./game/codeGuideData.js";
 import { myId } from "./net/room.js";
 import { ADMIN, adminTrades, adminAccounts, adminFeedback, adminRename, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
 import "./ui/admin.css";
 
-const TABS = [["people", "인원"], ["accounts", "계정"], ["trades", "거래"], ["inquiry", "문의"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"]];
+const TABS = [["people", "인원"], ["accounts", "계정"], ["trades", "거래"], ["inquiry", "문의"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"], ["guide", "코드 가이드"]];
 const LOG_MAX = 300;                 // 로그에 남기는 줄 수(이 화면을 연 동안만)
 const BLOCKS_EVERY = 30;             // 로그 탭을 보는 동안 막힌 저장 기록을 다시 읽는 간격(초)
 const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀", moved: "넘긴 물품이 다시 나타남", coins: "코인이 너무 늚" };
@@ -266,6 +267,8 @@ function AdminBoard({ auth, onOut }) {
           </ul>
         </section>
       )}
+
+      {tab === "guide" && <GuideTab />}
 
       {tab === "servers" && (
         <section className="adm-sec">
@@ -527,6 +530,48 @@ function InquiryTab({ auth }) {
         </div>
       )}
       <p className="adm-label">글은 읽기만 됩니다. 이름 · 서버 · 직업은 보낼 때 함께 온 값입니다.</p>
+    </section>
+  );
+}
+
+/* 코드 가이드 — 바꾸고 싶은 숫자가 어느 파일 · 어느 이름에 있는지(codeGuideData.js). 지금 값은 코드에서 직접 읽는다 */
+function GuideTab() {
+  const [q, setQ] = useState("");
+  const [grp, setGrp] = useState(-1);
+  const list = useMemo(() => {
+    const k = q.trim().toLowerCase();
+    return GUIDE.filter((e) => (grp < 0 || e.g === grp) && (!k || `${e.title} ${e.file} ${e.name} ${e.effect} ${e.ex}`.toLowerCase().includes(k)));
+  }, [q, grp]);
+  return (
+    <section className="adm-sec">
+      <p className="adm-label">코드 수정 가이드 — 숫자 하나를 바꾸면 무엇이 달라지는지 모았습니다.</p>
+      <ol className="adm-how">{GUIDE_HOW.map((t, i) => <li key={i}>{t.replace(/^\d+\.\s*/, "")}</li>)}</ol>
+      <div className="adm-guide-bar">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="검색 — 치명타 · 속도 · 체력 · 경험치" />
+        <div className="adm-srvs adm-guide-grp">
+          <button className={grp < 0 ? "on" : ""} onClick={() => setGrp(-1)}>전체</button>
+          {GUIDE_GROUPS.map((n, i) => <button key={n} className={grp === i ? "on" : ""} onClick={() => setGrp(i)}>{n}</button>)}
+        </div>
+      </div>
+      {!list.length && <p className="adm-empty">찾는 항목이 없습니다.</p>}
+      <div className="adm-guide">
+        {list.map((e) => {
+          let now = "";
+          try { now = String(e.now()); } catch { now = "읽지 못했습니다"; }
+          return (
+            <article key={e.title} className="adm-gcard">
+              <h3>{e.title}<span>{GUIDE_GROUPS[e.g]}</span></h3>
+              <dl>
+                <dt>파일</dt><dd><code>{e.file}</code></dd>
+                <dt>이름</dt><dd><code>{e.name}</code></dd>
+                <dt>지금 값</dt><dd><b>{now}</b></dd>
+                <dt>바꾸면</dt><dd>{e.effect}</dd>
+                {e.ex && <><dt>예시</dt><dd>{e.ex}</dd></>}
+              </dl>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }

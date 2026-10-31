@@ -138,3 +138,18 @@
 .adm-inq .adm-tag { width: auto; padding: 3px 9px; font-size: 12px; background: var(--card); color: var(--sub); }
 .adm-inq .adm-tag.host { background: var(--host); color: var(--host-ink); }
 .adm-inq p { margin: 8px 0 0; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* 코드 가이드 탭 */
+.adm-how { margin: 0 0 16px; padding-left: 20px; font-size: 13px; color: var(--sub); line-height: 1.7; }
+.adm-guide-bar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+.adm-guide-bar input { max-width: 420px; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 9px 12px; font-size: 14px; color: var(--ink); }
+.adm-guide-grp { padding: 0; }
+.adm-guide { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; padding-bottom: 40px; }
+.adm-gcard { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+.adm-gcard h3 { margin: 0 0 10px; font-size: 15px; font-weight: 600; letter-spacing: -0.03em; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.adm-gcard h3 span { font-size: 11.5px; font-weight: 400; color: var(--sub); white-space: nowrap; }
+.adm-gcard dl { margin: 0; display: grid; grid-template-columns: 54px 1fr; gap: 6px 10px; font-size: 13px; line-height: 1.55; }
+.adm-gcard dt { color: var(--sub); }
+.adm-gcard dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.adm-gcard code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: rgba(128,128,128,0.14); padding: 1px 5px; border-radius: 3px; }
+.adm-gcard dd b { color: var(--point); font-weight: 600; }

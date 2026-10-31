@@ -715,7 +715,7 @@ export function advUse(E, g, h) {
     const P = c.passive;
     a.ut = A.ut; h.inv = Math.max(h.inv || 0, A.ut);   // 지정 불가 — 맞지 않고 상태이상도 없다(h.inv) · 몹이 놓친다(notices)
     E.lose(g, h);
-    const [o] = E.near(g, h, h.x, h.y, A.reach, 1);
+    const o = shadowTarget(E, g, h, A.reach), dashAim = h.inputAim;   // 포인터 방향은 시전 때 적어 둔다(at 초 뒤에는 입력이 지워져 있다)
     E.fx(g, map, { kind: "sk_adv_vanish", x: h.x, y: h.y, t: 0.5, life: 0.5, snd: "slash" });
     E.later(g, A.at, () => {
       if (h.map !== map || h.down > 0) return;
@@ -730,7 +730,8 @@ export function advUse(E, g, h) {
         E.fx(g, map, { kind: "sk_adv_assa", x: o.x, y: o.y - 30, x0, y0: y0 - 30, bx: h.x, by: h.y - 30, d: h.dir, big: masteryLv(h.advM) >= 4 ? 1 : 0, t: 0.7, life: 0.7, snd: "slash", kick: 0.2 });   // bx · by — 내려앉은 등 뒤 자리(연출만)
         if (o.dead || (isHero(o) && o.down > 0)) shadowKill(E, g, h, o);
       } else {                                      // 적이 없다 — 겨눈 쪽으로 빠져나간다(연사를 피하는 데 쓴다)
-        const [ax, ay] = E.aim(g, h, A.dash);
+        const [ax, ay] = dashAim || E.aim(g, h, A.dash);
+        if (dashAim && ax) h.dir = ax < 0 ? -1 : 1;
         const [x, y] = E.end(h, ax, ay, A.dash);
         E.place(h, x, y);
         E.fx(g, map, { kind: "sk_adv_vanish", x: h.x, y: h.y, out: 1, t: 0.4, life: 0.4 });
@@ -758,6 +759,19 @@ export function advUse(E, g, h) {
   h.swing = Math.max(h.swing || 0, 0.35);
   E.fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: A.name, color: "#ffd873", t: 0.8, life: 0.8, who: h.pi });
   return true;
+}
+/* 암살자 — 그림자 일섬 대상. reach 안의 적 가운데 마우스 포인터에 가장 가까운 적(포인터는 몸통 높이에 견준다).
+   포인터가 없으면(터치 · 자동 사냥 · 옛 화면) 나에게 가장 가까운 적 */
+const SHADOW_PT_BODY = 30;   // 적 발밑에서 몸통까지 높이(px) — 포인터를 몸에 올리면 그 적을 고르게
+function shadowTarget(E, g, h, reach) {
+  const p = h.inputPt;
+  if (!p) return E.near(g, h, h.x, h.y, reach, 1)[0];
+  let best = null, bd = Infinity;
+  for (const o of E.near(g, h, h.x, h.y, reach)) {
+    const d = E.dist(p[0], p[1], o.x, o.y - SHADOW_PT_BODY);
+    if (d < bd) { bd = d; best = o; }
+  }
+  return best;
 }
 /* 암살자 — 그림자 일섬 한 방으로 쓰러뜨렸다: 시험(160레벨 이상 몹) · 전투 특성 그림자 회수(대기 시간을 돌려받는다) */
 function shadowKill(E, g, h, o) {

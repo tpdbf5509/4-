@@ -220,3 +220,29 @@ test('스냅샷 — 지정 불가 · 질주 · 바람 걸음 · 탄창 · 장전
   assert.equal(advSpeedMul(guest.heroes[1]), advSpeedMul(el), '손님도 같은 속도로 걷는다');
   assert(as.as.ut > 0);
 });
+
+test('그림자 일섬 — 마우스 포인터에 가장 가까운 적에게 간다 · 포인터가 없으면 나에게 가장 가까운 적 · 적이 없으면 포인터 쪽으로 빠진다', () => {
+  noCrit(() => {
+    const A = ADV_BY_ID.assassin.active;
+    const cast = (pt, aim) => {
+      const g = world([{ c: 'assassin' }]);
+      const h = g.heroes[0];
+      const close = mob(g, 1100, 900), far = mob(g, 800, 1050);   // 오른쪽이 더 가깝고 · 왼쪽 아래는 멀지만 reach 안
+      rpgInput(g, { cls: 0, kind: 'adv', dir: { op: 'use' }, ...(pt ? { pt, aim } : {}) });
+      run(g, A.at + 0.05);
+      return { h, close, far, g };
+    };
+    const a = cast([790, 1020], [-0.8, 0.6]);
+    assert(a.far.hp < 1e9 && a.close.hp === 1e9, '포인터 가까운(왼쪽 아래) 적을 벴다');
+    assert(a.h.x < a.far.x, `왼쪽 적 등 뒤 ${a.h.x} < ${a.far.x}`);
+    const b = cast(null);
+    assert(b.close.hp < 1e9 && b.far.hp === 1e9, '포인터 없음 — 가장 가까운 적');
+    // 적이 없다 — 포인터 쪽(왼쪽)으로 빠져나간다
+    const g = world([{ c: 'assassin' }]), h = g.heroes[0];
+    h.dir = 1; h.look = [1, 0];
+    rpgInput(g, { cls: 0, kind: 'adv', dir: { op: 'use' }, pt: [600, 900], aim: [-1, 0] });
+    run(g, A.at + 0.05);
+    assert(near(1000 - h.x, A.dash, 0.05), `왼쪽으로 빠져나간 거리 ${1000 - h.x}`);
+    assert.equal(h.inputPt, undefined, '입력 뒤 포인터 자리는 지운다');
+  });
+});

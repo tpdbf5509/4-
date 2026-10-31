@@ -1,9 +1,9 @@
 import { rpgTrade } from "./trade.js";
 import { trading } from "./tradeData.js";
 import { stormBusy } from './stormWeaponCombat.js';
-import { cleanSkillAim, aimedSkillInput } from './skillAim.js';
+import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
-   d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
+   d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
   rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
@@ -47,7 +47,9 @@ export function rpgInput(g, d) {
   if (!act || !freshInput(g.heroes[d.cls], d.kind, d.q, g.t)) return;
   const prev = setFxBy(d.cls);                     // 이 입력이 낸 스킬 연출의 주인
   const h = g.heroes[d.cls];
-  h.inputAim = aimedSkillInput(d.kind, d.dir) ? cleanSkillAim(d.aim) : null;
-  const taunter=g.heroes[h.tauntBy];if(h.tauntT>0&&taunter?.map===h.map&&taunter.down<=0)h.inputAim=cleanSkillAim([taunter.x-h.x,(taunter.y-h.y)/.78]);
-  try { act(g, d.cls, d.dir); } finally { delete h.inputAim; setFxBy(prev); }
+  const aimed = aimedSkillInput(d.kind, d.dir);
+  h.inputAim = aimed ? cleanSkillAim(d.aim) : null;
+  h.inputPt = aimed ? cleanSkillPt(d.pt) : null;
+  const taunter=g.heroes[h.tauntBy];if(h.tauntT>0&&taunter?.map===h.map&&taunter.down<=0){h.inputAim=cleanSkillAim([taunter.x-h.x,(taunter.y-h.y)/.78]);h.inputPt=[taunter.x,taunter.y];}
+  try { act(g, d.cls, d.dir); } finally { delete h.inputAim; delete h.inputPt; setFxBy(prev); }
 }

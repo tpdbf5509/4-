@@ -24,7 +24,7 @@ import {
   RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
-import { pointerSkillAim, aimedSkillInput } from "./game/skillAim.js";
+import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
@@ -800,10 +800,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     if (kind === "use" && !isHost) predictLunge(g, g.heroes[mySeat], dir);   // 급소 찌르기 돌진도 먼저 그린다
     const aim = aimedSkillInput(kind, dir) ? pointerSkillAim(g.heroes[mySeat], g.cam, skillPointer.current, RPG.squash) : null;
+    const pt = kind === "adv" && aim ? pointerSkillPt(g.heroes[mySeat], g.cam, skillPointer.current) : null;   // 전직 스킬만 — 포인터 자리(그림자 일섬이 가까운 적을 고른다)
     if (isHost) {
-      rpgInput(g, { cls: mySeat, kind, dir, aim });
+      rpgInput(g, { cls: mySeat, kind, dir, aim, pt });
     } else {
-      sendInput({ cls: mySeat, kind, dir, aim, q: nextSeq() });
+      sendInput({ cls: mySeat, kind, dir, aim, pt, q: nextSeq() });
     }
   }, [isHost, mySeat, sendInput, closeAll, loadRank]);
 

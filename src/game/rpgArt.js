@@ -1,6 +1,7 @@
 import {drawPowerCircles} from './combatRulesArt.js';
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
 import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
+import { MARKET } from "./marketData.js";
 import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPortal} from "./worldBossArt.js";
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
@@ -967,6 +968,7 @@ function drawNpc(ctx, g, n, time) {
   if(n.worldBoss)return drawWorldBossPortal(ctx,g,n,time);
   if (n.shop) return drawShop(ctx, n, time);
   if (n.board) return drawHonorBoard(ctx, n, time);
+  if (n.market) return drawMarketBoard(ctx, n, time);
   if (n.req) return drawReqNpc(ctx, g, n, time);
   if (n.dungeon) return drawDungeonNpc(ctx, n, time);
   if (n.adv) return drawAdvNpc(ctx, g, n, time, roundRect, shadow);   // 광장 전직 교관(advArt.js)
@@ -2282,6 +2284,37 @@ function drawHonorBoard(ctx, n, time) {
   ctx.globalAlpha = 0.5 + glow * 0.4;
   ctx.fillStyle = "#ffd873"; ctx.font = "16px 'Do Hyeon', sans-serif";
   ctx.fillText("★", x, y - 134 - glow * 3);
+  ctx.restore();
+}
+
+/* 장터 게시판 — 그림(MARKET.img, 128 × 128 · 아래 가운데 기준)이 있으면 그것을, 없으면 나무판에 쪽지를 붙인 코드 그림 */
+function drawMarketBoard(ctx, n, time) {
+  const { x, y } = n;
+  const im = artImg(rpgFile(MARKET.img));
+  ctx.save();
+  shadow(ctx, x, y + 2, 50, 10, 0.3);
+  if (im) ctx.drawImage(im, x - 64, y - 124, 128, 128);
+  else {
+    ctx.fillStyle = "#6b4f36"; ctx.fillRect(x - 46, y - 52, 8, 54); ctx.fillRect(x + 38, y - 52, 8, 54);
+    ctx.fillStyle = "#8a6646"; ctx.strokeStyle = "rgba(40,26,16,0.9)"; ctx.lineWidth = 2;
+    roundRect(ctx, x - 62, y - 112, 124, 66, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#7a5a3c"; roundRect(ctx, x - 68, y - 122, 136, 14, 5); ctx.fill();
+    // 붙여 둔 쪽지 — 톤을 낮춘 종이 색
+    [["#efe2c4", -44, -100, -0.08], ["#e3d6ea", -14, -102, 0.05], ["#dbe7d6", 16, -99, -0.04], ["#efd9cc", -30, -76, 0.06], ["#efe2c4", 4, -77, -0.05]]
+      .forEach(([c, dx, dy, r]) => {
+        ctx.save(); ctx.translate(x + dx + 13, y + dy + 10); ctx.rotate(r);
+        ctx.fillStyle = c; ctx.fillRect(-13, -10, 26, 20);
+        ctx.strokeStyle = "rgba(90,63,34,0.35)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-8, -3); ctx.lineTo(8, -3); ctx.moveTo(-8, 3); ctx.lineTo(4, 3); ctx.stroke();
+        ctx.fillStyle = "#b0715a"; ctx.beginPath(); ctx.arc(0, -8, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      });
+  }
+  const bob = Math.sin(time * 2.4) * 2;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.font = "16px 'Do Hyeon', sans-serif";
+  ctx.lineWidth = 4; ctx.strokeStyle = "rgba(40,26,10,0.85)"; ctx.strokeText("장터", x, y - 136 + bob);
+  ctx.fillStyle = "#ffd873"; ctx.fillText("장터", x, y - 136 + bob);
   ctx.restore();
 }
 

@@ -1651,6 +1651,12 @@ kbd {
 .shop-bet small { font-size: 11px; color: var(--sh-faint); }
 .shop-bet input { width: 110px; padding: 7px 10px; border-radius: 8px; font-family: inherit; font-size: 15px; color: var(--sh-text);
   background: rgba(0, 0, 0, 0.25); border: 1px solid var(--sh-line); }
+/* 장터 게시판(MarketPanel.jsx) — 값 · 수량 칸은 노름판 걸 코인 칸과 같은 모양 */
+.market-form { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0 4px; }
+.market-form label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sh-mute); }
+.market-form input { width: 120px; padding: 7px 10px; border-radius: 8px; font-family: inherit; font-size: 15px; color: var(--sh-text);
+  background: rgba(0, 0, 0, 0.25); border: 1px solid var(--sh-line, rgba(255, 255, 255, 0.12)); }
+.market-claim { justify-content: flex-end; margin-top: 10px; }
 .shop-odds { width: 100%; border-collapse: collapse; font-size: 12.5px; color: var(--sh-mute); }
 .shop-odds td { padding: 6px 0; border-bottom: 1px solid var(--sh-line); }
 .shop-odds td + td { text-align: right; color: var(--sh-text); font-variant-numeric: tabular-nums; }

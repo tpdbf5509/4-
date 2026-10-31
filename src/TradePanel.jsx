@@ -6,7 +6,7 @@ import { armorName, armorArt } from './game/armorData.js';
 import { TRADE } from './game/tradeData.js';
 import { tradeError } from './useTrade.js';
 
-const label = (x) => x.k === 'w' ? weaponName(x.item) : x.k === 'a' ? armorName(x.item.s, x.item.g, x.item.set)
+export const label = (x) => x.k === 'w' ? weaponName(x.item) : x.k === 'a' ? armorName(x.item.s, x.item.g, x.item.set)
   : x.k === 'p' ? POTION_BY_ID[x.u]?.name || x.u : x.k === 'm' ? MATERIALS.find((m) => m.id === x.u)?.name || x.u
     : x.k === 'wp' ? '워프권' : '하락 방지권';
 const identity = (x) => `${x.k}:${x.u || ''}`;

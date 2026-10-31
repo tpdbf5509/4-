@@ -84,6 +84,36 @@ CREATE TABLE IF NOT EXISTS trade_moves (
 );
 CREATE INDEX IF NOT EXISTS trade_moves_owner ON trade_moves(owner, u);
 
+-- 광장 장터 게시판(ledger-market.js) — 올려 둔 물건과 판매자 보관함(대금 · 돌아온 물건). 장부가 처음 부를 때도 같은 문장으로 만든다
+CREATE TABLE IF NOT EXISTS market (
+  id          TEXT PRIMARY KEY,
+  seller      TEXT NOT NULL,
+  seller_name TEXT NOT NULL,
+  kind        TEXT NOT NULL,
+  u           TEXT,
+  n           INTEGER NOT NULL DEFAULT 1,
+  item        TEXT,
+  price       INTEGER NOT NULL,
+  created_at  INTEGER NOT NULL,
+  until       INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS market_until ON market(until);
+CREATE INDEX IF NOT EXISTS market_seller ON market(seller);
+CREATE TABLE IF NOT EXISTS market_box (
+  id     INTEGER PRIMARY KEY AUTOINCREMENT,
+  owner  TEXT NOT NULL,
+  why    TEXT NOT NULL,                           -- sold 팔림(코인) · expired 기간 끝 · cancel 취소했는데 가방이 가득
+  coins  INTEGER NOT NULL DEFAULT 0,
+  kind   TEXT,
+  u      TEXT,
+  n      INTEGER NOT NULL DEFAULT 0,
+  item   TEXT,
+  price  INTEGER NOT NULL DEFAULT 0,
+  give   INTEGER NOT NULL DEFAULT 0,              -- 1 이면 받을 때 물건도 가방에 넣는다
+  at     INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS market_box_owner ON market_box(owner);
+
 CREATE TABLE IF NOT EXISTS guilds (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL,

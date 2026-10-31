@@ -17,6 +17,7 @@ import { trading } from "./tradeData.js";
    판정은 방장 한 명이 하고, 나머지는 받은 상태를 그린다.
    레벨 · 경험치 · 코인 · 퀘스트는 각자의 기기에 이름과 함께 남아 다음에 들어와도 이어진다. */
 import { P, towerIdx } from "./world.js";
+import { MARKET } from "./marketData.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WARP, GUARD, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
@@ -111,6 +112,7 @@ export const MAPS = {
       {x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y,r:38},{...GUILD_HALL.door,r:35},
       { x: ADV.npc.x, y: ADV.npc.y - 4, r: 18 },   // 전직 교관
       { x: DEEP.door.x, y: DEEP.door.y - 6, r: 34 },   // 계몽의 문(deepData.js)
+      { x: MARKET.npc.x, y: MARKET.npc.y - 6, r: 40 },   // 장터 게시판(marketData.js)
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
@@ -125,6 +127,7 @@ export const MAPS = {
       {id:'guilddoor',guildDoor:1,name:'길드 문',...GUILD_HALL.door},   // 길드가 있으면 길드 광장, 없으면 길드 찾기(guildData.js GUILD_HALL)
       { id: "adv", adv: 1, name: "전직 교관", x: ADV.npc.x, y: ADV.npc.y },   // 200레벨 1차 전직 — 시험 · 확정 창(advData.js)
       { id: "deep", deep: 1, name: "계몽의 문", x: DEEP.door.x, y: DEEP.door.y },   // 400~800레벨 사냥터 — 계몽의 눈 만들기 · 입장 창(deepData.js)
+      { id: "market", market: 1, name: "장터 게시판", x: MARKET.npc.x, y: MARKET.npc.y },   // 올려 두면 나중에 팔리는 게시판 — 창은 화면이 연다(MarketPanel.jsx)
     ],
   },
   field: {
@@ -1365,7 +1368,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv || npc.market) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
     h.quest = { on: true, n: 0, coinOnly:h.lv>QUEST.lv };

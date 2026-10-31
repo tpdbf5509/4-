@@ -8,6 +8,7 @@ import { RESET } from "../../src/game/itemData.js";
 import { rpgKey, len, sha256, iso, isObj, txt, jeq, lvOf } from "./ledger-util.js";
 import { tradeMethods } from "./ledger-trade.js";
 import { guildMethods } from "./ledger-guild.js";
+import { marketMethods } from "./ledger-market.js";
 
 export { rpgKey, sha256, jeq };
 
@@ -375,4 +376,4 @@ export class LedgerCore {
 }
 
 // 거래 · 길드 함수는 따로 파일에 두고 클래스에 붙인다(trade.sql · guild.sql 을 옮긴 것)
-Object.assign(LedgerCore.prototype, tradeMethods, guildMethods);
+Object.assign(LedgerCore.prototype, tradeMethods, guildMethods, marketMethods);

@@ -32,7 +32,7 @@ const pct = (v, d = 1) => `${(Math.round(v * 100 * 10 ** d) / 10 ** d).toLocaleS
 const statDef = (id) => STATS.find((t) => t.id === id);
 
 /* ── 공통 조각 ─────────────────────────────────────────────── */
-function Tabs({ tabs, on, set }) {
+export function Tabs({ tabs, on, set }) {
   return (
     <div className="shop-tabs" role="tablist">
       {tabs.map(([id, label, sub]) => (
@@ -43,13 +43,13 @@ function Tabs({ tabs, on, set }) {
     </div>
   );
 }
-const Price = ({ n, old }) => (
+export const Price = ({ n, old }) => (
   <span className="shop-price">{old !== undefined && <s>{won(old)}</s>}<Coin />{won(n)}</span>
 );
 const Grade = ({ g }) => <span className={`shop-grade g${g}`}>{GRADES[g].name}</span>;
 
 /* 한 줄 — acts: [{ label, why, onClick, main, quiet }]. 막힌 버튼이 있으면 이유를 줄 아래에 적는다(quiet 는 적지 않는다) */
-function Item({ art, name, meta, desc, price, acts = [], dim }) {
+export function Item({ art, name, meta, desc, price, acts = [], dim }) {
   const blocked = acts.filter((a) => a.why && a.why.length && !a.quiet);
   const why = blocked.map((a) => (acts.length > 1 ? `${a.label} — ${a.why.join(" · ")}` : a.why.join(" · ")));
   return (
@@ -74,8 +74,8 @@ function Item({ art, name, meta, desc, price, acts = [], dim }) {
     </div>
   );
 }
-const Head = ({ children, sub }) => <h4 className="shop-h">{children}{sub && <small>{sub}</small>}</h4>;
-const Empty = ({ children }) => <p className="shop-empty">{children}</p>;
+export const Head = ({ children, sub }) => <h4 className="shop-h">{children}{sub && <small>{sub}</small>}</h4>;
+export const Empty = ({ children }) => <p className="shop-empty">{children}</p>;
 
 // 무기 한 줄 — 특별 무기는 그림 · 등급 · 레벨
 function WeaponItem({ w, tag, desc, price, acts, dim }) {
@@ -645,7 +645,7 @@ function ScrollShop({ h, send }) {
 const BODIES = { scroll: ScrollShop, weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge, junk: JunkShop };
 
 // 창의 틀 — 머리(이름 · 한 줄 · 코인 · 닫기) · 결과 한 줄 · 내용
-function Frame({ title, sub, coins, admin, note, quiet, onClose, children }) {
+export function Frame({ title, sub, coins, admin, note, quiet, onClose, children }) {
   return (
     <>
       <div className="rpg-menu-back" onClick={onClose} />

@@ -30,7 +30,7 @@ import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
-import { TRAIN, TRAIN_TOGGLES } from "./game/trainData.js";
+import { TRAIN, TRAIN_TOGGLES, TRIAL } from "./game/trainData.js";
 
 // 무기 스킬 칸 — 낀 전설 무기의 스킬 이름 · 대기 · 쌓인 것
 function weaponHud(me) {
@@ -89,6 +89,9 @@ import { UPDATES, RPG_NOTICE } from "./game/updates.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf, mouseCode } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
+import JobTrial from "./JobTrial.jsx";
+import { GUIDE, GUIDE_STEPS, guideStep } from "./game/guideData.js";
+import { drawGuideArrow } from "./game/guideArt.js";
 import InquiryPanel from "./InquiryPanel.jsx";
 import { compareBuild, BUILD } from "./net/version.js";
 import { adminRedeem, joinAdminLink } from "./net/admin.js";
@@ -187,6 +190,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
   const [del, setDel] = useState(false);             // 캐릭터 삭제 — 이름을 똑같이 적어야 지운다
   const [delName, setDelName] = useState("");
   const [delErr, setDelErr] = useState("");
+  const [trying, setTrying] = useState(false);       // 직업 체험 — 고르기 전에 훈련장에서 한 판(JobTrial.jsx)
 
   const named = !!char;
   const admin = named && char.admin;                  // 관리자 캐릭터 — 직업 · 원소 · 성별을 언제든 바꾼다
@@ -279,7 +283,13 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
           </div>
         )}
 
-        <div className="mk-body">
+        {trying && (
+          <JobTrial name={named ? char.name : ""} job0={job} elem0={elem} gender={gender}
+            onPick={fixed ? null : (j, e) => { setJob(j); setElem(e); setSure(false); setLookErr(""); setTrying(false); }}
+            onClose={() => setTrying(false)} />
+        )}
+
+        <div className="mk-body" style={trying ? { display: "none" } : undefined}>
           {/* 왼쪽 — 고른 모습 미리 보기 */}
           <div className="mk-preview" style={el ? { "--ec": el.light, "--ed": el.dark } : undefined}>
             <div className={`mk-stage ${job && gender ? "" : "blank"}`}>
@@ -306,6 +316,16 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
               <h2 className="mk-h"><span>01</span>이름 · 코드</h2>
               <RpgAccount char={char} onChar={applyChar} />
             </section>
+
+            {!fixed && (
+              <section className="mk-step mk-try">
+                <div>
+                  <b>정하기 전에 한 판 해 보세요</b>
+                  <span>직업 · 원소는 바꿀 수 없습니다. 훈련장에서 {TRIAL.sec}초 동안 직접 쳐 보고 고르세요.</span>
+                </div>
+                <button type="button" className="btn-ghost" onClick={() => setTrying(true)}>직업 체험</button>
+              </section>
+            )}
 
             <fieldset className="mk-step" disabled={!named}>
               <h2 className="mk-h"><span>02</span>직업</h2>
@@ -501,6 +521,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const mouseMoveOn = isMouseMode(moveMode);
   useEffect(() => { moveModeRef.current = moveMode; }, [moveMode]);
   const [hud, setHud] = useState(null);
+  // 첫 10분 길 안내 — 끝냈거나 닫았으면 이 기기에 캐릭터 이름별로 남긴다(guideData.js)
+  const [guideDone, setGuideDone] = useState(() => { try { return localStorage.getItem(GUIDE.store + selfName.current) === "done"; } catch { return false; } });
+  const guideRef = useRef(null);                    // 판 위 화살표가 가리킬 곳 — 루프가 읽는다
+  const closeGuide = () => {
+    try { localStorage.setItem(GUIDE.store + selfName.current, "done"); } catch { /* 저장이 막혀 있으면 이번만 */ }
+    guideRef.current = null;
+    setGuideDone(true);
+  };
   const [mute, setMute] = useState(() => sfx.isMuted());
   const [dropped, setDropped] = useState(false);
   const [toast, setToast] = useState(null);         // 맵을 옮기면 잠깐 이름을 띄운다
@@ -1313,6 +1341,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         }
       }
       drawRpg(ctx, g, bgsRef.current);
+      drawGuideArrow(ctx, g, guideRef.current, now);
       if (now - hudAt >= HUD_MS) {
         hudAt = now;
         const me = g.heroes[mySeat];
@@ -1424,6 +1453,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [toast]);
 
   const me = hud;
+  const guide = !guideDone && me ? guideStep(me, metNpc(me.self, QUEST_NPC) || me.quest.on, (id) => (touch ? "" : keyOf(binds, id))) : null;
+  guideRef.current = guide && guide.target;
   const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run || (me.map==="worldboss"||me.map.startsWith("guildraid-")));   // 결투 · 던전 중에는 서버를 옮기지 않는다
   const nearShopNpc = me && me.near && me.near.shop ? SHOP_BY_ID[me.near.shop] : null;
   const myEl = elemOf(myLook);
@@ -2039,6 +2070,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           </div>
 
           {toast && <div className="rpg-toast" key={toast.at}>{toast.name}</div>}
+
+          {guide && (
+            <div className={`rpg-guide ${guide.end ? "end" : ""}`} role="status">
+              <span className="rpg-guide-n">첫 10분 · {guide.n}/{GUIDE_STEPS}</span>
+              <b>{guide.title}</b>
+              <span className="rpg-guide-line">{guide.line}</span>
+              {guide.id === "stat" && <button type="button" className="rpg-win-btn" onClick={() => { closeAll(); setStatOpen(true); }}>스탯 창 열기</button>}
+              <button type="button" className={guide.end ? "rpg-win-btn" : "rpg-guide-x"} onClick={closeGuide} title="안내 닫기">{guide.end ? "안내 끝내기" : "닫기"}</button>
+            </div>
+          )}
 
           {me && nearShopNpc && !shopOpen && !bagOpen && (
             <div className="rpg-talk">

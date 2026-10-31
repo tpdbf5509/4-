@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node tools/guide-snippets.mjs",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"

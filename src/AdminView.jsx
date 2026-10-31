@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RPG_SERVERS, JOB_BY_ID } from "./game/rpg.js";
 import { UPDATES } from "./game/updates.js";
 import { GUIDE, GUIDE_GROUPS, GUIDE_HOW } from "./game/codeGuideData.js";
+import SNIPS from "./game/codeGuideSnippets.json";
 import { myId } from "./net/room.js";
 import { ADMIN, adminTrades, adminAccounts, adminFeedback, adminRename, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
 import "./ui/admin.css";
@@ -568,6 +569,12 @@ function GuideTab() {
                 <dt>바꾸면</dt><dd>{e.effect}</dd>
                 {e.ex && <><dt>예시</dt><dd>{e.ex}</dd></>}
               </dl>
+              {(SNIPS[e.title] || []).map((b) => (
+                <figure key={b.file + b.from} className="adm-code">
+                  <figcaption>{b.file} · {b.from}행</figcaption>
+                  <pre>{b.code.map((l, i) => <span key={i}><i>{b.from + i}</i>{l}{"\n"}</span>)}</pre>
+                </figure>
+              ))}
             </article>
           );
         })}

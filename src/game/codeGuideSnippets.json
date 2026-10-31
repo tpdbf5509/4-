@@ -1,0 +1,415 @@
+{
+ "걷는 속도": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 90,
+   "code": [
+    "  spd: 250,              // 영웅이 걷는 속도"
+   ]
+  }
+ ],
+ "쓰러진 뒤 일어나는 시간": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 93,
+   "code": [
+    "  down: 5,               // 쓰러지면 이만큼 뒤에 광장에서 일어난다"
+   ]
+  }
+ ],
+ "맞지 않을 때 체력 회복": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 94,
+   "code": [
+    "  calm: 2.5,             // 이만큼 맞지 않으면 체력이 저절로 차오른다",
+    "  calmRegen: 0.03,       // 그때 초당 차오르는 몫 (최대 체력 대비)"
+   ]
+  }
+ ],
+ "스탯 1포인트당 효과": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 648,
+   "code": [
+    "  { id: \"str\", name: \"물리력\", note: \"검사 · 궁수 공격력\", base: 10, per: 3, fmt: (v) => String(v) },",
+    "  { id: \"int\", name: \"마법력\", note: \"마법사 공격력 · 화상 · 독 피해\", base: 10, per: 3, fmt: (v) => String(v) },",
+    "  { id: \"hp\", name: \"체력\", note: \"최대 체력 (직업 배율을 곱한다)\", base: 100, per: 22, fmt: (v) => v.toLocaleString(\"ko-KR\") },",
+    "  { id: \"crit\", name: \"치명타 확률\", note: \"치명타가 터질 확률\", base: 5, per: 0.5, fmt: (v) => `${r1(v)}%` },",
+    "  { id: \"cdmg\", name: \"치명타 피해\", note: \"치명타가 터졌을 때 피해\", base: 150, per: 1.5, fmt: (v) => `${r1(v)}%` },"
+   ]
+  }
+ ],
+ "최대 체력 바탕": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 650,
+   "code": [
+    "  { id: \"hp\", name: \"체력\", note: \"최대 체력 (직업 배율을 곱한다)\", base: 100, per: 22, fmt: (v) => v.toLocaleString(\"ko-KR\") },"
+   ]
+  }
+ ],
+ "공격력 바탕": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 648,
+   "code": [
+    "  { id: \"str\", name: \"물리력\", note: \"검사 · 궁수 공격력\", base: 10, per: 3, fmt: (v) => String(v) },",
+    "  { id: \"int\", name: \"마법력\", note: \"마법사 공격력 · 화상 · 독 피해\", base: 10, per: 3, fmt: (v) => String(v) },"
+   ]
+  }
+ ],
+ "치명타 확률": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 651,
+   "code": [
+    "  { id: \"crit\", name: \"치명타 확률\", note: \"치명타가 터질 확률\", base: 5, per: 0.5, fmt: (v) => `${r1(v)}%` },"
+   ]
+  }
+ ],
+ "치명타 피해": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 652,
+   "code": [
+    "  { id: \"cdmg\", name: \"치명타 피해\", note: \"치명타가 터졌을 때 피해\", base: 150, per: 1.5, fmt: (v) => `${r1(v)}%` },"
+   ]
+  }
+ ],
+ "스탯 한도 · 레벨당 포인트": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 638,
+   "code": [
+    "export const STAT_MAX = 800;          // 스탯 하나의 상한 — 250 → 400 → 800(800레벨 누적 2,000포인트. 효과는 포인트당 그대로)"
+   ]
+  },
+  {
+   "file": "src/game/rpg.js",
+   "from": 642,
+   "code": [
+    "export const STAT_PER_LV = 2;"
+   ]
+  }
+ ],
+ "최고 레벨": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 633,
+   "code": [
+    "export const LV_MAX = 800;               // 200 → 400 → 800(10월 26일 · 400~800 은 화염 · 심연 사냥터, deepData.js)"
+   ]
+  }
+ ],
+ "직업 평타 피해": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 564,
+   "code": [
+    "  { id: \"warrior\", name: \"검사\", weapon: \"검\",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
+    "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
+    "  { id: \"mage\", name: \"마법사\", weapon: \"지팡이\", note: \"원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다\",",
+    "    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: \"폭발\" },",
+    "  { id: \"archer\", name: \"궁수\", weapon: \"활\", note: \"가장 멀리서 쏜다 · 한 마리를 노린다\",",
+    "    hp: 0.85, dmg: 45, cd: 0.9, rng: 158, fly: 0.2, skill: \"화살비\" },"
+   ]
+  }
+ ],
+ "직업 공격 속도": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 564,
+   "code": [
+    "  { id: \"warrior\", name: \"검사\", weapon: \"검\",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
+    "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
+    "  { id: \"mage\", name: \"마법사\", weapon: \"지팡이\", note: \"원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다\",",
+    "    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: \"폭발\" },",
+    "  { id: \"archer\", name: \"궁수\", weapon: \"활\", note: \"가장 멀리서 쏜다 · 한 마리를 노린다\",",
+    "    hp: 0.85, dmg: 45, cd: 0.9, rng: 158, fly: 0.2, skill: \"화살비\" },"
+   ]
+  }
+ ],
+ "직업 사거리": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 564,
+   "code": [
+    "  { id: \"warrior\", name: \"검사\", weapon: \"검\",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
+    "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
+    "  { id: \"mage\", name: \"마법사\", weapon: \"지팡이\", note: \"원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다\",",
+    "    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: \"폭발\" },",
+    "  { id: \"archer\", name: \"궁수\", weapon: \"활\", note: \"가장 멀리서 쏜다 · 한 마리를 노린다\",",
+    "    hp: 0.85, dmg: 45, cd: 0.9, rng: 158, fly: 0.2, skill: \"화살비\" },"
+   ]
+  }
+ ],
+ "직업 체력 배율": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 564,
+   "code": [
+    "  { id: \"warrior\", name: \"검사\", weapon: \"검\",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
+    "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
+    "  { id: \"mage\", name: \"마법사\", weapon: \"지팡이\", note: \"원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다\",",
+    "    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: \"폭발\" },",
+    "  { id: \"archer\", name: \"궁수\", weapon: \"활\", note: \"가장 멀리서 쏜다 · 한 마리를 노린다\",",
+    "    hp: 0.85, dmg: 45, cd: 0.9, rng: 158, fly: 0.2, skill: \"화살비\" },"
+   ]
+  }
+ ],
+ "직업별 몬스터 피해 배율": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 573,
+   "code": [
+    "export const JOB_DMG = { mage: 1.05, archer: JOB_TUNE.archer.dmg };   // 10월 30일 궁수 1 → 0.9(jobTuneData.js)"
+   ]
+  }
+ ],
+ "직업 능력 조정(검사 · 기사 · 마법사 · 궁수)": [
+  {
+   "file": "src/game/jobTuneData.js",
+   "from": 5,
+   "code": [
+    "  warrior: { cut: 0.03 },"
+   ]
+  },
+  {
+   "file": "src/game/jobTuneData.js",
+   "from": 17,
+   "code": [
+    "  archer: {",
+    "    dmg: 0.9,             // 궁수 피해 10% 감소(몹 · 사람 모두)",
+    "    range: 1.15,          // 사거리 15% 증가(평타 · 스킬이 닿는 거리)",
+    "    vsArmor: 0.85,        // 방어력 있는 사람(방어구 감소 · 검사 기본 방어력)에게 피해 15% 더 감소",
+    "    gunnerFull: true,     // 10월 31일 사용자 요청 \"총사 딜 원래대로\" — 총사(전직)는 위 두 감소를 받지 않는다. 대신 장전이 생겼다(advData.js reload)"
+   ]
+  }
+ ],
+ "스킬 기본 피해": [
+  {
+   "file": "src/game/shopData.js",
+   "from": 133,
+   "code": [
+    "export const SKILL_USE = {",
+    "  base: 40,              // 공격 스킬의 기본 피해 — 스탯 10 일 때 mul 1 이면 이만큼",
+    "  reach: 1.3,            // 한 마리를 노리는 스킬의 사거리 — 내 평타 사거리의 배수",
+    "};"
+   ]
+  }
+ ],
+ "몬스터 경험치": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 301,
+   "code": [
+    "export const XP_RATE = 0.2;"
+   ]
+  }
+ ],
+ "몬스터 체력(1~400레벨)": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 470,
+   "code": [
+    "export const MOB_HP_EASE = 0.8;"
+   ]
+  }
+ ],
+ "200~400레벨 사냥터 난이도": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 460,
+   "code": [
+    "export const FAR_EASE = { hp: 0.7, dmg: 0.75 };"
+   ]
+  }
+ ],
+ "몬스터 자동 회복": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 305,
+   "code": [
+    "export const MOB_REGEN = { calm: 5, rate: 0.08 };"
+   ]
+  }
+ ],
+ "몬스터 한 마리 값(체력 · 공격 · 경험치 · 코인)": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 328,
+   "code": [
+    "    hp: (lv) => 300 + 60 * (lv - 10),             // 300 ~ 900",
+    "    dmg: (lv) => 12 + 2 * (lv - 10),              // 한 번 물 때 12 ~ 32"
+   ]
+  }
+ ],
+ "보스 재료 개수": [
+  {
+   "file": "src/game/itemData.js",
+   "from": 33,
+   "code": [
+    "export const DROP_ROLL = [[1, 15], [2, 20], [3, 30], [4, 20], [5, 15]];"
+   ]
+  }
+ ],
+ "무기 강화 한 단계당 증가": [
+  {
+   "file": "src/game/itemData.js",
+   "from": 61,
+   "code": [
+    "export const ENHANCE = {",
+    "  max: 30,",
+    "  per: 0.08,            // +1 마다 +8% — +10 이면 1.8배, +20 이면 2.6배, +30 이면 3.4배",
+    "  fee: 250,             // 코인 — +k 로 올릴 때 fee × k. 확률을 올린 만큼 100 에서 250 으로 올렸다"
+   ]
+  }
+ ],
+ "강화 비용 · 최대 단계": [
+  {
+   "file": "src/game/itemData.js",
+   "from": 61,
+   "code": [
+    "export const ENHANCE = {",
+    "  max: 30,",
+    "  per: 0.08,            // +1 마다 +8% — +10 이면 1.8배, +20 이면 2.6배, +30 이면 3.4배",
+    "  fee: 250,             // 코인 — +k 로 올릴 때 fee × k. 확률을 올린 만큼 100 에서 250 으로 올렸다"
+   ]
+  }
+ ],
+ "다른 무기를 들었을 때 고정 피해": [
+  {
+   "file": "src/game/shopData.js",
+   "from": 67,
+   "code": [
+    "export const OFF_HAND = { dmg: { sword: 45, bow: 35, staff: 40 } };   // 기획 값 — 검 45 · 활 35 · 마법봉 40"
+   ]
+  }
+ ],
+ "전직 가능 레벨": [
+  {
+   "file": "src/game/advData.js",
+   "from": 8,
+   "code": [
+    "export const ADV = {",
+    "  lv: 200,                       // 전직할 수 있는 레벨",
+    "  npc: { x: 640, y: 360 },       // 광장의 전직 교관 자리 — 무기상점과 명예 순위판 사이 빈 풀밭"
+   ]
+  }
+ ],
+ "전직 패시브 추가 피해 상한": [
+  {
+   "file": "src/game/advData.js",
+   "from": 14,
+   "code": [
+    "  pvpBonusMax: 0.15,             // 결투 · 사냥터 PvP 에서 패시브 추가 피해 합계 상한(+15%)"
+   ]
+  },
+  {
+   "file": "src/game/advData.js",
+   "from": 16,
+   "code": [
+    "  pveBonusMax: 0.6,              // 몹에게 주는 패시브 추가 피해 합계 상한(+60%)"
+   ]
+  }
+ ],
+ "전직 몸(체력 · 속도 · 받는 피해)": [
+  {
+   "file": "src/game/advData.js",
+   "from": 195,
+   "code": [
+    "export const ADV_BODY = {",
+    "  assassin: { hp: 0.78, spd: 1.2 },                 // 검사 계열(검투사 · 기사)보다 체력 22% 낮게",
+    "  elf: { hp: 0.8, spd: 1.3, take: 1.12 },           // 체력 20% 낮고 받는 피해 12% 많다(방어력이 낮다)",
+    "};"
+   ]
+  }
+ ],
+ "전직 추가 스탯": [
+  {
+   "file": "src/game/advData.js",
+   "from": 240,
+   "code": [
+    "export const ADV_BONUS = {",
+    "  gladiator: { str: 60, cdmg: 10 },   // 검투사 — 공격 · 콤보",
+    "  knight: { hp: 450, str: 20 },       // 기사 — 체력(방패로 버틴다)",
+    "  marksman: { crit: 10, cdmg: 20 },   // 명사수 — 치명타",
+    "  gunner: { str: 40, crit: 10 },      // 총사 — 공격 · 치명타",
+    "  archmage: { int: 80 },              // 마도사 — 마법력",
+    "  summoner: { int: 40, hp: 300 },     // 소환술사 — 마법력 · 체력(정령과 버틴다)",
+    "  healer: { int: 30, hp: 375 },       // 치유사 — 체력을 조금 더(앞에서 버티며 치유한다)"
+   ]
+  }
+ ],
+ "전직 스킬 대기 시간 · 배율": [
+  {
+   "file": "src/game/advData.js",
+   "from": 182,
+   "code": [
+    "      cd: 9, dmg: \"str\", n: 5, spread: 0.32, len: 560, width: 34, mul: 1.5, wind: 4, windSpd: 0.15,"
+   ]
+  }
+ ],
+ "소환술사 거대 정령(궁극기)": [
+  {
+   "file": "src/game/advData.js",
+   "from": 120,
+   "code": [
+    "    ultimate: {",
+    "      name: \"거대 정령\", note: \"지금 원소의 거대 정령을 25초 동안 부른다 · 정령은 체력이 있어 내가 받는 피해의 60%를 대신 맞는다 · 내 둘레를 돌아다니며 가까운 적에게 가 2.2초마다 내려친다 · 체력이 다하면 사라진다\",",
+    "      cd: 90, life: 25, dmg: \"int\",",
+    "      hpMul: 4,                                   // 정령 체력 = 내 최대 체력의 4배 — 받는 피해의 60% 를 대신 맞으니 내가 6.7배 오래 버틴다",
+    "      share: 0.6,",
+    "      every: 2.2, r: 200, mul: 6, stun: 0.35,     // 내려치기 한 번: 반경 r 안 모든 적에 마법 기본 피해 6배 · 잠깐 기절",
+    "      follow: 130,                                // 처음 서는 자리 — 주인 앞 거리",
+    "      roam: 520, speed: 190, wander: 2.5,         // 돌아다니는 범위(주인 둘레 반지름) · 걷는 속도 · 적이 없을 때 새 곳을 고르는 간격(초)",
+    "      size: 300,                                  // 맵에서 그리는 한 칸 폭(px) — 그림이 칸의 80% 높이라 약 240px, 캐릭터의 두 배 남짓",
+    "    },",
+    "    passive: {",
+    "      name: \"영혼 연결\", note: \"나와 정령 하나가 2초 안에 같은 적을 치면 영혼 피해(2초에 한 번) · 정령이 없으면 없다\",",
+    "      win: 2, gap: 2, mul: 0.6,",
+    "    },"
+   ]
+  }
+ ],
+ "결투 피해 · 시간": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 51,
+   "code": [
+    "export const DUEL = { dmgMul: 0.3, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,"
+   ]
+  }
+ ],
+ "서버 정원": [
+  {
+   "file": "src/game/rpg.js",
+   "from": 40,
+   "code": [
+    "export const RPG_SERVER_CAP = 10;"
+   ]
+  }
+ ],
+ "탑 공격력 · 사거리 · 공격 간격 · 비용": [
+  {
+   "file": "src/game/world.js",
+   "from": 288,
+   "code": [
+    "  { id: \"archer\", role: \"공격\", name: \"궁수탑\", cost: 30, up4: 260, range: 158, dmg: 15, interval: 0.95,",
+    "    note: \"단일 대상 · 사거리가 가장 길다\" },",
+    "  { id: \"sniper\", role: \"공격\", name: \"저격탑\", cost: 70, up4: 300, range: 165, dmg: 58, interval: 2.6, pickBig: true,"
+   ]
+  }
+ ],
+ "탑 4단계 강화 비용": [
+  {
+   "file": "src/game/world.js",
+   "from": 288,
+   "code": [
+    "  { id: \"archer\", role: \"공격\", name: \"궁수탑\", cost: 30, up4: 260, range: 158, dmg: 15, interval: 0.95,",
+    "    note: \"단일 대상 · 사거리가 가장 길다\" },"
+   ]
+  }
+ ]
+}

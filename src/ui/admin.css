@@ -153,3 +153,7 @@
 .adm-gcard dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .adm-gcard code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: rgba(128,128,128,0.14); padding: 1px 5px; border-radius: 3px; }
 .adm-gcard dd b { color: var(--point); font-weight: 600; }
+.adm-code { margin: 12px 0 0; border: 1px solid var(--line); border-radius: 4px; background: rgba(128,128,128,0.08); }
+.adm-code figcaption { padding: 5px 10px; font-size: 11.5px; color: var(--sub); border-bottom: 1px solid var(--line); }
+.adm-code pre { margin: 0; padding: 8px 10px; overflow-x: auto; font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.6; tab-size: 2; }
+.adm-code pre i { display: inline-block; width: 36px; margin-right: 8px; text-align: right; font-style: normal; color: var(--sub); user-select: none; }

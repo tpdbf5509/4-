@@ -771,7 +771,7 @@ export function advUlt(E, g, h) {
   if (E.pvpMap(map)) return void E.say(g, map, h.x, h.y - 90, "결투에서는 쓸 수 없다", "#d9c9a6");
   const a = asOf(h), U = c.ultimate, pet = E.safe(map);   // 광장 — 공격하지 않는 작은 펫
   if (a.ucd > 0) return void E.say(g, map, h.x, h.y - 90, `${U.name} ${Math.ceil(a.ucd)}초`, "#f0dcb4");
-  const x = h.x + (h.dir || 1) * (pet ? -U.petNear : U.follow), y = h.y, mhp = Math.round(h.max * U.hpMul);
+  const x = h.x + (pet ? U.petOff[0] : (h.dir || 1) * U.follow), y = h.y + (pet ? U.petOff[1] : 0), mhp = Math.round(h.max * U.hpMul);
   a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, pet: pet ? 1 : 0, cap: { raw: 0, adv: 1 } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
   if (!pet) a.ucd = U.cd;                          // 광장 펫은 대기를 쓰지 않는다 — 싸우는 곳에 들어가는 때부터(tickGiant) 돈다
   h.swing = Math.max(h.swing || 0, 0.4);
@@ -811,12 +811,12 @@ function tickGiant(E, g, h, a, dt) {
     gi.pet = pet; gi.tx = null; gi.cd = 0.9;
     if (!pet && !(a.ucd > 0)) a.ucd = U.cd;       // 싸우러 나가는 때부터 지속 30초와 대기가 함께 돈다
   }
-  if (pet) {                                       // 펫 — 공격 없이 충분히 떨어져 따라온다(petFar 보다 멀면 petNear 거리까지 다가선다)
-    const dx = gi.x - h.x, dy = (gi.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1;
-    if (d > 1200) { gi.x = h.x - (h.dir || 1) * U.petNear; gi.y = h.y; }
-    else if (d > U.petFar) {
-      const st = Math.min(d - U.petNear, U.petSpeed * dt * (1 + (d - U.petFar) / 300));
-      gi.x -= (dx / d) * st; gi.y -= (dy / d) * st * E.squash;
+  if (pet) {                                       // 펫 — 공격 없이 내 오른쪽 아래 petOff 자리에 머문다(petSlack 넘게 벗어나면 그 자리로 걸어간다)
+    const ax = h.x + U.petOff[0], ay = h.y + U.petOff[1], dx = ax - gi.x, dy = ay - gi.y, d = Math.hypot(dx, dy);
+    if (d > 1200) { gi.x = ax; gi.y = ay; }
+    else if (d > U.petSlack) {
+      const st = Math.min(d, U.petSpeed * dt * (1 + d / 300));
+      gi.x += (dx / d) * st; gi.y += (dy / d) * st;
     }
     E.keep(gi, h.map);
     return;

@@ -107,14 +107,12 @@ test('광장 — 공격 없는 작은 펫으로 멀찍이 따라다닌다', () =
   ult(g);
   const gi = h.as.gi;
   assert(gi && gi.pet === 1, '광장에서도 부를 수 있고 펫이다');
-  const d0 = Math.hypot(gi.x - h.x, (gi.y - h.y) / 0.78);
-  assert(Math.abs(d0 - U.petNear) < 5, `처음 거리 ${d0}`);
+  assert(Math.abs(gi.x - (h.x + U.petOff[0])) < 2 && Math.abs(gi.y - (h.y + U.petOff[1])) < 2, `처음 자리 ${gi.x - h.x},${gi.y - h.y}`);
   const m = mob(g, 1100, 900); m.map = 'plaza';
   run(g, 3);
   assert.equal(m.hp, m.max, '펫은 공격하지 않는다');
-  h.x = 1800; run(g, 4);                            // 멀리 가면 따라온다
-  const d = Math.hypot(gi.x - h.x, (gi.y - h.y) / 0.78);
-  assert(d <= U.petFar + 30 && d >= U.petNear - 30, `따라온 거리 ${d}`);
+  h.x = 1300; h.y = 800; run(g, 6);                            // 멀리 가면 따라온다
+  assert(Math.hypot(gi.x - (h.x + U.petOff[0]), gi.y - (h.y + U.petOff[1])) <= U.petSlack + 5, `따라온 자리 ${gi.x - h.x},${gi.y - h.y}`);
   assert(U.petSize < 100, '캐릭터보다 작다');
 });
 

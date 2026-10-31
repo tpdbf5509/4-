@@ -157,7 +157,10 @@ const reqTitle = (q) => (q.kind === "hunt" ? `${MOB[q.mob].name}${q.area ? q.bos
 const reqProg = (q, r, h) => (q.kind === "hunt"
   ? `${Math.min(r.n, q.n)}/${q.n}마리`
   : `가진 수 ${Math.min((h.bag.m && h.bag.m[q.mat]) || 0, q.n)}/${q.n}`);
-const reqPay = (q, lv, coinOnly=!q.area && lv>q.lv) => [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", (!coinOnly || q.area) && lv < LV_MAX && q.xp ? `경험치 ${requestXp(q, lv).toLocaleString("ko-KR")}` : "",
+// 의뢰 경험치 보상 문구 — 최고 레벨은 경험치를 받지 못하니 그렇게 적는다
+const reqXpText = (q, lv, coinOnly=!q.area && lv>q.lv) => !q.xp || (coinOnly && !q.area) ? ""
+  : lv >= LV_MAX ? "최고 레벨이라 경험치 없음" : `경험치 ${requestXp(q, lv).toLocaleString("ko-KR")}`;
+const reqPay = (q, lv, coinOnly=!q.area && lv>q.lv) => [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", reqXpText(q, lv, coinOnly),
   ...Object.entries(coinOnly?{}:(q.mats || {})).map(([id, n]) => `${MAT_BY_ID[id].name} ${n}`)].filter(Boolean).join(" · ");
 // 받침에 맞는 조사 — "하늘로" · "바람으로"
 function ro(word) {
@@ -1872,7 +1875,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     )}
                     {open.map(({ q, i }) => (
                       <div key={i} className={`rpg-win-row ${cur ? "locked" : ""}`}>
-                        <span className="rpg-stat-name"><b>{reqTitle(q)}</b><em>{q.lv}레벨부터 · 보상 {reqPay(q, me.lv)}{q.area && me.lv>q.maxLv ? ` · 경험치 ${QUEST_MASTER.lowAreaXp * 100}% 적용` : ""}</em></span>
+                        <span className="rpg-stat-name"><b>{reqTitle(q)}</b><em>{q.lv}레벨부터 · 보상 {reqPay(q, me.lv)}{q.area && me.lv>q.maxLv && me.lv<LV_MAX ? ` · 경험치 ${QUEST_MASTER.lowAreaXp * 100}% 적용` : ""}</em></span>
                         {cur && cur.i === i
                           ? <span className="rpg-win-tag">맡음</span>
                           : <button type="button" className="rpg-win-btn" disabled={!!cur || me.lv < q.lv} onClick={() => act("req", { op: "take", npc: npc.id, i })}>받기</button>}
@@ -1968,7 +1971,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
               {Object.entries(me.self.reqs).map(([id, r]) => {
                 const q = REQUESTS[id] && REQUESTS[id][r.i];
-                return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}</span> : null;
+                const xpTxt = q && me.lv < LV_MAX ? reqXpText(q, me.lv, r.coinOnly ?? (me.lv > q.lv)) : "";
+                return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}{xpTxt ? ` · ${xpTxt}` : ""}</span> : null;
               })}
               <span className="rpg-quest-open">의뢰 · 퀘스트 ›</span>
             </button>

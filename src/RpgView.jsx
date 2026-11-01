@@ -1,3 +1,4 @@
+import RpgRoster from "./RpgRoster.jsx";
 import Joystick from "./ui/Joystick.jsx";
 import { stopGameSelection } from "./ui/gameSelection.js";
 import BossHealthBar from './BossHealthBar.jsx';
@@ -1538,6 +1539,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             }
           }} />
 
+          <RpgRoster players={me ? me.party : []} mySeat={mySeat} partyId={me?.pty || 0}
+            names={names} seats={seats} hostId={hostId} who={who} onOpen={closeAll} />
+
           {/* 왼쪽 위 — 레벨 · 경험치 · 체력 · 코인 */}
           {me && (
             <div className="rpg-lv" style={{ "--pc": myEl.key, "--pcl": myEl.light }}>
@@ -2494,17 +2498,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             </div>
           </div>
         )}
-
-        <div className="rpg-party">
-          {(me ? me.party : []).map((h) => (
-            <span key={h.pi} className={`rpg-mate ${h.pi === mySeat ? "mine" : ""} ${me.pty && h.pty === me.pty && h.pi !== mySeat ? "mate" : ""}`}
-              style={{ "--pcl": elemOf(seats[h.pi]?.hero).light }}>
-              <b>{names[h.pi] || "모험가"}{me.pty > 0 && h.pty === me.pty && <small> 파티</small>}{hostId && seats[h.pi]?.id === hostId && <i className="rpg-mate-host">방장</i>}</b>
-              <em>{who(h.pi)} · Lv {h.lv} · {MAPS[h.map].name}</em>
-              <span className="rpg-mate-hp"><span style={{ width: `${Math.min(100, (h.hp / (h.max || 1)) * 100)}%` }} /></span>
-            </span>
-          ))}
-        </div>
 
         <p className="keyhint rpg-keys">
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_SERVER_CAP}명 ·{" "}

@@ -2373,3 +2373,9 @@ button.forge-stage:disabled { cursor: default; }
 @media (orientation: landscape) and (max-height: 650px) {
   .rpg-page.touch { padding-top: max(6px, env(safe-area-inset-top)); }
 }
+
+/* 조작 안내와 자세한 설명은 사람 아이콘 오른쪽의 설명 아이콘으로만 연다. */
+.rpg-help-toggle { left: calc(max(10px, env(safe-area-inset-left)) + 52px); }
+.rpg-help .rpg-keys { margin-top: 10px; color: #d9c9a6; line-height: 1.7; }
+.rpg-help .footnote { margin: 12px 0 0; color: #d9c9a6; line-height: 1.7; }
+.rpg-help .rpg-stat-head { position: sticky; top: -10px; z-index: 1; padding: 4px 0 8px; background: #302317; }

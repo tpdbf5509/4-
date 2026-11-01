@@ -424,14 +424,14 @@ export default function App() {
     publishLobby();
     return true;
   }, [me, publishLobby]);
-  // 관리자 /직업 — 방장은 그 사람 자리의 겉모습(직업)을 고쳐 모두에게 알린다. 바뀐 사람(mine)은 다시 들어갈 때 쓸 내 모습도 고친다
-  const relook = useCallback((id, job, mine) => {
-    if (mine && heroRef.current) heroRef.current = { ...heroRef.current, job };
+  // 관리자 /직업 · 원소 전환 물약 — 방장은 그 사람 자리의 겉모습(직업 · 원소)을 고쳐 모두에게 알린다. 바뀐 사람(mine)은 다시 들어갈 때 쓸 내 모습도 고친다
+  const relook = useCallback((id, patch, mine) => {
+    if (mine && heroRef.current) heroRef.current = { ...heroRef.current, ...patch };
     if (!hostRef.current || !id) return;
     const at = seatsRef.current.findIndex((st) => st && st.id === id);
     if (at < 0 || !seatsRef.current[at].hero) return;
     const seats = seatsRef.current.slice();
-    seats[at] = { ...seats[at], hero: { ...seats[at].hero, job } };
+    seats[at] = { ...seats[at], hero: { ...seats[at].hero, ...patch } };
     seatsRef.current = seats;
     publishLobby();
   }, [publishLobby]);

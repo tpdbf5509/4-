@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { W, H } from "./game/world.js";
 import {
-  RPG_CREW_MAX, JOBS, ELEMS, JOB_BY_ID, ELEM_BY_ID, makeWorld, rpgSyncSeats, rpgJoin, rpgStep, trainView, skillName,
+  RPG_CREW_MAX, JOBS, ELEMS, JOB_BY_ID, ELEM_BY_ID, makeWorld, rpgSyncSeats, rpgJoin, rpgStep, trainView, skillName, hasElem, elemFor,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
 import { drawRpg } from "./game/rpgArt.js";
@@ -37,7 +37,7 @@ function trialWorld(look) {
 export default function JobTrial({ name, job0, elem0, gender, onPick, onClose }) {
   const touch = useTouch();
   const [job, setJob] = useState(job0 || "warrior");
-  const [elem, setElem] = useState(elem0 || "flame");
+  const [elem, setElem] = useState(elem0 && ELEMS.some((e) => e.id === elem0) ? elem0 : ELEMS[0].id);   // 마법사일 때만 쓴다
   const [round, setRound] = useState(0);          // 다시 하기 · 바꾸기마다 늘어 세계를 새로 만든다
   const [hud, setHud] = useState({ left: TRIAL.sec, dps: 0, tot: 0, hits: 0, sk: 0, started: false, over: false });
   const cvsRef = useRef(null);
@@ -45,8 +45,11 @@ export default function JobTrial({ name, job0, elem0, gender, onPick, onClose })
   const clock = useRef({ started: false, left: TRIAL.sec });
   const [binds] = useState(loadKeys);
 
-  const look = { name: name || TRIAL.name, job, elem, gender: gender || "m" };
-  const el = ELEM_BY_ID[elem];
+  const magic = hasElem(job);                      // 원소는 마법사만 고른다(11월 1일)
+  const look = { name: name || TRIAL.name, job, elem: elemFor(job, elem), gender: gender || "m" };
+  const el = ELEM_BY_ID[look.elem];
+  const comboName = [JOB_BY_ID[job].name, el.name].filter(Boolean).join(" · ");
+  const pickIt = () => onPick(job, magic ? elem : null);
 
   // 세계를 새로 만든다 — 직업 · 원소를 바꾸거나 한 판 더
   useEffect(() => {
@@ -176,10 +179,10 @@ export default function JobTrial({ name, job0, elem0, gender, onPick, onClose })
           </div>
           {hud.over && (
             <div className="jt-end" role="dialog" aria-label="체험 결과">
-              <b>{JOB_BY_ID[job].name} · {el.name}</b>
+              <b>{comboName}</b>
               <p>쌓인 피해 {fmt(hud.tot)} · 맞힌 수 {fmt(hud.hits)}</p>
               <div className="mk-row">
-                {onPick && <button type="button" className="btn-main" onClick={() => onPick(job, elem)}>이 조합으로 고르기</button>}
+                {onPick && <button type="button" className="btn-main" onClick={pickIt}>이 조합으로 고르기</button>}
                 <button type="button" className="btn-ghost" onClick={() => setRound((n) => n + 1)}>한 판 더</button>
               </div>
               {onPick && <p className="mk-note">고른 뒤에도 게임 시작 전까지는 바꿀 수 있습니다.</p>}
@@ -205,7 +208,7 @@ export default function JobTrial({ name, job0, elem0, gender, onPick, onClose })
             </div>
             <p className="mk-note">{JOB_BY_ID[job].note}</p>
           </section>
-          <section>
+          {magic && <section>
             <h3 className="jt-h">원소</h3>
             <div className="jt-chips">
               {ELEMS.map((e) => (
@@ -216,7 +219,7 @@ export default function JobTrial({ name, job0, elem0, gender, onPick, onClose })
               ))}
             </div>
             <p className="mk-note">평타가 {el.hit}. 큰 기술 <b>{skillName(look)}</b>은 {el.big}.</p>
-          </section>
+          </section>}
           <section>
             <h3 className="jt-h">조작</h3>
             <ul className="jt-keys">
@@ -235,7 +238,7 @@ export default function JobTrial({ name, job0, elem0, gender, onPick, onClose })
               )}
             </ul>
           </section>
-          {onPick && <button type="button" className="btn-main jt-pick" onClick={() => onPick(job, elem)}>{JOB_BY_ID[job].name} · {el.name} 고르기</button>}
+          {onPick && <button type="button" className="btn-main jt-pick" onClick={pickIt}>{comboName} 고르기</button>}
           <p className="mk-note">바꾸면 새 판이 시작됩니다. 직업 · 원소는 게임을 시작할 때 굳고 그 뒤로는 바꿀 수 없습니다.</p>
         </div>
       </div>

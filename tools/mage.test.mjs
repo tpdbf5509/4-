@@ -33,14 +33,14 @@ test('마법사 피해는 몹에게 5% 더 들어간다', () => {
   assert(ratio > 1.03 && ratio < 1.07, `비율 ${ratio}`);   // 피해는 정수로 반올림하니 근사
 });
 
-test('마법사의 화상 · 독은 최대 3겹까지 쌓이고 전사는 쌓이지 않는다', () => {
+test('마법사의 화상 · 독은 최대 3겹까지 쌓이고 검사는 원소가 없어 걸리지 않는다', () => {
   fixedRandom(() => {
     for (const elem of ['flame', 'poison']) {
       const key = elem === 'flame' ? 'bst' : 'pst';
       const mage = setup('mage', elem); run(mage.g, 8);
       assert.equal(mage.m[key], DOT_STACK.max, `마법사 ${elem} 겹 ${mage.m[key]}`);
       const war = setup('warrior', elem); run(war.g, 8);
-      assert.equal(war.m[key], 1, `전사 ${elem} 겹 ${war.m[key]}`);
+      assert.ok(!(war.m[key] > 0), `검사 ${elem} 겹 ${war.m[key]}`);   // 11월 1일 — 원소는 마법사만(rpg.js ELEM_JOBS)
     }
   });
 });

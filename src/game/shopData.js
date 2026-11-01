@@ -161,6 +161,9 @@ export const SKILLS = [...[
 
 /* ── 물약 ──────────────────────────────────────────────── */
 // kind: heal(최대 체력의 pct 만큼 회복) · buff(dur 초 동안 stat 이 amt 만큼) · reset(찍은 스탯 포인트를 모두 돌려받는다)
+//       adv(전직을 비운다 — 숙련도 · 전투 특성도 사라지고, 다음 전직은 시험 없이 고른다) · elem(마법사의 원소를 바꾼다)
+// 11월 1일 사용자 결정 — 전직 초기화 · 원소 전환 물약은 150만 코인
+export const CLASS_POTION_PRICE = 1500000;
 export const POTIONS = [
   { id: "heal_s", name: "회복 물약 (소)", kind: "heal", pct: 0.25, price: 30 },
   { id: "heal_m", name: "회복 물약 (중)", kind: "heal", pct: 0.5, price: 80 },
@@ -175,6 +178,9 @@ export const POTIONS = [
   // 투명화 물약 — 몹이 알아채지 못한다(보스도 · 공격해도 풀리지 않는다). 결투장 · 던전에서는 마실 수 없다
   { id: "hide1", name: "투명화 물약 I", kind: "hide", dur: 30, price: 1750 },   // 반격 없이 사냥할 수 있어 600 에서 올렸다
   { id: "hide2", name: "투명화 물약 II", kind: "hide", dur: 50, price: 3000 },  // 1,200 에서 올렸다
+  // 전직 · 원소를 바꾸는 물약 — 물약 칸(5 · 6 · 7)에는 넣지 못한다(잘못 눌러 마시지 않게)
+  { id: "adv_reset", name: "전직 초기화 물약", kind: "adv", price: CLASS_POTION_PRICE, noSlot: 1 },
+  { id: "elem_swap", name: "원소 전환 물약", kind: "elem", price: CLASS_POTION_PRICE, noSlot: 1 },
 ];
 export const POTION = {
   stackMax: 99,          // 한 종류를 이만큼까지 가질 수 있다

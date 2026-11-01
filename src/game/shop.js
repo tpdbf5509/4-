@@ -13,7 +13,8 @@ import {
 } from "./shopData.js";
 import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
-import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS } from "./rpg.js";
+import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS, ELEMS, ELEM_BY_ID, hasElem } from "./rpg.js";
+import { advOf } from "./advance.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, armorName, armorCap } from "./armorData.js";
 import { cleanArmor, wornArmor } from "./armor.js";
 import { ADV_BONUS } from "./advData.js";
@@ -222,6 +223,8 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   }
   b.v = Math.max(0, Math.floor(Number(d.v) || 0));
   b.bx = bagSteps(d);                             // 잡동산이 상점에서 가방을 넓힌 횟수(junkData.js)
+  b.ar = Math.max(0, Math.floor(Number(d.ar) || 0));   // 전직 초기화 물약을 마신 횟수(rpg.js advRecord)
+  b.af = d.af ? 1 : 0;                            // 다음 전직은 시험 없이 — 전직 초기화 물약을 마시면 켜지고 전직하면 꺼진다
   b.oc = d.oc ? 1 : 0;
   b.lg = Math.floor(Number(d.lg)) || 0;          // 관리자 전설 무기를 받은 차례(rpg.js ADMIN_LEGEND)
   b.ak = Math.floor(Number(d.ak)) || 0;          // 관리자 장비(특별 무기 · 강화 · 전설 방어구)를 받은 차례(rpg.js ADMIN_KIT)
@@ -458,7 +461,7 @@ export function whyPotionBuy(h, id) {
   lackCoin(h, p.price, out);
   return out;
 }
-export function whyPotionUse(h, id) {
+export function whyPotionUse(h, id, el) {
   const out = [];
   base(h, null, out);
   const p = POTION_BY_ID[id];
@@ -475,6 +478,10 @@ export function whyPotionUse(h, id) {
   else if (p.kind === "heal" && h.hp >= h.max) out.push("체력이 이미 가득 찼습니다");
   else if (p.kind === "reset" && statSpent(h.st) <= 0) out.push("돌려받을 스탯 포인트가 없습니다");
   else if (p.kind === "hide" && noHide(h)) out.push("결투장 · 던전에서는 마실 수 없습니다");
+  else if (p.kind === "adv" && !advOf(h)) out.push("전직한 뒤에 마실 수 있습니다");
+  else if (p.kind === "elem" && !hasElem(h.job)) out.push("원소가 있는 마법사만 마실 수 있습니다");
+  else if (p.kind === "elem" && el !== undefined && !ELEMS.some((e) => e.id === el)) out.push("바꿀 원소를 골라 주세요");
+  else if (p.kind === "elem" && el === h.elem) out.push("지금 원소와 같습니다");
   return out;
 }
 // 방어구 — 끼기 · 빼기는 어디서나(쓰러졌으면 안 된다), 되팔기는 무기상점에서
@@ -672,8 +679,8 @@ export function rpgShop(g, pi, req) {
   }
   if (op === "puse") {
     const id = req.id;
-    if ((why = whyPotionUse(h, id)).length) return no(g, pi, why);
     const p = POTION_BY_ID[id];
+    if ((why = whyPotionUse(h, id, p && p.kind === "elem" ? String(req.el || "") : undefined)).length) return no(g, pi, why);
     const duel=!!MAPS[h.map]?.pvp;
     if(duel)h.duelPotions--;
     else { h.bag.p[id] -= 1;if (h.bag.p[id] <= 0) delete h.bag.p[id]; }
@@ -703,6 +710,21 @@ export function rpgShop(g, pi, req) {
       h.bf.hide = { t: Math.max(p.dur, cur && cur.t > 0 ? cur.t : 0), a: 1 };     // 다시 마시면 남은 시간과 새 시간 가운데 긴 쪽
       fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 44, color: "#cfd8e6", n: 8, t: 0.5, life: 0.5, who: pi });
       msg = `${Math.ceil(h.bf.hide.t)}초 동안 몹이 알아채지 못합니다(보스도)`;
+    } else if (p.kind === "adv") {                 // 전직 초기화 — 전직 · 숙련도 · 전투 특성 · 시험을 비운다. 기본 직업은 그대로
+      const wasFull = h.hp >= h.max, old = advOf(h);
+      h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
+      h.bag.ar = (h.bag.ar || 0) + 1;             // 초기화 횟수 — 저장이 비운 전직을 받아들이게 한다(rpg.js advRecord)
+      h.bag.af = 1;                               // 다음 전직은 시험 없이 확정한다(advance.js whyAdvConfirm)
+      hpChanged(h, wasFull);
+      fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 60, color: "#e8d7a8", n: 10, t: 0.7, life: 0.7, snd: "bless", who: pi });
+      msg = `${old ? old.name : "전직"}을 비웠습니다. 전직 교관에게서 시험 없이 새 전직을 고를 수 있습니다`;
+    } else if (p.kind === "elem") {                // 원소 전환 — 자리 소식의 겉모습도 바꾼다(g.relook · out "relook")
+      const el = String(req.el);
+      h.elem = el;
+      (g.relook || (g.relook = [])).push({ pi, who: h.who, elem: el });
+      if (g.out) g.out.push({ k: "relook", who: pi, elem: el });
+      fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 60, color: ELEM_BY_ID[el].light, n: 10, t: 0.7, life: 0.7, snd: "bless", who: pi });
+      msg = `원소가 ${jo(ELEM_BY_ID[el].name, "으로", "로")} 바뀌었습니다`;
     } else {
       const back = statSpent(h.st);
       h.st = noStats();
@@ -741,6 +763,7 @@ export function rpgShop(g, pi, req) {
   if (op === "qset") {
     const i = Math.floor(Number(req.i)), id = String(req.id || "");
     if (!(i >= 0 && i < POTION.slots) || (id && !POTION_BY_ID[id])) return no(g, pi, ["잘못된 물약 칸입니다"]);
+    if (id && POTION_BY_ID[id].noSlot) return no(g, pi, ["이 물약은 가방에서만 마십니다"]);
     if (!Array.isArray(h.bag.qs)) h.bag.qs = [];
     for (let k = 0; k < POTION.slots; k++) if (h.bag.qs[k] === undefined || (id && h.bag.qs[k] === id)) h.bag.qs[k] = "";   // 같은 물약은 한 칸에만
     h.bag.qs[i] = id;

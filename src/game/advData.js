@@ -1,5 +1,5 @@
 /* ── RPG 1차 전직 — 수치는 모두 여기 한 곳 ─────────────────────────────
-   200레벨부터 광장의 전직 교관에게 시험을 받고, 시험을 마치면 그 전직을 확정한다. 확정하면 되돌릴 수 없다.
+   200레벨부터 광장의 전직 교관에게 시험을 받고, 시험을 마치면 그 전직을 확정한다. 확정하면 되돌릴 수 없다 — 11월 1일부터 전직 초기화 물약(shopData.js)으로만 비운다.
    기본 직업(job)은 그대로 두고 전직(advClass)만 더한다. 전직마다 액티브 1개(키 adv, 기본 Z) · 패시브 1개.
    피해는 기존 셈 그대로 SKILL_USE.base × 스탯 배율(physMul · magMul · heroDmgMul) × mul.
    규칙은 rpg.js(rpgAdv · advUse · advOnHit · advDmgMul · advTake · tickAdv), 그림은 advArt.js, 창은 AdvPanel.jsx.

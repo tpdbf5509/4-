@@ -7,7 +7,7 @@ import { worldSetCount } from "./game/armor.js";
    막힌 이유는 방장과 같은 조건 함수(why*)로 미리 보여 준다. */
 import { useEffect, useRef, useState } from "react";
 import sfx from "./game/sfx.js";
-import { STATS, statValue, MAPS, JOB_BY_ID } from "./game/rpg.js";
+import { STATS, statValue, MAPS, JOB_BY_ID, ELEMS, ELEM_BY_ID } from "./game/rpg.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
@@ -140,7 +140,45 @@ function potionText(p) {
   if (p.kind === "buff") return `${p.dur}초 동안 ${statDef(p.stat).name} +${statDef(p.stat).fmt(p.amt)}`;
   if (p.kind === "speed") return `${p.dur >= 60 ? `${p.dur / 60}분` : `${p.dur}초`} 동안 이동 속도 +${Math.round(p.amt * 100)}%`;
   if (p.kind === "hide") return `${p.dur}초 동안 보스도 몹도 알아채지 못합니다 · 공격해도 풀리지 않습니다 · 결투장 · 던전에서는 못 마십니다`;
+  if (p.kind === "adv") return "전직을 비웁니다 · 숙련도와 전투 특성이 사라집니다 · 전직 교관에게서 시험 없이 다른 전직을 고릅니다";
+  if (p.kind === "elem") return "마법사의 원소를 다른 원소로 바꿉니다 · 마실 때 원소를 고릅니다";
   return "찍은 스탯 포인트를 모두 돌려받는다";
+}
+/* 전직 초기화 · 원소 전환 물약 — 마시기 전에 늘 한 번 더 묻는다(원소는 여기서 고른다) */
+const askFirst = (p) => p.kind === "adv" || p.kind === "elem";
+const drinkAct = (h, p, send, setAsk, extra = {}) => ({ label: "마시기", ...extra, why: whyPotionUse(h, p.id),
+  onClick: () => (askFirst(p) ? setAsk(p) : send({ op: "puse", id: p.id })) });
+function DrinkAsk({ h, p, send, onClose }) {
+  const [el, setEl] = useState("");
+  if (!p) return null;
+  const elem = p.kind === "elem";
+  const why = elem && el ? whyPotionUse(h, p.id, el) : [];
+  return (
+    <div className="shop-confirm" role="alertdialog" aria-modal="true" aria-label={p.name}>
+      <div className="shop-confirm-box">
+        <b className="shop-confirm-title">{p.name}을 마실까요?</b>
+        {elem ? (
+          <>
+            <p>지금 원소는 {ELEM_BY_ID[h.elem]?.name || "없음"}입니다. 바꿀 원소를 고르세요.</p>
+            <div className="shop-elems">
+              {ELEMS.filter((e) => e.id !== h.elem).map((e) => (
+                <button key={e.id} type="button" className={`shop-btn ${el === e.id ? "main" : ""}`} aria-pressed={el === e.id} onClick={() => setEl(e.id)}>
+                  <i className="shop-elem-dot" style={{ background: e.light }} />{e.name}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <p>전직을 비웁니다. 지금 전직의 숙련도와 전투 특성은 사라지고 되돌릴 수 없습니다. 기본 직업은 그대로입니다.</p>
+        )}
+        <div className="shop-confirm-acts">
+          <button type="button" className="shop-btn" onClick={onClose}>취소</button>
+          <button type="button" className="shop-btn main" disabled={(elem && !el) || why.length > 0} title={why[0] || ""}
+            onClick={() => { send({ op: "puse", id: p.id, ...(elem ? { el } : {}) }); onClose(); }}>마시기</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ── 한 번 더 묻기 — "다시 묻지 않기"를 고르면 이 기기에서는 다시 묻지 않는다(localStorage) ─────── */
@@ -257,10 +295,12 @@ function SkillShop({ h, send }) {
 }
 
 /* ── 물약 상점 — 종류별로 묶는다 ─────────────────────────────── */
-const POTION_GROUPS = [["heal", "회복 물약"], ["buff", "버프 물약"], ["speed", "이속 물약"], ["hide", "투명화 물약"], ["reset", "스탯 초기화"]];
+const POTION_GROUPS = [["heal", "회복 물약"], ["buff", "버프 물약"], ["speed", "이속 물약"], ["hide", "투명화 물약"], ["reset", "스탯 초기화"], ["adv", "전직 초기화"], ["elem", "원소 전환"]];
 function PotionShop({ h, send }) {
+  const [ask, setAsk] = useState(null);              // 마시기 전에 묻는 물약(전직 초기화 · 원소 전환)
   return (
     <>
+      <DrinkAsk h={h} p={ask} send={send} onClose={() => setAsk(null)} />
       <p className="shop-note">회복 · 버프 물약은 마실 때 {pct(POTION.greatChance, 0)} 확률로 대성공이 터져 효과가 {POTION.greatMul}배가 됩니다. 산 물약은 가방(I)에서도 마실 수 있습니다.</p>
       {POTION_GROUPS.map(([kind, title]) => (
         <div key={kind}>
@@ -271,7 +311,7 @@ function PotionShop({ h, send }) {
               desc={potionText(p)} price={<Price n={p.price} />}
               acts={[
                 { label: "사기", why: whyPotionBuy(h, p.id), onClick: () => send({ op: "pbuy", id: p.id }) },
-                { label: "마시기", quiet: true, why: whyPotionUse(h, p.id), onClick: () => send({ op: "puse", id: p.id }) },
+                drinkAct(h, p, send, setAsk, { quiet: true }),
               ]} />
           ))}
         </div>
@@ -726,6 +766,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
   const qs = h.bag.qs || [];
   const w = equipped(h.bag);
   const potions = POTIONS.filter((p) => h.bag.p[p.id] > 0);
+  const [ask, setAsk] = useState(null);              // 마시기 전에 묻는 물약(전직 초기화 · 원소 전환)
   const skills = SKILLS.filter((s) => h.bag.s[s.id] > 0);
   const mats = MATERIALS.filter((m) => matCount(h.bag, m.id) > 0);
   // 무기 종류별 탭 — 가방에 있는 종류만 보인다
@@ -788,6 +829,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
       )}
       {tab === "potion" && (
         <>
+          <DrinkAsk h={h} p={ask} send={send} onClose={() => setAsk(null)} />
           <p className="shop-note">칸 1 · 2 · 3 에 넣어 두면 화면 왼쪽 아래 칸이나 숫자키 5 · 6 · 7 로 바로 마십니다. 넣은 칸을 다시 누르면 뺍니다.</p>
           {!potions.length && <Empty>물약 상점에서 살 수 있습니다.</Empty>}
           {potions.map((p) => {
@@ -796,9 +838,9 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
               <Item key={p.id} name={p.name}
                 meta={<span className="shop-meta"><span>× {h.bag.p[p.id]}</span>{at >= 0 && <span className="shop-tag">칸 {at + 1}</span>}</span>}
                 desc={potionText(p)}
-                acts={[{ label: "마시기", why: whyPotionUse(h, p.id), onClick: () => send({ op: "puse", id: p.id }) },
-                  ...Array.from({ length: POTION.slots }, (_, i) => ({ label: `칸 ${i + 1}`, main: at === i,
-                    onClick: () => send({ op: "qset", i, id: at === i ? "" : p.id }) }))]} />
+                acts={[drinkAct(h, p, send, setAsk),
+                  ...(p.noSlot ? [] : Array.from({ length: POTION.slots }, (_, i) => ({ label: `칸 ${i + 1}`, main: at === i,
+                    onClick: () => send({ op: "qset", i, id: at === i ? "" : p.id }) })))]} />
             );
           })}
         </>

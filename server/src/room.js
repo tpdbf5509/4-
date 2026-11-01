@@ -391,11 +391,15 @@ export class RpgRoom {
     }
     const g = this.g;
     for (let left = real; left > 0; left -= STEP_MAX) rpgStep(g, Math.min(left, STEP_MAX));
-    // 관리자 /직업 — 자리의 겉모습(직업)을 고쳐 모두에게 알린다. 바뀐 사람의 기기 기록은 그 화면이 out "relook" 으로 고친다
+    // 관리자 /직업 · 원소 전환 물약 — 자리의 겉모습(직업 · 원소)을 고쳐 모두에게 알린다. 저장할 모습(a.look)도 고친다.
+    // 바뀐 사람의 기기 기록은 그 화면이 out "relook" 으로 고친다
     if (g.relook && g.relook.length) {
       g.relook.splice(0).forEach((r) => {
+        const patch = { ...(r.job ? { job: r.job } : {}), ...(r.elem ? { elem: r.elem } : {}) };
         const at = this.seats.findIndex((s) => s && s.id === r.who);
-        if (at >= 0 && this.seats[at].hero) this.seats[at] = { ...this.seats[at], hero: { ...this.seats[at].hero, job: r.job } };
+        if (at >= 0 && this.seats[at].hero) this.seats[at] = { ...this.seats[at], hero: { ...this.seats[at].hero, ...patch } };
+        const a = this.accts.get(r.who);
+        if (a && a.look) a.look = { ...a.look, ...patch };
       });
       this.publish();
     }

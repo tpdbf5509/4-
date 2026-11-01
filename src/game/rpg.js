@@ -609,7 +609,15 @@ export const ELEMS = [
   { id: "corrode", name: "부식", tower: "부식탑", hit: "더 아프게 맞게 한다", big: "크게 약하게 만든다" },
   { id: "gravity", name: "중력", tower: "중력탑", hit: "둘레 토끼를 끌어당긴다", big: "한곳에 모아 묶는다" },
 ].map((e) => ({ ...e, key: tint(e.id).key, light: tint(e.id).light, dark: tint(e.id).dark }));
-export const ELEM_BY_ID = Object.fromEntries(ELEMS.map((e) => [e.id, e]));
+/* 원소 없음 — 11월 1일부터 원소는 마법사만 고른다(ELEM_JOBS). 검사 · 궁수는 늘 이것.
+   예전 기록에 남은 검사 · 궁수의 원소는 지우지 않고 읽을 때 무시한다(cleanLook · elemOf) */
+export const ELEM_JOBS = ["mage"];
+export const hasElem = (job) => ELEM_JOBS.includes(job);
+export const NO_ELEM = { id: "none", name: "", tower: "", hit: "", big: "", key: "#b9a88a", light: "#efe3c8", dark: "#7c6d55" };   // 무기 빛 — 톤다운 양피지색
+const REAL_ELEM = Object.fromEntries(ELEMS.map((e) => [e.id, e]));
+export const ELEM_BY_ID = { ...REAL_ELEM, none: NO_ELEM };
+// 직업에 맞는 원소 id — 원소를 못 고르는 직업은 "none", 마법사인데 원소가 없거나 틀리면 첫 원소
+export const elemFor = (job, elem) => (!hasElem(job) ? "none" : REAL_ELEM[elem] ? elem : ELEMS[0].id);
 
 export const GENDERS = [{ id: "m", name: "남" }, { id: "f", name: "여" }];
 export const NAME_MAX = 8;
@@ -622,6 +630,7 @@ const ELEM_ART = {
   poison:  { fly: "poison/fly",  hit: "poison/hit",    big: "poison/storm" },
   corrode: { fly: "corrode/fly", hit: "corrode/hit",   big: "corrode/storm" },
   gravity: { fly: null,          hit: "gravity/crush", big: "gravity/hole" },
+  none:    { fly: null,          hit: null,            big: null },   // 원소 없음 — 원소 그림을 띄우지 않는다
 };
 
 /* 캐릭터 겉모습 — 이름 · 직업 · 원소 · 성별. 받은 값은 늘 이걸로 걸러 쓴다 */
@@ -629,13 +638,15 @@ export const cleanName = (v) => String(v || "").replace(/\s+/g, " ").trim().slic
 export function cleanLook(d) {
   if (!d) return null;
   const name = cleanName(d.name);
-  if (!name || !JOB_BY_ID[d.job] || !ELEM_BY_ID[d.elem] || !(d.gender === "m" || d.gender === "f")) return null;
-  return { name, job: d.job, elem: d.elem, gender: d.gender };
+  if (!name || !JOB_BY_ID[d.job] || !(d.gender === "m" || d.gender === "f")) return null;
+  return { name, job: d.job, elem: elemFor(d.job, d.elem), gender: d.gender };   // 원소는 직업에 맞춰 고친다(검사 · 궁수는 none)
 }
-const BASE_LOOK = { name: "", job: "warrior", elem: "flame", gender: "m" };
+const BASE_LOOK = { name: "", job: "warrior", elem: "none", gender: "m" };
 export const jobOf = (h) => JOB_BY_ID[h && h.job] || JOBS[0];
-export const elemOf = (h) => ELEM_BY_ID[h && h.elem] || ELEMS[0];
-export const skillName = (h) => `${elemOf(h).name} ${jobOf(h).skill}`;
+export const elemOf = (h) => (hasElem(jobOf(h).id) ? REAL_ELEM[h.elem] || ELEMS[0] : NO_ELEM);
+export const skillName = (h) => [elemOf(h).name, jobOf(h).skill].filter(Boolean).join(" ");
+// 화면에 쓰는 직업 이름 — 마법사는 원소를 앞에 붙인다(화염 마법사), 검사 · 궁수는 직업만
+export const lookTitle = (h) => [elemOf(h).name, jobOf(h).name].filter(Boolean).join(" ");
 // 캐릭터 그림 — public/assets/characters/rpg/<직업>-<성별>/<방향>.webp
 export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobOf(h).id}-${h && h.gender === "f" ? "f" : "m"}/${view}.webp`;
 // 전직한 캐릭터 그림 — <전직>-<성별>/<방향>.webp(무기를 든 그림, tools/cut-adv-classes.py). 전직 전이면 null
@@ -811,15 +822,17 @@ export function adoptChar(name, data, tok, admin) {
   return loadChar();
 }
 // 직업 · 원소 · 성별을 정한다 — 이미 정해 두었으면 그대로 두고 false. 관리자 캐릭터는 언제든 다시 정한다
-// 관리자 /직업 으로 바뀐 직업을 이 기기 기록에 남긴다(한 번 정한 직업도 바꾼다)
-export function forceJob(job) {
+// 관리자 /직업 · 원소 전환 물약으로 바뀐 겉모습을 이 기기 기록에 남긴다(한 번 정한 것도 바꾼다). patch = { job?, elem? }
+export function forceLook(patch) {
   const cur = loadSave();
-  return !!cur && !!JOB_BY_ID[job] && store({ ...cur, job });
+  if (!cur || !patch) return false;
+  const job = JOB_BY_ID[patch.job] ? patch.job : cur.job;
+  return store({ ...cur, job, elem: elemFor(job, patch.elem || cur.elem) });
 }
 export function saveLook(d) {
   const cur = loadSave();
   if (!cur || (cur.picked && !cur.admin)) return false;
-  return store({ ...cur, job: d.job, elem: d.elem, gender: d.gender, picked: 1 });
+  return store({ ...cur, job: d.job, elem: elemFor(d.job, d.elem), gender: d.gender, picked: 1 });
 }
 // 한 사람 되돌리기(PERSONAL_ROLLBACKS)를 방금 겪은 가방인가 — 새 가방에 받은 id 가 있고 옛 가방에는 없다. 레벨이 내려가도 저장해야 한다
 const rolledBack = (nb, ob) => PERSONAL_ROLLBACKS.some((r) => ((nb && nb.pg) || []).includes(r.id) && !((ob && ob.pg) || []).includes(r.id));
@@ -843,10 +856,12 @@ export function writeChar(d) {
     rec: cleanRec(d.rec), titles: cleanTitles(d.titles), title: TITLE_BY_ID[d.title] ? d.title : "",
     honor: Math.max(0, Math.floor(Number(d.honor) || 0)), reqs: cleanReqs(d.reqs),
     gift: d.gift === GIFT.id ? GIFT.id : cur.gift || "", rs: d.rs === RESET.id ? RESET.id : cur.rs || "",
-    ...advRecord(d, cur, reset || rolledBack(d.bag, cur.bag), cur.job) });
+    ...advRecord(d, cur, reset || rolledBack(d.bag, cur.bag) || advResetUp(d.bag, cur.bag), cur.job) });
 }
+// 전직 초기화 물약을 새로 마신 기록인가 — 가방의 초기화 횟수(bag.ar)가 남겨 둔 기록보다 크다
+const advResetUp = (nb, ob) => Math.floor(Number(nb && nb.ar) || 0) > Math.floor(Number(ob && ob.ar) || 0);
 /* 전직 기록 — 전직은 되돌릴 수 없어, 전직이 빈 기록이 와도(옛 방장 스냅샷 · 섞인 기록) 남겨 둔 전직을 지우지 않는다.
-   서버 초기화 · 한 사람 되돌리기 · 관리자(시험용으로 비운다)만 비울 수 있다 */
+   서버 초기화 · 한 사람 되돌리기 · 전직 초기화 물약(advResetUp) · 관리자(시험용으로 비운다)만 비울 수 있다 */
 function advRecord(d, base, clear, job) {
   const adv = cleanAdvClass(d.advClass), kept = cleanAdvClass(base && base.advClass);
   const keep = kept && (!job || ADV_BY_ID[kept].job === job) ? kept : "";   // 관리자가 직업을 바꿨으면 옛 직업의 전직은 남기지 않는다
@@ -865,12 +880,13 @@ export function heroRecord(h, base, look) {
   const { tok: _tok, linked: _linked, admin: _admin, ...rest } = b;
   const bag = { ...h.bag };
   delete bag.ld;
-  return { ...rest, ts: h.ts || 0, v: 3, ...(look ? { name: look.name, job: look.job, elem: look.elem, gender: look.gender, picked: 1 } : {}),
+  // 원소는 지금 영웅의 것을 쓴다 — 원소 전환 물약으로 바뀐 원소가 자리 소식보다 먼저 남는다
+  return { ...rest, ts: h.ts || 0, v: 3, ...(look ? { name: look.name, job: look.job, elem: elemFor(look.job, hasElem(h.job) ? h.elem : look.elem), gender: look.gender, picked: 1 } : {}),
     lv: h.lv, xp: h.xp, coins: h.coins, quest: { coinOnly:h.quest.coinOnly, on: !!h.quest.on, n: h.quest.n }, stats: { ...h.st }, bag,
     rec: cleanRec(h.rec), titles: cleanTitles(h.titles), title: TITLE_BY_ID[h.title] ? h.title : "",
     honor: Math.max(0, Math.floor(Number(h.honor) || 0)), reqs: cleanReqs(h.reqs),
     gift: h.gift === GIFT.id ? GIFT.id : b.gift || "", rs: h.rs === RESET.id ? RESET.id : b.rs || "",
-    ...advRecord(h, b, (h.rs === RESET.id && b.rs !== RESET.id) || rb, h.job) };
+    ...advRecord(h, b, (h.rs === RESET.id && b.rs !== RESET.id) || rb || advResetUp(h.bag, b.bag), h.job) };
 }
 
 /* ── 세계 ──────────────────────────────────────────────── */
@@ -1039,7 +1055,7 @@ export function rpgJoin(g, pi, d, who) {
    기록 · 칭호 · 명예 · 의뢰를 처음으로 돌린다. 한 사람 선물을 또 받지 않게 받은 표시(bag.pg)만 남기고,
    업데이트 선물도 받은 것으로 친다(초기화 직후에 또 주지 않는다) */
 function resetRecord(d) {
-  const bag = cleanBag({ pg: d.bag && d.bag.pg, n: d.bag && d.bag.n, oc: 1 });
+  const bag = cleanBag({ pg: d.bag && d.bag.pg, n: d.bag && d.bag.n, ar: d.bag && d.bag.ar, oc: 1 });   // 전직 초기화 횟수(ar)는 줄면 안 된다(advResetUp)
   return { ts: d.ts || 0, lv: 1, xp: 0, coins: 0, quest: { on: false, n: 0 }, stats: {}, bag, rec: {}, titles: [], title: "", honor: 0, reqs: {},
     gift: GIFT.id, rs: RESET.id, auto: d.auto, pvp: d.pvp, hold: d.hold, admin: 0 };
 }
@@ -1051,7 +1067,7 @@ function rollbackHero(g, h, rb) {
   h.st = cleanStats({}, h.lv);                     // 찍은 스탯 없음 — 그 레벨 몫의 포인트를 모두 돌려준다
   h.admin = 0;
   if (rb.items) {                                  // 아이템 전부 — 배운 스킬 · 스킬 칸 · 받은 표시만 남기고 새 가방으로
-    const keep = { s: h.bag.s, ks: h.bag.ks, pg: h.bag.pg, oc: 1, v: h.bag.v, n: h.bag.n };
+    const keep = { s: h.bag.s, ks: h.bag.ks, pg: h.bag.pg, oc: 1, v: h.bag.v, n: h.bag.n, ar: h.bag.ar || 0 };
     h.bag = Object.assign(cleanBag({}), keep, { ld: 1 });
   } else if (rb.legends) {
     const ids = new Set(SPECIALS.filter((sp) => !sp.world && !sp.adv && !sp.hold && sp.g === ADMIN_LEGEND.grade).map((sp) => sp.id));
@@ -1171,6 +1187,7 @@ export function fx(g, map, item) {
   const it = { map };
   for (const k in item) { const v = item[k]; it[k] = typeof v === "number" ? Math.round(v * FX_ROUND) / FX_ROUND : v; }
   if (fxBy >= 0 && it.by === undefined && typeof it.kind === "string" && it.kind.startsWith("sk_")) it.by = fxBy;
+  if (it.kind === "art" && !it.art) return;       // 원소 없는 검사 · 궁수 — 띄울 원소 그림이 없다
   if (it.kind === "cut") g.fx = g.fx.filter((f) => f.fid !== it.ref);   // 맞은 투사체 그림을 지운다
   else g.fx.push(it);
   if (it.kick && g.heroes[g.mySeat]?.map === map) g.shake = Math.max(g.shake, Math.min(.6, it.kick));
@@ -4873,8 +4890,8 @@ export function rpgApplyOut(g, list) {
     } else if (o.k === "sys") {
       g.sys.push({ who: o.who, msg: o.msg, at: o.at });
       if (g.sys.length > 30) g.sys.shift();
-    } else if (o.k === "relook") {                 // 관리자 /직업 — 바뀐 사람의 화면이 기기 기록을 고친다(RpgView)
-      (g.relooks || (g.relooks = [])).push({ who: o.who, job: o.job });
+    } else if (o.k === "relook") {                 // 관리자 /직업 · 원소 전환 물약 — 바뀐 사람의 화면이 기기 기록을 고친다(RpgView)
+      (g.relooks || (g.relooks = [])).push({ who: o.who, ...(o.job ? { job: o.job } : {}), ...(o.elem ? { elem: o.elem } : {}) });
     } else if (o.k === "banner") {
       g.banner = { text: o.text, sub: o.sub, tone: o.tone, t: o.t, life: o.life };
     }

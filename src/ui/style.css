@@ -1845,6 +1845,10 @@ button.forge-stage:disabled { cursor: default; }
 .shop-confirm-title { display: block; font-size: 15px; letter-spacing: -0.03em; color: #f0d48c; }
 .shop-confirm-box p { margin: 8px 0 4px; font-size: 13px; line-height: 1.5; letter-spacing: -0.02em; color: var(--sh-mute, #cbbfa8); }
 .shop-confirm-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+/* 원소 전환 물약 — 바꿀 원소 고르기 */
+.shop-elems { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.shop-elems .shop-btn { min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
+.shop-elem-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 /* 망치질 — 무기가 떨리고 빛이 차오르며 세 번 불꽃이 튄다 */
 .forge-forge .forge-art, .forge-forge .forge-blade { animation: forge-shake 0.4s ease-in-out infinite; }
 .forge-forge .forge-glow { animation: forge-charge 1.2s ease-in forwards; }

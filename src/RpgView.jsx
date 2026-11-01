@@ -20,9 +20,9 @@ import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, RPG_SERVER_CAP, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
   makeWorld, rpgStep, rpgStepVisual, rpgHold, rpgMove, FIELD_PVP,
-  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, forceJob, writeChar, deleteChar,
+  rpgSyncSeats, rpgLooks, rpgJoin, rpgPromote, rpgPack, rpgApply, rpgApplyOut, holdKey, noteSent, aimDir, needXp, ownHero, loadChar, saveLook, forceLook, writeChar, deleteChar,
   charRecord, setAccount, coinOf, xpOf, DUEL, honorGain, MOB_REGEN, ACTIVE_SKILLS, heldSpecial, trainView, predictDash, predictLunge, DASH,
-  npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook,
+  npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook, hasElem, elemFor, lookTitle,
   titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, requestXp, MOB,
   whyDungeon, dgNear, dgCrew, runOf, abyssCrew, abyssRunOf, abyssNear,
   RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
@@ -178,7 +178,8 @@ function ro(word) {
 }
 const VIEWS = [["front", "앞"], ["side", "옆"], ["back", "뒤"], ["turn", "사선"]];
 
-/* ── 캐릭터 만들기 — 이름 · 코드를 정하고, 직업 · 원소 · 성별을 고른 뒤 광장으로 ──────────
+/* ── 캐릭터 만들기 — 이름 · 코드를 정하고, 직업 · 성별(마법사는 원소도)을 고른 뒤 광장으로 ──────────
+   11월 1일 — 원소 칸은 처음엔 없고 마법사를 고를 때만 나온다. 검사 · 궁수는 원소가 없다(rpg.js ELEM_JOBS).
    이름 · 코드는 01 칸(RpgAccount)에서 정하고 서버에 만든다. 직업 · 원소 · 성별은 처음 게임을 시작할 때 한 번 더 묻고 굳힌다.
    이름 · 직업 · 원소 · 성별은 바꿀 수 없다. 이 기기와 서버에 남아, 다른 기기에서도 이름 + 코드로 이어 한다.
    room 이 있으면(코드로 들어온 방) 방 코드와 인원을 함께 보여 준다. */
@@ -198,9 +199,11 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
   const named = !!char;
   const admin = named && char.admin;                  // 관리자 캐릭터 — 직업 · 원소 · 성별을 언제든 바꾼다
   const fixed = named && char.picked && !admin;       // 직업 · 원소 · 성별까지 정해 두었다
-  const look = { name: char ? char.name : "", job: job || "warrior", elem: elem || "flame", gender: gender || "m" };
-  const ready = named && job && elem && gender && !(room && room.full);
-  const el = elem ? ELEM_BY_ID[elem] : null;
+  const look = { name: char ? char.name : "", job: job || "warrior", elem: elemFor(job || "warrior", elem), gender: gender || "m" };
+  const needElem = !!job && hasElem(job);             // 원소는 마법사만 고른다(11월 1일) — 검사 · 궁수는 원소 칸이 없다
+  const picked = !!job && (!needElem || !!elem) && !!gender;
+  const ready = named && picked && !(room && room.full);
+  const el = needElem && elem ? ELEM_BY_ID[elem] : null;
 
   // 01 칸에서 캐릭터가 바뀌었다(새로 만듦 · 서버에서 불러옴 · 코드를 정함)
   const applyChar = (c) => {
@@ -210,7 +213,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
   };
   const start = () => {
     if (!ready) return;
-    const l = cleanLook(fixed ? char : { name: char.name, job, elem, gender });
+    const l = cleanLook(fixed ? char : { name: char.name, job, elem: needElem ? elem : "none", gender });
     if (!l) return;
     if (!fixed && !sure && !admin) return setSure(true);
     if (!fixed) {
@@ -240,7 +243,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
   };
   // 고른 것이 바뀌면 묻던 것은 거둔다
   const choose = (set) => (v) => { set(v); setSure(false); setLookErr(""); };
-  const lookText = `${job ? JOB_BY_ID[job].name : "직업"} · ${el ? el.name : "원소"} · ${gender ? (gender === "f" ? "여" : "남") : "성별"}`;
+  const lookText = [job ? JOB_BY_ID[job].name : "직업", ...(needElem ? [el ? el.name : "원소"] : []), gender ? (gender === "f" ? "여" : "남") : "성별"].join(" · ");
   const fixedRow = (text) => (
     <div className="mk-name-fixed">
       <b>{text}</b>
@@ -260,12 +263,12 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
             <h1>{named ? "모험 준비" : "캐릭터 만들기"}</h1>
             <p className="tag">
               {admin
-                ? "관리자 캐릭터는 직업 · 원소 · 성별을 언제든 바꿀 수 있습니다. 고른 뒤 게임 시작하기를 누르면 바뀐 모습으로 나갑니다."
+                ? "관리자 캐릭터는 직업 · 성별 · 마법사 원소를 언제든 바꿀 수 있습니다. 고른 뒤 게임 시작하기를 누르면 바뀐 모습으로 나갑니다."
                 : fixed
                 ? "저장된 캐릭터를 불러왔습니다. 게임 시작하기를 누르면 광장으로 나갑니다."
                 : named
-                  ? "직업 · 원소 · 성별을 고르고 광장으로 나가세요. 셋 다 한 번 정하면 바꿀 수 없습니다."
-                  : "이름과 숫자 5자리 코드를 먼저 정합니다. 그다음 직업 · 원소 · 성별을 고르면 광장으로 나갑니다. 다른 기기에서는 이름과 코드로 이어 합니다."}
+                  ? "직업과 성별을 고르고 광장으로 나가세요. 마법사는 원소도 고릅니다. 한 번 정하면 바꿀 수 없습니다."
+                  : "이름과 숫자 5자리 코드를 먼저 정합니다. 그다음 직업과 성별을 고르면 광장으로 나갑니다. 마법사는 원소도 고릅니다. 다른 기기에서는 이름과 코드로 이어 합니다."}
             </p>
           </div>
           <div className="lobby-actions">
@@ -324,7 +327,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
               <section className="mk-step mk-try">
                 <div>
                   <b>정하기 전에 한 판 해 보세요</b>
-                  <span>직업 · 원소는 바꿀 수 없습니다. 훈련장에서 {TRIAL.sec}초 동안 직접 쳐 보고 고르세요.</span>
+                  <span>직업은 바꿀 수 없습니다. 훈련장에서 {TRIAL.sec}초 동안 직접 쳐 보고 고르세요.</span>
                 </div>
                 <button type="button" className="btn-ghost" onClick={() => setTrying(true)}>직업 체험</button>
               </section>
@@ -348,9 +351,10 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
               {fixed && <p className="mk-note">{JOB_BY_ID[job].note}</p>}
             </fieldset>
 
+            {needElem && (
             <fieldset className="mk-step" disabled={!named}>
               <h2 className="mk-h"><span>03</span>원소</h2>
-              {fixed ? fixedRow(`${el.name} · ${el.tower}`) : (
+              {fixed ? fixedRow(el ? `${el.name} · ${el.tower}` : "원소 없음") : (
               <div className="mk-elems">
                 {ELEMS.map((e) => (
                   <button key={e.id} type="button" className={`mk-elem ${elem === e.id ? "on" : ""}`}
@@ -368,10 +372,12 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
                   큰 기술 <b>{skillName({ job, elem })}</b> — 둘레 토끼를 크게 치고 {el.big}.
                 </p>
               )}
+              {fixed && <p className="mk-note">원소는 물약 상점의 원소 전환 물약으로 바꿀 수 있습니다.</p>}
             </fieldset>
+            )}
 
             <fieldset className="mk-step" disabled={!named}>
-              <h2 className="mk-h"><span>04</span>성별</h2>
+              <h2 className="mk-h"><span>{needElem ? "04" : "03"}</span>성별</h2>
               {fixed ? fixedRow(gender === "f" ? "여" : "남") : (
               <div className="mk-genders">
                 {GENDERS.map((gd) => (
@@ -388,7 +394,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
               {sure && !fixed ? (
                 <div className="mk-confirm">
                   <p><b>{lookText}</b>{ro(gender === "f" ? "여" : "남")} 정하고 시작할까요?</p>
-                  <p className="mk-warn">직업 · 원소 · 성별은 변경 불가합니다. 정한 뒤에는 다시 바꿀 수 없습니다.</p>
+                  <p className="mk-warn">직업 · 성별은 변경 불가합니다. 정한 뒤에는 다시 바꿀 수 없습니다.{needElem ? " 원소는 원소 전환 물약으로만 바꿉니다." : ""}</p>
                   <div className="mk-row">
                     <button className="btn-main" disabled={!ready} onClick={start}>이대로 정하고 시작하기</button>
                     <button className="btn-ghost" onClick={() => setSure(false)}>다시 고르기</button>
@@ -398,12 +404,12 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
                 <>
                   <button className="btn-main wide" disabled={!ready} onClick={start}>게임 시작하기</button>
                   {error && <p className="err">{error}</p>}
-                  <p className={fixed || !(named && job && elem && gender) ? "mk-note" : "mk-warn"}>
+                  <p className={fixed || !(named && picked) ? "mk-note" : "mk-warn"}>
                     {!named ? "이름을 먼저 정해 주세요."
-                      : admin && job && elem && gender ? "관리자 — 누르면 고른 모습으로 광장으로 이동합니다. 다음에 다시 바꿀 수 있습니다."
-                      : !(job && elem && gender) ? "직업 · 원소 · 성별을 모두 고르면 시작할 수 있습니다. 셋 다 한 번 정하면 바꿀 수 없습니다."
+                      : admin && picked ? "관리자 — 누르면 고른 모습으로 광장으로 이동합니다. 다음에 다시 바꿀 수 있습니다."
+                      : !picked ? (needElem ? "직업 · 원소 · 성별을 모두 고르면 시작할 수 있습니다. 한 번 정하면 바꿀 수 없습니다." : "직업과 성별을 고르면 시작할 수 있습니다. 마법사를 고르면 원소도 고릅니다.")
                         : fixed ? "누르면 광장으로 이동합니다."
-                          : "누르면 한 번 더 묻습니다. 직업 · 원소 · 성별은 변경 불가합니다."}
+                          : "누르면 한 번 더 묻습니다. 직업 · 성별은 변경 불가합니다."}
                   </p>
                 </>
               )}
@@ -416,7 +422,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
                   <div className="mk-del-box" role="alertdialog" aria-labelledby="mk-del-q">
                     <p id="mk-del-q" className="mk-del-q">캐릭터를 삭제하시겠습니까?</p>
                     <p className="mk-note">
-                      <b>{char.name}</b>의 이름 · 직업 · 원소 · 성별과 Lv {char.lv} · 코인 {char.coins}이 모두 지워집니다.
+                      <b>{char.name}</b>의 이름 · 직업 · 성별과 Lv {char.lv} · 코인 {char.coins}이 모두 지워집니다.
                       {char.linked ? " 서버에 저장된 기록도 지워집니다." : ""} 되돌릴 수 없습니다. 지우려면 캐릭터 이름을 똑같이 적어 주세요.
                     </p>
                     <div className="mk-row">
@@ -1328,16 +1334,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 내 시계가 실제보다 뒤처져, 서버 위치와 견주는 때가 어긋나 걷다가 뒤로 당겨졌다(느린 기기 · 스킬 연출이 많을 때)
         for (let left = Math.min(real, GUEST_CATCH_UP); left > 0; left -= STEP_MAX) rpgStepVisual(g, Math.min(left, STEP_MAX));
       }
-      // 관리자 /직업 — 방장은 자리 소식의 겉모습을 고치고, 바뀐 사람은 이 기기 기록 · 다시 들어갈 때의 모습을 고친다
+      // 관리자 /직업 · 원소 전환 물약 — 방장은 자리 소식의 겉모습을 고치고, 바뀐 사람은 이 기기 기록 · 다시 들어갈 때의 모습을 고친다
+      const lookPatch = (r) => ({ ...(r.job ? { job: r.job } : {}), ...(r.elem ? { elem: r.elem } : {}) });
       if (g.relook && g.relook.length) g.relook.splice(0).forEach((r) => {
         const mine = r.pi === g.mySeat;
-        if (mine) forceJob(r.job);
-        relookRef.current?.(r.who, r.job, mine);
+        if (mine) forceLook(lookPatch(r));
+        relookRef.current?.(r.who, lookPatch(r), mine);
       });
       if (g.relooks && g.relooks.length) g.relooks.splice(0).forEach((r) => {
         if (r.who !== g.mySeat) return;
-        forceJob(r.job);
-        relookRef.current?.(null, r.job, true);
+        forceLook(lookPatch(r));
+        relookRef.current?.(null, lookPatch(r), true);
       });
       netRef.current.frames += 1;
       netRef.current.total += 1;                   // 관리 화면에 알리는 fps
@@ -1484,7 +1491,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const myEl = elemOf(myLook);
   const who = (pi) => {                              // 파티 칸 — 직업 · 원소
     const l = seats[pi]?.hero;
-    return l ? `${elemOf(l).name} ${jobOf(l).name}` : "";
+    return l ? lookTitle(l) : "";
   };
 
   return (
@@ -2502,7 +2509,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {RPG.calm}초 넘게 맞지 않으면 체력이 차오르고, 쓰러지면 {RPG.down}초 뒤 광장에서 일어납니다.
           검사는 둘레를 한 번에 베고, 마법사는 원소 구슬로 맞은 자리 둘레까지 치고, 궁수는 가장 멀리서 한 마리를 노립니다.
           고른 원소는 평타에 약하게, 큰 기술에 세게 실립니다.
-          이름 · 직업 · 원소 · 성별은 한 번 정하면 바꿀 수 없습니다. 레벨 · 경험치 · 코인 · 퀘스트 · 가방과 함께 이 기기와 서버에 남습니다. 다른 기기에서는 캐릭터 만들기 화면의 "코드로 이어 하기"에 이름과 숫자 5자리 코드를 넣으면 이어집니다.
+          이름 · 직업 · 성별은 한 번 정하면 바꿀 수 없습니다. 원소는 마법사만 고르고 원소 전환 물약으로 바꿉니다. 레벨 · 경험치 · 코인 · 퀘스트 · 가방과 함께 이 기기와 서버에 남습니다. 다른 기기에서는 캐릭터 만들기 화면의 "코드로 이어 하기"에 이름과 숫자 5자리 코드를 넣으면 이어집니다.
           광장에는 무기상점 · 스킬 상점 · 물약 상점 · 도박장 · 무기 강화소가 있습니다. 가까이 가서 E(휴대폰은 말풍선의 버튼)로 엽니다.
           산 무기 · 물약 · 배운 스킬은 가방(I)에서 보고, 무기 장착과 물약 마시기는 어디서나 할 수 있습니다.
           방 코드 없이 모두 같은 서버에 들어갑니다. 서버마다 {RPG_SERVER_CAP}명까지이고, 가득 차면 다음 서버로 넘어갑니다. ☰ 메뉴에서 서버를 옮길 수 있습니다.

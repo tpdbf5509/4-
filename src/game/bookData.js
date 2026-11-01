@@ -14,6 +14,7 @@ import { PARTY, CHAT, TITLE_UP } from "./socialData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEONS, DUNGEON } from "./dungeonData.js";
 import { UPDATES } from "./updates.js";
+import { CLASS_POTION_PRICE } from "./shopData.js";
 import { CODEX_IDS, CODEX_STARS, ACHIEVES } from "./codexData.js";
 import { ADV, ADV_CLASSES, ADV_MASTERY, ADV_TRAITS, traitAt, ADV_BY_ID, ADV_BODY } from "./advData.js";
 import { TRIAL } from "./trainData.js";
@@ -32,6 +33,18 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-11-01f", title: "패치노트 · 11월 1일 (6)", sub: "원소는 마법사만 · 전직 초기화", color: "#b79be0",
+    pages: [
+      { h: "원소는 마법사만", p: ["검사와 궁수는 이제 원소가 없습니다. 원소는 마법사만 고릅니다.",
+        "캐릭터 만들기에서 원소 칸이 처음엔 보이지 않습니다. 마법사를 고르면 그때 원소 칸이 나옵니다.",
+        "이미 원소를 고른 검사 · 궁수는 원소 없이 들어옵니다. 레벨 · 장비 · 전직은 그대로입니다.",
+        "그래서 검사 · 궁수의 평타와 큰 기술에 화상 · 둔화 · 기절 같은 원소 효과가 실리지 않습니다. 화염검 · 빙판길의 원소 보너스도 마법사만 받습니다."] },
+      { h: "새 물약 둘", p: [`물약 상점에서 전직 초기화 물약과 원소 전환 물약을 팝니다. 둘 다 ${CLASS_POTION_PRICE.toLocaleString("ko-KR")}코인입니다.`,
+        "전직 초기화 물약을 마시면 전직이 비워집니다. 그 전직의 숙련도와 전투 특성은 사라집니다. 기본 직업은 그대로입니다.",
+        "마신 뒤 전직 교관에게 가면 시험 없이 같은 직업의 다른 전직을 바로 고릅니다.",
+        "원소 전환 물약은 마법사만 마십니다. 마실 때 바꿀 원소를 고릅니다.",
+        "두 물약은 실수로 마시지 않게 물약 칸(5 · 6 · 7)에 넣지 못하고 마시기 전에 한 번 더 묻습니다."] },
+    ] },
   { id: "patch-2026-11-01e", title: "패치노트 · 11월 1일 (5)", sub: "입은 모습 다듬기", color: "#c9b37c",
     pages: [{ h: "몸에 맞게", p: ["입은 전설 방어구를 직업 · 전직 · 성별마다 따로 맞췄습니다. 전에는 키 하나로만 늘려 머리가 큰 캐릭터는 투구가 뜨고 갑옷이 입을 가렸습니다.",
       "투구는 머리 크기에 맞춥니다. 갑옷은 목에 맞추고 신발은 발밑에 맞춥니다.",
@@ -616,11 +629,12 @@ export const GUIDE_BOOKS = [
     ],
   },
   {
-    id: "guide-job", title: "직업과 원소", sub: "검사 · 마법사 · 궁수", color: "#b79be0",
+    id: "guide-job", title: "직업과 원소", sub: "검사 · 마법사 · 궁수 · 마법사 원소", color: "#b79be0",
     pages: [
       { h: "직업", p: JOBS.map((j) => `${j.name} · ${j.weapon} · ${j.note}`).concat(["직업과 다른 무기 묶음을 들면 한 대 피해가 고정되고 치명타가 나지 않습니다."]) },
       { h: "원소", p: [
-        `원소는 ${ELEMS.map((e) => e.name).join(" · ")} 입니다.`,
+        "원소는 마법사만 고릅니다. 검사 · 궁수는 원소가 없습니다.",
+        `원소는 ${ELEMS.map((e) => e.name).join(" · ")} 입니다. 물약 상점의 원소 전환 물약으로 바꿉니다.`,
         ...ELEMS.map((e) => `${e.name} · 평타는 ${e.hit} · 큰 기술은 ${e.big}`),
       ] },
     ],

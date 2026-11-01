@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { JOB_TUNE } from "./game/jobTuneData.js";
 import { Coin } from "./ui/icons.jsx";
 import { ADV, ADV_BY_ID, ADV_BONUS, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, advForJob, masteryLv, traitAt, trialText, ADV_BODY } from "./game/advData.js";
-import { whyAdvStart, whyAdvConfirm } from "./game/advance.js";
+import { whyAdvStart, whyAdvConfirm, advPass } from "./game/advance.js";
 import { advArtPath, dist, JOB_BY_ID, mobName, STATS } from "./game/rpg.js";
 import { MAT_BY_ID } from "./game/itemData.js";
-import { weaponCap } from "./game/shopData.js";
+import { weaponCap, CLASS_POTION_PRICE } from "./game/shopData.js";
 import { keyLabel } from "./game/keys.js";
 const KN = JOB_TUNE.knight;   // 기사 기본 방어 · 무효화 방어막(jobTuneData.js)
 // 전직 추가 스탯 한 줄 — 체력 +450 · 물리력 +20 (치명타 · 치명타 피해는 %)
@@ -89,6 +89,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
   const cur = ADV_BY_ID[self.advClass];
   const q = self.advQ && ADV_BY_ID[self.advQ.c] ? self.advQ : null;
   const bagRoom = self.bag && self.bag.w.length < weaponCap(self);
+  const pass = advPass(self);                       // 전직 초기화 물약을 마셨다 — 시험 없이 바로 확정한다
   const qDone = !!q && q.n >= ADV_BY_ID[q.c].trial.n;   // 마친 시험이 있으면 다른 시험으로 바꾸는 버튼을 숨긴다(한 번 눌러 진행을 잃지 않게)
   const keyName = keyLabel(advKey) || "없음";
   return (
@@ -104,6 +105,7 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
         <div className="shop-body adv-body">
           <p className="adv-now">
             {cur ? <>지금 전직 <b>{cur.name}</b> · 숙련도 {masteryLv(self.advM)}단계 · 전직 스킬 「{cur.active.name}」 키 <kbd>{keyName}</kbd></>
+              : pass ? <>전직 초기화 물약을 마셨습니다. <b>시험 없이</b> 새 전직을 바로 고를 수 있습니다.</>
               : q ? <>{ADV_BY_ID[q.c].trial.name} <b>{trialText(ADV_BY_ID[q.c], q)}</b>{q.n >= ADV_BY_ID[q.c].trial.n ? " · 완료" : ""}</>
               : self.lv >= ADV.lv ? <>{JOB_BY_ID[self.job]?.name} 전직 {list.length}개 가운데 하나의 시험을 받으세요.</>
               : <>{ADV.lv}레벨부터 전직할 수 있습니다. 지금 {self.lv}레벨.</>}
@@ -137,25 +139,25 @@ export default function AdvPanel({ self, act, advKey, onClose }) {
                       {!trying && !qDone && <button type="button" className="shop-btn" disabled={whyStart.length > 0} title={whyStart[0] || ""}
                         onClick={() => act("adv", { op: "start", c: c.id })}>{q ? "이 시험으로 바꾸기" : "시험 받기"}</button>}
                       {trying && !done && <button type="button" className="shop-btn" onClick={() => act("adv", { op: "drop" })}>시험 그만두기</button>}
-                      {(done || self.admin) && <button type="button" className="shop-btn main" disabled={whyOk.length > 0} title={whyOk[0] || ""}
+                      {(done || self.admin || pass) && <button type="button" className="shop-btn main" disabled={whyOk.length > 0} title={whyOk[0] || ""}
                         onClick={() => setAsk(c.id)}>{c.name} 전직 확정</button>}
                     </div>
                   )}
                   {!cur && !trying && !qDone && whyStart.length > 0 && <p className="adv-why">{whyStart[0]}</p>}
-                  {(done || self.admin) && !cur && whyOk.length > 0 && <p className="adv-why">{whyOk[0]}</p>}
+                  {(done || self.admin || pass) && !cur && whyOk.length > 0 && <p className="adv-why">{whyOk[0]}</p>}
                 </article>
               );
             })}
           </div>
           <p className="adv-rule">전직하면 기본 직업 스킬 · 궁극기 · 무기 스킬은 그대로 둡니다. 전직 스킬은 따로 한 칸(키 {keyName})이고 패시브는 저절로 듣습니다.
-            전직은 되돌릴 수 없습니다. 시험을 바꾸면 진행은 처음부터입니다.</p>
+            전직을 바꾸려면 물약 상점의 전직 초기화 물약({(CLASS_POTION_PRICE / 10000).toLocaleString("ko-KR")}만 코인)을 마십니다. 그때 숙련도 · 전투 특성은 사라집니다. 시험을 바꾸면 진행은 처음부터입니다.</p>
           {self.admin && cur && <button type="button" className="shop-btn" onClick={() => act("adv", { op: "reset" })}>관리자 — 전직 비우기</button>}
         </div>
         {ask && (
           <div className="shop-confirm" role="alertdialog" aria-modal="true" aria-label="전직 확정">
             <div className="shop-confirm-box">
               <b className="shop-confirm-title">{ADV_BY_ID[ask].name}(으)로 전직할까요?</b>
-              <p>전직은 되돌릴 수 없습니다. 다른 전직은 고를 수 없게 됩니다.{ADV_BY_ID[ask].gear ? " 전직 무기를 가방에 넣어 드립니다." : ""}</p>
+              <p>다른 전직으로 바꾸려면 전직 초기화 물약이 있어야 합니다.{ADV_BY_ID[ask].gear ? " 전직 무기를 가방에 넣어 드립니다." : ""}</p>
               <div className="shop-confirm-acts">
                 <button type="button" className="shop-btn" onClick={() => setAsk(null)}>취소</button>
                 <button type="button" className="shop-btn main" onClick={() => { act("adv", { op: "confirm", c: ask }); setAsk(null); }}>전직하기</button>

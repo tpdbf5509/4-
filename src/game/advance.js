@@ -39,6 +39,9 @@ export function advSpeedMul(h) {
 }
 export const advNear = (h, dist) => !!h && h.map === "plaza" && dist(h.x, h.y, ADV.npc.x, ADV.npc.y) <= ADV.reach;
 
+// 전직 초기화 물약을 마셨다 — 다음 전직은 시험 없이 확정한다(shop.js puse · bag.af)
+export const advPass = (h) => !!(h && !h.advClass && h.bag && h.bag.af);
+
 /* 시험을 받을 수 있나 · 전직을 확정할 수 있나 — 막힌 이유(화면 · 방장이 같이 쓴다). dist 는 rpg.js 의 땅 거리 */
 export function whyAdvStart(h, cid, dist) {
   const c = ADV_BY_ID[cid], out = [];
@@ -57,7 +60,7 @@ export function whyAdvConfirm(h, cid, dist, bagRoom) {
   if (h.advClass && !h.admin) out.push("이미 전직했습니다");
   if (c.job !== h.job) out.push("기본 직업이 다릅니다");
   if (h.lv < ADV.lv && !h.admin) out.push(`레벨 ${ADV.lv} 필요 (지금 ${h.lv})`);
-  if (!h.admin && !(h.advQ && h.advQ.c === cid && h.advQ.n >= c.trial.n)) out.push("전직 시험을 먼저 마쳐야 합니다");
+  if (!h.admin && !advPass(h) && !(h.advQ && h.advQ.c === cid && h.advQ.n >= c.trial.n)) out.push("전직 시험을 먼저 마쳐야 합니다");
   if (!advNear(h, dist)) out.push("광장의 전직 교관 곁에서 확정합니다");
   if (c.gear && !bagRoom) out.push("가방 무기 칸이 가득 찼습니다");
   return out;
@@ -94,6 +97,7 @@ export function advInput(E, g, pi, req) {
     const why = whyAdvConfirm(h, req.c, E.dist, E.bagRoom(h));
     if (why.length) return void E.sys(g, pi, why[0]);
     h.advClass = req.c; h.advQ = null; h.advM = 0;   // 숙련도 1단계부터
+    if (h.bag && h.bag.af) { h.bag.af = 0; h.bag.v += 1; }   // 전직 초기화 물약의 시험 면제를 썼다
     h.as = null;                                    // 중첩 · 쿨타임을 비운다
     if (c.gear) E.gear(h, c.gear);
     E.refresh?.(h);                                 // 전직 추가 스탯(체력 등)을 바로 싣는다

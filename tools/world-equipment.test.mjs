@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgWeaponSkill, rpgPack, rpgApply, rpgPromote } from '../src/game/rpg.js';
 import { WORLD_WEAPONS, WORLD_SETS, WORLD_WEAPON_SKILLS, worldArtCell, worldArt } from '../src/game/worldEquipmentData.js';
 import { cleanBag, specialsFor, whySpecialBuy, specialTier, rpgShop } from '../src/game/shop.js';
-import { armorAtkMul, worldSetCount, worldCritBonus, worldDotMul, worldCooldownMul, worldArmorOnHit, worldArmorTick, worldArmorAbsorb, packArmor, applyArmor } from '../src/game/armor.js';
+import { armorAspd, armorOnHit, armorTick, armorSpeed, armorAtkMul, worldSetCount, worldCritBonus, worldDotMul, worldCooldownMul, worldArmorOnHit, worldArmorTick, worldArmorAbsorb, packArmor, applyArmor } from '../src/game/armor.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { WEAPON } from '../src/game/shopData.js';
 const seats = WORLD_WEAPONS.slice(0,2).map((_,i)=>({id:`test${i}`,name:`장비시험${i}`,hero:{name:`장비시험${i}`,job:'warrior',elem:'frost',gender:'m'}}));
@@ -31,17 +31,17 @@ for(const sp of WORLD_WEAPONS)test(`${sp.name}: 스킬 피해와 완료`,()=>{
   if (sp.id === 'dragon_dual' || sp.id === 'dragon_bow') assert(h.x > 900, '전진 이동이 실제로 발생해야 함');
   assert.equal(h.ws.world.cast,null);assert(Number.isFinite(h.hp));
 });
-test('장비 시트 21칸·저장·상점 제외·장착',()=>{
+test('장비 시트 25칸(무기 9 + 방어구 16)·저장·상점 제외·장착',()=>{
  const {h}=setup();
  for(const set of WORLD_SETS)wear(h,set.id);
  h.bag.a=WORLD_SETS.flatMap((set,r)=>['head','body','legs','feet'].map((s,i)=>({u:20+r*4+i,s,g:3,set:set.id})));
  h.bag.w=WORLD_WEAPONS.map((w,i)=>({u:i+1,t:w.t,r:specialTier(w),g:w.g,sp:w.id,up:12,p:100}));
  const restored=cleanBag(JSON.parse(JSON.stringify(h.bag)));
- assert.equal(restored.a.length,12);assert.equal(restored.w.length,9);assert.equal(restored.a.filter(a=>a.set==='serpent').length,4);
+ assert.equal(restored.a.length,16);assert.equal(restored.w.length,9);assert.equal(restored.a.filter(a=>a.set==='serpent').length,4);
  assert(restored.w.every(w=>w.up===12));assert(specialsFor(400).every(w=>!w.world));
  const cells=new Set(WORLD_WEAPONS.map(w=>worldArtCell(worldArt(w.id))));
  for(const set of WORLD_SETS)for(const s of ['head','body','legs','feet'])cells.add(worldArtCell(worldArt(`${set.id}:${s}`)));
- assert.equal(cells.size,21);assert(!cells.has(null));
+ assert.equal(cells.size,25);assert(!cells.has(null));
  for(const sp of WORLD_WEAPONS)assert(whySpecialBuy(h,sp.id).includes('월드보스 전용 장비입니다'));
 });
 test('세트는 부위별로 계산·혼합 가능·효과 회수',()=>{
@@ -124,4 +124,20 @@ test('비룡은 목표 사망이나 시전자 맵 이동 뒤 추가 피해를 �
    if(cancel==='dead')m.dead=1;else h.map='plaza';
    advance(g,.6);assert.equal(g.out.filter(f=>f.kind==='sk_wb_dragon_hit').length,0);
  }
+});
+
+test('뇌제(뇌조) 세트 — 2세트 이동 속도 · 4세트 몹을 맞히면 4초 공격 속도(10초마다)',()=>{
+ const {h}=setup('dragon_dual');
+ const T=WORLD_SETS.find(s=>s.id==='thunderbird');assert(T,'뇌조 세트');
+ assert.equal(worldArtCell(worldArt('thunderbird:head')),24);assert.equal(worldArtCell(worldArt('thunderbird:feet')),27);
+ const hit=()=>armorOnHit(h,{id:1,x:0,y:0});
+ wear(h,'thunderbird',['head']);armorTick(h,.02,()=>null);const one=h.arm.spd;
+ wear(h,'thunderbird',['head','body']);armorTick(h,.02,()=>null);assert(Math.abs(h.arm.spd-one-T.spd)<1e-9,'2세트 이동 속도 +10%');
+ const b2=armorAspd(h);hit();assert.equal(armorAspd(h),b2,'2세트는 공속 없음');
+ wear(h,'thunderbird');armorTick(h,.02,()=>null);
+ const base=armorAspd(h);hit();assert(Math.abs(armorAspd(h)-base-T.aspd)<1e-9,'4세트 맞히면 공속 +20%');
+ armorTick(h,T.duration+.1,()=>null);assert.equal(armorAspd(h),base,'4초 뒤 끝');
+ hit();assert.equal(armorAspd(h),base,'10초마다 — 아직 대기');
+ armorTick(h,T.cooldown,()=>null);hit();assert(armorAspd(h)>base,'대기 뒤 다시');
+ wear(h,'thunderbird',['head','body','legs']);armorTick(h,.02,()=>null);assert.equal(h.arm.sets.storm,0,'세트가 깨지면 효과도 꺼진다');
 });

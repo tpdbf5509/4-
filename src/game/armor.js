@@ -67,7 +67,7 @@ export function armorAtkMul(h) {
   return 1 + add;
 }
 // 공격 속도 — 전설 바지 · 전설 신발. 평타 간격을 (1 + 이 값)으로 나눈다
-export const armorAspd = (h) => ((special(h, "legs") || {}).aspd || 0) + ((special(h, "feet") || {}).aspd || 0);
+export const armorAspd = (h) => ((special(h, "legs") || {}).aspd || 0) + ((special(h, "feet") || {}).aspd || 0) + (h.arm?.sets?.storm > 0 ? WORLD_SET_BY_ID.thunderbird.aspd : 0);   // 뇌제 4세트 폭풍
 
 // 이동 속도에 더하는 몫 — 신발 기본 + 추격(최근 맞힌 몹 쪽으로 걸을 때). 방장 · 손님 모두 h.arm 으로 셈한다
 export function armorSpeed(h, dx, dy) {
@@ -88,7 +88,7 @@ export function armorTick(h, dt, mobAt) {
   if (!h.arm) h.arm = newArm();
   const A = h.arm;
   worldArmorTick(h, dt);
-  A.spd = base(h, "feet");
+  A.spd = base(h, "feet") + (h.bag && worldSetCount(h, 'thunderbird') >= 2 ? WORLD_SET_BY_ID.thunderbird.spd : 0);   // 뇌제 2세트 — 이동 속도
   const feet = special(h, "feet");
   A.chs = feet ? feet.spd : 0;
   A.cht = feet ? Math.max(0, A.cht - dt) : 0;
@@ -102,6 +102,10 @@ export function armorTick(h, dt, mobAt) {
 }
 // 몹을 맞혔을 때 — 영웅 · 전설 신발의 추격 시간을 쌓는다
 export function armorOnHit(h, m) {
+  if (m && h.bag && worldSetCount(h, 'thunderbird') >= 4) {                  // 뇌제 4세트 — 몹을 맞히면 번개가 몸을 돈다(공격 속도)
+    const s = setState(h), T = WORLD_SET_BY_ID.thunderbird;
+    if (s.stormCd <= 0) { s.storm = T.duration; s.stormCd = T.cooldown; }
+  }
   const feet = special(h, "feet");
   if (!feet || !m) return;
   if (!h.arm) h.arm = newArm();
@@ -157,16 +161,17 @@ export const worldDotMul = h => worldSetCount(h, 'serpent') >= 2 ? 1 + WORLD_SET
 export const worldCooldownMul = h => worldSetCount(h, 'machine') >= 2 ? 1 - WORLD_SET_BY_ID.machine.cd : 1;
 const setState = h => {
   if (!h.arm) h.arm = newArm();
-  return h.arm.sets || (h.arm.sets = { rage: 0, rageCd: 0, dotHits: 0, shield: 0, shieldT: 0, shieldCd: 0, charge: 0, chargeCd: 0 });
+  return h.arm.sets || (h.arm.sets = { rage: 0, rageCd: 0, dotHits: 0, shield: 0, shieldT: 0, shieldCd: 0, charge: 0, chargeCd: 0, storm: 0, stormCd: 0 });
 };
 export function worldArmorTick(h, dt) {
   if (!h.arm?.sets && !SLOT_IDS.some(slot => wornArmor(h.bag, slot)?.set)) return;
   const s = setState(h);
-  for (const k of ['rage', 'rageCd', 'shieldT', 'shieldCd', 'chargeCd']) s[k] = Math.max(0, s[k] - dt);
+  for (const k of ['rage', 'rageCd', 'shieldT', 'shieldCd', 'chargeCd', 'storm', 'stormCd']) s[k] = Math.max(0, s[k] - dt);
   if (h.down > 0 || worldSetCount(h, 'dragon') < 4) s.rage = 0;
   if (h.down > 0 || worldSetCount(h, 'serpent') < 4 || s.shieldT <= 0) s.shield = 0;
   if (worldSetCount(h, 'serpent') < 4) s.dotHits = 0;
   if (h.down > 0 || worldSetCount(h, 'machine') < 4) s.charge = 0;
+  if (h.down > 0 || worldSetCount(h, 'thunderbird') < 4) s.storm = 0;
 }
 // 실제 적중한 피해만 센다. 추가 낙뢰는 새 효과를 다시 발동시키지 않는다.
 export function worldArmorOnHit(h, { dot = false, basic = false, weapon = false }) {

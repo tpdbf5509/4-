@@ -1,6 +1,7 @@
 import { cleanAw } from "./abyssData.js";
 import { cleanWorldBossBag } from "./worldBoss.js";
-import { WORLD_SET_BY_ID, WORLD_WEAPONS, worldArt } from "./worldEquipmentData.js";
+import { WORLD_SET_BY_ID, worldArt } from "./worldEquipmentData.js";
+import { worldBossWeapons } from "./worldBossData.js";
 import { trading } from "./tradeData.js";
 /* ── RPG 광장 상점 규칙 ─────────────────────────────────────
    무기상점 · 스킬 상점 · 물약 상점 · 도박장 · 무기 강화소. 수치는 shopData.js · itemData.js 에 있다.
@@ -599,7 +600,7 @@ export function rpgShop(g, pi, req) {
     if (!h.loaded || h.down > 0) return no(g, pi, ["움직일 수 있을 때 장비를 받아 주세요"]);
     if (!h.admin || !WORLD_SET_BY_ID[req.set]) return no(g, pi, ["관리자만 시험할 수 있습니다"]);
     if (h.bag.w.length + 3 > weaponCap(h) || h.bag.a.length + 4 > armorCap(h)) return no(g, pi, ["무기 3칸과 방어구 4칸이 필요합니다"]);
-    WORLD_WEAPONS.filter(sp => sp.set === req.set).forEach(sp => addWeapon(h, sp.t, specialTier(sp), sp.g, specialPrice(sp), sp.id));
+    worldBossWeapons(req.set).forEach(sp => addWeapon(h, sp.t, specialTier(sp), sp.g, specialPrice(sp), sp.id));
     ARMOR_SLOTS.forEach(sl => h.bag.a.push({ u: h.bag.n++, s: sl.id, g: 3, set: req.set }));
     bump(h);
     return note(g, pi, { ok: true, msg: `${WORLD_SET_BY_ID[req.set].name} 무기 3종과 방어구 4종을 받았습니다` });

@@ -175,11 +175,11 @@ test('모든 보스의 합동 차단과 기절은 방장 승계 후에도 유지
  assert.equal(guest.wb.active.stun,4);assert.equal(guest.wb.active.attack,null);advance(guest,.5);assert(guest.wb.active.stun<4&&guest.wb.active.stun>3.4);assert(!guest.out.some(f=>f.kind==='sk_raid_hit'));
  }
 });
-test('뇌조만 새 무기 셋을 독립 추첨하고 없는 방어구 세트를 지급하지 않는다',()=>{
+test('뇌조만 새 무기 셋과 뇌제 방어구 넷을 독립 추첨한다',()=>{
  const expected=['storm_staff','violet_bow','azure_dual'];
  const all=rollWorldBossReward('thunderbird',()=>0);
  assert.deepEqual(all.items.filter(x=>x.k==='weapon').map(x=>x.id),expected);
- assert(!all.items.some(x=>x.k==='armor'));
+ assert.deepEqual(all.items.filter(x=>x.k==='armor').map(x=>x.id+':'+x.set),['head','body','legs','feet'].map(s=>s+':thunderbird'));
  for(const id of ['dragon','serpent','machine'])assert(!rollWorldBossReward(id,()=>0).items.some(x=>expected.includes(x.id)));
  const none=rollWorldBossReward('thunderbird',()=>.02);assert(!none.items.some(x=>x.k==='weapon'));
  let draws=0;

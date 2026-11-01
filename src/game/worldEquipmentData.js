@@ -2,7 +2,7 @@
    기존 레벨 100 전설보다 조금 높은 기본 능력으로 시작하고 스킬·세트 역할로 구분한다. */
 export const WORLD_EQUIPMENT = {
   level: 100, stat: 320, grade: 4, armorGrade: 3,
-  atlas: '/assets/game/rpg/items/world-equipment.webp', columns: 7, rows: 3,
+  atlas: '/assets/game/rpg/items/world-equipment.webp', columns: 7, rows: 4,   // 4행 — 11월 1일 뇌조 세트 방어구 넷(3~6열)을 더했다
 };
 // 비룡육연사 전용 비행 그림. 머리를 이동 좌표에 맞추고 몸과 꼬리는 뒤로 이어진다.
 export const DRAGON_FLIGHT_ART = {
@@ -20,6 +20,10 @@ export const WORLD_SETS = [
   { id: 'machine', name: '고대 뇌전', boss: '고대 번개 기계형 괴수', color: '#a3dae6',
     two: '무기 스킬 재사용 대기시간 10% 감소', four: '평타 적중으로 전하 5개 축적 · 0.3초마다 · 무기 스킬 적중 시 추가 낙뢰',
     cd: 0.1, charges: 5, gap: 0.3, mul: 1.6, radius: 100 },
+  // 11월 1일 사용자 요청 — 뇌조 방어구. 세트 id 가 보스 id 라 뇌조 토벌 보상이 곧바로 방어구 네 부위를 굴린다(worldBoss.js rollWorldBossReward). 무기는 뇌명 지팡이 · 자전궁 · 창뢰 쌍검(stormWeaponData.js)
+  { id: 'thunderbird', name: '뇌제', boss: '뇌조', color: '#b4b9fa',
+    two: '이동 속도 +10%', four: '몬스터를 맞히면 4초 동안 공격 속도 +20% · 10초마다',
+    spd: 0.1, aspd: 0.2, duration: 4, cooldown: 10 },
 ];
 export const WORLD_SET_BY_ID = Object.fromEntries(WORLD_SETS.map(s => [s.id, s]));
 export const WORLD_WEAPONS = [

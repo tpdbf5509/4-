@@ -2303,20 +2303,20 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-joystick[aria-disabled="true"] { opacity: 0.4; }
 @media (orientation: landscape) and (max-height: 650px) {
   .rpg-page.touch {
-    --combat-width: clamp(112px, 16vw, 152px);
+    --combat-width: clamp(104px, 14vw, 136px);
     --combat-row: clamp(32px, calc((100dvh - 124px) / 6), 44px);
     --stick-size: clamp(88px, 26dvh, 124px);
     --control-left: max(10px, env(safe-area-inset-left));
     --control-right: max(10px, env(safe-area-inset-right));
     --control-bottom: max(10px, env(safe-area-inset-bottom));
-    /* 두 칸짜리 조작부만큼 양쪽에 같은 여백을 둬 판을 화면 가운데에 크게 맞춘다. */
-    --side-space: calc(max(var(--control-left), var(--control-right)) + var(--combat-width) + 12px);
-    --game-width: min(1040px, calc((100dvh - 20px) * 1.52), calc(100vw - var(--side-space) * 2));
-    padding: 8px var(--side-space);
+    /* 두 칸짜리 조작부 여백을 좁히고 판은 위쪽에 작은 여백만 남겨 크게 맞춘다. */
+    --side-space: calc(max(var(--control-left), var(--control-right)) + var(--combat-width) + 6px);
+    --game-width: min(1040px, calc((100dvh - max(6px, env(safe-area-inset-top)) - max(6px, env(safe-area-inset-bottom)) - 2px) * 1.52), calc(100vw - var(--side-space) * 2));
+    padding: max(6px, env(safe-area-inset-top)) var(--side-space) 6px;
   }
   .rpg-page.touch .stage {
     width: 100%; max-width: var(--game-width);
-    margin-top: max(0px, calc((100dvh - 16px - var(--game-width) * 760 / 1160 - 2px) / 2));
+    margin-top: 0;
   }
   .rpg-page.touch .pad {
     position: fixed; left: var(--control-left); right: var(--control-right);
@@ -2326,7 +2326,7 @@ button.forge-stage:disabled { cursor: default; }
   .rpg-page.touch .pad > * { pointer-events: auto; }
   .rpg-page.touch .rpg-joystick { width: min(var(--stick-size), var(--combat-width)); height: min(var(--stick-size), var(--combat-width)); }
   .rpg-page.touch .pad-act { width: var(--combat-width); justify-content: flex-end; }
-  .rpg-page.touch .pbtn { height: 48px; min-width: 0; padding: 0 8px; flex: 1; }
+  .rpg-page.touch .pbtn { height: 48px; min-width: 0; padding: 0 4px; flex: 1; }
   .rpg-page.touch .pbtn.hit { height: 58px; min-width: 0; }
   .rpg-page.touch .rpg-touch-actions {
     position: fixed; right: var(--control-right); bottom: calc(var(--control-bottom) + 68px);
@@ -2371,5 +2371,5 @@ button.forge-stage:disabled { cursor: default; }
 }
 .rpg-roster .rpg-party { grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); }
 @media (orientation: landscape) and (max-height: 650px) {
-  .rpg-page.touch { padding-top: 8px; }
+  .rpg-page.touch { padding-top: max(6px, env(safe-area-inset-top)); }
 }

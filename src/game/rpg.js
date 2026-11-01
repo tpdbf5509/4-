@@ -2359,7 +2359,8 @@ export function rpgDash(g, pi, aim) {
   if (!startDash(h, aim)) return;
   if (h.ac) acOnDash(g, h);
   if (heldSpecial(h) === "gold_bow") { const w = wsOf(h); w.dashT = DASH.time + WS.gold_bow.passive.win; w.dashUsed = 0; }   // 비상의 리듬
-  fx(g, h.map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#e8f2ff", n: 8, t: 0.3, life: 0.3, snd: "slash", who: pi });
+  // 달려가는 쪽으로 남는 바람 줄기(pixelfx · skillPxArt.js) — 방향은 startDash 가 정한 속도
+  fx(g, h.map, { kind: "sk_px_dash", x: x0, y: y0 - 30, x0, y0: y0 - 30, x1: x0 + h.dvx, y1: y0 - 30 + h.dvy * RPG.squash, t: 0.3, life: 0.3, snd: "slash", who: pi });
 }
 
 /* ── 산 스킬 — 숫자키로 쓴다 (방장만 판정) ─────────────────────────
@@ -2408,10 +2409,10 @@ export function rpgUseSkill(g, pi, id) {
       if (!m) {                                    // 아무도 없으면 겨눈 쪽으로 끝까지 돌진한다
         const [tx, ty] = aimAt(h, L.reach);
         lungeTo(h, { x: tx, y: ty, rad: -2 * LUNGE_GAP }, L.time);
-        fx(g, map, { kind: "sk_px_rush", x: x0, y: y0, dir: tx < x0 ? -1 : 1, t: 0.3, life: 0.3, snd: "slash" });
+        fx(g, map, { kind: "sk_px_rush", x: x0, y: y0 - 30, x0, y0: y0 - 30, x1: tx, y1: ty - 30, t: 0.3, life: 0.3, snd: "slash" });   // 돌진하는 쪽으로 돌려 그린다
       } else {
       lungeTo(h, m, L.time);
-      fx(g, map, { kind: "sk_px_rush", x: x0, y: y0, dir: m.x < x0 ? -1 : 1, t: 0.3, life: 0.3, snd: "slash" });
+      fx(g, map, { kind: "sk_px_rush", x: x0, y: y0 - 30, x0, y0: y0 - 30, x1: m.x, y1: m.y - 30, t: 0.3, life: 0.3, snd: "slash" });
       // 닿는 순간에 찌른다 — 그사이 상대가 쓰러졌거나 맵을 떠났으면 빗나간다
       const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: u.splash || 0, full: u.splash ? 1 : 0, skill: true, sure: !!u.crit, cast };   // 돌진 베기는 닿은 자리 둘레를 모두
       if (u.splash) later(g, L.time, () => fx(g, map, { kind: "sk_px_spin", x: h.x, y: h.y - 8, r: u.splash, color: elemOf(h).light, dir: h.dir, t: 0.5, life: 0.5, snd: "boom" }));

@@ -1,6 +1,7 @@
 // 스킬 상점 스킬 연출 시트 뽑기(게임이 쓰지 않는 기록용 스크립트)
 // 쓰는 법: scratchpad/ext 에 pixelfx 를 받고(.claude/skills/pixelfx), 이 파일을 scratchpad/gen 에 두고 node make.mjs out
 //         out/*.png 를 Pillow 로 무손실 WebP 로 바꿔 public/assets/game/rpg/effects/skill-px/ 에 넣는다(_none 은 쓰지 않는다)
+//         smash · cleave 는 lighten.py 로 반투명 먼지를 흙빛으로 밝혀 넣는다(밝은 사냥터에서 검댕처럼 보였다)
 // — pixelfx(MIT) 이펙트를 색을 바꿔 렌더하고, 쓸 구간만 잘라 투명 여백을 걷어 낸다
 import { loadEffect, renderFrames, canvas, save } from "../ext/pixelfx/tools/lib/fxlib.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -21,11 +22,12 @@ const ELEM = { flame: ["#8f2620", "#d9483f", "#ef8177"], frost: ["#2a5f96", "#4a
   poison: ["#5c7c1f", "#8fb93c", "#bcdd71"], corrode: ["#207565", "#3fae94", "#78d5bf"], gravity: ["#82316a", "#c1569f", "#e08cc6"], none: ["#7c6d55", "#b9a88a", "#efe3c8"] };
 const ICE = ["#1c2a38", "#2f4a66", "#4f7398", "#7ea0c0", "#adc8de", "#dbe8f2", "#f8fcff"];
 const LIST = [
-  { name: "smash", id: "melee/hammer-smash", n: 12, end: 1.1, opts: { palette: PARCH } },
-  { name: "burst", id: "arcane/mana-burst", n: 14, end: 1.2, opts: { palette: ["#1e1a2e", "#352c52", "#4f4277", "#6c5c9c", "#8f7fbf", "#b4a6dc", "#d8cff0", "#f6f2ff"] } },
+  { name: "smash", id: "melee/hammer-smash", n: 12, end: 1.1, opts: { palette: PARCH, stone: "#c8bca4" } },
+  { name: "burst", id: "arcane/mana-burst", n: 14, end: 1.2, opts: { palette: ["#1e1a2e", "#352c52", "#4f4277", "#6c5c9c", "#8a7cb8", "#a698cc", "#c4b8e2", "#ddd4f0"], light: 0.35 } },
   { name: "pierce", id: "impacts/crit-hit", n: 10, end: 0.55, opts: { palette: ["#2e1e14", "#5a3522", "#8a5232", "#bf7a46", "#e0a560", "#f0c97e", "#f8e6b4", "#fffbee"] } },
   { name: "aid", id: "nature/healing-bloom", n: 16, end: 2.0, opts: { palette: ["#14201a", "#1f3427", "#2f4d38", "#46694c", "#64886a", "#8bab84", "#b9d3a8", "#eef6e2"], petal: ["#4a3040", "#9a6a80", "#dcaabd", "#f6e0e8"], heart: ["#8a6a3a", "#d4b070", "#f0dca0", "#fffaea"] } },
   { name: "rush", id: "melee/thrust", n: 8, end: 0.5, opts: { palette: ["#2a2018", "#5a4430", "#8c6c4c", "#bb9b74", "#dcc39e", "#f1e4c9", "#fffaf0"] } },
+  { name: "dash", id: "melee/thrust", n: 8, end: 0.5, opts: { palette: ["#1c2230", "#2f3d55", "#4a5f80", "#7a90b0", "#a8bad2", "#d6e0ec", "#f8fbff"], seed: 5 } },
   { name: "spin", id: "melee/spin-slash", n: 10, end: 0.6, opts: { palette: ["#2a2018", "#4a3a2a", "#74603f", "#a08a64", "#c8b48e", "#e8dcc0", "#fffaf0"] } },
   { name: "cleave", id: "nature/quake", n: 12, end: 1.6, opts: { palette: ["#14110e", "#221c16", "#2e261e", "#3c3228", "#4e4234", "#645646", "#7e6e5a", "#9c8c76"], glow: ["#5a3a24", "#8c5a34", "#c08048", "#e0aa6c", "#f2d3a0"] } },
   { name: "arrow", id: "projectiles/arrow", n: 6, end: 0.6, loop: 1, opts: { palette: ["#5c4a3a", "#8a7058", "#e8e2d6", "#fffaf0"], wind: "#c8c0b0" } },

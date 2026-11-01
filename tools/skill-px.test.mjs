@@ -46,6 +46,22 @@ test('연출 시트 파일이 모두 있다', () => {
   }
 });
 
+test('돌진 베기 · 대쉬 줄기는 가는 쪽으로 돌아간다(아래로 가면 아래로)', () => {
+  const { g, h } = setup('warrior', 'j_rush');
+  const m = g.mobs.find((q) => q.map === 'train' && q.hp > 0);
+  h.x = m.x; h.y = m.y - 200;                                  // 몹이 바로 아래
+  rpgInput(g, { cls: 0, kind: 'use', dir: 'j_rush' });
+  const r = g.out.find((f) => f.kind === 'sk_px_rush');
+  assert.ok(r && r.y1 - r.y0 > Math.abs(r.x1 - r.x0), '돌진 줄기가 아래를 향해야 한다');
+  g.out = [];
+  h.dashCd = 0;
+  rpgInput(g, { cls: 0, kind: 'dash', aim: [0, -1] });
+  rpgInput(g, { cls: 0, kind: 'dash', dir: [0, -1] });
+  const d = g.out.find((f) => f.kind === 'sk_px_dash');
+  assert.ok(d, '대쉬 연출이 있어야 한다: ' + g.out.map((f) => f.kind).join(','));
+  assert.ok([d.x0, d.y0, d.x1, d.y1].every(Number.isFinite));
+});
+
 for (const [id, [job, kinds]] of Object.entries(WANT)) {
   test(`${id} — pixelfx 연출이 나오고 판정은 그대로`, () => {
     const { g, h } = setup(job, id);

@@ -74,6 +74,13 @@ export function drawSkillPx(ctx, f, p) {
     if (dx < 0 && !look.end) ctx.scale(1, -1);           // 왼쪽으로 누우면 위아래가 뒤집히지 않게
     const ky = look.end ? kx : look.k || 1;
     ctx.drawImage(im, sx, sy, S.w, S.h, -S.px * kx, -S.py * ky, S.w * kx, S.h * ky);
+  } else if (look.mode === "ray") {                      // 출발점에서 x1 쪽으로 돌려 그린다 — 돌진 · 대쉬 줄기
+    const dx = f.x1 - f.x0, dy = f.y1 - f.y0;
+    ctx.translate(f.x0, f.y0);
+    ctx.rotate(Math.atan2(dy, dx));
+    if (dx < 0) ctx.scale(1, -1);
+    const cy = look.cy ?? S.py;
+    ctx.drawImage(im, sx, sy, S.w, S.h, -S.px * k, -cy * k, S.w * k, S.h * k);
   } else {                                                 // fly — 머리(기준점)가 x0 → x1 로 날아간다
     const x = f.x0 + (f.x1 - f.x0) * p, y = f.y0 + (f.y1 - f.y0) * p;
     ctx.translate(x, y);

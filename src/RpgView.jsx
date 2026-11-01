@@ -2374,7 +2374,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <div className={`rpg-chat ${chatOpen ? "open" : ""}`}>
               <div className="rpg-chat-log" aria-live="polite">
                 {chatLog.slice(-CHAT.show).map((l) => (
-                  <p key={l.id} className={`rpg-chat-line ${l.kind} ${!chatOpen && nowMs - l.at > CHAT.fade * 1000 ? "old" : ""}`}>
+                  <p key={l.id} className={`rpg-chat-line ${l.kind === "party" ? "is-party" : l.kind} ${!chatOpen && nowMs - l.at > CHAT.fade * 1000 ? "old" : ""}`}>
                     {l.kind !== "sys" && <b>{l.kind === "party" ? "파티 · " : ""}{l.name}</b>}
                     <span>{l.text}</span>
                   </p>
@@ -2382,7 +2382,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </div>
               {chatOpen ? (
                 <form className="rpg-chat-form" onSubmit={(e) => { e.preventDefault(); sendChat(); }}>
-                  <button type="button" className={`rpg-chat-scope ${chatScope}`}
+                  <button type="button" className={`rpg-chat-scope ${chatScope === "party" ? "is-party" : ""}`}
                     onClick={() => { setChatScope((v) => (v === "all" ? "party" : "all")); chatInput.current?.focus(); }}>
                     {chatScope === "all" ? "전체" : "파티"}
                   </button>
@@ -2525,7 +2525,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
         {touch && (
           <div className="pad">
-            <Joystick disabled={chatOpen || !!me?.down} onDirections={(next) => {
+            <Joystick key={me?.map} disabled={chatOpen || !!me?.down} onDirections={(next) => {
               dirsRef.current = next;
               act("hold", next);
             }} />

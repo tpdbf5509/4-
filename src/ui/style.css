@@ -2303,20 +2303,26 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-joystick[aria-disabled="true"] { opacity: 0.4; }
 @media (orientation: landscape) and (max-height: 650px) {
   .rpg-page.touch {
-    --combat-width: clamp(104px, 14vw, 136px);
-    --combat-row: clamp(32px, calc((100dvh - 124px) / 6), 44px);
+    --combat-width: clamp(100px, 13vw, 128px);
+    --attack-height: clamp(80px, 25dvh, 108px);
+    --attack-right: max(6px, calc(env(safe-area-inset-right) - 30px));
+    --basic-skill-width: clamp(40px, 5.2vw, 44px);
+    --combat-row: clamp(26px, calc((100dvh - var(--attack-height) - var(--control-bottom) - max(8px, env(safe-area-inset-top)) - 41px) / 6), 44px);
     --stick-size: clamp(88px, 26dvh, 124px);
     --control-left: max(10px, env(safe-area-inset-left));
-    --control-right: max(10px, env(safe-area-inset-right));
+    --control-right: max(6px, calc(env(safe-area-inset-right) - 8px));
     --control-bottom: max(10px, env(safe-area-inset-bottom));
-    /* 두 칸짜리 조작부 여백을 좁히고 판은 위쪽에 작은 여백만 남겨 크게 맞춘다. */
-    --side-space: calc(max(var(--control-left), var(--control-right)) + var(--combat-width) + 6px);
-    --game-width: min(1040px, calc((100dvh - max(6px, env(safe-area-inset-top)) - max(6px, env(safe-area-inset-bottom)) - 2px) * 1.52), calc(100vw - var(--side-space) * 2));
-    padding: max(6px, env(safe-area-inset-top)) var(--side-space) 6px;
+    /* 버튼 여백을 조금 줄이고 판은 위아래 · 좌우 가운데에서 최대한 크게 맞춘다. */
+    --side-space: calc(max(var(--control-left), var(--control-right)) + var(--combat-width) + 2px);
+    --vertical-space: max(4px, env(safe-area-inset-top), env(safe-area-inset-bottom));
+    --game-width: min(1040px, calc((100dvh - var(--vertical-space) * 2 - 2px) * 1.52), calc(100vw - var(--side-space) * 2));
+    /* 공격 버튼은 남는 오른쪽 공간 안에서 넓힌다. 작은 화면에서도 판을 덮지 않는다. */
+    --attack-width: min(clamp(84px, 24dvh, 104px), calc((100vw - var(--game-width)) / 2 - var(--attack-right) - var(--basic-skill-width) - 15px));
+    padding: var(--vertical-space) var(--side-space);
   }
   .rpg-page.touch .stage {
     width: 100%; max-width: var(--game-width);
-    margin-top: 0;
+    margin-top: max(0px, calc((100dvh - var(--vertical-space) * 2 - var(--game-width) * 760 / 1160 - 2px) / 2));
   }
   .rpg-page.touch .pad {
     position: fixed; left: var(--control-left); right: var(--control-right);
@@ -2325,11 +2331,15 @@ button.forge-stage:disabled { cursor: default; }
   }
   .rpg-page.touch .pad > * { pointer-events: auto; }
   .rpg-page.touch .rpg-joystick { width: min(var(--stick-size), var(--combat-width)); height: min(var(--stick-size), var(--combat-width)); }
-  .rpg-page.touch .pad-act { width: var(--combat-width); justify-content: flex-end; }
+  .rpg-page.touch .pad-act {
+    width: calc(var(--basic-skill-width) + 9px + var(--attack-width)); justify-content: flex-end;
+    margin-right: calc(var(--attack-right) - var(--control-right));
+  }
+  .rpg-page.touch .pad-act .skill { flex: none; width: var(--basic-skill-width); }
   .rpg-page.touch .pbtn { height: 48px; min-width: 0; padding: 0 4px; flex: 1; }
-  .rpg-page.touch .pbtn.hit { height: 58px; min-width: 0; }
+  .rpg-page.touch .pbtn.hit { flex: none; width: var(--attack-width); height: var(--attack-height); min-width: 0; }
   .rpg-page.touch .rpg-touch-actions {
-    position: fixed; right: var(--control-right); bottom: calc(var(--control-bottom) + 68px);
+    position: fixed; right: var(--control-right); bottom: calc(var(--control-bottom) + var(--attack-height) + 10px);
     width: var(--combat-width); display: flex; flex-direction: column; gap: 6px; z-index: 4;
     pointer-events: none;
   }
@@ -2371,7 +2381,7 @@ button.forge-stage:disabled { cursor: default; }
 }
 .rpg-roster .rpg-party { grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr)); }
 @media (orientation: landscape) and (max-height: 650px) {
-  .rpg-page.touch { padding-top: max(6px, env(safe-area-inset-top)); }
+  .rpg-page.touch { padding-top: var(--vertical-space); }
 }
 
 /* 조작 안내와 자세한 설명은 사람 아이콘 오른쪽의 설명 아이콘으로만 연다. */

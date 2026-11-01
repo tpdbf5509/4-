@@ -30,7 +30,7 @@
  "스탯 1포인트당 효과": [
   {
    "file": "src/game/rpg.js",
-   "from": 669,
+   "from": 680,
    "code": [
     "  { id: \"str\", name: \"물리력\", note: \"검사 · 궁수 공격력\", base: 10, per: 3, fmt: (v) => String(v) },",
     "  { id: \"int\", name: \"마법력\", note: \"마법사 공격력 · 화상 · 독 피해\", base: 10, per: 3, fmt: (v) => String(v) },",
@@ -43,7 +43,7 @@
  "최대 체력 바탕": [
   {
    "file": "src/game/rpg.js",
-   "from": 671,
+   "from": 682,
    "code": [
     "  { id: \"hp\", name: \"체력\", note: \"최대 체력 (직업 배율을 곱한다)\", base: 100, per: 22, fmt: (v) => v.toLocaleString(\"ko-KR\") },"
    ]
@@ -52,7 +52,7 @@
  "공격력 바탕": [
   {
    "file": "src/game/rpg.js",
-   "from": 669,
+   "from": 680,
    "code": [
     "  { id: \"str\", name: \"물리력\", note: \"검사 · 궁수 공격력\", base: 10, per: 3, fmt: (v) => String(v) },",
     "  { id: \"int\", name: \"마법력\", note: \"마법사 공격력 · 화상 · 독 피해\", base: 10, per: 3, fmt: (v) => String(v) },"
@@ -62,7 +62,7 @@
  "치명타 확률": [
   {
    "file": "src/game/rpg.js",
-   "from": 672,
+   "from": 683,
    "code": [
     "  { id: \"crit\", name: \"치명타 확률\", note: \"치명타가 터질 확률\", base: 5, per: 0.5, fmt: (v) => `${r1(v)}%` },"
    ]
@@ -71,7 +71,7 @@
  "치명타 피해": [
   {
    "file": "src/game/rpg.js",
-   "from": 673,
+   "from": 684,
    "code": [
     "  { id: \"cdmg\", name: \"치명타 피해\", note: \"치명타가 터졌을 때 피해\", base: 150, per: 1.5, fmt: (v) => `${r1(v)}%` },"
    ]
@@ -80,14 +80,14 @@
  "스탯 한도 · 레벨당 포인트": [
   {
    "file": "src/game/rpg.js",
-   "from": 659,
+   "from": 670,
    "code": [
     "export const STAT_MAX = 800;          // 스탯 하나의 상한 — 250 → 400 → 800(800레벨 누적 2,000포인트. 효과는 포인트당 그대로)"
    ]
   },
   {
    "file": "src/game/rpg.js",
-   "from": 663,
+   "from": 674,
    "code": [
     "export const STAT_PER_LV = 2;"
    ]
@@ -96,7 +96,7 @@
  "최고 레벨": [
   {
    "file": "src/game/rpg.js",
-   "from": 654,
+   "from": 665,
    "code": [
     "export const LV_MAX = 800;               // 200 → 400 → 800(10월 26일 · 400~800 은 화염 · 심연 사냥터, deepData.js)"
    ]

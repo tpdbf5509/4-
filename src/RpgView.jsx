@@ -26,6 +26,7 @@ import {
   titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, requestXp, MOB,
   whyDungeon, dgNear, dgCrew, runOf, abyssCrew, abyssRunOf, abyssNear,
   RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
+  HIDE_GEAR,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
@@ -147,6 +148,7 @@ const PVP_KEY = "flg:rpgPvp";
 const LOWFX_KEY = "flg:rpgLowFx";   // 연출 줄이기 — 느린 기기에서 남의 연출을 더 덜고 내 연출 알갱이도 줄인다(rpgArt.js CROWD.low)
 // 화면 칸(체력 · 버튼 · 창)을 다시 그리는 간격(ms) — 예전엔 5프레임마다(초당 12번) 그려 사람이 많을 때 손님 기기가 무거웠다
 const HUD_MS = 160;
+const GEAR_KEY = "flg:rpgHideGear";   // 장비 외형 숨기기 — 비트 묶음(rpg.js HIDE_GEAR), 처음엔 0(모두 보이기)
 const NOTICE_KEY = "flg:rpgNotice";   // 이 기기에서 마지막으로 본 업데이트 공지 id(updates.js RPG_NOTICE)
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
 function loadAuto() {
@@ -155,6 +157,9 @@ function loadAuto() {
 // 사냥터 PvP 설정도 이 기기에 남긴다 — 처음엔 꺼져 있다
 function loadLowFx() {
   try { return localStorage.getItem(LOWFX_KEY) === "1"; } catch { return false; }
+}
+function loadHideGear() {
+  try { return (Number(localStorage.getItem(GEAR_KEY)) || 0) & (HIDE_GEAR.weapon | HIDE_GEAR.armor); } catch { return 0; }
 }
 function loadPvp() {
   try { return localStorage.getItem(PVP_KEY) === "1"; } catch { return false; }
@@ -470,6 +475,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     return !on;
   }), []);
   const pvpRef = useRef(pvp);
+  const [hideGear, setHideGear] = useState(loadHideGear);   // 장비 외형 숨기기 — 무기 · 방어구 겉모습
+  const hideGearRef = useRef(hideGear);
   const [moveChoice, setMoveChoice] = useState(() => loadMoveMode());   // 이동 방식 — 키보드(기본) 아니면 마우스(오른쪽 클릭 이동, 이동키는 꺼짐)
   const moveModeRef = useRef(moveChoice);           // 지금 쓰는 방식(터치 기기는 늘 키보드) — 키 · 마우스 처리기가 읽는다
   const winOpenRef = useRef(false);                 // 창이 열려 있다 — 마우스 이동을 무시한다
@@ -495,7 +502,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const c = loadChar();
     if (c && selfName.current && c.name !== selfName.current) { setMixed(true); return null; }   // 다른 캐릭터의 기록 — 보내지 않는다
     const dest = G.current?.heroes[mySeat]?.dest;
-    const extra = { auto: autoRef.current, pvp: pvpRef.current, hold: dirsRef.current.slice(), mv: dest ? { x: dest.x, y: dest.y, m: dest.map } : undefined };   // 가던 목적지도 — 방장이 바뀌어도 멈추지 않게
+    const extra = { auto: autoRef.current, pvp: pvpRef.current, hideGear: hideGearRef.current, hold: dirsRef.current.slice(), mv: dest ? { x: dest.x, y: dest.y, m: dest.map } : undefined };   // 가던 목적지도 — 방장이 바뀌어도 멈추지 않게
     return c ? { name: c.name, lv: c.lv, xp: c.xp, coins: c.coins, quest: c.quest, stats: c.stats, bag: c.bag, admin: c.admin,
       rec: c.rec, titles: c.titles, title: c.title, honor: c.honor, reqs: c.reqs, gift: c.gift, rs: c.rs, ts: c.ts,
       advClass: c.advClass, advQ: c.advQ, advM: c.advM, ...extra } : extra;
@@ -937,6 +944,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     try { localStorage.setItem(PVP_KEY, next ? "1" : "0"); } catch { /* 저장이 막혀 있으면 이번만 */ }
     act("pvp", next);
   }, [act, pushChat]);
+
+  // 장비 외형 숨기기 — 무기 · 방어구를 따로 켜고 끈다. 겉모습만 바뀌고 다른 사람 화면에도 같이 보인다
+  const toggleHideGear = useCallback((bit) => {
+    const next = hideGearRef.current ^ bit;
+    hideGearRef.current = next;
+    setHideGear(next);
+    try { localStorage.setItem(GEAR_KEY, String(next)); } catch { /* 저장이 막혀 있으면 이번만 */ }
+    act("gear", next);
+  }, [act]);
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
@@ -1595,6 +1611,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     </span>
                   </div>
                 )}
+                {[[HIDE_GEAR.weapon, "무기 숨기기", "들고 있는 무기를 그리지 않습니다"], [HIDE_GEAR.armor, "방어구 숨기기", "입은 방어구 겉모습을 그리지 않습니다"]].map(([bit, name, on]) => (
+                  <button key={bit} type="button" role="menuitemcheckbox" aria-checked={!!(hideGear & bit)} className="rpg-menu-row" onClick={() => toggleHideGear(bit)}>
+                    <span className="rpg-menu-text">
+                      <b>{name}</b>
+                      <em>{hideGear & bit ? `${on}. 능력치는 그대로입니다` : "장착한 모습 그대로 보입니다"}</em>
+                    </span>
+                    <span className={`rpg-switch ${hideGear & bit ? "on" : ""}`}><span /></span>
+                  </button>
+                ))}
                 <button type="button" role="menuitemcheckbox" aria-checked={lowFxOn} className="rpg-menu-row" onClick={toggleLowFx}>
                   <span className="rpg-menu-text">
                     <b>연출 줄이기</b>

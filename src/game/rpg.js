@@ -1043,6 +1043,7 @@ export function rpgJoin(g, pi, d, who) {
   awardTitles(g, h, true);                        // 예전 캐릭터도 이미 채운 조건의 칭호는 조용히 받는다
   if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
   if (d.pvp !== undefined) h.pvpOn = d.pvp ? 1 : 0;
+  if (d.hideGear !== undefined) h.hideGear = cleanHideGear(d.hideGear);   // 장비 외형 숨기기 — 이 기기 설정
   if (Array.isArray(d.hold)) rpgHold(g, pi, d.hold);   // 누르고 있던 방향 — 이어받을 때 멈추지 않게
   refreshHp(h, true);
   if (keepHp) h.hp = Math.min(h.max, keepHp);
@@ -1376,6 +1377,14 @@ function keepIn(o, M, rad) {
       o.y = b.y + (dy / d) * min * RPG.squash;
     }
   });
+}
+
+/* 장비 외형 숨기기 — 무기 · 방어구 겉모습만 감춘다(능력치 · 장착 효과는 그대로). 비트 묶음이라 다른 사람 화면에도 스냅샷으로 간다 */
+export const HIDE_GEAR = { weapon: 1, armor: 2 };
+export const cleanHideGear = (v) => (Number.isInteger(v) ? v & (HIDE_GEAR.weapon | HIDE_GEAR.armor) : 0);
+export function rpgHideGear(g, pi, v) {
+  const h = g.heroes[pi];
+  if (h) h.hideGear = cleanHideGear(v);
 }
 
 /* 자동 평타 켜고 끄기 */
@@ -4719,7 +4728,7 @@ export function rpgPack(g) {
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
         packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0, h.ts || 0, trading(h) ? h.trade : null,h.guild||null,
         packAdv(h),                             // 53 — 전직 상태
-        {team:h.duelTeam,size:h.duelSize||0,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0,wear:wearOf(h)},
+        {team:h.duelTeam,size:h.duelSize||0,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0,wear:wearOf(h),hideGear:h.hideGear||0},
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0] // 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
@@ -4752,7 +4761,7 @@ export function rpgApply(g, s) {
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
-    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.duelInv=extra.inv?structuredClone(extra.inv):null;}
+    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;}
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;

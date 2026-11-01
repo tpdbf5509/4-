@@ -21,7 +21,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap } from "./rpg.js";
+import { RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { paintFieldLook, fieldTrails } from "./fieldArt.js";
@@ -216,6 +216,11 @@ function heldWeapon(h, view) {
   const wpn = grip ? weaponImg(sp) : null;
   return { body, hand, wpn, grip, len: wpn ? HELD_LEN * (HELD_TYPE[sp.t] || 1) : BASIC_LEN,
     left: view === "turn" || view === "side" };
+}
+// 무기 숨기기 — 무기를 지운 그림(<보기>-bare.webp)으로 빈손을 그린다. 지운 그림이 없는 보기는 null(원래 그림 그대로)
+function bareHands(h, view, advIm) {
+  const body = advIm ? artImg(advArtPath(h, `${view}-bare`)) : (h.job === "warrior" || HOLDER[h.job]) ? heroImg(h, `${view}-bare`) : null;
+  return body ? { body, hand: [0, 0, 0], still: true, none: true } : null;
 }
 // 공격할 때 검 각도(도) — 휘두르는 중이 아니면 null
 function swingAngle(h, held, time) {
@@ -2196,7 +2201,8 @@ function drawHero(ctx, g, h, time) {
   const down = h.down > 0;
   const { view, flip } = heroView(h);
   const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다 — 특별 무기를 끼면 무기 지운 그림에 그 무기를 들린다
-  const held = advIm ? advHeld(h, view) : heldWeapon(h, view);
+  const hide = h.hideGear || 0;                     // 장비 외형 숨기기(rpg.js HIDE_GEAR) — 겉모습만, 능력치는 그대로
+  const held = hide & HIDE_GEAR.weapon ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
   const im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
   const mo = down ? null : heroMotion(g, h, time);
 
@@ -2246,13 +2252,13 @@ function drawHero(ctx, g, h, time) {
       if (!advIm) drawHeld(ctx, off, ww, top, offSwing, col.light);
       else held.offSwing = offSwing;
     }
-    const shield = !advIm && h.advClass === "knight" && h.job === "warrior" ? DUAL_OFF_HAND[h.gender === "f" ? "f" : "m"][view] : null;   // 기사 방패
+    const shield = !advIm && !(hide & HIDE_GEAR.weapon) && h.advClass === "knight" && h.job === "warrior" ? DUAL_OFF_HAND[h.gender === "f" ? "f" : "m"][view] : null;   // 기사 방패
     if (shield && view === "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, true);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
-    if (!down) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
+    if (!down && !(hide & HIDE_GEAR.armor)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
-    else if (held) {
+    else if (held && !held.none) {
       if (held.off && advIm) drawHeld(ctx, held.off, ww, top, held.offSwing, col.light);   // 전직 그림은 반대 손이 몸 앞 허리에 있다
       drawHeld(ctx, held, ww, top, sw, col.light);
     }

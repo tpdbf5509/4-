@@ -212,7 +212,7 @@ export class RpgRoom {
     if (!d || this.seatOf(c.id) !== d.cls) return;
     const a = this.accts.get(c.id);
     const data = d.data && typeof d.data === "object" ? d.data : {};
-    const use = a ? { ...a.base, admin: a.admin, auto: data.auto, hold: data.hold, mv: data.mv } : { ...data, admin: false };   // 계정 없는 캐릭터는 관리자가 될 수 없다
+    const use = a ? { ...a.base, admin: a.admin, auto: data.auto, hold: data.hold, mv: data.mv, hideGear: data.hideGear } : { ...data, admin: false };   // 계정 없는 캐릭터는 관리자가 될 수 없다
     rpgJoin(this.g, d.cls, use, c.id);
   }
   chat(c, d) {
@@ -281,7 +281,7 @@ export class RpgRoom {
     const h = this.g.heroes[pi];
     a.base = r.data;
     a.savedKey = "";
-    rpgJoin(this.g, pi, { ...r.data, admin: a.admin, auto: h ? h.auto : undefined }, id);
+    rpgJoin(this.g, pi, { ...r.data, admin: a.admin, auto: h ? h.auto : undefined, hideGear: h ? h.hideGear : undefined }, id);
     return true;
   }
   // 이름 열쇠로 접속 중인 계정 찾기 — 거래 상대도 같은 서버에 있어야 거래가 열린다

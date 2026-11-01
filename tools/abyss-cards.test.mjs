@@ -123,6 +123,30 @@ test('카드 단계 — 모두 고를 때까지 멈추고, 20초가 지나면 �
   assert.equal(Object.keys(a.ac.c).length, had, '저주는 받지 않았다');
 });
 
+test('카드 단계 — 탑 안의 몹이 남아 있어도 움직이거나 때리지 못하고, 3초 대기가 끝나야 다시 움직인다', () => {
+  const g = world([{}, {}]);
+  const [a] = g.heroes;
+  send(g, 0, { op: 'enter' });
+  const r = g.aruns[0];
+  pickRest(g);
+  assert.equal(r.phase, 'go');
+  const src = g.mobs.find((m) => m.map === r.map);
+  const keep = { ...src, id: 99999, x: a.x + 30, y: a.y, state: 'idle', t: 0, dmg: (src.dmg || 1) * 10 };
+  clearFloor(g, r);
+  assert.equal(r.phase, 'pick');
+  g.mobs.push(keep);                               // 고르는 동안 몹이 남았다고 친다
+  const hp = a.hp, x = keep.x, y = keep.y;
+  run(g, 5);
+  assert.equal(a.hp, hp, '고르는 동안 피해를 받지 않는다');
+  assert.equal(keep.x, x); assert.equal(keep.y, y);
+  g.heroes.forEach((h) => { if (h && h.ac && h.ac.o.length) send(g, h.pi, h.ac.ok ? { op: 'curse', i: -1 } : { op: 'card', i: 0 }); });
+  run(g, 0.1);
+  assert.equal(r.phase, 'next');
+  run(g, GRACE.startWait - 0.5);
+  assert.equal(a.hp, hp, '3초 대기 동안에도 멈춰 있다');
+  assert.equal(keep.x, x);
+});
+
 test('효과 — 공격력 · 받는 피해 · 체력 비율 유지 · 탑을 나오면 사라진다', () => {
   const g = world([{}]);
   const h = g.heroes[0];

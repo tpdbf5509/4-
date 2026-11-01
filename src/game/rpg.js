@@ -1961,7 +1961,7 @@ function giveXp(g, h, amt) {
 }
 
 function hurtHero(g, h, raw, source, kind) {
-  if (!h || h.down > 0 || MAPS[h.map].safe) return;
+  if (!h || h.down > 0 || MAPS[h.map].safe || HOLD.has(h.map)) return;   // 탑 카드 단계 — 피해 없음
   if (h.inv > 0) {                                // 대쉬로 피했다
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
     return;
@@ -2622,7 +2622,7 @@ function ccMob(m, c) {
   }
 }
 function ccHero(o, c) {
-  if (!o || o.down > 0) return;
+  if (!o || o.down > 0 || HOLD.has(o.map)) return;
   if (o.ac) c = acCc(o, c);                       // 심연의 탑 강화 카드 — 둔화 · 기절 · 밀치기 저항
   const q = ccOf(o);
   if (c.stun) q.stun = Math.max(q.stun, c.stun);
@@ -2691,6 +2691,7 @@ function tickMissiles(g, dt) {
     setFxBy(s.pi);
     const h = g.heroes[s.pi];
     if (!h || h.who !== s.who || h.map !== s.map || h.down > 0) { cutFx(g, s.map, s.fid); return false; }
+    if (HOLD.has(s.map)) return true;             // 탑 카드 단계 — 멈춤
     let go = Math.min(s.left, s.v * dt);
     while (go > 0) {
       const step = Math.min(go, 30);
@@ -2904,6 +2905,7 @@ function tickZones(g, dt) {
   if (!g.zones || !g.zones.length) return;
   g.zones = g.zones.filter((z) => {
     const h = g.heroes[z.pi];
+    if (HOLD.has(z.map) && h && h.map === z.map) return true;   // 탑 카드 단계 — 멈춤
     z.t -= h && h.ac ? dt / acZoneSlow(h) : dt; z.acc += dt;   // 강화 카드 잔류 마력 — 깔린 스킬이 천천히 사라진다
     setFxBy(z.pi);
     if (!h || h.map !== z.map) return false;     // 맵을 떠나면 사라진다
@@ -3454,7 +3456,7 @@ function stepHeroes(g, dt) {
   g.heroes.forEach((h) => {
     if (!h || trading(h)) return;
     setFxBy(h.pi);
-    if (h.ac) { if (!inAbyss(h)) acEnd(g, h); else acTick(g, h, dt, abyssRunOf(g, h)); }   // 심연의 탑 강화 카드 — 탑을 나오면 지운다
+    if (h.ac) { if (!inAbyss(h)) acEnd(g, h); else if (!HOLD.has(h.map)) acTick(g, h, dt, abyssRunOf(g, h)); }   // 심연의 탑 강화 카드 — 탑을 나오면 지운다
     h.flash = Math.max(0, h.flash - dt);
     h.swing = Math.max(0, h.swing - dt);
     h.buff = Math.max(0, h.buff - dt);
@@ -4488,6 +4490,10 @@ function abyssClear(g, r, inside) {
   });
   inside.forEach((h) => { if (h.ac) acFloorClear(g, h, f); });   // 강화 카드 — 층 클리어 회복 · 숙성 · 다음 카드
 }
+/* 카드 단계(pick)와 그 뒤 출발 대기(next)에는 그 탑 맵의 모든 것이 멈춘다(11월 1일 사용자 요청).
+   몹 · 날아가는 공격 · 깔린 스킬 · 사람이 받는 피해와 상태이상 · 강화 카드 타이머. rpgStep 이 틱마다 새로 셈한다 */
+let HOLD = new Set();
+export const abyssHeld = (map) => HOLD.has(map);
 function tickAbyss(g, dt) {
   g.aruns = (g.aruns || []).filter((r) => {
     const inside = g.heroes.filter((h) => h && h.map === r.map);
@@ -4691,6 +4697,7 @@ export function rpgStep(g, dt) {
   g.shake = Math.max(0, g.shake - dt * 1.6);
   if (g.banner) { g.banner.t -= dt; if (g.banner.t <= 0) g.banner = null; }
   g.fx = g.fx.filter((f) => { f.t -= dt; return f.t > 0; });
+  HOLD = new Set((g.aruns || []).filter((r) => r.phase === "pick" || r.phase === "next").map((r) => r.map));
 
   stepHeroes(g, dt); setFxBy(-1);
   tickLater(g, dt);                               // 잇달아 나가는 스킬(연사 · 화염베기 · 유성)
@@ -4704,6 +4711,7 @@ export function rpgStep(g, dt) {
   tickAbyss(g, dt);
   tickWorldBoss(worldBossEngine,g,dt);tickGuild(guildEngine,g,dt);
   g.hits = g.hits.filter((s) => {
+    if (HOLD.has(s.map)) return true;             // 탑 카드 단계 — 날아가던 공격도 멈춘다
     s.t -= dt;
     if (s.t > 0) return true;
     landHit(g, s);
@@ -4711,7 +4719,7 @@ export function rpgStep(g, dt) {
   });
   // 사람이 없는 사냥터(zone 이 있는 맵)의 몹은 움직이지 않는다 — 400~800레벨 사냥터로 몹이 500마리를 넘어 방장 한 틱이 무거워졌다(10월 26일)
   const awake = new Set(g.heroes.filter(Boolean).map((h) => h.map));
-  g.mobs.forEach((m) => { if (!m.dead && (awake.has(m.map) || !MAPS[m.map]?.zone)) stepMob(g, m, dt); });
+  g.mobs.forEach((m) => { if (!m.dead && !HOLD.has(m.map) && (awake.has(m.map) || !MAPS[m.map]?.zone)) stepMob(g, m, dt); });
   g.mobs = g.mobs.filter((m) => !m.dead);
 
   // 무리마다 한 마리가 죽으면 한 마리 — 정해진 수를 넘지 않는다

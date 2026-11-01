@@ -1,4 +1,5 @@
 import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
+import { WEAR_SETS, WEAR_SLOTS } from "./wearData.js";
 /* ── RPG 방어구 규칙 ─────────────────────────────────────────
    수치는 armorData.js. 효과는 방장이 셈하고, 손님 화면이 걷기를 먼저 그리는 데 필요한 값(이동 속도 · 추격)과
    화면에 띄울 시간(위기 피해 감소 · 부활 대기)은 h.arm 에 담아 스냅샷으로 보낸다(packArmor · applyArmor).
@@ -154,6 +155,16 @@ export function applyArmor(h, row) {
     cri: row[5] || 0, criCd: row[6] || 0, revCd: row[7] || 0, sets: row[8] ? { ...row[8] } : null };
 }
 
+/* 입은 방어구 겉모습 — 낀 전설(등급 3) 투구 · 갑옷 · 신발의 세트 코드 [투구, 갑옷, 신발](wearData.js WEAR_SETS 차례 + 1, 0 은 없음). 없으면 null */
+export function wearOf(h) {
+  const c = WEAR_SLOTS.map((slot) => {
+    const a = wornArmor(h && h.bag, slot);
+    if (!a || a.g !== 3) return 0;
+    const i = WEAR_SETS.indexOf(a.set || "legend");
+    return i < 0 ? 0 : i + 1;
+  });
+  return c.some(Boolean) ? c : null;
+}
 /* 월드보스 세트 — 무기 종류와 상관없이 낀 방어구만 센다. 같은 부위 중복은 세지 않는다. */
 export const worldSetCount = (h, id) => SLOT_IDS.reduce((n, slot) => n + (wornArmor(h?.bag, slot)?.set === id ? 1 : 0), 0);
 export const worldCritBonus = h => worldSetCount(h, 'dragon') >= 2 ? WORLD_SET_BY_ID.dragon.crit : 0;

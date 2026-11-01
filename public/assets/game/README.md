@@ -83,6 +83,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 `rpg/items/trade-icons.webp`는 내장 이미지 생성 도구로 만든 1254×1254 투명 그림입니다. 6열×6행이며 칸당 209×209입니다. 주문서·물약·재료·기본 무기 아이콘이 들어 있습니다. 각 칸 연결표는 `src/TradePanel.jsx`의 `ITEM_ART` · `WEAPON_ART`입니다. 글자와 수량은 그림에 넣지 않고 화면에서 표시합니다.
 
 월드보스 장비: `rpg/items/world-equipment.webp` — 투명 1916×1095, 7열×4행(11월 1일 4행 추가). 행은 드래곤·거대 뱀·고대 번개 기계·뇌조(4행은 3~6열 방어구 네 칸만 — Codex 생성, 원본 `design/world/thunderbird-armor-src.webp`). 열은 전사 무기·지팡이·활·투구·갑옷·바지·신발. 원본/생성 기록은 `docs/월드보스-장비-이미지-생성.md`. 인벤토리와 손에 든 무기가 같은 시트 칸을 사용한다.
+입은 방어구 겉모습: `rpg/wear/<세트>.webp` — 투명 1536×1536, 4열(앞 · 옆 · 뒤 · 돌아섬) × 3행(투구 · 갑옷 · 신발), 칸 384×512. 세트는 `legend`(세트 없는 전설) · `dragon` · `serpent` · `machine` · `thunderbird`(`wearData.js WEAR_SETS`). 표준 몸(검사 남 네 방향, `design/wear/base-body.webp`)에 맞춰 Codex 로 뽑은 겹침 그림이고, `wearArt.js` 가 몸 높이에 맞춰 늘려 발밑 가운데로 겹친다. 원본 `design/wear/<세트>-<부위>-src.webp`.
 
 용아쌍검 손에 든 그림: `rpg/items/dragon-dual-held.webp` — 투명 1774×887, 2열×1행. 왼쪽 장검, 오른쪽 단검. `rpgArt.js`가 각 칸을 128px 기준으로 캐시하고 성별·방향별 양손 좌표에 따로 그린다. 가방·거래의 기존 쌍검 아이콘은 유지한다.
 

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgWeaponSkill, rpgPack, rpgApply, rpgPromote } from '../src/game/rpg.js';
 import { WORLD_WEAPONS, WORLD_SETS, WORLD_WEAPON_SKILLS, worldArtCell, worldArt } from '../src/game/worldEquipmentData.js';
 import { cleanBag, specialsFor, whySpecialBuy, specialTier, rpgShop } from '../src/game/shop.js';
-import { armorAspd, armorOnHit, armorTick, armorSpeed, armorAtkMul, worldSetCount, worldCritBonus, worldDotMul, worldCooldownMul, worldArmorOnHit, worldArmorTick, worldArmorAbsorb, packArmor, applyArmor } from '../src/game/armor.js';
+import { wearOf, armorAspd, armorOnHit, armorTick, armorSpeed, armorAtkMul, worldSetCount, worldCritBonus, worldDotMul, worldCooldownMul, worldArmorOnHit, worldArmorTick, worldArmorAbsorb, packArmor, applyArmor } from '../src/game/armor.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { WEAPON } from '../src/game/shopData.js';
 const seats = WORLD_WEAPONS.slice(0,2).map((_,i)=>({id:`test${i}`,name:`장비시험${i}`,hero:{name:`장비시험${i}`,job:'warrior',elem:'frost',gender:'m'}}));
@@ -140,4 +140,18 @@ test('뇌제(뇌조) 세트 — 2세트 이동 속도 · 4세트 몹을 맞히�
  hit();assert.equal(armorAspd(h),base,'10초마다 — 아직 대기');
  armorTick(h,T.cooldown,()=>null);hit();assert(armorAspd(h)>base,'대기 뒤 다시');
  wear(h,'thunderbird',['head','body','legs']);armorTick(h,.02,()=>null);assert.equal(h.arm.sets.storm,0,'세트가 깨지면 효과도 꺼진다');
+});
+
+test('입은 전설 방어구 겉모습 — 투구 · 갑옷 · 신발 코드를 스냅샷으로 보낸다',()=>{
+ const {g,h}=setup('dragon_dual');
+ assert.equal(wearOf(h),null,'아무것도 안 입음');
+ wear(h,'thunderbird',['head','body','feet']);
+ assert.deepEqual(wearOf(h),[5,5,5]);
+ h.bag.a=[{u:1,s:'head',g:3},{u:2,s:'body',g:2},{u:3,s:'feet',g:3,set:'dragon'},{u:4,s:'legs',g:3,set:'serpent'}];
+ h.bag.ae={head:1,body:2,feet:3,legs:4};
+ assert.deepEqual(wearOf(h),[1,0,2],'세트 없는 전설 1 · 등급 낮으면 0 · 용왕 2 · 바지는 겉모습 없음');
+ const snap=JSON.parse(JSON.stringify(rpgPack(g)));
+ const g2=makeWorld();rpgSyncSeats(g2,structuredClone(seats));
+ rpgApply(g2,snap);
+ assert.deepEqual(g2.heroes[0].wear,[1,0,2],'손님 화면이 받는다');
 });

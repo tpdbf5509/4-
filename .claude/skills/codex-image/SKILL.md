@@ -43,6 +43,7 @@ python3 tools/key-green.py 이름.png public/assets/game/.../이름.webp --cols 
 - 끝나면 `이름-check.png`(어두운 바탕 위)를 `Read` 로 본다. **초록 틈이 남았는지, 몸이 파였는지** 둘 다 확인하고 칸마다 방식을 바꿔 다시 돌린다. 누끼 때 흰 깃털 · 옷이 지워지지 않아야 한다.
 - 그림이 칸 밖으로 나갔거나(칼 · 날개) 칸마다 위치가 들쭉날쭉하면 `python3 tools/relayout-sheet.py 지운것.webp 출력.webp` 로 칸 가운데 · 발밑에 다시 앉힌다(위쪽 상수 `FOOT` · `CELL` · `COLS` · `ROWS` 를 시트에 맞춘다). 만들어진 `-layout.png` 를 본다.
 - **반복되는 연출(비 · 낙하 · 화살 줄기)은 한 줄기만 뽑아** 폭 · 길이 · 개수를 코드로 늘려 쓴다(사용자 지시 — 예: 얼음 비 `ice-rain.webp`).
+- **캐릭터에 입히는 겹침 그림**은 표준 몸(`design/wear/base-body.webp` — 검사 남 네 방향)을 초록 바탕에 깔고, 아래에 장비 아이콘을 붙인 기준 그림으로 "이 몸 위에 이 장비만"을 부위마다(투구 · 갑옷 · 신발) 한 장씩 뽑는다. 투구는 작고 몸에 붙는 모양, 갑옷은 몸통 전체, 신발은 발 크기로 요구해야 얼굴 · 몸이 가려지지 않는다. 표준 몸 위에 얹어 본 뒤 `rpg/wear/<세트>.webp`(4열 × 3행) 로 묶는다.
 - 효과 시트(검은 바탕)는 `python3 tools/key-green.py 이름.png 출력.webp --black --size 1024x256`.
 - 캐릭터 시트의 4방향 자르기 · 무기 지우기는 기존 스크립트: `tools/cut-adv-classes.py` · `tools/bare-adv.py` · `tools/recut-character.py` · `tools/cut-weapons.py`.
 

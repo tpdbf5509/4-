@@ -9,6 +9,8 @@ import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc } from "./advArt.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
+import { drawWear } from "./wearArt.js";
+import { wearOf } from "./armor.js";
 import { warmAbyssArt, drawAbyssGate, drawGuardian } from "./abyssArt.js";
 import { GUARD_IDS } from "./abyssData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
@@ -2248,6 +2250,7 @@ function drawHero(ctx, g, h, time) {
     if (shield && view === "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, true);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
+    if (!down) drawWear(ctx, wearOf(h) || h.wear, view, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
     else if (held) {
       if (held.off && advIm) drawHeld(ctx, held.off, ww, top, held.offSwing, col.light);   // 전직 그림은 반대 손이 몸 앞 허리에 있다

@@ -20,7 +20,7 @@ import { P, towerIdx } from "./world.js";
 import { MARKET } from "./marketData.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WARP, GUARD, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
-import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor } from "./armor.js";
+import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor, wearOf } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
@@ -4702,7 +4702,7 @@ export function rpgPack(g) {
         TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
         packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0, h.ts || 0, trading(h) ? h.trade : null,h.guild||null,
         packAdv(h),                             // 53 — 전직 상태
-        {team:h.duelTeam,size:h.duelSize||0,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0},
+        {team:h.duelTeam,size:h.duelSize||0,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0,wear:wearOf(h)},
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0] // 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
@@ -4735,7 +4735,7 @@ export function rpgApply(g, s) {
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
-    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.duelInv=extra.inv?structuredClone(extra.inv):null;}
+    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.duelInv=extra.inv?structuredClone(extra.inv):null;}
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;

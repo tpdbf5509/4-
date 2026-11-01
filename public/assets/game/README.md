@@ -91,6 +91,23 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 
 비룡육연사 비행 그림: `rpg/effects/dragon-flight.webp` — 투명 1536×1024, 3열×2행, 칸당512×512. 왼쪽 위부터 날개 위·내리는 중·수평·아래·돌아오는 중·올리는 중의 6프레임이다. 붉은 비늘과 금빛 뿔의 용이 오른쪽을 향한다. `worldEquipmentData.js`의 `DRAGON_FLIGHT_ART`가 각 프레임의 주둥이 기준점과 표시 크기230을 정의한다. `dragonFlightArt.js`가 발사 방향으로 돌려 그린다. RPG 진입 때 미리 읽고 실패하면 코드로 그린 용으로 대신한다.
 
+스킬 상점 스킬 연출: `rpg/effects/skill-px/*.webp` — pixelfx(MIT, github.com/patch-gg/pixelfx 커밋 a841596)로 뽑은 투명 픽셀 시트 26장. 1배 픽셀 그대로 두고 그릴 때 키운다(흐림 없음). 칸 크기 · 열 수 · 칸 수 · 기준점(대부분 발밑)은 `skillPxData.js` `SKILL_PX_SHEETS`, 그리기는 `skillPxArt.js`. 처음 쓸 때 한 장씩 불러오고 못 불러오면 얇은 고리 · 선으로 대신한다. 뽑는 법과 색은 `design/effects/pixelfx/skill-shop/make.mjs`.
+
+| 파일 | 스킬 | pixelfx 이펙트 |
+|---|---|---|
+| smash | 강타 | melee/hammer-smash |
+| burst | 마력 폭발 | arcane/mana-burst |
+| pierce | 급소 찌르기 | impacts/crit-hit |
+| aid | 응급 처치 | nature/healing-bloom |
+| rush · spin | 돌진 베기 | melee/thrust · melee/spin-slash |
+| cleave | 대지 가르기 | nature/quake |
+| iron | 철벽 | holy/divine-shield(반복) |
+| arrow · spark | 관통 화살 · 연사 | projectiles/arrow(반복) · impacts/hit-spark |
+| arrow_ice · spark_ice | 후퇴 사격 | projectiles/arrow · impacts/hit-spark(서리빛) |
+| orb_<원소> · boom_<원소> | 원소 구체 | projectiles/plasma-shot(반복) · explosions/plasma-explosion(원소 여섯 색) |
+| chain | 연쇄 번개 | lightning/zap-hit |
+| circle | 강화 마법진 | arcane/magic-circle-cast |
+
 월드보스: `rpg/boss/world-bosses.webp` — 투명1536×1024, 3열×2행, 칸당512×512. 열은 드래곤·거대 뱀·고대 번개 기계, 행은 기본·공격 준비다. 그림 사이 여백을 넓혀 날개와 꼬리가 옆 보스에 섞이지 않게 했다. `worldBossData.js`의 `artSize`와 프레임별 `artFeet`가 표시 크기와 발밑 기준점을 정의한다. `worldBossArt.js`가 그림과 위험지역을 그린다. 로딩 실패 시 전용 코드 그림을 사용한다.
 
 ## 길드 성전·토벌 그림 (2026년10월23일)

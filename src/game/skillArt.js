@@ -6,6 +6,7 @@ import { drawAdvFx, ADV_GROUND } from "./advArt.js";
 import { drawAbyssFx, ABYSS_GROUND_FX } from "./abyssArt.js";
 import { drawStormFx, drawStormCharge } from './stormWeaponArt.js';
 import { drawFuryFx } from "./furyArt.js";
+import { drawSkillPx } from "./skillPxArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
    drawSkillFx — 이 파일이 맡은 연출(kind 가 "sk_" 로 시작): 빙판길 · 얼음 가시 · 불꽃 회오리 · 화염베기 · 유성(별 · 은하) · 종말의 일격 · 성광 빛줄기 · 빛의 결계 · 잿빛 폭발 · 낙뢰.
    drawHeroSkill — 영웅 둘레에 늘 붙는 것: 화염검 불똥 · 별빛 · 철벽 · 보호막 · 연계 중인 무기(그림자 칼 · 천사 날개 · 조준선) · 쌓인 패시브.
@@ -57,6 +58,7 @@ export function drawSkillFx(ctx, f, time, g) {
   if (drawAbyssFx(ctx, f, p, time, Q)) return;    // 심연의 탑 수호자 기술(abyssArt.js)
   if (drawStormFx(ctx, f, p, SQ(), g, Q)) return;
   if (drawFuryFx(ctx, f, p, Q)) return;           // 적룡 지팡이(furyArt.js)
+  if (drawSkillPx(ctx, f, p)) return;             // 스킬 상점 스킬 — pixelfx 픽셀 시트(skillPxArt.js)
   skillAccent(ctx, f, p, Q);
   if (f.kind === "sk_ice") drawIce(ctx, f, p, time);
   else if (f.kind === "sk_tornado") drawTornado(ctx, f, p);

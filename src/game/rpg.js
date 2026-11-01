@@ -2384,6 +2384,7 @@ export function rpgUseSkill(g, pi, id) {
     const before = h.hp;
     h.hp = Math.min(h.max, h.hp + h.max * u.heal[i]);
     fx(g, map, { kind: "heal", x: h.x, y: h.y - 56, text: `+${Math.round(h.hp - before)}`, t: 0.9, life: 0.9, snd: "bless", who: pi });
+    fx(g, map, { kind: "sk_px_aid", x: h.x, y: h.y + 2, t: 0.9, life: 0.9 });   // 발밑에 피는 꽃(skillPxArt.js)
   } else {
     if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
     const dmg = u.mul ? SKILL_USE.base * skillStatMul(h, u.dmg) * u.mul[i] : 0;
@@ -2399,7 +2400,7 @@ export function rpgUseSkill(g, pi, id) {
     else if (u.radius) {                           // 둘레를 모두
       const list = foesNear(g, h, h.x, h.y, u.radius * (h.ac ? acSkArea(h) : 1));
       list.forEach(strike);                        // 닿는 것이 없어도 쓴다
-      fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
+      fx(g, map, { kind: "sk_px_burst", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", t: 0.7, life: 0.7, snd: "boom" });   // 고리는 예전 크기 그대로
     } else if (u.lunge) {                          // 직업 돌진 베기 — 가장 가까운 적 앞까지 돌진해 찌른다
       const L = u.lunge;
       const [m] = foesNear(g, h, h.x, h.y, L.reach * (h.ac ? acSkReach(h) : 1), 1);
@@ -2407,13 +2408,13 @@ export function rpgUseSkill(g, pi, id) {
       if (!m) {                                    // 아무도 없으면 겨눈 쪽으로 끝까지 돌진한다
         const [tx, ty] = aimAt(h, L.reach);
         lungeTo(h, { x: tx, y: ty, rad: -2 * LUNGE_GAP }, L.time);
-        fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#ffe9b0", n: 8, t: 0.3, life: 0.3, snd: "slash" });
+        fx(g, map, { kind: "sk_px_rush", x: x0, y: y0, dir: tx < x0 ? -1 : 1, t: 0.3, life: 0.3, snd: "slash" });
       } else {
       lungeTo(h, m, L.time);
-      fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#ffe9b0", n: 8, t: 0.3, life: 0.3, snd: "slash" });
+      fx(g, map, { kind: "sk_px_rush", x: x0, y: y0, dir: m.x < x0 ? -1 : 1, t: 0.3, life: 0.3, snd: "slash" });
       // 닿는 순간에 찌른다 — 그사이 상대가 쓰러졌거나 맵을 떠났으면 빗나간다
       const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: u.splash || 0, full: u.splash ? 1 : 0, skill: true, sure: !!u.crit, cast };   // 돌진 베기는 닿은 자리 둘레를 모두
-      if (u.splash) later(g, L.time, () => fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.splash, color: elemOf(h).light, n: 14, t: 0.5, life: 0.5, snd: "boom" }));
+      if (u.splash) later(g, L.time, () => fx(g, map, { kind: "sk_px_spin", x: h.x, y: h.y - 8, r: u.splash, color: elemOf(h).light, dir: h.dir, t: 0.5, life: 0.5, snd: "boom" }));
       g.hits.push(isHeroT(m) ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
       }
     } else {                                       // 가장 가까운 하나
@@ -2422,7 +2423,7 @@ export function rpgUseSkill(g, pi, id) {
       // 아무도 없으면 겨눈 쪽 사거리 끝을 친다(맞는 것은 없다)
       const [bx, by] = m ? [m.x, m.y] : aimAt(h, Math.min(reach, 140));
       if (m) { h.dir = m.x < h.x ? -1 : 1; strike(m); }
-      fx(g, map, { kind: "burst", x: bx, y: by - 14, r: 30, color: u.crit ? "#ffd873" : "#f2e3c2", n: 10, t: 0.4, life: 0.4, snd: "crit" });
+      fx(g, map, { kind: u.crit ? "sk_px_pierce" : "sk_px_smash", x: bx, y: by, dir: h.dir, t: 0.4, life: 0.4, snd: "crit" });
     }
     h.swing = 0.35;
   }
@@ -2516,15 +2517,12 @@ function jobSkill(g, h, u, i, dmg) {
     hits.forEach((o) => strikeAny(g, h, o, dmg));
     if (u.arrow) advAimShot(advEngine, g, h, hits);   // 명사수 시험 — 관통 화살은 비타겟팅
     const [x1, y1] = lineEnd(h, ax, ay, u.len);
+    // 연출은 pixelfx 시트(skillPxArt.js) — 관통 화살은 날아가는 화살 + 맞은 자리 불꽃, 대지 가르기는 한 줄로 갈라지는 땅
     if (u.arrow) {
-      fx(g, map, { kind: "beam", x0: h.x, y0: hy, x1, y1: y1 - 34, color: el.light, w: 6, t: 0.4, life: 0.4, snd: "shot" });
-      fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1, y1: y1 - 34, style: "arrow", color: "#fff6dc", t: 0.22, life: 0.22 });
+      fx(g, map, { kind: "sk_px_arrow", x: h.x, y: hy, x0: h.x, y0: hy, x1, y1: y1 - 34, t: 0.22, life: 0.22, snd: "shot" });
+      hits.forEach((o) => fx(g, map, { kind: "sk_px_spark", x: o.x, y: o.y, dir: h.dir, t: 0.3, life: 0.3 }));
     } else {
-      fx(g, map, { kind: "beam", x0: h.x, y0: h.y - 4, x1, y1: y1 - 4, color: "#b98f62", w: 18, t: 0.55, life: 0.55, snd: "boom" });
-      for (let k = 1; k <= 4; k++) {
-        const [bx, by] = lineEnd(h, ax, ay, (u.len * k) / 4);
-        fx(g, map, { kind: "burst", x: bx, y: by - 8, r: 26, color: "#d9b88a", n: 7, t: 0.45, life: 0.45 });
-      }
+      fx(g, map, { kind: "sk_px_cleave", x: (h.x + x1) / 2, y: (h.y + y1) / 2, x0: h.x, y0: h.y, x1, y1, t: 0.55, life: 0.55, snd: "boom" });
     }
   } else if (u.kind === "volley") {               // 연사 — 한 대상에게 잇달아
     const [o] = foesNear(g, h, h.x, h.y, heroRange(h) * 1.4, 1);
@@ -2535,8 +2533,9 @@ function jobSkill(g, h, u, i, dmg) {
         if (h.map !== map || h.down > 0) return;
         const alive = !!o && (isHeroT(o) ? o.down <= 0 : !o.dead) && o.map === map;
         const x1 = alive ? o.x : tx, y1 = alive ? o.y : ty;
-        fx(g, map, { kind: "shot", x0: h.x, y0: h.y - 34, x1, y1: y1 - 10, style: "arrow", color: el.light, t: 0.18, life: 0.18, snd: "shot" });
+        fx(g, map, { kind: "sk_px_arrow", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1, y1: y1 - 10, t: 0.18, life: 0.18, snd: "shot" });
         if (!alive) return;
+        later(g, 0.18, () => fx(g, map, { kind: "sk_px_spark", x: x1, y: y1, dir: h.dir, t: 0.3, life: 0.3 }));
         g.hits.push(isHeroT(o) ? { t: 0.18, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
           : { t: 0.18, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true });
       });
@@ -2545,13 +2544,15 @@ function jobSkill(g, h, u, i, dmg) {
     const x0 = h.x, y0 = h.y;
     lungeTo(h, leapSpot(g, h, u), u.time);
     advLeap(advEngine, g, h);                     // 총사 기동 사격
-    fx(g, map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#e8f2ff", n: 8, t: 0.3, life: 0.3, snd: "slash" });
+    fx(g, map, { kind: "sk_px_spark_ice", x: x0, y: y0, dir: -h.dir, t: 0.3, life: 0.3, snd: "slash" });   // 물러나는 자리에 서리 불꽃
     later(g, u.time, () => {
       if (h.map !== map || h.down > 0) return;
       const [o] = foesNear(g, h, h.x, h.y, heroRange(h) * 1.5, 1);
       if (!o) return;
       h.dir = o.x < h.x ? -1 : 1;
-      fx(g, map, { kind: "shot", x0: h.x, y0: h.y - 34, x1: o.x, y1: o.y - 10, style: "arrow", color: "#cfe6ff", t: 0.2, life: 0.2, snd: "shot" });
+      fx(g, map, { kind: "sk_px_arrow_ice", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1: o.x, y1: o.y - 10, t: 0.2, life: 0.2, snd: "shot" });
+      const ox = o.x, oy = o.y;
+      later(g, 0.2, () => fx(g, map, { kind: "sk_px_spark_ice", x: ox, y: oy, dir: h.dir, t: 0.3, life: 0.3 }));
       g.hits.push(isHeroT(o) ? { t: 0.2, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
         : { t: 0.2, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true, slow: u.slow });
     });
@@ -2560,9 +2561,9 @@ function jobSkill(g, h, u, i, dmg) {
     const [o] = foesNear(g, h, h.x, h.y, reach, 1);
     const [tx, ty] = o ? [o.x, o.y] : aimAt(h, reach);
     if (o) h.dir = o.x < h.x ? -1 : 1;
-    const fly = 0.32, art = ELEM_ART[el.id];
-    fx(g, map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, style: "orb", art: art.fly || 0, r: 40, color: el.light, t: fly, life: fly, snd: "orb" });
-    later(g, fly, () => fx(g, map, { kind: "nova", x: tx, y: ty - 6, r: u.splash, color: el.light, n: 16, t: 0.5, life: 0.5, snd: "boom" }));
+    const fly = 0.32;
+    fx(g, map, { kind: "sk_px_orb", x: h.x, y: hy, x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, el: el.id, t: fly, life: fly, snd: "orb" });
+    later(g, fly, () => fx(g, map, { kind: "sk_px_boom", x: tx, y: ty - 6, r: u.splash, color: el.light, el: el.id, t: 0.5, life: 0.5, snd: "boom" }));   // 고리는 예전 크기 그대로
     const cast = h.cast;                          // 닿을 때 이 스킬로 친다(landHit)
     g.hits.push(o
       ? (isHeroT(o) ? { t: fly, pi, hid: o.pi, x: tx, y: ty, map, dmg, splash: isPvp(map) ? 0 : u.splash, full: 1, skill: true, cast }
@@ -2575,11 +2576,11 @@ function jobSkill(g, h, u, i, dmg) {
     const done = new Set();
     if (!cur) {
       const [tx, ty] = aimAt(h, reach);
-      fx(g, map, { kind: "zap", x0: px, y0: py, x1: tx, y1: ty - 10, color: "#e6ecff", t: 0.3, life: 0.3, snd: "zap" });
+      fx(g, map, { kind: "sk_px_chain", x: tx, y: ty - 10, x0: px, y0: py, x1: tx, y1: ty - 10, t: 0.3, life: 0.3, snd: "zap" });
     }
     for (let k = 0; k < u.jumps && cur; k++) {
       done.add(cur);
-      fx(g, map, { kind: "zap", x0: px, y0: py, x1: cur.x, y1: cur.y - 10, color: "#e6ecff", t: 0.3, life: 0.3, snd: k ? undefined : "zap" });
+      fx(g, map, { kind: "sk_px_chain", x: cur.x, y: cur.y - 10, x0: px, y0: py, x1: cur.x, y1: cur.y - 10, t: 0.3, life: 0.3, snd: k ? undefined : "zap" });
       strikeAny(g, h, cur, d);
       px = cur.x; py = cur.y - 10; d *= u.fall;
       cur = pvp ? null : nearMobs(g, map, cur.x, cur.y, u.hop).find((q) => !done.has(q));
@@ -2587,13 +2588,13 @@ function jobSkill(g, h, u, i, dmg) {
   } else if (u.kind === "guard") {                // 철벽
     const jb = jbOf(h);
     jb.iron = u.dur; jb.ironCut = u.cut[i];
-    fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 70, color: "#cfd8e6", t: 0.7, life: 0.7, snd: "bless" });
+    fx(g, map, { kind: "sk_px_iron", x: h.x, y: h.y + 2, r: 70, t: 0.7, life: 0.7, snd: "bless" });
   } else if (u.kind === "empower") {
     const C=COMBAT_RULES.circle;
     g.powerCircles=(g.powerCircles||[]).filter(c=>c.by!==pi);
     g.powerCircles.push({by:pi,owner:h.who,map:h.map,x:h.x,y:h.y,r:C.radius,t:C.duration});
     refreshPowerCircles(g);
-    fx(g,map,{kind:'sigil',x:h.x,y:h.y,r:C.radius,color:'#b9d3f1',t:.7,life:.7,snd:'bless'});
+    fx(g,map,{kind:'sk_px_circle',x:h.x,y:h.y,r:C.radius,color:'#b9d3f1',t:.9,life:.9,snd:'bless'});   // 고리는 마법진 반지름 그대로
   } else if (u.kind === "shield") {               // 마나 보호막
     const jb = jbOf(h);
     jb.sh = Math.round(h.max * u.amt[i]); jb.shT = u.dur;

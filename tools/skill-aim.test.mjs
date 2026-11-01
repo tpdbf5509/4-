@@ -41,7 +41,7 @@ test('월드보스 직선 무기도 포인터 방향을 시전 상태에 고정�
 });
 test('관통 화살의 그림과 실제 판정이 같은 마우스 방향을 따른다',()=>{
  const {g,h}=setup();rpgInput(g,{cls:0,kind:'use',dir:'j_pierce',aim:[-1,0]});
- const beam=g.out.find(f=>f.kind==='beam');assert(beam.x1<beam.x0);assert.equal(h.trn?.tot||0,0);
+ const beam=g.out.find(f=>f.kind==='sk_px_arrow');assert(beam.x1<beam.x0);assert.equal(h.trn?.tot||0,0);
  h.scd.j_pierce=0;rpgInput(g,{cls:0,kind:'use',dir:'j_pierce',aim:[1,0]});assert(h.trn.tot>0);
 });
 test('명사수의 지연 저격도 시전 순간의 포인터 방향을 보존한다',()=>{

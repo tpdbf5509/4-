@@ -109,6 +109,18 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 | chain | 연쇄 번개 | lightning/zap-hit |
 | circle | 강화 마법진 | arcane/magic-circle-cast |
 
+월드보스 연출: `rpg/effects/world-boss/*.webp` — pixelfx(MIT, 커밋 a841596)로 뽑은 투명 픽셀 시트 10장. 1배 픽셀 그대로 두고 그릴 때 키운다(흐림 없음). 칸 크기 · 열 수 · 칸 수 · 기준점(발밑) · 경고/맞는 순간 칸 구간은 `worldBossPxData.js` `WB_PX_SHEETS`, 그리기는 `worldBossPxArt.js`. 못 불러오면 `worldBossArt.js` 의 예전 코드 그림으로 그린다. 뽑는 법과 색은 `design/effects/pixelfx/world-boss/make.mjs`, 낙뢰 · 독 시트의 그늘 · 검은 자국 손질은 같은 폴더 `post.py`.
+
+| 파일 | 쓰는 곳 | pixelfx 이펙트 |
+|---|---|---|
+| breath | 드래곤 숨결 · 화염폭풍 부채꼴 | fire/fire-breath(반복) |
+| meteor | 드래곤 운석 — 0~7칸 경고 중 떨어짐, 8~21칸 맞는 순간 | fire/meteor |
+| acid · puddle | 뱀 독 튀김 · 남는 독 웅덩이 | nature/acid-splash · nature/toxic-puddle(반복) |
+| strike_m · strike_t | 기계 · 뇌조 낙뢰 — 0~7칸 경고 중 바닥 문양, 8~19칸 맞는 순간 | lightning/lightning-strike(푸른 잿빛 · 연보라) |
+| feather | 뇌조 전격 깃털 | holy/feather-burst |
+| break · stun | 합동 공격 성공 · 기절 별 | holy/smite · status/stunned(캐릭터 없이) |
+| fall | 토벌 빛기둥 | holy/holy-pillar |
+
 월드보스: `rpg/boss/world-bosses.webp` — 투명1536×1024, 3열×2행, 칸당512×512. 열은 드래곤·거대 뱀·고대 번개 기계, 행은 기본·공격 준비다. 그림 사이 여백을 넓혀 날개와 꼬리가 옆 보스에 섞이지 않게 했다. `worldBossData.js`의 `artSize`와 프레임별 `artFeet`가 표시 크기와 발밑 기준점을 정의한다. `worldBossArt.js`가 그림과 위험지역을 그린다. 로딩 실패 시 전용 코드 그림을 사용한다.
 
 ## 길드 성전·토벌 그림 (2026년10월23일)

@@ -54,7 +54,7 @@
 
 - **수치는 데이터 파일 한 곳**, 규칙은 짝 파일, 그림은 `*Art.js`, 창은 `src/*Panel.jsx`.
   - 방어전: `world.js`(상수 · `TOWERS` · `DIFFS` · `makeGame`) · `logic.js`(규칙, 위쪽에 밸런스 상수, 스냅샷 `packSnapshot`/`applySnapshot`) · `art.js`.
-  - RPG: `rpg.js`(규칙 본체) · `rpgArt.js` · `src/RpgView.jsx`(화면 · 입력). 기능별 수치는 `*Data.js`(item · shop · junk · armor · dungeon · abyss · skill · skillPx(스킬 상점 스킬 pixelfx 연출) · adv · deep · fieldLook · train · request · social · book · guild · worldBoss · worldEquipment · stormWeapon · jobTune · combatRules …).
+  - RPG: `rpg.js`(규칙 본체) · `rpgArt.js` · `src/RpgView.jsx`(화면 · 입력). 기능별 수치는 `*Data.js`(item · shop · junk · armor · dungeon · abyss · skill · skillPx(스킬 상점 스킬 pixelfx 연출) · worldBossPx(월드보스 pixelfx 연출) · adv · deep · fieldLook · train · request · social · book · guild · worldBoss · worldEquipment · stormWeapon · jobTune · combatRules …).
 - `src/game/towerInfo.js`: 탑 설명 숫자를 손으로 적은 곳 — logic.js 를 고치면 같이 고친다.
 - `src/game/updates.js`: 대기실 업데이트 노트 · `RPG_NOTICE`. `bookData.js`: RPG 패치노트 책.
 - `src/App.jsx`: 화면 흐름 · 방 연결 · 방장 권한 · 테스트 패널. `src/net/`: 방 연결 · 전용 서버 · 장부 호출 · 버전 확인(`version.js`).

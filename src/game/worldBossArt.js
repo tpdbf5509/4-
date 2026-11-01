@@ -1,7 +1,9 @@
-/* 월드보스 전용 그림과 위험지역. 기존 캐릭터 스킬 효과는 재사용하지 않는다. */
+/* 월드보스 전용 그림과 위험지역. 기존 캐릭터 스킬 효과는 재사용하지 않는다.
+   공격 · 독 웅덩이 · 기절 · 합동 공격 · 토벌 연출은 pixelfx 픽셀 시트(worldBossPxArt.js)로 먼저 그리고, 못 불러오면 아래 코드 그림으로 그린다. */
 import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_TYPE,WORLD_BOSS_PATTERNS} from './worldBossData.js';
 import {bloom,sparks,ring,bolt} from './combatFx.js';
 import {worldBossCoopOpen} from './worldBoss.js';
+import {warmWorldBossPx,drawWbWarnPx,drawWbPoolPx,drawWbStunPx,drawWbHitPx,drawWbBreakPx,drawWbFallPx} from './worldBossPxArt.js';
 const TAU=Math.PI*2;
 const TONES={dragon:['#96351d','#ff873b','#fff1bf'],serpent:['#48315e','#a9e66e','#f2ffd4'],machine:['#235476','#68dafa','#f0fcff'],thunderbird:['#403879','#a7a2ff','#e6fbff']};
 let atlas;
@@ -13,7 +15,7 @@ function bossImage(src){
 }
 export function warmWorldBossArt(){
   if(typeof Image==='undefined')return null;
-  WORLD_BOSSES.forEach(b=>{if(b.art)bossImage(b.art.src);});
+  WORLD_BOSSES.forEach(b=>{if(b.art)bossImage(b.art.src);});warmWorldBossPx();
   if(atlas===undefined){atlas=new Image();atlas.onerror=()=>{atlas=null;};atlas.src=C.art;}
   return atlas?.complete&&atlas.naturalWidth?atlas:null;
 }
@@ -48,7 +50,7 @@ function fallingRock(ctx,x,y,progress,r,tone){
 export function drawWorldBossGround(ctx,g,map,quality=1){
   if(map!==C.map||!g.wb?.active)return;
   const a=g.wb.active,t=g.t,tone=TONES[a.id];
-  a.pools.forEach((p,j)=>{paintArea(ctx,p,'#9563b2',.3);const n=Math.max(3,Math.round(8*quality));ctx.save();ctx.strokeStyle=tone[1];ctx.lineWidth=2;ctx.globalAlpha=.55;
+  a.pools.forEach((p,j)=>{paintArea(ctx,p,'#9563b2',.3);if(drawWbPoolPx(ctx,p,t))return;const n=Math.max(3,Math.round(8*quality));ctx.save();ctx.strokeStyle=tone[1];ctx.lineWidth=2;ctx.globalAlpha=.55;
     for(let i=0;i<n;i++){const angle=i*2.39996+j,d=p.r*(.2+.65*((i*17%29)/29));ctx.beginPath();ctx.arc(p.x+Math.cos(angle)*d,p.y+Math.sin(angle)*d*C.squash-Math.sin(t*3+i)*7,3+(i%3),0,TAU);ctx.stroke();}ctx.restore();});
   if(a.stun>0){runeHalo(ctx,a.x,a.y,130,t,'#ffe19a',quality);return;}
   if(a.attack){
@@ -71,6 +73,7 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
       }
       if(s.shape==='circle'){
         ring(ctx,s.x,s.y,s.r*(.2+.8*p),C.squash,tone[1],.65,2);
+        if(drawWbWarnPx(ctx,a.id,s,p))return;
         if(a.id==='dragon'&&p>.35)fallingRock(ctx,s.x,s.y,(p-.35)/.65,attack.major?28:19,tone);
         if(a.id==='machine'||a.id==='thunderbird')bolt(ctx,s.x+18,s.y-170,s.x,s.y-15,tone,1-p,2,i);
       }
@@ -107,6 +110,7 @@ export function drawWorldBossSprite(ctx,m,time,state,quality=1){
     ctx.fillStyle='#fff2bb';ctx.fillRect(-50,-155,20,10);ctx.fillRect(30,-155,20,10);ctx.beginPath();ctx.moveTo(-80,-185);ctx.lineTo(-100,-260);ctx.lineTo(-30,-205);ctx.moveTo(80,-185);ctx.lineTo(100,-260);ctx.lineTo(30,-205);ctx.fill();}
   ctx.restore();
   if(state?.stun>0){
+    if(drawWbStunPx(ctx,m.x,m.y,time))return true;
     ctx.save();ctx.strokeStyle='#ffe6a3';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(m.x,m.y-290,70,20,0,0,TAU);ctx.stroke();
     for(let i=0;i<4;i++){const a=time*3+i*TAU/4,x=m.x+Math.cos(a)*70,y=m.y-290+Math.sin(a)*20;ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle='#ffe6a3';ctx.beginPath();for(let j=0;j<10;j++){const r=j%2?4:10,theta=j*Math.PI/5;ctx.lineTo(Math.cos(theta)*r,Math.sin(theta)*r);}ctx.closePath();ctx.fill();ctx.restore();}ctx.restore();
   }else if(worldBossCoopOpen(state)){
@@ -187,7 +191,9 @@ function thunderbirdImpact(ctx,f,p,q,tone){
   }else electricImpact(ctx,f,p,q,tone);
 }
 export function drawWorldBossFx(ctx,f,p,quality){
+  if(f.kind==='sk_raid_end')return drawWbFallPx(ctx,f,p);
   if(f.kind==='sk_raid_break'){
+    if(drawWbBreakPx(ctx,f,p))return true;
     const tone=['#9d6f2c','#ffe09a','#fff9de'];
     bloom(ctx,f.x,f.y,230,tone[1],.8*(1-p));ring(ctx,f.x,f.y,40+p*210,.75,tone[2],1-p,5);
     sparks(ctx,f.x,f.y,290,p,tone,quality,36,5);return true;
@@ -195,6 +201,7 @@ export function drawWorldBossFx(ctx,f,p,quality){
   if(f.kind!=='sk_raid_hit')return false;
   const tone=TONES[f.tone]||TONES.dragon;
   ctx.save();if(f.area&&f.area.shape!=='outside')paintArea(ctx,f.area,tone[1],(1-p)*.23);
+  if(drawWbHitPx(ctx,f,p,quality)){ctx.restore();return true;}
   if(f.tone==='serpent')poisonImpact(ctx,f,p,quality,tone);
   else if(f.tone==='thunderbird')thunderbirdImpact(ctx,f,p,quality,tone);
   else if(f.tone==='machine')electricImpact(ctx,f,p,quality,tone);

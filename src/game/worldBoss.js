@@ -6,6 +6,7 @@ import {ARMOR_SLOTS,armorCap} from './armorData.js';
 import {MAT_MAX} from './itemData.js';
 import {specialTier,specialPrice} from './shop.js'; // 물품을 지급할 때만 읽어 기존 장비 생성 규칙을 맞춘다.
 import {trading} from './tradeData.js';
+import {WB_PX_LOOK} from './worldBossPxData.js';
 import {thunderbirdAreas,startThunderbirdDive,tickThunderbirdDive} from './thunderbirdCombat.js';
 const distance=(x,y,a,b)=>Math.hypot(x-a,(y-b)/C.squash);
 const activeHeroes=g=>g.heroes.filter(h=>h?.loaded&&h.map===C.map&&h.down<=0);
@@ -121,6 +122,7 @@ export function worldBossHit(g,m,h,amount,{direct=true}={}){
 export function worldBossKilled(E,g,m){
   const a=g.wb.active;if(!a||a.mob!==m.id||a.phase!=='fight')return;
   a.phase='clear';a.hp=0;a.end=C.endWait;a.attack=null;a.pools=[];a.stun=0;a.breakPending=false;
+  E.fx?.(g,C.map,{kind:'sk_raid_end',x:m.x,y:m.y,t:WB_PX_LOOK.fall.life,life:WB_PX_LOOK.fall.life,kick:.3,snd:'clear'}); // 토벌 빛기둥(worldBossPxArt.js)
   const total=a.contrib.reduce((s,c)=>s+c.damage,0);
   const rewards=a.contrib.filter(c=>c.damage>total*C.contribution).map(c=>({name:c.name,...rollWorldBossReward(a.id),applied:false}));
   g.wb.results.push({key:a.key,rewards});

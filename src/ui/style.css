@@ -2303,20 +2303,26 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-joystick[aria-disabled="true"] { opacity: 0.4; }
 @media (orientation: landscape) and (max-height: 650px) {
   .rpg-page.touch {
-    --combat-width: clamp(192px, 25vw, 240px);
+    --combat-width: clamp(176px, 25vw, 240px);
+    --stick-size: clamp(88px, 26dvh, 124px);
+    --control-left: max(10px, env(safe-area-inset-left));
     --control-right: max(10px, env(safe-area-inset-right));
     --control-bottom: max(10px, env(safe-area-inset-bottom));
+    /* 양옆 조작부 너비를 먼저 빼서 게임 판과 버튼이 겹치지 않게 한다. */
+    padding-left: calc(var(--control-left) + var(--stick-size) + 12px);
+    padding-right: calc(var(--control-right) + var(--combat-width) + 12px);
   }
+  .rpg-page.touch .stage { width: 100%; }
   .rpg-page.touch .pad {
-    position: fixed; left: max(10px, env(safe-area-inset-left)); right: var(--control-right);
+    position: fixed; left: var(--control-left); right: var(--control-right);
     bottom: var(--control-bottom); width: auto; transform: none; margin: 0;
     pointer-events: none; z-index: 4;
   }
   .rpg-page.touch .pad > * { pointer-events: auto; }
-  .rpg-page.touch .rpg-joystick { width: clamp(96px, 26dvh, 124px); height: clamp(96px, 26dvh, 124px); }
+  .rpg-page.touch .rpg-joystick { width: var(--stick-size); height: var(--stick-size); }
   .rpg-page.touch .pad-act { width: var(--combat-width); justify-content: flex-end; }
-  .rpg-page.touch .pbtn { height: 48px; }
-  .rpg-page.touch .pbtn.hit { height: 58px; min-width: 90px; }
+  .rpg-page.touch .pbtn { height: 48px; min-width: 0; padding: 0 8px; flex: 1; }
+  .rpg-page.touch .pbtn.hit { height: 58px; min-width: 82px; }
   .rpg-page.touch .rpg-touch-actions {
     position: fixed; right: var(--control-right); bottom: calc(var(--control-bottom) + 68px);
     width: var(--combat-width); display: flex; flex-direction: column; gap: 6px; z-index: 4;
@@ -2333,4 +2339,9 @@ button.forge-stage:disabled { cursor: default; }
   .rpg-page.touch .rpg-skill small { display: none; }
   .rpg-page.touch .rpg-skill em { font-size: 14px; flex: none; }
   .rpg-page.touch .rpg-buffs { right: 12px; bottom: 12px; }
+}
+/* 양옆 조작부를 뺀 작은 판에서도 상단 정보가 칸 밖으로 나가지 않게 한다. */
+@media (orientation: landscape) and (max-height: 650px) and (max-width: 700px) {
+  .rpg-page.touch .rpg-lv { zoom: 0.55; width: 220px; }
+  .rpg-page.touch .rpg-dg { zoom: 0.55; left: 240px; right: 8px; }
 }

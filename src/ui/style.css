@@ -2263,3 +2263,16 @@ button.forge-stage:disabled { cursor: default; }
 .abyss-pick .ac-cat { margin-top: auto; padding: 8px 12px 0; font-size: 10.5px; color: #8f7f62; letter-spacing: -0.02em; }
 .abyss-pick .perk-have { margin-bottom: 0; }
 .ac-acts { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+
+/* 휴대폰 가로 화면 — 기존 레벨 칸과 공통 보스바의 형태를 유지하고 크기만 줄인다.
+   레벨 칸은 좁은 화면의 기존 172px보다 오른쪽으로 넓히고 보스바는 상단에 둔다. */
+@media (orientation: landscape) and (max-height: 650px) and (hover: none) and (pointer: coarse) {
+  .page.touch .stage { max-width: min(1040px, calc((100dvh - 44px) * 1.52)); }
+  .page.touch .rpg-lv { zoom: 0.75; width: clamp(240px, 32vw, 320px); }
+  .page.touch .rpg-dg {
+    zoom: 0.7; top: 12px; left: clamp(280px, 36vw, 365px); right: 90px;
+    max-width: 520px;
+  }
+  .page.touch .rpg-dg-top { flex-wrap: wrap; }
+  .page.touch .rpg-dg-top > * { flex-shrink: 0; white-space: nowrap; }
+}

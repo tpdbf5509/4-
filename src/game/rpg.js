@@ -35,10 +35,10 @@ import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.
 import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, SEAL, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
   isGuardFloor, rankReward, abyssWeek, cleanAw, rollAw, GUARD_BY_TYPE } from "./abyssData.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
-import { ELITE, eliteCount } from "./abyssCardData.js";
+import { ELITE, eliteCount, GRACE } from "./abyssCardData.js";
 import { acBind, acAtkMul, acAspdMul, acRangeMul, acAreaMul, acHpMul, acSpeedMul, acDashDist, acDashCd, acSkillCd, acSkArea, acSkReach, acZoneSlow, acFly,
   acCritAdd, acCdmgAdd, acBurnMul, acPoisonMul, acDotDur, acSlowDur, acCc, acStart, acEnd, acChoose, acHealMul, acDeal, acAfterHit, acOnAttack, acOnSkill,
-  acOnDash, acUseCharge, acTake, acAfterHurt, acOnKill, acMobTick, acFloorStart, acFloorClear, acFloorShards, acTick, acPack, acUnpack } from "./abyssCards.js";
+  acOnDash, acUseCharge, acTake, acAfterHurt, acOnKill, acMobTick, acFloorStart, acFloorClear, acFloorShards, acTick, acPack, acUnpack, acPickTick } from "./abyssCards.js";
 import { advNullShield, advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
   advLowHp, advGiantTake, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill,
   advHpMul, advTakeMul, advHidden, advSpeedMul, advElfShot, advGunReady, advGunFired } from "./advance.js";
@@ -4371,7 +4371,7 @@ function tickRuns(g, dt) {
    g.aruns 하나가 탑 칸 하나다. f 는 지금 오르는 층(다음 층을 기다리는 동안은 막 깬 층).
    phase: go 싸우는 중 · next 깨고 다음 층을 기다림 · fail 도전 끝(end 초 뒤 광장으로).
    손님은 스냅샷 ab 로 받은 g.aruns 로 층 · 남은 시간을 그린다 */
-const ABYSS_PHASES = ["go", "next", "fail"];
+const ABYSS_PHASES = ["go", "next", "fail", "pick"];   // pick — 강화 카드를 모두 고를 때까지 멈춤(뒤에만 더한다)
 // 테스트가 시계를 바꿀 수 있게 — 주(week) · 닿은 때(at)에 쓴다
 const abyssNow = (g) => (typeof g.nowMs === "function" ? g.nowMs() : Date.now());
 export const abyssNear = (h) => !!h && h.map === "plaza" && dist(h.x, h.y, ABYSS.gate.x, ABYSS.gate.y) <= ABYSS.reach;
@@ -4433,7 +4433,8 @@ export function rpgAbyss(g, pi, req) {
   g.mobs = g.mobs.filter((m) => m.map !== map);
   const crew = abyssCrew(g, h);
   const hpScale = Math.max(1, Math.max(...crew.map((o) => o.lv)) / COMBAT_RULES.dungeonScaleLevel);   // 던전과 같은 파티 배율
-  g.aruns.push({ slot, map, f: 0, best: 0, t: 0, phase: "next", end: 1.5, hpScale });
+  const run = { slot, map, f: 0, best: 0, t: 0, phase: "pick", end: 1.5, hpScale };   // 들어가자마자 카드부터 고른다
+  g.aruns.push(run);
   crew.forEach((o, i) => {
     const [sx, sy] = MAPS[map].spawn;
     o.map = map; o.x = sx - 120 + (i % 2) * 60; o.y = sy + (i - 1.5) * 50; o.gateCd = 1; stopMove(o);
@@ -4494,6 +4495,12 @@ function tickAbyss(g, dt) {
     if (!inside.length) return close();            // 모두 나갔다
     if (r.phase === "fail") { r.end -= dt; return r.end > 0 ? true : close(); }
     if (r.phase === "next") { r.end -= dt; if (r.end <= 0) abyssFloor(g, r); return true; }
+    if (r.phase === "pick") {                      // 강화 카드 — 안에 있는 사람이 모두 고를 때까지 멈춘다(사람마다 GRACE.pickTime 초)
+      let wait = false;
+      inside.forEach((h) => { if (acPickTick(g, h, dt)) wait = true; });
+      if (!wait) { r.phase = "next"; r.end = GRACE.startWait; abyssCall(g, r, `${GRACE.startWait}초 뒤 ${r.f + 1}층`, "#cfe6ff", "wave"); }
+      return true;
+    }
     r.t -= dt;
     const fail = (why) => {
       r.phase = "fail"; r.end = ABYSS.failWait; r.t = Math.max(0, r.t);
@@ -4506,7 +4513,8 @@ function tickAbyss(g, dt) {
     if (inside.every((h) => h.down > 0)) return fail("모두 쓰러졌습니다");
     if (g.mobs.some((m) => !m.dead && m.map === r.map)) return true;
     abyssClear(g, r, inside);
-    r.phase = "next"; r.end = ABYSS.gap;
+    if (inside.some((h) => h.ac && h.ac.o.length)) r.phase = "pick";   // 카드를 다 고른 뒤 GRACE.startWait 초
+    else { r.phase = "next"; r.end = ABYSS.gap; }
     return true;
   });
 }

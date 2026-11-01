@@ -24,10 +24,18 @@ function world(people, clock = { t: MON + 3600e3 }) {
 const atGate = (h) => { h.map = 'plaza'; h.x = ABYSS.gate.x; h.y = ABYSS.gate.y + 50; };
 const send = (g, pi, kind, dir) => rpgInput(g, { cls: pi, kind, dir });
 const sysOf = (g, pi) => g.out.filter((o) => o.k === 'sys' && o.who === pi).map((o) => o.msg);
-const run = (g, t) => { for (let i = 0; i < Math.ceil(t / 0.05); i++) rpgStep(g, 0.05); };
+// 강화 카드(abyss-cards.test.mjs) — 이 시험의 사람들은 선택지가 뜨면 바로 첫 카드를 고르고 저주는 거절한다
+// 보상(파편 · 코인 · 입장료)을 바꾸는 카드는 이 시험의 셈을 흔들므로 지운다
+const PAY = [96, 161, 162, 163, 164, 170, 190, 191];
+const autoPick = (g) => g.heroes.forEach((h) => {
+  if (!h || !h.ac || !h.ac.o.length) return;
+  rpgInput(g, { cls: h.pi, kind: 'abyss', dir: h.ac.ok ? { op: 'curse', i: -1 } : { op: 'card', i: 0 } });
+  PAY.forEach((n) => { delete h.ac.c[n]; });
+});
+const run = (g, t) => { for (let i = 0; i < Math.ceil(t / 0.05); i++) { autoPick(g); rpgStep(g, 0.05); } };
 const killAll = (g, map) => g.mobs.forEach((m) => { if (m.map === map) { m.dead = true; } });
 // 지금 층을 깨고 다음 층이 열릴 때까지
-function clearFloor(g, r) { killAll(g, r.map); run(g, 0.1); run(g, ABYSS.gap + 0.1); }
+function clearFloor(g, r) { killAll(g, r.map); run(g, 0.1); run(g, ABYSS.gap + 0.2); }
 
 test('수치 — 층 배율 · 몹 수 상한 · 몹 돌려 쓰기 · 수호자 차례', () => {
   assert.equal(floorHp(1), 1);
@@ -69,7 +77,7 @@ test('층 진행 — 모두 잡으면 다음 층, 파편 · 이번 주 기록 ·
   const { g } = world([{}]);
   const h = g.heroes[0];
   send(g, 0, 'abyss', { op: 'enter' });
-  run(g, 2);
+  run(g, 3.5);
   const r = g.aruns[0];
   assert.equal(r.f, 1);
   assert.equal(r.phase, 'go');
@@ -88,7 +96,7 @@ test('수호자 층 — 10층에 수호자 하나, 첫 돌파 보너스는 한 �
   const { g, clock } = world([{}]);
   const h = g.heroes[0];
   send(g, 0, 'abyss', { op: 'enter' });
-  run(g, 2);
+  run(g, 3.5);
   const r = g.aruns[0];
   for (let f = 1; f < 10; f++) clearFloor(g, r);
   assert.equal(r.f, 10);
@@ -106,7 +114,7 @@ test('수호자 층 — 10층에 수호자 하나, 첫 돌파 보너스는 한 �
   run(g, 0.2);
   atGate(h);
   send(g, 0, 'abyss', { op: 'enter' });
-  run(g, 2);
+  run(g, 3.5);
   const r2 = g.aruns[0];
   for (let f = 1; f < 10; f++) clearFloor(g, r2);
   const b2 = h.bag.m[SHARD];
@@ -118,7 +126,7 @@ test('수호자 층 — 10층에 수호자 하나, 첫 돌파 보너스는 한 �
   run(g, 0.2);
   atGate(h);
   send(g, 0, 'abyss', { op: 'enter' });
-  run(g, 2);
+  run(g, 3.5);
   const r3 = g.aruns[0];
   for (let f = 1; f < 10; f++) clearFloor(g, r3);
   const b3 = h.bag.m[SHARD];
@@ -131,7 +139,7 @@ test('수호자 층 — 10층에 수호자 하나, 첫 돌파 보너스는 한 �
 test('시간이 다 되면 · 모두 쓰러지면 도전이 끝나고 광장으로 돌아간다', () => {
   const a = world([{}]);
   send(a.g, 0, 'abyss', { op: 'enter' });
-  run(a.g, 2);
+  run(a.g, 3.5);
   const r = a.g.aruns[0];
   r.t = 0.1;
   run(a.g, 0.2);
@@ -142,7 +150,7 @@ test('시간이 다 되면 · 모두 쓰러지면 도전이 끝나고 광장으�
   assert.equal(a.g.heroes[0].map, 'plaza');
   const b = world([{}, {}]);
   send(b.g, 0, 'abyss', { op: 'enter' });
-  run(b.g, 2);
+  run(b.g, 3.5);
   b.g.heroes.forEach((h) => { if (h) { h.down = 30; h.hp = 0; } });
   run(b.g, 0.1);
   assert.equal(b.g.aruns[0].phase, 'fail');
@@ -162,7 +170,7 @@ test('칸은 셋까지 — 넷째 무리는 기다린다', () => {
 test('스냅샷 왕복 · 방장 승계 — 층 · 시간 · 수호자 체력이 이어진다', () => {
   const { g, seats } = world([{}]);
   send(g, 0, 'abyss', { op: 'enter' });
-  run(g, 2);
+  run(g, 3.5);
   const r = g.aruns[0];
   for (let f = 1; f < 10; f++) clearFloor(g, r);
   const boss = g.mobs.find((m) => !m.dead && m.map === r.map);
@@ -184,7 +192,7 @@ test('가방의 탑 기록은 저장 · 가방 정리 뒤에도 남는다', () =
   const { g } = world([{}]);
   const h = g.heroes[0];
   send(g, 0, 'abyss', { op: 'enter' });
-  run(g, 2);
+  run(g, 3.5);
   clearFloor(g, g.aruns[0]);
   const b = cleanBag(heroRecord(h, {}).bag);
   assert.equal(b.aw.top, 1);

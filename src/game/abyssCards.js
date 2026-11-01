@@ -158,16 +158,24 @@ export function acNext(g, h) {
   if (!A || A.o.length) return;
   if (A.cq > 0) {
     const o = curseOffer(h);
-    if (o.length) { A.o = o; A.ok = 1; A.v++; return; }
+    if (o.length) { A.o = o; A.ok = 1; A.dl = GRACE.pickTime; A.v++; return; }
     A.cq = 0;
   }
   if (A.q > 0) {
     const o = cardOffer(h);
-    if (o.length) { A.o = o; A.ok = 0; A.v++; return; }
+    if (o.length) { A.o = o; A.ok = 0; A.dl = GRACE.pickTime; A.v++; return; }
     A.q = 0;
   }
 }
 // 고르기 — op "card" i(선택지 차례) · "curse" i(-1 은 거절) · "reroll"
+// 고르는 시간 — 탑이 카드 단계(pick)일 때 tickAbyss 가 부른다. 시간이 지나면 강화 카드는 무작위, 저주는 거절
+export function acPickTick(g, h, dt) {
+  const A = h && h.ac;
+  if (!A || !A.o.length) return false;
+  A.dl = (A.dl ?? GRACE.pickTime) - dt;
+  if (A.dl <= 0) acChoose(g, h, A.ok === 1 ? "curse" : "card", A.ok === 1 ? -1 : Math.floor(Math.random() * A.o.length));
+  return !!(h.ac && h.ac.o.length);
+}
 export function acChoose(g, h, op, i) {
   const A = h && h.ac;
   if (!A) return false;
@@ -640,11 +648,11 @@ export function acTick(g, h, dt, run) {
 const r1 = (v) => Math.round(v * 10) / 10;
 export function acPack(h) {
   const A = h.ac;
-  return [Object.entries(A.c).map(([n, t]) => `${n}.${t}`).join(","), A.o, A.ok, A.q, A.cq, A.rr, Math.round(A.sh || 0), A.gr, A.ch, A.ls, A.big, r1(A.shT || 0)];
+  return [Object.entries(A.c).map(([n, t]) => `${n}.${t}`).join(","), A.o, A.ok, A.q, A.cq, A.rr, Math.round(A.sh || 0), A.gr, A.ch, A.ls, A.big, r1(A.shT || 0), r1(Math.max(0, A.dl || 0))];
 }
 export function acUnpack(h, row) {
   if (!Array.isArray(row)) { h.ac = null; return; }
-  const [cs, o, ok, q, cq, rr, sh, gr, ch, ls, big, shT] = row;
+  const [cs, o, ok, q, cq, rr, sh, gr, ch, ls, big, shT, dl] = row;
   const A = h.ac || (h.ac = { c: {}, t: freshT(), ph: "go" });
   if (A.cs !== cs) {
     A.cs = cs; A.c = {};
@@ -653,7 +661,7 @@ export function acUnpack(h, row) {
   A.o = Array.isArray(o) ? o.filter((n) => CARD_BY_N[n]) : [];
   A.ok = ok ? 1 : 0; A.q = q | 0; A.cq = cq | 0; A.rr = rr | 0; A.sh = sh || 0; A.shT = shT || 0;
   A.gr = gr && typeof gr === "object" ? { a: +gr.a || 0, h: +gr.h || 0, p: +gr.p || 0, pend: Array.isArray(gr.pend) ? gr.pend : [] } : { a: 0, h: 0, p: 0, pend: [] };
-  A.ch = ch | 0; A.ls = ls ? 1 : 0; A.big = big ? 1 : 0;
+  A.ch = ch | 0; A.ls = ls ? 1 : 0; A.big = big ? 1 : 0; A.dl = dl || 0;
 }
 // 창에 보일 내 카드 — 번호 차례, 저주는 뒤로
 export function acOwned(h) {

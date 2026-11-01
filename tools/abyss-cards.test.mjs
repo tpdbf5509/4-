@@ -18,7 +18,14 @@ function world(people, job = 'warrior') {
 }
 const send = (g, pi, dir) => rpgInput(g, { cls: pi, kind: 'abyss', dir });
 const run = (g, t) => { for (let i = 0; i < Math.ceil(t / 0.05); i++) rpgStep(g, 0.05); };
-const clearFloor = (g, r) => { g.mobs.forEach((m) => { if (m.map === r.map) m.dead = true; }); run(g, 0.1); run(g, ABYSS.gap + 0.1); };
+// 층을 깬다 — 탑은 카드 단계(pick)로 멈춘다
+const clearFloor = (g, r) => { g.mobs.forEach((m) => { if (m.map === r.map) m.dead = true; }); run(g, 0.1); };
+// 남은 선택을 모두 고르고(카드 첫 장 · 저주 거절) 다음 층이 열릴 때까지
+function pickRest(g) {
+  for (let k = 0; k < 9; k++) g.heroes.forEach((h) => { if (h && h.ac && h.ac.o.length) send(g, h.pi, h.ac.ok ? { op: 'curse', i: -1 } : { op: 'card', i: 0 }); });
+  run(g, GRACE.startWait + 0.2);
+}
+const advance = (g, r) => { clearFloor(g, r); pickRest(g); };
 
 test('수치 — 200장 · 번호 · 등급 값(브론즈 1/3 · 골드 2/3 · 다이아 그대로)', () => {
   assert.equal(CARDS.length, 200);
@@ -59,10 +66,10 @@ test('층을 깨면 카드 한 장 · 5층마다 저주 선택, 저주를 받으
   const g = world([{}]);
   const h = g.heroes[0];
   send(g, 0, { op: 'enter' });
-  send(g, 0, { op: 'card', i: 0 });
-  run(g, 2);
+  pickRest(g);
   const r = g.aruns[0];
-  for (let f = 1; f <= 4; f++) { clearFloor(g, r); assert.equal(h.ac.ok, 0); send(g, 0, { op: 'card', i: 0 }); }
+  assert.equal(r.f, 1);
+  for (let f = 1; f <= 4; f++) { clearFloor(g, r); assert.equal(h.ac.ok, 0); assert.equal(h.ac.o.length, GRACE.offer); pickRest(g); }
   clearFloor(g, r);                                // 5층 — 저주가 먼저
   assert.equal(h.ac.ok, 1);
   assert.equal(h.ac.o.length, GRACE.curseOffer);
@@ -72,13 +79,48 @@ test('층을 깨면 카드 한 장 · 5층마다 저주 선택, 저주를 받으
   assert(CARD_BY_N[curse].curse);
   assert.equal(h.ac.ok, 0);
   assert.equal(h.ac.q, 2, '층 카드 1 + 저주 보너스 1');
-  send(g, 0, { op: 'card', i: 0 }); send(g, 0, { op: 'card', i: 0 });
-  for (let f = 6; f <= 10; f++) { clearFloor(g, r); if (h.ac.ok === 0) send(g, 0, { op: 'card', i: 0 }); }
+  pickRest(g);
+  for (let f = 6; f <= 9; f++) advance(g, r);
+  clearFloor(g, r);
   assert.equal(h.ac.ok, 1, '10층 저주');
   const before = h.ac.q;
   send(g, 0, { op: 'curse', i: -1 });
   assert.equal(h.ac.q, before, '거절하면 더 고르지 않는다');
   assert.equal(h.ac.ok, 0);
+});
+
+test('카드 단계 — 모두 고를 때까지 멈추고, 20초가 지나면 무작위로 고르고, 다 고르면 3초 뒤 시작', () => {
+  const g = world([{}, {}]);
+  const [a, b] = g.heroes;
+  send(g, 0, { op: 'enter' });
+  const r = g.aruns[0];
+  assert.equal(r.phase, 'pick');
+  assert(a.ac.o.length && b.ac.o.length);
+  send(g, 0, { op: 'card', i: 0 });
+  run(g, 10);
+  assert.equal(r.phase, 'pick', '한 사람이 남아 있으면 멈춰 있다');
+  assert.equal(r.f, 0);
+  assert(g.mobs.every((m) => m.map !== r.map), '몹도 나오지 않는다');
+  run(g, GRACE.pickTime - 10 + 0.2);
+  assert.equal(Object.keys(b.ac.c).length, 1, '시간이 지나 무작위로 골랐다');
+  assert.equal(r.phase, 'next');
+  run(g, GRACE.startWait - 0.5);
+  assert.equal(r.f, 0, '3초가 되기 전에는 시작하지 않는다');
+  run(g, 0.7);
+  assert.equal(r.f, 1);
+  assert.equal(r.phase, 'go');
+  clearFloor(g, r);
+  assert.equal(r.phase, 'pick');
+  const t1 = r.t;
+  run(g, 5);
+  assert.equal(r.t, t1, '멈춘 동안 층 시간도 흐르지 않는다');
+  pickRest(g);
+  // 저주는 시간이 지나면 거절한다
+  while (!(a.ac.ok === 1)) advance(g, r);
+  const had = Object.keys(a.ac.c).length;
+  send(g, 1, b.ac.ok ? { op: 'curse', i: -1 } : { op: 'card', i: 0 });
+  run(g, GRACE.pickTime + 0.2);
+  assert.equal(Object.keys(a.ac.c).length, had, '저주는 받지 않았다');
 });
 
 test('효과 — 공격력 · 받는 피해 · 체력 비율 유지 · 탑을 나오면 사라진다', () => {
@@ -113,16 +155,15 @@ test('정예 · 층 파편 카드', () => {
   const g = world([{}]);
   const h = g.heroes[0];
   send(g, 0, { op: 'enter' });
-  send(g, 0, { op: 'card', i: 0 });
-  run(g, 2);
+  pickRest(g);
   const r = g.aruns[0];
   // 정예
-  while (r.f < ELITE.from) clearFloor(g, r);
+  while (r.f < ELITE.from) advance(g, r);
   assert.equal(g.mobs.filter((m) => !m.dead && m.map === r.map && m.elite).length, eliteCount(r.f));
   // 층계 수당 다이아 +15% — 소수는 확률로 끊는다
   h.ac.c = { 162: 3 };
   const s0 = h.bag.m[SHARD] || 0, f = r.f;
-  clearFloor(g, r);
+  advance(g, r);
   const got = h.bag.m[SHARD] - s0, n = ABYSS_REWARD.floor(f);
   assert(got >= Math.floor(n * 1.15) && got <= Math.ceil(n * 1.15), `${got}`);
 });
@@ -131,9 +172,10 @@ test('스냅샷 — 손님이 카드 · 선택지 · 정예를 받고, 방장이
   const g = world([{}, {}]);
   send(g, 0, { op: 'enter' });
   const h = g.heroes[0];
-  send(g, 0, { op: 'card', i: 0 });
-  run(g, 2);
-  while (g.aruns[0].f < ELITE.from) clearFloor(g, g.aruns[0]);
+  pickRest(g);
+  while (g.aruns[0].f < ELITE.from) advance(g, g.aruns[0]);
+  clearFloor(g, g.aruns[0]); pickRest(g);
+  advance(g, g.aruns[0]);
   h.ac.c[5] = 2; h.ac.c[172] = 1; h.ac.sh = 120; h.ac.shT = 5;
   const s = JSON.parse(JSON.stringify(rpgPack(g)));
   const c = makeWorld(); c.mySeat = 1;
@@ -158,7 +200,7 @@ test('200장을 모두 다이아로 들고 싸워도 멈추지 않는다 — 직
   for (const job of ['warrior', 'mage', 'archer']) {
     const g = world([{}, {}], job);
     send(g, 0, { op: 'enter' });
-    run(g, 2);
+    pickRest(g);
     const r = g.aruns[0];
     for (const h of g.heroes.filter(Boolean)) { h.ac.c = Object.fromEntries(CARDS.map((c) => [c.n, 3])); h.auto = true; h.ac.ch = 1; }
     for (let k = 0; k < 6; k++) {
@@ -169,7 +211,7 @@ test('200장을 모두 다이아로 들고 싸워도 멈추지 않는다 — 직
       run(g, 1.5);
       rpgSkill(g, 0); rpgDash(g, 0, [1, 0]); rpgDash(g, 0, [-1, 0]);
       for (const id of Object.keys(h.scd || {})) rpgUseSkill(g, 0, id);
-      if (k % 2) clearFloor(g, r);
+      if (k % 2) advance(g, r);
     }
     for (const h of g.heroes.filter(Boolean)) { assert(Number.isFinite(h.hp) && Number.isFinite(h.max), `${job} 체력 ${h.hp}/${h.max}`); assert(V(h, 1) === 8); }
     for (const m of g.mobs) assert(Number.isFinite(m.hp), `${job} 몹 체력`);

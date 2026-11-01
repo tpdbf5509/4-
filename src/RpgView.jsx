@@ -9,7 +9,7 @@ import TradePanel from "./TradePanel.jsx";
 import AdvPanel from "./AdvPanel.jsx";
 import DeepPanel from "./DeepPanel.jsx";
 import AbyssPanel from "./AbyssPanel.jsx";
-import AbyssCards from "./AbyssCards.jsx";
+import AbyssCards, { AbyssPick } from "./AbyssCards.jsx";
 import CodexPanel from "./CodexPanel.jsx";
 import { ADV, ADV_BY_ID, ADV_TRAITS, masteryLv, trialText } from "./game/advData.js";
 import { useTrade } from "./useTrade.js";
@@ -582,8 +582,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [advOpen, setAdvOpen] = useState(false);     // 전직 교관 창(AdvPanel)
   const [deepOpen, setDeepOpen] = useState(false);   // 계몽의 문 창(DeepPanel)
   const [abyssOpen, setAbyssOpen] = useState(false); // 심연의 탑 창(AbyssPanel)
-  const [acHide, setAcHide] = useState("");          // 심연의 탑 강화 카드 — 접어 둔 선택지(새 선택지가 오면 다시 편다)
-  const [acMine, setAcMine] = useState(false);       // 고를 것이 없을 때 가진 카드 보기
+  const [acMine, setAcMine] = useState(false);       // 심연의 탑 — 가진 강화 카드 창
   const abyssRef = useRef(false);                    // 루프가 보는 열린 탑 창 — 입구에서 멀어지면 닫는다
   const [marketOpen, setMarketOpen] = useState(false); // 장터 게시판 창(MarketPanel)
   const dgRef = useRef(false);                       // 루프가 보는 열린 던전 창 — 관리인에게서 멀어지면 닫는다
@@ -1435,7 +1434,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           })(),
           acrew: abyssCrew(g, me).map((o) => o.pi),
           // 심연의 탑 강화 카드(abyssCards.js) — 고른 카드 · 선택지 · 남은 고르기 · 카드 보호막
-          ac: me.ac ? { c: { ...me.ac.c }, o: (me.ac.o || []).slice(), ok: me.ac.ok, q: me.ac.q, cq: me.ac.cq, rr: me.ac.rr, sh: Math.round(me.ac.sh || 0) } : null,
+          ac: me.ac ? { c: { ...me.ac.c }, o: (me.ac.o || []).slice(), ok: me.ac.ok, q: me.ac.q, cq: me.ac.cq, rr: me.ac.rr, sh: Math.round(me.ac.sh || 0), dl: me.ac.dl || 0 } : null,
+          acCrew: me.ac ? g.heroes.filter((o) => o && o.map === me.map && o.ac).map((o) => ({ pi: o.pi, done: !(o.ac.o || []).length })) : [],
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title,
             admin: h.admin, honor: h.honor || 0, dvs: h.dvs })),
           duelSize:me.duelSize||1,duelPotions:me.duelPotions||0,duelTeam:me.duelTeam,duelInvSize:me.duelInv?.size||1,
@@ -1764,8 +1764,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
           {me && marketOpen && <MarketPanel api={market} h={me.self} selfName={selfName.current} onClose={() => setMarketOpen(false)} />}
           {me && deepOpen && <DeepPanel self={me.self} act={act} onClose={() => setDeepOpen(false)} />}
-          {me && me.arun && me.ac && (me.ac.o.length ? acHide !== me.ac.o.join(",") : acMine) && (
-            <AbyssCards ac={me.ac} act={act} onFold={() => { if (me.ac.o.length) setAcHide(me.ac.o.join(",")); setAcMine(false); }} />
+          {me && me.arun && me.ac && acMine && <AbyssCards ac={me.ac} onFold={() => setAcMine(false)} />}
+          {me && me.arun && me.ac && (me.ac.o.length > 0 || (me.arun.phase === "pick" && me.acCrew.some((q) => !q.done))) && (
+            <AbyssPick ac={me.ac} crew={me.acCrew} names={names} act={act} />
           )}
           {me && abyssOpen && <AbyssPanel self={me.self} crew={me.acrew} names={names} room={room} selfName={selfName.current} act={act} onClose={() => setAbyssOpen(false)} />}
           {me && advOpen && <AdvPanel self={me.self} act={act} advKey={(binds.adv || []).find(Boolean)} onClose={() => setAdvOpen(false)} />}
@@ -2064,7 +2065,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           })()}
           {me && me.arun && (() => {
             const r = me.arun, left = Math.max(0, Math.ceil(r.t));
-            const step = r.phase === "fail" ? `도전 끝 · ${r.best}층` : r.phase === "next" ? (r.f ? `${r.f}층 돌파` : "준비") : `${r.f}층`;
+            const step = r.phase === "fail" ? `도전 끝 · ${r.best}층` : r.phase === "pick" ? "카드 고르는 중" : r.phase === "next" ? `${Math.ceil(r.end)}초 뒤 ${r.f + 1}층` : `${r.f}층`;
             return (
               <div className="rpg-dg abyss-hud">
                 <div className="rpg-dg-top">
@@ -2072,11 +2073,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span>{step}</span>
                   {r.phase === "go" && <span className={`rpg-dg-time ${left <= 15 ? "low" : ""}`}>{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</span>}
                   {me.ac && me.ac.sh > 0 && <span className="ac-sh">보호막 {me.ac.sh.toLocaleString("ko-KR")}</span>}
-                  {me.ac && (() => {
-                    const key = me.ac.o.join(","), open = me.ac.o.length ? acHide !== key : acMine;
-                    return <button type="button" className={`rpg-win-btn ac-chip ${me.ac.o.length ? "on" : ""}`} aria-pressed={open}
-                      onClick={() => { if (me.ac.o.length) setAcHide(open ? key : ""); else setAcMine(!acMine); }}>카드 {me.ac.o.length ? me.ac.q + me.ac.cq : Object.keys(me.ac.c).length}</button>;
-                  })()}
+                  {me.ac && <button type="button" className="rpg-win-btn ac-chip" aria-pressed={acMine} onClick={() => setAcMine(!acMine)}>카드 {Object.keys(me.ac.c).length}</button>}
                   <button type="button" className="rpg-win-btn" onClick={() => act("abyss", { op: "leave" })}>나가기</button>
                 </div>
                 {r.boss && <BossHealthBar key={r.boss.id} {...r.boss} {...bossBarRefs}/>}

@@ -16,6 +16,7 @@ import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS } from 
 import { ARMOR_SLOTS, ARMOR_GRADES, armorName, armorCap } from "./armorData.js";
 import { cleanArmor, wornArmor } from "./armor.js";
 import { ADV_BONUS } from "./advData.js";
+import { titleStat } from "./socialData.js";
 import { JUNK, bagSteps } from "./junkData.js";
 
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
@@ -243,9 +244,10 @@ export function addMat(bag, id, n) {
 }
 export const matCount = (bag, id) => (bag && bag.m && bag.m[id]) || 0;
 
-/* ── 스탯에 더해지는 몫 — 장착한 무기 + 패시브 스킬 + 버프 물약 + 전직 추가 스탯 ── */
+/* ── 스탯에 더해지는 몫 — 장착한 무기 + 패시브 스킬 + 버프 물약 + 전직 추가 스탯 + 칭호 보너스 ── */
 export function extraStat(h, id) {
   let v = (ADV_BONUS[h.advClass] && ADV_BONUS[h.advClass][id]) || 0;
+  v += titleStat(h.titles, id);                   // 얻은 칭호마다 조금씩(socialData.js TITLE_UP)
   const bag = h.bag;
   if (bag) {
     const w = equipped(bag);

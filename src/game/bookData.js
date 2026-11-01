@@ -10,7 +10,7 @@ import {
 } from "./rpg.js";
 import { DROP_ROLL, MATERIALS, MAT_BY_ID } from "./itemData.js";
 import { DEEP, DEEP_MAPS } from "./deepData.js";
-import { PARTY, CHAT } from "./socialData.js";
+import { PARTY, CHAT, TITLE_UP } from "./socialData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEONS, DUNGEON } from "./dungeonData.js";
 import { UPDATES } from "./updates.js";
@@ -32,6 +32,15 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-11-01b", title: "패치노트 · 11월 1일 (2)", sub: "칭호 보너스", color: "#c9b37c",
+    pages: [
+      { h: "칭호가 힘이 된다", p: ["칭호를 얻을 때마다 능력치가 조금 오릅니다. 전에는 칭호가 겉모습만 바꿨습니다.",
+        "칭호마다 공격력 · 체력 · 치명타 확률 · 치명타 피해 중 하나가 오릅니다. 공격력은 물리력과 마법력에 함께 더해집니다.",
+        "달지 않아도 얻은 칭호는 모두 적용됩니다. 이미 얻은 칭호도 바로 적용됩니다."] },
+      { h: "얼마나 오르나", p: ["스탯 포인트로 쉬운 칭호 1점 · 중간 2점 · 어려운 3점 · 가장 어려운 4점어치입니다.",
+        `1점은 공격력 +${TITLE_UP.atk.per} · 체력 +${TITLE_UP.hp.per} · 치명타 확률 +${TITLE_UP.crit.per}% · 치명타 피해 +${TITLE_UP.cdmg.per}%입니다.`,
+        "칭호 창에서 칭호마다 보너스와 지금까지의 합계를 봅니다. 스탯 창에는 초록 몫으로 더해집니다."] },
+    ] },
   { id: "patch-2026-11-01a", title: "패치노트 · 11월 1일", sub: "심연의 탑", color: "#8fa8c8",
     pages: [
       { h: "끝없이 오르는 탑", p: [`광장 오른쪽 아래 빈 풀밭에 심연의 탑이 있습니다. ${ABYSS.lv}레벨부터 들어갑니다. 계몽의 눈은 필요 없습니다.`,
@@ -719,7 +728,7 @@ export const GUIDE_BOOKS = [
         "보상 경험치는 그때 레벨의 필요 경험치에 정해진 몫을 곱한 값입니다.",
       ] },
       { h: "칭호와 명예", p: [
-        "조건을 채우면 칭호를 얻고 하나를 골라 이름 아래에 답니다. 능력치는 그대로입니다.",
+        "조건을 채우면 칭호를 얻고 하나를 골라 이름 아래에 답니다. 얻은 칭호마다 능력치가 조금 오릅니다.",
         "결투에서 이기면 명예가 오릅니다. 진 사람 명예의 10%에 10을 더한 만큼입니다.",
         "광장의 명예의 전당에서 순위를 봅니다.",
       ] },

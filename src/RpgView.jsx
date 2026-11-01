@@ -83,7 +83,7 @@ function advHud(me) {
   const U = c.ultimate, ult = U ? { name: U.name, cd: a.ucd || 0, max: U.cd, stack: a.gi && a.gi.t > 0 ? (a.gi.pet ? "펫 · 광장" : `체력 ${Math.round((a.gi.hp / a.gi.mhp) * 100)}% · ${Math.ceil(a.gi.t)}초`) : `${U.life}초 · 피해 ${Math.round(U.share * 100)}% 대신 맞음` } : undefined;   // 소환술사 궁극기 칸
   return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined, ult };
 }
-import { TITLES, NEED_NAME, PARTY, CHAT } from "./game/socialData.js";
+import { TITLES, NEED_NAME, PARTY, CHAT, TITLE_UP, titleUp, titleUpText, titleUpSum } from "./game/socialData.js";
 import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW, QUEST_AREAS, QUEST_MASTER } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, DROP_ROLL, GIFT } from "./game/itemData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
@@ -1694,7 +1694,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <b>칭호</b>
                   <span>얻은 칭호 <em>{me.titles.length}</em> / {TITLES.filter((t) => !t.secret || me.titles.includes(t.id)).length}</span>
                 </div>
-                <p className="rpg-stat-rule">조건을 채우면 칭호를 얻습니다. 하나를 골라 이름 아래에 답니다. 능력치는 바뀌지 않습니다.</p>
+                <p className="rpg-stat-rule">조건을 채우면 칭호를 얻습니다. 얻은 칭호마다 능력치가 조금 오르고 달지 않아도 적용됩니다. 하나를 골라 이름 아래에 답니다.</p>
+                {(() => {   // 얻은 칭호 보너스 합계 — 공격력은 물리력 · 마법력에 함께 더해진다
+                  const sum = titleUpSum(me.titles);
+                  const list = Object.keys(TITLE_UP).filter((k) => sum[k]).map((k) => ({ k, v: sum[k] }));
+                  return <p className="rpg-title-sum">칭호 보너스 <b>{list.length ? titleUpText(list) : "아직 없습니다"}</b></p>;
+                })()}
                 <div className="rpg-stat-list">
                   {TITLES.filter((t) => !t.secret || me.titles.includes(t.id)).map((t) => {   // 숨은 칭호는 얻기 전에 보이지 않는다
                     const has = me.titles.includes(t.id), on = me.title === t.id;
@@ -1703,7 +1708,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                       : `${NEED_NAME[k]} ${Math.min(needNow(me, k), n).toLocaleString("ko-KR")}/${n.toLocaleString("ko-KR")}`)).join(" · ");
                     return (
                       <div key={t.id} className={`rpg-win-row ${has ? "" : "locked"} ${on ? "on" : ""}`}>
-                        <span className="rpg-stat-name"><b>{t.name}</b><em>{t.secret ? "숨은 칭호" : has && !titleMet(me, t) ? "얻음" : prog}</em></span>
+                        <span className="rpg-stat-name"><b>{t.name} <small>{titleUpText(titleUp(t))}</small></b><em>{t.secret ? "숨은 칭호" : has && !titleMet(me, t) ? "얻음" : prog}</em></span>
                         {has
                           ? <button type="button" className="rpg-win-btn" onClick={() => act("title", on ? "" : t.id)}>{on ? "떼기" : "달기"}</button>
                           : <span className="rpg-win-tag">잠김</span>}

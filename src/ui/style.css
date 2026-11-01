@@ -1448,6 +1448,9 @@ kbd {
 .rpg-win-row.on { background: rgba(227, 196, 138, 0.08); box-shadow: inset 2px 0 0 #e3c48a; }
 .rpg-win-row.locked .rpg-stat-name b { color: #8d8068; }
 .rpg-win-row .rpg-stat-name b small { font-family: 'Jua', sans-serif; font-size: 10.5px; color: #e9d39a; }
+.rpg-win-row.locked .rpg-stat-name b small { color: #8d8068; }   /* 칭호 보너스 — 아직 못 얻은 것은 흐리게 */
+.rpg-title-sum { margin: 0 0 8px; padding: 6px 0; border-top: 1px solid rgba(227, 196, 138, 0.18); border-bottom: 1px solid rgba(227, 196, 138, 0.18); font-size: 11px; color: #8d8068; letter-spacing: -0.02em; }
+.rpg-title-sum b { font-weight: 400; color: #e9d39a; }
 .rpg-win-btn {
   min-width: 52px; padding: 4px 10px; cursor: pointer; border-radius: 7px; font-family: inherit; font-size: 12px; letter-spacing: -0.02em;
   color: #f2e3c2; background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.6);

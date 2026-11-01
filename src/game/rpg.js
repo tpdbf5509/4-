@@ -24,7 +24,7 @@ import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
-import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS } from "./socialData.js";
+import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS, titleUp, titleUpText } from "./socialData.js";
 import { ACHIEVES, CODEX_NEED } from "./codexData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS, QUEST_MASTER, questXpRate, questMatches } from "./requestData.js";
@@ -4505,6 +4505,7 @@ const partyOf = (g, id) => (id ? g.heroes.filter((o) => o && o.pty === id) : [])
 
 // 조건을 채운 칭호를 준다. quiet 이면 알리지 않는다(들어올 때 예전 기록으로 받는 것)
 function awardTitles(g, h, quiet) {
+  const had = h.titles.length;
   TITLES.forEach((t) => {
     if (h.titles.includes(t.id) || !titleMet(h, t)) return;
     h.titles.push(t.id);
@@ -4512,8 +4513,10 @@ function awardTitles(g, h, quiet) {
     if (quiet) return;
     fx(g, h.map, { kind: "call", x: h.x, y: h.y - 120, text: `칭호 「${t.name}」`, color: "#e9d39a", t: 1.4, life: 1.4,
       snd: "clear", who: h.pi });
-    sys(g, h.pi, `칭호 「${t.name}」을 얻었습니다. 칭호 창에서 달 수 있습니다.`);
+    const up = titleUpText(titleUp(t));
+    sys(g, h.pi, `칭호 「${t.name}」을 얻었습니다.${up ? ` ${up}.` : ""} 칭호 창에서 달 수 있습니다.`);
   });
+  if (h.titles.length !== had) refreshHp(h);      // 칭호 보너스로 최대 체력이 오른다
 }
 
 // 조건을 채운 업적의 코인을 준다(codexData.js ACHIEVES). 한꺼번에 여럿이면(예전 기록) 한 줄로 알린다

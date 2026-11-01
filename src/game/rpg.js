@@ -35,6 +35,10 @@ import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.
 import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, SEAL, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
   isGuardFloor, rankReward, abyssWeek, cleanAw, rollAw, GUARD_BY_TYPE } from "./abyssData.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
+import { ELITE, eliteCount } from "./abyssCardData.js";
+import { acBind, acAtkMul, acAspdMul, acRangeMul, acAreaMul, acHpMul, acSpeedMul, acDashDist, acDashCd, acSkillCd, acSkArea, acSkReach, acZoneSlow, acFly,
+  acCritAdd, acCdmgAdd, acBurnMul, acPoisonMul, acDotDur, acSlowDur, acCc, acStart, acEnd, acChoose, acHealMul, acDeal, acAfterHit, acOnAttack, acOnSkill,
+  acOnDash, acUseCharge, acTake, acAfterHurt, acOnKill, acMobTick, acFloorStart, acFloorClear, acFloorShards, acTick, acPack, acUnpack } from "./abyssCards.js";
 import { advNullShield, advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
   advLowHp, advGiantTake, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill,
   advHpMul, advTakeMul, advHidden, advSpeedMul, advElfShot, advGunReady, advGunFired } from "./advance.js";
@@ -943,7 +947,7 @@ function wear(h, look) {
 // 실제로 쓰는 스탯 — 찍은 포인트의 값 + 장착한 무기 · 패시브 스킬 · 버프 물약
 export const statTotal = (h, id) => statValue(id, h.st[id]) + extraStat(h, id);
 // 최대 체력 = 체력 스탯 × 직업 배율 — 레벨은 포인트로만 오른다
-const heroMaxHp = (h) => Math.round(statTotal(h, "hp") * jobOf(h).hp * armorHpMul(h) * guildBuff(h) * advHpMul(h));   // 암살자 · 엘프는 체력이 낮다(advData.js ADV_BODY)   // 투구가 최대 체력을 올린다
+const heroMaxHp = (h) => Math.round(statTotal(h, "hp") * jobOf(h).hp * armorHpMul(h) * guildBuff(h) * advHpMul(h) * acHpMul(h));   // 심연의 탑 강화 카드(abyssCards.js)   // 암살자 · 엘프는 체력이 낮다(advData.js ADV_BODY)   // 투구가 최대 체력을 올린다
 export function refreshHp(h, full) {
   h.max = heroMaxHp(h);
   if (full) h.hp = h.max;
@@ -951,13 +955,13 @@ export function refreshHp(h, full) {
 }
 // 공격력 배율 — 스탯 10 이 1배. 마법사는 마법력, 전사 · 궁수는 물리력을 쓴다
 const buffMul = (h) => (h.buff > 0 ? 1 + h.buffAmt : 1);
-export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h);   // 바지 · 전설 신발이 공격력을 올린다
-export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h);
+export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h) * acAtkMul(h);   // 바지 · 전설 신발이 공격력을 올린다
+export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h) * acAtkMul(h);
 export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h));
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
-export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul * (jobOf(h).id === "archer" ? JOB_TUNE.archer.range : 1);   // 10월 30일 궁수 사거리 +15%
-const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h) + guildAspd(h));   // 전설 바지 · 신발 — 공격 속도
+export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul * (jobOf(h).id === "archer" ? JOB_TUNE.archer.range : 1) * acRangeMul(h);   // 10월 30일 궁수 사거리 +15%
+const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h) + guildAspd(h)) / acAspdMul(h);   // 전설 바지 · 신발 — 공격 속도
 
 /* 자리마다 앉은 사람의 겉모습 — 방장과 손님 모두 자리가 바뀔 때마다 넣는다.
    seats[pi] = { id, name, hero: { name, job, elem, gender } } 또는 null */
@@ -1489,7 +1493,7 @@ function dgMobBody(id, map, type, lv, boss, x, y, hpScale=1) {
 }
 /* 탑 몹 — f 층 배율(abyssData.js floorHp · floorDmg)과 파티 배율(hpScale)을 곱한다. 수호자는 GUARD_BASE 에 같은 배율.
    일반 몹은 맵 가운데 둘레로 몰려온다(던전 몹과 같다) */
-function abyssMobBody(id, map, type, lv, boss, x, y, f, hpScale = 1) {
+function abyssMobBody(id, map, type, lv, boss, x, y, f, hpScale = 1, elite = 0) {
   const B = boss ? { lv, hp: Math.round(GUARD_BASE.hp * floorHp(f)), dmg: Math.round(GUARD_BASE.dmg * FAR_EASE.dmg * floorDmg(f)), xp: GUARD_BASE.xp, coin: GUARD_BASE.coin } : null;
   const m = bodyOf(id, -1, type, boss ? 1 : 0, lv, map, x, y, B);
   if (!boss) {
@@ -1498,6 +1502,12 @@ function abyssMobBody(id, map, type, lv, boss, x, y, f, hpScale = 1) {
     m.hx = M.w / 2 + Math.cos(a) * rr; m.hy = (M.top + M.h) / 2 + Math.sin(a) * rr * RPG.squash;
   }
   m.hp = m.max = Math.round(m.max * hpScale);
+  if (elite && !boss) {                           // 정예(abyssCardData.js ELITE) — 강화 카드 여러 장이 본다
+    m.elite = 1;
+    m.hp = m.max = Math.round(m.max * ELITE.hp); m.dmg = Math.round(m.dmg * ELITE.dmg);
+    m.size *= ELITE.size; m.rad *= ELITE.size;
+    m.xp *= ELITE.reward; m.coin = Math.round(m.coin * ELITE.reward);
+  }
   m.dg = 1;
   return m;
 }
@@ -1532,7 +1542,7 @@ export function rpgPromote(g) {
     if (MAPS[m.map] && MAPS[m.map].abyss) {       // 탑 몹 — 그 층 값으로 다시 세운다
       const r = (g.aruns || []).find((q) => q.map === m.map);
       if (!r) return null;
-      const b = abyssMobBody(m.id, m.map, m.type, m.lv, m.boss, m.x, m.y, Math.max(1, r.f), r.hpScale || 1);
+      const b = abyssMobBody(m.id, m.map, m.type, m.lv, m.boss, m.x, m.y, Math.max(1, r.f), r.hpScale || 1, m.elite ? 1 : 0);
       b.hp = Math.max(1, Math.round((b.max * (m.hp || 0)) / (m.max || 100)));
       b.ax = m.ax || 1; b.age = 1;
       return b;
@@ -1703,8 +1713,9 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   else if (h) dmg *= h.job === "archer" && !archerCut(h) ? 1 : JOB_DMG[h.job] || 1;   // 직업 피해 배율(마법사 +5% · 궁수 -10% · 총사는 그대로)
   if (h && !off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, m.max);   // 마법사 — 최대 체력 비례 피해(jobTuneData.js)
   if (m.wall > 0) dmg *= 1 - m.wallCut;          // 철벽 자세
-  const crit = h && !off ? sureCrit || Math.random() < critChance(h) : false;
-  if (crit) dmg *= critMul(h);
+  if (h && m.dg) dmg *= acDeal(g, h, m, skill, dot, side);   // 심연의 탑 강화 카드 · 표식(abyssCards.js) — 탑 몹만 dg
+  const crit = h && !off ? sureCrit || Math.random() < critChance(h) + (h.ac ? acCritAdd(h, m, skill) : 0) : false;
+  if (crit) dmg *= critMul(h) + (h.ac ? acCdmgAdd(h, skill) : 0);
   dmg = Math.max(1, Math.round(dmg));
   if(isWorldBoss(m))worldBossHit(g,m,h,dmg,{direct:!!skill&&!dot&&!side&&procOff===0});
   if(isGuildBoss(m))guildHit(g,m,h,dmg);
@@ -1716,6 +1727,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
   if (h && !dot) weaponOnHit(g, h, m, null, side, !skill);   // 전설 무기 패시브 — side 는 튄 피해(옆 몹)
   if (h && !dot && procOff === 0) advOnHit(advEngine, g, h, m, !skill, side);   // 전직 패시브 · 시험
+  if (h && h.ac) acAfterHit(g, h, m, dmg, skill, dot, side, crit);   // 강화 카드 — 흡혈 · 셈 · 확률 효과
   m.flash = 0.12;
   if (m.numAcc > 0 && (m.numBy ?? -1) !== pi) flushNum(g, m, 0);   // 다른 사람이 친 숫자는 따로 — 모아 둔 것을 먼저 띄운다
   m.numBy = pi;
@@ -1771,6 +1783,7 @@ function killMob(g, m, pi) {
   }
   got.forEach((h) => rewardKill(g, m, h, h.pi === pi));
   advOnKill(advEngine, g, m, got);                // 전직 시험 — 총사 사냥 도감
+  if (m.dg) acOnKill(g, m, pi, got);              // 심연의 탑 강화 카드 — 처치 효과
   // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
   const part = m.xp * PARTY.share;
   const ptys = new Set(got.filter((h) => h.pty).map((h) => h.pty));
@@ -1938,7 +1951,7 @@ function giveXp(g, h, amt) {
   fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 10, r: 70, color: "#ffe08a", n: 14, t: 0.7, life: 0.7 });
 }
 
-function hurtHero(g, h, raw, source) {
+function hurtHero(g, h, raw, source, kind) {
   if (!h || h.down > 0 || MAPS[h.map].safe) return;
   if (h.inv > 0) {                                // 대쉬로 피했다
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
@@ -1949,11 +1962,13 @@ function hurtHero(g, h, raw, source) {
   let dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
   dmg = worldArmorAbsorb(h, dmg);
   dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
+  if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
   if (dmg <= 0) return;
   if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
   dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
   if (dmg <= 0) return;
   h.hp -= dmg;
+  if (h.ac) acAfterHurt(g, h, dmg, source);       // 마지막 버팀목 · 비상 장벽 · 되받아치기
   advHurt(advEngine, g, h);                       // 기사 — 철벽 방어 반격 · 생존 시험
   h.flash = 0.18;
   h.calm = 0;
@@ -1992,10 +2007,11 @@ function soak(g, h, m, big) {
     if (DOT_STACK.jobs.includes(h.job) && g.t - (at ?? -1e9) >= DOT_STACK.gap) return [Math.min(DOT_STACK.max, (n || 1) + 1), g.t];
     return [n || 1, at ?? g.t];
   };
-  if (e === "flame") { [m.bst, m.bAt] = stack(m.burn, m.bst, m.bAt); m.burn = big ? 6 : 3; m.bdps = Math.max(m.bdps, (big ? 32 : 10) * mul); m.bby = h.pi; }
-  else if (e === "frost") { if (big) m.freeze = 3; else m.slow = 2; }
+  const dd = h.ac ? acDotDur(h) : 1;              // 심연의 탑 강화 카드 — 내가 거는 상태이상
+  if (e === "flame") { [m.bst, m.bAt] = stack(m.burn, m.bst, m.bAt); m.burn = (big ? 6 : 3) * dd; m.bdps = Math.max(m.bdps, (big ? 32 : 10) * mul * (h.ac ? acBurnMul(h) : 1)); m.bby = h.pi; }
+  else if (e === "frost") { if (big) m.freeze = 3; else m.slow = 2 * (h.ac ? acSlowDur(h) : 1); }
   else if (e === "bolt") { if (big) m.stun = 1.5; }
-  else if (e === "poison") { [m.pst, m.pAt] = stack(m.poison, m.pst, m.pAt); m.poison = big ? 6 : 4; m.pdps = Math.max(m.pdps, (big ? 34 : 12) * mul); m.pby = h.pi; }
+  else if (e === "poison") { [m.pst, m.pAt] = stack(m.poison, m.pst, m.pAt); m.poison = (big ? 6 : 4) * dd; m.pdps = Math.max(m.pdps, (big ? 34 : 12) * mul * (h.ac ? acPoisonMul(h) : 1)); m.pby = h.pi; }
   else if (e === "corrode") { m.shred = big ? 8 : 4; m.shredAmt = Math.max(m.shredAmt, big ? 0.4 : 0.2); }
   else if (e === "gravity") { if (big) m.stun = 2; else m.slow = Math.max(m.slow, 1); }
 }
@@ -2031,6 +2047,7 @@ function heroAttack(g, h, force) {
   const hy = h.y - 34;
   if (!advGunReady(advEngine, h)) return false;  // 총사 장전 중 — 평타가 나가지 않는다
   if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy, force);
+  if (h.ac) acOnAttack(g, h);                     // 심연의 탑 강화 카드 — 박자 · 대시 뒤 첫 평타 · 충격파
   const heal = advHealShot(advEngine, g, h, rng);  // 치유사 치유 평타 — 켜 두었으면 몹을 치지 않는다
   if (heal !== null) return heal;
   if (fieldPvpOn(h)) {                            // 사냥터 PvP — 사거리 안의 사람을 함께 친다
@@ -2047,7 +2064,7 @@ function heroAttack(g, h, force) {
   }
 
   if (job.id === "warrior") {                     // 전사 — 둘레를 한 번에 벤다
-    const list = nearMobs(g, map, h.x, h.y, rng);
+    const list = nearMobs(g, map, h.x, h.y, rng * (h.ac ? acAreaMul(h) : 1));   // 강화 카드 — 기본 공격 범위
     if (!list.length) return force && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
     h.face = 0;
@@ -2063,7 +2080,7 @@ function heroAttack(g, h, force) {
   if (!m) return force && shootAir(g, h, job, el, dmg, rng, hy);
   h.dir = m.x < h.x ? -1 : 1;
   h.face = 0;
-  const fly = job.fly || 0.2;
+  const fly = (job.fly || 0.2) * (h.ac ? acFly(h) : 1);   // 강화 카드 — 투사체 속도
   const art = ELEM_ART[el.id];
   const prec = job.id === "archer" ? advPrecFire(advEngine, g, h) : null;   // 명사수 정밀 사격 — 준비됐으면 이번 평타가 꿰뚫는다
   if (job.id === "mage") {
@@ -2072,7 +2089,7 @@ function heroAttack(g, h, force) {
   } else {
     fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: m.x, y1: m.y - 10, ...(prec ? { style: "arrow", color: "#bffcf3" } : archerShot(h, el)), t: fly, life: fly, snd: "shot" });
   }
-  g.hits.push({ t: fly, pi, mid: m.id, x: m.x, y: m.y, map, dmg, splash: job.splash || 0, ...(prec ? { prec } : {}) });
+  g.hits.push({ t: fly, pi, mid: m.id, x: m.x, y: m.y, map, dmg, splash: (job.splash || 0) * (h.ac ? acAreaMul(h) : 1), ...(prec ? { prec } : {}) });
   if (job.id === "archer") { advGunShot(advEngine, g, h, m, dmg, fly); advGunFired(advEngine, g, h); advElfShot(advEngine, g, h, m, dmg); }   // 총사 기동 사격 · 탄창 / 엘프 바람 화살
   return true;
 }
@@ -2225,14 +2242,16 @@ export function rpgSkill(g, pi) {
   newCast(h).sid = "ult";                         // 결투 스킬 피해 한도 · 검투사 연계 참격이 세는 스킬 이름
   const near = (x, y, r, n) => foesNear(g, h, x, y, r, n);
   let cx = h.x, cy = h.y, list, mul;
+  if (h.ac) acOnSkill(g, h, "ult");               // 심연의 탑 강화 카드 — 이번 스킬 보너스
+  const ka = h.ac ? acSkArea(h) : 1, kr = h.ac ? acSkReach(h) : 1;   // 강화 카드 — 스킬 범위 · 사거리
   if (job.id === "warrior") {
-    list = near(h.x, h.y, 240); mul = 3;
+    list = near(h.x, h.y, 240 * ka); mul = 3;
   } else if (job.id === "mage") {
-    const [t] = near(h.x, h.y, 360, 1);
+    const [t] = near(h.x, h.y, 360 * kr, 1);
     if (t) { cx = t.x; cy = t.y; } else [cx, cy] = aimAt(h, 200);   // 아무도 없으면 겨눈 쪽에 터뜨린다
-    list = near(cx, cy, 200); mul = 2.8;
+    list = near(cx, cy, 200 * ka); mul = 2.8;
   } else {
-    list = near(h.x, h.y, 300); mul = 2.6;
+    list = near(h.x, h.y, 300 * ka); mul = 2.6;
   }
   // 닿는 것이 없어도 기술은 나간다(대기 시간도 돈다) — 사거리는 표시일 뿐
   if (cx !== h.x) h.dir = cx < h.x ? -1 : 1;
@@ -2254,7 +2273,7 @@ export function rpgSkill(g, pi) {
     fx(g, map, { kind: "rain", x: h.x, y: h.y, r: 260, n: 26, color: el.light, t: 0.9, life: 0.9, snd: "shot" });
     fx(g, map, { kind: "art", art: art.hit, x: h.x, y: h.y - 4, r: 90, t: 0.8, life: 0.8 });
   }
-  h.sk = RPG.skillCd;
+  h.sk = acSkillCd(h, RPG.skillCd);
   h.swing = 0.4;
   fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: name, color: "#ffd873", t: 0.9, life: 0.9, snd: "crit" });
 }
@@ -2270,13 +2289,16 @@ export function predictDash(h) {
 }
 // aim — 손님이 대쉬한 방향. 방향키와 대쉬를 같이 누르면 방장에게 순서가 바뀌어 닿을 수 있어 방향을 함께 보낸다
 export function startDash(h, aim) {
-  if (!h || h.down > 0 || (h.dashCd || 0) > 0 || ccRooted(h)) return false;
+  if (!h || h.down > 0 || ccRooted(h)) return false;
+  if ((h.dashCd || 0) > 0 && !(h.ac && h.ac.ch > 0)) return false;   // 강화 카드 여분의 발걸음 — 대기 중이면 여분을 쓴다
   const al = Array.isArray(aim) && aim.length === 2 && aim.every(Number.isFinite) ? Math.hypot(aim[0], aim[1]) : 0;
   const [dx, dy] = al > 0.5 && al < 1.5 ? [aim[0] / al, aim[1] / al] : aimDir(h);
-  const v = DASH.dist / DASH.time;
+  const v = (DASH.dist * acDashDist(h)) / DASH.time;   // 강화 카드 — 대시 거리 · 대기
   h.dvx = dx * v; h.dvy = dy * v;
   if (dx) h.dir = dx < 0 ? -1 : 1;
-  h.dash = DASH.time; h.inv = DASH.inv; h.dashCd = DASH.cd;
+  h.dash = DASH.time; h.inv = DASH.inv;
+  if ((h.dashCd || 0) > 0) acUseCharge(h);
+  else h.dashCd = DASH.cd * acDashCd(h);
   stopMove(h);                                    // 대쉬하면 마우스 목적지는 버린다 — 달린 뒤 다시 끌려가지 않게
   return true;
 }
@@ -2323,9 +2345,10 @@ export function rpgDash(g, pi, aim) {
   if(g.heroes[pi]?.tauntT>0)return;
   const h = g.heroes[pi];
   if (!h || !h.loaded || h.down > 0 || stormBusy(h)) return;
-  if ((h.dashCd || 0) > 0) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
+  if ((h.dashCd || 0) > 0 && !(h.ac && h.ac.ch > 0)) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
   const x0 = h.x, y0 = h.y;
   if (!startDash(h, aim)) return;
+  if (h.ac) acOnDash(g, h);
   if (heldSpecial(h) === "gold_bow") { const w = wsOf(h); w.dashT = DASH.time + WS.gold_bow.passive.win; w.dashUsed = 0; }   // 비상의 리듬
   fx(g, h.map, { kind: "burst", x: x0, y: y0 - 10, r: 22, color: "#e8f2ff", n: 8, t: 0.3, life: 0.3, snd: "slash", who: pi });
 }
@@ -2360,16 +2383,17 @@ export function rpgUseSkill(g, pi, id) {
     const cast = newCast(h);                      // 결투 스킬 피해 한도
     cast.sid = id;                                // 스킬 이름 — 검투사 연계 참격 · 마도사 원소 공명 · 소환술사 정령 협동 공격이 본다
     if (s.fam === "job") cast.job = 1;             // 직업 스킬 — 암흑검 파괴의 낙인
+    if (h.ac) acOnSkill(g, h, id);                 // 심연의 탑 강화 카드 — 이번 스킬 보너스
     // 결투장이면 사람에게 — 치명타 보장 스킬은 치명타 피해 배율을 곱한다
     const strike = (m) => (isHeroT(m) ? hitFoe(g, h, m, dmg * (u.crit ? critMul(h) : 1)) : hitMob(g, pi, m, dmg, true, u.crit));
     if (u.kind) jobSkill(g, h, u, i, dmg);         // 직업 스킬(skillData.js)
     else if (u.radius) {                           // 둘레를 모두
-      const list = foesNear(g, h, h.x, h.y, u.radius);
+      const list = foesNear(g, h, h.x, h.y, u.radius * (h.ac ? acSkArea(h) : 1));
       list.forEach(strike);                        // 닿는 것이 없어도 쓴다
       fx(g, map, { kind: "nova", x: h.x, y: h.y - 8, r: u.radius, color: "#c9b6f0", n: 18, t: 0.7, life: 0.7, snd: "boom" });
     } else if (u.lunge) {                          // 직업 돌진 베기 — 가장 가까운 적 앞까지 돌진해 찌른다
       const L = u.lunge;
-      const [m] = foesNear(g, h, h.x, h.y, L.reach, 1);
+      const [m] = foesNear(g, h, h.x, h.y, L.reach * (h.ac ? acSkReach(h) : 1), 1);
       const x0 = h.x, y0 = h.y;
       if (!m) {                                    // 아무도 없으면 겨눈 쪽으로 끝까지 돌진한다
         const [tx, ty] = aimAt(h, L.reach);
@@ -2384,7 +2408,7 @@ export function rpgUseSkill(g, pi, id) {
       g.hits.push(isHeroT(m) ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
       }
     } else {                                       // 가장 가까운 하나
-      const reach = u.reach || heroRange(h) * SKILL_USE.reach;
+      const reach = (u.reach || heroRange(h) * SKILL_USE.reach) * (h.ac ? acSkReach(h) : 1);
       const [m] = foesNear(g, h, h.x, h.y, reach, 1);
       // 아무도 없으면 겨눈 쪽 사거리 끝을 친다(맞는 것은 없다)
       const [bx, by] = m ? [m.x, m.y] : aimAt(h, Math.min(reach, 140));
@@ -2393,7 +2417,7 @@ export function rpgUseSkill(g, pi, id) {
     }
     h.swing = 0.35;
   }
-  h.scd[id] = u.cd;
+  h.scd[id] = acSkillCd(h, u.cd);                 // 강화 카드 — 스킬 재사용 대기
   fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: s.name, color: "#ffd873", t: 0.8, life: 0.8, who: pi });
 }
 
@@ -2590,6 +2614,7 @@ function ccMob(m, c) {
 }
 function ccHero(o, c) {
   if (!o || o.down > 0) return;
+  if (o.ac) c = acCc(o, c);                       // 심연의 탑 강화 카드 — 둔화 · 기절 · 밀치기 저항
   const q = ccOf(o);
   if (c.stun) q.stun = Math.max(q.stun, c.stun);
   if (c.air) q.air = Math.max(q.air, c.air);
@@ -2869,9 +2894,9 @@ function comboEnd(g, h, timeout) {
 function tickZones(g, dt) {
   if (!g.zones || !g.zones.length) return;
   g.zones = g.zones.filter((z) => {
-    z.t -= dt; z.acc += dt;
-    setFxBy(z.pi);
     const h = g.heroes[z.pi];
+    z.t -= h && h.ac ? dt / acZoneSlow(h) : dt; z.acc += dt;   // 강화 카드 잔류 마력 — 깔린 스킬이 천천히 사라진다
+    setFxBy(z.pi);
     if (!h || h.map !== z.map) return false;     // 맵을 떠나면 사라진다
     while (z.acc >= z.tick) {
       z.acc -= z.tick;
@@ -2967,6 +2992,11 @@ function packTrain(g, h) {
 /* 1차 전직(advance.js)도 기존 대상 고르기 · 피해 · 결투 한도 · 원소 판정을 그대로 쓴다 */
 // 160레벨 이상 몹이 나오는 맵 · 던전 · 월드보스 — 전직 시험을 세는 곳
 const advBigMap = (map) => { const M = MAPS[map]; return !!M && (!!M.dungeon || !!M.worldBoss || SPAWNS.some((sp) => sp.map === map && Array.isArray(sp.lv) && sp.lv[0] >= ADV.trialLv)); };
+// 심연의 탑 강화 카드(abyssCards.js)가 쓰는 규칙 — 서로 불러오면 고리가 생겨 이렇게 넘긴다
+acBind({ hitMob, nearMobs, fx, say, sys, dist, refreshHp, fee: ABYSS.fee,
+  atk: (h) => jobOf(h).dmg * heroDmgMul(h),         // 카드 글의 "공격력" — 평타 한 대 세기
+  ranged: (h) => jobOf(h).id !== "warrior",
+  shard: (g, h, n) => { if (h.loaded && !trading(h)) { addMat(h.bag, SHARD, n); h.bag.v += 1; } } });
 const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near: foesNear, line: lineFoes, arc: arcFoes, strike: strikeAny, noProc, soak, later,
   healMul:empowerHealing, allies:duelAllies, taunt:(g,h,r,t)=>tauntAround(g,h,r,t),
   cc: ccAny, alive: aliveFoe, aim: aimTo, aimAt, end: lineEnd, newCast, squash: RPG.squash, bigMap: advBigMap,
@@ -3021,6 +3051,7 @@ export function rpgWeaponSkill(g, pi) {
   if (w.wcd > 0) return say(g, map, h.x, h.y - 90, `${W.name} ${Math.ceil(w.wcd)}초`, "#f0dcb4");
   newCast(h);                                     // 결투 스킬 피해 한도 — 연계 전체가 스킬 한 번
   h.cast.weapon = true; h.cast.sid = "wpn";
+  if (h.ac) acOnSkill(g, h, "wpn");               // 심연의 탑 강화 카드 — 이번 스킬 보너스
   if (castStormWeapon(stormEngine, g, h, sp)) return;
   if (castWorldWeapon(worldEngine, g, h, sp)) return;
   const el = elemOf(h);
@@ -3414,6 +3445,7 @@ function stepHeroes(g, dt) {
   g.heroes.forEach((h) => {
     if (!h || trading(h)) return;
     setFxBy(h.pi);
+    if (h.ac) { if (!inAbyss(h)) acEnd(g, h); else acTick(g, h, dt, abyssRunOf(g, h)); }   // 심연의 탑 강화 카드 — 탑을 나오면 지운다
     h.flash = Math.max(0, h.flash - dt);
     h.swing = Math.max(0, h.swing - dt);
     h.buff = Math.max(0, h.buff - dt);
@@ -3455,7 +3487,7 @@ function stepHeroes(g, dt) {
       return;
     }
     h.calm += dt;
-    if (h.calm >= RPG.calm) h.hp = Math.min(h.max, h.hp + h.max * RPG.calmRegen * dt);
+    if (h.calm >= RPG.calm) h.hp = Math.min(h.max, h.hp + h.max * RPG.calmRegen * dt * (h.ac ? acHealMul(h) : 1));   // 강화 카드 — 받는 회복량
     if (h.dash > 0) dashStep(h, dt);                // 대쉬 중에는 걷지 않고 달려 나간다
     else rpgWalk(h, dt);
 
@@ -3485,7 +3517,7 @@ function stepHeroes(g, dt) {
 
 /* 걷는 속도(px/초) — 명사수 약점 포착(나보다 느린 적)이 견준다. 사람은 걷는 식 그대로(신발은 앞쪽 몫),
    몹은 종류마다 쫓는 속도 · 둔화 · 기절이면 0 */
-const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
+const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
 const MOB_WALK = { rabbit: 160, wolf: 175, boar: BOAR.walk };   // 그 밖은 BRUTE 값 · 보스 AI 값, 모르면 180
 function moveSpeedOf(o) {
   if (isHeroT(o)) return heroSpeed(o);
@@ -3545,6 +3577,7 @@ function tickMob(g, m, dt) {
     if (m.burn <= 0) m.bst = 0;                   // 다 풀리면 겹도 처음으로
     if (m.poison <= 0) m.pst = 0;
   }
+  if (m.acB > 0 || m.acMk > 0) { acMobTick(g, m, dt); if (m.dead) return false; }   // 심연의 탑 강화 카드 — 출혈 · 표식
   if (m.freeze > 0 || m.stun > 0) { m.moving = 0; return false; }
   return true;
 }
@@ -3870,7 +3903,7 @@ function farLand(g, m, map, x, y, r, S, once) {
     if (!h || h.map !== map || h.down > 0 || dist(x, y, h.x, h.y) > r + 16 || !notices(m, h) || once.has(h.pi)) return;
     once.add(h.pi);
     const dodged = h.inv > 0;                        // 대쉬로 피했으면 상태이상도 없다
-    hurtHero(g, h, dmg, m);
+    hurtHero(g, h, dmg, m, ["breath", "bile", "curse"].includes(S.kind) ? "el" : "sk");
     if (dodged) return;
     if (S.slow) ccHero(h, { slow: S.slow, slowAmt: S.slowAmt });
     if (S.root) ccHero(h, { bind: m.boss ? S.rootBoss : S.root });
@@ -3899,7 +3932,7 @@ function farSkill(g, m, S) {
         : Math.hypot(dx, dy) < len + 16 && along > 0 && Math.atan2(side, along) < S.arc;
       if (!hit) return;
       const dodged = h.inv > 0;
-      hurtHero(g, h, m.dmg * S.mul, m);
+      hurtHero(g, h, m.dmg * S.mul, m, S.kind === "breath" ? "el" : "sk");
       if (!dodged && S.kb) ccHero(h, { kb: [m.fax, m.fay, S.kb] });
     });
     fx(g, map, { kind: S.kind === "quake" ? "sk_mquake" : "sk_mbreath", x: m.x, y: m.y, ax: m.fax, ay: m.fay, len, w, arc: S.arc, ph: 1, t: 0.6, life: 0.6, snd: "boom", style: S.style, color: S.color });
@@ -3944,7 +3977,7 @@ function bossHit(g, m, r, mul, color, kind = "slam") {
   let n = 0;
   g.heroes.forEach((h) => {
     if (!h || h.map !== m.map || h.down > 0 || dist(m.x, m.y, h.x, h.y) > r + 16 || !notices(m, h)) return;
-    hurtHero(g, h, m.dmg * mul, m);
+    hurtHero(g, h, m.dmg * mul, m, "sk");          // 예고 기술(강화 카드 위험 감지)
     n += 1;
     fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 24, color, n: 8, t: 0.35, life: 0.35 });
   });
@@ -4037,8 +4070,9 @@ function stepDgBoss(g, m, dt) {
       if (!h || h.map !== m.map || h.down > 0 || m.hitSet.includes(h.pi) || !notices(m, h)) return;
       if (dist(m.x, m.y, h.x, h.y) > m.rad + q.width * 0.5) return;
       m.hitSet.push(h.pi);
-      hurtHero(g, h, m.dmg * q.mul, m);
-      h.x += (m.vx / len) * q.push; h.y += (m.vy / len) * q.push * RPG.squash;
+      hurtHero(g, h, m.dmg * q.mul, m, "sk");
+      const push = q.push * (h.ac ? acCc(h, { kb: [0, 0, 1] }).kb[2] : 1);   // 강화 카드 흔들리지 않는 자세
+      h.x += (m.vx / len) * push; h.y += (m.vy / len) * push * RPG.squash;
       keepIn(h, MAPS[h.map], 20);
       fx(g, m.map, { kind: "burst", x: h.x, y: h.y - 26, r: 22, color: "#ffb36a", n: 8, t: 0.32, life: 0.32, snd: "boom" });
     });
@@ -4381,6 +4415,7 @@ export function rpgAbyss(g, pi, req) {
     return true;
   }
   if (req.op === "buy") return abyssBuy(g, h, req.id);
+  if (req.op === "card" || req.op === "curse" || req.op === "reroll") return inAbyss(h) && acChoose(g, h, req.op, Number(req.i) | 0);   // 강화 카드 고르기
   if (req.op !== "enter") return false;
   const why = whyAbyss(h, g.aruns);
   if (why.length) return void sys(g, pi, why[0]);
@@ -4394,7 +4429,8 @@ export function rpgAbyss(g, pi, req) {
     const [sx, sy] = MAPS[map].spawn;
     o.map = map; o.x = sx - 120 + (i % 2) * 60; o.y = sy + (i - 1.5) * 50; o.gateCd = 1; stopMove(o);
     fx(g, map, { kind: "ring", x: o.x, y: o.y - 10, r: 50, color: "#9fd4ff", t: 0.5, life: 0.5 });
-    sys(g, o.pi, `심연의 탑에 들어왔습니다. 층마다 ${ABYSS.time}초 · 수호자 층은 ${ABYSS.guardTime}초 안에 모두 잡으세요.`);
+    sys(g, o.pi, `심연의 탑에 들어왔습니다. 층마다 ${ABYSS.time}초 · 수호자 층은 ${ABYSS.guardTime}초 안에 모두 잡으세요. 층을 깰 때마다 강화 카드를 고릅니다.`);
+    acStart(g, o);                                 // 강화 카드 — 들어가자마자 한 장(abyssCards.js)
   });
   if (!h.admin) sys(g, pi, `입장료 ${ABYSS.fee.toLocaleString("ko-KR")}코인을 냈습니다.`);
   return true;
@@ -4403,6 +4439,7 @@ export function rpgAbyss(g, pi, req) {
 function abyssFloor(g, r) {
   r.f += 1; r.phase = "go"; r.t = floorTime(r.f);
   const M = MAPS[r.map];
+  g.heroes.forEach((h) => { if (h && h.map === r.map && h.ac) acFloorStart(g, h); });   // 강화 카드 — 층 시작 효과
   if (isGuardFloor(r.f)) {
     const q = floorGuard(r.f);
     g.mobs.push(abyssMobBody(g.nextId++, r.map, q.type, ABYSS.lv + r.f, 1, M.w * 0.74, (M.top + M.h) / 2, r.f, r.hpScale));
@@ -4410,11 +4447,12 @@ function abyssFloor(g, r) {
     return;
   }
   const { type, lv } = floorMob(r.f);
+  const elites = eliteCount(r.f);                 // 정예 — 무리의 앞 몇 마리
   for (let i = 0; i < floorMobs(r.f); i++) {
     const side = Math.floor(Math.random() * 3);   // 0 위 · 1 아래 · 2 오른쪽
     const x = side === 2 ? M.w - 80 : M.w * (0.3 + Math.random() * 0.6);
     const y = side === 0 ? M.top + 30 : side === 1 ? M.h - 60 : M.top + 80 + Math.random() * (M.h - M.top - 160);
-    const m = abyssMobBody(g.nextId++, r.map, type, lv, 0, x, y, r.f, r.hpScale);
+    const m = abyssMobBody(g.nextId++, r.map, type, lv, 0, x, y, r.f, r.hpScale, i < elites ? 1 : 0);
     m.state = "idle"; m.t = Math.random() * 0.4;
     g.mobs.push(m);
   }
@@ -4428,6 +4466,7 @@ function abyssClear(g, r, inside) {
     if (!h.loaded || trading(h)) return;
     const aw = awOf(g, h);
     let n = guard ? ABYSS_REWARD.guard(f) : ABYSS_REWARD.floor(f), bonus = 0;
+    n = acFloorShards(h, n, guard, f, matCount(h.bag, SHARD));   // 강화 카드 — 층계 수당 · 이자 · 금빛 족쇄
     if (guard && f > aw.fc) { bonus = ABYSS_REWARD.weekBonus(f); aw.fc = f; }   // 이번 주 처음 넘은 10층 단위
     if (f > aw.top) { aw.top = f; aw.at = now; }
     h.rec.atop = Math.max(h.rec.atop || 0, f);
@@ -4437,6 +4476,7 @@ function abyssClear(g, r, inside) {
     if (bonus) sys(g, h.pi, `이번 주 처음 ${f}층을 넘었습니다. 보너스 파편 ${bonus}개를 더 받았습니다.`);
     if (put < n + bonus) sys(g, h.pi, "심연의 파편이 가득 차 일부만 받았습니다.");
   });
+  inside.forEach((h) => { if (h.ac) acFloorClear(g, h, f); });   // 강화 카드 — 층 클리어 회복 · 숙성 · 다음 카드
 }
 function tickAbyss(g, dt) {
   g.aruns = (g.aruns || []).filter((r) => {
@@ -4734,11 +4774,13 @@ export function rpgPack(g) {
         | (m.air > 0 ? 128 : 0) | (m.brand > 0 ? 256 : 0) | (m.bind > 0 ? 512 : 0) | (m.wkUntil > g.t ? 1024 : 0),   // 1024 명사수 약점 표식
       m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0, m.warnR || 0,
       // 보스는 체력을 그대로도 싣는다 — 손님 체력바가 1% 단위로 끊기지 않게
-      m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0, r1(m.taunt||0),m.tgt]),
+      m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0, r1(m.taunt||0),m.tgt, m.elite ? 1 : 0]),   // 18 정예(심연의 탑)
     // 던전 — [던전 차례, 칸, 남은 초, 무리 차례, 단계, 돌아가기까지 남은 초]
     d: g.runs.map((r) => [DUNGEONS.findIndex((q) => q.id === r.id), r.slot, Math.ceil(r.t), r.wave, RUN_PHASES.indexOf(r.phase), r1(r.end),r.hpScale||1]),
     // 심연의 탑 — [칸, 층, 남은 초, 단계, 돌아가기 · 다음 층까지 남은 초, 파티 배율, 이번 도전 최고 층]. 필드는 뒤에만 더한다
     ab: (g.aruns || []).map((r) => [r.slot, r.f, Math.ceil(r.t), ABYSS_PHASES.indexOf(r.phase), r1(r.end), r.hpScale || 1, r.best || 0]),
+    // 심연의 탑 강화 카드 — 자리마다 [고른 카드, 선택지, 저주인가, 남은 고르기 …](abyssCards.js acPack). 탑 안의 사람만
+    ac: Object.fromEntries(g.heroes.filter((h) => h && h.ac).map((h) => [h.pi, acPack(h)])),
   };
 }
 
@@ -4843,11 +4885,12 @@ export function rpgApply(g, s) {
       return d ? { id: d.id, slot, map: dgMapId(d.id, slot), t, wave, phase: RUN_PHASES[ph] || "go", end, hpScale, gap: 1 } : null;
     }).filter(Boolean);
   }
+  if (s.ac && typeof s.ac === "object") g.heroes.forEach((h, pi) => { if (h) acUnpack(h, s.ac[pi]); });   // 강화 카드
   if (Array.isArray(s.ab)) {
     g.aruns = s.ab.map(([slot, f, t, ph, end, hpScale = 1, best = 0]) => (MAPS[abyssMap(slot)]
       ? { slot, map: abyssMap(slot), f, t, phase: ABYSS_PHASES[ph] || "go", end, hpScale, best } : null)).filter(Boolean);
   }
-  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax, taunt=0, target=-1]) => {
+  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax, taunt=0, target=-1, elite=0]) => {
     seen.add(id);
     let m = g.mobs.find((q) => q.id === id);
     if (!m) {
@@ -4857,6 +4900,7 @@ export function rpgApply(g, s) {
         hp: 100, max: 100, age: 0, rad: MOB[type].rad * size };
       g.mobs.push(m);
     }
+    if (elite && !m.elite) { m.elite = 1; m.size *= ELITE.size; m.rad *= ELITE.size; }   // 정예 — 크게 그린다
     m.bite = bite ? 0.25 : 0;
     m.taunt=taunt;m.tgt=target;
     m.pose = pose || 0; m.warnR = warnR || 0;

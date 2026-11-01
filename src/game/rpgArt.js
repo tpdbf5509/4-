@@ -2113,12 +2113,12 @@ function drawMobMarks(ctx, m, time, top) {
     if (r > 0) { roundRect(ctx, x - bw / 2, tagY + 7, Math.max(1.5, bw * r), boss ? 4 : 3, 1.5); ctx.fill(); }
   }
   // 레벨 — 보스는 이름도 붙인다
-  const label = boss ? `Lv${m.lv} ${mobName(m)}` : `Lv${m.lv}`;
+  const label = boss ? `Lv${m.lv} ${mobName(m)}` : m.elite ? `Lv${m.lv} 정예` : `Lv${m.lv}`;   // 정예 — 심연의 탑(abyssCardData.js ELITE)
   ctx.font = boss ? "12px 'Do Hyeon', sans-serif" : "10px 'Do Hyeon', sans-serif";
   const w = ctx.measureText(label).width + 10;
-  ctx.fillStyle = boss ? "rgba(70,20,16,0.82)" : "rgba(20,14,10,0.62)";
+  ctx.fillStyle = boss ? "rgba(70,20,16,0.82)" : m.elite ? "rgba(52,30,64,0.82)" : "rgba(20,14,10,0.62)";
   roundRect(ctx, x - w / 2, barY - 7, w, 13, 6); ctx.fill();
-  ctx.fillStyle = boss ? "#ffd873" : MOB_LABEL[m.type] || "#f2ead6";
+  ctx.fillStyle = boss ? "#ffd873" : m.elite ? "#e2c4f0" : MOB_LABEL[m.type] || "#f2ead6";
   ctx.fillText(label, x, barY);
   ctx.restore();
 }

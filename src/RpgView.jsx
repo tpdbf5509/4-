@@ -1,3 +1,5 @@
+import Joystick from "./ui/Joystick.jsx";
+import { stopGameSelection } from "./ui/gameSelection.js";
 import BossHealthBar from './BossHealthBar.jsx';
 import GuildPanel,{GuildHud} from './GuildPanel.jsx';
 import {useGuild} from './useGuild.js';
@@ -459,6 +461,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
 export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave, onHandoff, onKick, onRelook, servers, onMoveServer }) {
   const relookRef = useRef(onRelook);
   relookRef.current = onRelook;
+  const pageRef = useRef(null);
   const cvsRef = useRef(null);
   const skillPointer = useRef(null);
   const mouseHeld = useRef(new Map());              // 누르고 있는 마우스 버튼 → 행동(뗄 때 놓는다)
@@ -534,6 +537,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [isHost, seats, mySeat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const touch = useTouch();
+  useEffect(() => {
+    if (touch && pageRef.current) return stopGameSelection(pageRef.current);
+  }, [touch]);
   const moveMode = effectiveMoveMode(moveChoice, touch);
   const mouseMoveOn = isMouseMode(moveMode);
   useEffect(() => { moveModeRef.current = moveMode; }, [moveMode]);
@@ -872,7 +878,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   useEffect(() => { actRef.current = act; }, [act]);
 
   /* 마우스 오른쪽 클릭 이동 — 땅을 누르면 그곳으로 걷고, 누른 채 끌면 따라간다. NPC · 포탈을 누르면 곁으로 가서 말을 건다.
-     창이 열려 있거나 채팅 중이거나 방향키로 걷는 중에는 쓰지 않는다. 터치는 기존 화살표 패드 그대로 */
+     창이 열려 있거나 채팅 중이거나 방향키로 걷는 중에는 쓰지 않는다. 터치는 조이스틱으로 이동한다 */
   const moveButton = (e) => e.pointerType !== "touch" && (e.button === 2 || (e.button === 0 && e.ctrlKey));   // 오른쪽 버튼(맥은 Ctrl+클릭)
   const moveBlocked = () => !isMouseMode(moveModeRef.current) || winOpenRef.current;   // 키보드 방식에서는 오른쪽 클릭 이동을 듣지 않는다
   const worldAt = (e) => {
@@ -1516,7 +1522,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   };
 
   return (
-    <div className={`page ${touch ? "touch" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch'){skillPointer.current=null;touchAt.current=performance.now();}}}>
+    <div ref={pageRef} className={`page rpg-page ${touch ? "touch" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch'){skillPointer.current=null;touchAt.current=performance.now();}}}>
       <div className="stage">
         <div className="frame">
           <canvas ref={cvsRef} onContextMenu={e=>e.preventDefault()} onPointerMove={e=>{
@@ -2340,6 +2346,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             </div>
           )}
 
+          <div className="rpg-touch-actions">
           {me && !shopOpen && !bagOpen && (
             <div className="rpg-skillbar">
               <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
@@ -2396,15 +2403,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               ))}
             </div>
           )}
-          {me && me.buffs.length > 0 && (
-            <div className="rpg-buffs" aria-label="물약 효과">
-              {me.buffs.map((b) => (
-                <div key={b.k} className={`rpg-buff ${b.t <= 5 ? "end" : ""}`}>
-                  <span>{b.name}</span><em>{fmtLeft(b.t)}</em>
-                </div>
-              ))}
-            </div>
-          )}
           {me && !shopOpen && !bagOpen && (
             <div className="rpg-potbar" aria-label="물약 칸">
                 {me.pots.map((p, i) => (p ? (
@@ -2421,6 +2419,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <span>빈 칸<small>가방에서 넣기</small></span>
                   </button>
                 )))}
+            </div>
+          )}
+          </div>
+          {me && me.buffs.length > 0 && (
+            <div className="rpg-buffs" aria-label="물약 효과">
+              {me.buffs.map((b) => (
+                <div key={b.k} className={`rpg-buff ${b.t <= 5 ? "end" : ""}`}>
+                  <span>{b.name}</span><em>{fmtLeft(b.t)}</em>
+                </div>
+              ))}
             </div>
           )}
           {me && me.down > 0 && (
@@ -2463,22 +2471,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
         {touch && (
           <div className="pad">
-            <div className="pad-dir">
-              {["up", "left", "right", "down"].map((d) => (
-                <button key={d} className={`pkey ${d}`} aria-label={d}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 안 되면 그냥 둔다 */ }
-                    pressDir(d);
-                  }}
-                  onPointerUp={(e) => { e.preventDefault(); releaseDir(d); }}
-                  onPointerCancel={() => releaseDir(d)}
-                  onLostPointerCapture={() => releaseDir(d)}>
-                  {{ up: "▲", left: "◀", right: "▶", down: "▼" }[d]}
-                </button>
-              ))}
-              <span className="pad-nub" />
-            </div>
+            <Joystick disabled={chatOpen || !!me?.down} onDirections={(next) => {
+              dirsRef.current = next;
+              act("hold", next);
+            }} />
             <div className="pad-act">
               <button className={`pbtn ${me && me.sk <= 0 ? "ready" : ""} skill`}
                 onPointerDown={(e) => { e.preventDefault(); act("skill"); }}>
@@ -2513,7 +2509,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         <p className="keyhint rpg-keys">
           <kbd>{code}</kbd> · 접속 {seats.filter(Boolean).length}/{RPG_SERVER_CAP}명 ·{" "}
           {touch
-            ? <>화살표로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 대화 · 대쉬 · 산 스킬은 왼쪽 아래 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
+            ? <>조이스틱으로 이동 · <kbd>공격</kbd> 버튼 평타 · <kbd>스킬</kbd> 버튼 · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 대화 · 대쉬 · 산 스킬은 스킬 칸을 누름 · 채팅 버튼 · 레벨 칸의 스탯 · 가방 · 칭호 · 파티 버튼 · ☰ 에서 자동 평타 켜고 끄기</>
             : <>논타겟 조준: 마우스 포인터 · {mouseMoveOn ? <>이동 오른쪽 클릭</> : <>이동 <kbd>{["up", "left", "down", "right"].map((a) => keyOf(binds, a)).join(" ")}</kbd></>} · 평타 <kbd>{keyOf(binds, "fire")}</kbd> · 스킬 <kbd>{keyOf(binds, "skill")}</kbd> · 스킬 칸 <kbd>{["use1", "use2", "use5"].map((a) => keyOf(binds, a)).join(" ")}</kbd> · 무기 스킬 <kbd>{keyOf(binds, "wskill")}</kbd> · 전직 스킬 <kbd>{keyOf(binds, "adv")}</kbd> · 전직 궁극기(소환술사) <kbd>{keyOf(binds, "advUlt")}</kbd> · 사냥꾼 · 상점 · 의뢰 NPC 곁에서 <kbd>{keyOf(binds, "talk")}</kbd> · 대쉬 <kbd>{keyOf(binds, "dash")}</kbd> · 채팅 <kbd>{keyOf(binds, "chat")}</kbd> · 스탯 <kbd>{keyOf(binds, "stat")}</kbd> · 가방 <kbd>{keyOf(binds, "bag")}</kbd> · 칭호 <kbd>{keyOf(binds, "title")}</kbd> · 파티 <kbd>{keyOf(binds, "party")}</kbd> · ☰ 에서 자동 평타 · 키 설정</>}
         </p>
         <details className="footnote">

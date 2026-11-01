@@ -111,7 +111,9 @@ export function drawAbyssGate(ctx, g, n, time, T) {
   const A = ABYSS_ART.gate, pic = img(A.src);
   if (pic) {
     const H = A.h, W = (H * pic.naturalWidth) / pic.naturalHeight, top = n.y - H * A.foot;
-    T.shadow(ctx, n.x, n.y + 4, W * 0.44, 14, 0.3);
+    // 그림자 — 발밑(계단 맨 아래, n.y)에 바짝 붙인다. 넓은 것이 아래로 삐져나오면 탑이 떠 보인다(11월 1일)
+    T.shadow(ctx, n.x, n.y - 7, W * 0.47, 12, 0.3);
+    T.shadow(ctx, n.x, n.y - 4, W * 0.34, 6, 0.32);           // 맞닿는 곳은 더 짙게
     ctx.drawImage(pic, n.x - W / 2, top, W, H);
     portalGlow(ctx, n.x - W / 2 + W * A.portal[0], top + H * A.portal[1], W * A.portal[2], time, on);
     label(ctx, T, n.x, top, n.y, sub, on);

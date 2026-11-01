@@ -1335,8 +1335,10 @@ kbd {
 .rpg-switch.on { background: rgba(122, 90, 46, 0.8); border-color: #d6b26a; }
 .rpg-switch.on span { transform: translateX(16px); background: #ffe08a; }
 
+/* 레벨 칸 안에 두고 그 바로 아래에 붙인다 — 레벨 칸 단추가 두 줄이 되어도 겹치지 않는다(왼쪽 -3px 은 칸의 왼쪽 굵은 선) */
 .rpg-quest {
-  position: absolute; left: 12px; top: 128px; z-index: 3; cursor: pointer; text-align: left; font-family: inherit;
+  position: absolute; left: -3px; top: calc(100% + 6px); z-index: 3; pointer-events: auto;
+  width: max-content; max-width: min(420px, 80vw); cursor: pointer; text-align: left; font-family: inherit;
   padding: 5px 11px; border-radius: 999px; font-size: 11.5px; color: #e8dcc0; letter-spacing: -0.02em;
   background: rgba(20, 14, 8, 0.78); border: 1px solid rgba(214, 178, 106, 0.5);
 }
@@ -1356,7 +1358,9 @@ kbd {
   box-sizing: border-box; display: flex; flex-direction: column; gap: 6px;
   padding: 8px 14px 10px; border-radius: 10px; background: rgba(20, 14, 8, 0.84); border: 1px solid rgba(214, 178, 106, 0.45);
 }
-.rpg-dg-top { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #d9c9a6; letter-spacing: -0.02em; }
+.rpg-dg-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; color: #d9c9a6; letter-spacing: -0.02em; }
+/* 칸이 좁아져도 글자를 한 글자씩 세로로 꺾지 않는다 — 모자라면 다음 줄로 넘긴다 */
+.rpg-dg-top > * { flex-shrink: 0; white-space: nowrap; }
 .rpg-dg-top b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 13px; color: #e8dcc0; letter-spacing: -0.03em; }
 .rpg-dg-time { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 14px; color: #f2e3c2; }
 .rpg-dg-time.low { color: #f0a090; }
@@ -1911,7 +1915,7 @@ button.forge-stage:disabled { cursor: default; }
   .rpg-lv-num { min-width: 36px; font-size: 8.5px; }
   .rpg-lv-coin { font-size: 10.5px; }
   .rpg-lv-coin svg { width: 11px; height: 11px; }
-  .rpg-quest { left: 6px; top: 62px; padding: 2px 8px; font-size: 9.5px; }
+  .rpg-quest { top: calc(100% + 4px); padding: 2px 8px; font-size: 9.5px; }
   .rpg-lv { padding-right: 32px; }
   .rpg-lv-menu { top: 50%; right: 5px; transform: translateY(-50%); width: 22px; height: 20px; }
   .rpg-menu { left: 6px; top: 62px; width: min(260px, calc(100% - 12px)); max-height: calc(100% - 68px); padding: 6px; }
@@ -2268,13 +2272,17 @@ button.forge-stage:disabled { cursor: default; }
    레벨 칸은 좁은 화면의 기존 172px보다 오른쪽으로 넓히고 보스바는 상단에 둔다. */
 @media (orientation: landscape) and (max-height: 650px) and (hover: none) and (pointer: coarse) {
   .page.touch .stage { max-width: min(1040px, calc((100dvh - 44px) * 1.52)); }
-  .page.touch .rpg-lv { zoom: 0.75; width: clamp(240px, 32vw, 320px); }
-  .page.touch .rpg-dg {
-    zoom: 0.7; top: 12px; left: clamp(280px, 36vw, 365px); right: 90px;
-    max-width: 520px;
+}
+/* 휴대폰 가로 — 기기마다 hover · pointer 값이 달라 화면이 정한 터치 표시(.touch)만 본다.
+   보스 칸 오른쪽은 소리 · 나가기 단추(약 64px) 자리를 비운다 */
+@media (orientation: landscape) and (max-height: 650px) {
+  .rpg-page.touch .rpg-lv { zoom: 0.75; width: clamp(240px, 32vw, 320px); }
+  .rpg-page.touch .rpg-dg {
+    zoom: 0.7; top: 12px; bottom: auto; left: clamp(280px, 36vw, 365px); right: 110px;
+    width: auto; max-width: 520px;
   }
-  .page.touch .rpg-dg-top { flex-wrap: wrap; }
-  .page.touch .rpg-dg-top > * { flex-shrink: 0; white-space: nowrap; }
+  /* 레벨 칸과 함께 줄어드는 만큼 글자를 키워 누르기 쉽게 둔다 */
+  .rpg-page.touch .rpg-quest { padding: 3px 10px; font-size: 12px; }
 }
 
 /* 길게 눌러 판 전체가 선택되거나 복사 메뉴가 뜨는 것을 막는다. 입력칸은 예외다. */
@@ -2361,7 +2369,7 @@ button.forge-stage:disabled { cursor: default; }
 /* 양옆 조작부를 뺀 작은 판에서도 상단 정보가 칸 밖으로 나가지 않게 한다. */
 @media (orientation: landscape) and (max-height: 650px) and (max-width: 700px) {
   .rpg-page.touch .rpg-lv { zoom: 0.55; width: 220px; }
-  .rpg-page.touch .rpg-dg { zoom: 0.55; left: 240px; right: 8px; }
+  .rpg-page.touch .rpg-dg { zoom: 0.55; left: 240px; right: 130px; }
 }
 
 /* 접속 인원은 왼쪽 맨 위 아이콘으로 열고, 기존 인원 카드를 판 안에 띄운다. */
@@ -2389,3 +2397,13 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-help .rpg-keys { margin-top: 10px; color: #d9c9a6; line-height: 1.7; }
 .rpg-help .footnote { margin: 12px 0 0; color: #d9c9a6; line-height: 1.7; }
 .rpg-help .rpg-stat-head { position: sticky; top: -10px; z-index: 1; padding: 4px 0 8px; background: #302317; }
+
+/* 좁은 PC 창 — 판이 좁으면 보스 칸이 레벨 칸과 오른쪽 단추 사이에 끼어 아주 좁아졌다.
+   판 너비를 보고 오른쪽 단추 아래로 내리고, 더 좁으면 레벨 칸 아래 한 줄을 다 쓴다 */
+.rpg-page .frame { container-type: inline-size; }
+@container (max-width: 860px) {
+  .rpg-page .rpg-dg { top: 60px; left: auto; right: 12px; width: min(440px, calc(100% - 352px)); }
+}
+@container (max-width: 660px) {
+  .rpg-page .rpg-dg { top: auto; bottom: 64px; left: 12px; right: 12px; width: auto; }
+}

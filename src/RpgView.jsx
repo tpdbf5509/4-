@@ -1642,6 +1642,18 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   </button>
                 </span>
               </span>
+              {/* 의뢰 · 퀘스트 — 레벨 칸 바로 아래에 붙는다(style.css .rpg-quest) */}
+              {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
+                <button type="button" className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
+                  {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
+                  {Object.entries(me.self.reqs).map(([id, r]) => {
+                    const q = REQUESTS[id] && REQUESTS[id][r.i];
+                    const xpTxt = q && me.lv < LV_MAX ? reqXpText(q, me.lv, r.coinOnly ?? (me.lv > q.lv)) : "";
+                    return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}{xpTxt ? ` · ${xpTxt}` : ""}</span> : null;
+                  })}
+                  <span className="rpg-quest-open">의뢰 · 퀘스트 ›</span>
+                </button>
+              )}
             </div>
           )}
           {menu && (
@@ -2153,17 +2165,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           )}
           {me && bagOpen && (
             <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} onClose={() => { setBagOpen(false); setBagTab("weapon"); }} />
-          )}
-          {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
-            <button type="button" className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
-              {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
-              {Object.entries(me.self.reqs).map(([id, r]) => {
-                const q = REQUESTS[id] && REQUESTS[id][r.i];
-                const xpTxt = q && me.lv < LV_MAX ? reqXpText(q, me.lv, r.coinOnly ?? (me.lv > q.lv)) : "";
-                return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}{xpTxt ? ` · ${xpTxt}` : ""}</span> : null;
-              })}
-              <span className="rpg-quest-open">의뢰 · 퀘스트 ›</span>
-            </button>
           )}
           {me && questOpen && (
             <>

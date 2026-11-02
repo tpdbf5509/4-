@@ -892,7 +892,7 @@ export function advCanExecute(h, o, hp, max) {
   const c = assassinSkill(h);
   if (!c || !o || !(hp > 0) || !(max > 0)) return false;
   const X = c.execute;
-  if (isHero(o) ? !X.pvp : (o.boss || o.type === "dummy") && !X.boss) return false;
+  if (isHero(o) ? !X.pvp : o.type === "dummy" || (o.boss && !X.boss && !(X.fieldBoss && o.gi >= 0))) return false;   // 사냥터 보스(gi ≥ 0)는 된다
   return hp <= max * X.pct;
 }
 export const EXEC_COLOR = "#e0b8ff";

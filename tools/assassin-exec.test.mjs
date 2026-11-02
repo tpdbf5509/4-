@@ -67,7 +67,7 @@ test('스킬로 쓰러뜨리면 질주 · 투명화(몹이 놓친다) · 스냅�
   });
 });
 
-test('보스 · 허수아비 · 평타 · 다른 직업은 처형하지 않는다 · 직업 스킬은 한다', () => {
+test('던전 보스 · 허수아비 · 평타 · 다른 직업은 처형하지 않는다 · 직업 스킬은 한다', () => {
   const g = world([{ c: 'assassin' }, { c: 'gladiator' }]);
   const [as, gl] = g.heroes;
   const m = { type: 'skeleton', hp: 10, max: 100 };
@@ -76,7 +76,8 @@ test('보스 · 허수아비 · 평타 · 다른 직업은 처형하지 않는�
   as.cast = { raw: 0, job: 1 };
   assert.equal(advCanExecute(as, m, 10, 100), true, '직업 스킬');
   assert.equal(advCanExecute(as, m, 14, 100), false, '14%');
-  assert.equal(advCanExecute(as, { ...m, boss: 1 }, 10, 100), false, '보스');
+  assert.equal(advCanExecute(as, { ...m, boss: 1, gi: -1 }, 10, 100), false, '던전 보스');
+  assert.equal(advCanExecute(as, { ...m, boss: 1, gi: 3 }, 10, 100), true, '사냥터 보스');
   assert.equal(advCanExecute(as, { ...m, type: 'dummy' }, 10, 100), false, '허수아비');
   gl.cast = { raw: 0, adv: 1 };
   assert.equal(advCanExecute(gl, m, 10, 100), false, '검투사');

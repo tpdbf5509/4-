@@ -317,7 +317,7 @@
  "전직 몸(체력 · 속도 · 받는 피해)": [
   {
    "file": "src/game/advData.js",
-   "from": 206,
+   "from": 207,
    "code": [
     "export const ADV_BODY = {",
     "  assassin: { hp: 0.78, spd: 1.2 },                 // 검사 계열(검투사 · 기사)보다 체력 22% 낮게",
@@ -329,7 +329,7 @@
  "전직 추가 스탯": [
   {
    "file": "src/game/advData.js",
-   "from": 251,
+   "from": 252,
    "code": [
     "export const ADV_BONUS = {",
     "  gladiator: { str: 60, cdmg: 10 },   // 검투사 — 공격 · 콤보",
@@ -345,7 +345,7 @@
  "전직 스킬 대기 시간 · 배율": [
   {
    "file": "src/game/advData.js",
-   "from": 193,
+   "from": 194,
    "code": [
     "      cd: 9, dmg: \"str\", n: 5, spread: 0.32, len: 560, width: 34, mul: 1.5, wind: 4, windSpd: 0.15,"
    ]

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeWorld,rpgSyncSeats,rpgJoin,rpgStep,rpgPack,rpgApply,rpgPromote,rpgDuel,rpgSkill,rpgUseSkill,rpgAdv,rpgDungeon,rpgWorldBoss,rpgRequest,rpgHold,statEarned,huntingXp,physMul,MAPS,DUEL} from '../src/game/rpg.js';
+import {DUEL_TEAM,DUEL_COLORS} from '../src/game/duel.js';
 import {rpgShop,whyPotionUse,cleanBag} from '../src/game/shop.js';
 import {RESET,GIFT} from '../src/game/itemData.js';
 import {DUNGEONS,DUNGEON} from '../src/game/dungeonData.js';
@@ -19,7 +20,7 @@ function setup(count=4){
  g.heroes.filter(Boolean).forEach(h=>{h.auto=0;h.inv=0;});return {g,seats,h:g.heroes[0]};
 }
 function duel(){const f=setup();f.g.heroes.forEach((h,i)=>{if(h)h.pty=i<2?1:2;});
- assert(rpgDuel(f.g,0,{op:'ask',to:2,size:2}));assert(rpgDuel(f.g,2,{op:'accept'}));run(f.g,3.1);return f;}
+ assert(rpgDuel(f.g,0,{op:'ask',to:2,size:2}));assert(rpgDuel(f.g,2,{op:'accept'}));run(f.g,DUEL.ready+DUEL_TEAM.rollT+.1);return f;}
 test('2대2는 서로 다른 2인 파티가 수락해야 시작하고 혼자 쓰러져도 계속한다',()=>{
  const {g}=duel();assert.equal(g.duels[0].size,2);assert(g.heroes.filter(Boolean).every(h=>h.dph===2&&h.duelPotions===5));
  g.heroes[2].down=10;run(g,.02);assert.equal(g.duels[0].phase,'fight');
@@ -129,4 +130,24 @@ test('뇌조 급강하 중 기사 반격으로 보스가 죽어도 판정이 안
  rpgWorldBoss(g,0,{op:'summon',id:'thunderbird'});rpgWorldBoss(g,0,{op:'enter'});
  const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);h.x=m.x-400;h.y=m.y;m.hp=1;a.hp=1;
  rpgAdv(g,0,{op:'use'});h.as.nul=0;a.seq=1;a.cd=0;run(g,2.6);assert.equal(a.phase,'clear');
+});
+test('2대2는 사냥터에서도 신청이 가고 양쪽 파티원에게 알리며 던전에 있으면 까닭을 알린다',()=>{
+ const {g}=setup();g.heroes.forEach((h,i)=>{if(h){h.pty=i<2?1:2;h.map='wolf';}});g.out=[];
+ assert(rpgDuel(g,0,{op:'ask',to:2,size:2}));assert.equal(g.heroes[2].duelInv.size,2);
+ assert(g.out.some(o=>o.k==='sys'&&o.who===1&&o.msg.includes('2대2')));assert(g.out.some(o=>o.k==='sys'&&o.who===3&&o.msg.includes('2대2')));
+ assert(rpgDuel(g,2,{op:'accept'}));assert.equal(g.duels[0].size,2);
+ const f=setup();f.g.heroes.forEach((h,i)=>{if(h)h.pty=i<2?1:2;});f.g.heroes[3].map='train';f.g.out=[];
+ assert.equal(rpgDuel(f.g,0,{op:'ask',to:2,size:2}),false);assert.equal(f.g.heroes[2].duelInv,null);
+ assert(f.g.out.some(o=>o.k==='sys'&&o.who===0&&o.msg.includes('2대2 결투를 할 수 없습니다')));
+});
+test('2대2는 팀 색 두 개를 서로 다르게 정하고 시간 제한 없이 이어지며 스냅샷으로 색이 전해진다',()=>{
+ const {g}=duel(),[a,b,c,d]=g.heroes;
+ assert(a.duelColor>=0&&a.duelColor<DUEL_COLORS.length);assert.equal(a.duelColor,b.duelColor);assert.equal(c.duelColor,d.duelColor);assert.notEqual(a.duelColor,c.duelColor);
+ run(g,DUEL.time+5);assert.equal(g.duels[0].phase,'fight');assert(a.dtl>=DUEL.time);
+ const guest=makeWorld();guest.mySeat=2;rpgApply(guest,JSON.parse(JSON.stringify(rpgPack(g))));assert.equal(guest.heroes[2].duelColor,c.duelColor);
+ c.down=10;d.down=10;run(g,.02);assert.equal(g.duels[0].phase,'end');run(g,3);assert(g.heroes.filter(Boolean).every(h=>h.duelColor===-1));
+});
+test('1대1은 팀 색 없이 시간 초과면 무승부다',()=>{
+ const {g}=setup();assert(rpgDuel(g,0,{op:'ask',to:1}));assert(rpgDuel(g,1,{op:'accept'}));
+ assert.equal(g.heroes[0].duelColor,-1);run(g,DUEL.ready+DUEL.time+.2);assert.equal(g.duels[0].phase,'end');
 });

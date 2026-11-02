@@ -27,6 +27,7 @@ import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR_BASE, ARMOR_SPECIAL, armorName, armorA
 import { wornArmor } from "./game/armor.js";
 import { BOOKS, BOOK_BY_ID, PATCH_BOOKS } from "./game/bookData.js";
 import { Coin } from "./ui/icons.jsx";
+import { useCasinoRun, DiceStage, SlotStage, BoxStage, CASINO_SKIP } from "./CasinoStage.jsx";
 
 const won = (n) => Math.round(n).toLocaleString("ko-KR");
 const pct = (v, d = 1) => `${(Math.round(v * 100 * 10 ** d) / 10 ** d).toLocaleString("ko-KR")}%`;
@@ -339,9 +340,12 @@ function Odds({ rows }) {
     </table>
   );
 }
-function Casino({ h, send }) {
+function Casino({ h, send, note, setQuiet }) {
   const [tab, setTab] = useState("box");
   const [bet, setBet] = useState(100);
+  const [pick, setPick] = useState(null);             // 주사위에 건 쪽 — 굴리는 동안 보여 준다
+  const [skip, setSkip] = useState(() => readFlag(CASINO_SKIP));   // 도박 연출 건너뛰기
+  const { run, start, busy } = useCasinoRun({ note, setQuiet, coins: h.coins, skip });
   const day = todayKey();
   const ev = casinoEv(h.lv);
   const left = (k) => Math.max(0, CASINO.daily[k] - usedToday(h.bag, k, day));
@@ -352,56 +356,92 @@ function Casino({ h, send }) {
   const ssum = SLOT.reduce((a, s) => a + s.w, 0);
   const tabs = [["box", "랜덤 상자", `${left("box")}/${CASINO.daily.box}`], ["dice", "주사위 홀짝", `${left("dice")}/${CASINO.daily.dice}`],
     ["slot", "슬롯머신", `${left("slot")}/${CASINO.daily.slot}`]];
+  // 누르면 연출을 먼저 시작하고 서버에 보낸다 — 결과는 서버가 정하고, 연출은 그 결과로 멈출 뿐이다
+  const play = (req) => { if (busy) return; start(req.op); send(req); };
+  const msg = run.phase === "done" && run.res && run.game === tab ? run.res.msg : "";
+  const msgLine = (why) => (
+    <p className={`cas-msg ${msg ? (run.res.win || run.game === "box" ? "win" : "lose") : why.length && !busy ? "why" : ""}`}>
+      {msg || (why.length && !busy ? why.join(" · ") : "")}
+    </p>
+  );
   return (
     <>
-      <Tabs on={tab} set={setTab} tabs={tabs} />
+      <Tabs on={tab} set={(t) => { if (!busy) setTab(t); }} tabs={tabs} />
       <p className="shop-note">탭 옆 숫자는 오늘 남은 횟수입니다. 한국 날짜 자정에 다시 찹니다.</p>
-      {tab === "box" && (
-        <>
-          <Item name="랜덤 상자" meta={<span className="shop-meta"><span>기댓값 {pct(ev.box, 0)}</span></span>}
-            desc={`내 레벨 단계(Lv ${WEAPON_TIERS[tierOf(h.lv)]})의 무기 또는 물약이 나옵니다.${own.length ? ` 특별 무기는 낄 수 있는 ${own.length}종 가운데 하나입니다.` : ""}`}
-            price={<Price n={boxPrice(h.lv)} />}
-            acts={[{ label: "열기", main: true, why: whyGamble(h, "box", 0, day), onClick: () => send({ op: "box" }) }]} />
-          <Head sub="상점가 기준 기댓값">나오는 확률</Head>
-          <Odds rows={[
-            ...(share.special > 0 ? [["특별 무기", pct(share.special)]] : []),
-            ...GRADES.map((gd) => [`${gd.name} 무기`, pct(share.weapon * (BOX.grades[gd.id] / gsum))]),
-            ...Object.entries(BOX.potions).map(([id, w]) => [POTION_BY_ID[id].name, pct(share.potion * (w / psum))]),
-          ]} />
-        </>
-      )}
-      {tab === "dice" && (
-        <>
-          <Item name="주사위 홀짝" meta={<span className="shop-meta"><span>기댓값 {pct(ev.dice, 0)}</span></span>}
-            desc={`맞히면 건 코인의 ${DICE.pay}배. ${pct(DICE.house, 0)} 확률로 주사위가 모서리에 서면 집이 가져갑니다. 맞힐 확률은 ${pct((1 - DICE.house) * 0.5, 0)}입니다.`} />
-          <div className="shop-play">
-            <BetInput value={bet} onChange={setBet} />
-            <div className="shop-btns">
-              <button type="button" className="shop-btn main" disabled={whyGamble(h, "dice", bet, day).length > 0}
-                onClick={() => send({ op: "dice", bet, pick: "odd" })}>홀</button>
-              <button type="button" className="shop-btn main" disabled={whyGamble(h, "dice", bet, day).length > 0}
-                onClick={() => send({ op: "dice", bet, pick: "even" })}>짝</button>
+      {tab === "box" && (() => {
+        const why = whyGamble(h, "box", 0, day);
+        return (
+          <>
+            <Item name="랜덤 상자" meta={<span className="shop-meta"><span>기댓값 {pct(ev.box, 0)}</span></span>}
+              desc={`내 레벨 단계(Lv ${WEAPON_TIERS[tierOf(h.lv)]})의 무기 또는 물약이 나옵니다.${own.length ? ` 특별 무기는 낄 수 있는 ${own.length}종 가운데 하나입니다.` : ""}`}
+              price={<Price n={boxPrice(h.lv)} />} />
+            <div className="cas-play">
+              <BoxStage run={run} />
+              <div className="cas-side">
+                {msgLine(why)}
+                <button type="button" className="shop-btn main" disabled={busy || why.length > 0} onClick={() => play({ op: "box" })}>
+                  {busy ? "여는 중…" : "열기"}
+                </button>
+              </div>
             </div>
-          </div>
-          {whyGamble(h, "dice", bet, day).length > 0 && <p className="shop-why solo">{whyGamble(h, "dice", bet, day).join(" · ")}</p>}
-        </>
-      )}
-      {tab === "slot" && (
-        <>
-          <Item name="슬롯머신" meta={<span className="shop-meta"><span>기댓값 {pct(ev.slot, 0)}</span></span>}
-            desc="세 칸이 같은 그림이면 건 코인에 배수를 곱해 줍니다." />
-          <div className="shop-play">
-            <BetInput value={bet} onChange={setBet} />
-            <div className="shop-btns">
-              <button type="button" className="shop-btn main" disabled={whyGamble(h, "slot", bet, day).length > 0}
-                onClick={() => send({ op: "slot", bet })}>당기기</button>
+            <Head sub="상점가 기준 기댓값">나오는 확률</Head>
+            <Odds rows={[
+              ...(share.special > 0 ? [["특별 무기", pct(share.special)]] : []),
+              ...GRADES.map((gd) => [`${gd.name} 무기`, pct(share.weapon * (BOX.grades[gd.id] / gsum))]),
+              ...Object.entries(BOX.potions).map(([id, w]) => [POTION_BY_ID[id].name, pct(share.potion * (w / psum))]),
+            ]} />
+          </>
+        );
+      })()}
+      {tab === "dice" && (() => {
+        const why = whyGamble(h, "dice", bet, day);
+        return (
+          <>
+            <Item name="주사위 홀짝" meta={<span className="shop-meta"><span>기댓값 {pct(ev.dice, 0)}</span></span>}
+              desc={`맞히면 건 코인의 ${DICE.pay}배. ${pct(DICE.house, 0)} 확률로 주사위가 모서리에 서면 집이 가져갑니다. 맞힐 확률은 ${pct((1 - DICE.house) * 0.5, 0)}입니다.`} />
+            <div className="cas-play">
+              <DiceStage run={run} pick={pick} />
+              <div className="cas-side">
+                <BetInput value={bet} onChange={setBet} />
+                {msgLine(why)}
+                <div className="shop-btns">
+                  {[["odd", "홀"], ["even", "짝"]].map(([k, label]) => (
+                    <button key={k} type="button" className={`shop-btn ${pick === k && busy ? "main" : busy ? "" : "main"}`} disabled={busy || why.length > 0}
+                      onClick={() => { setPick(k); play({ op: "dice", bet, pick: k }); }}>{label}</button>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-          {whyGamble(h, "slot", bet, day).length > 0 && <p className="shop-why solo">{whyGamble(h, "slot", bet, day).join(" · ")}</p>}
-          <Head>배수와 확률</Head>
-          <Odds rows={SLOT.map((s) => [`${s.name} 3개`, pct(Math.pow(s.w / ssum, 3), 3), `${s.mul}배`])} />
-        </>
-      )}
+          </>
+        );
+      })()}
+      {tab === "slot" && (() => {
+        const why = whyGamble(h, "slot", bet, day);
+        return (
+          <>
+            <Item name="슬롯머신" meta={<span className="shop-meta"><span>기댓값 {pct(ev.slot, 0)}</span></span>}
+              desc="세 칸이 같은 그림이면 건 코인에 배수를 곱해 줍니다." />
+            <div className="cas-play">
+              <SlotStage run={run} />
+              <div className="cas-side">
+                <BetInput value={bet} onChange={setBet} />
+                {msgLine(why)}
+                <div className="shop-btns">
+                  <button type="button" className="shop-btn main" disabled={busy || why.length > 0} onClick={() => play({ op: "slot", bet })}>
+                    {busy ? "돌아가는 중…" : "당기기"}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <Head>배수와 확률</Head>
+            <Odds rows={SLOT.map((s) => [`${s.name} 3개`, pct(Math.pow(s.w / ssum, 3), 3), `${s.mul}배`])} />
+          </>
+        );
+      })()}
+      <label className="shop-guard">
+        <input type="checkbox" checked={skip} disabled={busy} onChange={(e) => { setSkip(e.target.checked); writeFlag(CASINO_SKIP, e.target.checked); }} />
+        <span>도박 모션 건너뛰기 <small>굴리기 · 돌리기 없이 결과만 바로 봅니다</small></span>
+      </label>
     </>
   );
 }
@@ -698,7 +738,7 @@ export function Frame({ title, sub, coins, admin, note, quiet, onClose, children
             <b>{title}</b>
             {sub && <span>{sub}</span>}
           </div>
-          <span className="shop-coins"><Coin />{admin ? "무제한" : won(coins)}</span>
+          <span className="shop-coins"><Coin />{admin ? "무제한" : won(quiet && quiet.coins !== undefined ? quiet.coins : coins)}</span>
           <button type="button" className="shop-x" aria-label="닫기" onClick={onClose}>×</button>
         </div>
         {/* 강화 망치질 중(quiet)에는 글만 숨기고 자리는 남긴다 — 줄이 사라졌다 나타나며 창이 위아래로 흔들리지 않게 */}
@@ -712,7 +752,7 @@ export function Frame({ title, sub, coins, admin, note, quiet, onClose, children
 export function ShopPanel({ shop, h, send, note, onClose }) {
   const s = SHOP_BY_ID[shop] || SHOPS[0];
   const Body = BODIES[s.id];
-  const [quiet, setQuiet] = useState(false);          // 강화 망치질 중에는 결과 줄을 숨긴다(연출이 끝날 때 보인다)
+  const [quiet, setQuiet] = useState(false);          // 강화 망치질 · 도박 연출 중에는 결과 줄을 숨긴다(연출이 끝날 때 보인다). { coins } 면 코인도 그 숫자로 둔다
   return (
     <Frame title={s.name} sub={`${s.keeper} · ${s.line}`} coins={h.coins} admin={h.admin} note={note} quiet={quiet} onClose={onClose}>
       <Body h={h} send={send} note={note} setQuiet={setQuiet} />

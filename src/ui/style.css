@@ -1400,6 +1400,8 @@ kbd {
   text-shadow: 0 2px 0 #2c1f12, 0 4px 14px rgba(0, 0, 0, 0.55);
   animation: rpg-toast 2.2s ease forwards;
 }
+/* 알림 글(결투 신청 · 거절 까닭) — 길어서 작게 줄바꿈 */
+.rpg-toast.msg { font-size: 19px; width: min(560px, calc(100% - 32px)); text-align: center; line-height: 1.3; letter-spacing: -0.02em; }
 @keyframes rpg-toast { 0% { opacity: 0; transform: translate(-50%, 8px); } 15%, 75% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
 
 /* 첫 10분 길 안내 — 위 가운데 한 칸(guideData.js). 판 위 금빛 화살표와 짝 */
@@ -1517,6 +1519,25 @@ kbd {
   font-family: 'Do Hyeon', sans-serif; font-size: 72px; color: #ffe08a; text-shadow: 0 3px 0 #2c1f12, 0 6px 18px rgba(0, 0, 0, 0.5);
   animation: rpg-count 1s ease-out;
 }
+/* 2대2 팀 색 정하기 — 가운데 위 작은 판. 돌 때는 네 색을 차례로 비추고 멈추면 색 이름을 띄운다 */
+.rpg-duel-roll {
+  position: absolute; left: 50%; top: 18%; transform: translateX(-50%); pointer-events: none; z-index: 4;
+  display: grid; gap: 6px; padding: 10px 14px 12px; min-width: 210px;
+  background: rgba(43, 32, 22, 0.92); border: 1px solid #8a6a3f; border-radius: 10px;
+}
+.rpg-duel-roll-h { font-family: 'Do Hyeon', sans-serif; font-size: 17px; color: #e3c48a; letter-spacing: -0.02em; }
+.rpg-duel-roll-row { display: flex; align-items: center; gap: 10px; }
+.rpg-duel-roll-l { width: 52px; font-size: 12px; color: #cdbb98; }
+.rpg-duel-chip {
+  flex: 1; height: 26px; border-radius: 6px; border: 1px solid rgba(255, 240, 210, 0.35);
+  display: flex; align-items: center; padding-left: 10px;
+  font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: #2c1f12; letter-spacing: -0.02em;
+}
+.rpg-duel-chip.spin { animation: rpg-duel-spin 0.48s steps(1) infinite; }
+.rpg-duel-chip.land { animation: rpg-duel-land 0.45s ease-out; }
+/* 색은 duel.js DUEL_COLORS 와 같게 둔다 */
+@keyframes rpg-duel-spin { 0% { background: #e07a6e; } 25% { background: #6f9fd8; } 50% { background: #7cc08a; } 75% { background: #e8c766; } }
+@keyframes rpg-duel-land { 0% { transform: scale(1.18); filter: brightness(1.5); } 100% { transform: scale(1); filter: none; } }
 @keyframes rpg-count { 0% { opacity: 0; transform: translate(-50%, 0) scale(1.6); } 30% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 .rpg-rank-row {
   display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px;
@@ -1740,6 +1761,85 @@ kbd {
 .shop-bet small { font-size: 11px; color: var(--sh-faint); }
 .shop-bet input { width: 110px; padding: 7px 10px; border-radius: 8px; font-family: inherit; font-size: 15px; color: var(--sh-text);
   background: rgba(0, 0, 0, 0.25); border: 1px solid var(--sh-line); }
+/* 도박장 연출(CasinoStage.jsx) — 왼쪽은 판, 오른쪽은 거는 칸 · 결과 · 버튼. 판은 어두운 펠트에 1px 선, 강조는 결과 제목 한 곳 */
+.cas-play { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--sh-line); }
+.cas-side { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.cas-msg { margin: 0; min-height: calc(12px * 1.45 * 2); font-size: 12px; line-height: 1.45; letter-spacing: -0.02em; color: var(--sh-mute); }
+.cas-msg.why { color: var(--sh-warn); } .cas-msg.win { color: #f0d48c; } .cas-msg.lose { color: #b9ad97; }
+.cas-stage { --felt: #233029; position: relative; height: 150px; overflow: hidden; border-radius: 10px; border: 1px solid rgba(226, 205, 165, 0.22);
+  background: radial-gradient(ellipse at 40% 45%, color-mix(in srgb, var(--felt) 80%, #4a5a4c), var(--felt) 70%); perspective: 420px; }
+.cas-tag { position: absolute; left: 10px; bottom: 7px; font-size: 11px; letter-spacing: -0.02em; color: rgba(236, 223, 196, 0.55); }
+.cas-title { position: absolute; left: 12px; top: 8px; z-index: 4; font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 22px; letter-spacing: -0.03em;
+  color: #e6dccb; text-shadow: 0 2px 0 rgba(10, 8, 6, 0.6); animation: forge-pop 0.45s ease-out; }
+.cas-win .cas-title, .cas-big .cas-title { color: #f0d48c; }
+.cas-lose .cas-title { color: #b9ad97; }
+.cas-big { box-shadow: inset 0 0 0 1px rgba(240, 212, 140, 0.55), inset 0 0 28px rgba(240, 212, 140, 0.18); animation: cas-glow 1.4s ease-out; }
+@keyframes cas-glow { 0% { box-shadow: inset 0 0 0 1px rgba(240, 212, 140, 0.9), inset 0 0 60px rgba(240, 212, 140, 0.5); } 100% { box-shadow: inset 0 0 0 1px rgba(240, 212, 140, 0.55), inset 0 0 28px rgba(240, 212, 140, 0.18); } }
+/* 주사위 — 정육면체 여섯 면. 굴릴 때는 왼쪽에서 튀며 들어와 빙글빙글, 결과가 오면 그 면으로 감속해 멈춘다 */
+.dice-stage { --dz: 22px; }
+.dice-roll { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -26px 0 0 -22px; transform-style: preserve-3d; }
+.dice-cube { position: absolute; inset: 0; transform-style: preserve-3d;
+  transform: rotateX(-20deg) rotateY(22deg) rotateX(var(--rx)) rotateY(var(--ry)); }
+.dice-face { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 6px; gap: 2px;
+  border-radius: 8px; background: #efe6d6; box-shadow: inset 0 0 0 1px rgba(120, 100, 80, 0.35), inset 0 -3px 6px rgba(120, 100, 80, 0.2); backface-visibility: hidden; }
+.dice-face i { place-self: center; width: 7px; height: 7px; border-radius: 50%; }
+.dice-face i.on { background: #6f6152; }
+.dice-face.f1 i.on { width: 10px; height: 10px; background: #c98a86; }
+.dice-shadow { position: absolute; left: 50%; top: 50%; width: 54px; height: 12px; margin: 22px 0 0 -27px; border-radius: 50%; background: rgba(0, 0, 0, 0.35); filter: blur(3px); }
+.dice-spin .dice-roll { animation: dice-in 0.8s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+.dice-spin .dice-cube { animation: dice-tumble 0.42s linear infinite; }
+.dice-spin .dice-shadow { animation: dice-in-shadow 0.8s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+.dice-land .dice-cube { animation: dice-land 0.75s cubic-bezier(0.2, 0.75, 0.3, 1) both; }
+.dice-land .dice-roll { animation: dice-settle 0.75s ease-out both; }
+/* 모서리 — 꼭짓점 하나로 서서 흔들린다 */
+.dice-edge .dice-cube { transform: rotateX(-35.26deg) rotateZ(0deg) rotateY(45deg) rotateX(45deg); }
+.dice-edge.dice-land .dice-cube { animation: dice-land-edge 0.75s cubic-bezier(0.2, 0.75, 0.3, 1) both; }
+.dice-edge.dice-done .dice-roll { animation: dice-wobble 0.5s ease-in-out 3; }
+.cas-lose .dice-face { filter: brightness(0.85) saturate(0.7); }
+@keyframes dice-in { 0% { transform: translate(-140px, -40px); } 35% { transform: translate(-70px, 6px); } 55% { transform: translate(-36px, -14px); }
+  75% { transform: translate(-12px, 3px); } 100% { transform: translate(0, 0); } }
+@keyframes dice-in-shadow { 0% { transform: translateX(-140px) scale(0.6); opacity: 0.4; } 100% { transform: translateX(0) scale(1); opacity: 1; } }
+@keyframes dice-tumble { from { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); } to { transform: rotateX(360deg) rotateY(720deg) rotateZ(180deg); } }
+@keyframes dice-land { from { transform: rotateX(-20deg) rotateY(22deg) rotateX(calc(var(--rx) + 540deg)) rotateY(calc(var(--ry) + 360deg)); }
+  to { transform: rotateX(-20deg) rotateY(22deg) rotateX(var(--rx)) rotateY(var(--ry)); } }
+@keyframes dice-land-edge { from { transform: rotateX(-35.26deg) rotateZ(0deg) rotateY(405deg) rotateX(405deg); } to { transform: rotateX(-35.26deg) rotateZ(0deg) rotateY(45deg) rotateX(45deg); } }
+@keyframes dice-settle { 0% { transform: translateY(-6px); } 40% { transform: translateY(0); } 60% { transform: translateY(-4px); } 80%, 100% { transform: translateY(0); } }
+@keyframes dice-wobble { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+/* 슬롯머신 — 세 릴. 칸 하나 40px, 창에는 가운데 한 칸과 위아래 반 칸이 보인다 */
+.slot-stage { --felt: #2c2530; --cell: 40px; display: grid; place-items: end center; }
+.slot-frame { position: relative; display: flex; gap: 6px; padding: 6px; margin-bottom: 24px; border-radius: 8px; background: rgba(20, 14, 10, 0.5); border: 1px solid rgba(226, 205, 165, 0.25); }
+.slot-reel { position: relative; width: 50px; height: calc(var(--cell) * 2); overflow: hidden; border-radius: 5px; background: #ece3d3;
+  -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); }
+.slot-strip { position: absolute; left: 0; right: 0; top: 0; display: flex; flex-direction: column; }
+.slot-cell { flex: none; height: var(--cell); display: grid; place-items: center; }
+.slot-sym { width: 32px; height: 32px; }
+/* 가운데 칸이 창 가운데에 오게 — 위로 반 칸 비켜 둔다 */
+.slot-strip.rest, .slot-strip.stop { transform: translateY(calc(var(--cell) * (0.5 - var(--n)))); }
+.slot-strip.spin { animation: slot-spin 0.28s linear infinite; filter: blur(1.2px); }
+.slot-strip.stop { animation: slot-stop 0.5s cubic-bezier(0.25, 0.9, 0.35, 1.25) both; }
+.slot-line { position: absolute; left: 3px; right: 3px; top: 50%; height: 1px; background: rgba(217, 143, 128, 0.55); pointer-events: none; }
+.slot-done.cas-win .slot-cell.hit, .slot-done.cas-big .slot-cell.hit { animation: slot-hit 0.6s ease-out 2; }
+.slot-done.cas-lose .slot-reel { filter: saturate(0.6) brightness(0.88); }
+@keyframes slot-spin { from { transform: translateY(0); } to { transform: translateY(calc(var(--cell) * -5)); } }
+@keyframes slot-stop { from { transform: translateY(calc(var(--cell) * 0.5)); } to { transform: translateY(calc(var(--cell) * (0.5 - var(--n)))); } }
+@keyframes slot-hit { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.18); } }
+/* 랜덤 상자 — 흔들리다가 뚜껑이 튀어 오르고 등급 색 빛이 퍼진다 */
+.box-stage { --felt: #2e2620; --ray: #e3c48a; display: grid; place-items: center; }
+.box-body { position: relative; width: 62px; height: 46px; margin-top: 22px; border-radius: 4px; background: #a98a72; box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.15), 0 6px 10px rgba(0, 0, 0, 0.35); }
+.box-band { position: absolute; left: 50%; top: 0; bottom: 0; width: 9px; margin-left: -4.5px; background: #dcbf86; }
+.box-lid { position: absolute; left: -4px; right: -4px; top: -12px; height: 14px; border-radius: 3px; background: #b99a80; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+  transform-origin: 90% 100%; transition: transform 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.box-lid::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 9px; margin-left: -4.5px; background: #dcbf86; }
+.box-rays { position: absolute; left: 50%; top: 50%; width: 180px; height: 180px; margin: -78px 0 0 -90px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ray) 70%, transparent), transparent 62%); }
+.box-spin .box-body { animation: box-shake 0.3s ease-in-out infinite; }
+.box-open .box-lid { transform: translate(10px, -16px) rotate(26deg); }
+.box-open .box-rays { animation: box-rays 0.9s ease-out forwards; }
+.box-po { --ray: #a9c3a0; } .box-g0 { --ray: #bdb6a6; } .box-g1 { --ray: #a9c3a0; } .box-g2 { --ray: #9db5cf; } .box-g3 { --ray: #bba3cf; } .box-g4, .box-sp { --ray: #e2c28c; }
+@keyframes box-shake { 0%, 100% { transform: rotate(0deg) translateY(0); } 25% { transform: rotate(-6deg) translateY(-2px); } 75% { transform: rotate(6deg) translateY(-2px); } }
+@keyframes box-rays { from { opacity: 0; transform: scale(0.4); } 40% { opacity: 1; } to { opacity: 0.75; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .cas-stage * { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; } }
+@media (max-width: 520px) { .cas-play { grid-template-columns: 1fr; } }
 /* 장터 게시판(MarketPanel.jsx) — 값 · 수량 칸은 노름판 걸 코인 칸과 같은 모양 */
 .market-form { display: flex; flex-wrap: wrap; gap: 12px; margin: 6px 0 4px; }
 .market-form label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sh-mute); }
@@ -1942,6 +2042,10 @@ button.forge-stage:disabled { cursor: default; }
   .rpg-menu-text b { font-size: 12.5px; }
   .rpg-menu-text em { font-size: 10px; }
   .rpg-toast { font-size: 22px; }
+  .rpg-toast.msg { font-size: 14px; }
+  .rpg-duel-roll { top: 150px; min-width: 180px; padding: 7px 10px 9px; }
+  .rpg-duel-roll-h { font-size: 14px; }
+  .rpg-duel-chip { height: 22px; font-size: 14px; }
   .rpg-talk { bottom: 44px; padding: 5px 8px; gap: 1px 8px; border-radius: 9px; width: min(420px, calc(100% - 12px)); }
   .rpg-talk-who { font-size: 10.5px; }
   .rpg-talk-line { font-size: 10px; line-height: 1.35; }

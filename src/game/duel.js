@@ -1,17 +1,35 @@
 import {trading} from './tradeData.js';
 /* 1대1·2대2 결투. 팀·소유자·귀환 위치를 통째로 스냅샷에 보존한다. */
 import { COMBAT_RULES } from './combatRules.js';
+// 2대2 팀 색 — 넷 가운데 두 색을 뽑아 팀마다 하나씩. 톤을 낮춘 빨강 · 파랑 · 녹색 · 노랑(11월 2일 사용자 요청)
+export const DUEL_COLORS=[{id:'red',name:'빨강',c:'#e07a6e'},{id:'blue',name:'파랑',c:'#6f9fd8'},{id:'green',name:'녹색',c:'#7cc08a'},{id:'yellow',name:'노랑',c:'#e8c766'}];
+// rollT: 결투장에 들어가 색이 돌다 멈추기까지 초(이 시간이 지나야 시작 세기가 시작된다)
+// noLimit: 2대2 는 시간 제한 없이 한 팀이 모두 쓰러지거나 기권할 때까지(1대1 은 그대로 DUEL.time 무승부)
+export const DUEL_TEAM={rollT:2.4,noLimit:true};
+const endless=d=>d.size===2&&DUEL_TEAM.noLimit;
 export const duelMembers=d=>d.members||[{pi:d.a,owner:d.wa,team:0},{pi:d.b,owner:d.wb,team:1}];
 const present=(g,p)=>{const h=g.heroes[p.pi];return h?.who===p.owner?h:null;};
 export const duelOpponents=(g,h)=>g.heroes.filter(o=>o&&o!==h&&o.loaded&&o.map===h.map&&o.ring===h.ring&&o.dph===2&&o.down<=0&&
   (h.duelTeam===undefined?o.pi===h.dvs:o.duelTeam!==h.duelTeam));
 const team=(g,h)=>h.pty?g.heroes.filter(o=>o?.loaded&&o.pty===h.pty):[];
 const eligible=h=>h?.loaded&&h.down<=0&&h.dvs<0&&!trading(h);
-function teamsFor(g,a,b,size){
-  if(size!==2)return [[a],[b]];
-  if(!a.pty||!b.pty||a.pty===b.pty)return null;
+// 2대2 를 신청 · 수락할 수 있는 곳 — 광장 · 길드 광장 · 사냥터. 던전 · 심연의 탑 · 훈련장 · 월드보스 · 결투장은 뺀다.
+// 예전에는 4명 모두 광장이어야 했다. 1대1 은 어디서나 되는데 2대2 만 조용히 막혀 "신청이 안 온다"고 보였다(11월 2일)
+export const duelSpot=M=>!!M&&!M.pvp&&!M.dungeon&&!M.train&&!M.worldBoss;
+// 2대2 가 안 되는 까닭 — 되면 ''. 화면 버튼 안내와 판정이 같은 글을 쓴다
+export function duelTeamWhy(E,g,a,b){
+  if(!a.pty||!b.pty||a.pty===b.pty)return '서로 다른 2인 파티끼리만 2대2 결투를 할 수 있습니다';
   const sides=[team(g,a),team(g,b)];
-  return sides.every(s=>s.length===2&&s.every(h=>h.map==='plaza'))?sides:null;
+  if(!sides.every(s=>s.length===2))return '두 파티 모두 2명이어야 합니다';
+  const far=sides.flat().find(h=>!duelSpot(E.map(h.map)));
+  if(far)return `${E.name(g,far.pi)}님이 던전 · 훈련장 같은 곳에 있어 2대2 결투를 할 수 없습니다`;
+  const busy=sides.flat().find(h=>!eligible(h));
+  if(busy)return `${E.name(g,busy.pi)}님이 지금 결투할 수 없는 상태입니다(쓰러짐 · 결투 · 거래 중)`;
+  return '';
+}
+function teamsFor(E,g,a,b,size){
+  if(size!==2)return [[a],[b]];
+  return duelTeamWhy(E,g,a,b)?null:[team(g,a),team(g,b)];
 }
 export function duelInput(E,g,pi,req){
   const h=g.heroes[pi],C=E.config;if(!h?.loaded||!req)return false;
@@ -21,31 +39,36 @@ export function duelInput(E,g,pi,req){
   }
   if(req.op==='ask'){
     const o=g.heroes[req.to];if(!o||o===h)return false;
-    const size=req.size===2?2:1,sides=teamsFor(g,h,o,size);
-    if(!sides||!sides.flat().every(eligible)){E.sys(g,pi,size===2?'광장의 결투 가능한 2인 파티끼리 신청하세요':'지금 결투를 신청할 수 없습니다');return false;}
+    const size=req.size===2?2:1,sides=teamsFor(E,g,h,o,size);
+    if(!sides||!sides.flat().every(eligible)){E.sys(g,pi,size===2?duelTeamWhy(E,g,h,o)||'지금 결투를 신청할 수 없습니다':'지금 결투를 신청할 수 없습니다');return false;}
     const members=sides.map(s=>s.map(q=>({pi:q.pi,owner:q.who})));
     o.duelInv={from:pi,t:C.reqT,size,members};
     E.sys(g,pi,`${E.name(g,o.pi)}님에게 ${size}대${size} 결투를 신청했습니다`);
-    E.sys(g,o.pi,`${E.name(g,pi)}님이 ${size}대${size} 결투를 신청했습니다`);return true;
+    E.sys(g,o.pi,`${E.name(g,pi)}님이 ${size}대${size} 결투를 신청했습니다`);
+    // 2대2 — 양쪽 파티원에게도 알린다. 수락은 신청받은 사람 한 명이 한다
+    if(size===2)sides.flat().forEach(q=>{if(q!==h&&q!==o)E.sys(g,q.pi,`${E.name(g,pi)}님 파티가 ${E.name(g,o.pi)}님 파티에 2대2 결투를 신청했습니다(${E.name(g,o.pi)}님이 수락하면 시작)`);});
+    return true;
   }
   if(req.op!=='accept'&&req.op!=='decline')return false;
   const inv=h.duelInv;h.duelInv=null;const o=inv&&g.heroes[inv.from];
   if(!o)return false;
   if(req.op==='decline'){E.sys(g,o.pi,'결투 신청이 거절됐습니다');return true;}
-  const size=inv.size||1,sides=teamsFor(g,o,h,size);
+  const size=inv.size||1,sides=teamsFor(E,g,o,h,size);
   if(!sides||!sides.flat().every(eligible)||inv.members?.some((s,i)=>s.length!==sides[i].length||s.some(p=>!sides[i].some(q=>p.pi===q.pi&&p.owner===q.who)))){
     E.sys(g,pi,'신청 뒤 참가자나 파티 상태가 바뀌었습니다. 다시 신청하세요');return false;
   }
   const ring=E.rings.findIndex((_,i)=>!g.duels.some(d=>d.ring===i));
   if(ring<0){E.sys(g,pi,'결투장이 모두 차 있습니다');return false;}
   const R=E.rings[ring],all=sides.flat();
-  const d={a:o.pi,b:h.pi,wa:o.who,wb:h.who,ring,size,phase:'ready',t:C.ready,cnt:C.ready+1,
+  const c0=Math.floor(Math.random()*DUEL_COLORS.length),c1=(c0+1+Math.floor(Math.random()*(DUEL_COLORS.length-1)))%DUEL_COLORS.length;
+  const colors=size===2?[c0,c1]:[-1,-1],ready=C.ready+(size===2?DUEL_TEAM.rollT:0);
+  const d={a:o.pi,b:h.pi,wa:o.who,wb:h.who,ring,size,phase:'ready',t:ready,cnt:ready+1,colors,
     members:sides.flatMap((s,t)=>s.map(q=>({pi:q.pi,owner:q.who,team:t}))),ret:all.map(q=>({map:q.map,x:q.x,y:q.y}))};
   g.duels.push(d);
   sides.forEach((side,t)=>side.forEach((q,i)=>{
     q.ret=null;q.map='arena';q.x=R.x+(t?1:-1)*R.rx*.3;q.y=R.y+(i-(size-1)/2)*130;
     q.dir=t?-1:1;q.face=0;q.hold=[];q.dest=null;q.fire=0;q.dash=0;q.hp=q.max;q.down=0;q.duelInv=null;
-    q.dvs=sides[1-t][0].pi;q.dph=1;q.dtl=C.ready;q.ring=ring;q.duelTeam=t;q.duelSize=size;q.duelPotions=COMBAT_RULES.duelPotions;
+    q.dvs=sides[1-t][0].pi;q.dph=1;q.dtl=ready;q.duelColor=colors[t];q.ring=ring;q.duelTeam=t;q.duelSize=size;q.duelPotions=COMBAT_RULES.duelPotions;
     q.bf={};q.buff=0;q.guard=0;q.tauntBy=-1;q.tauntT=0;
     E.sys(g,q.pi,`${size}대${size} 결투 시작 · 결투용 회복 물약 (소) 5개 지급`);
   }));return true;
@@ -68,13 +91,13 @@ export function tickDuelMatches(E,g,dt){
   g.duels=g.duels.filter(d=>{
     const members=duelMembers(d),live=[0,1].map(t=>members.filter(p=>p.team===t).map(p=>present(g,p)).filter(h=>h&&h.map==='arena'&&h.ring===d.ring&&h.down<=0));
     if(d.phase!=='end'&&(!live[0].length||!live[1].length))finish(E,g,d,live[0].length?0:live[1].length?1:-1,'상대 팀 전원 전투 불가');
-    d.t-=dt;
-    if(d.phase==='ready'&&d.t<=0){d.phase='fight';d.t=E.config.time;}
+    if(d.phase==='fight'&&endless(d))d.t+=dt;else d.t-=dt;   // 시간 제한 없는 2대2 는 지난 시간을 센다
+    if(d.phase==='ready'&&d.t<=0){d.phase='fight';d.t=endless(d)?0:E.config.time;}
     else if(d.phase==='fight'&&d.t<=0)finish(E,g,d,-1,'시간 초과');
     else if(d.phase==='end'&&d.t<=0){
       members.forEach((p,i)=>{const h=present(g,p);if(!h)return;const r=d.ret[i];
         const back=E.map(r.map)&&r.map!=='arena'?r:E.plaza;h.map=back.map;h.x=back.x;h.y=back.y;h.dest=null;
-        h.down=0;h.hp=h.max;h.dvs=-1;h.dph=0;h.dtl=0;h.ring=-1;h.duelPotions=0;delete h.duelTeam;h.duelSize=0;h.gateCd=1;
+        h.down=0;h.hp=h.max;h.dvs=-1;h.dph=0;h.dtl=0;h.ring=-1;h.duelPotions=0;delete h.duelTeam;h.duelColor=-1;h.duelSize=0;h.gateCd=1;
       });return false;
     }
     for(const p of members){const h=present(g,p);if(h){h.dph=d.phase==='ready'?1:d.phase==='fight'?2:3;h.dtl=Math.max(0,d.t);}}

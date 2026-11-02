@@ -130,3 +130,12 @@ test('뇌조 급강하 중 기사 반격으로 보스가 죽어도 판정이 안
  const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);h.x=m.x-400;h.y=m.y;m.hp=1;a.hp=1;
  rpgAdv(g,0,{op:'use'});h.as.nul=0;a.seq=1;a.cd=0;run(g,2.6);assert.equal(a.phase,'clear');
 });
+test('2대2는 사냥터에서도 신청이 가고 양쪽 파티원에게 알리며 던전에 있으면 까닭을 알린다',()=>{
+ const {g}=setup();g.heroes.forEach((h,i)=>{if(h){h.pty=i<2?1:2;h.map='wolf';}});g.out=[];
+ assert(rpgDuel(g,0,{op:'ask',to:2,size:2}));assert.equal(g.heroes[2].duelInv.size,2);
+ assert(g.out.some(o=>o.k==='sys'&&o.who===1&&o.msg.includes('2대2')));assert(g.out.some(o=>o.k==='sys'&&o.who===3&&o.msg.includes('2대2')));
+ assert(rpgDuel(g,2,{op:'accept'}));assert.equal(g.duels[0].size,2);
+ const f=setup();f.g.heroes.forEach((h,i)=>{if(h)h.pty=i<2?1:2;});f.g.heroes[3].map='train';f.g.out=[];
+ assert.equal(rpgDuel(f.g,0,{op:'ask',to:2,size:2}),false);assert.equal(f.g.heroes[2].duelInv,null);
+ assert(f.g.out.some(o=>o.k==='sys'&&o.who===0&&o.msg.includes('2대2 결투를 할 수 없습니다')));
+});

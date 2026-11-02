@@ -43,9 +43,9 @@ export function drawSkillPx(ctx, f, p) {
   if (!f.kind.startsWith(PRE)) return false;
   const key = f.kind.slice(PRE.length), look = SKILL_PX_LOOK[key];
   if (!look) return true;
-  if (look.mode !== "at" && ![f.x0, f.y0, f.x1, f.y1].every(Number.isFinite)) return true;
+  if (look.mode !== "at" && look.mode !== "slash" && ![f.x0, f.y0, f.x1, f.y1].every(Number.isFinite)) return true;
   const el = look.elem ? (SKILL_PX_ELEMS.includes(f.el) ? f.el : SKILL_PX_ELEM_FALLBACK) : null;
-  const name = el ? `${key}_${el}` : key, S = SKILL_PX_SHEETS[name];
+  const name = el ? `${key}_${el}` : look.sheet || key, S = SKILL_PX_SHEETS[name];
   if (look.ring) rangeRing(ctx, f, p);
   const im = S && sheetImg(name);
   if (!im) { fallback(ctx, f, p, look); return true; }
@@ -59,7 +59,14 @@ export function drawSkillPx(ctx, f, p) {
 
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  if (look.mode === "at") {
+  if (look.mode === "slash") {                           // 겨눈 쪽으로 돌린 초승달 — 왼쪽이면 좌우로 뒤집고, 위 · 아래로 겨눠도 한도까지만 기운다
+    const a = Number.isFinite(f.a) ? f.a : 0, ca = Math.cos(a), lim = look.tilt || 0.7;
+    ctx.translate(f.x + ca * (look.fwd || 0), f.y);
+    if (ca < 0) ctx.scale(-1, 1);
+    ctx.rotate(Math.max(-lim, Math.min(lim, Math.atan2(Math.sin(a), Math.abs(ca)))));
+    if (look.flipY) ctx.scale(1, -1);
+    ctx.drawImage(im, sx, sy, S.w, S.h, -look.c[0] * k, -look.c[1] * k, S.w * k, S.h * k);
+  } else if (look.mode === "at") {
     ctx.translate(f.x, f.y - (look.lift || 0));
     if (f.dir < 0) ctx.scale(-1, 1);
     // 반복 시트(철벽)는 수명 끝 30% 동안 흐려진다

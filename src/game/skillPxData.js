@@ -23,6 +23,10 @@ export const SKILL_PX_SHEETS = {
   chain: { w: 119, h: 88, cols: 3, n: 10, px: 75, py: 44 },                // lightning/zap-hit(노란빛 · 11월 2일)
   iron: { w: 70, h: 74, cols: 4, n: 12, px: 35, py: 61, loop: 1 },         // holy/divine-shield
   circle: { w: 162, h: 219, cols: 5, n: 16, px: 81, py: 192 },             // arcane/magic-circle-cast
+  // 암흑검 종말의 연격(11월 2일) — 세 타마다 다른 시트. 보랏빛 톤다운 · 판정은 rpg.js shadowCut · shadowFinish 그대로
+  sh_cut1: { w: 127, h: 100, cols: 4, n: 17, px: 43, py: 91 },             // melee/sword-slash(라벤더) — 1타 초승달
+  sh_cut2: { w: 125, h: 97, cols: 4, n: 17, px: 43, py: 88 },              // melee/sword-slash(먼지 장미빛) — 2타 반대로 벤다
+  sh_slam: { w: 149, h: 95, cols: 3, n: 10, px: 47, py: 76 },              // melee/heavy-cleave(라벤더) — 마무리 내려치기
   // 원소 구체 — 원소마다 색을 따로 뽑았다(원소 탑 색에서 톤다운)
   orb_flame: { w: 103, h: 53, cols: 3, n: 8, px: 78, py: 26, loop: 1 },    // projectiles/plasma-shot
   orb_frost: { w: 103, h: 53, cols: 3, n: 8, px: 78, py: 26, loop: 1 },
@@ -47,7 +51,9 @@ export const SKILL_PX_ELEM_FALLBACK = "frost";
    k 키우는 배수(1배 픽셀 → 게임 좌표) · rk 반지름(f.r)에 맞출 때 시트 1배의 반지름(k = r / rk, kMax 넘지 않게)
    span along 에서 시트 1배의 가로 길이(두 점 거리 / span 만큼 늘린다) · lift 기준점을 위로 띄우는 높이(게임 좌표)
    ring 범위 고리를 함께 그린다(예전 고리와 같은 크기 · 1px 얇은 선) · spin 반복 시트를 몇 배 빠르게 돌리는지
-   from 한 번짜리 시트의 앞부분을 이 몫만큼 건너뛴다(맞는 순간에 바로 터지게) */
+   from 한 번짜리 시트의 앞부분을 이 몫만큼 건너뛴다(맞는 순간에 바로 터지게)
+   slash 겨눈 쪽(f.a)으로 돌려 그린다 — c 시트 1배의 초승달 한가운데(이 점이 f.x · f.y 에 온다) · fwd 겨눈 쪽으로 더 미는 거리 ·
+   tilt 기울이는 한도(라디안, 위 · 아래로 겨눠도 초승달이 눕지 않게) · flipY 위아래로 뒤집어 반대로 벤다 */
 export const SKILL_PX_LOOK = {
   smash: { mode: "at", k: 2, from: 0.25 },                       // 강타 — 맞은 자리에 망치 내려찍기
   burst: { mode: "at", rk: 62, kMax: 2.6, ring: 1, from: 0.36 },   // 마력 폭발 — 둘레 210 에 맞춘 마력 고리
@@ -63,9 +69,12 @@ export const SKILL_PX_LOOK = {
   chain: { mode: "along", span: 70, k: 1.6, kMax: 3, end: 1 },   // 연쇄 번개 — 앞 대상에서 뻗어 오는 번개(끝점이 맞은 자리)
   iron: { mode: "at", rk: 29, kMax: 2.6, spin: 2.4 },  // 철벽 — 몸을 감싸는 방패 구슬
   circle: { mode: "at", rk: 40, kMax: 2.4, ring: 1 },         // 강화 마법진 — 발밑 마법진과 빛기둥
+  shcut1: { mode: "slash", sheet: "sh_cut1", k: 2.2, c: [56, 56], fwd: 30, tilt: 0.7 },                 // 암흑검 1타 — 위에서 아래로 긋는 초승달
+  shcut2: { mode: "slash", sheet: "sh_cut2", k: 2.2, c: [56, 53], fwd: 30, tilt: 0.7, flipY: 1 },       // 암흑검 2타 — 아래에서 위로 반대로 긋는다
+  shslam: { mode: "at", sheet: "sh_slam", rk: 50, kMax: 2.8 },                                          // 암흑검 마무리 — 내려치는 검기와 충격 · 먼지(범위 120 에 맞춘다)
   orb: { mode: "fly", k: 2, elem: 1 },                 // 원소 구체 — 날아가는 원소 구슬
   boom: { mode: "at", rk: 80, kMax: 2.4, ring: 1, elem: 1 },   // 원소 구체 — 맞은 자리 둘레 140 폭발
   dash: { mode: "ray", k: 1.6, cy: 32 },               // 대쉬 — 달려가는 쪽으로 남는 바람 줄기(모든 직업)
 };
 // 같은 종류는 최근 몇 개만 그린다(rpgArt.js FX_LOD.cap) — 연사 화살 · 연쇄 번개처럼 한 번에 여럿 나오는 것만 넉넉히
-export const SKILL_PX_CAP = { sk_px_arrow: 10, sk_px_spark: 10, sk_px_chain: 8, sk_px_boom: 4, sk_px_burst: 4, sk_px_cleave: 4 };
+export const SKILL_PX_CAP = { sk_px_arrow: 10, sk_px_spark: 10, sk_px_chain: 8, sk_px_boom: 4, sk_px_burst: 4, sk_px_cleave: 4, sk_px_shcut1: 6, sk_px_shcut2: 6, sk_px_shslam: 4 };

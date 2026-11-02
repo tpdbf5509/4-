@@ -3173,7 +3173,8 @@ function comboNext(g, h, sp, S, w, c) {
   if (sp === "galaxy_staff" && c.st === 2) return riftFire(g, h, S);   // 빗나가 균열이 생겼다 — 균열에서 평타
 }
 
-/* 암흑검 — 1타 경직 · 2타 반대로 베며 밀어내기 · 마무리 내려치기. 빗나가면 연계가 끝난다 */
+/* 암흑검 — 1타 경직 · 2타 반대로 베며 밀어내기 · 마무리 내려치기.
+   한 번 누를 때마다 한 타가 나간다(11월 2일). 앞에 적이 없어 헛베어도 연계는 끊기지 않고, 정해진 시간(gap · finGap) 안에 다시 누르면 다음 타가 나간다 */
 function shadowCut(g, h, S, n) {
   const w = wsOf(h), map = h.map;
   const [ax, ay] = aimTo(g, h, S.r);
@@ -3183,15 +3184,10 @@ function shadowCut(g, h, S, n) {
     if (n === 1) { strikeAny(g, h, o, base * S.mul1); ccAny(g, h, o, { stun: S.stun1 }); }
     else { strikeAny(g, h, o, base * S.mul2); ccAny(g, h, o, { kb: [...awayFrom(h, o, ax, ay), S.push] }); }
   });
-  fx(g, map, { kind: "sk_shadowslash", x: h.x + ax * 30, y: h.y - 34 + ay * 30 * RPG.squash, r: S.r, a: angOf(ax, ay), dir: n === 1 ? 1 : -1,
-    t: 0.32, life: 0.32, snd: "slash" });
+  fx(g, map, { kind: n === 1 ? "sk_px_shcut1" : "sk_px_shcut2", x: h.x + ax * 30, y: h.y - 34 + ay * 30 * RPG.squash, r: S.r, a: angOf(ax, ay),
+    t: 0.45, life: 0.45, snd: "slash" });   // pixelfx 초승달(skillPxArt.js) — 맞았든 헛베었든 같다
   g.shake = Math.max(g.shake, 0.25);
   h.swing = 0.3;
-  if (!list.length) {
-    w.cmb = null;
-    say(g, map, h.x, h.y - 96, "빗나감 — 연계 끝", "#c9b8d8");
-    return;
-  }
   w.cmb = n === 1 ? { sp: "shadow", st: 2, t: S.gap, el: 0 } : { sp: "shadow", st: 3, t: S.finGap, el: 0, hit: list };   // 마무리는 밀어낸 적에게
 }
 function shadowFinish(g, h, S, c) {
@@ -3212,10 +3208,8 @@ function shadowFinish(g, h, S, c) {
       strikeAny(g, h, q, skillBase(h) * S.mul3 * (perfect ? S.perfectMul : 1) * (mark ? 1 + WS.shadow.passive.bonus : 1));
       if (mark) fx(g, map, { kind: "call", x: q.x, y: q.y - 90, text: "낙인 폭발", color: "#e3a6ff", t: 0.8, life: 0.8 });
     });
-    fx(g, map, { kind: "sk_doom", x: h.x + h.dir * 30, y: h.y - 26, r: 90 + (perfect ? 30 : 0), dir: h.dir, t: 0.8, life: 0.8, snd: "crit" });
-    fx(g, map, { kind: "sk_slam", tone: "shadow", x: h.x + h.dir * 30, y: h.y, r: S.slamR, t: 0.7, life: 0.7, snd: "boom" });
+    fx(g, map, { kind: "sk_px_shslam", x: h.x + h.dir * 30, y: h.y, r: S.slamR + (perfect ? 24 : 0), dir: h.dir, t: 0.8, life: 0.8, snd: perfect ? "crit" : "boom" });   // pixelfx 내려치기(skillPxArt.js)
     if (perfect) fx(g, map, { kind: "call", x: h.x, y: h.y - 120, text: "정확한 타이밍!", color: "#e9c8ff", t: 0.9, life: 0.9, who: h.pi });
-    if (!list.length) say(g, map, h.x, h.y - 96, "빗나감", "#c9b8d8");
     g.shake = Math.max(g.shake, perfect ? 0.8 : 0.55);
   });
 }

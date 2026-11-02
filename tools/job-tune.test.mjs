@@ -46,9 +46,11 @@ test('기사 무효화 방어막은 한 대를 막고 20초 쉬면 다시 생긴
   assert.equal(advNullShield(E, g, mage), false, '기사가 아니면 없다');
 });
 
-test('마법사는 최대 체력 1% 를 더하되 한 대 피해의 25% 까지', () => {
-  near(mageHpBonus(1000, 10000), 100, '작은 몹');
-  near(mageHpBonus(1000, 1e9), 250, '보스는 한도');
+test('마법사는 최대 체력 2% 를 더하되 한 대 피해의 40% 까지 · PvP 는 1% · 25% 그대로(11월 2일)', () => {
+  near(mageHpBonus(1000, 10000), 200, '작은 몹');
+  near(mageHpBonus(1000, 1e9), 400, '보스는 한도');
+  near(mageHpBonus(1000, 10000, true), 100, 'PvP 작은 상대');
+  near(mageHpBonus(1000, 1e9, true), 250, 'PvP 한도');
 });
 
 test('궁수는 피해 0.9배 · 사거리 1.15배', () => {

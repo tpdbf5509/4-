@@ -21,7 +21,7 @@ import { RACE_MAP, newRace, raceInput, tickRace } from "./race.js";
 import { P, towerIdx } from "./world.js";
 import { MARKET } from "./marketData.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WARP, GUARD, weaponCap } from "./shopData.js";
-import { usedToday, bumpToday, specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
+import { usedToday, bumpToday, specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft, giveHide } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor, wearOf } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
@@ -43,7 +43,7 @@ import { acBind, acAtkMul, acAspdMul, acRangeMul, acAreaMul, acHpMul, acSpeedMul
   acOnDash, acUseCharge, acTake, acAfterHurt, acOnKill, acMobTick, acFloorStart, acFloorClear, acFloorShards, acTick, acPack, acUnpack, acPickTick } from "./abyssCards.js";
 import { advNullShield, advHealShot, advInput, advOnHit, advDmgMul, advTakeCut, advHurt, advDown, advOnKill, advDuelWin, advAimShot, advLoot, tickAdv, packAdv, applyAdv, stepAdvVisual, advOf, advSkillOf,
   advLowHp, advGiantTake, advPrecFire, advPrecLand, advLeap, advRangeMul, advGunShot, advRaidKill,
-  advHpMul, advTakeMul, advHidden, advSpeedMul, advElfShot, advGunReady, advGunFired } from "./advance.js";
+  advHpMul, advTakeMul, advHidden, advSpeedMul, advElfShot, advGunReady, advGunFired, advCanExecute, advSkillKill, EXEC_COLOR } from "./advance.js";
 
 export const RPG_CREW_MAX = 16;   // 자리 칸 수 — 스냅샷 줄 차례라 바꾸지 않는다. 들어올 수 있는 사람 수는 RPG_SERVER_CAP
 // 서버마다 들어올 수 있는 사람 수 — 13명이 모이자 Supabase 무료 한도(초당 100통)를 넘어 기록이 섞였다(10월 19일)
@@ -1658,7 +1658,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
   if (!dot && procOff === 0) raw *= advDmgMul(advEngine, g, h, o, !!basic, true);   // 전직 패시브(표식 · 약점 · 탄도) — PvP 는 +15% 까지
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
   if (!off && archerCut(h)) dmg *= JOB_TUNE.archer.dmg * (hasDefense(o) ? JOB_TUNE.archer.vsArmor : 1);   // 궁수 — 피해 감소 · 방어력 있는 사람에게 더 감소
-  if (!off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, o.max);   // 마법사 — 최대 체력 비례 피해
+  if (!off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, o.max, true);   // 마법사 — 최대 체력 비례 피해(PvP 값)
   if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
   else {
     const c=h.cast||newCast(h),cap=DUEL.skillPct*(o.max||1),key=`${o.pi}:${o.who}`;
@@ -1670,6 +1670,11 @@ function hitFoe(g, h, o, raw, basic, dot) {
   }
   const was = o.down;
   hurtHero(g, o, dmg, { hero: h });
+  if (!basic && !dot && procOff === 0 && !was && o.down <= 0 && advCanExecute(h, o, o.hp, o.max)) {   // 암살자 처형 — 남은 체력을 모두(회피 · 부활 · 무효화 방어막은 그대로 막는다)
+    say(g, o.map, o.x, o.y - 100, "처형", EXEC_COLOR);
+    hurtHero(g, o, o.max * EXEC_RAW, { hero: h, exec: 1 });
+  }
+  if (!basic && !dot && procOff === 0 && !was && o.down > 0) advSkillKill(advEngine, g, h);   // 암살자 — 스킬로 쓰러뜨리면 질주 · 투명화
   if (field && !was && o.down > 0) {              // 사냥터에서 쓰러뜨렸다 — 광장에서 일어난다
     sys(g, h.pi, `${nameOf(g, o.pi)}님을 쓰러뜨렸습니다.`);
     sys(g, o.pi, `${nameOf(g, h.pi)}님에게 쓰러졌습니다.`);
@@ -1678,6 +1683,8 @@ function hitFoe(g, h, o, raw, basic, dot) {
   if (!dot) weaponOnHit(g, h, null, o, false, !!basic);
   if (!dot && procOff === 0) advOnHit(advEngine, g, h, o, !!basic, false);   // 전직 패시브 · 시험
 }
+// 처형 한 대의 원래 피해 — 최대 체력의 이 배수를 넣고 hurtHero 가 남은 체력만큼으로 줄인다(exec). 감소 70% · 막기 50% 를 겹쳐도 남은 체력을 넘게
+const EXEC_RAW = 10;
 // 스킬을 새로 쓴다 — 결투 스킬 피해를 처음부터 센다(raw 는 이번 스킬이 지금까지 준 원래 피해)
 const newCast = (h) => (h.cast = { raw: 0 });
 const pvpSoft = (raw, cap) => cap * (1 - Math.exp(-raw / (cap * DUEL.skillSoft)));
@@ -1746,6 +1753,10 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if(isWorldBoss(m))worldBossHit(g,m,h,dmg,{direct:!!skill&&!dot&&!side&&procOff===0});
   if(isGuildBoss(m))guildHit(g,m,h,dmg);
   m.hp -= dmg;
+  if (h && skill && !dot && !side && procOff === 0 && !isWorldBoss(m) && !isGuildBoss(m) && advCanExecute(h, m, m.hp, m.max)) {   // 암살자 처형(advData.js execute)
+    dmg += m.hp; m.hp = 0;
+    say(g, m.map, m.x, m.y - 70, "처형", EXEC_COLOR);
+  }
   if (m.type === "dummy" && h) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
@@ -1769,7 +1780,10 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
     m.state = "flee"; m.t = 1.4;
     m.vx = (dx / len) * 190; m.vy = (dy / len) * 190;
   }
-  if (m.hp <= 0) killMob(g, m, pi);
+  if (m.hp <= 0) {
+    killMob(g, m, pi);
+    if (h && skill && !dot && !side && procOff === 0) advSkillKill(advEngine, g, h);   // 암살자 — 스킬로 쓰러뜨리면 질주 · 투명화
+  }
   return dmg;
 }
 
@@ -1993,6 +2007,7 @@ function hurtHero(g, h, raw, source, kind) {
   if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
   dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
   if (dmg <= 0) return;
+  if (source?.exec) dmg = Math.min(dmg, h.hp);    // 암살자 처형 — 남은 체력만큼만(피해 숫자 · 되받아치기가 부풀지 않게)
   h.hp -= dmg;
   if (h.ac) acAfterHurt(g, h, dmg, source);       // 마지막 버팀목 · 비상 장벽 · 되받아치기
   advHurt(advEngine, g, h);                       // 기사 — 철벽 방어 반격 · 생존 시험
@@ -3033,6 +3048,7 @@ const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near
   base: (h, k) => SKILL_USE.base * skillStatMul(h, k), elem: (h) => elemOf(h).id, locked: ccLocked,
   safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,
   // 10월 31일 암살자 · 엘프 · 명사수 — lose 몹이 놓친다 · place 순간 이동(맵 안) · slower 나보다 느린가 · calmT 쉼 회복까지 초
+  hide: giveHide,                               // 11월 2일 암살자 처치 뒤 투명화 — 투명화 물약과 같다(shop.js)
   lose: (g, h) => g.mobs.forEach((m) => { if (m.tgt === h.pi && m.map === h.map) m.tgt = -1; }),
   blocked: (x, y, map) => MAPS[map].blocks.some((b) => Math.hypot(x - b.x, (y - b.y) / RPG.squash) < b.r + 20),   // 분수 · 가게 같은 막힌 곳인가(광장 펫이 돌아가는 데 쓴다)
   keep: (o, map) => keepIn(o, MAPS[map], 20),   // 거대 정령이 맵 밖으로 나가지 않게

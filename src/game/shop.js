@@ -71,6 +71,13 @@ export const speedMul = (h) => (1 + (h && h.bf && h.bf.spd && h.bf.spd.t > 0 ? h
   * (h && h.cc && h.cc.slow > 0 ? 1 - h.cc.slowAmt : 1);   // 결투에서 화염방사에 닿으면 느려진다(rpg.js ccHero)
 // 투명화를 쓸 수 없는 곳 — 결투장(pvp) · 결투 중 · 던전(dungeon)
 const noHide = (h) => !!((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && (MAPS[h.map].pvp || MAPS[h.map].dungeon || MAPS[h.map].worldBoss)));
+// 투명화를 t 초 건다(남은 시간이 더 길면 그대로) — 암살자 처치 뒤 은신(advance.js advSkillKill). 쓸 수 없는 곳이면 false
+export function giveHide(h, t) {
+  if (!h || noHide(h)) return false;
+  const b = (h.bf || (h.bf = {})).hide;
+  h.bf.hide = { t: Math.max(b && b.t > 0 ? b.t : 0, t), a: 1 };
+  return true;
+}
 
 const statDef = (id) => STATS.find((t) => t.id === id);
 const statName = (id) => statDef(id).name;

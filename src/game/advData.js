@@ -168,8 +168,17 @@ export const ADV_CLASSES = [
     },
     passive: {
       // 첫 일격 — 이 적을 gap 초 동안 치지 않았으면 다음 한 대 +bonus. 대신 평타는 basic 배(오래 치는 피해는 낮게)
-      name: "급소 노리기", note: "한동안(3초) 치지 않은 적에게 주는 첫 일격 피해 +50% · 평타 피해는 15% 낮다 · 그림자 일섬 뒤 3초 동안 엘프만큼 빨라진다",
+      name: "급소 노리기", note: "한동안(3초) 치지 않은 적에게 주는 첫 일격 피해 +50% · 평타 피해는 15% 낮다 · 그림자 일섬 뒤 3초 동안 엘프만큼 빨라진다 · 직업 스킬 · 그림자 일섬이 맞은 적의 체력이 13% 이하면 처형한다(보스 제외) · 스킬로 적을 쓰러뜨리면 2.5초 투명화 · 3초 동안 더 빨라진다",
       gap: 3, bonus: 0.5, basic: 0.85, rushT: 3,
+    },
+    // 11월 2일 사용자 요청 — 처형 · 처치 뒤 질주와 투명화(advance.js advCanExecute · advSkillKill). 숫자는 여기만 고친다
+    execute: {
+      pct: 0.13,          // 직업 스킬 · 그림자 일섬이 맞은 뒤 남은 체력이 최대 체력의 13% 이하면 바로 쓰러뜨린다
+      boss: false,        // 보스 · 월드보스 · 길드 보스 · 허수아비는 처형하지 않는다(큰 체력이 한 번에 사라지지 않게)
+      pvp: true,          // 결투 · 사냥터 PvP 상대도 처형한다
+      hide: 2.5,          // 직업 스킬 · 그림자 일섬으로 적을 쓰러뜨리면 2.5초 투명화 — 투명화 물약과 같다(몹이 알아채지 못한다 · 결투장 · 던전 · 월드보스에서는 걸리지 않는다)
+      run: 3,             // 그리고 run 초 동안 걷는 속도 spd 배(평소 암살자 1.2배 · 엘프 1.3배 · 그림자 일섬 뒤 1.3배)
+      spd: 1.45,
     },
     // 시험 동안은 그림자 일섬(Z)을 쓸 수 있다. 그림자 일섬 한 방으로 160레벨 이상 적을 잡은 수
     trial: { name: "암살 시험", note: "시험 동안 쓸 수 있는 그림자 일섬(Z)으로 160레벨 이상 적을 20마리 잡는다", n: 20, skill: 1 },
@@ -198,7 +207,7 @@ export const ADV_BODY = {
   assassin: { hp: 0.78, spd: 1.2 },                 // 검사 계열(검투사 · 기사)보다 체력 22% 낮게
   elf: { hp: 0.8, spd: 1.3, take: 1.12 },           // 체력 20% 낮고 받는 피해 12% 많다(방어력이 낮다)
 };
-export const ADV_SPD_MAX = ADV_BODY.elf.spd;        // 암살자가 빨라져도 이 배율까지(엘프 속도)
+export const ADV_SPD_MAX = ADV_BODY.elf.spd;        // 암살자가 빨라져도 이 배율까지(엘프 속도) — 11월 2일부터 처치 뒤 질주(execute.spd)만 예외
 // 목록 시험(list)은 종류마다 each 개를 채운 합이 n
 ADV_CLASSES.forEach((c) => { if (c.trial.list) c.trial.n = c.trial.list.length * c.trial.each; });
 export const ADV_BY_ID = Object.fromEntries(ADV_CLASSES.map((c) => [c.id, c]));

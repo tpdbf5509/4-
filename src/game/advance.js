@@ -13,6 +13,7 @@ export const asOf = (h) => h.as || (h.as = { cd: 0, st: 0, stT: 0, fk: "", fn: 0
   sps: [], blT: 0, blCut: 0, blReg: 0, blTk: 0, blBy: -1, gcT: 0, lb: -9, lk: "", lt: -9, slT: 0, mgT: 0, bT: 0,
   tcd: 0, cb: [], pr: 0, pNow: 0, mvT: 0, mvN: 0, rs: 0, rsT: 0, esT: 0, mqB: ADV_MASTERY.perMin,
   ut: 0, rush: 0, fh: {}, wdT: 0, ewN: 0, ammo: -1, rl: 0,   // 암살자 지정 불가 · 질주 · 첫 일격 기록 / 엘프 바람 걸음 · 바람 화살 / 총사 탄창 · 장전
+  kr: 0,                // 암살자 처치 뒤 질주 남은 초(11월 2일)
   ucd: 0, gi: null });   // 소환술사 궁극기 대기 · 거대 정령 { hp, mhp, t, x, y, map, cd, cap }
 
 // 지금 전직 — 기본 직업과 맞을 때만(관리자가 직업을 바꾸면 맞지 않는 전직은 없는 것으로 본다)
@@ -33,6 +34,7 @@ export function advSpeedMul(h) {
   const c = advOf(h), b = bodyOf(h), a = h && h.as;
   let k = b ? b.spd || 1 : 1;
   if (c && c.id === "assassin" && a && a.rush > 0) k = ADV_SPD_MAX;            // 그림자 일섬 뒤 — 엘프만큼(그보다 빠르지 않다)
+  if (c && c.id === "assassin" && a && a.kr > 0) k = Math.max(k, c.execute.spd);   // 스킬로 적을 쓰러뜨린 뒤 질주(11월 2일)
   if (c && c.id === "elf" && a && a.wdT > 0) k *= 1 + c.active.windSpd;          // 숲바람 화살 뒤 바람 걸음
   if (c && c.id === "gunner" && a && a.rl > 0) k *= 1 - c.reload.slow;           // 장전 중 둔화
   return k;
@@ -883,6 +885,26 @@ function shadowKill(E, g, h, o) {
   a.cd = Math.max(0, (a.cd || ADV_BY_ID.assassin.active.cd) - back);
   E.say(g, h.map, h.x, h.y - 118, "그림자 회수", ADV_TRAITS.assassin.color);
 }
+/* 11월 2일 암살자 처형 — 직업 스킬 · 그림자 일섬(h.cast.job · adv)이 맞은 뒤 남은 체력(hp)이 최대 체력의 execute.pct 이하면 쓰러뜨려도 되나.
+   rpg.js hitMob · hitFoe 가 묻는다. 평타 · 지속 피해 · 튄 피해는 묻지 않는다. 월드보스 · 길드 보스는 rpg.js 에서 먼저 뺀다 */
+const assassinSkill = (h) => { const c = advOf(h); return c && c.id === "assassin" && h.cast && (h.cast.job || h.cast.adv) ? c : null; };
+export function advCanExecute(h, o, hp, max) {
+  const c = assassinSkill(h);
+  if (!c || !o || !(hp > 0) || !(max > 0)) return false;
+  const X = c.execute;
+  if (isHero(o) ? !X.pvp : (o.boss || o.type === "dummy") && !X.boss) return false;
+  return hp <= max * X.pct;
+}
+export const EXEC_COLOR = "#e0b8ff";
+/* 암살자 — 직업 스킬 · 그림자 일섬으로 적을 쓰러뜨렸다: 질주(kr) · 투명화(투명화 물약과 같은 h.bf.hide, 쓸 수 없는 곳이면 질주만) */
+export function advSkillKill(E, g, h) {
+  const c = assassinSkill(h);
+  if (!c || h.down > 0) return;
+  const X = c.execute, a = asOf(h);
+  a.kr = Math.max(a.kr || 0, X.run);
+  if (E.hide(h, X.hide)) E.lose(g, h);
+  E.say(g, h.map, h.x, h.y - 132, "은신", EXEC_COLOR);
+}
 /* 엘프 바람 화살 — 엘프가 평타를 쐈다(rpg.js heroAttack). every 번마다 첫 적 쪽으로 한 줄을 꿰뚫는 화살 한 발(noProc · 튄 피해) */
 export function advElfShot(E, g, h, o, dmg) {
   const c = advOf(h), v = c && c.id === "elf" ? traitOf(h) : null;
@@ -948,6 +970,7 @@ export function tickAdv(E, g, h, dt) {
   a.slT = Math.max(0, a.slT - dt); a.mgT = Math.max(0, a.mgT - dt);
   a.tcd = Math.max(0, (a.tcd || 0) - dt); a.esT = Math.max(0, (a.esT || 0) - dt); a.mvT = Math.max(0, (a.mvT || 0) - dt);
   a.ut = Math.max(0, (a.ut || 0) - dt); a.rush = Math.max(0, (a.rush || 0) - dt); a.wdT = Math.max(0, (a.wdT || 0) - dt);
+  a.kr = Math.max(0, (a.kr || 0) - dt);
   if (a.rl > 0 && (a.rl -= dt) <= 0) { a.rl = 0; a.ammo = ADV_BY_ID.gunner.reload.mag; }   // 장전 끝 — 탄창 가득
   if (a.fh && g.t - (a.fhT || 0) > 5) {             // 첫 일격 기록 — 오래된 것은 지운다
     a.fhT = g.t;
@@ -1006,7 +1029,8 @@ export function packAdv(h) {
     h.advClass ? cleanAdvM(h.advM) : 0, a ? r1(a.tcd || 0) : 0, a && a.pr ? 1 : 0, a ? r1(a.mvT || 0) : 0, a ? a.rs || 0 : 0, a ? r1(a.rsT || 0) : 0,
     a && a.nul ? 1 : 0, a ? r1(a.nulIdle || 0) : 0,   // 20 · 21 기사 무효화 방어막(있음 · 쉰 초)
     a ? r1(a.ut || 0) : 0, a ? r1(a.rush || 0) : 0, a ? r1(a.wdT || 0) : 0, a ? a.ammo ?? -1 : -1, a ? r1(a.rl || 0) : 0,   // 22~26 암살자 지정 불가 · 질주 / 엘프 바람 걸음 / 총사 탄창 · 장전(10월 30일)
-    a ? r1(a.ucd || 0) : 0, a && a.gi ? [Math.round(a.gi.hp), a.gi.mhp, r1(a.gi.t), Math.round(a.gi.x), Math.round(a.gi.y), a.gi.pet ? 1 : 0] : 0];   // 27 · 28 소환술사 궁극기 대기 · 거대 정령 [체력, 최대 체력, 남은 초](10월 31일)
+    a ? r1(a.ucd || 0) : 0, a && a.gi ? [Math.round(a.gi.hp), a.gi.mhp, r1(a.gi.t), Math.round(a.gi.x), Math.round(a.gi.y), a.gi.pet ? 1 : 0] : 0,   // 27 · 28 소환술사 궁극기 대기 · 거대 정령 [체력, 최대 체력, 남은 초](10월 31일)
+    a ? r1(a.kr || 0) : 0];   // 29 암살자 처치 뒤 질주 남은 초(11월 2일)
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; return; }
@@ -1031,6 +1055,7 @@ export function applyAdv(h, v) {
       if (G.length > 4) { gi.sx = Number(G[3]); gi.sy = Number(G[4]); if (!Number.isFinite(gi.x) || Math.hypot(gi.x - gi.sx, gi.y - gi.sy) > 700) { gi.x = gi.sx; gi.y = gi.sy; } } }
     else a.gi = null;
   }
+  a.kr = v.length > 29 ? Number(v[29]) || 0 : 0;   // 옛 방장은 줄 끝이 없다
   if (v.length > 22) { a.ut = Number(v[22]) || 0; a.rush = Number(v[23]) || 0; a.wdT = Number(v[24]) || 0; a.ammo = Number(v[25] ?? -1); a.rl = Number(v[26]) || 0; }
   const ts = Array.isArray(v[10]) ? v[10].map((x) => Number(x) || 0).filter((x) => x > 0) : spT > 0 ? [spT] : [];
   const sps = a.sps || (a.sps = []);
@@ -1041,7 +1066,7 @@ export function applyAdv(h, v) {
 export function stepAdvVisual(h, dt) {
   if (h.as && h.as.blT > 0) h.as.blT = Math.max(0, h.as.blT - dt);   // 축복 고리 — 스냅샷 사이에도 줄어든다
   if (h.as) { const a = h.as; a.tcd = Math.max(0, (a.tcd || 0) - dt); a.mvT = Math.max(0, (a.mvT || 0) - dt); a.rsT = Math.max(0, (a.rsT || 0) - dt); }   // 전투 특성 칸 — 스냅샷 사이에도
-  if (h.as) { const a = h.as; a.ut = Math.max(0, (a.ut || 0) - dt); a.rush = Math.max(0, (a.rush || 0) - dt); a.wdT = Math.max(0, (a.wdT || 0) - dt); a.rl = Math.max(0, (a.rl || 0) - dt); }   // 걷는 속도 · 비침 — 스냅샷 사이에도
+  if (h.as) { const a = h.as; a.ut = Math.max(0, (a.ut || 0) - dt); a.rush = Math.max(0, (a.rush || 0) - dt); a.wdT = Math.max(0, (a.wdT || 0) - dt); a.rl = Math.max(0, (a.rl || 0) - dt); a.kr = Math.max(0, (a.kr || 0) - dt); }   // 걷는 속도 · 비침 — 스냅샷 사이에도
   if (h.as && h.as.ucd > 0) h.as.ucd = Math.max(0, h.as.ucd - dt);
   const gi = h.as && h.as.gi;                      // 거대 정령 — 주인 앞으로 따라온다(그림만)
   if (gi) {

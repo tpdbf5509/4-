@@ -11,9 +11,10 @@ export const JOB_TUNE = {
     nullShield: { name: "무효화 방어막", regen: 20,
       note: "피해 한 번을 통째로 막는 방어막 · 깨진 뒤 20초 동안 피해를 받지 않으면 다시 생긴다" },
   },
-  // 마법사 최대 체력 비례 피해 — 한 대마다 맞은 대상 최대 체력의 pct 만큼 더한다.
-  // 보스처럼 체력이 아주 큰 대상에서 끝없이 커지지 않게 그 한 대 피해의 cap 배까지만
-  mage: { pct: 0.01, cap: 0.25 },
+  // 마법사 최대 체력 비례 피해 — 한 대마다 맞은 대상 최대 체력의 pct 만큼 더한다(마도사 · 소환술사 · 치유사 포함).
+  // 보스처럼 체력이 아주 큰 대상에서 끝없이 커지지 않게 그 한 대 피해의 cap 배까지만.
+  // 11월 2일 사용자 요청 "마법 계열 체력 비례 데미지 증가" — 몹 1% → 2% · 상한 25% → 40%. 결투 · PvP 는 예전 값 그대로(pvpPct · pvpCap)
+  mage: { pct: 0.02, cap: 0.4, pvpPct: 0.01, pvpCap: 0.25 },
   archer: {
     dmg: 0.9,             // 궁수 피해 10% 감소(몹 · 사람 모두)
     range: 1.15,          // 사거리 15% 증가(평타 · 스킬이 닿는 거리)
@@ -44,4 +45,4 @@ export function classCut(h, advId, kind) {
 }
 
 // 마법사 최대 체력 비례 추가 피해 — dmg 는 이번 한 대 피해, max 는 맞은 대상 최대 체력
-export const mageHpBonus = (dmg, max) => Math.min((max || 0) * JOB_TUNE.mage.pct, dmg * JOB_TUNE.mage.cap);
+export const mageHpBonus = (dmg, max, pvp) => { const M = JOB_TUNE.mage; return Math.min((max || 0) * (pvp ? M.pvpPct : M.pct), dmg * (pvp ? M.pvpCap : M.cap)); };

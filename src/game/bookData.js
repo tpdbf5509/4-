@@ -17,6 +17,7 @@ import { UPDATES } from "./updates.js";
 import { CLASS_POTION_PRICE } from "./shopData.js";
 import { CODEX_IDS, CODEX_STARS, ACHIEVES } from "./codexData.js";
 import { ADV, ADV_CLASSES, ADV_MASTERY, ADV_TRAITS, traitAt, ADV_BY_ID, ADV_BODY } from "./advData.js";
+import { JOB_TUNE } from "./jobTuneData.js";
 import { TRIAL } from "./trainData.js";
 import { GUIDE } from "./guideData.js";
 import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP, GUARDIANS, rankReward } from "./abyssData.js";
@@ -33,6 +34,10 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-11-02-execute", title: "패치노트 · 11월 2일 (18)", sub: "암살자 처형 · 마법 계열 강화", color: "#b89ad0",
+    pages: [{ h: "암살자 처형", p: [`직업 스킬이나 그림자 일섬이 맞은 뒤 상대 체력이 ${Math.round(ADV_BY_ID.assassin.execute.pct * 100)}% 이하면 바로 쓰러뜨립니다.`, "결투 · 사냥터 PvP 상대도 처형합니다. 보스 · 월드보스 · 허수아비는 처형하지 않습니다.", "평타 · 지속 피해 · 튄 피해로는 처형하지 않습니다."] },
+      { h: "처치 뒤 은신", p: [`직업 스킬이나 그림자 일섬으로 적을 쓰러뜨리면 ${ADV_BY_ID.assassin.execute.hide}초 동안 투명화합니다. 투명화 물약과 같아서 몹이 알아채지 못합니다.`, `그리고 ${ADV_BY_ID.assassin.execute.run}초 동안 걷는 속도가 ${ADV_BY_ID.assassin.execute.spd}배입니다. 평소 암살자는 ${ADV_BODY.assassin.spd}배 · 엘프는 ${ADV_BODY.elf.spd}배입니다.`, "투명화는 결투장 · 던전 · 월드보스에서는 걸리지 않습니다. 속도는 어디서나 붙습니다."] },
+      { h: "마법 계열 체력 비례 피해", p: [`마법사 · 마도사 · 소환술사 · 치유사의 체력 비례 피해가 늘었습니다. 맞은 대상 최대 체력의 1% → ${Math.round(JOB_TUNE.mage.pct * 100)}%를 더합니다.`, `보스처럼 체력이 큰 대상에게는 그 한 대 피해의 25% → ${Math.round(JOB_TUNE.mage.cap * 100)}%까지만 더합니다.`, "결투 · 사냥터 PvP 는 예전 그대로 1% · 25%입니다. 지속 피해에는 붙지 않습니다."] }] },
   { id: "patch-2026-11-02-chain", title: "패치노트 · 11월 2일 (17)", sub: "연쇄 번개 노란빛", color: "#ddbc5c",
     pages: [{ h: "연쇄 번개 색", p: ["마법사 연쇄 번개가 노란빛으로 바뀌었습니다. 전에는 푸른빛이었습니다.", "피해 · 옮겨 가는 횟수 · 재사용 대기는 그대로입니다."] }] },
   { id: "patch-2026-11-02-kart", title: "패치노트 · 11월 2일 (16)", sub: "몹 레이스 카트 요소", color: "#c9b37c",

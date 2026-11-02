@@ -7,8 +7,8 @@ import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
 import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { ADV_BY_ID } from "./advData.js";
-import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc, drawExecMark } from "./advArt.js";
-import { advExecReady } from "./advance.js";
+import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc, drawExecMark, drawExecTick } from "./advArt.js";
+import { advExecReady, advExecLine } from "./advance.js";
 import { WORLD_BOSS_BY_TYPE } from "./worldBossData.js";
 import { GUILD_BOSS_BY_TYPE } from "./guildData.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
@@ -2133,7 +2133,8 @@ function drawMobMarks(ctx, m, time, top) {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   // 체력 — 보스는 늘 보이고, 나머지는 다쳤을 때만
   let barY = tagY;
-  if (boss || m.hp < m.max) {
+  const exec = execLineOf(m);                            // 암살자 화면 — 처형 눈금(체력이 가득해도 칸을 보인다)
+  if (boss || m.hp < m.max || exec) {
     const bw = boss ? 70 : 28, r = Math.max(0, Math.min(1, m.hp / m.max));
     barY = tagY - 1;
     ctx.fillStyle = "rgba(20,16,12,0.75)"; roundRect(ctx, x - bw / 2 - 1, tagY + 6, bw + 2, boss ? 6 : 5, 2); ctx.fill();
@@ -2142,6 +2143,7 @@ function drawMobMarks(ctx, m, time, top) {
     if (ghost > r) { ctx.fillStyle = BOSS_GHOST_COL; roundRect(ctx, x - bw / 2, tagY + 7, bw * ghost, 4, 1.5); ctx.fill(); }
     ctx.fillStyle = boss ? BOSS_HP_COL : r > 0.5 ? "#8fd07f" : "#e5a93e";
     if (r > 0) { roundRect(ctx, x - bw / 2, tagY + 7, Math.max(1.5, bw * r), boss ? 4 : 3, 1.5); ctx.fill(); }
+    if (exec) drawExecTick(ctx, x - bw / 2, tagY + 7, bw, boss ? 4 : 3, exec);
   }
   // 레벨 — 보스는 이름도 붙인다
   const label = boss ? `Lv${m.lv} ${mobName(m)}` : m.elite ? `Lv${m.lv} 정예` : `Lv${m.lv}`;   // 정예 — 심연의 탑(abyssCardData.js ELITE)
@@ -2332,6 +2334,7 @@ function drawHero(ctx, g, h, time) {
   ctx.fillStyle = "rgba(18,12,8,0.8)"; roundRect(ctx, h.x - bw / 2 - 1, byy - 1, bw + 2, 6, 3); ctx.fill();
   ctx.fillStyle = down ? "#6a5a52" : r > 0.5 ? "#8fd07f" : r > 0.25 ? "#e8c05e" : "#ef8b7c";
   roundRect(ctx, h.x - bw / 2, byy, Math.max(1.5, bw * r), 4, 2); ctx.fill();
+  if (!down && execFoe(g, h)) drawExecTick(ctx, h.x - bw / 2, byy, bw, 4, advExecLine(g.heroes[g.mySeat], h, true));   // 암살자 화면 — 칠 수 있는 상대의 처형 눈금
   ctx.font = "10.5px 'Do Hyeon', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   const nm = `Lv${h.lv} ${(g.names && g.names[pi]) || "모험가"}`;
@@ -2562,7 +2565,16 @@ function drawMoveMark(ctx, g, me, time) {
 
 /* 11월 2일 암살자 처형 표식 — 내가 암살자일 때만, 처형 선(execute.pct) 아래로 내려간 몹 · 칠 수 있는 사람 머리 위에.
    사냥터 몹인가는 맵으로 가린다(던전 · 심연의 탑 · 월드보스 · 길드 보스가 아니면 사냥터) */
-const EXEC_TOP = { hero: 112, mob: 24 };   // 머리 위 높이 — 사람은 이름 · 말풍선 아래, 몹은 몸 크기(rad × 1.5) 위로 이만큼
+const EXEC_TOP = { hero: 112, mob: 40 };   // 머리 위 높이 — 사람은 이름 · 말풍선 아래, 몹은 몸 크기(rad × 1.5) 위로 이만큼
+let execSeer = null;                                     // 이번 그림의 암살자(나) — drawMobMarks 는 g 를 받지 않아 drawRpg 가 적어 둔다
+const execField = (map) => !!MAPS[map] && !MAPS[map].dungeon && !MAPS[map].abyss;
+const execLineOf = (m) => (execSeer && m.map === execSeer.map && !WORLD_BOSS_BY_TYPE[m.type] && !GUILD_BOSS_BY_TYPE[m.type] ? advExecLine(execSeer, m, execField(m.map)) : 0);
+// 내가 칠 수 있는 사람인가 — 결투장 · 둘 다 PvP 를 켠 사냥터, 파티원은 아니다
+function execFoe(g, h) {
+  const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
+  if (!me || me.advClass !== "assassin" || h === me || h.map !== me.map || (me.pty && h.pty === me.pty)) return false;
+  return !!(MAPS[h.map].pvp || (fieldPvpMap(h.map) && me.pvpOn && h.pvpOn));
+}
 function drawExecMarks(ctx, g, me, M, time, inView) {
   if (!me || me.advClass !== "assassin" || me.down > 0) return;
   for (const m of g.mobs) {
@@ -2570,8 +2582,7 @@ function drawExecMarks(ctx, g, me, M, time, inView) {
     if (advExecReady(me, m, !M.dungeon && !M.abyss)) drawExecMark(ctx, m.x, m.y - (m.rad || 16) * 1.5 - EXEC_TOP.mob - (m.wk ? 24 : 0), time);
   }
   for (const h of g.heroes) {
-    if (!h || h === me || h.map !== M.id || h.down > 0 || (me.pty && h.pty === me.pty)) continue;
-    if (!(M.pvp || (fieldPvpMap(M.id) && me.pvpOn && h.pvpOn))) continue;   // 결투장 · 둘 다 PvP 를 켠 사냥터
+    if (!h || h.down > 0 || !execFoe(g, h)) continue;
     if (advExecReady(me, h, true)) drawExecMark(ctx, h.x, h.y - EXEC_TOP.hero, time);
   }
 }
@@ -2580,6 +2591,7 @@ export function drawRpg(ctx, g, bgs) {
   stepLod();
   const time = g.t;
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
+  execSeer = me && me.advClass === "assassin" && me.down <= 0 ? me : null;   // 처형 눈금은 암살자 화면에만
   const M = MAPS[me ? me.map : "plaza"];
   const cam = follow(g, M);
   ctx.save();

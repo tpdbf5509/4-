@@ -648,3 +648,13 @@ export function drawExecMark(ctx, x, y, time) {
   ctx.fillStyle = M.color; ctx.fillText("처형", 0, -r - 9);
   ctx.restore();
 }
+/* 처형 눈금 — 체력 칸(x0 왼쪽 끝 · y 위 · w 폭 · hh 높이)의 pct 자리에 세로 선. 칸 위아래로 조금 삐져나오게 */
+export function drawExecTick(ctx, x0, y, w, hh, pct) {
+  const x = Math.round(x0 + w * pct) + 0.5;
+  ctx.save();
+  ctx.strokeStyle = EXEC_MARK.ink; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x, y + hh + 3); ctx.stroke();
+  ctx.strokeStyle = "#f4ecff"; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x, y - 3); ctx.lineTo(x, y + hh + 3); ctx.stroke();
+  ctx.restore();
+}

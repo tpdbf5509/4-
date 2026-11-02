@@ -898,6 +898,11 @@ export function advCanExecute(h, o, hp, max) {
   if (!c || !o || !(hp > 0) || !(max > 0)) return false;
   return advExecKind(c, o, o.gi >= 0) && hp <= max * c.execute.pct;
 }
+/* 처형 눈금 — 내가 암살자면 이 적 체력 칸에 그을 처형 선(최대 체력 몫), 아니면 0. 체력이 가득해도 보인다 */
+export function advExecLine(me, o, field) {
+  const c = advOf(me);
+  return c && c.id === "assassin" && o && advExecKind(c, o, field) ? c.execute.pct : 0;
+}
 /* 처형 표식 — 내가 암살자이고 이 적의 남은 체력이 처형 선 아래인가(rpgArt.js 가 나에게만 그린다). 손님 화면의 몹 체력은 백분율이라 비율로 본다 */
 export function advExecReady(me, o, field) {
   const c = advOf(me);

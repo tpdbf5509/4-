@@ -8,6 +8,8 @@ import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from 
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb } from "./armor.js";
 import { trading } from "./tradeData.js";
+import { RACE } from "./raceData.js";
+import { RACE_MAP, newRace, raceInput, tickRace } from "./race.js";
 /* ── RPG 모드 ──────────────────────────────────────────────
    처음 들어오면 이름을 정한다. 이름은 이 기기에 남고 다시 바꿀 수 없다.
    그다음 직업(전사 · 마법사 · 궁수) · 원소 · 성별을 고르고 광장에 선다. 광장의 사냥문을 지나면 사냥터다.
@@ -19,7 +21,7 @@ import { trading } from "./tradeData.js";
 import { P, towerIdx } from "./world.js";
 import { MARKET } from "./marketData.js";
 import { SHOPS, SKILLS as SHOP_SKILLS, SKILL_USE, POTION, WEAPON_FAMILY, JOB_FAMILY, OFF_HAND, SPECIALS, WARP, GUARD, weaponCap } from "./shopData.js";
-import { specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
+import { usedToday, bumpToday, specialTier, specialPrice, skillEquipped, autoSlot, newBag, cleanBag, extraStat, tickBuffs, packBuffs, applyBuffs, equipped, addMat, matCount, jo, speedMul, buffLeft } from "./shop.js";
 import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed, armorTick, armorOnHit, armorOnKill, armorOnHurt, packArmor, applyArmor, wearOf } from "./armor.js";
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
@@ -121,6 +123,7 @@ export const MAPS = {
       { x: DEEP.door.x, y: DEEP.door.y - 6, r: 34 },   // 계몽의 문(deepData.js)
       { x: MARKET.npc.x, y: MARKET.npc.y - 6, r: 40 },   // 장터 게시판(marketData.js)
       { x: ABYSS.gate.x, y: ABYSS.gate.y - 10, r: ABYSS.gate.r },   // 심연의 탑 입구(abyssData.js)
+      { x: RACE.npc.x, y: RACE.npc.y - 4, r: 18 },   // 레이스 관리인(raceData.js)
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
@@ -136,6 +139,7 @@ export const MAPS = {
       { id: "adv", adv: 1, name: "전직 교관", x: ADV.npc.x, y: ADV.npc.y },   // 200레벨 1차 전직 — 시험 · 확정 창(advData.js)
       { id: "deep", deep: 1, name: "계몽의 문", x: DEEP.door.x, y: DEEP.door.y },   // 400~800레벨 사냥터 — 계몽의 눈 만들기 · 입장 창(deepData.js)
       { id: "market", market: 1, name: "장터 게시판", x: MARKET.npc.x, y: MARKET.npc.y },
+      { id: "race", race: 1, name: "레이스 관리인", x: RACE.npc.x, y: RACE.npc.y },   // 광장 미니게임 몹 레이스 — 참가 창(RacePanel.jsx)
       { id: "abyss", abyss: 1, name: "심연의 탑", x: ABYSS.gate.x, y: ABYSS.gate.y },   // 끝없이 오르는 협동 도전 — 입장 · 순위 · 교환 창(AbyssPanel.jsx)   // 올려 두면 나중에 팔리는 게시판 — 창은 화면이 연다(MarketPanel.jsx)
     ],
   },
@@ -317,6 +321,12 @@ for (let slot = 0; slot < ABYSS.slots; slot++) {
   };
   MAP_IDS.push(id);
 }
+// 몹 레이스 트랙(raceData.js · race.js) — 레이스 관리인에게 참가한 사람만 옮겨 온다. 싸울 수 없고(safe) 걷지 않는다(위치는 레이스가 정한다). 맵 차례는 뒤에만 더한다
+MAPS[RACE_MAP] = {
+  id: RACE_MAP, name: "몹 레이스 트랙", w: RACE.map.w, h: RACE.map.h, top: 170, safe: true, race: 1, spawn: [RACE.startX, RACE.laneY0], bg: "field", tile: 2600,
+  tint: "rgba(90,70,40,0.16)", gates: [], blocks: [], npcs: [],
+};
+MAP_IDS.push(RACE_MAP);
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -908,6 +918,7 @@ export function makeWorld() {
     gruns: [], gresults: [],
     runs: [],                                     // 진행 중인 던전 — { id, slot, map, t 남은 초, wave, phase, end, gap } (손님도 스냅샷으로 받는다)
     aruns: [],                                    // 진행 중인 심연의 탑 — { slot, map, f 층, t 남은 초, phase, end, hpScale } (스냅샷 ab)
+    race: newRace(),                              // 광장 몹 레이스(race.js) — 통째로 스냅샷 race
   };
   SPAWNS.forEach((sp, gi) => { for (let i = 0; i < sp.n; i++) spawnMob(g, gi); });
   return g;
@@ -1205,7 +1216,7 @@ function say(g, map, x, y, text, color) {
 /* ── 조작 ──────────────────────────────────────────────── */
 // 손님의 누름 · 뗌(hold · fire)은 마지막 상태만 뜻이 있다 — 늦게 도착한 옛 것(번호가 작은 것)은 버린다.
 // 번호가 없으면(옛 버전 손님) 그대로 받는다. 대쉬 · 스킬 같은 한 번짜리 입력은 버리지 않는다
-const FRESH_SLOT = { hold: "hold", mv: "hold", fire: "fire", wcharge: "wcharge" };   // 마우스 이동(mv)은 누름(hold)과 번호 칸을 같이 쓴다 — 둘 다 "마지막 걷는 뜻"이다
+const FRESH_SLOT = { hold: "hold", mv: "hold", fire: "fire", wcharge: "wcharge", rgo: "rgo" };   // rgo 레이스 질주 누름 · 뗌   // 마우스 이동(mv)은 누름(hold)과 번호 칸을 같이 쓴다 — 둘 다 "마지막 걷는 뜻"이다
 export function freshInput(h, kind, q, now) {
   const slot = Object.prototype.hasOwnProperty.call(FRESH_SLOT, kind) ? FRESH_SLOT[kind] : null;
   if (!slot || !q) return true;
@@ -1271,6 +1282,7 @@ export function rpgMove(g, pi, d) {
 
 // 누르고 있는 만큼 걷는다 — 방장과 손님 화면 양쪽에서 같은 식으로 돈다
 export function rpgWalk(h, dt) {
+  if (h && MAPS[h.map] && MAPS[h.map].race) return;   // 레이스 트랙 — 위치는 레이스가 정한다(race.js)
   if (!h || h.down > 0 || ccRooted(h) || stormBusy(h)) return;   // 결투에서 경직 · 띄움 · 속박이면 걷지 못한다 — 목적지는 남겨 둔다
   if (!h.hold || !h.hold.length) { if (h.dest) walkTo(h, dt); return; }
   if (h.dest) stopMove(h);                        // 방향키가 이긴다
@@ -1420,7 +1432,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   const npc = npcNear(h);
-  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv || npc.market || npc.abyss) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
+  if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv || npc.market || npc.abyss || npc.race) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
   if (!h.quest.on) {
     h.quest = { on: true, n: 0, coinOnly:h.lv>QUEST.lv };
@@ -1673,6 +1685,10 @@ const pvpSoft = (raw, cap) => cap * (1 - Math.exp(-raw / (cap * DUEL.skillSoft))
 const duelEngine={config:DUEL,rings:MAPS.arena.rings,sys,name:(g,pi)=>nameOf(g,pi),fx,honorGain,win:(g,h)=>advDuelWin(advEngine,g,h),map:id=>MAPS[id],plaza:{map:'plaza',x:MAPS.plaza.spawn[0],y:MAPS.plaza.spawn[1]}};
 export const rpgDuel=(g,pi,req)=>duelInput(duelEngine,g,pi,req);
 const tickDuels=(g,dt)=>tickDuelMatches(duelEngine,g,dt);
+// 광장 몹 레이스(race.js) — 하루 보상 횟수는 가방의 오늘 칸(bag.day.race)에 센다
+const raceEngine={sys,name:(g,pi)=>nameOf(g,pi),fx,stop:stopMove,dayUsed:h=>usedToday(h.bag,'race'),dayAdd:h=>bumpToday(h.bag,'race')};
+export const rpgRace=(g,pi,req)=>raceInput(raceEngine,g,pi,req);
+export const raceNear=(h)=>!!h&&h.map==='plaza'&&dist(h.x,h.y,RACE.npc.x,RACE.npc.y)<=RPG.talkR+30;
 
 function nearMobs(g, map, x, y, range, n = Infinity) {
   const out = [];
@@ -2353,7 +2369,7 @@ function dashStep(h, dt) {
 export function rpgDash(g, pi, aim) {
   if(g.heroes[pi]?.tauntT>0)return;
   const h = g.heroes[pi];
-  if (!h || !h.loaded || h.down > 0 || stormBusy(h)) return;
+  if (!h || !h.loaded || h.down > 0 || stormBusy(h) || (MAPS[h.map] && MAPS[h.map].race)) return;
   if ((h.dashCd || 0) > 0 && !(h.ac && h.ac.ch > 0)) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
   const x0 = h.x, y0 = h.y;
   if (!startDash(h, aim)) return;
@@ -4709,6 +4725,7 @@ export function rpgStep(g, dt) {
   keepDummies(g);                                 // 훈련장 허수아비
   tickSocial(g, dt);
   tickDuels(g, dt);
+  tickRace(raceEngine, g, dt);
   tickRuns(g, dt);
   tickAbyss(g, dt);
   tickWorldBoss(worldBossEngine,g,dt);tickGuild(guildEngine,g,dt);
@@ -4791,7 +4808,7 @@ export function rpgPack(g) {
       : 0)),
     b: packBags(g),
     w: g.heroes.map((h) => (h && h.who) || ""),    // 자리마다 앉은 사람 id — 손님이 제 자리 영웅인지 견준다(남의 기록을 제 것으로 저장하지 않게)
-    duels:structuredClone(g.duels),powerCircles:structuredClone(g.powerCircles||[]),
+    duels:structuredClone(g.duels),race:g.race?structuredClone(g.race):null,powerCircles:structuredClone(g.powerCircles||[]),
     wb: structuredClone(g.wb), wbServer:g.wbServer,gr:structuredClone(g.gruns||[]),grr:structuredClone(g.gresults||[]),
     ver: BUILD,                                   // 방장의 빌드 — 손님이 견주어 옛 버전 방장을 알아챈다
     // 몹은 사람이 있는 맵의 것만 — 사냥터가 늘어 모두 보내면 메시지가 너무 커진다(손님은 제 맵만 그린다)
@@ -4812,7 +4829,7 @@ export function rpgPack(g) {
 }
 
 export function rpgApply(g, s) {
-  if(s.duels)g.duels=structuredClone(s.duels);if(s.powerCircles)g.powerCircles=structuredClone(s.powerCircles);
+  if(s.duels)g.duels=structuredClone(s.duels);if(s.race)g.race=structuredClone(s.race);if(s.powerCircles)g.powerCircles=structuredClone(s.powerCircles);
   if(s.wb)g.wb=structuredClone(s.wb);
   if(s.gr)g.gruns=structuredClone(s.gr);if(s.grr)g.gresults=structuredClone(s.grr);
   if(s.wbServer)g.wbServer=s.wbServer;
@@ -4986,7 +5003,7 @@ export function rpgStepVisual(g, dt) {
     h.flash = Math.max(0, h.flash - dt);
     stepAdvVisual(h, dt);                          // 정령이 주인을 따라 떠다닌다(그림만)
     if (h.tx === undefined || trading(h) || h.tradeLocal) return;
-    if (h.pi === g.mySeat) {
+    if (h.pi === g.mySeat && !(MAPS[h.map] && MAPS[h.map].race)) {   // 레이스 트랙에서는 내 영웅도 방장 위치를 따라간다
       h.predict = Math.max(0, (h.predict || 0) - dt);
       tickCc(h, dt);                               // 결투 군중 제어 — 스냅샷 사이에도 줄어든다
       if (h.dash > 0) dashStep(h, dt);             // 먼저 그린 대쉬

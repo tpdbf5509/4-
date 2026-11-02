@@ -6,7 +6,7 @@ import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
+  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -40,6 +40,8 @@ const ACTS = {
   adv: (g, pi, dir) => rpgAdv(g, pi, dir),         // 1차 전직 — 시험 · 확정 · 전직 스킬(advance.js)
   deep: (g, pi, dir) => rpgDeep(g, pi, dir),       // 계몽의 문 — 계몽의 눈 만들기 · 400~800레벨 사냥터 입장(deepData.js)
   abyss: (g, pi, dir) => rpgAbyss(g, pi, dir),     // 심연의 탑 — 입장 · 나가기 · 파편 교환(abyssData.js)
+  race: (g, pi, dir) => rpgRace(g, pi, dir),       // 광장 몹 레이스 — 참가 · 취소 · 포기(race.js)
+  rgo: (g, pi, dir) => rpgRace(g, pi, { op: "go", on: !!dir }),   // 레이스 질주 누름 · 뗌 — 늦게 온 옛 것은 버린다(FRESH_SLOT)
 };
 export function rpgInput(g, d) {
   if (!d || !Number.isInteger(d.cls) || !g.heroes[d.cls]) return;

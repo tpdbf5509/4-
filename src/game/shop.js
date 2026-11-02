@@ -94,7 +94,12 @@ export function todayKey(now = Date.now()) {
 // 오늘 쓴 횟수 — 날짜가 바뀌었으면 0
 export const usedToday = (bag, key, day = todayKey()) => (bag.day.d === day ? bag.day[key] || 0 : 0);
 function rollDay(bag, day) {
-  if (bag.day.d !== day) bag.day = { d: day, box: 0, dice: 0, slot: 0, deal: 0, junk: 0 };
+  if (bag.day.d !== day) bag.day = { d: day, box: 0, dice: 0, slot: 0, deal: 0, junk: 0, race: 0 };
+}
+// 오늘 쓴 횟수를 하나 올린다 — 날짜가 바뀌었으면 새로 센다(몹 레이스 보상 race.js)
+export function bumpToday(bag, key, day = todayKey()) {
+  rollDay(bag, day);
+  bag.day[key] = (bag.day[key] || 0) + 1;
 }
 
 /* ── 무기 ──────────────────────────────────────────────── */
@@ -178,7 +183,7 @@ export function dealOf(lv, day = todayKey()) {
    p 물약 { id: 개수 } · qs 물약 칸 [물약 id 또는 ""] · s 스킬 { id: 레벨 } · m 재료 { id: 개수 } · wp 지역 워프권 남은 횟수 · day 오늘 쓴 횟수 · n 다음 무기 번호 · v 바뀔 때마다 오르는 판 번호
    oc 는 직업과 다른 무기 정리를 마쳤는지(업데이트 뒤 처음 들어올 때 한 번, rpg.js rpgJoin)
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
-export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0, junk: 0 }, n: 1, bx: 0, v: 0, ld: 0, oc: 0, ks: { job: "", g: ["", ""] } });
+export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0, junk: 0, race: 0 }, n: 1, bx: 0, v: 0, ld: 0, oc: 0, ks: { job: "", g: ["", ""] } });
 export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(adminBagMax)까지 싣는다
   const b = newBag();
   if (!d || typeof d !== "object") return b;
@@ -220,7 +225,7 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   const dy = d.day || {};
   if (typeof dy.d === "string") {
     b.day = { d: dy.d.slice(0, 10) };
-    ["box", "dice", "slot", "deal", "junk"].forEach((k) => { b.day[k] = Math.max(0, Math.floor(Number(dy[k]) || 0)); });
+    ["box", "dice", "slot", "deal", "junk", "race"].forEach((k) => { b.day[k] = Math.max(0, Math.floor(Number(dy[k]) || 0)); });
   }
   b.v = Math.max(0, Math.floor(Number(d.v) || 0));
   b.bx = bagSteps(d);                             // 잡동산이 상점에서 가방을 넓힌 횟수(junkData.js)
@@ -363,6 +368,7 @@ export function whyWarp(h, to) {
   if (!h || !h.bag) return out;
   if ((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && MAPS[h.map].pvp)) out.push("결투 중에는 쓸 수 없습니다");
   else if (MAPS[h.map] && (MAPS[h.map].dungeon || MAPS[h.map].worldBoss)) out.push("전투 지역에서는 쓸 수 없습니다");
+  else if (MAPS[h.map] && MAPS[h.map].race) out.push("레이스 중에는 쓸 수 없습니다");
   else if (h.map === to) out.push("이미 이 지역에 있습니다");
   // 400~800레벨 사냥터는 계몽의 문과 같은 조건 — 레벨 400 + 계몽의 눈(관리자는 통과)
   if (MAPS[to].deep) {

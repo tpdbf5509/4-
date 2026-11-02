@@ -13,6 +13,8 @@ import { drawWear } from "./wearArt.js";
 import { wearOf } from "./armor.js";
 import { warmAbyssArt, drawAbyssGate, drawGuardian } from "./abyssArt.js";
 import { GUARD_IDS } from "./abyssData.js";
+import { drawRaceTrack, drawRaceNpc } from "./raceArt.js";
+import { MOUNT_BY_ID } from "./raceData.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
 import { W, H } from "./world.js";
@@ -972,7 +974,8 @@ function drawDeepDoor(ctx, g, n, time) {
 
 function drawNpc(ctx, g, n, time) {
   if (n.deep) return drawDeepDoor(ctx, g, n, time);
-  if (n.abyss) return drawAbyssGate(ctx, g, n, time, ABYSS_T);   // 심연의 탑 입구(abyssArt.js)
+  if (n.abyss) return drawAbyssGate(ctx, g, n, time, ABYSS_T);
+  if (n.race) return drawRaceNpc(ctx, g, n, time, { shadow, roundRect, npcBody: drawNpcBody });   // 광장 레이스 관리인(raceArt.js)   // 심연의 탑 입구(abyssArt.js)
   if(n.guild)return drawGuildStatue(ctx,g,n,time);
   if(n.guildDoor)return drawGuildDoor(ctx,g,n,time);
   if(n.guildRaidDoor)return drawGuildRaidDoor(ctx,g,n,time);
@@ -1953,6 +1956,21 @@ const MOB_DRAW = {guild_slime:guildBossDraw,guild_siren:guildBossDraw,guild_phoe
 const ABYSS_T = { shadow, roundRect, marks: (ctx, m, time, top) => drawMobMarks(ctx, m, time, top),
   fallback: (ctx, m, time) => (MOB_DRAW[m.type] || drawRabbit)(ctx, m, time, null) };
 GUARD_IDS.forEach((id) => { MOB_DRAW[id] = (ctx, m, time) => drawGuardian(ctx, m, time, ABYSS_T); });
+// 몹 레이스 탈것 — 사냥터 몹 그림을 이름표 · 체력 없이(portrait) 영웅 발밑에 그린다. 올라탈 높이를 돌려준다(raceData.js ride)
+function drawRaceMount(ctx, g, h, time) {
+  const r = g.race && g.race.rs.find((q) => q.pi === h.pi), mt = r && MOUNT_BY_ID[r.m];
+  if (!mt) return 0;
+  const moving = g.race.ph === "run" && !(r.fin && r.v < 30);
+  const m = { type: mt.mob, id: -1, x: h.x, y: h.y, size: mt.size, age: time, moving, hp: 1, max: 1, lv: 1, boss: 0, ax: 1, pose: 0, freeze: 0, flash: 0, portrait: 1 };
+  (MOB_DRAW[mt.mob] || drawRabbit)(ctx, m, time, g);
+  if (r.tired && g.race.ph === "run") {                // 지쳤다 — 머리 위 땀방울
+    ctx.save(); ctx.fillStyle = "rgba(170,210,240,0.85)";
+    const p = (time * 2) % 1;
+    ctx.globalAlpha = 1 - p; ctx.beginPath(); ctx.arc(h.x + 26, h.y - mt.ride - 70 + p * 14, 3.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  return mt.ride;
+}
 /* 도감 그림 — 몹 하나를 넓은 판에 그린 뒤 그려진 곳만 잘라 둔다(몹마다 크기가 달라서). 한 번 그리면 기억한다.
    그림 파일이 아직 덜 불러와졌으면 다음에 다시 그린다 */
 const ICON_PAD = 320, ICON_FOOT = 0.78;                  // 넓은 판 한 변(px) · 발밑 높이(판 높이의 몫)
@@ -2554,6 +2572,7 @@ export function drawRpg(ctx, g, bgs) {
   else (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
   if (M.dungeon) drawTorches(ctx, M, cam, time);
   if (M.pvp) drawArenaFloor(ctx, M);
+  if (M.race) drawRaceTrack(ctx, M, g, time, cam, W);   // 몹 레이스 트랙(raceArt.js)
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
 
   drawPowerCircles(ctx,g,M.id);
@@ -2606,7 +2625,12 @@ export function drawRpg(ctx, g, bgs) {
     const who = o.m || o.h, lift = who ? liftOf(who, 1 / 60) : 0;
     if (lift) { ctx.save(); ctx.translate(0, -lift); }
     if (o.m) { (MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time,g); drawAdvMob(ctx, o.m, time, (o.m.rad || 16) * 1.5 + 24); }   // 명사수 약점 표식
-    else if (o.h) { drawHero(ctx, g, o.h, time); drawHeroSkill(ctx, o.h, time); drawAdvHero(ctx, o.h, time); }
+    else if (o.h) {
+      const ride = M.race ? drawRaceMount(ctx, g, o.h, time) : 0;   // 몹 레이스 — 탈것을 먼저 그리고 그 위에 올라탄다
+      if (ride) { ctx.save(); ctx.translate(0, -ride); }
+      drawHero(ctx, g, o.h, time); drawHeroSkill(ctx, o.h, time); drawAdvHero(ctx, o.h, time);
+      if (ride) ctx.restore();
+    }
     if (lift) ctx.restore();
     if (who && (o.m || o.h.cc)) drawCcMark(ctx, who, time);
     else if (o.gate) drawGate(ctx, o.gate, time);

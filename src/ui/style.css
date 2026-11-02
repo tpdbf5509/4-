@@ -2407,3 +2407,51 @@ button.forge-stage:disabled { cursor: default; }
 @container (max-width: 660px) {
   .rpg-page .rpg-dg { top: auto; bottom: 64px; left: 12px; right: 12px; width: auto; }
 }
+
+/* 광장 몹 레이스 창(RacePanel.jsx) — .shop 틀을 그대로 쓰고 탈것 고르기만 더한다 */
+.race-panel { width: min(560px, calc(100% - 24px)); }
+.race-body { font-size: 12.5px; line-height: 1.55; color: var(--sh-mute); letter-spacing: -0.02em; }
+.race-now { margin: 0 0 4px; font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: var(--sh-gold); letter-spacing: -0.03em; }
+.race-rule { margin: 4px 0 8px; font-size: 12px; color: var(--sh-faint); }
+.race-mounts { margin: 8px 0 10px; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.race-mounts button { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 10px; cursor: pointer; text-align: left;
+  font-family: inherit; color: var(--sh-text); background: var(--sh-row); border: 1px solid var(--sh-line); border-radius: 8px; }
+.race-mounts button:hover { border-color: rgba(226, 205, 165, 0.4); }
+.race-mounts button.on { border-color: var(--sh-gold); }
+.race-mounts canvas { width: 64px; height: 48px; align-self: center; }
+.race-mounts b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 14px; letter-spacing: -0.03em; }
+.race-mounts small { font-size: 11px; color: var(--sh-faint); line-height: 1.35; min-height: 2.7em; }
+.race-pips { display: grid; gap: 0; margin-top: 2px; font-size: 9px; letter-spacing: 1px; color: var(--sh-gold); }
+.race-pips i { font-style: normal; white-space: nowrap; }
+.race-pips em { display: inline-block; width: 26px; font-style: normal; font-size: 10.5px; letter-spacing: -0.02em; color: var(--sh-mute); }
+.race-pips s { text-decoration: none; color: rgba(226, 205, 165, 0.16); }
+.race-panel button:focus-visible { outline: 2px solid var(--sh-gold); outline-offset: 2px; }
+.race-crew { margin: 0 0 8px; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px; }
+.race-crew li { padding: 2px 8px; border: 1px solid var(--sh-line); border-radius: 999px; color: var(--sh-text); font-size: 11.5px; }
+.race-last { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.race-last li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--sh-line); }
+.race-last span { color: var(--sh-gold); }
+.race-last b { font-weight: 400; color: var(--sh-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.race-last small { color: var(--sh-faint); font-variant-numeric: tabular-nums; }
+@media (max-width: 600px) { .race-mounts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 레이스 진행 칸 — 던전 진행 칸(.rpg-dg)에 트랙 · 체력 줄을 더한다. 질주 버튼은 아래 가운데에 크게 */
+.race-track { position: relative; height: 10px; margin: 2px 6px; border-top: 1px solid rgba(214, 178, 106, 0.35); border-bottom: 1px solid rgba(214, 178, 106, 0.35);
+  background: linear-gradient(90deg, transparent calc(100% - 2px), rgba(240, 226, 196, 0.6) 0); }
+.race-track i { position: absolute; top: 1px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: rgba(217, 201, 166, 0.55); }
+.race-track i.me { z-index: 1; width: 8px; height: 8px; top: 0; margin-left: -4px; background: #e3c48a; }
+.race-st { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; font-size: 11.5px; color: #d9c9a6; }
+.race-st i { position: relative; height: 8px; border: 1px solid rgba(214, 178, 106, 0.4); border-radius: 3px; }
+.race-st s { position: absolute; left: 1px; top: 1px; bottom: 1px; max-width: calc(100% - 2px); border-radius: 2px; background: #a9c98f; text-decoration: none; }
+.race-st.tired span { color: #e0a090; }
+.race-st.tired s { background: #c98d7a; }
+.race-go { position: absolute; z-index: 6; left: 50%; bottom: 96px; transform: translateX(-50%); width: 168px; padding: 10px 0 8px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 1px; touch-action: none; user-select: none; -webkit-user-select: none;
+  color: #2a2119; background: #e3c48a; border: 1px solid #e3c48a; border-radius: 14px; box-shadow: 0 4px 0 rgba(60, 42, 20, 0.6); font-family: inherit; }
+.race-go b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 22px; letter-spacing: -0.03em; }
+.race-go small { font-size: 11px; opacity: 0.75; }
+.race-go.on { transform: translateX(-50%) translateY(3px); box-shadow: 0 1px 0 rgba(60, 42, 20, 0.6); filter: brightness(1.06); }
+.race-go.tired { background: #c9b8a0; border-color: #c9b8a0; }
+.race-go:disabled { opacity: 0.45; cursor: default; }
+/* 휴대폰 세로 — 판이 낮아 진행 칸 아래 맨 밑에 작게 둔다 */
+@media (max-width: 600px) { .race-go { bottom: 6px; width: 124px; padding: 4px 0; } .race-go b { font-size: 17px; } .race-go small { display: none; } }

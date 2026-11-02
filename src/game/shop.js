@@ -13,7 +13,8 @@ import {
 } from "./shopData.js";
 import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
-import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS, ELEMS, ELEM_BY_ID, hasElem } from "./rpg.js";
+import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS, ELEMS, ELEM_BY_ID, hasElem, hasEye } from "./rpg.js";
+import { DEEP } from "./deepData.js";
 import { advOf } from "./advance.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, armorName, armorCap } from "./armorData.js";
 import { cleanArmor, wornArmor } from "./armor.js";
@@ -363,6 +364,11 @@ export function whyWarp(h, to) {
   if ((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && MAPS[h.map].pvp)) out.push("결투 중에는 쓸 수 없습니다");
   else if (MAPS[h.map] && (MAPS[h.map].dungeon || MAPS[h.map].worldBoss)) out.push("전투 지역에서는 쓸 수 없습니다");
   else if (h.map === to) out.push("이미 이 지역에 있습니다");
+  // 400~800레벨 사냥터는 계몽의 문과 같은 조건 — 레벨 400 + 계몽의 눈(관리자는 통과)
+  if (MAPS[to].deep) {
+    if (h.lv < DEEP.lv && !h.admin) out.push(`레벨 ${DEEP.lv} 필요 (지금 ${h.lv})`);
+    if (!hasEye(h)) out.push("계몽의 눈이 있어야 갈 수 있습니다");
+  }
   if (!(h.bag.wp > 0)) out.push("지역 워프권이 없습니다");
   return out;
 }

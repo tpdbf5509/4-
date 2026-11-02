@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import sfx from "./game/sfx.js";
 import { STATS, statValue, MAPS, JOB_BY_ID, ELEMS, ELEM_BY_ID } from "./game/rpg.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
+import { DEEP_MAPS } from "./game/deepData.js";
 import {
   SHOPS, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIALS, SKILL_FAMS, SKILLS, POTIONS, POTION,
   CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD, WEAPON_TYPES, weaponCap,
@@ -659,6 +660,8 @@ function JunkShop({ h, send }) {
 /* ── 주문서 상점 — 지역 워프권 ─────────────────────────────── */
 // 지역의 레벨 — 그 지역으로 가는 문 이름("늑대 사냥터 · 10~20레벨")에서 읽는다
 const warpHint = (id) => {
+  const deep = DEEP_MAPS.find((d) => d.id === id);
+  if (deep) return `${deep.lv[0]}~${deep.lv[1]}레벨 · 계몽의 눈 필요`;
   const gate = Object.values(MAPS).flatMap((M) => M.gates).find((q) => q.to === id && q.label.includes("레벨"));
   return gate ? gate.label.split(" · ")[1] : id === "plaza" ? "상점 · 의뢰 · 명예 순위" : "1~5레벨";
 };

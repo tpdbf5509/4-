@@ -2,6 +2,7 @@ import { STORM_WEAPONS } from './stormWeaponData.js';
 import { WORLD_WEAPONS } from "./worldEquipmentData.js";
 import { JOB_SKILLS } from "./skillData.js";
 import { bagExtra } from "./junkData.js";
+import { DEEP_MAPS } from "./deepData.js";
 /* ── RPG 광장 상점 설정 ─────────────────────────────────────
    가격 · 확률 · 제한 수치를 모두 여기 한 곳에 모은다. 밸런스를 바꿀 때는 이 파일만 고치면 된다.
    화폐는 기존 "코인"을 그대로 쓴다.
@@ -203,7 +204,8 @@ export const GUARD = { name: "하락 방지권", price: 3000, max: 99 };
 export const WARP = {
   max: 999,                          // 가질 수 있는 횟수
   // 갈 수 있는 지역 — 차례대로 보인다. 결투장은 결투 신청으로만 간다
-  maps: ["plaza", "field", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "skeletal", "zombie", "necro", "golem", "chimera", "spider"],
+  maps: ["plaza", "field", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "skeletal", "zombie", "necro", "golem", "chimera", "spider",
+    ...DEEP_MAPS.map((d) => d.id)],   // 400~800레벨 사냥터 8곳(계몽의 문 뒤) — 레벨 400 + 계몽의 눈이 있어야 간다(shop.js whyWarp)
 };
 
 /* ── 도박장 ─────────────────────────────────────────────── */

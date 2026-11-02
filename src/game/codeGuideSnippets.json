@@ -190,7 +190,7 @@
  "스킬 기본 피해": [
   {
    "file": "src/game/shopData.js",
-   "from": 134,
+   "from": 135,
    "code": [
     "export const SKILL_USE = {",
     "  base: 40,              // 공격 스킬의 기본 피해 — 스탯 10 일 때 mul 1 이면 이만큼",
@@ -281,7 +281,7 @@
  "다른 무기를 들었을 때 고정 피해": [
   {
    "file": "src/game/shopData.js",
-   "from": 68,
+   "from": 69,
    "code": [
     "export const OFF_HAND = { dmg: { sword: 45, bow: 35, staff: 40 } };   // 기획 값 — 검 45 · 활 35 · 마법봉 40"
    ]

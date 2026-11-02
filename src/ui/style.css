@@ -2559,3 +2559,11 @@ button.forge-stage:disabled { cursor: default; }
 .race-go:disabled { opacity: 0.45; cursor: default; }
 /* 휴대폰 세로 — 판이 낮아 진행 칸 아래 맨 밑에 작게 둔다 */
 @media (max-width: 600px) { .race-go { bottom: 6px; width: 124px; padding: 4px 0; } .race-go b { font-size: 17px; } .race-go small { display: none; } }
+/* 레이스 아이템 칸 — 가진 아이템 · 걸린 효과 · 쓰기 */
+.race-item { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 11.5px; color: #d9c9a6; }
+.race-item b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 14px; color: #e3c48a; letter-spacing: -0.03em; }
+.race-item b.off { color: rgba(217, 201, 166, 0.45); }
+.race-item em { padding: 0 6px; font-style: normal; border: 1px solid rgba(214, 178, 106, 0.4); border-radius: 999px; }
+.race-item em.bad { color: #e0a090; border-color: rgba(224, 160, 144, 0.5); }
+.race-item .rpg-win-btn { margin-left: auto; min-width: 0; padding: 2px 10px; font-size: 11.5px; }
+.race-item kbd { margin-left: 4px; font-size: 10px; opacity: 0.7; }

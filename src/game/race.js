@@ -1,12 +1,14 @@
 /* 광장 미니게임 — 몹 레이스 규칙(수치는 raceData.js). 판정하는 쪽(방장 · 전용 서버)만 돌린다.
    g.race = { ph 단계(idle 쉼 · open 모집 · ready 출발선 · run 달리기 · end 결과), t 남은 초, el 달린 초, n 레이스 번호,
      go 출발한 사람 수, done 들어온 사람 수, rs 참가자, last 지난 레이스 결과 }. 통째로 스냅샷에 싣는다(rpg.js rpgPack · rpgApply).
-   rs[] = { pi 자리, who 주인 id, m 탈것, lane 줄, x 트랙 위치, v 빠르기, st 남은 체력, tired 지침, sp 질주 버튼, fin 기록(초), pl 등수, out 포기 }.
+   rs[] = { pi 자리, who 주인 id, m 탈것, lane 출발 줄, x · y 트랙 위치, v 빠르기, st 남은 체력, tired 지침, sp 질주 버튼, fin 기록(초), pl 등수, out 포기,
+     it 가진 아이템, bt 부스터 남은 초, sl 느려짐 남은 초, sh 방패 남은 초, got 주운 상자(비트) }. traps[] = 깔린 점액 { x, y, t 남은 초, by 깐 자리 }.
    E = { sys, name, fx, stop, dayUsed, dayAdd } — rpg.js 가 넘긴다(서로 부르지 않게) */
-import { RACE, MOUNT_BY_ID, laneY } from "./raceData.js";
+import { RACE, MOUNT_BY_ID, RACE_ITEMS, RACE_BOXES, RACE_PADS, RACE_MUDS, laneY } from "./raceData.js";
 
 export const RACE_MAP = "race";
-export const newRace = () => ({ ph: "idle", t: 0, el: 0, n: 0, go: 0, done: 0, rs: [], last: [] });
+export const newRace = () => ({ ph: "idle", t: 0, el: 0, n: 0, go: 0, done: 0, rs: [], last: [], traps: [] });
+const yMin = () => laneY(0) - RACE.edge, yMax = () => laneY(RACE.max - 1) + RACE.edge;
 // 받침에 따라 을/를 · 으로/로 — "토끼를" · "멧돼지를" · "고릴라로"
 const josa = (w, a, b) => { const c = w.charCodeAt(w.length - 1) - 0xac00; return w + (c >= 0 && c < 11172 && c % 28 ? a : b); };
 const present = (g, r) => { const h = g.heroes[r.pi]; return h && h.who === r.who ? h : null; };
@@ -20,7 +22,7 @@ export function raceView(g, h) {
   const M = r && MOUNT_BY_ID[r.m];
   return {
     ph: R.ph, t: Math.max(0, R.t), n: R.rs.length, go: R.go || 0,
-    me: r ? { m: r.m, st: r.st, max: M ? M.st : 1, tired: !!r.tired, pl: r.pl, fin: r.fin, out: !!r.out, sp: !!r.sp } : null,
+    me: r ? { m: r.m, st: r.st, max: M ? M.st : 1, tired: !!r.tired, pl: r.pl, fin: r.fin, out: !!r.out, sp: !!r.sp, it: r.it || "", bt: r.bt || 0, sl: r.sl || 0, sh: r.sh || 0 } : null,
     list: R.rs.map((q) => ({ pi: q.pi, m: q.m, k: Math.max(0, Math.min(1, (q.x - RACE.startX) / len)), pl: q.pl, out: !!q.out })),
     rank: r ? 1 + R.rs.filter((q) => q !== r && !q.out && (q.pl ? !r.pl || q.pl < r.pl : !r.pl && q.x > r.x)).length : 0,
     last: (R.last || []).map((x) => ({ ...x })),
@@ -54,6 +56,11 @@ export function raceInput(E, g, pi, req) {
     if (me) me.sp = req.on ? 1 : 0;
     return !!me;
   }
+  if (req.op === "item") {                        // 가진 아이템을 쓴다(공격 키 · 아이템 버튼)
+    if (!me || R.ph !== "run" || me.fin || me.out || !me.it) return false;
+    fireItem(E, g, R, me, h);
+    return true;
+  }
   if (req.op === "join") {
     const m = MOUNT_BY_ID[req.m] ? req.m : "";
     if (!m) return false;
@@ -61,9 +68,9 @@ export function raceInput(E, g, pi, req) {
     if (why.length) { E.sys(g, pi, why[0]); return false; }
     if (me) { me.m = m; E.sys(g, pi, `탈것을 ${josa(MOUNT_BY_ID[m].name, "으로", "로")} 바꿨습니다`); return true; }
     if (R.ph === "idle") Object.assign(R, { ph: "open", t: RACE.openT, rs: [] });
-    R.rs.push({ pi, who: h.who, m, lane: -1, x: 0, v: 0, st: 0, tired: 0, sp: 0, fin: 0, pl: 0, out: 0 });
+    R.rs.push({ pi, who: h.who, m, lane: -1, x: 0, y: 0, v: 0, st: 0, tired: 0, sp: 0, fin: 0, pl: 0, out: 0, it: "", bt: 0, sl: 0, sh: 0, got: 0 });
     if (R.rs.length >= RACE.max) R.t = Math.min(R.t, RACE.fullT);
-    E.sys(g, pi, `${josa(MOUNT_BY_ID[m].name, "을", "를")} 타고 레이스에 참가했습니다. ${Math.ceil(R.t)}초 뒤 출발합니다`);
+    E.sys(g, pi, `${josa(MOUNT_BY_ID[m].name, "을", "를")} 타고 레이스에 참가했습니다. ${R.rs.length < RACE.minRacers ? `${RACE.minRacers}명이 모이면 ${RACE.openT}초 뒤` : `${Math.ceil(R.t)}초 뒤`} 출발합니다`);
     return true;
   }
   if (req.op === "leave") {
@@ -93,6 +100,25 @@ function reward(E, g, h, r, R) {
   E.sys(g, h.pi, `${r.pl}등 · ${tm}초. ${coin.toLocaleString("ko-KR")}코인을 받았습니다`);
 }
 
+// 아이템 — 등수가 뒤일수록 부스터가 잘 나온다(RACE.itemOdds)
+function rollItem(R, r) {
+  const live = R.rs.filter((q) => !q.out && !q.fin), n = live.length;
+  const rank = live.filter((q) => q.x > r.x).length, k = n > 1 ? rank / (n - 1) : 0;   // 0 앞 · 1 뒤
+  const w = Object.entries(RACE.itemOdds).map(([id, [a, b]]) => [id, a + (b - a) * k]);
+  let roll = Math.random() * w.reduce((s, [, v]) => s + v, 0);
+  for (const [id, v] of w) { roll -= v; if (roll <= 0) return id; }
+  return w[0][0];
+}
+function fireItem(E, g, R, r, h) {
+  const it = r.it; r.it = "";
+  const M = MOUNT_BY_ID[r.m];
+  if (it === "boost") { r.bt = Math.max(r.bt, RACE.itemBoostT); r.v = Math.max(r.v, M.sprint); }
+  else if (it === "shield") r.sh = RACE.shieldT;
+  else if (it === "slime") (R.traps ||= []).push({ x: r.x - 90, y: r.y, t: RACE.slimeLife, by: r.pi });
+  E.fx(g, RACE_MAP, { kind: "call", x: h.x, y: h.y - 120, text: RACE_ITEMS[it] || "", color: it === "boost" ? "#ffd27a" : it === "shield" ? "#bfe0f0" : "#bfe0a0", t: 0.9, life: 0.9, snd: "build", who: h.pi });
+}
+const inBox = (r, x, y, rx, ry) => ((r.x - x) / rx) ** 2 + ((r.y - y) / ry) ** 2 <= 1;
+
 function start(E, g, R) {
   const ok = [];
   for (const r of R.rs) {
@@ -103,12 +129,17 @@ function start(E, g, R) {
     ok.push(r);
   }
   if (!ok.length) { Object.assign(R, { ph: "idle", t: 0, rs: [] }); return; }
+  if (ok.length < RACE.minRacers) {             // 출발할 때 한 명뿐이면 다시 모집한다
+    R.rs = ok; R.t = RACE.openT;
+    ok.forEach((r) => E.sys(g, r.pi, `${RACE.minRacers}명이 모여야 출발합니다. 계속 모집합니다`));
+    return;
+  }
   ok.forEach((r, i) => {
     const h = present(g, r), M = MOUNT_BY_ID[r.m];
-    Object.assign(r, { lane: i, x: RACE.startX, v: 0, st: M.st, tired: 0, sp: 0, fin: 0, pl: 0, out: 0 });
+    Object.assign(r, { lane: i, x: RACE.startX, y: laneY(i), v: 0, st: M.st, tired: 0, sp: 0, fin: 0, pl: 0, out: 0, it: "", bt: 0, sl: 0, sh: 0, got: 0 });
     h.map = RACE_MAP; h.x = RACE.startX; h.y = laneY(i); h.dir = 1; h.face = 0; h.dash = 0; h.gateCd = 1; E.stop(h);
   });
-  Object.assign(R, { ph: "ready", t: RACE.readyT, el: 0, n: (R.n || 0) + 1, go: ok.length, done: 0, rs: ok });
+  Object.assign(R, { ph: "ready", t: RACE.readyT, el: 0, n: (R.n || 0) + 1, go: ok.length, done: 0, rs: ok, traps: [] });
   E.fx(g, RACE_MAP, { kind: "call", x: RACE.startX + 260, y: laneY(0) - 120, text: "출발선에 섰습니다", color: "#ffe08a", t: 1.4, life: 1.4, snd: "build" });
 }
 
@@ -133,6 +164,7 @@ export function tickRace(E, g, dt) {
   if (R.ph === "open") {
     R.rs = R.rs.filter((r) => present(g, r));
     if (!R.rs.length) { Object.assign(R, { ph: "idle", t: 0 }); return; }
+    if (R.rs.length < RACE.minRacers) { R.t = RACE.openT; return; }   // 한 명이면 시간을 세지 않고 기다린다
     R.t -= dt;
     if (R.t <= 0) start(E, g, R);
     return;
@@ -148,16 +180,42 @@ export function tickRace(E, g, dt) {
   }
   if (R.ph === "run") {
     R.el += dt;
+    R.traps = (R.traps || []).filter((tp) => (tp.t -= dt) > 0);   // 점액은 slimeLife 초 뒤 마른다
     for (const r of R.rs) {
       const h = present(g, r);
       if (!h || h.map !== RACE_MAP) { if (!r.fin) r.out = 1; continue; }
       if (r.out) continue;
-      const M = MOUNT_BY_ID[r.m];
+      const M = MOUNT_BY_ID[r.m], hold = h.hold || [];
+      r.bt = Math.max(0, (r.bt || 0) - dt); r.sl = Math.max(0, (r.sl || 0) - dt); r.sh = Math.max(0, (r.sh || 0) - dt);
+      // 조향 — 위아래 누름으로 줄을 옮긴다
+      const steer = (hold.includes("down") ? 1 : 0) - (hold.includes("up") ? 1 : 0);
+      if (!r.fin && steer) r.y = Math.max(yMin(), Math.min(yMax(), r.y + steer * RACE.steer * dt));
       if (r.fin) {                                // 들어온 뒤에는 천천히 멈춘다
         r.v += (0 - r.v) * Math.min(1, 1.5 * dt); r.x += r.v * dt;
       } else {
-        const want = r.sp || (h.hold && h.hold.length > 0), go = want && !r.tired;
-        const target = r.tired ? M.cruise * RACE.tired : go ? M.sprint : M.cruise;
+        // 발판 · 진흙 · 점액 · 상자
+        if (RACE_PADS.some((p) => Math.abs(r.x - p.x) < RACE.padW / 2 && Math.abs(r.y - laneY(p.lane)) < RACE.padH / 2)) {
+          if (r.bt < RACE.padT) r.v = Math.max(r.v, M.sprint);
+          r.bt = Math.max(r.bt, RACE.padT);
+        }
+        const mud = RACE_MUDS.some((m) => inBox(r, m.x, laneY(m.lane), RACE.mudRx, RACE.mudRy));
+        R.traps = R.traps.filter((tp) => {
+          if (tp.by === r.pi && tp.t > RACE.slimeLife - 1.5) return true;   // 막 깐 점액은 제가 밟지 않는다
+          if (Math.hypot(r.x - tp.x, r.y - tp.y) > RACE.slimeR + 20) return true;
+          if (r.sh > 0) r.sh = 0; else r.sl = Math.max(r.sl, RACE.slimeT);
+          E.fx(g, RACE_MAP, { kind: "call", x: h.x, y: h.y - 110, text: r.sl > 0 ? "미끄덩!" : "방패로 막음", color: "#bfe0a0", t: 0.8, life: 0.8, who: h.pi });
+          return false;
+        });
+        if (!r.it) for (const b of RACE_BOXES) {
+          if (r.got & (2 ** b.id) || Math.abs(r.x - b.x) > RACE.boxR || Math.abs(r.y - laneY(b.lane)) > RACE.boxR) continue;
+          r.got += 2 ** b.id; r.it = rollItem(R, r);
+          E.sys(g, h.pi, `아이템 ${josa(RACE_ITEMS[r.it], "을", "를")} 얻었습니다. 공격 키나 아이템 버튼으로 씁니다`);
+          break;
+        }
+        const want = r.sp || hold.includes("right"), go = want && !r.tired && !(r.bt > 0);
+        let target = r.tired ? M.cruise * RACE.tired : go ? M.sprint : M.cruise;
+        if (r.bt > 0) target = M.sprint * RACE.boostMul;
+        if ((mud && !(r.sh > 0)) || r.sl > 0) target *= RACE.slowMul;
         r.v += (target - r.v) * Math.min(1, M.acc * dt);
         r.x += r.v * dt;
         if (go) { r.st -= dt; if (r.st <= 0) { r.st = 0; r.tired = 1; } }
@@ -166,11 +224,11 @@ export function tickRace(E, g, dt) {
           r.fin = Math.max(0.01, R.el - (r.x - RACE.finishX) / Math.max(1, r.v));   // 넘어선 만큼 되짚어 기록을 잰다
           r.pl = ++R.done;
           if (r.pl === 1) R.t = Math.min(R.t, RACE.after);
-          E.fx(g, RACE_MAP, { kind: "call", x: RACE.finishX, y: laneY(r.lane) - 110, text: `${r.pl}등!`, color: "#ffe08a", t: 1.4, life: 1.4, snd: r.pl === 1 ? "clear" : "build", who: h.pi });
+          E.fx(g, RACE_MAP, { kind: "call", x: RACE.finishX, y: r.y - 110, text: `${r.pl}등!`, color: "#ffe08a", t: 1.4, life: 1.4, snd: r.pl === 1 ? "clear" : "build", who: h.pi });
           reward(E, g, h, r, R);
         }
       }
-      h.x = Math.min(r.x, RACE.map.w - 120); h.y = laneY(r.lane); h.dir = 1; E.stop(h);
+      h.x = Math.min(r.x, RACE.map.w - 120); h.y = r.y; h.dir = 1; E.stop(h);
     }
     if (R.t <= 0 || R.rs.every((r) => r.fin || r.out)) finish(E, g, R);
     return;

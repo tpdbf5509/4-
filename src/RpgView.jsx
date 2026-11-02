@@ -20,6 +20,7 @@ import { useMarket } from "./useMarket.js";
 import MarketPanel from "./MarketPanel.jsx";
 import RacePanel from "./RacePanel.jsx";
 import { raceView } from "./game/race.js";
+import { RACE_ITEMS } from "./game/raceData.js";
 import { trading } from "./game/tradeData.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { W, H } from "./game/world.js";
@@ -2184,6 +2185,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <div className={`race-st ${mi.tired ? "tired" : ""}`} role="meter" aria-label="체력" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((mi.st / mi.max) * 100)}>
                     <span>{mi.tired ? "지침" : "체력"}</span><i><s style={{ width: `${Math.max(0, Math.min(1, mi.st / mi.max)) * 100}%` }} /></i>
                   </div>
+                  {!end && (
+                    <div className="race-item">
+                      <span>아이템</span>
+                      <b className={mi.it ? "" : "off"}>{mi.it ? RACE_ITEMS[mi.it] : "없음"}</b>
+                      {mi.bt > 0 && <em>부스터</em>}{mi.sh > 0 && <em>방패</em>}{mi.sl > 0 && <em className="bad">미끄덩</em>}
+                      <button type="button" className="rpg-win-btn" disabled={!mi.it || R.ph !== "run"} onClick={() => act("race", { op: "item" })}>
+                        쓰기{!touch && keyOf(binds, "fire") && <kbd>{keyOf(binds, "fire")}</kbd>}
+                      </button>
+                    </div>
+                  )}
                   {end && <p className="rpg-dg-end">곧 광장으로 돌아갑니다</p>}
                 </div>
                 {!end && (
@@ -2191,7 +2202,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); goSet(true); }}
                     onPointerUp={() => goSet(false)} onPointerCancel={() => goSet(false)} onLostPointerCapture={() => goSet(false)}
                     onContextMenu={(e) => e.preventDefault()}>
-                    <b>{mi.tired ? "지침" : "질주"}</b><small>{touch ? "누르고 있기 · 조이스틱도 됩니다" : "누르고 있기 · 방향키도 됩니다"}</small>
+                    <b>{mi.tired ? "지침" : "질주"}</b><small>{touch ? "누르고 있기 · 조이스틱 → 질주 ↑↓ 조향" : "누르고 있기 · → 질주 ↑↓ 조향"}</small>
                   </button>
                 )}
               </>

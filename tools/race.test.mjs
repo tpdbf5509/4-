@@ -41,7 +41,7 @@ test('광장 관리인 · 트랙 맵이 있다', () => {
   assert.ok(MAPS[RACE_MAP].safe && MAPS[RACE_MAP].race);
 });
 
-test('참가 → 모집 → 출발 → 질주한 사람이 이기고 보상을 받는다 → 광장으로 돌아온다', () => {
+test('참가 → 모집 → 출발 → 들어온 차례대로 보상 → 광장으로 돌아온다', () => {
   const g = world(2);
   send(g, 0, 'race', { op: 'join', m: 'wolf' });
   send(g, 1, 'race', { op: 'join', m: 'wolf' });
@@ -51,17 +51,13 @@ test('참가 → 모집 → 출발 → 질주한 사람이 이기고 보상을 �
   assert.equal(g.heroes[0].map, RACE_MAP);
   run(g, RACE.readyT + 0.2);
   assert.equal(g.race.ph, 'run');
-  send(g, 0, 'rgo', true, 1);                      // 0번은 질주를 누르고 있다(지쳐도 계속) · 1번은 그냥 달린다
-  // 걸어도 위치는 레이스가 정한다
-  send(g, 1, 'hold', ['left']);
-  run(g, 40);
-  const [a, b] = [raceOf(g, g.heroes[0]) || {}, raceOf(g, g.heroes[1]) || {}];
+  send(g, 0, 'rgo', true, 1);
+  send(g, 1, 'hold', ['left']);                    // 왼쪽 걷기는 아무 일도 하지 않는다 — 위치는 레이스가 정한다
+  run(g, 50);
   assert.ok(g.race.ph === 'end' || g.race.ph === 'idle');
-  assert.equal(g.race.last[0].nm, '시험0');
-  assert.equal(g.race.last[0].pl, 1);
-  assert.ok(a || b);
-  assert.equal(g.heroes[0].coins, RACE.prize[0]);
-  assert.equal(g.heroes[1].coins, RACE.prize[1]);
+  const by = (pl) => g.race.last.find((x) => x.pl === pl).nm === '시험0' ? 0 : 1;
+  assert.equal(g.heroes[by(1)].coins, RACE.prize[0]);
+  assert.equal(g.heroes[by(2)].coins, RACE.prize[1]);
   assert.equal(g.heroes[0].bag.day.race, 1);
   run(g, RACE.endT + 1);
   assert.equal(g.race.ph, 'idle');
@@ -69,20 +65,42 @@ test('참가 → 모집 → 출발 → 질주한 사람이 이기고 보상을 �
   assert.equal(g.heroes[1].map, 'plaza');
 });
 
-test('혼자 달리면 연습 — 보상이 없다. 하루 보상 횟수를 넘기면 코인이 없다', () => {
-  const g = world(2);
+test('혼자면 출발하지 않고 모집을 이어 간다 · 5명까지 · 하루 보상 횟수를 넘기면 코인이 없다', () => {
+  const g = world(6);
   send(g, 0, 'race', { op: 'join', m: 'boar' });
-  run(g, RACE.openT + RACE.readyT + 0.5);
-  send(g, 0, 'rgo', true, 1);
-  run(g, 45);
-  assert.equal(g.heroes[0].coins, 0);
-  assert.equal(g.race.last.length, 1);
-  run(g, RACE.endT + 1);
+  run(g, RACE.openT * 2);
+  assert.equal(g.race.ph, 'open');
+  assert.equal(g.heroes[0].map, 'plaza');
+  for (let i = 1; i < 6; i++) send(g, i, 'race', { op: 'join', m: 'rabbit' });
+  assert.equal(g.race.rs.length, RACE.max);        // 여섯째는 들어가지 못한다
+  assert.equal(RACE.max, 5);
   g.heroes[0].bag.day = { ...g.heroes[0].bag.day, d: todayKey(), race: RACE.daily };
-  send(g, 0, 'race', { op: 'join', m: 'boar' }); send(g, 1, 'race', { op: 'join', m: 'rabbit' });
-  run(g, RACE.openT + RACE.readyT + 50);
+  run(g, RACE.fullT + RACE.readyT + 60);
   assert.equal(g.heroes[0].coins, 0);              // 오늘 보상을 다 쓴 사람은 0
   assert.ok(g.heroes[1].coins > 0);
+  assert.equal(g.heroes[5].coins, 0);
+});
+
+test('카트 요소 — 위아래 조향 · 아이템 상자 · 부스터 · 점액 · 방패', () => {
+  const g = world(2);
+  send(g, 0, 'race', { op: 'join', m: 'wolf' }); send(g, 1, 'race', { op: 'join', m: 'wolf' });
+  run(g, RACE.openT + RACE.readyT + 0.3);
+  const a = raceOf(g, g.heroes[0]), b = raceOf(g, g.heroes[1]);
+  const y0 = a.y;
+  send(g, 0, 'hold', ['down']); run(g, 0.2); send(g, 0, 'hold', []);
+  assert.ok(a.y > y0 + 40 && g.heroes[0].y === a.y);
+  // 상자 줄까지 달리면 아이템을 하나 얻는다
+  run(g, 4.5);
+  assert.ok(a.it && b.it, `${a.it} ${b.it}`);
+  a.it = 'boost'; const v = a.v; send(g, 0, 'fire', true);   // 공격 키로 쓴다
+  assert.equal(a.it, ''); assert.ok(a.bt > 0 && a.v >= v);
+  b.it = 'shield'; send(g, 1, 'race', { op: 'item' }); assert.ok(b.sh > 0);
+  a.it = 'slime'; send(g, 0, 'race', { op: 'item' });
+  assert.equal(g.race.traps.length, 1);
+  const tp = g.race.traps[0]; tp.x = b.x + 30; tp.y = b.y;   // 방패가 막는다
+  run(g, 0.05); assert.equal(g.race.traps.length, 0); assert.equal(b.sh, 0); assert.equal(b.sl, 0);
+  g.race.traps.push({ x: b.x + 30, y: b.y, t: 10, by: 0 });
+  run(g, 0.05); assert.ok(b.sl > 0);
 });
 
 test('모집 중 취소 · 달리는 중 포기 · 늦게 온 옛 질주 뗌은 버린다', () => {

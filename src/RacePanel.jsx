@@ -35,8 +35,8 @@ export default function RacePanel({ self, seat, race, names, act, onClose }) {
   const why = whyRaceJoin({ ph: R.ph, rs: R.list }, { ...self, pi: seat });
   const choose = (id) => { setPick(id); savePick(id); if (joined) act("race", { op: "join", m: id }); };
   const used = self.bag && self.bag.day && self.bag.day.d === todayKey() ? self.bag.day.race || 0 : 0;
-  const status = R.ph === "open" ? `모집 중 · ${R.n}/${RACE.max}명 · ${Math.ceil(R.t)}초 뒤 출발`
-    : R.ph === "idle" ? "참가하면 20초 뒤 출발합니다" : "지금 달리는 중입니다";
+  const status = R.ph === "open" ? (R.n < RACE.minRacers ? `모집 중 · ${R.n}/${RACE.max}명 · 한 명 더 모이면 출발` : `모집 중 · ${R.n}/${RACE.max}명 · ${Math.ceil(R.t)}초 뒤 출발`)
+    : R.ph === "idle" ? `${RACE.minRacers}~${RACE.max}명이 함께 달립니다` : "지금 달리는 중입니다";
   return (
     <>
       <div className="rpg-menu-back" onClick={onClose} />
@@ -48,7 +48,8 @@ export default function RacePanel({ self, seat, race, names, act, onClose }) {
         </header>
         <div className="shop-body race-body">
           <p className="race-now" aria-live="polite">{status}</p>
-          <p className="race-rule">질주를 누르고 있으면 빨라지지만 체력을 씁니다. 체력이 바닥나면 지쳐서 한동안 느려집니다. 체력을 나눠 쓰는 사람이 이깁니다.</p>
+          <p className="race-rule">질주를 누르고 있으면 빨라지지만 체력을 씁니다. 체력이 바닥나면 지쳐서 한동안 느려집니다. 위아래로 몰아 금빛 발판을 밟으면 부스터가 붙고 진흙에 빠지면 느려집니다.</p>
+          <p className="race-rule">상자를 지나면 아이템을 얻습니다. 부스터 · 미끄럼 점액 · 방패 가운데 하나이고 뒤처질수록 부스터가 잘 나옵니다. 공격 키나 아이템 버튼으로 씁니다.</p>
           <h3 className="shop-h">탈것</h3>
           <ul className="race-mounts">
             {RACE_MOUNTS.map((m) => (
@@ -75,7 +76,7 @@ export default function RacePanel({ self, seat, race, names, act, onClose }) {
               : <button type="button" className="shop-btn main" disabled={why.length > 0} title={why[0] || ""} onClick={() => act("race", { op: "join", m: pick })}>{MOUNT_BY_ID[pick].name} 타고 참가</button>}
           </div>
           {!joined && why.length > 0 && <p className="adv-why">{why[0]}</p>}
-          <p className="race-rule">2명 이상 달리면 1등 {RACE.prize[0].toLocaleString("ko-KR")} · 2등 {RACE.prize[1].toLocaleString("ko-KR")} · 3등 {RACE.prize[2].toLocaleString("ko-KR")} · 완주 {RACE.finishCoin}코인. 하루 {RACE.daily}번까지 받습니다(오늘 {Math.min(used, RACE.daily)}번).</p>
+          <p className="race-rule">1등 {RACE.prize[0].toLocaleString("ko-KR")} · 2등 {RACE.prize[1].toLocaleString("ko-KR")} · 3등 {RACE.prize[2].toLocaleString("ko-KR")} · 완주 {RACE.finishCoin}코인. 하루 {RACE.daily}번까지 받습니다(오늘 {Math.min(used, RACE.daily)}번).</p>
           {R.last.length > 0 && (
             <>
               <h3 className="shop-h">지난 레이스</h3>

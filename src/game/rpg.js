@@ -1415,6 +1415,7 @@ export function rpgFire(g, pi, on) {
   if (!h) return;
   h.fire = on ? 1 : 0;
   if (!on || h.down > 0) return;
+  if (MAPS[h.map].race) return void rpgRace(g, pi, { op: "item" });   // 몹 레이스 — 공격 키 · 버튼으로 아이템을 쓴다
   h.fireQ = 0.35;
   if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, "광장에서는 싸울 수 없다", "#d9c9a6");
   if (isPvp(h.map) && h.dph === 1) say(g, h.map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");

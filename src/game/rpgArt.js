@@ -13,7 +13,7 @@ import { drawWear } from "./wearArt.js";
 import { wearOf } from "./armor.js";
 import { warmAbyssArt, drawAbyssGate, drawGuardian } from "./abyssArt.js";
 import { GUARD_IDS } from "./abyssData.js";
-import { drawRaceTrack, drawRaceNpc } from "./raceArt.js";
+import { drawRaceTrack, drawRaceNpc, drawRaceAura } from "./raceArt.js";
 import { MOUNT_BY_ID } from "./raceData.js";
 import { DUEL_COLORS, DUEL_TEAM } from "./duel.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
@@ -1963,7 +1963,10 @@ function drawRaceMount(ctx, g, h, time) {
   if (!mt) return 0;
   const moving = g.race.ph === "run" && !(r.fin && r.v < 30);
   const m = { type: mt.mob, id: -1, x: h.x, y: h.y, size: mt.size, age: time, moving, hp: 1, max: 1, lv: 1, boss: 0, ax: 1, pose: 0, freeze: 0, flash: 0, portrait: 1 };
+  const run = g.race.ph === "run";
+  ctx.save(); if (run) drawRaceAura(ctx, r, h.x, h.y, mt.ride, time, false); ctx.restore();
   (MOB_DRAW[mt.mob] || drawRabbit)(ctx, m, time, g);
+  ctx.save(); if (run) drawRaceAura(ctx, r, h.x, h.y, mt.ride, time, true); ctx.restore();
   if (r.tired && g.race.ph === "run") {                // 지쳤다 — 머리 위 땀방울
     ctx.save(); ctx.fillStyle = "rgba(170,210,240,0.85)";
     const p = (time * 2) % 1;

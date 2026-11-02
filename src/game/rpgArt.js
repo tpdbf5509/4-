@@ -13,6 +13,7 @@ import { drawWear } from "./wearArt.js";
 import { wearOf } from "./armor.js";
 import { warmAbyssArt, drawAbyssGate, drawGuardian } from "./abyssArt.js";
 import { GUARD_IDS } from "./abyssData.js";
+import { DUEL_COLORS, DUEL_TEAM } from "./duel.js";
 /* RPG 모드 그리기 — 광장과 사냥터, 영웅, 토끼, 사냥꾼, 문.
    맵은 화면보다 넓다. 내 영웅을 따라 화면(카메라)이 움직인다. */
 import { W, H } from "./world.js";
@@ -21,7 +22,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR } from "./rpg.js";
+import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { paintFieldLook, fieldTrails } from "./fieldArt.js";
@@ -2195,6 +2196,31 @@ function drawDust(ctx, g, map, time) {
   ctx.restore();
 }
 
+// 2대2 팀 색 — 결투장에 들어가면 네 색이 빠르게 돌다가(DUEL_TEAM.rollT) 팀 색에 멈춘다. 멈출 때 고리가 한 번 퍼지고, 그 뒤로 발밑 고리와 머리 위 깃발로 팀을 가린다
+function drawDuelTeam(ctx, h, time) {
+  if (h.duelSize !== 2 || !(h.duelColor >= 0) || h.map !== "arena" || !(h.dph >= 1)) return;
+  const left = h.dph === 1 ? (h.dtl || 0) - DUEL.ready : -9;          // 0 보다 크면 아직 도는 중
+  const rolling = left > 0;
+  const idx = rolling ? (Math.floor(time * (6 + 10 * Math.min(1, left / DUEL_TEAM.rollT))) + (h.duelTeam || 0) * 2) % DUEL_COLORS.length : h.duelColor;
+  const c = DUEL_COLORS[idx].c;
+  const land = !rolling && h.dph === 1 ? Math.max(0, 1 - (DUEL.ready - (h.dtl || 0)) / 0.6) : 0;   // 멈춘 직후 0.6초 퍼지는 고리
+  ctx.save();
+  ctx.translate(h.x, h.y + 2); ctx.scale(1, 0.36);
+  ctx.globalAlpha = rolling ? 0.5 : 0.85; ctx.strokeStyle = c; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.arc(0, 0, 36, 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = rolling ? 0.15 : 0.22; ctx.fillStyle = c; ctx.fill();
+  if (land > 0) { ctx.globalAlpha = land * 0.8; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0, 0, 36 + (1 - land) * 46, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.restore();
+  // 머리 위 작은 깃발 — 겹쳐 서도 팀이 보이게
+  ctx.save();
+  const fy = h.y - 114 + (rolling ? Math.sin(time * 18) * 2 : 0);
+  ctx.globalAlpha = rolling ? 0.75 : 0.95;
+  ctx.strokeStyle = "rgba(40,28,18,0.85)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(h.x - 7, fy); ctx.lineTo(h.x - 7, fy + 22); ctx.stroke();
+  ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(h.x - 6, fy); ctx.lineTo(h.x + 10, fy + 5); ctx.lineTo(h.x - 6, fy + 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
 function drawHero(ctx, g, h, time) {
   const pi = h.pi;
   const col = elemOf(h);
@@ -2223,6 +2249,7 @@ function drawHero(ctx, g, h, time) {
     ctx.beginPath(); ctx.arc(0, 0, 20, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * full); ctx.stroke();
   }
   ctx.restore();
+  drawDuelTeam(ctx, h, time);
   if (h.guard > 0) {
     ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#ffeec2"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(h.x, h.y - 28, 22, 34, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();

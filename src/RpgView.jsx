@@ -109,6 +109,7 @@ import { ghostStep } from "./game/bossBar.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
 import { useTouch } from "./ui/touch.js";
+import { DUEL_COLORS, DUEL_TEAM } from "./game/duel.js";
 
 // 실시간 서버(Supabase 무료)는 프로젝트 전체에서 초당 메시지 100개가 한도다. 넘으면 모두의 연결을 끊는다.
 // 메시지는 보낼 때 1개, 받는 사람마다 1개로 센다. 그래서 스냅샷 빈도를 서버 인원으로 나눈다
@@ -1445,7 +1446,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           acCrew: me.ac ? g.heroes.filter((o) => o && o.map === me.map && o.ac).map((o) => ({ pi: o.pi, done: !(o.ac.o || []).length })) : [],
           party: g.heroes.filter(Boolean).map((h) => ({ pi: h.pi, lv: h.lv, map: h.map, hp: h.hp, max: h.max, pty: h.pty, title: h.title,
             admin: h.admin, honor: h.honor || 0, dvs: h.dvs })),
-          duelSize:me.duelSize||1,duelPotions:me.duelPotions||0,duelTeam:me.duelTeam,duelInvSize:me.duelInv?.size||1,
+          duelSize:me.duelSize||1,duelPotions:me.duelPotions||0,duelTeam:me.duelTeam,duelColor:me.duelColor??-1,
+          duelFoeColor:(g.heroes.find((o)=>o&&o.map==='arena'&&o.ring===me.ring&&o.duelTeam!==undefined&&o.duelTeam!==me.duelTeam)||{}).duelColor??-1,duelInvSize:me.duelInv?.size||1,
           honor: me.honor || 0, duelInv: me.duelInv ? me.duelInv.from : -1, dvs: me.dvs, dph: me.dph, dtl: me.dtl || 0,
           pty: me.pty, inv: me.invite ? me.invite.from : -1, title: me.title, titles: me.titles.slice(), rec: { ...me.rec },
           // 던전 — 들어가 있는 칸(남은 시간 · 무리 차례 · 보스 체력), 입장 창에 쓰는 빈 칸 수 · 함께 갈 사람
@@ -1588,7 +1590,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 칭호는 레벨 · 사냥 수 · 보스 · 퀘스트 조건을 채우면 얻습니다. 칭호 창(T)에서 하나를 골라 이름 아래에 답니다.
                 ☰ 메뉴의 키 설정에서 키를 바꿀 수 있습니다(PC).
                 파티 창(P)의 "결투"로 다른 사람에게 1대1 결투를 신청합니다. 2인 파티끼리는 2대2로 신청할 수 있습니다. 상대가 수락하면 결투장으로 옮겨 가 {DUEL.ready}초를 센 뒤 싸웁니다.
-                결투장에서는 자동 평타가 꺼지고 몹을 칠 때의 {Math.round(DUEL.dmgMul * 100)}% 피해가 들어갑니다. 한 팀이 모두 쓰러지면 끝나고 {DUEL.time}초가 지나면 무승부입니다. 결투용 소형 물약 5개만 쓸 수 있으며 응급 처치는 금지입니다. 끝나면 원래 자리로 돌아가고 남은 결투용 물약은 회수합니다.
+                결투장에서는 자동 평타가 꺼지고 몹을 칠 때의 {Math.round(DUEL.dmgMul * 100)}% 피해가 들어갑니다. 한 팀이 모두 쓰러지면 끝나고 1대1 은 {DUEL.time}초가 지나면 무승부입니다. 2대2 는 시간 제한이 없고 시작 전에 팀 색(빨강 · 파랑 · 녹색 · 노랑 가운데 둘)을 정합니다. 결투용 소형 물약 5개만 쓸 수 있으며 응급 처치는 금지입니다. 끝나면 원래 자리로 돌아가고 남은 결투용 물약은 회수합니다.
                 이기면 상대 명예의 {Math.round(DUEL.honorRate * 100)}% + {DUEL.honorBase} 만큼 명예가 오릅니다. 지는 쪽 명예는 그대로입니다. 광장 위쪽의 명예 순위판(E)에서 순위를 봅니다.
               </details>
             </>} />
@@ -1945,14 +1947,31 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <div className="rpg-duelbar" role="status">
               <span className="rpg-duelbar-vs">{me.duelSize}대{me.duelSize} 결투 · <b>{names[me.dvs] || "모험가"}</b></span>
               <span className="rpg-duelbar-t">
-                {me.dph === 1 ? `${Math.ceil(me.dtl)}초 뒤 시작` : me.dph === 2 ? `남은 시간 ${Math.ceil(me.dtl)}초` : "끝"}
+                {me.dph === 1 ? `${Math.ceil(Math.min(me.dtl, DUEL.ready))}초 뒤 시작` : me.dph === 2 ? (me.duelSize === 2 && DUEL_TEAM.noLimit ? `시간 제한 없음 · ${Math.floor(me.dtl)}초` : `남은 시간 ${Math.ceil(me.dtl)}초`) : "끝"}
               </span>
               <span className="rpg-duelbar-rule">구매 물약·응급 처치 사용 불가</span>
               <button type="button" className="btn-ghost" disabled={me.dph!==2||me.duelPotions<=0||me.self.hp>=me.self.max||me.self.down>0} onClick={()=>act('shop',{op:'puse',id:'heal_s'})}>회복 물약 (소) {me.duelPotions}/5</button>
               {me.dph !== 3 && <button type="button" className="btn-ghost" onClick={() => act("duel", { op: "giveup" })}>기권</button>}
             </div>
           )}
-          {me && me.dph === 1 && <div className="rpg-duel-count" key={Math.ceil(me.dtl)}>{Math.ceil(me.dtl)}</div>}
+          {me && me.dph === 1 && me.dtl <= DUEL.ready && <div className="rpg-duel-count" key={Math.ceil(me.dtl)}>{Math.ceil(me.dtl)}</div>}
+          {/* 2대2 팀 색 정하기 — 네 색이 돌다 멈춘다(돌기는 CSS, 멈춘 색은 방장 · 서버가 정한 값) */}
+          {me && me.dvs >= 0 && me.duelSize === 2 && me.duelColor >= 0 && me.dph === 1 && (
+            <div className="rpg-duel-roll" role="status">
+              <span className="rpg-duel-roll-h">팀 색 정하기</span>
+              {[["우리 팀", me.duelColor, 0], ["상대 팀", me.duelFoeColor, 1]].map(([label, ci, k]) => {
+                const spin = me.dtl > DUEL.ready || !(ci >= 0);
+                return (
+                  <span key={k} className="rpg-duel-roll-row">
+                    <span className="rpg-duel-roll-l">{label}</span>
+                    <span className={`rpg-duel-chip${spin ? " spin" : " land"}`} style={spin ? { animationDelay: `${-k * 0.17}s` } : { background: DUEL_COLORS[ci].c }}>
+                      {spin ? "" : DUEL_COLORS[ci].name}
+                    </span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
           {me && honorOpen && (() => {
             // 서버 순위에 지금 서버에 있는 사람의 최신 명예를 덮어쓴다(서버 저장은 10초마다)
             const live = me.party.filter((h) => h.honor > 0).map((h) => ({ name: names[h.pi] || "", honor: h.honor, lv: h.lv, on: 1 }));

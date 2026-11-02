@@ -1519,6 +1519,25 @@ kbd {
   font-family: 'Do Hyeon', sans-serif; font-size: 72px; color: #ffe08a; text-shadow: 0 3px 0 #2c1f12, 0 6px 18px rgba(0, 0, 0, 0.5);
   animation: rpg-count 1s ease-out;
 }
+/* 2대2 팀 색 정하기 — 가운데 위 작은 판. 돌 때는 네 색을 차례로 비추고 멈추면 색 이름을 띄운다 */
+.rpg-duel-roll {
+  position: absolute; left: 50%; top: 18%; transform: translateX(-50%); pointer-events: none; z-index: 4;
+  display: grid; gap: 6px; padding: 10px 14px 12px; min-width: 210px;
+  background: rgba(43, 32, 22, 0.92); border: 1px solid #8a6a3f; border-radius: 10px;
+}
+.rpg-duel-roll-h { font-family: 'Do Hyeon', sans-serif; font-size: 17px; color: #e3c48a; letter-spacing: -0.02em; }
+.rpg-duel-roll-row { display: flex; align-items: center; gap: 10px; }
+.rpg-duel-roll-l { width: 52px; font-size: 12px; color: #cdbb98; }
+.rpg-duel-chip {
+  flex: 1; height: 26px; border-radius: 6px; border: 1px solid rgba(255, 240, 210, 0.35);
+  display: flex; align-items: center; padding-left: 10px;
+  font-family: 'Do Hyeon', sans-serif; font-size: 16px; color: #2c1f12; letter-spacing: -0.02em;
+}
+.rpg-duel-chip.spin { animation: rpg-duel-spin 0.48s steps(1) infinite; }
+.rpg-duel-chip.land { animation: rpg-duel-land 0.45s ease-out; }
+/* 색은 duel.js DUEL_COLORS 와 같게 둔다 */
+@keyframes rpg-duel-spin { 0% { background: #e07a6e; } 25% { background: #6f9fd8; } 50% { background: #7cc08a; } 75% { background: #e8c766; } }
+@keyframes rpg-duel-land { 0% { transform: scale(1.18); filter: brightness(1.5); } 100% { transform: scale(1); filter: none; } }
 @keyframes rpg-count { 0% { opacity: 0; transform: translate(-50%, 0) scale(1.6); } 30% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
 .rpg-rank-row {
   display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px;
@@ -2024,6 +2043,9 @@ button.forge-stage:disabled { cursor: default; }
   .rpg-menu-text em { font-size: 10px; }
   .rpg-toast { font-size: 22px; }
   .rpg-toast.msg { font-size: 14px; }
+  .rpg-duel-roll { top: 150px; min-width: 180px; padding: 7px 10px 9px; }
+  .rpg-duel-roll-h { font-size: 14px; }
+  .rpg-duel-chip { height: 22px; font-size: 14px; }
   .rpg-talk { bottom: 44px; padding: 5px 8px; gap: 1px 8px; border-radius: 9px; width: min(420px, calc(100% - 12px)); }
   .rpg-talk-who { font-size: 10.5px; }
   .rpg-talk-line { font-size: 10px; line-height: 1.35; }

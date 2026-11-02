@@ -53,6 +53,22 @@ export const REQUESTS = {
     { lv: 10, kind: "collect", mat: "fang", n: 6, coin: 900, xp: 0.32 },
     { lv: 20, kind: "collect", mat: "tusk", n: 6, coin: 2200, xp: 0.28 },
     { lv: 50, kind: "collect", mat: "hide", n: 6, coin: 4500, xp: 0.24 },
+    // 고릴라 다음 사냥터부터 800레벨까지 보스 재료 — 받는 레벨은 그 사냥터에 들어가는 레벨.
+    // 코인은 앞 의뢰처럼 되파는 값(MATERIALS[].sell) × 6개 × 2.5배. 강화석(파랑 · 눈알 · 심장)은 연금술사 미나가 받는다
+    { lv: 200, kind: "collect", mat: "bone", n: 6, coin: 7500, xp: 0.2 },
+    { lv: 230, kind: "collect", mat: "rot", n: 6, coin: 12000, xp: 0.2 },
+    { lv: 260, kind: "collect", mat: "soul", n: 6, coin: 18000, xp: 0.2 },
+    { lv: 300, kind: "collect", mat: "core", n: 6, coin: 27000, xp: 0.2 },
+    { lv: 330, kind: "collect", mat: "mane", n: 6, coin: 37500, xp: 0.2 },
+    { lv: 360, kind: "collect", mat: "silk", n: 6, coin: 52500, xp: 0.2 },
+    { lv: 400, kind: "collect", mat: "ember", n: 6, coin: 67500, xp: 0.15 },
+    { lv: 450, kind: "collect", mat: "magma", n: 6, coin: 82500, xp: 0.15 },
+    { lv: 500, kind: "collect", mat: "dscale", n: 6, coin: 97500, xp: 0.15 },
+    { lv: 550, kind: "collect", mat: "ifflame", n: 6, coin: 112500, xp: 0.15 },
+    { lv: 600, kind: "collect", mat: "wplate", n: 6, coin: 127500, xp: 0.15 },
+    { lv: 650, kind: "collect", mat: "pearl", n: 6, coin: 142500, xp: 0.15 },
+    { lv: 700, kind: "collect", mat: "voidc", n: 6, coin: 165000, xp: 0.15 },
+    { lv: 750, kind: "collect", mat: "dfeather", n: 6, coin: 187500, xp: 0.15 },
   ],
   alchemist: [
     { lv: 30, kind: "collect", mat: "tusk", n: 9, coin: 0, xp: 0.1, mats: { blue: 1 } },

@@ -38,7 +38,7 @@ test('스킬 상점의 액티브 스킬이 모두 새 연출 목록에 있다', 
 
 test('연출 시트 파일이 모두 있다', () => {
   for (const [k, look] of Object.entries(SKILL_PX_LOOK)) {
-    const names = look.elem ? SKILL_PX_ELEMS.map((e) => `${k}_${e}`) : [k];
+    const names = look.elem ? SKILL_PX_ELEMS.map((e) => `${k}_${e}`) : [look.sheet || k];
     for (const n of names) {
       assert.ok(SKILL_PX_SHEETS[n], n);
       assert.ok(existsSync(`public/assets/game/rpg/effects/skill-px/${n}.webp`), n);
@@ -74,7 +74,7 @@ for (const [id, [job, kinds]] of Object.entries(WANT)) {
       assert.ok(Number.isFinite(f.x) && Number.isFinite(f.y), f.kind);
       const look = SKILL_PX_LOOK[f.kind.slice(6)];
       assert.ok(look, f.kind);
-      if (look.mode !== 'at') assert.ok([f.x0, f.y0, f.x1, f.y1].every(Number.isFinite), f.kind);
+      if (look.mode !== 'at' && look.mode !== 'slash') assert.ok([f.x0, f.y0, f.x1, f.y1].every(Number.isFinite), f.kind);
       assert.ok(f.by === 0, `${f.kind} 주인(by) 없음`);   // 남의 연출 덜어내기(CROWD)가 볼 수 있게
     }
     if (id === 'aid') assert.ok(h.hp > hp0);

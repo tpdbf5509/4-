@@ -20,7 +20,7 @@ export const SKILL_PX_SHEETS = {
   arrow_ice: { w: 81, h: 15, cols: 2, n: 6, px: 79, py: 7, loop: 1 },      // projectiles/arrow(서리빛)
   spark: { w: 112, h: 69, cols: 3, n: 8, px: 28, py: 56 },                 // impacts/hit-spark
   spark_ice: { w: 112, h: 69, cols: 3, n: 8, px: 28, py: 56 },             // impacts/hit-spark(서리빛)
-  chain: { w: 119, h: 88, cols: 3, n: 10, px: 75, py: 44 },                // lightning/zap-hit
+  chain: { w: 119, h: 88, cols: 3, n: 10, px: 75, py: 44 },                // lightning/zap-hit(노란빛 · 11월 2일)
   iron: { w: 70, h: 74, cols: 4, n: 12, px: 35, py: 61, loop: 1 },         // holy/divine-shield
   circle: { w: 162, h: 219, cols: 5, n: 16, px: 81, py: 192 },             // arcane/magic-circle-cast
   // 원소 구체 — 원소마다 색을 따로 뽑았다(원소 탑 색에서 톤다운)

@@ -34,7 +34,7 @@ const LIST = [
   { name: "arrow_ice", id: "projectiles/arrow", n: 6, end: 0.6, loop: 1, opts: { palette: ["#3a4a5c", "#6a88a8", "#dbe8f2", "#ffffff"], wind: "#b8cce0" } },
   { name: "spark", id: "impacts/hit-spark", n: 8, end: 0.45, opts: { palette: ["#3a2a1c", "#7a5434", "#b07a48", "#d8a468", "#ecca8c", "#f6e6bc", "#fffbee"] } },
   { name: "spark_ice", id: "impacts/hit-spark", n: 8, end: 0.45, opts: { palette: ICE } },
-  { name: "chain", id: "lightning/zap-hit", n: 10, end: 0.75, opts: { palette: ["#141626", "#232a4a", "#36437a", "#5266a6", "#7a8fcc", "#a8b8e6", "#d6e0f6", "#f8faff"] } },
+  { name: "chain", id: "lightning/zap-hit", n: 10, end: 0.75, opts: { palette: ["#1e1a10", "#3a2f14", "#64501c", "#96761c", "#c49a34", "#ddbc5c", "#f0d98e", "#fff8e0"] } },
   { name: "iron", id: "holy/divine-shield", n: 12, end: 2.4, loop: 1, opts: { palette: ["#1c2128", "#2e3640", "#46525e", "#66737f", "#8e9aa5", "#b6c0c9", "#dce3e9", "#f8fafc"] } },
   { name: "circle", id: "arcane/magic-circle-cast", n: 16, end: 2.6, opts: { palette: ["#141c2a", "#22314a", "#34496c", "#4c6690", "#6c88b2", "#94aed0", "#c2d4ea", "#f2f7fd"] } },
   ...Object.entries(ELEM).flatMap(([el, [d, k, l]]) => [

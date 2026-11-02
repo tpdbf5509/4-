@@ -106,7 +106,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 | arrow · spark | 관통 화살 · 연사 | projectiles/arrow(반복) · impacts/hit-spark |
 | arrow_ice · spark_ice | 후퇴 사격 | projectiles/arrow · impacts/hit-spark(서리빛) |
 | orb_<원소> · boom_<원소> | 원소 구체 | projectiles/plasma-shot(반복) · explosions/plasma-explosion(원소 여섯 색) |
-| chain | 연쇄 번개 | lightning/zap-hit |
+| chain | 연쇄 번개 | lightning/zap-hit(노란빛) |
 | circle | 강화 마법진 | arcane/magic-circle-cast |
 
 월드보스 연출: `rpg/effects/world-boss/*.webp` — pixelfx(MIT, 커밋 a841596)로 뽑은 투명 픽셀 시트 10장. 1배 픽셀 그대로 두고 그릴 때 키운다(흐림 없음). 칸 크기 · 열 수 · 칸 수 · 기준점(발밑) · 경고/맞는 순간 칸 구간은 `worldBossPxData.js` `WB_PX_SHEETS`, 그리기는 `worldBossPxArt.js`. 못 불러오면 `worldBossArt.js` 의 예전 코드 그림으로 그린다. 뽑는 법과 색은 `design/effects/pixelfx/world-boss/make.mjs`, 낙뢰 · 독 시트의 그늘 · 검은 자국 손질은 같은 폴더 `post.py`.

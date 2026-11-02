@@ -888,12 +888,21 @@ function shadowKill(E, g, h, o) {
 /* 11월 2일 암살자 처형 — 직업 스킬 · 그림자 일섬(h.cast.job · adv)이 맞은 뒤 남은 체력(hp)이 최대 체력의 execute.pct 이하면 쓰러뜨려도 되나.
    rpg.js hitMob · hitFoe 가 묻는다. 평타 · 지속 피해 · 튄 피해는 묻지 않는다. 월드보스 · 길드 보스는 rpg.js 에서 먼저 뺀다 */
 const assassinSkill = (h) => { const c = advOf(h); return c && c.id === "assassin" && h.cast && (h.cast.job || h.cast.adv) ? c : null; };
+// 처형할 수 있는 종류인가 — field 는 사냥터에서 다시 나는 몹인가(방장은 gi ≥ 0, 손님 화면은 맵으로 가린다)
+export function advExecKind(c, o, field) {
+  const X = c.execute;
+  return isHero(o) ? !!X.pvp : o.type !== "dummy" && (!o.boss || X.boss || (X.fieldBoss && field));
+}
 export function advCanExecute(h, o, hp, max) {
   const c = assassinSkill(h);
   if (!c || !o || !(hp > 0) || !(max > 0)) return false;
-  const X = c.execute;
-  if (isHero(o) ? !X.pvp : o.type === "dummy" || (o.boss && !X.boss && !(X.fieldBoss && o.gi >= 0))) return false;   // 사냥터 보스(gi ≥ 0)는 된다
-  return hp <= max * X.pct;
+  return advExecKind(c, o, o.gi >= 0) && hp <= max * c.execute.pct;
+}
+/* 처형 표식 — 내가 암살자이고 이 적의 남은 체력이 처형 선 아래인가(rpgArt.js 가 나에게만 그린다). 손님 화면의 몹 체력은 백분율이라 비율로 본다 */
+export function advExecReady(me, o, field) {
+  const c = advOf(me);
+  if (!c || c.id !== "assassin" || !o || !(o.max > 0) || !(o.hp > 0)) return false;
+  return advExecKind(c, o, field) && o.hp <= o.max * c.execute.pct;
 }
 export const EXEC_COLOR = "#e0b8ff";
 /* 암살자 — 직업 스킬 · 그림자 일섬으로 적을 쓰러뜨렸다: 질주(kr) · 투명화(투명화 물약과 같은 h.bf.hide, 쓸 수 없는 곳이면 질주만) */

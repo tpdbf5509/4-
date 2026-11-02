@@ -630,3 +630,21 @@ export function drawAdvNpc(ctx, g, n, time, roundRect, shadow) {
   ctx.fillStyle = "#e8dcc0"; ctx.fillText(n.name, x, y + 14.5);
   ctx.restore();
 }
+
+/* 11월 2일 암살자 처형 표식 — 처형할 수 있는 적 머리 위에 보랏빛 마름모 · 엇갈린 두 칼날 · "처형". 그 암살자 화면에만(rpgArt.js) */
+export const EXEC_MARK = { color: "#e0b8ff", ink: "rgba(36,18,44,0.9)", r: 10, pulse: 1.6 };
+export function drawExecMark(ctx, x, y, time) {
+  const M = EXEC_MARK, r = M.r + Math.sin(time * 7) * M.pulse;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.lineJoin = "round";
+  ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(r, 0); ctx.lineTo(0, r); ctx.lineTo(-r, 0); ctx.closePath();
+  ctx.fillStyle = M.ink; ctx.fill();
+  ctx.strokeStyle = M.color; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r * 0.45, -r * 0.45); ctx.lineTo(r * 0.45, r * 0.45); ctx.moveTo(r * 0.45, -r * 0.45); ctx.lineTo(-r * 0.45, r * 0.45);
+  ctx.lineWidth = 2; ctx.stroke();
+  ctx.font = "11px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.lineWidth = 3; ctx.strokeStyle = M.ink; ctx.strokeText("처형", 0, -r - 9);
+  ctx.fillStyle = M.color; ctx.fillText("처형", 0, -r - 9);
+  ctx.restore();
+}

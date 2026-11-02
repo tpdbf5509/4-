@@ -96,3 +96,15 @@ test('PvP — 상대 체력이 13% 이하로 내려가면 처형', () => {
     assert(as.as.kr > 0, '질주');
   });
 });
+
+test('처형 표식 — 암살자에게만 · 처형 선 아래 · 던전 보스는 없다', async () => {
+  const { advExecReady } = await import('../src/game/advance.js');
+  const me = { job: 'warrior', advClass: 'assassin' };
+  const m = { type: 'skeleton', hp: 12, max: 100 };
+  assert.equal(advExecReady(me, m, true), true);
+  assert.equal(advExecReady(me, { ...m, hp: 14 }, true), false, '14%');
+  assert.equal(advExecReady({ job: 'warrior', advClass: 'gladiator' }, m, true), false, '검투사');
+  assert.equal(advExecReady(me, { ...m, boss: 1 }, true), true, '사냥터 보스');
+  assert.equal(advExecReady(me, { ...m, boss: 1 }, false), false, '던전 보스');
+  assert.equal(advExecReady(me, { hp: 10, max: 100 }, true), true, '사람');
+});

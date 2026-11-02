@@ -1462,7 +1462,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           runs: (g.runs || []).map((r) => ({ id: r.id, slot: r.slot })),
         } : null);
         // 파티 · 칭호 알림 — 내 것 가운데 새로 온 것만 채팅 칸에
-        g.sys.forEach((n) => { if (n.who === mySeat && !n.seen) { n.seen = true; pushChat({ kind: "sys", text: n.msg }); } });
+        // 결투 신청 · 거절 까닭은 채팅을 접어 두면 못 봐서 "신청이 안 간다"고 보였다 — 화면 가운데에도 잠깐 띄운다
+        g.sys.forEach((n) => { if (n.who === mySeat && !n.seen) { n.seen = true; pushChat({ kind: "sys", text: n.msg }); if (n.msg.includes("결투")) setToast({ name: n.msg, at: Date.now(), msg: 1 }); } });
         // 상점 결과 — 내 것 가운데 새로 온 것만
         const mine = g.notes.filter((n) => n.who === mySeat);
         const top = mine[mine.length - 1];
@@ -2220,7 +2221,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <button className="sbtn" onClick={onLeave} title="RPG에서 나가기"><HomeIcon /></button>
           </div>
 
-          {toast && <div className="rpg-toast" key={toast.at}>{toast.name}</div>}
+          {toast && <div className={`rpg-toast${toast.msg ? " msg" : ""}`} key={toast.at}>{toast.name}</div>}
 
           {guide && (
             <div className={`rpg-guide ${guide.end ? "end" : ""}`} role="status">

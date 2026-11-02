@@ -7,11 +7,23 @@ export const duelOpponents=(g,h)=>g.heroes.filter(o=>o&&o!==h&&o.loaded&&o.map==
   (h.duelTeam===undefined?o.pi===h.dvs:o.duelTeam!==h.duelTeam));
 const team=(g,h)=>h.pty?g.heroes.filter(o=>o?.loaded&&o.pty===h.pty):[];
 const eligible=h=>h?.loaded&&h.down<=0&&h.dvs<0&&!trading(h);
-function teamsFor(g,a,b,size){
-  if(size!==2)return [[a],[b]];
-  if(!a.pty||!b.pty||a.pty===b.pty)return null;
+// 2대2 를 신청 · 수락할 수 있는 곳 — 광장 · 길드 광장 · 사냥터. 던전 · 심연의 탑 · 훈련장 · 월드보스 · 결투장은 뺀다.
+// 예전에는 4명 모두 광장이어야 했다. 1대1 은 어디서나 되는데 2대2 만 조용히 막혀 "신청이 안 온다"고 보였다(11월 2일)
+export const duelSpot=M=>!!M&&!M.pvp&&!M.dungeon&&!M.train&&!M.worldBoss;
+// 2대2 가 안 되는 까닭 — 되면 ''. 화면 버튼 안내와 판정이 같은 글을 쓴다
+export function duelTeamWhy(E,g,a,b){
+  if(!a.pty||!b.pty||a.pty===b.pty)return '서로 다른 2인 파티끼리만 2대2 결투를 할 수 있습니다';
   const sides=[team(g,a),team(g,b)];
-  return sides.every(s=>s.length===2&&s.every(h=>h.map==='plaza'))?sides:null;
+  if(!sides.every(s=>s.length===2))return '두 파티 모두 2명이어야 합니다';
+  const far=sides.flat().find(h=>!duelSpot(E.map(h.map)));
+  if(far)return `${E.name(g,far.pi)}님이 던전 · 훈련장 같은 곳에 있어 2대2 결투를 할 수 없습니다`;
+  const busy=sides.flat().find(h=>!eligible(h));
+  if(busy)return `${E.name(g,busy.pi)}님이 지금 결투할 수 없는 상태입니다(쓰러짐 · 결투 · 거래 중)`;
+  return '';
+}
+function teamsFor(E,g,a,b,size){
+  if(size!==2)return [[a],[b]];
+  return duelTeamWhy(E,g,a,b)?null:[team(g,a),team(g,b)];
 }
 export function duelInput(E,g,pi,req){
   const h=g.heroes[pi],C=E.config;if(!h?.loaded||!req)return false;
@@ -21,18 +33,21 @@ export function duelInput(E,g,pi,req){
   }
   if(req.op==='ask'){
     const o=g.heroes[req.to];if(!o||o===h)return false;
-    const size=req.size===2?2:1,sides=teamsFor(g,h,o,size);
-    if(!sides||!sides.flat().every(eligible)){E.sys(g,pi,size===2?'광장의 결투 가능한 2인 파티끼리 신청하세요':'지금 결투를 신청할 수 없습니다');return false;}
+    const size=req.size===2?2:1,sides=teamsFor(E,g,h,o,size);
+    if(!sides||!sides.flat().every(eligible)){E.sys(g,pi,size===2?duelTeamWhy(E,g,h,o)||'지금 결투를 신청할 수 없습니다':'지금 결투를 신청할 수 없습니다');return false;}
     const members=sides.map(s=>s.map(q=>({pi:q.pi,owner:q.who})));
     o.duelInv={from:pi,t:C.reqT,size,members};
     E.sys(g,pi,`${E.name(g,o.pi)}님에게 ${size}대${size} 결투를 신청했습니다`);
-    E.sys(g,o.pi,`${E.name(g,pi)}님이 ${size}대${size} 결투를 신청했습니다`);return true;
+    E.sys(g,o.pi,`${E.name(g,pi)}님이 ${size}대${size} 결투를 신청했습니다`);
+    // 2대2 — 양쪽 파티원에게도 알린다. 수락은 신청받은 사람 한 명이 한다
+    if(size===2)sides.flat().forEach(q=>{if(q!==h&&q!==o)E.sys(g,q.pi,`${E.name(g,pi)}님 파티가 ${E.name(g,o.pi)}님 파티에 2대2 결투를 신청했습니다(${E.name(g,o.pi)}님이 수락하면 시작)`);});
+    return true;
   }
   if(req.op!=='accept'&&req.op!=='decline')return false;
   const inv=h.duelInv;h.duelInv=null;const o=inv&&g.heroes[inv.from];
   if(!o)return false;
   if(req.op==='decline'){E.sys(g,o.pi,'결투 신청이 거절됐습니다');return true;}
-  const size=inv.size||1,sides=teamsFor(g,o,h,size);
+  const size=inv.size||1,sides=teamsFor(E,g,o,h,size);
   if(!sides||!sides.flat().every(eligible)||inv.members?.some((s,i)=>s.length!==sides[i].length||s.some(p=>!sides[i].some(q=>p.pi===q.pi&&p.owner===q.who)))){
     E.sys(g,pi,'신청 뒤 참가자나 파티 상태가 바뀌었습니다. 다시 신청하세요');return false;
   }

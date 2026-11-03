@@ -5,6 +5,7 @@
    클라이언트 예측은 쓰지 않는다 — 손님 화면은 방장이 보낸 연출과 상태만 그린다 */
 import { ADV, ADV_BY_ID, ADV_IDS, ADV_UP, cleanAdvQ, trialText, healDone, ADV_MASTERY, ADV_TRAITS, MASTERY_MAX, cleanAdvM, masteryLv, traitAt, ADV_BODY, ADV_SPD_MAX } from "./advData.js";
 import { JOB_TUNE } from "./jobTuneData.js";
+import { COMBAT_RULES } from "./combatRules.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const keyOf = (o) => (o.type !== undefined ? `m${o.id}` : `h${o.pi}`);
@@ -286,6 +287,7 @@ function healHero(E, g, by, o, amt, trial) {
   if (!o || o.down > 0 || amt <= 0) return 0;
   if(by&&E.pvpMap(by.map)&&o!==by&&!E.allies?.(by,o))return 0;
   amt*=E.healMul?.(by)||1;
+  if (E.pvpMap(o.map)) amt*=COMBAT_RULES.duelHealMul;   // 결투장 회복 1%
   const before = o.hp;
   o.hp = Math.min(o.max, o.hp + amt);
   const d = o.hp - before;

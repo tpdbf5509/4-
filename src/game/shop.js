@@ -1,4 +1,5 @@
 import { cleanAw } from "./abyssData.js";
+import { COMBAT_RULES } from "./combatRules.js";
 import { cleanWorldBossBag } from "./worldBoss.js";
 import { WORLD_SET_BY_ID, worldArt } from "./worldEquipmentData.js";
 import { worldBossWeapons } from "./worldBossData.js";
@@ -709,7 +710,7 @@ export function rpgShop(g, pi, req) {
     let msg = "";
     if (p.kind === "heal") {
       const before = h.hp;
-      h.hp = Math.min(h.max, h.hp + h.max * p.pct * mul);
+      h.hp = Math.min(h.max, h.hp + h.max * p.pct * mul * (duel ? COMBAT_RULES.duelHealMul : 1));   // 결투장은 회복 1%
       const got = Math.round(h.hp - before);
       fx(g, h.map, { kind: "heal", x: h.x, y: h.y - 56, text: `+${got}`, t: 0.9, life: 0.9, snd: "bless", who: pi });
       msg = `체력을 ${got} 되찾았습니다`;

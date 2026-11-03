@@ -164,11 +164,13 @@ function doomHit(ctx, f, p, q) {
   if (sim && p < 0.4) cell(ctx, sim, sg, segAt(sg.hit, p / 0.4), f.x, f.y - L.doomSigil.lift, L.doomSigil.k);
   if (f.tone === "dragon") {
     const S = SH.doom_nuke, im = sheet("doom_nuke"), D = L.doomNuke; if (!im) return false;
-    const n = Math.max(3, Math.round(D.n * q));
-    for (let j = 0; j < n; j++) {
-      const a = j * TAU / n + 0.4, x = s.x + Math.cos(a) * D.ring, y = s.y + Math.sin(a) * D.ring * C.squash;
-      if (!inSafe(f, x, y)) cell(ctx, im, S, once(S, p * 1.15 - (j % 3) * 0.05), x, y, D.ringK);
-    }
+    D.rings.forEach(([r, cnt, k], ri) => {
+      const n = Math.max(3, Math.round(cnt * q));
+      for (let j = 0; j < n; j++) {
+        const a = j * TAU / n + 0.4 + ri * 0.3, x = s.x + Math.cos(a) * r, y = s.y + Math.sin(a) * r * C.squash;
+        if (!inSafe(f, x, y)) cell(ctx, im, S, once(S, p * 1.15 - (j % 3) * 0.05 - ri * 0.04), x, y, k);
+      }
+    });
     cell(ctx, im, S, once(S, p), s.x, s.y, D.k);
     return true;
   }
@@ -185,12 +187,12 @@ function doomHit(ctx, f, p, q) {
   }
   if (f.tone === "machine") {
     const S = SH.doom_emp, im = sheet("doom_emp"), D = L.doomEmp; if (!im) return false;
-    D.rings.forEach((r, ri) => ringSpots({ x: s.x, y: s.y, r }, Math.max(4, Math.round((D.n + ri * 2) * q)), ri + f.seed).forEach(([x, y], j) =>
+    D.rings.forEach(([r, cnt], ri) => ringSpots({ x: s.x, y: s.y, r }, Math.max(4, Math.round(cnt * q)), ri + f.seed).forEach(([x, y], j) =>
       cell(ctx, im, S, once(S, p * 1.1 - ri * 0.06 - (j % 2) * 0.03), x, y, D.k)));
     return true;
   }
   const S = SH.doom_plasma, im = sheet("doom_plasma"), B = SH.strike_t, bim = sheet("strike_t"), D = L.doomPlasma; if (!im) return false;
-  if (bim) ringSpots({ x: s.x, y: s.y, r: s.r * D.at }, Math.max(4, Math.round(D.n * q)), f.seed).forEach(([x, y], j) => cell(ctx, bim, B, segAt(B.hit, p + (j % 3) * 0.05), x, y, D.boltK));
+  if (bim) D.bolts.forEach(([at, cnt], ri) => ringSpots({ x: s.x, y: s.y, r: s.r * at }, Math.max(3, Math.round(cnt * q)), f.seed + ri).forEach(([x, y], j) => cell(ctx, bim, B, segAt(B.hit, p + (j % 3) * 0.05), x, y, D.boltK)));
   cell(ctx, im, S, once(S, p * 0.9), s.x, s.y, D.k);
   return true;
 }

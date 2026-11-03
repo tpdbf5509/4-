@@ -310,7 +310,7 @@ test('명사수 · 총사 · 마도사 · 소환술사 패시브', () => {
   });
 });
 
-test('결투 — 전직 스킬 피해는 공격력 99% 감소만(한도 없음, dmgMul 에 비례) · 경직은 절반', () => {
+test('결투 — 전직 스킬 피해는 공격력 99.5% 감소만(한도 없음, dmgMul 에 비례) · 경직은 절반', () => {
   const lostWith = (mul) => { const keep = DUEL.dmgMul; DUEL.dmgMul = mul; try { return fixedRandom(() => duelLost()); } finally { DUEL.dmgMul = keep; } };
   const duelLost = () => {
     const g = world([{ job: 'warrior', advClass: 'gladiator' }, { job: 'warrior' }]);
@@ -327,7 +327,7 @@ test('결투 — 전직 스킬 피해는 공격력 99% 감소만(한도 없음, 
     run(g, 1);
     return hp0 - b.hp;
   };
-  assert.equal(DUEL.dmgMul, 0.01, '결투장 공격력 99% 감소');
+  assert.equal(DUEL.dmgMul, 0.005, '결투장 공격력 99.5% 감소');
   const lost = lostWith(DUEL.dmgMul), half = lostWith(DUEL.dmgMul / 2);
   assert(lost > 0, `잃은 체력 ${lost}`);
   assert(Math.abs(lost - half * 2) < 1, `피해가 배율에 비례한다(한도로 눌리지 않는다) ${lost} / ${half}`);
@@ -956,7 +956,7 @@ test('치유사 긴급 보호막 — 파티원(나 포함)이 30% 이하가 되�
   });
 });
 
-test('결투 — 전투 특성도 나간다(결투장은 공격력 99% 감소만, 한도 없음) · 도발 없음 · 긴급 보호막은 나에게만', () => {
+test('결투 — 전투 특성도 나간다(결투장은 공격력 99.5% 감소만, 한도 없음) · 도발 없음 · 긴급 보호막은 나에게만', () => {
   fixedRandom(() => {
     const duel = (a, b) => {
       const g = world([a, b]); g.mobs = [];

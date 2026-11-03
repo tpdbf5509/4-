@@ -95,7 +95,7 @@ export const GUIDE = [
     effect: "cd 대기, life 지속, hpMul 정령 체력, share 대신 맞는 몫, every 내려치기 간격, mul 피해 배율, r 내려치기 범위, roam 돌아다니는 범위, speed 걷는 속도입니다.", ex: "share 0.6 → 0.8 이면 내가 받는 피해의 80% 를 정령이 맞습니다." },
 
   { g: 6, title: "결투 피해 · 시간", file: "src/game/rpg.js", name: "DUEL.dmgMul · DUEL.time", now: () => `피해 ×${DUEL.dmgMul} · ${DUEL.time}초`,
-    effect: "결투장 공격력 배율(0.01 = 99% 감소)과 제한 시간입니다. 낮을수록 오래 싸웁니다.", ex: "dmgMul 0.01 → 0.03 이면 공격력 97% 감소가 됩니다." },
+    effect: "결투장 공격력 배율(0.005 = 99.5% 감소)과 제한 시간입니다. 낮을수록 오래 싸웁니다.", ex: "dmgMul 0.005 → 0.03 이면 공격력 97% 감소가 됩니다." },
   { g: 6, title: "서버 정원", file: "src/game/rpg.js", name: "RPG_SERVER_CAP", now: () => `${RPG_SERVER_CAP}명`,
     effect: "RPG 서버 한 곳에 들어오는 최대 인원입니다. 사용자 결정 사항이라 바꾸기 전에 확인합니다. 올리면 서버 부하가 늘어납니다.", ex: "" },
 

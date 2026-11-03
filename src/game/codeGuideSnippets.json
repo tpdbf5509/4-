@@ -378,7 +378,7 @@
    "file": "src/game/rpg.js",
    "from": 63,
    "code": [
-    "export const DUEL = { dmgMul: 0.005, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,"
+    "export const DUEL = { dmgMul: 0.01, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,"
    ]
   }
  ],

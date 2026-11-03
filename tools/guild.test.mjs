@@ -58,3 +58,11 @@ test('길드가 없거나 다른 길드면 길드 광장에 들어가거나 머�
  const g=setup(),h=g.heroes[0],id=h.guild.id;h.guild={...h.guild,id:null};assert(!rpgGuild(g,0,{op:'hall'}));assert.equal(h.map,'plaza');
  h.guild={...h.guild,id};assert(rpgGuild(g,0,{op:'hall'}));h.guild={...h.guild,id:'other-guild'};rpgStep(g,0.05);assert.equal(h.map,'plaza');
 });
+
+test('길드 보스는 실제 스킬 피해의 0.5% 만 받는다',()=>{
+ const run=mul=>{const old=C.dmgMul;C.dmgMul=mul;try{const g=setup();rpgGuild(g,0,{op:'enter'});const r=g.gruns[0],h=g.heroes[0],m=g.mobs.find(m=>m.id===r.mob);h.x=m.x-100;h.y=m.y;h.look=[1,0];const b=m.hp;rpgWeaponSkill(g,0);advance(g,.3);return b-m.hp;}finally{C.dmgMul=old;}};
+ assert.equal(C.dmgMul,.005);
+ const full=run(1),cut=run(.005);
+ assert(full>2000,'원래 피해 '+full);
+ assert(cut>=1&&cut<=full*.02,`0.5% 피해 ${cut} / 원래 ${full}`);
+});

@@ -1753,6 +1753,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (h && m.dg) dmg *= acDeal(g, h, m, skill, dot, side);   // 심연의 탑 강화 카드 · 표식(abyssCards.js) — 탑 몹만 dg
   const crit = h && !off ? sureCrit || Math.random() < critChance(h) + (h.ac ? acCritAdd(h, m, skill) : 0) : false;
   if (crit) dmg *= critMul(h) + (h.ac ? acCdmgAdd(h, skill) : 0);
+  if(isGuildBoss(m))dmg*=GUILD.dmgMul;            // 길드 토벌 — 공격력 0.5% 만 들어간다(guildData.js, 작은 피해도 아래에서 최소 1)
   dmg = Math.max(1, Math.round(dmg));
   if(isWorldBoss(m))worldBossHit(g,m,h,dmg,{direct:!!skill&&!dot&&!side&&procOff===0});
   if(isGuildBoss(m))guildHit(g,m,h,dmg);

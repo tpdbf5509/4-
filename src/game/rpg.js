@@ -54,13 +54,13 @@ export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
 
 // 결투 — 1대1 · 2인 파티의 2대2. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
-// 피해는 공격력 97% 감소 — 몹을 칠 때의 dmgMul(3%)만 곱한다. 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
+// 피해는 공격력 99% 감소 — 몹을 칠 때의 dmgMul(1%)만 곱한다. 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
 // 명예 — 이기면 진 사람 명예의 honorRate 에 honorBase 를 더한 만큼 오른다(지는 쪽은 그대로). 경험치 · 코인은 없다
 // 결투장 칸 크기 — 좁다는 의견으로 키웠다(10월 20일). 예전 rx 540 · ry 380 · 칸 사이 1300
 const ARENA_RING = { rx: 820, ry: 560, gap: 1850, x0: 1000, y: 900 };
-// dmgMul — 결투장 공격력 배율. 11월 3일 사용자 요청으로 한도 없이 이 배율 하나로 바꿨다 — 85% 감소(0.15) → 같은 날 97% 감소(0.03).
+// dmgMul — 결투장 공격력 배율. 11월 3일 사용자 요청으로 한도 없이 이 배율 하나로 바꿨다 — 85% 감소(0.15) → 97%(0.03) → 같은 날 99%(0.01).
 //   예전 0.3 + 스킬 한 번 한도(skillPct) · 평타 한 대 한도(basicPct)는 결투장에서 더 쓰지 않는다
-export const DUEL = { dmgMul: 0.03, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
+export const DUEL = { dmgMul: 0.01, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
   // 아래 한도 셋은 이제 사냥터 PvP 에만 쓴다(FIELD_PVP). 결투장은 dmgMul 만 곱한다
   // 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 한도를 넘지 않는다(스킬 한 방에 쓰러져 막았다).
   // 한도는 맞는 사람 최대 체력의 skillPct 몫이다 — 고정 숫자(1000)면 체력 500 이하인 대부분의 사람이 화염검 한 번에 쓰러졌다(10월 20일).
@@ -1662,7 +1662,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
   if (!off && archerCut(h)) dmg *= JOB_TUNE.archer.dmg * (hasDefense(o) ? JOB_TUNE.archer.vsArmor : 1);   // 궁수 — 피해 감소 · 방어력 있는 사람에게 더 감소
   if (!off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, o.max, true);   // 마법사 — 최대 체력 비례 피해(PvP 값)
-  if (!field) { if (dmg <= 0.5) return; }   // 결투장 — 공격력 97% 감소(DUEL.dmgMul)만, 한 대 · 스킬 한도는 없다
+  if (!field) { if (dmg <= 0) return; }   // 결투장 — 공격력 99% 감소(DUEL.dmgMul)만(1% 라 작은 피해도 버리지 않는다), 한 대 · 스킬 한도는 없다
   else if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
   else {
     const c=h.cast||newCast(h),cap=DUEL.skillPct*(o.max||1),key=`${o.pi}:${o.who}`;

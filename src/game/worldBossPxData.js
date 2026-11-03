@@ -19,6 +19,12 @@ export const WB_PX_SHEETS = {
   break: { w: 182, h: 176, cols: 4, n: 14, px: 91, py: 148 },                                  // holy/smite — 합동 공격 성공
   stun: { w: 50, h: 33, cols: 4, n: 16, px: 24, py: 55, loop: 1 },                             // status/stunned — 기절 별(캐릭터 없이)
   fall: { w: 192, h: 218, cols: 5, n: 20, px: 96, py: 204 },                                   // holy/holy-pillar — 토벌 빛기둥
+  // 즉사 기술(11월 4일)
+  doom_sigil: { w: 114, h: 113, cols: 5, n: 18, px: 57, py: 106, warn: [0, 13], hit: [14, 17] }, // shadow/hex-sigil — 보스 머리 위 저주 문양(공통)
+  doom_nuke: { w: 396, h: 316, cols: 4, n: 16, px: 198, py: 282 },                             // explosions/nuke — 드래곤 멸망의 운석
+  doom_miasma: { w: 212, h: 53, cols: 2, n: 12, px: 106, py: 42, loop: 1 },                     // nature/poison-cloud — 뱀 독왕의 심판
+  doom_emp: { w: 152, h: 103, cols: 4, n: 14, px: 76, py: 74 },                                 // scifi/emp-blast — 기계 최후의 방전
+  doom_plasma: { w: 204, h: 188, cols: 4, n: 12, px: 105, py: 94 },                             // explosions/plasma-explosion — 뇌조 천뢰 심판
 };
 
 /* 그리는 크기 · 개수 — 게임 좌표에 맞춘 배수 k, 범위 반지름에 맞출 때 시트 1배 반지름 rk(k = r / rk, kMin ~ kMax)
@@ -38,4 +44,10 @@ export const WB_PX_LOOK = {
   break: { k: 2.8 },                         // 합동 공격 성공 — 보스 발밑에 내리치는 빛
   stun: { k: 3.4, lift: 290 },               // 기절 별 — 보스 머리 위
   fall: { k: 3, life: 2.4 },                 // 토벌 빛기둥
+  // 즉사 기술 — sigil 은 경고 내내 보스 머리 위(lift)에 그려지고 맞는 순간 부서진다
+  doomSigil: { k: 2.6, lift: 380 },
+  doomNuke: { k: 2.4, ring: 620, ringK: 1.1, n: 6 },        // 보스 자리에 큰 버섯구름 · 둘레 작은 폭발(피난 원 안은 건너뛴다)
+  doomMiasma: { k: 2.2, rows: [350, 750, 1150], step: 0.7, alpha: 0.7 }, // 부채꼴 안쪽에 줄마다 각도 step 간격으로 독구름
+  doomEmp: { k: 2.4, rings: [520, 950], n: 6 },       // 바깥 고리를 따라 전자기 돔
+  doomPlasma: { k: 4.2, boltK: 1.6, n: 8, at: 0.65 },       // 보스 자리에 큰 플라스마 · 원 안쪽(반지름 몫 at) 낙뢰
 };

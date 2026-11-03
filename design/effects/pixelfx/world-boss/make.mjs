@@ -1,11 +1,12 @@
 // 월드보스 연출 시트 뽑기(게임이 쓰지 않는 기록용 스크립트)
 // 쓰는 법: scratchpad/ext 에 pixelfx 를 받고(.claude/skills/pixelfx), 이 파일을 scratchpad/gen 에 두고 node make.mjs out
 //         strike_m · strike_t · acid 는 post.py 로 어두운 그늘 · 주황 불티를 걷어 낸다(밝은 바닥에서 검댕처럼 보였다)
+//         셋째 인자로 이름 머리를 주면 그것만 뽑는다(node make.mjs out doom_ — 즉사 기술 시트만)
 //         out/*.png 를 Pillow 로 무손실 WebP 로 바꿔 public/assets/game/rpg/effects/world-boss/ 에 넣는다
 // — pixelfx(MIT) 이펙트를 보스 빛깔(톤다운 · 파스텔)로 렌더하고, from~to 초 구간에서 n 칸을 고르게 뽑아 투명 여백을 걷어 낸다
 import { loadEffect, renderFrames, canvas, save } from "../ext/pixelfx/tools/lib/fxlib.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
-const OUT = process.argv[2];
+const OUT = process.argv[2], ONLY = process.argv[3] || "";
 mkdirSync(OUT, { recursive: true });
 // 보스 빛깔 — 어두운 것 → 밝은 것. 흰색은 가장 뜨거운 가운데에만 둔다
 const FIRE = ["#2e1814", "#5a2620", "#8e3c2c", "#bb5a3e", "#d9805a", "#e9a882", "#f3cfae", "#faead8", "#fff8ee"];
@@ -28,9 +29,15 @@ const LIST = [
   { name: "break", id: "holy/smite", from: 0.4, to: 1.7, n: 14, opts: { palette: GOLD, stone: "#5a5066" } },
   { name: "stun", id: "status/stunned", from: 0, to: 2, n: 16, loop: 1, opts: { palette: ["#3a2c18", "#7a5c30", "#b8904e", "#dab878", "#ecd7a0", "#f8eed0", "#fffaf0"], birds: ["#1a1626", "#6a6c98", "#aeb4d8", "#eef0fa"], beak: "#e0a868" } },
   { name: "fall", id: "holy/holy-pillar", from: 0.2, to: 3.0, n: 20, opts: { palette: GOLD, shafts: 7 } },
+  // 즉사 기술(11월 4일) — 보스 머리 위 저주 문양(경고 동안 그려지고 맞는 순간 부서진다) · 보스마다 맞는 순간
+  { name: "doom_sigil", id: "shadow/hex-sigil", from: 0.2, to: 3.6, n: 18, opts: { palette: ["#1a1020", "#2e1a34", "#4a2a4e", "#6e3e66", "#9a5a80", "#c88aa6", "#e8c4d2", "#fbeef2"], seed: 7 } },
+  { name: "doom_nuke", id: "explosions/nuke", from: 0.12, to: 3.2, n: 16, opts: { palette: FIRE, dust: "#7a6a66", seed: 5 } },
+  { name: "doom_miasma", id: "nature/poison-cloud", from: 0, to: 4, n: 12, loop: 1, opts: { palette: ["#100c14", "#1e1626", "#30223a", "#46344a", "#4e5a34", "#6a8a4e", "#93b274", "#d6e8b4"], spread: 1, seed: 3 } },
+  { name: "doom_emp", id: "scifi/emp-blast", from: 0.3, to: 2.3, n: 14, opts: { palette: VOLT_M, fringe: "#b9a6d6", radius: 56, seed: 33 } },
+  { name: "doom_plasma", id: "explosions/plasma-explosion", from: 0, to: 1.3, n: 12, opts: { palette: ["#14122a", "#36346a", "#545290", "#7c7ab6", "#a8a6d6", "#d2d0ee", "#f6f5ff"], accent: ["#1a1430", "#3e3470", "#7c7ab6", "#b4b0e6", "#ece8ff"], seed: 7 } },
 ];
 const man = {};
-for (const s of LIST) {
+for (const s of LIST.filter((s) => s.name.startsWith(ONLY))) {
   const fx = await loadEffect(s.id);
   const r = renderFrames(fx, { fps: 30, actor: false, options: s.opts });
   const pick = [];

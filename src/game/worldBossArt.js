@@ -3,7 +3,7 @@
 import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_TYPE,WORLD_BOSS_PATTERNS} from './worldBossData.js';
 import {bloom,sparks,ring,bolt} from './combatFx.js';
 import {worldBossCoopOpen} from './worldBoss.js';
-import {warmWorldBossPx,drawWbWarnPx,drawWbPoolPx,drawWbStunPx,drawWbHitPx,drawWbBreakPx,drawWbFallPx} from './worldBossPxArt.js';
+import {warmWorldBossPx,drawWbWarnPx,drawWbPoolPx,drawWbStunPx,drawWbHitPx,drawWbBreakPx,drawWbFallPx,drawWbDoomSigilPx} from './worldBossPxArt.js';
 const TAU=Math.PI*2;
 const TONES={dragon:['#96351d','#ff873b','#fff1bf'],serpent:['#48315e','#a9e66e','#f2ffd4'],machine:['#235476','#68dafa','#f0fcff'],thunderbird:['#403879','#a7a2ff','#e6fbff']};
 let atlas;
@@ -23,6 +23,7 @@ function path(ctx,s){
   ctx.beginPath();
   if(s.shape==='ring'){ctx.arc(0,0,s.r,0,Math.PI*2);ctx.arc(0,0,s.inner,0,Math.PI*2,true);}
   else if(s.shape==='outside'){ctx.rect(-s.x,-s.y/C.squash,C.w,C.h/C.squash);ctx.moveTo(s.r,0);ctx.arc(0,0,s.r,0,TAU,true);}
+  else if(s.shape==='shelter'){ctx.rect(-s.x,-s.y/C.squash,C.w,C.h/C.squash);s.safes.forEach(z=>{const x=z.x-s.x,y=(z.y-s.y)/C.squash;ctx.moveTo(x+z.r,y);ctx.arc(x,y,z.r,0,TAU,true);});}
   else if(s.shape==='circle')ctx.arc(0,0,s.r,0,Math.PI*2);
   else if(s.shape==='cone'){ctx.moveTo(0,0);ctx.arc(0,0,s.len,s.a-s.arc,s.a+s.arc);ctx.closePath();}
   else{ctx.rotate(s.a);ctx.rect(-40,-s.width,s.len+40,s.width*2);}
@@ -47,6 +48,22 @@ function fallingRock(ctx,x,y,progress,r,tone){
   for(let i=0;i<7;i++){const a=i*TAU/7,rr=r*(i%2?.7:1);if(i)ctx.lineTo(px+Math.cos(a)*rr,py+Math.sin(a)*rr);else ctx.moveTo(px+Math.cos(a)*rr,py+Math.sin(a)*rr);}ctx.closePath();ctx.fill();ctx.stroke();
   bloom(ctx,px,py,r*2,tone[1],.6);ctx.restore();
 }
+/* 즉사 기술 — 칠한 자리는 톤다운 장밋빛, 피할 자리는 다른 경고와 같은 청록 고리 · '안전지대' 글자로 보인다 */
+const DOOM_COLOR='#c46a7e',SAFE='#96f7ec';
+function safeLabel(ctx,x,y){ctx.save();ctx.fillStyle='#b9fff0';ctx.strokeStyle='#203333';ctx.lineWidth=4;ctx.textAlign='center';ctx.font="18px 'Do Hyeon',sans-serif";ctx.strokeText('안전지대',x,y);ctx.fillText('안전지대',x,y);ctx.restore();}
+function drawDoomSafe(ctx,s,a,p){
+  const pulse=.75+.25*Math.sin(p*TAU*3);
+  if(s.shape==='shelter')s.safes.forEach(z=>{ring(ctx,z.x,z.y,z.r,C.squash,SAFE,.95*pulse,4);ring(ctx,z.x,z.y,z.r*.86,C.squash,SAFE,.4,1);safeLabel(ctx,z.x,z.y+7);});
+  else if(s.shape==='ring'){ring(ctx,s.x,s.y,s.inner,C.squash,SAFE,.95*pulse,4);safeLabel(ctx,s.x,s.y+s.inner*C.squash+26);}
+  else if(s.shape==='circle'){ring(ctx,s.x,s.y,s.r,C.squash,DOOM_COLOR,.95,4);ring(ctx,s.x,s.y,s.r+24,C.squash,SAFE,.7*pulse,2);}
+  else if(s.shape==='cone'){
+    // 등 뒤 안전 부채꼴 — 가장자리 두 줄과 글자
+    const back=s.a+Math.PI,half=Math.PI-s.arc,r=260;
+    ctx.save();ctx.translate(s.x,s.y);ctx.scale(1,C.squash);ctx.strokeStyle=SAFE;ctx.globalAlpha=.9*pulse;ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,back-half,back+half);ctx.closePath();ctx.stroke();ctx.restore();
+    safeLabel(ctx,s.x+Math.cos(back)*r*.7,s.y+Math.sin(back)*r*.7*C.squash+7);
+  }
+}
 export function drawWorldBossGround(ctx,g,map,quality=1){
   if(map!==C.map||!g.wb?.active)return;
   const a=g.wb.active,t=g.t,tone=TONES[a.id];
@@ -54,9 +71,10 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
     for(let i=0;i<n;i++){const angle=i*2.39996+j,d=p.r*(.2+.65*((i*17%29)/29));ctx.beginPath();ctx.arc(p.x+Math.cos(angle)*d,p.y+Math.sin(angle)*d*C.squash-Math.sin(t*3+i)*7,3+(i%3),0,TAU);ctx.stroke();}ctx.restore();});
   if(a.stun>0){runeHalo(ctx,a.x,a.y,130,t,'#ffe19a',quality);return;}
   if(a.attack){
-    const attack=a.attack,p=Math.max(0,Math.min(1,1-attack.t/attack.life)),open=worldBossCoopOpen(a);
+    const attack=a.attack,p=Math.max(0,Math.min(1,1-attack.t/attack.life)),open=worldBossCoopOpen(a),doom=WORLD_BOSS_PATTERNS[attack.kind]?.doom;
     attack.areas.forEach((s,i)=>{
-      paintArea(ctx,s,open?'#ffe49c':attack.major?'#ee956e':'#f7b267',.12+p*.2,true);
+      paintArea(ctx,s,open?'#ffe49c':doom?DOOM_COLOR:attack.major?'#ee956e':'#f7b267',doom?.16+p*.26:.12+p*.2,true);
+      if(doom){drawDoomSafe(ctx,s,a,p);return;}
       if(s.shape==='outside'){
         ring(ctx,s.x,s.y,s.r,C.squash,'#96f7ec',.95,4);
         ring(ctx,s.x,s.y,s.r*.88,C.squash,'#96f7ec',.4,1);
@@ -79,12 +97,12 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
       }
     });
     if(attack.major&&attack.step===0){
-      const color=open?'#ffe49c':tone[1];runeHalo(ctx,a.x,a.y,130+45*p,t,color,quality);
+      const color=open?'#ffe49c':doom?DOOM_COLOR:tone[1];runeHalo(ctx,a.x,a.y,130+45*p,t,color,quality);
       bloom(ctx,a.x,a.y-150,150,color,.18+p*.3);
     }
     ctx.save();ctx.fillStyle=open?'#ffe49c':'#fff0c2';ctx.strokeStyle='#2d1b13';ctx.lineWidth=5;ctx.font="bold 24px 'Do Hyeon',sans-serif";ctx.textAlign='center';
     const P=WORLD_BOSS_PATTERNS[attack.kind],hint=attack.kind==='thunder_dive'&&attack.step?P.landHint:P?.hint;
-    const label=open?`약점 노출! 함께 공격 ${(attack.coop||[]).length}/${C.coop.players}`:`${attack.name||'공격 준비'} ${attack.step+1}/${attack.stages} · ${attack.diving?'급강하!':`${Math.max(0,attack.t).toFixed(1)}초`}`;
+    const label=open?`약점 노출! 함께 공격 ${(attack.coop||[]).length}/${C.coop.players}`:`${doom?'즉사 · ':''}${attack.name||'공격 준비'} ${attack.step+1}/${attack.stages} · ${attack.diving?'급강하!':`${Math.max(0,attack.t).toFixed(1)}초`}`;
     ctx.strokeText(label,a.x,a.y+65);ctx.fillText(label,a.x,a.y+65);ctx.restore();
     if(hint&&!open){ctx.save();ctx.textAlign='center';ctx.font="18px 'Do Hyeon',sans-serif";ctx.lineWidth=4;ctx.strokeStyle='#211b2b';ctx.fillStyle='#d7f5ff';ctx.strokeText(hint,a.x,a.y+91);ctx.fillText(hint,a.x,a.y+91);ctx.restore();}
   }
@@ -109,6 +127,9 @@ export function drawWorldBossSprite(ctx,m,time,state,quality=1){
   else{ctx.fillStyle=B.color;ctx.strokeStyle='#362315';ctx.lineWidth=5;ctx.beginPath();ctx.ellipse(0,-110,105,110,0,0,Math.PI*2);ctx.fill();ctx.stroke();
     ctx.fillStyle='#fff2bb';ctx.fillRect(-50,-155,20,10);ctx.fillRect(30,-155,20,10);ctx.beginPath();ctx.moveTo(-80,-185);ctx.lineTo(-100,-260);ctx.lineTo(-30,-205);ctx.moveTo(80,-185);ctx.lineTo(100,-260);ctx.lineTo(30,-205);ctx.fill();}
   ctx.restore();
+  // 즉사 기술 예고 — 보스 머리 위 저주 문양(그림 위에 보이게 몸 다음에 그린다)
+  const doomAt=state?.attack&&WORLD_BOSS_PATTERNS[state.attack.kind]?.doom;
+  if(doomAt&&!worldBossCoopOpen(state))drawWbDoomSigilPx(ctx,m.x,m.y,Math.max(0,Math.min(1,1-state.attack.t/state.attack.life)));
   if(state?.stun>0){
     if(drawWbStunPx(ctx,m.x,m.y,time))return true;
     ctx.save();ctx.strokeStyle='#ffe6a3';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(m.x,m.y-290,70,20,0,0,TAU);ctx.stroke();

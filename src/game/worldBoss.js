@@ -140,6 +140,7 @@ function area(shape,x,y,extra={}){return {shape,x,y,...extra};}
 export function worldBossAreaContains(s,h){
   const dx=h.x-s.x,dy=(h.y-s.y)/C.squash,d=Math.hypot(dx,dy);
   if(s.shape==='circle')return d<=s.r;
+  if(s.shape==='shelter')return !s.safes.some(z=>Math.hypot(h.x-z.x,(h.y-z.y)/C.squash)<=z.r); // 피난 원 밖 전부
   if(s.shape==='outside')return d>s.r;
   if(s.shape==='ring')return d<=s.r&&d>=s.inner;
   const c=Math.cos(s.a),t=Math.sin(s.a),along=dx*c+dy*t,across=-dx*t+dy*c;
@@ -149,8 +150,20 @@ export function worldBossAreaContains(s,h){
 export function worldBossCoopOpen(a){
   return !!(a?.phase==='fight'&&!a.stun&&a.attack?.major&&(a.attack.step||0)===0&&a.attack.t>0&&a.attack.t<=C.coop.window);
 }
+// 즉사 기술 범위 — 수치는 worldBossData.js WORLD_BOSS_PATTERNS *_doom
+function doomAreas(kind,m,angle){
+  const P=WORLD_BOSS_PATTERNS[kind];
+  if(kind==='dragon_doom')return [area('shelter',m.x,m.y,{safes:P.shelters.map(o=>({
+    x:Math.max(P.margin,Math.min(C.w-P.margin,m.x+Math.cos(angle+o)*P.shelterD)),
+    y:Math.max(P.margin,Math.min(C.h-P.margin,m.y+Math.sin(angle+o)*P.shelterD*C.squash)),r:P.shelterR}))})];
+  if(kind==='serpent_doom')return [area('cone',m.x,m.y,{a:angle,len:P.len,arc:P.arc})];
+  if(kind==='machine_doom')return [area('ring',m.x,m.y,{inner:P.inner,r:P.r})];
+  if(kind==='thunder_doom')return [area('circle',m.x,m.y,{r:P.r})];
+  return null;
+}
 function patternAreas(kind,step,m,heroes,angle){
   const bird=thunderbirdAreas(kind,step,m,heroes,angle);if(bird)return bird;
+  const doom=doomAreas(kind,m,angle);if(doom)return doom;
   const targets=heroes.slice(step%heroes.length).concat(heroes.slice(0,step%heroes.length));
   const circles=(r,n=5)=>targets.slice(0,n).map(h=>area('circle',h.x,h.y,{r}));
   const spokes=(n,a,width=60)=>Array.from({length:n},(_,i)=>area('line',m.x,m.y,{a:a+i*Math.PI*2/n,len:1050,width}));
@@ -173,22 +186,24 @@ function patternAreas(kind,step,m,heroes,angle){
   if(kind==='thunderstorm')return step===0?[area('ring',m.x,m.y,{inner:240,r:950})]:step===1?[area('circle',m.x,m.y,{r:340})]:circles(190);
   return [];
 }
-function beginAttack(g,m,a,heroes){
+function beginAttack(E,g,m,a,heroes){
   const B=WORLD_BOSS_BY_ID[a.id],kind=B.attacks[a.seq++%B.attacks.length],P=WORLD_BOSS_PATTERNS[kind];
   const target=(m.taunt>0&&heroes.find(h=>h.pi===m.tgt))||heroes[a.seq%heroes.length],angle=Math.atan2((target.y-m.y)/C.squash,target.x-m.x);
   const wind=P.wind||C.wind;
   const targets=kind==='thunder_dive'?[target,...heroes.filter(h=>h!==target)]:heroes;
   a.attack={kind,name:P.name,major:!!P.major,step:0,stages:P.hits,angle,areas:patternAreas(kind,0,m,targets,angle),t:wind,life:wind,coop:[]};m.pose=1;
+  if(P.doom)heroes.forEach(h=>notify(E,g,h,`즉사 예고 — ${P.name}`,P.hint,'bad'));
 }
 function impact(E,g,m,a,heroes){
   const attack=a.attack,P=WORLD_BOSS_PATTERNS[attack.kind],last=(attack.step||0)===P.hits-1;
   if(startThunderbirdDive(attack))return; // 준비가 끝나면 실제 경로를 따라 움직이며 한 번씩 친다.
   const damage=last&&P.final?P.final:P.damage;
-  if(!attack.diving)heroes.forEach(h=>{if(a.phase==='fight'&&attack.areas.some(s=>worldBossAreaContains(s,h)))E.hurt(g,h,h.max*damage);});
+  // 즉사(P.doom)는 남은 체력을 통째로 — E.kill 이 없는 옛 엔진에서는 아주 큰 피해로 대신한다
+  if(!attack.diving)heroes.forEach(h=>{if(a.phase==='fight'&&attack.areas.some(s=>worldBossAreaContains(s,h))){if(P.doom&&E.kill)E.kill(g,h);else E.hurt(g,h,h.max*(P.doom?99:damage));}});
   if(a.phase!=='fight'){a.attack=null;return;}
   if(P.pool&&(!P.major||last))a.pools.push(...attack.areas.filter(s=>s.shape==='circle').map(s=>({...s,t:C.poolTime,next:C.poolTick})));
   const nextSafe=attack.kind==='thunder_eye'&&!last?patternAreas(attack.kind,attack.step+1,m,heroes,attack.angle)[0]:null;
-  attack.areas.forEach((s,i)=>E.fx(g,C.map,{...(nextSafe?{nextSafe}:{}),kind:'sk_raid_hit',x:s.x,y:s.y,area:s,t:P.major?.85:.65,life:P.major?.85:.65,tone:a.id,pattern:attack.kind,major:P.major,final:last,seed:i+attack.step*7,snd:['machine','thunderbird'].includes(a.id)?'zap':'boom',kick:i===0?(P.major?.45:.2):0}));
+  attack.areas.forEach((s,i)=>E.fx(g,C.map,{...(nextSafe?{nextSafe}:{}),kind:'sk_raid_hit',x:s.x,y:s.y,area:s,t:P.doom?1.6:P.major?.85:.65,life:P.doom?1.6:P.major?.85:.65,tone:a.id,pattern:attack.kind,major:P.major,final:last,...(P.doom?{doom:1}:{}),seed:i+attack.step*7,snd:['machine','thunderbird'].includes(a.id)?'zap':'boom',kick:i===0?(P.major?.45:.2):0}));
   if(!last){
     if(attack.diving)attack.diving=false;
     attack.step++;attack.t=attack.life=P.gap;attack.coop=[];
@@ -243,7 +258,7 @@ export function tickWorldBoss(E,g,dt){
     a.attack.t-=dt;
     if(a.attack.t<=0)impact(E,g,m,a,heroes);
   }else if(heroes.length){
-    a.cd-=dt;if(a.cd<=0)beginAttack(g,m,a,heroes);
+    a.cd-=dt;if(a.cd<=0)beginAttack(E,g,m,a,heroes);
     // 준비 중에는 멈추고 대상이 멀 때만 천천히 다가간다.
     else{const h=heroes[0],d=distance(m.x,m.y,h.x,h.y);if(d>280){m.x+=(h.x-m.x)/d*55*dt;m.y+=(h.y-m.y)/d*55*dt;}}
   }

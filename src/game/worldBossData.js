@@ -20,11 +20,11 @@ export const WORLD_BOSS = {
 };
 export const WORLD_BOSSES = [
   // 사용자 예시인 뱀1200만에 맞춰 이전 체력의 1/100로 조정한다. 공격 패턴·보상·15분 제한은 유지한다.
-  { id:'dragon',type:'world_dragon',name:'드래곤 괴수',hp:11500000,color:'#f3aa74',sub:'삼연 숨결 · 추적 운석 · 종말의 화염폭풍',attacks:['cone','meteors','inferno'] },
-  { id:'serpent',type:'world_serpent',name:'거대 뱀 괴수',hp:12000000,color:'#b7d58b',sub:'맹독 추격 · 이중 휩쓸기 · 독왕의 탈피',attacks:['poison','ring','molt'] },
-  { id:'machine',type:'world_machine',name:'고대 번개 기계형 괴수',hp:12500000,color:'#9edcf0',sub:'회전 전류 · 연속 낙뢰 · 천벌 과부하',attacks:['cross','lightning','overload'] },
+  { id:'dragon',type:'world_dragon',name:'드래곤 괴수',hp:11500000,color:'#f3aa74',sub:'삼연 숨결 · 추적 운석 · 종말의 화염폭풍 · 멸망의 운석(즉사)',attacks:['cone','meteors','inferno','dragon_doom'] },
+  { id:'serpent',type:'world_serpent',name:'거대 뱀 괴수',hp:12000000,color:'#b7d58b',sub:'맹독 추격 · 이중 휩쓸기 · 독왕의 탈피 · 독왕의 심판(즉사)',attacks:['poison','ring','molt','serpent_doom'] },
+  { id:'machine',type:'world_machine',name:'고대 번개 기계형 괴수',hp:12500000,color:'#9edcf0',sub:'회전 전류 · 연속 낙뢰 · 천벌 과부하 · 최후의 방전(즉사)',attacks:['cross','lightning','overload','machine_doom'] },
   // 새 보스는 기존 기계보다 체력 50만 증가. 무기 셋만 전용 보상으로 준다.
-  { id:'thunderbird',type:'world_thunderbird',name:'뇌조',hp:13000000,color:'#b4b9fa',sub:'전격 깃털 · 뇌광 급강하 · 폭풍의 눈',attacks:['thunder_feathers','thunder_dive','thunder_eye'],
+  { id:'thunderbird',type:'world_thunderbird',name:'뇌조',hp:13000000,color:'#b4b9fa',sub:'전격 깃털 · 뇌광 급강하 · 폭풍의 눈 · 천뢰 심판(즉사)',attacks:['thunder_feathers','thunder_dive','thunder_eye','thunder_doom'],
     art:{src:'/assets/game/rpg/boss/thunderbird.webp',cols:2,rows:1,size:700,feet:[.80,.885]} },
 ];
 // damage는 최대 체력에 대한 방어 적용 전 비율이다. 큰 기술의 첫 타격만 합동 공격으로 끊을 수 있다.
@@ -48,6 +48,14 @@ export const WORLD_BOSS_PATTERNS = {
     dive:.48,minLen:260,maxLen:650,overshoot:100,width:70,margin:100,inner:140,r:330},
   thunder_eye:{name:'폭풍의 눈',hint:'푸른 원 안으로 이동하세요',major:true,wind:3.2,hits:3,gap:1.8,damage:.7,final:.85,
     radii:[260,190,210],offsets:[0,300,0],margin:220},
+  /* 즉사 기술(11월 4일, 사용자 요청) — 보스마다 네 번째 공격. 오래 예고하고 피할 자리가 늘 있다.
+     맞으면 방어 · 피해 감소 · 보호막과 상관없이 쓰러진다(rpg.js hurtHero 의 doom). 대쉬 무적 · 전설 갑옷 부활은 그대로 살린다.
+     큰 기술(major)이라 마지막 1.6초에 400레벨 3명이 합동 공격하면 끊을 수 있다. wind 는 예고 시간(초) */
+  dragon_doom:{name:'멸망의 운석',hint:'빛나는 원 안으로 숨으세요',doom:true,major:true,wind:4.6,hits:1,damage:1,
+    shelters:[-2.2,2.2],shelterR:150,shelterD:520,margin:200},          // 보스가 노린 쪽에서 좌우 뒤로 2.2라디안 · 520 거리에 피난 원 둘
+  serpent_doom:{name:'독왕의 심판',hint:'뱀의 등 뒤로 돌아가세요',doom:true,major:true,wind:4.6,hits:1,damage:1,len:1600,arc:2.45}, // 앞쪽 ±140도를 덮는다 — 등 뒤 80도만 안전
+  machine_doom:{name:'최후의 방전',hint:'기계 발밑으로 붙으세요',doom:true,major:true,wind:4.6,hits:1,damage:1,inner:190,r:1700}, // 보스 둘레 190 안만 안전
+  thunder_doom:{name:'천뢰 심판',hint:'뇌조에게서 멀리 벗어나세요',doom:true,major:true,wind:4.6,hits:1,damage:1,r:560},           // 보스 둘레 560 안이 즉사
 };
 export const WORLD_BOSS_BY_TYPE=Object.fromEntries(WORLD_BOSSES.map(b=>[b.type,b]));
 export const WORLD_BOSS_BY_ID=Object.fromEntries(WORLD_BOSSES.map(b=>[b.id,b]));

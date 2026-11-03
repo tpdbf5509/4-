@@ -5,8 +5,6 @@ export const COMBAT_RULES = {
   highStatLevel: 400, highStatPoints: 3,
   circle: { radius: 180, duration: 20, cooldown: 25, attack: .2, healing: .2 },
   duelPotions: 5,
-  // 결투장 회복 배율 — 결투장에서 들어오는 회복(물약 · 치유사 치유)에 곱한다. 피해가 1%만 들어가므로 회복도 1%로 맞춘다(11월 4일 사용자 요청)
-  duelHealMul: 0.01,
 };
 export const duelAllies=(a,b)=>!!a&&!!b&&a.map===b.map&&a.ring===b.ring&&a.duelTeam!==undefined&&a.duelTeam===b.duelTeam&&a.dvs>=0&&b.dvs>=0;
 export const circleAlly=(a,b)=>a===b||(a.map===b.map&&(a.dvs>=0||b.dvs>=0?duelAllies(a,b):!(a.pvpOn||b.pvpOn)||(a.pty&&a.pty===b.pty)));

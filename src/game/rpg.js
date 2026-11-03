@@ -60,7 +60,9 @@ export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
 const ARENA_RING = { rx: 820, ry: 560, gap: 1850, x0: 1000, y: 900 };
 // dmgMul — 결투장 공격력 배율. 11월 3일 사용자 요청으로 한도 없이 이 배율 하나로 바꿨다 — 85% 감소(0.15) → 97%(0.03) → 99%(0.01) → 같은 날 99.5%(0.005) → 11월 4일 99%(0.01)로 잠깐 바꿨다가 사용자 요청으로 99.5%(0.005)로 되돌렸다.
 //   예전 0.3 + 스킬 한 번 한도(skillPct) · 평타 한 대 한도(basicPct)는 결투장에서 더 쓰지 않는다
-export const DUEL = { dmgMul: 0.005, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
+export const DUEL = { dmgMul: 0.005,
+  calm: 7, calmRegen: 0.02,   // 결투장 자동 회복 — 맞지 않고 7초 뒤부터 초당 최대 체력의 2%(11월 4일 사용자 요청, 일반 사냥터는 RPG.calm 2.5초 · 3%)
+  ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
   // 아래 한도 셋은 이제 사냥터 PvP 에만 쓴다(FIELD_PVP). 결투장은 dmgMul 만 곱한다
   // 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 한도를 넘지 않는다(스킬 한 방에 쓰러져 막았다).
   // 한도는 맞는 사람 최대 체력의 skillPct 몫이다 — 고정 숫자(1000)면 체력 500 이하인 대부분의 사람이 화염검 한 번에 쓰러졌다(10월 20일).
@@ -3535,7 +3537,8 @@ function stepHeroes(g, dt) {
       return;
     }
     h.calm += dt;
-    if (h.calm >= RPG.calm) h.hp = Math.min(h.max, h.hp + h.max * RPG.calmRegen * dt * (h.ac ? acHealMul(h) : 1));   // 강화 카드 — 받는 회복량
+    const duelRest = isPvp(h.map);   // 결투장은 늦게 · 적게 차오른다
+    if (h.calm >= (duelRest ? DUEL.calm : RPG.calm)) h.hp = Math.min(h.max, h.hp + h.max * (duelRest ? DUEL.calmRegen : RPG.calmRegen) * dt * (h.ac ? acHealMul(h) : 1));   // 강화 카드 — 받는 회복량
     if (h.dash > 0) dashStep(h, dt);                // 대쉬 중에는 걷지 않고 달려 나간다
     else rpgWalk(h, dt);
 

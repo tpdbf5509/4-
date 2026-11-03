@@ -226,3 +226,29 @@ test('광장 포탈 근처에서만 소환·입장하고 포탈은 대화 대상
  h.x=C.portal.x;h.y=C.portal.y+70;assert(npcNear(h).worldBoss);assert(rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));
  h.x=900;h.y=820;assert(!rpgWorldBoss(g,0,{op:'enter'}));h.x=C.portal.x;h.y=C.portal.y+70;assert(rpgWorldBoss(g,0,{op:'enter'}));
 });
+// 즉사 기술(11월 4일) — 네 보스 모두 네 번째 공격. 안전한 자리는 멀쩡하고 범위 안은 방어와 상관없이 쓰러진다
+const DOOM={dragon:'dragon_doom',serpent:'serpent_doom',machine:'machine_doom',thunderbird:'thunder_doom'};
+function safeSpot(s,m){
+ if(s.shape==='shelter')return {x:s.safes[0].x,y:s.safes[0].y};
+ if(s.shape==='cone')return {x:m.x-Math.cos(s.a)*120,y:m.y-Math.sin(s.a)*120*C.squash};
+ if(s.shape==='ring')return {x:m.x+60,y:m.y};
+ return {x:m.x+(m.x>C.w/2?-1:1)*(s.r+150),y:m.y};
+}
+for(const [id,kind] of Object.entries(DOOM))test(`${id} 즉사 기술은 예고 뒤 안전한 자리만 살리고 범위 안은 방어와 상관없이 쓰러뜨린다`,()=>{
+ const g=setup();rpgWorldBoss(g,0,{op:'summon',id});for(let i=0;i<3;i++)rpgWorldBoss(g,i,{op:'enter'});
+ const a=g.wb.active,m=g.mobs.find(q=>q.id===a.mob),B=WORLD_BOSSES.find(b=>b.id===id),P=WORLD_BOSS_PATTERNS[kind];
+ assert.equal(B.attacks[3],kind);assert(P.doom&&P.major&&P.hint);
+ const [h0,h1,h2]=g.heroes.filter(Boolean);[h0,h1,h2].forEach(h=>{h.inv=0;h.x=m.x+300;h.y=m.y+120;});
+ a.seq=3;a.cd=0;advance(g,.02);assert.equal(a.attack.kind,kind);assert(a.attack.t>4);
+ const s=a.attack.areas[0],safe=safeSpot(s,m);
+ Object.assign(h0,safe);assert(!worldBossAreaContains(s,h0),'안전 자리');
+ const danger=s.shape==='ring'||s.shape==='shelter'?{x:m.x+500,y:m.y}:s.shape==='cone'?{x:m.x+Math.cos(s.a)*300,y:m.y+Math.sin(s.a)*300*C.squash}:{x:m.x+80,y:m.y};
+ Object.assign(h1,danger);Object.assign(h2,danger);h2.guard=99;assert(worldBossAreaContains(s,h1),'위험 자리');
+ const hp0=h0.hp;advance(g,a.attack.t+.04);
+ assert.equal(h0.hp,hp0);assert(h0.down<=0);assert.equal(h1.hp,0);assert(h1.down>0);assert.equal(h2.hp,0);assert(h2.down>0);
+});
+test('즉사 기술도 마지막 1.6초에 합동 공격으로 끊을 수 있다',()=>{
+ const g=setup();g.heroes.filter(Boolean).forEach(h=>h.lv=C.coop.lv);rpgWorldBoss(g,0,{op:'summon',id:'machine'});for(let i=0;i<3;i++)rpgWorldBoss(g,i,{op:'enter'});
+ const a=g.wb.active,m=g.mobs.find(q=>q.id===a.mob);a.seq=3;a.cd=0;advance(g,.02);
+ a.attack.t=1;assert(worldBossCoopOpen(a));g.heroes.filter(Boolean).forEach(h=>worldBossHit(g,m,h,10));assert.equal(a.attack,null);assert.equal(a.stun,C.coop.stun);
+});

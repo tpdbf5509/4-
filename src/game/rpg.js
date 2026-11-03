@@ -2001,17 +2001,21 @@ function hurtHero(g, h, raw, source, kind) {
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
     return;
   }
-  const defended=advTakeCut(h,0)>0||armorTakeMul(h)<1||h.guard>0||h.jb?.iron>0||h.as?.gT>0||h.as?.pT>0||h.as?.blT>0;
-  if(source?.boss)raw*=COMBAT_RULES.bossDamage*(defended?COMBAT_RULES.defendedBossDamage:1);
-  let dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
-  dmg = worldArmorAbsorb(h, dmg);
-  dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
-  if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
-  if (dmg <= 0) return;
-  if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
-  dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
-  if (dmg <= 0) return;
-  if (source?.exec) dmg = Math.min(dmg, h.hp);    // 암살자 처형 — 남은 체력만큼만(피해 숫자 · 되받아치기가 부풀지 않게)
+  let dmg;
+  if (source?.doom) dmg = h.hp;                   // 월드보스 즉사 기술 — 방어 · 감소 · 보호막을 건너뛰고 남은 체력만큼(대쉬 회피 위 · 전설 갑옷 부활 아래는 그대로)
+  else {
+    const defended=advTakeCut(h,0)>0||armorTakeMul(h)<1||h.guard>0||h.jb?.iron>0||h.as?.gT>0||h.as?.pT>0||h.as?.blT>0;
+    if(source?.boss)raw*=COMBAT_RULES.bossDamage*(defended?COMBAT_RULES.defendedBossDamage:1);
+    dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
+    dmg = worldArmorAbsorb(h, dmg);
+    dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
+    if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
+    if (dmg <= 0) return;
+    if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
+    dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
+    if (dmg <= 0) return;
+    if (source?.exec) dmg = Math.min(dmg, h.hp);    // 암살자 처형 — 남은 체력만큼만(피해 숫자 · 되받아치기가 부풀지 않게)
+  }
   h.hp -= dmg;
   if (h.ac) acAfterHurt(g, h, dmg, source);       // 마지막 버팀목 · 비상 장벽 · 되받아치기
   advHurt(advEngine, g, h);                       // 기사 — 철벽 방어 반격 · 생존 시험
@@ -5046,7 +5050,7 @@ export function rpgStepVisual(g, dt) {
 }
 
 // 월드보스는 기존 방장 판정과 연출 묶음을 사용한다.
-const worldBossEngine={body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
+const worldBossEngine={body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),kill:(g,h)=>hurtHero(g,h,h.max,{boss:true,doom:1}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
 export function rpgWorldBoss(g,pi,req){return worldBossInput(worldBossEngine,g,pi,req);}
 
 const guildEngine={...worldBossEngine,refresh:h=>refreshHp(h,false)};

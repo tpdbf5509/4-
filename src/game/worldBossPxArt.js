@@ -151,11 +151,56 @@ function featherHit(ctx, f, p) {
   return true;
 }
 
+/* 즉사 기술 — 경고 동안 보스 머리 위 저주 문양이 그려진다(p 0~1) */
+export function drawWbDoomSigilPx(ctx, x, y, p) {
+  const S = SH.doom_sigil, im = sheet("doom_sigil"); if (!im) return false;
+  ctx.save(); ctx.imageSmoothingEnabled = false; cell(ctx, im, S, segAt(S.warn, p), x, y - L.doomSigil.lift, L.doomSigil.k); ctx.restore();
+  return true;
+}
+const inSafe = (f, x, y) => (f.area.safes || []).some((z) => Math.hypot(x - z.x, (y - z.y) / C.squash) < z.r + 30);
+function doomHit(ctx, f, p, q) {
+  const s = f.area, sg = SH.doom_sigil, sim = sheet("doom_sigil");
+  // 문양이 부서지는 칸 — 맞는 순간 앞 4할 동안
+  if (sim && p < 0.4) cell(ctx, sim, sg, segAt(sg.hit, p / 0.4), f.x, f.y - L.doomSigil.lift, L.doomSigil.k);
+  if (f.tone === "dragon") {
+    const S = SH.doom_nuke, im = sheet("doom_nuke"), D = L.doomNuke; if (!im) return false;
+    const n = Math.max(3, Math.round(D.n * q));
+    for (let j = 0; j < n; j++) {
+      const a = j * TAU / n + 0.4, x = s.x + Math.cos(a) * D.ring, y = s.y + Math.sin(a) * D.ring * C.squash;
+      if (!inSafe(f, x, y)) cell(ctx, im, S, once(S, p * 1.15 - (j % 3) * 0.05), x, y, D.ringK);
+    }
+    cell(ctx, im, S, once(S, p), s.x, s.y, D.k);
+    return true;
+  }
+  if (f.tone === "serpent") {
+    const S = SH.doom_miasma, im = sheet("doom_miasma"), D = L.doomMiasma; if (!im) return false;
+    const i = Math.floor(p * S.n * 1.5), fade = D.alpha * Math.min(1, p * 6) * Math.min(1, (1 - p) / 0.35), step = D.step / Math.max(0.5, q);
+    D.rows.forEach((d, r) => {
+      for (let a = -s.arc + step / 2; a <= s.arc; a += step * (r ? 300 / d : 1)) {
+        const x = s.x + Math.cos(s.a + a) * d, y = s.y + Math.sin(s.a + a) * d * C.squash;
+        cell(ctx, im, S, (i + r * 3 + Math.round(a * 5)) % S.n, x, y, D.k, fade);
+      }
+    });
+    return true;
+  }
+  if (f.tone === "machine") {
+    const S = SH.doom_emp, im = sheet("doom_emp"), D = L.doomEmp; if (!im) return false;
+    D.rings.forEach((r, ri) => ringSpots({ x: s.x, y: s.y, r }, Math.max(4, Math.round((D.n + ri * 2) * q)), ri + f.seed).forEach(([x, y], j) =>
+      cell(ctx, im, S, once(S, p * 1.1 - ri * 0.06 - (j % 2) * 0.03), x, y, D.k)));
+    return true;
+  }
+  const S = SH.doom_plasma, im = sheet("doom_plasma"), B = SH.strike_t, bim = sheet("strike_t"), D = L.doomPlasma; if (!im) return false;
+  if (bim) ringSpots({ x: s.x, y: s.y, r: s.r * D.at }, Math.max(4, Math.round(D.n * q)), f.seed).forEach(([x, y], j) => cell(ctx, bim, B, segAt(B.hit, p + (j % 3) * 0.05), x, y, D.boltK));
+  cell(ctx, im, S, once(S, p * 0.9), s.x, s.y, D.k);
+  return true;
+}
+
 export function drawWbHitPx(ctx, f, p, q) {
   if (!f.area) return false;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   let ok;
-  if (f.tone === "serpent") ok = serpentHit(ctx, f, p, q);
+  if (f.doom) ok = doomHit(ctx, f, p, q);
+  else if (f.tone === "serpent") ok = serpentHit(ctx, f, p, q);
   else if (f.tone === "machine") ok = boltHit(ctx, f, p, q, "strike_m");
   else if (f.tone === "thunderbird") ok = f.pattern === "thunder_feathers" && f.area.shape === "line" ? featherHit(ctx, f, p) : boltHit(ctx, f, p, q, "strike_t");
   else ok = dragonHit(ctx, f, p, q);

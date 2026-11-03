@@ -54,12 +54,15 @@ export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
 
 // 결투 — 1대1 · 2인 파티의 2대2. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
-// 피해는 몹을 칠 때의 dmgMul(한 방에 끝나지 않게). 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
+// 피해는 공격력 85% 감소 — 몹을 칠 때의 dmgMul(15%)만 곱한다. 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
 // 명예 — 이기면 진 사람 명예의 honorRate 에 honorBase 를 더한 만큼 오른다(지는 쪽은 그대로). 경험치 · 코인은 없다
 // 결투장 칸 크기 — 좁다는 의견으로 키웠다(10월 20일). 예전 rx 540 · ry 380 · 칸 사이 1300
 const ARENA_RING = { rx: 820, ry: 560, gap: 1850, x0: 1000, y: 900 };
-export const DUEL = { dmgMul: 0.3, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
-  // 결투 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 한도를 넘지 않는다(스킬 한 방에 쓰러져 막았다).
+// dmgMul — 결투장 공격력 배율. 11월 3일 사용자 요청으로 "공격력 85% 감소"(0.15) 한 가지로 바꿨다.
+//   예전 0.3 + 스킬 한 번 한도(skillPct) · 평타 한 대 한도(basicPct)는 결투장에서 더 쓰지 않는다
+export const DUEL = { dmgMul: 0.15, ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
+  // 아래 한도 셋은 이제 사냥터 PvP 에만 쓴다(FIELD_PVP). 결투장은 dmgMul 만 곱한다
+  // 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 한도를 넘지 않는다(스킬 한 방에 쓰러져 막았다).
   // 한도는 맞는 사람 최대 체력의 skillPct 몫이다 — 고정 숫자(1000)면 체력 500 이하인 대부분의 사람이 화염검 한 번에 쓰러졌다(10월 20일).
   // 딱 자르면 센 스킬 · 약한 스킬이 모두 같아져서 한도 × skillSoft 를 기준으로 부드럽게 누른다 — 원래가 한도의 2.5배면 약 77%, 6배면 약 97%
   // 센 사람이 스킬 6번 맞히면 체력 절반쯤(한 번 약 8%)
@@ -1645,7 +1648,7 @@ function nearFoes(g, h, x, y, range) {
   return foes.filter(o=>dist(x,y,o.x,o.y)-7<=range).sort((a,b)=>dist(x,y,a.x,a.y)-dist(x,y,b.x,b.y));
 }
 // 결투 상대를 친다 — 쓰러지면 결투가 끝난다(tickDuels)
-// basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 상대 최대 체력의 DUEL.skillPct 를 넘지 않게 누른다(pvpSoft)
+// 사냥터 PvP 에서 basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 상대 최대 체력의 DUEL.skillPct 를 넘지 않게 누른다(pvpSoft)
 // 방어력 있는 사람 — 방어구 감소나 직업 기본 방어력(검사 · 기사)이 있다. 궁수 피해가 더 줄어든다
 const hasDefense = (o) => armorTakeMul(o) < 1 || classCut(o, advOf(o)?.id, "phys") > 0;
 function hitFoe(g, h, o, raw, basic, dot) {
@@ -1659,7 +1662,8 @@ function hitFoe(g, h, o, raw, basic, dot) {
   let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
   if (!off && archerCut(h)) dmg *= JOB_TUNE.archer.dmg * (hasDefense(o) ? JOB_TUNE.archer.vsArmor : 1);   // 궁수 — 피해 감소 · 방어력 있는 사람에게 더 감소
   if (!off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, o.max, true);   // 마법사 — 최대 체력 비례 피해(PvP 값)
-  if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
+  if (!field) { if (dmg <= 0.5) return; }   // 결투장 — 공격력 85% 감소(DUEL.dmgMul)만, 한 대 · 스킬 한도는 없다
+  else if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
   else {
     const c=h.cast||newCast(h),cap=DUEL.skillPct*(o.max||1),key=`${o.pi}:${o.who}`;
     if(!c.pvpRaw)c.pvpRaw={[key]:c.raw||0};

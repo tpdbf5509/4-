@@ -32,12 +32,11 @@ test('2대2 파티 변경·소유자 교체·인원 부족은 수락을 거절�
  assert(rpgDuel(g,0,{op:'ask',to:2,size:2}));g.heroes[1].pty=0;
  assert.equal(rpgDuel(g,2,{op:'accept'}),false);assert.equal(g.duels.length,0);
 });
-test('팀원은 공격하지 않으며 범위 공격은 양쪽 적에게 각자 피해 한도를 적용한다',()=>{
+test('팀원은 공격하지 않으며 범위 공격은 양쪽 적에게 같은 공격력 감소로 들어간다',()=>{
  const {g}=duel(),[a,b,c,d]=g.heroes;for(const h of [a,b,c,d]){h.x=1000;h.y=900;h.inv=0;}
  d.max=c.max;d.hp=c.hp;const hp=[a,b,c,d].map(h=>h.hp);rpgSkill(g,0);
  assert.equal(b.hp,hp[1]);assert(c.hp<hp[2]&&d.hp<hp[3]);
  assert(Math.abs((hp[2]-c.hp)-(hp[3]-d.hp)*(1-JOB_TUNE.warrior.cut))<.01);   // c 는 검사 — 기본 방어력 3%
- assert(hp[2]-c.hp<=c.max*DUEL.skillPct);assert(hp[3]-d.hp<=d.max*DUEL.skillPct);
 });
 test('결투용 물약만 5번 사용하며 구매 물약·응급 처치를 차단하고 가방 수량은 유지한다',()=>{
  const {g,h}=duel();assert(whyPotionUse(h,'heal_l').length>0);assert(!whyPotionUse({...h,hp:1},'heal_s').length);

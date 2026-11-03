@@ -310,8 +310,9 @@ test('명사수 · 총사 · 마도사 · 소환술사 패시브', () => {
   });
 });
 
-test('결투 — 전직 스킬 피해는 결투 한도 안 · 경직은 절반', () => {
-  fixedRandom(() => {
+test('결투 — 전직 스킬 피해는 공격력 85% 감소만(한도 없음, dmgMul 에 비례) · 경직은 절반', () => {
+  const lostWith = (mul) => { const keep = DUEL.dmgMul; DUEL.dmgMul = mul; try { return fixedRandom(() => duelLost()); } finally { DUEL.dmgMul = keep; } };
+  const duelLost = () => {
     const g = world([{ job: 'warrior', advClass: 'gladiator' }, { job: 'warrior' }]);
     g.mobs = [];
     rpgDuel(g, 0, { op: 'ask', to: 1 }); rpgDuel(g, 1, { op: 'accept' });
@@ -324,9 +325,12 @@ test('결투 — 전직 스킬 피해는 결투 한도 안 · 경직은 절반',
     run(g, 0.05);
     assert(b.cc && b.cc.stun <= ADV_BY_ID.gladiator.active.hits[0].stun * ADV.pvpCc + 1e-9);
     run(g, 1);
-    const lost = hp0 - b.hp;
-    assert(lost > 0 && lost <= b.max * DUEL.skillPct + 1, `잃은 체력 ${lost} / 한도 ${b.max * DUEL.skillPct}`);
-  });
+    return hp0 - b.hp;
+  };
+  assert.equal(DUEL.dmgMul, 0.15, '결투장 공격력 85% 감소');
+  const lost = lostWith(DUEL.dmgMul), half = lostWith(DUEL.dmgMul / 2);
+  assert(lost > 0, `잃은 체력 ${lost}`);
+  assert(Math.abs(lost - half * 2) < 1, `피해가 배율에 비례한다(한도로 눌리지 않는다) ${lost} / ${half}`);
 });
 
 test('스냅샷 — 손님 화면에 전직 · 시험 · 정령이 실리고 방장이 바뀌어도 정령이 이어진다', () => {
@@ -952,7 +956,7 @@ test('치유사 긴급 보호막 — 파티원(나 포함)이 30% 이하가 되�
   });
 });
 
-test('PvP — 전투 특성도 기존 한도 안(스킬 한 번 12% · 평타 3%) · 도발 없음 · 긴급 보호막은 나에게만', () => {
+test('결투 — 전투 특성도 나간다(결투장은 공격력 85% 감소만, 한도 없음) · 도발 없음 · 긴급 보호막은 나에게만', () => {
   fixedRandom(() => {
     const duel = (a, b) => {
       const g = world([a, b]); g.mobs = [];
@@ -963,19 +967,19 @@ test('PvP — 전투 특성도 기존 한도 안(스킬 한 번 12% · 평타 3%
       x.auto = y.auto = 0; x.fire = y.fire = 0; y.x = x.x + 60; y.y = x.y; x.dir = 1;
       return { g, x, y };
     };
-    // 검투사 4단계 — 직업 스킬 + 궁극기 + 연계 참격: 스킬 둘이라 24% 를 넘지 않는다
+    // 검투사 4단계 — 직업 스킬 + 궁극기 + 연계 참격
     const gl = duel({ job: 'warrior', advClass: 'gladiator', advM: PTS[3], bag: { s: { j_cleave: 5 }, ks: { job: 'j_cleave', g: ['', ''] } } }, { job: 'warrior' });
     const hp0 = gl.y.hp;
     rpgUseSkill(gl.g, 0, 'j_cleave'); rpgSkill(gl.g, 0); runC(gl.g, 0.4);
     assert.equal(fxOf(gl.g, 'sk_adv_combo').length, 1, '결투에서도 연계는 나간다');
-    assert(hp0 - gl.y.hp <= gl.y.max * DUEL.skillPct * 2 + 1, `잃은 체력 ${hp0 - gl.y.hp}`);
-    // 명사수 4단계 — 정밀 사격도 평타 한도(3%)
+    assert(hp0 - gl.y.hp > 0, `잃은 체력 ${hp0 - gl.y.hp}`);
+    // 명사수 4단계 — 정밀 사격도 들어간다
     const ms = duel({ job: 'archer', advClass: 'marksman', advM: PTS[3] }, { job: 'warrior' });
     Object.assign(asOf(ms.x), { pr: 1, tcd: 0 });
     ms.x.fire = 1;
     let last = ms.y.hp, maxHit = 0;
     for (let i = 0; i < 200; i++) { tick(ms.g, 0.02); maxHit = Math.max(maxHit, last - ms.y.hp); last = ms.y.hp; }
-    assert(maxHit > 0 && maxHit <= ms.y.max * DUEL.basicPct + 1, `한 대 ${maxHit}`);
+    assert(maxHit > 0, `한 대 ${maxHit}`);
     // 기사 — 충격파는 사람을 도발하지 않는다
     const kn = duel({ job: 'warrior', advClass: 'knight', advM: PTS[3] }, { job: 'warrior', bag: { s: { j_cleave: 5 }, ks: { job: 'j_cleave', g: ['', ''] } } });
     send(kn.g, 0, 'adv', { op: 'use' });
@@ -983,15 +987,15 @@ test('PvP — 전투 특성도 기존 한도 안(스킬 한 번 12% · 평타 3%
     kn.y.dir = -1; rpgUseSkill(kn.g, 1, 'j_cleave'); runC(kn.g, 0.3);
     assert.equal(fxOf(kn.g, 'sk_adv_wave').length, 1);
     assert(!(kn.y.taunt > 0));
-    // 마도사 4단계 — 공명 3 폭발도 한 스킬 한도 안
+    // 마도사 4단계 — 공명 3 폭발도 들어간다
     const am = duel({ job: 'mage', advClass: 'archmage', advM: PTS[3], elem: 'flame' }, { job: 'warrior' });
     Object.assign(asOf(am.x), { rs: 3, rsT: 8, st: 10 });
     const ahp = am.y.hp;
     send(am.g, 0, 'adv', { op: 'use' }); runC(am.g, 1.5);
-    assert(ahp - am.y.hp <= am.y.max * DUEL.skillPct + 1, `마력 폭발 + 공명 ${ahp - am.y.hp}`);
+    assert(ahp - am.y.hp > 0, `마력 폭발 + 공명 ${ahp - am.y.hp}`);
     // 치유사 — 결투에서는 나에게만
     const he = duel({ job: 'mage', advClass: 'healer', advM: PTS[1] }, { job: 'warrior', bag: { s: { j_cleave: 5 }, ks: { job: 'j_cleave', g: ['', ''] } } });
-    he.x.hp = he.x.max * 0.31;
+    he.x.hp = he.x.max * 0.85;                         // 결투장은 한도가 없어 베기 한 번이 체력 약 60% — 맞고 30% 아래로 남게
     he.y.dir = -1; rpgUseSkill(he.g, 1, 'j_cleave'); runC(he.g, 0.2);
     assert(he.x.hp < he.x.max * 0.3);
     assert.equal(fxOf(he.g, 'sk_adv_esh').length, 1); assert(he.x.jb.sh > 0, '나에게만');

@@ -880,18 +880,6 @@ function drawComboHero(ctx, h, time) {
       glow(ctx, hx + Math.sin(i * 3.1 + time) * 14, y1 - k * 30, 6, "rgba(170,90,240,0.8)", "rgba(60,10,90,0)");
     }
     ctx.restore();
-    if (c.st === 3) {                             // 마무리 타이밍 고리 — 조여 들다 금빛 칸에서 누른다
-      const S = WEAPON_SKILLS.shadow.skill, u = Math.min(1, c.el / S.finGap);
-      const ok = c.el >= S.perfect[0] && c.el <= S.perfect[1];
-      ctx.save();
-      ctx.translate(h.x, h.y - 4); ctx.scale(1, SQ());
-      ctx.strokeStyle = "rgba(255,230,160,0.55)"; ctx.lineWidth = 2;
-      const rIn = 70 * (1 - S.perfect[1] / S.finGap) + 14, rOut = 70 * (1 - S.perfect[0] / S.finGap) + 14;
-      ctx.beginPath(); ctx.arc(0, 0, (rIn + rOut) / 2, 0, TAU); ctx.stroke();
-      ctx.strokeStyle = ok ? "rgba(255,226,120,1)" : "rgba(210,160,255,0.85)"; ctx.lineWidth = ok ? 4 : 2.5;
-      ctx.beginPath(); ctx.arc(0, 0, 70 * (1 - u) + 14, 0, TAU); ctx.stroke();
-      ctx.restore();
-    }
   }
   if (c && sp === "holy") {                       // 천사의 날개 — 반격 자세에서 등 뒤로 펼쳐지고, 반격 뒤에는 더 밝다
     const open = c.st === 1 ? Math.min(1, (c.el || 0) / 0.15) : 1, bright = c.st === 1 ? 0.8 : 1;

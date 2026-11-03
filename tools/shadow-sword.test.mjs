@@ -1,4 +1,4 @@
-/* 암흑검 「종말의 연격」 — 한 번 누를 때마다 한 타 · 헛베어도 연계가 이어지는지를 실제 게임 함수로 본다. node --test tools/shadow-sword.test.mjs */
+/* 암흑검 「종말의 연격」 — 한 번 누르면 10초 동안 평타마다 연격이 나가고 공격 속도가 오르는지를 실제 게임 함수로 본다(11월 4일). node --test tools/shadow-sword.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -23,53 +23,60 @@ function setup() {
 const run = (g, t) => { for (let n = 0; n < Math.round(t / 0.01); n++) rpgStep(g, 0.01); };
 const farAway = (g, h) => { h.x = 200; h.y = 200; g.mobs.forEach((m) => { if (m.map === 'train') { m.x = 1500; m.y = 1500; } }); };   // 닿는 거리 안에 적이 없다
 const fxKinds = (g) => g.out.filter((o) => o.k === 'fx').map((o) => o.kind);
+const order = (g) => fxKinds(g).filter((k) => k.startsWith('sk_px_sh'));
 
-test('적이 하나도 없어도 한 번 누르면 1타가 나가고 다시 누르면 2타 · 마무리가 나간다', () => {
+test('한 번 누르면 지속 시간 동안 평타마다 1타 · 2타 · 3타가 차례로 나간다(헛베어도)', () => {
   const { g, h } = setup();
   farAway(g, h);
   rpgWeaponSkill(g, 0);
-  assert.ok(fxKinds(g).includes('sk_px_shcut1'), '1타 연출: ' + fxKinds(g));
-  assert.equal(h.ws.cmb?.st, 2, '헛베어도 연계가 2타 입력으로 이어진다');
-  assert.equal(h.ws.wcd, S.cd);
+  assert.equal(h.ws.cmb?.sp, 'shadow');
+  assert.equal(h.ws.cmb?.st, 1);
+  assert.equal(h.ws.cmb?.t, S.dur);
   g.out = [];
-  run(g, 0.2);
-  rpgWeaponSkill(g, 0);
-  assert.ok(fxKinds(g).includes('sk_px_shcut2'), '2타 연출: ' + fxKinds(g));
-  assert.equal(h.ws.cmb?.st, 3, '헛베어도 마무리 입력으로 이어진다');
-  g.out = [];
-  run(g, S.perfect[0] + 0.05);
-  rpgWeaponSkill(g, 0);
-  run(g, 0.3);
-  assert.ok(fxKinds(g).includes('sk_px_shslam'), '마무리 연출: ' + fxKinds(g));
-  assert.equal(h.ws.cmb, null, '마무리 뒤 연계가 끝난다');
+  h.fire = 1;                                     // 평타 키를 누르고 있다 — 허공을 벤다
+  run(g, 2);
+  const seq = order(g);
+  assert.deepEqual(seq.slice(0, 3), ['sk_px_shcut1', 'sk_px_shcut2', 'sk_px_shslam'], '순서: ' + seq);
+  assert.ok(seq.length >= 5, '2초 동안 여러 번 나간다: ' + seq.length);
+  rpgWeaponSkill(g, 0);                           // 지속 중 다시 눌러도 바뀌지 않는다
+  assert.equal(h.ws.cmb?.st, 1);
 });
 
-test('다음 입력이 없으면 정해진 시간 뒤에 연계가 끝난다', () => {
+test('지속 중에는 공격 속도가 오르고 끝나면 그때부터 대기 시간을 센다', () => {
+  const count = (buff) => {
+    const { g, h } = setup();
+    farAway(g, h);
+    if (buff) rpgWeaponSkill(g, 0);
+    g.out = []; h.fire = 1;
+    run(g, 3);
+    return fxKinds(g).filter((k) => k === 'slash').length;
+  };
+  const plain = count(false), fast = count(true);
+  console.log('평타 수 3초', plain, '→', fast);
+  assert.ok(fast >= plain * (1 + S.aspd) - 1.5, `평타 수 ${plain} → ${fast}`);
   const { g, h } = setup();
   farAway(g, h);
   rpgWeaponSkill(g, 0);
-  run(g, S.gap + 0.1);
-  assert.equal(h.ws.cmb, null);
-  const { g: g2, h: h2 } = setup();
-  farAway(g2, h2);
-  rpgWeaponSkill(g2, 0); run(g2, 0.1); rpgWeaponSkill(g2, 0);
-  run(g2, S.finGap + 0.1);
-  assert.equal(h2.ws.cmb, null);
+  run(g, S.dur + 0.05);
+  assert.equal(h.ws.cmb, null, '지속이 끝났다');
+  assert.ok(h.ws.wcd > S.cd - 0.2, '대기 시간은 끝난 뒤부터: ' + h.ws.wcd);
+  rpgWeaponSkill(g, 0);
+  assert.equal(h.ws.cmb, null, '대기 중에는 다시 쓸 수 없다');
 });
 
-test('맞히면 전처럼 1타 경직 · 2타 밀어내기 · 마무리 피해가 들어간다', () => {
-  const { g, h } = setup();
-  const d = g.mobs.find((m) => m.map === 'train' && m.hp > 0);
-  h.x = d.x - 70; h.y = d.y;
-  let tot = h.trn?.tot || 0;
-  const step = () => { const t = h.trn?.tot || 0; const dt = t - tot; tot = t; return dt; };
-  rpgWeaponSkill(g, 0); run(g, 0.05); assert.ok(step() > 0, '1타 피해');
-  assert.equal(h.ws.cmb?.st, 2);
-  run(g, 0.2); h.x = d.x - 70; h.y = d.y;
-  rpgWeaponSkill(g, 0); run(g, 0.05); assert.ok(step() > 0, '2타 피해');
-  assert.equal(h.ws.cmb?.st, 3);
-  run(g, S.perfect[0] + 0.05); h.x = d.x - 70; h.y = d.y;
-  rpgWeaponSkill(g, 0); run(g, 0.4); assert.ok(step() > 0, '마무리 피해');
+test('맞히면 평타 피해에 연격 피해가 더해진다', () => {
+  const dealt = (buff) => {
+    const { g, h } = setup();
+    const d = g.mobs.find((m) => m.map === 'train' && m.hp > 0);
+    if (buff) rpgWeaponSkill(g, 0);
+    h.fire = 1;
+    const t0 = h.trn?.tot || 0;
+    for (let n = 0; n < 200; n++) { h.x = d.x - 70; h.y = d.y; rpgStep(g, 0.01); }
+    return (h.trn?.tot || 0) - t0;
+  };
+  const plain = dealt(false), buffed = dealt(true);
+  console.log('2초 피해', Math.round(plain), '→', Math.round(buffed));
+  assert.ok(buffed > plain * 1.8, `피해 ${Math.round(plain)} → ${Math.round(buffed)}`);
 });
 
 test('새 연출 시트가 있고 그리는 법이 적혀 있다', () => {

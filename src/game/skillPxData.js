@@ -23,7 +23,7 @@ export const SKILL_PX_SHEETS = {
   chain: { w: 119, h: 88, cols: 3, n: 10, px: 75, py: 44 },                // lightning/zap-hit(노란빛 · 11월 2일)
   iron: { w: 70, h: 74, cols: 4, n: 12, px: 35, py: 61, loop: 1 },         // holy/divine-shield
   circle: { w: 162, h: 219, cols: 5, n: 16, px: 81, py: 192 },             // arcane/magic-circle-cast
-  // 암흑검 종말의 연격(11월 2일) — 세 타마다 다른 시트. 보랏빛 톤다운 · 판정은 rpg.js shadowCut · shadowFinish 그대로
+  // 암흑검 종말의 연격(11월 2일) — 세 타마다 다른 시트. 보랏빛 톤다운 · 판정은 rpg.js shadowCut · shadowFinish(11월 4일부터 지속 중 평타마다 shadowProc 가 부른다)
   sh_cut1: { w: 127, h: 100, cols: 4, n: 17, px: 43, py: 91 },             // melee/sword-slash(라벤더) — 1타 초승달
   sh_cut2: { w: 125, h: 97, cols: 4, n: 17, px: 43, py: 88 },              // melee/sword-slash(먼지 장미빛) — 2타 반대로 벤다
   sh_slam: { w: 149, h: 95, cols: 3, n: 10, px: 47, py: 76 },              // melee/heavy-cleave(라벤더) — 마무리 내려치기

@@ -977,7 +977,7 @@ export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
 export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul * (jobOf(h).id === "archer" ? JOB_TUNE.archer.range : 1) * acRangeMul(h);   // 10월 30일 궁수 사거리 +15%
-const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h) + guildAspd(h)) / acAspdMul(h);   // 전설 바지 · 신발 — 공격 속도
+const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h) + guildAspd(h)) / acAspdMul(h) / shadowAspd(h);   // 전설 바지 · 신발 — 공격 속도 · 암흑검 연격 지속 중
 
 /* 자리마다 앉은 사람의 겉모습 — 방장과 손님 모두 자리가 바뀔 때마다 넣는다.
    seats[pi] = { id, name, hero: { name, job, elem, gender } } 또는 null */
@@ -2883,6 +2883,7 @@ const burnBonus = (h, o) => (elemOf(h).id === "flame" && o && o.burn > 0 ? WS.fl
 // 평타를 친 뒤 — 불꽃 회오리 · 관통 표식이 이어진다
 function weaponOnAttack(g, h) {
   const sp = heldSpecial(h), w = wsOf(h);
+  if (sp === "shadow" && w.cmb && w.cmb.sp === "shadow" && w.cmb.st === 1) shadowProc(g, h, w.cmb);   // 종말의 연격 지속 중 — 평타마다 한 타
   if (sp === "lava_bow" && w.mark > 0) w.markT = WS.lava_bow.passive.fade;
   if (sp === "flame" && w.emb >= WS.flame.passive.need) {
     const P = WS.flame.passive;
@@ -2938,6 +2939,7 @@ function tickWeapon(g, h, dt) {
 function comboEnd(g, h, timeout) {
   const w = wsOf(h), c = w.cmb;
   w.cmb = null;
+  if (c && c.sp === "shadow") w.wcd = Math.max(w.wcd, WS.shadow.skill.cd * worldCooldownMul(h));   // 연격 지속이 끝났다 — 대기 시간은 이제부터
   if (c && c.sp === "star_bow" && c.st === 1) {
     w.wcd = Math.max(w.wcd, WS.star_bow.skill.cancelCd);
     if (timeout) say(g, h.map, h.x, h.y - 96, "조준이 풀렸다", "#d9c9a6");
@@ -3157,7 +3159,7 @@ export function rpgWeaponSkill(g, pi) {
         });
       });
     }
-  } else if (sp === "shadow") shadowCut(g, h, S, 1);   // 종말의 연격 1타
+  } else if (sp === "shadow") shadowStart(g, h, S);   // 종말의 연격 — dur 초 동안 평타마다 연격
   else if (sp === "holy") {                       // 심판의 반격 — 반격 자세
     w.cmb = { sp, st: 1, t: S.stance, el: 0 };
     fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 70, color: "#ffe9a8", t: S.stance, life: S.stance, snd: "bless" });   // 날개는 drawHeroSkill
@@ -3175,7 +3177,7 @@ export function rpgWeaponSkill(g, pi) {
 // 연계 — 이어 누른 입력. 단계 0 은 날아가는 중(맞는지 기다린다)
 function comboNext(g, h, sp, S, w, c) {
   if (c.st === 0) return;
-  if (sp === "shadow") return c.st === 2 ? shadowCut(g, h, S, 2) : shadowFinish(g, h, S, c);
+  if (sp === "shadow") return say(g, h.map, h.x, h.y - 90, `종말의 연격 ${Math.ceil(c.t)}초 남음`, "#d6c4f0");   // 지속 중 — 평타가 연격을 낸다
   if (sp === "holy") return c.st === 2 ? holySlam(g, h, S) : undefined;   // 자세 중에 다시 눌러도 그대로 기다린다
   if (sp === "star_bow") return starShot(g, h, S, c);
   if (sp === "lava_bow" && c.st === 2) return lavaPierce(g, h, S, w);
@@ -3183,10 +3185,32 @@ function comboNext(g, h, sp, S, w, c) {
   if (sp === "galaxy_staff" && c.st === 2) return riftFire(g, h, S);   // 빗나가 균열이 생겼다 — 균열에서 평타
 }
 
-/* 암흑검 — 1타 경직 · 2타 반대로 베며 밀어내기 · 마무리 내려치기.
-   한 번 누를 때마다 한 타가 나간다(11월 2일). 앞에 적이 없어 헛베어도 연계는 끊기지 않고, 정해진 시간(gap · finGap) 안에 다시 누르면 다음 타가 나간다 */
+/* 암흑검 — 한 번 누르면 dur 초 동안 평타마다 연격 한 타가 함께 나간다(11월 4일).
+   1타 경직 → 2타 반대로 베며 밀어내기 → 3타 내려치기 순서로 돌고, 그동안 공격 속도가 오른다(shadowAspd).
+   w.cmb = { sp: "shadow", st: 1, t: 남은 초, n: 다음 타(0 · 1 · 2), hit: 2타가 밀어낸 적, cast: 지속 전체의 스킬 한 번 } */
+function shadowStart(g, h, S) {
+  const w = wsOf(h);
+  w.cmb = { sp: "shadow", st: 1, t: S.dur, el: 0, n: 0, hit: null, cast: h.cast };
+  fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 30, r: 90, color: "#b48ae0", n: 12, t: 0.5, life: 0.5, snd: "bless" });
+}
+// 연격 지속 중 공격 속도 배율
+function shadowAspd(h) {
+  const c = h.ws && h.ws.cmb;
+  return c && c.sp === "shadow" && c.st === 1 && heldSpecial(h) === "shadow" ? 1 + WS.shadow.skill.aspd : 1;
+}
+// 평타를 친 뒤 — 지속 중이면 다음 타를 낸다. 피해는 이 스킬 한 번(c.cast)으로 센다
+function shadowProc(g, h, c) {
+  const S = WS.shadow.skill, prev = h.cast;
+  h.cast = c.cast || (c.cast = { raw: 0, weapon: true, sid: "wpn" });
+  try {
+    const n = c.n || 0;
+    c.n = (n + 1) % 3;
+    if (n < 2) c.hit = shadowCut(g, h, S, n + 1);
+    else shadowFinish(g, h, S, c);
+  } finally { h.cast = prev; }
+}
 function shadowCut(g, h, S, n) {
-  const w = wsOf(h), map = h.map;
+  const map = h.map;
   const [ax, ay] = aimTo(g, h, S.r);
   const list = arcFoes(g, h, ax, ay, S.r, S.arc);
   const base = skillBase(h);
@@ -3195,32 +3219,33 @@ function shadowCut(g, h, S, n) {
     else { strikeAny(g, h, o, base * S.mul2); ccAny(g, h, o, { kb: [...awayFrom(h, o, ax, ay), S.push] }); }
   });
   fx(g, map, { kind: n === 1 ? "sk_px_shcut1" : "sk_px_shcut2", x: h.x + ax * 30, y: h.y - 34 + ay * 30 * RPG.squash, r: S.r, a: angOf(ax, ay),
-    t: 0.45, life: 0.45, snd: "slash" });   // pixelfx 초승달(skillPxArt.js) — 맞았든 헛베었든 같다
-  g.shake = Math.max(g.shake, 0.25);
+    t: 0.45, life: 0.45 });   // pixelfx 초승달(skillPxArt.js) — 맞았든 헛베었든 같다. 소리는 평타가 낸다
+  g.shake = Math.max(g.shake, 0.12);
   h.swing = 0.3;
-  w.cmb = n === 1 ? { sp: "shadow", st: 2, t: S.gap, el: 0 } : { sp: "shadow", st: 3, t: S.finGap, el: 0, hit: list };   // 마무리는 밀어낸 적에게
+  return list;                                    // 3타는 2타가 밀어낸 적에게 뛰어든다
 }
 function shadowFinish(g, h, S, c) {
-  const w = wsOf(h), map = h.map;
-  w.cmb = null;
-  const perfect = c.el >= S.perfect[0] && c.el <= S.perfect[1];   // 정확한 타이밍
+  const map = h.map, cast = h.cast;
   const reach = S.r + S.push + 60;                // 밀어낸 적(가장 가까운 것)에게 뛰어들어 내려친다
   const o = (c.hit || []).filter((q) => aliveFoe(g, h, q, map) && dist(h.x, h.y, q.x, q.y) <= reach)
     .sort((a, b) => dist(h.x, h.y, a.x, a.y) - dist(h.x, h.y, b.x, b.y))[0];
+  c.hit = null;
   if (o) lungeTo(h, o, 0.15);
   h.swing = 0.4;
   later(g, o ? 0.15 : 0, () => {
     if (h.map !== map || h.down > 0) return;
-    const list = foesNear(g, h, h.x, h.y, S.slamR);
-    list.forEach((q) => {
-      const mark = branded(q);
-      if (mark) unbrand(q);
-      strikeAny(g, h, q, skillBase(h) * S.mul3 * (perfect ? S.perfectMul : 1) * (mark ? 1 + WS.shadow.passive.bonus : 1));
-      if (mark) fx(g, map, { kind: "call", x: q.x, y: q.y - 90, text: "낙인 폭발", color: "#e3a6ff", t: 0.8, life: 0.8 });
-    });
-    fx(g, map, { kind: "sk_px_shslam", x: h.x + h.dir * 30, y: h.y, r: S.slamR + (perfect ? 24 : 0), dir: h.dir, t: 0.8, life: 0.8, snd: perfect ? "crit" : "boom" });   // pixelfx 내려치기(skillPxArt.js)
-    if (perfect) fx(g, map, { kind: "call", x: h.x, y: h.y - 120, text: "정확한 타이밍!", color: "#e9c8ff", t: 0.9, life: 0.9, who: h.pi });
-    g.shake = Math.max(g.shake, perfect ? 0.8 : 0.55);
+    const prev = h.cast;
+    h.cast = cast;
+    try {
+      foesNear(g, h, h.x, h.y, S.slamR).forEach((q) => {
+        const mark = branded(q);
+        if (mark) unbrand(q);
+        strikeAny(g, h, q, skillBase(h) * S.mul3 * (mark ? 1 + WS.shadow.passive.bonus : 1));
+        if (mark) fx(g, map, { kind: "call", x: q.x, y: q.y - 90, text: "낙인 폭발", color: "#e3a6ff", t: 0.8, life: 0.8 });
+      });
+    } finally { h.cast = prev; }
+    fx(g, map, { kind: "sk_px_shslam", x: h.x + h.dir * 30, y: h.y, r: S.slamR, dir: h.dir, t: 0.8, life: 0.8, snd: "boom" });   // pixelfx 내려치기(skillPxArt.js)
+    g.shake = Math.max(g.shake, 0.35);
   });
 }
 

@@ -3,9 +3,10 @@
 import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_TYPE,WORLD_BOSS_PATTERNS} from './worldBossData.js';
 import {bloom,sparks,ring,bolt} from './combatFx.js';
 import {worldBossCoopOpen} from './worldBoss.js';
+import {VOID_TONE,drawVoidGround,drawVoidImpact,drawVoidSigil} from './voidBossArt.js';
 import {warmWorldBossPx,drawWbWarnPx,drawWbPoolPx,drawWbStunPx,drawWbHitPx,drawWbBreakPx,drawWbFallPx,drawWbDoomSigilPx} from './worldBossPxArt.js';
 const TAU=Math.PI*2;
-const TONES={dragon:['#96351d','#ff873b','#fff1bf'],serpent:['#48315e','#a9e66e','#f2ffd4'],machine:['#235476','#68dafa','#f0fcff'],thunderbird:['#403879','#a7a2ff','#e6fbff']};
+const TONES={dragon:['#96351d','#ff873b','#fff1bf'],serpent:['#48315e','#a9e66e','#f2ffd4'],machine:['#235476','#68dafa','#f0fcff'],thunderbird:['#403879','#a7a2ff','#e6fbff'],void:VOID_TONE};
 let atlas;
 const bossImages={};
 function bossImage(src){
@@ -73,7 +74,7 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
   if(a.attack){
     const attack=a.attack,p=Math.max(0,Math.min(1,1-attack.t/attack.life)),open=worldBossCoopOpen(a),doom=WORLD_BOSS_PATTERNS[attack.kind]?.doom;
     attack.areas.forEach((s,i)=>{
-      paintArea(ctx,s,open?'#ffe49c':doom?DOOM_COLOR:attack.major?'#ee956e':'#f7b267',doom?.16+p*.26:.12+p*.2,true);
+      paintArea(ctx,s,open?'#ffe49c':doom?DOOM_COLOR:a.id==='void'?tone[1]:attack.major?'#ee956e':'#f7b267',doom?.16+p*.26:.12+p*.2,true);
       if(doom){drawDoomSafe(ctx,s,a,p);return;}
       if(s.shape==='outside'){
         ring(ctx,s.x,s.y,s.r,C.squash,'#96f7ec',.95,4);
@@ -96,6 +97,7 @@ export function drawWorldBossGround(ctx,g,map,quality=1){
         if(a.id==='machine'||a.id==='thunderbird')bolt(ctx,s.x+18,s.y-170,s.x,s.y-15,tone,1-p,2,i);
       }
     });
+    if(a.id==='void')drawVoidGround(ctx,a,attack,p,t,quality);   // 중력장 소용돌이 · 공간 절단 눈금 · 포탈
     if(attack.major&&attack.step===0){
       const color=open?'#ffe49c':doom?DOOM_COLOR:tone[1];runeHalo(ctx,a.x,a.y,130+45*p,t,color,quality);
       bloom(ctx,a.x,a.y-150,150,color,.18+p*.3);
@@ -129,7 +131,7 @@ export function drawWorldBossSprite(ctx,m,time,state,quality=1){
   ctx.restore();
   // 즉사 기술 예고 — 보스 머리 위 저주 문양(그림 위에 보이게 몸 다음에 그린다)
   const doomAt=state?.attack&&WORLD_BOSS_PATTERNS[state.attack.kind]?.doom;
-  if(doomAt&&!worldBossCoopOpen(state))drawWbDoomSigilPx(ctx,m.x,m.y,Math.max(0,Math.min(1,1-state.attack.t/state.attack.life)));
+  if(doomAt&&!worldBossCoopOpen(state)){const dp=Math.max(0,Math.min(1,1-state.attack.t/state.attack.life));if(B.id==='void')drawVoidSigil(ctx,m.x,m.y,dp,time);else drawWbDoomSigilPx(ctx,m.x,m.y,dp);}
   if(state?.stun>0){
     if(drawWbStunPx(ctx,m.x,m.y,time))return true;
     ctx.save();ctx.strokeStyle='#ffe6a3';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(m.x,m.y-290,70,20,0,0,TAU);ctx.stroke();
@@ -222,6 +224,7 @@ export function drawWorldBossFx(ctx,f,p,quality){
   if(f.kind!=='sk_raid_hit')return false;
   const tone=TONES[f.tone]||TONES.dragon;
   ctx.save();if(f.area&&f.area.shape!=='outside')paintArea(ctx,f.area,tone[1],(1-p)*.23);
+  if(f.tone==='void'){drawVoidImpact(ctx,f,p,quality);ctx.restore();return true;}
   if(drawWbHitPx(ctx,f,p,quality)){ctx.restore();return true;}
   if(f.tone==='serpent')poisonImpact(ctx,f,p,quality,tone);
   else if(f.tone==='thunderbird')thunderbirdImpact(ctx,f,p,quality,tone);

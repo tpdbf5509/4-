@@ -5,6 +5,7 @@ import { drawWorldWeaponFx } from "./worldWeaponArt.js";
 import { drawAdvFx, ADV_GROUND } from "./advArt.js";
 import { drawAbyssFx, ABYSS_GROUND_FX } from "./abyssArt.js";
 import { drawStormFx, drawStormCharge } from './stormWeaponArt.js';
+import { drawVoidFx } from './voidWeaponArt.js';
 import { drawFuryFx } from "./furyArt.js";
 import { drawSkillPx } from "./skillPxArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
@@ -57,6 +58,7 @@ export function drawSkillFx(ctx, f, time, g) {
   if (drawAdvFx(ctx, f, p, time, Q)) return;      // 1차 전직(advArt.js)
   if (drawAbyssFx(ctx, f, p, time, Q)) return;    // 심연의 탑 수호자 기술(abyssArt.js)
   if (drawStormFx(ctx, f, p, SQ(), g, Q)) return;
+  if (drawVoidFx(ctx, f, p, time, SQ(), g, Q)) return;   // 공허의 관측자 무기(voidWeaponArt.js)
   if (drawFuryFx(ctx, f, p, Q)) return;           // 적룡 지팡이(furyArt.js)
   if (drawSkillPx(ctx, f, p)) return;             // 스킬 상점 스킬 — pixelfx 픽셀 시트(skillPxArt.js)
   skillAccent(ctx, f, p, Q);

@@ -110,7 +110,7 @@ test('입장자가 없어 스냅샷에서 몹이 생략돼도 승계하면 복�
  const guest=makeWorld();rpgSyncSeats(guest,seats);rpgApply(guest,snap);rpgPromote(guest);assert(guest.mobs.some(m=>m.id===guest.wb.active.mob));
 });
 test('보스마다 세 패턴이 순서대로 나오고 모든 연속 타격이 끝난다',()=>{
- for(const B of WORLD_BOSSES){const g=setup();rpgWorldBoss(g,0,{op:'summon',id:B.id});rpgWorldBoss(g,0,{op:'enter'});const a=g.wb.active,h=g.heroes[0];h.inv=999;
+ for(const B of WORLD_BOSSES.filter(b=>b.id!=='void')){/* 공허의 관측자는 체력 50% 이하에서만 교차를 쓴다 — tools/void-boss.test.mjs */const g=setup();rpgWorldBoss(g,0,{op:'summon',id:B.id});rpgWorldBoss(g,0,{op:'enter'});const a=g.wb.active,h=g.heroes[0];h.inv=999;
   for(let n=0;n<3;n++){a.cd=0;advance(g,.02);assert.equal(a.attack.kind,B.attacks[n]);assert.equal(a.attack.major,n===2);
    const expected=WORLD_BOSS_PATTERNS[B.attacks[n]].hits,seen=new Set();
    for(let t=0;t<12&&a.attack;t+=.02){seen.add(a.attack.step);advance(g,.02);}
@@ -145,8 +145,8 @@ test('던전 입장권은 코인 대신 한 장 소비하고 중복 요청은 �
 function major(id='dragon'){
  const g=setup();rpgWorldBoss(g,0,{op:'summon',id});
  for(let i=0;i<3;i++){rpgWorldBoss(g,i,{op:'enter'});g.heroes[i].lv=400;g.heroes[i].inv=999;}
- const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);a.seq=2;a.cd=0;advance(g,.02);
- advance(g,1.7);assert(worldBossCoopOpen(a));return {g,a,m};
+ const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);a.seq=id==='void'?3:2;a.cd=0;advance(g,.02);   // 공허의 관측자는 큰 기술이 사건의 지평선(4.6초 예고)
+ advance(g,id==='void'?3.1:1.7);assert(worldBossCoopOpen(a));return {g,a,m};
 }
 test('만렙 세 명의 실제 무기 스킬을 맞추면 패턴을 취소하고 4초 기절한다',()=>{
  const {g,a,m}=major();g.heroes.filter(Boolean).forEach(h=>{h.x=m.x-100;h.y=m.y;h.look=[1,0];});

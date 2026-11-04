@@ -2,7 +2,7 @@
    그림은 Codex 가 표준 몸(검사 남 네 방향 · design/wear/base-body.webp)에 맞춰 뽑은 겹침 그림 세트마다 한 장
    (rpg/wear/<세트>.webp — 4열 = 앞 · 옆 · 뒤 · 돌아섬, 3행 = 투구 · 갑옷 · 신발, 칸 384 × 512, 초록 바탕을 지운 투명).
    캐릭터마다 몸 크기가 달라 키(높이)에 맞춰 늘려 그리고 발밑 가운데를 맞춘다 */
-export const WEAR_SETS = ["legend", "dragon", "serpent", "machine", "thunderbird"];   // 순서가 스냅샷 코드(1부터) — 뒤에만 더한다. legend 는 세트 없는 전설
+export const WEAR_SETS = ["legend", "dragon", "serpent", "machine", "thunderbird", "void"];   // 순서가 스냅샷 코드(1부터) — 뒤에만 더한다. legend 는 세트 없는 전설
 export const WEAR_SLOTS = ["head", "body", "feet"];                                   // 겹침 그림 행 차례 · 스냅샷 칸 차례
 export const WEAR = {
   src: (id) => `/assets/game/rpg/wear/${id}.webp`,

@@ -2,7 +2,7 @@
    기존 레벨 100 전설보다 조금 높은 기본 능력으로 시작하고 스킬·세트 역할로 구분한다. */
 export const WORLD_EQUIPMENT = {
   level: 100, stat: 320, grade: 4, armorGrade: 3,
-  atlas: '/assets/game/rpg/items/world-equipment.webp', columns: 7, rows: 4,   // 4행 — 11월 1일 뇌조 세트 방어구 넷(3~6열)을 더했다
+  atlas: '/assets/game/rpg/items/world-equipment.webp', columns: 7, rows: 5,   // 4행 — 11월 1일 뇌조 세트 방어구 넷(3~6열) · 5행 — 11월 4일 공허 무기 셋(0~2열) · 차원의 지배자 방어구 넷(3~6열)
 };
 // 비룡육연사 전용 비행 그림. 머리를 이동 좌표에 맞추고 몸과 꼬리는 뒤로 이어진다.
 export const DRAGON_FLIGHT_ART = {
@@ -24,6 +24,11 @@ export const WORLD_SETS = [
   { id: 'thunderbird', name: '뇌제', boss: '뇌조', color: '#b4b9fa',
     two: '이동 속도 +10%', four: '몬스터를 맞히면 4초 동안 공격 속도 +20% · 10초마다',
     spd: 0.1, aspd: 0.2, duration: 4, cooldown: 10 },
+  // 11월 4일 사용자 요청 — 공허의 관측자 방어구. 세트 id 가 보스 id 라 토벌 보상이 방어구 네 부위를 각 3% 로 굴린다.
+  // 2세트: 스킬 재사용 대기시간 cd 감소(무기 스킬 · 직업 스킬 모두) · 4세트: 스킬이 맞으면 duration 초 동안 받는 피해 take 감소, cooldown 초마다(결투 · 사냥터 PvP 에서는 꺼진다)
+  { id: 'void', name: '차원의 지배자', boss: '공허의 관측자', color: '#8d6bd1',
+    two: '스킬 재사용 대기시간 5% 감소', four: '스킬 적중 후 4초 동안 받는 피해 8% 감소 · 12초마다',
+    cd: 0.05, take: 0.08, duration: 4, cooldown: 12 },
 ];
 export const WORLD_SET_BY_ID = Object.fromEntries(WORLD_SETS.map(s => [s.id, s]));
 export const WORLD_WEAPONS = [
@@ -38,6 +43,13 @@ export const WORLD_WEAPONS = [
   { id: 'machine_bow', name: '전자기 레일궁', t: 'bow', stat: 'str', set: 'machine' },
 ].map(w => ({ ...w, lv: WORLD_EQUIPMENT.level, g: WORLD_EQUIPMENT.grade, amt: WORLD_EQUIPMENT.stat,
   art: w.id, world: true }));
+/* 공허의 관측자 전용 무기 셋(11월 4일). 능력치는 기존 월드보스 전설 무기와 같은 체계(Lv 100 · 등급 4 · 주 능력 +320).
+   스킬 수치는 voidWeaponData.js, 판정은 voidWeaponCombat.js. 그림은 장비 시트 5행 0~2열(검 · 지팡이 · 활 차례, worldArtCell) */
+export const VOID_WEAPONS = [
+  { id: 'void_great', name: '공허의 대검', t: 'great', stat: 'str', set: 'void' },
+  { id: 'void_staff', name: '공허의 지팡이', t: 'staff', stat: 'int', set: 'void' },
+  { id: 'void_bow', name: '공허의 장궁', t: 'bow', stat: 'str', set: 'void' },
+].map(w => ({ ...w, lv: WORLD_EQUIPMENT.level, g: WORLD_EQUIPMENT.grade, amt: WORLD_EQUIPMENT.stat, art: w.id, world: true }));
 // 수치는 총 적중 피해가 기존 전설과 지나치게 벌어지지 않게 잡은 첫 시험 값이다.
 const passive = { name: '괴수의 유산', note: '직업에 맞는 공격 능력치를 높이는 월드보스 전설 무기' };
 export const WORLD_WEAPON_SKILLS = {
@@ -64,7 +76,7 @@ export const worldArmorName = (s, set) => `${WORLD_SET_BY_ID[set]?.name || ''} $
 export function worldArtCell(src) {
   const id = typeof src === 'string' ? src.split('#world=')[1] : null;
   if (!id) return null;
-  const weapon = WORLD_WEAPONS.find(w => w.id === id);
+  const weapon = WORLD_WEAPONS.find(w => w.id === id) || VOID_WEAPONS.find(w => w.id === id);
   if (weapon) return WORLD_SETS.findIndex(s => s.id === weapon.set) * 7 + ['sword','staff','bow'].indexOf(weapon.t === 'great' ? 'sword' : weapon.t);
   const [set, slot] = id.split(':');
   const row = WORLD_SETS.findIndex(s => s.id === set), col = ['head','body','legs','feet'].indexOf(slot);

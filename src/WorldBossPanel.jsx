@@ -48,7 +48,7 @@ export default function WorldBossPanel({state,self,act,onClose}){
       <p className="wb-rule">광장에서 입장 · 별도 입장 정원 없음 · 서버 정원 {RPG_SERVER_CAP}명<br/>매시간 정각에 한 마리 출현 · 토벌 제한 15분<br/>소환 중에는 추가 소환할 수 없습니다. 모두 서버를 떠나면 진행 중인 전투가 끝납니다.</p>
       <div className="wb-bosses">{WORLD_BOSSES.map((b,i)=><article key={b.id}>
         <div className="wb-portrait" role="img" aria-label={b.name} style={b.art?{backgroundImage:`url(${b.art.src})`,backgroundSize:'200% 100%',backgroundPosition:'0% 0%'}:{backgroundImage:`url(${C.art})`,backgroundPosition:`${8.3333+i*41.6667}% 14.2857%`}}/>
-        <h3 className="shop-h">{b.name}</h3><p>{b.sub}</p><p>체력 {b.hp.toLocaleString('ko-KR')}</p>
+        <h3 className="shop-h">{b.name}</h3><p>{b.sub}</p><p>체력 {b.hp.toLocaleString('ko-KR')}{b.recLv?` · 권장 레벨 ${b.recLv}`:''}</p>
         <p>무기 각 2%: {worldBossWeapons(b.id).map(w=>w.name).join(' · ')}</p>
         <button type="button" className="shop-btn" disabled={!ready||!atPlaza||!!a||self.coins<C.fee} onClick={()=>act('wb',{op:'summon',id:b.id})}>10만 코인으로 소환</button>
       </article>)}</div>
@@ -57,7 +57,8 @@ export default function WorldBossPanel({state,self,act,onClose}){
       <p>400레벨 3인과 강화한 전설 장비를 기준으로 조정했습니다. 큰 기술 준비 마지막 1.6초에 금빛 약점이 나타납니다. 400레벨 3명이 0.85초 안에 스킬을 적중시키면 기술이 취소되고 4초 기절합니다. 평타·화상·독은 합동 공격 인원으로 세지 않습니다.</p>
       <h3 className="shop-h">토벌 보상</h3><p>보스 총 체력의 10%를 초과해 피해를 준 모험가가 받습니다. 10%는 제외합니다. 같은 캐릭터의 기여도는 재입장해도 합산합니다.</p>
       <p>확정: 심장결정 10~20개 · 코인 5만~15만 (100 단위)</p><p>각 무기 2% · 각 방어구 3% · 던전 입장권 30%<br/>대형 회복 물약 65% · 힘·지혜 물약 각25% · 집중 물약 20%</p>
-      <p>뇌조 전용 무기: 뇌명 지팡이 · 자전궁 · 창뢰 쌍검. 뇌조는 방어구를 드롭하지 않습니다.</p>
+      <p>뇌조 전용 무기: 뇌명 지팡이 · 자전궁 · 창뢰 쌍검 · 방어구 뇌제.</p>
+      <p>공허의 관측자 전용: 공허의 대검 · 지팡이 · 장궁(무기 각 2%) · 방어구 차원의 지배자(부위별 3%).</p>
       <p className="wb-rule">추가 보상은 종류별로 독립 추첨합니다. 여러 종류를 함께 얻을 수 있습니다. 총 피해 비율 기준이므로 보상 대상은 최대 9명입니다.</p>
       <h3 className="shop-h">보상 수령함 {mail.reduce((n,x)=>n+x.n,0)}개</h3><p>가방에 들어가지 못한 보상은 여기에 보관됩니다.</p>
       {mail.length>0&&<><ul>{mail.map((x,i)=><li key={i}>{lootName(x)} ×{x.n}</li>)}</ul><button type="button" className="shop-btn main" disabled={!ready} onClick={()=>act('wb',{op:'collect'})}>빈 가방 칸으로 받기</button></>}

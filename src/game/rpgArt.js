@@ -78,6 +78,7 @@ const WEAPON_GRIP = {
   dragon_dual: [26, 104, 109, 15], dragon_staff: [64, 100, 65, 16], dragon_bow: [66, 67, 60, 12],
   serpent_sword: [24, 108, 108, 20], serpent_staff: [62, 100, 62, 15], serpent_bow: [62, 64, 75, 14],
   machine_sword: [25, 105, 100, 20], machine_staff: [62, 100, 62, 15], machine_bow: [63, 64, 76, 14],
+  void_great: [25, 105, 109, 19], void_staff: [64, 113, 64, 12], void_bow: [32, 64, 79, 13],   // 공허 무기(11월 4일, 장비 시트 5행)
   clockwork: [28, 26, 122, 122], coral: [26, 102, 120, 4], flame: [97, 94, 4, 4], forest: [95, 104, 12, 6],
   frost: [100, 100, 6, 4], holy: [92, 94, 12, 10], shadow: [104, 108, 12, 6], star: [102, 102, 6, 6],
   thunder: [24, 100, 120, 6], viper: [36, 44, 122, 118],
@@ -87,7 +88,7 @@ const WEAPON_GRIP = {
   thunder_bow: [56, 64, 10, 8], lava_bow: [71, 64, 23, 8], shadow_bow: [66, 56, 22, 10], star_bow: [66, 60, 16, 12], gold_bow: [71, 52, 12, 12],
 };
 // 활 그림에서 활줄이 놓인 쪽 — 손잡이 → 위쪽 끝을 보고 왼쪽(-1) · 오른쪽(1). 손에 든 쪽과 다르면 뒤집어 활줄이 몸 쪽을 향하게 한다
-const BOW_STRING = { violet_bow: -1, thunder_bow: -1, lava_bow: 1, shadow_bow: 1, star_bow: -1, gold_bow: -1, dragon_bow: 1, serpent_bow: 1, machine_bow: 1 };
+const BOW_STRING = { violet_bow: -1, thunder_bow: -1, lava_bow: 1, shadow_bow: 1, star_bow: -1, gold_bow: -1, dragon_bow: 1, serpent_bow: 1, machine_bow: 1, void_bow: 1 };
 /* 마법사는 특별 지팡이, 궁수는 특별 활을 장착하면 원래 무기를 지운 그림(<보기>-bare.webp, tools/bare-holders.py)에 그 무기를 손에 들려 그린다.
    HOLDER_HAND: 직업 · 성별 · 보기마다 손 [x, y]와 무기 방향(도, 손 → 지팡이 머리 · 활 위쪽 끝)과 그 길이(px) — 원래 그림 크기 기준.
    무기가 몸에 가려 보이지 않는 보기(마법사 옆 · 뒤 등)는 원래 그림을 그대로 쓴다 */
@@ -1953,7 +1954,7 @@ function drawDummy(ctx, m, time) {
 }
 function drawWorldBoss(ctx,m,time,g){drawWorldBossSprite(ctx,m,time,g?.wb?.active,lod.q);drawMobMarks(ctx,m,time,340);}
 function guildBossDraw(ctx,m,time){drawGuildBoss(ctx,m,time);drawMobMarks(ctx,m,time,guildBossTop(m));}
-const MOB_DRAW = {guild_slime:guildBossDraw,guild_siren:guildBossDraw,guild_phoenix:guildBossDraw,world_dragon:drawWorldBoss,world_serpent:drawWorldBoss,world_machine:drawWorldBoss, world_thunderbird:drawWorldBoss, dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
+const MOB_DRAW = {guild_slime:guildBossDraw,guild_siren:guildBossDraw,guild_phoenix:guildBossDraw,world_dragon:drawWorldBoss,world_serpent:drawWorldBoss,world_machine:drawWorldBoss, world_thunderbird:drawWorldBoss, world_void:drawWorldBoss, dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
   skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider,
   fspirit: drawFspirit, lavagolem: drawLavagolem, firedrake: drawFiredrake, ifrit: drawIfrit, wraith: drawWraith, abyss: drawAbyss, voidmage: drawVoidmage, fallen: drawFallen };
 // 심연의 탑 수호자 · 입구(abyssArt.js)에 넘기는 그리기 도구 — 그림이 없을 때는 같은 원소 느낌의 몹 몸으로 대신한다
@@ -2496,7 +2497,7 @@ function follow(g, M) {
    ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
    ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
-  cap: {sk_storm_staff:6,sk_storm_bow:10,sk_storm_dash:8,sk_storm_finish:8,sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3, ...SKILL_PX_CAP } };
+  cap: {sk_void_slash:6,sk_void_rain:6,sk_void_hole:4,sk_void_slash_pas:6,sk_void_arrow_pas:8,sk_void_grav_pas:8,sk_storm_staff:6,sk_storm_bow:10,sk_storm_dash:8,sk_storm_finish:8,sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3, ...SKILL_PX_CAP } };
 const lod = { at: 0, ms: 16, q: 1 };
 /* 사람이 많은 화면 — 월드보스처럼 한 맵에 모이면 손님 기기마다 남의 연출을 모두 그려 휴대폰에서 초당 화면이 반으로 떨어졌다.
    (실측: 월드보스 무기 연출 하나가 휴대폰 속도에서 3~5ms. 남의 것이 스무 개 넘게 겹친다)

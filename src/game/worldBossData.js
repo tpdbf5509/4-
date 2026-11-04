@@ -1,8 +1,8 @@
 /* 월드보스 첫 시험 수치. 출현·판정·드롭 확률은 여기서 조절한다. */
-import { WORLD_WEAPONS } from './worldEquipmentData.js';
+import { WORLD_WEAPONS, VOID_WEAPONS } from './worldEquipmentData.js';
 import { STORM_WEAPONS } from './stormWeaponData.js';
 // 보상 수령함 검증과 지급도 같은 목록을 쓴다. 원래 무기 ID와 능력치는 유지한다.
-export const WORLD_BOSS_WEAPONS = [...WORLD_WEAPONS, ...STORM_WEAPONS];
+export const WORLD_BOSS_WEAPONS = [...WORLD_WEAPONS, ...STORM_WEAPONS, ...VOID_WEAPONS];
 export const worldBossWeapons = id => WORLD_BOSS_WEAPONS.filter(w => (w.rewardBoss || w.set) === id);
 export const WORLD_BOSS = {
   revision:4, // 진행 중인 보스도 체력 비율과 기여도를 보존하며 새 수치로 옮긴다.
@@ -26,6 +26,11 @@ export const WORLD_BOSSES = [
   // 새 보스는 기존 기계보다 체력 50만 증가. 무기 셋만 전용 보상으로 준다.
   { id:'thunderbird',type:'world_thunderbird',name:'뇌조',hp:13000000,color:'#b4b9fa',sub:'전격 깃털 · 뇌광 급강하 · 폭풍의 눈 · 천뢰 심판(즉사)',attacks:['thunder_feathers','thunder_dive','thunder_eye','thunder_doom'],
     art:{src:'/assets/game/rpg/boss/thunderbird.webp',cols:2,rows:1,size:700,feet:[.80,.885]} },
+  // 11월 4일 사용자 요청 — 다섯 번째 보스. 새 보스는 늘 뒤에 더한다(출현 차례 · 스냅샷 몹 번호). 권장 레벨 800.
+  // 공허의 교차(void_cross)는 체력 50% 이하에서만 쓰고, 그 전에는 건너뛴다. 전설 무기는 공허의 대검 · 지팡이 · 장궁, 방어구는 차원의 지배자
+  { id:'void',type:'world_void',name:'공허의 관측자',hp:15000000,color:'#a077f0',recLv:800,sub:'중력 붕괴 · 공간 절단 · 공허의 교차(체력 50% 이하) · 사건의 지평선(즉사)',
+    attacks:['gravity_collapse','space_cut','void_cross','event_horizon'],
+    art:{src:'/assets/game/rpg/boss/void-observer.webp',cols:2,rows:1,size:700,feet:[.84,.84]} },
 ];
 // damage는 최대 체력에 대한 방어 적용 전 비율이다. 큰 기술의 첫 타격만 합동 공격으로 끊을 수 있다.
 export const WORLD_BOSS_PATTERNS = {
@@ -55,6 +60,15 @@ export const WORLD_BOSS_PATTERNS = {
     shelters:[-2.2,2.2],shelterR:150,shelterD:520,margin:200},          // 보스가 노린 쪽에서 좌우 뒤로 2.2라디안 · 520 거리에 피난 원 둘
   serpent_doom:{name:'독왕의 심판',hint:'뱀의 등 뒤로 돌아가세요',doom:true,major:true,wind:4.6,hits:1,damage:1,len:1600,arc:2.45}, // 앞쪽 ±140도를 덮는다 — 등 뒤 80도만 안전
   machine_doom:{name:'최후의 방전',hint:'기계 발밑으로 붙으세요',doom:true,major:true,wind:4.6,hits:1,damage:1,inner:190,r:1700}, // 보스 둘레 190 안만 안전
+  /* 공허의 관측자(11월 4일) — damage 는 맞은 사람 최대 체력에 대한 비율(방어 적용 전). 예고 시간 wind 는 첫 타, 이어지는 타는 gap.
+     중력 붕괴 — 사람 둘레에 보라색 장판 r, 마지막 pullFor 초 동안 장판 안의 사람을 중심으로 pull px/초 끌어당긴 뒤 터진다. 장판 밖이면 안 맞는다
+     공간 절단 — 사람 하나씩 겨눈 직선 3번(중심선에서 양쪽 width). 공격마다 0.8초 예고
+     공허의 교차 — 체력 belowHp 이하에서만. 포탈 둘(서로 portalD*2 떨어진 곳)을 열고 보스가 포탈 → 포탈 → 처음 포탈로 건너뛰며 충격파(r 원 · 원 · 고리)
+     사건의 지평선 — 4.6초 예고 즉사. 보스 둘레(safeD)에 안전 구역 셋(반지름 safeR), 구역끼리 safeGap 배 반지름 이상 떨어지고 걸어 들어갈 수 있는 안쪽에만 둔다 */
+  gravity_collapse:{name:'중력 붕괴',hint:'보라색 원 밖으로 벗어나세요',hits:1,wind:1.5,damage:.45,r:185,pull:170,pullFor:.5},
+  space_cut:{name:'공간 절단',hint:'붉은 선 밖으로 피하세요',hits:3,wind:.8,gap:.8,damage:.3,len:1400,width:58},
+  void_cross:{name:'공허의 교차',hint:'포탈에 내려앉는 충격파를 피하세요',hits:3,wind:1.6,gap:1.3,damage:.4,belowHp:.5,portalD:300,r:240,ringInner:120,ringR:430},
+  event_horizon:{name:'사건의 지평선',hint:'빛나는 안전 구역으로 들어가세요',doom:true,major:true,wind:4.6,hits:1,damage:1,safes:3,safeR:150,safeD:420,safeGap:2.4,margin:60},
   thunder_doom:{name:'천뢰 심판',hint:'뇌조에게서 멀리 벗어나세요',doom:true,major:true,wind:4.6,hits:1,damage:1,r:560},           // 보스 둘레 560 안이 즉사
 };
 export const WORLD_BOSS_BY_TYPE=Object.fromEntries(WORLD_BOSSES.map(b=>[b.type,b]));

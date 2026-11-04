@@ -8,6 +8,7 @@ import {specialTier,specialPrice} from './shop.js'; // 물품을 지급할 때�
 import {trading} from './tradeData.js';
 import {WB_PX_LOOK} from './worldBossPxData.js';
 import {thunderbirdAreas,startThunderbirdDive,tickThunderbirdDive} from './thunderbirdCombat.js';
+import {voidAreas,voidBegin,voidWarp,voidPull} from './voidBossCombat.js';
 const distance=(x,y,a,b)=>Math.hypot(x-a,(y-b)/C.squash);
 const activeHeroes=g=>g.heroes.filter(h=>h?.loaded&&h.map===C.map&&h.down<=0);
 const randomInt=(lo,hi,rng)=>lo+Math.floor(rng()*(hi-lo+1));
@@ -161,8 +162,9 @@ function doomAreas(kind,m,angle){
   if(kind==='thunder_doom')return [area('circle',m.x,m.y,{r:P.r})];
   return null;
 }
-function patternAreas(kind,step,m,heroes,angle){
+function patternAreas(kind,step,m,heroes,angle,attack){
   const bird=thunderbirdAreas(kind,step,m,heroes,angle);if(bird)return bird;
+  const dim=voidAreas(kind,step,m,heroes,angle,attack);if(dim)return dim;   // 공허의 관측자
   const doom=doomAreas(kind,m,angle);if(doom)return doom;
   const targets=heroes.slice(step%heroes.length).concat(heroes.slice(0,step%heroes.length));
   const circles=(r,n=5)=>targets.slice(0,n).map(h=>area('circle',h.x,h.y,{r}));
@@ -187,11 +189,16 @@ function patternAreas(kind,step,m,heroes,angle){
   return [];
 }
 function beginAttack(E,g,m,a,heroes){
-  const B=WORLD_BOSS_BY_ID[a.id],kind=B.attacks[a.seq++%B.attacks.length],P=WORLD_BOSS_PATTERNS[kind];
+  const B=WORLD_BOSS_BY_ID[a.id];
+  let kind=B.attacks[a.seq++%B.attacks.length];
+  // 공허의 교차는 체력이 belowHp 이하일 때만 — 그 전에는 다음 공격으로 넘어간다
+  if(WORLD_BOSS_PATTERNS[kind].belowHp&&m.hp/m.max>WORLD_BOSS_PATTERNS[kind].belowHp)kind=B.attacks[a.seq++%B.attacks.length];
+  const P=WORLD_BOSS_PATTERNS[kind];
   const target=(m.taunt>0&&heroes.find(h=>h.pi===m.tgt))||heroes[a.seq%heroes.length],angle=Math.atan2((target.y-m.y)/C.squash,target.x-m.x);
   const wind=P.wind||C.wind;
   const targets=kind==='thunder_dive'?[target,...heroes.filter(h=>h!==target)]:heroes;
-  a.attack={kind,name:P.name,major:!!P.major,step:0,stages:P.hits,angle,areas:patternAreas(kind,0,m,targets,angle),t:wind,life:wind,coop:[]};m.pose=1;
+  const extra=voidBegin(kind,angle);
+  a.attack={kind,name:P.name,major:!!P.major,step:0,stages:P.hits,angle,...extra,areas:patternAreas(kind,0,m,targets,angle,extra),t:wind,life:wind,coop:[]};m.pose=1;
   if(P.doom)heroes.forEach(h=>notify(E,g,h,`즉사 예고 — ${P.name}`,P.hint,'bad'));
 }
 function impact(E,g,m,a,heroes){
@@ -204,10 +211,11 @@ function impact(E,g,m,a,heroes){
   if(P.pool&&(!P.major||last))a.pools.push(...attack.areas.filter(s=>s.shape==='circle').map(s=>({...s,t:C.poolTime,next:C.poolTick})));
   const nextSafe=attack.kind==='thunder_eye'&&!last?patternAreas(attack.kind,attack.step+1,m,heroes,attack.angle)[0]:null;
   attack.areas.forEach((s,i)=>E.fx(g,C.map,{...(nextSafe?{nextSafe}:{}),kind:'sk_raid_hit',x:s.x,y:s.y,area:s,t:P.doom?1.6:P.major?.85:.65,life:P.doom?1.6:P.major?.85:.65,tone:a.id,pattern:attack.kind,major:P.major,final:last,...(P.doom?{doom:1}:{}),seed:i+attack.step*7,snd:['machine','thunderbird'].includes(a.id)?'zap':'boom',kick:i===0?(P.major?.45:.2):0}));
+  voidWarp(m,attack);   // 공허의 교차 — 충격파가 떨어진 포탈로 보스가 건너뛴다
   if(!last){
     if(attack.diving)attack.diving=false;
     attack.step++;attack.t=attack.life=P.gap;attack.coop=[];
-    attack.areas=heroes.length?patternAreas(attack.kind,attack.step,m,heroes,attack.angle):[];
+    attack.areas=heroes.length?patternAreas(attack.kind,attack.step,m,heroes,attack.angle,attack):[];
   }else{a.attack=null;m.pose=0;a.cd=m.hp/m.max<C.rageAt?C.rageGap:C.gap;}
 }
 function tickPools(E,g,a,heroes,dt){
@@ -255,6 +263,7 @@ export function tickWorldBoss(E,g,dt){
     tickThunderbirdDive(E,g,m,a,heroes,dt);
     if(a.phase!=='fight'||!a.attack)return;
     if(worldBossCoopOpen(a))a.attack.coop=(a.attack.coop||[]).filter(c=>a.elapsed-c.at<=C.coop.sync);
+    voidPull(E,g,a,heroes,dt);   // 중력 붕괴 — 터지기 직전 장판 안을 중심으로 끌어당긴다
     a.attack.t-=dt;
     if(a.attack.t<=0)impact(E,g,m,a,heroes);
   }else if(heroes.length){

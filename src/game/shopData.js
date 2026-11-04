@@ -1,5 +1,5 @@
 import { STORM_WEAPONS } from './stormWeaponData.js';
-import { WORLD_WEAPONS } from "./worldEquipmentData.js";
+import { WORLD_WEAPONS, VOID_WEAPONS } from "./worldEquipmentData.js";
 import { JOB_SKILLS } from "./skillData.js";
 import { bagExtra } from "./junkData.js";
 import { DEEP_MAPS } from "./deepData.js";
@@ -103,6 +103,7 @@ export const SPECIALS = [
   { id: "star_bow", name: "별자리 활", t: "bow", lv: 80, g: 4, stat: "str", amt: 218, art: "star_bow" },     // 예전 Lv 90
   { id: "gold_bow", name: "황금 날개 활", t: "bow", lv: 90, g: 4, stat: "str", amt: 240, art: "gold_bow" }, // 예전 Lv 100
   ...WORLD_WEAPONS,
+  ...VOID_WEAPONS,   // 공허의 관측자 전용(11월 4일) — world 표시라 상점 · 특가 · 상자 · 관리자 자동 지급에서 빠진다
   // 전직 무기(adv) — 전직을 확정하면 한 자루 받는다. 상점 · 특가 · 랜덤 상자 · 관리자 자동 지급에 나오지 않는다.
   // 올리는 양은 전설 활 · 지팡이(240)보다 조금 낮게 — 이미 전설 무기를 가진 사람이 손해 보지 않도록 바꿔 들지 않아도 스킬은 쓴다
   { id: "adv_guns", name: "총사의 쌍권총", t: "gun", lv: 100, g: 3, stat: "str", amt: 230, art: "adv_guns", adv: 1 },

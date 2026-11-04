@@ -31,17 +31,17 @@ for(const sp of WORLD_WEAPONS)test(`${sp.name}: 스킬 피해와 완료`,()=>{
   if (sp.id === 'dragon_dual' || sp.id === 'dragon_bow') assert(h.x > 900, '전진 이동이 실제로 발생해야 함');
   assert.equal(h.ws.world.cast,null);assert(Number.isFinite(h.hp));
 });
-test('장비 시트 25칸(무기 9 + 방어구 16)·저장·상점 제외·장착',()=>{
+test('장비 시트 29칸(무기 9 + 방어구 20)·저장·상점 제외·장착',()=>{
  const {h}=setup();
  for(const set of WORLD_SETS)wear(h,set.id);
  h.bag.a=WORLD_SETS.flatMap((set,r)=>['head','body','legs','feet'].map((s,i)=>({u:20+r*4+i,s,g:3,set:set.id})));
  h.bag.w=WORLD_WEAPONS.map((w,i)=>({u:i+1,t:w.t,r:specialTier(w),g:w.g,sp:w.id,up:12,p:100}));
  const restored=cleanBag(JSON.parse(JSON.stringify(h.bag)));
- assert.equal(restored.a.length,16);assert.equal(restored.w.length,9);assert.equal(restored.a.filter(a=>a.set==='serpent').length,4);
+ assert.equal(restored.a.length,20);assert.equal(restored.w.length,9);assert.equal(restored.a.filter(a=>a.set==='serpent').length,4);
  assert(restored.w.every(w=>w.up===12));assert(specialsFor(400).every(w=>!w.world));
  const cells=new Set(WORLD_WEAPONS.map(w=>worldArtCell(worldArt(w.id))));
  for(const set of WORLD_SETS)for(const s of ['head','body','legs','feet'])cells.add(worldArtCell(worldArt(`${set.id}:${s}`)));
- assert.equal(cells.size,25);assert(!cells.has(null));
+ assert.equal(cells.size,29);assert(!cells.has(null));
  for(const sp of WORLD_WEAPONS)assert(whySpecialBuy(h,sp.id).includes('월드보스 전용 장비입니다'));
 });
 test('세트는 부위별로 계산·혼합 가능·효과 회수',()=>{

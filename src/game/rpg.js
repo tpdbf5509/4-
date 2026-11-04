@@ -7,8 +7,9 @@ import {isGuildBoss,guildInput,guildHit,guildKilled,guildRestore,tickGuild} from
 import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
+import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
-import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb } from "./armor.js";
+import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd, worldVoidTake } from "./armor.js";
 import { trading } from "./tradeData.js";
 import { RACE } from "./raceData.js";
 import { RACE_MAP, newRace, raceInput, tickRace } from "./race.js";
@@ -548,8 +549,8 @@ DEEP_MAPS.forEach((d) => {
 });
 WORLD_BOSSES.forEach(b=>{MOB[b.type]={name:b.name,rad:88,hp:()=>b.hp,dmg:()=>1,xp:()=>0,coin:()=>0,size:()=>1,boss:{name:b.name,lv:200,hp:b.hp,dmg:1,xp:0,coin:0,size:1}};});
 const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
-  "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.filter(b=>b.id!=='thunderbird').map(b=>b.type),...GUILD_BOSSES.map(b=>b.type),
-  ...DEEP_MAPS.map((d) => d.id), 'world_thunderbird', ...GUARD_IDS];   // 스냅샷 차례 — 새 보스도 맨 뒤에 붙여 기존 몹 번호를 보존한다.
+  "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.filter(b=>!['thunderbird','void'].includes(b.id)).map(b=>b.type),...GUILD_BOSSES.map(b=>b.type),
+  ...DEEP_MAPS.map((d) => d.id), 'world_thunderbird', ...GUARD_IDS, 'world_void'];   // 스냅샷 차례 — 새 보스도 맨 뒤에 붙여 기존 몹 번호를 보존한다.
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -1683,7 +1684,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
     sys(g, h.pi, `${nameOf(g, o.pi)}님을 쓰러뜨렸습니다.`);
     sys(g, o.pi, `${nameOf(g, h.pi)}님에게 쓰러졌습니다.`);
   }
-  if (procOff === 0) worldSetHit(worldEngine, g, h, o, { dot: !!dot, basic: !!basic, weapon: !basic && !!h.cast?.weapon });
+  if (procOff === 0) worldSetHit(worldEngine, g, h, o, { dot: !!dot, basic: !!basic, weapon: !basic && !!h.cast?.weapon, skill: !basic && !dot && !!(h.cast?.weapon || h.cast?.job) });
   if (!dot) weaponOnHit(g, h, null, o, false, !!basic);
   if (!dot && procOff === 0) advOnHit(advEngine, g, h, o, !!basic, false);   // 전직 패시브 · 시험
 }
@@ -1764,7 +1765,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (m.type === "dummy" && h) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
-  if (h && procOff === 0) worldSetHit(worldEngine, g, h, m, { dot: !!dot, basic: !skill && !dot, weapon: !!skill && !!h.cast?.weapon });
+  if (h && procOff === 0) worldSetHit(worldEngine, g, h, m, { dot: !!dot, basic: !skill && !dot, weapon: !!skill && !!h.cast?.weapon, skill: !!skill && !dot && !!(h.cast?.weapon || h.cast?.job) });
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
   if (h && !dot) weaponOnHit(g, h, m, null, side, !skill);   // 전설 무기 패시브 — side 는 튄 피해(옆 몹)
   if (h && !dot && procOff === 0) advOnHit(advEngine, g, h, m, !skill, side);   // 전직 패시브 · 시험
@@ -1809,6 +1810,7 @@ function killMob(g, m, pi) {
   if(isWorldBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);worldBossKilled(worldBossEngine,g,m);return;}   // 전직 숙련도 — 친 사람
   if(isGuildBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);guildKilled(guildEngine,g,m);return;}
   addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
+  if (g.heroes[pi]) voidOnKill(voidEngine, g.heroes[pi]);   // 공허의 대검 — 3마리마다 차원의 잔흔
   m.hp = 0;
   flushNum(g, m, m.boss ? 0 : 1);                 // 남은 숫자 — 보스는 모아 둔 평타라 평타 세기로
   fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" });
@@ -2006,7 +2008,7 @@ function hurtHero(g, h, raw, source, kind) {
   else {
     const defended=advTakeCut(h,0)>0||armorTakeMul(h)<1||h.guard>0||h.jb?.iron>0||h.as?.gT>0||h.as?.pT>0||h.as?.blT>0;
     if(source?.boss)raw*=COMBAT_RULES.bossDamage*(defended?COMBAT_RULES.defendedBossDamage:1);
-    dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
+    dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h) * (source?.hero ? 1 : worldVoidTake(h));   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
     dmg = worldArmorAbsorb(h, dmg);
     dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
     if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
@@ -2469,7 +2471,7 @@ export function rpgUseSkill(g, pi, id) {
     }
     h.swing = 0.35;
   }
-  h.scd[id] = acSkillCd(h, u.cd);                 // 강화 카드 — 스킬 재사용 대기
+  h.scd[id] = acSkillCd(h, u.cd) * worldVoidCd(h);                 // 강화 카드 — 스킬 재사용 대기
   fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: s.name, color: "#ffd873", t: 0.8, life: 0.8, who: pi });
 }
 
@@ -2791,13 +2793,14 @@ function packSkillState(h) {
   return [w ? r1(w.wcd) : 0, w ? w.emb : 0, w ? w.star : 0, c ? c.st + 1 : 0, c ? r1(c.t) : 0, c ? r1(c.el) : 0,
     jb ? r1(jb.iron) : 0, jb ? Math.round(jb.sh) : 0, jb ? r1(jb.shT) : 0,
     w ? w.zap || 0 : 0, w ? w.mark || 0 : 0, w ? w.aim || 0 : 0,
-    q ? r1(q.stun) : 0, q ? r1(q.air) : 0, q ? r1(q.root) : 0, q ? r1(q.slow) : 0, q ? q.slowAmt || 0 : 0, q ? r1(q.brand) : 0, w?.world || null, w?.storm ? structuredClone(w.storm) : null, c?.cast ? structuredClone(c.cast) : null, w?.zapCast ? structuredClone(w.zapCast) : null];
+    q ? r1(q.stun) : 0, q ? r1(q.air) : 0, q ? r1(q.root) : 0, q ? r1(q.slow) : 0, q ? q.slowAmt || 0 : 0, q ? r1(q.brand) : 0, w?.world || null, w?.storm ? structuredClone(w.storm) : null, c?.cast ? structuredClone(c.cast) : null, w?.zapCast ? structuredClone(w.zapCast) : null, w?.void ? structuredClone(w.void) : null];
 }
 function applySkillState(h, a) {
   a = restoreCasts(structuredClone(a));           // 같은 시전의 직격·독·표식·지연탄은 복원 뒤에도 한도를 공유한다
   const v = a.slice(0, 18).map((x) => Number(x) || 0);
   wsOf(h).world = a[18] || null;
   wsOf(h).storm = a[19] || null;
+  wsOf(h).void = a[22] || null;                   // 공허 무기(11월 4일) — 줄 끝에만 더했다
   const w = wsOf(h), jb = jbOf(h);
   let cst, ct, cel;
   [w.wcd, w.emb, w.star, cst, ct, cel, jb.iron, jb.sh, jb.shT, w.zap, w.mark, w.aim] = v;
@@ -2826,6 +2829,7 @@ function weaponOnHit(g, h, m, foe, side, basic) {
   if (procOff) return;
   const sp = heldSpecial(h), o = m || foe;
   if (basic && !side && o) worldWeaponBasicHit(worldEngine, g, h, o);
+  if (o) voidOnHit(voidEngine, g, h, o, { basic, side });   // 공허의 장궁 · 지팡이 패시브
   if (!sp || !o) return;
   const w = wsOf(h);
   if (sp === "frost" && m) { const P = WS.frost.passive; m.slow = Math.min(P.max, Math.max(m.slow, 0) + P.per); }
@@ -2893,6 +2897,7 @@ const burnBonus = (h, o) => (elemOf(h).id === "flame" && o && o.burn > 0 ? WS.fl
 // 평타를 친 뒤 — 불꽃 회오리 · 관통 표식이 이어진다
 function weaponOnAttack(g, h) {
   const sp = heldSpecial(h), w = wsOf(h);
+  voidOnAttack(voidEngine, g, h);                 // 공허의 대검 — 쌓인 잔흔이 있으면 공간 참격
   if (sp === "shadow" && w.cmb && w.cmb.sp === "shadow" && w.cmb.st === 1) shadowProc(g, h, w.cmb);   // 종말의 연격 지속 중 — 평타마다 한 타
   if (sp === "lava_bow" && w.mark > 0) w.markT = WS.lava_bow.passive.fade;
   if (sp === "flame" && w.emb >= WS.flame.passive.need) {
@@ -2939,6 +2944,7 @@ function tickWeapon(g, h, dt) {
   }
   tickWorldWeapon(worldEngine, g, h, dt);
   tickStormWeapon(stormEngine, g, h, dt);
+  tickVoidWeapon(voidEngine, g, h, dt);
   if (jb) {
     jb.iron = Math.max(0, jb.iron - dt);
     jb.shT = Math.max(0, jb.shT - dt);
@@ -3101,6 +3107,16 @@ const worldEngine = { fx, near: foesNear, line: lineFoes, arc: arcFoes, strike: 
   }, squash: RPG.squash, held: heldSpecial };
 
 const stormEngine = { ...worldEngine, face: faceDir, lineFrom, locked: ccLocked, safe: map => !!MAPS[map]?.safe, trading, cooldown: worldCooldownMul };
+// 공허의 지팡이 블랙홀 — 몬스터를 중심으로 끌어당긴다. 사람(결투 · 사냥터 PvP) · 보스급 · 허수아비는 끌지 않는다
+function pullMob(g, o, x, y, px) {
+  if (!o || isHeroT(o) || o.dead || o.boss || o.type === "dummy" || isWorldBoss(o) || isGuildBoss(o)) return;
+  const d = dist(x, y, o.x, o.y);
+  if (d < 6) return;
+  const k = Math.min(px, d) / d;
+  o.x += (x - o.x) * k; o.y += (y - o.y) * k;
+  keepIn(o, MAPS[o.map], 20);
+}
+const voidEngine = { ...stormEngine, pull: pullMob };
 export function rpgWeaponRelease(g, pi, cancel=false) { releaseStormWeapon(stormEngine,g,g.heroes[pi],cancel); }
 
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
@@ -3120,6 +3136,7 @@ export function rpgWeaponSkill(g, pi) {
   newCast(h);                                     // 결투 스킬 피해 한도 — 연계 전체가 스킬 한 번
   h.cast.weapon = true; h.cast.sid = "wpn";
   if (h.ac) acOnSkill(g, h, "wpn");               // 심연의 탑 강화 카드 — 이번 스킬 보너스
+  if (castVoidWeapon(voidEngine, g, h, sp)) return;
   if (castStormWeapon(stormEngine, g, h, sp)) return;
   if (castWorldWeapon(worldEngine, g, h, sp)) return;
   const el = elemOf(h);
@@ -5100,7 +5117,9 @@ export function rpgStepVisual(g, dt) {
 }
 
 // 월드보스는 기존 방장 판정과 연출 묶음을 사용한다.
-const worldBossEngine={body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),kill:(g,h)=>hurtHero(g,h,h.max,{boss:true,doom:1}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
+// 공허의 관측자 중력 붕괴 — 장판 안의 사람을 중심 쪽으로 끌어당긴다(맵 가장자리·막힌 곳 안에서만). 걷던 목적지는 버린다
+const worldBossPull=(g,h,x,y,px)=>{const d=dist(x,y,h.x,h.y);if(d<4)return;const k=Math.min(px,d)/d;h.x+=(x-h.x)*k;h.y+=(y-h.y)*k;keepIn(h,MAPS[h.map],20);h.dest=null;};
+const worldBossEngine={pull:worldBossPull,body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),kill:(g,h)=>hurtHero(g,h,h.max,{boss:true,doom:1}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
 export function rpgWorldBoss(g,pi,req){return worldBossInput(worldBossEngine,g,pi,req);}
 
 const guildEngine={...worldBossEngine,refresh:h=>refreshHp(h,false)};

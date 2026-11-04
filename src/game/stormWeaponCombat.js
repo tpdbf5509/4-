@@ -19,7 +19,7 @@ export function castStormWeapon(E,g,h,id) {
   if(h.ws.storm)return true; // 훈련장 대기시간 해제 중에도 같은 기술을 중첩하지 않는다.
   const S=W.skill,[ax,ay]=E.face(h);
   const c={id,map:h.map,phase:id==='azure_dual'?'charge':'cast',t:0,index:0,ax,ay,ox:h.x,oy:h.y,
-    base:E.base(h),cap:{raw:0,weapon:true,sid:'wpn'},hits:[],lastX:h.x,lastY:h.y,travel:0,
+    base:E.base(h),cap:h.cast||{raw:0,weapon:true,sid:'wpn'},hits:[],lastX:h.x,lastY:h.y,travel:0,
     token:`${h.who||h.pi}:${g.t}:${id}`};
   h.ws.storm=c;h.ws.wcd=S.cd*E.cooldown(h);h.swing=.28;
   if(id==='azure_dual'){h.dash=0;h.dvx=0;h.dvy=0;}

@@ -1,3 +1,4 @@
+import {duelShield} from './duelBalance.js';
 import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
 import { WEAR_SETS, WEAR_SLOTS } from "./wearData.js";
 /* ── RPG 방어구 규칙 ─────────────────────────────────────────
@@ -191,7 +192,7 @@ export function worldArmorOnHit(h, { dot = false, basic = false, weapon = false 
   if (weapon && !dot && worldSetCount(h, 'dragon') >= 4 && s.rageCd <= 0) { s.rage = D.duration; s.rageCd = D.cooldown; }
   if (dot && worldSetCount(h, 'serpent') >= 4 && s.shieldCd <= 0) {
     s.dotHits++;
-    if (s.dotHits >= V.hits) { s.dotHits = 0; s.shield = h.max * V.shield; s.shieldT = V.duration; s.shieldCd = V.cooldown; }
+    if (s.dotHits >= V.hits) { s.dotHits = 0; s.shield = duelShield(h, h.max * V.shield); s.shieldT = V.duration; s.shieldCd = V.cooldown; }
   }
   if (worldSetCount(h, 'machine') >= 4) {
     if (basic && !dot && s.chargeCd <= 0) { s.charge = Math.min(M.charges, s.charge + 1); s.chargeCd = M.gap; }

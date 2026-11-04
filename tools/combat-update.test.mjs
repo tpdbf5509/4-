@@ -83,7 +83,7 @@ test('마법진 위 치유사의 실제 축복은 아군 치유량을 20% 늘리
  const {g}=duel(),healer=g.heroes[1],ally=g.heroes[0],enemy=g.heroes[2];healer.advClass='healer';
  for(const h of [healer,ally,enemy]){h.x=1000;h.y=900;}ally.hp=enemy.hp=1;
  rpgUseSkill(g,1,'j_shield');rpgAdv(g,1,{op:'use'});
- assert(Math.abs(ally.hp-1-ally.max*.2*1.2)<.001);assert.equal(enemy.hp,1);
+ assert(Math.abs(ally.hp-1-ally.max*.2*1.2*DUEL.healMul)<.001);assert.equal(enemy.hp,1);
 });
 test('급소 찌르기는 제자리에서 찌르고 멀리 있는 적에게 돌진하지 않는다',()=>{
  const {g,h}=setup(1);h.map='train';h.x=800;h.y=700;const x=h.x,y=h.y;

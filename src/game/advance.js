@@ -1,3 +1,4 @@
+import {duelHealing, makeCast, restoreCasts} from './duelBalance.js';
 /* ── RPG 1차 전직 규칙 (방장만 판정) ─────────────────────────────
    수치는 advData.js. E 는 rpg.js 의 대상 고르기 · 피해 · 연출 함수(advEngine) — 피해 · 결투 한도 · 원소는 기존 판정을 그대로 거친다.
    영구 기록: h.advClass(전직 id) · h.advQ({ c, n } 시험) · h.advM(전직 숙련도). 싸우는 동안만: h.as(쿨타임 · 중첩 · 철벽 · 정령 목록 sps ·
@@ -242,7 +243,7 @@ function comboHit(E, g, h, o, basic, cast) {
   if (a.cb.length < v.need || a.tcd > 0) return;
   a.cb = []; a.tcd = v.icd;
   const map = h.map, x0 = o.x, y0 = o.y, big = masteryLv(h.advM) >= 4 ? 1 : 0;
-  E.later(g, v.delay, () => {
+  laterFor(E, h, g, v.delay, () => {
     if (h.map !== map || h.down > 0) return;
     const live = E.alive(g, h, o, map), x = live ? o.x : x0, y = live ? o.y : y0;
     const dmg = E.base(h, "str") * v.mul;
@@ -268,7 +269,7 @@ function coopHit(E, g, h, o, cast) {
   cast.coDone = 1; a.tcd = v.icd;
   const map = h.map, dmg = E.base(h, "int") * v.per * n, big = masteryLv(h.advM) >= 4 ? 1 : 0;
   E.fx(g, map, { kind: "sk_adv_coop", x0: h.x, y0: h.y, d: h.dir || 1, n, x: o.x, y: o.y - 30, elem: E.elem(h), big, t: 0.5, life: 0.5, snd: "zap" });
-  E.later(g, 0.15, () => {
+  laterFor(E, h, g, 0.15, () => {
     if (h.map !== map || h.down > 0 || !E.alive(g, h, o, map)) return;
     E.noProc(() => withCap(h, cast, () => E.strike(g, h, o, dmg)));
   });
@@ -285,7 +286,7 @@ function soulLink(E, g, h, o) {
 function healHero(E, g, by, o, amt, trial) {
   if (!o || o.down > 0 || amt <= 0) return 0;
   if(by&&E.pvpMap(by.map)&&o!==by&&!E.allies?.(by,o))return 0;
-  amt*=E.healMul?.(by)||1;
+  amt = duelHealing(o, amt * (E.healMul?.(by) || 1));
   const before = o.hp;
   o.hp = Math.min(o.max, o.hp + amt);
   const d = o.hp - before;
@@ -319,7 +320,7 @@ export function advHealShot(E, g, h, rng) {
   h.face = 0;
   const map = h.map;
   E.fx(g, map, { kind: "shot", x0: h.x + (h.dir || 1) * 14, y0: h.y - 34, x1: best.x, y1: best.y - 30, style: "orb", r: 18, color: S.color, t: S.fly, life: S.fly, snd: "orb" });
-  E.later(g, S.fly, () => { if (best.map === map) healHero(E, g, h, best, best.max * S.heal, false); });
+  laterFor(E, h, g, S.fly, () => { if (best.map === map) healHero(E, g, h, best, best.max * S.heal, false); });
   return true;
 }
 // 축복을 건다 — 받는 피해 감소 · 바로 회복 · 이어 회복(tickAdv)
@@ -328,6 +329,11 @@ function bless(E, g, h, o, A) {
   b.blT = A.dur; b.blCut = A.cut; b.blReg = A.regen; b.blTk = A.tick; b.blBy = h.pi; b.blAtk = A.atk;
   healHero(E, g, h, o, o.max * A.heal, true);
 }
+// 예약할 때의 시전을 고정해 다른 스킬을 써도 지연 타격의 한도가 섞이지 않게 한다.
+const laterFor = (E, h, g, t, fn) => {
+  const cast = h.cast;
+  E.later(g, t, () => withCap(h, cast, fn));
+};
 // 정령 · 연속 공격이 같은 결투 피해 한도(스킬 한 번)를 나눠 쓰게 — 잠깐 h.cast 를 바꿔 친다
 function withCap(h, cap, fn) {
   if (!cap) return fn();
@@ -498,7 +504,7 @@ export function advGunShot(E, g, h, o, dmg, fly) {
   const amt = dmg * v.mul * (1 + Math.min(a.st * c.passive.per, isHero(o) ? ADV.pvpBonusMax : ADV.pveBonusMax));
   const map = h.map, dir = h.dir || 1, side = (a.mvN / v.every) % 2 ? 1 : -1, big = masteryLv(h.advM) >= 4 ? 1 : 0;
   E.fx(g, map, { kind: "sk_adv_mshot", x: h.x + dir * MUZZLE.gun, y: h.y - MUZZLE.y - 4, x0: h.x + dir * MUZZLE.gun, y0: h.y - MUZZLE.y - 4, x1: o.x, y1: o.y - 30, side, big, t: fly + 0.35, life: fly + 0.35, snd: "shot" });
-  E.later(g, fly + 0.05, () => {
+  laterFor(E, h, g, fly + 0.05, () => {
     if (h.map !== map || !E.alive(g, h, o, map)) return;
     E.noProc(() => E.extra(g, h, o, amt));
   });
@@ -518,7 +524,7 @@ function resonate(E, g, h, x, y, r, el, R, cast, o0) {
   const mobs = (rr) => E.near(g, h, x, y, rr).filter((q) => !isHero(q));
   const hitAll = (list, mul, dot) => E.noProc(() => withCap(h, cast, () => list.forEach((q) => E.strike(g, h, q, base * mul, dot))));
   if (el === "flame") {
-    E.later(g, 0.25, () => { if (h.map === map) hitAll(E.near(g, h, x, y, r * 0.6), T.flame * k); });
+    laterFor(E, h, g, 0.25, () => { if (h.map === map) hitAll(E.near(g, h, x, y, r * 0.6), T.flame * k); });
   } else if (el === "frost") {
     mobs(r * 1.5).forEach((q) => { q.slow = Math.max(q.slow || 0, T.frost * k * (q.boss ? 0.5 : 1)); });
   } else if (el === "bolt") {
@@ -526,7 +532,7 @@ function resonate(E, g, h, x, y, r, el, R, cast, o0) {
     hitAll(list, T.bolt * k);
     list.forEach((q) => E.fx(g, map, { kind: "zap", x0: x, y0: y - 20, x1: q.x, y1: q.y - 20, color: "#e6ecff", t: 0.3, life: 0.3 }));
   } else if (el === "poison") {                   // 짧은 독 — 0.5초 · 1초에 한 번씩(지속 피해)
-    [0.5, 1].forEach((t) => E.later(g, t, () => { if (h.map === map) hitAll(E.near(g, h, x, y, r), T.poison * k, true); }));
+    [0.5, 1].forEach((t) => laterFor(E, h, g, t, () => { if (h.map === map) hitAll(E.near(g, h, x, y, r), T.poison * k, true); }));
   } else if (el === "corrode") {
     mobs(r).forEach((q) => {
       q.shred = Math.max(q.shred || 0, 3 + 2 * n);
@@ -618,7 +624,7 @@ export function advUse(E, g, h) {
     if (boost) { a.st = 0; a.stT = 0; }
     const mul = boost ? P.mul : 1, r = A.r * (boost ? P.grow : 1);
     const [ax, ay] = E.aim(g, h, r + 40);
-    A.hits.forEach((hit, i) => E.later(g, hit.at, () => {
+    A.hits.forEach((hit, i) => laterFor(E, h, g, hit.at, () => {
       if (h.map !== map || h.down > 0) return;
       const list = E.arc(g, h, ax, ay, r, A.half);
       withCap(h, cast, () => list.forEach((o) => {
@@ -638,7 +644,7 @@ export function advUse(E, g, h) {
     }));
     if (boost) E.say(g, map, h.x, h.y - 120, "투지 폭발", "#ffb4a0");
   } else if (c.id === "knight") {
-    a.gT = A.dur; a.gN = A.max; a.gGap = 0; a.gCap = { raw: 0, adv: 1 };
+    a.gT = A.dur; a.gN = A.max; a.gGap = 0; a.gCap = cast;
     E.taunt?.(g,h,A.tauntRadius,A.taunt);
     E.fx(g, map, { kind: "sk_adv_guard", x: h.x + (h.dir || 1) * 24, y: h.y - 30, r: 70, t: 0.7, life: 0.7, snd: "bless" });   // 몸 앞쪽
     if (!E.pvpMap(map) && !E.fieldPvp(h)) {       // 파티 보호 — 결투 · 사냥터 PvP 에서는 본인만
@@ -654,7 +660,7 @@ export function advUse(E, g, h) {
     const [x1, y1] = E.end(h, ax, ay, A.len);
     const [sx, sy] = E.end(h, ax, ay, MUZZLE.bow);   // 활 앞에서 나간다(몸 한가운데가 아니라)
     E.fx(g, map, { kind: "sk_adv_snipe", x: sx, y: sy - MUZZLE.y, x0: sx, y0: sy - MUZZLE.y, x1, y1: y1 - MUZZLE.y, aim: A.aim, t: A.aim + 0.35, life: A.aim + 0.35, snd: "shot" });
-    E.later(g, A.aim, () => {
+    laterFor(E, h, g, A.aim, () => {
       if (h.map !== map || h.down > 0) return;
       withCap(h, cast, () => E.line(g, h, ax, ay, A.len, A.width).forEach((o) => {
         E.strike(g, h, o, base * A.mul);
@@ -663,7 +669,7 @@ export function advUse(E, g, h) {
       }));
     });
   } else if (c.id === "gunner") {
-    for (let i = 0; i < A.n; i++) E.later(g, i * A.gap, () => {
+    for (let i = 0; i < A.n; i++) laterFor(E, h, g, i * A.gap, () => {
       if (h.map !== map || h.down > 0) return;
       const [ax, ay] = E.aim(g, h, A.range);
       const list = E.arc(g, h, ax, ay, A.range, 0.9);
@@ -674,7 +680,7 @@ export function advUse(E, g, h) {
       E.fx(g, map, { kind: "sk_adv_shot", x: mx, y: my - MUZZLE.y, x0: mx, y0: my - MUZZLE.y + side * 3, x1: tx, y1: ty - 30, side, t: A.fly + 0.12, life: A.fly + 0.12, snd: i % 2 ? undefined : "shot" });
       h.swing = 0.12;
       if (!o) return;
-      E.later(g, A.fly, () => {
+      laterFor(E, h, g, A.fly, () => {
         if (!E.alive(g, h, o, map)) return;
         withCap(h, cast, () => E.strike(g, h, o, base * A.mul));
         if (i === A.n - 1 && !isHero(o)) E.soak(g, h, o, 0);   // 원소는 마지막 한 발만 — 여덟 번 겹치지 않게
@@ -689,7 +695,7 @@ export function advUse(E, g, h) {
     const r = A.r + P.grow * n, mul = A.mul * (1 + P.per * n), el = E.elem(h);
     const R = advOf(h) ? takeReso(h) : null;     // 전투 특성 — 원소 공명을 모두 쓴다
     E.fx(g, map, { kind: "sk_adv_circle", x: tx, y: ty, r, elem: el, t: A.delay + 0.25, life: A.delay + 0.25 });
-    E.later(g, A.delay, () => {
+    laterFor(E, h, g, A.delay, () => {
       if (h.map !== map || h.down > 0) return;
       const X = A.elem[el] || {};
       withCap(h, cast, () => E.near(g, h, tx, ty, r).forEach((q) => {
@@ -725,7 +731,7 @@ export function advUse(E, g, h) {
     E.lose(g, h);
     const o = shadowTarget(E, g, h, A.reach), dashAim = h.inputAim;   // 포인터 방향은 시전 때 적어 둔다(at 초 뒤에는 입력이 지워져 있다)
     E.fx(g, map, { kind: "sk_adv_vanish", x: h.x, y: h.y, t: 0.5, life: 0.5, snd: "slash" });
-    E.later(g, A.at, () => {
+    laterFor(E, h, g, A.at, () => {
       if (h.map !== map || h.down > 0) return;
       const x0 = h.x, y0 = h.y;
       if (o && E.alive(g, h, o, map)) {
@@ -778,7 +784,7 @@ export function advUlt(E, g, h) {
   const a = asOf(h), U = c.ultimate, pet = E.safe(map);   // 광장 — 공격하지 않는 작은 펫
   if (a.ucd > 0) return void E.say(g, map, h.x, h.y - 90, `${U.name} ${Math.ceil(a.ucd)}초`, "#f0dcb4");
   const x = h.x + (pet ? U.petOff[0] : (h.dir || 1) * U.follow), y = h.y + (pet ? U.petOff[1] : 0), mhp = Math.round(h.max * U.hpMul);
-  a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, pet: pet ? 1 : 0, cap: { raw: 0, adv: 1 } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
+  a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, pet: pet ? 1 : 0, cap: { ...makeCast(), adv: 1, sid: "ult" } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
   if (!pet) a.ucd = U.cd;                          // 광장 펫은 대기를 쓰지 않는다 — 싸우는 곳에 들어가는 때부터(tickGiant) 돈다
   h.swing = Math.max(h.swing || 0, 0.4);
   E.fx(g, map, { kind: "sk_adv_gsummon", x, y, r: pet ? 70 : U.r, elem: E.elem(h), t: 1.1, life: 1.1, snd: "boom", kick: 0.3 });
@@ -853,7 +859,7 @@ function tickGiant(E, g, h, a, dt) {
   E.fx(g, map, { kind: "sk_adv_gstomp", x: gi.x, y: gi.y, r: U.r, elem: E.elem(h), t: 0.6, life: 0.6, snd: "boom", kick: 0.3 });
   if (!list.length) return;
   const dmg = E.base(h, U.dmg) * U.mul;
-  E.later(g, 0.22, () => {                         // 발이 닿는 순간에 맞는다
+  laterFor(E, h, g, 0.22, () => {                         // 발이 닿는 순간에 맞는다
     if (a.gi !== gi) return;
     E.noProc(() => withCap(h, gi.cap, () => list.forEach((o) => {
       if (!E.alive(g, h, o, map)) return;
@@ -960,7 +966,7 @@ export const spiritSpot = (h, i = 0, n = 1) => {
   const ang = (d > 0 ? Math.PI : 0) + (i / n) * Math.PI * 2;
   return [h.x + Math.cos(ang) * SPIRIT_HOVER.ring, h.y - SPIRIT_HOVER.y + Math.sin(ang) * SPIRIT_HOVER.ring * SPIRIT_HOVER.flat];
 };
-const newSpirit = (h, life, i, n) => { const [x, y] = spiritSpot(h, i, n); return { t: life, x, y, cd: 0.5, cap: { raw: 0, adv: 1 }, lk: "", lt: -9 }; };
+const newSpirit = (h, life, i, n) => { const [x, y] = spiritSpot(h, i, n); return { t: life, x, y, cd: 0.5, cap: h.cast || { ...makeCast(), adv: 1 }, lk: "", lt: -9 }; };
 
 /* ── 시간 (방장 · stepHeroes) ─────────────────────────────── */
 export function tickAdv(E, g, h, dt) {
@@ -974,7 +980,7 @@ export function tickAdv(E, g, h, dt) {
   }
   if (advOf(h)?.id === "elf" && h.down <= 0 && h.hp < h.max && !E.safe(h.map)) {   // 숲의 숨결 — 싸우는 중에도 차오른다 · 쉬면 두 배
     const P = ADV_BY_ID.elf.passive;
-    h.hp = Math.min(h.max, h.hp + h.max * P.regen * (h.calm >= E.calmT ? P.calm : 1) * dt);
+    h.hp = Math.min(h.max, h.hp + duelHealing(h, h.max * P.regen * (h.calm >= E.calmT ? P.calm : 1) * dt));
   }
   const a = h.as;
   if (!a) return;
@@ -1022,7 +1028,7 @@ function spiritAct(E, g, h, a, sp, i, n, dt) {
   const map = h.map, el = E.elem(h);
   E.fx(g, map, { kind: "sk_adv_spshot", x: sp.x, y: sp.y, x0: sp.x, y0: sp.y, x1: o.x, y1: o.y - 28, elem: el, t: A.fly, life: A.fly });
   const dmg = E.base(h, A.dmg) * A.mul;
-  E.later(g, A.fly, () => {
+  laterFor(E, h, g, A.fly, () => {
     if (!(a.sps || []).includes(sp) || !E.alive(g, h, o, map)) return;
     E.noProc(() => withCap(h, sp.cap, () => E.strike(g, h, o, dmg)));
     const k2 = keyOf(o);
@@ -1044,7 +1050,8 @@ export function packAdv(h) {
     a && a.nul ? 1 : 0, a ? r1(a.nulIdle || 0) : 0,   // 20 · 21 기사 무효화 방어막(있음 · 쉰 초)
     a ? r1(a.ut || 0) : 0, a ? r1(a.rush || 0) : 0, a ? r1(a.wdT || 0) : 0, a ? a.ammo ?? -1 : -1, a ? r1(a.rl || 0) : 0,   // 22~26 암살자 지정 불가 · 질주 / 엘프 바람 걸음 / 총사 탄창 · 장전(10월 30일)
     a ? r1(a.ucd || 0) : 0, a && a.gi ? [Math.round(a.gi.hp), a.gi.mhp, r1(a.gi.t), Math.round(a.gi.x), Math.round(a.gi.y), a.gi.pet ? 1 : 0] : 0,   // 27 · 28 소환술사 궁극기 대기 · 거대 정령 [체력, 최대 체력, 남은 초](10월 31일)
-    a ? r1(a.kr || 0) : 0];   // 29 암살자 처치 뒤 질주 남은 초(11월 2일)
+    a ? r1(a.kr || 0) : 0,                       // 29 암살자 처치 뒤 질주 남은 초(11월 2일)
+    a ? structuredClone({ guard: a.gCap, spirits: sps.map(sp => sp.cap), giant: a.gi?.cap }) : null];   // 30 시전별 결투 상한(기존 칸 뒤에 추가)
 }
 export function applyAdv(h, v) {
   if (!Array.isArray(v)) { h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; return; }
@@ -1075,6 +1082,12 @@ export function applyAdv(h, v) {
   const sps = a.sps || (a.sps = []);
   sps.length = Math.min(sps.length, ts.length);
   ts.forEach((t, i) => { if (!sps[i]) sps[i] = newSpirit(h, t, i, ts.length); sps[i].t = t; });
+  if (v[30]) {
+    const caps = restoreCasts(structuredClone(v[30]));
+    a.gCap = caps.guard;
+    sps.forEach((sp, i) => { if (caps.spirits?.[i]) sp.cap = caps.spirits[i]; });
+    if (a.gi && caps.giant) a.gi.cap = caps.giant;
+  }
 }
 // 손님 화면 — 정령이 주인을 따라 떠다닌다(그림만. 공격 · 피해는 방장이 보낸 연출)
 export function stepAdvVisual(h, dt) {

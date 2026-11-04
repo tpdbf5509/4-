@@ -26,7 +26,7 @@ export function castWorldWeapon(E, g, h, id) {
   const [o] = E.near(g, h, h.x, h.y, S.reach || S.len || S.r, 1);
   const [x, y] = o ? [o.x, o.y] : E.end(h, ax, ay, (S.reach || S.len || S.r) * 0.65);
   state(h).cast = { id, map: h.map, t: 0, index: 0, ax, ay, x, y, ox: h.x, oy: h.y,
-    cap: { raw: 0, weapon: true }, next: S.delay || 0 };
+    cap: h.cast || { raw: 0, weapon: true }, next: S.delay || 0 };
   if (id === 'machine_sword') {
     const c = state(h).cast;
     E.line(g,h,ax,ay,S.len,S.width).forEach(q => damage(E,g,h,q,E.base(h)*S.mul,c));

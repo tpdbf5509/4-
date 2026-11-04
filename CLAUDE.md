@@ -54,7 +54,7 @@
 
 - **수치는 데이터 파일 한 곳**, 규칙은 짝 파일, 그림은 `*Art.js`, 창은 `src/*Panel.jsx`.
   - 방어전: `world.js`(상수 · `TOWERS` · `DIFFS` · `makeGame`) · `logic.js`(규칙, 위쪽에 밸런스 상수, 스냅샷 `packSnapshot`/`applySnapshot`) · `art.js`.
-  - RPG: `rpg.js`(규칙 본체) · `rpgArt.js` · `src/RpgView.jsx`(화면 · 입력). 기능별 수치는 `*Data.js`(item · shop · junk · armor · dungeon · abyss · skill · skillPx(스킬 상점 스킬 pixelfx 연출) · worldBossPx(월드보스 pixelfx 연출) · adv · deep · fieldLook · train · request · social · book · guild · worldBoss · worldEquipment · stormWeapon · jobTune · combatRules …).
+  - RPG: `rpg.js`(규칙 본체) · `rpgArt.js` · `src/RpgView.jsx`(화면 · 입력). 기능별 수치는 `*Data.js`(item · shop · junk · armor · dungeon · abyss · skill · skillPx(스킬 상점 스킬 pixelfx 연출) · worldBossPx(월드보스 pixelfx 연출) · adv · deep · fieldLook · train · request · social · book · guild · worldBoss · worldEquipment · stormWeapon · jobTune · combatRules · duelBalance …).
 - `src/game/towerInfo.js`: 탑 설명 숫자를 손으로 적은 곳 — logic.js 를 고치면 같이 고친다.
 - `src/game/updates.js`: 대기실 업데이트 노트 · `RPG_NOTICE`. `bookData.js`: RPG 패치노트 책.
 - `src/App.jsx`: 화면 흐름 · 방 연결 · 방장 권한 · 테스트 패널. `src/net/`: 방 연결 · 전용 서버 · 장부 호출 · 버전 확인(`version.js`).
@@ -90,6 +90,12 @@
 - 접속 때 안내 창이 필요하면 `RPG_NOTICE`(`updates.js`) id 를 바꾼다.
 
 기능별 상세 규칙(심연의 탑 · 관리자 캐릭터 · 명령어, 보스 재료 · 강화, 방어구, 던전, 스킬 칸, 직업 · 무기 스킬, 전직 · 숙련도, 400~800 사냥터, 사냥터 PvP, 월드보스, 길드, 거래, 의뢰 · 퀘스트 마스터, 장터 게시판, 결투, 경험치, 방장 승계 · 넘기기, 한 캐릭터 한 곳, 마우스 이동, 잡동산이 상점, 직업 능력 조정)은 `docs/작업-상세-기록.md` 5장과 끝의 "10월 30일" 장들에 있다. 그 기능을 고치기 전에 해당 항목을 먼저 읽는다.
+
+### RPG — 결투 밸런스 (11월 4일)
+- 결투 전용 수치는 `duelBalance.js`의 `DUEL` 한 곳. 피해 ×0.03 뒤 평타 4% · 스킬 18% · 궁극기 25% 상한을 적용하고 상대 방어·보호막으로 넘긴다.
+- 지연 타격·다단히트·투사체·장판·지속 피해·추가타는 원래 시전 객체를 보관하고 대상별로 상한을 나눠 쓴다.
+- 회복 50%는 한 번만. 보호막은 생성량만 60%. 자동 회복은 피해 없이 7초 뒤 초당 1%이며 회복 50%를 다시 곱하지 않는다.
+- 사냥터 PvP는 `rpg.js`의 `FIELD_PVP`(×0.3 · 평타 3% · 스킬 12% 완만한 상한)로 유지한다. 시험: `node --test tools/duel-balance.test.mjs`.
 
 ## 6. 작업할 때 지킬 것
 

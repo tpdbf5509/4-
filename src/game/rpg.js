@@ -1,3 +1,5 @@
+import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
+export {DUEL} from './duelBalance.js';
 import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
 import {COMBAT_RULES, refreshPowerCircles, empowerAttack, empowerHealing, duelAllies} from './combatRules.js';
 import {GUILD,GUILD_BOSSES,guildMap,guildBuff,guildAspd,GUILD_HALL,guildHallMap} from './guildData.js';
@@ -54,23 +56,10 @@ export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
 
 // 결투 — 1대1 · 2인 파티의 2대2. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
-// 피해는 공격력 99.5% 감소 — 몹을 칠 때의 dmgMul(0.5%)만 곱한다. 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
+// 피해 배율·시전별 상한·회복·보호막은 duelBalance.js의 DUEL로 조절한다. 결투장에서는 자동 평타가 꺼진다. 신청은 reqT 초 동안 기다린다.
 // 명예 — 이기면 진 사람 명예의 honorRate 에 honorBase 를 더한 만큼 오른다(지는 쪽은 그대로). 경험치 · 코인은 없다
 // 결투장 칸 크기 — 좁다는 의견으로 키웠다(10월 20일). 예전 rx 540 · ry 380 · 칸 사이 1300
 const ARENA_RING = { rx: 820, ry: 560, gap: 1850, x0: 1000, y: 900 };
-// dmgMul — 결투장 공격력 배율. 11월 3일 사용자 요청으로 한도 없이 이 배율 하나로 바꿨다 — 85% 감소(0.15) → 97%(0.03) → 99%(0.01) → 같은 날 99.5%(0.005) → 11월 4일 99%(0.01)로 잠깐 바꿨다가 사용자 요청으로 99.5%(0.005)로 되돌렸다.
-//   예전 0.3 + 스킬 한 번 한도(skillPct) · 평타 한 대 한도(basicPct)는 결투장에서 더 쓰지 않는다
-export const DUEL = { dmgMul: 0.005,
-  calm: 7, calmRegen: 0,      // 결투장 자동 회복 — 11월 4일 사용자 요청으로 껐다(0). 예전 7초 뒤 초당 2% · 처음 2.5초 · 3%. 일반 사냥터는 RPG.calm · calmRegen 그대로
-  ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
-  // 아래 한도 셋은 이제 사냥터 PvP 에만 쓴다(FIELD_PVP). 결투장은 dmgMul 만 곱한다
-  // 스킬 피해 — 스킬 한 번(여러 번 치는 스킬은 모두 합쳐)이 한도를 넘지 않는다(스킬 한 방에 쓰러져 막았다).
-  // 한도는 맞는 사람 최대 체력의 skillPct 몫이다 — 고정 숫자(1000)면 체력 500 이하인 대부분의 사람이 화염검 한 번에 쓰러졌다(10월 20일).
-  // 딱 자르면 센 스킬 · 약한 스킬이 모두 같아져서 한도 × skillSoft 를 기준으로 부드럽게 누른다 — 원래가 한도의 2.5배면 약 77%, 6배면 약 97%
-  // 센 사람이 스킬 6번 맞히면 체력 절반쯤(한 번 약 8%)
-  skillPct: 0.12, skillSoft: 1.7,
-  // 평타 한 대도 맞는 사람 최대 체력의 basicPct 를 넘지 않는다 — 관리자 평타가 한 대 1100쯤이라 체력 1000 아래는 한 대에 쓰러졌다
-  basicPct: 0.03 };
 export const honorGain = (loserHonor) => Math.round((loserHonor || 0) * DUEL.honorRate) + DUEL.honorBase;
 
 // 대쉬 — 모든 캐릭터의 기본 스킬(F). 누른 방향으로 dist 만큼 time 초에 달려 나가고, inv 초 동안 맞지 않는다
@@ -1614,8 +1603,8 @@ export const isPvp = (map) => !!(MAPS[map] && MAPS[map].pvp);
 /* ── 사냥터 PvP — 설정에서 켠 사람끼리만 서로 칠 수 있다(기본은 꺼짐) ─────────────────
    광장 · 던전 · 훈련장 · 결투장에서는 켜 두어도 듣지 않는다(결투장은 결투 규칙을 따른다). 같은 파티는 칠 수 없다.
    몹을 칠 때와 같은 기술이 그대로 나간다 — 노릴 것을 고르는 곳(foesNear · nearFoes)이 몹과 PvP 를 켠 사람을 함께 본다.
-   피해는 결투와 같이 줄여서 한 방에 끝나지 않게 한다(FIELD_PVP.dmgMul, 스킬 한 번 한도는 결투와 같은 DUEL.skillPct) */
-export const FIELD_PVP = { dmgMul: 0.3, toggleCd: 5 };   // toggleCd — 켜고 끄기를 다시 바꿀 수 있을 때까지(초)
+   피해는 결투와 같이 줄여서 한 방에 끝나지 않게 한다(FIELD_PVP.dmgMul, 스킬 한 번 한도는 FIELD_PVP.skillPct) */
+export const FIELD_PVP = { dmgMul: 0.3, basicPct: 0.03, skillPct: 0.12, skillSoft: 1.7, toggleCd: 5 };   // toggleCd — 켜고 끄기를 다시 바꿀 수 있을 때까지(초)
 export const fieldPvpMap = (map) => { const M = MAPS[map]; return !!M && !M.safe && !M.pvp && !M.dungeon && !M.train && !M.worldBoss; };
 const fieldPvpOn = (h) => !!h && !!h.pvpOn && !!h.loaded && fieldPvpMap(h.map);
 // 몹이 아니라 사람인가 — 몹은 type 이 있다
@@ -1650,7 +1639,7 @@ function nearFoes(g, h, x, y, range) {
   return foes.filter(o=>dist(x,y,o.x,o.y)-7<=range).sort((a,b)=>dist(x,y,a.x,a.y)-dist(x,y,b.x,b.y));
 }
 // 결투 상대를 친다 — 쓰러지면 결투가 끝난다(tickDuels)
-// 사냥터 PvP 에서 basic 이 아니면 스킬 — 스킬 한 번(newCast 부터 다음 스킬까지)이 주는 피해를 모두 합쳐 상대 최대 체력의 DUEL.skillPct 를 넘지 않게 누른다(pvpSoft)
+// 시전별·대상별 상한은 방어·보호막 전에 센다. 사냥터 PvP는 기존 완만한 상한을 유지한다.
 // 방어력 있는 사람 — 방어구 감소나 직업 기본 방어력(검사 · 기사)이 있다. 궁수 피해가 더 줄어든다
 const hasDefense = (o) => armorTakeMul(o) < 1 || classCut(o, advOf(o)?.id, "phys") > 0;
 function hitFoe(g, h, o, raw, basic, dot) {
@@ -1661,13 +1650,20 @@ function hitFoe(g, h, o, raw, basic, dot) {
   const off = offHand(h);
   if (dot) raw *= worldDotMul(h);
   if (!dot && procOff === 0) raw *= advDmgMul(advEngine, g, h, o, !!basic, true);   // 전직 패시브(표식 · 약점 · 탄도) — PvP 는 +15% 까지
-  let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : DUEL.dmgMul);   // 직업과 다른 무기 — 한 대 피해 고정
+  let dmg = (off ? OFF_HAND.dmg[off] : raw * (dot ? 1 : wpnMul(h))) * (field ? FIELD_PVP.dmgMul : 1);   // 직업과 다른 무기 — 한 대 피해 고정
   if (!off && archerCut(h)) dmg *= JOB_TUNE.archer.dmg * (hasDefense(o) ? JOB_TUNE.archer.vsArmor : 1);   // 궁수 — 피해 감소 · 방어력 있는 사람에게 더 감소
   if (!off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, o.max, true);   // 마법사 — 최대 체력 비례 피해(PvP 값)
-  if (!field) { if (dmg <= 0) return; }   // 결투장 — 공격력 99.5% 감소(DUEL.dmgMul)만(0.5% 라 작은 피해도 버리지 않는다), 한 대 · 스킬 한도는 없다
-  else if (basic) dmg = Math.min(dmg, DUEL.basicPct * (o.max || 1));
+  if (!field) {
+    dmg *= DUEL.dmgMul;                          // 기존 공격 계산 → 결투 배율 → 상한 → hurtHero의 방어·보호막
+    const c = h.cast || newCast(h), key = `${o.pi}:${o.who}`;
+    const pct = c.basic ? DUEL.basicPct : c.sid === "ult" ? DUEL.ultPct : DUEL.skillPct;
+    const spent = c.duelSpent || (c.duelSpent = {}), cap = pct * (o.max || 1);
+    dmg = Math.min(dmg, Math.max(0, cap - (spent[key] || 0)));
+    if (dmg <= 0) return;                        // 상한보다 약한 피해는 소수까지 그대로 준다
+    spent[key] = (spent[key] || 0) + dmg;
+  } else if (basic) dmg = Math.min(dmg, FIELD_PVP.basicPct * (o.max || 1));
   else {
-    const c=h.cast||newCast(h),cap=DUEL.skillPct*(o.max||1),key=`${o.pi}:${o.who}`;
+    const c=h.cast||newCast(h),cap=FIELD_PVP.skillPct*(o.max||1),key=`${o.pi}:${o.who}`;
     if(!c.pvpRaw)c.pvpRaw={[key]:c.raw||0};
     const previous=c.pvpRaw[key]||0,before=pvpSoft(previous,cap);
     c.pvpRaw[key]=previous+dmg;c.raw+=dmg;
@@ -1691,9 +1687,9 @@ function hitFoe(g, h, o, raw, basic, dot) {
 }
 // 처형 한 대의 원래 피해 — 최대 체력의 이 배수를 넣고 hurtHero 가 남은 체력만큼으로 줄인다(exec). 감소 70% · 막기 50% 를 겹쳐도 남은 체력을 넘게
 const EXEC_RAW = 10;
-// 스킬을 새로 쓴다 — 결투 스킬 피해를 처음부터 센다(raw 는 이번 스킬이 지금까지 준 원래 피해)
-const newCast = (h) => (h.cast = { raw: 0 });
-const pvpSoft = (raw, cap) => cap * (1 - Math.exp(-raw / (cap * DUEL.skillSoft)));
+// 매 시전마다 새 객체를 만든다. 지연 타격·투사체·장판은 이 객체를 함께 보관한다
+const newCast = (h) => (h.cast = makeCast());
+const pvpSoft = (raw, cap) => cap * (1 - Math.exp(-raw / (cap * FIELD_PVP.skillSoft)));
 
 /* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
 const duelEngine={config:DUEL,rings:MAPS.arena.rings,sys,name:(g,pi)=>nameOf(g,pi),fx,honorGain,win:(g,h)=>advDuelWin(advEngine,g,h),map:id=>MAPS[id],plaza:{map:'plaza',x:MAPS.plaza.spawn[0],y:MAPS.plaza.spawn[1]}};
@@ -2097,6 +2093,7 @@ function heroAttack(g, h, force) {
   const rng = heroRange(h) * advRangeMul(advEngine, h);   // 총사 기동 사격 — 물러나며 쏘아도 끊기지 않게 자동 평타 사거리를 늘린다
   const hy = h.y - 34;
   if (!advGunReady(advEngine, h)) return false;  // 총사 장전 중 — 평타가 나가지 않는다
+  if (inDuel(h)) newCast(h).basic = true;         // 평타도 추가 탄환·패시브와 한 대의 상한을 공유한다
   if (isPvp(map)) return pvpAttack(g, h, job, el, dmg, rng, hy, force);
   if (h.ac) acOnAttack(g, h);                     // 심연의 탑 강화 카드 — 박자 · 대시 뒤 첫 평타 · 충격파
   const heal = advHealShot(advEngine, g, h, rng);  // 치유사 치유 평타 — 켜 두었으면 몹을 치지 않는다
@@ -2222,7 +2219,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
   } else {
     fx(g, map, { kind: "shot", x0: h.x, y0: hy, x1: o.x, y1: o.y - 30, ...(prec ? { style: "arrow", color: "#bffcf3" } : archerShot(h, el)), t: fly, life: fly, snd: "shot" });
   }
-  g.hits.push({ t: fly, pi, hid: o.pi, x: o.x, y: o.y, map, dmg: prec ? dmg * Math.min(prec.first, 1 + ADV.pvpBonusMax) : dmg, splash: job.splash || 0, ...(prec ? { prec } : {}) });
+  g.hits.push({ t: fly, pi, hid: o.pi, x: o.x, y: o.y, map, cast: h.cast, dmg: prec ? dmg * Math.min(prec.first, 1 + ADV.pvpBonusMax) : dmg, splash: job.splash || 0, ...(prec ? { prec } : {}) });
   if (job.id === "archer") { advGunShot(advEngine, g, h, o, dmg, fly); advGunFired(advEngine, g, h); }
   return true;
 }
@@ -2425,7 +2422,7 @@ export function rpgUseSkill(g, pi, id) {
   if (u.heal) {                                    // 응급 처치 — 어디서나 쓸 수 있다
     if (h.hp >= h.max) return say(g, map, h.x, h.y - 90, "체력이 이미 가득 찼습니다", "#d9c9a6");
     const before = h.hp;
-    h.hp = Math.min(h.max, h.hp + h.max * u.heal[i]);
+    h.hp = Math.min(h.max, h.hp + duelHealing(h, h.max * u.heal[i]));
     fx(g, map, { kind: "heal", x: h.x, y: h.y - 56, text: `+${Math.round(h.hp - before)}`, t: 0.9, life: 0.9, snd: "bless", who: pi });
     fx(g, map, { kind: "sk_px_aid", x: h.x, y: h.y + 2, t: 0.9, life: 0.9 });   // 발밑에 피는 꽃(skillPxArt.js)
   } else {
@@ -2457,7 +2454,7 @@ export function rpgUseSkill(g, pi, id) {
       fx(g, map, { kind: "sk_px_rush", x: x0, y: y0 - 30, x0, y0: y0 - 30, x1: m.x, y1: m.y - 30, t: 0.3, life: 0.3, snd: "slash" });
       // 닿는 순간에 찌른다 — 그사이 상대가 쓰러졌거나 맵을 떠났으면 빗나간다
       const hit = { t: L.time, pi, x: m.x, y: m.y, map, splash: u.splash || 0, full: u.splash ? 1 : 0, skill: true, sure: !!u.crit, cast };   // 돌진 베기는 닿은 자리 둘레를 모두
-      if (u.splash) later(g, L.time, () => fx(g, map, { kind: "sk_px_spin", x: h.x, y: h.y - 8, r: u.splash, color: elemOf(h).light, dir: h.dir, t: 0.5, life: 0.5, snd: "boom" }));
+      if (u.splash) laterFor(h, g, L.time, () => fx(g, map, { kind: "sk_px_spin", x: h.x, y: h.y - 8, r: u.splash, color: elemOf(h).light, dir: h.dir, t: 0.5, life: 0.5, snd: "boom" }));
       g.hits.push(isHeroT(m) ? { ...hit, hid: m.pi, dmg: dmg * (u.crit ? critMul(h) : 1) } : { ...hit, mid: m.id, dmg });
       }
     } else {                                       // 가장 가까운 하나
@@ -2479,6 +2476,15 @@ export function rpgUseSkill(g, pi, id) {
    직업 버프는 h.jb(철벽 · 마나 보호막) — 둘 다 스냅샷 줄 46 으로 손님에게 간다(그림 · 걷기 속도) */
 const WS = WEAPON_SKILLS;
 const later = (g, t, fn) => (g.later || (g.later = [])).push({ t, fn, by: fxBy });
+// 소유자가 바뀌면 예약을 버린다. 중첩 예약도 원래 시전을 이어받는다.
+const laterFor = (h, g, t, fn) => {
+  const cast = h.cast, owner = h.who;
+  later(g, t, () => {
+    if (g.heroes[h.pi] !== h || h.who !== owner) return;
+    const previous = setFxBy(h.pi);
+    try { return withCast(h, cast, fn); } finally { setFxBy(previous); }
+  });
+};
 function tickLater(g, dt) {
   if (!g.later || !g.later.length) return;
   const due = [];
@@ -2572,15 +2578,15 @@ function jobSkill(g, h, u, i, dmg) {
     const [tx, ty] = o ? [o.x, o.y] : aimAt(h, heroRange(h));
     if (o) h.dir = o.x < h.x ? -1 : 1;
     for (let k = 0; k < u.n; k++) {
-      later(g, k * u.gap, () => {
+      laterFor(h, g, k * u.gap, () => {
         if (h.map !== map || h.down > 0) return;
         const alive = !!o && (isHeroT(o) ? o.down <= 0 : !o.dead) && o.map === map;
         const x1 = alive ? o.x : tx, y1 = alive ? o.y : ty;
         fx(g, map, { kind: "sk_px_arrow", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1, y1: y1 - 10, t: 0.18, life: 0.18, snd: "shot" });
         if (!alive) return;
-        later(g, 0.18, () => fx(g, map, { kind: "sk_px_spark", x: x1, y: y1, dir: h.dir, t: 0.3, life: 0.3 }));
-        g.hits.push(isHeroT(o) ? { t: 0.18, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
-          : { t: 0.18, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true });
+        laterFor(h, g, 0.18, () => fx(g, map, { kind: "sk_px_spark", x: x1, y: y1, dir: h.dir, t: 0.3, life: 0.3 }));
+        g.hits.push(isHeroT(o) ? { t: 0.18, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true, cast: h.cast }
+          : { t: 0.18, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true, cast: h.cast });
       });
     }
   } else if (u.kind === "leap") {                 // 후퇴 사격 — 뒤로 물러나며 쏜다
@@ -2588,16 +2594,16 @@ function jobSkill(g, h, u, i, dmg) {
     lungeTo(h, leapSpot(g, h, u), u.time);
     advLeap(advEngine, g, h);                     // 총사 기동 사격
     fx(g, map, { kind: "sk_px_spark_ice", x: x0, y: y0, dir: -h.dir, t: 0.3, life: 0.3, snd: "slash" });   // 물러나는 자리에 서리 불꽃
-    later(g, u.time, () => {
+    laterFor(h, g, u.time, () => {
       if (h.map !== map || h.down > 0) return;
       const [o] = foesNear(g, h, h.x, h.y, heroRange(h) * 1.5, 1);
       if (!o) return;
       h.dir = o.x < h.x ? -1 : 1;
       fx(g, map, { kind: "sk_px_arrow_ice", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1: o.x, y1: o.y - 10, t: 0.2, life: 0.2, snd: "shot" });
       const ox = o.x, oy = o.y;
-      later(g, 0.2, () => fx(g, map, { kind: "sk_px_spark_ice", x: ox, y: oy, dir: h.dir, t: 0.3, life: 0.3 }));
-      g.hits.push(isHeroT(o) ? { t: 0.2, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true }
-        : { t: 0.2, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true, slow: u.slow });
+      laterFor(h, g, 0.2, () => fx(g, map, { kind: "sk_px_spark_ice", x: ox, y: oy, dir: h.dir, t: 0.3, life: 0.3 }));
+      g.hits.push(isHeroT(o) ? { t: 0.2, pi, hid: o.pi, x: o.x, y: o.y, map, dmg, splash: 0, skill: true, cast: h.cast }
+        : { t: 0.2, pi, mid: o.id, x: o.x, y: o.y, map, dmg, splash: 0, skill: true, cast: h.cast, slow: u.slow });
     });
   } else if (u.kind === "orb") {                  // 원소 구체 — 큰 구슬 · 맞은 자리 둘레를 모두
     const reach = heroRange(h) * 1.4;
@@ -2606,7 +2612,7 @@ function jobSkill(g, h, u, i, dmg) {
     if (o) h.dir = o.x < h.x ? -1 : 1;
     const fly = 0.32;
     fx(g, map, { kind: "sk_px_orb", x: h.x, y: hy, x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, el: el.id, t: fly, life: fly, snd: "orb" });
-    later(g, fly, () => fx(g, map, { kind: "sk_px_boom", x: tx, y: ty - 6, r: u.splash, color: el.light, el: el.id, t: 0.5, life: 0.5, snd: "boom" }));   // 고리는 예전 크기 그대로
+    laterFor(h, g, fly, () => fx(g, map, { kind: "sk_px_boom", x: tx, y: ty - 6, r: u.splash, color: el.light, el: el.id, t: 0.5, life: 0.5, snd: "boom" }));   // 고리는 예전 크기 그대로
     const cast = h.cast;                          // 닿을 때 이 스킬로 친다(landHit)
     g.hits.push(o
       ? (isHeroT(o) ? { t: fly, pi, hid: o.pi, x: tx, y: ty, map, dmg, splash: isPvp(map) ? 0 : u.splash, full: 1, skill: true, cast }
@@ -2640,7 +2646,7 @@ function jobSkill(g, h, u, i, dmg) {
     fx(g,map,{kind:'sk_px_circle',x:h.x,y:h.y,r:C.radius,color:'#b9d3f1',t:.9,life:.9,snd:'bless'});   // 고리는 마법진 반지름 그대로
   } else if (u.kind === "shield") {               // 마나 보호막
     const jb = jbOf(h);
-    jb.sh = Math.round(h.max * u.amt[i]); jb.shT = u.dur;
+    jb.sh = Math.round(duelShield(h, h.max * u.amt[i])); jb.shT = u.dur;
     fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 70, color: "#a9c8f5", t: 0.7, life: 0.7, snd: "bless" });
   }
 }
@@ -2725,7 +2731,7 @@ function missile(g, h, o) {
   const x1 = x + o.ax * o.range, y1 = y + o.ay * o.range * RPG.squash, life = o.range / o.v;
   fx(g, h.map, { kind: "sk_missile", style: o.style, x, y: y - 34, x0: x, y0: y - 34, x1, y1: y1 - 34, fid, t: life, life, snd: o.snd });
   (g.missiles || (g.missiles = [])).push({ pi: h.pi, who: h.who, map: h.map, x, y, ax: o.ax, ay: o.ay, v: o.v, left: o.range, r: o.r,
-    hit: o.hit, miss: o.miss, fid });
+    hit: o.hit, miss: o.miss, cast: h.cast, fid });
 }
 function tickMissiles(g, dt) {
   if (!g.missiles || !g.missiles.length) return;
@@ -2741,9 +2747,9 @@ function tickMissiles(g, dt) {
       const step = Math.min(go, 30);
       s.x += s.ax * step; s.y += s.ay * step * RPG.squash; s.left -= step; go -= step;
       const [o] = foesNear(g, h, s.x, s.y, s.r, 1);
-      if (o) { cutFx(g, s.map, s.fid); s.hit(o, s.x, s.y); return false; }
+      if (o) { cutFx(g, s.map, s.fid); withCast(h, s.cast, () => s.hit(o, s.x, s.y)); return false; }
     }
-    if (s.left <= 0) { if (s.miss) s.miss(s.x, s.y); return false; }
+    if (s.left <= 0) { if (s.miss) withCast(h, s.cast, () => s.miss(s.x, s.y)); return false; }
     return true;
   });
   g.missiles = keep.concat(g.missiles);           // 맞은 뒤 새로 쏜 것(이어지는 화살)도 남긴다
@@ -2753,7 +2759,7 @@ function tickMissiles(g, dt) {
    그림 sk_rift 가 자리와 폭발 예고(마지막 0.6초 고리)를 보여 준다 */
 function addRift(g, h, x, y, life) {
   const fid = `r${h.pi}.${++fidN}`;
-  (g.rifts || (g.rifts = [])).push({ pi: h.pi, who: h.who, map: h.map, x, y, t: life, fid });
+  (g.rifts || (g.rifts = [])).push({ pi: h.pi, who: h.who, map: h.map, x, y, t: life, fid, cast: h.cast });
   fx(g, h.map, { kind: "sk_rift", x, y, r: WS.galaxy_staff.passive.r, fid, t: life, life });
 }
 const myRifts = (g, h) => (g.rifts || []).filter((r) => r.pi === h.pi && r.who === h.who && r.map === h.map);
@@ -2767,7 +2773,7 @@ function tickRifts(g, dt) {
 function riftBoom(g, r) {
   const h = g.heroes[r.pi], P = WS.galaxy_staff.passive;
   if (!h || h.who !== r.who || h.map !== r.map) return;
-  noProc(() => foesNear(g, h, r.x, r.y, P.r).forEach((o) => strikeAny(g, h, o, SKILL_USE.base * magMul(h) * P.mul)));
+  withCast(h, r.cast, () => noProc(() => foesNear(g, h, r.x, r.y, P.r).forEach((o) => strikeAny(g, h, o, SKILL_USE.base * magMul(h) * P.mul))));
   fx(g, r.map, { kind: "nova", x: r.x, y: r.y - 6, r: P.r, color: "#b9a6ff", n: 14, t: 0.5, life: 0.5, snd: "boom" });
 }
 // 패시브가 낳은 피해(폭발 · 추가 화살)는 다시 패시브를 부르지 않는다
@@ -2783,16 +2789,18 @@ function packSkillState(h) {
   return [w ? r1(w.wcd) : 0, w ? w.emb : 0, w ? w.star : 0, c ? c.st + 1 : 0, c ? r1(c.t) : 0, c ? r1(c.el) : 0,
     jb ? r1(jb.iron) : 0, jb ? Math.round(jb.sh) : 0, jb ? r1(jb.shT) : 0,
     w ? w.zap || 0 : 0, w ? w.mark || 0 : 0, w ? w.aim || 0 : 0,
-    q ? r1(q.stun) : 0, q ? r1(q.air) : 0, q ? r1(q.root) : 0, q ? r1(q.slow) : 0, q ? q.slowAmt || 0 : 0, q ? r1(q.brand) : 0, w?.world || null, w?.storm ? structuredClone(w.storm) : null];
+    q ? r1(q.stun) : 0, q ? r1(q.air) : 0, q ? r1(q.root) : 0, q ? r1(q.slow) : 0, q ? q.slowAmt || 0 : 0, q ? r1(q.brand) : 0, w?.world || null, w?.storm ? structuredClone(w.storm) : null, c?.cast ? structuredClone(c.cast) : null, w?.zapCast ? structuredClone(w.zapCast) : null];
 }
 function applySkillState(h, a) {
+  a = restoreCasts(structuredClone(a));           // 같은 시전의 직격·독·표식·지연탄은 복원 뒤에도 한도를 공유한다
   const v = a.slice(0, 18).map((x) => Number(x) || 0);
-  wsOf(h).world = a[18] ? structuredClone(a[18]) : null;
-  wsOf(h).storm = a[19] ? structuredClone(a[19]) : null;
+  wsOf(h).world = a[18] || null;
+  wsOf(h).storm = a[19] || null;
   const w = wsOf(h), jb = jbOf(h);
   let cst, ct, cel;
   [w.wcd, w.emb, w.star, cst, ct, cel, jb.iron, jb.sh, jb.shT, w.zap, w.mark, w.aim] = v;
-  w.cmb = cst ? { sp: heldSpecial(h), st: cst - 1, t: ct, el: cel } : null;
+  w.cmb = cst ? { sp: heldSpecial(h), st: cst - 1, t: ct, el: cel, cast: a[20] || { ...makeCast(), weapon: true, sid: "wpn" } } : null;
+  w.zapCast = a[21] || null;
   if (v.slice(12, 18).some((x) => x > 0) || h.cc) {
     const q = ccOf(h);
     [q.stun, q.air, q.root, q.slow, q.slowAmt, q.brand] = v.slice(12, 18);
@@ -2826,20 +2834,20 @@ function weaponOnHit(g, h, m, foe, side, basic) {
     ccAny(g, h, o, { stun: P.stun });
     if (foe) ccOf(foe).brand = P.dur; else m.brand = P.dur;
   } else if (sp === "thunder_staff") {            // 전류 구체가 맞은 적을 평타로 치면 전류 폭발
-    if (basic && !side && w.zapWin > 0 && w.zapKey === focKey(m, foe)) { w.zapWin = 0; zapBoom(g, h, o); }
+    if (basic && !side && w.zapWin > 0 && w.zapKey === focKey(m, foe)) { w.zapWin = 0; withCast(h, w.zapCast, () => zapBoom(g, h, o)); }
   } else if (sp === "galaxy_staff") {             // 차원 균열 — 공격 스킬이 맞은 자리
     const P = WS.galaxy_staff.passive;
     if (!basic && !side && w.riftT <= 0) { w.riftT = P.gap; addRift(g, h, o.x, o.y, P.life); }
   } else if (sp === "holy_staff") {               // 성역 축적 — 평타가 맞으면 보호막
     if (!basic || side) return;
     const P = WS.holy_staff.passive, jb = jbOf(h);
-    jb.sh = Math.min(h.max * P.cap, jb.sh + h.max * P.per); jb.shT = P.dur;
+    jb.sh = Math.min(duelShield(h, h.max * P.cap), jb.sh + duelShield(h, h.max * P.per)); jb.shT = P.dur;
   } else if (sp === "flame_staff") {              // 잔화 — 맞은 자리에 잠깐 남아 태운다
     const P = WS.flame_staff.passive;
     if (side || w.emT > 0 || (g.zones || []).filter((z) => z.pi === h.pi && z.ember).length >= P.max) return;
     w.emT = P.gap;
     (g.zones || (g.zones = [])).push({ pi: h.pi, map: h.map, x: o.x, y: o.y, r: P.r, t: P.life, tick: P.tick, acc: 0, linger: 0,
-      dmg: SKILL_USE.base * magMul(h) * P.mul, ember: 1 });
+      dmg: SKILL_USE.base * magMul(h) * P.mul, ember: 1, cast: h.cast });
     fx(g, h.map, { kind: "sk_ember", x: o.x, y: o.y, r: P.r, t: P.life, life: P.life });
   } else if (sp === "fury_staff") {              // 용의 불씨 — 평타가 맞으면 용의 격노 대기 시간이 준다
     if (!basic || side || w.fyT > 0) return;
@@ -2854,10 +2862,10 @@ function weaponOnHit(g, h, m, foe, side, basic) {
     if (!ccOn(o) || (o.cc ? o.cc.chase : o.chase)) return;
     if (o.cc) o.cc.chase = 1; else o.chase = 1;
     const P = WS.shadow_bow.passive, map = h.map;
-    later(g, P.delay, () => {
+    laterFor(h, g, P.delay, () => {
       if (h.map !== map || h.down > 0 || !aliveFoe(g, h, o, map)) return;
       fx(g, map, { kind: "sk_missile", style: "shadow", x: h.x, y: h.y - 34, x0: h.x, y0: h.y - 34, x1: o.x, y1: o.y - 30, t: 0.16, life: 0.16, snd: "shot" });
-      later(g, 0.16, () => { if (aliveFoe(g, h, o, map)) noProc(() => strikeAny(g, h, o, skillBase(h) * P.mul)); });
+      laterFor(h, g, 0.16, () => { if (aliveFoe(g, h, o, map)) noProc(() => strikeAny(g, h, o, skillBase(h) * P.mul)); });
     });
   } else if (sp === "star_bow") {                 // 별의 조준 — 맞히면 오른다
     if (!side) w.aim = Math.min(WS.star_bow.passive.max, w.aim + 1);
@@ -2959,7 +2967,7 @@ function tickZones(g, dt) {
       z.acc -= z.tick;
       foesNear(g, h, z.x, z.y, z.r).forEach((o) => {
         if (!isHeroT(o) && !z.ember) o.slow = Math.max(o.slow, z.tick + z.linger);
-        strikeAny(g, h, o, z.dmg, true);
+        withCast(h, z.cast, () => strikeAny(g, h, o, z.dmg, true));
       });
     }
     return z.t > 0;
@@ -3070,7 +3078,7 @@ const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near
   hit: (g, h, m, dmg) => hitMob(g, h.pi, m, dmg), after: afterHit,
   side: (g, h, m, dmg) => hitMob(g, h.pi, m, dmg, false, false, false, true),
   extra: (g, h, o, dmg) => (isHeroT(o) ? hitFoe(g, h, o, dmg, true) : hitMob(g, h.pi, o, dmg, false, false, false, true)),
-  shield: (h, amt, dur) => { const jb = jbOf(h); if (jb.sh >= amt) return false; jb.sh = Math.round(amt); jb.shT = Math.max(jb.shT, dur); return true; },
+  shield: (h, amt, dur) => { amt = duelShield(h, amt); const jb = jbOf(h); if (jb.sh >= amt) return false; jb.sh = Math.round(amt); jb.shT = Math.max(jb.shT, dur); return true; },
   train: (map) => !!(MAPS[map] && MAPS[map].train), trading,
   gunHeld: (h) => { const w = h.bag && equipped(h.bag); return !!w && w.t === "gun"; },
   bagRoom: (h) => !!h.bag && h.bag.w.length < weaponCap(h),
@@ -3105,7 +3113,7 @@ export function rpgWeaponSkill(g, pi) {
   if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, "광장에서는 쓸 수 없다", "#d9c9a6");
   if (isPvp(map) && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
   const w = wsOf(h), S = W.skill;
-  if (w.cmb && w.cmb.sp === sp) return comboNext(g, h, sp, S, w, w.cmb);
+  if (w.cmb && w.cmb.sp === sp) return withCast(h, w.cmb.cast, () => comboNext(g, h, sp, S, w, w.cmb));
   if (w.wcd > 0) return say(g, map, h.x, h.y - 90, `${W.name} ${Math.ceil(w.wcd)}초`, "#f0dcb4");
   newCast(h);                                     // 결투 스킬 피해 한도 — 연계 전체가 스킬 한 번
   h.cast.weapon = true; h.cast.sid = "wpn";
@@ -3117,14 +3125,14 @@ export function rpgWeaponSkill(g, pi) {
     const [ax, ay] = aimTo(g, h, S.ahead + S.r);
     const [x, y] = lineEnd(h, ax, ay, S.ahead);
     const k = el.id === "frost" ? W.elem.frost : 1;
-    (g.zones || (g.zones = [])).push({ pi, map, x, y, r: S.r, t: S.dur, tick: S.tick, acc: S.tick, linger: k > 1 ? 1 : 0.3, dmg: skillBase(h) * S.mul * k });
+    (g.zones || (g.zones = [])).push({ pi, map, x, y, r: S.r, t: S.dur, tick: S.tick, acc: S.tick, linger: k > 1 ? 1 : 0.3, dmg: skillBase(h) * S.mul * k, cast: h.cast });
     fx(g, map, { kind: "sk_ice", x, y, r: S.r, t: S.dur, life: S.dur, snd: "ice" });
     fx(g, map, { kind: "sk_icespike", x, y, r: S.r, t: 0.9, life: 0.9 });   // 깔리는 순간 얼음 가시가 솟는다
     g.shake = Math.max(g.shake, 0.3);
   } else if (sp === "flame") {                    // 화염베기 — 둘레를 빠르게 연달아 벤다 · 불똥 9개
     addEmber(g, h, S.embers);
     for (let k = 0; k < S.hits; k++) {
-      later(g, (k * S.dur) / S.hits, () => {
+      laterFor(h, g, (k * S.dur) / S.hits, () => {
         if (h.map !== map || h.down > 0) return;
         foesNear(g, h, h.x, h.y, S.r).forEach((o) => strikeAny(g, h, o, skillBase(h) * S.mul * burnBonus(h, o)));
         // 불꽃 초승달 — 베는 방향 · 기울기 · 도는 쪽을 번갈아 바꿔 여러 겹이 휘몰아치게 한다
@@ -3148,10 +3156,10 @@ export function rpgWeaponSkill(g, pi) {
     for (let k = 0; k < cnt; k++) {
       const a = k * 2.39, d = k ? r * (0.35 + 0.65 * (((k * 37) % 100) / 100)) : 0;
       const mx = x + Math.cos(a) * d, my = y + Math.sin(a) * d * RPG.squash;
-      later(g, k * S.gap, () => {
+      laterFor(h, g, k * S.gap, () => {
         if (h.map !== map) return;
         fx(g, map, { kind: "sk_meteor", x: mx, y: my, r: re, t: 0.9, life: 0.9, snd: k % 2 ? undefined : "orb" });
-        later(g, 0.55, () => {
+        laterFor(h, g, 0.55, () => {
           if (h.map !== map) return;
           foesNear(g, h, mx, my, re).forEach((q) => strikeAny(g, h, q, dmg * S.each));
           g.shake = Math.max(g.shake, 0.35);
@@ -3161,10 +3169,10 @@ export function rpgWeaponSkill(g, pi) {
     }
   } else if (sp === "shadow") shadowStart(g, h, S);   // 종말의 연격 — dur 초 동안 평타마다 연격
   else if (sp === "holy") {                       // 심판의 반격 — 반격 자세
-    w.cmb = { sp, st: 1, t: S.stance, el: 0 };
+    w.cmb = { sp, st: 1, t: S.stance, el: 0, cast: h.cast };
     fx(g, map, { kind: "sigil", x: h.x, y: h.y - 4, r: 70, color: "#ffe9a8", t: S.stance, life: S.stance, snd: "bless" });   // 날개는 drawHeroSkill
   } else if (sp === "star_bow") {                 // 성좌 관통 — 조준 자세(다시 누르면 쏜다 · 대기 시간은 쏠 때)
-    w.cmb = { sp, st: 1, t: S.hold, el: 0 };
+    w.cmb = { sp, st: 1, t: S.hold, el: 0, cast: h.cast };
     faceDir(h);
     fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: "조준", color: "#d8e4ff", t: 0.7, life: 0.7, who: pi });
     return;
@@ -3232,7 +3240,7 @@ function shadowFinish(g, h, S, c) {
   c.hit = null;
   if (o) lungeTo(h, o, 0.15);
   h.swing = 0.4;
-  later(g, o ? 0.15 : 0, () => {
+  laterFor(h, g, o ? 0.15 : 0, () => {
     if (h.map !== map || h.down > 0) return;
     const prev = h.cast;
     h.cast = cast;
@@ -3252,10 +3260,11 @@ function shadowFinish(g, h, S, c) {
 /* 신성검 — 반격 자세에서 맞으면 막고 벤다. 그 뒤 X 내려치기 · 평타 밀어내기 */
 function holyCounter(g, h) {
   const S = WS.holy.skill, w = wsOf(h), map = h.map;
-  w.cmb = { sp: "holy", st: 2, t: S.gap, el: 0 };
+  const cast = w.cmb.cast;
+  w.cmb = { sp: "holy", st: 2, t: S.gap, el: 0, cast };
   h.inv = Math.max(h.inv || 0, S.inv);            // 여러 번 치는 공격도 그 순간은 막는다
   fx(g, map, { kind: "call", x: h.x, y: h.y - 110, text: "반격!", color: "#ffe39a", t: 0.8, life: 0.8, snd: "crit", who: h.pi });
-  later(g, 0.05, () => {
+  withCast(h, cast, () => laterFor(h, g, 0.05, () => {
     if (h.map !== map || h.down > 0) return;
     const list = foesNear(g, h, h.x, h.y, S.r);
     if (list[0]) h.dir = list[0].x < h.x ? -1 : 1;
@@ -3264,7 +3273,7 @@ function holyCounter(g, h) {
     fx(g, map, { kind: "nova", x: h.x, y: h.y - 20, r: S.r, color: "#ffe9a8", n: 14, t: 0.5, life: 0.5 });
     g.shake = Math.max(g.shake, 0.4);
     h.swing = 0.3;
-  });
+  }));
 }
 function holySlam(g, h, S) {
   const w = wsOf(h), map = h.map, A = S.slam;
@@ -3281,6 +3290,10 @@ function holySlam(g, h, S) {
 function comboPush(g, h) {
   const w = h.ws, c = w && w.cmb;
   if (!c || c.sp !== "holy" || c.st !== 2 || heldSpecial(h) !== "holy") return false;
+  return withCast(h, c.cast, () => comboPushHit(g, h));
+}
+function comboPushHit(g, h) {
+  const w = h.ws;
   const A = WS.holy.skill.push, map = h.map;
   w.cmb = null;
   const [ax, ay] = aimTo(g, h, A.len);
@@ -3372,7 +3385,7 @@ function riftFire(g, h, S) {
     const [o] = foesNear(g, h, r.x, r.y, S.reach, 1);
     if (!o) return riftBoom(g, r);
     fx(g, map, { kind: "sk_missile", style: "void", x: r.x, y: r.y - 30, x0: r.x, y0: r.y - 30, x1: o.x, y1: o.y - 30, t: 0.22, life: 0.22, snd: "orb" });
-    later(g, 0.22, () => { if (aliveFoe(g, h, o, map) && h.map === map) strikeAny(g, h, o, dmg); });
+    laterFor(h, g, 0.22, () => { if (aliveFoe(g, h, o, map) && h.map === map) strikeAny(g, h, o, dmg); });
   });
   h.swing = 0.3;
   fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: "균열 사격", color: "#cbb8ff", t: 0.7, life: 0.7, who: h.pi });
@@ -3386,7 +3399,7 @@ function rangedSkill(g, h, sp, S, w) {
     fx(g, map, { kind: "sk_flamer", x: h.x, y: h.y, src: h.pi, ax, ay, len: S.len, half: S.half, t: S.dur, life: S.dur, snd: "boom" });
     const n = Math.round(S.dur / S.tick);
     for (let k = 0; k < n; k++) {
-      later(g, k * S.tick, () => {
+      laterFor(h, g, k * S.tick, () => {
         if (h.map !== map || h.down > 0) return;
         arcFoes(g, h, ax, ay, S.len, S.half).forEach((o) => {
           const d = Math.min(1, dist(h.x, h.y, o.x, o.y) / S.len);
@@ -3402,20 +3415,20 @@ function rangedSkill(g, h, sp, S, w) {
     const [bx, by] = lineEnd(h, ax, ay, S.burst.ahead);
     // 연출은 한 통 — 단계마다 시간은 furyArt.js 가 같은 S 로 그린다(메시지를 늘리지 않는다)
     fx(g, map, { kind: "sk_fury", x: h.x, y: h.y, a, bx, by, t: S.life, life: S.life, snd: "slash" });
-    later(g, S.slash.at, () => {
+    laterFor(h, g, S.slash.at, () => {
       if (h.map !== map || h.down > 0) return;
       arcFoes(g, h, ax, ay, S.slash.r, S.slash.half).forEach((o) => {
         strikeAny(g, h, o, mag * S.slash.mul);
         fx(g, map, { kind: "sk_fury_hit", x: o.x, y: o.y - 30, t: 0.35, life: 0.35 });   // 맞은 자리 십자 섬광
       });
     });
-    later(g, S.burst.at, () => {
+    laterFor(h, g, S.burst.at, () => {
       if (h.map !== map || h.down > 0) return;
       foesNear(g, h, bx, by, S.burst.r).forEach((o) => strikeAny(g, h, o, mag * S.burst.mul));
       g.shake = Math.max(g.shake, 0.35);
       fx(g, map, { kind: "sk_fury_hit", x: bx, y: by - 30, big: 1, t: 0.4, life: 0.4, snd: "boom" });
     });
-    later(g, S.beam.at, () => {
+    laterFor(h, g, S.beam.at, () => {
       if (h.map !== map || h.down > 0) return;
       lineFrom(g, h, bx, by, ax, ay, S.beam.len, S.beam.width).forEach((o) => strikeAny(g, h, o, mag * S.beam.mul));   // 광선은 폭발 자리에서 앞으로
       g.shake = Math.max(g.shake, 0.3);
@@ -3425,14 +3438,14 @@ function rangedSkill(g, h, sp, S, w) {
   if (sp === "thunder_staff") {                   // 전류 방출 — 마법진 뒤 앞으로 구체
     const [ax, ay] = faceDir(h);
     fx(g, map, { kind: "sk_charge", x: h.x + ax * 30, y: h.y - 34 + ay * 30 * RPG.squash, a: angOf(ax, ay), t: S.charge + 0.2, life: S.charge + 0.2, snd: "zap" });
-    later(g, S.charge, () => {
+    laterFor(h, g, S.charge, () => {
       if (h.map !== map || h.down > 0) return;
       missile(g, h, { ax, ay, v: S.v, range: S.range, r: S.hitR, style: "zap", snd: "zap",
         hit: (o) => {
           strikeAny(g, h, o, mag * S.mul);
           const P = WS.thunder_staff.passive, pvp = isHeroT(o);
           w.zap = Math.min(P.max, w.zap + 1); w.zapT = P.fade;
-          w.zapKey = focKey(pvp ? null : o, pvp ? o : null); w.zapWin = S.win;
+          w.zapKey = focKey(pvp ? null : o, pvp ? o : null); w.zapWin = S.win; w.zapCast = h.cast;
           fx(g, map, { kind: "burst", x: o.x, y: o.y - 30, r: 30, color: "#cfe0ff", n: 10, t: 0.4, life: 0.4 });
           fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: `전류 ${w.zap} — 평타로 폭발`, color: "#cfe0ff", t: 0.8, life: 0.8, who: h.pi });
         } });
@@ -3449,7 +3462,7 @@ function rangedSkill(g, h, sp, S, w) {
       },
       miss: (x, y) => {
         addRift(g, h, x, y, S.keep);
-        w.cmb = { sp: "galaxy_staff", st: 2, t: S.gap, el: 0 };
+        w.cmb = { sp: "galaxy_staff", st: 2, t: S.gap, el: 0, cast: h.cast };
       } });
     return true;
   }
@@ -3469,7 +3482,7 @@ function rangedSkill(g, h, sp, S, w) {
   }
   if (sp === "lava_bow") {                        // 관통 연사 1타 — 빠른 화살
     const [ax, ay] = faceDir(h);
-    const c = (w.cmb = { sp, st: 0, t: S.range / S.v + 0.2, el: 0 });
+    const c = (w.cmb = { sp, st: 0, t: S.range / S.v + 0.2, el: 0, cast: h.cast });
     w.markT = Math.max(w.markT, w.mark > 0 ? WS.lava_bow.passive.fade : 0);
     missile(g, h, { ax, ay, v: S.v, range: S.range, r: S.hitR, style: "lava", snd: "shot",
       hit: (o) => {
@@ -3494,11 +3507,11 @@ function rangedSkill(g, h, sp, S, w) {
   }
   if (sp === "gold_bow") {                        // 비상 연계 1 — 뒤로 도약하며 앞으로 화살
     const [ax, ay] = aimTo(g, h, S.range);        // 사거리 안의 가장 가까운 적 — 없으면 바라보는 쪽
-    const c = (w.cmb = { sp, st: 0, t: S.time + S.gap, el: 0, ax, ay, h1: 0, h2: 0 });
+    const c = (w.cmb = { sp, st: 0, t: S.time + S.gap, el: 0, cast: h.cast, ax, ay, h1: 0, h2: 0 });
     h.dvx = (-ax * S.back) / S.time; h.dvy = (-ay * S.back) / S.time; h.dash = S.time;
     h.inv = Math.max(h.inv || 0, S.time);
     goldArrow(g, h, S, ax, ay, S.mul, () => { if (w.cmb === c) c.h1 = 1; });
-    later(g, S.time, () => { if (w.cmb === c && c.st === 0) c.st = 2; });   // 내려앉았다 — 다음 입력
+    laterFor(h, g, S.time, () => { if (w.cmb === c && c.st === 0) c.st = 2; });   // 내려앉았다 — 다음 입력
     fx(g, map, { kind: "sk_wingdash", x: h.x, y: h.y - 30, a: angOf(-ax, -ay), t: 0.4, life: 0.4 });
     return true;
   }
@@ -3510,7 +3523,7 @@ function zapBoom(g, h, o) {
   const r = w.zap >= WS.thunder_staff.passive.max ? S.boomR3 : S.boomR;
   const dmg = SKILL_USE.base * magMul(h) * S.boom * (1 + w.zap * S.perZap);
   const x = o.x, y = o.y;
-  later(g, 0, () => { if (h.map === map) noProc(() => foesNear(g, h, x, y, r).forEach((q) => strikeAny(g, h, q, dmg))); });
+  laterFor(h, g, 0, () => { if (h.map === map) noProc(() => foesNear(g, h, x, y, r).forEach((q) => strikeAny(g, h, q, dmg))); });
   fx(g, map, { kind: "sk_zapboom", x, y: y - 20, r, t: 0.6, life: 0.6, snd: "zap" });
   g.shake = Math.max(g.shake, 0.35 + w.zap * 0.08);
 }
@@ -3561,9 +3574,11 @@ function stepHeroes(g, dt) {
       }
       return;
     }
+    const previousCalm = h.calm;
     h.calm += dt;
-    const duelRest = isPvp(h.map);   // 결투장은 DUEL.calmRegen 0 이라 저절로 차지 않는다
-    if (h.calm >= (duelRest ? DUEL.calm : RPG.calm) && (!duelRest || DUEL.calmRegen > 0)) h.hp = Math.min(h.max, h.hp + h.max * (duelRest ? DUEL.calmRegen : RPG.calmRegen) * dt * (h.ac ? acHealMul(h) : 1));   // 강화 카드 — 받는 회복량
+    const duelRest = inDuel(h);   // 결투장 자동 회복은 회복량 감소를 다시 곱하지 않는다
+    const regenDt = duelRest ? Math.max(0, h.calm - Math.max(previousCalm, DUEL.calm)) : dt;
+    if (h.calm >= (duelRest ? DUEL.calm : RPG.calm) && (!duelRest || DUEL.calmRegen > 0)) h.hp = Math.min(h.max, h.hp + h.max * (duelRest ? DUEL.calmRegen : RPG.calmRegen) * regenDt * (h.ac ? acHealMul(h) : 1));   // 강화 카드 — 받는 회복량
     if (h.dash > 0) dashStep(h, dt);                // 대쉬 중에는 걷지 않고 달려 나간다
     else rpgWalk(h, dt);
 

@@ -69,7 +69,7 @@ export function duelInput(E,g,pi,req){
     q.ret=null;q.map='arena';q.x=R.x+(t?1:-1)*R.rx*.3;q.y=R.y+(i-(size-1)/2)*130;
     q.dir=t?-1:1;q.face=0;q.hold=[];q.dest=null;q.fire=0;q.dash=0;q.hp=q.max;q.down=0;q.duelInv=null;
     q.dvs=sides[1-t][0].pi;q.dph=1;q.dtl=ready;q.duelColor=colors[t];q.ring=ring;q.duelTeam=t;q.duelSize=size;q.duelPotions=COMBAT_RULES.duelPotions;
-    q.bf={};q.buff=0;q.guard=0;q.tauntBy=-1;q.tauntT=0;
+    q.calm=0;q.cast=null;q.bf={};q.buff=0;q.guard=0;q.tauntBy=-1;q.tauntT=0;
     E.sys(g,q.pi,`${size}대${size} 결투 시작 · 결투용 회복 물약 (소) 5개 지급`);
   }));return true;
 }

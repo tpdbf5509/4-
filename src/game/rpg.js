@@ -2090,7 +2090,7 @@ function heroAttack(g, h, force) {
   const map = h.map;
   const job = jobOf(h), el = elemOf(h);
   const dmg = job.dmg * heroDmgMul(h);
-  const rng = heroRange(h) * advRangeMul(advEngine, h);   // 총사 기동 사격 — 물러나며 쏘아도 끊기지 않게 자동 평타 사거리를 늘린다
+  const rng = heroRange(h) * advRangeMul(advEngine, h) * shadowRangeMul(h);   // 총사 기동 사격 — 물러나며 쏘아도 끊기지 않게 자동 평타 사거리를 늘린다
   const hy = h.y - 34;
   if (!advGunReady(advEngine, h)) return false;  // 총사 장전 중 — 평타가 나가지 않는다
   if (inDuel(h)) newCast(h).basic = true;         // 평타도 추가 탄환·패시브와 한 대의 상한을 공유한다
@@ -3205,6 +3205,11 @@ function shadowStart(g, h, S) {
 function shadowAspd(h) {
   const c = h.ws && h.ws.cmb;
   return c && c.sp === "shadow" && c.st === 1 && heldSpecial(h) === "shadow" ? 1 + WS.shadow.skill.aspd : 1;
+}
+// 암흑검 연격이 유지되는 동안 평타의 대상 탐색 범위도 넓힌다.
+function shadowRangeMul(h) {
+  const c = h.ws?.cmb;
+  return c?.sp === "shadow" && c.st === 1 && heldSpecial(h) === "shadow" ? WS.shadow.skill.rangeMul : 1;
 }
 // 평타를 친 뒤 — 지속 중이면 다음 타를 낸다. 피해는 이 스킬 한 번(c.cast)으로 센다
 function shadowProc(g, h, c) {

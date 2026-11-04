@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgWeaponSkill } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgWeaponSkill, heroRange } from '../src/game/rpg.js';
 import { WEAPON_SKILLS } from '../src/game/skillData.js';
 import { SPECIALS } from '../src/game/shopData.js';
 import { specialTier } from '../src/game/shop.js';
@@ -84,5 +84,18 @@ test('새 연출 시트가 있고 그리는 법이 적혀 있다', () => {
     const look = SKILL_PX_LOOK[k];
     assert.ok(look && SKILL_PX_SHEETS[look.sheet], k);
     assert.ok(existsSync(`public/assets/game/rpg/effects/skill-px/${look.sheet}.webp`), k);
+  }
+});
+
+test('연격 중 평타는 기존 사거리 밖의 적을 자동으로 치고 종료·무기 교체 시 원래대로다', () => {
+  for (const mode of ['plain', 'active', 'expired', 'switched']) {
+    const {g,h} = setup();
+    const d = g.mobs.find(m => m.map === 'train');
+    farAway(g,h);d.x=h.x+heroRange(h)*1.3;d.y=h.y;d.rad=0;
+    if (mode !== 'plain') rpgWeaponSkill(g,0);
+    if (mode === 'expired') { h.ws.cmb.t=.01;run(g,.02); }
+    if (mode === 'switched') h.bag.e=0;
+    h.cd=0;h.auto=1;const before=h.trn?.tot||0;run(g,.05);
+    assert.equal((h.trn?.tot||0)>before,mode==='active',mode);
   }
 });

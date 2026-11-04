@@ -27,7 +27,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR } from "./rpg.js";
+import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { paintFieldLook, fieldTrails } from "./fieldArt.js";
@@ -2639,7 +2639,7 @@ export function drawRpg(ctx, g, bgs) {
   drawWorldBossGround(ctx,g,M.id,lod.q);drawGuildGround(ctx,g,M.id);
   // 내 사거리 — 토끼가 들어오면 또렷해진다
   if (me && me.down <= 0 && !M.safe) {
-    const rr = heroRange(me);
+    const rr = heroAttackRange(me);
     const foe = M.pvp && me.dvs >= 0 ? g.heroes[me.dvs] : null;
     const on = M.pvp
       ? !!(foe && foe.map === M.id && foe.down <= 0 && dist(me.x, me.y, foe.x, foe.y) <= rr)

@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgWeaponSkill, heroRange } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgWeaponSkill, heroRange, heroAttackRange } from '../src/game/rpg.js';
 import { WEAPON_SKILLS } from '../src/game/skillData.js';
 import { SPECIALS } from '../src/game/shopData.js';
 import { specialTier } from '../src/game/shop.js';
@@ -95,6 +95,7 @@ test('연격 중 평타는 기존 사거리 밖의 적을 자동으로 치고 �
     if (mode !== 'plain') rpgWeaponSkill(g,0);
     if (mode === 'expired') { h.ws.cmb.t=.01;run(g,.02); }
     if (mode === 'switched') h.bag.e=0;
+    assert.equal(heroAttackRange(h),heroRange(h)*(mode==='active'?1.5:1),mode+' 표시 반지름');
     h.cd=0;h.auto=1;const before=h.trn?.tot||0;run(g,.05);
     assert.equal((h.trn?.tot||0)>before,mode==='active',mode);
   }

@@ -966,6 +966,8 @@ export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
 export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul * (jobOf(h).id === "archer" ? JOB_TUNE.archer.range : 1) * acRangeMul(h);   // 10월 30일 궁수 사거리 +15%
+// 평타 판정과 사거리 원이 버프를 포함한 같은 반지름을 쓴다.
+export const heroAttackRange = h => heroRange(h) * advRangeMul(advEngine, h) * shadowRangeMul(h);
 const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h) + guildAspd(h)) / acAspdMul(h) / shadowAspd(h);   // 전설 바지 · 신발 — 공격 속도 · 암흑검 연격 지속 중
 
 /* 자리마다 앉은 사람의 겉모습 — 방장과 손님 모두 자리가 바뀔 때마다 넣는다.
@@ -2090,7 +2092,7 @@ function heroAttack(g, h, force) {
   const map = h.map;
   const job = jobOf(h), el = elemOf(h);
   const dmg = job.dmg * heroDmgMul(h);
-  const rng = heroRange(h) * advRangeMul(advEngine, h) * shadowRangeMul(h);   // 총사 기동 사격 — 물러나며 쏘아도 끊기지 않게 자동 평타 사거리를 늘린다
+  const rng = heroAttackRange(h);   // 총사 기동 사격 — 물러나며 쏘아도 끊기지 않게 자동 평타 사거리를 늘린다
   const hy = h.y - 34;
   if (!advGunReady(advEngine, h)) return false;  // 총사 장전 중 — 평타가 나가지 않는다
   if (inDuel(h)) newCast(h).basic = true;         // 평타도 추가 탄환·패시브와 한 대의 상한을 공유한다

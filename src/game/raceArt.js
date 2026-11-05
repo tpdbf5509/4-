@@ -1,4 +1,5 @@
-/* 몹 레이스 그림 — 트랙 바닥과 광장 레이스 관리인. 코드로 그린다(그림 파일 없음).
+import {drawPlazaNpc} from "./plazaNpcArt.js";
+/* 몹 레이스 그림 — 트랙 바닥과 광장 레이스 관리인. 관리인은 투명 WebP를 쓰고 트랙은 코드로 그린다.
    T = { shadow, roundRect, npcBody } — rpgArt.js 가 넘긴다. 탈것은 rpgArt.js drawRaceMount 가 몹 그림을 그대로 쓴다 */
 import { RACE, RACE_BOXES, RACE_PADS, RACE_MUDS, laneY } from "./raceData.js";
 
@@ -123,7 +124,7 @@ export function drawRaceNpc(ctx, g, n, time, T) {
     ctx.fillRect(x + 24 + c * 8, y - 90 + r * 8 + (c * wave) / 4, 8, 8);
   }
   ctx.restore();
-  T.npcBody(ctx, x, y, bob);
+  if (!drawPlazaNpc(ctx, n.id, x, y + bob)) T.npcBody(ctx, x, y, bob);
   const R = g.race, ph = R && R.ph;
   const chip = ph === "open" ? (R.rs.length < RACE.minRacers ? `모집 중 ${R.rs.length}/${RACE.max} · 한 명 더` : `모집 중 ${R.rs.length}/${RACE.max} · ${Math.max(0, Math.ceil(R.t))}초`) : ph && ph !== "idle" ? "달리는 중" : "";
   ctx.save();

@@ -176,3 +176,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 `public/assets/game/rpg/boss/thunderbird.webp` — 1024×512 투명 WebP. 2열×1행이며 왼쪽은 기본 자세, 오른쪽은 공격 준비입니다. 원본 `design/bosses/thunderbird.png`는 내장 이미지 생성 도구로 생성하고 가장자리를 정리했습니다. `python3 tools/cut-thunderbird.py`로 다시 자릅니다. 칸은 512×512이고 발밑 기준점은 `worldBossData.js`의 보스별 `art.feet`입니다. 선택 창과 전투에 같은 시트를 사용합니다. 로딩 실패 시 날개와 부리가 있는 코드 그림을 사용합니다. 기존 3종 보스 시트는 유지합니다.
 
 공허의 관측자 공격 연출(11월 5일, pixelfx(MIT)로 뽑음 · 뽑는 법 `design/effects/pixelfx/world-boss/make-void.mjs`): `rpg/effects/world-boss/v_*.webp` 투명 시트 6장 — `v_hole`(165×126, 4열 12칸, shadow/black-hole, 반복) · `v_collapse`(249×223, 4열 16칸, shadow/dark-explosion) · `v_portal`(142×111, 4열 12칸, arcane/portal, 반복) · `v_slam`(234×145, 3열 8칸, impacts/ground-slam) · `v_rift`(251×81, 3열 14칸, nature/quake) · `v_sigil`(118×116, 5열 18칸, shadow/hex-sigil). 칸 수 · 기준점은 `worldBossPxData.js`.
+
+### 광장 NPC (11월 5일)
+
+`rpg/npc/<NPC id>.webp` 14장. 256×256 투명 WebP이며 발 기준점은 (128, 248)이다. `plazaNpcData.js`에서 사람 84px · 상점 주인 74px 크기를 관리한다. 상점은 판매대 뒤에 그린다. 원화는 `design/plaza-npc/shops.webp` · `town.webp`이며 4열×2행의 마지막 칸은 비어 있다. 칸을 자른 뒤 투명 여백을 다듬고 240×232 안에 맞춰 발을 248에 정렬했다. NPC 그림이 없거나 로딩에 실패하면 기존 코드 그림을 사용한다.

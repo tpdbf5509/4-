@@ -1,3 +1,5 @@
+import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
+import {PLAZA_NPC_ART} from "./plazaNpcData.js";
 import {drawPowerCircles} from './combatRulesArt.js';
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
 import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
@@ -328,6 +330,7 @@ export const RFRAME = {
 };
 let rpgWarm = 0;
 export function warmRpgArt() {
+  warmPlazaNpcArt();
   warmDragonFlightArt();warmWorldBossArt();warmGuildArt();warmAdvArt();warmFuryArt();warmAbyssArt();
   if (rpgWarm) return;
   rpgWarm = 1;
@@ -893,7 +896,7 @@ export function drawNpcBody(ctx, x, y, bob) {
   ctx.restore();
 }
 
-/* 광장 상점 — 그림 파일이 아직 없어 코드로 그린 노점이다. 차양 색은 shopData.js 의 color.
+/* 광장 상점 — 주인은 투명 WebP이고 노점은 코드로 그린다. 차양 색은 shopData.js 의 color.
    발밑 가운데가 (x, y). 위에 상점 이름, 아래에 주인 이름을 단다. */
 function drawShop(ctx, n, time) {
   const { x, y } = n;
@@ -901,17 +904,20 @@ function drawShop(ctx, n, time) {
   shadow(ctx, x, y + 4, 62, 12, 0.28);
   ctx.save();
   ctx.translate(x, y);
-  // 기둥과 판매대
+  // 기둥
   ctx.fillStyle = "#6b4e33";
   ctx.fillRect(-54, -92, 5, 92); ctx.fillRect(49, -92, 5, 92);
-  ctx.fillStyle = "#8a6a46"; roundRect(ctx, -58, -30, 116, 30, 4); ctx.fill();
-  ctx.strokeStyle = "rgba(40,26,14,0.6)"; ctx.lineWidth = 1; ctx.stroke();
   // 주인 — 판매대 뒤에서 살짝 흔들린다
   const bob = Math.sin(time * 2 + x) * 1.2;
-  ctx.fillStyle = c; ctx.fillRect(-11, -50 + bob, 22, 22);
-  ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -58 + bob, 9, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#3a2c1c";
-  ctx.beginPath(); ctx.arc(-3, -58 + bob, 1.3, 0, Math.PI * 2); ctx.arc(3, -58 + bob, 1.3, 0, Math.PI * 2); ctx.fill();
+  if (!drawPlazaNpc(ctx, n.id, 0, -4 + bob, PLAZA_NPC_ART.shopSize)) {
+    ctx.fillStyle = c; ctx.fillRect(-11, -50 + bob, 22, 22);
+    ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -58 + bob, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#3a2c1c";
+    ctx.beginPath(); ctx.arc(-3, -58 + bob, 1.3, 0, Math.PI * 2); ctx.arc(3, -58 + bob, 1.3, 0, Math.PI * 2); ctx.fill();
+  }
+  // 판매대는 주인 앞에 그려 몸이 판매대 위로 겹치지 않게 한다.
+  ctx.fillStyle = "#8a6a46"; roundRect(ctx, -58, -30, 116, 30, 4); ctx.fill();
+  ctx.strokeStyle = "rgba(40,26,14,0.6)"; ctx.lineWidth = 1; ctx.stroke();
   // 줄무늬 차양
   for (let i = 0; i < 6; i++) {
     ctx.fillStyle = i % 2 ? "#efe6d2" : c;
@@ -2038,18 +2044,20 @@ function drawDungeonNpc(ctx, n, time) {
   shadow(ctx, x, y + 2, 17, 5, 0.3);
   ctx.save();
   ctx.translate(x, y + bob);
-  ctx.fillStyle = "#5e4a52"; ctx.strokeStyle = "rgba(30,20,12,0.7)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-11, -38); ctx.lineTo(11, -38); ctx.lineTo(15, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "#3a2c1c"; ctx.fillRect(-8, -2, 6, 3); ctx.fillRect(2, -2, 6, 3);
-  ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -46, 9.5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#3a2c1c";
-  ctx.beginPath(); ctx.arc(-3.3, -46, 1.3, 0, Math.PI * 2); ctx.arc(3.3, -46, 1.3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#5e4a52"; ctx.beginPath(); ctx.arc(0, -49, 11, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
-  // 등불
-  ctx.strokeStyle = "#4a3a2a"; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(14, -24); ctx.lineTo(18, -30); ctx.stroke();
-  const glow = 0.7 + 0.3 * Math.sin(time * 5);
-  ctx.fillStyle = `rgba(255,190,100,${glow})`; ctx.fillRect(15, -24, 7, 9);
+  if (!drawPlazaNpc(ctx, n.id, 0, 0)) {
+    ctx.fillStyle = "#5e4a52"; ctx.strokeStyle = "rgba(30,20,12,0.7)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-11, -38); ctx.lineTo(11, -38); ctx.lineTo(15, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#3a2c1c"; ctx.fillRect(-8, -2, 6, 3); ctx.fillRect(2, -2, 6, 3);
+    ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -46, 9.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#3a2c1c";
+    ctx.beginPath(); ctx.arc(-3.3, -46, 1.3, 0, Math.PI * 2); ctx.arc(3.3, -46, 1.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#5e4a52"; ctx.beginPath(); ctx.arc(0, -49, 11, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+    // 등불
+    ctx.strokeStyle = "#4a3a2a"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(14, -24); ctx.lineTo(18, -30); ctx.stroke();
+    const glow = 0.7 + 0.3 * Math.sin(time * 5);
+    ctx.fillStyle = `rgba(255,190,100,${glow})`; ctx.fillRect(15, -24, 7, 9);
+  }
   ctx.restore();
   ctx.save();
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -2075,15 +2083,17 @@ function drawReqNpc(ctx, g, n, time) {
   shadow(ctx, x, y + 2, 17, 5, 0.3);
   ctx.save();
   ctx.translate(x, y + bob);
-  const col = def.color || "#9a8a70";
-  ctx.fillStyle = col; ctx.strokeStyle = "rgba(30,20,12,0.7)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-11, -38); ctx.lineTo(11, -38); ctx.lineTo(15, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "rgba(255,240,215,0.25)"; ctx.fillRect(-1, -36, 2, 34);
-  ctx.fillStyle = "#3a2c1c"; ctx.fillRect(-8, -2, 6, 3); ctx.fillRect(2, -2, 6, 3);
-  ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -46, 9.5, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = "#3a2c1c";
-  ctx.beginPath(); ctx.arc(-3.3, -46, 1.3, 0, Math.PI * 2); ctx.arc(3.3, -46, 1.3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, -49, 11, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();   // 두건
+  if (!drawPlazaNpc(ctx, n.id, 0, 0)) {
+    const col = def.color || "#9a8a70";
+    ctx.fillStyle = col; ctx.strokeStyle = "rgba(30,20,12,0.7)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-15, 0); ctx.lineTo(-11, -38); ctx.lineTo(11, -38); ctx.lineTo(15, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(255,240,215,0.25)"; ctx.fillRect(-1, -36, 2, 34);
+    ctx.fillStyle = "#3a2c1c"; ctx.fillRect(-8, -2, 6, 3); ctx.fillRect(2, -2, 6, 3);
+    ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -46, 9.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#3a2c1c";
+    ctx.beginPath(); ctx.arc(-3.3, -46, 1.3, 0, Math.PI * 2); ctx.arc(3.3, -46, 1.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, -49, 11, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();   // 두건
+  }
   ctx.restore();
   // 머리 위 표시
   const list = REQUESTS[n.req] || [];

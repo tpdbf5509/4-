@@ -1,3 +1,4 @@
+import {drawPlazaNpc} from "./plazaNpcArt.js";
 /* ── 1차 전직 그리기 ─────────────────────────────────────────
    그림은 생성한 투명 아틀라스 셋(advData.js ADV_ART, 원본 design/advance). 못 불러오면 코드 그림으로 대신해 게임이 깨지지 않는다.
    drawAdvFx — 스킬 연출(kind "sk_adv_*") · drawAdvHero — 영웅 둘레(철벽 방어 · 중첩 · 정령) · drawAdvHeldItem — 손에 든 총 · 소환서 ·
@@ -594,15 +595,17 @@ export function drawAdvNpc(ctx, g, n, time, roundRect, shadow) {
   ctx.beginPath(); ctx.moveTo(19, -84); ctx.lineTo(42, -80); ctx.lineTo(38, -60); ctx.lineTo(19, -56); ctx.closePath(); ctx.fill();
   ctx.fillStyle = "#e3c06a"; ctx.font = "10px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("✦", 29, -70);
-  ctx.fillStyle = "#34406a"; ctx.strokeStyle = "rgba(20,14,30,0.7)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-11, -40); ctx.lineTo(11, -40); ctx.lineTo(16, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = "#e3c06a"; ctx.fillRect(-11, -40, 22, 3); ctx.fillRect(-1, -37, 2, 35);   // 금빛 깃 · 띠
-  ctx.fillStyle = "#3a2c1c"; ctx.fillRect(-8, -2, 6, 3); ctx.fillRect(2, -2, 6, 3);
-  ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -48, 9.5, 0, TAU); ctx.fill();
-  ctx.fillStyle = "#3a2c1c";
-  ctx.beginPath(); ctx.arc(-3.3, -48, 1.3, 0, TAU); ctx.arc(3.3, -48, 1.3, 0, TAU); ctx.fill();
-  ctx.fillStyle = "#cfd3dc"; ctx.beginPath(); ctx.ellipse(0, -41, 7, 4, 0, 0, Math.PI); ctx.fill();   // 흰 수염
-  ctx.fillStyle = "#34406a"; ctx.beginPath(); ctx.arc(0, -51, 11, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  if (!drawPlazaNpc(ctx, n.id, 0, 0)) {
+    ctx.fillStyle = "#34406a"; ctx.strokeStyle = "rgba(20,14,30,0.7)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(-11, -40); ctx.lineTo(11, -40); ctx.lineTo(16, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#e3c06a"; ctx.fillRect(-11, -40, 22, 3); ctx.fillRect(-1, -37, 2, 35);   // 금빛 깃 · 띠
+    ctx.fillStyle = "#3a2c1c"; ctx.fillRect(-8, -2, 6, 3); ctx.fillRect(2, -2, 6, 3);
+    ctx.fillStyle = "#f0d0b0"; ctx.beginPath(); ctx.arc(0, -48, 9.5, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#3a2c1c";
+    ctx.beginPath(); ctx.arc(-3.3, -48, 1.3, 0, TAU); ctx.arc(3.3, -48, 1.3, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#cfd3dc"; ctx.beginPath(); ctx.ellipse(0, -41, 7, 4, 0, 0, Math.PI); ctx.fill();   // 흰 수염
+    ctx.fillStyle = "#34406a"; ctx.beginPath(); ctx.arc(0, -51, 11, Math.PI * 1.05, Math.PI * 1.95); ctx.fill();
+  }
   ctx.restore();
   // 머리 위 표시
   const mine = me && advForJob(me.job);

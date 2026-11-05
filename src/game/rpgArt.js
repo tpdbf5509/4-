@@ -1,4 +1,4 @@
-import {drawVillageApproach, paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, villageObjects, villageTrees} from './villageArt.js';
+import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART} from "./plazaNpcData.js";
 import {drawPowerCircles} from './combatRulesArt.js';
@@ -2399,7 +2399,7 @@ function drawArenaFloor(ctx, M) {
   ctx.restore();
 }
 
-/* 명예 순위판 — 광장 위쪽 가운데. 나무 판에 금빛 글씨, 가까이 가면 E 로 연다 */
+/* 명예 순위판 — 광장 북쪽 문 왼쪽. 나무 판에 금빛 글씨, 가까이 가면 E 로 연다 */
 function drawHonorBoard(ctx, n, time) {
   const { x, y } = n;
   ctx.save();
@@ -2649,7 +2649,6 @@ export function drawRpg(ctx, g, bgs) {
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
   if (look) fieldTrails(M, FIELD_TRAIL).forEach((pts) => dirtPath(ctx, pts, 60, look.path));
   else (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
-  if (M.id === "plaza") drawVillageApproach(ctx);
   if (M.dungeon) drawTorches(ctx, M, cam, time);
   if (M.pvp) drawArenaFloor(ctx, M);
   if (M.race) drawRaceTrack(ctx, M, g, time, cam, W);   // 몹 레이스 트랙(raceArt.js)

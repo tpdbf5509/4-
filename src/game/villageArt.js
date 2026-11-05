@@ -35,13 +35,6 @@ export function drawVillageGate(ctx, gate, time) {
   label(ctx,gate.label,gate.x,gate.y-166);
 }
 
-export function drawVillageApproach(ctx) {
-  // 명예판을 옮기지 않고 오른쪽으로 돌아 문에 닿는 길을 낸다.
-  ctx.save();ctx.fillStyle='#4f6e34';ctx.beginPath();ctx.ellipse(900,135,160,85,0,0,Math.PI*2);ctx.fill();
-  ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#b9ab8a';ctx.lineWidth=42;
-  ctx.beginPath();ctx.moveTo(1030,340);ctx.lineTo(1030,230);ctx.lineTo(900,180);ctx.stroke();ctx.restore();
-}
-
 // 바닥은 한 번 그려 캐시한다. 길·장식은 충돌 데이터의 빈 구간을 따른다.
 export function paintVillage(ctx) {
   ctx.fillStyle='#637d48';ctx.fillRect(0,0,V.w,V.h);

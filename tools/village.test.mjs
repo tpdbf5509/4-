@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {makeWorld,rpgSyncSeats,rpgJoin,rpgStep,rpgPack,rpgApply,rpgMove,rpgTalk,rpgFire,rpgSkill,npcNear,mapIdx,fieldPvpMap,MAPS,RPG} from '../src/game/rpg.js';
+import {makeWorld,rpgSyncSeats,rpgJoin,rpgStep,rpgPack,rpgApply,rpgMove,rpgTalk,rpgFire,rpgSkill,npcNear,mapIdx,fieldPvpMap,MAPS,RPG,HONOR_BOARD} from '../src/game/rpg.js';
 import {VILLAGE as V,VILLAGE_NPCS,VILLAGE_SIGHTS,VILLAGE_DIALOGUES} from '../src/game/villageData.js';
 import {pickNpc,npcStopPoint} from '../src/game/mouseMove.js';
 import {RESET,GIFT} from '../src/game/itemData.js';
@@ -12,12 +12,15 @@ test('새 안전 맵은 스냅샷 목록 끝에 추가하고 기존 광장 NPC�
  assert.equal(mapIdx(V.id),mapIdx('race')+1);
  assert.equal(mapIdx('plaza'),0);assert.equal(mapIdx('field'),1);assert.equal(mapIdx('arena'),5);
  assert.ok(MAPS[V.id].safe);assert.equal(fieldPvpMap(V.id),false);assert.equal(fieldPvpMap('field'),true);
- assert.equal(MAPS.plaza.npcs.length,20);assert.equal(MAPS.plaza.npcs.find(n=>n.board).y,256);
+ assert.equal(MAPS.plaza.npcs.length,20);assert.equal(MAPS.plaza.npcs.find(n=>n.board).x,HONOR_BOARD.x);
+ assert.ok(HONOR_BOARD.x<V.gate.x-150);
+ assert.ok(!MAPS.plaza.blocks.some(b=>b.x===V.gate.x&&b.y===252));
+ assert.equal(npcNear({map:'plaza',x:HONOR_BOARD.x,y:HONOR_BOARD.y+50})?.id,'honor');
  assert.equal(MAPS[V.id].npcs.length,8);
 });
 
 test('광장 북쪽 문까지 실제로 걸어서 입장하고 남쪽 문으로 왕복한다',()=>{
- const g=world(),h=g.heroes[0];Object.assign(h,{map:'plaza',x:1030,y:340,gateCd:0});
+ const g=world(),h=g.heroes[0];Object.assign(h,{map:'plaza',x:V.gate.x,y:340,gateCd:0});
  rpgMove(g,0,{x:V.gate.x,y:V.gate.y,m:'plaza'});step(g,150);
  assert.equal(h.map,V.id);assert.ok(Math.hypot(h.x-V.spawn[0],h.y-V.spawn[1])<5);
  step(g,35);assert.equal(h.map,V.id,'도착 즉시 되돌아가지 않는다');

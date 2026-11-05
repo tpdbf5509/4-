@@ -106,13 +106,15 @@ export const RPG = {
 /* 맵 — 광장 · 토끼 사냥터 · 늑대 사냥터. 문에 들어서면 반대쪽 맵의 at 자리로 옮겨 간다.
    zone 은 몹이 나오는 가로 구간이다. 입구 쪽이 낮은 레벨, 끝으로 갈수록 높은 레벨이 나온다.
    bg 는 바탕 그림 이름, tile 은 그 그림이 덮는 가로 폭 — 맵이 더 넓으면 좌우로 뒤집어 이어 붙인다. */
+// 북쪽 마을 문을 가리지 않도록 명예판을 왼쪽에 둔다. 그림·대화·충돌이 같은 좌표를 쓴다.
+export const HONOR_BOARD = { x: 700, y: 256, r: 40 };
 export const MAPS = {
   plaza: {
     id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: [900, 820],
     gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" },
       { x: TRAIN.gate.x, y: TRAIN.gate.y, r: 56, to: "train", at: TRAIN.spawn, label: "훈련장" }],   // 왼쪽 — 허수아비 더미 · 교관(trainData.js)
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC
-    blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: 900, y: 252, r: 40 },
+    blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: HONOR_BOARD.x, y: HONOR_BOARD.y - 4, r: HONOR_BOARD.r },
       ...REQ_NPCS.map((n) => ({ x: n.x, y: n.y - 4, r: 18 })), { x: DUNGEON.npc.x, y: DUNGEON.npc.y - 4, r: 18 },
       {x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y,r:38},{...GUILD_HALL.door,r:35},
       { x: ADV.npc.x, y: ADV.npc.y - 4, r: 18 },   // 전직 교관
@@ -123,11 +125,11 @@ export const MAPS = {
       // 던전 입구 — 양쪽 돌기둥과 계단 구덩이
       ...[-1, 1].map((k) => ({ x: DUNGEON.gate.x + k * (DUNGEON.gate.w / 2 + 16), y: DUNGEON.gate.y - 4, r: 22 })),
       ...[-1, 0, 1].map((k) => ({ x: DUNGEON.gate.x + k * 48, y: DUNGEON.gate.y + 44, r: 42 }))],
-    // 상점 — 자리와 이름은 shopData.js 의 SHOPS. 위쪽 가운데는 명예 순위판(결투 명예 순위를 본다).
+    // 상점 — 자리와 이름은 shopData.js 의 SHOPS. 위쪽 문 왼쪽은 명예 순위판(결투 명예 순위를 본다).
     // 의뢰 NPC 셋 — requestData.js 의 REQ_NPCS. 말을 걸면 의뢰 창이 열린다
     npcs: [
       ...SHOPS.map((sh) => ({ id: `shop-${sh.id}`, shop: sh.id, name: sh.name, keeper: sh.keeper, x: sh.x, y: sh.y })),
-      { id: "honor", board: 1, name: "명예 순위", keeper: "명예의 전당", x: 900, y: 256 },
+      { id: "honor", board: 1, name: "명예 순위", keeper: "명예의 전당", x: HONOR_BOARD.x, y: HONOR_BOARD.y },
       ...REQ_NPCS.map((n) => ({ id: `req-${n.id}`, req: n.id, name: n.name, x: n.x, y: n.y })),
       { id: "dungeon", dungeon: 1, name: "던전 관리인", x: DUNGEON.npc.x, y: DUNGEON.npc.y },   // 던전 입장 창(dungeonData.js)
       {id:'worldboss',worldBoss:1,name:'월드보스 성역',x:WORLD_BOSS.portal.x,y:WORLD_BOSS.portal.y},

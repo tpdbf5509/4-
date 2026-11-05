@@ -1,4 +1,4 @@
-import {VILLAGE as V, VILLAGE_BUILDINGS, VILLAGE_NPCS, VILLAGE_SIGHTS, VILLAGE_PROPS, villageArtPath} from './villageData.js';
+import {VILLAGE as V, VILLAGE_BUILDINGS, VILLAGE_NPCS, VILLAGE_SIGHTS, VILLAGE_PROPS, VILLAGE_ROADS, VILLAGE_SQUARE as SQ, VILLAGE_FIELDS, villageArtPath} from './villageData.js';
 
 const images = new Map();
 const ART_IDS = [...new Set(['gate', ...VILLAGE_BUILDINGS.map(n=>n.art), ...VILLAGE_NPCS.map(n=>n.art), ...VILLAGE_SIGHTS.map(n=>n.art), ...VILLAGE_PROPS.map(n=>n.art)])];
@@ -35,7 +35,16 @@ export function drawVillageGate(ctx, gate, time) {
   label(ctx,gate.label,gate.x,gate.y-166);
 }
 
-// 바닥은 한 번 그려 캐시한다. 길·장식은 충돌 데이터의 빈 구간을 따른다.
+// 바닥은 한 번 그려 캐시한다. 길·광장·밭은 villageData 의 좌표를 따른다.
+// 꺾인 점 사이를 중간점 곡선으로 이어 길이 부드럽게 휘게 한다.
+function curve(ctx, pts) {
+  ctx.beginPath(); ctx.moveTo(...pts[0]);
+  for (let i = 1; i < pts.length - 1; i++) {
+    const [x, y] = pts[i], [nx, ny] = pts[i + 1];
+    ctx.quadraticCurveTo(x, y, (x + nx) / 2, (y + ny) / 2);
+  }
+  ctx.lineTo(...pts[pts.length - 1]);
+}
 export function paintVillage(ctx) {
   ctx.fillStyle='#637d48';ctx.fillRect(0,0,V.w,V.h);
   let seed=1707;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
@@ -43,41 +52,69 @@ export function paintVillage(ctx) {
     ctx.fillStyle=i%3?'rgba(222,225,165,.07)':'rgba(29,62,31,.06)';
     ctx.beginPath();ctx.ellipse(rnd()*V.w,rnd()*V.h,8+rnd()*28,3+rnd()*10,0,0,Math.PI*2);ctx.fill();
   }
-  const road=pts=>{
-    ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));
-    ctx.strokeStyle='#867c60';ctx.lineWidth=108;ctx.stroke();ctx.strokeStyle='#c2b493';ctx.lineWidth=96;ctx.stroke();
-  };
-  road([[1100,1600],[1100,1330],[1100,1080],[1100,670],[1100,530]]);
-  road([[480,650],[650,780],[830,930],[1100,1000],[1480,1000],[1740,950]]);
-  road([[470,1150],[700,1260],[1100,1330],[1460,1360],[1730,1390]]);
-  road([[1100,670],[1360,620],[1560,580],[1710,470]]);
-  ctx.fillStyle='#c2b493';ctx.beginPath();ctx.ellipse(1100,980,260,150,0,0,Math.PI*2);ctx.fill();
-  // 작은 포석은 빈 길 위에만 놓는다.
-  ctx.fillStyle='rgba(245,232,196,.26)';
-  for(let y=730;y<1500;y+=37)for(let x=1070;x<=1130;x+=32){ctx.beginPath();ctx.roundRect(x+(y%2)*8,y,24,13,3);ctx.fill();}
+  ctx.lineCap='round';ctx.lineJoin='round';
+  // 테두리를 먼저 모두 깔고 속을 덮어 갈림길 이음매가 보이지 않게 한다.
+  const square=(grow)=>{ctx.beginPath();ctx.ellipse(SQ.x,SQ.y,SQ.rx+grow,SQ.ry+grow,0,0,Math.PI*2);};
+  ctx.strokeStyle='#867c60';VILLAGE_ROADS.forEach(r=>{ctx.lineWidth=r.w+12;curve(ctx,r.pts);ctx.stroke();});
+  ctx.fillStyle='#867c60';square(6);ctx.fill();
+  ctx.strokeStyle='#c2b493';VILLAGE_ROADS.forEach(r=>{ctx.lineWidth=r.w;curve(ctx,r.pts);ctx.stroke();});
+  ctx.fillStyle='#c2b493';square(0);ctx.fill();
+  // 광장 포석 고리와 큰길 포석
   ctx.strokeStyle='rgba(109,95,69,.38)';ctx.lineWidth=3;
-  ctx.beginPath();ctx.ellipse(1100,980,247,138,0,0,Math.PI*2);ctx.stroke();
-  // 풍차 옆 텃밭과 약초밭. 걸어서 살펴볼 수 있는 생활 풍경이다.
-  for(const [x,y] of [[1870,1430],[270,1220]]){
-    ctx.fillStyle='#7b6649';ctx.beginPath();ctx.roundRect(x-65,y-30,130,75,9);ctx.fill();
-    for(let i=0;i<4;i++)for(let j=0;j<3;j++){
-      ctx.fillStyle=i%2?'#91a95c':'#c1b969';ctx.beginPath();ctx.ellipse(x-47+i*31,y-16+j*23,9,5,-.3,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(SQ.x,SQ.y,SQ.rx-14,SQ.ry-12,0,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.ellipse(SQ.x,SQ.y+4,SQ.rx*.45,SQ.ry*.45,0,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='rgba(245,232,196,.26)';
+  for(let y=650;y<1640;y+=37){
+    if(Math.abs(y-SQ.y)<SQ.ry+10)continue;
+    for(let x=1062;x<=1130;x+=34){ctx.beginPath();ctx.roundRect(x+(Math.round(y/37)%2)*10,y,24,13,3);ctx.fill();}
+  }
+  // 약초밭과 풍차 텃밭. 둘레길 옆에서 살펴볼 수 있는 생활 풍경이다.
+  for(const [x,y] of VILLAGE_FIELDS){
+    ctx.fillStyle='#7b6649';ctx.beginPath();ctx.roundRect(x-80,y-40,160,95,10);ctx.fill();
+    for(let i=0;i<5;i++)for(let j=0;j<4;j++){
+      ctx.fillStyle=(i+j)%2?'#91a95c':'#c1b969';ctx.beginPath();ctx.ellipse(x-60+i*30,y-24+j*24,9,5,-.3,0,Math.PI*2);ctx.fill();
     }
   }
   // 낮은 울타리. 남쪽 귀환 문 자리는 비운다.
   ctx.strokeStyle='#ad9670';ctx.lineWidth=5;
   for(let x=100;x<V.w-80;x+=60){
-    if(Math.abs(x-V.exit.x)<160)continue;
-    ctx.beginPath();ctx.moveTo(x,V.h-85);ctx.lineTo(x,V.h-118);ctx.moveTo(x,V.h-105);ctx.lineTo(x+60,V.h-105);ctx.stroke();
+    if(Math.abs(x-V.exit.x)<130)continue;
+    const fy=V.exit.y-20;   // 귀환 문 기둥 높이에 맞춘다
+    ctx.beginPath();ctx.moveTo(x,fy);ctx.lineTo(x,fy-33);ctx.moveTo(x,fy-20);ctx.lineTo(x+60,fy-20);ctx.stroke();
   }
 }
 
 // y 정렬에 참여시켜 건물·주민·플레이어의 앞뒤가 자연스럽게 겹친다.
 export const villageObjects = [...VILLAGE_BUILDINGS.map(n=>({...n,building:1})),...VILLAGE_PROPS];
-export const villageTrees = [
-  ...Array.from({length:24},(_,i)=>({x:70+i*90,y:210+(i%3)*30,s:1.1+(i%3)*.1,pine:i%2,seed:600+i})),
-  ...Array.from({length:20},(_,i)=>({x:i%2?2130:80,y:400+Math.floor(i/2)*120,s:1.2,pine:i%3===0,seed:800+i})),
-];
+// 숲 마을답게 둘레를 나무로 감싼다. 길·광장·건물·밭·사람 자리는 비운다(그리드 + 흔들림, 정해진 씨앗).
+function nearRoad(x, y, pad) {
+  return VILLAGE_ROADS.some(r => r.pts.some((p, i) => {
+    const q = r.pts[i + 1]; if (!q) return false;
+    const dx = q[0]-p[0], dy = q[1]-p[1], t = Math.max(0, Math.min(1, ((x-p[0])*dx + (y-p[1])*dy) / (dx*dx + dy*dy)));
+    return Math.hypot(x - p[0] - dx*t, y - p[1] - dy*t) < r.w/2 + pad;
+  }));
+}
+function treeSpot(x, y) {
+  if (nearRoad(x, y, 70)) return false;
+  if (((x-SQ.x)/(SQ.rx+110))**2 + ((y-SQ.y)/(SQ.ry+110))**2 < 1) return false;
+  if (VILLAGE_BUILDINGS.some(b => Math.abs(x-b.x) < b.size*.58 && y > b.y - b.size*.75 && y < b.y + 70)) return false;
+  if (VILLAGE_FIELDS.some(([fx,fy]) => Math.abs(x-fx) < 140 && Math.abs(y-fy) < 100)) return false;
+  if ([...VILLAGE_NPCS, ...VILLAGE_SIGHTS, ...VILLAGE_PROPS].some(n => Math.hypot(x-n.x, y-n.y) < 110)) return false;
+  if (Math.abs(x-V.exit.x) < 200 && y > V.exit.y - 160) return false;
+  return y < V.exit.y - 60;
+}
+export const villageTrees = (() => {
+  let seed = 4242; const rnd = () => { seed = (seed*1664525 + 1013904223) >>> 0; return seed/4294967296; };
+  const out = [];
+  for (let y = 215; y < V.h - 100; y += 92) for (let x = 60; x < V.w - 40; x += 104) {
+    const tx = x + (rnd()-.5)*60 + (Math.round(y/92)%2)*52, ty = y + (rnd()-.5)*40, keep = rnd();
+    if (!treeSpot(tx, ty)) continue;
+    const edge = tx < 260 || tx > V.w - 260 || ty < 420;          // 둘레는 빽빽하게, 안쪽은 듬성듬성
+    if (!edge && keep > .45) continue;
+    out.push({x: tx, y: ty, s: 1.05 + rnd()*.3, pine: rnd() < .4 ? 1 : 0, seed: 600 + out.length});
+  }
+  return out;
+})();
 export function drawVillageObject(ctx,n) {
   if(!drawVillageImage(ctx,n.art,n.x,n.y,n.size)) {
     ctx.save();ctx.fillStyle=n.building?'#ede0bd':'#bca47b';ctx.strokeStyle='#6e533a';ctx.lineWidth=2;

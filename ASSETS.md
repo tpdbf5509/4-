@@ -276,3 +276,7 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 ### 광장 NPC 새 그림 (2026년 11월 5일)
 
 `design/plaza-npc/shops.webp` · `town.webp`는 생성 원화다. 각 시트는 4열×2행이며 마지막 칸은 비운다. `public/assets/game/rpg/npc/<NPC id>.webp` 14장은 256×256 투명 그림이다. 상점 주인 7명과 의뢰 담당 4명 · 던전 관리인 · 전직 교관 · 레이스 관리인을 포함한다. 경로·크기·발 기준점은 `plazaNpcData.js`, 로딩과 그리기는 `plazaNpcArt.js`다. 기존 코드 그림은 로딩 실패 대체용으로 남긴다.
+
+### 새벽숲 마을 (2026년 11월 5일)
+
+`design/village/`의 생성 원화 4시트에서 `public/assets/game/rpg/village/` 투명 WebP 26장을 만들었다. 건물 6 · 주민 6 · 마을 문과 소품 8 · 대화 초상화 6이다. 건물·인물은 3열×2행, 소품은 4열×2행이며 실제 자르기 영역은 `crops.json`이다. 모두 512×512. 기준점·역할·웹 참고 출처는 `docs/새벽숲-마을.md`, 크기는 `villageData.js`, 그리기는 `villageArt.js`.

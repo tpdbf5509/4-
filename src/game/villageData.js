@@ -1,0 +1,57 @@
+/* 새벽숲 마을 — 메인 이야기의 무대. 장소·인물 id는 이후 이야기에서도 그대로 쓴다.
+   지금은 탐방과 대화만 제공하며 보상·스토리 진행 상태를 만들지 않는다. */
+export const VILLAGE = {
+  id: 'dawnwood', name: '새벽숲 마을', w: 2200, h: 1700, top: 170,
+  spawn: [1100, 1450], gate: {x: 900, y: 180, r: 46},
+  exit: {x: 1100, y: 1580, r: 54}, plazaAt: [1030, 240],
+  art: {base: '/assets/game/rpg/village/', size: 512, feet: [256, 496], npcSize: 86},
+};
+
+export const VILLAGE_BUILDINGS = [
+  {id: 'elder-house', art: 'elder-house', name: '촌장댁', x: 1100, y: 530, size: 330},
+  {id: 'inn', art: 'inn', name: '노을빛 여관', x: 480, y: 650, size: 330},
+  {id: 'forge', art: 'forge', name: '불씨 대장간', x: 1740, y: 950, size: 330},
+  {id: 'herbalist-house', art: 'herbalist-house', name: '이슬 약초집', x: 470, y: 1150, size: 310},
+  {id: 'archive', art: 'archive', name: '숲의 기록관', x: 1710, y: 470, size: 330},
+  {id: 'windmill', art: 'windmill', name: '바람결 풍차', x: 1730, y: 1390, size: 320},
+];
+
+export const VILLAGE_NPCS = [
+  {id: 'dawn-elder', art: 'elder', name: '촌장 하룬', role: '마을의 길잡이', x: 1100, y: 640, intro: '새벽숲에 온 것을 환영하네. 먼 길이었지?',
+    lines: ['숲은 밤을 지나도 길을 잊지 않는다네. 우리 마을도 그런 곳이지. 잠시 머물며 사람들을 만나 보게.', '가운데 오래된 종탑이 보이나? 예전에는 먼 길을 떠나는 이들에게 저 종을 울려 주었네.', '기록관의 세린이 옛길을 조사하고 있네. 마을이 궁금하다면 그녀에게도 물어보게.']},
+  {id: 'dawn-innkeeper', art: 'innkeeper', name: '여관 주인 모아', role: '노을빛 여관', x: 570, y: 755, intro: '어서 오세요. 갓 구운 빵 냄새를 따라오셨나요?',
+    lines: ['이곳은 노을빛 여관이에요. 숲에서 돌아오는 사람들은 여기 모여 하루 이야기를 나누죠.', '요즘은 길손들이 숲 안쪽에서 푸른 빛을 봤다고 해요. 바람에 흔들린 반딧불일까요?', '아직 여행을 떠나지 않아도 괜찮아요. 이 마을부터 천천히 둘러보세요.']},
+  {id: 'dawn-smith', art: 'smith', name: '대장장이 도윤', role: '불씨 대장간', x: 1630, y: 1060, intro: '좋은 도구에는 만든 사람의 마음이 남지.',
+    lines: ['여기는 불씨 대장간이야. 마을의 농기구와 종탑의 부속을 손보고 있지.', '오래된 종은 쇠만 고친다고 울리는 게 아니더군. 안쪽에 낯선 돌 조각이 박혀 있어.', '장비 거래와 강화는 광장의 상인들에게 부탁해. 나는 지금 이 종의 구조를 살피는 중이야.']},
+  {id: 'dawn-herbalist', art: 'herbalist', name: '약초사 루미', role: '이슬 약초집', x: 560, y: 1260, intro: '잎 끝의 이슬이 마르기 전에 약초를 살펴야 해요.',
+    lines: ['마을 서쪽에서 작은 약초밭을 돌보고 있어요. 꽃마다 피는 시간이 달라서 매일 새로운 얼굴을 보여 주죠.', '종탑 근처의 꽃은 새벽에만 아주 옅게 빛나요. 마을의 오래된 이야기와 관계가 있을까요?', '물약이 필요하면 광장의 약사를 찾아주세요. 저는 숲과 약초에 관한 이야기를 들려드릴게요.']},
+  {id: 'dawn-archivist', art: 'archivist', name: '기록관 세린', role: '숲의 기록관', x: 1630, y: 580, intro: '처음 보는 발자국이네요. 당신의 이름도 언젠가 기록에 남겠죠.',
+    lines: ['이 기록관에는 마을의 지도와 길손들의 일지가 남아 있어요. 종탑이 세워진 날의 기록만 한 장 비어 있죠.', '광장 쪽 길은 언제든 돌아갈 수 있어요. 마을 남쪽의 담쟁이 문을 지나면 됩니다.', '저는 흩어진 옛길의 기록을 모으고 있어요. 서두르지 말아요. 이야기는 사람들을 만나는 데서 시작하니까요.']},
+  {id: 'dawn-scout', art: 'scout', name: '숲지기 유안', role: '바람결 풍차', x: 1500, y: 1410, intro: '바람이 바뀌면 숲길도 다른 얼굴이 되지.',
+    lines: ['풍차가 보이는 이 길에서 마을로 들어오는 발자국을 살피고 있어. 여기는 싸움 없는 쉼터야.', '숲 깊은 곳에서 가끔 종소리 같은 울림이 들려. 그런데 마을 종은 오랫동안 멈춰 있거든.', '일단 촌장님과 이야기해 봐. 낯선 길에서는 먼저 이곳 사람들의 말을 듣는 게 좋아.']},
+];
+
+export const VILLAGE_SIGHTS = [
+  {id: 'dawn-bell', art: 'bell', name: '오래된 종탑', role: '마을의 기억', x: 1100, y: 900, size: 190, r: 42,
+    intro: '멈춰 있는 종 아래에 희미한 빛이 남아 있습니다.',
+    lines: ['담쟁이 사이로 별 모양 문양이 보입니다. 바람이 지나가도 종은 울리지 않습니다.', '받침돌에는 수많은 손길이 닿은 흔적이 남아 있습니다. 이 마을의 오래된 약속을 지키는 장소인 듯합니다.']},
+  {id: 'dawn-memorial', art: 'memorial', name: '옛길의 기념석', role: '남겨진 문양', x: 960, y: 1160, size: 100, r: 26,
+    intro: '이끼 아래로 종탑과 같은 문양이 드러납니다.',
+    lines: ['기념석의 푸른 돌은 햇빛을 받으면 작게 반짝입니다. 글자는 닳아 읽을 수 없습니다.', '돌을 옮기거나 문양을 건드리지 않고 살펴봅니다. 기록관에 관련된 이야기가 남아 있을지도 모릅니다.']},
+];
+export const VILLAGE_DIALOGUES = Object.fromEntries([...VILLAGE_NPCS, ...VILLAGE_SIGHTS].map(n => [n.id, n]));
+export const villageArtPath = id => `${VILLAGE.art.base}${id}.webp`;
+
+// 광장 기능을 복제하지 않는다. 생활 건물은 풍경과 주민 대화를 제공한다.
+export const VILLAGE_PROPS = [
+  {art: 'well', x: 1310, y: 1070, size: 130, r: 30},
+  ...[[790,690],[1410,690],[790,1290],[1350,1320],[990,1480],[1210,1480]].map(([x,y]) => ({art:'lamp',x,y,size:105,r:10})),
+  ...[[830,820],[1370,820],[760,1120],[1390,1170],[780,1430],[1340,1430]].map(([x,y]) => ({art:'flowers',x,y,size:85,r:24})),
+  ...[[840,1010],[1410,1010]].map(([x,y]) => ({art:'bench',x,y,size:110,r:30})),
+  {art:'cart',x:650,y:855,size:120,r:32},
+];
+export const villageBlocks = () => [
+  ...VILLAGE_BUILDINGS.flatMap(b => [-85,0,85].map(dx => ({x:b.x+dx,y:b.y-40,r:62}))),
+  ...VILLAGE_NPCS.map(n => ({x:n.x,y:n.y-4,r:18})),
+  ...[...VILLAGE_SIGHTS,...VILLAGE_PROPS].map(n => ({x:n.x,y:n.y-4,r:n.r})),
+];

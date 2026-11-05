@@ -1,0 +1,262 @@
+[
+  {
+    "id": "elder-house",
+    "source": "buildings.webp",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "inn",
+    "source": "buildings.webp",
+    "crop": {
+      "left": 512,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "forge",
+    "source": "buildings.webp",
+    "crop": {
+      "left": 1024,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "herbalist-house",
+    "source": "buildings.webp",
+    "crop": {
+      "left": 0,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "archive",
+    "source": "buildings.webp",
+    "crop": {
+      "left": 512,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "windmill",
+    "source": "buildings.webp",
+    "crop": {
+      "left": 1024,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "elder",
+    "source": "people.webp",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "innkeeper",
+    "source": "people.webp",
+    "crop": {
+      "left": 512,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "smith",
+    "source": "people.webp",
+    "crop": {
+      "left": 1024,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "herbalist",
+    "source": "people.webp",
+    "crop": {
+      "left": 0,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "archivist",
+    "source": "people.webp",
+    "crop": {
+      "left": 512,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "scout",
+    "source": "people.webp",
+    "crop": {
+      "left": 1024,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "gate",
+    "source": "props.webp",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 584,
+      "height": 498
+    }
+  },
+  {
+    "id": "bell",
+    "source": "props.webp",
+    "crop": {
+      "left": 584,
+      "top": 0,
+      "width": 345,
+      "height": 497
+    }
+  },
+  {
+    "id": "well",
+    "source": "props.webp",
+    "crop": {
+      "left": 934,
+      "top": 0,
+      "width": 471,
+      "height": 495
+    }
+  },
+  {
+    "id": "lamp",
+    "source": "props.webp",
+    "crop": {
+      "left": 1430,
+      "top": 0,
+      "width": 344,
+      "height": 491
+    }
+  },
+  {
+    "id": "flowers",
+    "source": "props.webp",
+    "crop": {
+      "left": 0,
+      "top": 514,
+      "width": 445,
+      "height": 373
+    }
+  },
+  {
+    "id": "bench",
+    "source": "props.webp",
+    "crop": {
+      "left": 448,
+      "top": 545,
+      "width": 425,
+      "height": 342
+    }
+  },
+  {
+    "id": "cart",
+    "source": "props.webp",
+    "crop": {
+      "left": 890,
+      "top": 510,
+      "width": 483,
+      "height": 377
+    }
+  },
+  {
+    "id": "memorial",
+    "source": "props.webp",
+    "crop": {
+      "left": 1380,
+      "top": 491,
+      "width": 394,
+      "height": 396
+    }
+  },
+  {
+    "id": "portrait-elder",
+    "source": "portraits.webp",
+    "crop": {
+      "left": 0,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "portrait-innkeeper",
+    "source": "portraits.webp",
+    "crop": {
+      "left": 512,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "portrait-smith",
+    "source": "portraits.webp",
+    "crop": {
+      "left": 1024,
+      "top": 0,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "portrait-herbalist",
+    "source": "portraits.webp",
+    "crop": {
+      "left": 0,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "portrait-archivist",
+    "source": "portraits.webp",
+    "crop": {
+      "left": 512,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  },
+  {
+    "id": "portrait-scout",
+    "source": "portraits.webp",
+    "crop": {
+      "left": 1024,
+      "top": 512,
+      "width": 512,
+      "height": 512
+    }
+  }
+]

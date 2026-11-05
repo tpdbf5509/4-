@@ -180,3 +180,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 ### 광장 NPC (11월 5일)
 
 `rpg/npc/<NPC id>.webp` 14장. 256×256 투명 WebP이며 발 기준점은 (128, 248)이다. `plazaNpcData.js`에서 사람 84px · 상점 주인 74px 크기를 관리한다. 상점은 판매대 뒤에 그린다. 원화는 `design/plaza-npc/shops.webp` · `town.webp`이며 4열×2행의 마지막 칸은 비어 있다. 칸을 자른 뒤 투명 여백을 다듬고 240×232 안에 맞춰 발을 248에 정렬했다. NPC 그림이 없거나 로딩에 실패하면 기존 코드 그림을 사용한다.
+
+### 새벽숲 마을 (11월 5일)
+
+`rpg/village/*.webp` 26장, 512×512 투명. 건물 6 · 주민 6 · 소품 8은 발 기준 (256,496). 대화용 `portrait-*.webp` 6장은 하단 정렬한 상반신이다. 원본 4시트와 자르기 영역은 `design/village/`. 크기·위치는 `villageData.js`, 바닥·정렬·대체 그림은 `villageArt.js`, 하단 대화 UI는 `VillagePanel.jsx`. 상세 목록·참고 출처는 `docs/새벽숲-마을.md`.

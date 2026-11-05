@@ -78,7 +78,7 @@ const WEAPON_GRIP = {
   dragon_dual: [26, 104, 109, 15], dragon_staff: [64, 100, 65, 16], dragon_bow: [66, 67, 60, 12],
   serpent_sword: [24, 108, 108, 20], serpent_staff: [62, 100, 62, 15], serpent_bow: [62, 64, 75, 14],
   machine_sword: [25, 105, 100, 20], machine_staff: [62, 100, 62, 15], machine_bow: [63, 64, 76, 14],
-  void_great: [25, 105, 109, 19], void_staff: [64, 113, 64, 12], void_bow: [32, 64, 79, 13],   // 공허 무기(11월 4일, 장비 시트 5행)
+  void_great: [29, 96, 120, 6], void_staff: [62, 97, 62, 14], void_bow: [60, 52, 110, 11],   // 공허 무기(11월 4일, 장비 시트 5행)
   clockwork: [28, 26, 122, 122], coral: [26, 102, 120, 4], flame: [97, 94, 4, 4], forest: [95, 104, 12, 6],
   frost: [100, 100, 6, 4], holy: [92, 94, 12, 10], shadow: [104, 108, 12, 6], star: [102, 102, 6, 6],
   thunder: [24, 100, 120, 6], viper: [36, 44, 122, 118],

@@ -25,6 +25,13 @@ export const WB_PX_SHEETS = {
   doom_miasma: { w: 212, h: 53, cols: 2, n: 12, px: 106, py: 42, loop: 1 },                     // nature/poison-cloud — 뱀 독왕의 심판
   doom_emp: { w: 152, h: 103, cols: 4, n: 14, px: 76, py: 74 },                                 // scifi/emp-blast — 기계 최후의 방전
   doom_plasma: { w: 204, h: 188, cols: 4, n: 12, px: 105, py: 94 },                             // explosions/plasma-explosion — 뇌조 천뢰 심판
+  // 공허의 관측자(11월 5일) — 공허 빛깔(검보라 → 연보라). 뽑는 법은 make-void.mjs
+  v_hole: { w: 165, h: 126, cols: 4, n: 12, px: 80, py: 48, loop: 1 },                         // shadow/black-hole — 중력 붕괴 장판(기준점은 구멍 가운데)
+  v_collapse: { w: 249, h: 223, cols: 4, n: 16, px: 125, py: 185 },                            // shadow/dark-explosion — 중력 붕괴 폭발 · 사건의 지평선
+  v_portal: { w: 142, h: 111, cols: 4, n: 12, px: 71, py: 102, loop: 1 },                      // arcane/portal — 공허의 교차 포탈
+  v_slam: { w: 234, h: 145, cols: 3, n: 8, px: 117, py: 102 },                                 // impacts/ground-slam(먼지 앞부분만) — 포탈 충격파
+  v_rift: { w: 251, h: 81, cols: 3, n: 14, px: 127, py: 66 },                                  // nature/quake — 공간 절단(선을 따라 땅이 갈라진다)
+  v_sigil: { w: 118, h: 116, cols: 5, n: 18, px: 59, py: 107, warn: [0, 13], hit: [14, 17] },  // shadow/hex-sigil — 사건의 지평선 머리 위 문양
 };
 
 /* 그리는 크기 · 개수 — 게임 좌표에 맞춘 배수 k, 범위 반지름에 맞출 때 시트 1배 반지름 rk(k = r / rk, kMin ~ kMax)
@@ -50,4 +57,12 @@ export const WB_PX_LOOK = {
   doomMiasma: { k: 4.2, rows: [320, 700, 1080, 1440], step: 0.62, alpha: 0.78 }, // 부채꼴 안쪽에 줄마다 각도 step 간격으로 독구름
   doomEmp: { k: 4.6, rings: [[480, 6], [900, 9], [1320, 12]] },  // 바깥 고리를 따라 전자기 돔 — [반지름, 개수]
   doomPlasma: { k: 6, boltK: 2.6, bolts: [[0.4, 5], [0.78, 9]] }, // 보스 자리에 원을 덮는 플라스마 · [반지름 몫, 개수] 낙뢰
+  // 공허의 관측자 — rk 는 시트 1배 반지름(범위에 맞춘다), k 는 고정 배수
+  voidHole: { rk: 62, kMin: 1.4, kMax: 4.2, alpha: 0.92 },       // 중력 붕괴 장판 — 칠한 원 반지름에 맞춘다
+  voidCollapse: { rk: 96, kMin: 1.3, kMax: 3.4 },                // 중력 붕괴 폭발 · 포탈 도착 충격 — 원 반지름에 맞춘다
+  voidPortal: { k: 2.5, lift: 6 },                               // 포탈 — 발 기준점을 (x, y + lift)에 둔다
+  voidSlam: { rk: 100, kMin: 1.4, kMax: 3.4, ring: 1.5, n: 8 },  // 포탈 충격 원 · 고리는 둘레 n 곳에 k 배로
+  voidRift: { k: 1.6, gap: 0.78 },                               // 공간 절단 — 시트 한 장이 덮는 길이(251 × k)의 gap 만큼씩 이어 붙인다
+  voidDoom: { k: 4.4, rings: [[560, 6, 2.2], [980, 10, 2.6]] },     // 사건의 지평선 — 보스 자리에 큰 붕괴 · 고리마다 [반지름, 개수, 배수]
+  voidSigil: { k: 3.6, lift: 420 },                              // 보스 머리 위 문양
 };

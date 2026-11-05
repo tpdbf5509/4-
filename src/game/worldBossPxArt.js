@@ -222,3 +222,59 @@ export function drawWbFallPx(ctx, f, p) {
   ctx.save(); ctx.imageSmoothingEnabled = false; cell(ctx, im, S, once(S, p), f.x, f.y, L.fall.k); ctx.restore();
   return true;
 }
+
+/* ── 공허의 관측자(11월 5일) — 공허 빛깔 시트. 못 불러오면 false 를 돌려주고 voidBossArt.js 가 예전 도트 그림으로 그린다 ── */
+// 중력 붕괴 장판 — 칠한 원 안에서 도는 블랙홀(구멍 가운데가 원 가운데)
+export function drawVoidHolePx(ctx, s, time) {
+  const S = SH.v_hole, im = sheet("v_hole"); if (!im) return false;
+  const look = L.voidHole, k = fitK(look, s.r);
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  cell(ctx, im, S, Math.floor(time * S.n / 4) % S.n, s.x, s.y, k, look.alpha);
+  ctx.restore(); return true;
+}
+// 포탈 — 오른쪽에 도는 보라 소용돌이
+export function drawVoidPortalPx(ctx, x, y, time, alpha = 1) {
+  const S = SH.v_portal, im = sheet("v_portal"); if (!im) return false;
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  cell(ctx, im, S, Math.floor(time * S.n / 2.4) % S.n, x, y + L.voidPortal.lift, L.voidPortal.k, alpha);
+  ctx.restore(); return true;
+}
+// 머리 위 문양 — 경고 동안 그려진다(p 0~1)
+export function drawVoidSigilPx(ctx, x, y, p) {
+  const S = SH.v_sigil, im = sheet("v_sigil"); if (!im) return false;
+  ctx.save(); ctx.imageSmoothingEnabled = false; cell(ctx, im, S, segAt(S.warn, p), x, y - L.voidSigil.lift, L.voidSigil.k); ctx.restore();
+  return true;
+}
+// 공격이 맞는 순간 — 중력 붕괴(원) · 공간 절단(줄) · 포탈 충격(원 · 고리) · 사건의 지평선(즉사)
+export function drawVoidHitPx(ctx, f, p, q) {
+  const s = f.area; if (!s) return false;
+  const col = sheet("v_collapse"), sl = sheet("v_slam"), rf = sheet("v_rift"); if (!col || !sl || !rf) return false;
+  const C0 = SH.v_collapse, SL = SH.v_slam, RF = SH.v_rift;
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  if (s.shape === "line") {
+    // 선을 따라 땅이 갈라진다 — 눕힌 시트를 길이만큼 이어 붙인다(누운 평면에 맞춰 세로를 눌러 준다)
+    const D = L.voidRift, step = RF.w * D.k * D.gap, n = Math.max(1, Math.ceil(s.len / step));
+    ctx.translate(s.x, s.y); ctx.scale(1, C.squash); ctx.rotate(s.a);
+    ctx.save(); ctx.globalAlpha *= (1 - p) * 0.55; ctx.strokeStyle = "#d3b8ff"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(s.len, 0); ctx.stroke(); ctx.restore();
+    for (let j = 0; j < n; j++) cell(ctx, rf, RF, once(RF, p * 1.05 - (j % 3) * 0.04), Math.min(s.len, step * (j + 0.5)), 0, D.k);
+  } else if (f.doom) {
+    // 안전 구역 밖이 모두 검은 구멍으로 무너진다 — 문양이 부서지고 보스 자리와 두 고리에서 붕괴가 터진다
+    const sg = SH.v_sigil, sim = sheet("v_sigil"), D = L.voidDoom;
+    ctx.save(); ctx.globalAlpha *= 0.5 * (1 - p); ctx.fillStyle = "#07030f"; ctx.fillRect(f.x - 1400, f.y - 1000, 2800, 2000); ctx.restore();   // 화면이 어두워진다
+    if (sim && p < 0.4) cell(ctx, sim, sg, segAt(sg.hit, p / 0.4), f.x, f.y - L.voidSigil.lift, L.voidSigil.k);
+    D.rings.forEach(([r, cnt, k], ri) => {
+      const n = Math.max(3, Math.round(cnt * q));
+      for (let j = 0; j < n; j++) {
+        const a = j * TAU / n + 0.4 + ri * 0.3, x = s.x + Math.cos(a) * r, y = s.y + Math.sin(a) * r * C.squash;
+        if (!inSafe(f, x, y)) cell(ctx, col, C0, once(C0, p * 1.15 - (j % 3) * 0.05 - ri * 0.04), x, y, k);
+      }
+    });
+    cell(ctx, col, C0, once(C0, p), s.x, s.y, D.k);
+  } else if (s.shape === "ring") {
+    const D = L.voidSlam;
+    ringSpots(s, Math.max(4, Math.round(D.n * q)), f.seed).forEach(([x, y], j) => cell(ctx, sl, SL, once(SL, p + (j % 3) * 0.05), x, y, D.ring));
+  } else if (f.pattern === "void_cross") cell(ctx, sl, SL, once(SL, p), s.x, s.y, fitK(L.voidSlam, s.r || 240));
+  else cell(ctx, col, C0, once(C0, p), s.x, s.y, fitK(L.voidCollapse, s.r || 250));
+  ctx.restore(); return true;
+}

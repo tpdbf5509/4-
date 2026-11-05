@@ -2,6 +2,7 @@
    범위 칠하기 · 안전지대 글자 · 남은 시간은 worldBossArt.js 가 공통으로 그리고, 여기서는 이 보스만의 장식을 더한다. */
 import { WORLD_BOSS as C, WORLD_BOSS_PATTERNS as PAT } from './worldBossData.js';
 import { VOID_PALETTE as P } from './voidWeaponData.js';
+import { drawVoidHolePx, drawVoidPortalPx, drawVoidSigilPx, drawVoidHitPx } from './worldBossPxArt.js';   // 11월 5일 pixelfx 시트 — 못 불러오면 아래 도트 그림
 const TAU = Math.PI * 2, PX = 4;
 const clamp = x => Math.max(0, Math.min(1, x));
 const snap = v => Math.round(v / PX) * PX;
@@ -19,6 +20,10 @@ function shard(ctx, x, y, r, color, alpha) {
 // 포탈 — 어두운 구멍과 도는 보라 고리. 둘 사이를 잇는 점선이 보스가 건너갈 길
 function portal(ctx, x, y, t, alpha, tag, q) {
   const rx = 78, ry = 100, pulse = 0.85 + 0.15 * Math.sin(t * 6);
+  if (drawVoidPortalPx(ctx, x, y, t, alpha)) {
+    ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = P.core; ctx.strokeStyle = P.rift; ctx.lineWidth = 4; ctx.textAlign = 'center'; ctx.font = "16px 'Do Hyeon',sans-serif";
+    ctx.strokeText(tag, x, y + 28); ctx.fillText(tag, x, y + 28); ctx.restore(); return;
+  }
   ctx.save(); ctx.globalAlpha = alpha;
   ctx.fillStyle = P.violet; ctx.globalAlpha = alpha * 0.35; ctx.beginPath(); ctx.ellipse(x, y - 60, rx + 22, ry + 22, 0, 0, TAU); ctx.fill();
   ctx.globalAlpha = alpha; ctx.fillStyle = P.dark; ctx.beginPath(); ctx.ellipse(x, y - 60, rx, ry, 0, 0, TAU); ctx.fill();
@@ -41,6 +46,11 @@ function link(ctx, A, B, t, alpha) {
 function gravity(ctx, s, attack, p, t, q) {
   const P0 = PAT.gravity_collapse, pulling = attack.t <= P0.pullFor, k = pulling ? 1 - attack.t / P0.pullFor : 0;
   const arms = 3, n = Math.max(8, Math.round(18 * q));
+  if (drawVoidHolePx(ctx, s, t)) {   // 도는 블랙홀 시트 — 붙잡는 마지막 구간에 가운데로 모이는 안쪽 고리만 더한다
+    ringDots(ctx, s.x, s.y, s.r, P.glow, 0.9, q, t * 0.5, TAU, PX);
+    ringDots(ctx, s.x, s.y, s.r * (1 - p * 0.7), P.violet, 0.8, q, -t, TAU * 0.7, PX);
+    return;
+  }
   for (let a = 0; a < arms; a++) for (let i = 0; i < n; i++) {
     const u = (i / n + t * (pulling ? 1.8 : 0.7)) % 1, r = s.r * (1 - u) * (1 - k * 0.4), ang = a * TAU / arms + u * 4.2 - t * 2.6;
     dot(ctx, s.x + Math.cos(ang) * r, s.y + Math.sin(ang) * r * C.squash, u > 0.65 ? P.core : P.purple, PX + (u > 0.7 ? 2 : 0), 0.3 + 0.6 * u);
@@ -78,6 +88,7 @@ export function drawVoidGround(ctx, a, attack, p, t, q = 1) {
 export function drawVoidImpact(ctx, f, p, q = 1) {
   const s = f.area; if (!s) return false;
   const fade = 1 - p;
+  if (drawVoidHitPx(ctx, f, p, q)) return true;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   if (s.shape === 'line') {
     const dx = Math.cos(s.a) * s.len, dy = Math.sin(s.a) * s.len * C.squash, n = Math.max(12, Math.round(s.len / 12 * q));
@@ -103,6 +114,7 @@ export function drawVoidImpact(ctx, f, p, q = 1) {
 }
 // 보스 몸 위 저주 문양 — 즉사 예고 동안 머리 위에 검은 눈 고리가 열린다
 export function drawVoidSigil(ctx, x, y, p, time) {
+  if (drawVoidSigilPx(ctx, x, y, p)) return;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   const r = 70 + 40 * p, cy = y - 330;
   for (let i = 0; i < 28; i++) { const a = i / 28 * TAU + time * 0.8; dot(ctx, x + Math.cos(a) * r, cy + Math.sin(a) * r * 0.35, i % 4 ? P.purple : P.core, PX + 1, 0.4 + 0.5 * p); }

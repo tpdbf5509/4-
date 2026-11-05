@@ -258,5 +258,125 @@
       "width": 512,
       "height": 512
     }
+  },
+  {
+    "id": "stall-veg",
+    "source": "props2.webp",
+    "crop": {
+      "left": 22,
+      "top": 32,
+      "width": 318,
+      "height": 317
+    }
+  },
+  {
+    "id": "stall-cloth",
+    "source": "props2.webp",
+    "crop": {
+      "left": 384,
+      "top": 32,
+      "width": 329,
+      "height": 317
+    }
+  },
+  {
+    "id": "fence",
+    "source": "props2.webp",
+    "crop": {
+      "left": 752,
+      "top": 142,
+      "width": 297,
+      "height": 148
+    }
+  },
+  {
+    "id": "gate-door",
+    "source": "props2.webp",
+    "crop": {
+      "left": 1106,
+      "top": 103,
+      "width": 314,
+      "height": 216
+    }
+  },
+  {
+    "id": "crates",
+    "source": "props2.webp",
+    "crop": {
+      "left": 28,
+      "top": 430,
+      "width": 310,
+      "height": 232
+    }
+  },
+  {
+    "id": "woodshed",
+    "source": "props2.webp",
+    "crop": {
+      "left": 392,
+      "top": 417,
+      "width": 302,
+      "height": 246
+    }
+  },
+  {
+    "id": "hay",
+    "source": "props2.webp",
+    "crop": {
+      "left": 743,
+      "top": 431,
+      "width": 305,
+      "height": 226
+    }
+  },
+  {
+    "id": "bridge",
+    "source": "props2.webp",
+    "crop": {
+      "left": 1088,
+      "top": 449,
+      "width": 343,
+      "height": 186
+    }
+  },
+  {
+    "id": "pond",
+    "source": "props2.webp",
+    "crop": {
+      "left": 22,
+      "top": 771,
+      "width": 321,
+      "height": 254
+    }
+  },
+  {
+    "id": "apple-tree",
+    "source": "props2.webp",
+    "crop": {
+      "left": 387,
+      "top": 735,
+      "width": 313,
+      "height": 325
+    }
+  },
+  {
+    "id": "notice",
+    "source": "props2.webp",
+    "crop": {
+      "left": 758,
+      "top": 753,
+      "width": 291,
+      "height": 299
+    }
+  },
+  {
+    "id": "shrine",
+    "source": "props2.webp",
+    "crop": {
+      "left": 1129,
+      "top": 730,
+      "width": 268,
+      "height": 325
+    }
   }
 ]

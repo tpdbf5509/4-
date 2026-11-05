@@ -1,4 +1,4 @@
-import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, villageObjects, villageTrees} from './villageArt.js';
+import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, drawVillageGround, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART} from "./plazaNpcData.js";
 import {drawPowerCircles} from './combatRulesArt.js';
@@ -2649,6 +2649,7 @@ export function drawRpg(ctx, g, bgs) {
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
   if (look) fieldTrails(M, FIELD_TRAIL).forEach((pts) => dirtPath(ctx, pts, 60, look.path));
   else (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
+  if (M.village) drawVillageGround(ctx);
   if (M.dungeon) drawTorches(ctx, M, cam, time);
   if (M.pvp) drawArenaFloor(ctx, M);
   if (M.race) drawRaceTrack(ctx, M, g, time, cam, W);   // 몹 레이스 트랙(raceArt.js)

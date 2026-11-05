@@ -1,4 +1,4 @@
-import {VILLAGE as V, VILLAGE_BUILDINGS, VILLAGE_NPCS, VILLAGE_SIGHTS, VILLAGE_PROPS, VILLAGE_ROADS, VILLAGE_SQUARE as SQ, VILLAGE_FIELDS, villageArtPath} from './villageData.js';
+import {VILLAGE as V, VILLAGE_BUILDINGS, VILLAGE_NPCS, VILLAGE_SIGHTS, VILLAGE_PROPS, VILLAGE_ROADS, VILLAGE_SQUARE as SQ, VILLAGE_FIELDS, VILLAGE_BROOK, villageArtPath} from './villageData.js';
 
 const images = new Map();
 const ART_IDS = [...new Set(['gate', ...VILLAGE_BUILDINGS.map(n=>n.art), ...VILLAGE_NPCS.map(n=>n.art), ...VILLAGE_SIGHTS.map(n=>n.art), ...VILLAGE_PROPS.map(n=>n.art)])];
@@ -59,6 +59,10 @@ export function paintVillage(ctx) {
   ctx.fillStyle='#867c60';square(6);ctx.fill();
   ctx.strokeStyle='#c2b493';VILLAGE_ROADS.forEach(r=>{ctx.lineWidth=r.w;curve(ctx,r.pts);ctx.stroke();});
   ctx.fillStyle='#c2b493';square(0);ctx.fill();
+  // 개울 — 길 위로 흐르고 다리가 덮는다
+  ctx.strokeStyle='#5f7f78';ctx.lineWidth=40;curve(ctx,VILLAGE_BROOK);ctx.stroke();
+  ctx.strokeStyle='#8fb3b0';ctx.lineWidth=28;curve(ctx,VILLAGE_BROOK);ctx.stroke();
+  ctx.strokeStyle='rgba(235,245,235,.35)';ctx.lineWidth=3;ctx.setLineDash([14,22]);curve(ctx,VILLAGE_BROOK);ctx.stroke();ctx.setLineDash([]);
   // 광장 포석 고리와 큰길 포석
   ctx.strokeStyle='rgba(109,95,69,.38)';ctx.lineWidth=3;
   ctx.beginPath();ctx.ellipse(SQ.x,SQ.y,SQ.rx-14,SQ.ry-12,0,0,Math.PI*2);ctx.stroke();
@@ -85,7 +89,10 @@ export function paintVillage(ctx) {
 }
 
 // y 정렬에 참여시켜 건물·주민·플레이어의 앞뒤가 자연스럽게 겹친다.
-export const villageObjects = [...VILLAGE_BUILDINGS.map(n=>({...n,building:1})),...VILLAGE_PROPS];
+export const villageObjects = [...VILLAGE_BUILDINGS.map(n=>({...n,building:1})),...VILLAGE_PROPS.filter(n=>!n.ground)];
+// 다리처럼 사람이 위로 지나가는 소품은 앞뒤 정렬 없이 땅에 먼저 깐다.
+const villageGround = VILLAGE_PROPS.filter(n=>n.ground);
+export function drawVillageGround(ctx){ villageGround.forEach(n=>drawVillageObject(ctx,n)); }
 // 숲 마을답게 둘레를 나무로 감싼다. 길·광장·건물·밭·사람 자리는 비운다(그리드 + 흔들림, 정해진 씨앗).
 function nearRoad(x, y, pad) {
   return VILLAGE_ROADS.some(r => r.pts.some((p, i) => {

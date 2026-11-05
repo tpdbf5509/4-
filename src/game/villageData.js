@@ -47,7 +47,7 @@ export const VILLAGE_NPCS = [
 ];
 
 export const VILLAGE_SIGHTS = [
-  {id: 'dawn-bell', art: 'bell', name: '오래된 종탑', role: '마을의 기억', x: 1100, y: 985, size: 190, r: 42,
+  {id: 'dawn-bell', art: 'bell', name: '오래된 종탑', role: '마을의 기억', x: 1100, y: 985, size: 280, r: 52,
     intro: '멈춰 있는 종 아래에 희미한 빛이 남아 있습니다.',
     lines: ['담쟁이 사이로 별 모양 문양이 보입니다. 바람이 지나가도 종은 울리지 않습니다.', '받침돌에는 수많은 손길이 닿은 흔적이 남아 있습니다. 이 마을의 오래된 약속을 지키는 장소인 듯합니다.']},
   {id: 'dawn-memorial', art: 'memorial', name: '옛길의 기념석', role: '남겨진 문양', x: 935, y: 1085, size: 100, r: 26,
@@ -64,9 +64,24 @@ export const VILLAGE_PROPS = [
   ...[[540,915],[1660,915],[540,1415],[1660,1415],[1010,665],[1960,1150]].map(([x,y]) => ({art:'flowers',x,y,size:85,r:24})),
   ...[[960,895],[1240,895]].map(([x,y]) => ({art:'bench',x,y,size:110,r:30})),
   {art:'cart',x:500,y:960,size:120,r:32},
+  // 11월 6일 소품 시트(design/village/props2.webp). 여관 마당 · 남동 장터 모퉁이 · 남서 연못 · 밭 울타리 · 과수.
+  {art:'stall-cloth',x:395,y:890,size:135,r:34},
+  {art:'stall-veg',x:1295,y:1225,size:140,r:36},
+  {art:'notice',x:1210,y:1355,size:115,r:24},
+  {art:'crates',x:1320,y:1365,size:110,r:30},
+  {art:'woodshed',x:1335,y:640,size:150,r:40},
+  {art:'pond',x:915,y:1265,size:165,r:58},
+  {art:'fence',x:230,y:1335,size:115,r:20},{art:'gate-door',x:345,y:1335,size:100,r:20},
+  {art:'fence',x:1945,y:1335,size:115,r:20},{art:'fence',x:2065,y:1335,size:115,r:20},
+  {art:'hay',x:1905,y:1455,size:120,r:32},
+  {art:'shrine',x:1745,y:1250,size:120,r:28},
+  ...[[300,620],[860,470],[1850,560]].map(([x,y]) => ({art:'apple-tree',x,y,size:150,r:14})),
+  {art:'bridge',x:880,y:1500,size:150,r:0,ground:1},   // 아래 골목이 개울을 건너는 다리. 땅에 깔아 사람이 위로 지나간다
 ];
+// 개울 — 연못에서 남쪽으로 흘러 다리 밑을 지나 울타리 밖으로 나간다(바닥 그림만, 걸을 수 있다).
+export const VILLAGE_BROOK = [[912,1250],[892,1400],[880,1500],[872,1600],[868,1700]];
 export const villageBlocks = () => [
   ...VILLAGE_BUILDINGS.flatMap(b => [-85,0,85].map(dx => ({x:b.x+dx,y:b.y-40,r:62}))),
   ...VILLAGE_NPCS.map(n => ({x:n.x,y:n.y-4,r:18})),
-  ...[...VILLAGE_SIGHTS,...VILLAGE_PROPS].map(n => ({x:n.x,y:n.y-4,r:n.r})),
+  ...[...VILLAGE_SIGHTS,...VILLAGE_PROPS].filter(n => n.r > 0).map(n => ({x:n.x,y:n.y-4,r:n.r})),
 ];

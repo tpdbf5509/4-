@@ -5,7 +5,7 @@ import { STORM_WEAPONS } from './stormWeaponData.js';
 export const WORLD_BOSS_WEAPONS = [...WORLD_WEAPONS, ...STORM_WEAPONS, ...VOID_WEAPONS];
 export const worldBossWeapons = id => WORLD_BOSS_WEAPONS.filter(w => (w.rewardBoss || w.set) === id);
 export const WORLD_BOSS = {
-  revision:4, // 진행 중인 보스도 체력 비율과 기여도를 보존하며 새 수치로 옮긴다.
+  revision:5, // 진행 중인 보스도 체력 비율과 기여도를 보존하며 새 수치로 옮긴다.
   map: 'worldboss', fee: 100000, period: 3600000, duration: 900000, endWait: 20,
   contribution: .1, wind: 1.5, gap: 2.8, rageGap: 1.8, rageAt: .3,
   hitPct: .45, poolPct: .14, poolTime: 7, poolTick: 1, // 경고를 보고 피해야 하는 강한 연속 공격으로 바꾼다.
@@ -19,16 +19,16 @@ export const WORLD_BOSS = {
   potions: [{id:'heal_l',chance:.65,n:5},{id:'buff_str',chance:.25,n:2},{id:'buff_int',chance:.25,n:2},{id:'buff_crit',chance:.2,n:2}],
 };
 export const WORLD_BOSSES = [
-  // 사용자 예시인 뱀1200만에 맞춰 이전 체력의 1/100로 조정한다. 공격 패턴·보상·15분 제한은 유지한다.
-  { id:'dragon',type:'world_dragon',name:'드래곤 괴수',hp:11500000,color:'#f3aa74',sub:'삼연 숨결 · 추적 운석 · 종말의 화염폭풍 · 멸망의 운석(즉사)',attacks:['cone','meteors','inferno','dragon_doom'] },
-  { id:'serpent',type:'world_serpent',name:'거대 뱀 괴수',hp:12000000,color:'#b7d58b',sub:'맹독 추격 · 이중 휩쓸기 · 독왕의 탈피 · 독왕의 심판(즉사)',attacks:['poison','ring','molt','serpent_doom'] },
-  { id:'machine',type:'world_machine',name:'고대 번개 기계형 괴수',hp:12500000,color:'#9edcf0',sub:'회전 전류 · 연속 낙뢰 · 천벌 과부하 · 최후의 방전(즉사)',attacks:['cross','lightning','overload','machine_doom'] },
-  // 새 보스는 기존 기계보다 체력 50만 증가. 무기 셋만 전용 보상으로 준다.
-  { id:'thunderbird',type:'world_thunderbird',name:'뇌조',hp:13000000,color:'#b4b9fa',sub:'전격 깃털 · 뇌광 급강하 · 폭풍의 눈 · 천뢰 심판(즉사)',attacks:['thunder_feathers','thunder_dive','thunder_eye','thunder_doom'],
+  // 11월 5일 사용자 지정 최대 체력. 진행 중인 보스는 revision으로 남은 비율을 보존해 갱신한다.
+  { id:'dragon',type:'world_dragon',name:'드래곤 괴수',hp:30000000,color:'#f3aa74',sub:'삼연 숨결 · 추적 운석 · 종말의 화염폭풍 · 멸망의 운석(즉사)',attacks:['cone','meteors','inferno','dragon_doom'] },
+  { id:'serpent',type:'world_serpent',name:'거대 뱀 괴수',hp:36000000,color:'#b7d58b',sub:'맹독 추격 · 이중 휩쓸기 · 독왕의 탈피 · 독왕의 심판(즉사)',attacks:['poison','ring','molt','serpent_doom'] },
+  { id:'machine',type:'world_machine',name:'고대 번개 기계형 괴수',hp:40000000,color:'#9edcf0',sub:'회전 전류 · 연속 낙뢰 · 천벌 과부하 · 최후의 방전(즉사)',attacks:['cross','lightning','overload','machine_doom'] },
+  // 뇌조는 무기 셋만 전용 보상으로 준다.
+  { id:'thunderbird',type:'world_thunderbird',name:'뇌조',hp:45000000,color:'#b4b9fa',sub:'전격 깃털 · 뇌광 급강하 · 폭풍의 눈 · 천뢰 심판(즉사)',attacks:['thunder_feathers','thunder_dive','thunder_eye','thunder_doom'],
     art:{src:'/assets/game/rpg/boss/thunderbird.webp',cols:2,rows:1,size:700,feet:[.80,.885]} },
   // 11월 4일 사용자 요청 — 다섯 번째 보스. 새 보스는 늘 뒤에 더한다(출현 차례 · 스냅샷 몹 번호). 권장 레벨 800.
   // 공허의 교차(void_cross)는 체력 50% 이하에서만 쓰고, 그 전에는 건너뛴다. 전설 무기는 공허의 대검 · 지팡이 · 장궁, 방어구는 차원의 지배자
-  { id:'void',type:'world_void',name:'공허의 관측자',hp:15000000,color:'#a077f0',recLv:800,sub:'중력 붕괴 · 공간 절단 · 공허의 교차(체력 50% 이하) · 사건의 지평선(즉사)',
+  { id:'void',type:'world_void',name:'공허의 관측자',hp:64000000,color:'#a077f0',recLv:800,sub:'중력 붕괴 · 공간 절단 · 공허의 교차(체력 50% 이하) · 사건의 지평선(즉사)',
     attacks:['gravity_collapse','space_cut','void_cross','event_horizon'],
     art:{src:'/assets/game/rpg/boss/void-observer.webp',cols:2,rows:1,size:700,feet:[.84,.84]} },
 ];

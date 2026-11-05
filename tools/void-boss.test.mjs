@@ -31,9 +31,9 @@ const near = (x, y, e = .03) => assert(Math.abs(x - y) < e, `${x} ≈ ${y}`);
 test('다섯 번째 보스 — 체력 15,000,000 · 권장 800 · 뒤에 추가 · 기존 네 보스는 그대로', () => {
   assert.equal(WORLD_BOSSES.length, 5); assert.equal(WORLD_BOSSES.at(-1).id, 'void');
   const B = WORLD_BOSS_BY_ID.void;
-  assert.equal(B.name, '공허의 관측자'); assert.equal(B.hp, 15000000); assert.equal(B.recLv, 800); assert.equal(B.type, 'world_void');
+  assert.equal(B.name, '공허의 관측자'); assert.equal(B.hp, 64000000); assert.equal(B.recLv, 800); assert.equal(B.type, 'world_void');
   assert.deepEqual(B.attacks, ['gravity_collapse', 'space_cut', 'void_cross', 'event_horizon']);
-  assert.deepEqual(WORLD_BOSSES.slice(0, 4).map(b => [b.id, b.hp]), [['dragon', 11500000], ['serpent', 12000000], ['machine', 12500000], ['thunderbird', 13000000]]);
+  assert.deepEqual(WORLD_BOSSES.slice(0, 4).map(b => [b.id, b.hp]), [['dragon', 30000000], ['serpent', 36000000], ['machine', 40000000], ['thunderbird', 45000000]]);
   assert.deepEqual(WORLD_BOSSES.slice(0, 4).map(b => b.attacks), [['cone', 'meteors', 'inferno', 'dragon_doom'], ['poison', 'ring', 'molt', 'serpent_doom'], ['cross', 'lightning', 'overload', 'machine_doom'], ['thunder_feathers', 'thunder_dive', 'thunder_eye', 'thunder_doom']]);
   // 제한시간 · 입장료는 기존 월드보스와 같은 공통 값
   assert.equal(C.duration, 900000); assert.equal(C.fee, 100000);
@@ -44,7 +44,7 @@ test('다섯 번째 보스 — 체력 15,000,000 · 권장 800 · 뒤에 추가 
 test('소환 · 입장 · 출현 차례에 포함된다', () => {
   const g = setup(); assert(rpgWorldBoss(g, 0, { op: 'summon', id: 'void' })); assert.equal(g.wb.active.id, 'void'); assert.equal(g.coins ?? 0, 0);
   assert(rpgWorldBoss(g, 0, { op: 'enter' })); assert.equal(g.heroes[0].map, 'worldboss');
-  const m = g.mobs.find(x => x.id === g.wb.active.mob); assert.equal(m.type, 'world_void'); assert.equal(m.max, 15000000);
+  const m = g.mobs.find(x => x.id === g.wb.active.mob); assert.equal(m.type, 'world_void'); assert.equal(m.max, 64000000);
   const ids = new Set(); for (let hour = 100; hour < 110; hour++) { const B = WORLD_BOSSES[(hour + 1) % WORLD_BOSSES.length]; ids.add(B.id); } assert(ids.has('void'));
 });
 test('중력 붕괴: 1.5초 예고 · 장판 밖으로 나가면 회피 · 남으면 최대 체력 45%', () => {

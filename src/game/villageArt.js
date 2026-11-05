@@ -46,10 +46,10 @@ function curve(ctx, pts) {
   ctx.lineTo(...pts[pts.length - 1]);
 }
 export function paintVillage(ctx) {
-  ctx.fillStyle='#637d48';ctx.fillRect(0,0,V.w,V.h);
+  ctx.fillStyle='#86a05f';ctx.fillRect(0,0,V.w,V.h);   // 숲 녹색보다 밝고 따뜻한 들판 색
   let seed=1707;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
   for(let i=0;i<5200;i++){
-    ctx.fillStyle=i%3?'rgba(222,225,165,.07)':'rgba(29,62,31,.06)';
+    ctx.fillStyle=i%3?'rgba(235,232,170,.09)':'rgba(60,92,48,.05)';
     ctx.beginPath();ctx.ellipse(rnd()*V.w,rnd()*V.h,8+rnd()*28,3+rnd()*10,0,0,Math.PI*2);ctx.fill();
   }
   ctx.lineCap='round';ctx.lineJoin='round';
@@ -72,19 +72,28 @@ export function paintVillage(ctx) {
     if(Math.abs(y-SQ.y)<SQ.ry+10)continue;
     for(let x=1062;x<=1130;x+=34){ctx.beginPath();ctx.roundRect(x+(Math.round(y/37)%2)*10,y,24,13,3);ctx.fill();}
   }
-  // 약초밭과 풍차 텃밭. 둘레길 옆에서 살펴볼 수 있는 생활 풍경이다.
+  // 들꽃 점
+  for(let i=0;i<260;i++){const x=rnd()*V.w,y=V.top+60+rnd()*(V.h-V.top-160);
+    if(nearRoad(x,y,40))continue;ctx.fillStyle=['#f1e4a8','#e9c6c0','#d8cbe6','#fffaf0'][i%4];ctx.beginPath();ctx.arc(x,y,2.4,0,Math.PI*2);ctx.fill();}
+  // 밭 — 밭고랑 줄. 약초밭 · 풍차 텃밭 · 마을 바깥 들판
   for(const [x,y] of VILLAGE_FIELDS){
-    ctx.fillStyle='#7b6649';ctx.beginPath();ctx.roundRect(x-80,y-40,160,95,10);ctx.fill();
-    for(let i=0;i<5;i++)for(let j=0;j<4;j++){
-      ctx.fillStyle=(i+j)%2?'#91a95c':'#c1b969';ctx.beginPath();ctx.ellipse(x-60+i*30,y-24+j*24,9,5,-.3,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#6f5a3f';ctx.beginPath();ctx.roundRect(x-84,y-44,168,101,10);ctx.fill();
+    ctx.fillStyle='#8a7350';ctx.beginPath();ctx.roundRect(x-80,y-40,160,93,8);ctx.fill();
+    for(let j=0;j<4;j++){
+      const crop=(x*7+y*3)%3;ctx.fillStyle=crop===0?'#9bb45e':crop===1?'#d2c374':'#7fa05a';
+      for(let i=0;i<7;i++){ctx.beginPath();ctx.ellipse(x-60+i*20,y-24+j*24,7,5,-.3,0,Math.PI*2);ctx.fill();}
     }
   }
-  // 낮은 울타리. 남쪽 귀환 문 자리는 비운다.
-  ctx.strokeStyle='#ad9670';ctx.lineWidth=5;
-  for(let x=100;x<V.w-80;x+=60){
+  // 마을 둘레 울타리 — 윗변 · 좌우 · 아랫변. 남쪽 귀환 문 자리는 비운다.
+  const post=(x,y)=>{ctx.fillStyle='#8f7a55';ctx.fillRect(x-4,y-34,8,36);ctx.fillStyle='#c8b184';ctx.fillRect(x-4,y-34,3,36);};
+  const rail=(x1,y1,x2,y2)=>{ctx.strokeStyle='#a68f66';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(x1,y1-24);ctx.lineTo(x2,y2-24);ctx.moveTo(x1,y1-11);ctx.lineTo(x2,y2-11);ctx.stroke();};
+  const fy=V.exit.y-20, top=V.top+45, L=62, R=V.w-62;
+  for(let x=L;x<R;x+=64){rail(x,top,x+64,top);post(x,top);}
+  post(R,top);
+  for(let y=top;y<fy;y+=64){rail(L,y,L,y+64);post(L,y);rail(R,y,R,y+64);post(R,y);}
+  for(let x=L;x<R;x+=64){
     if(Math.abs(x-V.exit.x)<130)continue;
-    const fy=V.exit.y-20;   // 귀환 문 기둥 높이에 맞춘다
-    ctx.beginPath();ctx.moveTo(x,fy);ctx.lineTo(x,fy-33);ctx.moveTo(x,fy-20);ctx.lineTo(x+60,fy-20);ctx.stroke();
+    rail(x,fy,x+64,fy);post(x,fy);
   }
 }
 
@@ -103,6 +112,7 @@ function nearRoad(x, y, pad) {
 }
 function treeSpot(x, y) {
   if (nearRoad(x, y, 70)) return false;
+  if (x < 130 || x > V.w - 130 || y < V.top + 120) return false;   // 울타리 안쪽 가장자리
   if (((x-SQ.x)/(SQ.rx+110))**2 + ((y-SQ.y)/(SQ.ry+110))**2 < 1) return false;
   if (VILLAGE_BUILDINGS.some(b => Math.abs(x-b.x) < b.size*.58 && y > b.y - b.size*.75 && y < b.y + 70)) return false;
   if (VILLAGE_FIELDS.some(([fx,fy]) => Math.abs(x-fx) < 140 && Math.abs(y-fy) < 100)) return false;
@@ -116,9 +126,9 @@ export const villageTrees = (() => {
   for (let y = 215; y < V.h - 100; y += 92) for (let x = 60; x < V.w - 40; x += 104) {
     const tx = x + (rnd()-.5)*60 + (Math.round(y/92)%2)*52, ty = y + (rnd()-.5)*40, keep = rnd();
     if (!treeSpot(tx, ty)) continue;
-    const edge = tx < 260 || tx > V.w - 260 || ty < 420;          // 둘레는 빽빽하게, 안쪽은 듬성듬성
-    if (!edge && keep > .45) continue;
-    out.push({x: tx, y: ty, s: 1.05 + rnd()*.3, pine: rnd() < .4 ? 1 : 0, seed: 600 + out.length});
+    const edge = tx < 260 || tx > V.w - 260 || ty < 420;          // 마을답게 — 둘레도 듬성듬성, 안쪽은 거의 없다
+    if (keep > (edge ? .24 : .05)) continue;
+    out.push({x: tx, y: ty, s: 1.05 + rnd()*.3, pine: rnd() < .15 ? 1 : 0, seed: 600 + out.length});
   }
   return out;
 })();

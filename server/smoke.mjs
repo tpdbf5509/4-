@@ -1,3 +1,4 @@
+import {WORLD_BOSS,WORLD_BOSSES} from "../src/game/worldBossData.js";
 /* 배포 뒤 확인 — GitHub Actions 가 돌린다(node 22 의 WebSocket).
    ① /health ② 점검 방(CHECK)에 붙어 대기실(lobby)을 받는다 ③ 없는 계정으로 자리를 부탁해 deny 를 받는다
    ③이 오면 서버가 장부(D1)에 닿았다는 뜻이다(닿지 못하면 아무 답이 없다)
@@ -7,6 +8,11 @@ const fail = (m) => { console.error("실패:", m); process.exit(1); };
 const health = await fetch(`${BASE}/health`).then((r) => r.text()).catch((e) => String(e));
 if (health !== "ok") fail(`health ${health}`);
 console.log("① health ok");
+// 접속 성공과 규칙 반영은 별개다. 구버전 서버·다른 배포로 연결되면 여기서 실패시킨다.
+const rules=await fetch(`${BASE}/rules`,{cache:"no-store"}).then(r=>r.json()).catch(()=>null);
+const expected=WORLD_BOSSES.map(({id,hp})=>({id,hp}));
+if(rules?.worldBossRevision!==WORLD_BOSS.revision||JSON.stringify(rules?.worldBosses)!==JSON.stringify(expected))fail("운영 서버 월드보스 체력이 배포한 코드와 다릅니다");
+console.log("①-2 운영 서버 체력 확인",JSON.stringify(rules));
 // 게임 방(RPG1~4)은 건드리지 않는다 — 처음 부른 곳 가까이에 방이 생기므로 한국 사람이 먼저 만들게 둔다. 점검은 CHECK 방으로
 console.log("   점검 방 위치:", await fetch(`${BASE}/where/CHECK`).then((r) => r.text()).catch(() => "?"));
 const ws = new WebSocket(`${BASE.replace(/^http/, "ws")}/rpg/CHECK?id=smoke${Date.now()}`);

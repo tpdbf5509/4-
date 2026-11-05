@@ -1,6 +1,7 @@
 /* 입구 — /rpg/<서버>?id=<접속 id> 로 WebSocket 을 열면 그 서버(RPG1~RPG4)의 방(Durable Object)으로 넘긴다.
    방은 처음 만들어진 곳에 계속 머문다. 처음 접속한 사람이 미국에 있으면 방도 미국에 생겨 한국에서 0.2초씩 늦었다.
    그래서 아시아에 만들라고 알려 주고(ROOM.hint), 이름에 차례(ROOM.gen)를 붙여 옛 방(미국)은 버리고 새로 만든다 */
+import {WORLD_BOSS,WORLD_BOSSES} from "../../src/game/worldBossData.js";
 import { RPG_SERVERS } from "../../src/game/rpg.js";
 export { RpgRoom } from "./room.js";
 export { Ledger } from "./ledger-do.js";
@@ -29,6 +30,8 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (url.pathname === "/health") return new Response("ok");
+    // 배포된 서버의 실제 전투 수치 확인. 방을 만들거나 계정·장부를 읽지 않는다.
+    if (url.pathname === "/rules") return rpcJson({worldBossRevision:WORLD_BOSS.revision,worldBosses:WORLD_BOSSES.map(({id,hp})=>({id,hp}))});
     // 이 기기가 들어온 Cloudflare 입구(데이터센터) — 연결 진단 칸이 묻는다. 방(서울)과 멀면 그 사이를 오가느라 늦다
     if (url.pathname === "/edge") return new Response(String((req.cf && req.cf.colo) || "?"), { headers: { "Access-Control-Allow-Origin": "*" } });
     // 방이 실제로 어디서 도는지 — 점검용(smoke.mjs)

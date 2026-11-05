@@ -239,8 +239,10 @@ export function tickWorldBoss(E,g,dt){
     g.heroes.forEach(h=>{if(h?.map===C.map)E.plaza(g,h);});g.mobs=g.mobs.filter(m=>!isWorldBoss(m));w.active=null;return;
   }
   const m=g.mobs.find(m=>m.id===a.mob&&!m.dead);if(!m){worldBossRestore(E,g);return;}
-  if(a.balance!==C.revision){
-    const max=WORLD_BOSS_BY_ID[a.id].hp,mul=max/m.max;
+  // 버전 표식만 믿지 않는다. 복원된 몹과 화면용 최대 체력도 실제 설정과 대조한다.
+  const configuredMax=WORLD_BOSS_BY_ID[a.id].hp;
+  if(a.balance!==C.revision||m.max!==configuredMax||a.max!==configuredMax){
+    const max=configuredMax,mul=max/m.max;
     m.hp=Math.max(1,Math.round(m.hp*mul));m.max=max;a.max=max;a.contrib.forEach(c=>c.damage*=mul);a.balance=C.revision;
   }
   // 개편 전 스냅샷의 단발 공격도 남은 준비 시간을 보존하며 이어간다.

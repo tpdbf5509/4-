@@ -225,6 +225,16 @@ test('다섯 보스는 이전 체력에서 남은 체력과 기여 비율을 보
   assert.equal(m.max,updated[i]);assert.equal(m.hp,updated[i]/2);assert.equal(a.max,updated[i]);assert.equal(a.contrib[0].damage,updated[i]/2);
  });
 });
+test('버전 표식이 같아도 이전 체력이 남은 보스 다섯 종을 고치고 화면 스냅샷에도 반영한다',()=>{
+ const old=[11500000,12000000,12500000,13000000,15000000];
+ WORLD_BOSSES.forEach((B,i)=>{
+  const g=setup();rpgWorldBoss(g,0,{op:'summon',id:B.id});const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);
+  m.max=a.max=old[i];m.hp=a.hp=old[i]/2;a.contrib=[{name:'토벌0',damage:old[i]/2}];advance(g,.02);
+  assert.equal(m.max,B.hp);assert.equal(m.hp,B.hp/2);assert.equal(a.hp,B.hp/2);assert.equal(a.max,B.hp);assert.equal(a.contrib[0].damage,B.hp/2);
+  const snap=rpgPack(g);assert.equal(snap.wb.active.max,B.hp);assert.equal(snap.wb.active.hp,B.hp/2);
+  a.max=old[i];advance(g,.02);assert.equal(a.max,B.hp);assert.equal(m.hp,B.hp/2);
+ });
+});
 test('광장 포탈 근처에서만 소환·입장하고 포탈은 대화 대상이다',()=>{
  const g=setup(),h=g.heroes[0];h.x=900;h.y=820;assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));
  h.x=C.portal.x;h.y=C.portal.y+70;assert(npcNear(h).worldBoss);assert(rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));

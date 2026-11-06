@@ -16,7 +16,7 @@ test('새 안전 맵은 스냅샷 목록 끝에 추가하고 기존 광장 NPC�
  assert.ok(HONOR_BOARD.x<V.gate.x-150);
  assert.ok(!MAPS.plaza.blocks.some(b=>b.x===V.gate.x&&b.y===252));
  assert.equal(npcNear({map:'plaza',x:HONOR_BOARD.x,y:HONOR_BOARD.y+50})?.id,'honor');
- assert.equal(MAPS[V.id].npcs.length,8);
+ assert.equal(MAPS[V.id].npcs.filter(n=>!n.story).length,8);
 });
 
 test('광장 북쪽 문까지 실제로 걸어서 입장하고 남쪽 문으로 왕복한다',()=>{

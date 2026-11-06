@@ -5,10 +5,13 @@ import { trading } from "./tradeData.js";
    /지급 <이름> <물품> [개수]   물약 · 재료 · 특별 무기 · 방어구(예: 전설 투구) · 워프권 · 하락 방지권
    /돈 <이름> <금액>            코인을 준다(빼려면 -금액)
    /소환 <이름>                 그 사람을 내 자리로 옮긴다
+   /이동 <장소>                 메인 스토리 1부 맵(임시)으로 간다. 장소 이름 없이 쓰면 목록
    /직업 <이름> <직업>          기본 직업(검사 · 궁수 · 마법사)이나 전직(검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사)으로 바꾼다
    <이름> 자리에 "나" 를 쓰면 나 자신. 이름에 띄어쓰기가 있어도 된다(지금 서버에 있는 사람 이름과 앞에서부터 견준다).
    관리자(h.admin) 만 쓸 수 있다. 화면 쪽은 RpgView.jsx sendChat 이 "/" 를 채팅 대신 입력 kind "cmd" 로 보낸다 */
 import { MAPS, JOBS, runOf, sys } from "./rpg.js";
+import { STORY_MAPS } from "./storyData.js";
+import { VILLAGE } from "./villageData.js";
 import { POTIONS, POTION, SPECIALS, WARP, GUARD, WEAPON_FAMILY, JOB_FAMILY, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, addMat, equipped } from "./shop.js";
 import { ADV_CLASSES } from "./advData.js";
@@ -24,6 +27,7 @@ const HELP = [
   "/지급 <이름> <물품> [개수] — 물약 · 재료 · 특별 무기 · 방어구(예: 전설 투구) · 워프권 · 방지권",
   "/돈 <이름> <금액> — 코인 주기(빼려면 -금액)",
   "/소환 <이름> — 그 사람을 내 자리로",
+  "/이동 <장소> — 1부 이야기 맵으로(이름 없이 쓰면 목록)",
   "/직업 <이름> <직업> — 검사 · 궁수 · 마법사 · 검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
 ];
@@ -144,6 +148,20 @@ export function rpgAdminCmd(g, pi, text) {
     return true;
   }
 
+  /* 1부 이야기 맵은 아직 문이 없다(이야기 진행을 만들 때 연다). 관리자만 이 명령으로 둘러본다 */
+  if (cmd === "이동") {
+    const spots = [VILLAGE.id, ...STORY_MAPS.map((m) => m.id)];
+    const k = flat(words.join(" "));
+    if (!k) return void say(`갈 수 있는 곳: ${spots.map((id) => MAPS[id].name).join(" · ")}`);
+    const to = spots.find((id) => flat(MAPS[id].name) === k || id === k) || spots.find((id) => flat(MAPS[id].name).includes(k));
+    if (!to) return void say("그런 장소가 없습니다. /이동 만 쓰면 목록이 나옵니다.");
+    if (trading(h)) return void say("거래 중에는 옮길 수 없습니다.");
+    if ((h.dvs ?? -1) >= 0 || runOf(g, h) || (MAPS[h.map] && (MAPS[h.map].dungeon || MAPS[h.map].pvp || MAPS[h.map].race))) return void say("결투장 · 던전 · 레이스에서는 옮길 수 없습니다.");
+    h.map = to; [h.x, h.y] = MAPS[to].spawn;
+    h.hold = []; h.dest = null; h.dash = 0; h.gateCd = 1.5;
+    say(`${MAPS[to].name}(으)로 옮겼습니다.`);
+    return true;
+  }
   if (cmd === "소환") {
     const [ti, rest] = takeName(g, pi, words);
     if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /소환 홍길동");

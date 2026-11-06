@@ -1,3 +1,4 @@
+import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf} from './storyArt.js';
 import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, drawVillageGround, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART} from "./plazaNpcData.js";
@@ -986,6 +987,7 @@ function drawDeepDoor(ctx, g, n, time) {
 }
 
 function drawNpc(ctx, g, n, time) {
+  if (n.story) return drawStoryNpc(ctx, n, time, g.heroes[g.mySeat]?.map);
   if (n.village) return drawVillageNpc(ctx, n, time);
   if (n.deep) return drawDeepDoor(ctx, g, n, time);
   if (n.abyss) return drawAbyssGate(ctx, g, n, time, ABYSS_T);
@@ -2616,7 +2618,7 @@ export function drawRpg(ctx, g, bgs) {
   warmRpgArt();
   const bgName = M.bg || M.id;
   const look = !M.dungeon && FIELD_LOOKS[M.id];        // 사냥터 — 맵마다 다른 바탕(fieldLookData.js)
-  const bim = M.dungeon || M.village || look ? null : mapImg(rpgFile(bgName));
+  const bim = M.dungeon || M.village || M.story || look ? null : mapImg(rpgFile(bgName));
   // 코드로 그린 큰 바탕은 한 장만 남긴다(던전 · 사냥터 합쳐)
   const bigBg = (key, paint) => {
     let bg = bgs && bgs[key];
@@ -2626,7 +2628,14 @@ export function drawRpg(ctx, g, bgs) {
     }
     return bg;
   };
-  if (M.village) {
+  if (M.story) {                                       // 1부 이야기 맵 — 바닥 그림 파일이 있으면 그 그림, 없으면 코드 바닥(storyArt.js)
+    if (!drawStoryBackdrop(ctx, M, cam, W, H)) {
+      const bg = bigBg(`vg:${M.id}`, () => {const c=document.createElement('canvas');c.width=M.w;c.height=M.h;paintStory(c.getContext('2d'),M);return c;});
+      if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
+      else { ctx.fillStyle='#5f6460';ctx.fillRect(0,0,W,H); }
+    }
+    warmVillageArt();
+  } else if (M.village) {
     warmVillageArt(true);
     const bg = bigBg(`vg:${M.id}`, () => {const c=document.createElement('canvas');c.width=M.w;c.height=M.h;paintVillage(c.getContext('2d'));return c;});
     if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
@@ -2698,6 +2707,7 @@ export function drawRpg(ctx, g, bgs) {
     villageObjects.forEach(n=>{if(inView(n.x,n.y,400))order.push({y:n.y,villageObject:n});});
     villageTrees.forEach(t=>{if(inView(t.x,t.y))order.push({y:t.y,tree:t});});
   }
+  storyObjectsOf(M.id).forEach(n=>{if(inView(n.x,n.y,400))order.push({y:n.y,storyObject:n});});
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
   g.heroes.forEach((h) => { const gi = h && h.map === M.id && h.as && h.as.gi; if (gi && gi.t > 0 && Number.isFinite(gi.y)) order.push({ y: gi.y, giant: h }); });   // 거대 정령 — 제 발 높이로 줄을 선다
@@ -2718,6 +2728,7 @@ export function drawRpg(ctx, g, bgs) {
     if (lift) ctx.restore();
     if (who && (o.m || o.h.cc)) drawCcMark(ctx, who, time);
     else if (o.villageObject) drawVillageObject(ctx, o.villageObject);
+    else if (o.storyObject) drawStoryObject(ctx, o.storyObject, M.id);
     else if (o.gate) drawGate(ctx, o.gate, time);
     else if (o.npc) drawNpc(ctx, g, o.npc, time);
     else if (o.giant) drawAdvGiant(ctx, o.giant, time);

@@ -1,3 +1,4 @@
+import {STORY_VILLAGE} from './storyData.js';
 import {VILLAGE as V, VILLAGE_BUILDINGS, VILLAGE_NPCS, VILLAGE_SIGHTS, VILLAGE_PROPS, VILLAGE_ROADS, VILLAGE_SQUARE as SQ, VILLAGE_FIELDS, VILLAGE_BROOK, villageArtPath} from './villageData.js';
 
 const images = new Map();
@@ -114,9 +115,9 @@ function treeSpot(x, y) {
   if (nearRoad(x, y, 70)) return false;
   if (x < 130 || x > V.w - 130 || y < V.top + 120) return false;   // 울타리 안쪽 가장자리
   if (((x-SQ.x)/(SQ.rx+110))**2 + ((y-SQ.y)/(SQ.ry+110))**2 < 1) return false;
-  if (VILLAGE_BUILDINGS.some(b => Math.abs(x-b.x) < b.size*.58 && y > b.y - b.size*.75 && y < b.y + 70)) return false;
+  if ([...VILLAGE_BUILDINGS, ...STORY_VILLAGE.buildings].some(b => Math.abs(x-b.x) < b.size*.58 && y > b.y - b.size*.75 && y < b.y + 70)) return false;
   if (VILLAGE_FIELDS.some(([fx,fy]) => Math.abs(x-fx) < 140 && Math.abs(y-fy) < 100)) return false;
-  if ([...VILLAGE_NPCS, ...VILLAGE_SIGHTS, ...VILLAGE_PROPS].some(n => Math.hypot(x-n.x, y-n.y) < 110)) return false;
+  if ([...VILLAGE_NPCS, ...VILLAGE_SIGHTS, ...VILLAGE_PROPS, ...STORY_VILLAGE.npcs].some(n => Math.hypot(x-n.x, y-n.y) < 110)) return false;
   if (Math.abs(x-V.exit.x) < 200 && y > V.exit.y - 160) return false;
   return y < V.exit.y - 60;
 }

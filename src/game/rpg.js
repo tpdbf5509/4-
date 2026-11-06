@@ -1,4 +1,5 @@
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
+import {STORY_MAPS, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
 import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
 import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
@@ -335,6 +336,20 @@ MAPS[VILLAGE.id] = {
 };
 MAP_IDS.push(VILLAGE.id);
 MAPS.plaza.gates.push({...VILLAGE.gate, to: VILLAGE.id, at: VILLAGE.spawn, label: VILLAGE.name, villageGate: 1});
+/* 메인 스토리 1부 맵(storyData.js) — 임시 버전. 싸울 수 없는 곳이고, 지금은 관리자 /이동 으로만 들어간다.
+   마을에는 1부 인물 · 시설을 더한다. 맵 차례는 뒤에만 더한다 */
+const storyNpcs = (id) => [...storyNpcsOf(id).map(n=>({...n,village:1,story:1})), ...storySightsOf(id).map(n=>({...n,village:1,story:1,sight:1}))];
+MAPS[VILLAGE.id].npcs.push(...storyNpcs(VILLAGE.id));
+MAPS[VILLAGE.id].blocks.push(...storyBlocks(VILLAGE.id));
+STORY_MAPS.forEach((m) => {
+  const {to = VILLAGE.id, at = VILLAGE.spawn, label = VILLAGE.name, ...exit} = m.exit;
+  MAPS[m.id] = {
+    id: m.id, name: m.name, w: m.w, h: m.h, top: 170, safe: true, story: 1, chapter: m.ch, spawn: m.spawn,
+    gates: [{...exit, to, at, label, villageGate: 1}, ...(m.links || []).map(l => ({...l, villageGate: 1}))],
+    blocks: storyBlocks(m.id), npcs: storyNpcs(m.id),
+  };
+  MAP_IDS.push(m.id);
+});
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -1427,7 +1442,7 @@ export function rpgFire(g, pi, on) {
   if (!on || h.down > 0) return;
   if (MAPS[h.map].race) return void rpgRace(g, pi, { op: "item" });   // 몹 레이스 — 공격 키 · 버튼으로 아이템을 쓴다
   h.fireQ = 0.35;
-  if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, MAPS[h.map].village ? "마을에서는 싸울 수 없다" : "광장에서는 싸울 수 없다", "#d9c9a6");
+  if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, MAPS[h.map].story ? "이곳에서는 싸울 수 없다" : MAPS[h.map].village ? "마을에서는 싸울 수 없다" : "광장에서는 싸울 수 없다", "#d9c9a6");
   if (isPvp(h.map) && h.dph === 1) say(g, h.map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
   // 사거리 안에 아무도 없어도 친다 — 겨눈 쪽으로 허공을 벤다 · 쏜다(heroAttack)
 }
@@ -2296,7 +2311,7 @@ export function rpgSkill(g, pi) {
   const map = h.map;
   const job = jobOf(h), el = elemOf(h);
   const name = skillName(h);
-  if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, MAPS[map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다", "#d9c9a6");
+  if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, MAPS[map].story ? "이곳에서는 쓸 수 없다" : MAPS[map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다", "#d9c9a6");
   if (h.sk > 0) return say(g, map, h.x, h.y - 90, `${name} ${Math.ceil(h.sk)}초`, "#f0dcb4");
   const base = job.dmg * heroDmgMul(h);
   const art = ELEM_ART[el.id];
@@ -2443,7 +2458,7 @@ export function rpgUseSkill(g, pi, id) {
     fx(g, map, { kind: "heal", x: h.x, y: h.y - 56, text: `+${Math.round(h.hp - before)}`, t: 0.9, life: 0.9, snd: "bless", who: pi });
     fx(g, map, { kind: "sk_px_aid", x: h.x, y: h.y + 2, t: 0.9, life: 0.9 });   // 발밑에 피는 꽃(skillPxArt.js)
   } else {
-    if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, MAPS[map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다", "#d9c9a6");
+    if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, MAPS[map].story ? "이곳에서는 쓸 수 없다" : MAPS[map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다", "#d9c9a6");
     const dmg = u.mul ? SKILL_USE.base * skillStatMul(h, u.dmg) * u.mul[i] : 0;
     const pvp = isPvp(map);
     if (pvp && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
@@ -3141,7 +3156,7 @@ export function rpgWeaponSkill(g, pi) {
   if (!h || !h.loaded || h.down > 0 || ccLocked(h)) return;
   const sp = heldSpecial(h), W = WS[sp], map = h.map;
   if (!W) return say(g, map, h.x, h.y - 90, "스킬이 있는 전설 무기를 들면 쓸 수 있다", "#d9c9a6");
-  if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, MAPS[map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다", "#d9c9a6");
+  if (MAPS[map].safe) return say(g, map, h.x, h.y - 90, MAPS[map].story ? "이곳에서는 쓸 수 없다" : MAPS[map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다", "#d9c9a6");
   if (isPvp(map) && h.dph !== 2) return say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
   const w = wsOf(h), S = W.skill;
   if (w.cmb && w.cmb.sp === sp) return withCast(h, w.cmb.cast, () => comboNext(g, h, sp, S, w, w.cmb));

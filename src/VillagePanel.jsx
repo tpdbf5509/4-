@@ -1,9 +1,10 @@
 import {useEffect, useRef, useState} from 'react';
 import {VILLAGE_DIALOGUES, villageArtPath} from './game/villageData.js';
+import {STORY_DIALOGUES} from './game/storyData.js';
 
 /* 기존 상점 틀을 쓴다. 대화는 탐방용이며 퀘스트·보상·저장 상태를 바꾸지 않는다. */
 export default function VillagePanel({npcId, onClose}) {
-  const npc=VILLAGE_DIALOGUES[npcId], [page,setPage]=useState(0), dialog=useRef(null);
+  const npc=VILLAGE_DIALOGUES[npcId]||STORY_DIALOGUES[npcId], [page,setPage]=useState(0), dialog=useRef(null);
   const returnFocus=useRef(null);
   useEffect(()=>{
     returnFocus.current=document.activeElement;dialog.current?.focus();
@@ -25,7 +26,7 @@ export default function VillagePanel({npcId, onClose}) {
   return <>
     <div className="rpg-menu-back" onClick={onClose}/>
     <section className="shop village-panel" role="dialog" aria-modal="true" aria-labelledby="village-dialog-title" ref={dialog} tabIndex={-1} onKeyDown={trap}>
-      <img className={`village-portrait${npc.art === 'bell' || npc.art === 'memorial' ? ' sight' : ''}`} src={villageArtPath(npc.size ? npc.art : `portrait-${npc.art}`)} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>
+      <img className={`village-portrait${npc.art === 'bell' || npc.art === 'memorial' || (npc.portrait && npc.size) ? ' sight' : ''}`} src={npc.portrait || villageArtPath(npc.size ? npc.art : `portrait-${npc.art}`)} alt="" onError={e=>{e.currentTarget.hidden=true;}}/>
       <header className="shop-top">
         <div className="shop-title"><b id="village-dialog-title">{npc.name}</b><span>{npc.role}</span></div>
         <button type="button" className="shop-x" aria-label="대화 닫기" onClick={onClose}>×</button>

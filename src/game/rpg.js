@@ -1,5 +1,6 @@
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
-import {STORY_MAPS, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
+import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
+import {storyGateOpen, storyGateWhy} from './storyQuestData.js';
 import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
 import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
@@ -342,14 +343,25 @@ const storyNpcs = (id) => [...storyNpcsOf(id).map(n=>({...n,village:1,story:1}))
 MAPS[VILLAGE.id].npcs.push(...storyNpcs(VILLAGE.id));
 MAPS[VILLAGE.id].blocks.push(...storyBlocks(VILLAGE.id));
 STORY_MAPS.forEach((m) => {
-  const {to = VILLAGE.id, at = VILLAGE.spawn, label = VILLAGE.name, ...exit} = m.exit;
+  const vg = STORY_GATES.find((q) => q.to === m.id) || STORY_GATES.find((q) => q.to === RUIN_CHAIN[0] && RUIN_CHAIN.includes(m.id));   // 마을의 그 장소 문 앞으로 돌아온다
+  const {to = VILLAGE.id, at = vg ? vg.back : VILLAGE.spawn, label = VILLAGE.name, ...exit} = m.exit;
+  // 봉인 유적 넷은 오른쪽 문으로 다음 유적(마지막은 중앙 제어 시설), 왼쪽 문으로 앞 유적에 간다
+  const ri = RUIN_CHAIN.indexOf(m.id), chain = [];
+  if (ri >= 0) {
+    const next = RUIN_CHAIN[ri + 1] || 'core', prev = RUIN_CHAIN[ri - 1];
+    chain.push({x: 2130, y: 760, r: 54, to: next, at: next === 'core' ? STORY_MAPS.find((q) => q.id === 'core').spawn : [260, 760],
+      label: STORY_MAPS.find((q) => q.id === next).name, storyGate: 1});
+    if (prev) chain.push({x: 70, y: 760, r: 54, to: prev, at: [1940, 760], label: STORY_MAPS.find((q) => q.id === prev).name});
+  }
   MAPS[m.id] = {
     id: m.id, name: m.name, w: m.w, h: m.h, top: 170, safe: true, story: 1, chapter: m.ch, spawn: m.spawn,
-    gates: [{...exit, to, at, label, villageGate: 1}, ...(m.links || []).map(l => ({...l, villageGate: 1}))],
+    gates: [{...exit, to, at, label, villageGate: 1}, ...(m.links || []).map(l => ({...l, villageGate: 1, storyGate: 1})), ...chain.map((l) => ({...l, villageGate: 1}))],
     blocks: storyBlocks(m.id), npcs: storyNpcs(m.id),
   };
   MAP_IDS.push(m.id);
 });
+// 마을의 이야기 장소 문 — 이야기를 그 장소까지 진행해야 열린다(storyQuestData.js storyGateOpen)
+STORY_GATES.forEach((q) => MAPS[VILLAGE.id].gates.push({x: q.x, y: q.y, r: 46, to: q.to, at: MAPS[q.to].spawn, label: q.label || MAPS[q.to].name, villageGate: 1, storyGate: 1}));
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
@@ -3648,7 +3660,14 @@ function stepHeroes(g, dt) {
 
     // 문에 들어서면 반대쪽 맵으로 옮겨 간다
     if (h.gateCd <= 0) {
-      const gate = MAPS[h.map].gates.find((q) => dist(h.x, h.y, q.x, q.y) <= q.r);
+      let gate = MAPS[h.map].gates.find((q) => dist(h.x, h.y, q.x, q.y) <= q.r);
+      if (gate && gate.storyGate && !storyGateOpen(h, gate.to)) {   // 아직 이야기가 닿지 않은 장소 — 문 밖으로 밀어낸다
+        const dx = h.x - gate.x, dy = h.y - gate.y, d = Math.hypot(dx, dy) || 1;
+        h.x = gate.x + dx / d * (gate.r + 40); h.y = gate.y + dy / d * (gate.r + 40);
+        stopMove(h); h.gateCd = 1.2;
+        sys(g, h.pi, storyGateWhy(gate.to));
+        gate = null;
+      }
       if (gate) {
         h.map = gate.to;
         [h.x, h.y] = gate.at;

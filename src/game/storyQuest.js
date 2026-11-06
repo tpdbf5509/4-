@@ -40,7 +40,8 @@ export function storyView(h) {
     chAt: chSteps.findIndex((x) => x.id === s.id), chLen: chSteps.length,
     quests: [...new Set(chSteps.map((x) => x.q))].map((q) => ({q, done: STORY_STEPS.findIndex((x) => x.q === q && x.ch === s.ch) >= 0
       && STORY_STEPS.every((x, k) => x.q !== q || x.ch !== s.ch || k < sq.i)})),
-    canGo: MAPS[s.map]?.story && h.map !== s.map,
+    canGo: MAPS[s.map]?.story && h.map !== s.map, order: !!s.order, hidden: !!s.hidden,
+    nextId: s.order ? s.need[sq.n.length] : null,
   };
 }
 
@@ -69,6 +70,12 @@ export function rpgStory(g, pi, d) {
   const id = d.id;
   if (!stepTargets(s).includes(id) || sq.n.includes(id)) return false;
   if (npcNear(h)?.id !== id) return false;          // 그 대상 곁에서 대화를 마쳤을 때만
+  if (s.order && id !== s.need[sq.n.length]) {        // 순서 퍼즐 — 틀리면 처음부터
+    sq.n = []; h.bag.v += 1;
+    fx(g, h.map, {kind: 'call', x: h.x, y: h.y - 110, text: '순서가 틀렸다', color: '#f0a890', t: 1.2, life: 1.2, who: pi});
+    sys(g, pi, `${s.goal} — 순서가 틀려 처음부터 다시 합니다.`);
+    return true;
+  }
   if (Array.isArray(d.tags)) d.tags.forEach((t) => { if (STORY_TAGS.includes(t) && !sq.c.includes(t) && sq.c.length < 40) sq.c.push(t); });
   sq.n.push(id);
   const all = stepTargets(s).every((x) => sq.n.includes(x));

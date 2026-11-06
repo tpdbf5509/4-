@@ -10,6 +10,7 @@ import {
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
+import { rpgStory } from "./storyQuest.js";
 
 const ACTS = {
   trade: (g, pi, dir) => rpgTrade(g, pi, dir),
@@ -41,6 +42,7 @@ const ACTS = {
   deep: (g, pi, dir) => rpgDeep(g, pi, dir),       // 계몽의 문 — 계몽의 눈 만들기 · 400~800레벨 사냥터 입장(deepData.js)
   abyss: (g, pi, dir) => rpgAbyss(g, pi, dir),     // 심연의 탑 — 입장 · 나가기 · 파편 교환(abyssData.js)
   race: (g, pi, dir) => rpgRace(g, pi, dir),       // 광장 몹 레이스 — 참가 · 취소 · 포기(race.js)
+  story: (g, pi, dir) => rpgStory(g, pi, dir),   // 메인 스토리 1부 — 대화 마침 · 이야기 장소로 가기(storyQuest.js)
   rgo: (g, pi, dir) => rpgRace(g, pi, { op: "go", on: !!dir }),   // 레이스 질주 누름 · 뗌 — 늦게 온 옛 것은 버린다(FRESH_SLOT)
 };
 export function rpgInput(g, d) {

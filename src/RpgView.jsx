@@ -1,4 +1,6 @@
 import VillagePanel from './VillagePanel.jsx';
+import StoryCard from './StoryCard.jsx';
+import { storyView } from './game/storyQuest.js';
 import RpgCornerMenus from "./RpgCornerMenus.jsx";
 import Joystick from "./ui/Joystick.jsx";
 import { stopGameSelection } from "./ui/gameSelection.js";
@@ -1439,6 +1441,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           wb:worldBossView(g,me),guild:guildView(g,me),
           race: raceView(g, me),                    // 몹 레이스 — 모집 · 내 체력 · 순위(race.js)
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
+          story: storyView(me),                     // 메인 스토리 1부 진행 — 위쪽 줄 · 퀘스트 창 · 대화 창(storyQuest.js)
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: {server:g.wbServer, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null, advM: me.advM || 0,
@@ -1664,6 +1667,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               {/* 의뢰 · 퀘스트 — 레벨 칸 바로 아래에 붙는다(style.css .rpg-quest) */}
               {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
                 <button type="button" className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
+                  {me.story && !me.story.done && <span className="rpg-quest-story"><b>{me.story.ch}장</b>{me.self.map !== me.story.map ? `${me.story.mapName} · ` : ""}{me.story.goal}{me.story.need ? ` ${me.story.got}/${me.story.need}` : ""}</span>}
                   {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
                   {Object.entries(me.self.reqs).map(([id, r]) => {
                     const q = REQUESTS[id] && REQUESTS[id][r.i];
@@ -1860,7 +1864,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {(guild.notice||guild.error)&&<div className={`trade-result guild-notice ${guild.notice?.success?"success":""}`} role="status" aria-live="polite" aria-atomic="true"><strong>{guild.error?"길드 안내":guild.notice.title}</strong><span>{guild.error||guild.notice.text}</span></div>}
           {me&&<WorldBossHud state={me.wb} map={me.map} barRefs={bossBarRefs} onOpen={()=>toggleWin(wbOpen,setWbOpen)} onLeave={()=>act("wb",{op:"leave"})}/>}
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
-          {me && villageOpen && <VillagePanel key={villageOpen} npcId={villageOpen} onClose={() => setVillageOpen(null)} />}
+          {me && villageOpen && <VillagePanel key={villageOpen} npcId={villageOpen} story={me.story} myName={names[mySeat]} onStory={(d) => act("story", d)} onClose={() => setVillageOpen(null)} />}
           {me && raceOpen && <RacePanel self={me.self} seat={mySeat} race={me.race} names={names} act={act} onClose={() => setRaceOpen(false)} />}
           {me && marketOpen && <MarketPanel api={market} h={me.self} selfName={selfName.current} onClose={() => setMarketOpen(false)} />}
           {me && deepOpen && <DeepPanel self={me.self} act={act} onClose={() => setDeepOpen(false)} />}
@@ -2262,6 +2266,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span>끝낸 의뢰 <em>{me.rec.req || 0}</em></span>
                 </div>
                 <p className="rpg-stat-rule">처음 한 번은 의뢰인에게 말을 걸어 받습니다. 그 뒤로는 여기서 받고 · 끝내고 · 포기할 수 있습니다.</p>
+                {me.story && <StoryCard st={me.story} onGo={() => { setQuestOpen(false); act("story", { op: "go" }); }} />}
                 <div className="rpg-stat-list">
                   <div className={`rpg-win-row ${me.quest.on ? "on" : ""}`}>
                     <span className="rpg-stat-name">
@@ -2324,7 +2329,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <span className="rpg-talk-who">{me.near.name}</span>
               <span className="rpg-talk-line">{me.near.intro}</span>
               <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
-                {me.near.sight ? "살펴보기" : "이야기 듣기"}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+                {me.story?.targets?.includes(me.near.id) ? "이야기 진행" : me.near.sight ? "살펴보기" : "이야기 듣기"}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
               </button>
             </div>
           )}

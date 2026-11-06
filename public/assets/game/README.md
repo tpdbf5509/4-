@@ -184,3 +184,5 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 ### 새벽숲 마을 (11월 5일)
 
 `rpg/village/*.webp` 26장, 512×512 투명. 건물 6 · 주민 6 · 소품 8은 발 기준 (256,496). 대화용 `portrait-*.webp` 6장은 하단 정렬한 상반신이다. 원본 4시트와 자르기 영역은 `design/village/`. 크기·위치는 `villageData.js`, 바닥·정렬·대체 그림은 `villageArt.js`, 하단 대화 UI는 `VillagePanel.jsx`. 상세 목록·참고 출처는 `docs/새벽숲-마을.md`.
+
+메인 스토리 1부(11월 6일, Codex 정식 그림 · 원본 `design/story/`): `rpg/story/people/<인물>.webp`(512×512 발 기준 (256,496)) · `portraits/<인물>.webp`(512×512 상반신 하단 정렬) · `places/<id>.webp`(건물 · 장소 46 + 소품 `prop-<종류>` 6, 512×512 발 기준 (256,496)) · `ground/<맵 id>.webp`(맵 바닥 10장, 맵 크기와 같은 비율). 이름 표 · 그리는 크기는 `rpg/story/README.md` · `storyData.js`.

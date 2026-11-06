@@ -1,5 +1,5 @@
-/* 메인 스토리 1부(1~6장) 맵과 인물 — 임시 버전.
-   건물 · 사람은 코드로 그린 임시 도형이다. 같은 이름의 그림 파일을 넣으면 그림으로 바뀐다(경로는 storyArtPath).
+/* 메인 스토리 1부(1~6장) 맵과 인물. 그림은 11월 6일 Codex 정식 그림(public/assets/game/rpg/story/, 원본 design/story/).
+   그림 파일이 없을 때만 코드로 그린 임시 도형을 쓴다(경로는 storyArtPath).
    대사 · 퀘스트 진행 · 보상은 아직 없다. 지금은 위치 · 이름표 · 짧은 소개 대화만 둔다.
    맵 · 인물 · 장소 id 는 이후 이야기 진행에서도 그대로 쓴다. 기준 문서: docs/메인스토리-1부-맵.md */
 
@@ -189,7 +189,7 @@ const person = (n) => {
 export const storyNpcsOf = (mapId) => (mapId === 'dawnwood' ? STORY_VILLAGE.npcs : STORY_MAPS.find((m) => m.id === mapId)?.npcs || []).map(person);
 export const storySightsOf = (mapId) => (STORY_MAPS.find((m) => m.id === mapId)?.sights || []).map((s) => ({...s, art: s.id, portrait: storyArtPath('places', s.id)}));
 export const storyBuildingsOf = (mapId) => (mapId === 'dawnwood' ? STORY_VILLAGE.buildings : STORY_MAPS.find((m) => m.id === mapId)?.buildings || []).map((b) => ({...b, art: b.id}));
-export const storyPropsOf = (mapId) => STORY_MAPS.find((m) => m.id === mapId)?.props || [];
+export const storyPropsOf = (mapId) => (STORY_MAPS.find((m) => m.id === mapId)?.props || []).map((p) => ({...p, art: `prop-${p.look}`}));   // 그림: places/prop-<look>.webp
 export const STORY_DIALOGUES = Object.fromEntries(['dawnwood', ...STORY_MAPS.map((m) => m.id)].flatMap((id) => [...storyNpcsOf(id), ...storySightsOf(id)]).map((n) => [n.id, n]));
 
 // 막힌 곳 — 건물은 마을처럼 문 양옆과 가운데 셋, 아치 문은 양옆 기둥만 막는다.

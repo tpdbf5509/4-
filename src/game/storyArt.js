@@ -1,4 +1,4 @@
-/* 메인 스토리 1부 맵 그리기 — 임시 도형. 그림 파일(storyArtPath)이 있으면 그 그림을 쓴다.
+/* 메인 스토리 1부 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
    바닥: ground/<맵 id>.webp · 건물 · 장소 · 소품: places/<id>.webp · 사람: people/<인물 id>.webp */
 import {STORY_ART as A, STORY_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf} from './storyData.js';
 

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeWorld,rpgSyncSeats,rpgJoin,rpgStep,rpgPack,rpgApply,rpgMove,rpgTalk,rpgFire,rpgSkill,npcNear,mapIdx,fieldPvpMap,MAPS,RPG,HONOR_BOARD} from '../src/game/rpg.js';
-import {VILLAGE as V,VILLAGE_NPCS,VILLAGE_SIGHTS,VILLAGE_DIALOGUES} from '../src/game/villageData.js';
+import {VILLAGE as V,VILLAGE_NPCS,VILLAGE_SIGHTS,VILLAGE_DIALOGUES,VILLAGE_BUILDINGS} from '../src/game/villageData.js';
 import {pickNpc,npcStopPoint} from '../src/game/mouseMove.js';
 import {RESET,GIFT} from '../src/game/itemData.js';
 const world=()=>{const g=makeWorld();g.mySeat=0;rpgSyncSeats(g,[{id:'village-test',name:'마을시험',hero:{name:'마을시험',job:'warrior',gender:'m'}}]);rpgJoin(g,0,{name:'마을시험',lv:30,rs:RESET.id,gift:GIFT.id,stats:{},bag:{oc:1,w:[],n:1}},'village-test');return g;};
@@ -43,7 +43,7 @@ test('주민 여섯과 조사물 둘은 클릭·접근 가능하며 퀘스트를
 });
 
 test('마을 안 평타·스킬과 사냥터 PvP는 막고 새 맵 위치는 손님 스냅샷에 보인다',()=>{
- const g=world(),h=g.heroes[0];Object.assign(h,{map:V.id,x:1100,y:1450,gateCd:1});
+ const g=world(),h=g.heroes[0];Object.assign(h,{map:V.id,x:V.spawn[0],y:V.spawn[1]-60,gateCd:1});
  const cd=h.sk;rpgFire(g,0,true);rpgSkill(g,0);step(g,2);
  assert.equal(h.sk,cd);assert.equal(h.swing,0);assert.equal(g.mobs.filter(m=>m.map===V.id).length,0);
  const guest=makeWorld();rpgApply(guest,rpgPack(g));
@@ -52,4 +52,16 @@ test('마을 안 평타·스킬과 사냥터 PvP는 막고 새 맵 위치는 손
 
 test('귀환점과 여섯 건물 앞은 남쪽에서 실제 이동으로 접근할 수 있다',()=>{
  for(const n of VILLAGE_NPCS){const g=world(),h=g.heroes[0];Object.assign(h,{map:V.id,x:V.spawn[0],y:V.spawn[1],gateCd:2});const dest=npcStopPoint(h,n);rpgMove(g,0,{...dest,m:V.id});step(g,700);assert.equal(h.map,V.id);assert.equal(npcNear(h)?.id,n.id,`${n.id}: ${h.x.toFixed(0)},${h.y.toFixed(0)}`);}
+});
+
+test('넓힌 마을 — 새 건물 여섯 곳 앞까지 남쪽 문에서 걸어서 갈 수 있고 길이 이어진다',()=>{
+ assert.deepEqual([V.w,V.h],[3200,2100]);
+ const fresh=VILLAGE_BUILDINGS.filter(b=>['bakery','carpenter','school','stable','cottage-a','cottage-b'].includes(b.id));
+ assert.equal(fresh.length,6);
+ for(const b of fresh){
+  assert.ok(b.x>0&&b.x<V.w&&b.y>V.top&&b.y<V.h,'맵 안: '+b.id);
+  const g=world(),h=g.heroes[0];Object.assign(h,{map:V.id,x:V.spawn[0],y:V.spawn[1],gateCd:2});
+  const dest={x:b.x,y:b.y+70};rpgMove(g,0,{...dest,m:V.id});step(g,1500);
+  assert.ok(distance(h,dest)<30,`${b.id} 앞에 도착: ${Math.round(h.x)},${Math.round(h.y)}`);
+ }
 });

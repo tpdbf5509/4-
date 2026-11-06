@@ -163,7 +163,8 @@ export const STORY_MAPS = [
 ];
 
 /* 에르덴 마을에 더하는 1부 시설과 인물. 기존 마을 배치(villageData.js)의 빈자리에 둔다. */
-export const STORY_VILLAGE = {
+import {villageAt} from './villageData.js';
+const STORY_VILLAGE_RAW = {
   buildings: [
     {id: 'erden-guardpost', name: '경비대 초소', x: 1400, y: 1600, size: 210, look: 'house'},
     {id: 'erden-workbench', name: '미나의 연구 작업대', x: 250, y: 1130, size: 220, look: 'lab'},
@@ -180,6 +181,8 @@ export const STORY_VILLAGE = {
       intro: '아직 몸이 다 낫지 않았어요.', lines: ['저는 북쪽 수송대에 있었어요.', '무슨 일이 있었는지 끝까지 알아내고 싶어요.']},
   ],
 };
+// 마을 범위를 넓히며(11월 6일) 옛 좌표를 새 마을 좌표로 옮긴다
+export const STORY_VILLAGE = {buildings: STORY_VILLAGE_RAW.buildings.map(villageAt), npcs: STORY_VILLAGE_RAW.npcs.map(villageAt)};
 
 // 대화 창이 찾는 표 — 인물은 STORY_PEOPLE 의 이름 · 역할을 물려받는다.
 const person = (n) => {

@@ -1,5 +1,5 @@
 import {STORY_VILLAGE} from './storyData.js';
-import {VILLAGE as V, VILLAGE_BUILDINGS, VILLAGE_NPCS, VILLAGE_SIGHTS, VILLAGE_PROPS, VILLAGE_ROADS, VILLAGE_SQUARE as SQ, VILLAGE_FIELDS, VILLAGE_BROOK, villageArtPath} from './villageData.js';
+import {VILLAGE as V, VILLAGE_BUILDINGS, VILLAGE_NPCS, VILLAGE_SIGHTS, VILLAGE_PROPS, VILLAGE_ROADS, VILLAGE_SQUARE as SQ, VILLAGE_FIELDS, VILLAGE_BROOK, VILLAGE_SHIFT as SHF, villageArtPath} from './villageData.js';
 
 const images = new Map();
 const ART_IDS = [...new Set(['gate', ...VILLAGE_BUILDINGS.map(n=>n.art), ...VILLAGE_NPCS.map(n=>n.art), ...VILLAGE_SIGHTS.map(n=>n.art), ...VILLAGE_PROPS.map(n=>n.art)])];
@@ -69,9 +69,9 @@ export function paintVillage(ctx) {
   ctx.beginPath();ctx.ellipse(SQ.x,SQ.y,SQ.rx-14,SQ.ry-12,0,0,Math.PI*2);ctx.stroke();
   ctx.beginPath();ctx.ellipse(SQ.x,SQ.y+4,SQ.rx*.45,SQ.ry*.45,0,0,Math.PI*2);ctx.stroke();
   ctx.fillStyle='rgba(245,232,196,.26)';
-  for(let y=650;y<1640;y+=37){
+  for(let y=650+SHF.y;y<1640+SHF.y;y+=37){
     if(Math.abs(y-SQ.y)<SQ.ry+10)continue;
-    for(let x=1062;x<=1130;x+=34){ctx.beginPath();ctx.roundRect(x+(Math.round(y/37)%2)*10,y,24,13,3);ctx.fill();}
+    for(let x=1062+SHF.x;x<=1130+SHF.x;x+=34){ctx.beginPath();ctx.roundRect(x+(Math.round(y/37)%2)*10,y,24,13,3);ctx.fill();}
   }
   // 들꽃 점
   for(let i=0;i<260;i++){const x=rnd()*V.w,y=V.top+60+rnd()*(V.h-V.top-160);

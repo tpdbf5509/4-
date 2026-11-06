@@ -163,6 +163,18 @@ export const STORY_MAPS = [
   },
 ];
 
+/* 에르덴 마을에서 이야기 장소로 가는 문(11월 6일). 마을 새 좌표. back 은 이야기 맵에서 돌아올 때 서는 자리.
+   이야기를 그 장소까지 진행해야 열린다(storyQuestData.js storyGateOpen). 봉인 유적은 북 → 동 → 남 → 서 → 중앙 제어 시설로 이어진다 */
+export const STORY_GATES = [
+  {to: 'convoy', x: 1600, y: 280, back: [1600, 420]},
+  {to: 'ruin-north', x: 700, y: 350, back: [790, 480], label: '봉인 유적'},
+  {to: 'core', x: 2550, y: 350, back: [2450, 480]},
+  {to: 'lab7', x: 160, y: 1400, back: [300, 1400]},
+  {to: 'mine', x: 160, y: 1860, back: [300, 1860]},
+  {to: 'relay', x: 3050, y: 1470, back: [2910, 1470]},
+];
+export const RUIN_CHAIN = ['ruin-north', 'ruin-east', 'ruin-south', 'ruin-west'];
+
 /* 에르덴 마을에 더하는 1부 시설과 인물. 기존 마을 배치(villageData.js)의 빈자리에 둔다. */
 import {villageAt} from './villageData.js';
 const STORY_VILLAGE_RAW = {

@@ -59,3 +59,45 @@ test('진행은 가방과 함께 저장 · 불러오기 된다',()=>{
  const g=world({sq:{i:5,n:[],c:['kind']}});assert.equal(storyView(g.heroes[0]).id,STORY_STEPS[5].id);
  assert.deepEqual(cleanBag({}).sq,{i:0,n:[],c:[]});
 });
+
+test('마을의 이야기 장소 문은 진행 전에는 잠기고, 진행하면 걸어서 들어간다',()=>{
+ const g=world(),h=g.heroes[0];
+ for(const gt of MAPS.dawnwood.gates.filter(q=>q.storyGate)){
+  h.bag.sq={i:0,n:[],c:[]};h.map='dawnwood';[h.x,h.y]=[gt.x,gt.y+160];h.gateCd=0;
+  rpgMove(g,0,{x:gt.x,y:gt.y,m:'dawnwood'});step(g,240);
+  assert.equal(h.map,'dawnwood',`잠긴 문 ${gt.to}`);
+  h.bag.sq={i:STORY_STEPS.findIndex(s=>s.map===gt.to),n:[],c:[]};h.gateCd=0;
+  rpgMove(g,0,{x:gt.x,y:gt.y,m:'dawnwood'});step(g,240);
+  assert.equal(h.map,gt.to,`열린 문 ${gt.to}`);
+  const exit=MAPS[gt.to].gates[0];[h.x,h.y]=[exit.x,exit.y-120];h.gateCd=0;rpgMove(g,0,{x:exit.x,y:exit.y,m:gt.to});step(g,240);
+  assert.equal(h.map,'dawnwood',`${gt.to} 에서 돌아오기`);
+  assert.ok(Math.hypot(h.x-gt.x,h.y-gt.y)<220,'그 문 앞으로 돌아온다');
+ }
+});
+
+test('봉인 유적 넷은 북 · 동 · 남 · 서 · 중앙 제어 시설 차례로 이어진다',()=>{
+ const g=world(),h=g.heroes[0];h.bag.sq={i:STORY_STEPS.length,n:[],c:[]};
+ let at='ruin-north';
+ for(const to of ['ruin-east','ruin-south','ruin-west','core']){
+  const gt=MAPS[at].gates.find(q=>q.to===to);assert.ok(gt,`${at} → ${to}`);
+  h.map=at;[h.x,h.y]=[gt.x-150,gt.y];h.gateCd=0;rpgMove(g,0,{x:gt.x,y:gt.y,m:at});step(g,240);
+  assert.equal(h.map,to);at=to;
+ }
+});
+
+test('순서 퍼즐 — 틀린 차례로 조사하면 처음부터 다시 한다',()=>{
+ const i=STORY_STEPS.findIndex(s=>s.order),s=STORY_STEPS[i];
+ const g=world({sq:{i,n:[],c:[]}}),h=g.heroes[0];h.map=s.map;[h.x,h.y]=MAPS[s.map].spawn;step(g,30);
+ walkTo(g,s.need[0]);send(g,{op:'done',id:s.need[0],step:s.id});assert.deepEqual(h.bag.sq.n,[s.need[0]]);
+ walkTo(g,s.need[2]);send(g,{op:'done',id:s.need[2],step:s.id});assert.deepEqual(h.bag.sq.n,[],'틀리면 처음으로');
+ for(const t of s.need){walkTo(g,t);send(g,{op:'done',id:t,step:s.id});}
+ assert.equal(h.bag.sq.i,i+1);
+});
+
+test('틀린 답 · 시간 제한 질문에는 정답이 하나 이상 있다',()=>{
+ for(const s of STORY_STEPS)for(const l of [s.scene||[],...Object.values(s.scenes||{}),s.wrong||[]].flat()){
+  if(!l.pick)continue;
+  assert.ok(l.pick.some(p=>!p.wrong),`${s.id} 정답 없음`);
+  if(l.timer)assert.ok(l.late&&l.late.then,`${s.id} 시간 초과 대사`);
+ }
+});

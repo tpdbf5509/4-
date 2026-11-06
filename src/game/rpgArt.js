@@ -1,4 +1,4 @@
-import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf, drawStoryMarks} from './storyArt.js';
+import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf, drawStoryMarks, drawStoryGateLock} from './storyArt.js';
 import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, drawVillageGround, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART} from "./plazaNpcData.js";
@@ -2729,7 +2729,7 @@ export function drawRpg(ctx, g, bgs) {
     if (who && (o.m || o.h.cc)) drawCcMark(ctx, who, time);
     else if (o.villageObject) drawVillageObject(ctx, o.villageObject);
     else if (o.storyObject) drawStoryObject(ctx, o.storyObject, M.id);
-    else if (o.gate) drawGate(ctx, o.gate, time);
+    else if (o.gate) { drawGate(ctx, o.gate, time); drawStoryGateLock(ctx, o.gate, me); }
     else if (o.npc) drawNpc(ctx, g, o.npc, time);
     else if (o.giant) drawAdvGiant(ctx, o.giant, time);
     else if (o.fountain) drawFountain(ctx, time);

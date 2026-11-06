@@ -1,7 +1,7 @@
 /* 메인 스토리 1부 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
    바닥: ground/<맵 id>.webp · 건물 · 장소 · 소품: places/<id>.webp · 사람: people/<인물 id>.webp */
 import {STORY_ART as A, STORY_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
-import {STORY_QUEST, STORY_STEPS, stepTargets} from './storyQuestData.js';
+import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepTargets, storyGateOpen} from './storyQuestData.js';
 import {VILLAGE_NPCS} from './villageData.js';
 
 const images = new Map();
@@ -176,9 +176,30 @@ export function drawStoryMarks(ctx, me, M, time) {
   ctx.save();
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = "30px 'Do Hyeon', sans-serif"; ctx.lineWidth = 5;
   spots.filter((p) => left.includes(p.id)).forEach((p) => {
+    if (s.hidden) {                                    // 숨은 단서 — 가까이 가야 반짝인다
+      const d = Math.hypot(p.x - me.x, p.y + 60 - me.y);
+      if (d > STORY_HIDDEN_R) return;
+      const a = (1 - d / STORY_HIDDEN_R) * (.55 + Math.sin(time * 6) * .35), r = 10 + Math.sin(time * 4) * 3, y0 = p.y + 50;
+      ctx.save(); ctx.globalAlpha = Math.max(0, a); ctx.fillStyle = '#fff4c4'; ctx.translate(p.x, y0); ctx.rotate(time);
+      ctx.beginPath(); for (let k = 0; k < 8; k++) { const rr = k % 2 ? r * .35 : r; ctx.lineTo(Math.cos(k * Math.PI / 4) * rr, Math.sin(k * Math.PI / 4) * rr); } ctx.fill(); ctx.restore();
+      return;
+    }
     const y = p.y - Math.abs(Math.sin(time * 3)) * 6;
     ctx.strokeStyle = 'rgba(40,26,10,.9)'; ctx.strokeText('!', p.x, y);
     ctx.fillStyle = '#ffd873'; ctx.fillText('!', p.x, y);
   });
+  ctx.restore();
+}
+
+/* 아직 열리지 않은 이야기 장소 문 — 이름 아래에 잠김 표시 */
+export function drawStoryGateLock(ctx, gate, me) {
+  if (!gate.storyGate || !me || storyGateOpen(me, gate.to)) return;
+  const m = STORY_MAPS.find((q) => q.id === gate.to);
+  const t = `잠김 · ${m ? m.ch : ''}장에서 열림`;
+  ctx.save(); ctx.font = "12px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(t).width + 16;
+  ctx.fillStyle = 'rgba(30,22,14,.82)'; ctx.beginPath(); ctx.roundRect(gate.x - w / 2, gate.y - 146, w, 20, 6); ctx.fill();
+  ctx.fillStyle = '#d8b9a0'; ctx.fillText(t, gate.x, gate.y - 136);
+  ctx.fillStyle = 'rgba(30,22,14,.35)'; ctx.beginPath(); ctx.ellipse(gate.x, gate.y - 2, 46, 16, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }

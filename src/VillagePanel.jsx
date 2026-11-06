@@ -6,6 +6,22 @@ import {STORY_STEP_BY_ID, STORY_STEPS} from './game/storyQuestData.js';
 /* 기존 상점 틀을 쓴다. 평소에는 소개 대화만 보여 준다.
    메인 스토리 1부에서 지금 이 대상과 이야기할 차례면 이야기 장면을 보여 주고, 선택지를 고르게 한다(storyQuestData.js).
    장면을 끝까지 보고 마지막 칸을 닫으면 진행을 보낸다(onStory → storyQuest.js rpgStory). */
+// 시간 제한 질문 — 줄어드는 막대. 다 줄면 onEnd(시간 초과 답)
+function PickTimer({sec, onEnd}) {
+  const end = useRef(onEnd); end.current = onEnd;
+  const [left, setLeft] = useState(sec);
+  useEffect(() => {
+    const t0 = performance.now();
+    const id = setInterval(() => {
+      const l = Math.max(0, sec - (performance.now() - t0) / 1000);
+      setLeft(l);
+      if (l <= 0) { clearInterval(id); end.current(); }
+    }, 100);
+    return () => clearInterval(id);
+  }, [sec]);
+  return <div className="story-timer" role="timer" aria-label={`남은 시간 ${Math.ceil(left)}초`}><i style={{width: `${left / sec * 100}%`}}/><span>{Math.ceil(left)}초</span></div>;
+}
+
 const shown = (l, tags) => !l.if || tags.includes(l.if) ? !l.not || !tags.includes(l.not) : false;
 
 export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
@@ -13,7 +29,9 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
   const returnFocus = useRef(null);
   // 이야기 차례인지 — 창을 여는 순간의 진행으로 정한다(대화 중에 진행이 바뀌어도 장면은 그대로)
   const [step] = useState(() => (story && !story.done && story.targets.includes(npcId) ? STORY_STEP_BY_ID[story.id] : null));
-  const scene = step ? (step.scenes?.[npcId] || step.scene) : null;
+  // 순서 퍼즐에서 차례가 아닌 대상을 고르면 틀린 장면을 보여 준다(서버가 진행을 처음으로 되돌린다)
+  const [wrongOrder] = useState(() => !!(step?.order && story?.nextId && story.nextId !== npcId));
+  const scene = step ? (wrongOrder ? step.wrong : step.scenes?.[npcId] || step.scene) : null;
   const [seq, setSeq] = useState(() => scene || [npc?.intro, ...(npc?.lines || [])].map((t) => ({s: '', t})));
   const [tags, setTags] = useState(() => (story?.c || []).slice());
   const [picked, setPicked] = useState([]);
@@ -43,8 +61,10 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
     onClose();
   };
   const back = () => { if (end) { setEnd(false); return; } const t = trail.at(-1); if (t === undefined) return; setTrail(trail.slice(0, -1)); setAt(t); };
-  const choose = (p) => {
-    const next = [...seq.slice(0, at), {s: 'me', t: p.t}, ...(p.then || []), ...seq.slice(at + 1)];
+  const choose = (p, k) => {
+    // 틀린 답 · 시간 초과 — 이어지는 대사를 본 뒤 같은 질문으로 돌아온다. 고른 틀린 답은 흐려진다
+    const again = p.wrong || p.late ? [{...line, tried: [...(line.tried || []), k]}] : [];
+    const next = [...seq.slice(0, at), {s: 'me', t: p.t}, ...(p.then || []), ...again, ...seq.slice(at + 1)];
     const t2 = p.tag ? [...tags, p.tag] : tags;
     if (p.tag) { setTags(t2); setPicked((x) => [...x, p.tag]); }
     setSeq(next); setTrail([]); setAt(at);        // 고른 내 대사 칸부터 이어 간다
@@ -71,7 +91,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
     if (e.key === 'Escape') { finish(); return; }
     if ((e.key === 'Enter' || e.key === ' ') && e.target === dialog.current) { e.preventDefault(); advance(); return; }
     if (!pick && /^[1-4]$/.test(e.key)) return;
-    if (pick && /^[1-4]$/.test(e.key) && pick[+e.key - 1]) { e.preventDefault(); choose(pick[+e.key - 1]); return; }
+    if (pick && /^[1-4]$/.test(e.key) && pick[+e.key - 1] && !line.tried?.includes(+e.key - 1)) { e.preventDefault(); choose(pick[+e.key - 1], +e.key - 1); return; }
     if (e.key !== 'Tab') return;
     const buttons = [...dialog.current.querySelectorAll('button:not(:disabled)')];
     const firstB = buttons[0], lastB = buttons.at(-1);
@@ -89,18 +109,25 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
       </header>
       {end ? (
         <div className="story-end" aria-live="polite">
+          {wrongOrder ? <>
+            <span className="story-end-k">순서가 틀렸습니다</span>
+            <b>{step.goal} — 처음부터 다시</b>
+            <span>{step.where}</span>
+          </> : <>
           <span className="story-end-k">{lastOfStep ? (step.end ? '장 완료' : '이야기 진행') : '조사 완료'}</span>
           <b>{step.goal}{multi ? ` ${(story?.got || 0) + 1}/${multi}` : ''} ✓</b>
           {lastOfStep && <span>{step.end || (next ? `다음 · ${next.goal}` : '')}</span>}
-          {lastOfStep && step.go && <span className="story-end-go">닫으면 {step.go === 'dawnwood' ? '에르덴 마을' : '다음 장소'}(으)로 옮겨 갑니다</span>}
+          </>}
+          {!wrongOrder && lastOfStep && step.go && <span className="story-end-go">닫으면 {step.go === 'dawnwood' ? '에르덴 마을' : '다음 장소'}(으)로 옮겨 갑니다</span>}
         </div>
       ) : pick ? (
         <div className="story-picks" role="group" aria-label="대답 고르기">
           {pick.map((p, k) => (
-            <button type="button" key={k} className="story-pick" onClick={() => choose(p)}>
+            <button type="button" key={k} className={`story-pick${line.tried?.includes(k) ? ' tried' : ''}`} disabled={line.tried?.includes(k)} onClick={() => choose(p, k)}>
               <em>{k + 1}</em>{p.t}
             </button>
           ))}
+          {line.timer && <PickTimer key={`${at}/${seq.length}`} sec={line.timer} onEnd={() => choose({...line.late, late: true}, -1)}/>}
         </div>
       ) : (
         <button type="button" className={`village-dialogue-line${line?.s === 'nar' ? ' nar' : ''}${line?.s === 'me' ? ' me' : ''}`} onClick={advance} aria-label="대사 넘기기">

@@ -2636,3 +2636,8 @@ button.forge-stage:disabled { cursor: default; }
   .story-end span { font-size: 12px; }
   .story-tag { display: none; }
 }
+/* 이야기 기믹 — 틀린 답(흐림) · 시간 제한 막대 */
+.story-pick.tried { opacity: .38; cursor: default; text-decoration: line-through; text-decoration-color: rgba(240,168,144,.6); }
+.story-timer { position: relative; height: 16px; margin-top: 2px; border-radius: 3px; background: rgba(214, 186, 140, 0.14); overflow: hidden; }
+.story-timer i { position: absolute; inset: 0 auto 0 0; background: #c98f6e; transition: width .1s linear; }
+.story-timer span { position: relative; display: block; padding-right: 6px; text-align: right; font-size: 11px; line-height: 16px; color: #f1e4c8; }

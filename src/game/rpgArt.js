@@ -1,4 +1,4 @@
-import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf} from './storyArt.js';
+import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf, drawStoryMarks} from './storyArt.js';
 import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, drawVillageGround, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART} from "./plazaNpcData.js";
@@ -2739,6 +2739,7 @@ export function drawRpg(ctx, g, bgs) {
   });
 
   drawExecMarks(ctx, g, me, M, time, inView);
+  drawStoryMarks(ctx, me, M, time);                     // 메인 이야기 — 지금 말 걸 대상 머리 위 느낌표(storyArt.js)
   if (M.dungeon) drawDungeonDark(ctx, me, cam);
   g.fx.forEach((f) => {
     if (!here(f) || GROUND_FX.has(f.kind)) return;

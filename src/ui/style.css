@@ -2598,3 +2598,41 @@ button.forge-stage:disabled { cursor: default; }
   .village-dialogue-actions { padding: 0 10px 8px; gap: 6px; }
   .village-panel .shop-btn { min-height: 30px; padding: 5px 10px; font-size: 12px; }
 }
+
+/* 메인 이야기 1부 — 의뢰 · 퀘스트 창의 진행 칸(StoryCard.jsx) · 위쪽 줄 · 대화 창 선택지(VillagePanel.jsx) */
+.rpg-quest-story { color: #f3e6c6; }
+.story-card { display: grid; gap: 4px; margin: 0 0 10px; padding: 8px 0 10px; border-top: 1px solid rgba(227, 196, 138, 0.3); border-bottom: 1px solid rgba(227, 196, 138, 0.3); }
+.story-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.story-card-head b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 15px; color: #f3e6c6; letter-spacing: -0.03em; }
+.story-card-head span { font-size: 11px; color: #b09a73; }
+.story-card-bar { height: 3px; background: rgba(214, 186, 140, 0.18); border-radius: 2px; overflow: hidden; }
+.story-card-bar i { display: block; height: 100%; background: #d9bd7e; }
+.story-card-ch { margin-top: 4px; font-size: 12px; color: #c4b28e; letter-spacing: -0.02em; }
+.story-card-qs { display: flex; flex-wrap: wrap; gap: 2px 10px; margin: 0; padding: 0; list-style: none; font-size: 11px; color: #8d8068; }
+.story-card-qs li.done { color: #a9b894; }
+.story-card-qs li.on { color: #ffe08a; }
+.story-card-goal { margin: 4px 0 0; font-size: 14px; color: #ffe08a; letter-spacing: -0.02em; }
+.story-card-where { margin: 0; font-size: 11.5px; line-height: 1.45; color: #c4b28e; letter-spacing: -0.02em; }
+.story-card .rpg-win-btn { justify-self: start; margin-top: 4px; }
+.village-panel.story .shop-top { gap: 10px; }
+.story-tag { margin-left: auto; font-size: 11px; color: #b09a73; letter-spacing: -0.02em; white-space: nowrap; }
+.village-dialogue-line.nar { color: #cdbd9a; font-style: italic; }
+.village-dialogue-line.me { color: #ffe9b8; }
+.story-picks { display: grid; gap: 6px; padding: 12px 16px 6px; }
+.story-pick { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 9px 12px; text-align: left; font: inherit; font-size: 16px; line-height: 1.45; letter-spacing: -0.02em;
+  color: #f1e4c8; cursor: pointer; border-radius: 8px; background: rgba(20, 14, 8, 0.45); border: 1px solid rgba(186, 160, 106, 0.45); }
+.story-pick:hover, .story-pick:focus-visible { border-color: #e4c987; background: rgba(227, 196, 138, 0.1); outline: none; }
+.story-pick em { font-style: normal; font-size: 12px; color: #b09a73; }
+.story-end { display: grid; gap: 4px; min-height: 82px; padding: 14px 20px; }
+.story-end-k { font-size: 12px; color: #b09a73; }
+.story-end b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 19px; color: #ffe08a; letter-spacing: -0.03em; }
+.story-end span { font-size: 14px; color: #e8dcc0; letter-spacing: -0.02em; }
+.story-end .story-end-go { font-size: 12px; color: #c4b28e; }
+@media (max-height: 520px), (max-width: 640px) {
+  .story-picks { padding: 6px 10px 4px; gap: 4px; }
+  .story-pick { padding: 5px 9px; font-size: 13px; }
+  .story-end { min-height: 62px; padding: 8px 12px; }
+  .story-end b { font-size: 15px; }
+  .story-end span { font-size: 12px; }
+  .story-tag { display: none; }
+}

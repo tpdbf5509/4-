@@ -145,4 +145,9 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 
 ### 메인 스토리 1부 맵 · 인물 (11월 6일, 정식 그림)
 - `storyData.js`가 1~6장 맵 10곳(`convoy` `lab7` `ruin-*` 4 `core` `relay` `mine` `vault`, `MAP_IDS` 마을 뒤) · 인물 7명 · 마을에 더한 시설 3과 인물 4를 관리한다. `storyArt.js`가 그림(없으면 임시 도형)을 그리고 `public/assets/game/rpg/story/` 에 같은 이름의 그림이 있으면 그림을 쓴다(그림 자리 표는 그 폴더 README).
-- 이야기 맵은 문이 없고 관리자 `/이동 <장소>` 로만 간다. 안전 지역 · 대사는 소개 두 줄뿐 · 퀘스트 진행 없음. 마을 화면 이름은 에르덴, 기록관 주민은 소은(설계자 세린과 구분). 상세는 `docs/메인스토리-1부-맵.md`, 시험은 `tools/story.test.mjs`.
+- 이야기 맵은 문이 없다. 관리자 `/이동 <장소>` 와 이야기 진행(대화 끝 `go` · 퀘스트 창 "가기")으로만 간다. 안전 지역. 마을 화면 이름은 에르덴, 기록관 주민은 소은(설계자 세린과 구분). 상세는 `docs/메인스토리-1부-맵.md`, 시험은 `tools/story.test.mjs`.
+
+### 메인 스토리 1부 진행 · 선택지 대화 (11월 6일)
+- 단계 · 대사 · 선택지는 `storyQuestData.js` `STORY_STEPS`(1~6장 34단계), 규칙은 `storyQuest.js`(입력 `story`: `done` · `go`), 진행은 가방 `bag.sq = {i, n, c}`. **단계 차례는 저장 값이라 뒤에만 더한다.** 꼬리표(`tag`)로 고른 대답을 기억하고 뒤 대사에서 `if`/`not` 으로 쓴다.
+- 대화 창은 `VillagePanel.jsx`(차례인 대상이면 장면 · 선택지), 진행 칸은 `StoryCard.jsx`(의뢰 · 퀘스트 창 맨 위), 머리 위 느낌표는 `storyArt.js drawStoryMarks`. `STORY_QUEST.open` 이 false 면 관리자만 진행한다.
+- 보스 전투 · 보상은 아직 없다(보스 자리는 대화로 넘어간다). 광장의 의뢰 NPC 경비대장 한결 · 수집가 보리 · 연금술사 미나는 이름만 같은 다른 인물이다. 시험은 `tools/story-quest.test.mjs`.

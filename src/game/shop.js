@@ -1,5 +1,6 @@
 import {duelHealing} from './duelBalance.js';
 import { cleanAw } from "./abyssData.js";
+import { cleanSq } from "./storyQuest.js";
 import { cleanWorldBossBag } from "./worldBoss.js";
 import { WORLD_SET_BY_ID, worldArt } from "./worldEquipmentData.js";
 import { worldBossWeapons } from "./worldBossData.js";
@@ -246,6 +247,7 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   b.pg = Array.isArray(d.pg) ? d.pg.filter((x) => typeof x === "string").slice(0, 50) : [];   // 받은 한 사람 선물 id(itemData.js PERSONAL_GIFTS)
   b.mt = Array.isArray(d.mt) ? [...new Set(d.mt.filter((x) => typeof x === "string" && x.length <= 16))].slice(0, 20) : [];   // 말을 걸어 본 의뢰인(rpg.js metNpc) — 그 뒤로는 내 화면에서 의뢰를 받는다
   b.ac = Array.isArray(d.ac) ? [...new Set(d.ac.filter((x) => typeof x === "string" && x.length <= 16))].slice(0, 100) : [];   // 받은 업적 id(codexData.js ACHIEVES)
+  b.sq = cleanSq(d.sq);                           // 메인 스토리 1부 진행(storyQuest.js) — 단계 차례 · 끝낸 대상 · 고른 선택지
   if (d.aw) b.aw = cleanAw(d.aw);                 // 심연의 탑 이번 주 · 지난주 기록(abyssData.js)
   cleanWorldBossBag(d,b);
   return b;

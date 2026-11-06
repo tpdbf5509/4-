@@ -1,6 +1,8 @@
 /* 메인 스토리 1부 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
    바닥: ground/<맵 id>.webp · 건물 · 장소 · 소품: places/<id>.webp · 사람: people/<인물 id>.webp */
-import {STORY_ART as A, STORY_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf} from './storyData.js';
+import {STORY_ART as A, STORY_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
+import {STORY_QUEST, STORY_STEPS, stepTargets} from './storyQuestData.js';
+import {VILLAGE_NPCS} from './villageData.js';
 
 const images = new Map();
 function img(kind, id) {
@@ -160,4 +162,23 @@ export function drawStoryNpc(ctx, n, time, mapId) {
   }
   label(ctx, n.name, n.x, n.y + 17);
   ctx.save(); ctx.fillStyle = '#f0dfb1'; ctx.font = "13px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.fillText('···', n.x, n.y - 86); ctx.restore();
+}
+
+/* 메인 이야기 — 지금 단계에서 말 걸 대상 머리 위에 통통 튀는 느낌표. 이미 조사한 대상은 빼고, 이 맵에 있는 것만 */
+export function drawStoryMarks(ctx, me, M, time) {
+  if (!me || !me.bag || !(STORY_QUEST.open || me.admin)) return;
+  const sq = me.bag.sq || {i: 0, n: []}, s = STORY_STEPS[sq.i];
+  if (!s || s.map !== M.id) return;
+  const left = stepTargets(s).filter((id) => !(sq.n || []).includes(id));
+  const spots = [...storyNpcsOf(M.id).map((n) => ({id: n.id, x: n.x, y: n.y - 112})),
+    ...storySightsOf(M.id).map((n) => ({id: n.id, x: n.x, y: n.y - n.size * .7 - 18})),
+    ...(M.id === 'dawnwood' ? VILLAGE_NPCS.map((n) => ({id: n.id, x: n.x, y: n.y - 120})) : [])];
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = "30px 'Do Hyeon', sans-serif"; ctx.lineWidth = 5;
+  spots.filter((p) => left.includes(p.id)).forEach((p) => {
+    const y = p.y - Math.abs(Math.sin(time * 3)) * 6;
+    ctx.strokeStyle = 'rgba(40,26,10,.9)'; ctx.strokeText('!', p.x, y);
+    ctx.fillStyle = '#ffd873'; ctx.fillText('!', p.x, y);
+  });
+  ctx.restore();
 }

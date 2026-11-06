@@ -1795,6 +1795,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                           <span className="rpg-stat-btns">
                             <button type="button" aria-label={`${t.name} 내리기`} disabled={add <= 0}
                               onClick={() => setPlan((p) => ({ ...p, [t.id]: p[t.id] - 1 }))}>−</button>
+                            <input type="number" inputMode="numeric" min={0} className="rpg-stat-num" aria-label={`${t.name} 올릴 개수`}
+                              value={add || ""} placeholder="0" disabled={!me.loaded}
+                              onChange={(e) => {   // 직접 정한 개수 — 남은 포인트와 스탯 상한을 넘지 않게 맞춘다
+                                const want = Math.floor(Number(e.target.value) || 0);
+                                const most = Math.max(0, Math.min(STAT_MAX - cur, room + add));
+                                setPlan((p) => ({ ...p, [t.id]: Math.max(0, Math.min(want, most)) }));
+                              }} />
                             <button type="button" aria-label={`${t.name} 올리기`}
                               disabled={!me.loaded || room <= 0 || cur + add >= STAT_MAX}
                               onClick={() => setPlan((p) => ({ ...p, [t.id]: p[t.id] + 1 }))}>+</button>

@@ -1266,6 +1266,13 @@ kbd {
   width: 26px; height: 26px; padding: 0; cursor: pointer; border-radius: 7px; font-family: 'Do Hyeon', sans-serif; font-size: 16px; line-height: 1;
   color: #f2e3c2; background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.5);
 }
+.rpg-stat-num {
+  width: 52px; height: 26px; padding: 0 4px; box-sizing: border-box; text-align: right; border-radius: 7px;
+  font-family: inherit; font-size: 13px; color: #f2e3c2; background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(160, 130, 90, 0.5);
+  -moz-appearance: textfield;
+}
+.rpg-stat-num::-webkit-outer-spin-button, .rpg-stat-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.rpg-stat-num:focus { outline: none; border-color: #d6b26a; }
 .rpg-stat-btns button:hover:not(:disabled) { border-color: #d6b26a; }
 .rpg-stat-btns button:disabled { opacity: 0.3; cursor: not-allowed; }
 .rpg-stat-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }

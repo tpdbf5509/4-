@@ -33,7 +33,7 @@ import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS, titleUp, titleUpText } from "./socialData.js";
 import { ACHIEVES, CODEX_NEED } from "./codexData.js";
-import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, RESET, rollDrop, ENHANCE } from "./itemData.js";
+import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, PERSONAL_LEVELS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS, QUEST_MASTER, questXpRate, questMatches } from "./requestData.js";
 import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
@@ -1071,6 +1071,7 @@ export function rpgJoin(g, pi, d, who) {
   h.advQ = !h.advClass && aq && ADV_BY_ID[aq.c].job === h.job ? aq : null;
   h.advM = h.advClass ? cleanAdvM(d.advM) : 0;   // 전직 숙련도 — 전직했을 때만(없던 기록은 0 = 1단계)
   if (rb) rollbackHero(g, h, rb);
+  givePersonalLevel(g, h, g.names[pi] || (look && look.name));
   if (h.gift !== GIFT.id) giveGift(g, h);         // 이번 업데이트 선물 — 캐릭터마다 한 번
   if (!h.bag.oc) {                                // 직업과 다른 무기 정리 — 고정 피해가 생기기 전에 들고 있던 것은 한 번 풀어 가방에 둔다(빼앗지 않는다)
     h.bag.oc = 1; h.bag.v++;
@@ -1120,6 +1121,17 @@ function rollbackHero(g, h, rb) {
   h.title = h.titles.includes(h.title) ? h.title : "";
   h.bag.pg = [...(h.bag.pg || []), rb.id]; h.bag.v += 1;
   sys(g, h.pi, `기록이 잘못 부풀려져 레벨 ${h.lv}로 되돌렸습니다. 스탯 포인트는 모두 다시 찍을 수 있습니다.`);
+}
+
+/* 한 사람 레벨 올리기(itemData.js PERSONAL_LEVELS) — 한 번만. 레벨이 낮을 때만 올리고 찍은 스탯은 그대로 둔다(포인트는 레벨 몫만큼 늘어난다) */
+function givePersonalLevel(g, h, name) {
+  const pl = PERSONAL_LEVELS.find((r) => sameName(name, r.name));
+  if (!pl || h.admin || (h.bag.pg || []).includes(pl.id)) return;
+  h.bag.pg = [...(h.bag.pg || []), pl.id]; h.bag.v += 1;
+  if (h.lv >= pl.lv) return;
+  h.lv = clamp(pl.lv, 1, LV_MAX); h.xp = 0;
+  h.st = cleanStats(h.st, h.lv);
+  sys(g, h.pi, `레벨 ${h.lv}로 올려 드렸습니다. 스탯 포인트 ${statLeft(h)}개를 찍을 수 있습니다.`);
 }
 
 /* 업데이트 선물 — 물약 · 재료를 가방에 넣고 받았다고 적어 둔다. 손님 화면은 스냅샷의 선물 표시로 안내 창을 띄운다 */

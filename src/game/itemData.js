@@ -99,6 +99,11 @@ export const PERSONAL_GIFTS = [
 export const PERSONAL_ROLLBACKS = [
   { id: "rb-2026-10-19-1", name: "니여친레보탱", lv: 17, coins: 0, items: true },
 ];
+/* 한 사람 레벨 올리기 — 이름이 같은 캐릭터가 들어올 때 한 번, 레벨이 lv 보다 낮으면 lv 로 올린다(경험치 0, 찍은 스탯은 그대로, 늘어난 몫의 포인트는 새로 받는다).
+   이미 lv 이상이면 건드리지 않는다. 받은 id 는 가방 bag.pg 에 남는다. DB 를 직접 고치면 10초 저장이 덮어쓰므로 이 방법을 쓴다 */
+export const PERSONAL_LEVELS = [
+  { id: "pl-2026-11-06-1", name: "놀기", lv: 200 },
+];
 export const GIFT = {
   id: "2026-10-30",
   potions: { reset: 1 },                        // 스탯 초기화 물약

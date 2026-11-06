@@ -21,21 +21,22 @@ export const STORY_PEOPLE = {
 /* 맵 — 모두 싸울 수 없는 안전 지역이다. 몹 · 보스는 이야기 진행을 만들 때 더한다.
    ground: 바탕 · 얼룩 · 길 색. roads: 길 중심선. pads: 바닥 원(광장 · 전투 자리 표시).
    exit: 에르덴 마을로 돌아가는 문(문 앞이 spawn). links: 다른 이야기 맵으로 가는 문. */
-const RUIN = (id, name, dir, tone, device, mark) => ({
+// k — 그림 크기 배수(11월 6일: 서쪽 중력 시설이 작다는 요청으로 1.45). 위치는 그대로, 크기와 막힌 반지름만 곱한다
+const RUIN = (id, name, dir, tone, device, mark, k = 1) => ({
   id, name, ch: 3, w: 2200, h: 1400, spawn: [1100, 1220], exit: {x: 1100, y: 1340, r: 54},
   ground: tone, roads: [{w: 120, pts: [[1100, 1360], [1100, 960], [1100, 700]]}],
   pads: [{x: 1100, y: 640, rx: 300, ry: 150}],
   buildings: [
-    {id: `${id}-hall`, name: `${dir}쪽 유적 전당`, x: 560, y: 720, size: 300, look: 'ruin'},
-    {id: `${id}-gate`, name: '무너진 관문', x: 1640, y: 720, size: 300, look: 'ruin'},
+    {id: `${id}-hall`, name: `${dir}쪽 유적 전당`, x: 560, y: 720, size: 300 * k, look: 'ruin'},
+    {id: `${id}-gate`, name: '무너진 관문', x: 1640, y: 720, size: 300 * k, look: 'ruin'},
   ],
   sights: [
-    {id: `${id}-device`, name: device, role: `${dir}쪽 봉인 장치`, x: 1100, y: 620, size: 200, r: 50, look: 'device',
+    {id: `${id}-device`, name: device, role: `${dir}쪽 봉인 장치`, x: 1100, y: 620, size: 200 * k, r: 50 * k, look: 'device',
       intro: `${device}가 낮게 울리고 있습니다.`, lines: ['장치 둘레에 서로 다른 기호가 새겨져 있습니다.', '아직은 만질 수 없습니다. 이야기 진행이 열리면 조작합니다.']},
-    {id: `${id}-mark`, name: mark, role: '봉인 표식', x: 820, y: 1000, size: 110, r: 24, look: 'stone',
+    {id: `${id}-mark`, name: mark, role: '봉인 표식', x: 820, y: 1000, size: 110 * k, r: 24 * k, look: 'stone',
       intro: '바닥 돌에 같은 기호가 반복해서 새겨져 있습니다.', lines: ['네 방향의 표식은 모양이 모두 다르다고 합니다.', '표식을 따라 장치까지 길이 이어집니다.']},
   ],
-  props: [[380, 1050], [1820, 1050], [700, 420], [1500, 420]].map(([x, y]) => ({look: 'pillar', x, y, size: 120, r: 22})),
+  props: [[380, 1050], [1820, 1050], [700, 420], [1500, 420]].map(([x, y]) => ({look: 'pillar', x, y, size: 120 * k, r: 22 * k})),
   npcs: [],
 });
 
@@ -88,7 +89,7 @@ export const STORY_MAPS = [
   RUIN('ruin-north', '북쪽 빙결 유적', '북', {base: '#8b9ea6', spot: ['rgba(240,250,255,.14)', 'rgba(60,80,96,.08)'], road: '#c3d0d4', edge: '#7a8c94'}, '냉각 제어 핵', '북쪽 봉인 표식'),
   RUIN('ruin-east', '동쪽 번개 유적', '동', {base: '#7a7891', spot: ['rgba(230,226,255,.10)', 'rgba(40,36,64,.10)'], road: '#aaa7bd', edge: '#66637d'}, '과충전 발전기', '동쪽 봉인 표식'),
   RUIN('ruin-south', '남쪽 화염 시설', '남', {base: '#94705f', spot: ['rgba(255,226,196,.09)', 'rgba(70,36,26,.10)'], road: '#c09c84', edge: '#7e5d4d'}, '화염 제어 장치', '남쪽 봉인 표식'),
-  RUIN('ruin-west', '서쪽 중력 시설', '서', {base: '#6c6884', spot: ['rgba(220,214,250,.08)', 'rgba(26,22,48,.12)'], road: '#9d98b5', edge: '#57536f'}, '중력 제어 장치', '서쪽 봉인 표식'),
+  RUIN('ruin-west', '서쪽 중력 시설', '서', {base: '#6c6884', spot: ['rgba(220,214,250,.08)', 'rgba(26,22,48,.12)'], road: '#9d98b5', edge: '#57536f'}, '중력 제어 장치', '서쪽 봉인 표식', 1.45),
   {id: 'core', name: '중앙 제어 시설', ch: 4, w: 2400, h: 1600, spawn: [1200, 1420], exit: {x: 1200, y: 1540, r: 54},
     ground: {base: '#5a6170', spot: ['rgba(180,220,235,.07)', 'rgba(20,24,36,.10)'], road: '#8a93a3', edge: '#4b5260', tile: 1},
     roads: [{w: 130, pts: [[1200, 1560], [1200, 860]]},

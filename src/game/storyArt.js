@@ -1,7 +1,7 @@
-/* 메인 스토리 1부 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
+/* 메인 스토리 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
    바닥: ground/<맵 id>.webp · 건물 · 장소 · 소품: places/<id>.webp · 사람: people/<인물 id>.webp */
 import {STORY_ART as A, STORY_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
-import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepTargets, storyGateOpen} from './storyQuestData.js';
+import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepTargets, storyGateOpen, storyGateCh} from './storyQuestData.js';
 import {VILLAGE_NPCS} from './villageData.js';
 
 const images = new Map();
@@ -121,6 +121,38 @@ const SHAPES = {
   cart(ctx, n) { box(ctx, n, '#6e6258', .6, .3); ctx.fillStyle = '#3a332e'; [-.18, .18].forEach((k) => { ctx.beginPath(); ctx.arc(n.x + n.size*k, n.y - 4, n.size*.07, 0, Math.PI*2); ctx.fill(); }); },
   turret(ctx, n, c) { pedestal(ctx, n, c); light(ctx, n.x, n.y - n.size*.5, n.size*.07, '#e0a39a'); },
   pylon(ctx, n, c) { SHAPES.pillar(ctx, n, c); light(ctx, n.x, n.y - n.size*.74, n.size*.06, '#9fc0f0'); },
+  // 11월 7일 — 7~30장 임시 도형
+  person(ctx, n, c) {
+    ctx.fillStyle = c; ctx.strokeStyle = 'rgba(30,26,22,.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(n.x - n.size*.13, n.y - n.size*.5, n.size*.26, n.size*.48, 6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#e6c9a8'; ctx.beginPath(); ctx.arc(n.x, n.y - n.size*.62, n.size*.12, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  },
+  banner(ctx, n, c) {
+    ctx.fillStyle = '#5a4a3a'; [-.36, .36].forEach((k) => ctx.fillRect(n.x + n.size*k - 3, n.y - n.size*.8, 6, n.size*.8));
+    ctx.fillStyle = c; ctx.strokeStyle = 'rgba(40,30,22,.6)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.rect(n.x - n.size*.34, n.y - n.size*.74, n.size*.68, n.size*.3); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(40,30,22,.45)'; for (let i = 0; i < 3; i++) ctx.fillRect(n.x - n.size*.26, n.y - n.size*(.66 - i*.07), n.size*.52, 3);
+  },
+  bell(ctx, n, c) {
+    SHAPES.tower(ctx, {...n, size: n.size * .9}, c);
+    ctx.fillStyle = '#c9a65a'; ctx.beginPath(); ctx.arc(n.x, n.y - n.size*.62, n.size*.08, Math.PI, 0); ctx.lineTo(n.x + n.size*.09, n.y - n.size*.56); ctx.lineTo(n.x - n.size*.09, n.y - n.size*.56); ctx.fill();
+  },
+  screen(ctx, n, c) {
+    pedestal(ctx, {...n, size: n.size * .6}, c);
+    ctx.fillStyle = 'rgba(160,210,225,.55)'; ctx.strokeStyle = 'rgba(200,240,250,.8)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect(n.x - n.size*.38, n.y - n.size*.86, n.size*.76, n.size*.5, 6); ctx.fill(); ctx.stroke();
+  },
+  eye(ctx, n) {
+    ctx.save(); ctx.fillStyle = 'rgba(60,50,100,.35)'; ctx.beginPath(); ctx.ellipse(n.x, n.y - 6, n.size*.42, n.size*.12, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#d8d2f2'; ctx.beginPath(); ctx.ellipse(n.x, n.y - n.size*.55, n.size*.36, n.size*.16, 0, 0, Math.PI*2); ctx.fill();
+    ctx.restore(); light(ctx, n.x, n.y - n.size*.55, n.size*.1, '#8a7ad8');
+  },
+  door(ctx, n, c) {
+    ctx.fillStyle = c; ctx.strokeStyle = 'rgba(30,30,36,.6)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(n.x, n.y - n.size*.4, n.size*.34, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(n.x, n.y - n.size*.4, n.size*.2, 0, Math.PI*2); ctx.stroke();
+    light(ctx, n.x, n.y - n.size*.4, n.size*.05, '#9fd0f0');
+  },
   shelf(ctx, n) { box(ctx, n, '#6e5238', .7, .6); ctx.fillStyle = '#a58a62'; for (let i = 1; i < 4; i++) ctx.fillRect(n.x - n.size*.33, n.y - n.size*.15*i - 2, n.size*.66, 4); },
 };
 function box(ctx, n, c, w, h) { ctx.fillStyle = c; ctx.strokeStyle = 'rgba(40,30,22,.7)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(n.x - n.size*w/2, n.y - n.size*h, n.size*w, n.size*h, 6); ctx.fill(); ctx.stroke(); }
@@ -156,6 +188,8 @@ export function drawStoryNpc(ctx, n, time, mapId) {
     if (L.mark === 'hat') { ctx.fillStyle = '#7a5a3a'; ctx.beginPath(); ctx.ellipse(n.x, y - 62, 18, 5, 0, 0, Math.PI*2); ctx.fill(); ctx.fillRect(n.x - 9, y - 72, 18, 10); }
     if (L.mark === 'bandage') { ctx.fillStyle = '#f2ece0'; ctx.fillRect(n.x - 12, y - 58, 24, 4); }
     if (L.mark === 'eye') { light(ctx, n.x + 4, y - 53, 3, '#7fb8d0'); }
+    if (L.mark === 'clock') { ctx.strokeStyle = '#e8d8a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(n.x + 6, y - 26, 5, 0, Math.PI*2); ctx.stroke(); }
+    if (L.mark === 'scarf') { ctx.fillStyle = '#a8584a'; ctx.fillRect(n.x - 13, y - 44, 26, 6); }
     if (L.mark === 'hood') { ctx.fillStyle = L.trim; ctx.beginPath(); ctx.arc(n.x, y - 54, 15, Math.PI, 0); ctx.fill(); }
     if (L.mark === 'holo') { ctx.strokeStyle = 'rgba(200,240,245,.6)'; ctx.lineWidth = 1; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(n.x - 14, y - 60 + i*12); ctx.lineTo(n.x + 14, y - 60 + i*12); ctx.stroke(); } }
     ctx.restore();
@@ -194,8 +228,7 @@ export function drawStoryMarks(ctx, me, M, time) {
 /* 아직 열리지 않은 이야기 장소 문 — 이름 아래에 잠김 표시 */
 export function drawStoryGateLock(ctx, gate, me) {
   if (!gate.storyGate || !me || storyGateOpen(me, gate.to)) return;
-  const m = STORY_MAPS.find((q) => q.id === gate.to);
-  const t = `잠김 · ${m ? m.ch : ''}장에서 열림`;
+  const t = `잠김 · ${storyGateCh(gate.to)}장에서 열림`;
   ctx.save(); ctx.font = "12px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const w = ctx.measureText(t).width + 16;
   ctx.fillStyle = 'rgba(30,22,14,.82)'; ctx.beginPath(); ctx.roundRect(gate.x - w / 2, gate.y - 146, w, 20, 6); ctx.fill();

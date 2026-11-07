@@ -10,12 +10,12 @@ const world=(admin=0)=>{const g=makeWorld();g.mySeat=0;rpgSyncSeats(g,[{id:'stor
 const step=(g,n)=>{for(let i=0;i<n;i++)rpgStep(g,1/30);};
 const distance=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)/RPG.squash);
 
-test('1부 맵 열 곳은 마을 뒤 스냅샷 차례에 붙고 모두 안전 지역이다',()=>{
+test('이야기 맵 스물세 곳은 마을 뒤 스냅샷 차례에 붙고 모두 안전 지역이다',()=>{
  STORY_MAPS.forEach((m,i)=>{assert.equal(mapIdx(m.id),mapIdx(V.id)+1+i);assert.ok(MAPS[m.id].safe&&MAPS[m.id].story);});
- assert.equal(STORY_MAPS.length,10);
+ assert.equal(STORY_MAPS.length,23);
 });
 
-test('1부 인물 일곱이 모두 어딘가에 서 있고 이름표가 있다',()=>{
+test('이야기 인물 열셋이 모두 어딘가에 서 있고 이름표가 있다',()=>{
  const placed=new Set(['dawnwood',...STORY_MAPS.map(m=>m.id)].flatMap(id=>storyNpcsOf(id).map(n=>n.who)));
  assert.deepEqual([...placed].sort(),Object.keys(STORY_PEOPLE).sort());
  for(const n of Object.values(STORY_DIALOGUES))assert.ok(n.name&&n.intro&&n.lines.length>=2,n.id);

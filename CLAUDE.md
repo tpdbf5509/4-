@@ -147,8 +147,11 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - `storyData.js`가 1~6장 맵 10곳(`convoy` `lab7` `ruin-*` 4 `core` `relay` `mine` `vault`, `MAP_IDS` 마을 뒤) · 인물 7명 · 마을에 더한 시설 3과 인물 4를 관리한다. `storyArt.js`가 그림(없으면 임시 도형)을 그리고 `public/assets/game/rpg/story/` 에 같은 이름의 그림이 있으면 그림을 쓴다(그림 자리 표는 그 폴더 README).
 - 에르덴 마을 가장자리 문 6곳(`storyData.js STORY_GATES`)으로 이야기 맵에 간다. 이야기를 그 장소까지 진행해야 열린다(`storyGateOpen`, 관리자는 늘 열림). 봉인 유적은 `RUIN_CHAIN` 순서로 이어지고 서쪽 유적 → 중앙 제어 시설. 관리자 `/이동` · 대화 끝 `go` · 퀘스트 창 "가기"도 그대로다. 안전 지역. 마을 화면 이름은 에르덴, 기록관 주민은 소은(설계자 세린과 구분). 상세는 `docs/메인스토리-1부-맵.md`, 시험은 `tools/story.test.mjs`.
 
-### 메인 스토리 1부 진행 · 선택지 대화 (11월 6일)
-- 단계 · 대사 · 선택지는 `storyQuestData.js` `STORY_STEPS`(1~6장 34단계), 규칙은 `storyQuest.js`(입력 `story`: `done` · `go`), 진행은 가방 `bag.sq = {i, n, c}`. **단계 차례는 저장 값이라 뒤에만 더한다.** 꼬리표(`tag`)로 고른 대답을 기억하고 뒤 대사에서 `if`/`not` 으로 쓴다.
-- 대화 창은 `VillagePanel.jsx`(차례인 대상이면 장면 · 선택지), 진행 칸은 `StoryCard.jsx`(의뢰 · 퀘스트 창 맨 위), 머리 위 느낌표는 `storyArt.js drawStoryMarks`. `STORY_QUEST.open` 이 false 면 관리자만 진행한다.
-- 기믹: `order`(차례대로 조사, 틀리면 서버가 처음으로) · `hidden`(느낌표 없음, 가까이 가면 반짝임) · 선택지 `wrong`(틀린 답, 같은 질문으로 돌아옴) · 질문 `timer`/`late`(시간 제한) · 꼬리표 `readLast`(숨은 선택).
-- 보스 전투 · 보상은 아직 없다(보스 자리는 대화로 넘어간다). 광장의 의뢰 NPC 경비대장 한결 · 수집가 보리 · 연금술사 미나는 이름만 같은 다른 인물이다. 시험은 `tools/story-quest.test.mjs`.
+### 메인 스토리 1~30장 (11월 7일 v3.0 전면 개편)
+- 기준 문서: 프로젝트 `notes/메인스토리-1-30장-수정본-v3.md`. 상세는 `docs/메인스토리-1-30장.md`.
+- 단계 · 대사는 부마다 `storySteps1~5.js`, 묶음 · 공통 함수는 `storyQuestData.js`, 줄 도우미(`L` `me` `sys` `nar` `beat`)는 `storyLines.js`, 규칙은 `storyQuest.js`. **단계 차례는 저장 값이라 뒤에만 더한다.**
+- 진행은 가방 `bag.sq = {r: 판(STORY_REV=2), i, n, c: 꼬리표, t: 관계 -2~+2}`. 판이 다른 옛 진행은 `OLD_STEP_CH` 로 같은 장 처음에 옮기고 옛 꼬리표는 버린다.
+- 장기 분기는 쌍점 꼬리표(`S1_RESCUE:supply`, 문서 플래그 16개)로 한 번만 확정된다. 줄 조건 `if` / `not` / `tr`(관계).
+- **서버 권위**: 화면은 고른 대답 번호 `picks` 만 보내고 서버가 `storyPicks` 로 장면을 다시 따라가 꼬리표 · 관계를 정한다. 맞지 않으면 진행하지 않는다.
+- 이야기 맵 23곳(1부 10 + `STORY_MAPS_2` 13, `PLACE()` 로 배치, 그림은 임시 도형). 대화 창 `VillagePanel.jsx`, 진행 칸 `StoryCard.jsx`(부 · 장 표시), 기믹(`order` · `hidden` · `wrong` · `timer`)은 그대로다.
+- 보스 전투 · 보상은 아직 없다(보스는 시간 제한 선택 대화). 광장의 의뢰 NPC 한결 · 보리 · 미나는 이름만 같은 다른 인물이다. 시험은 `tools/story-quest.test.mjs` · `tools/story.test.mjs`.

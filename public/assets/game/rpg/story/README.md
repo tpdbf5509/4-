@@ -51,3 +51,6 @@
 | 24장 관측 관제층 (observer-deck) | ground/observer-deck.webp | deck-scores 위험 점수 화면<br>deck-route 역관측 경로<br>deck-records 세 개의 기록<br>deck-towers 네 통신탑<br>deck-core 관측자 중추 |
 | 25장 첫 번째 세계의 원형 광장 (first-plaza) | ground/first-plaza.webp | plaza-wall 이름의 벽<br>plaza-tag-1 잊힌 이름표<br>plaza-tag-2 잊힌 이름표<br>plaza-tag-3 잊힌 이름표<br>plaza-night 재난의 밤 기록 |
 | 26장 중앙 경계 설계실 (boundary-room) | ground/boundary-room.webp | br-mural 네 갈래 벽화<br>br-warn 경고의 방<br>br-rescue 구조의 방<br>br-defend 방어의 방<br>br-record 기록의 방<br>br-center 중앙의 원<br>br-memory 기억 복원 장치<br>br-table 사라진 첫 문장<br>br-frag-1 기록 파편<br>br-frag-2 기록 파편<br>br-frag-3 기록 파편<br>br-frag-4 기록 파편<br>br-blank 빈 도면<br>br-alarm 네 도시의 경보<br>br-council 네 대표의 승인대<br>br-link 관측자 연결 장치 |
+## 조사물 크기
+
+사람 키(64px)를 1로 두고 사물마다 긴 쪽 길이를 정한 표가 `design/story/size-sights.py` 의 `E` 에 있습니다. 그림을 바꾸거나 `E` 를 고친 뒤 `python3 design/story/size-sights.py` 를 돌리면 `src/game/storySizes.js`(그리는 크기 · 부딪힘 반지름)가 다시 만들어집니다. 부딪힘 반지름은 말 걸 수 있는 거리(100) 때문에 56 을 넘기지 않습니다.

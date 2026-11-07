@@ -1,6 +1,6 @@
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
 import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
-import {storyGateOpen, storyGateWhy} from './storyQuestData.js';
+import {storyGateOpen, storyGateWhy, storyCleared} from './storyQuestData.js';
 import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
 import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
@@ -1093,6 +1093,7 @@ export function rpgJoin(g, pi, d, who) {
       sys(g, h.pi, "무기를 잘못 들었어요. 들고 있던 무기는 가방에 넣어 두었습니다.");
     }
   }
+  if (storyCleared(h.bag.sq) && !h.rec.story) h.rec.story = 1;   // 메인 이야기를 마친 기록 — 칭호 「네 갈래의 증인」 조건
   awardTitles(g, h, true);                        // 예전 캐릭터도 이미 채운 조건의 칭호는 조용히 받는다
   if (d.auto !== undefined) h.auto = d.auto ? 1 : 0;
   if (d.pvp !== undefined) h.pvpOn = d.pvp ? 1 : 0;

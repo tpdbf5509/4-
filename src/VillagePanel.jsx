@@ -1,7 +1,8 @@
 import {useEffect, useRef, useState} from 'react';
 import {VILLAGE_DIALOGUES, villageArtPath} from './game/villageData.js';
 import {STORY_DIALOGUES, STORY_PEOPLE, storyArtPath} from './game/storyData.js';
-import {STORY_STEP_BY_ID, STORY_STEPS, sceneOf, storyLineShown, addPick} from './game/storyQuestData.js';
+import {STORY_STEP_BY_ID, STORY_STEPS, STORY_CLEAR_AT, sceneOf, storyLineShown, addPick} from './game/storyQuestData.js';
+import {STORY_AFTER} from './game/storyAfter.js';
 
 /* 기존 상점 틀을 쓴다. 평소에는 소개 대화만 보여 준다.
    메인 스토리에서 지금 이 대상과 이야기할 차례면 이야기 장면을 보여 주고, 선택지를 고르게 한다(storyQuestData.js).
@@ -31,7 +32,9 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
   // 순서 퍼즐에서 차례가 아닌 대상을 고르면 틀린 장면을 보여 준다(서버가 진행을 처음으로 되돌린다)
   const [wrongOrder] = useState(() => !!(step?.order && story?.nextId && story.nextId !== npcId));
   const scene = step ? sceneOf(step, npcId, wrongOrder) : null;
-  const [seq, setSeq] = useState(() => scene || [npc?.intro, ...(npc?.lines || [])].map((t) => ({s: '', t})));
+  // 메인 이야기를 마쳤으면 마을 인물은 소개 대신 후일담을 말한다(storyAfter.js) — 고른 꼬리표 · 관계로 줄을 고른다
+  const after = !step && story && (story.done || story.i >= STORY_CLEAR_AT) ? STORY_AFTER[npcId] : null;
+  const [seq, setSeq] = useState(() => scene || (after ? after.map((l) => ({s: '', ...l})) : [npc?.intro, ...(npc?.lines || [])].map((t) => ({s: '', t}))));
   // 고른 대답 — 꼬리표 · 관계는 화면에서 미리 따라가 대사를 고르고, 서버에는 번호(picked)만 보낸다(storyQuest.js storyPicks)
   const [mind, setMind] = useState(() => ({tags: (story?.c || []).slice(), trust: {...(story?.t || {})}}));
   const [picked, setPicked] = useState([]);
@@ -140,7 +143,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
         </button>
       )}
       <footer className="village-dialogue-actions">
-        <span>{step ? (end ? '' : pick ? '대답을 고르세요' : `남은 대사 ${left}`) : `${trail.length + 1} / ${seq.length}`}</span>
+        <span>{step ? (end ? '' : pick ? '대답을 고르세요' : `남은 대사 ${left}`) : `${trail.length + 1} / ${trail.length + 1 + left}`}</span>
         {!pick && <button type="button" className="shop-btn" disabled={!end && !trail.length} onClick={back}>이전</button>}
         {pick ? null : end ? <button type="button" className="shop-btn main" onClick={finish}>확인</button>
           : <button type="button" className="shop-btn main" onClick={advance}>{left || step ? '다음' : '대화 마치기'}</button>}

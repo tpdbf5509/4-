@@ -2263,6 +2263,22 @@ function drawDuelTeam(ctx, h, time) {
   ctx.restore();
 }
 
+// 메인 이야기 완결 칭호 「네 갈래의 증인」의 외형 효과 — 발밑을 도는 네 갈래 빛(북 · 동 · 남 · 서 네 색, 톤다운)
+const STORY_TITLE = { id: "story30", r: 30, dot: 3.2, spin: 0.7, colors: ["#a9c4d8", "#d8c79a", "#d8a99a", "#b7a9d0"] };
+function drawStoryTitle(ctx, h, time) {
+  const T = STORY_TITLE, cy = h.y + 2;
+  ctx.save();
+  ctx.globalAlpha = 0.18; ctx.strokeStyle = "#e9d39a"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.ellipse(h.x, cy, T.r, T.r * 0.36, 0, 0, Math.PI * 2); ctx.stroke();
+  T.colors.forEach((c, k) => {
+    const a = time * T.spin + k * Math.PI / 2;
+    ctx.globalAlpha = 0.55 + 0.25 * Math.sin(time * 2 + k);
+    ctx.fillStyle = c;
+    ctx.beginPath(); ctx.arc(h.x + Math.cos(a) * T.r, cy + Math.sin(a) * T.r * 0.36, T.dot, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+}
+
 function drawHero(ctx, g, h, time) {
   const pi = h.pi;
   const col = elemOf(h);
@@ -2291,6 +2307,7 @@ function drawHero(ctx, g, h, time) {
     ctx.beginPath(); ctx.arc(0, 0, 20, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * full); ctx.stroke();
   }
   ctx.restore();
+  if (h.title === STORY_TITLE.id && !down) drawStoryTitle(ctx, h, time);
   drawDuelTeam(ctx, h, time);
   if (h.guard > 0) {
     ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#ffeec2"; ctx.lineWidth = 2;

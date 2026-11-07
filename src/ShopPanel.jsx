@@ -26,6 +26,7 @@ import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./ga
 import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR_BASE, ARMOR_SPECIAL, armorName, armorArt, armorCap } from "./game/armorData.js";
 import { wornArmor } from "./game/armor.js";
 import { BOOKS, BOOK_BY_ID, PATCH_BOOKS } from "./game/bookData.js";
+import { storyBook } from "./game/storyAfter.js";
 import { Coin } from "./ui/icons.jsx";
 import { useCasinoRun, DiceStage, SlotStage, BoxStage, CASINO_SKIP } from "./CasinoStage.jsx";
 
@@ -761,10 +762,12 @@ export function ShopPanel({ shop, h, send, note, onClose }) {
 }
 
 /* ── 책 — 패치노트와 가이드(bookData.js). 책장에서 한 권을 고르면 쪽을 넘기며 읽는다 ── */
-function Books({ tab0 }) {
+function Books({ tab0, h }) {
   const [id, setId] = useState(tab0 === "book" ? PATCH_BOOKS[0].id : "");   // 가방을 "책"으로 바로 열면 가장 새 패치노트
   const [pg, setPg] = useState(0);
-  const book = BOOK_BY_ID[id];
+  // 메인 이야기를 마친 사람만 — 내 선택으로 엮은 기념 기록서(storyAfter.js)
+  const mine = h && h.rec && h.rec.story ? storyBook(h.bag && h.bag.sq && h.bag.sq.c, h.bag && h.bag.sq && h.bag.sq.t) : null;
+  const book = mine && id === mine.id ? mine : BOOK_BY_ID[id];
   if (!book) {
     const row = (b) => (
       <div key={b.id} className="book-row" style={{ "--bk": b.color }}>
@@ -777,6 +780,8 @@ function Books({ tab0 }) {
       <>
         <Head sub="늘 가지고 있는 책입니다 · 가방 칸을 차지하지 않습니다">패치노트</Head>
         {BOOKS.filter((b) => PATCH_BOOKS.includes(b)).map(row)}
+        {mine && <Head sub="메인 이야기를 마친 기록">기념 기록서</Head>}
+        {mine && row(mine)}
         <Head sub="게임의 모든 안내">가이드</Head>
         {BOOKS.filter((b) => !PATCH_BOOKS.includes(b)).map(row)}
       </>
@@ -817,7 +822,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
   return (
     <Frame title="가방" sub="무기 · 방어구 · 물약 · 재료 · 주문서 · 스킬 · 책" coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
       <Tabs on={tab} set={setTab} tabs={[["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length], ["book", "책", BOOKS.length]]} />
-      {tab === "book" && <Books tab0={tab0} />}
+      {tab === "book" && <Books tab0={tab0} h={h} />}
       {tab === "weapon" && (
         <>
           <Head sub={`${h.bag.w.length}/${weaponCap(h)} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>

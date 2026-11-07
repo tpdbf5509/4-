@@ -6,6 +6,10 @@ import {cleanBag} from '../src/game/shop.js';
 import {STORY_PEOPLE} from '../src/game/storyData.js';
 import {STORY_STEPS,STORY_TAGS,stepTargets,sceneOf,storyLineShown,addPick,storyFlag,chapterStart,STORY_REV} from '../src/game/storyQuestData.js';
 import {storyView,storyTargetFor,storyPicks} from '../src/game/storyQuest.js';
+import {STORY_AFTER,storyBook} from '../src/game/storyAfter.js';
+import {STORY_CLEAR_AT} from '../src/game/storyQuestData.js';
+import {VILLAGE_DIALOGUES} from '../src/game/villageData.js';
+import {STORY_DIALOGUES} from '../src/game/storyData.js';
 import {npcStopPoint} from '../src/game/mouseMove.js';
 import {RESET,GIFT} from '../src/game/itemData.js';
 const world=(bag={})=>{const g=makeWorld();g.mySeat=0;rpgSyncSeats(g,[{id:'sq',name:'진행시험',hero:{name:'진행시험',job:'warrior',gender:'m'}}]);rpgJoin(g,0,{name:'진행시험',lv:10,rs:RESET.id,gift:GIFT.id,stats:{},bag:{oc:1,w:[],n:1,...bag}},'sq');return g;};
@@ -63,6 +67,28 @@ test('처음부터 30장 끝까지 대화로 진행하고 이야기 맵으로 �
   assert.equal(storyFlag(c,'S1_RESCUE'),choose(2)?'civilian':'supply');
   assert.equal(storyFlag(c,'S29_FUTURE'),choose(2)?'federation':'council');
   for(const k of Object.keys(h.bag.sq.t))assert.ok(Math.abs(h.bag.sq.t[k])<=2,k);
+  // 완결 보상 — 기록 · 칭호 · 기념 기록서(선택 16개가 모두 적힌다)
+  assert.equal(h.rec.story,1);
+  step(g,200);
+  assert.ok(h.titles.includes('story30'),'칭호 「네 갈래의 증인」');
+  const bk=storyBook(c,h.bag.sq.t),lines=bk.pages.flatMap(p=>p.p);
+  assert.equal(lines.filter(t=>/^\d+장 · /.test(t)).length,16);
+ }
+});
+
+test('30-05 를 마치기 전에는 완결 기록이 없고, 불러올 때 완결 진행이면 기록을 채운다',()=>{
+ const g=world({sq:{r:STORY_REV,i:STORY_CLEAR_AT-1,n:[],c:[],t:{}}});
+ assert.equal(g.heroes[0].rec.story,0);
+ const g2=world({sq:{r:STORY_REV,i:STORY_CLEAR_AT,n:[],c:[],t:{}}});
+ assert.equal(g2.heroes[0].rec.story,1);
+ assert.ok(g2.heroes[0].titles.includes('story30'));
+});
+
+test('마을 후일담 — 말할 인물이 마을에 있고 꼬리표 조건이 실제 꼬리표다',()=>{
+ for(const [id,lines] of Object.entries(STORY_AFTER)){
+  assert.ok(VILLAGE_DIALOGUES[id]||STORY_DIALOGUES[id],id);
+  assert.ok(lines.some(l=>!l.if&&!l.not&&!l.tr),`${id} 조건 없는 줄`);
+  for(const l of lines)for(const k of ['if','not'])if(l[k])assert.ok(STORY_TAGS.includes(l[k]),`${id} ${l[k]}`);
  }
 });
 

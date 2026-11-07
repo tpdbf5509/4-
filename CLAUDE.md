@@ -154,4 +154,5 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 장기 분기는 쌍점 꼬리표(`S1_RESCUE:supply`, 문서 플래그 16개)로 한 번만 확정된다. 줄 조건 `if` / `not` / `tr`(관계).
 - **서버 권위**: 화면은 고른 대답 번호 `picks` 만 보내고 서버가 `storyPicks` 로 장면을 다시 따라가 꼬리표 · 관계를 정한다. 맞지 않으면 진행하지 않는다.
 - 이야기 맵 23곳(1부 10 + `STORY_MAPS_2` 13, `PLACE()` 로 배치, 그림은 임시 도형). 대화 창 `VillagePanel.jsx`, 진행 칸 `StoryCard.jsx`(부 · 장 표시), 기믹(`order` · `hidden` · `wrong` · `timer`)은 그대로다.
-- 보스 전투 · 보상은 아직 없다(보스는 시간 제한 선택 대화). 광장의 의뢰 NPC 한결 · 보리 · 미나는 이름만 같은 다른 인물이다. 시험은 `tools/story-quest.test.mjs` · `tools/story.test.mjs`.
+- 완결 보상(30-05 `STORY_CLEAR_ID`): 기록 `rec.story`(REC_IDS 끝) → 칭호 `story30` 「네 갈래의 증인」(체력 +2점) · 단 칭호의 발밑 네 갈래 빛(`rpgArt.js STORY_TITLE`) · 가방 책 탭의 기념 기록서(내 선택으로 만든다). 완결 뒤 마을 인물은 후일담 대사(`storyAfter.js STORY_AFTER`). 칭호는 비트 두 칸에 62개까지라 지금 61개다.
+- 보스 실제 전투는 아직 없다(보스는 시간 제한 선택 대화). 광장의 의뢰 NPC 한결 · 보리 · 미나는 이름만 같은 다른 인물이다. 시험은 `tools/story-quest.test.mjs` · `tools/story.test.mjs`.

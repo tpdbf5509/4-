@@ -1,6 +1,6 @@
 /* 메인 스토리 1~30장 진행 규칙 — 방장 화면과 전용 서버가 같이 쓴다(rpgInput.js 의 story).
    진행은 가방 bag.sq 에 남는다. 가방은 저장 · 손님 전송(packBags)과 함께 간다. 단계 · 대사는 storyQuestData.js */
-import {STORY_QUEST, STORY_STEPS, STORY_CHAPTERS, STORY_TAGS, STORY_REV, STORY_TAG_MAX, TRUST_PEOPLE, TRUST_MIN, TRUST_MAX, OLD_STEP_CH,
+import {STORY_QUEST, STORY_STEPS, STORY_CLEAR_ID, STORY_CHAPTERS, STORY_TAGS, STORY_REV, STORY_TAG_MAX, TRUST_PEOPLE, TRUST_MIN, TRUST_MAX, OLD_STEP_CH,
   stepTargets, sceneOf, storyLineShown, addPick, chapterStart, partOf} from './storyQuestData.js';
 import {MAPS, npcNear, fx, sys, runOf, stopMove} from './rpg.js';
 import {trading} from './tradeData.js';
@@ -106,6 +106,8 @@ export function rpgStory(g, pi, d) {
   sq.n.push(id);
   const all = stepTargets(s).every((x) => sq.n.includes(x));
   if (all) { sq.i += 1; sq.n = []; }
+  // 30-05 를 마쳤다 — 완결 기록. 칭호(socialData.js story30)는 다음 칭호 검사 때 알림과 함께 붙는다
+  if (all && s.id === STORY_CLEAR_ID && h.rec) h.rec.story = 1;
   h.bag.v += 1;                                     // 가방이 바뀌었다 — 저장 · 손님 전송
   const next = STORY_STEPS[sq.i];
   const msg = !all ? `${s.goal} ${sq.n.length}/${stepTargets(s).length}` : s.end || `「${s.q}」 진행 · 다음: ${next ? next.goal : '메인 이야기 끝'}`;

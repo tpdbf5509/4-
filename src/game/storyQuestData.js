@@ -57,6 +57,10 @@ export const STORY_CHAPTERS = {
 export const STORY_STEPS = [...STEPS_1, ...STEPS_2, ...STEPS_3, ...STEPS_4, ...STEPS_5];
 
 export const STORY_STEP_BY_ID = Object.fromEntries(STORY_STEPS.map((s, i) => [s.id, {...s, i}]));
+// 메인 이야기 완결 — 이 단계를 마치면 칭호 · 외형 효과 · 기념 기록서를 준다(문서 30-05). 30-06 은 덧붙임 장면이라 보상과 상관없다
+export const STORY_CLEAR_ID = '30-05';
+export const STORY_CLEAR_AT = STORY_STEP_BY_ID[STORY_CLEAR_ID].i + 1;
+export const storyCleared = (sq) => (Number(sq?.i) || 0) >= STORY_CLEAR_AT && sq?.r === STORY_REV;
 // 한 단계의 대상 — 하나(at) 또는 여럿(need)
 export const stepTargets = (s) => (s ? s.need || [s.at] : []);
 // 대상과 이야기할 때의 장면 — 순서 퍼즐 차례가 틀렸으면 wrong

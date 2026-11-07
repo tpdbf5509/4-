@@ -1,4 +1,4 @@
-import {duelHealing, makeCast, restoreCasts} from './duelBalance.js';
+import {duelHealing, inDuel, makeCast, restoreCasts} from './duelBalance.js';
 /* ── RPG 1차 전직 규칙 (방장만 판정) ─────────────────────────────
    수치는 advData.js. E 는 rpg.js 의 대상 고르기 · 피해 · 연출 함수(advEngine) — 피해 · 결투 한도 · 원소는 기존 판정을 그대로 거친다.
    영구 기록: h.advClass(전직 id) · h.advQ({ c, n } 시험) · h.advM(전직 숙련도). 싸우는 동안만: h.as(쿨타임 · 중첩 · 철벽 · 정령 목록 sps ·
@@ -771,6 +771,15 @@ export function advUse(E, g, h) {
     sps.forEach((sp) => { sp.t = A.life; });       // 있던 정령은 시간이 다시 찬다
     if (sps.length < A.max) sps.push(newSpirit(h, A.life, sps.length, sps.length + 1));
     E.fx(g, map, { kind: "sk_adv_summon", x: h.x, y: h.y, r: 80, elem: E.elem(h), t: 0.9, life: 0.9, snd: "bless" });
+    if (E.pvpMap(map)) {                           // 결투장 — 정령을 duelN 마리까지 duelGap 초 간격으로 연달아 더 부른다(같은 시전 상한)
+      const cap = h.cast || { ...makeCast(), adv: 1 };
+      for (let k = 1; k < A.duelN; k++) laterFor(E, h, g, A.duelGap * k, () => {
+        const list = a.sps || (a.sps = []);
+        if (h.down > 0 || h.map !== map || list.length >= A.max) return;
+        list.push({ ...newSpirit(h, A.life, list.length, list.length + 1), cap });
+        E.fx(g, map, { kind: "sk_adv_summon", x: h.x, y: h.y, r: 60, elem: E.elem(h), t: 0.7, life: 0.7, snd: "bless" });
+      });
+    }
   }
   a.cd = A.cd;
   h.swing = Math.max(h.swing || 0, 0.35);
@@ -783,14 +792,15 @@ export function advUlt(E, g, h) {
   const c = advOf(h), map = h.map;
   if (h.down > 0 || E.locked(h)) return false;
   if (!c || c.id !== "summoner") return void E.say(g, map, h.x, h.y - 90, "소환술사만 쓸 수 있다", "#d9c9a6");
-  if (E.pvpMap(map)) return void E.say(g, map, h.x, h.y - 90, "결투에서는 쓸 수 없다", "#d9c9a6");
+  const duel = E.pvpMap(map) ? 1 : 0;              // 결투장 — 작고 체력이 적은 거대 정령(duelSize · duelHpMul)
+  if (duel && h.dph !== 2) return void E.say(g, map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
   const a = asOf(h), U = c.ultimate, pet = E.safe(map);   // 광장 — 공격하지 않는 작은 펫
   if (a.ucd > 0) return void E.say(g, map, h.x, h.y - 90, `${U.name} ${Math.ceil(a.ucd)}초`, "#f0dcb4");
-  const x = h.x + (pet ? U.petOff[0] : (h.dir || 1) * U.follow), y = h.y + (pet ? U.petOff[1] : 0), mhp = Math.round(h.max * U.hpMul);
-  a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, pet: pet ? 1 : 0, cap: { ...makeCast(), adv: 1, sid: "ult" } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
+  const x = h.x + (pet ? U.petOff[0] : (h.dir || 1) * U.follow), y = h.y + (pet ? U.petOff[1] : 0), mhp = Math.round(h.max * (duel ? U.duelHpMul : U.hpMul));
+  a.gi = { hp: mhp, mhp, t: U.life, x, y, map, cd: 0.9, pet: pet ? 1 : 0, duel, cap: { ...makeCast(), adv: 1, sid: "ult" } };   // 부르고 곧바로 한 번 내려친다(cd 0.9 — 소환진이 도는 동안)
   if (!pet) a.ucd = U.cd;                          // 광장 펫은 대기를 쓰지 않는다 — 싸우는 곳에 들어가는 때부터(tickGiant) 돈다
   h.swing = Math.max(h.swing || 0, 0.4);
-  E.fx(g, map, { kind: "sk_adv_gsummon", x, y, r: pet ? 70 : U.r, elem: E.elem(h), t: 1.1, life: 1.1, snd: "boom", kick: 0.3 });
+  E.fx(g, map, { kind: "sk_adv_gsummon", x, y, r: pet ? 70 : duel ? U.r * U.duelSize / U.size : U.r, elem: E.elem(h), t: 1.1, life: 1.1, snd: "boom", kick: 0.3 });
   E.fx(g, map, { kind: "call", x: h.x, y: h.y - 104, text: U.name, color: "#ffd873", t: 0.9, life: 0.9, who: h.pi });
   return true;
 }
@@ -816,7 +826,7 @@ function tickGiant(E, g, h, a, dt) {
   if (!gi) return;
   const U = ADV_BY_ID.summoner.ultimate;
   const pet = E.safe(h.map) ? 1 : 0;
-  if (h.down > 0 || E.pvpMap(h.map) || (pet ? gi.t : (gi.t -= dt)) <= 0 || gi.hp <= 0) {
+  if (h.down > 0 || !E.pvpMap(h.map) !== !gi.duel || (pet ? gi.t : (gi.t -= dt)) <= 0 || gi.hp <= 0) {   // 사냥터 정령은 결투장에 따라오지 않고 결투 정령은 결투장 밖으로 나오지 않는다
     if (gi.t > 0 && gi.hp > 0 && h.down <= 0 && gi.map === h.map) E.fx(g, gi.map, { kind: "sk_adv_gbreak", x: gi.x, y: gi.y, r: U.r * 0.5, elem: E.elem(h), t: 0.7, life: 0.7 });
     a.gi = null;
     return;
@@ -867,7 +877,7 @@ function tickGiant(E, g, h, a, dt) {
     E.noProc(() => withCap(h, gi.cap, () => list.forEach((o) => {
       if (!E.alive(g, h, o, map)) return;
       E.strike(g, h, o, dmg);
-      E.cc(g, h, o, { stun: U.stun });
+      E.cc(g, h, o, { stun: U.stun * (isHero(o) ? ADV.pvpCc : 1) });   // 사람은 경직 절반(다른 전직 스킬과 같이)
     })));
   });
 }
@@ -1075,7 +1085,7 @@ export function applyAdv(h, v) {
     a.ucd = Number(v[27]) || 0;
     const G = v[28];
     if (Array.isArray(G) && G[2] > 0) { const gi = a.gi || (a.gi = { x: h.x, y: h.y, map: h.map, cd: 0, cap: { raw: 0, adv: 1 } }); gi.hp = Number(G[0]) || 0; gi.mhp = Number(G[1]) || 1; gi.t = Number(G[2]) || 0;
-      gi.pet = G[5] ? 1 : 0;
+      gi.pet = G[5] ? 1 : 0; gi.duel = inDuel(h) ? 1 : 0;
       if (G.length > 4) { gi.sx = Number(G[3]); gi.sy = Number(G[4]); if (!Number.isFinite(gi.x) || Math.hypot(gi.x - gi.sx, gi.y - gi.sy) > 700) { gi.x = gi.sx; gi.y = gi.sy; } } }
     else a.gi = null;
   }

@@ -48,7 +48,7 @@ export function storyView(h) {
     got: sq.n.length, need: t.length > 1 ? t.length : 0, c: sq.c || [], t: sq.t || {},
     chAt: chSteps.findIndex((x) => x.id === s.id), chLen: chSteps.length,
     quests: [...new Set(chSteps.map((x) => x.q))].map((q) => ({q, done: STORY_STEPS.every((x, k) => x.q !== q || x.ch !== s.ch || k < sq.i)})),
-    canGo: MAPS[s.map]?.story && h.map !== s.map, order: !!s.order, hidden: !!s.hidden,
+    canGo: storyGoable(s.map) && h.map !== s.map, order: !!s.order, hidden: !!s.hidden,
     nextId: s.order ? s.need[sq.n.length] : null,
   };
 }
@@ -68,6 +68,9 @@ export function storyPicks(scene, picks, c0, t0) {
   return j === picks.length ? {tags, trust} : null;
 }
 
+// 바로 가기로 갈 수 있는 곳 — 이야기 맵과 에르덴 마을(이야기 시작지)
+export const storyGoable = (m) => !!MAPS[m] && (!!MAPS[m].story || m === 'dawnwood');
+
 // 바쁠 때(결투 · 던전 · 레이스 · 거래)는 옮기지 않는다
 const busy = (g, h) => trading(h) || (h.dvs ?? -1) >= 0 || !!runOf(g, h) || !!(MAPS[h.map] && (MAPS[h.map].dungeon || MAPS[h.map].pvp || MAPS[h.map].race));
 function moveTo(h, to) {
@@ -84,7 +87,7 @@ export function rpgStory(g, pi, d) {
   const s = STORY_STEPS[sq.i];
   if (!s) return false;
   if (d.op === 'go') {
-    if (!MAPS[s.map]?.story || h.map === s.map) return false;
+    if (!storyGoable(s.map) || h.map === s.map) return false;
     if (busy(g, h) || h.down > 0) return void sys(g, pi, '지금은 이야기 장소로 갈 수 없습니다.');
     moveTo(h, s.map);
     sys(g, pi, `${MAPS[s.map].name}(으)로 갔습니다.`);

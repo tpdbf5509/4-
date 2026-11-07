@@ -1449,7 +1449,7 @@ kbd {
 }
 .rpg-load-prog { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .rpg-load-bar { display: block; height: 1px; background: var(--ld-line); position: relative; overflow: visible; }
-.rpg-load-bar > i { display: block; height: 3px; margin-top: -1px; background: var(--ld-gold); transition: width 0.12s linear; box-shadow: 0 0 10px rgba(232, 201, 140, 0.55); }
+.rpg-load-bar > i { display: block; height: 3px; margin-top: -1px; background: var(--ld-gold); transition: width 0.2s linear; box-shadow: 0 0 10px rgba(232, 201, 140, 0.55); }
 .rpg-load-pct { font-family: 'Do Hyeon', sans-serif; font-size: 13px; color: var(--ld-gold); min-width: 4.5em; text-align: right; }
 .rpg-load-tip { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--ld-line); font-size: 12.5px; line-height: 1.55; letter-spacing: -0.02em; color: var(--ld-mute); }
 .rpg-load-tip em { font-style: normal; font-family: 'Do Hyeon', sans-serif; font-size: 11px; color: var(--ld-text); opacity: 0.8; margin-right: 8px; }

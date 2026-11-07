@@ -3039,7 +3039,11 @@ function tickZones(g, dt) {
    h.trn = { nocd, stack, god, tot 쌓인 피해, hits 맞힌 수, log [[시각, 피해]] } — 기능은 훈련장 안에서만 듣는다 */
 const trnOf = (h) => h.trn || (h.trn = { nocd: 0, stack: 0, god: 0, tot: 0, hits: 0, log: [] });
 function keepDummies(g) {
-  if (!g.heroes.some((h) => h && h.map === "train")) return;   // 아무도 없으면 세우지 않는다(스냅샷에도 싣지 않는다)
+  if (!g.heroes.some((h) => h && h.map === "train")) {   // 아무도 없으면 세우지 않고, 서 있던 것도 치운다(스냅샷에도 싣지 않는다)
+    const stand = (m) => m.type === "dummy" && m.map === "train";
+    if (g.mobs.some(stand)) g.mobs = g.mobs.filter((m) => !stand(m));
+    return;
+  }
   TRAIN.dummies.forEach(([x, y], i) => {
     if (g.mobs.some((m) => m.type === "dummy" && m.di === i && !m.dead)) return;
     const m = bodyOf(g.nextId++, -1, "dummy", 0, 1, "train", x, y);
@@ -4856,6 +4860,9 @@ function tickSocial(g, dt) {
   }
 }
 
+// 지금 사람이 한 명이라도 있는 맵 — 이 맵들만 판정을 돈다(rpgStep)
+export const mapsAwake = (g) => new Set(g.heroes.filter(Boolean).map((h) => h.map));
+
 export function rpgStep(g, dt) {
   g.t += dt;
   g.shake = Math.max(0, g.shake - dt * 1.6);
@@ -4882,15 +4889,17 @@ export function rpgStep(g, dt) {
     landHit(g, s);
     return false;
   });
-  // 사람이 없는 사냥터(zone 이 있는 맵)의 몹은 움직이지 않는다 — 400~800레벨 사냥터로 몹이 500마리를 넘어 방장 한 틱이 무거워졌다(10월 26일)
-  const awake = new Set(g.heroes.filter(Boolean).map((h) => h.map));
-  g.mobs.forEach((m) => { if (!m.dead && !HOLD.has(m.map) && (awake.has(m.map) || !MAPS[m.map]?.zone)) stepMob(g, m, dt); });
+  // 사람이 없는 맵은 멈춘다 — 몹 움직임 · 상태 시간 · 다시 나오기 모두. 사람이 들어오면 멈춘 자리에서 이어 돈다.
+  // 10월 26일 사냥터(zone)만 멈추던 것을 11월 7일 모든 맵으로 넓혔다. 월드보스 · 길드 토벌 보스는 서버 시간표를 따라 그대로 돈다
+  const awake = mapsAwake(g);
+  g.mobs.forEach((m) => { if (!m.dead && !HOLD.has(m.map) && (awake.has(m.map) || isWorldBoss(m) || isGuildBoss(m))) stepMob(g, m, dt); });
   g.mobs = g.mobs.filter((m) => !m.dead);
 
   // 무리마다 한 마리가 죽으면 한 마리 — 정해진 수를 넘지 않는다
   const alive = SPAWNS.map(() => 0), wait = SPAWNS.map(() => 0);
   g.mobs.forEach((m) => { if (m.gi >= 0) alive[m.gi] += 1; });
   g.respawn = g.respawn.filter((r) => {
+    if (!awake.has(SPAWNS[r.gi].map)) { wait[r.gi] += 1; return true; }   // 빈 맵 — 다시 나오기까지 남은 시간도 멈춘다
     r.t -= dt;
     if (r.t > 0) { wait[r.gi] += 1; return true; }
     if (alive[r.gi] < SPAWNS[r.gi].n) { spawnMob(g, r.gi); alive[r.gi] += 1; }

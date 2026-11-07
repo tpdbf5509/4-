@@ -1411,6 +1411,26 @@ kbd {
 .rpg-toast.msg { font-size: 19px; width: min(560px, calc(100% - 32px)); text-align: center; line-height: 1.3; letter-spacing: -0.02em; }
 @keyframes rpg-toast { 0% { opacity: 0; transform: translate(-50%, 8px); } 15%, 75% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; } }
 
+/* 맵 불러오기 가림막 — 그 맵 그림이 다 오면 걷힌다(mapLoad.js). 상점 창과 같은 갈색 · 금빛, 왼쪽 아래 한 덩어리 */
+.rpg-load {
+  --ld-bg: #2a2119; --ld-line: rgba(226, 205, 165, 0.16); --ld-text: #ecdfc4; --ld-mute: #a99a7e; --ld-gold: #e3c48a;
+  position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-end; justify-content: flex-start;
+  padding: 0 0 13% 9%; box-sizing: border-box; pointer-events: auto; cursor: progress;
+  background: radial-gradient(120% 90% at 20% 80%, #322719 0%, var(--ld-bg) 55%, #1d1711 100%);
+  transition: opacity 0.26s ease;
+}
+.rpg-load.out { opacity: 0; pointer-events: none; }
+.rpg-load-box { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px 14px; width: min(380px, 78%); text-align: left; }
+.rpg-load-tag { grid-column: 1 / -1; font-size: 12px; color: var(--ld-mute); letter-spacing: -0.01em; }
+.rpg-load-name {
+  grid-column: 1 / -1; font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 34px; line-height: 1.05;
+  letter-spacing: -0.03em; color: var(--ld-text); padding-bottom: 8px; border-bottom: 1px solid var(--ld-line);
+}
+.rpg-load-bar { display: block; height: 1px; margin-top: 6px; background: var(--ld-line); overflow: hidden; }
+.rpg-load-bar > i { display: block; height: 100%; background: var(--ld-gold); transition: width 0.12s linear; }
+.rpg-load-pct { font-family: 'Do Hyeon', sans-serif; font-size: 13px; color: var(--ld-gold); min-width: 4.5em; text-align: right; }
+@media (max-width: 600px) { .rpg-load-name { font-size: 26px; } .rpg-load { padding: 0 16px 14% 16px; } .rpg-load-box { width: 100%; } }
+
 /* 첫 10분 길 안내 — 위 가운데 한 칸(guideData.js). 판 위 금빛 화살표와 짝 */
 .rpg-guide {
   position: absolute; top: 12px; left: max(330px, calc(50% - 230px)); right: max(120px, calc(50% - 230px)); z-index: 3;

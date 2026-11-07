@@ -111,6 +111,7 @@ import { compareBuild, BUILD } from "./net/version.js";
 import { adminRedeem, joinAdminLink } from "./net/admin.js";
 import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText, honorTop } from "./net/rpgSave.js";
 import { drawRpg, setLowFx } from "./game/rpgArt.js";
+import { MAP_LOAD, watchImages, loadStart, loadStep } from "./game/mapLoad.js";
 import { ghostStep } from "./game/bossBar.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
@@ -152,6 +153,10 @@ const GUEST_CATCH_UP = 1;  // 손님 화면이 따라잡는 최대 시간(초) �
 const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.max(1, n)));
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
+// 맵을 불러오는 동안 막는 조작 — 걷기 · 공격 · 스킬 · 말 걸기. 놓기(빈 방향 · 끄기 · 취소 · 목적지 지우기)는 그대로 보낸다
+const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk"]);
+const loadBlocks = (kind, dir) => LOAD_BLOCK.has(kind) && !(kind === "hold" && !(dir && dir.length))
+  && dir !== false && dir !== "cancel" && !(kind === "mv" && dir && dir.stop);
 const BIND_EAT_MS = 80;       // 키 설정에서 마우스 버튼을 넣은 뒤 뒤따르는 클릭 · 오른쪽 메뉴를 막는 시간(ms) — 짧게 둬 다음 칸 클릭을 먹지 않는다
 const TOUCH_MOUSE_MS = 800;   // 터치 뒤 이만큼(ms)은 브라우저가 흉내 내는 마우스 클릭을 키 설정 버튼으로 세지 않는다
 const AUTO_KEY = "flg:rpgAuto";
@@ -563,6 +568,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [mute, setMute] = useState(() => sfx.isMuted());
   const [dropped, setDropped] = useState(false);
   const [toast, setToast] = useState(null);         // 맵을 옮기면 잠깐 이름을 띄운다
+  const [mapLoad, setMapLoad] = useState(null);     // 맵 불러오기 가림막 — { name, p: 0~1, out: 걷히는 중 }
+  const loadRef = useRef(null);                     // 가림막 상태(mapLoad.js) — 다 될 때까지 내 조작을 막는다
+  const loadHoldRef = useRef(null);                 // 가림막이 뜰 때 누르고 있던 방향 · 공격을 놓는다
   // 서버 이동이 막혔다(가득 참) — 원래 서버로 돌아와 잠깐 알린다
   const srvNote = servers && servers.note;
   useEffect(() => {
@@ -819,6 +827,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const act = useCallback((kind, dir) => {
     const g = G.current;
     sfx.unlock();
+    // 맵을 불러오는 동안에는 움직이거나 싸우지 않는다 — 놓기(빈 방향 · 공격 끄기)만 보낸다
+    if (loadRef.current && !loadRef.current.end && loadBlocks(kind, dir)) return;
     if (trading(g.heroes[mySeat]) && kind !== "trade" && !(kind==="guild"&&["sync","settled"].includes(dir?.op))) return;
     if (kind === "mv") {                            // 마우스 오른쪽 클릭 이동 — 방장은 바로 판정하고 손님도 먼저 걷는다(방향키와 같은 범위)
       const h = g.heroes[mySeat];
@@ -1023,6 +1033,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     dirsRef.current = [];
     act("hold", []);
   }, [act]);
+  useEffect(() => {
+    loadHoldRef.current = () => { mouseHeld.current.clear(); dragRef.current = null; talkRef.current = null; clearDirs(); act("fire", false); };
+  }, [act, clearDirs]);
 
   // 이동 방식 바꾸기(☰ 설정) — 키보드→마우스는 누르고 있던 방향을 놓고, 마우스→키보드는 가던 목적지를 취소한다
   const chooseMoveMode = useCallback((next) => {
@@ -1086,6 +1099,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const a = keyMap(bindsRef.current)[e.code];
       if (!a) return;
       e.preventDefault();
+      if (loadRef.current && !loadRef.current.end) return;   // 맵을 불러오는 중 — 다 된 뒤에 움직인다
       if (MOVE_ACTS[a]) { if (!e.repeat && moveKeysOn(moveModeRef.current)) pressDir(MOVE_ACTS[a]); return; }   // 마우스 방식에서는 이동키가 꺼져 있다
       if (e.repeat) return;
       pressAct(a);
@@ -1341,8 +1355,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     cvs.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bgsRef.current = {};                              // 그림 파일이 없을 때만 drawRpg 가 코드로 채운다
+    watchImages();                                    // 맵 불러오기 가림막 — 새로 부르는 그림을 센다
 
-    let raf, last = performance.now(), hudAt = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null, noticeDone = false;
+    let raf, last = performance.now(), hudAt = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null, noticeDone = false, loadMap = "", loadUi = 0;
     const loop = (now) => {
       // 첫 프레임의 시각은 루프를 건 시각보다 앞설 수 있다 — 거꾸로 가지 않게 막는다
       const real = Math.max(0, (now - last) / 1000);
@@ -1402,6 +1417,24 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       }
       drawRpg(ctx, g, bgsRef.current);
       drawGuideArrow(ctx, g, guideRef.current, now);
+      // 맵 불러오기 — 내 맵이 바뀌면 가림막을 띄우고, 가림막 뒤에서 그린 그림이 다 오면 걷는다
+      const lm = g.heroes[mySeat];
+      if (lm && lm.map !== loadMap) {
+        const first = !loadMap;
+        loadMap = lm.map;
+        loadRef.current = { ...loadStart(lm.map, now), toast: !first };
+        loadHoldRef.current?.();
+        loadUi = now;
+        setMapLoad({ name: MAPS[lm.map]?.name || "", p: 0, out: false });
+      }
+      const L = loadRef.current;
+      if (L && !L.end) {
+        loadStep(L, now);
+        if (L.end) {
+          setMapLoad((v) => v && { ...v, p: 1, out: true });
+          if (L.toast) setToast({ name: MAPS[L.map]?.name || "", at: now });
+        } else if (now - loadUi >= 90) { loadUi = now; setMapLoad((v) => v && { ...v, p: L.p }); }
+      } else if (L && now - L.end >= MAP_LOAD.fadeMs) { loadRef.current = null; setMapLoad(null); }
       if (now - hudAt >= HUD_MS) {
         hudAt = now;
         const me = g.heroes[mySeat];
@@ -1503,10 +1536,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           if (gift || notes.length) setGiftOpen({ gift, notes });
           giftRef.current = true;
         }
-        if (me && me.map !== lastMap) {
-          if (lastMap) setToast({ name: MAPS[me.map].name, at: now });
-          lastMap = me.map;
-        }
+        if (me && me.map !== lastMap) lastMap = me.map;   // 맵 이름은 불러오기 가림막이 걷힐 때 띄운다
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded && !me.tradeLocal) {
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
@@ -2313,6 +2343,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           </div>
 
           {toast && <div className={`rpg-toast${toast.msg ? " msg" : ""}`} key={toast.at}>{toast.name}</div>}
+          {mapLoad && (
+            <div className={`rpg-load${mapLoad.out ? " out" : ""}`} role="status" aria-live="polite"
+              onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+              <div className="rpg-load-box">
+                <span className="rpg-load-tag">맵 불러오는 중</span>
+                <b className="rpg-load-name">{mapLoad.name}</b>
+                <i className="rpg-load-bar"><i style={{ width: `${Math.round(mapLoad.p * 100)}%` }} /></i>
+                <span className="rpg-load-pct">{mapLoad.p >= 1 ? "들어갑니다" : `${Math.round(mapLoad.p * 100)}%`}</span>
+              </div>
+            </div>
+          )}
 
           {guide && me?.map !== "race" && (   /* 레이스 트랙에서는 진행 칸을 가리지 않게 길 안내를 잠깐 숨긴다 */
             <div className={`rpg-guide ${guide.end ? "end" : ""}`} role="status">

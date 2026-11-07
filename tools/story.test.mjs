@@ -18,7 +18,7 @@ test('이야기 맵 스물세 곳은 마을 뒤 스냅샷 차례에 붙고 모�
 test('이야기 인물 열셋이 모두 어딘가에 서 있고 이름표가 있다',()=>{
  const placed=new Set(['dawnwood',...STORY_MAPS.map(m=>m.id)].flatMap(id=>storyNpcsOf(id).map(n=>n.who)));
  assert.deepEqual([...placed].sort(),Object.keys(STORY_PEOPLE).sort());
- for(const n of Object.values(STORY_DIALOGUES))assert.ok(n.name&&n.intro&&n.lines.length>=2,n.id);
+ for(const n of Object.values(STORY_DIALOGUES))assert.ok(n.name&&n.intro&&n.lines.length>=1,n.id);
 });
 
 test('관리자만 /이동 으로 들어가고 문으로 마을에 돌아온다',()=>{

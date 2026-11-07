@@ -62,7 +62,7 @@ const PLACE = (id, name, ch, big, ground, items) => {
     if (!Array.isArray(it)) { npcs.push({x, y, ...it}); return; }
     const [sid, nm, role, look, intro, line2] = it, small = SMALL.has(look);
     sights.push({id: sid, name: nm, role, x, y, size: small ? 100 : look === 'giant' ? 260 : 150, r: small ? 22 : look === 'giant' ? 56 : 34,
-      look: look === 'giant' ? 'robot' : look, intro, lines: [line2, '지금은 조용합니다.']});
+      look: look === 'giant' ? 'robot' : look, intro, lines: [line2]});
   });
   return {id, name, ch, w, h, spawn: [w / 2, h - 180], exit: {x: w / 2, y: h - 60, r: 54}, ground,
     roads: [{w: 120, pts: [[w / 2, h], [w / 2, h * .5], [w / 2, h * .12]]}, {w: 90, pts: [[w * .1, h * .47], [w * .9, h * .47]]}],

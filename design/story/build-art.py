@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""메인 스토리 1부 정식 그림 묶기(11월 6일, Codex 생성) — 인물 7 · 초상화 7 · 건물/장소 46 · 소품 6 · 맵 바닥 10.
+"""메인 스토리 정식 그림 묶기 — 1부(11월 6일, Codex 생성) 인물 7 · 초상화 7 · 건물/장소 46 · 소품 6 · 맵 바닥 10.
+11월 7일 v3.0 새 그림 자리: 인물 6(people2 · portraits2) · 보스 16(boss1~2) · 장소 96(pl8~pl19) · 맵 바닥 13. 시트가 있는 것만 묶는다.
 입력(scratchpad 에서 key-green.py 로 지운 투명 WebP 4열×2행, 칸 512): people-kk · portraits-k · pl1~pl7-kk
       맵 바닥은 ground-<맵 id>.png (guide-<맵 id>.png 레이아웃 지도를 기준 그림으로 뽑았다)
 실행: python3 design/story/build-art.py <작업 폴더>
@@ -15,16 +16,33 @@ SRC = sys.argv[1] if len(sys.argv) > 1 else '.'
 CELL, FOOT, FIT = 512, 496, 472
 
 PEOPLE = ['hangyeol', 'mina', 'bori', 'sera', 'zero', 'arka', 'irion']
+PEOPLE2 = ['lia', 'doyun', 'levan', 'kael', 'serin', 'observer']   # 11월 7일 v3.0 새 인물 — people2-kk · portraits2-k (7 · 8번 칸은 비어 있다)
 PLACES = {
   'pl1': ['erden-guardpost', 'erden-workbench', 'erden-collection', 'convoy-wagon-1', 'convoy-wagon-2', 'convoy-wagon-3', 'convoy-guard', 'vault-desk'],
-  'pl2': ['lab7-gate', 'lab7-wing', 'lab7-records', 'lab7-lift', 'lab7-power-1', 'lab7-power-2', 'lab7-power-3', 'lab7-log'],
+  'pl2': ['lab7-gate', 'lab7-wing', 'lab7-records', 'lab7-lift', 'lab7-power-1', 'lab7-power-2', 'lab7-power-3', None],
   'pl3': ['lab7-core', 'core-boundary', 'core-reactor', 'core-module', 'core-sender', 'core-executor', 'relay-tower', 'relay-device'],
   'pl4': ['relay-lock', 'mine-shaft', 'mine-hut', 'mine-plan-1', 'mine-plan-2', 'mine-plan-3'],
-  'pl5': ['ruin-north-hall', 'ruin-north-gate', 'ruin-north-device', 'ruin-north-mark', 'ruin-east-hall', 'ruin-east-gate', 'ruin-east-device', 'ruin-east-mark'],
+  'pl5': ['ruin-north-hall', 'ruin-north-gate', 'ruin-north-device', None, 'ruin-east-hall', 'ruin-east-gate', 'ruin-east-device', None],
   'pl7': ['prop-crate', 'prop-pillar', 'prop-turret', 'prop-pylon', 'prop-cart', 'prop-shelf'],   # 작은 소품 — 맵 소품(props)의 look 이름
-  'pl6': ['ruin-south-hall', 'ruin-south-gate', 'ruin-south-device', 'ruin-south-mark', 'ruin-west-hall', 'ruin-west-gate', 'ruin-west-device', 'ruin-west-mark'],
+  # 11월 7일 v3.0 — 보스 · 장소(프롬프트: 프로젝트 notes/메인스토리-남은-그림-프롬프트.md)
+  'boss1': ['mine-silencer', 'lumen-eraser', 'lumen-giant', 'lib-censor', 'lib-deleter', 'leon-bearer', 'hall-raid', 'karha-forger'],
+  'boss2': ['bridge-breaker', 'sky-eye', 'sky-collector', 'sea-eraser', 'sea-cycle', 'reg-offer', 'deck-core', 'br-link'],
+  'pl8': ['lab7-assistant', 'lab7-tubes', 'core-cells', 'vault-line-1', 'vault-line-2', 'vault-line-3', 'lumen-lamp', 'lumen-house'],
+  'pl9': ['lumen-ledger', 'lumen-ghost', 'lumen-hall', 'lumen-part-1', 'lumen-part-2', 'lib-chronicle', 'lib-sealed', 'lib-memory-1'],
+  'pl10': ['lib-memory-2', 'lib-memory-3', 'lib-replay', 'lib-verdict', 'lib-ev-1', 'lib-ev-2', 'lib-ev-3', 'lib-festival'],
+  'pl11': ['obs-sphere', 'obs-arka', 'obs-bridge-1', 'obs-bridge-2', 'obs-eye', 'leon-child', 'leon-bomb', 'leon-citizen-1'],
+  'pl12': ['leon-citizen-2', 'leon-citizen-3', 'leon-bell', 'leon-front', 'leon-refugees', 'leon-victory', 'hall-gate', 'hall-secret'],
+  'pl13': ['hall-crowd', 'hall-council', 'hall-dev-1', 'hall-dev-2', 'hall-dev-3', 'hall-screen', 'hall-mourner', 'karha-power'],
+  'pl14': ['karha-guild', 'karha-hands', 'bridge-marker', 'bridge-crew', 'bridge-letter', 'bridge-shadow', 'sky-field-1', 'sky-field-2'],
+  'pl15': ['sky-field-3', 'sky-logs', 'sky-room', 'sea-road', 'sea-family', 'sea-fixer', 'sea-door', 'sea-alley'],
+  'pl16': ['sea-voice-1', 'sea-voice-2', 'sea-diary', 'reg-terminal', 'reg-key-1', 'reg-key-2', 'reg-key-3', 'reg-door'],
+  'pl17': ['deck-scores', 'deck-route', 'deck-records', 'deck-towers', 'plaza-wall', 'plaza-tag-1', 'plaza-tag-2', 'plaza-tag-3'],
+  'pl18': ['plaza-night', 'br-mural', 'br-warn', 'br-rescue', 'br-defend', 'br-record', 'br-center', 'br-memory'],
+  'pl19': ['br-table', 'br-frag-1', 'br-frag-2', 'br-frag-3', 'br-frag-4', 'br-blank', 'br-alarm', 'br-council'],
+  'pl6': ['ruin-south-hall', 'ruin-south-gate', 'ruin-south-device', None, 'ruin-west-hall', 'ruin-west-gate', 'ruin-west-device', None],
 }
-GROUNDS = ['convoy', 'lab7', 'ruin-north', 'ruin-east', 'ruin-south', 'ruin-west', 'core', 'relay', 'mine', 'vault']
+GROUNDS = ['convoy', 'lab7', 'ruin-north', 'ruin-east', 'ruin-south', 'ruin-west', 'core', 'relay', 'mine', 'vault',
+           'lumen', 'lumen-library', 'lumen-observatory', 'leon', 'leon-hall', 'karha', 'bridge', 'erden-sky', 'nameless-sea', 'registry', 'observer-deck', 'first-plaza', 'boundary-room']
 
 def cells(path):
     im = Image.open(os.path.join(SRC, path)).convert('RGBA')
@@ -44,13 +62,19 @@ def save(kind, name, im):
     im.save(os.path.join(d, name + '.webp'), quality=90, method=6)
 
 ONLY = sys.argv[2] if len(sys.argv) > 2 else ''   # 'props' 면 소품만 다시 만든다(전체는 몇 분 걸린다)
+have = lambda f: os.path.exists(os.path.join(SRC, f))   # 작업 폴더에 있는 시트만 묶는다(나눠 뽑아도 된다)
 if not ONLY:
-    for i, n in enumerate(PEOPLE): save('people', n, anchor(cells('people-kk.webp')[i]))
-    for i, n in enumerate(PEOPLE): save('portraits', n, cells('portraits-k.webp')[i])   # 하단 정렬한 상반신 — 칸 그대로
+    for pre, names in (('', PEOPLE), ('2', PEOPLE2)):
+        if have(f'people{pre}-kk.webp'):
+            for i, n in enumerate(names): save('people', n, anchor(cells(f'people{pre}-kk.webp')[i]))
+        if have(f'portraits{pre}-k.webp'):
+            for i, n in enumerate(names): save('portraits', n, cells(f'portraits{pre}-k.webp')[i])   # 하단 정렬한 상반신 — 칸 그대로
 for sheet, names in PLACES.items():
     if ONLY == 'props' and sheet != 'pl7': continue
+    if not have(sheet + '-kk.webp'): continue
     cs = cells(sheet + '-kk.webp')
-    for i, n in enumerate(names): save('places', n, anchor(cs[i]))
+    for i, n in enumerate(names):
+        if n: save('places', n, anchor(cs[i]))   # None — 11월 7일에 지운 조사물 칸
 for n in ([] if ONLY else GROUNDS):
     p = os.path.join(SRC, f'ground-{n}.png')
     if os.path.exists(p):

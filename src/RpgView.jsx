@@ -118,6 +118,7 @@ import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
 import { useTouch } from "./ui/touch.js";
 import { blocks, BLOCK } from "./game/block.js";
+const BLOCK_PEND_MS = 4000;   // 차단 단추를 누른 뒤 서버 답을 기다리며 바뀐 모습을 지키는 시간
 import { DUEL_COLORS, DUEL_TEAM } from "./game/duel.js";
 
 // 실시간 서버(Supabase 무료)는 프로젝트 전체에서 초당 메시지 100개가 한도다. 넘으면 모두의 연결을 끊는다.
@@ -684,6 +685,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const chatInput = useRef(null);
   const chatSeq = useRef(0);
   const [nowMs, setNowMs] = useState(() => Date.now());   // 채팅 줄 흐리기 · 초대 창 숨기기에 쓰는 시각 — 1초마다
+  const [blockPend, setBlockPend] = useState({});   // 방금 누른 차단 · 풀기 — 서버 가방이 오기 전에도 단추가 바로 바뀌게(이름 → { on, at })
   const pushChat = useCallback((line) => {
     chatSeq.current += 1;
     const it = { id: chatSeq.current, at: Date.now(), ...line };
@@ -1568,6 +1570,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [toast]);
 
   const me = hud;
+  // 차단했는가 — 방금 누른 것(4초)을 먼저 보고, 그 뒤로는 서버가 보낸 가방(bag.bk)을 따른다
+  const blockedNow = (n) => { const p = blockPend[n]; return p && nowMs - p.at < BLOCK_PEND_MS ? p.on : !!me && blocks(me.self, n); };
+  const toggleBlock = (n) => {
+    const on = !blockedNow(n);
+    setBlockPend((v) => ({ ...v, [n]: { on, at: Date.now() } }));
+    act("block", { op: on ? "add" : "del", name: n });
+    setToast({ name: on ? `${n}님을 차단했습니다` : `${n}님의 차단을 풀었습니다`, at: Date.now() });
+  };
+  const blockedList = me ? [...new Set([...(me.self.bag.bk || []), ...Object.keys(blockPend)])].filter(blockedNow) : [];
   const guide = !guideDone && me ? guideStep(me, metNpc(me.self, QUEST_NPC) || me.quest.on, (id) => (touch ? "" : keyOf(binds, id))) : null;
   guideRef.current = guide && guide.target;
   const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run || !!me.arun || (me.map==="worldboss"||me.map.startsWith("guildraid-")));   // 결투 · 던전 중에는 서버를 옮기지 않는다
@@ -1950,22 +1961,22 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                               ? <span className="rpg-win-tag">결투 중</span>
                               : <button type="button" className="rpg-win-btn duel" disabled={me.dvs >= 0} title={`명예 ${h.honor} · 이기면 +${honorGain(h.honor)}`}
                                 onClick={() => act("duel", { op: "ask", to: h.pi })}>결투</button>)}
-                            {!mine&&!mate&&me.pty&&h.pty&&mates.length===2&&me.party.filter(q=>q.pty===h.pty).length===2&&<button type="button" className="rpg-win-btn duel" disabled={me.dvs>=0||h.dvs>=0} onClick={()=>act('duel',{op:'ask',to:h.pi,size:2})}>2대2 결투</button>}
-                            {!mine && names[h.pi] && (blocks(me.self, names[h.pi])
-                              ? <button type="button" className="rpg-win-btn" onClick={() => act("block", { op: "del", name: names[h.pi] })}>차단 해제</button>
-                              : <button type="button" className="rpg-win-btn" title="결투 신청 · 파티 초대 · 채팅을 받지 않습니다" onClick={() => act("block", { op: "add", name: names[h.pi] })}>차단</button>)}
+                            {!mine&&!mate&&!!me.pty&&!!h.pty&&mates.length===2&&me.party.filter(q=>q.pty===h.pty).length===2&&<button type="button" className="rpg-win-btn duel" disabled={me.dvs>=0||h.dvs>=0} onClick={()=>act('duel',{op:'ask',to:h.pi,size:2})}>2대2 결투</button>}
+                            {!mine && names[h.pi] && (blockedNow(names[h.pi])
+                              ? <button type="button" className="rpg-win-btn blocked" onClick={() => toggleBlock(names[h.pi])}>차단 풀기</button>
+                              : <button type="button" className="rpg-win-btn" title="결투 신청 · 파티 초대 · 채팅을 받지 않습니다" onClick={() => toggleBlock(names[h.pi])}>차단</button>)}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                  {(me.self.bag.bk || []).length > 0 && (
+                  {blockedList.length > 0 && (
                     <div className="rpg-stat-list rpg-block-list">
-                      <p className="rpg-stat-rule">차단한 사람 {me.self.bag.bk.length} / {BLOCK.max} · 결투 신청 · 파티 초대 · 채팅이 오지 않습니다.</p>
-                      {me.self.bag.bk.map((n) => (
+                      <p className="rpg-stat-rule">차단한 사람 {blockedList.length} / {BLOCK.max} · 결투 신청 · 파티 초대 · 채팅이 오지 않습니다.</p>
+                      {blockedList.map((n) => (
                         <div key={n} className="rpg-win-row">
-                          <span className="rpg-stat-name"><b>{n}</b></span>
-                          <span className="rpg-win-acts"><button type="button" className="rpg-win-btn" onClick={() => act("block", { op: "del", name: n })}>차단 해제</button></span>
+                          <span className="rpg-stat-name"><b>{n}</b> <small>차단됨</small></span>
+                          <span className="rpg-win-acts"><button type="button" className="rpg-win-btn blocked" onClick={() => toggleBlock(n)}>차단 풀기</button></span>
                         </div>
                       ))}
                     </div>
@@ -2022,7 +2033,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </span>
               <button type="button" className="btn-main" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "accept" }); }}>수락</button>
               <button type="button" className="btn-ghost" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "decline" }); }}>거절</button>
-              {names[me.duelInv] && <button type="button" className="btn-ghost" title="이 사람의 결투 신청 · 파티 초대 · 채팅을 받지 않습니다" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "decline" }); act("block", { op: "add", name: names[me.duelInv] }); }}>차단</button>}
+              {names[me.duelInv] && <button type="button" className="btn-ghost" title="이 사람의 결투 신청 · 파티 초대 · 채팅을 받지 않습니다" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "decline" }); if (!blockedNow(names[me.duelInv])) toggleBlock(names[me.duelInv]); }}>차단</button>}
             </div>
           )}
           {me && me.dvs >= 0 && (

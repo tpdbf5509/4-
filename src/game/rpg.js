@@ -1861,7 +1861,12 @@ function killMob(g, m, pi) {
   if (m.dead) return;
   m.dead = true;
   if(isWorldBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);worldBossKilled(worldBossEngine,g,m);return;}   // 전직 숙련도 — 친 사람
-  if(isGuildBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);guildKilled(guildEngine,g,m);return;}
+  if(isGuildBoss(m)){
+    m.hp=0;advRaidKill(advEngine,g,m);guildKilled(guildEngine,g,m);
+    // 도감 — 길드 보스는 보상 정산이 따로라 여기서 처치 수를 센다. 같은 맵에 있는 토벌 참가자 모두(`rec[몹 종류]`가 도감 · 업적의 기준)
+    g.heroes.forEach(q=>{if(q&&q.loaded&&q.map===m.map&&q.rec)q.rec[m.type]=(q.rec[m.type]||0)+1;});
+    return;
+  }
   addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
   if (g.heroes[pi]) voidOnKill(voidEngine, g.heroes[pi]);   // 공허의 대검 — 3마리마다 차원의 잔흔
   m.hp = 0;

@@ -4,8 +4,11 @@
    - sk_void_rain    공허의 장궁 차원 폭우: 하늘의 균열 → 낙하 자리 표시 → 화살 8발 낙하 · 착탄
    - sk_void_hole    공허의 지팡이 특이점 붕괴: 블랙홀 생성 → 끌어당김 · 맥동 → 수축 → 폭발
    - sk_void_slash_pas / sk_void_arrow_pas / sk_void_grav_pas  패시브 추가 공격(공간 참격 · 화살 폭발 · 중력 폭발)
+   - sk_void_set     차원의 지배자 4세트 공간 폭발
+   11월 7일부터 pixelfx 시트(voidWeaponPxArt.js)로 먼저 그리고, 이 파일의 도트 그림은 시트를 못 불러왔을 때만 쓴다.
    판정 시각은 voidWeaponData.js 의 같은 수치에서 읽어 판정과 어긋나지 않는다. */
 import { VOID_SKILLS, VOID_PALETTE as P, voidArrowSpot } from './voidWeaponData.js';
+import { drawVoidPx } from './voidWeaponPxArt.js';   // 11월 7일 — pixelfx 시트가 있으면 그것으로 그리고, 없으면 아래 도트 그림
 const TAU = Math.PI * 2, PX = 4;
 const clamp = x => Math.max(0, Math.min(1, x));
 const noise = (i, s = 0) => { const v = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return v - Math.floor(v); };
@@ -191,12 +194,19 @@ function passiveGravity(ctx, f, t, sq, g, q) {   // 중력 공명 — 작은 검
     ring(ctx, x, y, f.r * u * 0.7, sq, P.purple, fade, q, 0, TAU, PX);
   }
 }
-const KINDS = { sk_void_slash: slash, sk_void_rain: rain, sk_void_hole: hole, sk_void_slash_pas: passiveSlash, sk_void_arrow_pas: passiveArrow, sk_void_grav_pas: passiveGravity };
+function setBurst(ctx, f, t, sq, g, q) {   // 차원의 지배자 4세트 공간 폭발(시트를 못 불러왔을 때)
+  const u = clamp(t / 0.3), fade = clamp(1 - t / 0.6);
+  disc(ctx, f.x, f.y, f.r * u * 0.8, sq, P.violet, 0.35 * fade);
+  ring(ctx, f.x, f.y, f.r * u, sq, P.core, fade, q, 0, TAU, PX + 1);
+  ring(ctx, f.x, f.y, f.r * u * 0.7, sq, P.purple, fade, q, 0, TAU, PX);
+}
+const KINDS = { sk_void_set: setBurst, sk_void_slash: slash, sk_void_rain: rain, sk_void_hole: hole, sk_void_slash_pas: passiveSlash, sk_void_arrow_pas: passiveArrow, sk_void_grav_pas: passiveGravity };
 export const VOID_FX_KINDS = Object.keys(KINDS);
 export function drawVoidFx(ctx, f, p, time, sq, g, q = 1) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   const h = g?.heroes?.[f.pi];
   if (f.token && g && (!h || h.down > 0 || h.ws?.void?.cast?.token !== f.token) && p < 0.98 && f.kind !== 'sk_void_hole' && f.kind !== 'sk_void_rain') return true;   // 베는 중 맵을 떠나거나 쓰러지면 그만 그린다(블랙홀 · 균열은 땅에 남는다)
+  if (drawVoidPx(ctx, f, clamp(p) * f.life, sq, g)) return true;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   try { fn(ctx, f, clamp(p) * f.life, sq, g, q); } finally { ctx.restore(); }
   return true;

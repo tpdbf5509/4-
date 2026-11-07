@@ -12,7 +12,8 @@ import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKille
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
-import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd, worldVoidTake } from "./armor.js";
+import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
+import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
 import { trading } from "./tradeData.js";
 import { RACE } from "./raceData.js";
 import { RACE_MAP, newRace, raceInput, tickRace } from "./race.js";
@@ -2061,7 +2062,7 @@ function hurtHero(g, h, raw, source, kind) {
   else {
     const defended=advTakeCut(h,0)>0||armorTakeMul(h)<1||h.guard>0||h.jb?.iron>0||h.as?.gT>0||h.as?.pT>0||h.as?.blT>0;
     if(source?.boss)raw*=COMBAT_RULES.bossDamage*(defended?COMBAT_RULES.defendedBossDamage:1);
-    dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h) * (source?.hero ? 1 : worldVoidTake(h));   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
+    dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
     dmg = worldArmorAbsorb(h, dmg);
     dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
     if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
@@ -3717,6 +3718,8 @@ function nearestHero(g, m, range) {
   return best;
 }
 
+// 몹 걷는 빠르기 배수 — 둔화(slow)가 우선, 없으면 차원의 지배자 4세트 공간 폭발 둔화(vslow · 20% 감소)
+const mobSlow = (m, slowMul) => (m.slow > 0 ? slowMul : m.vslow > 0 ? 1 - WORLD_SET_BY_ID.void.slowAmt : 1);
 // 걸린 것 · 시간 — 모든 몹이 같다. 죽었거나 얼었거나 기절했으면 false
 function tickMob(g, m, dt) {
   m.age += dt;
@@ -3725,6 +3728,7 @@ function tickMob(g, m, dt) {
   if (regen > 0 && m.calm >= MOB_REGEN.calm && m.hp < m.max) m.hp = Math.min(m.max, m.hp + m.max * regen * dt);
   m.flash = Math.max(0, m.flash - dt);
   m.slow = Math.max(0, m.slow - dt);
+  if (m.vslow > 0) m.vslow = Math.max(0, m.vslow - dt);
   m.freeze = Math.max(0, m.freeze - dt);
   m.stun = Math.max(0, m.stun - dt);
   m.shred = Math.max(0, m.shred - dt);
@@ -3772,7 +3776,7 @@ function keepMob(m) {
 
 /* 토끼 — 깡충깡충 돌아다니다 가끔 들이받는다. 대왕 토끼는 더 멀리서, 더 자주, 더 세게 들이받는다. */
 function stepRabbit(g, m, dt) {
-  const spd = m.slow > 0 ? 0.5 : 1;
+  const spd = mobSlow(m, 0.5);
   if (m.state !== "idle") {
     m.x += m.vx * spd * dt;
     m.y += m.vy * spd * RPG.squash * dt;
@@ -3812,7 +3816,7 @@ function stepRabbit(g, m, dt) {
 /* 늑대 — 가까이 온 사람을 쫓아가 문다. 제자리에서 너무 멀어지면 돌아간다.
    우두머리는 더 멀리서 알아채고, 한 번 물 때 둘레의 사람을 모두 문다. */
 function stepWolf(g, m, dt) {
-  const spd = m.slow > 0 ? 0.5 : 1;
+  const spd = mobSlow(m, 0.5);
   const aggro = m.boss ? 340 : 250;
   const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
   let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
@@ -3871,7 +3875,7 @@ function stepWolf(g, m, dt) {
 /* 멧돼지 — 쫓아와 들이받는다. 돌진 거리 안에 들면 몸을 낮췄다가(wind) 그 자리를 향해 일직선으로 달린다.
    돌진 중에 닿은 사람은 한 번씩 세게 맞는다. 달린 뒤에는 잠깐 숨을 고른다. 제자리에서 너무 멀어지면 돌아간다. */
 function stepBoar(g, m, dt) {
-  const spd = m.slow > 0 ? 0.5 : 1;
+  const spd = mobSlow(m, 0.5);
   m.chargeCd = Math.max(0, m.chargeCd - dt);
   if (m.state === "wind") {                        // 몸을 낮춘다 — 이때 피하면 된다
     m.moving = 0; m.bite = 0.2;
@@ -3968,7 +3972,7 @@ function stepBoar(g, m, dt) {
    기운을 모으는 동안 bite 를 켜 둬 손님 화면에서도 일어선 모습이 보인다.
    call 이 있으면 처음 덤빌 때 둘레의 같은 무리도 같은 사람에게 덤빈다 */
 function stepBrute(g, m, dt, P) {
-  const spd = m.slow > 0 ? 0.5 : 1;
+  const spd = mobSlow(m, 0.5);
   m.chargeCd = Math.max(0, m.chargeCd - dt);
   if (m.state === "wind") {
     m.moving = 0; m.bite = 0.2;
@@ -4176,7 +4180,7 @@ function stepDgBoss(g, m, dt) {
   const A = BOSS_AI[m.type];
   const S = A.skills;
   if (!m.cds) { m.cds = S.map((q) => (q.cd || 0) * 0.5); m.marks = S.map(() => 0); }
-  const spd = (m.slow > 0 ? 0.6 : 1) * (m.rage ? m.rageSpd : 1);
+  const spd = mobSlow(m, 0.6) * (m.rage ? m.rageSpd : 1);
   m.cds = m.cds.map((c) => Math.max(0, c - dt));
   m.mirage = Math.max(0, m.mirage - dt);
   // 체력 문턱 기술 — 철벽(여러 번) · 광폭화(한 번)

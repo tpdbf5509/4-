@@ -1,7 +1,7 @@
 /* 월드보스 무기 판정. 진행 상태는 ws.world에 숫자·문자·배열만 보관해 방장 승계에도 이어간다.
    E는 기존 RPG의 대상 선택·피해·이동·연출 함수다. 피해와 PvP 제한은 기존 판정을 그대로 거친다. */
 import { WORLD_WEAPON_SKILLS, WORLD_SET_BY_ID } from './worldEquipmentData.js';
-import { worldArmorOnHit, worldCooldownMul } from './armor.js';
+import { worldArmorOnHit, worldCooldownMul, worldVoidRift } from './armor.js';
 const key = o => o.type ? `m${o.id}` : `h${o.pi}`;
 const state = h => h.ws.world || (h.ws.world = { cast: null, venom: [], marks: [], flights: [] });
 const target = (g, k) => k[0] === 'm' ? g.mobs.find(m => m.id === Number(k.slice(1))) : g.heroes[Number(k.slice(1))];
@@ -173,6 +173,12 @@ export function worldWeaponBasicHit(E,g,h,o){
   effect(E,g,h,'sk_wb_venom_mark',{x:o.x,y:o.y-20,r:40},0.3);
 }
 export function worldSetHit(E,g,h,o,flags){
+  // 차원의 지배자 4세트 — 몬스터를 스킬로 맞혔을 때만(결투 · 사냥터 PvP 의 사람에게는 켜지지 않는다). 폭발은 몬스터만 치고 새 효과를 다시 켜지 못한다
+  if(o?.type!==undefined&&worldVoidRift(h,flags)){
+    const V=WORLD_SET_BY_ID.void,dmg=E.base(h)*V.mul;
+    E.noProc(()=>E.near(g,h,o.x,o.y,V.radius).forEach(q=>{if(q.type===undefined||q.dead)return;E.strike(g,h,q,dmg);q.vslow=Math.max(q.vslow||0,V.slow);}));
+    effect(E,g,h,'sk_void_set',{x:o.x,y:o.y,r:V.radius,snd:'boom'},0.6);
+  }
   if(!worldArmorOnHit(h,flags))return;
   const M=WORLD_SET_BY_ID.machine;
   E.noProc(()=>E.near(g,h,o.x,o.y,M.radius).forEach(q=>E.strike(g,h,q,E.base(h)*M.mul)));

@@ -2635,6 +2635,8 @@ button.forge-stage:disabled { cursor: default; }
 .village-dialogue-line { display: block; position: relative; width: 100%; min-height: 82px; padding: 16px 42px 16px 20px; text-align: left; font: inherit; font-size: 18px; line-height: 1.65; color: #f1e4c8; border: 0; border-radius: 0; background: none; cursor: pointer; }
 .village-dialogue-line:focus-visible { outline: 2px solid #e4c987; outline-offset: -5px; }
 .village-dialogue-cue { position: absolute; right: 20px; bottom: 14px; color: #e4c987; }
+.village-dialogue-cue.wait { opacity: 0.25; }
+.village-panel .shop-btn.main[aria-disabled="true"] { opacity: 0.55; }
 .village-dialogue-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 16px 12px; }
 .village-dialogue-actions > span { margin-right: auto; color: #c4b28e; font-size: 12px; }
 @media (max-width: 520px) {
@@ -2651,6 +2653,9 @@ button.forge-stage:disabled { cursor: default; }
 
 /* 메인 이야기 1부 — 의뢰 · 퀘스트 창의 진행 칸(StoryCard.jsx) · 위쪽 줄 · 대화 창 선택지(VillagePanel.jsx) */
 .rpg-quest-story { color: #f3e6c6; }
+.rpg-quest-open { align-self: flex-start; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; }
+.rpg-quest-go { margin-left: 8px; padding: 1px 8px; border: 1px solid #d6b26a; border-radius: 999px; background: rgba(122, 90, 46, 0.8); color: #ffe08a; font: inherit; font-size: 0.92em; cursor: pointer; }
+.rpg-quest-go:hover { background: rgba(150, 112, 58, 0.9); }
 .story-card { display: grid; gap: 4px; margin: 0 0 10px; padding: 8px 0 10px; border-top: 1px solid rgba(227, 196, 138, 0.3); border-bottom: 1px solid rgba(227, 196, 138, 0.3); }
 .story-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .story-card-head b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 15px; color: #f3e6c6; letter-spacing: -0.03em; }

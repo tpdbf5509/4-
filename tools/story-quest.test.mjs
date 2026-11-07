@@ -28,7 +28,7 @@ function picksFor(scene,c,t,choose=()=>0){
 const sqOf=(h)=>h.bag.sq||{i:0,n:[],c:[],t:{}};
 function playStep(g,s,choose){
  const h=g.heroes[0];
- if(h.map!==s.map){ if(MAPS[s.map].story){send(g,{op:'go'});} else {h.map=s.map;[h.x,h.y]=MAPS[s.map].spawn;} }
+ if(h.map!==s.map){ assert.ok(storyView(h).canGo,`${s.id} 바로 가기`);send(g,{op:'go'}); }
  assert.equal(h.map,s.map,`${s.id} 장소`);step(g,40);
  for(const t of stepTargets(s)){
   assert.ok(storyTargetFor(h,t),`${s.id}/${t}`);
@@ -176,5 +176,17 @@ test('틀린 답 · 시간 제한 질문에는 정답이 하나 이상 있다',(
   if(!l.pick)continue;
   assert.ok(l.pick.some(p=>!p.wrong),`${s.id} 정답 없음`);
   if(l.timer)assert.ok(l.late&&l.late.then,`${s.id} 시간 초과 대사`);
+ }
+});
+
+test('바로 가기 — 광장 · 사냥터 어디서든 지금 단계 장소(에르덴 마을 포함)로 옮기고, 이미 거기면 숨긴다',()=>{
+ const g=world(),h=g.heroes[0];
+ const s0=STORY_STEPS[0];
+ for(const m of ['plaza',Object.keys(MAPS).find(k=>!MAPS[k].story&&!MAPS[k].dungeon&&!MAPS[k].pvp&&!MAPS[k].race&&k!=='plaza'&&k!==s0.map)]){
+  h.map=m;[h.x,h.y]=MAPS[m].spawn;step(g,5);
+  assert.ok(storyView(h).canGo,m);
+  send(g,{op:'go'});
+  assert.equal(h.map,s0.map,`${m} → ${s0.map}`);
+  assert.equal(storyView(h).canGo,false);
  }
 });

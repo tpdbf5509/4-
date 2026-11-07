@@ -1698,16 +1698,20 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </span>
               {/* 의뢰 · 퀘스트 — 레벨 칸 바로 아래에 붙는다(style.css .rpg-quest) */}
               {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
-                <button type="button" className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
-                  {me.story && !me.story.done && <span className="rpg-quest-story"><b>{me.story.ch}장</b>{me.self.map !== me.story.map ? `${me.story.mapName} · ` : ""}{me.story.goal}{me.story.need ? ` ${me.story.got}/${me.story.need}` : ""}</span>}
+                <div className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
+                  {me.story && !me.story.done && <span className="rpg-quest-story"><b>{me.story.ch}장</b>{me.self.map !== me.story.map ? `${me.story.mapName} · ` : ""}{me.story.goal}{me.story.need ? ` ${me.story.got}/${me.story.need}` : ""}
+                    {/* 이야기 장소 바로 가기 — 지금 단계의 맵으로 바로 옮긴다(storyQuest.js rpgStory op 'go') */}
+                    {me.story.canGo && <button type="button" className="rpg-quest-go" title={`${me.story.mapName}(으)로 바로 가기`}
+                      onClick={(e) => { e.stopPropagation(); act("story", { op: "go" }); }}>바로 가기</button>}
+                  </span>}
                   {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
                   {Object.entries(me.self.reqs).map(([id, r]) => {
                     const q = REQUESTS[id] && REQUESTS[id][r.i];
                     const xpTxt = q && me.lv < LV_MAX ? reqXpText(q, me.lv, r.coinOnly ?? (me.lv > q.lv)) : "";
                     return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}{xpTxt ? ` · ${xpTxt}` : ""}</span> : null;
                   })}
-                  <span className="rpg-quest-open">의뢰 · 퀘스트 ›</span>
-                </button>
+                  <button type="button" className="rpg-quest-open" onClick={(e) => { e.stopPropagation(); closeAll(); setQuestOpen(true); }}>의뢰 · 퀘스트 ›</button>
+                </div>
               )}
             </div>
           )}

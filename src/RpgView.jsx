@@ -117,6 +117,7 @@ import { ghostStep } from "./game/bossBar.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
 import { useTouch } from "./ui/touch.js";
+import { blocks, BLOCK } from "./game/block.js";
 import { DUEL_COLORS, DUEL_TEAM } from "./game/duel.js";
 
 // 실시간 서버(Supabase 무료)는 프로젝트 전체에서 초당 메시지 100개가 한도다. 넘으면 모두의 연결을 끊는다.
@@ -1209,6 +1210,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const me = g.heroes[mySeat];
       const party = d.s === "party";
       if (party && (!me || !me.pty || me.pty !== d.p)) return;
+      if (me && blocks(me, seatsRef.current[pi].name)) return;   // 차단한 사람의 채팅 · 말풍선은 띄우지 않는다(block.js)
       if (!g.bubbles) g.bubbles = {};
       g.bubbles[pi] = { text, until: performance.now() + CHAT.bubble * 1000 };
       pushChat({ kind: party ? "party" : "all", name: seatsRef.current[pi].name || "모험가", text });
@@ -1949,11 +1951,25 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                               : <button type="button" className="rpg-win-btn duel" disabled={me.dvs >= 0} title={`명예 ${h.honor} · 이기면 +${honorGain(h.honor)}`}
                                 onClick={() => act("duel", { op: "ask", to: h.pi })}>결투</button>)}
                             {!mine&&!mate&&me.pty&&h.pty&&mates.length===2&&me.party.filter(q=>q.pty===h.pty).length===2&&<button type="button" className="rpg-win-btn duel" disabled={me.dvs>=0||h.dvs>=0} onClick={()=>act('duel',{op:'ask',to:h.pi,size:2})}>2대2 결투</button>}
+                            {!mine && names[h.pi] && (blocks(me.self, names[h.pi])
+                              ? <button type="button" className="rpg-win-btn" onClick={() => act("block", { op: "del", name: names[h.pi] })}>차단 해제</button>
+                              : <button type="button" className="rpg-win-btn" title="결투 신청 · 파티 초대 · 채팅을 받지 않습니다" onClick={() => act("block", { op: "add", name: names[h.pi] })}>차단</button>)}
                           </span>
                         </div>
                       );
                     })}
                   </div>
+                  {(me.self.bag.bk || []).length > 0 && (
+                    <div className="rpg-stat-list rpg-block-list">
+                      <p className="rpg-stat-rule">차단한 사람 {me.self.bag.bk.length} / {BLOCK.max} · 결투 신청 · 파티 초대 · 채팅이 오지 않습니다.</p>
+                      {me.self.bag.bk.map((n) => (
+                        <div key={n} className="rpg-win-row">
+                          <span className="rpg-stat-name"><b>{n}</b></span>
+                          <span className="rpg-win-acts"><button type="button" className="rpg-win-btn" onClick={() => act("block", { op: "del", name: n })}>차단 해제</button></span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {me.pty > 0 && (
                     <div className="rpg-stat-foot">
                       <button type="button" className="btn-ghost" onClick={() => act("party", { op: "leave" })}>파티 나가기</button>
@@ -2006,6 +2022,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </span>
               <button type="button" className="btn-main" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "accept" }); }}>수락</button>
               <button type="button" className="btn-ghost" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "decline" }); }}>거절</button>
+              {names[me.duelInv] && <button type="button" className="btn-ghost" title="이 사람의 결투 신청 · 파티 초대 · 채팅을 받지 않습니다" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "decline" }); act("block", { op: "add", name: names[me.duelInv] }); }}>차단</button>}
             </div>
           )}
           {me && me.dvs >= 0 && (

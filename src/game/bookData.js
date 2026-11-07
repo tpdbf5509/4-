@@ -11,6 +11,7 @@ import {
 import { DROP_ROLL, MATERIALS, MAT_BY_ID } from "./itemData.js";
 import { DEEP, DEEP_MAPS } from "./deepData.js";
 import { PARTY, CHAT, TITLE_UP } from "./socialData.js";
+import { BLOCK } from "./block.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./armorData.js";
 import { DUNGEONS, DUNGEON } from "./dungeonData.js";
 import { UPDATES } from "./updates.js";
@@ -34,6 +35,9 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-11-07-block", title: "패치노트 · 11월 7일 (8)", sub: "차단 · 결투 신청 간격", color: "#c9b37c",
+    pages: [{ h: "차단", p: ["파티 창의 각 사람 줄에 차단 단추가 생겼습니다. 결투 신청 알림에서도 바로 차단할 수 있습니다.", `차단한 사람의 결투 신청 · 파티 초대 · 채팅은 오지 않습니다. 차단은 ${BLOCK.max}명까지이고 캐릭터에 저장됩니다.`, "파티 창 아래 차단 목록에서 풀 수 있습니다."] },
+      { h: "결투 신청 간격", p: [`결투 신청은 ${DUEL.askGap}초에 한 번 보냅니다. 같은 사람에게는 ${DUEL.reaskGap}초가 지나야 다시 보냅니다(전에는 제한 없음).`, "답을 기다리는 신청이 있으면 다시 보낼 수 없습니다. 결투를 받아들였다면 바로 다시 신청할 수 있습니다."] }] },
   { id: "patch-2026-11-07-voidset", title: "패치노트 · 11월 7일 (7)", sub: "차원의 지배자 세트 · 공허 무기 연출", color: "#c9b37c",
     pages: [{ h: "차원의 지배자 세트", p: ["2세트: 모든 스킬 재사용 대기 8% 감소(이전 5%).", "4세트: 스킬이 맞으면 반경 180 공간 폭발. 기본 스킬 피해의 1.2배 · 10초마다. 맞은 적은 2초 동안 이동 속도 20% 감소(이전: 스킬 적중 후 4초 동안 받는 피해 8% 감소 · 12초마다).", "폭발은 몬스터만 맞힙니다. 결투와 사냥터 PvP 에서는 터지지 않습니다. 부위별 전설 효과와 기본 능력치는 그대로입니다."] },
       { h: "공허 무기 연출", p: ["차원 절단 · 차원 폭우 · 특이점 붕괴와 세 무기의 패시브 연출을 픽셀 연출로 바꿨습니다.", "판정 시각 · 범위 · 피해는 그대로입니다."] }] },

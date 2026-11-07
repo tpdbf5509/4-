@@ -4,6 +4,7 @@ import {storyGateOpen, storyGateWhy, storyCleared} from './storyQuestData.js';
 import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
 import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
+import { blocks, blockInput } from './block.js';
 import {COMBAT_RULES, refreshPowerCircles, empowerAttack, empowerHealing, duelAllies} from './combatRules.js';
 import {GUILD,GUILD_BOSSES,guildMap,guildBuff,guildAspd,GUILD_HALL,guildHallMap} from './guildData.js';
 import {isGuildBoss,guildInput,guildHit,guildKilled,guildRestore,tickGuild} from './guild.js';
@@ -1751,6 +1752,7 @@ const pvpSoft = (raw, cap) => cap * (1 - Math.exp(-raw / (cap * FIELD_PVP.skillS
 /* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
 const duelEngine={config:DUEL,rings:MAPS.arena.rings,sys,name:(g,pi)=>nameOf(g,pi),fx,honorGain,win:(g,h)=>advDuelWin(advEngine,g,h),map:id=>MAPS[id],plaza:{map:'plaza',x:MAPS.plaza.spawn[0],y:MAPS.plaza.spawn[1]}};
 export const rpgDuel=(g,pi,req)=>duelInput(duelEngine,g,pi,req);
+export const rpgBlock=(g,pi,req)=>blockInput({name:nameOf,sys},g,pi,req);   // 차단 목록 추가 · 해제(block.js)
 const tickDuels=(g,dt)=>tickDuelMatches(duelEngine,g,dt);
 // 광장 몹 레이스(race.js) — 하루 보상 횟수는 가방의 오늘 칸(bag.day.race)에 센다
 const raceEngine={sys,name:(g,pi)=>nameOf(g,pi),fx,stop:stopMove,dayUsed:h=>usedToday(h.bag,'race'),dayAdd:h=>bumpToday(h.bag,'race')};
@@ -4816,6 +4818,8 @@ export function rpgParty(g, pi, req) {
     if (o.pty && o.pty === h.pty) return void sys(g, pi, `${nameOf(g, o.pi)}님은 이미 같은 파티입니다.`);
     if (o.pty) return void sys(g, pi, `${nameOf(g, o.pi)}님은 다른 파티에 있습니다.`);
     if (h.pty && partyOf(g, h.pty).length >= PARTY.max) return void sys(g, pi, `파티는 ${PARTY.max}명까지입니다.`);
+    if (blocks(h, nameOf(g, o.pi))) return void sys(g, pi, "차단한 사람은 파티에 초대할 수 없습니다.");
+    if (blocks(o, nameOf(g, pi))) return void sys(g, pi, "지금 초대할 수 없습니다.");   // 나를 차단했다 — 알리지 않고 막는다(block.js)
     o.invite = { from: pi, t: PARTY.inviteT };
     sys(g, pi, `${nameOf(g, o.pi)}님을 파티에 초대했습니다.`);
     sys(g, o.pi, `${nameOf(g, pi)}님이 파티에 초대했습니다.`);

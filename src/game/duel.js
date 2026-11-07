@@ -1,6 +1,7 @@
 import {trading} from './tradeData.js';
 /* 1대1·2대2 결투. 팀·소유자·귀환 위치를 통째로 스냅샷에 보존한다. */
 import { COMBAT_RULES } from './combatRules.js';
+import { blocks } from './block.js';
 // 2대2 팀 색 — 넷 가운데 두 색을 뽑아 팀마다 하나씩. 톤을 낮춘 빨강 · 파랑 · 녹색 · 노랑(11월 2일 사용자 요청)
 export const DUEL_COLORS=[{id:'red',name:'빨강',c:'#e07a6e'},{id:'blue',name:'파랑',c:'#6f9fd8'},{id:'green',name:'녹색',c:'#7cc08a'},{id:'yellow',name:'노랑',c:'#e8c766'}];
 // rollT: 결투장에 들어가 색이 돌다 멈추기까지 초(이 시간이 지나야 시작 세기가 시작된다)
@@ -41,6 +42,16 @@ export function duelInput(E,g,pi,req){
     const o=g.heroes[req.to];if(!o||o===h)return false;
     const size=req.size===2?2:1,sides=teamsFor(E,g,h,o,size);
     if(!sides||!sides.flat().every(eligible)){E.sys(g,pi,size===2?duelTeamWhy(E,g,h,o)||'지금 결투를 신청할 수 없습니다':'지금 결투를 신청할 수 없습니다');return false;}
+    // 차단 — 내가 차단한 사람에게는 못 보내고, 나를 차단한 쪽(2대2 는 상대 파티 누구라도)에는 조용히 가지 않는다(block.js)
+    if(blocks(h,E.name(g,o.pi))){E.sys(g,pi,'차단한 사람에게는 결투를 신청할 수 없습니다');return false;}
+    const me=E.name(g,pi),foes=size===2?sides[1]:[o];
+    // 반복 신청 막기 — 아무에게나 DUEL.askGap 초 · 같은 사람에게 DUEL.reaskGap 초 · 답을 기다리는 신청이 있으면 다시 못 보낸다
+    const last=h.duelAsk,now=g.t||0,key=o.who||'p'+o.pi;
+    if(o.duelInv&&o.duelInv.from===pi){E.sys(g,pi,'이미 신청했습니다. 답을 기다리세요');return false;}
+    const wait=last?Math.max(C.askGap-(now-last.t),last.to===key?C.reaskGap-(now-last.t):0):0;
+    if(wait>0){E.sys(g,pi,`${Math.ceil(wait)}초 뒤에 다시 신청할 수 있습니다`);return false;}
+    h.duelAsk={t:now,to:key};
+    if(foes.some(q=>blocks(q,me))){E.sys(g,pi,'지금 결투를 신청할 수 없습니다');return false;}
     const members=sides.map(s=>s.map(q=>({pi:q.pi,owner:q.who})));
     o.duelInv={from:pi,t:C.reqT,size,members};
     E.sys(g,pi,`${E.name(g,o.pi)}님에게 ${size}대${size} 결투를 신청했습니다`);
@@ -60,6 +71,7 @@ export function duelInput(E,g,pi,req){
   const ring=E.rings.findIndex((_,i)=>!g.duels.some(d=>d.ring===i));
   if(ring<0){E.sys(g,pi,'결투장이 모두 차 있습니다');return false;}
   const R=E.rings[ring],all=sides.flat();
+  o.duelAsk=null;                                  // 받아들여진 신청은 간격을 세지 않는다 — 다시 붙기는 바로 된다
   const c0=Math.floor(Math.random()*DUEL_COLORS.length),c1=(c0+1+Math.floor(Math.random()*(DUEL_COLORS.length-1)))%DUEL_COLORS.length;
   const colors=size===2?[c0,c1]:[-1,-1],ready=C.ready+(size===2?DUEL_TEAM.rollT:0);
   const d={a:o.pi,b:h.pi,wa:o.who,wb:h.who,ring,size,phase:'ready',t:ready,cnt:ready+1,colors,

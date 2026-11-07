@@ -4,6 +4,7 @@ export const DUEL = {
   healMul: 0.5, shieldMul: 0.6,                              // 회복·보호막은 생성할 때 한 번만 줄인다
   calm: 7, calmRegen: 0.01,                                 // 피해 없이 7초 뒤 초당 최대 체력의 1% 회복
   ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
+  askGap: 5, reaskGap: 20,                                  // 결투 신청 간격 — 아무에게나 5초에 한 번 · 같은 사람에게는 20초에 한 번(11월 7일 반복 신청으로 렉)
 };
 export const inDuel = h => h?.map === 'arena' && h.dvs >= 0;
 export const duelHealing = (h, amount) => amount * (inDuel(h) ? DUEL.healMul : 1);

@@ -7,6 +7,11 @@ import {STORY_AFTER} from './game/storyAfter.js';
 /* 기존 상점 틀을 쓴다. 평소에는 소개 대화만 보여 준다.
    메인 스토리에서 지금 이 대상과 이야기할 차례면 이야기 장면을 보여 주고, 선택지를 고르게 한다(storyQuestData.js).
    장면을 끝까지 보고 마지막 칸을 닫으면 진행을 보낸다(onStory → storyQuest.js rpgStory). */
+// 대사 한 줄을 최소 이만큼 보여 준 뒤에 넘어간다 — 연타 · 키 누름 반복으로 휙휙 지나가지 않게.
+// 짧은 줄 1초, 글자가 많으면 한 글자당 0.02초씩 늘어 최대 2초
+const LINE_WAIT = {min: 1, perChar: 0.02, max: 2};
+const lineWait = (t) => Math.min(LINE_WAIT.max, LINE_WAIT.min + (t || '').length * LINE_WAIT.perChar) * 1000;
+
 // 시간 제한 질문 — 줄어드는 막대. 다 줄면 onEnd(시간 초과 답)
 function PickTimer({sec, onEnd}) {
   const end = useRef(onEnd); end.current = onEnd;
@@ -43,6 +48,14 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
   const [at, setAt] = useState(() => skip(0));
   const [trail, setTrail] = useState([]);       // 지나온 칸(이전 버튼) — 선택지를 고른 뒤에는 그 앞으로 되돌아가지 않는다
   const [end, setEnd] = useState(false);
+  // 지금 줄을 넘길 수 있는지 — 줄이 바뀌면 lineWait 동안 잠근다
+  const lineKey = `${at}/${seq.length}/${end}`;
+  const [readyKey, setReadyKey] = useState(null);
+  const ready = readyKey === lineKey;
+  useEffect(() => {
+    const id = setTimeout(() => setReadyKey(lineKey), end ? 400 : lineWait(seq[at]?.t));
+    return () => clearTimeout(id);
+  }, [lineKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     returnFocus.current = document.activeElement; dialog.current?.focus();
     return () => returnFocus.current?.focus?.();
@@ -58,7 +71,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
     onClose();
   };
   const advance = () => {
-    if (pick) return;
+    if (pick || !ready) return;
     if (end) return finish();
     const k = skip(at + 1);
     if (k < seq.length) { setTrail((t) => [...t, at]); setAt(k); return; }
@@ -96,7 +109,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
   const trap = (e) => {
     e.stopPropagation();
     if (e.key === 'Escape') { finish(); return; }
-    if ((e.key === 'Enter' || e.key === ' ') && e.target === dialog.current) { e.preventDefault(); advance(); return; }
+    if ((e.key === 'Enter' || e.key === ' ') && e.target === dialog.current) { e.preventDefault(); if (!e.repeat) advance(); return; }
     if (!pick && /^[1-4]$/.test(e.key)) return;
     if (pick && /^[1-4]$/.test(e.key) && pick[+e.key - 1] && !line.tried?.includes(+e.key - 1)) { e.preventDefault(); choose(pick[+e.key - 1], +e.key - 1); return; }
     if (e.key !== 'Tab') return;
@@ -139,14 +152,14 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
       ) : (
         <button type="button" className={`village-dialogue-line${line?.s === 'nar' ? ' nar' : ''}${line?.s === 'me' ? ' me' : ''}`} onClick={advance} aria-label="대사 넘기기">
           <span aria-live="polite">{say(line?.t)}</span>
-          <span className="village-dialogue-cue" aria-hidden="true">▾</span>
+          <span className={`village-dialogue-cue${ready ? '' : ' wait'}`} aria-hidden="true">▾</span>
         </button>
       )}
       <footer className="village-dialogue-actions">
         <span>{step ? (end ? '' : pick ? '대답을 고르세요' : `남은 대사 ${left}`) : `${trail.length + 1} / ${trail.length + 1 + left}`}</span>
         {!pick && <button type="button" className="shop-btn" disabled={!end && !trail.length} onClick={back}>이전</button>}
         {pick ? null : end ? <button type="button" className="shop-btn main" onClick={finish}>확인</button>
-          : <button type="button" className="shop-btn main" onClick={advance}>{left || step ? '다음' : '대화 마치기'}</button>}
+          : <button type="button" className="shop-btn main" aria-disabled={!ready} onClick={advance}>{left || step ? '다음' : '대화 마치기'}</button>}
       </footer>
     </section>
   </>;

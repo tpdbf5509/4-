@@ -308,19 +308,22 @@ function healTrial(E, g, h, d) {
 export function advHealShot(E, g, h, rng) {
   if (!h.healMode || h.advClass !== "healer" || !advOf(h) || (E.pvpMap(h.map)&&h.duelSize!==2)) return null;
   const S = ADV_BY_ID.healer.healShot, solo = E.fieldPvp(h);
-  let best = null;
+  const list = [];                                // 사거리 안에서 다친 아군 모두(나 포함) — 즉시 회복한다
   g.heroes.forEach((q) => {
     if (!q || q.down > 0 || q.map !== h.map || !q.loaded || q.hp >= q.max) return;
     if(E.pvpMap(h.map)&&q!==h&&!E.allies?.(h,q))return;
     if (q !== h && (solo || E.dist(h.x, h.y, q.x, q.y) > rng)) return;
-    if (!best || q.hp / q.max < best.hp / best.max) best = q;
+    list.push(q);
   });
-  if (!best) return false;
+  if (!list.length) return false;
+  const best = list.reduce((a, q) => (q !== h && q.hp / q.max < a.hp / a.max ? q : a), list.find((q) => q !== h) || h);
   if (best !== h && Math.abs(best.x - h.x) > 1) h.dir = best.x < h.x ? -1 : 1;
   h.face = 0;
   const map = h.map;
-  E.fx(g, map, { kind: "shot", x0: h.x + (h.dir || 1) * 14, y0: h.y - 34, x1: best.x, y1: best.y - 30, style: "orb", r: 18, color: S.color, t: S.fly, life: S.fly, snd: "orb" });
-  laterFor(E, h, g, S.fly, () => { if (best.map === map) healHero(E, g, h, best, best.max * S.heal, false); });
+  list.forEach((q) => {
+    if (q !== h) E.fx(g, map, { kind: "shot", x0: h.x + (h.dir || 1) * 14, y0: h.y - 34, x1: q.x, y1: q.y - 30, style: "orb", r: 18, color: S.color, t: S.fly, life: S.fly, snd: "orb" });
+    healHero(E, g, h, q, q.max * S.heal, false);  // 맞히기를 기다리지 않고 바로 찬다
+  });
   return true;
 }
 // 축복을 건다 — 받는 피해 감소 · 바로 회복 · 이어 회복(tickAdv)

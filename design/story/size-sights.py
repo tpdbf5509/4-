@@ -43,17 +43,37 @@ E = {
   'br-table': 2.0, 'br-frag-1': 0.9, 'br-frag-2': 0.9, 'br-frag-3': 0.9, 'br-frag-4': 0.9, 'br-blank': 1.8,
   'br-alarm': 3.2, 'br-council': 3.2, 'br-link': 3.4,
 }
+
+# 맵 장식 소품(storyDecor.js) — 이름: 긴 쪽 길이(사람 키의 몇 배). 파일은 places/prop-d-<이름>.webp
+D = {
+  'rubble': 1.6, 'slab': 1.4, 'boulder': 1.5, 'stump-pillar': 1.1, 'bench-stone': 1.3, 'bricks': 1.0, 'menhir': 1.6, 'pottery': 0.9,
+  'bookstack': 1.1, 'bookstand': 1.0, 'ladder': 1.8, 'writing-desk': 1.5, 'scroll-crate': 1.0, 'globe': 1.2, 'candle-stand': 1.3, 'cabinet': 1.4,
+  'barricade': 2.0, 'tent': 2.4, 'supply-stack': 1.4, 'barrels': 1.2, 'fence': 1.8, 'flag-pole': 2.6, 'campfire': 1.0, 'handcart': 1.6,
+  'cable-spool': 1.3, 'generator': 1.6, 'scrap': 1.3, 'pipes': 2.0, 'junction': 1.0, 'vent': 1.4, 'robot-wreck': 1.3, 'battery-rack': 1.6,
+  'bush': 1.3, 'wildflowers': 1.2, 'stump': 1.0, 'small-tree': 2.6, 'rocks': 1.5, 'fence-post': 1.0, 'hay-bale': 1.1, 'tall-grass': 1.2,
+  'mooring': 1.2, 'traps': 1.2, 'net-rack': 1.8, 'buoy': 0.9, 'crate-sunk': 1.2, 'rock-weed': 1.4, 'pier-lantern': 1.8, 'rowboat': 2.4,
+  'planter': 1.3, 'bench': 1.6, 'statue': 2.0, 'armillary': 1.8, 'star-stand': 1.7, 'fountain': 2.0, 'urn': 1.4, 'banner-stand': 2.2,
+  'pick-stand': 1.5, 'ore-pile': 1.2, 'lantern-post': 2.0, 'mine-beam': 2.0, 'rail': 1.6, 'crystals': 1.5, 'planks-barrels': 1.5, 'scaffold': 2.4,
+}
+SOLID = {'boulder', 'tent', 'barricade', 'generator', 'small-tree', 'fountain', 'statue', 'scaffold', 'rubble', 'menhir', 'rowboat'}   # 이것만 몸이 막힌다(작게)
 R_K = 0.26                   # 부딪히는 반지름 = 긴 쪽 길이 × 0.26 (그림의 발밑 폭에 가깝게)
 R_MAX = 56                   # 말 걸 수 있는 거리(RPG.talkR 100) 안에 설 수 있도록 — 큰 건축물도 부딪힘은 이만큼까지만
 out = {}
+dec_out = {}
 for k, e in E.items():
     im = Image.open(os.path.join(PL, k + '.webp')).convert('RGBA')
     bb = im.getchannel('A').point(lambda v: 255 if v > 20 else 0).getbbox()
     longest = max(bb[2] - bb[0], bb[3] - bb[1])
     size = round(e * H * 512 / longest / 10) * 10
     out[k] = [size, min(R_MAX, max(16, round(e * H * R_K)))]
+for k, e in D.items():
+    im = Image.open(os.path.join(PL, 'prop-d-' + k + '.webp')).convert('RGBA')
+    bb = im.getchannel('A').point(lambda v: 255 if v > 20 else 0).getbbox()
+    longest = max(bb[2] - bb[0], bb[3] - bb[1])
+    dec_out[k] = [round(e * H * 512 / longest / 10) * 10, min(24, round(e * H * .16)) if k in SOLID else 0]
 lines = ["// 이야기 맵 조사물 크기 — design/story/size-sights.py 가 만든다(사람 키 64px 기준). 직접 고치지 말고 그 스크립트의 E 를 고친다.",
          "// id: [그리는 크기(칸 한 변 px), 부딪히는 반지름]", "export const STORY_SIGHT_SIZE = {"]
-lines += [f"  '{k}': [{v[0]}, {v[1]}]," for k, v in out.items()] + ["};", ""]
+lines += [f"  '{k}': [{v[0]}, {v[1]}]," for k, v in out.items()] + ["};", "// 맵 장식 소품 — d-<이름>: [그리는 크기, 부딪히는 반지름(0 이면 막지 않는다)]", "export const STORY_DECOR_SIZE = {"]
+lines += [f"  'd-{k}': [{v[0]}, {v[1]}]," for k, v in dec_out.items()] + ["};", ""]
 open(os.path.join(ROOT, 'src/game/storySizes.js'), 'w', encoding='utf-8').write('\n'.join(lines))
 print(len(out), 'ok')

@@ -5,6 +5,7 @@
 
 // 그림 규격 — 마을과 같다. 512×512 투명 WebP, 발 기준 (256,496). 맵 바닥은 ground/<맵 id>.webp 한 장(맵 크기 그대로).
 import {STORY_SIGHT_SIZE} from './storySizes.js';
+import {decorFor} from './storyDecor.js';
 export const STORY_ART = {base: '/assets/game/rpg/story/', size: 512, feet: [256, 496], npcSize: 86};
 export const storyArtPath = (kind, id) => `${STORY_ART.base}${kind}/${id}.webp`;   // kind: people · portraits · places · ground
 
@@ -347,7 +348,10 @@ const STORY_MAPS_RAW = [
   ...STORY_MAPS_2,
 ];
 // 조사물 크기는 사람 키 기준으로 다시 맞춘다(storySizes.js ← design/story/size-sights.py). 없는 것은 위 값 그대로.
-export const STORY_MAPS = STORY_MAPS_RAW.map((m) => ({...m, sights: m.sights.map((s) => { const z = STORY_SIGHT_SIZE[s.id]; return z ? {...s, size: z[0], r: z[1]} : s; })}));
+export const STORY_MAPS = STORY_MAPS_RAW.map((m) => {
+  const sized = {...m, sights: m.sights.map((s) => { const z = STORY_SIGHT_SIZE[s.id]; return z ? {...s, size: z[0], r: z[1]} : s; })};
+  return {...sized, props: [...(m.props || []), ...decorFor(sized)]};   // 비어 보이지 않게 장식 소품을 흩뿌린다(storyDecor.js)
+});
 
 /* 에르덴 마을에서 이야기 장소로 가는 문(11월 6일). 마을 새 좌표. back 은 이야기 맵에서 돌아올 때 서는 자리.
    이야기를 그 장소까지 진행해야 열린다(storyQuestData.js storyGateOpen). 봉인 유적은 북 → 동 → 남 → 서 → 중앙 제어 시설로 이어진다 */

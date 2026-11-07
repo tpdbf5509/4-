@@ -39,6 +39,15 @@ PLACES = {
   'pl17': ['deck-scores', 'deck-route', 'deck-records', 'deck-towers', 'plaza-wall', 'plaza-tag-1', 'plaza-tag-2', 'plaza-tag-3'],
   'pl18': ['plaza-night', 'br-mural', 'br-warn', 'br-rescue', 'br-defend', 'br-record', 'br-center', 'br-memory'],
   'pl19': ['br-table', 'br-frag-1', 'br-frag-2', 'br-frag-3', 'br-frag-4', 'br-blank', 'br-alarm', 'br-council'],
+  # 11월 7일 맵 장식 소품 — 이름은 storyDecor.js 와 같다(places/prop-d-<이름>.webp)
+  'dc1': ['prop-d-rubble', 'prop-d-slab', 'prop-d-boulder', 'prop-d-stump-pillar', 'prop-d-bench-stone', 'prop-d-bricks', 'prop-d-menhir', 'prop-d-pottery'],
+  'dc2': ['prop-d-bookstack', 'prop-d-bookstand', 'prop-d-ladder', 'prop-d-writing-desk', 'prop-d-scroll-crate', 'prop-d-globe', 'prop-d-candle-stand', 'prop-d-cabinet'],
+  'dc3': ['prop-d-barricade', 'prop-d-tent', 'prop-d-supply-stack', 'prop-d-barrels', 'prop-d-fence', 'prop-d-flag-pole', 'prop-d-campfire', 'prop-d-handcart'],
+  'dc4': ['prop-d-cable-spool', 'prop-d-generator', 'prop-d-scrap', 'prop-d-pipes', 'prop-d-junction', 'prop-d-vent', 'prop-d-robot-wreck', 'prop-d-battery-rack'],
+  'dc5': ['prop-d-bush', 'prop-d-wildflowers', 'prop-d-stump', 'prop-d-small-tree', 'prop-d-rocks', 'prop-d-fence-post', 'prop-d-hay-bale', 'prop-d-tall-grass'],
+  'dc6': ['prop-d-mooring', 'prop-d-traps', 'prop-d-net-rack', 'prop-d-buoy', 'prop-d-crate-sunk', 'prop-d-rock-weed', 'prop-d-pier-lantern', 'prop-d-rowboat'],
+  'dc7': ['prop-d-planter', 'prop-d-bench', 'prop-d-statue', 'prop-d-armillary', 'prop-d-star-stand', 'prop-d-fountain', 'prop-d-urn', 'prop-d-banner-stand'],
+  'dc8': ['prop-d-pick-stand', 'prop-d-ore-pile', 'prop-d-lantern-post', 'prop-d-mine-beam', 'prop-d-rail', 'prop-d-crystals', 'prop-d-planks-barrels', 'prop-d-scaffold'],
   'pl6': ['ruin-south-hall', 'ruin-south-gate', 'ruin-south-device', None, 'ruin-west-hall', 'ruin-west-gate', 'ruin-west-device', None],
 }
 GROUNDS = ['convoy', 'lab7', 'ruin-north', 'ruin-east', 'ruin-south', 'ruin-west', 'core', 'relay', 'mine', 'vault',
@@ -71,6 +80,7 @@ if not ONLY:
             for i, n in enumerate(names): save('portraits', n, cells(f'portraits{pre}-k.webp')[i])   # 하단 정렬한 상반신 — 칸 그대로
 for sheet, names in PLACES.items():
     if ONLY == 'props' and sheet != 'pl7': continue
+    if ONLY == 'decor' and not sheet.startswith('dc'): continue
     if not have(sheet + '-kk.webp'): continue
     cs = cells(sheet + '-kk.webp')
     for i, n in enumerate(names):

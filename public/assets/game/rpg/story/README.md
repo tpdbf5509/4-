@@ -54,3 +54,7 @@
 ## 조사물 크기
 
 사람 키(64px)를 1로 두고 사물마다 긴 쪽 길이를 정한 표가 `design/story/size-sights.py` 의 `E` 에 있습니다. 그림을 바꾸거나 `E` 를 고친 뒤 `python3 design/story/size-sights.py` 를 돌리면 `src/game/storySizes.js`(그리는 크기 · 부딪힘 반지름)가 다시 만들어집니다. 부딪힘 반지름은 말 걸 수 있는 거리(100) 때문에 56 을 넘기지 않습니다.
+
+## 장식 소품
+
+맵이 비어 보이지 않게 `places/prop-d-<이름>.webp` 64종(시트 dc1~dc8, 프롬프트는 `design/story/` 원본 시트)을 맵 분위기별로 흩뿌립니다. 분위기 표 · 밀도(`DENSITY`)는 `src/game/storyDecor.js` 한 곳이고, 좌표는 맵 id 로 정한 씨앗에서 만들어 서버와 화면이 같습니다. 길 · 조사물 · 인물 · 출구 · 시작 자리에서 떨어져 놓이며 몸이 막히는 것은 11종뿐이고 작은 반지름입니다. 크기는 `design/story/size-sights.py` 의 `D` 표입니다.

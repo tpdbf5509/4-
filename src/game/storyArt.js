@@ -164,7 +164,7 @@ function light(ctx, x, y, r, c) { ctx.save(); ctx.fillStyle = c; ctx.shadowColor
 
 const toneOf = (mapId) => mapOf(mapId)?.ground.road || '#c8b994';
 export function drawStoryObject(ctx, n, mapId) {
-  if (!n.art || !drawArt(ctx, 'places', n.art, n.x, n.y, n.size)) (SHAPES[n.look] || SHAPES.house)(ctx, n, n.tone || toneOf(mapId));
+  if (!n.art || !drawArt(ctx, 'places', n.art, n.x, n.y, n.size)) { if (n.decor) return; (SHAPES[n.look] || SHAPES.house)(ctx, n, n.tone || toneOf(mapId)); }   // 장식 소품은 그림이 없으면 그리지 않는다
   if (n.name && !n.sight) label(ctx, n.name, n.x, n.y + 20);
 }
 // 앞뒤 정렬에 넣는 건물 · 소품

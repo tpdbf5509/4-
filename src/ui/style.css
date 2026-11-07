@@ -1427,7 +1427,7 @@ kbd {
   letter-spacing: -0.03em; color: var(--ld-text); padding-bottom: 8px; border-bottom: 1px solid var(--ld-line);
 }
 .rpg-load-bar { display: block; height: 1px; margin-top: 6px; background: var(--ld-line); overflow: hidden; }
-.rpg-load-bar > i { display: block; height: 100%; background: var(--ld-gold); transition: width 0.12s linear; }
+.rpg-load-bar > i { display: block; height: 100%; background: var(--ld-gold); transition: width 0.2s linear; }
 .rpg-load-pct { font-family: 'Do Hyeon', sans-serif; font-size: 13px; color: var(--ld-gold); min-width: 4.5em; text-align: right; }
 @media (max-width: 600px) { .rpg-load-name { font-size: 26px; } .rpg-load { padding: 0 16px 14% 16px; } .rpg-load-box { width: 100%; } }
 

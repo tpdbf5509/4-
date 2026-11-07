@@ -188,3 +188,6 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 메인 스토리 1부(11월 6일, Codex 정식 그림 · 원본 `design/story/`): `rpg/story/people/<인물>.webp`(512×512 발 기준 (256,496)) · `portraits/<인물>.webp`(512×512 상반신 하단 정렬) · `places/<id>.webp`(건물 · 장소 46 + 소품 `prop-<종류>` 6, 512×512 발 기준 (256,496)) · `ground/<맵 id>.webp`(맵 바닥 10장, 맵 크기와 같은 비율). 이름 표 · 그리는 크기는 `rpg/story/README.md` · `storyData.js`.
 
 에르덴 마을 확장(11월 6일, Codex): `rpg/village/` 에 새 건물 6장(bakery · carpenter · school · stable · cottage-a · cottage-b, 512×512 발 기준 (256,496)). 마을 크기 3200×2100. 이야기 맵 바닥 10장은 길 · 건물 자리를 맞춰 다시 뽑았다.
+
+### 맵 불러오기 화면 일러스트 (11월 7일)
+- `public/assets/ui/loading/{town,field,dungeon,abyss,worldboss,story}.webp` — 1280×720 불투명 WebP(원본 1536×864 는 `design/loading/*-src.webp`). 맵 종류 → 그림 · 이름 위 작은 글은 `src/game/loadScreen.js loadInfo`, 팁은 `LOAD_TIPS`(사실만 적는다). 왼쪽 아래에 글이 놓이므로 그림의 왼쪽 아래는 비교적 조용하게 뽑는다. 진행 · 걷힘은 `mapLoad.js`.

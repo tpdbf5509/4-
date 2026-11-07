@@ -112,6 +112,7 @@ import { adminRedeem, joinAdminLink } from "./net/admin.js";
 import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText, honorTop } from "./net/rpgSave.js";
 import { drawRpg, setLowFx } from "./game/rpgArt.js";
 import { MAP_LOAD, watchImages, loadStart, loadStep } from "./game/mapLoad.js";
+import { loadInfo, loadArt, randomTip, LOAD_ART_ALL } from "./game/loadScreen.js";
 import { ghostStep } from "./game/bossBar.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
@@ -1356,6 +1357,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bgsRef.current = {};                              // 그림 파일이 없을 때만 drawRpg 가 코드로 채운다
     watchImages();                                    // 맵 불러오기 가림막 — 새로 부르는 그림을 센다
+    const warm = setTimeout(() => LOAD_ART_ALL.forEach((u) => fetch(u).catch(() => {})), 1500);   // 불러오기 화면 일러스트를 미리 받아 둔다(fetch 라 가림막이 세지 않는다)
 
     let raf, last = performance.now(), hudAt = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null, noticeDone = false, loadMap = "", loadUi = 0;
     const loop = (now) => {
@@ -1425,7 +1427,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         loadRef.current = { ...loadStart(lm.map, now), toast: !first };
         loadHoldRef.current?.();
         loadUi = now;
-        setMapLoad({ name: MAPS[lm.map]?.name || "", p: 0, out: false });
+        setMapLoad((v) => ({ name: MAPS[lm.map]?.name || "", ...loadInfo(lm.map, MAPS[lm.map]), tip: randomTip(v?.tip), p: 0, out: false }));
       }
       const L = loadRef.current;
       if (L && !L.end) {
@@ -1554,7 +1556,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); clearTimeout(warm); };
   }, [isHost, room, playSounds, mySeat, pushChat, tickBossBars]);
 
   useEffect(() => {
@@ -2346,11 +2348,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {mapLoad && (
             <div className={`rpg-load${mapLoad.out ? " out" : ""}`} role="status" aria-live="polite"
               onPointerDown={(e) => e.stopPropagation()} onContextMenu={(e) => e.preventDefault()}>
+              <img className="rpg-load-art" src={loadArt(mapLoad.scene)} alt="" draggable={false} onLoad={(e) => e.currentTarget.classList.add("on")} />
+              <i className="rpg-load-veil" />
+              <span className="rpg-load-brand">네 갈래 방어선</span>
               <div className="rpg-load-box">
-                <span className="rpg-load-tag">맵 불러오는 중</span>
+                <span className="rpg-load-tag">{mapLoad.tag}</span>
                 <b className="rpg-load-name">{mapLoad.name}</b>
-                <i className="rpg-load-bar"><i style={{ width: `${Math.round(mapLoad.p * 100)}%` }} /></i>
-                <span className="rpg-load-pct">{mapLoad.p >= 1 ? "들어갑니다" : `${Math.round(mapLoad.p * 100)}%`}</span>
+                <div className="rpg-load-prog">
+                  <i className="rpg-load-bar"><i style={{ width: `${Math.round(mapLoad.p * 100)}%` }} /></i>
+                  <span className="rpg-load-pct">{mapLoad.p >= 1 ? "들어갑니다" : `${Math.round(mapLoad.p * 100)}%`}</span>
+                </div>
+                <p className="rpg-load-tip"><em>팁</em>{mapLoad.tip}</p>
               </div>
             </div>
           )}

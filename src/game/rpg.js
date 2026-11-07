@@ -34,6 +34,7 @@ import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
+import { TEST_SERVER, TEST_GROUPS } from "./testData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS, titleUp, titleUpText } from "./socialData.js";
 import { ACHIEVES, CODEX_NEED } from "./codexData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, PERSONAL_LEVELS, RESET, rollDrop, ENHANCE } from "./itemData.js";
@@ -59,6 +60,8 @@ export const RPG_SERVER_CAP = 10;
 // RPG 서버 — 방 코드 없이 모두 서버 1에 모인다. 서버 1이 가득 차면 다음 서버로 넘어간다. 게임 안 ☰ 메뉴에서 옮길 수도 있다.
 // (방 만들기 코드에는 숫자 1이 나오지 않아 이 이름과 겹치지 않는다)
 export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
+// 테스트 모드(?test) 전용 서버 방 — 저장하지 않는다(testData.js · server/src/room.js)
+export const RPG_TEST_SERVER = TEST_SERVER;
 
 // 결투 — 1대1 · 2인 파티의 2대2. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
@@ -1818,7 +1821,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
     dmg += m.hp; m.hp = 0;
     say(g, m.map, m.x, m.y - 70, "처형", EXEC_COLOR);
   }
-  if (m.type === "dummy" && h) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록
+  if (h && (m.type === "dummy" || g.test)) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록(테스트 서버는 모든 몹)
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
   if (h && procOff === 0) worldSetHit(worldEngine, g, h, m, { dot: !!dot, basic: !skill && !dot, weapon: !!skill && !!h.cast?.weapon, skill: !!skill && !dot && !!(h.cast?.weapon || h.cast?.job) });
@@ -2060,6 +2063,7 @@ function giveXp(g, h, amt) {
 
 function hurtHero(g, h, raw, source, kind) {
   if (!h || h.down > 0 || MAPS[h.map].safe || HOLD.has(h.map)) return;   // 탑 카드 단계 — 피해 없음
+  if (g.test && h.trn && h.trn.god) return;       // 테스트 서버 무적 — 즉사 기술까지 모두 막는다
   if (h.inv > 0) {                                // 대쉬로 피했다
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
     return;
@@ -3076,7 +3080,7 @@ function trainDps(g, h) {
 }
 function trainTick(g, h) {
   const t = h.trn;
-  if (!t || h.map !== "train") return;
+  if (!t || (h.map !== "train" && !g.test)) return;   // 테스트 서버는 어느 맵에서나
   if (t.nocd) {
     h.sk = 0; h.dashCd = 0;
     if (h.scd) for (const k in h.scd) h.scd[k] = 0;
@@ -3096,7 +3100,9 @@ function trainTick(g, h) {
 // 교관 창 — req = { op: "nocd" | "stack" | "god" } 켜고 끄기 · { op: "reset" } 기록 지우기 · { op: "heal" } 체력 · 대기 시간 처음으로
 export function rpgTrain(g, pi, req) {
   const h = g.heroes[pi];
-  if (!h || !h.loaded || !req || h.map !== "train") return false;
+  if (!h || !h.loaded || !req) return false;
+  if (req.op === "go") return testGo(g, h, req.map);
+  if (h.map !== "train" && !g.test) return false;  // 테스트 서버는 어느 맵에서나
   const t = trnOf(h);
   if (["nocd", "stack", "god"].includes(req.op)) { t[req.op] = t[req.op] ? 0 : 1; return true; }
   if (req.op === "reset") {
@@ -3112,6 +3118,23 @@ export function rpgTrain(g, pi, req) {
     return true;
   }
   return false;
+}
+// 테스트 서버 장소 이동 — 묶음마다 갈 수 있는 맵 id(testData.js TEST_GROUPS)
+export const testSpots = () => TEST_GROUPS.map((q) => ({ name: q.name, ids: Object.keys(MAPS).filter((id) => {
+  const m = MAPS[id];
+  return !m.dungeon && !m.pvp && !m.race && !m.guildHall && q.pick(m);
+}) }));
+const TEST_SPOT_IDS = new Set(testSpots().flatMap((q) => q.ids));
+// 테스트 서버에서만 — 결투 · 던전 · 레이스 · 거래 중에는 옮기지 않는다(관리자 /이동 과 같은 규칙)
+function testGo(g, h, to) {
+  if (!g.test || !TEST_SPOT_IDS.has(to) || h.map === to || trading(h)) return false;
+  if ((h.dvs ?? -1) >= 0 || runOf(g, h) || MAPS[h.map].dungeon || MAPS[h.map].pvp || MAPS[h.map].race) {
+    sys(g, h.pi, "결투장 · 던전 · 레이스에서는 옮길 수 없습니다.");
+    return false;
+  }
+  h.map = to; [h.x, h.y] = MAPS[to].spawn;
+  h.hold = []; h.dest = null; h.dash = 0; h.gateCd = 1.5;
+  return true;
 }
 // 화면에 보이는 훈련 기록 — 방장은 기록으로 셈하고, 손님은 스냅샷 값을 쓴다
 export function trainView(g, h) {

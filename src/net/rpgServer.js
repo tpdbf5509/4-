@@ -7,6 +7,7 @@
    어느 서버로 붙을지 — 기본은 전용 서버(2026-10-28 Supabase 한도로 옮김). 주소 ?srv=off 로 방장 브라우저 방식으로 돌아가고 ?srv=cf 로 다시 켠다(이 기기에 기억한다).
    개발 중 ?srv=local 이면 내 컴퓨터의 서버(wrangler dev, 127.0.0.1:8787)로 붙는다 */
 import { SRV_WS } from "./api.js";
+import { TEST_MODE } from "./testMode.js";
 
 // 배포된 서버 주소 — Cloudflare 워커 이름(server/wrangler.toml name) + 계정의 workers.dev 주소. 바꿀 때는 Vercel 환경 변수 VITE_RPG_SERVER 로 덮어쓴다
 const SRV_URL = SRV_WS;
@@ -36,7 +37,7 @@ export function rpgServerUrl() {
     pick = localStorage.getItem(PICK_KEY) || "";
   } catch { /* 저장이 막혀 있으면 쓰지 않는다 */ }
   if (pick === "local" && import.meta.env.DEV) return LOCAL_URL;
-  if (pick === "off") return "";
+  if (pick === "off" && !TEST_MODE) return "";     // 테스트 모드는 늘 전용 서버 — 저장하지 않는 테스트 방이 서버에만 있다
   return SRV_URL;
 }
 

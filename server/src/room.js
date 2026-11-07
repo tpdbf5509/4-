@@ -8,7 +8,7 @@
      계정이 없는(이 기기에만 있는) 캐릭터는 예전처럼 화면이 보낸 기록을 싣고 저장하지 않는다
    화면과 주고받는 말은 예전 방장과 같다 — lobby · rsnap · chat 을 보내고 hello · pick · rjoin · input · chat 을 받는다(서버만의 말: auth) */
 import {
-  RPG_CREW_MAX, RPG_SERVER_CAP, makeWorld, rpgStep, rpgSyncSeats, rpgJoin, rpgPack, cleanLook, heroRecord, mapIdx, abyssClaim,
+  RPG_CREW_MAX, RPG_SERVER_CAP, RPG_TEST_SERVER, makeWorld, rpgStep, rpgSyncSeats, rpgJoin, rpgPack, cleanLook, heroRecord, mapIdx, abyssClaim,
 } from "../../src/game/rpg.js";
 import { rpgInput } from "../../src/game/rpgInput.js";
 import { CHAT } from "../../src/game/socialData.js";
@@ -25,7 +25,9 @@ const SAVE_EVERY = 10;       // 서버 저장 간격(초)
 const SRV_ID = "srv";        // 대기실의 방장 id — 화면은 이 값으로 "내가 방장이 아니다"를 안다
 // 장부가 막은 저장 — busy(확인한 거래가 끝나기 전)는 잠깐이라 다음에 다시 보내고, stale · moved(거래 · 길드가 기록을 앞서 고쳤다)는 장부 기록을 다시 불러온 뒤 이어 한다
 const RESYNC = ["stale", "moved"];
-const RESYNC_MAX = 3;        // 다시 불러와도 계속 막히면 이 접속은 저장을 멈춘다
+const RESYNC_MAX = 3;
+// 테스트 모드(?test) 방에서 받는 장부 요청 — 읽기 · 지금 저장(서버가 저장하지 않으니 하는 일이 없다)만. 거래 · 길드 · 장터 · 주간 보상은 막는다
+const TEST_LEDGER = new Set(["load", "flush"]);        // 다시 불러와도 계속 막히면 이 접속은 저장을 멈춘다
 const LEDGER_QUEUE = 8;      // 한 사람이 장부 요청을 이만큼 쌓아 두면 더 받지 않는다
 const RUSH_MS = 15;          // 입력 때 바로 보내는 스냅샷 사이 최소 간격 — 여럿이 한꺼번에 눌러도 이보다 자주 보내지 않는다
 const AUTH_MS = 5000;        // 붙은 뒤 이 안에 비밀값(auth)을 보내지 않으면 끊는다
@@ -67,6 +69,7 @@ export class RpgRoom {
     this.sinceSnap = 0;
     this.sinceSave = 0;
     this.rushAt = 0;
+    this.test = false;               // 테스트 모드 방(RPG_TEST_SERVER) — 캐릭터를 장부에서 읽기만 하고 저장하지 않는다
   }
 
   async fetch(req) {
@@ -75,6 +78,7 @@ export class RpgRoom {
       const t = await fetch("https://www.cloudflare.com/cdn-cgi/trace").then((r) => r.text()).catch(() => "");
       return new Response((t.match(/colo=(\w+)/) || [])[1] || "?");
     }
+    if (url.pathname === `/rpg/${RPG_TEST_SERVER}`) this.test = true;   // 이 방은 테스트 방 이름으로만 열린다(index.js roomOf)
     const id = String(url.searchParams.get("id") || "");
     if (!ID.test(id)) return new Response("id", { status: 400 });
     const pair = new WebSocketPair();
@@ -242,6 +246,7 @@ export class RpgRoom {
   /* ── 저장 ─────────────────────────────────────────── */
   // 지금 기록을 장부에 남긴다. 앞선 저장이 가는 중이면 끝난 뒤에 보낸다(차례가 섞이지 않게). 끝나면 다 풀리는 약속을 돌려준다
   saveOne(id) {
+    if (this.test) return Promise.resolve();       // 테스트 방은 저장하지 않는다 — 일반 계정 기록이 바뀌지 않는다
     const a = this.accts.get(id);
     const pi = this.seatOf(id);
     if (!a || a.dead || pi < 0 || !this.g) return Promise.resolve();
@@ -307,6 +312,7 @@ export class RpgRoom {
     const args = d.args && typeof d.args === "object" ? d.args : {};
     const me = { p_name: a.name, p_token: a.tok };
     const key = rpgKey(a.name);
+    if (this.test && !TEST_LEDGER.has(d.fn)) return { ok: false, err: "test" };
     if (d.fn === "load") return ledgerCall(this.env, "rpg_load", me);
     if (d.fn === "flush") { await this.saveOne(c.id); return { ok: true }; }
     if (d.fn === "trade_open") {
@@ -361,7 +367,7 @@ export class RpgRoom {
   /* ── 판정 루프 ────────────────────────────────────── */
   start() {
     if (this.timer) return;
-    if (!this.g) { this.g = makeWorld(); this.g.mySeat = -1; this.g.out = []; rpgSyncSeats(this.g, this.seats); }
+    if (!this.g) { this.g = makeWorld(); this.g.test = this.test; this.g.mySeat = -1; this.g.out = []; rpgSyncSeats(this.g, this.seats); }
     this.last = Date.now();
     this.timer = setInterval(() => this.tick(), TICK_MS);
   }

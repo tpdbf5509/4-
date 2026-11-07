@@ -23,7 +23,7 @@ import { TOWER_INFO } from "./game/towerInfo.js";
 import { useTouch } from "./ui/touch.js";
 import RpgView, { RpgSetup } from "./RpgView.jsx";
 import { rpgServerUrl, joinRpgServer } from "./net/rpgServer.js";
-import { RPG_CREW_MAX, RPG_SERVER_CAP, RPG_SERVERS, loadChar, adoptChar, cleanLook, setAccount } from "./game/rpg.js";
+import { RPG_CREW_MAX, RPG_SERVER_CAP, RPG_SERVERS as REAL_SERVERS, RPG_TEST_SERVER, loadChar, adoptChar, cleanLook, setAccount } from "./game/rpg.js";
 
 // 자리 부탁 — 서버 계정(이름 + 입장권)이 있으면 함께 보낸다. 전용 서버는 이것으로 캐릭터를 직접 불러온다(옛 방장은 모른 체한다)
 function pickMsg(hero) {
@@ -31,6 +31,10 @@ function pickMsg(hero) {
   return c && c.linked && c.tok ? { hero, acct: { name: c.name, tok: c.tok } } : { hero };
 }
 import "./ui/style.css";
+import { TEST_MODE } from "./net/testMode.js";
+
+// 들어갈 RPG 서버 — 테스트 모드(?test)면 저장하지 않는 테스트 방 하나뿐이다(net/testMode.js)
+const RPG_SERVERS = TEST_MODE ? [RPG_TEST_SERVER] : REAL_SERVERS;
 
 const SNAP_HZ = 12;
 const HOST_ALIVE_MS = 2000;   // RPG 서버 방장이 "살아 있다"는 소식을 보내는 간격
@@ -475,7 +479,7 @@ export default function App() {
   const [rpgErr, setRpgErr] = useState("");
   const startRpg = useCallback(async (hero) => {
     const c = loadChar();
-    if (c && c.linked && c.tok) {
+    if (c && c.linked && c.tok && !TEST_MODE) {      // 테스트 방은 저장하지 않으니 접속 중 표시도 남기지 않는다(일반 서버와 함께 켜도 된다)
       const r = await liveEnter(c.name, c.tok, me, RPG_SERVERS[0]);
       if (!r?.ok) return void setRpgErr(errText(r));
       if ((r.ts || 0) !== (c.ts || 0)) {
@@ -488,7 +492,7 @@ export default function App() {
     enterRpg(hero, 0);
   }, [me, enterRpg]);
   // 서버에 있는 동안 접속 중 표시를 이어 남긴다. 그사이 다른 곳이 차지했으면(표시가 끊겼던 때) 이 창이 나간다
-  const liveCode = screen === "lobby" && RPG_SERVERS.includes(code) ? code : "";
+  const liveCode = screen === "lobby" && RPG_SERVERS.includes(code) && !TEST_MODE ? code : "";
   useEffect(() => {
     const c = loadChar();
     if (!liveCode || !c || !c.linked || !c.tok) return;
@@ -667,9 +671,9 @@ export default function App() {
         hostId={lobby.hostId}
         seats={lobby.seats}
         mySeat={mySeat}
-        code={RPG_SERVERS.includes(code) ? `서버 ${server + 1}` : `방 코드 ${code}`}
+        code={TEST_MODE ? "테스트 서버" : RPG_SERVERS.includes(code) ? `서버 ${server + 1}` : `방 코드 ${code}`}
         onLeave={leave} onHandoff={handoff} onKick={kick} onRelook={relook}
-        servers={RPG_SERVERS.includes(code) ? { at: server, n: RPG_SERVERS.length, note: srvNote } : null}
+        servers={RPG_SERVERS.includes(code) && !TEST_MODE ? { at: server, n: RPG_SERVERS.length, note: srvNote } : null}
         onMoveServer={moveServer}
       />
     );

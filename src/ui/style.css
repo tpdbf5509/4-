@@ -2698,3 +2698,24 @@ button.forge-stage:disabled { cursor: default; }
 .story-timer { position: relative; height: 16px; margin-top: 2px; border-radius: 3px; background: rgba(214, 186, 140, 0.14); overflow: hidden; }
 .story-timer i { position: absolute; inset: 0 auto 0 0; background: #c98f6e; transition: width .1s linear; }
 .story-timer span { position: relative; display: block; padding-right: 6px; text-align: right; font-size: 11px; line-height: 16px; color: #f1e4c8; }
+
+/* ── RPG 테스트 모드(?test) — 초당 피해 칸 · 도구 창의 장소 이동(RpgView.jsx) ── */
+.rpg-test-hud {
+  position: absolute; right: 12px; top: 124px; z-index: 4; display: flex; align-items: center; gap: 8px;
+  padding: 5px 6px 5px 10px; border-radius: 9px; font-size: 11.5px; letter-spacing: -0.02em; color: #c9b896;
+  background: rgba(38, 28, 17, 0.88); border: 1px solid #8a6a3f;
+}
+.rpg-test-hud b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 13px; color: #f0b9a8; }
+.rpg-test-hud em { font-style: normal; font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: #ffe08a; margin-left: 2px; }
+.rpg-test-hud i { font-style: normal; color: #a9d99a; }
+.rpg-test-hud .rpg-win-btn { min-width: 0; padding: 2px 9px; font-size: 11.5px; }
+.rpg-test-go { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.rpg-test-go-head { font-family: 'Do Hyeon', sans-serif; font-size: 14px; color: #f6e5bb; letter-spacing: -0.03em; }
+.rpg-test-go-head em { font-style: normal; font-family: inherit; font-size: 11px; color: #8d8068; margin-left: 6px; }
+.rpg-test-group { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid rgba(214, 186, 140, 0.18); }
+.rpg-test-group > span:first-child { font-size: 10.5px; color: #8d8068; letter-spacing: -0.02em; }
+.rpg-test-spots { display: flex; flex-wrap: wrap; gap: 4px; }
+.rpg-test-spots .rpg-win-btn { min-width: 0; padding: 3px 8px; font-size: 11.5px; }
+@media (max-width: 560px) {
+  .rpg-test-hud { top: auto; bottom: 168px; right: 8px; }
+}

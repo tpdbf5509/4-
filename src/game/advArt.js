@@ -489,7 +489,7 @@ export function drawAdvGiant(ctx, h, time) {   // rpgArt.js 가 거대 정령 �
   drawGiant(ctx, h, gi, time);
 }
 function drawGiant(ctx, h, gi, time) {
-  const U = ADV_BY_ID.summoner.ultimate, i = Math.max(0, ELEMS.findIndex((e) => e.id === h.elem)), s = gi.pet ? U.petSize : U.size;   // 광장 펫은 캐릭터보다 작게
+  const U = ADV_BY_ID.summoner.ultimate, i = Math.max(0, ELEMS.findIndex((e) => e.id === h.elem)), s = gi.pet ? U.petSize : h.map === "arena" ? U.duelSize : U.size;   // 광장 펫은 캐릭터보다 작게 · 결투장은 duelSize
   const bob = Math.sin(time * 2 + h.pi) * 3, fadeOut = Math.min(1, gi.t / 1.2), col = elemCol(h.elem);
   ctx.save();
   ctx.globalAlpha = 0.35 * fadeOut; ctx.fillStyle = "rgba(20,14,10,0.6)";

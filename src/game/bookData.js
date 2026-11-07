@@ -34,6 +34,12 @@ const dropAvg = DROP_ROLL.reduce((n, [c, w]) => n + c * w, 0) / total;
 // 10월 26일 (7) 때의 400~800 체력 — 구역 시작 레벨마다(끝 하나 더) · 보스. 같은 날 (8)에서 낮춰 책에는 그때 값을 적는다
 const DEEP_WAS = { mob: [226100, 279650, 339150, 404600, 476000, 553350, 636650, 725900, 821100], boss: [3689000, 4462500, 5355000, 6426000, 7616000, 8925000, 10412500, 11900000] };
 export const PATCH_BOOKS = [
+  { id: "patch-2026-11-07-duelsummon", title: "패치노트 · 11월 7일 (4)", sub: "결투장 소환술사", color: "#c9b37c",
+    pages: [{ h: "결투장 소환술사", p: [
+      `결투장에서 정령 소환(Z)을 쓰면 정령 ${ADV_BY_ID.summoner.active.duelN}마리가 연달아 나옵니다(전에는 1마리). 세 마리는 한 시전이라 합친 피해가 스킬 한 번 상한 18%를 넘지 않습니다.`,
+      `결투장에서도 거대 정령(G)을 부릅니다(전에는 쓸 수 없었습니다). 크기는 ${ADV_BY_ID.summoner.ultimate.size}px → ${ADV_BY_ID.summoner.ultimate.duelSize}px로 작습니다.`,
+      `결투장 거대 정령 체력은 내 최대 체력의 ${ADV_BY_ID.summoner.ultimate.duelHpMul}배입니다(사냥터 ${ADV_BY_ID.summoner.ultimate.hpMul}배). 내려치기 피해는 궁극기 상한 25% 안에서 들어가고 기절은 절반입니다.`,
+      "결투가 시작한 뒤에만 부를 수 있습니다. 사냥터에서 부른 거대 정령은 결투장에 따라오지 않습니다."] }] },
   { id: "patch-2026-11-07-mapload", title: "패치노트 · 11월 7일 (3)", sub: "맵 불러오기 · 빈 맵 멈춤", color: "#c9b37c",
     pages: [{ h: "맵 불러오기 · 빈 맵", p: ["맵을 옮기면 불러오기 화면이 뜹니다. 진행 줄이 1.2초 동안 천천히 차고, 그 맵 그림이 다 오면 걷힙니다. 길어도 8초 안에 들어갑니다(처음 0.45초 · 6초에서 늘렸습니다).", "불러오는 동안에는 움직이거나 공격하지 않습니다. 맵 이름은 화면이 걷힌 뒤에 뜹니다.", "사람이 없는 맵은 몹 움직임과 다시 나오기까지의 시간이 멈춥니다. 전에는 사냥터 몹 움직임만 멈췄습니다.", "월드보스 · 길드 토벌은 시간표대로 그대로 돕니다."] }] },
   { id: "patch-2026-11-07-storyart2", title: "패치노트 · 11월 7일", sub: "메인 이야기 7~30장 그림", color: "#c9b37c",
@@ -302,7 +308,7 @@ export const PATCH_BOOKS = [
         `${ADV_BY_ID.summoner.ultimate.every}초마다 발밑 둘레 적을 모두 내려치고 ${ADV_BY_ID.summoner.ultimate.stun}초 기절시킵니다. 마법 기본 피해 ${ADV_BY_ID.summoner.ultimate.mul}배입니다. 처음에는 6배였고 4.5배로 낮췄습니다.`,
         `거대 정령은 내 둘레 ${ADV_BY_ID.summoner.ultimate.roam} 안을 돌아다닙니다. 가까운 적에게 걸어가 내려치고 적이 없으면 어슬렁거립니다.`,
         `광장에서는 시간이 가지 않고 공격 없는 작은 펫으로 따라다닙니다. 싸우는 곳에 들어가면 ${ADV_BY_ID.summoner.ultimate.life}초가 돌고 대기 ${ADV_BY_ID.summoner.ultimate.cd}초도 함께 돕니다.`,
-        `대기 ${ADV_BY_ID.summoner.ultimate.cd}초. 결투에서는 쓸 수 없습니다. 쓰러지면 정령도 사라집니다. 정령 소환(Z)과 따로 쓰입니다.`] },
+        `대기 ${ADV_BY_ID.summoner.ultimate.cd}초. 결투장에서는 작게 부르고 체력은 내 최대 체력의 ${ADV_BY_ID.summoner.ultimate.duelHpMul}배입니다. 쓰러지면 정령도 사라집니다. 정령 소환(Z)과 따로 쓰입니다.`] },
     ] },
   { id: "patch-2026-10-31c", title: "패치노트 · 10월 31일 (3)", sub: "그림자 일섬 조준", color: "#c9b37c",
     pages: [

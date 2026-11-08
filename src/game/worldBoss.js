@@ -92,12 +92,15 @@ export function worldBossInput(E,g,pi,req){
   if(!worldBossPortalNear(h)){notify(E,g,h,'월드보스 포탈 가까이 이동해 주세요','','bad');return false;}
   if(req.op==='summon'){
     if(w.active){notify(E,g,h,'이미 월드보스가 출현해 있습니다','','bad');return false;}
-    if(!WORLD_BOSS_BY_ID[req.id]||h.coins<C.fee){notify(E,g,h,'소환에는 10만 코인이 필요합니다','','bad');return false;}
+    if(!WORLD_BOSS_BY_ID[req.id]||h.coins<C.fee){notify(E,g,h,`소환에는 ${C.fee/10000}만 코인이 필요합니다`,'','bad');return false;}
     h.coins-=C.fee;
     spawn(E,g,req.id,`${g.wbServer||'RPG'}:paid:${w.clock}:${g.nextId}`,w.clock+C.duration);
     return true;
   }
   if(req.op==='enter'&&w.active?.phase==='fight'){
+    // 등장 연출 동안은 공격을 시작하지 않는다 — 화면이 이름표만 보여 주는 '싸우는 중'(worldBossIntro.js wbInCombat)이면 그대로 둔다
+    const a=w.active,others=g.heroes.some(o=>o&&o!==h&&o.loaded&&o.map===C.map);
+    if(!a.attack&&!(a.stun>0)&&!a.pools?.length&&!(others&&a.hp<a.max))a.cd=Math.max(a.cd||0,C.introGrace);
     h.map=C.map;h.x=C.spawn[0]+pi*18;h.y=C.spawn[1]+pi%3*25;h.gateCd=1;h.hold=[];h.dest=null;h.fire=0;
     return true;
   }

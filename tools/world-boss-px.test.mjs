@@ -31,7 +31,7 @@ const seats = Array.from({ length: 3 }, (_, i) => ({ id: `px${i}`, name: `연출
 function setup() {
   const g = makeWorld(); g.mySeat = 0; g.wb.lastHour = Math.floor(g.wb.clock / C.period); g.out = [];
   rpgSyncSeats(g, seats);
-  for (let i = 0; i < 3; i++) rpgJoin(g, i, { name: seats[i].name, rs: RESET.id, gift: GIFT.id, lv: 100, ts: 0, coins: 300000, stats: { str: 100, hp: 100 }, bag: { oc: 1, w: [], e: 1, n: 2 } }, seats[i].id);
+  for (let i = 0; i < 3; i++) rpgJoin(g, i, { name: seats[i].name, rs: RESET.id, gift: GIFT.id, lv: 100, ts: 0, coins: 400000, stats: { str: 100, hp: 100 }, bag: { oc: 1, w: [], e: 1, n: 2 } }, seats[i].id);
   g.heroes.forEach((h) => { if (h) { h.auto = 0; h.x = C.portal.x; h.y = C.portal.y + 70; } });
   return g;
 }

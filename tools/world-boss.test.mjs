@@ -10,7 +10,7 @@ import {thunderbirdAreas} from '../src/game/thunderbirdCombat.js';
 const seats=Array.from({length:3},(_,i)=>({id:`wb${i}`,name:`토벌${i}`,hero:{name:`토벌${i}`,job:'archer',elem:'frost',gender:'m'}}));
 function setup(){
  const g=makeWorld();g.mySeat=0;g.wb.lastHour=Math.floor(g.wb.clock/C.period);g.out=[];
- rpgSyncSeats(g,seats);for(let i=0;i<3;i++)rpgJoin(g,i,{name:seats[i].name,rs:RESET.id,gift:GIFT.id,lv:100,ts:0,coins:300000,stats:{str:100,hp:100},bag:{oc:1,w:[{u:1,t:'bow',r:10,g:4,p:100,sp:'dragon_bow'}],e:1,n:2}},seats[i].id);
+ rpgSyncSeats(g,seats);for(let i=0;i<3;i++)rpgJoin(g,i,{name:seats[i].name,rs:RESET.id,gift:GIFT.id,lv:100,ts:0,coins:400000,stats:{str:100,hp:100},bag:{oc:1,w:[{u:1,t:'bow',r:10,g:4,p:100,sp:'dragon_bow'}],e:1,n:2}},seats[i].id);
  g.heroes.forEach(h=>{if(h){h.auto=0;h.x=C.portal.x;h.y=C.portal.y+70;}});return g;
 }
 function advance(g,t){for(let n=0;n<Math.ceil(t/.02);n++)rpgStep(g,.02);}
@@ -60,15 +60,15 @@ test('급강하 도중 승계해도 같은 위치에서 이어지고 이미 맞�
 });
 test('소환은 광장·코인 확인 후 한 번만 차감하며 중복 출현을 거절한다',()=>{
  const g=setup(),h=g.heroes[0];h.coins=C.fee-1;assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));assert(!g.wb.active);
- h.coins=300000;h.map='train';assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));h.map='plaza';
- assert(rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));assert.equal(h.coins,200000);
- assert(!rpgWorldBoss(g,0,{op:'summon',id:'serpent'}));assert.equal(h.coins,200000);assert.equal(g.mobs.filter(m=>m.map===C.map).length,1);
+ h.coins=400000;h.map='train';assert(!rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));h.map='plaza';
+ assert(rpgWorldBoss(g,0,{op:'summon',id:'dragon'}));assert.equal(h.coins,400000-C.fee);assert.equal(C.fee,350000);
+ assert(!rpgWorldBoss(g,0,{op:'summon',id:'serpent'}));assert.equal(h.coins,400000-C.fee);assert.equal(g.mobs.filter(m=>m.map===C.map).length,1);
 });
 test('자연 출현은 시간 경계를 지나 한 번만 발생하고 서버별로 독립이다',()=>{
  const a=setup(),b=setup();a.wbServer='RPG1';b.wbServer='RPG2';const at=(Math.floor(a.wb.clock/C.period)+1)*C.period;
  a.wb.clock=b.wb.clock=at-5;a.wb.lastHour=b.wb.lastHour=at/C.period-1;
  advance(a,.02);advance(b,.02);assert(a.wb.active);assert(b.wb.active);assert.notEqual(a.wb.active.key,b.wb.active.key);assert.notEqual(a.wb.active.id,b.wb.active.id);
- const key=a.wb.active.key;advance(a,1);assert.equal(a.wb.active.key,key);assert.equal(a.heroes[0].coins,300000);
+ const key=a.wb.active.key;advance(a,1);assert.equal(a.wb.active.key,key);assert.equal(a.heroes[0].coins,400000);
 });
 test('성역에 세 명이 각각 입장하고 언제든 살아서 나올 수 있다',()=>{
  const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});
@@ -78,7 +78,7 @@ test('성역에 세 명이 각각 입장하고 언제든 살아서 나올 수 �
 test('실제 무기 스킬 피해가 월드보스 기여도에 집계되고 보상을 한 번만 준다',()=>{
  const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});rpgWorldBoss(g,0,{op:'enter'});
  const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob),h=g.heroes[0];m.hp=m.max=a.hp=a.max=1000;h.x=m.x-130;h.y=m.y;h.look=[1,0];h.dir=1;
- rpgWeaponSkill(g,0);advance(g,2);assert.equal(a.phase,'clear');assert(a.contrib[0].damage===1000);assert(h.coins>=250000);assert(h.bag.m.heart>=10);assert(h.bag.wbDone.includes(a.key));
+ rpgWeaponSkill(g,0);advance(g,2);assert.equal(a.phase,'clear');assert(a.contrib[0].damage===1000);assert(h.coins>=400000-C.fee+C.coins[0]);assert(h.bag.m.heart>=10);assert(h.bag.wbDone.includes(a.key));
  const before=h.coins;advance(g,1);assert.equal(h.coins,before);
 });
 test('기여도 정확히 10%는 제외하고 10% 초과만 지급하며 과잉 피해는 집계하지 않는다',()=>{
@@ -100,7 +100,7 @@ test('가방이 차면 물품을 보관하고 재접속 정리 후 빈 칸만큼
  assert.equal(collectWorldBossMail(h),7);assert.equal(h.bag.wbMail[0].n,15);assert(h.bag.w.some(w=>w.sp==='dragon_dual'));assert(h.bag.a.some(a=>a.set==='dragon'));
 });
 test('방장 승계는 보스 체력·기여·위험지역·남은 공격을 복구한다',()=>{
- const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'machine'});rpgWorldBoss(g,0,{op:'enter'});advance(g,3.2);
+ const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'machine'});rpgWorldBoss(g,0,{op:'enter'});advance(g,C.introGrace+.2);
  const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);worldBossHit(g,m,g.heroes[0],200);m.hp-=200;advance(g,.02);
  const guest=makeWorld();rpgSyncSeats(guest,seats);rpgApply(guest,JSON.parse(JSON.stringify(rpgPack(g))));rpgPromote(guest);
  assert.equal(guest.wb.active.hp,a.hp);assert.deepEqual(guest.wb.active.contrib,a.contrib);assert.deepEqual(guest.wb.active.attack,a.attack);assert.equal(guest.mobs.find(m=>m.id===a.mob).hp,m.hp);assert.equal(guest.mobs.find(m=>m.id===a.mob).pose,1);
@@ -265,4 +265,14 @@ test('즉사 기술도 마지막 1.6초에 합동 공격으로 끊을 수 있다
  const g=setup();g.heroes.filter(Boolean).forEach(h=>h.lv=C.coop.lv);rpgWorldBoss(g,0,{op:'summon',id:'machine'});for(let i=0;i<3;i++)rpgWorldBoss(g,i,{op:'enter'});
  const a=g.wb.active,m=g.mobs.find(q=>q.id===a.mob);a.seq=3;a.cd=0;advance(g,.02);
  a.attack.t=1;assert(worldBossCoopOpen(a));g.heroes.filter(Boolean).forEach(h=>worldBossHit(g,m,h,10));assert.equal(a.attack,null);assert.equal(a.stun,C.coop.stun);
+});
+
+test('성역에 들어와 등장 연출을 보는 동안(introGrace)은 보스가 공격을 시작하지 않고, 이미 싸우는 중이면 늦추지 않는다',()=>{
+ const g=setup();rpgWorldBoss(g,0,{op:'summon',id:'dragon'});rpgWorldBoss(g,0,{op:'enter'});
+ advance(g,C.introGrace-.2);assert.equal(g.wb.active.attack,null,'연출 동안은 공격 없음');
+ advance(g,.4);assert(g.wb.active.attack,'연출이 끝나면 공격을 시작한다');
+ // 다른 사람이 싸우는 중(체력이 깎임)에 들어오면 화면은 이름표만 — 공격 간격을 늘리지 않는다
+ const h=setup();rpgWorldBoss(h,0,{op:'summon',id:'serpent'});rpgWorldBoss(h,0,{op:'enter'});
+ const a=h.wb.active,m=h.mobs.find(m=>m.id===a.mob);worldBossHit(h,m,h.heroes[0],500);m.hp-=500;a.hp=m.hp;a.cd=1;
+ h.heroes[1].x=C.portal.x;h.heroes[1].y=C.portal.y+70;rpgWorldBoss(h,1,{op:'enter'});assert.equal(a.cd,1);
 });

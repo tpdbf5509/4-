@@ -52,7 +52,7 @@ export default function WorldBossPanel({state,self,act,onClose}){
         <div className="wb-portrait" role="img" aria-label={b.name} style={b.art?{backgroundImage:`url(${b.art.src})`,backgroundSize:'200% 100%',backgroundPosition:'0% 0%'}:{backgroundImage:`url(${C.art})`,backgroundPosition:`${8.3333+i*41.6667}% 14.2857%`}}/>
         <h3 className="shop-h">{b.name}</h3><p>{b.sub}</p><p>체력 {b.hp.toLocaleString('ko-KR')}{b.recLv?` · 권장 레벨 ${b.recLv}`:''}</p>
         <p>무기 각 2%: {worldBossWeapons(b.id).map(w=>w.name).join(' · ')}</p>
-        <button type="button" className="shop-btn" disabled={!ready||!atPlaza||!!a||self.coins<C.fee} onClick={()=>act('wb',{op:'summon',id:b.id})}>10만 코인으로 소환</button>
+        <button type="button" className="shop-btn" disabled={!ready||!atPlaza||!!a||self.coins<C.fee} onClick={()=>act('wb',{op:'summon',id:b.id})}>{C.fee/10000}만 코인으로 소환</button>
       </article>)}</div>
       {!atPlaza&&<p className="wb-rule">소환과 입장은 광장 포탈 가까이에서 가능합니다.</p>}
       <h3 className="shop-h">강력 패턴과 합동 공격</h3><p>공격이 여러 차례 이어집니다. 드래곤은 화염폭풍, 거대 뱀은 안팎을 번갈아 피하는 탈피, 기계는 회전하는 8방향 전류를 사용합니다. 뇌조는 깃털 탄막 사이를 피하고 급강하 경로에서 벗어나세요. 착지 충격파는 안쪽이 안전합니다. 폭풍의 눈에서는 푸른 안전 원을 따라 이동하세요.</p>

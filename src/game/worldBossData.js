@@ -6,7 +6,9 @@ export const WORLD_BOSS_WEAPONS = [...WORLD_WEAPONS, ...STORM_WEAPONS, ...VOID_W
 export const worldBossWeapons = id => WORLD_BOSS_WEAPONS.filter(w => (w.rewardBoss || w.set) === id);
 export const WORLD_BOSS = {
   revision:5, // 진행 중인 보스도 체력 비율과 기여도를 보존하며 새 수치로 옮긴다.
-  map: 'worldboss', fee: 100000, period: 3600000, duration: 900000, endWait: 20,
+  map: 'worldboss', fee: 350000,   // 소환비 — 11월 8일 10만 → 35만(사용자 결정)
+  introGrace: 4.2,   // 성역에 들어와 등장 연출(약 4초, worldBossIntroData.js)을 보는 동안 보스가 공격을 시작하지 않는다(초)
+  period: 3600000, duration: 900000, endWait: 20,
   contribution: .1, wind: 1.5, gap: 2.8, rageGap: 1.8, rageAt: .3,
   hitPct: .45, poolPct: .14, poolTime: 7, poolTick: 1, // 경고를 보고 피해야 하는 강한 연속 공격으로 바꾼다.
   coop: {window:1.6,sync:.85,players:3,stun:4,lv:400}, // 400레벨 3명이 스킬을 맞춰 큰 기술을 4초간 끊는다. lv — 최고 레벨이 800 으로 올라도(10월 26일) 예전 만렙 400 기준을 그대로 둔다

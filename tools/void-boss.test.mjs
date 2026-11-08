@@ -13,7 +13,7 @@ const seats = Array.from({ length: 3 }, (_, i) => ({ id: `vb${i}`, name: `관측
 function setup() {
   const g = makeWorld(); g.mySeat = 0; g.wb.lastHour = Math.floor(g.wb.clock / C.period); g.out = [];
   rpgSyncSeats(g, seats);
-  for (let i = 0; i < 3; i++) rpgJoin(g, i, { name: seats[i].name, rs: RESET.id, gift: GIFT.id, lv: 100, ts: 0, coins: 300000, stats: { str: 100, hp: 100 }, bag: { oc: 1, w: [], e: 0, n: 2 } }, seats[i].id);
+  for (let i = 0; i < 3; i++) rpgJoin(g, i, { name: seats[i].name, rs: RESET.id, gift: GIFT.id, lv: 100, ts: 0, coins: 400000, stats: { str: 100, hp: 100 }, bag: { oc: 1, w: [], e: 0, n: 2 } }, seats[i].id);
   g.heroes.forEach(h => { if (h) { h.auto = 0; h.x = C.portal.x; h.y = C.portal.y + 70; } });
   return g;
 }
@@ -36,7 +36,7 @@ test('다섯 번째 보스 — 체력 15,000,000 · 권장 800 · 뒤에 추가 
   assert.deepEqual(WORLD_BOSSES.slice(0, 4).map(b => [b.id, b.hp]), [['dragon', 30000000], ['serpent', 36000000], ['machine', 40000000], ['thunderbird', 45000000]]);
   assert.deepEqual(WORLD_BOSSES.slice(0, 4).map(b => b.attacks), [['cone', 'meteors', 'inferno', 'dragon_doom'], ['poison', 'ring', 'molt', 'serpent_doom'], ['cross', 'lightning', 'overload', 'machine_doom'], ['thunder_feathers', 'thunder_dive', 'thunder_eye', 'thunder_doom']]);
   // 제한시간 · 입장료는 기존 월드보스와 같은 공통 값
-  assert.equal(C.duration, 900000); assert.equal(C.fee, 100000);
+  assert.equal(C.duration, 900000); assert.equal(C.fee, 350000);
   assert.deepEqual([PAT.gravity_collapse.wind, PAT.gravity_collapse.damage, PAT.space_cut.wind, PAT.space_cut.gap, PAT.space_cut.damage, PAT.space_cut.hits, PAT.void_cross.damage, PAT.void_cross.belowHp, PAT.event_horizon.wind, PAT.event_horizon.safes], [1.5, .45, .8, .8, .3, 3, .4, .5, 4.6, 3]);
   assert(PAT.event_horizon.doom && PAT.event_horizon.major);
   assert(MAPS.worldboss); // 몹 종류 번호: 새 보스는 맨 뒤
@@ -163,5 +163,5 @@ test('보상은 서버(방장) 판정으로 한 번만 지급된다 — 기여�
   worldBossKilled({ notice() {}, fx() {} }, g, f.m);
   assert.equal(g.wb.results[0].rewards.length, 1, '10% 초과 1명만'); assert(h.coins > coins); const after = h.coins; assert.equal(h.bag.wbDone.length, 1);
   adv(g, 1); assert.equal(h.coins, after, '다시 줄 수 없음'); adv(g, 3); assert.equal(h.bag.wbDone.length, 1);
-  assert.equal(other.coins, 300000, '기여 미달은 보상 없음');
+  assert.equal(other.coins, 400000, '기여 미달은 보상 없음');
 });

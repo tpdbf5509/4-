@@ -1,111 +1,100 @@
 /* ── 월드보스 등장 연출 — 화면에만 그린다(판정 없음) ─────────────────────────
    수치는 worldBossIntroData.js. 이 기기의 시계(performance.now)로 흐르고 스냅샷에 싣지 않는다.
    tickWbIntro 는 RpgView 루프가 drawRpg 앞에서 부르고, drawWbIntroHud 는 drawRpg 뒤 화면 좌표로 그린다.
-   보스 몸이 올라오는 것(wbIntroRise)과 땅 연출(drawWbIntroGround)은 worldBossArt.js 가 부른다. */
-import { WB_INTRO as I, WB_INTRO_LINE } from "./worldBossIntroData.js";
+   보스 몸과 땅 효과는 worldBossArt.js 가 wbIntroScene 으로 지금 장면을 물어 그린다.
+   본 연출 중 실제 공격 예고 · 기절이 들어오면 곧바로 이름표만 남긴다(경고 범위를 가리지 않게). */
+import { WB_INTRO as I, WB_INTRO_SCENE, WB_INTRO_LINE } from "./worldBossIntroData.js";
 import { WORLD_BOSS as C, WORLD_BOSS_BY_ID } from "./worldBossData.js";
 import { W, H } from "./world.js";
 
-const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const ease = (p) => 1 - (1 - p) ** 3;
 const nowS = () => (typeof performance !== "undefined" ? performance.now() : Date.now()) / 1000;
 
-// key — 마지막으로 본 출현, seen — 입장 연출을 본 출현, intro — 지금 보이는 입장 연출, pulse — 출현 예고
+/* key — 마지막으로 본 출현, seen — 이번 접속에서 들어가 본 출현, intro — 지금 보이는 연출, pulse — 출현 예고.
+   intro.full — 본 연출 중(false 면 이름표만), tagAt · tagEnd — 이름표가 보이는 때 */
 const S = { init: false, key: "", seen: new Set(), intro: null, pulse: null, wasIn: false };
 
 export function resetWbIntro() { S.init = false; S.key = ""; S.seen.clear(); S.intro = null; S.pulse = null; S.wasIn = false; }
+
+/* 이미 싸우는 중인가 — 판정 상태(스냅샷의 g.wb.active)로만 본다.
+   공격 준비 · 시전(a.attack), 합동 공격 기절(a.stun), 독 웅덩이(a.pools)가 있거나,
+   나 말고 성역에 사람이 있고 보스 체력이 이미 깎였으면 싸우는 중이다 */
+export function wbInCombat(g, a, me) {
+  if (!a) return false;
+  if (a.attack || a.stun > 0 || a.pools?.length) return true;
+  const others = (g.heroes || []).some((h) => h && h !== me && h.loaded !== false && h.map === C.map);
+  return others && a.hp < a.max;
+}
+// 본 연출을 끊어야 하는 실제 위험 — 공격 예고가 들어왔거나 보스가 기절했다
+const danger = (a) => !!(a.attack || a.stun > 0);
 
 /* ready — 맵 불러오기 가림막이 걷혔나. play — 소리(sfx.play, 전용 서버 묶음에 sfx 를 끌어들이지 않으려고 받는다).
    처음 본 보스(접속했을 때 이미 있던 보스)에는 출현 예고를 하지 않는다 */
 export function tickWbIntro(g, ready, play = () => {}, t = nowS()) {
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
-  const a = g.wb?.active, fight = a && a.phase === "fight" && WORLD_BOSS_BY_ID[a.id];
+  const a = g.wb?.active, fight = a && a.phase === "fight" && WORLD_BOSS_BY_ID[a.id] ? a : null;
   if (fight && a.key !== S.key) {
     if (S.init && me && me.map !== C.map) { S.pulse = { at: t, id: a.id }; play("wbHorn"); }
     S.key = a.key;
   }
   S.init = true;
   const inside = !!(me && me.map === C.map);
-  if (!inside) { S.wasIn = false; if (S.intro && t - S.intro.at > 0.2) S.intro = null; }
-  if (inside && !S.wasIn && ready && fight) {
-    S.wasIn = true;
-    const first = !S.seen.has(a.key);
-    S.seen.add(a.key);
-    if (S.seen.size > 12) S.seen.delete(S.seen.values().next().value);
-    // 공격 준비 중에 들어오면 몸이 올라오는 장면은 건너뛴다 — 경고 범위와 겹쳐 헷갈리지 않게
-    S.intro = { at: t, id: a.id, first, rise: first && !a.attack, roared: false };
-    S.pulse = null;
-    if (first) play("wbRise");
+  // 성역을 나갔거나 · 보스가 쓰러졌거나 · 다른 출현으로 바뀌면 곧바로 지운다
+  if (S.intro && (!inside || !fight || fight.key !== S.intro.key)) stop(play);
+  if (!inside) S.wasIn = false;
+  if (inside && !S.wasIn && ready) {
+    S.wasIn = true;   // 보스가 없는 성역이어도 들어간 것으로 친다 — 뒤늦게 연출이 켜지지 않게
+    if (fight) begin(g, fight, me, t);
   }
   const it = S.intro;
   if (!it) return;
-  const e = t - it.at;
-  if (it.first && !it.roared && e >= I.roar) {
-    it.roared = true;
-    play("wbRoar");
-    g.shake = Math.max(g.shake || 0, I.shake);
-  }
-  if (e > (it.first ? I.life : I.again) || !fight || a.id !== it.id) S.intro = null;
-}
-
-// 보스 몸이 올라오는 정도 — null 이면 평소처럼 그린다. 0 은 땅속, 1 은 다 올라옴
-export function wbIntroRise(id, t = nowS()) {
-  const it = S.intro;
-  if (!it || !it.rise || it.id !== id) return null;
-  const p = clamp((t - it.at - I.rise[0]) / (I.rise[1] - I.rise[0]));
-  return p >= 1 ? null : ease(p);
-}
-export const WB_RISE_DEPTH = I.riseDepth;
-
-/* 땅 연출 — 보스 발밑(월드 좌표). 갈라짐이 번지고 흙먼지가 오르다 포효 때 충격파가 퍼진다 */
-export function drawWbIntroGround(ctx, a, tone, quality = 1, t = nowS()) {
-  const it = S.intro;
-  if (!it || !it.first || it.id !== a.id) return;
-  const e = t - it.at, x = a.x, y = a.y;
-  const crack = clamp(e / I.roar), fade = 1 - clamp((e - I.roar - 0.6) / 1.2);
-  if (fade <= 0) return;
-  ctx.save();
-  ctx.lineCap = "round";
-  // 갈라짐 — 정해진 각도로 뻗고(매 프레임 같은 모양) 끝이 보스 빛깔로 빛난다
-  const n = Math.max(4, Math.round(I.cracks * quality));
-  for (let i = 0; i < n; i++) {
-    const ang = i * TAU / n + (i % 2 ? 0.21 : -0.13), len = (150 + (i * 53) % 110) * crack;
-    const mx = x + Math.cos(ang + 0.18) * len * 0.55, my = y + Math.sin(ang + 0.18) * len * 0.55 * C.squash;
-    const ex = x + Math.cos(ang) * len, ey = y + Math.sin(ang) * len * C.squash;
-    ctx.globalAlpha = 0.75 * fade;
-    ctx.strokeStyle = "#2a1d17"; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(mx, my); ctx.lineTo(ex, ey); ctx.stroke();
-    ctx.globalAlpha = 0.85 * fade;
-    ctx.strokeStyle = tone[1]; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(mx, my); ctx.lineTo(ex, ey); ctx.stroke();
-  }
-  // 발밑 빛 — 땅속에서 새어 나오는 보스 빛깔
-  const glow = ctx.createRadialGradient(x, y, 0, x, y, 200);
-  glow.addColorStop(0, tone[1]); glow.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.globalAlpha = 0.45 * fade * crack;
-  ctx.fillStyle = glow;
-  ctx.beginPath(); ctx.ellipse(x, y, 200, 200 * C.squash, 0, 0, TAU); ctx.fill();
-  // 흙먼지 — 올라오는 동안 피어오른다
-  const dn = Math.max(6, Math.round(I.dust * quality));
-  for (let i = 0; i < dn; i++) {
-    const ph = ((e * 0.9 + i * 0.137) % 1), ang = i * 2.39996, d = 70 + (i * 37) % 120;
-    const px = x + Math.cos(ang) * d, py = y + Math.sin(ang) * d * C.squash - ph * 90;
-    ctx.globalAlpha = (1 - ph) * 0.6 * fade * clamp(e / 0.3);
-    ctx.fillStyle = i % 3 ? "#a8998a" : "#d6c8b2";
-    ctx.beginPath(); ctx.arc(px, py, 5 + (i % 4) * 3 + ph * 8, 0, TAU); ctx.fill();
-  }
-  // 충격파 — 포효 순간 두 겹 고리
-  const rp = (e - I.roar) / I.ring[1];
-  if (rp > 0 && rp < 1) {
-    for (const [k, w, col] of [[1, 6, tone[1]], [0.72, 2, tone[2]]]) {
-      ctx.globalAlpha = (1 - rp) * 0.8;
-      ctx.strokeStyle = col; ctx.lineWidth = w * (1 - rp) + 1;
-      ctx.beginPath(); ctx.ellipse(x, y, I.ring[0] * ease(rp) * k, I.ring[0] * ease(rp) * k * C.squash, 0, 0, TAU); ctx.stroke();
+  if (it.full) {
+    if (danger(fight)) cut(it, t, play);
+    else {
+      const e = t - it.at, sc = WB_INTRO_SCENE[it.id];
+      // 소리는 그때그때 부른다 — 끊으면 남은 소리도 나지 않는다
+      while (it.cue < sc.cues.length && e >= sc.cues[it.cue][0]) play(sc.cues[it.cue++][1]);
+      if (!it.peaked && e >= sc.peak) { it.peaked = true; if (sc.shake) g.shake = Math.max(g.shake || 0, sc.shake); }
+      if (e >= I.life + I.trail) it.full = false;
     }
   }
-  ctx.restore();
+  if (t > it.tagEnd) S.intro = null;
 }
+
+function begin(g, a, me, t) {
+  const first = !S.seen.has(a.key);
+  S.seen.add(a.key);
+  if (S.seen.size > I.forget) S.seen.delete(S.seen.values().next().value);
+  const sc = WB_INTRO_SCENE[a.id];
+  const full = first && !!sc && !wbInCombat(g, a, me);
+  // 드래곤 열기 같은 방향 연출은 내 캐릭터 쪽(화면 앞쪽)을 본다
+  const ang = me ? Math.atan2(me.y - a.y, me.x - a.x) : Math.PI / 2;
+  S.intro = full
+    ? { key: a.key, id: a.id, at: t, full: true, cue: 0, peaked: false, ang, side: me && me.x < a.x ? -1 : 1,
+        tagAt: t + sc.peak, tagEnd: t + I.life + I.tagHold }
+    : { key: a.key, id: a.id, at: t, full: false, tagAt: t, tagEnd: t + I.again };
+  S.pulse = null;
+}
+// 실제 공격이 들어옴 — 몸 보정 · 땅 효과 · 남은 소리를 끊고 이름표만 남긴다(다시 시작하지 않는다)
+function cut(it, t, play) {
+  it.full = false; it.cut = true;
+  play("wbStop");
+  if (t < it.tagAt) { it.tagAt = t; it.tagEnd = t + I.again; }
+}
+function stop(play) {
+  if (S.intro?.full) play("wbStop");
+  S.intro = null;
+}
+
+/* 지금 본 연출 장면 — 없거나 끊겼으면 null. e 경과(초), ang 앞쪽 방향, side 들어오는 쪽(뱀) */
+export function wbIntroScene(id, t = nowS()) {
+  const it = S.intro;
+  if (!it || !it.full || it.id !== id) return null;
+  return { id, e: t - it.at, ang: it.ang, side: it.side, sc: WB_INTRO_SCENE[id] };
+}
+// 시험 · 화면 확인용 — 지금 연출 상태
+export const wbIntroState = () => S.intro && { ...S.intro };
 
 function line(ctx, text, x, y, font, color, spacing = "0px") {
   ctx.font = font;
@@ -114,7 +103,7 @@ function line(ctx, text, x, y, font, color, spacing = "0px") {
   ctx.fillText(text, x, y);
 }
 
-/* 화면 좌표 — 위아래 띠 · 가장자리 그늘 · 이름표, 다른 맵에서는 출현 예고 테두리 */
+/* 화면 좌표 — 위아래 얇은 띠(본 연출 동안) · 왼쪽 아래 이름표, 다른 맵에서는 출현 예고 테두리 */
 export function drawWbIntroHud(ctx, g, t = nowS()) {
   const p = S.pulse;
   if (p) {
@@ -129,24 +118,25 @@ export function drawWbIntroHud(ctx, g, t = nowS()) {
   if (!it) return;
   const B = WORLD_BOSS_BY_ID[it.id];
   if (!B) return;
-  const e = t - it.at, life = it.first ? I.life : I.again;
+  const e = t - it.at;
   ctx.save();
-  if (it.first) {
-    // 가장자리 그늘 · 위아래 띠
-    const inP = clamp(e / I.barIn), outP = clamp((life - e) / I.barOut), show = ease(Math.min(inP, outP));
-    edge(ctx, "#0d0a0a", I.vignette * show, 0.34);
-    const bh = Math.round(H * I.bar * show);
-    ctx.globalAlpha = I.barAlpha;
-    ctx.fillStyle = "#120e0d";
-    ctx.fillRect(0, 0, W, bh); ctx.fillRect(0, H - bh, W, bh);
-    ctx.globalAlpha = 0.5 * show;
-    ctx.fillStyle = B.color;
-    ctx.fillRect(0, bh, W, 1); ctx.fillRect(0, H - bh - 1, W, 1);
+  let bh = 0;
+  if (it.full) {
+    const show = ease(Math.min(clamp(e / I.barIn), clamp((I.life + I.barOut - e) / I.barOut)));
+    bh = Math.round(H * I.bar * show);
+    if (bh > 0) {
+      ctx.globalAlpha = I.barAlpha;
+      ctx.fillStyle = "#120e0d";
+      ctx.fillRect(0, 0, W, bh); ctx.fillRect(0, H - bh, W, bh);
+      ctx.globalAlpha = 0.5 * show;
+      ctx.fillStyle = B.color;
+      ctx.fillRect(0, bh, W, 1); ctx.fillRect(0, H - bh - 1, W, 1);
+    }
   }
   // 이름표 — 왼쪽 아래, 왼쪽 정렬. 보스 빛깔은 선 하나에만 쓴다
-  const c0 = it.first ? I.card[0] : 0, ce = e - c0;
+  const ce = t - it.tagAt;
   if (ce > 0) {
-    const a = Math.min(clamp(ce / I.cardIn), clamp((life - e) / I.cardOut));
+    const a = Math.min(clamp(ce / I.cardIn), clamp((it.tagEnd - t) / I.cardOut));
     const slide = (1 - ease(clamp(ce / I.cardIn))) * -28;
     const x = 64 + slide, y = H - Math.round(H * I.bar) - 150;
     ctx.globalAlpha = a * 0.62;

@@ -168,6 +168,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 수치 `worldBossIntroData.js`(`WB_INTRO` 공통 · `WB_INTRO_SCENE` 보스마다 장면 · 강한 순간 · 소리 차례), 재생 상태 · 이름표 `worldBossIntro.js`(화면에만, 이 기기 시계, 스냅샷에 싣지 않음), 보스 몸 · 땅 효과 `worldBossArt.js`(`introBody` `introGround` `introOver`), 소리 `sfx.js INTRO_SND`. RpgView 루프가 `tickWbIntro`(drawRpg 앞) · `drawWbIntroHud`(뒤)를 부른다. 판정 · 위치 · 공격 시간은 그대로.
 - 새 출현은 다른 맵에서 가장자리 빛 + `wbHorn`. 성역에 들어가 가림막이 걷히면 본 연출 1.4초(0~0.4 예고 · 0.4~1.0 드러남 · 1.0 강한 순간에 이름표, 1.2초 더). 출현(`a.key`)마다 첫 입장 한 번, 다시 들어오면 이름표만.
 - 싸우는 중(`wbInCombat`: 공격 · 기절 · 웅덩이, 또는 다른 사람이 있고 체력이 깎임)에 들어오면 이름표만. 본 연출 중 `a.attack` · `a.stun` 이 생기면 몸 · 땅 효과를 끊고 `wbStop` 으로 소리도 멈춘다(다시 틀지 않음). 퇴장 · 처치 · 다른 출현이면 곧바로 지운다. 소리는 정한 때에 tick 이 부른다(미리 예약하지 않음).
+- 가장 강한 순간은 화면 전체를 장악한다(사용자 요청 — 압도감): 바닥 어둠 `dim` · 번쩍임 · 보스 빛깔 물듦 · 집중선 · 충격파 · 붉은 문구 `cry`(`WB_INTRO.slam`) · 강한 흔들림 `shake`(1 이 6px) · 공통 충격음 `wbSlam`. 공격 예고 · 기절이 오면 `it.big=false` 로 바로 지운다.
 - 새 보스를 더하면 `WB_INTRO_SCENE` · `WB_INTRO_LINE` · `worldBossArt.js` 장면을 더한다. 시험 `tools/world-boss-intro.test.mjs`.
 
 ### RPG 테스트 모드 `?test` (11월 7일)

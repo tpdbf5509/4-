@@ -102,6 +102,13 @@ export function shot(kind) {
 /* 월드보스 등장 연출 소리(worldBossIntroData.js WB_INTRO_SCENE.cues 가 때맞춰 부른다).
    한 소리 안의 지연은 0.4초 안으로 짧게 둔다 — 강조음은 연출이 그 순간에 따로 부른다 */
 const INTRO_SND = {
+  // 가장 강한 순간 — 보스 공통으로 깔리는 묵직한 충격음(보스 소리와 함께 난다)
+  wbSlam: () => {
+    tone({ type: "sine", f0: 64, f1: 24, t: 1.1, gain: 0.42 });
+    tone({ type: "sawtooth", f0: 96, f1: 38, t: 0.5, gain: 0.14 });
+    noise({ t: 0.55, gain: 0.36, f: 900, f1: 120, q: 0.5 });
+    noise({ t: 0.08, gain: 0.25, f: 3000, q: 1 });
+  },
   // 드래곤 — 낮은 숨소리, 그리고 짧은 포효
   wbDragonBreath: () => {
     noise({ t: 0.95, gain: 0.2, f: 240, f1: 420, q: 0.6, swell: true });

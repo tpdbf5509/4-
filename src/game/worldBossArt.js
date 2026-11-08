@@ -348,6 +348,10 @@ function introGround(ctx,a,tone,q){
   const {e,sc}=s,[b0,b1]=I.beat,L=I.life,x=a.x,y=a.y,k=Math.max(4,Math.round(sc.bits*q));
   const after=cl((e-sc.peak)/(L-sc.peak+I.trail));
   ctx.save();
+  // 드러나는 동안 바닥을 누른다 — 보스 자리만 남기고 성역 전체가 어두워진다(보스 · 캐릭터는 이 위에 밝게 그린다)
+  const dim=sc.dim*cl((e-.15)/.45)*(1-cl((e-sc.peak)/.5));
+  if(dim>0){const gr=ctx.createRadialGradient(x,y-120,120,x,y-120,900);gr.addColorStop(0,'rgba(8,4,10,.15)');gr.addColorStop(1,'rgba(8,4,10,1)');
+    ctx.save();ctx.globalAlpha=dim;ctx.fillStyle=gr;ctx.fillRect(x-2400,y-2400,4800,4800);ctx.restore();}
   if(s.id==='dragon'){
     // 앞쪽 좁은 부채꼴 열기 — 테두리 없이 옅게(삼연 화염 숨결 방향)
     const {arc,len}=sc.fan,heat=cl(e/b0)*(1-cl((e-L)/I.trail));
@@ -391,11 +395,6 @@ function introGround(ctx,a,tone,q){
       ctx.globalAlpha=.32*Math.sin(p*Math.PI);ctx.fillStyle='#0d0b1a';ctx.translate(cx,cy);ctx.scale(1,C.squash);
       ctx.beginPath();ctx.ellipse(0,0,70,40,0,0,TAU);ctx.fill();
       for(const d of [-1,1]){ctx.beginPath();ctx.moveTo(0,-10);ctx.quadraticCurveTo(d*180,-90,d*320,-40);ctx.quadraticCurveTo(d*200,-10,d*60,30);ctx.closePath();ctx.fill();}}
-  }else if(s.id==='void'){
-    // 주변을 잠깐 어둡게 — 보스 자리만 남기고 바깥을 누른다
-    const dim=sc.dim*cl((e-b0*.5)/.4)*(1-cl((e-sc.peak)/.4));
-    if(dim>0){const gr=ctx.createRadialGradient(x,y-120,140,x,y-120,1000);gr.addColorStop(0,'rgba(8,4,16,0)');gr.addColorStop(1,'rgba(8,4,16,1)');
-      ctx.globalAlpha=dim;ctx.fillStyle=gr;ctx.fillRect(x-1100,y-1200,2200,2200);}
   }
   ctx.restore();
 }

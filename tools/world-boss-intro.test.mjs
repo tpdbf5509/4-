@@ -18,6 +18,8 @@ test('보스 5종 모두 전용 장면 · 소리 · 소개가 있고, 가장 강
     assert.ok(sc.peak >= I.beat[1] && sc.peak <= I.life, `${B.id} 강한 순간`);
     assert.ok(sc.cues.some(([t]) => t === sc.peak), `${B.id} 강조음은 강한 순간에`);
     sounds.add(sc.cues[0][1]);
+    assert.ok(sc.cry && sc.cry.length <= 14, `${B.id} 붉은 문구는 짧게`);
+    assert.ok(sc.shake >= 1.5, `${B.id} 강한 흔들림`);
   }
   assert.equal(sounds.size, WORLD_BOSSES.length, '첫 소리가 보스마다 다르다');
   assert.ok(Math.abs(I.life - 1.4) < 1e-9 && Math.abs(I.tagHold - 1.2) < 1e-9);
@@ -111,6 +113,7 @@ test('연출 중 공격 예고가 들어오면 몸 · 땅 효과 · 남은 강�
   assert.ok(snd.includes('wbStop'));
   assert.ok(!snd.includes('wbMachineBoot'), '예약된 강조음은 나지 않는다');
   assert.equal(wbIntroState().tagAt, 0.55, '이름표만 남는다');
+  assert.equal(wbIntroState().big, false, '붉은 문구 · 화면 효과도 끊는다');
   g.wb.active.attack = null;
   for (let t = 0.6; t < 2; t += 0.05) tickWbIntro(g, true, play, t);
   assert.ok(!snd.includes('wbMachineBoot'), '공격이 끝나도 다시 시작하지 않는다');
@@ -120,6 +123,13 @@ test('연출 중 공격 예고가 들어오면 몸 · 땅 효과 · 남은 강�
   const s = world(C.map, boss('q'));
   tickWbIntro(s, true, play, 0); s.wb.active.stun = 3; tickWbIntro(s, true, play, 0.2);
   assert.equal(wbIntroScene('dragon', 0.2), null);
+  // 본 연출이 끝난 뒤 문구만 남은 때 공격이 와도 문구를 지운다
+  resetWbIntro();
+  const w = world(C.map, boss('w'));
+  for (let t = 0; t <= I.life + I.trail + 0.05; t += 0.05) tickWbIntro(w, true, play, t);
+  assert.equal(wbIntroState().big, true);
+  w.wb.active.attack = { kind: 'cone' }; tickWbIntro(w, true, play, I.life + I.trail + 0.1);
+  assert.equal(wbIntroState().big, false);
 });
 
 test('처치 · 다른 출현 · 보스 없는 성역에서는 연출을 정리하거나 틀지 않는다', () => {

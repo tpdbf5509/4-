@@ -59,6 +59,7 @@ export function tickWbIntro(g, ready, play = () => {}, t = nowS()) {
       if (e >= I.life + I.trail) it.full = false;
     }
   }
+  if (it.big && danger(fight)) it.big = false;   // 본 연출 뒤 남은 붉은 문구도 공격 예고가 오면 지운다
   if (t > it.tagEnd) S.intro = null;
 }
 
@@ -71,14 +72,14 @@ function begin(g, a, me, t) {
   // 드래곤 열기 같은 방향 연출은 내 캐릭터 쪽(화면 앞쪽)을 본다
   const ang = me ? Math.atan2(me.y - a.y, me.x - a.x) : Math.PI / 2;
   S.intro = full
-    ? { key: a.key, id: a.id, at: t, full: true, cue: 0, peaked: false, ang, side: me && me.x < a.x ? -1 : 1,
+    ? { key: a.key, id: a.id, at: t, full: true, big: true, cue: 0, peaked: false, ang, side: me && me.x < a.x ? -1 : 1,
         tagAt: t + sc.peak, tagEnd: t + I.life + I.tagHold }
     : { key: a.key, id: a.id, at: t, full: false, tagAt: t, tagEnd: t + I.again };
   S.pulse = null;
 }
 // 실제 공격이 들어옴 — 몸 보정 · 땅 효과 · 남은 소리를 끊고 이름표만 남긴다(다시 시작하지 않는다)
 function cut(it, t, play) {
-  it.full = false; it.cut = true;
+  it.full = false; it.big = false; it.cut = true;
   play("wbStop");
   if (t < it.tagAt) { it.tagAt = t; it.tagEnd = t + I.again; }
 }
@@ -133,6 +134,7 @@ export function drawWbIntroHud(ctx, g, t = nowS()) {
       ctx.fillRect(0, bh, W, 1); ctx.fillRect(0, H - bh - 1, W, 1);
     }
   }
+  if (it.big) slam(ctx, g, it, B, e);
   // 이름표 — 왼쪽 아래, 왼쪽 정렬. 보스 빛깔은 선 하나에만 쓴다
   const ce = t - it.tagAt;
   if (ce > 0) {
@@ -154,6 +156,62 @@ export function drawWbIntroHud(ctx, g, t = nowS()) {
     line(ctx, sub, x, y + 102, "17px 'Do Hyeon',sans-serif", "#d8ccb8", "-0.3px");
     line(ctx, info, x, y + 124, "14px 'Do Hyeon',sans-serif", "#a99c88", "0px");
   }
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+  ctx.restore();
+}
+
+/* 가장 강한 순간 — 화면 전체를 장악한다. 번쩍임 → 보스 빛깔 물듦 · 집중선 · 화면 끝까지 퍼지는 충격파 → 붉은 큰 문구.
+   공격 예고가 들어오면(cut) 그리지 않는다 — 경고 범위를 가리지 않게 */
+function slam(ctx, g, it, B, e) {
+  const sc = WB_INTRO_SCENE[it.id], S2 = I.slam, pe = e - sc.peak;
+  if (!sc || pe < 0) return;
+  if (pe > S2.text) { it.big = false; return; }
+  const cx = W / 2, cy = H * 0.46, diag = Math.hypot(W, H) / 2;
+  ctx.save();
+  // 번쩍임 · 물듦
+  if (pe < S2.flashT) { ctx.globalAlpha = S2.flash * (1 - pe / S2.flashT); ctx.fillStyle = "#fff4e8"; ctx.fillRect(0, 0, W, H); }
+  if (pe < S2.tintT) {
+    const k = (1 - pe / S2.tintT) ** 2;
+    ctx.globalAlpha = S2.tint * k; ctx.fillStyle = B.color; ctx.fillRect(0, 0, W, H);
+    edge(ctx, "#2a0306", 0.75 * k, 0.3);
+  }
+  // 집중선 — 화면 가장자리에서 가운데로
+  if (pe < S2.linesT) {
+    const k = 1 - pe / S2.linesT;
+    ctx.globalAlpha = 0.55 * k; ctx.strokeStyle = "#fff1e2";
+    for (let i = 0; i < S2.lines; i++) {
+      const an = i * 2.39996, w = 1 + (i % 4), r0 = diag * (0.42 + ((i * 37) % 23) / 100);
+      ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(an) * r0, cy + Math.sin(an) * r0); ctx.lineTo(cx + Math.cos(an) * diag * 1.2, cy + Math.sin(an) * diag * 1.2); ctx.stroke();
+    }
+  }
+  // 충격파 — 화면 끝까지
+  if (pe < S2.ringT) {
+    const p = pe / S2.ringT, r = diag * 1.15 * ease(p);
+    ctx.globalAlpha = 0.8 * (1 - p); ctx.strokeStyle = B.color; ctx.lineWidth = 18 * (1 - p) + 2;
+    ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.62, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.6 * (1 - p); ctx.strokeStyle = "#fff4e8"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(cx, cy, r * 0.8, r * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  // 붉은 문구 — 크게 박히듯 들어와 머문다. 흔들림을 함께 탄다
+  const a = Math.min(clamp(pe / S2.textIn), clamp((S2.text - pe) / S2.textOut));
+  const z = 1 + (1 - ease(clamp(pe / S2.textIn))) * 0.7, sh = (g.shake || 0) * 6;
+  const tx = W / 2 + (Math.random() - 0.5) * sh, ty = H * 0.3 + (Math.random() - 0.5) * sh;
+  ctx.translate(tx, ty); ctx.scale(z, z);
+  ctx.globalAlpha = a * 0.7;
+  const band = ctx.createLinearGradient(-W / 2, 0, W / 2, 0);
+  band.addColorStop(0, "rgba(20,2,4,0)"); band.addColorStop(0.5, "rgba(20,2,4,.85)"); band.addColorStop(1, "rgba(20,2,4,0)");
+  ctx.fillStyle = band; ctx.fillRect(-W / 2, -62, W, 104);
+  ctx.globalAlpha = a; ctx.fillStyle = S2.red;
+  ctx.fillRect(-300, -60, 600, 2); ctx.fillRect(-300, 40, 600, 2);
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  line(ctx, "월드보스 출현", 0, -30, "20px 'Do Hyeon',sans-serif", "#f1c9b8", "6px");
+  ctx.font = "62px 'Do Hyeon',sans-serif";
+  if ("letterSpacing" in ctx) ctx.letterSpacing = "-2px";
+  ctx.lineJoin = "round"; ctx.lineWidth = 9; ctx.strokeStyle = "#1c0507"; ctx.strokeText(sc.cry, 0, 30);
+  ctx.shadowColor = "rgba(255,40,40,.85)"; ctx.shadowBlur = 26;
+  ctx.fillStyle = S2.red; ctx.fillText(sc.cry, 0, 30);
+  ctx.shadowBlur = 0; ctx.fillStyle = "rgba(255,190,180,.14)"; ctx.fillText(sc.cry, 0, 28);
   if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
   ctx.restore();
 }

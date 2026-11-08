@@ -1,6 +1,7 @@
 /* 맵 불러오기 화면의 꾸밈 — 맵 종류마다 일러스트 한 장 · 이름 위의 작은 글 · 팁 한 줄(11월 7일).
    그림은 public/assets/ui/loading/<scene>.webp(1280×720). 진행 · 걷힘은 mapLoad.js 가 맡고 여기는 보이는 글과 그림만 고른다. */
 import {STORY_MAPS} from './storyData.js';
+import { HIGH_BY_ID } from './highData.js';
 
 const SCENES = ['town', 'field', 'dungeon', 'abyss', 'worldboss', 'story'];
 export const loadArt = (scene) => `/assets/ui/loading/${scene}.webp`;
@@ -14,6 +15,7 @@ export function loadInfo(id, M) {
   if (id === 'dawnwood') return {scene: 'town', tag: '메인 이야기의 시작'};
   if (!M) return {scene: 'field', tag: '사냥터'};
   if (M.abyss) return {scene: 'abyss', tag: '심연의 탑'};
+  if (M.high) { const d = HIGH_BY_ID[id]; return {scene: 'abyss', tag: d ? `${d.lv[0]}~${d.lv[1]}레벨 사냥터` : '깊은 사냥터'}; }   // 800~1200(테스트 서버 먼저)
   if (M.deep) return {scene: 'abyss', tag: '깊은 사냥터'};
   if (M.worldBoss) return {scene: 'worldboss', tag: '월드보스'};
   if (M.dungeon) return {scene: 'dungeon', tag: M.guildRaid ? '길드 토벌' : '던전'};

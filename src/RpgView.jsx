@@ -35,7 +35,7 @@ import {
   npcNear, jobOf, elemOf, skillName, heroArtPath, cleanLook, hasElem, elemFor, lookTitle,
   titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, requestXp, MOB,
   whyDungeon, dgNear, dgCrew, runOf, abyssCrew, abyssRunOf, abyssNear, raceNear,
-  RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
+  RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_PER_LV, statValue, statLeft, statEarned, noStats, lvCap, statCap,
   HIDE_GEAR, testSpots,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
@@ -48,6 +48,8 @@ import { TRAIN, TRAIN_TOGGLES, TRIAL } from "./game/trainData.js";
 import { TEST_TOGGLES } from "./game/testData.js";
 import { TEST_MODE } from "./net/testMode.js";
 const TEST_SPOTS = TEST_MODE ? testSpots() : [];   // 테스트 도구 창의 장소 이동 묶음
+// 최고 레벨 · 스탯 상한 — 테스트 모드(?test)는 800~1200 사냥터와 함께 1200(highData.js HIGH), 일반 주소는 지금 값
+const LV_MAX = lvCap({ high: TEST_MODE }), STAT_MAX = statCap({ high: TEST_MODE });
 
 // 무기 스킬 칸 — 낀 전설 무기의 스킬 이름 · 대기 · 쌓인 것
 function weaponHud(me) {
@@ -535,6 +537,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const G = useRef(null);
   if (!G.current) {
     const g = makeWorld();
+    g.high = TEST_MODE;                             // 테스트 모드 — 800~1200 사냥터 문 · 워프를 보인다(판정은 전용 서버 테스트 방)
     g.mySeat = mySeat;g.wbServer=room?.code||code||"RPG1";
     if (isHost) g.out = [];
     else g.mobs = [];                               // 손님은 방장이 보낸 토끼만 그린다

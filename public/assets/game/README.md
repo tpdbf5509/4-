@@ -193,3 +193,6 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 
 ### 맵 불러오기 화면 일러스트 (11월 7일)
 - `public/assets/ui/loading/{town,field,dungeon,abyss,worldboss,story}.webp` — 1280×720 불투명 WebP(원본 1536×864 는 `design/loading/*-src.webp`). 맵 종류 → 그림 · 이름 위 작은 글은 `src/game/loadScreen.js loadInfo`, 팁은 `LOAD_TIPS`(사실만 적는다). 왼쪽 아래에 글이 놓이므로 그림의 왼쪽 아래는 비교적 조용하게 뽑는다. 진행 · 걷힘은 `mapLoad.js`.
+
+### 800~1200 사냥터 (11월 8일, Codex · 테스트 서버 먼저)
+- `rpg/high/<지역>-mobs.webp` 8장 — 투명 1536×512, 3열(일반 · 정예 · 보스) × 1행, 칸 512, 발밑 0.95, 오른쪽을 본다. `rpg/high/summons.webp` — 투명 1280×256, 5열, 칸 256, 발밑 0.94. `rpg/high/<지역>-back.webp` 8장 — 불투명 1514×340 뒤 풍경 띠(맵 top 높이로 줄여 좌우 뒤집어 잇는다). 크기 · 칸은 `highData.js HIGH_ART`, 그리기는 `highArt.js` · `fieldArt.js paintFieldLook`. 못 불러오면 코드 그림. 프롬프트 · 자르기는 `docs/고레벨-사냥터-그림-규격.md`.

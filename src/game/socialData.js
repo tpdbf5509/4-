@@ -6,6 +6,7 @@
    스냅샷은 이 목록의 차례로 칭호를 싣는다 — 새 칭호는 맨 뒤에만 더하고, 차례를 바꾸거나 지우지 않는다(30개까지). */
 import { CODEX_IDS, CODEX_FIELD_IDS, CODEX_NEED_NAME } from "./codexData.js";
 import { GUARD_IDS, GUARDIANS } from "./abyssData.js";
+import { HIGH_MAPS, HIGH_IDS, HIGH_ELITE_IDS, eliteId } from "./highData.js";
 
 export const TITLES = [
   { id: "rookie", name: "새싹 모험가", need: { lv: 1 }, up: { hp: 1 } },
@@ -117,7 +118,8 @@ export const REC_IDS = ["rabbit", "wolf", "boar", "boss", "quest", "party", "gor
   "fspirit", "lavagolem", "firedrake", "ifrit", "wraith", "abyss", "voidmage", "fallen",
   // 심연의 탑 — atop 가장 높이 깬 층 · awk 주간 상위 10에 든 주 · awin 주간 1위 · atb · aking 교환으로 받은 칭호(1) · 수호자 6종 잡은 수
   "atop", "awk", "awin", "atb", "aking", ...GUARD_IDS,
-  "story"];   // story — 메인 이야기 30장을 마쳤으면 1
+  "story",   // story — 메인 이야기 30장을 마쳤으면 1
+  ...HIGH_IDS, ...HIGH_ELITE_IDS];   // 800~1200레벨 일반 · 정예 잡은 수(highData.js). 소환물은 보상 · 기록이 없다
 // 조건 이름 — 칭호 창에 "토끼 37/100" 처럼 보인다
 export const NEED_NAME = {
   lv: "레벨", coins: "코인", rabbit: "토끼", wolf: "늑대", boar: "멧돼지", boss: "보스", quest: "퀘스트", party: "파티 사냥", gorilla: "고릴라", pvp: "결투 승리",
@@ -127,6 +129,7 @@ export const NEED_NAME = {
   guild_slime: "강화된 슬라임", guild_siren: "바다세이렌", guild_phoenix: "불사조",
   atop: "심연의 탑 최고 층", story: "메인 이야기 완결", awk: "주간 순위 상위 10", awin: "주간 순위 1위", atb: "파편 교환", aking: "인장 교환",
   ...Object.fromEntries(GUARDIANS.map((q) => [q.type, q.name])),
+  ...Object.fromEntries(HIGH_MAPS.flatMap((d) => [[d.id, d.mob.name], [eliteId(d.id), d.elite.name]])),
   ...CODEX_NEED_NAME,
 };
 

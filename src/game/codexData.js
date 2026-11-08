@@ -5,6 +5,7 @@
    숨은 칭호(TITLES[].secret)는 여기에 적지 않는다 — 얻기 전에는 어디에도 보이지 않아야 한다. */
 
 import { GUARD_IDS } from "./abyssData.js";
+import { HIGH_IDS, HIGH_ELITE_IDS } from "./highData.js";
 
 // 도감 — 무리마다 몹 차례. id 는 기록(REC_IDS) 열쇠다. 허수아비(dummy)는 넣지 않는다
 export const CODEX_GROUPS = [
@@ -14,10 +15,13 @@ export const CODEX_GROUPS = [
   { id: "dungeon", name: "던전", note: "던전 보스와 졸개", mobs: ["gramor", "argas", "morgas", "skeleton", "barkanon", "serka"], boss: 1 },
   { id: "guild", name: "길드 토벌", note: "길드 보스", mobs: ["guild_slime", "guild_siren", "guild_phoenix"], boss: 1 },
   { id: "abyss", name: "심연의 탑", note: "10층마다 나오는 수호자", mobs: GUARD_IDS, boss: 1 },
+  // 800~1200 — 일반 8 · 정예 8. high 무리는 열렸을 때만 보이고(CodexPanel), 업적 셈(dex · dex100)에는 넣지 않는다 —
+  // 넣으면 이미 만든 "모두 100마리" 같은 업적 조건이 기존 캐릭터에게 갑자기 멀어진다
+  { id: "high", name: "최초의 명령 너머", note: "800~1200레벨 · 일반과 정예", mobs: [...HIGH_IDS, ...HIGH_ELITE_IDS], high: 1 },
 ];
-export const CODEX_IDS = CODEX_GROUPS.flatMap((c) => c.mobs);
+export const CODEX_IDS = CODEX_GROUPS.filter((c) => !c.high).flatMap((c) => c.mobs);
 // 사냥터 몹(던전 · 길드 보스는 빼고) — "모두 100마리" 업적에 쓴다
-export const CODEX_FIELD_IDS = CODEX_GROUPS.filter((c) => !c.boss).flatMap((c) => c.mobs);
+export const CODEX_FIELD_IDS = CODEX_GROUPS.filter((c) => !c.boss && !c.high).flatMap((c) => c.mobs);
 
 // 도감 별 — 잡은 수가 이만큼이면 별 하나씩. 처음 한 마리를 잡으면 도감에 모습이 드러난다
 export const CODEX_STARS = [1, 100, 1000];

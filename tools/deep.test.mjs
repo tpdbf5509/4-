@@ -42,7 +42,7 @@ test('사냥터 8곳 · 몹 · 보스 수치 — 체력은 표 값 그대로(400
     if (i) assert(MOB[z.id].hp(z.lv[0]) > MOB[DEEP_MAPS[i - 1].id].hp(DEEP_MAPS[i - 1].lv[0]), '구역마다 단단해진다');
   });
   assert.deepEqual(MAPS.fspirit.gates.map((q) => q.to), ['plaza', 'lavagolem']);
-  assert.deepEqual(MAPS.fallen.gates.map((q) => q.to), ['voidmage']);
+  assert.deepEqual(MAPS.fallen.gates.filter((q) => !q.high).map((q) => q.to), ['voidmage']);   // 오른쪽 800~1200 문(high)은 열렸을 때만(high.test.mjs)
   assert(TITLES.length <= TITLE_BITS * 2, '칭호 비트 두 칸 안');
 });
 

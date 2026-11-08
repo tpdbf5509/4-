@@ -15,8 +15,9 @@ import {
 } from "./shopData.js";
 import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
-import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS, ELEMS, ELEM_BY_ID, hasElem, hasEye } from "./rpg.js";
+import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS, ELEMS, ELEM_BY_ID, hasElem, hasEye, highOn } from "./rpg.js";
 import { DEEP } from "./deepData.js";
+import { HIGH } from "./highData.js";
 import { advOf } from "./advance.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, armorName, armorCap } from "./armorData.js";
 import { cleanArmor, wornArmor } from "./armor.js";
@@ -66,7 +67,7 @@ export const SPECIAL_BY_ID = Object.fromEntries(SPECIALS.map((sp) => [sp.id, sp]
 export const SCROLL_BY_ID = Object.fromEntries(SCROLLS.map((sc) => [sc.id, sc]));
 const BUFF_STATS = ["str", "int", "crit"];          // 버프 물약이 올릴 수 있는 스탯
 // 시간이 흐르고 손님에게 보내는 물약 효과 — 스탯 셋 + spd 이속(a = 빨라지는 몫) · hide 투명화. 뒤에만 더한다(스냅샷 차례)
-const BUFF_KEYS = [...BUFF_STATS, "spd", "hide"];
+export const BUFF_KEYS = [...BUFF_STATS, "spd", "hide"];   // 스냅샷 차례 — 뒤에만 더한다
 // 물약 효과가 남아 있는가 — 이속은 빨라지는 몫, 투명화는 1 또는 0
 export const buffLeft = (h, k) => (h && h.bf && h.bf[k] && h.bf[k].t > 0 ? h.bf[k].a || 1 : 0);
 // 걷기 속도 배율 — 이속 물약은 빨라지고, 암흑검 분노는 느려진다(분노는 암흑검을 든 동안만 쌓인다 · 방장 · 손님 같은 셈)
@@ -374,10 +375,11 @@ export function whyScrollBuy(h, id) {
   lackCoin(h, sc.price, out);
   return out;
 }
-export function whyWarp(h, to) {
+// open — 800~1200 사냥터가 열렸나(rpg.js highOn). 열리지 않은 곳은 목록에 있어도 갈 수 없다
+export function whyWarp(h, to, open = false) {
   const out = [];
   base(h, null, out);
-  if (!WARP.maps.includes(to) || !MAPS[to]) { out.push("갈 수 없는 지역입니다"); return out; }
+  if (!WARP.maps.includes(to) || !MAPS[to] || (MAPS[to].high && !open)) { out.push("갈 수 없는 지역입니다"); return out; }
   if (!h || !h.bag) return out;
   if ((h.dvs !== undefined && h.dvs >= 0) || (MAPS[h.map] && MAPS[h.map].pvp)) out.push("결투 중에는 쓸 수 없습니다");
   else if (MAPS[h.map] && (MAPS[h.map].dungeon || MAPS[h.map].worldBoss)) out.push("전투 지역에서는 쓸 수 없습니다");
@@ -388,6 +390,7 @@ export function whyWarp(h, to) {
     if (h.lv < DEEP.lv && !h.admin) out.push(`레벨 ${DEEP.lv} 필요 (지금 ${h.lv})`);
     if (!hasEye(h)) out.push("계몽의 눈이 있어야 갈 수 있습니다");
   }
+  if (MAPS[to].high && h.lv < HIGH.enterLv && !h.admin) out.push(`레벨 ${HIGH.enterLv} 필요 (지금 ${h.lv})`);   // 800~1200 — 레벨 800 부터(계몽의 눈도)
   if (!(h.bag.wp > 0)) out.push("지역 워프권이 없습니다");
   return out;
 }
@@ -850,7 +853,7 @@ export function rpgShop(g, pi, req) {
   // 워프 — 고른 지역의 입구로 옮겨 간다
   if (op === "warp") {
     const to = String(req.to || "");
-    if ((why = whyWarp(h, to)).length) return no(g, pi, why);
+    if ((why = whyWarp(h, to, highOn(g))).length) return no(g, pi, why);
     const M = MAPS[to];
     h.bag.wp -= 1;
     bump(h);

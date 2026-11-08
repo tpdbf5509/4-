@@ -310,4 +310,124 @@ export const FIELD_LOOKS = {
     ],
     path: ["#6c6370", "#918895"],
   },
+  // ── 800~1200 (테스트 서버 먼저) — 기계 · 시간 · 차원 · 관측. 뒤 풍경 그림(rpg/high/<id>-back.webp)이 있으면 그 그림을 쓴다
+  // 폐기된 병기 공장 — 녹슨 철판 바닥 · 고철 더미 · 굴뚝
+  scrapyard: {
+    seed: 122, ground: ["#7a6f63", "#8a7f72", "#665c52"],
+    tex: { k: "grain", c: "#958978", n: 800 },
+    back: { k: "city", c: ["#a89c8c", "#7f7366", "#5f564c"], stack: 0.5, lit: 0.12, win: "#e8b878", cables: 1 },
+    edge: { k: "rock", c: ["#544b42", "#6e6459"] },
+    decor: [
+      { k: "panel", n: 16, c: ["#837768", "#6f6558"] },
+      { k: "crack", n: 22, c: "#564d44" },
+      { k: "scrap", n: 46, c: ["#8d8274", "#a39070", "#6a6058"] },
+      { k: "gear", n: 18, c: "#a8957a" },
+      { k: "pipe", n: 10, c: ["#7c7064", "#9a8a72"] },
+    ],
+    path: ["#5f564d", "#857a6d"],
+  },
+  // 인공 생태림 — 이끼 낀 금속 바닥 · 배양 통 · 빛나는 회로 덩굴
+  synthetic_forest: {
+    seed: 123, ground: ["#5f7466", "#6f8476", "#4f6256"],
+    tex: { k: "grain", c: "#7f947f", n: 760 },
+    back: { k: "city", c: ["#9fb4a8", "#6f857a", "#556a5f"], dome: 0.5, lit: 0.18, win: "#bfe8c8" },
+    edge: { k: "rock", c: ["#435448", "#5b6e61"] },
+    decor: [
+      { k: "moss", n: 40, c: "#7f9a7a" },
+      { k: "circuit", n: 18, c: "#a8e0b8" },
+      { k: "vat", n: 16, c: ["#5a6a62", "#9fd8b0"] },
+      { k: "cable", n: 14, c: "#3f4f47" },
+      { k: "fern", n: 40, c: ["#7f9e7c", "#6a8a68"] },
+    ],
+    path: ["#4c5d52", "#6f8274"],
+  },
+  // 침묵의 기계도시 — 푸른 회색 포장 · 불 꺼진 빌딩 줄 · 전선
+  silent_city: {
+    seed: 124, ground: ["#6b7280", "#7b8290", "#5a606d"],
+    tex: { k: "grain", c: "#878e9c", n: 780 },
+    back: { k: "city", c: ["#9ea6b6", "#727a8b", "#575e6e"], lit: 0.08, win: "#c8d8f0", cables: 1, stack: 0.15 },
+    edge: { k: "rock", c: ["#484e5a", "#616875"] },
+    decor: [
+      { k: "tiles", n: 14, c: ["#737a88", "#7f8694", "#69707d"] },
+      { k: "panel", n: 12, c: ["#646b78", "#565d6a"] },
+      { k: "crack", n: 18, c: "#4f5563" },
+      { k: "scrap", n: 22, c: ["#7e8592", "#959cab", "#5e6572"] },
+      { k: "cable", n: 10, c: "#3c414c" },
+    ],
+    path: ["#555b67", "#7a808d"],
+  },
+  // 멈춰버린 시간의 탑 — 빛바랜 놋쇠 바닥 · 시계판 · 톱니
+  clock_tower: {
+    seed: 125, ground: ["#8a7c66", "#9a8c75", "#766a56"],
+    tex: { k: "grain", c: "#a69780", n: 760 },
+    back: { k: "city", c: ["#b8aa90", "#8c7f68", "#6c614f"], tower: 1, lit: 0.1, win: "#f0dca8" },
+    edge: { k: "rock", c: ["#5e5444", "#7a6e5a"] },
+    decor: [
+      { k: "tiles", n: 12, c: ["#8f826b", "#9a8d76", "#857862"] },
+      { k: "clockface", n: 14, c: "#e8d6a8" },
+      { k: "gear", n: 30, c: "#b8a070" },
+      { k: "shard", n: 14, c: ["#a89878", "#c8b898"] },
+    ],
+    path: ["#6c614f", "#918570"],
+  },
+  // 붕괴한 차원 경계 — 보랏빛 바위 · 빛 새는 틈 · 떠 있는 땅 조각
+  rift_boundary: {
+    seed: 126, ground: ["#625a78", "#726a88", "#514a66"],
+    tex: { k: "grain", c: "#837a99", n: 720 },
+    back: { k: "city", c: ["#8f86ab", "#686084", "#4e4766"], lit: 0, void: ["#3a3250", "#d8c8ff"] },
+    edge: { k: "rock", c: ["#433d58", "#5b5474"] },
+    decor: [
+      { k: "rift", n: 16, c: ["#3c3454", "#cbb8f8"] },
+      { k: "crack", n: 26, c: "#463f5e" },
+      { k: "shard", n: 34, c: ["#7a7198", "#9a90b8", "#5e5680"] },
+      { k: "crystal", n: 22, c: ["#a99fe0", "#ddd8f6"] },
+      { k: "fog", n: 8, c: "#d8d0ee" },
+    ],
+    path: ["#4f4866", "#71698a"],
+  },
+  // 금지된 생명 연구구역 — 흰 타일 바닥 · 깨진 배양 통 · 분홍 얼룩
+  forbidden_lab: {
+    seed: 127, ground: ["#8e8c90", "#9e9ca0", "#7c7a7e"],
+    tex: { k: "grain", c: "#aaa8ac", n: 700 },
+    back: { k: "city", c: ["#b6b2b8", "#8c888f", "#6c6870"], dome: 0.3, lit: 0.22, win: "#f0c0c8" },
+    edge: { k: "rock", c: ["#5e5b60", "#78757a"] },
+    decor: [
+      { k: "tiles", n: 16, c: ["#959398", "#a09ea2", "#8a888c"] },
+      { k: "vat", n: 22, c: ["#6a666e", "#e8a8b8"] },
+      { k: "pool", n: 10, c: "#c88f9f" },
+      { k: "circuit", n: 10, c: "#e8b8c4" },
+      { k: "crack", n: 16, c: "#6a676d" },
+    ],
+    path: ["#737075", "#9a979c"],
+  },
+  // 관측자의 회랑 — 상아빛 대리석 · 눈 문양 · 금빛 문자
+  observer_hall: {
+    seed: 128, ground: ["#8f8778", "#9f9788", "#7b7466"],
+    tex: { k: "grain", c: "#aca494", n: 760 },
+    back: { k: "ruin", c: ["#c4baa8", "#9e9584", "#7c7466"], pillar: 1 },
+    edge: { k: "rock", c: ["#635c50", "#7f776a"] },
+    decor: [
+      { k: "tiles", n: 14, c: ["#958d7e", "#a19989", "#8a8274"] },
+      { k: "eyeglyph", n: 12, c: "#f0dca0" },
+      { k: "rune", n: 14, c: "#f0e0b8" },
+      { k: "page", n: 80, c: ["#efe9dc", "#ddd5c4"] },
+      { k: "fog", n: 6, c: "#f2ece0" },
+    ],
+    path: ["#726b5e", "#9a9284"],
+  },
+  // 최초의 명령실 — 어두운 금속 바닥 · 붉은 회로 · 굵은 전선 · 갈라진 하늘
+  origin_command: {
+    seed: 129, ground: ["#5e5c66", "#6e6c76", "#4d4b55"],
+    tex: { k: "grain", c: "#7e7c86", n: 780 },
+    back: { k: "city", c: ["#8a8794", "#625f6c", "#4a4752"], tower: 1, lit: 0.2, win: "#f0a890", cables: 1, void: ["#2e2a36", "#f0b8a0"] },
+    edge: { k: "rock", c: ["#413f48", "#5a5862"] },
+    decor: [
+      { k: "panel", n: 18, c: ["#64626c", "#56545e"] },
+      { k: "circuit", n: 22, c: "#f0a890" },
+      { k: "cable", n: 16, c: "#34323a" },
+      { k: "gear", n: 12, c: "#8a8794" },
+      { k: "rift", n: 6, c: ["#3a3640", "#f0b8a0"] },
+    ],
+    path: ["#4f4d57", "#73717b"],
+  },
 };

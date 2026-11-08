@@ -31,10 +31,12 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR } from "./rpg.js";
+import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR, gatesOf } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { paintFieldLook, fieldTrails } from "./fieldArt.js";
+import { drawHighBody, highElite, isHighArt, highBackImg, warmHighArt } from "./highArt.js";
+import { HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON_IDS, HIGH_ART } from "./highData.js";
 import { FIELD_LOOKS, FIELD_TRAIL } from "./fieldLookData.js";
 import { SKILL_PX_CAP } from "./skillPxData.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
@@ -1968,6 +1970,23 @@ function guildBossDraw(ctx,m,time){drawGuildBoss(ctx,m,time);drawMobMarks(ctx,m,
 const MOB_DRAW = {guild_slime:guildBossDraw,guild_siren:guildBossDraw,guild_phoenix:guildBossDraw,world_dragon:drawWorldBoss,world_serpent:drawWorldBoss,world_machine:drawWorldBoss, world_thunderbird:drawWorldBoss, world_void:drawWorldBoss, dummy: drawDummy, wolf: drawWolf, boar: drawBoar, gorilla: drawGorilla, goblin: drawGoblin, orc: drawOrc, ogre: drawOgre, gramor: drawDungeonBoss, argas: drawDungeonBoss, morgas: drawDungeonBoss, barkanon: drawDungeonBoss, serka: drawDungeonBoss, skeleton: drawSkeleton,
   skeletal: drawSkeletal, zombie: drawZombie, necro: drawNecro, golem: drawGolem, chimera: drawChimera, spider: drawSpider,
   fspirit: drawFspirit, lavagolem: drawLavagolem, firedrake: drawFiredrake, ifrit: drawIfrit, wraith: drawWraith, abyss: drawAbyss, voidmage: drawVoidmage, fallen: drawFallen };
+// 800~1200 몹(highArt.js) — 그림 시트가 오면 그림, 아니면 코드 그림. 크기 · 그림자 · 맞았을 때 반짝임은 다른 몹과 같은 틀
+function drawHigh(ctx, m, time) {
+  const k = m.size || 1, grow = Math.min(1, (m.age || 0) / 0.35), ph = (m.age || 0) * 8;
+  const bob = m.moving ? Math.abs(Math.sin(ph)) * 2 * k : 0, sr = (m.rad || 24) * 0.75;
+  shadow(ctx, m.x, m.y + 2, sr * grow, sr * 0.3 * grow, 0.32);
+  ctx.save();
+  ctx.translate(m.x, m.y - bob);
+  ctx.scale((m.ax < 0 ? -1 : 1) * grow * k, grow * k);
+  const lift = drawHighBody(ctx, m, time, ph);
+  if (m.flash > 0) {
+    ctx.globalAlpha = Math.min(0.5, m.flash * 5); ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.ellipse(0, -36 - lift, 26, 32, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  drawMobMarks(ctx, m, time, (78 + lift) * k + bob);
+}
+[...HIGH_IDS, ...HIGH_ELITE_IDS, ...HIGH_SUMMON_IDS].forEach((id) => { MOB_DRAW[id] = drawHigh; });
 // 심연의 탑 수호자 · 입구(abyssArt.js)에 넘기는 그리기 도구 — 그림이 없을 때는 같은 원소 느낌의 몹 몸으로 대신한다
 const ABYSS_T = { shadow, roundRect, marks: (ctx, m, time, top) => drawMobMarks(ctx, m, time, top),
   fallback: (ctx, m, time) => (MOB_DRAW[m.type] || drawRabbit)(ctx, m, time, null) };
@@ -2041,6 +2060,7 @@ export function drawMobIcon(ctx, type, w, h, hide, boss) {
 const MOB_LABEL = { boar: "#f2b48a", gorilla: "#d9d0c4", wolf: "#f0c9a8", goblin: "#c9dca8", orc: "#cfd6b8", ogre: "#e4cfb4", skeleton: "#cfe6d4",
   skeletal: "#c9d6e6", zombie: "#bfd6a8", necro: "#d2bcf0", golem: "#d6ccb8", chimera: "#f0c9a0", spider: "#d8d0e8",
   fspirit: "#ffc896", lavagolem: "#f0a080", firedrake: "#f0a888", ifrit: "#ffc080", wraith: "#b8c8e8", abyss: "#a8d0e8", voidmage: "#c8b8f0", fallen: "#dcc0e0" };
+HIGH_IDS.forEach((id, i) => { MOB_LABEL[id] = MOB_LABEL[HIGH_ELITE_IDS[i]] = HIGH_ART.look[id].c[2]; });   // 800~1200 — 지역 빛깔
 
 /* 던전 관리인 — 짙은 망토에 등불을 든 사람. 머리 위에 칼 모양 표시 */
 function drawDungeonNpc(ctx, n, time) {
@@ -2162,12 +2182,13 @@ function drawMobMarks(ctx, m, time, top) {
     if (exec) drawExecTick(ctx, x - bw / 2, tagY + 7, bw, boss ? 4 : 3, exec);
   }
   // 레벨 — 보스는 이름도 붙인다
-  const label = boss ? `Lv${m.lv} ${mobName(m)}` : m.elite ? `Lv${m.lv} 정예` : `Lv${m.lv}`;   // 정예 — 심연의 탑(abyssCardData.js ELITE)
+  const elite = m.elite || (isHighArt(m.type) && highElite(m));   // 800~1200 정예도 같은 표
+  const label = boss ? `Lv${m.lv} ${mobName(m)}` : elite ? `Lv${m.lv} 정예` : `Lv${m.lv}`;   // 정예 — 심연의 탑(abyssCardData.js ELITE)
   ctx.font = boss ? "12px 'Do Hyeon', sans-serif" : "10px 'Do Hyeon', sans-serif";
   const w = ctx.measureText(label).width + 10;
-  ctx.fillStyle = boss ? "rgba(70,20,16,0.82)" : m.elite ? "rgba(52,30,64,0.82)" : "rgba(20,14,10,0.62)";
+  ctx.fillStyle = boss ? "rgba(70,20,16,0.82)" : elite ? "rgba(52,30,64,0.82)" : "rgba(20,14,10,0.62)";
   roundRect(ctx, x - w / 2, barY - 7, w, 13, 6); ctx.fill();
-  ctx.fillStyle = boss ? "#ffd873" : m.elite ? "#e2c4f0" : MOB_LABEL[m.type] || "#f2ead6";
+  ctx.fillStyle = boss ? "#ffd873" : elite ? "#e2c4f0" : MOB_LABEL[m.type] || "#f2ead6";
   ctx.fillText(label, x, barY);
   ctx.restore();
 }
@@ -2662,7 +2683,9 @@ export function drawRpg(ctx, g, bgs) {
     if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
     else { ctx.fillStyle = (DG_LOOKS[M.dungeon] || DG_LOOKS.stone1).floor; ctx.fillRect(0, 0, W, H); }
   } else if (look) {
-    const bg = bigBg(`fl:${M.id}`, () => paintFieldLook(M));
+    const back = M.high ? highBackImg(M.id) : null;      // 800~1200 — 뒤 풍경 그림이 오면 다시 칠한다
+    if (M.high) warmHighArt(M.id);
+    const bg = bigBg(`fl:${M.id}:${back ? 1 : 0}`, () => paintFieldLook(M, back));
     if (bg) drawTiled(ctx, bg, M, cam);
     else { ctx.fillStyle = look.ground[0]; ctx.fillRect(0, 0, W, H); }
   } else if (bim) {
@@ -2673,7 +2696,7 @@ export function drawRpg(ctx, g, bgs) {
     if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
   } else { ctx.fillStyle = M.id === "plaza" ? "#4f6e34" : "#557a37"; ctx.fillRect(0, 0, W, H); }
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
-  if (look) fieldTrails(M, FIELD_TRAIL).forEach((pts) => dirtPath(ctx, pts, 60, look.path));
+  if (look) fieldTrails({ ...M, gates: gatesOf(g, M) }, FIELD_TRAIL).forEach((pts) => dirtPath(ctx, pts, 60, look.path));
   else (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
   if (M.village) drawVillageGround(ctx);
   if (M.dungeon) drawTorches(ctx, M, cam, time);
@@ -2711,7 +2734,7 @@ export function drawRpg(ctx, g, bgs) {
 
   // 앞뒤로 겹치게 — 위에 선 것부터 그린다
   const order = [];
-  M.gates.forEach((gt) => order.push({ y: gt.y - 4, gate: gt }));
+  gatesOf(g, M).forEach((gt) => order.push({ y: gt.y - 4, gate: gt }));   // 800~1200 문은 열린 곳(테스트 서버)에서만
   M.npcs.forEach((n) => order.push({ y: n.y, npc: n }));
   if (M.id === "plaza") {
     order.push({ y: 620, fountain: 1 });

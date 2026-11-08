@@ -43,6 +43,9 @@ import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
 import { ADV, cleanAdvClass, cleanAdvQ, cleanAdvM, ADV_BY_ID } from "./advData.js";
 import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.js";
+import { HIGH, highOn, HIGH_MAPS, HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON, HIGH_SUMMON_IDS, HIGH_SPAWN, HIGH_ELITE, HIGH_BRUTE, eliteId } from "./highData.js";
+export { highOn } from "./highData.js";
+import { isHighMob, stepHigh, tickHigh, highDeath, highTake, highFlags } from "./highCombat.js";
 import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, SEAL, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
   isGuardFloor, rankReward, abyssWeek, cleanAw, rollAw, GUARD_BY_TYPE } from "./abyssData.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
@@ -368,6 +371,26 @@ STORY_MAPS.forEach((m) => {
 // 마을의 이야기 장소 문 — 이야기를 그 장소까지 진행해야 열린다(storyQuestData.js storyGateOpen)
 STORY_GATES.forEach((q) => MAPS[VILLAGE.id].gates.push({x: q.x, y: q.y, r: 46, to: q.to, at: MAPS[q.to].spawn, label: q.label || MAPS[q.to].name, villageGate: 1, storyGate: 1}));
 
+/* 800~1200레벨 사냥터(highData.js) — 타락한 천궁 오른쪽 문에서 차례로 잇는다. 마지막 지역 오른쪽 문은 광장으로 돌아간다.
+   high 표시가 있는 문은 열렸을 때만 보이고 지나간다(highOn — 지금은 테스트 서버만). 맵 차례는 뒤에만 더한다 */
+const highLabel = (d) => `${d.name} · ${d.lv[0]}~${d.lv[1]}레벨`;
+HIGH_MAPS.forEach((f, i) => {
+  const prev = i ? HIGH_MAPS[i - 1] : { id: HIGH.from, name: MAPS[HIGH.from].name, w: MAPS[HIGH.from].w }, next = HIGH_MAPS[i + 1];
+  MAPS[f.id] = {
+    id: f.id, name: f.name, w: f.w, h: 1800, top: 170, spawn: [260, 920], bg: "field", tile: 2600, deep: 1, high: 1,
+    gates: [
+      { x: 90, y: 920, r: 64, to: prev.id, at: [prev.w - 410, 920], label: prev.name, high: 1 },
+      next ? { x: f.w - 90, y: 920, r: 64, to: next.id, at: [260, 920], label: highLabel(next), high: 1 }
+        : { x: f.w - 90, y: 920, r: 64, to: "plaza", at: MAPS.plaza.spawn, label: "광장으로 귀환", high: 1 },
+    ],
+    blocks: [], npcs: [], zone: [520, f.w - 150],
+  };
+  MAP_IDS.push(f.id);
+});
+MAPS[HIGH.from].gates.push({ x: MAPS[HIGH.from].w - 90, y: 920, r: 64, to: HIGH_MAPS[0].id, at: [260, 920], label: highLabel(HIGH_MAPS[0]), high: 1, highEnter: 1 });
+// 지금 보이는 문 — 열리지 않은 high 문은 빼고(그림 · 흙길 · 문 판정이 같이 쓴다)
+export const gatesOf = (g, M) => (highOn(g) ? M.gates : M.gates.filter((q) => !q.high));
+
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;
 export const coinOf = (n) => Math.max(1, Math.round(n * COIN_RATE));
@@ -592,10 +615,34 @@ DEEP_MAPS.forEach((d) => {
   BRUTE[d.id] = DEEP_BRUTE[d.id];
   FAR_SKILL[d.id] = DEEP_SKILL[d.id];
 });
+/* 800~1200레벨 몹(highData.js) — 400~800 과 같은 셈. 체력은 표 값 그대로, 공격력만 FAR_EASE.dmg 를 한 번 곱한다.
+   정예는 따로 된 몹 종류(id_elite) — 같은 레벨 일반 몹의 체력 · 공격력 · 경험치 · 코인에 HIGH_ELITE 를 곱한다.
+   소환물(HIGH_SUMMON)은 부를 때 체력 · 공격력을 정한다(highCombat.js) — 여기 값은 그림 크기 · 이름만 */
+HIGH_MAPS.forEach((d) => {
+  const M = d.mob, [l0, l1] = d.lv, at = (v, lv) => v[0] + ((v[1] - v[0]) * (Math.min(l1, Math.max(l0, lv)) - l0)) / (l1 - l0);
+  const B = d.boss, E = HIGH_ELITE;
+  MOB[d.id] = {
+    name: M.name, rad: M.rad,
+    hp: (lv) => Math.round(at(M.hp, lv)), dmg: (lv) => Math.round(at(M.dmg, lv) * FAR_EASE.dmg),
+    xp: (lv) => Math.round(M.xp * lv), coin: (lv) => Math.round(M.coin * lv), size: (lv) => at(M.size, lv),
+    boss: { ...B, dmg: Math.round(B.dmg * FAR_EASE.dmg) },
+  };
+  const N = MOB[d.id];
+  MOB[eliteId(d.id)] = {
+    name: d.elite.name, rad: M.rad,
+    hp: (lv) => Math.round(N.hp(lv) * E.hp), dmg: (lv) => Math.round(N.dmg(lv) * E.dmg),
+    xp: (lv) => N.xp(lv) * E.xp, coin: (lv) => N.coin(lv) * E.coin, size: (lv) => N.size(lv) * d.elite.size,
+  };
+  BRUTE[d.id] = BRUTE[eliteId(d.id)] = HIGH_BRUTE[d.id];   // 걷는 빠르기(명사수 약점 포착이 본다). 걷기 · 기술은 highCombat.js stepHigh
+});
+Object.entries(HIGH_SUMMON).forEach(([id, S]) => { MOB[id] = { name: S.name, rad: S.rad, hp: () => 1, dmg: () => 1, xp: () => 0, coin: () => 0, size: () => S.size }; });
 WORLD_BOSSES.forEach(b=>{MOB[b.type]={name:b.name,rad:88,hp:()=>b.hp,dmg:()=>1,xp:()=>0,coin:()=>0,size:()=>1,boss:{name:b.name,lv:200,hp:b.hp,dmg:1,xp:0,coin:0,size:1}};});
 const MOB_TYPES = ["rabbit", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", "gramor", "argas", "morgas", "barkanon", "serka", "skeleton", "dummy",
   "skeletal", "zombie", "necro", "golem", "chimera", "spider", ...WORLD_BOSSES.filter(b=>!['thunderbird','void'].includes(b.id)).map(b=>b.type),...GUILD_BOSSES.map(b=>b.type),
-  ...DEEP_MAPS.map((d) => d.id), 'world_thunderbird', ...GUARD_IDS, 'world_void'];   // 스냅샷 차례 — 새 보스도 맨 뒤에 붙여 기존 몹 번호를 보존한다.
+  ...DEEP_MAPS.map((d) => d.id), 'world_thunderbird', ...GUARD_IDS, 'world_void',
+  ...HIGH_IDS, ...HIGH_ELITE_IDS, ...HIGH_SUMMON_IDS];   // 스냅샷 차례 — 새 몹은 맨 뒤에 붙여 기존 몹 번호를 보존한다(800~1200 일반 · 정예 · 소환물).
+// 스냅샷 차례 목록 — 시험(tools/high.test.mjs)이 예전 차례가 그대로인지 견준다
+export const SNAP_ORDER = { maps: MAP_IDS, mobs: MOB_TYPES };
 export const mobName = (m) => (m.boss ? MOB[m.type].boss.name : MOB[m.type].name);
 export const mobSize = (type, lv, boss) => (boss ? MOB[type].boss.size : MOB[type].size(lv));
 
@@ -631,6 +678,10 @@ export const SPAWNS = [
   // 400~800레벨 — 50레벨 단위 테마(deepData.js)
   ...DEEP_MAPS.flatMap((d) => [{ map: d.id, type: d.id, n: DEEP_SPAWN.n, lv: d.lv, respawn: DEEP_SPAWN.respawn },
     { map: d.id, type: d.id, boss: 1, n: DEEP_SPAWN.bossN, respawn: DEEP_SPAWN.bossRespawn }]),
+  // 800~1200레벨 — 일반 22 · 정예 2 · 보스 2(highData.js). 무리 차례도 뒤에만 더한다
+  ...HIGH_MAPS.flatMap((d) => [{ map: d.id, type: d.id, n: HIGH_SPAWN.n, lv: d.lv, respawn: HIGH_SPAWN.respawn },
+    { map: d.id, type: eliteId(d.id), n: HIGH_SPAWN.eliteN, lv: d.lv, respawn: HIGH_SPAWN.eliteRespawn },
+    { map: d.id, type: d.id, boss: 1, n: HIGH_SPAWN.bossN, respawn: HIGH_SPAWN.bossRespawn }]),
 ];
 
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
@@ -716,12 +767,19 @@ export function dist(ax, ay, bx, by) { return Math.hypot(bx - ax, (by - ay) / RP
 
 /* ── 성장 ──────────────────────────────────────────────── */
 export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 30씩 는다
-export const LV_MAX = 800;               // 200 → 400 → 800(10월 26일 · 400~800 은 화염 · 심연 사냥터, deepData.js)
+/* 최고 레벨 — 200 → 400 → 800(10월 26일) → 1200(11월 8일, 800~1200 사냥터 highData.js).
+   LV_MAX 는 일반 서버의 지금 상한(HIGH.live 전에는 800), LV_TOP 은 테스트 서버까지 포함한 끝. 판정은 lvCap(g) 를 쓴다 */
+export const LV_MAX = HIGH.live ? HIGH.lv : HIGH.liveLv;
+export const LV_TOP = HIGH.lv;
+export const lvCap = (g) => (highOn(g) ? HIGH.lv : LV_MAX);
 
 /* ── 스탯 — 처음 2포인트. 400레벨까지 레벨당 2개, 이후 3개를 받는다.
    스탯 하나에는 STAT_MAX 까지 찍는다. 400레벨 이후에는 3포인트를 받아 800레벨 누적 2,000포인트다.
    물리력은 전사 · 궁수의 공격력, 마법력은 마법사의 공격력과 모든 직업의 화상 · 독 피해를 올린다. */
-export const STAT_MAX = 800;          // 스탯 하나의 상한 — 250 → 400 → 800(800레벨 누적 2,000포인트. 효과는 포인트당 그대로)
+// 스탯 하나의 상한 — 250 → 400 → 800 → 1200(800레벨 누적 2,000 · 1200레벨 3,200포인트. 효과는 포인트당 그대로). 판정은 statCap(g)
+export const STAT_MAX = HIGH.live ? HIGH.stat : HIGH.liveStat;
+export const STAT_TOP = HIGH.stat;
+export const statCap = (g) => (highOn(g) ? HIGH.stat : STAT_MAX);
 // 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
 // 레벨은 최고 레벨, 스탯은 다섯 모두 STAT_MAX 로 두고, 코인은 쓰는 대로 이만큼 다시 채운다(돈 무제한)
 export const ADMIN = { coins: 99999999 };
@@ -740,9 +798,9 @@ export const STATS = [
 export const STAT_IDS = STATS.map((t) => t.id);
 const STAT_BY_ID = Object.fromEntries(STATS.map((t) => [t.id, t]));
 export const noStats = () => Object.fromEntries(STAT_IDS.map((k) => [k, 0]));
-export const maxStats = () => Object.fromEntries(STAT_IDS.map((k) => [k, STAT_MAX]));   // 관리자 캐릭터
+export const maxStats = (cap = STAT_MAX) => Object.fromEntries(STAT_IDS.map((k) => [k, cap]));   // 관리자 캐릭터 — 테스트 서버는 statCap(g)
 // 이 레벨까지 받은 포인트
-export const statEarned = (lv) => { const level=clamp(Math.floor(lv||1),1,LV_MAX); return STAT_START+STAT_PER_LV*(level-1)+Math.max(0,level-COMBAT_RULES.highStatLevel)*(COMBAT_RULES.highStatPoints-STAT_PER_LV); };
+export const statEarned = (lv) => { const level=clamp(Math.floor(lv||1),1,LV_TOP); return STAT_START+STAT_PER_LV*(level-1)+Math.max(0,level-COMBAT_RULES.highStatLevel)*(COMBAT_RULES.highStatPoints-STAT_PER_LV); };
 export const statSpent = (st) => STAT_IDS.reduce((n, k) => n + ((st && st[k]) || 0), 0);
 export const statLeft = (h) => Math.max(0, statEarned(h.lv) - statSpent(h.st));
 // 찍은 포인트에 따른 값 — 표의 기본값 + 포인트당 효과
@@ -752,7 +810,7 @@ export function cleanStats(d, lv) {
   const st = noStats();
   let room = statEarned(lv);
   STAT_IDS.forEach((k) => {
-    const v = clamp(Math.floor(Number(d && d[k]) || 0), 0, STAT_MAX);
+    const v = clamp(Math.floor(Number(d && d[k]) || 0), 0, STAT_TOP);   // 찍을 때 상한은 rpgStat 이 statCap(g) 로 본다
     st[k] = Math.min(v, room);
     room -= st[k];
   });
@@ -819,7 +877,7 @@ export function loadChar() {
     ...look,
     ts: Math.max(0, Math.floor(Number(r.ts) || 0)),
     picked: !!r.picked,                          // 직업 · 원소 · 성별을 정했는지 — 정했으면 바꿀 수 없다
-    lv: clamp(Math.floor(r.lv || 1), 1, LV_MAX),
+    lv: clamp(Math.floor(r.lv || 1), 1, LV_TOP),
     xp: Math.max(0, Math.floor(r.xp || 0)),
     coins: Math.max(0, Math.floor(r.coins || 0)),
     quest: { coinOnly:q.coinOnly, on: !!q.on, n: clamp(Math.floor(q.n || 0), 0, QUEST.need) },
@@ -1061,17 +1119,17 @@ export function rpgJoin(g, pi, d, who) {
   if (!d.admin && d.rs !== RESET.id) d = resetRecord(d);   // 서버 초기화 — 관리자만 빼고 처음으로
   const keepHp = h.migr && h.hp > 0 ? h.hp : 0;   // 방장을 이어받는 중이면 체력은 그대로
   h.ts = Math.max(0, Math.floor(Number(d.ts) || 0));
-  h.lv = clamp(Math.floor(Number(d.lv) || 1), 1, LV_MAX);
+  h.lv = clamp(Math.floor(Number(d.lv) || 1), 1, LV_TOP);   // 800 을 넘은 기록도 그대로(레벨업 상한은 giveXp 의 lvCap)
   h.xp = clamp(Math.floor(Number(d.xp) || 0), 0, needXp(h.lv) - 1);
   h.coins = Math.max(0, Math.floor(Number(d.coins) || 0));
   const q = d.quest || {};
   h.quest = { coinOnly:q.coinOnly,on: !!q.on, n: clamp(Math.floor(Number(q.n) || 0), 0, QUEST.need - 1) };
   if (d.admin) {                                  // 관리자 — 최고 레벨 · 코인 가득
     h.admin = 1;
-    h.lv = LV_MAX; h.xp = 0;
+    h.lv = lvCap(g); h.xp = 0;                   // 테스트 서버는 1200(highOn)
     h.coins = Math.max(h.coins, ADMIN.coins);
   }
-  h.st = h.admin ? maxStats() : cleanStats(d.stats, h.lv);   // 관리자는 모든 스탯이 최대
+  h.st = h.admin ? maxStats(statCap(g)) : cleanStats(d.stats, h.lv);   // 관리자는 모든 스탯이 최대
   h.bag = cleanBag(d.bag, h.admin);
   h.bag.ld = 1;
   h.rec = cleanRec(d.rec);
@@ -1123,7 +1181,7 @@ function resetRecord(d) {
 /* 한 사람 되돌리기(itemData.js PERSONAL_ROLLBACKS) — 한 번만. 레벨 · 코인을 낮추고 전설 특별 무기를 가방에서 빼며 그 몫이 아닌 칭호를 뗀다 */
 function rollbackHero(g, h, rb) {
   if ((h.bag.pg || []).includes(rb.id)) return;
-  h.lv = clamp(rb.lv, 1, LV_MAX); h.xp = 0; h.coins = rb.coins;
+  h.lv = clamp(rb.lv, 1, LV_TOP); h.xp = 0; h.coins = rb.coins;
   h.st = cleanStats({}, h.lv);                     // 찍은 스탯 없음 — 그 레벨 몫의 포인트를 모두 돌려준다
   h.admin = 0;
   if (rb.items) {                                  // 아이템 전부 — 배운 스킬 · 스킬 칸 · 받은 표시만 남기고 새 가방으로
@@ -1147,7 +1205,7 @@ function givePersonalLevel(g, h, name) {
   if (!pl || h.admin || (h.bag.pg || []).includes(pl.id)) return;
   h.bag.pg = [...(h.bag.pg || []), pl.id]; h.bag.v += 1;
   if (h.lv >= pl.lv) return;
-  h.lv = clamp(pl.lv, 1, LV_MAX); h.xp = 0;
+  h.lv = clamp(pl.lv, 1, LV_TOP); h.xp = 0;
   h.st = cleanStats(h.st, h.lv);
   sys(g, h.pi, `레벨 ${h.lv}로 올려 드렸습니다. 스탯 포인트 ${statLeft(h)}개를 찍을 수 있습니다.`);
 }
@@ -1235,7 +1293,7 @@ export function rpgStat(g, pi, add) {
     if (v < 0) return false;
     next[k] += v;
     n += v;
-    if (next[k] > STAT_MAX) return false;
+    if (next[k] > statCap(g)) return false;
   }
   if (n <= 0 || n > statLeft(h)) return false;
   const wasFull = h.hp >= h.max;
@@ -1814,6 +1872,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   const crit = h && !off ? sureCrit || Math.random() < critChance(h) + (h.ac ? acCritAdd(h, m, skill) : 0) : false;
   if (crit) dmg *= critMul(h) + (h.ac ? acCdmgAdd(h, skill) : 0);
   dmg = Math.max(1, Math.round(dmg));
+  if (m.hshT > 0 || m.hbar > 0) dmg = highTake(m, dmg);   // 800~1200 보스 — 강철 방패 · 방어막(highCombat.js)
   if(isWorldBoss(m))worldBossHit(g,m,h,dmg,{direct:!!skill&&!dot&&!side&&procOff===0});
   if(isGuildBoss(m))guildHit(g,m,h,dmg);
   m.hp -= dmg;
@@ -1872,6 +1931,10 @@ function killMob(g, m, pi) {
     // 도감 — 길드 보스는 보상 정산이 따로라 여기서 처치 수를 센다. 같은 맵에 있는 토벌 참가자 모두(`rec[몹 종류]`가 도감 · 업적의 기준)
     g.heroes.forEach(q=>{if(q&&q.loaded&&q.map===m.map&&q.rec)q.rec[m.type]=(q.rec[m.type]||0)+1;});
     return;
+  }
+  if (isHighMob(m)) {                             // 800~1200 — 정예 쓰러짐 효과 · 부른 부하 정리(한 번만). 소환물은 보상 없이 사라진다
+    highDeath(highEngine, g, m);
+    if (m.sum) { m.hp = 0; fx(g, m.map, { kind: "poof", x: m.x, y: m.y - 6, t: 0.45, life: 0.45, color: "rgba(236,230,216,1)" }); return; }
   }
   addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
   if (g.heroes[pi]) voidOnKill(voidEngine, g.heroes[pi]);   // 공허의 대검 — 3마리마다 차원의 잔흔
@@ -2033,7 +2096,7 @@ export function rpgRequest(g, pi, req) {
     const lowQuest=q.area ? false : (cur.coinOnly??(h.lv>q.lv));
     const got = Object.entries(lowQuest?{}:(q.mats || {})).map(([id, n]) => `${MAT_BY_ID[id].name} ${addMat(h.bag, id, n)}개`);
     const xp = lowQuest?0:requestXp(q, h.lv);
-    const parts = [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", xp&&h.lv < LV_MAX ? `경험치 ${xp}` : "", ...got].filter(Boolean);
+    const parts = [q.coin ? `${q.coin.toLocaleString("ko-KR")}코인` : "", xp&&h.lv < lvCap(g) ? `경험치 ${xp}` : "", ...got].filter(Boolean);
     fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "의뢰 완료!", color: "#a9e79c", t: 1.4, life: 1.4, snd: "clear", who: pi });
     sys(g, pi, `${npc.name}의 의뢰를 끝냈습니다. ${parts.join(" · ")}`);
     giveXp(g, h, xp);
@@ -2047,14 +2110,15 @@ function giveXp(g, h, amt) {
   // 파티 몫 · 낮은 사냥터 경험치는 소수라 더하다 보면 0.1+0.2 같은 오차가 쌓인다 — 소수 둘째 자리에서 끊는다
   h.xp = Math.round((h.xp + amt) * XP_DECIMALS) / XP_DECIMALS;
   let up = 0;
-  while (h.lv < LV_MAX && h.xp >= needXp(h.lv)) {
+  const cap = lvCap(g);                            // 일반 서버 800 · 테스트 서버 1200 — 만렙이던 800레벨은 0 XP 에서 다시 쌓는다(지난 경험치는 주지 않는다)
+  while (h.lv < cap && h.xp >= needXp(h.lv)) {
     h.xp = Math.round((h.xp - needXp(h.lv)) * XP_DECIMALS) / XP_DECIMALS;
     h.lv += 1;
     up += 1;
     refreshHp(h, false);
     if (h.down <= 0) h.hp = h.max;             // 레벨이 오르면 체력이 가득 찬다
   }
-  if (h.lv >= LV_MAX) h.xp = 0;
+  if (h.lv >= cap) h.xp = 0;
   if (!up) return;
   // 레벨업 연출 — 빛기둥 · 고리 · 반짝이 · 글자(art.js "lvup"). 여러 레벨이 한꺼번에 올라도 한 번만. 소리는 그 사람에게만
   fx(g, h.map, { kind: "lvup", x: h.x, y: h.y, text: `Lv ${h.lv} · 스탯 +${statEarned(h.lv)-beforePoints}`, t: 1.8, life: 1.8, snd: "lvup", who: h.pi });
@@ -3659,7 +3723,7 @@ function stepHeroes(g, dt) {
       MATERIALS.forEach((m) => { h.bag.m[m.id] = MAT_MAX; });
       h.bag.v += 1;
     }
-    if (h.admin && STAT_IDS.some((k) => h.st[k] < STAT_MAX)) { h.st = maxStats(); refreshHp(h, true); }   // 초기화 물약을 마셔도 다시 최대
+    if (h.admin && STAT_IDS.some((k) => h.st[k] < statCap(g))) { h.st = maxStats(statCap(g)); refreshHp(h, true); }   // 초기화 물약을 마셔도 다시 최대
     h.guard = Math.max(0, h.guard - dt);
     h.numT = Math.max(0, h.numT - dt);
     h.gateCd = Math.max(0, h.gateCd - dt);
@@ -3696,7 +3760,14 @@ function stepHeroes(g, dt) {
 
     // 문에 들어서면 반대쪽 맵으로 옮겨 간다
     if (h.gateCd <= 0) {
-      let gate = MAPS[h.map].gates.find((q) => dist(h.x, h.y, q.x, q.y) <= q.r);
+      let gate = gatesOf(g, MAPS[h.map]).find((q) => dist(h.x, h.y, q.x, q.y) <= q.r);
+      if (gate && gate.highEnter && h.lv < HIGH.enterLv && !h.admin) {   // 800~1200 첫 지역 — 레벨 800 부터(기존 사냥터는 그대로)
+        const dx = h.x - gate.x, dy = h.y - gate.y, d = Math.hypot(dx, dy) || 1;
+        h.x = gate.x + dx / d * (gate.r + 40); h.y = gate.y + dy / d * (gate.r + 40);
+        stopMove(h); h.gateCd = 1.2;
+        sys(g, h.pi, `${MAPS[gate.to].name}은 ${HIGH.enterLv}레벨부터 들어갈 수 있습니다.`);
+        gate = null;
+      }
       if (gate && gate.storyGate && !storyGateOpen(h, gate.to)) {   // 아직 이야기가 닿지 않은 장소 — 문 밖으로 밀어낸다
         const dx = h.x - gate.x, dy = h.y - gate.y, d = Math.hypot(dx, dy) || 1;
         h.x = gate.x + dx / d * (gate.r + 40); h.y = gate.y + dy / d * (gate.r + 40);
@@ -4363,6 +4434,7 @@ function stepMob(g, m, dt) {
   if (!tickMob(g, m, dt)) { if (BOSS_AI[m.type]) m.pose = bossPose(m); return; }   // 얼었거나 기절했다
   if (m.type === "dummy") { if (m.hp < m.max * TRAIN.refill) m.hp = m.max; return; }   // 허수아비 — 서 있기만 한다
   if (BOSS_AI[m.type]) stepDgBoss(g, m, dt);
+  else if (isHighMob(m)) { stepHigh(highEngine, g, m, dt); if (!m.hact) spreadPack(g, m); }   // 800~1200레벨(highCombat.js)
   else if (m.type === "wolf") { stepWolf(g, m, dt); spreadPack(g, m); }
   else if (BRUTE[m.type]) { stepBrute(g, m, dt, BRUTE[m.type]); spreadPack(g, m); }
   else if (m.type === "boar") { stepBoar(g, m, dt); if (m.state !== "charge") spreadPack(g, m); }
@@ -4918,6 +4990,7 @@ export function rpgStep(g, dt) {
   tickRuns(g, dt);
   tickAbyss(g, dt);
   tickWorldBoss(worldBossEngine,g,dt);tickGuild(guildEngine,g,dt);
+  tickHigh(highEngine, g, dt);                    // 800~1200 — 지나온 자리 기록 · 균열 · 회복 구역
   g.hits = g.hits.filter((s) => {
     if (HOLD.has(s.map)) return true;             // 탑 카드 단계 — 날아가던 공격도 멈춘다
     s.t -= dt;
@@ -5009,7 +5082,8 @@ export function rpgPack(g) {
         | (m.air > 0 ? 128 : 0) | (m.brand > 0 ? 256 : 0) | (m.bind > 0 ? 512 : 0) | (m.wkUntil > g.t ? 1024 : 0),   // 1024 명사수 약점 표식
       m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0, m.warnR || 0,
       // 보스는 체력을 그대로도 싣는다 — 손님 체력바가 1% 단위로 끊기지 않게
-      m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0, r1(m.taunt||0),m.tgt, m.elite ? 1 : 0]),   // 18 정예(심연의 탑)
+      m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0, r1(m.taunt||0),m.tgt, m.elite ? 1 : 0,   // 18 정예(심연의 탑)
+      m.hshT > 0 || m.hbar > 0 || m.hbuffT > 0 || m.hform || m.hmode || m.hact || m.hph ? highFlags(m) : 0]),   // 19 800~1200 몹 상태(방패 · 방어막 · 강화 · 형태 · 단계)
     // 던전 — [던전 차례, 칸, 남은 초, 무리 차례, 단계, 돌아가기까지 남은 초]
     d: g.runs.map((r) => [DUNGEONS.findIndex((q) => q.id === r.id), r.slot, Math.ceil(r.t), r.wave, RUN_PHASES.indexOf(r.phase), r1(r.end),r.hpScale||1]),
     // 심연의 탑 — [칸, 층, 남은 초, 단계, 돌아가기 · 다음 층까지 남은 초, 파티 배율, 이번 도전 최고 층]. 필드는 뒤에만 더한다
@@ -5125,7 +5199,7 @@ export function rpgApply(g, s) {
     g.aruns = s.ab.map(([slot, f, t, ph, end, hpScale = 1, best = 0]) => (MAPS[abyssMap(slot)]
       ? { slot, map: abyssMap(slot), f, t, phase: ABYSS_PHASES[ph] || "go", end, hpScale, best } : null)).filter(Boolean);
   }
-  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax, taunt=0, target=-1, elite=0]) => {
+  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax, taunt=0, target=-1, elite=0, hs=0]) => {
     seen.add(id);
     let m = g.mobs.find((q) => q.id === id);
     if (!m) {
@@ -5137,6 +5211,7 @@ export function rpgApply(g, s) {
     }
     if (elite && !m.elite) { m.elite = 1; m.size *= ELITE.size; m.rad *= ELITE.size; }   // 정예 — 크게 그린다
     m.bite = bite ? 0.25 : 0;
+    m.hs = hs;                                     // 800~1200 몹 상태 비트 — 그림만(highArt.js)
     m.taunt=taunt;m.tgt=target;
     m.pose = pose || 0; m.warnR = warnR || 0;
     m.tx = x; m.ty = y;
@@ -5224,6 +5299,10 @@ export function rpgStepVisual(g, dt) {
 // 월드보스는 기존 방장 판정과 연출 묶음을 사용한다.
 // 공허의 관측자 중력 붕괴 — 장판 안의 사람을 중심 쪽으로 끌어당긴다(맵 가장자리·막힌 곳 안에서만). 걷던 목적지는 버린다
 const worldBossPull=(g,h,x,y,px)=>{const d=dist(x,y,h.x,h.y);if(d<4)return;const k=Math.min(px,d)/d;h.x+=(x-h.x)*k;h.y+=(y-h.y)*k;keepIn(h,MAPS[h.map],20);h.dest=null;};
+// 800~1200레벨 판정(highCombat.js)에 넘기는 공용 함수
+export const highEngine = { MAPS, squash: RPG.squash, edge: RPG.edge, dist, fx, say, later, notices, nearestHero, stepBrute, keepIn,
+  hurtHero: (g, h, raw, src, kind) => hurtHero(g, h, raw, src, kind),
+  newMob: (g, type, lv, map, x, y) => bodyOf(g.nextId++, -1, type, 0, lv, map, x, y, null) };
 const worldBossEngine={pull:worldBossPull,body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),kill:(g,h)=>hurtHero(g,h,h.max,{boss:true,doom:1}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
 export function rpgWorldBoss(g,pi,req){return worldBossInput(worldBossEngine,g,pi,req);}
 

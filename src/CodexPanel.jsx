@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { CODEX_GROUPS, CODEX_IDS, CODEX_STARS, ACHIEVES, CODEX_BOSS_IDS, dexCount, starsOf } from "./game/codexData.js";
 import { TITLE_BY_ID, NEED_NAME } from "./game/socialData.js";
-import { MOB, MAPS, SPAWNS, needNow, achMet, achGot } from "./game/rpg.js";
+import { MOB, MAPS, SPAWNS, needNow, achMet, achGot, highOn } from "./game/rpg.js";
+import { TEST_MODE } from "./net/testMode.js";
+const SHOW = (gr) => !gr.high || highOn({ high: TEST_MODE });   // 800~1200 무리는 열렸을 때만
 import { DUNGEONS } from "./game/dungeonData.js";
 import { drawMobIcon } from "./game/rpgArt.js";
 
@@ -33,7 +35,7 @@ function MobIcon({ id, hide }) {
 }
 
 function CodexTab({ rec }) {
-  return CODEX_GROUPS.map((gr) => {
+  return CODEX_GROUPS.filter(SHOW).map((gr) => {
     const found = dexCount(rec, 1, gr.mobs);
     return (
       <section key={gr.id}>

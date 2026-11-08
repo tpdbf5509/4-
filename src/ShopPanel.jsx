@@ -7,7 +7,10 @@ import { worldSetCount } from "./game/armor.js";
    막힌 이유는 방장과 같은 조건 함수(why*)로 미리 보여 준다. */
 import { useEffect, useRef, useState } from "react";
 import sfx from "./game/sfx.js";
-import { STATS, statValue, MAPS, JOB_BY_ID, ELEMS, ELEM_BY_ID } from "./game/rpg.js";
+import { STATS, statValue, MAPS, JOB_BY_ID, ELEMS, ELEM_BY_ID, highOn } from "./game/rpg.js";
+import { HIGH, HIGH_BY_ID } from "./game/highData.js";
+import { TEST_MODE } from "./net/testMode.js";
+const HIGH_OPEN = highOn({ high: TEST_MODE });   // 800~1200 사냥터가 열렸나 — 테스트 모드 또는 HIGH.live
 import { WEAPON_SKILLS } from "./game/skillData.js";
 import { DEEP_MAPS } from "./game/deepData.js";
 import {
@@ -701,6 +704,8 @@ function JunkShop({ h, send }) {
 /* ── 주문서 상점 — 지역 워프권 ─────────────────────────────── */
 // 지역의 레벨 — 그 지역으로 가는 문 이름("늑대 사냥터 · 10~20레벨")에서 읽는다
 const warpHint = (id) => {
+  const hi = HIGH_BY_ID[id];
+  if (hi) return `${hi.lv[0]}~${hi.lv[1]}레벨 · ${HIGH.enterLv}레벨부터 · 계몽의 눈 필요`;
   const deep = DEEP_MAPS.find((d) => d.id === id);
   if (deep) return `${deep.lv[0]}~${deep.lv[1]}레벨 · 계몽의 눈 필요`;
   const gate = Object.values(MAPS).flatMap((M) => M.gates).find((q) => q.to === id && q.label.includes("레벨"));
@@ -897,10 +902,10 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
         <>
           <Head sub={`남은 ${h.bag.wp || 0}회 · 한 번에 1회`}>지역 워프권</Head>
           {!(h.bag.wp > 0) && <Empty>광장의 주문서 상점에서 살 수 있습니다.</Empty>}
-          {WARP.maps.map((id) => (
+          {WARP.maps.filter((id) => !MAPS[id].high || HIGH_OPEN).map((id) => (
             <Item key={id} name={MAPS[id].name} dim={h.map === id} desc={warpHint(id)}
               meta={<span className="shop-meta">{h.map === id && <span className="shop-tag">지금 여기</span>}</span>}
-              acts={[{ label: "워프", quiet: true, why: whyWarp(h, id), onClick: () => send({ op: "warp", to: id }) }]} />
+              acts={[{ label: "워프", quiet: true, why: whyWarp(h, id, HIGH_OPEN), onClick: () => send({ op: "warp", to: id }) }]} />
           ))}
         </>
       )}

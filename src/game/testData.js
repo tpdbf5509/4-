@@ -18,6 +18,7 @@ export const TEST_TOGGLES = [
 export const TEST_GROUPS = [
   { name: "마을 · 광장", pick: (m) => !m.zone && !m.story },
   { name: "사냥터 1~400", pick: (m) => !!m.zone && !m.deep },
-  { name: "사냥터 400~800", pick: (m) => !!m.zone && !!m.deep },
+  { name: "사냥터 400~800", pick: (m) => !!m.zone && !!m.deep && !m.high },
+  { name: "사냥터 800~1200", pick: (m) => !!m.zone && !!m.high },
   { name: "이야기 장소", pick: (m) => !!m.story },
 ];

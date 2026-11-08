@@ -8,6 +8,7 @@ import { drawStormFx, drawStormCharge } from './stormWeaponArt.js';
 import { drawVoidFx } from './voidWeaponArt.js';
 import { drawFuryFx } from "./furyArt.js";
 import { drawSkillPx } from "./skillPxArt.js";
+import { drawHighFx, HIGH_GROUND_FX } from "./highFxArt.js";
 /* ── 직업 스킬 · 전설 무기 스킬 그리기 ─────────────────────────────
    drawSkillFx — 이 파일이 맡은 연출(kind 가 "sk_" 로 시작): 빙판길 · 얼음 가시 · 불꽃 회오리 · 화염베기 · 유성(별 · 은하) · 종말의 일격 · 성광 빛줄기 · 빛의 결계 · 잿빛 폭발 · 낙뢰.
    drawHeroSkill — 영웅 둘레에 늘 붙는 것: 화염검 불똥 · 별빛 · 철벽 · 보호막 · 연계 중인 무기(그림자 칼 · 천사 날개 · 조준선) · 쌓인 패시브.
@@ -57,6 +58,7 @@ export function drawSkillFx(ctx, f, time, g) {
   if (drawWorldWeaponFx(ctx, f, p, time, SQ(), g, Q)) return;
   if (drawAdvFx(ctx, f, p, time, Q)) return;      // 1차 전직(advArt.js)
   if (drawAbyssFx(ctx, f, p, time, Q)) return;    // 심연의 탑 수호자 기술(abyssArt.js)
+  if (drawHighFx(ctx, f, p, time, SQ())) return;  // 800~1200 보스 · 정예 기술(highFxArt.js)
   if (drawStormFx(ctx, f, p, SQ(), g, Q)) return;
   if (drawVoidFx(ctx, f, p, time, SQ(), g, Q)) return;   // 공허의 관측자 무기(voidWeaponArt.js)
   if (drawFuryFx(ctx, f, p, Q)) return;           // 적룡 지팡이(furyArt.js)
@@ -87,7 +89,7 @@ export function drawSkillFx(ctx, f, time, g) {
   else if (MOB_FX[f.kind]) MOB_FX[f.kind](ctx, f, p, time);   // 200~400레벨 몹 기술
 }
 // 땅에 깔리는 것 — 몸보다 먼저 그린다(rpgArt.js)
-export const GROUND_FX = new Set(["sk_wb_warn", "sk_wb_pool", "sk_wb_grid", "sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake", ...ADV_GROUND, ...ABYSS_GROUND_FX]);
+export const GROUND_FX = new Set(["sk_wb_warn", "sk_wb_pool", "sk_wb_grid", "sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake", ...ADV_GROUND, ...ABYSS_GROUND_FX, ...HIGH_GROUND_FX]);
 
 /* 화염베기 — 커다란 불꽃 초승달. 앞 35% 동안 휘어 나가며 그어지고(머리가 가장 굵다), 뒤로 가늘어지며 사라진다.
    겉은 붉은 불, 가운데는 주황, 안쪽 심지는 노란 흰빛. 바깥 가장자리에 불길이 일렁인다 */

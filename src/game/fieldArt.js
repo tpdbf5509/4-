@@ -294,9 +294,103 @@ const DECOR = {
     gr.addColorStop(0, rgba(d.c, 0.16)); gr.addColorStop(1, rgba(d.c, 0));
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill(); ctx.restore();
   },
+  /* ── 800~1200 사냥터(11월 8일) — 기계 · 생태 · 시계 · 균열 장식 ── */
+  panel(ctx, x, y, d, rnd) {                  // 금속 바닥판 — 이음매 · 나사
+    const cols = 3 + Math.floor(rnd() * 3), rows = 2 + Math.floor(rnd() * 2), tw = 70, th = 34;
+    const x0 = x - (cols * tw) / 2, y0 = y - (rows * th) / 2;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (rnd() < 0.18) continue;
+      const tx = x0 + c * tw, ty = y0 + r * th;
+      ctx.fillStyle = pick(rnd, d.c); ctx.fillRect(tx + 1, ty + 1, tw - 2, th - 2);
+      ctx.fillStyle = "rgba(255,255,255,0.07)"; ctx.fillRect(tx + 1, ty + 1, tw - 2, 2);
+      ctx.strokeStyle = "rgba(20,22,28,0.3)"; ctx.lineWidth = 1; ctx.strokeRect(tx + 0.5, ty + 0.5, tw - 1, th - 1);
+      ctx.fillStyle = "rgba(20,22,28,0.35)"; [[4, 4], [tw - 6, 4], [4, th - 6], [tw - 6, th - 6]].forEach(([bx, by]) => ctx.fillRect(tx + bx, ty + by, 2, 2));
+    }
+  },
+  circuit(ctx, x, y, d, rnd) {                // 바닥에 새긴 빛줄기 — 꺾인 선과 끝 점
+    ctx.strokeStyle = rgba(d.c, 0.45); ctx.lineWidth = 2; ctx.lineCap = "square";
+    let px = x, py = y;
+    ctx.beginPath(); ctx.moveTo(px, py);
+    for (let i = 0; i < 4 + rnd() * 3; i++) { if (i % 2) py += (rnd() - 0.5) * 50; else px += (rnd() < 0.5 ? -1 : 1) * (30 + rnd() * 60); ctx.lineTo(px, py); }
+    ctx.stroke();
+    ctx.fillStyle = rgba(d.c, 0.7); ctx.beginPath(); ctx.arc(px, py, 3.5, 0, TAU); ctx.arc(x, y, 3, 0, TAU); ctx.fill();
+  },
+  scrap(ctx, x, y, d, rnd) {                  // 고철 더미 — 휜 판 · 막대
+    const s = 0.7 + rnd() * 0.7;
+    lowShadow(ctx, x, y + 2, 26 * s, 6 * s, 0.24);
+    for (let i = 0; i < 4; i++) {
+      ctx.save(); ctx.translate(x + (rnd() - 0.5) * 30 * s, y - (4 + rnd() * 12) * s); ctx.rotate((rnd() - 0.5) * 1.4);
+      ctx.fillStyle = pick(rnd, d.c); ctx.fillRect(-14 * s, -4 * s, 28 * s, 8 * s);
+      ctx.fillStyle = "rgba(255,255,255,0.12)"; ctx.fillRect(-14 * s, -4 * s, 28 * s, 2);
+      ctx.restore();
+    }
+    ctx.strokeStyle = rgba(pick(rnd, d.c), 0.9); ctx.lineWidth = 2.5 * s; ctx.beginPath(); ctx.moveTo(x - 10 * s, y - 2); ctx.lineTo(x + 6 * s, y - 26 * s); ctx.stroke();
+  },
+  gear(ctx, x, y, d, rnd) {                   // 누운 톱니바퀴
+    const r = 14 + rnd() * 18, n = 8 + Math.floor(rnd() * 4);
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5);
+    ctx.fillStyle = pick(rnd, d.c); ctx.beginPath();
+    for (let i = 0; i < n * 2; i++) { const a = (i / (n * 2)) * TAU, rr = i % 2 ? r : r * 1.22; ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(20,20,26,0.35)"; ctx.beginPath(); ctx.arc(0, 0, r * 0.35, 0, TAU); ctx.fill();
+    ctx.restore();
+  },
+  pipe(ctx, x, y, d, rnd) {                   // 땅에 걸친 굵은 관 — 이음 고리
+    const len = 90 + rnd() * 140, w = 10 + rnd() * 6;
+    lowShadow(ctx, x + len / 2, y + 4, len / 2, 5, 0.2);
+    ctx.fillStyle = d.c[0]; ctx.fillRect(x, y - w, len, w);
+    ctx.fillStyle = "rgba(255,255,255,0.14)"; ctx.fillRect(x, y - w, len, 3);
+    ctx.fillStyle = d.c[1]; for (let k = x + 20; k < x + len - 8; k += 46) ctx.fillRect(k, y - w - 2, 6, w + 4);
+  },
+  vat(ctx, x, y, d, rnd) {                    // 깨진 배양 통 — 유리 · 받침 · 안의 빛
+    const s = 0.8 + rnd() * 0.4, w = 26 * s, h = 54 * s;
+    lowShadow(ctx, x, y + 2, w, 6 * s, 0.24);
+    ctx.fillStyle = d.c[0]; ctx.fillRect(x - w / 2 - 3, y - 8 * s, w + 6, 8 * s);
+    ctx.fillStyle = rgba(d.c[1], 0.32); ctx.fillRect(x - w / 2, y - h, w, h - 8 * s);
+    ctx.fillStyle = rgba(d.c[1], 0.5); ctx.fillRect(x - w / 2, y - h * 0.45, w, h * 0.45 - 8 * s);
+    ctx.strokeStyle = "rgba(230,240,240,0.45)"; ctx.lineWidth = 1; ctx.strokeRect(x - w / 2 + 0.5, y - h + 0.5, w - 1, h - 8 * s);
+    ctx.fillStyle = d.c[0]; ctx.fillRect(x - w / 2 - 3, y - h - 6 * s, w + 6, 6 * s);
+    if (rnd() < 0.5) { ctx.strokeStyle = "rgba(240,250,250,0.6)"; ctx.beginPath(); ctx.moveTo(x - 4, y - h + 6); ctx.lineTo(x + 3, y - h * 0.7); ctx.lineTo(x - 2, y - h * 0.55); ctx.stroke(); }
+  },
+  clockface(ctx, x, y, d, rnd) {              // 바닥에 박힌 시계판 — 눈금 · 바늘
+    const r = 34 + rnd() * 30;
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5);
+    ctx.fillStyle = rgba(d.c, 0.16); ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+    ctx.strokeStyle = rgba(d.c, 0.55); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.82, Math.sin(a) * r * 0.82); ctx.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95); ctx.stroke(); }
+    const a1 = rnd() * TAU, a2 = rnd() * TAU;
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a1) * r * 0.5, Math.sin(a1) * r * 0.5); ctx.stroke();
+    ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a2) * r * 0.75, Math.sin(a2) * r * 0.75); ctx.stroke();
+    ctx.restore();
+  },
+  rift(ctx, x, y, d, rnd) {                   // 빛이 새는 땅 틈
+    crackLine(ctx, x, y, d.c[0], rnd, 1.2, d.c[1]);
+    ctx.fillStyle = rgba(d.c[1], 0.12); ctx.beginPath(); ctx.ellipse(x, y, 60, 16, 0, 0, TAU); ctx.fill();
+  },
+  shard(ctx, x, y, d, rnd) {                  // 떠 있는 땅 조각 — 아래 그림자와 떨어져 있다
+    const s = 0.6 + rnd() * 0.8, lift = 18 + rnd() * 20;
+    lowShadow(ctx, x, y + 2, 16 * s, 4 * s, 0.2);
+    ctx.fillStyle = pick(rnd, d.c); ctx.beginPath(); ctx.moveTo(x - 14 * s, y - lift); ctx.lineTo(x + 12 * s, y - lift - 4 * s); ctx.lineTo(x + 4 * s, y - lift + 14 * s); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.moveTo(x - 14 * s, y - lift); ctx.lineTo(x + 12 * s, y - lift - 4 * s); ctx.lineTo(x, y - lift - 2); ctx.closePath(); ctx.fill();
+  },
+  eyeglyph(ctx, x, y, d, rnd) {               // 바닥의 눈 문양(관측자)
+    const r = 40 + rnd() * 30;
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, 0.5);
+    ctx.strokeStyle = rgba(d.c, 0.5); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-r, 0); ctx.quadraticCurveTo(0, -r * 0.8, r, 0); ctx.quadraticCurveTo(0, r * 0.8, -r, 0); ctx.stroke();
+    ctx.fillStyle = rgba(d.c, 0.35); ctx.beginPath(); ctx.arc(0, 0, r * 0.28, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.15, 0, TAU); ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  },
+  cable(ctx, x, y, d, rnd) {                  // 늘어진 굵은 전선
+    const len = 120 + rnd() * 160;
+    ctx.strokeStyle = rgba(d.c, 0.85); ctx.lineWidth = 3.5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.bezierCurveTo(x + len * 0.3, y + 24 + rnd() * 16, x + len * 0.7, y - 18, x + len, y + 6); ctx.stroke();
+  },
 };
 // 땅 위에 깔리는 것부터 — 세워진 것(돌 · 묘비 · 수정 · 산호)은 위에서 아래 차례로 그려 앞뒤가 맞게
-const FLAT = new Set(["patch", "moss", "pool", "mud", "tiles", "rune", "ripple", "scorch", "lava", "crack", "web", "root", "fog"]);
+const FLAT = new Set(["patch", "moss", "pool", "mud", "tiles", "rune", "ripple", "scorch", "lava", "crack", "web", "root", "fog",
+  "panel", "circuit", "gear", "clockface", "rift", "eyeglyph", "cable"]);
 
 /* ── 위쪽 뒤 풍경 ───────────────────── */
 function backForest(ctx, TW, top, b, rnd) {
@@ -381,7 +475,38 @@ function backRuin(ctx, TW, top, b, rnd) {
     ctx.beginPath(); ctx.moveTo(x - w / 2, top - h); ctx.lineTo(x - w / 2 + w * rnd(), top - h - 8 - rnd() * 10); ctx.lineTo(x + w / 2, top - h); ctx.closePath(); ctx.fill();
   }
 }
-const BACK = { forest: backForest, cliff: backCliff, ruin: backRuin };
+// 기계 도시 · 공장 · 연구소 — 네모난 건물 줄 · 불 켜진 창 · 굴뚝 · 시계탑 · 둥근 지붕 · 늘어진 전선(800~1200)
+function backCity(ctx, TW, top, b, rnd) {
+  ctx.fillStyle = b.c[0]; ctx.fillRect(0, 0, TW, top);
+  const row = (c, lo, hi, wmin, wmax, lit) => {
+    for (let x = -20; x < TW + 40;) {
+      const w = wmin + rnd() * (wmax - wmin), h = top * (lo + rnd() * (hi - lo));
+      ctx.fillStyle = c; ctx.fillRect(x, top - h, w, h + 2);
+      if (lit) for (let wy = top - h + 10; wy < top - 12; wy += 16) for (let wx = x + 6; wx < x + w - 8; wx += 12) if (rnd() < lit) { ctx.fillStyle = rgba(b.win || "#e8d8a0", 0.35 + rnd() * 0.4); ctx.fillRect(wx, wy, 5, 7); }
+      if (b.stack && rnd() < b.stack) { ctx.fillStyle = c; ctx.fillRect(x + w * 0.6, top - h - 40, 12, 40); }
+      if (b.dome && rnd() < b.dome) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x + w / 2, top - h, w * 0.42, Math.PI, 0); ctx.fill(); }
+      x += w + rnd() * 24;
+    }
+  };
+  row(b.c[1], 0.35, 0.8, 60, 140, 0);
+  row(b.c[2], 0.2, 0.55, 50, 110, b.lit || 0.25);
+  if (b.tower) {                                  // 시계탑 — 둥근 판과 바늘
+    for (let x = 120 + rnd() * 200; x < TW; x += 700 + rnd() * 400) {
+      const w = 64, h = top * 0.95;
+      ctx.fillStyle = b.c[2]; ctx.fillRect(x - w / 2, top - h, w, h);
+      ctx.fillStyle = rgba(b.win || "#e8d8a0", 0.75); ctx.beginPath(); ctx.arc(x, top - h + 30, 20, 0, TAU); ctx.fill();
+      ctx.strokeStyle = b.c[1]; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x, top - h + 30); ctx.lineTo(x + 10, top - h + 24); ctx.moveTo(x, top - h + 30); ctx.lineTo(x - 2, top - h + 16); ctx.stroke();
+    }
+  }
+  if (b.cables) {                                 // 건물 사이 전선
+    ctx.strokeStyle = "rgba(20,20,28,0.35)"; ctx.lineWidth = 1.5;
+    for (let x = 0; x < TW; x += 120 + rnd() * 140) { const y0 = top * (0.3 + rnd() * 0.3); ctx.beginPath(); ctx.moveTo(x, y0); ctx.quadraticCurveTo(x + 70, y0 + 24, x + 150, y0 - 4); ctx.stroke(); }
+  }
+  if (b.void) {                                   // 갈라진 하늘 — 빛 틈
+    for (let k = 0; k < 6; k++) crackLine(ctx, rnd() * TW, top * (0.1 + rnd() * 0.4), b.void[0], rnd, 1.4, b.void[1]);
+  }
+}
+const BACK = { forest: backForest, cliff: backCliff, ruin: backRuin, city: backCity };
 
 /* ── 아래 끝 줄 ─────────────────────── */
 function edgeLine(ctx, TW, H, e, rnd) {
@@ -397,7 +522,7 @@ function edgeLine(ctx, TW, H, e, rnd) {
 
 
 // 맵 한 장을 그린 캔버스(폭 FIELD_TILE 이하, 높이 맵 높이). 없으면 null
-export function paintFieldLook(M) {
+export function paintFieldLook(M, backImg) {
   const L = FIELD_LOOKS[M.id];
   if (!L || typeof document === "undefined") return null;
   const TW = Math.min(M.w, M.tile || FIELD_TILE), H = M.h, top = M.top;
@@ -437,7 +562,13 @@ export function paintFieldLook(M) {
   });
   stand.sort((a, b) => a.y - b.y).forEach((o) => DECOR[o.d.k](ctx, o.x, o.y, o.d, mulberry32(o.s)));
   // 뒤 풍경 + 그 아래 그늘
-  BACK[L.back.k](ctx, TW, top, L.back, rnd);
+  if (backImg) {                                  // 그림 띠 — top 높이에 맞춰 좌우를 번갈아 뒤집으며 잇는다(이음매가 안 보이게)
+    const w = Math.round(backImg.naturalWidth * (top / backImg.naturalHeight));
+    for (let x = 0, k = 0; x < TW; x += w, k++) {
+      ctx.save(); ctx.translate(x + (k % 2 ? w : 0), 0); ctx.scale(k % 2 ? -1 : 1, 1);
+      ctx.drawImage(backImg, 0, 0, w, top); ctx.restore();
+    }
+  } else BACK[L.back.k](ctx, TW, top, L.back, rnd);
   const sh = ctx.createLinearGradient(0, top - 6, 0, top + 40);
   sh.addColorStop(0, "rgba(20,16,28,0.32)"); sh.addColorStop(1, "rgba(20,16,28,0)");
   ctx.fillStyle = sh; ctx.fillRect(0, top - 6, TW, 46);

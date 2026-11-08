@@ -48,6 +48,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
   const [at, setAt] = useState(() => skip(0));
   const [trail, setTrail] = useState([]);       // 지나온 칸(이전 버튼) — 선택지를 고른 뒤에는 그 앞으로 되돌아가지 않는다
   const [end, setEnd] = useState(false);
+  const [log, setLog] = useState(false);        // 지난 대사 기록 보기(v4 구현 메모 — 대화 기록 재확인)
   // 지금 줄을 넘길 수 있는지 — 줄이 바뀌면 lineWait 동안 잠근다
   const lineKey = `${at}/${seq.length}/${end}`;
   const [readyKey, setReadyKey] = useState(null);
@@ -106,9 +107,14 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
   const multi = step?.need ? step.need.length : 0;
   const lastOfStep = !multi || (story?.got || 0) + 1 >= multi;
 
+  // 지금까지 본 대사 — 고른 대답 · 틀린 답 장면까지 지나온 순서대로(seq 는 고를 때마다 이어 붙는다)
+  const nameOf = (l) => (l.s === 'me' ? (myName || '나') : l.s === 'sys' ? (l.n || npc.name) : l.s === 'nar' ? '' : l.s === 'soeun' ? VILLAGE_DIALOGUES['dawn-archivist'].name : STORY_PEOPLE[l.s]?.name || npc.name);
+  const seen = step ? seq.slice(0, end ? seq.length : at + 1).filter((l) => !l.pick && shown(l)) : [];
+
   const trap = (e) => {
     e.stopPropagation();
-    if (e.key === 'Escape') { finish(); return; }
+    if (e.key === 'Escape') { if (log) { setLog(false); dialog.current?.focus(); return; } finish(); return; }
+    if (log) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setLog(false); dialog.current?.focus(); } return; }
     if ((e.key === 'Enter' || e.key === ' ') && e.target === dialog.current) { e.preventDefault(); if (!e.repeat) advance(); return; }
     if (!pick && /^[1-4]$/.test(e.key)) return;
     if (pick && /^[1-4]$/.test(e.key) && pick[+e.key - 1] && !line.tried?.includes(+e.key - 1)) { e.preventDefault(); choose(pick[+e.key - 1], +e.key - 1); return; }
@@ -127,7 +133,11 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
         {step && <span className="story-tag">{step.ch}장 · {step.q}</span>}
         <button type="button" className="shop-x" aria-label="대화 닫기" onClick={finish}>×</button>
       </header>
-      {end ? (
+      {log ? (
+        <ol className="story-log" aria-label="지난 대사" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+          {seen.map((l, k) => <li key={k} className={l.s === 'nar' ? 'nar' : l.s === 'me' ? 'me' : ''}>{nameOf(l) && <b>{nameOf(l)}</b>}<span>{say(l.t)}</span></li>)}
+        </ol>
+      ) : end ? (
         <div className="story-end" aria-live="polite">
           {wrongOrder ? <>
             <span className="story-end-k">순서가 틀렸습니다</span>
@@ -156,9 +166,10 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
         </button>
       )}
       <footer className="village-dialogue-actions">
-        <span>{step ? (end ? '' : pick ? '대답을 고르세요' : `남은 대사 ${left}`) : `${trail.length + 1} / ${trail.length + 1 + left}`}</span>
-        {!pick && <button type="button" className="shop-btn" disabled={!end && !trail.length} onClick={back}>이전</button>}
-        {pick ? null : end ? <button type="button" className="shop-btn main" onClick={finish}>확인</button>
+        <span>{log ? `지난 대사 ${seen.length}` : step ? (end ? '' : pick ? '대답을 고르세요' : `남은 대사 ${left}`) : `${trail.length + 1} / ${trail.length + 1 + left}`}</span>
+        {step && seen.length > 1 && <button type="button" className={`shop-btn${log ? ' main' : ''}`} aria-pressed={log} onClick={() => { setLog(!log); dialog.current?.focus(); }}>{log ? '돌아가기' : '기록'}</button>}
+        {log ? null : !pick && <button type="button" className="shop-btn" disabled={!end && !trail.length} onClick={back}>이전</button>}
+        {log || pick ? null : end ? <button type="button" className="shop-btn main" onClick={finish}>확인</button>
           : <button type="button" className="shop-btn main" aria-disabled={!ready} onClick={advance}>{left || step ? '다음' : '대화 마치기'}</button>}
       </footer>
     </section>

@@ -177,6 +177,8 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 
 공허의 관측자 공격 연출(11월 5일, pixelfx(MIT)로 뽑음 · 뽑는 법 `design/effects/pixelfx/world-boss/make-void.mjs`): `rpg/effects/world-boss/v_*.webp` 투명 시트 6장 — `v_hole`(165×126, 4열 12칸, shadow/black-hole, 반복) · `v_collapse`(249×223, 4열 16칸, shadow/dark-explosion) · `v_portal`(142×111, 4열 12칸, arcane/portal, 반복) · `v_slam`(234×145, 3열 8칸, impacts/ground-slam) · `v_rift`(251×81, 3열 14칸, nature/quake) · `v_sigil`(118×116, 5열 18칸, shadow/hex-sigil). 칸 수 · 기준점은 `worldBossPxData.js`.
 
+공허 무기 · 차원의 지배자 4세트 연출(11월 7일, pixelfx(MIT, 커밋 a841596)로 뽑음 · 뽑는 법 `design/effects/pixelfx/void-weapon/make.mjs`): `rpg/effects/void-weapon/vw_*.webp` 투명 시트 9장 — `vw_cut`(116×90, 4열 12칸, melee/double-slash) · `vw_burst`(198×188, 4열 10칸, explosions/plasma-explosion) · `vw_sky`(143×125, 4열 12칸, shadow/eclipse, 반복) · `vw_arrow`(80×14, 2열 6칸, projectiles/arrow, 반복) · `vw_hit`(159×99, 3열 10칸, impacts/crit-hit) · `vw_hole`(127×133, 4열 12칸, shadow/void-orb, 반복) · `vw_crush`(164×164, 4열 12칸, explosions/implosion) · `vw_spin`(156×85, 3열 10칸, melee/spin-slash) · `vw_set`(147×139, 4열 10칸, arcane/mana-burst). 칸 수 · 그리는 점은 `voidWeaponPxData.js`, 그리기는 `voidWeaponPxArt.js`. 못 불러오면 `voidWeaponArt.js` 의 예전 도트 그림.
+
 ### 광장 NPC (11월 5일)
 
 `rpg/npc/<NPC id>.webp` 14장. 256×256 투명 WebP이며 발 기준점은 (128, 248)이다. `plazaNpcData.js`에서 사람 84px · 상점 주인 74px 크기를 관리한다. 상점은 판매대 뒤에 그린다. 원화는 `design/plaza-npc/shops.webp` · `town.webp`이며 4열×2행의 마지막 칸은 비어 있다. 칸을 자른 뒤 투명 여백을 다듬고 240×232 안에 맞춰 발을 248에 정렬했다. NPC 그림이 없거나 로딩에 실패하면 기존 코드 그림을 사용한다.

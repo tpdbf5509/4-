@@ -6,7 +6,7 @@ import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
+  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -31,6 +31,7 @@ const ACTS = {
   party: (g, pi, dir) => rpgParty(g, pi, dir),
   title: (g, pi, dir) => rpgTitle(g, pi, dir),
   duel: (g, pi, dir) => rpgDuel(g, pi, dir),
+  block: (g, pi, dir) => rpgBlock(g, pi, dir),     // 차단 목록 추가 · 해제(block.js)
   req: (g, pi, dir) => rpgRequest(g, pi, dir),
   quest: (g, pi, dir) => rpgQuest(g, pi, dir),
   cmd: (g, pi, dir) => rpgAdminCmd(g, pi, dir),   // 관리자 명령어(채팅 "/")

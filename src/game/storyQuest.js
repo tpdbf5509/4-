@@ -1,7 +1,8 @@
 /* 메인 스토리 1~30장 진행 규칙 — 방장 화면과 전용 서버가 같이 쓴다(rpgInput.js 의 story).
    진행은 가방 bag.sq 에 남는다. 가방은 저장 · 손님 전송(packBags)과 함께 간다. 단계 · 대사는 storyQuestData.js */
 import {STORY_QUEST, STORY_STEPS, STORY_CLEAR_ID, STORY_CHAPTERS, STORY_TAGS, STORY_REV, STORY_TAG_MAX, TRUST_PEOPLE, TRUST_MIN, TRUST_MAX, OLD_STEP_CH,
-  stepTargets, sceneOf, storyLineShown, addPick, chapterStart, partOf} from './storyQuestData.js';
+  stepTargets, stepLocked, stepOpenTargets, sceneOf, storyLineShown, addPick, chapterStart, partOf} from './storyQuestData.js';
+import {storyGuideOf, storyFact} from './storyGuide.js';
 import {MAPS, npcNear, fx, sys, runOf, stopMove} from './rpg.js';
 import {trading} from './tradeData.js';
 
@@ -30,7 +31,7 @@ export const storyStep = (h) => STORY_STEPS[sqOf(h).i] || null;   // null 이면
 export function storyTargetFor(h, id) {
   if (!storyOpenFor(h)) return null;
   const s = storyStep(h);
-  if (!s || !stepTargets(s).includes(id) || sqOf(h).n.includes(id)) return null;
+  if (!s || !stepOpenTargets(s, sqOf(h).n).includes(id)) return null;   // 단서를 다 보기 전에는 at 이 잠긴다
   return s;
 }
 
@@ -39,16 +40,22 @@ export function storyView(h) {
   if (!storyOpenFor(h)) return null;
   const sq = sqOf(h), s = STORY_STEPS[sq.i];
   const total = STORY_STEPS.length;
-  if (!s) return {done: true, i: total, total, chName: '네 갈래 방어선', c: sq.c || [], t: sq.t || {}};
-  const t = stepTargets(s), part = partOf(s.ch);
+  if (!s) return {done: true, i: total, total, chName: '네 갈래 방어선', n: [], c: sq.c || [], t: sq.t || {}};
+  const t = stepTargets(s), part = partOf(s.ch), gd = storyGuideOf(s);
   const chSteps = STORY_STEPS.filter((x) => x.ch === s.ch);
+  const nameOf = (id) => MAPS[s.map]?.npcs?.find((x) => x.id === id)?.name || id;
+  const locked = stepLocked(s, sq.n);
   return {
     i: sq.i, total, id: s.id, ch: s.ch, chName: STORY_CHAPTERS[s.ch], part: part.n, partName: part.name, q: s.q, goal: s.goal, where: s.where,
-    map: s.map, mapName: MAPS[s.map]?.name || '', targets: t.filter((x) => !sq.n.includes(x)),
-    got: sq.n.length, need: t.length > 1 ? t.length : 0, c: sq.c || [], t: sq.t || {},
+    sit: gd?.sit || '', why: gd?.why || '',            // 퀘스트 칸 — 지금 무슨 일이 있었고 왜 하는지(storyGuide.js)
+    // 확인할 것 — 대상이 여럿이면 하나씩 표시한다. 단서(look)를 먼저, 잠긴 at 은 마지막
+    checks: t.length > 1 ? t.map((x) => ({id: x, name: nameOf(x), done: sq.n.includes(x), clue: !!s.look?.includes(x)})) : [],
+    locked: locked ? s.at : null, lookLeft: locked ? s.look.filter((x) => !sq.n.includes(x)).map(nameOf) : [],
+    map: s.map, mapName: MAPS[s.map]?.name || '', targets: stepOpenTargets(s, sq.n),
+    got: sq.n.length, need: t.length > 1 ? t.length : 0, n: sq.n, c: sq.c || [], t: sq.t || {},
     chAt: chSteps.findIndex((x) => x.id === s.id), chLen: chSteps.length,
     quests: [...new Set(chSteps.map((x) => x.q))].map((q) => ({q, done: STORY_STEPS.every((x, k) => x.q !== q || x.ch !== s.ch || k < sq.i)})),
-    canGo: MAPS[s.map]?.story && h.map !== s.map, order: !!s.order, hidden: !!s.hidden,
+    canGo: storyGoable(s.map) && h.map !== s.map, order: !!s.order, hidden: !!s.hidden,
     nextId: s.order ? s.need[sq.n.length] : null,
   };
 }
@@ -68,6 +75,9 @@ export function storyPicks(scene, picks, c0, t0) {
   return j === picks.length ? {tags, trust} : null;
 }
 
+// 바로 가기로 갈 수 있는 곳 — 이야기 맵과 에르덴 마을(이야기 시작지)
+export const storyGoable = (m) => !!MAPS[m] && (!!MAPS[m].story || m === 'dawnwood');
+
 // 바쁠 때(결투 · 던전 · 레이스 · 거래)는 옮기지 않는다
 const busy = (g, h) => trading(h) || (h.dvs ?? -1) >= 0 || !!runOf(g, h) || !!(MAPS[h.map] && (MAPS[h.map].dungeon || MAPS[h.map].pvp || MAPS[h.map].race));
 function moveTo(h, to) {
@@ -84,7 +94,7 @@ export function rpgStory(g, pi, d) {
   const s = STORY_STEPS[sq.i];
   if (!s) return false;
   if (d.op === 'go') {
-    if (!MAPS[s.map]?.story || h.map === s.map) return false;
+    if (!storyGoable(s.map) || h.map === s.map) return false;
     if (busy(g, h) || h.down > 0) return void sys(g, pi, '지금은 이야기 장소로 갈 수 없습니다.');
     moveTo(h, s.map);
     sys(g, pi, `${MAPS[s.map].name}(으)로 갔습니다.`);
@@ -93,6 +103,7 @@ export function rpgStory(g, pi, d) {
   if (d.op !== 'done' || d.step !== s.id || h.down > 0) return false;
   const id = d.id;
   if (!stepTargets(s).includes(id) || sq.n.includes(id)) return false;
+  if (id === s.at && stepLocked(s, sq.n)) return false;   // 단서(look)를 다 살피기 전에는 진행하지 않는다
   if (npcNear(h)?.id !== id) return false;          // 그 대상 곁에서 대화를 마쳤을 때만
   if (s.order && id !== s.need[sq.n.length]) {        // 순서 퍼즐 — 틀리면 처음부터
     sq.n = []; h.bag.v += 1;
@@ -113,6 +124,8 @@ export function rpgStory(g, pi, d) {
   const msg = !all ? `${s.goal} ${sq.n.length}/${stepTargets(s).length}` : s.end || `「${s.q}」 진행 · 다음: ${next ? next.goal : '메인 이야기 끝'}`;
   fx(g, h.map, {kind: 'call', x: h.x, y: h.y - 110, text: all ? (s.end ? '장 완료' : '이야기 진행') : '조사 완료', color: '#ffe08a', t: 1.2, life: 1.2, snd: 'build', who: pi});
   sys(g, pi, msg);
+  const f = storyFact(s, id, sq.c, all);              // 알게 된 것 — 대화를 빠르게 넘겨도 핵심은 남긴다(storyRecap.js)
+  if (f) sys(g, pi, `알게 된 것 · ${f}`);
   if (all && s.go && MAPS[s.go] && !busy(g, h)) moveTo(h, s.go);
   return true;
 }

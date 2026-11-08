@@ -25,10 +25,13 @@ export const WORLD_SETS = [
     two: '이동 속도 +10%', four: '몬스터를 맞히면 4초 동안 공격 속도 +20% · 10초마다',
     spd: 0.1, aspd: 0.2, duration: 4, cooldown: 10 },
   // 11월 4일 사용자 요청 — 공허의 관측자 방어구. 세트 id 가 보스 id 라 토벌 보상이 방어구 네 부위를 각 3% 로 굴린다.
-  // 2세트: 스킬 재사용 대기시간 cd 감소(무기 스킬 · 직업 스킬 모두) · 4세트: 스킬이 맞으면 duration 초 동안 받는 피해 take 감소, cooldown 초마다(결투 · 사냥터 PvP 에서는 꺼진다)
+  // 11월 7일 사용자 요청으로 세트 효과를 바꿨다(5% · 받는 피해 8% 감소 → 아래). 부위별 전설 효과 · 기본 능력치는 그대로다.
+  // 2세트: 모든 스킬 재사용 대기시간 cd 감소(무기 스킬 · 직업 스킬 모두)
+  // 4세트: 스킬이 몬스터에 맞으면 맞은 자리 반경 radius 에 공간 폭발 — 기본 스킬 피해(skillBase)의 mul 배 · cooldown 초마다.
+  //        폭발에 맞은 몬스터는 slow 초 동안 이동 속도 slowAmt 감소(결투 · 사냥터 PvP 에서는 켜지지 않는다)
   { id: 'void', name: '차원의 지배자', boss: '공허의 관측자', color: '#8d6bd1',
-    two: '스킬 재사용 대기시간 5% 감소', four: '스킬 적중 후 4초 동안 받는 피해 8% 감소 · 12초마다',
-    cd: 0.05, take: 0.08, duration: 4, cooldown: 12 },
+    two: '모든 스킬 재사용 대기시간 8% 감소', four: '스킬 적중 시 반경 180 공간 폭발 · 기본 스킬 피해 1.2배 · 10초마다 · 맞은 적 2초 동안 이동 속도 20% 감소',
+    cd: 0.08, radius: 180, mul: 1.2, cooldown: 10, slow: 2, slowAmt: 0.2 },
 ];
 export const WORLD_SET_BY_ID = Object.fromEntries(WORLD_SETS.map(s => [s.id, s]));
 export const WORLD_WEAPONS = [

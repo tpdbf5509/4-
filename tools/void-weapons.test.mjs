@@ -8,7 +8,7 @@ import { WEAPON_SKILLS } from '../src/game/skillData.js';
 import { specialTier, specialsFor, whySpecialBuy, cleanBag, rpgShop } from '../src/game/shop.js';
 import { VOID_WEAPONS, WORLD_SETS, WORLD_EQUIPMENT, worldArtCell, worldArt } from '../src/game/worldEquipmentData.js';
 import { VOID_SKILLS, voidTotals } from '../src/game/voidWeaponData.js';
-import { worldCooldownMul, worldVoidCd, worldVoidTake, worldArmorOnHit, worldArmorTick, worldSetCount, wearOf, packArmor, applyArmor } from '../src/game/armor.js';
+import { worldCooldownMul, worldVoidCd, worldVoidRift, worldArmorTick, worldSetCount, wearOf, packArmor, applyArmor } from '../src/game/armor.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { worldBossWeapons } from '../src/game/worldBossData.js';
 Math.random = () => 0.999;   // 치명타 없음 — 피해가 같은 수치로 나온다
@@ -192,42 +192,42 @@ test('월드보스(단일 대상)와 몬스터 무리를 따로 잰다 — 화�
 });
 // ── 방어구 세트 ───────────────────────────────────────────
 const wear = (h, set, slots = ['head', 'body', 'legs', 'feet']) => { h.bag.a = slots.map((s, i) => ({ u: 10 + i, s, g: 3, set })); h.bag.ae = Object.fromEntries(h.bag.a.map(a => [a.s, a.u])); };
-test('차원의 지배자: 4부위 · 2세트 재사용 대기 5% 감소(무기·직업 스킬)', () => {
+test('차원의 지배자: 4부위 · 2세트 재사용 대기 8% 감소(무기·직업 스킬)', () => {
   const V = WORLD_SETS.find(s => s.id === 'void'); assert(V && V.name === '차원의 지배자');
   const { g, h } = setup('void_great');
   assert.equal(worldVoidCd(h), 1); wear(h, 'void', ['head']); assert.equal(worldVoidCd(h), 1, '1부위는 효과 없음');
-  wear(h, 'void', ['head', 'body']); assert.equal(worldVoidCd(h), .95); assert.equal(worldCooldownMul(h), .95);
-  mob(g, h.x + 40, h.y); rpgWeaponSkill(g, 0); assert(Math.abs(h.ws.wcd - 15 * .95) < .01, `무기 스킬 ${h.ws.wcd}`);
+  wear(h, 'void', ['head', 'body']); assert.equal(worldVoidCd(h), .92); assert.equal(worldCooldownMul(h), .92);
+  mob(g, h.x + 40, h.y); rpgWeaponSkill(g, 0); assert(Math.abs(h.ws.wcd - 15 * .92) < .01, `무기 스킬 ${h.ws.wcd}`);
   assert.deepEqual(wearOf(h)?.length, 3);
   // 기계 세트와 섞어도 곱으로 합쳐진다
   h.bag.a.push({ u: 12, s: 'legs', g: 3, set: 'machine' }, { u: 13, s: 'feet', g: 3, set: 'machine' }); h.bag.ae.legs = 12; h.bag.ae.feet = 13;
-  assert(Math.abs(worldCooldownMul(h) - .95 * .9) < 1e-9);
+  assert(Math.abs(worldCooldownMul(h) - .92 * .9) < 1e-9);
 });
-test('차원의 지배자 4세트: 스킬 적중 후 4초 받는 피해 8% 감소 · 12초마다 · 평타와 PvP 에서는 켜지지 않는다', () => {
-  const { g, h } = setup('void_great'); wear(h, 'void');
+test('차원의 지배자 4세트: 스킬 적중 시 반경 180 공간 폭발 · 기본 스킬 피해 1.2배 · 10초마다 · 평타와 지속 피해는 아님', () => {
+  const { h } = setup('void_great'); wear(h, 'void');
   const V = WORLD_SETS.find(s => s.id === 'void');
-  assert.equal(worldVoidTake(h), 1);
-  worldArmorOnHit(h, { basic: true }); assert.equal(worldVoidTake(h), 1, '평타는 아님');
-  worldArmorOnHit(h, { dot: true, skill: true }); assert.equal(worldVoidTake(h), 1, '지속 피해는 아님');
-  worldArmorOnHit(h, { skill: true }); assert(Math.abs(worldVoidTake(h) - .92) < 1e-9);
-  const arm = packArmor(h), other = { arm: null, bag: h.bag }; applyArmor(other, JSON.parse(JSON.stringify(arm))); assert(other.arm.sets.dim > 0, '스냅샷으로 전해짐');
-  worldArmorTick(h, V.duration + .1); assert.equal(worldVoidTake(h), 1, '4초 뒤 끝');
-  worldArmorOnHit(h, { skill: true }); assert.equal(worldVoidTake(h), 1, '12초마다 — 아직 대기');
-  worldArmorTick(h, V.cooldown); worldArmorOnHit(h, { skill: true }); assert(worldVoidTake(h) < 1, '대기 뒤 다시');
-  wear(h, 'void', ['head', 'body', 'legs']); worldArmorTick(h, .01); assert.equal(worldVoidTake(h), 1, '세트가 깨지면 꺼짐');
+  assert.equal(V.radius, 180); assert.equal(V.mul, 1.2); assert.equal(V.cooldown, 10); assert.equal(V.slow, 2); assert.equal(V.slowAmt, .2);
+  assert.equal(worldVoidRift(h, { basic: true }), false, '평타는 아님');
+  assert.equal(worldVoidRift(h, { dot: true, skill: true }), false, '지속 피해는 아님');
+  assert.equal(worldVoidRift(h, { skill: true }), true);
+  const arm = packArmor(h), other = { arm: null, bag: h.bag }; applyArmor(other, JSON.parse(JSON.stringify(arm))); assert(other.arm.sets.dimCd > 0, '대기가 스냅샷으로 전해짐');
+  assert.equal(worldVoidRift(h, { skill: true }), false, '10초마다 — 아직 대기');
+  worldArmorTick(h, V.cooldown + .01); assert.equal(worldVoidRift(h, { skill: true }), true, '대기 뒤 다시');
+  worldArmorTick(h, V.cooldown + .01); wear(h, 'void', ['head', 'body', 'legs']); assert.equal(worldVoidRift(h, { skill: true }), false, '3부위는 효과 없음');
 });
-test('4세트 감소는 결투·사냥터 PvP 에서 맞는 피해에 곱해지지 않는다', () => {
-  const loss = set => {
-    const { g, h } = setup('void_great'), o = g.heroes[1];
-    h.map = o.map = 'field'; h.pvpOn = o.pvpOn = 1; h.x = o.x = 600; h.y = 600; o.y = 600; o.x = 650; h.pty = o.pty = 0; g.mobs = [];
-    h.buff = 100; h.buffAmt = 100000; h.calm = o.calm = -100; o.inv = 0;
-    wear(o, 'void');   // 같은 옷을 입고 4세트 감소만 켜고 끈다(갑옷 기본 방어는 같다)
-    if (set) { worldArmorOnHit(o, { skill: true }); assert(worldVoidTake(o) < 1); }
-    const before = o.hp; h.cd = 0; rpgFire(g, 0, true); rpgStep(g, .02); rpgFire(g, 0, false); run(g, .05);
-    return before - o.hp;
+test('4세트 공간 폭발 — 둘레 몬스터에게 기본 스킬 피해 1.2배 · 2초 동안 이동 속도 20% 감소', () => {
+  const hitBy = set => {
+    const { g, h } = setup('void_great'); if (set) wear(h, 'void');
+    const a = mob(g, h.x + 40, h.y), far = mob(g, h.x + 40 + 170, h.y), out = mob(g, h.x + 40 + 400, h.y);
+    rpgWeaponSkill(g, 0); rpgStep(g, .01);
+    return { g, h, a, far, out };
   };
-  const plain = loss(false), worn = loss(true);
-  assert(plain > 0); assert(Math.abs(plain - worn) < 1e-6, `사람 상대 피해는 같다 ${plain} / ${worn}`);
+  const off = hitBy(false), on = hitBy(true);
+  assert.equal(dealt(off.far), 0, '세트 없으면 바깥 몬스터는 안 맞는다');
+  assert(dealt(on.far) > 0, '반경 180 안의 몬스터가 폭발에 맞는다');
+  assert.equal(dealt(on.out), 0, '반경 밖은 안 맞는다');
+  assert(on.far.vslow > 1.9 && on.far.vslow <= 2, `둔화 ${on.far.vslow}`);
+  run(on.g, 2.1); assert(!(on.far.vslow > 0), '2초 뒤 둔화 끝');
 });
 test('관리자 시험 지급과 저장 — 차원의 지배자 무기 3종 · 방어구 4종', () => {
   const { g, h } = setup('void_great'); h.admin = 1; h.bag.w = []; h.bag.a = [];

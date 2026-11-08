@@ -1059,3 +1059,29 @@ test('특성 대기 — 30초 동안 연계 참격 · 정밀 사격 · 협동 �
     assert(su >= 3 && su <= Math.ceil(30 / T('summoner').icd) + 1, `협동 공격 ${su}`);
   });
 });
+
+test('결투 — 소환술사는 정령 3마리를 연달아 부르고 작은 거대 정령도 부른다', () => {
+  const g = world([{ job: 'mage', advClass: 'summoner' }, { job: 'warrior' }]);
+  g.mobs = [];
+  rpgDuel(g, 0, { op: 'ask', to: 1 }); rpgDuel(g, 1, { op: 'accept' });
+  const [a, b] = g.heroes;
+  a.auto = b.auto = 0; a.fire = b.fire = 0;
+  send(g, 0, 'adv', { op: 'ult' });                  // 준비 중에는 못 부른다
+  assert(!a.as?.gi, '준비 중 거대 정령');
+  run(g, DUEL.ready + 0.2);
+  b.x = a.x + 260; b.y = a.y;
+  const A = ADV_BY_ID.summoner.active, U = ADV_BY_ID.summoner.ultimate;
+  send(g, 0, 'adv', { op: 'use' });
+  assert.equal(a.as.sps.length, 1);
+  run(g, A.duelGap * (A.duelN - 1) + 0.1);
+  assert.equal(a.as.sps.length, A.duelN, '한 번에 3마리');
+  assert(a.as.sps.every((sp) => sp.cap === a.as.sps[0].cap), '같은 시전 상한을 함께 쓴다');
+  send(g, 0, 'adv', { op: 'ult' });
+  assert(a.as.gi && a.as.gi.duel, '결투장 거대 정령');
+  assert.equal(a.as.gi.mhp, Math.round(a.max * U.duelHpMul));
+  const hp0 = b.hp;
+  run(g, 3);
+  assert(a.as.gi && a.as.gi.t > 0, '결투장에서 사라지지 않는다');
+  assert(b.hp < hp0, '상대가 맞는다');
+  assert(U.duelSize < U.size);
+});

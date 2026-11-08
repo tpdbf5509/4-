@@ -1,7 +1,7 @@
 /* 메인 스토리 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
    바닥: ground/<맵 id>.webp · 건물 · 장소 · 소품: places/<id>.webp · 사람: people/<인물 id>.webp */
 import {STORY_ART as A, STORY_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
-import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepTargets, storyGateOpen, storyGateCh} from './storyQuestData.js';
+import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepOpenTargets, storyGateOpen, storyGateCh} from './storyQuestData.js';
 import {VILLAGE_NPCS} from './villageData.js';
 
 const images = new Map();
@@ -203,7 +203,7 @@ export function drawStoryMarks(ctx, me, M, time) {
   if (!me || !me.bag || !(STORY_QUEST.open || me.admin)) return;
   const sq = me.bag.sq || {i: 0, n: []}, s = STORY_STEPS[sq.i];
   if (!s || s.map !== M.id) return;
-  const left = stepTargets(s).filter((id) => !(sq.n || []).includes(id));
+  const left = stepOpenTargets(s, sq.n || []);   // 단서(look)를 다 보기 전에는 at 머리 위에 느낌표가 없다
   const spots = [...storyNpcsOf(M.id).map((n) => ({id: n.id, x: n.x, y: n.y - 112})),
     ...storySightsOf(M.id).map((n) => ({id: n.id, x: n.x, y: n.y - n.size * .7 - 18})),
     ...(M.id === 'dawnwood' ? VILLAGE_NPCS.map((n) => ({id: n.id, x: n.x, y: n.y - 120})) : [])];

@@ -36,7 +36,7 @@ import {
   titleName, needNow, titleMet, metNpc, QUEST_NPC, whyReqDone, requestXp, MOB,
   whyDungeon, dgNear, dgCrew, runOf, abyssCrew, abyssRunOf, abyssNear, raceNear,
   RPG_SERVERS, SPAWNS, STATS, STAT_IDS, STAT_MAX, STAT_PER_LV, statValue, statLeft, statEarned, noStats, LV_MAX,
-  HIDE_GEAR,
+  HIDE_GEAR, testSpots,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
@@ -45,6 +45,9 @@ import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
 import { TRAIN, TRAIN_TOGGLES, TRIAL } from "./game/trainData.js";
+import { TEST_TOGGLES } from "./game/testData.js";
+import { TEST_MODE } from "./net/testMode.js";
+const TEST_SPOTS = TEST_MODE ? testSpots() : [];   // 테스트 도구 창의 장소 이동 묶음
 
 // 무기 스킬 칸 — 낀 전설 무기의 스킬 이름 · 대기 · 쌓인 것
 function weaponHud(me) {
@@ -117,6 +120,8 @@ import { ghostStep } from "./game/bossBar.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
 import { useTouch } from "./ui/touch.js";
+import { blocks, BLOCK } from "./game/block.js";
+const BLOCK_PEND_MS = 4000;   // 차단 단추를 누른 뒤 서버 답을 기다리며 바뀐 모습을 지키는 시간
 import { DUEL_COLORS, DUEL_TEAM } from "./game/duel.js";
 
 // 실시간 서버(Supabase 무료)는 프로젝트 전체에서 초당 메시지 100개가 한도다. 넘으면 모두의 연결을 끊는다.
@@ -237,8 +242,8 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
     if (!ready) return;
     const l = cleanLook(fixed ? char : { name: char.name, job, elem: needElem ? elem : "none", gender });
     if (!l) return;
-    if (!fixed && !sure && !admin) return setSure(true);
-    if (!fixed) {
+    if (!fixed && !sure && !admin && !TEST_MODE) return setSure(true);
+    if (!fixed && !TEST_MODE) {                    // 테스트 모드는 고른 모습을 남기지 않는다(이번 접속에만 쓴다)
       if (!saveLook(l)) return setLookErr("저장하지 못했습니다. 다시 시도해 주세요.");
       const c = loadChar();
       setChar(c);
@@ -251,6 +256,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
   const [delBusy, setDelBusy] = useState(false);
   const remove = async () => {
     if (!char || delName !== char.name || delBusy) return;
+    if (TEST_MODE) return setDelErr("테스트 모드에서는 지울 수 없습니다. 일반 주소에서 해 주세요.");
     // 서버에도 있으면 서버부터 지운다. 다른 기기에 밀려 입장권이 없으면 이 기기 기록만 지운다
     if (char.linked && char.tok) {
       setDelBusy(true);
@@ -602,6 +608,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [wbOpen,setWbOpen]=useState(false);
   const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
   const [trainOpen, setTrainOpen] = useState(false); // 훈련 교관 창
+  const [testOpen, setTestOpen] = useState(false);   // 테스트 모드(?test) 도구 창
   const [advOpen, setAdvOpen] = useState(false);     // 전직 교관 창(AdvPanel)
   const [deepOpen, setDeepOpen] = useState(false);   // 계몽의 문 창(DeepPanel)
   const [abyssOpen, setAbyssOpen] = useState(false); // 심연의 탑 창(AbyssPanel)
@@ -683,6 +690,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const chatInput = useRef(null);
   const chatSeq = useRef(0);
   const [nowMs, setNowMs] = useState(() => Date.now());   // 채팅 줄 흐리기 · 초대 창 숨기기에 쓰는 시각 — 1초마다
+  const [blockPend, setBlockPend] = useState({});   // 방금 누른 차단 · 풀기 — 서버 가방이 오기 전에도 단추가 바로 바뀌게(이름 → { on, at })
   const pushChat = useCallback((line) => {
     chatSeq.current += 1;
     const it = { id: chatSeq.current, at: Date.now(), ...line };
@@ -692,7 +700,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setCodexOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
-    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null);
+    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null); setTestOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -814,7 +822,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   useEffect(() => { raceRef.current = raceOpen; }, [raceOpen]);
   // 창이 하나라도 열려 있거나 채팅 중이면 마우스 이동을 무시한다(onMoveDown)
   const anyWin = menu || statOpen || !!shopOpen || bagOpen || titleOpen || codexOpen || partyOpen || keysOpen || inqOpen || honorOpen || !!reqOpen || questOpen
-    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || chatOpen || !!waitKey;
+    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || testOpen || chatOpen || !!waitKey;
   useEffect(() => { winOpenRef.current = anyWin; }, [anyWin]);
 
   const toggleMute = useCallback(() => {
@@ -992,13 +1000,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen && !abyssOpen && !marketOpen && !raceOpen && !villageOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen && !abyssOpen && !marketOpen && !raceOpen && !villageOpen && !testOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, codexOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, abyssOpen, marketOpen, raceOpen, villageOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, codexOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, abyssOpen, marketOpen, raceOpen, villageOpen, testOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -1209,6 +1217,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const me = g.heroes[mySeat];
       const party = d.s === "party";
       if (party && (!me || !me.pty || me.pty !== d.p)) return;
+      if (me && blocks(me, seatsRef.current[pi].name)) return;   // 차단한 사람의 채팅 · 말풍선은 띄우지 않는다(block.js)
       if (!g.bubbles) g.bubbles = {};
       g.bubbles[pi] = { text, until: performance.now() + CHAT.bubble * 1000 };
       pushChat({ kind: party ? "party" : "all", name: seatsRef.current[pi].name || "모험가", text });
@@ -1396,12 +1405,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const lookPatch = (r) => ({ ...(r.job ? { job: r.job } : {}), ...(r.elem ? { elem: r.elem } : {}) });
       if (g.relook && g.relook.length) g.relook.splice(0).forEach((r) => {
         const mine = r.pi === g.mySeat;
-        if (mine) forceLook(lookPatch(r));
+        if (mine && !TEST_MODE) forceLook(lookPatch(r));   // 테스트 모드는 이 기기 기록을 고치지 않는다
         relookRef.current?.(r.who, lookPatch(r), mine);
       });
       if (g.relooks && g.relooks.length) g.relooks.splice(0).forEach((r) => {
         if (r.who !== g.mySeat) return;
-        forceLook(lookPatch(r));
+        if (!TEST_MODE) forceLook(lookPatch(r));
         relookRef.current?.(null, lookPatch(r), true);
       });
       netRef.current.frames += 1;
@@ -1540,7 +1549,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         }
         if (me && me.map !== lastMap) lastMap = me.map;   // 맵 이름은 불러오기 가림막이 걷힐 때 띄운다
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
-        if (me && me.loaded && !me.tradeLocal) {
+        if (me && me.loaded && !me.tradeLocal && !TEST_MODE) {   // 테스트 모드는 이 기기에 남기지 않는다
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`
             + `/${me.ts || 0}/${me.title}/${me.titles.length}/${Object.values(me.rec).join(",")}/${me.honor || 0}/${JSON.stringify(me.reqs || {})}/${me.gift || ""}/${me.rs || ""}`
             + `/${me.advClass || ""}/${me.advQ ? `${me.advQ.c}:${me.advQ.n}:${me.advQ.r || 0}` : ""}/${me.advM || 0}`;   // 1차 전직 · 시험 진행 · 전직 숙련도도 바뀌면 남긴다
@@ -1566,6 +1575,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [toast]);
 
   const me = hud;
+  // 차단했는가 — 방금 누른 것(4초)을 먼저 보고, 그 뒤로는 서버가 보낸 가방(bag.bk)을 따른다
+  const blockedNow = (n) => { const p = blockPend[n]; return p && nowMs - p.at < BLOCK_PEND_MS ? p.on : !!me && blocks(me.self, n); };
+  const toggleBlock = (n) => {
+    const on = !blockedNow(n);
+    setBlockPend((v) => ({ ...v, [n]: { on, at: Date.now() } }));
+    act("block", { op: on ? "add" : "del", name: n });
+    setToast({ name: on ? `${n}님을 차단했습니다` : `${n}님의 차단을 풀었습니다`, at: Date.now() });
+  };
+  const blockedList = me ? [...new Set([...(me.self.bag.bk || []), ...Object.keys(blockPend)])].filter(blockedNow) : [];
   const guide = !guideDone && me ? guideStep(me, metNpc(me.self, QUEST_NPC) || me.quest.on, (id) => (touch ? "" : keyOf(binds, id))) : null;
   guideRef.current = guide && guide.target;
   const inDuelOrDg = !!me && ((me.dvs ?? -1) >= 0 || !!me.run || !!me.arun || (me.map==="worldboss"||me.map.startsWith("guildraid-")));   // 결투 · 던전 중에는 서버를 옮기지 않는다
@@ -1698,16 +1716,20 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </span>
               {/* 의뢰 · 퀘스트 — 레벨 칸 바로 아래에 붙는다(style.css .rpg-quest) */}
               {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
-                <button type="button" className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
-                  {me.story && !me.story.done && <span className="rpg-quest-story"><b>{me.story.ch}장</b>{me.self.map !== me.story.map ? `${me.story.mapName} · ` : ""}{me.story.goal}{me.story.need ? ` ${me.story.got}/${me.story.need}` : ""}</span>}
+                <div className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
+                  {me.story && !me.story.done && <span className="rpg-quest-story"><b>{me.story.ch}장</b>{me.self.map !== me.story.map ? `${me.story.mapName} · ` : ""}{me.story.goal}{me.story.need ? ` ${me.story.got}/${me.story.need}` : ""}
+                    {/* 이야기 장소 바로 가기 — 지금 단계의 맵으로 바로 옮긴다(storyQuest.js rpgStory op 'go') */}
+                    {me.story.canGo && <button type="button" className="rpg-quest-go" title={`${me.story.mapName}(으)로 바로 가기`}
+                      onClick={(e) => { e.stopPropagation(); act("story", { op: "go" }); }}>바로 가기</button>}
+                  </span>}
                   {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
                   {Object.entries(me.self.reqs).map(([id, r]) => {
                     const q = REQUESTS[id] && REQUESTS[id][r.i];
                     const xpTxt = q && me.lv < LV_MAX ? reqXpText(q, me.lv, r.coinOnly ?? (me.lv > q.lv)) : "";
                     return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}{xpTxt ? ` · ${xpTxt}` : ""}</span> : null;
                   })}
-                  <span className="rpg-quest-open">의뢰 · 퀘스트 ›</span>
-                </button>
+                  <button type="button" className="rpg-quest-open" onClick={(e) => { e.stopPropagation(); closeAll(); setQuestOpen(true); }}>의뢰 · 퀘스트 ›</button>
+                </div>
               )}
             </div>
           )}
@@ -1760,6 +1782,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span className={`rpg-switch ${lowFxOn ? "on" : ""}`}><span /></span>
                 </button>
                 <button type="button" role="menuitem" className="rpg-menu-row" onClick={()=>toggleWin(guildOpen,()=>setGuildOpen("menu"))}><span className="rpg-menu-text"><b>길드 성전</b><em>길드원 · 봉헌 · 토벌 · 주간 순위</em></span><span className="rpg-menu-go">›</span></button>
+                {TEST_MODE && (   // 테스트 모드(?test)에서만 — 무적 · 초당 피해 · 장소 이동
+                  <button type="button" role="menuitem" className="rpg-menu-row" onClick={() => toggleWin(testOpen, () => setTestOpen(true))}>
+                    <span className="rpg-menu-text"><b>테스트 도구</b><em>무적 · 초당 피해 · 모든 장소로 이동</em></span>
+                    <span className="rpg-menu-go">›</span>
+                  </button>
+                )}
                 {me?.self?.advClass && (   // 전직한 사람 — 어디서든 전직 숙련도 · 전투 특성을 본다(시험 · 확정은 교관 곁에서만 된다)
                   <button type="button" role="menuitem" className="rpg-menu-row" onClick={() => toggleWin(advOpen, () => setAdvOpen(true))}>
                     <span className="rpg-menu-text"><b>전직 숙련도</b><em>숙련도 단계 · 전투 특성 · 다음 보상</em></span>
@@ -1944,12 +1972,26 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                               ? <span className="rpg-win-tag">결투 중</span>
                               : <button type="button" className="rpg-win-btn duel" disabled={me.dvs >= 0} title={`명예 ${h.honor} · 이기면 +${honorGain(h.honor)}`}
                                 onClick={() => act("duel", { op: "ask", to: h.pi })}>결투</button>)}
-                            {!mine&&!mate&&me.pty&&h.pty&&mates.length===2&&me.party.filter(q=>q.pty===h.pty).length===2&&<button type="button" className="rpg-win-btn duel" disabled={me.dvs>=0||h.dvs>=0} onClick={()=>act('duel',{op:'ask',to:h.pi,size:2})}>2대2 결투</button>}
+                            {!mine&&!mate&&!!me.pty&&!!h.pty&&mates.length===2&&me.party.filter(q=>q.pty===h.pty).length===2&&<button type="button" className="rpg-win-btn duel" disabled={me.dvs>=0||h.dvs>=0} onClick={()=>act('duel',{op:'ask',to:h.pi,size:2})}>2대2 결투</button>}
+                            {!mine && names[h.pi] && (blockedNow(names[h.pi])
+                              ? <button type="button" className="rpg-win-btn blocked" onClick={() => toggleBlock(names[h.pi])}>차단 풀기</button>
+                              : <button type="button" className="rpg-win-btn" title="결투 신청 · 파티 초대 · 채팅을 받지 않습니다" onClick={() => toggleBlock(names[h.pi])}>차단</button>)}
                           </span>
                         </div>
                       );
                     })}
                   </div>
+                  {blockedList.length > 0 && (
+                    <div className="rpg-stat-list rpg-block-list">
+                      <p className="rpg-stat-rule">차단한 사람 {blockedList.length} / {BLOCK.max} · 결투 신청 · 파티 초대 · 채팅이 오지 않습니다.</p>
+                      {blockedList.map((n) => (
+                        <div key={n} className="rpg-win-row">
+                          <span className="rpg-stat-name"><b>{n}</b> <small>차단됨</small></span>
+                          <span className="rpg-win-acts"><button type="button" className="rpg-win-btn blocked" onClick={() => toggleBlock(n)}>차단 풀기</button></span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {me.pty > 0 && (
                     <div className="rpg-stat-foot">
                       <button type="button" className="btn-ghost" onClick={() => act("party", { op: "leave" })}>파티 나가기</button>
@@ -2002,6 +2044,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </span>
               <button type="button" className="btn-main" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "accept" }); }}>수락</button>
               <button type="button" className="btn-ghost" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "decline" }); }}>거절</button>
+              {names[me.duelInv] && <button type="button" className="btn-ghost" title="이 사람의 결투 신청 · 파티 초대 · 채팅을 받지 않습니다" onClick={() => { setDuelAt(nowMs + 1000); act("duel", { op: "decline" }); if (!blockedNow(names[me.duelInv])) toggleBlock(names[me.duelInv]); }}>차단</button>}
             </div>
           )}
           {me && me.dvs >= 0 && (
@@ -2412,6 +2455,64 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   의뢰 보기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
                 </button>
               </div>
+            );
+          })()}
+          {/* 테스트 모드(?test) — 초당 피해 칸 · 도구 창. 일반 주소에서는 그리지 않는다 */}
+          {TEST_MODE && me && (
+            <div className="rpg-test-hud">
+              <b>테스트 서버</b>
+              <span>초당 피해 <em>{((me.trn && me.trn.dps) || 0).toLocaleString("ko-KR")}</em></span>
+              {me.trn && me.trn.god ? <i>무적</i> : null}
+              <button type="button" className="rpg-win-btn" onClick={() => toggleWin(testOpen, setTestOpen)}>도구</button>
+            </div>
+          )}
+          {TEST_MODE && me && testOpen && (() => {
+            const t = me.trn || {};
+            return (
+              <>
+                <div className="rpg-menu-back" onClick={() => setTestOpen(false)} />
+                <div className="rpg-stat rpg-win" role="dialog" aria-label="테스트 도구">
+                  <div className="rpg-stat-head">
+                    <b>테스트 도구</b>
+                    <span>초당 피해 <em>{(t.dps || 0).toLocaleString("ko-KR")}</em></span>
+                  </div>
+                  <p className="rpg-stat-rule">
+                    테스트 서버에서 한 일은 저장되지 않습니다. 나가면 원래 기록 그대로입니다.
+                    초당 피해는 마지막 {TRAIN.dpsWindow}초 동안 모든 몹에게 준 피해로 셉니다.
+                  </p>
+                  <p className="rpg-stat-rule">쌓인 피해 {(t.tot || 0).toLocaleString("ko-KR")} · 맞힌 수 {(t.hits || 0).toLocaleString("ko-KR")}</p>
+                  <div className="rpg-stat-list">
+                    {TEST_TOGGLES.map((q) => (
+                      <div key={q.id} className={`rpg-win-row ${t[q.id] ? "on" : ""}`}>
+                        <span className="rpg-stat-name"><b>{q.name}</b><em>{q.note}</em></span>
+                        <button type="button" className="rpg-win-btn" onClick={() => act("train", { op: q.id })}>{t[q.id] ? "끄기" : "켜기"}</button>
+                      </div>
+                    ))}
+                    <div className="rpg-win-row">
+                      <span className="rpg-stat-name"><b>기록 지우기</b><em>쌓인 피해 · 맞힌 수 · 초당 피해를 0 으로</em></span>
+                      <button type="button" className="rpg-win-btn" onClick={() => act("train", { op: "reset" })}>지우기</button>
+                    </div>
+                    <div className="rpg-win-row">
+                      <span className="rpg-stat-name"><b>회복</b><em>체력을 가득 채우고 모든 대기 시간을 0 으로</em></span>
+                      <button type="button" className="rpg-win-btn" onClick={() => act("train", { op: "heal" })}>회복</button>
+                    </div>
+                  </div>
+                  <div className="rpg-test-go">
+                    <span className="rpg-test-go-head">장소 이동 <em>지금 {MAPS[me.map] ? MAPS[me.map].name : ""}</em></span>
+                    {TEST_SPOTS.map((q) => (
+                      <div key={q.name} className="rpg-test-group">
+                        <span>{q.name}</span>
+                        <span className="rpg-test-spots">
+                          {q.ids.map((id) => (
+                            <button key={id} type="button" className={`rpg-win-btn ${me.map === id ? "on" : ""}`} disabled={me.map === id}
+                              onClick={() => act("train", { op: "go", map: id })}>{MAPS[id].name}</button>
+                          ))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             );
           })()}
           {me && trainOpen && me.map === "train" && (() => {

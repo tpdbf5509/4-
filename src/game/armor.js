@@ -171,29 +171,26 @@ export const worldSetCount = (h, id) => SLOT_IDS.reduce((n, slot) => n + (wornAr
 export const worldCritBonus = h => worldSetCount(h, 'dragon') >= 2 ? WORLD_SET_BY_ID.dragon.crit : 0;
 export const worldDotMul = h => worldSetCount(h, 'serpent') >= 2 ? 1 + WORLD_SET_BY_ID.serpent.dot : 1;
 export const worldCooldownMul = h => (worldSetCount(h, 'machine') >= 2 ? 1 - WORLD_SET_BY_ID.machine.cd : 1) * worldVoidCd(h);
-// 차원의 지배자(11월 4일) — 2세트 스킬 재사용 대기시간 감소(무기 스킬 · 직업 스킬), 4세트 스킬이 맞으면 잠시 받는 피해 감소(PvE 만, 결투 · 사냥터 PvP 에서는 켜지 않는다)
+// 차원의 지배자(11월 7일 개편) — 2세트 모든 스킬 재사용 대기시간 감소(무기 스킬 · 직업 스킬), 4세트 스킬이 몬스터에 맞으면 공간 폭발(worldVoidRift)
 export const worldVoidCd = h => worldSetCount(h, 'void') >= 2 ? 1 - WORLD_SET_BY_ID.void.cd : 1;
-export const worldVoidTake = h => (worldSetCount(h, 'void') >= 4 && h.arm?.sets?.dim > 0) ? 1 - WORLD_SET_BY_ID.void.take : 1;
 const setState = h => {
   if (!h.arm) h.arm = newArm();
-  return h.arm.sets || (h.arm.sets = { rage: 0, rageCd: 0, dotHits: 0, shield: 0, shieldT: 0, shieldCd: 0, charge: 0, chargeCd: 0, storm: 0, stormCd: 0, dim: 0, dimCd: 0 });
+  return h.arm.sets || (h.arm.sets = { rage: 0, rageCd: 0, dotHits: 0, shield: 0, shieldT: 0, shieldCd: 0, charge: 0, chargeCd: 0, storm: 0, stormCd: 0, dimCd: 0 });
 };
 export function worldArmorTick(h, dt) {
   if (!h.arm?.sets && !SLOT_IDS.some(slot => wornArmor(h.bag, slot)?.set)) return;
   const s = setState(h);
-  for (const k of ['rage', 'rageCd', 'shieldT', 'shieldCd', 'chargeCd', 'storm', 'stormCd', 'dim', 'dimCd']) s[k] = Math.max(0, s[k] - dt);
+  for (const k of ['rage', 'rageCd', 'shieldT', 'shieldCd', 'chargeCd', 'storm', 'stormCd', 'dimCd']) s[k] = Math.max(0, s[k] - dt);
   if (h.down > 0 || worldSetCount(h, 'dragon') < 4) s.rage = 0;
   if (h.down > 0 || worldSetCount(h, 'serpent') < 4 || s.shieldT <= 0) s.shield = 0;
   if (worldSetCount(h, 'serpent') < 4) s.dotHits = 0;
   if (h.down > 0 || worldSetCount(h, 'machine') < 4) s.charge = 0;
   if (h.down > 0 || worldSetCount(h, 'thunderbird') < 4) s.storm = 0;
-  if (h.down > 0 || worldSetCount(h, 'void') < 4) s.dim = 0;
 }
 // 실제 적중한 피해만 센다. 추가 낙뢰는 새 효과를 다시 발동시키지 않는다.
 export function worldArmorOnHit(h, { dot = false, basic = false, weapon = false, skill = false }) {
   if (!SLOT_IDS.some(slot => wornArmor(h.bag, slot)?.set)) return false;
   const s = setState(h), D = WORLD_SET_BY_ID.dragon, V = WORLD_SET_BY_ID.serpent, M = WORLD_SET_BY_ID.machine;
-  if (skill && !dot && !basic && worldSetCount(h, 'void') >= 4 && s.dimCd <= 0) { s.dim = WORLD_SET_BY_ID.void.duration; s.dimCd = WORLD_SET_BY_ID.void.cooldown; }   // 차원의 지배자 4세트
   if (weapon && !dot && worldSetCount(h, 'dragon') >= 4 && s.rageCd <= 0) { s.rage = D.duration; s.rageCd = D.cooldown; }
   if (dot && worldSetCount(h, 'serpent') >= 4 && s.shieldCd <= 0) {
     s.dotHits++;
@@ -204,6 +201,14 @@ export function worldArmorOnHit(h, { dot = false, basic = false, weapon = false,
     if (weapon && !dot && s.charge >= M.charges) { s.charge = 0; return true; }
   }
   return false;
+}
+// 차원의 지배자 4세트 — 스킬(지속 피해 · 평타 제외)이 맞았고 대기가 끝났으면 대기를 걸고 true. 터뜨리기는 worldSetHit(worldWeaponCombat.js)
+export function worldVoidRift(h, { dot = false, basic = false, skill = false }) {
+  if (!skill || dot || basic || h.down > 0 || worldSetCount(h, 'void') < 4) return false;
+  const s = setState(h);
+  if (s.dimCd > 0) return false;
+  s.dimCd = WORLD_SET_BY_ID.void.cooldown;
+  return true;
 }
 export function worldArmorAbsorb(h, dmg) {
   const s = h.arm?.sets;

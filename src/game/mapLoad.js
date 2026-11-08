@@ -3,8 +3,8 @@
    이 기기에서 새로 부르기 시작한 그림을 모두 지켜본다. 가림막 뒤에서도 판은 계속 그려서 그 맵 그림을 부르게 한다. */
 
 export const MAP_LOAD = {
-  minMs: 450,       // 가장 짧게 띄우는 시간 — 이미 받은 맵도 깜빡이지 않고 한 번 보여 준다
-  maxMs: 6000,      // 그림이 아무리 늦어도 이만큼 지나면 들어간다(못 받은 그림은 코드 그림으로 대신한다)
+  minMs: 1200,      // 가장 짧게 띄우는 시간 — 이미 받은 맵도 진행 줄이 천천히 차는 것을 보여 준다(11월 7일 0.45초 → 1.2초, 너무 빨리 지나간다는 의견)
+  maxMs: 8000,      // 그림이 아무리 늦어도 이만큼 지나면 들어간다(못 받은 그림은 코드 그림으로 대신한다)(6초 → 8초)
   calmMs: 160,      // 기다리는 그림이 없는 채로 이만큼 지나야 다 왔다고 본다(그리면서 새 그림을 부를 수 있다)
   fadeMs: 260,      // 가림막이 걷히는 시간
 };
@@ -52,9 +52,9 @@ export function loadStep(L, now) {
   if (s.wait) L.calm = 0;
   else if (!L.calm) L.calm = now;
   const quiet = L.calm && now - L.calm >= MAP_LOAD.calmMs;
-  // 진행 — 받은 그림 몫과 지난 시간 몫 가운데 큰 쪽. 뒤로 가지 않는다
-  const byImg = all ? got / all : 0, byTime = Math.min(1, age / MAP_LOAD.minMs) * (s.wait ? 0.5 : 1);
-  L.p = Math.max(L.p, Math.min(0.97, Math.max(byImg * 0.97, byTime * 0.9)));
+  // 진행 — 지난 시간 몫(minMs 동안 천천히 찬다)을 넘지 않고, 그림이 남았으면 받은 몫에서 멈춘다. 뒤로 가지 않는다
+  const byImg = s.wait && all ? got / all : 1, byTime = Math.min(1, age / MAP_LOAD.minMs);
+  L.p = Math.max(L.p, Math.min(0.97, byTime, Math.max(byImg, byTime * 0.5)));
   if ((quiet && age >= MAP_LOAD.minMs) || age >= MAP_LOAD.maxMs) { L.p = 1; L.end = now; }
   return L;
 }

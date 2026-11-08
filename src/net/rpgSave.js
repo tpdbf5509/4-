@@ -38,6 +38,7 @@ export function errText(res) {
     case "stale": case "moved": return "거래 뒤의 서버 기록을 다시 불러오는 중입니다.";
     case "busy": return "거래 확인 중에는 저장을 잠시 기다립니다.";
     case "data": return "저장할 내용이 너무 큽니다.";
+    case "test": return "테스트 모드에서는 쓸 수 없습니다. 일반 주소에서 해 주세요.";
     case "maint": return "이 기능은 서버를 옮기는 중이라 잠시 쓸 수 없습니다. 곧 다시 열립니다.";
     default: return "서버에 연결하지 못했습니다. 잠시 뒤 다시 해 주세요.";
   }

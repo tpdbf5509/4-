@@ -1449,7 +1449,7 @@ kbd {
 }
 .rpg-load-prog { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .rpg-load-bar { display: block; height: 1px; background: var(--ld-line); position: relative; overflow: visible; }
-.rpg-load-bar > i { display: block; height: 3px; margin-top: -1px; background: var(--ld-gold); transition: width 0.12s linear; box-shadow: 0 0 10px rgba(232, 201, 140, 0.55); }
+.rpg-load-bar > i { display: block; height: 3px; margin-top: -1px; background: var(--ld-gold); transition: width 0.2s linear; box-shadow: 0 0 10px rgba(232, 201, 140, 0.55); }
 .rpg-load-pct { font-family: 'Do Hyeon', sans-serif; font-size: 13px; color: var(--ld-gold); min-width: 4.5em; text-align: right; }
 .rpg-load-tip { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--ld-line); font-size: 12.5px; line-height: 1.55; letter-spacing: -0.02em; color: var(--ld-mute); }
 .rpg-load-tip em { font-style: normal; font-family: 'Do Hyeon', sans-serif; font-size: 11px; color: var(--ld-text); opacity: 0.8; margin-right: 8px; }
@@ -1552,6 +1552,8 @@ kbd {
 .rpg-gift-list li + li { margin-top: 3px; }
 .rpg-win-btn.ghost { color: #bfb39c; border-color: rgba(191, 179, 156, 0.35); }
 .rpg-win-btn.duel:hover:not(:disabled) { border-color: #e9a08a; }
+.rpg-win-btn.blocked { color: #2a1d12; background: #c9a3a0; border-color: #c9a3a0; font-weight: 600; }   /* 차단 중 — 한눈에 보이게 톤 낮춘 장밋빛으로 채운다 */
+.rpg-block-list small { color: #c9a3a0; font-size: 11px; }
 .rpg-invite.duel { border-color: rgba(233, 160, 138, 0.6); }
 .rpg-invite.duel b { color: #f0b8a4; }
 .rpg-invite small { display: block; margin-top: 1px; font-size: 10.5px; color: #a99a7e; }
@@ -2635,6 +2637,8 @@ button.forge-stage:disabled { cursor: default; }
 .village-dialogue-line { display: block; position: relative; width: 100%; min-height: 82px; padding: 16px 42px 16px 20px; text-align: left; font: inherit; font-size: 18px; line-height: 1.65; color: #f1e4c8; border: 0; border-radius: 0; background: none; cursor: pointer; }
 .village-dialogue-line:focus-visible { outline: 2px solid #e4c987; outline-offset: -5px; }
 .village-dialogue-cue { position: absolute; right: 20px; bottom: 14px; color: #e4c987; }
+.village-dialogue-cue.wait { opacity: 0.25; }
+.village-panel .shop-btn.main[aria-disabled="true"] { opacity: 0.55; }
 .village-dialogue-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 16px 12px; }
 .village-dialogue-actions > span { margin-right: auto; color: #c4b28e; font-size: 12px; }
 @media (max-width: 520px) {
@@ -2651,6 +2655,9 @@ button.forge-stage:disabled { cursor: default; }
 
 /* 메인 이야기 1부 — 의뢰 · 퀘스트 창의 진행 칸(StoryCard.jsx) · 위쪽 줄 · 대화 창 선택지(VillagePanel.jsx) */
 .rpg-quest-story { color: #f3e6c6; }
+.rpg-quest-open { align-self: flex-start; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; }
+.rpg-quest-go { margin-left: 8px; padding: 1px 8px; border: 1px solid #d6b26a; border-radius: 999px; background: rgba(122, 90, 46, 0.8); color: #ffe08a; font: inherit; font-size: 0.92em; cursor: pointer; }
+.rpg-quest-go:hover { background: rgba(150, 112, 58, 0.9); }
 .story-card { display: grid; gap: 4px; margin: 0 0 10px; padding: 8px 0 10px; border-top: 1px solid rgba(227, 196, 138, 0.3); border-bottom: 1px solid rgba(227, 196, 138, 0.3); }
 .story-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .story-card-head b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 15px; color: #f3e6c6; letter-spacing: -0.03em; }
@@ -2664,6 +2671,35 @@ button.forge-stage:disabled { cursor: default; }
 .story-card-goal { margin: 4px 0 0; font-size: 14px; color: #ffe08a; letter-spacing: -0.02em; }
 .story-card-where { margin: 0; font-size: 11.5px; line-height: 1.45; color: #c4b28e; letter-spacing: -0.02em; }
 .story-card .rpg-win-btn { justify-self: start; margin-top: 4px; }
+/* 11월 8일 — 퀘스트 칸 상황 · 목표 · 이유 · 확인할 것(StoryCard.jsx). 왼쪽 라벨 · 1px 선 · 강조는 목표 한 곳 */
+.story-card-info { display: grid; grid-template-columns: 4.6em 1fr; gap: 0; margin: 6px 0 0; font-size: 12px; line-height: 1.5; letter-spacing: -0.02em; }
+.story-card-info dt, .story-card-info dd { margin: 0; padding: 4px 0; border-top: 1px solid rgba(227, 196, 138, 0.14); }
+.story-card-info dt { color: #9c8a69; }
+.story-card-info dd { color: #e8dcc0; }
+.story-card-info dd.goal { font-size: 14px; color: #ffe08a; }
+.story-card-info dd.where { color: #c4b28e; font-size: 11.5px; }
+.story-card-checks { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; padding: 0; list-style: none; }
+.story-card-checks li { color: #e8dcc0; }
+.story-card-checks li.done { color: #a9b894; }
+.story-card-checks li.lock { color: #8d8068; }
+.story-card .story-card-book { justify-self: end; margin-top: 2px; }
+.story-card .story-card-book.on { border-color: #d6b26a; }
+/* 이야기 기록 — 장마다 접는 칸. 최근 장이 위 */
+.story-journal { display: grid; gap: 6px; max-height: min(46vh, 380px); overflow-y: auto; padding-right: 4px; }
+.story-journal details { border-top: 1px solid rgba(227, 196, 138, 0.18); padding-top: 5px; }
+.story-journal summary { display: flex; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; }
+.story-journal summary::-webkit-details-marker { display: none; }
+.story-journal summary b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 14px; color: #f3e6c6; letter-spacing: -0.03em; }
+.story-journal summary span { font-size: 11px; color: #9c8a69; }
+.story-journal em { display: block; margin: 6px 0 2px; font-style: normal; font-size: 11px; color: #9c8a69; }
+.story-journal ul { margin: 0; padding: 0 0 0 12px; font-size: 12px; line-height: 1.5; color: #e8dcc0; letter-spacing: -0.02em; }
+.story-journal ul.q li { color: #d8c8a4; }
+.story-journal ul.q li.solved { color: #a9b894; }
+.story-journal ul.q li span { display: block; color: #c4b28e; }
+.story-journal p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: #e8dcc0; letter-spacing: -0.02em; }
+.story-journal .story-journal-none { color: #9c8a69; }
+.story-journal .story-journal-next em, .story-journal .story-journal-trust em { display: inline; margin: 0 8px 0 0; }
+.story-journal-trust { color: #c4b28e; }
 .village-panel.story .shop-top { gap: 10px; }
 .story-tag { margin-left: auto; font-size: 11px; color: #b09a73; letter-spacing: -0.02em; white-space: nowrap; }
 .village-dialogue-line.nar { color: #cdbd9a; font-style: italic; }
@@ -2687,7 +2723,57 @@ button.forge-stage:disabled { cursor: default; }
   .story-tag { display: none; }
 }
 /* 이야기 기믹 — 틀린 답(흐림) · 시간 제한 막대 */
+/* 지난 대사 기록 — 대화 창 안에서 위로 쌓인다. 최근 줄이 아래 */
+.story-log { display: flex; flex-direction: column; gap: 6px; max-height: min(42vh, 320px); margin: 0; padding: 12px 20px 8px; overflow-y: auto; list-style: none; border-bottom: 1px solid rgba(187,160,106,.25); }
+.story-log li { display: grid; grid-template-columns: 5.5em 1fr; gap: 10px; font-size: 14px; line-height: 1.5; color: #e8dcc0; letter-spacing: -0.02em; }
+.story-log li b { font-weight: 400; color: #e4c987; }
+.story-log li.nar { color: #b8a888; font-style: italic; }
+.story-log li.nar span { grid-column: 1 / -1; }
+.story-log li.me span { color: #ffe9b8; }
+@media (max-height: 520px), (max-width: 640px) { .story-log { max-height: 34vh; padding: 6px 12px 4px; gap: 3px; } .story-log li { font-size: 12px; grid-template-columns: 4.5em 1fr; } }
 .story-pick.tried { opacity: .38; cursor: default; text-decoration: line-through; text-decoration-color: rgba(240,168,144,.6); }
 .story-timer { position: relative; height: 16px; margin-top: 2px; border-radius: 3px; background: rgba(214, 186, 140, 0.14); overflow: hidden; }
 .story-timer i { position: absolute; inset: 0 auto 0 0; background: #c98f6e; transition: width .1s linear; }
 .story-timer span { position: relative; display: block; padding-right: 6px; text-align: right; font-size: 11px; line-height: 16px; color: #f1e4c8; }
+/* 11월 8일 — 핵심 줄 · 알게 된 것 · 결전 체력 막대 · 줄 연출(VillagePanel.jsx) */
+.village-dialogue-line.key span:first-child { padding-left: 10px; border-left: 2px solid #d9bd7e; }
+.story-log li.key span { color: #ffe9b8; }
+.story-end-fact { margin: 6px 0 2px; padding: 6px 0 0; border-top: 1px solid rgba(227, 196, 138, 0.2); font-size: 13.5px; line-height: 1.5; color: #f1e4c8; letter-spacing: -0.02em; }
+.story-end-fact em { display: block; font-style: normal; font-size: 11px; color: #b09a73; }
+.story-boss { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 6px 20px 0; font-size: 12px; color: #e8dcc0; }
+.story-boss b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 13px; color: #f0c2b2; letter-spacing: -0.02em; }
+.story-boss i { height: 6px; border-radius: 3px; background: rgba(214, 186, 140, 0.16); overflow: hidden; }
+.story-boss i s { display: block; height: 100%; background: #c98f6e; text-decoration: none; transition: width .6s ease; }
+.story-boss span { font-size: 11px; color: #b09a73; min-width: 2.6em; text-align: right; }
+.story-boss.down b { color: #a9b894; }
+@keyframes story-fx-hit { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-7px, 2px); } 45% { transform: translate(6px, -2px); } 70% { transform: translate(-3px, 1px); } }
+@keyframes story-fx-alarm { 0%, 100% { box-shadow: 0 0 0 0 rgba(201, 110, 90, 0); } 40% { box-shadow: 0 0 0 3px rgba(201, 110, 90, .55), 0 0 30px rgba(201, 110, 90, .35); } }
+@keyframes story-fx-flash { 0% { filter: brightness(1.9); } 100% { filter: brightness(1); } }
+@keyframes story-fx-chime { 0%, 100% { box-shadow: 0 0 0 0 rgba(217, 189, 126, 0); } 50% { box-shadow: 0 0 0 2px rgba(217, 189, 126, .5), 0 0 26px rgba(217, 189, 126, .3); } }
+.village-panel.fx-hit { animation: story-fx-hit .42s ease; }
+.village-panel.fx-alarm { animation: story-fx-alarm .9s ease; }
+.village-panel.fx-flash { animation: story-fx-flash .52s ease-out; }
+.village-panel.fx-chime { animation: story-fx-chime .9s ease; }
+@media (prefers-reduced-motion: reduce) { .village-panel.fx-hit, .village-panel.fx-alarm, .village-panel.fx-flash, .village-panel.fx-chime { animation: none; } }
+@media (max-height: 520px), (max-width: 640px) { .story-boss { padding: 4px 12px 0; } .story-end-fact { font-size: 12px; } }
+
+/* ── RPG 테스트 모드(?test) — 초당 피해 칸 · 도구 창의 장소 이동(RpgView.jsx) ── */
+.rpg-test-hud {
+  position: absolute; right: 12px; top: 124px; z-index: 4; display: flex; align-items: center; gap: 8px;
+  padding: 5px 6px 5px 10px; border-radius: 9px; font-size: 11.5px; letter-spacing: -0.02em; color: #c9b896;
+  background: rgba(38, 28, 17, 0.88); border: 1px solid #8a6a3f;
+}
+.rpg-test-hud b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 13px; color: #f0b9a8; }
+.rpg-test-hud em { font-style: normal; font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: #ffe08a; margin-left: 2px; }
+.rpg-test-hud i { font-style: normal; color: #a9d99a; }
+.rpg-test-hud .rpg-win-btn { min-width: 0; padding: 2px 9px; font-size: 11.5px; }
+.rpg-test-go { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.rpg-test-go-head { font-family: 'Do Hyeon', sans-serif; font-size: 14px; color: #f6e5bb; letter-spacing: -0.03em; }
+.rpg-test-go-head em { font-style: normal; font-family: inherit; font-size: 11px; color: #8d8068; margin-left: 6px; }
+.rpg-test-group { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid rgba(214, 186, 140, 0.18); }
+.rpg-test-group > span:first-child { font-size: 10.5px; color: #8d8068; letter-spacing: -0.02em; }
+.rpg-test-spots { display: flex; flex-wrap: wrap; gap: 4px; }
+.rpg-test-spots .rpg-win-btn { min-width: 0; padding: 3px 8px; font-size: 11.5px; }
+@media (max-width: 560px) {
+  .rpg-test-hud { top: auto; bottom: 168px; right: 8px; }
+}

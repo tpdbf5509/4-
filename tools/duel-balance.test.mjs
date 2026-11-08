@@ -141,10 +141,10 @@ test('총사 지연 추가 탄환은 원래 평타와 4%를 나눠 쓰며 다음
  const a=asOf(h);a.mvT=3;a.mvN=1;const hp=o.hp;
  basic(g,h);rpgSkill(g,0);run(g,.4);near(hp-o.hp,o.max*.29);
 });
-test('소환술사 거대 정령의 결투 금지는 유지하며 일반 전직 정령은 시전 전체 18%다',()=>{
+test('소환술사 거대 정령은 시전 전체 25% · 정령 3마리는 한 시전으로 전체 18%다',()=>{   // 11월 7일 — 결투장에서도 거대 정령을 부른다
  for(const ult of [false,true]){
   const {g,h,o}=setup({job:'mage'});h.advClass='summoner';const hp=o.hp;
-  rpgAdv(g,0,{op:ult?'ult':'use'});run(g,6);near(hp-o.hp,ult?0:o.max*.18);if(ult)assert(!h.as?.gi);
+  rpgAdv(g,0,{op:ult?'ult':'use'});run(g,6);near(hp-o.hp,o.max*(ult?.25:.18));if(ult)assert(h.as?.gi?.duel);else assert.equal(h.as.sps.length,3);
  }
 });
 test('암살자 처형은 직업 스킬 적중 뒤 20% 조건을 유지하며 일반 스킬에는 붙지 않는다',()=>{

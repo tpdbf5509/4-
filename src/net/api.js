@@ -1,3 +1,5 @@
+import { TEST_MODE, TEST_BLOCK_RPC } from "./testMode.js";
+
 /* ── Cloudflare 워커 주소와 장부 호출 ─────────────────────────────
    예전에 Supabase 가 하던 일(계정 · 저장 · 관리 · 의견 · 방 중계)을 워커 하나(server/)가 한다.
    장부 함수는 Supabase 의 rpc 와 같은 모양이다 — POST /rpc/<함수> 에 { p_... } 를 보내면 결과 JSON 이 온다.
@@ -16,6 +18,7 @@ export const httpBase = () => wsBase().replace(/^ws/, "http");
 
 /* 장부 함수 부르기 — 결과 JSON 을 그대로 돌려준다. 연결이 안 되면 { ok:false, err:"net" } */
 export async function ledger(fn, args) {
+  if (TEST_MODE && TEST_BLOCK_RPC.has(fn)) return { ok: false, err: "test" };   // 테스트 모드 — 일반 계정 기록을 바꾸지 않는다
   try {
     const res = await fetch(`${httpBase()}/rpc/${fn}`, {
       method: "POST",

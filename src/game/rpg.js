@@ -4,6 +4,7 @@ import {storyGateOpen, storyGateWhy, storyCleared} from './storyQuestData.js';
 import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
 import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
+import { blocks, blockInput } from './block.js';
 import {COMBAT_RULES, refreshPowerCircles, empowerAttack, empowerHealing, duelAllies} from './combatRules.js';
 import {GUILD,GUILD_BOSSES,guildMap,guildBuff,guildAspd,GUILD_HALL,guildHallMap} from './guildData.js';
 import {isGuildBoss,guildInput,guildHit,guildKilled,guildRestore,tickGuild} from './guild.js';
@@ -12,7 +13,8 @@ import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKille
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
-import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd, worldVoidTake } from "./armor.js";
+import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
+import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
 import { trading } from "./tradeData.js";
 import { RACE } from "./raceData.js";
 import { RACE_MAP, newRace, raceInput, tickRace } from "./race.js";
@@ -32,6 +34,7 @@ import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
+import { TEST_SERVER, TEST_GROUPS } from "./testData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS, titleUp, titleUpText } from "./socialData.js";
 import { ACHIEVES, CODEX_NEED } from "./codexData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, PERSONAL_LEVELS, RESET, rollDrop, ENHANCE } from "./itemData.js";
@@ -57,6 +60,8 @@ export const RPG_SERVER_CAP = 10;
 // RPG 서버 — 방 코드 없이 모두 서버 1에 모인다. 서버 1이 가득 차면 다음 서버로 넘어간다. 게임 안 ☰ 메뉴에서 옮길 수도 있다.
 // (방 만들기 코드에는 숫자 1이 나오지 않아 이 이름과 겹치지 않는다)
 export const RPG_SERVERS = ["RPG1", "RPG2", "RPG3", "RPG4"];
+// 테스트 모드(?test) 전용 서버 방 — 저장하지 않는다(testData.js · server/src/room.js)
+export const RPG_TEST_SERVER = TEST_SERVER;
 
 // 결투 — 1대1 · 2인 파티의 2대2. 파티 창에서 신청하고 상대가 수락하면 둘만 결투장 칸(MAPS.arena.rings) 하나로 옮겨 간다.
 // ready 초를 센 뒤 싸우고, 한 사람이 쓰러지거나 time 초가 지나면(무승부) 끝난다. end 초 뒤 둘 다 원래 자리로 돌아가고 체력이 찬다.
@@ -1750,6 +1755,7 @@ const pvpSoft = (raw, cap) => cap * (1 - Math.exp(-raw / (cap * FIELD_PVP.skillS
 /* 결투 신청 · 답 — req = { op: "ask", to } · { op: "accept" } · { op: "decline" } · { op: "giveup" } */
 const duelEngine={config:DUEL,rings:MAPS.arena.rings,sys,name:(g,pi)=>nameOf(g,pi),fx,honorGain,win:(g,h)=>advDuelWin(advEngine,g,h),map:id=>MAPS[id],plaza:{map:'plaza',x:MAPS.plaza.spawn[0],y:MAPS.plaza.spawn[1]}};
 export const rpgDuel=(g,pi,req)=>duelInput(duelEngine,g,pi,req);
+export const rpgBlock=(g,pi,req)=>blockInput({name:nameOf,sys},g,pi,req);   // 차단 목록 추가 · 해제(block.js)
 const tickDuels=(g,dt)=>tickDuelMatches(duelEngine,g,dt);
 // 광장 몹 레이스(race.js) — 하루 보상 횟수는 가방의 오늘 칸(bag.day.race)에 센다
 const raceEngine={sys,name:(g,pi)=>nameOf(g,pi),fx,stop:stopMove,dayUsed:h=>usedToday(h.bag,'race'),dayAdd:h=>bumpToday(h.bag,'race')};
@@ -1815,7 +1821,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
     dmg += m.hp; m.hp = 0;
     say(g, m.map, m.x, m.y - 70, "처형", EXEC_COLOR);
   }
-  if (m.type === "dummy" && h) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록
+  if (h && (m.type === "dummy" || g.test)) trainLog(g, h, dmg);   // 훈련장 — 초당 피해 기록(테스트 서버는 모든 몹)
   m.calm = 0;                                     // 맞으면 자동 회복을 처음부터 다시 센다
   if (h && !(m.hitBy || (m.hitBy = [])).includes(pi)) m.hitBy.push(pi);   // 친 사람 — 잡히면 모두 보상을 받는다
   if (h && procOff === 0) worldSetHit(worldEngine, g, h, m, { dot: !!dot, basic: !skill && !dot, weapon: !!skill && !!h.cast?.weapon, skill: !!skill && !dot && !!(h.cast?.weapon || h.cast?.job) });
@@ -1861,7 +1867,12 @@ function killMob(g, m, pi) {
   if (m.dead) return;
   m.dead = true;
   if(isWorldBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);worldBossKilled(worldBossEngine,g,m);return;}   // 전직 숙련도 — 친 사람
-  if(isGuildBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);guildKilled(guildEngine,g,m);return;}
+  if(isGuildBoss(m)){
+    m.hp=0;advRaidKill(advEngine,g,m);guildKilled(guildEngine,g,m);
+    // 도감 — 길드 보스는 보상 정산이 따로라 여기서 처치 수를 센다. 같은 맵에 있는 토벌 참가자 모두(`rec[몹 종류]`가 도감 · 업적의 기준)
+    g.heroes.forEach(q=>{if(q&&q.loaded&&q.map===m.map&&q.rec)q.rec[m.type]=(q.rec[m.type]||0)+1;});
+    return;
+  }
   addEmber(g, g.heroes[pi], 1);                   // 화염검 — 잡으면 불똥
   if (g.heroes[pi]) voidOnKill(voidEngine, g.heroes[pi]);   // 공허의 대검 — 3마리마다 차원의 잔흔
   m.hp = 0;
@@ -2052,6 +2063,7 @@ function giveXp(g, h, amt) {
 
 function hurtHero(g, h, raw, source, kind) {
   if (!h || h.down > 0 || MAPS[h.map].safe || HOLD.has(h.map)) return;   // 탑 카드 단계 — 피해 없음
+  if (g.test && h.trn && h.trn.god) return;       // 테스트 서버 무적 — 즉사 기술까지 모두 막는다
   if (h.inv > 0) {                                // 대쉬로 피했다
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
     return;
@@ -2061,7 +2073,7 @@ function hurtHero(g, h, raw, source, kind) {
   else {
     const defended=advTakeCut(h,0)>0||armorTakeMul(h)<1||h.guard>0||h.jb?.iron>0||h.as?.gT>0||h.as?.pT>0||h.as?.blT>0;
     if(source?.boss)raw*=COMBAT_RULES.bossDamage*(defended?COMBAT_RULES.defendedBossDamage:1);
-    dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h) * (source?.hero ? 1 : worldVoidTake(h));   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
+    dmg = raw * (h.guard > 0 ? 0.5 : 1) * armorTakeMul(h) * advTakeMul(h);   // 갑옷 — 받는 피해 감소(위기 때 더) · 엘프는 더 받는다
     dmg = worldArmorAbsorb(h, dmg);
     dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
     if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
@@ -3068,7 +3080,7 @@ function trainDps(g, h) {
 }
 function trainTick(g, h) {
   const t = h.trn;
-  if (!t || h.map !== "train") return;
+  if (!t || (h.map !== "train" && !g.test)) return;   // 테스트 서버는 어느 맵에서나
   if (t.nocd) {
     h.sk = 0; h.dashCd = 0;
     if (h.scd) for (const k in h.scd) h.scd[k] = 0;
@@ -3088,7 +3100,9 @@ function trainTick(g, h) {
 // 교관 창 — req = { op: "nocd" | "stack" | "god" } 켜고 끄기 · { op: "reset" } 기록 지우기 · { op: "heal" } 체력 · 대기 시간 처음으로
 export function rpgTrain(g, pi, req) {
   const h = g.heroes[pi];
-  if (!h || !h.loaded || !req || h.map !== "train") return false;
+  if (!h || !h.loaded || !req) return false;
+  if (req.op === "go") return testGo(g, h, req.map);
+  if (h.map !== "train" && !g.test) return false;  // 테스트 서버는 어느 맵에서나
   const t = trnOf(h);
   if (["nocd", "stack", "god"].includes(req.op)) { t[req.op] = t[req.op] ? 0 : 1; return true; }
   if (req.op === "reset") {
@@ -3104,6 +3118,23 @@ export function rpgTrain(g, pi, req) {
     return true;
   }
   return false;
+}
+// 테스트 서버 장소 이동 — 묶음마다 갈 수 있는 맵 id(testData.js TEST_GROUPS)
+export const testSpots = () => TEST_GROUPS.map((q) => ({ name: q.name, ids: Object.keys(MAPS).filter((id) => {
+  const m = MAPS[id];
+  return !m.dungeon && !m.pvp && !m.race && !m.guildHall && q.pick(m);
+}) }));
+const TEST_SPOT_IDS = new Set(testSpots().flatMap((q) => q.ids));
+// 테스트 서버에서만 — 결투 · 던전 · 레이스 · 거래 중에는 옮기지 않는다(관리자 /이동 과 같은 규칙)
+function testGo(g, h, to) {
+  if (!g.test || !TEST_SPOT_IDS.has(to) || h.map === to || trading(h)) return false;
+  if ((h.dvs ?? -1) >= 0 || runOf(g, h) || MAPS[h.map].dungeon || MAPS[h.map].pvp || MAPS[h.map].race) {
+    sys(g, h.pi, "결투장 · 던전 · 레이스에서는 옮길 수 없습니다.");
+    return false;
+  }
+  h.map = to; [h.x, h.y] = MAPS[to].spawn;
+  h.hold = []; h.dest = null; h.dash = 0; h.gateCd = 1.5;
+  return true;
 }
 // 화면에 보이는 훈련 기록 — 방장은 기록으로 셈하고, 손님은 스냅샷 값을 쓴다
 export function trainView(g, h) {
@@ -3717,6 +3748,8 @@ function nearestHero(g, m, range) {
   return best;
 }
 
+// 몹 걷는 빠르기 배수 — 둔화(slow)가 우선, 없으면 차원의 지배자 4세트 공간 폭발 둔화(vslow · 20% 감소)
+const mobSlow = (m, slowMul) => (m.slow > 0 ? slowMul : m.vslow > 0 ? 1 - WORLD_SET_BY_ID.void.slowAmt : 1);
 // 걸린 것 · 시간 — 모든 몹이 같다. 죽었거나 얼었거나 기절했으면 false
 function tickMob(g, m, dt) {
   m.age += dt;
@@ -3725,6 +3758,7 @@ function tickMob(g, m, dt) {
   if (regen > 0 && m.calm >= MOB_REGEN.calm && m.hp < m.max) m.hp = Math.min(m.max, m.hp + m.max * regen * dt);
   m.flash = Math.max(0, m.flash - dt);
   m.slow = Math.max(0, m.slow - dt);
+  if (m.vslow > 0) m.vslow = Math.max(0, m.vslow - dt);
   m.freeze = Math.max(0, m.freeze - dt);
   m.stun = Math.max(0, m.stun - dt);
   m.shred = Math.max(0, m.shred - dt);
@@ -3772,7 +3806,7 @@ function keepMob(m) {
 
 /* 토끼 — 깡충깡충 돌아다니다 가끔 들이받는다. 대왕 토끼는 더 멀리서, 더 자주, 더 세게 들이받는다. */
 function stepRabbit(g, m, dt) {
-  const spd = m.slow > 0 ? 0.5 : 1;
+  const spd = mobSlow(m, 0.5);
   if (m.state !== "idle") {
     m.x += m.vx * spd * dt;
     m.y += m.vy * spd * RPG.squash * dt;
@@ -3812,7 +3846,7 @@ function stepRabbit(g, m, dt) {
 /* 늑대 — 가까이 온 사람을 쫓아가 문다. 제자리에서 너무 멀어지면 돌아간다.
    우두머리는 더 멀리서 알아채고, 한 번 물 때 둘레의 사람을 모두 문다. */
 function stepWolf(g, m, dt) {
-  const spd = m.slow > 0 ? 0.5 : 1;
+  const spd = mobSlow(m, 0.5);
   const aggro = m.boss ? 340 : 250;
   const far = Math.hypot(m.x - m.hx, (m.y - m.hy) / RPG.squash);
   let tg = m.tgt >= 0 ? g.heroes[m.tgt] : null;
@@ -3871,7 +3905,7 @@ function stepWolf(g, m, dt) {
 /* 멧돼지 — 쫓아와 들이받는다. 돌진 거리 안에 들면 몸을 낮췄다가(wind) 그 자리를 향해 일직선으로 달린다.
    돌진 중에 닿은 사람은 한 번씩 세게 맞는다. 달린 뒤에는 잠깐 숨을 고른다. 제자리에서 너무 멀어지면 돌아간다. */
 function stepBoar(g, m, dt) {
-  const spd = m.slow > 0 ? 0.5 : 1;
+  const spd = mobSlow(m, 0.5);
   m.chargeCd = Math.max(0, m.chargeCd - dt);
   if (m.state === "wind") {                        // 몸을 낮춘다 — 이때 피하면 된다
     m.moving = 0; m.bite = 0.2;
@@ -3968,7 +4002,7 @@ function stepBoar(g, m, dt) {
    기운을 모으는 동안 bite 를 켜 둬 손님 화면에서도 일어선 모습이 보인다.
    call 이 있으면 처음 덤빌 때 둘레의 같은 무리도 같은 사람에게 덤빈다 */
 function stepBrute(g, m, dt, P) {
-  const spd = m.slow > 0 ? 0.5 : 1;
+  const spd = mobSlow(m, 0.5);
   m.chargeCd = Math.max(0, m.chargeCd - dt);
   if (m.state === "wind") {
     m.moving = 0; m.bite = 0.2;
@@ -4176,7 +4210,7 @@ function stepDgBoss(g, m, dt) {
   const A = BOSS_AI[m.type];
   const S = A.skills;
   if (!m.cds) { m.cds = S.map((q) => (q.cd || 0) * 0.5); m.marks = S.map(() => 0); }
-  const spd = (m.slow > 0 ? 0.6 : 1) * (m.rage ? m.rageSpd : 1);
+  const spd = mobSlow(m, 0.6) * (m.rage ? m.rageSpd : 1);
   m.cds = m.cds.map((c) => Math.max(0, c - dt));
   m.mirage = Math.max(0, m.mirage - dt);
   // 체력 문턱 기술 — 철벽(여러 번) · 광폭화(한 번)
@@ -4807,6 +4841,8 @@ export function rpgParty(g, pi, req) {
     if (o.pty && o.pty === h.pty) return void sys(g, pi, `${nameOf(g, o.pi)}님은 이미 같은 파티입니다.`);
     if (o.pty) return void sys(g, pi, `${nameOf(g, o.pi)}님은 다른 파티에 있습니다.`);
     if (h.pty && partyOf(g, h.pty).length >= PARTY.max) return void sys(g, pi, `파티는 ${PARTY.max}명까지입니다.`);
+    if (blocks(h, nameOf(g, o.pi))) return void sys(g, pi, "차단한 사람은 파티에 초대할 수 없습니다.");
+    if (blocks(o, nameOf(g, pi))) return void sys(g, pi, "지금 초대할 수 없습니다.");   // 나를 차단했다 — 알리지 않고 막는다(block.js)
     o.invite = { from: pi, t: PARTY.inviteT };
     sys(g, pi, `${nameOf(g, o.pi)}님을 파티에 초대했습니다.`);
     sys(g, o.pi, `${nameOf(g, pi)}님이 파티에 초대했습니다.`);

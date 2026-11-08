@@ -2,7 +2,7 @@
    방은 처음 만들어진 곳에 계속 머문다. 처음 접속한 사람이 미국에 있으면 방도 미국에 생겨 한국에서 0.2초씩 늦었다.
    그래서 아시아에 만들라고 알려 주고(ROOM.hint), 이름에 차례(ROOM.gen)를 붙여 옛 방(미국)은 버리고 새로 만든다 */
 import {WORLD_BOSS,WORLD_BOSSES} from "../../src/game/worldBossData.js";
-import { RPG_SERVERS } from "../../src/game/rpg.js";
+import { RPG_SERVERS, RPG_TEST_SERVER } from "../../src/game/rpg.js";
 export { RpgRoom } from "./room.js";
 export { Ledger } from "./ledger-do.js";
 export { Relay } from "./relay.js";
@@ -22,7 +22,8 @@ const PUBLIC_RPC = new Set([
 const RPC_BODY_MAX = 65536;          // 요청 크기 한도(바이트) — 기록 한도 30000 + 여유
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400" };
 const rpcJson = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: { "Content-Type": "application/json", ...CORS } });
-const known = (name) => RPG_SERVERS.includes(name) || name === CHECK;
+// RPG_TEST_SERVER — 테스트 모드(?test) 방. 저장하지 않는다(room.js test)
+const known = (name) => RPG_SERVERS.includes(name) || name === CHECK || name === RPG_TEST_SERVER;
 
 const roomOf = (env, name, gen) => env.RPG_ROOM.get(env.RPG_ROOM.idFromName(`${name}@${gen || GENS[name] || ROOM.gen}`), { locationHint: ROOM.hint });
 

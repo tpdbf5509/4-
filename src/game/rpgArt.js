@@ -40,6 +40,7 @@ import { HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON_IDS, HIGH_ART } from "./highData.
 import { FIELD_LOOKS, FIELD_TRAIL } from "./fieldLookData.js";
 import { SKILL_PX_CAP } from "./skillPxData.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
+import { setWbIntroQuality } from "./worldBossIntro.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
@@ -2566,7 +2567,7 @@ function stepLod() {
   lod.at = now;
   lod.ms += (d - lod.ms) * FX_LOD.ease;
   const q = lod.ms > FX_LOD.slow ? FX_LOD.low : lod.ms < FX_LOD.fast ? 1 : lod.q;
-  if (q !== lod.q) { lod.q = q; setFxQuality(q); }
+  if (q !== lod.q) { lod.q = q; setFxQuality(q); setWbIntroQuality(q); }
 }
 // 그릴 스킬 연출 — 종류마다 최근 것부터 cap 개까지
 const othersFx = (f, crowd, mySeat) => crowd && f.by !== undefined && f.by !== mySeat;

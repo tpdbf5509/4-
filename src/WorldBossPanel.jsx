@@ -1,6 +1,7 @@
 import {Coin} from "./ui/icons.jsx";
 import BossHealthBar from './BossHealthBar.jsx';
 import {worldBossPortalNear} from "./game/worldBoss.js";
+import {wbBarHidden} from "./game/worldBossIntro.js";
 import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_ID,WORLD_BOSS_WEAPONS,worldBossWeapons} from './game/worldBossData.js';
 import {worldArmorName} from './game/worldEquipmentData.js';
 import {MAT_BY_ID} from './game/itemData.js';
@@ -18,7 +19,8 @@ export function WorldBossHud({state,map,barRefs,onOpen,onLeave}){
     <div className="rpg-dg-top"><b>월드보스 토벌</b><span>{step} · 기여 {(a.damage/a.max*100).toFixed(1)}%</span>
       <span className={`rpg-dg-time ${a.phase==='fight'&&sec<=60?'low':''}`}>{a.phase==='fight'?left(a.expires-state.clock):'0:00'}</span>
       <button type="button" className="rpg-win-btn" onClick={onOpen}>보상</button><button type="button" className="rpg-win-btn" onClick={onLeave}>나가기</button></div>
-    <BossHealthBar key={a.key||a.id} name={WORLD_BOSS_BY_ID[a.id].name} hp={a.hp} max={a.max} {...barRefs}/>
+    {/* 등장 연출 동안은 체력바를 숨겼다가 문구가 사라질 때 나타낸다(worldBossIntro.js) */}
+    <div className={`rpg-wb-bar${a.phase==='fight'&&wbBarHidden()?' wait':''}`}><BossHealthBar key={a.key||a.id} name={WORLD_BOSS_BY_ID[a.id].name} hp={a.hp} max={a.max} {...barRefs}/></div>
     {(a.attack||a.stun>0)&&<p className={`rpg-raid-warn ${a.stun>0||a.attack?.open?'on':''}`} aria-live="polite">
       <b>{a.stun>0?'합동 공격 성공 · 기절':a.attack.open?'지금 함께 공격!':a.attack.name}</b>
       <span>{a.stun>0?`${a.stun.toFixed(1)}초`:a.attack.open?`${a.attack.coop}/${C.coop.players}명 · ${a.attack.t.toFixed(1)}초`:`${a.attack.step+1}/${a.attack.stages} · ${a.attack.t.toFixed(1)}초`}</span>

@@ -8,6 +8,8 @@ let muted = localStorage.getItem("flg:mute") === "1";
 const last = new Map();
 // 월드보스 등장 연출 소리 — 연출이 끊기면(wbStop) 아직 울리는 소리도 멈춘다
 let track = null;
+let duck = null;   // 다른 소리 통로 — 등장 연출 동안 작게 줄인다(연출 소리는 master 로 바로 간다)
+const DUCK = 0.3;  // 연출 동안 다른 소리 크기(몫)
 const introNodes = new Set();
 function keep(node) {
   if (!track) return;
@@ -23,6 +25,9 @@ function ctx() {
     master = ac.createGain();
     master.gain.value = muted ? 0 : 0.5;
     master.connect(ac.destination);
+    duck = ac.createGain();
+    duck.gain.value = 1;
+    duck.connect(master);
   }
   if (ac.state === "suspended") ac.resume();
   return ac;
@@ -56,7 +61,7 @@ function tone({ type = "sine", f0, f1, t = 0.12, gain = 0.2, delay = 0 }) {
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(gain, t0 + 0.008);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + t);
-  o.connect(g); g.connect(master);
+  o.connect(g); g.connect(track ? master : duck);
   o.start(t0); o.stop(t0 + t + 0.02);
   keep(o);
 }
@@ -84,7 +89,7 @@ function noise({ t = 0.2, gain = 0.25, f = 900, q = 1, delay = 0, down = true, f
     g.gain.exponentialRampToValueAtTime(gain, t0 + t * 0.85);
   } else g.gain.setValueAtTime(gain, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + t);
-  src.connect(bp); bp.connect(g); g.connect(master);
+  src.connect(bp); bp.connect(g); g.connect(track ? master : duck);
   src.start(t0); src.stop(t0 + t);
   keep(src);
 }
@@ -102,12 +107,18 @@ export function shot(kind) {
 /* 월드보스 등장 연출 소리(worldBossIntroData.js WB_INTRO_SCENE.cues 가 때맞춰 부른다).
    한 소리 안의 지연은 0.4초 안으로 짧게 둔다 — 강조음은 연출이 그 순간에 따로 부른다 */
 const INTRO_SND = {
-  // 가장 강한 순간 — 보스 공통으로 깔리는 묵직한 충격음(보스 소리와 함께 난다)
-  wbSlam: () => {
-    tone({ type: "sine", f0: 64, f1: 24, t: 1.1, gain: 0.42 });
-    tone({ type: "sawtooth", f0: 96, f1: 38, t: 0.5, gain: 0.14 });
-    noise({ t: 0.55, gain: 0.36, f: 900, f1: 120, q: 0.5 });
-    noise({ t: 0.08, gain: 0.25, f: 3000, q: 1 });
+  // 뱀 — 가장 강한 순간 낮게 울리는 진동음
+  wbRumble: () => {
+    tone({ type: "sine", f0: 46, f1: 38, t: 1.2, gain: 0.3 });
+    tone({ type: "triangle", f0: 92, f1: 80, t: 0.9, gain: 0.06 });
+    noise({ t: 1.0, gain: 0.14, f: 140, q: 0.6, down: false });
+  },
+  // 뇌조 — 강한 천둥(갈라지는 소리 → 길게 구르는 소리)
+  wbThunder: () => {
+    noise({ t: 0.12, gain: 0.4, f: 3800, q: 0.7 });
+    noise({ t: 1.6, gain: 0.38, f: 520, f1: 70, q: 0.4 });
+    tone({ type: "sine", f0: 58, f1: 30, t: 1.4, gain: 0.32 });
+    noise({ t: 0.9, gain: 0.18, f: 260, q: 0.5, delay: 0.25 });
   },
   // 드래곤 — 낮은 숨소리, 그리고 짧은 포효
   wbDragonBreath: () => {
@@ -207,9 +218,14 @@ export function play(name) {
     tone({ type: "triangle", f0: 196, f1: 185, t: 0.9, gain: 0.08 });
     tone({ type: "sawtooth", f0: 131, f1: 123, t: 1.1, gain: 0.12, delay: 0.75 });
     tone({ type: "triangle", f0: 262, f1: 247, t: 1.1, gain: 0.07, delay: 0.75 });
-  } else if (name === "wbStop") {            // 등장 연출이 끊김 — 울리던 연출 소리를 멈춘다
+  } else if (name === "wbStop") {            // 등장 연출이 끊김 — 울리던 연출 소리를 멈추고 다른 소리를 되돌린다
     for (const n of introNodes) { try { n.stop(); } catch { /* 이미 멈춤 */ } }
     introNodes.clear();
+    if (duck) duck.gain.setTargetAtTime(1, ac.currentTime, 0.08);
+  } else if (name === "wbDuck") {            // 등장 연출 시작 — 0.5초에 걸쳐 다른 소리를 작게
+    if (ctx() && duck) duck.gain.setTargetAtTime(DUCK, ac.currentTime, 0.15);
+  } else if (name === "wbUnduck") {          // 등장 연출 끝 — 다른 소리를 천천히 되돌린다
+    if (duck) duck.gain.setTargetAtTime(1, ac.currentTime, 0.25);
   } else if (name.startsWith("wb") && INTRO_SND[name]) {   // 월드보스 등장 연출 — 보스마다 다른 첫 소리
     if (!gate(name, 120)) return;
     track = true;

@@ -164,12 +164,11 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - `rpgStep`은 사람이 있는 맵(`mapsAwake`)의 몹만 돌리고, 빈 맵은 다시 나오기 대기 시간도 멈춘다. 월드보스 · 길드 토벌 보스는 예외로 늘 돈다. 훈련장 허수아비는 빈 훈련장에서 치운다. 전용 서버 방은 원래 아무도 없으면 통째로 멈춘다. 시험 `tools/map-idle.test.mjs`.
 - 화면은 내 맵이 바뀌면 `mapLoad.js` 가림막을 띄운다. 새로 부른 그림(`new Image()`의 src)을 세어 다 오면 걷는다(최소 1.2초 · 최대 8초, `MAP_LOAD`, 진행 줄은 최소 시간에 맞춰 찬다). 가림막 동안 걷기 · 공격 · 스킬 · 말 걸기는 보내지 않는다(`loadBlocks`). 판정은 서버라 그 사이 몸은 이미 새 맵에 있다.
 
-### 월드보스 등장 연출 (11월 8일, 보스 5종 전용)
-- 수치 `worldBossIntroData.js`(`WB_INTRO` 공통 · `WB_INTRO_SCENE` 보스마다 장면 · 강한 순간 · 소리 차례), 재생 상태 · 이름표 `worldBossIntro.js`(화면에만, 이 기기 시계, 스냅샷에 싣지 않음), 보스 몸 · 땅 효과 `worldBossArt.js`(`introBody` `introGround` `introOver`), 소리 `sfx.js INTRO_SND`. RpgView 루프가 `tickWbIntro`(drawRpg 앞) · `drawWbIntroHud`(뒤)를 부른다. 판정 · 위치 · 공격 시간은 그대로.
-- 새 출현은 다른 맵에서 가장자리 빛 + `wbHorn`. 성역에 들어가 가림막이 걷히면 본 연출 1.4초(0~0.4 예고 · 0.4~1.0 드러남 · 1.0 강한 순간에 이름표, 1.2초 더). 출현(`a.key`)마다 첫 입장 한 번, 다시 들어오면 이름표만.
-- 싸우는 중(`wbInCombat`: 공격 · 기절 · 웅덩이, 또는 다른 사람이 있고 체력이 깎임)에 들어오면 이름표만. 본 연출 중 `a.attack` · `a.stun` 이 생기면 몸 · 땅 효과를 끊고 `wbStop` 으로 소리도 멈춘다(다시 틀지 않음). 퇴장 · 처치 · 다른 출현이면 곧바로 지운다. 소리는 정한 때에 tick 이 부른다(미리 예약하지 않음).
-- 가장 강한 순간은 화면 전체를 장악한다(사용자 요청 — 압도감): 바닥 어둠 `dim` · 번쩍임 · 보스 빛깔 물듦 · 집중선 · 충격파 · 붉은 문구 `cry`(`WB_INTRO.slam`) · 강한 흔들림 `shake`(1 이 6px) · 공통 충격음 `wbSlam`. 공격 예고 · 기절이 오면 `it.big=false` 로 바로 지운다.
-- 새 보스를 더하면 `WB_INTRO_SCENE` · `WB_INTRO_LINE` · `worldBossArt.js` 장면을 더한다. 시험 `tools/world-boss-intro.test.mjs`.
+### 월드보스 등장 연출 (11월 8일, 보스 5종 전용 · 4초 · 등장 문구)
+- 수치 `worldBossIntroData.js`(`WB_INTRO` 공통 시간표 · `WB_INTRO_SCENE` 보스마다 장면 · 문구 `cry` · 화면 효과 `screen` · 소리 차례), 재생 상태 · 화면 효과 · 문구 `worldBossIntro.js`(화면에만, 이 기기 시계, 스냅샷에 싣지 않음), 보스 몸 · 땅 효과 `worldBossArt.js`(`introBody` `introGround` `introOver`), 소리 `sfx.js INTRO_SND`. RpgView 루프가 `tickWbIntro`(drawRpg 앞) · `drawWbIntroHud`(뒤)를 부른다. 판정 · 위치 · 공격 시간은 그대로.
+- 사용자 기획 시간표(약 4초): 0~0.5 가장자리 어둠 · 다른 소리 작게(`wbDuck`) → 0.5~1.5 보스 고유 효과(장면 시각 = 입장 − `lead`) → 1.5 붉은 문구(#E53935, 약하게 커지며) → 2.5 문구 아래 이름(회백색) → 3.3~4.0 문구가 사라지고 체력바가 나온다(`wbBarHidden`, `WorldBossPanel.jsx .rpg-wb-bar`). 문구는 화면 폭에 맞춰 줄인다. 흔들림 · 섬광은 과하지 않게, 공허는 흔들림 · 섬광 없이 조용하게.
+- 새 출현은 다른 맵에서 가장자리 빛 + `wbHorn`. 출현(`a.key`)마다 첫 입장 한 번, 다시 들어오면 왼쪽 아래 이름표만. 싸우는 중(`wbInCombat`: 공격 · 기절 · 웅덩이, 또는 다른 사람이 있고 체력이 깎임)이어도 이름표만. 연출 중 `a.attack` · `a.stun` 이 생기면 모든 연출을 걷고 `wbStop`(소리 멈춤 · 다른 소리 되돌림), 다시 틀지 않는다. 퇴장 · 처치 · 다른 출현이면 곧바로 지운다. 소리는 정한 때에 tick 이 부른다(미리 예약하지 않음). 화면 알갱이는 `setWbIntroQuality`(rpgArt lod.q)로 줄인다.
+- 새 보스를 더하면 `WB_INTRO_SCENE`(+ `SCREEN` 효과) · `WB_INTRO_LINE` · `worldBossArt.js` 장면을 더한다. 시험 `tools/world-boss-intro.test.mjs`.
 
 ### RPG 테스트 모드 `?test` (11월 7일)
 - 주소 `four-lane.vercel.app/?test` 에서만 켜진다(`src/net/testMode.js TEST_MODE`). 일반 주소에는 버튼도 없다. 방어전 테스트 서버(방 코드 TEST · 비밀번호)와 다른 것이다.

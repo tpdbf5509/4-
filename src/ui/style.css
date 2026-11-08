@@ -2777,3 +2777,7 @@ button.forge-stage:disabled { cursor: default; }
 @media (max-width: 560px) {
   .rpg-test-hud { top: auto; bottom: 168px; right: 8px; }
 }
+
+/* 월드보스 등장 연출 — 문구가 사라질 때 체력바가 천천히 나타난다(worldBossIntro.js wbBarHidden) */
+.rpg-wb-bar { transition: opacity .7s ease; }
+.rpg-wb-bar.wait { opacity: 0; }

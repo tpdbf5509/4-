@@ -120,6 +120,22 @@ export function play(name) {
     [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => tone({ type: "triangle", f0: f, t: 0.42, gain: 0.11, delay: i * 0.07 }));
     tone({ type: "sine", f0: 2093, f1: 3136, t: 0.5, gain: 0.05, delay: 0.42 });
     noise({ t: 0.6, gain: 0.05, f: 5200, q: 2, delay: 0.3, down: false });
+  } else if (name === "wbHorn") {            // 월드보스 출현 예고 — 멀리서 울리는 낮은 뿔피리 두 번(worldBossIntro.js)
+    if (!gate("wbHorn", 1500)) return;
+    tone({ type: "sawtooth", f0: 98, f1: 92, t: 0.9, gain: 0.12 });
+    tone({ type: "triangle", f0: 196, f1: 185, t: 0.9, gain: 0.08 });
+    tone({ type: "sawtooth", f0: 131, f1: 123, t: 1.1, gain: 0.12, delay: 0.75 });
+    tone({ type: "triangle", f0: 262, f1: 247, t: 1.1, gain: 0.07, delay: 0.75 });
+  } else if (name === "wbRise") {            // 입장 연출 — 땅이 울리며 차오르는 소리
+    if (!gate("wbRise", 1500)) return;
+    noise({ t: 1.3, gain: 0.22, f: 180, q: 0.5, down: false });
+    tone({ type: "sine", f0: 42, f1: 70, t: 1.3, gain: 0.22 });
+  } else if (name === "wbRoar") {            // 입장 연출 — 포효와 착지
+    if (!gate("wbRoar", 1500)) return;
+    noise({ t: 0.9, gain: 0.34, f: 520, q: 0.7 });
+    tone({ type: "sawtooth", f0: 150, f1: 62, t: 0.85, gain: 0.2 });
+    tone({ type: "square", f0: 110, f1: 46, t: 0.7, gain: 0.12, delay: 0.05 });
+    tone({ type: "sine", f0: 70, f1: 30, t: 0.6, gain: 0.26 });
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ type: "square", f0: f, t: 0.4, gain: 0.12, delay: i * 0.12 }));
   }

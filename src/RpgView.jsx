@@ -111,6 +111,7 @@ import RpgAccount from "./RpgAccount.jsx";
 import JobTrial from "./JobTrial.jsx";
 import { GUIDE, GUIDE_STEPS, guideStep } from "./game/guideData.js";
 import { drawGuideArrow } from "./game/guideArt.js";
+import { tickWbIntro, drawWbIntroHud, resetWbIntro } from "./game/worldBossIntro.js";
 import InquiryPanel from "./InquiryPanel.jsx";
 import { compareBuild, BUILD } from "./net/version.js";
 import { adminRedeem, joinAdminLink } from "./net/admin.js";
@@ -1368,6 +1369,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     cvs.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bgsRef.current = {};                              // 그림 파일이 없을 때만 drawRpg 가 코드로 채운다
+    resetWbIntro();                                   // 월드보스 등장 연출 — 새 세계(서버 옮김)의 보스를 새 출현으로 착각하지 않게
     watchImages();                                    // 맵 불러오기 가림막 — 새로 부르는 그림을 센다
     const warm = setTimeout(() => LOAD_ART_ALL.forEach((u) => fetch(u).catch(() => {})), 1500);   // 불러오기 화면 일러스트를 미리 받아 둔다(fetch 라 가림막이 세지 않는다)
 
@@ -1429,8 +1431,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           if (npcNear(mh)?.id === tk.id) actRef.current?.("talk");
         }
       }
+      // 월드보스 등장 연출 — 불러오기 가림막이 걷히기 시작하면 띄운다(worldBossIntro.js, 화면에만)
+      const wbMe = g.heroes[mySeat];
+      tickWbIntro(g, !!wbMe && wbMe.map === loadMap && !(loadRef.current && !loadRef.current.end), sfx.play);
       drawRpg(ctx, g, bgsRef.current);
       drawGuideArrow(ctx, g, guideRef.current, now);
+      drawWbIntroHud(ctx, g);
       // 맵 불러오기 — 내 맵이 바뀌면 가림막을 띄우고, 가림막 뒤에서 그린 그림이 다 오면 걷는다
       const lm = g.heroes[mySeat];
       if (lm && lm.map !== loadMap) {

@@ -164,6 +164,10 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - `rpgStep`은 사람이 있는 맵(`mapsAwake`)의 몹만 돌리고, 빈 맵은 다시 나오기 대기 시간도 멈춘다. 월드보스 · 길드 토벌 보스는 예외로 늘 돈다. 훈련장 허수아비는 빈 훈련장에서 치운다. 전용 서버 방은 원래 아무도 없으면 통째로 멈춘다. 시험 `tools/map-idle.test.mjs`.
 - 화면은 내 맵이 바뀌면 `mapLoad.js` 가림막을 띄운다. 새로 부른 그림(`new Image()`의 src)을 세어 다 오면 걷는다(최소 1.2초 · 최대 8초, `MAP_LOAD`, 진행 줄은 최소 시간에 맞춰 찬다). 가림막 동안 걷기 · 공격 · 스킬 · 말 걸기는 보내지 않는다(`loadBlocks`). 판정은 서버라 그 사이 몸은 이미 새 맵에 있다.
 
+### 월드보스 등장 연출 (11월 8일)
+- 수치 `worldBossIntroData.js`, 상태 · 그리기 `worldBossIntro.js`(화면에만, 이 기기 시계, 스냅샷에 싣지 않음). RpgView 루프가 `tickWbIntro`(drawRpg 앞) · `drawWbIntroHud`(뒤)를 부르고, 몸이 올라오는 것과 땅 연출은 `worldBossArt.js` 가 부른다. 판정 · 공격 시간은 그대로.
+- 새 출현은 다른 맵에서 가장자리 빛 + `wbHorn`, 들어가면 띠 · 올라옴 · 포효(`wbRise` `wbRoar`) · 이름표. 출현(`a.key`)마다 한 번, 다시 들어오면 이름표만. 공격 준비 중이면 올라오는 장면은 건너뛴다. 새 보스를 더하면 `WB_INTRO_LINE` 에 한 줄 소개를 더한다. 시험 `tools/world-boss-intro.test.mjs`.
+
 ### RPG 테스트 모드 `?test` (11월 7일)
 - 주소 `four-lane.vercel.app/?test` 에서만 켜진다(`src/net/testMode.js TEST_MODE`). 일반 주소에는 버튼도 없다. 방어전 테스트 서버(방 코드 TEST · 비밀번호)와 다른 것이다.
 - RPG 는 테스트 전용 서버 방 `RPGT`(`testData.js TEST_SERVER`)에만 들어간다. 이 방은 캐릭터를 장부에서 **읽기만** 하고 저장하지 않는다(`room.js this.test`). 거래 · 길드 · 장터 · 탑 주간 보상은 `err:"test"`. 화면도 기기 기록을 고치지 않고, 계정 만들기 · 지우기 · 저장 · 접속 표시 장부 요청을 보내기 전에 막는다(`TEST_BLOCK_RPC`). 접속 중 표시를 남기지 않아 일반 서버와 함께 켤 수 있다.

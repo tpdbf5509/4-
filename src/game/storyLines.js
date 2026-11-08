@@ -5,6 +5,8 @@ export const L = (s, t, o) => ({s, t, ...o});
 export const me = (t, o) => L('me', t, o);
 export const sys = (n, t, o) => ({s: 'sys', n, t, ...o});
 export const nar = (t, o) => ({s: 'nar', t, ...o});
+// 결전 한 구간 — 장면 설명과 함께 대화 창 위쪽 체력 막대를 hp(%)로 바꾼다. 실제 전투 수치와 상관없는 연출이다
+export const boss = (name, hp, t, o) => nar(t, {boss: [name, hp], ...o});
 
 /* 보스 결전 한 박자 — 시간 안에 맞는 대응을 고른다. 틀리거나 늦으면 같은 질문으로 돌아온다(막다른 길 없음).
    ok: 맞는 대응, bads: 틀린 대응 [[대사, 장면]], hit: 늦었을 때 장면, okAt: 맞는 대응의 자리(0부터) */

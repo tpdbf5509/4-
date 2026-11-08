@@ -2671,6 +2671,35 @@ button.forge-stage:disabled { cursor: default; }
 .story-card-goal { margin: 4px 0 0; font-size: 14px; color: #ffe08a; letter-spacing: -0.02em; }
 .story-card-where { margin: 0; font-size: 11.5px; line-height: 1.45; color: #c4b28e; letter-spacing: -0.02em; }
 .story-card .rpg-win-btn { justify-self: start; margin-top: 4px; }
+/* 11월 8일 — 퀘스트 칸 상황 · 목표 · 이유 · 확인할 것(StoryCard.jsx). 왼쪽 라벨 · 1px 선 · 강조는 목표 한 곳 */
+.story-card-info { display: grid; grid-template-columns: 4.6em 1fr; gap: 0; margin: 6px 0 0; font-size: 12px; line-height: 1.5; letter-spacing: -0.02em; }
+.story-card-info dt, .story-card-info dd { margin: 0; padding: 4px 0; border-top: 1px solid rgba(227, 196, 138, 0.14); }
+.story-card-info dt { color: #9c8a69; }
+.story-card-info dd { color: #e8dcc0; }
+.story-card-info dd.goal { font-size: 14px; color: #ffe08a; }
+.story-card-info dd.where { color: #c4b28e; font-size: 11.5px; }
+.story-card-checks { display: flex; flex-wrap: wrap; gap: 2px 12px; margin: 0; padding: 0; list-style: none; }
+.story-card-checks li { color: #e8dcc0; }
+.story-card-checks li.done { color: #a9b894; }
+.story-card-checks li.lock { color: #8d8068; }
+.story-card .story-card-book { justify-self: end; margin-top: 2px; }
+.story-card .story-card-book.on { border-color: #d6b26a; }
+/* 이야기 기록 — 장마다 접는 칸. 최근 장이 위 */
+.story-journal { display: grid; gap: 6px; max-height: min(46vh, 380px); overflow-y: auto; padding-right: 4px; }
+.story-journal details { border-top: 1px solid rgba(227, 196, 138, 0.18); padding-top: 5px; }
+.story-journal summary { display: flex; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; }
+.story-journal summary::-webkit-details-marker { display: none; }
+.story-journal summary b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 14px; color: #f3e6c6; letter-spacing: -0.03em; }
+.story-journal summary span { font-size: 11px; color: #9c8a69; }
+.story-journal em { display: block; margin: 6px 0 2px; font-style: normal; font-size: 11px; color: #9c8a69; }
+.story-journal ul { margin: 0; padding: 0 0 0 12px; font-size: 12px; line-height: 1.5; color: #e8dcc0; letter-spacing: -0.02em; }
+.story-journal ul.q li { color: #d8c8a4; }
+.story-journal ul.q li.solved { color: #a9b894; }
+.story-journal ul.q li span { display: block; color: #c4b28e; }
+.story-journal p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; color: #e8dcc0; letter-spacing: -0.02em; }
+.story-journal .story-journal-none { color: #9c8a69; }
+.story-journal .story-journal-next em, .story-journal .story-journal-trust em { display: inline; margin: 0 8px 0 0; }
+.story-journal-trust { color: #c4b28e; }
 .village-panel.story .shop-top { gap: 10px; }
 .story-tag { margin-left: auto; font-size: 11px; color: #b09a73; letter-spacing: -0.02em; white-space: nowrap; }
 .village-dialogue-line.nar { color: #cdbd9a; font-style: italic; }
@@ -2706,6 +2735,27 @@ button.forge-stage:disabled { cursor: default; }
 .story-timer { position: relative; height: 16px; margin-top: 2px; border-radius: 3px; background: rgba(214, 186, 140, 0.14); overflow: hidden; }
 .story-timer i { position: absolute; inset: 0 auto 0 0; background: #c98f6e; transition: width .1s linear; }
 .story-timer span { position: relative; display: block; padding-right: 6px; text-align: right; font-size: 11px; line-height: 16px; color: #f1e4c8; }
+/* 11월 8일 — 핵심 줄 · 알게 된 것 · 결전 체력 막대 · 줄 연출(VillagePanel.jsx) */
+.village-dialogue-line.key span:first-child { padding-left: 10px; border-left: 2px solid #d9bd7e; }
+.story-log li.key span { color: #ffe9b8; }
+.story-end-fact { margin: 6px 0 2px; padding: 6px 0 0; border-top: 1px solid rgba(227, 196, 138, 0.2); font-size: 13.5px; line-height: 1.5; color: #f1e4c8; letter-spacing: -0.02em; }
+.story-end-fact em { display: block; font-style: normal; font-size: 11px; color: #b09a73; }
+.story-boss { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; padding: 6px 20px 0; font-size: 12px; color: #e8dcc0; }
+.story-boss b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 13px; color: #f0c2b2; letter-spacing: -0.02em; }
+.story-boss i { height: 6px; border-radius: 3px; background: rgba(214, 186, 140, 0.16); overflow: hidden; }
+.story-boss i s { display: block; height: 100%; background: #c98f6e; text-decoration: none; transition: width .6s ease; }
+.story-boss span { font-size: 11px; color: #b09a73; min-width: 2.6em; text-align: right; }
+.story-boss.down b { color: #a9b894; }
+@keyframes story-fx-hit { 0%, 100% { transform: translate(0, 0); } 20% { transform: translate(-7px, 2px); } 45% { transform: translate(6px, -2px); } 70% { transform: translate(-3px, 1px); } }
+@keyframes story-fx-alarm { 0%, 100% { box-shadow: 0 0 0 0 rgba(201, 110, 90, 0); } 40% { box-shadow: 0 0 0 3px rgba(201, 110, 90, .55), 0 0 30px rgba(201, 110, 90, .35); } }
+@keyframes story-fx-flash { 0% { filter: brightness(1.9); } 100% { filter: brightness(1); } }
+@keyframes story-fx-chime { 0%, 100% { box-shadow: 0 0 0 0 rgba(217, 189, 126, 0); } 50% { box-shadow: 0 0 0 2px rgba(217, 189, 126, .5), 0 0 26px rgba(217, 189, 126, .3); } }
+.village-panel.fx-hit { animation: story-fx-hit .42s ease; }
+.village-panel.fx-alarm { animation: story-fx-alarm .9s ease; }
+.village-panel.fx-flash { animation: story-fx-flash .52s ease-out; }
+.village-panel.fx-chime { animation: story-fx-chime .9s ease; }
+@media (prefers-reduced-motion: reduce) { .village-panel.fx-hit, .village-panel.fx-alarm, .village-panel.fx-flash, .village-panel.fx-chime { animation: none; } }
+@media (max-height: 520px), (max-width: 640px) { .story-boss { padding: 4px 12px 0; } .story-end-fact { font-size: 12px; } }
 
 /* ── RPG 테스트 모드(?test) — 초당 피해 칸 · 도구 창의 장소 이동(RpgView.jsx) ── */
 .rpg-test-hud {

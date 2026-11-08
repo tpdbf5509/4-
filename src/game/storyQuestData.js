@@ -19,6 +19,12 @@
    단계: {id, ch, q: 퀘스트 이름, goal: 할 일, at: 말 걸 대상 id(또는 need: 여러 대상), map: 대상이 있는 맵, where: 길 안내,
           scene: 대사, scenes: {대상 id: 대사}(여러 대상일 때), go: 끝나면 옮겨 가는 맵, end: 장 끝 문구}
 
+   조사형(11월 8일 — 행동으로 사건을 이해하게)
+     look: [단서 id] — at 과 이야기하기 전에 먼저 살펴야 하는 단서. 장면은 scenes[단서 id], at 의 장면은 scene. 단서를 다 보기 전에는 at 이 잠긴다
+     추리 질문 — 틀린 답(wrong)을 섞은 선택지로, 찾은 단서를 맞춰 보게 한다. 틀리면 이유를 듣고 다시 고른다
+     줄 연출 — key: 핵심 줄(빠르게 넘겨도 눈에 띄게), fx: 'hit' | 'alarm' | 'flash' | 'chime'(화면 효과 · 소리), boss: [이름, 남은 체력 %](결전 체력 막대)
+     알게 된 것 · 퀘스트 설명 · 장 기록은 storyGuide.js · storyRecap.js
+
    기믹
      order: true  — need 를 적힌 차례대로 조사해야 한다. 틀리면 wrong 장면을 보고 처음부터 다시(서버가 되돌린다)
      hidden: true — 느낌표가 없다. 가까이(STORY_HIDDEN_R) 가야 반짝임이 보인다
@@ -63,8 +69,12 @@ export const STORY_STEP_BY_ID = Object.fromEntries(STORY_STEPS.map((s, i) => [s.
 export const STORY_CLEAR_ID = '30-05';
 export const STORY_CLEAR_AT = STORY_STEP_BY_ID[STORY_CLEAR_ID].i + 1;
 export const storyCleared = (sq) => (Number(sq?.i) || 0) >= STORY_CLEAR_AT && sq?.r === STORY_REV;
-// 한 단계의 대상 — 하나(at) 또는 여럿(need)
-export const stepTargets = (s) => (s ? s.need || [s.at] : []);
+// 한 단계의 대상 — 하나(at) 또는 여럿(need). look 이 있으면 단서(look)를 먼저 살핀 뒤 at 과 이야기한다(11월 8일 조사형)
+export const stepTargets = (s) => (s ? s.need || [...(s.look || []), s.at] : []);
+// 단서를 아직 다 살피지 않았으면 at 은 잠겨 있다 — 화면 · 서버가 같은 함수를 쓴다
+export const stepLocked = (s, n = []) => !!(s?.look && s.look.some((x) => !n.includes(x)));
+// 지금 말을 걸 수 있는 대상 — 끝낸 대상과 잠긴 at 을 뺀다
+export const stepOpenTargets = (s, n = []) => stepTargets(s).filter((x) => !n.includes(x) && !(x === s.at && stepLocked(s, n)));
 // 대상과 이야기할 때의 장면 — 순서 퍼즐 차례가 틀렸으면 wrong
 export const sceneOf = (s, id, wrongOrder = false) => (wrongOrder ? s.wrong : s.scenes?.[id] || s.scene) || [];
 const allLines = (s) => [s.scene || [], ...Object.values(s.scenes || {}), s.wrong || []].flat();

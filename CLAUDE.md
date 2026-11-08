@@ -60,7 +60,7 @@
 - `src/App.jsx`: 화면 흐름 · 방 연결 · 방장 권한 · 테스트 패널. `src/net/`: 방 연결 · 전용 서버 · 장부 호출 · 버전 확인(`version.js`).
 - `server/src/`: `room.js`(RPG 방) · `relay.js` · `ledger*.js` · `save.js` · `index.js`.
 - `tools/`: 시험(`*.test.mjs`)과 그림 자르기 스크립트. `design/`: 원본 그림(게임이 직접 쓰지 않음).
-- `.claude/skills/`: `codex-image`(Codex 로 그림 생성) · `pixelfx`(외부 MIT 라이브러리로 픽셀 연출 시트 뽑기, 외부 코드는 scratchpad 에 받아 확인 후 실행).
+- `.claude/skills/`: `codex-image`(Codex 로 그림 생성 — 새 세션은 Codex 로그인이 비어 있다, `bash tools/codex-ready.sh` 로 먼저 점검) · `pixelfx`(외부 MIT 라이브러리로 픽셀 연출 시트 뽑기, 외부 코드는 scratchpad 에 받아 확인 후 실행).
 
 ## 5. 바꿀 때 사용자 확인이 필요한 규칙
 

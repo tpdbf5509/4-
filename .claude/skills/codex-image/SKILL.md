@@ -7,6 +7,15 @@ description: Codex CLI 로 게임 그림(캐릭터 시트 · 몹 · 정령 · �
 
 이 프로젝트의 그림은 Codex CLI(imagegen)로 만든다. 순서를 지키면 매번 같은 품질로 나온다.
 
+## 0. 준비 — 새 세션은 먼저 Codex 로그인부터 (안 되면 대개 이것)
+스킬 파일은 저장소에 있어 이 저장소를 연 세션이면 보이지만, **Codex 로그인은 컨테이너마다 따로**다(`~/.codex/auth.json`, ChatGPT 계정 방식). 새 세션은 비어 있어서 그림을 요청하면 `401 Unauthorized: Missing bearer or basic authentication` 으로 끝난다.
+```bash
+bash tools/codex-ready.sh        # 준비되면 0, 아니면 할 일을 적는다
+```
+- 로그인이 비었으면: 백그라운드로 `codex login --device-auth` 를 실행하고, 로그에 나오는 **주소와 코드를 사용자에게 알린다**. 사용자가 그 주소에서 코드를 넣고 ChatGPT 계정으로 승인하면 끝난다. 다시 `tools/codex-ready.sh` 로 확인한다. (키 방식은 `printenv OPENAI_API_KEY | codex login --with-api-key` — API 요금이 든다.)
+- 환경의 네트워크가 막혀 있으면 허용 목록에 `auth.openai.com` · `chatgpt.com` · `api.openai.com` 을 더한다(`update_environment`). 환경 `기본값`에는 이미 있고, 다른 환경 `Default` 에는 없을 수 있다.
+- 스킬이 목록에 안 보이면: 그 세션의 브랜치에 `.claude/skills/codex-image/` 가 없는 것이다(옛 브랜치에서 시작한 세션). 기본 브랜치를 합치거나 `git merge origin/claude/4-player-coop-defense-1x89l5` 한다. **다른 저장소에서는 이 폴더가 따라오지 않는다** — 그 저장소에 `.claude/skills/codex-image/` 와 `tools/codex-ready.sh` · `tools/key-green.py` 를 복사한다.
+
 ## 1. 먼저 정한다
 - **무엇을 몇 장** 만들지, **기존 그림 중 따라 할 것**이 어느 파일인지(화풍 기준). 기존 캐릭터는 스타일을 유지하고 특징 · 머리 모양만 새로 뽑는다. 사용자가 정한 조건(예: 푼 머리)은 프롬프트에 분명히 적는다.
 - 종류에 따라 바탕색이 다르다.

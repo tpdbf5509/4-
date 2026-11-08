@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 import { DEEP, DEEP_MAPS } from "./game/deepData.js";
-import { whyDeepCraft, whyDeepEnter, hasEye } from "./game/rpg.js";
+import { whyDeepCraft, whyDeepEnter, whyHighEnter, hasEye } from "./game/rpg.js";
+import { HIGH, HIGH_MAPS } from "./game/highData.js";
+import { TEST_MODE } from "./net/testMode.js";
+
+const HIGH_OPEN = HIGH.live || TEST_MODE;   // 800~1200 — 테스트 서버(?test)에서만 먼저 보인다
 import { MAT_BY_ID } from "./game/itemData.js";
 
 /* 광장 계몽의 문 창 — 상점 · 가방과 같은 .shop 틀 · 공통 버튼. 재료로 계몽의 눈을 만들고, 400레벨부터 400~800레벨 사냥터에 들어간다.
@@ -10,7 +14,7 @@ export default function DeepPanel({ self, act, onClose }) {
   useEffect(() => { const prev = document.activeElement; dialog.current?.focus(); return () => prev?.focus?.(); }, []);
   if (!self) return null;
   const eye = hasEye(self);
-  const whyCraft = eye ? [] : whyDeepCraft(self), whyIn = whyDeepEnter(self);
+  const whyCraft = eye ? [] : whyDeepCraft(self), whyIn = whyDeepEnter(self), whyHigh = whyHighEnter(self, HIGH_OPEN);
   const have = (id) => (self.admin ? 999 : (self.bag && self.bag.m && self.bag.m[id]) || 0);
   return (
     <>
@@ -18,7 +22,7 @@ export default function DeepPanel({ self, act, onClose }) {
       <section ref={dialog} tabIndex={-1} className="shop deep-panel" role="dialog" aria-modal="true" aria-labelledby="deep-title"
         onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
         <header className="shop-top">
-          <div className="shop-title"><b id="deep-title">계몽의 문</b><span>{DEEP.lv}~800레벨 사냥터</span></div>
+          <div className="shop-title"><b id="deep-title">계몽의 문</b><span>{DEEP.lv}~{HIGH_OPEN ? HIGH.lv : 800}레벨 사냥터</span></div>
           <button type="button" className="shop-x" aria-label="계몽의 문 창 닫기" onClick={onClose}>×</button>
         </header>
         <div className="shop-body deep-body">
@@ -51,6 +55,18 @@ export default function DeepPanel({ self, act, onClose }) {
             <button type="button" className="shop-btn main" disabled={whyIn.length > 0} title={whyIn[0] || ""} onClick={() => { act("deep", { op: "enter" }); onClose(); }}>들어가기</button>
           </div>
           {whyIn.length > 0 && <p className="adv-why">{whyIn[0]}</p>}
+          {HIGH_OPEN && (
+            <>
+              <h3 className="shop-h deep-h">800~{HIGH.lv}레벨 사냥터</h3>
+              <ul className="deep-zones">
+                {HIGH_MAPS.map((d) => <li key={d.id}><span>{d.name}</span><small>{d.mob.name} · {d.lv[0]}~{d.lv[1]}레벨</small></li>)}
+              </ul>
+              <div className="adv-acts">
+                <button type="button" className="shop-btn main" disabled={whyHigh.length > 0} title={whyHigh[0] || ""} onClick={() => { act("deep", { op: "enter", to: "high" }); onClose(); }}>{HIGH_MAPS[0].name}으로 들어가기</button>
+              </div>
+              {whyHigh.length > 0 && <p className="adv-why">{whyHigh[0]}</p>}
+            </>
+          )}
         </div>
       </section>
     </>

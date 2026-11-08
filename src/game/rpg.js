@@ -4482,7 +4482,14 @@ export function whyDeepEnter(h) {
   if (!hasEye(h)) out.push("계몽의 눈이 있어야 들어갈 수 있습니다");
   return out;
 }
-// req = { op: "craft" | "enter" }
+// 800~1200 사냥터 바로 들어가기 — 계몽의 눈 · 800레벨(관리자 통과). 열린 곳(테스트 서버 · live)에서만
+export function whyHighEnter(h, open) {
+  if (!open) return ["아직 열리지 않았습니다"];
+  const out = whyDeepEnter(h);
+  if (h && h.loaded && h.lv < HIGH.enterLv && !h.admin) out.push(`레벨 ${HIGH.enterLv} 필요 (지금 ${h.lv})`);
+  return [...new Set(out)];
+}
+// req = { op: "craft" | "enter", to?: "high" }
 export function rpgDeep(g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !req || h.down > 0) return false;
@@ -4499,9 +4506,10 @@ export function rpgDeep(g, pi, req) {
     return true;
   }
   if (req.op === "enter") {
-    const why = whyDeepEnter(h);
+    const high = req.to === "high";
+    const why = high ? whyHighEnter(h, highOn(g)) : whyDeepEnter(h);
     if (why.length) return void sys(g, pi, why[0]);
-    const to = DEEP_MAPS[0];
+    const to = high ? HIGH_MAPS[0] : DEEP_MAPS[0];
     h.map = to.id; [h.x, h.y] = MAPS[to.id].spawn; h.gateCd = 1; stopMove(h);
     fx(g, to.id, { kind: "nova", x: h.x, y: h.y - 20, r: 70, color: "#c9a8f0", n: 10, t: 0.6, life: 0.6, snd: "bless" });
     return true;

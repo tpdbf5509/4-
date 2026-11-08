@@ -324,3 +324,15 @@ test('성장 속도 — 400~800 과 견준 한 레벨 마릿수(보고용 수치
   console.log('# 성장', JSON.stringify(r));
   assert(r.newKills > r.oldKills * 0.5 && r.newKills < r.oldKills * 1.5, '400~800 과 비슷한 길이');
 });
+
+test('3. 계몽의 문 — 테스트 서버에서는 800~1200 사냥터로 바로 들어가고, 일반 서버에서는 막힌다', () => {
+  for (const open of [true, false]) {
+    const g = world([{ lv: 800, m: { [DEEP.eye]: 1 } }, { lv: 799, m: { [DEEP.eye]: 1 } }], open), [a, b] = g.heroes;
+    [a, b].forEach((h) => { h.map = 'plaza'; h.x = DEEP.door.x; h.y = DEEP.door.y + 40; });
+    rpgInput(g, { cls: 0, kind: 'deep', dir: { op: 'enter', to: 'high' } }); rpgInput(g, { cls: 1, kind: 'deep', dir: { op: 'enter', to: 'high' } });
+    assert.equal(a.map, open ? HIGH_MAPS[0].id : 'plaza', open ? '800레벨은 들어간다' : '일반 서버는 막힌다');
+    assert.equal(b.map, 'plaza', '799레벨은 막힌다');
+    rpgInput(g, { cls: 1, kind: 'deep', dir: { op: 'enter' }, q: 9 });
+    assert.notEqual(b.map, 'plaza', '400~800 입장은 그대로');
+  }
+});

@@ -31,7 +31,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR, gatesOf } from "./rpg.js";
+import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR, gatesOf, highOn } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { paintFieldLook, fieldTrails } from "./fieldArt.js";
@@ -951,7 +951,7 @@ function drawShop(ctx, n, time) {
 /* 계몽의 문(deepData.js) — 생성한 문 그림(DEEP_DOOR_ART) · 문 안쪽이 숨 쉬듯 빛나고 이름판 · 안내 글. 그림을 못 불러오면 길드 문과 같은 돌 아치 */
 function drawDeepDoor(ctx, g, n, time) {
   const me = g.heroes[g.mySeat], eye = me && (me.admin || (me.bag && me.bag.m && me.bag.m[DEEP.eye] > 0));
-  const sub = eye ? "400~800레벨 사냥터" : "계몽의 눈 필요", door = artImg(DEEP_DOOR_ART.src);
+  const sub = eye ? (highOn(g) ? "400~1200레벨 사냥터" : "400~800레벨 사냥터") : "계몽의 눈 필요", door = artImg(DEEP_DOOR_ART.src);
   if (door) {
     const A = DEEP_DOOR_ART, H = A.h, W = (H * door.naturalWidth) / door.naturalHeight, top = n.y - H * A.foot;
     shadow(ctx, n.x, n.y + 4, W * 0.46, 14, 0.3);

@@ -771,7 +771,7 @@ export const needXp = (lv) => 30 * lv;         // 1→2 는 30, 그다음부터 
    LV_MAX 는 일반 서버의 지금 상한(HIGH.live 전에는 800), LV_TOP 은 테스트 서버까지 포함한 끝. 판정은 lvCap(g) 를 쓴다 */
 export const LV_MAX = HIGH.live ? HIGH.lv : HIGH.liveLv;
 export const LV_TOP = HIGH.lv;
-export const lvCap = (g) => (highOn(g) ? HIGH.lv : LV_MAX);
+export const lvCap = (g) => (highOn(g) ? HIGH.lv : HIGH.liveLv);
 
 /* ── 스탯 — 처음 2포인트. 400레벨까지 레벨당 2개, 이후 3개를 받는다.
    스탯 하나에는 STAT_MAX 까지 찍는다. 400레벨 이후에는 3포인트를 받아 800레벨 누적 2,000포인트다.
@@ -779,7 +779,7 @@ export const lvCap = (g) => (highOn(g) ? HIGH.lv : LV_MAX);
 // 스탯 하나의 상한 — 250 → 400 → 800 → 1200(800레벨 누적 2,000 · 1200레벨 3,200포인트. 효과는 포인트당 그대로). 판정은 statCap(g)
 export const STAT_MAX = HIGH.live ? HIGH.stat : HIGH.liveStat;
 export const STAT_TOP = HIGH.stat;
-export const statCap = (g) => (highOn(g) ? HIGH.stat : STAT_MAX);
+export const statCap = (g) => (highOn(g) ? HIGH.stat : HIGH.liveStat);
 // 관리자 캐릭터 — 서버 표의 admin 칸이 켜진 캐릭터(이름 + 코드로 이어 하기 할 때 서버가 알려 준다).
 // 레벨은 최고 레벨, 스탯은 다섯 모두 STAT_MAX 로 두고, 코인은 쓰는 대로 이만큼 다시 채운다(돈 무제한)
 export const ADMIN = { coins: 99999999 };

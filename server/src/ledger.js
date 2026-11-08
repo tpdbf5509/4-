@@ -147,7 +147,7 @@ export class LedgerCore {
     for (const r of await this.rows("SELECT name, data, admin, updated_at FROM chars")) {
       const d = JSON.parse(r.data), honor = num(d.honor, /^[0-9]{1,9}$/);
       if (!(honor > 0) || !(r.admin || txt(d.rs) === RESET.id)) continue;
-      out.push({ name: r.name, honor, lv: num(d.lv, /^[0-9]{1,3}$/) || 1, at: r.updated_at });
+      out.push({ name: r.name, honor, lv: num(d.lv, /^[0-9]{1,4}$/) || 1, at: r.updated_at });
     }
     out.sort((x, y) => y.honor - x.honor || x.at - y.at);
     return out.slice(0, lim).map(({ name, honor, lv }) => ({ name, honor, lv }));
@@ -165,7 +165,7 @@ export class LedgerCore {
       const d = JSON.parse(r.data);
       if (txt(d.rs) !== RESET.id) continue;
       const w = weekTop(cleanAw(d.bag && d.bag.aw), week);
-      if (w) list.push({ name: r.name, key: r.name_key, floor: w.top, at: w.at, lv: num(d.lv, /^[0-9]{1,3}$/) || 1 });
+      if (w) list.push({ name: r.name, key: r.name_key, floor: w.top, at: w.at, lv: num(d.lv, /^[0-9]{1,4}$/) || 1 });
     }
     list.sort((x, y) => y.floor - x.floor || x.at - y.at || (x.name < y.name ? -1 : 1));
     list.forEach((x, i) => { x.rank = i + 1; });

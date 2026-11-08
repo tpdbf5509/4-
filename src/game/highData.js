@@ -12,7 +12,7 @@
 // 새 사냥터 · 레벨 1200 이 켜졌나 — HIGH.live · 전용 서버 테스트 방(g.test) · 테스트 화면(g.high, ?test 주소)
 export const highOn = (g) => !!(HIGH.live || (g && (g.test || g.high)));
 export const HIGH = {
-  live: false,           // 실제 게임에 열었나 — false 면 테스트 서버에서만(rpg.js highOn)
+  live: true,            // 실제 게임에 열었나(11월 8일 사용자 확인 뒤 연다) — false 면 테스트 서버에서만(rpg.js highOn)
   lv: 1200, stat: 1200,  // 연 뒤의 최고 레벨 · 스탯 하나의 상한
   liveLv: 800, liveStat: 800,   // 열기 전 일반 서버의 최고 레벨 · 스탯 상한(지금 값 그대로)
   from: "fallen",        // 이 맵 오른쪽 문에서 첫 지역으로 이어진다

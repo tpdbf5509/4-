@@ -19,9 +19,9 @@ const sysOf = (g, pi) => g.out.filter((o) => o.k === 'sys' && o.who === pi).map(
 const atDoor = (h) => { h.map = 'plaza'; h.x = DEEP.door.x + 40; h.y = DEEP.door.y + 20; };
 const full = () => Object.fromEntries(DEEP.recipe.map(([id, n]) => [id, n + 3]));
 
-test('최고 레벨 800 · 스탯 상한 800 — 400레벨 이후 3포인트로 총 2000', () => {
-  assert.equal(LV_MAX, 800);
-  assert.equal(STAT_MAX, 800);
+test('최고 레벨 1200 · 스탯 상한 1200(11월 8일 연 뒤) — 400레벨 이후 3포인트로 800레벨 2000', () => {
+  assert.equal(LV_MAX, 1200);
+  assert.equal(STAT_MAX, 1200);
   assert.equal(statEarned(800), 2000);
 });
 

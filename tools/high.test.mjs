@@ -43,6 +43,8 @@ function killNear(g, h, pred) {
   assert(m.dead, '쓰러짐');
   return m;
 }
+// 닫혀 있던 때(HIGH.live false — 11월 8일 테스트 서버만 열었던 동안)의 일반 서버를 다시 본다
+const closed = (fn) => { const was = HIGH.live; HIGH.live = false; try { return fn(); } finally { HIGH.live = was; } };
 const onMap = (h, id) => { h.map = id; [h.x, h.y] = MAPS[id].spawn; h.gateCd = 0; };
 
 test('15. 스냅샷 차례 — 예전 목록은 그대로이고 새 것은 끝에만', () => {
@@ -85,21 +87,32 @@ test('12. 심연의 탑 층 몹 · 월드보스 · 길드 보스 그대로', () 
   assert.deepEqual(GUILD_BOSSES.map((b) => [b.type, b.hp]), BASE.old.gb);
 });
 
-test('레벨 · 스탯 상한 — 일반 서버는 그대로 800, 테스트 서버(highOn)만 1200', () => {
-  assert.equal(HIGH.live, false, '실제 게임에는 아직 열지 않았다');
-  assert.equal(LV_MAX, 800); assert.equal(STAT_MAX, 800);
+test('레벨 · 스탯 상한 — 실제 게임에 열었다(11월 8일): 모든 서버 1200. 닫으면 일반 서버는 800', () => {
+  assert.equal(HIGH.live, true, '실제 게임에 열었다');
+  assert.equal(LV_MAX, 1200); assert.equal(STAT_MAX, 1200);
   assert.equal(LV_TOP, 1200); assert.equal(STAT_TOP, 1200);
-  assert.equal(lvCap({}), 800); assert.equal(lvCap({ test: 1 }), 1200); assert.equal(lvCap({ high: true }), 1200);
-  assert.equal(statCap({}), 800); assert.equal(statCap({ test: 1 }), 1200);
+  assert.equal(lvCap({}), 1200); assert.equal(statCap({}), 1200);
+  closed(() => {
+    assert.equal(lvCap({}), 800); assert.equal(lvCap({ test: 1 }), 1200); assert.equal(lvCap({ high: true }), 1200);
+    assert.equal(statCap({}), 800); assert.equal(statCap({ test: 1 }), 1200);
+  });
   assert.equal(statEarned(800), 2000); assert.equal(statEarned(1200), 3200); assert.equal(statEarned(1000), 2600);
 });
 
 test('1 · 2. 800레벨 캐릭터 — 테스트 서버에서 0 XP 부터 801 · 1000 · 1200 으로 자라고 1200 에서 멈춘다. 일반 서버는 800 그대로', () => {
-  const live = world([{ lv: 800 }], false), lh = live.heroes[0];
-  onMap(lh, 'fallen'); godOn(lh); live.test = false;
-  assert.equal(lh.lv, 800); assert.equal(lh.xp, 0);
-  killNear(live, lh, (q) => q.type === 'fallen' && !q.boss);
-  assert.equal(lh.lv, 800, '일반 서버는 800 에서 멈춘다'); assert.equal(lh.xp, 0);
+  closed(() => {
+    const live = world([{ lv: 800 }], false), lh = live.heroes[0];
+    onMap(lh, 'fallen'); godOn(lh); live.test = false;
+    assert.equal(lh.lv, 800); assert.equal(lh.xp, 0);
+    killNear(live, lh, (q) => q.type === 'fallen' && !q.boss);
+    assert.equal(lh.lv, 800, '닫혀 있으면 일반 서버는 800 에서 멈춘다'); assert.equal(lh.xp, 0);
+  });
+  { // 열린 뒤 일반 서버 — 800 에서 경험치가 쌓인다
+    const live = world([{ lv: 800 }], false), lh = live.heroes[0];
+    onMap(lh, 'fallen'); godOn(lh);
+    killNear(live, lh, (q) => q.type === 'fallen' && !q.boss);
+    assert(lh.xp > 0, '일반 서버도 800 에서 경험치가 쌓인다');
+  }
 
   const g = world([{ lv: 800, stats: { str: 800, int: 400, hp: 400, crit: 200, cdmg: 200 } }]), h = g.heroes[0];
   godOn(h); onMap(h, 'scrapyard');
@@ -128,14 +141,15 @@ test('1 · 2. 800레벨 캐릭터 — 테스트 서버에서 0 XP 부터 801 · 
   assert.equal(rpgStat(g, 0, { int: left + 1 }), false, '받은 포인트를 넘지 못한다');
   assert(rpgStat(g, 0, { int: left }));
   // 일반 서버에서는 한 스탯 800 을 넘지 못한다
-  const l2 = world([{ lv: 800, stats: { str: 800 } }], false);
-  assert.equal(rpgStat(l2, 0, { str: 1 }), false);
+  closed(() => { const l2 = world([{ lv: 800, stats: { str: 800 } }], false); assert.equal(rpgStat(l2, 0, { str: 1 }), false); });
+  { const l3 = world([{ lv: 800, stats: { str: 800 } }], false); assert(rpgStat(l3, 0, { str: 1 }), '열린 뒤 일반 서버는 800 을 넘는다'); }
 });
 
 test('관리자 — 테스트 서버 1200레벨 · 스탯 모두 1200, 일반 서버는 800', () => {
   const t = world([{ admin: 1 }]).heroes[0], l = world([{ admin: 1 }], false).heroes[0];
   assert.equal(t.lv, 1200); assert(Object.values(t.st).every((v) => v === 1200));
-  assert.equal(l.lv, 800); assert(Object.values(l.st).every((v) => v === 800));
+  assert.equal(l.lv, 1200, '열린 뒤 일반 서버도 1200'); assert(Object.values(l.st).every((v) => v === 1200));
+  closed(() => { const c = world([{ admin: 1 }], false).heroes[0]; assert.equal(c.lv, 800); assert(Object.values(c.st).every((v) => v === 800)); });
 });
 
 test('11. 저장 기록 → 다시 들어오기 — 레벨 · 경험치 · 스탯이 그대로', () => {
@@ -153,7 +167,8 @@ test('3 · 7. 새 사냥터 8곳 — 타락한 천궁 오른쪽에서 이어지�
   assert.equal(HIGH_MAPS.length, 8);
   const fallenGate = MAPS.fallen.gates.find((q) => q.high);
   assert.equal(fallenGate.to, 'scrapyard');
-  assert.equal(gatesOf({}, MAPS.fallen).some((q) => q.high), false, '일반 서버 화면에는 안 보인다');
+  assert.equal(gatesOf({}, MAPS.fallen).some((q) => q.high), true, '열린 뒤 일반 서버에도 보인다');
+  closed(() => assert.equal(gatesOf({}, MAPS.fallen).some((q) => q.high), false, '닫혀 있으면 안 보인다'));
   assert.equal(gatesOf({ high: true }, MAPS.fallen).some((q) => q.high), true);
   const pass = (g, h, from, to) => {
     const q = MAPS[from].gates.find((x) => x.to === to);
@@ -172,8 +187,8 @@ test('3 · 7. 새 사냥터 8곳 — 타락한 천궁 오른쪽에서 이어지�
   assert.equal(pass(g, h, 'origin_command', 'plaza'), 'plaza', '마지막 지역 오른쪽은 광장');
   assert.match(MAPS.fallen.gates.find((q) => q.high).label, /800~850레벨/, '권장 레벨 표시');
   // 일반 서버 — 타락한 천궁 오른쪽 끝에 가도 넘어가지 않는다
-  const live = world([{ lv: 800 }], false), lh = live.heroes[0];
-  assert.equal(pass(live, lh, 'fallen', 'scrapyard'), 'fallen');
+  closed(() => { const live = world([{ lv: 800 }], false), lh = live.heroes[0]; assert.equal(pass(live, lh, 'fallen', 'scrapyard'), 'fallen'); });
+  { const live = world([{ lv: 800 }], false), lh = live.heroes[0]; assert.equal(pass(live, lh, 'fallen', 'scrapyard'), 'scrapyard', '열린 뒤 일반 서버'); }
   // 레벨 800 아래는 첫 지역에 못 들어간다(기존 사냥터는 그대로)
   const low = world([{ lv: 799 }]), lo = low.heroes[0];
   assert.equal(pass(low, lo, 'fallen', 'scrapyard'), 'fallen');
@@ -189,9 +204,11 @@ test('3. 지역 워프권 — 목록 끝에 8곳, 테스트 서버(열림)에서
   assert(whyWarp(b, 'scrapyard', true).some((w) => /레벨 800/.test(w)));
   rpgInput(g, { cls: 0, kind: 'shop', dir: { op: 'warp', to: 'observer_hall' } });
   assert.equal(a.map, 'observer_hall');
-  const live = world([{ lv: 800, m: { [DEEP.eye]: 1 } }], false); live.heroes[0].bag.wp = 3;
-  rpgInput(live, { cls: 0, kind: 'shop', dir: { op: 'warp', to: 'observer_hall' } });
-  assert.notEqual(live.heroes[0].map, 'observer_hall', '일반 서버는 막는다');
+  closed(() => {
+    const live = world([{ lv: 800, m: { [DEEP.eye]: 1 } }], false); live.heroes[0].bag.wp = 3;
+    rpgInput(live, { cls: 0, kind: 'shop', dir: { op: 'warp', to: 'observer_hall' } });
+    assert.notEqual(live.heroes[0].map, 'observer_hall', '닫혀 있으면 일반 서버는 막는다');
+  });
   assert(TEST_GROUPS.some((q) => q.name === '사냥터 800~1200'));
 });
 
@@ -326,7 +343,7 @@ test('성장 속도 — 400~800 과 견준 한 레벨 마릿수(보고용 수치
 });
 
 test('3. 계몽의 문 — 테스트 서버에서는 800~1200 사냥터로 바로 들어가고, 일반 서버에서는 막힌다', () => {
-  for (const open of [true, false]) {
+  for (const open of [true, false]) closed(() => {
     const g = world([{ lv: 800, m: { [DEEP.eye]: 1 } }, { lv: 799, m: { [DEEP.eye]: 1 } }], open), [a, b] = g.heroes;
     [a, b].forEach((h) => { h.map = 'plaza'; h.x = DEEP.door.x; h.y = DEEP.door.y + 40; });
     rpgInput(g, { cls: 0, kind: 'deep', dir: { op: 'enter', to: 'high' } }); rpgInput(g, { cls: 1, kind: 'deep', dir: { op: 'enter', to: 'high' } });
@@ -334,5 +351,5 @@ test('3. 계몽의 문 — 테스트 서버에서는 800~1200 사냥터로 바�
     assert.equal(b.map, 'plaza', '799레벨은 막힌다');
     rpgInput(g, { cls: 1, kind: 'deep', dir: { op: 'enter' }, q: 9 });
     assert.notEqual(b.map, 'plaza', '400~800 입장은 그대로');
-  }
+  });
 });

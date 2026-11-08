@@ -1,5 +1,6 @@
 import {duelHealing} from './duelBalance.js';
 import { cleanAw } from "./abyssData.js";
+import { cleanAb } from "./abyssReward.js";
 import { cleanSq } from "./storyQuest.js";
 import { cleanWorldBossBag } from "./worldBoss.js";
 import { WORLD_SET_BY_ID, worldArt } from "./worldEquipmentData.js";
@@ -13,7 +14,7 @@ import {
   SHOPS, SHOP_REACH, DAY_TZ_HOURS, WEAPON_TYPES, GRADES, WEAPON_TIERS, WEAPON, DEAL, SPECIAL, SPECIALS,
   SKILL_FAMS, SKILLS, POTIONS, POTION, CASINO, BOX, DICE, SLOT, SCROLLS, WARP, GUARD, weaponCap,
 } from "./shopData.js";
-import { MATERIALS, MAT_BY_ID, MAT_MAX, ENHANCE, enhRate, enhDown } from "./itemData.js";
+import { MATERIALS, MAT_BY_ID, matMax, ENHANCE, enhRate, enhDown } from "./itemData.js";
 // rpg.js 와 서로 불러 쓴다 — 아래 이름들은 함수 안에서만 쓴다(불러오는 순서에 기대지 않게)
 import { STATS, statValue, statSpent, noStats, refreshHp, fx, dist, MAPS, ELEMS, ELEM_BY_ID, hasElem, hasEye, highOn } from "./rpg.js";
 import { DEEP } from "./deepData.js";
@@ -228,7 +229,7 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   });
   MATERIALS.forEach((m) => {
     const c = Math.floor(Number(d.m && d.m[m.id]) || 0);
-    if (c > 0) b.m[m.id] = Math.min(MAT_MAX, c);
+    if (c > 0) b.m[m.id] = Math.min(matMax(m.id), c);   // 심연의 파편 · 인장은 99,999(itemData.js matMax)
   });
   b.wp = Math.min(WARP.max, Math.max(0, Math.floor(Number(d.wp) || 0)));
   b.gd = Math.min(GUARD.max, Math.max(0, Math.floor(Number(d.gd) || 0)));
@@ -253,16 +254,17 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (bk.length) b.bk = bk;                       // 차단한 캐릭터 이름(block.js)
   b.sq = cleanSq(d.sq);                           // 메인 스토리 1부 진행(storyQuest.js) — 단계 차례 · 끝낸 대상 · 고른 선택지
   if (d.aw) b.aw = cleanAw(d.aw);                 // 심연의 탑 이번 주 · 지난주 기록(abyssData.js)
+  if (d.ab) b.ab = cleanAb(d.ab);                 // 심연의 탑 보상 기록 — 교환 횟수 · 돌파 보상 · 상자 보관함 · 외형(abyssReward.js)
   cleanWorldBossBag(d,b);
   return b;
 }
 export const equipped = (bag) => (bag.e ? bag.w.find((w) => w.u === bag.e) || null : null);
-// 재료를 넣는다 — 종류마다 MAT_MAX 개까지. 실제로 넣은 수를 돌려준다
+// 재료를 넣는다 — 종류마다 matMax 개까지(보통 999 · 심연의 파편 · 인장 99,999). 실제로 넣은 수를 돌려준다
 export function addMat(bag, id, n) {
   if (!MAT_BY_ID[id] || !(n > 0)) return 0;
   if (!bag.m) bag.m = {};
   const have = bag.m[id] || 0;
-  const got = Math.min(n, MAT_MAX - have);
+  const got = Math.min(n, Math.max(0, matMax(id) - have));
   if (got > 0) { bag.m[id] = have + got; bag.v += 1; }
   return got;
 }
@@ -449,7 +451,7 @@ export function whyMatBuy(h, id, n, day = todayKey()) {
   if (!h || !h.bag) return out;
   const left = JUNK.buyDaily - usedToday(h.bag, "junk", day);
   if (left < n) out.push(left > 0 ? `오늘은 ${left}개만 더 살 수 있습니다` : `재료는 하루 ${JUNK.buyDaily}개까지 삽니다`);
-  if (matCount(h.bag, id) + n > MAT_MAX) out.push(`한 종류는 ${MAT_MAX}개까지 가집니다`);
+  if (matCount(h.bag, id) + n > matMax(id)) out.push(`한 종류는 ${matMax(id)}개까지 가집니다`);
   lackCoin(h, matBuyPrice(id) * n, out);
   return out;
 }

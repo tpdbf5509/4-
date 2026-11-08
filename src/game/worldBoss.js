@@ -3,7 +3,7 @@ import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_ID,WORLD_BOSS_BY_TYPE,WORLD_B
 import {WORLD_SET_BY_ID} from './worldEquipmentData.js';
 import {POTION,POTIONS,weaponCap} from './shopData.js';
 import {ARMOR_SLOTS,armorCap} from './armorData.js';
-import {MAT_MAX} from './itemData.js';
+import {matMax} from './itemData.js';
 import {specialTier,specialPrice} from './shop.js'; // 물품을 지급할 때만 읽어 기존 장비 생성 규칙을 맞춘다.
 import {trading} from './tradeData.js';
 import {WB_PX_LOOK} from './worldBossPxData.js';
@@ -42,7 +42,7 @@ export function collectWorldBossMail(h){
     }else if(item.k==='armor'){
       while(n>0&&b.a.length<armorCap(h)){b.a.push({u:b.n++,s:item.id,g:3,set:item.set});n--;received++;}
     }else{
-      const store=item.k==='potion'?b.p:b.m,cap=item.k==='potion'?POTION.stackMax:MAT_MAX;
+      const store=item.k==='potion'?b.p:b.m,cap=item.k==='potion'?POTION.stackMax:matMax(item.id);
       const put=Math.min(n,Math.max(0,cap-(store[item.id]||0)));if(put){store[item.id]=(store[item.id]||0)+put;n-=put;received+=put;}
     }
     if(n)remain.push({...item,n});

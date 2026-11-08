@@ -37,7 +37,7 @@ import { TRAIN } from "./trainData.js";
 import { TEST_SERVER, TEST_GROUPS } from "./testData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS, titleUp, titleUpText } from "./socialData.js";
 import { ACHIEVES, CODEX_NEED } from "./codexData.js";
-import { DROPS, MAT_BY_ID, GIFT, MATERIALS, MAT_MAX, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, PERSONAL_LEVELS, RESET, rollDrop, ENHANCE } from "./itemData.js";
+import { DROPS, MAT_BY_ID, GIFT, MATERIALS, matMax, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, PERSONAL_LEVELS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS, QUEST_MASTER, questXpRate, questMatches } from "./requestData.js";
 import { armorName, ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, dgMapId, BOSS_AI, BOSS_NAMES } from "./dungeonData.js";
@@ -46,8 +46,9 @@ import { DEEP, DEEP_MAPS, DEEP_SPAWN, DEEP_BRUTE, DEEP_SKILL } from "./deepData.
 import { HIGH, highOn, HIGH_MAPS, HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON, HIGH_SUMMON_IDS, HIGH_SPAWN, HIGH_ELITE, HIGH_BRUTE, eliteId } from "./highData.js";
 export { highOn } from "./highData.js";
 import { isHighMob, stepHigh, tickHigh, highDeath, highTake, highFlags } from "./highCombat.js";
-import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, SEAL, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
-  isGuardFloor, rankReward, abyssWeek, cleanAw, rollAw, GUARD_BY_TYPE } from "./abyssData.js";
+import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
+  isGuardFloor, abyssWeek, cleanAw, rollAw, GUARD_BY_TYPE, ABYSS_FIRST, LOOK_BY_ID } from "./abyssData.js";
+import { abOf, ridSeen, ridOk, ridMark, v2Buy, boxOpen, firstClaim, rankClaim, lookSet, giveText, lookBits } from "./abyssReward.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
 import { ELITE, eliteCount, GRACE } from "./abyssCardData.js";
 import { acBind, acAtkMul, acAspdMul, acRangeMul, acAreaMul, acHpMul, acSpeedMul, acDashDist, acDashCd, acSkillCd, acSkArea, acSkReach, acZoneSlow, acFly,
@@ -3719,8 +3720,8 @@ function stepHeroes(g, dt) {
     tickWeapon(g, h, dt);                         // 전설 무기 · 직업 스킬 효과 시간
     tickAdv(advEngine, g, h, dt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
-    if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < MAT_MAX)) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다)
-      MATERIALS.forEach((m) => { h.bag.m[m.id] = MAT_MAX; });
+    if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)
+      MATERIALS.forEach((m) => { h.bag.m[m.id] = matMax(m.id); });
       h.bag.v += 1;
     }
     if (h.admin && STAT_IDS.some((k) => h.st[k] < statCap(g))) { h.st = maxStats(statCap(g)); refreshHp(h, true); }   // 초기화 물약을 마셔도 다시 최대
@@ -4707,7 +4708,8 @@ export function rpgAbyss(g, pi, req) {
     sys(g, pi, `심연의 탑에서 나왔습니다.${r && r.best ? ` 이번 도전 ${r.best}층까지 올랐습니다.` : ""}`);
     return true;
   }
-  if (req.op === "buy") return abyssBuy(g, h, req.id);
+  if (req.op === "buy" || req.op === "open" || req.op === "first") return abyssReward(g, h, req);   // 교환 · 보관함 상자 · 최초 돌파 보상(abyssReward.js)
+  if (req.op === "look") return abyssLook(g, h, req);
   if (req.op === "card" || req.op === "curse" || req.op === "reroll") return inAbyss(h) && acChoose(g, h, req.op, Number(req.i) | 0);   // 강화 카드 고르기
   if (req.op !== "enter") return false;
   const why = whyAbyss(h, g.aruns);
@@ -4806,12 +4808,34 @@ function tickAbyss(g, dt) {
     return true;
   });
 }
-// 파편 교환 — 탑 입구 곁에서(abyssData.js ABYSS_SHOP)
-function abyssBuy(g, h, id) {
-  const it = ABYSS_SHOP_BY_ID[id];
-  if (!it || !h.loaded || h.down > 0) return false;
+/* 파편 교환 · 상자 · 최초 돌파 보상 — 탑 입구 곁에서(abyssData.js ABYSS_SHOP · ABYSS_FIRST, 규칙 abyssReward.js).
+   req = { op: "buy" | "open" | "first", id 물품 · 상자 id 또는 최초 돌파 차례, pick 고른 보상 차례, rid 요청 id }.
+   같은 rid 가 다시 오면(망이 끊겨 다시 보냄) 아무것도 하지 않는다 — 처리한 rid 는 가방에 남아 저장 · 재접속 뒤에도 기억한다.
+   새 여덟 물품 · 상자 · 돌파 보상은 전용 서버(g.server)만 판정한다. 확률은 서버가 정하고 화면이 보낸 수량 · 결과는 쓰지 않는다 */
+function abyssReward(g, h, req) {
+  if (!h.loaded || h.down > 0 || !ridOk(req.rid)) return false;
+  if (ridSeen(h.bag, req.rid)) return true;
+  const pick = Number.isInteger(req.pick) ? req.pick : undefined;
+  if (req.op === "buy" && ABYSS_SHOP_BY_ID[req.id] && !ABYSS_SHOP_BY_ID[req.id].v2) return abyssBuyOld(g, h, req);
+  if (!abyssNear(h)) return void sys(g, h.pi, "광장의 탑 입구 곁에서 받을 수 있습니다");
+  if (!g.server) return void sys(g, h.pi, "새 교환 · 상자 · 돌파 보상은 새 서버에서만 받을 수 있습니다");
+  if (trading(h)) return void sys(g, h.pi, "거래 중에는 받을 수 없습니다");
+  const now = abyssNow(g);
+  let r, name;
+  if (req.op === "buy") { r = v2Buy(h, String(req.id), now, pick); name = ABYSS_SHOP_BY_ID[req.id] ? ABYSS_SHOP_BY_ID[req.id].name : ""; }
+  else if (req.op === "open") { r = boxOpen(h, String(req.id), now, pick); name = "상자"; }
+  else { const i = Number(req.id) | 0; r = firstClaim(h, i, now); name = ABYSS_FIRST[i] ? `${ABYSS_FIRST[i].f}층 최초 돌파 보상` : ""; }
+  if (!r.ok) return void sys(g, h.pi, r.err);
+  ridMark(abOf(h.bag), req.rid);
+  fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: name, color: "#cfe6ff", t: 1.4, life: 1.4, snd: "coin", who: h.pi });
+  sys(g, h.pi, `${name} — ${giveText(r.give)}을 받았습니다.`);
+  return true;
+}
+// 예전 넷(guard5 · ticket · t_walk · t_king) — 값 · 효과 그대로. 브라우저 방장 방식에서도 된다
+function abyssBuyOld(g, h, req) {
+  const it = ABYSS_SHOP_BY_ID[req.id];
   if (!abyssNear(h)) return void sys(g, h.pi, "광장의 탑 입구 곁에서 교환할 수 있습니다");
-  const why = whyAbyssBuy(h, id);
+  const why = whyAbyssBuy(h, it.id);
   if (why) return void sys(g, h.pi, why);
   const [mat, cost] = it.cost, G = it.give;
   h.bag.m[mat] -= cost; if (h.bag.m[mat] <= 0) delete h.bag.m[mat];
@@ -4819,11 +4843,12 @@ function abyssBuy(g, h, id) {
   if (G.mat) addMat(h.bag, G.mat, G.n);
   if (G.title) h.rec[G.title] = 1;               // 칭호는 칭호 규칙(awardTitles)이 곧 준다
   h.bag.v += 1;
+  ridMark(abOf(h.bag), req.rid);
   fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: it.name, color: "#cfe6ff", t: 1.4, life: 1.4, snd: "coin", who: h.pi });
   sys(g, h.pi, `${it.name} — 교환했습니다.`);
   return true;
 }
-// 교환이 막힌 이유(없으면 "") — 화면과 방장이 같이 쓴다
+// 예전 넷의 교환이 막힌 이유(없으면 "") — 화면과 방장이 같이 쓴다. 새 여덟은 abyssReward.js whyV2Buy
 export function whyAbyssBuy(h, id) {
   const it = ABYSS_SHOP_BY_ID[id];
   if (!it) return "없는 물품입니다";
@@ -4831,27 +4856,29 @@ export function whyAbyssBuy(h, id) {
   const [mat, cost] = it.cost, G = it.give;
   if (matCount(h.bag, mat) < cost) return `${MAT_BY_ID[mat].name}이 모자랍니다`;
   if (G.guard && (h.bag.gd || 0) + G.guard > GUARD.max) return "하락 방지권을 더 가질 수 없습니다";
-  if (G.mat && matCount(h.bag, G.mat) + G.n > MAT_MAX) return "가방이 가득 찼습니다";
+  if (G.mat && matCount(h.bag, G.mat) + G.n > matMax(G.mat)) return "가방이 가득 찼습니다";
   if (G.title && (h.rec[G.title] || 0) > 0) return "이미 받은 칭호입니다";
   return "";
 }
-/* 주간 순위 보상 — 전용 서버(server/src/room.js)가 장부에서 지난주 순위를 읽고 부른다. week 는 그 주 월요일, rank 는 순위(1~10).
-   받은 주는 가방 bag.aw.cl 에 남아 한 번만 받는다 */
+// 외형 끼기 · 벗기 — 어디서나(능력치가 없다). req = { id, on }
+function abyssLook(g, h, req) {
+  if (!h.loaded || !LOOK_BY_ID[req.id]) return false;
+  const r = lookSet(h, req.id, !!req.on, abyssNow(g));
+  if (!r.ok) return void sys(g, h.pi, r.err);
+  return true;
+}
+// 낀 외형 비트 — 손님은 스냅샷 값(h.alook), 방장 · 서버는 가방에서(스냅샷에 실을 때는 늘 가방에서 다시 센다)
+export const abyssLookOf = (h) => (h ? (h.alook !== undefined ? h.alook : lookBits(h.bag, Date.now())) : 0);
+/* 주간 순위 보상 — 지금은 장부(server/src/ledger.js fn_rpg_abyss_claim)가 저장 기록에 바로 넣는다(같은 rankClaim 규칙).
+   이 함수는 영웅에 같은 규칙을 쓰는 시험 · 예비용이다. week 는 순위를 낸 주, rank 는 그 주 순위 */
 export function abyssClaim(g, pi, week, rank) {
   const h = g.heroes[pi];
   if (!h || !h.loaded) return { ok: false, err: "token" };
-  const rw = rankReward(rank);
-  if (!rw) return { ok: false, err: "reward" };
-  const aw = awOf(g, h);
-  if (aw.cl === week) return { ok: false, err: "claimed" };
-  if (matCount(h.bag, SHARD) + rw.shard > MAT_MAX || matCount(h.bag, SEAL) + rw.seal > MAT_MAX) return { ok: false, err: "capacity" };
-  addMat(h.bag, SHARD, rw.shard); addMat(h.bag, SEAL, rw.seal);
-  h.rec.awk = (h.rec.awk || 0) + 1;
-  if (rank === 1) h.rec.awin = (h.rec.awin || 0) + 1;
-  aw.cl = week; h.bag.v += 1;
+  const r = rankClaim(h, week, rank, abyssNow(g));
+  if (!r.ok) return r;
   fx(g, h.map, { kind: "call", x: h.x, y: h.y - 120, text: `주간 ${rank}위 보상`, color: "#ffd38a", t: 1.8, life: 1.8, snd: "clear", who: pi });
-  sys(g, pi, `심연의 탑 지난주 ${rank}위 보상 — 심연의 파편 ${rw.shard}개 · 탑의 인장 ${rw.seal}개를 받았습니다.`);
-  return { ok: true, rank, ...rw };
+  sys(g, pi, `심연의 탑 지난주 ${rank}위 보상 — ${giveText(r.give)}을 받았습니다.`);
+  return r;
 }
 
 /* ── 칭호 · 파티 (방장만 판정) ──────────────────────────────
@@ -5072,10 +5099,12 @@ export function rpgPack(g) {
         REQ_NPCS.map((n) => (h.reqs[n.id] ? [h.reqs[n.id].i, h.reqs[n.id].n,(h.reqs[n.id].coinOnly??(h.lv>REQUESTS[n.id][h.reqs[n.id].i].lv))?1:0] : 0)), h.gift === GIFT.id ? 1 : 0,
         (h.inq && h.inq.hold) || 0, h.inq && h.inq.hold ? Math.round((g.t - (h.inqAt ?? g.t)) * 1000) : 0,
         packArmor(h),
-        TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
+        TITLES.reduce((bits, t, i) => (i >= TITLE_BITS && i < TITLE_BITS * 2 && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS)) : bits), 0),
         packSkillState(h), packTrain(g, h), h.rs === RESET.id ? 1 : 0, h.pvpOn ? 1 : 0, h.ts || 0, trading(h) ? h.trade : null,h.guild||null,
         packAdv(h),                             // 53 — 전직 상태
-        {team:h.duelTeam,size:h.duelSize||0,color:h.duelColor??-1,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0,wear:wearOf(h),hideGear:h.hideGear||0},
+        {team:h.duelTeam,size:h.duelSize||0,color:h.duelColor??-1,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0,wear:wearOf(h),hideGear:h.hideGear||0,
+          t3:TITLES.reduce((bits, t, i) => (i >= TITLE_BITS * 2 && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS * 2)) : bits), 0),   // 63번째 칭호부터(11월 9일)
+          al:lookBits(h.bag, Date.now())},   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0] // 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
@@ -5111,7 +5140,7 @@ export function rpgApply(g, s) {
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
-    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;}
+    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;}
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;
@@ -5172,7 +5201,7 @@ export function rpgApply(g, s) {
       h.pty = row[28] || 0;
       h.invite = row[29] >= 0 ? { from: row[29], t: h.invite && h.invite.from === row[29] ? h.invite.t : PARTY.inviteT } : null;
       h.title = TITLES[row[30]] ? TITLES[row[30]].id : "";
-      h.titles = TITLES.filter((t, i) => (i < TITLE_BITS ? row[31] & (1 << i) : (row[45] || 0) & (1 << (i - TITLE_BITS)))).map((t) => t.id);
+      h.titles = TITLES.filter((t, i) => (i < TITLE_BITS ? row[31] & (1 << i) : i < TITLE_BITS * 2 ? (row[45] || 0) & (1 << (i - TITLE_BITS)) : (h.t3 || 0) & (1 << (i - TITLE_BITS * 2)))).map((t) => t.id);
       if (Array.isArray(row[32])) REC_IDS.forEach((k, i) => { h.rec[k] = row[32][i] || 0; });
     }
     if (row.length > 33) h.wsp = row[33] || "";      // 장착한 특별 무기 — 그림에 들려 그린다

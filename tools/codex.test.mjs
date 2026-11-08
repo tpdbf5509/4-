@@ -17,7 +17,7 @@ const run = (g, t) => { for (let i = 0; i < Math.ceil(t / 0.05); i++) rpgStep(g,
 test('도감 몹은 모두 기록 열쇠이고 업적 칭호는 같은 조건의 칭호가 있다', () => {
   for (const k of CODEX_IDS) assert(REC_IDS.includes(k), k);
   for (const a of ACHIEVES.filter((x) => x.title)) assert.deepEqual(TITLE_BY_ID[a.title].need, a.need, a.id);
-  assert(TITLES.length <= 62);                     // 칭호 비트 두 숫자(31 + 31)
+  assert(TITLES.length <= 93);                     // 칭호 비트 세 숫자(31 + 31 + 31, 11월 9일 셋째 숫자)
   assert.equal(new Set(ACHIEVES.map((a) => a.id)).size, ACHIEVES.length);
 });
 

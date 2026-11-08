@@ -5,7 +5,8 @@
    접속 중 표시(live)는 메모리에만 둔다 — 배포로 장부가 다시 뜨면 비지만 화면이 10초마다 다시 남긴다 */
 import bcrypt from "bcryptjs";
 import { RESET } from "../../src/game/itemData.js";
-import { ABYSS_RANK, abyssWeek, prevWeek, weekReset, weekTop, cleanAw } from "../../src/game/abyssData.js";
+import { ABYSS_RANK, abyssWeek, prevWeek, weekReset, weekTop, cleanAw, rankTop, rankFloorOk } from "../../src/game/abyssData.js";
+import { rankClaim, cleanAb } from "../../src/game/abyssReward.js";
 import { rpgKey, len, sha256, iso, isObj, txt, jeq, lvOf } from "./ledger-util.js";
 import { tradeMethods } from "./ledger-trade.js";
 import { guildMethods } from "./ledger-guild.js";
@@ -23,6 +24,12 @@ const JUMP_MIN = 1;                    // 지난 저장 뒤 1분마다 더 오�
 // 코인 저장 지킴 — 지난 저장 뒤 늘 수 있는 코인 = 한 번에 몰려 드는 몫 100만 + 1분마다 50만(rpg.sql rpg_coin_cap)
 const coinCap = (mins) => 1000000 + 500000 * Math.min(Math.max(Number(mins) || 0, 0), 1000000);
 const ABYSS_CACHE_MS = 30 * 1000;      // 심연의 탑 순위를 다시 읽기까지 — 창을 여러 번 열어도 모든 캐릭터를 매번 읽지 않게
+const BOARD_KEEP = 100;                // 굳힌 지난주 순위에 남기는 수 — 보상(50위)보다 넉넉히
+// 심연의 탑 표 — schema.sql 에도 있다. 이미 돌던 D1 에 없을 수 있어 장부가 처음 부를 때 만든다(IF NOT EXISTS)
+const ABYSS_SQL = [
+  "CREATE TABLE IF NOT EXISTS abyss_boards (week TEXT PRIMARY KEY, list TEXT NOT NULL, at INTEGER NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS abyss_claims (char_key TEXT NOT NULL, week TEXT NOT NULL, rank INTEGER NOT NULL, give TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (char_key, week))",
+];
 const COIN_BLOCK = false;              // false — 막지 않고 save_blocks 에 why 'coins' 로 남기기만 한다
 
 /* ── 작은 도구 ─────────────────────────────────────── */
@@ -153,10 +160,17 @@ export class LedgerCore {
     return out.slice(0, lim).map(({ name, honor, lv }) => ({ name, honor, lv }));
   }
 
-  /* ── 심연의 탑 주간 순위(src/game/abyssData.js) — 저장된 기록의 가방 bag.aw 에서 바로 셈한다(따로 쓰는 표가 없어 D1 쓰기가 늘지 않는다).
-     이번 주 · 지난주 상위 10. 동점이면 먼저 닿은 쪽(at)이 위. 관리자 캐릭터 · 초기화 전 기록은 빼다.
-     모든 캐릭터를 읽으니 ABYSS_CACHE_MS 동안 기억해 둔다(창을 열 때만 부른다). p_name 이 있으면 그 캐릭터의 지난주 순위도 준다 ── */
-  async abyssBoard(week) {
+  /* ── 심연의 탑 주간 순위(src/game/abyssData.js) — 저장된 기록의 가방 bag.aw 에서 바로 셈한다.
+     동점이면 먼저 닿은 쪽(at)이 위. 관리자 캐릭터 · 초기화 전 기록은 뺀다.
+     이번 주는 모든 캐릭터를 읽으니 ABYSS_CACHE_MS 동안 기억해 둔다(창을 열 때만 부른다).
+     지난주(끝난 주)는 월요일 0시 + ABYSS_RANK.freezeMin 분 뒤 처음 부를 때 한 번 셈해 abyss_boards 표에 굳힌다(11월 9일) —
+     그 뒤로는 저장 · 캐시 만료 · 서버가 달라도 늘 같은 순위로 보상한다. 보상 수령은 abyss_claims 표(캐릭터 · 주 고유 키)에 남긴다 ── */
+  async abyssReady() {
+    if (this.abyssMade) return;
+    await this.batch(ABYSS_SQL.map((q) => this.q(q)));
+    this.abyssMade = true;
+  }
+  async abyssLive(week) {
     const now = this.now(), memo = (this.abyssMemo ||= new Map()), hit = memo.get(week);
     if (hit && now - hit.at < ABYSS_CACHE_MS) return hit.list;
     const list = [];
@@ -173,17 +187,71 @@ export class LedgerCore {
     if (memo.size > 4) memo.delete(memo.keys().next().value);
     return list;
   }
+  // 끝난 주의 굳힌 순위 — 아직 굳힐 때가 아니면 null(그동안은 abyssLive 로 보여 주기만 하고 보상은 막는다)
+  async abyssFinal(week) {
+    await this.abyssReady();
+    const row = await this.first("SELECT list FROM abyss_boards WHERE week = ?", week);
+    if (row) return JSON.parse(row.list);
+    if (this.now() < weekReset(week) + ABYSS_RANK.freezeMin * 60000) return null;
+    this.abyssMemo?.delete(week);                    // 굳힐 때는 기억한 값을 쓰지 않고 새로 읽는다
+    const list = (await this.abyssLive(week)).slice(0, BOARD_KEEP).map(({ name, key, floor, at, lv, rank }) => ({ name, key, floor, at, lv, rank }));
+    await this.run("INSERT OR IGNORE INTO abyss_boards (week, list, at) VALUES (?, ?, ?)", week, JSON.stringify(list), this.now());
+    const again = await this.first("SELECT list FROM abyss_boards WHERE week = ?", week);   // 먼저 굳힌 것이 있으면 그것
+    return again ? JSON.parse(again.list) : list;
+  }
+  async abyssBoard(week) { return this.abyssLive(week); }
+  // 보상 자격 — 그 주 표의 보상 순위 안 · 새 표는 그 주 10층 이상
+  abyssEligible(x, week) { return !!x && x.rank <= rankTop(week) && rankFloorOk(x.floor, week); }
   async fn_rpg_abyss_top(a) {
     const week = abyssWeek(this.now()), prev = prevWeek(week);
-    const cur = await this.abyssBoard(week), last = await this.abyssBoard(prev);
+    const cur = await this.abyssLive(week);
+    const final = await this.abyssFinal(prev), last = final || (await this.abyssLive(prev));
     const key = a.p_name ? rpgKey(a.p_name) : "";
     const strip = (x) => ({ rank: x.rank, name: x.name, floor: x.floor, lv: x.lv });
     const mine = key ? last.find((x) => x.key === key) : null;
+    const claimed = key && final ? !!(await this.first("SELECT 1 AS y FROM abyss_claims WHERE char_key = ? AND week = ?", key, prev)) : false;
     return {
-      ok: true, week, prev, reset: iso(weekReset(week)),
-      top: cur.slice(0, ABYSS_RANK.top).map(strip), last: last.slice(0, ABYSS_RANK.top).map(strip),
-      me: key ? { now: (cur.find((x) => x.key === key) || {}).rank || 0, prev: mine && mine.rank <= ABYSS_RANK.top ? mine.rank : 0 } : null,
+      ok: true, week, prev, reset: iso(weekReset(week)), top: cur.slice(0, rankTop(week)).map(strip), last: last.slice(0, rankTop(prev)).map(strip),
+      fixed: !!final, topN: rankTop(week), prevTopN: rankTop(prev),
+      me: key ? { now: (cur.find((x) => x.key === key) || {}).rank || 0, prev: this.abyssEligible(mine, prev) ? mine.rank : 0,
+        prevFloor: mine ? mine.floor : 0, claimed } : null,
     };
+  }
+  /* 주간 보상 받기 — 전용 서버(room.js abyss_claim)만 부른다. 수령 기록(abyss_claims 고유 키)과 기록 고치기를 batch 하나로 쓴다:
+     둘 다 되거나 둘 다 안 된다. 다시 불러도 고유 키 · 기록의 받은 주(aw.cl · ab.cw)가 막는다.
+     기록을 고치면 거래처럼 차례(ts)를 올려 그 전 차례의 늦은 저장(10초 저장)은 stale 로 막히고 서버가 다시 불러온다 */
+  async fn_rpg_abyss_claim(a) {
+    const c = await this.authChar(a.p_name, a.p_token);
+    if (!c) return { ok: false, err: "token" };
+    if (c.admin) return { ok: false, err: "reward" };
+    if (c.trade_id) {
+      const t = await this.first("SELECT state, until FROM trades WHERE id = ?", c.trade_id);
+      if (t && t.state === "open" && t.until > this.now()) return { ok: false, err: "trade" };
+    }
+    const now = this.now(), week = abyssWeek(now), prev = prevWeek(week);
+    const board = await this.abyssFinal(prev);
+    if (!board) return { ok: false, err: "wait" };
+    const mine = board.find((x) => x.key === c.name_key);
+    if (!this.abyssEligible(mine, prev)) return { ok: false, err: "reward" };
+    if (await this.first("SELECT 1 AS y FROM abyss_claims WHERE char_key = ? AND week = ?", c.name_key, prev)) return { ok: false, err: "claimed" };
+    const d = JSON.parse(JSON.stringify(c.data));
+    d.bag = isObj(d.bag) ? d.bag : {};
+    d.bag.m = isObj(d.bag.m) ? d.bag.m : {};
+    d.bag.ab = cleanAb(d.bag.ab);
+    d.rec = isObj(d.rec) ? d.rec : {};
+    d.coins = coinsOf(d) ?? 0;
+    const r = rankClaim(d, prev, mine.rank, now);
+    if (!r.ok) return r;
+    try {
+      await this.batch([
+        this.q("INSERT INTO abyss_claims (char_key, week, rank, give, at) VALUES (?, ?, ?, ?, ?)", c.name_key, prev, mine.rank, JSON.stringify(r.give), now),
+        this.charWrite(c, d, now),
+      ]);
+    } catch (e) {
+      if (/UNIQUE|constraint/i.test(String(e && e.message))) return { ok: false, err: "claimed" };
+      throw e;
+    }
+    return { ok: true, changed: true, rank: r.rank, week: prev, shard: r.shard, seal: r.seal, give: r.give };
   }
 
   /* ── 접속 중 표시 — 한 캐릭터는 한 곳(한 서버 · 한 창)에서만 ── */

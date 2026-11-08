@@ -8,8 +8,9 @@
      계정이 없는(이 기기에만 있는) 캐릭터는 예전처럼 화면이 보낸 기록을 싣고 저장하지 않는다
    화면과 주고받는 말은 예전 방장과 같다 — lobby · rsnap · chat 을 보내고 hello · pick · rjoin · input · chat 을 받는다(서버만의 말: auth) */
 import {
-  RPG_CREW_MAX, RPG_SERVER_CAP, RPG_TEST_SERVER, makeWorld, rpgStep, rpgSyncSeats, rpgJoin, rpgPack, cleanLook, heroRecord, mapIdx, abyssClaim,
+  RPG_CREW_MAX, RPG_SERVER_CAP, RPG_TEST_SERVER, makeWorld, rpgStep, rpgSyncSeats, rpgJoin, rpgPack, cleanLook, heroRecord, mapIdx,
 } from "../../src/game/rpg.js";
+import { trading } from "../../src/game/tradeData.js";
 import { rpgInput } from "../../src/game/rpgInput.js";
 import { CHAT } from "../../src/game/socialData.js";
 import { loadChar, saveChar, saveOn, ledgerCall } from "./save.js";
@@ -353,13 +354,15 @@ export class RpgRoom {
       if (r && r.ok && r.changed) await this.reload(c.id);   // 가방 · 코인이 바뀌었다
       return r;
     }
-    if (d.fn === "abyss_claim") {                    // 심연의 탑 주간 보상 — 장부에서 지난주 순위를 읽고 서버가 가방에 넣는다(rpg.js abyssClaim)
-      const seat = this.seatOf(c.id);
-      if (!this.g || seat < 0) return { ok: false, err: "token" };
-      const r = await ledgerCall(this.env, "rpg_abyss_top", { p_name: a.name });
-      if (!r || !r.ok) return r || { ok: false, err: "net" };
-      if (!r.me || !r.me.prev) return { ok: false, err: "reward" };
-      return abyssClaim(this.g, seat, r.prev, r.me.prev);
+    if (d.fn === "abyss_claim") {                    // 심연의 탑 주간 보상(11월 9일) — 장부가 굳힌 지난주 순위 · 수령 기록 표로 판정하고 기록에 바로 넣는다
+      const h = this.g && this.g.heroes[this.seatOf(c.id)];
+      if (!h || !h.loaded) return { ok: false, err: "token" };
+      if (h.map !== "plaza") return { ok: false, err: "place" };
+      if (trading(h)) return { ok: false, err: "trade" };
+      await this.saveOne(c.id);                      // 장부가 보는 가방이 지금 가방이어야 한다(넣을 자리 확인)
+      const r = await ledgerCall(this.env, "rpg_abyss_claim", { ...me, p_sid: c.id });
+      if (r && r.ok && r.changed) await this.reload(c.id);   // 장부가 기록을 고쳤다(차례 ts 가 올라 그 전 저장은 stale 로 막힌다)
+      return r;
     }
     return { ok: false, err: "op" };
   }
@@ -367,7 +370,7 @@ export class RpgRoom {
   /* ── 판정 루프 ────────────────────────────────────── */
   start() {
     if (this.timer) return;
-    if (!this.g) { this.g = makeWorld(); this.g.test = this.test; this.g.mySeat = -1; this.g.out = []; rpgSyncSeats(this.g, this.seats); }
+    if (!this.g) { this.g = makeWorld(); this.g.test = this.test; this.g.server = true; this.g.mySeat = -1; this.g.out = []; rpgSyncSeats(this.g, this.seats); }
     this.last = Date.now();
     this.timer = setInterval(() => this.tick(), TICK_MS);
   }

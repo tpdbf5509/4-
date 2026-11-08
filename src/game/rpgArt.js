@@ -20,6 +20,7 @@ import { drawWear } from "./wearArt.js";
 import { wearOf } from "./armor.js";
 import { warmAbyssArt, drawAbyssGate, drawGuardian } from "./abyssArt.js";
 import { GUARD_IDS } from "./abyssData.js";
+import { drawAbyssUnder, drawAbyssBack, drawAbyssFront, drawAbyssOver, drawAbyssHandGlow, abyssWeapon, setAbyssLookQuality, LOOK_BIT } from "./abyssLookArt.js";
 import { drawRaceTrack, drawRaceNpc, drawRaceAura } from "./raceArt.js";
 import { MOUNT_BY_ID } from "./raceData.js";
 import { DUEL_COLORS, DUEL_TEAM } from "./duel.js";
@@ -31,7 +32,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR, gatesOf, highOn } from "./rpg.js";
+import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR, gatesOf, highOn, abyssLookOf } from "./rpg.js";
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { paintFieldLook, fieldTrails } from "./fieldArt.js";
@@ -297,7 +298,8 @@ function drawHeld(ctx, held, ww, top, sw, col) {
     const k = len / Math.hypot(tx - gx, ty - gy);
     ctx.rotate(-Math.atan2(ty - gy, tx - gx));
     ctx.scale(k, k);
-    ctx.drawImage(wpn, -gx, -gy);
+    const im2 = held.abyss ? abyssWeapon(wpn) : wpn, p = (im2 && im2.pad) || 0;   // 심연의 무기 외형 — 보랏빛으로 물들인 사본(abyssLookArt.js)
+    ctx.drawImage(im2, -gx - p, -gy - p);
   } else {
     drawBasicSword(ctx, len);
   }
@@ -2312,6 +2314,13 @@ function drawHero(ctx, g, h, time) {
   const held = hide & HIDE_GEAR.weapon ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
   const im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
   const mo = down ? null : heroMotion(g, h, time);
+  const al = down ? 0 : abyssLookOf(h);              // 낀 심연 외형(abyssData.js ABYSS_LOOKS) — 겉모습만, 능력치 없음
+  if (held && al & LOOK_BIT.weapon) { held.abyss = 1; if (held.off) held.off.abyss = 1; }
+  else if (held) { held.abyss = 0; if (held.off) held.off.abyss = 0; }
+  if (al && im) {
+    const ww0 = im.naturalWidth * HERO_K, hh0 = im.naturalHeight * HERO_K;
+    drawAbyssUnder(ctx, h, al, time, { im, ww: ww0, hh: hh0, top: -hh0 + HERO_PAD * HERO_K, flip });
+  }
 
   ctx.save();
   ctx.translate(h.x, h.y + 2);
@@ -2363,6 +2372,7 @@ function drawHero(ctx, g, h, time) {
     }
     const shield = !advIm && !(hide & HIDE_GEAR.weapon) && h.advClass === "knight" && h.job === "warrior" ? DUAL_OFF_HAND[h.gender === "f" ? "f" : "m"][view] : null;   // 기사 방패
     if (shield && view === "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
+    if (al) drawAbyssBack(ctx, h, al, time, view, hh, top);   // 심연의 날개 — 몸 뒤
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, true);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (!down && !(hide & HIDE_GEAR.armor)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
@@ -2372,6 +2382,8 @@ function drawHero(ctx, g, h, time) {
       drawHeld(ctx, held, ww, top, sw, col.light);
     }
     if (shield && view !== "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
+    if (al & LOOK_BIT.weapon && (!held || held.none || held.adv || !held.wpn)) drawAbyssHandGlow(ctx, time, hh, top);   // 무기 그림이 몸에 붙은 전직 · 맨손 — 손 자리 불씨
+    if (al) drawAbyssFront(ctx, h, al, time, view, hh, top);   // 후광 · 뒤를 볼 때 날개
     if (h.flash > 0) {
       ctx.globalCompositeOperation = "lighter";
       ctx.globalAlpha = Math.min(0.5, h.flash * 3);
@@ -2381,6 +2393,7 @@ function drawHero(ctx, g, h, time) {
     ctx.fillStyle = col.key; roundRect(ctx, -9, -34, 18, 34, 7); ctx.fill();
   }
   ctx.restore();
+  if (al && im) drawAbyssOver(ctx, h, al, time, im.naturalHeight * HERO_K);   // 날개 알갱이(맵 좌표)
 
   // 체력 · 레벨 · 이름
   const bw = 40, byy = h.y - 66 - 12;
@@ -2567,7 +2580,7 @@ function stepLod() {
   lod.at = now;
   lod.ms += (d - lod.ms) * FX_LOD.ease;
   const q = lod.ms > FX_LOD.slow ? FX_LOD.low : lod.ms < FX_LOD.fast ? 1 : lod.q;
-  if (q !== lod.q) { lod.q = q; setFxQuality(q); setWbIntroQuality(q); }
+  if (q !== lod.q) { lod.q = q; setFxQuality(q); setWbIntroQuality(q); setAbyssLookQuality(q); }
 }
 // 그릴 스킬 연출 — 종류마다 최근 것부터 cap 개까지
 const othersFx = (f, crowd, mySeat) => crowd && f.by !== undefined && f.by !== mySeat;

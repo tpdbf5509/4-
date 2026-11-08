@@ -28,6 +28,9 @@ export const MATERIALS = [
 ];
 export const MAT_BY_ID = Object.fromEntries(MATERIALS.map((m) => [m.id, m]));
 export const MAT_MAX = 999;
+// 재료 하나의 보유 한도 — 표에 max 가 있으면 그 값(심연의 파편 · 탑의 인장 99,999), 없으면 MAT_MAX.
+// 가방 정리 · 넣기 · 상점 · 주간 보상 · 거래가 모두 이 함수를 쓴다(11월 9일)
+export const matMax = (id) => (MAT_BY_ID[id] && MAT_BY_ID[id].max) || MAT_MAX;
 
 /* 드롭 — 보스만 떨군다(일반 몹은 떨구지 않는다). 몹 종류마다 그 보스가 떨구는 재료.
    보스를 잡으면 그 보스를 한 번이라도 친 사람 가운데 같은 맵에 있는 사람이 저마다 받는다.

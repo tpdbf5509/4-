@@ -119,24 +119,114 @@ export const ABYSS_REWARD = {
   guard: (f) => 15 + f,                         // 수호자 층 — 10층 25개, 30층 45개
   weekBonus: (f) => 3 * f,                      // 이번 주 처음 넘은 10층 단위 — 10층 30개, 40층 120개
 };
-// 주간 순위 보상(지난주 서버 전체 상위 10) — 화면 · 전용 서버가 같이 쓴다
-export const ABYSS_RANK = { top: 10 };
-export const rankReward = (r) => (r === 1 ? { shard: 300, seal: 3 } : r <= 3 ? { shard: 200, seal: 2 } : r <= ABYSS_RANK.top ? { shard: 120, seal: 1 } : null);
+/* 주간 순위 보상 — 지난주 서버 전체 순위. 화면 · 전용 서버 · 장부가 같이 쓴다.
+   11월 9일 개편(사용자 요청): 상위 10 → 50, 그 주 10층 이상만. 새 표는 v2From 주(그 주 월요일)의 순위부터 쓴다.
+   그보다 앞서 끝난 주는 예전 표(상위 10 · 파편 300/200/120 · 인장 3/2/1) 그대로 준다 */
+export const ABYSS_RANK = {
+  top: 50,                // 보상을 받는 순위(새 표)
+  minFloor: 10,           // 그 주에 이 층 이상 깨야 순위 보상(새 표)
+  oldTop: 10,             // 예전 표의 보상 순위
+  v2From: "2026-11-09",   // 새 표를 쓰는 첫 주 — 11월 9일 월요일 배포. 이 주의 순위를 다음 주에 받을 때부터 새 표
+  freezeMin: 10,          // 월요일 0시 뒤 이만큼(분) 기다렸다가 지난주 순위를 굳힌다 — 0시 직전에 깬 층의 저장이 들어올 시간
+};
+// 예전 표(11월 2일 주까지)
+const OLD_RANK = (r) => (r === 1 ? { shard: 300, seal: 3 } : r <= 3 ? { shard: 200, seal: 2 } : r <= ABYSS_RANK.oldTop ? { shard: 120, seal: 1 } : null);
+/* 새 표 — to 위까지. bx 는 상자 보관함에 넣는 상자 회분(ABYSS_BOXES), look 은 시즌 외형(1위 후광 — 받은 주 동안만) */
+export const RANK_TIERS = [
+  { to: 1, shard: 600, seal: 5, bx: { abyss_treasure: 3 }, look: "abyss_halo_season" },
+  { to: 3, shard: 450, seal: 4, bx: { abyss_treasure: 2 } },
+  { to: 10, shard: 300, seal: 3, bx: { abyss_treasure: 1 } },
+  { to: 20, shard: 180, seal: 1, bx: { abyss_stone_select: 2 } },
+  { to: 50, shard: 100, seal: 0, bx: { abyss_stone_select: 1 } },
+];
+export const rankV2 = (week) => !week || week >= ABYSS_RANK.v2From;   // week 를 모르면 새 표
+export const rankTop = (week) => (rankV2(week) ? ABYSS_RANK.top : ABYSS_RANK.oldTop);
+// r 위의 보상 — { shard, seal, bx?, look? } 또는 null. week 는 순위를 낸 주(월요일)
+export function rankReward(r, week) {
+  if (!(r >= 1)) return null;
+  if (!rankV2(week)) return OLD_RANK(r);
+  const t = RANK_TIERS.find((x) => r <= x.to);
+  return t ? { shard: t.shard, seal: t.seal, bx: { ...t.bx }, ...(t.look ? { look: t.look } : {}) } : null;
+}
+// 순위 보상 자격 — 새 표는 그 주 minFloor 층 이상(예전 표는 기록만 있으면)
+export const rankFloorOk = (floor, week) => !rankV2(week) || floor >= ABYSS_RANK.minFloor;
 
 /* 파편 교환 — 탑 창의 교환 탭. id 는 보낼 때 쓴다(이미 나간 id 는 바꾸지 않는다).
-   give: guard 하락 방지권 n장 · mat 재료 n개 · title 칭호 기록 열쇠(한 번만). cost: [재료 id, 개수] */
+   예전 넷(guard5 · ticket · t_walk · t_king)은 id · 값 · 효과 그대로 — cost 가 [재료 id, 개수] 하나다.
+   give: guard 하락 방지권 n장 · mat 재료 n개 · title 칭호 기록 열쇠(한 번만).
+   11월 9일 새 여덟(v2) — cost 는 [[재료 id, 개수], …], limit 은 하루 day · 주 week · 평생 life 횟수,
+   box 는 사면 곧바로 여는 상자(ABYSS_BOXES), look 은 영구 외형(ABYSS_LOOKS), title 은 칭호 기록 열쇠.
+   새 여덟은 전용 서버에서만 판정한다(확률 · 횟수를 방장 브라우저가 정하지 않게). cat 은 교환 탭의 갈래 */
+export const SHOP_CATS = [["mat", "강화 재료"], ["box", "보급 상자"], ["rare", "희귀 교환"], ["look", "외형 · 칭호"]];
 export const ABYSS_SHOP = [
-  { id: "guard5", name: "하락 방지권 5장", cost: [SHARD, 20], give: { guard: 5 } },
-  { id: "ticket", name: "던전 입장권 1장", cost: [SHARD, 30], give: { mat: "dungeon_ticket", n: 1 } },
-  { id: "t_walk", name: "칭호 · 심연을 걷는 자", cost: [SHARD, 600], give: { title: "atb" } },
-  { id: "t_king", name: "칭호 · 심연의 군주", cost: [SEAL, 5], give: { title: "aking" } },
+  { id: "guard5", name: "하락 방지권 5장", cat: "mat", cost: [SHARD, 20], give: { guard: 5 } },
+  { id: "ticket", name: "던전 입장권 1장", cat: "box", cost: [SHARD, 30], give: { mat: "dungeon_ticket", n: 1 } },
+  { id: "t_walk", name: "칭호 · 심연을 걷는 자", cat: "look", cost: [SHARD, 600], give: { title: "atb" } },
+  { id: "t_king", name: "칭호 · 심연의 군주", cat: "look", cost: [SEAL, 5], give: { title: "aking" } },
+  { id: "abyss_stone_select", name: "강화석 선택 상자", cat: "mat", v2: 1, cost: [[SHARD, 80]], limit: { day: 3 }, box: "abyss_stone_select" },
+  { id: "abyss_stone_advanced", name: "고급 강화 상자", cat: "mat", v2: 1, cost: [[SHARD, 180]], limit: { week: 3 }, box: "abyss_stone_advanced" },
+  { id: "abyss_treasure", name: "심연의 보물 상자", cat: "box", v2: 1, cost: [[SHARD, 250]], limit: { week: 2 }, box: "abyss_treasure" },
+  { id: "abyss_world_supply", name: "월드보스 준비 상자", cat: "box", v2: 1, cost: [[SHARD, 450]], limit: { week: 1 }, box: "abyss_world_supply" },
+  { id: "abyss_essence_supply", name: "심연의 정수 보급", cat: "rare", v2: 1, cost: [[SHARD, 500], [SEAL, 1]], limit: { week: 2 }, box: "abyss_essence_supply" },
+  { id: "abyss_core_supply", name: "심연의 결정핵 보급", cat: "rare", v2: 1, cost: [[SHARD, 700], [SEAL, 1]], limit: { week: 1 }, box: "abyss_core_supply" },
+  { id: "abyss_wings", name: "심연의 날개", cat: "look", v2: 1, cost: [[SHARD, 1500], [SEAL, 5]], limit: { life: 1 }, look: "abyss_wings" },
+  { id: "abyss_title_beyond", name: "칭호 · 탑을 넘어선 자", cat: "look", v2: 1, cost: [[SHARD, 2000], [SEAL, 8]], limit: { life: 1 }, title: "abeyond" },
 ];
 export const ABYSS_SHOP_BY_ID = Object.fromEntries(ABYSS_SHOP.map((s) => [s.id, s]));
+// 값 — 예전 물품의 [재료, 개수] 하나도 [[재료, 개수]] 로
+export const costsOf = (it) => (!it ? [] : Array.isArray(it.cost[0]) ? it.cost : [it.cost]);
+
+/* 상자 — 재료 가방에 넣지 않는다. 사거나(교환) 보관함에서 열면 곧바로 내용물을 준다.
+   give 고정 · pick 셋 가운데 하나를 고른다 · roll 무게(w, 합 100)로 서버가 하나를 뽑는다.
+   한 몫: m 재료 { id: 개수 } · coins 코인. 강화 카드 보너스는 상자에 붙지 않는다 */
+export const ABYSS_BOXES = {
+  abyss_stone_select: { name: "강화석 선택 상자", pick: [{ m: { blue: 50 } }, { m: { eye: 20 } }, { m: { heart: 8 } }] },
+  abyss_stone_advanced: { name: "고급 강화 상자", give: { m: { heart: 20, eye: 20, blue: 30 } } },
+  abyss_treasure: { name: "심연의 보물 상자", roll: [
+    { w: 50, m: { heart: 25 }, coins: 100000 },
+    { w: 35, m: { heart: 40 }, coins: 200000 },
+    { w: 15, m: { heart: 60 }, coins: 400000 },
+  ] },
+  abyss_world_supply: { name: "월드보스 준비 상자", give: { m: { dungeon_ticket: 3, heart: 30 } } },   // 월드보스 전설 장비는 없다
+  abyss_essence_supply: { name: "심연의 정수 보급", give: { m: { heart: 80, eye: 40 } } },
+  abyss_core_supply: { name: "심연의 결정핵 보급", give: { m: { heart: 120, dungeon_ticket: 3 }, coins: 300000 } },
+};
+export const BOX_IDS = Object.keys(ABYSS_BOXES);   // 보관함 차례(뒤에만 더한다)
+export const ABYSS_BOX_MAX = 99;                   // 보관함에 한 종류를 쌓을 수 있는 회분
+
+/* 외형 — 능력치가 없다. 차례가 저장 비트라 뒤에만 더한다. slot 이 같으면 하나만 낀다.
+   season 은 주간 1위 후광 — 받은 주가 끝날 때까지만 낄 수 있다(bag.ab.sh). 그림은 abyssLookArt.js(코드 그림) */
+export const ABYSS_LOOKS = [
+  { id: "abyss_wings", name: "심연의 날개", slot: "back", note: "어두운 보라 날개 · 움직이면 공허 알갱이와 잔상" },
+  { id: "abyss_weapon", name: "심연의 무기", slot: "wpn", note: "든 무기를 심연의 보랏빛으로 물들이고 빛 줄기를 남긴다" },
+  { id: "abyss_halo", name: "심연의 후광", slot: "head", note: "천천히 도는 보랏빛 고리" },
+  { id: "abyss_shadow", name: "백층의 그림자", slot: "aura", legend: 1, note: "어둠과 뒤따르는 그림자 분신 · 전설 외형" },
+  { id: "abyss_halo_season", name: "탑의 정점 후광", slot: "head", season: 1, note: "주간 1위 전용 · 받은 주가 끝날 때까지" },
+];
+export const LOOK_BY_ID = Object.fromEntries(ABYSS_LOOKS.map((l, i) => [l.id, { ...l, i }]));
+export const LOOK_SLOTS = { back: "등", wpn: "무기", head: "머리 위", aura: "발밑" };
+
+/* 생애 최초 돌파 보상 — 캐릭터마다 단계별 한 번(bag.ab.fc 비트, 차례 = 비트). 기록 rec.atop(가장 높이 깬 층)으로 소급해 받는다.
+   아래 층부터 차례로 받는다. 상점 횟수를 쓰지 않는다. 상자는 보관함으로(bx), 칭호는 기록 열쇠(rec), 외형은 영구 소유(look) */
+export const ABYSS_FIRST = [
+  { f: 10, give: { bx: { abyss_stone_select: 2 } } },
+  { f: 20, give: { bx: { abyss_treasure: 1 } } },
+  { f: 30, give: { bx: { abyss_stone_advanced: 2 } } },
+  { f: 40, give: { bx: { abyss_treasure: 2 } } },
+  { f: 50, give: { bx: { abyss_essence_supply: 1 } } },
+  { f: 60, give: { rec: "aconq" }, title: "abyss_title_conqueror" },
+  { f: 70, give: { bx: { abyss_core_supply: 1 } } },
+  { f: 80, give: { look: "abyss_weapon" } },
+  { f: 90, give: { look: "abyss_halo" } },
+  { f: 100, give: { look: "abyss_shadow" } },
+];
 
 // 재료 — itemData.js MATERIALS 맨 뒤에 붙는다. 팔 수 없다
+// 11월 9일 — 두 재료만 99,999개까지 가진다(max, itemData.js matMax). 다른 재료는 MAT_MAX 999 그대로
+export const ABYSS_CUR_MAX = 99999;
 export const ABYSS_MATS = [
-  { id: SHARD, name: "심연의 파편", color: "#8fc8f0", sell: 0, img: "/assets/game/rpg/abyss/abyss-shard.webp", note: "심연의 탑에서 층을 깨면 얻는다 · 탑 창에서 교환" },
-  { id: SEAL, name: "탑의 인장", color: "#d8b870", sell: 0, img: "/assets/game/rpg/abyss/abyss-seal.webp", note: "심연의 탑 주간 순위 상위 10명이 받는다" },
+  { id: SHARD, name: "심연의 파편", color: "#8fc8f0", sell: 0, max: ABYSS_CUR_MAX, img: "/assets/game/rpg/abyss/abyss-shard.webp", note: "심연의 탑에서 층을 깨면 얻는다 · 탑 창에서 교환" },
+  { id: SEAL, name: "탑의 인장", color: "#d8b870", sell: 0, max: ABYSS_CUR_MAX, img: "/assets/game/rpg/abyss/abyss-seal.webp", note: "심연의 탑 주간 순위 상위 20명이 받는다 · 탑 창에서 교환" },
 ];
 
 /* 주 — 한국 시간 월요일 0시에 갈린다(길드 주간 순위와 같다, server/src/ledger-guild.js guildWeek). 값은 그 주 월요일 "YYYY-MM-DD" */
@@ -145,6 +235,7 @@ export function abyssWeek(ms) {
   const k = new Date(ms + KST_MS), mon = (k.getUTCDay() + 6) % 7;
   return new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate() - mon)).toISOString().slice(0, 10);
 }
+export const abyssDay = (ms) => new Date(ms + KST_MS).toISOString().slice(0, 10);   // 한국 날짜 — 하루 횟수가 0시에 갈린다
 export const prevWeek = (w) => new Date(Date.parse(`${w}T00:00:00Z`) - 7 * DAY_MS).toISOString().slice(0, 10);
 export const weekReset = (w) => Date.parse(`${w}T00:00:00Z`) + 7 * DAY_MS - KST_MS;   // 다음 주가 시작하는 순간(ms)
 

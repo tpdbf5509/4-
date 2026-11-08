@@ -43,7 +43,7 @@ test('사냥터 8곳 · 몹 · 보스 수치 — 체력은 표 값 그대로(400
   });
   assert.deepEqual(MAPS.fspirit.gates.map((q) => q.to), ['plaza', 'lavagolem']);
   assert.deepEqual(MAPS.fallen.gates.filter((q) => !q.high).map((q) => q.to), ['voidmage']);   // 오른쪽 800~1200 문(high)은 열렸을 때만(high.test.mjs)
-  assert(TITLES.length <= TITLE_BITS * 2, '칭호 비트 두 칸 안');
+  assert(TITLES.length <= TITLE_BITS * 3, '칭호 비트 세 칸 안(11월 9일 셋째 칸)');
 });
 
 test('계몽의 눈 — 재료가 모자라면 못 만들고, 다 있으면 재료를 빼고 하나 만든다', () => {

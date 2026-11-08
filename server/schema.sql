@@ -176,3 +176,7 @@ CREATE TABLE IF NOT EXISTS guild_claims (
   rank     INTEGER NOT NULL,
   PRIMARY KEY (week, char_key)
 );
+
+-- 심연의 탑(11월 9일) — 끝난 주의 굳힌 순위 · 주간 보상 수령 기록(캐릭터 · 주 고유 키). 장부가 처음 부를 때도 만든다(ledger.js ABYSS_SQL)
+CREATE TABLE IF NOT EXISTS abyss_boards (week TEXT PRIMARY KEY, list TEXT NOT NULL, at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS abyss_claims (char_key TEXT NOT NULL, week TEXT NOT NULL, rank INTEGER NOT NULL, give TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (char_key, week));

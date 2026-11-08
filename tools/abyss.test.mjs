@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgPromote, rpgLooks, heroRecord, abyssClaim, MAPS, MOB } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgPromote, rpgLooks, heroRecord, abyssClaim, MOB } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT, MAT_BY_ID } from '../src/game/itemData.js';
 import { ABYSS, ABYSS_REWARD, GUARDIANS, SHARD, SEAL, floorHp, floorMobs, floorMob, floorGuard, abyssWeek, prevWeek, rankReward, rollAw, cleanAw } from '../src/game/abyssData.js';
@@ -49,7 +49,7 @@ test('수치 — 층 배율 · 몹 수 상한 · 몹 돌려 쓰기 · 수호자 
   assert.equal(floorGuard(60).type, GUARDIANS[5].type);
   assert.equal(floorGuard(70).type, GUARDIANS[0].type, '60층 뒤로 다시 처음');
   for (const q of GUARDIANS) { assert(MOB[q.type], q.type); assert(REC_IDS.includes(q.type)); assert(CODEX_IDS.includes(q.type)); }
-  assert(TITLES.length <= TITLE_BITS * 2, '칭호 비트 두 칸 안');
+  assert(TITLES.length <= TITLE_BITS * 3, '칭호 비트 세 칸 안(11월 9일 셋째 칸)');
   assert(MAT_BY_ID[SHARD] && MAT_BY_ID[SEAL]);
   for (const a of ACHIEVES.filter((x) => x.group === '심연의 탑')) assert(a.coin > 0);
 });
@@ -241,8 +241,8 @@ test('주간 보상 — 지난주 순위대로 한 번만, 1위는 칭호 기록
   assert.equal(abyssClaim(g, 0, '2026-10-19', 11).err, 'reward');
   const r = abyssClaim(g, 0, '2026-10-19', 1);
   assert.equal(r.ok, true);
-  assert.equal(h.bag.m[SHARD], rankReward(1).shard);
-  assert.equal(h.bag.m[SEAL], rankReward(1).seal);
+  assert.equal(h.bag.m[SHARD], rankReward(1, '2026-10-19').shard);
+  assert.equal(h.bag.m[SEAL], rankReward(1, '2026-10-19').seal);
   assert.equal(h.rec.awk, 1);
   assert.equal(h.rec.awin, 1);
   assert.equal(abyssClaim(g, 0, '2026-10-19', 1).err, 'claimed');
@@ -267,5 +267,5 @@ test('장부 순위 — 이번 주 · 지난주, 동점은 먼저 닿은 쪽 · 
   assert.equal(r.week, '2026-10-26');
   assert.deepEqual(r.top.map((x) => [x.name, x.floor]), [['나', 30], ['가', 30], ['다', 12]]);
   assert.deepEqual(r.last.map((x) => [x.name, x.floor]), [['다', 40], ['라', 25]]);
-  assert.deepEqual(r.me, { now: 0, prev: 2 });
+  assert.deepEqual(r.me, { now: 0, prev: 2, prevFloor: 25, claimed: false });
 });

@@ -2344,7 +2344,6 @@ button.forge-stage:disabled { cursor: default; }
 .deep-zones small { color: var(--sh-faint); font-size: 11px; }
 @media (max-width: 520px) { .deep-recipe, .deep-zones { grid-template-columns: 1fr; } }
 /* 심연의 탑 창(AbyssPanel.jsx) — 계몽의 문 창 틀을 그대로 쓰고 줄 · 칸만 더한다. 강조는 금빛 한 곳(층 수) */
-.abyss-panel { width: min(540px, calc(100% - 24px)); }
 .abyss-me { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 10px 0 6px; border: 1px solid var(--sh-line); border-radius: 8px; }
 .abyss-me div { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; }
 .abyss-me div + div { border-left: 1px solid var(--sh-line); }
@@ -2369,6 +2368,65 @@ button.forge-stage:disabled { cursor: default; }
 .abyss-shop li small { grid-row: 2; font-size: 11px; color: var(--sh-faint); }
 .abyss-shop li .shop-btn { grid-row: 1 / span 2; grid-column: 2; }
 .abyss-shop li.abyss-note { display: block; border: 0; font-size: 11.5px; color: var(--sh-faint); }
+/* 11월 9일 심연의 탑 보상 개편 — 교환 갈래 · 상품 줄 · 상자 확인 · 돌파 보상 · 외형. 같은 .shop 틀 · 1px 선 · 금빛 강조 한 곳 */
+.abyss-panel { width: min(600px, calc(100% - 24px)); }
+.abyss-wallet { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 10px 0 2px; font-size: 12px; color: var(--sh-mute); }
+.abyss-wallet b { margin-left: 4px; font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 15px; color: var(--sh-text); letter-spacing: -0.02em; }
+.abyss-wallet small { margin-left: 3px; font-size: 10.5px; color: var(--sh-faint); }
+.abyss-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 2px; transform: rotate(45deg); vertical-align: 1px; background: #8fc8f0; }
+.abyss-dot.seal { background: #d8b870; border-radius: 50%; transform: none; }
+.abyss-cats { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 2px; }
+.abyss-cats button { padding: 5px 10px; cursor: pointer; font-family: inherit; font-size: 12px; letter-spacing: -0.02em; color: var(--sh-mute);
+  background: transparent; border: 1px solid var(--sh-line); border-radius: 999px; }
+.abyss-cats button.on { color: var(--sh-text); border-color: var(--sh-gold); }
+.abyss-goods { margin: 6px 0 4px; padding: 0; list-style: none; }
+.abyss-goods > li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; column-gap: 10px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--sh-line); }
+.abyss-goods > li.on { background: var(--sh-row); }
+.abyss-goods > li.sold .abyss-g-main span { color: var(--sh-mute); }
+.abyss-goods > li.abyss-note { display: block; border: 0; font-size: 11.5px; color: var(--sh-faint); }
+.abyss-g-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.abyss-g-main span { color: var(--sh-text); letter-spacing: -0.02em; }
+.abyss-g-main small { font-size: 11px; line-height: 1.45; color: var(--sh-faint); overflow-wrap: anywhere; }
+.abyss-g-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; text-align: right; }
+.abyss-g-side small { font-size: 10.5px; color: var(--sh-faint); white-space: nowrap; }
+.abyss-cost { display: flex; gap: 8px; font-family: 'Do Hyeon', sans-serif; font-size: 14px; color: var(--sh-text); white-space: nowrap; }
+.abyss-cost b { font-weight: 400; }
+.abyss-cost b.lack { color: var(--sh-warn); }
+.abyss-limit { margin-left: 6px; padding: 0 6px; font-style: normal; font-size: 10.5px; color: var(--sh-mute); border: 1px solid var(--sh-line); border-radius: 999px; vertical-align: 1px; }
+.abyss-ico { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--sh-line); border-radius: 8px;
+  font-family: 'Do Hyeon', sans-serif; font-size: 15px; color: var(--sh-mute); background: rgba(0, 0, 0, 0.12); }
+.abyss-ico.title { color: var(--sh-gold); }
+.abyss-ico.look { width: 40px; height: 45px; padding: 0; }
+.abyss-ico.look.dim { opacity: 0.45; filter: grayscale(0.6); }
+.abyss-why { grid-column: 2 / -1; margin: 4px 0 0; font-size: 11px; color: var(--sh-warn); }
+.abyss-confirm { grid-column: 1 / -1; margin-top: 8px; padding: 9px 10px; border: 1px solid var(--sh-line); border-radius: 8px; font-size: 12px; color: var(--sh-mute); }
+.abyss-confirm p { margin: 0 0 6px; }
+.abyss-confirm .adv-acts { margin-top: 6px; }
+.abyss-picks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 6px; }
+.abyss-picks button { padding: 8px 6px; cursor: pointer; font-family: inherit; font-size: 12px; letter-spacing: -0.02em; color: var(--sh-text);
+  background: transparent; border: 1px solid var(--sh-line); border-radius: 8px; }
+.abyss-picks button.on { border-color: var(--sh-gold); color: var(--sh-gold); }
+.abyss-odds { width: 100%; margin: 2px 0 6px; border-collapse: collapse; font-size: 12px; }
+.abyss-odds td { padding: 4px 6px; border-bottom: 1px solid var(--sh-line); color: var(--sh-text); }
+.abyss-odds td:first-child { width: 58px; font-family: 'Do Hyeon', sans-serif; color: var(--sh-mute); white-space: nowrap; }
+.abyss-tiers { margin-top: 6px; }
+.abyss-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; margin: 8px 0 4px; padding: 9px 12px;
+  border: 1px solid var(--sh-gold); border-radius: 8px; }
+.abyss-result small { font-size: 11px; color: var(--sh-mute); }
+.abyss-result b { grid-row: 2; font-weight: 400; color: var(--sh-gold); letter-spacing: -0.02em; }
+.abyss-result .shop-btn { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+.abyss-state { font-style: normal; font-size: 11px; color: var(--sh-faint); white-space: nowrap; }
+.abyss-state.got { color: var(--sh-mute); }
+.abyss-state.ready { color: var(--sh-gold); }
+.abyss-first > li.st-got .abyss-g-main span { color: var(--sh-mute); }
+.abyss-first > li.st-lock .abyss-g-main span { color: var(--sh-mute); }
+@media (max-width: 480px) {
+  .abyss-goods > li { grid-template-columns: 40px minmax(0, 1fr); row-gap: 6px; }
+  .abyss-g-side { grid-column: 2; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 10px; text-align: left; }
+  .abyss-g-side .shop-btn { margin-left: auto; }
+  .abyss-picks { grid-template-columns: minmax(0, 1fr); }
+}
+
 
 .quest-area-tabs { display:flex; flex-wrap:wrap; gap:6px; max-height:150px; overflow-y:auto; padding:8px 0; }
 .quest-area-tabs [aria-selected="true"] { border-color:#d6b26a; color:#ffe08a; background:#493a25; }

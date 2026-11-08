@@ -156,7 +156,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 장기 분기는 쌍점 꼬리표(`S1_RESCUE:supply`, 문서 플래그 16개)로 한 번만 확정된다. 줄 조건 `if` / `not` / `tr`(관계).
 - **서버 권위**: 화면은 고른 대답 번호 `picks` 만 보내고 서버가 `storyPicks` 로 장면을 다시 따라가 꼬리표 · 관계를 정한다. 맞지 않으면 진행하지 않는다.
 - 이야기 맵 23곳(1부 10 + `STORY_MAPS_2` 13, `PLACE()` 로 배치, 그림은 임시 도형). 대화 창 `VillagePanel.jsx`, 진행 칸 `StoryCard.jsx`(부 · 장 표시), 기믹(`order` · `hidden` · `wrong` · `timer`)은 그대로다.
-- 완결 보상(30-05 `STORY_CLEAR_ID`): 기록 `rec.story`(REC_IDS 끝) → 칭호 `story30` 「네 갈래의 증인」(체력 +2점) · 단 칭호의 발밑 네 갈래 빛(`rpgArt.js STORY_TITLE`) · 가방 책 탭의 기념 기록서(내 선택으로 만든다). 완결 뒤 마을 인물은 후일담 대사(`storyAfter.js STORY_AFTER`). 칭호는 비트 두 칸에 62개까지라 지금 61개다.
+- 완결 보상(30-05 `STORY_CLEAR_ID`): 기록 `rec.story`(REC_IDS 끝) → 칭호 `story30` 「네 갈래의 증인」(체력 +2점) · 단 칭호의 발밑 네 갈래 빛(`rpgArt.js STORY_TITLE`) · 가방 책 탭의 기념 기록서(내 선택으로 만든다). 완결 뒤 마을 인물은 후일담 대사(`storyAfter.js STORY_AFTER`). 칭호 비트는 11월 9일 세 칸(93개)으로 늘었다.
 - **전달 개선(11월 8일)**: 단계 `look`(단서를 다 봐야 `at` 이 열림, 서버도 거절) · 줄 `key` · `fx` · `boss`(체력 줄은 보여 주기만). 의뢰 칸 상황 · 이유 `storyGuide.js`, 알게 된 것 · 장 요약 · 마을 말 `storyRecap.js`, 이야기 기록 `storyJournal`(저장 값 없음, 찾은 것만). 시험 `tools/story-guide.test.mjs`.
 - 보스 실제 전투는 아직 없다(보스는 시간 제한 선택 대화). 광장의 의뢰 NPC 한결 · 보리 · 미나는 이름만 같은 다른 인물이다. 시험은 `tools/story-quest.test.mjs` · `tools/story.test.mjs`.
 
@@ -181,3 +181,11 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - `highData.js` 한 곳(지역 · 몹 · 정예 · 보스 기술 · 재료 · 그림 규격). 규칙 `highCombat.js`, 그림 `highArt.js` · `highFxArt.js`, 시험 `tools/high.test.mjs`.
 - 테스트 서버에서 먼저 확인한 뒤 `HIGH.live = true` 로 모든 서버에 열었다. live 를 false 로 되돌리면 테스트 서버(`g.test` · `g.high`)에서만 열린다(`highOn(g)`, 문은 `gatesOf(g, M)`). 장부 순위 레벨 검사는 네 자리(`ledger.js` `{1,4}`).
 - 맵 · 몹 · 기록은 기존 목록 끝에만 붙였다. 모든 공격은 바닥 예고(`sk_hi_warn`)와 판정이 같은 모양. 그림 규격 `docs/고레벨-사냥터-그림-규격.md`, 상세는 `docs/작업-상세-기록.md` 끝.
+
+### 심연의 탑 보상 개편 (11월 9일)
+- 수치 `abyssData.js`(교환 · 상자 · 돌파 · 순위 · 외형), 규칙 `abyssReward.js`, 외형 그림 `abyssLookArt.js`(코드 그림). 상세 `docs/심연의-탑-보상-개편.md`, 시험 `tools/abyss-reward.test.mjs`, 난이도 측정 `tools/abyss-floor-balance.mjs`.
+- 파편 · 인장 상한 99,999 — 재료 상한은 늘 `matMax(id)` 로 본다(`MAT_MAX` 를 직접 쓰지 않는다).
+- 새 물품 · 상자 · 돌파 보상은 전용 서버만 판정하고 요청 id(`rid`)로 두 번 처리를 막는다. 가방 `bag.ab` 에 저장. 외형 · 돌파 차례는 뒤에만 더한다.
+- 주간 순위 수령은 장부 `abyss_claims`(캐릭터 · 주 PK) · 굳힌 순위표 `abyss_boards`. `ABYSS_RANK.v2From` 앞선 주는 예전 표.
+- 칭호는 63개, 비트 묶음 셋(`TITLE_CHUNKS`, 스냅샷 row[54].t3).
+

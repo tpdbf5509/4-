@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { DEEP, DEEP_MAPS } from "./game/deepData.js";
-import { whyDeepCraft, whyDeepEnter, whyHighEnter, hasEye } from "./game/rpg.js";
+import { whyDeepCraft, whyDeepEnter, hasEye } from "./game/rpg.js";
 import { HIGH, HIGH_MAPS } from "./game/highData.js";
 import { TEST_MODE } from "./net/testMode.js";
 
@@ -14,7 +14,7 @@ export default function DeepPanel({ self, act, onClose }) {
   useEffect(() => { const prev = document.activeElement; dialog.current?.focus(); return () => prev?.focus?.(); }, []);
   if (!self) return null;
   const eye = hasEye(self);
-  const whyCraft = eye ? [] : whyDeepCraft(self), whyIn = whyDeepEnter(self), whyHigh = whyHighEnter(self, HIGH_OPEN);
+  const whyCraft = eye ? [] : whyDeepCraft(self), whyIn = whyDeepEnter(self);
   const have = (id) => (self.admin ? 999 : (self.bag && self.bag.m && self.bag.m[id]) || 0);
   return (
     <>
@@ -61,10 +61,7 @@ export default function DeepPanel({ self, act, onClose }) {
               <ul className="deep-zones">
                 {HIGH_MAPS.map((d) => <li key={d.id}><span>{d.name}</span><small>{d.mob.name} · {d.lv[0]}~{d.lv[1]}레벨</small></li>)}
               </ul>
-              <div className="adv-acts">
-                <button type="button" className="shop-btn main" disabled={whyHigh.length > 0} title={whyHigh[0] || ""} onClick={() => { act("deep", { op: "enter", to: "high" }); onClose(); }}>{HIGH_MAPS[0].name}으로 들어가기</button>
-              </div>
-              {whyHigh.length > 0 && <p className="adv-why">{whyHigh[0]}</p>}
+              <p className="adv-why">타락한 천궁 오른쪽 문으로 이어집니다(800레벨).</p>
             </>
           )}
         </div>

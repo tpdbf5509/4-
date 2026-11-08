@@ -4,6 +4,7 @@ import {WORLD_BOSS as C,WORLD_BOSSES,WORLD_BOSS_BY_TYPE,WORLD_BOSS_PATTERNS} fro
 import {bloom,sparks,ring,bolt} from './combatFx.js';
 import {worldBossCoopOpen} from './worldBoss.js';
 import {VOID_TONE,drawVoidGround,drawVoidImpact,drawVoidSigil} from './voidBossArt.js';
+import {wbIntroRise,WB_RISE_DEPTH,drawWbIntroGround} from './worldBossIntro.js';
 import {warmWorldBossPx,drawWbWarnPx,drawWbPoolPx,drawWbStunPx,drawWbHitPx,drawWbBreakPx,drawWbFallPx,drawWbDoomSigilPx} from './worldBossPxArt.js';
 const TAU=Math.PI*2;
 const TONES={dragon:['#96351d','#ff873b','#fff1bf'],serpent:['#48315e','#a9e66e','#f2ffd4'],machine:['#235476','#68dafa','#f0fcff'],thunderbird:['#403879','#a7a2ff','#e6fbff'],void:VOID_TONE};
@@ -68,6 +69,7 @@ function drawDoomSafe(ctx,s,a,p){
 export function drawWorldBossGround(ctx,g,map,quality=1){
   if(map!==C.map||!g.wb?.active)return;
   const a=g.wb.active,t=g.t,tone=TONES[a.id];
+  drawWbIntroGround(ctx,a,tone,quality);   // 등장 연출 — 갈라짐 · 흙먼지 · 충격파(worldBossIntro.js)
   a.pools.forEach((p,j)=>{paintArea(ctx,p,'#9563b2',.3);if(drawWbPoolPx(ctx,p,t))return;const n=Math.max(3,Math.round(8*quality));ctx.save();ctx.strokeStyle=tone[1];ctx.lineWidth=2;ctx.globalAlpha=.55;
     for(let i=0;i<n;i++){const angle=i*2.39996+j,d=p.r*(.2+.65*((i*17%29)/29));ctx.beginPath();ctx.arc(p.x+Math.cos(angle)*d,p.y+Math.sin(angle)*d*C.squash-Math.sin(t*3+i)*7,3+(i%3),0,TAU);ctx.stroke();}ctx.restore();});
   if(a.stun>0){runeHalo(ctx,a.x,a.y,130,t,'#ffe19a',quality);return;}
@@ -122,6 +124,9 @@ export function drawWorldBossSprite(ctx,m,time,state,quality=1){
     if(attack.diving){const s=attack.areas[0];ctx.save();ctx.scale(1,C.squash);ctx.rotate(s.a);
       for(const side of [-1,1]){ctx.strokeStyle='#a7eaff';ctx.lineWidth=4;ctx.globalAlpha=.65;ctx.beginPath();ctx.moveTo(-160,side*40);ctx.lineTo(30,side*22);ctx.stroke();}ctx.restore();}
   }
+  // 등장 연출 — 땅 아래에서 올라온다. 발 아래는 잘라 땅속에 있는 것처럼 보인다(worldBossIntro.js)
+  const rise=wbIntroRise(B.id);
+  if(rise!==null){ctx.beginPath();ctx.rect(-600,-1000,1200,1000-bob);ctx.clip();ctx.translate(0,WB_RISE_DEPTH*(1-rise));ctx.globalAlpha=.35+.65*rise;}
   if(im){const cw=im.naturalWidth/(B.art?.cols||C.artCols),ch=im.naturalHeight/(B.art?.rows||C.artRows);
     const feet=B.art?B.art.feet[row]:C.artFeet[row][col];ctx.imageSmoothingEnabled=false;
     ctx.drawImage(im,col*cw,(B.art?0:row)*ch,cw,ch,-size*.5,-size*feet,size,size);}

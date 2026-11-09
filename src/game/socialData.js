@@ -80,6 +80,8 @@ export const TITLES = [
   // 11월 9일 심연의 탑 보상 개편 — 교환(파편 2,000 · 인장 8) · 60층 생애 최초 돌파 보상. 63번째부터는 스냅샷 셋째 숫자(줄 54 extra.t3)
   { id: "abyss_title_beyond", name: "탑을 넘어선 자", need: { abeyond: 1 }, up: { atk: 4 } },
   { id: "abyss_title_conqueror", name: "심연의 정복자", need: { aconq: 1 }, up: { hp: 3 } },
+  // 11월 9일 연금술 — 물약 제작 레벨 50(alchemy.js 가 기록 alch 를 1로 둔다). 중상급 칭호와 같은 3점
+  { id: "alch50", name: "마스터 연금술사", need: { alch: 1 }, up: { atk: 3 } },
 ];
 /* 칭호 능력치 보너스 — 얻은 칭호마다 up 을 스탯 값에 더한다(찍은 포인트와 별개 · 스탯 창에 초록 몫, shop.js extraStat).
    up 은 스탯 포인트로 센 양 — 쉬운 칭호 1점 · 중간 2점 · 어려운 3점 · 가장 어려운 4점. 11월 1일 사용자 요청으로 처음 넣음.
@@ -125,7 +127,8 @@ export const REC_IDS = ["rabbit", "wolf", "boar", "boss", "quest", "party", "gor
   "atop", "awk", "awin", "atb", "aking", ...GUARD_IDS,
   "story",   // story — 메인 이야기 30장을 마쳤으면 1
   ...HIGH_IDS, ...HIGH_ELITE_IDS,   // 800~1200레벨 일반 · 정예 잡은 수(highData.js). 소환물은 보상 · 기록이 없다
-  "abeyond", "aconq"];   // 11월 9일 — 칭호 「탑을 넘어선 자」 교환 · 「심연의 정복자」 60층 최초 돌파(1)
+  "abeyond", "aconq",
+  "alch"];   // 11월 9일 — 물약 제작 레벨 50을 이뤘으면 1(칭호 「마스터 연금술사」)   // 11월 9일 — 칭호 「탑을 넘어선 자」 교환 · 「심연의 정복자」 60층 최초 돌파(1)
 // 조건 이름 — 칭호 창에 "토끼 37/100" 처럼 보인다
 export const NEED_NAME = {
   lv: "레벨", coins: "코인", rabbit: "토끼", wolf: "늑대", boar: "멧돼지", boss: "보스", quest: "퀘스트", party: "파티 사냥", gorilla: "고릴라", pvp: "결투 승리",
@@ -133,7 +136,7 @@ export const NEED_NAME = {
   skeletal: "스켈레톤", zombie: "좀비", necro: "언데드 마법사", golem: "골렘", chimera: "키메라", spider: "포식거미",
   fspirit: "불정령", lavagolem: "용암골렘", firedrake: "화염룡", ifrit: "이프리트", wraith: "망령기사", abyss: "심해괴수", voidmage: "공허술사", fallen: "타락천사",
   guild_slime: "강화된 슬라임", guild_siren: "바다세이렌", guild_phoenix: "불사조",
-  atop: "심연의 탑 최고 층", story: "메인 이야기 완결", awk: "주간 순위 상위 10", awin: "주간 순위 1위", atb: "파편 교환", aking: "인장 교환", abeyond: "파편 · 인장 교환", aconq: "심연의 탑 60층 최초 돌파 보상",
+  atop: "심연의 탑 최고 층", story: "메인 이야기 완결", awk: "주간 순위 상위 10", awin: "주간 순위 1위", atb: "파편 교환", aking: "인장 교환", abeyond: "파편 · 인장 교환", aconq: "심연의 탑 60층 최초 돌파 보상", alch: "물약 제작 레벨 50",
   ...Object.fromEntries(GUARDIANS.map((q) => [q.type, q.name])),
   ...Object.fromEntries(HIGH_MAPS.flatMap((d) => [[d.id, d.mob.name], [eliteId(d.id), d.elite.name]])),
   ...CODEX_NEED_NAME,

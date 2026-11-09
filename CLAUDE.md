@@ -189,3 +189,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 주간 순위 수령은 장부 `abyss_claims`(캐릭터 · 주 PK) · 굳힌 순위표 `abyss_boards`. `ABYSS_RANK.v2From` 앞선 주는 예전 표.
 - 칭호는 63개, 비트 묶음 셋(`TITLE_CHUNKS`, 스냅샷 row[54].t3).
 
+### 물약 제작 · 연금술 (11월 9일)
+- 수치 `alchemyData.js` · 규칙 `alchemy.js` · 그림 `alchemyArt.js` · 창 `AlchemyPanel.jsx`. 상세 `docs/작업-상세-기록.md` 끝, 시험 `tools/alchemy.test.mjs`.
+- 제작 레벨 1~50은 가방 `bag.al`. 일반 물약은 제작 레벨 50부터 산다(`whyPotionBuy` · 서버도 같은 함수). 특별 물약 셋(`SPECIAL_POTIONS`)은 그대로.
+- 채집물은 `HERBS`(차례가 번호 — 새 사냥터는 `TIERS` 뒤에만). 판정은 서버, 스냅샷 `hb` · row[54].ga. 재료 8종은 `MATERIALS` 끝(되팔기 0).

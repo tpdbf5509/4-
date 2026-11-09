@@ -32,6 +32,8 @@ import { BOOKS, BOOK_BY_ID, PATCH_BOOKS } from "./game/bookData.js";
 import { storyBook } from "./game/storyAfter.js";
 import { Coin } from "./ui/icons.jsx";
 import { useCasinoRun, DiceStage, SlotStage, BoxStage, CASINO_SKIP } from "./CasinoStage.jsx";
+import { AlchemyShop } from "./AlchemyPanel.jsx";
+import { isSpecialPotion, canBuyPotion } from "./game/alchemy.js";
 
 const won = (n) => Math.round(n).toLocaleString("ko-KR");
 const pct = (v, d = 1) => `${(Math.round(v * 100 * 10 ** d) / 10 ** d).toLocaleString("ko-KR")}%`;
@@ -300,9 +302,13 @@ function SkillShop({ h, send }) {
   );
 }
 
-/* ── 물약 상점 — 종류별로 묶는다 ─────────────────────────────── */
+/* ── 물약 상점 — 제작 · 구매 · 의뢰 · 정보 탭(AlchemyPanel.jsx). 구매 탭의 물약 목록은 종류별로 묶는다 ── */
 const POTION_GROUPS = [["heal", "회복 물약"], ["buff", "버프 물약"], ["speed", "이속 물약"], ["hide", "투명화 물약"], ["reset", "스탯 초기화"], ["adv", "전직 초기화"], ["elem", "원소 전환"]];
 function PotionShop({ h, send }) {
+  return <AlchemyShop h={h} send={send} Buy={PotionBuy} />;
+}
+// 물약 구매 목록 — 일반 물약은 제작 레벨 50부터(whyPotionBuy 가 막고 서버도 같은 함수로 막는다) · 특별 물약 셋은 늘
+function PotionBuy({ h, send }) {
   const [ask, setAsk] = useState(null);              // 마시기 전에 묻는 물약(전직 초기화 · 원소 전환)
   return (
     <>
@@ -316,7 +322,7 @@ function PotionShop({ h, send }) {
               meta={<span className="shop-meta"><span>가진 수 {h.bag.p[p.id] || 0}</span></span>}
               desc={potionText(p)} price={<Price n={p.price} />}
               acts={[
-                { label: "사기", why: whyPotionBuy(h, p.id), onClick: () => send({ op: "pbuy", id: p.id }) },
+                { label: "사기", why: whyPotionBuy(h, p.id), quiet: !isSpecialPotion(p.id) && !canBuyPotion(h), onClick: () => send({ op: "pbuy", id: p.id }) },   // 잠금 문구는 탭 위에 한 번
                 drinkAct(h, p, send, setAsk, { quiet: true }),
               ]} />
           ))}
@@ -884,7 +890,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
         <>
           <DrinkAsk h={h} p={ask} send={send} onClose={() => setAsk(null)} />
           <p className="shop-note">칸 1 · 2 · 3 에 넣어 두면 화면 왼쪽 아래 칸이나 숫자키 5 · 6 · 7 로 바로 마십니다. 넣은 칸을 다시 누르면 뺍니다.</p>
-          {!potions.length && <Empty>물약 상점에서 살 수 있습니다.</Empty>}
+          {!potions.length && <Empty>물약 상점에서 만들 수 있습니다. 제작 레벨 50부터는 살 수도 있습니다.</Empty>}
           {potions.map((p) => {
             const at = qs.indexOf(p.id);
             return (

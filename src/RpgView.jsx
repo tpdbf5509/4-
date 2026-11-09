@@ -42,6 +42,8 @@ import { rpgInput } from "./game/rpgInput.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
+import { herbNear } from "./game/alchemy.js";
+import { HERBS_BY_MAP, GATHER } from "./game/alchemyData.js";
 import { POTION } from "./game/shopData.js";
 import { WEAPON_SKILLS } from "./game/skillData.js";
 import { TRAIN, TRAIN_TOGGLES, TRIAL } from "./game/trainData.js";
@@ -163,7 +165,7 @@ const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.m
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 // 맵을 불러오는 동안 막는 조작 — 걷기 · 공격 · 스킬 · 말 걸기. 놓기(빈 방향 · 끄기 · 취소 · 목적지 지우기)는 그대로 보낸다
-const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk"]);
+const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk", "herb"]);
 const loadBlocks = (kind, dir) => LOAD_BLOCK.has(kind) && !(kind === "hold" && !(dir && dir.length))
   && dir !== false && dir !== "cancel" && !(kind === "mv" && dir && dir.stop);
 const BIND_EAT_MS = 80;       // 키 설정에서 마우스 버튼을 넣은 뒤 뒤따르는 클릭 · 오른쪽 메뉴를 막는 시간(ms) — 짧게 둬 다음 칸 클릭을 먹지 않는다
@@ -877,6 +879,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (kind === "talk") {
       const h = g.heroes[mySeat];
       const npc = npcNear(h);
+      // 약초 채집물이 NPC 보다 가까우면 채집한다(alchemy.js) — 시작 · 완료는 서버가 정한다
+      const hn = h && herbNear(g, h);
+      if (hn && (!npc || Math.hypot(hn.x - h.x, hn.y - h.y) < Math.hypot(npc.x - h.x, npc.y - h.y))) {
+        if (!h.gath) actRef.current?.("herb", { op: "go", i: hn.i });
+        return;
+      }
       if (!npc) return;
       if (npc.village) { closeAll(); setVillageOpen(npc.id); return; }
       if (npc.board) { closeAll(); setHonorOpen(true); loadRank(); return; }   // 명예 순위판 — 창만 연다
@@ -942,6 +950,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const g = G.current, h = g.heroes[mySeat];
     const npc = h && (pickNpc(h.map, w.x, w.y) || null);
     talkRef.current = null;
+    // 약초 채집물을 누르면 곁으로 가서 채집한다(곁이면 바로)
+    const herb = h && !npc ? (HERBS_BY_MAP[h.map] || []).find((n) => Math.hypot(n.x - w.x, n.y - 10 - w.y) < 28) : null;
+    if (herb) {
+      if (Math.hypot(herb.x - h.x, herb.y - h.y) <= GATHER.reach - 10) { act("herb", { op: "go", i: herb.i }); return; }
+      const d = Math.hypot(h.x - herb.x, h.y - herb.y) || 1, k = (GATHER.reach - 40) / d;
+      if (sendMove({ x: herb.x + (h.x - herb.x) * k, y: herb.y + (h.y - herb.y) * k })) talkRef.current = { herb: herb.i, map: h.map, at: performance.now() };
+      return;
+    }
     if (npc) {
       if (npcNear(h)?.id === npc.id) { act("talk"); return; }   // 이미 곁이다 — 바로 말을 건다
       const stop = npcStopPoint(h, npc);
@@ -1428,7 +1444,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (!mh || mh.map !== tk.map || mh.down > 0 || now - tk.at > MV_UI.talkWait) talkRef.current = null;
         else if (!mh.dest) {
           talkRef.current = null;
-          if (npcNear(mh)?.id === tk.id) actRef.current?.("talk");
+          if (tk.herb !== undefined) actRef.current?.("herb", { op: "go", i: tk.herb });   // 약초 곁에 닿았다 — 채집
+          else if (npcNear(mh)?.id === tk.id) actRef.current?.("talk");
         }
       }
       // 월드보스 등장 연출 — 불러오기 가림막이 걷히기 시작하면 띄운다(worldBossIntro.js, 화면에만)
@@ -1460,7 +1477,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         const me = g.heroes[mySeat];
         setHud(me ? {
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
-          coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: npcNear(me),
+          coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: npcNear(me), herb: herbNear(g, me), gath: !!me.gath,
           st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v, admin: !!me.admin,
           // 산 스킬 칸 — 배운 것만, 남은 대기 시간과 함께
           // 스킬 칸 — 직업 칸 · 일반 칸 1 · 2 에 넣은 것만(가방 "스킬" 탭)
@@ -2431,6 +2448,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <span className="rpg-talk-line">{me.near.intro}</span>
               <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
                 {me.story?.targets?.includes(me.near.id) ? "이야기 진행" : me.near.sight ? "살펴보기" : "이야기 듣기"}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
+          {me && me.herb && !nearShopNpc && !shopOpen && !bagOpen && MAT_BY_ID[me.herb.kind] && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">채집</span>
+              <span className="rpg-talk-line">{me.gath ? "채집하는 중입니다. 움직이면 멈춥니다." : `${MAT_BY_ID[me.herb.kind].name} · ${GATHER.time}초 동안 가만히 있으면 ${GATHER.n[0]}~${GATHER.n[1]}개를 얻습니다.`}</span>
+              <button className="btn-ghost rpg-talk-btn" disabled={me.gath} onClick={() => act("herb", { op: "go", i: me.herb.i })}>
+                채집하기{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
               </button>
             </div>
           )}

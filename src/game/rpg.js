@@ -48,6 +48,8 @@ export { highOn } from "./highData.js";
 import { isHighMob, stepHigh, tickHigh, highDeath, highTake, highFlags } from "./highCombat.js";
 import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
   isGuardFloor, abyssWeek, cleanAw, rollAw, GUARD_BY_TYPE, ABYSS_FIRST, LOOK_BY_ID } from "./abyssData.js";
+import { gatherStart, tickGather, tickHerbs, packHerbs, herbNear, alchLv } from "./alchemy.js";
+import { ALCH, HERBS } from "./alchemyData.js";
 import { abOf, ridSeen, ridOk, ridMark, v2Buy, boxOpen, firstClaim, rankClaim, lookSet, giveText, lookBits } from "./abyssReward.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
 import { ELITE, eliteCount, GRACE } from "./abyssCardData.js";
@@ -1556,6 +1558,19 @@ export function rpgTalk(g, pi) {
   } else {
     say(g, h.map, npc.x, npc.y - 70, `토끼 ${QUEST.need - h.quest.n}마리 남았네`, "#f0dcb4");
   }
+}
+
+/* 약초 채집 — req = { op: "go", i 채집물 번호(없으면 가장 가까운 것) } · { op: "stop" }. 시작 · 완료 · 보상은 여기(서버)가 정한다 */
+export function rpgHerb(g, pi, req) {
+  const h = g.heroes[pi];
+  if (!h || !h.loaded || !req) return false;
+  if (req.op === "stop") { h.gath = null; return true; }
+  if (req.op !== "go" || h.gath) return false;
+  const i = Number.isInteger(req.i) ? req.i : (herbNear(g, h) || {}).i;
+  const why = gatherStart(g, h, i);
+  if (why) return void sys(g, pi, `${why}.`);
+  stopMove(h);
+  return true;
 }
 
 /* 의뢰인을 만났는지 — 처음 한 번은 그 NPC 에게 말을 걸어 받아야 하고, 그 뒤로는 내 화면의 의뢰 창에서 받는다(사용자 결정 10월 19일).
@@ -3759,6 +3774,14 @@ function stepHeroes(g, dt) {
     if (h.calm >= (duelRest ? DUEL.calm : RPG.calm) && (!duelRest || DUEL.calmRegen > 0)) h.hp = Math.min(h.max, h.hp + h.max * (duelRest ? DUEL.calmRegen : RPG.calmRegen) * regenDt * (h.ac ? acHealMul(h) : 1));   // 강화 카드 — 받는 회복량
     if (h.dash > 0) dashStep(h, dt);                // 대쉬 중에는 걷지 않고 달려 나간다
     else rpgWalk(h, dt);
+    if (h.gath) {                                   // 약초 채집(alchemy.js) — 움직이면 취소, 다 되면 그 자리가 나 있을 때만 받는다
+      const r = tickGather(g, h, dt);
+      if (r && r.cancel) sys(g, h.pi, `${r.cancel}.`);
+      else if (r) {
+        const name = MAT_BY_ID[r.kind] ? MAT_BY_ID[r.kind].name : r.kind;
+        fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: r.n ? `${name} +${r.n}` : `${name}이 가득 찼습니다`, color: "#cfe6c4", t: 0.9, life: 0.9, snd: "coin", who: h.pi });
+      }
+    }
 
     // 문에 들어서면 반대쪽 맵으로 옮겨 간다
     if (h.gateCd <= 0) {
@@ -5000,7 +5023,7 @@ function tickSocial(g, dt) {
   g.titleT -= dt;
   if (g.titleT <= 0) {
     g.titleT = 0.5;
-    g.heroes.forEach((h) => { if (h && h.loaded && !trading(h)) { awardTitles(g, h, false); awardAchieves(g, h); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
+    g.heroes.forEach((h) => { if (h && h.loaded && !trading(h)) { if (alchLv(h) >= ALCH.maxLv && !h.rec.alch) h.rec.alch = 1; awardTitles(g, h, false); awardAchieves(g, h); givePersonal(g, h); giveAdminLegends(g, h); giveAdminKit(g, h); } });
   }
 }
 
@@ -5025,6 +5048,7 @@ export function rpgStep(g, dt) {
   tickRace(raceEngine, g, dt);
   tickRuns(g, dt);
   tickAbyss(g, dt);
+  tickHerbs(g, dt);                               // 채집한 약초 자리가 다시 난다(alchemy.js)
   tickWorldBoss(worldBossEngine,g,dt);tickGuild(guildEngine,g,dt);
   tickHigh(highEngine, g, dt);                    // 800~1200 — 지나온 자리 기록 · 균열 · 회복 구역
   g.hits = g.hits.filter((s) => {
@@ -5105,10 +5129,12 @@ export function rpgPack(g) {
         packAdv(h),                             // 53 — 전직 상태
         {team:h.duelTeam,size:h.duelSize||0,color:h.duelColor??-1,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0,wear:wearOf(h),hideGear:h.hideGear||0,
           t3:TITLES.reduce((bits, t, i) => (i >= TITLE_BITS * 2 && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS * 2)) : bits), 0),   // 63번째 칭호부터(11월 9일)
-          al:lookBits(h.bag, Date.now())},   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
+          al:lookBits(h.bag, Date.now()),
+          ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0] // 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
+    hb: packHerbs(g),                             // 채집한 약초 자리 — { 번호: 다시 나기까지 초 }(alchemy.js)
     w: g.heroes.map((h) => (h && h.who) || ""),    // 자리마다 앉은 사람 id — 손님이 제 자리 영웅인지 견준다(남의 기록을 제 것으로 저장하지 않게)
     duels:structuredClone(g.duels),race:g.race?structuredClone(g.race):null,powerCircles:structuredClone(g.powerCircles||[]),
     wb: structuredClone(g.wb), wbServer:g.wbServer,gr:structuredClone(g.gruns||[]),grr:structuredClone(g.gresults||[]),
@@ -5136,12 +5162,13 @@ export function rpgApply(g, s) {
   if(s.wb)g.wb=structuredClone(s.wb);
   if(s.gr)g.gruns=structuredClone(s.gr);if(s.grr)g.gresults=structuredClone(s.grr);
   if(s.wbServer)g.wbServer=s.wbServer;
+  if (s.hb && typeof s.hb === "object") g.herbs = Object.fromEntries(Object.entries(s.hb).filter(([k, t]) => HERBS[k] && t > 0).map(([k, t]) => [k, Number(t)]));
   s.h.forEach((row, pi) => {
     if (!row) { g.heroes[pi] = null; return; }
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
-    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;}
+    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;h.gath=Array.isArray(extra.ga)&&HERBS[extra.ga[0]]?{i:extra.ga[0],t:Number(extra.ga[1])||0,x:h.x,y:h.y,at:Date.now()}:null;}
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;

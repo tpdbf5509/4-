@@ -26,6 +26,8 @@ import { ADV_BONUS } from "./advData.js";
 import { titleStat } from "./socialData.js";
 import { JUNK, bagSteps } from "./junkData.js";
 import { cleanBlocks } from "./block.js";
+import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
+import { ALCH, ALCH_MAT_BY_ID } from "./alchemyData.js";
 
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
 export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]));
@@ -255,6 +257,7 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   b.sq = cleanSq(d.sq);                           // 메인 스토리 1부 진행(storyQuest.js) — 단계 차례 · 끝낸 대상 · 고른 선택지
   if (d.aw) b.aw = cleanAw(d.aw);                 // 심연의 탑 이번 주 · 지난주 기록(abyssData.js)
   if (d.ab) b.ab = cleanAb(d.ab);                 // 심연의 탑 보상 기록 — 교환 횟수 · 돌파 보상 · 상자 보관함 · 외형(abyssReward.js)
+  b.al = cleanAl(d.al);                           // 물약 제작 레벨 · 경험치 · 오늘의 제작 의뢰(alchemy.js) — 옛 캐릭터는 1레벨부터
   cleanWorldBossBag(d,b);
   return b;
 }
@@ -487,9 +490,30 @@ export function whyPotionBuy(h, id) {
   const p = POTION_BY_ID[id];
   if (!p) { out.push("없는 물약입니다"); return out; }
   if (!h || !h.bag) return out;
+  // 일반 물약은 제작 레벨 50부터 산다(11월 9일). 특별 물약 셋(스탯 · 전직 초기화 · 원소 전환)은 그대로 산다 — 서버도 이 함수로 막는다
+  if (!isSpecialPotion(id) && !canBuyPotion(h)) { out.push(`물약 제작 레벨 ${ALCH.buyLv}부터 구매할 수 있습니다.`); return out; }
   if ((h.bag.p[id] || 0) >= POTION.stackMax) out.push(`한 종류는 ${POTION.stackMax}개까지 가질 수 있습니다`);
   lackCoin(h, p.price, out);
   return out;
+}
+// 물약 제작 · 재료 사기 · 제작 의뢰 — 약사 곁에서(alchemy.js 가 재료 · 레벨 · 가방 한도를 본다)
+export function whyPotionCraft(h, id) {
+  const out = [];
+  base(h, "potion", out);
+  if (out.length) return out;
+  return whyCraft(h, id);
+}
+export function whyAlchMatBuy(h, id, n) {
+  const out = [];
+  base(h, "potion", out);
+  if (out.length) return out;
+  return whyAlchBuy(h, id, n);
+}
+export function whyAlchReqDone(h, i) {
+  const out = [];
+  base(h, "potion", out);
+  if (out.length) return out;
+  return whyAlchReq(h, i);
 }
 export function whyPotionUse(h, id, el) {
   const out = [];
@@ -766,6 +790,51 @@ export function rpgShop(g, pi, req) {
       msg = `대성공! ${msg}`;
     }
     return note(g, pi, { ok: true, great, msg: `${p.name} — ${msg}` });
+  }
+
+  /* 연금술 — 약사 곁에서. 결과 · 확률 · 경험치는 여기서 정한다(화면이 보낸 것은 id · 횟수 · 의뢰 차례뿐) */
+  if (op === "aday") {                            // 물약 상점 창을 열 때 — 오늘의 제작 의뢰를 정한다(날짜가 바뀌었을 때만)
+    if (!h.loaded) return { ok: false };
+    rollAlchReq(h.bag);
+    return { ok: true };
+  }
+  if (op === "craft") {
+    const id = String(req.id || ""), times = req.n === ALCH.repeat ? ALCH.repeat : 1;
+    if ((why = whyPotionCraft(h, id)).length) return no(g, pi, why);
+    const was = h.bag.al.lv;
+    const r = craftMany(h, id, times);
+    const p = POTION_BY_ID[id];
+    if (r.great) fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "제작 대성공! +1", color: "#ffd873", t: 1.1, life: 1.1, snd: "crit", who: pi });
+    else fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `${p.name} +${r.got}`, color: "#cfe6c4", t: 0.9, life: 0.9, snd: "build", who: pi });
+    if (r.up) fx(g, h.map, { kind: "call", x: h.x, y: h.y - 140, text: `제작 레벨 ${h.bag.al.lv}`, color: "#e9d39a", t: 1.4, life: 1.4, snd: "clear", who: pi });
+    const bits = [`${jo(p.name, "을", "를")} ${r.got}개 만들었습니다`];
+    if (times > 1) bits.push(`${r.done}/${times}번 제작`);
+    if (r.great) bits.push(`대성공 ${r.great}번`);
+    if (r.saved) bits.push(`재료 절약 ${r.saved}번`);
+    bits.push(r.xp ? `제작 경험치 +${r.xp}` : "제작 경험치 없음");
+    if (r.up) bits.push(`제작 레벨 ${was} → ${h.bag.al.lv}`);
+    if (r.stop.length && times > 1 && r.done < times) bits.push(`멈춘 까닭: ${r.stop[0]}`);
+    return note(g, pi, { ok: true, great: r.great > 0, alch: 1, msg: bits.join(" · ") });
+  }
+  if (op === "abuy") {
+    const id = String(req.id || ""), n = Number(req.n);
+    if ((why = whyAlchMatBuy(h, id, n)).length) return no(g, pi, why);
+    const m = ALCH_MAT_BY_ID[id], price = m.price * n;
+    if (!h.admin) h.coins -= price;
+    h.bag.m[id] = (h.bag.m[id] || 0) + n;
+    bump(h);
+    fx(g, h.map, { kind: "text", x: h.x, y: h.y - 90, text: `-${won(price)} 코인`, color: "#f3d27f", t: 0.9, life: 0.9, snd: "coin", who: pi });
+    return note(g, pi, { ok: true, msg: `${m.name} ${n}개를 샀습니다 (${won(price)}코인)` });
+  }
+  if (op === "areq") {
+    const i = Number(req.i) | 0;
+    rollAlchReq(h.bag);
+    if ((why = whyAlchReqDone(h, i)).length) return no(g, pi, why);
+    const was = h.bag.al.lv, it = h.bag.al.q.l[i];
+    const r = alchReqDone(h, i);
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: "의뢰 완료", color: "#cfe6c4", t: 1.2, life: 1.2, snd: "coin", who: pi });
+    const mats = Object.entries(r.mats).map(([m, n]) => `${MAT_BY_ID[m].name} ${n}`).join(" · ");
+    return note(g, pi, { ok: true, alch: 1, msg: `${POTION_BY_ID[it.r].name} ${it.n}개를 납품했습니다 · 제작 경험치 +${r.xp}${mats ? ` · ${mats}` : ""}${r.up ? ` · 제작 레벨 ${was} → ${h.bag.al.lv}` : ""}` });
   }
 
   // 물약 칸 — i 번째 칸에 물약을 넣거나(id) 뺀다(""). 어디서나 한다

@@ -3,6 +3,7 @@
 import { DEEP_MAPS, DEEP_MATS, EYE_MAT } from "./deepData.js";
 import { ABYSS_MATS } from "./abyssData.js";
 import { HIGH_MAPS, HIGH_MATS } from "./highData.js";
+import { ALCH_MATS } from "./alchemyData.js";
 
 /* 재료 — 가방(bag.m)에 종류마다 MAT_MAX 개까지 쌓인다. sell 은 하나를 팔 때 받는 코인(0 이면 팔 수 없다).
    강화석(stone)은 무기 강화소에서 쓴다. 차례는 화면에 보이는 차례다 */
@@ -25,6 +26,7 @@ export const MATERIALS = [
   ...DEEP_MATS, EYE_MAT,                       // 400~800레벨 보스 재료 · 계몽의 눈(deepData.js)
   ...ABYSS_MATS,                               // 심연의 파편 · 탑의 인장(abyssData.js)
   ...HIGH_MATS,                                // 800~1200레벨 보스 재료(highData.js) — 되팔기만, 제작은 아직 없다
+  ...ALCH_MATS,                                // 연금술 재료 — 채집하는 약초 여섯 · 약사가 파는 물 · 정제수(alchemyData.js, 11월 9일). 되팔 수 없다
 ];
 export const MAT_BY_ID = Object.fromEntries(MATERIALS.map((m) => [m.id, m]));
 export const MAT_MAX = 999;

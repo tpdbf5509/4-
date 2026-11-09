@@ -59,7 +59,7 @@ test('15. 스냅샷 차례 — 예전 목록은 그대로이고 새 것은 끝�
   REQ_NPCS.forEach((n) => pre((REQUESTS[n.id] || []).map((q) => JSON.stringify(q)), O.requests[n.id] || [], `REQUESTS.${n.id}`));
   assert.deepEqual(SNAP_ORDER.maps.slice(O.maps.length), HIGH_IDS, '새 맵 8곳만 끝에');
   assert.deepEqual(SNAP_ORDER.mobs.slice(O.mobs.length), [...HIGH_IDS, ...HIGH_ELITE_IDS, ...HIGH_SUMMON_IDS], '새 몹만 끝에');
-  assert.deepEqual(REC_IDS.slice(O.rec.length), [...HIGH_IDS, ...HIGH_ELITE_IDS, 'abeyond', 'aconq'], '11월 9일 심연의 탑 칭호 기록 둘도 끝에');
+  assert.deepEqual(REC_IDS.slice(O.rec.length), [...HIGH_IDS, ...HIGH_ELITE_IDS, 'abeyond', 'aconq', 'alch'], '11월 9일 심연의 탑 칭호 기록 둘 · 연금술 기록 alch 도 끝에');
   assert.equal(new Set(SNAP_ORDER.mobs).size, SNAP_ORDER.mobs.length, '몹 종류 겹침 없음');
   assert.equal(new Set(SNAP_ORDER.maps).size, SNAP_ORDER.maps.length, '맵 겹침 없음');
 });

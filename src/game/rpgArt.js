@@ -43,6 +43,9 @@ import { SKILL_PX_CAP } from "./skillPxData.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
 import { setWbIntroQuality } from "./worldBossIntro.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
+import { HERBS_BY_MAP } from "./alchemyData.js";
+import { herbUp, herbNear } from "./alchemy.js";
+import { drawHerb, drawHerbLabel, drawGatherBar } from "./alchemyArt.js";
 
 /* 캐릭터 그림은 시트 배율 그대로 줄인다 — 방향마다 그림 크기가 달라도 키가 같게 보인다.
    원본 시트에서 캐릭터 키는 대략 280px 이고, 그림 아래에 6px 여백이 있다. */
@@ -2762,6 +2765,7 @@ export function drawRpg(ctx, g, bgs) {
     villageTrees.forEach(t=>{if(inView(t.x,t.y))order.push({y:t.y,tree:t});});
   }
   storyObjectsOf(M.id).forEach(n=>{if(inView(n.x,n.y,400))order.push({y:n.y,storyObject:n});});
+  (HERBS_BY_MAP[M.id] || []).forEach((n) => { if (inView(n.x, n.y)) order.push({ y: n.y, herb: n }); });   // 약초 채집물(alchemyArt.js)
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
   g.heroes.forEach((h) => { const gi = h && h.map === M.id && h.as && h.as.gi; if (gi && gi.t > 0 && Number.isFinite(gi.y)) order.push({ y: gi.y, giant: h }); });   // 거대 정령 — 제 발 높이로 줄을 선다
@@ -2790,7 +2794,10 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.dgGate) drawDgGate(ctx, time);
     else if (o.prop) drawProp(ctx, o.prop);
     else if (o.tree) drawFieldTree(ctx, o.tree);
+    else if (o.herb) drawHerb(ctx, o.herb, herbUp(g, o.herb.i), time);
   });
+  if (me && me.map === M.id) { const hn = herbNear(g, me); if (hn && !me.gath) drawHerbLabel(ctx, hn); }   // 곁의 채집물 이름
+  g.heroes.forEach((h) => { if (h && h.map === M.id && h.gath) drawGatherBar(ctx, h); });                  // 채집 진행 막대
 
   drawExecMarks(ctx, g, me, M, time, inView);
   drawStoryMarks(ctx, me, M, time);                     // 메인 이야기 — 지금 말 걸 대상 머리 위 느낌표(storyArt.js)

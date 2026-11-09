@@ -6,7 +6,7 @@ import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, freshInput, setFxBy,
+  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -28,6 +28,7 @@ const ACTS = {
   use: (g, pi, dir) => rpgUseSkill(g, pi, dir),
   dash: (g, pi, dir) => rpgDash(g, pi, dir),
   shop: (g, pi, dir) => rpgShop(g, pi, dir),
+  herb: (g, pi, dir) => rpgHerb(g, pi, dir),       // 약초 채집 — 시작 · 멈춤(alchemy.js)
   party: (g, pi, dir) => rpgParty(g, pi, dir),
   title: (g, pi, dir) => rpgTitle(g, pi, dir),
   duel: (g, pi, dir) => rpgDuel(g, pi, dir),

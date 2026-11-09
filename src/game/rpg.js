@@ -3227,7 +3227,7 @@ const advEngine = { fx, say, sys, dist, refresh: (h) => refreshHp(h, true), near
   healMul:empowerHealing, allies:duelAllies, taunt:(g,h,r,t)=>tauntAround(g,h,r,t),
   cc: ccAny, alive: aliveFoe, aim: aimTo, aimAt, end: lineEnd, newCast, squash: RPG.squash, bigMap: advBigMap,
   base: (h, k) => SKILL_USE.base * skillStatMul(h, k), elem: (h) => elemOf(h).id, locked: ccLocked,
-  safe: (map) => !!MAPS[map].safe, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,
+  safe: (map) => !!MAPS[map].safe, abyss: (map) => !!MAPS[map]?.abyss, pvpMap: isPvp, fieldPvp: fieldPvpOn, mobName,
   // 10월 31일 암살자 · 엘프 · 명사수 — lose 몹이 놓친다 · place 순간 이동(맵 안) · slower 나보다 느린가 · calmT 쉼 회복까지 초
   hide: giveHide,                               // 11월 2일 암살자 처치 뒤 투명화 — 투명화 물약과 같다(shop.js)
   lose: (g, h) => g.mobs.forEach((m) => { if (m.tgt === h.pi && m.map === h.map) m.tgt = -1; }),
@@ -3710,26 +3710,27 @@ function stepHeroes(g, dt) {
   g.heroes.forEach((h) => {
     if (!h || trading(h)) return;
     setFxBy(h.pi);
+    const cdt = inAbyss(h) && HOLD.has(h.map) ? 0 : dt;   // 심연의 탑 카드 고르기 · 출발 대기 — 모든 쿨타임 · 버프 · 정령 시간이 멈춘다(11월 9일)
     if (h.ac) { if (!inAbyss(h)) acEnd(g, h); else if (!HOLD.has(h.map)) acTick(g, h, dt, abyssRunOf(g, h)); }   // 심연의 탑 강화 카드 — 탑을 나오면 지운다
     h.flash = Math.max(0, h.flash - dt);
     h.swing = Math.max(0, h.swing - dt);
-    h.buff = Math.max(0, h.buff - dt);
-    tickBuffs(h, dt);                             // 버프 물약 시간
-    armorTick(h, dt, (id) => g.mobs.find((m) => m.id === id && !m.dead && m.map === h.map));   // 방어구 효과 시간
-    if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - dt);   // 산 스킬 대기 시간
-    tickWeapon(g, h, dt);                         // 전설 무기 · 직업 스킬 효과 시간
-    tickAdv(advEngine, g, h, dt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
+    h.buff = Math.max(0, h.buff - cdt);
+    tickBuffs(h, cdt);                             // 버프 물약 시간
+    armorTick(h, cdt, (id) => g.mobs.find((m) => m.id === id && !m.dead && m.map === h.map));   // 방어구 효과 시간
+    if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - cdt);   // 산 스킬 대기 시간
+    tickWeapon(g, h, cdt);                         // 전설 무기 · 직업 스킬 효과 시간
+    tickAdv(advEngine, g, h, cdt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)
       MATERIALS.forEach((m) => { h.bag.m[m.id] = matMax(m.id); });
       h.bag.v += 1;
     }
     if (h.admin && STAT_IDS.some((k) => h.st[k] < statCap(g))) { h.st = maxStats(statCap(g)); refreshHp(h, true); }   // 초기화 물약을 마셔도 다시 최대
-    h.guard = Math.max(0, h.guard - dt);
+    h.guard = Math.max(0, h.guard - cdt);
     h.numT = Math.max(0, h.numT - dt);
     h.gateCd = Math.max(0, h.gateCd - dt);
-    h.inv = Math.max(0, (h.inv || 0) - dt);
-    h.dashCd = Math.max(0, (h.dashCd || 0) - dt);
+    h.inv = Math.max(0, (h.inv || 0) - cdt);
+    h.dashCd = Math.max(0, (h.dashCd || 0) - cdt);
     h.pvpT = Math.max(0, (h.pvpT || 0) - dt);
     h.tauntT=Math.max(0,(h.tauntT||0)-dt);
     const forced=g.heroes[h.tauntBy];
@@ -3785,9 +3786,9 @@ function stepHeroes(g, dt) {
       }
     }
 
-    h.sk = Math.max(0, h.sk - dt);
-    h.cd = Math.max(0, h.cd - dt);
-    h.fireQ = Math.max(0, h.fireQ - dt);
+    h.sk = Math.max(0, h.sk - cdt);
+    h.cd = Math.max(0, h.cd - cdt);
+    h.fireQ = Math.max(0, h.fireQ - cdt);
     if (h.cd > 0 || MAPS[h.map].safe || stormBusy(h)) return;
     const force = !!h.fire || h.fireQ > 0;          // 스페이스 — 사거리 안에 아무도 없어도 친다
     if ((!h.auto || isPvp(h.map)) && !force) return;   // 결투장에서는 자동 평타를 끈다

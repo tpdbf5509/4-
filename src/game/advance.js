@@ -1025,7 +1025,8 @@ export function tickAdv(E, g, h, dt) {
   if (a.gi) tickGiant(E, g, h, a, dt);
   if (!a.sps || !a.sps.length) return;
   if (h.down > 0 || E.safe(h.map)) { a.sps = []; return; }
-  a.sps = a.sps.filter((sp) => (sp.t -= dt) > 0);
+  // 심연의 탑에서는 정령이 시간이 지나도 사라지지 않는다(거대 정령은 제외 · 11월 9일) — 시간이 줄지 않는다
+  if (!E.abyss?.(h.map)) a.sps = a.sps.filter((sp) => (sp.t -= dt) > 0);
   const n = a.sps.length;
   a.sps.forEach((sp, i) => spiritAct(E, g, h, a, sp, i, n, dt));
 }

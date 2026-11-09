@@ -17,7 +17,7 @@ function world(people = [{}], server = true) {
   const seats = people.map((p, i) => ({ id: `p${i}`, name: `약사${i}`, hero: { name: `약사${i}`, job: 'warrior', elem: 'flame', gender: 'm' } }));
   rpgSyncSeats(g, seats);
   people.forEach((p, i) => rpgJoin(g, i, { name: `약사${i}`, rs: RESET.id, gift: GIFT.id, lv: p.lv ?? 50, ts: 0, coins: p.coins ?? 100000, stats: {},
-    rec: {}, titles: [], bag: { oc: 1, w: [], n: 1, m: p.m || {}, p: p.p || {}, ...(p.al ? { al: p.al } : {}) } }, `p${i}`));
+    rec: {}, titles: [], bag: { oc: 1, w: [], n: 1, pg: p.conv ? [] : ['pc-2026-11-09'], m: p.m || {}, p: p.p || {}, ...(p.al ? { al: p.al } : {}) } }, `p${i}`));
   g.heroes.forEach((h) => { if (h) { h.map = 'plaza'; h.x = POT.x; h.y = POT.y + 40; } });
   return g;
 }
@@ -272,4 +272,25 @@ test('레시피 표는 기획대로', () => {
     ['hide1', 25, { shadow_grass: 4, pure_water: 2 }, 55], ['hide2', 35, { shadow_grass: 7, pure_water: 3 }, 70]]);
   assert.equal(ALCH.maxLv, 50); assert.equal(ALCH.buyLv, 50);
   RECIPES.forEach((r) => assert.ok(!SPECIAL_POTIONS.includes(r.id)));
+});
+
+// 제작 개편 전 보유 물약 정리 — 종류마다 15개 남기고 초과분 1개당 1만 코인, 캐릭터마다 한 번
+import { POTION_CONVERT } from '../src/game/alchemyData.js';
+import { convertOldPotions } from '../src/game/alchemy.js';
+test('예전 물약 정리: 15개 남기고 코인 전환, 특별 물약 제외, 한 번만', () => {
+  const g = world([{ conv: true, coins: 500, p: { heal_s: 99, heal_m: 15, hide2: 20, reset: 5, adv_reset: 3 } }]);
+  const h = g.heroes[0];
+  assert.equal(h.bag.p.heal_s, 15); assert.equal(h.bag.p.hide2, 15); assert.equal(h.bag.p.heal_m, 15);
+  assert.equal(h.bag.p.reset, 5); assert.equal(h.bag.p.adv_reset, 3);
+  assert.equal(h.coins, 500 + (84 + 5) * POTION_CONVERT.rate);
+  assert.ok(h.bag.pg.includes(POTION_CONVERT.id));
+  assert.ok(g.sys.some((n) => n.who === 0 && /바꿔 드렸습니다/.test(n.text || n.msg || '')));
+  h.bag.p.heal_s = 40; const c = h.coins;       // 이후 만든 물약은 건드리지 않는다
+  assert.equal(convertOldPotions(h), null); assert.equal(h.bag.p.heal_s, 40); assert.equal(h.coins, c);
+});
+test('예전 물약 정리: 코인 한도를 넘지 않는다', () => {
+  const h = { coins: 999999999999 - 25000, bag: { p: { heal_s: 99, heal_m: 99 }, pg: [], v: 0 } };
+  const r = convertOldPotions(h);
+  assert.equal(r.n, 2); assert.equal(h.coins, 999999999999 - 5000); assert.equal(r.left, 168 - 2);
+  assert.equal(h.bag.p.heal_s, 97); assert.equal(h.bag.p.heal_m, 99);
 });

@@ -2,9 +2,10 @@
    수치는 alchemyData.js. 판정은 전용 서버(방장)가 shop.js rpgShop(op craft · abuy · areq)과 rpg.js(채집 입력 herb)에서 한다.
    화면(AlchemyPanel.jsx)은 같은 why* 함수로 막힌 이유만 미리 보여 준다. 화면이 보낸 수량 · 결과 · 확률은 쓰지 않는다.
    가방 bag.al = { lv 제작 레벨, xp 이 레벨에서 모은 경험치, n 만든 수, q 오늘의 의뢰 { d 날짜, l [{ r 레시피, n 수, x 경험치, ok 받았나 }] } } */
-import { ALCH, ALCH_MAT_BY_ID, ALCH_REQ, RECIPES, RECIPE_BY_ID, SPECIAL_POTIONS, needCraftXp, GATHER, HERBS } from "./alchemyData.js";
+import { ALCH, ALCH_MAT_BY_ID, ALCH_REQ, RECIPES, RECIPE_BY_ID, SPECIAL_POTIONS, POTION_CONVERT, needCraftXp, GATHER, HERBS } from "./alchemyData.js";
 import { MAT_BY_ID, matMax } from "./itemData.js";
 import { POTIONS, POTION, DAY_TZ_HOURS } from "./shopData.js";
+import { COIN_MAX } from "./abyssReward.js";
 
 const POTION_NAME = Object.fromEntries(POTIONS.map((p) => [p.id, p.name]));
 const potionName = (id) => POTION_NAME[id] || id;
@@ -31,6 +32,29 @@ export function cleanAl(d) {
 }
 export const alOf = (bag) => (bag && bag.al) || newAl();
 export const alchLv = (h) => alOf(h && h.bag).lv;
+/* 제작 개편 전 보유 물약 정리(alchemyData.js POTION_CONVERT) — h.bag.p 를 줄이고 h.coins 를 늘린다.
+   이미 받았거나 관리자면 null. 바꿀 것이 없어도 받은 것으로 적는다. 돌려주는 값: { coins 받은 코인, n 바꾼 개수, left 한도 때문에 남긴 개수 } */
+export function convertOldPotions(h) {
+  const C = POTION_CONVERT;
+  if (!h || !h.bag || h.admin || (h.bag.pg || []).includes(C.id)) return null;
+  h.bag.pg = [...(h.bag.pg || []), C.id]; h.bag.v += 1;
+  let coins = 0, n = 0, left = 0;
+  POTIONS.forEach((p) => {
+    if (isSpecialPotion(p.id)) return;
+    const have = (h.bag.p && h.bag.p[p.id]) || 0;
+    const extra = have - C.keep;
+    if (extra <= 0) return;
+    const room = Math.max(0, Math.floor((COIN_MAX - h.coins - coins) / C.rate));
+    const take = Math.min(extra, room);
+    left += extra - take;
+    if (take <= 0) return;
+    h.bag.p[p.id] = have - take;
+    if (h.bag.p[p.id] <= 0) delete h.bag.p[p.id];
+    coins += take * C.rate; n += take;
+  });
+  h.coins += coins;
+  return { coins, n, left };
+}
 export const isSpecialPotion = (id) => SPECIAL_POTIONS.includes(id);
 // 일반 물약을 상점에서 살 수 있나 — 제작 레벨 50부터
 export const canBuyPotion = (h) => alchLv(h) >= ALCH.buyLv;

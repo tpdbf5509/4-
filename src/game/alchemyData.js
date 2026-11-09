@@ -24,6 +24,11 @@ export const needCraftXp = (lv) => ALCH.needBase + ALCH.needStep * (lv - 1);
 // 특별 물약 — 상점 값 · 조건 그대로, 제작 레벨 제한과 제작에서 뺀다
 export const SPECIAL_POTIONS = ["reset", "adv_reset", "elem_swap"];
 
+/* 제작 개편 전에 갖고 있던 일반 물약 정리 — 11월 9일 사용자 결정. 캐릭터마다 한 번(받은 id 는 가방 bag.pg 에 남는다).
+   종류마다 keep 개를 남기고 초과분은 1개당 rate 코인으로 바꿔 준다. 특별 물약 셋은 건드리지 않는다.
+   이 id 를 받은 뒤에 만든 물약은 건드리지 않는다. 코인이 한도를 넘으면 넘는 몫의 물약은 바꾸지 않고 그대로 둔다 */
+export const POTION_CONVERT = { id: "pc-2026-11-09", keep: 15, rate: 10000 };
+
 /* 재료 — itemData.js MATERIALS 맨 뒤에 붙는다(가방 bag.m · 999개까지 · 되팔 수 없다).
    물 · 정제수는 약사에게 코인으로 산다(price · 제작 레벨 제한 없음). 나머지 여섯은 사냥터에서 채집한다 */
 export const ALCH_MATS = [

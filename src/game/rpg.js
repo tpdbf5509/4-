@@ -48,8 +48,8 @@ export { highOn } from "./highData.js";
 import { isHighMob, stepHigh, tickHigh, highDeath, highTake, highFlags } from "./highCombat.js";
 import { ABYSS, ABYSS_SCALE, ABYSS_REWARD, ABYSS_SHOP_BY_ID, GUARD_BASE, GUARD_IDS, SHARD, floorHp, floorDmg, floorMobs, floorMob, floorGuard, floorTime,
   isGuardFloor, abyssWeek, cleanAw, rollAw, GUARD_BY_TYPE, ABYSS_FIRST, LOOK_BY_ID } from "./abyssData.js";
-import { gatherStart, tickGather, tickHerbs, packHerbs, herbNear, alchLv } from "./alchemy.js";
-import { ALCH, HERBS } from "./alchemyData.js";
+import { gatherStart, tickGather, tickHerbs, packHerbs, herbNear, alchLv, convertOldPotions } from "./alchemy.js";
+import { ALCH, HERBS, POTION_CONVERT } from "./alchemyData.js";
 import { abOf, ridSeen, ridOk, ridMark, v2Buy, boxOpen, firstClaim, rankClaim, lookSet, giveText, lookBits } from "./abyssReward.js";
 import { JOB_TUNE, classCut, damageKind, mageHpBonus } from "./jobTuneData.js";
 import { ELITE, eliteCount, GRACE } from "./abyssCardData.js";
@@ -1151,6 +1151,10 @@ export function rpgJoin(g, pi, d, who) {
   if (rb) rollbackHero(g, h, rb);
   givePersonalLevel(g, h, g.names[pi] || (look && look.name));
   if (h.gift !== GIFT.id) giveGift(g, h);         // 이번 업데이트 선물 — 캐릭터마다 한 번
+  if (!g.test) {                                  // 제작 개편 전 물약 정리 — 캐릭터마다 한 번(테스트 방은 저장하지 않으니 건드리지 않는다)
+    const pc = convertOldPotions(h);
+    if (pc && pc.n > 0) sys(g, h.pi, `물약 제작이 생겨 종류마다 ${POTION_CONVERT.keep}개만 남기고 ${pc.n}개를 ${pc.coins.toLocaleString("ko-KR")}코인으로 바꿔 드렸습니다.${pc.left ? ` 코인 한도 때문에 ${pc.left}개는 그대로 둡니다.` : ""}`);
+  }
   if (!h.bag.oc) {                                // 직업과 다른 무기 정리 — 고정 피해가 생기기 전에 들고 있던 것은 한 번 풀어 가방에 둔다(빼앗지 않는다)
     h.bag.oc = 1; h.bag.v++;
     if (offHand(h)) {

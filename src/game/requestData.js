@@ -1,4 +1,5 @@
 import { DEEP_MAPS } from "./deepData.js";
+import { HIGH_MAPS } from "./highData.js";
 
 /* ── RPG 광장 의뢰 — NPC 와 의뢰 목록은 이 파일 한 곳에서 고친다 ─────────────
    규칙은 rpg.js(rpgRequest), 창은 src/RpgView.jsx 에 있다.
@@ -24,6 +25,8 @@ export const QUEST_AREAS = [
   ["golem","골렘 사냥터","golem",300,330],["chimera","키메라 사냥터","chimera",330,360],
   ["spider","포식거미 사냥터","spider",360,400]].map(([id,name,mob,min,max])=>({id,name,mob,lv:[min,max]})),
   ...DEEP_MAPS.map(d=>({id:d.id,name:d.name,mob:d.id,lv:d.lv})),
+  // 800~1200 사냥터 8곳(highData.js) — 끝에만 더한다(의뢰 차례는 저장 값). 같은 일반 20마리 · 보스 2마리 규칙
+  ...HIGH_MAPS.map(d=>({id:d.id,name:d.name,mob:d.id,lv:d.lv})),
 ];
 // 퀘스트 성장 보상과 미수락 사냥의 감소율은 이곳에서만 조절한다.
 export const QUEST_MASTER = {

@@ -11,7 +11,7 @@ function setup(lv=10){
 }
 const take=(g,i)=>rpgRequest(g,0,{op:'take',npc:'questmaster',i});
 test('모든 사냥터는 일반과 보스 퀘스트가 있고 시작 레벨이 일치한다',()=>{
- assert.equal(QUEST_AREAS.length,21);
+ assert.equal(QUEST_AREAS.length,29);
  for(const a of QUEST_AREAS){assert(MAPS[a.id]);const qs=REQUESTS.questmaster.filter(q=>q.area===a.id);assert.equal(qs.length,2);assert.deepEqual(a.lv,SPAWNS.find(s=>s.map===a.id&&!s.boss).lv);assert.equal(qs[0].boss,false);assert.equal(qs[1].boss,true);}
 });
 test('상위 사냥터 수락을 막고 시작 레벨부터 허용한다',()=>{

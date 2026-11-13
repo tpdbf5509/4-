@@ -8,8 +8,12 @@
    - sk_blood_res     4단계 혈흔 공명: 붉은 균열이 강하게 빛나고 고리가 퍼지며 결정 조각이 떠오른다(중첩 n 이 많을수록 고리 · 조각이 늘어난다)
    - sk_blood_boom    5단계 혈계 처형: 원형 충격파 · 날카로운 붉은 조각(5중첩은 더 크고 밝다)
    - 혈흔 표식(drawBloodMarks): 몹 몸의 붉은 균열(중첩만큼 선명) · 머리 위 붉은 방울과 숫자 · 5중첩은 약하게 맥동
-   시간은 bloodGunData.js 의 같은 수치에서 읽어 판정과 어긋나지 않는다. 알갱이 수에는 q(연출 줄이기 · 사람 많은 맵)를 곱한다. */
+   시간은 bloodGunData.js 의 같은 수치에서 읽어 판정과 어긋나지 않는다. 알갱이 수에는 q(연출 줄이기 · 사람 많은 맵)를 곱한다.
+   11월 13일부터 혈계 추격 여섯 연출은 pixelfx 시트(bloodGunPxArt.js)로 먼저 그리고, 이 파일의 도트 그림은 시트를 못 불러왔을 때만 쓴다.
+   혈흔 표식(drawBloodMarks)은 계속 이 파일의 도트 그림이다. */
 import { BLOOD_PALETTE as P, BLOOD_SKILLS } from './bloodGunData.js';
+import { drawBloodPx, warmBloodPx } from './bloodGunPxArt.js';   // 11월 13일 — pixelfx 시트가 있으면 그것으로 그리고, 없으면 아래 도트 그림
+import { heldSpecial } from './rpg.js';
 
 const S = BLOOD_SKILLS.blood_gun.skill, MAXN = BLOOD_SKILLS.blood_gun.passive.max;
 const TAU = Math.PI * 2, PX = 3;
@@ -194,6 +198,7 @@ const KINDS = { sk_blood_charge: charge, sk_blood_shot: shot, sk_blood_hit: hit,
 export const BLOOD_FX_KINDS = Object.keys(KINDS);
 export function drawBloodFx(ctx, f, p, time, sq, g, q = 1) {
   const fn = KINDS[f.kind]; if (!fn) return false;
+  if (drawBloodPx(ctx, f, clamp(p) * f.life, sq, g)) return true;   // pixelfx 시트(못 불러왔으면 false)
   ctx.save(); ctx.imageSmoothingEnabled = false;
   try { fn(ctx, f, clamp(p) * f.life, sq, g, q); } finally { ctx.restore(); }
   return true;
@@ -227,7 +232,9 @@ export function drawBloodMark(ctx, m, time) {
   bits(ctx, DIGITS[n], ix + 22, iy, full ? P.glow : P.bright, pulse, 3);
   ctx.restore();
 }
+let warmed = false;   // 크림슨 레퀴엠을 든 사람이나 혈흔이 보이면 시트를 한 번만 미리 받는다
 export function drawBloodMarks(ctx, g, M, time, inView) {
+  if (!warmed && (g.heroes.some((h) => h && h.map === M.id && heldSpecial(h) === 'blood_gun') || g.mobs.some((m) => m.bl))) { warmed = true; warmBloodPx(); }
   for (const m of g.mobs) {
     if (!m.bl || m.dead || m.map !== M.id || !inView(m.x, m.y)) continue;
     drawBloodMark(ctx, m, time);

@@ -6,6 +6,7 @@ import { drawAdvFx, ADV_GROUND } from "./advArt.js";
 import { drawAbyssFx, ABYSS_GROUND_FX } from "./abyssArt.js";
 import { drawStormFx, drawStormCharge } from './stormWeaponArt.js';
 import { drawVoidFx } from './voidWeaponArt.js';
+import { drawBloodFx } from './bloodGunArt.js';
 import { drawFuryFx } from "./furyArt.js";
 import { drawSkillPx } from "./skillPxArt.js";
 import { drawHighFx, HIGH_GROUND_FX } from "./highFxArt.js";
@@ -61,6 +62,7 @@ export function drawSkillFx(ctx, f, time, g) {
   if (drawHighFx(ctx, f, p, time, SQ())) return;  // 800~1200 보스 · 정예 기술(highFxArt.js)
   if (drawStormFx(ctx, f, p, SQ(), g, Q)) return;
   if (drawVoidFx(ctx, f, p, time, SQ(), g, Q)) return;   // 공허의 관측자 무기(voidWeaponArt.js)
+  if (drawBloodFx(ctx, f, p, time, SQ(), g, Q)) return;  // 블러드 총기 혈계 추격(bloodGunArt.js)
   if (drawFuryFx(ctx, f, p, Q)) return;           // 적룡 지팡이(furyArt.js)
   if (drawSkillPx(ctx, f, p)) return;             // 스킬 상점 스킬 — pixelfx 픽셀 시트(skillPxArt.js)
   skillAccent(ctx, f, p, Q);

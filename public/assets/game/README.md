@@ -88,6 +88,8 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 
 용아쌍검 손에 든 그림: `rpg/items/dragon-dual-held.webp` — 투명 1774×887, 2열×1행. 왼쪽 장검, 오른쪽 단검. `rpgArt.js`가 각 칸을 128px 기준으로 캐시하고 성별·방향별 양손 좌표에 따로 그린다. 가방·거래의 기존 쌍검 아이콘은 유지한다.
 
+블러드 총기 아이콘: `rpg/weapons/blood_gun.webp` 128×128 투명 WebP(총구가 오른쪽 위, 원본 `design/weapons/blood_gun-src.webp` · `blood_gun.webp`). 전용 스킬 혈계 추격은 그림 파일 없이 코드 도트(`bloodGunArt.js`)로 그립니다.
+
 적룡 지팡이 용의 격노 그림: `rpg/effects/fury-fx.webp` — 검은 바탕 1024×512, 4열×2행, 칸당 256×256(Codex 생성, 원본 `design/weapons/fury-fx.webp`). 칸은 바닥 마법진 · 초승달(오른쪽으로 볼록) · 십자 섬광 · 불똥 · 화염구 · 광선(오른쪽으로) · 연기 고리 · X 표식. 빛을 더하듯(lighter) 그린다. 단계 시각과 크기는 `skillData.js` `FURY_ART`, 그리기는 `furyArt.js`. 못 불러오면 코드 빛으로 대신한다.
 
 비룡육연사 비행 그림: `rpg/effects/dragon-flight.webp` — 투명 1536×1024, 3열×2행, 칸당512×512. 왼쪽 위부터 날개 위·내리는 중·수평·아래·돌아오는 중·올리는 중의 6프레임이다. 붉은 비늘과 금빛 뿔의 용이 오른쪽을 향한다. `worldEquipmentData.js`의 `DRAGON_FLIGHT_ART`가 각 프레임의 주둥이 기준점과 표시 크기230을 정의한다. `dragonFlightArt.js`가 발사 방향으로 돌려 그린다. RPG 진입 때 미리 읽고 실패하면 코드로 그린 용으로 대신한다.

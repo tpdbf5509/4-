@@ -230,6 +230,32 @@ export function play(name) {
     if (!gate(name, 120)) return;
     track = true;
     try { INTRO_SND[name](); } finally { track = null; }
+  } else if (name === "bloodCharge") {       // 블러드 총기 1단계 — 낮은 심장 박동 두 번과 에너지가 응축되는 소리
+    if (!gate("bloodCharge", 200)) return;
+    [0, 0.17].forEach((d) => tone({ type: "sine", f0: 62, f1: 40, t: 0.14, gain: 0.3, delay: d }));
+    tone({ type: "triangle", f0: 150, f1: 460, t: 0.4, gain: 0.05 });
+    noise({ t: 0.4, gain: 0.07, f: 300, f1: 1100, q: 1.2, swell: true });
+  } else if (name === "bloodShot") {         // 2단계 — 일반 총성보다 낮고 묵직한 발사음에 금속성 울림
+    if (!gate("bloodShot", 120)) return;
+    noise({ t: 0.24, gain: 0.36, f: 520, q: 0.6 });
+    tone({ type: "square", f0: 170, f1: 46, t: 0.28, gain: 0.2 });
+    tone({ type: "triangle", f0: 1450, f1: 880, t: 0.36, gain: 0.05, delay: 0.02 });
+    tone({ type: "sine", f0: 740, f1: 700, t: 0.4, gain: 0.04, delay: 0.03 });
+  } else if (name === "bloodSplit") {        // 3단계 — 짧고 날카로운 에너지 분열음
+    if (!gate("bloodSplit", 150)) return;
+    noise({ t: 0.1, gain: 0.12, f: 3600, q: 3 });
+    tone({ type: "sawtooth", f0: 1700, f1: 600, t: 0.1, gain: 0.07 });
+    tone({ type: "sawtooth", f0: 2100, f1: 900, t: 0.09, gain: 0.05, delay: 0.05 });
+  } else if (name === "bloodHit") {          // 유도 혈탄 적중 — 가벼운 파열음(여섯 발이 함께 맞아도 겹치지 않게 간격을 둔다)
+    if (!gate("bloodHit", 90)) return;
+    noise({ t: 0.07, gain: 0.12, f: 1800, q: 2 });
+    tone({ type: "triangle", f0: 520, f1: 260, t: 0.08, gain: 0.07 });
+  } else if (name === "bloodBoom") {         // 5단계 혈흔 폭발 — 낮고 강한 폭발음
+    if (!gate("bloodBoom", 100)) return;
+    noise({ t: 0.42, gain: 0.34, f: 300, q: 0.5 });
+    tone({ type: "sine", f0: 120, f1: 32, t: 0.42, gain: 0.3 });
+    tone({ type: "sawtooth", f0: 90, f1: 40, t: 0.26, gain: 0.12 });
+    noise({ t: 0.08, gain: 0.1, f: 2600, q: 2, down: false });
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ type: "square", f0: f, t: 0.4, gain: 0.12, delay: i * 0.12 }));
   }

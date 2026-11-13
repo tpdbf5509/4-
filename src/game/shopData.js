@@ -1,5 +1,6 @@
 import { STORM_WEAPONS } from './stormWeaponData.js';
 import { WORLD_WEAPONS, VOID_WEAPONS } from "./worldEquipmentData.js";
+import { BLOOD_GUN_ITEM } from "./bloodGunData.js";
 import { JOB_SKILLS } from "./skillData.js";
 import { bagExtra } from "./junkData.js";
 import { DEEP_MAPS } from "./deepData.js";
@@ -96,6 +97,7 @@ export const SPECIALS = [
   { id: "holy_staff", name: "신성 지팡이", t: "staff", lv: 100, g: 4, stat: "int", amt: 240, art: "holy_staff" },
   // 획득처를 정하기 전(hold) — 상점 · 특가 · 랜덤 상자 · 관리자 자동 지급에 나오지 않는다. 관리자 /지급 으로만 받는다(10월 26일)
   { id: "fury_staff", name: "적룡 지팡이", t: "staff", lv: 100, g: 4, stat: "int", amt: 260, art: "fury_staff", hold: 1 },
+  BLOOD_GUN_ITEM,   // 블러드 총기(11월 13일) — 전용 스킬 혈계 추격(bloodGunData.js). 얻는 곳을 정하기 전이라 hold
   // 활 — 궁수 공격력인 물리력을 올린다. 초보 궁수가 살 활이 50레벨까지 없어 레벨 · 값을 낮췄다(10월 21일).
   // 번개 활 Lv 50 → 20(올리는 양도 20레벨 몫). 전설 활은 한 단계씩 낮추고(값도 그만큼 싸진다) 올리는 양은 예전 그대로 amt 로 둔다
   { id: "thunder_bow", name: "번개 활", t: "bow", lv: 20, g: 3, stat: "str", art: "thunder_bow" },

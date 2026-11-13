@@ -44,7 +44,7 @@ export const JOB_KEYS = { 5: "R", 6: "F", 7: "G" };    // 상점 설명에 보�
 export const WEAPON_SKILLS = {
   ...STORM_SKILLS,
   ...VOID_SKILLS,
-  ...BLOOD_SKILLS,   // 블러드 총기 혈계 추격(11월 13일)
+  ...BLOOD_SKILLS,   // 크림슨 레퀴엠 혈계 추격(11월 13일)
   ...WORLD_WEAPON_SKILLS,
   frost: {
     name: "빙판길", role: "제어와 추격 차단",

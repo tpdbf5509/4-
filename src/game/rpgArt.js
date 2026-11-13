@@ -10,7 +10,7 @@ import {warmWorldBossArt,drawWorldBossSprite,drawWorldBossGround,drawWorldBossPo
 import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
 import { drawStormScreenFlash } from './stormWeaponArt.js';
-import { drawBloodMarks } from './bloodGunArt.js';   // 블러드 총기 혈흔 표식(11월 13일)
+import { drawBloodMarks } from './bloodGunArt.js';   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
 import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc, drawExecMark, drawExecTick } from "./advArt.js";
 import { advExecReady, advExecLine } from "./advance.js";
@@ -2801,7 +2801,7 @@ export function drawRpg(ctx, g, bgs) {
   g.heroes.forEach((h) => { if (h && h.map === M.id && h.gath) drawGatherBar(ctx, h); });                  // 채집 진행 막대
 
   drawExecMarks(ctx, g, me, M, time, inView);
-  drawBloodMarks(ctx, g, M, time, inView);        // 블러드 총기 — 몹 몸의 혈흔 균열 · 머리 위 방울과 숫자
+  drawBloodMarks(ctx, g, M, time, inView);        // 크림슨 레퀴엠 — 몹 몸의 혈흔 균열 · 머리 위 방울과 숫자
   drawStoryMarks(ctx, me, M, time);                     // 메인 이야기 — 지금 말 걸 대상 머리 위 느낌표(storyArt.js)
   if (M.dungeon) drawDungeonDark(ctx, me, cam);
   g.fx.forEach((f) => {

@@ -12,7 +12,7 @@ import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
-import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown } from './bloodGunCombat.js';   // 블러드 총기 혈계 추격(11월 13일)
+import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
 import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
@@ -2951,7 +2951,7 @@ function applySkillState(h, a) {
   wsOf(h).world = a[18] || null;
   wsOf(h).storm = a[19] || null;
   wsOf(h).void = a[22] || null;                   // 공허 무기(11월 4일) — 줄 끝에만 더했다
-  wsOf(h).blood = a[23] || null;                  // 블러드 총기(11월 13일) — 혈흔 · 혈계 추격 진행. 줄 끝에만 더했다
+  wsOf(h).blood = a[23] || null;                  // 크림슨 레퀴엠(11월 13일) — 혈흔 · 혈계 추격 진행. 줄 끝에만 더했다
   const w = wsOf(h), jb = jbOf(h);
   let cst, ct, cel;
   [w.wcd, w.emb, w.star, cst, ct, cel, jb.iron, jb.sh, jb.shT, w.zap, w.mark, w.aim] = v;
@@ -2981,7 +2981,7 @@ function weaponOnHit(g, h, m, foe, side, basic) {
   const sp = heldSpecial(h), o = m || foe;
   if (basic && !side && o) worldWeaponBasicHit(worldEngine, g, h, o);
   if (o) voidOnHit(voidEngine, g, h, o, { basic, side });   // 공허의 장궁 · 지팡이 패시브
-  if (o) bloodOnHit(bloodEngine, g, h, o, { basic, side });   // 블러드 총기 — 평타가 맞으면 혈흔
+  if (o) bloodOnHit(bloodEngine, g, h, o, { basic, side });   // 크림슨 레퀴엠 — 평타가 맞으면 혈흔
   if (!sp || !o) return;
   const w = wsOf(h);
   if (sp === "frost" && m) { const P = WS.frost.passive; m.slow = Math.min(P.max, Math.max(m.slow, 0) + P.per); }
@@ -3097,7 +3097,7 @@ function tickWeapon(g, h, dt) {
   tickWorldWeapon(worldEngine, g, h, dt);
   tickStormWeapon(stormEngine, g, h, dt);
   tickVoidWeapon(voidEngine, g, h, dt);
-  tickBloodWeapon(bloodEngine, g, h, dt);          // 블러드 총기 — 혈흔 · 혈계 추격
+  tickBloodWeapon(bloodEngine, g, h, dt);          // 크림슨 레퀴엠 — 혈흔 · 혈계 추격
   if (jb) {
     jb.iron = Math.max(0, jb.iron - dt);
     jb.shT = Math.max(0, jb.shT - dt);
@@ -3293,7 +3293,7 @@ function pullMob(g, o, x, y, px) {
   keepIn(o, MAPS[o.map], 20);
 }
 const voidEngine = { ...stormEngine, pull: pullMob };
-const bloodEngine = { ...stormEngine };             // 블러드 총기 — 혈계 추격(bloodGunCombat.js)
+const bloodEngine = { ...stormEngine };             // 크림슨 레퀴엠 — 혈계 추격(bloodGunCombat.js)
 export function rpgWeaponRelease(g, pi, cancel=false) { releaseStormWeapon(stormEngine,g,g.heroes[pi],cancel); }
 
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
@@ -5153,7 +5153,7 @@ export function rpgPack(g) {
     m: g.mobs.filter((m) => busy.has(m.map)).map((m) => [m.id, mapIdx(m.map), Math.round(m.x), Math.round(m.y), Math.round((m.hp / m.max) * 100),
       (m.freeze > 0 ? 1 : 0) | (m.slow > 0 ? 2 : 0) | (m.poison > 0 ? 4 : 0) | (m.burn > 0 ? 8 : 0)
         | (m.stun > 0 ? 16 : 0) | (m.shred > 0 ? 32 : 0) | (m.flash > 0 ? 64 : 0)
-        | (m.air > 0 ? 128 : 0) | (m.brand > 0 ? 256 : 0) | (m.bind > 0 ? 512 : 0) | (m.wkUntil > g.t ? 1024 : 0) | (bloodShown(m) << 11),   // 1024 명사수 약점 표식 · 2048~ 혈흔 중첩 0~5(블러드 총기, 3비트)
+        | (m.air > 0 ? 128 : 0) | (m.brand > 0 ? 256 : 0) | (m.bind > 0 ? 512 : 0) | (m.wkUntil > g.t ? 1024 : 0) | (bloodShown(m) << 11),   // 1024 명사수 약점 표식 · 2048~ 혈흔 중첩 0~5(크림슨 레퀴엠, 3비트)
       m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0, m.warnR || 0,
       // 보스는 체력을 그대로도 싣는다 — 손님 체력바가 1% 단위로 끊기지 않게
       m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0, r1(m.taunt||0),m.tgt, m.elite ? 1 : 0,   // 18 정예(심연의 탑)
@@ -5297,7 +5297,7 @@ export function rpgApply(g, s) {
     if (flags & 64) m.flash = 0.1;
     m.air = flags & 128 ? 0.3 : 0; m.brand = flags & 256 ? 0.3 : 0; m.bind = flags & 512 ? 0.3 : 0;
     m.wk = flags & 1024 ? 1 : 0;                   // 명사수 약점 표식 — 그림만(advArt.js)
-    m.bl = (flags >> 11) & 7;                      // 블러드 총기 혈흔 중첩 — 그림만(bloodGunArt.js)
+    m.bl = (flags >> 11) & 7;                      // 크림슨 레퀴엠 혈흔 중첩 — 그림만(bloodGunArt.js)
     m.ax = flip ? -1 : 1;
     m.moving = moving;
   });

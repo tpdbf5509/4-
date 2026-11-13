@@ -230,7 +230,7 @@ export function play(name) {
     if (!gate(name, 120)) return;
     track = true;
     try { INTRO_SND[name](); } finally { track = null; }
-  } else if (name === "bloodCharge") {       // 블러드 총기 1단계 — 낮은 심장 박동 두 번과 에너지가 응축되는 소리
+  } else if (name === "bloodCharge") {       // 크림슨 레퀴엠 1단계 — 낮은 심장 박동 두 번과 에너지가 응축되는 소리
     if (!gate("bloodCharge", 200)) return;
     [0, 0.17].forEach((d) => tone({ type: "sine", f0: 62, f1: 40, t: 0.14, gain: 0.3, delay: d }));
     tone({ type: "triangle", f0: 150, f1: 460, t: 0.4, gain: 0.05 });

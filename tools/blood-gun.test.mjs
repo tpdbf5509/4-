@@ -1,4 +1,4 @@
-/* 블러드 총기 · 혈계 추격 — 실제 게임 함수로 혈흔 · 관통 혈탄 · 유도 혈탄 · 혈흔 폭발 · 중복 방지 · 승계 · 정리를 검증한다.
+/* 크림슨 레퀴엠 · 혈계 추격 — 실제 게임 함수로 혈흔 · 관통 혈탄 · 유도 혈탄 · 혈흔 폭발 · 중복 방지 · 승계 · 정리를 검증한다.
    node --test tools/blood-gun.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -56,7 +56,7 @@ test('데이터 — 사용자 기획 수치 · 총합 7.2배 · 색 · 무기 �
   assert.equal(bloodTotal(5), 7.2);
   assert.deepEqual(BLOOD_PALETTE, { deep: '#650B17', base: '#B8192D', bright: '#E53945', glow: '#FF6973', shadow: '#1A0B14' });
   const sp = SPECIALS.find(s => s.id === 'blood_gun');
-  assert(sp && sp.hold && sp.t === 'gun' && sp.art === 'blood_gun' && sp.g === 4, '블러드 총기는 hold 전설 총');
+  assert(sp && sp.hold && sp.t === 'gun' && sp.art === 'blood_gun' && sp.g === 4, '크림슨 레퀴엠은 hold 전설 총');
   assert(WEAPON_SKILLS.blood_gun && WEAPON_SKILLS.blood_gun.name === '혈계 추격');
   const { h } = setup(); assert(!specialsFor(h).some(s => s.id === 'blood_gun'), '상점 · 특가에 나오지 않음');
 });

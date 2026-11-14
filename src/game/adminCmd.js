@@ -31,7 +31,7 @@ const HELP = [
   "/소환 <이름> — 그 사람을 내 자리로",
   "/이동 <장소> — 1부 이야기 맵으로(이름 없이 쓰면 목록)",
   "/직업 <이름> <직업> — 검사 · 궁수 · 마법사 · 검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사",
-  "/블러드 <이름> [직업레벨 | 끄기] — 히든 직업 BLOOD-001 해금(시험용) · 직업 레벨 바꾸기 · 끄기",
+  "/블러드 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 BLOOD-001 해금(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
 ];
 const flat = (s) => String(s || "").toLowerCase().replace(/[\s()·]/g, "");
@@ -200,7 +200,10 @@ export function rpgAdminCmd(g, pi, text) {
   }
 
   if (cmd === "블러드") {                          // 히든 직업 BLOOD-001 — 해금 루트 전 시험용(11월 14일)
-    const last = words[words.length - 1] || "", off = last === "끄기", lv = /^[0-9]{1,3}$/.test(last) ? Number(last) : 0;
+    // /블러드 <이름> 연마 <0~50> — 연마 셋(압축형 · 증폭형 · 형상화)을 한 번에 그 레벨로(경험치 0, 11월 15일)
+    const tw = words.length >= 2 && words[words.length - 2] === "연마" && /^[0-9]{1,2}$/.test(words[words.length - 1]) ? Math.min(BLOOD.train.max, Number(words[words.length - 1])) : -1;
+    if (tw >= 0) words.splice(-2, 2);
+    const last = tw >= 0 ? "" : words[words.length - 1] || "", off = last === "끄기", lv = /^[0-9]{1,3}$/.test(last) ? Number(last) : 0;
     if (off || lv) words.pop();
     const [ti, rest] = takeName(g, pi, words);
     if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /블러드 나 · /블러드 나 100 · /블러드 나 끄기");
@@ -210,6 +213,13 @@ export function rpgAdminCmd(g, pi, text) {
     if (off) { dropBlood(t); bump(t); return void say(`${who(g, ti)}님의 BLOOD-001 을 껐습니다.`); }
     if (!bloodOn(t)) unlockBlood(t);
     if (lv) { t.bag.bd.lv = Math.max(1, Math.min(BLOOD.maxLv, lv)); t.bag.bd.xp = 0; }
+    if (tw >= 0) {
+      t.bag.bd.tr = t.bag.bd.tr.map(() => [tw, 0]);
+      bump(t);
+      say(`${who(g, ti)}님의 BLOOD-001 연마 셋을 ${tw}레벨로 바꿨습니다.`);
+      if (ti !== pi) sys(g, ti, `관리자가 BLOOD-001 연마를 ${tw}레벨로 바꿨습니다.`);
+      return true;
+    }
     bump(t);
     say(`${who(g, ti)}님을 BLOOD-001(직업 레벨 ${t.bag.bd.lv})로 바꿨습니다.`);
     if (ti !== pi) sys(g, ti, "관리자가 히든 직업 BLOOD-001 을 열었습니다.");

@@ -128,6 +128,21 @@ import { ghostStep } from "./game/bossBar.js";
 import sfx from "./game/sfx.js";
 import { HomeIcon, Coin } from "./ui/icons.jsx";
 import { useTouch } from "./ui/touch.js";
+
+/* 스킬 · 물약 칸 오른쪽 판(11월 14일) — 판(최대 1040) + 오른쪽 판(260) + 여백이 들어가는 넓은 화면 · 마우스 기기에서만 연다.
+   좁은 화면 · 터치는 예전처럼 판 안 아래(rpg-skillbar · rpg-potbar)에 둔다 */
+const SIDE_MQ = "(min-width: 1380px) and (min-height: 640px)";
+function useSidePanel(touch) {
+  const q = () => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia(SIDE_MQ).matches;
+  const [on, setOn] = useState(q);
+  useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const m = window.matchMedia(SIDE_MQ), f = () => setOn(m.matches);
+    m.addEventListener?.("change", f); f();
+    return () => m.removeEventListener?.("change", f);
+  }, []);
+  return on && !touch;
+}
 import { blocks, BLOCK } from "./game/block.js";
 const BLOCK_PEND_MS = 4000;   // 차단 단추를 누른 뒤 서버 답을 기다리며 바뀐 모습을 지키는 시간
 import { DUEL_COLORS, DUEL_TEAM } from "./game/duel.js";
@@ -576,6 +591,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [isHost, seats, mySeat]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const touch = useTouch();
+  const side = useSidePanel(touch);                  // 넓은 화면이면 스킬 · 물약 칸을 판 오른쪽 판으로
   useEffect(() => {
     if (touch && pageRef.current) return stopGameSelection(pageRef.current);
   }, [touch]);
@@ -1659,8 +1675,98 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     return l ? lookTitle(l) : "";
   };
 
+  // 스킬 · 물약 칸 — 넓은 화면(SIDE_MQ)은 판 오른쪽 rpg-side 에, 아니면 예전처럼 판 안 아래에 둔다
+  const actionBars = (
+    <div className="rpg-touch-actions">
+    {me && !shopOpen && !bagOpen && (
+      <div className="rpg-skillbar">
+        <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
+          onPointerDown={(e) => { e.preventDefault(); act("dash"); }}>
+          {!touch && keyOf(binds, "dash") && <kbd>{keyOf(binds, "dash")}</kbd>}
+          <span>대쉬<small>회피 {DASH.inv}초</small></span>
+          {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
+          {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
+        </button>
+        {me.wsk && (
+          <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
+            onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }}
+            onPointerUp={() => { chargeRef.current = false; act("wcharge", false); }}
+            onPointerCancel={() => { chargeRef.current = false; act("wcharge", "cancel"); }}>
+            {!touch && keyOf(binds, "wskill") && <kbd>{keyOf(binds, "wskill")}</kbd>}
+            <span>{me.wsk.name}<small>{me.wsk.stack}</small></span>
+            {me.wsk.cd > 0 && <em>{Math.ceil(me.wsk.cd)}</em>}
+            {me.wsk.cd > 0 && <i style={{ width: `${(me.wsk.cd / me.wsk.max) * 100}%` }} />}
+          </button>
+        )}
+        {me.adv && (
+          <button type="button" className={`rpg-skill adv ${me.adv.cd > 0 ? "cool" : ""}`}
+            onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "use" }); }}>
+            {!touch && keyOf(binds, "adv") && <kbd>{keyOf(binds, "adv")}</kbd>}
+            <span>{me.adv.name}<small>{me.adv.stack}</small></span>
+            {me.adv.cd > 0 && <em>{Math.ceil(me.adv.cd)}</em>}
+            {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
+          </button>
+        )}
+        <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), field: keyOf(binds, "bField") }}
+          onField={() => act("blood", { op: "press", s: "field" })} onFieldUp={() => act("blood", { op: "release", s: "field" })}
+          onSmash={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }}
+          onSmashUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "smash" }); }}
+          onSword={() => act("blood", { op: "sword" })}
+          onVeil={() => act("blood", { op: "press", s: "veil" })} onVeilUp={() => act("blood", { op: "release", s: "veil" })}
+          onShot={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "shot" }); }}
+          onShotUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }}
+          onShotCancel={() => { chargeRef.current = false; act("blood", { op: "cancel", s: "shot" }); }}
+          onConv={() => act("blood", { op: "convert" })} />
+        {me.adv && me.adv.ult && (
+          <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
+            onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>
+            {!touch && keyOf(binds, "advUlt") && <kbd>{keyOf(binds, "advUlt")}</kbd>}
+            <span>{me.adv.ult.name}<small>{me.adv.ult.stack}</small></span>
+            {me.adv.ult.cd > 0 && <em>{Math.ceil(me.adv.ult.cd)}</em>}
+            {me.adv.ult.cd > 0 && <i style={{ width: `${(me.adv.ult.cd / me.adv.ult.max) * 100}%` }} />}
+          </button>
+        )}
+        {me.adv && me.adv.heal !== undefined && (
+          <button type="button" className={`rpg-skill adv ${me.adv.heal ? "" : "cool"}`} aria-pressed={me.adv.heal}
+            onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "mode" }); }}>
+            {!touch && keyOf(binds, "healMode") && <kbd>{keyOf(binds, "healMode")}</kbd>}
+            <span>{me.adv.heal ? "치유 평타" : "공격 평타"}<small>눌러 바꾸기</small></span>
+          </button>
+        )}
+        {me.skills.map((s) => (
+          <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
+            onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
+            {!touch && keyOf(binds, s.key) && <kbd>{keyOf(binds, s.key)}</kbd>}
+            <span>{s.name}<small>Lv {s.lv}</small></span>
+            {s.cd > 0 && <em>{Math.ceil(s.cd)}</em>}
+            {s.cd > 0 && <i style={{ width: `${(s.cd / s.max) * 100}%` }} />}
+          </button>
+        ))}
+      </div>
+    )}
+    {me && !shopOpen && !bagOpen && (
+      <div className="rpg-potbar" aria-label="물약 칸">
+          {me.pots.map((p, i) => (p ? (
+            <button key={`pot${i}`} type="button" className={`rpg-skill pot ${p.n ? "" : "cool"}`}
+              onPointerDown={(e) => { e.preventDefault(); if (p.n) act("shop", { op: "puse", id: p.id }); }}>
+              {!touch && keyOf(binds, `pot${i + 1}`) && <kbd>{keyOf(binds, `pot${i + 1}`)}</kbd>}
+              <span>{p.name.replace("물약 ", "")}<small>물약 칸 {i + 1}</small></span>
+              <em>{p.n}</em>
+            </button>
+          ) : (
+            <button key={`pot${i}`} type="button" className="rpg-skill pot empty"
+              onPointerDown={(e) => { e.preventDefault(); closeAll(); setBagTab("potion"); setBagOpen(true); }}>
+              {!touch && keyOf(binds, `pot${i + 1}`) && <kbd>{keyOf(binds, `pot${i + 1}`)}</kbd>}
+              <span>빈 칸<small>가방에서 넣기</small></span>
+            </button>
+          )))}
+      </div>
+    )}
+    </div>
+  );
+
   return (
-    <div ref={pageRef} className={`page rpg-page ${touch ? "touch" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch'){skillPointer.current=null;touchAt.current=performance.now();}}}>
+    <div ref={pageRef} className={`page rpg-page ${touch ? "touch" : ""} ${side ? "has-side" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch'){skillPointer.current=null;touchAt.current=performance.now();}}}>
       <div className="stage">
         <div className="frame">
           {me?.blood?.mode === "rage" && <div className="rpg-blood-rage" />}{/* BLOOD-001 폭주 — 화면 가장자리만 옅게 붉힌다 */}
@@ -2755,92 +2861,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             </div>
           )}
 
-          <div className="rpg-touch-actions">
-          {me && !shopOpen && !bagOpen && (
-            <div className="rpg-skillbar">
-              <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
-                onPointerDown={(e) => { e.preventDefault(); act("dash"); }}>
-                {!touch && keyOf(binds, "dash") && <kbd>{keyOf(binds, "dash")}</kbd>}
-                <span>대쉬<small>회피 {DASH.inv}초</small></span>
-                {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
-                {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
-              </button>
-              {me.wsk && (
-                <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
-                  onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }}
-                  onPointerUp={() => { chargeRef.current = false; act("wcharge", false); }}
-                  onPointerCancel={() => { chargeRef.current = false; act("wcharge", "cancel"); }}>
-                  {!touch && keyOf(binds, "wskill") && <kbd>{keyOf(binds, "wskill")}</kbd>}
-                  <span>{me.wsk.name}<small>{me.wsk.stack}</small></span>
-                  {me.wsk.cd > 0 && <em>{Math.ceil(me.wsk.cd)}</em>}
-                  {me.wsk.cd > 0 && <i style={{ width: `${(me.wsk.cd / me.wsk.max) * 100}%` }} />}
-                </button>
-              )}
-              {me.adv && (
-                <button type="button" className={`rpg-skill adv ${me.adv.cd > 0 ? "cool" : ""}`}
-                  onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "use" }); }}>
-                  {!touch && keyOf(binds, "adv") && <kbd>{keyOf(binds, "adv")}</kbd>}
-                  <span>{me.adv.name}<small>{me.adv.stack}</small></span>
-                  {me.adv.cd > 0 && <em>{Math.ceil(me.adv.cd)}</em>}
-                  {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
-                </button>
-              )}
-              <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), field: keyOf(binds, "bField") }}
-                onField={() => act("blood", { op: "press", s: "field" })} onFieldUp={() => act("blood", { op: "release", s: "field" })}
-                onSmash={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }}
-                onSmashUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "smash" }); }}
-                onSword={() => act("blood", { op: "sword" })}
-                onVeil={() => act("blood", { op: "press", s: "veil" })} onVeilUp={() => act("blood", { op: "release", s: "veil" })}
-                onShot={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "shot" }); }}
-                onShotUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }}
-                onShotCancel={() => { chargeRef.current = false; act("blood", { op: "cancel", s: "shot" }); }}
-                onConv={() => act("blood", { op: "convert" })} />
-              {me.adv && me.adv.ult && (
-                <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
-                  onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>
-                  {!touch && keyOf(binds, "advUlt") && <kbd>{keyOf(binds, "advUlt")}</kbd>}
-                  <span>{me.adv.ult.name}<small>{me.adv.ult.stack}</small></span>
-                  {me.adv.ult.cd > 0 && <em>{Math.ceil(me.adv.ult.cd)}</em>}
-                  {me.adv.ult.cd > 0 && <i style={{ width: `${(me.adv.ult.cd / me.adv.ult.max) * 100}%` }} />}
-                </button>
-              )}
-              {me.adv && me.adv.heal !== undefined && (
-                <button type="button" className={`rpg-skill adv ${me.adv.heal ? "" : "cool"}`} aria-pressed={me.adv.heal}
-                  onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "mode" }); }}>
-                  {!touch && keyOf(binds, "healMode") && <kbd>{keyOf(binds, "healMode")}</kbd>}
-                  <span>{me.adv.heal ? "치유 평타" : "공격 평타"}<small>눌러 바꾸기</small></span>
-                </button>
-              )}
-              {me.skills.map((s) => (
-                <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
-                  onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
-                  {!touch && keyOf(binds, s.key) && <kbd>{keyOf(binds, s.key)}</kbd>}
-                  <span>{s.name}<small>Lv {s.lv}</small></span>
-                  {s.cd > 0 && <em>{Math.ceil(s.cd)}</em>}
-                  {s.cd > 0 && <i style={{ width: `${(s.cd / s.max) * 100}%` }} />}
-                </button>
-              ))}
-            </div>
-          )}
-          {me && !shopOpen && !bagOpen && (
-            <div className="rpg-potbar" aria-label="물약 칸">
-                {me.pots.map((p, i) => (p ? (
-                  <button key={`pot${i}`} type="button" className={`rpg-skill pot ${p.n ? "" : "cool"}`}
-                    onPointerDown={(e) => { e.preventDefault(); if (p.n) act("shop", { op: "puse", id: p.id }); }}>
-                    {!touch && keyOf(binds, `pot${i + 1}`) && <kbd>{keyOf(binds, `pot${i + 1}`)}</kbd>}
-                    <span>{p.name.replace("물약 ", "")}<small>물약 칸 {i + 1}</small></span>
-                    <em>{p.n}</em>
-                  </button>
-                ) : (
-                  <button key={`pot${i}`} type="button" className="rpg-skill pot empty"
-                    onPointerDown={(e) => { e.preventDefault(); closeAll(); setBagTab("potion"); setBagOpen(true); }}>
-                    {!touch && keyOf(binds, `pot${i + 1}`) && <kbd>{keyOf(binds, `pot${i + 1}`)}</kbd>}
-                    <span>빈 칸<small>가방에서 넣기</small></span>
-                  </button>
-                )))}
-            </div>
-          )}
-          </div>
+          {!side && actionBars}
           {me && me.buffs.length > 0 && (
             <div className="rpg-buffs" aria-label="물약 효과">
               {me.buffs.map((b) => (
@@ -2887,6 +2908,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             </div>
           )}
         </div>
+        {side && (
+          <aside className="rpg-side" aria-label="스킬 · 물약">{/* 넓은 화면 — 스킬 · 물약 칸을 게임 판 오른쪽 판으로 옮긴다(11월 14일 사용자 요청) */}
+            {me && <div className="rpg-side-head"><b>스킬</b>{me.blood && <em>BLOOD-001</em>}</div>}
+            {actionBars}
+          </aside>
+        )}
 
         {touch && (
           <div className="pad">

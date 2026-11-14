@@ -128,7 +128,7 @@ test('mv 는 hold 와 늦게 온 입력 비교 칸을 같이 쓴다',()=>{
 });
 test('스냅샷 55번 줄에 목적지를 싣고 없으면 0 이다',()=>{
  const {g}=setup();
- assert.equal(rpgPack(g).h[0][55],0);assert.equal(rpgPack(g).h[0].length,56);
+ assert.equal(rpgPack(g).h[0][55],0);assert.ok(rpgPack(g).h[0].length>=56);   // 뒤에 줄을 더해도(56 BLOOD-001) 55번 자리는 그대로
  mv(g,1234.4,800);assert.deepEqual(rpgPack(g).h[0][55],[1234,800]);
  const back=JSON.parse(JSON.stringify(rpgPack(g)));assert.deepEqual(back.h[0][55],[1234,800]);
 });

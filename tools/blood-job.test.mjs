@@ -179,3 +179,84 @@ test('저장 · 스냅샷 — 가방 bd 는 거른 값 · 손님 화면 값', ()
   const v = bloodView(guest.heroes[0]);
   assert.equal(v.b, 33); assert.equal(v.lv, 1); assert.deepEqual(v.tr[1], [3, 50]);
 });
+
+/* ── 2단계 — 혈수 강타 · 혈형 변환(혈검 · 혈막) ── */
+import { BLOOD_SMASH as M, BLOOD_FORM as F } from '../src/game/bloodJobData.js';
+import { smashSize, smashTier, bloodJobTake, veilStat } from '../src/game/bloodJob.js';
+const sm = (g, op) => send(g, { op, s: 'smash' });
+const lv20 = (h) => { unlockBlood(h); h.bag.bd.lv = 20; };
+
+test('직업 레벨 20 전에는 혈수 강타 · 혈형 변환을 못 쓴다', () => {
+  const { g, h } = setup(); unlockBlood(h); h.bag.bd.b = 50;
+  sm(g, 'press'); assert.equal(h.bd?.ch || null, null);
+  send(g, { op: 'sword' }); assert.equal(h.bag.bd.b, 50);
+});
+
+test('혈수 강타 — 기본 30 · 0.2초 뒤 한 번 · 일반 몹 경직 0.5 · 넉백 · 대기 12초', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 50;
+  const m = mob(g, h.x + 120, h.y, { stun: 0 }), far = mob(g, h.x + 400, h.y);
+  sm(g, 'press'); sm(g, 'release');
+  assert.equal(h.bag.bd.b, 20); assert.ok(h.bd.cd.smash > 11);
+  assert.equal(m.hp, HP, '닿기 전에는 피해 없음');
+  run(g, M.delay + .02);
+  assert.ok(m.hp < HP); assert.equal(far.hp, HP, '길이 240 밖');
+  assert.ok(m.stun > 0); assert.ok(m.kbT > 0 || m.x > h.x + 120);
+  assert.equal(h.bag.bd.tr[1][1], 10, '증폭형 연마 +10');
+});
+
+test('혈수 강타 차징 — 0.3 · 0.6 · 0.9초 추가 10 · 20 · 30 · 폭 +15%씩 · 혈량이 모자라면 낮은 단계', () => {
+  assert.equal(smashTier(0.95, 100), 3); assert.equal(smashTier(0.95, 45), 1); assert.equal(smashTier(0.1, 29), -1);
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 70;
+  assert.deepEqual(smashSize(h, 0), [240, 180]); assert.deepEqual(smashSize(h, 3), [240, 261]);
+  sm(g, 'press'); run(g, M.full + .03);              // 0.9초 — 놓지 않아도 발동
+  assert.equal(h.bd.ch, null); assert.equal(h.bag.bd.b, 10);
+});
+
+test('혈수 강타 — 보스는 경직 · 넉백 면역', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 50;
+  const b = mob(g, h.x + 120, h.y, { boss: 1, stun: 0 });
+  sm(g, 'press'); sm(g, 'release'); run(g, M.delay + .02);
+  assert.ok(b.hp < HP); assert.equal(b.stun, 0); assert.equal(Math.round(b.x), Math.round(h.x + 120));
+});
+
+test('혈검 — 혈량 10 · 세 번 베기(0 · 0.18 · 0.36) · 마지막 적중이면 혈량 8 · 공통 대기 15초', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
+  const m = mob(g, h.x + 60, h.y);
+  send(g, { op: 'sword' });
+  const one = HP - m.hp;
+  assert.ok(one > 0); assert.equal(h.bag.bd.b, 20); assert.ok(h.bd.cd.form > 14);
+  run(g, .4);
+  assert.ok(Math.abs((HP - m.hp) / one - 3) < 0.05, `${(HP - m.hp) / one}`);
+  assert.equal(h.bag.bd.b, 28);
+  assert.equal(h.bag.bd.tr[2][1], 10, '형상화 연마 +10');
+  send(g, { op: 'press', s: 'veil' }); assert.equal(h.bd.vl, null, '공통 대기 — 혈막도 못 쓴다');
+});
+
+test('혈막 — 혈량 15 · 받는 피해 30% 감소 · 줄였으면 끝날 때 혈량 12 · 평타를 누르면 끝난다', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 40;
+  send(g, { op: 'press', s: 'veil' });
+  assert.equal(h.bag.bd.b, 25); assert.ok(h.bd.vl);
+  const E = { fx() {} };
+  assert.equal(bloodJobTake(E, g, h, 100), 70);
+  send(g, { op: 'release', s: 'veil' });
+  assert.equal(h.bd.vl, null); assert.equal(h.bag.bd.b, 37);
+  // 줄인 피해가 없으면 회수 없음 · 평타 누름은 혈막을 끝낸다
+  h.bd.cd.form = 0;
+  send(g, { op: 'press', s: 'veil' }); const b0 = h.bag.bd.b;
+  rpgInput(g, { cls: 0, kind: 'fire', dir: true });
+  assert.equal(h.bd.vl, null); assert.equal(h.bag.bd.b, b0);
+  assert.deepEqual(veilStat(50), [4, 0.35]);
+});
+
+test('혈막 — 최대 3초(형상화 연마로 늘어남)', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 40;
+  send(g, { op: 'press', s: 'veil' }); run(g, F.veil.dur + .05);
+  assert.equal(h.bd.vl, null);
+});
+
+test('차징 중 다른 공격 스킬을 누르면 기존 차징을 끊는다(비용 없음)', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 60;
+  press(g); run(g, .5); assert.equal(h.bd.ch.s, 'shot');
+  sm(g, 'press'); assert.equal(h.bd.ch.s, 'smash'); assert.equal(h.bag.bd.b, 60);
+  rpgInput(g, { cls: 0, kind: 'dash', dir: [1, 0] }); assert.equal(h.bd.ch, null);
+});

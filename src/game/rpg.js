@@ -12,7 +12,7 @@ import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
-import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
+import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -2171,6 +2171,7 @@ function hurtHero(g, h, raw, source, kind) {
     dmg = worldArmorAbsorb(h, dmg);
     dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
     if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
+    if (h.bd) dmg = bloodJobTake(bloodJobEngine, g, h, dmg);   // BLOOD-001 혈막 — 받는 피해 감소
     if (dmg <= 0) return;
     if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
     dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
@@ -3310,9 +3311,11 @@ const bloodEngine = { ...stormEngine };             // 크림슨 레퀴엠 — �
 /* 히든 직업 BLOOD-001(bloodJob.js) — fight: 싸울 수 없는 곳이면 까닭(빈 글이면 된다) · blocks: 훈련장의 막힌 칸은 허수아비 자리라 빼서 탄이 허수아비를 맞힌다 */
 const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h, x, y, r), say, sys,
   blocks: (map) => (MAPS[map]?.train ? [] : MAPS[map]?.blocks || []), cast: (h) => { const c = makeCast(); c.sid = "blood"; h.cast = c; return c; },
-  dummy: (o) => !!o && o.type === "dummy", cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
+  dummy: (o) => !!o && o.type === "dummy", cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
   fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
 export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"
+// 다른 공격 · 스킬 입력 — BLOOD-001 차징 · 혈막 · 혈검 남은 타격을 먼저 끊는다(rpgInput 이 판정 앞에 부른다)
+export const rpgBloodBreak = (g, pi, kind) => bloodJobBreak(bloodJobEngine, g, g.heroes[pi], kind);
 export function rpgWeaponAim(g, pi) { aimBloodWeapon(g, g.heroes[pi]); bloodJobAim(g.heroes[pi]); }   // 차징 중 포인터 방향 갱신(waim) — 크림슨 레퀴엠
 export function rpgWeaponRelease(g, pi, cancel=false) { releaseBloodWeapon(g,g.heroes[pi],cancel); releaseStormWeapon(stormEngine,g,g.heroes[pi],cancel); }
 

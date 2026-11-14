@@ -110,7 +110,7 @@ import { MAT_BY_ID, DROPS, DROP_ROLL, GIFT } from "./game/itemData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./game/armorData.js";
 import { UPDATES, RPG_NOTICE } from "./game/updates.js";
-import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf, mouseCode } from "./game/keys.js";
+import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf, mouseCode, BLOOD_ACTS } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
 import JobTrial from "./JobTrial.jsx";
@@ -1134,7 +1134,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   useEffect(() => {
     // 행동 하나를 누른다 — 키보드 키와 마우스 버튼이 같은 곳으로 들어온다
+    // BLOOD-001 — 겹친 키는 혈 행동이 먼저. 큰 기술 키는 혈역 증폭, 일반 스킬 칸 · 전직 스킬은 쓰지 않는다(11월 14일 사용자 결정)
+    const isBlood = () => !!bloodView(G.current.heroes[mySeat]);   // 손님은 스냅샷 h.bdv
+    const kmap = () => keyMap(bindsRef.current, isBlood() ? BLOOD_ACTS : []);
+    const BLOOD_OFF = /^(use\d|adv|advUlt|healMode)$/;
     function pressAct(a) {
+      if (isBlood() && a === "skill") a = "bField";
+      if (isBlood() && BLOOD_OFF.test(a)) return;
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
       else if (a === "wskill") { const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }
@@ -1166,6 +1172,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "party") toggleWin(partyOpen, setPartyOpen);
     }
     function releaseAct(a) {
+      if (a === "skill" && isBlood()) a = "bField";
       if (MOVE_ACTS[a] && moveKeysOn(moveModeRef.current)) releaseDir(MOVE_ACTS[a]);
       if (a === "fire") act("fire", false);
       if (a === "wskill") { chargeRef.current = false; act("wcharge", false); }
@@ -1178,7 +1185,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const t = e.target;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       if (waitKey) return;                          // 키 설정 창이 새 키를 기다린다
-      const a = keyMap(bindsRef.current)[e.code];
+      const a = kmap()[e.code];
       if (!a) return;
       e.preventDefault();
       if (loadRef.current && !loadRef.current.end) return;   // 맵을 불러오는 중 — 다 된 뒤에 움직인다
@@ -1186,13 +1193,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (e.repeat) return;
       pressAct(a);
     }
-    function onUp(e) { releaseAct(keyMap(bindsRef.current)[e.code]); }
+    function onUp(e) { releaseAct(kmap()[e.code]); }
     /* 마우스 버튼 — 키 설정에서 넣은 버튼만. 좌클릭 · 우클릭 · 휠 클릭은 게임 판(캔버스) 위에서 누를 때만 듣는다(창 · 버튼 클릭은 그대로).
        옆 버튼은 어디서 눌러도 듣고 브라우저 뒤로 · 앞으로 가기를 막는다. 마우스 이동 방식에서는 우클릭(맥 Ctrl+클릭)이 걷기 몫이라 쉰다 */
     function mouseAct(e) {
       const code = mouseCode(e.button);
       if (!code || waitKey || performance.now() - touchAt.current < TOUCH_MOUSE_MS) return null;   // 터치가 흉내 낸 클릭은 버린다
-      const a = keyMap(bindsRef.current)[code];
+      const a = kmap()[code];
       if (!a) return null;
       const side = e.button >= 3;
       if (!side && e.target !== cvsRef.current) return null;
@@ -1212,13 +1219,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     function onMouseUp(e) {
       const code = mouseCode(e.button);
-      if (code && e.button >= 3 && keyMap(bindsRef.current)[code]) e.preventDefault();
+      if (code && e.button >= 3 && kmap()[code]) e.preventDefault();
       const a = code && mouseHeld.current.get(code);
       if (!a) return;
       mouseHeld.current.delete(code);
       releaseAct(a);
     }
-    const onAux = (e) => { if (e.button >= 3 && keyMap(bindsRef.current)[mouseCode(e.button)]) e.preventDefault(); };
+    const onAux = (e) => { if (e.button >= 3 && kmap()[mouseCode(e.button)]) e.preventDefault(); };
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onUp);
     window.addEventListener("mousedown", onMouseDown);
@@ -1698,7 +1705,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             {me.wsk.cd > 0 && <i style={{ width: `${(me.wsk.cd / me.wsk.max) * 100}%` }} />}
           </button>
         )}
-        {me.adv && (
+        {me.adv && !me.blood && (
           <button type="button" className={`rpg-skill adv ${me.adv.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "use" }); }}>
             {!touch && keyOf(binds, "adv") && <kbd>{keyOf(binds, "adv")}</kbd>}
@@ -1707,7 +1714,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
           </button>
         )}
-        <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), field: keyOf(binds, "bField") }}
+        <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), field: keyOf(binds, "bField") || keyOf(binds, "skill") }}
           onField={() => act("blood", { op: "press", s: "field" })} onFieldUp={() => act("blood", { op: "release", s: "field" })}
           onSmash={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }}
           onSmashUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "smash" }); }}
@@ -1717,7 +1724,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           onShotUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }}
           onShotCancel={() => { chargeRef.current = false; act("blood", { op: "cancel", s: "shot" }); }}
           onConv={() => act("blood", { op: "convert" })} />
-        {me.adv && me.adv.ult && (
+        {me.adv && me.adv.ult && !me.blood && (
           <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>
             {!touch && keyOf(binds, "advUlt") && <kbd>{keyOf(binds, "advUlt")}</kbd>}
@@ -1726,14 +1733,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             {me.adv.ult.cd > 0 && <i style={{ width: `${(me.adv.ult.cd / me.adv.ult.max) * 100}%` }} />}
           </button>
         )}
-        {me.adv && me.adv.heal !== undefined && (
+        {me.adv && me.adv.heal !== undefined && !me.blood && (
           <button type="button" className={`rpg-skill adv ${me.adv.heal ? "" : "cool"}`} aria-pressed={me.adv.heal}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "mode" }); }}>
             {!touch && keyOf(binds, "healMode") && <kbd>{keyOf(binds, "healMode")}</kbd>}
             <span>{me.adv.heal ? "치유 평타" : "공격 평타"}<small>눌러 바꾸기</small></span>
           </button>
         )}
-        {me.skills.map((s) => (
+        {!me.blood && me.skills.map((s) => (
           <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
             {!touch && keyOf(binds, s.key) && <kbd>{keyOf(binds, s.key)}</kbd>}
@@ -2922,10 +2929,18 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               act("hold", next);
             }} />
             <div className="pad-act">
-              <button className={`pbtn ${me && me.sk <= 0 ? "ready" : ""} skill`}
-                onPointerDown={(e) => { e.preventDefault(); act("skill"); }}>
-                스킬
-              </button>
+              {me && me.blood ? (   // BLOOD-001 — 스킬 단추가 혈역 증폭(누르고 있는 동안 유지)
+                <button className="pbtn ready skill"
+                  onPointerDown={(e) => { e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 안 되면 그냥 둔다 */ } act("blood", { op: "press", s: "field" }); }}
+                  onPointerUp={() => act("blood", { op: "release", s: "field" })} onPointerCancel={() => act("blood", { op: "release", s: "field" })}>
+                  혈역
+                </button>
+              ) : (
+                <button className={`pbtn ${me && me.sk <= 0 ? "ready" : ""} skill`}
+                  onPointerDown={(e) => { e.preventDefault(); act("skill"); }}>
+                  스킬
+                </button>
+              )}
               <button className="pbtn hit"
                 onPointerDown={(e) => {
                   e.preventDefault();

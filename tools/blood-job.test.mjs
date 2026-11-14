@@ -7,7 +7,8 @@ import { rpgInput } from '../src/game/rpgInput.js';
 import { cleanBag } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { BLOOD, BLOOD_SHOT as S } from '../src/game/bloodJobData.js';
-import { unlockBlood, stableCap, shotTier, bloodView, jobNeed, trainNeed, cleanBd } from '../src/game/bloodJob.js';
+import { unlockBlood, stableCap, shotTier, bloodView, jobNeed, trainNeed, cleanBd, dropBlood } from '../src/game/bloodJob.js';
+import { KEY_ACTIONS, keyMap, defaultKeys, BLOOD_ACTS } from '../src/game/keys.js';
 Math.random = () => 0.999;   // 치명타 없음
 const proto = (() => { const g = makeWorld(); return structuredClone(g.mobs.find(m => m.type === 'rabbit' && !m.boss)); })();
 const HP = 1e9;
@@ -407,4 +408,26 @@ test('연구시설을 나가면 빌린 혈량 · 스킬을 거둔다', () => {
   goSpot(h, 'press'); talk(g); assert.equal(h.map, LAB.id);
   h.map = 'plaza'; step(g, .01);
   assert.equal(h.bt, null); assert.equal(h.bag.bd || null, null); assert.equal(h.advClass, 'gladiator');
+});
+
+test('BLOOD-001 은 큰 기술 · 일반 스킬 칸 · 전직 스킬을 받지 않고, 전직 초기화하면 다시 쓴다', () => {
+  const { g, h } = setup();
+  unlockBlood(h);
+  h.sk = 0;
+  rpgInput(g, { cls: 0, kind: 'skill' });
+  assert.equal(h.sk, 0, '큰 기술이 나가지 않는다');
+  dropBlood(h);
+  rpgInput(g, { cls: 0, kind: 'skill' });
+  assert.ok(h.sk > 0, '되돌리면 큰 기술이 다시 나간다');
+});
+
+test('키 — 적혈탄 F · 혈역 증폭은 따로 키 없음, BLOOD-001 이면 겹친 키도 혈 행동이 먼저', () => {
+  const k = defaultKeys();
+  assert.deepEqual(k.bShot, ['KeyF', '']);
+  assert.deepEqual(k.bField, ['', '']);
+  const all = KEY_ACTIONS.flatMap(a => a.keys).filter(Boolean);
+  assert.equal(new Set(all).size, all.length, '기본 키끼리 겹치지 않는다');
+  const mine = { ...k, dash: ['KeyF', ''] };
+  assert.equal(keyMap(mine).KeyF, 'dash');
+  assert.equal(keyMap(mine, BLOOD_ACTS).KeyF, 'bShot');
 });

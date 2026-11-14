@@ -2894,3 +2894,21 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-side .rpg-skillbar, .rpg-side .rpg-potbar { position: static; display: grid; grid-template-columns: 1fr; gap: 6px; }
 .rpg-side .rpg-potbar { padding-top: 12px; border-top: 1px solid rgba(201, 163, 106, 0.3); }
 .rpg-side .rpg-skill { width: 100%; min-width: 0; box-sizing: border-box; background: rgba(28, 21, 14, 0.78); }
+/* BLOOD-001 스탯 창 — 직업 레벨 · 연마 셋 · 혈색(11월 15일). 스탯 창 틀(.rpg-stat) 안, 1px 선으로 나눈다 */
+.rpg-blood-stat { margin: 10px 0 4px; padding: 10px 0 2px; border-top: 1px solid rgba(214, 180, 120, 0.25); }
+.rpg-blood-stat-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.rpg-blood-stat-head b { color: #f0a3aa; letter-spacing: -0.02em; }
+.rpg-blood-stat-head span { font-size: 11.5px; color: #d9c9a6; }
+.rpg-blood-stat-head em { font-style: normal; color: #f3d27f; font-weight: 700; }
+.rpg-blood-stat-head small, .rpg-blood-stat-lv small { color: #8d8068; margin-left: 1px; }
+.rpg-blood-stat-xp { display: block; font-size: 10px; color: #8d8068; margin-top: 2px; }
+.rpg-blood-stat-list { display: grid; gap: 6px; margin-top: 8px; }
+.rpg-blood-stat-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 96px; grid-template-rows: auto auto; column-gap: 8px; align-items: center; }
+.rpg-blood-stat-row .rpg-blood-stat-xp { grid-column: 2 / 4; margin-top: 0; }
+.rpg-blood-stat-row.off { opacity: 0.5; }
+.rpg-blood-stat-name { font-size: 12px; color: #d9c9a6; letter-spacing: -0.02em; }
+.rpg-blood-stat-lv { font-size: 11.5px; color: #f0dcb4; text-align: right; }
+.rpg-blood-stat-tint { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; font-size: 11px; color: #d9c9a6; }
+.rpg-blood-stat-tint i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid rgba(255, 236, 214, 0.5); }
+.rpg-blood-stat-tint em { font-style: normal; color: #f3d27f; font-weight: 700; }
+.rpg-blood-stat-tint small { flex-basis: 100%; font-size: 9.5px; color: #8d8068; }

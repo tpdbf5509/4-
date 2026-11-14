@@ -1,8 +1,8 @@
 /* 히든 직업 BLOOD-001 화면 — 혈량 게이지 줄(레벨 카드 HP 아래)과 스킬 칸 단추(11월 14일 1 · 2단계).
    값은 bloodJob.js bloodView(방장은 판정 상태 · 손님은 스냅샷 줄 56). 판정은 하지 않는다 — 누름 · 뗌만 보낸다.
    게이지는 절대 상한 180 을 늘 보이고 안정 상한 · 150 · 180 자리에 1px 구분선. 겹치면 하나만 그린다(연출및세부사항) */
-import { BLOOD, BLOOD_SHOT, BLOOD_SMASH, BLOOD_FORM, BLOOD_FIELD, BLOOD_STATE } from "./game/bloodJobData.js";
-import { stableCap, shotTier, shotTimeTier, smashTier, smashTimeTier, bloodMode, MODE_NAMES } from "./game/bloodJob.js";
+import { BLOOD, BLOOD_SHOT, BLOOD_SMASH, BLOOD_FORM, BLOOD_FIELD, BLOOD_STATE, BLOOD_NAME, BLOOD_COLORS, TRAIN_NAMES, TRAIN_UNLOCK } from "./game/bloodJobData.js";
+import { stableCap, shotTier, shotTimeTier, smashTier, smashTimeTier, bloodMode, MODE_NAMES, jobNeed, trainNeed, bloodTint } from "./game/bloodJob.js";
 
 // 차징 단계 · 비용 — 시간만 본 단계가 혈량 때문에 낮아지면 short 에 실제 단계
 function chargeInfo(ch, b, tierOf, timeOf, tiers) {
@@ -113,5 +113,46 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         {c.cd > 0 && <em>{Math.ceil(c.cd)}</em>}
       </button>
     </>
+  );
+}
+
+// 스탯 창 — BLOOD-001 직업 레벨 · 연마 셋(11월 15일 사용자 요청). 값은 bloodView 그대로(v), 판정은 하지 않는다
+const TINT_NAMES = { red: "붉은 혈색", violet: "보랏빛 혈색", dusk: "검붉은 혈색" };
+export function BloodStat({ v }) {
+  if (!v) return null;
+  const top = v.lv >= BLOOD.maxLv;
+  const need = jobNeed(v.lv), pct = (a, b) => `${Math.min(100, (a / Math.max(1, b)) * 100)}%`;
+  const over = bloodMode(v.b, stableCap(v.lv), v.rg) === "over";   // 과충전 — 해금한 연마 계산 레벨 +5(각 50까지)
+  const sum = v.tr.reduce((n, q) => n + q[0], 0), tint = bloodTint(sum);
+  return (
+    <div className="rpg-blood-stat">
+      <div className="rpg-blood-stat-head">
+        <b>{BLOOD_NAME}</b>
+        <span>직업 레벨 <em>{v.lv}</em><small>/{BLOOD.maxLv}</small></span>
+      </div>
+      <span className="rpg-lv-bar xp"><span style={{ width: top ? "100%" : pct(v.xp, need) }} /></span>
+      <small className="rpg-blood-stat-xp">{top ? "최고 레벨" : `경험치 ${v.xp} / ${need}`}</small>
+      <div className="rpg-blood-stat-list">
+        {TRAIN_NAMES.map((name, i) => {
+          const [l, x] = v.tr[i], open = v.lv >= TRAIN_UNLOCK[i], max = l >= BLOOD.train.max;
+          const tmp = over && open ? Math.min(BLOOD.train.max, l + BLOOD_STATE.over.train) - l : 0;
+          return (
+            <div key={name} className={`rpg-blood-stat-row ${open ? "" : "off"}`}>
+              <span className="rpg-blood-stat-name">{name}</span>
+              <span className="rpg-lv-bar blood"><span className="in" style={{ width: !open ? "0%" : max ? "100%" : pct(x, trainNeed(l)) }} /></span>
+              <span className="rpg-blood-stat-lv">
+                {!open ? `직업 Lv ${TRAIN_UNLOCK[i]}` : tmp > 0 ? <>영구 {l} + 임시 {tmp}</> : <>{l}<small>/{BLOOD.train.max}</small></>}
+              </span>
+              <small className="rpg-blood-stat-xp">{!open ? "잠김" : max ? "최고" : `${x} / ${trainNeed(l)}`}</small>
+            </div>
+          );
+        })}
+      </div>
+      <p className="rpg-blood-stat-tint">
+        <i style={{ background: BLOOD_COLORS[tint].bright }} />
+        연마 합계 <em>{sum}</em> · {TINT_NAMES[tint]}
+        <small>75 이상 보랏빛 · 130 이상 검붉은 혈색</small>
+      </p>
+    </div>
   );
 }

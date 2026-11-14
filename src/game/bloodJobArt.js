@@ -4,7 +4,7 @@
    코드로 그리는 것은 판정 범위를 보이는 1px 예고선 · 남은 시간 띠 · 숫자 글자뿐이다. 시트를 못 불러오면 그 연출은 비워 둔다.
    색은 연마 합계에 따라 바뀐다(f.c: red · violet · dusk) — 시트는 hue-rotate · 밝기로 물들이고 외곽은 늘 밝게.
    연출 종류: sk_bj_charge(차징 구체) · sk_bj_shot(본탄) · sk_bj_hit · sk_bj_end · sk_bj_burst(팽창) · sk_bj_reap(혈흔 회수 실) · sk_bj_conv(혈량 전환) · sk_bj_fizz(차징 취소) */
-import { BLOOD_SHOT as S, BLOOD_COLORS, BLOOD, BLOOD_FIELD as FD } from "./bloodJobData.js";
+import { BLOOD_SHOT as S, BLOOD_COLORS, BLOOD, BLOOD_FIELD as FD, BLOOD_TINT } from "./bloodJobData.js";
 import { BLOOD_JOB_PX_SRC, BLOOD_JOB_PX as SH } from "./bloodJobPxData.js";
 
 const TAU = Math.PI * 2;
@@ -272,6 +272,12 @@ export const BLOOD_JOB_CAP = { sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_
 // 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
 const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage"]);
 export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
+// 연마 합계(영구 레벨)에 따른 혈색 — 방장은 가방 bd, 손님은 스냅샷 bdv(같은 tr 모양)
+function tintOf(h) {
+  const v = h && (h.bdv || (h.bag && h.bag.bd && h.bag.bd.on ? h.bag.bd : null));
+  const sum = v && Array.isArray(v.tr) ? v.tr.reduce((n, q) => n + ((q && q[0]) | 0), 0) : 0;
+  return BLOOD_TINT.find((t) => sum >= t.from).id;
+}
 export function drawBloodJobFx(ctx, f, p, sq, g, time) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
@@ -279,6 +285,7 @@ export function drawBloodJobFx(ctx, f, p, sq, g, time) {
     const h = g.heroes && g.heroes[f.pi];
     if (h && h.map === f.map && Number.isFinite(h.x)) f = { ...f, x: h.x, y: h.y };
   }
+  if (!f.c && g && Number.isInteger(f.pi)) { const c = tintOf(g.heroes && g.heroes[f.pi]); if (c !== "red") f = { ...f, c }; }   // 시전자 연마 합계 색
   ctx.save(); ctx.imageSmoothingEnabled = false;
   try { fn(ctx, f, clamp(p) * f.life, sq); } finally { ctx.restore(); }
   return true;

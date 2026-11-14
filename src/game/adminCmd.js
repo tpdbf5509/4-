@@ -15,6 +15,8 @@ import { VILLAGE } from "./villageData.js";
 import { POTIONS, POTION, SPECIALS, WARP, GUARD, WEAPON_FAMILY, JOB_FAMILY, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, addMat, equipped } from "./shop.js";
 import { ADV_CLASSES } from "./advData.js";
+import { unlockBlood, dropBlood, bloodOn } from "./bloodJob.js";
+import { BLOOD } from "./bloodJobData.js";
 import { MATERIALS } from "./itemData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 
@@ -29,6 +31,7 @@ const HELP = [
   "/소환 <이름> — 그 사람을 내 자리로",
   "/이동 <장소> — 1부 이야기 맵으로(이름 없이 쓰면 목록)",
   "/직업 <이름> <직업> — 검사 · 궁수 · 마법사 · 검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사",
+  "/블러드 <이름> [직업레벨 | 끄기] — 히든 직업 BLOOD-001 해금(시험용) · 직업 레벨 바꾸기 · 끄기",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
 ];
 const flat = (s) => String(s || "").toLowerCase().replace(/[\s()·]/g, "");
@@ -88,6 +91,7 @@ const jobLabel = (p) => (p.adv ? `${JOBS.find((j) => j.id === p.job).name} · ${
 function changeJob(g, t, pick) {
   t.job = pick.job;
   t.advClass = pick.adv; t.advQ = null; t.as = null;
+  if (pick.adv && t.bag) dropBlood(t);            // 1차 전직으로 바꾸면 BLOOD-001 은 꺼진다(전직을 대신하는 직업)
   const b = t.bag;
   if (b) {
     const w = equipped(b);
@@ -192,6 +196,23 @@ export function rpgAdminCmd(g, pi, text) {
     changeJob(g, t, pick);
     say(`${who(g, ti)}님의 직업을 ${jobLabel(pick)}(으)로 바꿨습니다.`);
     if (ti !== pi) sys(g, ti, `관리자가 직업을 ${jobLabel(pick)}(으)로 바꿨습니다.`);
+    return true;
+  }
+
+  if (cmd === "블러드") {                          // 히든 직업 BLOOD-001 — 해금 루트 전 시험용(11월 14일)
+    const last = words[words.length - 1] || "", off = last === "끄기", lv = /^[0-9]{1,3}$/.test(last) ? Number(last) : 0;
+    if (off || lv) words.pop();
+    const [ti, rest] = takeName(g, pi, words);
+    if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /블러드 나 · /블러드 나 100 · /블러드 나 끄기");
+    const t = g.heroes[ti];
+    if (!t.loaded || !t.bag) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
+    if (trading(t)) return void say("그 사람은 거래 중입니다.");
+    if (off) { dropBlood(t); bump(t); return void say(`${who(g, ti)}님의 BLOOD-001 을 껐습니다.`); }
+    if (!bloodOn(t)) unlockBlood(t);
+    if (lv) { t.bag.bd.lv = Math.max(1, Math.min(BLOOD.maxLv, lv)); t.bag.bd.xp = 0; }
+    bump(t);
+    say(`${who(g, ti)}님을 BLOOD-001(직업 레벨 ${t.bag.bd.lv})로 바꿨습니다.`);
+    if (ti !== pi) sys(g, ti, "관리자가 히든 직업 BLOOD-001 을 열었습니다.");
     return true;
   }
 

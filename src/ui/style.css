@@ -2853,3 +2853,19 @@ button.forge-stage:disabled { cursor: default; }
 .alch-mats small { color: var(--sh-faint); }
 .alch-mats .short { opacity: 0.55; }
 .alch-lock b { color: var(--sh-text); font-weight: 600; }
+
+/* 히든 직업 BLOOD-001 — 혈량 게이지(현재 / 안정 상한, 180 까지 늘 보인다) · 스킬 칸(11월 14일) */
+.rpg-lv-bar.blood { position: relative; }
+.rpg-lv-bar.blood > span { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 0; }
+.rpg-lv-bar.blood > .in { background: linear-gradient(#e0606c, #9e2433); }
+.rpg-lv-bar.blood > .over { background: linear-gradient(#f0a0c8, #b84a86); }
+.rpg-lv-bar.blood > .use { background: repeating-linear-gradient(135deg, rgba(255, 238, 220, 0.75) 0 2px, rgba(0, 0, 0, 0) 2px 4px); }
+.rpg-lv-bar.blood > i { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -1px; background: rgba(255, 236, 214, 0.7); }
+.rpg-blood-row .rpg-lv-num small { font-size: 9.5px; color: #d99aa2; margin-left: 2px; }
+.rpg-skill.blood { border-color: rgba(214, 110, 120, 0.55); }
+.rpg-skill.blood em { color: #f0a3aa; }
+.rpg-skill.blood i { background: #d9646f; }
+.rpg-skill.blood.low span small { color: #ff8f8f; }
+.rpg-blood-dots { display: inline-flex; gap: 3px; margin-left: 4px; }
+.rpg-blood-dots i { position: static; width: 6px; height: 6px; border-radius: 50%; border: 1px solid #e6a3a9; background: transparent; }
+.rpg-blood-dots i.on { background: #e5394a; }

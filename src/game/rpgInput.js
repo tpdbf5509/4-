@@ -6,7 +6,7 @@ import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgWeaponAim, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, freshInput, setFxBy,
+  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -41,6 +41,7 @@ const ACTS = {
   wb: (g, pi, dir) => rpgWorldBoss(g, pi, dir),
   guild: (g, pi, dir) => rpgGuild(g, pi, dir),
   train: (g, pi, dir) => rpgTrain(g, pi, dir),
+  blood: (g, pi, dir) => rpgBloodJob(g, pi, dir),   // 히든 직업 BLOOD-001 — 적혈탄 누름 · 뗌 · 혈량 전환(bloodJob.js)
   adv: (g, pi, dir) => rpgAdv(g, pi, dir),         // 1차 전직 — 시험 · 확정 · 전직 스킬(advance.js)
   deep: (g, pi, dir) => rpgDeep(g, pi, dir),       // 계몽의 문 — 계몽의 눈 만들기 · 400~800레벨 사냥터 입장(deepData.js)
   abyss: (g, pi, dir) => rpgAbyss(g, pi, dir),     // 심연의 탑 — 입장 · 나가기 · 파편 교환(abyssData.js)
@@ -50,7 +51,7 @@ const ACTS = {
 };
 export function rpgInput(g, d) {
   if (!d || !Number.isInteger(d.cls) || !g.heroes[d.cls]) return;
-  if(stormBusy(g.heroes[d.cls]) && ['skill','use','adv','dash'].includes(d.kind))return;
+  if(stormBusy(g.heroes[d.cls]) && ['skill','use','adv','dash','blood'].includes(d.kind))return;
   if (d.kind !== "trade" && !(d.kind==="guild"&&["sync","settled"].includes(d.dir?.op)) && trading(g.heroes[d.cls])) return;
   const act = Object.prototype.hasOwnProperty.call(ACTS, d.kind) ? ACTS[d.kind] : null;
   if (!act || !freshInput(g.heroes[d.cls], d.kind, d.q, g.t)) return;

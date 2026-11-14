@@ -40,6 +40,8 @@ import {
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
+import { bloodView } from "./game/bloodJob.js";
+import { bloodHud, BloodBar, BloodButtons } from "./BloodHud.jsx";   // 히든 직업 BLOOD-001(11월 14일)
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { herbNear } from "./game/alchemy.js";
@@ -166,7 +168,7 @@ const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.m
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 // 맵을 불러오는 동안 막는 조작 — 걷기 · 공격 · 스킬 · 말 걸기. 놓기(빈 방향 · 끄기 · 취소 · 목적지 지우기)는 그대로 보낸다
 const HOLD_WSK = new Set(["azure_dual", "blood_gun"]);   // 누르고 있는 동안 차징하는 무기 스킬 — 누름은 wcharge 로, 뗌도 wcharge 로 보낸다
-const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk", "herb"]);
+const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk", "herb", "blood"]);
 const loadBlocks = (kind, dir) => LOAD_BLOCK.has(kind) && !(kind === "hold" && !(dir && dir.length))
   && dir !== false && dir !== "cancel" && !(kind === "mv" && dir && dir.stop);
 const BIND_EAT_MS = 80;       // 키 설정에서 마우스 버튼을 넣은 뒤 뒤따르는 클릭 · 오른쪽 메뉴를 막는 시간(ms) — 짧게 둬 다음 칸 클릭을 먹지 않는다
@@ -1107,6 +1109,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     clearDirs();
     act("fire", false);
     act("wcharge", "cancel");
+    act("blood", { op: "cancel", s: "shot" });
     setChatOpen(true);
     setChatErr("");
     setTimeout(() => chatInput.current?.focus(), 0);
@@ -1118,6 +1121,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
       else if (a === "wskill") { const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }
+      else if (a === "bShot") { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "shot" }); }   // BLOOD-001 적혈탄 — 누르고 있는 동안 차징
+      else if (a === "bConv") act("blood", { op: "convert" });
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "advUlt") act("adv", { op: "ult" });   // 소환술사 궁극기 거대 정령 — 방장이 판정한다
       else if (a === "healMode") act("adv", { op: "mode" });   // 치유사 평타 바꾸기 — 방장이 판정한다
@@ -1143,6 +1148,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (MOVE_ACTS[a] && moveKeysOn(moveModeRef.current)) releaseDir(MOVE_ACTS[a]);
       if (a === "fire") act("fire", false);
       if (a === "wskill") { chargeRef.current = false; act("wcharge", false); }
+      if (a === "bShot") { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }
     }
     function onKey(e) {
       const t = e.target;
@@ -1194,7 +1200,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("auxclick", onAux);
-    const onBlur = () => { chargeRef.current = false; skillPointer.current=null; dragRef.current=null; mouseHeld.current.clear(); clearDirs(); act("fire", false); act("wcharge", "cancel"); };
+    const onBlur = () => { chargeRef.current = false; skillPointer.current=null; dragRef.current=null; mouseHeld.current.clear(); clearDirs(); act("fire", false); act("wcharge", "cancel"); act("blood", { op: "cancel", s: "shot" }); };
     window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKey);
@@ -1531,6 +1537,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
           wsk: weaponHud(me),
           adv: advHud(me),                          // 전직 스킬 칸
+          blood: bloodHud(bloodView(me)),           // 히든 직업 BLOOD-001 — 혈량 게이지 · 적혈탄 · 혈량 전환
           wb:worldBossView(g,me),guild:guildView(g,me),
           race: raceView(g, me),                    // 몹 레이스 — 모집 · 내 체력 · 순위(race.js)
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
@@ -1739,6 +1746,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span className="rpg-lv-bar hp"><span style={{ width: `${Math.min(100, (me.hp / (me.max || 1)) * 100)}%` }} /></span>
                   <span className="rpg-lv-num">{me.hp}/{me.max}</span>
                 </span>
+                <BloodBar v={me.blood} />
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}
@@ -2758,6 +2766,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
                 </button>
               )}
+              <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv") }}
+                onShot={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "shot" }); }}
+                onShotUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }}
+                onShotCancel={() => { chargeRef.current = false; act("blood", { op: "cancel", s: "shot" }); }}
+                onConv={() => act("blood", { op: "convert" })} />
               {me.adv && me.adv.ult && (
                 <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
                   onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>

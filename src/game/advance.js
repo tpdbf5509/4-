@@ -73,6 +73,7 @@ export function whyAdvConfirm(h, cid, dist, bagRoom) {
 export function advInput(E, g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req) return false;
+  if (h.bag && h.bag.bd && h.bag.bd.on && ["use", "ult", "start", "confirm"].includes(req.op)) return void E.sys(g, pi, "BLOOD-001 은 1차 전직을 할 수 없습니다. 전직 초기화 물약으로 BLOOD-001 을 끄면 전직할 수 있습니다.");
   if (req.op === "use") return advUse(E, g, h);
   if (req.op === "ult") return advUlt(E, g, h);
   if (req.op === "mode") {                          // 치유사 — 평타를 치유 · 공격으로 바꾼다

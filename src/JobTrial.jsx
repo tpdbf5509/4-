@@ -54,6 +54,7 @@ export default function JobTrial({ name, job0, elem0, gender, onPick, onClose })
   // 세계를 새로 만든다 — 직업 · 원소를 바꾸거나 한 판 더
   useEffect(() => {
     G.current = trialWorld({ name: name || TRIAL.name, job, elem, gender: gender || "m" });
+    if (import.meta.env.DEV) window.__JT = G.current;   // 개발 중 상태를 들여다보려고(화면 확인 스크립트)
     clock.current = { started: false, left: TRIAL.sec };
     setHud({ left: TRIAL.sec, dps: 0, tot: 0, hits: 0, sk: 0, started: false, over: false });
   }, [job, elem, gender, name, round]);

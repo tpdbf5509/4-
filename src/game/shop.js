@@ -26,6 +26,7 @@ import { ADV_BONUS } from "./advData.js";
 import { titleStat } from "./socialData.js";
 import { JUNK, bagSteps } from "./junkData.js";
 import { cleanBlocks } from "./block.js";
+import { cleanBd, bloodOn, dropBlood } from "./bloodJob.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
 import { ALCH, ALCH_MAT_BY_ID } from "./alchemyData.js";
 
@@ -257,6 +258,8 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   b.sq = cleanSq(d.sq);                           // 메인 스토리 1부 진행(storyQuest.js) — 단계 차례 · 끝낸 대상 · 고른 선택지
   if (d.aw) b.aw = cleanAw(d.aw);                 // 심연의 탑 이번 주 · 지난주 기록(abyssData.js)
   if (d.ab) b.ab = cleanAb(d.ab);                 // 심연의 탑 보상 기록 — 교환 횟수 · 돌파 보상 · 상자 보관함 · 외형(abyssReward.js)
+  const bd = cleanBd(d.bd);
+  if (bd) b.bd = bd;                              // 히든 직업 BLOOD-001 — 해금 · 직업 레벨 · 연마 · 혈량(bloodJob.js)
   b.al = cleanAl(d.al);                           // 물약 제작 레벨 · 경험치 · 오늘의 제작 의뢰(alchemy.js) — 옛 캐릭터는 1레벨부터
   cleanWorldBossBag(d,b);
   return b;
@@ -532,7 +535,7 @@ export function whyPotionUse(h, id, el) {
   else if (p.kind === "heal" && h.hp >= h.max) out.push("체력이 이미 가득 찼습니다");
   else if (p.kind === "reset" && statSpent(h.st) <= 0) out.push("돌려받을 스탯 포인트가 없습니다");
   else if (p.kind === "hide" && noHide(h)) out.push("결투장 · 던전에서는 마실 수 없습니다");
-  else if (p.kind === "adv" && !advOf(h)) out.push("전직한 뒤에 마실 수 있습니다");
+  else if (p.kind === "adv" && !advOf(h) && !bloodOn(h)) out.push("전직한 뒤에 마실 수 있습니다");
   else if (p.kind === "elem" && !hasElem(h.job)) out.push("원소가 있는 마법사만 마실 수 있습니다");
   else if (p.kind === "elem" && el !== undefined && !ELEMS.some((e) => e.id === el)) out.push("바꿀 원소를 골라 주세요");
   else if (p.kind === "elem" && el === h.elem) out.push("지금 원소와 같습니다");
@@ -765,7 +768,8 @@ export function rpgShop(g, pi, req) {
       fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 44, color: "#cfd8e6", n: 8, t: 0.5, life: 0.5, who: pi });
       msg = `${Math.ceil(h.bf.hide.t)}초 동안 몹이 알아채지 못합니다(보스도)`;
     } else if (p.kind === "adv") {                 // 전직 초기화 — 전직 · 숙련도 · 전투 특성 · 시험을 비운다. 기본 직업은 그대로
-      const wasFull = h.hp >= h.max, old = advOf(h);
+      const wasFull = h.hp >= h.max, old = advOf(h) || (bloodOn(h) ? { name: "BLOOD-001" } : null);
+      dropBlood(h);                               // 히든 직업 BLOOD-001 도 끈다 — 직업 레벨 · 연마는 남는다
       h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
       h.bag.ar = (h.bag.ar || 0) + 1;             // 초기화 횟수 — 저장이 비운 전직을 받아들이게 한다(rpg.js advRecord)
       h.bag.af = 1;                               // 다음 전직은 시험 없이 확정한다(advance.js whyAdvConfirm)

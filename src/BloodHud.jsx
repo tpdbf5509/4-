@@ -20,7 +20,7 @@ export function bloodHud(v) {
   const mode = bloodMode(b, cap, v.rg);
   return {
     b, cap, lv: v.lv, xp: v.xp, mode, state: MODE_NAMES[mode] + (v.rg ? ` ${Math.ceil(v.rg.t)}초` : ""),   // 폭주 · 탈진은 남은 시간을 함께(색만으로 구분하지 않는다)
-    warn: b >= BLOOD_STATE.warn && !v.rg, decay: b > cap && !v.fd,
+    warn: b >= BLOOD_STATE.warn && !v.rg, decay: b > cap && !v.fd, trial: v.bt || 0,
     field: { cd: v.cd.field || 0, max: BLOOD_FIELD.cd, locked: v.lv < BLOOD.unlock.field, left: v.fd ? Math.max(0, BLOOD_FIELD.dur - v.fd.t) : 0, none: !!(v.fd && v.fd.none), busy: !!v.rg },
     shot: { ...shot, cd: v.cd.shot || 0, max: BLOOD_SHOT.cd, charging: !!sc, u: sc ? Math.min(1, sc.t / BLOOD_SHOT.full) : 0, low: b < BLOOD_SHOT.need },
     smash: { ...smash, cd: v.cd.smash || 0, max: BLOOD_SMASH.cd, charging: !!mc, low: b < BLOOD_SMASH.tiers[0].cost, locked },
@@ -46,6 +46,7 @@ export function BloodBar({ v }) {
         {marks.map((m) => <i key={m} style={{ left: pct(m) }} />)}
       </span>
       <span className="rpg-lv-num">{v.b}/{v.cap} <small className={`rpg-blood-st ${v.mode}`}>{v.state}</small>
+        {v.trial > 0 && <small className="rpg-blood-warn">연구시설 시험 {v.trial}/3단계</small>}
         {v.warn && <small className="rpg-blood-warn">다음 혈역 획득 시 폭주</small>}
         {v.decay && <small className="rpg-blood-warn">초과 혈량 감소 -{BLOOD_FIELD.decay}/초</small>}</span>
     </span>

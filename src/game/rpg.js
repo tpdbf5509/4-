@@ -12,6 +12,8 @@ import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
+import { BLOOD_LAB } from './bloodJobData.js';
+import { bloodSpotTalk, bloodHunterTalk, bloodSeqHit, tickBloodTrial } from './bloodUnlock.js';   // BLOOD-001 해금 경로(4단계)
 import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
@@ -392,6 +394,12 @@ HIGH_MAPS.forEach((f, i) => {
   };
   MAP_IDS.push(f.id);
 });
+/* BLOOD-001 폐쇄 연구시설(bloodJobData.js BLOOD_LAB) — 단서 두 개로 연 입구에서만 들어온다. 1인 시험 표적은 들어온 사람마다 세운다. 맵 차례는 뒤에만 */
+MAPS[BLOOD_LAB.id] = {
+  id: BLOOD_LAB.id, name: BLOOD_LAB.name, w: BLOOD_LAB.w, h: BLOOD_LAB.h, top: 170, spawn: BLOOD_LAB.spawn, bg: "field", tile: 2600, bloodLab: 1,
+  tint: "rgba(40,6,14,0.55)", gates: [{ ...BLOOD_LAB.exit, to: "plaza", at: BLOOD_LAB.plazaAt, label: "광장" }], blocks: [], npcs: [],
+};
+MAP_IDS.push(BLOOD_LAB.id);
 MAPS[HIGH.from].gates.push({ x: MAPS[HIGH.from].w - 90, y: 920, r: 64, to: HIGH_MAPS[0].id, at: [260, 920], label: highLabel(HIGH_MAPS[0]), high: 1, highEnter: 1 });
 // 지금 보이는 문 — 열리지 않은 high 문은 빼고(그림 · 흙길 · 문 판정이 같이 쓴다)
 export const gatesOf = (g, M) => (highOn(g) ? M.gates : M.gates.filter((q) => !q.high));
@@ -980,7 +988,7 @@ const advResetUp = (nb, ob) => Math.floor(Number(nb && nb.ar) || 0) > Math.floor
 /* 전직 기록 — 전직은 되돌릴 수 없어, 전직이 빈 기록이 와도(옛 방장 스냅샷 · 섞인 기록) 남겨 둔 전직을 지우지 않는다.
    서버 초기화 · 한 사람 되돌리기 · 전직 초기화 물약(advResetUp) · 관리자(시험용으로 비운다)만 비울 수 있다 */
 function advRecord(d, base, clear, job) {
-  if (d && d.bag && d.bag.bd && d.bag.bd.on) return { advClass: "", advQ: null, advM: 0 };   // 히든 직업 BLOOD-001 은 1차 전직을 대신한다(11월 14일 사용자 결정)
+  if (d && d.bag && d.bag.bd && d.bag.bd.on && !d.bag.bd.trial) return { advClass: "", advQ: null, advM: 0 };   // 히든 직업 BLOOD-001 은 1차 전직을 대신한다(11월 14일 사용자 결정)
   const adv = cleanAdvClass(d.advClass), kept = cleanAdvClass(base && base.advClass);
   const keep = kept && (!job || ADV_BY_ID[kept].job === job) ? kept : "";   // 관리자가 직업을 바꿨으면 옛 직업의 전직은 남기지 않는다
   const cls = adv || (clear || d.admin ? "" : keep);
@@ -1559,9 +1567,10 @@ export function npcNear(h) {
 /* 사냥꾼에게 말을 건다 — 퀘스트를 받거나, 얼마나 남았는지 듣는다 */
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
+  if (h && h.loaded && bloodSpotTalk(bloodJobEngine, g, h)) return;   // BLOOD-001 단서 조사 자리(bloodUnlock.js)
   const npc = npcNear(h);
   if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv || npc.market || npc.abyss || npc.race || npc.village) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
-  if (npc.id === QUEST_NPC) meetNpc(h, QUEST_NPC);
+  if (npc.id === QUEST_NPC) { meetNpc(h, QUEST_NPC); bloodHunterTalk(bloodJobEngine, g, h, npc); }
   if (!h.quest.on) {
     h.quest = { on: true, n: 0, coinOnly:h.lv>QUEST.lv };
     fx(g, h.map, { kind: "call", x: npc.x, y: npc.y - 96, text: "퀘스트 받음", color: "#ffe08a", t: 0.9, life: 0.9,
@@ -1913,6 +1922,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (h && procOff === 0) worldSetHit(worldEngine, g, h, m, { dot: !!dot, basic: !skill && !dot, weapon: !!skill && !!h.cast?.weapon, skill: !!skill && !dot && !!(h.cast?.weapon || h.cast?.job) });
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
   if (h && !dot) weaponOnHit(g, h, m, null, side, !skill);   // 전설 무기 패시브 — side 는 튄 피해(옆 몹)
+  if (h && !dot && !side && m.type === "dummy") bloodSeqHit(bloodJobEngine, g, h, m, !!skill);   // BLOOD-001 압축기 순서(평타 → 큰 기술 → 평타)
   if (h && !dot && procOff === 0) advOnHit(advEngine, g, h, m, !skill, side);   // 전직 패시브 · 시험
   if (h && h.ac) acAfterHit(g, h, m, dmg, skill, dot, side, crit);   // 강화 카드 — 흡혈 · 셈 · 확률 효과
   m.flash = 0.12;
@@ -3152,6 +3162,8 @@ function tickZones(g, dt) {
    h.trn = { nocd, stack, god, tot 쌓인 피해, hits 맞힌 수, log [[시각, 피해]] } — 기능은 훈련장 안에서만 듣는다 */
 const trnOf = (h) => h.trn || (h.trn = { nocd: 0, stack: 0, god: 0, tot: 0, hits: 0, log: [] });
 function keepDummies(g) {
+  // BLOOD-001 연구시설 시험 표적 — 시험하던 사람이 없으면 치운다(접속이 끊긴 경우)
+  if (g.mobs.some((m) => m.map === BLOOD_LAB.id && !g.heroes[m.own]?.bt)) g.mobs = g.mobs.filter((m) => m.map !== BLOOD_LAB.id || g.heroes[m.own]?.bt);
   if (!g.heroes.some((h) => h && h.map === "train")) {   // 아무도 없으면 세우지 않고, 서 있던 것도 치운다(스냅샷에도 싣지 않는다)
     const stand = (m) => m.type === "dummy" && m.map === "train";
     if (g.mobs.some(stand)) g.mobs = g.mobs.filter((m) => !stand(m));
@@ -3311,6 +3323,9 @@ const bloodEngine = { ...stormEngine };             // 크림슨 레퀴엠 — �
 /* 히든 직업 BLOOD-001(bloodJob.js) — fight: 싸울 수 없는 곳이면 까닭(빈 글이면 된다) · blocks: 훈련장의 막힌 칸은 허수아비 자리라 빼서 탄이 허수아비를 맞힌다 */
 const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h, x, y, r), say, sys,
   blocks: (map) => (MAPS[map]?.train ? [] : MAPS[map]?.blocks || []), cast: (h) => { const c = makeCast(); c.sid = "blood"; h.cast = c; return c; },
+  dummyAt: (g, map, x, y) => { const m = bodyOf(g.nextId++, -1, "dummy", 0, 1, map, x, y); g.mobs.push(m); return m; },
+  hurt: (g, h, dmg) => hurtHero(g, h, dmg, { bloodTrial: 1 }),
+  goMap: (g, h, to, at) => { h.map = to; [h.x, h.y] = at; stopMove(h); h.hold = []; h.dash = 0; h.gateCd = 1.2; fx(g, to, { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#ff9aa4", t: 0.5, life: 0.5 }); },
   dummy: (o) => !!o && o.type === "dummy", god: (g, h) => !!(h.trn && h.trn.god && (g.test || h.map === "train")), cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
   fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
 export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"
@@ -3768,6 +3783,7 @@ function stepHeroes(g, dt) {
     if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - cdt);   // 산 스킬 대기 시간
     tickWeapon(g, h, cdt);                         // 전설 무기 · 직업 스킬 효과 시간
     tickAdv(advEngine, g, h, cdt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
+    tickBloodTrial(bloodJobEngine, g, h, cdt);     // BLOOD-001 해금 시험 — 연구시설 밖이면 빌린 값을 거둔다
     tickBloodJob(bloodJobEngine, g, h, cdt);       // BLOOD-001 — 혈흔 · 차징 · 적혈탄
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)

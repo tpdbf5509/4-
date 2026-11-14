@@ -195,5 +195,5 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 채집물은 `HERBS`(차례가 번호 — 새 사냥터는 `TIERS` 뒤에만). 판정은 서버, 스냅샷 `hb` · row[54].ga. 재료 8종은 `MATERIALS` 끝(되팔기 0).
 
 ### 히든 직업 BLOOD-001 (11월 14일, 단계 작업 중)
-- 1차 전직을 대신한다(사용자 결정). 1단계 적혈탄 · 혈량 전환, 2단계 혈수 강타 · 혈검 · 혈막(직업 레벨 20). 수치 `bloodJobData.js` · 규칙 `bloodJob.js` · 그림 `bloodJobArt.js` · 화면 `BloodHud.jsx`. 저장 `bag.bd`, 스냅샷 영웅 줄 56. 시험 `tools/blood-job.test.mjs`. 상세 `docs/작업-상세-기록.md` 끝 · 프로젝트 `notes/블러드001-설계-정리.md`.
+- 1차 전직을 대신한다(사용자 결정). 1단계 적혈탄 · 혈량 전환, 2단계 혈수 강타 · 혈검 · 혈막(직업 레벨 20), 3단계 혈량 상태(증폭 · 과충전 · 폭주 · 탈진) · 혈역 증폭(직업 레벨 100), 4단계 해금 경로(단서 셋 → 입구 → 맵 `bloodlab` 1인 시험, `bloodUnlock.js`, 가방 `bag.bu`). 수치 `bloodJobData.js` · 규칙 `bloodJob.js` · 그림 `bloodJobArt.js` · 화면 `BloodHud.jsx`. 저장 `bag.bd`, 스냅샷 영웅 줄 56. 시험 `tools/blood-job.test.mjs`. 상세 `docs/작업-상세-기록.md` 끝 · 프로젝트 `notes/블러드001-설계-정리.md`.
 - 그림 · 연출은 Codex 와 pixelfx 로 만든다. Codex 연출은 레이어를 쌓아 움직이게 한다(한 장만 놓고 끝내지 않는다 — 사용자 지시).

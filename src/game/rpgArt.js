@@ -11,7 +11,8 @@ import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
 import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { drawBloodMarks } from './bloodGunArt.js';
-import { drawBloodJobMarks, BLOOD_JOB_CAP } from './bloodJobArt.js';   // 히든 직업 BLOOD-001
+import { drawBloodJobMarks, drawBloodSpots, BLOOD_JOB_CAP } from './bloodJobArt.js';
+import { BLOOD_SPOTS } from './bloodJobData.js';   // 히든 직업 BLOOD-001
 import { bloodView } from './bloodJob.js';   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
 import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc, drawExecMark, drawExecTick } from "./advArt.js";
@@ -2806,6 +2807,7 @@ export function drawRpg(ctx, g, bgs) {
 
   drawExecMarks(ctx, g, me, M, time, inView);
   drawBloodMarks(ctx, g, M, time, inView);        // 크림슨 레퀴엠 — 몹 몸의 혈흔 균열 · 머리 위 방울과 숫자
+  drawBloodSpots(ctx, M, BLOOD_SPOTS, time);        // BLOOD-001 단서 자리(핏자국 · 압축기 · 금속판 · 수문)
   if (me && me.map === M.id) drawBloodJobMarks(ctx, g, M, bloodView(me), time, inView);   // BLOOD-001 — 내가 남긴 혈흔만
   drawStoryMarks(ctx, me, M, time);                     // 메인 이야기 — 지금 말 걸 대상 머리 위 느낌표(storyArt.js)
   if (M.dungeon) drawDungeonDark(ctx, me, cam);

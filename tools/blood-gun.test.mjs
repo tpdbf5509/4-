@@ -237,3 +237,9 @@ test('길게 누르기 — 맞아도 차징이 이어진다 · 너무 오래 누
   assert(h.ws.blood.cast && h.ws.blood.cast.held, '피격 뒤에도 차징 유지');
   run(g, S.hold.max); assert(g.out.some(f => f.kind === 'sk_blood_shot'), '최대 시간에 자동 발사');
 });
+test('길게 누르기 — 오래 눌러도(5초) 쏜 뒤의 관통 · 유도 · 폭발이 안전 상한에 잘리지 않고 모두 들어간다', () => {
+  const { g, h } = setup(), m = mob(g, h.x + 100, h.y); mark(h, m, 5);
+  rpgWeaponSkill(g, 0); run(g, 5); rpgWeaponRelease(g, 0); run(g, 3);
+  assert(dealt(m) / U > 2.4 + 12 * S.seekMul * .9, `총 피해 ${dealt(m) / U}`);
+  assert(g.out.some(f => f.kind === 'sk_blood_boom'), '폭발까지 나감');
+});

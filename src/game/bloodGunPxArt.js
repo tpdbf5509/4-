@@ -5,7 +5,7 @@
 import { BLOOD_PX_SRC, BLOOD_PX_SHEETS as SH, BLOOD_PX_LOOK as L } from "./bloodGunPxData.js";
 import { BLOOD_SKILLS, BLOOD_PALETTE as P } from "./bloodGunData.js";
 
-const S = BLOOD_SKILLS.blood_gun.skill, MAXN = BLOOD_SKILLS.blood_gun.passive.max;
+const S = BLOOD_SKILLS.blood_gun.skill, H = S.hold, MAXN = BLOOD_SKILLS.blood_gun.passive.max;
 const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const imgs = {};
@@ -53,7 +53,7 @@ function charge(ctx, f, t, sq) {
   if (!ready("bg_charge", "bg_circle")) return false;
   const u = clamp(t / S.charge), ax = f.ax || 1, ay = f.ay || 0;
   const mx = f.x + ax * 30, my = f.y - 38 + ay * 30 * sq;
-  const fade = u > 0.85 ? (1 - u) / 0.15 : 1;
+  const fade = u > 0.85 && !f.hold ? (1 - u) / 0.15 : 1;   // hold: 이어서 차징 연출(sk_blood_hold)이 받는다 — 줄어들지 않는다
   cell(ctx, "bg_circle", once("bg_circle", u), f.x, f.y + 2, L.circle.k, 0.95 * fade, 0, 1);
   for (const b of [0.06, 0.24]) {
     const k = clamp((u - b) / 0.32); if (k <= 0 || k >= 1) continue;
@@ -143,10 +143,31 @@ function boom(ctx, f, t, sq) {
   return true;
 }
 
-const KINDS = { sk_blood_charge: charge, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
+// ── 길게 누르기 차징: 1단계와 같은 시트를 돌려 가며 이어 그린다(끊김 없이). 풀차징이면 유도 혈탄 시트 12개가 총구를 돌고 응축 시트가 맥동한다
+function hold(ctx, f, t, sq, g, time) {
+  if (!ready("bg_charge", "bg_circle")) return false;
+  const o = g?.heroes?.[f.pi], x = o && !o.down ? o.x : f.x, y = o && !o.down ? o.y : f.y, ax = f.ax || 1, ay = f.ay || 0;
+  const mx = x + ax * 30, my = y - 38 + ay * 30 * sq, u = clamp(f.u), fade = clamp((f.life - t) / 0.08);
+  cell(ctx, "bg_circle", loop("bg_circle", time, 0.7), x, y + 2, L.circle.k * (1 + 0.25 * u), 0.95 * fade);
+  cell(ctx, "bg_charge", loop("bg_charge", time, 0.6), mx, my, L.charge.k * (0.85 + 0.5 * u), fade);
+  if (!f.full) return true;
+  const K = L.seeker, m = H.ring;
+  ctx.save(); ctx.globalAlpha *= 0.55 * fade; ctx.fillStyle = P.shadow;      // 검은 핵
+  ctx.beginPath(); ctx.ellipse(mx, my, 15, 15, 0, 0, TAU); ctx.fill(); ctx.restore();
+  if (ready("bg_form")) cell(ctx, "bg_form", loop("bg_form", time, 0.6), mx, my, L.form.k * 0.8, 0.85 * fade);
+  if (ready("bg_seeker")) for (let i = 0; i < m; i++) {
+    const a = time * 4.2 + i * TAU / m;
+    cell(ctx, "bg_seeker", loop("bg_seeker", time + i * 0.07, K.loopT), mx + Math.cos(a) * 28, my + Math.sin(a) * 24, K.k * 0.7, fade, a + Math.PI / 2, 1, 8);
+  }
+  if (f.ping && ready("bg_boom")) cell(ctx, "bg_boom", once("bg_boom", t / 0.3), mx, my, L.boom.k * 0.7, 0.8);
+  range(ctx, x, y, 22 + 30 * u + 12, sq, 0.6 * fade, P.glow, 0);
+  return true;
+}
+
+const KINDS = { sk_blood_hold: hold, sk_blood_charge: charge, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
 // t 는 시작부터 지난 초. 그렸으면 true, 시트가 없으면 false(예전 도트 그림으로)
-export function drawBloodPx(ctx, f, t, sq, g) {
+export function drawBloodPx(ctx, f, t, sq, g, time = 0) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  try { return fn(ctx, f, t, sq, g); } finally { ctx.restore(); }
+  try { return fn(ctx, f, t, sq, g, time); } finally { ctx.restore(); }
 }

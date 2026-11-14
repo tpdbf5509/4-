@@ -57,7 +57,7 @@ export function castBloodWeapon(E, g, h, id) {
   bs.cast = c;
   h.ws.wcd = S.cd * E.cooldown(h);
   h.swing = 0.25;
-  E.fx(g, h.map, { kind: 'sk_blood_charge', x: h.x, y: h.y, pi: h.pi, token: c.token, ax, ay, t: S.charge, life: S.charge, snd: 'bloodCharge' });
+  E.fx(g, h.map, { kind: 'sk_blood_charge', x: h.x, y: h.y, pi: h.pi, token: c.token, ax, ay, t: S.charge, life: S.charge, hold: 1, snd: 'bloodCharge' });
   E.fx(g, h.map, { kind: 'call', x: h.x, y: h.y - 104, text: W.name, color: '#E53945', who: h.pi, t: 0.8, life: 0.8 });
   return true;
 }
@@ -75,6 +75,7 @@ function fire(E, g, h, c) {
   c.ph = 1;
   // 풀차징으로 쏘면 현재 체력의 hpCost 를 쓴다 — 죽지는 않게 1 은 남긴다
   c.big = c.t >= H.full ? 1 : 0;
+  c.t = 0;                                       // 쏜 뒤의 시간 — 오래 눌렀어도 혈탄 · 폭발이 안전 상한(life)에 잘리지 않게 여기서 다시 센다
   if (c.big) {
     const cost = Math.min(Math.max(0, h.hp - 1), Math.ceil(h.hp * H.hpCost));
     if (cost > 0) { h.hp -= cost; E.fx(g, h.map, { kind: 'call', x: h.x, y: h.y - 120, text: `생명 -${cost}`, color: '#B8192D', who: h.pi, t: 0.9, life: 0.9 }); }

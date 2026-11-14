@@ -252,7 +252,7 @@ export const BLOOD_FX_KINDS = Object.keys(KINDS);
 export function drawBloodFx(ctx, f, p, time, sq, g, q = 1) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   const t = clamp(p) * f.life;
-  if (f.kind !== 'sk_blood_hold' && drawBloodPx(ctx, f, t, sq, g)) {   // pixelfx 시트(못 불러왔으면 false)
+  if (drawBloodPx(ctx, f, t, sq, g, time)) {   // pixelfx 시트(못 불러왔으면 false)
     if (f.strong) { ctx.save(); ctx.imageSmoothingEnabled = false; try { strongOver(ctx, f, t, sq, g, q, time); } finally { ctx.restore(); } }
     return true;
   }

@@ -53,7 +53,7 @@ export function castBloodWeapon(E, g, h, id) {
   if (bs.cast) return true;                        // 훈련장에서 대기 시간을 풀어도 같은 기술을 겹쳐 쓰지 않는다
   const [ax, ay] = E.face(h);
   const c = { map: h.map, t: 0, ph: 0, base: E.base(h), cap: h.cast || { raw: 0, weapon: true, sid: 'wpn' },
-    token: `${h.who || h.pi}:${g.t}:${ID}`, pierce: [], seek: [], boom: [], done: {}, first: [], seeded: 0, sndT: 0, ax, ay, held: true, big: 0, hT: 0, ptr: h.inputAim ? 1 : 0 };   // ptr: 마우스 포인터 방향으로 겨눈 시전 — 차징 중 포인터를 따라가고 포인터 방향으로 쏜다(포인터 근처 적을 고르지 않는다)
+    token: `${h.who || h.pi}:${g.t}:${ID}`, pierce: [], seek: [], boom: [], done: {}, pool: {}, first: [], seeded: 0, sndT: 0, ax, ay, held: true, big: 0, hT: 0, ptr: h.inputAim ? 1 : 0 };   // ptr: 마우스 포인터 방향으로 겨눈 시전 — 차징 중 포인터를 따라가고 포인터 방향으로 쏜다(포인터 근처 적을 고르지 않는다)
   bs.cast = c;
   h.ws.wcd = S.cd * E.cooldown(h);
   h.swing = 0.25;
@@ -66,6 +66,12 @@ function strike(E, g, h, c, o, mul) {
   const previous = h.cast; h.cast = c.cap;
   try { E.strike(g, h, o, c.base * mul); } finally { h.cast = previous; }
   return true;
+}
+/* 풀차징 혈탄에 맞은 적 발밑에 피 웅덩이(그림만, 판정 없음) — 한 시전에 적 하나당 한 번. 여러 발이 같은 적을 때려도 웅덩이는 하나 */
+function pool(E, g, h, c, o, k) {
+  if (!c.big || !o || c.pool[k]) return;
+  c.pool[k] = 1;
+  E.fx(g, h.map, { kind: 'sk_blood_pool', x: o.x, y: o.y, pi: h.pi, t: H.poolT, life: H.poolT });
 }
 // 적중음은 한꺼번에 맞아도 간격을 두고 하나만(유도 혈탄 6발)
 function hitSound(g, c) { if (g.t - c.sndT < S.sndGap) return undefined; c.sndT = g.t; return 'bloodHit'; }
@@ -215,7 +221,7 @@ export function tickBloodWeapon(E, g, h, dt) {
   // 관통 혈탄이 적에 닿는 때
   while (c.pierce.length && c.t >= c.pierce[0].t) {
     const p = c.pierce.shift(), o = find(g, p.k);
-    if (strike(E, g, h, c, o, S.mul)) E.fx(g, h.map, { kind: 'sk_blood_hit', x: o.x, y: o.y, pi: h.pi, big: 1, t: 0.35, life: 0.35 });
+    if (strike(E, g, h, c, o, S.mul)) { E.fx(g, h.map, { kind: 'sk_blood_hit', x: o.x, y: o.y, pi: h.pi, big: 1, t: 0.35, life: 0.35 }); pool(E, g, h, c, o, p.k); }
     if (!c.seeded && o) spawnSeek(E, g, h, c, o.x, o.y);   // 맞힌 첫 적에서 유도 혈탄 6발 — 한 시전에 한 번
   }
   // 유도 혈탄이 닿는 때
@@ -226,7 +232,7 @@ export function tickBloodWeapon(E, g, h, dt) {
     b.tx = o.x; b.ty = o.y;
     if (c.t < b.t) continue;
     b.hit = 1;
-    strike(E, g, h, c, o, S.seekMul);
+    if (strike(E, g, h, c, o, S.seekMul)) pool(E, g, h, c, o, b.k);
     E.fx(g, h.map, { kind: 'sk_blood_hit', x: o.x, y: o.y, pi: h.pi, t: 0.28, life: 0.28, snd: hitSound(g, c) });
     if (bs.marks[b.k]) arm(E, g, h, c, o, b.k);          // 혈흔이 있으면 폭발 준비(없으면 기본 피해만)
   }

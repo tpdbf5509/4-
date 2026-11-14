@@ -29,7 +29,8 @@ export const BLOOD_SKILLS = {
       // 길게 누르기 차징(11월 14일, 사용자 기획) — 키를 누르고 있는 동안 계속 차징하고 떼면 쏜다. 짧게 누르면(charge 초 안에 떼면) 예전과 같다.
       // 풀차징(full 초 이상 누름): 현재 체력의 hpCost 를 쓰고(죽지는 않는다) 유도 혈탄 n 발 · 탄 속도 seekVMul 배 · 폭발 반경 boomR.
       // 차징 중 이동 속도 slow 감소 · 대쉬하면 취소(대기 시간 돌려줌) · 맞아도 유지(기절 · 띄움만 끊는다). 놓침 방지로 max 초에 자동 발사
-      hold: { full: 2.4, max: 8, slow: 0.35, hpCost: 0.15, n: 12, seekVMul: 1.35, boomR: 120, ring: 12, tick: 0.25 },
+      hold: { full: 2.4, max: 8, slow: 0.35, hpCost: 0.15, n: 12, seekVMul: 1.35, boomR: 120, ring: 12, tick: 0.25,
+        poolT: 2.2 },   // poolT: 풀차징 혈탄에 맞은 적 발밑 피 웅덩이(그림만) 지속 시간(초)
     },
   },
 };

@@ -21,23 +21,32 @@ function sheet(name) {
   if (im === undefined) { im = imgs[name] = new Image(); im.onerror = () => { imgs[name] = null; }; im.src = `${BLOOD_JOB_PX_SRC}${name}.webp`; }
   return im && im.complete && im.naturalWidth ? im : null;
 }
-function cell(ctx, name, i, x, y, k, alpha, rot, c, ky = 1) {
-  const T = SH[name], im = sheet(name); if (!im || alpha <= 0 || k <= 0) return false;
+/* 픽셀 그림은 정수 배로만 키운다 — 1배보다 작게 그리거나 1.3 · 2.6 배처럼 그리면 도트가 빠지고 뭉개져 어색하다(11월 14일 사용자 지적).
+   세로만 누르는 것(ky)도 도트 모양이 찌그러져 쓰지 않는다 */
+const pxK = (k) => Math.max(1, Math.round(k));
+function cell(ctx, name, i, x, y, k0, alpha, rot, c, mirror = false) {
+  const T = SH[name], im = sheet(name); if (!im || alpha <= 0 || k0 <= 0) return false;
+  const k = pxK(k0);
   const sx = (i % T.cols) * T.w, sy = Math.floor(i / T.cols) * T.h;
   ctx.save(); ctx.globalAlpha *= alpha; ctx.imageSmoothingEnabled = false;
   if (TINT_FILTER[c]) ctx.filter = TINT_FILTER[c];
-  ctx.translate(x, y); if (rot) ctx.rotate(rot);
-  if (ky !== 1) ctx.scale(1, ky);
+  // 왼쪽을 볼 때는 180도 돌리지 않고 좌우로 뒤집는다 — 돌리면 베기 · 방울이 위아래까지 뒤집혀 어색하다
+  const flipX = rot && Math.cos(rot) < -1e-6;
+  ctx.translate(x, y);
+  if (flipX || mirror) ctx.scale(flipX ? -1 : 1, mirror ? -1 : 1);
+  if (rot) ctx.rotate(flipX ? Math.atan2(Math.sin(rot), -Math.cos(rot)) * (mirror ? -1 : 1) : rot * (mirror ? -1 : 1));
   ctx.drawImage(im, sx, sy, T.w, T.h, -T.cx * k, -T.cy * k, T.w * k, T.h * k);
   ctx.restore();
   return true;
 }
-const RUNE_K = 3, RUNE_SQ = 0.26;   // bj_rune 그리는 배수 · 그림 속 원의 세로 비율
+const RUNE_K = 3;   // bj_rune 그리는 배수(정수)
 const once = (name, u) => Math.min(SH[name].n - 1, Math.floor(clamp(u) * SH[name].n));
 const loopI = (name, t, spin) => Math.floor(((t / spin) % 1 + 1) % 1 * SH[name].n) % SH[name].n;
 // 한 번짜리 시트를 u(0~1)에 맞춰 · 반복 시트를 spin 초 주기로
-const pxOnce = (ctx, name, u, x, y, k, a, rot, c, ky) => cell(ctx, name, once(name, u), x, y, k, a, rot, c, ky);
-const pxLoop = (ctx, name, t, spin, x, y, k, a, rot, c, ky) => cell(ctx, name, loopI(name, t, spin), x, y, k, a, rot, c, ky);
+// 반복 시트는 이 기기 시계(NOW)로 돈다 — 연출이 0.25초마다 새로 생겨도(혈역 · 폭주 기운) 처음 칸으로 되감기지 않게. t 는 칸을 어긋나게 할 몫만 쓴다
+let NOW = 0;
+const pxOnce = (ctx, name, u, x, y, k, a, rot, c, mirror) => cell(ctx, name, once(name, u), x, y, k, a, rot, c, mirror);
+const pxLoop = (ctx, name, off, spin, x, y, k, a, rot, c) => cell(ctx, name, loopI(name, NOW + (off % 1), spin), x, y, k, a, rot, c);
 
 function dot(ctx, x, y, color, s, a = 1) { if (a <= 0) return; ctx.globalAlpha = clamp(a); ctx.fillStyle = color; ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), s, s); }
 function ring(ctx, x, y, r, sq, color, a, w = 1, dash = 0) {
@@ -54,8 +63,8 @@ const hand = (f, sq) => [f.x + (f.ax || 1) * 26, f.y - S.lift + (f.ay || 0) * 26
 function charge(ctx, f, t, sq) {
   const P = pal(f), [mx, my] = hand(f, sq), u = clamp(f.u || 0), tier = f.tier || 0;
   const R = 15 - 7 * u;                                 // 압축될수록 작아진다(충돌 지름은 그대로 16)
-  pxLoop(ctx, "bj_gather", t, 0.8, mx, my, 0.9 - 0.3 * u, 0.6 * (1 - u * 0.5), 0, f.c);   // 흩어진 피가 손끝으로 모여든다
-  pxLoop(ctx, "bj_orb", t, 1.2 - 0.6 * u, mx, my, (R / 15) * 1.35, 0.95, 0, f.c);   // pixelfx 구슬 — 압축될수록 작고 빠르게 돈다
+  pxLoop(ctx, "bj_gather", 0, 0.8, mx, my, 0.9 - 0.3 * u, 0.6 * (1 - u * 0.5), 0, f.c);   // 흩어진 피가 손끝으로 모여든다
+  pxLoop(ctx, "bj_orb", 0, 1.2 - 0.6 * u, mx, my, (R / 15) * 1.35, 0.95, 0, f.c);   // pixelfx 구슬 — 압축될수록 작고 빠르게 돈다
   if (f.ping) pxOnce(ctx, "bj_hit", clamp(t / 0.2), mx, my + 10, 0.7, 1 - clamp(t / 0.2), 0, f.c);
   // 단계 점 두 개 — 0.8초 · 1.6초에 채운다
   for (let i = 0; i < 2; i++) { const x = f.x - 9 + i * 18, y = f.y - 112; ctx.globalAlpha = 1; ctx.strokeStyle = P.rim; ctx.lineWidth = 1; ctx.strokeRect(x - 4, y - 4, 8, 8); if (tier > i) dot(ctx, x, y, P.bright, 6, 1); }
@@ -65,8 +74,7 @@ function shot(ctx, f, t, sq) {
   const P = pal(f), ax = f.ax || 1, ay = f.ay || 0, d = Math.min(f.len, f.v * t);
   const x = f.x0 + ax * d, y = f.y0 + ay * d * sq, rot = Math.atan2(ay * sq, ax);
   const k = 1.2 + 0.25 * (f.tier || 0);
-  pxLoop(ctx, "bj_drop", t, 0.4, x, y, k * (f.fast ? 1.15 : 1), 1, rot, f.c);
-  if (f.pierce) pxLoop(ctx, "bj_drop", t + 0.2, 0.4, x, y, k * 1.4, 0.45, rot, f.c);   // 관통 탄은 겹친 그림자 탄
+  pxLoop(ctx, "bj_drop", 0, 0.4, x, y, k * (f.fast ? 1.15 : 1), 1, rot, f.c);
   void P;
 }
 function hit(ctx, f, t, sq) {
@@ -85,7 +93,7 @@ function burst(ctx, f, t, sq) {
   ring(ctx, f.x, f.y, R, sq, P.rim, 1 - out, 1);
   if (out > 0) pxOnce(ctx, "bj_pop", out, f.x, f.y + 6, R / 70, 0.8 * (1 - out), 0, f.c);   // 흩어지는 피
   void grow;
-  pxOnce(ctx, "bj_burst", clamp(t / 0.45), f.x, f.y - 12, R / 70, 1 - out * 0.6, 0, f.c, sq / 0.6);
+  pxOnce(ctx, "bj_burst", clamp(t / 0.45), f.x, f.y - 12, R / 70, 1 - out * 0.6, 0, f.c);
 }
 /* 혈흔 회수 — 대상에서 사용자 쪽으로 가느다란 붉은 실이 돌아온다(혈량은 적중 순간 이미 받았다) */
 function reap(ctx, f, t, sq) {
@@ -93,7 +101,7 @@ function reap(ctx, f, t, sq) {
   for (let j = 0; j < Math.min(n, 5); j++) {           // 회수한 혈흔마다 방울 하나가 날아 돌아온다
     const k = clamp(u * 1.3 - j * 0.06), x = f.x + (f.x1 - f.x) * k, y = f.y - 30 + (f.y1 - 34 - (f.y - 30)) * k + Math.sin(k * Math.PI) * -(18 + j * 5);
     const dk = clamp(k + 0.02), nx = f.x + (f.x1 - f.x) * dk, ny = f.y - 30 + (f.y1 - 34 - (f.y - 30)) * dk + Math.sin(dk * Math.PI) * -(18 + j * 5);
-    if (k < 1) pxLoop(ctx, "bj_drop", t + j * 0.1, 0.4, x, y, 0.6, 1 - u * 0.5, Math.atan2(ny - y, nx - x), f.c);
+    if (k < 1) pxLoop(ctx, "bj_drop", j * 0.1, 0.4, x, y, 0.6, 1 - u * 0.5, Math.atan2(ny - y, nx - x), f.c);
   }
   if (f.got && u < 0.6) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x1, f.y1 - 120 - 18 * u); }
   void sq;
@@ -101,7 +109,7 @@ function reap(ctx, f, t, sq) {
 /* 혈량 전환 — 가슴에서 팔로 붉은 맥동. 체력 소모와 실제 증가량을 따로 띄운다 */
 function conv(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life);
-  pxLoop(ctx, "bj_heart", t, 0.6, f.x, f.y - 44, 1.1 + 0.3 * u, 1 - u * u, 0, f.c);
+  pxLoop(ctx, "bj_heart", 0, 0.6, f.x, f.y - 44, 1.1 + 0.3 * u, 1 - u * u, 0, f.c);
   ctx.globalAlpha = 1 - u; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center";
   ctx.fillStyle = "#ff9a8a"; ctx.fillText(`체력 -${f.hp}`, f.x - 30, f.y - 118 - 16 * u);
   if (f.got) { ctx.fillStyle = P.glow; ctx.fillText(`혈량 +${f.got}`, f.x + 30, f.y - 118 - 16 * u); }
@@ -137,10 +145,10 @@ function smashCharge(ctx, f, t, sq) {
   groundRect(ctx, f.x, f.y, f.ax || 1, f.ay || 0, f.L, f.W, sq, P.rim, 0.75);
   const [hx, hy] = handAt(f, sq), size = 110 * (f.W / 180);
   // 손 — 피가 손으로 모여 점점 커진다
-  pxLoop(ctx, "bj_gather", t, 0.8, hx, hy, (size / 70) * (0.5 + 0.7 * u), 0.55 + 0.4 * u, 0, f.c);
+  pxLoop(ctx, "bj_gather", 0, 0.8, hx, hy, (size / 70) * (0.5 + 0.7 * u), 0.55 + 0.4 * u, 0, f.c);
   for (let i = 0; i < tier; i++) {                    // 추가 소모 단계마다 손 옆 혈액 고리 하나
     const rx = hx + size * 0.55, ry = hy - size * 0.3 + i * 18;
-    pxLoop(ctx, "bj_orb", t + i * 0.3, 1.2, rx, ry, 0.32, 0.95, 0, f.c);
+    pxLoop(ctx, "bj_drop", i * 0.3, 0.4, rx, ry, 1, 0.95, -Math.PI / 2, f.c);   // 위로 솟는 방울
   }
   if (f.ping) pxOnce(ctx, "bj_hit", clamp(t / 0.2), hx, hy, 0.9, 1 - clamp(t / 0.2), 0, f.c);
 }
@@ -151,7 +159,7 @@ function smashFire(ctx, f, t, sq) {
     groundRect(ctx, f.x, f.y, ax, ay, f.L, f.W, sq, P.rim, 0.9);
     const u = clamp(t / d), e = u * u, [hx, hy] = handAt(f, sq);
     const x = hx + (tx - hx) * e, y = hy - 60 * Math.sin(u * Math.PI) + (ty - 30 - hy) * e, k = f.W / 180;
-    pxLoop(ctx, "bj_gather", t, 0.4, x, y, 1.9 * k * (1.15 - 0.25 * e), 0.95, 0, f.c);   // 피 덩어리가 앞으로 내려친다
+    pxLoop(ctx, "bj_gather", 0, 0.4, x, y, 1.9 * k * (1.15 - 0.25 * e), 0.95, 0, f.c);   // 피 덩어리가 앞으로 내려친다
     return;
   }
   const u = clamp((t - d) / 0.3);                     // 손끝부터 풀려 0.3초 안에 사라진다
@@ -159,22 +167,23 @@ function smashFire(ctx, f, t, sq) {
 }
 function slam(ctx, f, t, sq) {
   const u = clamp(t / f.life), D = f.W * 1.5;
-  pxOnce(ctx, "bj_slam", u, f.x, f.y + 6, D / 230, 0.9 * (1 - u * 0.5), 0, f.c, sq / 0.6);   // pixelfx 바닥 충격 · 흙먼지 · 돌
+  pxOnce(ctx, "bj_slam", u, f.x, f.y + 6, D / 230, 0.9 * (1 - u * 0.5), 0, f.c);   // pixelfx 바닥 충격 · 흙먼지 · 돌
   pxOnce(ctx, "bj_hit", clamp(u * 1.6), f.x, f.y - 16, D / 120, 0.9 * (1 - u), 0, f.c);
+  void sq;
 }
 function sword(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / 0.12), ax = f.ax || 1, ay = f.ay || 0, rot = Math.atan2(ay * sq, ax), R = f.r || 140;
   const a = 1 - u;
-  const v = clamp(t / 0.3), flipY = f.i === 1 ? -1 : 1;   // 대각선 아래 → 반대 대각선 위(뒤집기) → 교차
+  const v = clamp(t / 0.3), mirror = f.i === 1;   // 대각선 아래 → 반대 대각선 위(뒤집기) → 교차
   if (f.i === 2) pxOnce(ctx, "bj_cross", v, f.x, f.y - 30, R / 80, 1 - v * 0.4, rot, f.c);
-  else pxOnce(ctx, "bj_slash", v, f.x, f.y - 30, R / 80, 1 - v * 0.4, rot, f.c, flipY);
+  else pxOnce(ctx, "bj_slash", v, f.x, f.y - 30, R / 80, 1 - v * 0.4, rot, f.c, mirror);
   ring(ctx, f.x, f.y, R, sq, P.rim, 0.25 * a, 1, 4);   // 실제 반경을 옅게
 }
 function veil(ctx, f, t, sq) {
   const P = pal(f), fill = f.start ? clamp(t / 0.15) : 1, left = 1 - clamp(f.u || 0);
   const x = f.x, y = f.y - 40, D = 140 * (f.k || 1);   // 증폭 · 혈역 크기 보너스(보이는 크기만)
   ring(ctx, x, y, D / 2, 1, P.rim, 0.85, 1);         // 외곽선은 처음부터 완성
-  pxLoop(ctx, "bj_shield", t, 2.4, x, y, (D / 66) * (0.6 + 0.4 * fill), 0.75 * fill, 0, f.c);   // pixelfx 막(경선이 돈다)
+  pxLoop(ctx, "bj_shield", 0, 2.4, x, y, (D / 66) * (0.6 + 0.4 * fill), 0.75 * fill, 0, f.c);   // pixelfx 막(경선이 돈다)
   // 남은 시간 — 외곽 띠
   ctx.save(); ctx.globalAlpha = 0.9; ctx.strokeStyle = P.glow; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(x, y, D / 2 + 5, -Math.PI / 2, -Math.PI / 2 + TAU * left); ctx.stroke(); ctx.restore();
@@ -182,7 +191,7 @@ function veil(ctx, f, t, sq) {
 }
 function veilEnd(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life), x = f.x, y = f.y - 40, D = 140 * (1 - 0.7 * u);
-  pxLoop(ctx, "bj_shield", t, 2.4, x, y, D / 66, 0.5 * (1 - u), 0, f.c);   // 막이 줄어들며 접힌다
+  pxLoop(ctx, "bj_shield", 0, 2.4, x, y, D / 66, 0.5 * (1 - u), 0, f.c);   // 막이 줄어들며 접힌다
   ring(ctx, x, y, D / 2, 1, P.rim, 1 - u, 1);
   if (f.ok) pxOnce(ctx, "bj_suck", u, x, y, 0.85, 1 - u * 0.3, 0, f.c);   // 회수면 안으로 빨려 접힌다
   else pxOnce(ctx, "bj_pop", u, x, y + 30, 0.9, 1 - u * 0.4, 0, f.c);      // 아니면 피가 흩어진다
@@ -193,7 +202,7 @@ function ripple(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life), ox = Math.sin(f.x * 3.1 + f.y) * 30, oy = Math.cos(f.x + f.y * 1.7) * 24;
   pxOnce(ctx, "bj_hit", u, f.x + ox * 0.5, f.y - 30 + oy * 0.5, 0.45, 0.8 * (1 - u), 0, f.c);   // 막에 맞은 자리
   const side = ox < 0 ? Math.PI : 0;                  // 맞은 쪽으로 막이 번쩍인다
-  pxOnce(ctx, "bj_block", u, f.x + Math.cos(side) * 40, f.y - 40, 0.9, 1 - u * 0.4, side, f.c, side ? -1 : 1);
+  pxOnce(ctx, "bj_block", u, f.x + Math.cos(side) * 40, f.y - 40, 0.9, 1 - u * 0.4, side, f.c);
   void P; void sq;
 }
 
@@ -204,13 +213,13 @@ function field(ctx, f, t, sq) {
   const P = pal(f), R = f.r || 350, open = f.start ? clamp(t / 0.4) : 1, u = clamp(f.u || 0);
   ring(ctx, f.x, f.y, R, sq, P.rim, 0.8, 1);
   // pixelfx 룬 원 — 발밑 문양(크게 키우면 도트가 뭉개져 RUNE_K 배까지만). 판정 반경은 1px 외곽선이 보인다
-  pxLoop(ctx, "bj_rune", t, 4, f.x, f.y, RUNE_K * (0.4 + 0.6 * open), 0.85, 0, f.c, Math.min(1.6, sq / RUNE_SQ));
+  pxLoop(ctx, "bj_rune", 0, 4, f.x, f.y, RUNE_K * (0.4 + 0.6 * open), 0.85, 0, f.c);
   const left = (1 - u) * 10;
   if (left < 2) ring(ctx, f.x, f.y, R * (0.92 + 0.08 * (left / 2)), sq, P.glow, 0.5 + 0.5 * Math.sin(t * 20), 2);   // 끝나 간다 — 실제 반경은 그대로
 }
 function fieldEnd(ctx, f, t, sq) {
   const P = pal(f), R = f.r || 350, u = clamp(t / f.life), k = f.over ? 1 - clamp(u * 2.5) : 1 - u;
-  pxLoop(ctx, "bj_rune", t, 4, f.x, f.y, RUNE_K * k, 0.8 * (1 - u), 0, f.c, Math.min(1.6, sq / RUNE_SQ));
+  pxLoop(ctx, "bj_rune", 0, 4, f.x, f.y, RUNE_K * k, 0.8 * (1 - u), 0, f.c);
   if (f.over) pxOnce(ctx, "bj_suck", u, f.x, f.y - 40, 1.2, 1 - u * 0.5, 0, f.c);   // 과부하 — 중심으로 급히 끌려든다
   ring(ctx, f.x, f.y, R * k, sq, P.rim, 0.8 * (1 - u), 1);
 }
@@ -220,7 +229,7 @@ function absorb(ctx, f, t, sq) {
   for (let i = 0; i < 7; i++) {
     const a = i * TAU / 7 + f.x * 0.01, d0 = 120 + (i % 3) * 60, sx = f.x1 + Math.cos(a) * d0, sy = f.y1 + Math.sin(a) * d0 * sq;
     const k = clamp(u * 1.4 - i * 0.05), x = sx + (f.x1 - sx) * k, y = sy + (f.y1 - 40 - sy) * k;
-    if (k < 1) pxLoop(ctx, "bj_drop", t + i * 0.07, 0.4, x, y, 0.45, 0.9 * (1 - k * 0.5), Math.atan2(f.y1 - 40 - y, f.x1 - x), f.c);
+    if (k < 1) pxLoop(ctx, "bj_drop", i * 0.07, 0.4, x, y, 0.45, 0.9 * (1 - k * 0.5), Math.atan2(f.y1 - 40 - y, f.x1 - x), f.c);
   }
   if (u < 0.75) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x1, f.y1 - 124 - 14 * u); }
 }
@@ -231,7 +240,7 @@ function rage(ctx, f, t, sq) {
     pxOnce(ctx, "bj_dark", u, f.x, f.y - 40, 1.1, 1 - u * 0.3, 0, f.c);   // 검붉은 핵이 터지며 고리가 퍼진다(피해 · 넉백 없음)
     return;
   }
-  pxLoop(ctx, "bj_rage", t, 2.4, f.x, f.y + 4, 1.25, 0.6 + 0.3 * Math.sin(Math.PI * u), 0, f.c);   // 발밑 검붉은 불꽃이 몸을 감싼다
+  pxLoop(ctx, "bj_rage", 0, 2.4, f.x, f.y + 4, 1.25, 0.6 + 0.3 * Math.sin(Math.PI * u), 0, f.c);   // 발밑 검붉은 불꽃이 몸을 감싼다
   void P; void sq;
 }
 // 탈진 — 혈액 갑주가 떨어져 사라진다
@@ -246,7 +255,7 @@ function tired(ctx, f, t, sq) {
 function lead(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life), e = u * u * (3 - 2 * u);
   const x = f.x + (f.x1 - f.x) * e, y = f.y + (f.y1 - f.y) * e - Math.abs(Math.sin(u * 18)) * 4;
-  pxLoop(ctx, "bj_drop", t, 0.4, x, y, 0.5, 1 - u * 0.3, Math.atan2(f.y1 - f.y, f.x1 - f.x), f.c);
+  pxLoop(ctx, "bj_drop", 0, 0.4, x, y, 0.5, 1 - u * 0.3, Math.atan2(f.y1 - f.y, f.x1 - f.x), f.c);
   void P; void sq;
 }
 function warn(ctx, f, t, sq) {
@@ -257,8 +266,15 @@ function warn(ctx, f, t, sq) {
 
 const KINDS = { sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
 export const BLOOD_JOB_CAP = { sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 4, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
-export function drawBloodJobFx(ctx, f, p, sq) {
+// 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
+const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage"]);
+export function drawBloodJobFx(ctx, f, p, sq, g, time) {
   const fn = KINDS[f.kind]; if (!fn) return false;
+  NOW = Number.isFinite(time) ? time : performance.now() / 1000;
+  if (FOLLOW.has(f.kind) && g && Number.isInteger(f.pi)) {
+    const h = g.heroes && g.heroes[f.pi];
+    if (h && h.map === f.map && Number.isFinite(h.x)) f = { ...f, x: h.x, y: h.y };
+  }
   ctx.save(); ctx.imageSmoothingEnabled = false;
   try { fn(ctx, f, clamp(p) * f.life, sq); } finally { ctx.restore(); }
   return true;

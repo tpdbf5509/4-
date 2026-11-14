@@ -656,8 +656,9 @@ function stepState(E, g, h, s, dt) {
   if (f) {
     f.t += dt;
     if (h.down > 0 || E.locked(h) || E.fight(h)) endField(E, g, h, "stop");
-    else if (!inField(h)) endField(E, g, h, "out");   // 경계를 넘으면 끝 — 다시 들어와도 이어지지 않는다
+    else if (f.map !== h.map) endField(E, g, h, "out");   // 맵을 옮기면 끝
     else {
+      f.x = Math.round(h.x); f.y = Math.round(h.y);   // 혈역은 시전자를 따라다닌다(11월 14일 사용자 요청) — 판정 중심도 늘 지금 내 자리
       while (s.fd === f && f.n < FD.dur / FD.tick && f.t + 1e-6 >= f.next) { f.n += 1; f.next += FD.tick; fieldTick(E, g, h, f); }
       if (s.fd === f && f.t >= FD.dur) endField(E, g, h, "time");
       else if (s.fd === f && (f.hT -= dt) <= 0) {

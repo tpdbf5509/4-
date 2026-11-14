@@ -1,5 +1,5 @@
 """히든 직업 BLOOD-001 캐릭터 그림 — 사용자가 준 투명 시트(design/blood-job/char/blood-<m|f>-sheet.webp, 4열 × 4줄)를 방향별로 떼어 낸다.
-   줄: 앞 · 뒤 · 옆(왼쪽을 본다) · 비스듬히(왼쪽). 열은 걷는 4칸 — 지금은 첫 칸만 쓴다.
+   줄: 앞 · 뒤 · 옆(왼쪽을 본다) · 비스듬히(왼쪽). 열은 걷는 4칸 — 지금은 첫 칸만 쓴다. 넷째 줄은 옆으로 걷는 모습이라 turn 에는 앞 그림을 쓴다.
    크기: 앞 그림 키를 기존 암살자 앞 그림 키에 맞춘 배율을 그 성별 모든 방향에 쓴다. 여성은 왕관이 있어 몸이 작아지지 않게 CROWN 만큼 더 키운다.
    무기를 들지 않은 그림이라 <보기>-bare.webp 도 같은 그림으로 둔다(무기 숨기기 · 특별 무기).
    실행: python3 tools/cut-blood-char.py → public/assets/characters/rpg/blood-<m|f>/<front|side|back|turn>(-bare).webp"""
@@ -43,6 +43,9 @@ if __name__ == "__main__":
     for g in ["m", "f"]:
         im = np.asarray(Image.open(os.path.join(SRC, f"blood-{g}-sheet.webp")).convert("RGBA"))
         crops = {v: cell(im, r, 0) for r, v in enumerate(ROWS)}
+        # 게임의 turn 은 "아래로 가며 왼쪽을 본다" — 거의 앞모습이어야 한다. 시트 넷째 줄은 옆으로 걷는 모습이라
+        # 아래로 갈 때 옆으로 걷는 것처럼 보였다(11월 15일 사용자 영상) → 앞 그림을 쓴다
+        crops["turn"] = crops["front"]
         ref = Image.open(os.path.join(OUT, f"assassin-{g}", "front.webp")).size[1] - PAD * 2
         s = ref / crops["front"].size[1] * CROWN[g]
         d = os.path.join(OUT, f"blood-{g}")

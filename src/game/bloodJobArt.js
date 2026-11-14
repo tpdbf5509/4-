@@ -4,7 +4,7 @@
    코드로 그리는 것은 판정 범위를 보이는 1px 예고선 · 남은 시간 띠 · 숫자 글자뿐이다. 시트를 못 불러오면 그 연출은 비워 둔다.
    색은 연마 합계에 따라 바뀐다(f.c: red · violet · dusk) — 시트는 hue-rotate · 밝기로 물들이고 외곽은 늘 밝게.
    연출 종류: sk_bj_charge(차징 구체) · sk_bj_shot(본탄) · sk_bj_hit · sk_bj_end · sk_bj_burst(팽창) · sk_bj_reap(혈흔 회수 실) · sk_bj_conv(혈량 전환) · sk_bj_fizz(차징 취소) */
-import { BLOOD_SHOT as S, BLOOD_COLORS, BLOOD } from "./bloodJobData.js";
+import { BLOOD_SHOT as S, BLOOD_COLORS, BLOOD, BLOOD_FIELD as FD } from "./bloodJobData.js";
 import { BLOOD_JOB_PX_SRC, BLOOD_JOB_PX as SH } from "./bloodJobPxData.js";
 
 const TAU = Math.PI * 2;
@@ -39,7 +39,7 @@ function cell(ctx, name, i, x, y, k0, alpha, rot, c, mirror = false) {
   ctx.restore();
   return true;
 }
-const RUNE_K = 3;   // bj_rune 그리는 배수(정수)
+const POOL_R = 117, POOL_OPEN = 0.6, POOL_A = 0.8;   // 혈역 피 웅덩이 — 그림 속 반지름(1배 픽셀, 판정 반경 / 이 값 = 배수) · 번지는 시간 · 투명도(적 공격 예고가 비치게)
 const once = (name, u) => Math.min(SH[name].n - 1, Math.floor(clamp(u) * SH[name].n));
 const loopI = (name, t, spin) => Math.floor(((t / spin) % 1 + 1) % 1 * SH[name].n) % SH[name].n;
 // 한 번짜리 시트를 u(0~1)에 맞춰 · 반복 시트를 spin 초 주기로
@@ -212,14 +212,17 @@ function ripple(ctx, f, t, sq) {
 function field(ctx, f, t, sq) {
   const P = pal(f), R = f.r || 350, open = f.start ? clamp(t / 0.4) : 1, u = clamp(f.u || 0);
   ring(ctx, f.x, f.y, R, sq, P.rim, 0.8, 1);
-  // pixelfx 룬 원 — 발밑 문양(크게 키우면 도트가 뭉개져 RUNE_K 배까지만). 판정 반경은 1px 외곽선이 보인다
-  pxLoop(ctx, "bj_rune", 0, 4, f.x, f.y, RUNE_K * (0.4 + 0.6 * open), 0.85, 0, f.c);
+  // 땅이 피로 물든다(bj_flood 0.6초) → 핏줄기를 따라 발밑으로 빨려 든다(bj_drink 반복). 마법진 대신(11월 14일 사용자 요청)
+  const age = (f.u || 0) * FD.dur + t, k = R / POOL_R;
+  if (age < POOL_OPEN) pxOnce(ctx, "bj_flood", age / POOL_OPEN, f.x, f.y, k, POOL_A, 0, f.c);
+  else pxLoop(ctx, "bj_drink", 0, 1.2, f.x, f.y, k, POOL_A, 0, f.c);
+  void open;
   const left = (1 - u) * 10;
   if (left < 2) ring(ctx, f.x, f.y, R * (0.92 + 0.08 * (left / 2)), sq, P.glow, 0.5 + 0.5 * Math.sin(t * 20), 2);   // 끝나 간다 — 실제 반경은 그대로
 }
 function fieldEnd(ctx, f, t, sq) {
   const P = pal(f), R = f.r || 350, u = clamp(t / f.life), k = f.over ? 1 - clamp(u * 2.5) : 1 - u;
-  pxLoop(ctx, "bj_rune", 0, 4, f.x, f.y, RUNE_K * k, 0.8 * (1 - u), 0, f.c);
+  pxOnce(ctx, "bj_dry", f.over ? clamp(u * 2.5) : u, f.x, f.y, R / POOL_R, POOL_A, 0, f.c);   // 피가 가운데로 말려 사라진다
   if (f.over) pxOnce(ctx, "bj_suck", u, f.x, f.y - 40, 1.2, 1 - u * 0.5, 0, f.c);   // 과부하 — 중심으로 급히 끌려든다
   ring(ctx, f.x, f.y, R * k, sq, P.rim, 0.8 * (1 - u), 1);
 }
@@ -268,6 +271,7 @@ const KINDS = { sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fi
 export const BLOOD_JOB_CAP = { sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 4, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
 // 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
 const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage"]);
+export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
 export function drawBloodJobFx(ctx, f, p, sq, g, time) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;

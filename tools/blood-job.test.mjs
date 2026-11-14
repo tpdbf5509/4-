@@ -300,10 +300,13 @@ test('혈역 증폭 — 직업 100 · 1초마다 +5(적이 혈역 안) · 180 �
   run(g, 3); assert.equal(h.bag.bd.b, 149, '안정 상한 아래로는 줄지 않는다');
 });
 
-test('혈역 — 적이 없으면 얻지 못하고 · 경계를 넘으면 끝난다', () => {
+test('혈역 — 적이 없으면 얻지 못하고 · 시전자를 따라다닌다(맵을 옮기면 끝)', () => {
   const { g, h } = setup(); lv100(h); h.bag.bd.b = 100;
   fd(g, 'press'); run(g, 1.05); assert.equal(h.bag.bd.b, 100);
   h.x += FD.r + 20; step(g, .01);
+  assert.ok(h.bd.fd, '멀리 걸어도 혈역은 이어진다');
+  assert.equal(h.bd.fd.x, Math.round(h.x), '중심이 내 자리로 옮겨 온다');
+  h.map = 'plaza'; step(g, .01);
   assert.equal(h.bd.fd, null);
 });
 

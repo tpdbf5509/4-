@@ -1,10 +1,11 @@
 /* ── 히든 직업 BLOOD-001 그리기 — 적혈탄 · 혈흔 · 혈량 전환(11월 14일 1단계) ─────────────
    판정은 하지 않는다. 시각 · 크기는 판정 수치(bloodJobData.js)에서 읽는다 — 예고 · 범위와 실제 판정이 같다.
-   크림슨 레퀴엠과 같은 pixelfx 시트(rpg/effects/blood-gun/*.webp, MIT pixelfx 로 뽑음)와 혈색 팔레트를 쓴다. 시트를 못 불러오면 코드 도트로 그린다.
+   연출은 두 가지로만 그린다(11월 14일 사용자 지시): Codex 레이어 시트(bj-layers*.webp) + pixelfx 시트(blood-job/px/*.webp, bloodJobPxData.js).
+   코드로 그리는 것은 판정 범위를 보이는 1px 예고선 · 남은 시간 띠 · 숫자 글자뿐이다. 시트를 못 불러오면 그 연출은 비워 둔다.
    색은 연마 합계에 따라 바뀐다(f.c: red · violet · dusk) — 시트는 hue-rotate · 밝기로 물들이고 외곽은 늘 밝게.
    연출 종류: sk_bj_charge(차징 구체) · sk_bj_shot(본탄) · sk_bj_hit · sk_bj_end · sk_bj_burst(팽창) · sk_bj_reap(혈흔 회수 실) · sk_bj_conv(혈량 전환) · sk_bj_fizz(차징 취소) */
 import { BLOOD_SHOT as S, BLOOD_COLORS, BLOOD } from "./bloodJobData.js";
-import { BLOOD_PX_SRC, BLOOD_PX_SHEETS as SH } from "./bloodGunPxData.js";
+import { BLOOD_JOB_PX_SRC, BLOOD_JOB_PX as SH } from "./bloodJobPxData.js";
 
 const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -17,15 +18,16 @@ const imgs = {};
 function sheet(name) {
   if (typeof Image === "undefined") return null;
   let im = imgs[name];
-  if (im === undefined) { im = imgs[name] = new Image(); im.onerror = () => { imgs[name] = null; }; im.src = `${BLOOD_PX_SRC}${name}.webp`; }
+  if (im === undefined) { im = imgs[name] = new Image(); im.onerror = () => { imgs[name] = null; }; im.src = `${BLOOD_JOB_PX_SRC}${name}.webp`; }
   return im && im.complete && im.naturalWidth ? im : null;
 }
-function cell(ctx, name, i, x, y, k, alpha, rot, c) {
-  const T = SH[name], im = sheet(name); if (!im || alpha <= 0) return false;
+function cell(ctx, name, i, x, y, k, alpha, rot, c, ky = 1) {
+  const T = SH[name], im = sheet(name); if (!im || alpha <= 0 || k <= 0) return false;
   const sx = (i % T.cols) * T.w, sy = Math.floor(i / T.cols) * T.h;
   ctx.save(); ctx.globalAlpha *= alpha; ctx.imageSmoothingEnabled = false;
   if (TINT_FILTER[c]) ctx.filter = TINT_FILTER[c];
   ctx.translate(x, y); if (rot) ctx.rotate(rot);
+  if (ky !== 1) ctx.scale(1, ky);
   ctx.drawImage(im, sx, sy, T.w, T.h, -T.cx * k, -T.cy * k, T.w * k, T.h * k);
   ctx.restore();
   return true;
@@ -55,6 +57,9 @@ function layer(ctx, i, x, y, w, h, rot, alpha, c, ox = 0) {
 }
 const once = (name, u) => Math.min(SH[name].n - 1, Math.floor(clamp(u) * SH[name].n));
 const loopI = (name, t, spin) => Math.floor(((t / spin) % 1 + 1) % 1 * SH[name].n) % SH[name].n;
+// 한 번짜리 시트를 u(0~1)에 맞춰 · 반복 시트를 spin 초 주기로
+const pxOnce = (ctx, name, u, x, y, k, a, rot, c, ky) => cell(ctx, name, once(name, u), x, y, k, a, rot, c, ky);
+const pxLoop = (ctx, name, t, spin, x, y, k, a, rot, c, ky) => cell(ctx, name, loopI(name, t, spin), x, y, k, a, rot, c, ky);
 
 function dot(ctx, x, y, color, s, a = 1) { if (a <= 0) return; ctx.globalAlpha = clamp(a); ctx.fillStyle = color; ctx.fillRect(Math.round(x - s / 2), Math.round(y - s / 2), s, s); }
 function ring(ctx, x, y, r, sq, color, a, w = 1, dash = 0) {
@@ -75,14 +80,8 @@ function charge(ctx, f, t, sq) {
   const ringW = 110 - 50 * u, beat = 1 + 0.08 * Math.sin(t * (10 + 8 * u));
   layer(ctx, 1, mx, my, ringW, ringW * 0.9, t * (2 + 3 * u), 0.55 + 0.35 * u, f.c);
   layer(ctx, 0, mx, my, (64 - 26 * u) * beat, (64 - 26 * u) * beat, -t * 1.5, 0.9, f.c);
-  for (let i = 0; i < 10; i++) {                       // 모여드는 방울
-    const a = i * TAU / 10 + t * 3, d = 20 + 14 * (1 - u) + 6 * Math.sin(t * 9 + i);
-    dot(ctx, mx + Math.cos(a) * d, my + Math.sin(a) * d * 0.85, i % 3 ? P.base : P.bright, PX - 1, 0.7);
-  }
-  disc(ctx, mx, my, R + 3, 1, P.rim, 0.55);
-  disc(ctx, mx, my, R, 1, P.bright, 0.95);
-  disc(ctx, mx, my, R * (0.35 + 0.45 * u), 1, u > 0.5 ? P.shadow : P.deep, 0.9);
-  if (f.ping) ring(ctx, mx, my, 34 - 30 * clamp(t / 0.2), 1, P.glow, 1 - clamp(t / 0.2), 2);
+  pxLoop(ctx, "bj_orb", t, 1.2 - 0.6 * u, mx, my, (R / 15) * 1.35, 0.95, 0, f.c);   // pixelfx 구슬 — 압축될수록 작고 빠르게 돈다
+  if (f.ping) pxOnce(ctx, "bj_hit", clamp(t / 0.2), mx, my + 10, 0.7, 1 - clamp(t / 0.2), 0, f.c);
   // 단계 점 두 개 — 0.8초 · 1.6초에 채운다
   for (let i = 0; i < 2; i++) { const x = f.x - 9 + i * 18, y = f.y - 112; ctx.globalAlpha = 1; ctx.strokeStyle = P.rim; ctx.lineWidth = 1; ctx.strokeRect(x - 4, y - 4, 8, 8); if (tier > i) dot(ctx, x, y, P.bright, 6, 1); }
 }
@@ -95,26 +94,22 @@ function shot(ctx, f, t, sq) {
   const tl = Math.min(d, (f.fast ? 150 : 110) + 20 * (f.tier || 0)), fl = 0.75 + 0.25 * Math.sin(t * 60);
   layer(ctx, 3, x, y, tl * 1.12, 26 + 6 * (f.tier || 0), rot, 0.8 * fl, f.c, 0.42);
   layer(ctx, 2, x, y, 58 * k, 58 * k, rot, 1, f.c);
-  if (!cell(ctx, "bg_bolt", loopI("bg_bolt", t, 0.5), x, y, k, 1, rot, f.c)) {
-    const gap = f.fast ? 9 : 6;
-    for (let i = 1; i < 7; i++) dot(ctx, x - ax * i * gap, y - ay * i * gap * sq, i < 3 ? P.bright : P.base, PX - (i > 3 ? 1 : 0), 0.85 - i * 0.11);
-  }
-  disc(ctx, x, y, 6, 1, P.shadow, 0.9);
-  disc(ctx, x, y, 4, 1, P.bright, 1);
-  ring(ctx, x, y, 8, 1, P.rim, 0.9, 1);
-  if (f.pierce) ring(ctx, x, y, 11, 1, P.glow, 0.8, 1);
+  pxLoop(ctx, "bj_drop", t, 0.4, x, y, k * (f.fast ? 1.15 : 1), 1, rot, f.c);
+  if (f.pierce) pxLoop(ctx, "bj_drop", t + 0.2, 0.4, x, y, k * 1.4, 0.45, rot, f.c);   // 관통 탄은 겹친 그림자 탄
+  void P;
 }
 function hit(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life);
   // 레이어: 튀김이 순간 커졌다가 사그라든다(회전은 대상마다 다르게)
   const sz = (60 + 14 * (f.tier || 0)) * (0.6 + 0.6 * clamp(u * 3));
   layer(ctx, 6, f.x, f.y - 26, sz, sz * 0.9, (f.x * 7 + f.y) % TAU, 0.9 * (1 - u), f.c);
-  if (cell(ctx, "bg_spark", once("bg_spark", u), f.x, f.y - 26, 1.3 + 0.2 * (f.tier || 0), 1 - u * 0.4, 0, f.c)) return;
-  for (let i = 0; i < 8; i++) { const a = i * TAU / 8, d = 6 + 26 * u; dot(ctx, f.x + Math.cos(a) * d, f.y - 26 + Math.sin(a) * d * sq, P.bright, PX, 1 - u); }
+  pxOnce(ctx, "bj_hit", u, f.x, f.y - 26, 1.1 + 0.2 * (f.tier || 0), 1 - u * 0.4, 0, f.c);
+  void P; void sq;
 }
 function end(ctx, f, t) {
   const P = pal(f), u = clamp(t / f.life);
-  for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + 0.4, d = 4 + 12 * u; dot(ctx, f.x + Math.cos(a) * d, f.y - S.lift + Math.sin(a) * d, P.base, PX - 1, 1 - u); }
+  pxOnce(ctx, "bj_pop", u, f.x, f.y - S.lift + 10, 0.5, 1 - u * 0.5, 0, f.c);
+  void P;
 }
 /* 팽창 — 얇은 외곽 고리가 곧바로 실제 피해 반경을 보이고, 안쪽 혈액이 0.15초 부풀었다가 0.2초 흩어진다(판정은 처음 한 번) */
 function burst(ctx, f, t, sq) {
@@ -125,10 +120,7 @@ function burst(ctx, f, t, sq) {
   layer(ctx, 4, f.x, f.y - 12, D * 0.85 * (0.3 + 0.7 * grow) * (1 + 0.15 * out), D * 0.85 * (0.3 + 0.7 * grow) * sq * (1 + 0.15 * out), t * 0.8, 0.85 * (1 - out), f.c);
   layer(ctx, 5, f.x, f.y, D * (0.55 + 0.6 * clamp(t / 0.3)), D * sq * (0.55 + 0.6 * clamp(t / 0.3)), -t * 1.2, 0.9 * (1 - clamp(t / 0.4)), f.c);
   if (out > 0) layer(ctx, 6, f.x, f.y - 14, D * (0.6 + 0.4 * out), D * (0.6 + 0.4 * out) * sq, t * 2, 0.8 * (1 - out), f.c);
-  if (!cell(ctx, "bg_boom", once("bg_boom", clamp(t / 0.4)), f.x, f.y - 12, R / 90, 1 - out * 0.7, 0, f.c)) {
-    disc(ctx, f.x, f.y - 10, R * 0.85 * grow, sq, P.base, 0.55 * (1 - out));
-    disc(ctx, f.x, f.y - 10, R * 0.45 * grow, sq, P.shadow, 0.6 * (1 - out));
-  }
+  pxOnce(ctx, "bj_burst", clamp(t / 0.45), f.x, f.y - 12, R / 70, 1 - out * 0.6, 0, f.c, sq / 0.6);
 }
 /* 혈흔 회수 — 대상에서 사용자 쪽으로 가느다란 붉은 실이 돌아온다(혈량은 적중 순간 이미 받았다) */
 function reap(ctx, f, t, sq) {
@@ -137,9 +129,10 @@ function reap(ctx, f, t, sq) {
     const x0 = f.x, y0 = f.y - 30, x1 = f.x1, y1 = f.y1 - 34, L = Math.hypot(x1 - x0, y1 - y0);
     layer(ctx, 7, (x0 + x1) / 2, (y0 + y1) / 2, L * clamp(u * 2), 22 * (1 + 0.3 * Math.sin(t * 20)), Math.atan2(y1 - y0, x1 - x0), 0.85 * (1 - u), f.c);
   }
-  for (let j = 0; j < n; j++) {
+  for (let j = 0; j < Math.min(n, 5); j++) {           // 회수한 혈흔마다 방울 하나가 날아 돌아온다
     const k = clamp(u * 1.3 - j * 0.06), x = f.x + (f.x1 - f.x) * k, y = f.y - 30 + (f.y1 - 34 - (f.y - 30)) * k + Math.sin(k * Math.PI) * -(18 + j * 5);
-    dot(ctx, x, y, j % 2 ? P.glow : P.bright, PX - 1, 1 - u * 0.6);
+    const dk = clamp(k + 0.02), nx = f.x + (f.x1 - f.x) * dk, ny = f.y - 30 + (f.y1 - 34 - (f.y - 30)) * dk + Math.sin(dk * Math.PI) * -(18 + j * 5);
+    if (k < 1) pxLoop(ctx, "bj_drop", t + j * 0.1, 0.4, x, y, 0.6, 1 - u * 0.5, Math.atan2(ny - y, nx - x), f.c);
   }
   if (f.got && u < 0.6) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x1, f.y1 - 120 - 18 * u); }
   void sq;
@@ -147,10 +140,9 @@ function reap(ctx, f, t, sq) {
 /* 혈량 전환 — 가슴에서 팔로 붉은 맥동. 체력 소모와 실제 증가량을 따로 띄운다 */
 function conv(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life);
-  ring(ctx, f.x, f.y - 40, 10 + 24 * u, 1, P.bright, 1 - u, 2);
+  pxLoop(ctx, "bj_heart", t, 0.6, f.x, f.y - 44, 1.1 + 0.3 * u, 1 - u * u, 0, f.c);
   layer(ctx, 0, f.x, f.y - 40, 30 + 30 * u, 30 + 30 * u, t * 3, 0.7 * (1 - u), f.c);
   layer(ctx, 5, f.x, f.y - 40, 40 + 70 * u, 40 + 70 * u, -t * 2, 0.6 * (1 - u), f.c);
-  for (const s of [-1, 1]) for (let i = 0; i < 4; i++) { const k = clamp(u * 1.6 - i * 0.12); dot(ctx, f.x + s * 22 * k, f.y - 44 + 10 * k, P.glow, PX - 1, 1 - u); }
   ctx.globalAlpha = 1 - u; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center";
   ctx.fillStyle = "#ff9a8a"; ctx.fillText(`체력 -${f.hp}`, f.x - 30, f.y - 118 - 16 * u);
   if (f.got) { ctx.fillStyle = P.glow; ctx.fillText(`혈량 +${f.got}`, f.x + 30, f.y - 118 - 16 * u); }
@@ -159,7 +151,8 @@ function conv(ctx, f, t, sq) {
 // 차징 취소 — 구체가 작은 방울로 흩어진다(소리 · 숫자 없음)
 function fizz(ctx, f, t, sq) {
   const P = pal(f), [mx, my] = hand(f, sq), u = clamp(t / f.life);
-  for (let i = 0; i < 8; i++) { const a = i * TAU / 8 + 0.3, d = 4 + 22 * u; dot(ctx, mx + Math.cos(a) * d, my + Math.sin(a) * d + 12 * u * u, P.base, PX - 1, 1 - u); }
+  pxOnce(ctx, "bj_pop", u, mx, my + 14, 0.55, 1 - u * 0.4, 0, f.c);
+  void P;
 }
 
 
@@ -188,12 +181,12 @@ function smashCharge(ctx, f, t, sq) {
   ctx.save(); ctx.beginPath(); ctx.rect(hx - size, hy - size * 0.6, size * 2, size * (0.25 + 0.95 * Math.max(0.15, u))); ctx.clip();
   const drew = layer(ctx, 8, hx, hy, size, size, 0, 0.45 + 0.45 * u, f.c);
   ctx.restore();
-  if (!drew) { disc(ctx, hx, hy - 10, size * 0.32 * (0.4 + 0.6 * u), 1, P.base, 0.5); ring(ctx, hx, hy - 10, size * 0.34, 1, P.rim, 0.6, 1); }
+  void drew;
   for (let i = 0; i < tier; i++) {                    // 추가 소모 단계마다 손 옆 혈액 고리 하나
     const rx = hx + size * 0.55, ry = hy - size * 0.3 + i * 18;
-    if (!layer(ctx, 1, rx, ry, 26, 26, t * 4 + i, 0.9, f.c)) ring(ctx, rx, ry, 7, 1, P.bright, 0.9, 2);
+    layer(ctx, 1, rx, ry, 26, 26, t * 4 + i, 0.9, f.c);
   }
-  if (f.ping) ring(ctx, hx, hy, size * 0.6 * (1 - clamp(t / 0.15)), 1, P.glow, 1 - clamp(t / 0.15), 2);
+  if (f.ping) pxOnce(ctx, "bj_hit", clamp(t / 0.2), hx, hy, 0.9, 1 - clamp(t / 0.2), 0, f.c);
 }
 function smashFire(ctx, f, t, sq) {
   const P = pal(f), d = f.d || 0.2, ax = f.ax || 1, ay = f.ay || 0;
@@ -202,15 +195,16 @@ function smashFire(ctx, f, t, sq) {
     groundRect(ctx, f.x, f.y, ax, ay, f.L, f.W, sq, P.rim, 0.9);
     const u = clamp(t / d), e = u * u, [hx, hy] = handAt(f, sq);
     const x = hx + (tx - hx) * e, y = hy - 60 * Math.sin(u * Math.PI) + (ty - 30 - hy) * e, k = f.W / 180;
-    if (!layer(ctx, 9, x, y, 150 * k * (1.15 - 0.25 * e), 150 * k * (1.15 - 0.25 * e), 0, 0.95, f.c)) disc(ctx, x, y, 34 * k, 1, P.bright, 0.9);
+    layer(ctx, 9, x, y, 150 * k * (1.15 - 0.25 * e), 150 * k * (1.15 - 0.25 * e), 0, 0.95, f.c);
     return;
   }
   const u = clamp((t - d) / 0.3);                     // 손끝부터 풀려 0.3초 안에 사라진다
   layer(ctx, 9, tx, ty - 30 + 14 * u, 140 * (f.W / 180) * (1 + 0.3 * u), 130 * (f.W / 180) * (1 - 0.4 * u), 0, 0.8 * (1 - u), f.c);
 }
 function slam(ctx, f, t, sq) {
-  const P = pal(f), u = clamp(t / f.life), D = f.W * 1.5;
-  if (!layer(ctx, 10, f.x, f.y, D * (0.5 + 0.7 * u), D * 0.48 * (0.5 + 0.7 * u), 0, 0.95 * (1 - u), f.c)) ring(ctx, f.x, f.y, D * 0.5 * (0.4 + 0.7 * u), sq, P.bright, 1 - u, 2);
+  const u = clamp(t / f.life), D = f.W * 1.5;
+  pxOnce(ctx, "bj_slam", u, f.x, f.y + 6, D / 230, 0.9 * (1 - u * 0.5), 0, f.c, sq / 0.6);   // pixelfx 바닥 충격 · 흙먼지 · 돌
+  layer(ctx, 10, f.x, f.y, D * (0.5 + 0.7 * u), D * 0.48 * (0.5 + 0.7 * u), 0, 0.95 * (1 - u), f.c);
   layer(ctx, 11, f.x, f.y, D * 0.9, D * 0.42, 0, 0.8 * (1 - u * u), f.c);
   layer(ctx, 6, f.x, f.y - 16, D * 0.55 * (0.6 + 0.6 * clamp(u * 3)), D * 0.45 * (0.6 + 0.6 * clamp(u * 3)), u, 0.8 * (1 - u), f.c);
 }
@@ -219,15 +213,17 @@ function sword(ctx, f, t, sq) {
   const cx = f.x + ax * R * 0.45, cy = f.y - 30 + ay * R * 0.45 * sq;
   const tilt = f.i === 0 ? 0.6 : f.i === 1 ? -0.6 : 0;   // 대각선 아래 → 반대 대각선 위 → 교차
   const a = 1 - u;
-  if (f.i === 2) { if (!layer(ctx, 13, cx, cy, R * 1.25, R * 1.1, rot, a, f.c)) for (const s2 of [-1, 1]) ring(ctx, cx, cy, R * 0.5, 0.3, P.bright, a, 2); }
-  else if (!layer(ctx, 12, cx, cy, R * 0.9, R * 1.3, rot + tilt, a, f.c)) ring(ctx, cx, cy, R * 0.5, 0.35, P.bright, a, 2);
+  const v = clamp(t / 0.3), flipY = f.i === 1 ? -1 : 1;
+  if (f.i === 2) { layer(ctx, 13, cx, cy, R * 1.25, R * 1.1, rot, a, f.c); pxOnce(ctx, "bj_cross", v, f.x, f.y - 30, R / 100, 1 - v * 0.5, rot, f.c); }
+  else { layer(ctx, 12, cx, cy, R * 0.9, R * 1.3, rot + tilt, a, f.c); pxOnce(ctx, "bj_slash", v, f.x, f.y - 30, R / 95, 1 - v * 0.5, rot, f.c, flipY); }
   ring(ctx, f.x, f.y, R, sq, P.rim, 0.25 * a, 1, 4);   // 실제 반경을 옅게
 }
 function veil(ctx, f, t, sq) {
   const P = pal(f), fill = f.start ? clamp(t / 0.15) : 1, left = 1 - clamp(f.u || 0);
   const x = f.x, y = f.y - 40, D = 140 * (f.k || 1);   // 증폭 · 혈역 크기 보너스(보이는 크기만)
   ring(ctx, x, y, D / 2, 1, P.rim, 0.85, 1);         // 외곽선은 처음부터 완성
-  if (!layer(ctx, 14, x, y, D * (0.6 + 0.4 * fill), D * (0.6 + 0.4 * fill), t * 0.6, 0.45 * fill, f.c)) disc(ctx, x, y, D / 2 * fill, 1, P.base, 0.18);
+  pxLoop(ctx, "bj_shield", t, 2.4, x, y, (D / 66) * (0.6 + 0.4 * fill), 0.75 * fill, 0, f.c);   // pixelfx 막(경선이 돈다)
+  layer(ctx, 14, x, y, D * (0.6 + 0.4 * fill), D * (0.6 + 0.4 * fill), t * 0.6, 0.45 * fill, f.c);
   // 남은 시간 — 외곽 띠
   ctx.save(); ctx.globalAlpha = 0.9; ctx.strokeStyle = P.glow; ctx.lineWidth = 3;
   ctx.beginPath(); ctx.arc(x, y, D / 2 + 5, -Math.PI / 2, -Math.PI / 2 + TAU * left); ctx.stroke(); ctx.restore();
@@ -237,17 +233,17 @@ function veilEnd(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life), x = f.x, y = f.y - 40, D = 140 * (1 - 0.7 * u);
   layer(ctx, 14, x, y, D, D, -t, 0.5 * (1 - u), f.c);
   ring(ctx, x, y, D / 2, 1, P.rim, 1 - u, 1);
-  for (let i = 0; i < 10; i++) {                      // 회수면 안으로 흡수 · 아니면 바깥으로 흩어진다
-    const a = i * TAU / 10 + 0.2, d = f.ok ? 70 * (1 - u) : 70 + 40 * u;
-    dot(ctx, x + Math.cos(a) * d, y + Math.sin(a) * d, f.ok ? P.glow : P.base, PX - 1, 1 - u);
-  }
+  if (f.ok) pxOnce(ctx, "bj_suck", u, x, y, 0.85, 1 - u * 0.3, 0, f.c);   // 회수면 안으로 빨려 접힌다
+  else pxOnce(ctx, "bj_pop", u, x, y + 30, 0.9, 1 - u * 0.4, 0, f.c);      // 아니면 피가 흩어진다
   if (f.got && u < 0.7) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x, f.y - 120 - 16 * u); }
   void sq;
 }
 function ripple(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life), ox = Math.sin(f.x * 3.1 + f.y) * 30, oy = Math.cos(f.x + f.y * 1.7) * 24;
-  if (!layer(ctx, 15, f.x + ox, f.y - 40 + oy, 40 + 50 * u, 40 + 50 * u, 0, 0.9 * (1 - u), f.c)) ring(ctx, f.x + ox, f.y - 40 + oy, 8 + 20 * u, 1, P.glow, 1 - u, 1);
-  void sq;
+  layer(ctx, 15, f.x + ox, f.y - 40 + oy, 40 + 50 * u, 40 + 50 * u, 0, 0.9 * (1 - u), f.c);
+  const side = ox < 0 ? Math.PI : 0;                  // 맞은 쪽으로 막이 번쩍인다
+  pxOnce(ctx, "bj_block", u, f.x + Math.cos(side) * 40, f.y - 40, 0.9, 1 - u * 0.4, side, f.c, side ? -1 : 1);
+  void P; void sq;
 }
 
 /* ── 3단계 연출 — 혈역 증폭 · 폭주 · 탈진 ─────────────
@@ -255,7 +251,6 @@ function ripple(ctx, f, t, sq) {
    마지막 2초는 외곽선 밝기가 안쪽으로 좁아진다(실제 반경은 그대로). 끝나면 바깥부터 걷히고, 과부하면 중심으로 급히 끌려든다 */
 function field(ctx, f, t, sq) {
   const P = pal(f), R = f.r || 350, open = f.start ? clamp(t / 0.4) : 1, u = clamp(f.u || 0);
-  disc(ctx, f.x, f.y, R * open, sq, P.deep, 0.1);
   ring(ctx, f.x, f.y, R, sq, P.rim, 0.8, 1);
   // 문양 · 혈관 칸은 그림 안에서 이미 가로:세로 2:1 로 눌려 있다 — 세로를 sq / 0.5 배로 펴 땅 비율에 맞춘다
   layer(ctx, 16, f.x, f.y, R * 2.16 * (0.3 + 0.7 * open), R * 2.16 * (sq / 0.5) * (0.3 + 0.7 * open), 0, 0.28, f.c);   // 안쪽은 옅게 — 적 공격 예고 · 아이템이 가려지지 않게
@@ -274,7 +269,8 @@ function absorb(ctx, f, t, sq) {
   for (let i = 0; i < 7; i++) {
     const a = i * TAU / 7 + f.x * 0.01, d0 = 120 + (i % 3) * 60, sx = f.x1 + Math.cos(a) * d0, sy = f.y1 + Math.sin(a) * d0 * sq;
     const k = clamp(u * 1.4 - i * 0.05), x = sx + (f.x1 - sx) * k, y = sy + (f.y1 - 40 - sy) * k;
-    if (!layer(ctx, 18, x, y - 10, 14, 44, 0, 0.9 * (1 - k * 0.6), f.c)) dot(ctx, x, y, P.bright, PX, 1 - k * 0.6);
+    layer(ctx, 18, x, y - 10, 14, 44, 0, 0.9 * (1 - k * 0.6), f.c);
+    if (k < 1) pxLoop(ctx, "bj_drop", t + i * 0.07, 0.4, x, y, 0.45, 0.9 * (1 - k * 0.5), Math.atan2(f.y1 - 40 - y, f.x1 - x), f.c);
   }
   if (u < 0.75) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x1, f.y1 - 124 - 14 * u); }
 }
@@ -287,8 +283,9 @@ function rage(ctx, f, t, sq) {
     return;
   }
   const fl = 0.75 + 0.25 * Math.sin(t * 30 + f.x);
-  if (!layer(ctx, 20, f.x, f.y - 50, 100 * fl, 160, 0, 0.6 + 0.35 * Math.sin(Math.PI * u), f.c)) ring(ctx, f.x, f.y - 40, 40, 1.4, P.bright, 0.6 * (1 - u), 2);
-  void sq;
+  pxLoop(ctx, "bj_rage", t, 2.4, f.x, f.y + 4, 1.1, 0.75, 0, f.c);   // pixelfx 발밑 검붉은 불꽃
+  layer(ctx, 20, f.x, f.y - 50, 100 * fl, 160, 0, 0.6 + 0.35 * Math.sin(Math.PI * u), f.c);
+  void P; void sq;
 }
 // 탈진 — 혈액 갑주가 떨어져 사라진다
 function tired(ctx, f, t, sq) {
@@ -302,9 +299,9 @@ function tired(ctx, f, t, sq) {
 function lead(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life), e = u * u * (3 - 2 * u);
   const x = f.x + (f.x1 - f.x) * e, y = f.y + (f.y1 - f.y) * e - Math.abs(Math.sin(u * 18)) * 4;
-  if (!layer(ctx, 18, x, y - 14, 12, 40, 0, 1 - u * 0.3, f.c)) dot(ctx, x, y, P.bright, PX + 1, 1);
-  for (let i = 1; i < 6; i++) { const k = Math.max(0, e - i * 0.04); dot(ctx, f.x + (f.x1 - f.x) * k, f.y + (f.y1 - f.y) * k, P.base, PX - 1, 0.5 - i * 0.08); }
-  void sq;
+  layer(ctx, 18, x, y - 14, 12, 40, 0, 1 - u * 0.3, f.c);
+  pxLoop(ctx, "bj_drop", t, 0.4, x, y, 0.5, 1 - u * 0.3, Math.atan2(f.y1 - f.y, f.x1 - f.x), f.c);
+  void P; void sq;
 }
 function warn(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / (f.d || 1.5));

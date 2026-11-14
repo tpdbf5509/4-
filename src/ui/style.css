@@ -2876,3 +2876,21 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-blood-ring { position: absolute; inset: 2px; border-radius: 6px; pointer-events: none;
   background: conic-gradient(rgba(229, 57, 69, 0.55) var(--p), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0); }
 .rpg-blood-rage { position: absolute; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 70px 18px rgba(170, 20, 36, 0.32); }
+
+/* ── 스킬 · 물약 오른쪽 판(11월 14일) — 넓은 화면 · 마우스 기기만(RpgView useSidePanel). 판 그림은 Codex 로 뽑은 rpg/ui/side-panel.webp ── */
+.rpg-page.has-side .stage { max-width: 1336px; display: flex; align-items: flex-start; gap: 16px; }
+.rpg-page.has-side .stage > .frame { flex: 1 1 auto; min-width: 0; max-width: 1040px; }
+.rpg-side {
+  flex: 0 0 280px; align-self: stretch; display: flex; flex-direction: column; gap: 10px; box-sizing: border-box; min-height: 520px;
+  padding: 0 6px 6px; color: #ecdfc4; background: transparent;
+  /* Codex 판 그림을 9칸으로 나눠 늘린다 — 위 머리판 · 모서리 장식은 그대로, 가운데만 늘어난다 */
+  border-style: solid; border-width: 84px 18px 30px; border-image: url("/assets/game/rpg/ui/side-panel.webp") 190 40 70 40 fill stretch;
+  filter: drop-shadow(0 14px 24px rgba(0, 0, 0, 0.45));
+}
+.rpg-side-head { display: flex; align-items: center; justify-content: space-between; height: 52px; margin: -66px 4px 20px; padding: 6px 10px 0; }   /* 머리판 안(물방울 아래) */
+.rpg-side-head b { font-size: 18px; letter-spacing: -0.03em; font-weight: normal; color: #f0e2c2; }
+.rpg-side-head em { font-style: normal; font-size: 12px; letter-spacing: 0.02em; color: #e8a0a6; }   /* 강조는 이 한 곳 */
+.rpg-side .rpg-touch-actions { display: flex; flex-direction: column; gap: 14px; flex: 1; min-height: 0; overflow-y: auto; }
+.rpg-side .rpg-skillbar, .rpg-side .rpg-potbar { position: static; display: grid; grid-template-columns: 1fr; gap: 6px; }
+.rpg-side .rpg-potbar { padding-top: 12px; border-top: 1px solid rgba(201, 163, 106, 0.3); }
+.rpg-side .rpg-skill { width: 100%; min-width: 0; box-sizing: border-box; background: rgba(28, 21, 14, 0.78); }

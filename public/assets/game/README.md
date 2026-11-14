@@ -199,3 +199,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 
 ### 800~1200 사냥터 (11월 8일, Codex · 테스트 서버 먼저)
 - `rpg/high/<지역>-mobs.webp` 8장 — 투명 1536×512, 3열(일반 · 정예 · 보스) × 1행, 칸 512, 발밑 0.95, 오른쪽을 본다. `rpg/high/summons.webp` — 투명 1280×256, 5열, 칸 256, 발밑 0.94. `rpg/high/<지역>-back.webp` 8장 — 불투명 1514×340 뒤 풍경 띠(맵 top 높이로 줄여 좌우 뒤집어 잇는다). 크기 · 칸은 `highData.js HIGH_ART`, 그리기는 `highArt.js` · `fieldArt.js paintFieldLook`. 못 불러오면 코드 그림. 프롬프트 · 자르기는 `docs/고레벨-사냥터-그림-규격.md`.
+
+### BLOOD-001 pixelfx 시트 · 스킬 오른쪽 판 (11월 14일)
+- `rpg/effects/blood-job/px/bj_*.webp` 투명 시트 13장(pixelfx MIT, 커밋 5294518, 뽑는 법 `design/effects/pixelfx/blood-job/make.mjs`) — `bj_orb`(arcane/arcane-orb, 반복) · `bj_drop`(projectiles/plasma-shot, 반복, 머리가 기준점) · `bj_hit`(impacts/blunt-hit) · `bj_pop`(water/splash) · `bj_burst`(arcane/mana-burst) · `bj_heart`(pickups/heart-pickup, 반복) · `bj_slam`(impacts/ground-slam) · `bj_slash`(melee/sword-slash) · `bj_cross`(melee/double-slash) · `bj_shield`(holy/divine-shield, 반복) · `bj_block`(impacts/shield-block) · `bj_suck`(explosions/implosion) · `bj_rage`(shadow/shadow-flames, 반복). 칸 크기 · 기준점은 `bloodJobPxData.js`, 그리기는 `bloodJobArt.js`(Codex 레이어 `bj-layers*.webp` 와 겹쳐 그린다).
+- `rpg/ui/side-panel.webp` — Codex 로 뽑은 640×1600 투명 판(갈색 · 금빛 선 · 위 머리판 · 혈방울 장식). CSS `border-image` 9칸(190 40 70 40)으로 늘려 `.rpg-side` 바탕에 쓴다. 원본 줄인 것 `design/ui/side-panel.webp`.

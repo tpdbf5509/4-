@@ -125,6 +125,8 @@ const BASIC_LEN = 23;                                 // 특별 무기가 없을
 const SWING = { t: 0.24, up: 0.12, hit: 0.5, raise: 245, strike: 385 };
 const HELD_TYPE = { dagger: 0.8, great: 1.15 };        // 단검은 짧게, 대검은 길게
 const weaponCache = {};
+// 총사 쌍권총이 아닌 전용 총(크림슨 레퀴엠)은 권총 그림 대신 자기 무기 그림을 손에 든다. 그림이 없으면 null(기본 권총)
+const customGun = (sp) => (sp.t === "gun" && sp.art !== "adv_guns" ? weaponImg(sp) : null);
 function weaponImg(sp, part = 0) {
   if (typeof Image === "undefined") return null;
   const dual = sp.id === 'dragon_dual' || !!sp.dual;
@@ -178,7 +180,7 @@ function advHeld(h, view) {
   const body = artImg(advArtPath(h, `${view}-bare`));
   if (!body) return null;                           // 못 불러오면 전직 그림(그림 속 무기) 그대로
   const left = view === "turn" || view === "side" || view === "back";
-  if (ADV_HELD[sp.t] === h.job) return { body, hand: xy, adv: sp.t, still: true, left };   // 총사가 아닌 궁수 전직의 총 · 소환술사가 아닌 마법사 전직의 소환서
+  if (ADV_HELD[sp.t] === h.job) return { body, hand: xy, adv: sp.t, still: true, left, gunImg: customGun(sp) };   // 총사가 아닌 궁수 전직의 총 · 소환술사가 아닌 마법사 전직의 소환서
   const grip = (sp.id === "dragon_dual" || sp.dual) ? dualSpec(sp).grips[0] : WEAPON_GRIP[sp.art];
   const wpn = grip && weaponImg(sp);
   if (!wpn) return null;
@@ -210,7 +212,7 @@ function heldWeapon(h, view) {
     if (sp && ADV_HELD[sp.t] === h.job) {
       const hand = HOLDER_HAND[h.job][h.gender === "f" ? "f" : "m"][view];
       const body = hand && heroImg(h, `${view}-bare`);
-      return body ? { body, hand, adv: sp.t, still: true, left: view === "turn" || view === "side" || view === "back" } : null;
+      return body ? { body, hand, adv: sp.t, still: true, left: view === "turn" || view === "side" || view === "back", gunImg: customGun(sp) } : null;
     }
     const hand = sp && sp.t === HOLDER[h.job] && HOLDER_HAND[h.job][h.gender === "f" ? "f" : "m"][view];
     const grip = hand && WEAPON_GRIP[sp.art];

@@ -528,6 +528,18 @@ export function drawAdvHeldItem(ctx, held, ww, top, K, back) {
       ctx.restore();
     };
     const dirX = held.left ? -1 : 1;
+    if (held.gunImg) {
+      // 전용 총(크림슨 레퀴엠) — 한 자루만, 손잡이(그림 왼쪽 아래)를 손에 맞추고 총구를 바라보는 쪽으로. 몸 앞쪽 손이면 앞에, 아니면 뒤에
+      if (back === (hx - ww / K / 2) * dirX < 0) {
+        const s = 34;
+        ctx.save(); ctx.translate(x, y);
+        if (dirX < 0) ctx.scale(-1, 1);
+        ctx.rotate(-0.08);
+        ctx.drawImage(held.gunImg, -s * 0.3, -s * 0.68, s, s);
+        ctx.restore();
+      }
+      return;
+    }
     // 손이 바라보는 쪽 반대편(뒤쪽 손)이면 총이 몸통을 가로지른다 — 그때는 두 자루 모두 몸 뒤에 그려 총구만 앞으로 나오게 한다
     const trailing = (hx - ww / K / 2) * dirX < 0;
     // 쌍권총 — 둘째 자루는 같은 손 쪽 조금 뒤 · 위에(몸 뒤에 그린다). 먼 손으로 옮기면 몸을 가로질러 긴 총처럼 보였다

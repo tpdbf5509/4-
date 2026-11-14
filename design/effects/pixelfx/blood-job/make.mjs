@@ -1,7 +1,7 @@
 // BLOOD-001 연출 시트 뽑기(11월 14일, 게임이 쓰지 않는 기록용 스크립트)
 // 쓰는 법: scratchpad/ext 에 pixelfx 를 받고(.claude/skills/pixelfx), 이 파일을 scratchpad/gen 에 두고 node make.mjs out
 //         out/*.png 를 Pillow 로 무손실 WebP 로 바꿔 public/assets/game/rpg/effects/blood-job/px/ 에 넣는다
-// — 크림슨 레퀴엠(blood-gun/make.mjs)과 같은 방식, 다른 이펙트 · 씨앗. Codex 레이어(bj-layers*.webp)가 맡지 않던 코드 도트 연출을 대신한다.
+// — 크림슨 레퀴엠(blood-gun/make.mjs)과 같은 방식, 다른 이펙트 · 씨앗. BLOOD-001 연출은 이 시트만 쓴다(11월 14일 사용자 지시 — Codex 레이어 · 코드 도트 모두 걷어 냄).
 //   색은 bloodJobData.js BLOOD_COLORS.red(검붉은 → 밝은 붉은 → 연한 분홍). 흰빛은 가장 뜨거운 가운데에만.
 import { loadEffect, renderFrames, canvas, save } from "../ext/pixelfx/tools/lib/fxlib.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -31,6 +31,11 @@ const LIST = [
   { name: "bj_suck", id: "explosions/implosion", from: 0.2, to: 1.1, n: 10, opts: { palette: B7, seed: 9 } },
   // 폭주 — 몸을 감싸는 검붉은 불꽃(반복). 탈진은 Codex 갑주 조각 칸만 쓴다
   { name: "bj_rage", id: "shadow/shadow-flames", from: 0, to: 2.4, n: 10, loop: 1, opts: { palette: B8, seed: 2 } },
+  // 11월 14일 둘째 — Codex 레이어를 모두 걷어 내고 대신하는 시트
+  { name: "bj_gather", id: "arcane/spell-charge", from: 0, to: 1.6, n: 10, loop: 1, opts: { palette: B8, seed: 13 } },   // 혈수 강타 차징 — 손에 모이는 피
+  { name: "bj_rune", id: "arcane/rune-circle", from: 0, to: 4, n: 12, loop: 1, opts: { palette: B8, seed: 14 } },          // 혈역 바닥 문양(반복, 눕혀 그려져 있다)
+  { name: "bj_dark", id: "shadow/dark-explosion", from: 0.6, to: 1.9, n: 10, opts: { palette: B8, seed: 15 } },            // 폭주 시작
+  { name: "bj_fall", id: "holy/feather-burst", from: 0, to: 1.6, n: 10, opts: { palette: ["#1a0b14", "#3a0a14", "#650b17", "#a8152a", "#d86a74", "#f0c0c4"], glow: "#ff9ca4", seed: 16 } },   // 탈진 — 혈액 갑주 조각이 흩날려 떨어진다
 ];
 const man = {};
 for (const s of LIST.filter((s) => s.name.startsWith(ONLY))) {

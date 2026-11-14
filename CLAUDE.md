@@ -196,6 +196,6 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 
 ### 히든 직업 BLOOD-001 (11월 14일, 단계 작업 중)
 - 1차 전직을 대신한다(사용자 결정). 1단계 적혈탄 · 혈량 전환, 2단계 혈수 강타 · 혈검 · 혈막(직업 레벨 20), 3단계 혈량 상태(증폭 · 과충전 · 폭주 · 탈진) · 혈역 증폭(직업 레벨 100), 4단계 해금 경로(단서 셋 → 입구 → 맵 `bloodlab` 1인 시험, `bloodUnlock.js`, 가방 `bag.bu`). 수치 `bloodJobData.js` · 규칙 `bloodJob.js` · 그림 `bloodJobArt.js` · 화면 `BloodHud.jsx`. 저장 `bag.bd`, 스냅샷 영웅 줄 56. 시험 `tools/blood-job.test.mjs`. 상세 `docs/작업-상세-기록.md` 끝 · 프로젝트 `notes/블러드001-설계-정리.md`.
-- 그림 · 연출은 Codex 와 pixelfx 로 만든다. Codex 연출은 레이어를 쌓아 움직이게 한다(한 장만 놓고 끝내지 않는다 — 사용자 지시).
-- 연출은 Codex 레이어(`bj-layers*.webp`) + pixelfx 시트(`blood-job/px/`, `bloodJobPxData.js`)만 쓴다. 코드로 그리는 것은 1px 범위 예고선 · 남은 시간 띠 · 글자 · 표식뿐(11월 14일 사용자 지시).
+- 그림(UI 등)은 Codex, 이펙트는 pixelfx 로 만든다.
+- **연출은 pixelfx 시트(`blood-job/px/`, `bloodJobPxData.js`)만 쓴다.** Codex 이펙트 레이어는 지웠다. 코드로 그리는 것은 1px 범위 예고선 · 남은 시간 띠 · 글자 · 표식뿐(11월 14일 사용자 지시). Codex 는 UI 그림(오른쪽 판)에만 썼다.
 - 넓은 화면 · 마우스 기기는 스킬 · 물약 칸이 판 오른쪽 판(`.rpg-side`, Codex 그림 `rpg/ui/side-panel.webp`)에 있다. 좁은 화면 · 터치는 판 안 아래(`RpgView.jsx useSidePanel`).

@@ -2869,3 +2869,10 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-blood-dots { display: inline-flex; gap: 3px; margin-left: 4px; }
 .rpg-blood-dots i { position: static; width: 6px; height: 6px; border-radius: 50%; border: 1px solid #e6a3a9; background: transparent; }
 .rpg-blood-dots i.on { background: #e5394a; }
+/* BLOOD-001 3단계 — 상태 이름 · 경고 · 혈역 유지 원 · 폭주 가장자리 */
+.rpg-blood-st.over, .rpg-blood-st.rage { color: #ff8e98 !important; }
+.rpg-blood-st.tired { color: #b9a6a8 !important; }
+.rpg-blood-warn { display: block; font-size: 9px; color: #f0b0b6; margin-left: 0 !important; }
+.rpg-blood-ring { position: absolute; inset: 2px; border-radius: 6px; pointer-events: none;
+  background: conic-gradient(rgba(229, 57, 69, 0.55) var(--p), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0); }
+.rpg-blood-rage { position: absolute; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 70px 18px rgba(170, 20, 36, 0.32); }

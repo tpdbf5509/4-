@@ -1,8 +1,8 @@
 /* 히든 직업 BLOOD-001 화면 — 혈량 게이지 줄(레벨 카드 HP 아래)과 스킬 칸 단추(11월 14일 1 · 2단계).
    값은 bloodJob.js bloodView(방장은 판정 상태 · 손님은 스냅샷 줄 56). 판정은 하지 않는다 — 누름 · 뗌만 보낸다.
    게이지는 절대 상한 180 을 늘 보이고 안정 상한 · 150 · 180 자리에 1px 구분선. 겹치면 하나만 그린다(연출및세부사항) */
-import { BLOOD, BLOOD_SHOT, BLOOD_SMASH, BLOOD_FORM } from "./game/bloodJobData.js";
-import { stableCap, shotTier, shotTimeTier, smashTier, smashTimeTier } from "./game/bloodJob.js";
+import { BLOOD, BLOOD_SHOT, BLOOD_SMASH, BLOOD_FORM, BLOOD_FIELD, BLOOD_STATE } from "./game/bloodJobData.js";
+import { stableCap, shotTier, shotTimeTier, smashTier, smashTimeTier, bloodMode, MODE_NAMES } from "./game/bloodJob.js";
 
 // 차징 단계 · 비용 — 시간만 본 단계가 혈량 때문에 낮아지면 short 에 실제 단계
 function chargeInfo(ch, b, tierOf, timeOf, tiers) {
@@ -17,8 +17,11 @@ export function bloodHud(v) {
   const shot = chargeInfo(sc, b, shotTier, shotTimeTier, BLOOD_SHOT.tiers);
   const smash = chargeInfo(mc, b, smashTier, smashTimeTier, BLOOD_SMASH.tiers);
   const locked = v.lv < BLOOD.unlock.shape;
+  const mode = bloodMode(b, cap, v.rg);
   return {
-    b, cap, lv: v.lv, xp: v.xp, state: b > cap ? "증폭" : "안정",
+    b, cap, lv: v.lv, xp: v.xp, mode, state: MODE_NAMES[mode] + (v.rg ? ` ${Math.ceil(v.rg.t)}초` : ""),   // 폭주 · 탈진은 남은 시간을 함께(색만으로 구분하지 않는다)
+    warn: b >= BLOOD_STATE.warn && !v.rg, decay: b > cap && !v.fd,
+    field: { cd: v.cd.field || 0, max: BLOOD_FIELD.cd, locked: v.lv < BLOOD.unlock.field, left: v.fd ? Math.max(0, BLOOD_FIELD.dur - v.fd.t) : 0, none: !!(v.fd && v.fd.none), busy: !!v.rg },
     shot: { ...shot, cd: v.cd.shot || 0, max: BLOOD_SHOT.cd, charging: !!sc, u: sc ? Math.min(1, sc.t / BLOOD_SHOT.full) : 0, low: b < BLOOD_SHOT.need },
     smash: { ...smash, cd: v.cd.smash || 0, max: BLOOD_SMASH.cd, charging: !!mc, low: b < BLOOD_SMASH.tiers[0].cost, locked },
     form: { cd: v.cd.form || 0, max: BLOOD_FORM.cd, locked, veil: v.vl ? Math.max(0, v.vl.max - v.vl.t) : 0,
@@ -42,7 +45,9 @@ export function BloodBar({ v }) {
         {use > 0 && <span className="use" style={{ left: pct(Math.max(0, v.b - use)), width: pct(Math.min(use, v.b)) }} />}
         {marks.map((m) => <i key={m} style={{ left: pct(m) }} />)}
       </span>
-      <span className="rpg-lv-num">{v.b}/{v.cap} <small>{v.state}</small></span>
+      <span className="rpg-lv-num">{v.b}/{v.cap} <small className={`rpg-blood-st ${v.mode}`}>{v.state}</small>
+        {v.warn && <small className="rpg-blood-warn">다음 혈역 획득 시 폭주</small>}
+        {v.decay && <small className="rpg-blood-warn">초과 혈량 감소 -{BLOOD_FIELD.decay}/초</small>}</span>
     </span>
   );
 }
@@ -64,9 +69,9 @@ function ChargeBtn({ name, s, k, touch, sub, dots, onDown, onUp, onCancel }) {
 }
 
 // 스킬 칸 단추 — 적혈탄 · 혈수 강타(누르고 있으면 차징) · 혈검 · 혈막(누르고 있는 동안) · 혈량 전환
-export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, onSmash, onSmashUp, onSword, onVeil, onVeilUp, onConv }) {
+export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, onSmash, onSmashUp, onSword, onVeil, onVeilUp, onField, onFieldUp, onConv }) {
   if (!v) return null;
-  const s = v.shot, m = v.smash, f = v.form, c = v.conv;
+  const s = v.shot, m = v.smash, f = v.form, c = v.conv, d = v.field;
   const lock = `직업 Lv ${BLOOD.unlock.shape}`;
   const shotSub = s.charging ? (s.short >= 0 ? `혈량 부족 — ${tierName(s.short)} 발사` : `${tierName(s.tier)} · 혈량 ${s.cost}`) : s.low ? "혈량 부족" : `혈량 ${s.cost}`;
   const smashSub = m.locked ? lock : m.charging ? (m.short >= 0 ? `혈량 부족 — ${m.short ? `+${m.short * 10}` : "기본"} 발동` : `${m.tier ? `+${m.tier * 10}` : "기본"} · 혈량 ${m.cost}`) : m.low ? "혈량 부족" : `혈량 ${m.cost}`;
@@ -90,6 +95,15 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         <span>{BLOOD_FORM.veil.name}<small>{f.locked ? lock : f.veil ? `유지 ${f.veil.toFixed(1)}초` : f.veilLow ? "혈량 부족" : `혈량 ${BLOOD_FORM.veil.cost}`}</small></span>
         {f.cd > 0 && !f.veil && <em>{Math.ceil(f.cd)}</em>}
         {f.cd > 0 && <i style={{ width: `${(f.cd / f.max) * 100}%` }} />}
+      </button>
+      <button type="button" className={`rpg-skill blood ${(d.cd > 0 && !d.left) || d.locked || d.busy ? "cool" : ""}`}
+        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); onField(); }}
+        onPointerUp={onFieldUp} onPointerCancel={onFieldUp}>
+        {!touch && keys.field && <kbd>{keys.field}</kbd>}
+        <span>{BLOOD_FIELD.name}<small>{d.locked ? `직업 Lv ${BLOOD.unlock.field}` : d.left ? (d.none ? "흡수 대상 없음" : `유지 ${Math.ceil(d.left)}초`) : d.busy ? `${v.state.split(" ")[0]} 중` : "혈량 소모 없음"}</small></span>
+        {d.left > 0 && <b className="rpg-blood-ring" style={{ "--p": `${(d.left / BLOOD_FIELD.dur) * 360}deg` }} />}
+        {d.cd > 0 && !d.left && <em>{Math.ceil(d.cd)}</em>}
+        {d.cd > 0 && !d.left && <i style={{ width: `${(d.cd / d.max) * 100}%` }} />}
       </button>
       <button type="button" className={`rpg-skill blood ${c.cd > 0 || c.full ? "cool" : ""}`}
         onPointerDown={(e) => { e.preventDefault(); onConv(); }}>

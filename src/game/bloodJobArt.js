@@ -32,8 +32,9 @@ function cell(ctx, name, i, x, y, k, alpha, rot, c) {
 }
 /* Codex 레이어 시트(rpg/effects/blood-job/bj-layers.webp, 4x2 · 칸 256 · 검은 바탕을 밝기 = 투명도로 바꾼 RGBA) — 한 장을 놓지 않고 칸을 겹쳐
    크기 · 회전 · 투명도를 따로 움직인다(보통 합성). 0 구체 핵 · 1 방울 고리 · 2 탄머리 · 3 꼬리 · 4 부푸는 구 · 5 충격 고리 · 6 튀김 · 7 핏줄기 */
+/* 3단계 시트(bj-layers3.webp) — 칸 번호 16~23: 16 바닥 혈역 문양 · 17 뻗는 혈관 · 18 솟는 방울 · 19 터지는 고리 · 20 폭주 기운 · 21 떨어지는 갑주 조각 · 22 흐르는 띠 · 23 갈라진 문양 */
 /* 2단계 시트(bj-layers2.webp) — 칸 번호 8~15: 8 편 손 · 9 주먹 · 10 바닥 충격파 · 11 바닥 균열 · 12 초승달 베기 · 13 X 베기 · 14 혈막 껍질 · 15 파문 */
-const LAYER = { src: ["/assets/game/rpg/effects/blood-job/bj-layers.webp", "/assets/game/rpg/effects/blood-job/bj-layers2.webp"], cols: 4, w: 256, h: 256 };
+const LAYER = { src: ["/assets/game/rpg/effects/blood-job/bj-layers.webp", "/assets/game/rpg/effects/blood-job/bj-layers2.webp", "/assets/game/rpg/effects/blood-job/bj-layers3.webp"], cols: 4, w: 256, h: 256 };
 const layerIm = [];
 function layerSheet(k) {
   if (typeof Image === "undefined") return null;
@@ -224,7 +225,7 @@ function sword(ctx, f, t, sq) {
 }
 function veil(ctx, f, t, sq) {
   const P = pal(f), fill = f.start ? clamp(t / 0.15) : 1, left = 1 - clamp(f.u || 0);
-  const x = f.x, y = f.y - 40, D = 140;
+  const x = f.x, y = f.y - 40, D = 140 * (f.k || 1);   // 증폭 · 혈역 크기 보너스(보이는 크기만)
   ring(ctx, x, y, D / 2, 1, P.rim, 0.85, 1);         // 외곽선은 처음부터 완성
   if (!layer(ctx, 14, x, y, D * (0.6 + 0.4 * fill), D * (0.6 + 0.4 * fill), t * 0.6, 0.45 * fill, f.c)) disc(ctx, x, y, D / 2 * fill, 1, P.base, 0.18);
   // 남은 시간 — 외곽 띠
@@ -249,8 +250,55 @@ function ripple(ctx, f, t, sq) {
   void sq;
 }
 
-const KINDS = { sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
-export const BLOOD_JOB_CAP = { sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 4, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
+/* ── 3단계 연출 — 혈역 증폭 · 폭주 · 탈진 ─────────────
+   혈역: 발밑 문양에서 혈관이 사방으로 뻗고 0.4초 동안 안쪽이 검붉게 물든다(판정 반경은 처음부터 350). 외곽선은 얇고 선명하게 · 안쪽은 옅게.
+   마지막 2초는 외곽선 밝기가 안쪽으로 좁아진다(실제 반경은 그대로). 끝나면 바깥부터 걷히고, 과부하면 중심으로 급히 끌려든다 */
+function field(ctx, f, t, sq) {
+  const P = pal(f), R = f.r || 350, open = f.start ? clamp(t / 0.4) : 1, u = clamp(f.u || 0);
+  disc(ctx, f.x, f.y, R * open, sq, P.deep, 0.1);
+  ring(ctx, f.x, f.y, R, sq, P.rim, 0.8, 1);
+  // 문양 · 혈관 칸은 그림 안에서 이미 가로:세로 2:1 로 눌려 있다 — 세로를 sq / 0.5 배로 펴 땅 비율에 맞춘다
+  layer(ctx, 16, f.x, f.y, R * 2.16 * (0.3 + 0.7 * open), R * 2.16 * (sq / 0.5) * (0.3 + 0.7 * open), 0, 0.28, f.c);   // 안쪽은 옅게 — 적 공격 예고 · 아이템이 가려지지 않게
+  layer(ctx, 17, f.x, f.y, R * 2 * open, R * 2 * (sq / 0.5) * open, 0, 0.3 * (f.start ? 1 : 0.6), f.c);
+  const left = (1 - u) * 10;
+  if (left < 2) ring(ctx, f.x, f.y, R * (0.92 + 0.08 * (left / 2)), sq, P.glow, 0.5 + 0.5 * Math.sin(t * 20), 2);   // 끝나 간다 — 실제 반경은 그대로
+}
+function fieldEnd(ctx, f, t, sq) {
+  const P = pal(f), R = f.r || 350, u = clamp(t / f.life), k = f.over ? 1 - clamp(u * 2.5) : 1 - u;
+  layer(ctx, 16, f.x, f.y, R * 2.16 * k, R * 2.16 * (sq / 0.5) * k, 0, 0.6 * (1 - u), f.c);
+  ring(ctx, f.x, f.y, R * k, sq, P.rim, 0.8 * (1 - u), 1);
+}
+// 흡수 — 혈역 바닥에서 사용자 쪽으로 방울이 흘러든다 · 실제 증가량
+function absorb(ctx, f, t, sq) {
+  const P = pal(f), u = clamp(t / f.life);
+  for (let i = 0; i < 7; i++) {
+    const a = i * TAU / 7 + f.x * 0.01, d0 = 120 + (i % 3) * 60, sx = f.x1 + Math.cos(a) * d0, sy = f.y1 + Math.sin(a) * d0 * sq;
+    const k = clamp(u * 1.4 - i * 0.05), x = sx + (f.x1 - sx) * k, y = sy + (f.y1 - 40 - sy) * k;
+    if (!layer(ctx, 18, x, y - 10, 14, 44, 0, 0.9 * (1 - k * 0.6), f.c)) dot(ctx, x, y, P.bright, PX, 1 - k * 0.6);
+  }
+  if (u < 0.75) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x1, f.y1 - 124 - 14 * u); }
+}
+// 폭주 — 시작은 고리가 바깥으로 터진다(피해 · 넉백 없음) · 지속은 몸을 감싸는 기운
+function rage(ctx, f, t, sq) {
+  const P = pal(f), u = clamp(t / f.life);
+  if (f.start) {
+    layer(ctx, 19, f.x, f.y - 40, 80 + 260 * u, 80 + 260 * u, u, 1 - u, f.c);
+    layer(ctx, 23, f.x, f.y - 40, 90, 90, 0, 1 - u, f.c);
+    return;
+  }
+  const fl = 0.75 + 0.25 * Math.sin(t * 30 + f.x);
+  if (!layer(ctx, 20, f.x, f.y - 50, 100 * fl, 160, 0, 0.6 + 0.35 * Math.sin(Math.PI * u), f.c)) ring(ctx, f.x, f.y - 40, 40, 1.4, P.bright, 0.6 * (1 - u), 2);
+  void sq;
+}
+// 탈진 — 혈액 갑주가 떨어져 사라진다
+function tired(ctx, f, t, sq) {
+  const u = clamp(t / f.life);
+  layer(ctx, 21, f.x, f.y - 50 + 40 * u * u, 90, 90, 0, 0.9 * (1 - u), f.c);
+  void sq;
+}
+
+const KINDS = { sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
+export const BLOOD_JOB_CAP = { sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 4, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
 export function drawBloodJobFx(ctx, f, p, sq) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   ctx.save(); ctx.imageSmoothingEnabled = false;

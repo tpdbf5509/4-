@@ -1126,6 +1126,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "bSmash") { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }   // 혈수 강타 — 누르고 있는 동안 차징
       else if (a === "bSword") act("blood", { op: "sword" });
       else if (a === "bVeil") act("blood", { op: "press", s: "veil" });   // 혈막 — 누르고 있는 동안 유지
+      else if (a === "bField") act("blood", { op: "press", s: "field" });   // 혈역 증폭 — 누르고 있는 동안 유지
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "advUlt") act("adv", { op: "ult" });   // 소환술사 궁극기 거대 정령 — 방장이 판정한다
       else if (a === "healMode") act("adv", { op: "mode" });   // 치유사 평타 바꾸기 — 방장이 판정한다
@@ -1154,6 +1155,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (a === "bShot") { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }
       if (a === "bSmash") { chargeRef.current = false; act("blood", { op: "release", s: "smash" }); }
       if (a === "bVeil") act("blood", { op: "release", s: "veil" });
+      if (a === "bField") act("blood", { op: "release", s: "field" });
     }
     function onKey(e) {
       const t = e.target;
@@ -1659,6 +1661,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     <div ref={pageRef} className={`page rpg-page ${touch ? "touch" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch'){skillPointer.current=null;touchAt.current=performance.now();}}}>
       <div className="stage">
         <div className="frame">
+          {me?.blood?.mode === "rage" && <div className="rpg-blood-rage" />}{/* BLOOD-001 폭주 — 화면 가장자리만 옅게 붉힌다 */}
           <canvas ref={cvsRef} onContextMenu={e=>e.preventDefault()} onPointerMove={e=>{
             if(e.pointerType==='touch'){skillPointer.current=null;return;}
             const r=e.currentTarget.getBoundingClientRect();
@@ -2771,7 +2774,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
                 </button>
               )}
-              <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil") }}
+              <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), field: keyOf(binds, "bField") }}
+                onField={() => act("blood", { op: "press", s: "field" })} onFieldUp={() => act("blood", { op: "release", s: "field" })}
                 onSmash={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }}
                 onSmashUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "smash" }); }}
                 onSword={() => act("blood", { op: "sword" })}

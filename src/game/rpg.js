@@ -12,7 +12,7 @@ import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
-import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
+import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -1072,7 +1072,7 @@ export function refreshHp(h, full) {
 const buffMul = (h) => (h.buff > 0 ? 1 + h.buffAmt : 1);
 export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h) * acAtkMul(h);   // 바지 · 전설 신발이 공격력을 올린다
 export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h) * acAtkMul(h);
-export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h));
+export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h)) * bloodJobAtk(h);   // BLOOD-001 폭주 +25% · 탈진 -15%
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
 export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul * (jobOf(h).id === "archer" ? JOB_TUNE.archer.range : 1) * acRangeMul(h);   // 10월 30일 궁수 사거리 +15%
@@ -3311,7 +3311,7 @@ const bloodEngine = { ...stormEngine };             // 크림슨 레퀴엠 — �
 /* 히든 직업 BLOOD-001(bloodJob.js) — fight: 싸울 수 없는 곳이면 까닭(빈 글이면 된다) · blocks: 훈련장의 막힌 칸은 허수아비 자리라 빼서 탄이 허수아비를 맞힌다 */
 const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h, x, y, r), say, sys,
   blocks: (map) => (MAPS[map]?.train ? [] : MAPS[map]?.blocks || []), cast: (h) => { const c = makeCast(); c.sid = "blood"; h.cast = c; return c; },
-  dummy: (o) => !!o && o.type === "dummy", cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
+  dummy: (o) => !!o && o.type === "dummy", god: (g, h) => !!(h.trn && h.trn.god && (g.test || h.map === "train")), cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
   fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
 export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"
 // 다른 공격 · 스킬 입력 — BLOOD-001 차징 · 혈막 · 혈검 남은 타격을 먼저 끊는다(rpgInput 이 판정 앞에 부른다)

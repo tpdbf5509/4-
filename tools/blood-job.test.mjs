@@ -206,10 +206,10 @@ test('혈수 강타 — 기본 30 · 0.2초 뒤 한 번 · 일반 몹 경직 0.5
 
 test('혈수 강타 차징 — 0.3 · 0.6 · 0.9초 추가 10 · 20 · 30 · 폭 +15%씩 · 혈량이 모자라면 낮은 단계', () => {
   assert.equal(smashTier(0.95, 100), 3); assert.equal(smashTier(0.95, 45), 1); assert.equal(smashTier(0.1, 29), -1);
-  const { g, h } = setup(); lv20(h); h.bag.bd.b = 70;
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 65;   // 안정 상한(69) 아래 — 증폭 범위 보너스 없음
   assert.deepEqual(smashSize(h, 0), [240, 180]); assert.deepEqual(smashSize(h, 3), [240, 261]);
   sm(g, 'press'); run(g, M.full + .03);              // 0.9초 — 놓지 않아도 발동
-  assert.equal(h.bd.ch, null); assert.equal(h.bag.bd.b, 10);
+  assert.equal(h.bd.ch, null); assert.equal(h.bag.bd.b, 5);
 });
 
 test('혈수 강타 — 보스는 경직 · 넉백 면역', () => {
@@ -259,4 +259,82 @@ test('차징 중 다른 공격 스킬을 누르면 기존 차징을 끊는다(�
   press(g); run(g, .5); assert.equal(h.bd.ch.s, 'shot');
   sm(g, 'press'); assert.equal(h.bd.ch.s, 'smash'); assert.equal(h.bag.bd.b, 60);
   rpgInput(g, { cls: 0, kind: 'dash', dir: [1, 0] }); assert.equal(h.bd.ch, null);
+});
+
+/* ── 3단계 — 혈량 상태 · 혈역 증폭 ── */
+import { BLOOD_STATE as Z, BLOOD_FIELD as FD } from '../src/game/bloodJobData.js';
+import { bloodMode, bloodJobAtk, bloodJobSlow, effTrain } from '../src/game/bloodJob.js';
+import { heroDmgMul } from '../src/game/rpg.js';
+const lv100 = (h) => { unlockBlood(h); h.bag.bd.lv = 100; };
+const fd = (g, op) => send(g, { op, s: 'field' });
+
+test('상태 — 안정 · 증폭(상한 초과) · 과충전(150 초과) · 폭주 · 탈진', () => {
+  assert.equal(bloodMode(149, 149, null), 'stable'); assert.equal(bloodMode(150, 149, null), 'amp');
+  assert.equal(bloodMode(151, 149, null), 'over'); assert.equal(bloodMode(151, 150, null), 'over');
+  assert.equal(bloodMode(60, 149, { k: 1 }), 'rage'); assert.equal(bloodMode(60, 149, { k: 2 }), 'tired');
+});
+
+test('증폭 — 범위 +15%(혈수 강타 길이 · 폭) · 과충전 — 피해 +15% · 연마 계산 +5 · 초당 체력 1%', () => {
+  const { g, h } = setup(); lv100(h); h.bag.bd.tr[1][0] = 0;
+  h.bag.bd.b = 150;
+  assert.deepEqual(smashSize(h, 0), [276, 207]);
+  h.bag.bd.b = 160; h.hp = h.max; h.bd = null; step(g, .01);
+  assert.equal(effTrain(h, 1), 5); assert.equal(effTrain(h, 2), 5);
+  const hp0 = h.hp; run(g, 1);
+  assert.ok(Math.abs((hp0 - h.hp) / h.max - Z.over.hp) < 0.002, `${(hp0 - h.hp) / h.max}`);
+  h.hp = 1; run(g, .5); assert.equal(h.hp, 1, '체력 1에서 멈춘다');
+});
+
+test('혈역 증폭 — 직업 100 · 1초마다 +5(적이 혈역 안) · 180 까지 넘는다 · 이동 -40% · 놓으면 대기 45초', () => {
+  const a = setup(); unlockBlood(a.h); a.h.bag.bd.lv = 99; fd(a.g, 'press'); assert.equal(a.h.bd?.fd || null, null);
+  const { g, h } = setup(); lv100(h); h.bag.bd.b = 149;
+  mob(g, h.x + 200, h.y);
+  fd(g, 'press'); assert.ok(h.bd.fd);
+  assert.ok(Math.abs(bloodJobSlow(h) - 0.6) < 1e-9);
+  run(g, 3.05);
+  assert.equal(h.bag.bd.b, 164);
+  fd(g, 'release');
+  assert.equal(h.bd.fd, null); assert.equal(h.bd.cd.field, FD.cd);
+  run(g, .5); assert.equal(h.bag.bd.b, 164, '끝나고 1초 동안은 줄지 않는다');
+  run(g, 1.0); assert.ok(h.bag.bd.b < 164 && h.bag.bd.b >= 149, `${h.bag.bd.b}`);
+  run(g, 3); assert.equal(h.bag.bd.b, 149, '안정 상한 아래로는 줄지 않는다');
+});
+
+test('혈역 — 적이 없으면 얻지 못하고 · 경계를 넘으면 끝난다', () => {
+  const { g, h } = setup(); lv100(h); h.bag.bd.b = 100;
+  fd(g, 'press'); run(g, 1.05); assert.equal(h.bag.bd.b, 100);
+  h.x += FD.r + 20; step(g, .01);
+  assert.equal(h.bd.fd, null);
+});
+
+test('과부하 — 180 이면 혈량 min(60, 상한) · 6초 폭주(공격력 +25% · 이동 +15%) → 5초 탈진(-15%)', () => {
+  const { g, h } = setup(); lv100(h); h.bag.bd.b = 178;
+  mob(g, h.x + 200, h.y);
+  const base = heroDmgMul(h);
+  fd(g, 'press'); run(g, 1.05);
+  assert.equal(h.bag.bd.b, 60); assert.equal(h.bd.fd, null); assert.equal(h.bd.rg.k, 1);
+  assert.ok(Math.abs(heroDmgMul(h) / base - 1.25) < 1e-6); assert.ok(Math.abs(bloodJobSlow(h) - 1.15) < 1e-9);
+  h.bd.cd.field = 0; fd(g, 'press'); assert.equal(h.bd.fd, null, '폭주 중에는 혈역을 못 쓴다');
+  run(g, Z.rage.dur + .05); assert.equal(h.bd.rg.k, 2);
+  assert.ok(Math.abs(heroDmgMul(h) / base - 0.85) < 1e-6);
+  run(g, Z.tired.dur + .05); assert.equal(h.bd.rg, null); assert.equal(bloodJobAtk(h), 1);
+});
+
+test('혈막 발동이면 혈역이 끝난다 · 혈량이 모자라 혈막이 안 나가면 혈역은 그대로', () => {
+  const { g, h } = setup(); lv100(h); h.bag.bd.b = 10;
+  fd(g, 'press'); send(g, { op: 'press', s: 'veil' });
+  assert.ok(h.bd.fd); assert.equal(h.bd.vl, null);
+  h.bag.bd.b = 40; send(g, { op: 'press', s: 'veil' });
+  assert.equal(h.bd.fd, null); assert.ok(h.bd.vl); assert.ok(h.bd.vl.k > 1.1, '혈역 크기 보너스를 먼저 기록');
+});
+
+test('스냅샷 — 손님 화면에 폭주 · 혈역이 보인다', () => {
+  const { g, h } = setup(); lv100(h); h.bag.bd.b = 100;
+  fd(g, 'press'); run(g, .3);
+  h.bd.rg = { k: 2, t: 3 };
+  const guest = makeWorld(); guest.mySeat = 0;
+  rpgSyncSeats(guest, [{ id: 'b0', name: '혈액', hero: { name: '혈액', job: 'warrior', elem: 'frost', gender: 'm' } }]);
+  rpgApply(guest, rpgPack(g));
+  const v = bloodView(guest.heroes[0]);
+  assert.equal(v.rg.k, 2); assert.ok(v.fd); assert.equal(v.fd.x, h.bd.fd.x);
 });

@@ -24,6 +24,7 @@ export const KEY_ACTIONS = [
   { id: "bSmash", name: "혈수 강타(BLOOD-001)", group: "전투", keys: ["Digit3", "Numpad3"] },
   { id: "bSword", name: "혈검(BLOOD-001)", group: "전투", keys: ["Digit4", "Numpad4"] },
   { id: "bVeil", name: "혈막(BLOOD-001)", group: "전투", keys: ["KeyB", ""] },
+  { id: "bField", name: "혈역 증폭(BLOOD-001)", group: "전투", keys: ["KeyH", ""] },
   { id: "pot1", name: "물약 칸 1", group: "전투", keys: ["Digit5", "Numpad5"] },
   { id: "pot2", name: "물약 칸 2", group: "전투", keys: ["Digit6", "Numpad6"] },
   { id: "pot3", name: "물약 칸 3", group: "전투", keys: ["Digit7", "Numpad7"] },

@@ -20,7 +20,9 @@ export const BLOOD_JOB_PX = {
   bj_suck: { w: 166, h: 163, cols: 4, n: 10, cx: 79, cy: 84 },            // explosions/implosion — 혈막을 회수하며 접힌다
   bj_rage: { w: 80, h: 96, cols: 4, n: 10, cx: 40, cy: 87, loop: 1 },     // shadow/shadow-flames — 폭주 발밑 불꽃(반복)
   bj_gather: { w: 96, h: 79, cols: 3, n: 10, cx: 46, cy: 38, loop: 1 },   // arcane/spell-charge — 혈수 강타 차징 · 내려치는 피 덩어리
-  bj_rune: { w: 114, h: 84, cols: 3, n: 12, cx: 57, cy: 64, loop: 1 },    // arcane/rune-circle — 혈역 바닥 문양(눕혀 그려져 있다 — 세로 1:0.35)
+  bj_flood: { w: 237, h: 143, cols: 3, n: 8, cx: 112, cy: 75 },          // nature/blood-field(이 게임용 새 이펙트) open — 혈역: 땅이 피로 물든다
+  bj_drink: { w: 233, h: 142, cols: 3, n: 12, cx: 112, cy: 74, loop: 1 }, // 같은 이펙트 loop — 핏줄기를 따라 발밑으로 빨려 든다(반지름 117, 세로 0.6)
+  bj_dry: { w: 233, h: 142, cols: 3, n: 8, cx: 112, cy: 74 },            // 같은 이펙트 drain — 끝나면 가운데로 말려 사라진다
   bj_dark: { w: 249, h: 218, cols: 3, n: 10, cx: 125, cy: 90 },           // shadow/dark-explosion — 폭주 시작
   bj_fall: { w: 143, h: 135, cols: 4, n: 10, cx: 71, cy: 50 },            // holy/feather-burst — 탈진: 혈액 갑주 조각이 흩날려 떨어진다
 };

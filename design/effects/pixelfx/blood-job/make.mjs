@@ -33,9 +33,12 @@ const LIST = [
   { name: "bj_rage", id: "shadow/shadow-flames", from: 0, to: 2.4, n: 10, loop: 1, opts: { palette: B8, seed: 2 } },
   // 11월 14일 둘째 — Codex 레이어를 모두 걷어 내고 대신하는 시트
   { name: "bj_gather", id: "arcane/spell-charge", from: 0, to: 1.6, n: 10, loop: 1, opts: { palette: B8, seed: 13 } },   // 혈수 강타 차징 — 손에 모이는 피
-  { name: "bj_rune", id: "arcane/rune-circle", from: 0, to: 4, n: 12, loop: 1, opts: { palette: B8, seed: 14 } },          // 혈역 바닥 문양(반복, 눕혀 그려져 있다)
   { name: "bj_dark", id: "shadow/dark-explosion", from: 0.6, to: 1.9, n: 10, opts: { palette: B8, seed: 15 } },            // 폭주 시작
   { name: "bj_fall", id: "holy/feather-burst", from: 0, to: 1.6, n: 10, opts: { palette: ["#1a0b14", "#3a0a14", "#650b17", "#a8152a", "#d86a74", "#f0c0c4"], glow: "#ff9ca4", seed: 16 } },   // 탈진 — 혈액 갑주 조각이 흩날려 떨어진다
+  // 11월 14일 셋째 — 혈역 증폭 바닥(마법진 대신 땅이 피로 물들어 빨려 든다). nature/blood-field 는 이 게임용으로 새로 쓴 이펙트(원본 design/effects/pixelfx/blood-job/blood-field.js)
+  { name: "bj_flood", id: "nature/blood-field", from: 0, to: 0.6, n: 8, opts: { palette: B8, seed: 7, radius: 117, phase: "open" } },
+  { name: "bj_drink", id: "nature/blood-field", from: 0, to: 1.2, n: 12, loop: 1, opts: { palette: B8, seed: 7, radius: 117, phase: "loop" } },
+  { name: "bj_dry", id: "nature/blood-field", from: 0, to: 0.5, n: 8, opts: { palette: B8, seed: 7, radius: 117, phase: "drain" } },
 ];
 const man = {};
 for (const s of LIST.filter((s) => s.name.startsWith(ONLY))) {

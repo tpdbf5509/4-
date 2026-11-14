@@ -7,7 +7,7 @@ import { drawAbyssFx, ABYSS_GROUND_FX } from "./abyssArt.js";
 import { drawStormFx, drawStormCharge } from './stormWeaponArt.js';
 import { drawVoidFx } from './voidWeaponArt.js';
 import { drawBloodFx } from './bloodGunArt.js';
-import { drawBloodJobFx } from './bloodJobArt.js';   // 히든 직업 BLOOD-001
+import { drawBloodJobFx, BLOOD_JOB_GROUND } from './bloodJobArt.js';   // 히든 직업 BLOOD-001
 import { drawFuryFx } from "./furyArt.js";
 import { drawSkillPx } from "./skillPxArt.js";
 import { drawHighFx, HIGH_GROUND_FX } from "./highFxArt.js";
@@ -93,7 +93,7 @@ export function drawSkillFx(ctx, f, time, g) {
   else if (MOB_FX[f.kind]) MOB_FX[f.kind](ctx, f, p, time);   // 200~400레벨 몹 기술
 }
 // 땅에 깔리는 것 — 몸보다 먼저 그린다(rpgArt.js)
-export const GROUND_FX = new Set(["sk_wb_warn", "sk_wb_pool", "sk_wb_grid", "sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake", ...ADV_GROUND, ...ABYSS_GROUND_FX, ...HIGH_GROUND_FX]);
+export const GROUND_FX = new Set(["sk_wb_warn", "sk_wb_pool", "sk_wb_grid", "sk_ice", "sk_ember", "sk_rift", "sk_mwarn", "sk_mweb", "sk_mcurse", "sk_mquake", ...ADV_GROUND, ...ABYSS_GROUND_FX, ...HIGH_GROUND_FX, ...BLOOD_JOB_GROUND]);
 
 /* 화염베기 — 커다란 불꽃 초승달. 앞 35% 동안 휘어 나가며 그어지고(머리가 가장 굵다), 뒤로 가늘어지며 사라진다.
    겉은 붉은 불, 가운데는 주황, 안쪽 심지는 노란 흰빛. 바깥 가장자리에 불길이 일렁인다 */

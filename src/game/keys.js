@@ -21,6 +21,9 @@ export const KEY_ACTIONS = [
   // 히든 직업 BLOOD-001(11월 14일) — 문서가 제안한 Q · E · R · Shift+R · F · C 는 대쉬 · 대화 · 직업 스킬 · 큰 기술 · 스탯과 겹쳐 빈 키로 둔다(bloodJobData.js BLOOD_KEYS)
   { id: "bShot", name: "적혈탄(BLOOD-001)", group: "전투", keys: ["KeyF", ""] },
   { id: "bConv", name: "혈량 전환(BLOOD-001)", group: "전투", keys: ["KeyN", ""] },
+  { id: "bSmash", name: "혈수 강타(BLOOD-001)", group: "전투", keys: ["Digit3", "Numpad3"] },
+  { id: "bSword", name: "혈검(BLOOD-001)", group: "전투", keys: ["Digit4", "Numpad4"] },
+  { id: "bVeil", name: "혈막(BLOOD-001)", group: "전투", keys: ["KeyB", ""] },
   { id: "pot1", name: "물약 칸 1", group: "전투", keys: ["Digit5", "Numpad5"] },
   { id: "pot2", name: "물약 칸 2", group: "전투", keys: ["Digit6", "Numpad6"] },
   { id: "pot3", name: "물약 칸 3", group: "전투", keys: ["Digit7", "Numpad7"] },

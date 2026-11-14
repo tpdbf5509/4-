@@ -6,7 +6,7 @@ import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgWeaponAim, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, freshInput, setFxBy,
+  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, rpgBloodBreak, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -49,6 +49,7 @@ const ACTS = {
   story: (g, pi, dir) => rpgStory(g, pi, dir),   // 메인 스토리 1부 — 대화 마침 · 이야기 장소로 가기(storyQuest.js)
   rgo: (g, pi, dir) => rpgRace(g, pi, { op: "go", on: !!dir }),   // 레이스 질주 누름 · 뗌 — 늦게 온 옛 것은 버린다(FRESH_SLOT)
 };
+const BLOOD_BREAK = new Set(["skill", "use", "wskill", "wcharge", "adv", "dash", "fire"]);
 export function rpgInput(g, d) {
   if (!d || !Number.isInteger(d.cls) || !g.heroes[d.cls]) return;
   if(stormBusy(g.heroes[d.cls]) && ['skill','use','adv','dash','blood'].includes(d.kind))return;
@@ -61,5 +62,7 @@ export function rpgInput(g, d) {
   h.inputAim = aimed ? cleanSkillAim(d.aim) : null;
   h.inputPt = aimed ? cleanSkillPt(d.pt) : null;
   const taunter=g.heroes[h.tauntBy];if(h.tauntT>0&&taunter?.map===h.map&&taunter.down<=0){h.inputAim=cleanSkillAim([taunter.x-h.x,(taunter.y-h.y)/.78]);h.inputPt=[taunter.x,taunter.y];}
+  // BLOOD-001 — 다른 공격 · 스킬을 누르면 혈막 · 차징 · 혈검 남은 타격을 먼저 끊고 그 행동의 조건을 본다(평타는 혈막만)
+  if (BLOOD_BREAK.has(d.kind) && !(d.kind === "fire" && !d.dir) && !(d.kind === "wcharge" && d.dir !== true) && !(d.kind === "adv" && !["use", "ult"].includes(d.dir?.op))) rpgBloodBreak(g, d.cls, d.kind);
   try { act(g, d.cls, d.dir); } finally { delete h.inputAim; delete h.inputPt; setFxBy(prev); }
 }

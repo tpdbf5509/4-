@@ -3,9 +3,10 @@
    피해는 기존 strikeAny 를 거치므로 결투(duelBalance.js 시전별 상한) · 사냥터 PvP 상한이 그대로 걸린다. 한 시전의 모든 타가 같은 시전 객체를 쓴다.
    크림슨 레퀴엠(bloodGunCombat.js) 혈흔과는 따로 센다 — 여기 혈흔은 h.bd.mk 에만 있고 주인 화면에만 보인다.
    저장 값 bag.bd = { on 해금, lv 직업 레벨, xp, tr [[연마 레벨, 경험치] × 3], b 혈량 }. 필드는 뒤에만 더한다.
-   E(엔진, rpg.js bloodJobEngine): fx · say · sys · near · strike · alive · base · face · aim · locked · fight(싸울 수 있는지 까닭) ·
-   squash · blocks · cast(새 시전 객체) · dummy · cdOff */
-import { BLOOD, BLOOD_SHOT as S, BLOOD_TINT, TRAIN_UNLOCK, TRAIN_NAMES, BLOOD_NAME } from "./bloodJobData.js";
+   E(엔진, rpg.js bloodJobEngine): fx · say · sys · near · arc · strike · alive · base · face · aim · locked · fight(싸울 수 있는지 까닭) ·
+   squash · blocks · cast(새 시전 객체) · dummy · cdOff · cc(경직 · 넉백) · boss(제압 면역)
+   2단계(11월 14일): 혈수 강타(h.bd.sm 내려칠 손) · 혈형 변환 — 혈검(h.bd.sw 세 번 베기) · 혈막(h.bd.vl 받는 피해 감소, hurtHero → bloodJobTake) */
+import { BLOOD, BLOOD_SHOT as S, BLOOD_SMASH as M, BLOOD_FORM as F, BLOOD_TINT, TRAIN_UNLOCK, TRAIN_NAMES, BLOOD_NAME } from "./bloodJobData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -53,7 +54,9 @@ export function dropBlood(h) {
 
 /* ── 싸우는 동안의 상태 h.bd ───────────────────────── */
 function st(h) {
-  return h.bd || (h.bd = { cd: { shot: 0, conv: 0 }, ch: null, mk: {}, sh: [], gT: -1, xm: [0, 0], q: 0 });
+  const s = h.bd || (h.bd = { cd: { shot: 0, conv: 0 }, ch: null, mk: {}, sh: [], gT: -1, xm: [0, 0], q: 0 });
+  if (!s.sm) { s.sm = []; s.sw = null; s.vl = null; s.cd.smash = s.cd.smash || 0; s.cd.form = s.cd.form || 0; }   // 2단계 상태(앞선 판에서 만든 h.bd 에도 채운다)
+  return s;
 }
 const keyOf = (o) => (o.type ? `m${o.id}` : `h${o.pi}`);
 const find = (g, k) => (k[0] === "m" ? g.mobs.find((m) => String(m.id) === k.slice(1)) : g.heroes[Number(k.slice(1))]);
@@ -150,7 +153,8 @@ function why(E, g, h) {
 function shotPress(E, g, h) {
   const s = st(h), w = why(E, g, h);
   if (w) { if (w !== "-") E.say(g, h.map, h.x, h.y - 90, w, "#d9c9a6"); return; }
-  if (s.ch) return;                                  // 한 번 누름에 한 번
+  if (s.ch && s.ch.s === "shot") return;            // 한 번 누름에 한 번
+  breakFor(E, g, h, "shot");                         // 다른 차징 · 혈막을 먼저 끊고 새 스킬 조건을 본다
   if (s.cd.shot > 0) return void E.say(g, h.map, h.x, h.y - 90, `${S.name} ${Math.ceil(s.cd.shot)}초`, "#f0dcb4");
   if (h.bag.bd.b < S.need) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const [ax, ay] = E.face(h);
@@ -165,19 +169,24 @@ function aimTo(h, c, a) {
   h.look = [c.ax, c.ay]; h.lookF = h.face;
 }
 // 놓았다 — 누른 시간과 혈량을 모두 만족하는 가장 높은 단계로 쏜다(그 단계 비용만)
-function shotRelease(E, g, h, cancel) {
+function shotRelease(E, g, h, cancel, sk = "shot") {
   const s = st(h), c = s.ch;
-  if (!c || c.s !== "shot") return;
+  if (!c || c.s !== sk) return;
   if (cancel) return void cancelCharge(E, g, h);
   if (c.ptr && h.inputAim) aimTo(h, c, h.inputAim);
-  fireShot(E, g, h);
+  (sk === "smash" ? fireSmash : fireShot)(E, g, h);
 }
 export function cancelCharge(E, g, h, quiet = false) {
   const s = h.bd; if (!s || !s.ch) return;
-  if (!quiet) E.fx(g, h.map, { kind: "sk_bj_fizz", x: h.x, y: h.y, ax: s.ch.ax, ay: s.ch.ay, pi: h.pi, t: 0.35, life: 0.35 });
+  if (!quiet) E.fx(g, h.map, { kind: "sk_bj_fizz", x: h.x, y: h.y, ax: s.ch.ax, ay: s.ch.ay, pi: h.pi, sk: s.ch.s === "smash" ? 1 : 0, t: 0.35, life: 0.35 });
   s.ch = null;
 }
 // 막힌 곳(벽 · 나무 · 가게)까지의 거리 — 본탄은 벽을 뚫지 않는다
+// 가운데(x, y)에서 o 까지 벽이 막고 있나 — 혈수 강타 · 혈검은 벽 뒤로 피해가 넘어가지 않는다
+function walled(E, map, x, y, o) {
+  const dx = o.x - x, dy = (o.y - y) / E.squash, d = Math.hypot(dx, dy);
+  return d > 8 && wallCut(E, { map, x, y }, dx / d, dy / d, d) < d - (o.rad || 16) * 0.5;
+}
 function wallCut(E, h, ax, ay, len) {
   let cut = len;
   for (const b of E.blocks(h.map)) {
@@ -193,6 +202,7 @@ function fireShot(E, g, h) {
   const s = st(h), c = s.ch, bd = h.bag.bd;
   s.ch = null;
   const tier = shotTier(c.t, bd.b);
+  if (tier >= 0) s.sw = null;                        // 다른 공격 스킬 발동 — 혈검의 남은 타격 취소
   if (tier < 0) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const T = S.tiers[tier], lv = pressLv(h);
   const [ax, ay] = c.ptr ? [c.ax, c.ay] : E.aim(g, h, T.range);   // 포인터로 겨눈 시전은 놓는 순간의 방향 그대로
@@ -246,6 +256,168 @@ function stepShot(E, g, h, shot, dt) {
   return shot.left > 0 && shot.d < shot.max;
 }
 
+/* ── 2단계 공통 ───────────────────────────────────── */
+const shapeLv = (h) => h.bag.bd.tr[2][0];
+const shapeLock = (h) => (h.bag.bd.lv < BLOOD.unlock.shape ? `직업 레벨 ${BLOOD.unlock.shape}에 열립니다` : "");
+// 새 공격 · 스킬을 누르면 — 다른 스킬 차징은 끊고(비용 · 대기 없음) 혈막은 먼저 끝낸다(연출및세부사항)
+function breakFor(E, g, h, sk) {
+  const s = st(h);
+  if (s.ch && s.ch.s !== sk) cancelCharge(E, g, h);
+  if (s.vl && sk !== "veil") endVeil(E, g, h, "break");
+}
+// 이 게임의 다른 입력(큰 기술 · 스킬 칸 · 무기 스킬 · 전직 스킬 · 대쉬 · 평타)이 들어왔다 — rpgInput 이 판정 앞에 부른다
+export function bloodJobBreak(E, g, h, kind) {
+  if (!bloodOn(h) || !h.bd) return;
+  const s = h.bd;
+  if (kind === "fire") { if (s.vl) endVeil(E, g, h, "break"); return; }
+  if (s.ch) cancelCharge(E, g, h);
+  if (s.vl) endVeil(E, g, h, "break");
+  s.sw = null;
+}
+
+/* ── 혈수 강타 ─────────────────────────────────────── */
+export function smashTier(t, b) {
+  let tier = -1;
+  M.tiers.forEach((q, i) => { if (t + 1e-6 >= q.at && b >= q.cost) tier = i; });
+  return tier;
+}
+export const smashTimeTier = (t) => M.tiers.reduce((a, q, i) => (t + 1e-6 >= q.at ? i : a), 0);
+// 실제 길이 · 폭 — 추가 소모 · 증폭형 연마(그리고 3단계의 상태 · 혈역 보너스)를 기본 폭 기준으로 더한다. 길이는 늘지 않는다
+export const smashSize = (h, tier) => [M.len, Math.round(M.wid * (1 + M.tiers[Math.max(0, tier)].wide + (bloodOn(h) ? ampBonus(h) : 0)))];
+function smashPress(E, g, h) {
+  const s = st(h), w = why(E, g, h);
+  if (w) { if (w !== "-") E.say(g, h.map, h.x, h.y - 90, w, "#d9c9a6"); return; }
+  if (s.ch && s.ch.s === "smash") return;
+  breakFor(E, g, h, "smash");
+  const lock = shapeLock(h);
+  if (lock) return void E.say(g, h.map, h.x, h.y - 90, lock, "#d9c9a6");
+  if (s.cd.smash > 0) return void E.say(g, h.map, h.x, h.y - 90, `${M.name} ${Math.ceil(s.cd.smash)}초`, "#f0dcb4");
+  if (h.bag.bd.b < M.tiers[0].cost) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
+  const [ax, ay] = E.face(h);
+  s.ch = { s: "smash", t: 0, ax: r2(ax), ay: r2(ay), ptr: h.inputAim ? 1 : 0, hT: 0, tier: 0 };
+  s.q += 1;
+  smashHint(E, g, h, s.ch, 0, false);
+}
+function smashHint(E, g, h, c, tier, ping) {
+  const [L, W] = smashSize(h, tier);
+  E.fx(g, h.map, { kind: "sk_bj_smc", x: h.x, y: h.y, pi: h.pi, ax: c.ax, ay: c.ay, u: r2(Math.min(1, c.t / M.full)), tier, L, W,
+    t: M.hint + 0.06, life: M.hint + 0.06, ...(ping ? { ping: tier, snd: "bloodHit" } : tier === 0 && c.t === 0 ? { snd: "bloodCharge" } : {}) });
+}
+function fireSmash(E, g, h) {
+  const s = st(h), c = s.ch, bd = h.bag.bd;
+  s.ch = null;
+  const tier = smashTier(c.t, bd.b);
+  if (tier < 0) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
+  const [ax, ay] = c.ptr ? [c.ax, c.ay] : E.aim(g, h, M.len);
+  const [L, W] = smashSize(h, tier);                 // 방향 · 범위는 발동 순간 확정
+  s.sw = null;
+  const sm = { fid: `bs${h.pi}.${++s.q}`, x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), L, W, t: M.delay, tier, cast: E.cast(h), base: E.base(h), xp: 0, map: h.map };
+  spend(h, M.tiers[tier].cost);
+  s.cd.smash = M.cd;
+  s.sm.push(sm);
+  h.swing = 0.3;
+  E.fx(g, h.map, { kind: "sk_bj_smash", x: h.x, y: h.y, ax: sm.ax, ay: sm.ay, L, W, tier, fid: sm.fid, pi: h.pi, d: M.delay, t: M.delay + 0.45, life: M.delay + 0.45, snd: "bloodCharge" });
+  E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 104, text: tier ? `${M.name} +${tier * 10}` : M.name, color: "#E53945", who: h.pi, t: 0.7, life: 0.7 });
+}
+// 주먹이 닿았다 — 표시한 직사각형 안에만 한 번. 벽 뒤는 빠진다. 일반 몹 경직 · 넉백, 보스는 '제압 면역' 한 번
+function landSmash(E, g, h, sm) {
+  const list = E.near(g, h, sm.x, sm.y, sm.L + sm.W).filter((o) => {
+    if (!E.alive(g, h, o, sm.map)) return false;
+    const dx = o.x - sm.x, dy = (o.y - sm.y) / E.squash, along = dx * sm.ax + dy * sm.ay, side = Math.abs(dx * sm.ay - dy * sm.ax), rr = (o.rad || 16) * 0.5;
+    return along >= -rr && along <= sm.L + rr && side <= sm.W / 2 + rr && !walled(E, sm.map, sm.x, sm.y, o);
+  });
+  let imm = null;
+  for (const o of list) {
+    strike(E, g, h, sm, o, M.mul * (1 + markBonus(h, o)));
+    reap(E, g, h, o);
+    if (E.boss(o)) imm = imm || o;
+    else E.cc(g, h, o, { stun: M.stun, kb: [sm.ax, sm.ay, M.kb] });
+  }
+  g.shake = Math.max(g.shake || 0, 0.3);
+  const cx = sm.x + sm.ax * sm.L * 0.62, cy = sm.y + sm.ay * sm.L * 0.62 * E.squash;
+  E.fx(g, sm.map, { kind: "sk_bj_slam", x: cx, y: cy, ax: sm.ax, ay: sm.ay, W: sm.W, pi: h.pi, t: 0.45, life: 0.45, snd: "bloodBoom" });
+  if (imm) E.say(g, sm.map, imm.x, imm.y - (imm.rad || 30) * 2 - 30, "제압 면역", "#f0dcb4");
+  if (sm.xp) trainXp(E, g, h, 1, BLOOD.train.cast);   // 증폭형 — 혈수 강타 유효 적중 시전당 +10
+}
+
+/* ── 혈형 변환 · 혈검 ───────────────────────────────── */
+function formWhy(E, g, h, cost) {
+  const s = st(h);
+  const lock = shapeLock(h);
+  if (lock) return lock;
+  if (s.cd.form > 0) return `${F.name} ${Math.ceil(s.cd.form)}초`;
+  if (h.bag.bd.b < cost) return "혈량 부족";
+  return "";
+}
+function swordUse(E, g, h) {
+  const s = st(h), w = why(E, g, h);
+  if (w) { if (w !== "-") E.say(g, h.map, h.x, h.y - 90, w, "#d9c9a6"); return; }
+  breakFor(E, g, h, "sword");
+  const no = formWhy(E, g, h, F.sword.cost);
+  if (no) return void E.say(g, h.map, h.x, h.y - 90, no, no === "혈량 부족" ? "#ff8a8a" : "#f0dcb4");
+  const [ax, ay] = E.aim(g, h, F.sword.r);
+  spend(h, F.sword.cost);
+  s.cd.form = F.cd;
+  s.sw = { t: 0, i: 0, ax: r2(ax), ay: r2(ay), R: F.sword.r, cast: E.cast(h), base: E.base(h), xp: 0, map: h.map, n: ++s.q };
+  E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 104, text: F.sword.name, color: "#E53945", who: h.pi, t: 0.6, life: 0.6 });
+  swordHit(E, g, h, s.sw);
+}
+// 한 번 베기 — 지금 내 자리 중심 · 발동 때 고정한 방향 · 반경 R · 100도. 타격마다 대상별 한 번
+function swordHit(E, g, h, sw) {
+  const i = sw.i++;
+  const list = E.arc(g, h, sw.ax, sw.ay, sw.R, (F.sword.arc / 2) * Math.PI / 180).filter((o) => E.alive(g, h, o, sw.map) && !walled(E, sw.map, h.x, h.y, o));
+  let hit = 0;
+  for (const o of list) {
+    strike(E, g, h, sw, o, F.sword.mul * (1 + markBonus(h, o)));   // 첫 유효 적중에서 혈흔을 쓰고 나면 다음 타격에는 보너스가 없다
+    reap(E, g, h, o);
+    hit = 1;
+  }
+  h.swing = 0.18;
+  E.fx(g, h.map, { kind: "sk_bj_sword", x: h.x, y: h.y, ax: sw.ax, ay: sw.ay, r: sw.R, i, pi: h.pi, t: 0.22, life: 0.22, snd: hit ? "bloodHit" : undefined });
+  if (i < F.sword.hits.length - 1) return;
+  // 마지막 타격 — 유효 적중이면 혈량 8(시전당 한 번), 빗나가면 칼날이 흩어진다
+  const tipX = h.x + sw.ax * sw.R * 0.7, tipY = h.y + sw.ay * sw.R * 0.7 * E.squash;
+  if (hit) { const got = gainBlood(h, F.sword.back); E.fx(g, h.map, { kind: "sk_bj_reap", x: tipX, y: tipY + 30, x1: h.x, y1: h.y, n: 3, got, pi: h.pi, t: 0.4, life: 0.4, who: h.pi }); }
+  else E.fx(g, h.map, { kind: "sk_bj_end", x: tipX, y: tipY + S.lift, pi: h.pi, t: 0.3, life: 0.3 });
+  if (sw.xp) trainXp(E, g, h, 2, BLOOD.train.cast);   // 형상화 — 혈검 유효 적중 시전당 +10
+  st(h).sw = null;
+}
+
+/* ── 혈형 변환 · 혈막 ───────────────────────────────── */
+export const veilStat = (lv) => [Math.min(F.veil.durMax, F.veil.dur + F.veil.durPer * lv), Math.min(F.veil.redMax, F.veil.red + F.veil.redPer * lv)];
+function veilPress(E, g, h) {
+  const s = st(h), w = why(E, g, h);
+  if (w) { if (w !== "-") E.say(g, h.map, h.x, h.y - 90, w, "#d9c9a6"); return; }
+  if (s.vl) return;
+  breakFor(E, g, h, "veil");
+  s.sw = null;
+  const no = formWhy(E, g, h, F.veil.cost);
+  if (no) return void E.say(g, h.map, h.x, h.y - 90, no, no === "혈량 부족" ? "#ff8a8a" : "#f0dcb4");
+  const [max, red] = veilStat(shapeLv(h));
+  spend(h, F.veil.cost);
+  s.cd.form = F.cd;
+  s.vl = { t: 0, max: r2(max), red: Math.round(red * 1000) / 1000, did: 0, hT: F.veil.hint, rT: 0 };
+  E.fx(g, h.map, { kind: "sk_bj_veil", x: h.x, y: h.y, pi: h.pi, u: 0, max: s.vl.max, start: 1, t: F.veil.hint + 0.08, life: F.veil.hint + 0.08, snd: "bloodCharge" });
+}
+// 혈막 끝 — 실제로 피해를 줄였다면 혈량 12(사망으로 끝나면 없음). 형상화 경험치는 줄였으면 시전당 +10
+function endVeil(E, g, h, why) {
+  const s = h.bd, v = s && s.vl;
+  if (!v) return;
+  s.vl = null;
+  const ok = !!v.did && why !== "down";
+  const got = ok ? gainBlood(h, F.veil.back) : 0;
+  if (v.did) trainXp(E, g, h, 2, BLOOD.train.cast);
+  E.fx(g, h.map, { kind: "sk_bj_veilend", x: h.x, y: h.y, pi: h.pi, ok: ok ? 1 : 0, got, t: 0.4, life: 0.4, who: h.pi });
+}
+// 받는 피해(hurtHero) — 혈막이면 감소율만큼 줄인다. 정면 · 후면 구분 없음 · 회피 · 무적 아님. 실제로 줄인 피해가 있으면 회수 조건을 채운다
+export function bloodJobTake(E, g, h, dmg) {
+  const v = h && h.bd && h.bd.vl;
+  if (!v || !(dmg > 0)) return dmg;
+  v.did = 1;
+  if (v.rT <= 0) { v.rT = F.veil.ripple; E.fx(g, h.map, { kind: "sk_bj_ripple", x: h.x, y: h.y, pi: h.pi, t: 0.3, life: 0.3, snd: "hit" }); }
+  return dmg * (1 - v.red);
+}
+
 /* ── 혈량 전환 ─────────────────────────────────────── */
 function convert(E, g, h) {
   if (!bloodOn(h) || h.down > 0) return;
@@ -265,17 +437,29 @@ export function bloodJobInput(E, g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req || typeof req !== "object") return false;
   if (req.op === "convert") return void convert(E, g, h);
+  if (!bloodOn(h) && req.op === "cancel") return false;   // 창을 벗어날 때 누구나 보낸다 — 조용히 넘긴다
   if (!bloodOn(h)) return void E.sys(g, pi, `${BLOOD_NAME} 만 쓸 수 있습니다.`);
-  if (req.s !== "shot") return false;
-  if (req.op === "press") return void shotPress(E, g, h);
-  if (req.op === "release" || req.op === "cancel") return void shotRelease(E, g, h, req.op === "cancel");
-  if (req.op === "aim") { const c = h.bd && h.bd.ch; if (c && c.ptr && h.inputAim) aimTo(h, c, h.inputAim); }
+  if (req.op === "aim") { const c = h.bd && h.bd.ch; if (c && c.ptr && h.inputAim) aimTo(h, c, h.inputAim); return false; }
+  if (req.op === "sword") return void swordUse(E, g, h);
+  if (req.op === "cancel") {                         // 창을 벗어났다 · 채팅 — 차징 · 유지 입력을 모두 푼다
+    if (h.bd && h.bd.ch) cancelCharge(E, g, h);
+    if (h.bd && h.bd.vl) endVeil(E, g, h, "release");
+    return false;
+  }
+  if (req.s === "veil") {
+    if (req.op === "press") veilPress(E, g, h);
+    else if (req.op === "release") endVeil(E, g, h, "release");
+    return false;
+  }
+  if (req.s !== "shot" && req.s !== "smash") return false;
+  if (req.op === "press") return void (req.s === "smash" ? smashPress : shotPress)(E, g, h);
+  if (req.op === "release") return void shotRelease(E, g, h, false, req.s);
   return false;
 }
 // 차징 중 마우스 포인터 방향(waim) — 크림슨 레퀴엠과 같은 입력을 함께 쓴다
 export function bloodJobAim(h) { const c = h && h.bd && h.bd.ch; if (c && c.ptr && h.inputAim) aimTo(h, c, h.inputAim); }
 export const bloodJobAimLock = (h) => !!(h && h.bd && h.bd.ch && h.bd.ch.ptr);
-export const bloodJobSlow = (h) => (h && h.bd && h.bd.ch ? 1 - S.slow : 1);
+export const bloodJobSlow = (h) => (h && h.bd && h.bd.ch ? 1 - (h.bd.ch.s === "smash" ? M.slow : S.slow) : 1);   // 감속이 겹치면 가장 큰 하나만(3단계 혈역도 같은 규칙)
 
 /* ── 시간 ─────────────────────────────────────────── */
 export function tickBloodJob(E, g, h, dt) {
@@ -290,7 +474,17 @@ export function tickBloodJob(E, g, h, dt) {
     if (m[1] <= 0 || !o || (o.type ? o.dead || o.map !== h.map : o.down > 0 || o.map !== h.map)) delete s.mk[k];
   }
   const c = s.ch;
-  if (c) {
+  if (c && c.s === "smash") {
+    if (h.down > 0 || E.locked(h) || E.fight(h)) cancelCharge(E, g, h);
+    else {
+      c.t += dt;
+      if (c.ptr) aimTo(h, c, [c.ax, c.ay]);
+      const tier = smashTier(c.t, h.bag.bd.b), ping = tier > c.tier;
+      c.hT -= dt;
+      if (ping || c.hT <= 0) { c.hT = M.hint; c.tier = Math.max(c.tier, tier); smashHint(E, g, h, c, Math.max(0, tier), ping); }
+      if (c.t >= M.full) fireSmash(E, g, h);         // 최대 0.9초 — 자동 발동
+    }
+  } else if (c) {
     if (h.down > 0 || E.locked(h) || E.fight(h)) cancelCharge(E, g, h);
     else {
       c.t += dt;
@@ -303,6 +497,33 @@ export function tickBloodJob(E, g, h, dt) {
           t: S.hint + 0.08, life: S.hint + 0.08, ...(ping ? { ping: tier, snd: tier >= 2 ? "bloodBoom" : "bloodHit" } : {}) });
       }
       if (c.t >= S.full) fireShot(E, g, h);          // 최대 1.6초 — 자동 발사(계속 누르고 있어도 다시 쏘지 않는다)
+    }
+  }
+  const stop = h.down > 0 || E.locked(h);           // 기절 · 사망 — 닿기 전 강타 · 남은 혈검 타격은 취소(비용은 돌려주지 않는다)
+  if (s.sm.length) {
+    s.sm = s.sm.filter((sm) => {
+      if (stop || sm.map !== h.map) { E.fx(g, sm.map, { kind: "cut", ref: sm.fid }); return false; }
+      sm.t -= dt;
+      if (sm.t > 0) return true;
+      landSmash(E, g, h, sm);
+      return false;
+    });
+  }
+  if (s.sw) {
+    const sw = s.sw;
+    if (stop || sw.map !== h.map) s.sw = null;
+    else { sw.t += dt; while (s.sw === sw && sw.i < F.sword.hits.length && sw.t + 1e-6 >= F.sword.hits[sw.i]) swordHit(E, g, h, sw); }
+  }
+  if (s.vl) {
+    const v = s.vl;
+    v.t += dt; v.rT -= dt; v.hT -= dt;
+    if (h.down > 0) endVeil(E, g, h, "down");
+    else if (E.locked(h) || E.fight(h)) endVeil(E, g, h, "break");
+    else if (v.t >= v.max) endVeil(E, g, h, "time");
+    else if (h.fire) endVeil(E, g, h, "break");    // 평타를 누르면 혈막을 먼저 끝낸다
+    else if (v.hT <= 0) {
+      v.hT = F.veil.hint;
+      E.fx(g, h.map, { kind: "sk_bj_veil", x: h.x, y: h.y, pi: h.pi, u: r2(v.t / v.max), max: v.max, t: F.veil.hint + 0.08, life: F.veil.hint + 0.08 });
     }
   }
   if (s.sh.length) {
@@ -322,19 +543,22 @@ export function tickBloodJob(E, g, h, dt) {
 export function bloodJobDown(E, g, h) {
   if (!bloodOn(h)) return;
   const s = st(h);
-  s.ch = null; s.mk = {};
+  if (s.vl) endVeil(E, g, h, "down");
+  s.ch = null; s.mk = {}; s.sw = null;
   h.bag.bd.b = 0;
 }
 // 훈련장 · 테스트 서버 "스택 가득" — 혈량을 안정 상한까지
 export function bloodJobFill(h) { if (bloodOn(h)) h.bag.bd.b = Math.max(h.bag.bd.b, stableCap(h.bag.bd.lv)); }
 
-/* ── 스냅샷 줄 56 — [혈량, 직업 레벨, 경험치, 연마 [l, x] × 3 펼침, 대기 [적혈탄, 전환], 차징 [단계 시간, x, y] | 0, 혈흔 [[키, 중첩, 남은 초]]] ── */
+/* ── 스냅샷 줄 56 — [혈량, 직업 레벨, 경험치, 연마 [l, x] × 3 펼침, 대기 [적혈탄, 전환, 혈수 강타, 혈형 변환], 차징 [단계 시간, x, y, 스킬 0 적혈탄 · 1 혈수 강타] | 0,
+   혈흔 [[키, 중첩, 남은 초]], 혈막 [지난 초, 최대 초] | 0] — 칸은 뒤에만 더한다 ── */
 export function packBloodJob(h) {
   if (!bloodOn(h)) return 0;
   const bd = h.bag.bd, s = h.bd;
-  return [Math.round(bd.b), bd.lv, bd.xp, bd.tr.flat(), s ? [r1(s.cd.shot), r1(s.cd.conv)] : [0, 0],
-    s && s.ch ? [r2(s.ch.t), s.ch.ax, s.ch.ay] : 0,
-    s ? Object.entries(s.mk).map(([k, m]) => [k, m[0], r1(m[1])]) : []];
+  return [Math.round(bd.b), bd.lv, bd.xp, bd.tr.flat(), s ? [r1(s.cd.shot), r1(s.cd.conv), r1(s.cd.smash || 0), r1(s.cd.form || 0)] : [0, 0, 0, 0],
+    s && s.ch ? [r2(s.ch.t), s.ch.ax, s.ch.ay, s.ch.s === "smash" ? 1 : 0] : 0,
+    s ? Object.entries(s.mk).map(([k, m]) => [k, m[0], r1(m[1])]) : [],
+    s && s.vl ? [r2(s.vl.t), s.vl.max] : 0];
 }
 // 손님 — 화면에 쓰는 값만 h.bdv 로(판정 상태 h.bd 는 건드리지 않는다)
 export function applyBloodJob(h, a) {
@@ -342,9 +566,10 @@ export function applyBloodJob(h, a) {
   if (h.bag && h.bag.bd) h.bag.bd.b = Math.max(0, Math.min(BLOOD.abs, Number(a[0]) || 0));   // 방장 승계 때 지금 혈량을 이어받는다
   const tr = Array.isArray(a[3]) ? a[3] : [];
   h.bdv = { b: Number(a[0]) || 0, lv: Number(a[1]) || 1, xp: Number(a[2]) || 0, tr: [[tr[0] | 0, tr[1] | 0], [tr[2] | 0, tr[3] | 0], [tr[4] | 0, tr[5] | 0]],
-    cd: Array.isArray(a[4]) ? { shot: +a[4][0] || 0, conv: +a[4][1] || 0 } : { shot: 0, conv: 0 },
-    ch: Array.isArray(a[5]) ? { t: +a[5][0] || 0, ax: +a[5][1] || 0, ay: +a[5][2] || 0 } : null,
-    mk: Array.isArray(a[6]) ? a[6].filter((m) => Array.isArray(m) && typeof m[0] === "string").map((m) => [m[0], m[1] | 0, +m[2] || 0]) : [], at: Date.now() };
+    cd: Array.isArray(a[4]) ? { shot: +a[4][0] || 0, conv: +a[4][1] || 0, smash: +a[4][2] || 0, form: +a[4][3] || 0 } : { shot: 0, conv: 0, smash: 0, form: 0 },
+    ch: Array.isArray(a[5]) ? { t: +a[5][0] || 0, ax: +a[5][1] || 0, ay: +a[5][2] || 0, s: a[5][3] === 1 ? "smash" : "shot" } : null,
+    mk: Array.isArray(a[6]) ? a[6].filter((m) => Array.isArray(m) && typeof m[0] === "string").map((m) => [m[0], m[1] | 0, +m[2] || 0]) : [],
+    vl: Array.isArray(a[7]) ? { t: +a[7][0] || 0, max: +a[7][1] || 0 } : null, at: Date.now() };
 }
 // 화면 값 — 방장(판정 세계)은 h.bag.bd · h.bd 에서, 손님은 h.bdv 에서 같은 모양으로
 export function bloodView(h) {
@@ -352,6 +577,7 @@ export function bloodView(h) {
   if (h.bdv) return h.bdv;
   if (!bloodOn(h)) return null;
   const bd = h.bag.bd, s = h.bd;
-  return { b: bd.b, lv: bd.lv, xp: bd.xp, tr: bd.tr, cd: s ? s.cd : { shot: 0, conv: 0 }, ch: s && s.ch ? { t: s.ch.t, ax: s.ch.ax, ay: s.ch.ay } : null,
-    mk: s ? Object.entries(s.mk).map(([k, m]) => [k, m[0], m[1]]) : [] };
+  return { b: bd.b, lv: bd.lv, xp: bd.xp, tr: bd.tr, cd: s ? { smash: 0, form: 0, ...s.cd } : { shot: 0, conv: 0, smash: 0, form: 0 },
+    ch: s && s.ch ? { t: s.ch.t, ax: s.ch.ax, ay: s.ch.ay, s: s.ch.s } : null,
+    mk: s ? Object.entries(s.mk).map(([k, m]) => [k, m[0], m[1]]) : [], vl: s && s.vl ? { t: s.vl.t, max: s.vl.max } : null };
 }

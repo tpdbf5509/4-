@@ -177,10 +177,12 @@ export function worldSetHit(E,g,h,o,flags){
   if(o?.type!==undefined&&worldVoidRift(h,flags)){
     const V=WORLD_SET_BY_ID.void,dmg=E.base(h)*V.mul;
     E.noProc(()=>E.near(g,h,o.x,o.y,V.radius).forEach(q=>{if(q.type===undefined||q.dead)return;E.strike(g,h,q,dmg);q.vslow=Math.max(q.vslow||0,V.slow);}));
-    effect(E,g,h,'sk_void_set',{x:o.x,y:o.y,r:V.radius,snd:'boom'},0.6);
+    if(E.held(h)==='blood_gun')effect(E,g,h,'sk_blood_set',{x:o.x,y:o.y,r:V.radius,snd:'bloodBoom'},0.6);   // 크림슨 레퀴엠으로 맞히면 같은 폭발을 붉은 혈계 연출로(피해 · 범위는 그대로)
+    else effect(E,g,h,'sk_void_set',{x:o.x,y:o.y,r:V.radius,snd:'boom'},0.6);
   }
   if(!worldArmorOnHit(h,flags))return;
   const M=WORLD_SET_BY_ID.machine;
   E.noProc(()=>E.near(g,h,o.x,o.y,M.radius).forEach(q=>E.strike(g,h,q,E.base(h)*M.mul)));
-  effect(E,g,h,'sk_wb_set_discharge',{x:o.x,y:o.y,r:M.radius,snd:'zap'},0.45);
+  if(E.held(h)==='blood_gun')effect(E,g,h,'sk_blood_set',{x:o.x,y:o.y,r:M.radius,snd:'bloodBoom'},0.45);
+  else effect(E,g,h,'sk_wb_set_discharge',{x:o.x,y:o.y,r:M.radius,snd:'zap'},0.45);
 }

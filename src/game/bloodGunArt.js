@@ -247,7 +247,14 @@ function strongOver(ctx, f, t, sq, g, q) {
   }
 }
 
-const KINDS = { sk_blood_charge: charge, sk_blood_hold: hold, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
+// 월드 장비 세트 효과 — 시트를 못 불러왔을 때의 붉은 도트 폭발
+function set(ctx, f, t, sq, g, q) {
+  const u = clamp(t / f.life), R = f.r * Math.min(1, u * 2.4), a = 1 - u * u;
+  disc(ctx, f.x, f.y - 8, R * 0.8, sq, P.deep, 0.5 * a);
+  ring(ctx, f.x, f.y - 8, R, sq, P.bright, a, q, 1);
+  ring(ctx, f.x, f.y - 8, R * 0.7, sq, P.base, a, q, 2);
+}
+const KINDS = { sk_blood_set: set, sk_blood_charge: charge, sk_blood_hold: hold, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
 export const BLOOD_FX_KINDS = Object.keys(KINDS);
 export function drawBloodFx(ctx, f, p, time, sq, g, q = 1) {
   const fn = KINDS[f.kind]; if (!fn) return false;

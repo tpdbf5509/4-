@@ -164,7 +164,16 @@ function hold(ctx, f, t, sq, g, time) {
   return true;
 }
 
-const KINDS = { sk_blood_hold: hold, sk_blood_charge: charge, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
+// ── 월드 장비 세트 효과(차원의 지배자 공간 폭발 · 기계 방전)를 크림슨 레퀴엠으로 맞혔을 때 — 보라 · 노랑 대신 붉은 혈계 폭발로 그린다
+function set(ctx, f, t, sq) {
+  if (!ready("bg_boom")) return false;
+  const u = clamp(t / f.life), k = (f.r * 2) / SH.bg_boom.w * 1.15;
+  cell(ctx, "bg_boom", once("bg_boom", u), f.x, f.y - 8, k, 0.95);
+  range(ctx, f.x, f.y, f.r * Math.min(1, u * 2.4), sq, 0.8 * (1 - u * u), P.bright, 0);
+  return true;
+}
+
+const KINDS = { sk_blood_set: set, sk_blood_hold: hold, sk_blood_charge: charge, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
 // t 는 시작부터 지난 초. 그렸으면 true, 시트가 없으면 false(예전 도트 그림으로)
 export function drawBloodPx(ctx, f, t, sq, g, time = 0) {
   const fn = KINDS[f.kind]; if (!fn) return false;

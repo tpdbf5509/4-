@@ -1,5 +1,5 @@
 /* ── 히든 직업 BLOOD-001 pixelfx 시트(11월 14일) ─────────────
-   Codex 레이어(bj-layers*.webp)가 맡지 않던 코드 도트 연출을 대신한다. pixelfx(MIT, github.com/patch-gg/pixelfx)로 뽑았다.
+   BLOOD-001 연출은 이 시트만 쓴다(11월 14일 사용자 지시 — Codex 레이어 · 코드 도트를 모두 걷어 냈다). pixelfx(MIT, github.com/patch-gg/pixelfx)로 뽑았다.
    뽑는 법 · 색은 design/effects/pixelfx/blood-job/make.mjs. 1배 픽셀 그대로 두고 그릴 때 키운다(흐림 없음).
    크림슨 레퀴엠 시트(blood-gun/*)와는 다른 이펙트 · 씨앗이다. 그리기는 bloodJobArt.js. */
 export const BLOOD_JOB_PX_SRC = "/assets/game/rpg/effects/blood-job/px/";
@@ -19,4 +19,8 @@ export const BLOOD_JOB_PX = {
   bj_block: { w: 110, h: 74, cols: 3, n: 8, cx: 14, cy: 45 },             // impacts/shield-block — 혈막이 막는 순간
   bj_suck: { w: 166, h: 163, cols: 4, n: 10, cx: 79, cy: 84 },            // explosions/implosion — 혈막을 회수하며 접힌다
   bj_rage: { w: 80, h: 96, cols: 4, n: 10, cx: 40, cy: 87, loop: 1 },     // shadow/shadow-flames — 폭주 발밑 불꽃(반복)
+  bj_gather: { w: 96, h: 79, cols: 3, n: 10, cx: 46, cy: 38, loop: 1 },   // arcane/spell-charge — 혈수 강타 차징 · 내려치는 피 덩어리
+  bj_rune: { w: 114, h: 84, cols: 3, n: 12, cx: 57, cy: 64, loop: 1 },    // arcane/rune-circle — 혈역 바닥 문양(눕혀 그려져 있다 — 세로 1:0.35)
+  bj_dark: { w: 249, h: 218, cols: 3, n: 10, cx: 125, cy: 90 },           // shadow/dark-explosion — 폭주 시작
+  bj_fall: { w: 143, h: 135, cols: 4, n: 10, cx: 71, cy: 50 },            // holy/feather-burst — 탈진: 혈액 갑주 조각이 흩날려 떨어진다
 };

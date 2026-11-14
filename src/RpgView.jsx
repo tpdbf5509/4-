@@ -41,6 +41,7 @@ import {
 import { rpgInput } from "./game/rpgInput.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
 import { bloodView } from "./game/bloodJob.js";
+import { spotNear, spotLine } from "./game/bloodUnlock.js";   // BLOOD-001 단서 조사 자리
 import { bloodHud, BloodBar, BloodButtons } from "./BloodHud.jsx";   // 히든 직업 BLOOD-001(11월 14일)
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
@@ -1514,6 +1515,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         setHud(me ? {
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
           coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: npcNear(me), herb: herbNear(g, me), gath: !!me.gath,
+          bspot: (() => { const s = spotNear(me); return s ? { name: s.name, line: spotLine(me, s) } : null; })(),
           st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v, admin: !!me.admin,
           // 산 스킬 칸 — 배운 것만, 남은 대기 시간과 함께
           // 스킬 칸 — 직업 칸 · 일반 칸 1 · 2 에 넣은 것만(가방 "스킬" 탭)
@@ -2639,6 +2641,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <span className="rpg-talk-line">허수아비를 마음껏 쳐 보게. 쿨타임 끄기 같은 도움은 내게 말하게.</span>
               <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
                 훈련 기능{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
+          {me?.bspot && !me.near && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">{me.bspot.name}</span>
+              <span className="rpg-talk-line">{me.bspot.line[0]}</span>
+              <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                {me.bspot.line[1]}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
               </button>
             </div>
           )}

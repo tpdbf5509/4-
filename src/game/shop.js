@@ -27,6 +27,7 @@ import { titleStat } from "./socialData.js";
 import { JUNK, bagSteps } from "./junkData.js";
 import { cleanBlocks } from "./block.js";
 import { cleanBd, bloodOn, dropBlood } from "./bloodJob.js";
+import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
 import { ALCH, ALCH_MAT_BY_ID } from "./alchemyData.js";
 
@@ -260,6 +261,8 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (d.ab) b.ab = cleanAb(d.ab);                 // 심연의 탑 보상 기록 — 교환 횟수 · 돌파 보상 · 상자 보관함 · 외형(abyssReward.js)
   const bd = cleanBd(d.bd);
   if (bd) b.bd = bd;                              // 히든 직업 BLOOD-001 — 해금 · 직업 레벨 · 연마 · 혈량(bloodJob.js)
+  const bu = cleanBu(d.bu);
+  if (bu) b.bu = bu;                              // BLOOD-001 해금 경로 — 단서 · 진행 · 연 입구(bloodUnlock.js)
   b.al = cleanAl(d.al);                           // 물약 제작 레벨 · 경험치 · 오늘의 제작 의뢰(alchemy.js) — 옛 캐릭터는 1레벨부터
   cleanWorldBossBag(d,b);
   return b;

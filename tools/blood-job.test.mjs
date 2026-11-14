@@ -338,3 +338,70 @@ test('스냅샷 — 손님 화면에 폭주 · 혈역이 보인다', () => {
   const v = bloodView(guest.heroes[0]);
   assert.equal(v.rg.k, 2); assert.ok(v.fd); assert.equal(v.fd.x, h.bd.fd.x);
 });
+
+/* ── 4단계 — 해금 경로 ── */
+import { BLOOD_SPOTS, BLOOD_LAB as LAB } from '../src/game/bloodJobData.js';
+import { spotNear } from '../src/game/bloodUnlock.js';
+const spot = (id) => BLOOD_SPOTS.find((s) => s.id === id);
+const goSpot = (h, id) => { const s = spot(id); h.map = s.map; h.x = s.x; h.y = s.y; };
+const talk = (g) => rpgInput(g, { cls: 0, kind: 'talk' });
+
+test('단서 A — 사냥꾼 이야기 → 핏자국 → 유리관에서 표본', () => {
+  const { g, h } = setup();
+  goSpot(h, 'trail'); assert.equal(spotNear(h), null, '이야기를 듣기 전에는 핏자국이 보이지 않는다');
+  h.map = 'field'; h.x = 430; h.y = 760; talk(g);
+  assert.equal(h.bag.bu.f & 1, 1);
+  goSpot(h, 'trail'); talk(g); goSpot(h, 'tube'); talk(g);
+  assert.equal(h.bag.bu.c & 1, 1);
+});
+
+test('단서 B — 압축기 옆 허수아비에 평타 → 큰 기술 → 평타, 틀리면 처음부터', async () => {
+  const { bloodSeqHit } = await import('../src/game/bloodUnlock.js');
+  const { g, h } = setup(); h.map = 'train';
+  const E = { fx() {}, sys() {}, say() {} }, m = { x: 1250, y: 900 };
+  g.t = 0; bloodSeqHit(E, g, h, m, true); assert.equal(h.bseq || null, null, '스킬부터는 틀림');
+  g.t = 1; bloodSeqHit(E, g, h, m, false); g.t = 2; bloodSeqHit(E, g, h, m, true); g.t = 2.1; bloodSeqHit(E, g, h, m, true);
+  g.t = 4; bloodSeqHit(E, g, h, m, false);
+  assert.equal(h.bag.bu.f & 4, 4);
+  goSpot(h, 'press'); talk(g); assert.equal(h.bag.bu.c & 2, 2);
+});
+
+test('단서 C — 수문 → 분수 바닥 · 두 단서(B+C)로 훈련장 격리문 → 연구시설 · 시험 세 단계 → 해금', () => {
+  const { g, h } = setup();
+  h.bag.bu = { c: 2, f: 4, o: 0 };
+  goSpot(h, 'sluice'); talk(g); goSpot(h, 'plate'); talk(g);
+  assert.equal(h.bag.bu.c, 6);
+  goSpot(h, 'press'); talk(g);
+  assert.equal(h.map, LAB.id); assert.equal(h.bag.bu.o & 4, 4);
+  assert.equal(h.bag.bd.trial, 1); assert.equal(h.bt.step, 1);
+  assert.equal(cleanBag(structuredClone(h.bag)).bd, undefined, '시험 값은 저장하지 않는다');
+  assert.equal(h.advClass, 'gladiator', '시험 중에는 전직이 그대로');
+  rpgStep(g, .01);                                  // 시험 표적(허수아비)을 치우지 않고 돈다
+  const tg = () => g.mobs.filter((m) => m.map === LAB.id && m.own === 0);
+  assert.equal(tg().length, 2);
+  // 1단계 — 평타로 혈흔
+  h.x = tg()[0].x - 50; h.y = tg()[0].y; h.look = [1, 0]; h.dir = 1;
+  h.cd = 0; h.fire = 1; for (let i = 0; i < 5; i++) rpgStep(g, .02); h.fire = 0; rpgStep(g, .02);
+  assert.equal(h.bt.step, 2);
+  // 2단계 — 차징한 적혈탄으로 혈흔 회수
+  h.bd.mk['m' + tg()[0].id] = [3, 10];
+  h.x = tg()[0].x - 200;
+  press(g); for (let i = 0; i < 90; i++) rpgStep(g, .01); release(g); for (let i = 0; i < 60; i++) rpgStep(g, .01);
+  assert.equal(h.bt.step, 3);
+  // 3단계 — 예고 뒤 혈막으로 막기
+  h.hp = h.max;
+  for (let i = 0; i < Math.round((LAB.veil.gap + .05) / .01); i++) rpgStep(g, .01);
+  send(g, { op: 'press', s: 'veil' });
+  for (let i = 0; i < Math.round((LAB.veil.warn + .05) / .01); i++) rpgStep(g, .01);
+  assert.equal(h.bt, null); assert.equal(h.bag.bd.on, 1); assert.ok(!h.bag.bd.trial);
+  assert.equal(h.bag.bd.lv, 1); assert.equal(h.advClass, '');
+  assert.equal(tg().length, 0);
+});
+
+test('연구시설을 나가면 빌린 혈량 · 스킬을 거둔다', () => {
+  const { g, h } = setup();
+  h.bag.bu = { c: 6, f: 12, o: 4 };
+  goSpot(h, 'press'); talk(g); assert.equal(h.map, LAB.id);
+  h.map = 'plaza'; step(g, .01);
+  assert.equal(h.bt, null); assert.equal(h.bag.bd || null, null); assert.equal(h.advClass, 'gladiator');
+});

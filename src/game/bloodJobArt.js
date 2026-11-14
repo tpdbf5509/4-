@@ -297,8 +297,23 @@ function tired(ctx, f, t, sq) {
   void sq;
 }
 
-const KINDS = { sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
-export const BLOOD_JOB_CAP = { sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 4, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
+/* ── 4단계 — 해금 경로 연출 ─────────────
+   lead: 핏방울 하나가 핏자국에서 유리관 쪽으로 기어간다. warn: 시험 3단계 바닥 예고 원(안쪽이 시간에 맞춰 찬다) */
+function lead(ctx, f, t, sq) {
+  const P = pal(f), u = clamp(t / f.life), e = u * u * (3 - 2 * u);
+  const x = f.x + (f.x1 - f.x) * e, y = f.y + (f.y1 - f.y) * e - Math.abs(Math.sin(u * 18)) * 4;
+  if (!layer(ctx, 18, x, y - 14, 12, 40, 0, 1 - u * 0.3, f.c)) dot(ctx, x, y, P.bright, PX + 1, 1);
+  for (let i = 1; i < 6; i++) { const k = Math.max(0, e - i * 0.04); dot(ctx, f.x + (f.x1 - f.x) * k, f.y + (f.y1 - f.y) * k, P.base, PX - 1, 0.5 - i * 0.08); }
+  void sq;
+}
+function warn(ctx, f, t, sq) {
+  const P = pal(f), u = clamp(t / (f.d || 1.5));
+  ring(ctx, f.x, f.y, f.r, sq, P.rim, t > (f.d || 1.5) ? 1 - clamp((t - f.d) / 0.2) : 0.9, 1);
+  disc(ctx, f.x, f.y, f.r * u, sq, P.bright, 0.22);
+}
+
+const KINDS = { sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
+export const BLOOD_JOB_CAP = { sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 4, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
 export function drawBloodJobFx(ctx, f, p, sq) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   ctx.save(); ctx.imageSmoothingEnabled = false;
@@ -331,4 +346,31 @@ export function drawBloodJobMarks(ctx, g, M, v, time, inView, c) {
     }
     ctx.restore();
   }
+}
+
+/* ── 단서 자리 그림 — 맵에 늘 있는 물건(누구에게나 보인다). 조사 여부는 화면 칸(rpg-talk)이 알려 준다 ──
+   핏자국(토끼 사냥터 흙길 옆) · 압축기(훈련장 허수아비 뒤, 원 셋) · 분수 바닥 금속판(광장) · 낡은 수문(광장) */
+export function drawBloodSpots(ctx, M, spots, time, sq) {
+  const P = BLOOD_COLORS.red;
+  for (const s of spots) {
+    if (s.map !== M.id) continue;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    if (s.id === "trail") {
+      for (let i = 0; i < 6; i++) dot(ctx, s.x - 30 + i * 11, s.y + Math.sin(i * 1.7) * 6, i % 2 ? P.deep : P.base, PX + (i % 3 === 0 ? 1 : 0), 0.75);
+    } else if (s.id === "press") {
+      ctx.globalAlpha = 1; ctx.fillStyle = "#4a3a2a"; ctx.fillRect(s.x - 26, s.y - 64, 52, 64);
+      ctx.strokeStyle = "#c9a36a"; ctx.lineWidth = 1; ctx.strokeRect(s.x - 26.5, s.y - 64.5, 53, 65);
+      ctx.fillStyle = "#8a6a3a"; ctx.fillRect(s.x - 30, s.y - 70, 60, 8);
+      [[-14, 4], [0, 7], [14, 4]].forEach(([dx, r]) => { ctx.beginPath(); ctx.arc(s.x + dx, s.y - 38, r, 0, TAU); ctx.strokeStyle = "#e6c48a"; ctx.stroke(); });
+    } else if (s.id === "plate") {
+      const k = 0.5 + 0.5 * Math.sin(time * 1.3);
+      ctx.globalAlpha = 0.35 + 0.35 * k; ctx.fillStyle = "#9fb4c0"; ctx.fillRect(s.x - 10, s.y - 4, 20, 8);
+      ctx.globalAlpha = 0.5 * k; ctx.fillStyle = P.bright; ctx.font = "bold 8px monospace"; ctx.textAlign = "center"; ctx.fillText("001", s.x, s.y + 3);
+    } else if (s.id === "sluice") {
+      ctx.globalAlpha = 1; ctx.fillStyle = "#5a5048"; ctx.fillRect(s.x - 8, s.y - 30, 16, 30);
+      ctx.strokeStyle = "#a89a88"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y - 34, 9, 0, TAU); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  void sq;
 }

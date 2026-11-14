@@ -109,3 +109,32 @@ export const BLOOD_STATE = {
 export const BLOOD_FIELD = {
   name: "혈역 증폭", cd: 45, dur: 10, slow: 0.4, r: 350, tick: 1, gain: 5, size: 0.2, decayWait: 1, decay: 10, xp: 1, xpMax: 10, hint: 0.25,
 };
+
+/* ── 4단계 — 해금 경로(「히든직업_해금루트」). 단서 A · B · C 중 둘로 연구시설 입구를 열고, 1인 시험 세 단계를 통과하면 해금 ──
+   캐릭터 1레벨부터 · 1차 전직 여부와 상관없이. 저장 bag.bu = { c 단서 비트(1 A 표본 · 2 B 손잡이 · 4 C 출입패), f 진행(1 사냥꾼 이야기 · 2 핏방울 · 4 압축기 열림 · 8 수문), o 연 입구(1 A+B · 2 A+C · 4 B+C) }.
+   조사 자리는 말 걸기 키(E)로 조사한다. 자리 · 반경은 정한 값(맵 그림과 겹치지 않는 빈자리) */
+export const BLOOD_CLUE = { A: 1, B: 2, C: 4 };
+export const BLOOD_SPOTS = [
+  { id: "trail", map: "field", x: 3250, y: 820, r: 70, name: "핏자국" },         // 늑대 사냥터로 가는 흙길 옆
+  { id: "tube", map: "field", x: 3080, y: 700, r: 70, name: "깨진 유리관" },      // 표본 자리 · A+B 배수로 입구
+  { id: "press", map: "train", x: 1450, y: 760, r: 80, name: "압축기" },          // 허수아비 뒤편 · B+C 격리문
+  { id: "sluice", map: "plaza", x: 1050, y: 600, r: 60, name: "낡은 수문" },       // 분수 옆
+  { id: "plate", map: "plaza", x: 900, y: 505, r: 60, name: "분수 바닥" },        // 001 금속판 · A+C 정비 계단
+];
+// 입구 — 조합(단서 두 비트) · 자리. 어느 입구든 같은 연구시설
+export const BLOOD_DOORS = [
+  { bit: 1, need: 1 | 2, spot: "tube", name: "토끼 사냥터 배수로" },
+  { bit: 2, need: 1 | 4, spot: "plate", name: "광장 분수 아래" },
+  { bit: 4, need: 2 | 4, spot: "press", name: "훈련장 격리문" },
+];
+// 압축기 순서 — 작은 원(평타) → 큰 원(큰 기술 · 스킬) → 작은 원(평타). 옆 허수아비(압축기에서 seqR 안)에 맞힌다
+export const BLOOD_SEQ = { order: [0, 1, 0], seqR: 340, tail: 1.2 };   // tail — 스킬이 여러 번 맞아도 이 시간 안의 남은 타는 무시
+/* 폐쇄 연구시설 — 1인 시험. 시험 동안 정해진 혈량(b)과 시험용 스킬(직업 레벨 20 · 연마 0)을 빌려준다. 표적은 죽지 않는다.
+   1 혈흔 부여(평타) → 2 혈흔 회수(차징한 적혈탄으로 혈흔 있는 표적) → 3 혈막 방어(예고 뒤 피해 — 혈막으로 줄이기) */
+export const BLOOD_LAB = {
+  id: "bloodlab", name: "폐쇄 연구시설", w: 1600, h: 1100, spawn: [320, 700],
+  exit: { x: 110, y: 700, r: 56 }, plazaAt: [900, 820],
+  targets: [[900, 620], [1120, 800]],
+  b: 80, low: 40,                  // 혈량이 low 아래로 내려가면 b 로 다시 채운다(시험 중)
+  veil: { gap: 2.5, warn: 1.6, r: 70, dmg: 0.12 },   // 3단계 — 예고 원(반경) · 예고 시간 · 최대 체력 12% 피해
+};

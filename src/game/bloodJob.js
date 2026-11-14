@@ -15,6 +15,7 @@ const clampN = (v, a, b) => Math.max(a, Math.min(b, Math.floor(Number(v) || 0)))
 
 /* ── 저장 값 ───────────────────────────────────────── */
 export function cleanBd(d) {
+  if (d && typeof d === "object" && d.trial) return cleanBd(d.prev);   // 연구시설 시험 중 — 빌린 값은 저장하지 않는다(bloodUnlock.js)
   if (!d || typeof d !== "object" || !d.on) return d && typeof d === "object" && d.lv ? { ...cleanBdCore(d), on: 0 } : null;
   return { ...cleanBdCore(d), on: 1 };
 }
@@ -281,7 +282,7 @@ function stepShot(E, g, h, shot, dt) {
     shot.hit.push(k);
     shot.left -= 1;
     strike(E, g, h, shot, o, shot.mul * (1 + shot.add + markBonus(h, o)));   // 혈흔 보너스는 맞기 직전 중첩으로(팽창은 burstMul 만 — 혈흔 제외)
-    reap(E, g, h, o);
+    if (reap(E, g, h, o) && h.bt && h.bt.step === 2 && shot.tier >= 1) h.bt.hit2 = 1;   // 해금 시험 2단계 — 차징한 탄으로 혈흔 회수
     E.fx(g, h.map, { kind: "sk_bj_hit", x: o.x, y: o.y, pi: h.pi, tier: shot.tier, t: 0.3, life: 0.3, snd: shot.hit.length === 1 ? "bloodHit" : undefined });
     if (shot.burst && shot.hit.length === 1) burst(E, g, h, shot, o.x, o.y);   // 첫 적중 자리에서만 · 두 번째 관통 대상에서는 다시 터지지 않는다
     if (shot.left <= 0) { shot.d = Math.max(from, Math.min(to, along)); break; }
@@ -684,7 +685,7 @@ export function bloodJobFill(h) { if (bloodOn(h)) h.bag.bd.b = Math.max(h.bag.bd
 
 /* ── 스냅샷 줄 56 — [혈량, 직업 레벨, 경험치, 연마 [l, x] × 3 펼침, 대기 [적혈탄, 전환, 혈수 강타, 혈형 변환], 차징 [단계 시간, x, y, 스킬 0 적혈탄 · 1 혈수 강타] | 0,
    혈흔 [[키, 중첩, 남은 초]], 혈막 [지난 초, 최대 초] | 0, 폭주 · 탈진 [1 | 2, 남은 초] | 0, 혈역 [x, y, 지난 초, 흡수 대상 없음 1] | 0]
-   대기 칸 5번째는 혈역 증폭. 칸은 뒤에만 더한다 ── */
+   대기 칸 5번째는 혈역 증폭. 10번 해금 시험 단계(0 없음). 칸은 뒤에만 더한다 ── */
 export function packBloodJob(h) {
   if (!bloodOn(h)) return 0;
   const bd = h.bag.bd, s = h.bd;
@@ -693,7 +694,8 @@ export function packBloodJob(h) {
     s ? Object.entries(s.mk).map(([k, m]) => [k, m[0], r1(m[1])]) : [],
     s && s.vl ? [r2(s.vl.t), s.vl.max] : 0,
     s && s.rg ? [s.rg.k, r1(s.rg.t)] : 0,
-    s && s.fd ? [s.fd.x, s.fd.y, r2(s.fd.t), s.fd.none] : 0];
+    s && s.fd ? [s.fd.x, s.fd.y, r2(s.fd.t), s.fd.none] : 0,
+    h.bt ? h.bt.step : 0];
 }
 // 손님 — 화면에 쓰는 값만 h.bdv 로(판정 상태 h.bd 는 건드리지 않는다)
 export function applyBloodJob(h, a) {
@@ -706,7 +708,7 @@ export function applyBloodJob(h, a) {
     mk: Array.isArray(a[6]) ? a[6].filter((m) => Array.isArray(m) && typeof m[0] === "string").map((m) => [m[0], m[1] | 0, +m[2] || 0]) : [],
     vl: Array.isArray(a[7]) ? { t: +a[7][0] || 0, max: +a[7][1] || 0 } : null,
     rg: Array.isArray(a[8]) ? { k: a[8][0] === 2 ? 2 : 1, t: +a[8][1] || 0 } : null,
-    fd: Array.isArray(a[9]) ? { x: +a[9][0] || 0, y: +a[9][1] || 0, t: +a[9][2] || 0, none: a[9][3] ? 1 : 0 } : null, at: Date.now() };
+    fd: Array.isArray(a[9]) ? { x: +a[9][0] || 0, y: +a[9][1] || 0, t: +a[9][2] || 0, none: a[9][3] ? 1 : 0 } : null, bt: Number(a[10]) || 0, at: Date.now() };
 }
 // 화면 값 — 방장(판정 세계)은 h.bag.bd · h.bd 에서, 손님은 h.bdv 에서 같은 모양으로
 export function bloodView(h) {
@@ -717,5 +719,5 @@ export function bloodView(h) {
   return { b: bd.b, lv: bd.lv, xp: bd.xp, tr: bd.tr, cd: s ? { smash: 0, form: 0, field: 0, ...s.cd } : { shot: 0, conv: 0, smash: 0, form: 0, field: 0 },
     ch: s && s.ch ? { t: s.ch.t, ax: s.ch.ax, ay: s.ch.ay, s: s.ch.s } : null,
     mk: s ? Object.entries(s.mk).map(([k, m]) => [k, m[0], m[1]]) : [], vl: s && s.vl ? { t: s.vl.t, max: s.vl.max } : null,
-    rg: s && s.rg ? { k: s.rg.k, t: s.rg.t } : null, fd: s && s.fd ? { x: s.fd.x, y: s.fd.y, t: s.fd.t, none: s.fd.none } : null };
+    rg: s && s.rg ? { k: s.rg.k, t: s.rg.t } : null, fd: s && s.fd ? { x: s.fd.x, y: s.fd.y, t: s.fd.t, none: s.fd.none } : null, bt: h.bt ? h.bt.step : 0 };
 }

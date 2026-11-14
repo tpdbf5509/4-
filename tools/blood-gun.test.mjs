@@ -243,3 +243,15 @@ test('길게 누르기 — 오래 눌러도(5초) 쏜 뒤의 관통 · 유도 ·
   assert(dealt(m) / U > 2.4 + 12 * S.seekMul * .9, `총 피해 ${dealt(m) / U}`);
   assert(g.out.some(f => f.kind === 'sk_blood_boom'), '폭발까지 나감');
 });
+
+test('월드 장비 세트(차원의 지배자 4세트) 폭발을 레퀴엠으로 맞히면 보라 sk_void_set 대신 붉은 sk_blood_set 으로 나가고 피해는 같다', () => {
+  const run1 = (heldBlood) => {
+    const { g, h } = setup(), m = mob(g, h.x + 100, h.y);
+    h.bag.a = ['head', 'body', 'legs', 'feet'].map((s, i) => ({ u: 10 + i, s, g: 3, set: 'void' })); h.bag.ae = Object.fromEntries(h.bag.a.map(a => [a.s, a.u]));
+    if (!heldBlood) h.bag.e = 0;
+    tap(g, 0); run(g, 1);
+    return { kinds: new Set(g.out.map(f => f.kind)), dmg: dealt(m) };
+  };
+  const r = run1(true);
+  assert(r.kinds.has('sk_blood_set'), '붉은 세트 연출'); assert(!r.kinds.has('sk_void_set'), '보라 연출은 나오지 않음');
+});

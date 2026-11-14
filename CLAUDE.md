@@ -199,4 +199,5 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 그림(UI 등)은 Codex, 이펙트는 pixelfx 로 만든다.
 - **연출은 pixelfx 시트(`blood-job/px/`, `bloodJobPxData.js`)만 쓴다.** Codex 이펙트 레이어는 지웠다. 코드로 그리는 것은 1px 범위 예고선 · 남은 시간 띠 · 글자 · 표식뿐(11월 14일 사용자 지시). Codex 는 UI 그림(오른쪽 판)에만 썼다.
 - **BLOOD-001 이면 일반 스킬 칸(1 · 2 · R) · 큰 기술 · 전직 스킬을 쓰지 않는다**(판정 `rpgInput.js` · 화면은 단추를 숨김). 큰 기술 키(Shift · 터치 스킬 단추)가 혈역 증폭이다(11월 14일 사용자 결정). 전직 초기화하면 다시 열린다. 혈 키는 다른 행동과 겹쳐도 이 직업일 때 먼저 잡힌다(`keys.js BLOOD_ACTS` · `keyMap(binds, first)`, 키 판 3).
+- 캐릭터 외형은 사용자가 준 시트(`design/blood-job/char/`)를 `tools/cut-blood-char.py` 로 자른 `characters/rpg/blood-<m|f>/`. `advArtPath` 가 이 직업(`bloodOn` · 손님은 `h.bdv`)이면 이 그림을 준다.
 - 넓은 화면 · 마우스 기기는 스킬 · 물약 칸이 판 오른쪽 판(`.rpg-side`, Codex 그림 `rpg/ui/side-panel.webp`)에 있다. 좁은 화면 · 터치는 판 안 아래(`RpgView.jsx useSidePanel`).

@@ -14,7 +14,7 @@ import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from 
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
 import { BLOOD_LAB } from './bloodJobData.js';
 import { bloodSpotTalk, bloodHunterTalk, bloodSeqHit, tickBloodTrial } from './bloodUnlock.js';   // BLOOD-001 해금 경로(4단계)
-import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
+import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -769,6 +769,7 @@ export const lookTitle = (h) => [elemOf(h).name, jobOf(h).name].filter(Boolean).
 export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobOf(h).id}-${h && h.gender === "f" ? "f" : "m"}/${view}.webp`;
 // 전직한 캐릭터 그림 — <전직>-<성별>/<방향>.webp(무기를 든 그림, tools/cut-adv-classes.py). 전직 전이면 null
 export const advArtPath = (h, view = "front") => {
+  if (h && (h.bdv || bloodOn(h))) return `/assets/characters/rpg/blood-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 BLOOD-001 외형(사용자 그림, tools/cut-blood-char.py) — 전직 그림 자리를 쓴다
   const c = advOf(h);
   return c ? `/assets/characters/rpg/${c.id}-${h.gender === "f" ? "f" : "m"}/${view}.webp` : null;
 };

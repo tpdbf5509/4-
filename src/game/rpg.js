@@ -12,6 +12,7 @@ import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
+import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -979,6 +980,7 @@ const advResetUp = (nb, ob) => Math.floor(Number(nb && nb.ar) || 0) > Math.floor
 /* 전직 기록 — 전직은 되돌릴 수 없어, 전직이 빈 기록이 와도(옛 방장 스냅샷 · 섞인 기록) 남겨 둔 전직을 지우지 않는다.
    서버 초기화 · 한 사람 되돌리기 · 전직 초기화 물약(advResetUp) · 관리자(시험용으로 비운다)만 비울 수 있다 */
 function advRecord(d, base, clear, job) {
+  if (d && d.bag && d.bag.bd && d.bag.bd.on) return { advClass: "", advQ: null, advM: 0 };   // 히든 직업 BLOOD-001 은 1차 전직을 대신한다(11월 14일 사용자 결정)
   const adv = cleanAdvClass(d.advClass), kept = cleanAdvClass(base && base.advClass);
   const keep = kept && (!job || ADV_BY_ID[kept].job === job) ? kept : "";   // 관리자가 직업을 바꿨으면 옛 직업의 전직은 남기지 않는다
   const cls = adv || (clear || d.admin ? "" : keep);
@@ -1337,7 +1339,7 @@ function say(g, map, x, y, text, color) {
 /* ── 조작 ──────────────────────────────────────────────── */
 // 손님의 누름 · 뗌(hold · fire)은 마지막 상태만 뜻이 있다 — 늦게 도착한 옛 것(번호가 작은 것)은 버린다.
 // 번호가 없으면(옛 버전 손님) 그대로 받는다. 대쉬 · 스킬 같은 한 번짜리 입력은 버리지 않는다
-const FRESH_SLOT = { hold: "hold", mv: "hold", fire: "fire", wcharge: "wcharge", waim: "waim", rgo: "rgo" };   // rgo 레이스 질주 누름 · 뗌   // 마우스 이동(mv)은 누름(hold)과 번호 칸을 같이 쓴다 — 둘 다 "마지막 걷는 뜻"이다
+const FRESH_SLOT = { hold: "hold", mv: "hold", fire: "fire", wcharge: "wcharge", waim: "waim", rgo: "rgo", blood: "blood" };   // blood — BLOOD-001 누름 · 뗌(늦게 온 옛 누름이 뗀 뒤에 차징을 다시 켜지 않게)   // rgo 레이스 질주 누름 · 뗌   // 마우스 이동(mv)은 누름(hold)과 번호 칸을 같이 쓴다 — 둘 다 "마지막 걷는 뜻"이다
 export function freshInput(h, kind, q, now) {
   const slot = Object.prototype.hasOwnProperty.call(FRESH_SLOT, kind) ? FRESH_SLOT[kind] : null;
   if (!slot || !q) return true;
@@ -1416,13 +1418,13 @@ export function rpgWalk(h, dt) {
   });
   if (!dx && !dy) return;
   const len = Math.hypot(dx, dy);
-  if (!bloodAimLock(h)) {                         // 레퀴엠 차징 중 포인터로 겨누면 몸 방향은 포인터가 정한다
+  if (!bloodAimLock(h) && !bloodJobAimLock(h)) {                         // 레퀴엠 차징 중 포인터로 겨누면 몸 방향은 포인터가 정한다
     if (dx) h.dir = dx < 0 ? -1 : 1;
     h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
     h.look = [dx / len, dy / len]; h.lookF = h.face;
   }   // 마지막으로 걸은 쪽 — 키를 떼도 이쪽을 바라본다(aimDir)
   // 이속 물약 · 신발 — 방장과 손님이 같은 값(스냅샷의 물약 효과 · h.arm)으로 걷는다
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h) * bloodSlow(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화) · 레퀴엠 차징 중 둔화
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화) · 레퀴엠 차징 중 둔화
   h.x += (dx / len) * v * dt;
   h.y += (dy / len) * v * RPG.squash * dt;
   keepIn(h, MAPS[h.map], 20);
@@ -1439,7 +1441,7 @@ function walkTo(h, dt) {
   else if ((h.destP = (h.destP || 0) + dt) >= MOVE.progT) return void stopMove(h);   // 한참 나아가지 못했다 — 좁은 틈에서 왔다 갔다 한다
   const ux = dx / (d || 1), uy = dy / (d || 1);
   const [sx, sy] = MOVE.steer ? steerAround(h, M, D, ux, uy, d, dt) : [ux, uy];
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h) * bloodSlow(h);
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h);
   const step = v * dt;
   if (d <= Math.max(MOVE.arrive, step)) {          // 닿았다
     h.x = D.x; h.y = D.y;
@@ -1447,7 +1449,7 @@ function walkTo(h, dt) {
     return void stopMove(h);
   }
   const hx = Math.abs(sx) > MOVE.look ? Math.sign(sx) : 0, hy = Math.abs(sy) > MOVE.look ? Math.sign(sy) : 0;
-  if (!bloodAimLock(h)) {
+  if (!bloodAimLock(h) && !bloodJobAimLock(h)) {
     if (hx) h.dir = hx;                              // 8방향으로 끊어 바라본다 — 거의 위아래로 걸을 때 좌우가 떨지 않게
     h.face = hy < 0 ? 2 : hx ? 1 : 0;
     h.look = [sx, sy]; h.lookF = h.face;
@@ -1950,9 +1952,9 @@ const taunted = (g, m, pi) => { if (!(m.taunt > 0) || m.tgt === pi) return false
 function killMob(g, m, pi) {
   if (m.dead) return;
   m.dead = true;
-  if(isWorldBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);worldBossKilled(worldBossEngine,g,m);return;}   // 전직 숙련도 — 친 사람
+  if(isWorldBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);bloodRaid(g,m);worldBossKilled(worldBossEngine,g,m);return;}   // 전직 숙련도 — 친 사람
   if(isGuildBoss(m)){
-    m.hp=0;advRaidKill(advEngine,g,m);guildKilled(guildEngine,g,m);
+    m.hp=0;advRaidKill(advEngine,g,m);bloodRaid(g,m);guildKilled(guildEngine,g,m);
     // 도감 — 길드 보스는 보상 정산이 따로라 여기서 처치 수를 센다. 같은 맵에 있는 토벌 참가자 모두(`rec[몹 종류]`가 도감 · 업적의 기준)
     g.heroes.forEach(q=>{if(q&&q.loaded&&q.map===m.map&&q.rec)q.rec[m.type]=(q.rec[m.type]||0)+1;});
     return;
@@ -1981,6 +1983,7 @@ function killMob(g, m, pi) {
   }
   got.forEach((h) => rewardKill(g, m, h, h.pi === pi));
   advOnKill(advEngine, g, m, got);                // 전직 시험 — 총사 사냥 도감
+  bloodJobKill(bloodJobEngine, g, m, got);        // BLOOD-001 직업 레벨 경험치
   if (m.dg) acOnKill(g, m, pi, got);              // 심연의 탑 강화 카드 — 처치 효과
   // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
   const part = m.xp * PARTY.share;
@@ -1992,6 +1995,8 @@ function killMob(g, m, pi) {
   });
   if (m.boss) dropLoot(g, got, m);
 }
+// 월드 · 길드 보스 — 친 사람 가운데 같은 맵의 BLOOD-001 직업 경험치
+function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) bloodRaidKill(bloodJobEngine, g, q); } }
 // 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
 export function huntingXp(h,m,amount=m.xp){
   const sp=SPAWNS.filter(s=>s.map===m.map&&Array.isArray(s.lv));
@@ -2196,6 +2201,7 @@ function hurtHero(g, h, raw, source, kind) {
     h.down = isPvp(h.map) ? DUEL.end + 1 : RPG.down;   // 결투에서 쓰러지면 결투가 끝날 때 일어난다
     h.hold = []; stopMove(h);
     advDown(advEngine, g, h);                     // 생존 시험은 처음부터 · 정령은 돌아간다
+    bloodJobDown(bloodJobEngine, g, h);           // BLOOD-001 — 혈량 0 · 차징 · 혈흔 해제
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
     say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
   }
@@ -2987,6 +2993,7 @@ function weaponOnHit(g, h, m, foe, side, basic) {
   if (basic && !side && o) worldWeaponBasicHit(worldEngine, g, h, o);
   if (o) voidOnHit(voidEngine, g, h, o, { basic, side });   // 공허의 장궁 · 지팡이 패시브
   if (o) bloodOnHit(bloodEngine, g, h, o, { basic, side });   // 크림슨 레퀴엠 — 평타가 맞으면 혈흔
+  if (o) bloodJobOnHit(bloodJobEngine, g, h, o, { basic, side });   // BLOOD-001 — 평타가 맞으면 혈량 +2 · 혈흔
   if (!sp || !o) return;
   const w = wsOf(h);
   if (sp === "frost" && m) { const P = WS.frost.passive; m.slow = Math.min(P.max, Math.max(m.slow, 0) + P.per); }
@@ -3188,6 +3195,7 @@ function trainTick(g, h) {
     if (sp === "star_bow") w.aim = S.aim;
     if (sp === "holy_staff") { const jb = jbOf(h); jb.sh = h.max * WS.holy_staff.passive.cap; jb.shT = WS.holy_staff.passive.dur; }
   }
+  if (t.stack) bloodJobFill(h);                     // BLOOD-001 — 혈량을 안정 상한까지
   if (t.god && h.down <= 0) h.hp = h.max;
 }
 // 교관 창 — req = { op: "nocd" | "stack" | "god" } 켜고 끄기 · { op: "reset" } 기록 지우기 · { op: "heal" } 체력 · 대기 시간 처음으로
@@ -3299,7 +3307,13 @@ function pullMob(g, o, x, y, px) {
 }
 const voidEngine = { ...stormEngine, pull: pullMob };
 const bloodEngine = { ...stormEngine };             // 크림슨 레퀴엠 — 혈계 추격(bloodGunCombat.js)
-export function rpgWeaponAim(g, pi) { aimBloodWeapon(g, g.heroes[pi]); }   // 차징 중 포인터 방향 갱신(waim) — 크림슨 레퀴엠
+/* 히든 직업 BLOOD-001(bloodJob.js) — fight: 싸울 수 없는 곳이면 까닭(빈 글이면 된다) · blocks: 훈련장의 막힌 칸은 허수아비 자리라 빼서 탄이 허수아비를 맞힌다 */
+const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h, x, y, r), say, sys,
+  blocks: (map) => (MAPS[map]?.train ? [] : MAPS[map]?.blocks || []), cast: (h) => { const c = makeCast(); c.sid = "blood"; h.cast = c; return c; },
+  dummy: (o) => !!o && o.type === "dummy", cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
+  fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
+export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"
+export function rpgWeaponAim(g, pi) { aimBloodWeapon(g, g.heroes[pi]); bloodJobAim(g.heroes[pi]); }   // 차징 중 포인터 방향 갱신(waim) — 크림슨 레퀴엠
 export function rpgWeaponRelease(g, pi, cancel=false) { releaseBloodWeapon(g,g.heroes[pi],cancel); releaseStormWeapon(stormEngine,g,g.heroes[pi],cancel); }
 
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
@@ -3751,6 +3765,7 @@ function stepHeroes(g, dt) {
     if (h.scd) for (const k in h.scd) h.scd[k] = Math.max(0, h.scd[k] - cdt);   // 산 스킬 대기 시간
     tickWeapon(g, h, cdt);                         // 전설 무기 · 직업 스킬 효과 시간
     tickAdv(advEngine, g, h, cdt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
+    tickBloodJob(bloodJobEngine, g, h, cdt);       // BLOOD-001 — 혈흔 · 차징 · 적혈탄
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)
       MATERIALS.forEach((m) => { h.bag.m[m.id] = matMax(m.id); });
@@ -3839,7 +3854,7 @@ function stepHeroes(g, dt) {
 
 /* 걷는 속도(px/초) — 명사수 약점 포착(나보다 느린 적)이 견준다. 사람은 걷는 식 그대로(신발은 앞쪽 몫),
    몹은 종류마다 쫓는 속도 · 둔화 · 기절이면 0 */
-const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * bloodSlow(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
+const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
 const MOB_WALK = { rabbit: 160, wolf: 175, boar: BOAR.walk };   // 그 밖은 BRUTE 값 · 보스 AI 값, 모르면 180
 function moveSpeedOf(o) {
   if (isHeroT(o)) return heroSpeed(o);
@@ -5147,7 +5162,8 @@ export function rpgPack(g) {
           t3:TITLES.reduce((bits, t, i) => (i >= TITLE_BITS * 2 && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS * 2)) : bits), 0),   // 63번째 칭호부터(11월 9일)
           al:lookBits(h.bag, Date.now()),
           ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
-        h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0] // 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
+        h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0,
+        packBloodJob(h)] // 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
     hb: packHerbs(g),                             // 채집한 약초 자리 — { 번호: 다시 나기까지 초 }(alchemy.js)
@@ -5185,6 +5201,7 @@ export function rpgApply(g, s) {
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
     if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;h.gath=Array.isArray(extra.ga)&&HERBS[extra.ga[0]]?{i:extra.ga[0],t:Number(extra.ga[1])||0,x:h.x,y:h.y,at:Date.now()}:null;}
+    applyBloodJob(h, row[56]);                     // BLOOD-001 — 혈량 · 직업 레벨 · 차징 · 내 혈흔(화면 값 h.bdv)
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;

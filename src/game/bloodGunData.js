@@ -15,7 +15,7 @@ export const BLOOD_SKILLS = {
     // 혈흔은 적마다 따로 센다. 무기를 바꾸면 모두 사라진다. 스킬이 맞혀서는 쌓이지 않는다
     passive: { name: '혈흔', note: '평타가 맞으면 적에게 혈흔이 쌓인다(최대 5중첩 · 6초 · 다시 맞히면 갱신) · 혈계 추격의 유도 혈탄이 닿으면 한꺼번에 터진다', max: 5, dur: 6 },
     skill: {
-      note: '붉은 에너지를 모아 적을 꿰뚫는 혈탄을 쏜다 · 맞으면 유도 혈탄 6발이 적을 추격하고 혈흔이 쌓인 적은 한꺼번에 터진다 · 한 번 누르면 끝까지 자동',
+      note: '붉은 에너지를 모아 적을 꿰뚫는 혈탄을 쏜다 · 맞으면 유도 혈탄 6발이 적을 추격하고 혈흔이 쌓인 적은 한꺼번에 터진다 · 한 번 누르면 끝까지 자동 · 길게 누르면 차징(2.4초 풀차징은 체력 15% 소모, 유도 12발)',
       cd: 18,
       // 1단계 충전 charge 초 → 2단계 관통 혈탄(reach · width · 빠르기 v) 피해 mul, 닿은 모든 적
       charge: 0.4, reach: 650, width: 65, v: 2200, mul: 2.0,
@@ -26,13 +26,17 @@ export const BLOOD_SKILLS = {
       // 폭발 피해: 그 적은 중첩 × boomMul, 폭발에 든 다른 적은 같은 값의 splash 배(혈흔 추가 피해 · 연쇄 없음). 대상마다 한 번만
       res: 0.25, boomMul: 0.5, boomR: 85, splash: 0.5,
       life: 4, sndGap: 0.09,   // 안전 상한(초) · 유도탄이 한꺼번에 맞아도 적중음은 이 간격(초)마다 하나
+      // 길게 누르기 차징(11월 14일, 사용자 기획) — 키를 누르고 있는 동안 계속 차징하고 떼면 쏜다. 짧게 누르면(charge 초 안에 떼면) 예전과 같다.
+      // 풀차징(full 초 이상 누름): 현재 체력의 hpCost 를 쓰고(죽지는 않는다) 유도 혈탄 n 발 · 탄 속도 seekVMul 배 · 폭발 반경 boomR.
+      // 차징 중 이동 속도 slow 감소 · 대쉬하면 취소(대기 시간 돌려줌) · 맞아도 유지(기절 · 띄움만 끊는다). 놓침 방지로 max 초에 자동 발사
+      hold: { full: 2.4, max: 8, slow: 0.35, hpCost: 0.15, n: 12, seekVMul: 1.35, boomR: 120, ring: 12, tick: 0.25 },
     },
   },
 };
 // 합계 — 5중첩 단일 대상에 6발이 모두 맞을 때(사용자 기획 7.2배): 관통 + 유도 + 폭발
-export const bloodTotal = (stacks = 5) => {
+export const bloodTotal = (stacks = 5, n = BLOOD_SKILLS.blood_gun.skill.n) => {
   const S = BLOOD_SKILLS.blood_gun.skill;
-  return Math.round((S.mul + S.n * S.seekMul + stacks * S.boomMul) * 1000) / 1000;
+  return Math.round((S.mul + n * S.seekMul + stacks * S.boomMul) * 1000) / 1000;
 };
 // 유도 혈탄 곡선 — i 번째 탄의 휘는 정도(px, 부호 = 휘는 쪽). 연출과 판정이 같은 값을 쓴다
 export const bloodBend = (i) => (i % 2 ? 1 : -1) * (46 + 22 * (i % 3));

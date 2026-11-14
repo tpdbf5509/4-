@@ -102,7 +102,7 @@ function seek(ctx, f, t, sq, g) {
   const sx = f.x, sy = f.y - 28, K = L.seeker;
   if (f.form > 0 && t < f.form) cell(ctx, "bg_form", once("bg_form", t / f.form), sx, sy, L.form.k, 1);
   for (const b of f.b) {
-    const [i, , , , , delay, T, bend] = b, a0 = i * TAU / S.n + 0.4;
+    const [i, , , , , delay, T, bend] = b, a0 = i * TAU / (f.n || S.n) + 0.4;
     if (t < delay) {   // 응축한 혈탄이 잠시 공중에서 돈다(꼬리 없이 머리만)
       const k = clamp(t / (f.form * 0.8 || 1)), a = a0 + t * 8, r = 8 + 14 * k;
       cell(ctx, "bg_seeker", loop("bg_seeker", t + i * 0.07, K.loopT), sx + Math.cos(a) * r, sy + Math.sin(a) * r * 0.75, K.k * (0.4 + 0.5 * k), 0.4 + 0.6 * k, 0, 1, 4);
@@ -125,7 +125,7 @@ function res(ctx, f, t, sq) {
   if (!ready("bg_res")) return false;
   const u = clamp(t / f.life), n = clamp(f.n || 1, 1, MAXN), x = f.x, y = f.y - 26;
   cell(ctx, "bg_res", once("bg_res", u), x, y, L.res.k + L.res.kStack * n, 1);
-  range(ctx, f.x, f.y, S.boomR * (0.3 + 0.7 * u), sq, 0.55 * (0.4 + 0.6 * u), P.bright, 6);
+  range(ctx, f.x, f.y, (f.r || S.boomR) * (0.3 + 0.7 * u), sq, 0.55 * (0.4 + 0.6 * u), P.bright, 6);
   return true;
 }
 

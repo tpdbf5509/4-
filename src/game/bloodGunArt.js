@@ -15,7 +15,7 @@ import { BLOOD_PALETTE as P, BLOOD_SKILLS } from './bloodGunData.js';
 import { drawBloodPx, warmBloodPx } from './bloodGunPxArt.js';   // 11월 13일 — pixelfx 시트가 있으면 그것으로 그리고, 없으면 아래 도트 그림
 import { heldSpecial } from './rpg.js';
 
-const S = BLOOD_SKILLS.blood_gun.skill, MAXN = BLOOD_SKILLS.blood_gun.passive.max;
+const S = BLOOD_SKILLS.blood_gun.skill, H = S.hold, MAXN = BLOOD_SKILLS.blood_gun.passive.max;
 const TAU = Math.PI * 2, PX = 3;
 const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 const noise = (i, s = 0) => { const v = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return v - Math.floor(v); };
@@ -146,7 +146,7 @@ function seek(ctx, f, t, sq, g, q) {
     for (let i = 0; i < n; i++) { const a = noise(i, 1) * TAU, d = 34 * (1 - k) * (0.4 + noise(i, 8)); dot(ctx, sx + Math.cos(a) * d, sy + Math.sin(a) * d * 0.8, i % 3 ? P.base : P.deep, PX, 0.9 * (1 - k * 0.4)); }
   }
   for (const b of f.b) {
-    const [i, , , , , delay, T, bend] = b, a0 = i * TAU / S.n + 0.4;
+    const [i, , , , , delay, T, bend] = b, a0 = i * TAU / (f.n || S.n) + 0.4;
     if (t < delay) {   // 응축한 결정이 잠시 공중에서 돈다
       const k = clamp(t / (f.form * 0.8)), a = a0 + t * 8, r = 8 + 14 * k;
       crystal(ctx, sx + Math.cos(a) * r, sy + Math.sin(a) * r * 0.75, 3 + 3 * k, 0.4 + 0.6 * k, Math.sin(t * 20 + i));
@@ -194,13 +194,70 @@ function boom(ctx, f, t, sq, g, q) {
   }
 }
 
-const KINDS = { sk_blood_charge: charge, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
+/* ── 길게 누르기 차징(11월 14일) — 누르는 동안 이어서 그린다. 풀차징이면 검은 핵 · 붉은 탄환 12개 회전 · 번쩍임이 더해진다
+   위치는 쏘는 사람을 따라간다(차징 중에는 천천히 걷는다). 회전은 화면 시계(time)로 이어 돌려 다시 보내는 연출 사이가 끊기지 않는다 ── */
+function hold(ctx, f, t, sq, g, q, time) {
+  const o = g?.heroes?.[f.pi], x = o && !o.down ? o.x : f.x, y = o && !o.down ? o.y : f.y, ax = f.ax || 1, ay = f.ay || 0;
+  const mx = x + ax * 30, my = y - 38 + ay * 30 * sq, u = clamp(f.u), full = !!f.full;
+  const fade = clamp((f.life - t) / 0.08);                                                    // 다음 연출이 이어받기 전 잠깐 옅어진다
+  // 발밑 — 누른 시간만큼 커지는 고리 · 풀차징이면 검은 바탕에 붉은 이중 고리
+  const R = 22 + 30 * u;
+  if (full) disc(ctx, x, y, R + 6, sq, P.shadow, 0.5 * fade);
+  ring(ctx, x, y, R, sq, full ? P.glow : P.bright, 0.85 * fade, q, 1);
+  ring(ctx, x, y, R * 0.72, sq, P.base, 0.7 * fade, q, 2, time * (full ? 3 : 1.5));
+  // 총구로 모여드는 붉은 입자(풀차징이면 더 많이)
+  const n = Math.max(6, Math.round((full ? 18 : 10) * q));
+  for (let i = 0; i < n; i++) {
+    const k = (time * 1.6 + noise(i, 3)) % 1, a = noise(i, 5) * TAU + time * 0.6, d = (full ? 64 : 48) * (1 - k);
+    dot(ctx, mx + Math.cos(a) * d, my + Math.sin(a) * d * 0.7, i % 3 ? P.base : P.bright, PX + 1, (0.3 + 0.7 * k) * fade);
+  }
+  // 총구 구슬 — 누를수록 커진다
+  disc(ctx, mx, my, 5 + 8 * u, 1, P.base, 0.6 * fade);
+  disc(ctx, mx, my, 3 + 4 * u, 1, P.bright, 0.8 * fade);
+  if (!full) return;
+  // 풀차징 — 검은 핵 · 붉은 탄환 12개 회전 · 방사 빛줄기 · 번쩍임
+  const pulse = 0.75 + 0.25 * Math.sin(time * 14), m = Math.max(4, Math.round(H.ring * Math.max(0.6, q)));
+  disc(ctx, mx, my, 12, 1, P.shadow, 0.95 * fade);
+  ring(ctx, mx, my, 15, 1, P.glow, pulse * fade, q, 1);
+  for (let i = 0; i < m; i++) {
+    const a = time * 4.2 + i * TAU / m, rr = 27;
+    dot(ctx, mx + Math.cos(a - 0.16) * rr, my + Math.sin(a - 0.16) * rr * 0.85, P.deep, PX, 0.7 * fade);
+    crystal(ctx, mx + Math.cos(a) * rr, my + Math.sin(a) * rr * 0.85, 4, fade, i);
+  }
+  for (let i = 0; i < 8; i++) { const a = time * 1.3 + i * TAU / 8; sliver(ctx, mx, my, a, 18 + 10 * pulse, i % 2 ? P.glow : P.bright, 0.7 * fade); }
+  if (f.ping) { ring(ctx, x, y, R + 90 * clamp(t / 0.25), sq, P.glow, 1 - clamp(t / 0.25), q, 1); disc(ctx, mx, my, 30 * (1 - clamp(t / 0.2)), 1, P.glow, 0.7); }
+  ring(ctx, x, y, R + 12, sq, P.shadow, 0.6 * fade, q, 1);
+}
+// 풀차징으로 쏜 연출 — 기존 연출 위에 검은색과 화려한 붉은 빛을 덧그린다
+function strongOver(ctx, f, t, sq, g, q) {
+  if (f.kind === 'sk_blood_shot') {
+    const ax = f.ax || 1, ay = f.ay || 0, mx = f.x + ax * 30, my = f.y - 38 + ay * 30 * sq, d = Math.min(f.len, f.v * t), steps = Math.max(8, Math.round(d / 18));
+    for (let i = 0; i < steps; i++) {
+      const k = d * i / steps, x = mx + ax * k, y = my + ay * k * sq, a = (0.25 + 0.5 * i / steps) * clamp(1 - Math.max(0, t - f.len / f.v) / 0.14);
+      dot(ctx, x - ay * 12, y + ax * 12, P.shadow, PX * 2, a); dot(ctx, x + ay * 12, y - ax * 12, P.shadow, PX * 2, a);
+      if (i % 2) dot(ctx, x + noise(i, 2) * 10 - 5, y + noise(i, 4) * 10 - 5, P.glow, PX, a);
+    }
+  } else if (f.kind === 'sk_blood_seek') {
+    seek(ctx, f, t, sq, g, Math.min(q, 0.7));
+  } else if (f.kind === 'sk_blood_boom') {
+    const u = clamp(t / f.life), R = f.r * Math.min(1, u * 2.4);
+    disc(ctx, f.x, f.y - 12, f.r * 0.7 * Math.min(1, u * 4), sq, P.shadow, 0.55 * (1 - u));
+    ring(ctx, f.x, f.y - 12, R, sq, P.shadow, 0.7 * (1 - u * u), q, 1);
+    ring(ctx, f.x, f.y - 12, R * 0.86, sq, P.glow, 0.8 * (1 - u * u), q, 2);
+  }
+}
+
+const KINDS = { sk_blood_charge: charge, sk_blood_hold: hold, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
 export const BLOOD_FX_KINDS = Object.keys(KINDS);
 export function drawBloodFx(ctx, f, p, time, sq, g, q = 1) {
   const fn = KINDS[f.kind]; if (!fn) return false;
-  if (drawBloodPx(ctx, f, clamp(p) * f.life, sq, g)) return true;   // pixelfx 시트(못 불러왔으면 false)
+  const t = clamp(p) * f.life;
+  if (f.kind !== 'sk_blood_hold' && drawBloodPx(ctx, f, t, sq, g)) {   // pixelfx 시트(못 불러왔으면 false)
+    if (f.strong) { ctx.save(); ctx.imageSmoothingEnabled = false; try { strongOver(ctx, f, t, sq, g, q, time); } finally { ctx.restore(); } }
+    return true;
+  }
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  try { fn(ctx, f, clamp(p) * f.life, sq, g, q); } finally { ctx.restore(); }
+  try { fn(ctx, f, t, sq, g, q, time); if (f.strong) strongOver(ctx, f, t, sq, g, q, time); } finally { ctx.restore(); }
   return true;
 }
 

@@ -12,7 +12,7 @@ import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
-import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
+import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, cancelBloodCharge, bloodSlow } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
 import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
@@ -1420,7 +1420,7 @@ export function rpgWalk(h, dt) {
   h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
   h.look = [dx / len, dy / len]; h.lookF = h.face;   // 마지막으로 걸은 쪽 — 키를 떼도 이쪽을 바라본다(aimDir)
   // 이속 물약 · 신발 — 방장과 손님이 같은 값(스냅샷의 물약 효과 · h.arm)으로 걷는다
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화)
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h) * bloodSlow(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화) · 레퀴엠 차징 중 둔화
   h.x += (dx / len) * v * dt;
   h.y += (dy / len) * v * RPG.squash * dt;
   keepIn(h, MAPS[h.map], 20);
@@ -1437,7 +1437,7 @@ function walkTo(h, dt) {
   else if ((h.destP = (h.destP || 0) + dt) >= MOVE.progT) return void stopMove(h);   // 한참 나아가지 못했다 — 좁은 틈에서 왔다 갔다 한다
   const ux = dx / (d || 1), uy = dy / (d || 1);
   const [sx, sy] = MOVE.steer ? steerAround(h, M, D, ux, uy, d, dt) : [ux, uy];
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h);
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h) * bloodSlow(h);
   const step = v * dt;
   if (d <= Math.max(MOVE.arrive, step)) {          // 닿았다
     h.x = D.x; h.y = D.y;
@@ -2550,6 +2550,7 @@ export function rpgDash(g, pi, aim) {
   if ((h.dashCd || 0) > 0 && !(h.ac && h.ac.ch > 0)) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
   const x0 = h.x, y0 = h.y;
   if (!startDash(h, aim)) return;
+  cancelBloodCharge(h);                           // 레퀴엠 차징 중 대쉬하면 차징 취소
   if (h.ac) acOnDash(g, h);
   if (heldSpecial(h) === "gold_bow") { const w = wsOf(h); w.dashT = DASH.time + WS.gold_bow.passive.win; w.dashUsed = 0; }   // 비상의 리듬
   // 달려가는 쪽으로 남는 바람 줄기(pixelfx · skillPxArt.js) — 방향은 startDash 가 정한 속도
@@ -3294,7 +3295,7 @@ function pullMob(g, o, x, y, px) {
 }
 const voidEngine = { ...stormEngine, pull: pullMob };
 const bloodEngine = { ...stormEngine };             // 크림슨 레퀴엠 — 혈계 추격(bloodGunCombat.js)
-export function rpgWeaponRelease(g, pi, cancel=false) { releaseStormWeapon(stormEngine,g,g.heroes[pi],cancel); }
+export function rpgWeaponRelease(g, pi, cancel=false) { releaseBloodWeapon(g,g.heroes[pi],cancel); releaseStormWeapon(stormEngine,g,g.heroes[pi],cancel); }
 
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)
 // grow 는 그어지는 데 드는 몫(life 의 10% = 0.04초 · 영상처럼 순식간에) · spin 은 사라지는 동안 더 휘돌아 가는 각
@@ -3833,7 +3834,7 @@ function stepHeroes(g, dt) {
 
 /* 걷는 속도(px/초) — 명사수 약점 포착(나보다 느린 적)이 견준다. 사람은 걷는 식 그대로(신발은 앞쪽 몫),
    몹은 종류마다 쫓는 속도 · 둔화 · 기절이면 0 */
-const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
+const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * bloodSlow(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
 const MOB_WALK = { rabbit: 160, wolf: 175, boar: BOAR.walk };   // 그 밖은 BRUTE 값 · 보스 AI 값, 모르면 180
 function moveSpeedOf(o) {
   if (isHeroT(o)) return heroSpeed(o);

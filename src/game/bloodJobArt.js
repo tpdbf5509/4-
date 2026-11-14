@@ -180,7 +180,7 @@ function sword(ctx, f, t, sq) {
   ring(ctx, f.x, f.y, R, sq, P.rim, 0.25 * a, 1, 4);   // 실제 반경을 옅게
 }
 function veil(ctx, f, t, sq) {
-  const P = pal(f), fill = f.start ? clamp(t / 0.15) : 1, left = 1 - clamp(f.u || 0);
+  const P = pal(f), fill = f.start ? clamp(t / 0.15) : 1, left = 1 - clamp((f.u || 0) + (f.max > 0 ? t / f.max : 0));   // 남은 시간은 낸 뒤 흐른 만큼 줄인다
   const x = f.x, y = f.y - 40, D = 140 * (f.k || 1);   // 증폭 · 혈역 크기 보너스(보이는 크기만)
   ring(ctx, x, y, D / 2, 1, P.rim, 0.85, 1);         // 외곽선은 처음부터 완성
   pxLoop(ctx, "bj_shield", 0, 2.4, x, y, (D / 66) * (0.6 + 0.4 * fill), 0.75 * fill, 0, f.c);   // pixelfx 막(경선이 돈다)
@@ -268,9 +268,11 @@ function warn(ctx, f, t, sq) {
 }
 
 const KINDS = { sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
-export const BLOOD_JOB_CAP = { sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 4, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
+export const BLOOD_JOB_CAP = { sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 8, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
 // 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
-const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage"]);
+const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage", "sk_bj_veil"]);   // 혈막도 시전자를 따라다닌다(11월 15일)
+// 혈막 — 겹쳐 둔 여러 장 중 한 사람당 한 프레임에 한 장만(가장 새 것). 끝 연출이 나오면 남은 장은 그리지 않는다
+const veilSeen = new Map();   // pi → { top: 본 장 중 가장 새 장의 시작 시각, prev: 앞 프레임까지의 top, end: 끝 연출의 시작 시각, frame }
 export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
 // 연마 합계(영구 레벨)에 따른 혈색 — 방장은 가방 bd, 손님은 스냅샷 bdv(같은 tr 모양)
 function tintOf(h) {
@@ -286,6 +288,18 @@ export function drawBloodJobFx(ctx, f, p, sq, g, time) {
     if (h && h.map === f.map && Number.isFinite(h.x)) f = { ...f, x: h.x, y: h.y };
   }
   if (!f.c && g && Number.isInteger(f.pi)) { const c = tintOf(g.heroes && g.heroes[f.pi]); if (c !== "red") f = { ...f, c }; }   // 시전자 연마 합계 색
+  if (f.kind === "sk_bj_veil" || f.kind === "sk_bj_veilend") {
+    const born = NOW - clamp(p) * f.life, v = veilSeen.get(f.pi) || { top: -1e9, prev: -1e9, end: -1e9, frame: -1 };
+    veilSeen.set(f.pi, v);
+    if (v.frame !== NOW) { v.frame = NOW; v.prev = v.top; }   // 앞 프레임까지 본 가장 새 장 — 새 장은 다음 프레임부터 그려 두 장이 겹쳐 밝아지지 않게
+    if (f.kind === "sk_bj_veilend") v.end = Math.max(v.end, born);
+    else {
+      v.top = Math.max(v.top, born);
+      if (born <= v.end + 0.05) return true;                                   // 이미 끝난 혈막의 남은 장
+      const prevLive = v.prev > v.end + 0.05 && NOW - v.prev < f.life;          // 앞 프레임의 장이 아직 살아 있다
+      if (prevLive ? Math.abs(born - v.prev) > 0.01 : born < v.top - 0.01) return true;
+    }
+  }
   ctx.save(); ctx.imageSmoothingEnabled = false;
   try { fn(ctx, f, clamp(p) * f.life, sq); } finally { ctx.restore(); }
   return true;

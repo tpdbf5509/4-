@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgWeaponSkill, rpgWeaponRelease, rpgDash, rpgPack, rpgApply, rpgPromote, wsOf } from '../src/game/rpg.js';
+import { rpgInput } from '../src/game/rpgInput.js';
 import { SPECIALS } from '../src/game/shopData.js';
 import { WEAPON_SKILLS } from '../src/game/skillData.js';
 import { specialTier, specialsFor } from '../src/game/shop.js';
@@ -254,4 +255,26 @@ test('월드 장비 세트(차원의 지배자 4세트) 폭발을 레퀴엠으�
   };
   const r = run1(true);
   assert(r.kinds.has('sk_blood_set'), '붉은 세트 연출'); assert(!r.kinds.has('sk_void_set'), '보라 연출은 나오지 않음');
+});
+
+test('스킬이 마우스 방향을 따라가기 — 차징 중 포인터를 따라 몸과 겨눔이 바뀌고 포인터 방향으로 쏜다(근처 적을 고르지 않는다)', () => {
+  const { g, h } = setup(), m = mob(g, h.x + 100, h.y);   // 적은 오른쪽 · 포인터는 위쪽
+  rpgInput(g, { cls: 0, kind: 'wcharge', dir: true, aim: [1, 0], q: 1 }); run(g, .5);
+  assert.equal(h.dir, 1);
+  rpgInput(g, { cls: 0, kind: 'waim', dir: true, aim: [-1, 0], q: 2 }); run(g, .1);
+  assert.equal(h.dir, -1, '차징 중 포인터가 왼쪽이면 몸도 왼쪽'); assert.deepEqual(h.look.map(Math.round), [-1, 0]);
+  h.hold = ['right']; run(g, .1); h.hold = [];
+  assert.equal(h.dir, -1, '오른쪽으로 걸어도 차징 중에는 포인터 쪽을 본다');
+  rpgInput(g, { cls: 0, kind: 'waim', dir: true, aim: [0, -1], q: 3 }); run(g, .1);
+  rpgInput(g, { cls: 0, kind: 'wcharge', dir: false, aim: [0, -1], q: 4 }); run(g, 3);
+  const shot = g.out.find(f => f.kind === 'sk_blood_shot');
+  assert(shot && Math.abs(shot.ax) < .02 && shot.ay < -.98, `포인터(위) 방향 ${shot && [shot.ax, shot.ay]}`);
+  assert.equal(dealt(m), 0, '근처 적이 있어도 포인터 방향에 없으면 맞지 않는다');
+});
+test('스킬이 마우스 방향을 따라가기 — 끄면(포인터 방향 없음) 예전처럼 가까운 적 쪽으로 쏜다', () => {
+  const { g, h } = setup(), m = mob(g, h.x + 100, h.y);
+  rpgInput(g, { cls: 0, kind: 'wcharge', dir: true, q: 1 }); run(g, .6);
+  rpgInput(g, { cls: 0, kind: 'waim', dir: true, aim: [0, -1], q: 2 }); run(g, .1);
+  rpgInput(g, { cls: 0, kind: 'wcharge', dir: false, q: 3 }); run(g, 3);
+  assert(dealt(m) > 0, '가까운 적을 맞힌다');
 });

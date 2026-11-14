@@ -5,7 +5,7 @@ import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
-  rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
+  rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgWeaponAim, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
   rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
@@ -19,6 +19,7 @@ const ACTS = {
   skill: (g, pi) => rpgSkill(g, pi),
   wskill: (g, pi) => rpgWeaponSkill(g, pi),
   wcharge: (g, pi, dir) => dir === true ? rpgWeaponSkill(g, pi) : rpgWeaponRelease(g, pi, dir === "cancel"),
+  waim: (g, pi) => rpgWeaponAim(g, pi),            // 차징 중 마우스 포인터 방향 갱신
   talk: (g, pi) => rpgTalk(g, pi),
   fire: (g, pi, dir) => rpgFire(g, pi, !!dir),
   auto: (g, pi, dir) => rpgAuto(g, pi, !!dir),

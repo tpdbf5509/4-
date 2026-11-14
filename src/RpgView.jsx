@@ -508,6 +508,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [hideGear, setHideGear] = useState(loadHideGear);   // 장비 외형 숨기기 — 무기 · 방어구 겉모습
   const hideGearRef = useRef(hideGear);
   const [moveChoice, setMoveChoice] = useState(() => loadMoveMode());   // 이동 방식 — 키보드(기본) 아니면 마우스(오른쪽 클릭 이동, 이동키는 꺼짐)
+  // 스킬이 마우스 방향을 따라가기 — 켜면 스킬이 마우스 포인터 쪽으로 나가고, 크림슨 레퀴엠은 차징하는 동안 몸과 겨눔이 포인터를 따라간다. 이 기기에만 저장
+  const [skillFollow, setSkillFollow] = useState(() => { try { return localStorage.getItem("flg:skillFollow") !== "0"; } catch { return true; } });
+  const skillFollowRef = useRef(skillFollow);
+  const chargeRef = useRef(false);                  // 크림슨 레퀴엠 차징 키를 누르고 있는 동안
+  const lastWaim = useRef(null);
+  useEffect(() => {
+    skillFollowRef.current = skillFollow;
+    try { localStorage.setItem("flg:skillFollow", skillFollow ? "1" : "0"); } catch { /* 저장이 막힌 브라우저 */ }
+  }, [skillFollow]);
   const moveModeRef = useRef(moveChoice);           // 지금 쓰는 방식(터치 기기는 늘 키보드) — 키 · 마우스 처리기가 읽는다
   const winOpenRef = useRef(false);                 // 창이 열려 있다 — 마우스 이동을 무시한다
   const dragRef = useRef(null);                     // 오른쪽 버튼을 누른 채 끄는 중 { id, at 마지막 전송 ms, x, y 마지막 보낸 점 }
@@ -915,7 +924,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       predictDash(g.heroes[mySeat]);
     }
     if (kind === "use" && !isHost) predictLunge(g, g.heroes[mySeat], dir);   // 급소 찌르기 돌진도 먼저 그린다
-    const aim = aimedSkillInput(kind, dir) ? pointerSkillAim(g.heroes[mySeat], g.cam, skillPointer.current, RPG.squash) : null;
+    const aim = skillFollowRef.current && aimedSkillInput(kind, dir) ? pointerSkillAim(g.heroes[mySeat], g.cam, skillPointer.current, RPG.squash) : null;
     const pt = kind === "adv" && aim ? pointerSkillPt(g.heroes[mySeat], g.cam, skillPointer.current) : null;   // 전직 스킬만 — 포인터 자리(그림자 일섬이 가까운 적을 고른다)
     if (isHost) {
       rpgInput(g, { cls: mySeat, kind, dir, aim, pt });
@@ -925,6 +934,19 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, [isHost, mySeat, sendInput, closeAll, loadRank]);
 
   useEffect(() => { actRef.current = act; }, [act]);
+
+  // 크림슨 레퀴엠 차징 중 — 마우스 포인터 방향이 바뀌면 서버에 알린다(0.08초마다 보고, 방향이 바뀐 때만 보낸다)
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (!chargeRef.current || !skillFollowRef.current) return;
+      const g = G.current, a = pointerSkillAim(g.heroes[mySeat], g.cam, skillPointer.current, RPG.squash);
+      const l = lastWaim.current;
+      if (!a || (l && Math.hypot(a[0] - l[0], a[1] - l[1]) < 0.04)) return;
+      lastWaim.current = a;
+      actRef.current?.("waim", true);
+    }, 80);
+    return () => clearInterval(id);
+  }, [mySeat]);
 
   /* 마우스 오른쪽 클릭 이동 — 땅을 누르면 그곳으로 걷고, 누른 채 끌면 따라간다. NPC · 포탈을 누르면 곁으로 가서 말을 건다.
      창이 열려 있거나 채팅 중이거나 방향키로 걷는 중에는 쓰지 않는다. 터치는 조이스틱으로 이동한다 */
@@ -1095,7 +1117,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     function pressAct(a) {
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
-      else if (a === "wskill") act(HOLD_WSK.has(heldSpecial(G.current.heroes[mySeat] || {})) ? "wcharge" : "wskill", true);
+      else if (a === "wskill") { const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "advUlt") act("adv", { op: "ult" });   // 소환술사 궁극기 거대 정령 — 방장이 판정한다
       else if (a === "healMode") act("adv", { op: "mode" });   // 치유사 평타 바꾸기 — 방장이 판정한다
@@ -1120,7 +1142,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     function releaseAct(a) {
       if (MOVE_ACTS[a] && moveKeysOn(moveModeRef.current)) releaseDir(MOVE_ACTS[a]);
       if (a === "fire") act("fire", false);
-      if (a === "wskill") act("wcharge", false);
+      if (a === "wskill") { chargeRef.current = false; act("wcharge", false); }
     }
     function onKey(e) {
       const t = e.target;
@@ -1172,7 +1194,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     window.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("auxclick", onAux);
-    const onBlur = () => { skillPointer.current=null; dragRef.current=null; mouseHeld.current.clear(); clearDirs(); act("fire", false); act("wcharge", "cancel"); };
+    const onBlur = () => { chargeRef.current = false; skillPointer.current=null; dragRef.current=null; mouseHeld.current.clear(); clearDirs(); act("fire", false); act("wcharge", "cancel"); };
     window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKey);
@@ -1779,6 +1801,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   </span>
                   <span className={`rpg-switch ${pvp ? "on" : ""}`}><span /></span>
                 </button>
+                {!touch && (
+                  <button type="button" role="menuitemcheckbox" aria-checked={skillFollow} className="rpg-menu-row" onClick={() => setSkillFollow((v) => !v)}>
+                    <span className="rpg-menu-text">
+                      <b>스킬이 마우스 방향을 따라가기</b>
+                      <em>{skillFollow ? "스킬이 마우스 포인터 쪽으로 나갑니다. 크림슨 레퀴엠은 차징하는 동안 몸과 겨눔이 포인터를 따라갑니다" : "꺼져 있어 스킬이 가까운 적이나 바라보는 쪽으로 나갑니다"}</em>
+                    </span>
+                    <span className={`rpg-switch ${skillFollow ? "on" : ""}`}><span /></span>
+                  </button>
+                )}
                 {!touch && (
                   <div className="rpg-menu-row rpg-menu-pick" role="radiogroup" aria-label="이동 방식">
                     <span className="rpg-menu-text">
@@ -2709,9 +2740,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
               {me.wsk && (
                 <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
-                  onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); act(HOLD_WSK.has(heldSpecial(G.current.heroes[mySeat] || {})) ? "wcharge" : "wskill", true); }}
-                  onPointerUp={() => act("wcharge", false)}
-                  onPointerCancel={() => act("wcharge", "cancel")}>
+                  onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }}
+                  onPointerUp={() => { chargeRef.current = false; act("wcharge", false); }}
+                  onPointerCancel={() => { chargeRef.current = false; act("wcharge", "cancel"); }}>
                   {!touch && keyOf(binds, "wskill") && <kbd>{keyOf(binds, "wskill")}</kbd>}
                   <span>{me.wsk.name}<small>{me.wsk.stack}</small></span>
                   {me.wsk.cd > 0 && <em>{Math.ceil(me.wsk.cd)}</em>}

@@ -53,7 +53,7 @@ export function castBloodWeapon(E, g, h, id) {
   if (bs.cast) return true;                        // 훈련장에서 대기 시간을 풀어도 같은 기술을 겹쳐 쓰지 않는다
   const [ax, ay] = E.face(h);
   const c = { map: h.map, t: 0, ph: 0, base: E.base(h), cap: h.cast || { raw: 0, weapon: true, sid: 'wpn' },
-    token: `${h.who || h.pi}:${g.t}:${ID}`, pierce: [], seek: [], boom: [], done: {}, first: [], seeded: 0, sndT: 0, ax, ay, held: true, big: 0, hT: 0 };
+    token: `${h.who || h.pi}:${g.t}:${ID}`, pierce: [], seek: [], boom: [], done: {}, first: [], seeded: 0, sndT: 0, ax, ay, held: true, big: 0, hT: 0, ptr: h.inputAim ? 1 : 0 };   // ptr: 마우스 포인터 방향으로 겨눈 시전 — 차징 중 포인터를 따라가고 포인터 방향으로 쏜다(포인터 근처 적을 고르지 않는다)
   bs.cast = c;
   h.ws.wcd = S.cd * E.cooldown(h);
   h.swing = 0.25;
@@ -80,7 +80,7 @@ function fire(E, g, h, c) {
     const cost = Math.min(Math.max(0, h.hp - 1), Math.ceil(h.hp * H.hpCost));
     if (cost > 0) { h.hp -= cost; E.fx(g, h.map, { kind: 'call', x: h.x, y: h.y - 120, text: `생명 -${cost}`, color: '#B8192D', who: h.pi, t: 0.9, life: 0.9 }); }
   }
-  const [ax, ay] = E.aim(g, h, S.reach);
+  const [ax, ay] = c.ptr ? [c.ax, c.ay] : E.aim(g, h, S.reach);   // 포인터 시전은 마지막으로 겨눈 방향 그대로
   c.ax = ax; c.ay = ay;
   const hits = E.lineFrom(g, h, h.x, h.y, ax, ay, S.reach, S.width / 2).filter((o) => E.alive(g, h, o, c.map));
   const along = (o) => Math.max(0, (o.x - h.x) * ax + ((o.y - h.y) / E.squash) * ay);
@@ -159,7 +159,7 @@ function holdFx(E, g, h, c, dt) {
   c.hT -= dt;
   if (c.hT > 0 && c.full === (wasFull || 0)) return;
   c.hT = H.tick;
-  const [ax, ay] = E.face(h);
+  const [ax, ay] = c.ptr ? [c.ax, c.ay] : E.face(h);
   E.fx(g, h.map, { kind: 'sk_blood_hold', x: h.x, y: h.y, pi: h.pi, ax, ay, u: r2(Math.min(1, c.t / H.full)), full: c.full, t: H.tick + 0.08, life: H.tick + 0.08,
     ...(c.full && !wasFull ? { snd: 'bloodCharge', ping: 1 } : {}) });
 }
@@ -167,13 +167,31 @@ function holdFx(E, g, h, c, dt) {
 export function releaseBloodWeapon(g, h, cancel = false) {
   const bs = h?.ws?.blood, c = bs?.cast; if (!c || c.ph !== 0 || !c.held) return;
   c.held = false;
+  if (!cancel && c.ptr && h.inputAim) setAim(h, c, h.inputAim);   // 놓는 순간의 포인터 방향으로 확정
   if (cancel) { bs.cast = null; h.ws.wcd = 0; }
+}
+// 마우스 포인터 방향 — 차징 중 입력(waim)과 놓는 입력이 보낸 방향을 시전에 적고 몸도 그쪽으로 돌린다
+function setAim(h, c, a) {
+  c.ax = r2(a[0]); c.ay = r2(a[1]);
+  faceAim(h, c);
+}
+function faceAim(h, c) {
+  const ax = c.ax, ay = c.ay;
+  if (ax) h.dir = ax < 0 ? -1 : 1;
+  h.face = ay < -0.5 ? 2 : Math.abs(ax) > 0.35 ? 1 : 0;   // 0 비스듬히 앞 · 1 옆 · 2 뒤(걸을 때와 같은 기준)
+  h.look = [ax, ay]; h.lookF = h.face;
+}
+export function aimBloodWeapon(g, h) {
+  const c = h?.ws?.blood?.cast; if (!c || c.ph !== 0 || !c.held || !c.ptr || !h.inputAim) return;
+  setAim(h, c, h.inputAim);
 }
 // 대쉬하면 차징 취소 — 아직 쏘지 않았으니 대기 시간을 돌려준다
 export function cancelBloodCharge(h) {
   const bs = h?.ws?.blood, c = bs?.cast; if (!c || c.ph !== 0) return;
   bs.cast = null; h.ws.wcd = 0;
 }
+// 마우스 포인터로 겨누며 차징하는 중 — 걸어도 몸 방향은 포인터를 따른다(rpg.js 걷기가 방향을 바꾸지 않는다)
+export const bloodAimLock = (h) => !!(h?.ws?.blood?.cast && h.ws.blood.cast.ph === 0 && h.ws.blood.cast.held && h.ws.blood.cast.ptr);
 // 차징 중 이동 속도 배율
 export const bloodSlow = (h) => (h?.ws?.blood?.cast?.ph === 0 && h.ws.blood.cast.held ? 1 - H.slow : 1);
 
@@ -191,7 +209,7 @@ export function tickBloodWeapon(E, g, h, dt) {
   c.t += dt;
   if (c.ph === 0) {
     if (c.held && c.t >= H.max) c.held = false;      // 놓침 방지 — 너무 오래 눌러 두면 자동으로 쏜다
-    if (c.held) { holdFx(E, g, h, c, dt); return; }  // 키를 누르고 있는 동안 계속 차징한다
+    if (c.held) { if (c.ptr) faceAim(h, c); holdFx(E, g, h, c, dt); return; }  // 키를 누르고 있는 동안 계속 차징한다
     if (c.t >= S.charge) fire(E, g, h, c); else return;
   }
   // 관통 혈탄이 적에 닿는 때

@@ -69,7 +69,8 @@ export const bloodCap = (h) => (bloodOn(h) ? stableCap(h.bag.bd.lv) : 0);
 // 혈량을 얻는다 — 안정 상한까지(over 는 혈역 증폭, 3단계). 이미 상한 이상이면 새 몫만 버린다. 실제로 늘어난 양을 돌려준다
 export function gainBlood(h, n, over = false) {
   if (!bloodOn(h) || !(n > 0)) return 0;
-  const bd = h.bag.bd, top = over && !(h.bd && h.bd.rg) ? BLOOD.abs : stableCap(bd.lv);   // 폭주 · 탈진 중에는 넘지 못한다
+  // over — true 면 180 까지, 숫자면 그 값까지(혈량 전환 179) 안정 상한을 넘는다. 폭주 · 탈진 중에는 넘지 못한다
+  const bd = h.bag.bd, top = over && !(h.bd && h.bd.rg) ? (over === true ? BLOOD.abs : over) : stableCap(bd.lv);
   if (bd.b >= top) return 0;
   const got = Math.min(n, top - bd.b);
   bd.b += got;
@@ -502,11 +503,13 @@ function convert(E, g, h) {
   if (!bloodOn(h) || h.down > 0) return;
   const s = st(h), bd = h.bag.bd;
   if (s.cd.conv > 0) return;
-  if (bd.b >= stableCap(bd.lv)) return void E.say(g, h.map, h.x, h.y - 90, "혈량이 안정 상한입니다", "#d9c9a6");
+  const top = s.rg ? stableCap(bd.lv) : BLOOD.convert.top;   // 안정 상한을 넘어 과충전까지(폭주 · 탈진 중에는 상한까지)
+  if (bd.b >= top) return void E.say(g, h.map, h.x, h.y - 90, s.rg ? "혈량이 안정 상한입니다" : "더 전환할 수 없습니다", "#d9c9a6");
   const cost = Math.ceil(h.max * BLOOD.convert.hp);
   if (h.hp - cost < 1) return void E.say(g, h.map, h.x, h.y - 90, "체력이 모자랍니다", "#ff8a8a");
   h.hp -= cost;
-  const got = gainBlood(h, BLOOD.convert.gain);
+  const got = gainBlood(h, BLOOD.convert.gain, BLOOD.convert.top);
+  if (bd.b > stableCap(bd.lv)) s.dw = FD.decayWait;   // 넘긴 몫은 1초 뒤부터 줄어든다(혈역 증폭 뒤와 같다)
   s.cd.conv = BLOOD.convert.cd;
   E.fx(g, h.map, { kind: "sk_bj_conv", x: h.x, y: h.y, pi: h.pi, hp: cost, got, t: 0.6, life: 0.6, snd: "bloodCharge", who: h.pi });
 }

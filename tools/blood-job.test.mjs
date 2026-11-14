@@ -147,7 +147,7 @@ test('연마 경험치 — 유효 적중 시전당 +10 · 허수아비는 없음
   assert.equal(h.bag.bd.tr[0][1], 10, '허수아비는 연마 경험치 없음');
 });
 
-test('혈량 전환 — 최대 체력 2% → 혈량 +10 · 대기 2초 · 안정 상한이면 못 쓴다', () => {
+test('혈량 전환 — 최대 체력 2% → 혈량 +10 · 대기 2초 · 안정 상한을 넘어 179 까지(과부하 없음)', () => {
   const { g, h } = setup(); unlockBlood(h);
   h.bag.bd.b = 20; h.hp = h.max;
   send(g, { op: 'convert' });
@@ -156,7 +156,14 @@ test('혈량 전환 — 최대 체력 2% → 혈량 +10 · 대기 2초 · 안정
   assert.equal(h.bag.bd.b, 30);                   // 대기 중
   h.bag.bd.b = 50; h.bd.cd.conv = 0;
   send(g, { op: 'convert' });
-  assert.equal(h.bag.bd.b, 50);
+  assert.equal(h.bag.bd.b, 60, '안정 상한(50)이어도 전환한다');
+  h.bag.bd.b = 175; h.bd.cd.conv = 0;
+  send(g, { op: 'convert' });
+  assert.equal(h.bag.bd.b, 179, '179 에서 멈춘다');
+  assert.ok(!h.bd.rg, '전환만으로 과부하가 나지 않는다');
+  h.bd.cd.conv = 0;
+  send(g, { op: 'convert' });
+  assert.equal(h.bag.bd.b, 179);
 });
 
 test('쓰러지면 혈량 0', () => {

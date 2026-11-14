@@ -26,7 +26,7 @@ export function bloodHud(v) {
     smash: { ...smash, cd: v.cd.smash || 0, max: BLOOD_SMASH.cd, charging: !!mc, low: b < BLOOD_SMASH.tiers[0].cost, locked },
     form: { cd: v.cd.form || 0, max: BLOOD_FORM.cd, locked, veil: v.vl ? Math.max(0, v.vl.max - v.vl.t) : 0,
       swordLow: b < BLOOD_FORM.sword.cost, veilLow: b < BLOOD_FORM.veil.cost },
-    conv: { cd: v.cd.conv || 0, max: BLOOD.convert.cd, full: b >= cap },
+    conv: { cd: v.cd.conv || 0, max: BLOOD.convert.cd, full: b >= (v.rg ? cap : BLOOD.convert.top) },   // 안정 상한을 넘어 179 까지 전환한다(폭주 · 탈진 중에는 상한까지)
     use: sc ? shot.cost : mc ? smash.cost : 0,
   };
 }
@@ -109,7 +109,7 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
       <button type="button" className={`rpg-skill blood ${c.cd > 0 || c.full ? "cool" : ""}`}
         onPointerDown={(e) => { e.preventDefault(); onConv(); }}>
         {!touch && keys.conv && <kbd>{keys.conv}</kbd>}
-        <span>혈량 전환<small>{c.full ? "안정 상한" : `체력 ${Math.round(BLOOD.convert.hp * 100)}% → 혈량 ${BLOOD.convert.gain}`}</small></span>
+        <span>혈량 전환<small>{c.full ? "전환 한도" : `체력 ${Math.round(BLOOD.convert.hp * 100)}% → 혈량 ${BLOOD.convert.gain}`}</small></span>
         {c.cd > 0 && <em>{Math.ceil(c.cd)}</em>}
       </button>
     </>

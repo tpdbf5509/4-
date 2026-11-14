@@ -24,7 +24,7 @@ export const KEY_ACTIONS = [
   { id: "bSmash", name: "혈수 강타(BLOOD-001)", group: "전투", keys: ["Digit3", "Numpad3"] },
   { id: "bSword", name: "혈검(BLOOD-001)", group: "전투", keys: ["Digit4", "Numpad4"] },
   { id: "bVeil", name: "혈막(BLOOD-001)", group: "전투", keys: ["KeyB", ""] },
-  { id: "bField", name: "혈역 증폭(BLOOD-001)", group: "전투", keys: ["KeyH", ""] },
+  { id: "bField", name: "혈역 증폭(BLOOD-001 · 비워 두면 큰 기술 키)", group: "전투", keys: ["", ""] },   // 11월 14일 사용자 결정 — BLOOD-001 은 큰 기술(Shift)이 혈역 증폭이다
   { id: "pot1", name: "물약 칸 1", group: "전투", keys: ["Digit5", "Numpad5"] },
   { id: "pot2", name: "물약 칸 2", group: "전투", keys: ["Digit6", "Numpad6"] },
   { id: "pot3", name: "물약 칸 3", group: "전투", keys: ["Digit7", "Numpad7"] },
@@ -38,9 +38,14 @@ export const KEY_ACTIONS = [
 export const KEY_SLOTS = 2;
 const STORE = "flg:rpgKeys";
 const LOCKED = ["Escape"];
-const KEYS_V = 2;
+const KEYS_V = 3;
+// BLOOD-001 키 — 이 직업이면 겹친 키도 다른 행동보다 먼저 이 행동이 된다(keyMap first)
+export const BLOOD_ACTS = ["bShot", "bConv", "bSmash", "bSword", "bVeil", "bField"];
 // 예전 기본 키 — 저장된 칸이 이것 그대로면(손대지 않았으면) 새 기본 키로 바꿔 준다. 큰 기술은 Shift 만, 대쉬는 Q 로 옮겼다
-const OLD_DEFAULTS = { skill: ["ShiftLeft", "KeyQ"], dash: ["KeyF", ""] };
+// 값 끝 숫자는 "이 판보다 앞서 저장된 것만" — 그 뒤에 사람이 일부러 그 키로 넣었으면 건드리지 않는다
+const OLD_DEFAULTS = { skill: [["ShiftLeft", "KeyQ"], 2], dash: [["KeyF", ""], 2], bField: [["KeyH", ""], 3] };
+// 판 3(11월 14일) — 다른 행동에 F 를 써서 적혈탄 칸이 비어 버린 사람에게 F 를 돌려준다(겹치면 BLOOD-001 일 때만 적혈탄이 먼저)
+const REFILL_V3 = ["bShot"];
 
 export const defaultKeys = () => Object.fromEntries(KEY_ACTIONS.map((a) => [a.id, a.keys.slice(0, KEY_SLOTS)]));
 
@@ -50,14 +55,16 @@ export function loadKeys() {
   try {
     const v = JSON.parse(localStorage.getItem(STORE) || "null");
     if (!v || typeof v !== "object") return base;
-    const old = v.v !== KEYS_V;
+    const ver = v.v || 0;
     const moved = [];                               // 새 기본 키로 옮긴 행동
     KEY_ACTIONS.forEach((a) => {
       const k = v[a.id];
       if (!Array.isArray(k)) return;
-      if (old && OLD_DEFAULTS[a.id] && OLD_DEFAULTS[a.id].every((c, i) => (k[i] || "") === c)) { moved.push(a.id); return; }
+      const od = OLD_DEFAULTS[a.id];
+      if (od && ver < od[1] && od[0].every((c, i) => (k[i] || "") === c)) { moved.push(a.id); return; }
       base[a.id] = [0, 1].map((i) => (typeof k[i] === "string" && !LOCKED.includes(k[i]) ? k[i] : ""));
     });
+    if (ver < 3) REFILL_V3.forEach((id) => { if (!base[id].some(Boolean)) base[id] = defaultKeys()[id]; });
     // 옮긴 새 기본 키가 다른 칸과 겹치면 그 칸에서 뺀다
     moved.forEach((id) => base[id].forEach((c) => {
       if (!c) return;
@@ -65,7 +72,8 @@ export function loadKeys() {
     }));
     // 새로 생긴 행동(예: 전직 스킬 Z)의 기본 키를 사람이 이미 다른 행동에 쓰고 있으면 새 행동 칸을 비운다 — 쓰던 키를 빼앗지 않는다
     const taken = new Set(KEY_ACTIONS.filter((a) => Array.isArray(v[a.id])).flatMap((a) => base[a.id]).filter(Boolean));
-    KEY_ACTIONS.forEach((a) => { if (!Array.isArray(v[a.id])) base[a.id] = base[a.id].map((x) => (taken.has(x) ? "" : x)); });
+    // BLOOD-001 키는 빼앗지 않고 함께 둔다 — 이 직업일 때만 keyMap 이 먼저 고른다
+    KEY_ACTIONS.forEach((a) => { if (!Array.isArray(v[a.id]) && !BLOOD_ACTS.includes(a.id)) base[a.id] = base[a.id].map((x) => (taken.has(x) ? "" : x)); });
   } catch { /* 저장이 막혀 있으면 기본값 */ }
   return base;
 }
@@ -89,8 +97,9 @@ export function clearKey(binds, id, slot) {
 }
 
 // 키 → 행동
-export function keyMap(binds) {
+export function keyMap(binds, first = []) {
   const m = {};
+  first.forEach((a) => (binds[a] || []).forEach((k) => { if (k && !m[k]) m[k] = a; }));
   Object.entries(binds).forEach(([a, ks]) => ks.forEach((k) => { if (k && !m[k]) m[k] = a; }));
   return m;
 }

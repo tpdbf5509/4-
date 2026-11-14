@@ -2,6 +2,7 @@ import { rpgTrade } from "./trade.js";
 import { trading } from "./tradeData.js";
 import { stormBusy } from './stormWeaponCombat.js';
 import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
+import { bloodOn } from './bloodJob.js';
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
@@ -52,6 +53,8 @@ const ACTS = {
 const BLOOD_BREAK = new Set(["skill", "use", "wskill", "wcharge", "adv", "dash", "fire"]);
 export function rpgInput(g, d) {
   if (!d || !Number.isInteger(d.cls) || !g.heroes[d.cls]) return;
+  // BLOOD-001 — 일반 스킬 칸 · 큰 기술 · 전직 스킬은 쓰지 않는다(큰 기술 키는 화면이 혈역 증폭으로 바꿔 보낸다, 11월 14일 사용자 결정)
+  if (bloodOn(g.heroes[d.cls]) && (d.kind === "skill" || d.kind === "use" || (d.kind === "adv" && ["use", "ult", "mode"].includes(d.dir?.op)))) return;
   if(stormBusy(g.heroes[d.cls]) && ['skill','use','adv','dash','blood'].includes(d.kind))return;
   if (d.kind !== "trade" && !(d.kind==="guild"&&["sync","settled"].includes(d.dir?.op)) && trading(g.heroes[d.cls])) return;
   const act = Object.prototype.hasOwnProperty.call(ACTS, d.kind) ? ACTS[d.kind] : null;

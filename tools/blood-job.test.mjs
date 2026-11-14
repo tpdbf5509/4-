@@ -439,3 +439,12 @@ test('키 — 적혈탄 F · 혈역 증폭은 따로 키 없음, BLOOD-001 이�
   assert.equal(keyMap(mine).KeyF, 'dash');
   assert.equal(keyMap(mine, BLOOD_ACTS).KeyF, 'bShot');
 });
+
+test('관리자 명령 /블러드 <이름> 연마 50 — 연마 셋을 한 번에 50', async () => {
+  const { rpgAdminCmd } = await import('../src/game/adminCmd.js');
+  const { g, h } = setup(); unlockBlood(h); h.admin = 1;
+  rpgAdminCmd(g, 0, '/블러드 혈액 연마 50');
+  assert.deepEqual(h.bag.bd.tr, [[50, 0], [50, 0], [50, 0]]);
+  rpgAdminCmd(g, 0, '/블러드 혈액 120');
+  assert.equal(h.bag.bd.lv, 120); assert.deepEqual(h.bag.bd.tr[0], [50, 0], '직업 레벨만 바꾸면 연마는 그대로');
+});

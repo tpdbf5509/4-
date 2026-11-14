@@ -165,6 +165,7 @@ const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.m
 // 키는 키 설정 창에서 바꾼다(src/game/keys.js). 산 스킬 칸 use1~4 는 SKILLS[].use.key 와 짝이다
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 // 맵을 불러오는 동안 막는 조작 — 걷기 · 공격 · 스킬 · 말 걸기. 놓기(빈 방향 · 끄기 · 취소 · 목적지 지우기)는 그대로 보낸다
+const HOLD_WSK = new Set(["azure_dual", "blood_gun"]);   // 누르고 있는 동안 차징하는 무기 스킬 — 누름은 wcharge 로, 뗌도 wcharge 로 보낸다
 const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk", "herb"]);
 const loadBlocks = (kind, dir) => LOAD_BLOCK.has(kind) && !(kind === "hold" && !(dir && dir.length))
   && dir !== false && dir !== "cancel" && !(kind === "mv" && dir && dir.stop);
@@ -1094,7 +1095,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     function pressAct(a) {
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
       else if (a === "skill") act("skill");
-      else if (a === "wskill") act(heldSpecial(G.current.heroes[mySeat] || {}) === "azure_dual" ? "wcharge" : "wskill", true);
+      else if (a === "wskill") act(HOLD_WSK.has(heldSpecial(G.current.heroes[mySeat] || {})) ? "wcharge" : "wskill", true);
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "advUlt") act("adv", { op: "ult" });   // 소환술사 궁극기 거대 정령 — 방장이 판정한다
       else if (a === "healMode") act("adv", { op: "mode" });   // 치유사 평타 바꾸기 — 방장이 판정한다
@@ -2708,7 +2709,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
               {me.wsk && (
                 <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
-                  onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); act(heldSpecial(G.current.heroes[mySeat] || {}) === "azure_dual" ? "wcharge" : "wskill", true); }}
+                  onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); act(HOLD_WSK.has(heldSpecial(G.current.heroes[mySeat] || {})) ? "wcharge" : "wskill", true); }}
                   onPointerUp={() => act("wcharge", false)}
                   onPointerCancel={() => act("wcharge", "cancel")}>
                   {!touch && keyOf(binds, "wskill") && <kbd>{keyOf(binds, "wskill")}</kbd>}

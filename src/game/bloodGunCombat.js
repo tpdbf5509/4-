@@ -8,7 +8,7 @@
 import { BLOOD_SKILLS, bloodBend } from './bloodGunData.js';
 
 const ID = 'blood_gun';
-const W = BLOOD_SKILLS.blood_gun, S = W.skill, P = W.passive;
+const W = BLOOD_SKILLS.blood_gun, S = W.skill, P = W.passive, H = S.hold;
 export const isBloodWeapon = (id) => id === ID;
 const state = (h) => {
   const b = h.ws.blood || (h.ws.blood = { marks: {}, cast: null });
@@ -53,7 +53,7 @@ export function castBloodWeapon(E, g, h, id) {
   if (bs.cast) return true;                        // 훈련장에서 대기 시간을 풀어도 같은 기술을 겹쳐 쓰지 않는다
   const [ax, ay] = E.face(h);
   const c = { map: h.map, t: 0, ph: 0, base: E.base(h), cap: h.cast || { raw: 0, weapon: true, sid: 'wpn' },
-    token: `${h.who || h.pi}:${g.t}:${ID}`, pierce: [], seek: [], boom: [], done: {}, first: [], seeded: 0, sndT: 0, ax, ay };
+    token: `${h.who || h.pi}:${g.t}:${ID}`, pierce: [], seek: [], boom: [], done: {}, first: [], seeded: 0, sndT: 0, ax, ay, held: true, big: 0, hT: 0 };
   bs.cast = c;
   h.ws.wcd = S.cd * E.cooldown(h);
   h.swing = 0.25;
@@ -73,6 +73,12 @@ function hitSound(g, c) { if (g.t - c.sndT < S.sndGap) return undefined; c.sndT 
 /* 2단계 — 관통 혈탄: 앞으로 reach 길이 · width 폭을 꿰뚫는다. 닿는 모든 적이 한 번씩 맞고, 맞는 때는 거리 / 빠르기 */
 function fire(E, g, h, c) {
   c.ph = 1;
+  // 풀차징으로 쏘면 현재 체력의 hpCost 를 쓴다 — 죽지는 않게 1 은 남긴다
+  c.big = c.t >= H.full ? 1 : 0;
+  if (c.big) {
+    const cost = Math.min(Math.max(0, h.hp - 1), Math.ceil(h.hp * H.hpCost));
+    if (cost > 0) { h.hp -= cost; E.fx(g, h.map, { kind: 'call', x: h.x, y: h.y - 120, text: `생명 -${cost}`, color: '#B8192D', who: h.pi, t: 0.9, life: 0.9 }); }
+  }
   const [ax, ay] = E.aim(g, h, S.reach);
   c.ax = ax; c.ay = ay;
   const hits = E.lineFrom(g, h, h.x, h.y, ax, ay, S.reach, S.width / 2).filter((o) => E.alive(g, h, o, c.map));
@@ -82,7 +88,7 @@ function fire(E, g, h, c) {
   c.first = hits.map(keyOf);
   g.shake = Math.max(g.shake || 0, 0.18);
   E.fx(g, h.map, { kind: 'sk_blood_shot', x: h.x, y: h.y, pi: h.pi, token: c.token, ax, ay, len: S.reach, v: S.v, w: S.width,
-    t: S.reach / S.v + 0.14, life: S.reach / S.v + 0.14, snd: 'bloodShot' });
+    t: S.reach / S.v + 0.14, life: S.reach / S.v + 0.14, snd: 'bloodShot', ...(c.big ? { strong: 1 } : {}) });
 }
 
 /* 목표 우선순위 — 혈흔 많은 적 → 최초 혈탄에 맞은 적 → 가까운 적 → 남은 체력이 낮은 적 */
@@ -102,27 +108,27 @@ export function seekSplit(count, n = S.n) {
 function spawnSeek(E, g, h, c, x, y) {
   c.seeded = 1;
   const list = ranked(E, g, h, c, x, y); if (!list.length) return;
-  const split = seekSplit(list.length), out = [];
+  const N = c.big ? H.n : S.n, split = seekSplit(list.length, N), out = [];
   let i = 0;
   split.forEach((cnt, ti) => { for (let q = 0; q < cnt; q++) out.push({ i: i++, k: list[ti].k, o: list[ti].o }); });
-  const bullets = out.map((b) => plan(E, b.i, b.k, b.o, x, y));
+  const bullets = out.map((b) => plan(E, c, b.i, b.k, b.o, x, y));
   c.seek.push(...bullets.map((b) => ({ ...b, t: r2(c.t + S.form + b.i * S.gap + b.T), sx: Math.round(x), sy: Math.round(y) })));
-  E.fx(g, h.map, { kind: 'sk_blood_seek', x, y, pi: h.pi, token: c.token, form: S.form, t: S.form + S.gap * S.n + S.seekMax + 0.1, life: S.form + S.gap * S.n + S.seekMax + 0.1,
+  E.fx(g, h.map, { kind: 'sk_blood_seek', x, y, pi: h.pi, token: c.token, form: S.form, t: S.form + S.gap * N + S.seekMax + 0.1, life: S.form + S.gap * N + S.seekMax + 0.1, n: N, ...(c.big ? { strong: 1 } : {}),
     b: c.seek.map((b) => [b.i, b.id, b.mob, Math.round(b.tx), Math.round(b.ty), r2(S.form + b.i * S.gap), b.T, bloodBend(b.i)]), snd: 'bloodSplit' });
 }
 // 한 발의 날아갈 시간 — 거리 / 빠르기를 seekMin ~ seekMax 로 자른다(적 둘레를 맴돌거나 너무 느리지 않게)
-function plan(E, i, k, o, x, y) {
-  const d = Math.hypot(o.x - x, (o.y - y) / E.squash);
-  return { i, k, id: o.type ? o.id : o.pi, mob: o.type ? 1 : 0, tx: o.x, ty: o.y, T: r2(Math.min(S.seekMax, Math.max(S.seekMin, d / S.seekV))) };
+function plan(E, c, i, k, o, x, y) {
+  const d = Math.hypot(o.x - x, (o.y - y) / E.squash), sp = c.big ? H.seekVMul : 1;   // 풀차징 — 탄이 빠른 만큼 최소 · 최대 시간도 같이 줄인다
+  return { i, k, id: o.type ? o.id : o.pi, mob: o.type ? 1 : 0, tx: o.x, ty: o.y, T: r2(Math.min(S.seekMax / sp, Math.max(S.seekMin / sp, d / (S.seekV * sp)))) };
 }
 // 다 날아가기 전에 목표가 쓰러졌으면 다른 유효한 적을 따라가고, 없으면 흩어져 사라진다
 function retarget(E, g, h, c, b) {
   const list = ranked(E, g, h, c, b.tx, b.ty);
   if (!list.length) { b.dead = 1; E.fx(g, h.map, { kind: 'sk_blood_hit', x: b.tx, y: b.ty, pi: h.pi, fade: 1, t: 0.3, life: 0.3 }); return; }
-  const to = list[0], nb = plan(E, b.i, to.k, to.o, b.tx, b.ty);
+  const to = list[0], nb = plan(E, c, b.i, to.k, to.o, b.tx, b.ty);
   Object.assign(b, { k: nb.k, id: nb.id, mob: nb.mob, tx: nb.tx, ty: nb.ty, T: nb.T, t: r2(c.t + nb.T) });
   E.fx(g, h.map, { kind: 'sk_blood_seek', x: nb.tx, y: nb.ty, pi: h.pi, token: c.token, form: 0, t: nb.T + 0.1, life: nb.T + 0.1,
-    b: [[b.i, nb.id, nb.mob, Math.round(nb.tx), Math.round(nb.ty), 0, nb.T, bloodBend(b.i)]] });
+    n: c.big ? H.n : S.n, ...(c.big ? { strong: 1 } : {}), b: [[b.i, nb.id, nb.mob, Math.round(nb.tx), Math.round(nb.ty), 0, nb.T, bloodBend(b.i)]] });
 }
 
 /* 4단계 — 혈흔 공명: 유도 혈탄이 혈흔 있는 적에 닿으면 혈흔을 모두 거두어 폭발 예약(res 초 뒤). 그 적은 이번 시전에서 더는 터지지 않는다 */
@@ -132,17 +138,43 @@ function arm(E, g, h, c, o, k) {
   c.done[k] = 1;
   const n = m[0];
   dropMark(bs, g, k);
-  c.boom.push({ t: r2(c.t + S.res), k, n, x: Math.round(o.x), y: Math.round(o.y) });
-  E.fx(g, h.map, { kind: 'sk_blood_res', x: o.x, y: o.y, pi: h.pi, n, t: S.res + 0.05, life: S.res + 0.05 });
+  c.boom.push({ t: r2(c.t + S.res), k, n, x: Math.round(o.x), y: Math.round(o.y), R: c.big ? H.boomR : S.boomR });
+  E.fx(g, h.map, { kind: 'sk_blood_res', x: o.x, y: o.y, pi: h.pi, n, r: c.big ? H.boomR : S.boomR, t: S.res + 0.05, life: S.res + 0.05 });
 }
 /* 5단계 — 혈계 처형: 중첩 × boomMul 피해. 반경 안의 다른 적은 같은 값의 splash 배(자기 혈흔 추가 피해 · 연쇄 없음) */
 function explode(E, g, h, c, b) {
   const dmg = b.n * S.boomMul, center = find(g, b.k);
   strike(E, g, h, c, center, dmg);
-  E.near(g, h, b.x, b.y, S.boomR, 40).forEach((o) => { if (keyOf(o) !== b.k) strike(E, g, h, c, o, dmg * S.splash); });
+  E.near(g, h, b.x, b.y, b.R || S.boomR, 40).forEach((o) => { if (keyOf(o) !== b.k) strike(E, g, h, c, o, dmg * S.splash); });
   g.shake = Math.max(g.shake || 0, b.n >= P.max ? 0.4 : 0.28);
-  E.fx(g, h.map, { kind: 'sk_blood_boom', x: b.x, y: b.y, pi: h.pi, n: b.n, r: S.boomR, t: 0.5, life: 0.5, snd: 'bloodBoom' });
+  E.fx(g, h.map, { kind: 'sk_blood_boom', x: b.x, y: b.y, pi: h.pi, n: b.n, r: b.R || S.boomR, t: 0.5, life: 0.5, snd: 'bloodBoom', ...(b.R > S.boomR ? { strong: 1 } : {}) });
 }
+
+// 차징 중 연출 — 짧은 연출을 tick 초마다 다시 보낸다(손님이 중간에 들어와도 지금 상태가 보이게). 풀차징이 되는 순간 한 번 더 크게
+function holdFx(E, g, h, c, dt) {
+  if (c.t < S.charge) return;
+  const wasFull = c.full;
+  c.full = c.t >= H.full ? 1 : 0;
+  c.hT -= dt;
+  if (c.hT > 0 && c.full === (wasFull || 0)) return;
+  c.hT = H.tick;
+  const [ax, ay] = E.face(h);
+  E.fx(g, h.map, { kind: 'sk_blood_hold', x: h.x, y: h.y, pi: h.pi, ax, ay, u: r2(Math.min(1, c.t / H.full)), full: c.full, t: H.tick + 0.08, life: H.tick + 0.08,
+    ...(c.full && !wasFull ? { snd: 'bloodCharge', ping: 1 } : {}) });
+}
+// 키를 뗐다 — 차징 중이면 쏜다(0.4초 안에 뗐으면 충전이 끝나는 때). cancel 이면 취소하고 대기 시간을 돌려준다
+export function releaseBloodWeapon(g, h, cancel = false) {
+  const bs = h?.ws?.blood, c = bs?.cast; if (!c || c.ph !== 0 || !c.held) return;
+  c.held = false;
+  if (cancel) { bs.cast = null; h.ws.wcd = 0; }
+}
+// 대쉬하면 차징 취소 — 아직 쏘지 않았으니 대기 시간을 돌려준다
+export function cancelBloodCharge(h) {
+  const bs = h?.ws?.blood, c = bs?.cast; if (!c || c.ph !== 0) return;
+  bs.cast = null; h.ws.wcd = 0;
+}
+// 차징 중 이동 속도 배율
+export const bloodSlow = (h) => (h?.ws?.blood?.cast?.ph === 0 && h.ws.blood.cast.held ? 1 - H.slow : 1);
 
 export function tickBloodWeapon(E, g, h, dt) {
   const bs = h.ws?.blood; if (!bs) return;
@@ -156,7 +188,11 @@ export function tickBloodWeapon(E, g, h, dt) {
   const c = bs.cast; if (!c) return;
   if (!valid(E, g, h, c)) { bs.cast = null; return; }
   c.t += dt;
-  if (c.ph === 0) { if (c.t >= S.charge) fire(E, g, h, c); else return; }
+  if (c.ph === 0) {
+    if (c.held && c.t >= H.max) c.held = false;      // 놓침 방지 — 너무 오래 눌러 두면 자동으로 쏜다
+    if (c.held) { holdFx(E, g, h, c, dt); return; }  // 키를 누르고 있는 동안 계속 차징한다
+    if (c.t >= S.charge) fire(E, g, h, c); else return;
+  }
   // 관통 혈탄이 적에 닿는 때
   while (c.pierce.length && c.t >= c.pierce[0].t) {
     const p = c.pierce.shift(), o = find(g, p.k);

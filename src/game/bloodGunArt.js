@@ -254,7 +254,13 @@ function set(ctx, f, t, sq, g, q) {
   ring(ctx, f.x, f.y - 8, R, sq, P.bright, a, q, 1);
   ring(ctx, f.x, f.y - 8, R * 0.7, sq, P.base, a, q, 2);
 }
-const KINDS = { sk_blood_set: set, sk_blood_charge: charge, sk_blood_hold: hold, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
+// 피 웅덩이 — 시트를 못 불러왔을 때의 도트 그림(납작한 붉은 타원이 퍼졌다가 마르고 사라진다)
+function pool(ctx, f, t, sq) {
+  const u = clamp(t / f.life), g = 1 - Math.pow(1 - clamp(t / 0.5), 3), a = 1 - clamp((u - 0.72) / 0.28), R = 34 * (0.35 + 0.65 * g);
+  disc(ctx, f.x, f.y + 6, R, 0.55, u > 0.55 ? P.shadow : P.deep, 0.85 * a);
+  disc(ctx, f.x, f.y + 6, R * 0.5, 0.55, P.shadow, 0.7 * a);
+}
+const KINDS = { sk_blood_pool: pool, sk_blood_set: set, sk_blood_charge: charge, sk_blood_hold: hold, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
 export const BLOOD_FX_KINDS = Object.keys(KINDS);
 export function drawBloodFx(ctx, f, p, time, sq, g, q = 1) {
   const fn = KINDS[f.kind]; if (!fn) return false;

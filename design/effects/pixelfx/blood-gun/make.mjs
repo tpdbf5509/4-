@@ -28,6 +28,8 @@ const LIST = [
   // 5단계 혈계 처형 — 붉은 에너지 폭발 · 5중첩은 검은 핵이 있는 큰 폭발
   { name: "bg_boom", id: "explosions/plasma-explosion", from: 0, to: 0.95, n: 10, opts: { palette: B7, accent: B5, seed: 7 } },
   { name: "bg_boom5", id: "shadow/dark-explosion", from: 0.15, to: 1.6, n: 12, opts: { palette: B8, seed: 6 } },
+  // 차징(풀차징) 혈탄에 맞은 적 발밑의 피 웅덩이 — 퍼지고 → 마르고 → 사라진다(2.2초, nature/blood-pool 은 이 게임용으로 새로 쓴 이펙트라 pixelfx 원본에는 없다)
+  { name: "bg_pool", id: "nature/blood-pool", from: 0, to: 2.15, n: 16, opts: { palette: B8, seed: 4, radius: 26 } },
 ];
 const man = {};
 for (const s of LIST.filter((s) => s.name.startsWith(ONLY))) {

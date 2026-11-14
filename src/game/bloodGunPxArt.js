@@ -173,7 +173,14 @@ function set(ctx, f, t, sq) {
   return true;
 }
 
-const KINDS = { sk_blood_set: set, sk_blood_hold: hold, sk_blood_charge: charge, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
+// ── 풀차징에 맞은 적 발밑의 피 웅덩이 — 바닥에 눕는 그림이라 몸 뒤에 깔리도록 맨 먼저 그려야 하지만 효과 목록 차례를 따른다
+function pool(ctx, f, t) {
+  if (!ready("bg_pool")) return false;
+  cell(ctx, "bg_pool", once("bg_pool", t / f.life), f.x, f.y + 6, L.pool.k, 1);
+  return true;
+}
+
+const KINDS = { sk_blood_pool: pool, sk_blood_set: set, sk_blood_hold: hold, sk_blood_charge: charge, sk_blood_shot: shot, sk_blood_hit: hit, sk_blood_seek: seek, sk_blood_res: res, sk_blood_boom: boom };
 // t 는 시작부터 지난 초. 그렸으면 true, 시트가 없으면 false(예전 도트 그림으로)
 export function drawBloodPx(ctx, f, t, sq, g, time = 0) {
   const fn = KINDS[f.kind]; if (!fn) return false;

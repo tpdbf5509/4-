@@ -245,6 +245,20 @@ test('길게 누르기 — 오래 눌러도(5초) 쏜 뒤의 관통 · 유도 ·
   assert(g.out.some(f => f.kind === 'sk_blood_boom'), '폭발까지 나감');
 });
 
+test('풀차징 혈탄에 맞은 적 발밑에만 피 웅덩이(그림)가 한 번씩 생기고 피해는 그대로다', () => {
+  const { g, h } = setup(), a = mob(g, h.x + 100, h.y), b = mob(g, h.x + 160, h.y);
+  rpgWeaponSkill(g, 0); run(g, S.hold.full + .1); rpgWeaponRelease(g, 0); run(g, 2);
+  const pools = g.out.filter(f => f.kind === 'sk_blood_pool');
+  assert.equal(pools.length, 2, `맞은 적 둘에 하나씩 ${pools.length}`);
+  assert(pools.every(f => f.life === S.hold.poolT));
+  assert(Math.abs(pools[0].x - a.x) < 80 && pools.some(f => Math.abs(f.x - b.x) < 80));
+});
+test('짧게 누른 혈탄(풀차징 아님)에는 피 웅덩이가 없다', () => {
+  const { g, h } = setup(); mob(g, h.x + 100, h.y);
+  tap(g, 0); run(g, 2);
+  assert(g.out.some(f => f.kind === 'sk_blood_hit'));
+  assert.equal(g.out.filter(f => f.kind === 'sk_blood_pool').length, 0);
+});
 test('월드 장비 세트(차원의 지배자 4세트) 폭발을 레퀴엠으로 맞히면 보라 sk_void_set 대신 붉은 sk_blood_set 으로 나가고 피해는 같다', () => {
   const run1 = (heldBlood) => {
     const { g, h } = setup(), m = mob(g, h.x + 100, h.y);

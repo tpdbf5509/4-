@@ -18,6 +18,7 @@ export const BLOOD_PX_SHEETS = {
   bg_spark: { w: 118, h: 75, cols: 3, n: 8, cx: 28, cy: 42 },             // impacts/hit-spark — 유도 혈탄이 닿는 불꽃
   bg_res: { w: 130, h: 121, cols: 4, n: 10, cx: 65, cy: 57 },             // shadow/hex-sigil — 4단계 혈흔 공명: 붉은 인장이 그려지고 번쩍인다
   bg_boom: { w: 201, h: 188, cols: 4, n: 10, cx: 101, cy: 93 },           // explosions/plasma-explosion — 5단계 혈계 처형
+  bg_pool: { w: 57, h: 33, cols: 4, n: 16, cx: 29, cy: 17 },              // nature/blood-pool(이 게임용 새 이펙트) — 풀차징에 맞은 적 발밑의 피 웅덩이: 퍼지고 마르고 사라진다
   bg_boom5: { w: 248, h: 216, cols: 4, n: 12, cx: 124, cy: 168 },         // shadow/dark-explosion — 5중첩 처형: 검은 핵이 있는 큰 폭발(바닥선이 cy 아래)
 };
 
@@ -34,5 +35,6 @@ export const BLOOD_PX_LOOK = {
   spark: { k: 2.2, play: 0.28 },                     // 유도 혈탄 적중(0.28)
   res: { k: 1.7, kStack: 0.14 },                     // 혈흔 공명 — 중첩이 많을수록 인장이 커진다(효과 시간 0.3 안에 모두 재생)
   boom: { k: 1.55, play: 0.5 },                      // 혈계 처형 — 효과 시간(0.5)
+  pool: { k: 2.4 },                                  // 피 웅덩이 — 효과 시간(poolT) 전체에 맞춘다
   boom5: { k: 1.35, play: 0.5 },                     // 5중첩 처형
 };

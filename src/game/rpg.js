@@ -12,7 +12,7 @@ import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
-import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, cancelBloodCharge, bloodSlow } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
+import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
 import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
@@ -1337,7 +1337,7 @@ function say(g, map, x, y, text, color) {
 /* ── 조작 ──────────────────────────────────────────────── */
 // 손님의 누름 · 뗌(hold · fire)은 마지막 상태만 뜻이 있다 — 늦게 도착한 옛 것(번호가 작은 것)은 버린다.
 // 번호가 없으면(옛 버전 손님) 그대로 받는다. 대쉬 · 스킬 같은 한 번짜리 입력은 버리지 않는다
-const FRESH_SLOT = { hold: "hold", mv: "hold", fire: "fire", wcharge: "wcharge", rgo: "rgo" };   // rgo 레이스 질주 누름 · 뗌   // 마우스 이동(mv)은 누름(hold)과 번호 칸을 같이 쓴다 — 둘 다 "마지막 걷는 뜻"이다
+const FRESH_SLOT = { hold: "hold", mv: "hold", fire: "fire", wcharge: "wcharge", waim: "waim", rgo: "rgo" };   // rgo 레이스 질주 누름 · 뗌   // 마우스 이동(mv)은 누름(hold)과 번호 칸을 같이 쓴다 — 둘 다 "마지막 걷는 뜻"이다
 export function freshInput(h, kind, q, now) {
   const slot = Object.prototype.hasOwnProperty.call(FRESH_SLOT, kind) ? FRESH_SLOT[kind] : null;
   if (!slot || !q) return true;
@@ -1416,9 +1416,11 @@ export function rpgWalk(h, dt) {
   });
   if (!dx && !dy) return;
   const len = Math.hypot(dx, dy);
-  if (dx) h.dir = dx < 0 ? -1 : 1;
-  h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
-  h.look = [dx / len, dy / len]; h.lookF = h.face;   // 마지막으로 걸은 쪽 — 키를 떼도 이쪽을 바라본다(aimDir)
+  if (!bloodAimLock(h)) {                         // 레퀴엠 차징 중 포인터로 겨누면 몸 방향은 포인터가 정한다
+    if (dx) h.dir = dx < 0 ? -1 : 1;
+    h.face = dy < 0 ? 2 : dx ? 1 : 0;              // 0 비스듬히 앞 · 1 옆 · 2 뒤
+    h.look = [dx / len, dy / len]; h.lookF = h.face;
+  }   // 마지막으로 걸은 쪽 — 키를 떼도 이쪽을 바라본다(aimDir)
   // 이속 물약 · 신발 — 방장과 손님이 같은 값(스냅샷의 물약 효과 · h.arm)으로 걷는다
   const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h) * bloodSlow(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화) · 레퀴엠 차징 중 둔화
   h.x += (dx / len) * v * dt;
@@ -1445,9 +1447,11 @@ function walkTo(h, dt) {
     return void stopMove(h);
   }
   const hx = Math.abs(sx) > MOVE.look ? Math.sign(sx) : 0, hy = Math.abs(sy) > MOVE.look ? Math.sign(sy) : 0;
-  if (hx) h.dir = hx;                              // 8방향으로 끊어 바라본다 — 거의 위아래로 걸을 때 좌우가 떨지 않게
-  h.face = hy < 0 ? 2 : hx ? 1 : 0;
-  h.look = [sx, sy]; h.lookF = h.face;
+  if (!bloodAimLock(h)) {
+    if (hx) h.dir = hx;                              // 8방향으로 끊어 바라본다 — 거의 위아래로 걸을 때 좌우가 떨지 않게
+    h.face = hy < 0 ? 2 : hx ? 1 : 0;
+    h.look = [sx, sy]; h.lookF = h.face;
+  }
   const ox = h.x, oy = h.y;
   h.x += sx * step;
   h.y += sy * step * sq;
@@ -3295,6 +3299,7 @@ function pullMob(g, o, x, y, px) {
 }
 const voidEngine = { ...stormEngine, pull: pullMob };
 const bloodEngine = { ...stormEngine };             // 크림슨 레퀴엠 — 혈계 추격(bloodGunCombat.js)
+export function rpgWeaponAim(g, pi) { aimBloodWeapon(g, g.heroes[pi]); }   // 차징 중 포인터 방향 갱신(waim) — 크림슨 레퀴엠
 export function rpgWeaponRelease(g, pi, cancel=false) { releaseBloodWeapon(g,g.heroes[pi],cancel); releaseStormWeapon(stormEngine,g,g.heroes[pi],cancel); }
 
 // 화염베기 연출 — 한 번 벨 때마다 커다란 불꽃 초승달 하나. size 는 반지름 배율 · tilt 는 위아래 눌림 · span 은 휘는 각(라디안)

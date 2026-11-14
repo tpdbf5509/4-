@@ -18,5 +18,5 @@ export function pointerSkillPt(h, cam, pointer) {
   if (!h || !cam || !pointer || pointer.map !== h.map) return null;
   return [Math.round(pointer.x + cam.x), Math.round(pointer.y + cam.y)];
 }
-export const aimedSkillInput = (kind, dir) => ['skill', 'use', 'wskill'].includes(kind)
+export const aimedSkillInput = (kind, dir) => ['skill', 'use', 'wskill', 'waim'].includes(kind)
   || (kind === 'wcharge' && dir !== 'cancel') || (kind === 'adv' && dir?.op === 'use');

@@ -293,18 +293,19 @@ test('증폭 — 범위 +15%(혈수 강타 길이 · 폭) · 과충전 — 피�
   h.hp = 1; run(g, .5); assert.equal(h.hp, 1, '체력 1에서 멈춘다');
 });
 
-test('혈역 증폭 — 직업 100 · 1초마다 +5(적이 혈역 안) · 180 까지 넘는다 · 이동 -40% · 놓으면 대기 45초', () => {
+test('혈역 증폭 — 직업 100 · 1초마다 +15(적이 혈역 안) · 180 까지 넘는다 · 이동 -40% · 놓으면 대기 45초', () => {
   const a = setup(); unlockBlood(a.h); a.h.bag.bd.lv = 99; fd(a.g, 'press'); assert.equal(a.h.bd?.fd || null, null);
   const { g, h } = setup(); lv100(h); h.bag.bd.b = 149;
   mob(g, h.x + 200, h.y);
   fd(g, 'press'); assert.ok(h.bd.fd);
   assert.ok(Math.abs(bloodJobSlow(h) - 0.6) < 1e-9);
-  run(g, 3.05);
-  assert.equal(h.bag.bd.b, 164);
+  run(g, 2.05);
+  assert.equal(FD.gain, 15);
+  assert.equal(h.bag.bd.b, 179, '149 + 15 × 2');
   fd(g, 'release');
   assert.equal(h.bd.fd, null); assert.equal(h.bd.cd.field, FD.cd);
-  run(g, .5); assert.equal(h.bag.bd.b, 164, '끝나고 1초 동안은 줄지 않는다');
-  run(g, 1.0); assert.ok(h.bag.bd.b < 164 && h.bag.bd.b >= 149, `${h.bag.bd.b}`);
+  run(g, .5); assert.equal(h.bag.bd.b, 179, '끝나고 1초 동안은 줄지 않는다');
+  run(g, 1.0); assert.ok(h.bag.bd.b < 179 && h.bag.bd.b >= 149, `${h.bag.bd.b}`);
   run(g, 3); assert.equal(h.bag.bd.b, 149, '안정 상한 아래로는 줄지 않는다');
 });
 

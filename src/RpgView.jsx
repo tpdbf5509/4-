@@ -41,8 +41,9 @@ import {
 import { rpgInput } from "./game/rpgInput.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
 import { bloodView } from "./game/bloodJob.js";
+import { BLOOD_NAME } from "./game/bloodJobData.js";
 import { spotNear, spotLine } from "./game/bloodUnlock.js";   // BLOOD-001 단서 조사 자리
-import { bloodHud, BloodBar, BloodButtons } from "./BloodHud.jsx";   // 히든 직업 BLOOD-001(11월 14일)
+import { bloodHud, BloodBar, BloodButtons, BloodStat } from "./BloodHud.jsx";   // 히든 직업 BLOOD-001(11월 14일)
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { herbNear } from "./game/alchemy.js";
@@ -1679,6 +1680,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const myEl = elemOf(myLook);
   const who = (pi) => {                              // 파티 칸 — 직업 · 원소
     const l = seats[pi]?.hero;
+    if (bloodView(G.current.heroes[pi])) return BLOOD_NAME;   // 히든 직업 BLOOD-001 — 직업 이름을 바꿔 보인다(11월 15일 사용자 요청)
     return l ? lookTitle(l) : "";
   };
 
@@ -2063,6 +2065,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                       );
                     })}
                   </div>
+                  <BloodStat v={bloodView(G.current.heroes[mySeat])} />
                   <div className="rpg-stat-foot">
                     <button type="button" className="btn-main" disabled={planned <= 0} onClick={applyStats}>
                       적용하기{planned > 0 ? ` (${planned})` : ""}

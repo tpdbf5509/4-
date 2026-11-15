@@ -40,7 +40,7 @@ def place(crop, s):
     return out
 
 if __name__ == "__main__":
-    for g in ["m", "f"]:
+    for g in ["m"]:   # 여성은 tools/cut-blood-f.py(11월 15일 새 그림)
         im = np.asarray(Image.open(os.path.join(SRC, f"blood-{g}-sheet.webp")).convert("RGBA"))
         crops = {v: cell(im, r, 0) for r, v in enumerate(ROWS)}
         # 게임의 turn 은 "아래로 가며 왼쪽을 본다" — 거의 앞모습이어야 한다. 시트 넷째 줄은 옆으로 걷는 모습이라

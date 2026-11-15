@@ -27,7 +27,7 @@ export function bloodHud(v) {
     form: { cd: v.cd.form || 0, max: BLOOD_FORM.cd, locked, veil: v.vl ? Math.max(0, v.vl.max - v.vl.t) : 0, veilLow: b < BLOOD_FORM.veil.cost },   // 혈막 — 대기 15초
     // 혈검(11월 15일) — 자체 대기 6초 · 만드는 중 · 남은 베기 · 남은 유지 시간
     sword: { cd: v.cd.sword || 0, max: BLOOD_FORM.sword.cd, locked, low: b < BLOOD_FORM.sword.cost, making: !!(v.sw && v.sw.ph === 1),
-      left: v.sw && v.sw.ph === 2 ? v.sw.left : 0, hold: v.sw && v.sw.ph === 2 ? Math.max(0, BLOOD_FORM.sword.hold - v.sw.t) : 0 },
+      held: !!(v.sw && v.sw.ph === 2), hold: v.sw && v.sw.ph === 2 ? Math.max(0, BLOOD_FORM.sword.hold - v.sw.t) : 0 },
     conv: { cd: v.cd.conv || 0, max: BLOOD.convert.cd, full: b >= (v.rg ? cap : BLOOD.convert.top) },   // 안정 상한을 넘어 179 까지 전환한다(폭주 · 탈진 중에는 상한까지)
     use: sc ? shot.cost : mc ? smash.cost : 0,
   };
@@ -75,8 +75,8 @@ function ChargeBtn({ name, s, k, touch, sub, dots, onDown, onUp, onCancel }) {
 export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, onSmash, onSmashUp, onSword, onVeil, onField, onFieldUp, onConv }) {
   if (!v) return null;
   const s = v.shot, m = v.smash, f = v.form, c = v.conv, d = v.field, w = v.sword;
-  const on = w.making || w.left > 0;
-  const swordSub = f.locked ? `직업 Lv ${BLOOD.unlock.shape}` : w.making ? "검을 만드는 중" : w.left > 0 ? `평타로 베기 ${w.left}/${BLOOD_FORM.sword.max} · ${w.hold.toFixed(1)}초` : w.low ? "혈량 부족" : `혈량 ${BLOOD_FORM.sword.cost}`;
+  const on = w.making || w.held;
+  const swordSub = f.locked ? `직업 Lv ${BLOOD.unlock.shape}` : w.making ? "검을 만드는 중" : w.held ? `평타로 베기 · ${Math.ceil(w.hold)}초` : w.low ? "혈량 부족" : `혈량 ${BLOOD_FORM.sword.cost}`;
   const lock = `직업 Lv ${BLOOD.unlock.shape}`;
   const shotSub = s.charging ? (s.short >= 0 ? `혈량 부족 — ${tierName(s.short)} 발사` : `${tierName(s.tier)} · 혈량 ${s.cost}`) : s.low ? "혈량 부족" : `혈량 ${s.cost}`;
   const smashSub = m.locked ? lock : m.charging ? (m.short >= 0 ? `혈량 부족 — ${m.short ? `+${m.short * 10}` : "기본"} 발동` : `${m.tier ? `+${m.tier * 10}` : "기본"} · 혈량 ${m.cost}`) : m.low ? "혈량 부족" : `혈량 ${m.cost}`;
@@ -90,7 +90,7 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         onPointerDown={(e) => { e.preventDefault(); onSword(); }}>
         {!touch && keys.sword && <kbd>{keys.sword}</kbd>}
         <span>{BLOOD_FORM.sword.name}<small>{swordSub}</small></span>
-        {w.left > 0 && <b className="rpg-blood-dots">{Array.from({ length: BLOOD_FORM.sword.max }, (_, i) => <i key={i} className={i < w.left ? "on" : ""} />)}</b>}
+        {w.held && <b className="rpg-blood-ring" style={{ "--p": `${(w.hold / BLOOD_FORM.sword.hold) * 360}deg` }} />}
         {w.cd > 0 && !on && <em>{Math.ceil(w.cd)}</em>}
         {w.cd > 0 && <i style={{ width: `${(w.cd / w.max) * 100}%` }} />}
       </button>

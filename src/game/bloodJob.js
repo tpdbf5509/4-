@@ -379,8 +379,8 @@ function landSmash(E, g, h, sm) {
 }
 
 /* ── 혈형 변환 · 혈검(11월 15일 — 손에 들고 새 평타마다 벤다) ─────
-   h.bd.sw = { ph 1 만드는 중 · 2 든 검, t 그 단계에서 지난 초, left 남은 베기, i 벤 횟수, ax · ay 마지막 베기 방향, sT 마지막 베기 뒤 초,
-               gap 다음 베기까지, qd 기다리는 누름, end 마지막 베기 뒤 남은 동작 시간, R · add · cast · base · xp · map } */
+   h.bd.sw = { ph 1 만드는 중 · 2 든 검, t 그 단계에서 지난 초, left 늘 1(옛 화면 호환 — 횟수 제한 없음), i 벤 횟수, ax · ay 마지막 베기 방향, sT 마지막 베기 뒤 초,
+               gap 다음 베기까지, qd 기다리는 누름, R · add · cast · base · xp · map } */
 const SW = F.sword;
 function swordWhy(E, g, h) {
   const s = st(h), lock = shapeLock(h);
@@ -399,7 +399,7 @@ function swordUse(E, g, h) {
   const [ax, ay] = E.face(h);
   spend(h, SW.cost);                                 // 생성 시작에 혈량 10 · 혈검 대기 6초
   s.cd.sword = SW.cd;
-  s.sw = { ph: 1, t: 0, left: SW.max, i: 0, ax: r2(ax), ay: r2(ay), sT: 9, gap: 0, qd: 0, end: 0,
+  s.sw = { ph: 1, t: 0, left: 1, i: 0, ax: r2(ax), ay: r2(ay), sT: 9, gap: 0, qd: 0,
     R: Math.round(SW.r * (1 + rangeAdd(h))), add: dmgAdd(h), cast: E.cast(h), base: E.base(h), xp: 0, map: h.map, n: ++s.q };   // 범위 · 피해 보너스는 생성 순간 값
   E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 104, text: SW.name, color: "#E53945", who: h.pi, t: 0.6, life: 0.6, snd: "bloodCharge" });
 }
@@ -407,17 +407,17 @@ function swordUse(E, g, h) {
 export function bloodSwordPress(E, g, h, fresh) {
   const sw = h && h.bd && h.bd.sw;
   if (!sw || !bloodOn(h)) return false;
-  if (!fresh || sw.ph !== 2 || sw.left <= 0) return true;   // 만드는 중 · 다 벤 뒤 · 새 누름이 아니면 아무것도 하지 않는다
+  if (!fresh || sw.ph !== 2) return true;           // 만드는 중 · 새 누름이 아니면 아무것도 하지 않는다
   if (sw.gap > 0) { sw.qd = 1; return true; }        // 너무 빠른 연타 — 한 번 기억했다가 간격이 지나면 벤다
   swordHit(E, g, h, sw);
   return true;
 }
 // 혈검을 들고 있나(만드는 중 포함) — 평타 · 자동 평타가 원래 무기로 나가지 않게
 export const bloodSwordOn = (h) => !!(h && h.bd && h.bd.sw);
-// 한 번 베기 — 지금 내 자리 중심 · 누른 순간 겨눈 방향 · 반경 R · 100도. 대상별 한 번
+// 한 번 베기 — 지금 내 자리 중심 · 누른 순간 겨눈 방향 · 반경 R · 100도. 대상별 한 번. 횟수 제한 없이 위 → 아래 · 아래 → 위를 번갈아 벤다
 function swordHit(E, g, h, sw) {
   const i = sw.i++;
-  sw.left -= 1; sw.qd = 0; sw.gap = SW.gap; sw.sT = 0;
+  sw.qd = 0; sw.gap = SW.gap; sw.sT = 0;
   const [ax, ay] = E.aim(g, h, sw.R);
   sw.ax = r2(ax); sw.ay = r2(ay);
   const list = E.arc(g, h, sw.ax, sw.ay, sw.R, (SW.arc / 2) * Math.PI / 180).filter((o) => E.alive(g, h, o, sw.map) && !walled(E, sw.map, h.x, h.y, o));
@@ -427,14 +427,9 @@ function swordHit(E, g, h, sw) {
     reap(E, g, h, o);
     if (!E.dummy(o)) hit = 1;
   }
-  h.swing = i === SW.max - 1 ? 0.3 : 0.22;
-  E.fx(g, h.map, { kind: "sk_bj_sword", x: h.x, y: h.y, ax: sw.ax, ay: sw.ay, r: sw.R, i, pi: h.pi, t: i === SW.max - 1 ? 0.32 : 0.24, life: i === SW.max - 1 ? 0.32 : 0.24, snd: list.length ? "bloodHit" : "slash" });
-  if (i === SW.max - 1 && list.length) {             // 세 번째 타가 맞았다 — 혈량 10 한 번(훈련용 대상도 회수는 된다, 경험치만 없다)
-    const got = gainBlood(h, SW.back);
-    E.fx(g, h.map, { kind: "sk_bj_reap", x: h.x + sw.ax * sw.R * 0.6, y: h.y + sw.ay * sw.R * 0.6 * E.squash, x1: h.x, y1: h.y, n: 3, got, pi: h.pi, t: 0.4, life: 0.4, who: h.pi });
-  }
+  h.swing = 0.22;
+  E.fx(g, h.map, { kind: "sk_bj_sword", x: h.x, y: h.y, ax: sw.ax, ay: sw.ay, r: sw.R, i: i % 2, pi: h.pi, t: 0.24, life: 0.24, snd: list.length ? "bloodHit" : "slash" });
   if (hit) sw.xp = 1;
-  if (sw.left <= 0) sw.end = SW.tail;                // 마지막 베기 동작을 보여 준 뒤 풀린다
 }
 // 혈검 끝 — 칼날이 피로 풀린다. 형상화 경험치는 유효 적중이 있었으면 시전당 한 번
 export function endSword(E, g, h, why) {
@@ -449,9 +444,8 @@ function tickSword(E, g, h, s, dt) {
   if (h.down > 0 || E.locked(h) || sw.map !== h.map) return void endSword(E, g, h, h.down > 0 ? "down" : "stop");
   sw.t += dt; sw.sT += dt; sw.gap = Math.max(0, sw.gap - dt);
   if (sw.ph === 1) { if (sw.t >= SW.form) { sw.ph = 2; sw.t = 0; } return; }
-  if (sw.left <= 0) { sw.end -= dt; if (sw.end <= 0) endSword(E, g, h, "done"); return; }
   if (sw.qd && sw.gap <= 0) swordHit(E, g, h, sw);
-  if (s.sw === sw && sw.left > 0 && sw.t >= SW.hold) endSword(E, g, h, "time");
+  if (s.sw === sw && sw.t >= SW.hold) endSword(E, g, h, "time");
 }
 
 /* ── 혈형 변환 · 혈막 ───────────────────────────────── */

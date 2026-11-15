@@ -274,7 +274,7 @@ export function drawBloodBlade(ctx, h, v, view, flip, ww, hh, top, behind, time)
   const c = tintOf(h);
   const sT = sw.sT + late;
   if (sw.ph === 2 && sw.i > 0 && sw.sT < 9) {          // 베는 중 — 겨눈 쪽 둘레로 돈다(몸 그림 안 좌표로 바꿔 계산)
-    const S = BLADE_SWING[Math.min(2, sw.i - 1)], u = clamp(sT / S[2]);
+    const S = BLADE_SWING[(sw.i - 1) % 2], u = clamp(sT / S[2]);
     if (u < 1 || sT < S[2] + 0.12) {
       const base = Math.atan2((sw.ay || 0) * 0.78, sw.ax || 1);
       const w = base + ((S[0] + (S[1] - S[0]) * (1 - Math.pow(1 - u, 3))) * Math.PI) / 180;

@@ -92,7 +92,7 @@ export const BLOOD_SMASH = {
 export const BLOOD_FORM = {
   name: "혈형 변환", cd: 15,
   // form 생성 시간 · hold 들고 있는 시간 · max 최대 베기 · gap 베기 사이 최소 간격(그 사이 누름은 한 번 기억했다가 벤다) · tail 마지막 베기 동작을 보여 주는 시간 · cd 혈검 대기 · back 세 번째 적중 회수
-  sword: { name: "혈검", cost: 10, form: 0.25, hold: 5, max: 3, gap: 0.2, tail: 0.28, mul: 0.75, r: 140, arc: 100, cd: 6, back: 10 },
+  sword: { name: "혈검", cost: 10, form: 0.25, hold: 50, gap: 0.2, mul: 0.75, r: 140, arc: 100, cd: 6 },   // 11월 15일 사용자 — 유지 5 → 50초 · 3번 제한 · 3타 회수 없앰
   veil: { name: "혈막", cost: 15, red: 0.3, redPer: 0.001, redMax: 0.35, dur: 15, durPer: 0, durMax: 15, back: 12, hint: 0.25, ripple: 0.15 },
 };
 

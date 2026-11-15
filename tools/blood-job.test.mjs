@@ -227,7 +227,7 @@ test('혈수 강타 — 보스는 경직 · 넉백 면역', () => {
   assert.ok(b.hp < HP); assert.equal(b.stun, 0); assert.equal(Math.round(b.x), Math.round(h.x + 120));
 });
 
-/* 혈검(11월 15일) — 만들고(0.25초 · 피해 없음) 손에 든 뒤 평타를 새로 누를 때만 한 번씩 최대 3번 */
+/* 혈검(11월 15일) — 만들고(0.25초 · 피해 없음) 손에 든 50초 동안 평타를 새로 누를 때마다 한 번씩(횟수 제한 없음) */
 import { bloodJobDown } from '../src/game/bloodJob.js';
 const fire = (g, on) => rpgInput(g, { cls: 0, kind: 'fire', dir: on });
 const tap = (g) => { fire(g, true); step(g, .01); fire(g, false); run(g, F.sword.gap + .02); };
@@ -246,18 +246,17 @@ test('혈검 — 생성 중 · 입력 없이 들고만 있으면 피해 0 · 혈
   assert.equal(h.bd.sw, null, '혈막으로 바꾸면 혈검이 풀린다');
 });
 
-test('혈검 — 새 평타 입력마다 한 번 · 세 번째 적중이면 혈량 10 · 평타 혈량 · 새 혈흔 없음 · 경험치 한 번', () => {
+test('혈검 — 새 평타 입력마다 한 번 · 횟수 제한 · 혈량 회수 없음 · 평타 혈량 · 새 혈흔 없음 · 경험치 한 번', () => {
   const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
   const m = mob(g, h.x + 60, h.y);
   send(g, { op: 'sword' }); run(g, F.sword.form + .02);
   tap(g); const one = HP - m.hp;
-  assert.ok(one > 0); assert.equal(h.bd.sw.left, 2);
+  assert.ok(one > 0); assert.equal(h.bd.sw.i, 1);
   assert.equal(h.bag.bd.b, 20, '평타 혈량 +2 없음'); assert.equal(h.bd.mk['m' + m.id], undefined, '새 혈흔 없음');
-  tap(g); assert.ok(Math.abs((HP - m.hp) / one - 2) < 0.05);
-  assert.equal(h.bag.bd.b, 20, '두 번째까지는 회수 없음');
-  tap(g); assert.ok(Math.abs((HP - m.hp) / one - 3) < 0.05);
-  assert.equal(h.bag.bd.b, 30, '세 번째 적중 — 혈량 10');
-  run(g, F.sword.tail + .05); assert.equal(h.bd.sw, null, '세 번 베면 풀린다');
+  for (let k = 2; k <= 6; k++) { tap(g); assert.ok(Math.abs((HP - m.hp) / one - k) < 0.05, `${k}번째`); }
+  assert.equal(h.bd.sw.i, 6); assert.ok(h.bd.sw, '여섯 번 베도 그대로 들고 있다');
+  assert.equal(h.bag.bd.b, 20, '혈량 회수 없음');
+  run(g, F.sword.hold); assert.equal(h.bd.sw, null, '50초가 지나면 풀린다');
   assert.equal(h.bag.bd.tr[2][1], 10, '형상화 연마 +10(시전당 한 번)');
   const hp0 = m.hp; tap(g); assert.ok(m.hp < hp0, '그 뒤 새 평타는 원래 무기로 친다');
 });
@@ -271,8 +270,8 @@ test('혈검 — 누르고 있던 평타 · 키 반복 · 자동 평타로는 �
   assert.equal(m.hp, HP, '누르고 있던 평타 · 반복 입력은 베지 않는다');
   fire(g, false); h.auto = 1; run(g, 1.5);
   assert.equal(m.hp, HP, '자동 평타도 혈검 · 원래 무기 모두 나가지 않는다');
-  assert.equal(h.bd.sw.left, 3);
-  tap(g); assert.ok(m.hp < HP, '떼었다 새로 누르면 벤다'); assert.equal(h.bd.sw.left, 2);
+  assert.equal(h.bd.sw.i, 0);
+  tap(g); assert.ok(m.hp < HP, '떼었다 새로 누르면 벤다'); assert.equal(h.bd.sw.i, 1);
 });
 
 test('혈검 — 너무 빠른 연타는 한 번 기억했다가 간격 뒤에 벤다', () => {
@@ -280,15 +279,15 @@ test('혈검 — 너무 빠른 연타는 한 번 기억했다가 간격 뒤에 �
   mob(g, h.x + 60, h.y);
   send(g, { op: 'sword' }); run(g, F.sword.form + .02);
   fire(g, true); fire(g, false); fire(g, true); fire(g, false);
-  assert.equal(h.bd.sw.left, 2);
-  run(g, F.sword.gap + .02); assert.equal(h.bd.sw.left, 1);
+  assert.equal(h.bd.sw.i, 1);
+  run(g, F.sword.gap + .02); assert.equal(h.bd.sw.i, 2);
 });
 
-test('혈검 — 5초가 지나거나 쓰러지면 풀리고, 그 뒤 새 평타는 원래 무기로', () => {
+test('혈검 — 50초가 지나거나 쓰러지면 풀리고, 그 뒤 새 평타는 원래 무기로', () => {
   const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
   const m = mob(g, h.x + 60, h.y);
   send(g, { op: 'sword' }); run(g, F.sword.form + F.sword.hold + .05);
-  assert.equal(h.bd.sw, null, '5초 유지 끝');
+  assert.equal(h.bd.sw, null, '50초 유지 끝');
   assert.equal(m.hp, HP);
   tap(g); assert.ok(m.hp < HP, '원래 무기 평타');
   h.bd.cd.sword = 0; h.bag.bd.b = 30;
@@ -296,7 +295,7 @@ test('혈검 — 5초가 지나거나 쓰러지면 풀리고, 그 뒤 새 평타
   bloodJobDown(SE, g, h); assert.equal(h.bd.sw, null, '쓰러지면 풀린다');
 });
 
-test('혈검 상태가 손님 화면(스냅샷 끝 칸)에 간다 — 만드는 중 · 남은 베기 · 혈검 대기', () => {
+test('혈검 상태가 손님 화면(스냅샷 끝 칸)에 간다 — 만드는 중 · 벤 횟수 · 혈검 대기', () => {
   const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
   mob(g, h.x + 60, h.y);
   const guest = makeWorld();
@@ -305,7 +304,7 @@ test('혈검 상태가 손님 화면(스냅샷 끝 칸)에 간다 — 만드는 
   assert.equal(v.sw.ph, 1); assert.ok(v.cd.sword > 5);
   run(g, F.sword.form + .02); tap(g);
   rpgApply(guest, rpgPack(g)); v = bloodView(guest.heroes[0]);
-  assert.equal(v.sw.ph, 2); assert.equal(v.sw.left, 2); assert.equal(v.sw.i, 1);
+  assert.equal(v.sw.ph, 2); assert.equal(v.sw.i, 1);
   run(g, F.sword.hold); rpgApply(guest, rpgPack(g));
   assert.equal(bloodView(guest.heroes[0]).sw, null);
 });

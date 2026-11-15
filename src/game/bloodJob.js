@@ -38,7 +38,7 @@ export const stableCap = (lv) => BLOOD.cap.base + BLOOD.cap.per * Math.floor(Mat
 export const ampCap = (lv) => stableCap(lv) + BLOOD.cap.amp;
 export const overCap = (lv) => stableCap(lv) + BLOOD.cap.over;
 export const bloodCaps = (lv) => [stableCap(lv), ampCap(lv), overCap(lv)];
-// '다음 혈역 획득 시 폭주' 경고 — 다음 흡수(+10)가 과부하 한계에 닿는다(폭주 · 탈진 중에는 없음). 화면 경고와 판정 알림이 같은 셈을 쓴다
+// '다음 혈역 획득 시 폭주' 경고 — 다음 흡수가 과부하 한계에 닿는다(폭주 · 탈진 중에는 없음). 화면 경고와 판정 알림이 같은 셈을 쓴다
 export const overWarn = (b, lv, rg) => !rg && b + FD.gain >= overCap(lv);
 // 영구 연마 합계와 색 — 과충전의 임시 레벨(3단계)은 넣지 않는다
 export const trainSum = (bd) => (bd ? bd.tr.reduce((s, q) => s + q[0], 0) : 0);
@@ -542,7 +542,7 @@ function endField(E, g, h, why) {
   if (f.xp) trainXp(E, g, h, 1, Math.min(FD.xpMax, f.xp));   // 증폭형 — 실제로 혈량을 얻은 1초마다 +1(시전당 10까지)
   E.fx(g, f.map, { kind: "sk_bj_fieldend", x: f.x, y: f.y, r: FD.r, pi: h.pi, over: why === "over" ? 1 : 0, t: 0.5, life: 0.5 });
 }
-// 1초마다 — 나와 유효한 적이 모두 혈역 안일 때만 +10(넘는 몫은 과부하 한계까지). 못 얻은 회차는 넘어간다(쌓이지 않는다)
+// 1초마다 — 나와 유효한 적이 모두 혈역 안일 때만 혈량을 얻는다(과부하 한계까지). 못 얻은 회차는 넘어간다(쌓이지 않는다)
 function fieldTick(E, g, h, f) {
   const foes = E.near(g, h, f.x, f.y, FD.r + 40).filter((o) => E.alive(g, h, o, f.map) && Math.hypot(o.x - f.x, (o.y - f.y) / E.squash) <= FD.r);
   if (!foes.length || !inField(h)) { f.none = 1; return; }

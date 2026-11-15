@@ -26,10 +26,10 @@ export const BLOOD_JOB_PX = {
   bj_dark: { w: 249, h: 218, cols: 3, n: 10, cx: 125, cy: 90 },           // shadow/dark-explosion — 폭주 시작
   /* 11월 15일 — 형상화(피가 모여 물체가 되고 쓰고 나면 풀린다). design/effects/pixelfx/blood-job/blood-form.js(이 게임용 새 이펙트) · make-form.mjs 로 뽑았다.
      rim: 같은 이름 + _rim 시트에 밝은 외곽(C6 · C7)만 따로 있다 — 어두운 연마 색에서도 외곽은 밝게 그린다. rows: 줄마다 방향.
-     혈검 겉모양은 사용자 그림(11월 15일) — 길고 휜 대검 · 갈고리 발톱 가드 · 가드 가까이 구멍 무늬 · 칼끝 쪽 노란 빛 */
-  bj_sw_form: { w: 60, h: 60, cols: 8, n: 8, rows: 16, cx: 30, cy: 30, rim: 1 },   // 혈검 생성 — 모이는 피 → 손잡이 → 칼날(줄 = 16방향, 0 오른쪽부터 시계 방향 22.5도)
-  bj_sw_hold: { w: 58, h: 58, cols: 4, n: 4, rows: 16, cx: 29, cy: 29, loop: 1, rim: 1 },   // 든 혈검 — 칼날 위 빛이 흐른다(반복, 16방향)
-  bj_sw_break: { w: 68, h: 78, cols: 8, n: 8, rows: 16, cx: 34, cy: 31, rim: 1 },   // 혈검 풀림 — 칼끝부터 피로 흘러내린다(16방향)
+     혈검 겉모양은 사용자 그림(11월 15일)을 픽셀 단위로 옮겼다(cut.py · q.py). 혈검 시트 셋(bj_sw_*)만 1배로 그린다 */
+  bj_sw_form: { w: 152, h: 152, cols: 8, n: 8, rows: 16, cx: 76, cy: 76, rim: 1 },   // 혈검 생성 — 모이는 피 → 손잡이 → 칼날(줄 = 16방향, 0 오른쪽부터 시계 방향 22.5도)
+  bj_sw_hold: { w: 142, h: 142, cols: 4, n: 4, rows: 16, cx: 71, cy: 71, loop: 1, rim: 1 },   // 든 혈검 — 칼날 위 빛이 흐른다(반복, 16방향)
+  bj_sw_break: { w: 160, h: 158, cols: 8, n: 8, rows: 16, cx: 80, cy: 78, rim: 1 },   // 혈검 풀림 — 칼끝부터 피로 흘러내린다(16방향)
   bj_arc1: { w: 113, h: 124, cols: 6, n: 6, rows: 5, cx: 48, cy: 65, rim: 1 },   // 혈검 1타 궤적 — 위에서 아래로(줄 = -90 · -45 · 0 · 45 · 90도, 왼쪽은 좌우 뒤집기)
   bj_arc2: { w: 110, h: 120, cols: 6, n: 6, rows: 5, cx: 50, cy: 60, rim: 1 },   // 혈검 2타 궤적 — 아래에서 위로
   bj_arc3: { w: 147, h: 148, cols: 8, n: 8, rows: 5, cx: 73, cy: 74, rim: 1 },   // 혈검 3타 — 크게 내려베기

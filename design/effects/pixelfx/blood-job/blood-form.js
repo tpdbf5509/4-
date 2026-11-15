@@ -27,96 +27,73 @@ const ez = (k) => 1 - Math.pow(1 - clamp(k), 3);
 const downOf = (a) => [Math.sin(a), Math.cos(a)];
 
 /* ── 혈검 ───────────────────────────── */
-// 11월 15일 사용자 그림 — 길고 살짝 휜 대검. 손잡이 쪽이 넓고 칼끝으로 가늘게 휘어 빠진다.
-// 가드는 한쪽(-y)이 갈고리 발톱, 다른 쪽(+y)은 칼날 쪽으로 말린 뿔. 가드 가까이 칼날에 구멍 무늬 둘, 칼끝 쪽 아랫날에 노란 빛.
-const BL = 25, BW = 1.4;   // 11월 15일 사용자 "너무 두껍다" — 칼날 반폭 2.2 → 1.4
-const GOLD = [hex("#ffd36a"), hex("#ff9a3c")];          // 칼끝 쪽 노란 빛(몸 시트 — 연마 색이 함께 물든다)
-// 칼날 가운데 선(y) · 윗날 · 아랫날 반폭 — t 0(가드) ~ 1(칼끝). 길고 가늘다, 칼끝으로 갈수록 아래(+y)로 휜다
-const bc = (t) => 3.2 * Math.pow(t, 2.4);
-const bu = (t) => 0.9 * Math.pow(1 - t, 0.85) + 0.15;
-const bd = (t) => BW * Math.pow(1 - t, 1.05) * (1 + 0.3 * Math.sin(Math.PI * Math.min(1, t * 1.8))) + 0.15;  // 아랫날 — 배가 살짝 불룩
-function bladePts(len, pad) {
-  const n = Math.max(2, Math.ceil(len / 1.5)), top = [], bot = [], x0 = 1.5;
-  for (let i = 0; i <= n; i++) {
-    const x = x0 + (len * i) / n, t = (x - x0) / BL;
-    top.push([x, bc(t) - bu(t) - pad]); bot.push([x, bc(t) + bd(t) + pad]);
-  }
-  const tx = x0 + len, tt = len / BL;
-  return [...top, [tx + pad * 1.4, bc(tt) + 0.3], ...bot.reverse()];
-}
+// 11월 15일 사용자 그림을 픽셀 단위로 옮겼다(사용자 "원본 사진 픽셀별로 보고 똑같이"). cut.py 가 그림을 칼 축으로 돌려 길이 80 으로 줄이고
+// q.py 가 아래 팔레트로 칸마다 가장 가까운 색을 골랐다. 0~7 은 혈 팔레트(6 · 7 밝은 외곽 — 밝은 외곽 시트로 떨어진다), 8~11 금속 회색, 12~14 노란 빛.
+// 게임은 이 시트를 1배로 그린다(한 칸 = 화면 1px). 칼 위 좌표는 쥔 손(HX, HY)이 0, 0 · 칼끝이 +x.
+const SPR = [
+  "...............7................................................................",
+  "..............7b.aa.............................................................",
+  "...........ba..9a999b...........................................................",
+  "............a9.99..a.....7b.....................................................",
+  "..............909.......7ba99ab....7............................................",
+  "..............a0199899a99a99199999ab999aaaaabb..................................",
+  ".............b.ae98008133233221819a999999999999999aaaaeeaad77...................",
+  "...............7.9912229.b633333322223333333434443344eedddddcccba9aab...........",
+  "...............6ea.9332344333333333333322222223332232319eeeeeeeea9999adab7......",
+  "...............5454332343222223222222222122129999989189988111888191999999119a...",
+  "..ba....7b9999981343923288a....666.........................................a9ab.",
+  "99181999999aab..a94...39........................................................",
+  ".99b7............65..639........................................................",
+  "..................6..5e.........................................................",
+  "................................................................................"
+];
+const SPR_PAL = ["#14040a", "#3a0a14", "#650b17", "#a8152a", "#d82a3e", "#ff4f60", "#ff9ca4", "#ffe6e8", "#1d0a10", "#544a4f", "#8a7f85", "#c2b8bd", "#ffd36a", "#e0a23a", "#8a6a20"];
+const SPR_C = SPR_PAL.map(hex);
+const HX = 9, HY = 10;                                   // 쥔 손 — 손잡이 가운데
+const GUARD = 23;                                        // 이 칸(x)부터 칼날
+const SW = SPR[0].length, SH = SPR.length;
+const BL = SW - GUARD;                                   // 칼날 길이(칸)
+const TOP = Array.from({ length: SW }, (_, x) => { for (let y = 0; y < SH; y++) if (SPR[y][x] !== ".") return y; return -1; });
+const HILT_R = Math.max(...SPR.flatMap((r, y) => [...r].map((ch, x) => (ch !== "." && x < GUARD ? Math.hypot(x - HX, y - HY) : 0))));
+// hiltK — 손잡이 · 가드가 손에서 바깥으로 이만큼 생겼다 · bladeK — 칼날이 가드에서 이만큼 뻗었다 · cut — 칼끝부터 이만큼 사라졌다
 function sword(p, C, hiltK, bladeK, shine, cut = 0) {
-  // cut — 칼끝부터 이만큼(0~1) 사라졌다(풀리는 중)
-  const len = BL * bladeK * (1 - cut);
-  if (len > 0.8) {
-    p.poly(bladePts(len, 1), C[6]);                     // 밝은 외곽
-    p.poly(bladePts(len, 0), C[3]);
-    const end = 1.5 + len;
-    for (let x = 2; x < end - 1; x += 1) {
-      const t = (x - 1.5) / BL, c = bc(t);
-      for (let y = Math.ceil(c - bu(t)); y < c - 0.3; y++) p.px(x, y, C[4]);   // 윗면이 밝다
-      if (t > 0.04 && t < 0.85) p.px(x, c - bu(t) + 0.5, C[5]);            // 윗날 빛
-      if (t < 0.5) p.px(x, c + bd(t) - 0.6, C[2]);                          // 아랫날 그늘
-    }
-    // 구멍 무늬(가드 가까이) — 검은 속, 밝은 테 한 점
-    if (end > 9) { p.rect(4, 0, 2, 1, C[0]); p.px(6, 0, C[1]); }
-    if (end > 12) { p.px(9, 0, C[0]); }
-    // 칼끝 쪽 노란 빛 — 아랫날을 따라
-    for (let x = 1.5 + BL * 0.5; x < Math.min(end - 1, 1.5 + BL * 0.88); x += 1) {
-      const t = (x - 1.5) / BL, y = bc(t) + bd(t) * 0.3;
-      p.px(x, y, GOLD[t < 0.68 ? 1 : 0]);
-      if (t > 0.6 && t < 0.78) p.px(x, y - 1, GOLD[1]);
-    }
-    if (shine >= 0 && shine <= 1) {
-      const x = 4 + (len - 7) * shine, t = (x - 1.5) / BL, y = bc(t) - bu(t) + 0.5;
-      p.px(x, y, C[7]); p.px(x + 1, y, C[7]);
-    }
-    if (cut === 0) p.px(end, bc(len / BL) + 0.3, C[7]);
-  }
-  if (hiltK > 0) {
-    const gl = 6 * hiltK, k = hiltK;
-    // 손잡이 — 가늘고 길다. 감은 끈 마디 · 끝은 가는 가시
-    p.rect(-gl - 0.5, -1.5, gl + 1, 3, C[6]);
-    p.rect(-gl, -1, gl, 2, C[2]);
-    for (let x = -5; x <= -1; x += 2) if (-x <= gl) p.px(x, -1, C[4]);
-    if (k > 0.85) { p.line(-gl - 1, 0, -gl - 3, -1, C[6]); p.px(-gl - 4, -1, C[7]); }
-    if (k > 0.3) {
-      // 가드 — 칼날 뿌리를 감싸는 작은 덩이
-      p.poly([[-1.5, 0], [0.5, -3.2 * k], [3, -2 * k], [3.5, 2.5 * k], [1, 3.6 * k], [-1, 2 * k]], C[6]);
-      p.poly([[-0.5, 0], [0.8, -2 * k], [2, -1 * k], [2.5, 1.6 * k], [1, 2.4 * k], [0, 1.2 * k]], C[3]);
-      p.px(1, -1, C[5]); p.px(1, 1, C[1]);
-      if (k > 0.65) {
-        // -y 쪽 갈고리 발톱 둘 — 손잡이 쪽으로 말린다
-        p.line(0, -3, -1.5, -5, C[6]); p.line(-1.5, -5, -3, -5, C[6]); p.px(-3, -4, C[7]);
-        p.line(2, -3, 2, -6, C[6]); p.line(2, -6, 0, -7, C[6]); p.px(-0.5, -6, C[7]);
-        p.px(1, -4, C[3]); p.px(-1, -4, C[3]);
-      }
-      if (k > 0.8) {
-        // +y 쪽 뿔 — 칼날을 따라 앞으로 말린다
-        p.line(2, 3, 4, 4.5, C[6]); p.line(4, 4.5, 6, 4, C[6]); p.px(6, 3, C[7]); p.px(3, 3.5, C[3]);
-      }
+  const reach = BL * bladeK * (1 - cut);
+  const col = (i) => (i === 6 ? C[6] : i === 7 ? C[7] : SPR_C[i]);
+  p.shade(-HX - 1, -HY - 1, SW - HX + 1, SH - HY + 1, (lx, ly) => {
+    const x = Math.floor(lx + HX), y = Math.floor(ly + HY);
+    if (x < 0 || y < 0 || x >= SW || y >= SH) return 0;
+    const ch = SPR[y][x];
+    if (ch === ".") return 0;
+    if (x < GUARD) { if (Math.hypot(x - HX, y - HY) > HILT_R * hiltK) return 0; }
+    else if (x - GUARD >= reach) return 0;
+    return col(parseInt(ch, 16));
+  });
+  if (shine >= 0 && shine <= 1 && reach >= BL) {         // 칼등을 따라 흐르는 빛 두 칸
+    for (let k = 0; k < 2; k++) {
+      const x = GUARD + 2 + Math.floor((BL - 6) * shine) + k;
+      if (TOP[x] >= 0) p.px(x - HX, TOP[x] - HY, C[7]);
     }
   }
 }
 function swordForm(p, C, u, o) {
-  // 0~0.4 피가 손으로 모인다 → 0.25~0.6 손잡이 → 0.5~1 칼날이 뻗는다
-  const R = 18;
-  for (let i = 0; i < 16; i++) {
+  // 0~0.4 피가 손으로 모인다 → 0.25~0.6 손잡이 · 가드 → 0.5~1 칼날이 뻗는다(1배로 그리므로 알갱이는 2칸)
+  const R = 36;
+  for (let i = 0; i < 18; i++) {
     const a0 = rand(o.seed, i, 1) * TAU, d0 = R * (0.7 + 0.5 * rand(o.seed, i, 2)), k = ez((u - rand(o.seed, i, 3) * 0.12) / 0.38);
     if (k >= 1 || u < rand(o.seed, i, 3) * 0.12) continue;
     const sw = 1.6 * (1 - k), a = a0 + sw, d = d0 * (1 - k);
-    const x = Math.cos(a) * d, y = Math.sin(a) * d;
-    p.px(x, y, i % 3 ? C[4] : C[5]);
+    p.rect(Math.cos(a) * d, Math.sin(a) * d, 2, 2, i % 3 ? C[4] : C[5]);
     const kb = Math.max(0, k - 0.12), ab = a0 + 1.6 * (1 - kb), db = d0 * (1 - kb);
-    p.px(Math.cos(ab) * db, Math.sin(ab) * db, C[3]);
+    p.rect(Math.cos(ab) * db, Math.sin(ab) * db, 2, 2, C[3]);
   }
   const pool = smooth(0.08, 0.35, u) * (1 - smooth(0.45, 0.7, u));
-  if (pool > 0) { p.circle(0, 0, 1 + 2.2 * pool, C[3]); p.circle(0, 0, 1.2 * pool, C[5]); }
+  if (pool > 0) { p.circle(0, 0, 2 + 4.4 * pool, C[3]); p.circle(0, 0, 2.4 * pool, C[5]); }
   const hk = ez((u - 0.22) / 0.35), bk = ez((u - 0.5) / 0.5);
   sword(p, C, hk, bk, -1);
   if (bk > 0 && bk < 1) {                              // 자라나는 칼끝 — 피가 튄다
-    const tx = 2 + BL * bk, ty = bc(bk);
-    p.px(tx + 1, ty - 2, C[5]); p.px(tx + 1, ty + 2, C[5]); p.px(tx + 2, ty, C[7]);
-    p.px(tx - 2, ty - BW - 2, C[4]); p.px(tx - 3, ty + BW + 2, C[4]);
+    const tx = GUARD - HX + BL * bk;
+    p.rect(tx + 1, -4, 2, 2, C[5]); p.rect(tx + 1, 2, 2, 2, C[5]); p.rect(tx + 3, -1, 2, 2, C[7]);
+    p.rect(tx - 4, -6, 2, 2, C[4]); p.rect(tx - 6, 4, 2, 2, C[4]);
   }
 }
 function swordBreak(p, C, u, o) {
@@ -124,14 +101,14 @@ function swordBreak(p, C, u, o) {
   const cut = ez(u / 0.6), hk = 1 - ez((u - 0.45) / 0.4);
   if (u < 0.85) sword(p, C, hk, 1, -1, cut);
   const [gx, gy] = downOf(o.ang || 0);
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 20; i++) {
     const born = rand(o.seed, i, 5) * 0.55, age = u - born;
     if (age <= 0 || age > 0.5) continue;
-    const at = born < 0.6 ? 2 + BL * (1 - ez(born / 0.6)) : -3, ay = at > 0 ? bc((at - 2) / BL) : 0;   // 이미 사라진 칼 자리에서
-    const side = (rand(o.seed, i, 6) - 0.5) * 2, sp = 10 + 14 * rand(o.seed, i, 7), fall = 70 * age * age;
-    const x = at + side * 2 + side * sp * age * 0.5 + gx * fall, y = ay + side * sp * age + gy * fall;
-    p.px(x, y, age < 0.18 ? C[5] : age < 0.35 ? C[4] : C[3]);
-    if (age < 0.25) p.px(x - gx, y - gy, C[3]);
+    const at = born < 0.6 ? GUARD - HX + BL * (1 - ez(born / 0.6)) : -6;   // 이미 사라진 칼 자리에서
+    const side = (rand(o.seed, i, 6) - 0.5) * 2, sp = 20 + 28 * rand(o.seed, i, 7), fall = 140 * age * age;
+    const x = at + side * 4 + side * sp * age * 0.5 + gx * fall, y = side * sp * age + gy * fall;
+    p.rect(x, y, 2, 2, age < 0.18 ? C[5] : age < 0.35 ? C[4] : C[3]);
+    if (age < 0.25) p.rect(x - gx * 2, y - gy * 2, 2, 2, C[3]);
   }
 }
 

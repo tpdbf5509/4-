@@ -29,12 +29,12 @@ const downOf = (a) => [Math.sin(a), Math.cos(a)];
 /* ── 혈검 ───────────────────────────── */
 // 11월 15일 사용자 그림 — 길고 살짝 휜 대검. 손잡이 쪽이 넓고 칼끝으로 가늘게 휘어 빠진다.
 // 가드는 한쪽(-y)이 갈고리 발톱, 다른 쪽(+y)은 칼날 쪽으로 말린 뿔. 가드 가까이 칼날에 구멍 무늬 둘, 칼끝 쪽 아랫날에 노란 빛.
-const BL = 25, BW = 2.2;
+const BL = 25, BW = 1.4;   // 11월 15일 사용자 "너무 두껍다" — 칼날 반폭 2.2 → 1.4
 const GOLD = [hex("#ffd36a"), hex("#ff9a3c")];          // 칼끝 쪽 노란 빛(몸 시트 — 연마 색이 함께 물든다)
 // 칼날 가운데 선(y) · 윗날 · 아랫날 반폭 — t 0(가드) ~ 1(칼끝). 길고 가늘다, 칼끝으로 갈수록 아래(+y)로 휜다
 const bc = (t) => 3.2 * Math.pow(t, 2.4);
-const bu = (t) => 1.5 * Math.pow(1 - t, 0.85) + 0.2;
-const bd = (t) => BW * Math.pow(1 - t, 1.05) * (1 + 0.3 * Math.sin(Math.PI * Math.min(1, t * 1.8))) + 0.2;  // 아랫날 — 배가 살짝 불룩
+const bu = (t) => 0.9 * Math.pow(1 - t, 0.85) + 0.15;
+const bd = (t) => BW * Math.pow(1 - t, 1.05) * (1 + 0.3 * Math.sin(Math.PI * Math.min(1, t * 1.8))) + 0.15;  // 아랫날 — 배가 살짝 불룩
 function bladePts(len, pad) {
   const n = Math.max(2, Math.ceil(len / 1.5)), top = [], bot = [], x0 = 1.5;
   for (let i = 0; i <= n; i++) {
@@ -58,8 +58,8 @@ function sword(p, C, hiltK, bladeK, shine, cut = 0) {
       if (t < 0.5) p.px(x, c + bd(t) - 0.6, C[2]);                          // 아랫날 그늘
     }
     // 구멍 무늬(가드 가까이) — 검은 속, 밝은 테 한 점
-    if (end > 9) { p.rect(4, 0, 3, 1, C[0]); p.px(4, 1, C[1]); p.px(7, -1, C[6]); }
-    if (end > 12) { p.px(9, 1, C[0]); p.px(10, 1, C[1]); }
+    if (end > 9) { p.rect(4, 0, 2, 1, C[0]); p.px(6, 0, C[1]); }
+    if (end > 12) { p.px(9, 0, C[0]); }
     // 칼끝 쪽 노란 빛 — 아랫날을 따라
     for (let x = 1.5 + BL * 0.5; x < Math.min(end - 1, 1.5 + BL * 0.88); x += 1) {
       const t = (x - 1.5) / BL, y = bc(t) + bd(t) * 0.3;

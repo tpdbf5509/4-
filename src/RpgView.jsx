@@ -25,7 +25,7 @@ import RacePanel from "./RacePanel.jsx";
 import { raceView } from "./game/race.js";
 import { RACE_ITEMS } from "./game/raceData.js";
 import { trading } from "./game/tradeData.js";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, RPG_SERVER_CAP, MAPS, QUEST, JOBS, ELEMS, GENDERS, NAME_MAX, JOB_BY_ID, ELEM_BY_ID,
@@ -43,7 +43,8 @@ import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAi
 import { bloodView } from "./game/bloodJob.js";
 import { BLOOD_NAME } from "./game/bloodJobData.js";
 import { spotNear, spotLine } from "./game/bloodUnlock.js";   // BLOOD-001 단서 조사 자리
-import { bloodHud, BloodBar, BloodButtons, BloodStat } from "./BloodHud.jsx";   // 히든 직업 BLOOD-001(11월 14일)
+import { bloodHud, BloodBar, BloodButtons, BloodStat, SkillIco } from "./BloodHud.jsx";
+import { POTION_ICON_SHEET, POTION_ICONS, potionIconOf, iconStyle } from "./game/skillIconData.js";   // 스킬 · 물약 아이콘 칸(11월 15일)   // 히든 직업 BLOOD-001(11월 14일)
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { herbNear } from "./game/alchemy.js";
@@ -507,6 +508,22 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const relookRef = useRef(onRelook);
   relookRef.current = onRelook;
   const pageRef = useRef(null);
+  // 아이콘 칸 판 아래 설명 칸 — 마우스를 올린(또는 누른) 칸의 이름 · 부가 문구(비용 · 남은 시간)를 그 칸에서 그대로 옮겨 적는다
+  const tipBox = useRef(null), tipBtn = useRef(null);
+  const fillTip = useCallback(() => {
+    const box = tipBox.current; if (!box) return;
+    let b = tipBtn.current;
+    if (b && !b.isConnected) b = tipBtn.current = null;
+    if (!b) b = box.parentElement?.querySelector(".rpg-skillbar .rpg-skill");   // 아직 고른 칸이 없으면 첫 칸
+    const sp = b && b.querySelector("span"), sm = sp && sp.querySelector("small");
+    const name = sp ? (sp.firstChild?.textContent || "") : "", sub = sm ? sm.textContent : "";
+    if (box.firstChild.textContent !== name) box.firstChild.textContent = name;
+    if (box.lastChild.textContent !== sub) box.lastChild.textContent = sub;
+    box.parentElement?.querySelectorAll(".rpg-skill.tip").forEach((x) => { if (x !== tipBtn.current) x.classList.remove("tip"); });
+    if (tipBtn.current) tipBtn.current.classList.add("tip");
+  }, []);
+  useLayoutEffect(fillTip);
+  const onSideOver = (e) => { const b = e.target.closest && e.target.closest(".rpg-skill"); if (b && b !== tipBtn.current) { tipBtn.current = b; fillTip(); } };
   const cvsRef = useRef(null);
   const skillPointer = useRef(null);
   const mouseHeld = useRef(new Map());              // 누르고 있는 마우스 버튼 → 행동(뗄 때 놓는다)
@@ -1685,12 +1702,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 스킬 · 물약 칸 — 넓은 화면(SIDE_MQ)은 판 오른쪽 rpg-side 에, 아니면 예전처럼 판 안 아래에 둔다
   const actionBars = (
-    <div className="rpg-touch-actions">
+    <div className={`rpg-touch-actions ${me?.blood ? "icons" : ""}`}>
     {me && !shopOpen && !bagOpen && (
       <div className="rpg-skillbar">
         <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
           onPointerDown={(e) => { e.preventDefault(); act("dash"); }}>
           {!touch && keyOf(binds, "dash") && <kbd>{keyOf(binds, "dash")}</kbd>}
+          <SkillIco id="dash" />
           <span>대쉬<small>회피 {DASH.inv}초</small></span>
           {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
           {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
@@ -1701,6 +1719,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             onPointerUp={() => { chargeRef.current = false; act("wcharge", false); }}
             onPointerCancel={() => { chargeRef.current = false; act("wcharge", "cancel"); }}>
             {!touch && keyOf(binds, "wskill") && <kbd>{keyOf(binds, "wskill")}</kbd>}
+            {heldSpecial(G.current.heroes[mySeat] || {}) === "blood_gun" ? <SkillIco id="chase" /> : <b className="rpg-ico" style={iconStyle(POTION_ICON_SHEET, POTION_ICONS.weapon)} aria-hidden="true" />}
             <span>{me.wsk.name}<small>{me.wsk.stack}</small></span>
             {me.wsk.cd > 0 && <em>{Math.ceil(me.wsk.cd)}</em>}
             {me.wsk.cd > 0 && <i style={{ width: `${(me.wsk.cd / me.wsk.max) * 100}%` }} />}
@@ -1758,6 +1777,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <button key={`pot${i}`} type="button" className={`rpg-skill pot ${p.n ? "" : "cool"}`}
               onPointerDown={(e) => { e.preventDefault(); if (p.n) act("shop", { op: "puse", id: p.id }); }}>
               {!touch && keyOf(binds, `pot${i + 1}`) && <kbd>{keyOf(binds, `pot${i + 1}`)}</kbd>}
+              <b className="rpg-ico" style={iconStyle(POTION_ICON_SHEET, POTION_ICONS[potionIconOf(p.id)])} aria-hidden="true" />
               <span>{p.name.replace("물약 ", "")}<small>물약 칸 {i + 1}</small></span>
               <em>{p.n}</em>
             </button>
@@ -2918,9 +2938,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           )}
         </div>
         {side && (
-          <aside className="rpg-side" aria-label="스킬 · 물약">{/* 넓은 화면 — 스킬 · 물약 칸을 게임 판 오른쪽 판으로 옮긴다(11월 14일 사용자 요청) */}
+          <aside className="rpg-side" aria-label="스킬 · 물약" onPointerOver={onSideOver} onPointerDown={onSideOver}>{/* 넓은 화면 — 스킬 · 물약 칸을 게임 판 오른쪽 판으로 옮긴다(11월 14일 사용자 요청) */}
             {me && <div className="rpg-side-head"><b>스킬</b>{me.blood && <em>BLOOD-001</em>}</div>}
             {actionBars}
+            {me?.blood && <div className="rpg-side-tip" ref={tipBox} aria-live="polite"><b /><small /></div>}
           </aside>
         )}
 

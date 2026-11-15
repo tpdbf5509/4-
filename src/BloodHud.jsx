@@ -2,6 +2,7 @@
    값은 bloodJob.js bloodView(방장은 판정 상태 · 손님은 스냅샷 줄 56). 판정은 하지 않는다 — 누름 · 뗌만 보낸다.
    게이지는 절대 상한 180 을 늘 보이고 안정 상한 · 150 · 180 자리에 1px 구분선. 겹치면 하나만 그린다(연출및세부사항) */
 import { BLOOD, BLOOD_SHOT, BLOOD_SMASH, BLOOD_FORM, BLOOD_FIELD, BLOOD_STATE, BLOOD_NAME, BLOOD_COLORS, TRAIN_NAMES, TRAIN_UNLOCK } from "./game/bloodJobData.js";
+import { SKILL_ICON_SHEET, SKILL_ICONS, iconStyle } from "./game/skillIconData.js";
 import { stableCap, shotTier, shotTimeTier, smashTier, smashTimeTier, bloodMode, MODE_NAMES, jobNeed, trainNeed, bloodTint } from "./game/bloodJob.js";
 
 // 차징 단계 · 비용 — 시간만 본 단계가 혈량 때문에 낮아지면 short 에 실제 단계
@@ -57,12 +58,15 @@ export function BloodBar({ v }) {
 
 const tierName = (t) => (t ? `${t}단계` : "기본");
 // 차징 단추 하나 — 누르고 있으면 차징, 떼면 발동
-function ChargeBtn({ name, s, k, touch, sub, dots, onDown, onUp, onCancel }) {
+// 칸 아이콘(skillIconData.js) — 아이콘 칸 판(.icons)에서만 보인다
+export const SkillIco = ({ id }) => <b className="rpg-ico" style={iconStyle(SKILL_ICON_SHEET, SKILL_ICONS[id])} aria-hidden="true" />;
+function ChargeBtn({ name, s, k, touch, sub, dots, ico, onDown, onUp, onCancel }) {
   return (
     <button type="button" className={`rpg-skill blood ${s.cd > 0 || s.locked ? "cool" : ""} ${s.low && !s.charging ? "low" : ""}`}
       onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); onDown(); }}
       onPointerUp={onUp} onPointerCancel={onCancel}>
       {!touch && k && <kbd>{k}</kbd>}
+      <SkillIco id={ico} />
       <span>{name}<small>{sub}</small></span>
       {s.charging && <b className="rpg-blood-dots">{dots.map((on, i) => <i key={i} className={on ? "on" : ""} />)}</b>}
       {s.cd > 0 && <em>{Math.ceil(s.cd)}</em>}
@@ -82,13 +86,14 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
   const smashSub = m.locked ? lock : m.charging ? (m.short >= 0 ? `혈량 부족 — ${m.short ? `+${m.short * 10}` : "기본"} 발동` : `${m.tier ? `+${m.tier * 10}` : "기본"} · 혈량 ${m.cost}`) : m.low ? "혈량 부족" : `혈량 ${m.cost}`;
   return (
     <>
-      <ChargeBtn name={BLOOD_SHOT.name} s={s} k={keys.shot} touch={touch} sub={shotSub} dots={[s.timeTier >= 1, s.timeTier >= 2]}
+      <ChargeBtn name={BLOOD_SHOT.name} s={s} k={keys.shot} touch={touch} sub={shotSub} dots={[s.timeTier >= 1, s.timeTier >= 2]} ico="shot"
         onDown={onShot} onUp={onShotUp} onCancel={onShotCancel} />
-      <ChargeBtn name={BLOOD_SMASH.name} s={m} k={keys.smash} touch={touch} sub={smashSub} dots={[m.timeTier >= 1, m.timeTier >= 2, m.timeTier >= 3]}
+      <ChargeBtn name={BLOOD_SMASH.name} s={m} k={keys.smash} touch={touch} sub={smashSub} dots={[m.timeTier >= 1, m.timeTier >= 2, m.timeTier >= 3]} ico="smash"
         onDown={onSmash} onUp={onSmashUp} onCancel={onSmashUp} />
       <button type="button" className={`rpg-skill blood ${(w.cd > 0 && !on) || w.locked ? "cool" : ""} ${w.low && !on ? "low" : ""} ${on ? "on" : ""}`}
         onPointerDown={(e) => { e.preventDefault(); onSword(); }}>
         {!touch && keys.sword && <kbd>{keys.sword}</kbd>}
+        <SkillIco id="sword" />
         <span>{BLOOD_FORM.sword.name}<small>{swordSub}</small></span>
         {w.held && <b className="rpg-blood-ring" style={{ "--p": `${(w.hold / BLOOD_FORM.sword.hold) * 360}deg` }} />}
         {w.cd > 0 && !on && <em>{Math.ceil(w.cd)}</em>}
@@ -97,6 +102,7 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
       <button type="button" className={`rpg-skill blood ${(f.cd > 0 && !f.veil) || f.locked ? "cool" : ""} ${f.veilLow && !f.veil ? "low" : ""}`}
         onPointerDown={(e) => { e.preventDefault(); onVeil(); }}>
         {!touch && keys.veil && <kbd>{keys.veil}</kbd>}
+        <SkillIco id="veil" />
         <span>{BLOOD_FORM.veil.name}<small>{f.locked ? lock : f.veil ? `유지 ${f.veil.toFixed(1)}초` : f.veilLow ? "혈량 부족" : `혈량 ${BLOOD_FORM.veil.cost}`}</small></span>
         {f.cd > 0 && !f.veil && <em>{Math.ceil(f.cd)}</em>}
         {f.cd > 0 && <i style={{ width: `${(f.cd / f.max) * 100}%` }} />}
@@ -105,6 +111,7 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); onField(); }}
         onPointerUp={onFieldUp} onPointerCancel={onFieldUp}>
         {!touch && keys.field && <kbd>{keys.field}</kbd>}
+        <SkillIco id="field" />
         <span>{BLOOD_FIELD.name}<small>{d.locked ? `직업 Lv ${BLOOD.unlock.field}` : d.left ? (d.none ? "흡수 대상 없음" : `유지 ${Math.ceil(d.left)}초`) : d.busy ? `${v.state.split(" ")[0]} 중` : "혈량 소모 없음"}</small></span>
         {d.left > 0 && <b className="rpg-blood-ring" style={{ "--p": `${(d.left / BLOOD_FIELD.dur) * 360}deg` }} />}
         {d.cd > 0 && !d.left && <em>{Math.ceil(d.cd)}</em>}
@@ -113,6 +120,7 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
       <button type="button" className={`rpg-skill blood ${c.cd > 0 || c.full ? "cool" : ""}`}
         onPointerDown={(e) => { e.preventDefault(); onConv(); }}>
         {!touch && keys.conv && <kbd>{keys.conv}</kbd>}
+        <SkillIco id="conv" />
         <span>혈량 전환<small>{c.full ? "전환 한도" : `체력 ${Math.round(BLOOD.convert.hp * 100)}% → 혈량 ${BLOOD.convert.gain}`}</small></span>
         {c.cd > 0 && <em>{Math.ceil(c.cd)}</em>}
       </button>

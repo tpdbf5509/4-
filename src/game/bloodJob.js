@@ -294,19 +294,17 @@ function stepShot(E, g, h, shot, dt) {
 /* ── 2단계 공통 ───────────────────────────────────── */
 const shapeLv = (h) => effTrain(h, 2);
 const shapeLock = (h) => (h.bag.bd.lv < BLOOD.unlock.shape ? `직업 레벨 ${BLOOD.unlock.shape}에 열립니다` : "");
-// 새 공격 · 스킬을 누르면 — 다른 스킬 차징은 끊고(비용 · 대기 없음) 혈막은 먼저 끝낸다(연출및세부사항)
+// 새 공격 · 스킬을 누르면 — 다른 스킬 차징은 끊는다(비용 · 대기 없음). 혈막은 끊지 않는다
 function breakFor(E, g, h, sk) {
   const s = st(h);
   if (s.ch && s.ch.s !== sk) cancelCharge(E, g, h);
-  if (s.vl && sk !== "veil") endVeil(E, g, h, "break");
 }
 // 이 게임의 다른 입력(큰 기술 · 스킬 칸 · 무기 스킬 · 전직 스킬 · 대쉬 · 평타)이 들어왔다 — rpgInput 이 판정 앞에 부른다
 export function bloodJobBreak(E, g, h, kind) {
   if (!bloodOn(h) || !h.bd) return;
   const s = h.bd;
-  if (kind === "fire") { if (s.vl) endVeil(E, g, h, "break"); return; }
+  if (kind === "fire") return;                         // 혈막은 평타 · 다른 스킬에도 끊기지 않는다(11월 15일) — 15초가 다 되어야 끝난다
   if (s.ch) cancelCharge(E, g, h);
-  if (s.vl) endVeil(E, g, h, "break");
   s.sw = null;
 }
 
@@ -528,7 +526,6 @@ export function bloodJobInput(E, g, pi, req) {
   if (req.op === "sword") return void swordUse(E, g, h);
   if (req.op === "cancel") {                         // 창을 벗어났다 · 채팅 — 차징 · 유지 입력을 모두 푼다
     if (h.bd && h.bd.ch) cancelCharge(E, g, h);
-    if (h.bd && h.bd.vl) endVeil(E, g, h, "release");
     if (h.bd && h.bd.fd) endField(E, g, h, "release");
     return false;
   }
@@ -539,7 +536,7 @@ export function bloodJobInput(E, g, pi, req) {
   }
   if (req.s === "veil") {
     if (req.op === "press") veilPress(E, g, h);
-    else if (req.op === "release") endVeil(E, g, h, "release");
+    // 한 번 누르면 켜지고 15초 뒤에 끝난다 — 놓기 · 다시 누르기는 아무 일도 없다(취소 없음)
     return false;
   }
   if (req.s !== "shot" && req.s !== "smash") return false;
@@ -620,7 +617,6 @@ export function tickBloodJob(E, g, h, dt) {
     if (h.down > 0) endVeil(E, g, h, "down");
     else if (E.locked(h) || E.fight(h)) endVeil(E, g, h, "break");
     else if (v.t >= v.max) endVeil(E, g, h, "time");
-    else if (h.fire) endVeil(E, g, h, "break");    // 평타를 누르면 혈막을 먼저 끝낸다
     else if (v.hT <= 0) {
       v.hT = F.veil.hint;
       E.fx(g, h.map, { kind: "sk_bj_veil", x: h.x, y: h.y, pi: h.pi, u: r2(v.t / v.max), max: v.max, k: v.k, t: VEIL_LIFE, life: VEIL_LIFE });

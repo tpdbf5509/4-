@@ -460,6 +460,7 @@ export const veilStat = (lv) => [Math.min(F.veil.durMax, F.veil.dur + F.veil.dur
 // 혈막 연출 한 장의 길이 — 0.25초마다 새로 내고 넉넉히 겹치게 둔다(손님 화면은 스냅샷이 늦게 와도 끊기지 않게, 11월 15일).
 // 겹친 장은 그림에서 한 사람당 한 장만 그린다(bloodJobArt.js veilSeen)
 const VEIL_LIFE = 0.7;
+// 혈막 연출 크기는 sz 로 싣는다 — k 로 실으면 서버 소식({ k: "fx", ...연출 })의 k 를 덮어써 손님 화면에 혈막이 오지 않았다(11월 15일)
 function veilPress(E, g, h) {
   const s = st(h), w = why(E, g, h);
   if (w) { if (w !== "-") E.say(g, h.map, h.x, h.y - 90, w, "#d9c9a6"); return; }
@@ -474,7 +475,7 @@ function veilPress(E, g, h) {
   spend(h, F.veil.cost);
   s.cd.form = F.cd;
   s.vl = { t: 0, max: r2(max), red: Math.round(red * 1000) / 1000, did: 0, hT: F.veil.hint, rT: 0, k };
-  E.fx(g, h.map, { kind: "sk_bj_veil", x: h.x, y: h.y, pi: h.pi, u: 0, max: s.vl.max, k, start: 1, t: VEIL_LIFE, life: VEIL_LIFE, snd: "bloodCharge" });
+  E.fx(g, h.map, { kind: "sk_bj_veil", x: h.x, y: h.y, pi: h.pi, u: 0, max: s.vl.max, sz: k, start: 1, t: VEIL_LIFE, life: VEIL_LIFE, snd: "bloodCharge" });
 }
 // 혈막 끝 — 실제로 피해를 줄였다면 혈량 12(사망으로 끝나면 없음). 형상화 경험치는 줄였으면 시전당 +10
 function endVeil(E, g, h, why) {
@@ -652,7 +653,7 @@ export function tickBloodJob(E, g, h, dt) {
     else if (v.t >= v.max) endVeil(E, g, h, "time");
     else if (v.hT <= 0) {
       v.hT = F.veil.hint;
-      E.fx(g, h.map, { kind: "sk_bj_veil", x: h.x, y: h.y, pi: h.pi, u: r2(v.t / v.max), max: v.max, k: v.k, t: VEIL_LIFE, life: VEIL_LIFE });
+      E.fx(g, h.map, { kind: "sk_bj_veil", x: h.x, y: h.y, pi: h.pi, u: r2(v.t / v.max), max: v.max, sz: v.k, t: VEIL_LIFE, life: VEIL_LIFE });
     }
   }
   if (s.sh.length) {

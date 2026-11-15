@@ -2,7 +2,7 @@
    node --test tools/blood-job.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, heroRecord } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgApplyOut, heroRecord } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { cleanBag } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
@@ -307,6 +307,17 @@ test('혈검 상태가 손님 화면(스냅샷 끝 칸)에 간다 — 만드는 
   assert.equal(v.sw.ph, 2); assert.equal(v.sw.i, 1);
   run(g, F.sword.hold); rpgApply(guest, rpgPack(g));
   assert.equal(bloodView(guest.heroes[0]).sw, null);
+});
+
+test('혈막 연출이 서버 소식으로 손님 화면에 간다 — 연출 칸 k 가 소식 종류를 덮어쓰지 않는다', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 40;
+  g.out.length = 0;
+  send(g, { op: 'press', s: 'veil' }); run(g, 1);
+  const out = g.out.splice(0);
+  assert.ok(out.filter((o) => o.kind === 'sk_bj_veil').every((o) => o.k === 'fx'), '혈막 연출 소식은 k = fx');
+  const guest = makeWorld(); guest.mySeat = 0;
+  rpgApplyOut(guest, out);
+  assert.ok(guest.fx.filter((f) => f.kind === 'sk_bj_veil').length >= 3, '시전 직후 · 유지 중 장이 손님에게 온다');
 });
 
 test('혈막 — 혈량 15 · 받는 피해 30% 감소 · 줄였으면 끝날 때 혈량 12 · 평타를 누르면 끝난다', () => {

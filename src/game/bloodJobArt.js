@@ -227,7 +227,7 @@ const VEIL_D = 70, VEIL_FORM = 0.3;                   // 혈막 그림 지름(1�
 const veilHit = new Map();                            // pi → { born, a } — 마지막으로 맞은 때(기기 시계 performance.now) · 방향
 function veil(ctx, f, t, sq) {
   const P = pal(f), left = 1 - clamp((f.u || 0) + (f.max > 0 ? t / f.max : 0));   // 남은 시간은 낸 뒤 흐른 만큼 줄인다
-  const x = f.x, y = f.y - 40, D = 140 * (f.k || 1), k = D / VEIL_D, age = (f.u || 0) * (f.max || 15) + t;
+  const x = f.x, y = f.y - 40, D = 140 * (f.sz || 1), k = D / VEIL_D, age = (f.u || 0) * (f.max || 15) + t;
   const hit = veilHit.get(f.pi), ht = hit ? performance.now() / 1000 - hit.born : 9;   // 기기 시계 — g.t 는 손님 화면에서 앞뒤로 맞춰진다
   if (age < VEIL_FORM) formCell(ctx, "bj_vl_form", 0, onceI("bj_vl_form", age / VEIL_FORM), x, y, k, 1, f.c);
   else if (ht < 0.35) { const [row, flip] = row5(hit.a); formCell(ctx, "bj_vl_hit", row, onceI("bj_vl_hit", ht / 0.35), x, y, k, 1, f.c, flip); }

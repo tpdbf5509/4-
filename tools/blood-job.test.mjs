@@ -371,7 +371,14 @@ test('단서 B — 압축기 옆 허수아비에 평타 → 큰 기술 → 평�
   const { bloodSeqHit } = await import('../src/game/bloodUnlock.js');
   const { g, h } = setup(); h.map = 'train';
   const E = { fx() {}, sys() {}, say() {} }, m = { x: 1250, y: 900 };
-  g.t = 0; bloodSeqHit(E, g, h, m, true); assert.equal(h.bseq || null, null, '스킬부터는 틀림');
+  // 11월 15일 — 단서가 하나도 없으면 압축기는 보이지 않고 순서도 세지 않는다
+  g.t = 0; bloodSeqHit(E, g, h, m, false); g.t = 1; bloodSeqHit(E, g, h, m, true); g.t = 2; bloodSeqHit(E, g, h, m, false);
+  assert.ok(!h.bag.bu || !(h.bag.bu.f & 4), '단서 없이는 압축기가 열리지 않는다');
+  goSpot(h, 'press'); assert.equal(spotNear(h), null, '단서 없이는 압축기 조사 칸도 없다');
+  for (const id of ['sluice', 'plate']) { goSpot(h, id); assert.equal(spotNear(h), null, id + ' 도 숨겨져 있다'); }
+  h.map = 'train'; h.bag.bu = { c: 1, f: 3, o: 0 };   // 첫 단서(표본)를 얻은 뒤부터 드러난다
+  goSpot(h, 'press'); assert.ok(spotNear(h), '단서 뒤에는 압축기가 드러난다'); h.map = 'train';
+  g.t = 10; bloodSeqHit(E, g, h, m, true); assert.equal(h.bseq || null, null, '스킬부터는 틀림');
   g.t = 1; bloodSeqHit(E, g, h, m, false); g.t = 2; bloodSeqHit(E, g, h, m, true); g.t = 2.1; bloodSeqHit(E, g, h, m, true);
   g.t = 4; bloodSeqHit(E, g, h, m, false);
   assert.equal(h.bag.bu.f & 4, 4);

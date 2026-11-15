@@ -150,7 +150,7 @@ function endTrial(g, h) {
   h.bt = null;
 }
 function pass(E, g, h, step) {
-  const msg = ["", "2단계: 차징한 적혈탄(키를 0.8초 넘게 누른다)으로 혈흔이 있는 표적을 맞혀 혈량을 회수하라.", "3단계: 바닥에 예고가 뜨면 혈막(누르고 있기)으로 피해를 줄여라."][step];
+  const msg = ["", "2단계: 차징한 적혈탄(키를 0.8초 넘게 누른다)으로 혈흔이 있는 표적을 맞혀 혈량을 회수하라.", "3단계: 바닥에 예고가 뜨면 혈막(한 번 누르기)으로 피해를 줄여라."][step];
   h.bt.step = step + 1; h.bt.t = 0; h.bt.wp = null;
   E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 130, text: `시험 ${step}단계 통과`, color: "#E53945", t: 1.2, life: 1.2, snd: "build", who: h.pi });
   if (msg) tell(E, g, h, msg);
@@ -191,7 +191,7 @@ export function tickBloodTrial(E, g, h, dt) {
     E.hurt(g, h, Math.min(h.hp - 1, h.max * V.dmg));
     E.fx(g, h.map, { kind: "sk_bj_slam", x: p.x, y: p.y, ax: 1, ay: 0, W: V.r * 1.4, pi: h.pi, t: 0.4, life: 0.4, snd: "bloodBoom" });
     if (veil && h.bd.vl && h.bd.vl.did) return void finish(E, g, h);
-    tell(E, g, h, "혈막 없이 맞았다. 예고가 뜨면 혈막 키를 누르고 있어라.");
+    tell(E, g, h, "혈막 없이 맞았다. 예고가 뜨면 혈막 키를 한 번 눌러라.");
   }
 }
 // 스냅샷 · 화면 — 시험 단계(없으면 0)

@@ -246,17 +246,19 @@ test('혈막 — 혈량 15 · 받는 피해 30% 감소 · 줄였으면 끝날 �
   assert.equal(h.bag.bd.b, 25); assert.ok(h.bd.vl);
   const E = { fx() {} };
   assert.equal(bloodJobTake(E, g, h, 100), 70);
-  send(g, { op: 'release', s: 'veil' });
-  assert.equal(h.bd.vl, null); assert.equal(h.bag.bd.b, 37);
-  // 줄인 피해가 없으면 회수 없음 · 평타 누름은 혈막을 끝낸다
+  send(g, { op: 'release', s: 'veil' }); assert.ok(h.bd.vl, '놓아도 유지');
+  send(g, { op: 'press', s: 'veil' }); assert.equal(h.bag.bd.b, 25, '다시 눌러도 변화 없음(취소 · 재발동 없음)');
+  run(g, F.veil.dur + .05); assert.equal(h.bd.vl, null); assert.equal(h.bag.bd.b, 37);
+  // 줄인 피해가 없으면 회수 없음 · 평타를 눌러도 혈막은 15초 유지
   h.bd.cd.form = 0;
   send(g, { op: 'press', s: 'veil' }); const b0 = h.bag.bd.b;
-  rpgInput(g, { cls: 0, kind: 'fire', dir: true });
-  assert.equal(h.bd.vl, null); assert.equal(h.bag.bd.b, b0);
-  assert.deepEqual(veilStat(50), [4, 0.35]);
+  rpgInput(g, { cls: 0, kind: 'fire', dir: true }); run(g, 5);
+  assert.ok(h.bd.vl, '평타에도 끊기지 않는다');
+  run(g, F.veil.dur); assert.equal(h.bd.vl, null); assert.equal(h.bag.bd.b, b0);
+  assert.deepEqual(veilStat(50), [15, 0.35]);
 });
 
-test('혈막 — 최대 3초(형상화 연마로 늘어남)', () => {
+test('혈막 — 한 번 누르면 15초(연마로 늘지 않는다)', () => {
   const { g, h } = setup(); lv20(h); h.bag.bd.b = 40;
   send(g, { op: 'press', s: 'veil' }); run(g, F.veil.dur + .05);
   assert.equal(h.bd.vl, null);

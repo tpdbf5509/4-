@@ -69,8 +69,8 @@ function ChargeBtn({ name, s, k, touch, sub, dots, onDown, onUp, onCancel }) {
   );
 }
 
-// 스킬 칸 단추 — 적혈탄 · 혈수 강타(누르고 있으면 차징) · 혈검 · 혈막(누르고 있는 동안) · 혈량 전환
-export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, onSmash, onSmashUp, onSword, onVeil, onVeilUp, onField, onFieldUp, onConv }) {
+// 스킬 칸 단추 — 적혈탄 · 혈수 강타(누르고 있으면 차징) · 혈검 · 혈막(한 번 누르면 15초) · 혈량 전환
+export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, onSmash, onSmashUp, onSword, onVeil, onField, onFieldUp, onConv }) {
   if (!v) return null;
   const s = v.shot, m = v.smash, f = v.form, c = v.conv, d = v.field;
   const lock = `직업 Lv ${BLOOD.unlock.shape}`;
@@ -90,8 +90,7 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         {f.cd > 0 && <i style={{ width: `${(f.cd / f.max) * 100}%` }} />}
       </button>
       <button type="button" className={`rpg-skill blood ${(f.cd > 0 && !f.veil) || f.locked ? "cool" : ""} ${f.veilLow && !f.veil ? "low" : ""}`}
-        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); onVeil(); }}
-        onPointerUp={onVeilUp} onPointerCancel={onVeilUp}>
+        onPointerDown={(e) => { e.preventDefault(); onVeil(); }}>
         {!touch && keys.veil && <kbd>{keys.veil}</kbd>}
         <span>{BLOOD_FORM.veil.name}<small>{f.locked ? lock : f.veil ? `유지 ${f.veil.toFixed(1)}초` : f.veilLow ? "혈량 부족" : `혈량 ${BLOOD_FORM.veil.cost}`}</small></span>
         {f.cd > 0 && !f.veil && <em>{Math.ceil(f.cd)}</em>}

@@ -1149,7 +1149,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "bConv") act("blood", { op: "convert" });
       else if (a === "bSmash") { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }   // 혈수 강타 — 누르고 있는 동안 차징
       else if (a === "bSword") act("blood", { op: "sword" });
-      else if (a === "bVeil") act("blood", { op: "press", s: "veil" });   // 혈막 — 누르고 있는 동안 유지
+      else if (a === "bVeil") act("blood", { op: "press", s: "veil" });   // 혈막 — 한 번 누르면 15초 지속
       else if (a === "bField") act("blood", { op: "press", s: "field" });   // 혈역 증폭 — 누르고 있는 동안 유지
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "advUlt") act("adv", { op: "ult" });   // 소환술사 궁극기 거대 정령 — 방장이 판정한다
@@ -1179,7 +1179,6 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (a === "wskill") { chargeRef.current = false; act("wcharge", false); }
       if (a === "bShot") { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }
       if (a === "bSmash") { chargeRef.current = false; act("blood", { op: "release", s: "smash" }); }
-      if (a === "bVeil") act("blood", { op: "release", s: "veil" });
       if (a === "bField") act("blood", { op: "release", s: "field" });
     }
     function onKey(e) {
@@ -1721,7 +1720,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           onSmash={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }}
           onSmashUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "smash" }); }}
           onSword={() => act("blood", { op: "sword" })}
-          onVeil={() => act("blood", { op: "press", s: "veil" })} onVeilUp={() => act("blood", { op: "release", s: "veil" })}
+          onVeil={() => act("blood", { op: "press", s: "veil" })}
           onShot={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "shot" }); }}
           onShotUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }}
           onShotCancel={() => { chargeRef.current = false; act("blood", { op: "cancel", s: "shot" }); }}

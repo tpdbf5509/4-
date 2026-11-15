@@ -207,4 +207,4 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 - `rpg/effects/blood-job/px/bj_sw_*` · `bj_arc1~3` · `bj_vl_*` · `bj_hd_*` .webp + 같은 이름 `_rim.webp` 28장(11월 15일, 형상화) — 이 게임용으로 새로 쓴 pixelfx 꼴 이펙트 `design/effects/pixelfx/blood-job/blood-form.js` 를 `make-form.mjs` 로 뽑았다. 혈검 생성 · 든 검 · 풀림(줄 = 16방향), 베기 궤적 셋(줄 = 오른쪽 반 5방향, 왼쪽은 뒤집기), 혈막 생성 · 유지 · 피격(줄 = 맞은 방향 5) · 접힘, 혈수 강타 손 생성 · 편 손 · 주먹 쥐기 · 풀림. `_rim` 은 밝은 외곽(C6 · C7)만 — 어두운 연마 색에서도 외곽을 밝게 그린다. 칸 · 기준점은 `bloodJobPxData.js`.
 - `rpg/ui/side-panel.webp` — Codex 로 뽑은 640×1600 투명 판(갈색 · 금빛 선 · 위 머리판 · 혈방울 장식). CSS `border-image` 9칸(190 40 70 40)으로 늘려 `.rpg-side` 바탕에 쓴다. 원본 줄인 것 `design/ui/side-panel.webp`.
 
-| `rpg/ui/skill-icons.webp` · `rpg/ui/potion-icons.webp` | 512×256 · 4열 × 2행 · 칸 128 | 투명 | 오른쪽 스킬 판 아이콘 칸(BLOOD-001, 11월 15일 Codex). 칸 차례는 `skillIconData.js` · 원본은 `design/ui/skill-icons/` |
+| `rpg/ui/skill-icons.webp` · `rpg/ui/potion-icons.webp` | 스킬 512×384 · 4열 × 3행(셋째 줄 혈류 파동 · 혈쇄 갈고리, 11월 15일) · 물약 512×256 · 4열 × 2행 · 칸 128 | 투명 | 오른쪽 스킬 판 아이콘 칸(BLOOD-001, 11월 15일 Codex). 칸 차례는 `skillIconData.js` · 원본은 `design/ui/skill-icons/` |

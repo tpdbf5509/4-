@@ -962,7 +962,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     if (kind === "use" && !isHost) predictLunge(g, g.heroes[mySeat], dir);   // 급소 찌르기 돌진도 먼저 그린다
     const aim = skillFollowRef.current && aimedSkillInput(kind, dir) ? pointerSkillAim(g.heroes[mySeat], g.cam, skillPointer.current, RPG.squash) : null;
-    const pt = kind === "adv" && aim ? pointerSkillPt(g.heroes[mySeat], g.cam, skillPointer.current) : null;   // 전직 스킬만 — 포인터 자리(그림자 일섬이 가까운 적을 고른다)
+    const pt = (kind === "adv" || (kind === "blood" && dir?.s === "wave")) && aim ? pointerSkillPt(g.heroes[mySeat], g.cam, skillPointer.current) : null;   // 전직 스킬 · 혈류 파동만 — 포인터 자리(그림자 일섬이 가까운 적을 고른다 · 파동 중심)
     if (isHost) {
       rpgInput(g, { cls: mySeat, kind, dir, aim, pt });
     } else {
@@ -1167,6 +1167,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "bSmash") { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }   // 혈수 강타 — 누르고 있는 동안 차징
       else if (a === "bSword") act("blood", { op: "sword" });
       else if (a === "bVeil") act("blood", { op: "press", s: "veil" });   // 혈막 — 한 번 누르면 15초 지속
+      else if (a === "bWave") act("blood", { op: "press", s: "wave" });   // 혈류 파동 — 포인터 자리(없으면 가까운 적)에서 퍼진다
+      else if (a === "bHook") act("blood", { op: "press", s: "hook" });   // 혈쇄 갈고리 — 겨눈 쪽 적 앞으로 끌려간다
       else if (a === "bField") act("blood", { op: "press", s: "field" });   // 혈역 증폭 — 누르고 있는 동안 유지
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "advUlt") act("adv", { op: "ult" });   // 소환술사 궁극기 거대 정령 — 방장이 판정한다
@@ -1734,7 +1736,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
           </button>
         )}
-        <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), field: keyOf(binds, "bField") || keyOf(binds, "skill") }}
+        <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), wave: keyOf(binds, "bWave"), hook: keyOf(binds, "bHook"), field: keyOf(binds, "bField") || keyOf(binds, "skill") }}
+          onWave={() => act("blood", { op: "press", s: "wave" })} onHook={() => act("blood", { op: "press", s: "hook" })}
           onField={() => act("blood", { op: "press", s: "field" })} onFieldUp={() => act("blood", { op: "release", s: "field" })}
           onSmash={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }}
           onSmashUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "smash" }); }}

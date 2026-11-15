@@ -7,7 +7,9 @@ import { rpgInput } from '../src/game/rpgInput.js';
 import { cleanBag } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { BLOOD, BLOOD_SHOT as S } from '../src/game/bloodJobData.js';
-import { unlockBlood, stableCap, shotTier, bloodView, jobNeed, trainNeed, cleanBd, dropBlood } from '../src/game/bloodJob.js';
+import { unlockBlood, stableCap, shotTier, bloodView, jobNeed, trainNeed, cleanBd, dropBlood, bloodCaps, gainBlood } from '../src/game/bloodJob.js';
+import { TRAIN_UNLOCK } from '../src/game/bloodJobData.js';
+import { overWarn } from '../src/game/bloodJob.js';
 import { KEY_ACTIONS, keyMap, defaultKeys, BLOOD_ACTS } from '../src/game/keys.js';
 Math.random = () => 0.999;   // 치명타 없음
 const proto = (() => { const g = makeWorld(); return structuredClone(g.mobs.find(m => m.type === 'rabbit' && !m.boss)); })();
@@ -34,7 +36,7 @@ const press = (g) => send(g, { op: 'press', s: 'shot' });
 const release = (g) => send(g, { op: 'release', s: 'shot' });
 function basic(g, h) { h.cd = 0; h.fire = 1; step(g, .02); h.fire = 0; run(g, .3); }
 
-test('해금하면 1차 전직이 사라지고 혈량 50 · 직업 레벨 1로 시작한다', () => {
+test('해금하면 1차 전직이 사라지고 혈량 100 · 직업 레벨 1로 시작한다', () => {
   const { g, h } = setup();
   assert.equal(h.advClass, 'gladiator');
   unlockBlood(h);
@@ -49,17 +51,19 @@ test('해금하면 1차 전직이 사라지고 혈량 50 · 직업 레벨 1로 �
   void g;
 });
 
-test('안정 상한 = min(150, 50 + 레벨 - 1) · 경험치 표', () => {
-  assert.equal(stableCap(1), 50); assert.equal(stableCap(100), 149); assert.equal(stableCap(101), 150); assert.equal(stableCap(200), 150);
+test('혈량 한계 — 안정 100 + 5 × floor(레벨 / 5) · 증폭 +25 · 과부하 +50 · 경험치 표', () => {
+  assert.deepEqual(bloodCaps(1), [100, 125, 150]); assert.deepEqual(bloodCaps(4), [100, 125, 150]); assert.deepEqual(bloodCaps(5), [105, 130, 155]);
+  assert.deepEqual(bloodCaps(100), [200, 225, 250]); assert.deepEqual(bloodCaps(200), [300, 325, 350]);
+  assert.equal(stableCap(1), 100); assert.equal(BLOOD.start, 100);
   assert.equal(jobNeed(1), 11); assert.equal(trainNeed(0), 100); assert.equal(trainNeed(49), 1080);
 });
 
-test('평타 유효 적중 — 혈량 +2(공격 한 번에 한 번) · 혈흔 1중첩 · 10초 뒤 사라진다', () => {
+test('평타 유효 적중 — 혈량 +5(공격 한 번에 한 번) · 혈흔 1중첩 · 10초 뒤 사라진다', () => {
   const { g, h } = setup(); unlockBlood(h);
-  h.bag.bd.b = 10;
+  h.bag.bd.b = 40;
   const m = mob(g, h.x + 40, h.y);
   basic(g, h);
-  assert.equal(h.bag.bd.b, 12);
+  assert.equal(h.bag.bd.b, 45);
   assert.equal(h.bd.mk['m' + m.id][0], 1);
   for (let i = 0; i < 6; i++) basic(g, h);
   assert.equal(h.bd.mk['m' + m.id][0], BLOOD.mark.max);   // 최대 5
@@ -67,41 +71,48 @@ test('평타 유효 적중 — 혈량 +2(공격 한 번에 한 번) · 혈흔 1�
   assert.equal(h.bd.mk['m' + m.id], undefined);
 });
 
-test('일반 획득은 안정 상한까지 — 넘는 몫만 버린다', () => {
+test('일반 획득은 안정 한계까지 — 넘는 몫만 버린다 · 늘 5 단위', () => {
   const { g, h } = setup(); unlockBlood(h);
-  h.bag.bd.b = 49;
+  h.bag.bd.b = 95;
   mob(g, h.x + 40, h.y);
   basic(g, h);
-  assert.equal(h.bag.bd.b, 50);
+  assert.equal(h.bag.bd.b, 100);
+  basic(g, h);
+  assert.equal(h.bag.bd.b, 100, '안정 한계(1레벨 100) 위로는 평타로 못 얻는다');
+  assert.equal(gainBlood(h, 7), 0, '5 단위로 내린다 — 한계면 0');
+  h.bag.bd.b = 50; assert.equal(gainBlood(h, 7), 5); assert.equal(h.bag.bd.b, 55);
 });
 
-test('적혈탄 — 짧게 누르면 기본(5) · 0.8초 1단계(12) · 1.6초 자동 2단계(27) · 대기 7초', () => {
+test('적혈탄 — 짧게 누르면 기본(5 · 대기 2) · 0.6초 1단계(10 · 대기 3) · 1.2초 자동 2단계(20 · 대기 5)', () => {
   const { g, h } = setup(); unlockBlood(h);
-  h.bag.bd.b = 50;
+  h.bag.bd.b = 80;
   const m = mob(g, h.x + 200, h.y);
-  press(g); release(g); run(g, .5);
-  assert.equal(h.bag.bd.b, 45); assert.ok(HP - m.hp > 0); assert.equal(h.bd.cd.shot > 6, true);
+  press(g); release(g);
+  assert.equal(h.bag.bd.b, 75); assert.equal(h.bd.cd.shot, 2);
+  run(g, .5); assert.ok(HP - m.hp > 0);
   h.bd.cd.shot = 0;
-  press(g); run(g, .85); release(g); run(g, .5);
-  assert.equal(h.bag.bd.b, 45 - 12);
-  h.bd.cd.shot = 0;
-  press(g); run(g, S.full + .05);                // 놓지 않아도 1.6초에 쏜다
+  press(g); run(g, .65); release(g);
+  assert.equal(h.bag.bd.b, 65); assert.equal(h.bd.cd.shot, 3);
+  run(g, .5); h.bd.cd.shot = 0;
+  press(g); run(g, S.full + .05);                // 놓지 않아도 1.2초에 쏜다
   assert.equal(h.bd.ch, null);
-  assert.equal(h.bag.bd.b, 45 - 12 - 27);
+  assert.equal(h.bag.bd.b, 45); assert.ok(h.bd.cd.shot > 4.9);
   release(g);                                     // 계속 누르다 놓아도 다시 쏘지 않는다
   run(g, .3);
-  assert.equal(h.bag.bd.b, 45 - 12 - 27);
+  assert.equal(h.bag.bd.b, 45);
+  const guest = makeWorld(); rpgApply(guest, rpgPack(g));
+  assert.equal(bloodView(guest.heroes[0]).shotMax, 5, '화면 대기 막대의 최대는 쏜 단계 값');
 });
 
 test('혈량이 모자라면 낮은 단계로 · 5 미만이면 시작하지 않는다', () => {
-  assert.equal(shotTier(1.7, 20), 1); assert.equal(shotTier(1.7, 4), -1); assert.equal(shotTier(0.5, 30), 0);
+  assert.equal(shotTier(1.3, 15), 1); assert.equal(shotTier(1.3, 4), -1); assert.equal(shotTier(0.5, 30), 0); assert.equal(shotTier(1.3, 20), 2);
   const { g, h } = setup(); unlockBlood(h);
-  h.bag.bd.b = 4;
+  h.bag.bd.b = 0;
   press(g);
   assert.equal(h.bd?.ch || null, null);
 });
 
-test('혈흔 보너스 — 중첩당 +2% 피해 · 소비하면 중첩당 혈량 +3', () => {
+test('혈흔 보너스 — 중첩당 +2% 피해 · 소비하면 중첩당 혈량 +5(한 시전 +15 까지)', () => {
   const a = setup(); unlockBlood(a.h); a.h.bag.bd.b = 30;
   const m0 = mob(a.g, a.h.x + 200, a.h.y);
   press(a.g); release(a.g); run(a.g, .5);
@@ -113,7 +124,7 @@ test('혈흔 보너스 — 중첩당 +2% 피해 · 소비하면 중첩당 혈량
   press(b.g); release(b.g); run(b.g, .5);
   const marked = HP - m1.hp;
   assert.ok(Math.abs(marked / base - 1.1) < 0.02, `${marked / base}`);
-  assert.equal(b.h.bag.bd.b, 30 - 5 + 15);
+  assert.equal(b.h.bag.bd.b, 30 - 5 + 15, '5중첩이어도 한 시전 +15 까지');
   assert.equal(b.h.bd.mk['m' + m1.id], undefined);
 });
 
@@ -147,23 +158,19 @@ test('연마 경험치 — 유효 적중 시전당 +10 · 허수아비는 없음
   assert.equal(h.bag.bd.tr[0][1], 10, '허수아비는 연마 경험치 없음');
 });
 
-test('혈량 전환 — 최대 체력 2% → 혈량 +10 · 대기 2초 · 안정 상한을 넘어 179 까지(과부하 없음)', () => {
+test('혈량 전환 — 최대 체력 2% → 혈량 +10 · 대기 2초 · 안정 한계까지만', () => {
   const { g, h } = setup(); unlockBlood(h);
   h.bag.bd.b = 20; h.hp = h.max;
   send(g, { op: 'convert' });
   assert.equal(h.bag.bd.b, 30); assert.equal(h.hp, h.max - Math.ceil(h.max * .02));
   send(g, { op: 'convert' });
   assert.equal(h.bag.bd.b, 30);                   // 대기 중
-  h.bag.bd.b = 50; h.bd.cd.conv = 0;
+  h.bag.bd.b = 95; h.bd.cd.conv = 0;
   send(g, { op: 'convert' });
-  assert.equal(h.bag.bd.b, 60, '안정 상한(50)이어도 전환한다');
-  h.bag.bd.b = 175; h.bd.cd.conv = 0;
+  assert.equal(h.bag.bd.b, 100, '안정 한계(100)에서 멈춘다');
+  const hp0 = h.hp; h.bd.cd.conv = 0;
   send(g, { op: 'convert' });
-  assert.equal(h.bag.bd.b, 179, '179 에서 멈춘다');
-  assert.ok(!h.bd.rg, '전환만으로 과부하가 나지 않는다');
-  h.bd.cd.conv = 0;
-  send(g, { op: 'convert' });
-  assert.equal(h.bag.bd.b, 179);
+  assert.equal(h.bag.bd.b, 100); assert.equal(h.hp, hp0, '한계면 체력도 쓰지 않는다');
 });
 
 test('쓰러지면 혈량 0', () => {
@@ -176,16 +183,22 @@ test('쓰러지면 혈량 0', () => {
   assert.equal(h.bag.bd.b, 40);
 });
 
-test('저장 · 스냅샷 — 가방 bd 는 거른 값 · 손님 화면 값', () => {
-  const { g, h } = setup(); unlockBlood(h); h.bag.bd.b = 33; h.bag.bd.tr[1] = [3, 50];
+test('저장 · 스냅샷 — 가방 bd 는 거른 값 · 손님 화면 값 · 옛 저장은 5 단위 · 레벨 한계로', () => {
+  const { g, h } = setup(); unlockBlood(h); h.bag.bd.b = 35; h.bag.bd.tr[1] = [3, 50];
   const b = cleanBag(structuredClone(h.bag));
-  assert.deepEqual(b.bd, { on: 1, lv: 1, xp: 0, tr: [[0, 0], [3, 50], [0, 0]], b: 33 });
+  assert.deepEqual(b.bd, { on: 1, lv: 1, xp: 0, tr: [[0, 0], [3, 50], [0, 0]], b: 35 });
   assert.equal(cleanBd({ on: 1, lv: 999, b: 999, tr: [[99, 5]] }).lv, BLOOD.maxLv);
+  // 옛 저장 — 레벨 · 연마 · 해금은 그대로, 혈량은 가장 가까운 5 · 그 레벨 한계 안(과부하 한계 미만)
+  const old = cleanBd({ on: 1, lv: 37, xp: 3, tr: [[12, 40], [4, 0], [0, 0]], b: 33 });
+  assert.deepEqual([old.lv, old.xp, old.tr[0][0], old.b], [37, 3, 12, 35]);
+  assert.equal(cleanBd({ on: 1, lv: 1, b: 179 }).b, 145, '1레벨은 과부하 한계 150 아래로');
+  assert.equal(cleanBd({ on: 1, lv: 200, b: 179 }).b, 180);
+  assert.equal(cleanBd({ on: 1, lv: 50, b: 12 }).b, 10);
   const guest = makeWorld(); guest.mySeat = 0;
   rpgSyncSeats(guest, [{ id: 'b0', name: '혈액', hero: { name: '혈액', job: 'warrior', elem: 'frost', gender: 'm' } }]);
   rpgApply(guest, rpgPack(g));
   const v = bloodView(guest.heroes[0]);
-  assert.equal(v.b, 33); assert.equal(v.lv, 1); assert.deepEqual(v.tr[1], [3, 50]);
+  assert.equal(v.b, 35); assert.equal(v.lv, 1); assert.deepEqual(v.tr[1], [3, 50]);
 });
 
 /* ── 2단계 — 혈수 강타 · 혈형 변환(혈검 · 혈막) ── */
@@ -194,17 +207,25 @@ import { smashSize, smashTier, bloodJobTake, veilStat } from '../src/game/bloodJ
 const sm = (g, op) => send(g, { op, s: 'smash' });
 const lv20 = (h) => { unlockBlood(h); h.bag.bd.lv = 20; };
 
-test('직업 레벨 20 전에는 혈수 강타 · 혈형 변환을 못 쓴다', () => {
-  const { g, h } = setup(); unlockBlood(h); h.bag.bd.b = 50;
-  sm(g, 'press'); assert.equal(h.bd?.ch || null, null);
-  send(g, { op: 'sword' }); assert.equal(h.bag.bd.b, 50);
+test('해금 레벨 — 혈수 강타 5 · 혈검 · 혈막 10 · 혈류 파동 15 · 혈쇄 갈고리 20', () => {
+  const { g, h } = setup(); unlockBlood(h); h.bag.bd.b = 50; h.bag.bd.lv = 4;
+  sm(g, 'press'); assert.equal(h.bd?.ch || null, null, '4레벨 혈수 강타 없음');
+  h.bag.bd.lv = 5; sm(g, 'press'); assert.equal(h.bd.ch.s, 'smash'); sm(g, 'release'); h.bag.bd.b = 50;
+  h.bag.bd.lv = 9; send(g, { op: 'sword' }); assert.equal(h.bd.sw, null); send(g, { op: 'press', s: 'veil' }); assert.equal(h.bd.vl, null);
+  h.bag.bd.lv = 10; send(g, { op: 'sword' }); assert.ok(h.bd.sw, '10레벨 혈검');
+  mob(g, h.x + 200, h.y);
+  h.bag.bd.lv = 14; h.bag.bd.b = 50; send(g, { op: 'press', s: 'wave' }); assert.equal(h.bd.wv.length, 0);
+  h.bag.bd.lv = 15; send(g, { op: 'press', s: 'wave' }); assert.equal(h.bd.wv.length, 1);
+  h.bag.bd.lv = 19; h.bag.bd.b = 50; send(g, { op: 'press', s: 'hook' }); assert.equal(h.bd.hk, null);
+  h.bag.bd.lv = 20; send(g, { op: 'press', s: 'hook' }); assert.ok(h.bd.hk);
+  assert.deepEqual(TRAIN_UNLOCK, [1, 5, 10]);
 });
 
-test('혈수 강타 — 기본 30 · 0.2초 뒤 한 번 · 일반 몹 경직 0.5 · 넉백 · 대기 12초', () => {
+test('혈수 강타 — 기본 20 · 0.2초 뒤 한 번 · 일반 몹 경직 0.5 · 넉백 · 대기 8초', () => {
   const { g, h } = setup(); lv20(h); h.bag.bd.b = 50;
   const m = mob(g, h.x + 120, h.y, { stun: 0 }), far = mob(g, h.x + 400, h.y);
   sm(g, 'press'); sm(g, 'release');
-  assert.equal(h.bag.bd.b, 20); assert.ok(h.bd.cd.smash > 11);
+  assert.equal(h.bag.bd.b, 30); assert.equal(h.bd.cd.smash, 8);
   assert.equal(m.hp, HP, '닿기 전에는 피해 없음');
   run(g, M.delay + .02);
   assert.ok(m.hp < HP); assert.equal(far.hp, HP, '길이 240 밖');
@@ -212,12 +233,12 @@ test('혈수 강타 — 기본 30 · 0.2초 뒤 한 번 · 일반 몹 경직 0.5
   assert.equal(h.bag.bd.tr[1][1], 10, '증폭형 연마 +10');
 });
 
-test('혈수 강타 차징 — 0.3 · 0.6 · 0.9초 추가 10 · 20 · 30 · 폭 +15%씩 · 혈량이 모자라면 낮은 단계', () => {
-  assert.equal(smashTier(0.95, 100), 3); assert.equal(smashTier(0.95, 45), 1); assert.equal(smashTier(0.1, 29), -1);
-  const { g, h } = setup(); lv20(h); h.bag.bd.b = 65;   // 안정 상한(69) 아래 — 증폭 범위 보너스 없음
+test('혈수 강타 차징 — 0.3 · 0.6 · 0.9초 비용 25 · 30 · 35 · 폭 +15%씩 · 혈량이 모자라면 낮은 단계', () => {
+  assert.equal(smashTier(0.95, 100), 3); assert.equal(smashTier(0.95, 25), 1); assert.equal(smashTier(0.1, 19), -1);
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 100;   // 안정 한계(120) 아래 — 증폭 범위 보너스 없음
   assert.deepEqual(smashSize(h, 0), [240, 180]); assert.deepEqual(smashSize(h, 3), [240, 261]);
   sm(g, 'press'); run(g, M.full + .03);              // 0.9초 — 놓지 않아도 발동
-  assert.equal(h.bd.ch, null); assert.equal(h.bag.bd.b, 5);
+  assert.equal(h.bd.ch, null); assert.equal(h.bag.bd.b, 65);
 });
 
 test('혈수 강타 — 보스는 경직 · 넉백 면역', () => {
@@ -247,18 +268,19 @@ test('혈검 — 생성 중 · 입력 없이 들고만 있으면 피해 0 · 혈
 });
 
 test('혈검 — 새 평타 입력마다 한 번 · 횟수 제한 · 혈량 회수 없음 · 평타 혈량 · 새 혈흔 없음 · 경험치 한 번', () => {
-  const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 40;
   const m = mob(g, h.x + 60, h.y);
   send(g, { op: 'sword' }); run(g, F.sword.form + .02);
   tap(g); const one = HP - m.hp;
   assert.ok(one > 0); assert.equal(h.bd.sw.i, 1);
-  assert.equal(h.bag.bd.b, 20, '평타 혈량 +2 없음'); assert.equal(h.bd.mk['m' + m.id], undefined, '새 혈흔 없음');
+  assert.equal(h.bag.bd.b, 30, '평타 혈량 +5 없음'); assert.equal(h.bd.mk['m' + m.id], undefined, '새 혈흔 없음');
   for (let k = 2; k <= 6; k++) { tap(g); assert.ok(Math.abs((HP - m.hp) / one - k) < 0.05, `${k}번째`); }
   assert.equal(h.bd.sw.i, 6); assert.ok(h.bd.sw, '여섯 번 베도 그대로 들고 있다');
-  assert.equal(h.bag.bd.b, 20, '혈량 회수 없음');
+  assert.equal(h.bag.bd.b, 30, '혈량 회수 없음');
   run(g, F.sword.hold); assert.equal(h.bd.sw, null, '50초가 지나면 풀린다');
   assert.equal(h.bag.bd.tr[2][1], 10, '형상화 연마 +10(시전당 한 번)');
-  const hp0 = m.hp; tap(g); assert.ok(m.hp < hp0, '그 뒤 새 평타는 원래 무기로 친다');
+  const hp0 = m.hp, b0 = h.bag.bd.b; tap(g); assert.ok(m.hp < hp0, '그 뒤 새 평타는 원래 무기로 친다');
+  assert.equal(h.bag.bd.b, b0 + 5, '원래 평타는 혈량 +5 로 돌아온다');
 });
 
 test('혈검 — 누르고 있던 평타 · 키 반복 · 자동 평타로는 베지 않는다', () => {
@@ -320,15 +342,15 @@ test('혈막 연출이 서버 소식으로 손님 화면에 간다 — 연출 �
   assert.ok(guest.fx.filter((f) => f.kind === 'sk_bj_veil').length >= 3, '시전 직후 · 유지 중 장이 손님에게 온다');
 });
 
-test('혈막 — 혈량 15 · 받는 피해 30% 감소 · 줄였으면 끝날 때 혈량 12 · 평타를 누르면 끝난다', () => {
-  const { g, h } = setup(); lv20(h); h.bag.bd.b = 40;
+test('혈막 — 혈량 15 · 받는 피해 30% 감소 · 줄였으면 끝날 때 혈량 10 · 평타를 눌러도 15초 유지', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 60;
   send(g, { op: 'press', s: 'veil' });
-  assert.equal(h.bag.bd.b, 25); assert.ok(h.bd.vl);
+  assert.equal(h.bag.bd.b, 45); assert.ok(h.bd.vl);
   const E = { fx() {} };
   assert.equal(bloodJobTake(E, g, h, 100), 70);
   send(g, { op: 'release', s: 'veil' }); assert.ok(h.bd.vl, '놓아도 유지');
-  send(g, { op: 'press', s: 'veil' }); assert.equal(h.bag.bd.b, 25, '다시 눌러도 변화 없음(취소 · 재발동 없음)');
-  run(g, F.veil.dur + .05); assert.equal(h.bd.vl, null); assert.equal(h.bag.bd.b, 37);
+  send(g, { op: 'press', s: 'veil' }); assert.equal(h.bag.bd.b, 45, '다시 눌러도 변화 없음(취소 · 재발동 없음)');
+  run(g, F.veil.dur + .05); assert.equal(h.bd.vl, null); assert.equal(h.bag.bd.b, 55);
   // 줄인 피해가 없으면 회수 없음 · 평타를 눌러도 혈막은 15초 유지
   h.bd.cd.form = 0;
   send(g, { op: 'press', s: 'veil' }); const b0 = h.bag.bd.b;
@@ -358,37 +380,41 @@ import { heroDmgMul } from '../src/game/rpg.js';
 const lv100 = (h) => { unlockBlood(h); h.bag.bd.lv = 100; };
 const fd = (g, op) => send(g, { op, s: 'field' });
 
-test('상태 — 안정 · 증폭(상한 초과) · 과충전(150 초과) · 폭주 · 탈진', () => {
-  assert.equal(bloodMode(149, 149, null), 'stable'); assert.equal(bloodMode(150, 149, null), 'amp');
-  assert.equal(bloodMode(151, 149, null), 'over'); assert.equal(bloodMode(151, 150, null), 'over');
-  assert.equal(bloodMode(60, 149, { k: 1 }), 'rage'); assert.equal(bloodMode(60, 149, { k: 2 }), 'tired');
+test('상태 — 안정 · 증폭(안정 한계 초과) · 과충전(증폭 한계 초과) · 폭주 · 탈진', () => {
+  assert.equal(bloodMode(200, 200, null), 'stable'); assert.equal(bloodMode(205, 200, null), 'amp');
+  assert.equal(bloodMode(225, 200, null), 'amp'); assert.equal(bloodMode(230, 200, null), 'over');
+  assert.equal(bloodMode(125, 100, null), 'amp'); assert.equal(bloodMode(130, 100, null), 'over');
+  assert.equal(bloodMode(60, 200, { k: 1 }), 'rage'); assert.equal(bloodMode(60, 200, { k: 2 }), 'tired');
 });
 
 test('증폭 — 범위 +15%(혈수 강타 길이 · 폭) · 과충전 — 피해 +15% · 연마 계산 +5 · 초당 체력 1%', () => {
   const { g, h } = setup(); lv100(h); h.bag.bd.tr[1][0] = 0;
-  h.bag.bd.b = 150;
+  h.bag.bd.b = 210;
   assert.deepEqual(smashSize(h, 0), [276, 207]);
-  h.bag.bd.b = 160; h.hp = h.max; h.bd = null; step(g, .01);
+  h.bag.bd.b = 230; h.hp = h.max; h.bd = null; step(g, .01);
   assert.equal(effTrain(h, 1), 5); assert.equal(effTrain(h, 2), 5);
   const hp0 = h.hp; run(g, 1);
   assert.ok(Math.abs((hp0 - h.hp) / h.max - Z.over.hp) < 0.002, `${(hp0 - h.hp) / h.max}`);
   h.hp = 1; run(g, .5); assert.equal(h.hp, 1, '체력 1에서 멈춘다');
 });
 
-test('혈역 증폭 — 직업 100 · 1초마다 +15(적이 혈역 안) · 180 까지 넘는다 · 이동 -40% · 놓으면 대기 45초', () => {
+test('혈역 증폭 — 직업 100 · 1초마다 +10(적이 혈역 안) · 과부하 한계까지 넘는다 · 이동 -40% · 놓으면 대기 45초 · 1초에 한 번 10씩 감소', () => {
   const a = setup(); unlockBlood(a.h); a.h.bag.bd.lv = 99; fd(a.g, 'press'); assert.equal(a.h.bd?.fd || null, null);
-  const { g, h } = setup(); lv100(h); h.bag.bd.b = 149;
+  const { g, h } = setup(); lv100(h); h.bag.bd.b = 200;
   mob(g, h.x + 200, h.y);
   fd(g, 'press'); assert.ok(h.bd.fd);
   assert.ok(Math.abs(bloodJobSlow(h) - 0.6) < 1e-9);
   run(g, 2.05);
-  assert.equal(FD.gain, 15);
-  assert.equal(h.bag.bd.b, 179, '149 + 15 × 2');
+  assert.equal(FD.gain, 10);
+  assert.equal(h.bag.bd.b, 220, '200 + 10 × 2');
   fd(g, 'release');
   assert.equal(h.bd.fd, null); assert.equal(h.bd.cd.field, FD.cd);
-  run(g, .5); assert.equal(h.bag.bd.b, 179, '끝나고 1초 동안은 줄지 않는다');
-  run(g, 1.0); assert.ok(h.bag.bd.b < 179 && h.bag.bd.b >= 149, `${h.bag.bd.b}`);
-  run(g, 3); assert.equal(h.bag.bd.b, 149, '안정 상한 아래로는 줄지 않는다');
+  run(g, .5); assert.equal(h.bag.bd.b, 220, '끝나고 1초 동안은 줄지 않는다');
+  run(g, .45); assert.equal(h.bag.bd.b, 220);
+  run(g, .1); assert.equal(h.bag.bd.b, 220, '기다린 1초가 지나도 1초를 채워야 한 번');
+  run(g, 1); assert.equal(h.bag.bd.b, 210, '1초에 한 번 10');
+  run(g, .5); assert.equal(h.bag.bd.b, 210, '프레임마다 줄지 않는다');
+  run(g, 3); assert.equal(h.bag.bd.b, 200, '안정 한계 아래로는 줄지 않는다');
 });
 
 test('혈역 — 적이 없으면 얻지 못하고 · 시전자를 따라다닌다(맵을 옮기면 끝)', () => {
@@ -401,10 +427,13 @@ test('혈역 — 적이 없으면 얻지 못하고 · 시전자를 따라다닌�
   assert.equal(h.bd.fd, null);
 });
 
-test('과부하 — 180 이면 혈량 min(60, 상한) · 6초 폭주(공격력 +25% · 이동 +15%) → 5초 탈진(-15%)', () => {
-  const { g, h } = setup(); lv100(h); h.bag.bd.b = 178;
+test('과부하 — 과부하 한계(100레벨 250)에 닿으면 혈량 60 · 6초 폭주(공격력 +25% · 이동 +15%) → 5초 탈진(-15%) · 직전 경고', () => {
+  const { g, h } = setup(); lv100(h); h.bag.bd.b = 240;
   mob(g, h.x + 200, h.y);
   const base = heroDmgMul(h);
+  step(g, .01);
+  assert.ok(overWarn(240, 100, null), '다음 흡수(+10)가 250 에 닿는다 — 경고'); assert.ok(!overWarn(235, 100, null)); assert.ok(!overWarn(240, 100, { k: 1 }));
+  assert.ok(overWarn(140, 1, null) && !overWarn(135, 1, null), '1레벨은 150 에서');
   fd(g, 'press'); run(g, 1.05);
   assert.equal(h.bag.bd.b, 60); assert.equal(h.bd.fd, null); assert.equal(h.bd.rg.k, 1);
   assert.ok(Math.abs(heroDmgMul(h) / base - 1.25) < 1e-6); assert.ok(Math.abs(bloodJobSlow(h) - 1.15) < 1e-9);
@@ -536,4 +565,85 @@ test('관리자 명령 /블러드 <이름> 연마 50 — 연마 셋을 한 번�
   assert.deepEqual(h.bag.bd.tr, [[50, 0], [50, 0], [50, 0]]);
   rpgAdminCmd(g, 0, '/블러드 혈액 120');
   assert.equal(h.bag.bd.lv, 120); assert.deepEqual(h.bag.bd.tr[0], [50, 0], '직업 레벨만 바꾸면 연마는 그대로');
+});
+
+/* ── 11월 15일 개편 — 자연 회복 · 혈흔 회수 상한 · 혈류 파동 · 혈쇄 갈고리 · 스냅샷 호환 ── */
+import { BLOOD_WAVE as WV, BLOOD_HOOK as HK } from '../src/game/bloodJobData.js';
+import { waveRadius, applyBloodJob } from '../src/game/bloodJob.js';
+const lvN = (h, n) => { unlockBlood(h); h.bag.bd.lv = n; };
+
+test('자연 회복 — 30 아래면 1초에 한 번 +5(30 까지) · 쓰러진 동안 · PvP 에서는 멈춘다', () => {
+  const { g, h } = setup(); unlockBlood(h); h.bag.bd.b = 10;
+  run(g, .95); assert.equal(h.bag.bd.b, 10);
+  run(g, .1); assert.equal(h.bag.bd.b, 15);
+  run(g, 5); assert.equal(h.bag.bd.b, 30, '30 에서 멈춘다');
+  h.bag.bd.b = 10; h.down = 5; run(g, 2); assert.equal(h.bag.bd.b, 10, '쓰러진 동안 없음');
+  h.down = 0; h.pvpOn = 1; h.map = 'field'; run(g, 2.1); assert.equal(h.bag.bd.b, 10, '사냥터 PvP 를 켜면 없음');
+});
+
+test('혈흔 회수 — 중첩당 +5 · 한 시전(혈류 파동이 여러 대상을 맞혀도) +15 까지', () => {
+  const { g, h } = setup(); lvN(h, 15); h.bag.bd.b = 50; step(g, .01);
+  const a = mob(g, h.x + 200, h.y), b = mob(g, h.x + 230, h.y + 20);
+  h.bd.mk['m' + a.id] = [3, 10]; h.bd.mk['m' + b.id] = [3, 10];
+  send(g, { op: 'press', s: 'wave' }); run(g, WV.spread + .05);
+  assert.equal(h.bag.bd.b, 50 - WV.cost + 15, '3중첩 + 3중첩이어도 +15');
+  assert.equal(h.bd.mk['m' + a.id], undefined); assert.equal(h.bd.mk['m' + b.id], undefined);
+});
+
+test('혈류 파동 — 혈량 15 · 대기 9 · 450 안 한 점 · 반경 180 · 대상마다 한 번 ×1.2 · 2초 둔화 · 증폭형 +10', () => {
+  const { g, h } = setup(); lvN(h, 15); h.bag.bd.b = 60;
+  const m = mob(g, h.x + 300, h.y, { stun: 0 }), side = mob(g, h.x + 300 + 150, h.y, { stun: 0 }), far = mob(g, h.x + 300 + 260, h.y, { stun: 0 });
+  assert.equal(waveRadius(h), WV.r);
+  send(g, { op: 'press', s: 'wave' });
+  assert.equal(h.bag.bd.b, 45); assert.equal(h.bd.cd.wave, WV.cd);
+  const w = h.bd.wv[0]; assert.equal(w.x, Math.round(m.x), '가까운 적 자리에서 퍼진다');
+  run(g, WV.spread + .05);
+  assert.ok(m.hp < HP && side.hp < HP); assert.equal(far.hp, HP, '반경 밖');
+  assert.ok(Math.abs((HP - side.hp) / (HP - m.hp) - 1) < 0.02, '대상마다 한 번 같은 피해');
+  assert.ok(m.slow > 1.5, '2초 둔화');
+  assert.equal(h.bd.wv.length, 0); assert.equal(h.bag.bd.tr[1][1], 10, '증폭형 +10');
+  // 포인터 자리 — 450 밖이면 450 으로
+  h.bd.cd.wave = 0; h.bag.bd.b = 60;
+  rpgInput(g, { cls: 0, kind: 'blood', dir: { op: 'press', s: 'wave' }, aim: [1, 0], pt: [h.x + 2000, h.y] });
+  assert.equal(h.bd.wv[0].x, Math.round(h.x + WV.reach));
+  // 증폭형 연마 보너스는 반경에
+  h.bag.bd.tr[1][0] = 40; assert.equal(waveRadius(h), Math.round(WV.r * 1.2));
+});
+
+test('혈류 파동 — 대상이 없어도 보는 쪽에 쓴다 · 피해가 없으면 경험치 없음', () => {
+  const { g, h } = setup(); lvN(h, 15); h.bag.bd.b = 60;
+  send(g, { op: 'press', s: 'wave' }); assert.equal(h.bag.bd.b, 45);
+  run(g, WV.spread + .05); assert.equal(h.bag.bd.tr[1][1], 0);
+});
+
+test('혈쇄 갈고리 — 혈량 15 · 대기 8 · 시전자만 적 바로 앞으로 · 피해 · 무적 없음 · 형상화 +10', () => {
+  const { g, h } = setup(); lvN(h, 20); h.bag.bd.b = 60;
+  const m = mob(g, h.x + 350, h.y), x0 = h.x;
+  send(g, { op: 'press', s: 'hook' });
+  assert.equal(h.bag.bd.b, 45); assert.equal(h.bd.cd.hook, HK.cd); assert.ok(h.bd.hk);
+  run(g, 0.4);
+  assert.equal(h.bd.hk, null);
+  assert.ok(h.x > x0 + 250 && h.x < m.x, `${h.x - x0}`); assert.equal(Math.round(m.x), Math.round(x0 + 350), '적은 끌려오지 않는다');
+  assert.equal(m.hp, HP, '피해 없음'); assert.ok(!(h.inv > 0.01), '무적 없음');
+  assert.equal(h.bag.bd.tr[2][1], 10, '형상화 +10');
+});
+
+test('혈쇄 갈고리 — 대상이 없거나 420 밖 · 길이 막히면 시전하지 않는다(비용 · 대기 없음)', () => {
+  const { g, h } = setup(); lvN(h, 20); h.bag.bd.b = 60;
+  send(g, { op: 'press', s: 'hook' });
+  assert.equal(h.bd.hk, null); assert.equal(h.bag.bd.b, 60); assert.equal(h.bd.cd.hook, 0);
+  mob(g, h.x + 600, h.y);
+  send(g, { op: 'press', s: 'hook' }); assert.equal(h.bd.hk, null); assert.equal(h.bag.bd.b, 60);
+});
+
+test('스냅샷 — 새 대기 칸은 뒤에 붙고, 옛 줄(새 칸 없음)도 읽는다', () => {
+  const { g, h } = setup(); lvN(h, 20); h.bag.bd.b = 60;
+  mob(g, h.x + 300, h.y);
+  send(g, { op: 'press', s: 'wave' }); send(g, { op: 'press', s: 'hook' });
+  const guest = makeWorld(); rpgApply(guest, rpgPack(g));
+  const v = bloodView(guest.heroes[0]);
+  assert.equal(v.cd.wave, WV.cd); assert.equal(v.cd.hook, HK.cd); assert.ok(v.hk);
+  const o = { bag: { bd: { on: 1, lv: 20, b: 50 } } };
+  applyBloodJob(o, [50, 20, 0, [0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 3], 0, [], 0, 0, 0, 0, 0]);
+  assert.equal(o.bdv.cd.wave, 0); assert.equal(o.bdv.cd.sword, 3); assert.equal(o.bdv.hk, null);
 });

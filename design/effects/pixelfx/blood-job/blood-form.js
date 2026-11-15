@@ -4,6 +4,10 @@
 //   arc    — 혈검 궤적. 0,0 = 몸 가운데, +x 쪽을 벤다. swing1 위 → 아래 · swing2 아래 → 위 · swing3 크게 내려베기
 //   veil   — 혈막. 0,0 = 몸 가운데. 여러 겹의 휘어진 방패판. form 굳음 · hold 반복 · hit(+x 쪽이 맞음) 움푹 · 파문 · fold 안으로 접혀 풀림
 //   hand   — 혈수 강타의 손. 0,0 = 손목. 손바닥이 아래 · 손끝이 +x. form 손바닥 → 손가락 · open 반복 · clench 주먹 쥐기 · unravel 손끝부터 풀림
+//   wave   — 혈류 파동(11월 15일). 0,0 = 파동 중심. 바깥으로 퍼지는 붉은 물결 가장자리 하나(r = 반지름, 땅 비율 0.78 을 넣어 그린다)
+//   hook   — 혈쇄 갈고리(11월 15일). 0,0 = 쥔 손(form) · 갈고리 머리 뒤끝(head). +x 로 날아간다. form 손에서 갈고리가 생김 · head 날아가는 머리
+//   link   — 사슬 마디 하나. 0,0 = 마디 가운데 · +x 가 사슬 방향. variant 0 둥근 마디 · 1 옆에서 본 마디 · 2 · 3 팽팽한(밝은) 마디
+//   drop   — 사슬이 핏방울로 풀린다(마디 하나 자리에서 아래로 떨어진다)
 // 외곽선은 C[6] · 가장 밝은 빛은 C[7] 만 쓴다 — 게임이 이 두 색을 따로 떼어(밝은 외곽 시트) 어두운 연마 색에서도 외곽을 밝게 그린다.
 // 쓰는 법: pixelfx 저장소 src/fx/nature/blood-form.js 로 복사하고 make-form.mjs 로 뽑는다.
 import { fit, hex, clamp, smooth, rand, TAU } from "../../core/index.js";
@@ -300,6 +304,109 @@ function handFx(p, C, u, o) {
   }
 }
 
+
+/* ── 혈류 파동(11월 15일) ─────────────────── */
+// 반지름 r 의 물결 가장자리 하나 — 바깥 1칸은 밝은 외곽(C6 · 위쪽은 C7), 안으로 갈수록 어두운 꼬리. 가장자리 밖으로 작은 피 방울이 튄다.
+// 시트는 반지름마다 한 칸이라, 게임이 지금 판정 반경에 가장 가까운 칸을 고르면 보이는 가장자리 = 판정 가장자리(2배 그림이면 ±2px)
+const WVY = 0.78;
+function waveFx(p, C, o) {
+  const r = o.r, tail = Math.min(7, 2 + r * 0.12);
+  p.shade(-r - 6, -(r + 6) * WVY, r + 6, (r + 6) * WVY, (x, y) => {
+    const d = Math.hypot(x, y / WVY), v = r - d;
+    if (v < 0 || v > 3 + tail) return;
+    const a = Math.atan2(y / WVY, x), top = Math.sin(a) < -0.35 && Math.cos(a) < 0.5;   // 왼쪽 위 — 빛을 받는 쪽
+    if (v < 1.4) return top ? C[7] : C[6];
+    if (v < 2.4) return C[5];
+    if (v < 3) return C[4];
+    const k = (v - 3) / tail;                             // 0 가장자리 쪽 · 1 안쪽 끝
+    if (k < 0.4) return C[3];
+    if (k < 0.75) return ((Math.floor(x) + Math.floor(y)) & 1) ? C[3] : 0;   // 안쪽 꼬리는 듬성듬성 — 땅 · 적 공격 예고가 비친다
+    return ((Math.floor(x) + 2 * Math.floor(y)) % 4 === 0) ? C[2] : 0;
+  });
+  // 가장자리 밖으로 튀는 방울 — 반지름에 따라 깜빡이며 바뀐다(같은 r 은 늘 같은 그림)
+  const n = Math.min(18, 6 + Math.floor(r / 9));
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU + rand(o.seed, i, 91) * 0.3, on = Math.floor(r / 4 + i * 1.7) % 3;
+    if (on === 0) continue;
+    const d = r + 2 + on + 2 * rand(o.seed, i, 92);
+    const x = Math.cos(a) * d, y = Math.sin(a) * d * WVY;
+    p.rect(x, y, 2, 2, on === 1 ? C[7] : C[6]);            // 2칸 방울 — 2배로 그리면 4px
+    if (on === 2) p.px(x - Math.cos(a) * 2, y - Math.sin(a) * 2 * WVY, C[5]);
+  }
+}
+
+/* ── 혈쇄 갈고리(11월 15일) ─────────────────── */
+// 갈고리 머리 — 0,0 이 뒤끝(사슬이 이어지는 고리), +x 로 자루 → 끝에서 낫처럼 휘어 아래 뒤로 돌아오는 날 · 뾰족한 끝
+// 날은 어긋난 두 원의 사이(초승달)라 양끝이 저절로 가늘어진다
+const HK_O = [15, 3, 8.5], HK_I = [12.6, 5.2, 6.6];      // 바깥 원 · 안쪽 원 [x, y, r]
+function hookIn(x, y, pad, k) {
+  // 자루 — 뒤끝부터 k 만큼
+  const shaft = 3 + 11 * Math.min(1, k / 0.45);
+  if (x >= -pad && x <= shaft + pad && Math.abs(y) <= 1.3 + pad) return 1;
+  if (k <= 0.45) return 0;
+  const a = Math.atan2(y - HK_O[1], x - HK_O[0]), lim = -1.95 + ((k - 0.45) / 0.55) * (2.35 + 1.95);   // 날이 위에서부터 끝까지 자란다
+  if (a < -1.95 || a > lim) return 0;
+  const dO = Math.hypot(x - HK_O[0], y - HK_O[1]), dI = Math.hypot(x - HK_I[0], y - HK_I[1]);
+  return dO <= HK_O[2] + pad && dI >= HK_I[2] - pad ? 2 : 0;
+}
+function hookHead(p, C, k, glint) {
+  // k — 자루 뒤끝부터 이만큼(0~1) 생겼다
+  p.shade(-4, -8, 26, 16, (x, y) => {
+    const X = x + 0.5, Y = y + 0.5, w = hookIn(X, Y, 0, k);
+    if (!w) return hookIn(X, Y, 1, k) ? C[6] : undefined;   // 밝은 외곽
+    if (w === 1) return Y < -0.2 ? C[5] : C[3];             // 자루 — 윗면 빛
+    const dO = HK_O[2] - Math.hypot(X - HK_O[0], Y - HK_O[1]);
+    return dO < 1.2 ? C[5] : dO < 2.4 ? C[4] : C[2];          // 날 — 바깥 날은 밝게 · 안쪽은 어둡게
+  });
+  // 뒤끝 고리
+  p.shade(-5, -3, 2, 3, (x, y) => { const d = Math.hypot(x + 1.5, y + 0.5); if (d > 2.8) return; if (d > 1.9) return C[6]; if (d > 0.9) return C[4]; });
+  if (k >= 1) {
+    const ta = 2.35, tx = HK_O[0] + Math.cos(ta) * (HK_O[2] - 0.8), ty = HK_O[1] + Math.sin(ta) * (HK_O[2] - 0.8);
+    p.px(tx, ty, C[7]);                                    // 뾰족한 끝이 빛난다
+    if (glint >= 0) { const g = Math.floor(glint * 12); p.px(1 + g, -1, C[7]); }   // 자루를 따라 흐르는 빛
+  }
+}
+function hookFx(p, C, u, o) {
+  if (o.phase === "form") {
+    // 0~0.45 피가 손 앞으로 모인다 → 0.3~1 자루부터 날 끝까지 굳는다
+    for (let i = 0; i < 14; i++) {
+      const a0 = rand(o.seed, i, 101) * TAU, k = ez((u - rand(o.seed, i, 102) * 0.1) / 0.45);
+      if (k <= 0 || k >= 1) continue;
+      const d = 18 * (1 - k), a = a0 + 1.4 * (1 - k);
+      p.rect(8 + Math.cos(a) * d, Math.sin(a) * d, 2, 2, i % 3 ? C[4] : C[6]);
+    }
+    hookHead(p, C, ez((u - 0.3) / 0.7), -1);
+  } else hookHead(p, C, 1, u);                           // head — 날아가는 머리(빛이 자루를 따라 흐른다)
+}
+// 사슬 마디 — 둥근 마디(앞에서) · 납작한 마디(옆에서)가 번갈아 이어진다. 팽팽하면(2 · 3) 몸이 밝아진다
+function linkFx(p, C, o) {
+  const v = o.variant | 0, taut = v >= 2, body = taut ? C[5] : C[3], hi = taut ? C[7] : C[5];
+  if (v % 2 === 0) {
+    p.shade(-5, -4, 5, 4, (x, y) => {
+      const X = x + 0.5, Y = y + 0.5, d = Math.hypot(X / 4.2, Y / 3);
+      if (d > 1.12) return; if (d > 0.86) return C[6];
+      if (Math.abs(X) < 2.2 && Math.abs(Y) < 0.9) return;   // 가운데 구멍
+      return Y < 0 ? hi : body;
+    });
+  } else {
+    p.shade(-4, -2, 4, 2, (x, y) => {
+      const ax = Math.abs(x + 0.5), ay = Math.abs(y + 0.5);
+      if (ax > 4 || ay > 1.6) return; if (ax > 3.2 || ay > 1.1) return C[6]; return y < 0 ? hi : body;
+    });
+  }
+}
+// 마디 하나가 핏방울로 풀린다 — 3~4 방울이 흩어져 아래로 떨어진다(돌리지 않고 뽑는다)
+function dropFx(p, C, u, o) {
+  if (u < 0.25) linkFx(p, C, { variant: 0 });
+  for (let i = 0; i < 4; i++) {
+    const age = u - 0.1 - i * 0.05; if (age <= 0) continue;
+    const vx = (rand(o.seed, i, 111) - 0.5) * 16, x = vx * age, y = -4 * age + 30 * age * age * 2;
+    if (age > 0.75) continue;
+    p.px(x, y, age < 0.25 ? C[6] : age < 0.5 ? C[5] : C[3]);
+    if (age < 0.4) p.px(x, y - 1, C[4]);
+  }
+}
+
 export function draw(p, t, o) {
   const C = fit(o.palette, 8), u = o.u;
   if (o.part === "sword") {
@@ -309,4 +416,8 @@ export function draw(p, t, o) {
   } else if (o.part === "arc") arcFx(p, C, u, o);
   else if (o.part === "veil") veilFx(p, C, u, o);
   else if (o.part === "hand") handFx(p, C, u, o);
+  else if (o.part === "wave") waveFx(p, C, o);
+  else if (o.part === "hook") hookFx(p, C, u, o);
+  else if (o.part === "link") linkFx(p, C, o);
+  else if (o.part === "drop") dropFx(p, C, u, o);
 }

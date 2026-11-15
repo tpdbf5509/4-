@@ -7,7 +7,7 @@
    squash · blocks · cast(새 시전 객체) · dummy · cdOff · cc(경직 · 넉백) · boss(제압 면역)
    3단계(11월 14일): 혈량 상태(증폭 · 과충전 · 폭주 h.bd.rg · 탈진) · 혈역 증폭(h.bd.fd). 공격력은 rpg.js heroDmgMul 이 bloodJobAtk 를 곱한다
    2단계(11월 14일): 혈수 강타(h.bd.sm 내려칠 손) · 혈형 변환 — 혈검(h.bd.sw 생성 → 손에 들고 새 평타마다 베기, 11월 15일) · 혈막(h.bd.vl 받는 피해 감소, hurtHero → bloodJobTake) */
-import { BLOOD, BLOOD_SHOT as S, BLOOD_SMASH as M, BLOOD_FORM as F, BLOOD_STATE as Z, BLOOD_FIELD as FD, BLOOD_TINT, TRAIN_UNLOCK, TRAIN_NAMES, BLOOD_NAME } from "./bloodJobData.js";
+import { BLOOD, BLOOD_SHOT as S, BLOOD_SMASH as M, BLOOD_FORM as F, BLOOD_STATE as Z, BLOOD_FIELD as FD, BLOOD_WAVE as WV, BLOOD_HOOK as HK, BLOOD_TINT, TRAIN_UNLOCK, TRAIN_NAMES, BLOOD_NAME } from "./bloodJobData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -26,19 +26,27 @@ function cleanBdCore(d) {
     const l = clampN(q[0], 0, BLOOD.train.max);
     return [l, l >= BLOOD.train.max ? 0 : clampN(q[1], 0, trainNeed(l) - 1)];
   });
-  return { lv, xp: lv >= BLOOD.maxLv ? 0 : clampN(d.xp, 0, jobNeed(lv) - 1), tr, b: Math.max(0, Math.min(BLOOD.abs, Math.round(Number(d.b) || 0))) };
+  // 혈량 — 가장 가까운 5 로 맞추고 이 레벨의 한계(0 ~ 과부하 한계 - 5) 안으로(11월 15일 개편 — 예전 저장 값도 레벨 · 연마 · 해금은 그대로)
+  return { lv, xp: lv >= BLOOD.maxLv ? 0 : clampN(d.xp, 0, jobNeed(lv) - 1), tr, b: Math.max(0, Math.min(overCap(lv) - BLOOD.unit, roundB(d.b))) };
 }
+const roundB = (v) => Math.round((Number(v) || 0) / BLOOD.unit) * BLOOD.unit;
 export const bloodOn = (h) => !!(h && h.bag && h.bag.bd && h.bag.bd.on);
 export const jobNeed = (lv) => BLOOD.xp.base + BLOOD.xp.per * lv;
 export const trainNeed = (l) => BLOOD.train.base + BLOOD.train.per * l;
-export const stableCap = (lv) => Math.min(BLOOD.capMax, BLOOD.capBase + Math.max(1, lv) - 1);
+// 혈량 한계(11월 15일 개편) — 안정 = 100 + 5 × floor(레벨 / 5) · 증폭 = 안정 + 25 · 과부하 = 안정 + 50. 화면 구분선 · 경고 · 저장 검사가 모두 이 함수를 쓴다
+export const stableCap = (lv) => BLOOD.cap.base + BLOOD.cap.per * Math.floor(Math.max(1, Math.min(BLOOD.maxLv, lv | 0)) / BLOOD.cap.step);
+export const ampCap = (lv) => stableCap(lv) + BLOOD.cap.amp;
+export const overCap = (lv) => stableCap(lv) + BLOOD.cap.over;
+export const bloodCaps = (lv) => [stableCap(lv), ampCap(lv), overCap(lv)];
+// '다음 혈역 획득 시 폭주' 경고 — 다음 흡수(+10)가 과부하 한계에 닿는다(폭주 · 탈진 중에는 없음). 화면 경고와 판정 알림이 같은 셈을 쓴다
+export const overWarn = (b, lv, rg) => !rg && b + FD.gain >= overCap(lv);
 // 영구 연마 합계와 색 — 과충전의 임시 레벨(3단계)은 넣지 않는다
 export const trainSum = (bd) => (bd ? bd.tr.reduce((s, q) => s + q[0], 0) : 0);
 export const bloodTint = (sum) => BLOOD_TINT.find((t) => sum >= t.from).id;
 // 해금한 연마인가(직업 레벨)
 export const trainOpen = (bd, i) => !!bd && bd.lv >= TRAIN_UNLOCK[i];
 
-// 해금 — 1차 전직을 비우고(사용자 결정) 직업 레벨 1 · 혈량 50 으로 시작한다. 예전에 해금했던 기록(되돌린 뒤 다시)은 레벨 · 연마를 그대로 쓴다
+// 해금 — 1차 전직을 비우고(사용자 결정) 직업 레벨 1 · 혈량 100 으로 시작한다. 예전에 해금했던 기록(되돌린 뒤 다시)은 레벨 · 연마를 그대로 쓴다
 export function unlockBlood(h) {
   const old = h.bag.bd;
   h.bag.bd = old ? { ...cleanBdCore(old), on: 1 } : { on: 1, lv: 1, xp: 0, tr: [[0, 0], [0, 0], [0, 0]], b: BLOOD.start };
@@ -60,6 +68,7 @@ function st(h) {
   if (!s.sm) { s.sm = []; s.sw = null; s.vl = null; s.cd.smash = s.cd.smash || 0; s.cd.form = s.cd.form || 0; }
   if (s.cd.sword === undefined) s.cd.sword = 0;      // 혈검 대기(11월 15일 — 혈막 대기 cd.form 과 따로)   // 2단계 상태(앞선 판에서 만든 h.bd 에도 채운다)
   if (s.cd.field === undefined) { s.cd.field = 0; s.fd = null; s.rg = null; s.dw = 0; s.dA = 0; s.wo = 0; s.w175 = 0; }   // 3단계 상태
+  if (s.cd.wave === undefined) { s.cd.wave = 0; s.cd.hook = 0; s.wv = []; s.hk = null; s.rT = 0; }   // 11월 15일 — 혈류 파동 · 혈쇄 갈고리 · 자연 회복
   return s;
 }
 const keyOf = (o) => (o.type ? `m${o.id}` : `h${o.pi}`);
@@ -67,12 +76,13 @@ const find = (g, k) => (k[0] === "m" ? g.mobs.find((m) => String(m.id) === k.sli
 export const bloodAmt = (h) => (bloodOn(h) ? h.bag.bd.b : 0);
 export const bloodCap = (h) => (bloodOn(h) ? stableCap(h.bag.bd.lv) : 0);
 
-// 혈량을 얻는다 — 안정 상한까지(over 는 혈역 증폭, 3단계). 이미 상한 이상이면 새 몫만 버린다. 실제로 늘어난 양을 돌려준다
+// 혈량을 얻는다 — 안정 한계까지(over 는 혈역 증폭만 — 과부하 한계까지). 이미 한계 이상이면 새 몫만 버린다. 실제로 늘어난 양을 돌려준다.
+// 늘 5 단위(11월 15일 개편) — 들어온 양도 5 의 배수로 내린다. 폭주 · 탈진 중에는 안정 한계를 넘지 못한다
 export function gainBlood(h, n, over = false) {
   if (!bloodOn(h) || !(n > 0)) return 0;
-  // over — true 면 180 까지, 숫자면 그 값까지(혈량 전환 179) 안정 상한을 넘는다. 폭주 · 탈진 중에는 넘지 못한다
-  const bd = h.bag.bd, top = over && !(h.bd && h.bd.rg) ? (over === true ? BLOOD.abs : over) : stableCap(bd.lv);
-  if (bd.b >= top) return 0;
+  const bd = h.bag.bd, top = over && !(h.bd && h.bd.rg) ? overCap(bd.lv) : stableCap(bd.lv);
+  n = Math.floor(n / BLOOD.unit) * BLOOD.unit;
+  if (bd.b >= top || n <= 0) return 0;
   const got = Math.min(n, top - bd.b);
   bd.b += got;
   return got;
@@ -81,10 +91,11 @@ function spend(h, n) { const bd = h.bag.bd; bd.b = Math.max(0, bd.b - n); }
 
 /* ── 혈량 상태 — 안정 · 증폭 · 과충전 · 폭주 · 탈진 ───────────────── */
 // rg = { k: 1 폭주 · 2 탈진, t: 남은 초 }
+// cap 은 안정 한계 — 증폭 한계는 cap + 25(BLOOD.cap.amp)
 export function bloodMode(b, cap, rg) {
   if (rg && rg.k === 1) return "rage";
   if (rg && rg.k === 2) return "tired";
-  if (b > Z.over.from) return "over";
+  if (b > cap + BLOOD.cap.amp) return "over";
   if (b > cap) return "amp";
   return "stable";
 }
@@ -97,12 +108,12 @@ const dmgAdd = (h) => (modeOf(h) === "over" ? Z.over.dmg : 0);
 export const effTrain = (h, i) => { const bd = h.bag.bd, l = bd.tr[i][0]; return modeOf(h) === "over" && trainOpen(bd, i) ? Math.min(BLOOD.train.max, l + Z.over.train) : l; };
 // 공격력 배율 — 폭주 +25% · 탈진 -15%(rpg.js heroDmgMul 이 곱한다: 평타 · 모든 스킬)
 export const bloodJobAtk = (h) => { const rg = h && h.bd && h.bd.rg; return !rg ? 1 : 1 + (rg.k === 1 ? Z.rage.atk : Z.tired.atk); };
-// 과부하 — 넘는 몫을 버리고 혈역 · 차징을 끊은 뒤 혈량 min(60, 안정 상한) · 6초 폭주
+// 과부하 — 넘는 몫을 버리고 혈역 · 차징을 끊은 뒤 혈량 60 · 6초 폭주
 function overload(E, g, h) {
   const s = st(h), bd = h.bag.bd;
   if (s.ch) cancelCharge(E, g, h, true);
   if (s.fd) endField(E, g, h, "over");
-  bd.b = Math.min(Z.rage.settle, stableCap(bd.lv));
+  bd.b = Z.rage.settle;
   s.rg = { k: 1, t: Z.rage.dur };
   s.wo = 0; s.w175 = 0;
   g.shake = Math.max(g.shake || 0, 0.35);
@@ -151,7 +162,7 @@ export function bloodJobKill(E, g, m, got) {
 export const bloodRaidKill = (E, g, h) => { if (bloodOn(h)) jobXp(E, g, h, BLOOD.xp.raid); };
 
 /* ── 혈흔 · 평타 ───────────────────────────────────── */
-// 평타가 맞았다(weaponOnHit basic) — 공격 한 번에 혈량 +2 한 번 · 맞은 대상마다 혈흔 1중첩(최대 5 · 10초, 새로 부여하면 갱신)
+// 평타가 맞았다(weaponOnHit basic) — 공격 한 번에 혈량 +5 한 번 · 맞은 대상마다 혈흔 1중첩(최대 5 · 10초, 새로 부여하면 갱신)
 export function bloodJobOnHit(E, g, h, o, { basic, side }) {
   if (!basic || side || !o || !bloodOn(h)) return;
   const s = st(h);
@@ -159,12 +170,14 @@ export function bloodJobOnHit(E, g, h, o, { basic, side }) {
   const k = keyOf(o), m = s.mk[k] || (s.mk[k] = [0, 0]);
   m[0] = Math.min(BLOOD.mark.max, m[0] + 1); m[1] = BLOOD.mark.dur;
 }
-// 혈흔 거두기 — 첫 유효 적중의 피해를 셈한 뒤 모두 소비하고 중첩당 혈량 +3. 실이 돌아오는 연출(그림만)
-function reap(E, g, h, o) {
+// 혈흔 거두기 — 첫 유효 적중의 피해를 셈한 뒤 모두 소비하고 중첩당 혈량 +5. 한 시전(c — 그 시전 객체) 전체에서 +15 까지(11월 15일 개편)
+function reap(E, g, h, o, c) {
   const s = st(h), k = keyOf(o), m = s.mk[k];
   if (!m) return 0;
   delete s.mk[k];
-  const got = gainBlood(h, m[0] * BLOOD.mark.back);
+  const room = c ? Math.max(0, BLOOD.mark.backMax - (c.rp || 0)) : BLOOD.mark.backMax;
+  const got = gainBlood(h, Math.min(room, m[0] * BLOOD.mark.back));
+  if (c) c.rp = (c.rp || 0) + got;
   E.fx(g, h.map, { kind: "sk_bj_reap", x: o.x, y: o.y, x1: h.x, y1: h.y, n: m[0], got, pi: h.pi, t: 0.45, life: 0.45, who: h.pi });
   return m[0];
 }
@@ -250,7 +263,8 @@ function fireShot(E, g, h) {
     left: sp1 ? S.pierce : 1, hit: [], tier, mul: T.mul, add: strAdd * S.strDmg + dmgAdd(h), burst: sp2 ? 1 : 0, bR: S.burstR * (1 + ampBonus(h) + rangeAdd(h)), cast: E.cast(h), base: E.base(h), xp: 0, map: h.map,
   };
   spend(h, T.cost);
-  s.cd.shot = S.cd;
+  s.cd.shot = T.cd;                                  // 쏜 단계의 대기 2 · 3 · 5초(11월 15일 개편)
+  s.cdMax = s.cdMax || {}; s.cdMax.shot = T.cd;
   s.sh.push(shot);
   h.swing = 0.25;
   E.fx(g, h.map, { kind: "sk_bj_shot", x: h.x, y: h.y, x0: h.x, y0: h.y - S.lift, ax: shot.ax, ay: shot.ay, len: shot.max, v: shot.v, tier, fast: sp1 ? 1 : 0, pierce: sp1 ? 1 : 0,
@@ -284,7 +298,7 @@ function stepShot(E, g, h, shot, dt) {
     shot.hit.push(k);
     shot.left -= 1;
     strike(E, g, h, shot, o, shot.mul * (1 + shot.add + markBonus(h, o)));   // 혈흔 보너스는 맞기 직전 중첩으로(팽창은 burstMul 만 — 혈흔 제외)
-    if (reap(E, g, h, o) && h.bt && h.bt.step === 2 && shot.tier >= 1) h.bt.hit2 = 1;   // 해금 시험 2단계 — 차징한 탄으로 혈흔 회수
+    if (reap(E, g, h, o, shot) && h.bt && h.bt.step === 2 && shot.tier >= 1) h.bt.hit2 = 1;   // 해금 시험 2단계 — 차징한 탄으로 혈흔 회수
     E.fx(g, h.map, { kind: "sk_bj_hit", x: o.x, y: o.y, pi: h.pi, tier: shot.tier, t: 0.3, life: 0.3, snd: shot.hit.length === 1 ? "bloodHit" : undefined });
     if (shot.burst && shot.hit.length === 1) burst(E, g, h, shot, o.x, o.y);   // 첫 적중 자리에서만 · 두 번째 관통 대상에서는 다시 터지지 않는다
     if (shot.left <= 0) { shot.d = Math.max(from, Math.min(to, along)); break; }
@@ -294,7 +308,8 @@ function stepShot(E, g, h, shot, dt) {
 
 /* ── 2단계 공통 ───────────────────────────────────── */
 const shapeLv = (h) => effTrain(h, 2);
-const shapeLock = (h) => (h.bag.bd.lv < BLOOD.unlock.shape ? `직업 레벨 ${BLOOD.unlock.shape}에 열립니다` : "");
+const lvLock = (h, at) => (h.bag.bd.lv < at ? `직업 레벨 ${at}에 열립니다` : "");
+const shapeLock = (h) => lvLock(h, BLOOD.unlock.shape);   // 혈검 · 혈막(10)
 // 새 공격 · 스킬을 누르면 — 다른 스킬 차징은 끊는다(비용 · 대기 없음). 혈막은 끊지 않는다
 function breakFor(E, g, h, sk) {
   const s = st(h);
@@ -327,7 +342,7 @@ function smashPress(E, g, h) {
   if (w) { if (w !== "-") E.say(g, h.map, h.x, h.y - 90, w, "#d9c9a6"); return; }
   if (s.ch && s.ch.s === "smash") return;
   breakFor(E, g, h, "smash");
-  const lock = shapeLock(h);
+  const lock = lvLock(h, BLOOD.unlock.smash);
   if (lock) return void E.say(g, h.map, h.x, h.y - 90, lock, "#d9c9a6");
   if (s.cd.smash > 0) return void E.say(g, h.map, h.x, h.y - 90, `${M.name} ${Math.ceil(s.cd.smash)}초`, "#f0dcb4");
   if (h.bag.bd.b < M.tiers[0].cost) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
@@ -367,7 +382,7 @@ function landSmash(E, g, h, sm) {
   let imm = null;
   for (const o of list) {
     strike(E, g, h, sm, o, M.mul * (1 + sm.add + markBonus(h, o)));
-    reap(E, g, h, o);
+    reap(E, g, h, o, sm);
     if (E.boss(o)) imm = imm || o;
     else E.cc(g, h, o, { stun: M.stun, kb: [sm.ax, sm.ay, M.kb] });
   }
@@ -422,9 +437,10 @@ function swordHit(E, g, h, sw) {
   sw.ax = r2(ax); sw.ay = r2(ay);
   const list = E.arc(g, h, sw.ax, sw.ay, sw.R, (SW.arc / 2) * Math.PI / 180).filter((o) => E.alive(g, h, o, sw.map) && !walled(E, sw.map, h.x, h.y, o));
   let hit = 0;
+  const one = {};                                    // 혈흔 회수 상한은 베기 한 번마다(새 누름 = 한 시전)
   for (const o of list) {
     strike(E, g, h, sw, o, SW.mul * (1 + sw.add + markBonus(h, o)));   // 형상화 스킬 피해 — 혈흔은 첫 유효 적중에서 쓴다
-    reap(E, g, h, o);
+    reap(E, g, h, o, one);
     if (!E.dummy(o)) hit = 1;
   }
   h.swing = 0.22;
@@ -477,7 +493,7 @@ function veilPress(E, g, h) {
   s.vl = { t: 0, max: r2(max), red: Math.round(red * 1000) / 1000, did: 0, hT: F.veil.hint, rT: 0, k };
   E.fx(g, h.map, { kind: "sk_bj_veil", x: h.x, y: h.y, pi: h.pi, u: 0, max: s.vl.max, sz: k, start: 1, t: VEIL_LIFE, life: VEIL_LIFE, snd: "bloodCharge" });
 }
-// 혈막 끝 — 실제로 피해를 줄였다면 혈량 12(사망으로 끝나면 없음). 형상화 경험치는 줄였으면 시전당 +10
+// 혈막 끝 — 실제로 피해를 줄였다면 혈량 10(사망으로 끝나면 없음). 형상화 경험치는 줄였으면 시전당 +10
 function endVeil(E, g, h, why) {
   const s = h.bd, v = s && s.vl;
   if (!v) return;
@@ -526,7 +542,7 @@ function endField(E, g, h, why) {
   if (f.xp) trainXp(E, g, h, 1, Math.min(FD.xpMax, f.xp));   // 증폭형 — 실제로 혈량을 얻은 1초마다 +1(시전당 10까지)
   E.fx(g, f.map, { kind: "sk_bj_fieldend", x: f.x, y: f.y, r: FD.r, pi: h.pi, over: why === "over" ? 1 : 0, t: 0.5, life: 0.5 });
 }
-// 1초마다 — 나와 유효한 적이 모두 혈역 안일 때만 +5(넘는 몫은 180까지). 못 얻은 회차는 넘어간다(쌓이지 않는다)
+// 1초마다 — 나와 유효한 적이 모두 혈역 안일 때만 +10(넘는 몫은 과부하 한계까지). 못 얻은 회차는 넘어간다(쌓이지 않는다)
 function fieldTick(E, g, h, f) {
   const foes = E.near(g, h, f.x, f.y, FD.r + 40).filter((o) => E.alive(g, h, o, f.map) && Math.hypot(o.x - f.x, (o.y - f.y) / E.squash) <= FD.r);
   if (!foes.length || !inField(h)) { f.none = 1; return; }
@@ -534,7 +550,127 @@ function fieldTick(E, g, h, f) {
   const got = gainBlood(h, FD.gain, true);
   if (got > 0 && foes.some((o) => !E.dummy(o))) f.xp += FD.xp;
   if (got > 0) E.fx(g, h.map, { kind: "sk_bj_absorb", x: f.x, y: f.y, x1: h.x, y1: h.y, got, pi: h.pi, t: 0.6, life: 0.6, snd: "bloodHit", who: h.pi });
-  if (h.bag.bd.b >= BLOOD.abs) overload(E, g, h);
+  if (h.bag.bd.b >= overCap(h.bag.bd.lv)) overload(E, g, h);
+}
+
+
+/* ── 혈류 파동(11월 15일 개편 · 증폭 · 직업 레벨 15) ────────────────
+   s.wv = [{ fid, x, y, R 끝 반경, t, hit [대상 키], cast, base, add, xp, map, rp 혈흔 회수 }] — 가장자리가 지나간 대상마다 한 번 */
+export const waveRadius = (h) => Math.round(WV.r * (1 + (bloodOn(h) ? ampBonus(h) + rangeAdd(h) : 0)));
+const sq = (E, x, y, o) => Math.hypot(o.x - x, (o.y - y) / E.squash);
+// 파동 중심 — 포인터 자리(450 밖이면 450 으로 줄인다) · 없으면 가까운 적 · 없으면 보는 쪽 near. 내 자리에서 벽 너머로는 가지 않는다
+function wavePoint(E, g, h) {
+  let dx, dy;
+  if (h.inputPt) { dx = h.inputPt[0] - h.x; dy = (h.inputPt[1] - h.y) / E.squash; }
+  else {
+    const o = E.near(g, h, h.x, h.y, WV.reach).filter((q) => E.alive(g, h, q, h.map)).sort((a, b) => sq(E, h.x, h.y, a) - sq(E, h.x, h.y, b))[0];
+    if (o) { dx = o.x - h.x; dy = (o.y - h.y) / E.squash; }
+    else { const [ax, ay] = E.face(h); dx = ax * WV.near; dy = ay * WV.near; }
+  }
+  let d = Math.hypot(dx, dy);
+  if (d < 1) return [h.x, h.y];
+  const ux = dx / d, uy = dy / d;
+  d = Math.min(d, WV.reach, wallCut(E, h, ux, uy, Math.min(d, WV.reach)));
+  return [Math.round(h.x + ux * d), Math.round(h.y + uy * d * E.squash)];
+}
+function wavePress(E, g, h) {
+  const s = st(h), w = why(E, g, h);
+  if (w) { if (w !== "-") E.say(g, h.map, h.x, h.y - 90, w, "#d9c9a6"); return; }
+  breakFor(E, g, h, "wave");
+  const lock = lvLock(h, BLOOD.unlock.wave);
+  if (lock) return void E.say(g, h.map, h.x, h.y - 90, lock, "#d9c9a6");
+  if (s.cd.wave > 0) return void E.say(g, h.map, h.x, h.y - 90, `${WV.name} ${Math.ceil(s.cd.wave)}초`, "#f0dcb4");
+  if (h.bag.bd.b < WV.cost) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
+  const [x, y] = wavePoint(E, g, h);
+  const R = waveRadius(h);                           // 반경 · 피해 보너스는 발동 순간 값
+  endSword(E, g, h, "skill");
+  spend(h, WV.cost);
+  s.cd.wave = WV.cd;
+  const wv = { fid: `bw${h.pi}.${++s.q}`, x, y, R, t: 0, hit: [], cast: E.cast(h), base: E.base(h), add: dmgAdd(h), xp: 0, map: h.map };
+  s.wv.push(wv);
+  h.swing = 0.25;
+  if (Math.abs(x - h.x) > 1) h.dir = x < h.x ? -1 : 1;
+  E.fx(g, h.map, { kind: "sk_bj_wave", x, y, r: R, d: WV.spread, x1: h.x, y1: h.y, fid: wv.fid, pi: h.pi, t: WV.spread + 0.45, life: WV.spread + 0.45, snd: "bloodBoom" });
+  E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 104, text: WV.name, color: "#E53945", who: h.pi, t: 0.6, life: 0.6 });
+}
+// 한 틱 — 지금 반경(가장자리)이 닿은 대상에게 한 번. 벽 뒤 대상은 빠진다. 다 퍼지면 끝(돌려주는 값 false)
+function stepWave(E, g, h, wv, dt) {
+  wv.t += dt;
+  const r = wv.R * Math.min(1, wv.t / WV.spread);
+  const list = E.near(g, h, wv.x, wv.y, wv.R + 60).filter((o) => E.alive(g, h, o, wv.map) && !wv.hit.includes(keyOf(o))
+    && sq(E, wv.x, wv.y, o) - (o.rad || 16) * 0.5 <= r && !walled(E, wv.map, wv.x, wv.y, o));
+  for (const o of list) {
+    wv.hit.push(keyOf(o));
+    strike(E, g, h, wv, o, WV.mul * (1 + wv.add + markBonus(h, o)));
+    reap(E, g, h, o, wv);
+    E.cc(g, h, o, { slow: WV.slow, slowAmt: WV.slowAmt });   // 보스 · 사람은 기존 제압 규칙(ccAny) 그대로
+    E.fx(g, wv.map, { kind: "sk_bj_hit", x: o.x, y: o.y, pi: h.pi, tier: 0, t: 0.3, life: 0.3, snd: wv.hit.length === 1 ? "bloodHit" : undefined });
+  }
+  return wv.t < WV.spread;
+}
+
+/* ── 혈쇄 갈고리(11월 15일 개편 · 형상화 · 직업 레벨 20) ──────────────
+   s.hk = { fid, ph 1 날아가는 중 · 2 끌려가는 중, t, fly 날아가는 초, k 대상 키, x0 · y0 시작 자리, ax · ay, map } — 피해 · 무적 없음 */
+// 겨눈 방향 420 안의 첫 유효한 적과 그 앞 자리 — 대상이 없거나 길이 벽에 막히면 null
+function hookTarget(E, g, h) {
+  const [ax, ay] = E.aim(g, h, HK.reach);
+  const list = E.near(g, h, h.x, h.y, HK.reach + 40).filter((o) => E.alive(g, h, o, h.map)).map((o) => {
+    const dx = o.x - h.x, dy = (o.y - h.y) / E.squash;
+    return { o, along: dx * ax + dy * ay, side: Math.abs(dx * ay - dy * ax) };
+  }).filter((q) => q.along > 0 && q.along <= HK.reach + (q.o.rad || 16) * 0.5 && q.side <= HK.width + (q.o.rad || 16) * 0.5).sort((a, b) => a.along - b.along);
+  const q = list[0];
+  if (!q) return null;
+  const o = q.o, dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1, rr = (o.rad || 16) * 0.5;
+  if (walled(E, h.map, h.x, h.y, o)) return null;      // 길이 벽에 막혔다
+  return { o, ux: dx / d, uy: dy / d, d, go: Math.max(0, d - rr - HK.gap) };
+}
+function hookPress(E, g, h) {
+  const s = st(h), w = why(E, g, h);
+  if (w) { if (w !== "-") E.say(g, h.map, h.x, h.y - 90, w, "#d9c9a6"); return; }
+  if (s.hk) return;
+  breakFor(E, g, h, "hook");
+  const lock = lvLock(h, BLOOD.unlock.hook);
+  if (lock) return void E.say(g, h.map, h.x, h.y - 90, lock, "#d9c9a6");
+  if (s.cd.hook > 0) return void E.say(g, h.map, h.x, h.y - 90, `${HK.name} ${Math.ceil(s.cd.hook)}초`, "#f0dcb4");
+  if (h.bag.bd.b < HK.cost) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
+  const q = hookTarget(E, g, h);
+  if (!q) return void E.say(g, h.map, h.x, h.y - 90, "걸 대상이 없습니다", "#d9c9a6");   // 시전하지 않는다 — 비용 · 대기 없음
+  endSword(E, g, h, "skill");
+  spend(h, HK.cost);
+  s.cd.hook = HK.cd;
+  const fly = r2(Math.max(0.08, q.d / HK.fly));
+  s.hk = { fid: `bk${h.pi}.${++s.q}`, ph: 1, t: 0, fly, k: keyOf(q.o), x0: Math.round(h.x), y0: Math.round(h.y), ax: r2(q.ux), ay: r2(q.uy), map: h.map };
+  if (Math.abs(q.ux) > 0.05) h.dir = q.ux < 0 ? -1 : 1;
+  h.swing = 0.25;
+  E.fx(g, h.map, { kind: "sk_bj_hook", x: h.x, y: h.y, x1: q.o.x, y1: q.o.y, ax: s.hk.ax, ay: s.hk.ay, d: fly, fid: s.hk.fid, pi: h.pi, t: fly + 0.03, life: fly + 0.03, snd: "bloodCharge" });
+  E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 104, text: HK.name, color: "#E53945", who: h.pi, t: 0.6, life: 0.6 });
+}
+// 갈고리 끝 — 움직였으면 형상화 경험치 +10(시전당 한 번). 사슬은 핏방울로 흩어진다
+function endHook(E, g, h, moved) {
+  const s = h.bd, k = s && s.hk;
+  if (!k) return;
+  s.hk = null;
+  s.hkT = 0.5;                                       // 끝난 뒤 잠깐 — 손님 화면이 끌려간 자리를 한 번에 옮기지 않고 나눠 옮기게(스냅샷 12번 칸 3)
+  if (moved) trainXp(E, g, h, 2, BLOOD.train.cast);
+  E.fx(g, k.map, { kind: "sk_bj_hookend", x: h.x, y: h.y, ax: k.ax, ay: k.ay, pi: h.pi, t: 0.4, life: 0.4 });
+}
+function tickHook(E, g, h, s, dt) {
+  const k = s.hk;
+  if (h.down > 0 || E.locked(h) || k.map !== h.map) { if (k.ph === 2) h.dash = 0; return void endHook(E, g, h, false); }
+  k.t += dt;
+  if (k.ph === 1) {
+    if (k.t < k.fly) return;
+    const o = find(g, k.k);                           // 걸렸다 — 그 순간 자리로 끌려간다(대상이 사라졌거나 벽 뒤로 갔으면 풀린다)
+    if (!o || !E.alive(g, h, o, k.map) || walled(E, h.map, h.x, h.y, o)) return void endHook(E, g, h, false);
+    const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+    const go = Math.min(Math.max(0, d - (o.rad || 16) * 0.5 - HK.gap), wallCut(E, h, ux, uy, d));   // 벽 앞에서 멈춘다
+    k.ph = 2; k.t = 0; k.ax = r2(ux); k.ay = r2(uy); k.x0 = Math.round(h.x); k.y0 = Math.round(h.y);
+    if (go < 1) return void endHook(E, g, h, false);
+    E.move(h, { x: h.x + ux * go, y: h.y + uy * go * E.squash }, HK.move);
+    E.fx(g, h.map, { kind: "sk_bj_hookpull", x: h.x, y: h.y, x1: o.x, y1: o.y, d: HK.move, fid: k.fid, pi: h.pi, t: HK.move + 0.1, life: HK.move + 0.1, snd: "bloodHit" });
+    return;
+  }
+  if (k.t >= HK.move) endHook(E, g, h, Math.hypot(h.x - k.x0, (h.y - k.y0) / E.squash) >= HK.minMove);
 }
 
 /* ── 혈량 전환 ─────────────────────────────────────── */
@@ -542,13 +678,11 @@ function convert(E, g, h) {
   if (!bloodOn(h) || h.down > 0) return;
   const s = st(h), bd = h.bag.bd;
   if (s.cd.conv > 0) return;
-  const top = s.rg ? stableCap(bd.lv) : BLOOD.convert.top;   // 안정 상한을 넘어 과충전까지(폭주 · 탈진 중에는 상한까지)
-  if (bd.b >= top) return void E.say(g, h.map, h.x, h.y - 90, s.rg ? "혈량이 안정 상한입니다" : "더 전환할 수 없습니다", "#d9c9a6");
+  if (bd.b >= stableCap(bd.lv)) return void E.say(g, h.map, h.x, h.y - 90, "혈량이 안정 한계입니다", "#d9c9a6");   // 안정 한계까지만(11월 15일 개편 — 넘는 것은 혈역 증폭뿐)
   const cost = Math.ceil(h.max * BLOOD.convert.hp);
   if (h.hp - cost < 1) return void E.say(g, h.map, h.x, h.y - 90, "체력이 모자랍니다", "#ff8a8a");
   h.hp -= cost;
-  const got = gainBlood(h, BLOOD.convert.gain, BLOOD.convert.top);
-  if (bd.b > stableCap(bd.lv)) s.dw = FD.decayWait;   // 넘긴 몫은 1초 뒤부터 줄어든다(혈역 증폭 뒤와 같다)
+  const got = gainBlood(h, BLOOD.convert.gain);
   s.cd.conv = BLOOD.convert.cd;
   E.fx(g, h.map, { kind: "sk_bj_conv", x: h.x, y: h.y, pi: h.pi, hp: cost, got, t: 0.6, life: 0.6, snd: "bloodCharge", who: h.pi });
 }
@@ -562,6 +696,8 @@ export function bloodJobInput(E, g, pi, req) {
   if (!bloodOn(h)) return void E.sys(g, pi, `${BLOOD_NAME} 만 쓸 수 있습니다.`);
   if (req.op === "aim") { const c = h.bd && h.bd.ch; if (c && c.ptr && h.inputAim) aimTo(h, c, h.inputAim); return false; }
   if (req.op === "sword") return void swordUse(E, g, h);
+  if (req.s === "wave") { if (req.op === "press") wavePress(E, g, h); return false; }   // 한 번 누르면 바로(11월 15일)
+  if (req.s === "hook") { if (req.op === "press") hookPress(E, g, h); return false; }
   if (req.op === "cancel") {                         // 창을 벗어났다 · 채팅 — 차징 · 유지 입력을 모두 푼다
     if (h.bd && h.bd.ch) cancelCharge(E, g, h);
     if (h.bd && h.bd.fd) endField(E, g, h, "release");
@@ -631,7 +767,7 @@ export function tickBloodJob(E, g, h, dt) {
         E.fx(g, h.map, { kind: "sk_bj_charge", x: h.x, y: h.y, pi: h.pi, ax: c.ax, ay: c.ay, u: r2(Math.min(1, c.t / S.full)), tier: Math.max(0, tier),
           t: S.hint + 0.08, life: S.hint + 0.08, ...(ping ? { ping: tier, snd: tier >= 2 ? "bloodBoom" : "bloodHit" } : {}) });
       }
-      if (c.t >= S.full) fireShot(E, g, h);          // 최대 1.6초 — 자동 발사(계속 누르고 있어도 다시 쏘지 않는다)
+      if (c.t >= S.full) fireShot(E, g, h);          // 최대 1.2초 — 자동 발사(계속 누르고 있어도 다시 쏘지 않는다)
     }
   }
   const stop = h.down > 0 || E.locked(h);           // 기절 · 사망 — 닿기 전 강타 · 남은 혈검 타격은 취소(비용은 돌려주지 않는다)
@@ -644,7 +780,15 @@ export function tickBloodJob(E, g, h, dt) {
       return false;
     });
   }
-  if (s.sw) tickSword(E, g, h, s, dt);              // 혈검 — 생성 · 유지 · 기다린 누름 · 풀림(기절 · 사망 · 맵 이동이면 풀린다)
+  if (s.sw) tickSword(E, g, h, s, dt);
+  if (s.hk) tickHook(E, g, h, s, dt);
+  else if (s.hkT > 0) s.hkT -= dt;               // 혈쇄 갈고리 — 날아감 → 끌려감(기절 · 사망 · 맵 이동이면 풀린다)
+  if (s.wv.length) s.wv = s.wv.filter((wv) => {      // 혈류 파동 — 맵을 옮기면 사라진다 · 쓰러져도 이미 퍼진 파동은 간다
+    if (wv.map !== h.map) { E.fx(g, wv.map, { kind: "cut", ref: wv.fid }); return false; }
+    const going = stepWave(E, g, h, wv, dt);
+    if (!going && wv.xp) trainXp(E, g, h, 1, BLOOD.train.cast);   // 증폭형 — 피해가 들어간 시전이면 +10
+    return going;
+  });              // 혈검 — 생성 · 유지 · 기다린 누름 · 풀림(기절 · 사망 · 맵 이동이면 풀린다)
   if (s.vl) {
     const v = s.vl;
     v.t += dt; v.rT -= dt; v.hT -= dt;
@@ -686,8 +830,8 @@ function stepState(E, g, h, s, dt) {
   if (drain && h.down <= 0 && !E.god(g, h)) h.hp = Math.max(Math.min(h.hp, 1), h.hp - h.max * drain * dt);
   if (mode === "over" && !s.wo) { s.wo = 1; E.say(g, h.map, h.x, h.y - 110, "과충전", "#ff9aa4"); }
   if (mode !== "over") s.wo = 0;
-  if (bd.b >= Z.warn && !s.rg && !s.w175) { s.w175 = 1; E.sys(g, h.pi, "혈량 175 — 다음 혈역 획득 시 폭주합니다."); }
-  if (bd.b < Z.warn) s.w175 = 0;
+  if (overWarn(bd.b, bd.lv, s.rg) && !s.w175) { s.w175 = 1; E.sys(g, h.pi, `혈량 ${bd.b} — 다음 혈역 획득 시 폭주합니다.`); }   // 한 번
+  if (!overWarn(bd.b, bd.lv, null)) s.w175 = 0;
   const f = s.fd;
   if (f) {
     f.t += dt;
@@ -703,10 +847,16 @@ function stepState(E, g, h, s, dt) {
       }
     }
   }
-  if (!s.fd && bd.b > cap) {                         // 혈역이 끝나고 1초 뒤부터 초당 10씩(상한 아래로는 줄지 않는다)
+  if (!s.fd && bd.b > cap) {                         // 혈역이 끝나고 1초 뒤부터 1초에 한 번 10씩(한계 아래로는 줄지 않는다, 11월 15일 — 프레임마다 1 이 아니라 1초에 한 번)
     if (s.dw > 0) s.dw -= dt;
-    else { s.dA += FD.decay * dt; const n = Math.floor(s.dA); if (n > 0) { s.dA -= n; bd.b = Math.max(cap, bd.b - n); } }
+    else { s.dA += dt; if (s.dA >= 1) { s.dA -= 1; bd.b = Math.max(cap, bd.b - FD.decay); } }
   } else s.dA = 0;
+  // PvE 자연 회복 — 30 아래면 1초에 한 번 +5(30 까지). 쓰러진 동안 · PvP 에서는 멈춘다(11월 15일 개편)
+  const R = BLOOD.regen;
+  if (bd.b < R.below && h.down <= 0 && !(E.pvp && E.pvp(g, h))) {
+    s.rT += dt;
+    if (s.rT >= R.gap) { s.rT -= R.gap; bd.b = Math.min(R.below, bd.b + R.gain); }
+  } else s.rT = 0;
 }
 // 쓰러졌다 — 상태를 풀고 혈량 0(이미 쏜 탄은 그대로 날아간다)
 export function bloodJobDown(E, g, h) {
@@ -715,6 +865,7 @@ export function bloodJobDown(E, g, h) {
   if (s.vl) endVeil(E, g, h, "down");
   if (s.fd) endField(E, g, h, "down");
   endSword(E, g, h, "down");
+  if (s.hk) endHook(E, g, h, false);
   s.ch = null; s.mk = {}; s.rg = null;
   h.bag.bd.b = 0;
 }
@@ -724,42 +875,48 @@ export function bloodJobFill(h) { if (bloodOn(h)) h.bag.bd.b = Math.max(h.bag.bd
 /* ── 스냅샷 줄 56 — [혈량, 직업 레벨, 경험치, 연마 [l, x] × 3 펼침, 대기 [적혈탄, 전환, 혈수 강타, 혈형 변환], 차징 [단계 시간, x, y, 스킬 0 적혈탄 · 1 혈수 강타] | 0,
    혈흔 [[키, 중첩, 남은 초]], 혈막 [지난 초, 최대 초] | 0, 폭주 · 탈진 [1 | 2, 남은 초] | 0, 혈역 [x, y, 지난 초, 흡수 대상 없음 1] | 0]
    대기 칸 5번째는 혈역 증폭 · 6번째는 혈검(11월 15일). 10번 해금 시험 단계(0 없음).
-   11번 혈검 [1 만드는 중 · 2 든 검, 그 단계 지난 초, 남은 베기, 방향 x, y, 벤 횟수, 마지막 베기 뒤 초] | 0(11월 15일). 칸은 뒤에만 더한다 ── */
+   11번 혈검 [1 만드는 중 · 2 든 검, 그 단계 지난 초, 남은 베기, 방향 x, y, 벤 횟수, 마지막 베기 뒤 초] | 0(11월 15일). 칸은 뒤에만 더한다.
+   11월 15일 개편 — 대기 칸 7 · 8번째 혈류 파동 · 혈쇄 갈고리, 9번째 적혈탄 지금 대기의 최대(쏜 단계 2 · 3 · 5초). 12번 갈고리 [단계 1 날아감 · 2 끌려감 · 3 막 끝남(0.5초), 지난 초] | 0 ── */
 export function packBloodJob(h) {
   if (!bloodOn(h)) return 0;
   const bd = h.bag.bd, s = h.bd;
-  return [Math.round(bd.b), bd.lv, bd.xp, bd.tr.flat(), s ? [r1(s.cd.shot), r1(s.cd.conv), r1(s.cd.smash || 0), r1(s.cd.form || 0), r1(s.cd.field || 0), r1(s.cd.sword || 0)] : [0, 0, 0, 0, 0, 0],
+  return [Math.round(bd.b), bd.lv, bd.xp, bd.tr.flat(), s ? [r1(s.cd.shot), r1(s.cd.conv), r1(s.cd.smash || 0), r1(s.cd.form || 0), r1(s.cd.field || 0), r1(s.cd.sword || 0), r1(s.cd.wave || 0), r1(s.cd.hook || 0), (s.cdMax && s.cdMax.shot) || 0] : [0, 0, 0, 0, 0, 0, 0, 0, 0],
     s && s.ch ? [r2(s.ch.t), s.ch.ax, s.ch.ay, s.ch.s === "smash" ? 1 : 0] : 0,
     s ? Object.entries(s.mk).map(([k, m]) => [k, m[0], r1(m[1])]) : [],
     s && s.vl ? [r2(s.vl.t), s.vl.max] : 0,
     s && s.rg ? [s.rg.k, r1(s.rg.t)] : 0,
     s && s.fd ? [s.fd.x, s.fd.y, r2(s.fd.t), s.fd.none] : 0,
     h.bt ? h.bt.step : 0,
-    s && s.sw ? [s.sw.ph, r2(s.sw.t), s.sw.left, s.sw.ax, s.sw.ay, s.sw.i, r2(Math.min(9, s.sw.sT))] : 0];
+    s && s.sw ? [s.sw.ph, r2(s.sw.t), s.sw.left, s.sw.ax, s.sw.ay, s.sw.i, r2(Math.min(9, s.sw.sT))] : 0,
+    s && s.hk ? [s.hk.ph, r2(s.hk.t)] : s && s.hkT > 0 ? [3, 0] : 0];
 }
 // 손님 — 화면에 쓰는 값만 h.bdv 로(판정 상태 h.bd 는 건드리지 않는다)
 export function applyBloodJob(h, a) {
   if (!Array.isArray(a)) { h.bdv = null; return; }
-  if (h.bag && h.bag.bd) h.bag.bd.b = Math.max(0, Math.min(BLOOD.abs, Number(a[0]) || 0));   // 방장 승계 때 지금 혈량을 이어받는다
+  if (h.bag && h.bag.bd) h.bag.bd.b = Math.max(0, Math.min(overCap(h.bag.bd.lv), Number(a[0]) || 0));   // 방장 승계 때 지금 혈량을 이어받는다
   const tr = Array.isArray(a[3]) ? a[3] : [];
   h.bdv = { b: Number(a[0]) || 0, lv: Number(a[1]) || 1, xp: Number(a[2]) || 0, tr: [[tr[0] | 0, tr[1] | 0], [tr[2] | 0, tr[3] | 0], [tr[4] | 0, tr[5] | 0]],
-    cd: Array.isArray(a[4]) ? { shot: +a[4][0] || 0, conv: +a[4][1] || 0, smash: +a[4][2] || 0, form: +a[4][3] || 0, field: +a[4][4] || 0, sword: +a[4][5] || 0 } : { shot: 0, conv: 0, smash: 0, form: 0, field: 0, sword: 0 },
+    cd: Array.isArray(a[4]) ? { shot: +a[4][0] || 0, conv: +a[4][1] || 0, smash: +a[4][2] || 0, form: +a[4][3] || 0, field: +a[4][4] || 0, sword: +a[4][5] || 0, wave: +a[4][6] || 0, hook: +a[4][7] || 0 } : { ...NO_CD },
+    shotMax: Array.isArray(a[4]) ? +a[4][8] || 0 : 0,
     ch: Array.isArray(a[5]) ? { t: +a[5][0] || 0, ax: +a[5][1] || 0, ay: +a[5][2] || 0, s: a[5][3] === 1 ? "smash" : "shot" } : null,
     mk: Array.isArray(a[6]) ? a[6].filter((m) => Array.isArray(m) && typeof m[0] === "string").map((m) => [m[0], m[1] | 0, +m[2] || 0]) : [],
     vl: Array.isArray(a[7]) ? { t: +a[7][0] || 0, max: +a[7][1] || 0 } : null,
     rg: Array.isArray(a[8]) ? { k: a[8][0] === 2 ? 2 : 1, t: +a[8][1] || 0 } : null,
     fd: Array.isArray(a[9]) ? { x: +a[9][0] || 0, y: +a[9][1] || 0, t: +a[9][2] || 0, none: a[9][3] ? 1 : 0 } : null, bt: Number(a[10]) || 0,
-    sw: Array.isArray(a[11]) ? { ph: a[11][0] === 1 ? 1 : 2, t: +a[11][1] || 0, left: a[11][2] | 0, ax: +a[11][3] || 0, ay: +a[11][4] || 0, i: a[11][5] | 0, sT: +a[11][6] || 0 } : null, at: Date.now() };
+    sw: Array.isArray(a[11]) ? { ph: a[11][0] === 1 ? 1 : 2, t: +a[11][1] || 0, left: a[11][2] | 0, ax: +a[11][3] || 0, ay: +a[11][4] || 0, i: a[11][5] | 0, sT: +a[11][6] || 0 } : null,
+    hk: Array.isArray(a[12]) && a[12][0] !== 3 ? { ph: a[12][0] === 2 ? 2 : 1, t: +a[12][1] || 0 } : null, at: Date.now() };
 }
+const NO_CD = { shot: 0, conv: 0, smash: 0, form: 0, field: 0, sword: 0, wave: 0, hook: 0 };
 // 화면 값 — 방장(판정 세계)은 h.bag.bd · h.bd 에서, 손님은 h.bdv 에서 같은 모양으로
 export function bloodView(h) {
   if (!h) return null;
   if (h.bdv) return h.bdv;
   if (!bloodOn(h)) return null;
   const bd = h.bag.bd, s = h.bd;
-  return { b: bd.b, lv: bd.lv, xp: bd.xp, tr: bd.tr, cd: s ? { smash: 0, form: 0, field: 0, sword: 0, ...s.cd } : { shot: 0, conv: 0, smash: 0, form: 0, field: 0, sword: 0 },
+  return { b: bd.b, lv: bd.lv, xp: bd.xp, tr: bd.tr, cd: s ? { ...NO_CD, ...s.cd } : { ...NO_CD }, shotMax: (s && s.cdMax && s.cdMax.shot) || 0,
     ch: s && s.ch ? { t: s.ch.t, ax: s.ch.ax, ay: s.ch.ay, s: s.ch.s } : null,
     mk: s ? Object.entries(s.mk).map(([k, m]) => [k, m[0], m[1]]) : [], vl: s && s.vl ? { t: s.vl.t, max: s.vl.max } : null,
     rg: s && s.rg ? { k: s.rg.k, t: s.rg.t } : null, fd: s && s.fd ? { x: s.fd.x, y: s.fd.y, t: s.fd.t, none: s.fd.none } : null, bt: h.bt ? h.bt.step : 0,
-    sw: s && s.sw ? { ph: s.sw.ph, t: s.sw.t, left: s.sw.left, ax: s.sw.ax, ay: s.sw.ay, i: s.sw.i, sT: s.sw.sT } : null };
+    sw: s && s.sw ? { ph: s.sw.ph, t: s.sw.t, left: s.sw.left, ax: s.sw.ax, ay: s.sw.ay, i: s.sw.i, sT: s.sw.sT } : null,
+    hk: s && s.hk ? { ph: s.hk.ph, t: s.hk.t } : null };
 }

@@ -41,5 +41,11 @@ export const BLOOD_JOB_PX = {
   bj_hd_open: { w: 45, h: 40, cols: 4, n: 4, cx: 28, cy: 15, loop: 1, rim: 1 },   // 편 손(반복)
   bj_hd_clench: { w: 45, h: 37, cols: 5, n: 5, cx: 28, cy: 15, rim: 1 },   // 손가락을 오므려 주먹
   bj_hd_unravel: { w: 45, h: 39, cols: 8, n: 8, cx: 28, cy: 15, rim: 1 },   // 주먹이 손끝부터 피로 풀린다
+  /* 11월 15일 개편 — 혈류 파동 · 혈쇄 갈고리(같은 blood-form.js 의 wave · hook · link · drop). 2배로 그린다 */
+  bj_wave: { w: 259, h: 207, cols: 8, n: 62, cx: 127, cy: 103, rim: 1 },   // 혈류 파동 가장자리 — 칸 i 의 반지름 = 4 + 2i(1배, 땅 비율 0.78 포함). 판정 반경에 가장 가까운 칸
+  bj_hk_form: { w: 50, h: 50, cols: 6, n: 6, rows: 16, cx: 25, cy: 25, rim: 1 },   // 갈고리가 손 앞에서 생긴다(16방향, 기준점 = 자루 뒤끝)
+  bj_hk_head: { w: 50, h: 50, cols: 4, n: 4, rows: 16, cx: 25, cy: 25, loop: 1, rim: 1 },   // 날아가는 갈고리 머리(빛이 자루를 따라 흐른다)
+  bj_hk_link: { w: 12, h: 12, cols: 4, n: 4, rows: 16, cx: 6, cy: 6, rim: 1 },   // 사슬 마디 — 칸 0 둥근 · 1 옆 · 2 · 3 팽팽한(밝은)
+  bj_hk_drop: { w: 11, h: 37, cols: 6, n: 6, cx: 6, cy: 5, rim: 1 },   // 마디가 핏방울로 풀려 떨어진다
   bj_fall: { w: 143, h: 135, cols: 4, n: 10, cx: 71, cy: 50 },            // holy/feather-burst — 탈진: 혈액 갑주 조각이 흩날려 떨어진다
 };

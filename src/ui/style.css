@@ -2915,12 +2915,12 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-blood-stat-tint small { flex-basis: 100%; font-size: 9.5px; color: #8d8068; }
 
 /* ── 스킬 · 물약 아이콘 칸(11월 15일 사용자 요청 — BLOOD-001). 아이콘은 Codex 시트(skillIconData.js) ──
-   넓은 화면 오른쪽 판: 스킬 4열 · 물약 3열 격자, 칸마다 왼쪽 위 키 · 가운데 아이콘 · 아래 이름. 부가 문구는 아래 설명 칸에 보인다
+   넓은 화면 오른쪽 판: 스킬 5열(11월 15일 — 열 칸이 5 × 2) · 물약 3열 격자, 칸마다 왼쪽 위 키 · 가운데 아이콘 · 아래 이름. 부가 문구는 아래 설명 칸에 보인다
    좁은 화면 · 터치(판 안 아래 칸)는 자리가 좁아 원래 이름 칸 그대로 둔다 */
 .rpg-ico { display: none; }
 .rpg-side .icons .rpg-ico { display: block; flex: none; background-repeat: no-repeat; }
 .rpg-side .rpg-touch-actions.icons { flex: none; gap: 12px; overflow: visible; }
-.rpg-side .icons .rpg-skillbar { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.rpg-side .icons .rpg-skillbar { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }   /* 11월 15일 — 스킬 열 칸(5 × 2) */
 .rpg-side .icons .rpg-potbar { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .rpg-side .icons .rpg-skill { flex-direction: column; align-items: center; justify-content: flex-end; gap: 0; min-height: 86px; padding: 18px 2px 0; text-align: center; }
 .rpg-side .icons .rpg-skill .rpg-ico { width: 48px; height: 48px; margin-bottom: 2px; }
@@ -2930,7 +2930,10 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-side .icons .rpg-skill span small { display: none; }
 .rpg-side .icons .rpg-skill.cool .rpg-ico { filter: grayscale(0.7) brightness(0.5); }
 .rpg-side .icons .rpg-skill.cool span { opacity: 0.7; }
-.rpg-side .icons .rpg-skillbar .rpg-skill em { position: absolute; left: 0; right: 0; top: 30px; margin: 0; text-align: center; font-size: 22px; text-shadow: 0 1px 2px #000; pointer-events: none; }
+.rpg-side .icons .rpg-skillbar .rpg-skill { min-height: 74px; padding-top: 15px; }
+.rpg-side .icons .rpg-skillbar .rpg-skill .rpg-ico { width: 38px; height: 38px; }
+.rpg-side .icons .rpg-skillbar .rpg-skill span { font-size: 9.5px; letter-spacing: -0.03em; }
+.rpg-side .icons .rpg-skillbar .rpg-skill em { position: absolute; left: 0; right: 0; top: 24px; margin: 0; text-align: center; font-size: 22px; text-shadow: 0 1px 2px #000; pointer-events: none; }
 .rpg-side .icons .rpg-skill.pot { min-height: 90px; }
 .rpg-side .icons .rpg-skill.pot .rpg-ico { width: 52px; height: 52px; }
 .rpg-side .icons .rpg-skill.pot em { position: absolute; right: 5px; top: 2px; margin: 0; font-size: 15px; }

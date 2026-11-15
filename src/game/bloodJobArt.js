@@ -252,6 +252,50 @@ function ripple(ctx, f, t, sq) {
   void sq;
 }
 
+/* ── 혈류 파동(11월 15일 개편) — 가장자리가 판정 반경 그대로 퍼진다. 시트는 반지름마다 한 칸(bj_wave)이라 지금 반경에 가장 가까운 칸을 2배로 그린다 ── */
+const WAVE_R0 = 4, WAVE_STEP = 2, WAVE_K = 2;          // bj_wave 칸 i 의 반지름 = 4 + 2i(1배) — 2배로 그리면 화면 반경과 ±2px
+function wave(ctx, f, t, sq) {
+  const P = pal(f), R = f.r || 180, d = f.d || 0.35, r = R * clamp(t / d), fade = t <= d ? 1 : 1 - clamp((t - d) / Math.max(0.01, f.life - d));
+  ring(ctx, f.x, f.y, R, sq, P.rim, 0.3 * fade, 1, 4);   // 1px 범위 예고선 — 다 퍼졌을 때의 판정 반경
+  const T = SH.bj_wave, i = Math.max(0, Math.min(T.n - 1, Math.round((r / WAVE_K - WAVE_R0) / WAVE_STEP)));
+  if (r > 6) formCell(ctx, "bj_wave", 0, i, f.x, f.y, WAVE_K, fade, f.c);
+  if (t < 0.3) pxOnce(ctx, "bj_pop", t / 0.3, f.x, f.y, 1, 1 - t / 0.3, 0, f.c);   // 가운데 — 피가 튀며 파동이 시작된다
+}
+/* ── 혈쇄 갈고리(11월 15일 개편) — 손에서 갈고리가 생겨 날아가며 사슬 마디가 이어진다 → 걸리면 팽팽해지고 끌려가며 짧아진다 → 핏방울로 풀린다 ── */
+const HK_K = 2, HK_FORM = 0.1, LINK_GAP = 13, HK_BACK = 22;   // 그림 배수 · 생기는 시간 · 마디 간격(화면 px) · 머리 뒤끝에서 날 끝까지(화면 px)
+const hookHand = (f) => [f.x + (f.ax || 1) * 16, f.y - 36];
+function chain(ctx, f, x0, y0, x1, y1, taut, sag) {
+  const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy), n = Math.floor(len / LINK_GAP);
+  if (n <= 0) return;
+  const row = row16(Math.atan2(dy, dx));
+  for (let i = 0; i < n; i++) {
+    const s = (i + 0.5) / n, x = x0 + dx * s, y = y0 + dy * s + Math.sin(Math.PI * s) * sag;   // 날아가는 동안은 조금 처진다
+    formCell(ctx, "bj_hk_link", row, (i % 2) + (taut ? 2 : 0), x, y, HK_K, 1, f.c);
+  }
+}
+function hook(ctx, f, t, sq) {
+  const [hx, hy] = hookHand(f), tx = f.x1, ty = f.y1 - 30, a = Math.atan2(ty - hy, tx - hx), row = row16(a);
+  const k = clamp(t / (f.d || 0.15)), ex = tx - Math.cos(a) * HK_BACK, ey = ty - Math.sin(a) * HK_BACK;
+  const x = hx + (ex - hx) * k, y = hy + (ey - hy) * k;
+  chain(ctx, f, hx, hy, x, y, false, Math.min(10, Math.hypot(x - hx, y - hy) * 0.05));
+  if (t < HK_FORM) formCell(ctx, "bj_hk_form", row, onceI("bj_hk_form", t / HK_FORM), x, y, HK_K, 1, f.c);
+  else formCell(ctx, "bj_hk_head", row, loopIdx("bj_hk_head", 0.3), x, y, HK_K, 1, f.c);
+  void sq;
+}
+function hookPull(ctx, f, t, sq) {
+  const [hx, hy] = hookHand(f), tx = f.x1, ty = f.y1 - 30, a = Math.atan2(ty - hy, tx - hx), row = row16(a);
+  const ex = tx - Math.cos(a) * HK_BACK, ey = ty - Math.sin(a) * HK_BACK;
+  chain(ctx, f, hx, hy, ex, ey, t < 0.1, 0);           // 걸린 순간 팽팽하게 빛나고 · 끌려가며 마디가 줄어든다
+  formCell(ctx, "bj_hk_head", row, 0, ex, ey, HK_K, 1, f.c);
+  if (t < 0.18) pxOnce(ctx, "bj_hit", t / 0.18, tx, ty, 0.5, 0.9, 0, f.c);   // 걸린 자리
+  void sq;
+}
+function hookEnd(ctx, f, t, sq) {
+  const u = clamp(t / f.life), ax = f.ax || 1, ay = f.ay || 0;
+  for (let i = 0; i < 3; i++) formCell(ctx, "bj_hk_drop", 0, onceI("bj_hk_drop", u), f.x + ax * (18 + i * 12), f.y - 36 + ay * (18 + i * 12) * sq, HK_K, 1 - u * 0.4, f.c);
+  pxOnce(ctx, "bj_pop", u, f.x + ax * 52, f.y - 30 + ay * 52 * sq, 0.5, 1 - u * 0.6, 0, f.c);   // 갈고리 머리가 피로 터진다
+}
+
 /* ── 손에 든 혈검(11월 15일) — drawHero 가 몸 그림 좌표(발밑 0, 0 · 좌우 뒤집기 적용된 상태) 안에서 부른다 ──
    만드는 중(0.25초)은 생성 칸, 든 동안은 손 위치 · 보는 쪽에 맞춘 각도, 벨 때는 겨눈 쪽 둘레로 칼이 크게 돈다. 방장 · 손님 모두 스냅샷 값(bloodView)으로 그린다 */
 const BLADE_K = 1;                                    // 칼 그림 배수 — 사용자 그림을 픽셀 단위로 옮긴 시트라 1배(몸 높이 75 에 칼 길이 약 80)
@@ -348,13 +392,13 @@ function warn(ctx, f, t, sq) {
   disc(ctx, f.x, f.y, f.r * u, sq, P.bright, 0.22);
 }
 
-const KINDS = { sk_bj_swend: swordEnd, sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
-export const BLOOD_JOB_CAP = { sk_bj_swend: 4, sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 8, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
+const KINDS = { sk_bj_wave: wave, sk_bj_hook: hook, sk_bj_hookpull: hookPull, sk_bj_hookend: hookEnd, sk_bj_swend: swordEnd, sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
+export const BLOOD_JOB_CAP = { sk_bj_wave: 4, sk_bj_hook: 4, sk_bj_hookpull: 4, sk_bj_hookend: 4, sk_bj_swend: 4, sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 8, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
 // 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
-const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword"]);   // 혈막도 시전자를 따라다닌다(11월 15일)
+const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword", "sk_bj_hook", "sk_bj_hookpull"]);   // 갈고리 사슬은 손(시전자)에서 나온다   // 혈막도 시전자를 따라다닌다(11월 15일)
 // 혈막 — 겹쳐 둔 여러 장 중 한 사람당 한 프레임에 한 장만(가장 새 것). 끝 연출이 나오면 남은 장은 그리지 않는다
 const veilSeen = new Map();   // pi → { frame, cur: 이번 프레임에 본 가장 새 장의 u, prev: 앞 프레임의 cur, endU · endAt: 끝 연출이 나온 때 살아 있던 가장 새 u · 그 시각 }
-export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend", "sk_bj_veil", "sk_bj_veilend"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX). 혈막도 맨 뒤 — 적을 뚫고 나와 보였다(11월 15일 사용자)
+export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend", "sk_bj_veil", "sk_bj_veilend", "sk_bj_wave"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX). 혈막도 맨 뒤 — 적을 뚫고 나와 보였다(11월 15일 사용자)
 // 연마 합계(영구 레벨)에 따른 혈색 — 방장은 가방 bd, 손님은 스냅샷 bdv(같은 tr 모양)
 function tintOf(h) {
   const v = h && (h.bdv || (h.bag && h.bag.bd && h.bag.bd.on ? h.bag.bd : null));

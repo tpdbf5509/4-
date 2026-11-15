@@ -3329,6 +3329,7 @@ const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h,
   dummyAt: (g, map, x, y) => { const m = bodyOf(g.nextId++, -1, "dummy", 0, 1, map, x, y); g.mobs.push(m); return m; },
   hurt: (g, h, dmg) => hurtHero(g, h, dmg, { bloodTrial: 1 }),
   goMap: (g, h, to, at) => { h.map = to; [h.x, h.y] = at; stopMove(h); h.hold = []; h.dash = 0; h.gateCd = 1.2; fx(g, to, { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#ff9aa4", t: 0.5, life: 0.5 }); },
+  pvp: (g, h) => isPvp(h.map) || fieldPvpOn(h),     // 혈량 자연 회복이 멈추는 곳(결투장 · 사냥터 PvP, 11월 15일)
   dummy: (o) => !!o && o.type === "dummy", god: (g, h) => !!(h.trn && h.trn.god && (g.test || h.map === "train")), cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
   fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
 export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"
@@ -5256,7 +5257,9 @@ export function rpgApply(g, s) {
       h.fixX = 0; h.fixY = 0;
     } else if (then) {
       const ex = row[0] - then.x, ey = row[1] - then.y, e = Math.hypot(ex, ey);
-      if (e > SYNC.jump) { shiftMe(h, ex, ey); h.fixX = 0; h.fixY = 0; g.netFix = (g.netFix || 0) + 1; }
+      // BLOOD-001 혈쇄 갈고리로 끌려가는 중(줄 56 의 12번 칸)이면 크게 벌어져도 한 번에 옮기지 않고 나눠 옮긴다 — 서버 자리로 미끄러지듯 끌려간다(먼저 그리지 않는다)
+      const pulled = Array.isArray(row[56]) && Array.isArray(row[56][12]);
+      if (e > SYNC.jump && !pulled) { shiftMe(h, ex, ey); h.fixX = 0; h.fixY = 0; g.netFix = (g.netFix || 0) + 1; }
       else if (e > SYNC.fix) { h.fixX = ex; h.fixY = ey; g.netFix = (g.netFix || 0) + 1; }     // 나눠 옮긴다(rpgStepVisual) · 고친 횟수는 연결 진단 칸에
       else { h.fixX = 0; h.fixY = 0; }
     } else if (mine && row.length > 43) {

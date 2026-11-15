@@ -1,9 +1,9 @@
 /* 스킬 · 물약 칸 아이콘(11월 15일 사용자 요청 — BLOOD-001 스킬 판을 이름 목록 대신 아이콘 칸으로).
-   그림은 Codex 로 뽑아 초록 바탕을 지운 시트(design/ui/skill-icons). 4열 × 2행 · 칸 하나 128px(원본 256px 은 design/ui/skill-icons). 못 불러오면 아이콘 없이 이름만 보인다 */
-export const SKILL_ICON_SHEET = { src: "/assets/game/rpg/ui/skill-icons.webp", cols: 4, rows: 2 };
+   그림은 Codex 로 뽑아 초록 바탕을 지운 시트(design/ui/skill-icons). 스킬 시트 4열 × 3행 · 물약 시트 4열 × 2행 · 칸 하나 128px(원본 256px 은 design/ui/skill-icons). 못 불러오면 아이콘 없이 이름만 보인다 */
+export const SKILL_ICON_SHEET = { src: "/assets/game/rpg/ui/skill-icons.webp", cols: 4, rows: 3 };   // 11월 15일 — 셋째 줄에 혈류 파동 · 혈쇄 갈고리
 export const POTION_ICON_SHEET = { src: "/assets/game/rpg/ui/potion-icons.webp", cols: 4, rows: 2 };
 // 스킬 — 칸 번호(왼쪽 위부터)
-export const SKILL_ICONS = { dash: 0, chase: 1, shot: 2, smash: 3, sword: 4, veil: 5, field: 6, conv: 7 };
+export const SKILL_ICONS = { dash: 0, chase: 1, shot: 2, smash: 3, sword: 4, veil: 5, field: 6, conv: 7, wave: 8, hook: 9 };
 // 물약 — 종류마다 칸 번호. weapon 은 크림슨 레퀴엠이 아닌 무기 스킬 칸
 export const POTION_ICONS = { heal: 0, str: 1, int: 2, crit: 3, reset: 4, speed: 5, hide: 6, weapon: 7 };
 export const potionIconOf = (id) => (/^heal/.test(id) ? "heal" : id === "buff_str" ? "str" : id === "buff_int" ? "int" : id === "buff_crit" ? "crit"

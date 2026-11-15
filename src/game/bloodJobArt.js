@@ -224,11 +224,11 @@ function swordEnd(ctx, f, t, sq) {
 }
 // 혈막 — 피가 몸 둘레에서 휘어진 방패판 두 겹으로 굳는다(0.3초) · 맞으면 그쪽 판이 움푹 · 파문 · 끝나면 판이 안으로 접혀 풀린다
 const VEIL_D = 70, VEIL_FORM = 0.3;                   // 혈막 그림 지름(1배 픽셀) — 보이는 지름 140 × 크기 보너스
-const veilHit = new Map();                            // pi → { born, a } — 마지막으로 맞은 때(이 기기 시계) · 방향
+const veilHit = new Map();                            // pi → { born, a } — 마지막으로 맞은 때(기기 시계 performance.now) · 방향
 function veil(ctx, f, t, sq) {
   const P = pal(f), left = 1 - clamp((f.u || 0) + (f.max > 0 ? t / f.max : 0));   // 남은 시간은 낸 뒤 흐른 만큼 줄인다
   const x = f.x, y = f.y - 40, D = 140 * (f.k || 1), k = D / VEIL_D, age = (f.u || 0) * (f.max || 15) + t;
-  const hit = veilHit.get(f.pi), ht = hit ? NOW - hit.born : 9;
+  const hit = veilHit.get(f.pi), ht = hit ? performance.now() / 1000 - hit.born : 9;   // 기기 시계 — g.t 는 손님 화면에서 앞뒤로 맞춰진다
   if (age < VEIL_FORM) formCell(ctx, "bj_vl_form", 0, onceI("bj_vl_form", age / VEIL_FORM), x, y, k, 1, f.c);
   else if (ht < 0.35) { const [row, flip] = row5(hit.a); formCell(ctx, "bj_vl_hit", row, onceI("bj_vl_hit", ht / 0.35), x, y, k, 1, f.c, flip); }
   else formCell(ctx, "bj_vl_hold", 0, loopIdx("bj_vl_hold", 1.8), x, y, k, 0.85, f.c);   // 몸이 비쳐 보이게 조금 옅게
@@ -246,8 +246,8 @@ function veilEnd(ctx, f, t, sq) {
 // 맞음 — 방향만 적어 둔다(혈막 그림이 그쪽 판을 움푹 들어가게 그린다) · 맞은 자리에 작은 튐
 function ripple(ctx, f, t, sq) {
   const a = Number.isFinite(f.a) ? f.a : 0, u = clamp(t / f.life);
-  const h = veilHit.get(f.pi), born = NOW - t;
-  if (!h || Math.abs(h.born - born) > 0.02) veilHit.set(f.pi, { born, a });
+  const h = veilHit.get(f.pi), born = performance.now() / 1000 - t;
+  if (!h || Math.abs(h.born - born) > 0.1) veilHit.set(f.pi, { born, a });
   pxOnce(ctx, "bj_hit", u, f.x + Math.cos(a) * 62, f.y - 40 + Math.sin(a) * 52, 0.45, 0.8 * (1 - u), 0, f.c);
   void sq;
 }
@@ -353,7 +353,7 @@ export const BLOOD_JOB_CAP = { sk_bj_swend: 4, sk_bj_lead: 2, sk_bj_warn: 2, sk_
 // 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
 const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword"]);   // 혈막도 시전자를 따라다닌다(11월 15일)
 // 혈막 — 겹쳐 둔 여러 장 중 한 사람당 한 프레임에 한 장만(가장 새 것). 끝 연출이 나오면 남은 장은 그리지 않는다
-const veilSeen = new Map();   // pi → { top: 본 장 중 가장 새 장의 시작 시각, prev: 앞 프레임까지의 top, end: 끝 연출의 시작 시각, frame }
+const veilSeen = new Map();   // pi → { frame, cur: 이번 프레임에 본 가장 새 장의 u, prev: 앞 프레임의 cur, endU · endAt: 끝 연출이 나온 때 살아 있던 가장 새 u · 그 시각 }
 export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
 // 연마 합계(영구 레벨)에 따른 혈색 — 방장은 가방 bd, 손님은 스냅샷 bdv(같은 tr 모양)
 function tintOf(h) {
@@ -371,15 +371,17 @@ export function drawBloodJobFx(ctx, f, p, sq, g, time) {
   }
   if (!f.c && g && Number.isInteger(f.pi)) { const c = tintOf(g.heroes && g.heroes[f.pi]); if (c !== "red") f = { ...f, c }; }   // 시전자 연마 합계 색
   if (f.kind === "sk_bj_veil" || f.kind === "sk_bj_veilend") {
-    const born = NOW - clamp(p) * f.life, v = veilSeen.get(f.pi) || { top: -1e9, prev: -1e9, end: -1e9, frame: -1 };
+    // 장마다 진행도 u(서버가 낸 값, 장마다 다르고 변하지 않음)로 알아본다. 예전에는 g.t 로 잰 시작 시각으로 골랐는데
+    // 손님 화면은 스냅샷마다 g.t 가 앞뒤로 맞춰져 시각이 흔들리고, 그때마다 모든 장을 건너뛰어 혈막이 안 보였다(11월 15일 사용자 보고)
+    const v = veilSeen.get(f.pi) || { frame: -1, cur: -1, prev: -1, endU: -1, endAt: -9 };
     veilSeen.set(f.pi, v);
-    if (v.frame !== NOW) { v.frame = NOW; v.prev = v.top; }   // 앞 프레임까지 본 가장 새 장 — 새 장은 다음 프레임부터 그려 두 장이 겹쳐 밝아지지 않게
-    if (f.kind === "sk_bj_veilend") v.end = Math.max(v.end, born);
+    if (v.frame !== NOW) { v.frame = NOW; v.prev = v.cur; v.cur = -1; }   // 앞 프레임에 본 가장 새 장 — 새 장은 다음 프레임부터 그려 두 장이 겹쳐 밝아지지 않게
+    const u = Number.isFinite(f.u) ? f.u : 0, wall = performance.now() / 1000;
+    if (f.kind === "sk_bj_veilend") { v.endU = Math.max(v.endU, v.prev, v.cur); v.endAt = wall; }
     else {
-      v.top = Math.max(v.top, born);
-      if (born <= v.end + 0.05) return true;                                   // 이미 끝난 혈막의 남은 장
-      const prevLive = v.prev > v.end + 0.05 && NOW - v.prev < f.life;          // 앞 프레임의 장이 아직 살아 있다
-      if (prevLive ? Math.abs(born - v.prev) > 0.01 : born < v.top - 0.01) return true;
+      if (wall - v.endAt < 1 && u <= v.endU + 1e-6) return true;              // 이미 끝난 혈막의 남은 장
+      v.cur = Math.max(v.cur, u);
+      if (v.prev >= 0 && Math.abs(u - v.prev) > 1e-6) return true;              // 앞 프레임의 가장 새 장만 그린다
     }
   }
   if (f !== f0) f = { ...f, src: f0 };                // 복사본이어도 같은 연출로 알아본다(swEndAt)

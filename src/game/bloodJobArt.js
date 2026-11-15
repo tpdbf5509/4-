@@ -4,7 +4,7 @@
    코드로 그리는 것은 판정 범위를 보이는 1px 예고선 · 남은 시간 띠 · 숫자 글자뿐이다. 시트를 못 불러오면 그 연출은 비워 둔다.
    색은 연마 합계에 따라 바뀐다(f.c: red · violet · dusk) — 시트는 hue-rotate · 밝기로 물들이고 외곽은 늘 밝게.
    연출 종류: sk_bj_charge(차징 구체) · sk_bj_shot(본탄) · sk_bj_hit · sk_bj_end · sk_bj_burst(팽창) · sk_bj_reap(혈흔 회수 실) · sk_bj_conv(혈량 전환) · sk_bj_fizz(차징 취소) */
-import { BLOOD_SHOT as S, BLOOD_COLORS, BLOOD, BLOOD_FIELD as FD, BLOOD_TINT } from "./bloodJobData.js";
+import { BLOOD_SHOT as S, BLOOD_COLORS, BLOOD, BLOOD_FIELD as FD, BLOOD_TINT, BLOOD_FORM } from "./bloodJobData.js";
 import { BLOOD_JOB_PX_SRC, BLOOD_JOB_PX as SH } from "./bloodJobPxData.js";
 
 const TAU = Math.PI * 2;
@@ -39,6 +39,35 @@ function cell(ctx, name, i, x, y, k0, alpha, rot, c, mirror = false) {
   ctx.restore();
   return true;
 }
+/* 형상화 시트(11월 15일) — 몸은 연마 색으로 물들이고 밝은 외곽(_rim)은 색조만 바꿔 늘 밝게 둔다.
+   row 는 방향 줄(rows), i 는 칸. flipX 면 좌우로 뒤집는다(왼쪽을 볼 때) */
+const RIM_FILTER = { red: "", violet: "hue-rotate(-40deg)", dusk: "hue-rotate(-55deg) saturate(0.9)" };
+function formCell(ctx, name, row, i, x, y, k0, alpha, c, flipX = false) {
+  const T = SH[name], im = sheet(name); if (!im || alpha <= 0) return false;
+  const rim = T.rim ? sheet(`${name}_rim`) : null, k = pxK(k0), j = Math.max(0, Math.min(T.n - 1, i | 0)) + (row | 0) * T.cols;
+  const sx = (j % T.cols) * T.w, sy = Math.floor(j / T.cols) * T.h;
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.imageSmoothingEnabled = false;
+  ctx.translate(Math.round(x), Math.round(y)); if (flipX) ctx.scale(-1, 1);
+  if (TINT_FILTER[c]) ctx.filter = TINT_FILTER[c];
+  ctx.drawImage(im, sx, sy, T.w, T.h, -T.cx * k, -T.cy * k, T.w * k, T.h * k);
+  if (rim) { ctx.filter = RIM_FILTER[c] || "none"; ctx.drawImage(rim, sx, sy, T.w, T.h, -T.cx * k, -T.cy * k, T.w * k, T.h * k); }
+  ctx.restore();
+  return true;
+}
+// 처음 BLOOD-001 을 그릴 때 시트를 한꺼번에 불러 둔다 — 첫 혈검 · 혈막 · 강타가 빈 칸으로 지나가지 않게
+let warmed = 0;
+export function warmBloodJob() { if (warmed) return; warmed = 1; for (const k of Object.keys(SH)) { sheet(k); if (SH[k].rim) sheet(`${k}_rim`); } }
+const row16 = (a) => ((Math.round(a / (TAU / 16)) % 16) + 16) % 16;
+// 오른쪽 반 5줄(-90 · -45 · 0 · 45 · 90도) — 왼쪽은 뒤집는다
+function row5(a) {
+  const flip = Math.cos(a) < -1e-6;
+  let b = flip ? Math.PI - a : a;
+  b = Math.atan2(Math.sin(b), Math.cos(b));
+  return [Math.max(0, Math.min(4, Math.round((Math.max(-Math.PI / 2, Math.min(Math.PI / 2, b)) + Math.PI / 2) / (Math.PI / 4)))), flip];
+}
+const onceI = (name, u) => Math.min(SH[name].n - 1, Math.floor(clamp(u) * SH[name].n));
+const loopIdx = (name, spin) => Math.floor(((NOW / spin) % 1) * SH[name].n) % SH[name].n;
+
 const POOL_R = 117, POOL_OPEN = 0.6, POOL_A = 0.8;   // 혈역 피 웅덩이 — 그림 속 반지름(1배 픽셀, 판정 반경 / 이 값 = 배수) · 번지는 시간 · 투명도(적 공격 예고가 비치게)
 const once = (name, u) => Math.min(SH[name].n - 1, Math.floor(clamp(u) * SH[name].n));
 const loopI = (name, t, spin) => Math.floor(((t / spin) % 1 + 1) % 1 * SH[name].n) % SH[name].n;
@@ -139,31 +168,36 @@ function groundRect(ctx, x, y, ax, ay, L, W, sq, color, a, center = true) {
   if (center) { ctx.globalAlpha = clamp(a * 0.8); ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(...pt(10, 0)); ctx.lineTo(...pt(L, 0)); ctx.stroke(); }
   ctx.restore();
 }
-const handAt = (f, sq) => [f.x - (f.ax || 1) * 18, f.y - 70 + (f.ay || 0) * -10 * sq];
+const handAt = (f, sq) => [f.x + (f.ax || 1) * 8, f.y - 100 + (f.ay || 0) * -10 * sq];   // 머리 위 조금 앞 — 손이 몸을 가리지 않게
+// 혈수 강타 — 손바닥이 먼저 · 손가락이 뒤에 만들어진다(차징 첫 0.3초). 다 되면 편 손이 손끝에서 피를 떨군다
+const HAND_FORM = 0.3, HAND_W = 55;                   // 손 그림 폭 기준(1배 픽셀) — 판정 폭 180 이면 2배, 넓히면 3배
 function smashCharge(ctx, f, t, sq) {
-  const P = pal(f), u = clamp(f.u || 0), tier = f.tier || 0;
+  const P = pal(f), u = clamp(f.u || 0), tier = f.tier || 0, ct = u * 0.9 + t;
   groundRect(ctx, f.x, f.y, f.ax || 1, f.ay || 0, f.L, f.W, sq, P.rim, 0.75);
-  const [hx, hy] = handAt(f, sq), size = 110 * (f.W / 180);
-  // 손 — 피가 손으로 모여 점점 커진다
-  pxLoop(ctx, "bj_gather", 0, 0.8, hx, hy, (size / 70) * (0.5 + 0.7 * u), 0.55 + 0.4 * u, 0, f.c);
-  for (let i = 0; i < tier; i++) {                    // 추가 소모 단계마다 손 옆 혈액 고리 하나
-    const rx = hx + size * 0.55, ry = hy - size * 0.3 + i * 18;
+  const [hx, hy] = handAt(f, sq), size = 110 * (f.W / 180), k = size / HAND_W, flip = (f.ax || 1) < 0;
+  if (ct < HAND_FORM) formCell(ctx, "bj_hd_form", 0, onceI("bj_hd_form", ct / HAND_FORM), hx, hy, k, 1, f.c, flip);
+  else formCell(ctx, "bj_hd_open", 0, loopIdx("bj_hd_open", 0.6), hx, hy, k, 1, f.c, flip);
+  for (let i = 0; i < tier; i++) {                    // 추가 소모 단계마다 손 옆 혈액 방울 하나
+    const rx = hx + (flip ? -1 : 1) * size * 0.55, ry = hy - size * 0.3 + i * 18;
     pxLoop(ctx, "bj_drop", i * 0.3, 0.4, rx, ry, 1, 0.95, -Math.PI / 2, f.c);   // 위로 솟는 방울
   }
   if (f.ping) pxOnce(ctx, "bj_hit", clamp(t / 0.2), hx, hy, 0.9, 1 - clamp(t / 0.2), 0, f.c);
 }
+// 발동 — 손가락을 오므려 주먹을 쥐고(앞 35%) 앞으로 내려친다. 닿으면 손끝부터 피로 풀린다(0.3초)
 function smashFire(ctx, f, t, sq) {
-  const P = pal(f), d = f.d || 0.2, ax = f.ax || 1, ay = f.ay || 0;
-  const tx = f.x + ax * f.L * 0.62, ty = f.y + ay * f.L * 0.62 * sq;
-  if (t < d) {                                        // 내려치기 — 손 뒤에서 주먹이 앞으로 크게 떨어진다
+  const P = pal(f), d = f.d || 0.2, ax = f.ax || 1, ay = f.ay || 0, flip = ax < 0;
+  const tx = f.x + ax * f.L * 0.62, ty = f.y + ay * f.L * 0.62 * sq, k = (110 * (f.W / 180)) / HAND_W;
+  if (t < d) {
     groundRect(ctx, f.x, f.y, ax, ay, f.L, f.W, sq, P.rim, 0.9);
-    const u = clamp(t / d), e = u * u, [hx, hy] = handAt(f, sq);
-    const x = hx + (tx - hx) * e, y = hy - 60 * Math.sin(u * Math.PI) + (ty - 30 - hy) * e, k = f.W / 180;
-    pxLoop(ctx, "bj_gather", 0, 0.4, x, y, 1.9 * k * (1.15 - 0.25 * e), 0.95, 0, f.c);   // 피 덩어리가 앞으로 내려친다
+    const [hx, hy] = handAt(f, sq), c = clamp(t / (d * 0.35));
+    if (c < 1) return void formCell(ctx, "bj_hd_clench", 0, onceI("bj_hd_clench", c), hx, hy, k, 1, f.c, flip);
+    const u = clamp((t - d * 0.35) / (d * 0.65)), e = u * u;
+    const x = hx + (tx - hx) * e, y = hy - 50 * Math.sin(u * Math.PI) + (ty - 26 - hy) * e;
+    formCell(ctx, "bj_hd_clench", 0, SH.bj_hd_clench.n - 1, x, y, k * (1 + 0.25 * e), 1, f.c, flip);   // 주먹이 커지며 떨어진다
     return;
   }
-  const u = clamp((t - d) / 0.3);                     // 손끝부터 풀려 0.3초 안에 사라진다
-  pxOnce(ctx, "bj_pop", u, tx, ty + 4, 1.1 * (f.W / 180), 0.85 * (1 - u * 0.5), 0, f.c);   // 덩어리가 풀려 튄다
+  const u = clamp((t - d) / 0.3);
+  formCell(ctx, "bj_hd_unravel", 0, onceI("bj_hd_unravel", u), tx, ty - 26, k * 1.25, 1 - u * 0.2, f.c, flip);
 }
 function slam(ctx, f, t, sq) {
   const u = clamp(t / f.life), D = f.W * 1.5;
@@ -171,39 +205,86 @@ function slam(ctx, f, t, sq) {
   pxOnce(ctx, "bj_hit", clamp(u * 1.6), f.x, f.y - 16, D / 120, 0.9 * (1 - u), 0, f.c);
   void sq;
 }
+// 혈검 베기 궤적 — 1타 위 → 아래 · 2타 아래 → 위 · 3타 크게 내려베기. 몸 가운데 둘레 실제 반경(반경 1px 예고선은 옅게)
+const ARC_R = 47, ARC_K = 2;                           // 궤적 그림 반지름(1배 픽셀) · 배수 — 몸에 붙어 보이게 2배(반지름 약 94). 실제 반경은 1px 예고선
 function sword(ctx, f, t, sq) {
-  const P = pal(f), u = clamp(t / 0.12), ax = f.ax || 1, ay = f.ay || 0, rot = Math.atan2(ay * sq, ax), R = f.r || 140;
-  const a = 1 - u;
-  const v = clamp(t / 0.3), mirror = f.i === 1;   // 대각선 아래 → 반대 대각선 위(뒤집기) → 교차
-  if (f.i === 2) pxOnce(ctx, "bj_cross", v, f.x, f.y - 30, R / 80, 1 - v * 0.4, rot, f.c);
-  else pxOnce(ctx, "bj_slash", v, f.x, f.y - 30, R / 80, 1 - v * 0.4, rot, f.c, mirror);
-  ring(ctx, f.x, f.y, R, sq, P.rim, 0.25 * a, 1, 4);   // 실제 반경을 옅게
+  const P = pal(f), ax = f.ax || 1, ay = f.ay || 0, R = f.r || 140, [row, flip] = row5(Math.atan2(ay * sq, ax));
+  const name = f.i === 2 ? "bj_arc3" : f.i === 1 ? "bj_arc2" : "bj_arc1";
+  formCell(ctx, name, row, Math.min(SH[name].n - 1, 1 + Math.floor(clamp(t / f.life) * (SH[name].n - 1))), f.x, f.y - 34, ARC_K * Math.min(1.5, R / 140), 1, f.c, flip);
+  ring(ctx, f.x, f.y, R, sq, P.rim, 0.22 * (1 - clamp(t / f.life)), 1, 4);
 }
+// 혈검이 풀린다 — 손에 들려 있던 자리에서 칼끝부터 피로 흘러내린다
+const bladeSeen = new Map();                          // pi → { x, y, a, at } — 마지막으로 그린 손 · 칼 방향(drawBloodBlade 가 적는다)
+const swEndAt = new WeakMap();
+function swordEnd(ctx, f, t, sq) {
+  let at = swEndAt.get(f.src || f);
+  if (!at) { const b = bladeSeen.get(f.pi); at = b && NOW - b.at < 0.5 ? b : { x: f.x + (f.ax || 1) * 14, y: f.y - 36, a: Math.atan2((f.ay || 0) * sq, f.ax || 1) }; swEndAt.set(f.src || f, at); }
+  if (f.ph === 1) return void pxOnce(ctx, "bj_pop", t / f.life, at.x, at.y + 8, 0.5, 1 - t / f.life * 0.5, 0, f.c);   // 만들던 중에 끊겼다 — 모이던 피가 흩어진다
+  formCell(ctx, "bj_sw_break", row16(at.a), onceI("bj_sw_break", t / f.life), at.x, at.y, BLADE_K, 1, f.c);
+}
+// 혈막 — 피가 몸 둘레에서 휘어진 방패판 두 겹으로 굳는다(0.3초) · 맞으면 그쪽 판이 움푹 · 파문 · 끝나면 판이 안으로 접혀 풀린다
+const VEIL_D = 70, VEIL_FORM = 0.3;                   // 혈막 그림 지름(1배 픽셀) — 보이는 지름 140 × 크기 보너스
+const veilHit = new Map();                            // pi → { born, a } — 마지막으로 맞은 때(이 기기 시계) · 방향
 function veil(ctx, f, t, sq) {
-  const P = pal(f), fill = f.start ? clamp(t / 0.15) : 1, left = 1 - clamp((f.u || 0) + (f.max > 0 ? t / f.max : 0));   // 남은 시간은 낸 뒤 흐른 만큼 줄인다
-  const x = f.x, y = f.y - 40, D = 140 * (f.k || 1);   // 증폭 · 혈역 크기 보너스(보이는 크기만)
-  ring(ctx, x, y, D / 2, 1, P.rim, 0.85, 1);         // 외곽선은 처음부터 완성
-  pxLoop(ctx, "bj_shield", 0, 2.4, x, y, (D / 66) * (0.6 + 0.4 * fill), 0.75 * fill, 0, f.c);   // pixelfx 막(경선이 돈다)
+  const P = pal(f), left = 1 - clamp((f.u || 0) + (f.max > 0 ? t / f.max : 0));   // 남은 시간은 낸 뒤 흐른 만큼 줄인다
+  const x = f.x, y = f.y - 40, D = 140 * (f.k || 1), k = D / VEIL_D, age = (f.u || 0) * (f.max || 15) + t;
+  const hit = veilHit.get(f.pi), ht = hit ? NOW - hit.born : 9;
+  if (age < VEIL_FORM) formCell(ctx, "bj_vl_form", 0, onceI("bj_vl_form", age / VEIL_FORM), x, y, k, 1, f.c);
+  else if (ht < 0.35) { const [row, flip] = row5(hit.a); formCell(ctx, "bj_vl_hit", row, onceI("bj_vl_hit", ht / 0.35), x, y, k, 1, f.c, flip); }
+  else formCell(ctx, "bj_vl_hold", 0, loopIdx("bj_vl_hold", 1.8), x, y, k, 0.85, f.c);   // 몸이 비쳐 보이게 조금 옅게
   // 남은 시간 — 외곽 띠
-  ctx.save(); ctx.globalAlpha = 0.9; ctx.strokeStyle = P.glow; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(x, y, D / 2 + 5, -Math.PI / 2, -Math.PI / 2 + TAU * left); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.globalAlpha = 0.9; ctx.strokeStyle = P.glow; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x, y, D / 2 + 6, D / 2 * 0.86 + 6, 0, -Math.PI / 2, -Math.PI / 2 + TAU * left); ctx.stroke(); ctx.restore();
   void sq;
 }
 function veilEnd(ctx, f, t, sq) {
-  const P = pal(f), u = clamp(t / f.life), x = f.x, y = f.y - 40, D = 140 * (1 - 0.7 * u);
-  pxLoop(ctx, "bj_shield", 0, 2.4, x, y, D / 66, 0.5 * (1 - u), 0, f.c);   // 막이 줄어들며 접힌다
-  ring(ctx, x, y, D / 2, 1, P.rim, 1 - u, 1);
-  if (f.ok) pxOnce(ctx, "bj_suck", u, x, y, 0.85, 1 - u * 0.3, 0, f.c);   // 회수면 안으로 빨려 접힌다
-  else pxOnce(ctx, "bj_pop", u, x, y + 30, 0.9, 1 - u * 0.4, 0, f.c);      // 아니면 피가 흩어진다
+  const P = pal(f), u = clamp(t / f.life), x = f.x, y = f.y - 40, k = 140 / VEIL_D;
+  formCell(ctx, "bj_vl_fold", 0, onceI("bj_vl_fold", u), x, y, k, 1, f.c);   // 판이 안으로 접혀 피로 풀린다
   if (f.got && u < 0.7) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x, f.y - 120 - 16 * u); }
   void sq;
 }
+// 맞음 — 방향만 적어 둔다(혈막 그림이 그쪽 판을 움푹 들어가게 그린다) · 맞은 자리에 작은 튐
 function ripple(ctx, f, t, sq) {
-  const P = pal(f), u = clamp(t / f.life), ox = Math.sin(f.x * 3.1 + f.y) * 30, oy = Math.cos(f.x + f.y * 1.7) * 24;
-  pxOnce(ctx, "bj_hit", u, f.x + ox * 0.5, f.y - 30 + oy * 0.5, 0.45, 0.8 * (1 - u), 0, f.c);   // 막에 맞은 자리
-  const side = ox < 0 ? Math.PI : 0;                  // 맞은 쪽으로 막이 번쩍인다
-  pxOnce(ctx, "bj_block", u, f.x + Math.cos(side) * 40, f.y - 40, 0.9, 1 - u * 0.4, side, f.c);
-  void P; void sq;
+  const a = Number.isFinite(f.a) ? f.a : 0, u = clamp(t / f.life);
+  const h = veilHit.get(f.pi), born = NOW - t;
+  if (!h || Math.abs(h.born - born) > 0.02) veilHit.set(f.pi, { born, a });
+  pxOnce(ctx, "bj_hit", u, f.x + Math.cos(a) * 62, f.y - 40 + Math.sin(a) * 52, 0.45, 0.8 * (1 - u), 0, f.c);
+  void sq;
+}
+
+/* ── 손에 든 혈검(11월 15일) — drawHero 가 몸 그림 좌표(발밑 0, 0 · 좌우 뒤집기 적용된 상태) 안에서 부른다 ──
+   만드는 중(0.25초)은 생성 칸, 든 동안은 손 위치 · 보는 쪽에 맞춘 각도, 벨 때는 겨눈 쪽 둘레로 칼이 크게 돈다. 방장 · 손님 모두 스냅샷 값(bloodView)으로 그린다 */
+const BLADE_K = 2;                                    // 칼 그림 배수 — 몸 높이 75 에 칼 길이 약 58
+// 손 자리(몸 그림의 비율) · 든 각도(도, 몸 그림 기준 — 옆 그림은 왼쪽을 본다)
+const BLADE_HAND = {
+  m: { front: [0.77, 0.63, -55], turn: [0.24, 0.63, -125], side: [0.16, 0.55, -150], back: [0.88, 0.62, -80] },
+  f: { front: [0.87, 0.62, -55], turn: [0.13, 0.62, -125], side: [0.3, 0.6, -150], back: [0.88, 0.62, -80] },
+};
+// 베기 — [시작, 끝](겨눈 쪽 기준 도) · 걸리는 초
+const BLADE_SWING = [[-75, 60, 0.14], [60, -75, 0.14], [-140, 75, 0.2]];
+export function drawBloodBlade(ctx, h, v, view, flip, ww, hh, top, behind, time) {
+  const sw = v && v.sw;
+  if (!sw) return;
+  if ((view === "back") !== behind) return;
+  NOW = Number.isFinite(time) ? time : performance.now() / 1000;
+  const late = v.at ? Math.min(0.3, (Date.now() - v.at) / 1000) : 0;   // 손님 — 스냅샷 뒤 흐른 시간만큼 앞으로
+  const H = (BLADE_HAND[h.gender === "f" ? "f" : "m"] || BLADE_HAND.m)[view] || BLADE_HAND.m.front;
+  const lx = (H[0] - 0.5) * ww, ly = top + H[1] * hh;
+  let a = (H[2] * Math.PI) / 180;                      // 몸 그림 안 각도
+  const c = tintOf(h);
+  const sT = sw.sT + late;
+  if (sw.ph === 2 && sw.i > 0 && sw.sT < 9) {          // 베는 중 — 겨눈 쪽 둘레로 돈다(몸 그림 안 좌표로 바꿔 계산)
+    const S = BLADE_SWING[Math.min(2, sw.i - 1)], u = clamp(sT / S[2]);
+    if (u < 1 || sT < S[2] + 0.12) {
+      const base = Math.atan2((sw.ay || 0) * 0.78, sw.ax || 1);
+      const w = base + ((S[0] + (S[1] - S[0]) * (1 - Math.pow(1 - u, 3))) * Math.PI) / 180;
+      a = flip ? Math.PI - w : w;
+    }
+  }
+  if (sw.ph === 1) formCell(ctx, "bj_sw_form", row16(a), onceI("bj_sw_form", (sw.t + late) / BLOOD_FORM.sword.form), lx, ly, BLADE_K, 1, c);
+  else formCell(ctx, "bj_sw_hold", row16(a), loopIdx("bj_sw_hold", 0.8), lx, ly, BLADE_K, 1, c);
+  // 풀릴 때 쓸 자리 — 세계 좌표 · 화면 각도
+  bladeSeen.set(h.pi, { x: h.x + (flip ? -lx : lx), y: h.y + ly, a: flip ? Math.PI - a : a, at: NOW });
 }
 
 /* ── 3단계 연출 — 혈역 증폭 · 폭주 · 탈진 ─────────────
@@ -267,10 +348,10 @@ function warn(ctx, f, t, sq) {
   disc(ctx, f.x, f.y, f.r * u, sq, P.bright, 0.22);
 }
 
-const KINDS = { sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
-export const BLOOD_JOB_CAP = { sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 8, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
+const KINDS = { sk_bj_swend: swordEnd, sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
+export const BLOOD_JOB_CAP = { sk_bj_swend: 4, sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 8, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
 // 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
-const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage", "sk_bj_veil"]);   // 혈막도 시전자를 따라다닌다(11월 15일)
+const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword"]);   // 혈막도 시전자를 따라다닌다(11월 15일)
 // 혈막 — 겹쳐 둔 여러 장 중 한 사람당 한 프레임에 한 장만(가장 새 것). 끝 연출이 나오면 남은 장은 그리지 않는다
 const veilSeen = new Map();   // pi → { top: 본 장 중 가장 새 장의 시작 시각, prev: 앞 프레임까지의 top, end: 끝 연출의 시작 시각, frame }
 export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
@@ -283,6 +364,7 @@ function tintOf(h) {
 export function drawBloodJobFx(ctx, f, p, sq, g, time) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
+  const f0 = f;
   if (FOLLOW.has(f.kind) && g && Number.isInteger(f.pi)) {
     const h = g.heroes && g.heroes[f.pi];
     if (h && h.map === f.map && Number.isFinite(h.x)) f = { ...f, x: h.x, y: h.y };
@@ -300,6 +382,7 @@ export function drawBloodJobFx(ctx, f, p, sq, g, time) {
       if (prevLive ? Math.abs(born - v.prev) > 0.01 : born < v.top - 0.01) return true;
     }
   }
+  if (f !== f0) f = { ...f, src: f0 };                // 복사본이어도 같은 연출로 알아본다(swEndAt)
   ctx.save(); ctx.imageSmoothingEnabled = false;
   try { fn(ctx, f, clamp(p) * f.life, sq); } finally { ctx.restore(); }
   return true;

@@ -11,7 +11,7 @@ import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
 import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { drawBloodMarks } from './bloodGunArt.js';
-import { drawBloodJobMarks, drawBloodSpots, BLOOD_JOB_CAP } from './bloodJobArt.js';
+import { drawBloodJobMarks, drawBloodSpots, drawBloodBlade, warmBloodJob, BLOOD_JOB_CAP } from './bloodJobArt.js';
 import { BLOOD_SPOTS } from './bloodJobData.js';
 import { spotShown } from './bloodUnlock.js';   // 히든 직업 BLOOD-001
 import { bloodView } from './bloodJob.js';   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
@@ -2389,6 +2389,9 @@ function drawHero(ctx, g, h, time) {
     if (shield && view === "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (al) drawAbyssBack(ctx, h, al, time, view, hh, top);   // 심연의 날개 — 몸 뒤
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, true);
+    const bjv = !down && (h.bdv || h.bd) ? bloodView(h) : null;   // BLOOD-001 혈검(11월 15일) — 만드는 중 · 든 검 · 베기(방장 · 손님 모두 스냅샷 값)
+    if (bjv) warmBloodJob();
+    if (bjv && bjv.sw) drawBloodBlade(ctx, h, bjv, view, flip, ww, hh, top, true, time);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (!down && !(hide & HIDE_GEAR.armor)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
@@ -2397,6 +2400,7 @@ function drawHero(ctx, g, h, time) {
       drawHeld(ctx, held, ww, top, sw, col.light);
     }
     if (shield && view !== "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
+    if (bjv && bjv.sw) drawBloodBlade(ctx, h, bjv, view, flip, ww, hh, top, false, time);
     if (al & LOOK_BIT.weapon && (!held || held.none || held.adv || !held.wpn)) drawAbyssHandGlow(ctx, time, hh, top);   // 무기 그림이 몸에 붙은 전직 · 맨손 — 손 자리 불씨
     if (al) drawAbyssFront(ctx, h, al, time, view, hh, top);   // 후광 · 뒤를 볼 때 날개
     if (h.flash > 0) {

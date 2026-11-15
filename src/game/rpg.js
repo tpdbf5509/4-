@@ -14,7 +14,7 @@ import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from 
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
 import { BLOOD_LAB } from './bloodJobData.js';
 import { bloodSpotTalk, bloodHunterTalk, bloodSeqHit, tickBloodTrial } from './bloodUnlock.js';   // BLOOD-001 해금 경로(4단계)
-import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
+import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn, bloodSwordPress, bloodSwordOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -1549,9 +1549,11 @@ export function rpgAuto(g, pi, on) {
 export function rpgFire(g, pi, on) {
   const h = g.heroes[pi];
   if (!h) return;
+  const fresh = on && !h.fire;                      // 평타 버튼을 새로 눌렀다(누르고 있던 것 · 키 반복 · 다시 보낸 같은 상태는 아니다)
   h.fire = on ? 1 : 0;
   if (!on || h.down > 0) return;
   if (MAPS[h.map].race) return void rpgRace(g, pi, { op: "item" });   // 몹 레이스 — 공격 키 · 버튼으로 아이템을 쓴다
+  if (bloodSwordPress(bloodJobEngine, g, h, fresh)) { h.fireQ = 0; return; }   // BLOOD-001 혈검을 들고 있다 — 새 누름마다 한 번 벤다(원래 무기 평타는 나가지 않는다)
   h.fireQ = 0.35;
   if (MAPS[h.map].safe) return say(g, h.map, h.x, h.y - 90, MAPS[h.map].story ? "이곳에서는 싸울 수 없다" : MAPS[h.map].village ? "마을에서는 싸울 수 없다" : "광장에서는 싸울 수 없다", "#d9c9a6");
   if (isPvp(h.map) && h.dph === 1) say(g, h.map, h.x, h.y - 90, "곧 시작합니다", "#d9c9a6");
@@ -2182,7 +2184,7 @@ function hurtHero(g, h, raw, source, kind) {
     dmg = worldArmorAbsorb(h, dmg);
     dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
     if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
-    if (h.bd) dmg = bloodJobTake(bloodJobEngine, g, h, dmg);   // BLOOD-001 혈막 — 받는 피해 감소
+    if (h.bd) dmg = bloodJobTake(bloodJobEngine, g, h, dmg, source);   // BLOOD-001 혈막 — 받는 피해 감소
     if (dmg <= 0) return;
     if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
     dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
@@ -3863,6 +3865,7 @@ function stepHeroes(g, dt) {
     h.sk = Math.max(0, h.sk - cdt);
     h.cd = Math.max(0, h.cd - cdt);
     h.fireQ = Math.max(0, h.fireQ - cdt);
+    if (bloodSwordOn(h)) { h.fireQ = 0; return; }    // BLOOD-001 혈검을 든 동안 — 누르고 있는 평타 · 자동 평타는 원래 무기로 치지 않는다(베기는 rpgFire 의 새 누름만)
     if (h.cd > 0 || MAPS[h.map].safe || stormBusy(h)) return;
     const force = !!h.fire || h.fireQ > 0;          // 스페이스 — 사거리 안에 아무도 없어도 친다
     if ((!h.auto || isPvp(h.map)) && !force) return;   // 결투장에서는 자동 평타를 끈다

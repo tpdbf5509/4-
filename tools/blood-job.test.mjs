@@ -227,17 +227,87 @@ test('혈수 강타 — 보스는 경직 · 넉백 면역', () => {
   assert.ok(b.hp < HP); assert.equal(b.stun, 0); assert.equal(Math.round(b.x), Math.round(h.x + 120));
 });
 
-test('혈검 — 혈량 10 · 세 번 베기(0 · 0.18 · 0.36) · 마지막 적중이면 혈량 8 · 공통 대기 15초', () => {
+/* 혈검(11월 15일) — 만들고(0.25초 · 피해 없음) 손에 든 뒤 평타를 새로 누를 때만 한 번씩 최대 3번 */
+import { bloodJobDown } from '../src/game/bloodJob.js';
+const fire = (g, on) => rpgInput(g, { cls: 0, kind: 'fire', dir: on });
+const tap = (g) => { fire(g, true); step(g, .01); fire(g, false); run(g, F.sword.gap + .02); };
+const SE = { fx() {}, sys() {}, say() {} };
+
+test('혈검 — 생성 중 · 입력 없이 들고만 있으면 피해 0 · 혈량 10 · 혈검 대기 6초(혈막 대기와 따로)', () => {
   const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
   const m = mob(g, h.x + 60, h.y);
   send(g, { op: 'sword' });
-  const one = HP - m.hp;
-  assert.ok(one > 0); assert.equal(h.bag.bd.b, 20); assert.ok(h.bd.cd.form > 14);
-  run(g, .4);
-  assert.ok(Math.abs((HP - m.hp) / one - 3) < 0.05, `${(HP - m.hp) / one}`);
-  assert.equal(h.bag.bd.b, 28);
-  assert.equal(h.bag.bd.tr[2][1], 10, '형상화 연마 +10');
-  send(g, { op: 'press', s: 'veil' }); assert.equal(h.bd.vl, null, '공통 대기 — 혈막도 못 쓴다');
+  assert.equal(h.bag.bd.b, 20); assert.ok(h.bd.cd.sword > 5.9 && h.bd.cd.sword <= F.sword.cd); assert.equal(h.bd.cd.form, 0);
+  assert.equal(h.bd.sw.ph, 1); assert.equal(m.hp, HP, '만드는 동안 피해 없음');
+  fire(g, true); fire(g, false); assert.equal(m.hp, HP, '만드는 중 누른 평타는 베지 않는다');
+  run(g, F.sword.form + .02); assert.equal(h.bd.sw.ph, 2, '0.25초 뒤 손에 든다');
+  run(g, 2); assert.equal(m.hp, HP, '입력 없이 들고 있으면 피해 없음');
+  send(g, { op: 'press', s: 'veil' }); assert.ok(h.bd.vl, '혈막은 혈검 대기와 따로 — 바로 쓸 수 있다');
+  assert.equal(h.bd.sw, null, '혈막으로 바꾸면 혈검이 풀린다');
+});
+
+test('혈검 — 새 평타 입력마다 한 번 · 세 번째 적중이면 혈량 10 · 평타 혈량 · 새 혈흔 없음 · 경험치 한 번', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
+  const m = mob(g, h.x + 60, h.y);
+  send(g, { op: 'sword' }); run(g, F.sword.form + .02);
+  tap(g); const one = HP - m.hp;
+  assert.ok(one > 0); assert.equal(h.bd.sw.left, 2);
+  assert.equal(h.bag.bd.b, 20, '평타 혈량 +2 없음'); assert.equal(h.bd.mk['m' + m.id], undefined, '새 혈흔 없음');
+  tap(g); assert.ok(Math.abs((HP - m.hp) / one - 2) < 0.05);
+  assert.equal(h.bag.bd.b, 20, '두 번째까지는 회수 없음');
+  tap(g); assert.ok(Math.abs((HP - m.hp) / one - 3) < 0.05);
+  assert.equal(h.bag.bd.b, 30, '세 번째 적중 — 혈량 10');
+  run(g, F.sword.tail + .05); assert.equal(h.bd.sw, null, '세 번 베면 풀린다');
+  assert.equal(h.bag.bd.tr[2][1], 10, '형상화 연마 +10(시전당 한 번)');
+  const hp0 = m.hp; tap(g); assert.ok(m.hp < hp0, '그 뒤 새 평타는 원래 무기로 친다');
+});
+
+test('혈검 — 누르고 있던 평타 · 키 반복 · 자동 평타로는 베지 않는다', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
+  const m = mob(g, h.x + 60, h.y);
+  fire(g, true);                                     // 발동 전부터 누르고 있다
+  send(g, { op: 'sword' }); run(g, F.sword.form + .3);
+  fire(g, true); fire(g, true); run(g, 1);          // 키 반복 — 같은 누름 상태
+  assert.equal(m.hp, HP, '누르고 있던 평타 · 반복 입력은 베지 않는다');
+  fire(g, false); h.auto = 1; run(g, 1.5);
+  assert.equal(m.hp, HP, '자동 평타도 혈검 · 원래 무기 모두 나가지 않는다');
+  assert.equal(h.bd.sw.left, 3);
+  tap(g); assert.ok(m.hp < HP, '떼었다 새로 누르면 벤다'); assert.equal(h.bd.sw.left, 2);
+});
+
+test('혈검 — 너무 빠른 연타는 한 번 기억했다가 간격 뒤에 벤다', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
+  mob(g, h.x + 60, h.y);
+  send(g, { op: 'sword' }); run(g, F.sword.form + .02);
+  fire(g, true); fire(g, false); fire(g, true); fire(g, false);
+  assert.equal(h.bd.sw.left, 2);
+  run(g, F.sword.gap + .02); assert.equal(h.bd.sw.left, 1);
+});
+
+test('혈검 — 5초가 지나거나 쓰러지면 풀리고, 그 뒤 새 평타는 원래 무기로', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
+  const m = mob(g, h.x + 60, h.y);
+  send(g, { op: 'sword' }); run(g, F.sword.form + F.sword.hold + .05);
+  assert.equal(h.bd.sw, null, '5초 유지 끝');
+  assert.equal(m.hp, HP);
+  tap(g); assert.ok(m.hp < HP, '원래 무기 평타');
+  h.bd.cd.sword = 0; h.bag.bd.b = 30;
+  send(g, { op: 'sword' }); run(g, F.sword.form + .02); assert.ok(h.bd.sw);
+  bloodJobDown(SE, g, h); assert.equal(h.bd.sw, null, '쓰러지면 풀린다');
+});
+
+test('혈검 상태가 손님 화면(스냅샷 끝 칸)에 간다 — 만드는 중 · 남은 베기 · 혈검 대기', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 30;
+  mob(g, h.x + 60, h.y);
+  const guest = makeWorld();
+  send(g, { op: 'sword' });
+  rpgApply(guest, rpgPack(g)); let v = bloodView(guest.heroes[0]);
+  assert.equal(v.sw.ph, 1); assert.ok(v.cd.sword > 5);
+  run(g, F.sword.form + .02); tap(g);
+  rpgApply(guest, rpgPack(g)); v = bloodView(guest.heroes[0]);
+  assert.equal(v.sw.ph, 2); assert.equal(v.sw.left, 2); assert.equal(v.sw.i, 1);
+  run(g, F.sword.hold); rpgApply(guest, rpgPack(g));
+  assert.equal(bloodView(guest.heroes[0]).sw, null);
 });
 
 test('혈막 — 혈량 15 · 받는 피해 30% 감소 · 줄였으면 끝날 때 혈량 12 · 평타를 누르면 끝난다', () => {

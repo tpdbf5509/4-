@@ -354,7 +354,7 @@ export const BLOOD_JOB_CAP = { sk_bj_swend: 4, sk_bj_lead: 2, sk_bj_warn: 2, sk_
 const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword"]);   // 혈막도 시전자를 따라다닌다(11월 15일)
 // 혈막 — 겹쳐 둔 여러 장 중 한 사람당 한 프레임에 한 장만(가장 새 것). 끝 연출이 나오면 남은 장은 그리지 않는다
 const veilSeen = new Map();   // pi → { frame, cur: 이번 프레임에 본 가장 새 장의 u, prev: 앞 프레임의 cur, endU · endAt: 끝 연출이 나온 때 살아 있던 가장 새 u · 그 시각 }
-export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
+export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend", "sk_bj_veil", "sk_bj_veilend"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX). 혈막도 맨 뒤 — 적을 뚫고 나와 보였다(11월 15일 사용자)
 // 연마 합계(영구 레벨)에 따른 혈색 — 방장은 가방 bd, 손님은 스냅샷 bdv(같은 tr 모양)
 function tintOf(h) {
   const v = h && (h.bdv || (h.bag && h.bag.bd && h.bag.bd.on ? h.bag.bd : null));

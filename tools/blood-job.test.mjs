@@ -398,22 +398,22 @@ test('증폭 — 범위 +15%(혈수 강타 길이 · 폭) · 과충전 — 피�
   h.hp = 1; run(g, .5); assert.equal(h.hp, 1, '체력 1에서 멈춘다');
 });
 
-test('혈역 증폭 — 직업 100 · 1초마다 +10(적이 혈역 안) · 과부하 한계까지 넘는다 · 이동 -40% · 놓으면 대기 45초 · 1초에 한 번 10씩 감소', () => {
+test('혈역 증폭 — 직업 100 · 1초마다 +30(적이 혈역 안) · 과부하 한계까지 넘는다 · 이동 -40% · 놓으면 대기 45초 · 1초에 한 번 10씩 감소', () => {
   const a = setup(); unlockBlood(a.h); a.h.bag.bd.lv = 99; fd(a.g, 'press'); assert.equal(a.h.bd?.fd || null, null);
   const { g, h } = setup(); lv100(h); h.bag.bd.b = 200;
   mob(g, h.x + 200, h.y);
   fd(g, 'press'); assert.ok(h.bd.fd);
   assert.ok(Math.abs(bloodJobSlow(h) - 0.6) < 1e-9);
-  run(g, 2.05);
-  assert.equal(FD.gain, 10);
-  assert.equal(h.bag.bd.b, 220, '200 + 10 × 2');
+  run(g, 1.05);
+  assert.equal(FD.gain, 30);
+  assert.equal(h.bag.bd.b, 230, '200 + 30');
   fd(g, 'release');
   assert.equal(h.bd.fd, null); assert.equal(h.bd.cd.field, FD.cd);
-  run(g, .5); assert.equal(h.bag.bd.b, 220, '끝나고 1초 동안은 줄지 않는다');
-  run(g, .45); assert.equal(h.bag.bd.b, 220);
-  run(g, .1); assert.equal(h.bag.bd.b, 220, '기다린 1초가 지나도 1초를 채워야 한 번');
-  run(g, 1); assert.equal(h.bag.bd.b, 210, '1초에 한 번 10');
-  run(g, .5); assert.equal(h.bag.bd.b, 210, '프레임마다 줄지 않는다');
+  run(g, .5); assert.equal(h.bag.bd.b, 230, '끝나고 1초 동안은 줄지 않는다');
+  run(g, .45); assert.equal(h.bag.bd.b, 230);
+  run(g, .1); assert.equal(h.bag.bd.b, 230, '기다린 1초가 지나도 1초를 채워야 한 번');
+  run(g, 1); assert.equal(h.bag.bd.b, 220, '1초에 한 번 10');
+  run(g, .5); assert.equal(h.bag.bd.b, 220, '프레임마다 줄지 않는다');
   run(g, 3); assert.equal(h.bag.bd.b, 200, '안정 한계 아래로는 줄지 않는다');
 });
 
@@ -428,13 +428,15 @@ test('혈역 — 적이 없으면 얻지 못하고 · 시전자를 따라다닌�
 });
 
 test('과부하 — 과부하 한계(100레벨 250)에 닿으면 혈량 60 · 6초 폭주(공격력 +25% · 이동 +15%) → 5초 탈진(-15%) · 직전 경고', () => {
-  const { g, h } = setup(); lv100(h); h.bag.bd.b = 240;
+  const { g, h } = setup(); lv100(h); h.bag.bd.b = 200;
   mob(g, h.x + 200, h.y);
   const base = heroDmgMul(h);
   step(g, .01);
-  assert.ok(overWarn(240, 100, null), '다음 흡수(+10)가 250 에 닿는다 — 경고'); assert.ok(!overWarn(235, 100, null)); assert.ok(!overWarn(240, 100, { k: 1 }));
-  assert.ok(overWarn(140, 1, null) && !overWarn(135, 1, null), '1레벨은 150 에서');
+  assert.ok(overWarn(220, 100, null), '다음 흡수(+30)가 250에 닿는다'); assert.ok(!overWarn(215, 100, null)); assert.ok(!overWarn(220, 100, { k: 1 }));
+  assert.ok(overWarn(120, 1, null) && !overWarn(115, 1, null), '1레벨의 과부하 한계는 150');
   fd(g, 'press'); run(g, 1.05);
+  assert.equal(h.bag.bd.b, 230); assert.ok(h.bd.fd);
+  run(g, 1);
   assert.equal(h.bag.bd.b, 60); assert.equal(h.bd.fd, null); assert.equal(h.bd.rg.k, 1);
   assert.ok(Math.abs(heroDmgMul(h) / base - 1.25) < 1e-6); assert.ok(Math.abs(bloodJobSlow(h) - 1.15) < 1e-9);
   h.bd.cd.field = 0; fd(g, 'press'); assert.equal(h.bd.fd, null, '폭주 중에는 혈역을 못 쓴다');

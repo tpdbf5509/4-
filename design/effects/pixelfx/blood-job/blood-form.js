@@ -8,6 +8,7 @@
 //   hook   — 혈쇄 갈고리(11월 15일). 0,0 = 쥔 손(form) · 갈고리 머리 뒤끝(head). +x 로 날아간다. form 손에서 갈고리가 생김 · head 날아가는 머리
 //   link   — 사슬 마디 하나. 0,0 = 마디 가운데 · +x 가 사슬 방향. variant 0 둥근 마디 · 1 옆에서 본 마디 · 2 · 3 팽팽한(밝은) 마디
 //   drop   — 사슬이 핏방울로 풀린다(마디 하나 자리에서 아래로 떨어진다)
+//   core   — 적혈탄 압축 구슬(11월 15일 사용자 "압축되는 거 크기 크게 줄여줘"). 0,0 = 손끝. tier 0 · 1 · 2 마다 더 작고 단단해지고 둘레를 도는 방울이 는다(u = 한 바퀴)
 // 외곽선은 C[6] · 가장 밝은 빛은 C[7] 만 쓴다 — 게임이 이 두 색을 따로 떼어(밝은 외곽 시트) 어두운 연마 색에서도 외곽을 밝게 그린다.
 // 쓰는 법: pixelfx 저장소 src/fx/nature/blood-form.js 로 복사하고 make-form.mjs 로 뽑는다.
 import { fit, hex, clamp, smooth, rand, TAU } from "../../core/index.js";
@@ -407,6 +408,41 @@ function dropFx(p, C, u, o) {
   }
 }
 
+/* ── 적혈탄 압축 구슬(11월 15일) ─────────── */
+// 예전 차징은 arcane-orb · spell-charge 를 1배로 그려 지름 80px 이 넘었다. 이 꼴은 1배 지름 7~9칸 + 도는 방울(반지름 6~8칸) — 2배로 그려도 화면 지름 약 32px
+const CORE_R = [3.6, 3.1, 2.6], CORE_ORB = [8, 7, 6], CORE_N = [3, 4, 5];
+function coreFx(p, C, u, o) {
+  const tier = Math.max(0, Math.min(2, o.tier | 0)), a0 = u * TAU;
+  // 바깥에서 손끝으로 빨려 드는 방울 둘 — 모이는 느낌
+  for (let i = 0; i < 2; i++) {
+    const k = (u * 2 + i * 0.5) % 1, a = rand(o.seed, i, 141) * TAU + i * 2.2, d = 11 - 8 * k;
+    p.px(Math.cos(a) * d, Math.sin(a) * d * 0.75, k < 0.5 ? C[3] : C[4]);
+  }
+  // 둘레를 도는 방울 — 단계가 오를수록 많고 가깝다
+  const n = CORE_N[tier], orb = CORE_ORB[tier];
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (i / n) * TAU, x = Math.cos(a) * orb, y = Math.sin(a) * orb * 0.7;
+    const bx = Math.cos(a - 0.45) * orb, by = Math.sin(a - 0.45) * orb * 0.7;
+    p.px(bx, by, C[2]);                                    // 꼬리
+    p.px(x, y, tier ? C[6] : C[5]);                        // 머리
+  }
+  // 구슬 — 겉은 밝은 테, 속으로 갈수록 검붉게(압축된 피). 살짝 맥동한다
+  const R = CORE_R[tier] + 0.35 * Math.sin(a0 * 2);
+  p.shade(-6, -6, 6, 6, (x, y) => {
+    const X = x + 0.5, Y = y + 0.5, d = Math.hypot(X, Y);
+    if (d > R + 1) return;
+    if (d > R) return X + Y < -1 ? C[7] : C[6];           // 밝은 외곽 — 왼쪽 위가 더 밝다
+    if (d < R * 0.35) return tier >= 2 ? C[0] : C[1];       // 가운데 — 단계가 오를수록 더 검게
+    if (d < R * 0.75) return C[3];
+    return C[4];
+  });
+  p.px(Math.round(-R * 0.55) - 0.5, Math.round(-R * 0.55) - 0.5, C[7]);   // 빛 한 점 — 왼쪽 위 테 안쪽
+  if (tier >= 2 && u < 0.5) {                              // 2단계 — 네 갈래 반짝임
+    const s = R + 2.5;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) p.px(dx * s, dy * s, C[7]);
+  }
+}
+
 export function draw(p, t, o) {
   const C = fit(o.palette, 8), u = o.u;
   if (o.part === "sword") {
@@ -420,4 +456,5 @@ export function draw(p, t, o) {
   else if (o.part === "hook") hookFx(p, C, u, o);
   else if (o.part === "link") linkFx(p, C, o);
   else if (o.part === "drop") dropFx(p, C, u, o);
+  else if (o.part === "core") coreFx(p, C, u, o);
 }

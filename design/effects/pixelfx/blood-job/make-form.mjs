@@ -35,6 +35,8 @@ const LIST = [
   { name: "bj_hk_head", part: "hook", phase: "head", n: 4, loop: 1, dirs: D16 },
   { name: "bj_hk_link", part: "link", n: 4, dirs: D16, variant: (i) => i },
   { name: "bj_hk_drop", part: "drop", n: 6, dirs: [0] },
+  // 적혈탄 압축 구슬 — 줄 = 단계 0 · 1 · 2(돌리지 않는다), 칸 = 한 바퀴
+  { name: "bj_core", part: "core", n: 8, loop: 1, dirs: [0, 1, 2], tierRows: 1, size: [40, 40] },
 ];
 const C = fit(B8, 8), RIM = new Set([C[6] >>> 0, C[7] >>> 0]);
 const man = {};
@@ -44,10 +46,12 @@ for (const s of LIST.filter((q) => q.name.startsWith(ONLY))) {
   for (const ang of s.dirs) for (let i = 0; i < s.n; i++) {
     const u = s.loop ? i / s.n : s.n === 1 ? 1 : i / (s.n - 1);
     const f = createFrame(W, H);
-    const p = painterFor(f).place(OX, OY, false, ["veil", "hand", "wave", "drop"].includes(s.part) ? 0 : ang);
+    const p = painterFor(f).place(OX, OY, false, ["veil", "hand", "wave", "drop", "core"].includes(s.part) ? 0 : ang);
     const o = { ...FX.meta.options, palette: B8, part: s.part, phase: s.phase, u, ang, seed: 5 };
     if (s.r) o.r = s.r(i);
     if (s.variant) o.variant = s.variant(i);
+    if (s.tierRows) o.tier = ang;                     // 줄이 방향이 아니라 단계
+
     if (s.part === "veil" && s.phase === "hit") { o.hitA = ang; }
     // 혈막의 맞은 쪽 — 판은 돌리지 않고(눌린 타원 그대로) 움푹 들어갈 판만 hitA 로 고른다
     FX.draw(p, u, o);

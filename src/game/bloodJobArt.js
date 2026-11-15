@@ -88,14 +88,14 @@ function disc(ctx, x, y, r, sq, color, a) { if (a <= 0 || r <= 0) return; ctx.gl
 // 손끝 자리 — 겨눈 쪽으로 조금 앞
 const hand = (f, sq) => [f.x + (f.ax || 1) * 26, f.y - S.lift + (f.ay || 0) * 26 * sq];
 
-/* 차징 — 손바닥의 붉은 구체가 점점 작아지고 중심이 검붉게 · 밝은 테두리. 0.8 · 1.6초에 고리가 안으로 접힌다 */
+/* 차징 — 손끝의 작은 핏빛 구슬(bj_core). 단계가 오를수록 작고 단단해지고 둘레 방울이 늘고 빨리 돈다.
+   11월 15일 사용자 "압축되는 거 크기 크게 줄여줘" — 예전 bj_gather + bj_orb(1배, 지름 80px 넘음) 대신 지름 약 32px */
+const CORE_K = 2;
 function charge(ctx, f, t, sq) {
-  const P = pal(f), [mx, my] = hand(f, sq), u = clamp(f.u || 0), tier = f.tier || 0;
-  const R = 15 - 7 * u;                                 // 압축될수록 작아진다(충돌 지름은 그대로 16)
-  pxLoop(ctx, "bj_gather", 0, 0.8, mx, my, 0.9 - 0.3 * u, 0.6 * (1 - u * 0.5), 0, f.c);   // 흩어진 피가 손끝으로 모여든다
-  pxLoop(ctx, "bj_orb", 0, 1.2 - 0.6 * u, mx, my, (R / 15) * 1.35, 0.95, 0, f.c);   // pixelfx 구슬 — 압축될수록 작고 빠르게 돈다
-  if (f.ping) pxOnce(ctx, "bj_hit", clamp(t / 0.2), mx, my + 10, 0.7, 1 - clamp(t / 0.2), 0, f.c);
-  // 단계 점 두 개 — 0.8초 · 1.6초에 채운다
+  const P = pal(f), [mx, my] = hand(f, sq), tier = f.tier || 0;
+  formCell(ctx, "bj_core", Math.min(2, tier), loopIdx("bj_core", 0.7 - 0.15 * tier), mx, my, CORE_K, 1, f.c);
+  void t;                                              // 단계가 오를 때의 큰 타격 빛(bj_hit)은 뺐다 — 구슬 줄 · 머리 위 점 · 소리로 알린다
+  // 단계 점 두 개 — 0.6초 · 1.2초에 채운다
   for (let i = 0; i < 2; i++) { const x = f.x - 9 + i * 18, y = f.y - 112; ctx.globalAlpha = 1; ctx.strokeStyle = P.rim; ctx.lineWidth = 1; ctx.strokeRect(x - 4, y - 4, 8, 8); if (tier > i) dot(ctx, x, y, P.bright, 6, 1); }
 }
 /* 본탄 — 작은 탄 + 짧은 가는 궤적. 빠른 탄은 궤적 간격을 늘리고 관통 탄은 이중 테두리 */

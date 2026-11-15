@@ -263,7 +263,7 @@ function fireShot(E, g, h) {
     left: sp1 ? S.pierce : 1, hit: [], tier, mul: T.mul, add: strAdd * S.strDmg + dmgAdd(h), burst: sp2 ? 1 : 0, bR: S.burstR * (1 + ampBonus(h) + rangeAdd(h)), cast: E.cast(h), base: E.base(h), xp: 0, map: h.map,
   };
   spend(h, T.cost);
-  s.cd.shot = T.cd;                                  // 쏜 단계의 대기 2 · 3 · 5초(11월 15일 개편)
+  s.cd.shot = T.cd;                                  // 쏜 단계의 대기 1 · 1.5 · 2.5초(11월 15일 개편)
   s.cdMax = s.cdMax || {}; s.cdMax.shot = T.cd;
   s.sh.push(shot);
   h.swing = 0.25;
@@ -758,7 +758,7 @@ export function tickBloodJob(E, g, h, dt) {
   } else if (c) {
     if (h.down > 0 || E.locked(h) || E.fight(h)) cancelCharge(E, g, h);
     else {
-      c.t += dt;
+      c.t = Math.min(S.full, c.t + dt);              // 1.2초에 2단계로 멈춘다 — 누르고 있는 동안은 쏘지 않고 놓을 때 쏜다(11월 15일 사용자)
       if (c.ptr) aimTo(h, c, [c.ax, c.ay]);
       const tier = shotTier(c.t, h.bag.bd.b), ping = tier > c.tier;
       c.hT -= dt;
@@ -767,7 +767,6 @@ export function tickBloodJob(E, g, h, dt) {
         E.fx(g, h.map, { kind: "sk_bj_charge", x: h.x, y: h.y, pi: h.pi, ax: c.ax, ay: c.ay, u: r2(Math.min(1, c.t / S.full)), tier: Math.max(0, tier),
           t: S.hint + 0.08, life: S.hint + 0.08, ...(ping ? { ping: tier, snd: tier >= 2 ? "bloodBoom" : "bloodHit" } : {}) });
       }
-      if (c.t >= S.full) fireShot(E, g, h);          // 최대 1.2초 — 자동 발사(계속 누르고 있어도 다시 쏘지 않는다)
     }
   }
   const stop = h.down > 0 || E.locked(h);           // 기절 · 사망 — 닿기 전 강타 · 남은 혈검 타격은 취소(비용은 돌려주지 않는다)
@@ -876,7 +875,7 @@ export function bloodJobFill(h) { if (bloodOn(h)) h.bag.bd.b = Math.max(h.bag.bd
    혈흔 [[키, 중첩, 남은 초]], 혈막 [지난 초, 최대 초] | 0, 폭주 · 탈진 [1 | 2, 남은 초] | 0, 혈역 [x, y, 지난 초, 흡수 대상 없음 1] | 0]
    대기 칸 5번째는 혈역 증폭 · 6번째는 혈검(11월 15일). 10번 해금 시험 단계(0 없음).
    11번 혈검 [1 만드는 중 · 2 든 검, 그 단계 지난 초, 남은 베기, 방향 x, y, 벤 횟수, 마지막 베기 뒤 초] | 0(11월 15일). 칸은 뒤에만 더한다.
-   11월 15일 개편 — 대기 칸 7 · 8번째 혈류 파동 · 혈쇄 갈고리, 9번째 적혈탄 지금 대기의 최대(쏜 단계 2 · 3 · 5초). 12번 갈고리 [단계 1 날아감 · 2 끌려감 · 3 막 끝남(0.5초), 지난 초] | 0 ── */
+   11월 15일 개편 — 대기 칸 7 · 8번째 혈류 파동 · 혈쇄 갈고리, 9번째 적혈탄 지금 대기의 최대(쏜 단계 1 · 1.5 · 2.5초). 12번 갈고리 [단계 1 날아감 · 2 끌려감 · 3 막 끝남(0.5초), 지난 초] | 0 ── */
 export function packBloodJob(h) {
   if (!bloodOn(h)) return 0;
   const bd = h.bag.bd, s = h.bd;

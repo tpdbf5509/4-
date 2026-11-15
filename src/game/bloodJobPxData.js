@@ -6,7 +6,7 @@ export const BLOOD_JOB_PX_SRC = "/assets/game/rpg/effects/blood-job/px/";
 
 // w · h 한 칸, cols 열 수, n 칸 수, cx · cy 그릴 때 (x, y) 에 오는 점(1배 픽셀), loop 반복 시트
 export const BLOOD_JOB_PX = {
-  bj_orb: { w: 86, h: 104, cols: 4, n: 10, cx: 43, cy: 36, loop: 1 },     // arcane/arcane-orb — 적혈탄 차징 구슬
+  bj_orb: { w: 86, h: 104, cols: 4, n: 10, cx: 43, cy: 36, loop: 1 },     // arcane/arcane-orb — 옛 적혈탄 차징 구슬(11월 15일부터 bj_core 를 쓴다)
   bj_drop: { w: 88, h: 52, cols: 2, n: 6, cx: 63, cy: 26, loop: 1 },      // projectiles/plasma-shot — 날아가는 방울(탄 · 회수 · 흡수 · 핏방울). 머리가 기준점, 꼬리는 왼쪽
   bj_hit: { w: 90, h: 76, cols: 3, n: 8, cx: 46, cy: 50 },                // impacts/blunt-hit — 적혈탄 적중
   bj_pop: { w: 129, h: 73, cols: 3, n: 8, cx: 63, cy: 52 },               // water/splash — 피 튀김(탄 소멸 · 차징 취소 · 혈막 흩어짐)
@@ -47,5 +47,7 @@ export const BLOOD_JOB_PX = {
   bj_hk_head: { w: 50, h: 50, cols: 4, n: 4, rows: 16, cx: 25, cy: 25, loop: 1, rim: 1 },   // 날아가는 갈고리 머리(빛이 자루를 따라 흐른다)
   bj_hk_link: { w: 12, h: 12, cols: 4, n: 4, rows: 16, cx: 6, cy: 6, rim: 1 },   // 사슬 마디 — 칸 0 둥근 · 1 옆 · 2 · 3 팽팽한(밝은)
   bj_hk_drop: { w: 11, h: 37, cols: 6, n: 6, cx: 6, cy: 5, rim: 1 },   // 마디가 핏방울로 풀려 떨어진다
+  /* 11월 15일 — 적혈탄 압축 구슬(blood-form.js core). 예전 bj_orb · bj_gather 차징(지름 80px 넘음)을 대신한다. 2배로 그려 화면 지름 약 32px */
+  bj_core: { w: 20, h: 16, cols: 8, n: 8, rows: 3, cx: 10, cy: 9, loop: 1, rim: 1 },   // 줄 = 단계 0 · 1 · 2(갈수록 작고 단단 · 도는 방울이 는다), 칸 = 한 바퀴
   bj_fall: { w: 143, h: 135, cols: 4, n: 10, cx: 71, cy: 50 },            // holy/feather-burst — 탈진: 혈액 갑주 조각이 흩날려 떨어진다
 };

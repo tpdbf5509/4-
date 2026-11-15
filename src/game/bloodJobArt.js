@@ -332,12 +332,12 @@ export function drawBloodJobMarks(ctx, g, M, v, time, inView, c) {
   }
 }
 
-/* ── 단서 자리 그림 — 맵에 늘 있는 물건(누구에게나 보인다). 조사 여부는 화면 칸(rpg-talk)이 알려 준다 ──
+/* ── 단서 자리 그림 — 단서가 나온 사람에게만 보인다(shown). 조사 여부는 화면 칸(rpg-talk)이 알려 준다 ──
    핏자국(토끼 사냥터 흙길 옆) · 압축기(훈련장 허수아비 뒤, 원 셋) · 분수 바닥 금속판(광장) · 낡은 수문(광장) */
-export function drawBloodSpots(ctx, M, spots, time, sq) {
+export function drawBloodSpots(ctx, M, spots, time, sq, shown) {
   const P = BLOOD_COLORS.red;
   for (const s of spots) {
-    if (s.map !== M.id) continue;
+    if (s.map !== M.id || (shown && !shown(s))) continue;   // 단서가 나온 자리만 그린다
     ctx.save(); ctx.imageSmoothingEnabled = false;
     if (s.id === "trail") {
       for (let i = 0; i < 6; i++) dot(ctx, s.x - 30 + i * 11, s.y + Math.sin(i * 1.7) * 6, i % 2 ? P.deep : P.base, PX + (i % 3 === 0 ? 1 : 0), 0.75);

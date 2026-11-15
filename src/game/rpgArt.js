@@ -2322,7 +2322,9 @@ function drawHero(ctx, g, h, time) {
   const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다 — 특별 무기를 끼면 무기 지운 그림에 그 무기를 들린다
   const hide = h.hideGear || 0;                     // 장비 외형 숨기기(rpg.js HIDE_GEAR) — 겉모습만, 능력치는 그대로
   const held = hide & HIDE_GEAR.weapon ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
-  const im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
+  let im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
+  // 히든 직업 BLOOD-001 — 가만히 서 있을 때는 서 있는 그림(idle-<보기>.webp), 걸을 때는 걷는 그림. 아직 없는 성별 · 못 불러올 때는 걷는 그림 그대로
+  if (!down && advIm && !(h.anim && h.anim.walk >= 0.05) && /\/blood-f\//.test(advIm.src)) im = artImg(advArtPath(h, `idle-${view}`)) || im;
   const mo = down ? null : heroMotion(g, h, time);
   const al = down ? 0 : abyssLookOf(h);              // 낀 심연 외형(abyssData.js ABYSS_LOOKS) — 겉모습만, 능력치 없음
   if (held && al & LOOK_BIT.weapon) { held.abyss = 1; if (held.off) held.off.abyss = 1; }

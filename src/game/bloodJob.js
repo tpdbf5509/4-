@@ -55,6 +55,7 @@ export function unlockBlood(h) {
   h.bag.bd = old ? { ...cleanBdCore(old), on: 1 } : { on: 1, lv: 1, xp: 0, tr: [[0, 0], [0, 0], [0, 0]], b: BLOOD.start };
   h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
   h.bd = null;
+  if (h.bag.hj && h.bag.hj.active && !h.bag.hj.trial) { h.bag.hj = { ...h.bag.hj, active: "" }; h.gm = null; }   // 히든 직업은 한 번에 하나 — Gambler 002 를 끈다(직업 레벨 · 연마는 남는다)
   const w = h.bag.e ? (h.bag.w || []).find((q) => q.u === h.bag.e) : null;
   if (!bloodWeaponOk(w)) h.bag.e = 0;              // 크림슨 레퀴엠이 아닌 무기는 내려놓는다
   h.bag.v += 1;

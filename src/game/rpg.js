@@ -16,8 +16,9 @@ import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } f
 import { BLOOD_LAB } from './bloodJobData.js';
 import { bloodSpotTalk, bloodHunterTalk, bloodSeqHit, tickBloodTrial } from './bloodUnlock.js';   // BLOOD-001 해금 경로(4단계)
 import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn, bloodSwordPress, bloodSwordOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
-import { gamblerInput, gamblerBasic, tickGambler, gamblerTake, gamblerDown, gamblerFill, gamblerKill, gamblerRaidKill, gamblerOn } from './gamblerJob.js';   // 히든 직업 Gambler 002(11월 16일 — 격자 연습장에만)
-import { GM_CHIP } from './gamblerData.js';
+import { gamblerInput, gamblerBasic, tickGambler, gamblerTake, gamblerDown, gamblerFill, gamblerKill, gamblerRaidKill, gamblerOn, gamblerLook, packGambler, applyGambler } from './gamblerJob.js';   // 히든 직업 Gambler 002(11월 16일 — 연습장에서 확인한 뒤 실제 게임에)
+import { gamblerSpotTalk, gamblerDummyHit, tickGamblerTrial } from './gamblerUnlock.js';   // Gambler 002 해금 경로
+import { GM_CHIP, GM_CASINO } from './gamblerData.js';
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodLifeOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -419,6 +420,12 @@ LIBRARY_MAPS.forEach((m) => {
   MAP_IDS.push(m.id);
 });
 MAPS[VILLAGE.id].gates.push({...LIBRARY.door, to: LIBRARY_MAPS[0].id, at: LIBRARY_MAPS[0].spawn, label: LIBRARY.building.name, villageGate: 1, libGate: 'door'});
+/* Gambler 002 황금 카지노 뒷방(gamblerData.js GM_CASINO) — 단서 둘로 연 칩 상자에서만 들어온다. 1인 시험 표적은 들어온 사람마다 세운다. 맵 차례는 뒤에만(도서관 다음) */
+MAPS[GM_CASINO.id] = {
+  id: GM_CASINO.id, name: GM_CASINO.name, w: GM_CASINO.w, h: GM_CASINO.h, top: 170, spawn: GM_CASINO.spawn, bg: "field", tile: 2600, casino: 1,
+  tint: "rgba(34,24,8,0.6)", gates: [{ ...GM_CASINO.exit, to: "plaza", at: GM_CASINO.plazaAt, label: "광장" }], blocks: [], npcs: [],
+};
+MAP_IDS.push(GM_CASINO.id);
 MAPS[HIGH.from].gates.push({ x: MAPS[HIGH.from].w - 90, y: 920, r: 64, to: HIGH_MAPS[0].id, at: [260, 920], label: highLabel(HIGH_MAPS[0]), high: 1, highEnter: 1 });
 // 지금 보이는 문 — 열리지 않은 high 문은 빼고(그림 · 흙길 · 문 판정이 같이 쓴다)
 export const gatesOf = (g, M) => (highOn(g) ? M.gates : M.gates.filter((q) => !q.high));
@@ -788,8 +795,8 @@ export const lookTitle = (h) => [elemOf(h).name, jobOf(h).name].filter(Boolean).
 export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobOf(h).id}-${h && h.gender === "f" ? "f" : "m"}/${view}.webp`;
 // 전직한 캐릭터 그림 — <전직>-<성별>/<방향>.webp(무기를 든 그림, tools/cut-adv-classes.py). 전직 전이면 null
 export const advArtPath = (h, view = "front") => {
+  if (gamblerLook(h)) return `/assets/characters/rpg/gambler-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Gambler 002 외형(사용자 그림, tools/cut-gambler-char.py) — 손님은 스냅샷 h.gmv. 해금 시험 중에는 BLOOD-001 보다 먼저
   if (h && (h.bdv || bloodOn(h))) return `/assets/characters/rpg/blood-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 BLOOD-001 외형(사용자 그림, tools/cut-blood-char.py) — 전직 그림 자리를 쓴다
-  if (gamblerOn(h)) return `/assets/characters/rpg/gambler-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Gambler 002 외형(사용자 그림, tools/cut-gambler-char.py) — 연습장에서만 켜진다(gamblerOn)
   const c = advOf(h);
   return c ? `/assets/characters/rpg/${c.id}-${h.gender === "f" ? "f" : "m"}/${view}.webp` : null;
 };
@@ -1009,6 +1016,7 @@ const advResetUp = (nb, ob) => Math.floor(Number(nb && nb.ar) || 0) > Math.floor
 /* 전직 기록 — 전직은 되돌릴 수 없어, 전직이 빈 기록이 와도(옛 방장 스냅샷 · 섞인 기록) 남겨 둔 전직을 지우지 않는다.
    서버 초기화 · 한 사람 되돌리기 · 전직 초기화 물약(advResetUp) · 관리자(시험용으로 비운다)만 비울 수 있다 */
 function advRecord(d, base, clear, job) {
+  if (d && d.bag && d.bag.hj && d.bag.hj.active && !d.bag.hj.trial) return { advClass: "", advQ: null, advM: 0 };   // 히든 직업 Gambler 002 도 1차 전직을 대신한다(기획안 공통 규칙)
   if (d && d.bag && d.bag.bd && d.bag.bd.on && !d.bag.bd.trial) return { advClass: "", advQ: null, advM: 0 };   // 히든 직업 BLOOD-001 은 1차 전직을 대신한다(11월 14일 사용자 결정)
   const adv = cleanAdvClass(d.advClass), kept = cleanAdvClass(base && base.advClass);
   const keep = kept && (!job || ADV_BY_ID[kept].job === job) ? kept : "";   // 관리자가 직업을 바꿨으면 옛 직업의 전직은 남기지 않는다
@@ -1591,6 +1599,7 @@ export function npcNear(h) {
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
   if (h && h.loaded && bloodSpotTalk(bloodJobEngine, g, h)) return;   // BLOOD-001 단서 조사 자리(bloodUnlock.js)
+  if (h && h.loaded && gamblerSpotTalk(gamblerEngine, g, h)) return;   // Gambler 002 단서 조사 자리(gamblerUnlock.js)
   const npc = npcNear(h);
   if (!h || !npc || h.down > 0 || npc.shop || npc.board || npc.req || npc.dungeon || npc.worldBoss || npc.guild || npc.guildDoor || npc.guildRaidDoor || npc.adv || npc.market || npc.abyss || npc.race || npc.village) return;   // 상점 · 순위판 · 의뢰는 화면에서 창을 연다
   if (npc.id === QUEST_NPC) { meetNpc(h, QUEST_NPC); bloodHunterTalk(bloodJobEngine, g, h, npc); }
@@ -1954,6 +1963,7 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (h) armorOnHit(h, m);                        // 영웅 · 전설 신발 — 이 몹 쪽으로 걸으면 빨라진다
   if (h && !dot) weaponOnHit(g, h, m, null, side, !skill);   // 전설 무기 패시브 — side 는 튄 피해(옆 몹)
   if (h && !dot && !side && m.type === "dummy") bloodSeqHit(bloodJobEngine, g, h, m, !!skill);   // BLOOD-001 압축기 순서(평타 → 큰 기술 → 평타)
+  if (h && !dot && !side && m.type === "dummy") gamblerDummyHit(gamblerEngine, g, h, m);   // Gambler 002 주사위 기계 복구 — 허수아비에 박힌 주사위
   if (h && !dot && procOff === 0) advOnHit(advEngine, g, h, m, !skill, side);   // 전직 패시브 · 시험
   if (h && h.ac) acAfterHit(g, h, m, dmg, skill, dot, side, crit);   // 강화 카드 — 흡혈 · 셈 · 확률 효과
   m.flash = 0.12;
@@ -3200,6 +3210,7 @@ const trnOf = (h) => h.trn || (h.trn = { nocd: 0, stack: 0, god: 0, tot: 0, hits
 function keepDummies(g) {
   // BLOOD-001 연구시설 시험 표적 — 시험하던 사람이 없으면 치운다(접속이 끊긴 경우)
   if (g.mobs.some((m) => m.map === BLOOD_LAB.id && !g.heroes[m.own]?.bt)) g.mobs = g.mobs.filter((m) => m.map !== BLOOD_LAB.id || g.heroes[m.own]?.bt);
+  if (g.mobs.some((m) => m.map === GM_CASINO.id && !g.heroes[m.own]?.gt)) g.mobs = g.mobs.filter((m) => m.map !== GM_CASINO.id || g.heroes[m.own]?.gt);   // Gambler 002 시험 표적도
   if (!g.heroes.some((h) => h && h.map === "train")) {   // 아무도 없으면 세우지 않고, 서 있던 것도 치운다(스냅샷에도 싣지 않는다)
     const stand = (m) => m.type === "dummy" && m.map === "train";
     if (g.mobs.some(stand)) g.mobs = g.mobs.filter((m) => !stand(m));
@@ -3378,7 +3389,7 @@ const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h,
   dummy: (o) => !!o && o.type === "dummy", god: (g, h) => !!(h.trn && h.trn.god && (g.test || h.map === "train")), cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
   fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
 export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"
-/* 히든 직업 Gambler 002(gamblerJob.js, 11월 16일 — 격자 연습장에만). 기준 피해는 물리 · 마법 가운데 높은 쪽(기획안 hiddenSkillBase) — 무기 공격력은 없다.
+/* 히든 직업 Gambler 002(gamblerJob.js, 11월 16일). 기준 피해는 물리 · 마법 가운데 높은 쪽(기획안 hiddenSkillBase) — 무기 공격력은 없다.
    cast(h, sid): "basic" 평타 상한 · "ult" 궁극기 상한 · 그 밖은 일반 스킬. basic: 평타로 친다(칩 획득 · 결투 평타 상한).
    allies: 둘레의 아군(결투는 같은 팀 · 사냥터는 PvP 를 켜지 않았거나 같은 파티) · shield: 기존 보호막 칸(이미 더 크면 false) · rand: 확률은 판정 쪽만 */
 const gamblerEngine = { ...bloodJobEngine,
@@ -3387,6 +3398,7 @@ const gamblerEngine = { ...bloodJobEngine,
   basic: (g, h, o, dmg) => (isHeroT(o) ? hitFoe(g, h, o, dmg, true) : hitMob(g, h.pi, o, dmg)),
   allies: (g, h, r) => g.heroes.filter((o) => o && o !== h && o.loaded && o.map === h.map && o.down <= 0 && dist(h.x, h.y, o.x, o.y) <= r && circleAlly(h, o)),
   shield: advEngine.shield, shieldAmt: duelShield,
+  hurt: (g, h, dmg) => hurtHero(g, h, dmg, { gmTrial: 1 }),   // 해금 시험 예고 타격 — 칩 장막이 막았는지 gamblerTake 가 적는다
   rand: (g) => (typeof g.gmRand === "function" ? g.gmRand() : Math.random()) };
 export const rpgHidden = (g, pi, req) => gamblerInput(gamblerEngine, g, pi, req);   // 입력 kind "hidden"
 // 격자 연습장 시험 타격 — 허수아비는 때리지 않아 보호막(칩 장막)을 써 볼 수 없다. 연습장 맵에서만 최대 체력의 pct 만큼 한 대
@@ -3850,6 +3862,7 @@ function stepHeroes(g, dt) {
     tickAdv(advEngine, g, h, cdt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
     tickBloodTrial(bloodJobEngine, g, h, cdt);     // BLOOD-001 해금 시험 — 연구시설 밖이면 빌린 값을 거둔다
     tickBloodJob(bloodJobEngine, g, h, cdt);       // BLOOD-001 — 혈흔 · 차징 · 적혈탄
+    tickGamblerTrial(gamblerEngine, g, h, cdt);    // Gambler 002 해금 시험 — 뒷방 밖이면 빌린 값을 거둔다
     tickGambler(gamblerEngine, g, h, cdt);         // Gambler 002 — 칩 · 코인 · 보호막 · 장판
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)
@@ -5253,7 +5266,8 @@ export function rpgPack(g) {
           al:lookBits(h.bag, Date.now()),
           ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0,
-        packBloodJob(h)] // 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
+        packBloodJob(h),
+        packGambler(h)] // 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
     hb: packHerbs(g),                             // 채집한 약초 자리 — { 번호: 다시 나기까지 초 }(alchemy.js)
@@ -5292,6 +5306,7 @@ export function rpgApply(g, s) {
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
     if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;h.gath=Array.isArray(extra.ga)&&HERBS[extra.ga[0]]?{i:extra.ga[0],t:Number(extra.ga[1])||0,x:h.x,y:h.y,at:Date.now()}:null;}
     applyBloodJob(h, row[56]);                     // BLOOD-001 — 혈량 · 직업 레벨 · 차징 · 내 혈흔(화면 값 h.bdv)
+    applyGambler(h, row[57]);                      // Gambler 002 — 칩 · 직업 레벨 · 대기 · 보호막(화면 값 h.gmv)
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;

@@ -7,6 +7,8 @@ import { trading } from "./tradeData.js";
    /소환 <이름>                 그 사람을 내 자리로 옮긴다
    /이동 <장소>                 메인 스토리 1부 맵(임시)으로 간다. 장소 이름 없이 쓰면 목록
    /직업 <이름> <직업>          기본 직업(검사 · 궁수 · 마법사)이나 전직(검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사)으로 바꾼다
+   /블러드 <이름> [직업레벨 | 끄기 | 연마 <0~50>]   히든 직업 BLOOD-001 켜기 · 직업 레벨 · 연마 · 끄기
+   /도박꾼 <이름> [직업레벨 | 끄기 | 연마 <0~50>]   히든 직업 Gambler 002 켜기 · 직업 레벨(1~200) · 연마 셋 · 끄기(11월 16일)
    <이름> 자리에 "나" 를 쓰면 나 자신. 이름에 띄어쓰기가 있어도 된다(지금 서버에 있는 사람 이름과 앞에서부터 견준다).
    관리자(h.admin) 만 쓸 수 있다. 화면 쪽은 RpgView.jsx sendChat 이 "/" 를 채팅 대신 입력 kind "cmd" 로 보낸다 */
 import { MAPS, JOBS, runOf, sys } from "./rpg.js";
@@ -18,6 +20,8 @@ import { specialTier, specialPrice, addMat, equipped } from "./shop.js";
 import { ADV_CLASSES } from "./advData.js";
 import { unlockBlood, dropBlood, bloodOn } from "./bloodJob.js";
 import { BLOOD } from "./bloodJobData.js";
+import { unlockGambler, dropGambler, gamblerOn } from "./gamblerJob.js";
+import { GAMBLER, GAMBLER_ID, GAMBLER_NAME } from "./gamblerData.js";
 import { MATERIALS } from "./itemData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
 
@@ -33,6 +37,7 @@ const HELP = [
   "/이동 <장소> — 1부 이야기 맵으로(이름 없이 쓰면 목록)",
   "/직업 <이름> <직업> — 검사 · 궁수 · 마법사 · 검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사",
   "/블러드 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 BLOOD-001 해금(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
+  "/도박꾼 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 Gambler 002 켜기(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
 ];
 const flat = (s) => String(s || "").toLowerCase().replace(/[\s()·]/g, "");
@@ -92,6 +97,7 @@ const jobLabel = (p) => (p.adv ? `${JOBS.find((j) => j.id === p.job).name} · ${
 function changeJob(g, t, pick) {
   t.job = pick.job;
   t.advClass = pick.adv; t.advQ = null; t.as = null;
+  if (pick.adv && t.bag) dropGambler(t);          // Gambler 002 도 꺼진다
   if (pick.adv && t.bag) dropBlood(t);            // 1차 전직으로 바꾸면 BLOOD-001 은 꺼진다(전직을 대신하는 직업)
   const b = t.bag;
   if (b) {
@@ -224,6 +230,36 @@ export function rpgAdminCmd(g, pi, text) {
     bump(t);
     say(`${who(g, ti)}님을 BLOOD-001(직업 레벨 ${t.bag.bd.lv})로 바꿨습니다.`);
     if (ti !== pi) sys(g, ti, "관리자가 히든 직업 BLOOD-001 을 열었습니다.");
+    return true;
+  }
+
+  if ((cmd === "도박꾼" || cmd === "갬블러") && GAMBLER.live) {   // 히든 직업 Gambler 002 — 해금 경로를 거치지 않고 켠다(시험용, 11월 16일 사용자 요청 "명령어도 같이")
+    // /도박꾼 <이름> 연마 <0~50> — 연마 셋(금화 · 방어 · 행운)을 한 번에 그 레벨로(경험치 0)
+    const tw = words.length >= 2 && words[words.length - 2] === "연마" && /^[0-9]{1,2}$/.test(words[words.length - 1]) ? Math.min(GAMBLER.train.max, Number(words[words.length - 1])) : -1;
+    if (tw >= 0) words.splice(-2, 2);
+    const last = tw >= 0 ? "" : words[words.length - 1] || "", off = last === "끄기", lv = /^[0-9]{1,3}$/.test(last) ? Number(last) : 0;
+    if (off || lv) words.pop();
+    const [ti, rest] = takeName(g, pi, words);
+    if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /도박꾼 나 · /도박꾼 나 200 · /도박꾼 나 연마 50 · /도박꾼 나 끄기");
+    const t = g.heroes[ti];
+    if (!t.loaded || !t.bag) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
+    if (trading(t)) return void say("그 사람은 거래 중입니다.");
+    if ((t.dvs ?? -1) >= 0) return void say(`${who(g, ti)}님이 결투 중이라 바꿀 수 없습니다.`);
+    if (t.bag.hj && t.bag.hj.trial) return void say(`${who(g, ti)}님이 해금 시험 중입니다. 시험이 끝난 뒤 다시 해 주세요.`);
+    if (off) { dropGambler(t); bump(t); return void say(`${who(g, ti)}님의 ${GAMBLER_NAME} 를 껐습니다.`); }
+    if (!gamblerOn(t)) unlockGambler(t);
+    const J = t.bag.hj.jobs[GAMBLER_ID];
+    if (lv) { J.lv = Math.max(1, Math.min(GAMBLER.maxLv, lv)); J.xp = 0; }
+    if (tw >= 0) {
+      J.tr = J.tr.map(() => [tw, 0]);
+      bump(t);
+      say(`${who(g, ti)}님의 ${GAMBLER_NAME} 연마 셋을 ${tw}레벨로 바꿨습니다.`);
+      if (ti !== pi) sys(g, ti, `관리자가 ${GAMBLER_NAME} 연마를 ${tw}레벨로 바꿨습니다.`);
+      return true;
+    }
+    bump(t);
+    say(`${who(g, ti)}님을 ${GAMBLER_NAME}(직업 레벨 ${J.lv})로 바꿨습니다.`);
+    if (ti !== pi) sys(g, ti, `관리자가 히든 직업 ${GAMBLER_NAME} 를 열었습니다.`);
     return true;
   }
 

@@ -1,6 +1,7 @@
 /* ── 히든 직업 Gambler 002(도박꾼) — 수치는 모두 여기 한 곳(11월 16일, 사용자 기획 「히든직업 002~006 통합기획안」) ─────────────
    규칙은 gamblerJob.js(방장 · 전용 서버 판정 꼴), 그림은 gamblerArt.js, 시트 규격은 gamblerPxData.js.
-   11월 16일 사용자 결정 — 실제 게임에 바로 넣지 않고 격자 연습장(?sandbox)에만 넣는다. 해금 경로 · 저장 · 스냅샷은 아직 잇지 않았다(GAMBLER.live).
+   11월 16일 사용자 결정 — 격자 연습장(?sandbox)에서 확인한 뒤 실제 게임에 넣었다("이제 실제 게임에 적용해줘, 그리고 명령어도 같이").
+   저장 bag.hj · 스냅샷 영웅 줄 57 · 해금 경로(gamblerUnlock.js, 진행은 bag.gu) · 관리자 명령어 /도박꾼(adminCmd.js).
    "정한 값"이라 적은 것은 기획안에 없어 정한 값이다(보고 대상). 그 밖은 기획안 값 그대로. */
 
 export const GAMBLER_NAME = "Gambler 002";
@@ -13,7 +14,7 @@ export const GAMBLER_COLORS = { deep: "#5C4420", base: "#D8AD4F", bright: "#F6E5
 export const GAMBLER_TINT = [{ from: 130, id: "plum" }, { from: 75, id: "frost" }, { from: 0, id: "gold" }];
 
 export const GAMBLER = {
-  live: false,                // 실제 게임 연결 — 사용자가 연습장에서 확인한 뒤 켠다. false 인 동안 연습장(Sandbox.jsx)만 이 직업을 켠다
+  live: true,                 // 실제 게임 연결(11월 16일 사용자 결정) — false 로 되돌리면 저장 값은 남긴 채 해금 경로 · 명령어 · 직업 판정이 모두 꺼진다(연습장은 그대로)
   maxLv: 200,                 // 직업 레벨 최대
   chips: 7,                   // 베팅 칩 최대 — 7개면 풀 베팅
   // 직업 레벨 경험치(공통 제안) — 다음 레벨까지 10 + 지금 레벨. 일반 몹 1 · 사냥터 보스 10 · 토벌 · 월드보스 20 · 1분 120 까지
@@ -72,7 +73,7 @@ export const GM_EDGE = { name: "하우스 엣지", cd: 55, dur: 12, dmg: 0.6, ch
 export const GM_JACK = { name: "777 종결식", cd: 95, reach: 650, r: 300, coins: 7, coinMul: 10, first: 0.5, gap: 0.1, show: 1.2, end: 1.4,
   ends: [60, 100, 170], odds: [0.5, 0.35, 0.15], names: ["아쉬운 결과", "당첨", "잭팟"], shockAt: 1.3, shockMul: 25, tail: 0.9, near: 300 };
 
-/* 연습장 조작 — 새 키 칸을 만들지 않고 기존 행동 키를 그대로 쓴다(기획안 "기존 버튼 재사용", 키 설정 창에 히든 직업이 드러나지 않게).
+/* 조작 — 새 키 칸을 만들지 않고 기존 행동 키를 그대로 쓴다(기획안 "기존 버튼 재사용", 키 설정 창에 히든 직업이 드러나지 않게). 게임 화면 · 연습장이 함께 쓴다.
    act 는 keys.js 행동 id — 그 사람이 바꾼 키도 그대로 따른다. 평타 키는 황금 칩 */
 export const GM_SLOTS = [
   { s: "veil", act: "use1" },      // 일반 스킬 칸 1(기본 1)
@@ -84,3 +85,23 @@ export const GM_SLOTS = [
   { s: "jack", act: "skill" },     // 큰 기술(기본 Shift)
 ];
 export const GM_SKILLS = { veil: GM_VEIL, dice: GM_DICE, rain: GM_RAIN, dd: GM_DD, table: GM_TABLE, edge: GM_EDGE, jack: GM_JACK };
+
+/* ── 해금 경로 「황금 카지노의 계약」(기획안 14장) ─────────────
+   기획안: 시작 단서 광장의 낡은 칩 상자 · 단서 A 상자의 낡은 황금 칩 · B 에르덴 마을의 회수되지 않은 계약서 · C 훈련장의 망가진 주사위 기계 복구.
+   단서 둘이면 숨겨진 카지노 문이 열리고, 시험 셋(실드로 막기 · 칩 7개 추가 공격 · 주사위로 표적 맞히기)을 지나면 해금.
+   자리 · 복구 방법 · 시험 수치는 기획안에 없어 정한 값이다(보고 대상). 진행은 bag.gu 에 따로 남는다(BLOOD-001 의 bag.bu 와 섞지 않는다). */
+export const GM_CLUE = { A: 1, B: 2, C: 4 };
+export const GM_CLUE_NEED = 2;   // 이만큼 모으면 칩 상자가 문이 된다
+// 조사 자리 — r 안에서 말 걸기. 상자는 늘 보이고, 나머지 둘은 상자를 조사한 사람에게만 보인다
+export const GM_SPOTS = [
+  { id: "box", map: "plaza", x: 1720, y: 470, r: 80, name: "낡은 칩 상자" },             // 카지노 상점 옆
+  { id: "deed", map: "dawnwood", x: 1120, y: 1420, r: 80, name: "빛바랜 계약서" },       // 에르덴 마을 여관 앞
+  { id: "machine", map: "train", x: 1500, y: 1080, r: 90, name: "망가진 주사위 기계" },  // 훈련장 오른쪽 아래
+];
+// 주사위 기계 복구(정한 값) — 기계를 살펴본 뒤 훈련장 허수아비 셋을 한 번씩 치면 박혀 있던 주사위가 하나씩 빠진다. hitR: 허수아비 자리와 이만큼 안이면 그 허수아비
+export const GM_REPAIR = { dice: 3, hitR: 70 };
+/* 황금 카지노 뒷방 — 1인 시험. 빌려주는 직업 레벨 15(황금 칩 · 칩 장막 · 운명의 눈). 시험이 끝나거나 나가면 거둔다.
+   veil: 1단계 예고 — gap 초마다 내 자리에 반경 r 원 · warn 초 뒤 최대 체력의 dmg 만큼(칩 장막 18% 보다 작아 다 막힌다).
+   far: 3단계에 멀리 세우는 표적(운명의 눈 사거리 580 안) */
+export const GM_CASINO = { id: "casino", name: "황금 카지노 뒷방", w: 1600, h: 1100, spawn: [320, 700], exit: { x: 110, y: 700, r: 56 }, plazaAt: [1690, 540],
+  targets: [[900, 620], [1120, 800]], far: [1380, 560], lv: 15, veil: { gap: 2.5, warn: 1.6, r: 70, dmg: 0.1 } };

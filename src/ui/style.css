@@ -2923,6 +2923,27 @@ button.forge-stage:disabled { cursor: default; }
   background: conic-gradient(rgba(229, 57, 69, 0.55) var(--p), transparent 0); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 0); }
 .rpg-blood-rage { position: absolute; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 70px 18px rgba(170, 20, 36, 0.32); }
 
+/* ── 히든 직업 Gambler 002 화면(11월 16일, GamblerHud.jsx) — 기존 레벨 카드 줄 · 스킬 단추 · 스탯 칸 틀에 금빛만 얹는다 ──
+   칩 줄: 1px 테두리 칸 일곱. 다 차면 "풀 베팅" 글자만 밝게(강조는 이 한 곳) */
+.rpg-gm-chips { display: flex; align-items: center; gap: 3px; height: 9px; }
+.rpg-gm-chips i { flex: 1 1 0; max-width: 16px; height: 7px; box-sizing: border-box; border: 1px solid rgba(216, 173, 79, 0.45); border-radius: 2px; background: rgba(0, 0, 0, 0.4); }
+.rpg-gm-chips i.on { border-color: #d8ad4f; background: linear-gradient(#ebcb7a, #b98f3c); }
+.rpg-gm-chips.full i.on { border-color: #f6e5aa; background: linear-gradient(#f6e5aa, #d8ad4f); }
+.rpg-gm-full { font-weight: normal; color: #f6e5aa; }
+.rpg-gm-note { display: block; font-size: 9px; color: #cdbb8e; }
+.rpg-lv-bar.gm > span { background: linear-gradient(#ebcb7a, #b98f3c); }
+.rpg-skill.gm { border-color: rgba(216, 173, 79, 0.5); }
+.rpg-skill.gm.low span small { color: #c9a98a; }
+.rpg-skill.gm.on { border-color: #d8ad4f; box-shadow: inset 0 0 0 1px rgba(216, 173, 79, 0.4); }   /* 유지 중인 장막 · 테이블 · 하우스 엣지 */
+.rpg-gm-stat .rpg-blood-stat-head b { color: #ebcb7a; }
+/* 오른쪽 판 — 여덟 칸을 4 × 2 로. 도트 아이콘(24px)은 2배 정수 배로만 */
+.rpg-side .icons.gm .rpg-skillbar { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.rpg-side .icons.gm .rpg-skillbar .rpg-skill { min-height: 86px; padding-top: 16px; }
+.rpg-side .icons.gm .rpg-skillbar .rpg-skill .rpg-ico { width: 48px; height: 48px; }
+.rpg-side .icons.gm .rpg-skillbar .rpg-skill em { top: 28px; }
+.rpg-side .icons.gm .rpg-skill.tip { border-color: #d8ad4f; box-shadow: inset 0 0 0 1px rgba(216, 173, 79, 0.35); }
+.rpg-side-head em.gm { color: #ebcb7a; }
+
 /* ── 스킬 · 물약 오른쪽 판(11월 14일) — 넓은 화면 · 마우스 기기만(RpgView useSidePanel). 판 그림은 Codex 로 뽑은 rpg/ui/side-panel.webp ── */
 .rpg-page.has-side .stage { max-width: 1336px; display: flex; align-items: flex-start; gap: 16px; }
 .rpg-page.has-side .stage > .frame { flex: 1 1 auto; min-width: 0; max-width: 1040px; }

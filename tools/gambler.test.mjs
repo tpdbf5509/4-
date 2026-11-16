@@ -1,10 +1,10 @@
-/* 히든 직업 Gambler 002(11월 16일, 격자 연습장에만) — 실제 게임 함수로 칩 · 풀 베팅 · 스킬 배율 · 불운 보정 · 보호막 · 무기 금지를 본다.
+/* 히든 직업 Gambler 002(11월 16일) 전투 규칙 — 실제 게임 함수로 칩 · 풀 베팅 · 스킬 배율 · 불운 보정 · 보호막 · 무기 금지를 본다.
    node --test tools/gambler.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgTrain, rpgSandboxHit, SNAP_ORDER } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
-import { cleanBag, whyEquip } from '../src/game/shop.js';
+import { whyEquip } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { SANDBOX } from '../src/game/sandboxData.js';
 import { GAMBLER as GM, GM_BET as BET, GM_CHIP as CH, GM_VEIL as VL, GM_DICE as DC, GM_RAIN as RN, GM_DD as DD, GM_TABLE as TB, GM_EDGE as EG, GM_JACK as JK, GM_LUCK as LUCK, GM_SLOTS } from '../src/game/gamblerData.js';
@@ -38,15 +38,13 @@ const fire = (g, on) => rpgInput(g, { cls: 0, kind: 'fire', dir: on });
 function unit() { const { g, h } = setup(); const m = mob(g, h.x + 200, h.y); fire(g, true); step(g, .01); fire(g, false); run(g, .45); return (HP - m.hp) / CH.mul; }
 const U = unit();
 
-test('실제 게임에는 넣지 않았다 — live 꺼짐 · 가방 정리가 bag.hj 를 싣지 않는다 · 키 설정 창 · 스냅샷 맵에 새 칸이 없다', () => {
-  assert.equal(GM.live, false);
-  const b = cleanBag({ oc: 1, hj: { active: 'gambler', jobs: { gambler: { lv: 200, xp: 0, tr: [[50, 0], [50, 0], [50, 0]] } } } });
-  assert.equal(b.hj, undefined, '실제 게임 캐릭터에는 히든 직업 값이 남지 않는다');
-  assert.ok(!gamblerOn({ bag: b }));
+test('새 키 칸은 만들지 않는다 — 키 설정 창에 드러나지 않고 기존 행동 키를 빌린다 · 직업이 꺼져 있으면 hidden 입력은 조용히 넘긴다', () => {
+  assert.equal(GM.live, true, '11월 16일 사용자 결정 — 실제 게임에 넣었다(tools/gambler-live.test.mjs)');
   assert.ok(!KEY_ACTIONS.some(a => /gambler|도박/i.test(a.id + a.name)), '키 설정 창에 드러나지 않는다');
   assert.ok(GM_SLOTS.every(q => KEY_ACTIONS.some(a => a.id === q.act)), '기존 행동 키를 그대로 쓴다');
-  assert.ok(!SNAP_ORDER.maps.includes('casino'));
+  assert.equal(SNAP_ORDER.maps[SNAP_ORDER.maps.length - 1], 'casino', '시험 맵은 맵 차례 맨 뒤');
   const { g, h } = setup(); dropGambler(h);
+  assert.ok(!gamblerOn(h));
   const m = mob(g, h.x + 200, h.y);
   use(g, 'dice'); run(g, .5);
   assert.equal(m.hp, HP, '직업이 꺼져 있으면 hidden 입력은 아무 일도 하지 않는다');

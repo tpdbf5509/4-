@@ -468,6 +468,66 @@ def icon_cells():
     star(c, 20, 5, 2, G[6], G[4]); out.append(c)
     return out
 
+# ── 해금 경로 조사물(48×52, 발밑 24·48) — 0 낡은 칩 상자 · 1 열린 상자(카지노 문) · 2 계약서 게시판 · 3 망가진 주사위 기계 · 4 되살아난 기계 ──
+WD = [rgb(c) for c in ["#1E150C", "#3A2A18", "#5A4226", "#7A5C36", "#9A7A4C"]]   # 낡은 나무
+def mini_die(c, x, y, n, lit=True):   # 7×7 작은 주사위 눈
+    c.rect(x, y, 7, 7, G[1]); c.rect(x + 1, y + 1, 5, 5, G[5] if lit else WD[2]); c.rect(x + 1, y + 1, 5, 1, G[6] if lit else WD[3])
+    for (i, j) in PIPS[n]: c.px(x + 3 + i * 2, y + 3 + j * 2, G[0] if lit else WD[0])
+def props_cells():
+    out = []
+    def shadow(c, w): c.disc(24, 48, w, 3, al(G[0], .45))
+    def chest(c, open_):
+        shadow(c, 17)
+        c.rect(9, 32, 30, 15, WD[0]); c.rect(10, 33, 28, 13, WD[2]); c.rect(10, 33, 28, 1, WD[3]); c.rect(10, 45, 28, 1, WD[1])   # 몸통
+        for x in (16, 23, 30): c.rect(x, 34, 1, 11, WD[1])                                                                   # 널판 결
+        c.rect(9, 32, 3, 15, G[1]); c.rect(36, 32, 3, 15, G[1]); c.rect(10, 33, 1, 13, G[2]); c.rect(37, 33, 1, 13, G[2])       # 놋쇠 모서리
+        c.rect(22, 36, 5, 5, G[1]); c.rect(23, 37, 3, 3, G[3]); c.px(24, 38, G[0])                                              # 자물쇠
+        if not open_:
+            c.rect(8, 25, 32, 8, WD[0]); c.rect(9, 26, 30, 6, WD[3]); c.rect(9, 26, 30, 1, WD[4]); c.rect(9, 31, 30, 1, WD[1])   # 뚜껑
+            c.rect(8, 25, 3, 8, G[1]); c.rect(37, 25, 3, 8, G[1]); c.rect(9, 26, 1, 6, G[3]); c.rect(38, 26, 1, 6, G[3])
+            c.rect(13, 24, 9, 1, G[4]); c.px(17, 23, G[5])                                                                    # 틈으로 새는 금빛
+            star(c, 31, 22, 2, G[5], G[3])
+        else:
+            c.fillpoly([(9, 31), (39, 31), (36, 14), (12, 14)], WD[0]); c.fillpoly([(11, 30), (37, 30), (35, 16), (13, 16)], WD[1])   # 젖힌 뚜껑 안쪽
+            c.rect(13, 16, 22, 1, WD[2]); c.rect(12, 14, 24, 1, G[2])
+            c.rect(11, 29, 26, 4, G[0]); c.rect(12, 29, 24, 3, G[3]); c.rect(14, 29, 20, 2, G[5]); c.rect(18, 29, 12, 1, G[6])        # 안에서 올라오는 빛
+            for k, (x, y) in enumerate(((16, 24), (24, 20), (31, 25), (21, 12), (28, 9))): star(c, x, y, 2 if k % 2 == 0 else 1, G[5 + (k % 2)], G[3])
+            chip(c, 24, 26, 0, "gold", 4)
+    c = Cv(48, 52); chest(c, False); out.append(c)
+    c = Cv(48, 52); chest(c, True); out.append(c)
+    c = Cv(48, 52); shadow(c, 13)                                                                 # 계약서 게시판
+    c.rect(22, 30, 4, 18, WD[0]); c.rect(23, 30, 2, 17, WD[2])
+    c.rect(8, 8, 32, 24, WD[0]); c.rect(9, 9, 30, 22, WD[2]); c.rect(9, 9, 30, 1, WD[3]); c.rect(9, 30, 30, 1, WD[1])
+    for y in (15, 22): c.rect(10, y, 28, 1, WD[1])
+    c.rect(11, 11, 8, 6, WD[3]); c.rect(30, 20, 7, 8, WD[3])                                      # 옛 쪽지 자국
+    c.fillpoly([(18, 12), (31, 11), (32, 28), (19, 29)], G[1]); c.fillpoly([(19, 13), (30, 12), (31, 27), (20, 28)], rgb("#E9DDB8"))   # 계약서
+    for k, y in enumerate((15, 17, 19, 21)): c.line(21, y, 28 - (k % 2) * 2, y, rgb("#8E7B55"))
+    c.line(21, 25, 25, 25, P[2]); c.disc(28.5, 24.5, 2, 2, P[2]); c.px(28, 24, P[4])              # 서명 칸 · 자주 봉인
+    c.px(24, 12, G[6]); c.px(25, 12, G[3])                                                        # 압정
+    out.append(c)
+    def machine(c, fixed):
+        shadow(c, 14)
+        c.rect(11, 12, 26, 36, WD[0]); c.rect(12, 13, 24, 34, WD[2] if not fixed else G[1]); c.rect(12, 13, 24, 1, WD[3] if not fixed else G[3]); c.rect(12, 46, 24, 1, WD[1])
+        c.rect(12, 13, 1, 34, WD[3] if not fixed else G[2]); c.rect(35, 13, 1, 34, WD[1])
+        c.rect(10, 9, 28, 4, WD[0]); c.rect(11, 10, 26, 2, G[2] if fixed else WD[3])                # 지붕 띠
+        c.rect(13, 17, 22, 11, G[0]); c.rect(14, 18, 20, 9, WD[1] if not fixed else G[0])           # 눈 창
+        for k, x in enumerate((15, 21, 27)):
+            if fixed: mini_die(c, x, 19, 6)
+            else: c.rect(x, 19, 6, 7, WD[3]); c.rect(x + 1, 20, 4, 5, G[0]); c.px(x + 1, 20, WD[1])     # 빈 구멍
+        c.rect(15, 31, 18, 3, WD[0]); c.rect(16, 32, 16, 1, G[4] if fixed else WD[1])               # 칩 투입구
+        c.rect(15, 37, 18, 7, WD[0]); c.rect(16, 38, 16, 5, WD[1])                                  # 아래 쟁반
+        if fixed:
+            c.rect(37, 18, 2, 10, G[1]); c.rect(36, 15, 4, 4, P[2]); c.px(37, 16, P[4])             # 세운 손잡이
+            star(c, 24, 6, 2, G[6], G[4]); star(c, 14, 4, 1, G[5]); star(c, 34, 5, 1, G[5])
+            c.rect(19, 39, 3, 2, G[4]); c.rect(24, 40, 3, 2, G[5])
+        else:
+            c.line(37, 27, 42, 33, G[1]); c.line(38, 27, 43, 33, WD[1]); c.rect(42, 33, 3, 3, BR[1]); c.px(42, 33, BR[2])   # 꺾인 손잡이
+            c.line(14, 14, 19, 22, WD[0]); c.line(19, 22, 17, 27, WD[0])                             # 금 간 자리
+            c.rect(30, 44, 4, 3, WD[3]); c.px(31, 44, WD[4])
+    c = Cv(48, 52); machine(c, False); out.append(c)
+    c = Cv(48, 52); machine(c, True); out.append(c)
+    return out
+
 def pack(name, cells, cols=None, man=None, cx=None, cy=None, loop=0, rows=1, **extra):
     w, h = cells[0].w, cells[0].h; cols = cols or len(cells); R = math.ceil(len(cells) / cols)
     im = np.zeros((R * h, cols * w, 4), np.uint8)
@@ -496,6 +556,7 @@ def main():
     cells, (w, h, cx, cy) = table_cells(); sheets["gm_table"] = pack("gm_table", cells, 7, man, cx=cx, cy=cy, r=140)
     sheets["gm_pillar"] = pack("gm_pillar", pillar_cells(), None, man, cx=26, cy=146)
     sheets["gm_icons"] = pack("gm_icons", icon_cells(), None, man, cx=0, cy=0)
+    sheets["gm_props"] = pack("gm_props", props_cells(), None, man, cx=24, cy=48)
     json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
     if len(sys.argv) > 2 and sys.argv[1] == "preview":
         os.makedirs(sys.argv[2], exist_ok=True)

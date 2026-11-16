@@ -1812,7 +1812,7 @@ function hitFoe(g, h, o, raw, basic, dot) {
   if (!off && archerCut(h)) dmg *= JOB_TUNE.archer.dmg * (hasDefense(o) ? JOB_TUNE.archer.vsArmor : 1);   // 궁수 — 피해 감소 · 방어력 있는 사람에게 더 감소
   if (!off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, o.max, true);   // 마법사 — 최대 체력 비례 피해(PvP 값)
   if (!field) {
-    dmg *= DUEL.dmgMul;                          // 기존 공격 계산 → 결투 배율 → 상한 → hurtHero의 방어·보호막
+    dmg *= DUEL.dmgMul * (bloodOn(h) ? DUEL.bloodMul : 1);   // 기존 공격 계산 → 결투 배율(BLOOD-001 ×2, 11월 16일) → 상한 → hurtHero의 방어·보호막
     const c = h.cast || newCast(h), key = `${o.pi}:${o.who}`;
     const pct = c.basic ? DUEL.basicPct : c.sid === "ult" ? DUEL.ultPct : DUEL.skillPct;
     const spent = c.duelSpent || (c.duelSpent = {}), cap = pct * (o.max || 1);
@@ -1891,14 +1891,22 @@ function flushNum(g, m, tier = 0) {
   m.numT = 0.2;
 }
 
+// 정해진 양을 그대로 주는 피해(BLOOD-001 원초의 혈맥 보스 최대 체력 8%, 11월 16일) — 배율 · 치명타 · 회피를 건너뛴다
+let flatOn = 0;
+function flatMobHit(g, h, m, amount) {
+  if (isHeroT(m) || !(amount > 0)) return 0;       // 사람(PvP)에게는 없다
+  flatOn = 1;
+  try { return noProc(() => hitMob(g, h.pi, m, amount, true, false, true, false)); } finally { flatOn = 0; }
+}
 function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (!m || m.dead) return 0;
   const h = g.heroes[pi];
+  const flat = flatOn;
   if(isWorldBoss(m)&&(!h?.loaded||h.map!==m.map||g.wb?.active?.mob!==m.id))return 0;
-  if (dot && h) raw *= worldDotMul(h);
+  if (dot && h && !flat) raw *= worldDotMul(h);
   let dmg = raw * (1 + (m.shred > 0 ? m.shredAmt : 0)) * (dot ? 1 : wpnMul(h));   // 무기 패시브(별자리 활 조준) — 화상 · 독 틱에는 붙지 않는다
   if (h && !dot && procOff === 0) dmg *= advDmgMul(advEngine, g, h, m, !skill, false);   // 전직 패시브(표식 · 약점 · 탄도)
-  if (m.mirage > 0 && Math.random() < m.dodge) {  // 잔상 분신 — 피했다
+  if (!flat && m.mirage > 0 && Math.random() < m.dodge) {  // 잔상 분신 — 피했다
     if (m.numT <= 0) { say(g, m.map, m.x, m.y - 90, "빗나감", "#cfe6ff"); m.numT = 0.3; }
     return 0;
   }
@@ -1908,10 +1916,10 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (h && !off && !dot && h.job === "mage") dmg += mageHpBonus(dmg, m.max);   // 마법사 — 최대 체력 비례 피해(jobTuneData.js)
   if (m.wall > 0) dmg *= 1 - m.wallCut;          // 철벽 자세
   if (h && m.dg) dmg *= acDeal(g, h, m, skill, dot, side);   // 심연의 탑 강화 카드 · 표식(abyssCards.js) — 탑 몹만 dg
-  const crit = h && !off ? sureCrit || Math.random() < critChance(h) + (h.ac ? acCritAdd(h, m, skill) : 0) : false;
+  const crit = h && !off && !flat ? sureCrit || Math.random() < critChance(h) + (h.ac ? acCritAdd(h, m, skill) : 0) : false;
   if (crit) dmg *= critMul(h) + (h.ac ? acCdmgAdd(h, skill) : 0);
-  dmg = Math.max(1, Math.round(dmg));
-  if (m.hshT > 0 || m.hbar > 0) dmg = highTake(m, dmg);   // 800~1200 보스 — 강철 방패 · 방어막(highCombat.js)
+  dmg = Math.max(1, Math.round(flat ? raw : dmg));
+  if (m.hshT > 0 || m.hbar > 0) dmg = highTake(m, dmg, flat ? 0 : h?.cast?.pen || 0);   // pen — BLOOD-001 흑혈 관통 보스 방어 30% 무시   // 800~1200 보스 — 강철 방패 · 방어막(highCombat.js)
   if(isWorldBoss(m))worldBossHit(g,m,h,dmg,{direct:!!skill&&!dot&&!side&&procOff===0});
   if(isGuildBoss(m))guildHit(g,m,h,dmg);
   m.hp -= dmg;
@@ -3330,6 +3338,7 @@ const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h,
   hurt: (g, h, dmg) => hurtHero(g, h, dmg, { bloodTrial: 1 }),
   goMap: (g, h, to, at) => { h.map = to; [h.x, h.y] = at; stopMove(h); h.hold = []; h.dash = 0; h.gateCd = 1.2; fx(g, to, { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#ff9aa4", t: 0.5, life: 0.5 }); },
   pvp: (g, h) => isPvp(h.map) || fieldPvpOn(h),     // 혈량 자연 회복이 멈추는 곳(결투장 · 사냥터 PvP, 11월 15일)
+  flat: flatMobHit,                                 // 원초의 혈맥 — 보스 최대 체력 비례 피해(배율 없이 그대로)
   dummy: (o) => !!o && o.type === "dummy", god: (g, h) => !!(h.trn && h.trn.god && (g.test || h.map === "train")), cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
   fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
 export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"

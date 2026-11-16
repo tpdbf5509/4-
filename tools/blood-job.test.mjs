@@ -435,9 +435,9 @@ test('혈역 증폭 — 직업 100 · 1초마다 +30(적이 혈역 안) · 과�
   run(g, 3); assert.equal(h.bag.bd.b, 200, '안정 한계 아래로는 줄지 않는다');
 });
 
-test('혈역 — 적이 없으면 얻지 못하고 · 시전자를 따라다닌다(맵을 옮기면 끝)', () => {
+test('혈역 — 적이 없어도 지형에서 +30(11월 16일 버그 수정) · 시전자를 따라다닌다(맵을 옮기면 끝)', () => {
   const { g, h } = setup(); lv100(h); h.bag.bd.b = 100;
-  fd(g, 'press'); run(g, 1.05); assert.equal(h.bag.bd.b, 100);
+  fd(g, 'press'); run(g, 1.05); assert.equal(h.bag.bd.b, 130, '몹 · 사람이 없어도 1초 뒤 +30');
   h.x += FD.r + 20; step(g, .01);
   assert.ok(h.bd.fd, '멀리 걸어도 혈역은 이어진다');
   assert.equal(h.bd.fd.x, Math.round(h.x), '중심이 내 자리로 옮겨 온다');
@@ -636,7 +636,7 @@ test('혈류 파동 — 대상이 없어도 보는 쪽에 쓴다 · 피해가 �
   run(g, WV.spread + .05); assert.equal(h.bag.bd.tr[1][1], 0);
 });
 
-test('혈쇄 갈고리 — 혈량 15 · 대기 8 · 시전자만 적 바로 앞으로 · 피해 · 무적 없음 · 형상화 +10', () => {
+test('혈쇄 갈고리 — 혈량 15 · 대기 8 · 시전자만 적 바로 앞으로 · 도착하면 피해 · 무적 없음 · 형상화 +10', () => {
   const { g, h } = setup(); lvN(h, 20); h.bag.bd.b = 60;
   const m = mob(g, h.x + 350, h.y), x0 = h.x;
   send(g, { op: 'press', s: 'hook' });
@@ -644,7 +644,7 @@ test('혈쇄 갈고리 — 혈량 15 · 대기 8 · 시전자만 적 바로 앞�
   run(g, 0.4);
   assert.equal(h.bd.hk, null);
   assert.ok(h.x > x0 + 250 && h.x < m.x, `${h.x - x0}`); assert.equal(Math.round(m.x), Math.round(x0 + 350), '적은 끌려오지 않는다');
-  assert.equal(m.hp, HP, '피해 없음'); assert.ok(!(h.inv > 0.01), '무적 없음');
+  assert.ok(m.hp < HP, '도착하면 ×5 + 충격파 ×3(11월 16일)'); assert.ok(!(h.inv > 0.01), '무적 없음');
   assert.equal(h.bag.bd.tr[2][1], 10, '형상화 +10');
 });
 

@@ -196,7 +196,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 
 에르덴 마을 확장(11월 6일, Codex): `rpg/village/` 에 새 건물 6장(bakery · carpenter · school · stable · cottage-a · cottage-b, 512×512 발 기준 (256,496)). 마을 크기 3200×2100. 이야기 맵 바닥 10장은 길 · 건물 자리를 맞춰 다시 뽑았다.
 
-에르덴 도서관(11월 16일, Codex): 건물 `rpg/village/library.webp`(512×512 투명, 발 기준 (256,496) — 앞 계단 맨 아래). 바닥 `rpg/story/ground/erden-library.webp` · `erden-library-2.webp`(1536×1024 불투명, 맵 2400×1600 에 늘림 — 책장 · 계단 · 가구가 그림 안에 있고 막힌 곳은 `libraryData.js LIBRARY_BLOCKS`). 사서 `rpg/story/people/librarian.webp` · `portraits/librarian.webp`(512×512 투명). 원본은 `design/library/`.
+에르덴 도서관(11월 16일, Codex): 건물 `rpg/village/library.webp`(512×512 투명, 발 기준 (256,496) — 앞 계단 맨 아래). 바닥 `rpg/story/ground/erden-library.webp` · `erden-library-2.webp`(1536×1024 불투명, 맵 2400×1600 에 늘림 — 책장 · 계단 · 가구가 그림 안에 있고 막힌 곳은 `libraryData.js LIBRARY_BLOCKS`). 사서 `rpg/story/people/librarian.webp` · `portraits/librarian.webp`(512×512 투명). 원본은 `design/library/`. 장서 화면 `rpg/library/book-open.webp`(1200×800 투명 — 펼친 빈 책, 모든 책 공용) · `ill-red-river.webp` · `ill-lia.webp`(640×480 흰 바탕 — 화면에서 multiply 로 종이에 얹는다).
 
 ### 맵 불러오기 화면 일러스트 (11월 7일)
 - `public/assets/ui/loading/{town,field,dungeon,abyss,worldboss,story}.webp` — 1280×720 불투명 WebP(원본 1536×864 는 `design/loading/*-src.webp`). 맵 종류 → 그림 · 이름 위 작은 글은 `src/game/loadScreen.js loadInfo`, 팁은 `LOAD_TIPS`(사실만 적는다). 왼쪽 아래에 글이 놓이므로 그림의 왼쪽 아래는 비교적 조용하게 뽑는다. 진행 · 걷힘은 `mapLoad.js`.

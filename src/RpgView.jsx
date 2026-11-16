@@ -1170,6 +1170,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "bWave") act("blood", { op: "press", s: "wave" });   // 혈류 파동 — 포인터 자리(없으면 가까운 적)에서 퍼진다
       else if (a === "bHook") act("blood", { op: "press", s: "hook" });   // 혈쇄 갈고리 — 겨눈 쪽 적 앞으로 끌려간다
       else if (a === "bField") act("blood", { op: "press", s: "field" });   // 혈역 증폭 — 누르고 있는 동안 유지
+      else if (a === "bPierce") act("blood", { op: "press", s: "pierce" });   // 11월 16일 — 흑혈 관통 · 혈해 개문 · 혈형 군단 · 원초의 혈맥(자동 차징) · 원초적 지배
+      else if (a === "bSea") act("blood", { op: "press", s: "sea" });
+      else if (a === "bLegion") act("blood", { op: "press", s: "legion" });
+      else if (a === "bOrigin") act("blood", { op: "press", s: "origin" });
+      else if (a === "bAwake") act("blood", { op: "press", s: "awake" });
       else if (a === "adv") act("adv", { op: "use" });   // 전직 스킬 — 방장이 판정한다(손님 화면에서 먼저 그리지 않는다)
       else if (a === "advUlt") act("adv", { op: "ult" });   // 소환술사 궁극기 거대 정령 — 방장이 판정한다
       else if (a === "healMode") act("adv", { op: "mode" });   // 치유사 평타 바꾸기 — 방장이 판정한다
@@ -1736,7 +1741,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
           </button>
         )}
-        <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), wave: keyOf(binds, "bWave"), hook: keyOf(binds, "bHook"), field: keyOf(binds, "bField") || keyOf(binds, "skill") }}
+        <BloodButtons v={me.blood} touch={touch} keys={{ shot: keyOf(binds, "bShot"), conv: keyOf(binds, "bConv"), smash: keyOf(binds, "bSmash"), sword: keyOf(binds, "bSword"), veil: keyOf(binds, "bVeil"), wave: keyOf(binds, "bWave"), hook: keyOf(binds, "bHook"), field: keyOf(binds, "bField") || keyOf(binds, "skill"),
+            pierce: keyOf(binds, "bPierce"), sea: keyOf(binds, "bSea"), legion: keyOf(binds, "bLegion"), origin: keyOf(binds, "bOrigin"), awake: keyOf(binds, "bAwake") }}
+          onNew={(sk) => act("blood", { op: "press", s: sk })}
           onWave={() => act("blood", { op: "press", s: "wave" })} onHook={() => act("blood", { op: "press", s: "hook" })}
           onField={() => act("blood", { op: "press", s: "field" })} onFieldUp={() => act("blood", { op: "release", s: "field" })}
           onSmash={() => { chargeRef.current = true; lastWaim.current = null; act("blood", { op: "press", s: "smash" }); }}

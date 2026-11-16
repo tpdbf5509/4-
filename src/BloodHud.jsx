@@ -1,22 +1,29 @@
 /* 히든 직업 BLOOD-001 화면 — 혈량 게이지 줄(레벨 카드 HP 아래)과 스킬 칸 단추(11월 14일 1 · 2단계).
    값은 bloodJob.js bloodView(방장은 판정 상태 · 손님은 스냅샷 줄 56). 판정은 하지 않는다 — 누름 · 뗌만 보낸다.
    게이지 끝은 이 레벨의 과부하 한계, 안정 · 증폭 · 과부하 한계 자리에 1px 구분선(11월 15일 개편 — 한계는 직업 레벨을 따른다, bloodCaps) */
-import { BLOOD, BLOOD_SHOT, BLOOD_SMASH, BLOOD_FORM, BLOOD_FIELD, BLOOD_WAVE, BLOOD_HOOK, BLOOD_STATE, BLOOD_NAME, BLOOD_COLORS, TRAIN_NAMES, TRAIN_UNLOCK } from "./game/bloodJobData.js";
+import { BLOOD, BLOOD_SHOT, BLOOD_SMASH, BLOOD_FORM, BLOOD_FIELD, BLOOD_WAVE, BLOOD_HOOK, BLOOD_STATE, BLOOD_NAME, BLOOD_COLORS, TRAIN_NAMES, TRAIN_UNLOCK,
+  BLOOD_PIERCE, BLOOD_SEA, BLOOD_LEGION, BLOOD_ORIGIN, BLOOD_AWAKE } from "./game/bloodJobData.js";
 import { SKILL_ICON_SHEET, SKILL_ICONS, iconStyle } from "./game/skillIconData.js";
-import { stableCap, bloodCaps, overWarn, shotTier, shotTimeTier, smashTier, smashTimeTier, bloodMode, MODE_NAMES, jobNeed, trainNeed, bloodTint } from "./game/bloodJob.js";
+import { stableCap, bloodCaps, overWarn, shotTier, shotTimeTier, smashTier, smashTimeTier, bloodMode, MODE_NAMES, jobNeed, trainNeed, bloodTint, newLock, awakeLock, bloodCost } from "./game/bloodJob.js";
 
 // 차징 단계 · 비용 — 시간만 본 단계가 혈량 때문에 낮아지면 short 에 실제 단계
-function chargeInfo(ch, b, tierOf, timeOf, tiers) {
-  const t = ch ? ch.t : 0, tier = Math.max(0, tierOf(t, b)), timeTier = ch ? timeOf(t) : 0;
-  return { tier, timeTier, cost: tiers[tier].cost, short: ch && timeTier > tier ? tier : -1 };
+function chargeInfo(ch, b, tierOf, timeOf, tiers, aw) {
+  const t = ch ? ch.t : 0, tier = Math.max(0, tierOf(t, b, aw)), timeTier = ch ? timeOf(t) : 0;
+  return { tier, timeTier, cost: bloodCost(aw, tiers[tier].cost), short: ch && timeTier > tier ? tier : -1 };
+}
+// 신규 스킬 칸(11월 16일) — 잠김 글 · 대기 · 혈량
+function newSkill(v, D, cd, aw, b) {
+  const lock = newLock(v, D), cost = bloodCost(aw, D.cost);
+  return { cd: cd || 0, max: D.cd, low: b < cost, locked: !!lock, lockText: lock.replace(/에 열립니다$/, ""), cost };
 }
 // 레벨 카드 HUD 값 — RpgView setHud 가 부른다
 export function bloodHud(v) {
   if (!v) return null;
   const [cap, amp, top] = bloodCaps(v.lv), b = Math.round(v.b), ch = v.ch;
   const sc = ch && ch.s !== "smash" ? ch : null, mc = ch && ch.s === "smash" ? ch : null;
-  const shot = chargeInfo(sc, b, shotTier, shotTimeTier, BLOOD_SHOT.tiers);
-  const smash = chargeInfo(mc, b, smashTier, smashTimeTier, BLOOD_SMASH.tiers);
+  const aw = !!v.aw;
+  const shot = chargeInfo(sc, b, shotTier, shotTimeTier, BLOOD_SHOT.tiers, aw);
+  const smash = chargeInfo(mc, b, smashTier, smashTimeTier, BLOOD_SMASH.tiers, aw);
   const locked = v.lv < BLOOD.unlock.shape, U = BLOOD.unlock;
   const mode = bloodMode(b, cap, v.rg);
   return {
@@ -34,6 +41,12 @@ export function bloodHud(v) {
       held: !!(v.sw && v.sw.ph === 2), hold: v.sw && v.sw.ph === 2 ? Math.max(0, BLOOD_FORM.sword.hold - v.sw.t) : 0 },
     conv: { cd: v.cd.conv || 0, max: BLOOD.convert.cd, full: b >= cap },   // 안정 한계까지만(11월 15일 개편)
     use: sc ? shot.cost : mc ? smash.cost : 0,
+    // 11월 16일 최종 강화 — 신규 스킬 4종 · 원초적 지배
+    pierce: newSkill(v, BLOOD_PIERCE, v.cd.pierce, aw, b),
+    sea: { ...newSkill(v, BLOOD_SEA, v.cd.sea, aw, b), on: !!v.sea, left: v.sea ? Math.max(0, BLOOD_SEA.dur - v.sea.t) : 0 },
+    legion: { ...newSkill(v, BLOOD_LEGION, v.cd.legion, aw, b), on: !!v.lg, left: v.lg ? Math.max(0, BLOOD_LEGION.dur - v.lg.t) : 0 },
+    origin: { ...newSkill(v, BLOOD_ORIGIN, v.cd.origin, aw, b), on: !!v.og },
+    awake: (() => { const lock = awakeLock(v); return { cd: v.cd.awake || 0, max: BLOOD_AWAKE.cd, low: false, locked: !!lock, lockText: lock.replace(/에 열립니다$/, ""), on: aw, left: v.aw ? v.aw.left : 0 }; })(),
   };
 }
 
@@ -93,7 +106,22 @@ function TapBtn({ name, q, k, touch, ico, cost, onDown }) {
   );
 }
 
-export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, onSmash, onSmashUp, onSword, onVeil, onField, onFieldUp, onConv, onWave, onHook }) {
+// 신규 스킬 칸 — 아이콘 그림이 아직 없어 1px 테두리 칸에 한 글자 표식을 둔다(11월 16일)
+function NewBtn({ name, mark, q, k, touch, sub, onDown }) {
+  return (
+    <button type="button" className={`rpg-skill blood ${(q.cd > 0 && !q.on) || q.locked ? "cool" : ""} ${q.low && !q.on ? "low" : ""} ${q.on ? "on" : ""}`}
+      onPointerDown={(e) => { e.preventDefault(); onDown(); }}>
+      {!touch && k && <kbd>{k}</kbd>}
+      <b className="rpg-ico rpg-ico-txt" aria-hidden="true">{mark}</b>
+      <span>{name}<small>{q.locked ? q.lockText : sub}</small></span>
+      {q.on && q.left > 0 && <b className="rpg-blood-ring" style={{ "--p": `${(q.left / q.dur) * 360}deg` }} />}
+      {q.cd > 0 && !q.on && <em>{Math.ceil(q.cd)}</em>}
+      {q.cd > 0 && !q.on && <i style={{ width: `${(q.cd / q.max) * 100}%` }} />}
+    </button>
+  );
+}
+
+export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, onSmash, onSmashUp, onSword, onVeil, onField, onFieldUp, onConv, onWave, onHook, onNew }) {
   if (!v) return null;
   const s = v.shot, m = v.smash, f = v.form, c = v.conv, d = v.field, w = v.sword;
   const on = w.making || w.held;
@@ -131,7 +159,7 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         onPointerUp={onFieldUp} onPointerCancel={onFieldUp}>
         {!touch && keys.field && <kbd>{keys.field}</kbd>}
         <SkillIco id="field" />
-        <span>{BLOOD_FIELD.name}<small>{d.locked ? `직업 Lv ${BLOOD.unlock.field}` : d.left ? (d.none ? "흡수 대상 없음" : `유지 ${Math.ceil(d.left)}초`) : d.busy ? `${v.state.split(" ")[0]} 중` : "혈량 소모 없음"}</small></span>
+        <span>{BLOOD_FIELD.name}<small>{d.locked ? `직업 Lv ${BLOOD.unlock.field}` : d.left ? `유지 ${Math.ceil(d.left)}초` : d.busy ? `${v.state.split(" ")[0]} 중` : "혈량 소모 없음"}</small></span>
         {d.left > 0 && <b className="rpg-blood-ring" style={{ "--p": `${(d.left / BLOOD_FIELD.dur) * 360}deg` }} />}
         {d.cd > 0 && !d.left && <em>{Math.ceil(d.cd)}</em>}
         {d.cd > 0 && !d.left && <i style={{ width: `${(d.cd / d.max) * 100}%` }} />}
@@ -143,6 +171,13 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         <span>혈량 전환<small>{c.full ? "전환 한도" : `체력 ${Math.round(BLOOD.convert.hp * 100)}% → 혈량 ${BLOOD.convert.gain}`}</small></span>
         {c.cd > 0 && <em>{Math.ceil(c.cd)}</em>}
       </button>
+      {onNew && <>
+        <NewBtn name={BLOOD_PIERCE.name} mark="관" q={v.pierce} k={keys.pierce} touch={touch} sub={v.pierce.low ? "혈량 부족" : `혈량 ${v.pierce.cost}`} onDown={() => onNew("pierce")} />
+        <NewBtn name={BLOOD_SEA.name} mark="해" q={{ ...v.sea, dur: BLOOD_SEA.dur }} k={keys.sea} touch={touch} sub={v.sea.on ? `유지 ${Math.ceil(v.sea.left)}초` : v.sea.low ? "혈량 부족" : `혈량 ${v.sea.cost}`} onDown={() => onNew("sea")} />
+        <NewBtn name={BLOOD_LEGION.name} mark="군" q={{ ...v.legion, dur: BLOOD_LEGION.dur }} k={keys.legion} touch={touch} sub={v.legion.on ? `분신 ${Math.ceil(v.legion.left)}초` : v.legion.low ? "혈량 부족" : `혈량 ${v.legion.cost}`} onDown={() => onNew("legion")} />
+        <NewBtn name={BLOOD_ORIGIN.name} mark="맥" q={v.origin} k={keys.origin} touch={touch} sub={v.origin.on ? "차징 중" : v.origin.low ? "혈량 부족" : `혈량 ${v.origin.cost}`} onDown={() => onNew("origin")} />
+        <NewBtn name={BLOOD_AWAKE.name} mark="지" q={{ ...v.awake, dur: BLOOD_AWAKE.dur }} k={keys.awake} touch={touch} sub={v.awake.on ? `각성 ${Math.ceil(v.awake.left)}초` : `${BLOOD_AWAKE.dur}초 각성`} onDown={() => onNew("awake")} />
+      </>}
     </>
   );
 }

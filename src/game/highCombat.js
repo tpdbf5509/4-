@@ -57,8 +57,9 @@ export const highFlags = (m) => (m.hshT > 0 ? 1 : 0) | (m.hbar > 0 ? 2 : 0) | (m
   | (m.hmode ? 16 : 0) | (m.hact && m.hact.k === "leap" ? 32 : 0) | ((m.hph || 0) << 6);
 
 /* ── 받는 피해 — 강철 방패 · 방어막(rpg.js hitMob 이 반올림한 뒤 부른다) ─── */
-export function highTake(m, dmg) {
-  if (m.hshT > 0) dmg = Math.max(1, Math.round(dmg * (1 - (m.hshCut || 0))));
+// pen — 방어 무시 몫(BLOOD-001 흑혈 관통 0.3: 강철 방패 감소율의 30% 를 무시한다, 11월 16일)
+export function highTake(m, dmg, pen = 0) {
+  if (m.hshT > 0) dmg = Math.max(1, Math.round(dmg * (1 - (m.hshCut || 0) * (1 - pen))));
   if (m.hbar > 0) { const a = Math.min(m.hbar, dmg); m.hbar -= a; dmg -= a; if (m.hbar <= 0) { m.hbar = 0; m.hbarT = 0; } }
   return dmg;
 }

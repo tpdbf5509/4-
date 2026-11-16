@@ -266,7 +266,23 @@ test('혈검 — 생성 중 · 입력 없이 들고만 있으면 피해 0 · 혈
   run(g, F.sword.form + .02); assert.equal(h.bd.sw.ph, 2, '0.25초 뒤 손에 든다');
   run(g, 2); assert.equal(m.hp, HP, '입력 없이 들고 있으면 피해 없음');
   send(g, { op: 'press', s: 'veil' }); assert.ok(h.bd.vl, '혈막은 혈검 대기와 따로 — 바로 쓸 수 있다');
-  assert.equal(h.bd.sw, null, '혈막으로 바꾸면 혈검이 풀린다');
+  assert.ok(h.bd.sw && h.bd.sw.ph === 2, '혈막을 써도 혈검은 그대로 든 채다(11월 16일)');
+});
+
+test('혈검 — 다른 스킬(적혈탄 · 혈수 강타 · 혈류 파동 · 혈쇄 갈고리 · 혈막)을 써도 풀리지 않고 남은 시간도 그대로', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 200;
+  const m = mob(g, h.x + 60, h.y);
+  send(g, { op: 'sword' }); run(g, F.sword.form + .02); assert.equal(h.bd.sw.ph, 2);
+  const t0 = h.bd.sw.t;
+  press(g); run(g, .7); release(g); assert.ok(h.bd.sw, '적혈탄');
+  send(g, { op: 'press', s: 'smash' }); send(g, { op: 'release', s: 'smash' }); assert.ok(h.bd.sw, '혈수 강타');
+  h.bag.bd.b = 200; send(g, { op: 'press', s: 'wave' }); assert.ok(h.bd.sw, '혈류 파동');
+  h.bag.bd.b = 200; send(g, { op: 'press', s: 'hook' }); assert.ok(h.bd.sw, '혈쇄 갈고리');
+  h.bag.bd.b = 200; send(g, { op: 'press', s: 'veil' }); assert.ok(h.bd.sw, '혈막');
+  assert.ok(h.bd.sw.t >= t0, '유지 시간은 이어서 센다');
+  const hp = m.hp; fire(g, true); fire(g, false);
+  assert.ok(m.hp <= hp, '스킬 뒤에도 새 평타로 벤다');
+  run(g, F.sword.hold + 1); assert.equal(h.bd.sw, null, '50초가 지나면 그때 풀린다');
 });
 
 test('혈검 — 새 평타 입력마다 한 번 · 횟수 제한 · 혈량 회수 없음 · 평타 혈량 · 새 혈흔 없음 · 경험치 한 번', () => {
@@ -419,9 +435,9 @@ test('혈역 증폭 — 직업 100 · 1초마다 +30(적이 혈역 안) · 과�
   run(g, 3); assert.equal(h.bag.bd.b, 200, '안정 한계 아래로는 줄지 않는다');
 });
 
-test('혈역 — 적이 없으면 얻지 못하고 · 시전자를 따라다닌다(맵을 옮기면 끝)', () => {
+test('혈역 — 적이 없어도 지형에서 +30(11월 16일 버그 수정) · 시전자를 따라다닌다(맵을 옮기면 끝)', () => {
   const { g, h } = setup(); lv100(h); h.bag.bd.b = 100;
-  fd(g, 'press'); run(g, 1.05); assert.equal(h.bag.bd.b, 100);
+  fd(g, 'press'); run(g, 1.05); assert.equal(h.bag.bd.b, 130, '몹 · 사람이 없어도 1초 뒤 +30');
   h.x += FD.r + 20; step(g, .01);
   assert.ok(h.bd.fd, '멀리 걸어도 혈역은 이어진다');
   assert.equal(h.bd.fd.x, Math.round(h.x), '중심이 내 자리로 옮겨 온다');
@@ -477,6 +493,8 @@ test('단서 A — 사냥꾼 이야기 → 핏자국 → 유리관에서 표본'
   const { g, h } = setup();
   goSpot(h, 'trail'); assert.equal(spotNear(h), null, '이야기를 듣기 전에는 핏자국이 보이지 않는다');
   h.map = 'field'; h.x = 430; h.y = 760; talk(g);
+  assert.ok(!h.bag.bu || !(h.bag.bu.f & 1), '「사냥꾼의 오른팔」 칭호가 없으면 핏자국 이야기를 듣지 못한다');
+  h.titles.push('quest100'); talk(g);
   assert.equal(h.bag.bu.f & 1, 1);
   goSpot(h, 'trail'); talk(g); goSpot(h, 'tube'); talk(g);
   assert.equal(h.bag.bu.c & 1, 1);
@@ -620,7 +638,7 @@ test('혈류 파동 — 대상이 없어도 보는 쪽에 쓴다 · 피해가 �
   run(g, WV.spread + .05); assert.equal(h.bag.bd.tr[1][1], 0);
 });
 
-test('혈쇄 갈고리 — 혈량 15 · 대기 8 · 시전자만 적 바로 앞으로 · 피해 · 무적 없음 · 형상화 +10', () => {
+test('혈쇄 갈고리 — 혈량 15 · 대기 8 · 시전자만 적 바로 앞으로 · 도착하면 피해 · 무적 없음 · 형상화 +10', () => {
   const { g, h } = setup(); lvN(h, 20); h.bag.bd.b = 60;
   const m = mob(g, h.x + 350, h.y), x0 = h.x;
   send(g, { op: 'press', s: 'hook' });
@@ -628,7 +646,7 @@ test('혈쇄 갈고리 — 혈량 15 · 대기 8 · 시전자만 적 바로 앞�
   run(g, 0.4);
   assert.equal(h.bd.hk, null);
   assert.ok(h.x > x0 + 250 && h.x < m.x, `${h.x - x0}`); assert.equal(Math.round(m.x), Math.round(x0 + 350), '적은 끌려오지 않는다');
-  assert.equal(m.hp, HP, '피해 없음'); assert.ok(!(h.inv > 0.01), '무적 없음');
+  assert.ok(m.hp < HP, '도착하면 ×5 + 충격파 ×3(11월 16일)'); assert.ok(!(h.inv > 0.01), '무적 없음');
   assert.equal(h.bag.bd.tr[2][1], 10, '형상화 +10');
 });
 

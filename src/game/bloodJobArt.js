@@ -12,7 +12,8 @@ const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const PX = 3;
 const pal = (f) => BLOOD_COLORS[f && f.c] || BLOOD_COLORS.red;
 // 시트 물들이기 — 붉은 시트를 보라 · 어두운 보라로(외곽은 밝기로 살린다)
-const TINT_FILTER = { red: "", violet: "hue-rotate(-40deg) saturate(1.1)", dusk: "hue-rotate(-55deg) brightness(0.6) contrast(1.4)" };
+const TINT_FILTER = { red: "", violet: "hue-rotate(-40deg) saturate(1.1)", dusk: "hue-rotate(-55deg) brightness(0.6) contrast(1.4)",
+  abyss: "hue-rotate(-75deg) brightness(0.42) contrast(1.6) saturate(1.2)" };   // 원초적 지배(11월 16일) — 검은색 · 어두운 보라
 
 const imgs = {};
 function sheet(name) {
@@ -41,7 +42,7 @@ function cell(ctx, name, i, x, y, k0, alpha, rot, c, mirror = false) {
 }
 /* 형상화 시트(11월 15일) — 몸은 연마 색으로 물들이고 밝은 외곽(_rim)은 색조만 바꿔 늘 밝게 둔다.
    row 는 방향 줄(rows), i 는 칸. flipX 면 좌우로 뒤집는다(왼쪽을 볼 때) */
-const RIM_FILTER = { red: "", violet: "hue-rotate(-40deg)", dusk: "hue-rotate(-55deg) saturate(0.9)" };
+const RIM_FILTER = { red: "", violet: "hue-rotate(-40deg)", dusk: "hue-rotate(-55deg) saturate(0.9)", abyss: "hue-rotate(-80deg) saturate(0.8)" };
 function formCell(ctx, name, row, i, x, y, k0, alpha, c, flipX = false) {
   const T = SH[name], im = sheet(name); if (!im || alpha <= 0) return false;
   const rim = T.rim ? sheet(`${name}_rim`) : null, k = pxK(k0), j = Math.max(0, Math.min(T.n - 1, i | 0)) + (row | 0) * T.cols;
@@ -354,14 +355,16 @@ function fieldEnd(ctx, f, t, sq) {
   ring(ctx, f.x, f.y, R * k, sq, P.rim, 0.8 * (1 - u), 1);
 }
 // 흡수 — 혈역 바닥에서 사용자 쪽으로 방울이 흘러든다 · 실제 증가량
+// 11월 16일 — 지형 흡수: 혈역 바닥 한 곳(x, y)에서 입자가 솟아올랐다가(앞 25%) 시전자에게 빨려 든다. 숫자는 실제로 늘었을 때만
 function absorb(ctx, f, t, sq) {
   const P = pal(f), u = clamp(t / f.life);
-  for (let i = 0; i < 7; i++) {
-    const a = i * TAU / 7 + f.x * 0.01, d0 = 120 + (i % 3) * 60, sx = f.x1 + Math.cos(a) * d0, sy = f.y1 + Math.sin(a) * d0 * sq;
-    const k = clamp(u * 1.4 - i * 0.05), x = sx + (f.x1 - sx) * k, y = sy + (f.y1 - 40 - sy) * k;
-    if (k < 1) pxLoop(ctx, "bj_drop", i * 0.07, 0.4, x, y, 0.45, 0.9 * (1 - k * 0.5), Math.atan2(f.y1 - 40 - y, f.x1 - x), f.c);
+  for (let i = 0; i < 5; i++) {
+    const a = i * TAU / 5 + f.x * 0.01, sx = f.x + Math.cos(a) * 18, sy = f.y + Math.sin(a) * 18 * sq;
+    const rise = clamp(u / 0.25), k = clamp((u - 0.25) * 1.5 - i * 0.04), y0 = sy - 26 * rise;
+    const x = sx + (f.x1 - sx) * k, y = y0 + (f.y1 - 40 - y0) * k;
+    if (k < 1) pxLoop(ctx, "bj_drop", i * 0.07, 0.4, x, y, 0.45, 0.9 * (1 - k * 0.5), k > 0 ? Math.atan2(f.y1 - 40 - y, f.x1 - x) : -Math.PI / 2, f.c);
   }
-  if (u < 0.75) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x1, f.y1 - 124 - 14 * u); }
+  if (f.got && u < 0.75) { ctx.globalAlpha = 1 - u; ctx.fillStyle = P.glow; ctx.font = "bold 13px 'Do Hyeon', sans-serif"; ctx.textAlign = "center"; ctx.fillText(`혈량 +${f.got}`, f.x1, f.y1 - 124 - 14 * u); }
 }
 // 폭주 — 시작은 고리가 바깥으로 터진다(피해 · 넉백 없음) · 지속은 몸을 감싸는 기운
 function rage(ctx, f, t, sq) {
@@ -394,15 +397,177 @@ function warn(ctx, f, t, sq) {
   disc(ctx, f.x, f.y, f.r * u, sq, P.bright, 0.22);
 }
 
-const KINDS = { sk_bj_wave: wave, sk_bj_hook: hook, sk_bj_hookpull: hookPull, sk_bj_hookend: hookEnd, sk_bj_swend: swordEnd, sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
-export const BLOOD_JOB_CAP = { sk_bj_wave: 4, sk_bj_hook: 4, sk_bj_hookpull: 4, sk_bj_hookend: 4, sk_bj_swend: 4, sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 8, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
+/* ── 11월 16일 최종 강화 연출 — 모두 기존 pixelfx 시트(blood-job/px)를 다시 써서 그린다. 코드는 1px 범위선 · 글자만 ──
+   흑혈 관통 · 혈해 개문 · 혈형 군단 · 원초의 혈맥 · 원초적 지배 · 연마 50 추가타(참격파 · 지면 폭발 · 혈막 가시 · 갈고리 충격파) */
+// 원초적 지배 잔상 — 맞은 자리에 검보라 타격이 한 번 더
+function echo(ctx, f, t) { const u = clamp(t / f.life); pxOnce(ctx, "bj_hit", u, f.x - 8, f.y - 30, 1.4, 1 - u * 0.4, 0, "abyss"); }
+// 혈수 강타 최대 차징 — 같은 범위가 한 번 더 터진다(바닥 충격 + 팽창)
+function blast(ctx, f, t, sq) {
+  const P = pal(f), u = clamp(t / f.life), D = f.W * 1.6;
+  groundRect(ctx, f.x - (f.ax || 1) * f.L * 0.5, f.y - (f.ay || 0) * f.L * 0.5 * sq, f.ax || 1, f.ay || 0, f.L, f.W, sq, P.rim, 0.5 * (1 - u), false);
+  pxOnce(ctx, "bj_slam", u, f.x, f.y + 6, D / 230, 0.95 * (1 - u * 0.4), 0, f.c);
+  pxOnce(ctx, "bj_burst", u, f.x, f.y - 20, D / 160, 0.9 * (1 - u * 0.5), 0, f.c);
+}
+// 혈막 가시 반격 — 몸에서 대상까지 가시가 뻗고 박힌 자리가 터진다
+function spike(ctx, f, t, sq) {
+  const u = clamp(t / f.life), sx = f.x, sy = f.y - 40, tx = f.x1, ty = f.y1 - 30, a = Math.atan2(ty - sy, tx - sx);
+  const k = clamp(u / 0.35), x = sx + (tx - sx) * k, y = sy + (ty - sy) * k;
+  pxLoop(ctx, "bj_drop", 0, 0.3, x, y, 1, 1 - clamp((u - 0.6) / 0.4), a, f.c);
+  if (u > 0.3) pxOnce(ctx, "bj_hit", (u - 0.3) / 0.7, tx, ty, 1, 1 - u * 0.5, 0, f.c);
+  void sq;
+}
+// 혈쇄 갈고리 도착 — 대상에 박히고 둘레가 충격파로 터진다(1px 반경선 = 판정 반경)
+function hookHit(ctx, f, t, sq) {
+  const P = pal(f), u = clamp(t / f.life);
+  ring(ctx, f.x, f.y, f.r, sq, P.rim, 0.6 * (1 - u), 1);
+  pxOnce(ctx, "bj_slam", u, f.x, f.y + 4, (f.r * 2) / 230 * 1.4, 0.9 * (1 - u * 0.4), 0, f.c);
+  pxOnce(ctx, "bj_hit", clamp(u * 1.5), f.x, f.y - 26, 1.4, 1 - u, 0, f.c);
+}
+/* 줄 탄 — swave 혈검 참격파(붉은 초승달이 앞으로) · pierce 흑혈 관통(gi 0 본탄 · 1~3 잔상). 판정과 같은 속도로 그린다 */
+function line(ctx, f, t, sq) {
+  const ax = f.ax || 1, ay = f.ay || 0, d = Math.min(f.len, f.v * t), x = f.x + ax * d, y = f.y - 34 + ay * d * sq, rot = Math.atan2(ay * sq, ax);
+  const out = clamp((t - f.len / f.v) / 0.15);
+  if (f.sk === "swave") {
+    const [row, flip] = row5(rot);
+    formCell(ctx, "bj_arc3", row, 3, x, y, 2, 1 - out, f.c, flip);   // 칸 3 — 초승달이 가장 꽉 찬 칸(11월 16일 궤적 시트를 다시 뽑아 칸 5 는 거의 사라진 끝 조각)
+    return;
+  }
+  const c = "abyss";                                  // 흑혈 — 검은색에 가까운 탄(잔상은 검붉게 옅게)
+  if (!f.gi) {
+    pxLoop(ctx, "bj_drop", 0, 0.3, x, y, 2, 1 - out, rot, c);
+    for (let i = 1; i <= 3; i++) pxLoop(ctx, "bj_drop", i * 0.1, 0.3, x - ax * i * 26, y - ay * i * 26 * sq, 2 - i * 0.4, (0.5 - i * 0.12) * (1 - out), rot, c);   // 빠른 탄의 꼬리
+  } else pxLoop(ctx, "bj_drop", f.gi * 0.2, 0.3, x, y, 2, (0.75 - f.gi * 0.12) * (1 - out), rot, f.c || "dusk");
+}
+// 흑혈 관통 마지막 — 검은색 · 보라색 입자 폭발(혈흔 5중첩이면 더 크게)
+function pburst(ctx, f, t) { const u = clamp(t / f.life); pxOnce(ctx, "bj_dark", u, f.x, f.y - 30, f.five ? 1.3 : 0.8, 1 - u * 0.3, 0, "abyss"); }
+// 흑혈 관통 차징 — 손끝 검은 구체에 주변 붉은 혈액이 빨려 든다
+function pcharge(ctx, f, t, sq) {
+  const [mx, my] = hand(f, sq), u = clamp(t / f.life);
+  for (let i = 0; i < 6; i++) {                       // 붉은 방울이 구체로 흡수된다
+    const a = i * TAU / 6, r = 60 * (1 - u), x = mx + Math.cos(a) * r, y = my + Math.sin(a) * r * 0.7;
+    if (u < 0.95) pxLoop(ctx, "bj_drop", i * 0.13, 0.3, x, y, 0.5, 0.9, Math.atan2(my - y, mx - x), f.c);
+  }
+  formCell(ctx, "bj_core", 2, loopIdx("bj_core", 0.3), mx, my, 2 + Math.round(u), 1, "abyss");
+}
+/* 혈해 개문 — 바닥이 검붉게 물들고(혈역 웅덩이 시트를 더 짙게 · 넓게) 혈관이 퍼진다. 기둥 · 가시는 sk_bj_spire. 1px 외곽선 = 판정 반경 */
+function sea(ctx, f, t, sq) {
+  const P = pal(f), R = f.r || 380, age = (f.u || 0) * 8 + t, k = R / POOL_R, c = f.c === "abyss" ? "abyss" : "dusk";
+  ring(ctx, f.x, f.y, R, sq, P.rim, 0.85, 1);
+  if (age < POOL_OPEN) pxOnce(ctx, "bj_flood", age / POOL_OPEN, f.x, f.y, k, 0.9, 0, c);
+  else pxLoop(ctx, "bj_drink", 0.5, 1.6, f.x, f.y, k, 0.9, 0, c);
+  const left = (1 - clamp(f.u || 0)) * 8 - t;
+  if (left < 0.8) pxOnce(ctx, "bj_suck", 1 - clamp(left / 0.8), f.x, f.y - 30, 1.6, 0.9, 0, f.c);   // 끝나기 직전 — 피가 가운데로 모인다
+}
+function seaEnd(ctx, f, t, sq) {
+  const P = pal(f), R = f.r || 380, u = clamp(t / f.life);
+  pxOnce(ctx, "bj_dry", u, f.x, f.y, R / POOL_R, 0.85, 0, "dusk");
+  if (f.boom) { pxOnce(ctx, "bj_burst", u, f.x, f.y - 30, R / 70, 1 - u * 0.4, 0, f.c); ring(ctx, f.x, f.y, R * (0.4 + 0.6 * clamp(u * 2)), sq, P.glow, 1 - u, 2); }
+}
+function spire(ctx, f, t, sq) { const u = clamp(t / f.life); pxOnce(ctx, "bj_slam", u, f.x, f.y + 4, 0.55, 0.9 * (1 - u * 0.5), 0, f.c); pxOnce(ctx, "bj_hit", u, f.x, f.y - 24, 0.9, 1 - u, 0, f.c); void sq; }
+/* 혈형 군단 — 분신은 사용자 캐릭터 그림을 피 색 실루엣으로(시전자 외형 그대로) · 손에 혈검 시트. 0.2초마다 오는 자리에서 속도대로 미끄러진다 */
+const cloneImgs = {};
+function cloneImg(gd, view) {
+  if (typeof Image === "undefined") return null;
+  const k = `${gd}/${view}`;
+  let im = cloneImgs[k];
+  if (im === undefined) { im = cloneImgs[k] = new Image(); im.onerror = () => { cloneImgs[k] = null; }; im.src = `/assets/characters/rpg/blood-${gd}/${view}.webp`; }
+  return im && im.complete && im.naturalWidth ? im : null;
+}
+const CLONE_H = 78, CLONE_FILTER = { red: "brightness(0.55) sepia(1) hue-rotate(-50deg) saturate(6)", violet: "brightness(0.5) sepia(1) hue-rotate(-90deg) saturate(5)", dusk: "brightness(0.35) sepia(1) hue-rotate(-100deg) saturate(4)", abyss: "brightness(0.25) sepia(1) hue-rotate(-110deg) saturate(4)" };
+const cloneSeen = new Map();                          // "pi:i" → 앞 프레임에 본 가장 새 연출의 시작 시각(겹친 장 중 하나만 그린다)
+function cloneBody(ctx, f, x, y, a, c, dir) {
+  const im = cloneImg(f.g ? "f" : "m", "side");
+  if (im) {
+    const k = CLONE_H / im.naturalHeight, w = im.naturalWidth * k;
+    ctx.save(); ctx.globalAlpha = a; ctx.imageSmoothingEnabled = false; ctx.filter = CLONE_FILTER[c] || CLONE_FILTER.red;
+    ctx.translate(Math.round(x), Math.round(y)); if (dir > 0) ctx.scale(-1, 1);   // 옆 그림은 왼쪽을 본다
+    ctx.drawImage(im, -w / 2, -CLONE_H, w, CLONE_H); ctx.restore();
+  }
+  formCell(ctx, "bj_sw_hold", dir > 0 ? 14 : 10, loopIdx("bj_sw_hold", 0.8), x + dir * 16, y - 40, 1, a, c);   // 손에 든 혈검
+}
+function clone(ctx, f, t, sq) {
+  const key = `${f.pi}:${f.i}`, born = NOW - t, s = cloneSeen.get(key) || { frame: -1, cur: -9, prev: -9 };
+  cloneSeen.set(key, s);
+  if (s.frame !== NOW) { s.frame = NOW; s.prev = s.cur; s.cur = -9; }
+  s.cur = Math.max(s.cur, born);
+  if (s.prev > -9 && Math.abs(born - s.prev) > 0.02) return;   // 앞 프레임의 가장 새 장만
+  const x = f.x + (f.vx || 0) * t, y = f.y + (f.vy || 0) * t;
+  pxLoop(ctx, "bj_rage", f.i * 0.3, 2.4, x, y + 4, 1, 0.45, 0, f.c);   // 발밑 핏빛 기운
+  cloneBody(ctx, f, x, y, 0.85, f.c, f.d || 1);
+  void sq;
+}
+function lgForm(ctx, f, t, sq) {
+  const u = clamp(t / f.life);
+  for (let i = 0; i < 3; i++) { const a = -Math.PI / 2 + i * TAU / 3, r = 60 * u; pxOnce(ctx, "bj_pop", u, f.x + Math.cos(a) * r, f.y + Math.sin(a) * r * sq, 0.6, 1 - u * 0.4, 0, f.c); }
+  pxOnce(ctx, "bj_suck", 1 - u, f.x, f.y - 30, 0.8, 0.9, 0, f.c);
+}
+function lgHit(ctx, f, t, sq) {
+  const u = clamp(t / f.life), rot = Math.atan2((f.y - f.y0) * 1, f.x - f.x0);
+  pxOnce(ctx, f.w ? "bj_cross" : "bj_slash", u, f.x0, f.y0 - 34, 1, 1 - u * 0.3, rot, f.c);
+  pxOnce(ctx, "bj_hit", u, f.x, f.y - 26, 0.8, 1 - u, 0, f.c);
+  void sq;
+}
+function lgEnd(ctx, f, t, sq) {
+  const u = clamp(t / f.life);
+  for (const [x0, y0] of f.cp || []) {                 // 세 분신이 목표를 관통하며 핏물로 사라진다
+    const k = clamp(u / 0.4), x = x0 + (f.x - x0) * k * 1.3, y = y0 + (f.y - y0) * k * 1.3;
+    if (u < 0.45) cloneBody(ctx, f, x, y, 0.85 * (1 - u), f.c, f.x > x0 ? 1 : -1);
+    else pxOnce(ctx, "bj_pop", (u - 0.45) / 0.55, x, y - 20, 0.7, 1 - u * 0.5, 0, f.c);
+  }
+  if (f.hit && u > 0.3) pxOnce(ctx, "bj_cross", (u - 0.3) / 0.7, f.x - 20, f.y - 40, 2, 1, 0, f.c);
+  void sq;
+}
+/* 원초의 혈맥 — 차징: 시전자 둘레만 어두워지고(다른 사람 시야는 가리지 않는다) 뒤에 검은 원형 문양 · 가운데 붉은 구체가 작아진다 */
+function ocharge(ctx, f, t, sq) {
+  const u = clamp((f.u || 0) + t / 1.2);
+  pxOnce(ctx, "bj_dark", 0.15 + 0.2 * u, f.x, f.y - 30, 2, 0.2, 0, "abyss");   // 시전자 둘레 국소 암전(다른 사람 시야를 가리지 않게 옅게)
+  pxLoop(ctx, "bj_drink", 0, 1.4, f.x, f.y, 1, 0.85, 0, "abyss");               // 발밑 검은 원형 문양
+  formCell(ctx, "bj_core", Math.min(2, Math.floor(u * 3)), loopIdx("bj_core", 0.3 - 0.15 * u), f.x, f.y - 120, Math.max(2, 5 - Math.round(u * 3)), 1, f.c);   // 붉은 구체가 점점 작아진다
+  void sq;
+}
+// 창 12개 — 시전자 둘레에서 차례로 날아가 목표에 꽂힌다 → 하나로 모여 최종 폭발(보라 · 검정 충격파). 시간표는 판정과 같다
+function spears(ctx, f, t, sq) {
+  const P = pal(f), n = f.n || 12, gap = f.gap || 0.05, fly = f.fly || 0.35, endAt = (n - 1) * gap + fly + (f.wait || 0.35);
+  if (t < endAt) {
+    for (let i = 0; i < n; i++) {
+      const s = t - i * gap; if (s < 0) continue;
+      const a = i * TAU / n, sx = f.x0 + Math.cos(a) * 140, sy = f.y0 - 60 + Math.sin(a) * 90, tx = f.x, ty = f.y - 30;
+      const k = clamp(s / fly), e = k * k, x = sx + (tx - sx) * e, y = sy + (ty - sy) * e, rot = Math.atan2(ty - sy, tx - sx);
+      if (k < 1) pxLoop(ctx, "bj_drop", i * 0.08, 0.3, x, y, 1.5, 1, rot, f.c);   // 혈액 창 — 꼬리가 긴 핏빛 탄
+      else if (s < fly + 0.2) pxOnce(ctx, "bj_hit", (s - fly) / 0.2, tx, ty, 0.9, 0.9, 0, f.c);
+    }
+    const g0 = (n - 1) * gap + fly;
+    if (t > g0) formCell(ctx, "bj_core", 2, loopIdx("bj_core", 0.2), f.x, f.y - 40, 2 + Math.round(clamp((t - g0) / (endAt - g0)) * 3), 1, "abyss");   // 하나의 구체로 모인다
+    return;
+  }
+  const u = clamp((t - endAt) / Math.max(0.1, f.life - endAt));
+  ring(ctx, f.x, f.y, (f.R || 220) * (0.3 + 0.7 * clamp(u * 2)), sq, P.glow, 1 - u, 2);
+  pxOnce(ctx, "bj_dark", u, f.x, f.y - 40, 2, 1 - u * 0.3, 0, "abyss");
+  pxOnce(ctx, "bj_burst", u, f.x, f.y - 30, (f.R || 220) / 70, 0.85 * (1 - u * 0.5), 0, f.c);
+}
+/* 원초적 지배 — 시작: 검보라 폭발 · 지속: 등 뒤 검은 원형 문양 · 발밑 기운 · 둘레를 도는 작은 검붉은 입자 */
+function awake(ctx, f, t) { const u = clamp(t / f.life); pxOnce(ctx, "bj_dark", u, f.x, f.y - 40, 1.4, 1 - u * 0.3, 0, "abyss"); }
+function awakeEnd(ctx, f, t) { const u = clamp(t / f.life); pxOnce(ctx, "bj_fall", u, f.x, f.y - 50, 0.8, 0.9 * (1 - u * 0.4), 0, "abyss"); }
+function aura(ctx, f, t, sq) {
+  pxLoop(ctx, "bj_drink", 0, 2.2, f.x, f.y - 2, 1, 0.75, 0, "abyss");          // 검은 원형 문양
+  pxLoop(ctx, "bj_rage", 0, 2.4, f.x, f.y + 4, 1.25, 0.55, 0, "abyss");
+  for (let i = 0; i < 4; i++) {                        // 둘레를 도는 입자
+    const a = NOW * 2.2 + i * TAU / 4, x = f.x + Math.cos(a) * 34, y = f.y - 40 + Math.sin(a) * 34 * sq;
+    pxLoop(ctx, "bj_drop", i * 0.25, 0.4, x, y, 0.5, 0.9, a + Math.PI / 2, "abyss");
+  }
+  void t;
+}
+
+const KINDS = { sk_bj_echo: echo, sk_bj_blast: blast, sk_bj_spike: spike, sk_bj_hookhit: hookHit, sk_bj_line: line, sk_bj_pburst: pburst, sk_bj_pcharge: pcharge, sk_bj_sea: sea, sk_bj_seaend: seaEnd, sk_bj_spire: spire, sk_bj_clone: clone, sk_bj_lgform: lgForm, sk_bj_lghit: lgHit, sk_bj_lgend: lgEnd, sk_bj_ocharge: ocharge, sk_bj_spears: spears, sk_bj_awake: awake, sk_bj_awakeend: awakeEnd, sk_bj_aura: aura, sk_bj_wave: wave, sk_bj_hook: hook, sk_bj_hookpull: hookPull, sk_bj_hookend: hookEnd, sk_bj_swend: swordEnd, sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
+export const BLOOD_JOB_CAP = { sk_bj_echo: 6, sk_bj_blast: 4, sk_bj_spike: 4, sk_bj_hookhit: 4, sk_bj_line: 10, sk_bj_pburst: 6, sk_bj_pcharge: 2, sk_bj_sea: 4, sk_bj_seaend: 2, sk_bj_spire: 12, sk_bj_clone: 9, sk_bj_lgform: 2, sk_bj_lghit: 8, sk_bj_lgend: 2, sk_bj_ocharge: 4, sk_bj_spears: 2, sk_bj_awake: 2, sk_bj_awakeend: 2, sk_bj_aura: 4, sk_bj_wave: 4, sk_bj_hook: 4, sk_bj_hookpull: 4, sk_bj_hookend: 4, sk_bj_swend: 4, sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 8, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
 // 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
-const FOLLOW = new Set(["sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword", "sk_bj_hook", "sk_bj_hookpull"]);   // 갈고리 사슬은 손(시전자)에서 나온다   // 혈막도 시전자를 따라다닌다(11월 15일)
+const FOLLOW = new Set(["sk_bj_aura", "sk_bj_ocharge", "sk_bj_pcharge", "sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword", "sk_bj_hook", "sk_bj_hookpull"]);   // 갈고리 사슬은 손(시전자)에서 나온다   // 혈막도 시전자를 따라다닌다(11월 15일)
 // 혈막 — 겹쳐 둔 여러 장 중 한 사람당 한 프레임에 한 장만(가장 새 것). 끝 연출이 나오면 남은 장은 그리지 않는다
 const veilSeen = new Map();   // pi → { frame, cur: 이번 프레임에 본 가장 새 장의 u, prev: 앞 프레임의 cur, endU · endAt: 끝 연출이 나온 때 살아 있던 가장 새 u · 그 시각 }
-export const BLOOD_JOB_GROUND = new Set(["sk_bj_field", "sk_bj_fieldend", "sk_bj_veil", "sk_bj_veilend", "sk_bj_wave"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX). 혈막도 맨 뒤 — 적을 뚫고 나와 보였다(11월 15일 사용자)
+export const BLOOD_JOB_GROUND = new Set(["sk_bj_sea", "sk_bj_seaend", "sk_bj_field", "sk_bj_fieldend", "sk_bj_veil", "sk_bj_veilend", "sk_bj_wave"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX). 혈막도 맨 뒤 — 적을 뚫고 나와 보였다(11월 15일 사용자)
 // 연마 합계(영구 레벨)에 따른 혈색 — 방장은 가방 bd, 손님은 스냅샷 bdv(같은 tr 모양)
 function tintOf(h) {
+  if (h && ((h.bdv && h.bdv.aw) || (!h.bdv && h.bd && h.bd.aw))) return "abyss";   // 원초적 지배 중 — 모든 혈액 연출이 검보라
   const v = h && (h.bdv || (h.bag && h.bag.bd && h.bag.bd.on ? h.bag.bd : null));
   const sum = v && Array.isArray(v.tr) ? v.tr.reduce((n, q) => n + ((q && q[0]) | 0), 0) : 0;
   return BLOOD_TINT.find((t) => sum >= t.from).id;

@@ -1,6 +1,7 @@
 /* 결투장 전용 수치. 사냥터 PvP와 PvE는 기존 수치를 쓴다. */
 export const DUEL = {
-  dmgMul: 0.03, basicPct: 0.04, skillPct: 0.18, ultPct: 0.25, // 약한 공격은 그대로 두고 강한 공격은 시전별로 제한한다
+  dmgMul: 0.03, bloodMul: 2.0, basicPct: 0.04, skillPct: 0.18, ultPct: 0.25, // 약한 공격은 그대로 두고 강한 공격은 시전별로 제한한다
+  // bloodMul — BLOOD-001 결투 피해만 공통 계산(dmgMul) 대비 ×2.0(11월 16일 사용자 기획). 상한 · 방어 · 보호막은 그대로, 다른 직업은 그대로
   healMul: 0.5, shieldMul: 0.6,                              // 회복·보호막은 생성할 때 한 번만 줄인다
   calm: 7, calmRegen: 0.01,                                 // 피해 없이 7초 뒤 초당 최대 체력의 1% 회복
   ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,

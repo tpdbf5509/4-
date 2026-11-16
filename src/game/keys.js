@@ -27,6 +27,12 @@ export const KEY_ACTIONS = [
   { id: "bWave", name: "혈류 파동(BLOOD-001)", group: "전투", keys: ["KeyH", ""] },   // 11월 15일 — 다른 행동의 기본 키와 겹치지 않는 H · J
   { id: "bHook", name: "혈쇄 갈고리(BLOOD-001)", group: "전투", keys: ["KeyJ", ""] },
   { id: "bField", name: "혈역 증폭(BLOOD-001 · 비워 두면 큰 기술 키)", group: "전투", keys: ["", ""] },   // 11월 14일 사용자 결정 — BLOOD-001 은 큰 기술(Shift)이 혈역 증폭이다
+  // 11월 16일 최종 강화 — 신규 스킬 4종 · 원초적 지배. 다른 행동의 기본 키와 겹치지 않는 빈 키(K · L · U · Y · O)
+  { id: "bPierce", name: "흑혈 관통(BLOOD-001)", group: "전투", keys: ["KeyK", ""] },
+  { id: "bSea", name: "혈해 개문(BLOOD-001)", group: "전투", keys: ["KeyL", ""] },
+  { id: "bLegion", name: "혈형 군단(BLOOD-001)", group: "전투", keys: ["KeyU", ""] },
+  { id: "bOrigin", name: "원초의 혈맥(BLOOD-001)", group: "전투", keys: ["KeyY", ""] },
+  { id: "bAwake", name: "원초적 지배(BLOOD-001)", group: "전투", keys: ["KeyO", ""] },
   { id: "pot1", name: "물약 칸 1", group: "전투", keys: ["Digit5", "Numpad5"] },
   { id: "pot2", name: "물약 칸 2", group: "전투", keys: ["Digit6", "Numpad6"] },
   { id: "pot3", name: "물약 칸 3", group: "전투", keys: ["Digit7", "Numpad7"] },
@@ -42,7 +48,7 @@ const STORE = "flg:rpgKeys";
 const LOCKED = ["Escape"];
 const KEYS_V = 3;
 // BLOOD-001 키 — 이 직업이면 겹친 키도 다른 행동보다 먼저 이 행동이 된다(keyMap first)
-export const BLOOD_ACTS = ["bShot", "bConv", "bSmash", "bSword", "bVeil", "bWave", "bHook", "bField"];
+export const BLOOD_ACTS = ["bShot", "bConv", "bSmash", "bSword", "bVeil", "bWave", "bHook", "bField", "bPierce", "bSea", "bLegion", "bOrigin", "bAwake"];
 // 예전 기본 키 — 저장된 칸이 이것 그대로면(손대지 않았으면) 새 기본 키로 바꿔 준다. 큰 기술은 Shift 만, 대쉬는 Q 로 옮겼다
 // 값 끝 숫자는 "이 판보다 앞서 저장된 것만" — 그 뒤에 사람이 일부러 그 키로 넣었으면 건드리지 않는다
 const OLD_DEFAULTS = { skill: [["ShiftLeft", "KeyQ"], 2], dash: [["KeyF", ""], 2], bField: [["KeyH", ""], 3] };

@@ -251,7 +251,6 @@ function fireShot(E, g, h) {
   const s = st(h), c = s.ch, bd = h.bag.bd;
   s.ch = null;
   const tier = shotTier(c.t, bd.b);
-  if (tier >= 0) endSword(E, g, h, "skill");         // 다른 공격 스킬 발동 — 든 혈검이 풀린다
   if (tier < 0) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const T = S.tiers[tier], lv = pressLv(h);
   const [ax, ay] = c.ptr ? [c.ax, c.ay] : E.aim(g, h, T.range);   // 포인터로 겨눈 시전은 놓는 순간의 방향 그대로
@@ -321,7 +320,7 @@ export function bloodJobBreak(E, g, h, kind) {
   const s = h.bd;
   if (kind === "fire") return;                         // 혈막은 평타 · 다른 스킬에도 끊기지 않는다(11월 15일) — 15초가 다 되어야 끝난다
   if (s.ch) cancelCharge(E, g, h);
-  if (kind !== "dash") endSword(E, g, h, "skill");   // 혈검은 들고 다니는 검이라 대쉬로는 풀리지 않는다(11월 15일)
+  // 혈검은 다른 스킬 · 대쉬로 풀리지 않는다 — 50초가 다 되거나 쓰러질 때만 끝난다(11월 16일 사용자 지시)
 }
 
 /* ── 혈수 강타 ─────────────────────────────────────── */
@@ -363,7 +362,6 @@ function fireSmash(E, g, h) {
   if (tier < 0) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const [ax, ay] = c.ptr ? [c.ax, c.ay] : E.aim(g, h, M.len);
   const [L, W] = smashSize(h, tier);                 // 방향 · 범위는 발동 순간 확정
-  endSword(E, g, h, "skill");
   const sm = { fid: `bs${h.pi}.${++s.q}`, x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), L, W, t: M.delay, tier, cast: E.cast(h), base: E.base(h), add: dmgAdd(h), xp: 0, map: h.map };
   spend(h, M.tiers[tier].cost);
   s.cd.smash = M.cd;
@@ -486,7 +484,6 @@ function veilPress(E, g, h) {
   const no = formWhy(E, g, h, F.veil.cost);
   if (no) return void E.say(g, h.map, h.x, h.y - 90, no, no === "혈량 부족" ? "#ff8a8a" : "#f0dcb4");   // 못 쓰면 혈역은 그대로
   if (s.fd) endField(E, g, h, "veil");
-  endSword(E, g, h, "veil");                         // 혈막으로 바꾸면 든 혈검이 풀린다
   const [max, red] = veilStat(shapeLv(h));
   spend(h, F.veil.cost);
   s.cd.form = F.cd;
@@ -583,7 +580,6 @@ function wavePress(E, g, h) {
   if (h.bag.bd.b < WV.cost) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const [x, y] = wavePoint(E, g, h);
   const R = waveRadius(h);                           // 반경 · 피해 보너스는 발동 순간 값
-  endSword(E, g, h, "skill");
   spend(h, WV.cost);
   s.cd.wave = WV.cd;
   const wv = { fid: `bw${h.pi}.${++s.q}`, x, y, R, t: 0, hit: [], cast: E.cast(h), base: E.base(h), add: dmgAdd(h), xp: 0, map: h.map };
@@ -635,7 +631,6 @@ function hookPress(E, g, h) {
   if (h.bag.bd.b < HK.cost) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const q = hookTarget(E, g, h);
   if (!q) return void E.say(g, h.map, h.x, h.y - 90, "걸 대상이 없습니다", "#d9c9a6");   // 시전하지 않는다 — 비용 · 대기 없음
-  endSword(E, g, h, "skill");
   spend(h, HK.cost);
   s.cd.hook = HK.cd;
   const fly = r2(Math.max(0.08, q.d / HK.fly));

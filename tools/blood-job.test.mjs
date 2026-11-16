@@ -266,7 +266,23 @@ test('혈검 — 생성 중 · 입력 없이 들고만 있으면 피해 0 · 혈
   run(g, F.sword.form + .02); assert.equal(h.bd.sw.ph, 2, '0.25초 뒤 손에 든다');
   run(g, 2); assert.equal(m.hp, HP, '입력 없이 들고 있으면 피해 없음');
   send(g, { op: 'press', s: 'veil' }); assert.ok(h.bd.vl, '혈막은 혈검 대기와 따로 — 바로 쓸 수 있다');
-  assert.equal(h.bd.sw, null, '혈막으로 바꾸면 혈검이 풀린다');
+  assert.ok(h.bd.sw && h.bd.sw.ph === 2, '혈막을 써도 혈검은 그대로 든 채다(11월 16일)');
+});
+
+test('혈검 — 다른 스킬(적혈탄 · 혈수 강타 · 혈류 파동 · 혈쇄 갈고리 · 혈막)을 써도 풀리지 않고 남은 시간도 그대로', () => {
+  const { g, h } = setup(); lv20(h); h.bag.bd.b = 200;
+  const m = mob(g, h.x + 60, h.y);
+  send(g, { op: 'sword' }); run(g, F.sword.form + .02); assert.equal(h.bd.sw.ph, 2);
+  const t0 = h.bd.sw.t;
+  press(g); run(g, .7); release(g); assert.ok(h.bd.sw, '적혈탄');
+  send(g, { op: 'press', s: 'smash' }); send(g, { op: 'release', s: 'smash' }); assert.ok(h.bd.sw, '혈수 강타');
+  h.bag.bd.b = 200; send(g, { op: 'press', s: 'wave' }); assert.ok(h.bd.sw, '혈류 파동');
+  h.bag.bd.b = 200; send(g, { op: 'press', s: 'hook' }); assert.ok(h.bd.sw, '혈쇄 갈고리');
+  h.bag.bd.b = 200; send(g, { op: 'press', s: 'veil' }); assert.ok(h.bd.sw, '혈막');
+  assert.ok(h.bd.sw.t >= t0, '유지 시간은 이어서 센다');
+  const hp = m.hp; fire(g, true); fire(g, false);
+  assert.ok(m.hp <= hp, '스킬 뒤에도 새 평타로 벤다');
+  run(g, F.sword.hold + 1); assert.equal(h.bd.sw, null, '50초가 지나면 그때 풀린다');
 });
 
 test('혈검 — 새 평타 입력마다 한 번 · 횟수 제한 · 혈량 회수 없음 · 평타 혈량 · 새 혈흔 없음 · 경험치 한 번', () => {

@@ -42,8 +42,10 @@ function Reader({book, onClose}) {
   );
   return (
     <div className={`lib-read lk-${book.look}${narrow ? ' one' : ''}`} role="document" aria-label={book.title}>
-      <div className={`lib-book${narrow && pg % 2 ? ' r' : ''}`} style={{'--open': `url(${LIB_ART.open})`}}>
-        {narrow ? page(pg, pg % 2 ? 'right' : 'left') : shown.map((k, i) => page(k, i ? 'right' : 'left'))}
+      <div className="lib-stage">
+        <div className={`lib-book${narrow && pg % 2 ? ' r' : ''}`} style={{'--open': `url(${LIB_ART.open})`}}>
+          {narrow ? page(pg, pg % 2 ? 'right' : 'left') : shown.map((k, i) => page(k, i ? 'right' : 'left'))}
+        </div>
       </div>
       <div className="lib-read-nav">
         <button type="button" className="shop-btn" disabled={pg === 0} onClick={() => { setPg(Math.max(0, pg - step)); play('page'); }} aria-label="앞 쪽">◀</button>

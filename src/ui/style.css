@@ -2980,11 +2980,15 @@ button.forge-stage:disabled { cursor: default; }
 .lib-pick span, .lib-hint { font-size: 12px; color: var(--sh-mute); letter-spacing: -0.02em; }
 
 /* 펼친 책 — 공용 그림을 바탕에 깔고 쪽마다 글자를 놓는다. 한 쪽 보기(.one)는 그림 반쪽만 늘려 쓴다 */
-.lib-read { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 14px 12px; overflow-y: auto; }
-.lib-book { position: relative; display: grid; grid-template-columns: 1fr 1fr; width: min(100%, calc((100vh - 170px) * 1.5)); aspect-ratio: 3 / 2; box-sizing: border-box;
+/* 읽는 동안 창은 게임 화면 높이를 다 쓰고, 책은 남은 칸(container 단위)에 맞춰 줄어든다 — 넘김 단추가 늘 스크롤 없이 보인다 */
+.lib-panel.reading { height: calc(100% - 24px); }
+.lib-read { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px 12px; overflow: hidden; }
+.lib-stage { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; container-type: size; }
+.lib-read-nav { flex: none; }
+.lib-book { position: relative; display: grid; grid-template-columns: 1fr 1fr; width: min(100cqw, 150cqh); aspect-ratio: 3 / 2; box-sizing: border-box;
   padding: 4.5% 6.5% 4.5% 6%; column-gap: 11%; background: var(--open) center / 100% 100% no-repeat; border-radius: 6px;
   color: #3b2d1f; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.45)); }
-.lib-read.one .lib-book { grid-template-columns: 1fr; width: min(100%, calc((100vh - 170px) * 0.75)); aspect-ratio: 3 / 4; padding: 9% 10% 9% 12%; background: var(--open) left center / 200% 100% no-repeat; }
+.lib-read.one .lib-book { grid-template-columns: 1fr; width: min(100cqw, 75cqh); aspect-ratio: 3 / 4; padding: 9% 10% 9% 12%; background: var(--open) left center / 200% 100% no-repeat; }
 .lib-read.one .lib-book.r { background-position: right center; padding: 9% 12% 9% 10%; }
 .lib-page { position: relative; display: flex; flex-direction: column; min-height: 0; padding-bottom: 22px; }
 .lib-page-h { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(80, 58, 36, 0.35); }

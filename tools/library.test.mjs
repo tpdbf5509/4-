@@ -44,10 +44,35 @@ test('사서 · 책장 · 조사물 모두 걸어가 말을 걸 수 있고 막�
    const before=JSON.stringify({b:h.bag,c:h.coins});rpgTalk(g,0);assert.equal(JSON.stringify({b:h.bag,c:h.coins}),before);
   }
  }
- assert.equal(STORY_DIALOGUES['lib1-patch'].books,'patch');assert.equal(STORY_DIALOGUES['lib1-guide'].books,'guide');
+ assert.equal(STORY_DIALOGUES['lib1-patch'].books,'patch');assert.equal(MAPS['erden-library'].npcs.find(n=>n.id==='lib1-shelf').shelf,'village');assert.equal(MAPS['erden-library-2'].npcs.find(n=>n.id==='lib2-shelf').shelf,'legend');
 });
 
 test('도서관 위치는 손님 스냅샷에 그대로 보인다',()=>{
  const g=world(),h=g.heroes[0];Object.assign(h,{map:'erden-library-2',x:1200,y:1200});
  const guest=makeWorld();rpgApply(guest,rpgPack(g));assert.equal(guest.heroes[0].map,'erden-library-2');
+});
+
+import {LIB_BOOKS,LIB_TABS,LIB_LOOKS,shelfRows,libBookOpen} from '../src/game/libraryBooks.js';
+test('장서 11권 — 탭 셋 · 두 쪽 · 책장에 한 번씩 꽂히고 나머지는 고를 수 없는 꽂이 책',()=>{
+ assert.equal(LIB_BOOKS.length,11);
+ assert.deepEqual(LIB_TABS.map(t=>t.name),['마을 기록','수송대','전설 · 민담']);
+ for(const b of LIB_BOOKS){assert.equal(b.pages.length,2,b.id);assert.ok(LIB_LOOKS[b.look]&&b.spine&&b.title&&b.by,b.id);}
+ for(const t of LIB_TABS){
+  const real=shelfRows(t.id).flat().filter(s=>s.book).map(s=>s.book.id).sort();
+  assert.deepEqual(real,LIB_BOOKS.filter(b=>b.tab===t.id).map(b=>b.id).sort(),t.id);
+ }
+});
+test('붉은 강 설화는 처음부터 전설 · 민담에 있고 001 단서는 오른쪽 쪽 마지막 문장에만',()=>{
+ const b=LIB_BOOKS.find(q=>q.id==='red-river');
+ assert.equal(b.tab,'legend');assert.ok(libBookOpen(b,null,false));
+ const text=(blk)=>typeof blk==='string'?blk:Object.values(blk).join(' ');
+ const all=b.pages.flat().map(text);
+ assert.deepEqual(all.map((t,k)=>t.includes('001')?k:-1).filter(k=>k>=0),[all.length-1]);
+ assert.ok(b.pages[1].at(-1).end);
+});
+test('수송대 일지 · 검사표는 1장, 축제 · 리아의 수첩은 4장을 마치면 열린다',()=>{
+ const by=(id)=>LIB_BOOKS.find(q=>q.id===id);
+ assert.equal(libBookOpen(by('guard'),{ch:1},false),false);assert.equal(libBookOpen(by('guard'),{ch:2},false),true);
+ assert.equal(libBookOpen(by('lia'),{ch:4},false),false);assert.equal(libBookOpen(by('lia'),{ch:5},false),true);
+ assert.equal(libBookOpen(by('lia'),{done:true},false),true);assert.equal(libBookOpen(by('lia'),null,true),true);
 });

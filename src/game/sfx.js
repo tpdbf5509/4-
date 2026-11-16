@@ -177,7 +177,10 @@ const INTRO_SND = {
 };
 
 export function play(name) {
-  if (name === "boom") {
+  if (name === "page") {                       // 책장 넘기기 · 책 꺼내기(에르덴 도서관) — 짧은 종이 스침
+    if (!gate("page", 90)) return;
+    noise({ t: 0.16, gain: 0.07, f: 3200, q: 0.8, swell: true });
+  } else if (name === "boom") {
     if (!gate("boom", 70)) return;
     noise({ t: 0.34, gain: 0.3, f: 620, q: 0.6 });
     tone({ type: "sine", f0: 160, f1: 40, t: 0.3, gain: 0.22 });

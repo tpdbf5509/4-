@@ -163,7 +163,8 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 ### 에르덴 도서관 (11월 16일)
 - `libraryData.js` 한 곳(건물 자리 · 문 · 두 층 · 조사물 · 사서 · 가구 막힘 `LIBRARY_BLOCKS`). 이야기 맵과 같은 틀이라 `storyData.js PLACE_MAPS`(= `STORY_MAPS` + 도서관)로 찾는다. `STORY_MAPS` 에는 넣지 않는다(맵 차례 · 이야기 문 판정).
 - 맵 `erden-library` · `erden-library-2` 는 `MAP_IDS` 맨 뒤(BLOOD_LAB 다음). 늘 열림(이야기 진행 무관), 안전 지역, `top: 300`(벽 띠). 마을 문(건물 앞 계단 아래) ↔ 1층 ↔ 오른쪽 계단 ↔ 2층. 문 그림은 `libGate`(바닥 빛 · 이름표만, `villageArt.js`).
-- 바닥 그림에 가구가 그려져 있어 조사물은 `bg: 1`(그림 없음 · 이름표만). 책장 `books: 'patch' | 'guide'` 는 대화 창 「책 펼치기」로 가방 책 탭을 연다(`BagPanel book0`). 보상 · 이야기 진행은 없다. 그림 원본 `design/library/`, 시험 `tools/library.test.mjs`.
+- 바닥 그림에 가구가 그려져 있어 조사물은 `bg: 1`(그림 없음 · 이름표만). `books: 'patch'` 는 대화 창 「책 펼치기」로 가방 책 탭을 연다(`BagPanel book0`). 보상 · 이야기 진행은 없다. 그림 원본 `design/library/`, 시험 `tools/library.test.mjs`.
+- **장서(사용자 기획 · 원고 11권)**: `shelf: 탭` 조사물(1층 「에르덴 장서」 · 2층 「옛이야기 서가」)은 대화 대신 `LibraryPanel.jsx`(책장 → 펼친 책)를 연다. 원고 · 탭 · 책 종류 · 열람 시점은 `libraryBooks.js` 한 곳(`LIB_OPEN_AFTER` 7 · 8 은 1장, 9 · 10 은 4장 뒤). 꽂이 책은 고를 수 없다. 펼친 책 바탕은 공용 그림 `rpg/library/book-open.webp`, 본문은 글자로 놓는다(넓으면 두 쪽, 720px 아래 한 쪽). **붉은 강 설화(BLOOD-001)의 001 단서는 오른쪽 쪽 마지막 문장에만** 둔다(시험이 지킨다). 저장 값 없음.
 
 ### 빈 맵 멈춤 · 맵 불러오기 화면 (11월 7일)
 - `rpgStep`은 사람이 있는 맵(`mapsAwake`)의 몹만 돌리고, 빈 맵은 다시 나오기 대기 시간도 멈춘다. 월드보스 · 길드 토벌 보스는 예외로 늘 돈다. 훈련장 허수아비는 빈 훈련장에서 치운다. 전용 서버 방은 원래 아무도 없으면 통째로 멈춘다. 시험 `tools/map-idle.test.mjs`.

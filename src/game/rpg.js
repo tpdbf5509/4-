@@ -789,6 +789,7 @@ export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobO
 // 전직한 캐릭터 그림 — <전직>-<성별>/<방향>.webp(무기를 든 그림, tools/cut-adv-classes.py). 전직 전이면 null
 export const advArtPath = (h, view = "front") => {
   if (h && (h.bdv || bloodOn(h))) return `/assets/characters/rpg/blood-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 BLOOD-001 외형(사용자 그림, tools/cut-blood-char.py) — 전직 그림 자리를 쓴다
+  if (gamblerOn(h)) return `/assets/characters/rpg/gambler-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Gambler 002 외형(사용자 그림, tools/cut-gambler-char.py) — 연습장에서만 켜진다(gamblerOn)
   const c = advOf(h);
   return c ? `/assets/characters/rpg/${c.id}-${h.gender === "f" ? "f" : "m"}/${view}.webp` : null;
 };

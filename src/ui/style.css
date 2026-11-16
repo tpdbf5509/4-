@@ -1152,6 +1152,29 @@ kbd {
 .sb-pads { flex-wrap: wrap; }
 .sb-gap { margin-top: 6px; }
 .sb-key { margin-left: auto; }
+/* 격자 연습장 — Gambler 002 칸(베팅 칩 · 스킬). 갈색 바탕 · 금빛 1px 선, 강조는 풀 베팅 한 곳 */
+.gm-bar { margin-top: 8px; padding: 10px 12px; border: 1px solid rgba(214, 186, 140, 0.22); background: rgba(28, 22, 14, 0.72); border-radius: 4px; text-align: left; }
+.gm-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.gm-name { font-size: 13px; color: #e8dcc0; letter-spacing: -0.02em; }
+.gm-name em { font-style: normal; font-size: 11.5px; color: #8d8068; margin-left: 6px; }
+.gm-chips { display: inline-flex; align-items: center; gap: 2px; }
+.gm-chips i { width: 32px; height: 32px; image-rendering: pixelated; background-repeat: no-repeat; opacity: 0.2; filter: grayscale(0.7); }
+.gm-chips i.on { opacity: 1; filter: none; }
+.gm-chips b { margin-left: 8px; min-width: 52px; font-weight: 400; font-size: 12px; color: #c3bda4; font-variant-numeric: tabular-nums; }
+.gm-chips b.full { color: #f6e5aa; }
+.gm-skills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.gm-skill {
+  position: relative; display: grid; justify-items: center; gap: 3px; width: 68px; padding: 6px 2px 5px; border: 1px solid rgba(214, 186, 140, 0.22);
+  background: rgba(20, 16, 10, 0.6); border-radius: 4px; color: #c3bda4; font: inherit; cursor: pointer;
+}
+.gm-skill:hover { border-color: rgba(214, 186, 140, 0.45); }
+.gm-skill.wait .gm-ico { filter: brightness(0.45) saturate(0.6); }
+.gm-skill.lock { cursor: default; opacity: 0.45; }
+.gm-ico { position: relative; display: block; }
+.gm-ico b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 400; font-size: 15px; color: #fff6d8; filter: brightness(2.2); font-variant-numeric: tabular-nums; }
+.gm-label { font-size: 10.5px; line-height: 1.2; letter-spacing: -0.03em; white-space: nowrap; }
+.gm-skill kbd { position: absolute; top: 2px; left: 3px; font: 10px/1 sans-serif; color: #e8d7ae; background: rgba(20, 16, 10, 0.8); padding: 2px 3px; border-radius: 2px; }
+.gm-notes { margin: 8px 0 0; font-size: 11.5px; color: #8d8068; letter-spacing: -0.02em; }
 .sb-row {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px;
   font-size: 12px; color: #a8987a; letter-spacing: -0.02em;

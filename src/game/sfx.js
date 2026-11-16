@@ -259,6 +259,41 @@ export function play(name) {
     tone({ type: "sine", f0: 120, f1: 32, t: 0.42, gain: 0.3 });
     tone({ type: "sawtooth", f0: 90, f1: 40, t: 0.26, gain: 0.12 });
     noise({ t: 0.08, gain: 0.1, f: 2600, q: 2, down: false });
+  } else if (name === "gmChip") {            // Gambler 002 — 칩을 튕기는 짧고 맑은 소리
+    if (!gate("gmChip", 70)) return;
+    tone({ type: "triangle", f0: 1900, f1: 2500, t: 0.06, gain: 0.07 });
+    noise({ t: 0.04, gain: 0.05, f: 5200, q: 4 });
+  } else if (name === "gmHit") {             // 칩 적중 — 칩이 부딪히는 딸깍
+    if (!gate("gmHit", 70)) return;
+    tone({ type: "square", f0: 1250, f1: 820, t: 0.05, gain: 0.05 });
+    noise({ t: 0.06, gain: 0.08, f: 3000, q: 3 });
+  } else if (name === "gmFull") {            // 풀 베팅 — 칩 일곱이 차례로 쌓이는 오름 음
+    if (!gate("gmFull", 300)) return;
+    [1047, 1319, 1568, 2093].forEach((f, i) => tone({ type: "triangle", f0: f, t: 0.12, gain: 0.07, delay: i * 0.06 }));
+  } else if (name === "gmCoin") {            // 금화가 쏟아지는 소리 — 높은 금속음 여러 번
+    if (!gate("gmCoin", 120)) return;
+    [0, 0.07, 0.13, 0.2, 0.26].forEach((d, i) => tone({ type: "triangle", f0: 2300 + (i % 3) * 320, f1: 2900 + (i % 2) * 300, t: 0.07, gain: 0.05, delay: d }));
+    noise({ t: 0.3, gain: 0.05, f: 6000, q: 3 });
+  } else if (name === "gmShield") {          // 칩 장막 · 테이블 · 하우스 엣지 — 낮게 깔리는 부드러운 울림
+    if (!gate("gmShield", 200)) return;
+    tone({ type: "sine", f0: 392, f1: 523, t: 0.3, gain: 0.1 });
+    tone({ type: "triangle", f0: 784, f1: 1047, t: 0.24, gain: 0.05, delay: 0.05 });
+  } else if (name === "gmBlock") {           // 장막이 피해를 막는 순간
+    if (!gate("gmBlock", 120)) return;
+    tone({ type: "square", f0: 620, f1: 420, t: 0.07, gain: 0.06 });
+    noise({ t: 0.08, gain: 0.08, f: 2200, q: 2 });
+  } else if (name === "gmDice") {            // 주사위 굴림 — 나무 주사위가 톡톡 튄다
+    if (!gate("gmDice", 150)) return;
+    [0, 0.06, 0.11, 0.17].forEach((d, i) => noise({ t: 0.04, gain: 0.1 - i * 0.015, f: 1500 + i * 260, q: 5, delay: d }));
+  } else if (name === "gmBoom") {            // 큰 결과 — 낮은 터짐 위에 금화가 흩어진다
+    if (!gate("gmBoom", 120)) return;
+    noise({ t: 0.36, gain: 0.26, f: 340, q: 0.5 });
+    tone({ type: "sine", f0: 140, f1: 44, t: 0.34, gain: 0.22 });
+    [0.04, 0.1, 0.17].forEach((d, i) => tone({ type: "triangle", f0: 2100 + i * 380, f1: 2700 + i * 300, t: 0.08, gain: 0.05, delay: d }));
+  } else if (name === "gmSlot") {            // 슬롯 릴 — 빠르게 도는 딸깍 소리가 점점 느려진다
+    if (!gate("gmSlot", 400)) return;
+    for (let i = 0; i < 12; i++) tone({ type: "square", f0: 880 + (i % 3) * 110, t: 0.03, gain: 0.035, delay: 0.04 * i + 0.004 * i * i });
+    tone({ type: "triangle", f0: 1568, f1: 2093, t: 0.2, gain: 0.07, delay: 1.2 });
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ type: "square", f0: f, t: 0.4, gain: 0.12, delay: i * 0.12 }));
   }

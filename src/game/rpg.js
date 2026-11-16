@@ -6,7 +6,7 @@ import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts}
 export {DUEL} from './duelBalance.js';
 import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
 import { blocks, blockInput } from './block.js';
-import {COMBAT_RULES, refreshPowerCircles, empowerAttack, empowerHealing, duelAllies} from './combatRules.js';
+import {COMBAT_RULES, refreshPowerCircles, empowerAttack, empowerHealing, duelAllies, circleAlly} from './combatRules.js';
 import {GUILD,GUILD_BOSSES,guildMap,guildBuff,guildAspd,GUILD_HALL,guildHallMap} from './guildData.js';
 import {isGuildBoss,guildInput,guildHit,guildKilled,guildRestore,tickGuild} from './guild.js';
 import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
@@ -16,6 +16,8 @@ import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } f
 import { BLOOD_LAB } from './bloodJobData.js';
 import { bloodSpotTalk, bloodHunterTalk, bloodSeqHit, tickBloodTrial } from './bloodUnlock.js';   // BLOOD-001 해금 경로(4단계)
 import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn, bloodSwordPress, bloodSwordOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
+import { gamblerInput, gamblerBasic, tickGambler, gamblerTake, gamblerDown, gamblerFill, gamblerKill, gamblerRaidKill, gamblerOn } from './gamblerJob.js';   // 히든 직업 Gambler 002(11월 16일 — 격자 연습장에만)
+import { GM_CHIP } from './gamblerData.js';
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodLifeOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -2022,6 +2024,7 @@ function killMob(g, m, pi) {
   got.forEach((h) => rewardKill(g, m, h, h.pi === pi));
   advOnKill(advEngine, g, m, got);                // 전직 시험 — 총사 사냥 도감
   bloodJobKill(bloodJobEngine, g, m, got);        // BLOOD-001 직업 레벨 경험치
+  gamblerKill(gamblerEngine, g, m, got);          // Gambler 002 직업 레벨 경험치
   if (m.dg) acOnKill(g, m, pi, got);              // 심연의 탑 강화 카드 — 처치 효과
   // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
   const part = m.xp * PARTY.share;
@@ -2034,7 +2037,7 @@ function killMob(g, m, pi) {
   if (m.boss) dropLoot(g, got, m);
 }
 // 월드 · 길드 보스 — 친 사람 가운데 같은 맵의 BLOOD-001 직업 경험치
-function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) bloodRaidKill(bloodJobEngine, g, q); } }
+function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); } } }
 // 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
 export function huntingXp(h,m,amount=m.xp){
   const sp=SPAWNS.filter(s=>s.map===m.map&&Array.isArray(s.lv));
@@ -2195,7 +2198,7 @@ function giveXp(g, h, amt) {
 
 function hurtHero(g, h, raw, source, kind) {
   if (!h || h.down > 0 || MAPS[h.map].safe || HOLD.has(h.map)) return;   // 탑 카드 단계 — 피해 없음
-  if (g.test && h.trn && h.trn.god) return;       // 테스트 서버 무적 — 즉사 기술까지 모두 막는다
+  if (g.test && h.trn && h.trn.god && !source?.sbHit) return;       // 테스트 서버 무적 — 즉사 기술까지 모두 막는다(연습장 시험 타격 sbHit 만 지나간다 — 보호막을 써 보려고)
   if (h.inv > 0) {                                // 대쉬로 피했다
     if (h.numT <= 0) { say(g, h.map, h.x, h.y - 80, "회피", "#cfe6ff"); h.numT = 0.3; }
     return;
@@ -2210,6 +2213,7 @@ function hurtHero(g, h, raw, source, kind) {
     dmg = skillTake(g, h, dmg, source);             // 철벽 · 성광 반격 · 마나 보호막 · 수호자의 맹세 · 직업 기본 감소
     if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
     if (h.bd) dmg = bloodJobTake(bloodJobEngine, g, h, dmg, source);   // BLOOD-001 혈막 — 받는 피해 감소
+    if (h.gm) dmg = gamblerTake(gamblerEngine, g, h, dmg, source);   // Gambler 002 칩 장막 — 보호막이 먼저 받는다
     if (dmg <= 0) return;
     if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
     dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
@@ -2241,6 +2245,7 @@ function hurtHero(g, h, raw, source, kind) {
     h.hold = []; stopMove(h);
     advDown(advEngine, g, h);                     // 생존 시험은 처음부터 · 정령은 돌아간다
     bloodJobDown(bloodJobEngine, g, h);           // BLOOD-001 — 혈량 0 · 차징 · 혈흔 해제
+    gamblerDown(gamblerEngine, g, h);             // Gambler 002 — 보호막 · 테이블 · 칩 해제
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
     say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
   }
@@ -3239,6 +3244,7 @@ function trainTick(g, h) {
     if (sp === "holy_staff") { const jb = jbOf(h); jb.sh = h.max * WS.holy_staff.passive.cap; jb.shT = WS.holy_staff.passive.dur; }
   }
   if (t.stack) bloodJobFill(h);                     // BLOOD-001 — 혈량을 안정 상한까지
+  if (t.stack) gamblerFill(h);                      // Gambler 002 — 칩 7개
   if (t.god && h.down <= 0) h.hp = h.max;
 }
 // 교관 창 — req = { op: "nocd" | "stack" | "god" } 켜고 끄기 · { op: "reset" } 기록 지우기 · { op: "heal" } 체력 · 대기 시간 처음으로
@@ -3371,6 +3377,22 @@ const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h,
   dummy: (o) => !!o && o.type === "dummy", god: (g, h) => !!(h.trn && h.trn.god && (g.test || h.map === "train")), cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
   fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
 export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"
+/* 히든 직업 Gambler 002(gamblerJob.js, 11월 16일 — 격자 연습장에만). 기준 피해는 물리 · 마법 가운데 높은 쪽(기획안 hiddenSkillBase) — 무기 공격력은 없다.
+   cast(h, sid): "basic" 평타 상한 · "ult" 궁극기 상한 · 그 밖은 일반 스킬. basic: 평타로 친다(칩 획득 · 결투 평타 상한).
+   allies: 둘레의 아군(결투는 같은 팀 · 사냥터는 PvP 를 켜지 않았거나 같은 파티) · shield: 기존 보호막 칸(이미 더 크면 false) · rand: 확률은 판정 쪽만 */
+const gamblerEngine = { ...bloodJobEngine,
+  base: (h) => SKILL_USE.base * Math.max(physMul(h), magMul(h)),
+  cast: (h, sid) => { const c = makeCast(); if (sid === "basic") c.basic = true; else c.sid = sid || "gm"; h.cast = c; return c; },
+  basic: (g, h, o, dmg) => (isHeroT(o) ? hitFoe(g, h, o, dmg, true) : hitMob(g, h.pi, o, dmg)),
+  allies: (g, h, r) => g.heroes.filter((o) => o && o !== h && o.loaded && o.map === h.map && o.down <= 0 && dist(h.x, h.y, o.x, o.y) <= r && circleAlly(h, o)),
+  shield: advEngine.shield, shieldAmt: duelShield,
+  rand: (g) => (typeof g.gmRand === "function" ? g.gmRand() : Math.random()) };
+export const rpgHidden = (g, pi, req) => gamblerInput(gamblerEngine, g, pi, req);   // 입력 kind "hidden"
+// 격자 연습장 시험 타격 — 허수아비는 때리지 않아 보호막(칩 장막)을 써 볼 수 없다. 연습장 맵에서만 최대 체력의 pct 만큼 한 대
+export function rpgSandboxHit(g, pi, pct) {
+  const h = g.heroes[pi];
+  if (h && g.test && MAPS[h.map]?.sandbox && h.down <= 0) hurtHero(g, h, h.max * Math.max(0.01, Math.min(0.3, Number(pct) || 0.08)), { sbHit: 1, x: h.x + h.dir * 60, y: h.y });
+}
 // 다른 공격 · 스킬 입력 — BLOOD-001 차징 · 혈막 · 혈검 남은 타격을 먼저 끊는다(rpgInput 이 판정 앞에 부른다)
 export const rpgBloodBreak = (g, pi, kind) => bloodJobBreak(bloodJobEngine, g, g.heroes[pi], kind);
 export function rpgWeaponAim(g, pi) { aimBloodWeapon(g, g.heroes[pi]); bloodJobAim(g.heroes[pi]); }   // 차징 중 포인터 방향 갱신(waim) — 크림슨 레퀴엠
@@ -3827,6 +3849,7 @@ function stepHeroes(g, dt) {
     tickAdv(advEngine, g, h, cdt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
     tickBloodTrial(bloodJobEngine, g, h, cdt);     // BLOOD-001 해금 시험 — 연구시설 밖이면 빌린 값을 거둔다
     tickBloodJob(bloodJobEngine, g, h, cdt);       // BLOOD-001 — 혈흔 · 차징 · 적혈탄
+    tickGambler(gamblerEngine, g, h, cdt);         // Gambler 002 — 칩 · 코인 · 보호막 · 장판
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)
       MATERIALS.forEach((m) => { h.bag.m[m.id] = matMax(m.id); });
@@ -3909,6 +3932,10 @@ function stepHeroes(g, dt) {
     const force = !!h.fire || h.fireQ > 0;          // 스페이스 — 사거리 안에 아무도 없어도 친다
     if ((!h.auto || isPvp(h.map)) && !force) return;   // 결투장에서는 자동 평타를 끈다
     if (ccLocked(h)) return;                      // 결투에서 경직 · 띄움 — 치지 못한다
+    if (gamblerOn(h)) {                           // Gambler 002 — 평타는 황금 칩(무기 평타 없음 · 간격 0.5초 고정)
+      if (gamblerBasic(gamblerEngine, g, h, force)) { h.cd = GM_CHIP.gap; h.swing = 0.25; h.fireQ = 0; }
+      return;
+    }
     if (force && comboPush(g, h)) { h.cd = heroCd(h); h.fireQ = 0; return; }   // 신성검 반격 뒤 평타 키 — 밀어내기
     if (heroAttack(g, h, force)) { h.cd = heroCd(h); h.swing = 0.25; h.fireQ = 0; weaponOnAttack(g, h); }
   });

@@ -14,7 +14,9 @@ import { drawBloodMarks } from './bloodGunArt.js';
 import { drawBloodJobMarks, drawBloodSpots, drawBloodBlade, warmBloodJob, BLOOD_JOB_CAP, BLOOD_JOB_UNDER } from './bloodJobArt.js';
 import { BLOOD_SPOTS } from './bloodJobData.js';
 import { spotShown } from './bloodUnlock.js';   // 히든 직업 BLOOD-001
-import { bloodView } from './bloodJob.js';   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
+import { bloodView } from './bloodJob.js';
+import { GAMBLER_CAP } from './gamblerArt.js';
+import { gamblerOn } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
 import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc, drawExecMark, drawExecTick } from "./advArt.js";
 import { advExecReady, advExecLine } from "./advance.js";
@@ -2322,7 +2324,7 @@ function drawHero(ctx, g, h, time) {
   const { view, flip } = heroView(h);
   const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다 — 특별 무기를 끼면 무기 지운 그림에 그 무기를 들린다
   const hide = h.hideGear || 0;                     // 장비 외형 숨기기(rpg.js HIDE_GEAR) — 겉모습만, 능력치는 그대로
-  const held = hide & HIDE_GEAR.weapon ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
+  const held = hide & HIDE_GEAR.weapon || gamblerOn(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
   let im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
   // 히든 직업 BLOOD-001 여성 — 걸을 때는 걷는 그림 4장(walk-<보기>-<0~3>.webp, tools/cut-blood-f.py)을 걸음에 맞춰 바꾼다. 서 있을 때는 기본 그림. 아래로 갈 때(turn)는 앞 그림. 못 불러오면 기본 그림 그대로
   if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/blood-f\//.test(advIm.src)) {
@@ -2584,7 +2586,7 @@ function follow(g, M) {
    ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
    ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
-  cap: {sk_blood_charge:4,sk_blood_shot:4,sk_blood_hit:14,sk_blood_seek:4,sk_blood_res:8,sk_blood_boom:6,sk_blood_hold:4,sk_blood_set:6,sk_blood_pool:8,sk_void_set:6,sk_void_slash:6,sk_void_rain:6,sk_void_hole:4,sk_void_slash_pas:6,sk_void_arrow_pas:8,sk_void_grav_pas:8,sk_storm_staff:6,sk_storm_bow:10,sk_storm_dash:8,sk_storm_finish:8,sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3, ...SKILL_PX_CAP, ...BLOOD_JOB_CAP } };
+  cap: {sk_blood_charge:4,sk_blood_shot:4,sk_blood_hit:14,sk_blood_seek:4,sk_blood_res:8,sk_blood_boom:6,sk_blood_hold:4,sk_blood_set:6,sk_blood_pool:8,sk_void_set:6,sk_void_slash:6,sk_void_rain:6,sk_void_hole:4,sk_void_slash_pas:6,sk_void_arrow_pas:8,sk_void_grav_pas:8,sk_storm_staff:6,sk_storm_bow:10,sk_storm_dash:8,sk_storm_finish:8,sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3, ...SKILL_PX_CAP, ...BLOOD_JOB_CAP, ...GAMBLER_CAP } };
 const lod = { at: 0, ms: 16, q: 1 };
 /* 사람이 많은 화면 — 월드보스처럼 한 맵에 모이면 손님 기기마다 남의 연출을 모두 그려 휴대폰에서 초당 화면이 반으로 떨어졌다.
    (실측: 월드보스 무기 연출 하나가 휴대폰 속도에서 3~5ms. 남의 것이 스무 개 넘게 겹친다)

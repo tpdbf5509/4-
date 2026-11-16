@@ -493,6 +493,8 @@ test('단서 A — 사냥꾼 이야기 → 핏자국 → 유리관에서 표본'
   const { g, h } = setup();
   goSpot(h, 'trail'); assert.equal(spotNear(h), null, '이야기를 듣기 전에는 핏자국이 보이지 않는다');
   h.map = 'field'; h.x = 430; h.y = 760; talk(g);
+  assert.ok(!h.bag.bu || !(h.bag.bu.f & 1), '「사냥꾼의 오른팔」 칭호가 없으면 핏자국 이야기를 듣지 못한다');
+  h.titles.push('quest100'); talk(g);
   assert.equal(h.bag.bu.f & 1, 1);
   goSpot(h, 'trail'); talk(g); goSpot(h, 'tube'); talk(g);
   assert.equal(h.bag.bu.c & 1, 1);

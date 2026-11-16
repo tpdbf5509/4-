@@ -46,9 +46,13 @@ export function spotLine(h, s) {
 const save = (h) => { h.bag.v += 1; };
 const tell = (E, g, h, text) => E.sys(g, h.pi, text);
 
+// 필수 조건(11월 16일 사용자 요청) — 「사냥꾼의 오른팔」 칭호(quest100)를 얻은 뒤에야 사냥꾼이 핏자국 이야기를 한다.
+// 이미 이야기를 들은 사람(f&1)은 그대로 이어 간다
+export const BLOOD_HUNTER_TITLE = "quest100";
 // 사냥꾼과 이야기 — 표본을 아직 얻지 못했으면 핏자국 이야기를 덧붙인다
 export function bloodHunterTalk(E, g, h, npc) {
   if (real(h) || (bu(h).c & K.A)) return;
+  if (!(bu(h).f & 1) && !(h.titles || []).includes(BLOOD_HUNTER_TITLE)) return;
   if (!(bu(h).f & 1)) { bu(h).f |= 1; save(h); }
   E.say(g, h.map, npc.x, npc.y - 96, "저쪽 핏자국은 경사를 거슬러 올라간다…", "#e8b4b8");
 }

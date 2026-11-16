@@ -1084,8 +1084,7 @@ export function bloodJobInput(E, g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req || typeof req !== "object") return false;
   if (req.op === "convert") return void convert(E, g, h);
-  if (!bloodOn(h) && req.op === "cancel") return false;   // 창을 벗어날 때 누구나 보낸다 — 조용히 넘긴다
-  if (!bloodOn(h)) return void E.sys(g, pi, `${BLOOD_NAME} 만 쓸 수 있습니다.`);
+  if (!bloodOn(h)) return false;   // 창을 벗어날 때 · F 키 · 숫자 키는 누구나 보낸다 — BLOOD-001 이 아니면 안내 없이 조용히 넘긴다(11월 16일 사용자)
   if (req.op === "aim") { const c = h.bd && h.bd.ch; if (c && c.ptr && h.inputAim) aimTo(h, c, h.inputAim); return false; }
   if (req.op === "sword") return void swordUse(E, g, h);
   if (req.s === "wave") { if (req.op === "press") wavePress(E, g, h); return false; }   // 한 번 누르면 바로(11월 15일)

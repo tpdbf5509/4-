@@ -297,7 +297,7 @@ function fireShot(E, g, h) {
     left: sp1 ? S.pierce : 1, hit: [], tier, mul: T.mul, add: strAdd * S.strDmg + dmgAdd(h), burst: sp2 ? 1 : 0, bR: (sp3 ? S.burstR3 : S.burstR) * (1 + ampBonus(h) + rangeAdd(h)), bM: sp3 ? S.burstMul3 : S.burstMul, mA: sp3 ? S.markAdd : 0, cast: E.cast(h), base: E.base(h), xp: 0, map: h.map,
   };
   spend(h, T.cost);
-  s.cd.shot = T.cd;                                  // 쏜 단계의 대기 1 · 1.5 · 2.5초(11월 15일 개편)
+  s.cd.shot = T.cd;                                  // 쏜 단계의 대기 0.1 · 0.5 · 0.7초(11월 16일 사용자)
   s.cdMax = s.cdMax || {}; s.cdMax.shot = T.cd;
   s.sh.push(shot);
   h.swing = 0.25;

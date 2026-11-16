@@ -83,27 +83,27 @@ test('일반 획득은 안정 한계까지 — 넘는 몫만 버린다 · 늘 5 
   h.bag.bd.b = 50; assert.equal(gainBlood(h, 7), 5); assert.equal(h.bag.bd.b, 55);
 });
 
-test('적혈탄 — 짧게 누르면 기본(5 · 대기 1) · 0.6초 1단계(10 · 대기 1.5) · 1.2초 2단계(20 · 대기 2.5) · 누르는 동안은 쏘지 않는다', () => {
+test('적혈탄 — 짧게 누르면 기본(5 · 대기 0.1) · 0.6초 1단계(10 · 대기 0.5) · 1.2초 2단계(20 · 대기 0.7) · 누르는 동안은 쏘지 않는다', () => {
   const { g, h } = setup(); unlockBlood(h);
   h.bag.bd.b = 80;
   const m = mob(g, h.x + 200, h.y);
   press(g); release(g);
-  assert.equal(h.bag.bd.b, 75); assert.equal(h.bd.cd.shot, 1);
+  assert.equal(h.bag.bd.b, 75); assert.equal(h.bd.cd.shot, .1);
   run(g, .5); assert.ok(HP - m.hp > 0);
   h.bd.cd.shot = 0;
   press(g); run(g, .65); release(g);
-  assert.equal(h.bag.bd.b, 65); assert.equal(h.bd.cd.shot, 1.5);
+  assert.equal(h.bag.bd.b, 65); assert.equal(h.bd.cd.shot, .5);
   run(g, .5); h.bd.cd.shot = 0;
   press(g); run(g, S.full + 2);                  // 1.2초가 지나도 누르고 있으면 쏘지 않는다
   assert.ok(h.bd.ch && h.bd.ch.s === 'shot'); assert.equal(h.bag.bd.b, 65);
   assert.ok(h.bd.ch.t <= S.full, '모은 시간은 2단계에서 멈춘다');
   release(g);                                     // 놓을 때 2단계로 쏜다
   assert.equal(h.bd.ch, null);
-  assert.equal(h.bag.bd.b, 45); assert.equal(h.bd.cd.shot, 2.5);
+  assert.equal(h.bag.bd.b, 45); assert.equal(h.bd.cd.shot, .7);
   run(g, .3);
   assert.equal(h.bag.bd.b, 45);
   const guest = makeWorld(); rpgApply(guest, rpgPack(g));
-  assert.equal(bloodView(guest.heroes[0]).shotMax, 2.5, '화면 대기 막대의 최대는 쏜 단계 값');
+  assert.equal(bloodView(guest.heroes[0]).shotMax, .7, '화면 대기 막대의 최대는 쏜 단계 값');
 });
 
 test('혈량이 모자라면 낮은 단계로 · 5 미만이면 시작하지 않는다', () => {

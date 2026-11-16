@@ -38,8 +38,8 @@ function unit() { const { g, h } = setup(); job(h, 1); const m = mob(g, h.x + 20
 const U = unit();
 
 /* ── 기존 스킬 상향 ── */
-test('적혈탄 — 기본 ×2.5 · 1단계 ×5.5 · 2단계 ×11 · 차징 · 대기는 그대로', () => {
-  assert.deepEqual(S.tiers.map(q => [q.mul, q.at, q.cd]), [[2.5, 0, 1], [5.5, 0.6, 1.5], [11, 1.2, 2.5]]);
+test('적혈탄 — 기본 ×2.5 · 1단계 ×5.5 · 2단계 ×11 · 대기 0.1 · 0.5 · 0.7초', () => {
+  assert.deepEqual(S.tiers.map(q => [q.mul, q.at, q.cd]), [[2.5, 0, .1], [5.5, 0.6, .5], [11, 1.2, .7]]);
   const { g, h } = setup(); job(h, 1);
   const m = mob(g, h.x + 200, h.y);
   send(g, { op: 'press', s: 'shot' }); run(g, S.full + .02); send(g, { op: 'release', s: 'shot' }); run(g, .6);

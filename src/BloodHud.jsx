@@ -30,8 +30,8 @@ export function bloodHud(v) {
     b, cap, amp, top, lv: v.lv, xp: v.xp, mode, state: MODE_NAMES[mode] + (v.rg ? ` ${Math.ceil(v.rg.t)}초` : ""),   // 폭주 · 탈진은 남은 시간을 함께(색만으로 구분하지 않는다)
     warn: overWarn(b, v.lv, v.rg), decay: b > cap && !v.fd, trial: v.bt || 0,
     field: { cd: v.cd.field || 0, max: BLOOD_FIELD.cd, locked: v.lv < BLOOD.unlock.field, left: v.fd ? Math.max(0, BLOOD_FIELD.dur - v.fd.t) : 0, none: !!(v.fd && v.fd.none), busy: !!v.rg },
-    // 적혈탄 대기 막대의 최대 — 쏜 단계의 대기(1 · 1.5 · 2.5초). 옛 줄이면 지금 남은 값과 가장 긴 대기 중 맞는 것
-    shot: { ...shot, cd: v.cd.shot || 0, max: v.shotMax || BLOOD_SHOT.tiers.map((q) => q.cd).find((c) => c >= (v.cd.shot || 0)) || 2.5, charging: !!sc, u: sc ? Math.min(1, sc.t / BLOOD_SHOT.full) : 0, low: b < BLOOD_SHOT.need },
+    // 적혈탄 대기 막대의 최대 — 쏜 단계의 대기(0.1 · 0.5 · 0.7초). 옛 줄이면 지금 남은 값과 가장 긴 대기 중 맞는 것
+    shot: { ...shot, cd: v.cd.shot || 0, max: v.shotMax || BLOOD_SHOT.tiers.map((q) => q.cd).find((c) => c >= (v.cd.shot || 0)) || BLOOD_SHOT.tiers[BLOOD_SHOT.tiers.length - 1].cd, charging: !!sc, u: sc ? Math.min(1, sc.t / BLOOD_SHOT.full) : 0, low: b < BLOOD_SHOT.need },
     smash: { ...smash, cd: v.cd.smash || 0, max: BLOOD_SMASH.cd, charging: !!mc, low: b < BLOOD_SMASH.tiers[0].cost, locked: v.lv < U.smash, at: U.smash },
     wave: { cd: v.cd.wave || 0, max: BLOOD_WAVE.cd, low: b < BLOOD_WAVE.cost, locked: v.lv < U.wave, at: U.wave },   // 혈류 파동(11월 15일)
     hook: { cd: v.cd.hook || 0, max: BLOOD_HOOK.cd, low: b < BLOOD_HOOK.cost, locked: v.lv < U.hook, at: U.hook, on: !!v.hk },   // 혈쇄 갈고리(11월 15일)

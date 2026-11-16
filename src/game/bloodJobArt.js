@@ -429,7 +429,7 @@ function line(ctx, f, t, sq) {
   const out = clamp((t - f.len / f.v) / 0.15);
   if (f.sk === "swave") {
     const [row, flip] = row5(rot);
-    formCell(ctx, "bj_arc3", row, 3, x, y, 2, 1 - out, f.c, flip);   // 칸 3 — 초승달이 가장 꽉 찬 칸(11월 16일 궤적 시트를 다시 뽑아 칸 5 는 거의 사라진 끝 조각)
+    formCell(ctx, "bj_arc3", row, 2, x, y, 2, 1 - out, f.c, flip);   // 칸 2 — 가는 초승달이 다 그려진 칸(11월 16일 궤적 시트를 다시 뽑았다)
     return;
   }
   const c = "abyss";                                  // 흑혈 — 검은색에 가까운 탄(잔상은 검붉게 옅게)

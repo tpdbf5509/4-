@@ -119,66 +119,46 @@ function swordBreak(p, C, u, o) {
 }
 
 /* ── 혈검 궤적 ───────────────────────── */
-// 초승달 — 머리(지금 칼끝)가 a0 → a1 로 지나가고 꼬리가 뒤따라 옅어진다. 바깥 날은 하얗게 달아오르고, 안쪽에 옅은 잔상 한 겹 ·
-// 머리에는 반짝임 · 바깥으로는 굵은 핏방울이 튀어 떨어진다(11월 16일 사용자 "검기가 밋밋해" — 굵기 · 밝기 · 튀는 피를 늘렸다)
-function crescent(p, C, R, W, a0, a1, u, tailLen, o, big) {
-  const head = lerp(a0, a1, ez(u / 0.42)), tail = lerp(a0, a1, ez((u - tailLen) / 0.5));
+// 가는 초승달(11월 16일 사용자 그림 — 두툼한 반달 ✕ · 양끝이 뾰족한 가는 초승달 ○). 굵기는 지나가는 머리가 아니라 궤적 전체 자리로 정한다:
+// 가운데가 가장 굵고(최대 W 칸) 양끝은 0 으로 가늘어진다. 머리가 a0 → a1 로 빠르게 지나가 초승달이 다 그려지고 꼬리부터 사라진다.
+// 바깥 날은 하얗게(C7 · C6), 안쪽으로 갈수록 붉게. 바깥으로 핏방울이 조금 튄다
+function crescent(p, C, R, W, a0, a1, u, o, big) {
   if (u > 1) return;
-  const lo = Math.min(head, tail), hi = Math.max(head, tail);
-  const fade = 1 - smooth(0.6, 1, u);
+  const span = a1 - a0, head = a0 + span * ez(u / 0.3), tail = a0 + span * ez((u - 0.4) / 0.55);
+  const lo = Math.min(head, tail), hi = Math.max(head, tail), thin = 1 - 0.6 * smooth(0.4, 1, u);
   if (hi - lo >= 0.02) {
-    // 안쪽 잔상 — 본 궤적보다 조금 늦고 안쪽, 체크 무늬로 듬성듬성
-    const R2 = R - W - 3, tail2 = lerp(a0, a1, ez((u - tailLen * 1.2) / 0.5)), head2 = lerp(a0, a1, ez((u - 0.06) / 0.42));
-    const lo2 = Math.min(head2, tail2), hi2 = Math.max(head2, tail2);
-    p.shade(-R - 3, -R - 3, R + 3, R + 3, (x, y) => {
-      const X = x + 0.5, Y = y + 0.5, d = Math.hypot(X, Y), a = Math.atan2(Y, X);
-      if (a >= lo && a <= hi) {
-        const s = (a - tail) / (head - tail || 1e-6);    // 0 꼬리 · 1 머리
-        const w = W * (0.2 + 0.8 * Math.sin(Math.PI * clamp(s * 0.92 + 0.08))) * (0.45 + 0.55 * fade);
-        if (d <= R + 1 && d >= R - w) {
-          const v = (d - (R - w)) / Math.max(1, w);       // 0 안 · 1 바깥
-          if (d > R) return s > 0.45 ? C[6] : undefined;  // 날 밖 한 칸 — 밝은 외곽
-          if (v > 0.8) return C[s > 0.35 ? 7 : 6];        // 하얗게 달아오른 날
-          if (v > 0.6) return C[s > 0.5 ? 6 : 5];
-          if (v > 0.35) return C[s > 0.3 ? 5 : 4];
-          if (v > 0.12) return C[4];
-          return s > 0.5 ? C[3] : C[2];
-        }
-      }
-      if (a >= lo2 && a <= hi2 && d <= R2 && d >= R2 - Math.max(2, W * 0.35) && ((Math.floor(x) + Math.floor(y)) & 1)) return C[3];
+    p.shade(-R - 2, -R - 2, R + 2, R + 2, (x, y) => {
+      const X = x + 0.5, Y = y + 0.5, a = Math.atan2(Y, X);
+      if (a < lo || a > hi) return;
+      const f = clamp((a - a0) / span), w = W * Math.pow(Math.sin(Math.PI * f), 0.9) * thin;   // 0 · 1 끝은 뾰족
+      if (w < 0.6) return;
+      const d = Math.hypot(X, Y), v = R - d;             // 바깥 날에서 안으로 몇 칸
+      if (v < -0.5 || v > w) return;
+      if (v < 0.5) return C[7];                          // 하얀 날
+      if (v < 1.5) return C[6];
+      const k = v / w;
+      return k < 0.55 ? C[5] : k < 0.85 ? C[4] : C[3];
     });
-    // 머리 반짝임 — 칼끝 자리 십자 빛
-    if (u < 0.75) {
-      const hx = Math.cos(head) * (R - 1), hy = Math.sin(head) * (R - 1), L = big ? 4 : 3;
-      for (let k = -L; k <= L; k++) { p.px(hx + k, hy, Math.abs(k) < 2 ? C[7] : C[6]); p.px(hx, hy + k, Math.abs(k) < 2 ? C[7] : C[6]); }
-    }
-    // 속도선 — 날 바깥에서 머리 쪽으로 짧게 그은 가는 줄
-    for (let i = 0; i < (big ? 4 : 3); i++) {
-      const at = lerp(tail, head, 0.35 + 0.18 * i), r = R + 4 + 3 * i, len = 0.12 + 0.05 * i;
-      if (u > 0.55) break;
-      for (let q = 0; q < 1; q += 0.12) { const aa = at + (head > tail ? 1 : -1) * len * q; p.px(Math.cos(aa) * r, Math.sin(aa) * r, q > 0.6 ? C[6] : C[4]); }
-    }
+    // 칼끝 반짝임 — 머리가 지나가는 동안만, 작게
+    if (u < 0.3) { const hx = Math.cos(head) * (R - 0.5), hy = Math.sin(head) * (R - 0.5); p.px(hx, hy, C[7]); p.px(hx + 1, hy, C[6]); p.px(hx - 1, hy, C[6]); p.px(hx, hy + 1, C[6]); p.px(hx, hy - 1, C[6]); }
   }
-  // 바깥으로 튀는 굵은 피 — 날을 따라 생겨 바깥으로 날다가 아래로 떨어진다
-  const n = big ? 24 : 16;
+  // 바깥으로 튀는 핏방울 — 날을 따라 생겨 바깥으로 날다가 아래로 떨어진다
+  const n = big ? 14 : 10;
   for (let i = 0; i < n; i++) {
-    const at = lerp(a0, a1, rand(o.seed, i, 31)), born = clamp((at - a0) / (a1 - a0 || 1e-6)) * 0.5;
+    const at = lerp(a0, a1, 0.15 + 0.7 * rand(o.seed, i, 31)), born = clamp((at - a0) / (span || 1e-6)) * 0.3;
     const age = u - born;
-    if (age <= 0 || age > 0.5) continue;
-    const sp = (12 + 16 * rand(o.seed, i, 32)) * (big ? 1.3 : 1), k = age / 0.5;
-    const r = R + 1 + sp * k;
-    const [gx, gy] = downOf(o.ang || 0), fall = 14 * k * k;
+    if (age <= 0 || age > 0.55) continue;
+    const k = age / 0.55, r = R + 1 + (8 + 12 * rand(o.seed, i, 32)) * k;
+    const [gx, gy] = downOf(o.ang || 0), fall = 12 * k * k;
     const x = Math.cos(at) * r + gx * fall, y = Math.sin(at) * r + gy * fall;
-    const c = k < 0.3 ? C[6] : k < 0.6 ? C[5] : C[3], sz = rand(o.seed, i, 33) < 0.6 && k < 0.7 ? 2 : 1;
-    p.rect(x, y, sz, sz, c);
-    if (k < 0.45) p.px(x - Math.cos(at) * 2, y - Math.sin(at) * 2, C[4]);   // 꼬리
+    p.px(x, y, k < 0.3 ? C[6] : k < 0.6 ? C[5] : C[3]);
   }
 }
 function arcFx(p, C, u, o) {
   const ph = o.phase;
-  if (ph === "swing1") crescent(p, C, 48, 16, -1.35, 1.15, u, 0.5, o, false);
-  else if (ph === "swing2") crescent(p, C, 46, 15, 1.2, -1.3, u, 0.5, o, false);   // 거꾸로 — 아래에서 위로
-  else crescent(p, C, 52, 20, -2.2, 1.35, u, 0.55, o, true);   // swing3 — 머리 뒤에서 앞으로 크게 내려벤다
+  if (ph === "swing1") crescent(p, C, 48, 10, -1.45, 1.25, u, o, false);
+  else if (ph === "swing2") crescent(p, C, 46, 10, 1.3, -1.4, u, o, false);   // 거꾸로 — 아래에서 위로
+  else crescent(p, C, 52, 12, -2.3, 1.45, u, o, true);   // swing3 — 머리 뒤에서 앞으로 크게 내려벤다
 }
 
 /* ── 혈검 베인 자리(11월 16일) ─────────── */

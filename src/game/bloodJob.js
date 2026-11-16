@@ -8,7 +8,7 @@
    3단계(11월 14일): 혈량 상태(증폭 · 과충전 · 폭주 h.bd.rg · 탈진) · 혈역 증폭(h.bd.fd). 공격력은 rpg.js heroDmgMul 이 bloodJobAtk 를 곱한다
    2단계(11월 14일): 혈수 강타(h.bd.sm 내려칠 손) · 혈형 변환 — 혈검(h.bd.sw 생성 → 손에 들고 새 평타마다 베기, 11월 15일) · 혈막(h.bd.vl 받는 피해 감소, hurtHero → bloodJobTake) */
 import { BLOOD, BLOOD_SHOT as S, BLOOD_SMASH as M, BLOOD_FORM as F, BLOOD_STATE as Z, BLOOD_FIELD as FD, BLOOD_WAVE as WV, BLOOD_HOOK as HK, BLOOD_TINT, TRAIN_UNLOCK, TRAIN_NAMES, BLOOD_NAME,
-  BLOOD_PIERCE as PC, BLOOD_SEA as SEA, BLOOD_LEGION as LG, BLOOD_ORIGIN as OG, BLOOD_AWAKE as AW } from "./bloodJobData.js";
+  BLOOD_PIERCE as PC, BLOOD_SEA as SEA, BLOOD_LEGION as LG, BLOOD_ORIGIN as OG, BLOOD_AWAKE as AW, BLOOD_AIM as AIM } from "./bloodJobData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -225,6 +225,33 @@ function aimTo(h, c, a) {
   h.face = c.ay < -0.5 ? 2 : Math.abs(c.ax) > 0.35 ? 1 : 0;
   h.look = [c.ax, c.ay]; h.lookF = h.face;
 }
+/* 포인터 조준 보정(BLOOD_AIM) — 손 높이에서 [ax, ay] 쪽으로 그은 화면 선이 그림 속 몸을 지나가는 적 가운데 가장 앞의 적.
+   있으면 그 적의 발밑 쪽 방향(판정 선)을 돌려준다. 없으면 받은 방향 그대로 */
+const bodyH = (o) => (o.type === undefined ? AIM.heroH : Math.max(AIM.bodyMin, (o.rad || 16) * AIM.bodyK));
+export function snapAim(E, g, h, dir, reach) {
+  const sx = dir[0], sy = dir[1] * E.squash, n = Math.hypot(sx, sy);
+  if (!(n > 0.001)) return dir;
+  const ux = sx / n, uy = sy / n, my = h.y - AIM.lift;
+  let best = null, bestAlong = Infinity;
+  for (const o of E.near(g, h, h.x, h.y, reach + 60)) {
+    if (!E.alive(g, h, o, h.map)) continue;
+    const dx = o.x - h.x, gy = (o.y - h.y) / E.squash, d = Math.hypot(dx, gy), rr = (o.rad || 16) * 0.5;
+    if (d < 1 || d - rr > reach) continue;
+    const ty = o.y - bodyH(o) - my, fy = o.y - my;          // 머리 · 발밑(손 높이 기준 화면 좌표)
+    const c1 = dx * uy - ty * ux, c2 = dx * uy - fy * ux;   // 선에서 떨어진 거리(부호 있음)
+    const off = c1 * c2 <= 0 ? 0 : Math.min(Math.abs(c1), Math.abs(c2));
+    const along = dx * ux + ((ty + fy) / 2) * uy;
+    if (along <= 0 || off > rr + AIM.pad) continue;
+    if (along < bestAlong) { bestAlong = along; best = [dx / d, gy / d]; }
+  }
+  return best || dir;
+}
+// 겨눌 방향 — 포인터로 겨눴으면(ptr · h.inputAim) 몸을 지나가는 적 쪽으로 바로잡고, 아니면 엔진의 자동 겨눔(가까운 적) 그대로
+function skillAim(E, g, h, reach, ptr) {
+  if (ptr) return snapAim(E, g, h, ptr, reach);
+  const a = E.aim(g, h, reach);
+  return h.inputAim ? snapAim(E, g, h, a, reach) : a;
+}
 // 놓았다 — 누른 시간과 혈량을 모두 만족하는 가장 높은 단계로 쏜다(그 단계 비용만)
 function shotRelease(E, g, h, cancel, sk = "shot") {
   const s = st(h), c = s.ch;
@@ -261,7 +288,7 @@ function fireShot(E, g, h) {
   const tier = shotTier(c.t, bd.b, !!s.aw);
   if (tier < 0) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const T = S.tiers[tier], lv = pressLv(h);
-  const [ax, ay] = c.ptr ? [c.ax, c.ay] : E.aim(g, h, T.range);   // 포인터로 겨눈 시전은 놓는 순간의 방향 그대로
+  const [ax, ay] = skillAim(E, g, h, T.range * (1 + rangeAdd(h)), c.ptr ? [c.ax, c.ay] : null);   // 포인터로 겨눈 시전은 놓는 순간의 방향(몸을 지나가는 적 쪽으로 바로잡음)
   // 공격 보너스는 발동 직전 값으로 확정한 뒤 비용을 낸다(연출및세부사항)
   const strAdd = tier > 0 ? S.strPer * effTrain(h, 0) : 0;   // 과충전의 임시 +5 는 강도에만
   const sp1 = tier > 0 && lv >= S.sp1, sp2 = tier === 2 && lv >= S.sp2, sp3 = lv >= S.sp3;   // sp3 — 압축형 50: 팽창 ×5 · 반경 150 · 혈흔 대상 +20%
@@ -389,8 +416,8 @@ function fireSmash(E, g, h) {
   s.ch = null;
   const tier = smashTier(c.t, bd.b, !!s.aw);
   if (tier < 0) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
-  const [ax, ay] = c.ptr ? [c.ax, c.ay] : E.aim(g, h, M.len);
   const [L, W] = smashSize(h, tier);                 // 방향 · 범위는 발동 순간 확정
+  const [ax, ay] = skillAim(E, g, h, L, c.ptr ? [c.ax, c.ay] : null);
   const full = tier === M.tiers.length - 1, mul = full ? (bd.tr[1][0] >= M.sp50 ? M.fullMul50 : M.fullMul) : M.mul;   // 최대 차징 ×11 · 증폭형 50 ×15(11월 16일)
   const sm = { fid: `bs${h.pi}.${++s.q}`, x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), L, W, t: M.delay, tier, mul, full, cast: E.cast(h), base: E.base(h), add: dmgAdd(h), xp: 0, map: h.map };
   spend(h, M.tiers[tier].cost);
@@ -686,7 +713,7 @@ function stepWave(E, g, h, wv, dt) {
    s.hk = { fid, ph 1 날아가는 중 · 2 끌려가는 중, t, fly 날아가는 초, k 대상 키, x0 · y0 시작 자리, ax · ay, map } — 피해 · 무적 없음 */
 // 겨눈 방향 420 안의 첫 유효한 적과 그 앞 자리 — 대상이 없거나 길이 벽에 막히면 null
 function hookTarget(E, g, h) {
-  const [ax, ay] = E.aim(g, h, HK.reach);
+  const [ax, ay] = skillAim(E, g, h, HK.reach);
   const list = E.near(g, h, h.x, h.y, HK.reach + 40).filter((o) => E.alive(g, h, o, h.map)).map((o) => {
     const dx = o.x - h.x, dy = (o.y - h.y) / E.squash;
     return { o, along: dx * ax + dy * ay, side: Math.abs(dx * ay - dy * ax) };
@@ -816,7 +843,7 @@ function piercePress(E, g, h) {
   breakFor(E, g, h, "pierce");
   const w = newWhy(E, g, h, PC, s.cd.pierce);
   if (w) return sayNo(E, g, h, w);
-  const [ax, ay] = E.aim(g, h, PC.range);
+  const [ax, ay] = skillAim(E, g, h, PC.range * (1 + rangeAdd(h)));
   spend(h, PC.cost);
   s.cd.pierce = PC.cd;
   const cast = E.cast(h); cast.pen = PC.pen;          // 보스 방어 30% 무시(rpg.js hitMob → highTake)

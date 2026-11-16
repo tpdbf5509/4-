@@ -160,19 +160,31 @@ test('연마 경험치 — 유효 적중 시전당 +10 · 허수아비는 없음
   assert.equal(h.bag.bd.tr[0][1], 10, '허수아비는 연마 경험치 없음');
 });
 
-test('혈량 전환 — 최대 체력 2% → 혈량 +10 · 대기 2초 · 안정 한계까지만', () => {
+test('혈량 전환 — 최대 체력 5% → 혈량 +10 · 대기 0.1초 · 안정 한계까지만', () => {
   const { g, h } = setup(); unlockBlood(h);
+  assert.deepEqual(BLOOD.convert, { hp: .05, gain: 10, cd: .1 });
   h.bag.bd.b = 20; h.hp = h.max;
   send(g, { op: 'convert' });
-  assert.equal(h.bag.bd.b, 30); assert.equal(h.hp, h.max - Math.ceil(h.max * .02));
+  assert.equal(h.bag.bd.b, 30); assert.equal(h.hp, h.max - Math.ceil(h.max * .05));
   send(g, { op: 'convert' });
   assert.equal(h.bag.bd.b, 30);                   // 대기 중
+  run(g, .12);
+  send(g, { op: 'convert' });
+  assert.equal(h.bag.bd.b, 40, '0.1초 뒤 다시 쓴다');
   h.bag.bd.b = 95; h.bd.cd.conv = 0;
   send(g, { op: 'convert' });
   assert.equal(h.bag.bd.b, 100, '안정 한계(100)에서 멈춘다');
   const hp0 = h.hp; h.bd.cd.conv = 0;
   send(g, { op: 'convert' });
   assert.equal(h.bag.bd.b, 100); assert.equal(h.hp, hp0, '한계면 체력도 쓰지 않는다');
+});
+
+test('혈량 전환 연타 — 체력이 1 아래로 내려가지 않는다', () => {
+  const { g, h } = setup(); unlockBlood(h);
+  h.bag.bd.lv = 200; h.bag.bd.b = 0; h.hp = h.max;
+  for (let i = 0; i < 60; i++) { send(g, { op: 'convert' }); run(g, .11); }
+  assert.ok(h.hp >= 1 && h.down <= 0, `살아 있다 ${h.hp}`);
+  assert.ok(h.hp < Math.ceil(h.max * .05) + 1, '모자랄 때까지 썼다');
 });
 
 test('쓰러지면 혈량 0', () => {
@@ -678,4 +690,32 @@ test('화면 말 걸기가 NPC 없는 조사 자리도 서버로 보낸다', asy
   const body = src.slice(i, src.indexOf('if (kind === "dash"', i));
   assert.match(body, /spotNear\(h\)/, '말 걸기 처리에 조사 자리 검사가 있어야 한다');
   assert.doesNotMatch(body, /const npc = npcNear\(h\);/, 'NPC 만 보고 끊으면 조사 자리가 죽는다');
+});
+
+// 포인터 조준 — 화면은 손 높이(34)에서 포인터 쪽 방향을 보낸다(skillAim.js pointerSkillAim 과 같은 식)
+const ptrAim = (h, px, py) => [px - h.x, (py - (h.y - 34)) / .78];
+const aimShot = (g, aim) => { rpgInput(g, { cls: 0, kind: 'blood', dir: { op: 'press', s: 'shot' }, aim }); rpgInput(g, { cls: 0, kind: 'blood', dir: { op: 'release', s: 'shot' }, aim }); };
+test('적혈탄 — 작은 몹 몸통을 포인터로 겨누면 맞는다(손 높이 · 발밑 판정 차이 보정)', () => {
+  for (const [dx, dy] of [[300, 0], [-260, 0], [200, 120], [0, 220], [0, -220]]) {
+    const { g, h } = setup(); unlockBlood(h); h.bag.bd.b = 100;
+    const m = mob(g, h.x + dx, h.y + dy);
+    aimShot(g, ptrAim(h, m.x, m.y - m.rad));       // 토끼 몸 가운데를 누름
+    run(g, .6);
+    assert.ok(m.hp < HP, `(${dx}, ${dy}) 맞아야 한다`);
+  }
+});
+test('적혈탄 — 몸에서 멀리 겨누면 바로잡지 않고 빗나간다', () => {
+  const { g, h } = setup(); unlockBlood(h); h.bag.bd.b = 100;
+  const m = mob(g, h.x + 300, h.y);
+  aimShot(g, ptrAim(h, m.x, m.y - 160));
+  run(g, .6);
+  assert.equal(m.hp, HP);
+});
+test('혈수 강타 — 작은 몹 몸통을 포인터로 겨누면 맞는다', () => {
+  const { g, h } = setup(); unlockBlood(h); h.bag.bd.lv = 5; h.bag.bd.b = 100;
+  const m = mob(g, h.x + 150, h.y + 90);
+  const aim = ptrAim(h, m.x, m.y - m.rad);
+  rpgInput(g, { cls: 0, kind: 'blood', dir: { op: 'press', s: 'smash' }, aim }); rpgInput(g, { cls: 0, kind: 'blood', dir: { op: 'release', s: 'smash' }, aim });
+  run(g, .8);
+  assert.ok(m.hp < HP);
 });

@@ -39,6 +39,7 @@ import { rollArmor, armorHpMul, armorTakeMul, armorAtkMul, armorAspd, armorSpeed
 import { BUILD } from "../net/version.js";
 import { WEAPON_SKILLS } from "./skillData.js";
 import { TRAIN } from "./trainData.js";
+import { SANDBOX } from "./sandboxData.js";
 import { TEST_SERVER, TEST_GROUPS } from "./testData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS, titleUp, titleUpText } from "./socialData.js";
 import { ACHIEVES, CODEX_NEED } from "./codexData.js";
@@ -298,6 +299,10 @@ FAR_MAPS.forEach((f, i) => {
   MAP_IDS.push(f.id);
 });
 MAP_IDS.push("train");
+// 격자 연습장(?sandbox, sandboxData.js) — 이 기기에서만 도는 세계에서만 쓴다. 스냅샷 맵 차례(MAP_IDS)에는 넣지 않는다.
+// train 이라 전직 시험 · 보상을 세지 않고, grid 면 rpgArt.js 가 바닥을 격자로 그린다
+MAPS[SANDBOX.id] = { id: SANDBOX.id, name: SANDBOX.name, w: SANDBOX.map.w, h: SANDBOX.map.h, top: SANDBOX.top, spawn: SANDBOX.spawn,
+  train: 1, grid: 1, sandbox: 1, gates: [], blocks: [], npcs: [] };
 MAPS.worldboss={id:"worldboss",name:"월드보스 성역",w:WORLD_BOSS.w,h:WORLD_BOSS.h,top:170,spawn:WORLD_BOSS.spawn,bg:"field",tile:2600,tint:"rgba(40,28,45,.3)",worldBoss:1,gates:[],blocks:[],npcs:[]};
 MAP_IDS.push("worldboss");
 for(let slot=0;slot<GUILD.slots;slot++){
@@ -3260,7 +3265,7 @@ export function rpgTrain(g, pi, req) {
 // 테스트 서버 장소 이동 — 묶음마다 갈 수 있는 맵 id(testData.js TEST_GROUPS)
 export const testSpots = () => TEST_GROUPS.map((q) => ({ name: q.name, ids: Object.keys(MAPS).filter((id) => {
   const m = MAPS[id];
-  return !m.dungeon && !m.pvp && !m.race && !m.guildHall && q.pick(m);
+  return !m.dungeon && !m.pvp && !m.race && !m.guildHall && !m.sandbox && q.pick(m);
 }) }));
 const TEST_SPOT_IDS = new Set(testSpots().flatMap((q) => q.ids));
 // 테스트 서버에서만 — 결투 · 던전 · 레이스 · 거래 중에는 옮기지 않는다(관리자 /이동 과 같은 규칙)
@@ -3273,6 +3278,16 @@ function testGo(g, h, to) {
   h.map = to; [h.x, h.y] = MAPS[to].spawn;
   h.hold = []; h.dest = null; h.dash = 0; h.gateCd = 1.5;
   return true;
+}
+// 격자 연습장 — 그 맵의 허수아비를 모두 치우고 spots([x, y] 월드 좌표)에 다시 세운다. 판정 · 그림은 훈련장 허수아비와 같다
+export function sandboxDummies(g, map, spots) {
+  g.mobs = g.mobs.filter((m) => !(m.type === "dummy" && m.map === map));
+  spots.forEach(([x, y], i) => {
+    const M = MAPS[map];
+    const m = bodyOf(g.nextId++, -1, "dummy", 0, 1, map, clamp(x, 60, M.w - 60), clamp(y, M.top + 30, M.h - 40));
+    m.di = i;
+    g.mobs.push(m);
+  });
 }
 // 화면에 보이는 훈련 기록 — 방장은 기록으로 셈하고, 손님은 스냅샷 값을 쓴다
 export function trainView(g, h) {

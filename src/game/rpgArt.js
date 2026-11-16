@@ -38,6 +38,7 @@ import {
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
 import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR, gatesOf, highOn, abyssLookOf } from "./rpg.js";
+import { SANDBOX } from "./sandboxData.js";   // 격자 연습장 바닥
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
 import { paintFieldLook, fieldTrails } from "./fieldArt.js";
@@ -2673,6 +2674,38 @@ function drawExecMarks(ctx, g, me, M, time, inView) {
     if (advExecReady(me, h, true)) drawExecMark(ctx, h.x, h.y - EXEC_TOP.hero, time);
   }
 }
+/* 격자 연습장 바닥(sandboxData.js) — 한 칸 = 게임 거리 SANDBOX.cell. 세로는 RPG.squash 만큼 눌러 그려 거리 셈과 맞춘다.
+   화면 좌표로 바로 그린다(카메라 cam 만큼 밀어서). 5칸마다 굵은 선과 칸 번호, 시작 자리의 가로 · 세로 줄은 축 색 */
+function drawGridFloor(ctx, M, cam) {
+  const C = SANDBOX.colors, sx = SANDBOX.cell, sy = SANDBOX.cell * RPG.squash, [ox, oy] = SANDBOX.spawn;
+  ctx.fillStyle = C.floor; ctx.fillRect(0, 0, W, H);
+  const i0 = Math.floor((cam.x - ox) / sx), i1 = Math.ceil((cam.x + W - ox) / sx);
+  const j0 = Math.floor((cam.y - oy) / sy), j1 = Math.ceil((cam.y + H - oy) / sy);
+  const top = Math.max(0, M.top - cam.y);
+  ctx.save();
+  ctx.lineWidth = 1;
+  const line = (n, vert) => {
+    ctx.strokeStyle = n === 0 ? C.axis : n % SANDBOX.major === 0 ? C.major : C.line;
+    ctx.beginPath();
+    if (vert) { const x = Math.round(ox + n * sx - cam.x) + 0.5; ctx.moveTo(x, top); ctx.lineTo(x, H); }
+    else { const y = Math.round(oy + n * sy - cam.y) + 0.5; if (y < top) return; ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke();
+  };
+  for (let i = i0; i <= i1; i++) line(i, true);
+  for (let j = j0; j <= j1; j++) line(j, false);
+  // 위쪽 벽 띠 — 걸어갈 수 없는 곳
+  if (top > 0) { ctx.fillStyle = "rgba(10,8,6,0.55)"; ctx.fillRect(0, 0, W, top); ctx.fillStyle = C.major; ctx.fillRect(0, Math.round(top), W, 1); }
+  // 칸 번호 — 5칸마다, 화면 위 · 왼쪽 가장자리에
+  ctx.fillStyle = C.label; ctx.font = "11px sans-serif"; ctx.textBaseline = "top";
+  for (let i = Math.ceil(i0 / SANDBOX.major) * SANDBOX.major; i <= i1; i += SANDBOX.major) ctx.fillText(String(i), Math.round(ox + i * sx - cam.x) + 4, top + 4);
+  ctx.textBaseline = "bottom";
+  for (let j = Math.ceil(j0 / SANDBOX.major) * SANDBOX.major; j <= j1; j += SANDBOX.major) {
+    const y = Math.round(oy + j * sy - cam.y);
+    if (y > top + 16) ctx.fillText(String(j), 4, y - 2);
+  }
+  ctx.restore();
+}
+
 export function drawRpg(ctx, g, bgs) {
   fxWarmUp();
   stepLod();
@@ -2689,7 +2722,7 @@ export function drawRpg(ctx, g, bgs) {
   warmRpgArt();
   const bgName = M.bg || M.id;
   const look = !M.dungeon && FIELD_LOOKS[M.id];        // 사냥터 — 맵마다 다른 바탕(fieldLookData.js)
-  const bim = M.dungeon || M.village || M.story || look ? null : mapImg(rpgFile(bgName));
+  const bim = M.grid || M.dungeon || M.village || M.story || look ? null : mapImg(rpgFile(bgName));
   // 코드로 그린 큰 바탕은 한 장만 남긴다(던전 · 사냥터 합쳐)
   const bigBg = (key, paint) => {
     let bg = bgs && bgs[key];
@@ -2699,7 +2732,8 @@ export function drawRpg(ctx, g, bgs) {
     }
     return bg;
   };
-  if (M.story) {                                       // 1부 이야기 맵 — 바닥 그림 파일이 있으면 그 그림, 없으면 코드 바닥(storyArt.js)
+  if (M.grid) drawGridFloor(ctx, M, cam);              // 격자 연습장(?sandbox) — 칸 단위 바닥
+  else if (M.story) {                                       // 1부 이야기 맵 — 바닥 그림 파일이 있으면 그 그림, 없으면 코드 바닥(storyArt.js)
     if (!drawStoryBackdrop(ctx, M, cam, W, H)) {
       const bg = bigBg(`vg:${M.id}`, () => {const c=document.createElement('canvas');c.width=M.w;c.height=M.h;paintStory(c.getContext('2d'),M);return c;});
       if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);

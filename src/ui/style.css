@@ -1144,6 +1144,28 @@ kbd {
   .jt-body { grid-template-columns: 1fr; }
 }
 
+/* 격자 연습장(?sandbox, Sandbox.jsx) — 직업 체험 판의 틀 · 단추를 그대로 쓰고 폭만 넓힌다 */
+.sb { width: min(1320px, 100%); margin: 0 auto; }
+.sb-body { grid-template-columns: minmax(0, 1fr) 280px; }
+.sb-cvs { cursor: crosshair; }
+.sb-home { text-decoration: none; }
+.sb-pads { flex-wrap: wrap; }
+.sb-gap { margin-top: 6px; }
+.sb-key { margin-left: auto; }
+.sb-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 6px;
+  font-size: 12px; color: #a8987a; letter-spacing: -0.02em;
+}
+.sb-row input, .sb-row select {
+  width: 150px; box-sizing: border-box; padding: 4px 8px; font: inherit; font-size: 12.5px; color: #e8dcc0;
+  background: rgba(20, 14, 8, 0.4); border: 1px solid rgba(214, 186, 140, 0.25); border-radius: 6px;
+}
+.sb-row input:focus, .sb-row select:focus { outline: none; border-color: #e8d7ae; }
+@media (max-width: 820px) {
+  .sb-body { grid-template-columns: 1fr; }
+  .sb-key { margin-left: 0; }
+}
+
 @media (max-width: 820px) {
   .mk-body { grid-template-columns: 1fr; }
   .mk-preview { position: static; display: grid; grid-template-columns: 120px 1fr; gap: 0 14px; }

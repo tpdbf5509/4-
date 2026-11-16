@@ -410,7 +410,7 @@ function blast(ctx, f, t, sq) {
 function spike(ctx, f, t, sq) {
   const u = clamp(t / f.life), sx = f.x, sy = f.y - 40, tx = f.x1, ty = f.y1 - 30, a = Math.atan2(ty - sy, tx - sx);
   const k = clamp(u / 0.35), x = sx + (tx - sx) * k, y = sy + (ty - sy) * k;
-  formCell(ctx, "bj_hk_head", row16(a), 0, x, y, 2, 1 - clamp((u - 0.6) / 0.4), f.c);
+  pxLoop(ctx, "bj_drop", 0, 0.3, x, y, 1, 1 - clamp((u - 0.6) / 0.4), a, f.c);
   if (u > 0.3) pxOnce(ctx, "bj_hit", (u - 0.3) / 0.7, tx, ty, 1, 1 - u * 0.5, 0, f.c);
   void sq;
 }
@@ -518,7 +518,7 @@ function lgEnd(ctx, f, t, sq) {
 /* 원초의 혈맥 — 차징: 시전자 둘레만 어두워지고(다른 사람 시야는 가리지 않는다) 뒤에 검은 원형 문양 · 가운데 붉은 구체가 작아진다 */
 function ocharge(ctx, f, t, sq) {
   const u = clamp((f.u || 0) + t / 1.2);
-  pxOnce(ctx, "bj_dark", 0.15 + 0.2 * u, f.x, f.y - 30, 2, 0.35, 0, "abyss");   // 시전자 둘레 국소 암전
+  pxOnce(ctx, "bj_dark", 0.15 + 0.2 * u, f.x, f.y - 30, 2, 0.2, 0, "abyss");   // 시전자 둘레 국소 암전(다른 사람 시야를 가리지 않게 옅게)
   pxLoop(ctx, "bj_drink", 0, 1.4, f.x, f.y, 1, 0.85, 0, "abyss");               // 발밑 검은 원형 문양
   formCell(ctx, "bj_core", Math.min(2, Math.floor(u * 3)), loopIdx("bj_core", 0.3 - 0.15 * u), f.x, f.y - 120, Math.max(2, 5 - Math.round(u * 3)), 1, f.c);   // 붉은 구체가 점점 작아진다
   void sq;
@@ -531,7 +531,7 @@ function spears(ctx, f, t, sq) {
       const s = t - i * gap; if (s < 0) continue;
       const a = i * TAU / n, sx = f.x0 + Math.cos(a) * 140, sy = f.y0 - 60 + Math.sin(a) * 90, tx = f.x, ty = f.y - 30;
       const k = clamp(s / fly), e = k * k, x = sx + (tx - sx) * e, y = sy + (ty - sy) * e, rot = Math.atan2(ty - sy, tx - sx);
-      if (k < 1) formCell(ctx, "bj_hk_head", row16(rot), loopIdx("bj_hk_head", 0.3), x, y, 2, 1, f.c);
+      if (k < 1) pxLoop(ctx, "bj_drop", i * 0.08, 0.3, x, y, 1.5, 1, rot, f.c);   // 혈액 창 — 꼬리가 긴 핏빛 탄
       else if (s < fly + 0.2) pxOnce(ctx, "bj_hit", (s - fly) / 0.2, tx, ty, 0.9, 0.9, 0, f.c);
     }
     const g0 = (n - 1) * gap + fly;

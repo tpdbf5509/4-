@@ -19,4 +19,5 @@ export function pointerSkillPt(h, cam, pointer) {
   return [Math.round(pointer.x + cam.x), Math.round(pointer.y + cam.y)];
 }
 export const aimedSkillInput = (kind, dir) => ['skill', 'use', 'wskill', 'waim'].includes(kind)
-  || (kind === 'wcharge' && dir !== 'cancel') || (kind === 'adv' && dir?.op === 'use') || (kind === 'blood' && ['press', 'release', 'aim', 'sword'].includes(dir?.op));
+  || (kind === 'wcharge' && dir !== 'cancel') || (kind === 'adv' && dir?.op === 'use') || (kind === 'blood' && ['press', 'release', 'aim', 'sword'].includes(dir?.op))
+  || (kind === 'hidden' && dir?.op === 'use');   // 히든 직업 Gambler 002 — 지점 스킬이 포인터 자리로 간다

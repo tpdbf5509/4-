@@ -3,11 +3,12 @@ import { trading } from "./tradeData.js";
 import { stormBusy } from './stormWeaponCombat.js';
 import { cleanSkillAim, cleanSkillPt, aimedSkillInput } from './skillAim.js';
 import { bloodOn } from './bloodJob.js';
+import { gamblerOn } from './gamblerJob.js';
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgWeaponAim, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, rpgBloodBreak, freshInput, setFxBy,
+  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, rpgBloodBreak, rpgHidden, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -43,6 +44,7 @@ const ACTS = {
   guild: (g, pi, dir) => rpgGuild(g, pi, dir),
   train: (g, pi, dir) => rpgTrain(g, pi, dir),
   blood: (g, pi, dir) => rpgBloodJob(g, pi, dir),   // 히든 직업 BLOOD-001 — 적혈탄 누름 · 뗌 · 혈량 전환(bloodJob.js)
+  hidden: (g, pi, dir) => rpgHidden(g, pi, dir),   // 히든 직업 Gambler 002 — 스킬 한 번 누름(gamblerJob.js, 11월 16일 격자 연습장에만)
   adv: (g, pi, dir) => rpgAdv(g, pi, dir),         // 1차 전직 — 시험 · 확정 · 전직 스킬(advance.js)
   deep: (g, pi, dir) => rpgDeep(g, pi, dir),       // 계몽의 문 — 계몽의 눈 만들기 · 400~800레벨 사냥터 입장(deepData.js)
   abyss: (g, pi, dir) => rpgAbyss(g, pi, dir),     // 심연의 탑 — 입장 · 나가기 · 파편 교환(abyssData.js)
@@ -55,6 +57,8 @@ export function rpgInput(g, d) {
   if (!d || !Number.isInteger(d.cls) || !g.heroes[d.cls]) return;
   // BLOOD-001 — 일반 스킬 칸 · 큰 기술 · 전직 스킬은 쓰지 않는다(큰 기술 키는 화면이 혈역 증폭으로 바꿔 보낸다, 11월 14일 사용자 결정)
   if (bloodOn(g.heroes[d.cls]) && (d.kind === "skill" || d.kind === "use" || (d.kind === "adv" && ["use", "ult", "mode"].includes(d.dir?.op)))) return;
+  // Gambler 002 — 무기 · 일반 스킬 칸 · 큰 기술 · 전직 스킬 · 무기 스킬을 쓰지 않는다(전용 기본 공격과 스킬만, 사용자 기획)
+  if (gamblerOn(g.heroes[d.cls]) && (['skill', 'use', 'wskill', 'wcharge', 'waim', 'blood'].includes(d.kind) || (d.kind === "adv" && ["use", "ult", "mode"].includes(d.dir?.op)))) return;
   if(stormBusy(g.heroes[d.cls]) && ['skill','use','adv','dash','blood'].includes(d.kind))return;
   if (d.kind !== "trade" && !(d.kind==="guild"&&["sync","settled"].includes(d.dir?.op)) && trading(g.heroes[d.cls])) return;
   const act = Object.prototype.hasOwnProperty.call(ACTS, d.kind) ? ACTS[d.kind] : null;

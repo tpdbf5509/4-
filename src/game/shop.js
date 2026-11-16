@@ -27,6 +27,7 @@ import { titleStat } from "./socialData.js";
 import { JUNK, bagSteps } from "./junkData.js";
 import { cleanBlocks } from "./block.js";
 import { cleanBd, bloodOn, dropBlood, bloodWeaponOk } from "./bloodJob.js";
+import { gamblerOn, dropGambler } from "./gamblerJob.js";
 import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
 import { ALCH, ALCH_MAT_BY_ID } from "./alchemyData.js";
@@ -374,6 +375,7 @@ export function whyEquip(h, u) {
   if (!w) out.push("가방에 없는 무기입니다");
   else if (h.lv < WEAPON_TIERS[w.r]) out.push(`레벨 ${WEAPON_TIERS[w.r]} 필요 (지금 ${h.lv})`);
   else if (bloodOn(h) && !bloodWeaponOk(w)) out.push("BLOOD-001 은 크림슨 레퀴엠만 들 수 있습니다");
+  else if (gamblerOn(h)) out.push("Gambler 002 는 무기를 들 수 없습니다");   // 무기 장착 금지(사용자 기획) — 가방의 무기는 그대로 남는다
   return out;
 }
 
@@ -775,6 +777,7 @@ export function rpgShop(g, pi, req) {
     } else if (p.kind === "adv") {                 // 전직 초기화 — 전직 · 숙련도 · 전투 특성 · 시험을 비운다. 기본 직업은 그대로
       const wasFull = h.hp >= h.max, old = advOf(h) || (bloodOn(h) ? { name: "BLOOD-001" } : null);
       dropBlood(h);                               // 히든 직업 BLOOD-001 도 끈다 — 직업 레벨 · 연마는 남는다
+      dropGambler(h);                             // 히든 직업 Gambler 002 도 끈다(지금은 격자 연습장에만 있다) — 직업 레벨 · 연마는 남는다
       h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
       h.bag.ar = (h.bag.ar || 0) + 1;             // 초기화 횟수 — 저장이 비운 전직을 받아들이게 한다(rpg.js advRecord)
       h.bag.af = 1;                               // 다음 전직은 시험 없이 확정한다(advance.js whyAdvConfirm)

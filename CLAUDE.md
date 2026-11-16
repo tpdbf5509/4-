@@ -214,6 +214,13 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - **무기 · 레퀴엠 회복(11월 16일 사용자)**: BLOOD-001 은 크림슨 레퀴엠(`BLOOD_WEAPON`)만 든다 — `whyEquip` 거절 · `unlockBlood` · `cleanBag` 가 다른 무기 장착을 푼다(`bloodWeaponOk`). 레퀴엠 평타 · 혈계 추격(무기 시전)이 맞을 때마다 최대 체력 1%(`passive.heal`, `bloodLifeOnHit`, 튄 피해 · 지속 피해 제외, 결투 50%).
 - **결투(11월 16일)**: 혈검은 **참격마다 새 시전**(예전엔 생성 시전 하나를 50초 내내 써서 18% 상한을 다 쓰면 피해 0). BLOOD-001 결투 피해는 `DUEL.bloodMul` ×2(상한 · 방어 그대로). 혈역 증폭은 적이 없어도 1초마다 +30(경험치만 적이 있을 때). 신규 아이콘 그림은 아직 없어 칸에 한 글자(`.rpg-ico-txt`) — Codex 로그인이 되면 `skill-icons.webp` 에 더한다.
 
+### 히든 직업 Gambler 002 도박꾼 (11월 16일, 격자 연습장에만)
+- 사용자 기획 「히든직업 002~006 통합기획안」의 002 만. **실제 게임에는 아직 잇지 않았다**(사용자 결정 — 연습장에서 확인한 뒤). `GAMBLER.live = false`, 저장 자리 `bag.hj` 는 `cleanBag` 이 싣지 않고, 스냅샷 · 서버 · 해금 경로 · 키 설정 창 · 업데이트 노트에 아무것도 없다. 사용자가 "실제 게임에 넣자"고 하기 전에는 이것들을 건드리지 않는다.
+- 수치 `gamblerData.js` · 규칙 `gamblerJob.js`(엔진 `rpg.js gamblerEngine`, 입력 `hidden {op:"use", s}`) · 그림 `gamblerArt.js` · 시트 규격 `gamblerPxData.js` · 연습장 칸 `Sandbox.jsx GamblerBar`. 시험 `tools/gambler.test.mjs`.
+- **이펙트는 pixelfx 를 쓰지 않는다**(사용자 지시 "직접 만들어줘"). `design/effects/gambler/make.py` 가 한 칸씩 직접 그린 도트 시트 16장(`rpg/effects/hidden-jobs/gambler/px/gm_*.webp`)만 쓰고, 코드로 그리는 것은 1px 범위 선뿐. 시트를 고치면 `python3 design/effects/gambler/make.py` → `manifest.json` 값을 `gamblerPxData.js` 에 옮긴다(시험이 같은지 본다).
+- 무기를 들지 않는다(`whyEquip` 거절 · 맨손 그림). 일반 스킬 칸 · 큰 기술 · 전직 스킬 · 무기 스킬 입력은 `rpgInput.js` 가 버린다. 연습장 키는 새 칸 없이 기존 행동 키를 빌린다(`GM_SLOTS`: 1 · 2 · 3 · 4 · R · Z · Shift, 평타 = 황금 칩).
+- 칩 7개 = 풀 베팅(다음 공격 스킬의 첫 유효 적중에 금화 7발). 시전 객체 — 평타 `basic` · 777 `sid "ult"` · 나머지 18% 상한, 풀 베팅 · 여러 타격은 원래 시전을 함께 쓴다. 내가 정한 해석 목록은 `docs/작업-상세-기록.md` 끝.
+
 ### 격자 연습장 `?sandbox` (11월 16일)
 - 주소 `four-lane.vercel.app/?sandbox`(`main.jsx` 가 `Sandbox.jsx` 를 따로 불러온다). 게임에 넣기 전 캐릭터(직업 · 성별 · 원소 · 전직 · 숙련 단계 · BLOOD-001 직업 레벨 · 연마 · 레벨 · 스탯 · 무기(미공개 hold 포함) · 스킬 칸)를 골라 격자 바닥에서 움직이고 스킬을 써 본다.
 - 직업 체험(`JobTrial.jsx`)처럼 이 기기에서만 도는 세계다. 서버 · 장부 · 기기 캐릭터 기록과 이어지지 않고 아무것도 저장하지 않는다. `g.test` 로 훈련장 기능(무적 · 쿨타임 끄기 · 스택 가득 · 초당 피해)을 쓰고, 월드보스는 나오지 않게 막았다.

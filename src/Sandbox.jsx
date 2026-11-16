@@ -16,6 +16,12 @@ import { ADV_CLASSES, ADV_MASTERY } from "./game/advData.js";
 import { BLOOD, BLOOD_NAME } from "./game/bloodJobData.js";
 import { unlockBlood, bloodView, stableCap } from "./game/bloodJob.js";
 import { bloodHud } from "./BloodHud.jsx";
+import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_SKILLS, GM_CHIP, GM_TRAIN_NAMES } from "./game/gamblerData.js";
+import { unlockGambler, gamblerView, gmLock } from "./game/gamblerJob.js";
+import { gamblerIconStyle } from "./game/gamblerArt.js";
+import { GAMBLER_ICON, GAMBLER_PX_SRC } from "./game/gamblerPxData.js";
+import { rpgSandboxHit } from "./game/rpg.js";
+import sfx from "./game/sfx.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
 import { KEY_ACTIONS, BLOOD_ACTS, loadKeys, keyMap, keyOf, mouseCode } from "./game/keys.js";
 import { SANDBOX, SANDBOX_LAYOUTS } from "./game/sandboxData.js";
@@ -27,6 +33,10 @@ const HUD_MS = 160;      // 숫자 칸을 다시 그리는 간격(ms)
 const MOVE = { up: "up", down: "down", left: "left", right: "right" };
 const HOLD_WSK = new Set(["azure_dual", "blood_gun"]);   // 누르고 있는 동안 차징하는 무기 스킬(RpgView 와 같다)
 const BLOOD_OFF = /^(use\d|adv|advUlt|healMode)$/;      // BLOOD-001 은 일반 스킬 칸 · 전직 스킬을 쓰지 않는다
+// Gambler 002 — 새 키 칸을 만들지 않고 기존 행동 키를 빌려 쓴다(gamblerData.js GM_SLOTS). 3 · 4 는 BLOOD-001 칸과 같은 키라 먼저 잡는다
+const GM_FIRST = GM_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
+const GM_BY_ACT = Object.fromEntries(GM_SLOTS.map((q) => [q.act, q.s]));
+const GM_LAST = { dice: "운명의 눈", rain: "코인 폭우" };
 const TOOLS = [
   { id: "god", name: "무적" },
   { id: "nocd", name: "쿨타임 끄기" },
@@ -57,6 +67,7 @@ const genSkills = () => SKILLS.filter((s) => s.use && !s.job);
 const DEFAULT = {
   job: "warrior", gender: "m", elem: ELEMS[0].id, lv: SANDBOX.lv, stats: "spread", adv: "", mastery: 1,
   bloodLv: SANDBOX.bloodLv, train: BLOOD.train.max, weapon: "", ks: { job: "", g: ["", ""] }, layout: "line",
+  gmLv: GAMBLER.maxLv, gmTr: [GAMBLER.train.max, GAMBLER.train.max, GAMBLER.train.max],   // Gambler 002 — 직업 레벨 · 연마 셋(금화 · 방어 · 행운)
 };
 
 // 연습장 세계 — 자리 0 에 시험 캐릭터 하나만 세우고 격자 맵으로 보낸다
@@ -70,10 +81,10 @@ function sandboxWorld(c) {
   const look = { name: "연습", job: c.job, elem: elemFor(c.job, c.elem), gender: c.gender };
   const seats = Array.from({ length: RPG_CREW_MAX }, (_, i) => (i === 0 ? { id: "sandbox", name: look.name, hero: look } : null));
   rpgSyncSeats(g, seats);
-  const blood = c.adv === "blood";
+  const blood = c.adv === "blood", gambler = c.adv === "gambler";
   const s = {};
   SKILLS.forEach((k) => { if (!k.job || k.job === c.job) s[k.id] = k.gold.length; });   // 이 직업이 배울 수 있는 스킬은 모두 최고 레벨
-  const w = c.weapon && weaponsFor(c.job, blood).find((q) => q.id === c.weapon);
+  const w = !gambler && c.weapon && weaponsFor(c.job, blood).find((q) => q.id === c.weapon);   // Gambler 002 는 무기를 들지 않는다
   const lv = Math.max(1, Math.min(LV_TOP, Math.floor(c.lv) || 1));
   rpgJoin(g, 0, {
     name: look.name, ts: 1, lv, gift: GIFT.id, rs: RESET.id, auto: 1,
@@ -93,6 +104,11 @@ function sandboxWorld(c) {
     Object.assign(h.bag.bd, { lv: blv, xp: 0, tr: [[tr, 0], [tr, 0], [tr, 0]], b: stableCap(blv) });
     refreshHp(h, true);
   }
+  if (gambler) {                                  // Gambler 002 — 직업 레벨 · 연마 셋을 고른 대로(연습장에서만 켠다 — GAMBLER.live)
+    const n = (v, a, b) => Math.max(a, Math.min(b, Math.floor(v) || 0));
+    unlockGambler(h, { lv: n(c.gmLv, 1, GAMBLER.maxLv), tr: [0, 1, 2].map((i) => [n((c.gmTr || [])[i], 0, GAMBLER.train.max), 0]) });
+    refreshHp(h, true);
+  }
   h.map = SANDBOX.id;
   [h.x, h.y] = SANDBOX.spawn;
   h.gateCd = 1;
@@ -106,6 +122,50 @@ function placeDummies(g, layout) {
   const h = g.heroes[0], L = SANDBOX_LAYOUTS.find((q) => q.id === layout) || SANDBOX_LAYOUTS[0];
   const dir = h.dir < 0 ? -1 : 1;
   sandboxDummies(g, SANDBOX.id, L.spots.map(([cx, cy]) => [h.x + dir * cx * SANDBOX.cell, h.y + cy * SANDBOX.cell * RPG.squash]));
+}
+
+/* Gambler 002 칸 — 베팅 칩 일곱 · 상태 · 스킬 일곱(누르면 쓴다). 그림은 직접 그린 도트 시트(gm_chip · gm_icons) */
+function GamblerBar({ v, keyOf: key, onUse, onFire }) {
+  const full = v.chips >= v.max, row = { gold: 0, frost: 1, plum: 2 }[v.tint] || 0;
+  const chipStyle = { backgroundImage: `url(${GAMBLER_PX_SRC}gm_chip.webp)`, backgroundSize: "256px 96px", backgroundPosition: `0 ${-row * 32}px` };
+  const notes = [
+    v.sh && `장막 ${fmt(v.sh.v)} · ${v.sh.left.toFixed(1)}초`,
+    v.edge > 0 && `하우스 엣지 ${v.edge.toFixed(1)}초`,
+    v.tbl > 0 && `테이블 ${v.tbl.toFixed(1)}초`,
+    v.last && `직전 ${GM_LAST[v.last] || v.last}`,
+    `불운 ${v.luck}/${v.need}`,
+    v.contract && "황금 계약",
+  ].filter(Boolean);
+  return (
+    <div className="gm-bar">
+      <div className="gm-top">
+        <span className="gm-name">{GAMBLER_NAME} <em>{GAMBLER_TITLE} · 직업 레벨 {v.lv}</em></span>
+        <span className="gm-chips" aria-label={`베팅 칩 ${v.chips}/${v.max}`}>
+          {Array.from({ length: v.max }, (_, i) => <i key={i} className={i < v.chips ? "on" : ""} style={chipStyle} />)}
+          <b className={full ? "full" : ""}>{full ? "풀 베팅" : `${v.chips}/${v.max}`}</b>
+        </span>
+      </div>
+      <div className="gm-skills">
+        <button type="button" className="gm-skill" onClick={onFire} title={`${GM_CHIP.name} — 기본 공격`}>
+          <span className="gm-ico" style={gamblerIconStyle(GAMBLER_ICON.chip, 48)} />
+          <span className="gm-label">{GM_CHIP.name}</span>
+          {key("fire") && <kbd>{key("fire")}</kbd>}
+        </button>
+        {GM_SLOTS.map((q) => {
+          const lock = gmLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, need = q.s === "dd" && (v.chips < GM_SKILLS.dd.cost || !v.last);
+          return (
+            <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && (cd > 0 || need) ? "wait" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
+              title={lock || (q.s === "dd" ? `칩 ${GM_SKILLS.dd.cost}개 · 직전 운명의 눈이나 코인 폭우를 다시 냅니다` : GM_SKILLS[q.s].name)}>
+              <span className="gm-ico" style={gamblerIconStyle(GAMBLER_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
+              <span className="gm-label">{lock ? `레벨 ${GAMBLER.unlock[q.s]}` : GM_SKILLS[q.s].name}</span>
+              {key(q.act) && <kbd>{key(q.act)}</kbd>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="gm-notes">{notes.join(" · ")}</p>
+    </div>
+  );
 }
 
 export default function Sandbox() {
@@ -122,7 +182,7 @@ export default function Sandbox() {
   const [binds] = useState(loadKeys);
   const set = (patch) => setCfg((c) => ({ ...c, ...patch }));
 
-  const blood = cfg.adv === "blood";
+  const blood = cfg.adv === "blood", gambler = cfg.adv === "gambler";
   const magic = hasElem(cfg.job);
   const advs = ADV_CLASSES.filter((q) => q.job === cfg.job);
   const weapons = useMemo(() => weaponsFor(cfg.job, blood), [cfg.job, blood]);
@@ -130,11 +190,11 @@ export default function Sandbox() {
   // 직업이 바뀌면 그 직업에 없는 전직 · 무기 · 직업 스킬을 비운다
   const pickJob = (job) => setCfg((c) => ({
     ...c, job,
-    adv: c.adv === "blood" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
+    adv: c.adv === "blood" || c.adv === "gambler" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
     weapon: weaponsFor(job, c.adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : "",
     ks: { ...c.ks, job: "" },
   }));
-  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
+  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "gambler" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
   const commitLv = () => {
     const v = Math.max(1, Math.min(LV_TOP, Math.floor(Number(lvText)) || 1));
     setLvText(String(v));
@@ -155,20 +215,26 @@ export default function Sandbox() {
     const g = G.current, h = g && g.heroes[0];
     if (!h) return;
     const aim = aimedSkillInput(kind, dir) ? pointerSkillAim(h, g.cam, pointer.current, RPG.squash) : null;
-    const pt = (kind === "adv" || (kind === "blood" && dir?.s === "wave")) && aim ? pointerSkillPt(h, g.cam, pointer.current) : null;
+    const pt = (kind === "adv" || kind === "hidden" || (kind === "blood" && dir?.s === "wave")) && aim ? pointerSkillPt(h, g.cam, pointer.current) : null;
     rpgInput(g, { cls: 0, kind, dir, aim, pt });
   };
   const actRef = useRef(act);
   actRef.current = act;
   const tool = (op) => { const g = G.current; if (g) rpgTrain(g, 0, { op }); };
+  const gmUse = (sk) => act("hidden", { op: "use", s: sk });
 
   // 키보드 · 마우스 버튼 — 게임과 같은 키 설정(RpgView pressAct · releaseAct 에서 창 여는 것만 뺐다)
   useEffect(() => {
     const held = [];
     const isBlood = () => !!bloodView(G.current?.heroes[0]);
-    const kmap = () => keyMap(binds, isBlood() ? BLOOD_ACTS : []);
+    const isGm = () => !!gamblerView(G.current?.heroes[0]);
+    const kmap = () => keyMap(binds, isBlood() ? BLOOD_ACTS : isGm() ? GM_FIRST : []);
     const A = (k, d) => actRef.current(k, d);
     const press = (a) => {
+      if (isGm()) {                                // Gambler 002 — 평타 · 대쉬와 전용 스킬 일곱만
+        if (a === "fire") A("fire", true); else if (a === "dash") A("dash"); else if (GM_BY_ACT[a]) A("hidden", { op: "use", s: GM_BY_ACT[a] });
+        return;
+      }
       if (isBlood() && a === "skill") a = "bField";
       if (isBlood() && BLOOD_OFF.test(a)) return;
       const h = G.current?.heroes[0];
@@ -285,6 +351,12 @@ export default function Sandbox() {
           if (h.map !== SANDBOX.id) { h.map = SANDBOX.id; [h.x, h.y] = SANDBOX.spawn; }
           if (h.down > 0 && h.trn && h.trn.god) h.down = 0;
         }
+        for (const f of g.fx) {                   // 소리 — 게임 화면(RpgView playSounds)과 같은 규칙
+          if (f.played) continue;
+          f.played = true;
+          if (!f.snd || sfx.isMuted() || (f.who !== undefined && f.who !== 0)) continue;
+          if (f.snd === "shot") sfx.shot("arrow"); else if (f.snd === "orb") sfx.shot("orb"); else if (f.snd === "slash") sfx.shot("blade"); else if (f.snd === "cannon") sfx.shot("shell"); else sfx.play(f.snd);
+        }
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         drawRpg(ctx, g, bgs);
         if (h && g.cam) {
@@ -305,9 +377,10 @@ export default function Sandbox() {
           hudAt = now;
           const t = trainView(g, h) || {};
           const bv = bloodHud(bloodView(h));
+          const gm = gamblerView(h);
           const [cx, cy] = cellOf(h);
           setHud({ dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
-            hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "" });
+            hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "", gm });
         }
       }
     };
@@ -318,11 +391,11 @@ export default function Sandbox() {
   const key = (id) => (!touch && keyOf(binds, id)) || "";
   // 조작 안내 — 이 캐릭터가 쓰는 행동만
   const helpActs = KEY_ACTIONS.filter((a) => a.group === "전투" && !a.id.startsWith("pot") && keyOf(binds, a.id) && (
-    blood ? BLOOD_ACTS.includes(a.id) || ["fire", "dash", "wskill"].includes(a.id)
+    gambler ? ["fire", "dash"].includes(a.id) : blood ? BLOOD_ACTS.includes(a.id) || ["fire", "dash", "wskill"].includes(a.id)
       : !BLOOD_ACTS.includes(a.id) && (!["adv", "advUlt", "healMode"].includes(a.id) || (cfg.adv && (a.id === "adv" || (a.id === "advUlt" && cfg.adv === "summoner") || (a.id === "healMode" && cfg.adv === "healer"))))
   ));
   const el = ELEM_BY_ID[elemFor(cfg.job, cfg.elem)];
-  const title = [blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
+  const title = [gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
 
   return (
     <div className="page sb-page">
@@ -354,8 +427,10 @@ export default function Sandbox() {
               <button type="button" className="jt-chip" onClick={() => tool("reset")}>기록 지우기</button>
               <button type="button" className="jt-chip" onClick={() => tool("heal")}>체력 · 대기 되돌리기</button>
               <button type="button" className="jt-chip" onClick={() => setRound((r) => r + 1)}>처음부터</button>
+              {gambler && <button type="button" className="jt-chip" title="무적이어도 최대 체력 8% 피해를 한 번 받습니다" onClick={() => G.current && rpgSandboxHit(G.current, 0)}>시험 타격 받기</button>}
             </div>
-            {touch && <div className="jt-pads">
+            {gambler && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
+            {touch && !gambler && <div className="jt-pads">
               <button type="button" className="btn-ghost" onClick={() => act("skill")}>큰 기술{hud && hud.sk > 0 ? ` ${Math.ceil(hud.sk)}초` : ""}</button>
               <button type="button" className="btn-ghost" onClick={() => act("dash")}>대쉬</button>
             </div>}
@@ -372,7 +447,7 @@ export default function Sandbox() {
                   <button key={id} type="button" className={`jt-chip ${cfg.gender === id ? "on" : ""}`} aria-pressed={cfg.gender === id} onClick={() => set({ gender: id })}>{n}</button>
                 ))}
               </div>
-              {magic && !blood && <div className="jt-chips sb-gap">
+              {magic && !blood && !gambler && <div className="jt-chips sb-gap">
                 {ELEMS.map((e) => (
                   <button key={e.id} type="button" className={`jt-chip ${cfg.elem === e.id ? "on" : ""}`} style={{ "--ec": e.light }} aria-pressed={cfg.elem === e.id} onClick={() => set({ elem: e.id })}>
                     <span className="mk-dot" />{e.name}
@@ -388,8 +463,20 @@ export default function Sandbox() {
                   <button key={q.id} type="button" className={`jt-chip ${cfg.adv === q.id ? "on" : ""}`} aria-pressed={cfg.adv === q.id} onClick={() => pickAdv(q.id)}>{q.name}</button>
                 ))}
                 <button type="button" className={`jt-chip ${blood ? "on" : ""}`} aria-pressed={blood} onClick={() => pickAdv("blood")}>{BLOOD_NAME}</button>
+                <button type="button" className={`jt-chip ${gambler ? "on" : ""}`} aria-pressed={gambler} onClick={() => pickAdv("gambler")}>{GAMBLER_NAME}</button>
               </div>
-              {cfg.adv && !blood && <label className="sb-row">숙련 단계
+              {gambler && <>
+                <label className="sb-row">직업 레벨
+                  <input type="number" min="1" max={GAMBLER.maxLv} value={cfg.gmLv} onChange={(e) => set({ gmLv: Number(e.target.value) })} />
+                </label>
+                {GM_TRAIN_NAMES.map((n, i) => (
+                  <label key={n} className="sb-row">{n}
+                    <input type="number" min="0" max={GAMBLER.train.max} value={cfg.gmTr[i]} onChange={(e) => { const t = cfg.gmTr.slice(); t[i] = Number(e.target.value); set({ gmTr: t }); }} />
+                  </label>
+                ))}
+                <p className="mk-note">연마 합계 {GAMBLER.tint.frost} · {GAMBLER.tint.plum}에 색이 바뀌고 {GAMBLER.contract}이면 황금 계약입니다.</p>
+              </>}
+              {cfg.adv && !blood && !gambler && <label className="sb-row">숙련 단계
                 <select value={cfg.mastery} onChange={(e) => set({ mastery: Number(e.target.value) })}>
                   {ADV_MASTERY.pts.map((_, i) => <option key={i} value={i + 1}>{i + 1}단계</option>)}
                 </select>
@@ -413,13 +500,13 @@ export default function Sandbox() {
                 <button type="button" className={`jt-chip ${cfg.stats === "spread" ? "on" : ""}`} aria-pressed={cfg.stats === "spread"} onClick={() => set({ stats: "spread" })}>레벨만큼 나눔</button>
                 <button type="button" className={`jt-chip ${cfg.stats === "max" ? "on" : ""}`} aria-pressed={cfg.stats === "max"} onClick={() => set({ stats: "max" })}>스탯 최대</button>
               </div>
-              <label className="sb-row">무기
+              {!gambler && <label className="sb-row">무기
                 <select value={cfg.weapon} onChange={(e) => set({ weapon: e.target.value })}>
                   {!blood && <option value="">맨손(기본 무기)</option>}
                   {weapons.map((w) => <option key={w.id} value={w.id}>{w.name}{w.hold ? " · 미공개" : ""}</option>)}
                 </select>
-              </label>
-              {!blood && <>
+              </label>}
+              {!blood && !gambler && <>
                 <label className="sb-row">직업 칸
                   <select value={cfg.ks.job} onChange={(e) => set({ ks: { ...cfg.ks, job: e.target.value } })}>
                     <option value="">비움</option>
@@ -458,7 +545,8 @@ export default function Sandbox() {
                   <>
                     <li><kbd>{key("up")}</kbd><kbd>{key("left")}</kbd><kbd>{key("down")}</kbd><kbd>{key("right")}</kbd> 이동 · 오른쪽 클릭으로 걷기</li>
                     <li>스킬은 마우스 쪽으로 나갑니다</li>
-                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
+                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {gambler && a.id === "fire" ? GM_CHIP.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
+                    {gambler && GM_SLOTS.map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {GM_SKILLS[q.s].name}</li>)}
                   </>
                 )}
               </ul>

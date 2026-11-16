@@ -273,6 +273,7 @@ export default function Sandbox() {
     const bgs = {};
     let raf, last = performance.now(), hudAt = 0;
     const loop = (now) => {
+      raf = requestAnimationFrame(loop);          // 먼저 다음 판을 잡는다 — 한 판에서 오류가 나도 연습장이 멈추지 않게
       const real = Math.max(0, (now - last) / 1000);
       last = now;
       const g = G.current;
@@ -309,7 +310,6 @@ export default function Sandbox() {
             hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "" });
         }
       }
-      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);

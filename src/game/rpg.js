@@ -3031,6 +3031,7 @@ function weaponOnHit(g, h, m, foe, side, basic) {
   const sp = heldSpecial(h), o = m || foe;
   if (basic && !side && o) worldWeaponBasicHit(worldEngine, g, h, o);
   if (o) voidOnHit(voidEngine, g, h, o, { basic, side });   // 공허의 장궁 · 지팡이 패시브
+  if (sp && o) wsOf(h);                           // 무기 상태를 먼저 만든다 — 막 들어온 레퀴엠이 첫 평타에서 h.ws 없이 멈췄다(11월 16일)
   if (o) bloodOnHit(bloodEngine, g, h, o, { basic, side });   // 크림슨 레퀴엠 — 평타가 맞으면 혈흔
   if (o) bloodLifeOnHit(bloodEngine, g, h, o, { basic, side });   // 크림슨 레퀴엠 — 맞힐 때마다 회복(11월 16일)
   if (o) bloodJobOnHit(bloodJobEngine, g, h, o, { basic, side });   // BLOOD-001 — 평타가 맞으면 혈량 +2 · 혈흔

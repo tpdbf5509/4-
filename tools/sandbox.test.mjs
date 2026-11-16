@@ -44,3 +44,15 @@ test('무적 · 쿨타임 끄기가 이 맵에서도 켜진다',()=>{
   assert.ok(h.y>=MAPS[SANDBOX.id].top);
   assert.ok(Number.isFinite(RPG.squash));
 });
+
+test('크림슨 레퀴엠을 막 든 캐릭터의 첫 평타가 멈추지 않는다(11월 16일 — h.ws 없이 혈흔을 쌓다 판정이 멈췄다)',()=>{
+  const g=makeWorld();g.mySeat=0;g.out=null;g.test=1;g.high=true;
+  rpgSyncSeats(g,[{id:'sb',name:'연습',hero:{name:'연습',job:'warrior',gender:'m'}}]);
+  rpgJoin(g,0,{name:'연습',ts:1,lv:200,rs:RESET.id,gift:GIFT.id,stats:{str:300},bag:{oc:1,w:[{u:1,sp:'blood_gun',p:0}],e:1,n:2}},'sb');
+  const h=g.heroes[0];h.map=SANDBOX.id;[h.x,h.y]=SANDBOX.spawn;
+  delete h.ws;
+  sandboxDummies(g,SANDBOX.id,[[h.x+SANDBOX.cell*2,h.y]]);
+  rpgInput(g,{cls:0,kind:'fire',dir:true});
+  assert.doesNotThrow(()=>{for(let i=0;i<40;i++)rpgStep(g,0.05);});
+  assert.ok(trainView(g,h).hits>0,'허수아비를 맞혔다');
+});

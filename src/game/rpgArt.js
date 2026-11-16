@@ -11,7 +11,7 @@ import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
 import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { drawBloodMarks } from './bloodGunArt.js';
-import { drawBloodJobMarks, drawBloodSpots, drawBloodBlade, warmBloodJob, BLOOD_JOB_CAP } from './bloodJobArt.js';
+import { drawBloodJobMarks, drawBloodSpots, drawBloodBlade, warmBloodJob, BLOOD_JOB_CAP, BLOOD_JOB_UNDER } from './bloodJobArt.js';
 import { BLOOD_SPOTS } from './bloodJobData.js';
 import { spotShown } from './bloodUnlock.js';   // 히든 직업 BLOOD-001
 import { bloodView } from './bloodJob.js';   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
@@ -2763,7 +2763,11 @@ export function drawRpg(ctx, g, bgs) {
   const fxSeen = (f) => inView(f.x, f.y, 320) || (f.x1 !== undefined && inView(f.x1, f.y1, 320));
   const crowd = lowFx || g.heroes.filter((h) => h && h.map === M.id).length >= CROWD.heroes;
   const skFx = pickSkillFx(g.fx.filter((f) => here(f) && f.kind.startsWith("sk_") && fxSeen(f)), crowd, g.mySeat);
-  g.fx.forEach((f) => { if (skFx.has(f) && GROUND_FX.has(f.kind)) drawSkillTuned(ctx, f, time, g, crowd); });   // 빙판길 · 잔화 · 균열 — 땅에 깔린다
+  g.fx.forEach((f) => {
+    if (!skFx.has(f)) return;
+    if (GROUND_FX.has(f.kind)) drawSkillTuned(ctx, f, time, g, crowd);   // 빙판길 · 잔화 · 균열 — 땅에 깔린다
+    else if (BLOOD_JOB_UNDER[f.kind]) drawSkillTuned(ctx, { ...f, kind: BLOOD_JOB_UNDER[f.kind] }, time, g, crowd);   // 원초적 지배 발밑 문양 — 몸보다 먼저(나머지는 아래에서)
+  });
 
   // 앞뒤로 겹치게 — 위에 선 것부터 그린다
   const order = [];

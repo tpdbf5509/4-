@@ -28,7 +28,7 @@ import { JUNK, bagSteps } from "./game/junkData.js";
 import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, ARMOR_BASE, ARMOR_SPECIAL, armorName, armorArt, armorCap } from "./game/armorData.js";
 import { wornArmor } from "./game/armor.js";
-import { BOOKS, BOOK_BY_ID, PATCH_BOOKS } from "./game/bookData.js";
+import { BOOKS, BOOK_BY_ID, PATCH_BOOKS, GUIDE_BOOKS } from "./game/bookData.js";
 import { storyBook } from "./game/storyAfter.js";
 import { Coin } from "./ui/icons.jsx";
 import { useCasinoRun, DiceStage, SlotStage, BoxStage, CASINO_SKIP } from "./CasinoStage.jsx";
@@ -773,8 +773,9 @@ export function ShopPanel({ shop, h, send, note, onClose }) {
 }
 
 /* ── 책 — 패치노트와 가이드(bookData.js). 책장에서 한 권을 고르면 쪽을 넘기며 읽는다 ── */
-function Books({ tab0, h }) {
-  const [id, setId] = useState(tab0 === "book" ? PATCH_BOOKS[0].id : "");   // 가방을 "책"으로 바로 열면 가장 새 패치노트
+function Books({ tab0, h, book0 }) {
+  // 가방을 "책"으로 바로 열면 가장 새 패치노트. 도서관 안내서 책장(libraryData.js books: "guide")에서 열면 첫 가이드
+  const [id, setId] = useState(tab0 === "book" ? (book0 === "guide" ? GUIDE_BOOKS[0].id : PATCH_BOOKS[0].id) : "");
   const [pg, setPg] = useState(0);
   // 메인 이야기를 마친 사람만 — 내 선택으로 엮은 기념 기록서(storyAfter.js)
   const mine = h && h.rec && h.rec.story ? storyBook(h.bag && h.bag.sq && h.bag.sq.c, h.bag && h.bag.sq && h.bag.sq.t) : null;
@@ -819,7 +820,7 @@ function Books({ tab0, h }) {
 }
 
 /* ── 가방 — 어디서나 연다. 능력치 · 무기 장착 · 물약 마시기 · 배운 스킬 ── */
-export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
+export function BagPanel({ h, send, note, onClose, tab0 = "weapon", book0 }) {
   const [wtab, setWtab] = useState("all");            // 무기 탭 안의 종류 탭
   const [tab, setTab] = useState(tab0 === "stat" ? "weapon" : tab0);   // 능력치 탭은 뺐다(스탯 창에서 본다) · "book" 으로 열면 책 탭
   const qs = h.bag.qs || [];
@@ -833,7 +834,7 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon" }) {
   return (
     <Frame title="가방" sub="무기 · 방어구 · 물약 · 재료 · 주문서 · 스킬 · 책" coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
       <Tabs on={tab} set={setTab} tabs={[["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length], ["book", "책", BOOKS.length]]} />
-      {tab === "book" && <Books tab0={tab0} h={h} />}
+      {tab === "book" && <Books tab0={tab0} h={h} book0={book0} />}
       {tab === "weapon" && (
         <>
           <Head sub={`${h.bag.w.length}/${weaponCap(h)} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>

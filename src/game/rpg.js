@@ -1,5 +1,6 @@
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
 import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
+import {LIBRARY, LIBRARY_MAPS} from './libraryData.js';
 import {storyGateOpen, storyGateWhy, storyCleared} from './storyQuestData.js';
 import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
@@ -400,6 +401,17 @@ MAPS[BLOOD_LAB.id] = {
   tint: "rgba(40,6,14,0.55)", gates: [{ ...BLOOD_LAB.exit, to: "plaza", at: BLOOD_LAB.plazaAt, label: "광장" }], blocks: [], npcs: [],
 };
 MAP_IDS.push(BLOOD_LAB.id);
+/* 에르덴 도서관 1 · 2층(libraryData.js, 11월 16일) — 이야기 맵과 같은 틀(story)이고 늘 열려 있다. 마을 북쪽 길의 도서관 문 ↔ 1층 ↔ 계단 ↔ 2층. 맵 차례는 뒤에만 */
+LIBRARY_MAPS.forEach((m) => {
+  const {to, at, label, ...exit} = m.exit;
+  MAPS[m.id] = {
+    id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, library: 1, spawn: m.spawn,
+    gates: [{...exit, to, at, label, villageGate: 1, libGate: exit.dir || 'door'}, ...(m.stairs ? [{...m.stairs, villageGate: 1, libGate: m.stairs.dir}] : [])],
+    blocks: storyBlocks(m.id), npcs: storyNpcs(m.id),
+  };
+  MAP_IDS.push(m.id);
+});
+MAPS[VILLAGE.id].gates.push({...LIBRARY.door, to: LIBRARY_MAPS[0].id, at: LIBRARY_MAPS[0].spawn, label: LIBRARY.building.name, villageGate: 1, libGate: 'door'});
 MAPS[HIGH.from].gates.push({ x: MAPS[HIGH.from].w - 90, y: 920, r: 64, to: HIGH_MAPS[0].id, at: [260, 920], label: highLabel(HIGH_MAPS[0]), high: 1, highEnter: 1 });
 // 지금 보이는 문 — 열리지 않은 high 문은 빼고(그림 · 흙길 · 문 판정이 같이 쓴다)
 export const gatesOf = (g, M) => (highOn(g) ? M.gates : M.gates.filter((q) => !q.high));

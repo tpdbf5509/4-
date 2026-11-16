@@ -645,6 +645,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [shopOpen, setShopOpen] = useState(null);   // 열어 둔 상점 id
   const [bagOpen, setBagOpen] = useState(false);    // 가방 창
   const [bagTab, setBagTab] = useState("weapon");     // 가방 창을 열 때 처음 보일 탭
+  const [bookPick, setBookPick] = useState(null);     // 도서관 책장에서 열 때 처음 펼칠 책(patch · guide)
   const [note, setNote] = useState(null);           // 상점 결과 한 줄 — 내 것만
   const shopRef = useRef(null);                     // 루프가 보는 열린 상점
   const [titleOpen, setTitleOpen] = useState(false); // 칭호 창
@@ -2147,7 +2148,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {(guild.notice||guild.error)&&<div className={`trade-result guild-notice ${guild.notice?.success?"success":""}`} role="status" aria-live="polite" aria-atomic="true"><strong>{guild.error?"길드 안내":guild.notice.title}</strong><span>{guild.error||guild.notice.text}</span></div>}
           {me&&<WorldBossHud state={me.wb} map={me.map} barRefs={bossBarRefs} onOpen={()=>toggleWin(wbOpen,setWbOpen)} onLeave={()=>act("wb",{op:"leave"})}/>}
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
-          {me && villageOpen && <VillagePanel key={villageOpen} npcId={villageOpen} story={me.story} myName={names[mySeat]} onStory={(d) => act("story", d)} onClose={() => setVillageOpen(null)} />}
+          {me && villageOpen && <VillagePanel key={villageOpen} npcId={villageOpen} story={me.story} myName={names[mySeat]} onStory={(d) => act("story", d)} onClose={() => setVillageOpen(null)}
+            onBooks={(kind) => { closeAll(); setBookPick(kind); setBagTab("book"); setBagOpen(true); }} />}
           {me && raceOpen && <RacePanel self={me.self} seat={mySeat} race={me.race} names={names} act={act} onClose={() => setRaceOpen(false)} />}
           {me && marketOpen && <MarketPanel api={market} h={me.self} selfName={selfName.current} onClose={() => setMarketOpen(false)} />}
           {me && deepOpen && <DeepPanel self={me.self} act={act} onClose={() => setDeepOpen(false)} />}
@@ -2553,7 +2555,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <ShopPanel shop={shopOpen} h={me.self} send={sendShop} note={note} onClose={() => setShopOpen(null)} />
           )}
           {me && bagOpen && (
-            <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} onClose={() => { setBagOpen(false); setBagTab("weapon"); }} />
+            <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} book0={bookPick} onClose={() => { setBagOpen(false); setBagTab("weapon"); setBookPick(null); }} />
           )}
           {me && questOpen && (
             <>

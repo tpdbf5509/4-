@@ -33,7 +33,7 @@ function PickTimer({sec, onEnd}) {
 }
 
 
-export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
+export default function VillagePanel({npcId, onClose, story, myName, onStory, onBooks}) {
   const npc = VILLAGE_DIALOGUES[npcId] || STORY_DIALOGUES[npcId], dialog = useRef(null);
   const returnFocus = useRef(null);
   // 이야기 차례인지 — 창을 여는 순간의 진행으로 정한다(대화 중에 진행이 바뀌어도 장면은 그대로)
@@ -114,7 +114,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
 
   // 말하는 사람 — 이름 · 역할 · 초상화
   const who = (() => {
-    if (!step || end) return {name: npc.name, role: npc.role, img: npc.portrait || villageArtPath(npc.size ? npc.art : `portrait-${npc.art}`), sight: npc.art === 'bell' || npc.art === 'memorial' || !!(npc.portrait && npc.size)};
+    if (!step || end) return {name: npc.name, role: npc.role, img: npc.bg ? null : npc.portrait || villageArtPath(npc.size ? npc.art : `portrait-${npc.art}`), sight: npc.art === 'bell' || npc.art === 'memorial' || !!(npc.portrait && npc.size)};
     const s = line?.s;
     if (s === 'me') return {name: myName || '나', role: '나', img: null};
     if (s === 'sys') return {name: line.n || npc.name, role: '음성', img: npc.size ? npc.portrait : null, sight: true};
@@ -201,6 +201,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory}) {
         <span>{log ? `지난 대사 ${seen.length}` : step ? (end ? '' : pick ? '대답을 고르세요' : `남은 대사 ${left}`) : `${trail.length + 1} / ${trail.length + 1 + left}`}</span>
         {step && seen.length > 1 && <button type="button" className={`shop-btn${log ? ' main' : ''}`} aria-pressed={log} onClick={() => { setLog(!log); dialog.current?.focus(); }}>{log ? '돌아가기' : '기록'}</button>}
         {log ? null : !pick && <button type="button" className="shop-btn" disabled={!end && !trail.length} onClick={back}>이전</button>}
+        {!step && npc.books && onBooks && <button type="button" className="shop-btn" onClick={() => onBooks(npc.books)}>책 펼치기</button>}
         {log || pick ? null : end ? <button type="button" className="shop-btn main" onClick={finish}>확인</button>
           : <button type="button" className="shop-btn main" aria-disabled={!ready} onClick={advance}>{left || step ? '다음' : '대화 마치기'}</button>}
       </footer>

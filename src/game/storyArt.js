@@ -1,6 +1,6 @@
 /* 메인 스토리 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
    바닥: ground/<맵 id>.webp · 건물 · 장소 · 소품: places/<id>.webp · 사람: people/<인물 id>.webp */
-import {STORY_ART as A, STORY_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
+import {STORY_ART as A, PLACE_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
 import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepOpenTargets, storyGateOpen, storyGateCh} from './storyQuestData.js';
 import {VILLAGE_NPCS} from './villageData.js';
 
@@ -28,7 +28,7 @@ function label(ctx, text, x, y, color = '#f6e5bb') {
   ctx.fillStyle = 'rgba(48,37,24,.88)'; ctx.beginPath(); ctx.roundRect(x - w/2, y - 11, w, 22, 6); ctx.fill();
   ctx.fillStyle = color; ctx.fillText(text, x, y); ctx.restore();
 }
-const mapOf = (id) => STORY_MAPS.find((m) => m.id === id);
+const mapOf = (id) => PLACE_MAPS.find((m) => m.id === id);
 
 // 바닥 그림 파일이 있으면 그 그림을 맵 크기로 늘려 쓴다. 없으면 false — 코드 바닥(paintStory)을 쓴다.
 export function drawStoryBackdrop(ctx, M, cam, W, H) {
@@ -71,7 +71,7 @@ export function paintStory(ctx, M) {
     S.roads.forEach((r) => { ctx.save(); ctx.translate(-14, 0); curve(ctx, r.pts); ctx.stroke(); ctx.translate(28, 0); curve(ctx, r.pts); ctx.stroke(); ctx.restore(); });
   }
   ctx.fillStyle = 'rgba(246,229,187,.55)'; ctx.font = "15px 'Do Hyeon', sans-serif"; ctx.textAlign = 'left';
-  ctx.fillText(`${S.ch}장 · ${S.name} · 임시 맵`, 40, M.h - 30);
+  if (S.ch) ctx.fillText(`${S.ch}장 · ${S.name} · 임시 맵`, 40, M.h - 30);
 }
 
 /* 임시 도형 — look 마다 한 가지. tone 이 없으면 맵 길 색을 쓴다. 발 기준 (x, y). */
@@ -164,6 +164,7 @@ function light(ctx, x, y, r, c) { ctx.save(); ctx.fillStyle = c; ctx.shadowColor
 
 const toneOf = (mapId) => mapOf(mapId)?.ground.road || '#c8b994';
 export function drawStoryObject(ctx, n, mapId) {
+  if (n.bg) return;   // 바닥 그림에 그려진 조사물(도서관 책장 · 지도) — 이름표만(drawStoryNpc)
   if (!n.art || !drawArt(ctx, 'places', n.art, n.x, n.y, n.size)) { if (n.decor) return; (SHAPES[n.look] || SHAPES.house)(ctx, n, n.tone || toneOf(mapId)); }   // 장식 소품은 그림이 없으면 그리지 않는다
   if (n.name && !n.sight) label(ctx, n.name, n.x, n.y + 20);
 }

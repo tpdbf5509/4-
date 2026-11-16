@@ -17,9 +17,9 @@ const LIST = [
   { name: "bj_sw_form", part: "sword", phase: "form", n: 8, dirs: D16 },
   { name: "bj_sw_hold", part: "sword", phase: "hold", n: 4, loop: 1, dirs: D16 },
   { name: "bj_sw_break", part: "sword", phase: "break", n: 8, dirs: D16 },
-  { name: "bj_arc1", part: "arc", phase: "swing1", n: 6, dirs: D5 },
-  { name: "bj_arc2", part: "arc", phase: "swing2", n: 6, dirs: D5 },
-  { name: "bj_arc3", part: "arc", phase: "swing3", n: 8, dirs: D5 },
+  { name: "bj_arc1", part: "arc", phase: "swing1", n: 8, dirs: D5, size: [180, 180] },
+  { name: "bj_arc2", part: "arc", phase: "swing2", n: 8, dirs: D5, size: [180, 180] },
+  { name: "bj_arc3", part: "arc", phase: "swing3", n: 8, dirs: D5, size: [180, 180] },
   { name: "bj_vl_form", part: "veil", phase: "form", n: 8, dirs: [0] },
   { name: "bj_vl_hold", part: "veil", phase: "hold", n: 6, loop: 1, dirs: [0] },
   { name: "bj_vl_hit", part: "veil", phase: "hit", n: 8, dirs: D5 },
@@ -36,6 +36,8 @@ const LIST = [
   { name: "bj_hk_link", part: "link", n: 4, dirs: D16, variant: (i) => i },
   { name: "bj_hk_drop", part: "drop", n: 6, dirs: [0] },
   // 적혈탄 압축 구슬 — 줄 = 단계 0 · 1 · 2(돌리지 않는다), 칸 = 한 바퀴
+  // 11월 16일 — 혈검 베인 자리(맞은 적마다)
+  { name: "bj_cut", part: "cut", n: 8, dirs: [0] },
   { name: "bj_core", part: "core", n: 8, loop: 1, dirs: [0, 1, 2], tierRows: 1, size: [40, 40] },
 ];
 const C = fit(B8, 8), RIM = new Set([C[6] >>> 0, C[7] >>> 0]);
@@ -46,7 +48,7 @@ for (const s of LIST.filter((q) => q.name.startsWith(ONLY))) {
   for (const ang of s.dirs) for (let i = 0; i < s.n; i++) {
     const u = s.loop ? i / s.n : s.n === 1 ? 1 : i / (s.n - 1);
     const f = createFrame(W, H);
-    const p = painterFor(f).place(OX, OY, false, ["veil", "hand", "wave", "drop", "core"].includes(s.part) ? 0 : ang);
+    const p = painterFor(f).place(OX, OY, false, ["veil", "hand", "wave", "drop", "core", "cut"].includes(s.part) ? 0 : ang);
     const o = { ...FX.meta.options, palette: B8, part: s.part, phase: s.phase, u, ang, seed: 5 };
     if (s.r) o.r = s.r(i);
     if (s.variant) o.variant = s.variant(i);

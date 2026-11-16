@@ -444,7 +444,9 @@ function swordHit(E, g, h, sw) {
     if (!E.dummy(o)) hit = 1;
   }
   h.swing = 0.22;
-  E.fx(g, h.map, { kind: "sk_bj_sword", x: h.x, y: h.y, ax: sw.ax, ay: sw.ay, r: sw.R, i: i % 2, pi: h.pi, t: 0.24, life: 0.24, snd: list.length ? "bloodHit" : "slash" });
+  // hs — 베인 자리 연출용 맞은 자리(그림만, 4명까지) · 11월 16일 사용자 "검기가 밋밋해" — 연출을 0.24 → 0.3초로 늘렸다(판정은 그대로)
+  const hs = list.slice(0, 4).map((o) => [Math.round(o.x), Math.round(o.y)]);
+  E.fx(g, h.map, { kind: "sk_bj_sword", x: h.x, y: h.y, ax: sw.ax, ay: sw.ay, r: sw.R, i: i % 2, pi: h.pi, t: 0.3, life: 0.3, ...(hs.length ? { hs } : {}), snd: list.length ? "bloodHit" : "slash" });
   if (hit) sw.xp = 1;
 }
 // 혈검 끝 — 칼날이 피로 풀린다. 형상화 경험치는 유효 적중이 있었으면 시전당 한 번

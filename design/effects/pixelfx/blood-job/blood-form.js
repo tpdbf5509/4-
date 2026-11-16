@@ -8,6 +8,7 @@
 //   hook   — 혈쇄 갈고리(11월 15일). 0,0 = 쥔 손(form) · 갈고리 머리 뒤끝(head). +x 로 날아간다. form 손에서 갈고리가 생김 · head 날아가는 머리
 //   link   — 사슬 마디 하나. 0,0 = 마디 가운데 · +x 가 사슬 방향. variant 0 둥근 마디 · 1 옆에서 본 마디 · 2 · 3 팽팽한(밝은) 마디
 //   drop   — 사슬이 핏방울로 풀린다(마디 하나 자리에서 아래로 떨어진다)
+//   cut    — 혈검에 맞은 자리(11월 16일). 0,0 = 맞은 자리. 사선 하나가 그어지고 갈라진 자리에서 피가 터진다
 //   core   — 적혈탄 압축 구슬(11월 15일 사용자 "압축되는 거 크기 크게 줄여줘"). 0,0 = 손끝. tier 0 · 1 · 2 마다 더 작고 단단해지고 둘레를 도는 방울이 는다(u = 한 바퀴)
 // 외곽선은 C[6] · 가장 밝은 빛은 C[7] 만 쓴다 — 게임이 이 두 색을 따로 떼어(밝은 외곽 시트) 어두운 연마 색에서도 외곽을 밝게 그린다.
 // 쓰는 법: pixelfx 저장소 src/fx/nature/blood-form.js 로 복사하고 make-form.mjs 로 뽑는다.
@@ -118,42 +119,90 @@ function swordBreak(p, C, u, o) {
 }
 
 /* ── 혈검 궤적 ───────────────────────── */
-// 초승달 — 머리(지금 칼끝)가 a0 → a1 로 지나가고 꼬리가 뒤따라 옅어진다. 바깥 테두리는 밝게, 바깥으로 핏방울이 튄다
+// 초승달 — 머리(지금 칼끝)가 a0 → a1 로 지나가고 꼬리가 뒤따라 옅어진다. 바깥 날은 하얗게 달아오르고, 안쪽에 옅은 잔상 한 겹 ·
+// 머리에는 반짝임 · 바깥으로는 굵은 핏방울이 튀어 떨어진다(11월 16일 사용자 "검기가 밋밋해" — 굵기 · 밝기 · 튀는 피를 늘렸다)
 function crescent(p, C, R, W, a0, a1, u, tailLen, o, big) {
-  const head = lerp(a0, a1, ez(u / 0.7)), tail = lerp(a0, a1, ez((u - tailLen) / 0.7));
+  const head = lerp(a0, a1, ez(u / 0.42)), tail = lerp(a0, a1, ez((u - tailLen) / 0.5));
   if (u > 1) return;
   const lo = Math.min(head, tail), hi = Math.max(head, tail);
-  if (hi - lo < 0.02) return;
-  const fade = 1 - smooth(0.7, 1, u);
-  p.shade(-R - 2, -R - 2, R + 2, R + 2, (x, y, out) => {
-    const d = Math.hypot(x, y), a = Math.atan2(y, x);
-    if (a < lo || a > hi) return;
-    const s = (a - tail) / (head - tail || 1e-6);      // 0 꼬리 · 1 머리
-    const w = W * (0.25 + 0.75 * Math.sin(Math.PI * clamp(s * 0.95 + 0.05))) * (0.4 + 0.6 * fade);
-    if (d > R || d < R - w) return;
-    const v = (d - (R - w)) / w;                       // 0 안 · 1 바깥
-    if (v > 0.82) return C[s > 0.85 ? 7 : 6];
-    if (v > 0.55) return C[s > 0.6 ? 5 : 4];
-    if (v > 0.25) return C[s > 0.4 ? 4 : 3];
-    return s > 0.5 ? C[3] : C[2];
-  });
-  // 바깥으로 튀는 피
-  const n = big ? 16 : 9;
+  const fade = 1 - smooth(0.6, 1, u);
+  if (hi - lo >= 0.02) {
+    // 안쪽 잔상 — 본 궤적보다 조금 늦고 안쪽, 체크 무늬로 듬성듬성
+    const R2 = R - W - 3, tail2 = lerp(a0, a1, ez((u - tailLen * 1.2) / 0.5)), head2 = lerp(a0, a1, ez((u - 0.06) / 0.42));
+    const lo2 = Math.min(head2, tail2), hi2 = Math.max(head2, tail2);
+    p.shade(-R - 3, -R - 3, R + 3, R + 3, (x, y) => {
+      const X = x + 0.5, Y = y + 0.5, d = Math.hypot(X, Y), a = Math.atan2(Y, X);
+      if (a >= lo && a <= hi) {
+        const s = (a - tail) / (head - tail || 1e-6);    // 0 꼬리 · 1 머리
+        const w = W * (0.2 + 0.8 * Math.sin(Math.PI * clamp(s * 0.92 + 0.08))) * (0.45 + 0.55 * fade);
+        if (d <= R + 1 && d >= R - w) {
+          const v = (d - (R - w)) / Math.max(1, w);       // 0 안 · 1 바깥
+          if (d > R) return s > 0.45 ? C[6] : undefined;  // 날 밖 한 칸 — 밝은 외곽
+          if (v > 0.8) return C[s > 0.35 ? 7 : 6];        // 하얗게 달아오른 날
+          if (v > 0.6) return C[s > 0.5 ? 6 : 5];
+          if (v > 0.35) return C[s > 0.3 ? 5 : 4];
+          if (v > 0.12) return C[4];
+          return s > 0.5 ? C[3] : C[2];
+        }
+      }
+      if (a >= lo2 && a <= hi2 && d <= R2 && d >= R2 - Math.max(2, W * 0.35) && ((Math.floor(x) + Math.floor(y)) & 1)) return C[3];
+    });
+    // 머리 반짝임 — 칼끝 자리 십자 빛
+    if (u < 0.75) {
+      const hx = Math.cos(head) * (R - 1), hy = Math.sin(head) * (R - 1), L = big ? 4 : 3;
+      for (let k = -L; k <= L; k++) { p.px(hx + k, hy, Math.abs(k) < 2 ? C[7] : C[6]); p.px(hx, hy + k, Math.abs(k) < 2 ? C[7] : C[6]); }
+    }
+    // 속도선 — 날 바깥에서 머리 쪽으로 짧게 그은 가는 줄
+    for (let i = 0; i < (big ? 4 : 3); i++) {
+      const at = lerp(tail, head, 0.35 + 0.18 * i), r = R + 4 + 3 * i, len = 0.12 + 0.05 * i;
+      if (u > 0.55) break;
+      for (let q = 0; q < 1; q += 0.12) { const aa = at + (head > tail ? 1 : -1) * len * q; p.px(Math.cos(aa) * r, Math.sin(aa) * r, q > 0.6 ? C[6] : C[4]); }
+    }
+  }
+  // 바깥으로 튀는 굵은 피 — 날을 따라 생겨 바깥으로 날다가 아래로 떨어진다
+  const n = big ? 24 : 16;
   for (let i = 0; i < n; i++) {
-    const at = lerp(a0, a1, rand(o.seed, i, 31)), born = clamp((at - a0) / (a1 - a0 || 1e-6)) * 0.55;
+    const at = lerp(a0, a1, rand(o.seed, i, 31)), born = clamp((at - a0) / (a1 - a0 || 1e-6)) * 0.5;
     const age = u - born;
-    if (age <= 0 || age > 0.45) continue;
-    const r = R + 2 + (8 + 10 * rand(o.seed, i, 32)) * age / 0.45 * (big ? 1.4 : 1);
-    const x = Math.cos(at) * r, y = Math.sin(at) * r;
-    p.px(x, y, age < 0.15 ? C[6] : age < 0.3 ? C[5] : C[3]);
-    if (big && age < 0.2) p.px(x + Math.cos(at), y + Math.sin(at), C[4]);
+    if (age <= 0 || age > 0.5) continue;
+    const sp = (12 + 16 * rand(o.seed, i, 32)) * (big ? 1.3 : 1), k = age / 0.5;
+    const r = R + 1 + sp * k;
+    const [gx, gy] = downOf(o.ang || 0), fall = 14 * k * k;
+    const x = Math.cos(at) * r + gx * fall, y = Math.sin(at) * r + gy * fall;
+    const c = k < 0.3 ? C[6] : k < 0.6 ? C[5] : C[3], sz = rand(o.seed, i, 33) < 0.6 && k < 0.7 ? 2 : 1;
+    p.rect(x, y, sz, sz, c);
+    if (k < 0.45) p.px(x - Math.cos(at) * 2, y - Math.sin(at) * 2, C[4]);   // 꼬리
   }
 }
 function arcFx(p, C, u, o) {
   const ph = o.phase;
-  if (ph === "swing1") crescent(p, C, 46, 12, -1.25, 1.05, u, 0.32, o, false);
-  else if (ph === "swing2") crescent(p, C, 44, 11, 1.1, -1.2, u, 0.32, o, false);   // 거꾸로 — 아래에서 위로
-  else crescent(p, C, 50, 17, -2.2, 1.35, u, 0.4, o, true);   // swing3 — 머리 뒤에서 앞으로 크게 내려벤다
+  if (ph === "swing1") crescent(p, C, 48, 16, -1.35, 1.15, u, 0.5, o, false);
+  else if (ph === "swing2") crescent(p, C, 46, 15, 1.2, -1.3, u, 0.5, o, false);   // 거꾸로 — 아래에서 위로
+  else crescent(p, C, 52, 20, -2.2, 1.35, u, 0.55, o, true);   // swing3 — 머리 뒤에서 앞으로 크게 내려벤다
+}
+
+/* ── 혈검 베인 자리(11월 16일) ─────────── */
+// 맞은 적 몸 위에 그어지는 날카로운 사선 하나 + 갈라진 자리에서 터지는 피. 0,0 = 맞은 자리, 사선은 왼쪽 위 → 오른쪽 아래(게임이 좌우로 뒤집는다)
+function cutFx(p, C, u, o) {
+  const L = 13, grow = ez(u / 0.25), thin = 1 - smooth(0.25, 0.7, u);
+  if (thin > 0) {
+    const len = L * grow;
+    for (let k = -len; k <= len; k += 0.5) {
+      const x = k * 0.8, y = k * 0.6, mid = 1 - Math.abs(k) / L;
+      p.px(x, y, mid > 0.5 ? C[7] : C[6]);
+      if (mid > 0.3 && thin > 0.5) { p.px(x + 0.6, y - 0.8, C[6]); p.px(x - 0.6, y + 0.8, C[5]); }
+    }
+  }
+  // 갈라진 자리에서 수직으로 터지는 피
+  for (let i = 0; i < 18; i++) {
+    const age = u - 0.08 - rand(o.seed, i, 151) * 0.12; if (age <= 0) continue;
+    const k = age / 0.75; if (k > 1) continue;
+    const t0 = (rand(o.seed, i, 152) - 0.5) * 2 * L * 0.7, side = i % 2 ? 1 : -1;
+    const sp = 8 + 12 * rand(o.seed, i, 153);
+    const x = t0 * 0.8 + side * 0.6 * sp * k, y = t0 * 0.6 - side * 0.8 * sp * k + 18 * k * k;
+    const c = k < 0.25 ? C[6] : k < 0.55 ? C[5] : C[3];
+    const z = k < 0.6 && i % 2 === 0 ? 2 : 1; p.rect(x, y, z, z, c);
+  }
 }
 
 /* ── 혈막 ───────────────────────────── */
@@ -457,4 +506,5 @@ export function draw(p, t, o) {
   else if (o.part === "link") linkFx(p, C, o);
   else if (o.part === "drop") dropFx(p, C, u, o);
   else if (o.part === "core") coreFx(p, C, u, o);
+  else if (o.part === "cut") cutFx(p, C, u, o);
 }

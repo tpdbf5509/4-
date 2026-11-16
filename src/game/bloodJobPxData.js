@@ -30,9 +30,9 @@ export const BLOOD_JOB_PX = {
   bj_sw_form: { w: 152, h: 152, cols: 8, n: 8, rows: 16, cx: 76, cy: 76, rim: 1 },   // 혈검 생성 — 모이는 피 → 손잡이 → 칼날(줄 = 16방향, 0 오른쪽부터 시계 방향 22.5도)
   bj_sw_hold: { w: 142, h: 142, cols: 4, n: 4, rows: 16, cx: 71, cy: 71, loop: 1, rim: 1 },   // 든 혈검 — 칼날 위 빛이 흐른다(반복, 16방향)
   bj_sw_break: { w: 160, h: 158, cols: 8, n: 8, rows: 16, cx: 80, cy: 78, rim: 1 },   // 혈검 풀림 — 칼끝부터 피로 흘러내린다(16방향)
-  bj_arc1: { w: 113, h: 124, cols: 6, n: 6, rows: 5, cx: 48, cy: 65, rim: 1 },   // 혈검 1타 궤적 — 위에서 아래로(줄 = -90 · -45 · 0 · 45 · 90도, 왼쪽은 좌우 뒤집기)
-  bj_arc2: { w: 110, h: 120, cols: 6, n: 6, rows: 5, cx: 50, cy: 60, rim: 1 },   // 혈검 2타 궤적 — 아래에서 위로
-  bj_arc3: { w: 147, h: 148, cols: 8, n: 8, rows: 5, cx: 73, cy: 74, rim: 1 },   // 혈검 3타 — 크게 내려베기
+  bj_arc1: { w: 131, h: 147, cols: 8, n: 8, rows: 5, cx: 58, cy: 63, rim: 1 },   // 혈검 1타 궤적 — 위에서 아래로(줄 = -90 · -45 · 0 · 45 · 90도, 왼쪽은 좌우 뒤집기)
+  bj_arc2: { w: 128, h: 141, cols: 8, n: 8, rows: 5, cx: 58, cy: 60, rim: 1 },   // 혈검 2타 궤적 — 아래에서 위로
+  bj_arc3: { w: 164, h: 162, cols: 8, n: 8, rows: 5, cx: 80, cy: 74, rim: 1 },   // 혈검 3타 — 크게 내려베기
   bj_vl_form: { w: 121, h: 83, cols: 8, n: 8, cx: 59, cy: 41, rim: 1 },   // 혈막 생성 — 피가 모여 휘어진 방패판 두 겹으로 굳는다
   bj_vl_hold: { w: 70, h: 62, cols: 6, n: 6, cx: 35, cy: 31, loop: 1, rim: 1 },   // 혈막 유지(반복 — 안쪽 겹이 천천히 돈다)
   bj_vl_hit: { w: 90, h: 96, cols: 8, n: 8, rows: 5, cx: 35, cy: 48, rim: 1 },   // 혈막 피격 — 맞은 쪽 판이 움푹 · 파문(줄 = 맞은 방향 5)
@@ -47,6 +47,7 @@ export const BLOOD_JOB_PX = {
   bj_hk_head: { w: 50, h: 50, cols: 4, n: 4, rows: 16, cx: 25, cy: 25, loop: 1, rim: 1 },   // 날아가는 갈고리 머리(빛이 자루를 따라 흐른다)
   bj_hk_link: { w: 12, h: 12, cols: 4, n: 4, rows: 16, cx: 6, cy: 6, rim: 1 },   // 사슬 마디 — 칸 0 둥근 · 1 옆 · 2 · 3 팽팽한(밝은)
   bj_hk_drop: { w: 11, h: 37, cols: 6, n: 6, cx: 6, cy: 5, rim: 1 },   // 마디가 핏방울로 풀려 떨어진다
+  bj_cut: { w: 32, h: 40, cols: 8, n: 8, cx: 17, cy: 9, rim: 1 },   // 11월 16일 — 혈검에 맞은 자리: 사선이 그어지고 피가 터진다(맞은 적마다, 2배)
   /* 11월 15일 — 적혈탄 압축 구슬(blood-form.js core). 예전 bj_orb · bj_gather 차징(지름 80px 넘음)을 대신한다. 2배로 그려 화면 지름 약 32px */
   bj_core: { w: 20, h: 16, cols: 8, n: 8, rows: 3, cx: 10, cy: 9, loop: 1, rim: 1 },   // 줄 = 단계 0 · 1 · 2(갈수록 작고 단단 · 도는 방울이 는다), 칸 = 한 바퀴
   bj_fall: { w: 143, h: 135, cols: 4, n: 10, cx: 71, cy: 50 },            // holy/feather-burst — 탈진: 혈액 갑주 조각이 흩날려 떨어진다

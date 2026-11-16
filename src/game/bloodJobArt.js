@@ -206,12 +206,14 @@ function slam(ctx, f, t, sq) {
   void sq;
 }
 // 혈검 베기 궤적 — 1타 위 → 아래 · 2타 아래 → 위 · 3타 크게 내려베기. 몸 가운데 둘레 실제 반경(반경 1px 예고선은 옅게)
-const ARC_R = 47, ARC_K = 2;                           // 궤적 그림 반지름(1배 픽셀) · 배수 — 몸에 붙어 보이게 2배(반지름 약 94). 실제 반경은 1px 예고선
+const ARC_R = 47, ARC_K = 2, CUT_K = 2;                // 궤적 그림 반지름(1배 픽셀) · 배수 — 몸에 붙어 보이게 2배(반지름 약 94). 실제 반경은 1px 예고선. CUT_K 베인 자리 배수
 function sword(ctx, f, t, sq) {
   const P = pal(f), ax = f.ax || 1, ay = f.ay || 0, R = f.r || 140, [row, flip] = row5(Math.atan2(ay * sq, ax));
   const name = f.i === 2 ? "bj_arc3" : f.i === 1 ? "bj_arc2" : "bj_arc1";
   formCell(ctx, name, row, Math.min(SH[name].n - 1, 1 + Math.floor(clamp(t / f.life) * (SH[name].n - 1))), f.x, f.y - 34, ARC_K * Math.min(1.5, R / 140), 1, f.c, flip);
   ring(ctx, f.x, f.y, R, sq, P.rim, 0.22 * (1 - clamp(t / f.life)), 1, 4);
+  // 베인 자리 — 맞은 적 몸 위에 사선 + 터지는 피(11월 16일). 칼이 지나간 뒤 조금 늦게 그어진다
+  if (f.hs) for (const [hx, hy] of f.hs) { const v = clamp((t - 0.04) / (f.life - 0.04)); if (t >= 0.04) formCell(ctx, "bj_cut", 0, onceI("bj_cut", v), hx, hy - 36, CUT_K, 1, f.c, flip !== (f.i === 1)); }
 }
 // 혈검이 풀린다 — 손에 들려 있던 자리에서 칼끝부터 피로 흘러내린다
 const bladeSeen = new Map();                          // pi → { x, y, a, at } — 마지막으로 그린 손 · 칼 방향(drawBloodBlade 가 적는다)

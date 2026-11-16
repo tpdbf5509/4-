@@ -76,6 +76,8 @@ export const BLOOD_SHOT = {
    판정은 발밑 선으로 한다. 몹 몸통을 눌러도 발밑 선은 몸 높이만큼 비껴 지나가 작은 몹은 거의 빗나갔다.
    그래서 손 높이에서 포인터 쪽으로 그은 선이 그림 속 몸(발밑 ~ 머리)을 지나가는 적이 있으면 그 적의 발밑 쪽으로 방향을 바로잡는다.
    pad — 몸 반폭(rad × 0.5)에 더하는 여유(화면 px) · 몸 높이는 rad × bodyK(최소 bodyMin) · 사람은 heroH */
+// BLOOD-001 이 들 수 있는 무기(11월 16일 사용자 — 크림슨 레퀴엠 말고는 못 든다). 해금하면 다른 무기는 내려놓는다
+export const BLOOD_WEAPON = "blood_gun";
 export const BLOOD_AIM = { lift: 34, pad: 14, bodyK: 2, bodyMin: 26, heroH: 64 };
 
 // 기본 키 — 정한 값. 문서 제안(Q · E · R · Shift+R · F · C)은 이 게임의 대쉬 · 대화 · 직업 스킬 · 큰 기술 · 스탯과 겹쳐 빈 키로 옮겼다(키 설정에서 바꾼다).

@@ -6,6 +6,7 @@
    - 유도 혈탄은 한 시전에서 최대 n 발만 생긴다(판정이 새 유도탄을 만들지 않는다). 폭발은 대상마다 한 번이고, 폭발이 다른 적의 폭발을 켜지 않는다.
    - 유도 혈탄 목표는 서버가 정한다: 혈흔 많은 적 → 최초 혈탄에 맞은 적 → 가까운 적 → 남은 체력이 낮은 적. 적 수에 따라 고르게 나눈다(6발이 모자라거나 넘지 않게). */
 import { BLOOD_SKILLS, bloodBend } from './bloodGunData.js';
+import { duelHealing } from './duelBalance.js';
 
 const ID = 'blood_gun';
 const W = BLOOD_SKILLS.blood_gun, S = W.skill, P = W.passive, H = S.hold;
@@ -28,6 +29,15 @@ export function bloodOnHit(E, g, h, o, { basic, side }) {
   const bs = state(h), k = keyOf(o), m = bs.marks[k] || (bs.marks[k] = [0, 0]);
   m[0] = Math.min(P.max, m[0] + 1); m[1] = P.dur;
   show(o, m[0]);
+}
+// 맞힐 때마다 회복(P.heal) — 레퀴엠 평타 · 혈계 추격(무기 시전)만. 튄 피해 · 다른 스킬(BLOOD-001 직업 스킬 등)은 빼고 쓰러진 동안은 없다
+export function bloodLifeOnHit(E, g, h, o, { basic, side }) {
+  if (side || !o || E.held(h) !== ID || !(h.down <= 0) || !(h.hp < h.max)) return;
+  if (!basic && !(h.cast && h.cast.weapon)) return;
+  const before = h.hp;
+  h.hp = Math.min(h.max, h.hp + duelHealing(h, h.max * P.heal));
+  const got = Math.round(h.hp - before);
+  if (got > 0) E.fx(g, h.map, { kind: 'heal', x: h.x, y: h.y - 56, text: `+${got}`, t: 0.6, life: 0.6, who: h.pi });
 }
 function dropMark(bs, g, k) {
   delete bs.marks[k];

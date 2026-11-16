@@ -15,7 +15,7 @@ import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } f
 import { BLOOD_LAB } from './bloodJobData.js';
 import { bloodSpotTalk, bloodHunterTalk, bloodSeqHit, tickBloodTrial } from './bloodUnlock.js';   // BLOOD-001 해금 경로(4단계)
 import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn, bloodSwordPress, bloodSwordOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
-import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
+import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodLifeOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
 import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
@@ -3015,6 +3015,7 @@ function weaponOnHit(g, h, m, foe, side, basic) {
   if (basic && !side && o) worldWeaponBasicHit(worldEngine, g, h, o);
   if (o) voidOnHit(voidEngine, g, h, o, { basic, side });   // 공허의 장궁 · 지팡이 패시브
   if (o) bloodOnHit(bloodEngine, g, h, o, { basic, side });   // 크림슨 레퀴엠 — 평타가 맞으면 혈흔
+  if (o) bloodLifeOnHit(bloodEngine, g, h, o, { basic, side });   // 크림슨 레퀴엠 — 맞힐 때마다 회복(11월 16일)
   if (o) bloodJobOnHit(bloodJobEngine, g, h, o, { basic, side });   // BLOOD-001 — 평타가 맞으면 혈량 +2 · 혈흔
   if (!sp || !o) return;
   const w = wsOf(h);

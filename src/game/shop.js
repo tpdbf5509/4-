@@ -26,7 +26,7 @@ import { ADV_BONUS } from "./advData.js";
 import { titleStat } from "./socialData.js";
 import { JUNK, bagSteps } from "./junkData.js";
 import { cleanBlocks } from "./block.js";
-import { cleanBd, bloodOn, dropBlood } from "./bloodJob.js";
+import { cleanBd, bloodOn, dropBlood, bloodWeaponOk } from "./bloodJob.js";
 import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
 import { ALCH, ALCH_MAT_BY_ID } from "./alchemyData.js";
@@ -261,6 +261,7 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (d.ab) b.ab = cleanAb(d.ab);                 // 심연의 탑 보상 기록 — 교환 횟수 · 돌파 보상 · 상자 보관함 · 외형(abyssReward.js)
   const bd = cleanBd(d.bd);
   if (bd) b.bd = bd;                              // 히든 직업 BLOOD-001 — 해금 · 직업 레벨 · 연마 · 혈량(bloodJob.js)
+  if (bd && bd.on && !bloodWeaponOk(equipped(b))) b.e = 0;   // BLOOD-001 은 크림슨 레퀴엠만(11월 16일 사용자) — 예전에 든 다른 무기는 내려놓는다
   const bu = cleanBu(d.bu);
   if (bu) b.bu = bu;                              // BLOOD-001 해금 경로 — 단서 · 진행 · 연 입구(bloodUnlock.js)
   b.al = cleanAl(d.al);                           // 물약 제작 레벨 · 경험치 · 오늘의 제작 의뢰(alchemy.js) — 옛 캐릭터는 1레벨부터
@@ -372,6 +373,7 @@ export function whyEquip(h, u) {
   const w = h.bag.w.find((q) => q.u === u);
   if (!w) out.push("가방에 없는 무기입니다");
   else if (h.lv < WEAPON_TIERS[w.r]) out.push(`레벨 ${WEAPON_TIERS[w.r]} 필요 (지금 ${h.lv})`);
+  else if (bloodOn(h) && !bloodWeaponOk(w)) out.push("BLOOD-001 은 크림슨 레퀴엠만 들 수 있습니다");
   return out;
 }
 

@@ -8,7 +8,7 @@
    3단계(11월 14일): 혈량 상태(증폭 · 과충전 · 폭주 h.bd.rg · 탈진) · 혈역 증폭(h.bd.fd). 공격력은 rpg.js heroDmgMul 이 bloodJobAtk 를 곱한다
    2단계(11월 14일): 혈수 강타(h.bd.sm 내려칠 손) · 혈형 변환 — 혈검(h.bd.sw 생성 → 손에 들고 새 평타마다 베기, 11월 15일) · 혈막(h.bd.vl 받는 피해 감소, hurtHero → bloodJobTake) */
 import { BLOOD, BLOOD_SHOT as S, BLOOD_SMASH as M, BLOOD_FORM as F, BLOOD_STATE as Z, BLOOD_FIELD as FD, BLOOD_WAVE as WV, BLOOD_HOOK as HK, BLOOD_TINT, TRAIN_UNLOCK, TRAIN_NAMES, BLOOD_NAME,
-  BLOOD_PIERCE as PC, BLOOD_SEA as SEA, BLOOD_LEGION as LG, BLOOD_ORIGIN as OG, BLOOD_AWAKE as AW, BLOOD_AIM as AIM } from "./bloodJobData.js";
+  BLOOD_PIERCE as PC, BLOOD_SEA as SEA, BLOOD_LEGION as LG, BLOOD_ORIGIN as OG, BLOOD_AWAKE as AW, BLOOD_AIM as AIM, BLOOD_WEAPON } from "./bloodJobData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -48,11 +48,15 @@ export const bloodTint = (sum) => BLOOD_TINT.find((t) => sum >= t.from).id;
 export const trainOpen = (bd, i) => !!bd && bd.lv >= TRAIN_UNLOCK[i];
 
 // 해금 — 1차 전직을 비우고(사용자 결정) 직업 레벨 1 · 혈량 100 으로 시작한다. 예전에 해금했던 기록(되돌린 뒤 다시)은 레벨 · 연마를 그대로 쓴다
+// BLOOD-001 이 들 수 있는 무기 — 크림슨 레퀴엠만(11월 16일 사용자). 맨손(null)은 된다
+export const bloodWeaponOk = (w) => !w || w.sp === BLOOD_WEAPON;
 export function unlockBlood(h) {
   const old = h.bag.bd;
   h.bag.bd = old ? { ...cleanBdCore(old), on: 1 } : { on: 1, lv: 1, xp: 0, tr: [[0, 0], [0, 0], [0, 0]], b: BLOOD.start };
   h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
   h.bd = null;
+  const w = h.bag.e ? (h.bag.w || []).find((q) => q.u === h.bag.e) : null;
+  if (!bloodWeaponOk(w)) h.bag.e = 0;              // 크림슨 레퀴엠이 아닌 무기는 내려놓는다
   h.bag.v += 1;
 }
 // 전직 초기화 물약 — BLOOD-001 을 끈다. 직업 레벨 · 연마는 남긴다(다시 해금하면 이어서)

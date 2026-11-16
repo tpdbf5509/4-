@@ -292,3 +292,29 @@ test('스킬이 마우스 방향을 따라가기 — 끄면(포인터 방향 없
   rpgInput(g, { cls: 0, kind: 'wcharge', dir: false, q: 3 }); run(g, 3);
   assert(dealt(m) > 0, '가까운 적을 맞힌다');
 });
+
+// 11월 16일 — 레퀴엠으로 맞히면 회복 · BLOOD-001 은 레퀴엠만 든다
+test('크림슨 레퀴엠 — 평타가 맞을 때마다 최대 체력 1% 회복', () => {
+  const { g, h } = setup();
+  assert.equal(P.heal, .01);
+  mob(g, h.x + 160, h.y);
+  h.hp = Math.round(h.max * .5); const hp0 = h.hp;
+  basic(g, h);
+  assert.ok(h.hp > hp0, `회복 ${hp0} → ${h.hp}`);
+  assert.ok(h.hp - hp0 <= Math.ceil(h.max * .01) + 1, '한 대에 1%');
+});
+test('BLOOD-001 — 크림슨 레퀴엠 말고는 들 수 없고 해금하면 다른 무기를 내려놓는다', async () => {
+  const { rpgShop, cleanBag } = await import('../src/game/shop.js');
+  const { unlockBlood } = await import('../src/game/bloodJob.js');
+  const { g, h } = setup();
+  h.bag.w.push({ u: 2, t: 'gun', r: 0, g: 0, p: 100 });
+  h.bag.e = 2;
+  unlockBlood(h);
+  assert.equal(h.bag.e, 0, '다른 무기는 내려놓는다');
+  rpgShop(g, 0, { op: 'equip', u: 2 });
+  assert.equal(h.bag.e, 0, '다른 무기는 들 수 없다');
+  rpgShop(g, 0, { op: 'equip', u: 1 });
+  assert.equal(h.bag.e, 1, '레퀴엠은 든다');
+  const old = cleanBag({ ...structuredClone(h.bag), e: 2 });
+  assert.equal(old.e, 0, '저장된 다른 무기 장착도 풀린다');
+});

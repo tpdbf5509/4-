@@ -2993,6 +2993,7 @@ button.forge-stage:disabled { cursor: default; }
 .lib-page { position: relative; display: flex; flex-direction: column; min-height: 0; padding-bottom: 22px; }
 .lib-page-h { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid rgba(80, 58, 36, 0.35); }
 .lib-page-h b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: clamp(18px, 2.6vw, 25px); line-height: 1.12; letter-spacing: -0.04em; }
+.lib-page-h.ghost { visibility: hidden; }
 .lib-page-h small { font-size: 12px; color: #7a6248; letter-spacing: -0.02em; }
 .lib-text { display: flex; flex-direction: column; gap: 7px; overflow-y: auto; scrollbar-width: thin; font-size: clamp(12.5px, 1.3vw, 15px); line-height: 1.58; letter-spacing: -0.02em; }
 .lib-text p { margin: 0; }

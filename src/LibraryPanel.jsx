@@ -35,7 +35,8 @@ function Reader({book, onClose}) {
   const step = narrow ? 1 : 2;
   const page = (k, side) => (
     <div key={k} className={`lib-page ${side}`}>
-      {k === 0 && <header className="lib-page-h"><b>{book.title}</b><small>{book.by}</small></header>}
+      {/* 두 쪽 보기 첫 장은 오른쪽에도 같은 높이의 빈 머리를 두어 양쪽 본문 첫 줄을 맞춘다 */}
+      {(k === 0 || (!narrow && k === 1)) && <header className={`lib-page-h${k ? ' ghost' : ''}`} aria-hidden={k ? true : undefined}><b>{book.title}</b><small>{book.by}</small></header>}
       <div className="lib-text">{pages[k].map((b, i) => <Block key={i} b={b}/>)}</div>
       <span className="lib-no">{k + 1}</span>
     </div>

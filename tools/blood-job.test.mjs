@@ -679,3 +679,14 @@ test('화면 말 걸기가 NPC 없는 조사 자리도 서버로 보낸다', asy
   assert.match(body, /spotNear\(h\)/, '말 걸기 처리에 조사 자리 검사가 있어야 한다');
   assert.doesNotMatch(body, /const npc = npcNear\(h\);/, 'NPC 만 보고 끊으면 조사 자리가 죽는다');
 });
+
+// 11월 16일 — 해금 안내 문구의 조사(「배수로이」 「BLOOD-001 를」 로 나갔다)
+test('입구 열림 · 해금 안내 문구의 조사가 받침에 맞다', () => {
+  const { g, h } = setup();
+  h.bag.bu = { c: 3, f: 7, o: 0 };
+  goSpot(h, 'tube'); talk(g);
+  assert.ok(g.out.some((o) => o.k === 'sys' && o.msg.includes('토끼 사냥터 배수로가 열렸다')), '배수로가');
+  h.bag.bu = { c: 5, f: 11, o: 0 };
+  goSpot(h, 'plate'); talk(g);
+  assert.ok(g.out.some((o) => o.k === 'sys' && o.msg.includes('광장 분수 아래가 열렸다')), '아래가');
+});

@@ -44,6 +44,13 @@ export function spotLine(h, s) {
   return null;
 }
 const save = (h) => { h.bag.v += 1; };
+// 받침에 맞는 조사 — shop.js 의 jo 는 shop.js 가 이 파일을 불러와 순환이 되므로 여기에 작게 둔다. 마지막 글자가 숫자면 읽는 소리(1 일 · 3 삼 · 6 육 · 8 팔 · 0 영)로 본다
+const JONG_NUM = "0136780".includes.bind("0136780");
+const josa = (word, a, b) => {
+  const ch = [...String(word)].reverse().find((c) => (c >= "가" && c <= "힣") || (c >= "0" && c <= "9"));
+  const has = !ch ? false : ch >= "0" && ch <= "9" ? JONG_NUM(ch) : (ch.charCodeAt(0) - 0xac00) % 28 !== 0;
+  return `${word}${has ? a : b}`;
+};
 const tell = (E, g, h, text) => E.sys(g, h.pi, text);
 
 // 필수 조건(11월 16일 사용자 요청) — 「사냥꾼의 오른팔」 칭호(quest100)를 얻은 뒤에야 사냥꾼이 핏자국 이야기를 한다.
@@ -98,7 +105,7 @@ function clueFx(E, g, h, name) {
 }
 function openFx(E, g, h, s, door) {
   E.fx(g, h.map, { kind: "sk_bj_burst", x: s.x, y: s.y, r: 90, pi: h.pi, t: 0.5, life: 0.5, snd: "bloodBoom" });
-  tell(E, g, h, `${door.name}이 열렸다. 다음에는 이 입구로 다시 내려올 수 있다.`);
+  tell(E, g, h, `${josa(door.name, "이", "가")} 열렸다. 다음에는 이 입구로 다시 내려올 수 있다.`);
 }
 
 /* ── 압축기 순서 — 압축기 옆 허수아비에 평타 → 큰 기술 → 평타. 틀리면 첫 표시부터 ── */
@@ -167,7 +174,7 @@ function finish(E, g, h) {
   unlockBlood(h);
   E.fx(g, h.map, { kind: "sk_bj_rage", x: h.x, y: h.y, pi: h.pi, start: 1, t: 0.8, life: 0.8, snd: "bloodBoom" });
   E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 140, text: `${BLOOD_NAME} 각성`, color: "#E53945", t: 2, life: 2, snd: "lvup" });
-  tell(E, g, h, `${BLOOD_NAME} 를 해금했다. 1차 전직은 사라지고 직업 레벨 1 · 적혈탄부터 시작한다. 직업 레벨이 오르면 다음 스킬이 열린다.`);
+  tell(E, g, h, `${josa(BLOOD_NAME, "을", "를")} 해금했다. 1차 전직은 사라지고 직업 레벨 1 · 적혈탄부터 시작한다. 직업 레벨이 오르면 다음 스킬이 열린다.`);
 }
 // 시간 — tickBloodJob 앞에서 부른다(시험 가방이면 bloodOn 이 참이다)
 export function tickBloodTrial(E, g, h, dt) {

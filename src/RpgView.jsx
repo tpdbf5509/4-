@@ -925,10 +925,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (kind === "fire") { fireRef.current = !!dir; sentAt.current = Date.now(); }
     if (kind === "talk") {
       const h = g.heroes[mySeat];
-      const npc = npcNear(h);
+      const npc0 = npcNear(h);
+      // BLOOD-001 조사 자리(핏자국 · 유리관 …)는 NPC 가 없어도 서버로 말 걸기를 보낸다 — 예전엔 여기서 끊어 아무 반응이 없었다
+      const npc = npc0 || (h && spotNear(h) ? { spot: 1 } : null);
       // 약초 채집물이 NPC 보다 가까우면 채집한다(alchemy.js) — 시작 · 완료는 서버가 정한다
       const hn = h && herbNear(g, h);
-      if (hn && (!npc || Math.hypot(hn.x - h.x, hn.y - h.y) < Math.hypot(npc.x - h.x, npc.y - h.y))) {
+      if (hn && (!npc0 || Math.hypot(hn.x - h.x, hn.y - h.y) < Math.hypot(npc0.x - h.x, npc0.y - h.y))) {
         if (!h.gath) actRef.current?.("herb", { op: "go", i: hn.i });
         return;
       }
@@ -952,7 +954,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         setShopOpen(npc.shop);
         return;
       }
-      setTalk(h.quest.on
+      if (!npc.spot) setTalk(h.quest.on
         ? `아직 ${QUEST.need - h.quest.n}마리 남았네. 토끼도 가끔 들이받으니 조심하게.`
         : `토끼 ${QUEST.need}마리만 잡아 주게. ${h.lv>QUEST.lv?"":`경험치 ${QUEST.xp}과 `}${QUEST.coin}코인을 주겠네.`);
     }

@@ -669,3 +669,13 @@ test('스냅샷 — 새 대기 칸은 뒤에 붙고, 옛 줄(새 칸 없음)도 
   applyBloodJob(o, [50, 20, 0, [0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 3], 0, [], 0, 0, 0, 0, 0]);
   assert.equal(o.bdv.cd.wave, 0); assert.equal(o.bdv.cd.sword, 3); assert.equal(o.bdv.hk, null);
 });
+
+// 11월 16일 — 조사 자리는 NPC 가 없어도 화면이 말 걸기를 서버로 보내야 한다(전에는 `if (!npc) return` 에서 끊겨 아무 반응이 없었다)
+test('화면 말 걸기가 NPC 없는 조사 자리도 서버로 보낸다', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/RpgView.jsx', import.meta.url), 'utf8');
+  const i = src.indexOf('if (kind === "talk") {');
+  const body = src.slice(i, src.indexOf('if (kind === "dash"', i));
+  assert.match(body, /spotNear\(h\)/, '말 걸기 처리에 조사 자리 검사가 있어야 한다');
+  assert.doesNotMatch(body, /const npc = npcNear\(h\);/, 'NPC 만 보고 끊으면 조사 자리가 죽는다');
+});

@@ -11,9 +11,12 @@ const step=(g,n)=>{for(let i=0;i<n;i++)rpgStep(g,1/30);};
 const distance=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)/RPG.squash);
 const walkTo=(g,m,x,y)=>{rpgMove(g,0,{x,y,m});step(g,400);};
 
-test('도서관 두 층은 스냅샷 맵 목록 맨 뒤에 붙고 안전 지역이다',()=>{
- const n=SNAP_ORDER.maps.length;
- assert.deepEqual(LIBRARY_MAPS.map(m=>mapIdx(m.id)),[n-2,n-1]);
+test('도서관 두 층은 스냅샷 맵 목록에서 제자리(연구시설 다음, 115 · 116)를 지키고 안전 지역이다',()=>{
+ // 11월 16일 — 뒤에 Gambler 002 카지노 뒷방이 붙었다. 맵 차례는 뒤에만 더하므로 도서관 번호는 그대로다
+ const at=mapIdx('bloodlab');
+ assert.deepEqual(LIBRARY_MAPS.map(m=>mapIdx(m.id)),[at+1,at+2]);
+ assert.deepEqual(LIBRARY_MAPS.map(m=>mapIdx(m.id)),[115,116]);
+ assert.ok(SNAP_ORDER.maps.length>=118);
  LIBRARY_MAPS.forEach(m=>assert.ok(MAPS[m.id].safe&&MAPS[m.id].library));
 });
 

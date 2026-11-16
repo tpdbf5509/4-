@@ -44,6 +44,10 @@ import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAi
 import { bloodView } from "./game/bloodJob.js";
 import { BLOOD_NAME } from "./game/bloodJobData.js";
 import { spotNear, spotLine } from "./game/bloodUnlock.js";   // BLOOD-001 단서 조사 자리
+import { gamblerView } from "./game/gamblerJob.js";            // 히든 직업 Gambler 002(11월 16일)
+import { gmSpotNear, gmSpotLine } from "./game/gamblerUnlock.js";
+import { GAMBLER_NAME, GM_SLOTS } from "./game/gamblerData.js";
+import { gamblerHud, GamblerBar, GamblerButtons, GamblerStat } from "./GamblerHud.jsx";
 import { bloodHud, BloodBar, BloodButtons, BloodStat, SkillIco } from "./BloodHud.jsx";
 import { POTION_ICON_SHEET, POTION_ICONS, potionIconOf, iconStyle } from "./game/skillIconData.js";   // 스킬 · 물약 아이콘 칸(11월 15일)   // 히든 직업 BLOOD-001(11월 14일)
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
@@ -187,7 +191,10 @@ const snapHz = (n) => Math.max(SNAP_MIN, Math.min(SNAP_MAX, SNAP_BUDGET / Math.m
 const MOVE_ACTS = { up: "up", down: "down", left: "left", right: "right" };
 // 맵을 불러오는 동안 막는 조작 — 걷기 · 공격 · 스킬 · 말 걸기. 놓기(빈 방향 · 끄기 · 취소 · 목적지 지우기)는 그대로 보낸다
 const HOLD_WSK = new Set(["azure_dual", "blood_gun"]);   // 누르고 있는 동안 차징하는 무기 스킬 — 누름은 wcharge 로, 뗌도 wcharge 로 보낸다
-const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk", "herb", "blood"]);
+// Gambler 002 — 빌려 쓰는 행동 키(gamblerData.js GM_SLOTS). 혈 행동 키와 겹치는 것은 이 직업일 때 먼저 잡는다
+const GM_FIRST = GM_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
+const GM_BY_ACT = Object.fromEntries(GM_SLOTS.map((q) => [q.act, q.s]));
+const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk", "herb", "blood", "hidden"]);
 const loadBlocks = (kind, dir) => LOAD_BLOCK.has(kind) && !(kind === "hold" && !(dir && dir.length))
   && dir !== false && dir !== "cancel" && !(kind === "mv" && dir && dir.stop);
 const BIND_EAT_MS = 80;       // 키 설정에서 마우스 버튼을 넣은 뒤 뒤따르는 클릭 · 오른쪽 메뉴를 막는 시간(ms) — 짧게 둬 다음 칸 클릭을 먹지 않는다
@@ -930,7 +937,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const h = g.heroes[mySeat];
       const npc0 = npcNear(h);
       // BLOOD-001 조사 자리(핏자국 · 유리관 …)는 NPC 가 없어도 서버로 말 걸기를 보낸다 — 예전엔 여기서 끊어 아무 반응이 없었다
-      const npc = npc0 || (h && spotNear(h) ? { spot: 1 } : null);
+      const npc = npc0 || (h && (spotNear(h) || gmSpotNear(h)) ? { spot: 1 } : null);
       // 약초 채집물이 NPC 보다 가까우면 채집한다(alchemy.js) — 시작 · 완료는 서버가 정한다
       const hn = h && herbNear(g, h);
       if (hn && (!npc0 || Math.hypot(hn.x - h.x, hn.y - h.y) < Math.hypot(npc0.x - h.x, npc0.y - h.y))) {
@@ -968,7 +975,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     if (kind === "use" && !isHost) predictLunge(g, g.heroes[mySeat], dir);   // 급소 찌르기 돌진도 먼저 그린다
     const aim = skillFollowRef.current && aimedSkillInput(kind, dir) ? pointerSkillAim(g.heroes[mySeat], g.cam, skillPointer.current, RPG.squash) : null;
-    const pt = (kind === "adv" || (kind === "blood" && dir?.s === "wave")) && aim ? pointerSkillPt(g.heroes[mySeat], g.cam, skillPointer.current) : null;   // 전직 스킬 · 혈류 파동만 — 포인터 자리(그림자 일섬이 가까운 적을 고른다 · 파동 중심)
+    const pt = (kind === "adv" || kind === "hidden" || (kind === "blood" && dir?.s === "wave")) && aim ? pointerSkillPt(g.heroes[mySeat], g.cam, skillPointer.current) : null;   // 전직 스킬 · 혈류 파동만 — 포인터 자리(그림자 일섬이 가까운 적을 고른다 · 파동 중심)
     if (isHost) {
       rpgInput(g, { cls: mySeat, kind, dir, aim, pt });
     } else {
@@ -1160,9 +1167,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     // 행동 하나를 누른다 — 키보드 키와 마우스 버튼이 같은 곳으로 들어온다
     // BLOOD-001 — 겹친 키는 혈 행동이 먼저. 큰 기술 키는 혈역 증폭, 일반 스킬 칸 · 전직 스킬은 쓰지 않는다(11월 14일 사용자 결정)
     const isBlood = () => !!bloodView(G.current.heroes[mySeat]);   // 손님은 스냅샷 h.bdv
-    const kmap = () => keyMap(bindsRef.current, isBlood() ? BLOOD_ACTS : []);
+    // Gambler 002 — 새 키 칸 없이 기존 행동 키를 빌린다(gamblerData.js GM_SLOTS). 해금 시험 중에는 BLOOD-001 캐릭터도 이쪽이 먼저다
+    const isGm = () => !!gamblerView(G.current.heroes[mySeat]);    // 손님은 스냅샷 h.gmv
+    const kmap = () => keyMap(bindsRef.current, isGm() ? GM_FIRST : isBlood() ? BLOOD_ACTS : []);
     const BLOOD_OFF = /^(use\d|adv|advUlt|healMode)$/;
+    const GM_OFF = /^(use\d|adv|advUlt|healMode|skill|wskill|b[A-Z]\w*)$/;   // 일반 스킬 칸 · 큰 기술 · 전직 · 무기 스킬 · 혈 행동은 쓰지 않는다
     function pressAct(a) {
+      if (isGm()) {
+        if (GM_BY_ACT[a]) return void act("hidden", { op: "use", s: GM_BY_ACT[a] });
+        if (GM_OFF.test(a)) return;
+      }
       if (isBlood() && a === "skill") a = "bField";
       if (isBlood() && BLOOD_OFF.test(a)) return;
       if (a === "fire") act("fire", true);          // 누르고 있는 동안 평타
@@ -1203,6 +1217,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "party") toggleWin(partyOpen, setPartyOpen);
     }
     function releaseAct(a) {
+      if (isGm() && (GM_BY_ACT[a] || GM_OFF.test(a))) return;
       if (a === "skill" && isBlood()) a = "bField";
       if (MOVE_ACTS[a] && moveKeysOn(moveModeRef.current)) releaseDir(MOVE_ACTS[a]);
       if (a === "fire") act("fire", false);
@@ -1568,7 +1583,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         setHud(me ? {
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
           coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: npcNear(me), herb: herbNear(g, me), gath: !!me.gath,
-          bspot: (() => { const s = spotNear(me); return s ? { name: s.name, line: spotLine(me, s) } : null; })(),
+          bspot: (() => { const s = spotNear(me); if (s) return { name: s.name, line: spotLine(me, s) }; const q = gmSpotNear(me); return q ? { name: q.name, line: gmSpotLine(me, q) } : null; })(),   // BLOOD-001 · Gambler 002 조사 자리
           st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v, admin: !!me.admin,
           // 산 스킬 칸 — 배운 것만, 남은 대기 시간과 함께
           // 스킬 칸 — 직업 칸 · 일반 칸 1 · 2 에 넣은 것만(가방 "스킬" 탭)
@@ -1597,9 +1612,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             ...(me.jb && me.jb.shT > 0 && me.jb.sh > 0 ? [{ k: "msh", name: `보호막 ${Math.round(me.jb.sh)}`, t: me.jb.shT }] : []),
             ...(me.ws && me.ws.cmb && me.ws.cmb.t > 0 ? [{ k: "cmb", name: "연계 입력", t: me.ws.cmb.t }] : [])],
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
-          wsk: weaponHud(me),
-          adv: advHud(me),                          // 전직 스킬 칸
-          blood: bloodHud(bloodView(me)),           // 히든 직업 BLOOD-001 — 혈량 게이지 · 적혈탄 · 혈량 전환
+          wsk: gamblerView(me) ? null : weaponHud(me),   // Gambler 002 는 무기 스킬 · 전직 스킬 칸이 없다
+          adv: gamblerView(me) ? null : advHud(me),      // 전직 스킬 칸
+          gm: gamblerHud(gamblerView(me)),          // 히든 직업 Gambler 002 — 베팅 칩 · 전용 스킬(해금 시험 중에도)
+          blood: gamblerView(me) ? null : bloodHud(bloodView(me)),   // 히든 직업 BLOOD-001 — 혈량 게이지 · 적혈탄 · 혈량 전환(Gambler 002 시험 중에는 숨긴다)
           wb:worldBossView(g,me),guild:guildView(g,me),
           race: raceView(g, me),                    // 몹 레이스 — 모집 · 내 체력 · 순위(race.js)
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
@@ -1709,13 +1725,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const myEl = elemOf(myLook);
   const who = (pi) => {                              // 파티 칸 — 직업 · 원소
     const l = seats[pi]?.hero;
+    if (gamblerView(G.current.heroes[pi])) return GAMBLER_NAME;   // 히든 직업 Gambler 002 — 직업 이름을 바꿔 보인다
     if (bloodView(G.current.heroes[pi])) return BLOOD_NAME;   // 히든 직업 BLOOD-001 — 직업 이름을 바꿔 보인다(11월 15일 사용자 요청)
     return l ? lookTitle(l) : "";
   };
 
   // 스킬 · 물약 칸 — 넓은 화면(SIDE_MQ)은 판 오른쪽 rpg-side 에, 아니면 예전처럼 판 안 아래에 둔다
   const actionBars = (
-    <div className={`rpg-touch-actions ${me?.blood ? "icons" : ""}`}>
+    <div className={`rpg-touch-actions ${me?.blood || me?.gm ? "icons" : ""} ${me?.gm ? "gm" : ""}`}>
     {me && !shopOpen && !bagOpen && (
       <div className="rpg-skillbar">
         <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
@@ -1760,6 +1777,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           onShotUp={() => { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }}
           onShotCancel={() => { chargeRef.current = false; act("blood", { op: "cancel", s: "shot" }); }}
           onConv={() => act("blood", { op: "convert" })} />
+        <GamblerButtons v={me.gm} touch={touch} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })}
+          onFire={() => act("fire", true)} onFireUp={() => act("fire", false)} />
         {me.adv && me.adv.ult && !me.blood && (
           <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>
@@ -1776,7 +1795,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <span>{me.adv.heal ? "치유 평타" : "공격 평타"}<small>눌러 바꾸기</small></span>
           </button>
         )}
-        {!me.blood && me.skills.map((s) => (
+        {!me.blood && !me.gm && me.skills.map((s) => (
           <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
             {!touch && keyOf(binds, s.key) && <kbd>{keyOf(binds, s.key)}</kbd>}
@@ -1907,6 +1926,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <span className="rpg-lv-num">{me.hp}/{me.max}</span>
                 </span>
                 <BloodBar v={me.blood} />
+                <GamblerBar v={me.gm} />
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}
@@ -2100,7 +2120,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                       );
                     })}
                   </div>
-                  <BloodStat v={bloodView(G.current.heroes[mySeat])} />
+                  <BloodStat v={me.gm ? null : bloodView(G.current.heroes[mySeat])} />
+                  <GamblerStat v={gamblerView(G.current.heroes[mySeat])} />
                   <div className="rpg-stat-foot">
                     <button type="button" className="btn-main" disabled={planned <= 0} onClick={applyStats}>
                       적용하기{planned > 0 ? ` (${planned})` : ""}
@@ -2801,9 +2822,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <div className="rpg-talk">
               <span className="rpg-talk-who">{me.bspot.name}</span>
               <span className="rpg-talk-line">{me.bspot.line[0]}</span>
-              <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
-                {me.bspot.line[1]}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
-              </button>
+              {me.bspot.line[1] && (
+                <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                  {me.bspot.line[1]}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+                </button>
+              )}
             </div>
           )}
           {me?.near?.guild&&!guildOpen&&<div className="rpg-talk"><span className="rpg-talk-who">여신 조각상</span><span className="rpg-talk-line">길드석을 바쳐 여신의 축복을 키우세요.</span><button type="button" className="btn-ghost rpg-talk-btn" onClick={()=>act("talk")}>성전 살펴보기{!touch&&keyOf(binds,"talk")&&<kbd>{keyOf(binds,"talk")}</kbd>}</button></div>}
@@ -2957,9 +2980,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         </div>
         {side && (
           <aside className="rpg-side" aria-label="스킬 · 물약" onPointerOver={onSideOver} onPointerDown={onSideOver}>{/* 넓은 화면 — 스킬 · 물약 칸을 게임 판 오른쪽 판으로 옮긴다(11월 14일 사용자 요청) */}
-            {me && <div className="rpg-side-head"><b>스킬</b>{me.blood && <em>BLOOD-001</em>}</div>}
+            {me && <div className="rpg-side-head"><b>스킬</b>{me.blood && <em>BLOOD-001</em>}{me.gm && <em className="gm">{GAMBLER_NAME}</em>}</div>}
             {actionBars}
-            {me?.blood && <div className="rpg-side-tip" ref={tipBox} aria-live="polite"><b /><small /></div>}
+            {(me?.blood || me?.gm) && <div className="rpg-side-tip" ref={tipBox} aria-live="polite"><b /><small /></div>}
           </aside>
         )}
 
@@ -2975,6 +2998,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   onPointerDown={(e) => { e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* 안 되면 그냥 둔다 */ } act("blood", { op: "press", s: "field" }); }}
                   onPointerUp={() => act("blood", { op: "release", s: "field" })} onPointerCancel={() => act("blood", { op: "release", s: "field" })}>
                   혈역
+                </button>
+              ) : me && me.gm ? (   // Gambler 002 — 스킬 단추가 777 종결식(나머지 스킬은 판 안 스킬 칸)
+                <button className={`pbtn ${me.gm.skills[me.gm.skills.length - 1].cd <= 0 && !me.gm.skills[me.gm.skills.length - 1].locked ? "ready" : ""} skill`}
+                  onPointerDown={(e) => { e.preventDefault(); act("hidden", { op: "use", s: "jack" }); }}>
+                  777
                 </button>
               ) : (
                 <button className={`pbtn ${me && me.sk <= 0 ? "ready" : ""} skill`}

@@ -1,10 +1,11 @@
 /* ── 히든 직업 Gambler 002(도박꾼) 판정 — 베팅 칩 · 풀 베팅 · 스킬 8종(11월 16일) ─────────────
    수치는 gamblerData.js. 판정 쪽(방장 · 전용 서버 꼴)만 셈한다. 화면은 연출(fx)과 gamblerView 값만 그린다.
-   11월 16일 사용자 결정 — 격자 연습장(?sandbox)에만 넣는다. 그래서 스냅샷 · 장부 저장 · 해금 경로는 아직 잇지 않았다.
-   bag.hj 는 shop.js cleanBag 이 싣지 않는다 — 실제 게임 캐릭터에는 이 값이 남지 않아 gamblerOn 이 늘 false 다(연습장만 직접 넣는다).
+   11월 16일 사용자 결정 — 격자 연습장에서 확인한 뒤 실제 게임에 넣었다. 저장은 shop.js cleanBag 이 cleanHj 로 싣고,
+   손님 화면 값은 스냅샷 영웅 줄 57(packGambler → h.gmv)로 간다. 해금 경로는 gamblerUnlock.js, 관리자 명령어는 adminCmd.js /도박꾼.
    피해는 기존 strikeAny · 평타 판정을 거쳐 결투 시전별 상한 · 사냥터 PvP 상한이 그대로 걸린다. 한 시전의 모든 타가 같은 시전 객체를 쓴다.
    저장 꼴(기획안 최종 추천안) bag.hj = { active: "gambler", jobs: { gambler: { lv, xp, tr: [[연마 레벨, 경험치] × 3] } }, version: 1 }.
-   싸우는 동안의 상태 h.gm — 칩 · 대기 · 보호막 · 불운 보정 · 직전 공격 · 날아가는 것들. 칩은 저장하지 않는다.
+   해금 시험 중에는 { …, trial: 1, prev: 원래 값 } 으로 빌려준다 — 저장(cleanHj)은 늘 prev 를 쓴다.
+   싸우는 동안의 상태 h.gm — 칩 · 대기 · 보호막 · 불운 보정 · 직전 공격 · 날아가는 것들. 칩은 저장하지 않는다(스냅샷으로만 이어받는다).
    E(엔진, rpg.js gamblerEngine): fx · say · sys · near · strike · basic · alive · base · face · locked · fight · squash · blocks ·
    cast(h, sid) · dummy · cdOff · rand(g) · allies · shield · shieldAmt · boss */
 import { GAMBLER as GM, GAMBLER_ID, GAMBLER_NAME, GAMBLER_TINT, GM_TRAIN_NAMES, GM_BET as BET, GM_LUCK as LUCK, GM_CHIP as CH, GM_VEIL as VL,
@@ -29,7 +30,17 @@ export function cleanGmJob(d) {
   });
   return { lv, xp: lv >= GM.maxLv ? 0 : clampN(d.xp, 0, gmJobNeed(lv) - 1), tr };
 }
-export const gamblerOn = (h) => !!(h && h.bag && h.bag.hj && h.bag.hj.active === GAMBLER_ID && h.bag.hj.jobs && h.bag.hj.jobs[GAMBLER_ID]);
+/* 가방 칸 bag.hj 저장 검사 — 시험 중 빌린 값은 원래 값(prev)으로. 아는 직업(gambler)만 싣는다.
+   bdOn: BLOOD-001 이 켜져 있다 — 히든 직업은 한 번에 하나라 둘 다 켜진 기록은 먼저 있던 BLOOD-001 을 남기고 이쪽을 끈다(직업 레벨 · 연마는 남는다) */
+export function cleanHj(d, bdOn) {
+  if (d && typeof d === "object" && d.trial) return cleanHj(d.prev, bdOn);
+  if (!d || typeof d !== "object" || !d.jobs || typeof d.jobs !== "object" || !d.jobs[GAMBLER_ID]) return null;
+  return { active: d.active === GAMBLER_ID && !bdOn ? GAMBLER_ID : "", jobs: { [GAMBLER_ID]: cleanGmJob(d.jobs[GAMBLER_ID]) }, version: 1 };
+}
+// 이 직업인가 — 판정은 가방 값으로만 본다. GAMBLER.live 를 끄면 연습장(g.test 의 sandbox 맵)에서만 켜진다
+export const gamblerOn = (h) => !!(h && h.bag && h.bag.hj && h.bag.hj.active === GAMBLER_ID && h.bag.hj.jobs && h.bag.hj.jobs[GAMBLER_ID] && (GM.live || h.map === "sandbox"));
+// 그림 · 화면 — 손님은 남의 가방이 늦게 올 수 있어 스냅샷 값(h.gmv)도 본다
+export const gamblerLook = (h) => !!(h && (h.gmv || gamblerOn(h)));
 const jobOf = (h) => h.bag.hj.jobs[GAMBLER_ID];
 export const gmTrainSum = (J) => (J ? J.tr.reduce((n, q) => n + q[0], 0) : 0);
 export const gamblerTint = (sum) => GAMBLER_TINT.find((t) => sum >= t.from).id;
@@ -42,6 +53,7 @@ export const gmLock = (J, sk) => (!J ? "잠김" : J.lv < GM.unlock[sk] ? `직업
 export function unlockGambler(h, init) {
   const old = h.bag.hj && h.bag.hj.jobs ? h.bag.hj.jobs : {};
   h.bag.hj = { active: GAMBLER_ID, jobs: { ...old, [GAMBLER_ID]: cleanGmJob(init || old[GAMBLER_ID]) }, version: 1 };
+  h.gmv = null;
   if (h.bag.bd && h.bag.bd.on) h.bag.bd = { ...h.bag.bd, on: 0 };
   h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
   h.bd = null;
@@ -52,8 +64,9 @@ export function unlockGambler(h, init) {
 // 끄기 — 직업 레벨 · 연마는 남긴다(다시 켜면 이어서)
 export function dropGambler(h) {
   if (!h.bag || !h.bag.hj) return;
-  h.bag.hj = { ...h.bag.hj, active: "" };
-  h.gm = null;
+  const hj = h.bag.hj.trial ? h.bag.hj.prev : h.bag.hj;   // 시험 중이었다면 빌린 값부터 거둔다
+  if (hj) h.bag.hj = { ...hj, active: "" }; else delete h.bag.hj;
+  h.gm = null; h.gmv = null; h.gt = null;
   h.bag.v = (h.bag.v || 0) + 1;
 }
 
@@ -64,6 +77,8 @@ function st(h) {
     tbl: null, edge: 0, edgeT: 0, jk: [], xm: [0, 0], q: 0 });
 }
 const keyOf = (o) => (o.type ? `m${o.id}` : `h${o.pi}`);
+// 해금 시험(gamblerUnlock.js h.gt) — 시험 중에만 무엇을 해냈는지 적는다. o 가 있으면 내 시험 표적일 때만
+const mark = (h, k, o) => { if (h.gt && (!o || o.own === h.pi)) h.gt[k] = 1; };
 const find = (g, k) => (k[0] === "m" ? g.mobs.find((m) => String(m.id) === k.slice(1)) : g.heroes[Number(k.slice(1))]);
 const sq = (E, x, y, o) => Math.hypot(o.x - x, (o.y - y) / E.squash);
 const no = (E, g, h, text, color = DIM) => void E.say(g, h.map, h.x, h.y - 90, text, color);
@@ -126,6 +141,7 @@ function strike(E, g, h, src, o, mul, coin = false) {
 function fullBet(E, g, h, src, o) {
   const s = st(h), top = gmContract(jobOf(h));
   s.chips = 0;
+  mark(h, "bet", o);
   s.bet.push({ k: keyOf(o), i: 0, t: 0, mul: top ? BET.mulContract : BET.mul, cast: src.cast, base: src.base, map: src.map, noBet: 1, xp: 0 });
   E.fx(g, h.map, { kind: "sk_gm_bet", x: h.x, y: h.y, x1: o.x, y1: o.y, n: BET.coins, gap: BET.gap, d: BET.fly, top: top ? 1 : 0, pi: h.pi,
     t: BET.fly + BET.gap * BET.coins + 0.2, life: BET.fly + BET.gap * BET.coins + 0.2, snd: "gmCoin" });
@@ -266,6 +282,7 @@ export function gamblerTake(E, g, h, dmg, src) {
   if (!v || !(dmg > 0) || !(v.v > 0)) return dmg;
   const a = Math.min(v.v, dmg);
   v.v -= a; v.did = 1;
+  if (src && src.gmTrial) mark(h, "blk");
   if (s.shT <= 0) {
     s.shT = VL.chipGap;
     gainChip(E, g, h, 1);
@@ -313,7 +330,7 @@ function diceUse(E, g, h) {
 function tickDice(E, g, h, d, dt) {
   d.t += dt;
   if (d.t < DC.hit) return true;
-  for (const o of inCircle(E, g, h, d.x, d.y, DC.r, d.map)) strike(E, g, h, d, o, d.mul);
+  for (const o of inCircle(E, g, h, d.x, d.y, DC.r, d.map)) { strike(E, g, h, d, o, d.mul); mark(h, o.far ? "far" : "dice", o); }
   if (d.n >= 5) g.shake = Math.max(g.shake || 0, d.n === 6 ? 0.3 : 0.18);
   E.fx(g, d.map, { kind: "sk_gm_dicehit", x: d.x, y: d.y, r: DC.r, n: d.n, pi: h.pi, t: 0.45, life: 0.45, snd: d.n === 6 ? "gmBoom" : "gmHit" });
   E.fx(g, d.map, { kind: "call", x: d.x, y: d.y - 70, text: `${d.n} — ×${d.mul}`, color: d.n === 6 ? "#E3B5D8" : GOLD, who: h.pi, t: 0.9, life: 0.9 });
@@ -466,8 +483,9 @@ export function gamblerInput(E, g, pi, req) {
 
 /* ── 시간 ─────────────────────────────────────────── */
 export function tickGambler(E, g, h, dt) {
-  if (!gamblerOn(h)) { if (h.gm) h.gm = null; return; }
+  if (!gamblerOn(h)) { if (h.gm) h.gm = null; if (h.gmv) h.gmv = null; return; }
   const s = st(h);
+  if (h.gmv) { s.chips = clampN(h.gmv.chips, 0, GM.chips); s.luck = clampN(h.gmv.luck, 0, 9); h.gmv = null; }   // 손님이던 세계가 판정 세계가 됐다(방장 승계) — 칩 · 불운 보정을 이어받는다
   for (const k in s.cd) s.cd[k] = Math.max(0, s.cd[k] - dt);
   if (E.cdOff(g, h)) for (const k in s.cd) s.cd[k] = 0;
   s.shT = Math.max(0, s.shT - dt);
@@ -494,13 +512,36 @@ export function gamblerDown(E, g, h) {
 // 훈련장 · 연습장 "스택 가득" — 칩을 7개까지
 export function gamblerFill(h) { if (gamblerOn(h)) st(h).chips = GM.chips; }
 
-/* ── 화면 값 — 칩 · 직업 레벨 · 연마 · 대기 · 보호막 · 하우스 엣지 · 불운 보정 ── */
+/* ── 스냅샷 영웅 줄 57 — 이 직업이 아니면 0. 칸 수는 고정이고 뒤에만 더한다 ──
+   [0 칩, 1 직업 레벨, 2 경험치, 3 연마 [레벨, 경험치] × 3 을 편 것, 4 대기 [장막, 눈, 폭우, 더블 다운, 테이블, 엣지, 777],
+    5 보호막 [남은 양, 최대, 남은 초] | 0, 6 하우스 엣지 남은 초, 7 테이블 남은 초, 8 불운 보정 연속 실패, 9 직전 공격(0 없음 · 1 운명의 눈 · 2 코인 폭우), 10 해금 시험 단계(0 없음)] */
+const CD_KEYS = ["veil", "dice", "rain", "dd", "table", "edge", "jack"], LAST = ["", "dice", "rain"];
+export function packGambler(h) {
+  if (!gamblerOn(h)) return 0;
+  const J = jobOf(h), s = h.gm;
+  return [s ? s.chips : 0, J.lv, J.xp, J.tr.flat(), CD_KEYS.map((k) => (s ? r1(s.cd[k]) : 0)),
+    s && s.sh ? [Math.round(s.sh.v), Math.round(s.sh.max), r1(Math.max(0, s.sh.dur - s.sh.t))] : 0,
+    s ? r1(s.edge) : 0, s && s.tbl ? r1(Math.max(0, TB.dur - s.tbl.t)) : 0, s ? s.luck : 0, s && s.last ? Math.max(0, LAST.indexOf(s.last.k)) : 0, h.gt ? h.gt.step : 0];
+}
+// 손님 — 화면에 쓰는 값만 h.gmv 로(판정 상태 h.gm 은 건드리지 않는다). 모양은 gamblerView 와 같다
+export function applyGambler(h, a) {
+  if (!Array.isArray(a)) { h.gmv = null; return; }
+  const t = Array.isArray(a[3]) ? a[3] : [], J = cleanGmJob({ lv: a[1], xp: a[2], tr: [[t[0], t[1]], [t[2], t[3]], [t[4], t[5]]] });
+  const cd = Array.isArray(a[4]) ? a[4] : [];
+  h.gmv = viewOf(J, clampN(a[0], 0, GM.chips), Object.fromEntries(CD_KEYS.map((k, i) => [k, +cd[i] || 0])),
+    Array.isArray(a[5]) ? { v: +a[5][0] || 0, max: +a[5][1] || 0, left: +a[5][2] || 0 } : null, +a[6] || 0, +a[7] || 0, a[8] | 0, LAST[a[9]] || "", a[10] | 0);
+}
+const viewOf = (J, chips, cd, sh, edge, tbl, luck, last, trial) => ({ chips, max: GM.chips, lv: J.lv, xp: J.xp, tr: J.tr, cd,
+  cdMax: { veil: VL.cd, dice: diceCd(J), rain: RN.cd, dd: DD.cd, table: TB.cd, edge: EG.cd, jack: JK.cd },
+  sh, edge, tbl, luck, need: luckNeed(J), last, contract: gmContract(J), tint: gamblerTint(gmTrainSum(J)), trial });
+
+/* ── 화면 값 — 칩 · 직업 레벨 · 연마 · 대기 · 보호막 · 하우스 엣지 · 불운 보정. 방장(판정 세계)은 h.bag.hj · h.gm 에서, 손님은 h.gmv 에서 같은 모양으로 ── */
 export function gamblerView(h) {
+  if (!h) return null;
+  if (h.gmv) return h.gmv;
   if (!gamblerOn(h)) return null;
   const J = jobOf(h), s = h.gm;
-  return { chips: s ? s.chips : 0, max: GM.chips, lv: J.lv, xp: J.xp, tr: J.tr, cd: s ? { ...s.cd } : { ...NO_CD },
-    cdMax: { veil: VL.cd, dice: diceCd(J), rain: RN.cd, dd: DD.cd, table: TB.cd, edge: EG.cd, jack: JK.cd },
-    sh: s && s.sh ? { v: Math.round(s.sh.v), max: s.sh.max, left: r1(Math.max(0, s.sh.dur - s.sh.t)) } : null,
-    edge: s ? r1(s.edge) : 0, tbl: s && s.tbl ? r1(Math.max(0, TB.dur - s.tbl.t)) : 0,
-    luck: s ? s.luck : 0, need: luckNeed(J), last: s && s.last ? s.last.k : "", contract: gmContract(J), tint: gamblerTint(gmTrainSum(J)) };
+  return viewOf(J, s ? s.chips : 0, s ? { ...s.cd } : { ...NO_CD },
+    s && s.sh ? { v: Math.round(s.sh.v), max: s.sh.max, left: r1(Math.max(0, s.sh.dur - s.sh.t)) } : null,
+    s ? r1(s.edge) : 0, s && s.tbl ? r1(Math.max(0, TB.dur - s.tbl.t)) : 0, s ? s.luck : 0, s && s.last ? s.last.k : "", h.gt ? h.gt.step : 0);
 }

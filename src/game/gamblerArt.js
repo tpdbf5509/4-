@@ -4,10 +4,11 @@
    코드로 그리는 것은 판정 범위를 보이는 1px 선뿐이다. 시트를 못 불러오면 그 연출은 범위 선만 남는다.
    픽셀 그림은 정수 배로만 키운다(보통 2배). 연마 합계 색(금 · 청백 테두리 · 자주 무늬)은 칩 · 금화 시트의 줄로 고른다.
    연출 종류: sk_gm_chip(황금 칩) · hit · full · bet(풀 베팅) · veil · veilally · veilend · block(칩 장막) · dice · dicehit(운명의 눈)
-              · rain(코인 폭우) · dd(더블 다운) · table · tabletick · tableend(황금 테이블) · edge · edgeend(하우스 엣지) · 777 · shock · 777end */
-import { GAMBLER_COLORS as C, GAMBLER } from "./gamblerData.js";
-import { gamblerTint, gmTrainSum } from "./gamblerJob.js";
-import { GAMBLER_PX_SRC, GAMBLER_PX as SH } from "./gamblerPxData.js";
+              · rain(코인 폭우) · dd(더블 다운) · table · tabletick · tableend(황금 테이블) · edge · edgeend(하우스 엣지) · 777 · shock · 777end
+              · warn(해금 시험 예고 — 1px 선만). 해금 경로 조사물(칩 상자 · 계약서 · 주사위 기계)은 drawGamblerSpots 가 gm_props 시트로 그린다 */
+import { GAMBLER_COLORS as C, GAMBLER, GM_CLUE } from "./gamblerData.js";
+import { gamblerView } from "./gamblerJob.js";
+import { GAMBLER_PX_SRC, GAMBLER_PX as SH, GAMBLER_PROP } from "./gamblerPxData.js";
 
 const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -219,18 +220,26 @@ function jackEnd(ctx, f, t) {
   if (f.res > 0) cell(ctx, "gm_pillar", once("gm_pillar", u), f.x, f.y, K, 1, 0, false, f.res === 2 ? "" : "saturate(0.6)");
 }
 
-const KINDS = { sk_gm_chip: chip, sk_gm_hit: hit, sk_gm_full: full, sk_gm_bet: bet, sk_gm_veil: veil, sk_gm_veilally: veilAlly, sk_gm_veilend: veilEnd, sk_gm_block: block,
+// 해금 시험 예고 — 판정 반경 점선이 d 초 동안 안쪽 실선으로 차오른다(코드로 그리는 1px 선)
+function warn(ctx, f, t, sq) {
+  const u = clamp(t / (f.d || 1));
+  ring(ctx, f.x, f.y, f.r, sq, C.bright, u < 1 ? 0.85 : 0.85 * (1 - (t - f.d) / 0.2), 4);
+  if (u < 1) ring(ctx, f.x, f.y, f.r * u, sq, C.base, 0.9);
+}
+
+const KINDS = { sk_gm_warn: warn, sk_gm_chip: chip, sk_gm_hit: hit, sk_gm_full: full, sk_gm_bet: bet, sk_gm_veil: veil, sk_gm_veilally: veilAlly, sk_gm_veilend: veilEnd, sk_gm_block: block,
   sk_gm_dice: dice, sk_gm_dicehit: diceHit, sk_gm_rain: rain, sk_gm_dd: dd, sk_gm_table: table, sk_gm_tabletick: tableTick, sk_gm_tableend: tableEnd,
   sk_gm_edge: edge, sk_gm_edgeend: edgeEnd, sk_gm_777: jack, sk_gm_shock: shock, sk_gm_777end: jackEnd };
 // 같은 종류는 최근 몇 개만 그린다(rpgArt FX_LOD.cap) — 유지 장(veil · edge)은 0.25~0.3초마다 새로 와 한 사람에 셋쯤 겹친다
-export const GAMBLER_CAP = { sk_gm_chip: 10, sk_gm_hit: 14, sk_gm_full: 3, sk_gm_bet: 4, sk_gm_veil: 12, sk_gm_veilally: 6, sk_gm_veilend: 3, sk_gm_block: 6,
+export const GAMBLER_CAP = { sk_gm_warn: 4, sk_gm_chip: 10, sk_gm_hit: 14, sk_gm_full: 3, sk_gm_bet: 4, sk_gm_veil: 12, sk_gm_veilally: 6, sk_gm_veilend: 3, sk_gm_block: 6,
   sk_gm_dice: 4, sk_gm_dicehit: 4, sk_gm_rain: 3, sk_gm_dd: 3, sk_gm_table: 3, sk_gm_tabletick: 4, sk_gm_tableend: 3, sk_gm_edge: 12, sk_gm_edgeend: 3, sk_gm_777: 2, sk_gm_shock: 2, sk_gm_777end: 2 };
 // 시전자를 따라다니는 연출 — 화면이 그릴 때마다 그 사람 자리로 옮긴다
 const FOLLOW = new Set(["sk_gm_full", "sk_gm_veil", "sk_gm_veilally", "sk_gm_veilend", "sk_gm_block", "sk_gm_edge", "sk_gm_edgeend"]);
 // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
-export const GAMBLER_GROUND = new Set(["sk_gm_veil", "sk_gm_veilally", "sk_gm_table"]);
+export const GAMBLER_GROUND = new Set(["sk_gm_veil", "sk_gm_veilally", "sk_gm_table", "sk_gm_warn"]);
 
-function rowOf(h) { const J = h && h.bag && h.bag.hj && h.bag.hj.jobs && h.bag.hj.jobs.gambler; return J ? ROW[gamblerTint(gmTrainSum(J))] || 0 : 0; }
+// 연마 합계 색 줄 — 방장은 가방, 손님은 스냅샷(h.gmv) 값(gamblerView 가 같은 모양으로 준다)
+function rowOf(h) { const v = h ? gamblerView(h) : null; return v ? ROW[v.tint] || 0 : 0; }
 
 export function drawGamblerFx(ctx, f, p, sq, g, time) {
   const fn = KINDS[f.kind]; if (!fn) return false;
@@ -254,4 +263,15 @@ export function gamblerIconStyle(i, size = 48) {
   const T = SH.gm_icons, k = size / T.w;
   return { width: size, height: size, backgroundImage: `url(${GAMBLER_PX_SRC}gm_icons.webp)`, backgroundSize: `${T.w * T.cols * k}px ${T.h * k}px`,
     backgroundPosition: `${-i * T.w * k}px 0`, imageRendering: "pixelated", backgroundRepeat: "no-repeat" };
+}
+
+/* ── 해금 경로 조사물 — 칩 상자(광장) · 계약서 게시판(에르덴 마을) · 주사위 기계(훈련장). shown(s) 가 참인 자리만 그린다 ──
+   u 는 내 진행(bag.gu) — 문이 열렸으면 열린 상자, 단서 C 를 얻었으면 되살아난 기계. 시트를 못 불러오면 아무것도 그리지 않는다(안내 칸은 그대로 뜬다) */
+export function drawGamblerSpots(ctx, M, spots, u, shown) {
+  warmGambler();
+  for (const s of spots) {
+    if (s.map !== M.id || (shown && !shown(s))) continue;
+    const i = s.id === "box" ? (u && u.o ? GAMBLER_PROP.boxOpen : GAMBLER_PROP.box) : s.id === "deed" ? GAMBLER_PROP.deed : u && (u.c & GM_CLUE.C) ? GAMBLER_PROP.machineOn : GAMBLER_PROP.machine;
+    cell(ctx, "gm_props", i, s.x, s.y, K);
+  }
 }

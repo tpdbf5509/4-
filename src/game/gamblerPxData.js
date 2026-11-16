@@ -21,6 +21,9 @@ export const GAMBLER_PX = {
   gm_table: { w: 288, h: 226, cols: 7, n: 14, cx: 144, cy: 113, r: 140 },   // 황금 테이블 — 0~4 펼침 · 5~8 유지 · 9~13 접힘
   gm_pillar: { w: 52, h: 150, cols: 8, n: 8, cx: 26, cy: 146 },   // 잭팟 빛기둥(바닥이 cy)
   gm_icons: { w: 24, h: 24, cols: 8, n: 8, cx: 0, cy: 0 },   // 스킬 아이콘 8칸 — 칩 · 장막 · 눈 · 폭우 · 더블 다운 · 테이블 · 엣지 · 777
+  gm_props: { w: 48, h: 52, cols: 5, n: 5, cx: 24, cy: 48 },   // 해금 경로 조사물(발밑이 기준점) — 0 낡은 칩 상자 · 1 열린 상자 · 2 계약서 게시판 · 3 망가진 주사위 기계 · 4 되살아난 기계
 };
 // 아이콘 칸 차례(gm_icons)
 export const GAMBLER_ICON = { chip: 0, veil: 1, dice: 2, rain: 3, dd: 4, table: 5, edge: 6, jack: 7 };
+// 조사물 칸 차례(gm_props)
+export const GAMBLER_PROP = { box: 0, boxOpen: 1, deed: 2, machine: 3, machineOn: 4 };

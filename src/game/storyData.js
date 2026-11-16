@@ -25,6 +25,7 @@ export const STORY_PEOPLE = {
   kael: {name: '카엘', role: '자율 기계 지도자', look: {body: '#8e98a4', trim: '#626c78', hair: '#b8c2cc', skin: '#c3ccd4', mark: 'eye'}},
   serin: {name: '세린', role: '최초 설계자 · 기록 투영', look: {body: '#b8d6dc', trim: '#86aab2', hair: '#e6f2f2', skin: '#e4f2f4', mark: 'holo'}},
   observer: {name: '공허의 관측자', role: '관측 장치', look: {body: '#6e6a96', trim: '#4c4870', hair: '#9a96c8', skin: '#a8a4d4', mark: 'eye'}},
+  ...LIBRARY_PEOPLE,   // 11월 16일 에르덴 도서관 사서(libraryData.js)
 };
 
 /* 맵 — 모두 싸울 수 없는 안전 지역이다. 몹 · 보스는 이야기 진행을 만들 때 더한다.
@@ -378,6 +379,7 @@ export const RUIN_CHAIN = ['ruin-north', 'ruin-east', 'ruin-south', 'ruin-west']
 
 /* 에르덴 마을에 더하는 1부 시설과 인물. 기존 마을 배치(villageData.js)의 빈자리에 둔다. */
 import {villageAt} from './villageData.js';
+import {LIBRARY_MAPS, LIBRARY_PEOPLE, LIBRARY_BLOCKS} from './libraryData.js';
 const STORY_VILLAGE_RAW = {
   buildings: [
     {id: 'erden-guardpost', name: '경비대 초소', x: 1400, y: 1600, size: 210, look: 'house'},
@@ -404,11 +406,15 @@ const person = (n) => {
   const p = STORY_PEOPLE[n.who];
   return {...n, name: p.name, role: n.role || p.role, look: p.look, portrait: storyArtPath('portraits', n.who), art: n.who};
 };
-export const storyNpcsOf = (mapId) => (mapId === 'dawnwood' ? STORY_VILLAGE.npcs : STORY_MAPS.find((m) => m.id === mapId)?.npcs || []).map(person);
-export const storySightsOf = (mapId) => (STORY_MAPS.find((m) => m.id === mapId)?.sights || []).map((s) => ({...s, art: s.id, portrait: storyArtPath('places', s.id)}));
-export const storyBuildingsOf = (mapId) => (mapId === 'dawnwood' ? STORY_VILLAGE.buildings : STORY_MAPS.find((m) => m.id === mapId)?.buildings || []).map((b) => ({...b, art: b.id}));
-export const storyPropsOf = (mapId) => (STORY_MAPS.find((m) => m.id === mapId)?.props || []).map((p) => ({...p, art: `prop-${p.look}`}));   // 그림: places/prop-<look>.webp
-export const STORY_DIALOGUES = Object.fromEntries(['dawnwood', ...STORY_MAPS.map((m) => m.id)].flatMap((id) => [...storyNpcsOf(id), ...storySightsOf(id)]).map((n) => [n.id, n]));
+// 이야기 맵과 같은 틀을 쓰는 장소(에르덴 도서관 1 · 2층, libraryData.js)도 함께 찾는다. STORY_MAPS 자체에는 넣지 않는다(맵 차례 · 이야기 문 판정)
+export const PLACE_MAPS = [...STORY_MAPS, ...LIBRARY_MAPS];
+const placeOf = (mapId) => PLACE_MAPS.find((m) => m.id === mapId);
+export const storyNpcsOf = (mapId) => (mapId === 'dawnwood' ? STORY_VILLAGE.npcs : placeOf(mapId)?.npcs || []).map(person);
+// 바닥 그림에 그려진 조사물(bg)은 따로 그림을 부르지 않고, 대화 창 초상화도 비운다
+export const storySightsOf = (mapId) => (placeOf(mapId)?.sights || []).map((s) => (s.bg ? {...s} : {...s, art: s.id, portrait: storyArtPath('places', s.id)}));
+export const storyBuildingsOf = (mapId) => (mapId === 'dawnwood' ? STORY_VILLAGE.buildings : placeOf(mapId)?.buildings || []).map((b) => ({...b, art: b.id}));
+export const storyPropsOf = (mapId) => (placeOf(mapId)?.props || []).map((p) => ({...p, art: `prop-${p.look}`}));   // 그림: places/prop-<look>.webp
+export const STORY_DIALOGUES = Object.fromEntries(['dawnwood', ...PLACE_MAPS.map((m) => m.id)].flatMap((id) => [...storyNpcsOf(id), ...storySightsOf(id)]).map((n) => [n.id, n]));
 
 // 막힌 곳 — 건물은 마을처럼 문 양옆과 가운데 셋, 아치 문은 양옆 기둥만 막는다.
 export function storyBlocks(mapId) {
@@ -418,5 +424,6 @@ export function storyBlocks(mapId) {
       : b.size >= 200 ? [-.26, 0, .26].map((k) => ({x: b.x + b.size * k, y: b.y - 40, r: b.size * .19})) : [{x: b.x, y: b.y - 30, r: b.size * .3}]),
     ...storyNpcsOf(mapId).map((n) => ({x: n.x, y: n.y - 4, r: 18})),
     ...[...storySightsOf(mapId), ...storyPropsOf(mapId)].filter((n) => n.r > 0).map((n) => ({x: n.x, y: n.y - 4, r: n.r})),
+    ...(LIBRARY_BLOCKS[mapId] || []).map(([x, y, r]) => ({x, y, r})),   // 도서관 바닥 그림 속 가구
   ];
 }

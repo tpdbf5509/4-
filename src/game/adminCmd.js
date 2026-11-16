@@ -11,6 +11,7 @@ import { trading } from "./tradeData.js";
    관리자(h.admin) 만 쓸 수 있다. 화면 쪽은 RpgView.jsx sendChat 이 "/" 를 채팅 대신 입력 kind "cmd" 로 보낸다 */
 import { MAPS, JOBS, runOf, sys } from "./rpg.js";
 import { STORY_MAPS } from "./storyData.js";
+import { LIBRARY_IDS } from "./libraryData.js";
 import { VILLAGE } from "./villageData.js";
 import { POTIONS, POTION, SPECIALS, WARP, GUARD, WEAPON_FAMILY, JOB_FAMILY, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, addMat, equipped } from "./shop.js";
@@ -154,7 +155,7 @@ export function rpgAdminCmd(g, pi, text) {
 
   /* 1부 이야기 맵은 아직 문이 없다(이야기 진행을 만들 때 연다). 관리자만 이 명령으로 둘러본다 */
   if (cmd === "이동") {
-    const spots = [VILLAGE.id, ...STORY_MAPS.map((m) => m.id)];
+    const spots = [VILLAGE.id, ...STORY_MAPS.map((m) => m.id), ...LIBRARY_IDS];
     const k = flat(words.join(" "));
     if (!k) return void say(`갈 수 있는 곳: ${spots.map((id) => MAPS[id].name).join(" · ")}`);
     const to = spots.find((id) => flat(MAPS[id].name) === k || id === k) || spots.find((id) => flat(MAPS[id].name).includes(k));

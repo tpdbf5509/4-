@@ -160,6 +160,11 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - **전달 개선(11월 8일)**: 단계 `look`(단서를 다 봐야 `at` 이 열림, 서버도 거절) · 줄 `key` · `fx` · `boss`(체력 줄은 보여 주기만). 의뢰 칸 상황 · 이유 `storyGuide.js`, 알게 된 것 · 장 요약 · 마을 말 `storyRecap.js`, 이야기 기록 `storyJournal`(저장 값 없음, 찾은 것만). 시험 `tools/story-guide.test.mjs`.
 - 보스 실제 전투는 아직 없다(보스는 시간 제한 선택 대화). 광장의 의뢰 NPC 한결 · 보리 · 미나는 이름만 같은 다른 인물이다. 시험은 `tools/story-quest.test.mjs` · `tools/story.test.mjs`.
 
+### 에르덴 도서관 (11월 16일)
+- `libraryData.js` 한 곳(건물 자리 · 문 · 두 층 · 조사물 · 사서 · 가구 막힘 `LIBRARY_BLOCKS`). 이야기 맵과 같은 틀이라 `storyData.js PLACE_MAPS`(= `STORY_MAPS` + 도서관)로 찾는다. `STORY_MAPS` 에는 넣지 않는다(맵 차례 · 이야기 문 판정).
+- 맵 `erden-library` · `erden-library-2` 는 `MAP_IDS` 맨 뒤(BLOOD_LAB 다음). 늘 열림(이야기 진행 무관), 안전 지역, `top: 300`(벽 띠). 마을 문(건물 앞 계단 아래) ↔ 1층 ↔ 오른쪽 계단 ↔ 2층. 문 그림은 `libGate`(바닥 빛 · 이름표만, `villageArt.js`).
+- 바닥 그림에 가구가 그려져 있어 조사물은 `bg: 1`(그림 없음 · 이름표만). 책장 `books: 'patch' | 'guide'` 는 대화 창 「책 펼치기」로 가방 책 탭을 연다(`BagPanel book0`). 보상 · 이야기 진행은 없다. 그림 원본 `design/library/`, 시험 `tools/library.test.mjs`.
+
 ### 빈 맵 멈춤 · 맵 불러오기 화면 (11월 7일)
 - `rpgStep`은 사람이 있는 맵(`mapsAwake`)의 몹만 돌리고, 빈 맵은 다시 나오기 대기 시간도 멈춘다. 월드보스 · 길드 토벌 보스는 예외로 늘 돈다. 훈련장 허수아비는 빈 훈련장에서 치운다. 전용 서버 방은 원래 아무도 없으면 통째로 멈춘다. 시험 `tools/map-idle.test.mjs`.
 - 화면은 내 맵이 바뀌면 `mapLoad.js` 가림막을 띄운다. 새로 부른 그림(`new Image()`의 src)을 세어 다 오면 걷는다(최소 1.2초 · 최대 8초, `MAP_LOAD`, 진행 줄은 최소 시간에 맞춰 찬다). 가림막 동안 걷기 · 공격 · 스킬 · 말 걸기는 보내지 않는다(`loadBlocks`). 판정은 서버라 그 사이 몸은 이미 새 맵에 있다.

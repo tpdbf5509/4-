@@ -26,7 +26,19 @@ function label(ctx, text, x, y, color='#f6e5bb') {
   ctx.fillStyle='rgba(48,37,24,.88)'; ctx.beginPath(); ctx.roundRect(x-w/2,y-11,w,22,6); ctx.fill();
   ctx.fillStyle=color; ctx.fillText(text,x,y); ctx.restore();
 }
+/* 에르덴 도서관 문 · 계단(libraryData.js) — 문과 계단은 건물 · 바닥 그림에 그려져 있어 바닥 빛과 이름표만 얹는다.
+   마을 쪽 문은 건물 이름표가 있어 빛만, 계단은 오르내림 표시를 붙인다 */
+function drawLibraryGate(ctx, gate, time) {
+  const a = .28 + Math.sin(time * 2) * .1;
+  ctx.save(); ctx.strokeStyle = `rgba(240,222,170,${a})`; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(gate.x, gate.y, gate.r * .9, gate.r * .32, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = `rgba(240,222,170,${a * .35})`; ctx.fill(); ctx.restore();
+  if (gate.libGate === 'door' && gate.to !== 'dawnwood') return;
+  const mark = gate.libGate === 'up' ? ' ▲' : gate.libGate === 'down' ? ' ▼' : '';
+  label(ctx, `${gate.label}${mark}`, gate.x, gate.y - (gate.libGate === 'door' ? 40 : 96));
+}
 export function drawVillageGate(ctx, gate, time) {
+  if (gate.libGate) return drawLibraryGate(ctx, gate, time);
   if (!drawVillageImage(ctx,'gate',gate.x,gate.y,180)) {
     ctx.save();ctx.strokeStyle='#b0a18b';ctx.lineWidth=17;
     ctx.beginPath();ctx.moveTo(gate.x-58,gate.y);ctx.lineTo(gate.x-58,gate.y-80);ctx.arc(gate.x,gate.y-80,58,Math.PI,0);ctx.lineTo(gate.x+58,gate.y);ctx.stroke();ctx.restore();

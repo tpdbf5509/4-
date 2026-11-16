@@ -14,6 +14,7 @@ export function loadInfo(id, M) {
   if (STORY_CH[id]) return {scene: 'story', tag: `메인 이야기 · ${STORY_CH[id]}장`};
   if (id === 'dawnwood') return {scene: 'town', tag: '메인 이야기의 시작'};
   if (!M) return {scene: 'field', tag: '사냥터'};
+  if (M.library) return {scene: 'town', tag: '에르덴 마을 · 도서관'};
   if (M.abyss) return {scene: 'abyss', tag: '심연의 탑'};
   if (M.high) { const d = HIGH_BY_ID[id]; return {scene: 'abyss', tag: d ? `${d.lv[0]}~${d.lv[1]}레벨 사냥터` : '깊은 사냥터'}; }   // 800~1200(테스트 서버 먼저)
   if (M.deep) return {scene: 'abyss', tag: '깊은 사냥터'};

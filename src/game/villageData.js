@@ -2,6 +2,7 @@
    지금은 탐방과 대화만 제공하며 보상·스토리 진행 상태를 만들지 않는다. */
 /* 마을 범위를 넓혔다(11월 6일, 사용자 요청). 옛 마을(2200×1700)은 그대로 두고 서쪽 · 동쪽에 500씩, 북쪽에 400을 더한 3200×2100 이다.
    아래 옛 좌표 목록은 옛 마을 기준으로 적혀 있어 VILLAGE_SHIFT 만큼 옮겨 쓰고, 새로 더한 건물 · 길 · 소품은 새 좌표로 적었다. */
+import {LIBRARY} from './libraryData.js';
 export const VILLAGE_SHIFT = {x: 500, y: 400};
 const SH = VILLAGE_SHIFT;
 export const villageAt = o => ({...o, x: o.x + SH.x, y: o.y + SH.y});
@@ -31,6 +32,7 @@ export const VILLAGE_BUILDINGS = [
   {id: 'stable', art: 'stable', name: '달무리 마구간', x: 2700, y: 1780, size: 330},
   {id: 'cottage-a', art: 'cottage-a', name: '들꽃 집', x: 900, y: 540, size: 320},
   {id: 'cottage-b', art: 'cottage-b', name: '담쟁이 집', x: 2300, y: 540, size: 320},
+  LIBRARY.building,   // 11월 16일 에르덴 도서관 — 북쪽 길 가운데. 들어가는 문은 rpg.js(LIBRARY.door)
 ]);
 
 // 길 중심선. 바닥 그림과 나무 자리 비우기가 함께 쓴다. w 는 길 폭.
@@ -112,7 +114,7 @@ export const VILLAGE_PROPS = [
   {art:'shrine',x:1745,y:1250,size:120,r:28},
   ...[[170,720],[860,470],[2030,640]].map(([x,y]) => ({art:'apple-tree',x,y,size:150,r:14})),
   {art:'hay',x:250,y:1520,size:120,r:32},{art:'crates',x:1990,y:1530,size:105,r:28},{art:'cart',x:1470,y:520,size:115,r:30},
-  {art:'hay',x:760,y:330,size:115,r:30},{art:'hay',x:1500,y:330,size:115,r:30},
+  {art:'hay',x:760,y:330,size:115,r:30},{art:'hay',x:1290,y:330,size:115,r:30},   // 동쪽 건초는 도서관 문 앞을 비우려 왼쪽으로 옮겼다(11월 16일)
   {art:'bridge',x:880,y:1500,size:150,r:0,ground:1},   // 아래 골목이 개울을 건너는 다리. 땅에 깔아 사람이 위로 지나간다
 ].map(villageAt).concat([
   // 넓힌 곳의 새 소품(새 좌표) — 가로등 · 꽃 · 건초 · 우물 · 사과나무

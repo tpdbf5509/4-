@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {makeWorld,rpgSyncSeats,rpgJoin,rpgStep,rpgPack,rpgApply,rpgMove,rpgTalk,npcNear,mapIdx,MAPS,RPG} from '../src/game/rpg.js';
 import {rpgAdminCmd} from '../src/game/adminCmd.js';
 import {VILLAGE as V} from '../src/game/villageData.js';
-import {STORY_MAPS,STORY_PEOPLE,STORY_DIALOGUES,storyNpcsOf} from '../src/game/storyData.js';
+import {STORY_MAPS,PLACE_MAPS,STORY_PEOPLE,STORY_DIALOGUES,storyNpcsOf} from '../src/game/storyData.js';
 import {npcStopPoint,pickNpc} from '../src/game/mouseMove.js';
 import {RESET,GIFT} from '../src/game/itemData.js';
 const world=(admin=0)=>{const g=makeWorld();g.mySeat=0;rpgSyncSeats(g,[{id:'story-test',name:'이야기시험',hero:{name:'이야기시험',job:'warrior',gender:'m'}}]);rpgJoin(g,0,{name:'이야기시험',lv:30,rs:RESET.id,gift:GIFT.id,stats:{},bag:{oc:1,w:[],n:1},admin},'story-test');return g;};
@@ -16,7 +16,7 @@ test('이야기 맵 스물세 곳은 마을 뒤 스냅샷 차례에 붙고 모�
 });
 
 test('이야기 인물 열셋이 모두 어딘가에 서 있고 이름표가 있다',()=>{
- const placed=new Set(['dawnwood',...STORY_MAPS.map(m=>m.id)].flatMap(id=>storyNpcsOf(id).map(n=>n.who)));
+ const placed=new Set(['dawnwood',...PLACE_MAPS.map(m=>m.id)].flatMap(id=>storyNpcsOf(id).map(n=>n.who)));
  assert.deepEqual([...placed].sort(),Object.keys(STORY_PEOPLE).sort());
  for(const n of Object.values(STORY_DIALOGUES))assert.ok(n.name&&n.intro&&n.lines.length>=1,n.id);
 });

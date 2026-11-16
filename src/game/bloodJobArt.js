@@ -518,10 +518,14 @@ function lgEnd(ctx, f, t, sq) {
   void sq;
 }
 /* 원초의 혈맥 — 차징: 시전자 둘레만 어두워지고(다른 사람 시야는 가리지 않는다) 뒤에 검은 원형 문양 · 가운데 붉은 구체가 작아진다 */
-function ocharge(ctx, f, t, sq) {
+// 발밑 문양 · 국소 암전은 땅 층(sk_bj_ochground) — 캐릭터를 덮지 않게(11월 16일)
+function ochargeGround(ctx, f, t) {
   const u = clamp((f.u || 0) + t / 1.2);
   pxOnce(ctx, "bj_dark", 0.15 + 0.2 * u, f.x, f.y - 30, 2, 0.2, 0, "abyss");   // 시전자 둘레 국소 암전(다른 사람 시야를 가리지 않게 옅게)
   pxLoop(ctx, "bj_drink", 0, 1.4, f.x, f.y, 1, 0.85, 0, "abyss");               // 발밑 검은 원형 문양
+}
+function ocharge(ctx, f, t, sq) {
+  const u = clamp((f.u || 0) + t / 1.2);
   formCell(ctx, "bj_core", Math.min(2, Math.floor(u * 3)), loopIdx("bj_core", 0.3 - 0.15 * u), f.x, f.y - 120, Math.max(2, 5 - Math.round(u * 3)), 1, f.c);   // 붉은 구체가 점점 작아진다
   void sq;
 }
@@ -548,9 +552,12 @@ function spears(ctx, f, t, sq) {
 /* 원초적 지배 — 시작: 검보라 폭발 · 지속: 등 뒤 검은 원형 문양 · 발밑 기운 · 둘레를 도는 작은 검붉은 입자 */
 function awake(ctx, f, t) { const u = clamp(t / f.life); pxOnce(ctx, "bj_dark", u, f.x, f.y - 40, 1.4, 1 - u * 0.3, 0, "abyss"); }
 function awakeEnd(ctx, f, t) { const u = clamp(t / f.life); pxOnce(ctx, "bj_fall", u, f.x, f.y - 50, 0.8, 0.9 * (1 - u * 0.4), 0, "abyss"); }
-function aura(ctx, f, t, sq) {
+// 11월 16일 사용자 "그림자가 캐릭터를 덮어버려" — 발밑 검은 문양 · 기운은 땅 층(사람 아래, sk_bj_auraground)으로 나눠 그린다. 이 층은 둘레 입자만
+function auraGround(ctx, f) {
   pxLoop(ctx, "bj_drink", 0, 2.2, f.x, f.y - 2, 1, 0.75, 0, "abyss");          // 검은 원형 문양
   pxLoop(ctx, "bj_rage", 0, 2.4, f.x, f.y + 4, 1.25, 0.55, 0, "abyss");
+}
+function aura(ctx, f, t, sq) {
   for (let i = 0; i < 4; i++) {                        // 둘레를 도는 입자
     const a = NOW * 2.2 + i * TAU / 4, x = f.x + Math.cos(a) * 34, y = f.y - 40 + Math.sin(a) * 34 * sq;
     pxLoop(ctx, "bj_drop", i * 0.25, 0.4, x, y, 0.5, 0.9, a + Math.PI / 2, "abyss");
@@ -558,12 +565,14 @@ function aura(ctx, f, t, sq) {
   void t;
 }
 
-const KINDS = { sk_bj_echo: echo, sk_bj_blast: blast, sk_bj_spike: spike, sk_bj_hookhit: hookHit, sk_bj_line: line, sk_bj_pburst: pburst, sk_bj_pcharge: pcharge, sk_bj_sea: sea, sk_bj_seaend: seaEnd, sk_bj_spire: spire, sk_bj_clone: clone, sk_bj_lgform: lgForm, sk_bj_lghit: lgHit, sk_bj_lgend: lgEnd, sk_bj_ocharge: ocharge, sk_bj_spears: spears, sk_bj_awake: awake, sk_bj_awakeend: awakeEnd, sk_bj_aura: aura, sk_bj_wave: wave, sk_bj_hook: hook, sk_bj_hookpull: hookPull, sk_bj_hookend: hookEnd, sk_bj_swend: swordEnd, sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
+const KINDS = { sk_bj_aura_g: auraGround, sk_bj_ocharge_g: ochargeGround, sk_bj_echo: echo, sk_bj_blast: blast, sk_bj_spike: spike, sk_bj_hookhit: hookHit, sk_bj_line: line, sk_bj_pburst: pburst, sk_bj_pcharge: pcharge, sk_bj_sea: sea, sk_bj_seaend: seaEnd, sk_bj_spire: spire, sk_bj_clone: clone, sk_bj_lgform: lgForm, sk_bj_lghit: lgHit, sk_bj_lgend: lgEnd, sk_bj_ocharge: ocharge, sk_bj_spears: spears, sk_bj_awake: awake, sk_bj_awakeend: awakeEnd, sk_bj_aura: aura, sk_bj_wave: wave, sk_bj_hook: hook, sk_bj_hookpull: hookPull, sk_bj_hookend: hookEnd, sk_bj_swend: swordEnd, sk_bj_lead: lead, sk_bj_warn: warn, sk_bj_field: field, sk_bj_fieldend: fieldEnd, sk_bj_absorb: absorb, sk_bj_rage: rage, sk_bj_tired: tired, sk_bj_smc: smashCharge, sk_bj_smash: smashFire, sk_bj_slam: slam, sk_bj_sword: sword, sk_bj_veil: veil, sk_bj_veilend: veilEnd, sk_bj_ripple: ripple, sk_bj_charge: charge, sk_bj_shot: shot, sk_bj_hit: hit, sk_bj_end: end, sk_bj_burst: burst, sk_bj_reap: reap, sk_bj_conv: conv, sk_bj_fizz: fizz };
 export const BLOOD_JOB_CAP = { sk_bj_echo: 6, sk_bj_blast: 4, sk_bj_spike: 4, sk_bj_hookhit: 4, sk_bj_line: 10, sk_bj_pburst: 6, sk_bj_pcharge: 2, sk_bj_sea: 4, sk_bj_seaend: 2, sk_bj_spire: 12, sk_bj_clone: 9, sk_bj_lgform: 2, sk_bj_lghit: 8, sk_bj_lgend: 2, sk_bj_ocharge: 4, sk_bj_spears: 2, sk_bj_awake: 2, sk_bj_awakeend: 2, sk_bj_aura: 4, sk_bj_wave: 4, sk_bj_hook: 4, sk_bj_hookpull: 4, sk_bj_hookend: 4, sk_bj_swend: 4, sk_bj_lead: 2, sk_bj_warn: 2, sk_bj_field: 4, sk_bj_fieldend: 4, sk_bj_absorb: 6, sk_bj_rage: 4, sk_bj_tired: 4, sk_bj_smc: 4, sk_bj_smash: 4, sk_bj_slam: 4, sk_bj_sword: 8, sk_bj_veil: 8, sk_bj_veilend: 4, sk_bj_ripple: 6, sk_bj_charge: 4, sk_bj_shot: 8, sk_bj_hit: 12, sk_bj_end: 6, sk_bj_burst: 6, sk_bj_reap: 10, sk_bj_conv: 4, sk_bj_fizz: 4 };
 // 시전자를 따라다니는 연출 — 그릴 때 지금 그 사람 자리로 옮긴다(혈역 · 폭주 기운)
-const FOLLOW = new Set(["sk_bj_aura", "sk_bj_ocharge", "sk_bj_pcharge", "sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword", "sk_bj_hook", "sk_bj_hookpull"]);   // 갈고리 사슬은 손(시전자)에서 나온다   // 혈막도 시전자를 따라다닌다(11월 15일)
+const FOLLOW = new Set(["sk_bj_aura", "sk_bj_aura_g", "sk_bj_ocharge", "sk_bj_ocharge_g", "sk_bj_pcharge", "sk_bj_field", "sk_bj_rage", "sk_bj_veil", "sk_bj_veilend", "sk_bj_ripple", "sk_bj_sword", "sk_bj_hook", "sk_bj_hookpull"]);   // 갈고리 사슬은 손(시전자)에서 나온다   // 혈막도 시전자를 따라다닌다(11월 15일)
 // 혈막 — 겹쳐 둔 여러 장 중 한 사람당 한 프레임에 한 장만(가장 새 것). 끝 연출이 나오면 남은 장은 그리지 않는다
 const veilSeen = new Map();   // pi → { frame, cur: 이번 프레임에 본 가장 새 장의 u, prev: 앞 프레임의 cur, endU · endAt: 끝 연출이 나온 때 살아 있던 가장 새 u · 그 시각 }
+// 한 연출의 땅에 깔리는 몫 — 땅 층(rpgArt)이 이 이름으로 바꿔 사람 · 몹 아래에 먼저 그린다. 나머지(둘레 입자 · 구체)는 원래 층(11월 16일 사용자 "그림자가 캐릭터를 덮어버려")
+export const BLOOD_JOB_UNDER = { sk_bj_aura: "sk_bj_aura_g", sk_bj_ocharge: "sk_bj_ocharge_g" };
 export const BLOOD_JOB_GROUND = new Set(["sk_bj_sea", "sk_bj_seaend", "sk_bj_field", "sk_bj_fieldend", "sk_bj_veil", "sk_bj_veilend", "sk_bj_wave"]);   // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX). 혈막도 맨 뒤 — 적을 뚫고 나와 보였다(11월 15일 사용자)
 // 연마 합계(영구 레벨)에 따른 혈색 — 방장은 가방 bd, 손님은 스냅샷 bdv(같은 tr 모양)
 function tintOf(h) {

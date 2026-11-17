@@ -22,7 +22,7 @@ import { GM_CHIP, GM_CASINO } from './gamblerData.js';
 import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill, engineerKill, engineerRaidKill, engineerOn, packEngineer, applyEngineer } from './engineerJob.js';   // 히든 직업 Engineer 003(11월 17일 — 격자 연습장에만)
 import { EN_PULSE } from './engineerData.js';
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
-import { NC_ORB } from './necroData.js';
+import { NC_SCYTHE } from './necroData.js';
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodLifeOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -3989,8 +3989,8 @@ function stepHeroes(g, dt) {
       if (engineerBasic(engineerEngine, g, h, force)) { h.cd = EN_PULSE.gap; h.swing = 0.2; h.fireQ = 0; }
       return;
     }
-    if (necroOn(h)) {                             // Necromancer 004 — 평타는 흑영탄(무기 평타 없음 · 간격 0.5초 고정)
-      if (necroBasic(necroEngine, g, h, force)) { h.cd = NC_ORB.gap; h.swing = 0.25; h.fireQ = 0; }
+    if (necroOn(h)) {                             // Necromancer 004 — 평타는 그림자 낫(근접 · 무기 평타 없음 · 간격 0.55초 고정)
+      if (necroBasic(necroEngine, g, h, force)) { h.cd = NC_SCYTHE.gap; h.swing = NC_SCYTHE.swing; h.fireQ = 0; }
       return;
     }
     if (force && comboPush(g, h)) { h.cd = heroCd(h); h.fireQ = 0; return; }   // 신성검 반격 뒤 평타 키 — 밀어내기

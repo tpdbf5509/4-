@@ -10,7 +10,7 @@
    E(엔진, rpg.js necroEngine): fx · say · near · strike · basic · alive · base · face · locked · fight · squash · blocks · bounds ·
    cast(h, sid) · dummy · cdOff · boss · trace(m) · mobName(m) */
 import { NECRO as NC, NECRO_ID, NECRO_NAME, NECRO_TINT, NC_TRAIN_NAMES, NC_SOUL as SOUL, NC_ROSTER as RS, NC_TRACE as TR, NC_KINDS, NC_KIND_OF,
-  NC_ORB as OB, NC_EXTRACT as EX, NC_SUMMON as SM, NC_AI as AI, NC_SWAP as SW, NC_DOMAIN as DM, NC_MARCH as MC, NC_BURN as BN, NC_LEGION as LG,
+  NC_SCYTHE as SC, NC_EXTRACT as EX, NC_SUMMON as SM, NC_AI as AI, NC_SWAP as SW, NC_DOMAIN as DM, NC_MARCH as MC, NC_BURN as BN, NC_LEGION as LG,
   NC_ETERNAL as ET, NC_SKILLS } from "./necroData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -87,7 +87,7 @@ export function dropNecro(h) {
 /* ── 싸우는 동안의 상태 h.nc ───────────────────────── */
 const NO_CD = { extract: 0, summon: 0, swap: 0, domain: 0, march: 0, burn: 0, legion: 0 };
 function st(h) {
-  return h.nc || (h.nc = { soul: 0, cd: { ...NO_CD }, orbs: [], traces: [], sh: [], blows: [], ex: [], swaps: [], marches: [], burns: [], legions: [],
+  return h.nc || (h.nc = { soul: 0, cd: { ...NO_CD }, reaps: [], traces: [], sh: [], blows: [], ex: [], swaps: [], marches: [], burns: [], legions: [],
     dom: null, boss: {}, lock: {}, xm: [0, 0], q: 0 });
 }
 const keyOf = (o) => (o.type ? `m${o.id}` : `h${o.pi}`);
@@ -210,39 +210,34 @@ function blocked(E, g, h, sk) {
 }
 const pay = (E, g, h, sk) => { const s = st(h), D = NC_SKILLS[sk]; s.soul -= D.cost; s.cd[sk] = D.cd; };
 
-/* ── 기본 공격 — 흑영탄 ─────────────────────────────
-   s.orbs = [{ fid, x, y 시작, ax, ay, d 지난 거리, max 벽까지, wait 손에서 떠나기까지, cast, base, basic, map }] */
+/* ── 기본 공격 — 그림자 낫(근접 · 11월 17일 사용자) ─────
+   s.reaps = [{ w 맞기까지, ax, ay 휘두른 쪽, cast, base, basic, map }] — wind 초 뒤 앞쪽 부채꼴 안을 한 번에 벤다 */
 export function necroBasic(E, g, h, force) {
   if (!necroOn(h)) return false;
-  const s = st(h), o = nearest(E, g, h, h.x, h.y, OB.range, h.map);
+  const s = st(h), o = nearest(E, g, h, h.x, h.y, SC.reach + 20, h.map);
   if (!o && !force) return false;
   let ax, ay;
   if (o) { const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
   else [ax, ay] = E.face(h);
   if (Math.abs(ax) > 0.05) h.dir = ax < 0 ? -1 : 1;
   h.face = 0;
-  const orb = { fid: `no${h.pi}.${++s.q}`, x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), d: 0, max: wallCut(E, h, ax, ay, OB.range), wait: OB.wind,
-    cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map };
-  s.orbs.push(orb);
-  const life = OB.wind + orb.max / OB.v + 0.1;
-  E.fx(g, h.map, { kind: "sk_nc_orb", x: h.x, y: h.y, x0: h.x + h.dir * 10, y0: h.y - NC.lift, ax: orb.ax, ay: orb.ay, len: orb.max, v: OB.v, d: OB.wind,
-    fid: orb.fid, pi: h.pi, t: life, life, snd: "ncOrb" });
+  s.reaps.push({ w: SC.wind, ax: r2(ax), ay: r2(ay), cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map });
+  E.fx(g, h.map, { kind: "sk_nc_reap", x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), r: SC.reach, pi: h.pi, t: SC.swing, life: SC.swing, snd: "ncReap" });
   return true;
 }
-function stepOrb(E, g, h, c, dt) {
-  if (c.wait > 0) { c.wait -= dt; if (c.wait > 0) return true; dt = -c.wait; }
-  const from = c.d, to = Math.min(c.max, c.d + OB.v * dt);
-  c.d = to;
-  const hit = E.near(g, h, c.x, c.y, to + 60).filter((o) => E.alive(g, h, o, c.map)).map((o) => {
-    const dx = o.x - c.x, dy = (o.y - c.y) / E.squash;
-    return { o, along: dx * c.ax + dy * c.ay, side: Math.abs(dx * c.ay - dy * c.ax) };
-  }).filter((q) => q.along >= from - 20 && q.along <= to + 4 && q.side <= OB.dia / 2 + (q.o.rad || 16) * 0.5).sort((a, b) => a.along - b.along)[0];
-  if (!hit) return c.d < c.max;
-  const o = hit.o;
-  strike(E, g, h, c, o, OB.mul);
-  gainSoul(h, SOUL.hit);                                // 유효 적중 영혼 +5(허수아비도 — 연습 대상에서 스킬을 써 볼 수 있게)
-  E.fx(g, c.map, { kind: "cut", ref: c.fid });
-  E.fx(g, c.map, { kind: "sk_nc_hit", x: o.x, y: o.y, pi: h.pi, t: 0.3, life: 0.3, snd: "ncHit" });
+function stepReap(E, g, h, c, dt) {
+  c.w -= dt;
+  if (c.w > 0) return true;
+  const cosA = Math.cos(SC.arc);
+  const hits = E.near(g, h, h.x, h.y, SC.reach + 60).filter((o) => E.alive(g, h, o, c.map)).map((o) => {
+    const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy);
+    return { o, d, dot: d > 0 ? (dx * c.ax + dy * c.ay) / d : 1 };
+  }).filter((q) => q.d <= SC.reach + (q.o.rad || 16) * 0.5 && (q.d < 24 || q.dot >= cosA)).sort((a, b) => a.d - b.d).slice(0, SC.max);
+  hits.forEach((q, i) => {
+    strike(E, g, h, c, q.o, SC.mul);
+    E.fx(g, c.map, { kind: "sk_nc_hit", x: q.o.x, y: q.o.y, pi: h.pi, t: 0.32, life: 0.32, ...(i ? {} : { snd: "ncHit" }) });
+  });
+  if (hits.length) gainSoul(h, SOUL.hit);               // 맞히면 영혼 +5(한 번 휘두를 때 한 번 · 허수아비도 — 연습 대상에서 스킬을 써 볼 수 있게)
   return false;
 }
 
@@ -560,7 +555,7 @@ export function tickNecro(E, g, h, dt) {
   const here = (q) => q.map === h.map;                  // 맵을 옮기면 남은 것은 걷는다
   s.traces = s.traces.filter((q) => (q.left -= dt) > 0);
   if (s.sh.length && h.down > 0) s.sh = [];
-  s.orbs = s.orbs.filter((c) => here(c) && stepOrb(E, g, h, c, dt));
+  s.reaps = s.reaps.filter((c) => here(c) && stepReap(E, g, h, c, dt));
   s.ex = s.ex.filter((q) => here(q) && tickExtract(E, g, h, q, dt));
   s.swaps = s.swaps.filter((q) => here(q) && tickSwap(E, g, h, q, dt));
   if (s.sh.length && s.shMap && s.shMap !== h.map) s.sh = [];   // 맵이 바뀌면 그림자를 곧바로 치운다
@@ -572,7 +567,7 @@ export function tickNecro(E, g, h, dt) {
   s.legions = s.legions.filter((q) => here(q) && tickLegion(E, g, h, q, dt));
   if (s.dom) tickDomain(E, g, h, s, dt);
 }
-// 쓰러졌다 — 그림자 · 영역을 걷고 영혼을 비운다(정한 값). 이미 떠난 흑영탄 · 예약 타격은 그대로 간다
+// 쓰러졌다 — 그림자 · 영역을 걷고 영혼을 비운다(정한 값). 이미 휘두른 낫 · 예약 타격은 그대로 간다
 export function necroDown(E, g, h) {
   if (!necroOn(h) || !h.nc) return;
   const s = h.nc;

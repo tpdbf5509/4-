@@ -350,11 +350,12 @@ export function play(name) {
     tone({ type: "sawtooth", f0: 1200, f1: 2600, t: 0.3, gain: 0.07, delay: 1.6 });
     noise({ t: 0.5, gain: 0.25, f: 380, q: 0.6, delay: 1.75 });
     tone({ type: "sine", f0: 90, f1: 30, t: 0.5, gain: 0.25, delay: 1.75 });
-  } else if (name === "ncOrb") {             // Necromancer 004 흑영탄 — 짧고 낮은 울림(기획안 "짧고 낮은 울림")
-    if (!gate("ncOrb", 80)) return;
-    tone({ type: "sine", f0: 260, f1: 150, t: 0.12, gain: 0.08 });
-    noise({ t: 0.06, gain: 0.04, f: 900, q: 2 });
-  } else if (name === "ncHit") {             // 흑영탄 적중 — 둔탁하게 흩어짐
+  } else if (name === "ncReap") {            // Necromancer 004 그림자 낫 — 낮게 가르는 바람 소리 · 짧은 전기 튐
+    if (!gate("ncReap", 90)) return;
+    noise({ t: 0.16, gain: 0.09, f: 1400, q: 0.9 });
+    tone({ type: "sawtooth", f0: 320, f1: 110, t: 0.14, gain: 0.04 });
+    tone({ type: "square", f0: 1800, f1: 900, t: 0.03, gain: 0.02, delay: 0.1 });
+  } else if (name === "ncHit") {             // 낫 적중 — 둔탁하게 흩어짐 · 보라 번개 튐
     if (!gate("ncHit", 80)) return;
     tone({ type: "triangle", f0: 200, f1: 90, t: 0.08, gain: 0.07 });
     noise({ t: 0.07, gain: 0.07, f: 700, q: 1.5 });
@@ -366,6 +367,7 @@ export function play(name) {
     if (!gate("ncSummon", 400)) return;
     tone({ type: "sine", f0: 82, f1: 123, t: 0.6, gain: 0.16 });
     [0, 0.08, 0.16].forEach((d, i) => tone({ type: "triangle", f0: 196 + i * 30, f1: 165, t: 0.25, gain: 0.04, delay: d }));
+    [0.02, 0.1, 0.17].forEach((d) => noise({ t: 0.09, gain: 0.08, f: 3200, q: 2, delay: d }));   // 내리치는 보라 번개
   } else if (name === "ncSlash") {           // 그림자 근접 공격
     if (!gate("ncSlash", 90)) return;
     noise({ t: 0.08, gain: 0.07, f: 1200, q: 1.2 });

@@ -117,21 +117,73 @@ def thick(c, x0, y0, x1, y1, col, w=2):
                x1 + (k if abs(y1 - y0) >= abs(x1 - x0) else 0), y1 + (0 if abs(y1 - y0) >= abs(x1 - x0) else k), col)
 
 def finish(c, tint, eyes, core=None):
-    """그림자 몸 마무리 — 오른쪽 위 가장자리에 보라 빛 · 1px 바깥선(130 은 은색) · 눈(75 부터 진한 보라) · 연기 띠"""
+    """그림자 몸 마무리 자리만 적어 둔다 — 실제 빛 · 윤곽 · 번개는 여백을 붙인 뒤 glow() 가 그린다(11월 17일 사용자 참고 그림: 검은 몸 · 보라 윤곽 빛 · 번개 줄기)"""
+    c.meta = (tint, eyes, core)
+
+# 보라 빛 5단(어두운 빛 → 심지) · 푸른 기운 3단 — 사용자 참고 그림의 보라 번개 · 푸른 뒷빛
+GV = [rgb(c) for c in ["#3B1F6E", "#6A3FD0", "#9C6BFF", "#C9A8FF", "#F1E6FF"]]
+BL = [rgb(c) for c in ["#2E4F9E", "#5F8FE8", "#A9C8FF"]]
+PAD, PADT = 3, 7                                   # 그림자 병사 칸 여백 — 바깥 빛 · 머리 위 연기 자리
+DARK = {}
+for i, col in enumerate(N): DARK[tuple(col[:3])] = [N[0], N[0], N[1], N[1], N[2], N[2], GV[1], GV[2], GV[3], GV[4]][i]
+
+def jag(c, x, y, steps, dx, dy, col, tip, seed, m=None):
+    """번개 줄기 — 한 칸씩 꺾이며 나아간다(m 이 있으면 몸 안에서만)"""
+    for k in range(steps):
+        x += dx + (1 if rnd(seed, k, 1) > 0.66 else -1 if rnd(seed, k, 1) < 0.33 else 0)
+        y += dy + (1 if rnd(seed, k, 2) > 0.8 else 0)
+        if m is not None and not (0 <= y < m.shape[0] and 0 <= x < m.shape[1] and m[int(y), int(x)]): break
+        c.px(x, y, tip if k == steps - 1 else col)
+    return x, y
+
+def glow(c, seed):
+    """검은 몸 · 안쪽 윤곽 보라 빛(연마 75 는 푸른 뒷빛 · 130 은 은빛) · 바깥 보라 번짐 · 몸 위 번개 줄기 · 빛나는 눈과 가슴 문양 · 머리 위 연기"""
+    tint, eyes, core = c.meta
     a = c.a; m = a[..., 3] > 0; H, Wd = m.shape
-    rim = np.zeros_like(m)
-    rim[1:, :-1] = m[1:, :-1] & ~m[:-1, 1:]           # 오른쪽 위가 비었다
-    body = a.copy()
-    for y, x in zip(*np.nonzero(rim)):
-        if tuple(body[y, x][:3]) in [tuple(N[i][:3]) for i in (1, 2, 3)]: a[y, x] = N[6]
-    out = np.zeros_like(m)
-    out[1:, :] |= m[:-1, :]; out[:-1, :] |= m[1:, :]; out[:, 1:] |= m[:, :-1]; out[:, :-1] |= m[:, 1:]
-    out &= ~m
-    a[out] = SV[1] if tint == 2 else N[0]
-    ec = N[8] if tint == 0 else DEEPV
-    for (x, y) in eyes: c.px(x, y, ec)
-    if tint >= 1 and eyes: c.px(eyes[0][0], eyes[0][1], DEEPV2)
-    if tint >= 1 and core: c.px(core[0], core[1], DEEPV); c.px(core[0] + 1, core[1], DEEPV); c.px(core[0], core[1] + 1, rgb("#5B2390"))
+    for y, x in zip(*np.nonzero(m)):                                         # 몸은 거의 검게
+        k = tuple(a[y, x][:3])
+        if k in DARK: a[y, x] = DARK[k]
+    pad = np.pad(m, 1)
+    up, dn, lf, rt = ~pad[:-2, 1:-1], ~pad[2:, 1:-1], ~pad[1:-1, :-2], ~pad[1:-1, 2:]
+    edge = m & (up | dn | lf | rt)
+    for y, x in zip(*np.nonzero(edge)):                                      # 안쪽 윤곽 — 위 · 오른쪽은 밝게, 왼쪽은 연마에 따라 푸른 뒷빛
+        lit = up[y, x] or rt[y, x]
+        col = GV[2] if lit else GV[1]
+        if tint == 1 and lf[y, x] and not lit: col = BL[1]
+        if tint == 2 and lit: col = SV[2] if (x + y) % 3 == 0 else GV[3]
+        a[y, x] = col
+    o1 = np.zeros_like(m); o1[1:] |= m[:-1]; o1[:-1] |= m[1:]; o1[:, 1:] |= m[:, :-1]; o1[:, :-1] |= m[:, 1:]; o1 &= ~m
+    o2 = np.zeros_like(m); o2[1:] |= o1[:-1]; o2[:-1] |= o1[1:]; o2[:, 1:] |= o1[:, :-1]; o2[:, :-1] |= o1[:, 1:]; o2 &= ~m & ~o1
+    for y, x in zip(*np.nonzero(o1)): c.px(x, y, al(GV[1], 0.75))            # 바깥 번짐 두 겹
+    for y, x in zip(*np.nonzero(o2)):
+        if BAYER[y % 4, x % 4] < 0.55: c.px(x, y, al(GV[0], 0.55))
+    if core:                                                                  # 몸 위 번개 줄기 — 가슴에서 사방으로
+        cx, cy = core
+        for v in range(3 + tint):
+            ang = rnd(seed, v, 3) * TAU
+            dx = 1 if math.cos(ang) > 0.4 else -1 if math.cos(ang) < -0.4 else 0
+            dy = 1 if math.sin(ang) > 0.2 else -1
+            jag(c, cx, cy, 3 + int(rnd(seed, v, 4) * 6), dx, dy, GV[3] if v % 2 else GV[2], GV[4], seed * 7 + v, m)
+        c.px(cx, cy - 1, GV[3]); c.px(cx, cy + 1, GV[3]); c.px(cx - 1, cy, GV[3]); c.px(cx + 1, cy, GV[3]); c.px(cx, cy, GV[4])   # 가슴 문양
+        if tint >= 1: c.px(cx, cy - 2, GV[3]); c.px(cx, cy + 2, GV[2])
+    for i, (x, y) in enumerate(eyes):                                         # 빛나는 눈
+        c.px(x, y, GV[4]); c.px(x, y - 1, al(GV[2], 0.8))
+        if i == len(eyes) - 1: c.px(x + 1, y, al(GV[3], 0.9)); c.px(x + 2, y, al(GV[2], 0.6))
+    top = np.nonzero(m.any(axis=1))[0]
+    if len(top):                                                              # 머리 위 · 어깨에서 오르는 보라 연기
+        t0 = top[0]; cols = np.nonzero(m[t0 + 2] if t0 + 2 < H else m[t0])[0]
+        xs = np.nonzero(m.any(axis=0))[0]
+        for i in range(7):
+            x = xs[0] + rnd(seed, i, 5) * (xs[-1] - xs[0]); y = t0 + 2 + rnd(seed, i, 6) * 8
+            for j in range(2 + int(rnd(seed, i, 7) * 4)):
+                yy = y - j * 1.5; xx = x + math.sin(j * 0.9 + seed + i) * 1.2
+                if 0 <= int(yy) < H and 0 <= int(xx) < Wd and not m[int(yy), int(xx)]: c.px(xx, yy, al(GV[1] if j < 2 else GV[0], 0.75 - j * 0.12))
+
+def padded(c):
+    o = Cv(c.w + PAD * 2, c.h + PAD + PADT); o.a[PADT:PADT + c.h, PAD:PAD + c.w] = c.a
+    t, e, k = c.meta
+    o.meta = (t, [(x + PAD, y + PADT) for x, y in e], (k[0] + PAD, k[1] + PADT) if k else None)
+    return o
 
 def smoke(c, cx, fy, w, ph):
     # 발밑 연기 — 그림자가 땅에서 완전히 떨어지지 않게 성긴 띠
@@ -251,10 +303,10 @@ def rise_frame(base, k, cx, fy):
     c.a[base.h - show:, :] = base.a[base.h - show:, :]
     rx = 7 + k * 2 + base.w // 8
     c.band(cx, fy, rx, rx * .35, 0, 1, N[1], dens=.85)
-    c.ring(cx, fy, rx, rx * .35, N[6] if k % 2 == 0 else N[5], 0, TAU, 2)
+    c.ring(cx, fy, rx, rx * .35, GV[2] if k % 2 == 0 else GV[1], 0, TAU, 2)
     for i in range(3):
         x = cx - rx + 2 + i * rx * .9; h = 3 + int(rnd(k, i) * 5) + k
-        c.line(x, fy - 1, x + (1 if i % 2 else -1), fy - h, N[5])
+        c.line(x, fy - 1, x + (1 if i % 2 else -1), fy - h, GV[2]); c.px(x + (1 if i % 2 else -1), fy - h - 1, GV[4])
     return c
 
 def fade_frame(base, k):
@@ -275,35 +327,48 @@ def soldier_cells(kind):
     fn, w, h, cx, fy = SOLDIER[kind]; cells = []
     for tint in range(3):
         row = []
-        for p in range(4): c = Cv(w, h); fn(c, ("walk", p), tint); row.append(c)
-        for p in range(4): c = Cv(w, h); fn(c, ("atk", p), tint); row.append(c)
-        for k in range(4): row.append(rise_frame(row[0], k, cx, fy))
+        for p in range(4): c = Cv(w, h); fn(c, ("walk", p), tint); c = padded(c); glow(c, p + tint * 11 + 1); row.append(c)
+        for p in range(4): c = Cv(w, h); fn(c, ("atk", p), tint); c = padded(c); glow(c, p + tint * 11 + 5); row.append(c)
+        for k in range(4): row.append(rise_frame(row[0], k, cx + PAD, fy + PADT))
         for k in range(4): row.append(fade_frame(row[0], k))
         cells += row
-    return cells, (w, h, cx, fy)
+    return cells, (w + PAD * 2, h + PAD + PADT, cx + PAD, fy + PADT)
 
-# ── 흑영탄(14×14, 돌며 반복) · 작은 타격(검은 사각 다섯) ──
+# ── 주술형 구체(14×14, 돌며 반복) · 작은 타격(검은 사각 다섯) ──
 def orb_cells(n=6):
     out = []
     for i in range(n):
         c = Cv(14, 14); a = i / n * TAU
-        c.disc(7, 7, 5.2, 5.2, N[4]); c.disc(7, 7, 4.2, 4.2, N[1]); c.disc(6.5, 6.5, 2.2, 2.2, N[0])
-        c.ring(7, 7, 4.8, 4.8, N[6], a, a + 2.2); c.px(7 + math.cos(a + 1.1) * 4.5, 7 + math.sin(a + 1.1) * 4.5, N[8])
-        c.px(7 + math.cos(a + 3.8) * 5.5, 7 + math.sin(a + 3.8) * 5.5, N[5]); c.px(5, 5, N[7])
+        c.disc(7, 7, 5.2, 5.2, GV[1]); c.disc(7, 7, 4.2, 4.2, N[1]); c.disc(6.5, 6.5, 2.2, 2.2, N[0])
+        c.ring(7, 7, 4.8, 4.8, GV[3], a, a + 2.2); c.px(7 + math.cos(a + 1.1) * 4.5, 7 + math.sin(a + 1.1) * 4.5, GV[4])
+        c.px(7 + math.cos(a + 3.8) * 5.5, 7 + math.sin(a + 3.8) * 5.5, GV[2]); c.px(5, 5, GV[3])
         out.append(c)
     return out
 
-def hit_cells(n=6, size=32, seed=5):
+def hit_cells(n=6, size=40, seed=5):
+    """타격 — 가운데 섬광 · 사방으로 꺾여 뻗는 보라 번개 · 검은 조각(11월 17일 사용자: 이펙트 더 많이)"""
     out = []
     for i in range(n):
         c = Cv(size, size); u = (i + 1) / n; m = size // 2
-        if i < 2: c.ring(m, m, 4 + i * 4, 4 + i * 4, N[7] if i == 0 else N[6], 0, TAU, 0 if i == 0 else 2)
-        for j in range(5):
-            a = j / 5 * TAU + rnd(seed, j) * 0.8; d = 3 + ez(u) * 12
-            x, y = m + math.cos(a) * d, m + math.sin(a) * d - u * 3
-            s = 3 if u < .5 else 2 if u < .85 else 1
-            c.rect(x - s // 2, y - s // 2, s, s, N[0]);
-            if s >= 2: c.px(x + s // 2, y - s // 2, N[6])
+        if i < 3: c.disc(m, m, 5 - i * 1.5, 5 - i * 1.5, GV[3 - i]); c.disc(m, m, 2.5 - i, 2.5 - i, GV[4])
+        if i < 2: c.ring(m, m, 6 + i * 6, 6 + i * 6, GV[2] if i == 0 else GV[1], 0, TAU, 0 if i == 0 else 2)
+        if i < 4:
+            for j in range(6):
+                ang = j / 6 * TAU + rnd(seed, j) * 0.6
+                dx = 1 if math.cos(ang) > 0.38 else -1 if math.cos(ang) < -0.38 else 0
+                dy = 1 if math.sin(ang) > 0.38 else -1 if math.sin(ang) < -0.38 else 0
+                st = 4 + i * 3 + int(rnd(seed, j, i) * 4)
+                x, y = m + dx * 2, m + dy * 2
+                for k in range(st):
+                    x += dx + (1 if rnd(seed + i, j, k) > 0.7 else -1 if rnd(seed + i, j, k) < 0.3 else 0) * (dy != 0)
+                    y += dy + (1 if rnd(seed + i, j, k + 9) > 0.7 else -1 if rnd(seed + i, j, k + 9) < 0.3 else 0) * (dx != 0)
+                    if k >= i * 2: c.px(x, y, GV[4] if k == st - 1 else GV[3] if i < 2 else GV[2])
+        for j in range(6):
+            ang = j / 6 * TAU + rnd(seed, j) * 0.8; d = 4 + ez(u) * 15
+            x, y = m + math.cos(ang) * d, m + math.sin(ang) * d - u * 3
+            sz = 3 if u < .5 else 2 if u < .85 else 1
+            c.rect(x - sz // 2, y - sz // 2, sz, sz, N[0])
+            if sz >= 2: c.px(x + sz // 2, y - sz // 2, GV[2])
         out.append(c)
     return out
 
@@ -373,9 +438,12 @@ def slash_cells(n=5):
     for i in range(n):
         c = Cv(36, 30); u = i / (n - 1)
         a0, a1 = -1.9 + u * .6, .4 + u * .6
-        for k in range(3):
-            col = [N[9] if i < 2 else N[8], N[7], N[5]][k]
-            c.ring(14, 18, 14 - k, 10 - k * .6, col, a0 + k * .15, a1 - k * .1)
+        for k in range(4):
+            col = [GV[4] if i < 2 else GV[3], GV[3], GV[2], GV[1]][k]
+            c.ring(14, 18, 15 - k, 11 - k * .7, col, a0 + k * .12, a1 - k * .08)
+        if i <= 2:
+            ex, ey = 14 + math.cos(a1) * 15, 18 + math.sin(a1) * 11
+            jag(c, ex, ey, 4, 1, 0, GV[3], GV[4], 31 + i)
         if i >= 3: c.a[..., 3][BAYER[np.mgrid[0:30, 0:36][0] % 4, np.mgrid[0:30, 0:36][1] % 4] < (i - 2) / 3] = 0
         out.append(c)
     return out
@@ -395,16 +463,24 @@ def burst_cells(R, n, seed, cy_extra=0, red=False, big=False):
         r = R * ez(min(1, u * 1.6))
         dens = max(0, 1 - u * 1.1)
         c.band(cx, cy, r, r * SQ, 0, 1, N[0], dens=lambda d: (1 - d) * dens * 1.3)
-        c.ring(cx, cy, r, r * SQ, N[7] if i < n * .5 else N[5], 0, TAU, 0 if i < n * .6 else 2)
+        c.ring(cx, cy, r, r * SQ, GV[3] if i < n * .5 else GV[1], 0, TAU, 0 if i < n * .6 else 2)
+        if i < n * .5: c.ring(cx, cy, r + 1, (r + 1) * SQ, al(GV[1], .7))
         if big and i > 1: c.ring(cx, cy, r * .65, r * .65 * SQ, SV[1] if i % 2 else N[8], 0, TAU, 3)
         core = R * .55 * (1 - u)
         if core > 1.5:
-            c.disc(cx, cy - R * .3 * (1 - u), core, core * .9, RD[1] if red else N[1])
-            c.disc(cx, cy - R * .3 * (1 - u), core * .55, core * .5, RD[2] if red else N[5])
+            c.disc(cx, cy - R * .3 * (1 - u), core, core * .9, RD[1] if red else GV[1])
+            c.disc(cx, cy - R * .3 * (1 - u), core * .55, core * .5, RD[2] if red else GV[3])
+            c.disc(cx, cy - R * .3 * (1 - u), core * .25, core * .22, RD[3] if red else GV[4])
+        if i < n * .6:                                                                      # 밖으로 뻗는 보라 번개
+            for j in range(6):
+                ang = j / 6 * TAU + rnd(seed, j, 11)
+                dx = 1 if math.cos(ang) > .38 else -1 if math.cos(ang) < -.38 else 0
+                dy = 1 if math.sin(ang) > .38 else -1 if math.sin(ang) < -.38 else 0
+                jag(c, cx + math.cos(ang) * r * .3, cy + math.sin(ang) * r * .3 * SQ, int(r * .5), dx, dy, GV[3], GV[4], seed * 13 + j + i)
         for j in range(int(R / 4)):
             a = rnd(seed, j) * TAU; d = r * (.5 + .55 * rnd(seed, j, 3)); s = 2 if rnd(seed, j, 4) > .5 else 1
             x, y = cx + math.cos(a) * d, cy + math.sin(a) * d * SQ - u * R * .35 * rnd(seed, j, 5)
-            if u < .95: c.rect(x, y, s, s, N[0] if j % 3 else (RD[2] if red else N[7]))
+            if u < .95: c.rect(x, y, s, s, N[0] if j % 3 else (RD[2] if red else GV[3]))
         out.append(c)
     return out, (w, h, cx, cy)
 
@@ -428,19 +504,30 @@ def domain_cells(R=160):
     for i in range(8):
         c = Cv(w, h)
         r = R * (ez((i + 1) / 4) if i < 4 else 1)
-        c.band(cx, cy, r, r * SQ, .55, 1, N[1], dens=lambda d: .14 + .3 * (d - .55) / .45)
-        c.band(cx, cy, r, r * SQ, 0, .55, N[1], dens=.07)
-        c.ring(cx, cy, r, r * SQ, N[6]); c.ring(cx, cy, r - 2, (r - 2) * SQ, N[3])
+        c.band(cx, cy, r, r * SQ, .5, 1, N[1], dens=lambda d: .18 + .42 * (d - .5) / .5)          # 가장자리로 갈수록 짙은 그림자 연기
+        c.band(cx, cy, r, r * SQ, 0, .5, N[1], dens=.1)
+        c.band(cx, cy, r, r * SQ, .9, 1, GV[0], dens=.35)
+        c.ring(cx, cy, r + 1, (r + 1) * SQ, al(GV[1], .7)); c.ring(cx, cy, r, r * SQ, GV[2]); c.ring(cx, cy, r - 1, (r - 1) * SQ, GV[3], 0, TAU, 4)
+        c.ring(cx, cy, r - 3, (r - 3) * SQ, GV[1])
         if i >= 2:
             rot = (i - 4) * TAU / 32 if i >= 4 else 0
-            rr = r * .82
-            c.ring(cx, cy, rr, rr * SQ, N[5], 0, TAU, 3)
+            rr = r * .8
+            c.ring(cx, cy, rr, rr * SQ, GV[1], 0, TAU, 3)
             for k in range(12):                                                              # 고리 위 문양 열둘
-                a = rot + k * TAU / 12; x, y = cx + math.cos(a) * rr, cy + math.sin(a) * rr * SQ
-                c.rect(x - 1, y - 1, 3, 3, N[1]); c.px(x, y - 1, N[7] if k % 3 == 0 else N[6]); c.px(x, y + 1, N[5])
-            for k in range(6):                                                               # 가운데로 가는 금
-                a = rot * 2 + k * TAU / 6 + .26
-                for t in range(int(rr * .3), int(rr * .7), 2): c.px(cx + math.cos(a) * t, cy + math.sin(a) * t * SQ, N[4])
+                ang = rot + k * TAU / 12; x, y = cx + math.cos(ang) * rr, cy + math.sin(ang) * rr * SQ
+                c.rect(x - 1, y - 1, 3, 3, N[0]); c.px(x, y - 1, GV[4] if k % 3 == 0 else GV[3]); c.px(x, y + 1, GV[1])
+            for k in range(7):                                                               # 땅을 가르는 번개 금 — 가장자리에서 가운데로(칸마다 깜빡인다)
+                ang = rot * 2 + k * TAU / 7 + .26 + rnd(i, k) * .2
+                x, y = cx + math.cos(ang) * r * .95, cy + math.sin(ang) * r * .95 * SQ
+                L = int(r * (.35 + .25 * rnd(k, i, 3)))
+                for t in range(L):
+                    fwd = t / max(1, L)
+                    x += -math.cos(ang) * 1.0 + (rnd(k, t, i) - .5) * 1.6
+                    y += (-math.sin(ang) * 1.0 + (rnd(k, t, i + 5) - .5) * 1.6) * SQ
+                    if (i + k) % 3 == 0 or fwd < .7: c.px(x, y, GV[3] if (t + i) % 5 else GV[4])
+            for k in range(14):                                                              # 바닥에 깔린 보라 빛 알갱이
+                ang = rnd(k, i, 8) * TAU; d = rnd(k, i, 9) * r * .9
+                c.px(cx + math.cos(ang) * d, cy + math.sin(ang) * d * SQ, GV[2] if k % 2 else GV[3])
         out.append(c)
     return out, (w, h, cx, cy)
 
@@ -513,12 +600,123 @@ def spike_cells(n=6):
         c.px(6, 44 - hgt, N[8] if i < 4 else N[6]); c.ring(6, 44, 5, 1.6, N[3]); out.append(c)
     return out
 
-# ── 스킬 아이콘(24×24) — 흑영탄 · 흔적 추출 · 그림자 소집 · 그림자 교환 · 군주의 영역 · 일제 진군 · 영혼 소각 · 무명의 군세 ──
+# ── 그림자 기운(48×64, 반복) — 병사 뒤에서 오르는 보라 연기 불꽃 · 가끔 튀는 번개. 발밑 (24, 60) ──
+def aura_cells(n=8):
+    out = []
+    for i in range(n):
+        c = Cv(48, 64); cx, fy = 24, 60
+        c.band(cx, fy, 16, 5, 0, 1, al(GV[0], .8), dens=.5)
+        for j in range(30):                                                                  # 오르며 흔들리는 연기 기둥
+            bx = cx + (rnd(j, 1) - .5) * 32; ph = (i / n + rnd(j, 2)) % 1
+            y = fy - ph * 54; x = bx + math.sin(ph * 6 + j) * 3 - (bx - cx) * ph * .3
+            sz = 4 if ph < .3 else 3 if ph < .6 else 2 if ph < .85 else 1
+            col = GV[1] if ph < .45 else GV[0]
+            c.rect(x - sz // 2, y - sz // 2, sz, sz, al(col, .95 - ph * .55))
+            if ph < .3 and j % 3 == 0: c.px(x, y - 1, al(GV[2], .8))
+        if i in (1, 2, 5):                                                                   # 번개 튐
+            sx = cx + (rnd(i, 3) - .5) * 26; sy = fy - 10 - rnd(i, 4) * 30
+            jag(c, sx, sy, 6, 0, -1, GV[3], GV[4], 50 + i)
+        out.append(c)
+    return out
+
+# ── 하늘 번개(30×140) — 0~1 가는 줄기 · 2~3 굵게 내리친다(가지) · 4 땅 섬광 · 5~6 불똥. 땅 (15, 136) ──
+def thunder_cells(n=7):
+    out = []; fy = 136; cx = 15
+    path = []; x = cx
+    for y in range(0, fy):
+        if y % 4 == 0: x = max(4, min(26, x + (1 if rnd(y, 1) > .6 else -1 if rnd(y, 1) < .4 else 0) * 2))
+        path.append((x, y))
+    for i in range(n):
+        c = Cv(30, 140)
+        if i <= 3:
+            top = 0 if i >= 1 else 60
+            for (x, y) in path[top:]:
+                if i >= 2: c.px(x - 1, y, al(GV[1], .8)); c.px(x + 1, y, al(GV[1], .8)); c.px(x, y, GV[4] if i == 2 else GV[3])
+                else: c.px(x, y, GV[3])
+            if i >= 2:
+                for b in range(4):                                                           # 가지
+                    y0 = 20 + b * 25; x0 = path[y0][0]
+                    jag(c, x0, y0, 6 + b, 1 if b % 2 else -1, 1, GV[2], GV[3], 70 + b + i)
+        if 3 <= i <= 5:
+            r = 6 + (i - 3) * 4
+            c.band(cx, fy, r, r * .35, 0, 1, al(GV[3] if i == 3 else GV[2], .9), dens=1 if i == 3 else .6)
+            c.ring(cx, fy, r + 2, (r + 2) * .35, GV[2] if i < 5 else GV[1], 0, TAU, 0 if i == 3 else 2)
+        if i >= 4:
+            for k in range(8):
+                ang = -math.pi * rnd(k, 5); d = (i - 3) * 4 + rnd(k, 6) * 4
+                c.px(cx + math.cos(ang) * d, fy - 4 + math.sin(ang) * d - (i - 4) * 3, GV[3] if i == 4 else GV[1])
+        out.append(c)
+    return out
+
+# ── 걸을 때 끌리는 연기 한 줌(16×12) — 커지며 옅어진다 ──
+def puff_cells(n=6):
+    out = []
+    for i in range(n):
+        c = Cv(16, 12); u = i / (n - 1); r = 2 + u * 5
+        c.band(8, 7 - u * 2, r, r * .7, 0, 1, al(GV[0] if u > .4 else GV[1], .85 - u * .5), dens=.8 - u * .55)
+        if i < 2: c.px(8, 6, GV[2])
+        out.append(c)
+    return out
+
+# ── 그림자 군주의 낫(66×56) — 손잡이 끝(28, 28)을 쥔다. 0 기본 · 1 날에 번개가 흐른다(번갈아 반복) ──
+def scythe_cells():
+    out = []
+    for i in range(2):
+        c = Cv(66, 56); hx, hy = 28, 28
+        thick(c, hx - 10, hy + 18, hx + 12, hy - 22, N[1], 2)                                # 자루(손 아래로 조금 · 위로 길게)
+        c.line(hx - 9, hy + 18, hx + 13, hy - 22, GV[1])
+        c.px(hx - 10, hy + 19, GV[2]); c.px(hx - 11, hy + 20, GV[3])
+        tx, ty = hx + 12, hy - 22                                                            # 날 — 자루 끝에서 앞으로 나가 아래로 휜 반달
+        ox, oy, R0 = tx + 3, ty + 15, 16
+        pts = []
+        for k in range(26):
+            u = k / 25; ang = -1.85 + u * 2.2
+            pts.append((ox + math.cos(ang) * R0, oy + math.sin(ang) * R0, u))
+        for k, (x, y, u) in enumerate(pts):
+            th = 4 if u < .45 else 3 if u < .75 else 2 if u < .92 else 1
+            ang = -1.85 + u * 2.2
+            for d in range(th):                                                              # 안쪽(가운데 쪽)으로 두께
+                c.px(x - math.cos(ang) * d, y - math.sin(ang) * d, N[1] if d else N[0])
+            c.px(x + math.cos(ang) * .9, y + math.sin(ang) * .9, GV[3] if (i == 1 and k % 3 == 0) else GV[2])   # 바깥 날 빛
+        c.px(pts[-1][0] + 1, pts[-1][1] + 1, GV[4])
+        c.rect(tx - 1, ty - 1, 3, 3, N[0]); c.px(tx, ty, GV[4] if i else GV[3])              # 날 뿌리의 보라 구슬
+        if i == 1: jag(c, pts[10][0], pts[10][1] - 1, 5, 1, -1, GV[3], GV[4], 91)
+        out.append(c)
+    return out
+
+# ── 낫 베기(132×122) — 시전자 손 (22, 60) 기준 오른쪽 둘레를 위에서 아래로 크게 벤다. 반지름 R(그림 속) ──
+def reap_cells(n=7, R=64):
+    out = []; cx, cy = 22, 60
+    for i in range(n):
+        c = Cv(132, 122); u = i / (n - 1)
+        head = -1.5 + min(1, u / .55) * 2.5                                                  # 날 끝이 지나가는 각도(위 → 앞 → 아래)
+        tail = max(-1.5, head - 1.6)
+        fade = max(0, (u - .55) / .45)
+        for k in range(7):                                                                   # 겹친 반달 — 바깥이 가장 밝다
+            rr = R + 6 - k * 2
+            col = [GV[4], GV[3], GV[3], GV[2], GV[2], GV[1], GV[0]][k]
+            if fade > 0 and k < 3: col = GV[2] if k == 0 else GV[1]
+            a0 = tail + k * .05 + fade * 1.2
+            if a0 < head: c.ring(cx, cy, rr, rr * .82, al(col, 1 - fade * .8), a0, head)
+        if u <= .6:                                                                          # 날 끝 섬광 · 번개
+            ex, ey = cx + math.cos(head) * (R + 6), cy + math.sin(head) * (R + 6) * .82
+            star(c, ex, ey, 2, GV[3]); jag(c, ex, ey, 6, 1, 1 if head > 0 else 0, GV[3], GV[4], 101 + i)
+        for k in range(10):                                                                  # 흩날리는 그림자 연기
+            ang = tail + rnd(k, 1) * (head - tail); d = R * (.6 + rnd(k, 2) * .5)
+            x, y = cx + math.cos(ang) * d + u * 6, cy + math.sin(ang) * d * .82 - u * 6
+            c.px(x, y, al(GV[1] if k % 2 else N[1], .8 - fade * .6))
+        out.append(c)
+    return out, (cx, cy)
+
+# ── 스킬 아이콘(24×24) — 그림자 낫 · 흔적 추출 · 그림자 소집 · 그림자 교환 · 군주의 영역 · 일제 진군 · 영혼 소각 · 무명의 군세 ──
 def icon_cells():
     out = []
     def frame(c):
         c.rect(0, 0, 24, 24, N[2]); c.rect(1, 1, 22, 22, N[1]); c.ring(12, 12, 10.5, 10.5, N[3]); c.rect(0, 0, 24, 1, N[4]); c.rect(0, 0, 1, 24, N[4])
-    c = Cv(24, 24); frame(c); c.disc(12, 12, 6, 6, N[5]); c.disc(12, 12, 4.5, 4.5, N[0]); c.ring(12, 12, 5.5, 5.5, N[7], 3.6, 5.6); c.px(10, 10, N[8]); out.append(c)
+    c = Cv(24, 24); frame(c)                                                              # 그림자 낫
+    c.line(6, 20, 15, 5, N[0]); c.line(7, 20, 16, 5, GV[1])
+    for k in range(10): u = k / 9; c.px(15 - u * 9, 5 + math.sin(u * 2.4) * 4 - u * 0, GV[3] if k < 8 else GV[4]); c.px(15 - u * 9, 6 + math.sin(u * 2.4) * 4, N[0])
+    c.px(16, 4, GV[4]); c.ring(12, 12, 9, 9, GV[1], 2.2, 3.4); out.append(c)
     c = Cv(24, 24); frame(c); c.band(12, 19, 7, 2.5, 0, 1, N[0]); c.ring(12, 19, 7, 2.5, N[6])
     for y in range(4, 18): c.rect(11 + math.sin(y * .5), y, 2, 1, N[0]); c.px(13 + math.sin(y * .5), y, N[7])
     c.disc(12, 4, 2, 2, N[8]); out.append(c)
@@ -577,6 +775,11 @@ def main():
     sheets["nc_sigil"] = pack("nc_sigil", sigil_cells(), None, man)
     sheets["nc_wave"] = pack("nc_wave", wave_cells(), None, man, cx=36, cy=80)
     sheets["nc_spike"] = pack("nc_spike", spike_cells(), None, man, cx=6, cy=44)
+    sheets["nc_aura"] = pack("nc_aura", aura_cells(), None, man, loop=1, cx=24, cy=60)
+    sheets["nc_thunder"] = pack("nc_thunder", thunder_cells(), None, man, cx=15, cy=136)
+    sheets["nc_puff"] = pack("nc_puff", puff_cells(), None, man)
+    sheets["nc_scythe"] = pack("nc_scythe", scythe_cells(), None, man, loop=1, cx=28, cy=28)
+    cells, (cx, cy) = reap_cells(); sheets["nc_reap"] = pack("nc_reap", cells, None, man, cx=cx, cy=cy, r=70)
     sheets["nc_icons"] = pack("nc_icons", icon_cells(), None, man, cx=0, cy=0)
     json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
     if len(sys.argv) > 2 and sys.argv[1] == "preview":

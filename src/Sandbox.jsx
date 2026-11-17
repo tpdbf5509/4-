@@ -30,6 +30,8 @@ import { unlockNecro, necroView, ncLock, necroFillRoster, necroPutRoster, necroS
 import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
 import NecroRosterPanel from "./NecroRosterPanel.jsx";
+import SkillInfoPanel from "./SkillInfoPanel.jsx";
+import { hiddenSkillInfo } from "./game/hiddenSkillInfo.js";
 import sfx from "./game/sfx.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
 import { KEY_ACTIONS, BLOOD_ACTS, loadKeys, keyMap, keyOf, mouseCode } from "./game/keys.js";
@@ -294,6 +296,8 @@ export default function Sandbox() {
   const [hud, setHud] = useState(null);
   const [ncPick, setNcPick] = useState(NC_ALL[0]);
   const [ncOpen, setNcOpen] = useState(false);              // Necromancer 004 그림자 명부 창
+  const [skOpen, setSkOpen] = useState(false);              // 히든 직업 스킬 설명 창(M)
+  const skToggle = useRef(null);
   const cvsRef = useRef(null);
   const G = useRef(null);
   const pointer = useRef(null);                   // 판 위 포인터(판 좌표) — 스킬이 이쪽으로 나간다
@@ -304,6 +308,9 @@ export default function Sandbox() {
 
   const blood = cfg.adv === "blood", engineer = cfg.adv === "engineer", gambler = cfg.adv === "gambler" || engineer, necro = cfg.adv === "necro";   // gambler — 무기 없는 히든 직업(002~) 공통 칸
   const hidden = gambler || necro;                // 무기 · 일반 스킬 칸이 없는 히든 직업
+  const skJob = engineer ? "engineer" : necro ? "necromancer" : gambler ? "gambler" : "";   // 스킬 설명 창을 쓰는 히든 직업
+  const skInfo = useMemo(() => hiddenSkillInfo(skJob), [skJob]);
+  skToggle.current = () => { if (!skJob) return; setNcOpen(false); setSkOpen((o) => !o); };
   const magic = hasElem(cfg.job);
   const advs = ADV_CLASSES.filter((q) => q.job === cfg.job);
   const weapons = useMemo(() => weaponsFor(cfg.job, blood), [cfg.job, blood]);
@@ -344,6 +351,7 @@ export default function Sandbox() {
   const tool = (op) => { const g = G.current; if (g) rpgTrain(g, 0, { op }); };
   const gmUse = (sk) => act("hidden", { op: "use", s: sk });
   const closeNc = useCallback(() => setNcOpen(false), []);
+  const closeSk = useCallback(() => setSkOpen(false), []);
   const prey = () => {                            // Necromancer 004 — 흔적 추출 연습 몹(쓰러뜨릴 수 있다)
     const g = G.current, h = g && g.heroes[0];
     if (!h) return;
@@ -403,6 +411,8 @@ export default function Sandbox() {
     const typing = (t) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
     const onKey = (e) => {
       if (typing(e.target)) return;
+      // M — 히든 직업 스킬 설명 창(그 키가 다른 행동에 묶여 있으면 그 행동이 먼저)
+      if (e.code === "KeyM" && !kmap()[e.code] && (isGm() || isEn() || isNc())) { e.preventDefault(); if (!e.repeat) skToggle.current(); return; }
       const a = kmap()[e.code];
       if (!a) return;
       e.preventDefault();
@@ -564,18 +574,22 @@ export default function Sandbox() {
               <button type="button" className="jt-chip" onClick={() => tool("reset")}>기록 지우기</button>
               <button type="button" className="jt-chip" onClick={() => tool("heal")}>체력 · 대기 되돌리기</button>
               <button type="button" className="jt-chip" onClick={() => setRound((r) => r + 1)}>처음부터</button>
+              {skJob && <button type="button" className={`jt-chip ${skOpen ? "on" : ""}`} aria-pressed={skOpen} onClick={() => skToggle.current()}>스킬 설명{!touch && <em>M</em>}</button>}
               {gambler && !engineer && <button type="button" className="jt-chip" title="무적이어도 최대 체력 8% 피해를 한 번 받습니다" onClick={() => G.current && rpgSandboxHit(G.current, 0)}>시험 타격 받기</button>}
               {necro && <button type="button" className="jt-chip" title="쓰러뜨릴 수 있는 몹 다섯(기사 · 암살 · 사수 · 주술 · 거수형)을 앞에 세웁니다" onClick={prey}>추출 연습 몹 세우기</button>}
               {necro && <span className="sb-ncpick">
                 <select aria-label="명부에 넣을 몹" value={ncPick} onChange={(e) => setNcPick(e.target.value)}>
                   {NC_ALL.map((t) => <option key={t} value={t}>{mobName({ type: t })} · {NC_KINDS[kindOf(t)].name}</option>)}
                 </select>
-                <button type="button" className={`jt-chip ${ncOpen ? "on" : ""}`} aria-pressed={ncOpen} onClick={() => setNcOpen((o) => !o)}>그림자 명부</button>
+                <button type="button" className={`jt-chip ${ncOpen ? "on" : ""}`} aria-pressed={ncOpen} onClick={() => { setSkOpen(false); setNcOpen((o) => !o); }}>그림자 명부</button>
                 <button type="button" className="jt-chip" title="고른 몹 그림자를 명부 맨 앞에 넣습니다 — 다음 소집에 먼저 나옵니다" onClick={() => { const h = G.current && G.current.heroes[0]; if (h) necroPutRoster(h, ncPick, cfg.ncGrade || 1, (t) => mobName({ type: t })); }}>명부에 넣기</button>
               </span>}
             </div>
             {engineer && hud && hud.en && <EngineerBar v={hud.en} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {gambler && !engineer && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
+            {skJob && skOpen && skInfo && <SkillInfoPanel info={skInfo} onClose={closeSk} keyOf={key}
+              lv={(hud && (engineer ? hud.en : necro ? hud.nc : hud.gm) || {}).lv || 1}
+              icon={(s) => engineer ? engineerIconStyle(ENGINEER_ICON[s], 40) : necro ? necroIconStyle(NECRO_ICON[s], 40) : gamblerIconStyle(GAMBLER_ICON[s], 40)} />}
             {necro && ncOpen && hud && hud.nc && <NecroRosterPanel v={hud.nc} onClose={closeNc}
               onSummon={(t) => act("hidden", { op: "use", s: "summon", t })} onRecall={(t) => act("hidden", { op: "recall", t })}
               onParty={(list) => act("hidden", { op: "party", list })}

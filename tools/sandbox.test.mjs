@@ -56,3 +56,15 @@ test('크림슨 레퀴엠을 막 든 캐릭터의 첫 평타가 멈추지 않는
   assert.doesNotThrow(()=>{for(let i=0;i<40;i++)rpgStep(g,0.05);});
   assert.ok(trainView(g,h).hits>0,'허수아비를 맞혔다');
 });
+
+test("히든 직업 스킬 설명 — 세 직업 모두 평타 + 스킬 일곱 · 빈 값 없음", async () => {
+  const { hiddenSkillInfo, HIDDEN_SKILL_JOBS } = await import("../src/game/hiddenSkillInfo.js");
+  for (const id of HIDDEN_SKILL_JOBS) {
+    const v = hiddenSkillInfo(id);
+    assert.equal(v.skills.length, 7, id);
+    for (const q of [v.basic, ...v.skills]) {
+      assert.ok(q.name && q.act && q.lv >= 1 && q.desc.length && q.stats.length, `${id} ${q.s}`);
+      assert.ok(!/undefined|NaN/.test(JSON.stringify(q)), `${id} ${q.s}`);
+    }
+  }
+});

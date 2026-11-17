@@ -3206,3 +3206,22 @@ button.forge-stage:disabled { cursor: default; }
   .ncw-slots li { min-height: 76px; }
   .ncw-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
+
+/* ── 히든 직업 스킬 설명 창(격자 연습장 M, 11월 17일) — 그림자 명부 창(.ncw) 틀 위에 ── */
+.skw-rules { margin: 12px 0 0; padding: 10px 12px 10px 26px; font-size: 12px; line-height: 1.6; color: var(--nw-text); background: var(--nw-card); border: 1px solid var(--nw-line2); border-radius: 6px; }
+.skw-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.skw-card { padding: 10px 12px; background: var(--nw-card); border: 1px solid var(--nw-line2); border-radius: 6px; min-width: 0; }
+.skw-card.lock { opacity: 0.55; }
+.skw-top { display: flex; align-items: center; gap: 10px; }
+.skw-ico { flex: none; width: 40px; height: 40px; border: 1px solid var(--nw-line); border-radius: 4px; }
+.skw-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.skw-name b { font-size: 14.5px; color: #eadff8; letter-spacing: -0.03em; }
+.skw-name em { font-style: normal; font-size: 11px; color: var(--nw-mute); }
+.skw-key { flex: none; font: inherit; font-size: 11.5px; padding: 2px 7px; color: #c9a8ff; border: 1px solid var(--nw-line); border-radius: 4px; background: #0a0710; }
+.skw-desc { margin: 7px 0 0; font-size: 12px; line-height: 1.55; color: var(--nw-text); }
+.skw-stats { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
+.skw-stats div { padding: 3px 7px; border: 1px solid var(--nw-line2); border-radius: 4px; font-size: 11.5px; }
+.skw-stats dt { display: inline; color: var(--nw-mute); margin-right: 5px; }
+.skw-stats dd { display: inline; margin: 0; color: #eadff8; font-variant-numeric: tabular-nums; }
+.skw-train { margin: 7px 0 0; padding: 0 0 0 16px; font-size: 11.5px; line-height: 1.5; color: #b8a3dc; }
+@media (max-width: 720px) { .skw-grid { grid-template-columns: minmax(0, 1fr); } }

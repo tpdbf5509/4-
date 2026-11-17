@@ -294,6 +294,58 @@ export function play(name) {
     if (!gate("gmSlot", 400)) return;
     for (let i = 0; i < 12; i++) tone({ type: "square", f0: 880 + (i % 3) * 110, t: 0.03, gain: 0.035, delay: 0.04 * i + 0.004 * i * i });
     tone({ type: "triangle", f0: 1568, f1: 2093, t: 0.2, gain: 0.07, delay: 1.2 });
+  } else if (name === "ncOrb") {             // Necromancer 004 흑영탄 — 짧고 낮은 울림(기획안 "짧고 낮은 울림")
+    if (!gate("ncOrb", 80)) return;
+    tone({ type: "sine", f0: 260, f1: 150, t: 0.12, gain: 0.08 });
+    noise({ t: 0.06, gain: 0.04, f: 900, q: 2 });
+  } else if (name === "ncHit") {             // 흑영탄 적중 — 둔탁하게 흩어짐
+    if (!gate("ncHit", 80)) return;
+    tone({ type: "triangle", f0: 200, f1: 90, t: 0.08, gain: 0.07 });
+    noise({ t: 0.07, gain: 0.07, f: 700, q: 1.5 });
+  } else if (name === "ncExtract") {         // 흔적 추출 — 아래에서 올라오는 낮은 소리
+    if (!gate("ncExtract", 300)) return;
+    tone({ type: "sine", f0: 110, f1: 330, t: 0.45, gain: 0.11 });
+    tone({ type: "triangle", f0: 220, f1: 440, t: 0.3, gain: 0.04, delay: 0.2 });
+  } else if (name === "ncSummon") {          // 그림자 소집 — 낮은 울림 위로 겹소리
+    if (!gate("ncSummon", 400)) return;
+    tone({ type: "sine", f0: 82, f1: 123, t: 0.6, gain: 0.16 });
+    [0, 0.08, 0.16].forEach((d, i) => tone({ type: "triangle", f0: 196 + i * 30, f1: 165, t: 0.25, gain: 0.04, delay: d }));
+  } else if (name === "ncSlash") {           // 그림자 근접 공격
+    if (!gate("ncSlash", 90)) return;
+    noise({ t: 0.08, gain: 0.07, f: 1200, q: 1.2 });
+    tone({ type: "triangle", f0: 300, f1: 140, t: 0.07, gain: 0.04 });
+  } else if (name === "ncShot") {            // 그림자 화살 · 구체
+    if (!gate("ncShot", 110)) return;
+    tone({ type: "sine", f0: 420, f1: 240, t: 0.1, gain: 0.05 });
+  } else if (name === "ncSlam") {            // 거수형 내려찍기
+    if (!gate("ncSlam", 150)) return;
+    noise({ t: 0.22, gain: 0.16, f: 260, q: 0.6 });
+    tone({ type: "sine", f0: 90, f1: 40, t: 0.22, gain: 0.14 });
+  } else if (name === "ncSwap") {            // 그림자 교환 — 짧게 빨려 드는 소리
+    if (!gate("ncSwap", 200)) return;
+    tone({ type: "sine", f0: 600, f1: 180, t: 0.16, gain: 0.07 });
+    tone({ type: "sine", f0: 180, f1: 600, t: 0.12, gain: 0.05, delay: 0.16 });
+  } else if (name === "ncDomain") {          // 군주의 영역 — 길게 깔리는 낮은 음
+    if (!gate("ncDomain", 400)) return;
+    tone({ type: "sine", f0: 73, f1: 98, t: 0.7, gain: 0.15 });
+    tone({ type: "triangle", f0: 147, f1: 196, t: 0.5, gain: 0.04, delay: 0.1 });
+  } else if (name === "ncMarch") {           // 일제 진군 — 짧은 북소리 셋
+    if (!gate("ncMarch", 300)) return;
+    [0, 0.1, 0.2].forEach((d) => { tone({ type: "sine", f0: 120, f1: 60, t: 0.1, gain: 0.12, delay: d }); noise({ t: 0.05, gain: 0.05, f: 500, q: 1, delay: d }); });
+  } else if (name === "ncCrack") {           // 영혼 소각 — 갈라지는 소리 뒤 낮은 폭발
+    if (!gate("ncCrack", 300)) return;
+    noise({ t: 0.12, gain: 0.08, f: 2400, q: 3 });
+    noise({ t: 0.4, gain: 0.22, f: 300, q: 0.5, delay: 0.38 });
+    tone({ type: "sine", f0: 110, f1: 38, t: 0.4, gain: 0.18, delay: 0.38 });
+  } else if (name === "ncLegion") {          // 무명의 군세 — 어두운 저음이 오른다
+    if (!gate("ncLegion", 800)) return;
+    tone({ type: "sawtooth", f0: 46, f1: 92, t: 2.6, gain: 0.08 });
+    tone({ type: "sine", f0: 55, f1: 110, t: 2.6, gain: 0.12 });
+    for (let i = 0; i < 10; i++) noise({ t: 0.08, gain: 0.05, f: 400, q: 1, delay: 0.6 + i * 0.2 });
+  } else if (name === "ncBoom") {            // 무명의 군세 마지막 타격
+    if (!gate("ncBoom", 200)) return;
+    noise({ t: 0.6, gain: 0.32, f: 220, q: 0.5 });
+    tone({ type: "sine", f0: 100, f1: 28, t: 0.6, gain: 0.3 });
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ type: "square", f0: f, t: 0.4, gain: 0.12, delay: i * 0.12 }));
   }

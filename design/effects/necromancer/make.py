@@ -1,0 +1,591 @@
+# 히든 직업 Necromancer 004(그림자 군주) 도트 시트 — 이 스크립트가 한 칸 한 칸 직접 그린다(11월 17일).
+# Gambler 002 와 같은 방식: 외부 이펙트 라이브러리(pixelfx) 없이 Pillow · numpy 로 점 · 선 · 타원만 찍는다(도트형 RPG 느낌).
+# 쓰는 법: python3 design/effects/necromancer/make.py  →  public/assets/game/rpg/effects/hidden-jobs/necromancer/px/*.webp + manifest.json(칸 규격)
+#          python3 design/effects/necromancer/make.py preview <폴더>  →  확대한 확인 그림(PNG)도 함께
+# 칸 규격은 src/game/necroPxData.js 에 손으로 옮긴다(manifest.json 과 같아야 한다 — tools/necro.test.mjs 가 본다).
+# 그림자 병사 다섯(nc_knight · assassin · archer · caster · giant)은 오른쪽을 보고 게임이 뒤집는다. 한 줄 16칸 = 걷기 4 · 공격 4 · 솟아오름 4 · 흩어짐 4,
+# 줄 셋 = 연마 합계 색(0 기본 · 75 진한 보라 눈과 중심 · 130 은색 테두리).
+import json, math, os, sys
+import numpy as np
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+OUT = os.path.join(HERE, "..", "..", "..", "public", "assets", "game", "rpg", "effects", "hidden-jobs", "necromancer", "px")
+TAU = math.pi * 2
+SQ = 0.78   # 땅 비율(RPG.squash) — 바닥에 깔리는 그림은 세로를 이만큼 누른다
+
+def rgb(h, a=255):
+    h = h.lstrip("#"); return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), a)
+W = rgb("#FFFFFF")
+def al(c, a): return (c[0], c[1], c[2], int(max(0, min(255, round(a * 255)))))
+
+BAYER = (np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) + .5) / 16.0
+
+class Cv:
+    def __init__(s, w, h): s.w, s.h = w, h; s.a = np.zeros((h, w, 4), np.uint8)
+    def px(s, x, y, c):
+        x, y = int(math.floor(x)), int(math.floor(y))
+        if 0 <= x < s.w and 0 <= y < s.h:
+            if c[3] >= 255: s.a[y, x] = c
+            elif c[3] > 0:   # 반투명 — 아래 색 위에 얹는다
+                d = s.a[y, x].astype(float); k = c[3] / 255.0; da = d[3] / 255.0
+                oa = k + da * (1 - k)
+                if oa > 0:
+                    for i in range(3): d[i] = (c[i] * k + d[i] * da * (1 - k)) / oa
+                    d[3] = oa * 255; s.a[y, x] = np.round(d)
+    def rect(s, x, y, w, h, c):
+        for j in range(int(h)):
+            for i in range(int(w)): s.px(x + i, y + j, c)
+    def line(s, x0, y0, x1, y1, c, dash=0):
+        x0, y0, x1, y1 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1))
+        dx, dy = abs(x1 - x0), -abs(y1 - y0); sx = 1 if x0 < x1 else -1; sy = 1 if y0 < y1 else -1; e = dx + dy; n = 0
+        while True:
+            if not dash or (n // dash) % 2 == 0: s.px(x0, y0, c)
+            n += 1
+            if x0 == x1 and y0 == y1: break
+            e2 = 2 * e
+            if e2 >= dy: e += dy; x0 += sx
+            if e2 <= dx: e += dx; y0 += sy
+    def disc(s, cx, cy, rx, ry, c):
+        if rx <= 0 or ry <= 0: return
+        for y in range(int(math.floor(cy - ry)), int(math.ceil(cy + ry)) + 1):
+            for x in range(int(math.floor(cx - rx)), int(math.ceil(cx + rx)) + 1):
+                if ((x + .5 - cx) / rx) ** 2 + ((y + .5 - cy) / ry) ** 2 <= 1: s.px(x, y, c)
+    def ring(s, cx, cy, rx, ry, c, a0=0.0, a1=TAU, gap=0):
+        # 1px 타원 테두리 — 둘레를 촘촘히 돌며 찍는다. gap > 0 이면 점선(픽셀 수)
+        if rx <= 0 or ry <= 0: return
+        n = max(8, int((rx + ry) * 4)); seen = set(); k = 0
+        for i in range(n + 1):
+            a = a0 + (a1 - a0) * i / n
+            q = (int(math.floor(cx + math.cos(a) * rx)), int(math.floor(cy + math.sin(a) * ry)))
+            if q in seen: continue
+            seen.add(q); k += 1
+            if gap and (k // gap) % 2: continue
+            s.px(q[0], q[1], c)
+    def band(s, cx, cy, rx, ry, r0, r1, c, dens=1.0):
+        # 타원 띠(반지름 비율 r0~r1)를 채운다. dens < 1 이면 4×4 체크 무늬(오더드 디더)로 성기게 — 도트 그림의 옅어짐
+        yy, xx = np.mgrid[0:s.h, 0:s.w]
+        d = np.sqrt(((xx + .5 - cx) / rx) ** 2 + ((yy + .5 - cy) / ry) ** 2)
+        dn = dens(d) if callable(dens) else dens
+        m = (d >= r0) & (d <= r1) & (BAYER[yy % 4, xx % 4] < dn)
+        s.a[m] = c
+    def poly(s, pts, c, close=True, dash=0):
+        for i in range(len(pts) - (0 if close else 1)):
+            a, b = pts[i], pts[(i + 1) % len(pts)]; s.line(a[0], a[1], b[0], b[1], c, dash)
+    def fillpoly(s, pts, c):
+        ys = [p[1] for p in pts]
+        for y in range(int(math.floor(min(ys))), int(math.ceil(max(ys))) + 1):
+            xs = []; yy = y + .5
+            for i in range(len(pts)):
+                (x0, y0), (x1, y1) = pts[i], pts[(i + 1) % len(pts)]
+                if (y0 <= yy < y1) or (y1 <= yy < y0): xs.append(x0 + (yy - y0) * (x1 - x0) / (y1 - y0))
+            xs.sort()
+            for i in range(0, len(xs) - 1, 2):
+                for x in range(int(math.ceil(xs[i] - .5)), int(math.floor(xs[i + 1] - .5)) + 1): s.px(x, y, c)
+    def paste(s, o, x, y):
+        for j in range(o.h):
+            for i in range(o.w):
+                c = o.a[j, i]
+                if c[3]: s.px(x + i, y + j, tuple(int(v) for v in c))
+    def rows(s, rows, pal, x, y):
+        for j, r in enumerate(rows):
+            for i, ch in enumerate(r):
+                if ch != "." and ch in pal: s.px(x + i, y + j, pal[ch])
+
+def rnd(seed, i, k=0):   # 씨앗 고정 난수(0~1) — 같은 그림이 다시 나온다
+    v = math.sin(seed * 12.9898 + i * 78.233 + k * 37.719) * 43758.5453
+    return v - math.floor(v)
+def ez(k): k = max(0.0, min(1.0, k)); return 1 - (1 - k) ** 3
+def star(c, x, y, arm, col, tip=None):   # 십자 반짝임 — 가운데가 가장 밝다
+    x, y = int(round(x)), int(round(y))
+    for i in range(1, int(arm) + 1):
+        cc = tip if tip and i == int(arm) else col
+        c.px(x + i, y, cc); c.px(x - i, y, cc); c.px(x, y + i, cc); c.px(x, y - i, cc)
+    if arm >= 1: c.px(x, y, W if arm >= 2 else col)
+    else: c.px(x, y, col)
+
+
+# 그림자 군주 팔레트(기획안 기본 #351B53 · 보조 #9271C4 · 최고 연마 #D4D1EA) — 검보라 10단 · 핏빛 4단 · 은색 3단. 흰색은 쓰지 않는다
+N = [rgb(c) for c in ["#07050B", "#120C1A", "#1E1329", "#2B1A3D", "#351B53", "#4E2F78", "#6C4CA0", "#9271C4", "#B9A5DE", "#D4D1EA"]]
+RD = [rgb(c) for c in ["#4A141C", "#8E2A34", "#C9505A", "#E8909A"]]
+SV = [rgb(c) for c in ["#8F8AA8", "#BDB8D2", "#E6E3F2"]]
+DEEPV = rgb("#8A3FD1"); DEEPV2 = rgb("#B98AF0")   # 연마 75 — 진한 보라 눈 · 중심
+
+def thick(c, x0, y0, x1, y1, col, w=2):
+    for k in range(w):
+        c.line(x0 + (k if abs(y1 - y0) >= abs(x1 - x0) else 0), y0 + (0 if abs(y1 - y0) >= abs(x1 - x0) else k),
+               x1 + (k if abs(y1 - y0) >= abs(x1 - x0) else 0), y1 + (0 if abs(y1 - y0) >= abs(x1 - x0) else k), col)
+
+def finish(c, tint, eyes, core=None):
+    """그림자 몸 마무리 — 오른쪽 위 가장자리에 보라 빛 · 1px 바깥선(130 은 은색) · 눈(75 부터 진한 보라) · 연기 띠"""
+    a = c.a; m = a[..., 3] > 0; H, Wd = m.shape
+    rim = np.zeros_like(m)
+    rim[1:, :-1] = m[1:, :-1] & ~m[:-1, 1:]           # 오른쪽 위가 비었다
+    body = a.copy()
+    for y, x in zip(*np.nonzero(rim)):
+        if tuple(body[y, x][:3]) in [tuple(N[i][:3]) for i in (1, 2, 3)]: a[y, x] = N[6]
+    out = np.zeros_like(m)
+    out[1:, :] |= m[:-1, :]; out[:-1, :] |= m[1:, :]; out[:, 1:] |= m[:, :-1]; out[:, :-1] |= m[:, 1:]
+    out &= ~m
+    a[out] = SV[1] if tint == 2 else N[0]
+    ec = N[8] if tint == 0 else DEEPV
+    for (x, y) in eyes: c.px(x, y, ec)
+    if tint >= 1 and eyes: c.px(eyes[0][0], eyes[0][1], DEEPV2)
+    if tint >= 1 and core: c.px(core[0], core[1], DEEPV); c.px(core[0] + 1, core[1], DEEPV); c.px(core[0], core[1] + 1, rgb("#5B2390"))
+
+def smoke(c, cx, fy, w, ph):
+    # 발밑 연기 — 그림자가 땅에서 완전히 떨어지지 않게 성긴 띠
+    for i in range(-w, w + 1):
+        h = 1 + int(2 * rnd(7, i + ph * 3))
+        for j in range(h):
+            if (i + j + ph) % 2 == 0: c.px(cx + i, fy - j, N[3] if j else N[2])
+
+WALK = [-2, 0, 2, 0]
+
+# ── 그림자 병사 다섯 — 오른쪽을 본다(게임이 뒤집는다). pose: ("walk", p) · ("atk", a) ──
+def knight(c, pose, tint):
+    kind, p = pose; cx, fy = 15, 37
+    sw = WALK[p] if kind == "walk" else [0, -1, 2, 2][p]
+    thick(c, cx - 1, 28, cx - 1 + sw, fy, N[1]); thick(c, cx + 2, 28, cx + 2 - sw, fy, N[2])
+    c.fillpoly([(cx - 4, 17), (cx - 9, 31 + (p % 2)), (cx - 2, 29)], N[1])                       # 망토
+    c.fillpoly([(cx - 4, 16), (cx + 5, 16), (cx + 4, 28), (cx - 3, 28)], N[2])                   # 몸통
+    c.fillpoly([(cx - 3, 17), (cx + 4, 17), (cx + 3, 22), (cx - 2, 22)], N[3])
+    c.disc(cx + 1, 11, 4.2, 4.6, N[2]); c.rect(cx - 2, 8, 6, 2, N[3])                             # 투구
+    c.line(cx + 1, 6, cx - 4, 4, N[3]); c.line(cx, 6, cx - 5, 5, N[2])                             # 뿔 장식
+    c.rect(cx + 2, 11, 4, 1, N[0])                                                                 # 눈구멍
+    if kind == "atk":                                                                              # 검 — 뒤에서 위로 올렸다 앞으로 벤다
+        ang = [-2.2, -1.3, 0.15, 0.6][p]; hx, hy = cx + 5, 19
+        ex, ey = hx + math.cos(ang) * 14, hy + math.sin(ang) * 14
+        thick(c, hx, hy, ex, ey, N[4]); c.line(hx, hy, ex, ey, N[6])
+        c.rect(cx + 3, 18, 3, 3, N[2])
+        if p == 2:
+            for k in range(9):
+                a2 = -1.4 + k * 0.18; c.px(hx + math.cos(a2) * 15, hy + math.sin(a2) * 15, N[7] if k % 2 else N[5])
+    else:
+        thick(c, cx - 5, 22, cx - 8, 9, N[4]); c.line(cx - 6, 22, cx - 9, 9, N[6]); c.rect(cx - 7, 21, 4, 1, N[3])   # 등 뒤 검
+        c.fillpoly([(cx + 4, 17), (cx + 9, 18), (cx + 9, 27), (cx + 5, 29)], N[3])                  # 방패
+        c.line(cx + 9, 18, cx + 9, 27, N[5]); c.px(cx + 7, 22, N[6])
+    smoke(c, cx + 1, fy + 1, 6, p)
+    finish(c, tint, [(cx + 3, 11), (cx + 5, 11)], (cx, 20))
+
+def assassin(c, pose, tint):
+    kind, p = pose; cx, fy = 13, 31
+    sw = WALK[p] if kind == "walk" else [0, 2, 4, 3][p]; lean = 0 if kind == "walk" else [0, 2, 4, 2][p]
+    thick(c, cx - 2, 23, cx - 4 + sw, fy, N[1]); thick(c, cx + 1, 23, cx + 3 - sw, fy, N[2])
+    for k in range(8):                                                                              # 목도리 — 뒤로 날린다
+        c.px(cx - 4 - k, 14 + k // 2 + int(math.sin(k * 0.9 + p * 1.6) * 1.5), N[2] if k % 3 else N[3])
+    c.fillpoly([(cx - 3 + lean, 13), (cx + 4 + lean, 14), (cx + 3, 24), (cx - 3, 24)], N[2])
+    c.fillpoly([(cx - 1 + lean, 4), (cx + 5 + lean, 9), (cx + 4 + lean, 14), (cx - 3 + lean, 14), (cx - 3 + lean, 8)], N[2])   # 두건
+    c.fillpoly([(cx + lean, 8), (cx + 4 + lean, 10), (cx + 3 + lean, 13), (cx - 1 + lean, 13)], N[1])
+    if kind == "atk":
+        L = [3, 7, 11, 6][p]; c.line(cx + 4 + lean, 18, cx + 4 + lean + L, 17 - p % 2, N[6]); c.line(cx + 4 + lean, 19, cx + 3 + lean + L, 18, N[4])
+        if p == 2:
+            for k in range(5): c.px(cx + 8 + lean + k * 2, 15 + (k % 2), N[7])
+    else:
+        c.line(cx + 4, 18, cx + 7, 22, N[6]); c.line(cx + 5, 18, cx + 8, 22, N[4])                 # 거꾸로 쥔 단검 둘
+        c.line(cx - 3, 18, cx - 6, 22, N[5])
+    smoke(c, cx, fy + 1, 5, p)
+    finish(c, tint, [(cx + 2 + lean, 10), (cx + 4 + lean, 11)], (cx, 18))
+
+def archer(c, pose, tint):
+    kind, p = pose; cx, fy = 14, 37
+    sw = WALK[p] if kind == "walk" else 0
+    thick(c, cx - 1, 27, cx - 1 + sw, fy, N[1]); thick(c, cx + 2, 27, cx + 2 - sw, fy, N[2])
+    c.rect(cx - 6, 14, 3, 12, N[3]); c.line(cx - 6, 13, cx - 7, 10, N[5]); c.line(cx - 4, 13, cx - 4, 10, N[5])   # 화살통
+    c.fillpoly([(cx - 3, 15), (cx + 4, 15), (cx + 4, 28), (cx - 3, 28)], N[2])
+    c.fillpoly([(cx - 3, 6), (cx + 4, 7), (cx + 5, 13), (cx - 3, 14)], N[2]); c.fillpoly([(cx - 3, 6), (cx, 3), (cx + 2, 6)], N[2])   # 두건
+    pull = [0, 3, 6, 1][p] if kind == "atk" else 0
+    bx = cx + 9; c.ring(bx - 4, 20, 5, 10, N[5], -1.25, 1.25); c.ring(bx - 4, 20, 4, 10, N[3], -1.2, 1.2)        # 활
+    sx = bx - 3 - pull
+    c.line(bx - 2, 10, sx, 20, N[6]); c.line(sx, 20, bx - 2, 30, N[6])                              # 시위
+    thick(c, cx + 3, 19, sx, 20, N[2])
+    if kind == "atk" and p in (1, 2): c.line(sx, 20, bx + 4, 20, N[7]); c.px(bx + 5, 20, N[9] if tint == 2 else N[8])
+    if kind == "atk" and p == 3:
+        for k in range(4): c.px(bx + 2 + k * 3, 20, N[7])
+    smoke(c, cx + 1, fy + 1, 6, p)
+    finish(c, tint, [(cx + 2, 10), (cx + 4, 10)], (cx, 20))
+
+def caster(c, pose, tint):
+    kind, p = pose; cx, fy = 14, 39
+    sway = [0, 1, 0, -1][p] if kind == "walk" else 0
+    c.fillpoly([(cx - 4, 16), (cx + 4, 16), (cx + 8 + sway, fy), (cx - 7 + sway, fy)], N[2])        # 겉옷
+    c.fillpoly([(cx - 3, 18), (cx + 3, 18), (cx + 5, 30), (cx - 4, 30)], N[3])
+    for k in range(-6, 8, 3): c.px(cx + k + sway, fy, N[1])
+    c.fillpoly([(cx - 4, 7), (cx, 2), (cx + 5, 7), (cx + 5, 15), (cx - 4, 16)], N[2]); c.fillpoly([(cx - 1, 9), (cx + 4, 9), (cx + 4, 14), (cx - 1, 14)], N[1])
+    lift = [0, -3, -5, -2][p] if kind == "atk" else 0; fwd = [0, 1, 3, 2][p] if kind == "atk" else 0
+    sx = cx + 8 + fwd
+    thick(c, sx, 9 + lift, sx - 1, fy, N[3]); c.line(sx + 1, 9 + lift, sx, fy, N[5])               # 지팡이
+    thick(c, cx + 3, 20, sx, 20 + lift // 2, N[2])
+    oy = 6 + lift
+    c.disc(sx + .5, oy + .5, 2.6, 2.6, N[5]); c.disc(sx + .5, oy + .5, 1.6, 1.6, N[7]); c.px(sx, oy, N[9] if (kind == "atk" and p >= 1) else N[8])
+    if kind == "atk" and p == 2:
+        for k in range(6): a2 = k * TAU / 6; c.px(sx + math.cos(a2) * 5, oy + math.sin(a2) * 5, N[7] if k % 2 else N[6])
+    finish(c, tint, [(cx + 1, 11), (cx + 3, 11)], (cx, 22))
+
+def giant(c, pose, tint):
+    kind, p = pose; cx, fy = 21, 47
+    sw = WALK[p] if kind == "walk" else 0
+    thick(c, cx - 5, 36, cx - 6 + sw, fy, N[1], 4); thick(c, cx + 3, 36, cx + 4 - sw, fy, N[2], 4)
+    c.disc(cx, 30, 12, 11, N[2]); c.disc(cx + 1, 26, 9, 7, N[3])                                    # 등 굽은 몸
+    c.disc(cx - 3, 22, 7, 5, N[2])                                                                  # 혹 같은 어깨
+    c.disc(cx + 8, 19, 4.6, 4.2, N[2]); c.rect(cx + 6, 15, 6, 2, N[3])                              # 작은 머리
+    c.line(cx + 6, 16, cx + 4, 12, N[3]); c.line(cx + 11, 16, cx + 13, 12, N[3])                    # 뿔
+    ang = [0.9, -1.9, -1.2, 0.85][p] if kind == "atk" else 0.95 + [0, 0.06, 0, -0.06][p]
+    hx, hy = cx + 9, 28
+    ex, ey = hx + math.cos(ang) * 15, hy + math.sin(ang) * 15
+    thick(c, cx + 5, 25, hx, hy, N[2], 3)
+    thick(c, hx, hy, ex, ey, N[3], 3); c.disc(ex, ey, 4, 4, N[4]); c.px(ex + 1, ey - 2, N[6])        # 몽둥이
+    if kind == "atk" and p == 3:
+        for k in range(7): c.px(ex - 6 + k * 2, fy, N[7] if k % 2 else N[5]); c.px(ex - 7 + k * 2, fy - 1 - (k % 3), N[5])
+    thick(c, cx - 8, 26, cx - 11, 37, N[1], 3)
+    smoke(c, cx, fy + 1, 10, p)
+    finish(c, tint, [(cx + 9, 19), (cx + 11, 19)], (cx + 1, 27))
+
+SOLDIER = {"knight": (knight, 32, 40, 15, 38), "assassin": (assassin, 28, 34, 13, 32), "archer": (archer, 30, 40, 14, 38),
+           "caster": (caster, 30, 42, 14, 40), "giant": (giant, 44, 50, 21, 48)}
+
+def rise_frame(base, k, cx, fy):
+    """0~3 — 발밑 웅덩이에서 발부터 올라온다(아래에서 위로 드러남) · 웅덩이 둘레 보라 고리"""
+    c = Cv(base.w, base.h)
+    show = int(base.h * (k + 1) / 4.6)
+    c.a[base.h - show:, :] = base.a[base.h - show:, :]
+    rx = 7 + k * 2 + base.w // 8
+    c.band(cx, fy, rx, rx * .35, 0, 1, N[1], dens=.85)
+    c.ring(cx, fy, rx, rx * .35, N[6] if k % 2 == 0 else N[5], 0, TAU, 2)
+    for i in range(3):
+        x = cx - rx + 2 + i * rx * .9; h = 3 + int(rnd(k, i) * 5) + k
+        c.line(x, fy - 1, x + (1 if i % 2 else -1), fy - h, N[5])
+    return c
+
+def fade_frame(base, k):
+    """0~3 — 흩어진다(체크 무늬로 비우며 위로 떠오르고 옅은 보라 연기로)"""
+    c = Cv(base.w, base.h); up = k * 2
+    yy, xx = np.mgrid[0:base.h, 0:base.w]
+    keep = (base.a[..., 3] > 0) & (BAYER[yy % 4, xx % 4] >= (k + 1) / 4.6)
+    for y, x in zip(*np.nonzero(keep)):
+        if y - up >= 0:
+            col = base.a[y, x].copy()
+            if k >= 2: col = np.array(N[4] if (x + y) % 2 else N[5])
+            c.a[y - up, x] = col
+    for i in range(4 + k * 2):
+        c.px(base.w * rnd(k, i, 1), base.h * (0.2 + 0.6 * rnd(k, i, 2)) - up * 2, N[6] if i % 2 else N[7])
+    return c
+
+def soldier_cells(kind):
+    fn, w, h, cx, fy = SOLDIER[kind]; cells = []
+    for tint in range(3):
+        row = []
+        for p in range(4): c = Cv(w, h); fn(c, ("walk", p), tint); row.append(c)
+        for p in range(4): c = Cv(w, h); fn(c, ("atk", p), tint); row.append(c)
+        for k in range(4): row.append(rise_frame(row[0], k, cx, fy))
+        for k in range(4): row.append(fade_frame(row[0], k))
+        cells += row
+    return cells, (w, h, cx, fy)
+
+# ── 흑영탄(14×14, 돌며 반복) · 작은 타격(검은 사각 다섯) ──
+def orb_cells(n=6):
+    out = []
+    for i in range(n):
+        c = Cv(14, 14); a = i / n * TAU
+        c.disc(7, 7, 5.2, 5.2, N[4]); c.disc(7, 7, 4.2, 4.2, N[1]); c.disc(6.5, 6.5, 2.2, 2.2, N[0])
+        c.ring(7, 7, 4.8, 4.8, N[6], a, a + 2.2); c.px(7 + math.cos(a + 1.1) * 4.5, 7 + math.sin(a + 1.1) * 4.5, N[8])
+        c.px(7 + math.cos(a + 3.8) * 5.5, 7 + math.sin(a + 3.8) * 5.5, N[5]); c.px(5, 5, N[7])
+        out.append(c)
+    return out
+
+def hit_cells(n=6, size=32, seed=5):
+    out = []
+    for i in range(n):
+        c = Cv(size, size); u = (i + 1) / n; m = size // 2
+        if i < 2: c.ring(m, m, 4 + i * 4, 4 + i * 4, N[7] if i == 0 else N[6], 0, TAU, 0 if i == 0 else 2)
+        for j in range(5):
+            a = j / 5 * TAU + rnd(seed, j) * 0.8; d = 3 + ez(u) * 12
+            x, y = m + math.cos(a) * d, m + math.sin(a) * d - u * 3
+            s = 3 if u < .5 else 2 if u < .85 else 1
+            c.rect(x - s // 2, y - s // 2, s, s, N[0]);
+            if s >= 2: c.px(x + s // 2, y - s // 2, N[6])
+        out.append(c)
+    return out
+
+# ── 추출 가능 흔적 — 땅의 작은 검은 원(반복) ──
+def trace_cells(n=4):
+    out = []
+    for i in range(n):
+        c = Cv(26, 14); k = .85 + .15 * math.sin(i / n * TAU)
+        c.band(13, 7, 11 * k, 5 * k, 0, 1, N[0], dens=.7); c.band(13, 7, 7 * k, 3.2 * k, 0, 1, N[1], dens=1)
+        c.ring(13, 7, 11 * k, 5 * k, N[6], 0, TAU, 2)
+        c.px(13 + math.cos(i / n * TAU) * 9, 7 + math.sin(i / n * TAU) * 4, N[8])
+        out.append(c)
+    return out
+
+# ── 흔적 추출(40×72) — 0~2 원 · 3~6 그림자 줄기가 솟음 · 7~9 가늘어지며 꺼짐. 발밑(20, 66) 기준 ──
+def extract_cells():
+    out = []
+    for i in range(10):
+        c = Cv(40, 72); cx, fy = 20, 66
+        r = min(1, (i + 1) / 3)
+        c.band(cx, fy, 14 * r, 5.5 * r, 0, 1, N[0], dens=.9); c.ring(cx, fy, 14 * r, 5.5 * r, N[6], 0, TAU, 0 if i < 3 else 2)
+        if i >= 3:
+            hgt = [14, 32, 50, 58, 58, 52, 40][i - 3]; wid = [4, 5, 6, 6, 4, 3, 2][i - 3]
+            for y in range(int(hgt)):
+                yy = fy - 2 - y; sway = math.sin(y * 0.25 + i) * 2 * (y / 58)
+                w2 = max(1, wid * (1 - y / (hgt + 8)))
+                c.rect(cx - w2 + sway, yy, w2 * 2, 1, N[1])
+                c.px(cx + w2 + sway, yy, N[6] if y % 3 else N[7]); c.px(cx - w2 - 1 + sway, yy, N[3])
+            c.disc(cx + math.sin(hgt * .25 + i) * 2, fy - 2 - hgt, 2.5, 2.5, N[7]); c.px(cx, fy - 3 - hgt, N[9])
+        out.append(c)
+    return out
+
+def wisp_cells(n=4):
+    out = []
+    for i in range(n):
+        c = Cv(10, 10); c.disc(5, 5, 3.2, 3.2, N[5]); c.disc(5, 5, 2, 2, N[7]); c.px(4 + (i % 2), 4, N[9])
+        c.px(5 - (i % 3), 8 + (i % 2), N[6]); out.append(c)
+    return out
+
+def absorb_cells(n=5):
+    out = []
+    for i in range(n):
+        c = Cv(48, 24); r = 20 * (1 - i / n) + 3
+        c.ring(24, 12, r, r * .42, N[7] if i % 2 else N[6], 0, TAU, 0 if i < 3 else 2); c.band(24, 12, r * .6, r * .25, 0, 1, N[1], dens=.6)
+        out.append(c)
+    return out
+
+# ── 그림자 소집 — 발밑 그림자 다섯이 여러 쪽으로 늘어난다(120×60) ──
+def stretch_cells(n=6):
+    out = []
+    for i in range(n):
+        c = Cv(120, 60); u = ez((i + 1) / n)
+        c.band(60, 30, 14, 6, 0, 1, N[0], dens=.9)
+        for j in range(5):
+            a = j / 5 * TAU + .6; L = 52 * u
+            for k in range(int(L)):
+                x = 60 + math.cos(a) * k; y = 30 + math.sin(a) * k * .45; w = max(1, 4 * (1 - k / 56))
+                c.rect(x - w / 2, y, w, 1, N[1]);
+                if k % 4 == 0: c.px(x + w / 2, y, N[5])
+            c.px(60 + math.cos(a) * L, 30 + math.sin(a) * L * .45, N[7])
+        out.append(c)
+    return out
+
+# ── 그림자 공격 연출 — 베기(36×30) · 사수 화살(14×6) · 주술 터짐(r35) · 거수 내려찍기(r48) ──
+def slash_cells(n=5):
+    out = []
+    for i in range(n):
+        c = Cv(36, 30); u = i / (n - 1)
+        a0, a1 = -1.9 + u * .6, .4 + u * .6
+        for k in range(3):
+            col = [N[9] if i < 2 else N[8], N[7], N[5]][k]
+            c.ring(14, 18, 14 - k, 10 - k * .6, col, a0 + k * .15, a1 - k * .1)
+        if i >= 3: c.a[..., 3][BAYER[np.mgrid[0:30, 0:36][0] % 4, np.mgrid[0:30, 0:36][1] % 4] < (i - 2) / 3] = 0
+        out.append(c)
+    return out
+
+def bolt_cells():
+    out = []
+    for i in range(2):
+        c = Cv(16, 6); c.line(1, 3, 12, 3, N[1]); c.line(2, 2, 11, 2, N[5] if i else N[4]); c.px(13, 3, N[8]); c.px(12, 2, N[7]); c.px(12, 4, N[7])
+        c.px(0, 2 + i, N[6]); out.append(c)
+    return out
+
+def burst_cells(R, n, seed, cy_extra=0, red=False, big=False):
+    w, h = int(R * 2 + 16), int(R * 2 * SQ + 16 + cy_extra); cx, cy = w // 2, h - int(R * SQ) - 8
+    out = []
+    for i in range(n):
+        c = Cv(w, h); u = (i + 1) / n
+        r = R * ez(min(1, u * 1.6))
+        dens = max(0, 1 - u * 1.1)
+        c.band(cx, cy, r, r * SQ, 0, 1, N[0], dens=lambda d: (1 - d) * dens * 1.3)
+        c.ring(cx, cy, r, r * SQ, N[7] if i < n * .5 else N[5], 0, TAU, 0 if i < n * .6 else 2)
+        if big and i > 1: c.ring(cx, cy, r * .65, r * .65 * SQ, SV[1] if i % 2 else N[8], 0, TAU, 3)
+        core = R * .55 * (1 - u)
+        if core > 1.5:
+            c.disc(cx, cy - R * .3 * (1 - u), core, core * .9, RD[1] if red else N[1])
+            c.disc(cx, cy - R * .3 * (1 - u), core * .55, core * .5, RD[2] if red else N[5])
+        for j in range(int(R / 4)):
+            a = rnd(seed, j) * TAU; d = r * (.5 + .55 * rnd(seed, j, 3)); s = 2 if rnd(seed, j, 4) > .5 else 1
+            x, y = cx + math.cos(a) * d, cy + math.sin(a) * d * SQ - u * R * .35 * rnd(seed, j, 5)
+            if u < .95: c.rect(x, y, s, s, N[0] if j % 3 else (RD[2] if red else N[7]))
+        out.append(c)
+    return out, (w, h, cx, cy)
+
+# ── 그림자 교환 — 검은 세로선 셋이 솟는다(20×60, 발밑 (10, 56)) ──
+def swap_cells(n=6):
+    out = []
+    for i in range(n):
+        c = Cv(20, 60); u = i / (n - 1)
+        c.ring(10, 56, 8, 3, N[6], 0, TAU)
+        for j, x in enumerate((5, 10, 15)):
+            hgt = (44 - j * 6) * (ez(min(1, u * 2.2)) if u < .7 else (1 - (u - .7) / .3 * .9)); top = 55 - hgt
+            if hgt < 1: continue
+            c.line(x, 55, x, top, N[0]); c.line(x + 1, 55, x + 1, top + 3, N[2]); c.px(x, top, N[8]); c.px(x, top + 1, N[6])
+        out.append(c)
+    return out
+
+# ── 군주의 영역 — 땅의 어두운 원(r160, 게임이 2배로 r320). 0~3 퍼짐 · 4~7 유지(문양 고리가 돈다) ──
+def domain_cells(R=160):
+    w, h = R * 2 + 16, int(R * 2 * SQ) + 16; cx, cy = w // 2, h // 2
+    out = []
+    for i in range(8):
+        c = Cv(w, h)
+        r = R * (ez((i + 1) / 4) if i < 4 else 1)
+        c.band(cx, cy, r, r * SQ, .55, 1, N[1], dens=lambda d: .14 + .3 * (d - .55) / .45)
+        c.band(cx, cy, r, r * SQ, 0, .55, N[1], dens=.07)
+        c.ring(cx, cy, r, r * SQ, N[6]); c.ring(cx, cy, r - 2, (r - 2) * SQ, N[3])
+        if i >= 2:
+            rot = (i - 4) * TAU / 32 if i >= 4 else 0
+            rr = r * .82
+            c.ring(cx, cy, rr, rr * SQ, N[5], 0, TAU, 3)
+            for k in range(12):                                                              # 고리 위 문양 열둘
+                a = rot + k * TAU / 12; x, y = cx + math.cos(a) * rr, cy + math.sin(a) * rr * SQ
+                c.rect(x - 1, y - 1, 3, 3, N[1]); c.px(x, y - 1, N[7] if k % 3 == 0 else N[6]); c.px(x, y + 1, N[5])
+            for k in range(6):                                                               # 가운데로 가는 금
+                a = rot * 2 + k * TAU / 6 + .26
+                for t in range(int(rr * .3), int(rr * .7), 2): c.px(cx + math.cos(a) * t, cy + math.sin(a) * t * SQ, N[4])
+        out.append(c)
+    return out, (w, h, cx, cy)
+
+# ── 일제 진군 표적(28×28, 반복) ──
+def mark_cells(n=6):
+    out = []
+    for i in range(n):
+        c = Cv(28, 28); k = 1 + (i % 3) * .08; r = 10 * k
+        c.ring(14, 14, r, r, N[0], 0, TAU); c.ring(14, 14, r - 1, r - 1, N[6], 0, TAU, 2)
+        for a in range(4):
+            ang = a * TAU / 4 + i / n * TAU / 4; x, y = 14 + math.cos(ang) * (r + 3), 14 + math.sin(ang) * (r + 3)
+            c.rect(x - 1, y - 1, 3, 3, N[0]); c.px(x, y, N[8])
+        c.rect(13, 13, 2, 2, N[7]); out.append(c)
+    return out
+
+# ── 영혼 소각 균열(그림자 몸 위에 겹친다, 30×40, 발밑 (15, 38)) ──
+def crack_cells(n=4):
+    out = []
+    for i in range(n):
+        c = Cv(30, 40); x, y = 15, 22
+        for j in range(3 + i * 2):
+            a = rnd(9, j) * TAU; L = 4 + i * 2 + rnd(9, j, 1) * 4
+            x1, y1 = x + math.cos(a) * L, y + math.sin(a) * L * 1.2
+            c.line(x, y, x1, y1, RD[1 + (j % 2)]); c.px(x1, y1, RD[3])
+        c.disc(x, y, 1.5 + i * .4, 1.5 + i * .4, RD[2]); out.append(c)
+    return out
+
+# ── 무명의 군세 — 뒤의 문양(96×72) · 파동 앞머리(72×84) · 가시(12×46) ──
+def sigil_cells(n=8):
+    out = []
+    for i in range(n):
+        c = Cv(96, 72); cx, cy = 48, 36; u = min(1, (i + 1) / 6)
+        c.band(cx, cy, 34 * u, 30 * u, 0, 1, N[0], dens=.55)
+        c.ring(cx, cy, 34 * u, 30 * u, N[6]); c.ring(cx, cy, 31 * u, 27 * u, N[3])
+        if u > .4:
+            c.ring(cx, cy, 22 * u, 19 * u, N[5], 0, TAU, 2)
+            for k in range(8):
+                a = k * TAU / 8 + (i - 6) * .08 * (i >= 6)
+                c.line(cx + math.cos(a) * 22 * u, cy + math.sin(a) * 19 * u, cx + math.cos(a) * 31 * u, cy + math.sin(a) * 27 * u, N[4])
+                c.px(cx + math.cos(a) * 34 * u, cy + math.sin(a) * 30 * u, N[8] if k % 2 else N[7])
+            c.fillpoly([(cx, cy - 12 * u), (cx + 9 * u, cy + 7 * u), (cx - 9 * u, cy + 7 * u)], N[1])   # 가운데 세모 문양
+            c.poly([(cx, cy - 12 * u), (cx + 9 * u, cy + 7 * u), (cx - 9 * u, cy + 7 * u)], N[7] if i >= 6 and i % 2 else N[6])
+            c.disc(cx, cy, 2.2, 2.2, N[8] if i >= 6 else N[6])
+        out.append(c)
+    return out
+
+def wave_cells(n=6):
+    out = []
+    for i in range(n):
+        c = Cv(72, 84); fy = 80
+        for x in range(72):
+            hgt = 30 + 26 * math.sin(x * .09 + i * .9) * math.sin(x * .03) + (x / 72) * 20
+            for y in range(int(hgt)):
+                d = y / hgt
+                edge = min(1, x / 14, (71 - x) / 14)                                              # 좌우 끝은 옅게 — 네모난 덩어리로 보이지 않게
+                if BAYER[(fy - y) % 4, x % 4] < ((1 - d) * 1.1 - (1 - x / 72) * .5) * edge: c.px(x, fy - y, N[1] if d < .6 else N[3])
+            if x % 2 == 0: c.px(x, fy - hgt, N[6] if x % 6 else N[8])
+        for k in range(4):                                                                     # 군세 실루엣(창 끝)
+            x = 18 + k * 14 + (i * 3) % 7; c.line(x, fy - 52 + (k % 2) * 6, x, fy - 30, N[0]); c.px(x, fy - 53 + (k % 2) * 6, N[7])
+        out.append(c)
+    return out
+
+def spike_cells(n=6):
+    out = []
+    for i in range(n):
+        c = Cv(12, 46); hgt = [10, 28, 42, 42, 30, 12][i]
+        for y in range(hgt):
+            w = max(0, 3.6 * (1 - y / hgt)); yy = 44 - y
+            c.rect(6 - w, yy, w * 2, 1, N[0]); c.px(6 + w, yy, N[5])
+        c.px(6, 44 - hgt, N[8] if i < 4 else N[6]); c.ring(6, 44, 5, 1.6, N[3]); out.append(c)
+    return out
+
+# ── 스킬 아이콘(24×24) — 흑영탄 · 흔적 추출 · 그림자 소집 · 그림자 교환 · 군주의 영역 · 일제 진군 · 영혼 소각 · 무명의 군세 ──
+def icon_cells():
+    out = []
+    def frame(c):
+        c.rect(0, 0, 24, 24, N[2]); c.rect(1, 1, 22, 22, N[1]); c.ring(12, 12, 10.5, 10.5, N[3]); c.rect(0, 0, 24, 1, N[4]); c.rect(0, 0, 1, 24, N[4])
+    c = Cv(24, 24); frame(c); c.disc(12, 12, 6, 6, N[5]); c.disc(12, 12, 4.5, 4.5, N[0]); c.ring(12, 12, 5.5, 5.5, N[7], 3.6, 5.6); c.px(10, 10, N[8]); out.append(c)
+    c = Cv(24, 24); frame(c); c.band(12, 19, 7, 2.5, 0, 1, N[0]); c.ring(12, 19, 7, 2.5, N[6])
+    for y in range(4, 18): c.rect(11 + math.sin(y * .5), y, 2, 1, N[0]); c.px(13 + math.sin(y * .5), y, N[7])
+    c.disc(12, 4, 2, 2, N[8]); out.append(c)
+    c = Cv(24, 24); frame(c)
+    for k, x in enumerate((6, 12, 18)):
+        h2 = 10 if k == 1 else 8; c.rect(x - 2, 19 - h2, 4, h2, N[0]); c.disc(x, 19 - h2 - 2, 2.2, 2.2, N[0]); c.px(x + 1, 19 - h2 - 2, N[7])
+    c.ring(12, 20, 9, 2, N[6]); out.append(c)
+    c = Cv(24, 24); frame(c)
+    for x in (6, 9, 15, 18): c.line(x, 18, x, 7, N[0]); c.px(x, 6, N[8])
+    c.line(8, 12, 16, 12, N[6]); c.px(15, 11, N[7]); c.px(15, 13, N[7]); c.px(9, 11, N[7]); c.px(9, 13, N[7]); out.append(c)
+    c = Cv(24, 24); frame(c); c.band(12, 14, 9, 6, 0, 1, N[0], dens=.7); c.ring(12, 14, 9, 6, N[6]); c.ring(12, 14, 6, 4, N[5], 0, TAU, 2)
+    c.rect(11, 6, 2, 8, N[0]); c.px(11, 7, N[8]); c.px(12, 7, N[8]); out.append(c)
+    c = Cv(24, 24); frame(c)
+    for k in range(3): c.line(4, 7 + k * 5, 15, 12, N[6]); c.px(4, 7 + k * 5, N[0])
+    c.ring(17, 12, 4, 4, N[0]); c.ring(17, 12, 3, 3, N[7]); c.px(17, 12, N[8]); out.append(c)
+    c = Cv(24, 24); frame(c); c.disc(12, 13, 7, 7, RD[0]); c.disc(12, 13, 4.5, 4.5, RD[1]); c.disc(12, 13, 2, 2, RD[3])
+    for k in range(6): a = k * TAU / 6; c.line(12, 13, 12 + math.cos(a) * 9, 13 + math.sin(a) * 9, N[0])
+    out.append(c)
+    c = Cv(24, 24); frame(c)
+    for k in range(5):
+        x = 4 + k * 4; h2 = 7 + (k % 2) * 4; c.rect(x, 20 - h2, 3, h2, N[0]); c.disc(x + 1.5, 20 - h2 - 1, 1.6, 1.6, N[0]); c.px(x + 2, 20 - h2 - 1, N[7])
+    c.ring(12, 6, 5, 3, N[8] if True else N[6]); c.px(12, 6, N[9]); out.append(c)
+    return out
+
+def pack(name, cells, cols=None, man=None, cx=None, cy=None, loop=0, rows=1, **extra):
+    w, h = cells[0].w, cells[0].h; cols = cols or len(cells); R = math.ceil(len(cells) / cols)
+    im = np.zeros((R * h, cols * w, 4), np.uint8)
+    for i, c in enumerate(cells): im[(i // cols) * h:(i // cols) * h + h, (i % cols) * w:(i % cols) * w + w] = c.a
+    os.makedirs(OUT, exist_ok=True)
+    Image.fromarray(im, "RGBA").save(os.path.join(OUT, name + ".webp"), lossless=True, quality=100, method=6)
+    man[name] = {"w": w, "h": h, "cols": cols, "n": len(cells) // rows, "cx": w // 2 if cx is None else cx, "cy": h // 2 if cy is None else cy, **({"loop": 1} if loop else {}), **({"rows": rows} if rows > 1 else {}), **extra}
+    return im
+
+def main():
+    man = {}; sheets = {}
+    for k in SOLDIER:
+        cells, (w, h, cx, fy) = soldier_cells(k)
+        sheets["nc_" + k] = pack("nc_" + k, cells, 16, man, cx=cx, cy=fy, rows=3)
+    sheets["nc_orb"] = pack("nc_orb", orb_cells(), None, man, loop=1)
+    sheets["nc_hit"] = pack("nc_hit", hit_cells(), None, man)
+    sheets["nc_trace"] = pack("nc_trace", trace_cells(), None, man, loop=1)
+    sheets["nc_extract"] = pack("nc_extract", extract_cells(), None, man, cx=20, cy=66)
+    sheets["nc_wisp"] = pack("nc_wisp", wisp_cells(), None, man, loop=1)
+    sheets["nc_absorb"] = pack("nc_absorb", absorb_cells(), None, man)
+    sheets["nc_stretch"] = pack("nc_stretch", stretch_cells(), None, man)
+    sheets["nc_slash"] = pack("nc_slash", slash_cells(), None, man, cx=14, cy=18)
+    sheets["nc_bolt"] = pack("nc_bolt", bolt_cells(), None, man, loop=1, cx=13, cy=3)
+    cells, (w, h, cx, cy) = burst_cells(35, 6, 4); sheets["nc_pop"] = pack("nc_pop", cells, None, man, cx=cx, cy=cy, r=35)
+    cells, (w, h, cx, cy) = burst_cells(48, 6, 8); sheets["nc_slam"] = pack("nc_slam", cells, None, man, cx=cx, cy=cy, r=48)
+    cells, (w, h, cx, cy) = burst_cells(70, 8, 12, cy_extra=30, red=True); sheets["nc_boom"] = pack("nc_boom", cells, 4, man, cx=cx, cy=cy, r=70)
+    cells, (w, h, cx, cy) = burst_cells(100, 10, 17, cy_extra=40, big=True); sheets["nc_blast"] = pack("nc_blast", cells, 5, man, cx=cx, cy=cy, r=100)
+    sheets["nc_swap"] = pack("nc_swap", swap_cells(), None, man, cx=10, cy=56)
+    cells, (w, h, cx, cy) = domain_cells(); sheets["nc_domain"] = pack("nc_domain", cells, 4, man, cx=cx, cy=cy, r=160)
+    sheets["nc_mark"] = pack("nc_mark", mark_cells(), None, man, loop=1)
+    sheets["nc_crack"] = pack("nc_crack", crack_cells(), None, man, cx=15, cy=38)
+    sheets["nc_sigil"] = pack("nc_sigil", sigil_cells(), None, man)
+    sheets["nc_wave"] = pack("nc_wave", wave_cells(), None, man, cx=36, cy=80)
+    sheets["nc_spike"] = pack("nc_spike", spike_cells(), None, man, cx=6, cy=44)
+    sheets["nc_icons"] = pack("nc_icons", icon_cells(), None, man, cx=0, cy=0)
+    json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
+    if len(sys.argv) > 2 and sys.argv[1] == "preview":
+        os.makedirs(sys.argv[2], exist_ok=True)
+        for k, im in sheets.items():
+            z = 4 if im.shape[1] < 300 else 2 if im.shape[1] < 900 else 1
+            bg = np.zeros((im.shape[0], im.shape[1], 4), np.uint8); bg[..., :3] = (58, 74, 52); bg[..., 3] = 255
+            a = im[..., 3:4].astype(float) / 255; bg[..., :3] = (im[..., :3] * a + bg[..., :3] * (1 - a)).astype(np.uint8)
+            Image.fromarray(bg, "RGBA").resize((im.shape[1] * z, im.shape[0] * z), Image.NEAREST).save(os.path.join(sys.argv[2], k + ".png"))
+    for k, v in man.items(): print(k, v, os.path.getsize(os.path.join(OUT, k + ".webp")))
+
+main()

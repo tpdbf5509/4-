@@ -234,6 +234,12 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 서버 계정이 없는 캐릭터(기기에만 있는)는 해금 순간 거절한다. 테스트 방 · 장부가 없는 방(`g.hjOff`) · 방장 브라우저 방식(`?srv=off`) · 연습장은 지키지 않는다. 새 히든 직업을 더하면 해금 끝에서 `hiddenAsk`/`hiddenReply` 를 거치게 한다(`gamblerUnlock.js settle` 참고).
 - 히든 직업이라 업데이트 노트 · 공지 · 패치노트 책에 적지 않는다.
 
+### 히든 직업 Necromancer 004 그림자 군주 (11월 17일, 격자 연습장에만)
+- 사용자 기획 「히든직업 002~006 통합기획안」 3장. 사용자 지시로 **획득 방법(단서 · 시험)은 넣지 않고 `?sandbox` 에서만** 켜진다(`NECRO.live = false`, `necroOn` 은 맵 `sandbox` 에서만). 업데이트 노트 · 공지 · 패치노트 책에 적지 않는다. 아직 저장 · 스냅샷 · 관리자 명령어 · 유일 규칙(`HIDDEN_JOBS`)에 잇지 않았다 — 실제 게임에 열 때 Gambler 002 처럼 붙인다.
+- 수치 `necroData.js` · 규칙 `necroJob.js`(엔진 `rpg.js necroEngine`, 입력 `hidden {op:"use", s}`) · 그림 `necroArt.js` · 시트 규격 `necroPxData.js` · 연습장 칸 `Sandbox.jsx NecroBar` · 시험 `tools/necro.test.mjs`. 가방 `bag.hj.jobs.necromancer = {lv, xp, tr, roster}`.
+- 그림자는 몹이 아니라 `h.nc.sh` 에 있고 피해를 받지 않는다. 몹을 잡으면 흔적(`h.nc.tr`, 8초)이 남고 추출로 명부에 넣는다. 연습장 허수아비는 죽지 않아 「추출 연습 몹 세우기」(`rpg.js sandboxMobs`)를 쓴다.
+- 이펙트는 pixelfx 없이 `design/effects/necromancer/make.py` 가 직접 그린 도트 시트(`rpg/effects/hidden-jobs/necromancer/px/nc_*.webp`). 고치면 make.py → `manifest.json` 값을 `necroPxData.js` 로(시험이 본다). 키는 기존 행동 키를 빌린다(`NC_SLOTS`). 내가 정한 해석은 `docs/작업-상세-기록.md` 끝.
+
 ### 격자 연습장 `?sandbox` (11월 16일)
 - 주소 `four-lane.vercel.app/?sandbox`(`main.jsx` 가 `Sandbox.jsx` 를 따로 불러온다). 게임에 넣기 전 캐릭터(직업 · 성별 · 원소 · 전직 · 숙련 단계 · BLOOD-001 직업 레벨 · 연마 · 레벨 · 스탯 · 무기(미공개 hold 포함) · 스킬 칸)를 골라 격자 바닥에서 움직이고 스킬을 써 본다.
 - 직업 체험(`JobTrial.jsx`)처럼 이 기기에서만 도는 세계다. 서버 · 장부 · 기기 캐릭터 기록과 이어지지 않고 아무것도 저장하지 않는다. `g.test` 로 훈련장 기능(무적 · 쿨타임 끄기 · 스택 가득 · 초당 피해)을 쓰고, 월드보스는 나오지 않게 막았다.

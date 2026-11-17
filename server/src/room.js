@@ -15,6 +15,7 @@ import { rpgInput } from "../../src/game/rpgInput.js";
 import { CHAT } from "../../src/game/socialData.js";
 import { loadChar, saveChar, saveOn, ledgerCall } from "./save.js";
 import { rpgKey } from "./ledger-util.js";
+import { hiddenHeld } from "../../src/game/hiddenUnique.js";   // 히든 직업 유일 규칙(11월 17일) — 장부 표 hidden_jobs 와 방 · 해금 경로를 잇는다
 
 const TICK_MS = 25;          // 판정 간격 — 입력은 받자마자 규칙에 넘기고, 결과는 다음 스냅샷으로 간다
 const STEP_MAX = 0.05;
@@ -29,6 +30,9 @@ const RESYNC = ["stale", "moved"];
 const RESYNC_MAX = 3;
 // 테스트 모드(?test) 방에서 받는 장부 요청 — 읽기 · 지금 저장(서버가 저장하지 않으니 하는 일이 없다)만. 거래 · 길드 · 장터 · 주간 보상은 막는다
 const TEST_LEDGER = new Set(["load", "flush"]);        // 다시 불러와도 계속 막히면 이 접속은 저장을 멈춘다
+const HIDDEN_SYNC = 2;       // 히든 직업 유일 규칙 — 영웅 가방이 바뀌었는지 보는 간격(초). 바뀌었을 때만 장부에 쓴다
+const HIDDEN_LIST = 30;      // 히든 직업 보유자 목록을 장부에서 다시 받는 간격(초) — 해금 문을 열기 전 안내용(해금 순간은 장부가 다시 정한다)
+const HIDDEN_RETRY = 10;     // 장부에 닿지 못한 영웅을 다시 맞추기까지(초)
 const LEDGER_QUEUE = 8;      // 한 사람이 장부 요청을 이만큼 쌓아 두면 더 받지 않는다
 const RUSH_MS = 15;          // 입력 때 바로 보내는 스냅샷 사이 최소 간격 — 여럿이 한꺼번에 눌러도 이보다 자주 보내지 않는다
 const AUTH_MS = 5000;        // 붙은 뒤 이 안에 비밀값(auth)을 보내지 않으면 끊는다
@@ -367,6 +371,55 @@ export class RpgRoom {
     return { ok: false, err: "op" };
   }
 
+  /* ── 히든 직업 유일 규칙(src/game/hiddenUnique.js · ledger-hidden.js) ─────────────
+     해금 시험을 통과한 영웅이 g.hjq 에 자리를 묻는다 → 장부 claim → 영웅 h.hjr 에 답(해금 경로가 읽는다).
+     그 밖에는 가방이 바뀔 때마다 sync 로 장부의 보유자 표를 맞춘다(관리자 명령어로 받음 · 전직 초기화 물약으로 비움 · 다른 히든 직업으로 바꿈).
+     보유자 목록(g.hjHold)은 장부의 답에서 받아 두고 HIDDEN_LIST 초마다 다시 받는다. 테스트 방 · 장부가 없는 방은 지키지 않는다(g.hjOff) */
+  hiddenTick(g, dt) {
+    if (g.hjOff === undefined) g.hjOff = this.test || !saveOn(this.env);
+    if (g.hjOff) { if (g.hjq && g.hjq.length) g.hjq.splice(0).forEach((r) => this.hiddenReply(g, r.pi, r.id, { ok: true })); return; }
+    if (g.hjq && g.hjq.length) for (const r of g.hjq.splice(0)) this.hiddenClaim(g, r);
+    this.hjSync = (this.hjSync || 0) + dt;
+    this.hjList = (this.hjList || 0) + dt;
+    if (this.hjSync < HIDDEN_SYNC) return;
+    this.hjSync = 0;
+    const now = Date.now();
+    let any = null;
+    this.seats.forEach((st, pi) => {
+      const h = st && g.heroes[pi], a = st && this.accts.get(st.id);
+      if (!h || !h.loaded || !h.bag || !a || a.dead) return;
+      any = any || a;
+      if (h.admin) return;                                  // 관리자는 자리를 쓰지 않는다
+      const held = hiddenHeld(h), sig = held.join(",");
+      if (a.hjClaim) {                                      // 방금 자리를 받았다 — 영웅이 해금을 마칠 때까지 장부에 "안 가졌다"고 알리지 않는다
+        if (held.includes(a.hjClaim.id) || a.hjClaim.until < now) a.hjClaim = null;
+        else return;
+      }
+      if (a.hjSig === sig || (a.hjTry || 0) > now) return;
+      a.hjTry = now + HIDDEN_RETRY * 1000;                  // 답을 기다리는 동안 같은 일을 또 하지 않는다
+      ledgerCall(this.env, "rpg_hidden", { p_name: a.name, p_token: a.tok, p_op: "sync", p_held: held }).then((r) => {
+        if (r && r.ok) { a.hjSig = sig; a.hjTry = 0; if (r.hold && this.g === g) g.hjHold = r.hold; }
+      });
+    });
+    if (this.hjList >= HIDDEN_LIST && any) {
+      this.hjList = 0;
+      ledgerCall(this.env, "rpg_hidden", { p_name: any.name, p_token: any.tok, p_op: "list" }).then((r) => { if (r && r.ok && r.hold && this.g === g) g.hjHold = r.hold; });
+    }
+  }
+  hiddenReply(g, pi, id, res) {
+    const h = this.g === g ? g.heroes[pi] : null;
+    if (h) h.hjr = { id, ok: !!res.ok, err: res.err || "" };
+  }
+  async hiddenClaim(g, r) {
+    const st = this.seats[r.pi], a = st && this.accts.get(st.id), h = g.heroes[r.pi];
+    if (!h || h.admin) return this.hiddenReply(g, r.pi, r.id, { ok: true });
+    if (!a || a.dead) return this.hiddenReply(g, r.pi, r.id, { ok: false, err: "account" });   // 서버 계정이 없는 캐릭터는 보유자로 적을 수 없다
+    const res = await ledgerCall(this.env, "rpg_hidden", { p_name: a.name, p_token: a.tok, p_op: "claim", p_job: r.id });
+    if (res && res.hold && this.g === g) g.hjHold = res.hold;
+    if (res && res.ok) { a.hjSig = null; a.hjClaim = { id: r.id, until: Date.now() + 15000 }; }   // 해금한 뒤 가방이 바뀌면 sync 가 한 번 더 맞춘다
+    this.hiddenReply(g, r.pi, r.id, res && typeof res === "object" ? res : { ok: false, err: "net" });
+  }
+
   /* ── 판정 루프 ────────────────────────────────────── */
   start() {
     if (this.timer) return;
@@ -400,6 +453,7 @@ export class RpgRoom {
     }
     const g = this.g;
     for (let left = real; left > 0; left -= STEP_MAX) rpgStep(g, Math.min(left, STEP_MAX));
+    this.hiddenTick(g, real);
     // 관리자 /직업 · 원소 전환 물약 — 자리의 겉모습(직업 · 원소)을 고쳐 모두에게 알린다. 저장할 모습(a.look)도 고친다.
     // 바뀐 사람의 기기 기록은 그 화면이 out "relook" 으로 고친다
     if (g.relook && g.relook.length) {

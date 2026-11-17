@@ -5,6 +5,7 @@
    E(엔진, rpg.js bloodJobEngine): fx · say · sys · dummyAt(맵에 허수아비) · hurt(시험 피해) · goMap */
 import { BLOOD, BLOOD_CLUE as K, BLOOD_SPOTS, BLOOD_DOORS, BLOOD_SEQ, BLOOD_LAB as LAB, BLOOD_NAME } from "./bloodJobData.js";
 import { unlockBlood, bloodOn } from "./bloodJob.js";
+import { hiddenEnforced, hiddenTaken, hiddenTakenMsg, hiddenAsk, hiddenReply } from "./hiddenUnique.js";   // 히든 직업 유일 규칙(11월 17일) — 게임 전체에서 한 명만
 
 const SQ = 0.78;
 export const cleanBu = (d) => {
@@ -70,6 +71,7 @@ export function bloodSpotTalk(E, g, h) {
   const u = bu(h);
   const door = BLOOD_DOORS.find((d) => d.spot === s.id && ((u.o & d.bit) || (u.c & d.need) === d.need));
   if (door) {
+    if (hiddenTaken(g, h, "blood")) return tell(E, g, h, hiddenTakenMsg("blood")), true;   // 이미 다른 사람이 각성했다 — 입구를 열지 않는다
     if (!(u.o & door.bit)) { u.o |= door.bit; save(h); openFx(E, g, h, s, door); }
     enterLab(E, g, h);
     return true;
@@ -166,6 +168,29 @@ function pass(E, g, h, step) {
   E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 130, text: `시험 ${step}단계 통과`, color: "#E53945", t: 1.2, life: 1.2, snd: "build", who: h.pi });
   if (msg) tell(E, g, h, msg);
 }
+/* 시험을 통과했다 — 유일 규칙(hiddenUnique.js): 서버 방은 장부에 자리를 묻고(h.hjr 로 답이 온다) 받았을 때만 해금한다.
+   먼저 각성한 사람이 있으면 시험을 거두고 광장으로 돌려보낸다. 장부에 닿지 못하면 3초 뒤 다시 묻는다 */
+const ASK_WAIT = 10;
+function settle(E, g, h, dt) {
+  const t = h.bt;
+  if (!hiddenEnforced(g, h)) return void finish(E, g, h);
+  const r = hiddenReply(h, "blood");
+  if (r) {
+    t.ask = 0;
+    if (r.ok) return void finish(E, g, h);
+    if (r.err === "taken" || r.err === "account") {
+      endTrial(g, h);
+      E.goMap(g, h, "plaza", LAB.plazaAt);
+      return void tell(E, g, h, r.err === "taken" ? hiddenTakenMsg("blood") : `서버 계정이 없는 캐릭터는 ${BLOOD_NAME} 를 해금할 수 없다.`);
+    }
+    t.rt = 3;
+    return void tell(E, g, h, "각성을 확인하지 못했다. 잠시 뒤 다시 시도한다.");
+  }
+  if (t.rt > 0) return void (t.rt -= dt);
+  if (t.ask) { if ((t.aw = (t.aw || 0) + dt) > ASK_WAIT) { t.ask = 0; t.aw = 0; } return; }   // 답이 없으면 다시 묻는다
+  t.ask = 1; t.aw = 0;
+  hiddenAsk(g, h, "blood");
+}
 function finish(E, g, h) {
   const prev = h.bag.bd && h.bag.bd.trial ? h.bag.bd.prev : h.bag.bd;
   if (prev) h.bag.bd = prev; else delete h.bag.bd;
@@ -184,6 +209,7 @@ export function tickBloodTrial(E, g, h, dt) {
   const t = h.bt;
   if (!t) return void endTrial(g, h);
   if (bd.b < LAB.low) bd.b = LAB.b;                  // 정해진 혈량
+  if (t.done) return void settle(E, g, h, dt);       // 3단계를 마쳤다 — 장부의 답을 기다린다(유일 규칙)
   t.t += dt;
   const mk = (h.bd && h.bd.mk) || {};
   if (t.step === 1 && t.tg.some((id) => mk[`m${id}`])) return void pass(E, g, h, 1);
@@ -201,7 +227,7 @@ export function tickBloodTrial(E, g, h, dt) {
     const veil = !!(h.bd && h.bd.vl);
     E.hurt(g, h, Math.min(h.hp - 1, h.max * V.dmg));
     E.fx(g, h.map, { kind: "sk_bj_slam", x: p.x, y: p.y, ax: 1, ay: 0, W: V.r * 1.4, pi: h.pi, t: 0.4, life: 0.4, snd: "bloodBoom" });
-    if (veil && h.bd.vl && h.bd.vl.did) return void finish(E, g, h);
+    if (veil && h.bd.vl && h.bd.vl.did) { t.done = 1; return void settle(E, g, h, dt); }
     tell(E, g, h, "혈막 없이 맞았다. 예고가 뜨면 혈막 키를 한 번 눌러라.");
   }
 }

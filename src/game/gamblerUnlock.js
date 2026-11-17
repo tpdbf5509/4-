@@ -8,6 +8,7 @@
 import { GAMBLER as GM, GAMBLER_ID, GAMBLER_NAME, GM_CLUE as K, GM_CLUE_NEED, GM_SPOTS, GM_REPAIR, GM_CASINO as CA, GM_VEIL, GM_DICE } from "./gamblerData.js";
 import { unlockGambler, gamblerOn, cleanGmJob } from "./gamblerJob.js";
 import { TRAIN } from "./trainData.js";
+import { hiddenEnforced, hiddenTaken, hiddenTakenMsg, hiddenAsk, hiddenReply } from "./hiddenUnique.js";   // 히든 직업 유일 규칙(11월 17일) — 게임 전체에서 한 명만
 
 const SQ = 0.78;
 const GOLD = "#F2DFA6";
@@ -67,6 +68,7 @@ export function gamblerSpotTalk(E, g, h) {
   const u = gu(h);
   if (s.id === "box") {
     if (doorOn(u)) {
+      if (hiddenTaken(g, h, GAMBLER_ID)) return tell(E, g, h, hiddenTakenMsg(GAMBLER_ID)), true;   // 이미 다른 사람이 계약했다 — 문을 열지 않는다
       if (!u.o) {
         u.o = 1; save(h);
         E.fx(g, h.map, { kind: "sk_gm_full", x: s.x, y: s.y, t: 0.6, life: 0.6, snd: "gmSlot", who: h.pi });
@@ -146,6 +148,29 @@ function pass(E, g, h, step) {
   E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 130, text: `시험 ${step}단계 통과`, color: GOLD, t: 1.2, life: 1.2, snd: "gmFull", who: h.pi });
   tell(E, g, h, STEP_MSG[t.step]);
 }
+/* 시험을 통과했다 — 유일 규칙(hiddenUnique.js): 서버 방은 장부에 자리를 묻고(h.hjr 로 답이 온다) 받았을 때만 해금한다.
+   먼저 계약한 사람이 있으면 시험을 거두고 광장으로 돌려보낸다. 장부에 닿지 못하면 3초 뒤 다시 묻는다 */
+const ASK_WAIT = 10;
+function settle(E, g, h, dt) {
+  const t = h.gt;
+  if (!hiddenEnforced(g, h)) return void finish(E, g, h);
+  const r = hiddenReply(h, GAMBLER_ID);
+  if (r) {
+    t.ask = 0;
+    if (r.ok) return void finish(E, g, h);
+    if (r.err === "taken" || r.err === "account") {
+      endTrial(g, h);
+      E.goMap(g, h, "plaza", CA.plazaAt);
+      return void tell(E, g, h, r.err === "taken" ? hiddenTakenMsg(GAMBLER_ID) : `서버 계정이 없는 캐릭터는 ${GAMBLER_NAME} 를 해금할 수 없다.`);
+    }
+    t.rt = 3;
+    return void tell(E, g, h, "계약을 확인하지 못했다. 잠시 뒤 다시 시도한다.");
+  }
+  if (t.rt > 0) return void (t.rt -= dt);
+  if (t.ask) { if ((t.aw = (t.aw || 0) + dt) > ASK_WAIT) { t.ask = 0; t.aw = 0; } return; }   // 답이 없으면 다시 묻는다
+  t.ask = 1; t.aw = 0;
+  hiddenAsk(g, h, GAMBLER_ID);
+}
 function finish(E, g, h) {
   const hj = h.bag.hj, prev = hj && hj.trial ? hj.prev : hj;
   if (prev) h.bag.hj = prev; else delete h.bag.hj;
@@ -166,7 +191,7 @@ export function tickGamblerTrial(E, g, h, dt) {
   if (!t) return void endTrial(g, h);
   t.t += dt;
   if (t.step === 2 && t.bet) return void pass(E, g, h, 2);
-  if (t.step === 3 && t.far) return void finish(E, g, h);
+  if (t.step === 3 && t.far) return void settle(E, g, h, dt);
   if (t.step !== 1) return;
   const V = CA.veil;
   if (!t.wp && t.t >= V.gap) {                        // 예고 — 지금 내 자리에 원

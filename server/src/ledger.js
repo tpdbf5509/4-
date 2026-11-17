@@ -11,6 +11,7 @@ import { rpgKey, len, sha256, iso, isObj, txt, jeq, lvOf } from "./ledger-util.j
 import { tradeMethods } from "./ledger-trade.js";
 import { guildMethods } from "./ledger-guild.js";
 import { marketMethods } from "./ledger-market.js";
+import { hiddenMethods } from "./ledger-hidden.js";
 
 export { rpgKey, sha256, jeq };
 
@@ -443,8 +444,10 @@ export class LedgerCore {
     if (this.liveOf(c.name_key)) return { ok: false, err: "live" };
     if (key !== c.name_key && (await this.first("SELECT 1 AS x FROM chars WHERE name_key = ?", key))) return { ok: false, err: "taken" };
     const old = c.name_key;
+    await this.hiddenReady();                         // 히든 직업 보유자 줄(유일 규칙)도 새 이름으로
     await this.batch([
       this.q("UPDATE chars SET name_key = ?, name = ?, data = ?, token_hash = NULL WHERE name_key = ?", key, name, JSON.stringify({ ...c.data, name }), old),
+      this.q("UPDATE hidden_jobs SET char_key = ? WHERE char_key = ?", key, old),
       this.q("DELETE FROM fails WHERE name_key IN (?, ?)", old, key),
       this.q("UPDATE guild_members SET char_key = ? WHERE char_key = ?", key, old),
       this.q("UPDATE guild_wallets SET char_key = ? WHERE char_key = ?", key, old),
@@ -479,4 +482,4 @@ export class LedgerCore {
 }
 
 // 거래 · 길드 함수는 따로 파일에 두고 클래스에 붙인다(trade.sql · guild.sql 을 옮긴 것)
-Object.assign(LedgerCore.prototype, tradeMethods, guildMethods, marketMethods);
+Object.assign(LedgerCore.prototype, tradeMethods, guildMethods, marketMethods, hiddenMethods);

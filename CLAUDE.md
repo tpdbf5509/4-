@@ -229,10 +229,11 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 사용자 지시 "획득 방법은 적용하지 말고 격자 훈련장에 적용해" · "패치노트에는 적지마". `ENGINEER.live = false` 라 sandbox 맵에서만 켜진다(`engineerOn`). 해금 경로 · 관리자 명령어 · 저장 · `HIDDEN_JOBS` 등록은 아직 없다 — 실제 게임에 이을 때 Gambler 002 처럼 더한다.
 - 수치 `engineerData.js` · 규칙 `engineerJob.js`(엔진 `rpg.js engineerEngine`, 입력 `hidden {op:"use", s}` 를 `rpgHidden` 이 켜진 직업으로 보낸다) · 그림 `engineerArt.js`(연출 + 설치물 몸 `drawEngineerUnit`, rpgArt 가 발 높이로 줄 세움) · 시트 규격 `engineerPxData.js` · 연습장 칸 `Sandbox.jsx EngineerBar`. 시험 `tools/engineer.test.mjs`.
 - 설치물(터렛 · 드론 · 수호자)은 몹 목록과 따로 `h.en.units`. 스냅샷 영웅 줄 **58** = `packEngineer`(아니면 0, 칸은 뒤에만). 손님 화면 값 `h.env`.
-- 이펙트는 Gambler 002 처럼 직접 그린 도트 시트(`design/effects/engineer/make.py` → `hidden-jobs/engineer/px/en_*.webp` 20장 · `manifest.json` 값을 `engineerPxData.js` 에 옮긴다, 시험이 같은지 본다). 코드로는 1px 예고 · 범위 선만.
+- 이펙트는 Gambler 002 처럼 직접 그린 도트 시트(`design/effects/engineer/make.py` → `hidden-jobs/engineer/px/en_*.webp` 21장 · `manifest.json` 값을 `engineerPxData.js` 에 옮긴다, 시험이 같은지 본다). 코드로는 1px 예고 · 범위 선만.
 - 외형은 사용자 그림(남 · 여 한 벌씩)을 `tools/cut-engineer-char.py` 로 자른 `characters/rpg/engineer-<m|f>/`(원본 `design/engineer-job/char/engineer-<m|f>-*-sheet.png`). `advArtPath` 가 `engineerLook` 이면 이 그림, 걷는 그림 4장은 Gambler 002 와 같은 규칙.
 - 내가 정한 해석 목록은 `docs/작업-상세-기록.md` 끝.
 - 11월 17일 연출 보강: 조립·충전·추진기·조준 회로 시트 4장 추가. 총구·명중·포격·광선·충격파 시트를 보강했다. `drawEngineerFx`·`drawEngineerUnit`이 품질 값을 받아 장식 잔상을 줄인다. 판정·전력·대기·스냅샷은 그대로며 패치노트에는 적지 않는다.
+- 11월 17일 밀도 보강(사용자 "범위는 큰데 이펙트가 비어 보인다"): 작은 입자 시트 `en_bits`(스파크 청록·금빛 · 불씨 · 금속 파편 · 연기 · 전류 줄기)를 `engineerArt.js bits()` 가 범위 안에 뿌린다. 자리는 연출마다 정해진 씨앗이라 프레임마다 이어진다. 상한 `EN_BITS`(한 연출 56 · 한 프레임 360), `DETAIL` 로 줄어든다. 궤도 포격 · 광선 · 펄스 · 명중 그림도 한 단계 키웠다.
 
 ### 히든 직업 유일 규칙 (11월 17일)
 - 히든 직업(BLOOD-001 · Gambler 002 …)은 **관리자를 빼고 게임 전체에서 한 명만** 가진다. 먼저 해금한 사람이 갖고, 보유자가 있으면 시험 문(입구 · 카지노 상자)을 열 때 안내가 나오고 해금은 막힌다. 서버 RPG1~4 는 캐릭터 장부가 하나라 서버가 달라도 한 명이다.

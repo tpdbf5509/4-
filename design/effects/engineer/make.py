@@ -570,6 +570,52 @@ def orbital_beam_cells():
         out.append(c)
     return out
 
+# ── 밀도 보강(11월 17일 사용자 "범위는 큰데 이펙트가 비어 보인다") — 범위 안에 뿌리는 작은 입자 시트 ──
+# 한 장에 입자 다섯 종류를 줄로 담는다(칸 크기를 맞춘 16×16). 줄 = 종류, 칸 = 수명 진행(8칸).
+# 0 전기 스파크(청록) · 1 전기 스파크(금빛) · 2 불씨 · 3 금속 파편 · 4 연기 · 5 짧은 전류 줄기
+BIT_KINDS = ["spk", "spkg", "emb", "deb", "smk", "arc"]
+def bit_cells():
+    out = []
+    for kind in BIT_KINDS:
+        for f in range(8):
+            c = Cv(16, 16); u = f / 7
+            if kind in ("spk", "spkg"):
+                k = [T[4], T[5], T[6]] if kind == "spk" else [Y[1], Y[2], Y[3]]
+                arm = max(0, 5 - f)
+                if f < 6:
+                    star(c, 8, 8, arm, k[1], k[0])
+                    for j in range(3):   # 꺾인 잔가지
+                        a = rnd(61, j, f) * TAU; d = 2 + (1 - u) * 4
+                        x, y = 8 + math.cos(a) * d, 8 + math.sin(a) * d
+                        c.line(8 + math.cos(a) * 2, 8 + math.sin(a) * 2, x, y, k[0] if f > 2 else k[1])
+                        c.px(x, y, k[2] if f < 3 else k[1])
+                else: c.px(8, 8, al(k[1], .6)); c.px(9, 7, al(k[0], .4))
+            elif kind == "emb":
+                cs = [Y[3], Y[2], O[2], O[1], O[0], O[0], M[2], M[1]]
+                r = 3.2 - u * 2
+                c.disc(8, 8, r, r, al(cs[f], 1 - u * .3)); c.px(8, 7, Y[3] if f < 3 else cs[f])
+                if f < 5: c.px(8, 10 + f // 2, al(O[1], .6))   # 꼬리
+            elif kind == "deb":
+                a = f * TAU / 8; L = 4
+                x0, y0, x1, y1 = 8 - math.cos(a) * L, 8 - math.sin(a) * L, 8 + math.cos(a) * L, 8 + math.sin(a) * L
+                c.line(x0, y0, x1, y1, M[3]); c.line(x0 + 1, y0, x1 + 1, y1, M[2])
+                c.px(x1, y1, M[5] if f % 2 == 0 else T[5]); c.px(8, 8, M[4])
+            elif kind == "smk":
+                r = 3 + 4.5 * ez(u)
+                col = M[2] if f < 3 else M[1]
+                c.band(8, 9, r, r * .85, 0, 1, al(col, .85), dens=.95 - u * .75)
+                c.band(7, 7, r * .55, r * .5, 0, 1, al(M[3], .8), dens=.8 - u * .7)
+            else:   # arc — 가로로 기는 짧은 번개
+                if f < 7:
+                    pts = [(1, 8)]
+                    for j in range(1, 5): pts.append((1 + j * 3.5, 8 + (rnd(71, j, f) - .5) * 9))
+                    pts.append((15, 8))
+                    col = T[6] if f < 3 else T[5] if f < 5 else T[3]
+                    c.poly(pts, col, close=False)
+                    if f < 3: c.poly([(x, y + 1) for x, y in pts], al(T[4], .7), close=False)
+            out.append(c)
+    return out
+
 def main():
     man = {}; sheets = {}
     sheets["en_pulse"] = pack("en_pulse", pulse_cells(), 4, man, loop=1, rows=3)
@@ -592,6 +638,7 @@ def main():
     sheets["en_charge"] = pack("en_charge", charge_cells(), 8, man, rows=3)
     sheets["en_exhaust"] = pack("en_exhaust", exhaust_cells(), 6, man, cx=12, cy=2, rows=2, loop=1)
     sheets["en_target"] = pack("en_target", target_cells(), 5, man, cx=56, cy=40)
+    sheets["en_bits"] = pack("en_bits", bit_cells(), 8, man, rows=len(BIT_KINDS))
     json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
     if len(sys.argv) > 2 and sys.argv[1] == "preview":
         os.makedirs(sys.argv[2], exist_ok=True)

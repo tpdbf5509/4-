@@ -708,6 +708,52 @@ def reap_cells(n=7, R=64):
         out.append(c)
     return out, (cx, cy)
 
+# ── 작은 알갱이 넷(11월 17일 사용자: "범위는 큰데 자잘한 것이 없어 비어 보인다") — 코드가 범위 안에 많이 흩뿌린다 ──
+def ember_cells(n=6):        # 보라 불씨(9×9) — 반짝였다 사그라든다
+    out = []
+    for i in range(n):
+        c = Cv(9, 9); u = i / (n - 1)
+        if u < .35: star(c, 4, 4, 2, GV[3], GV[2]); c.px(4, 4, GV[4])
+        elif u < .7: c.rect(3, 3, 3, 3, GV[2]); c.px(4, 4, GV[4]); c.px(4, 2, al(GV[1], .8)); c.px(4, 6, al(GV[1], .8))
+        else: c.rect(3, 4, 2, 2, GV[1]); c.px(4, 4, GV[2])
+        out.append(c)
+    return out
+
+def shard_cells(n=6):        # 검은 파편(8×8) — 보라 가장자리가 돌며 반짝인다
+    out = []
+    for i in range(n):
+        c = Cv(8, 8); a = i / n * math.pi
+        pts = [(4 + math.cos(a + k * TAU / 3) * (3.4 if k == 0 else 2.2), 4 + math.sin(a + k * TAU / 3) * (3.4 if k == 0 else 2.2)) for k in range(3)]
+        c.fillpoly(pts, N[0]); c.px(pts[0][0], pts[0][1], GV[3] if i % 2 == 0 else GV[2]); c.px(pts[1][0], pts[1][1], GV[1])
+        out.append(c)
+    return out
+
+def zap_cells(n=4):          # 번개 조각(12×18) — 짧게 번쩍인다
+    out = []
+    for i in range(n):
+        c = Cv(12, 18)
+        if i < 3:
+            x, y = 6, 1
+            for k in range(14):
+                x += (1 if rnd(i, k, 21) > .62 else -1 if rnd(i, k, 21) < .38 else 0); y += 1
+                if i == 0: c.px(x - 1, y, al(GV[1], .7)); c.px(x + 1, y, al(GV[1], .7))
+                c.px(x, y, GV[4] if i == 0 else GV[3] if i == 1 else GV[2])
+                if k == 6: jag(c, x, y, 4, 1 if i % 2 else -1, 1, GV[2], GV[3], 33 + i)
+        else:
+            for k in range(4): c.px(5 + k % 2, 6 + k * 3, GV[1])
+        out.append(c)
+    return out
+
+def smoke_cells(n=8):        # 그림자 연기 한 덩이(18×16) — 말리며 커지고 옅어진다
+    out = []
+    for i in range(n):
+        c = Cv(18, 16); u = i / (n - 1); r = 3 + u * 5
+        c.band(9, 9 - u * 3, r, r * .8, 0, 1, al(N[1], .9 - u * .4), dens=.95 - u * .6)
+        c.band(9 + r * .3, 8 - u * 3, r * .55, r * .5, 0, 1, al(GV[0], .9 - u * .5), dens=.8 - u * .55)
+        if u < .5: c.px(9 - r * .4, 9 - u * 3 - r * .4, al(GV[1], .9))
+        out.append(c)
+    return out
+
 # ── 스킬 아이콘(24×24) — 그림자 낫 · 흔적 추출 · 그림자 소집 · 그림자 교환 · 군주의 영역 · 일제 진군 · 영혼 소각 · 무명의 군세 ──
 def icon_cells():
     out = []
@@ -780,6 +826,10 @@ def main():
     sheets["nc_puff"] = pack("nc_puff", puff_cells(), None, man)
     sheets["nc_scythe"] = pack("nc_scythe", scythe_cells(), None, man, loop=1, cx=28, cy=28)
     cells, (cx, cy) = reap_cells(); sheets["nc_reap"] = pack("nc_reap", cells, None, man, cx=cx, cy=cy, r=70)
+    sheets["nc_ember"] = pack("nc_ember", ember_cells(), None, man)
+    sheets["nc_shard"] = pack("nc_shard", shard_cells(), None, man, loop=1)
+    sheets["nc_zap"] = pack("nc_zap", zap_cells(), None, man)
+    sheets["nc_smoke"] = pack("nc_smoke", smoke_cells(), None, man)
     sheets["nc_icons"] = pack("nc_icons", icon_cells(), None, man, cx=0, cy=0)
     json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
     if len(sys.argv) > 2 and sys.argv[1] == "preview":

@@ -48,6 +48,36 @@ function ring(ctx, x, y, r, sq, color, a, dash = 0) {
   ctx.save(); ctx.globalAlpha *= clamp(a); ctx.strokeStyle = color; ctx.lineWidth = 1; if (dash) ctx.setLineDash([dash, dash]);
   ctx.beginPath(); ctx.ellipse(Math.round(x) + 0.5, Math.round(y) + 0.5, r, r * sq, 0, 0, TAU); ctx.stroke(); ctx.restore();
 }
+/* ── 알갱이(11월 17일 사용자: "범위는 큰데 이펙트가 작고 자잘한 것이 없어 비어 보인다") ──
+   불씨 · 파편 · 번개 조각 · 연기를 범위 안에 흩뿌린다. 모양은 도트 시트(nc_ember · shard · zap · smoke), 자리 · 시각은 씨앗 고정.
+   수는 연출 품질(PQ, skillArt 의 Q)을 곱하고, 한 화면 그리기마다 PMAX 개를 넘기지 않는다 — 많이 겹쳐도 무거워지지 않게 */
+const PMAX = 420;                                    // 한 프레임 알갱이 상한
+let PQ = 1, pFrame = -1, pUsed = 0;
+const pBudget = () => { if (NOW !== pFrame) { pFrame = NOW; pUsed = 0; } return PMAX - pUsed; };
+const PK = { e: "nc_ember", s: "nc_shard", z: "nc_zap", m: "nc_smoke" };
+/* o: x · y 가운데, r 반지름(땅 비율 sq), n 수, mix 종류 글자("eesmz"), t 지금(초) · t0 시작 · span 나오는 동안 · life 하나의 수명,
+   out 바깥으로 · rise 위로 · ring 1 이면 가장자리 띠에만 · loop 1 이면 계속 되풀이(영역) · k 배수 · a 투명도 · seed */
+function motes(ctx, o) {
+  const n = Math.min(Math.max(1, Math.round(o.n * PQ)), pBudget());
+  if (n <= 0) return;
+  const mix = o.mix || "e", life = o.life || 0.6, sq = o.sq || 0.78, k = o.k || K, seed = o.seed || 0;
+  for (let i = 0; i < n; i++) {
+    let age, cyc = 0;
+    if (o.loop) { const v = (o.t / life) + rnd(seed + i, 1); cyc = Math.floor(v); age = v - cyc; }
+    else { const born = (o.t0 || 0) + rnd(seed + i, 1) * (o.span || 0); age = (o.t - born) / life; if (age < 0 || age > 1) continue; }
+    const r1 = rnd(seed + i * 3 + cyc * 17, 2), r2 = rnd(seed + i * 5 + cyc * 13, 3), ch = mix[i % mix.length];
+    const ang = (o.a0 !== undefined ? o.a0 + (r1 - 0.5) * (o.spread || TAU) : r1 * TAU);
+    const d = (o.ring ? 0.82 + 0.18 * r2 : Math.sqrt(r2)) * o.r + (o.out || 0) * age * (ch === "m" ? 0.5 : 1);
+    const x = o.x + Math.cos(ang) * d + Math.sin(age * 5 + i) * 2;
+    const y = o.y + Math.sin(ang) * d * sq - (o.rise || 0) * age * (ch === "m" ? 0.7 : 1) - (o.lift || 0);
+    const name = PK[ch], T = SH[name];
+    const a = (o.a || 1) * (age > 0.7 ? (1 - age) / 0.3 : 1);
+    cell(ctx, name, T.loop ? Math.floor(NOW / 0.08 + i) % T.n : Math.min(T.n - 1, Math.floor(age * T.n)), x, y, ch === "m" ? k + 1 : k, a);
+    pUsed++;
+  }
+}
+const sid = (f) => Math.round((f.x || 0) * 0.37 + (f.y || 0) * 0.91 + (f.x1 || 0) * 0.13) % 997;
+
 const solName = (k) => `nc_${SH[`nc_${k}`] ? k : "knight"}`;
 
 /* ── 그림자 병사 — 판정 상태 하나를 그린다. 솟아오름(나온 뒤 rise 초) · 공격 자세 · 걷기 · 서 있기 ──
@@ -71,6 +101,8 @@ export function drawNecroShadow(ctx, sd, row = 0, inDomain = false) {
   if (!ok) { ctx.save(); ctx.fillStyle = C.deep; ctx.globalAlpha = 0.8; ctx.fillRect(Math.round(sd.x) - 8, Math.round(sd.y) - 34, 16, 34); ctx.restore(); }   // 시트가 없을 때 — 자리만
   // 소환 — 하늘에서 보라 번개가 내리치며 솟는다(나온 뒤 0.5초)
   if (sd.born < 0.5) cell(ctx, "nc_thunder", once("nc_thunder", sd.born / 0.5), sd.x, sd.y, big ? 3 : K);
+  if (sd.born < 0.9) motes(ctx, { x: sd.x, y: sd.y, r: big ? 46 : 30, n: 16, mix: "eezsm", t: sd.born, span: 0.4, life: 0.5, out: 30, rise: 40, seed: (sd.id || 0) * 7 });   // 솟을 때 튀는 불씨 · 파편
+  else motes(ctx, { x: sd.x, y: sd.y, r: big ? 26 : 16, n: 3, mix: "eem", t: NOW, life: 1.1, loop: 1, rise: big ? 80 : 56, lift: 6, k: 1, a: 0.85, seed: (sd.id || 0) * 7 });   // 몸에서 오르는 불씨
   if (sd.born < NC_SUMMON.rise) return;
   ctx.save(); ctx.fillStyle = sd.first ? C.rim : C.bright;   // 등급 점 — 영원의 명령 첫 그림자는 은색
   const top = Math.round(sd.y - T.cy * K - 6);
@@ -82,7 +114,8 @@ export const necroRow = (h) => { const v = h ? necroView(h) : null; return v ? R
 // 이 사람의 그림자 목록 — rpgArt 가 사람 · 몹과 앞뒤를 맞춰 넣는다
 export const necroShadowsOf = (h) => necroShadows(h);
 export function drawNecroShadowOf(ctx, h, sd, time) {
-  NOW = Number.isFinite(time) ? time : performance.now() / 1000;
+  const now = Number.isFinite(time) ? time : performance.now() / 1000;
+  if (now !== NOW) { NOW = now; }
   const v = necroView(h), dom = !!(v && v.dom > 0) && Math.hypot(sd.x - h.x, (sd.y - h.y) / GROUND_SQ) <= NC_DOMAIN.r;
   drawNecroShadow(ctx, sd, necroRow(h), dom);
 }
@@ -120,31 +153,42 @@ function reap(ctx, f, t, sq) {
   const ang = Math.atan2(ay * sq, Math.abs(ax));
   ctx.save(); ctx.translate(Math.round(f.x), Math.round(f.y - 30)); if (left) ctx.scale(-1, 1); ctx.rotate(ang * 0.6);
   ctx.translate(-Math.round(f.x), -Math.round(f.y - 30));
+  cell(ctx, "nc_reap", Math.max(0, once("nc_reap", t / f.life) - 1), f.x - 4, f.y - 26, k, 0.45);   // 뒤따르는 잔상
   cell(ctx, "nc_reap", once("nc_reap", t / f.life), f.x, f.y - 30, k);
   ctx.restore();
+  const a0 = Math.atan2(ay * sq, ax);
+  motes(ctx, { x: f.x, y: f.y - 20, r: f.r * 0.85, a0, spread: NC_SCYTHE.arc * 2.2, n: 26, mix: "esezm", t, t0: 0.04, span: 0.16, life: 0.32, out: 40, rise: 18, sq, seed: sid(f) });
   if (t < f.life * 0.5) {
     const a0 = Math.atan2(ay * sq, ax), A = NC_SCYTHE.arc;
     ctx.save(); ctx.globalAlpha *= 0.35 * (1 - t / (f.life * 0.5)); ctx.strokeStyle = C.bright; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.ellipse(Math.round(f.x) + 0.5, Math.round(f.y) + 0.5, f.r, f.r * sq, 0, a0 - A, a0 + A); ctx.stroke(); ctx.restore();
   }
 }
-function hit(ctx, f, t) { cell(ctx, "nc_hit", once("nc_hit", t / f.life), f.x, f.y - 26, f.sm ? 1 : K); }
+function hit(ctx, f, t) {
+  cell(ctx, "nc_hit", once("nc_hit", t / f.life), f.x, f.y - 26, f.sm ? 1 : 3);
+  motes(ctx, { x: f.x, y: f.y - 26, r: 14, n: 12, mix: "esez", t, span: 0.05, life: 0.3, out: 46, rise: 10, sq: 1, seed: sid(f) });
+}
 
 // 흔적 추출 — 흔적 자리에 줄기가 솟고(0.25초) 영혼 조각이 발밑으로 빨려 든다(0.5초)
 function extract(ctx, f, t) {
-  cell(ctx, "nc_extract", once("nc_extract", t / f.d), f.x, f.y, K);
+  cell(ctx, "nc_extract", once("nc_extract", t / f.d), f.x, f.y, 3);
+  motes(ctx, { x: f.x, y: f.y, r: 34, n: 18, mix: "mezs", t, span: f.d, life: 0.4, rise: 70, seed: sid(f) });
   if (t >= f.rise) {
     const u = clamp((t - f.rise) / (f.d - f.rise + 0.15)), x = f.x + (f.x1 - f.x) * u, y = f.y - 100 + (f.y1 - 20 - (f.y - 100)) * u - Math.sin(u * Math.PI) * 40;
     cell(ctx, "nc_wisp", loop(SH.nc_wisp.n, 0.2), x, y, K, 1 - Math.max(0, u - 0.85) / 0.15);
   }
 }
-function absorb(ctx, f, t) { cell(ctx, "nc_absorb", once("nc_absorb", t / f.life), f.x, f.y, K); }
+function absorb(ctx, f, t) {
+  cell(ctx, "nc_absorb", once("nc_absorb", t / f.life), f.x, f.y, 3);
+  motes(ctx, { x: f.x, y: f.y, r: 40, n: 14, mix: "emz", t, span: 0.15, life: 0.3, out: -36, rise: 10, seed: sid(f) });
+}
 
 // 그림자 소집 — 발밑 그림자 다섯이 늘어나며(병사는 판정 상태 그림이 솟아오른다) 부르는 범위 1px 선
 function summon(ctx, f, t, sq) {
   const u = t / f.life;
   cell(ctx, "nc_stretch", once("nc_stretch", u * 1.4), f.x, f.y, 3, u > 0.75 ? 1 - (u - 0.75) / 0.25 : 1);
   ring(ctx, f.x, f.y, f.r, sq, C.bright, 0.6 * (1 - u), 3);
+  motes(ctx, { x: f.x, y: f.y, r: f.r, n: 46, mix: "mmeesz", t, span: f.life * 0.5, life: 0.7, rise: 50, out: 10, sq, seed: sid(f) });
 }
 function fade(ctx, f, t) {
   const name = solName(f.k);
@@ -153,7 +197,10 @@ function fade(ctx, f, t) {
 /* 그림자 공격 — 사수는 화살, 주술은 작은 구체가 날아가고(맞는 순간은 pop 이 그린다), 근접은 맞는 순간 베기 반달 */
 function strike(ctx, f, t) {
   const x0 = f.x + (f.dir < 0 ? -12 : 12), y0 = f.y - 30, x1 = f.x1, y1 = f.y1 - 24;
-  if (t >= f.d - 0.02 && t < f.d + 0.3) cell(ctx, "nc_hit", once("nc_hit", (t - f.d + 0.02) / 0.32), x1, y1 - 2, f.sk === "giant" ? 3 : K);   // 맞는 순간 — 보라 번개 터짐
+  if (t >= f.d - 0.02 && t < f.d + 0.3) {
+    cell(ctx, "nc_hit", once("nc_hit", (t - f.d + 0.02) / 0.32), x1, y1 - 2, f.sk === "giant" ? 4 : 3);   // 맞는 순간 — 보라 번개 터짐
+    motes(ctx, { x: x1, y: y1, r: 10, n: f.sk === "giant" ? 14 : 8, mix: "esz", t, t0: f.d - 0.02, span: 0.04, life: 0.3, out: 40, rise: 8, sq: 1, seed: sid(f) });
+  }
   if (f.sk === "archer" || f.sk === "caster") {
     if (t >= f.d) return;
     const u = t / f.d, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u - (f.sk === "caster" ? Math.sin(u * Math.PI) * 24 : 0);
@@ -171,6 +218,7 @@ function strike(ctx, f, t) {
 function pop(ctx, f, t) {
   const name = f.sk === "giant" ? "nc_slam" : "nc_pop", T = SH[name];
   cell(ctx, name, once(name, t / f.life), f.x, f.y, Math.max(1, Math.round(f.r / T.r)));
+  motes(ctx, { x: f.x, y: f.y, r: f.r * 0.6, n: 18, mix: "esmz", t, span: 0.08, life: 0.45, out: f.r * 0.6, rise: 20, seed: sid(f) });
 }
 
 // 그림자 교환 — 두 자리에서 세로선 셋이 솟는다(0.12초) · 0.18초에 바뀐다
@@ -179,6 +227,7 @@ function swap(ctx, f, t) {
   cell(ctx, "nc_swap", once("nc_swap", u), f.x, f.y, K);
   cell(ctx, "nc_swap", once("nc_swap", u), f.x1, f.y1, K);
   if (t > f.d && t < f.d + 0.2) { const a = 1 - (t - f.d) / 0.2; cell(ctx, "nc_wisp", 0, f.x, f.y - 30, K, a); cell(ctx, "nc_wisp", 1, f.x1, f.y1 - 30, K, a); }
+  for (const [x, y, j] of [[f.x, f.y, 0], [f.x1, f.y1, 1]]) motes(ctx, { x, y: y - 20, r: 18, n: 14, mix: "mezs", t, span: f.d, life: 0.35, out: 24, rise: 30, seed: sid(f) + j * 50 });
 }
 
 /* 군주의 영역 — 나를 따라다니는 땅의 원(r320). 처음 0.35초 펼침(0~3 칸) 뒤 4~7 칸 반복. 유지 장이 겹쳐도 같은 칸 · 같은 자리라 밝아지지 않는다 */
@@ -196,14 +245,17 @@ function domain(ctx, f, t, sq) {
     const a = rnd(slot, j) * TAU, d = Math.sqrt(rnd(slot, j + 7)) * f.r * 0.85;
     cell(ctx, "nc_thunder", Math.floor(ph * SH.nc_thunder.n), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq, 1, 0.9);
   }
+  motes(ctx, { x: f.x, y: f.y, r: f.r * 0.95, n: 70, mix: "memesez", t: NOW, life: 1.4, loop: 1, rise: 46, sq, a: 0.9, seed: 11 });     // 안을 채우는 연기 · 불씨 · 번개 조각
+  motes(ctx, { x: f.x, y: f.y, r: f.r, n: 34, mix: "mme", t: NOW, life: 1.2, loop: 1, ring: 1, rise: 60, sq, seed: 53 });                  // 가장자리에서 오르는 연기 벽
   for (let j = 0; j < 8; j++) {
     const a = j / 8 * TAU + NOW * 0.15;
     cell(ctx, "nc_aura", loop(SH.nc_aura.n, 1.1, j * 0.13), f.x + Math.cos(a) * f.r * 0.93, f.y + Math.sin(a) * f.r * 0.93 * sq, K, 0.55);
   }
 }
-function domainEnd(ctx, f, t) {
+function domainEnd(ctx, f, t, sq) {
   const u = t / f.life, k = Math.max(1, Math.round(f.r / SH.nc_domain.r));
   cell(ctx, "nc_domain", 3 - once("nc_domain", u, 4), f.x, f.y, k, 1 - u * 0.6);
+  motes(ctx, { x: f.x, y: f.y, r: f.r * (1 - u * 0.5), n: 40, mix: "mme", t, span: 0.2, life: 0.5, rise: 40, sq, seed: 71 });
 }
 
 // 일제 진군 — 대상 머리 위 표적(대상을 따라간다)
@@ -211,7 +263,8 @@ function mark(ctx, f, t, sq, g) {
   let x = f.x, y = f.y;
   if (g && f.k && f.k[0] === "m") { const m = g.mobs.find((q) => String(q.id) === f.k.slice(1) && !q.dead); if (m) { x = m.x; y = m.y; } }
   const u = t / f.life;
-  cell(ctx, "nc_mark", loop(SH.nc_mark.n, 0.4), x, y - 8, K, u > 0.8 ? 1 - (u - 0.8) / 0.2 : 1);
+  cell(ctx, "nc_mark", loop(SH.nc_mark.n, 0.4), x, y - 8, 3, u > 0.8 ? 1 - (u - 0.8) / 0.2 : 1);
+  motes(ctx, { x, y: y - 8, r: 26, n: 8, mix: "ez", t: NOW, life: 0.5, loop: 1, rise: 20, sq: 1, k: 1, seed: 91 });
 }
 
 /* 영혼 소각 — 그림자들이 붉게 갈라진 채 겨눈 자리로 달려가(0.25초) 0.4초부터 차례로 터진다. 범위 1px 선 */
@@ -227,7 +280,10 @@ function burn(ctx, f, t, sq) {
       return;
     }
     const v = (t - at) / 0.5;
-    if (v < 1) cell(ctx, "nc_boom", once("nc_boom", v), x1, y1, K);
+    if (v < 1) {
+      cell(ctx, "nc_boom", once("nc_boom", v), x1, y1, 3);
+      motes(ctx, { x: x1, y: y1, r: 30, n: 22, mix: "esmzs", t: t - at, span: 0.06, life: 0.5, out: 90, rise: 40, sq, seed: sid(f) + i * 31 });
+    }
   });
 }
 
@@ -256,9 +312,10 @@ function legion(ctx, f, t, sq) {
       const sp = 0.55 + rnd(j, 3) * 0.3, u = ((t - f.first) * sp + rnd(j, 4)) % 1;
       const x = f.x - fromDir * f.r * 0.95 + fromDir * 1.9 * f.r * u, y = f.y + (rnd(j, 5) - 0.5) * f.r * 1.4 * sq;
       if (Math.hypot(x - f.x, (y - f.y) / sq) > f.r) continue;
-      cell(ctx, solName(kinds[j % kinds.length]), FR.walk + Math.floor(t / 0.1 + j) % 4, x, y, K, 0.55, 0, fromDir < 0, "brightness(0.6)");
+      cell(ctx, solName(kinds[j % kinds.length]), FR.walk + Math.floor(t / 0.1 + j) % 4, x, y, K, 0.8, 0, fromDir < 0, "brightness(0.8)");
     }
   }
+  if (t > f.first && t < f.end) motes(ctx, { x: f.x, y: f.y, r: f.r, n: 130, mix: "memeszz", t, life: 0.9, loop: 1, rise: 60, sq, seed: sid(f) });   // 군세가 지나는 동안 범위를 채우는 연기 · 불씨 · 번개
   // 가시 — 가장자리에서 가운데로(2.6 → 2.8초)
   if (t >= f.spike - 0.05 && t < f.end + 0.2) {
     const u = clamp((t - f.spike) / (f.end - f.spike));
@@ -271,6 +328,7 @@ function legion(ctx, f, t, sq) {
 function legionEnd(ctx, f, t) {
   const u = t / f.life;
   cell(ctx, "nc_blast", once("nc_blast", u), f.x, f.y, Math.max(1, Math.round(f.r / SH.nc_blast.r)));
+  motes(ctx, { x: f.x, y: f.y, r: f.r * 0.5, n: 110, mix: "esmzsez", t, span: 0.12, life: 0.7, out: f.r * 0.7, rise: 60, sq: 0.78, seed: sid(f) });
 }
 
 const KINDS = { sk_nc_reap: reap, sk_nc_hit: hit, sk_nc_extract: extract, sk_nc_absorb: absorb, sk_nc_summon: summon, sk_nc_fade: fade, sk_nc_strike: strike, sk_nc_pop: pop,
@@ -283,7 +341,8 @@ const FOLLOW = new Set(["sk_nc_reap", "sk_nc_absorb", "sk_nc_domain", "sk_nc_dom
 // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
 export const NECRO_GROUND = new Set(["sk_nc_domain", "sk_nc_domainend", "sk_nc_summon", "sk_nc_absorb", "sk_nc_extract"]);
 
-export function drawNecroFx(ctx, f, p, sq, g, time) {
+export function drawNecroFx(ctx, f, p, sq, g, time, q = 1) {
+  PQ = Number.isFinite(q) ? clamp(q, 0.2, 1) : 1;
   const fn = KINDS[f.kind]; if (!fn) return false;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
   warmNecro();

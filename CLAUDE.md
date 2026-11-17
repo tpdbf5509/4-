@@ -247,7 +247,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 사용자 기획 「히든직업 002~006 통합기획안」 3장. 사용자 지시로 **획득 방법(단서 · 시험)은 넣지 않고 `?sandbox` 에서만** 켜진다(`NECRO.live = false`, `necroOn` 은 맵 `sandbox` 에서만). 업데이트 노트 · 공지 · 패치노트 책에 적지 않는다. 아직 저장 · 스냅샷 · 관리자 명령어 · 유일 규칙(`HIDDEN_JOBS`)에 잇지 않았다 — 실제 게임에 열 때 Gambler 002 처럼 붙인다.
 - 수치 `necroData.js` · 규칙 `necroJob.js`(엔진 `rpg.js necroEngine`, 입력 `hidden {op:"use", s}`) · 그림 `necroArt.js` · 시트 규격 `necroPxData.js` · 연습장 칸 `Sandbox.jsx NecroBar` · 시험 `tools/necro.test.mjs`. 가방 `bag.hj.jobs.necromancer = {lv, xp, tr, roster}`.
 - 그림자는 몹이 아니라 `h.nc.sh` 에 있고 피해를 받지 않는다. 몹을 잡으면 흔적(`h.nc.tr`, 8초)이 남고 추출로 명부에 넣는다. 연습장 허수아비는 죽지 않아 「추출 연습 몹 세우기」(`rpg.js sandboxMobs`)를 쓴다.
-- **평타는 근접 그림자 낫**(11월 17일 사용자 — 흑영탄을 뺐다, `NC_SCYTHE` 앞쪽 부채꼴 · 여럿을 한 번에, 손에 든 낫 `drawNecroScythe`). 그림자 병사는 사용자 참고 그림 색(검은 몸 · 보라 윤곽 빛 · 번개 줄기 · 빛나는 눈과 가슴 문양, make.py `glow`)이고 소환 번개 · 뒤 기운 · 걸을 때 연기 · 번개 타격 · 영역 안 번개를 더했다.
+- **평타는 근접 그림자 낫**(11월 17일 사용자 — 흑영탄을 뺐다, `NC_SCYTHE` 앞쪽 부채꼴 · 여럿을 한 번에, 손에 든 낫 `drawNecroScythe`). 그림자 병사는 사용자 참고 그림 색(검은 몸 · 보라 윤곽 빛 · 번개 줄기 · 빛나는 눈과 가슴 문양, make.py `glow`)이고 소환 번개 · 뒤 기운 · 걸을 때 연기 · 번개 타격 · 영역 안 번개를 더했다. 같은 날 "범위에 비해 비어 보인다"는 말에 알갱이(`motes` — 불씨 · 파편 · 번개 조각 · 연기 시트, 한 프레임 `PMAX` 420 개 · 연출 품질 Q 를 곱함)로 범위를 채우고 큰 형상(타격 · 폭발 · 표적)을 3배로 키웠다.
 - 이펙트는 pixelfx 없이 `design/effects/necromancer/make.py` 가 직접 그린 도트 시트(`rpg/effects/hidden-jobs/necromancer/px/nc_*.webp`). 고치면 make.py → `manifest.json` 값을 `necroPxData.js` 로(시험이 본다). 키는 기존 행동 키를 빌린다(`NC_SLOTS`). 내가 정한 해석은 `docs/작업-상세-기록.md` 끝.
 
 ### 격자 연습장 `?sandbox` (11월 16일)

@@ -25,6 +25,7 @@ export const ENGINEER_PX = {
   en_charge: { w: 64, h: 64, cols: 8, n: 8, cx: 32, cy: 32, rows: 3 },   // 응축 코일 — 8칸 · 연마 색 셋
   en_exhaust: { w: 24, h: 40, cols: 6, n: 6, cx: 12, cy: 2, loop: 1, rows: 2 },   // 추진 불꽃 — 6칸 · 청록/과열 두 색
   en_target: { w: 112, h: 80, cols: 5, n: 10, cx: 56, cy: 40 },   // 표적 지정 회로 — 진행되는 눈금과 수렴 고리
+  en_bits: { w: 16, h: 16, cols: 8, n: 8, cx: 8, cy: 8, rows: 6 },   // 범위를 채우는 작은 입자(11월 17일 밀도 보강) — 줄 0 청록 스파크 · 1 금빛 스파크 · 2 불씨 · 3 금속 파편(칸 = 회전) · 4 연기 · 5 짧은 전류 줄기
 };
 // 아이콘 칸 차례(en_icons)
 export const ENGINEER_ICON = { pulse: 0, turret: 1, drone: 2, magnet: 3, rail: 4, mech: 5, oc: 6, orbit: 7 };

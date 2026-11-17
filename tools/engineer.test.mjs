@@ -241,3 +241,10 @@ test('외형 — 남 · 여 사용자 그림을 따로 쓴다(서 있는 그림 
   assert.match(readFileSync('src/game/rpgArt.js', 'utf8'), /engineer-\[mf\]/, '걷는 그림을 쓴다');
   assert.notDeepEqual(readFileSync('public/assets/characters/rpg/engineer-m/front.webp'), readFileSync('public/assets/characters/rpg/engineer-f/front.webp'), '남녀 그림이 다르다');
 });
+
+test('밀도 보강 — 작은 입자 시트(en_bits)와 그리기 상한', async () => {
+  assert.ok(ENGINEER_PX.en_bits && ENGINEER_PX.en_bits.rows === 6, '입자 다섯 종류 + 전류 줄기');
+  assert.ok(existsSync('public/assets/game/rpg/effects/hidden-jobs/engineer/px/en_bits.webp'));
+  const { EN_BITS } = await import('../src/game/engineerArt.js');
+  assert.ok(EN_BITS.perFx > 0 && EN_BITS.perFx <= 64 && EN_BITS.perFrame <= 400, '입자 수 상한');
+});

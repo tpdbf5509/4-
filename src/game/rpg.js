@@ -19,6 +19,8 @@ import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill
 import { gamblerInput, gamblerBasic, tickGambler, gamblerTake, gamblerDown, gamblerFill, gamblerKill, gamblerRaidKill, gamblerOn, gamblerLook, packGambler, applyGambler } from './gamblerJob.js';   // 히든 직업 Gambler 002(11월 16일 — 연습장에서 확인한 뒤 실제 게임에)
 import { gamblerSpotTalk, gamblerDummyHit, tickGamblerTrial } from './gamblerUnlock.js';   // Gambler 002 해금 경로
 import { GM_CHIP, GM_CASINO } from './gamblerData.js';
+import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill, engineerKill, engineerRaidKill, engineerOn, packEngineer, applyEngineer } from './engineerJob.js';   // 히든 직업 Engineer 003(11월 17일 — 격자 연습장에만)
+import { EN_PULSE } from './engineerData.js';
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodLifeOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -2036,6 +2038,7 @@ function killMob(g, m, pi) {
   advOnKill(advEngine, g, m, got);                // 전직 시험 — 총사 사냥 도감
   bloodJobKill(bloodJobEngine, g, m, got);        // BLOOD-001 직업 레벨 경험치
   gamblerKill(gamblerEngine, g, m, got);          // Gambler 002 직업 레벨 경험치
+  engineerKill(engineerEngine, g, m, got);        // Engineer 003 직업 레벨 경험치
   if (m.dg) acOnKill(g, m, pi, got);              // 심연의 탑 강화 카드 — 처치 효과
   // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
   const part = m.xp * PARTY.share;
@@ -2048,7 +2051,7 @@ function killMob(g, m, pi) {
   if (m.boss) dropLoot(g, got, m);
 }
 // 월드 · 길드 보스 — 친 사람 가운데 같은 맵의 BLOOD-001 직업 경험치
-function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); } } }
+function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); engineerRaidKill(engineerEngine, g, q); } } }
 // 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
 export function huntingXp(h,m,amount=m.xp){
   const sp=SPAWNS.filter(s=>s.map===m.map&&Array.isArray(s.lv));
@@ -2257,6 +2260,7 @@ function hurtHero(g, h, raw, source, kind) {
     advDown(advEngine, g, h);                     // 생존 시험은 처음부터 · 정령은 돌아간다
     bloodJobDown(bloodJobEngine, g, h);           // BLOOD-001 — 혈량 0 · 차징 · 혈흔 해제
     gamblerDown(gamblerEngine, g, h);             // Gambler 002 — 보호막 · 테이블 · 칩 해제
+    engineerDown(engineerEngine, g, h);           // Engineer 003 — 설치물 · 오버클럭 해제
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
     say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
   }
@@ -3257,6 +3261,7 @@ function trainTick(g, h) {
   }
   if (t.stack) bloodJobFill(h);                     // BLOOD-001 — 혈량을 안정 상한까지
   if (t.stack) gamblerFill(h);                      // Gambler 002 — 칩 7개
+  if (t.stack) engineerFill(h);                     // Engineer 003 — 전력 가득
   if (t.god && h.down <= 0) h.hp = h.max;
 }
 // 교관 창 — req = { op: "nocd" | "stack" | "god" } 켜고 끄기 · { op: "reset" } 기록 지우기 · { op: "heal" } 체력 · 대기 시간 처음으로
@@ -3400,7 +3405,13 @@ const gamblerEngine = { ...bloodJobEngine,
   shield: advEngine.shield, shieldAmt: duelShield,
   hurt: (g, h, dmg) => hurtHero(g, h, dmg, { gmTrial: 1 }),   // 해금 시험 예고 타격 — 칩 장막이 막았는지 gamblerTake 가 적는다
   rand: (g) => (typeof g.gmRand === "function" ? g.gmRand() : Math.random()) };
-export const rpgHidden = (g, pi, req) => gamblerInput(gamblerEngine, g, pi, req);   // 입력 kind "hidden"
+/* 히든 직업 Engineer 003(engineerJob.js, 11월 17일 — 격자 연습장에만). 기준 피해 · 시전 객체는 Gambler 002 와 같다.
+   keep: 맵 안으로 · open: 막힌 곳(분수 · 가게 · 나무)이 아닌가 — 터렛 자리 · 수호자 걸음 */
+const engineerEngine = { ...gamblerEngine,
+  keep: (o, map) => keepIn(o, MAPS[map], 20),
+  open: (x, y, map) => !(MAPS[map]?.train ? [] : MAPS[map]?.blocks || []).some((b) => Math.hypot(x - b.x, (y - b.y) / RPG.squash) < b.r + 16) };
+// 입력 kind "hidden" — 켜진 히든 직업으로 보낸다
+export const rpgHidden = (g, pi, req) => (engineerOn(g.heroes[pi]) ? engineerInput(engineerEngine, g, pi, req) : gamblerInput(gamblerEngine, g, pi, req));
 // 격자 연습장 시험 타격 — 허수아비는 때리지 않아 보호막(칩 장막)을 써 볼 수 없다. 연습장 맵에서만 최대 체력의 pct 만큼 한 대
 export function rpgSandboxHit(g, pi, pct) {
   const h = g.heroes[pi];
@@ -3864,6 +3875,7 @@ function stepHeroes(g, dt) {
     tickBloodJob(bloodJobEngine, g, h, cdt);       // BLOOD-001 — 혈흔 · 차징 · 적혈탄
     tickGamblerTrial(gamblerEngine, g, h, cdt);    // Gambler 002 해금 시험 — 뒷방 밖이면 빌린 값을 거둔다
     tickGambler(gamblerEngine, g, h, cdt);         // Gambler 002 — 칩 · 코인 · 보호막 · 장판
+    tickEngineer(engineerEngine, g, h, cdt);       // Engineer 003 — 전력 · 과열 · 펄스 · 설치물
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)
       MATERIALS.forEach((m) => { h.bag.m[m.id] = matMax(m.id); });
@@ -3948,6 +3960,10 @@ function stepHeroes(g, dt) {
     if (ccLocked(h)) return;                      // 결투에서 경직 · 띄움 — 치지 못한다
     if (gamblerOn(h)) {                           // Gambler 002 — 평타는 황금 칩(무기 평타 없음 · 간격 0.5초 고정)
       if (gamblerBasic(gamblerEngine, g, h, force)) { h.cd = GM_CHIP.gap; h.swing = 0.25; h.fireQ = 0; }
+      return;
+    }
+    if (engineerOn(h)) {                          // Engineer 003 — 평타는 펄스 발진(무기 평타 없음 · 간격 0.45초 고정)
+      if (engineerBasic(engineerEngine, g, h, force)) { h.cd = EN_PULSE.gap; h.swing = 0.2; h.fireQ = 0; }
       return;
     }
     if (force && comboPush(g, h)) { h.cd = heroCd(h); h.fireQ = 0; return; }   // 신성검 반격 뒤 평타 키 — 밀어내기
@@ -5267,7 +5283,7 @@ export function rpgPack(g) {
           ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0,
         packBloodJob(h),
-        packGambler(h)] // 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
+        packGambler(h), packEngineer(h)] // 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
     hb: packHerbs(g),                             // 채집한 약초 자리 — { 번호: 다시 나기까지 초 }(alchemy.js)
@@ -5307,6 +5323,7 @@ export function rpgApply(g, s) {
     if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;h.gath=Array.isArray(extra.ga)&&HERBS[extra.ga[0]]?{i:extra.ga[0],t:Number(extra.ga[1])||0,x:h.x,y:h.y,at:Date.now()}:null;}
     applyBloodJob(h, row[56]);                     // BLOOD-001 — 혈량 · 직업 레벨 · 차징 · 내 혈흔(화면 값 h.bdv)
     applyGambler(h, row[57]);                      // Gambler 002 — 칩 · 직업 레벨 · 대기 · 보호막(화면 값 h.gmv)
+    applyEngineer(h, row[58]);                     // Engineer 003 — 전력 · 과열 · 설치물(화면 값 h.env)
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;

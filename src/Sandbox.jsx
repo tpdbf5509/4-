@@ -20,6 +20,10 @@ import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_SKILLS, GM_CHIP, GM_
 import { unlockGambler, gamblerView, gmLock } from "./game/gamblerJob.js";
 import { gamblerIconStyle } from "./game/gamblerArt.js";
 import { GAMBLER_ICON, GAMBLER_PX_SRC } from "./game/gamblerPxData.js";
+import { ENGINEER, ENGINEER_NAME, ENGINEER_TITLE, EN_SLOTS, EN_SKILLS, EN_PULSE, EN_TRAIN_NAMES } from "./game/engineerData.js";   // 히든 직업 Engineer 003(11월 17일 — 연습장에만)
+import { unlockEngineer, engineerView, enLock } from "./game/engineerJob.js";
+import { engineerIconStyle } from "./game/engineerArt.js";
+import { ENGINEER_ICON } from "./game/engineerPxData.js";
 import { rpgSandboxHit } from "./game/rpg.js";
 import sfx from "./game/sfx.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
@@ -37,6 +41,9 @@ const BLOOD_OFF = /^(use\d|adv|advUlt|healMode)$/;      // BLOOD-001 은 일반 
 const GM_FIRST = GM_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
 const GM_BY_ACT = Object.fromEntries(GM_SLOTS.map((q) => [q.act, q.s]));
 const GM_LAST = { dice: "운명의 눈", rain: "코인 폭우" };
+// Engineer 003 — 같은 행동 키 칸을 빌린다(engineerData.js EN_SLOTS, 기획안 "002~006 은 공통 슬롯")
+const EN_FIRST = EN_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
+const EN_BY_ACT = Object.fromEntries(EN_SLOTS.map((q) => [q.act, q.s]));
 const TOOLS = [
   { id: "god", name: "무적" },
   { id: "nocd", name: "쿨타임 끄기" },
@@ -68,6 +75,7 @@ const DEFAULT = {
   job: "warrior", gender: "m", elem: ELEMS[0].id, lv: SANDBOX.lv, stats: "spread", adv: "", mastery: 1,
   bloodLv: SANDBOX.bloodLv, train: BLOOD.train.max, weapon: "", ks: { job: "", g: ["", ""] }, layout: "line",
   gmLv: GAMBLER.maxLv, gmTr: [GAMBLER.train.max, GAMBLER.train.max, GAMBLER.train.max],   // Gambler 002 — 직업 레벨 · 연마 셋(금화 · 방어 · 행운)
+  enLv: ENGINEER.maxLv, enTr: [ENGINEER.train.max, ENGINEER.train.max, ENGINEER.train.max],   // Engineer 003 — 직업 레벨 · 연마 셋(포탑 · 드론 · 동기화)
 };
 
 // 연습장 세계 — 자리 0 에 시험 캐릭터 하나만 세우고 격자 맵으로 보낸다
@@ -81,7 +89,7 @@ function sandboxWorld(c) {
   const look = { name: "연습", job: c.job, elem: elemFor(c.job, c.elem), gender: c.gender };
   const seats = Array.from({ length: RPG_CREW_MAX }, (_, i) => (i === 0 ? { id: "sandbox", name: look.name, hero: look } : null));
   rpgSyncSeats(g, seats);
-  const blood = c.adv === "blood", gambler = c.adv === "gambler";
+  const blood = c.adv === "blood", gambler = c.adv === "gambler" || c.adv === "engineer";   // 히든 직업 002~ 은 무기를 들지 않는다
   const s = {};
   SKILLS.forEach((k) => { if (!k.job || k.job === c.job) s[k.id] = k.gold.length; });   // 이 직업이 배울 수 있는 스킬은 모두 최고 레벨
   const w = !gambler && c.weapon && weaponsFor(c.job, blood).find((q) => q.id === c.weapon);   // Gambler 002 는 무기를 들지 않는다
@@ -106,7 +114,8 @@ function sandboxWorld(c) {
   }
   if (gambler) {                                  // Gambler 002 — 직업 레벨 · 연마 셋을 고른 대로(연습장에서만 켠다 — GAMBLER.live)
     const n = (v, a, b) => Math.max(a, Math.min(b, Math.floor(v) || 0));
-    unlockGambler(h, { lv: n(c.gmLv, 1, GAMBLER.maxLv), tr: [0, 1, 2].map((i) => [n((c.gmTr || [])[i], 0, GAMBLER.train.max), 0]) });
+    if (c.adv === "engineer") unlockEngineer(h, { lv: n(c.enLv, 1, ENGINEER.maxLv), tr: [0, 1, 2].map((i) => [n((c.enTr || [])[i], 0, ENGINEER.train.max), 0]) });   // Engineer 003 — 연습장에서만 켠다(ENGINEER.live)
+    else unlockGambler(h, { lv: n(c.gmLv, 1, GAMBLER.maxLv), tr: [0, 1, 2].map((i) => [n((c.gmTr || [])[i], 0, GAMBLER.train.max), 0]) });
     refreshHp(h, true);
   }
   h.map = SANDBOX.id;
@@ -168,6 +177,48 @@ function GamblerBar({ v, keyOf: key, onUse, onFire }) {
   );
 }
 
+/* Engineer 003 칸 — 전력 · 과열 줄 · 설치물 수 · 스킬 일곱(누르면 쓴다). 그림은 직접 그린 도트 시트(en_icons) */
+function EngineerBar({ v, keyOf: key, onUse, onFire }) {
+  const n = (k) => v.units.filter((u) => u.k === k).length;
+  const notes = [
+    `설치물 ${v.units.length}/${v.cap}`,
+    n("turret") && `터렛 ${n("turret")}`, n("drone") && `드론 ${n("drone")}`, n("mech") && "수호자",
+    v.oc > 0 && `오버클럭 ${v.oc.toFixed(1)}초`,
+    v.lock > 0 && `과열 잠김 ${v.lock.toFixed(1)}초`,
+    v.central && "중앙 제어",
+  ].filter(Boolean);
+  return (
+    <div className="gm-bar en-bar">
+      <div className="gm-top">
+        <span className="gm-name">{ENGINEER_NAME} <em>{ENGINEER_TITLE} · 직업 레벨 {v.lv}</em></span>
+        <span className="en-gauges">
+          <span className="en-gauge" aria-label={`전력 ${Math.floor(v.power)}/${v.max}`}><i style={{ width: `${(v.power / v.max) * 100}%` }} /><b>전력 {Math.floor(v.power)}</b></span>
+          <span className={`en-gauge heat ${v.hot ? "hot" : ""}`} aria-label={`과열 ${Math.floor(v.heat)}/${v.heatMax}`}><i style={{ width: `${(v.heat / v.heatMax) * 100}%` }} /><b>과열 {Math.floor(v.heat)}</b></span>
+        </span>
+      </div>
+      <div className="gm-skills">
+        <button type="button" className="gm-skill" onClick={onFire} title={`${EN_PULSE.name} — 기본 공격`}>
+          <span className="gm-ico" style={engineerIconStyle(ENGINEER_ICON.pulse, 48)} />
+          <span className="gm-label">{EN_PULSE.name}</span>
+          {key("fire") && <kbd>{key("fire")}</kbd>}
+        </button>
+        {EN_SLOTS.map((q) => {
+          const D = EN_SKILLS[q.s], lock = enLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, need = v.power < D.cost || (q.s === "oc" && v.lock > 0);
+          return (
+            <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && (cd > 0 || need) ? "wait" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
+              title={lock || `${D.name} · 전력 ${D.cost}`}>
+              <span className="gm-ico" style={engineerIconStyle(ENGINEER_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
+              <span className="gm-label">{lock ? `레벨 ${ENGINEER.unlock[q.s]}` : D.name}</span>
+              {key(q.act) && <kbd>{key(q.act)}</kbd>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="gm-notes">{notes.join(" · ")}</p>
+    </div>
+  );
+}
+
 export default function Sandbox() {
   const touch = useTouch();
   const [cfg, setCfg] = useState(DEFAULT);
@@ -182,7 +233,7 @@ export default function Sandbox() {
   const [binds] = useState(loadKeys);
   const set = (patch) => setCfg((c) => ({ ...c, ...patch }));
 
-  const blood = cfg.adv === "blood", gambler = cfg.adv === "gambler";
+  const blood = cfg.adv === "blood", engineer = cfg.adv === "engineer", gambler = cfg.adv === "gambler" || engineer;   // gambler — 무기 없는 히든 직업(002~) 공통 칸
   const magic = hasElem(cfg.job);
   const advs = ADV_CLASSES.filter((q) => q.job === cfg.job);
   const weapons = useMemo(() => weaponsFor(cfg.job, blood), [cfg.job, blood]);
@@ -190,11 +241,11 @@ export default function Sandbox() {
   // 직업이 바뀌면 그 직업에 없는 전직 · 무기 · 직업 스킬을 비운다
   const pickJob = (job) => setCfg((c) => ({
     ...c, job,
-    adv: c.adv === "blood" || c.adv === "gambler" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
+    adv: c.adv === "blood" || c.adv === "gambler" || c.adv === "engineer" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
     weapon: weaponsFor(job, c.adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : "",
     ks: { ...c.ks, job: "" },
   }));
-  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "gambler" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
+  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "gambler" || adv === "engineer" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
   const commitLv = () => {
     const v = Math.max(1, Math.min(LV_TOP, Math.floor(Number(lvText)) || 1));
     setLvText(String(v));
@@ -228,11 +279,13 @@ export default function Sandbox() {
     const held = [];
     const isBlood = () => !!bloodView(G.current?.heroes[0]);
     const isGm = () => !!gamblerView(G.current?.heroes[0]);
-    const kmap = () => keyMap(binds, isBlood() ? BLOOD_ACTS : isGm() ? GM_FIRST : []);
+    const isEn = () => !!engineerView(G.current?.heroes[0]);
+    const kmap = () => keyMap(binds, isBlood() ? BLOOD_ACTS : isGm() ? GM_FIRST : isEn() ? EN_FIRST : []);
     const A = (k, d) => actRef.current(k, d);
     const press = (a) => {
-      if (isGm()) {                                // Gambler 002 — 평타 · 대쉬와 전용 스킬 일곱만
-        if (a === "fire") A("fire", true); else if (a === "dash") A("dash"); else if (GM_BY_ACT[a]) A("hidden", { op: "use", s: GM_BY_ACT[a] });
+      if (isGm() || isEn()) {                      // Gambler 002 · Engineer 003 — 평타 · 대쉬와 전용 스킬 일곱만
+        const by = isEn() ? EN_BY_ACT : GM_BY_ACT;
+        if (a === "fire") A("fire", true); else if (a === "dash") A("dash"); else if (by[a]) A("hidden", { op: "use", s: by[a] });
         return;
       }
       if (isBlood() && a === "skill") a = "bField";
@@ -377,9 +430,9 @@ export default function Sandbox() {
           hudAt = now;
           const t = trainView(g, h) || {};
           const bv = bloodHud(bloodView(h));
-          const gm = gamblerView(h);
+          const gm = gamblerView(h), en = engineerView(h);
           const [cx, cy] = cellOf(h);
-          setHud({ dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
+          setHud({ en, dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
             hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "", gm });
         }
       }
@@ -395,7 +448,7 @@ export default function Sandbox() {
       : !BLOOD_ACTS.includes(a.id) && (!["adv", "advUlt", "healMode"].includes(a.id) || (cfg.adv && (a.id === "adv" || (a.id === "advUlt" && cfg.adv === "summoner") || (a.id === "healMode" && cfg.adv === "healer"))))
   ));
   const el = ELEM_BY_ID[elemFor(cfg.job, cfg.elem)];
-  const title = [gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
+  const title = [engineer ? ENGINEER_NAME : gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
 
   return (
     <div className="page sb-page">
@@ -427,9 +480,10 @@ export default function Sandbox() {
               <button type="button" className="jt-chip" onClick={() => tool("reset")}>기록 지우기</button>
               <button type="button" className="jt-chip" onClick={() => tool("heal")}>체력 · 대기 되돌리기</button>
               <button type="button" className="jt-chip" onClick={() => setRound((r) => r + 1)}>처음부터</button>
-              {gambler && <button type="button" className="jt-chip" title="무적이어도 최대 체력 8% 피해를 한 번 받습니다" onClick={() => G.current && rpgSandboxHit(G.current, 0)}>시험 타격 받기</button>}
+              {gambler && !engineer && <button type="button" className="jt-chip" title="무적이어도 최대 체력 8% 피해를 한 번 받습니다" onClick={() => G.current && rpgSandboxHit(G.current, 0)}>시험 타격 받기</button>}
             </div>
-            {gambler && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
+            {engineer && hud && hud.en && <EngineerBar v={hud.en} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
+            {gambler && !engineer && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {touch && !gambler && <div className="jt-pads">
               <button type="button" className="btn-ghost" onClick={() => act("skill")}>큰 기술{hud && hud.sk > 0 ? ` ${Math.ceil(hud.sk)}초` : ""}</button>
               <button type="button" className="btn-ghost" onClick={() => act("dash")}>대쉬</button>
@@ -463,9 +517,21 @@ export default function Sandbox() {
                   <button key={q.id} type="button" className={`jt-chip ${cfg.adv === q.id ? "on" : ""}`} aria-pressed={cfg.adv === q.id} onClick={() => pickAdv(q.id)}>{q.name}</button>
                 ))}
                 <button type="button" className={`jt-chip ${blood ? "on" : ""}`} aria-pressed={blood} onClick={() => pickAdv("blood")}>{BLOOD_NAME}</button>
-                <button type="button" className={`jt-chip ${gambler ? "on" : ""}`} aria-pressed={gambler} onClick={() => pickAdv("gambler")}>{GAMBLER_NAME}</button>
+                <button type="button" className={`jt-chip ${gambler && !engineer ? "on" : ""}`} aria-pressed={gambler && !engineer} onClick={() => pickAdv("gambler")}>{GAMBLER_NAME}</button>
+                <button type="button" className={`jt-chip ${engineer ? "on" : ""}`} aria-pressed={engineer} onClick={() => pickAdv("engineer")}>{ENGINEER_NAME}</button>
               </div>
-              {gambler && <>
+              {engineer && <>
+                <label className="sb-row">직업 레벨
+                  <input type="number" min="1" max={ENGINEER.maxLv} value={cfg.enLv} onChange={(e) => set({ enLv: Number(e.target.value) })} />
+                </label>
+                {EN_TRAIN_NAMES.map((n, i) => (
+                  <label key={n} className="sb-row">{n}
+                    <input type="number" min="0" max={ENGINEER.train.max} value={cfg.enTr[i]} onChange={(e) => { const t = cfg.enTr.slice(); t[i] = Number(e.target.value); set({ enTr: t }); }} />
+                  </label>
+                ))}
+                <p className="mk-note">연마 합계 {ENGINEER.tint.pale} · {ENGINEER.tint.gold}에 기계 색이 바뀌고 {ENGINEER.central}이면 중앙 제어입니다. 스택 가득을 켜면 전력이 늘 가득합니다.</p>
+              </>}
+              {gambler && !engineer && <>
                 <label className="sb-row">직업 레벨
                   <input type="number" min="1" max={GAMBLER.maxLv} value={cfg.gmLv} onChange={(e) => set({ gmLv: Number(e.target.value) })} />
                 </label>
@@ -545,8 +611,8 @@ export default function Sandbox() {
                   <>
                     <li><kbd>{key("up")}</kbd><kbd>{key("left")}</kbd><kbd>{key("down")}</kbd><kbd>{key("right")}</kbd> 이동 · 오른쪽 클릭으로 걷기</li>
                     <li>스킬은 마우스 쪽으로 나갑니다</li>
-                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {gambler && a.id === "fire" ? GM_CHIP.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
-                    {gambler && GM_SLOTS.map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {GM_SKILLS[q.s].name}</li>)}
+                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {engineer && a.id === "fire" ? EN_PULSE.name : gambler && a.id === "fire" ? GM_CHIP.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
+                    {gambler && (engineer ? EN_SLOTS : GM_SLOTS).map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {(engineer ? EN_SKILLS : GM_SKILLS)[q.s].name}</li>)}
                   </>
                 )}
               </ul>

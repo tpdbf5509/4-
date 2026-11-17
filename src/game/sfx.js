@@ -294,6 +294,62 @@ export function play(name) {
     if (!gate("gmSlot", 400)) return;
     for (let i = 0; i < 12; i++) tone({ type: "square", f0: 880 + (i % 3) * 110, t: 0.03, gain: 0.035, delay: 0.04 * i + 0.004 * i * i });
     tone({ type: "triangle", f0: 1568, f1: 2093, t: 0.2, gain: 0.07, delay: 1.2 });
+  } else if (name === "enPulse") {           // Engineer 003 — 짧은 전자 발진음
+    if (!gate("enPulse", 70)) return;
+    tone({ type: "square", f0: 880, f1: 1760, t: 0.06, gain: 0.05 });
+    tone({ type: "sine", f0: 2400, f1: 1800, t: 0.05, gain: 0.03, delay: 0.02 });
+  } else if (name === "enHit") {             // 펄스 적중 — 작은 전기 튐
+    if (!gate("enHit", 70)) return;
+    noise({ t: 0.05, gain: 0.07, f: 4200, q: 3 });
+    tone({ type: "square", f0: 1400, f1: 700, t: 0.04, gain: 0.04 });
+  } else if (name === "enZap") {             // 터렛 레이저 — 짧은 레이저
+    if (!gate("enZap", 90)) return;
+    tone({ type: "sawtooth", f0: 1900, f1: 600, t: 0.08, gain: 0.04 });
+  } else if (name === "enClick") {           // 드론 발사 — 전자 클릭음
+    if (!gate("enClick", 90)) return;
+    tone({ type: "square", f0: 2600, f1: 2200, t: 0.025, gain: 0.04 });
+    noise({ t: 0.03, gain: 0.04, f: 6000, q: 5 });
+  } else if (name === "enBuild") {           // 설치 — 낮은 기계음과 잠김 소리
+    if (!gate("enBuild", 200)) return;
+    tone({ type: "sawtooth", f0: 120, f1: 220, t: 0.22, gain: 0.08 });
+    tone({ type: "square", f0: 900, f1: 900, t: 0.03, gain: 0.05, delay: 0.24 });
+    noise({ t: 0.05, gain: 0.06, f: 2000, q: 2, delay: 0.24 });
+  } else if (name === "enDrone") {           // 드론 소환 — 낮은 회전음이 올라간다
+    if (!gate("enDrone", 300)) return;
+    tone({ type: "sawtooth", f0: 90, f1: 260, t: 0.4, gain: 0.06 });
+    tone({ type: "triangle", f0: 180, f1: 520, t: 0.4, gain: 0.04 });
+  } else if (name === "enField") {           // 자기장 — 웅 하고 퍼지는 전자기음
+    if (!gate("enField", 200)) return;
+    tone({ type: "sine", f0: 140, f1: 70, t: 0.5, gain: 0.12 });
+    tone({ type: "square", f0: 60, f1: 60, t: 0.35, gain: 0.04, delay: 0.25 });
+    noise({ t: 0.25, gain: 0.07, f: 3500, q: 1.5, delay: 0.28 });
+  } else if (name === "enCharge") {          // 레일포 — 충전 뒤 강한 발사
+    if (!gate("enCharge", 200)) return;
+    tone({ type: "sine", f0: 400, f1: 2400, t: 0.24, gain: 0.06 });
+    tone({ type: "sawtooth", f0: 2200, f1: 180, t: 0.25, gain: 0.1, delay: 0.25 });
+    noise({ t: 0.2, gain: 0.12, f: 1500, q: 0.8, delay: 0.25 });
+  } else if (name === "enPunch") {           // 수호자 주먹 — 묵직한 금속 타격
+    if (!gate("enPunch", 120)) return;
+    tone({ type: "square", f0: 160, f1: 60, t: 0.14, gain: 0.12 });
+    noise({ t: 0.08, gain: 0.1, f: 900, q: 1 });
+  } else if (name === "enBoom") {            // 코어 폭발
+    if (!gate("enBoom", 150)) return;
+    noise({ t: 0.4, gain: 0.28, f: 420, q: 0.6 });
+    tone({ type: "sine", f0: 130, f1: 36, t: 0.4, gain: 0.25 });
+    tone({ type: "square", f0: 1800, f1: 300, t: 0.12, gain: 0.04 });
+  } else if (name === "enOc") {              // 오버클럭 — 회전음의 음정이 올라간다
+    if (!gate("enOc", 300)) return;
+    tone({ type: "sawtooth", f0: 200, f1: 900, t: 0.55, gain: 0.07 });
+    tone({ type: "square", f0: 400, f1: 1800, t: 0.55, gain: 0.03 });
+  } else if (name === "enAlarm") {           // 과열 — 짧은 경고음 두 번
+    if (!gate("enAlarm", 400)) return;
+    [0, 0.16].forEach((d) => tone({ type: "square", f0: 980, f1: 980, t: 0.1, gain: 0.07, delay: d }));
+  } else if (name === "enOrbit") {           // 궤도 섬멸 — 다섯 번 저음 충격 뒤 마지막 높은 전자음
+    if (!gate("enOrbit", 600)) return;
+    for (let i = 0; i < 5; i++) { tone({ type: "sine", f0: 110, f1: 45, t: 0.16, gain: 0.16, delay: 0.55 + i * 0.18 }); noise({ t: 0.1, gain: 0.08, f: 600, q: 1, delay: 0.55 + i * 0.18 }); }
+    tone({ type: "sawtooth", f0: 1200, f1: 2600, t: 0.3, gain: 0.07, delay: 1.6 });
+    noise({ t: 0.5, gain: 0.25, f: 380, q: 0.6, delay: 1.75 });
+    tone({ type: "sine", f0: 90, f1: 30, t: 0.5, gain: 0.25, delay: 1.75 });
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ type: "square", f0: f, t: 0.4, gain: 0.12, delay: i * 0.12 }));
   }

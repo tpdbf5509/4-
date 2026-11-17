@@ -226,3 +226,24 @@ test('스킬 설명 창 — 마술사 칸을 만든다(수치는 데이터 파�
   assert.ok(info && info.skills.length === 7 && info.basic.name === CD.name);
   assert.ok(info.skills.find(q => q.s === 'final').ult);
 });
+
+test('그림 규격 — 시트 · 아이콘 · 연출 덜어내기 · 바닥 연출 · 입자 상한', async () => {
+  const { ILLUSION_PX, ILLUSION_ICON } = await import('../src/game/illusionPxData.js');
+  const { ILLUSION_CAP, ILLUSION_GROUND, IL_BITS } = await import('../src/game/illusionArt.js');
+  const { GROUND_FX } = await import('../src/game/skillArt.js');
+  const man = JSON.parse(readFileSync(new URL('../design/effects/illusionist/manifest.json', import.meta.url)));
+  assert.deepEqual(ILLUSION_PX, man, 'make.py 가 낸 규격과 같다');
+  for (const [k, T] of Object.entries(ILLUSION_PX)) {
+    const path = new URL(`../public/assets/game/rpg/effects/hidden-jobs/illusionist/px/${k}.webp`, import.meta.url);
+    assert.ok(existsSync(path), k);
+    const bytes = readFileSync(path);
+    assert.equal(bytes.toString('ascii', 12, 16), 'VP8L', k);
+    const size = bytes.readUInt32LE(21);
+    assert.equal((size & 0x3fff) + 1, T.w * T.cols, `${k} 가로`);
+    assert.equal(((size >>> 14) & 0x3fff) + 1, T.h * Math.ceil(T.n / T.cols) * (T.rows || 1), `${k} 세로`);
+  }
+  assert.equal(Object.keys(ILLUSION_ICON).length, ILLUSION_PX.il_icons.n);
+  assert.ok(Object.keys(ILLUSION_CAP).every(k => k.startsWith('sk_il_')));
+  assert.ok([...ILLUSION_GROUND].every(k => GROUND_FX.has(k)));
+  assert.ok(IL_BITS.perFx > 0 && IL_BITS.perFx <= 64 && IL_BITS.perFrame <= 400, '입자 수 상한');
+});

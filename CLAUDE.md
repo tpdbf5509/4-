@@ -253,6 +253,13 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - **외형(11월 17일 사용자 그림 남 · 여)**: `tools/cut-necro-char.py` 가 `design/necro-job/char/necro-<m|f>-*-sheet.png` 를 `characters/rpg/necro-<m|f>/` 로 자른다(엔지니어와 같은 규칙 · 걷기 4장). `advArtPath` 는 `necroLook` 이면 이 그림.
 - 이펙트는 pixelfx 없이 `design/effects/necromancer/make.py` 가 직접 그린 도트 시트(`rpg/effects/hidden-jobs/necromancer/px/nc_*.webp`). 고치면 make.py → `manifest.json` 값을 `necroPxData.js` 로(시험이 본다). 키는 기존 행동 키를 빌린다(`NC_SLOTS`). 내가 정한 해석은 `docs/작업-상세-기록.md` 끝.
 
+### 히든 직업 Illusionist 005 마술사 (11월 17일, 격자 연습장에만)
+- 사용자 기획 「히든직업 002~006 통합기획안」 4장. 획득 방법 · 실제 게임 연결 · 관리자 명령어 · 패치노트 없음(`ILLUSION.live = false`, `illusionOn` 은 맵 `sandbox` 에서만). 저장 · 스냅샷 · `HIDDEN_JOBS` 에도 아직 잇지 않았다.
+- 수치 `illusionData.js` · 규칙 `illusionJob.js`(엔진 `rpg.js illusionEngine`, 입력 `hidden {op:"use", s}`) · 그림 `illusionArt.js` · 시트 규격 `illusionPxData.js` · 연습장 칸 `Sandbox.jsx IllusionBar` · 스킬 설명 `hiddenSkillInfo.js illusion()` · 시험 `tools/illusion.test.mjs`. 전투 상태 `h.il`(스냅샷 없음).
+- 트릭 최대 5 · 트릭 3 소모 강화 · 잔상 · 연계는 `IL_TRICK`. 스킬 8개 수치는 `IL_CARD` ~ `IL_FINAL` 한 곳. 키는 기존 행동 키를 빌린다(`IL_SLOTS`). 무기를 들지 않는다.
+- 이펙트는 pixelfx 없이 `design/effects/illusionist/make.py` 가 직접 그린 도트 시트 14장(`hidden-jobs/illusionist/px/il_*.webp`). 고치면 make.py → `manifest.json` 값을 `illusionPxData.js` 로(시험이 본다). 입자 상한 `IL_BITS`(연출 64 · 프레임 380). 외형은 아직 기본 그림. 정한 해석은 `docs/작업-상세-기록.md` 끝.
+- 연습장 M 키: 키 행동 「스킬 설명」(기본 M)이 생긴 뒤로 연습장에서 M 이 안 열리던 것을 고쳤다(모든 히든 직업).
+
 ### 격자 연습장 `?sandbox` (11월 16일)
 - 주소 `four-lane.vercel.app/?sandbox`(`main.jsx` 가 `Sandbox.jsx` 를 따로 불러온다). 게임에 넣기 전 캐릭터(직업 · 성별 · 원소 · 전직 · 숙련 단계 · BLOOD-001 직업 레벨 · 연마 · 레벨 · 스탯 · 무기(미공개 hold 포함) · 스킬 칸)를 골라 격자 바닥에서 움직이고 스킬을 써 본다.
 - 직업 체험(`JobTrial.jsx`)처럼 이 기기에서만 도는 세계다. 서버 · 장부 · 기기 캐릭터 기록과 이어지지 않고 아무것도 저장하지 않는다. `g.test` 로 훈련장 기능(무적 · 쿨타임 끄기 · 스택 가득 · 초당 피해)을 쓰고, 월드보스는 나오지 않게 막았다.

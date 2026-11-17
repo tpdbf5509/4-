@@ -30,6 +30,10 @@ import { unlockNecro, necroView, ncLock, necroFillRoster, necroPutRoster, necroS
 import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
 import NecroRosterPanel from "./NecroRosterPanel.jsx";
+import { ILLUSION, ILLUSION_NAME, ILLUSION_TITLE, IL_SLOTS, IL_SKILLS, IL_CARD, IL_TRAIN_NAMES, IL_TRICKED } from "./game/illusionData.js";   // 히든 직업 Illusionist 005(11월 17일 — 연습장에만)
+import { unlockIllusion, illusionView, ilLock } from "./game/illusionJob.js";
+import { illusionIconStyle } from "./game/illusionArt.js";
+import { ILLUSION_ICON } from "./game/illusionPxData.js";
 import SkillInfoPanel from "./SkillInfoPanel.jsx";
 import { hiddenSkillInfo } from "./game/hiddenSkillInfo.js";
 import sfx from "./game/sfx.js";
@@ -54,6 +58,9 @@ const EN_BY_ACT = Object.fromEntries(EN_SLOTS.map((q) => [q.act, q.s]));
 // Necromancer 004 — Gambler 002 와 같은 키 자리를 빌린다(necroData.js NC_SLOTS)
 const NC_FIRST = NC_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
 const NC_BY_ACT = Object.fromEntries(NC_SLOTS.map((q) => [q.act, q.s]));
+// Illusionist 005 — 같은 행동 키 칸을 빌린다(illusionData.js IL_SLOTS)
+const IL_FIRST = IL_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
+const IL_BY_ACT = Object.fromEntries(IL_SLOTS.map((q) => [q.act, q.s]));
 // 흔적 추출 연습 몹 — 그림자 종류 다섯이 하나씩 나오게(캐릭터 앞 [가로 칸, 세로 칸, 몹 종류])
 const NC_PREY = [[5, -1.5, "goblin"], [6, 1.5, "wolf"], [7.5, 0, "skeletal"], [9, -1.5, "necro"], [9, 1.5, "ogre"]];
 // 명부에 바로 넣을 수 있는 몹 — 게임의 모든 몹 종류(허수아비만 뺀다, 11월 17일 사용자 "현재 존재하는 모든 몹 전부")
@@ -90,6 +97,7 @@ const DEFAULT = {
   bloodLv: SANDBOX.bloodLv, train: BLOOD.train.max, weapon: "", ks: { job: "", g: ["", ""] }, layout: "line",
   gmLv: GAMBLER.maxLv, gmTr: [GAMBLER.train.max, GAMBLER.train.max, GAMBLER.train.max],   // Gambler 002 — 직업 레벨 · 연마 셋(금화 · 방어 · 행운)
   enLv: ENGINEER.maxLv, enTr: [ENGINEER.train.max, ENGINEER.train.max, ENGINEER.train.max],   // Engineer 003 — 직업 레벨 · 연마 셋(포탑 · 드론 · 동기화)
+  ilLv: ILLUSION.maxLv, ilTr: [ILLUSION.train.max, ILLUSION.train.max, ILLUSION.train.max],   // Illusionist 005 — 직업 레벨 · 연마 셋(카드 · 공간 · 트릭)
   ncLv: NECRO.maxLv, ncTr: [NECRO.train.max, NECRO.train.max, NECRO.train.max], ncGrade: 3,   // Necromancer 004 — 직업 레벨 · 연마 셋(추출 · 지휘 · 군주) · 처음 명부 등급(0 이면 빈 명부)
 };
 
@@ -104,7 +112,7 @@ function sandboxWorld(c) {
   const look = { name: "연습", job: c.job, elem: elemFor(c.job, c.elem), gender: c.gender };
   const seats = Array.from({ length: RPG_CREW_MAX }, (_, i) => (i === 0 ? { id: "sandbox", name: look.name, hero: look } : null));
   rpgSyncSeats(g, seats);
-  const blood = c.adv === "blood", gambler = c.adv === "gambler" || c.adv === "engineer", necro = c.adv === "necro";   // 히든 직업 002~ 은 무기를 들지 않는다
+  const blood = c.adv === "blood", gambler = c.adv === "gambler" || c.adv === "engineer", necro = c.adv === "necro" || c.adv === "illusion";   // 히든 직업 002~ 은 무기를 들지 않는다
   const s = {};
   SKILLS.forEach((k) => { if (!k.job || k.job === c.job) s[k.id] = k.gold.length; });   // 이 직업이 배울 수 있는 스킬은 모두 최고 레벨
   const w = !gambler && !necro && c.weapon && weaponsFor(c.job, blood).find((q) => q.id === c.weapon);   // Gambler 002 는 무기를 들지 않는다
@@ -134,7 +142,12 @@ function sandboxWorld(c) {
     refreshHp(h, true);
   }
   h.map = SANDBOX.id;
-  if (necro) {                                    // Necromancer 004 — 직업 레벨 · 연마 셋 · 처음 명부(연습장에서만 켠다 — NECRO.live)
+  if (c.adv === "illusion") {                     // Illusionist 005 — 직업 레벨 · 연마 셋(연습장에서만 켠다 — ILLUSION.live)
+    const n = (v, a, b) => Math.max(a, Math.min(b, Math.floor(v) || 0));
+    unlockIllusion(h, { lv: n(c.ilLv, 1, ILLUSION.maxLv), tr: [0, 1, 2].map((i) => [n((c.ilTr || [])[i], 0, ILLUSION.train.max), 0]) });
+    refreshHp(h, true);
+  }
+  if (c.adv === "necro") {                        // Necromancer 004 — 직업 레벨 · 연마 셋 · 처음 명부(연습장에서만 켠다 — NECRO.live)
     const n = (v, a, b) => Math.max(a, Math.min(b, Math.floor(v) || 0));
     unlockNecro(h, { lv: n(c.ncLv, 1, NECRO.maxLv), tr: [0, 1, 2].map((i) => [n((c.ncTr || [])[i], 0, NECRO.train.max), 0]), roster: [] });
     if (c.ncGrade > 0) necroFillRoster(h, c.ncGrade, (t) => mobName({ type: t }));
@@ -240,6 +253,47 @@ function EngineerBar({ v, keyOf: key, onUse, onFire }) {
   );
 }
 
+/* Illusionist 005 칸 — 트릭 다섯 · 연계 · 거울 집 · 스킬 일곱(누르면 쓴다). 그림은 직접 그린 도트 시트(il_icons) */
+function IllusionBar({ v, keyOf: key, onUse, onFire }) {
+  const ready = v.trick >= v.cost;
+  const notes = [
+    v.chain && `연계 ${v.chain.name} ${v.chain.left.toFixed(1)}초`,
+    v.house && `거울 집 ${v.house.left.toFixed(1)}초${v.house.in ? " · 안" : " · 밖"}`,
+    `잔상 ${Math.round(v.ghost * 100)}%`,
+    v.encore && "끝없는 앙코르",
+  ].filter(Boolean);
+  return (
+    <div className="gm-bar il-bar">
+      <div className="gm-top">
+        <span className="gm-name">{ILLUSION_NAME} <em>{ILLUSION_TITLE} · 직업 레벨 {v.lv}</em></span>
+        <span className="il-tricks" aria-label={`트릭 ${v.trick}/${v.max}`}>
+          {Array.from({ length: v.max }, (_, i) => <i key={i} className={i < v.trick ? "on" : ""} />)}
+          <b className={ready ? "full" : ""}>{ready ? `트릭 ${v.trick} · 강화` : `트릭 ${v.trick}/${v.max}`}</b>
+        </span>
+      </div>
+      <div className="gm-skills">
+        <button type="button" className="gm-skill" onClick={onFire} title={`${IL_CARD.name} — 기본 공격 · 맞히면 트릭 +1`}>
+          <span className="gm-ico" style={illusionIconStyle(ILLUSION_ICON.card, 48)} />
+          <span className="gm-label">{IL_CARD.name}</span>
+          {key("fire") && <kbd>{key("fire")}</kbd>}
+        </button>
+        {IL_SLOTS.map((q) => {
+          const D = IL_SKILLS[q.s], lock = ilLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, boost = ready && IL_TRICKED.includes(q.s);
+          return (
+            <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && cd > 0 ? "wait" : ""} ${!lock && !cd && boost ? "boost" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
+              title={lock || (q.s === "final" ? `${D.name} · 트릭 전부` : boost ? `${D.name} · 트릭 ${v.cost}개로 강화` : D.name)}>
+              <span className="gm-ico" style={illusionIconStyle(ILLUSION_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
+              <span className="gm-label">{lock ? `레벨 ${ILLUSION.unlock[q.s]}` : D.name}</span>
+              {key(q.act) && <kbd>{key(q.act)}</kbd>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="gm-notes">{notes.join(" · ")}</p>
+    </div>
+  );
+}
+
 /* Necromancer 004 칸 — 영혼 줄 · 스킬 일곱(누르면 쓴다) · 명부. 그림은 직접 그린 도트 시트(nc_icons) */
 function NecroBar({ v, keyOf: key, onUse, onFire }) {
   const full = v.soul >= v.max;
@@ -306,9 +360,9 @@ export default function Sandbox() {
   const [binds] = useState(loadKeys);
   const set = (patch) => setCfg((c) => ({ ...c, ...patch }));
 
-  const blood = cfg.adv === "blood", engineer = cfg.adv === "engineer", gambler = cfg.adv === "gambler" || engineer, necro = cfg.adv === "necro";   // gambler — 무기 없는 히든 직업(002~) 공통 칸
-  const hidden = gambler || necro;                // 무기 · 일반 스킬 칸이 없는 히든 직업
-  const skJob = engineer ? "engineer" : necro ? "necromancer" : gambler ? "gambler" : "";   // 스킬 설명 창을 쓰는 히든 직업
+  const blood = cfg.adv === "blood", engineer = cfg.adv === "engineer", gambler = cfg.adv === "gambler" || engineer, necro = cfg.adv === "necro", illusion = cfg.adv === "illusion";   // gambler — 무기 없는 히든 직업(002~) 공통 칸
+  const hidden = gambler || necro || illusion;    // 무기 · 일반 스킬 칸이 없는 히든 직업
+  const skJob = engineer ? "engineer" : necro ? "necromancer" : illusion ? "illusionist" : gambler ? "gambler" : "";   // 스킬 설명 창을 쓰는 히든 직업
   const skInfo = useMemo(() => hiddenSkillInfo(skJob), [skJob]);
   skToggle.current = () => { if (!skJob) return; setNcOpen(false); setSkOpen((o) => !o); };
   const magic = hasElem(cfg.job);
@@ -318,11 +372,11 @@ export default function Sandbox() {
   // 직업이 바뀌면 그 직업에 없는 전직 · 무기 · 직업 스킬을 비운다
   const pickJob = (job) => setCfg((c) => ({
     ...c, job,
-    adv: c.adv === "blood" || c.adv === "gambler" || c.adv === "engineer" || c.adv === "necro" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
+    adv: c.adv === "blood" || c.adv === "gambler" || c.adv === "engineer" || c.adv === "necro" || c.adv === "illusion" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
     weapon: weaponsFor(job, c.adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : "",
     ks: { ...c.ks, job: "" },
   }));
-  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "gambler" || adv === "engineer" || adv === "necro" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
+  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "gambler" || adv === "engineer" || adv === "necro" || adv === "illusion" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
   const commitLv = () => {
     const v = Math.max(1, Math.min(LV_TOP, Math.floor(Number(lvText)) || 1));
     setLvText(String(v));
@@ -366,12 +420,17 @@ export default function Sandbox() {
     const isGm = () => !!gamblerView(G.current?.heroes[0]);
     const isEn = () => !!engineerView(G.current?.heroes[0]);
     const isNc = () => !!necroView(G.current?.heroes[0]);
-    const kmap = () => keyMap(binds, isBlood() ? BLOOD_ACTS : isGm() ? GM_FIRST : isEn() ? EN_FIRST : isNc() ? NC_FIRST : []);
+    const isIl = () => !!illusionView(G.current?.heroes[0]);
+    const kmap = () => keyMap(binds, isBlood() ? BLOOD_ACTS : isGm() ? GM_FIRST : isEn() ? EN_FIRST : isNc() ? NC_FIRST : isIl() ? IL_FIRST : []);
     const A = (k, d) => actRef.current(k, d);
     const press = (a) => {
       if (isGm() || isEn()) {                      // Gambler 002 · Engineer 003 — 평타 · 대쉬와 전용 스킬 일곱만
         const by = isEn() ? EN_BY_ACT : GM_BY_ACT;
         if (a === "fire") A("fire", true); else if (a === "dash") A("dash"); else if (by[a]) A("hidden", { op: "use", s: by[a] });
+        return;
+      }
+      if (isIl()) {                                // Illusionist 005 — 평타 · 대쉬와 전용 스킬 일곱만
+        if (a === "fire") A("fire", true); else if (a === "dash") A("dash"); else if (IL_BY_ACT[a]) A("hidden", { op: "use", s: IL_BY_ACT[a] });
         return;
       }
       if (isNc()) {                                // Necromancer 004 — 평타 · 대쉬와 전용 스킬 일곱만
@@ -411,8 +470,8 @@ export default function Sandbox() {
     const typing = (t) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
     const onKey = (e) => {
       if (typing(e.target)) return;
-      // M — 히든 직업 스킬 설명 창(그 키가 다른 행동에 묶여 있으면 그 행동이 먼저)
-      if (e.code === "KeyM" && !kmap()[e.code] && (isGm() || isEn() || isNc())) { e.preventDefault(); if (!e.repeat) skToggle.current(); return; }
+      // M — 히든 직업 스킬 설명 창. 키 행동 「스킬 설명」(기본 M)이 생긴 뒤로는 그 키를 따른다(그 키가 다른 행동에 묶여 있으면 그 행동이 먼저)
+      if ((kmap()[e.code] === "skills" || (e.code === "KeyM" && !kmap()[e.code])) && (isGm() || isEn() || isNc() || isIl())) { e.preventDefault(); if (!e.repeat) skToggle.current(); return; }
       const a = kmap()[e.code];
       if (!a) return;
       e.preventDefault();
@@ -523,9 +582,9 @@ export default function Sandbox() {
           const t = trainView(g, h) || {};
           const bv = bloodHud(bloodView(h));
           const gm = gamblerView(h), en = engineerView(h);
-          const nc = necroView(h);
+          const nc = necroView(h), il = illusionView(h);
           const [cx, cy] = cellOf(h);
-          setHud({ en, dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
+          setHud({ en, il, dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
             hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "", gm,
             nc: nc && { ...nc, sh: nc.sh.map((q) => ({ t: q.t, life: q.life })), traces: nc.traces.map((q) => q.id), roster: nc.roster.map((q) => ({ ...q })), party: nc.party.slice(), tr: nc.tr.map((q) => q.slice()) } });
         }
@@ -542,7 +601,7 @@ export default function Sandbox() {
       : !BLOOD_ACTS.includes(a.id) && (!["adv", "advUlt", "healMode"].includes(a.id) || (cfg.adv && (a.id === "adv" || (a.id === "advUlt" && cfg.adv === "summoner") || (a.id === "healMode" && cfg.adv === "healer"))))
   ));
   const el = ELEM_BY_ID[elemFor(cfg.job, cfg.elem)];
-  const title = [engineer ? ENGINEER_NAME : necro ? NECRO_NAME : gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
+  const title = [engineer ? ENGINEER_NAME : necro ? NECRO_NAME : illusion ? ILLUSION_NAME : gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
 
   return (
     <div className="page sb-page">
@@ -588,12 +647,13 @@ export default function Sandbox() {
             {engineer && hud && hud.en && <EngineerBar v={hud.en} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {gambler && !engineer && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {skJob && skOpen && skInfo && <SkillInfoPanel info={skInfo} onClose={closeSk} keyOf={key}
-              lv={(hud && (engineer ? hud.en : necro ? hud.nc : hud.gm) || {}).lv || 1}
-              icon={(s) => engineer ? engineerIconStyle(ENGINEER_ICON[s], 40) : necro ? necroIconStyle(NECRO_ICON[s], 40) : gamblerIconStyle(GAMBLER_ICON[s], 40)} />}
+              lv={(hud && (engineer ? hud.en : necro ? hud.nc : illusion ? hud.il : hud.gm) || {}).lv || 1}
+              icon={(s) => engineer ? engineerIconStyle(ENGINEER_ICON[s], 40) : illusion ? illusionIconStyle(ILLUSION_ICON[s], 40) : necro ? necroIconStyle(NECRO_ICON[s], 40) : gamblerIconStyle(GAMBLER_ICON[s], 40)} />}
             {necro && ncOpen && hud && hud.nc && <NecroRosterPanel v={hud.nc} onClose={closeNc}
               onSummon={(t) => act("hidden", { op: "use", s: "summon", t })} onRecall={(t) => act("hidden", { op: "recall", t })}
               onParty={(list) => act("hidden", { op: "party", list })}
               onRefine={(t) => { const h = G.current && G.current.heroes[0]; if (h) necroSandboxRefine(h, t); }} />}
+            {illusion && hud && hud.il && <IllusionBar v={hud.il} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {necro && hud && hud.nc && <NecroBar v={hud.nc} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {touch && !hidden && <div className="jt-pads">
               <button type="button" className="btn-ghost" onClick={() => act("skill")}>큰 기술{hud && hud.sk > 0 ? ` ${Math.ceil(hud.sk)}초` : ""}</button>
@@ -631,7 +691,19 @@ export default function Sandbox() {
                 <button type="button" className={`jt-chip ${gambler && !engineer ? "on" : ""}`} aria-pressed={gambler && !engineer} onClick={() => pickAdv("gambler")}>{GAMBLER_NAME}</button>
                 <button type="button" className={`jt-chip ${engineer ? "on" : ""}`} aria-pressed={engineer} onClick={() => pickAdv("engineer")}>{ENGINEER_NAME}</button>
                 <button type="button" className={`jt-chip ${necro ? "on" : ""}`} aria-pressed={necro} onClick={() => pickAdv("necro")}>{NECRO_NAME}</button>
+                <button type="button" className={`jt-chip ${illusion ? "on" : ""}`} aria-pressed={illusion} onClick={() => pickAdv("illusion")}>{ILLUSION_NAME}</button>
               </div>
+              {illusion && <>
+                <label className="sb-row">직업 레벨
+                  <input type="number" min="1" max={ILLUSION.maxLv} value={cfg.ilLv} onChange={(e) => set({ ilLv: Number(e.target.value) })} />
+                </label>
+                {IL_TRAIN_NAMES.map((n, i) => (
+                  <label key={n} className="sb-row">{n}
+                    <input type="number" min="0" max={ILLUSION.train.max} value={cfg.ilTr[i]} onChange={(e) => { const t = cfg.ilTr.slice(); t[i] = Number(e.target.value); set({ ilTr: t }); }} />
+                  </label>
+                ))}
+                <p className="mk-note">연마 합계 {ILLUSION.tint.blue}에 카드 테두리가 푸르고 {ILLUSION.tint.mirror}에 뒷면이 거울 무늬, {ILLUSION.encore}이면 끝없는 앙코르입니다. 스택 가득을 켜면 트릭이 늘 5개입니다.</p>
+              </>}
               {necro && <>
                 <label className="sb-row">직업 레벨
                   <input type="number" min="1" max={NECRO.maxLv} value={cfg.ncLv} onChange={(e) => set({ ncLv: Number(e.target.value) })} />
@@ -740,8 +812,9 @@ export default function Sandbox() {
                   <>
                     <li><kbd>{key("up")}</kbd><kbd>{key("left")}</kbd><kbd>{key("down")}</kbd><kbd>{key("right")}</kbd> 이동 · 오른쪽 클릭으로 걷기</li>
                     <li>스킬은 마우스 쪽으로 나갑니다</li>
-                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {engineer && a.id === "fire" ? EN_PULSE.name : gambler && a.id === "fire" ? GM_CHIP.name : necro && a.id === "fire" ? NC_SCYTHE.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
+                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {engineer && a.id === "fire" ? EN_PULSE.name : gambler && a.id === "fire" ? GM_CHIP.name : necro && a.id === "fire" ? NC_SCYTHE.name : illusion && a.id === "fire" ? IL_CARD.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
                     {gambler && (engineer ? EN_SLOTS : GM_SLOTS).map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {(engineer ? EN_SKILLS : GM_SKILLS)[q.s].name}</li>)}
+                    {illusion && IL_SLOTS.map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {IL_SKILLS[q.s].name}</li>)}
                     {necro && NC_SLOTS.map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {NC_SKILLS[q.s].name}</li>)}
                   </>
                 )}

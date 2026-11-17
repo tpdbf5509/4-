@@ -30,7 +30,7 @@
  "스탯 1포인트당 효과": [
   {
    "file": "src/game/rpg.js",
-   "from": 838,
+   "from": 845,
    "code": [
     "  { id: \"str\", name: \"물리력\", note: \"검사 · 궁수 공격력\", base: 10, per: 3, fmt: (v) => String(v) },",
     "  { id: \"int\", name: \"마법력\", note: \"마법사 공격력 · 화상 · 독 피해\", base: 10, per: 3, fmt: (v) => String(v) },",
@@ -43,7 +43,7 @@
  "최대 체력 바탕": [
   {
    "file": "src/game/rpg.js",
-   "from": 840,
+   "from": 847,
    "code": [
     "  { id: \"hp\", name: \"체력\", note: \"최대 체력 (직업 배율을 곱한다)\", base: 100, per: 22, fmt: (v) => v.toLocaleString(\"ko-KR\") },"
    ]
@@ -52,7 +52,7 @@
  "공격력 바탕": [
   {
    "file": "src/game/rpg.js",
-   "from": 838,
+   "from": 845,
    "code": [
     "  { id: \"str\", name: \"물리력\", note: \"검사 · 궁수 공격력\", base: 10, per: 3, fmt: (v) => String(v) },",
     "  { id: \"int\", name: \"마법력\", note: \"마법사 공격력 · 화상 · 독 피해\", base: 10, per: 3, fmt: (v) => String(v) },"
@@ -62,7 +62,7 @@
  "치명타 확률": [
   {
    "file": "src/game/rpg.js",
-   "from": 841,
+   "from": 848,
    "code": [
     "  { id: \"crit\", name: \"치명타 확률\", note: \"치명타가 터질 확률\", base: 5, per: 0.5, fmt: (v) => `${r1(v)}%` },"
    ]
@@ -71,7 +71,7 @@
  "치명타 피해": [
   {
    "file": "src/game/rpg.js",
-   "from": 842,
+   "from": 849,
    "code": [
     "  { id: \"cdmg\", name: \"치명타 피해\", note: \"치명타가 터졌을 때 피해\", base: 150, per: 1.5, fmt: (v) => `${r1(v)}%` },"
    ]
@@ -80,14 +80,14 @@
  "스탯 한도 · 레벨당 포인트": [
   {
    "file": "src/game/rpg.js",
-   "from": 826,
+   "from": 833,
    "code": [
     "export const STAT_MAX = HIGH.live ? HIGH.stat : HIGH.liveStat;"
    ]
   },
   {
    "file": "src/game/rpg.js",
-   "from": 832,
+   "from": 839,
    "code": [
     "export const STAT_PER_LV = 2;"
    ]
@@ -96,7 +96,7 @@
  "최고 레벨": [
   {
    "file": "src/game/rpg.js",
-   "from": 818,
+   "from": 825,
    "code": [
     "export const LV_MAX = HIGH.live ? HIGH.lv : HIGH.liveLv;"
    ]
@@ -105,9 +105,9 @@
  "직업 평타 피해": [
   {
    "file": "src/game/rpg.js",
-   "from": 733,
+   "from": 734,
    "code": [
-    "  { id: \"warrior\", name: \"검사\", weapon: \"검\",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
+    "  { id: \"warrior\", name: \"검사\", weapon: \"검\", note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
     "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
     "  { id: \"mage\", name: \"마법사\", weapon: \"지팡이\", note: \"원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다\",",
     "    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: \"폭발\" },",
@@ -119,9 +119,9 @@
  "직업 공격 속도": [
   {
    "file": "src/game/rpg.js",
-   "from": 733,
+   "from": 734,
    "code": [
-    "  { id: \"warrior\", name: \"검사\", weapon: \"검\",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
+    "  { id: \"warrior\", name: \"검사\", weapon: \"검\", note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
     "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
     "  { id: \"mage\", name: \"마법사\", weapon: \"지팡이\", note: \"원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다\",",
     "    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: \"폭발\" },",
@@ -133,9 +133,9 @@
  "직업 사거리": [
   {
    "file": "src/game/rpg.js",
-   "from": 733,
+   "from": 734,
    "code": [
-    "  { id: \"warrior\", name: \"검사\", weapon: \"검\",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
+    "  { id: \"warrior\", name: \"검사\", weapon: \"검\", note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
     "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
     "  { id: \"mage\", name: \"마법사\", weapon: \"지팡이\", note: \"원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다\",",
     "    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: \"폭발\" },",
@@ -147,9 +147,9 @@
  "직업 체력 배율": [
   {
    "file": "src/game/rpg.js",
-   "from": 733,
+   "from": 734,
    "code": [
-    "  { id: \"warrior\", name: \"검사\", weapon: \"검\",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
+    "  { id: \"warrior\", name: \"검사\", weapon: \"검\", note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
     "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
     "  { id: \"mage\", name: \"마법사\", weapon: \"지팡이\", note: \"원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다\",",
     "    hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: \"폭발\" },",
@@ -161,7 +161,7 @@
  "직업별 몬스터 피해 배율": [
   {
    "file": "src/game/rpg.js",
-   "from": 742,
+   "from": 749,
    "code": [
     "export const JOB_DMG = { mage: 1.05, archer: JOB_TUNE.archer.dmg };   // 10월 30일 궁수 1 → 0.9(jobTuneData.js)"
    ]

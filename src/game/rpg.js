@@ -730,7 +730,8 @@ export const SPAWNS = [
 /* ── 직업 — 싸우는 방식을 정한다 ──────────────────────────────
    hp 는 버티는 몫, rng 는 사거리(RPG.rangeMul 을 곱하기 전), splash 는 맞은 자리 둘레로 번지는 폭 */
 export const JOBS = [
-  { id: "warrior", name: "검사", weapon: "검",   // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로 note: "붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다",
+  // 화면 이름 전사 → 검사(10월 26일 · 1차 전직과 함께). id 는 그대로. 11월 17일 — note 가 이 주석 안에 묻혀 비어 있던 것을 꺼냈다
+  { id: "warrior", name: "검사", weapon: "검", note: "붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다",
     hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: "회오리" },
   { id: "mage", name: "마법사", weapon: "지팡이", note: "원소 구슬을 쏜다 · 맞은 자리 둘레도 다친다",
     hp: 0.9, dmg: 44, cd: 1.1, rng: 134, splash: 70, fly: 0.24, skill: "폭발" },
@@ -738,6 +739,12 @@ export const JOBS = [
     hp: 0.85, dmg: 45, cd: 0.9, rng: 158, fly: 0.2, skill: "화살비" },
 ];
 export const JOB_BY_ID = Object.fromEntries(JOBS.map((j) => [j.id, j]));
+// 큰 기술(Shift) — 반지름 r · 피해 mul(평타 피해에 곱한다). 마법사는 reach 안의 가장 가까운 적 자리(없으면 겨눈 쪽 aim)에 터진다. 스킬 설명 창도 이 값을 쓴다
+export const BIG_SKILL = {
+  warrior: { r: 240, mul: 3 },
+  mage: { reach: 360, aim: 200, r: 200, mul: 2.8 },
+  archer: { r: 300, mul: 2.6 },
+};
 // 직업별 몹 · 보스에게 주는 피해 배율 — 평타 · 스킬 · 화상 · 독 모두(결투 · 사냥터 PvP 는 그대로). 10월 23일 마법사 1 → 1.05
 export const JOB_DMG = { mage: 1.05, archer: JOB_TUNE.archer.dmg };   // 10월 30일 궁수 1 → 0.9(jobTuneData.js)
 // 궁수 피해 감소를 받나 — 총사(전직)는 받지 않는다(10월 31일 "딜 원래대로", JOB_TUNE.archer.gunnerFull)
@@ -2520,14 +2527,15 @@ export function rpgSkill(g, pi) {
   let cx = h.x, cy = h.y, list, mul;
   if (h.ac) acOnSkill(g, h, "ult");               // 심연의 탑 강화 카드 — 이번 스킬 보너스
   const ka = h.ac ? acSkArea(h) : 1, kr = h.ac ? acSkReach(h) : 1;   // 강화 카드 — 스킬 범위 · 사거리
+  const B = BIG_SKILL[job.id] || BIG_SKILL.archer;
   if (job.id === "warrior") {
-    list = near(h.x, h.y, 240 * ka); mul = 3;
+    list = near(h.x, h.y, B.r * ka); mul = B.mul;
   } else if (job.id === "mage") {
-    const [t] = near(h.x, h.y, 360 * kr, 1);
-    if (t) { cx = t.x; cy = t.y; } else [cx, cy] = aimAt(h, 200);   // 아무도 없으면 겨눈 쪽에 터뜨린다
-    list = near(cx, cy, 200 * ka); mul = 2.8;
+    const [t] = near(h.x, h.y, B.reach * kr, 1);
+    if (t) { cx = t.x; cy = t.y; } else [cx, cy] = aimAt(h, B.aim);   // 아무도 없으면 겨눈 쪽에 터뜨린다
+    list = near(cx, cy, B.r * ka); mul = B.mul;
   } else {
-    list = near(h.x, h.y, 300 * ka); mul = 2.6;
+    list = near(h.x, h.y, B.r * ka); mul = B.mul;
   }
   // 닿는 것이 없어도 기술은 나간다(대기 시간도 돈다) — 사거리는 표시일 뿐
   if (cx !== h.x) h.dir = cx < h.x ? -1 : 1;

@@ -42,6 +42,7 @@ export const KEY_ACTIONS = [
   { id: "bag", name: "가방", group: "창", keys: ["KeyI", ""] },
   { id: "title", name: "칭호", group: "창", keys: ["KeyT", ""] },
   { id: "party", name: "파티", group: "창", keys: ["KeyP", ""] },
+  { id: "skills", name: "스킬 설명", group: "창", keys: ["KeyM", ""] },   // 11월 17일 — M 은 기본 키에 없었다. 이미 다른 행동에 M 을 넣은 사람은 이 칸이 비고 ☰ · 레벨 칸 단추로 연다(loadKeys)
 ];
 export const KEY_SLOTS = 2;
 const STORE = "flg:rpgKeys";

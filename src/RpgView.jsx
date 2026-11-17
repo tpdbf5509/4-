@@ -44,12 +44,16 @@ import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAi
 import { bloodView } from "./game/bloodJob.js";
 import { BLOOD_NAME } from "./game/bloodJobData.js";
 import { spotNear, spotLine } from "./game/bloodUnlock.js";   // BLOOD-001 단서 조사 자리
-import { gamblerView } from "./game/gamblerJob.js";            // 히든 직업 Gambler 002(11월 16일)
+import { gamblerView } from "./game/gamblerJob.js";
+import SkillInfoPanel from "./SkillInfoPanel.jsx";   // 스킬 설명 창(11월 17일 — 격자 연습장 창을 실제 게임에)
+import { gameSkillInfo } from "./game/gameSkillInfo.js";
+import { gamblerIconStyle } from "./game/gamblerArt.js";
+import { GAMBLER_ICON } from "./game/gamblerPxData.js";            // 히든 직업 Gambler 002(11월 16일)
 import { gmSpotNear, gmSpotLine } from "./game/gamblerUnlock.js";
 import { GAMBLER_NAME, GM_SLOTS } from "./game/gamblerData.js";
 import { gamblerHud, GamblerBar, GamblerButtons, GamblerStat } from "./GamblerHud.jsx";
 import { bloodHud, BloodBar, BloodButtons, BloodStat, SkillIco } from "./BloodHud.jsx";
-import { POTION_ICON_SHEET, POTION_ICONS, potionIconOf, iconStyle } from "./game/skillIconData.js";   // 스킬 · 물약 아이콘 칸(11월 15일)   // 히든 직업 BLOOD-001(11월 14일)
+import { POTION_ICON_SHEET, POTION_ICONS, potionIconOf, iconStyle, SKILL_ICON_SHEET, SKILL_ICONS } from "./game/skillIconData.js";   // 스킬 · 물약 아이콘 칸(11월 15일)   // 히든 직업 BLOOD-001(11월 14일)
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { herbNear } from "./game/alchemy.js";
@@ -658,6 +662,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [note, setNote] = useState(null);           // 상점 결과 한 줄 — 내 것만
   const shopRef = useRef(null);                     // 루프가 보는 열린 상점
   const [titleOpen, setTitleOpen] = useState(false); // 칭호 창
+  const [skOpen, setSkOpen] = useState(false);       // 스킬 설명 창(M)
   const [codexOpen, setCodexOpen] = useState(false); // 도감 · 업적 창
   const [partyOpen, setPartyOpen] = useState(false); // 파티 창
   const [keysOpen, setKeysOpen] = useState(false);   // 키 설정 창
@@ -763,7 +768,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setCodexOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
-    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null); setLibOpen(null); setTestOpen(false);
+    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null); setLibOpen(null); setTestOpen(false); setSkOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -885,7 +890,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   useEffect(() => { raceRef.current = raceOpen; }, [raceOpen]);
   // 창이 하나라도 열려 있거나 채팅 중이면 마우스 이동을 무시한다(onMoveDown)
   const anyWin = menu || statOpen || !!shopOpen || bagOpen || titleOpen || codexOpen || partyOpen || keysOpen || inqOpen || honorOpen || !!reqOpen || questOpen
-    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || !!libOpen || testOpen || chatOpen || !!waitKey;
+    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || !!libOpen || testOpen || skOpen || chatOpen || !!waitKey;
   useEffect(() => { winOpenRef.current = anyWin; }, [anyWin]);
 
   const toggleMute = useCallback(() => {
@@ -1093,13 +1098,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 메뉴 · 스탯 · 상점 · 가방 창은 Esc 나 바깥을 누르면 닫힌다
   useEffect(() => {
-    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen && !abyssOpen && !marketOpen && !raceOpen && !villageOpen && !libOpen && !testOpen) return;
+    if (!menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !honorOpen && !reqOpen && !questOpen && !giftOpen && !dgOpen && !trainOpen && !wbOpen && !guildOpen && !advOpen && !deepOpen && !abyssOpen && !marketOpen && !raceOpen && !villageOpen && !libOpen && !testOpen && !skOpen) return;
     const onKey = (e) => {
       if (e.key === "Escape" && !waitKey) closeAll();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, codexOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, abyssOpen, marketOpen, raceOpen, villageOpen, libOpen, testOpen, waitKey, closeAll]);
+  }, [menu, statOpen, shopOpen, bagOpen, titleOpen, codexOpen, partyOpen, keysOpen, honorOpen, reqOpen, questOpen, giftOpen, dgOpen, trainOpen, wbOpen, guildOpen, advOpen, deepOpen, abyssOpen, marketOpen, raceOpen, villageOpen, libOpen, testOpen, skOpen, waitKey, closeAll]);
 
   const sendShop = useCallback((req) => act("shop", req), [act]);
   // 스탯 창을 닫으면 적용하지 않은 포인트는 거둔다
@@ -1215,6 +1220,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       else if (a === "bag") toggleWin(bagOpen, setBagOpen);
       else if (a === "title") toggleWin(titleOpen, setTitleOpen);
       else if (a === "party") toggleWin(partyOpen, setPartyOpen);
+      else if (a === "skills") toggleWin(skOpen, setSkOpen);   // 스킬 설명 창 — 입력 칸에서는 onKey 가 먼저 거른다
     }
     function releaseAct(a) {
       if (isGm() && (GM_BY_ACT[a] || GM_OFF.test(a))) return;
@@ -1286,7 +1292,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       window.removeEventListener("auxclick", onAux);
       window.removeEventListener("blur", onBlur);
     };
-  }, [act, mySeat, pressDir, releaseDir, clearDirs, openChat, toggleWin, waitKey, statOpen, bagOpen, titleOpen, partyOpen]);
+  }, [act, mySeat, pressDir, releaseDir, clearDirs, openChat, toggleWin, waitKey, statOpen, bagOpen, titleOpen, partyOpen, skOpen]);
 
   // 키 설정 창 — 고른 칸에 다음으로 누른 키나 마우스 버튼을 넣는다. Esc 는 그만두기, Backspace · Delete 는 비우기
   useEffect(() => {
@@ -1949,6 +1955,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     onClick={() => toggleWin(partyOpen, setPartyOpen)}>
                     파티{me.pty > 0 && <b>{me.party.filter((h) => h.pty === me.pty).length}</b>}
                   </button>
+                  <button type="button" className={`rpg-lv-stat ${skOpen ? "on" : ""}`} aria-expanded={skOpen}
+                    onClick={() => toggleWin(skOpen, setSkOpen)}>
+                    스킬 설명
+                  </button>
                 </span>
               </span>
               {/* 의뢰 · 퀘스트 — 레벨 칸 바로 아래에 붙는다(style.css .rpg-quest) */}
@@ -2130,6 +2140,19 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <span className="rpg-stat-warn">적용하면 되돌릴 수 없습니다.</span>
                   </div>
                 </div>
+              </>
+            );
+          })()}
+          {me && skOpen && (() => {   // 스킬 설명 창 — 내 지금 직업(일반 · 전직 · BLOOD-001 · Gambler 002). 엔지니어 · 네크로맨서는 연습장 전용이라 gameSkillInfo 가 만들지 않는다
+            const r = gameSkillInfo(G.current.heroes[mySeat]);
+            if (!r) return null;
+            const gm = r.info.id === "gambler", bl = r.info.id === "blood";
+            const kOf = (a) => (touch ? "" : keyOf(binds, a) || (a === "bField" ? keyOf(binds, "skill") : ""));
+            return (
+              <>
+                <div className="rpg-menu-back" onClick={() => setSkOpen(false)} />
+                <SkillInfoPanel info={r.info} lv={r.lv} keyOf={kOf} onClose={() => setSkOpen(false)}
+                  icon={gm ? (s) => gamblerIconStyle(GAMBLER_ICON[s], 40) : bl ? (s) => iconStyle(SKILL_ICON_SHEET, SKILL_ICONS[s]) : null} />
               </>
             );
           })()}

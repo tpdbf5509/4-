@@ -4,6 +4,7 @@
 import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_TRAIN_NAMES, GM_CHIP, GM_BET, GM_LUCK, GM_VEIL, GM_DICE, GM_RAIN, GM_DD, GM_TABLE, GM_EDGE, GM_JACK } from "./gamblerData.js";
 import { ENGINEER, ENGINEER_NAME, ENGINEER_TITLE, EN_SLOTS, EN_TRAIN_NAMES, EN_PULSE, EN_TURRET, EN_DRONE, EN_MAGNET, EN_RAIL, EN_MECH, EN_OC, EN_ORBIT } from "./engineerData.js";
 import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_TRAIN_NAMES, NC_SCYTHE, NC_SOUL, NC_ROSTER, NC_EXTRACT, NC_SUMMON, NC_SWAP, NC_DOMAIN, NC_MARCH, NC_BURN, NC_LEGION } from "./necroData.js";
+import { ILLUSION, ILLUSION_NAME, ILLUSION_TITLE, IL_SLOTS, IL_TRAIN_NAMES, IL_TRICK, IL_CARD, IL_SHUFFLE, IL_SLASH, IL_PRISON, IL_BLINK, IL_FIST, IL_MIRROR, IL_FINAL } from "./illusionData.js";
 
 const pct = (v) => `${Math.round(v * 100)}%`;
 const x = (v) => `×${Number(v.toFixed(1))}`;
@@ -114,6 +115,41 @@ function necro() {
   };
 }
 
-const MAKERS = { gambler, engineer, necromancer: necro };
+function illusion() {
+  const U = ILLUSION.unlock, T = IL_TRICK;
+  return {
+    id: "illusionist", name: ILLUSION_NAME, title: ILLUSION_TITLE, res: "트릭", trainNames: IL_TRAIN_NAMES,
+    rules: [
+      `트릭 최대 ${T.max}. 절단 카드 적중 +${T.basic} · 다른 이름의 공격 스킬을 ${T.window}초 안에 이어 맞히면 +${T.chain}(같은 스킬 반복은 없음).`,
+      `트릭 ${T.cost}개 이상에서 공격 스킬을 쓰면 ${T.cost}개를 쓰고 첫 적중 대상에게 잔상 한 번 — 그 스킬 첫 타격의 ${pct(T.ghost)}(트릭 연마 ${T.sp50} — ${pct(T.ghost50)}).`,
+      `${T.window}초 동안 유효 공격이 없으면 연계 기록이 지워집니다(트릭 연마 ${T.sp25} — ${T.window25}초). 잔상은 트릭을 만들지 않습니다.`,
+      `연마 합계 ${ILLUSION.encore} — 끝없는 앙코르: 미러 하우스 안 잔상이 ${pct(IL_MIRROR.encore)} 커지고 최후의 셔플 끝에 거울 파쇄 ${x(IL_FINAL.encoreMul)}.`,
+    ],
+    basic: { s: "card", act: "fire", name: IL_CARD.name, lv: U.card,
+      desc: ["날카로운 카드를 던지는 기본 공격입니다.", `맞히면 트릭 +${T.basic}.`],
+      stats: [["피해", x(IL_CARD.mul)], ["공격 간격", `${IL_CARD.gap}초`], ["사거리", IL_CARD.range], ["폭", IL_CARD.w]] },
+    skills: IL_SLOTS.map((q) => ({ ...q, ...{
+      shuffle: { name: IL_SHUFFLE.name, lv: U.shuffle, desc: ["겨눈 자리로 카드를 차례로 던지고 마지막에 터뜨립니다.", "폭발 반지름과 판정 범위가 같습니다."],
+        stats: [["대기", `${IL_SHUFFLE.cd}초`], ["사거리", IL_SHUFFLE.reach], ["범위", `반지름 ${IL_SHUFFLE.r}`], ["피해", `${x(IL_SHUFFLE.mul)} × ${IL_SHUFFLE.n} + 폭발 ${x(IL_SHUFFLE.endMul)}`]],
+        train: [`카드 연마 ${IL_SHUFFLE.sp25} — 카드 +${IL_SHUFFLE.add25}장`] },
+      slash: { name: IL_SLASH.name, lv: U.slash, desc: ["카드를 두른 채 두 번 돌진하며 벱니다.", "벽 앞에서 멈춥니다."],
+        stats: [["대기", `${IL_SLASH.cd}초`], ["돌진", IL_SLASH.len], ["폭", IL_SLASH.w], ["피해", `${x(IL_SLASH.mul)} × 2`]] },
+      prison: { name: IL_PRISON.name, lv: U.prison, desc: ["카드 상자로 가두고 네 번 친 뒤 접히며 터집니다.", `일반 몹은 묶고 보스는 둔화만 · 사람은 최대 ${IL_PRISON.pvpBind}초.`],
+        stats: [["대기", `${IL_PRISON.cd}초`], ["사거리", IL_PRISON.reach], ["범위", `반지름 ${IL_PRISON.r}`], ["피해", `${x(IL_PRISON.mul)} × 4 + 최종 ${x(IL_PRISON.endMul)}`]] },
+      blink: { name: IL_BLINK.name, lv: U.blink, desc: ["겨눈 쪽으로 순간이동하고 원래 자리의 카드 분신이 터집니다.", "도착 자리가 막혔으면 가장 가까운 자리로. 자리가 없으면 쓰지 않습니다."],
+        stats: [["대기", `${IL_BLINK.cd}초`], ["이동", IL_BLINK.len], ["폭발", `반지름 ${IL_BLINK.r}`], ["피해", x(IL_BLINK.mul)]],
+        train: [`공간 연마 ${IL_BLINK.sp25} — 이동 ${IL_BLINK.len25}`, `공간 연마 ${IL_BLINK.sp50} — 폭발 반지름 ${IL_BLINK.r50}`] },
+      fist: { name: IL_FIST.name, lv: U.fist, desc: ["카드 다발을 큰 주먹으로 뭉쳐 앞으로 내지릅니다.", "곧은 띠 안을 모두 칩니다."],
+        stats: [["대기", `${IL_FIST.cd}초`], ["거리", IL_FIST.len], ["폭", IL_FIST.w], ["피해", x(IL_FIST.mul)]],
+        train: [`카드 연마 ${IL_FIST.sp50} — ${x(IL_FIST.mul50)}`] },
+      mirror: { name: IL_MIRROR.name, lv: U.mirror, desc: ["쓴 자리에 거울 집을 세웁니다.", `안에서 쓴 공격 스킬은 첫 적중 대상에게 ${pct(IL_MIRROR.ghost)} 잔상을 한 번 더 줍니다.`],
+        stats: [["대기", `${IL_MIRROR.cd}초`], ["범위", `반지름 ${IL_MIRROR.r}`], ["지속", `${IL_MIRROR.dur}초`], ["트릭", "0"]] },
+      final: { name: IL_FINAL.name, lv: U.final, ult: 1, desc: [`카드 ${IL_FINAL.n}장이 원으로 서서 연달아 치고 큰 거울이 부서집니다.`, `트릭을 모두 씁니다. ${T.max}개면 최종 +${pct(IL_FINAL.full)}.`],
+        stats: [["대기", `${IL_FINAL.cd}초`], ["사거리", IL_FINAL.reach], ["범위", `반지름 ${IL_FINAL.r}`], ["피해", `${x(IL_FINAL.mul)} × ${IL_FINAL.n} + 최종 ${x(IL_FINAL.endMul)}`]] },
+    }[q.s] })),
+  };
+}
+
+const MAKERS = { gambler, engineer, necromancer: necro, illusionist: illusion };
 export const HIDDEN_SKILL_JOBS = Object.keys(MAKERS);
 export const hiddenSkillInfo = (id) => (MAKERS[id] ? MAKERS[id]() : null);

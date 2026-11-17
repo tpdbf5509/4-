@@ -269,3 +269,41 @@ test('장부 순위 — 이번 주 · 지난주, 동점은 먼저 닿은 쪽 · 
   assert.deepEqual(r.last.map((x) => [x.name, x.floor]), [['다', 40], ['라', 25]]);
   assert.deepEqual(r.me, { now: 0, prev: 2, prevFloor: 25, claimed: false });
 });
+
+test('관리자 명령 /탑 — 그 층 앞에 올림 · 파편과 기록은 쌓이지 않음 · 막는 경우 안내', async () => {
+  const { rpgAdminCmd } = await import('../src/game/adminCmd.js');
+  const { g } = world([{ lv: 10 }, { lv: 10 }]);
+  g.heroes.forEach((h) => { if (h) { h.pty = 0; h.map = 'plaza'; } });
+  const [a, b] = g.heroes;
+  rpgAdminCmd(g, 0, '/탑 탑1 30'); assert.equal(g.aruns.length, 0, '관리자가 아니면 듣지 않는다');
+  a.admin = 1;
+  for (const bad of ['/탑 탑1 0', '/탑 탑1 1000', '/탑 탑1 abc', '/탑 없는사람 5']) { sysOf(g, 0).length; rpgAdminCmd(g, 0, bad); assert.equal(g.aruns.length, 0, bad); }
+  assert.equal(rpgAdminCmd(g, 0, '/탑 탑1 30'), true);          // 레벨 · 입장료 · 위치와 상관없이
+  assert.equal(g.aruns.length, 1); assert.equal(b.map, g.aruns[0].map); assert.equal(g.aruns[0].f, 29);
+  const coins = b.coins, before = JSON.stringify(b.bag.m || {});
+  run(g, 1.5 + 4); const r = g.aruns[0];
+  assert.equal(r.f, 30, '30층이 열린다'); assert.ok(g.mobs.some((m) => m.map === r.map && !m.dead));
+  assert.ok(floorMobs(30) > 0);
+  clearFloor(g, r);
+  assert.equal(JSON.stringify(b.bag.m || {}), before, '파편이 늘지 않는다'); assert.ok(!(b.rec.atop > 0), '최고 기록 그대로'); assert.equal(b.coins, coins);
+  assert.equal(r.f, 31, '다음 층은 그대로 이어진다');
+  // 이미 탑 안이면 그 칸의 층만 옮긴다
+  rpgAdminCmd(g, 0, '/탑 탑1 80'); assert.equal(g.aruns.length, 1); run(g, ABYSS.gap + 0.5); assert.equal(g.aruns[0].f, 80);
+  // 칸이 모두 차면 안내
+  g.aruns = [0, 1, 2].map((s) => ({ slot: s, map: `abyss-${s}`, f: 1, phase: 'go', t: 99 })); b.map = 'plaza';
+  rpgAdminCmd(g, 0, '/탑 탑1 5'); assert.ok(sysOf(g, 0).some((m) => m.includes('모두 차')));
+});
+
+test('관리자 명령 /카드 — 흡혈의 이빨 다이아 + 무작위 30장, 저주 없음 · 탑 밖이면 안내', async () => {
+  const { rpgAdminCmd } = await import('../src/game/adminCmd.js');
+  const { g } = world([{ lv: 10 }]);
+  const h = g.heroes[0]; h.admin = 1; h.pty = 0;
+  rpgAdminCmd(g, 0, '/카드 나'); assert.ok(sysOf(g, 0).some((m) => m.includes('탑 안에 없습니다')));
+  rpgAdminCmd(g, 0, '/탑 나 7'); run(g, 0.2);
+  const q0 = h.ac.q;
+  assert.equal(rpgAdminCmd(g, 0, '/카드 나'), true);
+  assert.equal(h.ac.c[66], 3);
+  const lv = Object.entries(h.ac.c);
+  assert.equal(lv.reduce((a, [, v]) => a + v, 0) - 3 - (q0 === 0 ? 0 : 0) >= 30, true, '30번 이상 얹힘');
+  assert.ok(lv.every(([n, v]) => v <= 3 && Number(n) <= 170), '저주 없음 · 최대 다이아');
+});

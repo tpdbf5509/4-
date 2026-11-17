@@ -25,6 +25,8 @@ import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, nec
 import { NC_SCYTHE } from './necroData.js';
 import { wyvernInput, wyvernBasic, tickWyvernJob, wyvernDown, wyvernFill, wyvernKill, wyvernRaidKill, wyvernOn, wyvernTake, wyvernSpd } from './wyvernJob.js';   // 히든 직업 Wyvern Knight 006(11월 17일 — 격자 연습장에만)
 import { WY_CLAW } from './wyvernData.js';
+import { illusionInput, illusionBasic, tickIllusion, illusionDown, illusionFill, illusionKill, illusionRaidKill, illusionOn } from './illusionJob.js';   // 히든 직업 Illusionist 005(11월 17일 — 격자 연습장에만)
+import { IL_CARD } from './illusionData.js';
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodLifeOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -2052,8 +2054,9 @@ function killMob(g, m, pi) {
   bloodJobKill(bloodJobEngine, g, m, got);        // BLOOD-001 직업 레벨 경험치
   gamblerKill(gamblerEngine, g, m, got);          // Gambler 002 직업 레벨 경험치
   engineerKill(engineerEngine, g, m, got);        // Engineer 003 직업 레벨 경험치
-  necroKill(necroEngine, g, m, got);
-  wyvernKill(wyvernEngine, g, m, got);            // Wyvern Knight 006 직업 레벨 경험치              // Necromancer 004 — 직업 경험치 · 영혼 · 추출 가능 흔적
+  necroKill(necroEngine, g, m, got);              // Necromancer 004 — 직업 경험치 · 영혼 · 추출 가능 흔적
+  illusionKill(illusionEngine, g, m, got);        // Illusionist 005 직업 레벨 경험치
+  wyvernKill(wyvernEngine, g, m, got);            // Wyvern Knight 006 직업 레벨 경험치
   if (m.dg) acOnKill(g, m, pi, got);              // 심연의 탑 강화 카드 — 처치 효과
   // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
   const part = m.xp * PARTY.share;
@@ -2066,7 +2069,7 @@ function killMob(g, m, pi) {
   if (m.boss) dropLoot(g, got, m);
 }
 // 월드 · 길드 보스 — 친 사람 가운데 같은 맵의 BLOOD-001 직업 경험치
-function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); engineerRaidKill(engineerEngine, g, q); necroRaidKill(necroEngine, g, q); wyvernRaidKill(wyvernEngine, g, q); } } }
+function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); engineerRaidKill(engineerEngine, g, q); necroRaidKill(necroEngine, g, q); illusionRaidKill(illusionEngine, g, q); wyvernRaidKill(wyvernEngine, g, q); } } }
 // 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
 export function huntingXp(h,m,amount=m.xp){
   const sp=SPAWNS.filter(s=>s.map===m.map&&Array.isArray(s.lv));
@@ -2279,6 +2282,7 @@ function hurtHero(g, h, raw, source, kind) {
     engineerDown(engineerEngine, g, h);           // Engineer 003 — 설치물 · 오버클럭 해제
     necroDown(necroEngine, g, h);                 // Necromancer 004 — 그림자 · 영역 · 영혼 해제
     wyvernDown(wyvernEngine, g, h);               // Wyvern Knight 006 — 용혈 0 · 와이번 · 변신 해제
+    illusionDown(illusionEngine, g, h);           // Illusionist 005 — 진행 중인 스킬 · 잔상 · 거울 집 · 트릭 해제
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
     say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
   }
@@ -3283,6 +3287,7 @@ function trainTick(g, h) {
   if (t.stack) engineerFill(h);                     // Engineer 003 — 전력 가득
   if (t.stack) wyvernFill(h);                       // Wyvern Knight 006 — 용혈 100
   if (t.stack) necroFill(h);                        // Necromancer 004 — 영혼 100
+  if (t.stack) illusionFill(h);                     // Illusionist 005 — 트릭 5
   if (t.god && h.down <= 0) h.hp = h.max;
 }
 // 교관 창 — req = { op: "nocd" | "stack" | "god" } 켜고 끄기 · { op: "reset" } 기록 지우기 · { op: "heal" } 체력 · 대기 시간 처음으로
@@ -3450,8 +3455,10 @@ const necroEngine = { ...gamblerEngine,
   mobName, bounds: (map) => [MAPS[map]?.w || 2000, MAPS[map]?.h || 1400, MAPS[map]?.top || 0], stop: (h) => { stopMove(h); h.hold = []; h.dash = 0; } };
 /* 히든 직업 Wyvern Knight 006(wyvernJob.js, 11월 17일 — 격자 연습장에만). 기준 피해 · 시전 객체는 Gambler 002 와 같다. stop: 걷기 멈춤(급강하 · 돌진) */
 const wyvernEngine = { ...engineerEngine, stop: (h) => { stopMove(h); h.hold = []; } };
+/* 히든 직업 Illusionist 005(illusionJob.js, 11월 17일 — 격자 연습장에만). Engineer 003 엔진(keep · open)에 stop(걷기 멈춤 — 순간이동 뒤) · bounds(맵 크기) */
+const illusionEngine = { ...engineerEngine, stop: (h) => { stopMove(h); h.hold = []; }, bounds: necroEngine.bounds };
 // 입력 kind "hidden" — 켜진 히든 직업으로 보낸다(Gambler · Necromancer 입력은 제 직업이 아니면 받지 않는다)
-export const rpgHidden = (g, pi, req) => { if (wyvernOn(g.heroes[pi])) return wyvernInput(wyvernEngine, g, pi, req); if (engineerOn(g.heroes[pi])) return engineerInput(engineerEngine, g, pi, req); gamblerInput(gamblerEngine, g, pi, req); necroInput(necroEngine, g, pi, req); };
+export const rpgHidden = (g, pi, req) => { if (wyvernOn(g.heroes[pi])) return wyvernInput(wyvernEngine, g, pi, req); if (engineerOn(g.heroes[pi])) return engineerInput(engineerEngine, g, pi, req); if (illusionOn(g.heroes[pi])) return illusionInput(illusionEngine, g, pi, req); gamblerInput(gamblerEngine, g, pi, req); necroInput(necroEngine, g, pi, req); };
 // 격자 연습장 시험 타격 — 허수아비는 때리지 않아 보호막(칩 장막)을 써 볼 수 없다. 연습장 맵에서만 최대 체력의 pct 만큼 한 대
 export function rpgSandboxHit(g, pi, pct) {
   const h = g.heroes[pi];
@@ -3918,6 +3925,7 @@ function stepHeroes(g, dt) {
     tickEngineer(engineerEngine, g, h, cdt);       // Engineer 003 — 전력 · 과열 · 펄스 · 설치물
     tickNecro(necroEngine, g, h, cdt);             // Necromancer 004 — 영혼 · 그림자 · 예약 타격 · 영역
     tickWyvernJob(wyvernEngine, g, h, cdt);        // Wyvern Knight 006 — 용혈 · 와이번 · 예약 타격 · 변신
+    tickIllusion(illusionEngine, g, h, cdt);       // Illusionist 005 — 트릭 · 카드 · 스킬 진행 · 잔상 · 거울 집
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)
       MATERIALS.forEach((m) => { h.bag.m[m.id] = matMax(m.id); });
@@ -4014,6 +4022,10 @@ function stepHeroes(g, dt) {
     }
     if (necroOn(h)) {                             // Necromancer 004 — 평타는 그림자 낫(근접 · 무기 평타 없음 · 간격 0.55초 고정)
       if (necroBasic(necroEngine, g, h, force)) { h.cd = NC_SCYTHE.gap; h.swing = NC_SCYTHE.swing; h.fireQ = 0; }
+      return;
+    }
+    if (illusionOn(h)) {                          // Illusionist 005 — 평타는 절단 카드(무기 평타 없음 · 간격 0.5초 고정)
+      if (illusionBasic(illusionEngine, g, h, force)) { h.cd = IL_CARD.gap; h.swing = 0.2; h.fireQ = 0; }
       return;
     }
     if (force && comboPush(g, h)) { h.cd = heroCd(h); h.fireQ = 0; return; }   // 신성검 반격 뒤 평타 키 — 밀어내기

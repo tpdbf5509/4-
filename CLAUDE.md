@@ -258,6 +258,12 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 수치 `wyvernData.js` · 규칙 `wyvernJob.js`(엔진 `rpg.js wyvernEngine`, 입력 `hidden {op:"use", s}`) · 그림 `wyvernArt.js` · 시트 규격 `wyvernPxData.js` · 연습장 칸 `Sandbox.jsx WyvernBar` · 스킬 설명 `hiddenSkillInfo.js` · 시험 `tools/wyvern.test.mjs`. 가방 `bag.hj.jobs.wyvern = {lv, xp, tr}`, 상태 `h.wy`.
 - 스킬 열 개(2부 표 여덟 + 1부의 천공강습 F · 아르카디온 X — 아르카디온은 무기가 아니라 직업 기술). 와이번은 `h.wy.u`(몹 아님 · 피해 없음), 높이는 그림자와 그림의 화면 차이로만. 급강하 · 용성 중 시전자 그림을 띄운다(`wyvernAir`).
 - 이펙트는 pixelfx 없이 `design/effects/wyvern/make.py` 가 직접 그린 도트 시트(`hidden-jobs/wyvern/px/wy_*.webp`). 고치면 make.py → `manifest.json` 값을 `wyvernPxData.js` 로(시험이 본다). 외형 전용 그림은 아직 없어 기본 모습. 내가 정한 해석은 `docs/작업-상세-기록.md` 끝.
+### 히든 직업 Illusionist 005 마술사 (11월 17일, 격자 연습장에만)
+- 사용자 기획 「히든직업 002~006 통합기획안」 4장. 획득 방법 · 실제 게임 연결 · 관리자 명령어 · 패치노트 없음(`ILLUSION.live = false`, `illusionOn` 은 맵 `sandbox` 에서만). 저장 · 스냅샷 · `HIDDEN_JOBS` 에도 아직 잇지 않았다.
+- 수치 `illusionData.js` · 규칙 `illusionJob.js`(엔진 `rpg.js illusionEngine`, 입력 `hidden {op:"use", s}`) · 그림 `illusionArt.js` · 시트 규격 `illusionPxData.js` · 연습장 칸 `Sandbox.jsx IllusionBar` · 스킬 설명 `hiddenSkillInfo.js illusion()` · 시험 `tools/illusion.test.mjs`. 전투 상태 `h.il`(스냅샷 없음).
+- 트릭 최대 5 · 트릭 3 소모 강화 · 잔상 · 연계는 `IL_TRICK`. 스킬 8개 수치는 `IL_CARD` ~ `IL_FINAL` 한 곳. 키는 기존 행동 키를 빌린다(`IL_SLOTS`). 무기를 들지 않는다.
+- 이펙트는 pixelfx 없이 `design/effects/illusionist/make.py` 가 직접 그린 도트 시트 14장(`hidden-jobs/illusionist/px/il_*.webp`). 고치면 make.py → `manifest.json` 값을 `illusionPxData.js` 로(시험이 본다). 입자 상한 `IL_BITS`(연출 64 · 프레임 380). 외형은 아직 기본 그림. 정한 해석은 `docs/작업-상세-기록.md` 끝.
+- 연습장 M 키: 키 행동 「스킬 설명」(기본 M)이 생긴 뒤로 연습장에서 M 이 안 열리던 것을 고쳤다(모든 히든 직업).
 
 ### 격자 연습장 `?sandbox` (11월 16일)
 - 주소 `four-lane.vercel.app/?sandbox`(`main.jsx` 가 `Sandbox.jsx` 를 따로 불러온다). 게임에 넣기 전 캐릭터(직업 · 성별 · 원소 · 전직 · 숙련 단계 · BLOOD-001 직업 레벨 · 연마 · 레벨 · 스탯 · 무기(미공개 hold 포함) · 스킬 칸)를 골라 격자 바닥에서 움직이고 스킬을 써 본다.

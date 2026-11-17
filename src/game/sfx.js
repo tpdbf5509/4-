@@ -463,6 +463,54 @@ export function play(name) {
     if (!gate("ncBoom", 200)) return;
     noise({ t: 0.6, gain: 0.32, f: 220, q: 0.5 });
     tone({ type: "sine", f0: 100, f1: 28, t: 0.6, gain: 0.3 });
+  } else if (name === "ilCard") {           // Illusionist 005 — 카드를 튕겨 던지는 짧은 바람 소리
+    if (!gate("ilCard", 70)) return;
+    noise({ t: 0.05, gain: 0.06, f: 5200, q: 2 });
+    tone({ type: "triangle", f0: 1900, f1: 1300, t: 0.04, gain: 0.03 });
+  } else if (name === "ilHit") {            // 카드 절단음
+    if (!gate("ilHit", 70)) return;
+    noise({ t: 0.06, gain: 0.08, f: 6500, q: 4 });
+    tone({ type: "square", f0: 2600, f1: 1500, t: 0.03, gain: 0.03 });
+  } else if (name === "ilReady") {          // 트릭 3 — 맑은 두 음
+    if (!gate("ilReady", 300)) return;
+    tone({ type: "sine", f0: 1318, t: 0.08, gain: 0.05 }); tone({ type: "sine", f0: 1760, t: 0.1, gain: 0.05, delay: 0.07 });
+  } else if (name === "ilShuffle") {        // 폭렬 셔플 — 카드 섞는 소리 뒤 작은 폭발
+    if (!gate("ilShuffle", 300)) return;
+    for (let i = 0; i < 6; i++) noise({ t: 0.03, gain: 0.05, f: 4800, q: 3, delay: 0.02 + i * 0.03 });
+    noise({ t: 0.3, gain: 0.16, f: 700, q: 0.6, delay: 0.7 });
+    tone({ type: "sine", f0: 220, f1: 70, t: 0.3, gain: 0.12, delay: 0.7 });
+  } else if (name === "ilSlash" || name === "ilSlash2") {   // 덱 슬래시 — 날카로운 두 번 베기
+    if (!gate(name, 120)) return;
+    noise({ t: 0.12, gain: 0.12, f: name === "ilSlash" ? 5200 : 3800, q: 1.2, delay: name === "ilSlash" ? 0.1 : 0 });
+    tone({ type: "sawtooth", f0: 1600, f1: 500, t: 0.1, gain: 0.04, delay: name === "ilSlash" ? 0.1 : 0 });
+  } else if (name === "ilBox") {            // 카드 프리즌 — 상자가 닫히는 딸깍 · 마지막 접힘
+    if (!gate("ilBox", 300)) return;
+    [0, 0.08, 0.16, 0.24].forEach((d) => tone({ type: "square", f0: 1200, f1: 900, t: 0.025, gain: 0.04, delay: d }));
+    noise({ t: 0.3, gain: 0.14, f: 900, q: 0.8, delay: 1.7 });
+    tone({ type: "sine", f0: 260, f1: 80, t: 0.3, gain: 0.12, delay: 1.7 });
+  } else if (name === "ilBlink") {          // 카드 블링크 — 휙 사라졌다 나타남
+    if (!gate("ilBlink", 300)) return;
+    tone({ type: "sine", f0: 600, f1: 2400, t: 0.12, gain: 0.06 });
+    noise({ t: 0.2, gain: 0.12, f: 1200, q: 0.7, delay: 0.22 });
+  } else if (name === "ilFist") {           // 팬텀 피스트 — 모이는 소리 뒤 묵직한 충돌
+    if (!gate("ilFist", 300)) return;
+    for (let i = 0; i < 5; i++) noise({ t: 0.03, gain: 0.04, f: 4200, q: 3, delay: i * 0.045 });
+    noise({ t: 0.35, gain: 0.25, f: 320, q: 0.5, delay: 0.5 });
+    tone({ type: "sine", f0: 140, f1: 40, t: 0.35, gain: 0.25, delay: 0.5 });
+  } else if (name === "ilMirror") {         // 미러 하우스 — 유리가 울리는 맑은 소리
+    if (!gate("ilMirror", 500)) return;
+    [1568, 2093, 2637].forEach((f, i) => tone({ type: "sine", f0: f, t: 0.5, gain: 0.04, delay: i * 0.08 }));
+  } else if (name === "ilGhost") {          // 트릭 잔상
+    if (!gate("ilGhost", 90)) return;
+    tone({ type: "triangle", f0: 2400, f1: 900, t: 0.12, gain: 0.04 });
+  } else if (name === "ilGlass") {          // 거울 잔상 · 최후의 셔플 파쇄 — 유리 파쇄음
+    if (!gate("ilGlass", 120)) return;
+    noise({ t: 0.25, gain: 0.14, f: 7000, q: 1.5 });
+    for (let i = 0; i < 6; i++) tone({ type: "sine", f0: 2800 + i * 430, t: 0.06, gain: 0.025, delay: 0.02 + i * 0.03 });
+  } else if (name === "ilFinal") {          // 최후의 셔플 — 카드가 원으로 도는 소리 · 연타
+    if (!gate("ilFinal", 800)) return;
+    tone({ type: "sine", f0: 330, f1: 660, t: 0.5, gain: 0.06 });
+    for (let i = 0; i < 12; i++) noise({ t: 0.04, gain: 0.06, f: 5000, q: 3, delay: 0.6 + i * 0.1 });
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ type: "square", f0: f, t: 0.4, gain: 0.12, delay: i * 0.12 }));
   }

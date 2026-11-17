@@ -224,6 +224,27 @@ function drawSil(ctx, type, f, row, x, y, flip, { show = 1, lunge = 0, up = 0, a
   return { top: B.t - SIL_FY };
 }
 
+/* 명부 창 초상(11월 17일 사용자 "추출한 그림자들을 창으로") — 그림자 모습을 w × h 칸 가운데에 맞춰 그린다(작은 몹은 정수 배로 키움).
+   뒤에는 보라 기운 · 바닥 빛. 그림이 아직 없으면 false · 다 굳었으면 "done" */
+export function drawNecroPortrait(ctx, type, w, h, row = 0) {
+  ctx.clearRect(0, 0, w, h);
+  const bg = ctx.createRadialGradient(w / 2, h * 0.62, 4, w / 2, h * 0.62, Math.max(w, h) * 0.7);
+  bg.addColorStop(0, "rgba(120, 72, 200, 0.42)"); bg.addColorStop(0.55, "rgba(52, 26, 92, 0.32)"); bg.addColorStop(1, "rgba(10, 6, 16, 0)");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+  const s = silhouette(type, 4, row);
+  if (!s) return false;
+  const B = s.box, pad = 6;
+  let k = Math.min((w - pad * 2) / B.w, (h - pad * 2) / B.h);
+  if (k >= 1) k = Math.min(3, Math.floor(k));
+  const dw = Math.round(B.w * k), dh = Math.round(B.h * k);
+  ctx.save(); ctx.imageSmoothingEnabled = k < 1;
+  ctx.fillStyle = "rgba(156, 107, 255, 0.18)";
+  ctx.beginPath(); ctx.ellipse(w / 2, h - pad - 2, dw * 0.42, 5, 0, 0, TAU); ctx.fill();
+  ctx.drawImage(s.c, B.l, B.t, B.w, B.h, Math.round((w - dw) / 2), h - pad - dh, dw, dh);
+  ctx.restore();
+  return s.done ? "done" : true;
+}
+
 const solName = (k) => `nc_${SH[`nc_${k}`] ? k : "knight"}`;
 
 /* ── 그림자 병사 — 판정 상태 하나를 그린다. 솟아오름(나온 뒤 rise 초) · 공격 자세 · 걷기 · 서 있기 ──

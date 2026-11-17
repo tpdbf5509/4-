@@ -49,6 +49,15 @@ export const NC_KINDS = {
   giant: { name: "거수형", role: "범위 제압", reach: 95, spd: 220, r: 95, at: 0.42 },
 };
 export const NC_KIND_IDS = Object.keys(NC_KINDS);
+/* 명부 창 설명(11월 17일 — 그림자 명부 창 「소환 정보」, 정한 문구). 종류의 공격 방식을 짧게 */
+export const NC_KIND_DESC = {
+  knight: "앞에서 싸우는 기본 그림자 병사입니다. 가까운 적 하나를 벱니다.",
+  assassin: "가장 빠른 그림자입니다. 먼저 달려가 적 하나를 짧게 끊어 칩니다.",
+  archer: "뒤에서 그림자 화살을 쏩니다. 멀리 있는 적 하나를 맞힙니다.",
+  caster: "그림자 주술을 떨어뜨립니다. 맞은 자리 둘레를 함께 칩니다.",
+  giant: "느리지만 넓게 내려칩니다. 몰려 있는 적을 한꺼번에 누릅니다.",
+};
+
 /* 몹 종류 → 그림자 종류(기획안 "정적 매핑표"). 짝을 정한 근거는 그 몹의 생김새 · 공격 방식(정한 값). 없는 종류는 기사형 */
 export const NC_KIND_OF = {
   rabbit: "assassin", wolf: "assassin", spider: "assassin", chimera: "assassin", synthetic_forest: "assassin", rift_boundary: "assassin",

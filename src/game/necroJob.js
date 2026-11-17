@@ -36,6 +36,14 @@ function cleanRoster(list) {
   }
   return out;
 }
+/* 군단 편성(11월 17일 사용자 — 그림자 명부 창의 「군단 편성」 탭) — 소집 때 먼저 부를 종류 차례, 최대 SM.max(5). 명부에 없는 종류는 뺀다.
+   남은 칸 · 비어 있을 때는 예전처럼 등급 높은 것 → 먼저 등록한 것(정한 해석) */
+function cleanParty(list, roster) {
+  if (!Array.isArray(list)) return [];
+  const has = new Set(roster.map((q) => q.t)), out = [];
+  for (const t of list) if (typeof t === "string" && has.has(t) && !out.includes(t) && out.length < SM.max) out.push(t);
+  return out;
+}
 // 직업 한 칸 — 레벨 · 경험치 · 연마 · 명부를 범위 안으로
 export function cleanNcJob(d) {
   d = d && typeof d === "object" ? d : {};
@@ -45,7 +53,8 @@ export function cleanNcJob(d) {
     const l = clampN(q[0], 0, NC.train.max);
     return [l, l >= NC.train.max ? 0 : clampN(q[1], 0, ncTrainNeed(l) - 1)];
   });
-  return { lv, xp: lv >= NC.maxLv ? 0 : clampN(d.xp, 0, ncJobNeed(lv) - 1), tr, roster: cleanRoster(d.roster) };
+  const roster = cleanRoster(d.roster);
+  return { lv, xp: lv >= NC.maxLv ? 0 : clampN(d.xp, 0, ncJobNeed(lv) - 1), tr, roster, party: cleanParty(d.party, roster) };
 }
 // 이 직업인가 — 판정은 가방 값으로만 본다. NECRO.live 를 끄면 연습장(sandbox 맵)에서만 켜진다
 export const necroOn = (h) => !!(h && h.bag && h.bag.hj && h.bag.hj.active === NECRO_ID && h.bag.hj.jobs && h.bag.hj.jobs[NECRO_ID] && (NC.live || h.map === "sandbox"));
@@ -293,10 +302,22 @@ function shadowMul(E, h, s, sd, base) {
   const J = jobOf(h);
   return base * (1 + RS.gradeDmg * (sd.g - 1)) * (domainOn(s, h, sd.x, sd.y, E) ? 1 + domainDmg(J) : 1) * (sd.first ? 1 + ET.first : 1);
 }
-function summonUse(E, g, h) {
+// 소집할 차례 — 편성한 것을 그 차례로 먼저(소각 잠김 제외), 남은 칸은 등급 높은 것 → 먼저 등록한 것. first(명부 창 「소환」)는 맨 앞에 넣는다
+export function summonPick(J, lock, first) {
+  const free = J.roster.filter((q) => !(lock[q.t] > 0));
+  const party = (J.party || []).map((t) => free.find((q) => q.t === t)).filter(Boolean);
+  const auto = free.map((q, i) => ({ q, i })).sort((a, b) => b.q.g - a.q.g || a.i - b.i).map((o) => o.q);
+  let list = [...party, ...auto.filter((q) => !party.includes(q))];
+  const f = first && free.find((q) => q.t === first);
+  if (f) list = [f, ...list.filter((q) => q !== f)];
+  return list.slice(0, SM.max);
+}
+function summonUse(E, g, h, req) {
   if (blocked(E, g, h, "summon")) return;
   const s = st(h), J = jobOf(h);
-  const pick = J.roster.filter((q) => !(s.lock[q.t] > 0)).map((q, i) => ({ q, i })).sort((a, b) => b.q.g - a.q.g || a.i - b.i).slice(0, SM.max).map((o) => o.q);
+  const first = req && typeof req.t === "string" ? req.t : "";
+  if (first && s.lock[first] > 0) return void no(E, g, h, `소각한 그림자는 ${Math.ceil(s.lock[first])}초 뒤에 부를 수 있습니다`, WARN);
+  const pick = summonPick(J, s.lock, first);
   if (!pick.length) return void no(E, g, h, J.roster.length ? "부를 수 있는 그림자가 없습니다" : "명부에 그림자가 없습니다 — 흔적 추출로 등록하세요");
   pay(E, g, h, "summon");
   for (const sd of s.sh) E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, mt: sd.t, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
@@ -537,11 +558,22 @@ function tickLegion(E, g, h, q, dt) {
 }
 
 /* ── 입력 — req = { op: "use", s: "extract" | "summon" | "swap" | "domain" | "march" | "burn" | "legion" } ── */
+/* 명부 창(11월 17일) — { op: "use", s: "summon", t } 고른 그림자를 맨 앞에 두고 소집 · { op: "recall", t } 나와 있는 그 그림자만 거둔다(영혼 · 대기 없음) ·
+   { op: "party", list } 군단 편성 차례를 바꾼다(저장 값) */
+function recallUse(E, g, h, t) {
+  const s = st(h), sd = s.sh.find((q) => q.t === t);
+  if (!sd) return void no(E, g, h, "나와 있지 않은 그림자입니다");
+  E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, mt: sd.t, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
+  s.sh = s.sh.filter((q) => q !== sd);
+  call(E, g, h, `${sd.n} 회수`);
+}
 const USE = { extract: extractUse, summon: summonUse, swap: swapUse, domain: domainUse, march: marchUse, burn: burnUse, legion: legionUse };
 export function necroInput(E, g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req || typeof req !== "object" || !necroOn(h)) return false;
-  if (req.op === "use" && Object.prototype.hasOwnProperty.call(USE, req.s)) USE[req.s](E, g, h);
+  if (req.op === "use" && Object.prototype.hasOwnProperty.call(USE, req.s)) USE[req.s](E, g, h, req);
+  else if (req.op === "recall" && typeof req.t === "string") recallUse(E, g, h, req.t);
+  else if (req.op === "party") { const J = jobOf(h); J.party = cleanParty(req.list, J.roster); h.bag.v = (h.bag.v || 0) + 1; }
   return false;
 }
 
@@ -589,6 +621,15 @@ export function necroPutRoster(h, t, grade, nameOf) {
   J.roster.unshift({ t, n: nameOf ? nameOf(t) : t, g, x: 0 });
   if (J.roster.length > rosterSlots(J)) J.roster.length = rosterSlots(J);
 }
+/* 격자 연습장 「강화」 — 같은 종류를 한 번 재추출한 것으로 센다(게임에서 승급하는 유일한 길과 같은 값). 승급하면 true. 게임에는 이 단추가 없다 */
+export function necroSandboxRefine(h, t) {
+  if (!necroOn(h)) return false;
+  const J = jobOf(h), e = J.roster.find((q) => q.t === t);
+  if (!e || e.g >= RS.grades) return false;
+  e.x += 1;
+  if (e.x >= gradeCost(J, e.g)) { e.x = 0; e.g += 1; return true; }
+  return false;
+}
 export function necroFillRoster(h, grade, nameOf) {
   if (!necroOn(h)) return;
   const J = jobOf(h), want = [["goblin", "knight"], ["wolf", "assassin"], ["skeletal", "archer"], ["necro", "caster"], ["ogre", "giant"]];
@@ -605,7 +646,7 @@ export function necroView(h) {
   if (h.ncv) return h.ncv;
   if (!necroOn(h)) return null;
   const J = jobOf(h), s = h.nc;
-  return { soul: s ? s.soul : 0, max: NC.soul, lv: J.lv, xp: J.xp, tr: J.tr, roster: J.roster, slots: rosterSlots(J),
+  return { soul: s ? s.soul : 0, max: NC.soul, lv: J.lv, xp: J.xp, tr: J.tr, roster: J.roster, party: J.party || [], slots: rosterSlots(J),
     cd: s ? { ...s.cd } : { ...NO_CD }, cdMax: Object.fromEntries(Object.entries(NC_SKILLS).map(([k, v]) => [k, v.cd])),
     sh: s ? s.sh : [], traces: s ? s.traces.filter((q) => q.map === h.map) : [], dom: s && s.dom ? r1(Math.max(0, s.dom.dur - s.dom.t)) : 0,
     lock: s ? { ...s.lock } : {}, eternal: ncEternal(J), tint: necroTint(ncTrainSum(J)), costs: Object.fromEntries(Object.entries(NC_SKILLS).map(([k, v]) => [k, v.cost])) };

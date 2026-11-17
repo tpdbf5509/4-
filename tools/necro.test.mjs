@@ -246,3 +246,13 @@ test("모든 몹 종류가 그림자 종류 짝을 가진다(허수아비 제외
   const miss = Object.keys(MOB).filter((t) => t !== "dummy" && !NC_KIND_OF[t]);
   assert.deepEqual(miss, []);
 });
+
+test("명부 창 — 편성 차례 · 고른 그림자 먼저 소집 · 회수", async () => {
+  const { summonPick, necroInput, necroSandboxRefine } = await import("../src/game/necroJob.js");
+  const roster = [{ t: "a", n: "a", g: 1, x: 0 }, { t: "b", n: "b", g: 3, x: 0 }, { t: "c", n: "c", g: 2, x: 0 }, { t: "d", n: "d", g: 5, x: 0 }, { t: "e", n: "e", g: 1, x: 0 }, { t: "f", n: "f", g: 4, x: 0 }];
+  assert.deepEqual(summonPick({ roster, party: [] }, {}).map((q) => q.t), ["d", "f", "b", "c", "a"]);
+  assert.deepEqual(summonPick({ roster, party: ["e", "a"] }, {}).map((q) => q.t), ["e", "a", "d", "f", "b"]);
+  assert.deepEqual(summonPick({ roster, party: ["e"] }, { e: 3 }, "c").map((q) => q.t), ["c", "d", "f", "b", "a"]);
+  assert.equal(typeof necroInput, "function");
+  assert.equal(typeof necroSandboxRefine, "function");
+});

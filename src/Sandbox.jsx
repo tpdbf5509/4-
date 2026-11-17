@@ -2,7 +2,7 @@
    직업 체험(JobTrial.jsx)처럼 이 기기에서만 도는 작은 세계를 만든다. 규칙은 게임과 같은 rpg.js, 그림은 drawRpg.
    서버 · 장부 · 이 기기의 캐릭터 기록과 이어지지 않는다(아무것도 저장하지 않는다). 수치는 sandboxData.js.
    훈련장 기능(무적 · 쿨타임 끄기 · 스택 가득 · 초당 피해)은 g.test 로 이 맵에서도 듣는다(rpg.js trainTick · rpgTrain). */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, JOBS, ELEMS, JOB_BY_ID, ELEM_BY_ID, LV_TOP, STAT_IDS, makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgTrain, trainView,
@@ -26,9 +26,10 @@ import { engineerIconStyle } from "./game/engineerArt.js";
 import { ENGINEER_ICON } from "./game/engineerPxData.js";
 import { rpgSandboxHit } from "./game/rpg.js";
 import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_SKILLS, NC_SCYTHE, NC_TRAIN_NAMES, NC_KINDS, NC_ROSTER } from "./game/necroData.js";
-import { unlockNecro, necroView, ncLock, necroFillRoster, necroPutRoster, kindOf, gradeCost } from "./game/necroJob.js";
+import { unlockNecro, necroView, ncLock, necroFillRoster, necroPutRoster, necroSandboxRefine, kindOf, gradeCost } from "./game/necroJob.js";
 import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
+import NecroRosterPanel from "./NecroRosterPanel.jsx";
 import sfx from "./game/sfx.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
 import { KEY_ACTIONS, BLOOD_ACTS, loadKeys, keyMap, keyOf, mouseCode } from "./game/keys.js";
@@ -292,6 +293,7 @@ export default function Sandbox() {
   const [round, setRound] = useState(0);
   const [hud, setHud] = useState(null);
   const [ncPick, setNcPick] = useState(NC_ALL[0]);
+  const [ncOpen, setNcOpen] = useState(false);              // Necromancer 004 그림자 명부 창
   const cvsRef = useRef(null);
   const G = useRef(null);
   const pointer = useRef(null);                   // 판 위 포인터(판 좌표) — 스킬이 이쪽으로 나간다
@@ -341,6 +343,7 @@ export default function Sandbox() {
   actRef.current = act;
   const tool = (op) => { const g = G.current; if (g) rpgTrain(g, 0, { op }); };
   const gmUse = (sk) => act("hidden", { op: "use", s: sk });
+  const closeNc = useCallback(() => setNcOpen(false), []);
   const prey = () => {                            // Necromancer 004 — 흔적 추출 연습 몹(쓰러뜨릴 수 있다)
     const g = G.current, h = g && g.heroes[0];
     if (!h) return;
@@ -514,7 +517,7 @@ export default function Sandbox() {
           const [cx, cy] = cellOf(h);
           setHud({ en, dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
             hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "", gm,
-            nc: nc && { ...nc, sh: nc.sh.map((q) => ({ t: q.t })), traces: nc.traces.map((q) => q.id), roster: nc.roster.map((q) => ({ ...q })), tr: nc.tr.map((q) => q.slice()) } });
+            nc: nc && { ...nc, sh: nc.sh.map((q) => ({ t: q.t, life: q.life })), traces: nc.traces.map((q) => q.id), roster: nc.roster.map((q) => ({ ...q })), party: nc.party.slice(), tr: nc.tr.map((q) => q.slice()) } });
         }
       }
     };
@@ -567,11 +570,16 @@ export default function Sandbox() {
                 <select aria-label="명부에 넣을 몹" value={ncPick} onChange={(e) => setNcPick(e.target.value)}>
                   {NC_ALL.map((t) => <option key={t} value={t}>{mobName({ type: t })} · {NC_KINDS[kindOf(t)].name}</option>)}
                 </select>
+                <button type="button" className={`jt-chip ${ncOpen ? "on" : ""}`} aria-pressed={ncOpen} onClick={() => setNcOpen((o) => !o)}>그림자 명부</button>
                 <button type="button" className="jt-chip" title="고른 몹 그림자를 명부 맨 앞에 넣습니다 — 다음 소집에 먼저 나옵니다" onClick={() => { const h = G.current && G.current.heroes[0]; if (h) necroPutRoster(h, ncPick, cfg.ncGrade || 1, (t) => mobName({ type: t })); }}>명부에 넣기</button>
               </span>}
             </div>
             {engineer && hud && hud.en && <EngineerBar v={hud.en} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {gambler && !engineer && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
+            {necro && ncOpen && hud && hud.nc && <NecroRosterPanel v={hud.nc} onClose={closeNc}
+              onSummon={(t) => act("hidden", { op: "use", s: "summon", t })} onRecall={(t) => act("hidden", { op: "recall", t })}
+              onParty={(list) => act("hidden", { op: "party", list })}
+              onRefine={(t) => { const h = G.current && G.current.heroes[0]; if (h) necroSandboxRefine(h, t); }} />}
             {necro && hud && hud.nc && <NecroBar v={hud.nc} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {touch && !hidden && <div className="jt-pads">
               <button type="button" className="btn-ghost" onClick={() => act("skill")}>큰 기술{hud && hud.sk > 0 ? ` ${Math.ceil(hud.sk)}초` : ""}</button>

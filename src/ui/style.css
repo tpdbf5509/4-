@@ -3111,3 +3111,98 @@ button.forge-stage:disabled { cursor: default; }
 /* 격자 연습장 — Necromancer 004 명부에 넣을 몹 고르기 */
 .sb-ncpick { display: inline-flex; gap: 6px; align-items: center; max-width: 100%; }
 .sb-ncpick select { min-width: 0; max-width: 220px; font: inherit; font-size: 12px; padding: 3px 6px; background: #2a2118; color: #e9dcc0; border: 1px solid #6b5636; border-radius: 4px; }
+
+/* ── Necromancer 004 그림자 명부 창(격자 연습장, 11월 17일) — 검은 바탕 · 보라 톤 · 1px 선. 판 위에 겹쳐 띄운다 ── */
+.ncw {
+  --nw-bg: #0e0a14; --nw-card: #161020; --nw-line: #3a2a55; --nw-line2: #2a1f3d; --nw-acc: #9c6bff; --nw-text: #d9ccf0; --nw-mute: #8b7fa3;
+  position: absolute; left: 0; right: 0; top: 0; max-height: 100%; overflow: auto; z-index: 6; box-sizing: border-box;
+  padding: 14px 16px 16px; background: rgba(14, 10, 20, 0.97); border: 1px solid var(--nw-line); border-radius: 8px;
+  color: var(--nw-text); text-align: left; letter-spacing: -0.02em; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.ncw-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ncw-head h2 { margin: 0; font-size: 17px; letter-spacing: -0.03em; color: #eadff8; }
+.ncw-head h2 em { font-style: normal; font-size: 12px; color: var(--nw-mute); margin-left: 8px; }
+.ncw-x { font: inherit; font-size: 12px; padding: 4px 10px; color: var(--nw-mute); background: transparent; border: 1px solid var(--nw-line2); border-radius: 4px; cursor: pointer; }
+.ncw-tabs { display: flex; gap: 6px; margin: 12px 0; }
+.ncw-tabs button {
+  flex: 1 1 0; font: inherit; font-size: 13px; padding: 8px 6px; color: var(--nw-mute); cursor: pointer;
+  background: var(--nw-card); border: 1px solid var(--nw-line2); border-radius: 6px;
+}
+.ncw-tabs button.on { color: #f1e6ff; border-color: var(--nw-acc); background: linear-gradient(180deg, #2a1a45, #1a1129); }
+.ncw-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 12px; align-items: start; }
+.ncw-list { display: flex; flex-direction: column; gap: 6px; }
+.ncw-face { display: block; flex: none; image-rendering: pixelated; background: #0a0710; border: 1px solid var(--nw-line2); border-radius: 4px; }
+.ncw-card {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px 6px 6px; cursor: pointer; text-align: left;
+  font: inherit; color: inherit; background: var(--nw-card); border: 1px solid var(--nw-line2); border-radius: 6px;
+}
+.ncw-card.on { border-color: var(--nw-acc); background: linear-gradient(90deg, #22163a, #161020); }
+.ncw-card-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; font-size: 12px; color: var(--nw-mute); }
+.ncw-card-main b { font-size: 14.5px; color: #eadff8; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ncw-soul { font-style: normal; color: #c9a8ff; }
+.ncw-state { flex: none; display: flex; flex-direction: column; align-items: flex-end; font-size: 11.5px; color: var(--nw-mute); }
+.ncw-state em { font-style: normal; font-size: 13px; color: var(--nw-text); font-variant-numeric: tabular-nums; }
+.ncw-state.ready { padding: 4px 9px; border: 1px solid rgba(166, 217, 176, 0.55); border-radius: 999px; color: #a6d9b0; font-size: 12px; }
+.ncw-state.on { color: #c9a8ff; }
+.ncw-state.need, .ncw-state.lock { color: #b48a9c; }
+.ncw-info { padding: 12px; background: var(--nw-card); border: 1px solid var(--nw-line); border-radius: 6px; }
+.ncw-h { margin: 0 0 10px; font-size: 14px; color: #eadff8; letter-spacing: -0.03em; }
+.ncw-hero { display: flex; gap: 12px; align-items: flex-start; }
+.ncw-hero > div { min-width: 0; }
+.ncw-name { display: block; font-size: 18px; color: #f1e6ff; letter-spacing: -0.03em; line-height: 1.2; }
+.ncw-role { margin: 6px 0 0; font-size: 12px; color: var(--nw-text); }
+.ncw-role span { display: inline-block; margin-right: 6px; padding: 1px 7px; border: 1px solid var(--nw-line); border-radius: 3px; color: var(--nw-mute); }
+.ncw-desc { margin: 8px 0 0; font-size: 12px; line-height: 1.55; color: var(--nw-mute); }
+.ncw-grade { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; font-size: 12px; color: var(--nw-mute); }
+.ncw-grade b { font-size: 15px; color: #eadff8; }
+.ncw-grade em { font-style: normal; font-variant-numeric: tabular-nums; }
+.ncw-gbar, .ncw-stat i { display: block; height: 6px; margin-top: 5px; background: #0a0710; border: 1px solid var(--nw-line2); border-radius: 3px; overflow: hidden; }
+.ncw-gbar span, .ncw-stat i span { display: block; height: 100%; background: linear-gradient(90deg, #5a3a9c, var(--nw-acc)); }
+.ncw-sub { margin: 14px 0 6px; padding-bottom: 5px; font-size: 12.5px; font-weight: 600; color: var(--nw-text); border-bottom: 1px solid var(--nw-line2); }
+.ncw-stat { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--nw-mute); }
+.ncw-stat i { margin-top: 0; }
+.ncw-stat b { font-weight: 500; text-align: right; color: var(--nw-text); font-variant-numeric: tabular-nums; }
+.ncw-note { margin: 8px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--nw-mute); }
+.ncw-blank { padding: 18px 4px; }
+.ncw-cost { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ncw-cost span { flex: 1 1 0; min-width: 84px; padding: 6px 8px; font-size: 11.5px; color: var(--nw-mute); border: 1px solid var(--nw-line2); border-radius: 4px; }
+.ncw-cost b { display: block; font-size: 13px; color: var(--nw-text); font-weight: 500; }
+.ncw-acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+.ncw-btn {
+  font: inherit; font-size: 13.5px; padding: 9px 8px; cursor: pointer; color: var(--nw-text);
+  background: #1c1429; border: 1px solid var(--nw-line); border-radius: 6px;
+}
+.ncw-btn.main { color: #f1e6ff; border-color: var(--nw-acc); background: linear-gradient(180deg, #3a2266, #241540); }
+.ncw-btn:disabled { opacity: 0.38; cursor: default; }
+.ncw-party .ncw-btn { margin-top: 10px; }
+.ncw-slots { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.ncw-slots li { min-height: 86px; display: flex; border: 1px solid var(--nw-line); border-radius: 6px; background: var(--nw-card); }
+.ncw-slots button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px; font: inherit; font-size: 11px; color: var(--nw-text); background: none; border: 0; cursor: pointer; min-width: 0; }
+.ncw-slots button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ncw-empty { margin: auto; font-size: 13px; color: var(--nw-line); }
+.ncw-next { margin: 8px 0 0; font-size: 12px; color: var(--nw-text); }
+.ncw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; margin-top: 10px; }
+.ncw-mini {
+  position: relative; display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; text-align: left; cursor: pointer;
+  font: inherit; font-size: 12.5px; color: var(--nw-text); background: var(--nw-card); border: 1px solid var(--nw-line2); border-radius: 6px; min-width: 0;
+}
+.ncw-mini span { display: flex; flex-direction: column; min-width: 0; }
+.ncw-mini em { font-style: normal; font-size: 11px; color: var(--nw-mute); }
+.ncw-mini.on { border-color: var(--nw-acc); }
+.ncw-mini b { position: absolute; top: 4px; right: 6px; font-size: 12px; color: #c9a8ff; }
+.ncw-mini:disabled { opacity: 0.4; cursor: default; }
+.ncw-grades { display: flex; flex-direction: column; gap: 6px; }
+.ncw-gr { display: flex; align-items: center; gap: 10px; padding: 4px 8px 4px 4px; background: var(--nw-card); border: 1px solid var(--nw-line2); border-radius: 6px; }
+.ncw-gr-main { flex: 1; min-width: 0; font-size: 11.5px; color: var(--nw-mute); }
+.ncw-gr-main b { font-size: 13.5px; color: #eadff8; }
+.ncw-gr-main b em { font-style: normal; font-size: 12px; color: #c9a8ff; margin-left: 4px; }
+.ncw-gr-main > em { font-style: normal; display: block; margin-top: 3px; }
+.ncw-gr .ncw-btn { flex: none; padding: 7px 14px; }
+@media (max-width: 720px) {
+  .ncw { padding: 12px; }
+  .ncw-body { grid-template-columns: minmax(0, 1fr); }
+  .ncw-info { order: -1; }
+  .ncw-hero .ncw-face { width: 96px; height: 96px; }
+  .ncw-slots li { min-height: 76px; }
+  .ncw-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}

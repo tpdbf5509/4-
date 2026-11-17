@@ -2,7 +2,7 @@
    node --test tools/engineer.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgApply, rpgPack } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgApply, rpgPack, advArtPath } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { whyEquip } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
@@ -218,4 +218,15 @@ test('그림 규격 — 시트 · 아이콘 · 연출 덜어내기 · 바닥 연
   assert.equal(Object.keys(ENGINEER_ICON).length, ENGINEER_PX.en_icons.n);
   assert.ok(Object.keys(ENGINEER_CAP).every(k => k.startsWith('sk_en_')));
   assert.ok([...ENGINEER_GROUND].every(k => GROUND_FX.has(k)));
+});
+
+test('외형 — 사용자 그림 한 벌을 남녀 모두 쓴다(서 있는 그림 · 걷는 그림 4장)', () => {
+  const { h } = setup();
+  for (const gd of ['m', 'f']) {
+    h.gender = gd;
+    assert.equal(advArtPath(h, 'front'), `/assets/characters/rpg/engineer-${gd}/front.webp`);
+    for (const v of ['front', 'back', 'side', 'turn']) for (const s of ['', '-bare']) assert.ok(existsSync(`public/assets/characters/rpg/engineer-${gd}/${v}${s}.webp`), `${gd} ${v}${s}`);
+    for (const v of ['front', 'back', 'side']) for (let i = 0; i < 4; i++) assert.ok(existsSync(`public/assets/characters/rpg/engineer-${gd}/walk-${v}-${i}.webp`), `${gd} walk ${v} ${i}`);
+  }
+  assert.match(readFileSync('src/game/rpgArt.js', 'utf8'), /engineer-\[mf\]/, '걷는 그림을 쓴다');
 });

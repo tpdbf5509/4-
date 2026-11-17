@@ -203,6 +203,26 @@ export function acChoose(g, h, op, i) {
   acNext(g, h);
   return true;
 }
+/* 관리자 명령 /카드 — 흡혈의 이빨(66) 다이아 + 무작위 강화 카드 30번을 곧바로 얹는다(11월 17일 사용자 요청).
+   층 · 단계와 상관없이 탑 안이면 된다. 같은 카드가 또 걸리면 등급이 오르고(최대 다이아) 저주는 뽑지 않는다.
+   선택지 차례(q)는 건드리지 않는다. 돌려주는 값: 무작위로 얹은 번수 */
+export const ADMIN_CARD = { fixed: 66, random: 30 };
+export function acGrant(g, h) {
+  const A = h && h.ac;
+  if (!A) return -1;
+  const give = (c) => { const was = A.c[c.n] || 0; A.c[c.n] = was + 1; onPick(g, h, c.n, was, was + 1); };
+  const fx = CARD_BY_N[ADMIN_CARD.fixed];
+  while ((A.c[fx.n] || 0) < 3) give(fx);
+  let done = 0;
+  for (; done < ADMIN_CARD.random; done++) {
+    const pool = CARDS.filter((c) => !c.curse && canHave(h, c));
+    if (!pool.length) break;
+    give(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  A.v++;
+  refreshKeep(h);
+  return done;
+}
 function onPick(g, h, n, was, tier) {
   const A = h.ac, c = CARD_BY_N[n];
   const tv = (t) => (t > 0 ? c.tv[t - 1] : 0);

@@ -293,3 +293,17 @@ test('관리자 명령 /탑 — 그 층 앞에 올림 · 파편과 기록은 쌓
   g.aruns = [0, 1, 2].map((s) => ({ slot: s, map: `abyss-${s}`, f: 1, phase: 'go', t: 99 })); b.map = 'plaza';
   rpgAdminCmd(g, 0, '/탑 탑1 5'); assert.ok(sysOf(g, 0).some((m) => m.includes('모두 차')));
 });
+
+test('관리자 명령 /카드 — 흡혈의 이빨 다이아 + 무작위 30장, 저주 없음 · 탑 밖이면 안내', async () => {
+  const { rpgAdminCmd } = await import('../src/game/adminCmd.js');
+  const { g } = world([{ lv: 10 }]);
+  const h = g.heroes[0]; h.admin = 1; h.pty = 0;
+  rpgAdminCmd(g, 0, '/카드 나'); assert.ok(sysOf(g, 0).some((m) => m.includes('탑 안에 없습니다')));
+  rpgAdminCmd(g, 0, '/탑 나 7'); run(g, 0.2);
+  const q0 = h.ac.q;
+  assert.equal(rpgAdminCmd(g, 0, '/카드 나'), true);
+  assert.equal(h.ac.c[66], 3);
+  const lv = Object.entries(h.ac.c);
+  assert.equal(lv.reduce((a, [, v]) => a + v, 0) - 3 - (q0 === 0 ? 0 : 0) >= 30, true, '30번 이상 얹힘');
+  assert.ok(lv.every(([n, v]) => v <= 3 && Number(n) <= 170), '저주 없음 · 최대 다이아');
+});

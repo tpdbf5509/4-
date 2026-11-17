@@ -1,6 +1,6 @@
 /* 히든 직업 스킬 설명 창(11월 17일 사용자 "m키를 누르면 스킬들 상세설명 보여주는 탭 만들어줘") — 격자 연습장에서만.
    M(그 키가 다른 행동에 묶여 있지 않을 때) · 도구 줄 「스킬 설명」 단추로 열고, 다시 M · Esc · 닫기로 닫는다.
-   내용은 game/hiddenSkillInfo.js(데이터 상수에서 만든다). 모양은 그림자 명부 창(.ncw)과 같은 검은 바탕 · 보라 톤 */
+   내용은 game/hiddenSkillInfo.js(데이터 상수에서 만든다). 모양은 그림자 명부 창(.ncw) 틀에 직업마다 색(.skw-<직업 id> — 도박꾼 금빛 · 엔지니어 청록 · 네크로맨서 보라) */
 import { useEffect } from "react";
 
 function SkillCard({ q, lv, keyOf, icon, basic }) {
@@ -32,7 +32,7 @@ export default function SkillInfoPanel({ info, lv, keyOf, icon, onClose }) {
     return () => window.removeEventListener("keydown", k, true);
   }, [onClose]);
   return (
-    <div className="ncw skw" role="dialog" aria-label="스킬 설명">
+    <div className={`ncw skw skw-${info.id}`} role="dialog" aria-label="스킬 설명">
       <div className="ncw-head">
         <h2>스킬 설명 <em>{info.name} · {info.title} · 직업 레벨 {lv}</em></h2>
         <button type="button" className="ncw-x" onClick={onClose} aria-label="닫기">닫기</button>

@@ -3215,13 +3215,19 @@ button.forge-stage:disabled { cursor: default; }
 .skw-top { display: flex; align-items: center; gap: 10px; }
 .skw-ico { flex: none; width: 40px; height: 40px; border: 1px solid var(--nw-line); border-radius: 4px; }
 .skw-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.skw-name b { font-size: 14.5px; color: #eadff8; letter-spacing: -0.03em; }
+.skw-name b { font-size: 14.5px; color: var(--nw-hi); letter-spacing: -0.03em; }
 .skw-name em { font-style: normal; font-size: 11px; color: var(--nw-mute); }
-.skw-key { flex: none; font: inherit; font-size: 11.5px; padding: 2px 7px; color: #c9a8ff; border: 1px solid var(--nw-line); border-radius: 4px; background: #0a0710; }
+.skw-key { flex: none; font: inherit; font-size: 11.5px; padding: 2px 7px; color: var(--nw-acc2); border: 1px solid var(--nw-line); border-radius: 4px; background: #0a0710; }
 .skw-desc { margin: 7px 0 0; font-size: 12px; line-height: 1.55; color: var(--nw-text); }
 .skw-stats { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0 0; }
 .skw-stats div { padding: 3px 7px; border: 1px solid var(--nw-line2); border-radius: 4px; font-size: 11.5px; }
 .skw-stats dt { display: inline; color: var(--nw-mute); margin-right: 5px; }
-.skw-stats dd { display: inline; margin: 0; color: #eadff8; font-variant-numeric: tabular-nums; }
-.skw-train { margin: 7px 0 0; padding: 0 0 0 16px; font-size: 11.5px; line-height: 1.5; color: #b8a3dc; }
+.skw-stats dd { display: inline; margin: 0; color: var(--nw-hi); font-variant-numeric: tabular-nums; }
+.skw-train { margin: 7px 0 0; padding: 0 0 0 16px; font-size: 11.5px; line-height: 1.5; color: var(--nw-acc2); }
 @media (max-width: 720px) { .skw-grid { grid-template-columns: minmax(0, 1fr); } }
+/* 직업마다 색(11월 17일 사용자 "색은 바꿔야지") — 데이터 파일 팔레트(GAMBLER_COLORS · ENGINEER_COLORS · NECRO_COLORS)를 톤다운해 쓴다 */
+.skw { --nw-hi: #eadff8; --nw-acc2: #c9a8ff; background: var(--nw-bg); }
+.skw .ncw-head h2 { color: var(--nw-hi); }
+.skw.skw-gambler { --nw-bg: #120d07; --nw-card: #1d160c; --nw-line: #5c4420; --nw-line2: #33270f; --nw-acc: #d8ad4f; --nw-acc2: #e6c77e; --nw-text: #f2dfa6; --nw-mute: #a8956a; --nw-hi: #f6e5aa; }
+.skw.skw-engineer { --nw-bg: #081214; --nw-card: #0f1d1f; --nw-line: #2b5a60; --nw-line2: #1a3438; --nw-acc: #4fa7b2; --nw-acc2: #8fd3dc; --nw-text: #cfeff3; --nw-mute: #7fa5aa; --nw-hi: #e0f8fb; }
+.skw-gambler .skw-ico, .skw-engineer .skw-ico { border-color: var(--nw-line); }

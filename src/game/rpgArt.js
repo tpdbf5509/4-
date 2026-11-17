@@ -1,3 +1,4 @@
+import {drawRqGround,drawRqMob} from './requiemArt.js';
 import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf, drawStoryMarks, drawStoryGateLock} from './storyArt.js';
 import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, drawVillageGround, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
@@ -2787,6 +2788,7 @@ export function drawRpg(ctx, g, bgs) {
   else (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));
   if (M.village) drawVillageGround(ctx);
   if (M.dungeon) drawTorches(ctx, M, cam, time);
+  drawRqGround(ctx,g,M,me,time);
   if (M.pvp) drawArenaFloor(ctx, M);
   if (M.race) drawRaceTrack(ctx, M, g, time, cam, W);   // 몹 레이스 트랙(raceArt.js)
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
@@ -2854,7 +2856,7 @@ export function drawRpg(ctx, g, bgs) {
     // 띄움에 걸린 것은 위로 떠서 그린다 · 걸린 표시(경직 · 속박 · 낙인)는 그 위에
     const who = o.m || o.h, lift = who ? liftOf(who, 1 / 60) : 0;
     if (lift) { ctx.save(); ctx.translate(0, -lift); }
-    if (o.m) { (MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time,g); drawAdvMob(ctx, o.m, time, (o.m.rad || 16) * 1.5 + 24); }   // 명사수 약점 표식
+    if (o.m) { (o.m.rq ? drawRqMob : MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time,g); drawAdvMob(ctx, o.m, time, (o.m.rad || 16) * 1.5 + 24); }   // 명사수 약점 표식
     else if (o.h) {
       const ride = M.race ? drawRaceMount(ctx, g, o.h, time) : 0;   // 몹 레이스 — 탈것을 먼저 그리고 그 위에 올라탄다
       if (ride) { ctx.save(); ctx.translate(0, -ride); }

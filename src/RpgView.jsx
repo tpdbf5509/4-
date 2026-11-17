@@ -1,5 +1,7 @@
 import VillagePanel from './VillagePanel.jsx';
 import LibraryPanel from './LibraryPanel.jsx';
+import RequiemHud from './RequiemHud.jsx';
+import {rqNear} from './game/requiem.js';
 import StoryCard from './StoryCard.jsx';
 import { storyView } from './game/storyQuest.js';
 import RpgCornerMenus from "./RpgCornerMenus.jsx";
@@ -942,7 +944,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const h = g.heroes[mySeat];
       const npc0 = npcNear(h);
       // BLOOD-001 조사 자리(핏자국 · 유리관 …)는 NPC 가 없어도 서버로 말 걸기를 보낸다 — 예전엔 여기서 끊어 아무 반응이 없었다
-      const npc = npc0 || (h && (spotNear(h) || gmSpotNear(h)) ? { spot: 1 } : null);
+      const npc = npc0 || (h && (spotNear(h) || rqNear(h) || gmSpotNear(h)) ? { spot: 1 } : null);
       // 약초 채집물이 NPC 보다 가까우면 채집한다(alchemy.js) — 시작 · 완료는 서버가 정한다
       const hn = h && herbNear(g, h);
       if (hn && (!npc0 || Math.hypot(hn.x - h.x, hn.y - h.y) < Math.hypot(npc0.x - h.x, npc0.y - h.y))) {
@@ -1589,7 +1591,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         setHud(me ? {
           lv: me.lv, xp: me.xp, need: needXp(me.lv), hp: Math.max(0, Math.round(me.hp)), max: me.max,
           coins: me.coins, quest: { ...me.quest }, sk: me.sk, down: me.down, map: me.map, near: npcNear(me), herb: herbNear(g, me), gath: !!me.gath,
-          bspot: (() => { const s = spotNear(me); if (s) return { name: s.name, line: spotLine(me, s) }; const q = gmSpotNear(me); return q ? { name: q.name, line: gmSpotLine(me, q) } : null; })(),   // BLOOD-001 · Gambler 002 조사 자리
+          bspot: (() => { const rq = rqNear(me); if (rq) return rq; const s = spotNear(me); if (s) return { name: s.name, line: spotLine(me, s) }; const q = gmSpotNear(me); return q ? { name: q.name, line: gmSpotLine(me, q) } : null; })(),   // BLOOD-001 · Gambler 002 조사 자리
           st: { ...me.st }, left: statLeft(me), loaded: !!me.loaded, bagV: me.bag.v, admin: !!me.admin,
           // 산 스킬 칸 — 배운 것만, 남은 대기 시간과 함께
           // 스킬 칸 — 직업 칸 · 일반 칸 1 · 2 에 넣은 것만(가방 "스킬" 탭)
@@ -1627,7 +1629,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
           story: storyView(me),                     // 메인 스토리 1부 진행 — 위쪽 줄 · 퀘스트 창 · 대화 창(storyQuest.js)
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
-          self: {server:g.wbServer, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
+          self: {rqRun: me.rqRun ? structuredClone(me.rqRun) : null, rqBoss: (() => {const b=g.mobs.find(m=>m.rq==="boss" && m.map===me.map && !m.dead); return b ? {hp:b.hp,max:b.max,phase:b.rqPhase,shield:b.rqShield} : null;})(), server:g.wbServer, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null, advM: me.advM || 0,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
             dvs: me.dvs, dph:me.dph,duelPotions:me.duelPotions,
@@ -2195,7 +2197,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {(guild.notice||guild.error)&&<div className={`trade-result guild-notice ${guild.notice?.success?"success":""}`} role="status" aria-live="polite" aria-atomic="true"><strong>{guild.error?"길드 안내":guild.notice.title}</strong><span>{guild.error||guild.notice.text}</span></div>}
           {me&&<WorldBossHud state={me.wb} map={me.map} barRefs={bossBarRefs} onOpen={()=>toggleWin(wbOpen,setWbOpen)} onLeave={()=>act("wb",{op:"leave"})}/>}
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
-          {me && libOpen && <LibraryPanel tab0={libOpen} story={me.story} admin={!!me.self.admin} onClose={() => setLibOpen(null)} />}
+          {me && <RequiemHud hero={me.self} />}
+          {me && libOpen && <LibraryPanel hero={me.self} onRead={book => act("requiem",{op:"read",book})} tab0={libOpen} story={me.story} admin={!!me.self.admin} onClose={() => setLibOpen(null)} />}
           {me && villageOpen && <VillagePanel key={villageOpen} npcId={villageOpen} story={me.story} myName={names[mySeat]} onStory={(d) => act("story", d)} onClose={() => setVillageOpen(null)}
             onBooks={(kind) => { closeAll(); setBookPick(kind); setBagTab("book"); setBagOpen(true); }} />}
           {me && raceOpen && <RacePanel self={me.self} seat={mySeat} race={me.race} names={names} act={act} onClose={() => setRaceOpen(false)} />}

@@ -22,7 +22,7 @@ const meta = (x, ...more) => (
 function choicesOf(b) {
   if (!b) return [];
   return [
-    ...b.w.filter((w) => w.u !== b.e).map((w) => ({ k: "w", u: String(w.u), item: w })),
+    ...b.w.filter((w) => w.u !== b.e && w.sp !== "blood_gun").map((w) => ({ k: "w", u: String(w.u), item: w })),
     ...b.a.filter((a) => !Object.values(b.ae || {}).includes(a.u)).map((a) => ({ k: "a", u: String(a.u), item: a })),
     ...Object.entries(b.p).filter(([, n]) => n > 0).map(([u, max]) => ({ k: "p", u, max })),
     ...Object.entries(b.m).filter(([, n]) => n > 0).map(([u, max]) => ({ k: "m", u, max })),

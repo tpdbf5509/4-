@@ -38,7 +38,7 @@ export function tradeOffer(data, offer) {
     if (k === "w" || k === "a") {
       if (!/^[1-9][0-9]{0,11}$/.test(u || "")) fail("trade_offer");
       const item = (Array.isArray(b[k]) ? b[k] : []).find((v) => v && txt(v.u) === u);
-      if (!item) fail("trade_item");
+      if (!item || (k === "w" && item.sp === "blood_gun")) fail("trade_item");
       if ((k === "w" && txt(b.e) === u) || (k === "a" && Object.values(isObj(b.ae) ? b.ae : {}).some((v) => txt(v) === u))) fail("trade_equipped");
       items.push({ k, u, item });
     } else {
@@ -65,6 +65,7 @@ export function tradeExchange(data, out, inn) {
   const all = (Array.isArray(b.w) ? b.w : []).concat(Array.isArray(b.a) ? b.a : []);
   let seq = Math.max(intOf(b.n) || 1, all.length ? Math.max(...all.map((v) => intOf(v.u))) + 1 : 1);
   for (const x of inn.items) {
+    if (x.k === "w" && x.item?.sp === "blood_gun") fail("trade_item");
     if (x.k === "w" || x.k === "a") {
       const arr = (Array.isArray(b[x.k]) ? b[x.k] : []).concat([{ ...x.item, u: seq }]);
       if (arr.length > BAG_MAX + bagExtra(b)) fail("trade_capacity");

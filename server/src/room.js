@@ -1,3 +1,4 @@
+import {protectRq} from '../../src/game/requiemData.js';
 /* ── RPG 서버 한 곳(RPG1~RPG4) — 예전 "방장" 브라우저가 하던 일을 서버가 한다 ─────────────
    - 접속: 붙은 뒤 첫 말(auth)로 이 창만 아는 비밀값을 보낸다. 같은 접속 id 로 다시 붙으면 비밀값이 맞을 때만 옛 연결을 잇는다.
      남에게는 접속 id 대신 따로 만든 id(pub)만 보인다 — id 를 알아도 남의 자리로 붙을 수 없게
@@ -221,7 +222,7 @@ export class RpgRoom {
     if (!d || this.seatOf(c.id) !== d.cls) return;
     const a = this.accts.get(c.id);
     const data = d.data && typeof d.data === "object" ? d.data : {};
-    const use = a ? { ...a.base, admin: a.admin, auto: data.auto, hold: data.hold, mv: data.mv, hideGear: data.hideGear } : { ...data, admin: false };   // 계정 없는 캐릭터는 관리자가 될 수 없다
+    const use = a ? { ...a.base, admin: a.admin, auto: data.auto, hold: data.hold, mv: data.mv, hideGear: data.hideGear } : { ...protectRq(data), admin: false };   // 계정 없는 캐릭터는 관리자가 될 수 없다
     rpgJoin(this.g, d.cls, use, c.id);
   }
   chat(c, d) {
@@ -488,7 +489,7 @@ export class RpgRoom {
     const pubs = new Map();
     this.seats.forEach((st) => { if (st) pubs.set(st.id, this.pubOf(st.id)); });
     base.w = base.w.map((x) => (x ? pubs.get(x) || "~" : ""));
-    for (const k of ["wb", "gr", "grr"]) if (base[k]) base[k] = mask(base[k], pubs);
+    for (const k of ["wb", "gr", "grr", "m"]) if (base[k]) base[k] = mask(base[k], pubs);
     const out = g.out.splice(0, OUT_PER_SNAP);
     if (g.out.length > OUT_KEEP) g.out.splice(0, g.out.length - OUT_KEEP);
     const byMap = new Map();

@@ -10,13 +10,14 @@ import { necroOn } from './necroJob.js';
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgWeaponAim, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, rpgBloodBreak, rpgHidden, freshInput, setFxBy,
+  rpgRequiem, rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, rpgBloodBreak, rpgHidden, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
 import { rpgStory } from "./storyQuest.js";
 
 const ACTS = {
+  requiem: (g,pi,dir) => rpgRequiem(g,pi,dir),
   trade: (g, pi, dir) => rpgTrade(g, pi, dir),
   hold: (g, pi, dir) => rpgHold(g, pi, dir),
   mv: (g, pi, dir) => rpgMove(g, pi, dir),         // 마우스 오른쪽 클릭 이동 — { x, y, m }

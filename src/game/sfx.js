@@ -253,6 +253,9 @@ export function play(name) {
     if (!gate("bloodHit", 90)) return;
     noise({ t: 0.07, gain: 0.12, f: 1800, q: 2 });
     tone({ type: "triangle", f0: 520, f1: 260, t: 0.08, gain: 0.07 });
+  } else if (name === "rqStep") {
+    if (!gate("rqStep", 500)) return;
+    tone({f0:45,f1:30,t:.14,type:"triangle",gain:.16});
   } else if (name === "bloodBoom") {         // 5단계 혈흔 폭발 — 낮고 강한 폭발음
     if (!gate("bloodBoom", 100)) return;
     noise({ t: 0.42, gain: 0.34, f: 300, q: 0.5 });

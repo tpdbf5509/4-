@@ -19,7 +19,8 @@ const real = (h) => bloodOn(h) && !h.bag.bd.trial;   // 이미 BLOOD-001 인가(
 // 숨김 규칙(11월 15일 사용자 요청) — 평소 조사 자리는 그림도 안내 칸도 없다. 이야기를 따라가 단서가 나온 만큼만 드러난다.
 // 핏자국 · 유리관은 사냥꾼 이야기(f&1)부터, 압축기 · 수문 · 금속판은 첫 단서나 연 입구가 생긴 뒤부터 보인다
 export function spotShown(h, s) {
-  if (!h || !h.bag || real(h)) return false;
+  if (!h || !h.bag) return false;
+  if (real(h)) return s.id === "sluice" || BLOOD_DOORS.some(d => d.spot === s.id && (h.bag.bu?.o & d.bit));
   const u = h.bag.bu;
   if (!u) return false;
   if (s.id === "trail") return !!(u.f & 1);
@@ -34,7 +35,7 @@ export function spotNear(h) {
 }
 // 그 자리에서 지금 할 수 있는 일 — [화면 한 줄, 단추 글] | null(보일 것 없음)
 export function spotLine(h, s) {
-  if (real(h)) return null;
+  if (real(h)) return spotShown(h, s) ? ["폐쇄 연구시설로 다시 내려갑니다.", "들어가기"] : null;
   const u = h.bag.bu || { c: 0, f: 0, o: 0 }, door = BLOOD_DOORS.find((d) => d.spot === s.id && ((u.o & d.bit) || (u.c & d.need) === d.need));
   if (door) return [u.o & door.bit ? "열어 둔 입구다. 연구시설로 내려갈 수 있다." : `두 단서가 맞물린다 — ${door.name}`, "들어가기"];
   if (s.id === "trail") return u.c & K.A ? null : u.f & 1 ? ["핏자국이 경사를 거슬러 올라가 있다.", "조사하기"] : null;
@@ -68,6 +69,7 @@ export function bloodHunterTalk(E, g, h, npc) {
 export function bloodSpotTalk(E, g, h) {
   const s = spotNear(h);
   if (!s) return false;
+  if (real(h)) { E.goMap(g, h, LAB.id, LAB.spawn); return true; }
   const u = bu(h);
   const door = BLOOD_DOORS.find((d) => d.spot === s.id && ((u.o & d.bit) || (u.c & d.need) === d.need));
   if (door) {

@@ -1,3 +1,4 @@
+import {protectRq} from '../../src/game/requiemData.js';
 /* ── 장부 — Supabase(supabase/rpg.sql · feedback.sql)의 함수를 Cloudflare 에서 그대로 한다 ─────────────
    표는 D1(server/schema.sql). 함수 이름 · 받는 값(p_...) · 돌려주는 모양은 Supabase 때와 같아서 화면은 주소만 바꿨다.
    LedgerCore 는 D1 의 prepare · bind · first · all · run · batch 만 쓴다 — 시험(tools/ledger.test.mjs)은 node:sqlite 로 같은 모양을 흉내 낸다.
@@ -114,7 +115,7 @@ export class LedgerCore {
     const tok = randHex(16), now = this.now();
     const r = await this.run(
       "INSERT INTO chars (name_key, name, code_hash, token_hash, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (name_key) DO NOTHING",
-      rpgKey(name), name, bcrypt.hashSync(a.p_code, 8), await sha256(tok), JSON.stringify(a.p_data), now, now);
+      rpgKey(name), name, bcrypt.hashSync(a.p_code, 8), await sha256(tok), JSON.stringify(protectRq(a.p_data)), now, now);
     if (!r.meta.changes) return { ok: false, err: "taken" };
     return { ok: true, token: tok, name };
   }
@@ -305,10 +306,11 @@ export class LedgerCore {
   //   기록 이름이 다르거나, 레벨이 내려가거나(서버 초기화 · 한 사람 되돌리기 제외), 지난 저장보다 너무 많이 뛰면 막는다.
   //   막으면 save_blocks 에 남기고 이 기기의 입장권을 지운다 — 코드를 다시 넣으면 서버 기록으로 이어 한다
   async fn_rpg_save(a) {
-    const p = a.p_data;
+    let p = a.p_data;
     if (!isObj(p) || bytes(p) > DATA_MAX) return { ok: false, err: "data" };
     const c = await this.authChar(a.p_name, a.p_token);
     if (!c) return { ok: false, err: "token" };
+    p = protectRq(p, c.data);
     const now = this.now();
     let note = null;                                   // 막지 않고 남기기만 하는 기록(코인)
     if (!c.admin) {

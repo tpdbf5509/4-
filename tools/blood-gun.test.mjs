@@ -22,7 +22,7 @@ function setup() {
   const ss = [{ id: 'b0', name: '혈계시험', hero: { name: '혈계시험', job: 'archer', elem: 'frost', gender: 'm' } }, { id: 'b1', name: '상대', hero: { name: '상대', job: 'warrior', elem: 'frost', gender: 'f' } }];
   rpgSyncSeats(g, ss);
   ss.forEach((s, i) => rpgJoin(g, i, { name: s.name, rs: RESET.id, gift: GIFT.id, lv: 100, ts: 0, coins: 100000, stats: { str: 100, int: 100, hp: 100 },
-    bag: { oc: 1, w: i ? [] : [{ u: 1, t: sp.t, r: specialTier(sp), g: 4, p: 100, sp: 'blood_gun' }], e: i ? 0 : 1, n: 2 } }, s.id));
+    bag: { bd: i ? null : {on:1,lv:1,xp:0,tr:[[0,0],[0,0],[0,0]],b:100}, oc: 1, w: i ? [] : [{ u: 1, t: sp.t, r: specialTier(sp), g: 4, p: 100, sp: 'blood_gun' }], e: i ? 0 : 1, n: 2 } }, s.id));
   const h = g.heroes[0];
   h.map = 'train'; h.x = 900; h.y = 700; h.auto = 0; h.look = [1, 0]; h.dir = 1; g.heroes[1].auto = 0;
   step(g, .01);

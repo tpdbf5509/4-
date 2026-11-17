@@ -4,7 +4,7 @@
    판정은 bloodGunCombat.js(방장 · 전용 서버), 연출은 bloodGunArt.js — 연출 시간은 이 수치에서 읽어 판정과 어긋나지 않는다. */
 export const BLOOD_PALETTE = { deep: '#650B17', base: '#B8192D', bright: '#E53945', glow: '#FF6973', shadow: '#1A0B14' };
 
-// 무기 — 얻는 곳은 사용자가 정한다. 그때까지 hold 라 상점 · 특가 · 랜덤 상자 · 관리자 자동 지급에서 빠지고 관리자 /지급 으로만 받는다.
+// 무기 — BLOOD-001 전용 퀘스트 「마지막 진혼곡」 확정 보상. hold는 유지해 상점·특가·상자·관리자 자동 지급에서 제외한다. 관리자 /지급 정책은 그대로다.
 // 총은 궁수 묶음 무기(WEAPON_FAMILY)다. 올리는 양은 적룡 지팡이(260)와 같게 시작한다.
 export const BLOOD_GUN_ITEM = { id: 'blood_gun', name: '크림슨 레퀴엠', t: 'gun', lv: 100, g: 4, stat: 'str', amt: 260, art: 'blood_gun', hold: 1 };
 

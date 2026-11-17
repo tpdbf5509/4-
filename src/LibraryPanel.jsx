@@ -1,6 +1,7 @@
 import {useEffect, useRef, useState} from 'react';
 import {LIB_ART, LIB_TABS, LIB_BOOKS, LIB_LOOKS, shelfRows, libBookOpen, libLockWhy} from './game/libraryBooks.js';
 import sfx from './game/sfx.js';
+import {RQ,RQ_CLUE,rqEligible} from './game/requiemData.js';
 
 /* 에르덴 도서관 책장 → 펼친 책(11월 16일, 사용자 기획). 상점 틀(.shop)과 금빛 강조를 그대로 쓰고 게임 화면 가운데에 연다.
    책장: 탭 셋 · 책등 위에 마우스를 올리면 앞으로 나오고, 누르면 아래에 제목 · 저자 · 읽기.
@@ -27,7 +28,9 @@ function Block({b}) {
   return null;
 }
 
-function Reader({book, onClose}) {
+function Reader({book, onClose, hero, onRead}) {
+  const [closing,setClosing] = useState(false);
+  const clue = closing && hero?.bag?.rq?.clue;
   const narrow = useNarrow();
   const [pg, setPg] = useState(0);
   const pages = book.pages;
@@ -48,17 +51,18 @@ function Reader({book, onClose}) {
           {narrow ? page(pg, pg % 2 ? 'right' : 'left') : shown.map((k, i) => page(k, i ? 'right' : 'left'))}
         </div>
       </div>
+      {clue && <div className="rq-clue" role="status"><div className="rq-dust"/>{RQ_CLUE.map(s=><p key={s}>{s}</p>)}<b>마지막 진혼곡</b><p>폐쇄 연구시설을 다시 조사하세요.</p><button className="shop-btn" onClick={onClose}>기록 확인</button></div>}
       <div className="lib-read-nav">
         <button type="button" className="shop-btn" disabled={pg === 0} onClick={() => { setPg(Math.max(0, pg - step)); play('page'); }} aria-label="앞 쪽">◀</button>
         <span>{shown.map((k) => k + 1).join(' · ')} / {pages.length}</span>
         <button type="button" className="shop-btn" disabled={pg + step >= pages.length} onClick={() => { setPg(pg + step); play('page'); }} aria-label="다음 쪽">▶</button>
-        <button type="button" className="shop-btn main" onClick={onClose}>책 덮기</button>
+        <button type="button" className="shop-btn main" onClick={() => { if (book.id === RQ.book && hero?.map === "erden-library-2" && rqEligible(hero) && !hero.bag.rq && shown.includes(pages.length-1)) {setClosing(true); onRead(book.id);} else onClose(); }}>책 덮기</button>
       </div>
     </div>
   );
 }
 
-export default function LibraryPanel({tab0 = 'village', story, admin, onClose}) {
+export default function LibraryPanel({tab0 = 'village', story, admin, onClose, hero, onRead}) {
   const [tab, setTab] = useState(tab0);
   const [pick, setPick] = useState(null);      // 고른 책 id — 아래에 제목 · 저자 · 읽기
   const [reading, setReading] = useState(null);
@@ -90,7 +94,7 @@ export default function LibraryPanel({tab0 = 'village', story, admin, onClose}) 
         <div className="shop-title"><b>에르덴 도서관</b><span>{reading ? 'Esc 로 책을 덮고 책장으로 돌아갑니다' : '책등을 골라 꺼냅니다'}</span></div>
         <button type="button" className="shop-x" aria-label="도서관 닫기" onClick={onClose}>×</button>
       </header>
-      {reading ? <Reader key={reading} book={LIB_BOOKS.find((b) => b.id === reading)} onClose={() => setReading(null)}/> : <div className="shop-body lib-body">
+      {reading ? <Reader key={reading} hero={hero} onRead={onRead} book={LIB_BOOKS.find((b) => b.id === reading)} onClose={() => setReading(null)}/> : <div className="shop-body lib-body">
         <div className="shop-tabs" role="tablist">
           {LIB_TABS.map((t) => (
             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => { setTab(t.id); setPick(null); }}>

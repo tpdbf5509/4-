@@ -63,6 +63,7 @@ export function unlockBlood(h) {
 // 전직 초기화 물약 — BLOOD-001 을 끈다. 직업 레벨 · 연마는 남긴다(다시 해금하면 이어서)
 export function dropBlood(h) {
   if (!h.bag.bd) return;
+  if (h.bag.w?.find(w => w.u === h.bag.e)?.sp === BLOOD_WEAPON) h.bag.e = 0;
   h.bag.bd = { ...cleanBdCore(h.bag.bd), on: 0 };
   h.bd = null;
   h.bag.v += 1;
@@ -357,6 +358,7 @@ function stepShot(E, g, h, shot, dt) {
     const k = keyOf(o);
     shot.hit.push(k);
     shot.left -= 1;
+    E.questHit?.(g, h, o, "shot", shot.tier);
     strike(E, g, h, shot, o, shot.mul * (1 + shot.add + markBonus(h, o) + (shot.mA && markBonus(h, o) > 0 ? shot.mA : 0)));   // 혈흔 보너스는 맞기 직전 중첩으로(팽창은 burstMul 만 — 혈흔 제외) · 압축형 50 은 혈흔 대상 +20%
     if (reap(E, g, h, o, shot) && h.bt && h.bt.step === 2 && shot.tier >= 1) h.bt.hit2 = 1;   // 해금 시험 2단계 — 차징한 탄으로 혈흔 회수
     E.fx(g, h.map, { kind: "sk_bj_hit", x: o.x, y: o.y, pi: h.pi, tier: shot.tier, t: 0.3, life: 0.3, snd: shot.hit.length === 1 ? "bloodHit" : undefined });
@@ -512,6 +514,7 @@ function swordHit(E, g, h, sw) {
   const lv = h.bag.bd.tr[2][0];
   const one = { cast: E.cast(h), base: sw.base, xp: 0 };   // 이 참격의 시전 — 혈흔 회수 상한도 참격 한 번마다
   for (const o of list) {
+    E.questHit?.(g, h, o, "sword");
     strike(E, g, h, one, o, swordMul(lv) * (1 + sw.add + markBonus(h, o)));   // 형상화 스킬 피해 — 혈흔은 첫 유효 적중에서 쓴다
     reap(E, g, h, o, one);
     if (!E.dummy(o)) hit = 1;

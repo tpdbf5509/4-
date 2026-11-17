@@ -31,6 +31,7 @@ import { gamblerOn, dropGambler, cleanHj } from "./gamblerJob.js";
 import { engineerOn } from "./engineerJob.js";
 import { necroOn } from "./necroJob.js";
 import { cleanGu } from "./gamblerUnlock.js";
+import { cleanRq } from "./requiemData.js";
 import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
 import { ALCH, ALCH_MAT_BY_ID } from "./alchemyData.js";
@@ -273,6 +274,8 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (gu) b.gu = gu;                              // Gambler 002 해금 경로 — 단서 · 진행 · 연 문(gamblerUnlock.js)
   const bu = cleanBu(d.bu);
   if (bu) b.bu = bu;                              // BLOOD-001 해금 경로 — 단서 · 진행 · 연 입구(bloodUnlock.js)
+  const rq = cleanRq(d.rq); if (rq) b.rq = rq;
+  if (!bd?.on && equipped(b)?.sp === "blood_gun") b.e = 0;
   b.al = cleanAl(d.al);                           // 물약 제작 레벨 · 경험치 · 오늘의 제작 의뢰(alchemy.js) — 옛 캐릭터는 1레벨부터
   cleanWorldBossBag(d,b);
   return b;
@@ -347,7 +350,7 @@ export function whySpecialBuy(h, id) {
   if (!sp) { out.push("없는 무기입니다"); return out; }
   if (sp.world) out.push("월드보스 전용 장비입니다");
   if (sp.adv) out.push("전직하면 받는 무기입니다");
-  if (sp.hold) out.push(sp.rewardBoss ? "뇌조 토벌 보상으로 얻는 무기입니다" : "아직 얻는 곳이 정해지지 않은 무기입니다");
+  if (sp.hold) out.push(sp.id === "blood_gun" ? "전용 퀘스트 보상으로만 얻습니다" : sp.rewardBoss ? "뇌조 토벌 보상으로 얻는 무기입니다" : "아직 얻는 곳이 정해지지 않은 무기입니다");
   if (!h || !h.bag) return out;
   if (h.bag.w.some((w) => w.sp === id)) { out.push("이미 가지고 있습니다"); return out; }
   if (h.lv < sp.lv) out.push(`레벨 ${sp.lv} 필요 (지금 ${h.lv})`);
@@ -372,6 +375,7 @@ export function whyWeaponSell(h, u) {
   base(h, "weapon", out);
   if (!h || !h.bag) return out;
   if (!h.bag.w.some((w) => w.u === u)) out.push("가방에 없는 무기입니다");
+  else if (h.bag.w.find(w => w.u === u)?.sp === "blood_gun") out.push("크림슨 레퀴엠은 판매할 수 없습니다");
   else if (h.bag.e === u) out.push("장착한 무기는 팔 수 없습니다. 먼저 해제하세요");
   return out;
 }
@@ -382,6 +386,7 @@ export function whyEquip(h, u) {
   const w = h.bag.w.find((q) => q.u === u);
   if (!w) out.push("가방에 없는 무기입니다");
   else if (h.lv < WEAPON_TIERS[w.r]) out.push(`레벨 ${WEAPON_TIERS[w.r]} 필요 (지금 ${h.lv})`);
+  else if (w.sp === "blood_gun" && (!bloodOn(h) || h.bag.bd.trial)) out.push("BLOOD-001 전용 무기입니다");
   else if (bloodOn(h) && !bloodWeaponOk(w)) out.push("BLOOD-001 은 크림슨 레퀴엠만 들 수 있습니다");
   else if (gamblerOn(h)) out.push("Gambler 002 는 무기를 들 수 없습니다");
   else if (engineerOn(h)) out.push("Engineer 003 은 무기를 들 수 없습니다");   // 연습장 전용 — 무기 장착 금지(기획안 공통 규칙)   // 무기 장착 금지(사용자 기획) — 가방의 무기는 그대로 남는다

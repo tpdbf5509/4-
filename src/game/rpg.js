@@ -13,6 +13,8 @@ import { WORLD_BOSS, WORLD_BOSSES } from "./worldBossData.js";
 import {newWorldBossState,isWorldBoss,worldBossInput,worldBossHit,worldBossKilled,worldBossRestore,tickWorldBoss} from "./worldBoss.js";
 import { castStormWeapon, tickStormWeapon, releaseStormWeapon, stormBusy } from './stormWeaponCombat.js';
 import { castVoidWeapon, tickVoidWeapon, voidOnKill, voidOnAttack, voidOnHit } from './voidWeaponCombat.js';   // 공허의 관측자 무기 셋(11월 4일)
+import { RQ, RQ_MAPS, rqMap } from './requiemData.js';
+import { rqInput, rqTalk, rqSkillHit, rqDamage, rqKilled, tickRq, tickRqBoss, packRq } from './requiem.js';
 import { BLOOD_LAB } from './bloodJobData.js';
 import { bloodSpotTalk, bloodHunterTalk, bloodSeqHit, tickBloodTrial } from './bloodUnlock.js';   // BLOOD-001 해금 경로(4단계)
 import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn, bloodSwordPress, bloodSwordOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
@@ -430,6 +432,11 @@ MAPS[GM_CASINO.id] = {
   tint: "rgba(34,24,8,0.6)", gates: [{ ...GM_CASINO.exit, to: "plaza", at: GM_CASINO.plazaAt, label: "광장" }], blocks: [], npcs: [],
 };
 MAP_IDS.push(GM_CASINO.id);
+RQ_MAPS.forEach(id => {
+  MAPS[id] = {id, name:"제3격리실", w:1800, h:1400, top:170, spawn:RQ.spawn, bg:"field", tile:2600, bloodLab:1, requiem:1, blocks:[], npcs:[],
+    tint:"rgba(25,8,12,0.7)", gates:[{x:900,y:1310,r:60,to:"bloodlab",at:[1100,500],label:"폐쇄 연구시설"}]};
+  MAP_IDS.push(id);
+});
 MAPS[HIGH.from].gates.push({ x: MAPS[HIGH.from].w - 90, y: 920, r: 64, to: HIGH_MAPS[0].id, at: [260, 920], label: highLabel(HIGH_MAPS[0]), high: 1, highEnter: 1 });
 // 지금 보이는 문 — 열리지 않은 high 문은 빼고(그림 · 흙길 · 문 판정이 같이 쓴다)
 export const gatesOf = (g, M) => (highOn(g) ? M.gates : M.gates.filter((q) => !q.high));
@@ -1611,6 +1618,7 @@ export function npcNear(h) {
 /* 사냥꾼에게 말을 건다 — 퀘스트를 받거나, 얼마나 남았는지 듣는다 */
 export function rpgTalk(g, pi) {
   const h = g.heroes[pi];
+  if (h && h.loaded && rqTalk(requiemEngine, g, h)) return;
   if (h && h.loaded && bloodSpotTalk(bloodJobEngine, g, h)) return;   // BLOOD-001 단서 조사 자리(bloodUnlock.js)
   if (h && h.loaded && gamblerSpotTalk(gamblerEngine, g, h)) return;   // Gambler 002 단서 조사 자리(gamblerUnlock.js)
   const npc = npcNear(h);
@@ -1805,7 +1813,7 @@ export const isPvp = (map) => !!(MAPS[map] && MAPS[map].pvp);
    몹을 칠 때와 같은 기술이 그대로 나간다 — 노릴 것을 고르는 곳(foesNear · nearFoes)이 몹과 PvP 를 켠 사람을 함께 본다.
    피해는 결투와 같이 줄여서 한 방에 끝나지 않게 한다(FIELD_PVP.dmgMul, 스킬 한 번 한도는 FIELD_PVP.skillPct) */
 export const FIELD_PVP = { dmgMul: 0.3, basicPct: 0.03, skillPct: 0.12, skillSoft: 1.7, toggleCd: 5 };   // toggleCd — 켜고 끄기를 다시 바꿀 수 있을 때까지(초)
-export const fieldPvpMap = (map) => { const M = MAPS[map]; return !!M && !M.safe && !M.pvp && !M.dungeon && !M.train && !M.worldBoss; };
+export const fieldPvpMap = (map) => { const M = MAPS[map]; return !!M && !M.safe && !M.pvp && !M.dungeon && !M.train && !M.worldBoss && !M.requiem; };
 const fieldPvpOn = (h) => !!h && !!h.pvpOn && !!h.loaded && fieldPvpMap(h.map);
 // 몹이 아니라 사람인가 — 몹은 type 이 있다
 const isHeroT = (o) => !!o && o.type === undefined;
@@ -1943,6 +1951,7 @@ function flatMobHit(g, h, m, amount) {
 function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (!m || m.dead) return 0;
   const h = g.heroes[pi];
+  if (m.rq && (!h || m.own !== pi || m.rqOwner !== h.who || m.map !== h.map || m.rq !== "boss")) return 0;
   const flat = flatOn;
   if(isWorldBoss(m)&&(!h?.loaded||h.map!==m.map||g.wb?.active?.mob!==m.id))return 0;
   if (dot && h && !flat) raw *= worldDotMul(h);
@@ -1964,6 +1973,8 @@ function hitMob(g, pi, m, raw, skill, sureCrit, dot, side) {
   if (m.hshT > 0 || m.hbar > 0) dmg = highTake(m, dmg, flat ? 0 : h?.cast?.pen || 0);   // pen — BLOOD-001 흑혈 관통 보스 방어 30% 무시   // 800~1200 보스 — 강철 방패 · 방어막(highCombat.js)
   if(isWorldBoss(m))worldBossHit(g,m,h,dmg,{direct:!!skill&&!dot&&!side&&procOff===0});
   if(isGuildBoss(m))guildHit(g,m,h,dmg);
+  dmg = rqDamage(g, h, m, dmg);
+  if (m.rq && !(dmg > 0)) return 0;
   m.hp -= dmg;
   if (h && skill && !dot && !side && procOff === 0 && !isWorldBoss(m) && !isGuildBoss(m) && advCanExecute(h, m, m.hp, m.max)) {   // 암살자 처형(advData.js execute)
     dmg += m.hp; m.hp = 0;
@@ -2015,6 +2026,7 @@ const taunted = (g, m, pi) => { if (!(m.taunt > 0) || m.tgt === pi) return false
    잡은 수 · 퀘스트 · 사냥 의뢰도 저마다 센다. 치지 않은 파티원은 같은 맵이면 경험치의 PARTY.share 만큼 받는다 */
 function killMob(g, m, pi) {
   if (m.dead) return;
+  if (rqKilled(requiemEngine, g, g.heroes[pi], m)) return;
   m.dead = true;
   if(isWorldBoss(m)){m.hp=0;advRaidKill(advEngine,g,m);bloodRaid(g,m);worldBossKilled(worldBossEngine,g,m);return;}   // 전직 숙련도 — 친 사람
   if(isGuildBoss(m)){
@@ -2747,7 +2759,7 @@ const focKey = (m, foe) => (foe ? `h${foe.pi}` : m ? `m${m.id}` : "");
 // 노릴 것 — 결투장이면 상대, 아니면 몹
 function foesNear(g, h, x, y, r, n) {
   if (isPvp(h.map)) return nearFoes(g, h, x, y, r);
-  const mobs = nearMobs(g, h.map, x, y, r, n);
+  const mobs = nearMobs(g, h.map, x, y, r, n).filter(m => !m.rq || (m.own === h.pi && m.rqOwner === h.who));
   const foes = fieldFoes(g, h, x, y, r);              // 사냥터 PvP — PvP 를 켠 사람도 함께 노린다
   if (!foes.length) return mobs;
   return [...mobs, ...foes].sort((a, b) => dist(x, y, a.x, a.y) - dist(x, y, b.x, b.y)).slice(0, n);
@@ -3226,6 +3238,7 @@ function tickZones(g, dt) {
    h.trn = { nocd, stack, god, tot 쌓인 피해, hits 맞힌 수, log [[시각, 피해]] } — 기능은 훈련장 안에서만 듣는다 */
 const trnOf = (h) => h.trn || (h.trn = { nocd: 0, stack: 0, god: 0, tot: 0, hits: 0, log: [] });
 function keepDummies(g) {
+  g.mobs = g.mobs.filter(m => !m.rq || (g.heroes[m.own]?.who === m.rqOwner && g.heroes[m.own]?.map === m.map));
   // BLOOD-001 연구시설 시험 표적 — 시험하던 사람이 없으면 치운다(접속이 끊긴 경우)
   if (g.mobs.some((m) => m.map === BLOOD_LAB.id && !g.heroes[m.own]?.bt)) g.mobs = g.mobs.filter((m) => m.map !== BLOOD_LAB.id || g.heroes[m.own]?.bt);
   if (g.mobs.some((m) => m.map === GM_CASINO.id && !g.heroes[m.own]?.gt)) g.mobs = g.mobs.filter((m) => m.map !== GM_CASINO.id || g.heroes[m.own]?.gt);   // Gambler 002 시험 표적도
@@ -3411,7 +3424,7 @@ function pullMob(g, o, x, y, px) {
 const voidEngine = { ...stormEngine, pull: pullMob };
 const bloodEngine = { ...stormEngine };             // 크림슨 레퀴엠 — 혈계 추격(bloodGunCombat.js)
 /* 히든 직업 BLOOD-001(bloodJob.js) — fight: 싸울 수 없는 곳이면 까닭(빈 글이면 된다) · blocks: 훈련장의 막힌 칸은 허수아비 자리라 빼서 탄이 허수아비를 맞힌다 */
-const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h, x, y, r), say, sys,
+const bloodJobEngine = { ...stormEngine, questHit: (g,h,m,k,t) => rqSkillHit(requiemEngine,g,h,m,k,t), near: (g, h, x, y, r) => foesNear(g, h, x, y, r), say, sys,
   blocks: (map) => (MAPS[map]?.train ? [] : MAPS[map]?.blocks || []), cast: (h) => { const c = makeCast(); c.sid = "blood"; h.cast = c; return c; },
   dummyAt: (g, map, x, y) => { const m = bodyOf(g.nextId++, -1, "dummy", 0, 1, map, x, y); g.mobs.push(m); return m; },
   hurt: (g, h, dmg) => hurtHero(g, h, dmg, { bloodTrial: 1 }),
@@ -3420,6 +3433,8 @@ const bloodJobEngine = { ...stormEngine, near: (g, h, x, y, r) => foesNear(g, h,
   flat: flatMobHit,                                 // 원초의 혈맥 — 보스 최대 체력 비례 피해(배율 없이 그대로)
   dummy: (o) => !!o && o.type === "dummy", god: (g, h) => !!(h.trn && h.trn.god && (g.test || h.map === "train")), cc: ccAny, boss: (o) => !isHeroT(o) && !!(o.boss || isWorldBoss(o) || isGuildBoss(o)), cdOff: (g, h) => !!(h.trn && h.trn.nocd && (h.map === "train" || g.test)),
   fight: (h) => (MAPS[h.map]?.safe ? (MAPS[h.map].story ? "이곳에서는 쓸 수 없다" : MAPS[h.map].village ? "마을에서는 쓸 수 없다" : "광장에서는 쓸 수 없다") : isPvp(h.map) && h.dph !== 2 ? "곧 시작합니다" : trading(h) ? "-" : "") };
+const requiemEngine = {...bloodJobEngine, bagRoom: advEngine.bagRoom, gear: advEngine.gear};
+export const rpgRequiem = (g,pi,req) => rqInput(requiemEngine,g,pi,req);
 export const rpgBloodJob = (g, pi, req) => bloodJobInput(bloodJobEngine, g, pi, req);   // 입력 kind "blood"
 /* 히든 직업 Gambler 002(gamblerJob.js, 11월 16일). 기준 피해는 물리 · 마법 가운데 높은 쪽(기획안 hiddenSkillBase) — 무기 공격력은 없다.
    cast(h, sid): "basic" 평타 상한 · "ult" 궁극기 상한 · 그 밖은 일반 스킬. basic: 평타로 친다(칩 획득 · 결투 평타 상한).
@@ -3904,7 +3919,8 @@ function stepHeroes(g, dt) {
     tickWeapon(g, h, cdt);                         // 전설 무기 · 직업 스킬 효과 시간
     tickAdv(advEngine, g, h, cdt);                 // 전직 스킬 대기 · 중첩 · 철벽 방어 · 정령
     tickBloodTrial(bloodJobEngine, g, h, cdt);     // BLOOD-001 해금 시험 — 연구시설 밖이면 빌린 값을 거둔다
-    tickBloodJob(bloodJobEngine, g, h, cdt);       // BLOOD-001 — 혈흔 · 차징 · 적혈탄
+    tickBloodJob(bloodJobEngine, g, h, cdt);
+    tickRq(requiemEngine, g, h, cdt);       // BLOOD-001 — 혈흔 · 차징 · 적혈탄
     tickGamblerTrial(gamblerEngine, g, h, cdt);    // Gambler 002 해금 시험 — 뒷방 밖이면 빌린 값을 거둔다
     tickGambler(gamblerEngine, g, h, cdt);         // Gambler 002 — 칩 · 코인 · 보호막 · 장판
     tickEngineer(engineerEngine, g, h, cdt);       // Engineer 003 — 전력 · 과열 · 펄스 · 설치물
@@ -4640,6 +4656,7 @@ function stepDgBoss(g, m, dt) {
 }
 
 function stepMob(g, m, dt) {
+  if (m.rq) { if (!m.dead && m.rq === "boss") tickRqBoss(requiemEngine, g, m, dt); return; }
   if(isGuildBoss(m)){m.freeze=0;m.stun=0;m.bind=0;m.kbT=0;tickMob(g,m,dt);return;}
   if(isWorldBoss(m)){m.freeze=0;m.stun=0;m.bind=0;m.kbT=0;tickMob(g,m,dt);return;}
   m.wall = Math.max(0, (m.wall || 0) - dt);
@@ -5345,7 +5362,7 @@ export function rpgPack(g) {
           ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0,
         packBloodJob(h),
-        packGambler(h), packEngineer(h)] // 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
+        packGambler(h), packEngineer(h), packRq(h)] // 59 — 마지막 진혼곡 연출 · 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
     hb: packHerbs(g),                             // 채집한 약초 자리 — { 번호: 다시 나기까지 초 }(alchemy.js)
@@ -5361,7 +5378,7 @@ export function rpgPack(g) {
       m.ax < 0 ? 1 : 0, m.moving ? 1 : 0, MOB_TYPES.indexOf(m.type), m.lv, m.boss, m.bite > 0 ? 1 : 0, m.pose || 0, m.warnR || 0,
       // 보스는 체력을 그대로도 싣는다 — 손님 체력바가 1% 단위로 끊기지 않게
       m.boss ? Math.max(0, Math.ceil(m.hp)) : 0, m.boss ? m.max : 0, r1(m.taunt||0),m.tgt, m.elite ? 1 : 0,   // 18 정예(심연의 탑)
-      m.hshT > 0 || m.hbar > 0 || m.hbuffT > 0 || m.hform || m.hmode || m.hact || m.hph ? highFlags(m) : 0]),   // 19 800~1200 몹 상태(방패 · 방어막 · 강화 · 형태 · 단계)
+      m.hshT > 0 || m.hbar > 0 || m.hbuffT > 0 || m.hform || m.hmode || m.hact || m.hph ? highFlags(m) : 0, m.rq ? [m.rq,m.own,m.rqOwner,m.rqPhase||0,m.rqShield||0,m.rqStun||0,m.rqCd||0,m.rqWarn] : 0]),   // 19 800~1200 몹 상태(방패 · 방어막 · 강화 · 형태 · 단계)
     // 던전 — [던전 차례, 칸, 남은 초, 무리 차례, 단계, 돌아가기까지 남은 초]
     d: g.runs.map((r) => [DUNGEONS.findIndex((q) => q.id === r.id), r.slot, Math.ceil(r.t), r.wave, RUN_PHASES.indexOf(r.phase), r1(r.end),r.hpScale||1]),
     // 심연의 탑 — [칸, 층, 남은 초, 단계, 돌아가기 · 다음 층까지 남은 초, 파티 배율, 이번 도전 최고 층]. 필드는 뒤에만 더한다
@@ -5383,6 +5400,7 @@ export function rpgApply(g, s) {
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
     if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;h.gath=Array.isArray(extra.ga)&&HERBS[extra.ga[0]]?{i:extra.ga[0],t:Number(extra.ga[1])||0,x:h.x,y:h.y,at:Date.now()}:null;}
+    h.rqRun = row[59] || null;
     applyBloodJob(h, row[56]);                     // BLOOD-001 — 혈량 · 직업 레벨 · 차징 · 내 혈흔(화면 값 h.bdv)
     applyGambler(h, row[57]);                      // Gambler 002 — 칩 · 직업 레벨 · 대기 · 보호막(화면 값 h.gmv)
     applyEngineer(h, row[58]);                     // Engineer 003 — 전력 · 과열 · 설치물(화면 값 h.env)
@@ -5483,7 +5501,7 @@ export function rpgApply(g, s) {
     g.aruns = s.ab.map(([slot, f, t, ph, end, hpScale = 1, best = 0]) => (MAPS[abyssMap(slot)]
       ? { slot, map: abyssMap(slot), f, t, phase: ABYSS_PHASES[ph] || "go", end, hpScale, best } : null)).filter(Boolean);
   }
-  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax, taunt=0, target=-1, elite=0, hs=0]) => {
+  s.m.forEach(([id, mi, x, y, pct, flags, flip, moving, ti, lv, boss, bite, pose, warnR, bhp, bmax, taunt=0, target=-1, elite=0, hs=0, rq=0]) => {
     seen.add(id);
     let m = g.mobs.find((q) => q.id === id);
     if (!m) {
@@ -5497,6 +5515,7 @@ export function rpgApply(g, s) {
     m.bite = bite ? 0.25 : 0;
     m.hs = hs;                                     // 800~1200 몹 상태 비트 — 그림만(highArt.js)
     m.taunt=taunt;m.tgt=target;
+    if (rq) [m.rq,m.own,m.rqOwner,m.rqPhase,m.rqShield,m.rqStun,m.rqCd,m.rqWarn] = rq; else delete m.rq;
     m.pose = pose || 0; m.warnR = warnR || 0;
     m.tx = x; m.ty = y;
     if (Math.hypot(x - m.x, y - m.y) > 160) { m.x = x; m.y = y; }

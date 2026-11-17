@@ -6,8 +6,8 @@ export const ENGINEER_PX_SRC = "/assets/game/rpg/effects/hidden-jobs/engineer/px
 // w · h 한 칸, cols 열 수, n 한 줄 칸 수, cx · cy 그릴 때 (x, y) 에 오는 점(1배 픽셀), loop 반복 시트, rows 색 줄 수, r 그림 속 판정 반지름
 export const ENGINEER_PX = {
   en_pulse: { w: 12, h: 12, cols: 4, n: 4, cx: 6, cy: 6, loop: 1, rows: 3 },   // 펄스 발진 — 사각 전기탄(줄 = 연마 색 셋)
-  en_spark: { w: 24, h: 24, cols: 6, n: 6, cx: 12, cy: 12 },   // 작은 타격 — 푸른 픽셀 산란
-  en_flash: { w: 14, h: 14, cols: 3, n: 3, cx: 7, cy: 7 },   // 총구 섬광
+  en_spark: { w: 48, h: 48, cols: 8, n: 8, cx: 24, cy: 24 },   // 명중 — 코어 섬광·잔류 전류·금속 파편
+  en_flash: { w: 32, h: 32, cols: 5, n: 5, cx: 16, cy: 16 },   // 총구 섬광 — 청백 코어·금빛 방사선
   en_laser: { w: 8, h: 5, cols: 3, n: 3, cx: 0, cy: 2 },   // 짧은 레이저 마디(가로로 늘림, 왼쪽 끝이 기준)
   en_turret: { w: 32, h: 36, cols: 15, n: 15, cx: 16, cy: 33, rows: 3 },   // 센트리 터렛(발밑 기준) — 0~3 솟음 · 4~11 여덟 방향(오른쪽부터 시계 방향) · 12~14 접힘
   en_drone: { w: 26, h: 18, cols: 4, n: 4, cx: 13, cy: 9, loop: 1, rows: 3 },   // 지원 드론 — 날개 회전 반복
@@ -16,11 +16,15 @@ export const ENGINEER_PX = {
   en_field: { w: 210, h: 168, cols: 4, n: 8, cx: 105, cy: 84, r: 100 },   // 자기장 포획(그림 속 반지름 r) — 0~2 퍼짐 · 3~4 전자기장 · 5~7 끊어짐
   en_rail: { w: 16, h: 12, cols: 4, n: 4, cx: 0, cy: 6 },   // 레일포 마디(가로로 늘림) — 0 가장 밝음 → 3 잔광
   en_boom: { w: 100, h: 100, cols: 4, n: 8, cx: 50, cy: 58, r: 46 },   // 수호자 코어 폭발(그림 속 반지름 r)
-  en_strike: { w: 40, h: 72, cols: 7, n: 7, cx: 20, cy: 66 },   // 궤도 포격 한 번(바닥 기준)
-  en_beam: { w: 44, h: 220, cols: 10, n: 10, cx: 22, cy: 214 },   // 궤도 광선(바닥 기준) — 0~2 내려옴 · 3~6 굵은 광선 · 7~9 사라짐
+  en_strike: { w: 72, h: 128, cols: 7, n: 7, cx: 36, cy: 114 },   // 궤도 포격 한 번(바닥 기준)
+  en_beam: { w: 88, h: 304, cols: 10, n: 10, cx: 44, cy: 294 },   // 궤도 광선(바닥 기준) — 0~2 내려옴 · 3~6 굵은 광선 · 7~9 사라짐
   en_shock: { w: 360, h: 290, cols: 4, n: 8, cx: 180, cy: 145, r: 175 },   // 지면 충격파(그림 속 반지름 r)
   en_zap: { w: 20, h: 20, cols: 4, n: 4, cx: 10, cy: 10, loop: 1, rows: 2 },   // 오버클럭 전류 테두리 — 줄 0 푸른 번개 · 1 과열 주황
   en_icons: { w: 24, h: 24, cols: 8, n: 8, cx: 0, cy: 0 },   // 스킬 아이콘 8칸 — 펄스 · 터렛 · 드론 · 자기장 · 레일포 · 수호자 · 오버클럭 · 궤도
+  en_assembly: { w: 96, h: 72, cols: 5, n: 10, cx: 48, cy: 48 },   // 기계 조립 — 모여드는 금속 패널과 육각 발판
+  en_charge: { w: 64, h: 64, cols: 8, n: 8, cx: 32, cy: 32, rows: 3 },   // 응축 코일 — 8칸 · 연마 색 셋
+  en_exhaust: { w: 24, h: 40, cols: 6, n: 6, cx: 12, cy: 2, loop: 1, rows: 2 },   // 추진 불꽃 — 6칸 · 청록/과열 두 색
+  en_target: { w: 112, h: 80, cols: 5, n: 10, cx: 56, cy: 40 },   // 표적 지정 회로 — 진행되는 눈금과 수렴 고리
 };
 // 아이콘 칸 차례(en_icons)
 export const ENGINEER_ICON = { pulse: 0, turret: 1, drone: 2, magnet: 3, rail: 4, mech: 5, oc: 6, orbit: 7 };

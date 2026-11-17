@@ -144,30 +144,7 @@ def pulse_cells():
             out.append(c)
     return out
 
-# ── 작은 타격 불꽃(24×24) — 푸른 픽셀 3~5개가 흩어진다 ──
-def spark_cells(n=6, seed=4):
-    out = []
-    for f in range(n):
-        u = f / (n - 1); c = Cv(24, 24)
-        if f < 2: star(c, 12, 12, 3 - f, T[5], T[4])
-        for i in range(5):
-            a = rnd(seed, i) * TAU; d = 2 + ez(u) * (7 + rnd(seed, i, 1) * 4)
-            col = T[6] if u < .3 else T[4] if u < .7 else T[3]
-            x, y = 12 + math.cos(a) * d, 12 + math.sin(a) * d
-            if u < .85: c.px(x, y, col)
-            if u < .4: c.px(x - math.cos(a), y - math.sin(a), T[3])
-        out.append(c)
-    return out
 
-# ── 총구 섬광(14×14) ──
-def flash_cells():
-    out = []
-    for f in range(3):
-        c = Cv(14, 14); r = [5, 4, 2][f]
-        c.fillpoly([(7, 7 - r), (7 + r, 7), (7, 7 + r), (7 - r, 7)], T[5] if f < 2 else T[4])
-        if f < 2: c.rect(6, 6, 2, 2, W)
-        out.append(c)
-    return out
 
 # ── 짧은 레이저 마디(8×5) — 가로로 늘려 쓴다 ──
 def laser_cells():
@@ -278,6 +255,13 @@ def mech_draw(c, tint, leg=(0, 0), bob=0, punch=0.0):
     else:
         c.rect(ax + 1, by - 13, 6, 12, M[2]); c.rect(ax, by - 2, 8, 6, M[3]); c.rect(ax, by - 2, 8, 1, M[4])
     c.px(ax + 3, by - 18, k[1])
+    # 장갑 이음매·볼트·열 배출구·무릎 피스톤으로 기계 재질을 구분한다.
+    for dx in [-11,10]:
+        for dy in [-18,-4]:c.px(fx+dx,by+dy,M[5])
+    for j in range(3):
+        c.line(fx-9,by-16+j*3,fx-6,by-16+j*3,M[0]);c.px(fx-5,by-16+j*3,k[0])
+        c.line(fx+7,by-16+j*3,fx+9,by-16+j*3,M[0])
+    c.line(fx-8,by-1,fx-4,by-1,Y[2]);c.line(fx+4,by-1,fx+8,by-1,Y[2])
     if e: outline(c, al(e, .6))
 def mech_cells():
     out = []
@@ -376,43 +360,7 @@ def boom_cells(seed=9):
         out.append(c)
     return out
 
-# ── 궤도 포격 한 번(40×72, 바닥 20,66) — 가는 빛이 내려와 땅에서 터진다 ──
-def strike_cells(seed=13):
-    out = []; bx, by = 20, 66
-    for f in range(7):
-        c = Cv(40, 72)
-        if f <= 2:
-            top = 0; bot = by * (f + 1) / 3
-            c.line(bx, top, bx, bot, T[5]); c.line(bx - 1, top, bx - 1, bot, al(T[4], .7)); c.line(bx + 1, top, bx + 1, bot, al(T[4], .7))
-        if f >= 2:
-            u = (f - 2) / 4; r = 6 + u * 13
-            c.band(bx, by, r, r * SQ, .6, 1, al(T[4], 1 - u), dens=.8 - u * .5)
-            if f < 5: star(c, bx, by - 3, 4 - (f - 2), W, T[5])
-            for i in range(6):
-                a = -math.pi * rnd(seed, i); d = 4 + u * (10 + rnd(seed, i, 1) * 8)
-                if u < .9: c.px(bx + math.cos(a) * d, by - 2 + math.sin(a) * d, T[5] if i % 2 else M[4])
-        out.append(c)
-    return out
 
-# ── 궤도 광선(44×220, 바닥 22,214) — 0~2 가는 선이 내려옴 · 3~6 굵은 청백 광선 · 7~9 사라짐 ──
-def beam_cells():
-    out = []; bx, by = 22, 214
-    for f in range(10):
-        c = Cv(44, 220)
-        if f <= 2:
-            bot = by * (f + 1) / 3
-            c.line(bx, 0, bx, bot, T[6]); c.line(bx - 1, 0, bx - 1, bot, al(T[4], .6)); c.line(bx + 1, 0, bx + 1, bot, al(T[4], .6))
-        else:
-            k = [1, 1, .85, .7, .5, .3, .15][f - 3]; w = 16 * k
-            c.band(bx, by / 2, w + 4, 400, 0, 1, al(T[3], .6 * k), dens=lambda d: 1 - d)
-            c.rect(bx - w / 2, 0, w, by, al(T[4], .9 * k))
-            c.rect(bx - w / 4, 0, max(1, w / 2), by, T[6] if k > .6 else T[5])
-            c.disc(bx, by, w * 1.2, w * .45, al(T[5], k))
-            for i in range(8):
-                y = (i * 29 + f * 13) % by
-                c.px(bx - w / 2 - 2, y, T[5]); c.px(bx + w / 2 + 1, (y + 60) % by, T[5])
-        out.append(c)
-    return out
 
 # ── 지면 충격파(360×290, 가운데 180,145 · 그림 속 반지름 175) ──
 def shock_cells():
@@ -422,6 +370,12 @@ def shock_cells():
         c.band(cx, cy, r, r * SQ, 0.88, 1.0, al(T[4], 1 - u * .8), dens=0.8 - u * .6)
         c.ring(cx, cy, r, r * SQ, T[5] if u < .6 else T[4])
         c.ring(cx, cy, r * .7, r * .7 * SQ, al(T[4], .7 * (1 - u)), gap=4)
+        for j in range(10):
+            a=j*TAU/10+.12;d=r*(.35+.4*u)
+            x,y=cx+math.cos(a)*d,cy+math.sin(a)*d*SQ
+            c.line(x,y,cx+math.cos(a)*r*.96,cy+math.sin(a)*r*.96*SQ,al(T[5],(1-u)*.6))
+            if f<6:
+                c.rect(x-1,y-8*u,3,2,al(M[4],1-u));c.px(x,y-8*u-1,Y[2])
         for i in range(12):   # 육각 격자 조각
             a = i * TAU / 12 + .2; d = r * (.4 + .5 * rnd(3, i))
             if rnd(5, i, f) < 1 - u: hexmark(c, cx + math.cos(a) * d, cy + math.sin(a) * d * SQ, 7, al(T[5], .8))
@@ -481,11 +435,146 @@ def pack(name, cells, cols=None, man=None, cx=None, cy=None, loop=0, rows=1, **e
     man[name] = {"w": w, "h": h, "cols": cols, "n": len(cells) // rows, "cx": w // 2 if cx is None else cx, "cy": h // 2 if cy is None else cy, **({"loop": 1} if loop else {}), **({"rows": rows} if rows > 1 else {}), **extra}
     return im
 
+# ── 연출 보강 — 조립 패널·응축 코일·추진 불꽃·조준 회로도 모두 시트로 그린다 ──
+def assembly_cells():
+    out = []
+    for f in range(10):
+        c = Cv(96, 72); u = f / 9; a = min(1, (1-u)*3); r = 39 - 9*ez(u)
+        for j in range(6):
+            ang = j*TAU/6 + u*.55
+            x, y = 48+math.cos(ang)*r, 48+math.sin(ang)*r*SQ
+            c.line(x,y,x,y-10*(1-u),al(T[4],a))
+            c.ring(48,48,r,r*SQ,al(T[4],a),ang,ang+.55)
+            # 네모 금속 패널이 모여들며 접힌다.
+            px,py = 48+math.cos(ang)*(32*(1-u)),40+math.sin(ang)*17*(1-u)-16*(1-u)
+            if f < 8:
+                c.rect(px-3,py-2,7,4,al(M[3],a));c.rect(px-3,py-2,7,1,al(T[5],a));c.px(px,py,T[6])
+        if f < 7: c.ring(48,48,14+f*2,(14+f*2)*SQ,al(T[5],a),gap=3)
+        out.append(c)
+    return out
+
+def charge_cells():
+    out=[]
+    for tint in TINTS:
+        k=core(tint); ec=Y[2] if tint=='gold' else k[1]
+        for f in range(8):
+            c=Cv(64,64); u=f/7
+            for j in range(3):
+                a=j*TAU/3+u*TAU*.8;r=25-12*u
+                c.ring(32,32,r,r,ec,a,a+1.2)
+                x,y=32+math.cos(a)*r,32+math.sin(a)*r
+                c.line(x,y,32+math.cos(a+.5)*8,32+math.sin(a+.5)*8,al(k[1],.7))
+                star(c,x,y,1,k[2])
+            c.disc(32,32,3+u*4,3+u*4,k[0]);c.disc(32,32,2+u*2,2+u*2,k[2]);star(c,32,32,3,W)
+            out.append(c)
+    return out
+
+def exhaust_cells():
+    out=[]
+    for hot in range(2):
+        cs=[T[3],T[4],T[6]] if not hot else [O[1],Y[2],Y[3]]
+        for f in range(6):
+            c=Cv(24,40);end=27+(f%3)*3
+            c.fillpoly([(7,2),(17,2),(18,11),(12,end),(6,11)],al(cs[0],.7))
+            c.fillpoly([(9,2),(15,2),(15,11),(12,end-6),(9,11)],cs[1])
+            c.fillpoly([(11,2),(13,2),(13,9),(12,17),(11,9)],cs[2])
+            for j in range(4):
+                y=23+(j*5+f*3)%15;x=12+int((rnd(18,j,f)-.5)*13)
+                c.rect(x,y,2,2,al(cs[1],.7*(1-(y-23)/16)))
+            out.append(c)
+    return out
+
+def target_cells():
+    out=[]
+    for f in range(10):
+        c=Cv(112,80);u=f/9;r=48;cx,cy=56,40
+        for j in range(8):
+            a=j*TAU/8;rr=r*(.7+.3*u)
+            c.ring(cx,cy,rr,rr*SQ,T[4],a+.03,a+.38)
+            x,y=cx+math.cos(a)*rr,cy+math.sin(a)*rr*SQ
+            c.line(x,y,cx+math.cos(a)*(rr-5),cy+math.sin(a)*(rr-5)*SQ,T[6])
+            if j%2==0:
+                c.rect(x-2,y-2,4,4,Y[2]);c.px(x,y,W)
+        c.ring(cx,cy,30-12*u,(30-12*u)*SQ,al(T[5],.7),gap=2)
+        c.line(cx-8,cy,cx+8,cy,T[5]);c.line(cx,cy-5,cx,cy+5,T[5])
+        out.append(c)
+    return out
+
+# 작은 공용 점 대신 명중 순간·흩어지는 금속 파편·잔류 전류를 분리한다.
+def impact_cells():
+    out=[]
+    for f in range(8):
+        c=Cv(48,48);u=f/7;r=3+17*ez(u)
+        if f<5:
+            c.ring(24,24,r,r*.7,al(T[5],1-u))
+            c.ring(24,24,r*.7,r*.7,al(T[3],1-u),gap=2)
+        if f<3:star(c,24,24,8-f*2,W,T[5]);c.disc(24,24,5-f,5-f,T[5])
+        for j in range(10):
+            a=rnd(36,j)*TAU;d=3+ez(u)*(8+rnd(37,j)*12)
+            x,y=24+math.cos(a)*d,24+math.sin(a)*d+u*u*4
+            if f<7:
+                col=Y[2] if j%3==0 else T[5] if f<4 else M[3]
+                c.line(x,y,x-math.cos(a)*max(1,4-f*.5),y-math.sin(a)*max(1,4-f*.5),al(col,1-u*.6))
+                if j%3==0:c.px(x,y-1,W if f<3 else M[4])
+        out.append(c)
+    return out
+
+def muzzle_cells():
+    out=[]
+    for f in range(5):
+        c=Cv(32,32);u=f/4;r=13*(1-u)+1
+        for j in range(8):
+            a=j*TAU/8+u*.3
+            c.fillpoly([(16,16),(16+math.cos(a-.12)*r*.5,16+math.sin(a-.12)*r*.5),(16+math.cos(a)*r,16+math.sin(a)*r),(16+math.cos(a+.12)*r*.5,16+math.sin(a+.12)*r*.5)],T[5] if j%2 else Y[2])
+        if f<3:c.disc(16,16,5-f,5-f,W)
+        out.append(c)
+    return out
+
+def orbital_strike_cells():
+    out=[];cx,cy=36,114
+    for f in range(7):
+        c=Cv(72,128)
+        if f<4:
+            bot=cy if f>=2 else cy*(f+1)/2
+            c.rect(cx-3,0,6,bot,T[4]);c.rect(cx-1,0,2,bot,T[6])
+            for j in range(5):c.line(cx-7,(j*21+f*9)%100,cx-4,(j*21+f*9)%100+10,al(T[5],.7))
+        if f>=2:
+            u=(f-2)/4;r=5+24*ez(u)
+            c.band(cx,cy,r,r*SQ,.65,1,al(T[4],1-u*.8),dens=.8-u*.4)
+            if f<5:star(c,cx,cy-4,8-(f-2)*2,W,T[5])
+            for j in range(9):
+                a=-math.pi*rnd(51,j);d=4+ez(u)*(12+rnd(52,j)*14)
+                if f<6:c.line(cx+math.cos(a)*d,cy+math.sin(a)*d,cx+math.cos(a)*(d-3),cy+math.sin(a)*(d-3),Y[2] if j%3==0 else T[5])
+        out.append(c)
+    return out
+
+def orbital_beam_cells():
+    out=[];cx,cy=44,294
+    for f in range(10):
+        c=Cv(88,304)
+        if f<3:
+            bot=cy*(f+1)/3;c.rect(cx-2,0,4,bot,T[5]);c.line(cx,0,cx,bot,W)
+        else:
+            u=(f-3)/6;width=30*(1-u*.85)
+            c.rect(cx-width*.7,0,width*1.4,cy,al(T[3],.42*(1-u)))
+            c.rect(cx-width*.5,0,width,cy,al(T[4],1-u*.6));c.rect(cx-width*.18,0,max(1,width*.36),cy,T[6] if f<7 else T[5])
+            for j in range(8):
+                y=(j*39+f*17)%cy
+                c.ring(cx,y,width*.8,width*.24,al(Y[2] if j%2 else T[5],1-u),a0=0,a1=math.pi)
+            for j in range(9):
+                y=j*33+8;side=-1 if j%2 else 1
+                pts=[(cx+side*width*.6,y),(cx+side*(width*.6+9),y+6),(cx+side*(width*.6+4),y+13),(cx+side*(width*.6+12),y+22)]
+                c.poly(pts,al(T[5],(1-u)*.65),close=False)
+            c.disc(cx,cy-2,width,width*.35,T[5]);
+            if f<6:star(c,cx,cy-3,14-(f-3)*3,W,T[5])
+        out.append(c)
+    return out
+
 def main():
     man = {}; sheets = {}
     sheets["en_pulse"] = pack("en_pulse", pulse_cells(), 4, man, loop=1, rows=3)
-    sheets["en_spark"] = pack("en_spark", spark_cells(), None, man)
-    sheets["en_flash"] = pack("en_flash", flash_cells(), None, man)
+    sheets["en_spark"] = pack("en_spark", impact_cells(), None, man)
+    sheets["en_flash"] = pack("en_flash", muzzle_cells(), None, man)
     sheets["en_laser"] = pack("en_laser", laser_cells(), None, man, cx=0, cy=2)
     sheets["en_turret"] = pack("en_turret", turret_cells(), 15, man, cx=TUR_FX, cy=TUR_FY, rows=3)
     sheets["en_drone"] = pack("en_drone", drone_cells(), 4, man, loop=1, rows=3)
@@ -494,11 +583,15 @@ def main():
     sheets["en_field"] = pack("en_field", field_cells(), 4, man, r=100)
     sheets["en_rail"] = pack("en_rail", rail_cells(), None, man, cx=0, cy=6)
     sheets["en_boom"] = pack("en_boom", boom_cells(), 4, man, cx=50, cy=58, r=46)
-    sheets["en_strike"] = pack("en_strike", strike_cells(), None, man, cx=20, cy=66)
-    sheets["en_beam"] = pack("en_beam", beam_cells(), None, man, cx=22, cy=214)
+    sheets["en_strike"] = pack("en_strike", orbital_strike_cells(), None, man, cx=36, cy=114)
+    sheets["en_beam"] = pack("en_beam", orbital_beam_cells(), None, man, cx=44, cy=294)
     sheets["en_shock"] = pack("en_shock", shock_cells(), 4, man, r=175)
     sheets["en_zap"] = pack("en_zap", zap_cells(), 4, man, loop=1, rows=2)
     sheets["en_icons"] = pack("en_icons", icon_cells(), None, man, cx=0, cy=0)
+    sheets["en_assembly"] = pack("en_assembly", assembly_cells(), 5, man, cx=48, cy=48)
+    sheets["en_charge"] = pack("en_charge", charge_cells(), 8, man, rows=3)
+    sheets["en_exhaust"] = pack("en_exhaust", exhaust_cells(), 6, man, cx=12, cy=2, rows=2, loop=1)
+    sheets["en_target"] = pack("en_target", target_cells(), 5, man, cx=56, cy=40)
     json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
     if len(sys.argv) > 2 and sys.argv[1] == "preview":
         os.makedirs(sys.argv[2], exist_ok=True)

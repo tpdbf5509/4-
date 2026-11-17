@@ -211,3 +211,7 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 - `rpg/ui/side-panel.webp` — Codex 로 뽑은 640×1600 투명 판(갈색 · 금빛 선 · 위 머리판 · 혈방울 장식). CSS `border-image` 9칸(190 40 70 40)으로 늘려 `.rpg-side` 바탕에 쓴다. 원본 줄인 것 `design/ui/side-panel.webp`.
 
 | `rpg/ui/skill-icons.webp` · `rpg/ui/potion-icons.webp` | 스킬 512×384 · 4열 × 3행(셋째 줄 혈류 파동 · 혈쇄 갈고리, 11월 15일) · 물약 512×256 · 4열 × 2행 · 칸 128 | 투명 | 오른쪽 스킬 판 아이콘 칸(BLOOD-001, 11월 15일 Codex). 칸 차례는 `skillIconData.js` · 원본은 `design/ui/skill-icons/` |
+
+### Engineer 003 연출 (11월 17일, 격자 연습장 전용)
+
+`rpg/effects/hidden-jobs/engineer/px/en_*.webp`는 투명 무손실 도트 시트 20장이다. 외부 이펙트 라이브러리 없이 `python3 design/effects/engineer/make.py`로 재생성한다. 칸 규격·색 줄·중심점은 `manifest.json`과 `engineerPxData.js`가 일치해야 한다. 조립 96×72 10칸 · 충전 64×64 8칸×3색 · 추진기 24×40 6칸×2색 · 조준 112×80 10칸을 추가했다. 총구 32×32 5칸 · 명중 48×48 8칸 · 포격 72×128 7칸 · 광선 88×304 10칸이다. 그리기는 `engineerArt.js`, 정수 배 확대·보간 끄기. 로드 실패 시 원래 1px 예고선만 남는다.

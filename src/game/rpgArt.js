@@ -2861,7 +2861,7 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.prop) drawProp(ctx, o.prop);
     else if (o.tree) drawFieldTree(ctx, o.tree);
     else if (o.gmSpot) drawGamblerSpots(ctx, M, [o.gmSpot], me.bag.gu);
-    else if (o.enUnit) drawEngineerUnit(ctx, o.enUnit, time, RPG.squash);
+    else if (o.enUnit) drawEngineerUnit(ctx, o.enUnit, time, RPG.squash, crowd ? Math.min(lod.q, CROWD.q) : lod.q);
     else if (o.herb) drawHerb(ctx, o.herb, herbUp(g, o.herb.i), time);
     else if (o.nc) drawNecroShadowOf(ctx, o.own, o.nc, time);
   });

@@ -69,7 +69,7 @@ export function drawSkillFx(ctx, f, time, g) {
   if (drawBloodFx(ctx, f, p, time, SQ(), g, Q)) return;  // 크림슨 레퀴엠 혈계 추격(bloodGunArt.js)
   if (drawBloodJobFx(ctx, f, p, SQ(), g, time)) return;    // 히든 직업 BLOOD-001(bloodJobArt.js)
   if (drawGamblerFx(ctx, f, p, SQ(), g, time)) return;      // 히든 직업 Gambler 002(gamblerArt.js)
-  if (drawEngineerFx(ctx, f, p, SQ(), g, time)) return;     // 히든 직업 Engineer 003(engineerArt.js)
+  if (drawEngineerFx(ctx, f, p, SQ(), g, time, Q)) return;     // 군중·연출 줄이기 품질도 전달한다
   if (drawNecroFx(ctx, f, p, SQ(), g, time)) return;        // 히든 직업 Necromancer 004(necroArt.js)
   if (drawFuryFx(ctx, f, p, Q)) return;           // 적룡 지팡이(furyArt.js)
   if (drawSkillPx(ctx, f, p)) return;             // 스킬 상점 스킬 — pixelfx 픽셀 시트(skillPxArt.js)

@@ -214,7 +214,17 @@ test('쓰러지면 · 맵을 옮기면 설치물을 걷는다 · 스냅샷 줄 5
 test('그림 규격 — 시트 · 아이콘 · 연출 덜어내기 · 바닥 연출 목록', () => {
   const man = JSON.parse(readFileSync(new URL('../design/effects/engineer/manifest.json', import.meta.url)));
   assert.deepEqual(ENGINEER_PX, man, 'make.py 가 낸 규격과 같다');
-  for (const k of Object.keys(ENGINEER_PX)) assert.ok(existsSync(new URL(`../public/assets/game/rpg/effects/hidden-jobs/engineer/px/${k}.webp`, import.meta.url)), k);
+  for (const [k, T] of Object.entries(ENGINEER_PX)) {
+    const path = new URL(`../public/assets/game/rpg/effects/hidden-jobs/engineer/px/${k}.webp`, import.meta.url);
+    assert.ok(existsSync(path), k);
+    // 무손실 WebP 헤더의 실제 크기를 확인한다. 메타데이터만 맞고 옛 시트가 남는 경우를 잡는다.
+    const bytes = readFileSync(path);
+    assert.equal(bytes.toString('ascii', 12, 16), 'VP8L', k);
+    assert.equal(bytes[20], 0x2f, k);
+    const size = bytes.readUInt32LE(21);
+    assert.equal((size & 0x3fff) + 1, T.w * T.cols, `${k} 가로`);
+    assert.equal(((size >>> 14) & 0x3fff) + 1, T.h * Math.ceil(T.n / T.cols) * (T.rows || 1), `${k} 세로`);
+  }
   assert.equal(Object.keys(ENGINEER_ICON).length, ENGINEER_PX.en_icons.n);
   assert.ok(Object.keys(ENGINEER_CAP).every(k => k.startsWith('sk_en_')));
   assert.ok([...ENGINEER_GROUND].every(k => GROUND_FX.has(k)));

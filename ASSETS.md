@@ -280,3 +280,7 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 ### 새벽숲 마을 (2026년 11월 5일)
 
 `design/village/`의 생성 원화 4시트에서 `public/assets/game/rpg/village/` 투명 WebP 26장을 만들었다. 건물 6 · 주민 6 · 마을 문과 소품 8 · 대화 초상화 6이다. 건물·인물은 3열×2행, 소품은 4열×2행이며 실제 자르기 영역은 `crops.json`이다. 모두 512×512. 기준점·역할·웹 참고 출처는 `docs/새벽숲-마을.md`, 크기는 `villageData.js`, 그리기는 `villageArt.js`.
+
+### Engineer 003 연출 보강 (2026년 11월 17일)
+
+`design/effects/engineer/make.py`는 직접 도트를 찍어 `public/assets/game/rpg/effects/hidden-jobs/engineer/px/`에 20장을 만든다. 조립·충전·추진기·조준 회로 4장을 추가하고 총구·명중·포격·광선·충격파와 수호자 장갑을 보강했다. `manifest.json` ↔ `engineerPxData.js`가 규격을 공유하며 `engineerArt.js`가 기존 시전 상태와 위치에 맞춰 그린다. 연출 줄이기는 장식 레이어에 적용한다. 격자 연습장 전용이며 패치노트에 공개하지 않는다.

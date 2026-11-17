@@ -13,6 +13,9 @@ import { ENGINEER_PX_SRC, ENGINEER_PX as SH } from "./engineerPxData.js";
 const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const K = 2;
+// 군중·연출 줄이기에서 장식 잔상만 덜고 공격 본체·예고선은 남긴다.
+let DETAIL = 1;
+const nq = n => Math.max(1, Math.round(n * DETAIL));
 const ROW = { teal: 0, pale: 1, gold: 2 };
 const rnd = (a, b = 0) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
 
@@ -63,9 +66,12 @@ function line(ctx, x0, y0, x1, y1, color, a, dash = 0) {
 /* 펄스 발진 — 0.08초 손목에 사각 광원 · 그 뒤 직선 에너지탄. 뒤에 옅은 잔상 둘 */
 function pulse(ctx, f, t, sq) {
   const ax = f.ax || 1, ay = f.ay || 0, row = f.row || 0;
-  if (t < f.d) return void cell(ctx, "en_flash", 2 - once("en_flash", t / f.d), f.x0 + ax * 14, f.y0 + ay * 14 * sq, K);
+  if (t < f.d) {
+    cell(ctx, "en_charge", once("en_charge", t / f.d), f.x0 + ax * 14, f.y0 + ay * 14 * sq, 1, .85, row);
+    return void cell(ctx, "en_flash", once("en_flash", t / f.d), f.x0 + ax * 14, f.y0 + ay * 14 * sq, 1);
+  }
   const d = Math.min(f.len, f.v * (t - f.d)), x = f.x0 + ax * d, y = f.y0 + ay * d * sq;
-  for (let i = 1; i <= 2; i++) { const b = d - i * 16; if (b > 6) cell(ctx, "en_pulse", loop(4, 0.2, i * 0.05), f.x0 + ax * b, f.y0 + ay * b * sq, 1, 0.55 - i * 0.18, row); }
+  for (let i = 1, n = nq(4); i <= n; i++) { const b = d - i * 13; if (b > 6) cell(ctx, "en_pulse", loop(4, 0.2, i * 0.05), f.x0 + ax * b, f.y0 + ay * b * sq, 1, .55 * (1-i/(n+1)), row); }
   cell(ctx, "en_pulse", loop(SH.en_pulse.n, 0.16), x, y, K, 1, row);
 }
 function hit(ctx, f, t) { cell(ctx, "en_spark", once("en_spark", t / f.life), f.x, f.y - 24, f.big ? 3 : K); }
@@ -78,21 +84,29 @@ function zap(ctx, f, t, sq) {
   else y0 += 2;
   const x1 = f.x1, y1 = f.y1 - 22, ang = Math.atan2(y1 - y0, x1 - x0), len = Math.hypot(x1 - x0, y1 - y0);
   strip(ctx, "en_laser", once("en_laser", u), x0, y0, ang, len, f.k === 0 ? K : 1, f.oc ? 1 : 0.9);
-  if (u < 0.6) cell(ctx, "en_flash", once("en_flash", u / 0.6), x0, y0, f.k === 0 ? K : 1);
+  if (u < 0.6) cell(ctx, "en_flash", once("en_flash", u / 0.6), x0, y0, 1);
+  // 실제 맞은 끝점에만 불꽃을 두고 레이저 중간에는 발사 잔상을 붙인다.
+  if (u < .45 && DETAIL > .6) cell(ctx, "en_pulse", 1, x0 + (x1-x0)*u, y0 + (y1-y0)*u, 1, .65);
   cell(ctx, "en_spark", once("en_spark", u), x1, y1, 1);
 }
 /* 터렛 자리 — 설치 가능 위치에 1px 녹색 사각 외곽(기획안) */
 function place(ctx, f, t, sq) {
   const u = t / f.life, s = 22 + 6 * (1 - u);
+  cell(ctx, "en_assembly", once("en_assembly", u), f.x, f.y, 1);
   ctx.save(); ctx.globalAlpha *= 1 - u * 0.7; ctx.strokeStyle = "#8FE0A6"; ctx.lineWidth = 1;
   ctx.strokeRect(Math.round(f.x - s) + 0.5, Math.round(f.y - s * sq) + 0.5, Math.round(s * 2), Math.round(s * 2 * sq)); ctx.restore();
 }
-function hexSum(ctx, f, t) { const u = t / f.life; cell(ctx, "en_hex", u < 0.4 ? once("en_hex", u / 0.4, 4) : 4 + loop(4, 0.4), f.x, f.y, K, u > 0.75 ? (1 - u) / 0.25 : 1); }
+function hexSum(ctx, f, t) {
+  const u = t / f.life;
+  cell(ctx, "en_assembly", once("en_assembly", u), f.x, f.y, 1);
+  cell(ctx, "en_hex", u < 0.4 ? once("en_hex", u / 0.4, 4) : 4 + loop(4, 0.4), f.x, f.y, K, u > 0.75 ? (1 - u) / 0.25 : 1);
+}
 // 수호자 착지 자리 — 큰 육각 발판(내려오는 동안) · 1px 원
 function pad(ctx, f, t, sq) {
   const u = t / f.life;
   cell(ctx, "en_hex", t < f.d ? once("en_hex", t / f.d, 4) : 4 + loop(4, 0.4), f.x, f.y, 3, u > 0.7 ? (1 - u) / 0.3 : 1);
   if (t < f.d) ring(ctx, f.x, f.y, 70 * (1 - t / f.d) + 20, sq, C.bright, 0.7, 3);
+  else cell(ctx, "en_boom", once("en_boom", (t-f.d)/(f.life-f.d)), f.x, f.y, K, .85);
 }
 function fold(ctx, f, t) {
   const u = t / f.life;
@@ -105,6 +119,8 @@ function boom(ctx, f, t) { cell(ctx, "en_boom", once("en_boom", t / f.life), f.x
 /* 자기장 포획 — 0.00 청록 안내 원 → 0.25 전자기장 팽창 → 0.30 판정 → 0.45 전류선이 끊어져 사라짐 */
 function magnet(ctx, f, t, sq) {
   const k = f.r / SH.en_field.r, grow = f.hit - 0.05;
+  cell(ctx, "en_target", once("en_target", Math.min(1, t/f.hit)), f.x, f.y, K, 1-t/f.life);
+  if (t >= f.hit) cell(ctx, "en_charge", once("en_charge", (t-f.hit)/(f.life-f.hit)), f.x, f.y-12, K, 1-(t-f.hit)/(f.life-f.hit), f.row || 0);
   if (t < f.hit) ring(ctx, f.x, f.y, f.r, sq, C.base, 0.5 + 0.4 * (t / f.hit), 4);
   if (t < grow) return;
   const i = t < f.hit ? once("en_field", (t - grow) / 0.05, 3) : t < f.hit + 0.15 ? 3 + Math.floor((t - f.hit) / 0.075) % 2 : 5 + Math.min(2, Math.floor((t - f.hit - 0.15) / 0.07));
@@ -120,30 +136,38 @@ function rail(ctx, f, t, sq) {
     line(ctx, f.x0, f.y0, x1, y1, C.bright, 0.5 + 0.5 * u);
     line(ctx, f.x0 + ox, f.y0 + oy, x1 + ox, y1 + oy, C.base, 0.55, 3);
     line(ctx, f.x0 - ox, f.y0 - oy, x1 - ox, y1 - oy, C.base, 0.55, 3);
-    return void cell(ctx, "en_flash", loop(2, 0.08), f.x0 + ax * 12, f.y0 + (f.ay || 0) * 12 * sq, K);
+    return void cell(ctx, "en_charge", once("en_charge", u), f.x0 + ax * 12, f.y0 + (f.ay || 0) * 12 * sq, K, 1, f.row || 0);
   }
   const u = (t - f.d) / (f.life - f.d), len = Math.hypot(x1 - f.x0, y1 - f.y0);
   strip(ctx, "en_rail", once("en_rail", u), f.x0, f.y0, ang, len, f.w / SH.en_rail.h, 1);
-  if (u < 0.5) cell(ctx, "en_spark", once("en_spark", u / 0.5), x1, y1, 3);
+  if (u < .5) cell(ctx, "en_flash", once("en_flash", u/.5), f.x0, f.y0, K);
+  for (let i=1,n=nq(4);i<=n;i++) {
+    const d=i/(n+1);
+    cell(ctx,"en_charge",once("en_charge",u),f.x0+(x1-f.x0)*d,f.y0+(y1-f.y0)*d,1,.55*(1-u),f.row||0);
+  }
+  if (u < 0.5) cell(ctx, "en_spark", once("en_spark", u / 0.5), x1, y1, K);
 }
 
 /* 오버클럭 — 시작 때 내 둘레에 푸른 번개. 기계 테두리는 drawEngineerUnit 이 상태로 그린다 */
 function oc(ctx, f, t) {
   const u = t / f.life;
   cell(ctx, "en_hex", 4 + loop(4, 0.3), f.x, f.y, 3, 1 - u);
-  for (let i = 0; i < 4; i++) cell(ctx, "en_zap", loop(4, 0.12, i * 0.07), f.x + Math.cos(i * TAU / 4 + u * 3) * 30, f.y - 40 + Math.sin(i * TAU / 4 + u * 3) * 26, K, 1 - u);
+  cell(ctx, "en_charge", once("en_charge",u), f.x, f.y-34, K, 1-u, f.row||0);
+  for (let i = 0,n=nq(4); i < n; i++) cell(ctx, "en_zap", loop(4, 0.12, i * 0.07), f.x + Math.cos(i * TAU / n + u * 3) * 30, f.y - 40 + Math.sin(i * TAU / n + u * 3) * 26, K, 1 - u);
 }
 // 과열 — 붉은 경고선(1px)과 주황 전류
 function heat(ctx, f, t, sq) {
   const u = t / f.life, blink = Math.floor(t / 0.1) % 2 ? 0.4 : 1;
   ring(ctx, f.x, f.y, 46, sq, C.warn, (1 - u) * blink); ring(ctx, f.x, f.y - 40, 34, 1, C.warn, (1 - u) * blink, 3);
   cell(ctx, "en_zap", loop(4, 0.1), f.x, f.y - 46, K, 1 - u, 1);
+  cell(ctx, "en_exhaust", loop(SH.en_exhaust.n,.25), f.x, f.y-48, 1, 1-u, 1);
 }
 
 /* 궤도 섬멸 명령 — 0~0.55 1px 십자 예고 → 0.55부터 0.18초 간격 5번 궤도 폭격 → 1.65 광선 하강 → 1.75 최종 · 지면 충격파.
    중앙 제어면 첫 포격 전에 전방 안내 레이저 3개(장식). 카메라는 그대로 */
 function orbit(ctx, f, t, sq) {
   const R = f.r;
+  if (t < f.end) cell(ctx,"en_target",once("en_target",Math.min(1,t/f.d)),f.x,f.y,3,.8);
   if (t < f.end) {
     const a = t < f.d ? 0.5 + 0.5 * (t / f.d) : 0.8;
     ring(ctx, f.x, f.y, R, sq, C.bright, a, 4);
@@ -158,9 +182,12 @@ function orbit(ctx, f, t, sq) {
     }
   }
   for (let i = 0; i < f.n; i++) {
-    const at = f.d + i * f.gap, dt = t - at; if (dt < 0 || dt > 0.4) continue;
+    // 낙하 두 칸은 미리 재생하고 실제 포격 시각부터 명중 칸을 보여 준다.
+    const at = f.d + i * f.gap, dt = t - at; if (dt < -.12 || dt > 0.4) continue;
     const a = rnd(i, 3) * TAU, d = R * 0.65 * Math.sqrt(rnd(i, 7));
-    cell(ctx, "en_strike", once("en_strike", dt / 0.4), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq, 3);
+    if (DETAIL > .6) cell(ctx,"en_target",once("en_target",Math.max(0,dt)/.4),f.x+Math.cos(a)*d,f.y+Math.sin(a)*d*sq,1,.55*(1-Math.max(0,dt)/.4));
+    const frame = dt < 0 ? Math.min(1, Math.floor((dt+.12)/.12*2)) : 2 + Math.min(SH.en_strike.n-3, Math.floor(dt/.4*(SH.en_strike.n-2)));
+    cell(ctx, "en_strike", frame, f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq, 3);
   }
   if (t >= f.beam) {
     const bt = t - f.beam, hitAt = f.end - f.beam;
@@ -181,9 +208,10 @@ export const ENGINEER_GROUND = new Set(["sk_en_place", "sk_en_hexsum", "sk_en_pa
 
 function rowOf(h) { const v = h ? engineerView(h) : null; return v ? ROW[v.tint] || 0 : 0; }
 
-export function drawEngineerFx(ctx, f, p, sq, g, time) {
+export function drawEngineerFx(ctx, f, p, sq, g, time, quality = 1) {
   const fn = KINDS[f.kind]; if (!fn) return false;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
+  DETAIL = clamp(quality, .15, 1);
   warmEngineer();
   const h = g && Number.isInteger(f.pi) ? g.heroes && g.heroes[f.pi] : null;
   if (FOLLOW.has(f.kind) && h && h.map === f.map && Number.isFinite(h.x)) f = { ...f, x: h.x, y: h.y };
@@ -196,8 +224,9 @@ export function drawEngineerFx(ctx, f, p, sq, g, time) {
 /* ── 설치물 몸 — rpgArt 가 발 높이(y)로 줄 세워 부른다. u 는 engineerView(h).units 한 칸, v 는 그 사람의 engineerView ── */
 export function engineerUnits(h) { const v = engineerView(h); return v && v.units.length ? v.units.map((u) => ({ u, v })) : null; }
 const dirOf = (a, sq) => { const s = Math.atan2(Math.sin(a) * sq, Math.cos(a)); return ((Math.round(s / (TAU / 8)) % 8) + 8) % 8; };
-export function drawEngineerUnit(ctx, o, time, sq) {
+export function drawEngineerUnit(ctx, o, time, sq, quality = 1) {
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
+  DETAIL = clamp(quality, .15, 1);
   warmEngineer();
   const { u, v } = o, row = ROW[v.tint] || 0;
   ctx.save(); ctx.imageSmoothingEnabled = false;
@@ -205,11 +234,14 @@ export function drawEngineerUnit(ctx, o, time, sq) {
   if (u.k === "turret") {
     let i = u.t < TU.ready ? once("en_turret", u.t / TU.ready, 4) : 4 + dirOf(u.a, sq);
     if (u.left < 0.3) i = 12 + Math.min(2, Math.floor((0.3 - u.left) / 0.1));
-    cell(ctx, "en_turret", i, u.x, u.y, K, 1, row);
+    const recoil = u.t >= TU.ready && u.f < .12 ? 4*(1-u.f/.12) : 0;
+    cell(ctx, "en_turret", i, u.x-Math.cos(u.a)*recoil, u.y-Math.sin(u.a)*recoil*sq, K, 1, row);
+    if (DETAIL > .6 && u.t >= TU.ready && u.left > .3) cell(ctx,"en_charge",loop(SH.en_charge.n,.9,u.x*.001),u.x,u.y-35,1,.25,row);
     if (u.f < 0.12 && u.t >= TU.ready) { const s = Math.atan2(Math.sin(u.a) * sq, Math.cos(u.a)); cell(ctx, "en_flash", 0, u.x + Math.cos(s) * 24, u.y - 36 + Math.sin(s) * 14, 1); }
   } else if (u.k === "drone") {
     const a = u.t < DR.appear ? u.t / DR.appear : u.left < 0.25 ? u.left / 0.25 : 1;
     ring(ctx, u.x, u.y, 10, sq, "#000", 0.25 * a);                              // 땅의 자리(1px)
+    for (let j=0,n=nq(2);j<n;j++) cell(ctx,"en_exhaust",loop(SH.en_exhaust.n,.16,j*.03),u.x+(n===1?0:j?14:-14),u.y+u.hz+3,1,a*.85,v.hot?1:0);
     cell(ctx, "en_drone", loop(SH.en_drone.n, 0.12, u.x * 0.001), u.x, u.y + u.hz + Math.sin(NOW * 4 + u.x) * 2, K, a, row, !!u.fl);
     cy = u.y + u.hz;
   } else {
@@ -218,6 +250,7 @@ export function drawEngineerUnit(ctx, o, time, sq) {
     if (u.t < MC.land) y -= (1 - u.t / MC.land) ** 2 * 320;
     else if (u.f < 0.3) i = 5 + Math.min(2, Math.floor(u.f / 0.1));
     else if (u.mv) i = 1 + loop(4, 0.5);
+    if (u.t < MC.land || v.oc > 0) for (const dx of [-21,21]) cell(ctx,"en_exhaust",loop(SH.en_exhaust.n,.15,dx*.01),u.x+dx,y-8,1,.9,v.hot?1:0);
     cell(ctx, "en_mech", i, u.x, y, K, u.left < 0.2 ? u.left / 0.2 : 1, row, flip);
     cy = y - 60;
   }

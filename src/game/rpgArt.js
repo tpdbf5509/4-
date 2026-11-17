@@ -22,7 +22,7 @@ import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
 import { necroLook } from './necroJob.js';   // 히든 직업 Necromancer 004 — 무기 그림을 들지 않는다
-import { NECRO_CAP, necroShadowsOf, drawNecroShadowOf, drawNecroTraces } from './necroArt.js';   // 그림자 병사 · 추출 가능 흔적
+import { NECRO_CAP, necroShadowsOf, drawNecroShadowOf, drawNecroTraces, drawNecroScythe } from './necroArt.js';   // 그림자 병사 · 추출 가능 흔적
 import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc, drawExecMark, drawExecTick } from "./advArt.js";
 import { advExecReady, advExecLine } from "./advance.js";
@@ -2401,6 +2401,8 @@ function drawHero(ctx, g, h, time) {
     const bjv = !down && (h.bdv || h.bd) ? bloodView(h) : null;   // BLOOD-001 혈검(11월 15일) — 만드는 중 · 든 검 · 베기(방장 · 손님 모두 스냅샷 값)
     if (bjv) warmBloodJob();
     if (bjv && bjv.sw) drawBloodBlade(ctx, h, bjv, view, flip, ww, hh, top, true, time);
+    const ncs = !down && necroLook(h);              // Necromancer 004 — 손에 든 그림자 낫(근접 평타, 11월 17일 사용자)
+    if (ncs) drawNecroScythe(ctx, h, view, ww, hh, top, true, time);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (!down && !(hide & HIDE_GEAR.armor)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
@@ -2410,6 +2412,7 @@ function drawHero(ctx, g, h, time) {
     }
     if (shield && view !== "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (bjv && bjv.sw) drawBloodBlade(ctx, h, bjv, view, flip, ww, hh, top, false, time);
+    if (ncs) drawNecroScythe(ctx, h, view, ww, hh, top, false, time);
     if (al & LOOK_BIT.weapon && (!held || held.none || held.adv || !held.wpn)) drawAbyssHandGlow(ctx, time, hh, top);   // 무기 그림이 몸에 붙은 전직 · 맨손 — 손 자리 불씨
     if (al) drawAbyssFront(ctx, h, al, time, view, hh, top);   // 후광 · 뒤를 볼 때 날개
     if (h.flash > 0) {

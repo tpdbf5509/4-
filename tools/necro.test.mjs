@@ -7,7 +7,7 @@ import { rpgInput } from '../src/game/rpgInput.js';
 import { whyEquip } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { SANDBOX } from '../src/game/sandboxData.js';
-import { NECRO as NC, NC_ORB as OB, NC_SOUL as SOUL, NC_EXTRACT as EX, NC_SUMMON as SM, NC_SWAP as SW, NC_DOMAIN as DM, NC_MARCH as MC, NC_BURN as BN, NC_LEGION as LG,
+import { NECRO as NC, NC_SCYTHE as SC, NC_SOUL as SOUL, NC_EXTRACT as EX, NC_SUMMON as SM, NC_SWAP as SW, NC_DOMAIN as DM, NC_MARCH as MC, NC_BURN as BN, NC_LEGION as LG,
   NC_ROSTER as RS, NC_SLOTS } from '../src/game/necroData.js';
 import { unlockNecro, necroOn, necroView, cleanNcJob, gradeCost, rosterSlots, kindOf, ncEternal } from '../src/game/necroJob.js';
 import { holds } from '../src/game/hiddenUnique.js';
@@ -39,8 +39,8 @@ const use = (g, s, pt) => rpgInput(g, { cls: 0, kind: 'hidden', dir: { op: 'use'
 const fire = (g, on) => rpgInput(g, { cls: 0, kind: 'fire', dir: on });
 const soul = (h, n) => { h.nc.soul = n; };
 const FIVE = [{ t: 'goblin', n: '고블린', g: 1, x: 0 }, { t: 'wolf', n: '늑대', g: 1, x: 0 }, { t: 'skeletal', n: '스켈레톤', g: 1, x: 0 }, { t: 'necro', n: '언데드 마법사', g: 1, x: 0 }, { t: 'ogre', n: '오우거', g: 1, x: 0 }];
-// 기준 — 흑영탄(×2.0) 한 발 피해
-function unit() { const { g, h } = setup(); const m = mob(g, h.x + 200, h.y); fire(g, true); step(g, .01); fire(g, false); run(g, .45); return (HP - m.hp) / OB.mul; }
+// 기준 — 그림자 낫 한 번 피해(×mul)
+function unit() { const { g, h } = setup(); const m = mob(g, h.x + 100, h.y); fire(g, true); step(g, .01); fire(g, false); run(g, .45); return (HP - m.hp) / SC.mul; }
 const U = unit();
 
 test('연습장에만 — live 가 꺼져 있고 연습장 맵 밖에서는 직업이 꺼진다 · 키 설정 창에 칸을 만들지 않는다', () => {
@@ -60,20 +60,22 @@ test('연습장에만 — live 가 꺼져 있고 연습장 맵 밖에서는 직�
   assert.equal(m.hp, HP, '큰 기술 · 무기 스킬은 나가지 않는다');
 });
 
-test('흑영탄 — ×2.0 · 사거리 550 · 맞히면 영혼 +5 · 공격 간격 0.5초', () => {
+test('그림자 낫 — 근접 부채꼴 · 여럿을 한 번에 · 맞히면 영혼 +5(한 번) · 뒤 · 먼 곳은 맞지 않는다', () => {
   const { g, h } = setup();
-  const m = mob(g, h.x + 300, h.y);
+  h.dir = 1;
+  const a = mob(g, h.x + 100, h.y), b = mob(g, h.x + 90, h.y + 40), back = mob(g, h.x - 100, h.y), far = mob(g, h.x + SC.reach + 80, h.y);
   fire(g, true); step(g, .01); fire(g, false); run(g, .45);
-  near(HP - m.hp, U * OB.mul);
-  assert.equal(necroView(h).soul, SOUL.hit);
-  const far = setup(); const m2 = mob(far.g, far.h.x + OB.range + 120, far.h.y);
-  fire(far.g, true); step(far.g, .01); fire(far.g, false); run(far.g, 1);
-  assert.equal(m2.hp, HP, '사거리 밖은 맞지 않는다');
+  near(HP - a.hp, U * SC.mul); near(HP - b.hp, U * SC.mul);
+  assert.equal(back.hp, HP, '등 뒤는 베지 않는다'); assert.equal(far.hp, HP, '닿지 않는 곳은 베지 않는다');
+  assert.equal(necroView(h).soul, SOUL.hit, '여럿을 베어도 영혼은 한 번');
+  const none = setup(); const m2 = mob(none.g, none.h.x + 400, none.h.y);
+  none.h.auto = 1; run(none.g, 1);
+  assert.equal(m2.hp, HP, '자동 평타는 닿는 적이 없으면 휘두르지 않는다');
 });
 
 test('처치 — 영혼 +10 · 직업 경험치 · 8초짜리 흔적. 흔적 추출로 명부 등록 → 재추출로 승급', () => {
   const { g, h } = setup(5);
-  sandboxMobs(g, SANDBOX.id, [[h.x + 200, h.y, 'goblin']]);
+  sandboxMobs(g, SANDBOX.id, [[h.x + 100, h.y, 'goblin']]);
   const m = g.mobs.find(q => q.sb);
   m.hp = 1;
   fire(g, true); step(g, .01); fire(g, false); run(g, .5);

@@ -25,7 +25,7 @@ import { unlockEngineer, engineerView, enLock } from "./game/engineerJob.js";
 import { engineerIconStyle } from "./game/engineerArt.js";
 import { ENGINEER_ICON } from "./game/engineerPxData.js";
 import { rpgSandboxHit } from "./game/rpg.js";
-import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_SKILLS, NC_ORB, NC_TRAIN_NAMES, NC_KINDS, NC_ROSTER } from "./game/necroData.js";
+import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_SKILLS, NC_SCYTHE, NC_TRAIN_NAMES, NC_KINDS, NC_ROSTER } from "./game/necroData.js";
 import { unlockNecro, necroView, ncLock, necroFillRoster, kindOf, gradeCost } from "./game/necroJob.js";
 import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
@@ -254,9 +254,9 @@ function NecroBar({ v, keyOf: key, onUse, onFire }) {
         </span>
       </div>
       <div className="gm-skills">
-        <button type="button" className="gm-skill" onClick={onFire} title={`${NC_ORB.name} — 기본 공격 · 맞히면 영혼 +5`}>
-          <span className="gm-ico" style={necroIconStyle(NECRO_ICON.orb, 48)} />
-          <span className="gm-label">{NC_ORB.name}</span>
+        <button type="button" className="gm-skill" onClick={onFire} title={`${NC_SCYTHE.name} — 근접 기본 공격 · 맞히면 영혼 +5`}>
+          <span className="gm-ico" style={necroIconStyle(NECRO_ICON.reap, 48)} />
+          <span className="gm-label">{NC_SCYTHE.name}</span>
           {key("fire") && <kbd>{key("fire")}</kbd>}
         </button>
         {NC_SLOTS.map((q) => {
@@ -709,7 +709,7 @@ export default function Sandbox() {
                   <>
                     <li><kbd>{key("up")}</kbd><kbd>{key("left")}</kbd><kbd>{key("down")}</kbd><kbd>{key("right")}</kbd> 이동 · 오른쪽 클릭으로 걷기</li>
                     <li>스킬은 마우스 쪽으로 나갑니다</li>
-                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {engineer && a.id === "fire" ? EN_PULSE.name : gambler && a.id === "fire" ? GM_CHIP.name : necro && a.id === "fire" ? NC_ORB.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
+                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {engineer && a.id === "fire" ? EN_PULSE.name : gambler && a.id === "fire" ? GM_CHIP.name : necro && a.id === "fire" ? NC_SCYTHE.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
                     {gambler && (engineer ? EN_SLOTS : GM_SLOTS).map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {(engineer ? EN_SKILLS : GM_SKILLS)[q.s].name}</li>)}
                     {necro && NC_SLOTS.map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {NC_SKILLS[q.s].name}</li>)}
                   </>

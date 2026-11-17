@@ -23,8 +23,8 @@ export const NECRO = {
   train: { max: 50, base: 100, per: 20, cast: 10 },
   tint: { violet: 75, silver: 130 },
   eternal: 150,               // 연마 합계 150 — 영원의 명령
-  // 직업 레벨 해금(공통 구간) — 흑영탄 1 · 흔적 추출 5 · 그림자 소집 15 · 그림자 교환 30 · 군주의 영역 55 · 일제 진군 100 · 영혼 소각 150 · 무명의 군세 200
-  unlock: { orb: 1, extract: 5, summon: 15, swap: 30, domain: 55, march: 100, burn: 150, legion: 200 },
+  // 직업 레벨 해금(공통 구간) — 그림자 낫 1 · 흔적 추출 5 · 그림자 소집 15 · 그림자 교환 30 · 군주의 영역 55 · 일제 진군 100 · 영혼 소각 150 · 무명의 군세 200
+  unlock: { reap: 1, extract: 5, summon: 15, swap: 30, domain: 55, march: 100, burn: 150, legion: 200 },
   lift: 34,                   // 손 높이(그림 · 탄 시작점) — 다른 원거리 스킬과 같다
 };
 export const NC_TRAIN_NAMES = ["추출 연마", "지휘 연마", "군주 연마"];
@@ -58,9 +58,10 @@ export const NC_KIND_OF = {
   boar: "giant", gorilla: "giant", ogre: "giant", golem: "giant", lavagolem: "giant", abyss: "giant",
 };
 
-/* 기본 공격 — 흑영탄. 공격 간격 0.5초 · 사거리 550 · ×2.0 · 유효 적중 영혼 +5. 0.09초 뒤 손에서 떠난다(기획안 타임라인).
-   dia 탄 지름 · v 탄속은 정한 값 */
-export const NC_ORB = { name: "흑영탄", gap: 0.5, range: 550, mul: 2.0, wind: 0.09, dia: 24, v: 1000 };
+/* 기본 공격 — 그림자 낫(11월 17일 사용자: "네크로맨서 평타 없애고 근거리 무기 낫으로 바꾸자" — 흑영탄을 뺐다).
+   앞쪽 부채꼴(반지름 reach · 반각 arc 라디안) 안 가까운 max 명을 한 번에 벤다. 휘두른 뒤 wind 초에 맞는다(낫 그림과 맞춤).
+   ×mul · 하나라도 맞히면 영혼 +5(한 번 휘두를 때 한 번). 공격 간격 gap. reach · arc · max · mul · gap 은 정한 값 — 근접이라 흑영탄(×2.0 한 발)보다 조금 세게 */
+export const NC_SCYTHE = { name: "그림자 낫", gap: 0.55, reach: 140, arc: 1.1, max: 6, mul: 2.6, wind: 0.12, swing: 0.34 };
 
 /* 흔적 추출(직업 레벨 5) — 영혼 20 · 대기 8초 · 내 둘레 240 안의 흔적 하나(가장 가까운 것). 못 쓰면 영혼 · 대기를 쓰지 않는다.
    0.25초에 그림자가 솟고 0.5초에 발밑으로 빨려 든다 — 등록은 0.5초에 */
@@ -99,7 +100,7 @@ export const NC_LEGION = { name: "무명의 군세", cost: 70, cd: 100, r: 400, 
 /* 영원의 명령(연마 합계 150) — 소집 첫 그림자를 명부에서 가장 높은 등급으로 · 첫 그림자 공격 피해 +50% · 무명의 군세 마지막 폭발 ×140 */
 export const NC_ETERNAL = { first: 0.5 };
 
-/* 조작 — 새 키 칸을 만들지 않고 기존 행동 키를 빌린다(Gambler 002 와 같은 자리). 평타 키는 흑영탄 */
+/* 조작 — 새 키 칸을 만들지 않고 기존 행동 키를 빌린다(Gambler 002 와 같은 자리). 평타 키는 그림자 낫 */
 export const NC_SLOTS = [
   { s: "extract", act: "use1" },   // 기본 1
   { s: "summon", act: "use2" },    // 기본 2

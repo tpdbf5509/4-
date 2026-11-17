@@ -3,10 +3,11 @@
    연출은 직접 그린 도트 시트(hidden-jobs/necromancer/px/*.webp, necroPxData.js)로만 그린다(Gambler 002 와 같은 방식, pixelfx 를 쓰지 않는다).
    코드로 그리는 것은 판정 범위를 보이는 1px 선 · 등급 점뿐이다. 시트를 못 불러오면 그 연출은 범위 선만 남는다.
    픽셀 그림은 정수 배로만 키운다(보통 2배). 연마 합계 색(기본 · 진한 보라 · 은색 테두리)은 그림자 병사 시트의 줄로 고른다.
-   연출 종류: sk_nc_orb(흑영탄) · hit · extract · absorb(흔적 추출) · summon · fade(그림자 소집 · 흩어짐) · strike · pop(그림자 공격)
+   연출 종류: sk_nc_reap(그림자 낫 베기) · hit · extract · absorb(흔적 추출) · summon · fade(그림자 소집 · 흩어짐) · strike · pop(그림자 공격)
               · swap(그림자 교환) · domain · domainend(군주의 영역) · mark(일제 진군) · burn(영혼 소각) · legion · legionend(무명의 군세).
    그림자 병사 · 추출 가능 흔적은 연출이 아니라 판정 상태(necroShadows · necroView)로 그린다 — rpgArt 가 사람과 앞뒤를 맞춰 부른다. */
-import { NECRO_COLORS as C, NC_SUMMON, NC_DOMAIN } from "./necroData.js";
+import { NECRO_COLORS as C, NC_SUMMON, NC_DOMAIN, NC_SCYTHE } from "./necroData.js";
+import { BLADE_HAND } from "./bloodJobArt.js";   // 손 자리(몸 그림 비율) — BLOOD-001 혈검과 같은 손
 import { necroView, necroShadows } from "./necroJob.js";
 import { NECRO_PX_SRC, NECRO_PX as SH, NC_FRAME as FR } from "./necroPxData.js";
 
@@ -53,14 +54,23 @@ const solName = (k) => `nc_${SH[`nc_${k}`] ? k : "knight"}`;
    등급은 머리 위 1px 점(1~5). 군주의 영역 안이면 조금 밝게 */
 export function drawNecroShadow(ctx, sd, row = 0, inDomain = false) {
   warmNecro();
-  const name = solName(sd.k), T = SH[name];
+  const name = solName(sd.k), T = SH[name], big = sd.k === "giant", seed = (sd.id || 0) * 0.37;
   let i;
   if (sd.born < NC_SUMMON.rise) i = FR.rise + Math.min(3, Math.floor(sd.born / NC_SUMMON.rise * 4));
   else if (sd.atk > 0) i = FR.atk + Math.min(3, Math.floor((0.42 - sd.atk) / 0.42 * 4));
   else if (sd.mv) i = FR.walk + Math.floor((sd.walk || 0) / 14) % 4;
   else i = FR.walk;
-  const ok = cell(ctx, name, i, sd.x, sd.y, K, 1, row, sd.dir < 0, inDomain ? "brightness(1.3)" : "");
+  const up = clamp(sd.born / NC_SUMMON.rise);
+  // 뒤 — 오르는 보라 연기 기운(솟는 동안 차오른다) · 걸을 때 뒤로 끌리는 연기
+  cell(ctx, "nc_aura", loop(SH.nc_aura.n, 0.9, seed), sd.x, sd.y + 2, big ? 3 : K, (inDomain ? 1 : 0.8) * up);
+  if (sd.mv && sd.born >= NC_SUMMON.rise) for (let j = 0; j < 3; j++) {
+    const ph = ((NOW / 0.45 + j / 3 + seed) % 1);
+    cell(ctx, "nc_puff", Math.floor(ph * SH.nc_puff.n), sd.x - (sd.dir < 0 ? -1 : 1) * (10 + ph * 26), sd.y - 4 - ph * 6, K, 0.9 - ph * 0.5);
+  }
+  const ok = cell(ctx, name, i, sd.x, sd.y, K, 1, row, sd.dir < 0, inDomain ? "brightness(1.35)" : "");
   if (!ok) { ctx.save(); ctx.fillStyle = C.deep; ctx.globalAlpha = 0.8; ctx.fillRect(Math.round(sd.x) - 8, Math.round(sd.y) - 34, 16, 34); ctx.restore(); }   // 시트가 없을 때 — 자리만
+  // 소환 — 하늘에서 보라 번개가 내리치며 솟는다(나온 뒤 0.5초)
+  if (sd.born < 0.5) cell(ctx, "nc_thunder", once("nc_thunder", sd.born / 0.5), sd.x, sd.y, big ? 3 : K);
   if (sd.born < NC_SUMMON.rise) return;
   ctx.save(); ctx.fillStyle = sd.first ? C.rim : C.bright;   // 등급 점 — 영원의 명령 첫 그림자는 은색
   const top = Math.round(sd.y - T.cy * K - 6);
@@ -76,6 +86,21 @@ export function drawNecroShadowOf(ctx, h, sd, time) {
   const v = necroView(h), dom = !!(v && v.dom > 0) && Math.hypot(sd.x - h.x, (sd.y - h.y) / GROUND_SQ) <= NC_DOMAIN.r;
   drawNecroShadow(ctx, sd, necroRow(h), dom);
 }
+/* ── 손에 든 그림자 낫 — drawHero 가 몸 그림 좌표(발밑 0, 0 · 좌우 뒤집기 적용된 상태) 안에서 부른다. behind 면 뒤를 볼 때만 ──
+   옆 그림은 왼쪽을 보므로 낫 시트(오른쪽을 본다)를 뒤집어 앞으로 겨눈다. 휘두르는 동안(h.swing) 손을 축으로 위에서 아래로 돈다 */
+export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
+  if ((view === "back") !== behind) return;
+  NOW = Number.isFinite(time) ? time : performance.now() / 1000;
+  warmNecro();
+  const H = (BLADE_HAND[h.gender === "f" ? "f" : "m"] || BLADE_HAND.m)[view] || BLADE_HAND.m.front;
+  const lx = (H[0] - 0.5) * ww, ly = top + H[1] * hh;
+  const u = h.swing > 0 ? clamp(1 - h.swing / NC_SCYTHE.swing) : -1;
+  const rot = u < 0 ? 0.25 + Math.sin(NOW * 2) * 0.04 : -1.3 + 2.9 * (1 - Math.pow(1 - clamp(u / 0.6), 3));
+  ctx.save(); ctx.translate(Math.round(lx), Math.round(ly)); ctx.scale(-1, 1); ctx.rotate(rot);
+  cell(ctx, "nc_scythe", Math.floor(NOW / 0.18) % 3 === 0 ? 1 : 0, 0, 0, K);
+  ctx.restore();
+}
+
 /* 추출 가능 흔적 — 내 것만(남의 흔적은 보이지 않는다). 남은 시간이 1.5초 아래면 깜빡인다 */
 export function drawNecroTraces(ctx, h, time) {
   const v = necroView(h);
@@ -89,15 +114,21 @@ export function drawNecroTraces(ctx, h, time) {
 }
 
 /* ── 연출 ─────────────────────────────────────────── */
-// 흑영탄 — 0.09초 손에 모이고 날아간다. 뒤에 옅은 잔상 둘
-function orb(ctx, f, t, sq) {
-  const ax = f.ax || 1, ay = f.ay || 0;
-  if (t < f.d) return void cell(ctx, "nc_orb", loop(SH.nc_orb.n, 0.3), f.x0 + ax * 8, f.y0 + ay * 8 * sq, 1, 0.5 + 0.5 * t / f.d);
-  const d = Math.min(f.len, f.v * (t - f.d)), x = f.x0 + ax * d, y = f.y0 + ay * d * sq;
-  for (let i = 1; i <= 2; i++) { const b = d - i * 16; if (b > 4) cell(ctx, "nc_orb", loop(SH.nc_orb.n, 0.3, i * 0.1), f.x0 + ax * b, f.y0 + ay * b * sq, 1, 0.55 - i * 0.18); }
-  cell(ctx, "nc_orb", loop(SH.nc_orb.n, 0.3), x, y, K);
+// 그림자 낫 베기 — 손 높이에서 겨눈 쪽 둘레를 위에서 아래로(그림 반지름 × 2 = 판정 반지름). 범위는 1px 반달 선으로 잠깐
+function reap(ctx, f, t, sq) {
+  const ax = f.ax || 1, ay = f.ay || 0, left = ax < 0, k = Math.max(1, Math.round(f.r / SH.nc_reap.r));
+  const ang = Math.atan2(ay * sq, Math.abs(ax));
+  ctx.save(); ctx.translate(Math.round(f.x), Math.round(f.y - 30)); if (left) ctx.scale(-1, 1); ctx.rotate(ang * 0.6);
+  ctx.translate(-Math.round(f.x), -Math.round(f.y - 30));
+  cell(ctx, "nc_reap", once("nc_reap", t / f.life), f.x, f.y - 30, k);
+  ctx.restore();
+  if (t < f.life * 0.5) {
+    const a0 = Math.atan2(ay * sq, ax), A = NC_SCYTHE.arc;
+    ctx.save(); ctx.globalAlpha *= 0.35 * (1 - t / (f.life * 0.5)); ctx.strokeStyle = C.bright; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(Math.round(f.x) + 0.5, Math.round(f.y) + 0.5, f.r, f.r * sq, 0, a0 - A, a0 + A); ctx.stroke(); ctx.restore();
+  }
 }
-function hit(ctx, f, t) { cell(ctx, "nc_hit", once("nc_hit", t / f.life), f.x, f.y - 24, f.sm ? 1 : K); }
+function hit(ctx, f, t) { cell(ctx, "nc_hit", once("nc_hit", t / f.life), f.x, f.y - 26, f.sm ? 1 : K); }
 
 // 흔적 추출 — 흔적 자리에 줄기가 솟고(0.25초) 영혼 조각이 발밑으로 빨려 든다(0.5초)
 function extract(ctx, f, t) {
@@ -122,6 +153,7 @@ function fade(ctx, f, t) {
 /* 그림자 공격 — 사수는 화살, 주술은 작은 구체가 날아가고(맞는 순간은 pop 이 그린다), 근접은 맞는 순간 베기 반달 */
 function strike(ctx, f, t) {
   const x0 = f.x + (f.dir < 0 ? -12 : 12), y0 = f.y - 30, x1 = f.x1, y1 = f.y1 - 24;
+  if (t >= f.d - 0.02 && t < f.d + 0.3) cell(ctx, "nc_hit", once("nc_hit", (t - f.d + 0.02) / 0.32), x1, y1 - 2, f.sk === "giant" ? 3 : K);   // 맞는 순간 — 보라 번개 터짐
   if (f.sk === "archer" || f.sk === "caster") {
     if (t >= f.d) return;
     const u = t / f.d, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u - (f.sk === "caster" ? Math.sin(u * Math.PI) * 24 : 0);
@@ -157,6 +189,17 @@ function domain(ctx, f, t, sq) {
   if (f.start && t < f.d) cell(ctx, "nc_domain", once("nc_domain", t / f.d, 4), f.x, f.y, k);
   else cell(ctx, "nc_domain", 4 + loop(4, 1.2), f.x, f.y, k);
   ring(ctx, f.x, f.y, f.r, sq, C.bright, 0.55);
+  if (f.start && t < f.d) return;
+  // 영역 안 — 0.32초마다 자리를 바꿔 보라 번개가 떨어지고(같은 칸 번갈아 셋), 가장자리에서 연기 기운이 오른다(판정 없음 · 보기만)
+  for (let j = 0; j < 3; j++) {
+    const slot = Math.floor((NOW + j * 0.21) / 0.63), ph = ((NOW + j * 0.21) / 0.63) % 1;
+    const a = rnd(slot, j) * TAU, d = Math.sqrt(rnd(slot, j + 7)) * f.r * 0.85;
+    cell(ctx, "nc_thunder", Math.floor(ph * SH.nc_thunder.n), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq, 1, 0.9);
+  }
+  for (let j = 0; j < 8; j++) {
+    const a = j / 8 * TAU + NOW * 0.15;
+    cell(ctx, "nc_aura", loop(SH.nc_aura.n, 1.1, j * 0.13), f.x + Math.cos(a) * f.r * 0.93, f.y + Math.sin(a) * f.r * 0.93 * sq, K, 0.55);
+  }
 }
 function domainEnd(ctx, f, t) {
   const u = t / f.life, k = Math.max(1, Math.round(f.r / SH.nc_domain.r));
@@ -230,13 +273,13 @@ function legionEnd(ctx, f, t) {
   cell(ctx, "nc_blast", once("nc_blast", u), f.x, f.y, Math.max(1, Math.round(f.r / SH.nc_blast.r)));
 }
 
-const KINDS = { sk_nc_orb: orb, sk_nc_hit: hit, sk_nc_extract: extract, sk_nc_absorb: absorb, sk_nc_summon: summon, sk_nc_fade: fade, sk_nc_strike: strike, sk_nc_pop: pop,
+const KINDS = { sk_nc_reap: reap, sk_nc_hit: hit, sk_nc_extract: extract, sk_nc_absorb: absorb, sk_nc_summon: summon, sk_nc_fade: fade, sk_nc_strike: strike, sk_nc_pop: pop,
   sk_nc_swap: swap, sk_nc_domain: domain, sk_nc_domainend: domainEnd, sk_nc_mark: mark, sk_nc_burn: burn, sk_nc_legion: legion, sk_nc_legionend: legionEnd };
 // 같은 종류는 최근 몇 개만 그린다(rpgArt FX_LOD.cap)
-export const NECRO_CAP = { sk_nc_orb: 10, sk_nc_hit: 16, sk_nc_extract: 3, sk_nc_absorb: 3, sk_nc_summon: 2, sk_nc_fade: 8, sk_nc_strike: 16, sk_nc_pop: 10,
+export const NECRO_CAP = { sk_nc_reap: 6, sk_nc_hit: 16, sk_nc_extract: 3, sk_nc_absorb: 3, sk_nc_summon: 2, sk_nc_fade: 8, sk_nc_strike: 16, sk_nc_pop: 10,
   sk_nc_swap: 2, sk_nc_domain: 6, sk_nc_domainend: 2, sk_nc_mark: 3, sk_nc_burn: 2, sk_nc_legion: 2, sk_nc_legionend: 2 };
 // 시전자를 따라다니는 연출
-const FOLLOW = new Set(["sk_nc_absorb", "sk_nc_domain", "sk_nc_domainend"]);
+const FOLLOW = new Set(["sk_nc_reap", "sk_nc_absorb", "sk_nc_domain", "sk_nc_domainend"]);
 // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
 export const NECRO_GROUND = new Set(["sk_nc_domain", "sk_nc_domainend", "sk_nc_summon", "sk_nc_absorb", "sk_nc_extract"]);
 

@@ -78,6 +78,114 @@ function motes(ctx, o) {
 }
 const sid = (f) => Math.round((f.x || 0) * 0.37 + (f.y || 0) * 0.91 + (f.x1 || 0) * 0.13) % 997;
 
+/* ── 몹 그림자화(11월 17일 사용자: "각 몹마다 그림자화된 이미지 만들어보자") ──
+   그림자 병사는 원래 몹 그림(rpgArt 의 MOB_DRAW — 몹마다 코드로 그린다)을 빈 판에 그린 뒤 화소를 바꿔 만든다:
+   몸은 밝기 네 단계의 검보라 · 안쪽 윤곽 보라 빛(연마 75 는 왼쪽 푸른 뒷빛 · 130 은 은빛) · 바깥 두 겹 번짐 · 가슴에서 뻗는 번개 줄기 · 앞머리의 빛나는 눈.
+   몹 그리기는 rpgArt 가 setNecroMobPainter 로 넘겨 준다(서로 부르지 않게). 한 번 만든 그림은 종류 · 칸 · 색 줄마다 둔다.
+   그림 파일을 쓰는 몹은 파일이 늦게 오므로 같은 결과가 두 번 나올 때까지 다시 만든다. 못 만들면 예전 공통 병사 시트를 쓴다 */
+let mobPainter = null;
+export const setNecroMobPainter = (fn) => { mobPainter = fn; };
+const SIL = new Map(), SIL_W = 260, SIL_H = 240, SIL_FX = 130, SIL_FY = 200, SIL_FRAMES = 5;   // 칸 0~3 걷기 · 4 서 있기
+const BODY = ["#07050B", "#120C1A", "#1E1329", "#2B1A3D"];
+const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const BODY_RGB = BODY.map(hex), GV_RGB = ["#3B1F6E", "#6A3FD0", "#9C6BFF", "#C9A8FF", "#F1E6FF"].map(hex), BL_RGB = hex("#5F8FE8"), SV_RGB = hex("#E6E3F2");
+function shade(x, row, seed) {
+  const W = SIL_W, H = SIL_H, im = x.getImageData(0, 0, W, H), d = im.data, n = W * H;
+  const m = new Uint8Array(n);
+  let cnt = 0, l = W, t = H, r = -1, b = -1, sx = 0, sy = 0;
+  for (let i = 0; i < n; i++) if (d[i * 4 + 3] >= 90) {
+    m[i] = 1; cnt++; const px = i % W, py = (i / W) | 0;
+    if (px < l) l = px; if (px > r) r = px; if (py < t) t = py; if (py > b) b = py; sx += px; sy += py;
+  }
+  if (cnt < 30) return null;
+  const o = new Uint8ClampedArray(n * 4);
+  const put = (i, c, a = 255) => {
+    const k = i * 4, A = a / 255, B = o[k + 3] / 255, oa = A + B * (1 - A);
+    if (oa <= 0) return;
+    for (let j = 0; j < 3; j++) o[k + j] = (c[j] * A + o[k + j] * B * (1 - A)) / oa;
+    o[k + 3] = oa * 255;
+  };
+  const at = (px, py) => px >= 0 && py >= 0 && px < W && py < H && m[py * W + px] === 1;
+  for (let i = 0; i < n; i++) {
+    const px = i % W, py = (i / W) | 0;
+    if (m[i]) {
+      const lum = (d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2]) / 765;
+      put(i, BODY_RGB[Math.min(3, Math.floor(lum * 4.2))]);
+      const up = !at(px, py - 1), rt = !at(px + 1, py), lf = !at(px - 1, py), dn = !at(px, py + 1);
+      if (up || rt || lf || dn) {
+        const lit = up || rt;
+        let c = lit ? GV_RGB[2] : GV_RGB[1];
+        if (row === 1 && lf && !lit) c = BL_RGB;
+        if (row === 2 && lit) c = (px + py) % 3 === 0 ? SV_RGB : GV_RGB[3];
+        put(i, c);
+      }
+    } else {
+      let near1 = false, near2 = false;
+      for (let dy = -2; dy <= 2 && !near1; dy++) for (let dx = -2; dx <= 2; dx++) {
+        if (!at(px + dx, py + dy)) continue;
+        if (Math.abs(dx) + Math.abs(dy) <= 1) { near1 = true; break; }
+        near2 = true;
+      }
+      if (near1) put(i, GV_RGB[1], 190);
+      else if (near2 && ((px * 3 + py * 5) % 4) < 2) put(i, GV_RGB[0], 140);
+    }
+  }
+  // 번개 줄기 — 몸 가운데에서 몸 안을 따라 꺾여 뻗는다(색 줄이 오를수록 많이)
+  const cx = Math.round(sx / cnt), cy = Math.round(sy / cnt);
+  for (let v = 0; v < 4 + row * 2; v++) {
+    let px = cx, py = cy;
+    const a = rnd(seed, v) * TAU, dx = Math.round(Math.cos(a) * 1.4), dy = Math.round(Math.sin(a) * 1.4) || -1;
+    const len = 6 + Math.floor(rnd(seed + 3, v) * 14);
+    for (let k2 = 0; k2 < len; k2++) {
+      px += dx + (rnd(seed + v, k2) > 0.7 ? 1 : rnd(seed + v, k2) < 0.3 ? -1 : 0) * (dy !== 0 ? 1 : 0);
+      py += dy + (rnd(seed + v, k2 + 9) > 0.7 ? 1 : rnd(seed + v, k2 + 9) < 0.3 ? -1 : 0) * (dx !== 0 ? 1 : 0);
+      if (!at(px, py)) break;
+      put(py * W + px, k2 === len - 1 ? GV_RGB[4] : v % 2 ? GV_RGB[3] : GV_RGB[2]);
+    }
+  }
+  put(cy * W + cx, GV_RGB[4]);
+  // 눈 — 위쪽 30% 띠에서 가장 앞(오른쪽)인 자리 조금 안쪽
+  const band = t + Math.max(3, Math.round((b - t) * 0.3));
+  let ex = -1, ey = -1;
+  for (let py = t; py <= band; py++) for (let px = r; px >= l; px--) if (at(px, py)) { if (px > ex) { ex = px; ey = py; } break; }
+  if (ex > 0) {
+    const e1 = [ex - 3, ey + 2], e2 = [ex - 6, ey + 2];
+    for (const [qx, qy] of [e1, e2]) if (at(qx, qy)) { put(qy * W + qx, GV_RGB[4]); if (at(qx, qy - 1)) put((qy - 1) * W + qx, GV_RGB[2], 200); }
+    if (at(ex - 2, ey + 2)) put((ey + 2) * W + ex - 2, GV_RGB[3], 220);
+  }
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  c.getContext("2d").putImageData(new ImageData(o, W, H), 0, 0);
+  return { c, n: cnt, box: { l: Math.max(0, l - 3), t: Math.max(0, t - 3), w: Math.min(W, r + 4) - Math.max(0, l - 3), h: Math.min(H, b + 4) - Math.max(0, t - 3) } };
+}
+const typeSeed = (type) => { let v = 7; for (const ch of String(type)) v = (v * 31 + ch.charCodeAt(0)) % 9973; return v; };
+function silhouette(type, f, row) {
+  if (!mobPainter || typeof document === "undefined" || !type) return null;
+  const key = `${type}|${f}|${row}`, now = performance.now();
+  let s = SIL.get(key);
+  if (s && (s.done || now - s.at < 700)) return s.c ? s : null;
+  let out = null;
+  try {
+    const c = document.createElement("canvas"); c.width = SIL_W; c.height = SIL_H;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    if (mobPainter(x, type, SIL_FX, SIL_FY, f)) out = shade(x, row, typeSeed(type) + f * 3);
+  } catch { out = null; }
+  const done = !!out && !!s && s.n === out.n;
+  s = { c: out && out.c, box: out && out.box, n: out ? out.n : 0, at: now, done };
+  SIL.set(key, s);
+  return s.c ? s : null;
+}
+/* 몹 그림자 한 칸 그리기 — f 칸(0~3 걷기 · 4 서 있기), show 아래에서 드러난 몫(솟아오름), lunge 앞으로 내민 거리, up 위로 뜬 거리 · a 투명도 */
+function drawSil(ctx, type, f, row, x, y, flip, { show = 1, lunge = 0, up = 0, a = 1, filter = "" } = {}) {
+  const s = silhouette(type, f, row);
+  if (!s) return null;
+  const B = s.box, vis = Math.max(1, Math.round(B.h * clamp(show))), hid = B.h - vis;
+  ctx.save(); ctx.globalAlpha *= clamp(a); ctx.imageSmoothingEnabled = false; if (filter) ctx.filter = filter;
+  ctx.translate(Math.round(x), Math.round(y - up)); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(s.c, B.l, B.t + hid, B.w, vis, B.l - SIL_FX + lunge, B.t + hid - SIL_FY, B.w, vis);
+  ctx.restore();
+  return { top: B.t - SIL_FY };
+}
+
 const solName = (k) => `nc_${SH[`nc_${k}`] ? k : "knight"}`;
 
 /* ── 그림자 병사 — 판정 상태 하나를 그린다. 솟아오름(나온 뒤 rise 초) · 공격 자세 · 걷기 · 서 있기 ──
@@ -97,7 +205,10 @@ export function drawNecroShadow(ctx, sd, row = 0, inDomain = false) {
     const ph = ((NOW / 0.45 + j / 3 + seed) % 1);
     cell(ctx, "nc_puff", Math.floor(ph * SH.nc_puff.n), sd.x - (sd.dir < 0 ? -1 : 1) * (10 + ph * 26), sd.y - 4 - ph * 6, K, 0.9 - ph * 0.5);
   }
-  const ok = cell(ctx, name, i, sd.x, sd.y, K, 1, row, sd.dir < 0, inDomain ? "brightness(1.35)" : "");
+  const sf = sd.atk > 0 || !sd.mv ? 4 : Math.floor((sd.walk || 0) / 14) % 4;
+  const lunge = sd.atk > 0 ? Math.round(Math.sin(clamp((0.42 - sd.atk) / 0.42) * Math.PI) * 10) : 0;
+  const sil = drawSil(ctx, sd.t, sf, row, sd.x, sd.y, sd.dir < 0, { show: sd.born < NC_SUMMON.rise ? sd.born / NC_SUMMON.rise : 1, lunge, filter: inDomain ? "brightness(1.35)" : "" });
+  const ok = sil || cell(ctx, name, i, sd.x, sd.y, K, 1, row, sd.dir < 0, inDomain ? "brightness(1.35)" : "");
   if (!ok) { ctx.save(); ctx.fillStyle = C.deep; ctx.globalAlpha = 0.8; ctx.fillRect(Math.round(sd.x) - 8, Math.round(sd.y) - 34, 16, 34); ctx.restore(); }   // 시트가 없을 때 — 자리만
   // 소환 — 하늘에서 보라 번개가 내리치며 솟는다(나온 뒤 0.5초)
   if (sd.born < 0.5) cell(ctx, "nc_thunder", once("nc_thunder", sd.born / 0.5), sd.x, sd.y, big ? 3 : K);
@@ -105,7 +216,7 @@ export function drawNecroShadow(ctx, sd, row = 0, inDomain = false) {
   else motes(ctx, { x: sd.x, y: sd.y, r: big ? 26 : 16, n: 3, mix: "eem", t: NOW, life: 1.1, loop: 1, rise: big ? 80 : 56, lift: 6, k: 1, a: 0.85, seed: (sd.id || 0) * 7 });   // 몸에서 오르는 불씨
   if (sd.born < NC_SUMMON.rise) return;
   ctx.save(); ctx.fillStyle = sd.first ? C.rim : C.bright;   // 등급 점 — 영원의 명령 첫 그림자는 은색
-  const top = Math.round(sd.y - T.cy * K - 6);
+  const top = Math.round(sd.y + (sil ? sil.top : -T.cy * K) - 6);
   for (let j = 0; j < (sd.g | 0); j++) ctx.fillRect(Math.round(sd.x) - (sd.g - 1) * 2 + j * 4, top, 2, 2);
   ctx.restore();
 }
@@ -191,6 +302,11 @@ function summon(ctx, f, t, sq) {
   motes(ctx, { x: f.x, y: f.y, r: f.r, n: 46, mix: "mmeesz", t, span: f.life * 0.5, life: 0.7, rise: 50, out: 10, sq, seed: sid(f) });
 }
 function fade(ctx, f, t) {
+  const u = t / f.life;
+  if (drawSil(ctx, f.mt, 4, f.row || 0, f.x, f.y, f.dir < 0, { up: u * 14, a: 1 - u })) {
+    motes(ctx, { x: f.x, y: f.y - 20, r: 18, n: 10, mix: "mme", t, span: 0.1, life: f.life, rise: 40, seed: sid(f) });
+    return;
+  }
   const name = solName(f.k);
   cell(ctx, name, FR.fade + once(name, t / f.life, 4), f.x, f.y, K, 1, f.row || 0, f.dir < 0);
 }
@@ -270,12 +386,13 @@ function mark(ctx, f, t, sq, g) {
 /* 영혼 소각 — 그림자들이 붉게 갈라진 채 겨눈 자리로 달려가(0.25초) 0.4초부터 차례로 터진다. 범위 1px 선 */
 function burn(ctx, f, t, sq) {
   ring(ctx, f.x, f.y, f.r, sq, "#C9505A", t < f.boom ? 0.4 + 0.5 * t / f.boom : 0.5, t < f.boom ? 4 : 0);
-  (f.from || []).forEach(([x0, y0, k, dir], i) => {
+  (f.from || []).forEach(([x0, y0, k, dir, mt], i) => {
     const at = f.boom + i * f.gap, name = solName(k);
     const ox = (rnd(i, 1) - 0.5) * f.r * 0.7, oy = (rnd(i, 2) - 0.5) * f.r * 0.5 * sq, x1 = f.x + ox, y1 = f.y + oy;
     if (t < at) {
       const u = clamp(t / f.d), x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, fl = x1 < x0;
-      cell(ctx, name, FR.walk + Math.floor(t / 0.06) % 4, x, y, K, 1, f.row || 0, t < f.d * 0.2 ? dir < 0 : fl);
+      if (!drawSil(ctx, mt, Math.floor(t / 0.06) % 4, f.row || 0, x, y, t < f.d * 0.2 ? dir < 0 : fl, { filter: "sepia(0.4) saturate(2) hue-rotate(-40deg)" }))
+        cell(ctx, name, FR.walk + Math.floor(t / 0.06) % 4, x, y, K, 1, f.row || 0, t < f.d * 0.2 ? dir < 0 : fl);
       cell(ctx, "nc_crack", once("nc_crack", t / at), x, y, K, 1, 0, fl);
       return;
     }

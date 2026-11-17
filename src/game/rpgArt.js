@@ -22,7 +22,7 @@ import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
 import { necroLook } from './necroJob.js';   // 히든 직업 Necromancer 004 — 무기 그림을 들지 않는다
-import { NECRO_CAP, necroShadowsOf, drawNecroShadowOf, drawNecroTraces, drawNecroScythe } from './necroArt.js';   // 그림자 병사 · 추출 가능 흔적
+import { NECRO_CAP, necroShadowsOf, drawNecroShadowOf, drawNecroTraces, drawNecroScythe, setNecroMobPainter } from './necroArt.js';   // 그림자 병사 · 추출 가능 흔적
 import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc, drawExecMark, drawExecTick } from "./advArt.js";
 import { advExecReady, advExecLine } from "./advance.js";
@@ -2033,6 +2033,15 @@ function drawRaceMount(ctx, g, h, time) {
 }
 /* 도감 그림 — 몹 하나를 넓은 판에 그린 뒤 그려진 곳만 잘라 둔다(몹마다 크기가 달라서). 한 번 그리면 기억한다.
    그림 파일이 아직 덜 불러와졌으면 다음에 다시 그린다 */
+/* Necromancer 004 — 그림자 병사가 원래 몹 모습을 쓰게 몹 그리기를 넘긴다(그림자화는 necroArt.js). f 0~3 걷기 · 4 서 있기, 크기는 사냥터 가운데 레벨 */
+setNecroMobPainter((x, type, fx, fy, f) => {
+  if (!MOB[type]) return false;
+  const sp = SPAWNS.find((q) => q.type === type && q.lv);
+  const sz = Math.max(0.3, mobSize(type, sp ? (sp.lv[0] + sp.lv[1]) / 2 : 1, 0) || 1);
+  const m = { type, id: 0, x: fx, y: fy, size: sz, age: 0.4 + (f < 4 ? f * 0.07 : 0), moving: f < 4, hp: 1, max: 1, lv: 1, boss: 0, ax: 1, pose: 0, freeze: 0, flash: 0, portrait: 1 };
+  (MOB_DRAW[type] || drawRabbit)(x, m, 0, null);
+  return true;
+});
 const ICON_PAD = 320, ICON_FOOT = 0.78;                  // 넓은 판 한 변(px) · 발밑 높이(판 높이의 몫)
 const iconMemo = new Map();
 function mobIconSheet(type, boss) {

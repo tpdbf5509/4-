@@ -299,7 +299,7 @@ function summonUse(E, g, h) {
   const pick = J.roster.filter((q) => !(s.lock[q.t] > 0)).map((q, i) => ({ q, i })).sort((a, b) => b.q.g - a.q.g || a.i - b.i).slice(0, SM.max).map((o) => o.q);
   if (!pick.length) return void no(E, g, h, J.roster.length ? "부를 수 있는 그림자가 없습니다" : "명부에 그림자가 없습니다 — 흔적 추출로 등록하세요");
   pay(E, g, h, "summon");
-  for (const sd of s.sh) E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
+  for (const sd of s.sh) E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, mt: sd.t, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
   s.sh = [];
   s.cast = E.cast(h);                                   // 소집 시전 — 이번 그림자들의 평소 공격이 모두 함께 쓴다
   s.base = E.base(h);
@@ -336,14 +336,14 @@ function shadowAttack(E, g, h, s, sd, o, src, mul) {
 function tickShadow(E, g, h, s, sd, i, dt) {
   sd.born += dt; sd.life -= dt; sd.atk = Math.max(0, sd.atk - dt);
   if (sd.life <= 0) {
-    E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
+    E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, mt: sd.t, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
     return false;
   }
   if (sd.born < SM.rise) return true;
   if (sd.hold > 0) { sd.hold -= dt; sd.mv = 0; return true; }
   if (sqd(E, h.x, h.y, sd.x, sd.y) > AI.leash) {        // 너무 멀다 — 주인 곁으로
     const [x, y] = inMap(E, h.map, h.x - h.dir * AI.back, h.y + (i - 2) * AI.spread * E.squash);
-    E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, dir: sd.dir, pi: h.pi, t: 0.3, life: 0.3 });
+    E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, mt: sd.t, dir: sd.dir, pi: h.pi, t: 0.3, life: 0.3 });
     sd.x = x; sd.y = y; sd.tgt = ""; sd.prio = "";
     return true;
   }
@@ -488,7 +488,7 @@ function burnUse(E, g, h) {
   pay(E, g, h, "burn");
   const [x, y] = pointAt(E, g, h, BN.reach, BN.near);
   const bn = { t: 0, x, y, n: live.length, done: 0, cast: E.cast(h), base: E.base(h), xp: 0, map: h.map,
-    from: live.map((q) => [Math.round(q.x), Math.round(q.y), q.k, q.dir]) };
+    from: live.map((q) => [Math.round(q.x), Math.round(q.y), q.k, q.dir, q.t]) };
   for (const sd of live) s.lock[sd.t] = BN.lock;
   s.sh = s.sh.filter((q) => !live.includes(q));
   s.burns.push(bn);
@@ -571,7 +571,7 @@ export function tickNecro(E, g, h, dt) {
 export function necroDown(E, g, h) {
   if (!necroOn(h) || !h.nc) return;
   const s = h.nc;
-  for (const sd of s.sh) E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
+  for (const sd of s.sh) E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, mt: sd.t, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
   s.sh = [];
   if (s.dom) endDomain(E, g, h);
   s.soul = 0;

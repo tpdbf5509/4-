@@ -230,7 +230,7 @@ test('그림 규격 — 시트 · 아이콘 · 연출 덜어내기 · 바닥 연
   assert.ok([...ENGINEER_GROUND].every(k => GROUND_FX.has(k)));
 });
 
-test('외형 — 사용자 그림 한 벌을 남녀 모두 쓴다(서 있는 그림 · 걷는 그림 4장)', () => {
+test('외형 — 남 · 여 사용자 그림을 따로 쓴다(서 있는 그림 · 걷는 그림 4장)', () => {
   const { h } = setup();
   for (const gd of ['m', 'f']) {
     h.gender = gd;
@@ -239,4 +239,5 @@ test('외형 — 사용자 그림 한 벌을 남녀 모두 쓴다(서 있는 그
     for (const v of ['front', 'back', 'side']) for (let i = 0; i < 4; i++) assert.ok(existsSync(`public/assets/characters/rpg/engineer-${gd}/walk-${v}-${i}.webp`), `${gd} walk ${v} ${i}`);
   }
   assert.match(readFileSync('src/game/rpgArt.js', 'utf8'), /engineer-\[mf\]/, '걷는 그림을 쓴다');
+  assert.notDeepEqual(readFileSync('public/assets/characters/rpg/engineer-m/front.webp'), readFileSync('public/assets/characters/rpg/engineer-f/front.webp'), '남녀 그림이 다르다');
 });

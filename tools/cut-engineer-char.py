@@ -1,7 +1,7 @@
 """히든 직업 Engineer 003 엔지니어 외형 — 사용자가 준 시트 둘을 떼어 낸다(design/engineer-job/char/, 11월 17일).
-   그림은 한 벌(여성)뿐이라 남 · 여 모두 같은 그림을 쓴다. 남성 그림이 오면 시트를 나누고 이 스크립트를 고친다.
-   서 있는 시트 engineer-standing-sheet.png: 한 줄, 칸 4개 = 앞 · 뒤 · 옆(왼쪽을 본다) · 옆(오른쪽을 본다). 게임은 옆 그림을 뒤집어 쓰므로 셋째 칸만 쓴다.
-   걷는 시트 engineer-walk-sheet.png: 4칸 × 4줄. 줄 = 앞 · 뒤 · 왼쪽 · 오른쪽, 칸 = 걷기 4장. 왼쪽 줄만 쓴다.
+   남 · 여 따로 한 벌씩(여성 11월 17일 처음 · 남성은 같은 날 뒤에 받음).
+   서 있는 시트 engineer-<m|f>-standing-sheet.png: 한 줄, 칸 4개 = 앞 · 뒤 · 옆(왼쪽을 본다) · 옆(오른쪽을 본다). 게임은 옆 그림을 뒤집어 쓰므로 셋째 칸만 쓴다.
+   걷는 시트 engineer-<m|f>-walk-sheet.png: 4칸 × 4줄. 줄 = 앞 · 뒤 · 왼쪽 · 오른쪽, 칸 = 걷기 4장. 왼쪽 줄만 쓴다.
    결과(public/assets/characters/rpg/engineer-<m|f>/): Gambler 002 와 같은 이름 · 크기 규칙(tools/cut-gambler-char.py).
    엔지니어는 무기를 들지 않아 -bare 도 같은 그림이다.
    실행: python3 tools/cut-engineer-char.py"""
@@ -38,9 +38,9 @@ def grid(im, r, c, rows, cols):
     H, W = im.shape[:2]
     return im[r * H // rows:(r + 1) * H // rows, c * W // cols:(c + 1) * W // cols]
 
-st = np.asarray(Image.open(os.path.join(SRC, "engineer-standing-sheet.png")).convert("RGBA"))
 for g in ("m", "f"):
-    wk = np.asarray(Image.open(os.path.join(SRC, "engineer-walk-sheet.png")).convert("RGBA"))
+    st = np.asarray(Image.open(os.path.join(SRC, f"engineer-{g}-standing-sheet.png")).convert("RGBA"))
+    wk = np.asarray(Image.open(os.path.join(SRC, f"engineer-{g}-walk-sheet.png")).convert("RGBA"))
     stand = {"front": body(grid(st, 0, 0, 1, 4)), "back": body(grid(st, 0, 1, 1, 4)), "side": body(grid(st, 0, 2, 1, 4))}
     stand["turn"] = stand["front"]
     ref = Image.open(os.path.join(OUT, f"assassin-{g}", "front.webp")).size[1] - PAD * 2

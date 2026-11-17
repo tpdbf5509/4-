@@ -230,6 +230,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 수치 `engineerData.js` · 규칙 `engineerJob.js`(엔진 `rpg.js engineerEngine`, 입력 `hidden {op:"use", s}` 를 `rpgHidden` 이 켜진 직업으로 보낸다) · 그림 `engineerArt.js`(연출 + 설치물 몸 `drawEngineerUnit`, rpgArt 가 발 높이로 줄 세움) · 시트 규격 `engineerPxData.js` · 연습장 칸 `Sandbox.jsx EngineerBar`. 시험 `tools/engineer.test.mjs`.
 - 설치물(터렛 · 드론 · 수호자)은 몹 목록과 따로 `h.en.units`. 스냅샷 영웅 줄 **58** = `packEngineer`(아니면 0, 칸은 뒤에만). 손님 화면 값 `h.env`.
 - 이펙트는 Gambler 002 처럼 직접 그린 도트 시트(`design/effects/engineer/make.py` → `hidden-jobs/engineer/px/en_*.webp` 20장 · `manifest.json` 값을 `engineerPxData.js` 에 옮긴다, 시험이 같은지 본다). 코드로는 1px 예고 · 범위 선만.
+- 외형은 사용자 그림 한 벌(여성)을 `tools/cut-engineer-char.py` 로 자른 `characters/rpg/engineer-<m|f>/`(남녀 같은 그림, 원본 `design/engineer-job/char/`). `advArtPath` 가 `engineerLook` 이면 이 그림, 걷는 그림 4장은 Gambler 002 와 같은 규칙.
 - 내가 정한 해석 목록은 `docs/작업-상세-기록.md` 끝.
 - 11월 17일 연출 보강: 조립·충전·추진기·조준 회로 시트 4장 추가. 총구·명중·포격·광선·충격파 시트를 보강했다. `drawEngineerFx`·`drawEngineerUnit`이 품질 값을 받아 장식 잔상을 줄인다. 판정·전력·대기·스냅샷은 그대로며 패치노트에는 적지 않는다.
 

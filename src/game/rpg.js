@@ -19,7 +19,7 @@ import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill
 import { gamblerInput, gamblerBasic, tickGambler, gamblerTake, gamblerDown, gamblerFill, gamblerKill, gamblerRaidKill, gamblerOn, gamblerLook, packGambler, applyGambler } from './gamblerJob.js';   // 히든 직업 Gambler 002(11월 16일 — 연습장에서 확인한 뒤 실제 게임에)
 import { gamblerSpotTalk, gamblerDummyHit, tickGamblerTrial } from './gamblerUnlock.js';   // Gambler 002 해금 경로
 import { GM_CHIP, GM_CASINO } from './gamblerData.js';
-import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill, engineerKill, engineerRaidKill, engineerOn, packEngineer, applyEngineer } from './engineerJob.js';   // 히든 직업 Engineer 003(11월 17일 — 격자 연습장에만)
+import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill, engineerKill, engineerRaidKill, engineerOn, engineerLook, packEngineer, applyEngineer } from './engineerJob.js';   // 히든 직업 Engineer 003(11월 17일 — 격자 연습장에만)
 import { EN_PULSE } from './engineerData.js';
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
 import { NC_SCYTHE } from './necroData.js';
@@ -800,6 +800,7 @@ export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobO
 // 전직한 캐릭터 그림 — <전직>-<성별>/<방향>.webp(무기를 든 그림, tools/cut-adv-classes.py). 전직 전이면 null
 export const advArtPath = (h, view = "front") => {
   if (gamblerLook(h)) return `/assets/characters/rpg/gambler-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Gambler 002 외형(사용자 그림, tools/cut-gambler-char.py) — 손님은 스냅샷 h.gmv. 해금 시험 중에는 BLOOD-001 보다 먼저
+  if (engineerLook(h)) return `/assets/characters/rpg/engineer-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Engineer 003 외형(사용자 그림 한 벌 — 남녀 같은 그림, tools/cut-engineer-char.py) — 손님은 스냅샷 h.env
   if (h && (h.bdv || bloodOn(h))) return `/assets/characters/rpg/blood-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 BLOOD-001 외형(사용자 그림, tools/cut-blood-char.py) — 전직 그림 자리를 쓴다
   const c = advOf(h);
   return c ? `/assets/characters/rpg/${c.id}-${h.gender === "f" ? "f" : "m"}/${view}.webp` : null;

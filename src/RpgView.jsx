@@ -123,6 +123,7 @@ import { MAT_BY_ID, DROPS, DROP_ROLL, GIFT } from "./game/itemData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES } from "./game/armorData.js";
 import { UPDATES, RPG_NOTICE } from "./game/updates.js";
+import { keyLayout, offCount } from "./game/keyScope.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf, mouseCode, BLOOD_ACTS } from "./game/keys.js";
 import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
@@ -749,6 +750,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   }, []);
   const [binds, setBinds] = useState(loadKeys);      // 행동마다 키 두 칸
   const bindsRef = useRef(binds);
+  const [keysAll, setKeysAll] = useState(false);       // 키 설정 창 — 안 쓰는 행동도 잠긴 줄로 보기
   const [waitKey, setWaitKey] = useState(null);      // 키 설정 창에서 새 키를 기다리는 칸 { id, slot }
   // 채팅 — 줄마다 { id, kind: all · party · sys, name, text, at }
   const [chatLog, setChatLog] = useState([]);
@@ -2277,42 +2279,68 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </>
             );
           })()}
-          {keysOpen && (
-            <>
-              <div className="rpg-menu-back" onClick={() => { if (!waitKey) setKeysOpen(false); }} />
-              <div className="rpg-stat rpg-win rpg-keyset" role="dialog" aria-label="키 설정">
-                <div className="rpg-stat-head">
-                  <b>키 설정</b>
-                  <span>칸을 누르고 쓸 키를 누릅니다</span>
+          {keysOpen && (() => {
+            const kh = G.current.heroes[mySeat];
+            const adv = kh && ADV_BY_ID[kh.advClass];
+            const who = kh ? { blood: !!bloodView(kh), gambler: !!gamblerView(kh), adv: adv && adv.job === kh.job ? adv.id : "" } : null;
+            const layout = keyLayout(binds, who, keysAll);
+            const off = offCount(who);
+            const bad = layout.flatMap((sec) => sec.rows).filter((r) => r.on && (r.conflict.length || r.empty)).length;
+            return (
+              <>
+                <div className="rpg-menu-back" onClick={() => { if (!waitKey) setKeysOpen(false); }} />
+                <div className="rpg-stat rpg-win rpg-keyset" role="dialog" aria-label="키 설정">
+                  <div className="rpg-stat-head">
+                    <b>키 설정</b>
+                    <span>{bad ? `확인할 칸 ${bad}개` : "모두 정상"}</span>
+                  </div>
+                  <p className="rpg-key-guide">칸을 누른 뒤 쓸 키를 누릅니다. <kbd>Backspace</kbd> 비우기 · <kbd>Esc</kbd> 그만두기. 내 직업이 쓰는 키만 보입니다.</p>
+                  <div className="rpg-key-scroll">
+                    {layout.map((sec) => (
+                      <section key={sec.id} className="rpg-key-sec">
+                        <h4>{sec.name}</h4>
+                        {sec.rows.map(({ a, on, note, conflict, empty }) => (
+                          <div key={a.id} className={`rpg-key-row ${on ? "" : "off"} ${conflict.length ? "bad" : ""}`}>
+                            <span className="rpg-key-name">
+                              <b>{a.name.replace(/\((BLOOD-001)[^)]*\)/, "").trim() || a.name}</b>
+                              {note && <em>{note}</em>}
+                              {conflict.length > 0 && <small className="warn">{conflict.join(" · ")}와 겹침</small>}
+                              {empty && <small className="warn">키 없음</small>}
+                              {!on && <small>이 직업은 쓰지 않음</small>}
+                            </span>
+                            {Array.from({ length: KEY_SLOTS }, (_, slot) => {
+                              const wait = waitKey && waitKey.id === a.id && waitKey.slot === slot;
+                              const code = binds[a.id][slot];
+                              return (
+                                <button key={slot} type="button" disabled={!on} className={`rpg-key-slot ${wait ? "wait" : ""} ${code ? "" : "empty"}`}
+                                  aria-label={`${a.name} ${slot + 1}번 칸`}
+                                  onClick={() => setWaitKey(wait ? null : { id: a.id, slot })}>
+                                  {wait ? "키 입력…" : keyLabel(code) || "비어 있음"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </section>
+                    ))}
+                  </div>
+                  <details className="rpg-key-more">
+                    <summary>마우스 버튼 · 이동 방식 안내</summary>
+                    <p>우클릭 · 휠 클릭 · 옆 버튼은 칸을 누른 뒤 그 버튼을 누릅니다. 좌클릭은 기다리는 칸 위에서 한 번 더 누릅니다. 휠 굴리기와 DPI 버튼은 넣을 수 없습니다.{mouseMoveOn ? " 마우스 이동 중에는 우클릭이 걷기에 쓰여 우클릭 칸은 쉽니다." : ""}</p>
+                    <p>{mouseMoveOn
+                      ? "지금은 마우스 이동입니다. 이동키는 꺼져 있고 오른쪽 클릭으로 걷습니다. ☰ 메뉴에서 키보드로 바꿉니다."
+                      : "지금은 키보드 이동입니다. 마우스 이동은 ☰ 메뉴의 이동 방식에서 고릅니다."}</p>
+                    <p>다른 행동에 있던 키는 그 칸에서 빠집니다. 이 기기에 저장됩니다. 쓰지 않는 직업의 키 설정은 지우지 않고 보관합니다.</p>
+                  </details>
+                  <div className="rpg-stat-foot">
+                    {off > 0 && <button type="button" className="btn-ghost" onClick={() => setKeysAll((v) => !v)}>{keysAll ? "안 쓰는 키 숨기기" : `안 쓰는 키 ${off}개 보기`}</button>}
+                    <button type="button" className="btn-ghost" onClick={() => { setWaitKey(null); setBinds(defaultKeys()); }}>기본값으로</button>
+                    <button type="button" className="btn-main" onClick={() => { setWaitKey(null); setKeysOpen(false); }}>닫기</button>
+                  </div>
                 </div>
-                <p className="rpg-stat-rule">Backspace 는 칸 비우기 · Esc 는 그만두기. 다른 행동에 있던 키는 그 칸에서 빠집니다. 이 기기에 남습니다.</p>
-                <p className="rpg-stat-rule">마우스 버튼도 넣을 수 있습니다. 우클릭 · 휠 클릭 · 옆 버튼은 칸을 누른 뒤 그 버튼을 누릅니다. 좌클릭은 기다리는 칸 위에서 한 번 더 누릅니다. 좌클릭 · 우클릭 · 휠 클릭은 게임 화면 위에서만 듣습니다. 휠 굴리기와 DPI 버튼은 넣을 수 없습니다.{mouseMoveOn ? " 마우스 이동 중에는 우클릭이 걷기에 쓰여 우클릭 칸은 쉽니다." : ""}</p>
-                <p className="rpg-stat-rule">{mouseMoveOn
-                  ? "지금은 마우스 이동입니다. 이동키는 꺼져 있고 오른쪽 클릭으로 걷습니다. 누른 채 끌면 따라가고 NPC 를 누르면 곁으로 가서 말을 겁니다. ☰ 메뉴에서 키보드로 바꿉니다."
-                  : "지금은 키보드 이동입니다. 마우스 이동은 ☰ 메뉴의 이동 방식에서 고릅니다. 마우스로 바꾸면 이동키는 꺼집니다."}</p>
-                <div className="rpg-stat-list">
-                  {KEY_ACTIONS.map((a, i) => (
-                    <div key={a.id} className={`rpg-key-row ${i > 0 && KEY_ACTIONS[i - 1].group !== a.group ? "gap" : ""}`}>
-                      <span className="rpg-key-name"><em>{a.group}</em><b>{a.name}</b></span>
-                      {Array.from({ length: KEY_SLOTS }, (_, slot) => {
-                        const wait = waitKey && waitKey.id === a.id && waitKey.slot === slot;
-                        return (
-                          <button key={slot} type="button" className={`rpg-key-slot ${wait ? "wait" : ""} ${binds[a.id][slot] ? "" : "empty"}`}
-                            onClick={() => setWaitKey(wait ? null : { id: a.id, slot })}>
-                            {wait ? "키 · 버튼 입력" : keyLabel(binds[a.id][slot]) || "—"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-                <div className="rpg-stat-foot">
-                  <button type="button" className="btn-ghost" onClick={() => { setWaitKey(null); setBinds(defaultKeys()); }}>기본값으로</button>
-                  <button type="button" className="btn-main" onClick={() => { setWaitKey(null); setKeysOpen(false); }}>닫기</button>
-                </div>
-              </div>
-            </>
-          )}
+              </>
+            );
+          })()}
           {me && me.duelInv >= 0 && me.dvs < 0 && nowMs - duelAt > 1500 && (
             <div className={`rpg-invite duel ${me.inv >= 0 ? "second" : ""}`} role="alertdialog" aria-label="결투 신청">
               <span><b>{names[me.duelInv] || "모험가"}</b>님이 {me.duelInvSize}대{me.duelInvSize} 결투를 신청했습니다

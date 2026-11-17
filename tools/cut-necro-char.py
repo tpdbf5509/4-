@@ -1,5 +1,5 @@
 """히든 직업 Necromancer 004 그림자 군주 외형 — 사용자가 준 시트 둘을 떼어 낸다(design/necro-job/char/, 11월 17일).
-   지금은 여성 한 벌만 받았다. 남성은 그림이 없어 원래 직업 모습을 그대로 쓴다(rpg.js advArtPath). 남성 시트를 받으면 GENDERS 에 "m" 을 더한다.
+   남 · 여 한 벌씩(여성 먼저 · 남성은 같은 날 뒤에 받음).
    엔지니어와 같은 규칙(tools/cut-engineer-char.py) — 원본은 이미 투명 배경이다.
    서 있는 시트 necro-<m|f>-standing-sheet.png: 한 줄, 칸 4개 = 앞 · 뒤 · 옆(왼쪽을 본다) · 옆(오른쪽을 본다). 게임은 옆 그림을 뒤집어 쓰므로 셋째 칸만 쓴다.
    걷는 시트 necro-<m|f>-walk-sheet.png: 4칸 × 4줄. 줄 = 앞 · 뒤 · 왼쪽 · 오른쪽, 칸 = 걷기 4장. 왼쪽 줄만 쓴다.
@@ -39,7 +39,7 @@ def grid(im, r, c, rows, cols):
     H, W = im.shape[:2]
     return im[r * H // rows:(r + 1) * H // rows, c * W // cols:(c + 1) * W // cols]
 
-GENDERS = ("f",)
+GENDERS = ("m", "f")
 for g in GENDERS:
     st = np.asarray(Image.open(os.path.join(SRC, f"necro-{g}-standing-sheet.png")).convert("RGBA"))
     wk = np.asarray(Image.open(os.path.join(SRC, f"necro-{g}-walk-sheet.png")).convert("RGBA"))

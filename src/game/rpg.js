@@ -814,7 +814,7 @@ export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobO
 // 전직한 캐릭터 그림 — <전직>-<성별>/<방향>.webp(무기를 든 그림, tools/cut-adv-classes.py). 전직 전이면 null
 export const advArtPath = (h, view = "front") => {
   if (gamblerLook(h)) return `/assets/characters/rpg/gambler-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Gambler 002 외형(사용자 그림, tools/cut-gambler-char.py) — 손님은 스냅샷 h.gmv. 해금 시험 중에는 BLOOD-001 보다 먼저
-  if (necroLook(h) && h.gender === "f") return `/assets/characters/rpg/necro-f/${view}.webp`;   // 히든 직업 Necromancer 004 여성 외형(사용자 그림, tools/cut-necro-char.py · 11월 17일). 남성 그림은 아직 없어 원래 모습
+  if (necroLook(h)) return `/assets/characters/rpg/necro-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Necromancer 004 외형(사용자 그림 남 · 여, tools/cut-necro-char.py · 11월 17일)
   if (engineerLook(h)) return `/assets/characters/rpg/engineer-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Engineer 003 외형(사용자 그림 한 벌 — 남녀 같은 그림, tools/cut-engineer-char.py) — 손님은 스냅샷 h.env
   if (h && (h.bdv || bloodOn(h))) return `/assets/characters/rpg/blood-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 BLOOD-001 외형(사용자 그림, tools/cut-blood-char.py) — 전직 그림 자리를 쓴다
   const c = advOf(h);

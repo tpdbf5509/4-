@@ -2341,8 +2341,8 @@ function drawHero(ctx, g, h, time) {
   const hide = h.hideGear || 0;                     // 장비 외형 숨기기(rpg.js HIDE_GEAR) — 겉모습만, 능력치는 그대로
   const held = hide & HIDE_GEAR.weapon || gamblerLook(h) || engineerLook(h) || necroLook(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
   let im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
-  // 히든 직업 BLOOD-001 여성 · Gambler 002 · Engineer 003 남녀 · Necromancer 004 여성 — 걸을 때는 걷는 그림 4장(walk-<보기>-<0~3>.webp, tools/cut-blood-f.py · cut-gambler-char.py)을 걸음에 맞춰 바꾼다. 서 있을 때는 기본 그림. 아래로 갈 때(turn)는 앞 그림. 못 불러오면 기본 그림 그대로
-  if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(blood-f|gambler-[mf]|engineer-[mf]|necro-f)\//.test(advIm.src)) {
+  // 히든 직업 BLOOD-001 여성 · Gambler 002 · Engineer 003 남녀 · Necromancer 004 남녀 — 걸을 때는 걷는 그림 4장(walk-<보기>-<0~3>.webp, tools/cut-blood-f.py · cut-gambler-char.py)을 걸음에 맞춰 바꾼다. 서 있을 때는 기본 그림. 아래로 갈 때(turn)는 앞 그림. 못 불러오면 기본 그림 그대로
+  if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(blood-f|gambler-[mf]|engineer-[mf]|necro-[mf])\//.test(advIm.src)) {
     const k = Math.floor((((h.anim.ph / (Math.PI / 2)) % 4) + 4) % 4);
     im = artImg(advArtPath(h, `walk-${view === "turn" ? "front" : view}-${k}`)) || im;
   }

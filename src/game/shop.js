@@ -28,6 +28,7 @@ import { JUNK, bagSteps } from "./junkData.js";
 import { cleanBlocks } from "./block.js";
 import { cleanBd, bloodOn, dropBlood, bloodWeaponOk } from "./bloodJob.js";
 import { gamblerOn, dropGambler, cleanHj } from "./gamblerJob.js";
+import { engineerOn } from "./engineerJob.js";
 import { cleanGu } from "./gamblerUnlock.js";
 import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
@@ -381,7 +382,8 @@ export function whyEquip(h, u) {
   if (!w) out.push("가방에 없는 무기입니다");
   else if (h.lv < WEAPON_TIERS[w.r]) out.push(`레벨 ${WEAPON_TIERS[w.r]} 필요 (지금 ${h.lv})`);
   else if (bloodOn(h) && !bloodWeaponOk(w)) out.push("BLOOD-001 은 크림슨 레퀴엠만 들 수 있습니다");
-  else if (gamblerOn(h)) out.push("Gambler 002 는 무기를 들 수 없습니다");   // 무기 장착 금지(사용자 기획) — 가방의 무기는 그대로 남는다
+  else if (gamblerOn(h)) out.push("Gambler 002 는 무기를 들 수 없습니다");
+  else if (engineerOn(h)) out.push("Engineer 003 은 무기를 들 수 없습니다");   // 연습장 전용 — 무기 장착 금지(기획안 공통 규칙)   // 무기 장착 금지(사용자 기획) — 가방의 무기는 그대로 남는다
   return out;
 }
 

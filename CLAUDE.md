@@ -225,6 +225,13 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 무기를 들지 않는다(`whyEquip` 거절 · 맨손 그림). 일반 스킬 칸 · 큰 기술 · 전직 스킬 · 무기 스킬 입력은 `rpgInput.js` 가 버린다. 키는 기존 행동 키를 빌린다(`GM_SLOTS`: 1 · 2 · 3 · 4 · R · Z · Shift, 평타 = 황금 칩).
 - 칩 7개 = 풀 베팅(다음 공격 스킬의 첫 유효 적중에 금화 7발). 시전 객체 — 평타 `basic` · 777 `sid "ult"` · 나머지 18% 상한, 풀 베팅 · 여러 타격은 원래 시전을 함께 쓴다. 내가 정한 해석 목록은 `docs/작업-상세-기록.md` 끝.
 
+### 히든 직업 Engineer 003 엔지니어 (11월 17일, 격자 연습장에만)
+- 사용자 지시 "획득 방법은 적용하지 말고 격자 훈련장에 적용해" · "패치노트에는 적지마". `ENGINEER.live = false` 라 sandbox 맵에서만 켜진다(`engineerOn`). 해금 경로 · 관리자 명령어 · 저장 · `HIDDEN_JOBS` 등록은 아직 없다 — 실제 게임에 이을 때 Gambler 002 처럼 더한다.
+- 수치 `engineerData.js` · 규칙 `engineerJob.js`(엔진 `rpg.js engineerEngine`, 입력 `hidden {op:"use", s}` 를 `rpgHidden` 이 켜진 직업으로 보낸다) · 그림 `engineerArt.js`(연출 + 설치물 몸 `drawEngineerUnit`, rpgArt 가 발 높이로 줄 세움) · 시트 규격 `engineerPxData.js` · 연습장 칸 `Sandbox.jsx EngineerBar`. 시험 `tools/engineer.test.mjs`.
+- 설치물(터렛 · 드론 · 수호자)은 몹 목록과 따로 `h.en.units`. 스냅샷 영웅 줄 **58** = `packEngineer`(아니면 0, 칸은 뒤에만). 손님 화면 값 `h.env`.
+- 이펙트는 Gambler 002 처럼 직접 그린 도트 시트(`design/effects/engineer/make.py` → `hidden-jobs/engineer/px/en_*.webp` 16장 · `manifest.json` 값을 `engineerPxData.js` 에 옮긴다, 시험이 같은지 본다). 코드로는 1px 예고 · 범위 선만.
+- 내가 정한 해석 목록은 `docs/작업-상세-기록.md` 끝.
+
 ### 히든 직업 유일 규칙 (11월 17일)
 - 히든 직업(BLOOD-001 · Gambler 002 …)은 **관리자를 빼고 게임 전체에서 한 명만** 가진다. 먼저 해금한 사람이 갖고, 보유자가 있으면 시험 문(입구 · 카지노 상자)을 열 때 안내가 나오고 해금은 막힌다. 서버 RPG1~4 는 캐릭터 장부가 하나라 서버가 달라도 한 명이다.
 - 규칙 · 판별 `src/game/hiddenUnique.js`(`HIDDEN_JOBS` — id 는 장부 표에 적히니 바꾸지 않고 뒤에만 더한다), 장부 표 `hidden_jobs`(`server/src/ledger-hidden.js`, 함수 `rpg_hidden` claim · sync · list, 전용 서버만 부른다), 방 `room.js hiddenTick`(시험 통과 요청 `g.hjq` → 장부 → 답 `h.hjr`, 가방이 바뀌면 sync). 시험 `tools/hidden-unique.test.mjs`.

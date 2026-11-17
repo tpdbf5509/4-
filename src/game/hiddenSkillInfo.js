@@ -4,6 +4,7 @@
 import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_TRAIN_NAMES, GM_CHIP, GM_BET, GM_LUCK, GM_VEIL, GM_DICE, GM_RAIN, GM_DD, GM_TABLE, GM_EDGE, GM_JACK } from "./gamblerData.js";
 import { ENGINEER, ENGINEER_NAME, ENGINEER_TITLE, EN_SLOTS, EN_TRAIN_NAMES, EN_PULSE, EN_TURRET, EN_DRONE, EN_MAGNET, EN_RAIL, EN_MECH, EN_OC, EN_ORBIT } from "./engineerData.js";
 import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_TRAIN_NAMES, NC_SCYTHE, NC_SOUL, NC_ROSTER, NC_EXTRACT, NC_SUMMON, NC_SWAP, NC_DOMAIN, NC_MARCH, NC_BURN, NC_LEGION } from "./necroData.js";
+import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_TRAIN_NAMES, WY_BLOOD, WY_CLAW, WY_CONTRACT, WY_ROAR, WY_DIVE, WY_SCALE, WY_SKY, WY_AWAKE, WY_ULT, WY_ASSAULT, WY_ARCADION } from "./wyvernData.js";
 
 const pct = (v) => `${Math.round(v * 100)}%`;
 const x = (v) => `×${Number(v.toFixed(1))}`;
@@ -114,6 +115,47 @@ function necro() {
   };
 }
 
-const MAKERS = { gambler, engineer, necromancer: necro };
+function wyvern() {
+  const U = WYVERN.unlock, B = WY_BLOOD, CT = WY_CONTRACT, RO = WY_ROAR, DV = WY_DIVE, SC = WY_SCALE, SK = WY_SKY, AW = WY_AWAKE, UL = WY_ULT, AS = WY_ASSAULT, AR = WY_ARCADION;
+  const [h1, h2] = AR.hits;
+  return {
+    id: "wyvern", name: WYVERN_NAME, title: WYVERN_TITLE, res: "용혈", trainNames: WY_TRAIN_NAMES,
+    rules: [
+      `용혈 최대 ${WYVERN.blood} · 처음 ${WYVERN.bloodStart}. 용조격 적중 +${B.claw} · 용염 포효 적중 +${B.roar} · 와이번 공격 적중 +${B.wyvern}.`,
+      `용혈 연마 ${B.sp25} — 얻는 용혈 +${pct(B.gain25)}. 쓰러지면 용혈이 0 이 됩니다.`,
+      `연마 합계 ${WYVERN.tint.line} — 붉은 비늘 · ${WYVERN.tint.wing} — 보라 날개 잔상 · ${WYVERN.sync} — 진룡 동조.`,
+      "무기를 들 수 없습니다. 와이번은 피해를 받지 않습니다.",
+    ],
+    basic: { s: "claw", act: "fire", name: WY_CLAW.name, lv: U.claw,
+      desc: ["앞쪽 부채꼴을 발톱 기운으로 베는 근접 기본 공격입니다.", `한 번에 가까운 ${WY_CLAW.max}명까지. 맞히면 용혈 +${B.claw}.`],
+      stats: [["피해", x(WY_CLAW.mul)], ["공격 간격", `${WY_CLAW.gap}초`], ["거리", WY_CLAW.reach], ["각도", deg(WY_CLAW.arc)]] },
+    skills: WY_SLOTS.map((q) => ({ ...q, ...{
+      contract: { name: CT.name, lv: U.contract, desc: ["와이번을 불러 내 뒤를 따라다니게 합니다.", `${CT.gap}초마다 가까운 적에게 화염탄을 쏩니다. 대기는 와이번이 떠난 뒤부터 셉니다.`],
+        stats: [["비용", `용혈 ${CT.cost}`], ["대기", `${CT.cd}초`], ["지속", `${CT.dur}초`], ["피해", `${x(CT.mul)} · ${CT.gap}초마다`], ["찾는 거리", CT.seek]],
+        train: [`조련 연마 ${CT.sp25} — 화염탄 ${x(CT.mul25)}`, `조련 연마 ${CT.sp50} — 지속 ${CT.dur50}초`] },
+      roar: { name: RO.name, lv: U.roar, desc: ["포탈에서 용의 머리가 나와 앞으로 불을 뿜습니다.", `화염 ${RO.n}번. 와이번이 있으면 짧은 두 번째 갈래 ${x(RO.sub.mul)}. 역린 해방 중 폭 +${pct(RO.awakeArc)}.`],
+        stats: [["비용", `용혈 ${RO.cost}`], ["대기", `${RO.cd}초`], ["거리", RO.reach], ["각도", deg(RO.arc)], ["피해", `${x(RO.mul)} × ${RO.n}`]] },
+      dive: { name: DV.name, lv: U.dive, desc: ["하늘로 올라 겨눈 자리에 내리꽂힙니다.", `와이번이 있으면 함께 내려와 ${x(DV.mulJoint)}. 처음 ${DV.inv}초는 피해를 받지 않습니다.`],
+        stats: [["비용", `용혈 ${DV.cost}`], ["대기", `${DV.cd}초`], ["거리", DV.reach], ["범위", `반지름 ${DV.r}`], ["피해", x(DV.mul)]],
+        train: [`천공 연마 ${DV.sp25} — 범위 +${pct(DV.r25)}`, `천공 연마 ${DV.sp50} — 끝에 날개 폭풍 ${x(DV.stormMul)}`, `역린 해방 중 — 추가 폭발 ${x(DV.extraMul)}`] },
+      scale: { name: SC.name, lv: U.scale, desc: [`${SC.dur}초 동안 받는 몹 피해를 ${pct(SC.cut)} 줄입니다.`, `맞으면 때린 몹에게 화염 가시로 반격합니다(최대 ${SC.counters}번).`],
+        stats: [["비용", `용혈 ${SC.cost}`], ["대기", `${SC.cd}초`], ["반격", x(SC.mul)], ["반격 거리", SC.reach]] },
+      sky: { name: SK.name, lv: U.sky, desc: ["겨눈 영역에 화염을 떨어뜨립니다.", `떨어질 때마다 영역 안 가장 가까운 적을 쫓습니다. 역린 해방 중 ${SK.nAwake}번.`],
+        stats: [["비용", `용혈 ${SK.cost}`], ["대기", `${SK.cd}초`], ["거리", SK.reach], ["영역", `반지름 ${SK.r}`], ["피해", `${x(SK.mul)} × ${SK.n}`]] },
+      awake: { name: AW.name, lv: U.awake, desc: [`용혈을 모두 써서 ${AW.dur}초 동안 반룡이 됩니다.`, `기술 피해 +${pct(AW.dmg)} · 걷는 빠르기 +${pct(AW.spd)}. 진룡 동조면 와이번 공격 +${pct(AW.syncWyvern)}.`],
+        stats: [["비용", `용혈 ${AW.cost}`], ["대기", `${AW.cd}초`], ["지속", `${AW.dur}초`]],
+        train: [`용혈 연마 ${AW.sp50} — 지속 ${AW.dur50}초`] },
+      ult: { name: UL.name, lv: U.ult, ult: 1, desc: ["하늘로 솟아 겨눈 자리에 용성으로 떨어집니다.", `첫 충돌 · 화염 폭발 ${UL.n}번 · 마지막 충돌. 역린 해방 중 ${x(UL.awakeK)}.`],
+        stats: [["비용", "용혈 0"], ["대기", `${UL.cd}초`], ["거리", UL.reach], ["범위", `반지름 ${UL.r}`], ["피해", `${x(UL.firstMul)} + ${x(UL.bMul)} × ${UL.n} + ${x(UL.lastMul)}`]],
+        train: [`진룡 동조 — 끝에 화염 균열 ${x(UL.crackMul)}`] },
+      assault: { name: AS.name, lv: U.assault, desc: [`겨눈 쪽으로 ${AS.len} 돌진하며 둘레를 ${AS.n}번 벱니다.`, "벽 앞에서 멈춥니다."],
+        stats: [["비용", `용혈 ${AS.cost}`], ["대기", `${AS.cd}초`], ["범위", `반지름 ${AS.r}`], ["피해", `${x(AS.mul)} × ${AS.n}`]] },
+      arcadion: { name: AR.name, lv: U.arcadion, desc: ["용혈로 빚은 대검으로 두 번 돌진해 벱니다.", "무기 아이템이 아니라 직업 기술입니다."],
+        stats: [["비용", `용혈 ${AR.cost}`], ["대기", `${AR.cd}초`], ["범위", `반지름 ${h1.r} · ${h2.r}`], ["피해", `${x(h1.mul)} + ${x(h2.mul)}`]] },
+    }[q.s] })),
+  };
+}
+
+const MAKERS = { gambler, engineer, necromancer: necro, wyvern };
 export const HIDDEN_SKILL_JOBS = Object.keys(MAKERS);
 export const hiddenSkillInfo = (id) => (MAKERS[id] ? MAKERS[id]() : null);

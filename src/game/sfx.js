@@ -350,6 +350,65 @@ export function play(name) {
     tone({ type: "sawtooth", f0: 1200, f1: 2600, t: 0.3, gain: 0.07, delay: 1.6 });
     noise({ t: 0.5, gain: 0.25, f: 380, q: 0.6, delay: 1.75 });
     tone({ type: "sine", f0: 90, f1: 30, t: 0.5, gain: 0.25, delay: 1.75 });
+  } else if (name === "wyClaw") {            // Wyvern Knight 006 용조격 — 짧게 할퀴는 바람 · 불씨 튐
+    if (!gate("wyClaw", 90)) return;
+    noise({ t: 0.13, gain: 0.09, f: 1700, q: 1 });
+    tone({ type: "sawtooth", f0: 260, f1: 120, t: 0.1, gain: 0.04 });
+  } else if (name === "wyHit") {             // 용조격 적중 — 둔탁한 타격
+    if (!gate("wyHit", 80)) return;
+    tone({ type: "triangle", f0: 180, f1: 80, t: 0.08, gain: 0.08 });
+    noise({ t: 0.07, gain: 0.07, f: 900, q: 1.3 });
+  } else if (name === "wyCry") {             // 와이번 계약 — 낮은 용 울음이 높아졌다 꺾인다
+    if (!gate("wyCry", 400)) return;
+    tone({ type: "sawtooth", f0: 140, f1: 330, t: 0.32, gain: 0.07 });
+    tone({ type: "sawtooth", f0: 330, f1: 170, t: 0.35, gain: 0.06, delay: 0.3 });
+    noise({ t: 0.4, gain: 0.06, f: 600, q: 0.8, delay: 0.05 });
+  } else if (name === "wyFire") {            // 와이번 화염구 명중 — 작은 폭발
+    if (!gate("wyFire", 110)) return;
+    noise({ t: 0.18, gain: 0.12, f: 500, q: 0.7 });
+    tone({ type: "sine", f0: 140, f1: 60, t: 0.16, gain: 0.08 });
+  } else if (name === "wyBreath") {          // 화염 브레스 — 쏟아지는 불길
+    if (!gate("wyBreath", 300)) return;
+    noise({ t: 0.7, gain: 0.14, f: 800, q: 0.5, f1: 300 });
+    tone({ type: "sawtooth", f0: 110, f1: 70, t: 0.6, gain: 0.05 });
+  } else if (name === "wyRoar") {            // 용의 포효 — 낮고 거친 울음
+    if (!gate("wyRoar", 300)) return;
+    tone({ type: "sawtooth", f0: 90, f1: 150, t: 0.25, gain: 0.1 });
+    tone({ type: "sawtooth", f0: 150, f1: 70, t: 0.45, gain: 0.09, delay: 0.22 });
+    noise({ t: 0.6, gain: 0.1, f: 400, q: 0.6 });
+  } else if (name === "wyDive") {            // 천공 낙하 — 솟구치는 바람 뒤 착지 충격
+    if (!gate("wyDive", 300)) return;
+    noise({ t: 0.25, gain: 0.08, f: 1200, q: 0.8, f1: 2400 });
+    noise({ t: 0.35, gain: 0.2, f: 280, q: 0.6, delay: 0.5 });
+    tone({ type: "sine", f0: 100, f1: 35, t: 0.4, gain: 0.18, delay: 0.5 });
+  } else if (name === "wyScale") {           // 용린 수호 — 비늘이 겹치는 금속음
+    if (!gate("wyScale", 300)) return;
+    [0, 0.06, 0.12].forEach((d, i) => tone({ type: "triangle", f0: 700 + i * 120, f1: 520, t: 0.12, gain: 0.04, delay: d }));
+    tone({ type: "sine", f0: 160, f1: 200, t: 0.4, gain: 0.07 });
+  } else if (name === "wyBoom") {            // 화염 낙하 — 떨어지는 불덩이 폭발
+    if (!gate("wyBoom", 120)) return;
+    noise({ t: 0.25, gain: 0.15, f: 350, q: 0.6 });
+    tone({ type: "sine", f0: 120, f1: 45, t: 0.25, gain: 0.12 });
+  } else if (name === "wyAwake") {           // 역린 해방 — 심장 박동 둘 뒤 포효
+    if (!gate("wyAwake", 800)) return;
+    [0, 0.25].forEach((d) => tone({ type: "sine", f0: 70, f1: 45, t: 0.15, gain: 0.18, delay: d }));
+    tone({ type: "sawtooth", f0: 100, f1: 260, t: 0.5, gain: 0.08, delay: 0.5 });
+    noise({ t: 0.7, gain: 0.1, f: 500, q: 0.6, delay: 0.5 });
+  } else if (name === "wyUlt") {             // 천룡 강림 — 솟아오름 · 첫 낙하 · 긴 울림
+    if (!gate("wyUlt", 1000)) return;
+    noise({ t: 0.5, gain: 0.08, f: 900, q: 0.7, f1: 2600 });
+    tone({ type: "sawtooth", f0: 80, f1: 300, t: 0.6, gain: 0.07 });
+    noise({ t: 0.6, gain: 0.25, f: 260, q: 0.5, delay: 0.9 });
+    tone({ type: "sine", f0: 90, f1: 30, t: 0.7, gain: 0.22, delay: 0.9 });
+  } else if (name === "wyDash") {            // 천공 강습 — 짧게 찢는 돌진 바람
+    if (!gate("wyDash", 200)) return;
+    noise({ t: 0.3, gain: 0.1, f: 1500, q: 0.8, f1: 600 });
+    tone({ type: "sawtooth", f0: 200, f1: 90, t: 0.25, gain: 0.04 });
+  } else if (name === "wyBlade") {           // 아르카디온 · 용참섬멸 — 크게 베는 금속음
+    if (!gate("wyBlade", 150)) return;
+    noise({ t: 0.18, gain: 0.11, f: 2200, q: 1.2 });
+    tone({ type: "triangle", f0: 900, f1: 300, t: 0.18, gain: 0.05 });
+    tone({ type: "sine", f0: 130, f1: 60, t: 0.2, gain: 0.08, delay: 0.05 });
   } else if (name === "ncReap") {            // Necromancer 004 그림자 낫 — 낮게 가르는 바람 소리 · 짧은 전기 튐
     if (!gate("ncReap", 90)) return;
     noise({ t: 0.16, gain: 0.09, f: 1400, q: 0.9 });

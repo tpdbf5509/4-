@@ -1187,6 +1187,10 @@ kbd {
 .nc-soul i span { position: absolute; inset: 0 auto 0 0; background: #6c4ca0; }
 .nc-soul b { min-width: 58px; font-weight: 400; font-size: 12px; color: #c9bfd9; font-variant-numeric: tabular-nums; }
 .nc-soul b.full { color: #d4d1ea; }
+.wy-blood i { border-color: rgba(217, 140, 95, 0.45); background: rgba(26, 12, 10, 0.85); }   /* Wyvern Knight 006 용혈 줄 — 영혼 줄 틀에 불씨 색 */
+.wy-blood i span { background: #b5523e; }
+.wy-blood b { color: #e3c3b0; }
+.wy-blood b.full { color: #f2d3a6; }
 .nc-roster { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 11.5px; color: #b0a6c2; letter-spacing: -0.02em; }
 .nc-roster li em { font-style: normal; color: #8b7fa3; margin-left: 3px; }
 .nc-roster li.on { color: #d9ccf0; }
@@ -3247,7 +3251,8 @@ button.forge-stage:disabled { cursor: default; }
 .skw .ncw-head h2 { color: var(--nw-hi); }
 .skw.skw-gambler { --nw-bg: #120d07; --nw-card: #1d160c; --nw-line: #5c4420; --nw-line2: #33270f; --nw-acc: #d8ad4f; --nw-acc2: #e6c77e; --nw-text: #f2dfa6; --nw-mute: #a8956a; --nw-hi: #f6e5aa; }
 .skw.skw-engineer { --nw-bg: #081214; --nw-card: #0f1d1f; --nw-line: #2b5a60; --nw-line2: #1a3438; --nw-acc: #4fa7b2; --nw-acc2: #8fd3dc; --nw-text: #cfeff3; --nw-mute: #7fa5aa; --nw-hi: #e0f8fb; }
-.skw-gambler .skw-ico, .skw-engineer .skw-ico { border-color: var(--nw-line); }
+.skw.skw-wyvern { --nw-bg: #150c09; --nw-card: #20130e; --nw-line: #6a3a2a; --nw-line2: #3b2118; --nw-acc: #d98c5f; --nw-acc2: #e8ad85; --nw-text: #f4dfd0; --nw-mute: #ab8e7e; --nw-hi: #faeadf; }   /* Wyvern Knight 006 — WYVERN_COLORS 를 톤다운한 불씨 주황 */
+.skw-gambler .skw-ico, .skw-engineer .skw-ico, .skw-wyvern .skw-ico { border-color: var(--nw-line); }
 /* 실제 게임(11월 17일) — 일반 직업은 직업마다 톤다운 색(검사 갈색 금빛 · 마법사 흐린 남색 · 궁수 세이지), BLOOD-001 은 검붉은 포도주색. 전직은 원래 직업 색을 따른다 */
 .skw.skw-warrior { --nw-bg: #15100b; --nw-card: #1f1810; --nw-line: #5e4a2e; --nw-line2: #362a1a; --nw-acc: #d6b26a; --nw-acc2: #e3c48a; --nw-text: #efe3c8; --nw-mute: #a8977a; --nw-hi: #f6ead0; }
 .skw.skw-mage { --nw-bg: #0c1018; --nw-card: #131a26; --nw-line: #34466a; --nw-line2: #1f2a3f; --nw-acc: #8aa6d8; --nw-acc2: #aec2e6; --nw-text: #dbe4f3; --nw-mute: #8794ad; --nw-hi: #eef3fb; }

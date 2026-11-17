@@ -253,6 +253,12 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - **외형(11월 17일 사용자 그림 남 · 여)**: `tools/cut-necro-char.py` 가 `design/necro-job/char/necro-<m|f>-*-sheet.png` 를 `characters/rpg/necro-<m|f>/` 로 자른다(엔지니어와 같은 규칙 · 걷기 4장). `advArtPath` 는 `necroLook` 이면 이 그림.
 - 이펙트는 pixelfx 없이 `design/effects/necromancer/make.py` 가 직접 그린 도트 시트(`rpg/effects/hidden-jobs/necromancer/px/nc_*.webp`). 고치면 make.py → `manifest.json` 값을 `necroPxData.js` 로(시험이 본다). 키는 기존 행동 키를 빌린다(`NC_SLOTS`). 내가 정한 해석은 `docs/작업-상세-기록.md` 끝.
 
+### 히든 직업 Wyvern Knight 006 와이번 나이트 (11월 17일, 격자 연습장에만)
+- 사용자 기획 「히든직업 002~006 통합기획안」 1부 요약 · 2부 5장. **획득 방법 없이 `?sandbox` 에서만**(`WYVERN.live = false`, `wyvernOn`). 업데이트 노트 · 공지 · 패치노트 책에 적지 않는다. 저장 · 스냅샷 · 관리자 명령어 · 유일 규칙에는 아직 잇지 않았다 — 실제 게임에 열 때 Gambler 002 처럼 붙인다.
+- 수치 `wyvernData.js` · 규칙 `wyvernJob.js`(엔진 `rpg.js wyvernEngine`, 입력 `hidden {op:"use", s}`) · 그림 `wyvernArt.js` · 시트 규격 `wyvernPxData.js` · 연습장 칸 `Sandbox.jsx WyvernBar` · 스킬 설명 `hiddenSkillInfo.js` · 시험 `tools/wyvern.test.mjs`. 가방 `bag.hj.jobs.wyvern = {lv, xp, tr}`, 상태 `h.wy`.
+- 스킬 열 개(2부 표 여덟 + 1부의 천공강습 F · 아르카디온 X — 아르카디온은 무기가 아니라 직업 기술). 와이번은 `h.wy.u`(몹 아님 · 피해 없음), 높이는 그림자와 그림의 화면 차이로만. 급강하 · 용성 중 시전자 그림을 띄운다(`wyvernAir`).
+- 이펙트는 pixelfx 없이 `design/effects/wyvern/make.py` 가 직접 그린 도트 시트(`hidden-jobs/wyvern/px/wy_*.webp`). 고치면 make.py → `manifest.json` 값을 `wyvernPxData.js` 로(시험이 본다). 외형 전용 그림은 아직 없어 기본 모습. 내가 정한 해석은 `docs/작업-상세-기록.md` 끝.
+
 ### 격자 연습장 `?sandbox` (11월 16일)
 - 주소 `four-lane.vercel.app/?sandbox`(`main.jsx` 가 `Sandbox.jsx` 를 따로 불러온다). 게임에 넣기 전 캐릭터(직업 · 성별 · 원소 · 전직 · 숙련 단계 · BLOOD-001 직업 레벨 · 연마 · 레벨 · 스탯 · 무기(미공개 hold 포함) · 스킬 칸)를 골라 격자 바닥에서 움직이고 스킬을 써 본다.
 - 직업 체험(`JobTrial.jsx`)처럼 이 기기에서만 도는 세계다. 서버 · 장부 · 기기 캐릭터 기록과 이어지지 않고 아무것도 저장하지 않는다. `g.test` 로 훈련장 기능(무적 · 쿨타임 끄기 · 스택 가득 · 초당 피해)을 쓰고, 월드보스는 나오지 않게 막았다.

@@ -9,9 +9,10 @@ import { trading } from "./tradeData.js";
    /직업 <이름> <직업>          기본 직업(검사 · 궁수 · 마법사)이나 전직(검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사)으로 바꾼다
    /블러드 <이름> [직업레벨 | 끄기 | 연마 <0~50>]   히든 직업 BLOOD-001 켜기 · 직업 레벨 · 연마 · 끄기
    /도박꾼 <이름> [직업레벨 | 끄기 | 연마 <0~50>]   히든 직업 Gambler 002 켜기 · 직업 레벨(1~200) · 연마 셋 · 끄기(11월 16일)
+   /탑 <이름> <층>             그 사람을 심연의 탑 그 층 앞에 올려 둔다(1~999). 파편 · 기록은 쌓이지 않는다(11월 17일)
    <이름> 자리에 "나" 를 쓰면 나 자신. 이름에 띄어쓰기가 있어도 된다(지금 서버에 있는 사람 이름과 앞에서부터 견준다).
    관리자(h.admin) 만 쓸 수 있다. 화면 쪽은 RpgView.jsx sendChat 이 "/" 를 채팅 대신 입력 kind "cmd" 로 보낸다 */
-import { MAPS, JOBS, runOf, sys } from "./rpg.js";
+import { MAPS, JOBS, runOf, sys, abyssPlace, inAbyss } from "./rpg.js";
 import { STORY_MAPS } from "./storyData.js";
 import { LIBRARY_IDS } from "./libraryData.js";
 import { VILLAGE } from "./villageData.js";
@@ -29,6 +30,7 @@ export const ADMIN_CMD = {
   max: 80,               // 명령 한 줄 길이
   giveMax: 999,          // 한 번에 줄 수 있는 개수
   coinMax: 100000000,    // 한 번에 주거나 뺄 수 있는 코인
+  abyssMax: 999,         // /탑 으로 올릴 수 있는 가장 높은 층(탑은 끝이 없지만 층 배율이 지수라 명령으로는 여기까지)
 };
 const HELP = [
   "/지급 <이름> <물품> [개수] — 물약 · 재료 · 특별 무기 · 방어구(예: 전설 투구) · 워프권 · 방지권",
@@ -38,6 +40,7 @@ const HELP = [
   "/직업 <이름> <직업> — 검사 · 궁수 · 마법사 · 검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사",
   "/블러드 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 BLOOD-001 해금(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
   "/도박꾼 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 Gambler 002 켜기(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
+  "/탑 <이름> <층> — 그 사람을 심연의 탑 그 층 앞에 올려 둠(1~999). 파편 · 기록은 쌓이지 않음(시험용)",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
 ];
 const flat = (s) => String(s || "").toLowerCase().replace(/[\s()·]/g, "");
@@ -260,6 +263,26 @@ export function rpgAdminCmd(g, pi, text) {
     bump(t);
     say(`${who(g, ti)}님을 ${GAMBLER_NAME}(직업 레벨 ${J.lv})로 바꿨습니다.`);
     if (ti !== pi) sys(g, ti, `관리자가 히든 직업 ${GAMBLER_NAME} 를 열었습니다.`);
+    return true;
+  }
+
+  if (cmd === "탑") {                              // 심연의 탑 — 그 사람을 그 층 앞에 올려 둔다(11월 17일 사용자 요청)
+    const last = words.pop() || "";
+    const [ti, rest] = takeName(g, pi, words);
+    if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /탑 나 50 · /탑 홍길동 120");
+    if (!/^\d+$/.test(last)) return void say(`층은 숫자로 써 주세요(1~${ADMIN_CMD.abyssMax}). 예) /탑 나 50`);
+    const fl = Number(last);
+    if (fl < 1 || fl > ADMIN_CMD.abyssMax) return void say(`층은 1~${ADMIN_CMD.abyssMax} 사이로 써 주세요.`);
+    const t = g.heroes[ti];
+    if (!t.loaded || !t.bag) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
+    if (trading(t)) return void say("그 사람은 거래 중입니다. 거래가 끝난 뒤 다시 해 주세요.");
+    if (t.down > 0) return void say(`${who(g, ti)}님이 쓰러져 있어 올릴 수 없습니다.`);
+    if ((t.dvs ?? -1) >= 0 || (!inAbyss(t) && (runOf(g, t) || (MAPS[t.map] && (MAPS[t.map].dungeon || MAPS[t.map].pvp || MAPS[t.map].race))))) return void say(`${who(g, ti)}님이 결투 · 던전 · 레이스 중이라 올릴 수 없습니다.`);
+    const why = abyssPlace(g, t, fl);
+    if (why) return void say(why);
+    bump(t);
+    say(`${who(g, ti)}님을 심연의 탑 ${fl}층 앞에 올렸습니다. 이 도전은 파편 · 기록이 쌓이지 않습니다.`);
+    if (ti !== pi) sys(g, ti, `관리자가 심연의 탑 ${fl}층 앞으로 올렸습니다. 이 도전은 파편 · 기록이 쌓이지 않습니다.`);
     return true;
   }
 

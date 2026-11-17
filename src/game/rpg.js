@@ -4941,6 +4941,31 @@ export function rpgAbyss(g, pi, req) {
   if (!h.admin) sys(g, pi, `입장료 ${ABYSS.fee.toLocaleString("ko-KR")}코인을 냈습니다.`);
   return true;
 }
+/* 관리자 명령 /탑 — 그 사람을 원하는 층 앞에 올려 둔다(11월 17일 사용자 요청).
+   탑을 새로 열거나, 이미 탑 안이면 그 칸의 층을 옮긴다. 입장료 · 레벨 · 광장 위치는 보지 않는다.
+   run.adm 이 켜진 칸은 층을 깨도 파편 · 이번 주 기록 · 최고 층 기록을 올리지 않는다 — 건너뛴 층 보상 · 중복 지급을 막는 안전한 쪽.
+   돌려주는 값: 막힌 이유 글(없으면 ""). 화면 · 방장 모두 같은 함수 */
+export function abyssPlace(g, h, floor) {
+  const f = Math.max(1, Math.floor(floor));
+  const cur = abyssRunOf(g, h);
+  if (cur) {                                       // 이미 탑 안 — 그 칸의 층만 옮긴다(같이 있는 사람도 함께)
+    g.mobs.forEach((m) => { if (m.map === cur.map) m.dead = true; });
+    cur.adm = 1; cur.f = f - 1; cur.phase = "next"; cur.end = ABYSS.gap; cur.t = 0;
+    return "";
+  }
+  if (inAbyss(h)) return "탑 칸 정보를 찾지 못했습니다";
+  if (abyssFree(g.aruns) < 0) return "탑 칸이 모두 차 있습니다. 잠시 뒤에 다시 해 주세요.";
+  const slot = abyssFree(g.aruns), map = abyssMap(slot);
+  g.mobs = g.mobs.filter((m) => m.map !== map);
+  const hpScale = Math.max(1, h.lv / COMBAT_RULES.dungeonScaleLevel);
+  (g.aruns || (g.aruns = [])).push({ slot, map, f: f - 1, best: 0, t: 0, phase: "pick", end: 1.5, hpScale, adm: 1 });
+  const [sx, sy] = MAPS[map].spawn;
+  h.map = map; h.x = sx - 120; h.y = sy; h.gateCd = 1; stopMove(h);
+  h.hold = []; h.dest = null; h.dash = 0;
+  fx(g, map, { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#9fd4ff", t: 0.5, life: 0.5 });
+  acStart(g, h);
+  return "";
+}
 // 층을 연다 — 수호자 층이면 수호자 하나, 아니면 몹 무리
 function abyssFloor(g, r) {
   r.f += 1; r.phase = "go"; r.t = floorTime(r.f);
@@ -4969,7 +4994,7 @@ function abyssClear(g, r, inside) {
   const f = r.f, guard = isGuardFloor(f), now = abyssNow(g);
   r.best = Math.max(r.best || 0, f);
   inside.forEach((h) => {
-    if (!h.loaded || trading(h)) return;
+    if (!h.loaded || trading(h) || r.adm) return;   // 관리자가 올려 둔 칸(abyssPlace)은 파편 · 기록 없음
     const aw = awOf(g, h);
     let n = guard ? ABYSS_REWARD.guard(f) : ABYSS_REWARD.floor(f), bonus = 0;
     n = acFloorShards(h, n, guard, f, matCount(h.bag, SHARD));   // 강화 카드 — 층계 수당 · 이자 · 금빛 족쇄

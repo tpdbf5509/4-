@@ -3108,3 +3108,6 @@ button.forge-stage:disabled { cursor: default; }
   .lib-spine.fill em { font-size: 9px; }
   .lib-spine.book { width: 32px; }
 }
+/* 격자 연습장 — Necromancer 004 명부에 넣을 몹 고르기 */
+.sb-ncpick { display: inline-flex; gap: 6px; align-items: center; max-width: 100%; }
+.sb-ncpick select { min-width: 0; max-width: 220px; font: inherit; font-size: 12px; padding: 3px 6px; background: #2a2118; color: #e9dcc0; border: 1px solid #6b5636; border-radius: 4px; }

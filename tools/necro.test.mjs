@@ -239,3 +239,10 @@ test('도트 시트 — manifest 와 규격이 같고 파일이 있다 · 연출
   const src = readFileSync(new URL('../src/game/necroJob.js', import.meta.url), 'utf8');
   for (const k of new Set(src.match(/sk_nc_\w+/g))) assert.ok(NECRO_CAP[k], `상한 ${k}`);
 });
+
+test("모든 몹 종류가 그림자 종류 짝을 가진다(허수아비 제외)", async () => {
+  const { MOB } = await import("../src/game/rpg.js");
+  const { NC_KIND_OF } = await import("../src/game/necroData.js");
+  const miss = Object.keys(MOB).filter((t) => t !== "dummy" && !NC_KIND_OF[t]);
+  assert.deepEqual(miss, []);
+});

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { W, H } from "./game/world.js";
 import {
   RPG, RPG_CREW_MAX, JOBS, ELEMS, JOB_BY_ID, ELEM_BY_ID, LV_TOP, STAT_IDS, makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgTrain, trainView,
-  hasElem, elemFor, statEarned, maxStats, statCap, refreshHp, heldSpecial, dist, sandboxDummies, sandboxMobs, mobName,
+  hasElem, elemFor, statEarned, maxStats, statCap, refreshHp, heldSpecial, dist, sandboxDummies, sandboxMobs, mobName, MOB,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
 import { drawRpg } from "./game/rpgArt.js";
@@ -26,7 +26,7 @@ import { engineerIconStyle } from "./game/engineerArt.js";
 import { ENGINEER_ICON } from "./game/engineerPxData.js";
 import { rpgSandboxHit } from "./game/rpg.js";
 import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_SKILLS, NC_SCYTHE, NC_TRAIN_NAMES, NC_KINDS, NC_ROSTER } from "./game/necroData.js";
-import { unlockNecro, necroView, ncLock, necroFillRoster, kindOf, gradeCost } from "./game/necroJob.js";
+import { unlockNecro, necroView, ncLock, necroFillRoster, necroPutRoster, kindOf, gradeCost } from "./game/necroJob.js";
 import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
 import sfx from "./game/sfx.js";
@@ -53,6 +53,8 @@ const NC_FIRST = NC_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a)
 const NC_BY_ACT = Object.fromEntries(NC_SLOTS.map((q) => [q.act, q.s]));
 // 흔적 추출 연습 몹 — 그림자 종류 다섯이 하나씩 나오게(캐릭터 앞 [가로 칸, 세로 칸, 몹 종류])
 const NC_PREY = [[5, -1.5, "goblin"], [6, 1.5, "wolf"], [7.5, 0, "skeletal"], [9, -1.5, "necro"], [9, 1.5, "ogre"]];
+// 명부에 바로 넣을 수 있는 몹 — 게임의 모든 몹 종류(허수아비만 뺀다, 11월 17일 사용자 "현재 존재하는 모든 몹 전부")
+const NC_ALL = Object.keys(MOB).filter((t) => t !== "dummy");
 const TOOLS = [
   { id: "god", name: "무적" },
   { id: "nocd", name: "쿨타임 끄기" },
@@ -289,6 +291,7 @@ export default function Sandbox() {
   const [lvText, setLvText] = useState(String(DEFAULT.lv));
   const [round, setRound] = useState(0);
   const [hud, setHud] = useState(null);
+  const [ncPick, setNcPick] = useState(NC_ALL[0]);
   const cvsRef = useRef(null);
   const G = useRef(null);
   const pointer = useRef(null);                   // 판 위 포인터(판 좌표) — 스킬이 이쪽으로 나간다
@@ -560,6 +563,12 @@ export default function Sandbox() {
               <button type="button" className="jt-chip" onClick={() => setRound((r) => r + 1)}>처음부터</button>
               {gambler && !engineer && <button type="button" className="jt-chip" title="무적이어도 최대 체력 8% 피해를 한 번 받습니다" onClick={() => G.current && rpgSandboxHit(G.current, 0)}>시험 타격 받기</button>}
               {necro && <button type="button" className="jt-chip" title="쓰러뜨릴 수 있는 몹 다섯(기사 · 암살 · 사수 · 주술 · 거수형)을 앞에 세웁니다" onClick={prey}>추출 연습 몹 세우기</button>}
+              {necro && <span className="sb-ncpick">
+                <select aria-label="명부에 넣을 몹" value={ncPick} onChange={(e) => setNcPick(e.target.value)}>
+                  {NC_ALL.map((t) => <option key={t} value={t}>{mobName({ type: t })} · {NC_KINDS[kindOf(t)].name}</option>)}
+                </select>
+                <button type="button" className="jt-chip" title="고른 몹 그림자를 명부 맨 앞에 넣습니다 — 다음 소집에 먼저 나옵니다" onClick={() => { const h = G.current && G.current.heroes[0]; if (h) necroPutRoster(h, ncPick, cfg.ncGrade || 1, (t) => mobName({ type: t })); }}>명부에 넣기</button>
+              </span>}
             </div>
             {engineer && hud && hud.en && <EngineerBar v={hud.en} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {gambler && !engineer && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}

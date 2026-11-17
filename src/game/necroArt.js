@@ -157,20 +157,58 @@ function shade(x, row, seed) {
   c.getContext("2d").putImageData(new ImageData(o, W, H), 0, 0);
   return { c, n: cnt, box: { l: Math.max(0, l - 3), t: Math.max(0, t - 3), w: Math.min(W, r + 4) - Math.max(0, l - 3), h: Math.min(H, b + 4) - Math.max(0, t - 3) } };
 }
+/* 몹 크기 맞추기(11월 17일 사용자: "현재 존재하는 모든 몹 전부") — 큰 판(BIG)에 원래 크기로 그린 뒤 그림 상자를 재어
+   SIL 판에 발 기준으로 옮긴다. 던전 · 길드 · 월드보스처럼 큰 몹은 높이 SIL_MAXH · 너비 SIL_MAXW 안으로 줄이고,
+   너무 작은 몹(높이 SIL_MINH 아래)은 SIL_UPH 까지 키운다(정한 값 — 그림자 병사가 거수형 오우거보다 크지 않게) */
+const BIG = 1100, BIG_FX = 550, BIG_FY = 960, SIL_MAXH = 160, SIL_MAXW = 236, SIL_MINH = 40, SIL_UPH = 60;
+let bigC = null, silFrame = 0, silMade = 0;
+const SIL_RETRY = 700, SIL_SETTLE = 4000, SIL_GIVEUP = 15000, SIL_BUDGET = 2;   // 다시 만들기 간격 · 굳히기 · 포기(ms) · 한 프레임 장 수
+function fitMob(type, f) {
+  if (!bigC) { bigC = document.createElement("canvas"); bigC.width = BIG; bigC.height = BIG; }
+  const bx = bigC.getContext("2d", { willReadFrequently: true });
+  bx.setTransform(1, 0, 0, 1, 0, 0); bx.clearRect(0, 0, BIG, BIG);
+  if (!mobPainter(bx, type, BIG_FX, BIG_FY, f)) return null;
+  bx.setTransform(1, 0, 0, 1, 0, 0);
+  const d = bx.getImageData(0, 0, BIG, BIG).data;
+  let l = BIG, t = BIG, r = -1, b = -1;
+  for (let y = 0; y < BIG; y++) for (let x2 = 0; x2 < BIG; x2++) if (d[(y * BIG + x2) * 4 + 3] >= 90) {
+    if (x2 < l) l = x2; if (x2 > r) r = x2; if (y < t) t = y; if (y > b) b = y;
+  }
+  if (r < 0) return null;
+  const w = r - l + 1, h = b - t + 1;
+  let k = Math.min(1, SIL_MAXH / h, SIL_MAXW / w);
+  if (h < SIL_MINH) k = SIL_UPH / h;
+  // 발(바닥 줄 BIG_FY)이 SIL_FY 에 오게 — 몸 아래가 발보다 아래로 내려간 몹(그림자 판 등)은 몸 아래를 맞춘다
+  const foot = Math.max(BIG_FY, b + 1), cx = (l + r + 1) / 2;
+  const c = document.createElement("canvas"); c.width = SIL_W; c.height = SIL_H;
+  const x = c.getContext("2d", { willReadFrequently: true });
+  x.imageSmoothingEnabled = k < 1;
+  let tx = SIL_FX - BIG_FX * k;
+  if (l * k + tx < 2 || (r + 1) * k + tx > SIL_W - 2) tx = SIL_FX - cx * k;   // 넘치면 몸 가운데를 맞춘다
+  x.setTransform(k, 0, 0, k, tx, SIL_FY - foot * k);
+  x.drawImage(bigC, 0, 0);
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  return x;
+}
 const typeSeed = (type) => { let v = 7; for (const ch of String(type)) v = (v * 31 + ch.charCodeAt(0)) % 9973; return v; };
-function silhouette(type, f, row) {
+export function silhouette(type, f, row) {
   if (!mobPainter || typeof document === "undefined" || !type) return null;
   const key = `${type}|${f}|${row}`, now = performance.now();
   let s = SIL.get(key);
-  if (s && (s.done || now - s.at < 700)) return s.c ? s : null;
+  if (s && (s.done || now - s.at < SIL_RETRY)) return s.c ? s : null;
+  // 한 프레임에 새로 만드는 그림은 SIL_BUDGET 장까지(큰 판을 읽는 일이라 무겁다) — 나머지는 다음 프레임에
+  if (now - silFrame > 8) { silFrame = now; silMade = 0; }
+  if (silMade >= SIL_BUDGET) return s && s.c ? s : null;
+  silMade++;
   let out = null;
   try {
-    const c = document.createElement("canvas"); c.width = SIL_W; c.height = SIL_H;
-    const x = c.getContext("2d", { willReadFrequently: true });
-    if (mobPainter(x, type, SIL_FX, SIL_FY, f)) out = shade(x, row, typeSeed(type) + f * 3);
+    const x = fitMob(type, f);
+    if (x) out = shade(x, row, typeSeed(type) + f * 3);
   } catch { out = null; }
-  const done = !!out && !!s && s.n === out.n;
-  s = { c: out && out.c, box: out && out.box, n: out ? out.n : 0, at: now, done };
+  // 그림 파일이 늦게 오는 몹(월드보스 등)은 처음 몇 초 동안 대신 그림이 나온다 — 같은 결과가 두 번 나와도 첫 시도에서 SIL_SETTLE 초가 지나야 굳힌다
+  const first = s ? s.first : now;
+  const done = (!!out && !!s && s.n === out.n && now - first >= SIL_SETTLE) || now - first >= SIL_GIVEUP;
+  s = { c: out ? out.c : s && s.c, box: out ? out.box : s && s.box, n: out ? out.n : 0, at: now, first, done };
   SIL.set(key, s);
   return s.c ? s : null;
 }

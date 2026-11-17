@@ -579,6 +579,16 @@ export function necroDown(E, g, h) {
 // 훈련장 · 연습장 "스택 가득" — 영혼을 100까지
 export function necroFill(h) { if (necroOn(h)) st(h).soul = NC.soul; }
 // 연습장 — 명부를 grade 등급으로 채운다(그림자 종류 다섯을 하나씩 · 몹 이름 nameOf). 저장하지 않는 연습장에서만 쓴다
+/* 격자 연습장 — 고른 몹 하나를 명부 맨 앞에 넣는다(11월 17일 사용자 "현재 존재하는 모든 몹 전부"). 등급은 명부에서 가장 높은 값(없으면 grade)이라
+   다음 소집에 먼저 나온다. 명부가 가득 차면 맨 뒤 칸을 뺀다. 게임에는 이 길이 없다 */
+export function necroPutRoster(h, t, grade, nameOf) {
+  if (!necroOn(h) || !t) return;
+  const J = jobOf(h), old = J.roster.findIndex((q) => q.t === t);
+  if (old >= 0) J.roster.splice(old, 1);
+  const g = clampN(Math.max(grade || 1, ...J.roster.map((q) => q.g)), 1, RS.grades);
+  J.roster.unshift({ t, n: nameOf ? nameOf(t) : t, g, x: 0 });
+  if (J.roster.length > rosterSlots(J)) J.roster.length = rosterSlots(J);
+}
 export function necroFillRoster(h, grade, nameOf) {
   if (!necroOn(h)) return;
   const J = jobOf(h), want = [["goblin", "knight"], ["wolf", "assassin"], ["skeletal", "archer"], ["necro", "caster"], ["ogre", "giant"]];

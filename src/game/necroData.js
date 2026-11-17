@@ -56,6 +56,14 @@ export const NC_KIND_OF = {
   skeletal: "archer", firedrake: "archer", fallen: "archer", clock_tower: "archer",
   necro: "caster", fspirit: "caster", ifrit: "caster", voidmage: "caster", forbidden_lab: "caster", observer_hall: "caster", origin_command: "caster",
   boar: "giant", gorilla: "giant", ogre: "giant", golem: "giant", lavagolem: "giant", abyss: "giant",
+  // 11월 17일 사용자 "현재 존재하는 모든 몹 전부" — 나머지 몹도 생김새대로 짝을 정했다(정한 값). 보스 · 월드보스 · 길드보스는 게임에서 흔적이 남지 않아 연습장에서만 쓴다
+  gramor: "giant", argas: "knight", morgas: "caster", barkanon: "giant", serka: "assassin",
+  tg_fire: "caster", tg_frost: "caster", tg_bolt: "caster", tg_poison: "caster", tg_corrode: "knight", tg_gravity: "giant",
+  guild_slime: "giant", guild_siren: "caster", guild_phoenix: "archer",
+  scrapyard_elite: "giant", synthetic_forest_elite: "assassin", silent_city_elite: "knight", clock_tower_elite: "archer", rift_boundary_elite: "assassin",
+  forbidden_lab_elite: "caster", observer_hall_elite: "caster", origin_command_elite: "giant",
+  hi_plant: "caster", hi_device: "archer", hi_drone: "archer", hi_echo: "assassin", hi_sclone: "assassin",
+  world_dragon: "giant", world_serpent: "giant", world_machine: "giant", world_thunderbird: "archer", world_void: "caster",
 };
 
 /* 기본 공격 — 그림자 낫(11월 17일 사용자: "네크로맨서 평타 없애고 근거리 무기 낫으로 바꾸자" — 흑영탄을 뺐다).

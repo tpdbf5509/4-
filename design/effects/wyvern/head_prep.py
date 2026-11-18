@@ -16,6 +16,11 @@ SCALE = 0.42                  # 돌린 뒤 줄이는 배율 — 11월 18일 사�
 P_NECK = (34, 70)             # 목이 붙는 자리(머리 뒤 아래)
 P_MOUTH = (60, 108)           # 벌린 입 안쪽(불이 나오는 곳)
 P_EYE = (57, 86)              # 호박색 눈
+P_SHUT = (66, 116)            # 다문 입 — 코끝 아래 턱이 맞물리는 자리(불빛을 숨기는 칸에서만 쓴다)
+# 아래턱(11월 18일 사용자 "턱과 윗 얼굴을 분리해서 비행 중에는 턱을 닫고 공격할 때만 입 벌리게") — 원본 좌표 다각형 · 턱관절
+JAW = [(22, 76), (36, 82), (42, 87), (45, 93), (46, 101), (47, 108), (50, 113), (53, 118), (49, 125), (42, 129), (34, 124), (27, 104), (18, 88)]
+HINGE = (42, 87)
+JAW_SHUT = 30                 # 다물 때 아래턱을 턱관절 둘레로 돌리는 각도(반시계, 도)
 
 
 def _hex(h):
@@ -72,9 +77,39 @@ def recolor(a):
     return out
 
 
-def build():
+def is_mouth(px):
+    """입속 — 어두운 보라 · 붉은 살(다물 때 지운다)"""
+    r, g, b, al = px
+    if al == 0: return False
+    h, l, s = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+    return (h * 360 > 250 or h * 360 < 15) and l < 0.45
+
+
+def shut(a):
+    """원본(바탕 지운 RGBA)에서 아래턱을 떼어 턱관절 둘레로 돌려 입을 다문다.
+    입속은 지우고, 돌린 턱이 지나간 목 아래 틈은 턱관절 가까운 조각을 사이 각도로 겹쳐 채운다."""
+    from PIL import ImageDraw
+    m = Image.new("L", (a.shape[1], a.shape[0]), 0); ImageDraw.Draw(m).polygon(JAW, fill=255); m = np.array(m) > 0
+    jaw = a.copy(); jaw[~m] = 0
+    up = a.copy(); up[m] = 0
+    for arr in (jaw, up):
+        for y in range(76, 124):
+            for x in range(38, 62):
+                if is_mouth(arr[y, x]): arr[y, x, 3] = 0
+    yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
+    near = jaw.copy(); near[np.hypot(xx - HINGE[0], yy - HINGE[1]) > 13] = 0
+    out = Image.fromarray(up)
+    for t in range(4, JAW_SHUT, 4):
+        out.alpha_composite(Image.fromarray(near).rotate(t, center=HINGE, resample=Image.NEAREST))
+    out.alpha_composite(Image.fromarray(jaw).rotate(JAW_SHUT, center=HINGE, resample=Image.NEAREST))
+    return np.array(out)
+
+
+def build(closed=False):
     im = Image.open(SRC).convert("RGBA")
     a = clear_bg(np.array(im))
+    a[:68, :32, 3] = 0            # 머리와 떨어진 왼쪽 위 조각(다른 그림 끝)
+    if closed: a = shut(a)
     a = recolor(a)
     im = Image.fromarray(a).crop(CROP)
     w0, h0 = im.size
@@ -96,10 +131,11 @@ def build():
         t = math.radians(ROT); c, s = math.cos(t), math.sin(t)
         rx, ry = x * c + y * s, -x * s + y * c                # PIL rotate 는 반시계
         return ((rx + W / 2) / 4 * SCALE, (ry + H / 2) / 4 * SCALE)
-    return sm, pt(P_NECK), pt(P_MOUTH), pt(P_EYE)
+    return sm, pt(P_NECK), pt(P_SHUT if closed else P_MOUTH), pt(P_EYE)
 
 
 if __name__ == "__main__":
-    sm, n, m, e = build()
-    sm.save(os.path.join(HERE, "head.png"))
-    print(sm.size, [tuple(round(v, 1) for v in q) for q in (n, m, e)])
+    for closed, name in ((False, "head.png"), (True, "head-shut.png")):
+        sm, n, m, e = build(closed)
+        sm.save(os.path.join(HERE, name))
+        print(name, sm.size, [tuple(round(v, 1) for v in q) for q in (n, m, e)])

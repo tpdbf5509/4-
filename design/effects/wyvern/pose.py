@@ -31,8 +31,11 @@ def _head_sprite():
     """사용자 머리 그림(도트) · 목 붙는 자리 · 입 · 눈 — head_prep.py 가 만든다. 없으면 코드 머리(head_rest)로 그린다."""
     try:
         import head_prep
-        spr, n, m, e = head_prep.build()
-        return spr, n, (round(m[0]), round(m[1])), (round(e[0]), round(e[1]))
+        out = {}
+        for closed in (False, True):   # 벌린 입(불 뿜기 칸) · 다문 입(날갯짓 · 숨쉬기)
+            spr, n, m, e = head_prep.build(closed)
+            out[closed] = (spr, n, (round(m[0]), round(m[1])), (round(e[0]), round(e[1])))
+        return out
     except Exception as err:   # noqa — 원본 그림이 없을 때
         print("head sprite off:", err); return None
 HEAD_SPRITE = _head_sprite()
@@ -203,7 +206,7 @@ class Pose:
         턱관절 뒤에서 목 쪽으로 윤곽이 살짝 들어간다. 뿔은 뒤통수 위에서 목을 따라 길게 뒤로(2번 사진 위치 · 길이).
         bare=True 면 뿔 · 비늘 · 무늬 없이 윤곽만(참고 사진과 비교용). gape > 0(불 뿜기 칸)이면 아래턱만 조금 내린다."""
         if not bare and HEAD_SPRITE is not None:   # 11월 18일 사용자가 직접 그린 머리(head_prep.py → head.png)를 그대로 붙인다
-            spr, (nx, ny), (mx, my), (ex, ey) = HEAD_SPRITE
+            spr, (nx, ny), (mx, my), (ex, ey) = HEAD_SPRITE[gape <= 0.05]   # 공격(불 뿜기) 칸에서만 입을 벌린다
             px, py = round(x + s.ox - nx), round(y + s.oy - ny)
             s.im.alpha_composite(spr.resize((spr.width * SS, spr.height * SS), Image.NEAREST), (px * SS, py * SS))
             s.eye = (px + ex, py + ey)

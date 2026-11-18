@@ -162,9 +162,10 @@ def pose_sheet(frames, mouth):
             ey = frames[f][0].eye
             if ey:   # 눈빛 — 1배 두 칸(주황) + 가운데 밝은 점
                 ex, eyy = int(ey[0]), int(ey[1]); c.px(ex - 1, eyy, F[3]); c.px(ex, eyy, F[5]); c.px(ex + 1, eyy, F[3])
-            if gl:
-                mx, my = mouth[f]
+            if gl:   # 입 불빛 — 얼굴 뒤로(11월 18일 사용자): 머리 · 몸 칸은 덮지 않고 빈 칸에만 비친다
+                mx, my = mouth[f]; keep = c.a.copy(); body = keep[..., 3] > 0
                 c.disc(mx, my, 3 + gl * 4, 2 + gl * 3, al(F[3], .85)); c.disc(mx, my, 1.5 + gl * 2, 1 + gl * 1.5, F[5]); c.px(mx, my, F[6])
+                c.a[body] = keep[body]
             outline(c, R[0]); out.append(c)
     return out
 

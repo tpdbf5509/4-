@@ -27,6 +27,16 @@ def bez(p, n=24):
             out.append(tuple(0.5 * ((2 * p1[j]) + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3) for j in range(2)))
     out.append(p[-1]); return out
 
+def _head_sprite():
+    """사용자 머리 그림(도트) · 목 붙는 자리 · 입 · 눈 — head_prep.py 가 만든다. 없으면 코드 머리(head_rest)로 그린다."""
+    try:
+        import head_prep
+        spr, n, m, e = head_prep.build()
+        return spr, n, (round(m[0]), round(m[1])), (round(e[0]), round(e[1]))
+    except Exception as err:   # noqa — 원본 그림이 없을 때
+        print("head sprite off:", err); return None
+HEAD_SPRITE = _head_sprite()
+
 class Pose:
     def __init__(s, w, h, ox, oy):
         s.w, s.h, s.ox, s.oy = w, h, ox, oy
@@ -192,6 +202,12 @@ class Pose:
         콧구멍은 코끝 바로 뒤 옆면. 아래턱은 코끝 쪽이 얇고 눈 아래로 갈수록 두껍다. 입선은 눈 아래 턱관절까지.
         턱관절 뒤에서 목 쪽으로 윤곽이 살짝 들어간다. 뿔은 뒤통수 위에서 목을 따라 길게 뒤로(2번 사진 위치 · 길이).
         bare=True 면 뿔 · 비늘 · 무늬 없이 윤곽만(참고 사진과 비교용). gape > 0(불 뿜기 칸)이면 아래턱만 조금 내린다."""
+        if not bare and HEAD_SPRITE is not None:   # 11월 18일 사용자가 직접 그린 머리(head_prep.py → head.png)를 그대로 붙인다
+            spr, (nx, ny), (mx, my), (ex, ey) = HEAD_SPRITE
+            px, py = round(x + s.ox - nx), round(y + s.oy - ny)
+            s.im.alpha_composite(spr.resize((spr.width * SS, spr.height * SS), Image.NEAREST), (px * SS, py * SS))
+            s.eye = (px + ex, py + ey)
+            return (px + mx - s.ox, py + my - s.oy)
         ca, sa = math.cos(ang), math.sin(ang)
         def R(u, v):
             if u > 16: u = 16 + (u - 16) * snout

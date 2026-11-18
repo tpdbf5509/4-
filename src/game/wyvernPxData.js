@@ -7,8 +7,8 @@ export const WYVERN_PX_SRC = "/assets/game/rpg/effects/hidden-jobs/wyvern/px/";
 export const WYVERN_PX = {
   wy_claw: { w: 96, h: 64, cols: 6, n: 6, cx: 8, cy: 32, r: 80 },   // 용조격 — 오른쪽을 보는 세 줄 발톱 참격(기준점 = 손, 그림 속 반지름 r)
   wy_hit: { w: 48, h: 48, cols: 7, n: 7, cx: 24, cy: 24 },   // 타격 — 불꽃 터짐 · 고리 · 불씨
-  wy_wyvern: { w: 72, h: 56, cols: 7, n: 7, cx: 36, cy: 36, rows: 2 },   // 와이번 옆모습(오른쪽) — 0~3 날갯짓 · 4~6 불 뿜기. 줄 0 그대로 · 1 연마 75 붉은 선
-  wy_shade: { w: 64, h: 20, cols: 4, n: 4, cx: 32, cy: 10, loop: 1 },   // 땅에 비친 와이번 그림자 — 날갯짓 4칸
+  wy_wyvern: { w: 244, h: 124, cols: 7, n: 7, cx: 146, cy: 92, rows: 2 },   // 와이번 옆모습(오른쪽, 1배로 그린다 — 11월 18일 사용자 그림을 옮김) — 0~3 날갯짓 · 4~6 불 뿜기. 줄 0 그대로 · 1 연마 75 붉은 선
+  wy_shade: { w: 122, h: 24, cols: 4, n: 4, cx: 61, cy: 12, loop: 1 },   // 땅에 비친 와이번 그림자 — 날갯짓 4칸
   wy_ball: { w: 20, h: 20, cols: 4, n: 4, cx: 12, cy: 10, loop: 1 },   // 와이번 화염탄(오른쪽으로 난다)
   wy_sigil: { w: 96, h: 56, cols: 8, n: 8, cx: 48, cy: 28 },   // 소환 문양 — 0~3 나타남 · 4~7 반복
   wy_portal: { w: 80, h: 72, cols: 8, n: 8, cx: 18, cy: 36 },   // 용염 포효 포탈 — 0~3 열림 · 4~7 용 머리가 나와 입을 벌린다(오른쪽)

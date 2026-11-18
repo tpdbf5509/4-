@@ -289,7 +289,7 @@ function tickWyvern(E, g, h, s, dt) {
   if (!o || u.cd > 0) return;
   u.cd = CT.gap; u.f = 0;
   const J = jobOf(h), sync = s.aw > 0 && wySync(J) ? 1 + AW.syncWyvern : 1;
-  const x0 = u.x + (u.fl ? -26 : 26), y0 = u.y - CT.hz - 4, tt = Math.max(0.12, Math.hypot(o.x - x0, o.y - 22 - y0) / CT.v);
+  const x0 = u.x + (u.fl ? -CT.mouth[0] : CT.mouth[0]), y0 = u.y - CT.hz + CT.mouth[1], tt = Math.max(0.12, Math.hypot(o.x - x0, o.y - 22 - y0) / CT.v);
   u.balls.push({ t: 0, tt, tg: keyOf(o), mul: wyvernMul(J) * sync });
   E.fx(g, u.map, { kind: "sk_wy_ball", x0: Math.round(x0), y0: Math.round(y0), x1: Math.round(o.x), y1: Math.round(o.y) - 22, pi: h.pi, t: tt + 0.05, life: tt + 0.05, snd: "wyBreath" });
 }
@@ -299,12 +299,12 @@ function roarUse(E, g, h) {
   if (blocked(E, g, h, "roar")) return;
   const s = st(h), [ax, ay] = aimDir(E, g, h, RO.reach), arc = Math.min(Math.PI * 0.95, RO.arc * (s.aw > 0 ? 1 + RO.awakeArc : 1));
   spend(s, "roar"); s.cd.roar = RO.cd;
-  const u = s.u, sub = u && !u.dv ? { x: Math.round(h.x), y: Math.round(h.y), wx: Math.round(u.x), wy: Math.round(u.y), hz: CT.hz } : null;   // 갈래는 시전자 앞 — 와이번이 그쪽으로 뿜는다
+  const u = s.u, sub = u && !u.dv ? { x: Math.round(h.x), y: Math.round(h.y), wx: Math.round(u.x), wy: Math.round(u.y), hz: CT.hz, fl: u.fl ? 1 : 0 } : null;   // 갈래는 시전자 앞 — 와이번이 그쪽으로 뿜는다
   s.roars.push({ t: 0, i: 0, x: h.x, y: h.y, ax, ay, arc, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0, got: 0, sub, subDone: 0, subXp: 0 });
   h.swing = 0.3;
   const life = RO.first + RO.gap * (RO.n - 1) + RO.tail;
   E.fx(g, h.map, { kind: "sk_wy_roar", x: Math.round(h.x), y: Math.round(h.y), ax: r2(ax), ay: r2(ay), r: RO.reach, arc: r2(arc), n: RO.n, d: RO.first, gap: RO.gap,
-    sub: sub ? { x: sub.x, y: sub.y, wx: sub.wx, wy: sub.wy, hz: sub.hz, r: RO.sub.reach, arc: r2(RO.sub.arc), at: RO.sub.at } : 0, aw: s.aw > 0 ? 1 : 0, pi: h.pi, t: life, life, snd: "wyRoar" });
+    sub: sub ? { x: sub.x, y: sub.y, wx: sub.wx, wy: sub.wy, hz: sub.hz, fl: sub.fl, r: RO.sub.reach, arc: r2(RO.sub.arc), at: RO.sub.at } : 0, aw: s.aw > 0 ? 1 : 0, pi: h.pi, t: life, life, snd: "wyRoar" });
   call(E, g, h, RO.name);
 }
 function tickRoar(E, g, h, q, dt) {

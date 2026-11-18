@@ -177,67 +177,101 @@ def hit_cells():
     return out
 
 # ── 와이번(72×56) — 옆모습 · 오른쪽을 본다. 0~3 날갯짓 반복 · 4~6 불을 뿜는 공격. 줄 0 그대로 · 1 연마 75 붉은 선 ──
-def wyvern_draw(c, flap, atk=0.0, line=False):
-    cx, cy = 34, 34
-    # 먼 날개(어둡게) — 날갯짓 각도 flap(-1 아래 ~ 1 위)
-    def wing(dx, dark):
-        sh = (R[1], R[2]) if dark else (R[2], R[3])
-        tip = (cx - 26 + dx, cy - 8 - 22 * flap); elb = (cx - 6 + dx, cy - 12 - 10 * flap)
-        mem = [(cx + 2 + dx, cy - 4), elb, tip, (cx - 24 + dx, cy - 2 - 8 * flap), (cx - 18 + dx, cy - 1 - 3 * flap), (cx - 12 + dx, cy + 2), (cx - 6 + dx, cy + 1)]
-        c.fillpoly(mem, sh[0])
-        c.fillpoly([(cx + 1 + dx, cy - 4), elb, ((elb[0] + tip[0]) / 2, (elb[1] + tip[1]) / 2 + 3), (cx - 10 + dx, cy - 1)], sh[1])
-        bone = G[3] if not dark else G[2]
-        c.line(cx + 2 + dx, cy - 4, elb[0], elb[1], bone); c.line(elb[0], elb[1], tip[0], tip[1], bone)
-        for p_ in mem[3:6]: c.line(elb[0], elb[1], p_[0], p_[1], R[1] if not dark else R[0])
-        if line and not dark: c.line(cx - 2 + dx, cy - 4, (elb[0] + tip[0]) / 2, (elb[1] + tip[1]) / 2 + 2, LINE); c.line(elb[0], elb[1] + 2, tip[0] + 2, tip[1] + 4, LINE)
-    wing(6, True)
-    # 꼬리
-    for i in range(18):
-        t = i / 17; x = cx - 8 - t * 26; y = cy + 4 + math.sin(t * 3 + flap) * 3 + t * 4
-        c.disc(x, y, 3.5 * (1 - t) + .8, 3 * (1 - t) + .8, R[3] if i % 3 else R[2])
-    c.fillpoly([(cx - 34, cy + 7), (cx - 40, cy + 3), (cx - 38, cy + 11)], R[3])   # 꼬리 끝 가시
-    # 몸 · 배
-    c.disc(cx - 2, cy + 2, 11, 7, R[3]); c.disc(cx - 1, cy + 5, 8, 3.5, F[3]); c.disc(cx - 4, cy - 1, 7, 3, R[4])
-    for i in range(5): c.px(cx - 8 + i * 3, cy - 5, R[2])   # 등 가시 점
-    if line:
-        for i in range(4): c.px(cx - 9 + i * 4, cy - 2, LINE); c.px(cx - 8 + i * 4, cy - 2, LINE)
-    # 다리
-    c.line(cx - 2, cy + 8, cx - 4, cy + 13, R[2]); c.line(cx + 4, cy + 7, cx + 3, cy + 12, R[2])
-    c.px(cx - 5, cy + 13, G[4]); c.px(cx + 2, cy + 12, G[4])
-    # 목 · 머리
-    nk = [(cx + 6, cy - 2), (cx + 12, cy - 9), (cx + 16, cy - 13)]
-    for (x, y) in nk: c.disc(x, y, 4, 3.5, R[3])
-    hx, hy = cx + 21, cy - 14
-    c.disc(hx, hy, 6, 4, R[3]); c.disc(hx + 1, hy + 1, 4, 2, R[4])
-    jaw = 2 + atk * 4
-    c.fillpoly([(hx + 3, hy - 1), (hx + 12, hy + 1), (hx + 3, hy + 3)], R[3])            # 윗턱
-    c.fillpoly([(hx + 2, hy + 3), (hx + 10, hy + 3 + jaw), (hx + 1, hy + 5)], R[2])       # 아래턱
-    c.line(hx - 4, hy - 3, hx - 9, hy - 8, G[3]); c.line(hx - 2, hy - 4, hx - 6, hy - 10, G[4])   # 뿔
-    c.px(hx + 2, hy - 1, F[6]); c.px(hx + 3, hy - 1, F[5])                                 # 눈
-    if atk > 0:   # 입 속 불빛
-        c.disc(hx + 9, hy + 2 + jaw * .5, 2 + atk * 2.5, 1.5 + atk * 2, F[4]); c.px(hx + 9, hy + 2 + jaw * .5, F[6])
-    wing(0, False)
-    outline(c, R[0])
+# ── 와이번 몸(244×124, 1배로 그린다) — 11월 18일 사용자 그림(design/wyvern-job/ref/wyvern-ref.jpg)을 그대로 도트로 옮긴다 ──
+# 흰 바탕을 가장자리부터 지우고(몸 안 흰 반점은 둘레 색으로 메움) 좌우를 뒤집어 머리를 오른쪽에 둔다(게임 기준).
+# 0~3 날갯짓 — 어깨선 위 날개를 세로로 1.0 · 0.6 · 0.25 · 0.6 배(PIV 를 축으로). 4~6 공격 — 입 속 불빛.
+# 줄 0 기본 · 줄 1 연마 75(날개 윗선에 붉은 선). 32색으로 묶고 1px 윤곽.
+WY_REF = os.path.join(HERE, "..", "..", "wyvern-job", "ref", "wyvern-ref.jpg")
+WY_SC, WY_CW, WY_CH, WY_M = 0.6, 244, 124, 2
+WY_PIV = 122                                            # 날갯짓 축(원본 y)
+WY_MOUTH = (197, 105)                                   # 칸 안 입 자리(공격 불빛)
+def wy_base(x): return 119 if x < 210 else 125 if x < 300 else 130   # 원본 x 마다 날개 · 몸 경계(꼬리 · 머리를 날개로 치지 않게)
+
+def wy_ref_cut():
+    from collections import deque
+    a = np.array(Image.open(WY_REF).convert("RGB")).astype(int); H, W_ = a.shape[:2]
+    light = (a.min(2) > 200) & ((a.max(2) - a.min(2)) < 45)
+    bg = np.zeros((H, W_), bool); q = deque()
+    for x in range(W_):
+        for y in (0, H - 1):
+            if light[y, x]: bg[y, x] = 1; q.append((y, x))
+    for y in range(H):
+        for x in (0, W_ - 1):
+            if light[y, x] and not bg[y, x]: bg[y, x] = 1; q.append((y, x))
+    while q:
+        y, x = q.popleft()
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            ny, nx = y + dy, x + dx
+            if 0 <= ny < H and 0 <= nx < W_ and not bg[ny, nx] and light[ny, nx]: bg[ny, nx] = 1; q.append((ny, nx))
+    hole = light & ~bg; rgb = a.astype(float)
+    for _ in range(6):
+        ys, xs = np.nonzero(hole)
+        if not len(ys): break
+        nh = hole.copy()
+        for y, x in zip(ys, xs):
+            nb = [(y + dy, x + dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1) if 0 <= y + dy < H and 0 <= x + dx < W_ and not hole[y + dy, x + dx] and not bg[y + dy, x + dx]]
+            if nb: rgb[y, x] = np.mean([rgb[p] for p in nb], 0); nh[y, x] = 0
+        hole = nh
+    return np.dstack([rgb, np.where(bg, 0.0, 255.0)])[:, ::-1]
+
+def wy_flap(src, s):
+    H, W_ = src.shape[:2]; ys = np.arange(H)[:, None]
+    base = np.array([wy_base(x) for x in range(W_)])[None, :]
+    wm = (ys < base) & (src[..., 3] > 0)
+    body = src.copy(); body[wm] = 0; wing = src.copy(); wing[~wm] = 0
+    out = body.copy()
+    for ty in range(H):
+        iy = int(round(WY_PIV - (WY_PIV - ty) / s))
+        if 0 <= iy < H:
+            row = wing[iy]; m = row[:, 3] > 0; out[ty][m] = row[m]
+    return out
+
+def wy_shrink(a):
+    H, W_ = a.shape[:2]; pm = a.copy(); pm[..., :3] *= pm[..., 3:4] / 255
+    w, h = round(W_ * WY_SC), round(H * WY_SC)
+    r = np.array(Image.fromarray(np.clip(pm, 0, 255).astype(np.uint8), "RGBA").resize((w, h), Image.BOX)).astype(float)
+    al_ = r[..., 3]; col = np.where(al_[..., None] > 0, r[..., :3] * 255 / np.maximum(al_[..., None], 1), 0)
+    out = np.zeros((WY_CH, WY_CW, 4), np.uint8)
+    out[WY_M:WY_M + h, WY_M:WY_M + w, :3] = np.clip(col, 0, 255).astype(np.uint8)
+    out[WY_M:WY_M + h, WY_M:WY_M + w, 3] = np.where(al_ > 140, 255, 0)
+    out[out[..., 3] == 0] = 0
+    return out
 
 def wyvern_cells():
+    src = wy_ref_cut()
+    base = [wy_shrink(wy_flap(src, s)) for s in (1.0, 0.6, 0.25, 0.6)]
+    atk = [wy_shrink(wy_flap(src, 0.8))] * 3
+    frames = base + atk
+    big = np.concatenate(frames, 1)
+    q = Image.fromarray(big[..., :3]).quantize(colors=32, method=Image.Quantize.MEDIANCUT)
+    big[..., :3] = np.array(q.convert("RGB")); big[big[..., 3] == 0] = 0
     out = []
     for line in (False, True):
-        for f, fl in enumerate([1.0, 0.35, -0.8, -0.2]):
-            c = Cv(72, 56); wyvern_draw(c, fl, 0, line); out.append(c)
-        for f, a in enumerate([0.5, 1.0, 0.6]):
-            c = Cv(72, 56); wyvern_draw(c, 0.2, a, line); out.append(c)
+        for f in range(7):
+            c = Cv(WY_CW, WY_CH); c.a = big[:, f * WY_CW:(f + 1) * WY_CW].copy()
+            if line:   # 연마 75 — 날개 윗선을 따라 붉은 선(2칸 아래까지)
+                for x in range(WY_CW):
+                    col = np.nonzero(c.a[:, x, 3])[0]
+                    if len(col) and col[0] < WY_MOUTH[1] - 30:
+                        y0 = col[0]; c.px(x, y0 + 1, LINE)
+                        if x % 3: c.px(x, y0 + 2, al(LINE, .6))
+            if f >= 4:   # 공격 — 입 속 불빛
+                k = [0.5, 1.0, 0.6][f - 4]; mx, my = WY_MOUTH
+                c.disc(mx, my, 3 + k * 4, 2 + k * 3, al(F[3], .85)); c.disc(mx, my, 1.5 + k * 2, 1 + k * 1.5, F[5]); c.px(mx, my, F[6])
+            outline(c, R[0]); out.append(c)
     return out
 
 # ── 와이번 그림자(64×20) — 땅에 비친 날개 그림자 · 날갯짓 4칸 ──
-def shade_cells():
+def shade_cells():   # 122×24 — 사용자 그림 와이번 날개 폭(1배 244)에 맞춰 2배로 그린다
     out = []
-    for f, fl in enumerate([1.0, 0.35, -0.8, -0.2]):
-        c = Cv(64, 20); col = al(S[0], .55)
-        c.disc(32, 10, 9, 3.5, col)
-        span = 26 * (0.6 + 0.4 * abs(math.cos(fl)))
-        c.fillpoly([(30, 9), (30 - span, 6 - fl * 2), (26 - span * .6, 12), (30, 12)], col)
-        c.fillpoly([(36, 9), (36 + span * .5, 5 - fl * 2), (38 + span * .3, 12)], col)
-        c.disc(46, 9, 3, 2, col); c.disc(14, 11, 3, 1.5, col)
+    for f, sc in enumerate([1.0, 0.6, 0.25, 0.6]):
+        c = Cv(122, 24); col = al(S[0], .55)
+        c.disc(61, 12, 14, 4, col)                                                     # 몸(칸 가운데 = 와이번 자리)
+        c.fillpoly([(50, 11), (2, 10), (2, 12), (50, 15)], col)                        # 꼬리
+        c.disc(86, 14, 6, 3, col)                                                      # 머리
+        sp = 0.55 + 0.45 * sc
+        c.fillpoly([(58, 11), (58 - 56 * sp, 6 - 3 * sc), (36, 15), (62, 15)], col)    # 가까운 날개
+        c.fillpoly([(68, 10), (68 + 44 * sp, 4 - 3 * sc), (80, 13)], col)              # 먼 날개
         out.append(c)
     return out
 
@@ -552,7 +586,7 @@ def main():
     man = {}; sheets = {}
     sheets["wy_claw"] = pack("wy_claw", claw_cells(), None, man, cx=8, cy=32, r=80)
     sheets["wy_hit"] = pack("wy_hit", hit_cells(), None, man)
-    sheets["wy_wyvern"] = pack("wy_wyvern", wyvern_cells(), 7, man, cx=36, cy=36, rows=2)
+    sheets["wy_wyvern"] = pack("wy_wyvern", wyvern_cells(), 7, man, cx=146, cy=92, rows=2)
     sheets["wy_shade"] = pack("wy_shade", shade_cells(), None, man, loop=1)
     sheets["wy_ball"] = pack("wy_ball", ball_cells(), None, man, cx=12, cy=10, loop=1)
     sheets["wy_sigil"] = pack("wy_sigil", sigil_cells(), None, man)

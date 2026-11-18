@@ -13,6 +13,7 @@ import { WYVERN_PX_SRC, WYVERN_PX as SH } from "./wyvernPxData.js";
 const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const K = 2;
+const WY_K = 1;   // 와이번 몸 시트는 사용자 그림을 옮겨 1배로 그렸다(11월 18일)
 let DETAIL = 1;
 const nq = (n) => Math.max(1, Math.round(n * DETAIL));
 const rnd = (a, b = 0) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
@@ -169,7 +170,8 @@ function roar(ctx, f, t, sq) {
   const s = f.sub;
   if (s && t >= s.at) {
     const v = clamp((t - s.at) / 0.45);
-    for (let i = 0, n = nq(6); i < n; i++) { const b = i / n; cell(ctx, "wy_ball", loop(4, 0.12, i * 0.03), s.wx + (s.x - s.wx) * b * v, s.wy - s.hz + (s.y - 30 - s.wy + s.hz) * b * v, 1, 0.9); }
+    const mx = s.fl ? -CT.mouth[0] : CT.mouth[0];   // 와이번 입 자리
+    for (let i = 0, n = nq(6); i < n; i++) { const b = i / n; cell(ctx, "wy_ball", loop(4, 0.12, i * 0.03), s.wx + mx + (s.x - s.wx - mx) * b * v, s.wy - s.hz + CT.mouth[1] + (s.y - 30 - s.wy + s.hz - CT.mouth[1]) * b * v, 1, 0.9); }
     puffFan(ctx, seedOf(f) + 91, s.x, s.y, ax, ay, s.r, s.arc, sq, clamp(v * 1.6), clamp(v * 1.4 - 0.4));
   }
 }
@@ -184,7 +186,7 @@ function dive(ctx, f, t, sq) {
     if (t >= DV.up) {
       const v = (t - DV.up) / (DV.land - DV.up), x = f.x0 + (f.x - f.x0) * v, y = f.y0 + (f.y - f.y0) * v, air = DV.rise * Math.max(0, 1 - v * v);
       for (let i = 0, n = nq(5); i < n; i++) { const b = Math.max(0, v - i * 0.08); cell(ctx, "wy_puff", Math.min(7, 1 + i), f.x0 + (f.x - f.x0) * b, f.y0 + (f.y - f.y0) * b - DV.rise * Math.max(0, 1 - b * b) - 30, K, 0.9); }
-      cell(ctx, "wy_shade", loop(4, 0.2), x, y, f.joint ? 4 : 2, 0.5);
+      cell(ctx, "wy_shade", loop(4, 0.2), x, y, f.joint ? 2 : 1, 0.5);
       void air;
     }
     return;
@@ -219,8 +221,8 @@ function spike(ctx, f, t, sq) {
 function sky(ctx, f, t, sq) {
   const u = t / f.life, a = u * TAU * 1.4;
   ring(ctx, f.x, f.y, f.r, sq, C.line, 0.5 * (1 - u * 0.6), 4);
-  cell(ctx, "wy_shade", loop(4, 0.25), f.x + Math.cos(a) * f.r * 0.5, f.y + Math.sin(a) * f.r * 0.5 * sq, 4, 0.45 * (1 - u));
-  if (f.wy) cell(ctx, "wy_wyvern", loop(4, 0.32), f.x + Math.cos(a) * f.r * 0.5, f.y + Math.sin(a) * f.r * 0.5 * sq - 220, 3, 0.75 * (1 - u), 0, Math.sin(a) > 0);   // 와이번이 없을 때 — 임시 비룡(그림만)
+  cell(ctx, "wy_shade", loop(4, 0.25), f.x + Math.cos(a) * f.r * 0.5, f.y + Math.sin(a) * f.r * 0.5 * sq, 2, 0.45 * (1 - u));
+  if (f.wy) cell(ctx, "wy_wyvern", loop(4, 0.32), f.x + Math.cos(a) * f.r * 0.5, f.y + Math.sin(a) * f.r * 0.5 * sq - 220, WY_K, 0.75 * (1 - u), 0, Math.sin(a) > 0);   // 와이번이 없을 때 — 임시 비룡(그림만)
   bits(ctx, seedOf(f), f.x, f.y, sq, u, { emb: 24, smk: 10, lick: 10 }, { r: f.r * 0.95, out: 0.05, up: 40, spread: 0.8 });
 }
 function drop(ctx, f, t, sq) {
@@ -256,8 +258,8 @@ function ult(ctx, f, t, sq) {
   // 위로 오른 와이번(또는 임시 비룡) 그림자 — 커지며 내려온다
   if (t >= UL.rise && t < UL.first + 0.1) {
     const v = (t - UL.rise) / (UL.first - UL.rise);
-    cell(ctx, "wy_shade", loop(4, 0.15), f.x, f.y, 2 + Math.round(v * 4), 0.35 + 0.35 * v);
-    if (f.temp) cell(ctx, "wy_wyvern", 4 + loop(3, 0.2), f.x - 60, f.y - 260 * (1 - v) - 80, 3, 0.85, 0, false);
+    cell(ctx, "wy_shade", loop(4, 0.15), f.x, f.y, 1 + Math.round(v * 2), 0.35 + 0.35 * v);
+    if (f.temp) cell(ctx, "wy_wyvern", 4 + loop(3, 0.2), f.x - 60, f.y - 260 * (1 - v) - 80, WY_K, 0.85, 0, false);
   }
   // 범위 안 내내 불씨 · 연기 — 넓은 원이 비지 않게
   if (t >= UL.warn * 0.5) bits(ctx, seedOf(f) + 7, f.x, f.y, sq, clamp((t - UL.warn * 0.5) / (f.life - UL.warn * 0.5)), { emb: 26, lick: 16, smk: 12, shard: 8 }, { r: R * 0.95, out: 0.05, up: 50, spread: 0.85, k: 3 });
@@ -339,7 +341,7 @@ export function drawWyvernUnit(ctx, o, time, sq, quality = 1) {
   ctx.save(); ctx.imageSmoothingEnabled = false;
   cell(ctx, "wy_shade", loop(4, 0.36, u.x * 0.001), u.x, u.y, K, 0.55 * a * (1 - Math.min(0.5, u.hz / 400)));
   const i = u.f < 0.3 ? 4 + Math.min(2, Math.floor(u.f / 0.1)) : loop(4, 0.36, u.x * 0.001);
-  cell(ctx, "wy_wyvern", i, u.x, u.y - u.hz + bob, K, a, row, !!u.fl);
+  cell(ctx, "wy_wyvern", i, u.x, u.y - u.hz + bob, WY_K, a, row, !!u.fl);
   if (DETAIL > 0.5 && v.aw > 0) bits(ctx, u.x * 0.3, u.x, u.y - u.hz, sq, (NOW * 0.8) % 1, { emb: 6, wisp: 4 }, { r: 30, up: 30, spread: 0.9 });   // 역린 해방 중 — 와이번도 달아오른다
   ctx.restore();
 }

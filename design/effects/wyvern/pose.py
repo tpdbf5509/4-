@@ -5,7 +5,7 @@ import math
 from PIL import Image, ImageDraw
 
 SS = 4   # 4배로 그려 줄인다
-HEAD_K = 1.2   # 머리 크기 — 11월 18일 사용자 "얼굴 비교해서" 로 1.0 → 1.2
+HEAD_K = 0.8   # 머리 크기 — 11월 18일 사용자 "머리가 너무 커 비율 생각하면서" 로 1.2 → 0.8(참고 그림들처럼 머리는 몸통 길이의 절반쯤)
 def C(h): h = h.lstrip("#"); return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), 255)
 def dk(c, k): return (int(c[0] * k), int(c[1] * k), int(c[2] * k), 255)
 BODY = [C("#2a1813"), C("#3f241c"), C("#5a3328"), C("#77473a"), C("#93604f")]   # 몸 비늘 어둠 → 밝음
@@ -56,6 +56,20 @@ class Pose:
                 r = rad[i]; h = r * 0.5 + 1.0
                 s.poly([(x + nx * r * 0.8 - dx / L * 1.4, y + ny * r * 0.8 - dy / L * 1.4), (x + nx * (r + h) - dx / L * 2.2, y + ny * (r + h) - dy / L * 2.2), (x + nx * r * 0.8 + dx / L * 1.2, y + ny * r * 0.8 + dy / L * 1.2)], SPIKE)
         return pts, rad
+    def fin_tail(s, path, r0):
+        """꼬리 — 등 가시에 더해 양옆으로 잎 모양 지느러미가 줄지어 나고(참고 그림의 붉은 꼬리 깃), 끝은 지느러미 둘이 달린 창날"""
+        pts = bez(path, 18); n = len(pts)
+        for i in range(4, n - 3, 5):   # 지느러미 — 몸통 뒤에 먼저
+            (ax, ay), (bx, by) = pts[i - 1], pts[i + 1]; x, y = pts[i]
+            dx, dy = bx - ax, by - ay; L = math.hypot(dx, dy) or 1; dx, dy = dx / L, dy / L; nx, ny = dy, -dx
+            if ny > 0: nx, ny = -nx, -ny
+            r = r0 * (1 - i / n) + 1.2; h = 2.5 + r * 0.9
+            for sg, col in ((1, MEM[2]), (-1, MEM[1])):
+                s.poly([(x + dx * 2.2, y + dy * 2.2), (x + sg * nx * (r + h) - dx * 3.5, y + sg * ny * (r + h) - dy * 3.5), (x - dx * 3, y - dy * 3)], col)
+        s.tube(path, r0, 1.2, BODY, spikes=4)
+        (ax, ay), (x, y) = pts[-4], pts[-1]; dx, dy = x - ax, y - ay; L = math.hypot(dx, dy) or 1; dx, dy = dx / L, dy / L; nx, ny = dy, -dx
+        s.poly([(x - dx * 1, y - dy * 1), (x + nx * 6 - dx * 2, y + ny * 6 - dy * 2), (x + dx * 9, y + dy * 9), (x - nx * 6 - dx * 2, y - ny * 6 - dy * 2)], MEM[2])   # 창날 끝 지느러미
+        s.poly([(x, y), (x + nx * 2.5, y + ny * 2.5), (x + dx * 8, y + dy * 8), (x - nx * 2.5, y - ny * 2.5)], BODY[1])
     def limb(s, pts, r0, r1, pal):
         for i in range(len(pts) - 1):
             (x0, y0), (x1, y1) = pts[i], pts[i + 1]; n = max(8, int(math.hypot(x1 - x0, y1 - y0) * 2))
@@ -98,6 +112,21 @@ class Pose:
         s.poly([sh, el, wr, (root[0] * 0.5 + wr[0] * 0.5, root[1] * 0.5 + wr[1] * 0.5), root], pal[1])
         for i in range(len(edge) - 1):   # 가장자리 안쪽 옅은 테(얇은 막이 빛에 비친다)
             s.line([edge[i], edge[i + 1]], pal[4], 1.0)
+        # 핏줄 · 줄무늬(참고 그림 — 손가락 뼈에서 막 가장자리로 갈라지는 굵고 가는 줄)
+        bones = list(tips) + [root]
+        for i in range(len(bones) - 1):
+            a, b2 = bones[i], bones[i + 1]
+            for k, t in enumerate((0.35, 0.6, 0.82)):
+                p0 = (wr[0] + (a[0] - wr[0]) * t, wr[1] + (a[1] - wr[1]) * t)
+                q = 0.45 + 0.12 * k; p1 = (a[0] + (b2[0] - a[0]) * q, a[1] + (b2[1] - a[1]) * q)
+                p1 = (p0[0] + (p1[0] - p0[0]) * 0.75, p0[1] + (p1[1] - p0[1]) * 0.75)
+                pm = ((p0[0] + p1[0]) / 2 + (wr[0] - p0[0]) * 0.06, (p0[1] + p1[1]) / 2 + (wr[1] - p0[1]) * 0.06)
+                s.line([p0, pm, p1], pal[0], 0.9 if k == 1 else 0.6)
+        mk = ImageDraw.Draw(mask)
+        for i in range(2, len(edge) - 2, 3):   # 해진 가장자리 — 막 끝에 작은 찢김
+            ex, ey = edge[i]; cx_, cy_ = wr
+            dx, dy = cx_ - ex, cy_ - ey; L = math.hypot(dx, dy) or 1; dx, dy = dx / L * 3.2, dy / L * 3.2
+            if (i // 3) % 2: mk.polygon([s.P(ex - dy * 0.35, ey + dx * 0.35), s.P(ex + dx, ey + dy), s.P(ex + dy * 0.35, ey - dx * 0.35)], fill=0)
         lay = s.im; lay.putalpha(Image.composite(lay.getchannel("A"), Image.new("L", lay.size), mask))
         main.alpha_composite(lay); s.im, s.d = main, mdraw
         # 뼈 — 팔(굵게) · 손가락(가늘게)
@@ -122,7 +151,7 @@ class Pose:
         crest = [(-6, 2, 12, 0.35), (-4, -2, 16, -0.2), (-1, -5, 19, -0.5), (3, -7, 20, -0.75), (7, -8, 16, -0.95), (11, -8, 11, -1.15), (14, -7, 7, -1.3),
                  (-3, 4, 11, 0.6), (0, 6, 9, 0.9)]
         for k, (u, v, L, a_) in enumerate(crest):
-            d = math.pi - a_; L *= 1.25; tx, ty = u + math.cos(d) * L, v + math.sin(d) * L   # 뒤쪽(왼쪽)으로, a_ 가 음수면 위 · 양수면 아래로 기운다
+            d = math.pi - a_; L *= 1.0; tx, ty = u + math.cos(d) * L, v + math.sin(d) * L   # 뒤쪽(왼쪽)으로, a_ 가 음수면 위 · 양수면 아래로 기운다
             w = 1.8 + L * 0.1; nx, ny = -math.sin(d) * w, math.cos(d) * w
             bend = (u + math.cos(d) * L * 0.6 - nx * 0.4, v + math.sin(d) * L * 0.6 - ny * 0.4 - 1)
             s.poly([R(u + nx, v + ny), R(*bend), R(tx, ty), R(u - nx, v - ny)], HORN[0] if k % 3 == 0 else (BONE[2] if k % 3 == 1 else DK))
@@ -180,12 +209,15 @@ def fly_pose(f, gape=0.0):
     s = Pose(FLY_W, FLY_H, FLY_OX, FLY_OY)
     wg = WINGS[f]; lift = FLY_TILT[f]
     def W(p, k=1.0, off=(0, 0)): return (SH[0] + p[0] * k + off[0], SH[1] + p[1] * k + off[1] + lift)
-    far = dict(sh=W((0, 0), 1, (8, -3)), el=W(wg["el"], 0.82, (8, -3)), wr=W(wg["wr"], 0.82, (8, -3)), tips=[W(t, 0.82, (8, -3)) for t in wg["tips"]], root=W(wg["root"], 0.82, (8, -3)))
+    if f == 2:   # 내리친 날개 — 먼 날개는 가까운 날개 뒤에 겹친다
+        far = dict(sh=W((0, 0), 1, (8, -3)), el=W(wg["el"], 0.82, (8, -3)), wr=W(wg["wr"], 0.82, (8, -3)), tips=[W(t, 0.82, (8, -3)) for t in wg["tips"]], root=W(wg["root"], 0.82, (8, -3)))
+    else:        # 펼친 날개 — 참고 그림처럼 먼 날개는 머리 쪽(앞)으로 펼쳐져 보인다(가까운 날개를 좌우로 뒤집어 줄임)
+        def Fw(p): return (SH[0] + 8 - p[0] * 0.72, SH[1] - 3 + p[1] * 0.8 + lift)
+        far = dict(sh=Fw((0, 0)), el=Fw(wg["el"]), wr=Fw(wg["wr"]), tips=[Fw(t) for t in wg["tips"]], root=(SH[0] + 14, SH[1] + 4 + lift))
     s.wing(far["sh"], far["el"], far["wr"], far["tips"], far["root"], MEM, BONE, 0.62)
     wav = [0, 2, 0, -2][f]
-    tail = [(-30, 3 + lift), (-60, 6 + lift + wav), (-90, 2 + lift - wav), (-112, -4 + lift + wav)]
-    s.tube(tail, 7, 1.2, BODY, spikes=4)
-    tip = tail[-1]; s.poly([(tip[0] + 2, tip[1]), (tip[0] - 7, tip[1] - 4), (tip[0] - 9, tip[1] + 1), (tip[0] - 5, tip[1] + 4)], BODY[1])   # 꼬리 끝 가시
+    tail = [(-30, 3 + lift), (-62, 8 + lift + wav), (-94, 4 + lift - wav), (-118, -2 + lift + wav), (-128, -8 + lift)]   # 길게 물결치는 지느러미 꼬리
+    s.fin_tail(tail, 7)
     s.leg((-24, 6 + lift), (-18, 15 + lift), (-30, 20 + lift), (-36, 22 + lift), -1)   # 뒷다리 — 뒤로 접어 붙인다
     s.tube([(-36, 2 + lift), (-12, 1 + lift), (8, -2 + lift)], 12, 10, BODY, belly=BELLY, spikes=3)
     neck = [(6, -4 + lift), (20, -12 + lift), (36, -16 + lift)]
@@ -211,9 +243,8 @@ def sit_pose(breath=0, gape=0.0):
         s.dot(el[0], el[1], 2.6, pal[1]); s.poly([(el[0] - 1, el[1] - 2), (el[0] - 7, el[1] - 8), (el[0] + 2, el[1] - 2)], HORN[0])   # 팔꿈치 가시
         s.claws(wr[0] + 1, wr[1] + 1, 1, 3, 5)
     fold((7, -3), 0.62)                                                     # 먼 날개
-    tail = [(-34, -12), (-60, -6), (-86, -3), (-108, -5)]
-    s.tube(tail, 8, 1.2, BODY, spikes=4)
-    t = tail[-1]; s.poly([(t[0] + 2, t[1]), (t[0] - 7, t[1] - 4), (t[0] - 9, t[1] + 1), (t[0] - 5, t[1] + 3)], BODY[1])
+    tail = [(-34, -12), (-60, -6), (-86, -4), (-104, -8), (-110, -16)]   # 땅을 따라 눕다 끝이 들린다
+    s.fin_tail(tail, 8)
     s.leg((-24, -14), (-12, -10), (-22, -3), (-14, -1), 1)                  # 먼 뒷다리
     s.tube([(-36, -14 + b * 0.4), (-14, -18 + b), (8, -24 + b)], 13, 11, BODY, belly=BELLY, spikes=3)
     neck = [(6, -26 + b), (18, -40 + b), (30, -50 + b), (40, -54 + b)]

@@ -143,7 +143,7 @@ function wyvern() {
         stats: [["비용", `용혈 ${SC.cost}`], ["대기", `${SC.cd}초`], ["반격", x(SC.mul)], ["반격 거리", SC.reach]] },
       sky: { name: SK.name, lv: U.sky, desc: ["겨눈 영역에 화염을 떨어뜨립니다.", `떨어질 때마다 영역 안 가장 가까운 적을 쫓습니다. 역린 해방 중 ${SK.nAwake}번.`],
         stats: [["비용", `용혈 ${SK.cost}`], ["대기", `${SK.cd}초`], ["거리", SK.reach], ["영역", `반지름 ${SK.r}`], ["피해", `${x(SK.mul)} × ${SK.n}`]] },
-      awake: { name: AW.name, lv: U.awake, desc: [`용혈을 모두 써서 ${AW.dur}초 동안 반룡이 됩니다.`, `기술 피해 +${pct(AW.dmg)} · 걷는 빠르기 +${pct(AW.spd)}. 진룡 동조면 와이번 공격 +${pct(AW.syncWyvern)}.`],
+      awake: { name: AW.name, lv: U.awake, desc: [`곁의 와이번을 몸에 흡수하고 용혈을 모두 써서 ${AW.dur}초 동안 반룡이 됩니다. 와이번을 소환해 둬야 쓸 수 있습니다.`, `기술 피해 +${pct(AW.dmg)} · 걷는 빠르기 +${pct(AW.spd)}. 진룡 동조면 와이번 공격 +${pct(AW.syncWyvern)}.`],
         stats: [["비용", `용혈 ${AW.cost}`], ["대기", `${AW.cd}초`], ["지속", `${AW.dur}초`]],
         train: [`용혈 연마 ${AW.sp50} — 지속 ${AW.dur50}초`] },
       ult: { name: UL.name, lv: U.ult, ult: 1, desc: ["하늘로 솟아 겨눈 자리에 용성으로 떨어집니다.", `첫 충돌 · 화염 폭발 ${UL.n}번 · 마지막 충돌. 역린 해방 중 ${x(UL.awakeK)}.`],

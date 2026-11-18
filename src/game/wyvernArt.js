@@ -6,7 +6,7 @@
    큰 형상 · 입자 수는 품질 값(DETAIL)으로 줄고, 입자는 한 연출 · 한 프레임 상한(WY_BITS)을 넘지 않는다.
    와이번 몸은 상태(wyvernView(h).u)라 rpgArt 가 사람 · 몹과 앞뒤를 맞춰 drawWyvernUnit 으로 그린다. 고도는 그림자와 그림의 화면 높이 차이로만 보인다.
    반룡 날개 · 뿔 · 용린 비늘 · 보라 날개 잔상은 drawWyvernHero 가 캐릭터 그림 앞뒤에 겹친다(무기 그림은 없다). */
-import { WY_CONTRACT as CT, WY_BITS, WY_DIVE as DV, WY_ULT as UL, WY_SCALE as SCL } from "./wyvernData.js";
+import { WY_CONTRACT as CT, WY_BITS, WY_DIVE as DV, WY_ULT as UL, WY_SCALE as SCL, WY_AWAKE as AWK } from "./wyvernData.js";
 import { wyvernView } from "./wyvernJob.js";
 import { WYVERN_PX_SRC, WYVERN_PX as SH } from "./wyvernPxData.js";
 
@@ -265,7 +265,40 @@ function drop(ctx, f, t, sq) {
 }
 
 /* ── 역린 해방 — 0~0.3 발밑에서 붉은 기운이 모인다 · 0.3 기둥이 치솟고 충격파 · 날개는 drawWyvernHero(등에서 펼쳐진다) ── */
-function awake(ctx, f, t, sq) {
+// 칸 하나를 소수 배율로(흡수 중 줄어드는 와이번) — cell 은 정수 배라 따로 둔다
+function cellK(ctx, name, i, x, y, k, alpha = 1, row = 0, flip = false) {
+  const T = SH[name], im = sheet(name); if (!im || alpha <= 0 || k <= 0) return;
+  const j = clamp(i | 0, 0, T.n - 1), sx = (j % T.cols) * T.w, sy = (Math.floor(j / T.cols) + (T.rows ? row : 0) * Math.ceil(T.n / T.cols)) * T.h;
+  ctx.save(); ctx.globalAlpha *= clamp(alpha); ctx.imageSmoothingEnabled = false;
+  ctx.translate(Math.round(x), Math.round(y)); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(im, sx, sy, T.w, T.h, -T.cx * k, -T.cy * k, T.w * k, T.h * k);
+  ctx.restore();
+}
+/* 역린 해방 ① 흡수(11월 18일 사용자) — 와이번이 날갯짓을 빨리 하며 시전자 가슴으로 빨려 들어온다.
+   점점 빨라지고(ease-in) 작아지며, 지나간 길에 보라 잔상 셋 · 불씨 줄기가 남고 사방 불씨가 가슴으로 모인다. 닿는 순간 충격파 · 불꽃 */
+function absorbFx(ctx, f, t, sq) {
+  const A = AWK.absorb, u = clamp(t / A), e = u * u * (1.6 - 0.6 * u);
+  const sx = f.wx, sy = f.wy - Math.max(f.hz || 0, CT.hz * 0.5), tx = f.x, ty = f.y - 40;   // 앉아 있었으면 반쯤 떠오른 자리에서 시작
+  const at = (q) => [sx + (tx - sx) * q, sy + (ty - sy) * q - Math.sin(q * Math.PI) * 40];   // 살짝 위로 휘며 들어온다
+  const fl = !!f.fl, fr = loop(4, 0.12);
+  cell(ctx, "wy_shade", fr, f.wx + (f.x - f.wx) * e, f.wy + (f.y - f.wy) * e, K, 0.5 * (1 - u));
+  for (let k = 3; k >= 1; k--) {   // 잔상 — 한 걸음 늦은 자리 · 보라 줄
+    const q = clamp(e - 0.09 * k); if (q <= 0 || u >= 1) continue;
+    const [gx, gy] = at(q); cellK(ctx, "wy_wyvern", fr, gx, gy, WY_K * (1 - 0.85 * q), 0.28 / k, 1, fl);
+  }
+  if (u < 1) { const [px, py] = at(e); cellK(ctx, "wy_wyvern", fr, px, py, WY_K * (1 - 0.85 * e), 1 - 0.5 * e * e, 0, fl); }
+  for (let i = 0, n = nq(5); i < n; i++) {   // 지나간 길의 불씨
+    const q = clamp(e - (i / n) * 0.5); const [bx, by] = at(q);
+    bits(ctx, seedOf(f) + i * 5, bx, by, sq, u, { emb: 3, wisp: 2 }, { r: 26 * (1 - q * 0.6), out: 0.4, up: 14, spread: 0.6 });
+  }
+  bits(ctx, seedOf(f) + 31, tx, ty + 30, sq, u, { emb: 18, wisp: 10, spk: 6 }, { r: 120, out: -0.95, up: 6, spread: 0.5 });   // 모여드는 불씨
+  if (u > 0.82) { const v = (u - 0.82) / 0.18; wave(ctx, f.x, f.y, 70, v, 0.8); flares(ctx, seedOf(f) + 41, f.x, f.y, sq, v, 6, 30, K, 0.3); }
+}
+function awake(ctx, f, t0, sq) {
+  const ab = Number.isFinite(f.wx) ? AWK.absorb : 0;   // 흡수(와이번 자리가 실려 왔을 때) 뒤에 원래 변신 연출
+  if (t0 < ab) return void absorbFx(ctx, f, t0, sq);
+  const t = t0 - ab;
+  f = { ...f, life: f.life - ab };
   const u = t / f.life;
   if (t < 0.3) bits(ctx, seedOf(f), f.x, f.y, sq, t / 0.3, { emb: 18, wisp: 8 }, { r: 90, out: -0.9, up: 10, spread: 0.4 });
   if (t > 0.3) { cell(ctx, "wy_pillar", once("wy_pillar", (t - 0.3) / (f.life - 0.3)), f.x, f.y, 2, 0.9); wave(ctx, f.x, f.y, 160, (t - 0.3) / 0.6, 0.9); }
@@ -427,9 +460,10 @@ function drawArcadion(ctx, h, v, view, flip, ww, hh, top) {
 // 해방(v.aw > 0) 동안에만 그린다. 처음 0.45초는 작게 접힌 칸에서 펼쳐지고(0~2 칸) 그 뒤 날갯짓 · 꼬리 흔들림 반복. 끝나면 바로 사라진다.
 // 앞을 볼 때 몸 뒤 · 뒤를 볼 때 몸 앞(날개는 어깨 사이 · 꼬리는 허리). 옆을 볼 때는 등 쪽 날개 하나와 뒤로 뻗은 꼬리.
 // 연마 합계 tint.wing 이상이면 날개 뒤에 한 칸 늦은 잔상을 옅게 겹친다
-const AW_GROW = 0.45;
+const AW_GROW = AWK.wing;
 function drawAwakeBack(ctx, v, ww, hh, top, side) {
-  const el = v.awMax - v.aw, grow = el < AW_GROW;
+  const el = v.awMax - v.aw - AWK.absorb, grow = el < AW_GROW;   // 흡수가 끝난 뒤 돋는다
+  if (el < 0) return;
   const wf = (off = 0) => (grow ? once("wy_hwing", el / AW_GROW, 3) : 3 + loop(4, 0.55, off));
   const tf = grow ? once("wy_htail", el / AW_GROW, 2) : 2 + loop(4, 1.1);
   const sy = top + hh * 0.36, k = hh / HERO_H;
@@ -458,6 +492,12 @@ export function drawWyvernHero(ctx, h, ww, hh, top, behind, time, view = "front"
   if (v.sc) {   // 용린 방벽 — 쌓여 오름(0.35초) → 빛이 훑는 반복
     const el = SCL.dur - v.sc.left;
     cell(ctx, "wy_scale", el < 0.35 ? once("wy_scale", el / 0.35, 6) : 6 + loop(6, 0.9), 0, 4, hh / BODY_H, 0.92);
+  }
+  const sp = v.aw > 0 ? v.awMax - v.aw - AWK.absorb : -1;
+  if (sp >= 0 && sp < AW_GROW + 0.25) {   // 날개 · 꼬리가 돋는 순간 — 어깨 · 허리에서 비늘 조각 · 불꽃이 터진다
+    const q = sp / (AW_GROW + 0.25), side = view === "side";
+    for (const [px, py] of side ? [[ww * 0.1, 0.36], [ww * 0.18, 0.6]] : [[-ww * 0.1, 0.36], [ww * 0.1, 0.36], [0, 0.6]])
+      bits(ctx, px * 13 + py * 7, px, top + hh * py, 1, q, { shard: 5, emb: 5, spk: 3 }, { r: 10, out: 2.2, up: 18, spread: 0.3, k: 1 });
   }
   if (v.aw > 0) {   // 반룡 — 몸의 붉은 기운(작은 불씨가 피어오른다)
     const n = Math.max(1, Math.round(6 * DETAIL));

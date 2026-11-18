@@ -2444,7 +2444,8 @@ function drawHero(ctx, g, h, time) {
   if (al && im) drawAbyssOver(ctx, h, al, time, im.naturalHeight * HERO_K);   // 날개 알갱이(맵 좌표)
 
   // 체력 · 레벨 · 이름
-  const bw = 40, byy = h.y - 66 - 12;
+  const tallK = !down && im && wyvernLook(h) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다
+  const bw = 40, byy = h.y - tallK - 12;
   const r = Math.max(0, Math.min(1, h.hp / (h.max || 1)));
   ctx.save();
   ctx.fillStyle = "rgba(18,12,8,0.8)"; roundRect(ctx, h.x - bw / 2 - 1, byy - 1, bw + 2, 6, 3); ctx.fill();

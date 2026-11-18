@@ -727,7 +727,7 @@ def awake_cells():
 #    세로 그림(위 삼지창 자루 끝 → 아래 칼끝)을 왼쪽으로 눕혀 칼끝이 오른쪽을 보게 하고, 길이 ARC_LEN 으로 줄여 32색 · 1px 윤곽.
 #    기준점 = 손잡이(코등이 바로 앞). 줄 0 기본(붉은 날에 빛이 흐르는 4칸 반복) · 줄 1 역린 해방(보라 테) ──
 ARC_REF = os.path.join(HERE, "..", "..", "wyvern-job", "ref", "arcadion-ref.png")
-ARC_LEN, ARC_GRIP = 88, 0.215                          # 그림 길이(1배 px) · 손잡이 자리(위에서부터 비율 — 그림의 자루 가운데)
+ARC_LEN, ARC_GRIP = 76, 0.215                          # 그림 길이(1배 px) · 손잡이 자리(위에서부터 비율 — 그림의 자루 가운데)
 def arcadion_cells():
     src = Image.open(ARC_REF).convert("RGBA")
     a = np.asarray(src).copy(); a[..., 3] = np.where(a[..., 3] < 40, 0, a[..., 3])

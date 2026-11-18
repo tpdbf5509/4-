@@ -7,7 +7,6 @@
    와이번 몸은 상태(wyvernView(h).u)라 rpgArt 가 사람 · 몹과 앞뒤를 맞춰 drawWyvernUnit 으로 그린다. 고도는 그림자와 그림의 화면 높이 차이로만 보인다.
    반룡 날개 · 뿔 · 용린 비늘 · 보라 날개 잔상은 drawWyvernHero 가 캐릭터 그림 앞뒤에 겹친다(무기 그림은 없다). */
 import { WY_CONTRACT as CT, WY_BITS, WY_DIVE as DV, WY_ULT as UL, WY_SCALE as SCL } from "./wyvernData.js";
-import { BLADE_HAND } from "./bloodJobArt.js";   // 손 자리(몸 그림 비율) — 혈검과 같은 손에 아르카디온을 쥔다
 import { wyvernView } from "./wyvernJob.js";
 import { WYVERN_PX_SRC, WYVERN_PX as SH } from "./wyvernPxData.js";
 
@@ -405,8 +404,15 @@ export function drawWyvernUnit(ctx, o, time, sq, quality = 1) {
 // 휘두르기 — [시작, 끝](겨눈 쪽 기준 도) · 쉼(끝난 뒤 돌아오는 비율)
 const WY_SWING = { c1: [-95, 70], c2: [70, -95], a1: [-125, 90], a2: [90, -150], spin: [-180, 540] };
 const ease3 = (x) => 1 - Math.pow(1 - x, 3);
+// 손 자리 [가로 비율(왼쪽 0) · 세로 비율(위 0) · 쉬는 각도(도, 0 = 오른쪽, 아래가 +)] — 와이번 나이트 그림(1.3배)에서 잰 장갑 자리.
+// 11월 18일 사용자 "검 들고있는것도 어색해" — 혈검 손 자리를 빌려 칼끝이 위로 솟던 것을, 손에 쥐고 칼끝을 앞 아래로 늘어뜨린 자세로 바꾼다
+const BODY_H = 78;   // 날개 · 비늘 방벽 시트(1배)가 맞춰진 몸 높이 — 몸 그림을 키우면 함께 커진다
+const WY_HAND = {
+  m: { front: [0.8, 0.61, 50], turn: [0.8, 0.61, 50], side: [0.36, 0.62, 128], back: [0.84, 0.6, 58] },
+  f: { front: [0.85, 0.64, 50], turn: [0.85, 0.64, 50], side: [0.37, 0.635, 128], back: [0.8, 0.625, 58] },
+};
 function drawArcadion(ctx, h, v, view, flip, ww, hh, top) {
-  const H = (BLADE_HAND[h.gender === "f" ? "f" : "m"] || BLADE_HAND.m)[view] || BLADE_HAND.m.front;
+  const H = WY_HAND[h.gender === "f" ? "f" : "m"][view] || WY_HAND.m.front;
   const lx = (H[0] - 0.5) * ww, ly = top + H[1] * hh, rest = (H[2] * Math.PI) / 180, row = v.aw > 0 ? 1 : 0;
   const sw = v.sw, S = sw && WY_SWING[sw.k];
   const fr = loop(4, 0.5);
@@ -425,14 +431,14 @@ export function drawWyvernHero(ctx, h, ww, hh, top, behind, time, view = "front"
   if (back !== behind && (v.aw > 0 || v.wing)) {   // 날개 — 어깨 사이에 붙인다
     const el = v.awMax - v.aw, f = v.aw > 0 ? (el < 1 ? once("wy_awake", el, 6) : 6 + loop(4, 0.6)) : 6 + loop(4, 0.8);
     ctx.save(); ctx.translate(side ? ww * 0.12 : 0, top + hh * 0.36); if (side) ctx.scale(0.62, 1);
-    cell(ctx, "wy_awake", f, 0, 0, 1, v.aw > 0 ? 1 : 0.5, v.aw > 0 ? 0 : 1);
+    cell(ctx, "wy_awake", f, 0, 0, hh / BODY_H, v.aw > 0 ? 1 : 0.5, v.aw > 0 ? 0 : 1);
     ctx.restore();
   }
   if (back === behind && v.arm) drawArcadion(ctx, h, v, view, flip, ww, hh, top);
   if (behind) return;
   if (v.sc) {   // 용린 방벽 — 쌓여 오름(0.35초) → 빛이 훑는 반복
     const el = SCL.dur - v.sc.left;
-    cell(ctx, "wy_scale", el < 0.35 ? once("wy_scale", el / 0.35, 6) : 6 + loop(6, 0.9), 0, 4, 1, 0.92);
+    cell(ctx, "wy_scale", el < 0.35 ? once("wy_scale", el / 0.35, 6) : 6 + loop(6, 0.9), 0, 4, hh / BODY_H, 0.92);
   }
   if (v.aw > 0) {   // 반룡 — 몸의 붉은 기운(작은 불씨가 피어오른다)
     const n = Math.max(1, Math.round(6 * DETAIL));

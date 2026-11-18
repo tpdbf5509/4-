@@ -37,7 +37,7 @@ class Pose:
         X, Y = s.P(x, y); R = r * SS; s.d.ellipse((X - R, Y - R, X + R, Y + R), fill=c)
     def line(s, pts, c, w):
         s.d.line([s.P(*p) for p in pts], fill=c, width=max(1, int(w * SS)), joint="curve")
-    def tube(s, path, r0, r1, pal, belly=None, spikes=0, seed=0):
+    def tube(s, path, r0, r1, pal, belly=None, spikes=0, seed=0, spk=1.0):
         """굵기가 r0 → r1 로 가는 몸통 — 아래 어둠 · 위 밝음 세 겹(둥근 몸), 배 쪽 밝은 띠, 등 가시"""
         pts = bez(path, 18); n = len(pts)
         rad = [r0 + (r1 - r0) * i / (n - 1) for i in range(n)]
@@ -53,7 +53,7 @@ class Pose:
                 x, y = pts[i]; (ax, ay), (bx, by) = pts[i - 1], pts[i + 1]
                 dx, dy = bx - ax, by - ay; L = math.hypot(dx, dy) or 1; nx, ny = dy / L, -dx / L   # 등 쪽(위)
                 if ny > 0: nx, ny = -nx, -ny
-                r = rad[i]; h = r * 0.5 + 1.0
+                r = rad[i]; h = (r * 0.5 + 1.0) * spk
                 s.poly([(x + nx * r * 0.8 - dx / L * 1.4, y + ny * r * 0.8 - dy / L * 1.4), (x + nx * (r + h) - dx / L * 2.2, y + ny * (r + h) - dy / L * 2.2), (x + nx * r * 0.8 + dx / L * 1.2, y + ny * r * 0.8 + dy / L * 1.2)], SPIKE)
         return pts, rad
     def fin_tail(s, path, r0):
@@ -186,6 +186,51 @@ class Pose:
         s.poly([R(12, -4.6), R(15, -4.9), R(14.5, -3.9), R(12.3, -3.9)], EYE)
         e = R(13.5, -4.3); s.eye = (e[0] + s.ox, e[1] + s.oy)   # 눈 자리(칸 좌표) — 32색으로 묶으면 작은 눈빛이 사라져 make.py 가 다시 찍는다
         return R(28, 3 + g * 6)
+    def head_rest(s, x, y, ang, gape=0.0, k=1.0, snout=1.0):
+        """지상 대기 머리(오른쪽) — 11월 18일 사용자 기획: 2번 사진을 좌우로 뒤집은 이마 → 코끝 윤곽과 턱 모양.
+        눈 뒤 두개골은 위아래로 두껍고 뒤통수에서 짧은 뿔 하나가 목 위로 비스듬히 뒤로. 굵은 눈썹뼈(앞 끝이 코 쪽으로 낮아짐) 아래 짙은 그림자 속 가늘고 짧은 호박색 눈.
+        눈 앞에서 콧등이 한 단 낮아지고 길고 납작한 주둥이, 코끝은 뭉툭한 쐐기. 입은 다물고 코끝 → 눈 아래까지 어두운 입선, 아래턱 뒤는 목 쪽으로 안으로 파인다.
+        gape > 0(불 뿜기 칸)이면 아래턱만 조금 내린다."""
+        ca, sa = math.cos(ang), math.sin(ang)
+        def R(u, v):
+            if u > 18: u = 18 + (u - 18) * snout   # snout < 1 — 콧등 앞 주둥이를 짧게(날 때)
+            u, v = u * k, v * k; return (x + u * ca - v * sa, y + u * sa + v * ca)
+        op = gape * 0.35
+        def J(u, v):   # 아래턱 — 경첩(4,3)을 축으로
+            du, dv = u - 4, v - 3; c, s_ = math.cos(op), math.sin(op)
+            return R(4 + du * c - dv * s_, 3 + du * s_ + dv * c)
+        DK, MID, LT, HI = BODY[0], BODY[2], BODY[3], BODY[4]
+        SHADOW = C("#1e0f0a")
+        # 뒤통수 뿔 하나 — 목 위로 비스듬히 뒤로(짧게)
+        s.poly([R(-1, -9), R(-9, -13), R(-17, -15.5), R(-10, -10.5), R(-2, -5)], HORN[0])
+        s.poly([R(-2, -8.6), R(-10, -12.6), R(-16, -15), R(-9, -11.6)], HORN[1])
+        # 아래턱 — 다문 입. 뒤끝은 목 쪽으로 안으로 파인다
+        s.poly([J(4, 2), J(20, 2.2), J(33, 1.8), J(34.5, 3.5), J(30, 5.4), J(18, 7), J(8, 8.6), J(3, 8), J(1.5, 5)], BODY[1])
+        s.poly([J(6, 6.8), J(18, 5.6), J(31, 4.2), J(30, 5.4), J(18, 7), J(8, 8.6)], BELLY[1])   # 아래턱 아랫면 밝게 — 턱 윤곽이 보이게
+        if gape > 0.05: s.poly([R(6, 2.2), R(34, 1.8), J(33, 1.8), J(6, 2.4)], C("#5a1610"))
+        # 두개골(눈 뒤 위아래로 두껍게) · 이마 · 한 단 낮아진 콧등 · 납작한 주둥이 · 뭉툭한 쐐기 코끝
+        outline_pts = [R(-3, -8), R(3, -11), R(10, -11), R(15, -9), R(17, -7.5),     # 정수리 → 이마
+                       R(18.5, -5.2), R(22, -5), R(30, -4.4), R(35, -3.6),            # 한 단 낮아진 콧등 → 납작한 주둥이
+                       R(37, -2.2), R(37.5, 0.5), R(36, 2),                          # 뭉툭한 쐐기 코끝
+                       R(22, 2.2), R(10, 2.4), R(4, 3), R(0, 6), R(-3, 4)]           # 윗턱 아랫선 → 두꺼운 두개골 뒤 아래
+        s.poly(outline_pts, MID)
+        s.poly([R(-1, -8), R(4, -10), R(10, -10), R(14, -8.5), R(8, -8), R(2, -6.5)], LT)     # 정수리 빛
+        s.poly([R(19, -4.6), R(30, -4), R(35, -3.2), R(30, -2.8), R(20, -3.4)], LT)            # 콧등 빛
+        s.poly([R(35.5, -2.6), R(37, -1.8), R(37.2, 0.4), R(36, 0.2)], HI)                      # 코끝 빛
+        s.poly([R(-2, 0), R(6, -1), R(8, 2.6), R(0, 5)], BODY[1])                               # 볼 · 턱 모서리 음영
+        # 눈썹뼈 — 굵고 앞 끝이 코 쪽으로 낮아진다
+        s.poly([R(4, -9.2), R(10, -11.2), R(16, -9.6), R(19, -6.6), R(17, -5.6), R(12, -7.4), R(6, -7.2)], BODY[3])
+        s.poly([R(6, -9.6), R(11, -11), R(15.5, -9.6), R(11, -9.4)], HI)
+        # 눈썹뼈 아래 짙은 그림자 · 그 안의 가늘고 짧은 호박색 눈
+        s.poly([R(7, -7), R(12, -7.2), R(17.5, -5.4), R(16, -3.6), R(10, -3.6), R(7.5, -4.6)], SHADOW)
+        s.poly([R(10.5, -5.4), R(15, -5.0), R(14.6, -4.3), R(10.8, -4.6)], EYE)
+        e = R(12.8, -4.9); s.eye = (e[0] + s.ox, e[1] + s.oy)
+        s.dot(*R(33.5, -1.6), 0.55, SHADOW)                                                    # 콧구멍
+        # 입선 — 코끝에서 눈 아래까지 어둡게
+        s.line([R(36.2, 1.9), R(26, 2.3), R(16, 2.6), R(9, 2.8), R(6, 1.0)], SHADOW, 1.3)
+        # 아래턱 뒤 → 목: 안으로 파인 그림자
+        s.poly([J(1.5, 4.5), J(3, 8), R(0, 10), R(-4, 9), R(-4, 5)], SHADOW)
+        return R(36, 1.5 + gape * 3)
     def leg(s, hip, knee, ank, foot, dirx=1):
         s.limb([hip, knee], 4.5, 3.2, BODY); s.limb([knee, ank, foot], 2.6, 1.6, BODY)
         s.claws(foot[0], foot[1], dirx)
@@ -221,10 +266,11 @@ def fly_pose(f, gape=0.0):
     s.fin_tail(tail, 7)
     s.leg((-24, 6 + lift), (-18, 15 + lift), (-30, 20 + lift), (-36, 22 + lift), -1)   # 뒷다리 — 뒤로 접어 붙인다
     s.tube([(-36, 2 + lift), (-12, 1 + lift), (8, -2 + lift)], 12, 10, BODY, belly=BELLY, spikes=3)
-    neck = [(6, -4 + lift), (20, -12 + lift), (36, -16 + lift)]
-    s.tube(neck, 7, 4.5, BODY, belly=BELLY, spikes=3)
+    hl = round(lift * 0.34)   # 머리 쪽은 들썩임을 줄인다 — 날갯짓 때 눈 자리가 튀지 않게(1px 안쪽)
+    neck = [(6, -4 + lift), (20, -12 + (lift + hl) / 2), (36, -16 + hl)]
+    s.tube(neck, 7, 4.2, BODY, belly=BELLY, spikes=3, spk=0.45)   # 목 가시는 낮게 — 뒤통수 뿔과 구분(11월 18일 사용자)
     s.leg((-22, 7 + lift), (-14, 14 + lift), (-24, 19 + lift), (-29, 21 + lift), -1)
-    mouth = s.head(neck[-1][0] + 1, neck[-1][1] - 1, math.radians(8 + gape * 6), gape)
+    mouth = s.head_rest(neck[-1][0] + 1, neck[-1][1] - 0.5, math.radians(6), gape, k=1.0, snout=0.7)   # 대기와 같은 얼굴 · 짧은 주둥이(11월 18일 사용자)
     s.wing(W((0, 0)), W(wg["el"]), W(wg["wr"]), [W(t) for t in wg["tips"]], W(wg["root"]), MEM, BONE)
     return s.done(), (round(mouth[0]), round(mouth[1]))
 
@@ -266,8 +312,8 @@ def sit_pose(breath=0, gape=0.0):
     s.tube([(-42, -14 + b * 0.4), (-16, -18 + b), (10, -18 + b)], 12, 11.5, BODY, belly=BELLY, spikes=4)   # 몸통 — 가슴 · 배가 땅 가까이
     s.leg((-34, -11), (-20, -5), (-31, -1.5), (-24, 0), 1)                 # 뒷다리 — 몸 아래로 접는다
     neck = [(8, -21 + b), (26, -30 + b), (46, -35 + b), (64, -35 + b)]
-    s.tube(neck, 9, 5, BODY, belly=BELLY, spikes=4)                     # 목 — 오른쪽 앞으로 길게
-    mouth = s.head(neck[-1][0] + 1, neck[-1][1] + 0.5, math.radians(6 + gape * 6), gape, lay=0.35)
+    s.tube(neck, 9, 4.2, BODY, belly=BELLY, spikes=4)   # 목 끝은 머리보다 가늘게 — 머리가 시작되는 자리가 보이게                     # 목 — 오른쪽 앞으로 길게
+    mouth = s.head_rest(neck[-1][0] + 1, neck[-1][1] + 0.5, math.radians(4), gape)   # 다문 입 · 대기 얼굴(11월 18일 사용자 기획)
     folded_wing(s, (4, -25 + b), (-10, -48 + b), (24, -2),   # 손가락: 아래(땅을 따라) → 위(등 아래), 가운데가 처지게 휜다
                 [((-12, -7), (-60, -2)), ((-16, -19), (-62, -12)), ((-14, -30), (-55, -22)), ((-6, -40), (-42, -30 + b))])
     return s.done(), (round(mouth[0]), round(mouth[1]))

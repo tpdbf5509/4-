@@ -170,8 +170,8 @@ function roar(ctx, f, t, sq) {
   const s = f.sub;
   if (s && t >= s.at) {
     const v = clamp((t - s.at) / 0.45);
-    const mx = s.fl ? -CT.mouth[0] : CT.mouth[0];   // 와이번 입 자리
-    for (let i = 0, n = nq(6); i < n; i++) { const b = i / n; cell(ctx, "wy_ball", loop(4, 0.12, i * 0.03), s.wx + mx + (s.x - s.wx - mx) * b * v, s.wy - s.hz + CT.mouth[1] + (s.y - 30 - s.wy + s.hz - CT.mouth[1]) * b * v, 1, 0.9); }
+    const m = s.m || [CT.mouth[0], CT.mouth[1] - s.hz], mx = s.fl ? -m[0] : m[0], my = m[1];   // 와이번 입 자리(땅 기준 — 앉았으면 앉은 그림 입)
+    for (let i = 0, n = nq(6); i < n; i++) { const b = i / n; cell(ctx, "wy_ball", loop(4, 0.12, i * 0.03), s.wx + mx + (s.x - s.wx - mx) * b * v, s.wy + my + (s.y - 30 - s.wy - my) * b * v, 1, 0.9); }
     puffFan(ctx, seedOf(f) + 91, s.x, s.y, ax, ay, s.r, s.arc, sq, clamp(v * 1.6), clamp(v * 1.4 - 0.4));
   }
 }
@@ -340,8 +340,12 @@ export function drawWyvernUnit(ctx, o, time, sq, quality = 1) {
   const bob = Math.sin(NOW * 3 + u.x * 0.01) * 3;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   cell(ctx, "wy_shade", loop(4, 0.36, u.x * 0.001), u.x, u.y, K, 0.55 * a * (1 - Math.min(0.5, u.hz / 400)));
-  const i = u.f < 0.3 ? 4 + Math.min(2, Math.floor(u.f / 0.1)) : loop(4, 0.36, u.x * 0.001);
-  cell(ctx, "wy_wyvern", i, u.x, u.y - u.hz + bob, WY_K, a, row, !!u.fl);
+  if (u.sit >= 0.5) {   // 앉음 — 숨쉬기 두 칸 · 불 뿜을 때 입 불빛(11월 18일 사용자)
+    cell(ctx, "wy_sit", u.f < 0.3 ? 2 : loop(2, 1.6, u.x * 0.001), u.x, u.y - u.hz, WY_K, a, row, !!u.fl);
+  } else {
+    const i = u.f < 0.3 ? 4 + Math.min(2, Math.floor(u.f / 0.1)) : loop(4, 0.36 * (1 + u.sit), u.x * 0.001);   // 내려앉는 동안 날갯짓이 느려진다
+    cell(ctx, "wy_wyvern", i, u.x, u.y - u.hz + bob * (1 - u.sit * 2), WY_K, a, row, !!u.fl);
+  }
   if (DETAIL > 0.5 && v.aw > 0) bits(ctx, u.x * 0.3, u.x, u.y - u.hz, sq, (NOW * 0.8) % 1, { emb: 6, wisp: 4 }, { r: 30, up: 30, spread: 0.9 });   // 역린 해방 중 — 와이번도 달아오른다
   ctx.restore();
 }

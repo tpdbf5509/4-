@@ -257,6 +257,7 @@ function tickWyvern(E, g, h, s, dt) {
     u.x = d.x0 + (d.x1 - d.x0) * k; u.y = d.y0 + (d.y1 - d.y0) * k;
     if (d.t >= DV.end) u.dv = null;
   } else {
+    const px = u.x, py = u.y;
     // 주인 뒤 60~120 — 보는 쪽 반대편, 살짝 위. 650 넘게 떨어지면 주인 뒤로 다시 놓는다
     const side = h.dir < 0 ? 1 : -1, back = (CT.back[0] + CT.back[1]) / 2;
     const wx = h.x + side * back, wy = h.y - 10;
@@ -269,7 +270,10 @@ function tickWyvern(E, g, h, s, dt) {
       if (d > 2) { const k = Math.min(1, (CT.spd * slack * dt) / d); u.x += dx * k; u.y += dy * k; }
       if (Math.abs(dx) > 6) u.fl = dx < 0 ? 1 : 0;
     }
+    u.still = Math.hypot(u.x - px, u.y - py) > CT.sit.speed * dt ? 0 : (u.still || 0) + dt;   // 앉기 — 멈춰 있던 시간
   }
+  const sitWant = !u.dv && u.t >= CT.appear && (u.still || 0) >= CT.sit.wait ? 1 : 0;
+  u.land = (u.land || 0) + Math.max(-dt / CT.sit.time, Math.min(dt / CT.sit.time, sitWant - (u.land || 0)));
   // 날아가는 화염탄 — 닿을 때 맞는다(공격 한 번에 용혈 +2 한 번)
   u.balls = u.balls.filter((b) => {
     b.t += dt;
@@ -289,7 +293,7 @@ function tickWyvern(E, g, h, s, dt) {
   if (!o || u.cd > 0) return;
   u.cd = CT.gap; u.f = 0;
   const J = jobOf(h), sync = s.aw > 0 && wySync(J) ? 1 + AW.syncWyvern : 1;
-  const x0 = u.x + (u.fl ? -CT.mouth[0] : CT.mouth[0]), y0 = u.y - CT.hz + CT.mouth[1], tt = Math.max(0.12, Math.hypot(o.x - x0, o.y - 22 - y0) / CT.v);
+  const [mdx, mdy] = mouthOf(u), x0 = u.x + (u.fl ? -mdx : mdx), y0 = u.y + mdy, tt = Math.max(0.12, Math.hypot(o.x - x0, o.y - 22 - y0) / CT.v);
   u.balls.push({ t: 0, tt, tg: keyOf(o), mul: wyvernMul(J) * sync });
   E.fx(g, u.map, { kind: "sk_wy_ball", x0: Math.round(x0), y0: Math.round(y0), x1: Math.round(o.x), y1: Math.round(o.y) - 22, pi: h.pi, t: tt + 0.05, life: tt + 0.05, snd: "wyBreath" });
 }
@@ -299,12 +303,12 @@ function roarUse(E, g, h) {
   if (blocked(E, g, h, "roar")) return;
   const s = st(h), [ax, ay] = aimDir(E, g, h, RO.reach), arc = Math.min(Math.PI * 0.95, RO.arc * (s.aw > 0 ? 1 + RO.awakeArc : 1));
   spend(s, "roar"); s.cd.roar = RO.cd;
-  const u = s.u, sub = u && !u.dv ? { x: Math.round(h.x), y: Math.round(h.y), wx: Math.round(u.x), wy: Math.round(u.y), hz: CT.hz, fl: u.fl ? 1 : 0 } : null;   // 갈래는 시전자 앞 — 와이번이 그쪽으로 뿜는다
+  const u = s.u, sub = u && !u.dv ? { x: Math.round(h.x), y: Math.round(h.y), wx: Math.round(u.x), wy: Math.round(u.y), hz: CT.hz, fl: u.fl ? 1 : 0, m: mouthOf(u) } : null;   // 갈래는 시전자 앞 — 와이번이 그쪽으로 뿜는다
   s.roars.push({ t: 0, i: 0, x: h.x, y: h.y, ax, ay, arc, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0, got: 0, sub, subDone: 0, subXp: 0 });
   h.swing = 0.3;
   const life = RO.first + RO.gap * (RO.n - 1) + RO.tail;
   E.fx(g, h.map, { kind: "sk_wy_roar", x: Math.round(h.x), y: Math.round(h.y), ax: r2(ax), ay: r2(ay), r: RO.reach, arc: r2(arc), n: RO.n, d: RO.first, gap: RO.gap,
-    sub: sub ? { x: sub.x, y: sub.y, wx: sub.wx, wy: sub.wy, hz: sub.hz, fl: sub.fl, r: RO.sub.reach, arc: r2(RO.sub.arc), at: RO.sub.at } : 0, aw: s.aw > 0 ? 1 : 0, pi: h.pi, t: life, life, snd: "wyRoar" });
+    sub: sub ? { x: sub.x, y: sub.y, wx: sub.wx, wy: sub.wy, hz: sub.hz, fl: sub.fl, m: sub.m, r: RO.sub.reach, arc: r2(RO.sub.arc), at: RO.sub.at } : 0, aw: s.aw > 0 ? 1 : 0, pi: h.pi, t: life, life, snd: "wyRoar" });
   call(E, g, h, RO.name);
 }
 function tickRoar(E, g, h, q, dt) {
@@ -590,6 +594,8 @@ const airOf = (s) => {
   const u = (a.t - UL.rise) / (UL.first - UL.rise);
   return u < 0.55 ? 200 * (u / 0.55) : 200 * Math.max(0, 1 - ((u - 0.55) / 0.45) ** 2);
 };
+// 입 자리(땅 기준) — 나는 중이면 날개 시트 입, 앉았으면 앉은 시트 입(반쯤 넘으면 앉은 그림)
+const mouthOf = (u) => (u.land || 0) >= 0.5 ? [CT.sit.mouth[0], CT.sit.mouth[1] - Math.round(CT.hz * (1 - u.land))] : [CT.mouth[0], CT.mouth[1] - Math.round(CT.hz * (1 - (u.land || 0)))];
 const unitView = (u) => {
   let hz = CT.hz, x = u.x, y = u.y;
   if (u.t < CT.appear) hz = CT.hz * (0.4 + 0.6 * (u.t / CT.appear));
@@ -597,7 +603,8 @@ const unitView = (u) => {
     const t = u.dv.t;
     hz = t < DV.up ? CT.hz + 90 * (t / DV.up) : t < DV.land ? (CT.hz + 90) * (1 - (t - DV.up) / (DV.land - DV.up)) + 10 : 10 + (CT.hz - 10) * Math.min(1, (t - DV.land) / (DV.end - DV.land));
   }
-  return { x, y, hz: Math.round(hz), t: r1(u.t), left: r1(Math.max(0, u.dur - u.t)), f: r1(Math.min(9, u.f)), fl: u.fl, dv: u.dv ? 1 : 0 };
+  hz *= 1 - (u.land || 0);   // 내려앉는 만큼 낮게(앉은 그림의 기준점은 땅)
+  return { x, y, hz: Math.round(hz), sit: Math.round((u.land || 0) * 100) / 100, t: r1(u.t), left: r1(Math.max(0, u.dur - u.t)), f: r1(Math.min(9, u.f)), fl: u.fl, dv: u.dv ? 1 : 0 };
 };
 export function wyvernView(h) {
   if (!h || !wyvernOn(h)) return null;

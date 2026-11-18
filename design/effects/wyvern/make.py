@@ -723,38 +723,40 @@ def awake_cells():
             out.append(c)
     return out
 
-# ── 아르카디온(손에 드는 용의 대검, 92×30, 손잡이 기준 14,15 · 오른쪽을 가리킨다) — 금빛 날개 코등이 · 붉은 용옥 · 검붉은 날 · 가운데 흐르는 불빛 홈 · 등의 용 이빨.
-#    줄 0 기본(불빛 0~3 흐름 반복) · 줄 1 역린 해방(보라 테) ──
+# ── 아르카디온(손에 드는 용의 대검) — 11월 18일 사용자 그림(design/wyvern-job/ref/arcadion-ref.png "이거는 무기야")을 그대로 도트로 옮긴다.
+#    세로 그림(위 삼지창 자루 끝 → 아래 칼끝)을 왼쪽으로 눕혀 칼끝이 오른쪽을 보게 하고, 길이 ARC_LEN 으로 줄여 32색 · 1px 윤곽.
+#    기준점 = 손잡이(코등이 바로 앞). 줄 0 기본(붉은 날에 빛이 흐르는 4칸 반복) · 줄 1 역린 해방(보라 테) ──
+ARC_REF = os.path.join(HERE, "..", "..", "wyvern-job", "ref", "arcadion-ref.png")
+ARC_LEN, ARC_GRIP = 88, 0.215                          # 그림 길이(1배 px) · 손잡이 자리(위에서부터 비율 — 그림의 자루 가운데)
 def arcadion_cells():
+    src = Image.open(ARC_REF).convert("RGBA")
+    a = np.asarray(src).copy(); a[..., 3] = np.where(a[..., 3] < 40, 0, a[..., 3])
+    src = Image.fromarray(a, "RGBA"); bb = src.getbbox(); src = src.crop(bb)
+    H0, W0 = src.size[1], src.size[0]
+    k = ARC_LEN / H0; w = max(1, round(W0 * k))
+    sm = src.resize((w, ARC_LEN), Image.LANCZOS)
+    b = np.asarray(sm).copy(); b[..., 3] = np.where(b[..., 3] < 110, 0, 255)
+    q = Image.fromarray(b, "RGBA").quantize(32, method=Image.FASTOCTREE).convert("RGBA")
+    qa = np.asarray(q).copy(); qa[..., 3] = b[..., 3]
+    rot = np.ascontiguousarray(np.rot90(qa, 1))       # 위(자루 끝) → 왼쪽 · 아래(칼끝) → 오른쪽
+    hh, ww = rot.shape[:2]
+    gx = int(round(ARC_GRIP * ARC_LEN)) + 2
+    gy = None
+    col = rot[:, gx - 2, 3] > 0                       # 손잡이 줄의 세로 가운데
+    ys = np.where(col)[0]; gy = int(ys.mean()) + 2 if len(ys) else hh // 2 + 2
     out = []
     for row in range(2):
         for f in range(4):
-            c = Cv(92, 30); gx, gy = 14, 15
-            c.disc(gx - 10, gy, 2.6, 2.6, G[3]); c.disc(gx - 10, gy, 1.4, 1.4, R[4])      # 끝 장식(용옥)
-            c.rect(gx - 8, gy - 1, 9, 3, R[0]);
-            for i in range(0, 9, 2): c.px(gx - 8 + i, gy - 1, R[2])                     # 감긴 손잡이
-            # 코등이 — 뒤로 젖힌 금빛 날개 한 쌍
-            for s in (-1, 1):
-                c.fillpoly([(gx + 1, gy + s * 1), (gx - 3, gy + s * 10), (gx + 1, gy + s * 8), (gx + 4, gy + s * 11), (gx + 5, gy + s * 2)], rgb("#C9932E"))
-                c.line(gx + 1, gy + s * 2, gx - 2, gy + s * 9, rgb("#F3D37A"))
-            c.disc(gx + 3, gy, 2.2, 2.2, R[3]); c.px(gx + 2, gy - 1, F[6])                # 가운데 용옥
-            # 칼날 — 넓고 끝이 뾰족하다. 등에 용 이빨
-            L = 72; x0 = gx + 6
-            c.fillpoly([(x0, gy - 6), (x0 + L * .78, gy - 5), (x0 + L, gy), (x0 + L * .78, gy + 6), (x0, gy + 6)], rgb("#3B1418"))
-            c.fillpoly([(x0, gy - 5), (x0 + L * .76, gy - 4), (x0 + L * .97, gy), (x0, gy)], rgb("#6E2228"))
-            for i in range(7):   # 등 이빨
-                tx = x0 + 6 + i * 8; c.fillpoly([(tx, gy - 6), (tx + 3, gy - 9 + (i % 2)), (tx + 5, gy - 6)], rgb("#56191E"))
-            c.line(x0, gy + 6, x0 + L * .78, gy + 6, rgb("#F1C9A8")); c.line(x0 + L * .78, gy + 6, x0 + L, gy, rgb("#F1C9A8"))   # 날 빛
-            c.line(x0, gy - 6, x0 + L * .78, gy - 5, rgb("#A1464A"))
-            for i in range(int(L * .8)):   # 가운데 불빛 홈 — 손잡이에서 끝으로 흐른다
-                x = x0 + 2 + i; ph = (i / 10 - f / 4 * 1.0) % 1
-                c.px(x, gy + 1, F[6] if ph < .2 else F[4] if ph < .5 else F[2])
-                if ph < .35: c.px(x, gy, al(F[3], .8))
-            if row == 1:
-                outline(c, al(V[3], .95))
+            c = Cv(ww + 4, hh + 4); c.a[2:2 + hh, 2:2 + ww] = rot
+            red = (c.a[..., 0].astype(int) > c.a[..., 1].astype(int) + 40) & (c.a[..., 3] > 0)
+            xx = np.arange(c.w)[None, :].repeat(c.h, 0)
+            band = (((xx - gx) / 24.0 - f / 4.0) % 1.0) < 0.07
+            m = red & band & (xx > gx + 10)
+            c.a[m, 0] = np.minimum(255, c.a[m, 0].astype(int) + 45); c.a[m, 1] = np.minimum(255, c.a[m, 1].astype(int) + 20)
+            if row == 1: outline(c, al(V[3], .95))
             outline(c, R[0])
             out.append(c)
-    return out
+    return out, gx, gy
 
 # ── 큰 참격(160×120, 기준점 20,60 · 반지름 100) — 아르카디온 · 천공강습. 줄 0 불꽃 · 1 보라(2타 · 역린). 7칸 ──
 def arc_cells():
@@ -875,14 +877,16 @@ def main():
     sheets["wy_pillar"] = pack("wy_pillar", pillar_cells(), None, man, cx=36, cy=152)
     sheets["wy_icons"] = pack("wy_icons", icon_cells(), None, man, cx=0, cy=0)
     sheets["wy_bits"] = pack("wy_bits", bit_cells(), 8, man, rows=len(BIT_KINDS))
-    sheets["wy_blade"] = pack("wy_blade", arcadion_cells(), 4, man, cx=14, cy=15, rows=2)
+    arc_, agx, agy = arcadion_cells()
+    sheets["wy_blade"] = pack("wy_blade", arc_, 4, man, cx=agx, cy=agy, rows=2)
     sheets["wy_arc"] = pack("wy_arc", arc_cells(), 7, man, cx=20, cy=60, rows=2, r=100)
     sheets["wy_spin"] = pack("wy_spin", spin_cells(), None, man, r=54)
     sheets["wy_trail"] = pack("wy_trail", trail_cells(), None, man)
     sheets["wy_wave"] = pack("wy_wave", wave_cells(), 4, man, r=92)
     sheets["wy_flare"] = pack("wy_flare", flare_cells(), None, man, cx=14, cy=46)
     # 가방 · 상점 그림(128×128) — 아르카디온 한 칸을 대각선으로 세워 키운다(rpg/weapons/wy_arcadion.webp, shop.js specialArt)
-    bl = Image.fromarray(sheets["wy_blade"][:30, :92], "RGBA").rotate(35, Image.NEAREST, expand=True)
+    bh, bw = man["wy_blade"]["h"], man["wy_blade"]["w"]
+    bl = Image.fromarray(sheets["wy_blade"][:bh, :bw], "RGBA").rotate(35, Image.NEAREST, expand=True)
     bb = bl.getbbox(); bl = bl.crop(bb); k = max(1, int(118 // max(bl.size)))
     bl = bl.resize((bl.size[0] * k, bl.size[1] * k), Image.NEAREST)
     ic = Image.new("RGBA", (128, 128), (0, 0, 0, 0)); ic.paste(bl, ((128 - bl.size[0]) // 2, (128 - bl.size[1]) // 2), bl)

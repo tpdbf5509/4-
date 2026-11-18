@@ -23,7 +23,7 @@ import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill,
 import { EN_PULSE } from './engineerData.js';
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
 import { NC_SCYTHE } from './necroData.js';
-import { wyvernInput, wyvernBasic, tickWyvernJob, wyvernDown, wyvernFill, wyvernKill, wyvernRaidKill, wyvernOn, wyvernTake, wyvernSpd } from './wyvernJob.js';   // 히든 직업 Wyvern Knight 006(11월 17일 — 격자 연습장에만)
+import { wyvernInput, wyvernBasic, tickWyvernJob, wyvernDown, wyvernFill, wyvernKill, wyvernRaidKill, wyvernOn, wyvernTake, wyvernSpd, wyvernLook } from './wyvernJob.js';   // 히든 직업 Wyvern Knight 006(11월 17일 — 격자 연습장에만)
 import { WY_CLAW } from './wyvernData.js';
 import { illusionInput, illusionBasic, tickIllusion, illusionDown, illusionFill, illusionKill, illusionRaidKill, illusionOn } from './illusionJob.js';   // 히든 직업 Illusionist 005(11월 17일 — 격자 연습장에만)
 import { IL_CARD } from './illusionData.js';
@@ -812,6 +812,7 @@ export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobO
 export const advArtPath = (h, view = "front") => {
   if (gamblerLook(h)) return `/assets/characters/rpg/gambler-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Gambler 002 외형(사용자 그림, tools/cut-gambler-char.py) — 손님은 스냅샷 h.gmv. 해금 시험 중에는 BLOOD-001 보다 먼저
   if (necroLook(h)) return `/assets/characters/rpg/necro-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Necromancer 004 외형(사용자 그림 남 · 여, tools/cut-necro-char.py · 11월 17일)
+  if (wyvernLook(h)) return `/assets/characters/rpg/wyvern-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Wyvern Knight 006 외형(사용자 그림 남 · 여, tools/cut-wyvern-char.py · 11월 18일)
   if (engineerLook(h)) return `/assets/characters/rpg/engineer-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Engineer 003 외형(사용자 그림 한 벌 — 남녀 같은 그림, tools/cut-engineer-char.py) — 손님은 스냅샷 h.env
   if (h && (h.bdv || bloodOn(h))) return `/assets/characters/rpg/blood-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 BLOOD-001 외형(사용자 그림, tools/cut-blood-char.py) — 전직 그림 자리를 쓴다
   const c = advOf(h);

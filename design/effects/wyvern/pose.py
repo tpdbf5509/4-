@@ -136,7 +136,7 @@ class Pose:
         s.dot(wr[0], wr[1], 2.0, bone[1]); s.dot(wr[0], wr[1], 1.0, HORN[1])
         thumb = (wr[0] + (wr[0] - el[0]) * 0.18 + 2, wr[1] + (wr[1] - el[1]) * 0.18 - 1)
         s.line([wr, thumb], HORN[1], 1.0)
-    def head(s, x, y, ang, gape=0.0):
+    def head(s, x, y, ang, gape=0.0, lay=1.0):
         """머리 — (x,y) 목 끝, ang 바라보는 각도(라디안, 0 = 오른쪽). 11월 18일 사용자 참고 그림(울부짖는 용 얼굴)을 따른다:
         윗주둥이 끝이 매 부리처럼 아래로 굽은 갈고리, 크게 벌어지는 긴 아래턱 끝의 아래로 굽은 턱 가시, 위아래 긴 송곳니 줄,
         분홍빛 입속과 혀, 머리 위 · 뒤로 겹겹이 뻗은 가시 갈기, 볼 · 턱 모서리에서 뒤로 뻗는 가시, 굵은 눈두덩 아래 작은 노란 눈."""
@@ -151,7 +151,8 @@ class Pose:
         crest = [(-6, 2, 12, 0.35), (-4, -2, 16, -0.2), (-1, -5, 19, -0.5), (3, -7, 20, -0.75), (7, -8, 16, -0.95), (11, -8, 11, -1.15), (14, -7, 7, -1.3),
                  (-3, 4, 11, 0.6), (0, 6, 9, 0.9)]
         for k, (u, v, L, a_) in enumerate(crest):
-            d = math.pi - a_; L *= 1.0; tx, ty = u + math.cos(d) * L, v + math.sin(d) * L   # 뒤쪽(왼쪽)으로, a_ 가 음수면 위 · 양수면 아래로 기운다
+            a_ *= lay if a_ < 0 else 1; d = math.pi - a_; L *= 1.0;   # lay < 1 — 뿔을 뒤로 눕힌다
+            tx, ty = u + math.cos(d) * L, v + math.sin(d) * L   # 뒤쪽(왼쪽)으로, a_ 가 음수면 위 · 양수면 아래로 기운다
             w = 1.8 + L * 0.1; nx, ny = -math.sin(d) * w, math.cos(d) * w
             bend = (u + math.cos(d) * L * 0.6 - nx * 0.4, v + math.sin(d) * L * 0.6 - ny * 0.4 - 1)
             s.poly([R(u + nx, v + ny), R(*bend), R(tx, ty), R(u - nx, v - ny)], HORN[0] if k % 3 == 0 else (BONE[2] if k % 3 == 1 else DK))
@@ -227,29 +228,46 @@ def fly_pose(f, gape=0.0):
     s.wing(W((0, 0)), W(wg["el"]), W(wg["wr"]), [W(t) for t in wg["tips"]], W(wg["root"]), MEM, BONE)
     return s.done(), (round(mouth[0]), round(mouth[1]))
 
-# ── 앉기 — 11월 18일 사용자 참고 그림(엎드린 와이번 둘)대로 다시: 몸을 땅에 낮게 붙이고, 접은 날개 팔로 앞을 짚는다 ──
-# 팔꿈치가 몸 위로 가장 높이 솟고, 손목은 앞쪽 땅을 짚어 발톱을 세운다. 손가락 · 막은 몸 옆을 따라 뒤로 접혀 눕는다.
-# 목은 앞 위로 들고 머리는 앞을 노려본다(입을 살짝 벌림). 뒷다리는 몸 아래 접고 꼬리는 땅을 따라 뒤로 눕는다. 기준점 = 몸 아래 땅.
-SIT_W, SIT_H, SIT_OX, SIT_OY = 210, 110, 122, 104
+# ── 앉기(지상 대기) — 11월 18일 사용자 기획: 2번 사진(웅크린 와이번)을 좌우로 뒤집은 옆모습 윤곽을 따른다. 1프레임 먼저 ──
+# 목은 어깨에서 오른쪽 앞으로 길게 뻗고 머리는 어깨보다 조금만 높다. 주둥이는 길고 낮게, 뿔은 뒤로 눕힌다.
+# 가슴 · 배는 땅 가까이, 뒷다리는 몸 아래 접고, 꼬리는 왼쪽으로 길게 가늘어지며 땅에 눕는다(끝을 들지 않는다).
+# 앞다리는 날개다(따로 앞발 없음). 가까운 날개: 굵은 날개팔이 어깨에서 뒤 위 팔꿈치로 올라갔다가 앞 아래로 내려와 손목이 가슴 앞 땅을 짚고,
+# 손목에서 긴 손가락뼈들이 왼쪽 뒤로 휘어 몸통 옆을 덮는다. 뼈는 짙게, 뼈 사이 접힌 막은 밝게. 기준점 = 몸 아래 땅.
+SIT_W, SIT_H, SIT_OX, SIT_OY = 252, 84, 146, 80
+BONE_DK = [C("#160a07"), C("#2a1610"), C("#4a2e22")]                   # 접힌 날개뼈 — 몸보다 짙게
+MEM_LT = [C("#5e2a1c"), C("#7c3826"), C("#94482e"), C("#a85a3a")]      # 접힌 날개막 — 뼈보다 밝게(몸 갈색 계열)
+def _qb(a, c, b, n=10):   # 2차 곡선 점들
+    return [((1 - t) ** 2 * a[0] + 2 * (1 - t) * t * c[0] + t * t * b[0], (1 - t) ** 2 * a[1] + 2 * (1 - t) * t * c[1] + t * t * b[1]) for t in (i / n for i in range(n + 1))]
+def folded_wing(s, sh, el, wr, fingers, dark=1.0):
+    """접힌 날개 — fingers: [(굽은 점, 끝)] 아래(땅) → 위(등) 차례. 뼈 사이 띠마다 막을 칠하고 뼈를 위에 그린다"""
+    bone = [dk(c, dark) for c in BONE_DK]; mem = [dk(c, dark) for c in MEM_LT]
+    curves = [_qb(wr, c, t) for c, t in fingers]
+    for i in range(len(curves) - 1):   # 손가락 사이 막(아래 띠일수록 밝다 — 빛을 받는 쪽). 끝 사이 가장자리는 손목 쪽으로 오목하게
+        ta, tb = curves[i][-1], curves[i + 1][-1]; nm = ((ta[0] + tb[0]) / 2 * 0.82 + wr[0] * 0.18, (ta[1] + tb[1]) / 2 * 0.82 + wr[1] * 0.18)
+        s.poly(curves[i] + [nm] + curves[i + 1][::-1], mem[2] if i % 2 == 0 else mem[1])
+        a, b = curves[i], curves[i + 1]   # 띠 가운데 주름 한 줄
+        s.line([((a[k][0] + b[k][0]) / 2, (a[k][1] + b[k][1]) / 2) for k in range(2, len(a))], mem[0], 0.6)
+    top = curves[-1]; s.poly(top[:6] + [el], mem[1])   # 맨 위 손가락과 팔 사이 막(팔꿈치 아래만 — 등은 드러난다)
+    for c in curves:
+        s.line(c, bone[0], 2.4); s.line(c[:6], bone[1], 1.0)
+    s.limb([sh, el], 5.2, 3.8, [bone[1], bone[1], bone[2]]); s.limb([el, wr], 3.8, 2.8, [bone[0], bone[1], bone[2]])
+    s.dot(el[0], el[1], 3.0, bone[1]); s.poly([(el[0] - 1, el[1] - 2.5), (el[0] - 8, el[1] - 6), (el[0] + 1.5, el[1] - 1)], HORN[0])   # 팔꿈치 가시(뒤로 눕힘)
+    s.dot(wr[0], wr[1], 2.6, bone[1]); s.dot(wr[0] - 0.4, wr[1] - 0.6, 1.0, bone[2])
+    for k in range(3):   # 손목 발톱 — 땅을 짚는다
+        a = math.radians(10 + k * 22); s.line([(wr[0] + 1, wr[1] + 0.5), (wr[0] + 1 + math.cos(a) * 5, wr[1] + 0.5 + math.sin(a) * 2.5)], HORN[1], 1.0)
+
 def sit_pose(breath=0, gape=0.0):
     s = Pose(SIT_W, SIT_H, SIT_OX, SIT_OY)
     b = breath
-    def fold(o=(0, 0), dark=1.0):   # 접은 날개 — 어깨 · 팔꿈치(위로 솟음) · 손목(앞 땅) · 손가락 끝(몸 옆을 따라 뒤로)
-        P = lambda x, y, by=1: (x + o[0], y + o[1] + b * by)
-        sh, el, wr = P(4, -26), P(-12, -50), P(22, -4, 0)
-        s.wing(sh, el, wr, [P(-30, -40), P(-42, -34), P(-54, -27), P(-64, -18, 0.5)], P(-30, -14), MEM, BONE, dark)
-        pal = [dk(c, dark) for c in BODY]
-        s.limb([sh, el], 5, 3.6, pal); s.limb([el, wr], 3.6, 2.6, pal)     # 접은 팔은 굵게 — 앞다리처럼 땅을 짚는다
-        s.dot(el[0], el[1], 2.6, pal[1]); s.poly([(el[0] - 1, el[1] - 2), (el[0] - 7, el[1] - 8), (el[0] + 2, el[1] - 2)], HORN[0])   # 팔꿈치 가시
-        s.claws(wr[0] + 1, wr[1] + 1, 1, 3, 5)
-    fold((7, -3), 0.62)                                                     # 먼 날개
-    tail = [(-34, -12), (-60, -6), (-86, -4), (-104, -8), (-110, -16)]   # 땅을 따라 눕다 끝이 들린다
-    s.fin_tail(tail, 8)
-    s.leg((-24, -14), (-12, -10), (-22, -3), (-14, -1), 1)                  # 먼 뒷다리
-    s.tube([(-36, -14 + b * 0.4), (-14, -18 + b), (8, -24 + b)], 13, 11, BODY, belly=BELLY, spikes=3)
-    neck = [(6, -26 + b), (18, -40 + b), (30, -50 + b), (40, -54 + b)]
-    s.tube(neck, 8, 5, BODY, belly=BELLY, spikes=3)
-    mouth = s.head(neck[-1][0] + 1, neck[-1][1] + 1, math.radians(4 + gape * 4), 0.45 + gape * 0.55)
-    s.leg((-28, -14), (-14, -8), (-24, -2), (-16, 0), 1)                    # 가까운 뒷다리 — 몸 아래 접어 깔았다
-    fold()                                                                 # 가까운 날개
+    # 먼 날개 — 팔꿈치와 내려오는 팔만 몸 위 · 앞에 살짝 보인다(짙게)
+    s.limb([(6, -27 + b), (-6, -48 + b), (36, -3)], 3.4, 2.4, [dk(c, 0.55) for c in BONE_DK])
+    # 꼬리 — 왼쪽으로 길게, 땅에 눕고 끝으로 갈수록 가늘다
+    s.tube([(-40, -13), (-70, -7), (-102, -3.5), (-136, -2)], 7.5, 0.8, BODY, spikes=5)
+    s.tube([(-42, -14 + b * 0.4), (-16, -18 + b), (10, -18 + b)], 12, 11.5, BODY, belly=BELLY, spikes=4)   # 몸통 — 가슴 · 배가 땅 가까이
+    s.leg((-34, -11), (-20, -5), (-31, -1.5), (-24, 0), 1)                 # 뒷다리 — 몸 아래로 접는다
+    neck = [(8, -21 + b), (26, -30 + b), (46, -35 + b), (64, -35 + b)]
+    s.tube(neck, 9, 5, BODY, belly=BELLY, spikes=4)                     # 목 — 오른쪽 앞으로 길게
+    mouth = s.head(neck[-1][0] + 1, neck[-1][1] + 0.5, math.radians(6 + gape * 6), gape, lay=0.35)
+    folded_wing(s, (4, -25 + b), (-10, -48 + b), (24, -2),   # 손가락: 아래(땅을 따라) → 위(등 아래), 가운데가 처지게 휜다
+                [((-12, -7), (-60, -2)), ((-16, -19), (-62, -12)), ((-14, -30), (-55, -22)), ((-6, -40), (-42, -30 + b))])
     return s.done(), (round(mouth[0]), round(mouth[1]))

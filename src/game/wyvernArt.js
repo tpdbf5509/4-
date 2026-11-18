@@ -451,8 +451,8 @@ export function drawWyvernHero(ctx, h, ww, hh, top, behind, time, view = "front"
   const v = wyvernView(h); if (!v) return;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
   warmWyvern();
-  const back = view === "back", side = view === "side" || view === "turn";
-  if (back !== behind && v.aw > 0) drawAwakeBack(ctx, v, ww, hh, top, side);   // 역린 해방 날개 · 꼬리 — 해방 중에만(11월 18일 사용자)
+  const back = view === "back";
+  if (back !== behind && v.aw > 0) drawAwakeBack(ctx, v, ww, hh, top, view === "side");   // 역린 해방 날개 · 꼬리 — 해방 중에만(11월 18일 사용자). turn(왼쪽을 보다 아래로)은 앞 그림이라 앞 배치
   if (back === behind && v.arm) drawArcadion(ctx, h, v, view, flip, ww, hh, top);
   if (behind) return;
   if (v.sc) {   // 용린 방벽 — 쌓여 오름(0.35초) → 빛이 훑는 반복

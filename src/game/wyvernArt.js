@@ -406,7 +406,7 @@ const WY_SWING = { c1: [-95, 70], c2: [70, -95], a1: [-125, 90], a2: [90, -150],
 const ease3 = (x) => 1 - Math.pow(1 - x, 3);
 // 손 자리 [가로 비율(왼쪽 0) · 세로 비율(위 0) · 쉬는 각도(도, 0 = 오른쪽, 아래가 +)] — 와이번 나이트 그림(1.3배)에서 잰 장갑 자리.
 // 11월 18일 사용자 "검 들고있는것도 어색해" — 혈검 손 자리를 빌려 칼끝이 위로 솟던 것을, 손에 쥐고 칼끝을 앞 아래로 늘어뜨린 자세로 바꾼다
-const BODY_H = 78;   // 날개 · 비늘 방벽 시트(1배)가 맞춰진 몸 높이 — 몸 그림을 키우면 함께 커진다
+const BODY_H = 78;   // 비늘 방벽 시트(1배)가 맞춰진 몸 높이 — 몸 그림을 키우면 함께 커진다
 const WY_HAND = {
   m: { front: [0.8, 0.61, 50], turn: [0.8, 0.61, 50], side: [0.36, 0.62, 128], back: [0.84, 0.6, 58] },
   f: { front: [0.85, 0.64, 50], turn: [0.85, 0.64, 50], side: [0.37, 0.635, 128], back: [0.8, 0.625, 58] },
@@ -423,17 +423,36 @@ function drawArcadion(ctx, h, v, view, flip, ww, hh, top) {
   for (let k = 2; k >= 1; k--) if (p > 0.05 * k && p < 1) cell(ctx, "wy_blade", fr, lx, ly, 1, 0.42 / k, 1, false, at(p - 0.09 * k));   // 잔상(보라 테 줄)
   cell(ctx, "wy_blade", fr, lx, ly, 1, 1, row, false, sw.u >= 0.8 ? at(1) + (rest - at(1)) * ease3((sw.u - 0.8) / 0.2) : at(p));
 }
+// 역린 해방 날개 · 꼬리(11월 18일 사용자 "역린 해방 전까지는 날개와 꼬리 둘 다 없다가 해방 후 생기게", 사용자 그림 awake-wings-tail.png)
+// 해방(v.aw > 0) 동안에만 그린다. 처음 0.45초는 작게 접힌 칸에서 펼쳐지고(0~2 칸) 그 뒤 날갯짓 · 꼬리 흔들림 반복. 끝나면 바로 사라진다.
+// 앞을 볼 때 몸 뒤 · 뒤를 볼 때 몸 앞(날개는 어깨 사이 · 꼬리는 허리). 옆을 볼 때는 등 쪽 날개 하나와 뒤로 뻗은 꼬리.
+// 연마 합계 tint.wing 이상이면 날개 뒤에 한 칸 늦은 잔상을 옅게 겹친다
+const AW_GROW = 0.45;
+function drawAwakeBack(ctx, v, ww, hh, top, side) {
+  const el = v.awMax - v.aw, grow = el < AW_GROW;
+  const wf = (off = 0) => (grow ? once("wy_hwing", el / AW_GROW, 3) : 3 + loop(4, 0.55, off));
+  const tf = grow ? once("wy_htail", el / AW_GROW, 2) : 2 + loop(4, 1.1);
+  const sy = top + hh * 0.36, k = hh / HERO_H;
+  const tail = (x, rot) => cell(ctx, "wy_htail", tf, x, top + hh * 0.6, k, 1, 0, false, rot);
+  if (side) {
+    tail(ww * 0.18, -0.95);
+    if (v.wing && !grow) cell(ctx, "wy_hwing", wf(-0.12), ww * 0.1, sy, k, 0.35, 1);
+    cell(ctx, "wy_hwing", wf(), ww * 0.1, sy, k, 1, 1);
+    return;
+  }
+  tail(0, 0);
+  for (const [row, x] of [[0, -ww * 0.1], [1, ww * 0.1]]) {
+    if (v.wing && !grow) cell(ctx, "wy_hwing", wf(-0.12), x, sy, k, 0.35, row);
+    cell(ctx, "wy_hwing", wf(), x, sy, k, 1, row);
+  }
+}
+const HERO_H = 85;   // 날개 · 꼬리 시트(1배)가 맞춰진 캐릭터 그림 높이(360 × 66/280)
 export function drawWyvernHero(ctx, h, ww, hh, top, behind, time, view = "front", flip = false) {
   const v = wyvernView(h); if (!v) return;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
   warmWyvern();
   const back = view === "back", side = view === "side" || view === "turn";
-  if (back !== behind && (v.aw > 0 || v.wing)) {   // 날개 — 어깨 사이에 붙인다
-    const el = v.awMax - v.aw, f = v.aw > 0 ? (el < 1 ? once("wy_awake", el, 6) : 6 + loop(4, 0.6)) : 6 + loop(4, 0.8);
-    ctx.save(); ctx.translate(side ? ww * 0.12 : 0, top + hh * 0.36); if (side) ctx.scale(0.62, 1);
-    cell(ctx, "wy_awake", f, 0, 0, hh / BODY_H, v.aw > 0 ? 1 : 0.5, v.aw > 0 ? 0 : 1);
-    ctx.restore();
-  }
+  if (back !== behind && v.aw > 0) drawAwakeBack(ctx, v, ww, hh, top, side);   // 역린 해방 날개 · 꼬리 — 해방 중에만(11월 18일 사용자)
   if (back === behind && v.arm) drawArcadion(ctx, h, v, view, flip, ww, hh, top);
   if (behind) return;
   if (v.sc) {   // 용린 방벽 — 쌓여 오름(0.35초) → 빛이 훑는 반복

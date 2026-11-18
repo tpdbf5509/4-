@@ -367,7 +367,7 @@ function WyvernBar({ v, keyOf: key, onUse, onFire }) {
     v.u ? `와이번 ${Math.ceil(v.u.left)}초` : "와이번 없음",
     v.aw > 0 && `역린 해방 ${v.aw.toFixed(1)}초`,
     v.sc && `용린 ${v.sc.left.toFixed(1)}초 · 반격 ${v.sc.n}`,
-    v.sync ? "진룡 동조" : v.wing ? "보라 날개 잔상" : v.tint === "line" && "붉은 비늘",
+    v.sync ? "진룡 동조" : v.wing ? "해방 날개 잔상" : v.tint === "line" && "붉은 비늘",
   ].filter(Boolean);
   return (
     <div className="gm-bar">

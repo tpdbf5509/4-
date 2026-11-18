@@ -736,6 +736,58 @@ def flare_cells():
         out.append(c)
     return out
 
+# ── 역린 해방 날개 · 꼬리(11월 18일 사용자 그림 awake-wings-tail.png) — 해방 중에만 캐릭터 등 · 허리에 붙는다 ──
+# 그림을 뿌리(날개 관절 · 꼬리 밑동)를 축으로 돌리고 줄여 도트로 옮긴다. 펼치는 칸(작게 접힘 → 다 펼침)과 날갯짓 · 흔들림 반복 칸
+AW_REF = os.path.join(HERE, "..", "..", "wyvern-job", "ref", "awake-wings-tail.png")
+AW_PART = {   # 원본 자르기 · 뿌리(원본 좌표)
+    "lw": ((263, 12, 640, 709), (575, 245)),
+    "rw": ((950, 12, 1314, 709), (995, 250)),
+    "tail": ((1628, 60, 1909, 694), (1700, 110)),
+}
+AW_WING_H, AW_TAIL_H = 72, 50                         # 1배 높이(캐릭터 몸 높이 약 85px 기준)
+AW_WING_F = [(0.3, 40), (0.55, 24), (0.8, 10), (1, 0), (1, -4), (1, -8), (1, -4)]   # (크기, 접힘 각도) — 0~2 펼침 · 3~6 날갯짓
+AW_TAIL_F = [(0.45, 0), (0.75, 0), (1, 0), (1, 5), (1, 0), (1, -5)]                  # 0~1 자람 · 2~5 흔들림
+
+def _aw_cell(src, root, k, sc, ang):
+    big = src.resize((max(1, round(src.size[0] * sc)), max(1, round(src.size[1] * sc))), Image.LANCZOS)
+    rx, ry = root[0] * sc, root[1] * sc
+    D = int(math.ceil(max(math.hypot(rx - x, ry - y) for x in (0, big.size[0]) for y in (0, big.size[1])))) + 4
+    cv = Image.new("RGBA", (2 * D, 2 * D), (0, 0, 0, 0)); cv.alpha_composite(big, (round(D - rx), round(D - ry)))
+    cv = cv.rotate(ang, Image.BICUBIC, center=(D, D))
+    n = max(2, round(2 * D * k)); sm = cv.resize((n, n), Image.LANCZOS)
+    b = np.asarray(sm).copy(); b[..., 3] = np.where(b[..., 3] < 110, 0, 255)
+    q = Image.fromarray(b, "RGBA").quantize(32, method=Image.FASTOCTREE).convert("RGBA")
+    qa = np.asarray(q).copy(); qa[..., 3] = b[..., 3]; qa[qa[..., 3] == 0] = 0
+    return qa, n / 2
+
+def _aw_sheet(parts):
+    """parts = [(이름, 줄마다 칸 목록)] → 같은 크기 칸 · 같은 기준점으로 맞춘 Cv 목록 · 기준점"""
+    cells = [(a, c) for _, row in parts for a, c in row]
+    L = max(c for _, c in cells); T = L
+    ext = [0, 0, 0, 0]   # 기준점에서 왼 · 위 · 오른 · 아래
+    for a, c in cells:
+        ys, xs = np.where(a[..., 3] > 0)
+        if not len(xs): continue
+        ext[0] = max(ext[0], c - xs.min()); ext[1] = max(ext[1], c - ys.min()); ext[2] = max(ext[2], xs.max() + 1 - c); ext[3] = max(ext[3], ys.max() + 1 - c)
+    e = [int(math.ceil(v)) + 2 for v in ext]; W, H = e[0] + e[2], e[1] + e[3]
+    out = []
+    for a, c in cells:
+        cv = Cv(W, H); ox, oy = round(e[0] - c), round(e[1] - c)
+        x0, y0 = max(0, -ox), max(0, -oy); x1, y1 = min(a.shape[1], W - ox), min(a.shape[0], H - oy)
+        cv.a[oy + y0:oy + y1, ox + x0:ox + x1] = a[y0:y1, x0:x1]
+        outline(cv, R[0]); out.append(cv)
+    return out, e[0], e[1]
+
+def awake_parts():
+    src = Image.open(AW_REF).convert("RGBA")
+    a = np.asarray(src).copy(); a[..., 3] = np.where(a[..., 3] < 40, 0, a[..., 3]); src = Image.fromarray(a, "RGBA")
+    def part(key, H, frames, sign=1):
+        box, (rx, ry) = AW_PART[key]; im = src.crop(box); k = H / im.size[1]
+        return [_aw_cell(im, (rx - box[0], ry - box[1]), k, sc, ang * sign) for sc, ang in frames]
+    wings = _aw_sheet([("lw", part("lw", AW_WING_H, AW_WING_F)), ("rw", part("rw", AW_WING_H, AW_WING_F, -1))])
+    tail = _aw_sheet([("tail", part("tail", AW_TAIL_H, AW_TAIL_F))])
+    return wings, tail
+
 def pack(name, cells, cols=None, man=None, cx=None, cy=None, loop=0, rows=1, **extra):
     w, h = cells[0].w, cells[0].h; cols = cols or len(cells) // rows; R_ = math.ceil(len(cells) / cols)
     im = np.zeros((R_ * h, cols * w, 4), np.uint8)
@@ -766,6 +818,9 @@ def main():
     sheets["wy_pillar"] = pack("wy_pillar", pillar_cells(), None, man, cx=36, cy=152)
     sheets["wy_icons"] = pack("wy_icons", icon_cells(), None, man, cx=0, cy=0)
     sheets["wy_bits"] = pack("wy_bits", bit_cells(), 8, man, rows=len(BIT_KINDS))
+    (aw_w, awx, awy), (aw_t, atx, aty) = awake_parts()
+    sheets["wy_hwing"] = pack("wy_hwing", aw_w, len(AW_WING_F), man, cx=awx, cy=awy, rows=2)
+    sheets["wy_htail"] = pack("wy_htail", aw_t, len(AW_TAIL_F), man, cx=atx, cy=aty)
     arc_, agx, agy = arcadion_cells()
     sheets["wy_blade"] = pack("wy_blade", arc_, 4, man, cx=agx, cy=agy, rows=2)
     sheets["wy_arc"] = pack("wy_arc", arc_cells(), 7, man, cx=20, cy=60, rows=2, r=100)

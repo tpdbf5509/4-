@@ -124,7 +124,7 @@ function wyvern() {
     rules: [
       `용혈 최대 ${WYVERN.blood} · 처음 ${WYVERN.bloodStart}. 용조격 적중 +${B.claw} · 용염 포효 적중 +${B.roar} · 와이번 공격 적중 +${B.wyvern}.`,
       `용혈 연마 ${B.sp25} — 얻는 용혈 +${pct(B.gain25)}. 쓰러지면 용혈이 0 이 됩니다.`,
-      `연마 합계 ${WYVERN.tint.line} — 붉은 비늘 · ${WYVERN.tint.wing} — 보라 날개 잔상 · ${WYVERN.sync} — 진룡 동조.`,
+      `연마 합계 ${WYVERN.tint.line} — 붉은 비늘 · ${WYVERN.tint.wing} — 역린 해방 날개 잔상 · ${WYVERN.sync} — 진룡 동조.`,
       "무기를 들 수 없습니다. 와이번은 피해를 받지 않습니다.",
     ],
     basic: { s: "claw", act: "fire", name: WY_CLAW.name, lv: U.claw,

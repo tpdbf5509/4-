@@ -6,6 +6,7 @@
    켜는 꼴은 Gambler 002 와 같은 bag.hj = { active: "engineer", jobs: { engineer: { lv, xp, tr } }, version: 1 }.
    싸우는 동안의 상태 h.en — 전력 · 과열 · 대기 · 설치물 · 날아가는 펄스 · 예고 중인 스킬. 저장하지 않는다(스냅샷으로만 이어받는다).
    E(엔진, rpg.js engineerEngine): gamblerEngine 것 + keep(맵 안으로) · open(막힌 곳이 아닌가) */
+import { faceAim } from './faceDir.js';
 import { ENGINEER as EN, ENGINEER_ID, ENGINEER_NAME, ENGINEER_TINT, EN_TRAIN_NAMES, EN_PULSE as PU, EN_TURRET as TU, EN_DRONE as DR,
   EN_MAGNET as MG, EN_RAIL as RL, EN_MECH as MC, EN_OC as OC, EN_ORBIT as OB, EN_SKILLS, EN_UNIT } from "./engineerData.js";
 
@@ -183,8 +184,7 @@ export function engineerBasic(E, g, h, force) {
   let ax, ay;
   if (o) { const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
   else [ax, ay] = E.face(h);
-  if (Math.abs(ax) > 0.05) h.dir = ax < 0 ? -1 : 1;
-  h.face = 0;
+  faceAim(h, ax, ay);                              // 치는 쪽을 본다(예전엔 늘 앞)
   const p = { fid: `ep${h.pi}.${++s.q}`, x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), d: 0, max: wallCut(E, h, ax, ay, PU.range), v: PU.v, wait: PU.wind,
     cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map };
   s.pulses.push(p);

@@ -1,3 +1,4 @@
+import { faceAt } from './faceDir.js';
 import {duelHealing, inDuel, makeCast, restoreCasts} from './duelBalance.js';
 /* ── RPG 1차 전직 규칙 (방장만 판정) ─────────────────────────────
    수치는 advData.js. E 는 rpg.js 의 대상 고르기 · 피해 · 연출 함수(advEngine) — 피해 · 결투 한도 · 원소는 기존 판정을 그대로 거친다.
@@ -320,7 +321,7 @@ export function advHealShot(E, g, h, rng) {
   if (!list.length) return false;
   const best = list.reduce((a, q) => (q !== h && q.hp / q.max < a.hp / a.max ? q : a), list.find((q) => q !== h) || h);
   if (best !== h && Math.abs(best.x - h.x) > 1) h.dir = best.x < h.x ? -1 : 1;
-  h.face = 0;
+  if (best !== h) faceAt(h, best.x, best.y, E.squash);
   const map = h.map;
   list.forEach((q) => {
     if (q !== h) E.fx(g, map, { kind: "shot", x0: h.x + (h.dir || 1) * 14, y0: h.y - 34, x1: q.x, y1: q.y - 30, style: "orb", r: 18, color: S.color, t: S.fly, life: S.fly, snd: "orb" });
@@ -743,7 +744,7 @@ export function advUse(E, g, h) {
         // 등 뒤 — 적을 지나 반대편에 나타나 돌아서서 벤다
         const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1;
         E.place(h, o.x + (dx / d) * A.behind, o.y + (dy / d) * A.behind * E.squash);
-        h.dir = o.x < h.x ? -1 : 1; h.face = 0;
+        h.dir = o.x < h.x ? -1 : 1; faceAt(h, o.x, o.y, E.squash);
         withCap(h, cast, () => { E.strike(g, h, o, base * A.mul); E.cc(g, h, o, { stun: A.stun * pvpCc(o) }); });
         if (!isHero(o)) E.soak(g, h, o, 0);
         E.fx(g, map, { kind: "sk_adv_assa", x: o.x, y: o.y - 30, x0, y0: y0 - 30, bx: h.x, by: h.y - 30, d: h.dir, big: masteryLv(h.advM) >= 4 ? 1 : 0, t: 0.7, life: 0.7, snd: "slash", kick: 0.2 });   // bx · by — 내려앉은 등 뒤 자리(연출만)

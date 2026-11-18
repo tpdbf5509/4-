@@ -6,6 +6,7 @@
    켜는 꼴은 Gambler 002 와 같은 bag.hj = { active: "illusionist", jobs: { illusionist: { lv, xp, tr } }, version: 1 }.
    싸우는 동안의 상태 h.il — 트릭 · 대기 · 연계 기록 · 날아가는 카드 · 진행 중인 스킬 · 잔상 · 거울 집. 저장하지 않는다.
    E(엔진, rpg.js illusionEngine): engineerEngine 것(keep · open) + stop(걷기 멈춤) */
+import { faceAim } from './faceDir.js';
 import { ILLUSION as IL, ILLUSION_ID, ILLUSION_NAME, ILLUSION_TINT, IL_TRAIN_NAMES, IL_TRICK as TK, IL_CARD as CD, IL_SHUFFLE as SH, IL_SLASH as SL,
   IL_PRISON as PR, IL_BLINK as BL, IL_FIST as FI, IL_MIRROR as MR, IL_FINAL as FN, IL_SKILLS, IL_TRICKED, IL_ATTACKS } from "./illusionData.js";
 
@@ -237,8 +238,7 @@ export function illusionBasic(E, g, h, force) {
   let ax, ay;
   if (o) { const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
   else [ax, ay] = E.face(h);
-  if (Math.abs(ax) > 0.05) h.dir = ax < 0 ? -1 : 1;
-  h.face = 0;
+  faceAim(h, ax, ay);                              // 치는 쪽을 본다(예전엔 늘 앞)
   const c = { fid: `ic${h.pi}.${++s.q}`, x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), d: 0, max: wallCut(E, h, ax, ay, CD.range), v: CD.v, wait: CD.wind,
     cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map };
   s.cards.push(c);

@@ -6,6 +6,7 @@
    싸우는 동안의 상태 h.wy — 용혈 · 대기 · 와이번 하나 · 예약 타격 · 변신 · 용린. 저장하지 않는다(연습장 전용이라 스냅샷 줄도 아직 없다).
    고도는 따로 Z 축 없이 s.air(오르는 높이 — 그림에서만 위로 띄운다)로만 둔다. 실제 자리는 땅의 x · y 하나다.
    E(엔진, rpg.js wyvernEngine): engineerEngine 것 + stop(걷기 멈춤) */
+import { faceAim } from './faceDir.js';
 import { WYVERN as WV, WYVERN_ID, WYVERN_NAME, WYVERN_TINT, WY_TRAIN_NAMES, WY_BLOOD as BL, WY_CLAW as CL, WY_CONTRACT as CT, WY_ROAR as RO,
   WY_DIVE as DV, WY_SCALE as SC, WY_SKY as SK, WY_AWAKE as AW, WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SKILLS, WY_WEAPON_ITEM } from "./wyvernData.js";
 
@@ -202,8 +203,7 @@ export function wyvernBasic(E, g, h, force) {
   let ax, ay;
   if (o) { const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
   else [ax, ay] = E.face(h);
-  if (Math.abs(ax) > 0.05) h.dir = ax < 0 ? -1 : 1;
-  h.face = 0;
+  faceAim(h, ax, ay);                              // 치는 쪽을 본다(예전엔 늘 앞)
   s.q += 1;
   s.claws.push({ w: CL.wind, ax: r2(ax), ay: r2(ay), cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map });
   swingOf(s, s.q % 2 ? "c1" : "c2", 0.3, ax, ay);

@@ -5023,11 +5023,7 @@ function abyssClear(g, r, inside) {
   r.best = Math.max(r.best || 0, f);
   inside.forEach((h) => {
     if (!h.loaded || trading(h)) return;
-    const aw = awOf(g, h);
-    if (r.adm) {                                    // 관리자가 올려 둔 칸(abyssPlace) — 주간 순위 층만 올린다(11월 18일 사용자 요청). 파편 · 첫 돌파 보너스 · 최초 돌파 기록(rec.atop)은 그대로 없다
-      if (f > aw.top) { aw.top = f; aw.at = now; h.bag.v += 1; }   // 최고 층은 내려가지 않는다
-      return;
-    }
+    const aw = awOf(g, h);   // 관리자가 올려 둔 칸(abyssPlace)도 일반 도전과 같이 파편 · 주간 기록 · 최초 돌파가 쌓인다(11월 18일 사용자 요청)
     let n = guard ? ABYSS_REWARD.guard(f) : ABYSS_REWARD.floor(f), bonus = 0;
     n = acFloorShards(h, n, guard, f, matCount(h.bag, SHARD));   // 강화 카드 — 층계 수당 · 이자 · 금빛 족쇄
     if (guard && f > aw.fc) { bonus = ABYSS_REWARD.weekBonus(f); aw.fc = f; }   // 이번 주 처음 넘은 10층 단위

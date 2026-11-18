@@ -270,7 +270,7 @@ test('장부 순위 — 이번 주 · 지난주, 동점은 먼저 닿은 쪽 · 
   assert.deepEqual(r.me, { now: 0, prev: 2, prevFloor: 25, claimed: false });
 });
 
-test('관리자 명령 /탑 — 그 층 앞에 올림 · 파편은 안 쌓이고 주간 순위 층만 오름 · 막는 경우 안내', async () => {
+test('관리자 명령 /탑 — 그 층 앞에 올림 · 파편 · 기록이 일반 도전처럼 쌓임 · 막는 경우 안내', async () => {
   const { rpgAdminCmd } = await import('../src/game/adminCmd.js');
   const { g } = world([{ lv: 10 }, { lv: 10 }]);
   g.heroes.forEach((h) => { if (h) { h.pty = 0; h.map = 'plaza'; } });
@@ -285,7 +285,7 @@ test('관리자 명령 /탑 — 그 층 앞에 올림 · 파편은 안 쌓이고
   assert.equal(r.f, 30, '30층이 열린다'); assert.ok(g.mobs.some((m) => m.map === r.map && !m.dead));
   assert.ok(floorMobs(30) > 0);
   clearFloor(g, r);
-  assert.equal(JSON.stringify(b.bag.m || {}), before, '파편이 늘지 않는다'); assert.ok(!(b.rec.atop > 0), '최고 기록 그대로'); assert.equal(b.coins, coins);
+  assert.notEqual(JSON.stringify(b.bag.m || {}), before, '파편이 쌓인다'); assert.equal(b.rec.atop, 30, '최고 기록이 오른다'); assert.ok(b.coins >= coins, '도감 보상 코인은 일반 도전처럼 받을 수 있다');
   assert.equal(r.f, 31, '다음 층은 그대로 이어진다');
   assert.equal(b.bag.aw.top, 30, '명령으로 깬 30층이 주간 순위 기록에 오른다'); assert.ok(b.bag.aw.at > 0);
   b.bag.aw.top = 200; clearFloor(g, r); assert.equal(b.bag.aw.top, 200, '최고 층은 내려가지 않는다'); b.bag.aw.top = 30;

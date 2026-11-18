@@ -5,6 +5,7 @@ import math
 from PIL import Image, ImageDraw
 
 SS = 4   # 4배로 그려 줄인다
+BK = 1.3   # 와이번 몸 배율 — 11월 18일 사용자 "용 크기를 좀 키워줘"(1 → 1.3). 좌표는 그대로 두고 그릴 때 곱한다(칸 · 입 · 눈 자리도 따라간다)
 HEAD_K = 0.8   # 머리 크기 — 11월 18일 사용자 "머리가 너무 커 비율 생각하면서" 로 1.2 → 0.8(참고 그림들처럼 머리는 몸통 길이의 절반쯤)
 def C(h): h = h.lstrip("#"); return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), 255)
 def dk(c, k): return (int(c[0] * k), int(c[1] * k), int(c[2] * k), 255)
@@ -33,7 +34,7 @@ def _head_sprite():
         import head_prep
         out = {}
         for closed in (False, True):   # 벌린 입(불 뿜기 칸) · 다문 입(날갯짓 · 숨쉬기)
-            spr, n, m, e = head_prep.build(closed)
+            spr, n, m, e = head_prep.build(closed, BK)
             out[closed] = (spr, n, (round(m[0]), round(m[1])), (round(e[0]), round(e[1])))
         return out
     except Exception as err:   # noqa — 원본 그림이 없을 때
@@ -43,13 +44,14 @@ HEAD_SPRITE = _head_sprite()
 class Pose:
     def __init__(s, w, h, ox, oy):
         s.w, s.h, s.ox, s.oy = w, h, ox, oy
-        s.im = Image.new("RGBA", (w * SS, h * SS)); s.d = ImageDraw.Draw(s.im); s.eye = None
-    def P(s, x, y): return ((x + s.ox) * SS, (y + s.oy) * SS)
+        s.im = Image.new("RGBA", (round(w * BK) * SS, round(h * BK) * SS)); s.d = ImageDraw.Draw(s.im); s.eye = None
+    def P(s, x, y): return ((x + s.ox) * SS * BK, (y + s.oy) * SS * BK)
+    def real(s, x, y): return ((x + s.ox) * BK, (y + s.oy) * BK)   # 좌표 → 1배 칸 자리
     def poly(s, pts, c): s.d.polygon([s.P(*p) for p in pts], fill=c)
     def dot(s, x, y, r, c):
-        X, Y = s.P(x, y); R = r * SS; s.d.ellipse((X - R, Y - R, X + R, Y + R), fill=c)
+        X, Y = s.P(x, y); R = r * SS * BK; s.d.ellipse((X - R, Y - R, X + R, Y + R), fill=c)
     def line(s, pts, c, w):
-        s.d.line([s.P(*p) for p in pts], fill=c, width=max(1, int(w * SS)), joint="curve")
+        s.d.line([s.P(*p) for p in pts], fill=c, width=max(1, int(w * SS * BK)), joint="curve")
     def tube(s, path, r0, r1, pal, belly=None, spikes=0, seed=0, spk=1.0):
         """굵기가 r0 → r1 로 가는 몸통 — 아래 어둠 · 위 밝음 세 겹(둥근 몸), 배 쪽 밝은 띠, 등 가시"""
         pts = bez(path, 18); n = len(pts)
@@ -197,7 +199,7 @@ class Pose:
         s.poly([R(6, -6), R(11, -10), R(18, -8.5), R(19, -5.5), R(12, -5.8)], DK)
         s.poly([R(11, -4.8), R(15.5, -5.2), R(15, -3.6), R(11.4, -3.6)], C("#1a0c08"))
         s.poly([R(12, -4.6), R(15, -4.9), R(14.5, -3.9), R(12.3, -3.9)], EYE)
-        e = R(13.5, -4.3); s.eye = (e[0] + s.ox, e[1] + s.oy)   # 눈 자리(칸 좌표) — 32색으로 묶으면 작은 눈빛이 사라져 make.py 가 다시 찍는다
+        e = R(13.5, -4.3); s.eye = s.real(*e)   # 눈 자리(칸 좌표) — 32색으로 묶으면 작은 눈빛이 사라져 make.py 가 다시 찍는다
         return R(28, 3 + g * 6)
     def head_rest(s, x, y, ang, gape=0.0, k=1.0, snout=1.0, bare=False):
         """와이번 머리(오른쪽) — 11월 18일 사용자 기획: 2번 사진을 좌우로 뒤집은 옆얼굴. 대기 · 날기 같은 머리.
@@ -207,10 +209,10 @@ class Pose:
         bare=True 면 뿔 · 비늘 · 무늬 없이 윤곽만(참고 사진과 비교용). gape > 0(불 뿜기 칸)이면 아래턱만 조금 내린다."""
         if not bare and HEAD_SPRITE is not None:   # 11월 18일 사용자가 직접 그린 머리(head_prep.py → head.png)를 그대로 붙인다
             spr, (nx, ny), (mx, my), (ex, ey) = HEAD_SPRITE[gape <= 0.05]   # 공격(불 뿜기) 칸에서만 입을 벌린다
-            px, py = round(x + s.ox - nx), round(y + s.oy - ny)
+            rx, ry = s.real(x, y); px, py = round(rx - nx), round(ry - ny)
             s.im.alpha_composite(spr.resize((spr.width * SS, spr.height * SS), Image.NEAREST), (px * SS, py * SS))
             s.eye = (px + ex, py + ey)
-            return (px + mx - s.ox, py + my - s.oy)
+            return (px + mx - s.ox * BK, py + my - s.oy * BK)   # 입 자리 — 1배 칸에서 기준점으로부터
         ca, sa = math.cos(ang), math.sin(ang)
         def R(u, v):
             if u > 16: u = 16 + (u - 16) * snout
@@ -232,7 +234,7 @@ class Pose:
         notch = [J(2.6, 6.2), J(4, 8.0), R(-1, 8.6), R(-5, 6.5), R(-5, 3.5), R(0, 4.2)]   # 턱관절 뒤 → 목: 안으로 들어간 자리
         if bare:
             s.poly(lower, MID); s.poly(upper, MID); s.poly(notch, BODY[0])
-            return R(40, 1.5 + gape * 3)
+            m = R(40, 1.5 + gape * 3); return (m[0] * BK, m[1] * BK)
         # 뒤통수 뿔 — 정수리 뒤에서 목을 따라 길게 뒤로, 끝이 살짝 위로(2번 사진)
         s.poly([R(4, -9.4), R(-4, -12.2), R(-14, -14.0), R(-24, -16.4), R(-16, -10.6), R(-6, -6.0), R(1, -4.6)], BONE_DK[1])
         s.poly([R(2, -9.4), R(-6, -11.8), R(-15, -13.4), R(-22, -15.4), R(-14, -12.4), R(-5, -10.0)], BONE_DK[2])
@@ -250,18 +252,18 @@ class Pose:
         # 눈썹뼈 아래 짙은 그림자 · 그 안의 가늘고 짧은 호박색 눈(턱관절 바로 위)
         s.poly([R(6, -6.4), R(11, -6.6), R(16, -4.6), R(14.6, -3.0), R(9, -3.0), R(6.4, -4.0)], SHADOW)
         s.poly([R(9.4, -4.8), R(13.8, -4.4), R(13.4, -3.7), R(9.6, -4.0)], EYE)
-        e = R(11.6, -4.3); s.eye = (e[0] + s.ox, e[1] + s.oy)
+        e = R(11.6, -4.3); s.eye = s.real(*e)
         s.dot(*R(37.6, -1.2), 0.6, SHADOW)                                                       # 콧구멍 — 코끝 바로 뒤 옆면
         # 입선 — 코끝 맞물림에서 눈 아래 턱관절까지
         s.line([R(39.6, 1.7), R(30, 1.95), R(20, 2.15), R(12, 2.15), R(8, 2.0)], SHADOW, 1.2)
         s.dot(*R(8, 2.2), 0.7, SHADOW)                                                           # 턱관절
         s.poly(notch, SHADOW)
-        return R(40, 1.5 + gape * 3)
+        m = R(40, 1.5 + gape * 3); return (m[0] * BK, m[1] * BK)
     def leg(s, hip, knee, ank, foot, dirx=1):
         s.limb([hip, knee], 4.5, 3.2, BODY); s.limb([knee, ank, foot], 2.6, 1.6, BODY)
         s.claws(foot[0], foot[1], dirx)
     def done(s):
-        im = s.im.resize((s.w, s.h), Image.BOX); im.eye = s.eye; return im
+        im = s.im.resize((round(s.w * BK), round(s.h * BK)), Image.BOX); im.eye = s.eye; return im
 
 # ── 날기 — 참고 그림 둘(날개 위 · 아래)을 이어 네 칸 날갯짓. 몸은 거의 수평, 목은 앞으로 조금 들고, 꼬리는 뒤로 길게 물결친다 ──
 # 날개 점(어깨 기준): 팔꿈치 · 손목 · 손가락 끝 넷(앞 → 뒤). 먼 날개는 조금 작고 어둡게 몸 뒤에.

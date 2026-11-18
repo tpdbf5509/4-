@@ -171,16 +171,19 @@ def pose_sheet(frames, mouth):
 
 def wyvern_cells():
     fr, mo = [], []
+    ox, oy = WP.FLY_OX * WP.BK, WP.FLY_OY * WP.BK   # 몸 배율(WP.BK)을 곱한 1배 칸 자리
     for f, (p, g) in enumerate([(0, 0), (1, 0), (2, 0), (3, 0), (1, 0.6), (1, 1.0), (1, 0.8)]):
-        im, m = WP.fly_pose(p, g); fr.append((im, [0, 0, 0, 0, 0.5, 1.0, 0.6][f])); mo.append((m[0] + WP.FLY_OX, m[1] + WP.FLY_OY))
-    cy = WP.FLY_OY - 18   # 기준점을 가슴보다 18px 위에 — 예전 시트와 같은 높이에 몸이 오게(입 자리 · 고도 계산을 그대로 쓴다)
-    return pose_sheet(fr, mo), WP.FLY_OX, cy, (mo[5][0] - WP.FLY_OX, mo[5][1] - cy)
+        im, m = WP.fly_pose(p, g); fr.append((im, [0, 0, 0, 0, 0.5, 1.0, 0.6][f])); mo.append((round(m[0] + ox), round(m[1] + oy)))
+    cx, cy = round(ox), round((WP.FLY_OY - 18) * WP.BK)   # 기준점을 가슴보다 18px(× 배율) 위에 — 예전 시트와 같은 높이에 몸이 오게
+    return pose_sheet(fr, mo), cx, cy, (mo[5][0] - cx, mo[5][1] - cy)
 
 def wy_sit_cells():
     fr, mo = [], []
+    ox, oy = WP.SIT_OX * WP.BK, WP.SIT_OY * WP.BK
     for b, g in ((0, 0), (1.5, 0), (0, 1.0)):
-        im, m = WP.sit_pose(b, g); fr.append((im, 1.0 if g else 0)); mo.append((m[0] + WP.SIT_OX, m[1] + WP.SIT_OY))
-    return pose_sheet(fr, mo), WP.SIT_OX, WP.SIT_OY, (mo[2][0] - WP.SIT_OX, mo[2][1] - WP.SIT_OY)
+        im, m = WP.sit_pose(b, g); fr.append((im, 1.0 if g else 0)); mo.append((round(m[0] + ox), round(m[1] + oy)))
+    cx, cy = round(ox), round(oy)
+    return pose_sheet(fr, mo), cx, cy, (mo[2][0] - cx, mo[2][1] - cy)
 
 # ── 와이번 그림자(64×20) — 땅에 비친 날개 그림자 · 날갯짓 4칸 ──
 def shade_cells():   # 122×24 — 사용자 그림 와이번 날개 폭(1배 244)에 맞춰 2배로 그린다

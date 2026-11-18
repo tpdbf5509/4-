@@ -105,7 +105,7 @@ def shut(a):
     return np.array(out)
 
 
-def build(closed=False):
+def build(closed=False, k=1.0):
     im = Image.open(SRC).convert("RGBA")
     a = clear_bg(np.array(im))
     a[:68, :32, 3] = 0            # 머리와 떨어진 왼쪽 위 조각(다른 그림 끝)
@@ -115,7 +115,7 @@ def build(closed=False):
     w0, h0 = im.size
     big = im.resize((w0 * 4, h0 * 4), Image.NEAREST).rotate(ROT, resample=Image.BICUBIC, expand=True)
     W, H = big.size
-    sm = big.resize((max(1, round(W / 4 * SCALE)), max(1, round(H / 4 * SCALE))), Image.LANCZOS)
+    sm = big.resize((max(1, round(W / 4 * SCALE * k)), max(1, round(H / 4 * SCALE * k))), Image.LANCZOS)
     al = np.array(sm)[..., 3]
     al = np.where(al > 110, 255, 0).astype(np.uint8)     # 도트처럼 가장자리를 딱 끊는다
     sa = np.array(sm); sa[..., 3] = al
@@ -130,7 +130,7 @@ def build(closed=False):
         x, y = (p[0] - CROP[0]) * 4 - w0 * 2, (p[1] - CROP[1]) * 4 - h0 * 2
         t = math.radians(ROT); c, s = math.cos(t), math.sin(t)
         rx, ry = x * c + y * s, -x * s + y * c                # PIL rotate 는 반시계
-        return ((rx + W / 2) / 4 * SCALE, (ry + H / 2) / 4 * SCALE)
+        return ((rx + W / 2) / 4 * SCALE * k, (ry + H / 2) / 4 * SCALE * k)
     return sm, pt(P_NECK), pt(P_SHUT if closed else P_MOUTH), pt(P_EYE)
 
 

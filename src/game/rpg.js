@@ -2260,7 +2260,7 @@ function hurtHero(g, h, raw, source, kind) {
   advHurt(advEngine, g, h);                       // 기사 — 철벽 방어 반격 · 생존 시험
   h.flash = 0.18;
   h.calm = 0;
-  h.numAcc += dmg;
+  h.numAcc += source?.doom ? WORLD_BOSS.doomDamage : dmg;   // 즉사 기술은 숫자만 크게 보인다 — 되받아치기 · 부활 계산은 실제 피해(남은 체력)로 한다
   if (h.numT <= 0) {
     fx(g, h.map, { kind: "dmg", x: h.x, y: h.y - 76, text: `-${Math.round(h.numAcc)}`, color: "#ff9a8a", t: 0.6, life: 0.6, by: h.pi });   // 내가 받은 피해
     h.numAcc = 0;

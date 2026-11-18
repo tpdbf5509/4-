@@ -7,6 +7,7 @@ export const worldBossWeapons = id => WORLD_BOSS_WEAPONS.filter(w => (w.rewardBo
 export const WORLD_BOSS = {
   revision:5, // 진행 중인 보스도 체력 비율과 기여도를 보존하며 새 수치로 옮긴다.
   map: 'worldboss', fee: 350000,   // 소환비 — 11월 8일 10만 → 35만(사용자 결정)
+  doomDamage: 99999999999999,   // 즉사 기술이 맞았을 때 화면에 뜨는 피해 숫자(11월 18일 사용자 — 14자리). 실제 판정은 방어 · 보호막을 건너뛰고 남은 체력만큼이다
   introGrace: 4.2,   // 성역에 들어와 등장 연출(약 4초, worldBossIntroData.js)을 보는 동안 보스가 공격을 시작하지 않는다(초)
   period: 3600000, duration: 900000, endWait: 20,
   contribution: .1, wind: 1.5, gap: 2.8, rageGap: 1.8, rageAt: .3,

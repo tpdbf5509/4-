@@ -5,6 +5,7 @@ import math
 from PIL import Image, ImageDraw
 
 SS = 4   # 4배로 그려 줄인다
+HEAD_K = 1.2   # 머리 크기 — 11월 18일 사용자 "얼굴 비교해서" 로 1.0 → 1.2
 def C(h): h = h.lstrip("#"); return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16), 255)
 def dk(c, k): return (int(c[0] * k), int(c[1] * k), int(c[2] * k), 255)
 BODY = [C("#2a1813"), C("#3f241c"), C("#5a3328"), C("#77473a"), C("#93604f")]   # 몸 비늘 어둠 → 밝음
@@ -29,7 +30,7 @@ def bez(p, n=24):
 class Pose:
     def __init__(s, w, h, ox, oy):
         s.w, s.h, s.ox, s.oy = w, h, ox, oy
-        s.im = Image.new("RGBA", (w * SS, h * SS)); s.d = ImageDraw.Draw(s.im)
+        s.im = Image.new("RGBA", (w * SS, h * SS)); s.d = ImageDraw.Draw(s.im); s.eye = None
     def P(s, x, y): return ((x + s.ox) * SS, (y + s.oy) * SS)
     def poly(s, pts, c): s.d.polygon([s.P(*p) for p in pts], fill=c)
     def dot(s, x, y, r, c):
@@ -107,42 +108,59 @@ class Pose:
         thumb = (wr[0] + (wr[0] - el[0]) * 0.18 + 2, wr[1] + (wr[1] - el[1]) * 0.18 - 1)
         s.line([wr, thumb], HORN[1], 1.0)
     def head(s, x, y, ang, gape=0.0):
-        """머리 — (x,y) 목 끝, ang 바라보는 각도(라디안, 0 = 오른쪽). 11월 18일 사용자 "얼굴 와이번처럼"(참고 그림 둘):
-        길고 좁은 주둥이 끝이 아래로 살짝 굽고, 이빨이 드러난 긴 아래턱, 머리 뒤로 왕관처럼 뻗은 가시 다섯, 볼 · 턱 밑 가시, 눈 위 툭 튀어나온 눈두덩"""
-        ca, sa = math.cos(ang), math.sin(ang)
-        def R(u, v): return (x + u * ca - v * sa, y + u * sa + v * ca)
-        g = gape
-        # 머리 뒤 가시 왕관(뒤 → 앞으로 작아진다) — 몸보다 먼저(뒤에) 그린다
-        for k, (u, v, L, up) in enumerate([(-2, -3, 15, -5), (0, -5, 17, -9), (3, -6, 15, -12), (6, -7, 11, -13), (9, -7, 7, -12)]):
-            s.poly([R(u, v + 2), R(u - L, v + up * 0.55), R(u - L + 2, v + up * 0.55 - 1.5), R(u + 3, v)], BONE[2] if k % 2 else HORN[0])
-        # 아래턱 — 길고 가늘다, 벌리면 아래로 내려간다
-        jaw = [R(0, 3), R(14, 4 + g * 6), R(27, 4 + g * 10), R(28, 6 + g * 10), R(14, 8 + g * 5), R(0, 8)]
-        s.poly(jaw, BODY[1]); s.poly([R(2, 6), R(14, 7 + g * 5), R(24, 6 + g * 9)], BELLY[0])
-        if g > 0.1:   # 입 속 · 이빨
-            s.poly([R(6, 2), R(28, 2), R(27, 4 + g * 9), R(12, 5 + g * 5), R(4, 5)], C("#7a2018"))
-            s.poly([R(10, 3), R(26, 3), R(25, 4 + g * 6), R(12, 4 + g * 3)], C("#b8402a"))
-            for k in range(5):
-                u = 9 + k * 3.6
-                s.poly([R(u, 2), R(u + 0.8, 4.2), R(u + 1.6, 2)], HORN[2])                       # 윗니
-                s.poly([R(u + 1.5, 4 + g * (5 + k * 0.9)), R(u + 2.3, 1.6 + g * (5 + k * 0.9)), R(u + 3.1, 4 + g * (5 + k * 0.9))], HORN[2])   # 아랫니
-        # 윗머리 · 주둥이 — 끝이 아래로 굽은 매부리
-        s.poly([R(-4, -3), R(4, -7), R(12, -7), R(22, -4), R(29, -1), R(31, 2), R(29, 4), R(14, 3), R(0, 5)], BODY[2])
-        s.poly([R(4, -6), R(12, -6), R(22, -3), R(28, -1), R(16, -2), R(8, -4)], BODY[3])
-        s.poly([R(6, -6), R(13, -9), R(16, -6)], BODY[1])   # 눈두덩
-        s.poly([R(28, -1), R(31, 2), R(30, 5), R(28, 3)], BODY[1])   # 굽은 코끝
-        s.dot(*R(30, 0.5), 0.5, BONE[0])   # 콧구멍
-        if g <= 0.1:
-            for k in range(4): s.poly([R(12 + k * 4, 3), R(12.8 + k * 4, 5.2), R(13.6 + k * 4, 3)], HORN[2])   # 다문 입에도 엄니가 비친다
-        # 볼 가시 · 턱 밑 가시
-        s.poly([R(-1, 2), R(-10, 3), R(-1, 5)], HORN[0]); s.poly([R(2, 7), R(-6, 11), R(4, 8)], HORN[0])
-        # 눈 — 가늘고 사나운 눈매
-        s.poly([R(10, -4), R(15, -4.6), R(14, -3), R(10, -3)], EYE); s.dot(*R(12.5, -3.8), 0.5, C("#fff1c8"))
-        return R(29, 3 + g * 5)
+        """머리 — (x,y) 목 끝, ang 바라보는 각도(라디안, 0 = 오른쪽). 11월 18일 사용자 참고 그림(울부짖는 용 얼굴)을 따른다:
+        윗주둥이 끝이 매 부리처럼 아래로 굽은 갈고리, 크게 벌어지는 긴 아래턱 끝의 아래로 굽은 턱 가시, 위아래 긴 송곳니 줄,
+        분홍빛 입속과 혀, 머리 위 · 뒤로 겹겹이 뻗은 가시 갈기, 볼 · 턱 모서리에서 뒤로 뻗는 가시, 굵은 눈두덩 아래 작은 노란 눈."""
+        K = HEAD_K; ca, sa = math.cos(ang), math.sin(ang)
+        def R(u, v): u, v = u * K, v * K; return (x + u * ca - v * sa, y + u * sa + v * ca)
+        g = gape; op = g * 0.7   # 아래턱이 경첩(2,3)을 축으로 내려가는 각도(라디안)
+        def J(u, v):
+            du, dv = u - 2, v - 3; c, s_ = math.cos(op), math.sin(op)
+            return R(2 + du * c - dv * s_, 3 + du * s_ + dv * c)
+        DK, MID, LT = BODY[1], BODY[2], BODY[3]
+        # 가시 갈기 — 머리 위에서 뒤로 겹겹이(뒤 줄부터, 길이 · 각도를 섞는다). 볼 · 턱 모서리 가시도 뒤로
+        crest = [(-6, 2, 12, 0.35), (-4, -2, 16, -0.2), (-1, -5, 19, -0.5), (3, -7, 20, -0.75), (7, -8, 16, -0.95), (11, -8, 11, -1.15), (14, -7, 7, -1.3),
+                 (-3, 4, 11, 0.6), (0, 6, 9, 0.9)]
+        for k, (u, v, L, a_) in enumerate(crest):
+            d = math.pi - a_; L *= 1.25; tx, ty = u + math.cos(d) * L, v + math.sin(d) * L   # 뒤쪽(왼쪽)으로, a_ 가 음수면 위 · 양수면 아래로 기운다
+            w = 1.8 + L * 0.1; nx, ny = -math.sin(d) * w, math.cos(d) * w
+            bend = (u + math.cos(d) * L * 0.6 - nx * 0.4, v + math.sin(d) * L * 0.6 - ny * 0.4 - 1)
+            s.poly([R(u + nx, v + ny), R(*bend), R(tx, ty), R(u - nx, v - ny)], HORN[0] if k % 3 == 0 else (BONE[2] if k % 3 == 1 else DK))
+            s.poly([R(u + nx * 0.3, v + ny * 0.3), R(bend[0] + 0.5, bend[1] - 0.4), R(tx, ty)], HORN[1] if k % 2 else LT)   # 가시 윗면 빛
+        # 입속(벌렸을 때) — 목구멍 · 혀
+        if g > 0.05:
+            s.poly([R(3, 1), R(26, 2), J(26, 5), J(6, 6)], C("#4a1410"))
+            s.poly([R(8, 2.5), R(24, 3), J(22, 4.5), J(9, 5)], C("#a85a4a"))   # 분홍빛 입천장
+            s.poly([J(6, 4.6), J(18, 4.2), J(22, 3.0), J(16, 2.6 + g * 1.5), J(8, 3.6)], C("#c46a58"))   # 혀
+        # 아래턱 — 길고, 끝에 아래로 굽은 턱 가시
+        s.poly([J(1, 3), J(14, 4), J(25, 4.5), J(28, 6), J(27, 8.5), J(16, 8), J(2, 7.5)], DK)
+        s.poly([J(4, 6.8), J(16, 7.4), J(25, 6.8)], BELLY[0])
+        s.poly([J(24, 7.5), J(28.5, 8), J(26.5, 12)], DK)                     # 턱 끝 갈고리
+        s.poly([J(4, 8), J(-4, 12), J(8, 8.6)], HORN[0])                      # 턱 밑 가시
+        n = 8
+        for k in range(n):   # 아랫니 — 위로 길게
+            u = 6 + k * 2.6; L = 1.8 + (k / n) * 1.6 + (1.2 if k == n - 1 else 0)
+            s.poly([J(u, 4.5), J(u + 0.6, 4.5 - L), J(u + 1.2, 4.5)], HORN[2])
+        # 윗머리 — 이마에서 매부리 갈고리까지
+        s.poly([R(-6, -2), R(2, -7), R(11, -8), R(19, -6), R(26, -3), R(31, 0), R(33, 3), R(32, 7), R(29.5, 4.5), R(26, 3.4), R(12, 3), R(0, 4)], MID)
+        s.poly([R(2, -6), R(11, -7), R(19, -5), R(26, -2.5), R(30, 0), R(20, -3), R(10, -4.5)], LT)   # 콧등 빛
+        s.poly([R(30, 0.5), R(33, 3), R(32, 7.5), R(30, 4.5)], DK)            # 갈고리 끝(아래로 굽음)
+        s.poly([R(31.5, 4), R(32.3, 7.8), R(31, 6)], HORN[1])                  # 갈고리 끝 빛
+        s.dot(*R(27, -0.8), 0.5, BONE[0])                                      # 콧구멍
+        for k in range(n):   # 윗니 — 아래로 길게, 앞 송곳니가 가장 길다
+            u = 7 + k * 2.6; L = 1.6 + (k / n) * 1.4 + (1.6 if k == n - 1 else 0)
+            s.poly([R(u, 3.2), R(u + 0.6, 3.2 + L), R(u + 1.2, 3.2)], HORN[2])
+        # 굵은 눈두덩 · 작은 노란 눈
+        s.poly([R(6, -6), R(11, -10), R(18, -8.5), R(19, -5.5), R(12, -5.8)], DK)
+        s.poly([R(11, -4.8), R(15.5, -5.2), R(15, -3.6), R(11.4, -3.6)], C("#1a0c08"))
+        s.poly([R(12, -4.6), R(15, -4.9), R(14.5, -3.9), R(12.3, -3.9)], EYE)
+        e = R(13.5, -4.3); s.eye = (e[0] + s.ox, e[1] + s.oy)   # 눈 자리(칸 좌표) — 32색으로 묶으면 작은 눈빛이 사라져 make.py 가 다시 찍는다
+        return R(28, 3 + g * 6)
     def leg(s, hip, knee, ank, foot, dirx=1):
         s.limb([hip, knee], 4.5, 3.2, BODY); s.limb([knee, ank, foot], 2.6, 1.6, BODY)
         s.claws(foot[0], foot[1], dirx)
     def done(s):
-        return s.im.resize((s.w, s.h), Image.BOX)
+        im = s.im.resize((s.w, s.h), Image.BOX); im.eye = s.eye; return im
 
 # ── 날기 — 참고 그림 둘(날개 위 · 아래)을 이어 네 칸 날갯짓. 몸은 거의 수평, 목은 앞으로 조금 들고, 꼬리는 뒤로 길게 물결친다 ──
 # 날개 점(어깨 기준): 팔꿈치 · 손목 · 손가락 끝 넷(앞 → 뒤). 먼 날개는 조금 작고 어둡게 몸 뒤에.
@@ -200,7 +218,7 @@ def sit_pose(breath=0, gape=0.0):
     s.tube([(-36, -14 + b * 0.4), (-14, -18 + b), (8, -24 + b)], 13, 11, BODY, belly=BELLY, spikes=3)
     neck = [(6, -26 + b), (18, -40 + b), (30, -50 + b), (40, -54 + b)]
     s.tube(neck, 8, 5, BODY, belly=BELLY, spikes=3)
-    mouth = s.head(neck[-1][0] + 1, neck[-1][1] + 1, math.radians(12 + gape * 4), 0.25 + gape * 0.75)
+    mouth = s.head(neck[-1][0] + 1, neck[-1][1] + 1, math.radians(4 + gape * 4), 0.45 + gape * 0.55)
     s.leg((-28, -14), (-14, -8), (-24, -2), (-16, 0), 1)                    # 가까운 뒷다리 — 몸 아래 접어 깔았다
     fold()                                                                 # 가까운 날개
     return s.done(), (round(mouth[0]), round(mouth[1]))

@@ -159,6 +159,9 @@ def pose_sheet(frames, mouth):
                     if len(col):
                         c.px(x, col[0] + 1, LINE)
                         if x % 3 == 0: c.px(x, col[0] + 2, al(LINE, .6))
+            ey = frames[f][0].eye
+            if ey:   # 눈빛 — 1배 두 칸(주황) + 가운데 밝은 점
+                ex, eyy = int(ey[0]), int(ey[1]); c.px(ex - 1, eyy, F[3]); c.px(ex, eyy, F[5]); c.px(ex + 1, eyy, F[3])
             if gl:
                 mx, my = mouth[f]
                 c.disc(mx, my, 3 + gl * 4, 2 + gl * 3, al(F[3], .85)); c.disc(mx, my, 1.5 + gl * 2, 1 + gl * 1.5, F[5]); c.px(mx, my, F[6])

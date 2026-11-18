@@ -353,6 +353,65 @@ export function play(name) {
     tone({ type: "sawtooth", f0: 1200, f1: 2600, t: 0.3, gain: 0.07, delay: 1.6 });
     noise({ t: 0.5, gain: 0.25, f: 380, q: 0.6, delay: 1.75 });
     tone({ type: "sine", f0: 90, f1: 30, t: 0.5, gain: 0.25, delay: 1.75 });
+  } else if (name === "wyClaw") {            // Wyvern Knight 006 용조격 — 짧게 할퀴는 바람 · 불씨 튐
+    if (!gate("wyClaw", 90)) return;
+    noise({ t: 0.13, gain: 0.09, f: 1700, q: 1 });
+    tone({ type: "sawtooth", f0: 260, f1: 120, t: 0.1, gain: 0.04 });
+  } else if (name === "wyHit") {             // 용조격 적중 — 둔탁한 타격
+    if (!gate("wyHit", 80)) return;
+    tone({ type: "triangle", f0: 180, f1: 80, t: 0.08, gain: 0.08 });
+    noise({ t: 0.07, gain: 0.07, f: 900, q: 1.3 });
+  } else if (name === "wyCry") {             // 와이번 계약 — 낮은 용 울음이 높아졌다 꺾인다
+    if (!gate("wyCry", 400)) return;
+    tone({ type: "sawtooth", f0: 140, f1: 330, t: 0.32, gain: 0.07 });
+    tone({ type: "sawtooth", f0: 330, f1: 170, t: 0.35, gain: 0.06, delay: 0.3 });
+    noise({ t: 0.4, gain: 0.06, f: 600, q: 0.8, delay: 0.05 });
+  } else if (name === "wyFire") {            // 와이번 화염구 명중 — 작은 폭발
+    if (!gate("wyFire", 110)) return;
+    noise({ t: 0.18, gain: 0.12, f: 500, q: 0.7 });
+    tone({ type: "sine", f0: 140, f1: 60, t: 0.16, gain: 0.08 });
+  } else if (name === "wyBreath") {          // 화염 브레스 — 쏟아지는 불길
+    if (!gate("wyBreath", 300)) return;
+    noise({ t: 0.7, gain: 0.14, f: 800, q: 0.5, f1: 300 });
+    tone({ type: "sawtooth", f0: 110, f1: 70, t: 0.6, gain: 0.05 });
+  } else if (name === "wyRoar") {            // 용의 포효 — 낮고 거친 울음
+    if (!gate("wyRoar", 300)) return;
+    tone({ type: "sawtooth", f0: 90, f1: 150, t: 0.25, gain: 0.1 });
+    tone({ type: "sawtooth", f0: 150, f1: 70, t: 0.45, gain: 0.09, delay: 0.22 });
+    noise({ t: 0.6, gain: 0.1, f: 400, q: 0.6 });
+  } else if (name === "wyDive") {            // 천공 낙하 — 솟구치는 바람 뒤 착지 충격
+    if (!gate("wyDive", 300)) return;
+    noise({ t: 0.25, gain: 0.08, f: 1200, q: 0.8, f1: 2400 });
+    noise({ t: 0.35, gain: 0.2, f: 280, q: 0.6, delay: 0.5 });
+    tone({ type: "sine", f0: 100, f1: 35, t: 0.4, gain: 0.18, delay: 0.5 });
+  } else if (name === "wyScale") {           // 용린 수호 — 비늘이 겹치는 금속음
+    if (!gate("wyScale", 300)) return;
+    [0, 0.06, 0.12].forEach((d, i) => tone({ type: "triangle", f0: 700 + i * 120, f1: 520, t: 0.12, gain: 0.04, delay: d }));
+    tone({ type: "sine", f0: 160, f1: 200, t: 0.4, gain: 0.07 });
+  } else if (name === "wyBoom") {            // 화염 낙하 — 떨어지는 불덩이 폭발
+    if (!gate("wyBoom", 120)) return;
+    noise({ t: 0.25, gain: 0.15, f: 350, q: 0.6 });
+    tone({ type: "sine", f0: 120, f1: 45, t: 0.25, gain: 0.12 });
+  } else if (name === "wyAwake") {           // 역린 해방 — 심장 박동 둘 뒤 포효
+    if (!gate("wyAwake", 800)) return;
+    [0, 0.25].forEach((d) => tone({ type: "sine", f0: 70, f1: 45, t: 0.15, gain: 0.18, delay: d }));
+    tone({ type: "sawtooth", f0: 100, f1: 260, t: 0.5, gain: 0.08, delay: 0.5 });
+    noise({ t: 0.7, gain: 0.1, f: 500, q: 0.6, delay: 0.5 });
+  } else if (name === "wyUlt") {             // 천룡 강림 — 솟아오름 · 첫 낙하 · 긴 울림
+    if (!gate("wyUlt", 1000)) return;
+    noise({ t: 0.5, gain: 0.08, f: 900, q: 0.7, f1: 2600 });
+    tone({ type: "sawtooth", f0: 80, f1: 300, t: 0.6, gain: 0.07 });
+    noise({ t: 0.6, gain: 0.25, f: 260, q: 0.5, delay: 0.9 });
+    tone({ type: "sine", f0: 90, f1: 30, t: 0.7, gain: 0.22, delay: 0.9 });
+  } else if (name === "wyDash") {            // 천공 강습 — 짧게 찢는 돌진 바람
+    if (!gate("wyDash", 200)) return;
+    noise({ t: 0.3, gain: 0.1, f: 1500, q: 0.8, f1: 600 });
+    tone({ type: "sawtooth", f0: 200, f1: 90, t: 0.25, gain: 0.04 });
+  } else if (name === "wyBlade") {           // 아르카디온 · 용참섬멸 — 크게 베는 금속음
+    if (!gate("wyBlade", 150)) return;
+    noise({ t: 0.18, gain: 0.11, f: 2200, q: 1.2 });
+    tone({ type: "triangle", f0: 900, f1: 300, t: 0.18, gain: 0.05 });
+    tone({ type: "sine", f0: 130, f1: 60, t: 0.2, gain: 0.08, delay: 0.05 });
   } else if (name === "ncReap") {            // Necromancer 004 그림자 낫 — 낮게 가르는 바람 소리 · 짧은 전기 튐
     if (!gate("ncReap", 90)) return;
     noise({ t: 0.16, gain: 0.09, f: 1400, q: 0.9 });
@@ -407,6 +466,54 @@ export function play(name) {
     if (!gate("ncBoom", 200)) return;
     noise({ t: 0.6, gain: 0.32, f: 220, q: 0.5 });
     tone({ type: "sine", f0: 100, f1: 28, t: 0.6, gain: 0.3 });
+  } else if (name === "ilCard") {           // Illusionist 005 — 카드를 튕겨 던지는 짧은 바람 소리
+    if (!gate("ilCard", 70)) return;
+    noise({ t: 0.05, gain: 0.06, f: 5200, q: 2 });
+    tone({ type: "triangle", f0: 1900, f1: 1300, t: 0.04, gain: 0.03 });
+  } else if (name === "ilHit") {            // 카드 절단음
+    if (!gate("ilHit", 70)) return;
+    noise({ t: 0.06, gain: 0.08, f: 6500, q: 4 });
+    tone({ type: "square", f0: 2600, f1: 1500, t: 0.03, gain: 0.03 });
+  } else if (name === "ilReady") {          // 트릭 3 — 맑은 두 음
+    if (!gate("ilReady", 300)) return;
+    tone({ type: "sine", f0: 1318, t: 0.08, gain: 0.05 }); tone({ type: "sine", f0: 1760, t: 0.1, gain: 0.05, delay: 0.07 });
+  } else if (name === "ilShuffle") {        // 폭렬 셔플 — 카드 섞는 소리 뒤 작은 폭발
+    if (!gate("ilShuffle", 300)) return;
+    for (let i = 0; i < 6; i++) noise({ t: 0.03, gain: 0.05, f: 4800, q: 3, delay: 0.02 + i * 0.03 });
+    noise({ t: 0.3, gain: 0.16, f: 700, q: 0.6, delay: 0.7 });
+    tone({ type: "sine", f0: 220, f1: 70, t: 0.3, gain: 0.12, delay: 0.7 });
+  } else if (name === "ilSlash" || name === "ilSlash2") {   // 덱 슬래시 — 날카로운 두 번 베기
+    if (!gate(name, 120)) return;
+    noise({ t: 0.12, gain: 0.12, f: name === "ilSlash" ? 5200 : 3800, q: 1.2, delay: name === "ilSlash" ? 0.1 : 0 });
+    tone({ type: "sawtooth", f0: 1600, f1: 500, t: 0.1, gain: 0.04, delay: name === "ilSlash" ? 0.1 : 0 });
+  } else if (name === "ilBox") {            // 카드 프리즌 — 상자가 닫히는 딸깍 · 마지막 접힘
+    if (!gate("ilBox", 300)) return;
+    [0, 0.08, 0.16, 0.24].forEach((d) => tone({ type: "square", f0: 1200, f1: 900, t: 0.025, gain: 0.04, delay: d }));
+    noise({ t: 0.3, gain: 0.14, f: 900, q: 0.8, delay: 1.7 });
+    tone({ type: "sine", f0: 260, f1: 80, t: 0.3, gain: 0.12, delay: 1.7 });
+  } else if (name === "ilBlink") {          // 카드 블링크 — 휙 사라졌다 나타남
+    if (!gate("ilBlink", 300)) return;
+    tone({ type: "sine", f0: 600, f1: 2400, t: 0.12, gain: 0.06 });
+    noise({ t: 0.2, gain: 0.12, f: 1200, q: 0.7, delay: 0.22 });
+  } else if (name === "ilFist") {           // 팬텀 피스트 — 모이는 소리 뒤 묵직한 충돌
+    if (!gate("ilFist", 300)) return;
+    for (let i = 0; i < 5; i++) noise({ t: 0.03, gain: 0.04, f: 4200, q: 3, delay: i * 0.045 });
+    noise({ t: 0.35, gain: 0.25, f: 320, q: 0.5, delay: 0.5 });
+    tone({ type: "sine", f0: 140, f1: 40, t: 0.35, gain: 0.25, delay: 0.5 });
+  } else if (name === "ilMirror") {         // 미러 하우스 — 유리가 울리는 맑은 소리
+    if (!gate("ilMirror", 500)) return;
+    [1568, 2093, 2637].forEach((f, i) => tone({ type: "sine", f0: f, t: 0.5, gain: 0.04, delay: i * 0.08 }));
+  } else if (name === "ilGhost") {          // 트릭 잔상
+    if (!gate("ilGhost", 90)) return;
+    tone({ type: "triangle", f0: 2400, f1: 900, t: 0.12, gain: 0.04 });
+  } else if (name === "ilGlass") {          // 거울 잔상 · 최후의 셔플 파쇄 — 유리 파쇄음
+    if (!gate("ilGlass", 120)) return;
+    noise({ t: 0.25, gain: 0.14, f: 7000, q: 1.5 });
+    for (let i = 0; i < 6; i++) tone({ type: "sine", f0: 2800 + i * 430, t: 0.06, gain: 0.025, delay: 0.02 + i * 0.03 });
+  } else if (name === "ilFinal") {          // 최후의 셔플 — 카드가 원으로 도는 소리 · 연타
+    if (!gate("ilFinal", 800)) return;
+    tone({ type: "sine", f0: 330, f1: 660, t: 0.5, gain: 0.06 });
+    for (let i = 0; i < 12; i++) noise({ t: 0.04, gain: 0.06, f: 5000, q: 3, delay: 0.6 + i * 0.1 });
   } else if (name === "clear") {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ type: "square", f0: f, t: 0.4, gain: 0.12, delay: i * 0.12 }));
   }

@@ -45,3 +45,20 @@ test("showOff 면 안 쓰는 행동도 잠긴 줄로", () => {
   assert.ok(rows.find((r) => r.a.id === "bShot" && !r.on));
   assert.ok(bindKey);
 });
+
+// 격자 연습장(11월 18일) — 물약 · 창 키는 아예 없고, 연습장 히든 직업은 빌린 칸과 스킬 이름이 보인다
+import { WY_SLOTS, WY_SKILLS, WY_CLAW } from "../src/game/wyvernData.js";
+test("연습장 키 설정은 고른 직업의 행동만 보인다", () => {
+  const who = { sandbox: true, blood: false, adv: "", hidden: { slots: WY_SLOTS, skills: WY_SKILLS, fire: WY_CLAW.name } };
+  const on = activeActs(who);
+  WY_SLOTS.forEach((q) => assert.ok(on.has(q.act)));
+  ["pot1", "talk", "bag", "chat", "bConv"].forEach((a) => assert.ok(!on.has(a)));
+  assert.ok(on.has("skills"));
+  const all = ids(keyLayout(defaultKeys(), who, true));
+  assert.ok(!all.includes("pot1") && !all.includes("bag"));
+  const fire = keyLayout(defaultKeys(), who).flatMap((s) => s.rows).find((r) => r.a.id === "fire");
+  assert.equal(fire.note, WY_CLAW.name);
+  const normal = activeActs({ sandbox: true, blood: false, adv: "" });
+  assert.ok(!normal.has("skills") && normal.has("use1"));
+  assert.equal(offCount(who), ids(keyLayout(defaultKeys(), who, true)).length - on.size);
+});

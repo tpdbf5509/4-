@@ -22,7 +22,11 @@ import { gmSpotShown } from './gamblerUnlock.js';   // Gambler 002 해금 경로
 import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003 — 무기 그림을 들지 않는다 · 설치물 몸
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
-import { necroLook } from './necroJob.js';   // 히든 직업 Necromancer 004 — 무기 그림을 들지 않는다
+import { WYVERN_CAP, wyvernUnitOf, drawWyvernUnit, drawWyvernHero, wyvernAir } from './wyvernArt.js';   // Wyvern Knight 006 — 와이번 · 반룡 날개 · 공중 높이
+import { wyvernLook } from './wyvernJob.js';
+import { necroLook } from './necroJob.js';
+import { illusionLook } from './illusionJob.js';   // 히든 직업 Illusionist 005 — 무기 그림을 들지 않는다
+import { ILLUSION_CAP } from './illusionArt.js';
 import { NECRO_CAP, necroShadowsOf, drawNecroShadowOf, drawNecroTraces, drawNecroScythe, setNecroMobPainter } from './necroArt.js';   // 그림자 병사 · 추출 가능 흔적
 import { ADV_BY_ID } from "./advData.js";
 import { warmAdvArt, drawAdvGiant, drawAdvHero, drawAdvHeldItem, drawAdvShield, drawAdvMob, drawAdvNpc, drawExecMark, drawExecTick } from "./advArt.js";
@@ -2340,10 +2344,10 @@ function drawHero(ctx, g, h, time) {
   const { view, flip } = heroView(h);
   const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다 — 특별 무기를 끼면 무기 지운 그림에 그 무기를 들린다
   const hide = h.hideGear || 0;                     // 장비 외형 숨기기(rpg.js HIDE_GEAR) — 겉모습만, 능력치는 그대로
-  const held = hide & HIDE_GEAR.weapon || gamblerLook(h) || engineerLook(h) || necroLook(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
+  const held = hide & HIDE_GEAR.weapon || gamblerLook(h) || engineerLook(h) || necroLook(h) || illusionLook(h) || wyvernLook(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
   let im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
   // 히든 직업 BLOOD-001 여성 · Gambler 002 · Engineer 003 남녀 · Necromancer 004 남녀 — 걸을 때는 걷는 그림 4장(walk-<보기>-<0~3>.webp, tools/cut-blood-f.py · cut-gambler-char.py)을 걸음에 맞춰 바꾼다. 서 있을 때는 기본 그림. 아래로 갈 때(turn)는 앞 그림. 못 불러오면 기본 그림 그대로
-  if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(blood-f|gambler-[mf]|engineer-[mf]|necro-[mf])\//.test(advIm.src)) {
+  if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(blood-f|gambler-[mf]|engineer-[mf]|necro-[mf]|wyvern-[mf])\//.test(advIm.src)) {
     const k = Math.floor((((h.anim.ph / (Math.PI / 2)) % 4) + 4) % 4);
     im = artImg(advArtPath(h, `walk-${view === "turn" ? "front" : view}-${k}`)) || im;
   }
@@ -2380,9 +2384,10 @@ function drawHero(ctx, g, h, time) {
   }
 
   ctx.save();
-  const lift = mo ? mo.lift : 0;                     // 떠오르면 그림자가 작고 옅어진다
+  const air = down ? 0 : wyvernAir(h);               // Wyvern Knight 006 — 천공 낙하 · 천룡 강림 중 공중 높이(그림만 띄운다, 판정은 땅)
+  const lift = Math.max(mo ? mo.lift : 0, Math.min(3, air / 40));   // 떠오르면 그림자가 작고 옅어진다
   shadow(ctx, h.x, h.y + 3, 15 * (1 - lift * 0.18), 5 * (1 - lift * 0.18), 0.3 * (1 - lift * 0.3));
-  ctx.translate(h.x, h.y + (mo ? mo.hop : 0));
+  ctx.translate(h.x, h.y + (mo ? mo.hop : 0) - air);
   if (down) { h.anim = null; ctx.rotate(-0.9 * h.dir); ctx.translate(0, 10); ctx.globalAlpha = 0.5; }
   else if (h.as && h.as.ut > 0) ctx.globalAlpha = h.as.ut > ADV_BY_ID.assassin.active.ut - ADV_BY_ID.assassin.active.at ? 0.18 : 0.7;   // 암살자 그림자 일섬 — 사라진 동안 거의 안 보이고 · 등 뒤에 내려앉으면 또렷이 비친다(지정 불가는 그대로)
   else if (h.bf && h.bf.hide && h.bf.hide.t > 0) ctx.globalAlpha = 0.45;   // 투명화 물약 — 비쳐 보인다
@@ -2413,6 +2418,8 @@ function drawHero(ctx, g, h, time) {
     if (bjv && bjv.sw) drawBloodBlade(ctx, h, bjv, view, flip, ww, hh, top, true, time);
     const ncs = !down && necroLook(h);              // Necromancer 004 — 손에 든 그림자 낫(근접 평타, 11월 17일 사용자)
     if (ncs) drawNecroScythe(ctx, h, view, ww, hh, top, true, time);
+    const wyh = !down && wyvernLook(h);             // Wyvern Knight 006 — 역린 해방 날개(몸 뒤) · 용린 · 반룡 기운(몸 앞)
+    if (wyh) drawWyvernHero(ctx, h, ww, hh, top, true, time, view, flip);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (!down && !(hide & HIDE_GEAR.armor)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
@@ -2423,6 +2430,7 @@ function drawHero(ctx, g, h, time) {
     if (shield && view !== "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (bjv && bjv.sw) drawBloodBlade(ctx, h, bjv, view, flip, ww, hh, top, false, time);
     if (ncs) drawNecroScythe(ctx, h, view, ww, hh, top, false, time);
+    if (wyh) drawWyvernHero(ctx, h, ww, hh, top, false, time, view, flip);
     if (al & LOOK_BIT.weapon && (!held || held.none || held.adv || !held.wpn)) drawAbyssHandGlow(ctx, time, hh, top);   // 무기 그림이 몸에 붙은 전직 · 맨손 — 손 자리 불씨
     if (al) drawAbyssFront(ctx, h, al, time, view, hh, top);   // 후광 · 뒤를 볼 때 날개
     if (h.flash > 0) {
@@ -2437,7 +2445,8 @@ function drawHero(ctx, g, h, time) {
   if (al && im) drawAbyssOver(ctx, h, al, time, im.naturalHeight * HERO_K);   // 날개 알갱이(맵 좌표)
 
   // 체력 · 레벨 · 이름
-  const bw = 40, byy = h.y - 66 - 12;
+  const tallK = !down && im && wyvernLook(h) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다
+  const bw = 40, byy = h.y - tallK - 12;
   const r = Math.max(0, Math.min(1, h.hp / (h.max || 1)));
   ctx.save();
   ctx.fillStyle = "rgba(18,12,8,0.8)"; roundRect(ctx, h.x - bw / 2 - 1, byy - 1, bw + 2, 6, 3); ctx.fill();
@@ -2605,7 +2614,7 @@ function follow(g, M) {
    ① 프레임 간격(평균)이 slow ms 를 넘으면 알갱이 · 마디를 low 몫만 그리고, fast 아래로 내려오면 되돌린다(skillArt.js setFxQuality)
    ② 같은 종류 스킬 연출은 최근 cap 개만 그린다(덜어낼 때는 그 절반) ③ 화면 밖 연출은 그리지 않는다 */
 const FX_LOD = { slow: 24, fast: 18, low: 0.5, ease: 0.1,
-  cap: {sk_blood_charge:4,sk_blood_shot:4,sk_blood_hit:14,sk_blood_seek:4,sk_blood_res:8,sk_blood_boom:6,sk_blood_hold:4,sk_blood_set:6,sk_blood_pool:8,sk_void_set:6,sk_void_slash:6,sk_void_rain:6,sk_void_hole:4,sk_void_slash_pas:6,sk_void_arrow_pas:8,sk_void_grav_pas:8,sk_storm_staff:6,sk_storm_bow:10,sk_storm_dash:8,sk_storm_finish:8,sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3, ...SKILL_PX_CAP, ...BLOOD_JOB_CAP, ...GAMBLER_CAP, ...ENGINEER_CAP, ...NECRO_CAP } };
+  cap: {sk_blood_charge:4,sk_blood_shot:4,sk_blood_hit:14,sk_blood_seek:4,sk_blood_res:8,sk_blood_boom:6,sk_blood_hold:4,sk_blood_set:6,sk_blood_pool:8,sk_void_set:6,sk_void_slash:6,sk_void_rain:6,sk_void_hole:4,sk_void_slash_pas:6,sk_void_arrow_pas:8,sk_void_grav_pas:8,sk_storm_staff:6,sk_storm_bow:10,sk_storm_dash:8,sk_storm_finish:8,sk_guild_hit:12, sk_raid_hit:16,sk_raid_break:4, sk_wb_dragon_flight: 10, sk_wb_dragon_hit: 12, sk_wb_dual_spin: 10, sk_wb_dual_dash: 10, sk_wb_cross: 10, sk_wb_impact: 12, sk_wb_lightning: 12, sk_wb_volley: 14, sk_wb_meteor: 12, sk_fireslash: 6, sk_blaze: 4, sk_fury: 4, sk_fury_hit: 10, sk_missile: 14, sk_icespike: 2, sk_halo: 3, sk_flamer: 3, sk_meteor: 10, sk_tornado: 3, ...SKILL_PX_CAP, ...BLOOD_JOB_CAP, ...GAMBLER_CAP, ...ENGINEER_CAP, ...NECRO_CAP, ...ILLUSION_CAP , ...WYVERN_CAP } };
 const lod = { at: 0, ms: 16, q: 1 };
 /* 사람이 많은 화면 — 월드보스처럼 한 맵에 모이면 손님 기기마다 남의 연출을 모두 그려 휴대폰에서 초당 화면이 반으로 떨어졌다.
    (실측: 월드보스 무기 연출 하나가 휴대폰 속도에서 3~5ms. 남의 것이 스무 개 넘게 겹친다)
@@ -2846,6 +2855,7 @@ export function drawRpg(ctx, g, bgs) {
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
   g.heroes.forEach((h) => { const us = h && h.map === M.id && engineerUnits(h); if (us) us.forEach((q) => { if (inView(q.u.x, q.u.y, 200)) order.push({ y: q.u.y, enUnit: q }); }); });   // Engineer 003 터렛 · 드론 · 수호자 — 제 발 높이로 줄을 선다
+  g.heroes.forEach((h) => { const wu = h && h.map === M.id && h.wy && wyvernUnitOf(h); if (wu && inView(wu.u.x, wu.u.y, 220)) order.push({ y: wu.u.y, wyUnit: wu }); });   // Wyvern Knight 006 와이번 — 그림자 발 높이로 줄을 선다
   g.heroes.forEach((h) => { if (h && h.map === M.id) necroShadowsOf(h).forEach((sd) => { if (inView(sd.x, sd.y)) order.push({ y: sd.y, nc: sd, own: h }); }); });   // Necromancer 004 그림자 병사 — 사람 · 몹과 앞뒤를 맞춘다
   g.heroes.forEach((h) => { const gi = h && h.map === M.id && h.as && h.as.gi; if (gi && gi.t > 0 && Number.isFinite(gi.y)) order.push({ y: gi.y, giant: h }); });   // 거대 정령 — 제 발 높이로 줄을 선다
   if (M.id === "plaza") drawDgPit(ctx, time);
@@ -2878,6 +2888,7 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.enUnit) drawEngineerUnit(ctx, o.enUnit, time, RPG.squash, crowd ? Math.min(lod.q, CROWD.q) : lod.q);
     else if (o.herb) drawHerb(ctx, o.herb, herbUp(g, o.herb.i), time);
     else if (o.nc) drawNecroShadowOf(ctx, o.own, o.nc, time);
+    else if (o.wyUnit) drawWyvernUnit(ctx, o.wyUnit, time, RPG.squash, crowd ? Math.min(lod.q, CROWD.q) : lod.q);
   });
   if (me && me.map === M.id) { const hn = herbNear(g, me); if (hn && !me.gath) drawHerbLabel(ctx, hn); }   // 곁의 채집물 이름
   g.heroes.forEach((h) => { if (h && h.map === M.id && h.gath) drawGatherBar(ctx, h); });                  // 채집 진행 막대

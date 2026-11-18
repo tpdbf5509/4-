@@ -46,6 +46,8 @@ export const KEY_ACTIONS = [
 ];
 export const KEY_SLOTS = 2;
 const STORE = "flg:rpgKeys";
+// 격자 연습장 키 — 게임 키와 따로 둔다(연습장에서 바꿔도 게임 키는 그대로). 아직 없으면 게임 키에서 시작한다
+export const SANDBOX_KEYS = "flg:sbKeys";
 const LOCKED = ["Escape"];
 const KEYS_V = 3;
 // BLOOD-001 키 — 이 직업이면 겹친 키도 다른 행동보다 먼저 이 행동이 된다(keyMap first)
@@ -59,10 +61,10 @@ const REFILL_V3 = ["bShot"];
 export const defaultKeys = () => Object.fromEntries(KEY_ACTIONS.map((a) => [a.id, a.keys.slice(0, KEY_SLOTS)]));
 
 // 저장된 키 — 없거나 망가졌으면 기본값. 새로 생긴 행동은 기본 키를 쓴다
-export function loadKeys() {
+export function loadKeys(store = STORE) {
   const base = defaultKeys();
   try {
-    const v = JSON.parse(localStorage.getItem(STORE) || "null");
+    const v = JSON.parse(localStorage.getItem(store) || (store !== STORE && localStorage.getItem(STORE)) || "null");
     if (!v || typeof v !== "object") return base;
     const ver = v.v || 0;
     const moved = [];                               // 새 기본 키로 옮긴 행동
@@ -86,8 +88,8 @@ export function loadKeys() {
   } catch { /* 저장이 막혀 있으면 기본값 */ }
   return base;
 }
-export function saveKeys(binds) {
-  try { localStorage.setItem(STORE, JSON.stringify({ ...binds, v: KEYS_V })); } catch { /* 저장이 막혀 있으면 이번만 */ }
+export function saveKeys(binds, store = STORE) {
+  try { localStorage.setItem(store, JSON.stringify({ ...binds, v: KEYS_V })); } catch { /* 저장이 막혀 있으면 이번만 */ }
 }
 
 // 한 칸에 키를 넣는다 — 같은 키가 다른 칸에 있으면 그 칸은 비운다. Esc 는 받지 않는다

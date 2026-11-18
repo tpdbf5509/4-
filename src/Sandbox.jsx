@@ -30,11 +30,20 @@ import { unlockNecro, necroView, ncLock, necroFillRoster, necroPutRoster, necroS
 import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
 import NecroRosterPanel from "./NecroRosterPanel.jsx";
+import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_SKILLS, WY_CLAW, WY_TRAIN_NAMES, WY_BLOOD, WY_WEAPON_ITEM } from "./game/wyvernData.js";   // 히든 직업 Wyvern Knight 006(11월 17일 — 연습장에만)
+import { unlockWyvern, wyvernView, wyLock } from "./game/wyvernJob.js";
+import { wyvernIconStyle } from "./game/wyvernArt.js";
+import { WYVERN_ICON } from "./game/wyvernPxData.js";
+import { ILLUSION, ILLUSION_NAME, ILLUSION_TITLE, IL_SLOTS, IL_SKILLS, IL_CARD, IL_TRAIN_NAMES, IL_TRICKED } from "./game/illusionData.js";   // 히든 직업 Illusionist 005(11월 17일 — 연습장에만)
+import { unlockIllusion, illusionView, ilLock } from "./game/illusionJob.js";
+import { illusionIconStyle } from "./game/illusionArt.js";
+import { ILLUSION_ICON } from "./game/illusionPxData.js";
 import SkillInfoPanel from "./SkillInfoPanel.jsx";
 import { hiddenSkillInfo } from "./game/hiddenSkillInfo.js";
 import sfx from "./game/sfx.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
-import { KEY_ACTIONS, BLOOD_ACTS, loadKeys, keyMap, keyOf, mouseCode } from "./game/keys.js";
+import { KEY_ACTIONS, BLOOD_ACTS, SANDBOX_KEYS, loadKeys, saveKeys, keyMap, keyOf, mouseCode } from "./game/keys.js";
+import SandboxKeys from "./SandboxKeys.jsx";
 import { SANDBOX, SANDBOX_LAYOUTS } from "./game/sandboxData.js";
 import { useTouch } from "./ui/touch.js";
 import "./ui/style.css";
@@ -54,6 +63,12 @@ const EN_BY_ACT = Object.fromEntries(EN_SLOTS.map((q) => [q.act, q.s]));
 // Necromancer 004 — Gambler 002 와 같은 키 자리를 빌린다(necroData.js NC_SLOTS)
 const NC_FIRST = NC_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
 const NC_BY_ACT = Object.fromEntries(NC_SLOTS.map((q) => [q.act, q.s]));
+// Wyvern Knight 006 — 같은 공통 칸 일곱 + F(천공강습) · X(아르카디온, wyvernData.js WY_SLOTS)
+const WY_FIRST = WY_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
+const WY_BY_ACT = Object.fromEntries(WY_SLOTS.map((q) => [q.act, q.s]));
+// Illusionist 005 — 같은 행동 키 칸을 빌린다(illusionData.js IL_SLOTS)
+const IL_FIRST = IL_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
+const IL_BY_ACT = Object.fromEntries(IL_SLOTS.map((q) => [q.act, q.s]));
 // 흔적 추출 연습 몹 — 그림자 종류 다섯이 하나씩 나오게(캐릭터 앞 [가로 칸, 세로 칸, 몹 종류])
 const NC_PREY = [[5, -1.5, "goblin"], [6, 1.5, "wolf"], [7.5, 0, "skeletal"], [9, -1.5, "necro"], [9, 1.5, "ogre"]];
 // 명부에 바로 넣을 수 있는 몹 — 게임의 모든 몹 종류(허수아비만 뺀다, 11월 17일 사용자 "현재 존재하는 모든 몹 전부")
@@ -63,6 +78,9 @@ const TOOLS = [
   { id: "nocd", name: "쿨타임 끄기" },
   { id: "stack", name: "스택 가득" },
 ];
+// 자동 평타 켜고 끄기 — 이 기기에만 기억한다(연습장 전용, 게임 설정과 따로)
+const AUTO_STORE = "flg:sbAuto";
+const loadAuto = () => { try { return localStorage.getItem(AUTO_STORE) !== "0"; } catch { return true; } };
 const fmt = (n) => Math.round(n).toLocaleString("ko-KR");
 const cellOf = (h) => [(h.x - SANDBOX.spawn[0]) / SANDBOX.cell, (h.y - SANDBOX.spawn[1]) / (SANDBOX.cell * RPG.squash)];
 
@@ -80,8 +98,8 @@ function spreadStats(job, lv, cap) {
   return st;
 }
 
-// 직업에 맞는 무기 — 같은 묶음(검 · 활 · 지팡이)만. BLOOD-001 은 크림슨 레퀴엠만
-const weaponsFor = (job, blood) => SPECIALS.filter((w) => (blood ? w.id === "blood_gun" : WEAPON_FAMILY[w.t] === JOB_FAMILY[job]));
+// 직업에 맞는 무기 — 같은 묶음(검 · 활 · 지팡이)만. BLOOD-001 은 크림슨 레퀴엠만 · Wyvern Knight 006 은 아르카디온만(11월 18일). 히든 직업 전용 무기(hj)는 그 직업에만
+const weaponsFor = (job, blood, wy) => SPECIALS.filter((w) => (wy ? w.id === WY_WEAPON_ITEM.id : blood ? w.id === "blood_gun" : !w.hj && WEAPON_FAMILY[w.t] === JOB_FAMILY[job]));
 const jobSkills = (job) => SKILLS.filter((s) => s.use && s.job === job);
 const genSkills = () => SKILLS.filter((s) => s.use && !s.job);
 
@@ -90,7 +108,9 @@ const DEFAULT = {
   bloodLv: SANDBOX.bloodLv, train: BLOOD.train.max, weapon: "", ks: { job: "", g: ["", ""] }, layout: "line",
   gmLv: GAMBLER.maxLv, gmTr: [GAMBLER.train.max, GAMBLER.train.max, GAMBLER.train.max],   // Gambler 002 — 직업 레벨 · 연마 셋(금화 · 방어 · 행운)
   enLv: ENGINEER.maxLv, enTr: [ENGINEER.train.max, ENGINEER.train.max, ENGINEER.train.max],   // Engineer 003 — 직업 레벨 · 연마 셋(포탑 · 드론 · 동기화)
+  ilLv: ILLUSION.maxLv, ilTr: [ILLUSION.train.max, ILLUSION.train.max, ILLUSION.train.max],   // Illusionist 005 — 직업 레벨 · 연마 셋(카드 · 공간 · 트릭)
   ncLv: NECRO.maxLv, ncTr: [NECRO.train.max, NECRO.train.max, NECRO.train.max], ncGrade: 3,   // Necromancer 004 — 직업 레벨 · 연마 셋(추출 · 지휘 · 군주) · 처음 명부 등급(0 이면 빈 명부)
+  wyLv: WYVERN.maxLv, wyTr: [WYVERN.train.max, WYVERN.train.max, WYVERN.train.max],   // Wyvern Knight 006 — 직업 레벨 · 연마 셋(조련 · 용혈 · 천공)
 };
 
 // 연습장 세계 — 자리 0 에 시험 캐릭터 하나만 세우고 격자 맵으로 보낸다
@@ -104,10 +124,11 @@ function sandboxWorld(c) {
   const look = { name: "연습", job: c.job, elem: elemFor(c.job, c.elem), gender: c.gender };
   const seats = Array.from({ length: RPG_CREW_MAX }, (_, i) => (i === 0 ? { id: "sandbox", name: look.name, hero: look } : null));
   rpgSyncSeats(g, seats);
-  const blood = c.adv === "blood", gambler = c.adv === "gambler" || c.adv === "engineer", necro = c.adv === "necro";   // 히든 직업 002~ 은 무기를 들지 않는다
+  const blood = c.adv === "blood", gambler = c.adv === "gambler" || c.adv === "engineer", necro = c.adv === "necro" || c.adv === "illusion" || c.adv === "wyvern";   // 히든 직업 002~ 은 무기를 들지 않는다
   const s = {};
   SKILLS.forEach((k) => { if (!k.job || k.job === c.job) s[k.id] = k.gold.length; });   // 이 직업이 배울 수 있는 스킬은 모두 최고 레벨
-  const w = !gambler && !necro && c.weapon && weaponsFor(c.job, blood).find((q) => q.id === c.weapon);   // Gambler 002 는 무기를 들지 않는다
+  const wy = c.adv === "wyvern";
+  const w = !gambler && (!necro || wy) && c.weapon && weaponsFor(c.job, blood, wy).find((q) => q.id === c.weapon);   // Gambler 002 는 무기를 들지 않는다 · Wyvern Knight 006 은 아르카디온만
   const lv = Math.max(1, Math.min(LV_TOP, Math.floor(c.lv) || 1));
   rpgJoin(g, 0, {
     name: look.name, ts: 1, lv, gift: GIFT.id, rs: RESET.id, auto: 1,
@@ -134,7 +155,17 @@ function sandboxWorld(c) {
     refreshHp(h, true);
   }
   h.map = SANDBOX.id;
-  if (necro) {                                    // Necromancer 004 — 직업 레벨 · 연마 셋 · 처음 명부(연습장에서만 켠다 — NECRO.live)
+  if (c.adv === "wyvern") {                       // Wyvern Knight 006 — 직업 레벨 · 연마 셋(연습장에서만 켠다 — WYVERN.live). 용혈은 0 에서 시작(기획안)
+    const n = (v, a, b) => Math.max(a, Math.min(b, Math.floor(v) || 0));
+    unlockWyvern(h, { lv: n(c.wyLv, 1, WYVERN.maxLv), tr: [0, 1, 2].map((i) => [n((c.wyTr || [])[i], 0, WYVERN.train.max), 0]) });
+    refreshHp(h, true);
+  }
+  if (c.adv === "illusion") {                     // Illusionist 005 — 직업 레벨 · 연마 셋(연습장에서만 켠다 — ILLUSION.live)
+    const n = (v, a, b) => Math.max(a, Math.min(b, Math.floor(v) || 0));
+    unlockIllusion(h, { lv: n(c.ilLv, 1, ILLUSION.maxLv), tr: [0, 1, 2].map((i) => [n((c.ilTr || [])[i], 0, ILLUSION.train.max), 0]) });
+    refreshHp(h, true);
+  }
+  if (c.adv === "necro") {                        // Necromancer 004 — 직업 레벨 · 연마 셋 · 처음 명부(연습장에서만 켠다 — NECRO.live)
     const n = (v, a, b) => Math.max(a, Math.min(b, Math.floor(v) || 0));
     unlockNecro(h, { lv: n(c.ncLv, 1, NECRO.maxLv), tr: [0, 1, 2].map((i) => [n((c.ncTr || [])[i], 0, NECRO.train.max), 0]), roster: [] });
     if (c.ncGrade > 0) necroFillRoster(h, c.ncGrade, (t) => mobName({ type: t }));
@@ -240,6 +271,47 @@ function EngineerBar({ v, keyOf: key, onUse, onFire }) {
   );
 }
 
+/* Illusionist 005 칸 — 트릭 다섯 · 연계 · 거울 집 · 스킬 일곱(누르면 쓴다). 그림은 직접 그린 도트 시트(il_icons) */
+function IllusionBar({ v, keyOf: key, onUse, onFire }) {
+  const ready = v.trick >= v.cost;
+  const notes = [
+    v.chain && `연계 ${v.chain.name} ${v.chain.left.toFixed(1)}초`,
+    v.house && `거울 집 ${v.house.left.toFixed(1)}초${v.house.in ? " · 안" : " · 밖"}`,
+    `잔상 ${Math.round(v.ghost * 100)}%`,
+    v.encore && "끝없는 앙코르",
+  ].filter(Boolean);
+  return (
+    <div className="gm-bar il-bar">
+      <div className="gm-top">
+        <span className="gm-name">{ILLUSION_NAME} <em>{ILLUSION_TITLE} · 직업 레벨 {v.lv}</em></span>
+        <span className="il-tricks" aria-label={`트릭 ${v.trick}/${v.max}`}>
+          {Array.from({ length: v.max }, (_, i) => <i key={i} className={i < v.trick ? "on" : ""} />)}
+          <b className={ready ? "full" : ""}>{ready ? `트릭 ${v.trick} · 강화` : `트릭 ${v.trick}/${v.max}`}</b>
+        </span>
+      </div>
+      <div className="gm-skills">
+        <button type="button" className="gm-skill" onClick={onFire} title={`${IL_CARD.name} — 기본 공격 · 맞히면 트릭 +1`}>
+          <span className="gm-ico" style={illusionIconStyle(ILLUSION_ICON.card, 48)} />
+          <span className="gm-label">{IL_CARD.name}</span>
+          {key("fire") && <kbd>{key("fire")}</kbd>}
+        </button>
+        {IL_SLOTS.map((q) => {
+          const D = IL_SKILLS[q.s], lock = ilLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, boost = ready && IL_TRICKED.includes(q.s);
+          return (
+            <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && cd > 0 ? "wait" : ""} ${!lock && !cd && boost ? "boost" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
+              title={lock || (q.s === "final" ? `${D.name} · 트릭 전부` : boost ? `${D.name} · 트릭 ${v.cost}개로 강화` : D.name)}>
+              <span className="gm-ico" style={illusionIconStyle(ILLUSION_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
+              <span className="gm-label">{lock ? `레벨 ${ILLUSION.unlock[q.s]}` : D.name}</span>
+              {key(q.act) && <kbd>{key(q.act)}</kbd>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="gm-notes">{notes.join(" · ")}</p>
+    </div>
+  );
+}
+
 /* Necromancer 004 칸 — 영혼 줄 · 스킬 일곱(누르면 쓴다) · 명부. 그림은 직접 그린 도트 시트(nc_icons) */
 function NecroBar({ v, keyOf: key, onUse, onFire }) {
   const full = v.soul >= v.max;
@@ -288,6 +360,47 @@ function NecroBar({ v, keyOf: key, onUse, onFire }) {
   );
 }
 
+/* Wyvern Knight 006 칸 — 용혈 줄 · 스킬 아홉(누르면 쓴다) · 상태. 그림은 직접 그린 도트 시트(wy_icons) */
+function WyvernBar({ v, keyOf: key, onUse, onFire }) {
+  const full = v.blood >= v.max;
+  const notes = [
+    v.u ? `와이번 ${Math.ceil(v.u.left)}초` : "와이번 없음",
+    v.aw > 0 && `역린 해방 ${v.aw.toFixed(1)}초`,
+    v.sc && `용린 ${v.sc.left.toFixed(1)}초 · 반격 ${v.sc.n}`,
+    v.sync ? "진룡 동조" : v.wing ? "해방 날개 잔상" : v.tint === "line" && "붉은 비늘",
+  ].filter(Boolean);
+  return (
+    <div className="gm-bar">
+      <div className="gm-top">
+        <span className="gm-name">{WYVERN_NAME} <em>{WYVERN_TITLE} · 직업 레벨 {v.lv}</em></span>
+        <span className="nc-soul wy-blood" aria-label={`용혈 ${v.blood}/${v.max}`}>
+          <i><span style={{ width: `${(v.blood / v.max) * 100}%` }} /></i>
+          <b className={full ? "full" : ""}>용혈 {Math.floor(v.blood)}</b>
+        </span>
+      </div>
+      <div className="gm-skills">
+        <button type="button" className="gm-skill" onClick={onFire} title={`${WY_CLAW.name} — 근접 기본 공격 · 맞히면 용혈 +${WY_BLOOD.claw}`}>
+          <span className="gm-ico" style={wyvernIconStyle(WYVERN_ICON.claw, 48)} />
+          <span className="gm-label">{WY_CLAW.name}</span>
+          {key("fire") && <kbd>{key("fire")}</kbd>}
+        </button>
+        {WY_SLOTS.map((q) => {
+          const S = WY_SKILLS[q.s], lock = wyLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, need = v.blood < S.cost;
+          return (
+            <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && (cd > 0 || need) ? "wait" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
+              title={lock || `${S.name} — 용혈 ${S.cost}`}>
+              <span className="gm-ico" style={wyvernIconStyle(WYVERN_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
+              <span className="gm-label">{lock ? `레벨 ${WYVERN.unlock[q.s]}` : S.short || S.name}</span>
+              {key(q.act) && <kbd>{key(q.act)}</kbd>}
+            </button>
+          );
+        })}
+      </div>
+      <p className="gm-notes">{notes.join(" · ")}</p>
+    </div>
+  );
+}
+
 export default function Sandbox() {
   const touch = useTouch();
   const [cfg, setCfg] = useState(DEFAULT);
@@ -303,26 +416,33 @@ export default function Sandbox() {
   const pointer = useRef(null);                   // 판 위 포인터(판 좌표) — 스킬이 이쪽으로 나간다
   const chargeRef = useRef(false);
   const lastWaim = useRef(null);
-  const [binds] = useState(loadKeys);
+  const [binds, setBinds] = useState(() => loadKeys(SANDBOX_KEYS));   // 연습장 키 — 게임 키와 따로(처음엔 게임 키에서 시작)
+  const [keysOpen, setKeysOpen] = useState(false);          // 키 설정 창
+  const keysOpenRef = useRef(false);
+  keysOpenRef.current = keysOpen;
+  useEffect(() => { saveKeys(binds, SANDBOX_KEYS); }, [binds]);
+  const [autoOn, setAutoOn] = useState(loadAuto);           // 자동 평타
+  const autoRef = useRef(autoOn);
+  autoRef.current = autoOn;
   const set = (patch) => setCfg((c) => ({ ...c, ...patch }));
 
-  const blood = cfg.adv === "blood", engineer = cfg.adv === "engineer", gambler = cfg.adv === "gambler" || engineer, necro = cfg.adv === "necro";   // gambler — 무기 없는 히든 직업(002~) 공통 칸
-  const hidden = gambler || necro;                // 무기 · 일반 스킬 칸이 없는 히든 직업
-  const skJob = engineer ? "engineer" : necro ? "necromancer" : gambler ? "gambler" : "";   // 스킬 설명 창을 쓰는 히든 직업
+  const blood = cfg.adv === "blood", engineer = cfg.adv === "engineer", gambler = cfg.adv === "gambler" || engineer, necro = cfg.adv === "necro", illusion = cfg.adv === "illusion", wyvern = cfg.adv === "wyvern";   // gambler — 무기 없는 히든 직업(002~) 공통 칸
+  const hidden = gambler || necro || illusion || wyvern;    // 무기 · 일반 스킬 칸이 없는 히든 직업
+  const skJob = wyvern ? "wyvern" : engineer ? "engineer" : necro ? "necromancer" : illusion ? "illusionist" : gambler ? "gambler" : "";   // 스킬 설명 창을 쓰는 히든 직업
   const skInfo = useMemo(() => hiddenSkillInfo(skJob), [skJob]);
-  skToggle.current = () => { if (!skJob) return; setNcOpen(false); setSkOpen((o) => !o); };
+  skToggle.current = () => { if (!skJob) return; setNcOpen(false); setKeysOpen(false); setSkOpen((o) => !o); };
   const magic = hasElem(cfg.job);
   const advs = ADV_CLASSES.filter((q) => q.job === cfg.job);
-  const weapons = useMemo(() => weaponsFor(cfg.job, blood), [cfg.job, blood]);
+  const weapons = useMemo(() => weaponsFor(cfg.job, blood, wyvern), [cfg.job, blood, wyvern]);
 
   // 직업이 바뀌면 그 직업에 없는 전직 · 무기 · 직업 스킬을 비운다
   const pickJob = (job) => setCfg((c) => ({
     ...c, job,
-    adv: c.adv === "blood" || c.adv === "gambler" || c.adv === "engineer" || c.adv === "necro" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
-    weapon: weaponsFor(job, c.adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : "",
+    adv: c.adv === "blood" || c.adv === "gambler" || c.adv === "engineer" || c.adv === "necro" || c.adv === "illusion" || c.adv === "wyvern" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
+    weapon: weaponsFor(job, c.adv === "blood", c.adv === "wyvern").some((w) => w.id === c.weapon) ? c.weapon : "",
     ks: { ...c.ks, job: "" },
   }));
-  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "gambler" || adv === "engineer" || adv === "necro" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
+  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "wyvern" ? WY_WEAPON_ITEM.id : adv === "gambler" || adv === "engineer" || adv === "necro" || adv === "illusion" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
   const commitLv = () => {
     const v = Math.max(1, Math.min(LV_TOP, Math.floor(Number(lvText)) || 1));
     setLvText(String(v));
@@ -334,6 +454,7 @@ export default function Sandbox() {
   const buildKey = JSON.stringify(build);
   useEffect(() => {
     G.current = sandboxWorld({ ...JSON.parse(buildKey), layout });
+    rpgInput(G.current, { cls: 0, kind: "auto", dir: autoRef.current });   // 새 세계에도 자동 평타 설정을 잇는다
     if (import.meta.env.DEV) window.__SB = G.current;   // 개발 중 상태를 들여다보려고(화면 확인 스크립트)
   }, [buildKey, round]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (G.current) placeDummies(G.current, layout); }, [layout]);
@@ -352,6 +473,13 @@ export default function Sandbox() {
   const gmUse = (sk) => act("hidden", { op: "use", s: sk });
   const closeNc = useCallback(() => setNcOpen(false), []);
   const closeSk = useCallback(() => setSkOpen(false), []);
+  const closeKeys = useCallback(() => setKeysOpen(false), []);
+  const toggleAuto = () => {
+    const on = !autoRef.current;
+    setAutoOn(on);
+    act("auto", on);
+    try { localStorage.setItem(AUTO_STORE, on ? "1" : "0"); } catch { /* 저장이 막혀 있으면 이번만 */ }
+  };
   const prey = () => {                            // Necromancer 004 — 흔적 추출 연습 몹(쓰러뜨릴 수 있다)
     const g = G.current, h = g && g.heroes[0];
     if (!h) return;
@@ -366,12 +494,22 @@ export default function Sandbox() {
     const isGm = () => !!gamblerView(G.current?.heroes[0]);
     const isEn = () => !!engineerView(G.current?.heroes[0]);
     const isNc = () => !!necroView(G.current?.heroes[0]);
-    const kmap = () => keyMap(binds, isBlood() ? BLOOD_ACTS : isGm() ? GM_FIRST : isEn() ? EN_FIRST : isNc() ? NC_FIRST : []);
+    const isIl = () => !!illusionView(G.current?.heroes[0]);
+    const isWy = () => !!wyvernView(G.current?.heroes[0]);
+    const kmap = () => keyMap(binds, isBlood() ? BLOOD_ACTS : isGm() ? GM_FIRST : isEn() ? EN_FIRST : isNc() ? NC_FIRST : isIl() ? IL_FIRST : isWy() ? WY_FIRST : []);
     const A = (k, d) => actRef.current(k, d);
     const press = (a) => {
       if (isGm() || isEn()) {                      // Gambler 002 · Engineer 003 — 평타 · 대쉬와 전용 스킬 일곱만
         const by = isEn() ? EN_BY_ACT : GM_BY_ACT;
         if (a === "fire") A("fire", true); else if (a === "dash") A("dash"); else if (by[a]) A("hidden", { op: "use", s: by[a] });
+        return;
+      }
+      if (isWy()) {                                // Wyvern Knight 006 — 평타 · 대쉬와 전용 스킬 아홉만
+        if (a === "fire") A("fire", true); else if (a === "dash") A("dash"); else if (WY_BY_ACT[a]) A("hidden", { op: "use", s: WY_BY_ACT[a] });
+        return;
+      }
+      if (isIl()) {                                // Illusionist 005 — 평타 · 대쉬와 전용 스킬 일곱만
+        if (a === "fire") A("fire", true); else if (a === "dash") A("dash"); else if (IL_BY_ACT[a]) A("hidden", { op: "use", s: IL_BY_ACT[a] });
         return;
       }
       if (isNc()) {                                // Necromancer 004 — 평타 · 대쉬와 전용 스킬 일곱만
@@ -401,6 +539,7 @@ export default function Sandbox() {
     };
     const release = (a) => {
       if (!a) return;
+      if (isWy()) { if (a === "fire") A("fire", false); return; }   // Wyvern Knight 006 — 떼는 키는 평타만
       if (a === "skill" && isBlood()) a = "bField";
       if (a === "fire") A("fire", false);
       if (a === "wskill") { chargeRef.current = false; A("wcharge", false); }
@@ -410,9 +549,9 @@ export default function Sandbox() {
     };
     const typing = (t) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
     const onKey = (e) => {
-      if (typing(e.target)) return;
-      // M — 히든 직업 스킬 설명 창(그 키가 다른 행동에 묶여 있으면 그 행동이 먼저)
-      if (e.code === "KeyM" && !kmap()[e.code] && (isGm() || isEn() || isNc())) { e.preventDefault(); if (!e.repeat) skToggle.current(); return; }
+      if (typing(e.target) || keysOpenRef.current) return;   // 키 설정 창이 열려 있으면 조작하지 않는다
+      // M — 히든 직업 스킬 설명 창. 키 행동 「스킬 설명」(기본 M)이 생긴 뒤로는 그 키를 따른다(그 키가 다른 행동에 묶여 있으면 그 행동이 먼저)
+      if ((kmap()[e.code] === "skills" || (e.code === "KeyM" && !kmap()[e.code])) && (isGm() || isEn() || isNc() || isIl() || isWy())) { e.preventDefault(); if (!e.repeat) skToggle.current(); return; }
       const a = kmap()[e.code];
       if (!a) return;
       e.preventDefault();
@@ -430,6 +569,7 @@ export default function Sandbox() {
     };
     // 판 위 마우스 버튼 — 키 설정에 넣은 버튼(좌클릭 평타 등). 오른쪽 버튼은 걷기 몫이라 쓰지 않는다
     const onDown = (e) => {
+      if (keysOpenRef.current) return;
       if (e.target !== cvsRef.current || e.pointerType === "touch" || e.button === 2) return;
       const a = kmap()[mouseCode(e.button)];
       if (a && !MOVE[a]) { e.preventDefault(); press(a); }
@@ -523,9 +663,9 @@ export default function Sandbox() {
           const t = trainView(g, h) || {};
           const bv = bloodHud(bloodView(h));
           const gm = gamblerView(h), en = engineerView(h);
-          const nc = necroView(h);
+          const nc = necroView(h), il = illusionView(h), wy = wyvernView(h);
           const [cx, cy] = cellOf(h);
-          setHud({ en, dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
+          setHud({ en, il, wy, dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
             hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "", gm,
             nc: nc && { ...nc, sh: nc.sh.map((q) => ({ t: q.t, life: q.life })), traces: nc.traces.map((q) => q.id), roster: nc.roster.map((q) => ({ ...q })), party: nc.party.slice(), tr: nc.tr.map((q) => q.slice()) } });
         }
@@ -541,8 +681,16 @@ export default function Sandbox() {
     hidden ? ["fire", "dash"].includes(a.id) : blood ? BLOOD_ACTS.includes(a.id) || ["fire", "dash", "wskill"].includes(a.id)
       : !BLOOD_ACTS.includes(a.id) && (!["adv", "advUlt", "healMode"].includes(a.id) || (cfg.adv && (a.id === "adv" || (a.id === "advUlt" && cfg.adv === "summoner") || (a.id === "healMode" && cfg.adv === "healer"))))
   ));
+  // 키 설정 창이 보일 행동 — 고른 직업 그대로(히든 직업은 빌린 키 칸과 스킬 이름)
+  const keyWho = {
+    sandbox: true, blood,
+    hidden: wyvern ? { slots: WY_SLOTS, skills: WY_SKILLS, fire: WY_CLAW.name } : engineer ? { slots: EN_SLOTS, skills: EN_SKILLS, fire: EN_PULSE.name }
+      : necro ? { slots: NC_SLOTS, skills: NC_SKILLS, fire: NC_SCYTHE.name } : illusion ? { slots: IL_SLOTS, skills: IL_SKILLS, fire: IL_CARD.name }
+      : gambler ? { slots: GM_SLOTS, skills: GM_SKILLS, fire: GM_CHIP.name } : null,
+    adv: !blood && ADV_CLASSES.some((q) => q.id === cfg.adv && q.job === cfg.job) ? cfg.adv : "",
+  };
   const el = ELEM_BY_ID[elemFor(cfg.job, cfg.elem)];
-  const title = [engineer ? ENGINEER_NAME : necro ? NECRO_NAME : gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
+  const title = [wyvern ? WYVERN_NAME : engineer ? ENGINEER_NAME : necro ? NECRO_NAME : illusion ? ILLUSION_NAME : gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
 
   return (
     <div className="page sb-page">
@@ -574,6 +722,8 @@ export default function Sandbox() {
               <button type="button" className="jt-chip" onClick={() => tool("reset")}>기록 지우기</button>
               <button type="button" className="jt-chip" onClick={() => tool("heal")}>체력 · 대기 되돌리기</button>
               <button type="button" className="jt-chip" onClick={() => setRound((r) => r + 1)}>처음부터</button>
+              <button type="button" className={`jt-chip ${autoOn ? "on" : ""}`} aria-pressed={autoOn} title="끄면 평타 키를 누를 때만 칩니다" onClick={toggleAuto}>자동 평타 {autoOn ? "켬" : "끔"}</button>
+              {!touch && <button type="button" className={`jt-chip ${keysOpen ? "on" : ""}`} aria-pressed={keysOpen} onClick={() => { setSkOpen(false); setNcOpen(false); setKeysOpen((o) => !o); }}>키 설정</button>}
               {skJob && <button type="button" className={`jt-chip ${skOpen ? "on" : ""}`} aria-pressed={skOpen} onClick={() => skToggle.current()}>스킬 설명{!touch && <em>M</em>}</button>}
               {gambler && !engineer && <button type="button" className="jt-chip" title="무적이어도 최대 체력 8% 피해를 한 번 받습니다" onClick={() => G.current && rpgSandboxHit(G.current, 0)}>시험 타격 받기</button>}
               {necro && <button type="button" className="jt-chip" title="쓰러뜨릴 수 있는 몹 다섯(기사 · 암살 · 사수 · 주술 · 거수형)을 앞에 세웁니다" onClick={prey}>추출 연습 몹 세우기</button>}
@@ -581,19 +731,22 @@ export default function Sandbox() {
                 <select aria-label="명부에 넣을 몹" value={ncPick} onChange={(e) => setNcPick(e.target.value)}>
                   {NC_ALL.map((t) => <option key={t} value={t}>{mobName({ type: t })} · {NC_KINDS[kindOf(t)].name}</option>)}
                 </select>
-                <button type="button" className={`jt-chip ${ncOpen ? "on" : ""}`} aria-pressed={ncOpen} onClick={() => { setSkOpen(false); setNcOpen((o) => !o); }}>그림자 명부</button>
+                <button type="button" className={`jt-chip ${ncOpen ? "on" : ""}`} aria-pressed={ncOpen} onClick={() => { setSkOpen(false); setKeysOpen(false); setNcOpen((o) => !o); }}>그림자 명부</button>
                 <button type="button" className="jt-chip" title="고른 몹 그림자를 명부 맨 앞에 넣습니다 — 다음 소집에 먼저 나옵니다" onClick={() => { const h = G.current && G.current.heroes[0]; if (h) necroPutRoster(h, ncPick, cfg.ncGrade || 1, (t) => mobName({ type: t })); }}>명부에 넣기</button>
               </span>}
             </div>
             {engineer && hud && hud.en && <EngineerBar v={hud.en} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {gambler && !engineer && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {skJob && skOpen && skInfo && <SkillInfoPanel info={skInfo} onClose={closeSk} keyOf={key}
-              lv={(hud && (engineer ? hud.en : necro ? hud.nc : hud.gm) || {}).lv || 1}
-              icon={(s) => engineer ? engineerIconStyle(ENGINEER_ICON[s], 40) : necro ? necroIconStyle(NECRO_ICON[s], 40) : gamblerIconStyle(GAMBLER_ICON[s], 40)} />}
+              lv={(hud && (wyvern ? hud.wy : engineer ? hud.en : necro ? hud.nc : illusion ? hud.il : hud.gm) || {}).lv || 1}
+              icon={(s) => wyvern ? wyvernIconStyle(WYVERN_ICON[s], 40) : engineer ? engineerIconStyle(ENGINEER_ICON[s], 40) : illusion ? illusionIconStyle(ILLUSION_ICON[s], 40) : necro ? necroIconStyle(NECRO_ICON[s], 40) : gamblerIconStyle(GAMBLER_ICON[s], 40)} />}
+            {keysOpen && <SandboxKeys binds={binds} setBinds={setBinds} who={keyWho} onClose={closeKeys} onReset={() => setBinds(loadKeys())} />}
             {necro && ncOpen && hud && hud.nc && <NecroRosterPanel v={hud.nc} onClose={closeNc}
               onSummon={(t) => act("hidden", { op: "use", s: "summon", t })} onRecall={(t) => act("hidden", { op: "recall", t })}
               onParty={(list) => act("hidden", { op: "party", list })}
               onRefine={(t) => { const h = G.current && G.current.heroes[0]; if (h) necroSandboxRefine(h, t); }} />}
+            {wyvern && hud && hud.wy && <WyvernBar v={hud.wy} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
+            {illusion && hud && hud.il && <IllusionBar v={hud.il} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {necro && hud && hud.nc && <NecroBar v={hud.nc} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {touch && !hidden && <div className="jt-pads">
               <button type="button" className="btn-ghost" onClick={() => act("skill")}>큰 기술{hud && hud.sk > 0 ? ` ${Math.ceil(hud.sk)}초` : ""}</button>
@@ -631,7 +784,31 @@ export default function Sandbox() {
                 <button type="button" className={`jt-chip ${gambler && !engineer ? "on" : ""}`} aria-pressed={gambler && !engineer} onClick={() => pickAdv("gambler")}>{GAMBLER_NAME}</button>
                 <button type="button" className={`jt-chip ${engineer ? "on" : ""}`} aria-pressed={engineer} onClick={() => pickAdv("engineer")}>{ENGINEER_NAME}</button>
                 <button type="button" className={`jt-chip ${necro ? "on" : ""}`} aria-pressed={necro} onClick={() => pickAdv("necro")}>{NECRO_NAME}</button>
+                <button type="button" className={`jt-chip ${illusion ? "on" : ""}`} aria-pressed={illusion} onClick={() => pickAdv("illusion")}>{ILLUSION_NAME}</button>
+                <button type="button" className={`jt-chip ${wyvern ? "on" : ""}`} aria-pressed={wyvern} onClick={() => pickAdv("wyvern")}>{WYVERN_NAME}</button>
               </div>
+              {wyvern && <>
+                <label className="sb-row">직업 레벨
+                  <input type="number" min="1" max={WYVERN.maxLv} value={cfg.wyLv} onChange={(e) => set({ wyLv: Number(e.target.value) })} />
+                </label>
+                {WY_TRAIN_NAMES.map((n, i) => (
+                  <label key={n} className="sb-row">{n}
+                    <input type="number" min="0" max={WYVERN.train.max} value={cfg.wyTr[i]} onChange={(e) => { const t = cfg.wyTr.slice(); t[i] = Number(e.target.value); set({ wyTr: t }); }} />
+                  </label>
+                ))}
+                <p className="mk-note">용혈은 0 에서 시작합니다. 연마 합계 {WYVERN.tint.line} · {WYVERN.tint.wing}에 모습이 바뀌고 {WYVERN.sync}이면 진룡 동조입니다.</p>
+              </>}
+              {illusion && <>
+                <label className="sb-row">직업 레벨
+                  <input type="number" min="1" max={ILLUSION.maxLv} value={cfg.ilLv} onChange={(e) => set({ ilLv: Number(e.target.value) })} />
+                </label>
+                {IL_TRAIN_NAMES.map((n, i) => (
+                  <label key={n} className="sb-row">{n}
+                    <input type="number" min="0" max={ILLUSION.train.max} value={cfg.ilTr[i]} onChange={(e) => { const t = cfg.ilTr.slice(); t[i] = Number(e.target.value); set({ ilTr: t }); }} />
+                  </label>
+                ))}
+                <p className="mk-note">연마 합계 {ILLUSION.tint.blue}에 카드 테두리가 푸르고 {ILLUSION.tint.mirror}에 뒷면이 거울 무늬, {ILLUSION.encore}이면 끝없는 앙코르입니다. 스택 가득을 켜면 트릭이 늘 5개입니다.</p>
+              </>}
               {necro && <>
                 <label className="sb-row">직업 레벨
                   <input type="number" min="1" max={NECRO.maxLv} value={cfg.ncLv} onChange={(e) => set({ ncLv: Number(e.target.value) })} />
@@ -695,9 +872,9 @@ export default function Sandbox() {
                 <button type="button" className={`jt-chip ${cfg.stats === "spread" ? "on" : ""}`} aria-pressed={cfg.stats === "spread"} onClick={() => set({ stats: "spread" })}>레벨만큼 나눔</button>
                 <button type="button" className={`jt-chip ${cfg.stats === "max" ? "on" : ""}`} aria-pressed={cfg.stats === "max"} onClick={() => set({ stats: "max" })}>스탯 최대</button>
               </div>
-              {!hidden && <label className="sb-row">무기
+              {(!hidden || wyvern) && <label className="sb-row">무기
                 <select value={cfg.weapon} onChange={(e) => set({ weapon: e.target.value })}>
-                  {!blood && <option value="">맨손(기본 무기)</option>}
+                  {!blood && <option value="">{wyvern ? "맨손(아르카디온 기술을 못 씀)" : "맨손(기본 무기)"}</option>}
                   {weapons.map((w) => <option key={w.id} value={w.id}>{w.name}{w.hold ? " · 미공개" : ""}</option>)}
                 </select>
               </label>}
@@ -740,9 +917,11 @@ export default function Sandbox() {
                   <>
                     <li><kbd>{key("up")}</kbd><kbd>{key("left")}</kbd><kbd>{key("down")}</kbd><kbd>{key("right")}</kbd> 이동 · 오른쪽 클릭으로 걷기</li>
                     <li>스킬은 마우스 쪽으로 나갑니다</li>
-                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {engineer && a.id === "fire" ? EN_PULSE.name : gambler && a.id === "fire" ? GM_CHIP.name : necro && a.id === "fire" ? NC_SCYTHE.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
+                    {helpActs.map((a) => <li key={a.id}><kbd>{key(a.id)}</kbd> {engineer && a.id === "fire" ? EN_PULSE.name : gambler && a.id === "fire" ? GM_CHIP.name : wyvern && a.id === "fire" ? WY_CLAW.name : necro && a.id === "fire" ? NC_SCYTHE.name : illusion && a.id === "fire" ? IL_CARD.name : a.name.replace(/\(BLOOD-001[^)]*\)/, "")}</li>)}
                     {gambler && (engineer ? EN_SLOTS : GM_SLOTS).map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {(engineer ? EN_SKILLS : GM_SKILLS)[q.s].name}</li>)}
+                    {illusion && IL_SLOTS.map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {IL_SKILLS[q.s].name}</li>)}
                     {necro && NC_SLOTS.map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {NC_SKILLS[q.s].name}</li>)}
+                    {wyvern && WY_SLOTS.map((q) => <li key={q.s}><kbd>{key(q.act)}</kbd> {WY_SKILLS[q.s].name}</li>)}
                   </>
                 )}
               </ul>

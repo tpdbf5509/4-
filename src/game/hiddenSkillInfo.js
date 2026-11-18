@@ -4,6 +4,8 @@
 import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_TRAIN_NAMES, GM_CHIP, GM_BET, GM_LUCK, GM_VEIL, GM_DICE, GM_RAIN, GM_DD, GM_TABLE, GM_EDGE, GM_JACK } from "./gamblerData.js";
 import { ENGINEER, ENGINEER_NAME, ENGINEER_TITLE, EN_SLOTS, EN_TRAIN_NAMES, EN_PULSE, EN_TURRET, EN_DRONE, EN_MAGNET, EN_RAIL, EN_MECH, EN_OC, EN_ORBIT } from "./engineerData.js";
 import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_TRAIN_NAMES, NC_SCYTHE, NC_SOUL, NC_ROSTER, NC_EXTRACT, NC_SUMMON, NC_SWAP, NC_DOMAIN, NC_MARCH, NC_BURN, NC_LEGION } from "./necroData.js";
+import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_TRAIN_NAMES, WY_BLOOD, WY_CLAW, WY_CONTRACT, WY_ROAR, WY_DIVE, WY_SCALE, WY_SKY, WY_AWAKE, WY_ULT, WY_ASSAULT, WY_ARCADION } from "./wyvernData.js";
+import { ILLUSION, ILLUSION_NAME, ILLUSION_TITLE, IL_SLOTS, IL_TRAIN_NAMES, IL_TRICK, IL_CARD, IL_SHUFFLE, IL_SLASH, IL_PRISON, IL_BLINK, IL_FIST, IL_MIRROR, IL_FINAL } from "./illusionData.js";
 
 const pct = (v) => `${Math.round(v * 100)}%`;
 const x = (v) => `×${Number(v.toFixed(1))}`;
@@ -114,6 +116,82 @@ function necro() {
   };
 }
 
-const MAKERS = { gambler, engineer, necromancer: necro };
+function wyvern() {
+  const U = WYVERN.unlock, B = WY_BLOOD, CT = WY_CONTRACT, RO = WY_ROAR, DV = WY_DIVE, SC = WY_SCALE, SK = WY_SKY, AW = WY_AWAKE, UL = WY_ULT, AS = WY_ASSAULT, AR = WY_ARCADION;
+  const [h1, h2] = AR.hits;
+  return {
+    id: "wyvern", name: WYVERN_NAME, title: WYVERN_TITLE, res: "용혈", trainNames: WY_TRAIN_NAMES,
+    rules: [
+      `용혈 최대 ${WYVERN.blood} · 처음 ${WYVERN.bloodStart}. 용조격 적중 +${B.claw} · 용염 포효 적중 +${B.roar} · 와이번 공격 적중 +${B.wyvern}.`,
+      `용혈 연마 ${B.sp25} — 얻는 용혈 +${pct(B.gain25)}. 쓰러지면 용혈이 0 이 됩니다.`,
+      `연마 합계 ${WYVERN.tint.line} — 붉은 비늘 · ${WYVERN.tint.wing} — 역린 해방 날개 잔상 · ${WYVERN.sync} — 진룡 동조.`,
+      "무기를 들 수 없습니다. 와이번은 피해를 받지 않습니다.",
+    ],
+    basic: { s: "claw", act: "fire", name: WY_CLAW.name, lv: U.claw,
+      desc: ["앞쪽 부채꼴을 발톱 기운으로 베는 근접 기본 공격입니다.", `한 번에 가까운 ${WY_CLAW.max}명까지. 맞히면 용혈 +${B.claw}.`],
+      stats: [["피해", x(WY_CLAW.mul)], ["공격 간격", `${WY_CLAW.gap}초`], ["거리", WY_CLAW.reach], ["각도", deg(WY_CLAW.arc)]] },
+    skills: WY_SLOTS.map((q) => ({ ...q, ...{
+      contract: { name: CT.name, lv: U.contract, desc: ["와이번을 불러 내 뒤를 따라다니게 합니다.", `${CT.gap}초마다 가까운 적에게 화염탄을 쏩니다. 대기는 와이번이 떠난 뒤부터 셉니다.`],
+        stats: [["비용", `용혈 ${CT.cost}`], ["대기", `${CT.cd}초`], ["지속", `${CT.dur}초`], ["피해", `${x(CT.mul)} · ${CT.gap}초마다`], ["찾는 거리", CT.seek]],
+        train: [`조련 연마 ${CT.sp25} — 화염탄 ${x(CT.mul25)}`, `조련 연마 ${CT.sp50} — 지속 ${CT.dur50}초`] },
+      roar: { name: RO.name, lv: U.roar, desc: ["포탈에서 용의 머리가 나와 앞으로 불을 뿜습니다.", `화염 ${RO.n}번. 와이번이 있으면 짧은 두 번째 갈래 ${x(RO.sub.mul)}. 역린 해방 중 폭 +${pct(RO.awakeArc)}.`],
+        stats: [["비용", `용혈 ${RO.cost}`], ["대기", `${RO.cd}초`], ["거리", RO.reach], ["각도", deg(RO.arc)], ["피해", `${x(RO.mul)} × ${RO.n}`]] },
+      dive: { name: DV.name, lv: U.dive, desc: ["하늘로 올라 겨눈 자리에 내리꽂힙니다.", `와이번이 있으면 함께 내려와 ${x(DV.mulJoint)}. 처음 ${DV.inv}초는 피해를 받지 않습니다.`],
+        stats: [["비용", `용혈 ${DV.cost}`], ["대기", `${DV.cd}초`], ["거리", DV.reach], ["범위", `반지름 ${DV.r}`], ["피해", x(DV.mul)]],
+        train: [`천공 연마 ${DV.sp25} — 범위 +${pct(DV.r25)}`, `천공 연마 ${DV.sp50} — 끝에 날개 폭풍 ${x(DV.stormMul)}`, `역린 해방 중 — 추가 폭발 ${x(DV.extraMul)}`] },
+      scale: { name: SC.name, lv: U.scale, desc: [`${SC.dur}초 동안 받는 몹 피해를 ${pct(SC.cut)} 줄입니다.`, `맞으면 때린 몹에게 화염 가시로 반격합니다(최대 ${SC.counters}번).`],
+        stats: [["비용", `용혈 ${SC.cost}`], ["대기", `${SC.cd}초`], ["반격", x(SC.mul)], ["반격 거리", SC.reach]] },
+      sky: { name: SK.name, lv: U.sky, desc: ["겨눈 영역에 화염을 떨어뜨립니다.", `떨어질 때마다 영역 안 가장 가까운 적을 쫓습니다. 역린 해방 중 ${SK.nAwake}번.`],
+        stats: [["비용", `용혈 ${SK.cost}`], ["대기", `${SK.cd}초`], ["거리", SK.reach], ["영역", `반지름 ${SK.r}`], ["피해", `${x(SK.mul)} × ${SK.n}`]] },
+      awake: { name: AW.name, lv: U.awake, desc: [`곁의 와이번을 몸에 흡수하고 용혈을 모두 써서 ${AW.dur}초 동안 반룡이 됩니다. 와이번을 소환해 둬야 쓸 수 있습니다.`, `기술 피해 +${pct(AW.dmg)} · 걷는 빠르기 +${pct(AW.spd)}. 진룡 동조면 와이번 공격 +${pct(AW.syncWyvern)}.`],
+        stats: [["비용", `용혈 ${AW.cost}`], ["대기", `${AW.cd}초`], ["지속", `${AW.dur}초`]],
+        train: [`용혈 연마 ${AW.sp50} — 지속 ${AW.dur50}초`] },
+      ult: { name: UL.name, lv: U.ult, ult: 1, desc: ["하늘로 솟아 겨눈 자리에 용성으로 떨어집니다.", `첫 충돌 · 화염 폭발 ${UL.n}번 · 마지막 충돌. 역린 해방 중 ${x(UL.awakeK)}.`],
+        stats: [["비용", "용혈 0"], ["대기", `${UL.cd}초`], ["거리", UL.reach], ["범위", `반지름 ${UL.r}`], ["피해", `${x(UL.firstMul)} + ${x(UL.bMul)} × ${UL.n} + ${x(UL.lastMul)}`]],
+        train: [`진룡 동조 — 끝에 화염 균열 ${x(UL.crackMul)}`] },
+      assault: { name: AS.name, lv: U.assault, desc: [`겨눈 쪽으로 ${AS.len} 돌진하며 둘레를 ${AS.n}번 벱니다.`, "벽 앞에서 멈춥니다."],
+        stats: [["비용", `용혈 ${AS.cost}`], ["대기", `${AS.cd}초`], ["범위", `반지름 ${AS.r}`], ["피해", `${x(AS.mul)} × ${AS.n}`]] },
+      arcadion: { name: AR.name, lv: U.arcadion, desc: ["손에 든 용의 대검 아르카디온으로 두 번 돌진해 벱니다.", "아르카디온을 들고 있어야 씁니다."],
+        stats: [["비용", `용혈 ${AR.cost}`], ["대기", `${AR.cd}초`], ["범위", `반지름 ${h1.r} · ${h2.r}`], ["피해", `${x(h1.mul)} + ${x(h2.mul)}`]] },
+    }[q.s] })),
+  };
+}
+
+function illusion() {
+  const U = ILLUSION.unlock, T = IL_TRICK;
+  return {
+    id: "illusionist", name: ILLUSION_NAME, title: ILLUSION_TITLE, res: "트릭", trainNames: IL_TRAIN_NAMES,
+    rules: [
+      `트릭 최대 ${T.max}. 절단 카드 적중 +${T.basic} · 다른 이름의 공격 스킬을 ${T.window}초 안에 이어 맞히면 +${T.chain}(같은 스킬 반복은 없음).`,
+      `트릭 ${T.cost}개 이상에서 공격 스킬을 쓰면 ${T.cost}개를 쓰고 첫 적중 대상에게 잔상 한 번 — 그 스킬 첫 타격의 ${pct(T.ghost)}(트릭 연마 ${T.sp50} — ${pct(T.ghost50)}).`,
+      `${T.window}초 동안 유효 공격이 없으면 연계 기록이 지워집니다(트릭 연마 ${T.sp25} — ${T.window25}초). 잔상은 트릭을 만들지 않습니다.`,
+      `연마 합계 ${ILLUSION.encore} — 끝없는 앙코르: 미러 하우스 안 잔상이 ${pct(IL_MIRROR.encore)} 커지고 최후의 셔플 끝에 거울 파쇄 ${x(IL_FINAL.encoreMul)}.`,
+    ],
+    basic: { s: "card", act: "fire", name: IL_CARD.name, lv: U.card,
+      desc: ["날카로운 카드를 던지는 기본 공격입니다.", `맞히면 트릭 +${T.basic}.`],
+      stats: [["피해", x(IL_CARD.mul)], ["공격 간격", `${IL_CARD.gap}초`], ["사거리", IL_CARD.range], ["폭", IL_CARD.w]] },
+    skills: IL_SLOTS.map((q) => ({ ...q, ...{
+      shuffle: { name: IL_SHUFFLE.name, lv: U.shuffle, desc: ["겨눈 자리로 카드를 차례로 던지고 마지막에 터뜨립니다.", "폭발 반지름과 판정 범위가 같습니다."],
+        stats: [["대기", `${IL_SHUFFLE.cd}초`], ["사거리", IL_SHUFFLE.reach], ["범위", `반지름 ${IL_SHUFFLE.r}`], ["피해", `${x(IL_SHUFFLE.mul)} × ${IL_SHUFFLE.n} + 폭발 ${x(IL_SHUFFLE.endMul)}`]],
+        train: [`카드 연마 ${IL_SHUFFLE.sp25} — 카드 +${IL_SHUFFLE.add25}장`] },
+      slash: { name: IL_SLASH.name, lv: U.slash, desc: ["카드를 두른 채 두 번 돌진하며 벱니다.", "벽 앞에서 멈춥니다."],
+        stats: [["대기", `${IL_SLASH.cd}초`], ["돌진", IL_SLASH.len], ["폭", IL_SLASH.w], ["피해", `${x(IL_SLASH.mul)} × 2`]] },
+      prison: { name: IL_PRISON.name, lv: U.prison, desc: ["카드 상자로 가두고 네 번 친 뒤 접히며 터집니다.", `일반 몹은 묶고 보스는 둔화만 · 사람은 최대 ${IL_PRISON.pvpBind}초.`],
+        stats: [["대기", `${IL_PRISON.cd}초`], ["사거리", IL_PRISON.reach], ["범위", `반지름 ${IL_PRISON.r}`], ["피해", `${x(IL_PRISON.mul)} × 4 + 최종 ${x(IL_PRISON.endMul)}`]] },
+      blink: { name: IL_BLINK.name, lv: U.blink, desc: ["겨눈 쪽으로 순간이동하고 원래 자리의 카드 분신이 터집니다.", "도착 자리가 막혔으면 가장 가까운 자리로. 자리가 없으면 쓰지 않습니다."],
+        stats: [["대기", `${IL_BLINK.cd}초`], ["이동", IL_BLINK.len], ["폭발", `반지름 ${IL_BLINK.r}`], ["피해", x(IL_BLINK.mul)]],
+        train: [`공간 연마 ${IL_BLINK.sp25} — 이동 ${IL_BLINK.len25}`, `공간 연마 ${IL_BLINK.sp50} — 폭발 반지름 ${IL_BLINK.r50}`] },
+      fist: { name: IL_FIST.name, lv: U.fist, desc: ["카드 다발을 큰 주먹으로 뭉쳐 앞으로 내지릅니다.", "곧은 띠 안을 모두 칩니다."],
+        stats: [["대기", `${IL_FIST.cd}초`], ["거리", IL_FIST.len], ["폭", IL_FIST.w], ["피해", x(IL_FIST.mul)]],
+        train: [`카드 연마 ${IL_FIST.sp50} — ${x(IL_FIST.mul50)}`] },
+      mirror: { name: IL_MIRROR.name, lv: U.mirror, desc: ["쓴 자리에 거울 집을 세웁니다.", `안에서 쓴 공격 스킬은 첫 적중 대상에게 ${pct(IL_MIRROR.ghost)} 잔상을 한 번 더 줍니다.`],
+        stats: [["대기", `${IL_MIRROR.cd}초`], ["범위", `반지름 ${IL_MIRROR.r}`], ["지속", `${IL_MIRROR.dur}초`], ["트릭", "0"]] },
+      final: { name: IL_FINAL.name, lv: U.final, ult: 1, desc: [`카드 ${IL_FINAL.n}장이 원으로 서서 연달아 치고 큰 거울이 부서집니다.`, `트릭을 모두 씁니다. ${T.max}개면 최종 +${pct(IL_FINAL.full)}.`],
+        stats: [["대기", `${IL_FINAL.cd}초`], ["사거리", IL_FINAL.reach], ["범위", `반지름 ${IL_FINAL.r}`], ["피해", `${x(IL_FINAL.mul)} × ${IL_FINAL.n} + 최종 ${x(IL_FINAL.endMul)}`]] },
+    }[q.s] })),
+  };
+}
+
+const MAKERS = { gambler, engineer, necromancer: necro, illusionist: illusion, wyvern };
 export const HIDDEN_SKILL_JOBS = Object.keys(MAKERS);
 export const hiddenSkillInfo = (id) => (MAKERS[id] ? MAKERS[id]() : null);

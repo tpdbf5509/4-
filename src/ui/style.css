@@ -1187,6 +1187,17 @@ kbd {
 .nc-soul i span { position: absolute; inset: 0 auto 0 0; background: #6c4ca0; }
 .nc-soul b { min-width: 58px; font-weight: 400; font-size: 12px; color: #c9bfd9; font-variant-numeric: tabular-nums; }
 .nc-soul b.full { color: #d4d1ea; }
+.wy-blood i { border-color: rgba(217, 140, 95, 0.45); background: rgba(26, 12, 10, 0.85); }   /* Wyvern Knight 006 용혈 줄 — 영혼 줄 틀에 불씨 색 */
+.wy-blood i span { background: #b5523e; }
+.wy-blood b { color: #e3c3b0; }
+.wy-blood b.full { color: #f2d3a6; }
+/* Illusionist 005 연습장 칸 — 같은 갈색 틀에 트릭 다섯 칸만 더한다(포인트는 트릭 칸 라벤더 한 곳) */
+.il-tricks { display: inline-flex; align-items: center; gap: 3px; }
+.il-tricks i { width: 12px; height: 18px; border: 1px solid rgba(183, 169, 216, 0.4); background: rgba(20, 16, 10, 0.6); border-radius: 2px; }
+.il-tricks i.on { background: #b7a9d8; border-color: #fff4e6; }
+.il-tricks b { margin-left: 8px; min-width: 76px; font-weight: 400; font-size: 12px; color: #c3bda4; font-variant-numeric: tabular-nums; }
+.il-tricks b.full { color: #e6dcf7; }
+.il-bar .gm-skill.boost { border-color: rgba(183, 169, 216, 0.6); }
 .nc-roster { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 8px 0 0; padding: 0; list-style: none; font-size: 11.5px; color: #b0a6c2; letter-spacing: -0.02em; }
 .nc-roster li em { font-style: normal; color: #8b7fa3; margin-left: 3px; }
 .nc-roster li.on { color: #d9ccf0; }
@@ -1611,6 +1622,8 @@ kbd {
 .rpg-key-more summary { cursor: pointer; color: #cdbf9e; }
 .rpg-key-more p { margin: 4px 0 0; }
 .rpg-keyset .rpg-stat-foot { flex-wrap: wrap; }
+/* 격자 연습장 키 설정 — 판 위 왼쪽 위에 겹쳐 띄운다(11월 18일) */
+.sb-keyset { top: 12px; max-height: calc(100% - 24px); z-index: 6; }
 @media (max-width: 600px) {
   .rpg-key-row { grid-template-columns: minmax(0, 1fr) 84px 84px; gap: 6px; }
   .rpg-key-name b { font-size: 15px; }
@@ -3030,9 +3043,6 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-side .icons .rpg-skill.cool span { opacity: 0.7; }
 .rpg-side .icons .rpg-skillbar .rpg-skill { min-height: 74px; padding-top: 15px; }
 .rpg-side .icons .rpg-skillbar .rpg-skill .rpg-ico { width: 38px; height: 38px; }
-/* 11월 16일 — 신규 스킬 4종 · 원초적 지배: 아이콘 그림이 나오기 전까지 1px 테두리 칸에 한 글자 */
-.rpg-side .icons .rpg-skillbar .rpg-skill .rpg-ico-txt { box-sizing: border-box; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(226, 205, 165, 0.45);
-  border-radius: 6px; font-weight: normal; font-size: 17px; letter-spacing: -0.03em; color: #e8a0a6; background: rgba(60, 14, 30, 0.35); }
 .rpg-side .icons .rpg-skillbar .rpg-skill span { font-size: 9.5px; letter-spacing: -0.03em; }
 .rpg-side .icons .rpg-skillbar .rpg-skill em { position: absolute; left: 0; right: 0; top: 24px; margin: 0; text-align: center; font-size: 22px; text-shadow: 0 1px 2px #000; pointer-events: none; }
 .rpg-side .icons .rpg-skill.pot { min-height: 90px; }
@@ -3247,7 +3257,9 @@ button.forge-stage:disabled { cursor: default; }
 .skw .ncw-head h2 { color: var(--nw-hi); }
 .skw.skw-gambler { --nw-bg: #120d07; --nw-card: #1d160c; --nw-line: #5c4420; --nw-line2: #33270f; --nw-acc: #d8ad4f; --nw-acc2: #e6c77e; --nw-text: #f2dfa6; --nw-mute: #a8956a; --nw-hi: #f6e5aa; }
 .skw.skw-engineer { --nw-bg: #081214; --nw-card: #0f1d1f; --nw-line: #2b5a60; --nw-line2: #1a3438; --nw-acc: #4fa7b2; --nw-acc2: #8fd3dc; --nw-text: #cfeff3; --nw-mute: #7fa5aa; --nw-hi: #e0f8fb; }
-.skw-gambler .skw-ico, .skw-engineer .skw-ico { border-color: var(--nw-line); }
+.skw.skw-wyvern { --nw-bg: #150c09; --nw-card: #20130e; --nw-line: #6a3a2a; --nw-line2: #3b2118; --nw-acc: #d98c5f; --nw-acc2: #e8ad85; --nw-text: #f4dfd0; --nw-mute: #ab8e7e; --nw-hi: #faeadf; }   /* Wyvern Knight 006 — WYVERN_COLORS 를 톤다운한 불씨 주황 */
+.skw.skw-illusionist { --nw-bg: #110d16; --nw-card: #1a1522; --nw-line: #4e4466; --nw-line2: #2c2639; --nw-acc: #b7a9d8; --nw-acc2: #d6cdea; --nw-text: #ede6f7; --nw-mute: #988fab; --nw-hi: #fff4e6; }
+.skw-gambler .skw-ico, .skw-engineer .skw-ico, .skw-illusionist .skw-ico, .skw-wyvern .skw-ico { border-color: var(--nw-line); }
 /* 실제 게임(11월 17일) — 일반 직업은 직업마다 톤다운 색(검사 갈색 금빛 · 마법사 흐린 남색 · 궁수 세이지), BLOOD-001 은 검붉은 포도주색. 전직은 원래 직업 색을 따른다 */
 .skw.skw-warrior { --nw-bg: #15100b; --nw-card: #1f1810; --nw-line: #5e4a2e; --nw-line2: #362a1a; --nw-acc: #d6b26a; --nw-acc2: #e3c48a; --nw-text: #efe3c8; --nw-mute: #a8977a; --nw-hi: #f6ead0; }
 .skw.skw-mage { --nw-bg: #0c1018; --nw-card: #131a26; --nw-line: #34466a; --nw-line2: #1f2a3f; --nw-acc: #8aa6d8; --nw-acc2: #aec2e6; --nw-text: #dbe4f3; --nw-mute: #8794ad; --nw-hi: #eef3fb; }

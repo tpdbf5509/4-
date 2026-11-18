@@ -6,6 +6,8 @@ import { bloodOn } from './bloodJob.js';
 import { gamblerOn } from './gamblerJob.js';
 import { engineerOn } from './engineerJob.js';   // 히든 직업 Engineer 003(11월 17일 — 격자 연습장에만)
 import { necroOn } from './necroJob.js';
+import { wyvernOn } from './wyvernJob.js';   // 히든 직업 Wyvern Knight 006(11월 17일 — 격자 연습장에만)
+import { illusionOn } from './illusionJob.js';   // 히든 직업 Illusionist 005(11월 17일 — 격자 연습장에만)
 /* ── 받은 입력을 규칙에 넘긴다 — 방장 화면(RpgView.jsx)과 전용 서버(server/)가 같은 것을 쓴다 ──
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
@@ -60,8 +62,8 @@ export function rpgInput(g, d) {
   if (!d || !Number.isInteger(d.cls) || !g.heroes[d.cls]) return;
   // BLOOD-001 — 일반 스킬 칸 · 큰 기술 · 전직 스킬은 쓰지 않는다(큰 기술 키는 화면이 혈역 증폭으로 바꿔 보낸다, 11월 14일 사용자 결정)
   if (bloodOn(g.heroes[d.cls]) && (d.kind === "skill" || d.kind === "use" || (d.kind === "adv" && ["use", "ult", "mode"].includes(d.dir?.op)))) return;
-  // Gambler 002 · Engineer 003 · Necromancer 004 — 무기 · 일반 스킬 칸 · 큰 기술 · 전직 스킬 · 무기 스킬을 쓰지 않는다(전용 기본 공격과 스킬만, 사용자 기획)
-  if ((gamblerOn(g.heroes[d.cls]) || engineerOn(g.heroes[d.cls]) || necroOn(g.heroes[d.cls])) && (['skill', 'use', 'wskill', 'wcharge', 'waim', 'blood'].includes(d.kind) || (d.kind === "adv" && ["use", "ult", "mode"].includes(d.dir?.op)))) return;
+  // Gambler 002 · Engineer 003 · Necromancer 004 · Illusionist 005 · Wyvern Knight 006 — 무기 · 일반 스킬 칸 · 큰 기술 · 전직 스킬 · 무기 스킬을 쓰지 않는다(전용 기본 공격과 스킬만, 사용자 기획)
+  if ((gamblerOn(g.heroes[d.cls]) || engineerOn(g.heroes[d.cls]) || necroOn(g.heroes[d.cls]) || illusionOn(g.heroes[d.cls]) || wyvernOn(g.heroes[d.cls])) && (['skill', 'use', 'wskill', 'wcharge', 'waim', 'blood'].includes(d.kind) || (d.kind === "adv" && ["use", "ult", "mode"].includes(d.dir?.op)))) return;
   if(stormBusy(g.heroes[d.cls]) && ['skill','use','adv','dash','blood'].includes(d.kind))return;
   if (d.kind !== "trade" && !(d.kind==="guild"&&["sync","settled"].includes(d.dir?.op)) && trading(g.heroes[d.cls])) return;
   const act = Object.prototype.hasOwnProperty.call(ACTS, d.kind) ? ACTS[d.kind] : null;

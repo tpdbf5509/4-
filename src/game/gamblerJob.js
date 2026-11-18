@@ -8,6 +8,7 @@
    싸우는 동안의 상태 h.gm — 칩 · 대기 · 보호막 · 불운 보정 · 직전 공격 · 날아가는 것들. 칩은 저장하지 않는다(스냅샷으로만 이어받는다).
    E(엔진, rpg.js gamblerEngine): fx · say · sys · near · strike · basic · alive · base · face · locked · fight · squash · blocks ·
    cast(h, sid) · dummy · cdOff · rand(g) · allies · shield · shieldAmt · boss */
+import { faceAim } from './faceDir.js';
 import { GAMBLER as GM, GAMBLER_ID, GAMBLER_NAME, GAMBLER_TINT, GM_TRAIN_NAMES, GM_BET as BET, GM_LUCK as LUCK, GM_CHIP as CH, GM_VEIL as VL,
   GM_DICE as DC, GM_RAIN as RN, GM_DD as DD, GM_TABLE as TB, GM_EDGE as EG, GM_JACK as JK, GM_SKILLS } from "./gamblerData.js";
 
@@ -220,8 +221,7 @@ export function gamblerBasic(E, g, h, force) {
   let ax, ay;
   if (o) { const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
   else [ax, ay] = E.face(h);
-  if (Math.abs(ax) > 0.05) h.dir = ax < 0 ? -1 : 1;
-  h.face = 0;
+  faceAim(h, ax, ay);                              // 치는 쪽을 본다(예전엔 늘 앞)
   const coin = { fid: `gc${h.pi}.${++s.q}`, x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), d: 0, max: wallCut(E, h, ax, ay, CH.range), v: CH.v, wait: CH.wind,
     cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map, xp: 0 };
   s.coins.push(coin);

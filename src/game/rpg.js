@@ -1,6 +1,7 @@
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
 import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
 import {LIBRARY, LIBRARY_MAPS} from './libraryData.js';
+import {faceAim, faceAt} from './faceDir.js';
 import {storyGateOpen, storyGateWhy, storyCleared} from './storyQuestData.js';
 import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
@@ -25,6 +26,10 @@ import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill,
 import { EN_PULSE } from './engineerData.js';
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
 import { NC_SCYTHE } from './necroData.js';
+import { wyvernInput, wyvernBasic, tickWyvernJob, wyvernDown, wyvernFill, wyvernKill, wyvernRaidKill, wyvernOn, wyvernTake, wyvernSpd, wyvernLook } from './wyvernJob.js';   // 히든 직업 Wyvern Knight 006(11월 17일 — 격자 연습장에만)
+import { WY_CLAW } from './wyvernData.js';
+import { illusionInput, illusionBasic, tickIllusion, illusionDown, illusionFill, illusionKill, illusionRaidKill, illusionOn } from './illusionJob.js';   // 히든 직업 Illusionist 005(11월 17일 — 격자 연습장에만)
+import { IL_CARD } from './illusionData.js';
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodLifeOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
 import { worldCritBonus, worldDotMul, worldCooldownMul, worldArmorAbsorb, worldVoidCd } from "./armor.js";
@@ -815,6 +820,7 @@ export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobO
 export const advArtPath = (h, view = "front") => {
   if (gamblerLook(h)) return `/assets/characters/rpg/gambler-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Gambler 002 외형(사용자 그림, tools/cut-gambler-char.py) — 손님은 스냅샷 h.gmv. 해금 시험 중에는 BLOOD-001 보다 먼저
   if (necroLook(h)) return `/assets/characters/rpg/necro-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Necromancer 004 외형(사용자 그림 남 · 여, tools/cut-necro-char.py · 11월 17일)
+  if (wyvernLook(h)) return `/assets/characters/rpg/wyvern-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Wyvern Knight 006 외형(사용자 그림 남 · 여, tools/cut-wyvern-char.py · 11월 18일)
   if (engineerLook(h)) return `/assets/characters/rpg/engineer-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Engineer 003 외형(사용자 그림 한 벌 — 남녀 같은 그림, tools/cut-engineer-char.py) — 손님은 스냅샷 h.env
   if (h && (h.bdv || bloodOn(h))) return `/assets/characters/rpg/blood-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 BLOOD-001 외형(사용자 그림, tools/cut-blood-char.py) — 전직 그림 자리를 쓴다
   const c = advOf(h);
@@ -1481,7 +1487,7 @@ export function rpgWalk(h, dt) {
     h.look = [dx / len, dy / len]; h.lookF = h.face;
   }   // 마지막으로 걸은 쪽 — 키를 떼도 이쪽을 바라본다(aimDir)
   // 이속 물약 · 신발 — 방장과 손님이 같은 값(스냅샷의 물약 효과 · h.arm)으로 걷는다
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화) · 레퀴엠 차징 중 둔화
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화) · 레퀴엠 차징 중 둔화
   h.x += (dx / len) * v * dt;
   h.y += (dy / len) * v * RPG.squash * dt;
   keepIn(h, MAPS[h.map], 20);
@@ -1498,7 +1504,7 @@ function walkTo(h, dt) {
   else if ((h.destP = (h.destP || 0) + dt) >= MOVE.progT) return void stopMove(h);   // 한참 나아가지 못했다 — 좁은 틈에서 왔다 갔다 한다
   const ux = dx / (d || 1), uy = dy / (d || 1);
   const [sx, sy] = MOVE.steer ? steerAround(h, M, D, ux, uy, d, dt) : [ux, uy];
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h);
+  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h);
   const step = v * dt;
   if (d <= Math.max(MOVE.arrive, step)) {          // 닿았다
     h.x = D.x; h.y = D.y;
@@ -2063,6 +2069,8 @@ function killMob(g, m, pi) {
   gamblerKill(gamblerEngine, g, m, got);          // Gambler 002 직업 레벨 경험치
   engineerKill(engineerEngine, g, m, got);        // Engineer 003 직업 레벨 경험치
   necroKill(necroEngine, g, m, got);              // Necromancer 004 — 직업 경험치 · 영혼 · 추출 가능 흔적
+  illusionKill(illusionEngine, g, m, got);        // Illusionist 005 직업 레벨 경험치
+  wyvernKill(wyvernEngine, g, m, got);            // Wyvern Knight 006 직업 레벨 경험치
   if (m.dg) acOnKill(g, m, pi, got);              // 심연의 탑 강화 카드 — 처치 효과
   // 치지 않은 파티원 — 같은 맵이면 경험치를 나눠 받는다(코인은 없다)
   const part = m.xp * PARTY.share;
@@ -2075,7 +2083,7 @@ function killMob(g, m, pi) {
   if (m.boss) dropLoot(g, got, m);
 }
 // 월드 · 길드 보스 — 친 사람 가운데 같은 맵의 BLOOD-001 직업 경험치
-function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); engineerRaidKill(engineerEngine, g, q); necroRaidKill(necroEngine, g, q); } } }
+function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); engineerRaidKill(engineerEngine, g, q); necroRaidKill(necroEngine, g, q); illusionRaidKill(illusionEngine, g, q); wyvernRaidKill(wyvernEngine, g, q); } } }
 // 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
 export function huntingXp(h,m,amount=m.xp){
   const sp=SPAWNS.filter(s=>s.map===m.map&&Array.isArray(s.lv));
@@ -2252,6 +2260,7 @@ function hurtHero(g, h, raw, source, kind) {
     if (h.ac) dmg = acTake(g, h, dmg, source, kind);   // 심연의 탑 강화 카드 — 회피 · 방어 · 카드 보호막
     if (h.bd) dmg = bloodJobTake(bloodJobEngine, g, h, dmg, source);   // BLOOD-001 혈막 — 받는 피해 감소
     if (h.gm) dmg = gamblerTake(gamblerEngine, g, h, dmg, source);   // Gambler 002 칩 장막 — 보호막이 먼저 받는다
+    if (h.wy) dmg = wyvernTake(wyvernEngine, g, h, dmg, source);    // Wyvern Knight 006 용린 수호 — PvE 피해 35% 감소 · 반격
     if (dmg <= 0) return;
     if (advNullShield(advEngine, g, h)) return;     // 기사 무효화 방어막 — 한 대를 통째로 막는다
     dmg = advGiantTake(advEngine, g, h, dmg);       // 소환술사 거대 정령이 몫을 대신 맞는다
@@ -2263,7 +2272,7 @@ function hurtHero(g, h, raw, source, kind) {
   advHurt(advEngine, g, h);                       // 기사 — 철벽 방어 반격 · 생존 시험
   h.flash = 0.18;
   h.calm = 0;
-  h.numAcc += dmg;
+  h.numAcc += source?.doom ? WORLD_BOSS.doomDamage : dmg;   // 즉사 기술은 숫자만 크게 보인다 — 되받아치기 · 부활 계산은 실제 피해(남은 체력)로 한다
   if (h.numT <= 0) {
     fx(g, h.map, { kind: "dmg", x: h.x, y: h.y - 76, text: `-${Math.round(h.numAcc)}`, color: "#ff9a8a", t: 0.6, life: 0.6, by: h.pi });   // 내가 받은 피해
     h.numAcc = 0;
@@ -2286,6 +2295,8 @@ function hurtHero(g, h, raw, source, kind) {
     gamblerDown(gamblerEngine, g, h);             // Gambler 002 — 보호막 · 테이블 · 칩 해제
     engineerDown(engineerEngine, g, h);           // Engineer 003 — 설치물 · 오버클럭 해제
     necroDown(necroEngine, g, h);                 // Necromancer 004 — 그림자 · 영역 · 영혼 해제
+    wyvernDown(wyvernEngine, g, h);               // Wyvern Knight 006 — 용혈 0 · 와이번 · 변신 해제
+    illusionDown(illusionEngine, g, h);           // Illusionist 005 — 진행 중인 스킬 · 잔상 · 거울 집 · 트릭 해제
     fx(g, h.map, { kind: "burst", x: h.x, y: h.y - 30, r: 40, color: "#ff9a8a", n: 10, t: 0.5, life: 0.5 });
     say(g, h.map, h.x, h.y - 90, isPvp(h.map) ? "쓰러짐" : "쓰러짐 — 광장에서 일어납니다", "#ffbdb2");
   }
@@ -2352,7 +2363,7 @@ function heroAttack(g, h, force) {
       const [m0] = nearMobs(g, map, h.x, h.y, rng, 1);
       if (job.id === "warrior") {                 // 전사 — 둘레의 사람도 한꺼번에 벤다(몹은 아래에서)
         foes.forEach((o) => { hitFoe(g, h, o, dmg, true); addEmber(g, h, 1); });
-        if (!m0) { h.dir = foes[0].x < h.x ? -1 : 1; h.face = 0; fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI, color: el.light, t: 0.24, life: 0.24, snd: "slash" }); return true; }
+        if (!m0) { h.dir = foes[0].x < h.x ? -1 : 1; faceAt(h, foes[0].x, foes[0].y, RPG.squash); fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI, color: el.light, t: 0.24, life: 0.24, snd: "slash" }); return true; }
       } else if (!m0 || dist(h.x, h.y, foes[0].x, foes[0].y) < dist(h.x, h.y, m0.x, m0.y)) {
         return pvpAttack(g, h, job, el, dmg, rng, hy, force);   // 몹보다 사람이 가까우면 사람을 쏜다
       }
@@ -2363,7 +2374,7 @@ function heroAttack(g, h, force) {
     const list = nearMobs(g, map, h.x, h.y, rng * (h.ac ? acAreaMul(h) : 1));   // 강화 카드 — 기본 공격 범위
     if (!list.length) return force && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
-    h.face = 0;
+    faceAt(h, list[0].x, list[0].y, RPG.squash);   // 치는 쪽을 본다(예전엔 늘 앞)
     list.forEach((m) => { hitMob(g, pi, m, dmg); soak(g, h, m, 0); });
     afterHit(g, h, list[0], list[0].x, list[0].y, dmg);
     fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
@@ -2375,7 +2386,7 @@ function heroAttack(g, h, force) {
   const [m] = nearMobs(g, map, h.x, h.y, rng, 1);
   if (!m) return force && shootAir(g, h, job, el, dmg, rng, hy);
   h.dir = m.x < h.x ? -1 : 1;
-  h.face = 0;
+  faceAt(h, m.x, m.y, RPG.squash);
   const fly = (job.fly || 0.2) * (h.ac ? acFly(h) : 1);   // 강화 카드 — 투사체 속도
   const art = ELEM_ART[el.id];
   const prec = job.id === "archer" ? advPrecFire(advEngine, g, h) : null;   // 명사수 정밀 사격 — 준비됐으면 이번 평타가 꿰뚫는다
@@ -2417,8 +2428,8 @@ function aimAt(h, r) {
 // 허공 베기 — 맞는 것은 없고 베는 모습만
 function swingAir(g, h, el) {
   weaponMiss(h);
+  faceAim(h, ...aimDir(h));
   aimAt(h, 1);
-  h.face = 0;
   fx(g, h.map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
     color: el.light, t: 0.24, life: 0.24, snd: "slash" });
   return true;
@@ -2426,8 +2437,8 @@ function swingAir(g, h, el) {
 // 허공 쏘기 — 사거리 끝까지 날아간다. 마법 구슬은 떨어진 자리 둘레를 친다(landHit)
 function shootAir(g, h, job, el, dmg, rng, hy) {
   weaponMiss(h);
+  faceAim(h, ...aimDir(h));
   const [tx, ty] = aimAt(h, rng);
-  h.face = 0;
   const fly = job.fly || 0.2;
   if (job.id === "mage") {
     fx(g, h.map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, style: "orb",
@@ -2447,7 +2458,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
     const list = nearFoes(g, h, h.x, h.y, rng);
     if (!list.length) return force && h.dph === 2 && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
-    h.face = 0;
+    faceAt(h, list[0].x, list[0].y, RPG.squash);
     list.forEach((o) => { hitFoe(g, h, o, dmg, true); addEmber(g, h, 1); });   // 화염검 — 결투에서 평타를 맞히면 불똥
     fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
       color: el.light, t: 0.24, life: 0.24, snd: "slash" });
@@ -2456,7 +2467,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
   const [o] = nearFoes(g, h, h.x, h.y, rng);
   if (!o) return force && h.dph === 2 && shootAir(g, h, job, el, dmg, rng, hy);
   h.dir = o.x < h.x ? -1 : 1;
-  h.face = 0;
+  faceAt(h, o.x, o.y, RPG.squash);
   const fly = job.fly || 0.2;
   const art = ELEM_ART[el.id];
   // 명사수 정밀 사격 — 사람에게는 관통하지 않고 한 발만 세진다(전직 PvP 한도 +15% · 평타 한도 3% 는 그대로)
@@ -2552,7 +2563,7 @@ export function rpgSkill(g, pi) {
   }
   // 닿는 것이 없어도 기술은 나간다(대기 시간도 돈다) — 사거리는 표시일 뿐
   if (cx !== h.x) h.dir = cx < h.x ? -1 : 1;
-  h.face = 0;
+  if (cx !== h.x || cy !== h.y) faceAt(h, cx, cy, RPG.squash);
 
   list.forEach((m) => {
     if (isHeroT(m)) return hitFoe(g, h, m, base * mul);
@@ -2607,7 +2618,7 @@ function lungeTo(h, o, time) {
   const go = Math.max(0, d - ((o.rad || 16) * 0.5 + LUNGE_GAP));
   h.dvx = (dx / d) * (go / time); h.dvy = (dy / d) * (go / time);
   if (Math.abs(dx) > 1) h.dir = dx < 0 ? -1 : 1;
-  h.face = 0;
+  faceAim(h, dx, dy);
   h.dash = time; h.inv = Math.max(h.inv || 0, time + 0.1);
 }
 // 손님 화면에서 먼저 그리는 직업 돌진 베기 — 방장 판정과 같은 상대를 고른다. 판정(피해)은 방장만 한다
@@ -3289,7 +3300,9 @@ function trainTick(g, h) {
   if (t.stack) bloodJobFill(h);                     // BLOOD-001 — 혈량을 안정 상한까지
   if (t.stack) gamblerFill(h);                      // Gambler 002 — 칩 7개
   if (t.stack) engineerFill(h);                     // Engineer 003 — 전력 가득
+  if (t.stack) wyvernFill(h);                       // Wyvern Knight 006 — 용혈 100
   if (t.stack) necroFill(h);                        // Necromancer 004 — 영혼 100
+  if (t.stack) illusionFill(h);                     // Illusionist 005 — 트릭 5
   if (t.god && h.down <= 0) h.hp = h.max;
 }
 // 교관 창 — req = { op: "nocd" | "stack" | "god" } 켜고 끄기 · { op: "reset" } 기록 지우기 · { op: "heal" } 체력 · 대기 시간 처음으로
@@ -3457,8 +3470,12 @@ const engineerEngine = { ...gamblerEngine,
 const necroEngine = { ...gamblerEngine,
   trace: (m) => !!m && !isHeroT(m) && !m.boss && !m.sum && m.type !== "dummy" && !isWorldBoss(m) && !isGuildBoss(m) && !!MOB[m.type],
   mobName, bounds: (map) => [MAPS[map]?.w || 2000, MAPS[map]?.h || 1400, MAPS[map]?.top || 0], stop: (h) => { stopMove(h); h.hold = []; h.dash = 0; } };
+/* 히든 직업 Wyvern Knight 006(wyvernJob.js, 11월 17일 — 격자 연습장에만). 기준 피해 · 시전 객체는 Gambler 002 와 같다. stop: 걷기 멈춤(급강하 · 돌진) */
+const wyvernEngine = { ...engineerEngine, stop: (h) => { stopMove(h); h.hold = []; } };
+/* 히든 직업 Illusionist 005(illusionJob.js, 11월 17일 — 격자 연습장에만). Engineer 003 엔진(keep · open)에 stop(걷기 멈춤 — 순간이동 뒤) · bounds(맵 크기) */
+const illusionEngine = { ...engineerEngine, stop: (h) => { stopMove(h); h.hold = []; }, bounds: necroEngine.bounds };
 // 입력 kind "hidden" — 켜진 히든 직업으로 보낸다(Gambler · Necromancer 입력은 제 직업이 아니면 받지 않는다)
-export const rpgHidden = (g, pi, req) => { if (engineerOn(g.heroes[pi])) return engineerInput(engineerEngine, g, pi, req); gamblerInput(gamblerEngine, g, pi, req); necroInput(necroEngine, g, pi, req); };
+export const rpgHidden = (g, pi, req) => { if (wyvernOn(g.heroes[pi])) return wyvernInput(wyvernEngine, g, pi, req); if (engineerOn(g.heroes[pi])) return engineerInput(engineerEngine, g, pi, req); if (illusionOn(g.heroes[pi])) return illusionInput(illusionEngine, g, pi, req); gamblerInput(gamblerEngine, g, pi, req); necroInput(necroEngine, g, pi, req); };
 // 격자 연습장 시험 타격 — 허수아비는 때리지 않아 보호막(칩 장막)을 써 볼 수 없다. 연습장 맵에서만 최대 체력의 pct 만큼 한 대
 export function rpgSandboxHit(g, pi, pct) {
   const h = g.heroes[pi];
@@ -3925,6 +3942,8 @@ function stepHeroes(g, dt) {
     tickGambler(gamblerEngine, g, h, cdt);         // Gambler 002 — 칩 · 코인 · 보호막 · 장판
     tickEngineer(engineerEngine, g, h, cdt);       // Engineer 003 — 전력 · 과열 · 펄스 · 설치물
     tickNecro(necroEngine, g, h, cdt);             // Necromancer 004 — 영혼 · 그림자 · 예약 타격 · 영역
+    tickWyvernJob(wyvernEngine, g, h, cdt);        // Wyvern Knight 006 — 용혈 · 와이번 · 예약 타격 · 변신
+    tickIllusion(illusionEngine, g, h, cdt);       // Illusionist 005 — 트릭 · 카드 · 스킬 진행 · 잔상 · 거울 집
     if (h.admin && h.coins < ADMIN.coins) h.coins = ADMIN.coins;   // 관리자는 쓴 만큼 바로 다시 찬다
     if (h.admin && h.bag && MATERIALS.some((m) => (h.bag.m[m.id] || 0) < matMax(m.id))) {   // 보스 재료 · 강화석도 늘 가득(쓰거나 팔면 바로 다시 찬다 · 심연 화폐는 99,999)
       MATERIALS.forEach((m) => { h.bag.m[m.id] = matMax(m.id); });
@@ -4015,8 +4034,16 @@ function stepHeroes(g, dt) {
       if (engineerBasic(engineerEngine, g, h, force)) { h.cd = EN_PULSE.gap; h.swing = 0.2; h.fireQ = 0; }
       return;
     }
+    if (wyvernOn(h)) {                            // Wyvern Knight 006 — 평타는 용조격(근접 · 무기 평타 없음 · 간격 0.55초 고정)
+      if (wyvernBasic(wyvernEngine, g, h, force)) { h.cd = WY_CLAW.gap; h.swing = WY_CLAW.swing; h.fireQ = 0; }
+      return;
+    }
     if (necroOn(h)) {                             // Necromancer 004 — 평타는 그림자 낫(근접 · 무기 평타 없음 · 간격 0.55초 고정)
       if (necroBasic(necroEngine, g, h, force)) { h.cd = NC_SCYTHE.gap; h.swing = NC_SCYTHE.swing; h.fireQ = 0; }
+      return;
+    }
+    if (illusionOn(h)) {                          // Illusionist 005 — 평타는 절단 카드(무기 평타 없음 · 간격 0.5초 고정)
+      if (illusionBasic(illusionEngine, g, h, force)) { h.cd = IL_CARD.gap; h.swing = 0.2; h.fireQ = 0; }
       return;
     }
     if (force && comboPush(g, h)) { h.cd = heroCd(h); h.fireQ = 0; return; }   // 신성검 반격 뒤 평타 키 — 밀어내기
@@ -4026,7 +4053,7 @@ function stepHeroes(g, dt) {
 
 /* 걷는 속도(px/초) — 명사수 약점 포착(나보다 느린 적)이 견준다. 사람은 걷는 식 그대로(신발은 앞쪽 몫),
    몹은 종류마다 쫓는 속도 · 둔화 · 기절이면 0 */
-const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
+const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
 const MOB_WALK = { rabbit: 160, wolf: 175, boar: BOAR.walk };   // 그 밖은 BRUTE 값 · 보스 AI 값, 모르면 180
 function moveSpeedOf(o) {
   if (isHeroT(o)) return heroSpeed(o);
@@ -5012,8 +5039,8 @@ function abyssClear(g, r, inside) {
   const f = r.f, guard = isGuardFloor(f), now = abyssNow(g);
   r.best = Math.max(r.best || 0, f);
   inside.forEach((h) => {
-    if (!h.loaded || trading(h) || r.adm) return;   // 관리자가 올려 둔 칸(abyssPlace)은 파편 · 기록 없음
-    const aw = awOf(g, h);
+    if (!h.loaded || trading(h)) return;
+    const aw = awOf(g, h);   // 관리자가 올려 둔 칸(abyssPlace)도 일반 도전과 같이 파편 · 주간 기록 · 최초 돌파가 쌓인다(11월 18일 사용자 요청)
     let n = guard ? ABYSS_REWARD.guard(f) : ABYSS_REWARD.floor(f), bonus = 0;
     n = acFloorShards(h, n, guard, f, matCount(h.bag, SHARD));   // 강화 카드 — 층계 수당 · 이자 · 금빛 족쇄
     if (guard && f > aw.fc) { bonus = ABYSS_REWARD.weekBonus(f); aw.fc = f; }   // 이번 주 처음 넘은 10층 단위

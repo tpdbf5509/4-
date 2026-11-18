@@ -9,6 +9,7 @@
    그림자는 몹 목록(g.mobs)에 섞지 않는다(기획안 3부 5장) — 몹이 노리지 않고 맞지도 않는다(정한 해석: 그림자 체력 수치가 기획안에 없다).
    E(엔진, rpg.js necroEngine): fx · say · near · strike · basic · alive · base · face · locked · fight · squash · blocks · bounds ·
    cast(h, sid) · dummy · cdOff · boss · trace(m) · mobName(m) */
+import { faceAim } from './faceDir.js';
 import { NECRO as NC, NECRO_ID, NECRO_NAME, NECRO_TINT, NC_TRAIN_NAMES, NC_SOUL as SOUL, NC_ROSTER as RS, NC_TRACE as TR, NC_KINDS, NC_KIND_OF,
   NC_SCYTHE as SC, NC_EXTRACT as EX, NC_SUMMON as SM, NC_AI as AI, NC_SWAP as SW, NC_DOMAIN as DM, NC_MARCH as MC, NC_BURN as BN, NC_LEGION as LG,
   NC_ETERNAL as ET, NC_SKILLS } from "./necroData.js";
@@ -228,8 +229,7 @@ export function necroBasic(E, g, h, force) {
   let ax, ay;
   if (o) { const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
   else [ax, ay] = E.face(h);
-  if (Math.abs(ax) > 0.05) h.dir = ax < 0 ? -1 : 1;
-  h.face = 0;
+  faceAim(h, ax, ay);                              // 치는 쪽을 본다(예전엔 늘 앞)
   s.reaps.push({ w: SC.wind, ax: r2(ax), ay: r2(ay), cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map });
   E.fx(g, h.map, { kind: "sk_nc_reap", x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), r: SC.reach, pi: h.pi, t: SC.swing, life: SC.swing, snd: "ncReap" });
   return true;

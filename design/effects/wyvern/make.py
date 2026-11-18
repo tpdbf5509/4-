@@ -136,46 +136,6 @@ def smoke(c, cx, cy, r, u):
     c.band(cx, cy, r, r * .85, 0, 1, al(S[2], .8), dens=lambda d: (1 - d) * (.95 - u * .8))
     c.band(cx - r * .2, cy - r * .2, r * .5, r * .45, 0, 1, al(S[3], .7), dens=lambda d: (1 - d) * (.8 - u * .7))
 
-# ── 용조격(96×64) — 오른쪽을 보는 세 줄 발톱 참격. 기준점(8, 32) = 시전자 손. 반지름 80(1배) = 사거리 160(2배) ──
-def claw_cells():
-    out = []
-    for f in range(6):
-        c = Cv(96, 64); u = f / 5
-        sweep = ez(min(1, (f + 1) / 3))   # 0~2 칸에 휘둘러 나가고 3~5 칸은 잔상
-        fade = 0 if f < 3 else (f - 2) / 3
-        for k, (rr, col) in enumerate([(78, F[5]), (66, F[3]), (54, F[2])]):
-            a0 = -0.83; a1 = a0 + 1.66 * sweep
-            for j in range(3):   # 한 줄 굵기 3px, 바깥이 밝다
-                cc = col if j == 0 else (F[2] if j == 1 else R[3])
-                if fade > .66 and j == 0: cc = R[3]
-                n = int(rr * 3)
-                for i in range(n):
-                    a = a0 + (a1 - a0) * i / n
-                    taper = math.sin(i / n * math.pi)   # 끝은 가늘다
-                    if j >= 1 and taper < .35: continue
-                    if fade and BAYER[i % 4, (j + k) % 4] < fade: continue
-                    c.px(8 + math.cos(a) * (rr - j - k * .4), 32 + math.sin(a) * (rr - j), cc)
-        # 발톱 끝 불씨
-        if f < 5:
-            for i in range(10):
-                a = -0.83 + 1.66 * sweep * rnd(3, i, f); d = 50 + rnd(5, i, f) * 32
-                c.px(8 + math.cos(a) * d, 32 + math.sin(a) * d, F[5] if f < 2 else F[3])
-        out.append(c)
-    return out
-
-# ── 타격(48×48) — 불꽃 터짐 · 붉은 고리 · 사방 불씨 ──
-def hit_cells():
-    out = []
-    for f in range(7):
-        c = Cv(48, 48); u = f / 6
-        flame(c, 24, 26, 6 + ez(u) * 9, u, seed=11 + f)
-        c.ring(24, 24, 6 + 16 * ez(u), 5 + 13 * ez(u), F[4] if f < 3 else R[3], gap=0 if f < 4 else 2)
-        for i in range(12):
-            a = i * TAU / 12 + rnd(7, i) * .4; d = 6 + 19 * ez(u) * (.6 + rnd(9, i) * .5)
-            if f < 6: star(c, 24 + math.cos(a) * d, 24 + math.sin(a) * d, 1 if f < 3 else 0, F[5] if f < 2 else F[3])
-        out.append(c)
-    return out
-
 # ── 와이번(72×56) — 옆모습 · 오른쪽을 본다. 0~3 날갯짓 반복 · 4~6 불을 뿜는 공격. 줄 0 그대로 · 1 연마 75 붉은 선 ──
 # ── 와이번 몸(244×124, 1배로 그린다) — 11월 18일 사용자 그림(design/wyvern-job/ref/wyvern-ref.jpg)을 그대로 도트로 옮긴다 ──
 # 흰 바탕을 가장자리부터 지우고(몸 안 흰 반점은 둘레 색으로 메움) 좌우를 뒤집어 머리를 오른쪽에 둔다(게임 기준).
@@ -476,57 +436,6 @@ def drop_cells():
         out.append(c)
     return out
 
-# ── 용린 수호(40×56, 발밑 기준) — 몸을 둘러싼 붉은 다각 비늘 · 6칸 반복 반짝임 ──
-def scale_cells():
-    out = []
-    for f in range(6):
-        c = Cv(40, 56)
-        for i in range(22):
-            a = i * TAU / 22; rx, ry = 15, 22
-            x, y = 20 + math.cos(a) * rx, 28 + math.sin(a) * ry
-            lit = (i + f * 2) % 7 == 0
-            c.fillpoly([(x, y - 3), (x + 2.5, y - 1), (x + 2, y + 2), (x - 2, y + 2), (x - 2.5, y - 1)], F[4] if lit else (R[3] if i % 2 else R[2]))
-            c.px(x, y - 2, F[6] if lit else R[4])
-        outline(c, al(R[0], .8))
-        out.append(c)
-    return out
-
-# ── 반격 화염 가시(48×24) — 오른쪽으로 돋는다. 기준점(4, 12) ──
-def spike_cells():
-    out = []
-    for f in range(6):
-        c = Cv(48, 24); u = f / 5; L = 40 * ez(min(1, (f + 1) / 2.5)) * (1 - max(0, u - .6) * 1.5)
-        for j, (dy, k) in enumerate([(0, 1), (-6, .7), (6, .7)]):
-            l = L * k
-            c.fillpoly([(4, 12 + dy - 2), (4 + l, 12 + dy * 1.4), (4, 12 + dy + 2)], F[3] if f < 4 else R[3])
-            c.line(4, 12 + dy, 4 + l * .9, 12 + dy * 1.35, F[5] if f < 3 else F[3])
-        if f < 4: flame(c, 6, 12, 4, u, seed=81)
-        out.append(c)
-    return out
-
-# ── 반룡 변신 날개 · 뿔(64×72, 발밑 기준 32,66) — 몸 뒤에 그린다. 0~5 생겨남 · 6~9 반복. 줄 0 검붉은 · 1 보라 잔상(연마 130) ──
-def awake_cells():
-    out = []
-    for row in range(2):
-        for f in range(10):
-            c = Cv(64, 72); u = min(1, (f + 1) / 6); beat = math.sin(f * 1.3) * 2 if f >= 6 else 0
-            col = (R[2], R[3], F[2]) if row == 0 else (al(V[2], .8), al(V[3], .8), al(V[4], .9))
-            for side in (-1, 1):
-                X = lambda d: 32 + side * d * u
-                tipy = 4 - beat
-                mem = [(32 + side * 4, 36), (X(9), 16 - beat * .4), (X(30), tipy), (X(27), 18), (X(22), 22), (X(18), 30), (X(12), 33), (X(7), 42)]
-                c.fillpoly(mem, col[0])
-                c.fillpoly([(32 + side * 4, 34), (X(9), 18 - beat * .4), (X(26), tipy + 4), (X(16), 26), (X(8), 36)], col[1])
-                c.line(32 + side * 4, 36, X(9), 16 - beat * .4, col[2]); c.line(X(9), 16 - beat * .4, X(30), tipy, col[2])
-                for d_, e_ in [(27, 18), (18, 30), (7, 42)]: c.line(X(9), 16 - beat * .4, X(d_), e_, col[1] if row else R[1])
-            if row == 0 and f >= 3:   # 뿔 — 머리 높이(66 - 46)
-                k = min(1, (f - 2) / 3)
-                for side in (-1, 1):
-                    c.line(32 + side * 3, 20, 32 + side * (5 + 4 * k), 20 - 7 * k, G[3]); c.px(32 + side * (5 + 4 * k), 20 - 7 * k, G[4])
-            outline(c, al(R[0] if row == 0 else V[0], .7))
-            out.append(c)
-    return out
-
 # ── 화염 기둥 · 용성 충돌(72×160, 바닥 기준 cy 152) — 0~2 내려꽂힘 · 3~5 굵은 기둥 · 6~7 흩어짐 ──
 def pillar_cells():
     out = []
@@ -608,45 +517,333 @@ def bit_cells():
             out.append(c)
     return out
 
-# ── 아르카디온 대검(96×28, 손잡이 기준 10,14) — 용뼈 칼날 · 붉은 날 빛. 0~2 빚어짐 · 3 다 됨 ──
-def blade_cells():
+# ══ 11월 18일 사용자 "모든 스킬이 어색해 · 간지도 없어 · 천공강습이 비어 보여" — 굵은 참격 · 별빛 타격 · 비늘 방벽 · 등에 붙은 날개 · 손에 드는 아르카디온 ══
+# 굵은 참격 한 줄 — (cx, cy) 를 중심으로 반지름 R 의 호. 앞쪽(끝)이 굵고 밝으며 꼬리는 가늘다. 바깥 가장자리가 가장 밝다(흰 심 → 금빛 → 주황 → 붉은 → 검붉은 테)
+def slash_arc(c, cx, cy, R, a0, a1, width, sq, pal, sweep=1.0, fade=0.0, seed=1, ghost=True):
+    span = (a1 - a0) * sweep
+    if abs(span) < 1e-3: return
+    def wof(t):
+        w = width * (math.sin(math.pi * min(1, t * 1.15)) ** 0.6) * (0.3 + 0.7 * t)   # 머리 쪽이 굵다
+        if t > 0.86: w = min(w, width * (1 - t) / 0.14)                                # 머리 끝은 뾰족하게
+        return w
+    lo = R - width - 2
+    x0, x1 = int(cx - R - 2), int(cx + R + 3); y0, y1 = int(cy - (R + 2) * sq), int(cy + (R + 2) * sq) + 1
+    for y in range(max(0, y0), min(c.h, y1)):
+        for x in range(max(0, x0), min(c.w, x1)):
+            dx, dy = x + .5 - cx, (y + .5 - cy) / sq
+            r = math.hypot(dx, dy)
+            if r > R + .5 or r < lo * (0.7 if ghost else 1): continue
+            a = math.atan2(dy, dx)
+            t = ((a - a0) % TAU) / span if span > 0 else ((a0 - a) % TAU) / -span
+            if t > 1: continue
+            w = wof(t)
+            k = (R - r) / w if w > 0.5 else 9
+            if 0 <= k <= 1:
+                if fade and BAYER[y % 4, x % 4] < fade * (0.5 + k * 0.9): continue
+                col = pal[min(len(pal) - 1, int(k * len(pal)))]
+                if t < 0.3 and k < 0.25: col = pal[2]   # 꼬리는 덜 밝다
+                c.px(x, y, col)
+            elif ghost and fade < 0.9 and k > 1:   # 잔상 — 안쪽에 성긴 띠
+                g = (R - r - w) / max(1, w)
+                dn = (0.5 if g < .8 else 0.25 if g < 1.6 else 0) * (1 - fade) * math.sin(math.pi * t)
+                if BAYER[y % 4, x % 4] < dn: c.px(x, y, pal[4] if g < .8 else pal[6 if len(pal) > 6 else -1])
+
+SLASH_FIRE = [W, F[6], F[5], F[4], F[3], F[2], F[1], R[3], R[2]]
+SLASH_VIO = [W, F[6], F[5], R[4], R[3], V[3], V[2], V[1], V[0]]
+
+def speed_lines(c, cx, cy, R, a0, a1, sq, col, seed, n=10, ln=10):
+    for i in range(n):
+        a = a0 + (a1 - a0) * rnd(seed, i); r = R * (1.02 + rnd(seed, i, 2) * 0.14)
+        x, y = cx + math.cos(a) * r, cy + math.sin(a) * r * sq
+        tx, ty = -math.sin(a), math.cos(a) * sq
+        if a1 < a0: tx, ty = -tx, -ty
+        L = ln * (0.5 + rnd(seed, i, 3))
+        c.line(x, y, x - tx * L, y - ty * L, col)
+
+# ── 용조격(112×80, 기준점 10,40 · 반지름 88) — 굵은 발톱 세 줄이 겹쳐 휘몰아친다. 6칸 ──
+def claw_cells():
     out = []
-    for f in range(4):
-        c = Cv(96, 28); u = min(1, (f + 1) / 4); L = 82 * u
-        c.rect(2, 12, 10, 4, R[1]); c.rect(3, 13, 8, 2, G[2])                       # 손잡이
-        c.fillpoly([(11, 6), (15, 14), (11, 22), (13, 14)], G[3])                     # 날개 모양 코등이
-        c.fillpoly([(13, 8), (13 + L * .9, 10), (13 + L, 14), (13 + L * .9, 18), (13, 20)], G[3])   # 칼날
-        c.fillpoly([(13, 10), (13 + L * .85, 12), (13 + L * .95, 14), (13, 14)], G[4])
-        c.line(13, 20, 13 + L * .9, 18, F[3] if f == 3 else F[2]); c.line(13, 19, 13 + L * .88, 17, F[4] if f == 3 else R[3])   # 붉은 날
-        for i in range(int(L / 10)): c.px(18 + i * 10, 15, R[3]); c.px(19 + i * 10, 15, R[2])   # 뼈 마디
-        if f < 3:
-            for i in range(10): c.px(13 + L + rnd(83, i, f) * 6 - 3, 14 + (rnd(85, i, f) - .5) * 12, F[5])
-        outline(c, R[0])
+    for f in range(6):
+        c = Cv(112, 96); sweep = ez(min(1, (f + 1) / 2.6)); fade = 0 if f < 3 else (f - 2) / 3.2
+        for k, (rr, wd) in enumerate([(88, 13), (72, 10), (56, 7)]):
+            slash_arc(c, 10 - k * 2, 48, rr, -0.95 + k * .08, 0.95 - k * .05, wd, 0.62, SLASH_FIRE, sweep, fade, seed=3 + k, ghost=(k == 0))
+        if f < 4: speed_lines(c, 10, 48, 88, -0.9, -0.9 + 1.8 * sweep, 0.62, al(F[5], .9), 11 + f, n=8, ln=12)
+        if f < 5:
+            for i in range(14):
+                a = -0.9 + 1.8 * sweep * rnd(3, i, f); d = 60 + rnd(5, i, f) * 36
+                star(c, 10 + math.cos(a) * d, 48 + math.sin(a) * d * .62, 1 if (i + f) % 3 == 0 and f < 3 else 0, F[5] if f < 2 else F[3])
+        outline(c, al(R[0], .75))
         out.append(c)
     return out
 
-# ── 가로 참격(128×80, 기준점 16,40 · 반지름 90) — 줄 0 1타 주황 · 1 2타 붉은 + 보라 테. 6칸 ──
+# ── 타격(64×64) — 흰 섬광 · 길고 짧은 가시 여덟 · 불꽃 고리 · 사방 불씨. 8칸 ──
+def hit_cells():
+    out = []
+    for f in range(8):
+        c = Cv(64, 64); u = f / 7; cx, cy = 32, 32
+        if f < 4:   # 가시 — 가운데에서 뻗었다가 들어간다
+            L0 = [12, 26, 22, 12][f]
+            for i in range(8):
+                a = i * TAU / 8 + 0.2; L = L0 * (1 if i % 2 == 0 else 0.55); w = 2.4 if i % 2 == 0 else 1.6
+                px_, py_ = -math.sin(a) * w, math.cos(a) * w
+                tip = (cx + math.cos(a) * L, cy + math.sin(a) * L)
+                c.fillpoly([(cx + px_, cy + py_), tip, (cx - px_, cy - py_)], F[4] if f < 2 else F[2])
+                c.line(cx, cy, tip[0] * .85 + cx * .15, tip[1] * .85 + cy * .15, F[6] if f < 2 else F[4])
+        rr = 4 + 22 * ez(u)
+        if 1 <= f <= 6:
+            c.band(cx, cy, rr, rr * .82, .8, 1, F[3] if f < 4 else R[3], dens=1.0 - u * .7)
+            c.ring(cx, cy, rr, rr * .82, F[5] if f < 4 else F[2], gap=0 if f < 5 else 2)
+        if f < 5: flame(c, cx, cy + 1, 5 + 6 * (1 - u) + (3 if f == 1 else 0), min(1, u * 1.3), seed=11 + f)
+        if f < 2: c.disc(cx, cy, 5 - f * 2, 5 - f * 2, W)
+        for i in range(16):
+            a = i * TAU / 16 + rnd(7, i) * .4; d = 6 + 26 * ez(u) * (.55 + rnd(9, i) * .55)
+            if 2 <= f < 7: star(c, cx + math.cos(a) * d, cy + math.sin(a) * d - u * 4, 1 if f < 4 and i % 3 == 0 else 0, F[5] if f < 4 else F[2])
+        if f >= 5: smoke(c, cx, cy - (f - 5) * 2, 8 + (f - 5) * 3, (f - 5) / 3)
+        outline(c, al(R[0], .6))
+        out.append(c)
+    return out
+
+# ── 용린 수호(76×96, 발밑 기준 38,90) — 몸을 감싼 붉은 용비늘 방벽. 0~5 아래부터 비늘이 쌓여 올라온다 · 6~11 빛이 비늘을 훑고 지나간다(반복) · 12~15 깨져 흩어진다 ──
+SC_CX, SC_CY, SC_RX, SC_RY = 38, 50, 32, 42
+def scale_px(c, f, rise=1.0, sweep=None, crack=0.0):
+    sx, sy = 9, 7
+    for y in range(c.h):
+        for x in range(c.w):
+            dx, dy = (x + .5 - SC_CX) / SC_RX, (y + .5 - SC_CY) / SC_RY
+            d = math.sqrt(dx * dx + dy * dy)
+            if d > 1: continue
+            top = SC_CY + SC_RY - (2 * SC_RY + 2) * rise
+            if y < top: continue
+            r_ = int((y - (SC_CY - SC_RY)) // sy); ly = (y - (SC_CY - SC_RY)) - r_ * sy
+            sh = (r_ % 2) * sx / 2; lx = ((x - SC_CX - sh) % sx) - sx / 2
+            q = math.hypot(lx, (ly - 1) * sx / sy / 1.2)
+            edge = ly >= 1 and abs(q - sx / 2) < .8
+            fres = 1.0 if d > .86 else max(0.0, (d - .66) / .2) ** 1.5   # 가장자리만 비늘로 덮고 가운데(몸)는 비운다
+            lit = sweep is not None and abs((x - SC_CX) * .6 + (y - SC_CY) - sweep) < 6
+            if crack and rnd(x // 6, y // 6, 99) < crack: continue
+            if y >= top and y < top + 2 and rise < 1: c.px(x, y, F[5]); continue
+            if edge:
+                col = F[6] if lit else (F[4] if dx < -.1 and dy < .2 else F[2] if dy < .5 else R[3])
+                if BAYER[y % 4, x % 4] < fres or (lit and d > .4): c.px(x, y, col)
+            elif BAYER[y % 4, x % 4] < fres * .8 or (lit and d > .4 and BAYER[y % 4, x % 4] < .3):
+                c.px(x, y, al(F[3] if lit else (R[3] if dx < 0 else R[2]), .85))
+    # 테 — 위 · 왼쪽은 밝게, 아래 · 오른쪽은 붉게
+    if rise >= 1:
+        for i in range(260):
+            a = i / 260 * TAU; x, y = SC_CX + math.cos(a) * SC_RX, SC_CY + math.sin(a) * SC_RY
+            if crack and rnd(i // 12, 3, 97) < crack: continue
+            c.px(x, y, F[5] if math.sin(a) < -.1 or math.cos(a) < -.4 else R[3])
+        c.ring(SC_CX, 90, 28, 6, F[3] if not crack else R[3], gap=2 if crack else 0)   # 발밑 비늘 고리
+def scale_cells():
+    out = []
+    for f in range(16):
+        c = Cv(76, 96)
+        if f < 6: scale_px(c, f, rise=ez((f + 1) / 6))
+        elif f < 12: scale_px(c, f, sweep=-70 + (f - 6) * 26)
+        else: scale_px(c, f, crack=.22 + (f - 12) * .24)
+        if f >= 12:
+            for i in range(18):
+                a = rnd(41, i) * TAU; d = 20 + (f - 11) * 8 * (.6 + rnd(43, i))
+                x, y = SC_CX + math.cos(a) * d, SC_CY + math.sin(a) * d * .9
+                c.fillpoly([(x, y - 2), (x + 2, y), (x, y + 2), (x - 2, y)], R[3] if i % 3 else F[4])
+        outline(c, al(R[0], .7))
+        out.append(c)
+    return out
+
+# ── 반격 — 불붙은 비늘 창(64×20, 기준점 4,10). 0~1 돋음 · 2~4 날아감 · 5 꺼짐 ──
+def spike_cells():
+    out = []
+    for f in range(6):
+        c = Cv(64, 20); L = [20, 44, 58, 58, 52, 40][f]; tail = [0, 8, 22, 34, 40, 38][f]
+        for i in range(int(tail)):   # 뒤 불꼬리
+            t = i / max(1, tail); x = 4 + L * .3 - i * .9
+            w = 4 * (1 - t)
+            c.rect(x, 10 - w / 2, 1, max(1, w), al(F[3] if t < .4 else F[1], .9 * (1 - t)))
+        c.fillpoly([(4 + L * .25, 10 - 4), (4 + L, 10), (4 + L * .25, 10 + 4), (4 + L * .15, 10)], R[3] if f < 5 else R[2])
+        c.fillpoly([(4 + L * .3, 10 - 2), (4 + L * .96, 10), (4 + L * .3, 10)], F[4] if f < 5 else F[2])
+        c.line(4 + L * .3, 10, 4 + L * .97, 10, F[6] if f < 4 else F[3])
+        if f < 5: star(c, 4 + L, 10, 2 if f in (1, 2) else 1, F[5])
+        outline(c, al(R[0], .8))
+        out.append(c)
+    return out
+
+# ── 반룡 날개(128×80, 어깨 사이 기준 64,46) — 등에 붙는 용 날개 한 쌍. 팔뼈 · 손가락뼈 셋 · 막 · 엄지 발톱.
+#    0~5 펼쳐짐 · 6~9 날갯짓(반복). 줄 0 검붉은 · 1 보라 잔상(연마 130) — 몸 높이 75 에 맞춰 1배로 그린다 ──
+def wing_draw(c, ox, oy, side, u, beat, pal):
+    mem, mem2, bone, hi, edge = pal
+    rot = (-1.25 + 0.6 * u) + beat                   # 팔뼈 각(위로 접힘 → 비스듬히 펼침)
+    L1 = 10 + 20 * u
+    S = (ox + side * 3, oy)
+    Wr = (S[0] + side * math.cos(rot) * L1, S[1] + math.sin(rot) * L1)
+    fing = [(0.25, 40), (0.85, 34), (1.4, 24)]
+    tips = []
+    for fa, fl in fing:
+        a = rot + (fa * (0.35 + 0.65 * u)) + beat * 0.6
+        L = fl * (0.35 + 0.65 * u)
+        tips.append((Wr[0] + side * math.cos(a) * L, Wr[1] + math.sin(a) * L))
+    B = (ox + side * 2, oy + 16)
+    # 막 — 손가락 끝 사이를 안으로 휘어 들어간 물결 모양으로
+    pts = [S, Wr, tips[0]]
+    for i in range(len(tips)):
+        a_ = tips[i]; b_ = tips[i + 1] if i + 1 < len(tips) else B
+        mx, my = (a_[0] + b_[0]) / 2, (a_[1] + b_[1]) / 2
+        cx_, cy_ = (Wr[0] * .3 + mx * .7), (Wr[1] * .3 + my * .7)
+        for k in range(1, 6):
+            t = k / 6; q = 4 * t * (1 - t)
+            pts.append((a_[0] + (b_[0] - a_[0]) * t + (cx_ - mx) * q * .5, a_[1] + (b_[1] - a_[1]) * t + (cy_ - my) * q * .5))
+        pts.append(b_)
+    c.fillpoly(pts, mem)
+    # 막 위쪽은 밝게(디더)
+    tmp = Cv(c.w, c.h); tmp.fillpoly([S, Wr, tips[0], tips[1]], mem2)
+    m = (tmp.a[..., 3] > 0)
+    yy, xx = np.mgrid[0:c.h, 0:c.w]
+    m &= BAYER[yy % 4, xx % 4] < .5
+    c.a[m] = mem2
+    # 뼈 — 팔 · 손가락(2px) · 끝 발톱
+    def bone_line(a_, b_, w2=True):
+        c.line(a_[0], a_[1], b_[0], b_[1], bone)
+        if w2: c.line(a_[0], a_[1] - 1, b_[0], b_[1] - 1, hi)
+    bone_line(S, Wr)
+    for t_ in tips: bone_line(Wr, t_, False); c.px(t_[0], t_[1], edge)
+    c.disc(Wr[0], Wr[1], 1.6, 1.6, hi)
+    th = (Wr[0] + side * 3, Wr[1] - 5); c.line(Wr[0], Wr[1], th[0], th[1], edge); c.px(th[0] + side, th[1] + 1, edge)   # 엄지 발톱
+def awake_cells():
+    out = []
+    pals = [(R[1], R[2], R[4], F[3], G[4]), (al(V[1], .75), al(V[2], .75), al(V[3], .9), al(V[4], .9), al(V[4], .9))]
+    for row in range(2):
+        for f in range(10):
+            c = Cv(128, 80); u = ez(min(1, (f + 1) / 6)) if f < 6 else 1
+            beat = [0, 0, 0, 0, 0, 0, -0.16, 0, 0.14, 0][f]
+            for side in (-1, 1): wing_draw(c, 64, 46, side, u, beat, pals[row])
+            if row == 0 and f < 6:
+                for i in range(10):
+                    a = rnd(31, i, f) * TAU; d = 20 + u * 34 * rnd(33, i)
+                    c.px(64 + math.cos(a) * d, 40 + math.sin(a) * d * .6, F[5] if i % 2 else F[3])
+            outline(c, al(R[0] if row == 0 else V[0], .8))
+            out.append(c)
+    return out
+
+# ── 아르카디온(손에 드는 용의 대검, 92×30, 손잡이 기준 14,15 · 오른쪽을 가리킨다) — 금빛 날개 코등이 · 붉은 용옥 · 검붉은 날 · 가운데 흐르는 불빛 홈 · 등의 용 이빨.
+#    줄 0 기본(불빛 0~3 흐름 반복) · 줄 1 역린 해방(보라 테) ──
+def arcadion_cells():
+    out = []
+    for row in range(2):
+        for f in range(4):
+            c = Cv(92, 30); gx, gy = 14, 15
+            c.disc(gx - 10, gy, 2.6, 2.6, G[3]); c.disc(gx - 10, gy, 1.4, 1.4, R[4])      # 끝 장식(용옥)
+            c.rect(gx - 8, gy - 1, 9, 3, R[0]);
+            for i in range(0, 9, 2): c.px(gx - 8 + i, gy - 1, R[2])                     # 감긴 손잡이
+            # 코등이 — 뒤로 젖힌 금빛 날개 한 쌍
+            for s in (-1, 1):
+                c.fillpoly([(gx + 1, gy + s * 1), (gx - 3, gy + s * 10), (gx + 1, gy + s * 8), (gx + 4, gy + s * 11), (gx + 5, gy + s * 2)], rgb("#C9932E"))
+                c.line(gx + 1, gy + s * 2, gx - 2, gy + s * 9, rgb("#F3D37A"))
+            c.disc(gx + 3, gy, 2.2, 2.2, R[3]); c.px(gx + 2, gy - 1, F[6])                # 가운데 용옥
+            # 칼날 — 넓고 끝이 뾰족하다. 등에 용 이빨
+            L = 72; x0 = gx + 6
+            c.fillpoly([(x0, gy - 6), (x0 + L * .78, gy - 5), (x0 + L, gy), (x0 + L * .78, gy + 6), (x0, gy + 6)], rgb("#3B1418"))
+            c.fillpoly([(x0, gy - 5), (x0 + L * .76, gy - 4), (x0 + L * .97, gy), (x0, gy)], rgb("#6E2228"))
+            for i in range(7):   # 등 이빨
+                tx = x0 + 6 + i * 8; c.fillpoly([(tx, gy - 6), (tx + 3, gy - 9 + (i % 2)), (tx + 5, gy - 6)], rgb("#56191E"))
+            c.line(x0, gy + 6, x0 + L * .78, gy + 6, rgb("#F1C9A8")); c.line(x0 + L * .78, gy + 6, x0 + L, gy, rgb("#F1C9A8"))   # 날 빛
+            c.line(x0, gy - 6, x0 + L * .78, gy - 5, rgb("#A1464A"))
+            for i in range(int(L * .8)):   # 가운데 불빛 홈 — 손잡이에서 끝으로 흐른다
+                x = x0 + 2 + i; ph = (i / 10 - f / 4 * 1.0) % 1
+                c.px(x, gy + 1, F[6] if ph < .2 else F[4] if ph < .5 else F[2])
+                if ph < .35: c.px(x, gy, al(F[3], .8))
+            if row == 1:
+                outline(c, al(V[3], .95))
+            outline(c, R[0])
+            out.append(c)
+    return out
+
+# ── 큰 참격(160×120, 기준점 20,60 · 반지름 100) — 아르카디온 · 천공강습. 줄 0 불꽃 · 1 보라(2타 · 역린). 7칸 ──
 def arc_cells():
     out = []
     for row in range(2):
-        for f in range(6):
-            c = Cv(128, 80); u = f / 5; sweep = ez(min(1, (f + 1) / 3)); fade = 0 if f < 3 else (f - 2) / 3
-            th = 7 if row else 5
-            for j in range(th):
-                rr = 90 - j * 1.2
-                cc = (F[6] if j < 2 else F[4] if j < 4 else F[2]) if row == 0 else (F[5] if j < 2 else R[4] if j < 4 else V[3] if j < 6 else V[2])
-                n = 200
-                for i in range(n):
-                    a = -1.3 + 2.6 * sweep * i / n
-                    taper = math.sin(i / n * math.pi)
-                    if j > th * taper: continue
-                    if fade and BAYER[i % 4, j % 4] < fade: continue
-                    c.px(16 + math.cos(a) * rr, 40 + math.sin(a) * rr * .45, cc)
-            for i in range(14):
-                if f > 4: break
-                a = -1.3 + 2.6 * sweep * rnd(87 + row, i, f); d = 70 + rnd(89, i, f) * 26
-                c.px(16 + math.cos(a) * d, 40 + math.sin(a) * d * .45, F[5] if row == 0 else V[4])
+        pal = SLASH_FIRE if row == 0 else SLASH_VIO
+        for f in range(7):
+            c = Cv(160, 120); sweep = ez(min(1, (f + 1) / 2.5)); fade = 0 if f < 3 else (f - 2) / 4.2
+            slash_arc(c, 20, 60, 100, -1.35, 1.35, 26 if row else 22, 0.62, pal, sweep, fade, seed=7 + row)
+            slash_arc(c, 20, 60, 64, -1.15, 1.15, 9, 0.62, pal[1:], sweep * .95, min(1, fade + .2), seed=9, ghost=False)
+            if f < 5: speed_lines(c, 20, 60, 100, -1.3, -1.3 + 2.6 * sweep, 0.62, al(pal[2], .9), 13 + f + row, n=12, ln=16)
+            if f < 6:
+                for i in range(20):
+                    a = -1.3 + 2.6 * sweep * rnd(87 + row, i, f); d = 80 + rnd(89, i, f) * 34
+                    star(c, 20 + math.cos(a) * d, 60 + math.sin(a) * d * .62, 1 if i % 4 == 0 and f < 3 else 0, pal[2] if f < 3 else pal[4])
+            outline(c, al(R[0] if row == 0 else V[0], .7))
             out.append(c)
+    return out
+
+# ── 회오리 베기(120×80, 가운데 기준 · 반지름 54) — 천공강습. 둥근 참격 두 겹이 돌며 불꽃을 흩뿌린다. 6칸 ──
+def spin_cells():
+    out = []
+    for f in range(6):
+        c = Cv(120, 80); sweep = ez(min(1, (f + 1) / 2.2)); fade = 0 if f < 3 else (f - 2) / 3.5
+        a0 = f * 0.9
+        slash_arc(c, 60, 40, 56, a0, a0 + 5.2, 15, 0.62, SLASH_FIRE, sweep, fade, seed=21)
+        slash_arc(c, 60, 40, 36, a0 + 3.1, a0 + 3.1 + 4.0, 8, 0.62, SLASH_FIRE[1:], sweep, min(1, fade + .15), seed=23, ghost=False)
+        if f < 5:
+            for i in range(18):
+                a = rnd(25, i, f) * TAU; d = 46 + rnd(27, i, f) * 14
+                star(c, 60 + math.cos(a) * d, 40 + math.sin(a) * d * .62, 1 if i % 5 == 0 else 0, F[5] if f < 3 else F[3])
+        outline(c, al(R[0], .7))
+        out.append(c)
+    return out
+
+# ── 돌진 불꼬리 한 마디(64×32, 가운데 기준 · 오른쪽으로 나아간다) — 0~1 타오름 · 2~5 꺼져 감. 길 따라 이어 붙인다 ──
+def trail_cells():
+    out = []
+    for f in range(6):
+        c = Cv(64, 32); u = f / 5
+        for x in range(64):
+            t = x / 63
+            w = (9 - u * 5) * (0.55 + 0.45 * math.sin(t * math.pi)) + math.sin(x * .7 + f * 2) * 1.4
+            for y in range(int(16 - w), int(16 + w) + 1):
+                k = abs(y - 16) / max(1, w)
+                if BAYER[y % 4, x % 4] < u * .8 + k * .3: continue
+                col = (W if k < .15 and f < 2 else F[5] if k < .35 else F[3] if k < .65 else F[1]) if f < 3 else (F[3] if k < .3 else F[1] if k < .7 else R[2])
+                c.px(x, y - u * 3 * k, col)
+        for i in range(10):
+            if f > 4: break
+            x = rnd(31, i, f) * 64; y = 16 + (rnd(33, i, f) - .5) * 20 - u * 6
+            c.px(x, y, F[5] if i % 2 else F[3])
+        out.append(c)
+    return out
+
+# ── 땅 충격파 고리(200×120, 그림 속 반지름 92) — 바닥을 쓸고 나가는 불길 띠 · 1px 밝은 테. 7칸 ──
+def wave_cells():
+    out = []
+    for f in range(7):
+        c = Cv(200, 120); u = f / 6; rr = 20 + 72 * ez(u)
+        c.band(100, 60, rr, rr * SQ, .8, 1, al(F[2] if f < 3 else R[3], .9), dens=lambda d: (1 - u * .9) * (d - .8) / .2)
+        c.band(100, 60, rr, rr * SQ, .9, 1, F[4] if f < 4 else F[2], dens=1 - u * .6)
+        c.ring(100, 60, rr, rr * SQ, F[6] if f < 3 else F[4], gap=0 if f < 5 else 2)
+        for i in range(int(16 + rr * .3)):
+            if f > 5: break
+            a = i * TAU / (16 + rr * .3) + rnd(5, i) * .2
+            x, y = 100 + math.cos(a) * rr, 60 + math.sin(a) * rr * SQ
+            hh = (6 - f) * (1 + rnd(7, i))
+            c.line(x, y, x, y - hh, F[3] if i % 2 else F[2])
+        out.append(c)
+    return out
+
+# ── 솟는 불길(28×48, 바닥 기준 14,46) — 범위 안을 촘촘히 채우는 큰 불혀. 8칸 ──
+def flare_cells():
+    out = []
+    for f in range(8):
+        c = Cv(28, 48); u = f / 7
+        hgt = 40 * math.sin(min(1, (f + 1) / 4) * math.pi / 2) * (1 - max(0, u - .6) * 1.6)
+        for y in range(int(hgt)):
+            t = y / max(1, hgt)
+            w = 7.5 * (1 - t) ** .9 * (1 - u * .3) + math.sin(y * .35 + f) * .5
+            for x in range(int(14 - w), int(14 + w) + 1):
+                k = abs(x - 14) / max(1, w)
+                if u > .6 and BAYER[y % 4, x % 4] < (u - .6) * 2.2: continue
+                col = W if (k < .2 and t < .3 and f < 4) else F[5] if k < .4 and t < .6 else F[3] if k < .7 else F[1]
+                c.px(x + math.sin(t * 3 + f) * t * 3, 46 - y, col)
+        if f >= 5: smoke(c, 14, 46 - hgt - 4, 5 + (f - 5) * 2, (f - 5) / 3)
+        outline(c, al(R[0], .5))
+        out.append(c)
     return out
 
 def pack(name, cells, cols=None, man=None, cx=None, cy=None, loop=0, rows=1, **extra):
@@ -660,7 +857,7 @@ def pack(name, cells, cols=None, man=None, cx=None, cy=None, loop=0, rows=1, **e
 
 def main():
     man = {}; sheets = {}
-    sheets["wy_claw"] = pack("wy_claw", claw_cells(), None, man, cx=8, cy=32, r=80)
+    sheets["wy_claw"] = pack("wy_claw", claw_cells(), None, man, cx=10, cy=48, r=88)
     sheets["wy_hit"] = pack("wy_hit", hit_cells(), None, man)
     sheets["wy_wyvern"] = pack("wy_wyvern", wyvern_cells(), 7, man, cx=146, cy=92, rows=2)
     sit, scx, scy, smouth = wy_sit_cells()
@@ -672,14 +869,24 @@ def main():
     sheets["wy_puff"] = pack("wy_puff", puff_cells(), None, man, cy=18)
     sheets["wy_crack"] = pack("wy_crack", crack_cells(), 4, man, r=90)
     sheets["wy_drop"] = pack("wy_drop", drop_cells(), None, man, cx=20, cy=104)
-    sheets["wy_scale"] = pack("wy_scale", scale_cells(), None, man, cx=20, cy=54, loop=1)
-    sheets["wy_spike"] = pack("wy_spike", spike_cells(), None, man, cx=4, cy=12)
-    sheets["wy_awake"] = pack("wy_awake", awake_cells(), 10, man, cx=32, cy=66, rows=2)
+    sheets["wy_scale"] = pack("wy_scale", scale_cells(), 8, man, cx=38, cy=90)
+    sheets["wy_spike"] = pack("wy_spike", spike_cells(), None, man, cx=4, cy=10)
+    sheets["wy_awake"] = pack("wy_awake", awake_cells(), 10, man, cx=64, cy=46, rows=2)
     sheets["wy_pillar"] = pack("wy_pillar", pillar_cells(), None, man, cx=36, cy=152)
     sheets["wy_icons"] = pack("wy_icons", icon_cells(), None, man, cx=0, cy=0)
     sheets["wy_bits"] = pack("wy_bits", bit_cells(), 8, man, rows=len(BIT_KINDS))
-    sheets["wy_blade"] = pack("wy_blade", blade_cells(), None, man, cx=10, cy=14)
-    sheets["wy_arc"] = pack("wy_arc", arc_cells(), 6, man, cx=16, cy=40, rows=2, r=90)
+    sheets["wy_blade"] = pack("wy_blade", arcadion_cells(), 4, man, cx=14, cy=15, rows=2)
+    sheets["wy_arc"] = pack("wy_arc", arc_cells(), 7, man, cx=20, cy=60, rows=2, r=100)
+    sheets["wy_spin"] = pack("wy_spin", spin_cells(), None, man, r=54)
+    sheets["wy_trail"] = pack("wy_trail", trail_cells(), None, man)
+    sheets["wy_wave"] = pack("wy_wave", wave_cells(), 4, man, r=92)
+    sheets["wy_flare"] = pack("wy_flare", flare_cells(), None, man, cx=14, cy=46)
+    # 가방 · 상점 그림(128×128) — 아르카디온 한 칸을 대각선으로 세워 키운다(rpg/weapons/wy_arcadion.webp, shop.js specialArt)
+    bl = Image.fromarray(sheets["wy_blade"][:30, :92], "RGBA").rotate(35, Image.NEAREST, expand=True)
+    bb = bl.getbbox(); bl = bl.crop(bb); k = max(1, int(118 // max(bl.size)))
+    bl = bl.resize((bl.size[0] * k, bl.size[1] * k), Image.NEAREST)
+    ic = Image.new("RGBA", (128, 128), (0, 0, 0, 0)); ic.paste(bl, ((128 - bl.size[0]) // 2, (128 - bl.size[1]) // 2), bl)
+    ic.save(os.path.join(OUT, "..", "..", "..", "..", "weapons", "wy_arcadion.webp"), lossless=True, quality=100, method=6)
     json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
     if len(sys.argv) > 2 and sys.argv[1] == "preview":
         os.makedirs(sys.argv[2], exist_ok=True)

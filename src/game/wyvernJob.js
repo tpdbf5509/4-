@@ -7,7 +7,7 @@
    고도는 따로 Z 축 없이 s.air(오르는 높이 — 그림에서만 위로 띄운다)로만 둔다. 실제 자리는 땅의 x · y 하나다.
    E(엔진, rpg.js wyvernEngine): engineerEngine 것 + stop(걷기 멈춤) */
 import { WYVERN as WV, WYVERN_ID, WYVERN_NAME, WYVERN_TINT, WY_TRAIN_NAMES, WY_BLOOD as BL, WY_CLAW as CL, WY_CONTRACT as CT, WY_ROAR as RO,
-  WY_DIVE as DV, WY_SCALE as SC, WY_SKY as SK, WY_AWAKE as AW, WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SKILLS } from "./wyvernData.js";
+  WY_DIVE as DV, WY_SCALE as SC, WY_SKY as SK, WY_AWAKE as AW, WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SKILLS, WY_WEAPON_ITEM } from "./wyvernData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -30,6 +30,10 @@ export function cleanWyJob(d) {
 // 이 직업인가 — 가방 값으로만 본다. WYVERN.live 가 false 면 격자 연습장 맵에서만 켜진다
 export const wyvernOn = (h) => !!(h && h.bag && h.bag.hj && h.bag.hj.active === WYVERN_ID && h.bag.hj.jobs && h.bag.hj.jobs[WYVERN_ID] && (WV.live || h.map === "sandbox"));
 export const wyvernLook = (h) => wyvernOn(h);
+// 아르카디온(11월 18일 사용자 "레퀴엠처럼 장착하는 무기") — 이 직업은 아르카디온만 든다 · 들고 있어야 X 기술
+export const wyWeaponOk = (w) => !w || w.sp === WY_WEAPON_ITEM.id;
+const heldSp = (h) => { if (!h) return ""; if (h.wsp !== undefined) return h.wsp; const b = h.bag, w = b && b.e && b.w ? b.w.find((q) => q.u === b.e) : null; return (w && w.sp) || ""; };
+export const wyArmed = (h) => heldSp(h) === WY_WEAPON_ITEM.id;
 const jobOf = (h) => h.bag.hj.jobs[WYVERN_ID];
 export const wyTrainSum = (J) => (J ? J.tr.reduce((n, q) => n + q[0], 0) : 0);
 export const wyvernTint = (sum) => WYVERN_TINT.find((t) => sum >= t.from).id;
@@ -52,7 +56,7 @@ export function unlockWyvern(h, init) {
   if (h.bag.bd && h.bag.bd.on) h.bag.bd = { ...h.bag.bd, on: 0 };
   h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
   h.bd = null;
-  h.bag.e = 0;
+  if (!wyArmed(h)) h.bag.e = 0;                     // 아르카디온이 아니면 내려놓는다
   h.wy = null;
   h.bag.v = (h.bag.v || 0) + 1;
 }
@@ -67,7 +71,7 @@ export function dropWyvern(h) {
 const NO_CD = { contract: 0, roar: 0, dive: 0, scale: 0, sky: 0, awake: 0, ult: 0, assault: 0, arcadion: 0 };
 function st(h) {
   return h.wy || (h.wy = { blood: WV.bloodStart, cd: { ...NO_CD }, u: null, claws: [], roars: [], dives: [], skies: [], ults: [], dashes: [], arcs: [],
-    sc: null, aw: 0, awMax: 0, awXp: 0, air: null, xm: [0, 0], q: 0 });
+    sc: null, aw: 0, awMax: 0, awXp: 0, air: null, xm: [0, 0], q: 0, sw: null });
 }
 const sq = (E, x, y, o) => Math.hypot(o.x - x, (o.y - y) / E.squash);
 const no = (E, g, h, text, color = DIM) => void E.say(g, h.map, h.x, h.y - 90, text, color);
@@ -185,6 +189,8 @@ function blocked(E, g, h, sk) {
   return false;
 }
 const spend = (s, sk) => { s.blood = Math.max(0, s.blood - WY_SKILLS[sk].cost); };
+// 손에 든 아르카디온 휘두르기(그림만) — k 종류 · t 흐른 시간 · d 길이 · 겨눈 쪽
+const swingOf = (s, k, d, ax, ay) => { s.sw = { k, t: 0, d, ax: r2(ax), ay: r2(ay) }; };
 const hold = (E, h, t) => { E.stop(h); h.dvx = 0; h.dvy = 0; h.dash = Math.max(h.dash || 0, t); };   // 그 자리에 붙든다(걷지 않는다)
 
 /* ── 기본 공격 — 용조격 ───────────────────────────────
@@ -200,6 +206,7 @@ export function wyvernBasic(E, g, h, force) {
   h.face = 0;
   s.q += 1;
   s.claws.push({ w: CL.wind, ax: r2(ax), ay: r2(ay), cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map });
+  swingOf(s, s.q % 2 ? "c1" : "c2", 0.3, ax, ay);
   E.fx(g, h.map, { kind: "sk_wy_claw", x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), r: CL.reach, arc: r2(CL.arc), d: CL.wind, fl: s.q % 2, pi: h.pi, t: 0.34, life: 0.34, snd: "wyClaw" });
   return true;
 }
@@ -491,6 +498,7 @@ function assaultUse(E, g, h) {
   const p = { x: h.x + ax * len, y: h.y + ay * len * E.squash }; E.keep(p, h.map);
   E.stop(h); E.move(h, p, AS.time);
   s.dashes.push({ t: 0, i: 0, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 });
+  swingOf(s, "spin", AS.time + 0.1, ax, ay);
   h.swing = AS.time;
   E.fx(g, h.map, { kind: "sk_wy_assault", x: Math.round(h.x), y: Math.round(h.y), x0: Math.round(h.x), y0: Math.round(h.y), x1: Math.round(p.x), y1: Math.round(p.y),
     r: AS.r, n: AS.n, d: AS.time, pi: h.pi, t: AS.time + 0.4, life: AS.time + 0.4, snd: "wyDash" });
@@ -512,6 +520,7 @@ function tickDash(E, g, h, q, dt) {
 
 /* ── 아르카디온 · 용참섬멸 — 두 번 돌진해 가로로 벤다(1부 요약, 수치는 정한 값) ── */
 function arcadionUse(E, g, h) {
+  if (!wyArmed(h)) { no(E, g, h, "아르카디온을 들어야 합니다", RED); return; }   // 11월 18일 사용자 — 손에 드는 무기
   if (blocked(E, g, h, "arcadion")) return;
   const s = st(h), [ax, ay] = aimDir(E, g, h, AR.hits[0].go + AR.hits[1].go);
   spend(s, "arcadion"); s.cd.arcadion = AR.cd;
@@ -527,6 +536,7 @@ function tickArc(E, g, h, q, dt) {
     const p = { x: h.x + q.ax * go, y: h.y + q.ay * go * E.squash }; E.keep(p, h.map);
     E.stop(h); E.move(h, p, H.time);
     h.swing = H.time + 0.1;
+    swingOf(st(h), q.i ? "a2" : "a1", H.time + 0.16, q.ax, q.ay);
     q.i += 1;
   }
   while (q.sw < q.i && q.t >= AR.hits[q.sw].at + AR.hits[q.sw].time) {   // 돌진 끝에 가로 베기
@@ -558,6 +568,7 @@ export function tickWyvernJob(E, g, h, dt) {
   const s = st(h);
   for (const k in s.cd) if (k !== "contract" || !s.u) s.cd[k] = Math.max(0, s.cd[k] - dt);
   if (E.cdOff(g, h)) for (const k in s.cd) s.cd[k] = 0;
+  if (s.sw) { s.sw.t += dt; if (s.sw.t >= s.sw.d) s.sw = null; }
   if (s.air) { s.air.t += dt; if (s.air.t >= (s.air.k === "ult" ? UL.first : DV.land)) s.air = null; }
   if (s.aw > 0) { s.aw = Math.max(0, s.aw - dt); if (s.aw <= 0) { s.aw = 0.0001; endAwake(E, g, h, s); } }
   if (s.sc) { s.sc.t += dt; s.sc.gap = Math.max(0, s.sc.gap - dt); if (s.sc.t >= SC.dur) endScale(E, g, h, s); }
@@ -612,5 +623,6 @@ export function wyvernView(h) {
   return { blood: s ? s.blood : WV.bloodStart, max: WV.blood, lv: J.lv, xp: J.xp, tr: J.tr, cd: s ? { ...s.cd } : { ...NO_CD },
     cdMax: Object.fromEntries(Object.keys(NO_CD).map((k) => [k, WY_SKILLS[k].cd])),
     u: s && s.u ? unitView(s.u) : null, aw: s ? r1(s.aw) : 0, awMax: s ? s.awMax : 0, sc: s && s.sc ? { left: r1(SC.dur - s.sc.t), n: SC.counters - s.sc.n } : null,
-    air: Math.round(airOf(s)), sync: sum >= WV.sync, wing: sum >= WV.tint.wing, tint: wyvernTint(sum) };
+    air: Math.round(airOf(s)), sync: sum >= WV.sync, wing: sum >= WV.tint.wing, tint: wyvernTint(sum),
+    arm: wyArmed(h) ? 1 : 0, sw: s && s.sw ? { k: s.sw.k, u: r2(Math.min(1, s.sw.t / s.sw.d)), ax: s.sw.ax, ay: s.sw.ay } : null };
 }

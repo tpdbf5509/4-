@@ -6,7 +6,8 @@
    큰 형상 · 입자 수는 품질 값(DETAIL)으로 줄고, 입자는 한 연출 · 한 프레임 상한(WY_BITS)을 넘지 않는다.
    와이번 몸은 상태(wyvernView(h).u)라 rpgArt 가 사람 · 몹과 앞뒤를 맞춰 drawWyvernUnit 으로 그린다. 고도는 그림자와 그림의 화면 높이 차이로만 보인다.
    반룡 날개 · 뿔 · 용린 비늘 · 보라 날개 잔상은 drawWyvernHero 가 캐릭터 그림 앞뒤에 겹친다(무기 그림은 없다). */
-import { WY_CONTRACT as CT, WY_BITS, WY_DIVE as DV, WY_ULT as UL } from "./wyvernData.js";
+import { WY_CONTRACT as CT, WY_BITS, WY_DIVE as DV, WY_ULT as UL, WY_SCALE as SCL } from "./wyvernData.js";
+import { BLADE_HAND } from "./bloodJobArt.js";   // 손 자리(몸 그림 비율) — 혈검과 같은 손에 아르카디온을 쥔다
 import { wyvernView } from "./wyvernJob.js";
 import { WYVERN_PX_SRC, WYVERN_PX as SH } from "./wyvernPxData.js";
 
@@ -107,22 +108,35 @@ function puffFan(ctx, seed, x, y, ax, ay, r, arc, sq, front, age, k = K) {
   }
 }
 
-/* ── 용조격 — 0.00 손등 발톱 불티 · 0.12 앞 95° 참격 · 0.20 잔상 소멸 ── */
+// 솟는 불길 n 개 — 반지름 R 타원 안에 흩어 차례로 솟는다(범위를 빽빽하게 채운다)
+function flares(ctx, seed, x, y, sq, u, n, R, k = K, spread = 0.5) {
+  for (let i = 0, m = nq(n); i < m; i++) {
+    const st = rnd(seed + i, 4) * spread, v = (u - st) / (1 - spread * 0.6); if (v < 0 || v > 1) continue;
+    const a = rnd(seed + i, 1) * TAU, d = Math.sqrt(rnd(seed + i, 2)) * R;
+    cell(ctx, "wy_flare", once("wy_flare", v), x + Math.cos(a) * d, y + Math.sin(a) * d * sq, k, 1, 0, rnd(seed + i, 3) < 0.5);
+  }
+}
+// 땅을 쓸고 나가는 불길 고리 — r 판정 반경에 맞춘 정수 배
+const wave = (ctx, x, y, r, u, a = 1) => { if (u >= 0 && u <= 1) cell(ctx, "wy_wave", once("wy_wave", u), x, y, Math.max(1, Math.round(r / SH.wy_wave.r)), a); };
+// 큰 참격 한 장 — 겨눈 쪽으로 돌린다(row 1 보라). k 는 반지름에서
+const slash = (ctx, name, u, x, y, r, rot, row = 0, flipY = false, a = 1) => cell(ctx, name, once(name, u), x, y, Math.max(1, Math.round(r / SH[name].r)), a, row, false, rot, flipY);
+
+/* ── 용조격 — 0.00 손에 불티 · 0.12 굵은 발톱 참격 세 줄(아르카디온을 들었으면 대검 끝에서 뻗는다) · 0.34 잔불 ── */
 function claw(ctx, f, t, sq) {
   const rot = scr(f.ax, f.ay, sq), hx = f.x + f.ax * 10, hy = f.y - 30 + f.ay * 10 * sq;
-  if (t < f.d) return void cell(ctx, "wy_bits", once("wy_bits", t / f.d), hx, hy, K, 1, BIT.spk);
-  const u = (t - f.d) / (f.life - f.d), k = Math.max(1, Math.round(f.r / SH.wy_claw.r));
-  cell(ctx, "wy_claw", once("wy_claw", u), f.x, f.y - 30, k, 1, 0, false, rot, !!f.fl);
-  if (u < 0.6) for (let i = 0, n = nq(4); i < n; i++) {
-    const a = Math.atan2(f.ay, f.ax) + ((i / (n - 1 || 1)) * 2 - 1) * f.arc * 0.8, d = f.r * (0.6 + 0.3 * rnd(i, 3));
-    cell(ctx, "wy_puff", once("wy_puff", u / 0.6 + 0.15), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq - 26, 1, 0.9);
+  if (t < f.d) { cell(ctx, "wy_bits", once("wy_bits", t / f.d), hx, hy, K, 1, BIT.spk); return void cell(ctx, "wy_hit", 0, hx, hy, 1, 0.8); }
+  const u = (t - f.d) / (f.life - f.d);
+  slash(ctx, "wy_claw", u, f.x, f.y - 30, f.r, rot, 0, !!f.fl);
+  if (u < 0.5) for (let i = 0, n = nq(5); i < n; i++) {   // 발톱 끝을 따라 불꽃
+    const a = Math.atan2(f.ay, f.ax) + ((i / (n - 1 || 1)) * 2 - 1) * f.arc * 0.85, d = f.r * (0.7 + 0.25 * rnd(i, 3));
+    cell(ctx, "wy_puff", once("wy_puff", u / 0.5 + 0.1), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq - 28, 1, 0.9);
   }
-  bits(ctx, seedOf(f), f.x, f.y, sq, u, { emb: 8, spk: 6, shard: 2 }, { r: f.r * 0.9, lift: 26, up: 20, spread: 0.2, fan: [f.ax, f.ay * sq, f.arc] });
+  bits(ctx, seedOf(f), f.x, f.y, sq, u, { emb: 12, spk: 8, shard: 3 }, { r: f.r * 0.95, out: 0.3, lift: 28, up: 22, spread: 0.2, fan: [f.ax, f.ay * sq, f.arc] });
 }
 function hit(ctx, f, t, sq) {
   const u = t / f.life;
-  cell(ctx, "wy_hit", once("wy_hit", u), f.x, f.y - 24, f.big ? 3 : K);
-  bits(ctx, seedOf(f), f.x, f.y, sq, u, f.big ? { emb: 8, spk: 5, smk: 2 } : { emb: 5, spk: 3 }, { r: f.big ? 26 : 16, lift: 24, up: 26, spread: 0.2 });
+  cell(ctx, "wy_hit", once("wy_hit", u), f.x, f.y - 26, f.big ? 3 : K);
+  bits(ctx, seedOf(f), f.x, f.y, sq, u, f.big ? { emb: 12, spk: 8, shard: 4, smk: 3 } : { emb: 7, spk: 4, shard: 2 }, { r: f.big ? 34 : 20, out: 0.6, lift: 26, up: 30, spread: 0.15 });
 }
 // 와이번 화염탄 — 날아가는 불덩이 · 뒤로 불씨
 function ball(ctx, f, t, sq) {
@@ -165,6 +179,7 @@ function roar(ctx, f, t, sq) {
     const mx = px + (flip ? -mouth : mouth) * Math.abs(Math.cos(Math.atan2(ay * sq, ax))), my = py + ay * 20;
     if (t < end + 0.1) cell(ctx, "wy_puff", loop(3, 0.12), mx, my, 3, 1);
   }
+  if (t >= f.d) flares(ctx, seedOf(f) + 4, f.x + ax * f.r * 0.6, f.y + ay * f.r * 0.6 * sq, sq, clamp((t - f.d) / (f.life - f.d)), 12, f.r * 0.4, K, 0.6);
   bits(ctx, seedOf(f), f.x, f.y, sq, clamp((t - f.d) / (f.life - f.d)), { emb: 22, lick: 12, spk: 10, smk: 8 }, { r: f.r, out: 0.15, lift: 14, up: 30, spread: 0.7, fan: [ax, ay * sq, f.arc] });
   // 와이번 갈래 — 와이번 입에서 시전자 앞 짧은 부채꼴로
   const s = f.sub;
@@ -192,7 +207,9 @@ function dive(ctx, f, t, sq) {
     return;
   }
   const v = (t - DV.land) / (f.life - DV.land), k = Math.max(1, Math.round(f.r / SH.wy_crack.r));
+  wave(ctx, f.x, f.y, f.r, v * 1.4, 0.9);
   cell(ctx, "wy_crack", once("wy_crack", v * 1.15), f.x, f.y, k);
+  flares(ctx, seedOf(f) + 3, f.x, f.y, sq, v, f.joint ? 16 : 11, f.r * 0.8, K, 0.4);
   if (v < 0.5) cell(ctx, "wy_hit", once("wy_hit", v / 0.5), f.x, f.y - 30, 4);
   for (let i = 0, n = nq(f.joint ? 14 : 10); i < n; i++) {   // 충격파 고리를 따라 불꽃 덩어리
     const a = (i / n) * TAU + rnd(i, 4) * 0.3, d = f.r * (0.35 + 0.6 * clamp(v * 2.2)) * (0.85 + rnd(i, 6) * 0.2);
@@ -203,18 +220,24 @@ function dive(ctx, f, t, sq) {
   if (f.storm) { const w = (t - DV.end) / (f.life - DV.end); if (w >= 0) bits(ctx, seedOf(f) + 5, f.x, f.y, sq, w, { wisp: 20, shard: 14, emb: 10 }, { r: f.r, out: 0.6, up: 50, spread: 0.2 }); }
 }
 
-/* ── 용린 수호 — 켜질 때 비늘이 솟는 순간 · 꺼질 때 붉은 점으로 흩어짐(유지 중 비늘은 drawWyvernHero) ── */
+/* ── 용린 수호 — 켜질 때 비늘이 발밑에서 쌓여 오르는 동안 불티(방벽은 drawWyvernHero) · 꺼질 때 방벽이 깨져 비늘 조각이 흩어진다 ── */
 function scaleOn(ctx, f, t, sq) {
-  if (t > 0.45) return;
-  bits(ctx, seedOf(f), f.x, f.y - 30, sq, t / 0.45, { shard: 14, spk: 8 }, { r: 30, out: -0.4, up: 10, spread: 0.3 });
+  if (t > 0.5) return;
+  const u = t / 0.5;
+  ring(ctx, f.x, f.y, 34 + 30 * u, sq, C.warn, 0.8 * (1 - u));
+  bits(ctx, seedOf(f), f.x, f.y - 30, sq, u, { shard: 16, spk: 10, emb: 8 }, { r: 46, out: -0.5, up: 16, spread: 0.3 });
 }
 function scaleOff(ctx, f, t, sq) {
-  bits(ctx, seedOf(f), f.x, f.y - 34, sq, t / f.life, f.big ? { shard: 18, emb: 16, wisp: 8 } : { shard: 14, emb: 8 }, { r: 26, out: 1.2, up: 30, spread: 0.1 });
+  const u = t / f.life;
+  cell(ctx, "wy_scale", 12 + Math.min(3, Math.floor(u * 4)), f.x, f.y + 4, 1, 1 - u * 0.3);
+  bits(ctx, seedOf(f), f.x, f.y - 40, sq, u, f.big ? { shard: 22, emb: 16, spk: 8 } : { shard: 16, emb: 10 }, { r: 30, out: 1.4, up: 34, spread: 0.1 });
 }
 function spike(ctx, f, t, sq) {
-  const u = t / f.life;
-  cell(ctx, "wy_spike", once("wy_spike", u), f.x, f.y - 30, 3, 1, 0, false, f.a);
-  if (u > 0.2) cell(ctx, "wy_hit", once("wy_hit", (u - 0.2) / 0.8), f.x1, f.y1 - 24, K);
+  const u = t / f.life, d = Math.hypot(f.x1 - f.x, (f.y1 - f.y) / sq) || 1, v = clamp(u / 0.55);
+  const x = f.x + (f.x1 - f.x) * v, y = f.y - 34 + (f.y1 - 24 - f.y + 34) * v;
+  if (u < 0.6) cell(ctx, "wy_spike", Math.min(4, 1 + Math.floor(v * 3)), x, y, K, 1, 0, false, Math.atan2(f.y1 - 24 - f.y + 34, f.x1 - f.x));
+  if (u > 0.5) cell(ctx, "wy_hit", once("wy_hit", (u - 0.5) / 0.5), f.x1, f.y1 - 24, K);
+  void d;
 }
 
 /* ── 천공 지배 — 0.00 위에 비룡 그림자 · 영역 1px · 낙하마다 예고 원(sk_wy_drop) ── */
@@ -235,17 +258,20 @@ function drop(ctx, f, t, sq) {
   }
   const v = (t - f.d) / (f.life - f.d);
   cell(ctx, "wy_drop", 4 + once("wy_drop", v, 3), f.x, f.y, 3);
+  wave(ctx, f.x, f.y, f.r, v * 1.5, 0.85);
   cell(ctx, "wy_crack", once("wy_crack", v), f.x, f.y, k, 0.95);
+  flares(ctx, seedOf(f) + 5, f.x, f.y, sq, v, 6, f.r * 0.7, K, 0.35);
   for (let i = 0, n = nq(7); i < n; i++) { const a = (i / n) * TAU, d = f.r * (0.3 + 0.55 * v); cell(ctx, "wy_puff", once("wy_puff", v * 1.2 + rnd(i, f.i) * 0.2), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq - 10, K, 1); }
   bits(ctx, seedOf(f), f.x, f.y, sq, v, { emb: 12, shard: 6, smk: 6, spk: 6 }, { r: f.r * 0.8, out: 0.4, up: 60, spread: 0.2 });
 }
 
-/* ── 역린 해방 — 0~0.3 눈 · 0.3~0.7 비늘 · 0.7~1.0 날개 · 뿔(날개는 drawWyvernHero). 카메라는 그대로 ── */
+/* ── 역린 해방 — 0~0.3 발밑에서 붉은 기운이 모인다 · 0.3 기둥이 치솟고 충격파 · 날개는 drawWyvernHero(등에서 펼쳐진다) ── */
 function awake(ctx, f, t, sq) {
   const u = t / f.life;
-  if (t > 0.3) cell(ctx, "wy_pillar", once("wy_pillar", (t - 0.3) / (f.life - 0.3)), f.x, f.y, 2, 0.75);
-  bits(ctx, seedOf(f), f.x, f.y, sq, u, { shard: 20, lick: 14, emb: 14, wisp: 6 }, { r: 44, out: -0.3, up: 60, spread: 0.5 });
-  ring(ctx, f.x, f.y, 30 + 50 * u, sq, C.line, 1 - u);
+  if (t < 0.3) bits(ctx, seedOf(f), f.x, f.y, sq, t / 0.3, { emb: 18, wisp: 8 }, { r: 90, out: -0.9, up: 10, spread: 0.4 });
+  if (t > 0.3) { cell(ctx, "wy_pillar", once("wy_pillar", (t - 0.3) / (f.life - 0.3)), f.x, f.y, 2, 0.9); wave(ctx, f.x, f.y, 160, (t - 0.3) / 0.6, 0.9); }
+  flares(ctx, seedOf(f) + 9, f.x, f.y, sq, u, 10, 70, K, 0.5);
+  bits(ctx, seedOf(f) + 1, f.x, f.y, sq, u, { shard: 20, lick: 14, emb: 16, wisp: 8 }, { r: 50, out: 0.6, up: 70, spread: 0.5 });
 }
 
 /* ── 종언의 용성 — 0~0.5 반경 360 예고 · 0.5 오름 · 0.9 첫 충돌 · 1.0~1.8 폭발 다섯 · 2.0 최종 · (진룡 동조) 2.2 화염 균열 ── */
@@ -266,7 +292,9 @@ function ult(ctx, f, t, sq) {
   const boom = (at, k, x, y, big) => {
     const v = (t - at) / 0.6; if (v < 0 || v > 1) return;
     cell(ctx, "wy_crack", once("wy_crack", v), x, y, k, 1);
+    wave(ctx, x, y, k * SH.wy_crack.r * 1.1, v * 1.3, 0.9);
     cell(ctx, "wy_pillar", once("wy_pillar", v), x, y, big ? 4 : 2);
+    flares(ctx, seedOf(f) + at * 31, x, y, sq, v, big ? 18 : 7, k * SH.wy_crack.r * 0.85, K, 0.4);
     for (let i = 0, n = nq(big ? 16 : 6); i < n; i++) { const a = (i / n) * TAU + rnd(at, i), d = k * SH.wy_crack.r * (0.25 + 0.65 * v); cell(ctx, "wy_puff", once("wy_puff", v * 1.2 + rnd(i, 3) * 0.2), x + Math.cos(a) * d, y + Math.sin(a) * d * sq - 12, big ? 3 : K, 1); }
     bits(ctx, seedOf(f) + at * 13, x, y, sq, v, big ? { emb: 22, shard: 14, smk: 14, spk: 10 } : { emb: 10, shard: 6, smk: 5 }, { r: k * SH.wy_crack.r * 0.8, out: 0.4, up: big ? 90 : 50, spread: 0.2 });
   };
@@ -279,33 +307,52 @@ function ult(ctx, f, t, sq) {
   }
 }
 
-/* ── 천공강습 — 돌진하는 길을 따라 회전 베기 넷 ── */
+/* ── 천공강습 — 돌진하는 길에 굵은 불꼬리가 깔리고, 0.1초마다 회오리 베기 · 별빛 타격 · 솟는 불길이 겹친다. 끝에서 충격파(11월 18일 사용자 "너무 비어 보여 빽빽하게") ── */
 function assault(ctx, f, t, sq) {
-  const ax = f.x1 - f.x0, ay = f.y1 - f.y0, len = Math.hypot(ax, ay) || 1;
-  for (let i = 0; i < f.n; i++) {
-    const at = ((i + 1) * f.d) / f.n, v = (t - at + 0.1) / 0.3; if (v < 0 || v > 1) continue;
-    const x = f.x0 + ax * ((i + 1) / f.n), y = f.y0 + ay * ((i + 1) / f.n);
-    cell(ctx, "wy_arc", once("wy_arc", v), x, y - 30, Math.max(1, Math.round(f.r / SH.wy_arc.r)), 1, 0, false, i * 1.7 + Math.atan2(ay, ax), i % 2 === 1);
-    ring(ctx, x, y, f.r, sq, C.warn, 0.35 * (1 - v), 3);
+  const ax = f.x1 - f.x0, ay = f.y1 - f.y0, len = Math.hypot(ax, ay) || 1, ang = Math.atan2(ay, ax), u = clamp(t / f.d), seed = seedOf(f);
+  // 불꼬리 — 길을 따라 마디를 이어 붙인다(지나간 곳부터 꺼진다)
+  const seg = SH.wy_trail.w * K * 0.55, nSeg = Math.max(1, Math.ceil(len / seg));
+  for (let i = 0; i < nSeg; i++) {
+    const b = (i + 0.5) / nSeg; if (b > u + 0.02) break;
+    const age = (t - b * f.d) / (f.life - b * f.d * 0.5);
+    cell(ctx, "wy_trail", once("wy_trail", age), f.x0 + ax * b, f.y0 + ay * b - 16, K, 1, 0, false, ang);
   }
-  const u = clamp(t / f.d);
-  for (let i = 0, n = nq(8); i < n; i++) { const b = (i + 0.5) / n; if (b > u) break; cell(ctx, "wy_puff", once("wy_puff", (u - b) * 2 + 0.2), f.x0 + ax * b, f.y0 + ay * b - 18, K, 1, 0, i % 2 === 0); }
-  bits(ctx, seedOf(f), (f.x0 + f.x1) / 2, (f.y0 + f.y1) / 2, sq, t / f.life, { emb: 16, shard: 8, spk: 8 }, { r: len / 2 + 30, out: 0.1, up: 40, spread: 0.6 });
+  // 회오리 베기 — 벨 때마다 그 자리에 둥근 참격 두 겹 · 별빛 타격 · 바닥 고리
+  for (let i = 0; i < f.n; i++) {
+    const at = ((i + 1) * f.d) / f.n, v = (t - at + 0.12) / 0.34; if (v < 0 || v > 1) continue;
+    const x = f.x0 + ax * ((i + 1) / f.n), y = f.y0 + ay * ((i + 1) / f.n);
+    cell(ctx, "wy_spin", once("wy_spin", v), x, y - 26, Math.max(1, Math.round(f.r / SH.wy_spin.r)), 1, 0, i % 2 === 1);
+    if (v > 0.25) cell(ctx, "wy_hit", once("wy_hit", (v - 0.25) / 0.75), x, y - 26, 3, 0.9);
+    ring(ctx, x, y, f.r * (0.6 + 0.4 * v), sq, C.warn, 0.5 * (1 - v));
+  }
+  // 길 위 솟는 불길 · 불꽃 덩어리 — 지나간 자리부터 차례로
+  for (let i = 0, n = nq(16); i < n; i++) {
+    const b = (i + 0.5) / n, st = b * f.d * 0.9, v = (t - st) / 0.5; if (v < 0 || v > 1) continue;
+    const off = (rnd(seed, i) - 0.5) * f.r * 1.2, nx = -ay / len, ny = ax / len;
+    cell(ctx, "wy_flare", once("wy_flare", v), f.x0 + ax * b + nx * off, f.y0 + ay * b + ny * off * sq, K, 1, 0, i % 2 === 0);
+    if (i % 2 === 0) cell(ctx, "wy_puff", once("wy_puff", v * 1.2), f.x0 + ax * b - nx * off * 0.6, f.y0 + ay * b - ny * off * 0.6 * sq - 16, K, 1, 0, i % 4 === 0);
+  }
+  // 끝 — 충격파 · 큰 타격
+  const e = (t - f.d) / (f.life - f.d);
+  if (e >= 0) { wave(ctx, f.x1, f.y1, f.r * 1.2, e, 0.95); cell(ctx, "wy_hit", once("wy_hit", e), f.x1, f.y1 - 28, 3); }
+  bits(ctx, seed, (f.x0 + f.x1) / 2, (f.y0 + f.y1) / 2, sq, t / f.life, { emb: 26, shard: 14, spk: 14, lick: 10, smk: 6 }, { r: len / 2 + f.r * 0.6, out: 0.15, up: 46, spread: 0.6 });
+  bits(ctx, seed + 7, f.x1, f.y1, sq, clamp(e), { emb: 16, shard: 10, spk: 8 }, { r: f.r, out: 0.8, up: 60, spread: 0.15 });
 }
-/* ── 아르카디온 — 용혈로 빚은 대검이 두 번 가로로 벤다(대검은 손 근처에 떠서 휘둘러진다) ── */
+/* ── 아르카디온 · 용참섬멸 — 손에 든 대검(drawWyvernHero)을 휘두를 때 돌진 잔상 · 발밑 불티. 베기 그림은 sk_wy_arc ── */
 function blade(ctx, f, t, sq, g) {
-  const h = g && g.heroes && g.heroes[f.pi], x = h && h.map === f.map ? h.x : f.x, y = h && h.map === f.map ? h.y : f.y;
-  const u = t / f.life, base = scr(f.ax, f.ay, sq), side = f.ax < 0 ? -1 : 1;
-  const swing = t < 0.15 ? -1.2 + 2.4 * (t / 0.15) : t < 0.35 ? 1.2 : t < 0.52 ? 1.2 - 2.6 * ((t - 0.35) / 0.17) : -1.4;
-  const fade = u > 0.85 ? (1 - u) / 0.15 : 1;
-  cell(ctx, "wy_blade", t < 0.12 ? once("wy_blade", t / 0.12, 3) : 3, x, y - 34, K, fade, 0, false, base + swing * side * 0.6);
-  bits(ctx, seedOf(f), x, y, sq, u, { emb: 8, shard: 4 }, { r: 40, lift: 30, up: 20, spread: 0.6 });
+  const h = g && g.heroes && g.heroes[f.pi], x = h && h.map === f.map ? h.x : f.x, y = h && h.map === f.map ? h.y : f.y, u = t / f.life;
+  if (t < 0.12) cell(ctx, "wy_hit", once("wy_hit", t / 0.12) , x, y - 34, K, 0.9);
+  for (let i = 0, n = nq(5); i < n; i++) cell(ctx, "wy_trail", Math.min(5, 1 + i), x - f.ax * (14 + i * 18), y - f.ay * (14 + i * 18) * sq - 18, K, 0.75 - i * 0.12, 0, false, scr(f.ax, f.ay, sq));
+  bits(ctx, seedOf(f), x, y, sq, u, { emb: 14, spk: 8, shard: 4 }, { r: 50, lift: 20, up: 26, spread: 0.6 });
 }
 function arc(ctx, f, t, sq) {
-  const u = t / f.life, k = Math.max(1, Math.round(f.r / SH.wy_arc.r));
-  cell(ctx, "wy_arc", once("wy_arc", u), f.x, f.y - 30, k, 1, f.i > 1 ? 1 : 0, false, scr(f.ax, f.ay, sq), f.i > 1);
+  const u = t / f.life, rot = scr(f.ax, f.ay, sq), big = f.i > 1;
+  slash(ctx, "wy_arc", u, f.x, f.y - 30, f.r, rot, big ? 1 : 0, big);
+  if (big) slash(ctx, "wy_arc", Math.min(1, u * 1.3 + 0.1), f.x, f.y - 30, f.r * 0.7, rot, 0, false, 0.8);   // 2타 — 안쪽에 한 겹 더
   puffFan(ctx, seedOf(f), f.x, f.y, f.ax, f.ay, f.r, f.arc, sq, clamp(u * 3), clamp(u * 1.5 - 0.2), 1);
-  bits(ctx, seedOf(f), f.x, f.y, sq, u, f.i > 1 ? { emb: 14, wisp: 10, shard: 8 } : { emb: 12, spk: 6, shard: 4 }, { r: f.r, lift: 20, up: 24, spread: 0.2, fan: [f.ax, f.ay * sq, f.arc] });
+  if (big) wave(ctx, f.x + f.ax * f.r * 0.5, f.y + f.ay * f.r * 0.5 * sq, f.r * 0.8, u * 1.3, 0.8);
+  flares(ctx, seedOf(f) + 2, f.x + f.ax * f.r * 0.55, f.y + f.ay * f.r * 0.55 * sq, sq, u, big ? 10 : 6, f.r * 0.45, K, 0.3);
+  bits(ctx, seedOf(f), f.x, f.y, sq, u, big ? { emb: 18, wisp: 10, shard: 10, spk: 8 } : { emb: 14, spk: 8, shard: 5 }, { r: f.r, lift: 20, up: 28, spread: 0.2, fan: [f.ax, f.ay * sq, f.arc] });
 }
 
 const KINDS = { sk_wy_claw: claw, sk_wy_hit: hit, sk_wy_ball: ball, sk_wy_sum: summon, sk_wy_gone: gone, sk_wy_roar: roar, sk_wy_dive: dive, sk_wy_scale: scaleOn,
@@ -350,22 +397,46 @@ export function drawWyvernUnit(ctx, o, time, sq, quality = 1) {
   ctx.restore();
 }
 
-/* ── 캐릭터에 겹치는 것 — rpgArt drawHero 가 그림 좌표(발밑 0,0 · 좌우 뒤집힌 판)에서 부른다. behind: 몸 뒤 ── */
-export function drawWyvernHero(ctx, h, ww, hh, top, behind, time) {
+/* ── 캐릭터에 겹치는 것 — rpgArt drawHero 가 그림 좌표(발밑 0,0 · 좌우 뒤집힌 판)에서 부른다. behind: 몸 뒤 ──
+   반룡 날개(11월 18일 사용자 "날개 위치가 어색해") — 발밑이 아니라 어깨 사이(몸 높이의 36%)에 붙이고 몸 크기에 맞춘 1배 시트로 그린다.
+   뒤를 볼 때는 몸 앞, 옆을 볼 때는 등 쪽으로 조금 옮기고 좁게(한쪽 날개가 겹쳐 보이게).
+   아르카디온(11월 18일 사용자 "레퀴엠처럼 장착하는 무기") — 혈검과 같은 손 자리(BLADE_HAND)에 쥐고, 용조격 · 천공강습 · 용참섬멸 때 겨눈 쪽으로 크게 휘두른다(잔상 둘).
+   용린 수호 — 몸을 감싸는 비늘 방벽(켜진 뒤 0.35초는 쌓여 오르는 칸, 그 뒤 빛이 훑는 반복). */
+// 휘두르기 — [시작, 끝](겨눈 쪽 기준 도) · 쉼(끝난 뒤 돌아오는 비율)
+const WY_SWING = { c1: [-95, 70], c2: [70, -95], a1: [-125, 90], a2: [90, -150], spin: [-180, 540] };
+const ease3 = (x) => 1 - Math.pow(1 - x, 3);
+function drawArcadion(ctx, h, v, view, flip, ww, hh, top) {
+  const H = (BLADE_HAND[h.gender === "f" ? "f" : "m"] || BLADE_HAND.m)[view] || BLADE_HAND.m.front;
+  const lx = (H[0] - 0.5) * ww, ly = top + H[1] * hh, rest = (H[2] * Math.PI) / 180, row = v.aw > 0 ? 1 : 0;
+  const sw = v.sw, S = sw && WY_SWING[sw.k];
+  const fr = loop(4, 0.5);
+  if (!S) return void cell(ctx, "wy_blade", fr, lx, ly, 1, 1, row, false, rest);
+  const base = Math.atan2((sw.ay || 0) * 0.78, sw.ax || 1);
+  const at = (q) => { const w = base + ((S[0] + (S[1] - S[0]) * ease3(clamp(q))) * Math.PI) / 180; return flip ? Math.PI - w : w; };
+  const p = clamp(sw.u / 0.8);
+  for (let k = 2; k >= 1; k--) if (p > 0.05 * k && p < 1) cell(ctx, "wy_blade", fr, lx, ly, 1, 0.42 / k, 1, false, at(p - 0.09 * k));   // 잔상(보라 테 줄)
+  cell(ctx, "wy_blade", fr, lx, ly, 1, 1, row, false, sw.u >= 0.8 ? at(1) + (rest - at(1)) * ease3((sw.u - 0.8) / 0.2) : at(p));
+}
+export function drawWyvernHero(ctx, h, ww, hh, top, behind, time, view = "front", flip = false) {
   const v = wyvernView(h); if (!v) return;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
   warmWyvern();
-  if (behind) {
-    if (v.aw > 0) {
-      const el = v.awMax - v.aw, f = el < 1 ? once("wy_awake", el, 6) : 6 + loop(4, 0.6);
-      cell(ctx, "wy_awake", f, 0, 0, K, 1, 0);
-    } else if (v.wing) cell(ctx, "wy_awake", 6 + loop(4, 0.8), 0, 0, K, 0.45, 1);   // 연마 합계 130 — 보라 날개 잔상
-    return;
+  const back = view === "back", side = view === "side" || view === "turn";
+  if (back !== behind && (v.aw > 0 || v.wing)) {   // 날개 — 어깨 사이에 붙인다
+    const el = v.awMax - v.aw, f = v.aw > 0 ? (el < 1 ? once("wy_awake", el, 6) : 6 + loop(4, 0.6)) : 6 + loop(4, 0.8);
+    ctx.save(); ctx.translate(side ? ww * 0.12 : 0, top + hh * 0.36); if (side) ctx.scale(0.62, 1);
+    cell(ctx, "wy_awake", f, 0, 0, 1, v.aw > 0 ? 1 : 0.5, v.aw > 0 ? 0 : 1);
+    ctx.restore();
   }
-  if (v.sc) cell(ctx, "wy_scale", loop(SH.wy_scale.n, 0.6), 0, 4, K, 0.85);
-  if (v.aw > 0) {   // 반룡 — 눈 · 몸의 붉은 기운(작은 불씨가 피어오른다)
-    const n = Math.max(1, Math.round(4 * DETAIL));
-    for (let i = 0; i < n; i++) { const s = (NOW * 0.9 + i / n) % 1; cell(ctx, "wy_bits", once("wy_bits", s), (rnd(i, 3) - 0.5) * ww * 0.6, top + hh * (0.9 - s * 0.7), 1, 1, BIT.emb); }
+  if (back === behind && v.arm) drawArcadion(ctx, h, v, view, flip, ww, hh, top);
+  if (behind) return;
+  if (v.sc) {   // 용린 방벽 — 쌓여 오름(0.35초) → 빛이 훑는 반복
+    const el = SCL.dur - v.sc.left;
+    cell(ctx, "wy_scale", el < 0.35 ? once("wy_scale", el / 0.35, 6) : 6 + loop(6, 0.9), 0, 4, 1, 0.92);
+  }
+  if (v.aw > 0) {   // 반룡 — 몸의 붉은 기운(작은 불씨가 피어오른다)
+    const n = Math.max(1, Math.round(6 * DETAIL));
+    for (let i = 0; i < n; i++) { const s = (NOW * 0.9 + i / n) % 1; cell(ctx, "wy_bits", once("wy_bits", s), (rnd(i, 3) - 0.5) * ww * 0.7, top + hh * (0.95 - s * 0.8), 1, 1, BIT.emb); }
   }
 }
 // 오른 높이(화면 px) — 급강하 · 용성 동안 캐릭터 그림을 위로 띄운다(실제 자리는 땅)

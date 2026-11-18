@@ -151,7 +151,7 @@ function wyvern() {
         train: [`진룡 동조 — 끝에 화염 균열 ${x(UL.crackMul)}`] },
       assault: { name: AS.name, lv: U.assault, desc: [`겨눈 쪽으로 ${AS.len} 돌진하며 둘레를 ${AS.n}번 벱니다.`, "벽 앞에서 멈춥니다."],
         stats: [["비용", `용혈 ${AS.cost}`], ["대기", `${AS.cd}초`], ["범위", `반지름 ${AS.r}`], ["피해", `${x(AS.mul)} × ${AS.n}`]] },
-      arcadion: { name: AR.name, lv: U.arcadion, desc: ["용혈로 빚은 대검으로 두 번 돌진해 벱니다.", "무기 아이템이 아니라 직업 기술입니다."],
+      arcadion: { name: AR.name, lv: U.arcadion, desc: ["손에 든 용의 대검 아르카디온으로 두 번 돌진해 벱니다.", "아르카디온을 들고 있어야 씁니다."],
         stats: [["비용", `용혈 ${AR.cost}`], ["대기", `${AR.cd}초`], ["범위", `반지름 ${h1.r} · ${h2.r}`], ["피해", `${x(h1.mul)} + ${x(h2.mul)}`]] },
     }[q.s] })),
   };

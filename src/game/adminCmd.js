@@ -52,7 +52,7 @@ const flat = (s) => String(s || "").toLowerCase().replace(/[\s()·]/g, "");
 const ITEMS = [
   ...POTIONS.map((p) => ({ name: p.name, give: (b, n) => { const have = b.p[p.id] || 0; const put = Math.min(n, POTION.stackMax - have); if (put > 0) b.p[p.id] = have + put; return put; } })),
   ...MATERIALS.map((m) => ({ name: m.name, give: (b, n) => addMat(b, m.id, n) })),
-  ...SPECIALS.map((sp) => ({ name: sp.name, give: (b, n, t) => {
+  ...SPECIALS.filter((sp) => !sp.hj).map((sp) => ({ name: sp.name, give: (b, n, t) => {
     let put = 0;
     while (put < n && b.w.length < weaponCap(t)) { b.w.push({ u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }); put += 1; }
     return put;

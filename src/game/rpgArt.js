@@ -2418,7 +2418,7 @@ function drawHero(ctx, g, h, time) {
     const ncs = !down && necroLook(h);              // Necromancer 004 — 손에 든 그림자 낫(근접 평타, 11월 17일 사용자)
     if (ncs) drawNecroScythe(ctx, h, view, ww, hh, top, true, time);
     const wyh = !down && wyvernLook(h);             // Wyvern Knight 006 — 역린 해방 날개(몸 뒤) · 용린 · 반룡 기운(몸 앞)
-    if (wyh) drawWyvernHero(ctx, h, ww, hh, top, true, time);
+    if (wyh) drawWyvernHero(ctx, h, ww, hh, top, true, time, view, flip);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (!down && !(hide & HIDE_GEAR.armor)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
@@ -2429,7 +2429,7 @@ function drawHero(ctx, g, h, time) {
     if (shield && view !== "back") drawAdvShield(ctx, shield, ww, top, HERO_K);
     if (bjv && bjv.sw) drawBloodBlade(ctx, h, bjv, view, flip, ww, hh, top, false, time);
     if (ncs) drawNecroScythe(ctx, h, view, ww, hh, top, false, time);
-    if (wyh) drawWyvernHero(ctx, h, ww, hh, top, false, time);
+    if (wyh) drawWyvernHero(ctx, h, ww, hh, top, false, time, view, flip);
     if (al & LOOK_BIT.weapon && (!held || held.none || held.adv || !held.wpn)) drawAbyssHandGlow(ctx, time, hh, top);   // 무기 그림이 몸에 붙은 전직 · 맨손 — 손 자리 불씨
     if (al) drawAbyssFront(ctx, h, al, time, view, hh, top);   // 후광 · 뒤를 볼 때 날개
     if (h.flash > 0) {

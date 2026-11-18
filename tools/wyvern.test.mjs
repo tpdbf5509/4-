@@ -8,7 +8,8 @@ import { whyEquip } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { SANDBOX } from '../src/game/sandboxData.js';
 import { WYVERN as WV, WY_BLOOD as BL, WY_CLAW as CL, WY_CONTRACT as CT, WY_ROAR as RO, WY_DIVE as DV, WY_SCALE as SC, WY_SKY as SK, WY_AWAKE as AW,
-  WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SLOTS, WY_BITS } from '../src/game/wyvernData.js';
+  WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SLOTS, WY_BITS, WY_WEAPON_ITEM } from '../src/game/wyvernData.js';
+import { SPECIALS } from '../src/game/shopData.js';
 import { unlockWyvern, dropWyvern, wyvernOn, wyvernView, diveR, wyvernTake } from '../src/game/wyvernJob.js';
 import { hiddenHeld } from '../src/game/hiddenUnique.js';
 import { KEY_ACTIONS } from '../src/game/keys.js';
@@ -55,10 +56,17 @@ test('연습장 맵에서만 켜진다 — 실제 게임에는 잇지 않았다(
   assert.equal(new Set(WY_SLOTS.map(q => q.act)).size, WY_SLOTS.length, '키 칸이 겹치지 않는다');
 });
 
-test('켜면 무기를 내려놓고 무기 · 일반 스킬 입력을 받지 않는다 · 끄면 직업 레벨은 남는다', () => {
+test('켜면 다른 무기를 내려놓고 아르카디온만 든다 · 무기 · 일반 스킬 입력을 받지 않는다 · 끄면 직업 레벨은 남는다', () => {
   const { g, h } = setup(37);
   assert.ok(wyvernOn(h)); assert.equal(h.bag.e, 0); assert.equal(h.bag.w.length, 1);
-  assert.ok(whyEquip(h, 1).some(t => t.includes('무기를 들 수 없습니다')));
+  assert.ok(whyEquip(h, 1).some(t => t.includes('아르카디온만 들 수 있습니다')));
+  h.bag.w.push({ u: 2, sp: WY_WEAPON_ITEM.id, p: 0 });
+  assert.deepEqual(whyEquip(h, 2), [], '아르카디온은 든다');
+  // 전용 무기 — 상점 · 상자 · 관리자 목록에 없다(hold · hj)
+  const sp = SPECIALS.find(q => q.id === WY_WEAPON_ITEM.id);
+  assert.ok(sp && sp.hold && sp.hj === 'wyvern');
+  assert.match(readFileSync('src/game/adminCmd.js', 'utf8'), /SPECIALS\.filter\(\(sp\) => !sp\.hj\)/);
+  assert.ok(existsSync('public/assets/game/rpg/weapons/wy_arcadion.webp'), '가방 그림');
   const m = mob(g, h.x + 100, h.y);
   rpgInput(g, { cls: 0, kind: 'skill' }); rpgInput(g, { cls: 0, kind: 'wskill' }); run(g, 1);
   assert.equal(m.hp, HP);
@@ -201,7 +209,7 @@ test('종언의 용성 — 궁극기 · ×65 + 5 × ×15 + ×65 = ×205 · 역�
   near(HP - m.hp, U * (205 + 30) * 1.7, 0.02, '진룡 동조 + 역린');
 });
 
-test('천공강습 · 아르카디온 — 1부 요약 두 기술(정한 수치) · 무기 없이 쓴다', () => {
+test('천공강습 · 아르카디온 — 1부 요약 두 기술(정한 수치) · 아르카디온을 들어야 X 기술', () => {
   let { g, h } = setup();
   let m = mob(g, h.x + 240, h.y);
   h.wy.blood = AS.cost; use(g, 'assault'); run(g, 1);
@@ -210,8 +218,17 @@ test('천공강습 · 아르카디온 — 1부 요약 두 기술(정한 수치) 
   ({ g, h } = setup());
   m = mob(g, h.x + 250, h.y);
   h.wy.blood = AR.cost; use(g, 'arcadion'); run(g, 1.2);
-  near(HP - m.hp, U * (AR.hits[0].mul + AR.hits[1].mul));
-  assert.equal(h.bag.e, 0, '무기 아이템을 끼지 않는다');
+  assert.equal(m.hp, HP, '맨손이면 쓰지 못한다');
+  assert.equal(h.wy.blood, AR.cost);
+  h.bag.w.push({ u: 2, sp: WY_WEAPON_ITEM.id, p: 0 }); h.bag.e = 2;
+  assert.equal(wyvernView(h).arm, 1);
+  const base = (() => { const t = setup(); t.h.bag.w.push({ u: 2, sp: WY_WEAPON_ITEM.id, p: 0 }); t.h.bag.e = 2; const q = mob(t.g, t.h.x + 100, t.h.y); fire(t.g); run(t.g, .3); return (HP - q.hp) / CL.mul; })();
+  ({ g, h } = setup()); h.bag.w.push({ u: 2, sp: WY_WEAPON_ITEM.id, p: 0 }); h.bag.e = 2;
+  m = mob(g, h.x + 250, h.y);
+  h.wy.blood = AR.cost; use(g, 'arcadion'); run(g, 0.05);
+  assert.ok(wyvernView(h).sw, '대검을 휘두른다(그림 값)');
+  run(g, 1.2);
+  near(HP - m.hp, base * (AR.hits[0].mul + AR.hits[1].mul), 0.02, '든 무기 공격력이 기준 피해에 들어간다');
 });
 
 test('잠긴 스킬 · 용혈 부족은 쓰지 않는다 · 쓰러지면 용혈 0 · 와이번 정리', () => {

@@ -436,13 +436,13 @@ function tickTrial(E, g, h, dt) {
     for (const m of mobs) {
       const B = TR.bots[m.eq]; if (!B) continue;
       let tx = dev.x, ty = dev.y;
-      if (m.eq === 'flank' && tdist(m, dev) > 360) { tx = dev.x + m.side * 520; ty = dev.y + 320; }
+      if (m.eq === 'flank' && tdist(m, dev) > TR.device.r + 130) { tx = dev.x + m.side * (TR.device.r + 190); ty = dev.y + 320; }
       const d = tdist(m, dev);
       if (m.eq === 'shoot' && d <= B.r) {
         if ((m.shot -= dt) <= 0) { m.shot = B.gap; t.dev -= B.dmg; E.fx(g, TRIAL_MAP, { kind: 'sk_eq_shot', x: m.x, y: m.y, tx: dev.x, ty: dev.y, t: 0.3, life: 0.3, snd: 'eqBeep' }); }
         continue;
       }
-      if (d < 70) { t.dev -= B.dmg; m.dead = true; g.mobs = g.mobs.filter((q) => q !== m); E.fx(g, TRIAL_MAP, { kind: 'sk_eq_boom', x: m.x, y: m.y, r: 60, t: 0.4, life: 0.4, snd: 'eqClank' }); continue; }
+      if (d < TR.device.r) { t.dev -= B.dmg; m.dead = true; g.mobs = g.mobs.filter((q) => q !== m); E.fx(g, TRIAL_MAP, { kind: 'sk_eq_boom', x: m.x, y: m.y, r: 60, t: 0.4, life: 0.4, snd: 'eqClank' }); continue; }
       const dx = tx - m.x, dy = (ty - m.y) / SQ, L = Math.hypot(dx, dy) || 1;
       const sp = B.spd * (m.slow > 0 ? 0.5 : 1) * (m.stun > 0 || m.freeze > 0 ? 0 : 1);
       m.x += (dx / L) * sp * dt; m.y += (dy / L) * sp * dt * SQ; m.ax = dx < 0 ? -1 : 1;

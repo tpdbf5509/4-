@@ -120,10 +120,11 @@ export function drawEqTrialGround(ctx, me, mapId, time) {
   const v = eqView(me), t = v && v.tr;
   if (!t) return;
   if (t.ph === 1) {
-    const [x, y] = TR.device.at;
-    cell(ctx, 'bots', 3, x, y, 170) || disc(ctx, x, y - 40, 40, '#6fb7c0', 1);
-    ring(ctx, x, y, 70, t.dev > 40 ? C.teal : C.red, 0.9);
-    bar(ctx, x, y - 170, 120, t.dev / TR.device.hp, t.dev > 40 ? C.teal : C.red);
+    const [x, y] = TR.device.at, D = TR.device, col = t.dev > 40 ? C.teal : C.red;
+    ring(ctx, x, y, D.r, col, 0.9);
+    // 그림의 받침 가운데(발 기준 위 29/256)가 바닥 원 가운데에 오도록 발을 내려 그린다
+    cell(ctx, 'bots', 3, x, y + D.size * 29 / 256, D.size) || disc(ctx, x, y - 40, D.r * 0.6, '#6fb7c0', 1);
+    bar(ctx, x, y - D.r * SQ - 40, 240, t.dev / D.hp, col);
   }
   if (t.ph === 3 && !t.open) TR.last.cool.forEach(([x, y], i) => {
     cell(ctx, 'props', 3, x, y, 130);

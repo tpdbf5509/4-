@@ -293,6 +293,13 @@ export function play(name) {
     noise({ t: 0.36, gain: 0.26, f: 340, q: 0.5 });
     tone({ type: "sine", f0: 140, f1: 44, t: 0.34, gain: 0.22 });
     [0.04, 0.1, 0.17].forEach((d, i) => tone({ type: "triangle", f0: 2100 + i * 380, f1: 2700 + i * 300, t: 0.08, gain: 0.05, delay: d }));
+  } else if (name === "eqClank") {          // Engineer 003 획득 루트 — 금속이 세 번 부딪친다
+    if (!gate("eqClank", 200)) return;
+    [0, 0.13, 0.26].forEach((d, i) => { noise({ t: 0.06, gain: 0.12 - i * 0.02, f: 2600, q: 6, delay: d }); tone({ type: "square", f0: 330 - i * 30, f1: 180, t: 0.07, gain: 0.04, delay: d }); });
+  } else if (name === "eqBeep") {           // 장치가 맞물림 — 낮은 두 음 전자음
+    if (!gate("eqBeep", 150)) return;
+    tone({ type: "square", f0: 660, t: 0.07, gain: 0.05 });
+    tone({ type: "square", f0: 990, t: 0.09, gain: 0.05, delay: 0.09 });
   } else if (name === "gmSlot") {            // 슬롯 릴 — 빠르게 도는 딸깍 소리가 점점 느려진다
     if (!gate("gmSlot", 400)) return;
     for (let i = 0; i < 12; i++) tone({ type: "square", f0: 880 + (i % 3) * 110, t: 0.03, gain: 0.035, delay: 0.04 * i + 0.004 * i * i });

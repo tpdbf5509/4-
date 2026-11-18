@@ -24,6 +24,9 @@ import { acGrant, ADMIN_CARD } from "./abyssCards.js";
 import { unlockBlood, dropBlood, bloodOn } from "./bloodJob.js";
 import { BLOOD } from "./bloodJobData.js";
 import { unlockGambler, dropGambler, gamblerOn } from "./gamblerJob.js";
+import { unlockEngineer, dropEngineer, engineerOn } from "./engineerJob.js";   // Engineer 003(11월 19일)
+import { ENGINEER, ENGINEER_ID, ENGINEER_NAME } from "./engineerData.js";
+import { eqAdminStage, EQ_STAGES } from "./engineerQuest.js";
 import { GAMBLER, GAMBLER_ID, GAMBLER_NAME } from "./gamblerData.js";
 import { MATERIALS } from "./itemData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
@@ -42,6 +45,7 @@ const HELP = [
   "/직업 <이름> <직업> — 검사 · 궁수 · 마법사 · 검투사 · 기사 · 암살자 · 명사수 · 총사 · 엘프 · 마도사 · 소환술사 · 치유사",
   "/블러드 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 BLOOD-001 해금(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
   "/도박꾼 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 Gambler 002 켜기(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
+  "/엔지니어 <이름> [직업레벨 | 끄기 | 연마 <0~50> | 루트 <단계>] — 히든 직업 Engineer 003 켜기(시험용) · 직업 레벨 · 연마 · 끄기 · 획득 루트 단계 맞추기",
   "/탑 <이름> <층> — 그 사람을 심연의 탑 그 층 앞에 올려 둠(1~999). 파편 · 기록도 일반 도전처럼 쌓임",
   "/카드 <이름> — 탑 안의 그 사람에게 흡혈의 이빨 다이아 + 무작위 강화 카드 30장(층 상관없음, 시험용)",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
@@ -103,7 +107,7 @@ const jobLabel = (p) => (p.adv ? `${JOBS.find((j) => j.id === p.job).name} · ${
 function changeJob(g, t, pick) {
   t.job = pick.job;
   t.advClass = pick.adv; t.advQ = null; t.as = null;
-  if (pick.adv && t.bag) dropGambler(t);          // Gambler 002 도 꺼진다
+  if (pick.adv && t.bag) { dropGambler(t); t.en = null; }   // Gambler 002 · Engineer 003 도 꺼진다
   if (pick.adv && t.bag) dropBlood(t);            // 1차 전직으로 바꾸면 BLOOD-001 은 꺼진다(전직을 대신하는 직업)
   const b = t.bag;
   if (b) {
@@ -266,6 +270,46 @@ export function rpgAdminCmd(g, pi, text) {
     bump(t);
     say(`${who(g, ti)}님을 ${GAMBLER_NAME}(직업 레벨 ${J.lv})로 바꿨습니다.`);
     if (ti !== pi) sys(g, ti, `관리자가 히든 직업 ${GAMBLER_NAME} 를 열었습니다.`);
+    return true;
+  }
+
+  if ((cmd === "엔지니어" || cmd === "engineer") && ENGINEER.live) {   // 히든 직업 Engineer 003 — 해금 경로를 거치지 않고 켠다(시험용, 11월 19일). /도박꾼 과 같은 꼴
+    // /엔지니어 <이름> 루트 <단계> — 획득 루트를 그 단계 앞까지 진행해 둔다(시험용). 0 이면 처음부터
+    if (words.length >= 2 && words[words.length - 2] === "루트" && /^[0-9]{1,2}$/.test(words[words.length - 1])) {
+      const st = Number(words.pop()); words.pop();
+      const [ti, rest] = takeName(g, pi, words);
+      if (ti < 0 || rest.length) return void say(`그 이름의 사람이 이 서버에 없습니다. 예) /엔지니어 나 루트 3 (0~${EQ_STAGES.length - 1})`);
+      const t = g.heroes[ti];
+      if (!t.loaded || !t.bag) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
+      const name = eqAdminStage(t, st);
+      bump(t);
+      return void say(`${who(g, ti)}님의 획득 루트를 「${name}」 앞까지 맞췄습니다.`);
+    }
+    const tw = words.length >= 2 && words[words.length - 2] === "연마" && /^[0-9]{1,2}$/.test(words[words.length - 1]) ? Math.min(ENGINEER.train.max, Number(words[words.length - 1])) : -1;
+    if (tw >= 0) words.splice(-2, 2);
+    const last = tw >= 0 ? "" : words[words.length - 1] || "", off = last === "끄기", lv = /^[0-9]{1,3}$/.test(last) ? Number(last) : 0;
+    if (off || lv) words.pop();
+    const [ti, rest] = takeName(g, pi, words);
+    if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /엔지니어 나 · /엔지니어 나 200 · /엔지니어 나 연마 50 · /엔지니어 나 끄기 · /엔지니어 나 루트 3");
+    const t = g.heroes[ti];
+    if (!t.loaded || !t.bag) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
+    if (trading(t)) return void say("그 사람은 거래 중입니다.");
+    if ((t.dvs ?? -1) >= 0) return void say(`${who(g, ti)}님이 결투 중이라 바꿀 수 없습니다.`);
+    if (t.bag.hj && t.bag.hj.trial) return void say(`${who(g, ti)}님이 해금 시험 중입니다. 시험이 끝난 뒤 다시 해 주세요.`);
+    if (off) { dropEngineer(t); bump(t); return void say(`${who(g, ti)}님의 ${ENGINEER_NAME} 를 껐습니다.`); }
+    if (!engineerOn(t)) unlockEngineer(t);
+    const J = t.bag.hj.jobs[ENGINEER_ID];
+    if (lv) { J.lv = Math.max(1, Math.min(ENGINEER.maxLv, lv)); J.xp = 0; }
+    if (tw >= 0) {
+      J.tr = J.tr.map(() => [tw, 0]);
+      bump(t);
+      say(`${who(g, ti)}님의 ${ENGINEER_NAME} 연마 셋을 ${tw}레벨로 바꿨습니다.`);
+      if (ti !== pi) sys(g, ti, `관리자가 ${ENGINEER_NAME} 연마를 ${tw}레벨로 바꿨습니다.`);
+      return true;
+    }
+    bump(t);
+    say(`${who(g, ti)}님을 ${ENGINEER_NAME}(직업 레벨 ${J.lv})로 바꿨습니다.`);
+    if (ti !== pi) sys(g, ti, `관리자가 히든 직업 ${ENGINEER_NAME} 를 열었습니다.`);
     return true;
   }
 

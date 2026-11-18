@@ -18,7 +18,9 @@ import { spotShown } from './bloodUnlock.js';   // 히든 직업 BLOOD-001
 import { bloodView } from './bloodJob.js';
 import { GAMBLER_CAP, drawGamblerSpots } from './gamblerArt.js';
 import { GM_SPOTS } from './gamblerData.js';
-import { gmSpotShown } from './gamblerUnlock.js';   // Gambler 002 해금 경로 조사물
+import { gmSpotShown } from './gamblerUnlock.js';
+import { eqSpotsOn, drawEqSpot, eqCompanion, eqCompanionAt, drawEqCompanion, drawEqHazards, drawEqTrialGround, drawEqMob, drawEqFx } from './engineerQuestArt.js';   // Engineer 003 획득 루트
+import { eqSpotNear } from './engineerQuest.js';   // Gambler 002 해금 경로 조사물
 import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003 — 무기 그림을 들지 않는다 · 설치물 몸
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
@@ -2852,6 +2854,8 @@ export function drawRpg(ctx, g, bgs) {
   storyObjectsOf(M.id).forEach(n=>{if(inView(n.x,n.y,400))order.push({y:n.y,storyObject:n});});
   (HERBS_BY_MAP[M.id] || []).forEach((n) => { if (inView(n.x, n.y)) order.push({ y: n.y, herb: n }); });   // 약초 채집물(alchemyArt.js)
   if (me && me.bag) GM_SPOTS.forEach((n) => { if (n.map === M.id && inView(n.x, n.y, 200) && gmSpotShown(me, n)) order.push({ y: n.y, gmSpot: n }); });   // Gambler 002 단서 자리(칩 상자 · 계약서 · 주사위 기계) — 사람과 앞뒤를 맞춘다
+  if (me && me.map === M.id) { const en = eqSpotNear(me); eqSpotsOn(me, M.id).forEach((n) => { if (inView(n.at[0], n.at[1], 300)) order.push({ y: n.at[1], eqSpot: n, near: n === en }); }); }   // Engineer 003 획득 루트 조사 자리
+  if (me && me.map === M.id && eqCompanion(me)) { const p = eqCompanionAt(me, 1 / 60); order.push({ y: p.y, eqDoll: p }); }   // 자동인형 003 — 곁을 따라온다(화면만)
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
   g.heroes.forEach((h) => { const us = h && h.map === M.id && engineerUnits(h); if (us) us.forEach((q) => { if (inView(q.u.x, q.u.y, 200)) order.push({ y: q.u.y, enUnit: q }); }); });   // Engineer 003 터렛 · 드론 · 수호자 — 제 발 높이로 줄을 선다
@@ -2860,13 +2864,14 @@ export function drawRpg(ctx, g, bgs) {
   g.heroes.forEach((h) => { const gi = h && h.map === M.id && h.as && h.as.gi; if (gi && gi.t > 0 && Number.isFinite(gi.y)) order.push({ y: gi.y, giant: h }); });   // 거대 정령 — 제 발 높이로 줄을 선다
   if (M.id === "plaza") drawDgPit(ctx, time);
   drawDust(ctx, g, M.id, time);
-  if (me && me.map === M.id) drawNecroTraces(ctx, me, time);   // Necromancer 004 — 내가 남긴 추출 가능 흔적(땅)
+  if (me && me.map === M.id) drawNecroTraces(ctx, me, time);
+  if (me && me.map === M.id) { drawEqHazards(ctx, me, M.id, Date.now() / 1000, time); drawEqTrialGround(ctx, me, M.id, time); }   // Engineer 003 획득 루트 — 위험 장치 · 시험 장치(땅)   // Necromancer 004 — 내가 남긴 추출 가능 흔적(땅)
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
     // 띄움에 걸린 것은 위로 떠서 그린다 · 걸린 표시(경직 · 속박 · 낙인)는 그 위에
     const who = o.m || o.h, lift = who ? liftOf(who, 1 / 60) : 0;
     if (lift) { ctx.save(); ctx.translate(0, -lift); }
-    if (o.m) { (o.m.rq ? drawRqMob : MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time,g); drawAdvMob(ctx, o.m, time, (o.m.rad || 16) * 1.5 + 24); }   // 명사수 약점 표식
+    if (o.m) { (o.m.rq ? drawRqMob : o.m.eq ? drawEqMob : MOB_DRAW[o.m.type] || drawRabbit)(ctx, o.m, time,g); drawAdvMob(ctx, o.m, time, (o.m.rad || 16) * 1.5 + 24); }   // 명사수 약점 표식
     else if (o.h) {
       const ride = M.race ? drawRaceMount(ctx, g, o.h, time) : 0;   // 몹 레이스 — 탈것을 먼저 그리고 그 위에 올라탄다
       if (ride) { ctx.save(); ctx.translate(0, -ride); }
@@ -2885,6 +2890,8 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.prop) drawProp(ctx, o.prop);
     else if (o.tree) drawFieldTree(ctx, o.tree);
     else if (o.gmSpot) drawGamblerSpots(ctx, M, [o.gmSpot], me.bag.gu);
+    else if (o.eqSpot) drawEqSpot(ctx, me, o.eqSpot, time, o.near);
+    else if (o.eqDoll) drawEqCompanion(ctx, o.eqDoll, time);
     else if (o.enUnit) drawEngineerUnit(ctx, o.enUnit, time, RPG.squash, crowd ? Math.min(lod.q, CROWD.q) : lod.q);
     else if (o.herb) drawHerb(ctx, o.herb, herbUp(g, o.herb.i), time);
     else if (o.nc) drawNecroShadowOf(ctx, o.own, o.nc, time);
@@ -2901,7 +2908,8 @@ export function drawRpg(ctx, g, bgs) {
   if (M.dungeon) drawDungeonDark(ctx, me, cam);
   g.fx.forEach((f) => {
     if (!here(f) || GROUND_FX.has(f.kind)) return;
-    if (f.kind.startsWith("sk_")) { if (skFx.has(f)) drawSkillTuned(ctx, f, time, g, crowd); }   // 직업 · 무기 스킬 연출(skillArt.js)
+    if (f.kind.startsWith("sk_eq_")) drawEqFx(ctx, f);   // Engineer 003 획득 루트 — 예고 · 물기 · 레이저 · 충격파
+    else if (f.kind.startsWith("sk_")) { if (skFx.has(f)) drawSkillTuned(ctx, f, time, g, crowd); }   // 직업 · 무기 스킬 연출(skillArt.js)
     else if (crowd && f.kind === "dmg" && f.by >= 0 && f.by !== g.mySeat) return;   // 남이 주고받은 피해 숫자 — 보스 체력바로 본다
     else if (crowd && f.kind === "call" && f.who >= 0 && f.who !== g.mySeat) return;   // 남의 스킬 이름 외침
     else if (f.kind !== "art" || (FX_ART[f.art] || {}).over) drawFx(ctx, f);

@@ -1,7 +1,8 @@
 /* ── 히든 직업 Engineer 003(엔지니어) — 수치는 모두 여기 한 곳(11월 17일, 사용자 기획 「히든직업 002~006 통합기획안」 2부 2장) ─────────────
    규칙은 engineerJob.js(방장 · 전용 서버 판정 꼴), 그림은 engineerArt.js, 시트 규격은 engineerPxData.js.
-   11월 17일 사용자 결정 — "획득 방법은 적용하지 말고 격자 훈련장에 적용해". 해금 경로 · 관리자 명령어 · 저장은 아직 없다.
-   ENGINEER.live 가 false 라 격자 연습장(sandbox 맵)에서만 켜진다. 업데이트 노트 · 공지 · 패치노트 책에 적지 않는다(사용자 지시).
+   11월 17일 사용자 결정 — 격자 연습장에서 먼저 확인. 11월 19일 사용자 지시("엔지니어와 획득 루트 적용해줘")로 실제 게임에 이었다.
+   저장 bag.hj(hiddenSave.js) · 스냅샷 영웅 줄 58 · 해금 경로(engineerQuest.js, 진행은 bag.eu) · 관리자 명령어 /엔지니어(adminCmd.js).
+   히든 직업이라 업데이트 노트 · 공지 · 패치노트 책에 적지 않는다(사용자 지시).
    "정한 값"이라 적은 것은 기획안에 없어 정한 값이다(보고 대상). 그 밖은 기획안 값 그대로. */
 
 export const ENGINEER_NAME = "Engineer 003";
@@ -14,7 +15,7 @@ export const ENGINEER_COLORS = { deep: "#1E3B40", base: "#4FA7B2", bright: "#C6F
 export const ENGINEER_TINT = [{ from: 130, id: "gold" }, { from: 75, id: "pale" }, { from: 0, id: "teal" }];
 
 export const ENGINEER = {
-  live: false,                // 실제 게임 연결 — 사용자가 확인하기 전까지 false(연습장에서만 켜진다)
+  live: true,                 // 실제 게임 연결(11월 19일 사용자 결정) — false 로 되돌리면 저장 값은 남긴 채 해금 경로 · 명령어 · 직업 판정이 모두 꺼진다(연습장은 그대로)
   maxLv: 200,                 // 직업 레벨 최대
   power: 100,                 // 전력 최대
   powerStart: 100,            // 켤 때 · 연습장에 들어올 때 전력(정한 값 — 기획안 "전용 자원 : 전력 100")

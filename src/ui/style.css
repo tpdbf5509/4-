@@ -3267,3 +3267,27 @@ button.forge-stage:disabled { cursor: default; }
 .skw.skw-blood { --nw-bg: #140809; --nw-card: #1f0d10; --nw-line: #5e2a30; --nw-line2: #38171b; --nw-acc: #c96a72; --nw-acc2: #dd9aa0; --nw-text: #f0d9da; --nw-mute: #a8868a; --nw-hi: #fae9ea; }
 .skw .skw-key { background: var(--nw-bg); }
 .skw-ico-txt { display: grid; place-items: center; font-size: 17px; font-weight: 700; color: var(--nw-acc2); background: var(--nw-bg); }
+
+/* Engineer 003 획득 루트 조사 창 — 마을 대화 틀(.village-panel) 위에 퍼즐 입력만 더한다 */
+.eq-panel .eq-who { margin-right: 10px; font-family: 'Do Hyeon', sans-serif; font-weight: 400; color: #e4c987; letter-spacing: -0.02em; }
+.eq-q { margin: 0 0 4px; font-size: 14px; color: #e8dcc0; letter-spacing: -0.02em; }
+.eq-note { margin: 4px 0 0; font-size: 13px; color: #c4b28e; letter-spacing: -0.02em; }
+.eq-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.eq-row.eq-end { padding: 12px 16px 4px; }
+.eq-label { min-width: 84px; font-size: 13px; color: #c4b28e; }
+.eq-pad { display: grid; gap: 8px; padding: 12px 16px 6px; justify-items: start; }
+.eq-code { font-family: 'Do Hyeon', sans-serif; font-size: 28px; letter-spacing: 0.2em; color: #ffe08a; }
+.eq-keys { display: grid; grid-template-columns: repeat(6, auto); gap: 6px; }
+.eq-contract { display: grid; gap: 6px; padding: 14px 20px 6px; }
+.eq-contract b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 20px; color: #ffe08a; letter-spacing: -0.03em; }
+.eq-contract p { margin: 0; font-size: 15px; color: #f1e4c8; letter-spacing: -0.02em; }
+.eq-hud { position: absolute; left: 12px; top: 64px; z-index: 6; display: grid; gap: 4px; min-width: 210px; padding: 8px 12px; border: 1px solid rgba(186,160,106,.6); border-radius: 8px; background: rgba(43,33,23,.9); color: #f1e4c8; font-size: 13px; letter-spacing: -0.02em; pointer-events: auto; }
+.eq-hud b { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 15px; color: #e4c987; }
+.eq-hud .eq-meter { position: relative; height: 6px; background: rgba(20,14,8,.6); border: 1px solid rgba(186,160,106,.45); }
+.eq-hud .eq-meter i { position: absolute; left: 0; top: 0; bottom: 0; background: #9fd2c8; }
+.eq-hud .eq-meter.hot i { background: #e39a5b; }
+@media (max-height: 520px), (max-width: 640px) {
+  .eq-keys { grid-template-columns: repeat(6, auto); }
+  .eq-code { font-size: 22px; }
+  .eq-hud { top: 48px; min-width: 170px; font-size: 12px; }
+}

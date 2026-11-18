@@ -215,3 +215,5 @@ python3 tools/png-to-webp.py             # public/assets/game 에 WebP 와 manif
 ### Engineer 003 연출 (11월 17일, 격자 연습장 전용)
 
 `rpg/effects/hidden-jobs/engineer/px/en_*.webp`는 투명 무손실 도트 시트 20장이다. 외부 이펙트 라이브러리 없이 `python3 design/effects/engineer/make.py`로 재생성한다. 칸 규격·색 줄·중심점은 `manifest.json`과 `engineerPxData.js`가 일치해야 한다. 조립 96×72 10칸 · 충전 64×64 8칸×3색 · 추진기 24×40 6칸×2색 · 조준 112×80 10칸을 추가했다. 총구 32×32 5칸 · 명중 48×48 8칸 · 포격 72×128 7칸 · 광선 88×304 10칸이다. 그리기는 `engineerArt.js`, 정수 배 확대·보간 끄기. 로드 실패 시 원래 1px 예고선만 남는다.
+
+- `rpg/engineer-quest/*.webp`(11월 19일, Engineer 003 획득 루트) — Codex 그림. 칸 256 · 발 244(E-003 은 칸 384). `automaton`(3칸: 쓰러짐 · 서기 · 경례) · `mimic`(3×2: 위 닫힘 · 아래 깨어남 — 상자 · 시계 · 컨테이너) · `bots`(4칸: 돌격 · 우회 · 원거리 드론 · 제어 장치) · `e003`(3칸: 평소 · 충전 · 방어막) · `props`(4×2: 레버 · 배전함 · 단말기 · 밸브 · 전지 · 톱니 · 안전핀 · 도면). 바닥 그림은 `rpg/story/ground/eng-*.webp` 16장(1536×1024). 그리기는 `engineerQuestArt.js`, 못 불러오면 코드 도형.

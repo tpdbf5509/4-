@@ -54,6 +54,14 @@ import { GAMBLER_ICON } from "./game/gamblerPxData.js";            // 히든 직
 import { gmSpotNear, gmSpotLine } from "./game/gamblerUnlock.js";
 import { GAMBLER_NAME, GM_SLOTS } from "./game/gamblerData.js";
 import { gamblerHud, GamblerBar, GamblerButtons, GamblerStat } from "./GamblerHud.jsx";
+import { engineerView } from "./game/engineerJob.js";   // 히든 직업 Engineer 003(11월 19일 실제 게임에 이음)
+import { ENGINEER_NAME, EN_SLOTS, EN_SKILLS, EN_PULSE } from "./game/engineerData.js";
+import { engineerIconStyle } from "./game/engineerArt.js";
+import { ENGINEER_ICON } from "./game/engineerPxData.js";
+import { EngineerBar } from "./EngineerHud.jsx";
+import EngineerQuestPanel from "./EngineerQuestPanel.jsx";   // Engineer 003 획득 루트 조사 창
+import { eqSpotNear, eqSpotLine, eqView } from "./game/engineerQuest.js";
+import { EQ_TRIAL } from "./game/engineerQuestData.js";
 import { bloodHud, BloodBar, BloodButtons, BloodStat, SkillIco } from "./BloodHud.jsx";
 import { POTION_ICON_SHEET, POTION_ICONS, potionIconOf, iconStyle, SKILL_ICON_SHEET, SKILL_ICONS } from "./game/skillIconData.js";   // 스킬 · 물약 아이콘 칸(11월 15일)   // 히든 직업 BLOOD-001(11월 14일)
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
@@ -201,6 +209,10 @@ const HOLD_WSK = new Set(["azure_dual", "blood_gun"]);   // 누르고 있는 동
 // Gambler 002 — 빌려 쓰는 행동 키(gamblerData.js GM_SLOTS). 혈 행동 키와 겹치는 것은 이 직업일 때 먼저 잡는다
 const GM_FIRST = GM_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
 const GM_BY_ACT = Object.fromEntries(GM_SLOTS.map((q) => [q.act, q.s]));
+// Engineer 003 — Gambler 002 처럼 기존 행동 키를 빌린다(engineerData.js EN_SLOTS)
+const EN_FIRST = EN_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
+const EN_BY_ACT = Object.fromEntries(EN_SLOTS.map((q) => [q.act, q.s]));
+const EQ_COOL_R = 130;   // 최종 시험 냉각 장치 — 이만큼 가까우면 말 걸기 키로 돌린다(engineerQuest.js trialCool 과 같은 값)
 const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk", "herb", "blood", "hidden"]);
 const loadBlocks = (kind, dir) => LOAD_BLOCK.has(kind) && !(kind === "hold" && !(dir && dir.length))
   && dir !== false && dir !== "cancel" && !(kind === "mv" && dir && dir.stop);
@@ -687,6 +699,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const abyssRef = useRef(false);                    // 루프가 보는 열린 탑 창 — 입구에서 멀어지면 닫는다
   const [marketOpen, setMarketOpen] = useState(false); // 장터 게시판 창(MarketPanel)
   const [villageOpen, setVillageOpen] = useState(null);
+  const [eqOpen, setEqOpen] = useState(null);       // Engineer 003 획득 루트 조사 창 — 자리 id
   const villageRef = useRef(null);
   useEffect(() => { villageRef.current = villageOpen; }, [villageOpen]);
   const [raceOpen, setRaceOpen] = useState(false);     // 몹 레이스 창(RacePanel)
@@ -772,7 +785,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setCodexOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
-    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null); setLibOpen(null); setTestOpen(false); setSkOpen(false);
+    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null); setEqOpen(null); setLibOpen(null); setTestOpen(false); setSkOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
@@ -953,6 +966,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (!h.gath) actRef.current?.("herb", { op: "go", i: hn.i });
         return;
       }
+      // Engineer 003 획득 루트 — 조사 자리(NPC 가 아닌 곳) · 최종 시험 냉각 장치
+      const ev = h && eqView(h);
+      if (ev && ev.tr && ev.tr.ph === 3 && !ev.tr.open) {
+        const ci = EQ_TRIAL.last.cool.findIndex(([x, y]) => Math.hypot(h.x - x, (h.y - y) / RPG.squash) <= EQ_COOL_R);
+        if (ci >= 0) { actRef.current?.("eq", { op: "cool", i: ci }); return; }
+      }
+      const es = !npc0 && h && eqSpotNear(h);
+      if (es) { closeAll(); setEqOpen(es.id); return; }
       if (!npc) return;
       if (npc.shelf) { closeAll(); setLibOpen(npc.shelf); return; }   // 에르덴 도서관 책장 — 대화 대신 책장 화면
       if (npc.village) { closeAll(); setVillageOpen(npc.id); return; }
@@ -1178,10 +1199,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const isBlood = () => !!bloodView(G.current.heroes[mySeat]);   // 손님은 스냅샷 h.bdv
     // Gambler 002 — 새 키 칸 없이 기존 행동 키를 빌린다(gamblerData.js GM_SLOTS). 해금 시험 중에는 BLOOD-001 캐릭터도 이쪽이 먼저다
     const isGm = () => !!gamblerView(G.current.heroes[mySeat]);    // 손님은 스냅샷 h.gmv
-    const kmap = () => keyMap(bindsRef.current, isGm() ? GM_FIRST : isBlood() ? BLOOD_ACTS : []);
+    const isEn = () => !!engineerView(G.current.heroes[mySeat]);   // Engineer 003 — 손님은 스냅샷 h.env(획득 루트 시험 중 빌린 기술도)
+    const kmap = () => keyMap(bindsRef.current, isEn() ? EN_FIRST : isGm() ? GM_FIRST : isBlood() ? BLOOD_ACTS : []);
     const BLOOD_OFF = /^(use\d|adv|advUlt|healMode)$/;
     const GM_OFF = /^(use\d|adv|advUlt|healMode|skill|wskill|b[A-Z]\w*)$/;   // 일반 스킬 칸 · 큰 기술 · 전직 · 무기 스킬 · 혈 행동은 쓰지 않는다
     function pressAct(a) {
+      if (isEn()) {
+        if (EN_BY_ACT[a]) return void act("hidden", { op: "use", s: EN_BY_ACT[a] });
+        if (GM_OFF.test(a)) return;
+      }
       if (isGm()) {
         if (GM_BY_ACT[a]) return void act("hidden", { op: "use", s: GM_BY_ACT[a] });
         if (GM_OFF.test(a)) return;
@@ -1228,6 +1254,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     function releaseAct(a) {
       if (isGm() && (GM_BY_ACT[a] || GM_OFF.test(a))) return;
+      if (isEn() && (EN_BY_ACT[a] || GM_OFF.test(a))) return;
       if (a === "skill" && isBlood()) a = "bField";
       if (MOVE_ACTS[a] && moveKeysOn(moveModeRef.current)) releaseDir(MOVE_ACTS[a]);
       if (a === "fire") act("fire", false);
@@ -1622,10 +1649,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             ...(me.jb && me.jb.shT > 0 && me.jb.sh > 0 ? [{ k: "msh", name: `보호막 ${Math.round(me.jb.sh)}`, t: me.jb.shT }] : []),
             ...(me.ws && me.ws.cmb && me.ws.cmb.t > 0 ? [{ k: "cmb", name: "연계 입력", t: me.ws.cmb.t }] : [])],
           // 무기 스킬 칸 — 전설 무기를 들었을 때만
-          wsk: gamblerView(me) ? null : weaponHud(me),   // Gambler 002 는 무기 스킬 · 전직 스킬 칸이 없다
-          adv: gamblerView(me) ? null : advHud(me),      // 전직 스킬 칸
+          en: engineerView(me),                     // 히든 직업 Engineer 003 — 전력 · 과열 · 스킬(획득 루트 시험 중 빌린 것도)
+          eqSpot: (() => { const s = eqSpotNear(me, true); return s ? { id: s.id, name: s.name, npc: s.npc || "", line: eqSpotLine(me, s) } : null; })(),   // Engineer 003 획득 루트 조사 자리
+          eqv: eqView(me),
+          wsk: gamblerView(me) || engineerView(me) ? null : weaponHud(me),   // Gambler 002 는 무기 스킬 · 전직 스킬 칸이 없다
+          adv: gamblerView(me) || engineerView(me) ? null : advHud(me),      // 전직 스킬 칸
           gm: gamblerHud(gamblerView(me)),          // 히든 직업 Gambler 002 — 베팅 칩 · 전용 스킬(해금 시험 중에도)
-          blood: gamblerView(me) ? null : bloodHud(bloodView(me)),   // 히든 직업 BLOOD-001 — 혈량 게이지 · 적혈탄 · 혈량 전환(Gambler 002 시험 중에는 숨긴다)
+          blood: gamblerView(me) || engineerView(me) ? null : bloodHud(bloodView(me)),   // 히든 직업 BLOOD-001 — 혈량 게이지 · 적혈탄 · 혈량 전환(Gambler 002 시험 중에는 숨긴다)
           wb:worldBossView(g,me),guild:guildView(g,me),
           race: raceView(g, me),                    // 몹 레이스 — 모집 · 내 체력 · 순위(race.js)
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
@@ -1735,7 +1765,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const myEl = elemOf(myLook);
   const who = (pi) => {                              // 파티 칸 — 직업 · 원소
     const l = seats[pi]?.hero;
-    if (gamblerView(G.current.heroes[pi])) return GAMBLER_NAME;   // 히든 직업 Gambler 002 — 직업 이름을 바꿔 보인다
+    if (gamblerView(G.current.heroes[pi])) return GAMBLER_NAME;
+    if (engineerView(G.current.heroes[pi])) return ENGINEER_NAME;   // 히든 직업 Engineer 003   // 히든 직업 Gambler 002 — 직업 이름을 바꿔 보인다
     if (bloodView(G.current.heroes[pi])) return BLOOD_NAME;   // 히든 직업 BLOOD-001 — 직업 이름을 바꿔 보인다(11월 15일 사용자 요청)
     return l ? lookTitle(l) : "";
   };
@@ -1805,7 +1836,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <span>{me.adv.heal ? "치유 평타" : "공격 평타"}<small>눌러 바꾸기</small></span>
           </button>
         )}
-        {!me.blood && !me.gm && me.skills.map((s) => (
+        {!me.blood && !me.gm && !me.en && me.skills.map((s) => (
           <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
             {!touch && keyOf(binds, s.key) && <kbd>{keyOf(binds, s.key)}</kbd>}
@@ -1937,6 +1968,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 </span>
                 <BloodBar v={me.blood} />
                 <GamblerBar v={me.gm} />
+                {me.en && <EngineerBar v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}
@@ -2150,13 +2182,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me && skOpen && (() => {   // 스킬 설명 창 — 내 지금 직업(일반 · 전직 · BLOOD-001 · Gambler 002). 엔지니어 · 네크로맨서는 연습장 전용이라 gameSkillInfo 가 만들지 않는다
             const r = gameSkillInfo(G.current.heroes[mySeat]);
             if (!r) return null;
-            const gm = r.info.id === "gambler", bl = r.info.id === "blood";
+            const gm = r.info.id === "gambler", bl = r.info.id === "blood", en = r.info.id === "engineer";
             const kOf = (a) => (touch ? "" : keyOf(binds, a) || (a === "bField" ? keyOf(binds, "skill") : ""));
             return (
               <>
                 <div className="rpg-menu-back" onClick={() => setSkOpen(false)} />
                 <SkillInfoPanel info={r.info} lv={r.lv} keyOf={kOf} onClose={() => setSkOpen(false)}
-                  icon={gm ? (s) => gamblerIconStyle(GAMBLER_ICON[s], 40) : bl ? (s) => iconStyle(SKILL_ICON_SHEET, SKILL_ICONS[s]) : null} />
+                  icon={gm ? (s) => gamblerIconStyle(GAMBLER_ICON[s], 40) : en ? (s) => engineerIconStyle(ENGINEER_ICON[s], 40) : bl ? (s) => iconStyle(SKILL_ICON_SHEET, SKILL_ICONS[s]) : null} />
               </>
             );
           })()}
@@ -2201,6 +2233,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me&&wbOpen&&<WorldBossPanel state={me.wb} self={me.self} act={act} onClose={()=>setWbOpen(false)}/>}
           {me && <RequiemHud hero={me.self} />}
           {me && libOpen && <LibraryPanel hero={me.self} onRead={book => act("requiem",{op:"read",book})} tab0={libOpen} story={me.story} admin={!!me.self.admin} onClose={() => setLibOpen(null)} />}
+          {me && eqOpen && <EngineerQuestPanel key={eqOpen} spotId={eqOpen} tick={me.eqv} getHero={() => G.current.heroes[mySeat]}
+            onAct={(id, v) => act("eq", { op: "act", id, v })} onTravel={(to) => act("eq", { op: "travel", to })} onContract={(yes) => act("eq", { op: "contract", yes })}
+            onCmd={(i) => act("eq", { op: "cmd", i })} onVillage={() => { const n = npcNear(G.current.heroes[mySeat]); setEqOpen(null); if (n && n.village) setVillageOpen(n.id); }} onClose={() => setEqOpen(null)} />}
           {me && villageOpen && <VillagePanel key={villageOpen} npcId={villageOpen} story={me.story} myName={names[mySeat]} onStory={(d) => act("story", d)} onClose={() => setVillageOpen(null)}
             onBooks={(kind) => { closeAll(); setBookPick(kind); setBagTab("book"); setBagOpen(true); }} />}
           {me && raceOpen && <RacePanel self={me.self} seat={mySeat} race={me.race} names={names} act={act} onClose={() => setRaceOpen(false)} />}
@@ -2282,7 +2317,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {keysOpen && (() => {
             const kh = G.current.heroes[mySeat];
             const adv = kh && ADV_BY_ID[kh.advClass];
-            const who = kh ? { blood: !!bloodView(kh), gambler: !!gamblerView(kh), adv: adv && adv.job === kh.job ? adv.id : "" } : null;
+            const who = kh ? { blood: !!bloodView(kh), gambler: !!gamblerView(kh), adv: adv && adv.job === kh.job ? adv.id : "", hidden: engineerView(kh) ? { slots: EN_SLOTS, skills: EN_SKILLS, fire: EN_PULSE.name } : undefined } : null;   // Engineer 003 — 빌린 행동 키
             const layout = keyLayout(binds, who, keysAll);
             const off = offCount(who);
             const bad = layout.flatMap((sec) => sec.rows).filter((r) => r.on && (r.conflict.length || r.empty)).length;
@@ -2720,15 +2755,35 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             </div>
           )}
 
-          {me?.near?.village && !villageOpen && (
+          {me?.near?.village && !villageOpen && !eqOpen && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">{me.near.name}</span>
               <span className="rpg-talk-line">{me.near.intro}</span>
               <button className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
                 {me.story?.targets?.includes(me.near.id) ? "이야기 진행" : me.near.sight ? "살펴보기" : "이야기 듣기"}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
               </button>
+              {me.eqSpot?.npc === me.near.id && <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => { closeAll(); setEqOpen(me.eqSpot.id); }}>다른 것 묻기</button>}
             </div>
           )}
+          {me?.eqSpot && !me.eqSpot.npc && !me.near && !eqOpen && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">{me.eqSpot.name}</span>
+              <span className="rpg-talk-line">{me.eqSpot.line[0]}</span>
+              <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                {me.eqSpot.line[1]}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
+          {me?.eqv?.tr && (() => { const t = me.eqv.tr; return (   // Engineer 003 최종 병기 시험 — 단계 · 장치 · 내구도 · 과열
+            <div className="eq-hud" role="status" aria-live="polite">
+              <b>최종 병기 시험 {t.ph}/3</b>
+              {t.ph === 1 && <span>웨이브 {t.wave}/{EQ_TRIAL.waves} · 제어 장치 {t.dev}/{EQ_TRIAL.device.hp}</span>}
+              {t.ph === 2 && <span>{t.sh > 0 ? `외곽 단말기 ${t.sh}개 — 방어막 유지 중` : `방어막 꺼짐 · ${Math.ceil(t.shT)}초`}</span>}
+              {t.ph === 3 && !t.open && <span>과열 {t.heat}/100 · 남은 {Math.max(0, Math.ceil(EQ_TRIAL.last.time - t.t))}초 · 다음 냉각 {t.cool + 1}번</span>}
+              {t.ph === 3 && !t.open && <span className={`eq-meter${t.heat >= 70 ? " hot" : ""}`}><i style={{ width: `${t.heat}%` }} /></span>}
+              {t.ph === 3 && t.open && <span>중앙 단말기에 명령 — 정지 → 안전 확인 → 재가동</span>}
+              <span>시험 내구도 {t.dur}/{EQ_TRIAL.dur}</span>
+            </div>); })()}
           {me && me.herb && !nearShopNpc && !shopOpen && !bagOpen && MAT_BY_ID[me.herb.kind] && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">채집</span>

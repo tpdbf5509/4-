@@ -14,6 +14,7 @@
 export const HIDDEN_JOBS = [
   { id: "blood", name: "BLOOD-001" },
   { id: "gambler", name: "Gambler 002" },
+  { id: "engineer", name: "Engineer 003" },   // 11월 19일 실제 게임에 열었다
 ];
 export const HIDDEN_IDS = HIDDEN_JOBS.map((j) => j.id);
 export const hiddenName = (id) => (HIDDEN_JOBS.find((j) => j.id === id) || { name: "히든 직업" }).name;
@@ -22,7 +23,7 @@ export const hiddenName = (id) => (HIDDEN_JOBS.find((j) => j.id === id) || { nam
 export function holds(bag, id) {
   if (!bag || typeof bag !== "object") return false;
   if (id === "blood") return !!(bag.bd && bag.bd.on && !bag.bd.trial);
-  if (id === "gambler") return !!(bag.hj && bag.hj.active === "gambler" && !bag.hj.trial && bag.hj.jobs && bag.hj.jobs.gambler);
+  if (id === "gambler" || id === "engineer") return !!(bag.hj && bag.hj.active === id && !bag.hj.trial && bag.hj.jobs && bag.hj.jobs[id]);
   return false;
 }
 export const hiddenHeld = (h) => (h && h.bag ? HIDDEN_IDS.filter((id) => holds(h.bag, id)) : []);

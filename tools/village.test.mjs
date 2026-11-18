@@ -62,6 +62,7 @@ test('넓힌 마을 — 새 건물 여섯 곳 앞까지 남쪽 문에서 걸어�
   assert.ok(b.x>0&&b.x<V.w&&b.y>V.top&&b.y<V.h,'맵 안: '+b.id);
   const g=world(),h=g.heroes[0];Object.assign(h,{map:V.id,x:V.spawn[0],y:V.spawn[1],gateCd:2});
   const dest={x:b.x,y:b.y+70};rpgMove(g,0,{...dest,m:V.id});step(g,1500);
+  if(b.id==='carpenter'){assert.equal(h.map,'eng-oak','목공소 앞 문으로 들어갔다(Engineer 003 획득 루트)');continue;}
   assert.ok(distance(h,dest)<30,`${b.id} 앞에 도착: ${Math.round(h.x)},${Math.round(h.y)}`);
  }
 });

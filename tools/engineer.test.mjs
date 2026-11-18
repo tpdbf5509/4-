@@ -40,16 +40,11 @@ const full = (h) => { h.en.power = EN.power; };
 function unit() { const { g, h } = setup(); const m = mob(g, h.x + 200, h.y); fire(g, true); step(g, .01); fire(g, false); run(g, .4); return (HP - m.hp) / PU.mul; }
 const U = unit();
 
-test('연습장 맵에서만 켜진다 — 실제 게임에는 아직 잇지 않았다(사용자 결정 · 획득 방법 없음)', () => {
-  assert.equal(EN.live, false);
-  const { g, h } = setup(200, [0, 0, 0], 'field');
-  assert.ok(!engineerOn(h), '사냥터에서는 꺼져 있다');
-  assert.equal(engineerView(h), null);
-  const m = mob(g, h.x + 200, h.y, { map: 'field' });
-  use(g, 'rail'); run(g, .6);
-  assert.equal(m.hp, HP);
-  // 히든 직업 유일 규칙과 부딪히지 않는다 — 장부 보유자 판정은 Gambler 002 · BLOOD-001 만 본다
-  assert.deepEqual(hiddenHeld(h), [], '장부 보유자 표에 적히지 않는다(연습장 전용)');
+test('실제 게임에 열림(11월 19일 사용자 지시) — 사냥터에서도 켜지고 장부 보유자로 적힌다 · 키 설정 창에 따로 칸은 없다', () => {
+  assert.equal(EN.live, true);
+  const { h } = setup(200, [0, 0, 0], 'field');
+  assert.ok(engineerOn(h), '사냥터에서도 켜진다');
+  assert.deepEqual(hiddenHeld(h), ['engineer'], '히든 직업 유일 규칙 보유자');
   assert.ok(!KEY_ACTIONS.some(a => /engineer|엔지니어/i.test(a.id + a.name)), '키 설정 창에 드러나지 않는다');
   assert.ok(EN_SLOTS.every(q => KEY_ACTIONS.some(a => a.id === q.act)), '기존 행동 키를 그대로 쓴다');
 });

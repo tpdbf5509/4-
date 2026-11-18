@@ -47,7 +47,7 @@ function curve(ctx, pts) {
 }
 // 코드 바닥 — 바탕 · 얼룩 · 바닥 타일 · 길 · 바닥 원. 한 번 그려 캐시한다(rpgArt.js bigBg).
 export function paintStory(ctx, M) {
-  const S = mapOf(M.id), G = S.ground;
+  const S = mapOf(M.id), G = S?.ground || {base: '#2b2a28', spot: ['#33312e', '#282624'], tile: 1};   // 이야기 틀을 빌린 맵(Engineer 003 획득 루트) — 그림이 오기 전 바탕
   ctx.fillStyle = G.base; ctx.fillRect(0, 0, M.w, M.h);
   let seed = 3100 + M.w; const rnd = () => { seed = (seed*1664525 + 1013904223) >>> 0; return seed/4294967296; };
   for (let i = 0; i < 2600; i++) {
@@ -59,6 +59,7 @@ export function paintStory(ctx, M) {
     for (let x = 0; x < M.w; x += 80) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, M.h); ctx.stroke(); }
     for (let y = 0; y < M.h; y += 56) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(M.w, y); ctx.stroke(); }
   }
+  if (!S) return;
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   ctx.fillStyle = G.edge; S.pads.forEach((p) => { ctx.beginPath(); ctx.ellipse(p.x, p.y, p.rx + 6, p.ry + 6, 0, 0, Math.PI*2); ctx.fill(); });
   ctx.strokeStyle = G.edge; S.roads.forEach((r) => { ctx.lineWidth = r.w + 12; curve(ctx, r.pts); ctx.stroke(); });

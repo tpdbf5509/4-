@@ -1,6 +1,6 @@
 /* 실제 게임 스킬 설명 창(11월 17일 사용자 "격자 연습장 말고 실제 게임에 스킬 상세설명 적용해줘") — RpgView 가 SkillInfoPanel 로 띄운다.
    내 캐릭터의 지금 직업만 보인다: 일반 직업(검사 · 마법사 · 궁수) + 1차 전직 · BLOOD-001 · Gambler 002.
-   Engineer 003 · Necromancer 004 는 아직 연습장 전용이라 여기서 만들지 않는다.
+   Engineer 003 은 11월 19일 실제 게임에 이었다. Necromancer 004 등은 아직 연습장 전용이라 여기서 만들지 않는다.
    숫자는 모두 각 데이터 상수에서 만든다(수치를 바꾸면 설명도 따라간다). 설명 문장은 데이터의 note 를 그대로 쓴다 */
 import { JOB_BY_ID, BIG_SKILL, RPG, ACTIVE_SKILLS, STATS, jobOf, elemOf, skillName, heldSpecial, heroRange } from "./rpg.js";
 import { SKILLS as SHOP_SKILLS, SKILL_USE } from "./shopData.js";
@@ -10,6 +10,7 @@ import { BLOOD, BLOOD_NAME, BLOOD_TITLE, TRAIN_NAMES, BLOOD_SHOT, BLOOD_SMASH, B
   BLOOD_PIERCE, BLOOD_SEA, BLOOD_LEGION, BLOOD_ORIGIN, BLOOD_AWAKE } from "./bloodJobData.js";
 import { bloodView, newLock, awakeLock, stableCap } from "./bloodJob.js";
 import { gamblerView } from "./gamblerJob.js";
+import { engineerView } from "./engineerJob.js";
 import { hiddenSkillInfo } from "./hiddenSkillInfo.js";
 
 const pct = (v) => `${Math.round(v * 1000) / 10}%`;
@@ -192,6 +193,8 @@ export function gameSkillInfo(h) {
   if (!h || !h.bag) return null;
   const gv = gamblerView(h);
   if (gv) return { info: hiddenSkillInfo("gambler"), lv: gv.lv || 1 };
+  const ev = engineerView(h);
+  if (ev) return { info: hiddenSkillInfo("engineer"), lv: ev.lv || 1 };   // 11월 19일 실제 게임에 이음
   const bv = bloodView(h);
   if (bv) return { info: bloodInfo(h), lv: bv.lv || 1 };
   if (!JOB_BY_ID[h.job]) return null;

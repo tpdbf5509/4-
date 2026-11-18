@@ -106,13 +106,13 @@ function TapBtn({ name, q, k, touch, ico, cost, onDown }) {
   );
 }
 
-// 신규 스킬 칸 — 아이콘 그림이 아직 없어 1px 테두리 칸에 한 글자 표식을 둔다(11월 16일)
-function NewBtn({ name, mark, q, k, touch, sub, onDown }) {
+// 신규 스킬 칸(11월 16일) — 11월 18일 아이콘 그림을 더했다(한 글자 표식 대신)
+function NewBtn({ name, ico, q, k, touch, sub, onDown }) {
   return (
     <button type="button" className={`rpg-skill blood ${(q.cd > 0 && !q.on) || q.locked ? "cool" : ""} ${q.low && !q.on ? "low" : ""} ${q.on ? "on" : ""}`}
       onPointerDown={(e) => { e.preventDefault(); onDown(); }}>
       {!touch && k && <kbd>{k}</kbd>}
-      <b className="rpg-ico rpg-ico-txt" aria-hidden="true">{mark}</b>
+      <SkillIco id={ico} />
       <span>{name}<small>{q.locked ? q.lockText : sub}</small></span>
       {q.on && q.left > 0 && <b className="rpg-blood-ring" style={{ "--p": `${(q.left / q.dur) * 360}deg` }} />}
       {q.cd > 0 && !q.on && <em>{Math.ceil(q.cd)}</em>}
@@ -172,11 +172,11 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         {c.cd > 0 && <em>{Math.ceil(c.cd)}</em>}
       </button>
       {onNew && <>
-        <NewBtn name={BLOOD_PIERCE.name} mark="관" q={v.pierce} k={keys.pierce} touch={touch} sub={v.pierce.low ? "혈량 부족" : `혈량 ${v.pierce.cost}`} onDown={() => onNew("pierce")} />
-        <NewBtn name={BLOOD_SEA.name} mark="해" q={{ ...v.sea, dur: BLOOD_SEA.dur }} k={keys.sea} touch={touch} sub={v.sea.on ? `유지 ${Math.ceil(v.sea.left)}초` : v.sea.low ? "혈량 부족" : `혈량 ${v.sea.cost}`} onDown={() => onNew("sea")} />
-        <NewBtn name={BLOOD_LEGION.name} mark="군" q={{ ...v.legion, dur: BLOOD_LEGION.dur }} k={keys.legion} touch={touch} sub={v.legion.on ? `분신 ${Math.ceil(v.legion.left)}초` : v.legion.low ? "혈량 부족" : `혈량 ${v.legion.cost}`} onDown={() => onNew("legion")} />
-        <NewBtn name={BLOOD_ORIGIN.name} mark="맥" q={v.origin} k={keys.origin} touch={touch} sub={v.origin.on ? "차징 중" : v.origin.low ? "혈량 부족" : `혈량 ${v.origin.cost}`} onDown={() => onNew("origin")} />
-        <NewBtn name={BLOOD_AWAKE.name} mark="지" q={{ ...v.awake, dur: BLOOD_AWAKE.dur }} k={keys.awake} touch={touch} sub={v.awake.on ? `각성 ${Math.ceil(v.awake.left)}초` : `${BLOOD_AWAKE.dur}초 각성`} onDown={() => onNew("awake")} />
+        <NewBtn name={BLOOD_PIERCE.name} ico="pierce" q={v.pierce} k={keys.pierce} touch={touch} sub={v.pierce.low ? "혈량 부족" : `혈량 ${v.pierce.cost}`} onDown={() => onNew("pierce")} />
+        <NewBtn name={BLOOD_SEA.name} ico="sea" q={{ ...v.sea, dur: BLOOD_SEA.dur }} k={keys.sea} touch={touch} sub={v.sea.on ? `유지 ${Math.ceil(v.sea.left)}초` : v.sea.low ? "혈량 부족" : `혈량 ${v.sea.cost}`} onDown={() => onNew("sea")} />
+        <NewBtn name={BLOOD_LEGION.name} ico="legion" q={{ ...v.legion, dur: BLOOD_LEGION.dur }} k={keys.legion} touch={touch} sub={v.legion.on ? `분신 ${Math.ceil(v.legion.left)}초` : v.legion.low ? "혈량 부족" : `혈량 ${v.legion.cost}`} onDown={() => onNew("legion")} />
+        <NewBtn name={BLOOD_ORIGIN.name} ico="origin" q={v.origin} k={keys.origin} touch={touch} sub={v.origin.on ? "차징 중" : v.origin.low ? "혈량 부족" : `혈량 ${v.origin.cost}`} onDown={() => onNew("origin")} />
+        <NewBtn name={BLOOD_AWAKE.name} ico="awake" q={{ ...v.awake, dur: BLOOD_AWAKE.dur }} k={keys.awake} touch={touch} sub={v.awake.on ? `각성 ${Math.ceil(v.awake.left)}초` : `${BLOOD_AWAKE.dur}초 각성`} onDown={() => onNew("awake")} />
       </>}
     </>
   );

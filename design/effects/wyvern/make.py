@@ -137,167 +137,48 @@ def smoke(c, cx, cy, r, u):
     c.band(cx - r * .2, cy - r * .2, r * .5, r * .45, 0, 1, al(S[3], .7), dens=lambda d: (1 - d) * (.8 - u * .7))
 
 # ── 와이번(72×56) — 옆모습 · 오른쪽을 본다. 0~3 날갯짓 반복 · 4~6 불을 뿜는 공격. 줄 0 그대로 · 1 연마 75 붉은 선 ──
-# ── 와이번 몸(244×124, 1배로 그린다) — 11월 18일 사용자 그림(design/wyvern-job/ref/wyvern-ref.jpg)을 그대로 도트로 옮긴다 ──
-# 흰 바탕을 가장자리부터 지우고(몸 안 흰 반점은 둘레 색으로 메움) 좌우를 뒤집어 머리를 오른쪽에 둔다(게임 기준).
-# 0~3 날갯짓 — 어깨선 위 날개를 세로로 1.0 · 0.6 · 0.25 · 0.6 배(PIV 를 축으로). 4~6 공격 — 입 속 불빛.
-# 줄 0 기본 · 줄 1 연마 75(날개 윗선에 붉은 선). 32색으로 묶고 1px 윤곽.
-WY_REF = os.path.join(HERE, "..", "..", "wyvern-job", "ref", "wyvern-ref.jpg")
-WY_SC, WY_CW, WY_CH, WY_M = 0.6, 244, 124, 2
-WY_PIV = 122                                            # 날갯짓 축(원본 y)
-WY_MOUTH = (197, 105)                                   # 칸 안 입 자리(공격 불빛)
-def wy_base(x): return 119 if x < 210 else 125 if x < 300 else 130   # 원본 x 마다 날개 · 몸 경계(꼬리 · 머리를 날개로 치지 않게)
+# ── 와이번 몸 · 앉은 와이번 — 11월 18일 사용자 자세 참고 그림 3장(날개 위 · 아래로 친 옆모습 · 날개 접고 앉음)을 따라 pose.py 가 뼈대로 그린다 ──
+# 색은 사용자 와이번 그림(design/wyvern-job/ref/wyvern-ref.jpg)의 녹슨 붉은 갈색. 32색으로 묶고 1px 윤곽, 줄 1 은 연마 75 붉은 선.
+# 날기 0~3 날갯짓(위 → 내리침 → 아래 → 올림) · 4~6 불 뿜기(입을 벌림, 입 속 불빛). 앉기 0 · 1 숨쉬기 · 2 앉아서 불 뿜기.
+import pose as WP
 
-def wy_ref_cut():
-    from collections import deque
-    a = np.array(Image.open(WY_REF).convert("RGB")).astype(int); H, W_ = a.shape[:2]
-    light = (a.min(2) > 200) & ((a.max(2) - a.min(2)) < 45)
-    bg = np.zeros((H, W_), bool); q = deque()
-    for x in range(W_):
-        for y in (0, H - 1):
-            if light[y, x]: bg[y, x] = 1; q.append((y, x))
-    for y in range(H):
-        for x in (0, W_ - 1):
-            if light[y, x] and not bg[y, x]: bg[y, x] = 1; q.append((y, x))
-    while q:
-        y, x = q.popleft()
-        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            ny, nx = y + dy, x + dx
-            if 0 <= ny < H and 0 <= nx < W_ and not bg[ny, nx] and light[ny, nx]: bg[ny, nx] = 1; q.append((ny, nx))
-    hole = light & ~bg; rgb = a.astype(float)
-    for _ in range(6):
-        ys, xs = np.nonzero(hole)
-        if not len(ys): break
-        nh = hole.copy()
-        for y, x in zip(ys, xs):
-            nb = [(y + dy, x + dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1) if 0 <= y + dy < H and 0 <= x + dx < W_ and not hole[y + dy, x + dx] and not bg[y + dy, x + dx]]
-            if nb: rgb[y, x] = np.mean([rgb[p] for p in nb], 0); nh[y, x] = 0
-        hole = nh
-    return np.dstack([rgb, np.where(bg, 0.0, 255.0)])[:, ::-1]
-
-def wy_flap(src, s):
-    H, W_ = src.shape[:2]; ys = np.arange(H)[:, None]
-    base = np.array([wy_base(x) for x in range(W_)])[None, :]
-    wm = (ys < base) & (src[..., 3] > 0)
-    body = src.copy(); body[wm] = 0; wing = src.copy(); wing[~wm] = 0
-    out = body.copy()
-    for ty in range(H):
-        iy = int(round(WY_PIV - (WY_PIV - ty) / s))
-        if 0 <= iy < H:
-            row = wing[iy]; m = row[:, 3] > 0; out[ty][m] = row[m]
-    return out
-
-def wy_shrink(a):
-    H, W_ = a.shape[:2]; pm = a.copy(); pm[..., :3] *= pm[..., 3:4] / 255
-    w, h = round(W_ * WY_SC), round(H * WY_SC)
-    r = np.array(Image.fromarray(np.clip(pm, 0, 255).astype(np.uint8), "RGBA").resize((w, h), Image.BOX)).astype(float)
-    al_ = r[..., 3]; col = np.where(al_[..., None] > 0, r[..., :3] * 255 / np.maximum(al_[..., None], 1), 0)
-    out = np.zeros((WY_CH, WY_CW, 4), np.uint8)
-    out[WY_M:WY_M + h, WY_M:WY_M + w, :3] = np.clip(col, 0, 255).astype(np.uint8)
-    out[WY_M:WY_M + h, WY_M:WY_M + w, 3] = np.where(al_ > 140, 255, 0)
-    out[out[..., 3] == 0] = 0
-    return out
-
-def wyvern_cells():
-    src = wy_ref_cut()
-    base = [wy_shrink(wy_flap(src, s)) for s in (1.0, 0.6, 0.25, 0.6)]
-    atk = [wy_shrink(wy_flap(src, 0.8))] * 3
-    frames = base + atk
-    big = np.concatenate(frames, 1)
+def pose_sheet(frames, mouth):
+    """1배 RGBA 그림들 → 32색 · 윤곽 · 붉은 선 줄 · 입 불빛(gl: 칸마다 불빛 세기)"""
+    cw, ch = frames[0][0].size
+    big = np.concatenate([np.array(f[0]) for f in frames], 1)
+    big[..., 3] = np.where(big[..., 3] > 120, 255, 0); big[big[..., 3] == 0] = 0
     q = Image.fromarray(big[..., :3]).quantize(colors=32, method=Image.Quantize.MEDIANCUT)
     big[..., :3] = np.array(q.convert("RGB")); big[big[..., 3] == 0] = 0
     out = []
     for line in (False, True):
-        for f in range(7):
-            c = Cv(WY_CW, WY_CH); c.a = big[:, f * WY_CW:(f + 1) * WY_CW].copy()
-            if line:   # 연마 75 — 날개 윗선을 따라 붉은 선(2칸 아래까지)
-                for x in range(WY_CW):
+        for f, (_, gl) in enumerate(frames):
+            c = Cv(cw, ch); c.a = big[:, f * cw:(f + 1) * cw].copy()
+            if line:   # 연마 75 — 등 · 날개 윗선을 따라 붉은 선
+                for x in range(cw):
                     col = np.nonzero(c.a[:, x, 3])[0]
-                    if len(col) and col[0] < WY_MOUTH[1] - 30:
-                        y0 = col[0]; c.px(x, y0 + 1, LINE)
-                        if x % 3: c.px(x, y0 + 2, al(LINE, .6))
-            if f >= 4:   # 공격 — 입 속 불빛
-                k = [0.5, 1.0, 0.6][f - 4]; mx, my = WY_MOUTH
-                c.disc(mx, my, 3 + k * 4, 2 + k * 3, al(F[3], .85)); c.disc(mx, my, 1.5 + k * 2, 1 + k * 1.5, F[5]); c.px(mx, my, F[6])
+                    if len(col):
+                        c.px(x, col[0] + 1, LINE)
+                        if x % 3 == 0: c.px(x, col[0] + 2, al(LINE, .6))
+            if gl:
+                mx, my = mouth[f]
+                c.disc(mx, my, 3 + gl * 4, 2 + gl * 3, al(F[3], .85)); c.disc(mx, my, 1.5 + gl * 2, 1 + gl * 1.5, F[5]); c.px(mx, my, F[6])
             outline(c, R[0]); out.append(c)
     return out
 
-# ── 와이번 그림자(64×20) — 땅에 비친 날개 그림자 · 날갯짓 4칸 ──
-# ── 앉은 와이번(1배) — 11월 18일 사용자 "움직이지 않을 때는 앉아있는 모습". 같은 사용자 그림을 조각내 다시 맞춘다 ──
-# 날개는 어깨에서 접고(가로 0.38 · 0.32 배) 몸 · 머리는 24° 들어 올리고, 꼬리는 두 마디로 꺾어 끝을 땅에 눕힌다(정한 자세 — 앉은 그림이 따로 없어서).
-# 칸 0 · 1 숨쉬기(1은 몸이 1px 내려앉음) · 2 앉은 채 불 뿜기. 줄 0 기본 · 줄 1 연마 75. 기준점은 몸 아래 땅(cx, cy = 바닥).
-SIT_BODY, SIT_TAIL, SIT_PAD = -24, -40, (40, 120)
-def wy_sit_layers(breath=0):
-    import math as m_
-    src = wy_ref_cut(); H, W_ = src.shape[:2]; ys = np.arange(H)[:, None]; xs = np.arange(W_)[None, :]
-    base = np.array([wy_base(x) for x in range(W_)])[None, :]; op = src[..., 3] > 0
-    wing = op & (ys < base); near = wing & (xs < 250); far = wing & (xs >= 250)
-    tail = op & ~wing & (xs < 200); tail2 = tail & (xs < 110); tail = tail & ~tail2; body = op & ~wing & ~tail & ~tail2
-    OX, OY = SIT_PAD; SZ = (W_ + 80, H + 200)
-    def lay(msk, dark=1.0):
-        a = src.copy(); a[~msk] = 0; a[..., :3] *= dark
-        return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), "RGBA")
-    def tf(img, sx=1, sy=1, rot=0, px=0, py=0, tx=0, ty=0):
-        a = m_.radians(rot); c, s_ = m_.cos(a), m_.sin(a)
-        A = np.array([[c * sx, -s_ * sy], [s_ * sx, c * sy]]); Ai = np.linalg.inv(A)
-        piv = np.array([px, py]); b = piv - Ai @ (piv + np.array([tx, ty]) + np.array([OX, OY]))
-        return img.transform(SZ, Image.AFFINE, (Ai[0, 0], Ai[0, 1], b[0], Ai[1, 0], Ai[1, 1], b[1]), resample=Image.BILINEAR)
-    a_ = m_.radians(SIT_TAIL); J = (205 + (110 - 205) * m_.cos(a_) - (138 - 140) * m_.sin(a_), 140 + (110 - 205) * m_.sin(a_) + (138 - 140) * m_.cos(a_))
-    out = Image.new("RGBA", SZ)
-    for L in (tf(lay(far, 0.7), sx=0.32, sy=0.85, rot=SIT_BODY, px=265, py=122, ty=breath),
-              tf(lay(tail2), rot=6, px=110, py=138, tx=J[0] - 110, ty=J[1] - 138),
-              tf(lay(tail), rot=SIT_TAIL, px=205, py=140),
-              tf(lay(body), rot=SIT_BODY, px=245, py=150, ty=breath),
-              tf(lay(near), sx=0.38, sy=0.8, rot=SIT_BODY - 8, px=232, py=122, tx=-6, ty=6 + breath)):
-        out.alpha_composite(L)
-    a = m_.radians(SIT_BODY); mx, my = 330 - 245, 172 - 150   # 입(원본) → 몸 회전
-    mouth = (245 + mx * m_.cos(a) - my * m_.sin(a) + OX, 150 + mx * m_.sin(a) + my * m_.cos(a) + OY)
-    return np.array(out).astype(float), mouth
+def wyvern_cells():
+    fr, mo = [], []
+    for f, (p, g) in enumerate([(0, 0), (1, 0), (2, 0), (3, 0), (1, 0.6), (1, 1.0), (1, 0.8)]):
+        im, m = WP.fly_pose(p, g); fr.append((im, [0, 0, 0, 0, 0.5, 1.0, 0.6][f])); mo.append((m[0] + WP.FLY_OX, m[1] + WP.FLY_OY))
+    cy = WP.FLY_OY - 18   # 기준점을 가슴보다 18px 위에 — 예전 시트와 같은 높이에 몸이 오게(입 자리 · 고도 계산을 그대로 쓴다)
+    return pose_sheet(fr, mo), WP.FLY_OX, cy, (mo[5][0] - WP.FLY_OX, mo[5][1] - cy)
 
-def drop_specks(f, keep=12):   # 조각을 다시 맞추다 남은 작은 점(덩어리 12칸 미만)을 지운다
-    from collections import deque
-    on = f[..., 3] > 0; seen = np.zeros_like(on); H, W_ = on.shape
-    for y0 in range(H):
-        for x0 in range(W_):
-            if on[y0, x0] and not seen[y0, x0]:
-                q = deque([(y0, x0)]); seen[y0, x0] = 1; got = []
-                while q:
-                    y, x = q.popleft(); got.append((y, x))
-                    for dy in (-1, 0, 1):
-                        for dx in (-1, 0, 1):
-                            ny, nx = y + dy, x + dx
-                            if 0 <= ny < H and 0 <= nx < W_ and on[ny, nx] and not seen[ny, nx]: seen[ny, nx] = 1; q.append((ny, nx))
-                if len(got) < keep:
-                    for y, x in got: f[y, x] = 0
-
-WY_SIT_BOX = (50, 166, 392, 348)        # 앉은 그림을 담는 원본 캔버스 범위(여백 포함 — 바닥 = 아래 끝)
-WY_SIT_CX = 245 + SIT_PAD[0]            # 몸 축이 오는 x(원본 캔버스)
 def wy_sit_cells():
-    x0, y0, x1, y1 = WY_SIT_BOX; w, h = round((x1 - x0) * WY_SC), round((y1 - y0) * WY_SC)
-    frames = []; mouth = None
-    for br in (0, 2, 0):
-        a, mouth = wy_sit_layers(br); a = a[y0:y1, x0:x1]
-        pm = a.copy(); pm[..., :3] *= pm[..., 3:4] / 255
-        r = np.array(Image.fromarray(np.clip(pm, 0, 255).astype(np.uint8), "RGBA").resize((w, h), Image.BOX)).astype(float)
-        al_ = r[..., 3]; col = np.where(al_[..., None] > 0, r[..., :3] * 255 / np.maximum(al_[..., None], 1), 0)
-        f = np.zeros((h + 4, w + 4, 4), np.uint8); f[2:2 + h, 2:2 + w, :3] = np.clip(col, 0, 255).astype(np.uint8); f[2:2 + h, 2:2 + w, 3] = np.where(al_ > 140, 255, 0)
-        f[f[..., 3] == 0] = 0; drop_specks(f); frames.append(f)
-    big = np.concatenate(frames, 1); q = Image.fromarray(big[..., :3]).quantize(colors=32, method=Image.Quantize.MEDIANCUT)
-    big[..., :3] = np.array(q.convert("RGB")); big[big[..., 3] == 0] = 0
-    cw = w + 4; mx, my = (mouth[0] - x0) * WY_SC + 2, (mouth[1] - y0) * WY_SC + 2
-    out = []
-    for line in (False, True):
-        for f in range(3):
-            c = Cv(cw, h + 4); c.a = big[:, f * cw:(f + 1) * cw].copy()
-            if line:
-                for x in range(cw):
-                    col = np.nonzero(c.a[:, x, 3])[0]
-                    if len(col) and col[0] < my - 10: c.px(x, col[0] + 1, LINE)
-            if f == 2:
-                c.disc(mx, my, 6, 4.5, al(F[3], .85)); c.disc(mx, my, 3, 2.5, F[5]); c.px(mx, my, F[6])
-            outline(c, R[0]); out.append(c)
-    cx = round((WY_SIT_CX - x0) * WY_SC) + 2
-    return out, cx, h + 2, (round(mx) - cx, round(my) - (h + 2))
+    fr, mo = [], []
+    for b, g in ((0, 0), (1.5, 0), (0, 1.0)):
+        im, m = WP.sit_pose(b, g); fr.append((im, 1.0 if g else 0)); mo.append((m[0] + WP.SIT_OX, m[1] + WP.SIT_OY))
+    return pose_sheet(fr, mo), WP.SIT_OX, WP.SIT_OY, (mo[2][0] - WP.SIT_OX, mo[2][1] - WP.SIT_OY)
 
+# ── 와이번 그림자(64×20) — 땅에 비친 날개 그림자 · 날갯짓 4칸 ──
 def shade_cells():   # 122×24 — 사용자 그림 와이번 날개 폭(1배 244)에 맞춰 2배로 그린다
     out = []
     for f, sc in enumerate([1.0, 0.6, 0.25, 0.6]):
@@ -861,7 +742,8 @@ def main():
     man = {}; sheets = {}
     sheets["wy_claw"] = pack("wy_claw", claw_cells(), None, man, cx=10, cy=48, r=88)
     sheets["wy_hit"] = pack("wy_hit", hit_cells(), None, man)
-    sheets["wy_wyvern"] = pack("wy_wyvern", wyvern_cells(), 7, man, cx=146, cy=92, rows=2)
+    fly, fcx, fcy, fmouth = wyvern_cells()
+    sheets["wy_wyvern"] = pack("wy_wyvern", fly, 7, man, cx=fcx, cy=fcy, rows=2, mouth=list(fmouth))
     sit, scx, scy, smouth = wy_sit_cells()
     sheets["wy_sit"] = pack("wy_sit", sit, 3, man, cx=scx, cy=scy, rows=2, mouth=list(smouth))
     sheets["wy_shade"] = pack("wy_shade", shade_cells(), None, man, loop=1)

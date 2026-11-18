@@ -42,7 +42,8 @@ import SkillInfoPanel from "./SkillInfoPanel.jsx";
 import { hiddenSkillInfo } from "./game/hiddenSkillInfo.js";
 import sfx from "./game/sfx.js";
 import { pointerSkillAim, pointerSkillPt, aimedSkillInput } from "./game/skillAim.js";
-import { KEY_ACTIONS, BLOOD_ACTS, loadKeys, keyMap, keyOf, mouseCode } from "./game/keys.js";
+import { KEY_ACTIONS, BLOOD_ACTS, SANDBOX_KEYS, loadKeys, saveKeys, keyMap, keyOf, mouseCode } from "./game/keys.js";
+import SandboxKeys from "./SandboxKeys.jsx";
 import { SANDBOX, SANDBOX_LAYOUTS } from "./game/sandboxData.js";
 import { useTouch } from "./ui/touch.js";
 import "./ui/style.css";
@@ -77,6 +78,9 @@ const TOOLS = [
   { id: "nocd", name: "쿨타임 끄기" },
   { id: "stack", name: "스택 가득" },
 ];
+// 자동 평타 켜고 끄기 — 이 기기에만 기억한다(연습장 전용, 게임 설정과 따로)
+const AUTO_STORE = "flg:sbAuto";
+const loadAuto = () => { try { return localStorage.getItem(AUTO_STORE) !== "0"; } catch { return true; } };
 const fmt = (n) => Math.round(n).toLocaleString("ko-KR");
 const cellOf = (h) => [(h.x - SANDBOX.spawn[0]) / SANDBOX.cell, (h.y - SANDBOX.spawn[1]) / (SANDBOX.cell * RPG.squash)];
 
@@ -412,14 +416,21 @@ export default function Sandbox() {
   const pointer = useRef(null);                   // 판 위 포인터(판 좌표) — 스킬이 이쪽으로 나간다
   const chargeRef = useRef(false);
   const lastWaim = useRef(null);
-  const [binds] = useState(loadKeys);
+  const [binds, setBinds] = useState(() => loadKeys(SANDBOX_KEYS));   // 연습장 키 — 게임 키와 따로(처음엔 게임 키에서 시작)
+  const [keysOpen, setKeysOpen] = useState(false);          // 키 설정 창
+  const keysOpenRef = useRef(false);
+  keysOpenRef.current = keysOpen;
+  useEffect(() => { saveKeys(binds, SANDBOX_KEYS); }, [binds]);
+  const [autoOn, setAutoOn] = useState(loadAuto);           // 자동 평타
+  const autoRef = useRef(autoOn);
+  autoRef.current = autoOn;
   const set = (patch) => setCfg((c) => ({ ...c, ...patch }));
 
   const blood = cfg.adv === "blood", engineer = cfg.adv === "engineer", gambler = cfg.adv === "gambler" || engineer, necro = cfg.adv === "necro", illusion = cfg.adv === "illusion", wyvern = cfg.adv === "wyvern";   // gambler — 무기 없는 히든 직업(002~) 공통 칸
   const hidden = gambler || necro || illusion || wyvern;    // 무기 · 일반 스킬 칸이 없는 히든 직업
   const skJob = wyvern ? "wyvern" : engineer ? "engineer" : necro ? "necromancer" : illusion ? "illusionist" : gambler ? "gambler" : "";   // 스킬 설명 창을 쓰는 히든 직업
   const skInfo = useMemo(() => hiddenSkillInfo(skJob), [skJob]);
-  skToggle.current = () => { if (!skJob) return; setNcOpen(false); setSkOpen((o) => !o); };
+  skToggle.current = () => { if (!skJob) return; setNcOpen(false); setKeysOpen(false); setSkOpen((o) => !o); };
   const magic = hasElem(cfg.job);
   const advs = ADV_CLASSES.filter((q) => q.job === cfg.job);
   const weapons = useMemo(() => weaponsFor(cfg.job, blood, wyvern), [cfg.job, blood, wyvern]);
@@ -443,6 +454,7 @@ export default function Sandbox() {
   const buildKey = JSON.stringify(build);
   useEffect(() => {
     G.current = sandboxWorld({ ...JSON.parse(buildKey), layout });
+    rpgInput(G.current, { cls: 0, kind: "auto", dir: autoRef.current });   // 새 세계에도 자동 평타 설정을 잇는다
     if (import.meta.env.DEV) window.__SB = G.current;   // 개발 중 상태를 들여다보려고(화면 확인 스크립트)
   }, [buildKey, round]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (G.current) placeDummies(G.current, layout); }, [layout]);
@@ -461,6 +473,13 @@ export default function Sandbox() {
   const gmUse = (sk) => act("hidden", { op: "use", s: sk });
   const closeNc = useCallback(() => setNcOpen(false), []);
   const closeSk = useCallback(() => setSkOpen(false), []);
+  const closeKeys = useCallback(() => setKeysOpen(false), []);
+  const toggleAuto = () => {
+    const on = !autoRef.current;
+    setAutoOn(on);
+    act("auto", on);
+    try { localStorage.setItem(AUTO_STORE, on ? "1" : "0"); } catch { /* 저장이 막혀 있으면 이번만 */ }
+  };
   const prey = () => {                            // Necromancer 004 — 흔적 추출 연습 몹(쓰러뜨릴 수 있다)
     const g = G.current, h = g && g.heroes[0];
     if (!h) return;
@@ -530,7 +549,7 @@ export default function Sandbox() {
     };
     const typing = (t) => t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
     const onKey = (e) => {
-      if (typing(e.target)) return;
+      if (typing(e.target) || keysOpenRef.current) return;   // 키 설정 창이 열려 있으면 조작하지 않는다
       // M — 히든 직업 스킬 설명 창. 키 행동 「스킬 설명」(기본 M)이 생긴 뒤로는 그 키를 따른다(그 키가 다른 행동에 묶여 있으면 그 행동이 먼저)
       if ((kmap()[e.code] === "skills" || (e.code === "KeyM" && !kmap()[e.code])) && (isGm() || isEn() || isNc() || isIl() || isWy())) { e.preventDefault(); if (!e.repeat) skToggle.current(); return; }
       const a = kmap()[e.code];
@@ -550,6 +569,7 @@ export default function Sandbox() {
     };
     // 판 위 마우스 버튼 — 키 설정에 넣은 버튼(좌클릭 평타 등). 오른쪽 버튼은 걷기 몫이라 쓰지 않는다
     const onDown = (e) => {
+      if (keysOpenRef.current) return;
       if (e.target !== cvsRef.current || e.pointerType === "touch" || e.button === 2) return;
       const a = kmap()[mouseCode(e.button)];
       if (a && !MOVE[a]) { e.preventDefault(); press(a); }
@@ -661,6 +681,14 @@ export default function Sandbox() {
     hidden ? ["fire", "dash"].includes(a.id) : blood ? BLOOD_ACTS.includes(a.id) || ["fire", "dash", "wskill"].includes(a.id)
       : !BLOOD_ACTS.includes(a.id) && (!["adv", "advUlt", "healMode"].includes(a.id) || (cfg.adv && (a.id === "adv" || (a.id === "advUlt" && cfg.adv === "summoner") || (a.id === "healMode" && cfg.adv === "healer"))))
   ));
+  // 키 설정 창이 보일 행동 — 고른 직업 그대로(히든 직업은 빌린 키 칸과 스킬 이름)
+  const keyWho = {
+    sandbox: true, blood,
+    hidden: wyvern ? { slots: WY_SLOTS, skills: WY_SKILLS, fire: WY_CLAW.name } : engineer ? { slots: EN_SLOTS, skills: EN_SKILLS, fire: EN_PULSE.name }
+      : necro ? { slots: NC_SLOTS, skills: NC_SKILLS, fire: NC_SCYTHE.name } : illusion ? { slots: IL_SLOTS, skills: IL_SKILLS, fire: IL_CARD.name }
+      : gambler ? { slots: GM_SLOTS, skills: GM_SKILLS, fire: GM_CHIP.name } : null,
+    adv: !blood && ADV_CLASSES.some((q) => q.id === cfg.adv && q.job === cfg.job) ? cfg.adv : "",
+  };
   const el = ELEM_BY_ID[elemFor(cfg.job, cfg.elem)];
   const title = [wyvern ? WYVERN_NAME : engineer ? ENGINEER_NAME : necro ? NECRO_NAME : illusion ? ILLUSION_NAME : gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
 
@@ -694,6 +722,8 @@ export default function Sandbox() {
               <button type="button" className="jt-chip" onClick={() => tool("reset")}>기록 지우기</button>
               <button type="button" className="jt-chip" onClick={() => tool("heal")}>체력 · 대기 되돌리기</button>
               <button type="button" className="jt-chip" onClick={() => setRound((r) => r + 1)}>처음부터</button>
+              <button type="button" className={`jt-chip ${autoOn ? "on" : ""}`} aria-pressed={autoOn} title="끄면 평타 키를 누를 때만 칩니다" onClick={toggleAuto}>자동 평타 {autoOn ? "켬" : "끔"}</button>
+              {!touch && <button type="button" className={`jt-chip ${keysOpen ? "on" : ""}`} aria-pressed={keysOpen} onClick={() => { setSkOpen(false); setNcOpen(false); setKeysOpen((o) => !o); }}>키 설정</button>}
               {skJob && <button type="button" className={`jt-chip ${skOpen ? "on" : ""}`} aria-pressed={skOpen} onClick={() => skToggle.current()}>스킬 설명{!touch && <em>M</em>}</button>}
               {gambler && !engineer && <button type="button" className="jt-chip" title="무적이어도 최대 체력 8% 피해를 한 번 받습니다" onClick={() => G.current && rpgSandboxHit(G.current, 0)}>시험 타격 받기</button>}
               {necro && <button type="button" className="jt-chip" title="쓰러뜨릴 수 있는 몹 다섯(기사 · 암살 · 사수 · 주술 · 거수형)을 앞에 세웁니다" onClick={prey}>추출 연습 몹 세우기</button>}
@@ -701,7 +731,7 @@ export default function Sandbox() {
                 <select aria-label="명부에 넣을 몹" value={ncPick} onChange={(e) => setNcPick(e.target.value)}>
                   {NC_ALL.map((t) => <option key={t} value={t}>{mobName({ type: t })} · {NC_KINDS[kindOf(t)].name}</option>)}
                 </select>
-                <button type="button" className={`jt-chip ${ncOpen ? "on" : ""}`} aria-pressed={ncOpen} onClick={() => { setSkOpen(false); setNcOpen((o) => !o); }}>그림자 명부</button>
+                <button type="button" className={`jt-chip ${ncOpen ? "on" : ""}`} aria-pressed={ncOpen} onClick={() => { setSkOpen(false); setKeysOpen(false); setNcOpen((o) => !o); }}>그림자 명부</button>
                 <button type="button" className="jt-chip" title="고른 몹 그림자를 명부 맨 앞에 넣습니다 — 다음 소집에 먼저 나옵니다" onClick={() => { const h = G.current && G.current.heroes[0]; if (h) necroPutRoster(h, ncPick, cfg.ncGrade || 1, (t) => mobName({ type: t })); }}>명부에 넣기</button>
               </span>}
             </div>
@@ -710,6 +740,7 @@ export default function Sandbox() {
             {skJob && skOpen && skInfo && <SkillInfoPanel info={skInfo} onClose={closeSk} keyOf={key}
               lv={(hud && (wyvern ? hud.wy : engineer ? hud.en : necro ? hud.nc : illusion ? hud.il : hud.gm) || {}).lv || 1}
               icon={(s) => wyvern ? wyvernIconStyle(WYVERN_ICON[s], 40) : engineer ? engineerIconStyle(ENGINEER_ICON[s], 40) : illusion ? illusionIconStyle(ILLUSION_ICON[s], 40) : necro ? necroIconStyle(NECRO_ICON[s], 40) : gamblerIconStyle(GAMBLER_ICON[s], 40)} />}
+            {keysOpen && <SandboxKeys binds={binds} setBinds={setBinds} who={keyWho} onClose={closeKeys} onReset={() => setBinds(loadKeys())} />}
             {necro && ncOpen && hud && hud.nc && <NecroRosterPanel v={hud.nc} onClose={closeNc}
               onSummon={(t) => act("hidden", { op: "use", s: "summon", t })} onRecall={(t) => act("hidden", { op: "recall", t })}
               onParty={(list) => act("hidden", { op: "party", list })}

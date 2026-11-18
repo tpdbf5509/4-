@@ -1622,6 +1622,8 @@ kbd {
 .rpg-key-more summary { cursor: pointer; color: #cdbf9e; }
 .rpg-key-more p { margin: 4px 0 0; }
 .rpg-keyset .rpg-stat-foot { flex-wrap: wrap; }
+/* 격자 연습장 키 설정 — 판 위 왼쪽 위에 겹쳐 띄운다(11월 18일) */
+.sb-keyset { top: 12px; max-height: calc(100% - 24px); z-index: 6; }
 @media (max-width: 600px) {
   .rpg-key-row { grid-template-columns: minmax(0, 1fr) 84px 84px; gap: 6px; }
   .rpg-key-name b { font-size: 15px; }

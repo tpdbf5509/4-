@@ -1,6 +1,7 @@
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
 import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
 import {LIBRARY, LIBRARY_MAPS} from './libraryData.js';
+import {faceAim, faceAt} from './faceDir.js';
 import {storyGateOpen, storyGateWhy, storyCleared} from './storyQuestData.js';
 import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
@@ -2350,7 +2351,7 @@ function heroAttack(g, h, force) {
       const [m0] = nearMobs(g, map, h.x, h.y, rng, 1);
       if (job.id === "warrior") {                 // 전사 — 둘레의 사람도 한꺼번에 벤다(몹은 아래에서)
         foes.forEach((o) => { hitFoe(g, h, o, dmg, true); addEmber(g, h, 1); });
-        if (!m0) { h.dir = foes[0].x < h.x ? -1 : 1; h.face = 0; fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI, color: el.light, t: 0.24, life: 0.24, snd: "slash" }); return true; }
+        if (!m0) { h.dir = foes[0].x < h.x ? -1 : 1; faceAt(h, foes[0].x, foes[0].y, RPG.squash); fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI, color: el.light, t: 0.24, life: 0.24, snd: "slash" }); return true; }
       } else if (!m0 || dist(h.x, h.y, foes[0].x, foes[0].y) < dist(h.x, h.y, m0.x, m0.y)) {
         return pvpAttack(g, h, job, el, dmg, rng, hy, force);   // 몹보다 사람이 가까우면 사람을 쏜다
       }
@@ -2361,7 +2362,7 @@ function heroAttack(g, h, force) {
     const list = nearMobs(g, map, h.x, h.y, rng * (h.ac ? acAreaMul(h) : 1));   // 강화 카드 — 기본 공격 범위
     if (!list.length) return force && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
-    h.face = 0;
+    faceAt(h, list[0].x, list[0].y, RPG.squash);   // 치는 쪽을 본다(예전엔 늘 앞)
     list.forEach((m) => { hitMob(g, pi, m, dmg); soak(g, h, m, 0); });
     afterHit(g, h, list[0], list[0].x, list[0].y, dmg);
     fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
@@ -2373,7 +2374,7 @@ function heroAttack(g, h, force) {
   const [m] = nearMobs(g, map, h.x, h.y, rng, 1);
   if (!m) return force && shootAir(g, h, job, el, dmg, rng, hy);
   h.dir = m.x < h.x ? -1 : 1;
-  h.face = 0;
+  faceAt(h, m.x, m.y, RPG.squash);
   const fly = (job.fly || 0.2) * (h.ac ? acFly(h) : 1);   // 강화 카드 — 투사체 속도
   const art = ELEM_ART[el.id];
   const prec = job.id === "archer" ? advPrecFire(advEngine, g, h) : null;   // 명사수 정밀 사격 — 준비됐으면 이번 평타가 꿰뚫는다
@@ -2415,8 +2416,8 @@ function aimAt(h, r) {
 // 허공 베기 — 맞는 것은 없고 베는 모습만
 function swingAir(g, h, el) {
   weaponMiss(h);
+  faceAim(h, ...aimDir(h));
   aimAt(h, 1);
-  h.face = 0;
   fx(g, h.map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
     color: el.light, t: 0.24, life: 0.24, snd: "slash" });
   return true;
@@ -2424,8 +2425,8 @@ function swingAir(g, h, el) {
 // 허공 쏘기 — 사거리 끝까지 날아간다. 마법 구슬은 떨어진 자리 둘레를 친다(landHit)
 function shootAir(g, h, job, el, dmg, rng, hy) {
   weaponMiss(h);
+  faceAim(h, ...aimDir(h));
   const [tx, ty] = aimAt(h, rng);
-  h.face = 0;
   const fly = job.fly || 0.2;
   if (job.id === "mage") {
     fx(g, h.map, { kind: "shot", x0: h.x + h.dir * 14, y0: hy, x1: tx, y1: ty - 10, style: "orb",
@@ -2445,7 +2446,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
     const list = nearFoes(g, h, h.x, h.y, rng);
     if (!list.length) return force && h.dph === 2 && swingAir(g, h, el);
     h.dir = list[0].x < h.x ? -1 : 1;
-    h.face = 0;
+    faceAt(h, list[0].x, list[0].y, RPG.squash);
     list.forEach((o) => { hitFoe(g, h, o, dmg, true); addEmber(g, h, 1); });   // 화염검 — 결투에서 평타를 맞히면 불똥
     fx(g, map, { kind: "slash", x: h.x + h.dir * 30, y: h.y - 30, a: h.dir > 0 ? 0 : Math.PI,
       color: el.light, t: 0.24, life: 0.24, snd: "slash" });
@@ -2454,7 +2455,7 @@ function pvpAttack(g, h, job, el, dmg, rng, hy, force) {
   const [o] = nearFoes(g, h, h.x, h.y, rng);
   if (!o) return force && h.dph === 2 && shootAir(g, h, job, el, dmg, rng, hy);
   h.dir = o.x < h.x ? -1 : 1;
-  h.face = 0;
+  faceAt(h, o.x, o.y, RPG.squash);
   const fly = job.fly || 0.2;
   const art = ELEM_ART[el.id];
   // 명사수 정밀 사격 — 사람에게는 관통하지 않고 한 발만 세진다(전직 PvP 한도 +15% · 평타 한도 3% 는 그대로)
@@ -2550,7 +2551,7 @@ export function rpgSkill(g, pi) {
   }
   // 닿는 것이 없어도 기술은 나간다(대기 시간도 돈다) — 사거리는 표시일 뿐
   if (cx !== h.x) h.dir = cx < h.x ? -1 : 1;
-  h.face = 0;
+  if (cx !== h.x || cy !== h.y) faceAt(h, cx, cy, RPG.squash);
 
   list.forEach((m) => {
     if (isHeroT(m)) return hitFoe(g, h, m, base * mul);
@@ -2605,7 +2606,7 @@ function lungeTo(h, o, time) {
   const go = Math.max(0, d - ((o.rad || 16) * 0.5 + LUNGE_GAP));
   h.dvx = (dx / d) * (go / time); h.dvy = (dy / d) * (go / time);
   if (Math.abs(dx) > 1) h.dir = dx < 0 ? -1 : 1;
-  h.face = 0;
+  faceAim(h, dx, dy);
   h.dash = time; h.inv = Math.max(h.inv || 0, time + 0.1);
 }
 // 손님 화면에서 먼저 그리는 직업 돌진 베기 — 방장 판정과 같은 상대를 고른다. 판정(피해)은 방장만 한다

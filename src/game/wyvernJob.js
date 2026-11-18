@@ -228,6 +228,7 @@ function stepClaw(E, g, h, c, dt) {
 function contractUse(E, g, h) {
   const s = st(h);
   if (s.u) return void no(E, g, h, "와이번이 이미 곁에 있습니다", WARN);   // 동시 한 마리
+  if (s.aw > 0) return void no(E, g, h, "와이번이 몸 안에 있습니다", WARN);   // 역린 해방 중엔 흡수한 와이번을 다시 부르지 않는다
   if (blocked(E, g, h, "contract")) return;
   spend(s, "contract");
   const side = h.dir < 0 ? 1 : -1, x = h.x + side * 90, y = h.y - 8;
@@ -445,10 +446,18 @@ function awakeUse(E, g, h) {
   const s = st(h);
   if (s.aw > 0) return void no(E, g, h, "이미 반룡입니다", WARN);
   if (blocked(E, g, h, "awake")) return;
+  if (!s.u) return void no(E, g, h, "와이번을 먼저 소환해야 합니다", WARN);   // 11월 18일 사용자 — 와이번 소환 뒤에만
+  if (s.u.dv) return void no(E, g, h, "와이번이 급강하 중입니다", WARN);
   if (s.blood < WV.blood) return void no(E, g, h, `용혈이 ${WV.blood} 이어야 합니다`, RED);
   s.blood = 0; s.cd.awake = AW.cd;                   // 용혈 100 을 모두
   s.aw = s.awMax = awakeDur(jobOf(h)); s.awXp = 0;
-  E.fx(g, h.map, { kind: "sk_wy_awake", x: h.x, y: h.y, pi: h.pi, t: AW.form + 0.3, life: AW.form + 0.3, snd: "wyAwake" });
+  const u = s.u, uv = unitView(u);                   // 와이번을 몸에 흡수한다 — 계약은 여기서 끝(조련 연마 · 계약 대기는 끝날 때와 같다)
+  s.u = null;
+  if (u.xp) trainXp(E, g, h, 0);
+  s.cd.contract = CT.cd;
+  const life = AW.absorb + AW.form + 0.3;
+  E.fx(g, h.map, { kind: "sk_wy_awake", x: h.x, y: h.y, pi: h.pi, t: life, life, snd: "wyAwake",
+    wx: Math.round(u.x), wy: Math.round(u.y), hz: uv.hz, sit: uv.sit, fl: u.fl ? 1 : 0 });
   call(E, g, h, AW.name, FIRE);
 }
 function endAwake(E, g, h, s, quiet) {

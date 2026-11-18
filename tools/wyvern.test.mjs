@@ -140,7 +140,7 @@ test('비룡 급강하 — 520 안으로 착지 · 반경 220 ×26 · 와이번 
   assert.equal(h.wy.blood, 0, '합동이어도 30 만');
   ({ g, h } = setup(200, [0, 0, 50]));
   m = mob(g, h.x + 400, h.y);
-  full(h); use(g, 'awake'); run(g, .1); full(h);
+  full(h); use(g, 'contract'); run(g, .05); full(h); use(g, 'awake'); run(g, .1); full(h);
   use(g, 'dive'); run(g, 1);
   near(HP - m.hp, U * (DV.mul + DV.extraMul + DV.stormMul) * (1 + AW.dmg), 0.02, '추가 폭발 · 날개 폭풍');
   assert.equal(diveR(h.bag.hj.jobs.wyvern), DV.r * 1.2);
@@ -172,17 +172,25 @@ test('천공 지배 — 6번 ×7(합 ×42) · 역린 중 10번 · 영역 안 적
   near(HP - m.hp, U * SK.mul * SK.n);
   ({ g, h } = setup());
   m = mob(g, h.x + 300, h.y);
-  full(h); use(g, 'awake'); run(g, .1); full(h);
+  full(h); use(g, 'contract'); run(g, .05); full(h); use(g, 'awake'); run(g, .1); full(h);
   use(g, 'sky'); run(g, 2.4);
   near(HP - m.hp, U * SK.mul * SK.nAwake * (1 + AW.dmg));
 });
 
 test('역린 해방 — 용혈 100 을 모두 · 15초(용혈 연마 50 → 20초) · 기술 +70% · 걷는 빠르기 +25% · 평타는 그대로', () => {
   let { g, h } = setup();
+  h.wy.blood = 100; use(g, 'awake'); step(g, .01);
+  assert.equal(h.wy.aw, 0, '와이번이 없으면 못 쓴다');
+  assert.equal(h.wy.blood, 100, '용혈도 그대로');
+  full(h); use(g, 'contract'); run(g, .05);
   h.wy.blood = 99; use(g, 'awake'); step(g, .01);
   assert.equal(h.wy.aw, 0, '100 이 아니면 못 쓴다');
+  assert.ok(h.wy.u, '와이번은 그대로');
   h.wy.blood = 100; use(g, 'awake'); step(g, .01);
   assert.equal(h.wy.blood, 0); assert.ok(h.wy.aw > AW.dur - 0.1 && h.wy.aw <= AW.dur);
+  assert.equal(h.wy.u, null, '와이번은 몸에 흡수된다');
+  h.wy.cd.contract = 0; full(h); use(g, 'contract'); step(g, .01);
+  assert.equal(h.wy.u, null, '해방 중엔 다시 부르지 않는다');
   const m = mob(g, h.x + 100, h.y);
   fire(g); run(g, .3);
   near(HP - m.hp, U * CL.mul, 0.02, '용조격은 그대로');
@@ -192,7 +200,7 @@ test('역린 해방 — 용혈 100 을 모두 · 15초(용혈 연마 50 → 20�
   h.hold = ['right']; const x1 = h.x; run(g, .5); const sp2 = h.x - x1; h.hold = [];
   near(sp / sp2, 1 + AW.spd, 0.05, '빠르기');
   ({ g, h } = setup(200, [0, 50, 0]));
-  full(h); use(g, 'awake'); step(g, .01);
+  full(h); use(g, 'contract'); run(g, .05); full(h); use(g, 'awake'); step(g, .01);
   assert.ok(h.wy.aw > AW.dur50 - 0.1);
 });
 
@@ -204,7 +212,7 @@ test('종언의 용성 — 궁극기 · ×65 + 5 × ×15 + ×65 = ×205 · 역�
   assert.equal(UL.firstMul + UL.bMul * UL.n + UL.lastMul, 205);
   ({ g, h } = setup(200, [50, 50, 50]));
   m = mob(g, h.x + 400, h.y);
-  full(h); use(g, 'awake'); run(g, .1);
+  full(h); use(g, 'contract'); run(g, .05); full(h); use(g, 'awake'); run(g, .1);
   use(g, 'ult'); run(g, 3);
   near(HP - m.hp, U * (205 + 30) * 1.7, 0.02, '진룡 동조 + 역린');
 });

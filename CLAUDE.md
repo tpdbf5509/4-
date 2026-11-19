@@ -175,7 +175,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - **장서(사용자 기획 · 원고 11권)**: `shelf: 탭` 조사물(1층 「에르덴 장서」 · 2층 「옛이야기 서가」)은 대화 대신 `LibraryPanel.jsx`(책장 → 펼친 책)를 연다. 원고 · 탭 · 책 종류 · 열람 시점은 `libraryBooks.js` 한 곳(`LIB_OPEN_AFTER` 7 · 8 은 1장, 9 · 10 은 4장 뒤). 꽂이 책은 고를 수 없다. 펼친 책 바탕은 공용 그림 `rpg/library/book-open.webp`, 본문은 글자로 놓는다(넓으면 두 쪽, 720px 아래 한 쪽). **붉은 강 설화(BLOOD-001)의 001 단서는 오른쪽 쪽 마지막 문장에만** 둔다(시험이 지킨다). 저장 값 없음.
 
 ### 건물 안 캐릭터 크기 · 카메라 · 걷기 속도 (11월 19일)
-- `bodyScale.js BODY_SCALE` 한 곳. `library`(도서관 1 · 2층) 화면 키 1.2 · `indoor`(`eng-oak` 목공소, `HOUSE_EQ`) 화면 키 `screen` 1.9 · `under`(나머지 `eng-*` 지하 · 기계 맵) 1.2 · 주민 0.75 · 걷기 `spd` 모두 3. 카메라는 방 전체가 한 화면에 들어오게 자동(`camZoom` = min(W/맵 폭, H/맵 높이)), 몸 배율 = screen / 카메라. 대상 밖(에르덴 마을 · 이야기 장소 등)은 그대로(사용자 "마을에서는 바꾸면 안 돼").
+- `bodyScale.js BODY_SCALE` 한 곳. `library`(도서관 1 · 2층) 화면 키 1.0 · `indoor`(`eng-oak` 목공소, `HOUSE_EQ`) 화면 키 `screen` 1.9 · `under`(나머지 `eng-*` 지하 · 기계 맵) 1.2 · 주민 0.75 · 걷기 `spd` 모두 3. 카메라는 방 전체가 한 화면에 들어오게 자동(`camZoom` = min(W/맵 폭, H/맵 높이)), 몸 배율 = screen / 카메라. 대상 밖(에르덴 마을 · 이야기 장소 등)은 그대로(사용자 "마을에서는 바꾸면 안 돼").
 - 그림은 발밑을 축으로만 키운다. 카메라 `cam.z` — 화면 → 땅은 화면/z + cam(`mouseMove.js` · `skillAim.js` · `guideArt.js`). 이름표는 `textUp` 으로 원래 글자 크기. 걷기는 판정 `rpg.js rpgWalk` · `walkTo` 의 `mapSpeed`(`heroSpeed` 는 다른 데 쓰는 비교값이라 여기만 고치면 안 걷는다), 빠른 걸음은 `stepWalk` 가 16px 씩 나눠 막힘을 건너뛰지 않고, 목적지 걷기는 `rpgWalk` 가 틱을 배율만큼 나눠 돌아가기 판단을 보통 간격으로 돌린다. 시험 `tools/body-scale.test.mjs`.
 
 ### 빈 맵 멈춤 · 맵 불러오기 화면 (11월 7일)

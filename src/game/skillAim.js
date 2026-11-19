@@ -7,7 +7,8 @@ export function cleanSkillAim(aim) {
 // 포인터는 CSS 크기에서 캔버스 좌표로 바꿔 보관한다. 시전할 때 현재 카메라와 총구 높이를 반영한다.
 export function pointerSkillAim(h, cam, pointer, squash) {
   if (!h || !cam || !pointer || pointer.map !== h.map) return null;
-  return cleanSkillAim([pointer.x + cam.x - h.x, (pointer.y + cam.y - (h.y - 34)) / squash]);
+  const z = cam.z || 1;   // 카메라를 뒤로 당긴 맵(bodyScale.js)
+  return cleanSkillAim([pointer.x / z + cam.x - h.x, (pointer.y / z + cam.y - (h.y - 34)) / squash]);
 }
 // 포인터가 가리킨 땅 자리(월드 좌표) — 그림자 일섬처럼 "포인터 가까운 적"을 고르는 스킬이 쓴다
 export function cleanSkillPt(pt) {
@@ -16,7 +17,8 @@ export function cleanSkillPt(pt) {
 }
 export function pointerSkillPt(h, cam, pointer) {
   if (!h || !cam || !pointer || pointer.map !== h.map) return null;
-  return [Math.round(pointer.x + cam.x), Math.round(pointer.y + cam.y)];
+  const z = cam.z || 1;
+  return [Math.round(pointer.x / z + cam.x), Math.round(pointer.y / z + cam.y)];
 }
 export const aimedSkillInput = (kind, dir) => ['skill', 'use', 'wskill', 'waim'].includes(kind)
   || (kind === 'wcharge' && dir !== 'cancel') || (kind === 'adv' && dir?.op === 'use') || (kind === 'blood' && ['press', 'release', 'aim', 'sword'].includes(dir?.op))

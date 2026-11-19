@@ -61,7 +61,7 @@ import { drawHighBody, highElite, isHighArt, highBackImg, warmHighArt } from "./
 import { HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON_IDS, HIGH_ART } from "./highData.js";
 import { FIELD_LOOKS, FIELD_TRAIL } from "./fieldLookData.js";
 import { SKILL_PX_CAP } from "./skillPxData.js";
-import { heroScale, npcScale } from "./bodyScale.js";
+import { heroScale, npcScale, camZoom } from "./bodyScale.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
 import { setWbIntroQuality } from "./worldBossIntro.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
@@ -2606,14 +2606,16 @@ function drawTiled(ctx, im, M, cam) {
 }
 
 /* 내 영웅을 따라가는 화면 — 맵 끝에 닿으면 멈춘다 */
+// 카메라 — z(camZoom)가 1 보다 작으면 화면에 W/z × H/z 만큼의 땅이 보인다. 화면 → 땅 좌표는 화면/z + cam(mouseMove.js · skillAim.js)
 function follow(g, M) {
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
-  const tx = me ? me.x - W / 2 : (M.w - W) / 2;
-  const ty = me ? me.y - H / 2 - 20 : (M.h - H) / 2;
-  const cx = Math.max(0, Math.min(M.w - W, tx));
-  const cy = Math.max(0, Math.min(M.h - H, ty));
-  if (!g.cam || g.cam.map !== M.id) g.cam = { x: cx, y: cy, map: M.id };
-  else { g.cam.x += (cx - g.cam.x) * 0.2; g.cam.y += (cy - g.cam.y) * 0.2; }
+  const z = camZoom(M), vw = W / z, vh = H / z;
+  const tx = me ? me.x - vw / 2 : (M.w - vw) / 2;
+  const ty = me ? me.y - vh / 2 - 20 / z : (M.h - vh) / 2;
+  const cx = M.w <= vw ? (M.w - vw) / 2 : Math.max(0, Math.min(M.w - vw, tx));
+  const cy = M.h <= vh ? (M.h - vh) / 2 : Math.max(0, Math.min(M.h - vh, ty));
+  if (!g.cam || g.cam.map !== M.id) g.cam = { x: cx, y: cy, map: M.id, z };
+  else { g.cam.x += (cx - g.cam.x) * 0.2; g.cam.y += (cy - g.cam.y) * 0.2; g.cam.z = z; }
   return g.cam;
 }
 
@@ -2757,6 +2759,8 @@ export function drawRpg(ctx, g, bgs) {
     ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
   }
   warmRpgArt();
+  const z = cam.z || 1, VW = W / z, VH = H / z;     // 카메라를 뒤로 당긴 맵(bodyScale.js) — 땅을 z 배로 줄여 그린다
+  if (z !== 1) { ctx.fillStyle = "#1b1611"; ctx.fillRect(0, 0, W, H); ctx.scale(z, z); }
   const bgName = M.bg || M.id;
   const look = !M.dungeon && FIELD_LOOKS[M.id];        // 사냥터 — 맵마다 다른 바탕(fieldLookData.js)
   const bim = M.grid || M.dungeon || M.village || M.story || look ? null : mapImg(rpgFile(bgName));
@@ -2771,17 +2775,17 @@ export function drawRpg(ctx, g, bgs) {
   };
   if (M.grid) drawGridFloor(ctx, M, cam);              // 격자 연습장(?sandbox) — 칸 단위 바닥
   else if (M.story) {                                       // 1부 이야기 맵 — 바닥 그림 파일이 있으면 그 그림, 없으면 코드 바닥(storyArt.js)
-    if (!drawStoryBackdrop(ctx, M, cam, W, H)) {
+    if (!drawStoryBackdrop(ctx, M, cam, VW, VH)) {
       const bg = bigBg(`vg:${M.id}`, () => {const c=document.createElement('canvas');c.width=M.w;c.height=M.h;paintStory(c.getContext('2d'),M);return c;});
-      if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
-      else { ctx.fillStyle='#5f6460';ctx.fillRect(0,0,W,H); }
+      if (bg) ctx.drawImage(bg, cam.x, cam.y, VW, VH, 0, 0, VW, VH);
+      else { ctx.fillStyle='#5f6460';ctx.fillRect(0,0,VW,VH); }
     }
     warmVillageArt();
   } else if (M.village) {
     warmVillageArt(true);
     const bg = bigBg(`vg:${M.id}`, () => {const c=document.createElement('canvas');c.width=M.w;c.height=M.h;paintVillage(c.getContext('2d'));return c;});
-    if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
-    else { ctx.fillStyle='#637d48';ctx.fillRect(0,0,W,H); }
+    if (bg) ctx.drawImage(bg, cam.x, cam.y, VW, VH, 0, 0, VW, VH);
+    else { ctx.fillStyle='#637d48';ctx.fillRect(0,0,VW,VH); }
   } else if (M.dungeon) {                                    // 던전 — 코드로 그린 바닥(던전마다 하나만 남긴다)
     const bg = bigBg(`dg:${M.dungeon}`, () => paintDungeon(M));
     if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
@@ -2807,7 +2811,7 @@ export function drawRpg(ctx, g, bgs) {
   drawRqGround(ctx,g,M,me,time);
   if (M.pvp) drawArenaFloor(ctx, M);
   if (M.race) drawRaceTrack(ctx, M, g, time, cam, W);   // 몹 레이스 트랙(raceArt.js)
-  const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + W + pad && y > cam.y - pad && y < cam.y + H + pad;
+  const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + VW + pad && y > cam.y - pad && y < cam.y + VH + pad;
 
   drawPowerCircles(ctx,g,M.id);
   drawWorldBossGround(ctx,g,M.id,lod.q);drawGuildGround(ctx,g,M.id);

@@ -42,8 +42,8 @@ export function moveSwitchTasks(prev, next) {
 export function canvasToWorld(clientX, clientY, rect, cam) {
   if (!rect || !rect.width || !rect.height || !cam) return null;
   return {
-    x: ((clientX - rect.left) / rect.width) * W + Math.round(cam.x),
-    y: ((clientY - rect.top) / rect.height) * H + Math.round(cam.y),
+    x: ((clientX - rect.left) / rect.width) * W / (cam.z || 1) + Math.round(cam.x),   // z: 카메라를 뒤로 당긴 맵(bodyScale.js)
+    y: ((clientY - rect.top) / rect.height) * H / (cam.z || 1) + Math.round(cam.y),
   };
 }
 

@@ -7,12 +7,13 @@ export function drawGuideArrow(ctx, g, t, now) {
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
   if (!t || !me || me.map !== t.map || !g.cam) return;
   const cx = Math.round(g.cam.x), cy = Math.round(g.cam.y);
-  const tx = t.x - cx, ty = t.y - cy - GUIDE.arrowLift, pad = 44;
+  const z = g.cam.z || 1;   // 카메라를 뒤로 당긴 맵(bodyScale.js) — 땅 좌표를 화면 좌표로
+  const tx = (t.x - cx) * z, ty = (t.y - cy) * z - GUIDE.arrowLift, pad = 44;
   const inView = tx > pad && tx < W - pad && ty > pad && ty < H - pad;
   let x = tx, y = ty, ang = Math.PI / 2;
   if (inView) y += Math.sin(now / 220) * 6;
   else {
-    const hx = me.x - cx, hy = me.y - cy - 40;
+    const hx = (me.x - cx) * z, hy = (me.y - cy) * z - 40;
     ang = Math.atan2(ty - hy, tx - hx);
     // 내 캐릭터에서 목표 쪽으로 뻗은 선이 화면 가장자리와 만나는 곳
     const dx = Math.cos(ang), dy = Math.sin(ang);

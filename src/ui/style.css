@@ -2905,6 +2905,54 @@ button.forge-stage:disabled { cursor: default; }
 @media (prefers-reduced-motion: reduce) { .village-panel.fx-hit, .village-panel.fx-alarm, .village-panel.fx-flash, .village-panel.fx-chime { animation: none; } }
 @media (max-height: 520px), (max-width: 640px) { .story-boss { padding: 4px 12px 0; } .story-end-fact { font-size: 12px; } }
 
+/* 마을 대화 — 자막형(11월 19일 사용자 참고 사진). 상자 대신 아래쪽 어둠 띠에 이름 · 대사를 가운데 자막으로,
+   대답은 오른쪽 중간에 어두운 반투명 알약으로 쌓는다. 기록 단추는 왼쪽 아래. 색은 기존 갈색 · 금빛 그대로 */
+.shop.village-panel.talk { left: 0; right: 0; bottom: 0; border: 0; border-radius: 0; box-shadow: none; padding-top: 34px;
+  background: linear-gradient(to bottom, rgba(20, 15, 10, 0), rgba(20, 15, 10, 0.78) 34px, rgba(20, 15, 10, 0.9)); }
+.talk .shop-top { position: relative; justify-content: center; padding: 0 56px; border-bottom: 0; }
+.talk .shop-title { margin: 0; align-items: baseline; justify-content: center; gap: 8px; }
+.talk .shop-title b { font-size: 18px; color: #e4c987; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }
+.talk .shop-title span { font-size: 11px; }
+.talk .shop-x { position: absolute; right: 14px; top: -6px; width: 28px; height: 28px; border-radius: 999px; background: rgba(20, 15, 10, 0.6); }
+.talk .story-tag { position: absolute; left: 20px; top: 2px; margin: 0; }
+.talk .village-dialogue-line { box-sizing: border-box; max-width: 900px; margin: 0 auto; min-height: 58px; padding: 6px 44px 8px; text-align: center; font-size: 17px; line-height: 1.6;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75); }
+.talk .village-dialogue-line.ask { cursor: default; }
+.talk .village-dialogue-line.key span:first-child { padding: 0 0 2px; border-left: 0; border-bottom: 1px solid #d9bd7e; }
+.talk .village-dialogue-cue { right: 18px; bottom: 8px; }
+.talk .story-end, .talk .story-log, .talk .story-boss { width: 100%; max-width: 900px; margin: 0 auto; box-sizing: border-box; }
+.talk .story-end { min-height: 58px; padding: 6px 20px 8px; text-align: center; justify-items: center; }
+.talk .story-log { border-bottom: 1px solid rgba(187, 160, 106, 0.2); }
+.talk .village-dialogue-actions { padding: 0 20px 12px; }
+.talk .shop-btn { min-width: 0; padding: 4px 14px; border-radius: 999px; font-size: 12.5px; background: rgba(20, 15, 10, 0.55); }
+.talk .shop-btn.main { background: var(--sh-gold); }
+.talk .talk-log.on { border-color: var(--sh-gold); color: var(--sh-gold); }
+.talk .story-picks { position: absolute; right: 4%; bottom: calc(100% + 7vh); width: min(380px, 44%); padding: 0; gap: 8px; }
+.talk .story-pick { align-items: center; padding: 9px 20px; border-radius: 999px; font-size: 15px; line-height: 1.35;
+  background: rgba(20, 15, 10, 0.74); border: 1px solid rgba(226, 205, 165, 0.3); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35); animation: talk-pick-in .22s ease both; }
+.talk .story-pick:nth-child(2) { animation-delay: .05s; }
+.talk .story-pick:nth-child(3) { animation-delay: .1s; }
+.talk .story-pick:nth-child(4) { animation-delay: .15s; }
+.talk .story-pick:hover, .talk .story-pick:focus-visible { border-color: #e4c987; background: rgba(58, 44, 28, 0.88); }
+.talk .story-pick em { font-size: 11px; }
+.talk .story-pick.tried:hover { border-color: rgba(226, 205, 165, 0.3); background: rgba(20, 15, 10, 0.74); }
+.talk .story-timer { border-radius: 999px; }
+@keyframes talk-pick-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .talk .story-pick { animation: none; } }
+@media (max-height: 520px), (max-width: 640px) {
+  .shop.village-panel.talk { padding-top: 26px; }
+  .talk .shop-top { height: auto; padding: 0 44px; }
+  .talk .shop-title b { font-size: 15px; }
+  .talk .shop-x { right: 8px; top: -4px; width: 26px; height: 26px; }
+  .talk .village-dialogue-line { min-height: 44px; padding: 3px 28px 5px; font-size: 14px; line-height: 1.45; }
+  .talk .village-dialogue-cue { right: 10px; bottom: 4px; }
+  .talk .story-end { min-height: 44px; padding: 3px 12px 5px; }
+  .talk .village-dialogue-actions { padding: 0 10px 8px; }
+  .talk .shop-btn { padding: 3px 11px; font-size: 12px; min-height: 28px; }
+  .talk .story-picks { right: 3%; bottom: calc(100% + 10px); width: min(320px, 62%); gap: 5px; }
+  .talk .story-pick { padding: 6px 14px; font-size: 13px; }
+}
+
 /* ── RPG 테스트 모드(?test) — 초당 피해 칸 · 도구 창의 장소 이동(RpgView.jsx) ── */
 .rpg-test-hud {
   position: absolute; right: 12px; top: 124px; z-index: 4; display: flex; align-items: center; gap: 8px;

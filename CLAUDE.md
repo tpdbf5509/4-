@@ -150,7 +150,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 ### 새벽숲 마을 (11월 5일)
 - `villageData.js`가 위치·인물·대화·충돌·길·그림 규격을 관리하고 `villageArt.js`가 바닥·건물·주민을 그린다. `dawnwood`는 `MAP_IDS` 맨 뒤에 추가했다.
 - 광장 북쪽 문 ↔ 마을 남쪽 문. 안전 지역이며 기존 상점·의뢰를 복제하지 않는다. 메인 스토리·보상·진행 저장은 아직 없다. 장소·NPC id는 이후 이야기에서도 유지한다.
-- `VillagePanel.jsx`는 기존 `.shop` 틀에 하단 대사 상자·큰 초상화를 배치한다. 클릭·Enter·스페이스로 넘기고 Esc로 닫는다. 상세 기획·참고 출처는 `docs/새벽숲-마을.md`. 시험은 `tools/village.test.mjs`.
+- `VillagePanel.jsx`는 기존 `.shop` 틀에 큰 초상화를 두고, 11월 19일부터 자막형(`.village-panel.talk`: 아래 어둠 띠 가운데 이름 · 대사, 오른쪽 알약 선택지, 왼쪽 아래 기록 단추 — 사용자 참고 사진)으로 보인다. 엔지니어 조사 창(`eq-panel`)은 예전 상자 그대로. 클릭·Enter·스페이스로 넘기고 Esc로 닫는다. 상세 기획·참고 출처는 `docs/새벽숲-마을.md`. 시험은 `tools/village.test.mjs`.
 
 ### 메인 스토리 1부 맵 · 인물 (11월 6일, 정식 그림)
 - `storyData.js`가 1~6장 맵 10곳(`convoy` `lab7` `ruin-*` 4 `core` `relay` `mine` `vault`, `MAP_IDS` 마을 뒤) · 인물 7명 · 마을에 더한 시설 3과 인물 4를 관리한다. `storyArt.js`가 그림(없으면 임시 도형)을 그리고 `public/assets/game/rpg/story/` 에 같은 이름의 그림이 있으면 그림을 쓴다(그림 자리 표는 그 폴더 README).

@@ -85,6 +85,9 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   const say = (t) => (t || '').replaceAll('{playerName}', myName || '모험가');   // 대사 속 내 이름
   const line = seq[at];
   const pick = line?.pick;
+  // 고르는 동안 자막에 남겨 둘 질문 — 고르기 칸 바로 앞의 보이는 대사(사진 참고: 대사는 아래 자막, 대답은 오른쪽 알약)
+  const ask = pick ? seq.slice(0, at).filter((l) => !l.pick && shown(l)).at(-1) : null;
+  const cur = ask || line;
   const left = seq.slice(at + 1).filter((l) => shown(l)).length;
 
   const finish = () => {
@@ -115,10 +118,10 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   // 말하는 사람 — 이름 · 역할 · 초상화
   const who = (() => {
     if (!step || end) return {name: npc.name, role: npc.role, img: npc.bg ? null : npc.portrait || villageArtPath(npc.size ? npc.art : `portrait-${npc.art}`), sight: npc.art === 'bell' || npc.art === 'memorial' || !!(npc.portrait && npc.size)};
-    const s = line?.s;
+    const s = cur?.s;
     if (s === 'me') return {name: myName || '나', role: '나', img: null};
-    if (s === 'sys') return {name: line.n || npc.name, role: '음성', img: npc.size ? npc.portrait : null, sight: true};
-    if (s === 'nar' || pick) return {name: npc.name, role: npc.role, img: npc.size ? npc.portrait : (npc.portrait || null), sight: !!npc.size};
+    if (s === 'sys') return {name: cur.n || npc.name, role: '음성', img: npc.size ? npc.portrait : null, sight: true};
+    if (s === 'nar' || (pick && !ask)) return {name: npc.name, role: npc.role, img: npc.size ? npc.portrait : (npc.portrait || null), sight: !!npc.size};
     if (s === 'soeun') { const v = VILLAGE_DIALOGUES['dawn-archivist']; return {name: v.name, role: v.role, img: villageArtPath(`portrait-${v.art}`)}; }
     const p = STORY_PEOPLE[s];
     return p ? {name: p.name, role: p.role, img: storyArtPath('portraits', s)} : {name: npc.name, role: npc.role, img: null};
@@ -151,7 +154,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   };
   return <>
     <div className="rpg-menu-back" onClick={finish}/>
-    <section className={`shop village-panel${step ? ' story' : ''}${fxOn ? ` ${fxOn}` : ''}`} role="dialog" aria-modal="true" aria-labelledby="village-dialog-title" ref={dialog} tabIndex={-1} onKeyDown={trap}>
+    <section className={`shop village-panel talk${step ? ' story' : ''}${fxOn ? ` ${fxOn}` : ''}`} role="dialog" aria-modal="true" aria-labelledby="village-dialog-title" ref={dialog} tabIndex={-1} onKeyDown={trap}>
       {who.img && <img key={who.img} className={`village-portrait${who.sight ? ' sight' : ''}`} src={who.img} alt="" onError={(e) => { e.currentTarget.hidden = true; }}/>}
       <header className="shop-top">
         <div className="shop-title"><b id="village-dialog-title">{who.name}</b><span>{who.role}</span></div>
@@ -182,7 +185,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
           </>}
           {!wrongOrder && lastOfStep && step.go && <span className="story-end-go">닫으면 {step.go === 'dawnwood' ? '에르덴 마을' : '다음 장소'}(으)로 옮겨 갑니다</span>}
         </div>
-      ) : pick ? (
+      ) : pick ? (<>
         <div className="story-picks" role="group" aria-label="대답 고르기">
           {pick.map((p, k) => (
             <button type="button" key={k} className={`story-pick${line.tried?.includes(k) ? ' tried' : ''}`} disabled={line.tried?.includes(k)} onClick={() => choose(p, k)}>
@@ -191,15 +194,16 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
           ))}
           {line.timer && <PickTimer key={`${at}/${seq.length}`} sec={line.timer} onEnd={() => choose({...line.late, late: true}, -1)}/>}
         </div>
-      ) : (
+        {ask && <p className={`village-dialogue-line ask${ask.s === 'nar' ? ' nar' : ''}${ask.s === 'me' ? ' me' : ''}`}>{say(ask.t)}</p>}
+      </>) : (
         <button type="button" className={`village-dialogue-line${line?.s === 'nar' ? ' nar' : ''}${line?.s === 'me' ? ' me' : ''}${line?.key ? ' key' : ''}`} onClick={advance} aria-label="대사 넘기기">
           <span aria-live="polite">{say(line?.t)}</span>
           <span className={`village-dialogue-cue${ready ? '' : ' wait'}`} aria-hidden="true">▾</span>
         </button>
       )}
       <footer className="village-dialogue-actions">
+        {step && seen.length > 1 && <button type="button" className={`shop-btn talk-log${log ? ' on' : ''}`} aria-pressed={log} onClick={() => { setLog(!log); dialog.current?.focus(); }}>{log ? '돌아가기' : '기록'}</button>}
         <span>{log ? `지난 대사 ${seen.length}` : step ? (end ? '' : pick ? '대답을 고르세요' : `남은 대사 ${left}`) : `${trail.length + 1} / ${trail.length + 1 + left}`}</span>
-        {step && seen.length > 1 && <button type="button" className={`shop-btn${log ? ' main' : ''}`} aria-pressed={log} onClick={() => { setLog(!log); dialog.current?.focus(); }}>{log ? '돌아가기' : '기록'}</button>}
         {log ? null : !pick && <button type="button" className="shop-btn" disabled={!end && !trail.length} onClick={back}>이전</button>}
         {!step && npc.books && onBooks && <button type="button" className="shop-btn" onClick={() => onBooks(npc.books)}>책 펼치기</button>}
         {log || pick ? null : end ? <button type="button" className="shop-btn main" onClick={finish}>확인</button>

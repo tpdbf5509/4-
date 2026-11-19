@@ -50,8 +50,7 @@ export function drawEqSpot(ctx, me, s, time, near) {
     const bob = mimicAwake ? Math.sin(time * 18) * 3 : s.act.k === 'mimic' && !sealed ? Math.sin(time * 2.4) * 0.8 : 0;   // 숨 쉬듯 흔들리는 경첩 — 미믹의 단서
     if (!cell(ctx, s.look.sheet, i, x, y + bob, s.look.size * 1.3)) { ctx.save(); ctx.fillStyle = '#5b5148'; ctx.fillRect(x - 24, y - 40, 48, 40); ctx.restore(); }
   }
-  const p = 0.5 + 0.5 * Math.sin(time * 2.2 + x * 0.01);
-  ring(ctx, x, y, 26 + p * 6, C.teal, near ? 0.9 : 0.45);
+  // 발밑 고리 표시는 뺐다(11월 19일 사용자) — 가까이 가면 이름표만 뜬다
   if (near) label(ctx, s.name, x, y - (s.look && !s.look.bg ? s.look.size * 1.3 : 90) - 8);
 }
 

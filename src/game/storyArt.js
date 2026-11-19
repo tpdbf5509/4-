@@ -1,5 +1,6 @@
 /* 메인 스토리 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
    바닥: ground/<맵 id>.webp · 건물 · 장소 · 소품: places/<id>.webp · 사람: people/<인물 id>.webp */
+import { npcScale } from "./bodyScale.js";
 import {STORY_ART as A, PLACE_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
 import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepOpenTargets, storyGateOpen, storyGateCh} from './storyQuestData.js';
 import {VILLAGE_NPCS} from './villageData.js';
@@ -173,9 +174,10 @@ export function drawStoryObject(ctx, n, mapId) {
 export const storyObjectsOf = (mapId) => [...storyBuildingsOf(mapId), ...storyPropsOf(mapId)];
 
 // 사람 — 그림이 없으면 몸 · 머리 · 머리카락 · 표식으로 구분되는 임시 인형
-export function drawStoryNpc(ctx, n, time, mapId) {
+export function drawStoryNpc(ctx, n, time, mapId, k = 1) {   // k: 장소별 몸 크기(bodyScale.js) — 발밑을 축으로 몸만 키운다
   if (n.sight) { drawStoryObject(ctx, n, mapId); label(ctx, n.name, n.x, n.y + 18, '#e6d6a1'); return; }
   const y = n.y + Math.sin(time*2 + n.x) * 1.2, L = n.look || STORY_PEOPLE[n.who]?.look;
+  ctx.save(); if (k !== 1) { ctx.translate(n.x, n.y); ctx.scale(k, k); ctx.translate(-n.x, -n.y); }
   ctx.save(); ctx.fillStyle = 'rgba(25,32,20,.22)'; ctx.beginPath(); ctx.ellipse(n.x, n.y + 1, 18, 5, 0, 0, Math.PI*2); ctx.fill(); ctx.restore();
   if (!drawArt(ctx, 'people', n.who, n.x, y, A.npcSize)) {
     ctx.save();
@@ -196,8 +198,9 @@ export function drawStoryNpc(ctx, n, time, mapId) {
     if (L.mark === 'holo') { ctx.strokeStyle = 'rgba(200,240,245,.6)'; ctx.lineWidth = 1; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(n.x - 14, y - 60 + i*12); ctx.lineTo(n.x + 14, y - 60 + i*12); ctx.stroke(); } }
     ctx.restore();
   }
+  ctx.restore();
   label(ctx, n.name, n.x, n.y + 17);
-  ctx.save(); ctx.fillStyle = '#f0dfb1'; ctx.font = "13px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.fillText('···', n.x, n.y - 86); ctx.restore();
+  ctx.save(); ctx.fillStyle = '#f0dfb1'; ctx.font = "13px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.fillText('···', n.x, n.y - 86 * k); ctx.restore();
 }
 
 /* 메인 이야기 — 지금 단계에서 말 걸 대상 머리 위에 통통 튀는 느낌표. 이미 조사한 대상은 빼고, 이 맵에 있는 것만 */
@@ -206,7 +209,7 @@ export function drawStoryMarks(ctx, me, M, time) {
   const sq = me.bag.sq || {i: 0, n: []}, s = STORY_STEPS[sq.i];
   if (!s || s.map !== M.id) return;
   const left = stepOpenTargets(s, sq.n || []);   // 단서(look)를 다 보기 전에는 at 머리 위에 느낌표가 없다
-  const spots = [...storyNpcsOf(M.id).map((n) => ({id: n.id, x: n.x, y: n.y - 112})),
+  const spots = [...storyNpcsOf(M.id).map((n) => ({id: n.id, x: n.x, y: n.y - 112 * npcScale(M)})),
     ...storySightsOf(M.id).map((n) => ({id: n.id, x: n.x, y: n.y - n.size * .7 - 18})),
     ...(M.id === 'dawnwood' ? VILLAGE_NPCS.map((n) => ({id: n.id, x: n.x, y: n.y - 120})) : [])];
   ctx.save();

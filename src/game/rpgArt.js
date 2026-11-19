@@ -61,6 +61,7 @@ import { drawHighBody, highElite, isHighArt, highBackImg, warmHighArt } from "./
 import { HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON_IDS, HIGH_ART } from "./highData.js";
 import { FIELD_LOOKS, FIELD_TRAIL } from "./fieldLookData.js";
 import { SKILL_PX_CAP } from "./skillPxData.js";
+import { heroScale, npcScale } from "./bodyScale.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
 import { setWbIntroQuality } from "./worldBossIntro.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
@@ -1018,7 +1019,7 @@ function drawDeepDoor(ctx, g, n, time) {
 }
 
 function drawNpc(ctx, g, n, time) {
-  if (n.story) return drawStoryNpc(ctx, n, time, g.heroes[g.mySeat]?.map);
+  if (n.story) { const mid = g.heroes[g.mySeat]?.map; return drawStoryNpc(ctx, n, time, mid, npcScale(MAPS[mid])); }
   if (n.village) return drawVillageNpc(ctx, n, time);
   if (n.deep) return drawDeepDoor(ctx, g, n, time);
   if (n.abyss) return drawAbyssGate(ctx, g, n, time, ABYSS_T);
@@ -2357,6 +2358,9 @@ function drawHero(ctx, g, h, time) {
   const al = down ? 0 : abyssLookOf(h);              // 낀 심연 외형(abyssData.js ABYSS_LOOKS) — 겉모습만, 능력치 없음
   if (held && al & LOOK_BIT.weapon) { held.abyss = 1; if (held.off) held.off.abyss = 1; }
   else if (held) { held.abyss = 0; if (held.off) held.off.abyss = 0; }
+  const bk = heroScale(MAPS[h.map]);                 // 장소별 몸 크기(bodyScale.js) — 발밑을 축으로 그림만 키운다
+  ctx.save();
+  if (bk !== 1) { ctx.translate(h.x, h.y); ctx.scale(bk, bk); ctx.translate(-h.x, -h.y); }
   if (al && im) {
     const ww0 = im.naturalWidth * HERO_K, hh0 = im.naturalHeight * HERO_K;
     drawAbyssUnder(ctx, h, al, time, { im, ww: ww0, hh: hh0, top: -hh0 + HERO_PAD * HERO_K, flip });
@@ -2445,10 +2449,11 @@ function drawHero(ctx, g, h, time) {
   }
   ctx.restore();
   if (al && im) drawAbyssOver(ctx, h, al, time, im.naturalHeight * HERO_K);   // 날개 알갱이(맵 좌표)
+  ctx.restore();
 
   // 체력 · 레벨 · 이름
   const tallK = !down && im && wyvernLook(h) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다
-  const bw = 40, byy = h.y - tallK - 12;
+  const bw = 40, byy = h.y - tallK * bk - 12;
   const r = Math.max(0, Math.min(1, h.hp / (h.max || 1)));
   ctx.save();
   ctx.fillStyle = "rgba(18,12,8,0.8)"; roundRect(ctx, h.x - bw / 2 - 1, byy - 1, bw + 2, 6, 3); ctx.fill();
@@ -2922,7 +2927,7 @@ export function drawRpg(ctx, g, bgs) {
       const b = g.bubbles[pi];
       if (!h || !b || h.map !== M.id) return;
       if (now > b.until) { delete g.bubbles[pi]; return; }
-      drawBubble(ctx, h.x, h.y - 96, b.text, Math.min(1, (b.until - now) / 400));
+      drawBubble(ctx, h.x, h.y - 30 - 66 * heroScale(M), b.text, Math.min(1, (b.until - now) / 400));
     });
   }
   ctx.restore();

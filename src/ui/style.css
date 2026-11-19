@@ -2909,6 +2909,7 @@ button.forge-stage:disabled { cursor: default; }
    대답은 오른쪽 중간에 어두운 반투명 알약으로 쌓는다. 기록 단추는 왼쪽 아래. 색은 기존 갈색 · 금빛 그대로 */
 .shop.village-panel.talk { left: 0; right: 0; bottom: 0; border: 0; border-radius: 0; box-shadow: none; padding-top: 34px;
   background: linear-gradient(to bottom, rgba(20, 15, 10, 0), rgba(20, 15, 10, 0.78) 34px, rgba(20, 15, 10, 0.9)); }
+.shop.village-panel:focus { outline: none; }   /* 대화 창을 열 때 창에 초점을 주면 위쪽에 생기던 흰 선(11월 19일 사용자) */
 .talk .shop-top { position: relative; justify-content: center; padding: 0 56px; border-bottom: 0; }
 .talk .shop-title { margin: 0; align-items: baseline; justify-content: center; gap: 8px; }
 .talk .shop-title b { font-size: 18px; color: #e4c987; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7); }

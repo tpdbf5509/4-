@@ -58,7 +58,7 @@ export const EQ_EXITS = [
   { map: 'eng-oak', at: P(770, 1000), r: 60, to: 'dawnwood', back: EQ_VILLAGE.back, label: '에르덴 마을' },
   { map: 'eng-cellar', at: P(775, 225), r: 100, to: 'eng-oak', back: [1203, 470], label: '참나무 목공소' },
   { map: 'eng-tunnel', at: P(140, 820), r: 60, to: 'eng-cellar', back: [1219, 1300], label: '목공소 지하' },
-  { map: 'eng-lab', at: P(770, 1005), r: 60, to: 'eng-tunnel', back: [2141, 420], label: '정비 통로' },
+  { map: 'eng-lab', at: P(770, 1005), r: 60, to: 'eng-tunnel', back: [2141, 420], label: '폐쇄된 정비 통로' },
 ];
 
 // 조사 자리 그림(props.webp 4×2 · mimic.webp 3×2 · automaton.webp 3×1) — look 이 없으면 바닥 그림만. look.bg 는 바닥 그림에 이미 있어 깨어난 미믹일 때만 그린다
@@ -116,7 +116,7 @@ export const EQ_SPOTS = [
   S('eng-tunnel', 'tun-brkA', 100, 460, '배전함 A', { k: 'take', set: 'brkA', lines: ['배전함 A 의 손잡이를 내렸다. 어딘가에서 불꽃 소리가 약해진다.'], done: ['배전함 A 는 내려가 있다.'] }, { look: { sheet: 'props', i: 1, size: 80 } }),
   S('eng-tunnel', 'tun-brkB', 1390, 540, '배전함 B', { k: 'take', set: 'brkB', lines: ['배전함 B 의 손잡이를 내렸다.'], done: ['배전함 B 는 내려가 있다.'] }, { look: { sheet: 'props', i: 1, size: 80 } }),
   S('eng-tunnel', 'tun-pin', 1450, 330, '안전핀 보관함', { k: 'take', set: 'pin', lines: ['상자 안에서 강철 안전핀을 꺼냈다.'] }, { look: { sheet: 'props', i: 6, size: 70 }, show: ['!pin'] }),
-  S('eng-tunnel', 'tun-cell', 1220, 880, '부품 상자', { k: 'take', set: 'cell', lines: ['톱니 상자 밑에서 푸른 배터리를 찾았다.'] }, { look: { sheet: 'props', i: 4, size: 70 }, show: ['!cell'] }),
+  S('eng-tunnel', 'tun-cell', 1220, 880, '부품 상자', { k: 'take', set: 'cell', lines: ['부품 상자 밑에서 푸른 배터리를 찾았다.'] }, { look: { sheet: 'props', i: 4, size: 70 }, show: ['!cell'] }),
   S('eng-tunnel', 'tun-lift', 1370, 210, '부서진 승강기', { k: 'order', set: 'lift', need: ['pin', 'gear', 'cell'], items: ['톱니', '배터리', '안전핀'], ans: [2, 0, 1],
     intro: ['둥근 철문 안쪽이 아래로 내려가는 승강기다. 부품 세 개를 끼울 자리가 비어 있다.'],
     ok: ['승강기가 덜컹이며 깨어난다. 아래 깊은 곳으로 내려갈 수 있다.'], bad: '불꽃이 튀며 부품이 빠져나온다. 차례가 틀린 것 같다.',
@@ -138,7 +138,7 @@ export const EQ_SPOTS = [
   S('eng-lab', 'lab-ctrl', 1250, 170, '최하층 단말기', { k: 'dials', set: 'pCtrl', q: '세 화살표의 방향을 돌린다.',
     items: [{ n: '왼쪽 화살표', opts: ['위', '오른쪽', '아래', '왼쪽'], ans: 1 }, { n: '위쪽 화살표', opts: ['위', '오른쪽', '아래', '왼쪽'], ans: 2 }, { n: '오른쪽 화살표', opts: ['위', '오른쪽', '아래', '왼쪽'], ans: 3 }],
     ok: ['전류가 가운데로 모인다. 제어 회로가 살아났다.'], bad: '전류가 흩어진다.' }, { look: { sheet: 'props', i: 2, size: 90 } }),
-  S('eng-lab', 'lab-map', 330, 450, '고대 정비 지도', { k: 'travel', need: ['doll3'], lock: ['벽에 커다란 정비망 지도가 붙어 있다. 읽을 수 없는 표시가 가득하다.'] }),
+  S('eng-lab', 'lab-map', 330, 450, '고대 정비 지도', { k: 'travel', need: ['doll3'], lock: ['벽에 커다란 고대 정비 지도가 붙어 있다. 읽을 수 없는 표시가 가득하다.'] }),
   S('eng-lab', 'lab-lift', 1300, 450, '거대한 톱니 문', { k: 'gate', to: 'eng-metro', back: [1203, 1300], need: ['rec6'],
     lock: ['거대한 톱니 문이 굳게 닫혀 있다.'], first: ['003|좌표 확인. 그러나 현재 지도에는 도시가 표시되지 않습니다.', '003|삭제된 것이 아니라 숨겨진 것입니다.', '톱니 문이 천천히 돌며 아래로 내려가는 승강기가 드러난다.'] }, { r: 130 }),
 
@@ -198,7 +198,7 @@ export const EQ_SPOTS = [
   S('eng-clock', 'clk-c3', 70, 620, '괘종시계', T(['멈춘 시각이 07:20 을 가리킨다.'])),
   S('eng-clock', 'clk-c4', 1460, 620, '괘종시계', { k: 'mimic', mid: 'clock', seal: 'clkMimic', sheet: 1,
     intro: ['시계를 바라본다.', '초침이 가끔 반대로 돈다. 그림자가 한 박자 늦게 따라온다.'], opts: ['손을 대 본다', '물러난다', '오래 지켜본다'],
-    poke: ['문틈 사이로 이빨 같은 것이 보였다가 사라진다.', '옆 계단 아래 스위치가 시계와 줄로 이어져 있다.'], sealed: ['봉인된 시계다. 초침이 멈춰 있다.'] }, { look: { sheet: 'mimic', i: 1, size: 150, bg: 1 } }),
+    poke: ['문틈 사이로 이빨 같은 것이 보였다가 사라진다.', '옆 계단 아래 봉인 스위치가 시계와 줄로 이어져 있다.'], sealed: ['봉인된 시계다. 초침이 멈춰 있다.'] }, { look: { sheet: 'mimic', i: 1, size: 150, bg: 1 } }),
   S('eng-clock', 'clk-sw', 1400, 760, '봉인 스위치', { k: 'seal', mid: 'clock', set: 'clkMimic', lines: ['스위치를 누르자 괘종시계 문에 빗장이 걸린다.'], idle: ['벽의 스위치다. 줄이 괘종시계 쪽으로 이어진다.'] }, { look: { sheet: 'props', i: 0, size: 64 } }),
 
   /* ── 지역 E 금지된 생명 연구구역 — 자율 제어 기록 ── */
@@ -246,7 +246,7 @@ export const EQ_SPOTS = [
   S('eng-archive', 'arc-note', 560, 450, '기술자 수첩', T(['기술자 수첩이다.', '「두 명령이 부딪쳤다. 하나는 도시를 지켜라, 하나는 사람을 내보내라.」', '「고대 번개 기계형 괴수가 구형 동력핵을 단 채 밖으로 나갔다. 예비 코어는 관찰실에 있다.」'], 'cNote')),
   S('eng-archive', 'arc-term', 765, 470, '최종 단말기 로그', { k: 'pick', set: 'truth', need: ['cRec', 'cVid', 'cNote'], q: '중앙 시스템은 왜 멈췄을까?',
     opts: ['인간을 적으로 판단해 반란을 일으켰다', '폭발 사고로 부서졌다', '모순된 명령 앞에서 스스로 멈춤을 택했다'], ans: 2,
-    ok: ['로그가 확인된다. 「정지는 시스템이 스스로 선택했습니다.」', '괴수 동력계 관찰실로 가는 정비 터널 좌표가 함께 열렸다.'], bad: '로그가 맞지 않는다고 표시된다.',
+    ok: ['로그가 확인된다. 「정지는 시스템이 스스로 선택했습니다.」', '괴수 동력 관찰실로 가는 정비 터널 좌표가 함께 열렸다.'], bad: '로그가 맞지 않는다고 표시된다.',
     lock: ['단말기 로그만으로는 알 수 없다. 시민 기록 · 보안 영상 · 기술자 수첩을 먼저 견줘 봐야 한다.'], also: 'coreDoc' }),
   S('eng-archive', 'arc-back', 770, 1000, '외곽 다리', { k: 'gate', to: 'eng-metro', back: [2000, 900] }),
   S('eng-annex', 'anx-t1', 90, 480, '왼쪽 안전 단말기', { k: 'seq', g: 'anx', i: 0, n: 3, set: 'annexOn', cool: 1, ok: ['세 단말기가 모두 켜졌다. 기계 팔이 움직인다.'], bad: '단말기 셋이 모두 꺼진다. 냉각 구간에만 조작해야 한다.' }),
@@ -283,7 +283,7 @@ export const EQ_TRAVEL = [
   { to: 'eng-bio', name: '금지된 생명 연구구역', rec: 'rec5' }, { to: 'eng-origin', name: '최초의 명령실', rec: 'rec6', after: 5 },
 ];
 // 지역마다 연구소로 돌아가는 정비망 출구(밟으면 옮겨 간다)
-export const EQ_SITE_EXIT = { at: null, r: 60, to: 'eng-lab', back: [450, 1000], label: '정비망 · 연구소' };
+export const EQ_SITE_EXIT = { at: null, r: 60, to: 'eng-lab', back: [450, 1000], label: '버려진 기계 연구소' };
 
 /* ── 위험 장치(피해 없음 — 걸리면 안전한 자리로 밀려난다) ──
    press: period 초마다 on 구간 동안 반지름 r 안을 내려찍는다(warn 초 전부터 경고등) · spark: off 깃발이 모두 서기 전까지 늘 · drone: 길 pts 를 오가며 r 안을 비춘다 · beast: 충전 → 방출 → 냉각 */

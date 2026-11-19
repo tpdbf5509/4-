@@ -80,7 +80,7 @@ export function gamblerSpotTalk(E, g, h) {
       tell(E, g, h, "상자 안에서 낡은 황금 칩을 얻었다. 뒷면에 '에르덴 여관 — 회수되지 않은 계약' 과 '훈련장 주사위 기계 정비' 가 새겨져 있다.");
     } else tell(E, g, h, "빈 상자다. 칩에 새겨진 에르덴 여관과 훈련장을 찾아가 보자.");
   } else if (s.id === "deed") {
-    u.c |= K.B; save(h); clueFx(E, g, h, "회수되지 않은 계약서");
+    u.c |= K.B; save(h); clueFx(E, g, h, "빛바랜 계약서");
     tell(E, g, h, "계약서를 떼어 냈다. '황금 카지노 — 칩 일곱 개를 건 자에게 문을 연다' 는 글 아래 서명 칸이 비어 있다.");
   } else if (s.id === "machine") {
     if (!(u.f & 2)) {

@@ -800,10 +800,36 @@ def icon_cells():
     c.ring(12, 6, 5, 3, N[8] if True else N[6]); c.px(12, 6, N[9]); out.append(c)
     return out
 
+# ── 연출 색 — 11월 20일 사용자 "보라색보다 더 어두운 검정에 가깝게 · 곳곳에 빛나는 보라색 하이라이트" ──
+# 그린 뒤 시트 전체를 다시 칠한다: 밝기에 따라 검보라 4단으로 누르고, 밝던 자리 중 일부(점점이 · 칸마다 같은 자리)만 빛나는 보라로 남긴다.
+# 영혼 소각의 붉은 색도 같이 누른다. 그림자 병사 · 아이콘 · 손에 든 낫은 이미 검은 몸이라 다시 칠하지 않는다(DARK_SKIP).
+DARK = [rgb(c) for c in ["#08050D", "#140B20", "#221233", "#34194D"]]   # 검보라 4단(어두움 → 밝음)
+GLOW = [rgb(c) for c in ["#9B4DFF", "#C792FF", "#F0E0FF"]]              # 빛나는 보라 하이라이트(옅음 → 심지)
+DARK_HI, DARK_RATE, DARK_EDGE = 0.55, 0.3, 0.12   # 하이라이트가 될 수 있는 밝기 · 밝은 자리 중 남길 몫 · 가장자리 몫
+DARK_SKIP = {"nc_icons", "nc_scythe"}
+def darken(im, w, h):
+    a = im[..., 3] > 0
+    rgbf = im[..., :3].astype(float)
+    lum = (rgbf[..., 0] * .3 + rgbf[..., 1] * .59 + rgbf[..., 2] * .11) / 255
+    yy, xx = np.mgrid[0:im.shape[0], 0:im.shape[1]]
+    hx = ((xx % w) * 73856093 ^ (yy % h) * 19349663) % 1000 / 1000.0           # 칸 안 자리마다 정해진 값 — 프레임마다 같은 자리가 빛난다
+    m = a
+    out = im.copy()
+    k = np.clip((lum / max(DARK_HI, 1e-3)) * len(DARK), 0, len(DARK) - 1).astype(int)
+    for i, c in enumerate(DARK): out[m & (k == i), :3] = c[:3]
+    edge = np.zeros_like(a)                                                     # 바깥 가장자리 — 투명한 이웃이 있는 칸
+    for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)): edge |= a & ~np.roll(np.roll(a, dy, 0), dx, 1)
+    hi = m & (lum >= DARK_HI) & ((hx < DARK_RATE) | (edge & (hx < DARK_RATE + DARK_EDGE)))
+    gi = np.clip(((lum - DARK_HI) / (1 - DARK_HI)) * len(GLOW), 0, len(GLOW) - 1).astype(int)
+    for i, c in enumerate(GLOW): out[hi & (gi == i), :3] = c[:3]
+    out[hi, 3] = np.maximum(out[hi, 3], 200)
+    return out
+
 def pack(name, cells, cols=None, man=None, cx=None, cy=None, loop=0, rows=1, **extra):
     w, h = cells[0].w, cells[0].h; cols = cols or len(cells); R = math.ceil(len(cells) / cols)
     im = np.zeros((R * h, cols * w, 4), np.uint8)
     for i, c in enumerate(cells): im[(i // cols) * h:(i // cols) * h + h, (i % cols) * w:(i % cols) * w + w] = c.a
+    if name not in DARK_SKIP and not name[3:] in SOLDIER: im = darken(im, w, h)
     os.makedirs(OUT, exist_ok=True)
     Image.fromarray(im, "RGBA").save(os.path.join(OUT, name + ".webp"), lossless=True, quality=100, method=6)
     man[name] = {"w": w, "h": h, "cols": cols, "n": len(cells) // rows, "cx": w // 2 if cx is None else cx, "cy": h // 2 if cy is None else cy, **({"loop": 1} if loop else {}), **({"rows": rows} if rows > 1 else {}), **extra}

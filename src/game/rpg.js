@@ -1483,8 +1483,8 @@ export function rpgWalk(h, dt) {
   if (!h || h.down > 0 || ccRooted(h) || stormBusy(h)) return;   // 결투에서 경직 · 띄움 · 속박이면 걷지 못한다 — 목적지는 남겨 둔다
   if (!h.hold || !h.hold.length) {
     if (!h.dest) return;
-    const n = Math.max(1, Math.ceil(mapSpeed(MAPS[h.map])));   // 빠른 맵(건물 안 3배)은 틱을 나눠 걷는다 — 돌아가기 · 막힘 판단이 보통 걸음과 같은 간격으로 돈다
-    for (let i = 0; i < n && h.dest; i++) walkTo(h, dt / n);
+    const ms = mapSpeed(MAPS[h.map]);   // 빠른 맵(건물 안)은 틱을 나눠 걷는다 — 한 번에 가는 거리를 보통 걸음(1배)으로 맞춰 돌아가기 · 막힘 판단이 보통 걸음과 같이 돈다(1.5배처럼 정수가 아니면 마지막 한 번만 짧다)
+    for (let rem = ms; rem > 1e-6 && h.dest; rem -= 1) walkTo(h, dt * Math.min(1, rem) / ms);
     return;
   }
   if (h.dest) stopMove(h);                        // 방향키가 이긴다

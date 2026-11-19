@@ -498,19 +498,21 @@ def swap_cells(n=6):
     return out
 
 # ── 군주의 영역 — 땅의 어두운 원(r160, 게임이 2배로 r320). 0~3 퍼짐 · 4~7 유지(문양 고리가 돈다) ──
-DOMAIN_FILL = 0.55   # 군주의 영역 바닥 채움 진하기(0 투명 ~ 1 꽉 참)
+DOMAIN_FILL = 0.55          # 군주의 영역 바닥 채움 진하기(0 투명 ~ 1 꽉 참)
+DOMAIN_SOFT = 0.72          # 영역 채움이 이 비율부터 가장자리까지 점점 흩어진다(11월 20일 사용자 "원 끝을 자연스럽게")
 def domain_cells(R=160):
     w, h = R * 2 + 16, int(R * 2 * SQ) + 16; cx, cy = w // 2, h // 2
     out = []
     for i in range(8):
         c = Cv(w, h)
         r = R * (ez((i + 1) / 4) if i < 4 else 1)
-        c.disc(cx, cy, r, r * SQ, al(N[0], DOMAIN_FILL))                                     # 11월 20일 사용자 "장판 밀도가 부족해" — 바닥 전체를 반투명 검정으로 먼저 채운다
-        c.band(cx, cy, r, r * SQ, .5, 1, N[1], dens=lambda d: .5 + .4 * (d - .5) / .5)           # 가장자리로 갈수록 짙은 그림자 연기
+        # 11월 20일 사용자 "장판 밀도가 부족해" — 바닥 전체를 반투명 검정으로 먼저 채운다.
+        # 같은 날 "원 끝을 딱 자르지 말고 자연스럽게" — 채움은 DOMAIN_SOFT 부터 점점 성기게 흩어져 사라지고, 또렷한 테두리 고리는 뺐다(끝은 necroArt 의 그림자 불꽃이 덮는다)
+        c.disc(cx, cy, r * DOMAIN_SOFT, r * DOMAIN_SOFT * SQ, al(N[0], DOMAIN_FILL))
+        c.band(cx, cy, r, r * SQ, DOMAIN_SOFT, 1, al(N[0], DOMAIN_FILL), dens=lambda d: np.clip(1 - (d - DOMAIN_SOFT) / (1 - DOMAIN_SOFT), 0, 1) ** 1.5)
+        c.band(cx, cy, r, r * SQ, .5, 1, N[1], dens=lambda d: np.where(d < .8, .5 + .4 * (d - .5) / .3, .9 * np.clip(1 - (d - .8) / .2, 0, 1) ** 1.5))  # 가장자리 앞에서 가장 짙고 끝으로 흩어진다
         c.band(cx, cy, r, r * SQ, 0, .5, N[1], dens=.45)
-        c.band(cx, cy, r, r * SQ, .9, 1, GV[0], dens=.35)
-        c.ring(cx, cy, r + 1, (r + 1) * SQ, al(GV[1], .7)); c.ring(cx, cy, r, r * SQ, GV[2]); c.ring(cx, cy, r - 1, (r - 1) * SQ, GV[3], 0, TAU, 4)
-        c.ring(cx, cy, r - 3, (r - 3) * SQ, GV[1])
+        c.band(cx, cy, r, r * SQ, .78, .95, GV[0], dens=lambda d: .3 * np.clip(1 - np.abs(d - .86) / .09, 0, 1))
         if i >= 2:
             rot = (i - 4) * TAU / 32 if i >= 4 else 0
             rr = r * .8

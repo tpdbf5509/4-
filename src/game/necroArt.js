@@ -291,9 +291,10 @@ export function drawNecroShadowOf(ctx, h, sd, time) {
 /* ── 손에 든 그림자 낫 — drawHero 가 몸 그림 좌표(발밑 0, 0 · 좌우 뒤집기 적용된 상태) 안에서 부른다. behind 면 뒤를 볼 때만 ──
    11월 19일 사용자 참고 그림 — 가슴 높이에서 자루를 비스듬히 쥐고(위 끝은 어깨 뒤) 큰 날은 몸 앞 아래에서 위로 솟는다.
    시트가 이미 이 자세(옆 그림처럼 왼쪽이 앞)라 뒤집지 않는다. 휘두르는 동안(h.swing) 손을 축으로 날이 머리 위 → 앞 아래로 돈다 */
-const NC_HAND = {                                   // 쥔 손 자리(몸 그림 비율) · 든 자세 회전(라디안 — 옆은 자루를 조금 세워 날을 몸 가까이)
-  m: { front: [0.66, 0.44, 0], turn: [0.66, 0.44, 0], side: [0.4, 0.46, -0.45], back: [0.34, 0.45, 0] },
-  f: { front: [0.64, 0.45, 0], turn: [0.64, 0.45, 0], side: [0.42, 0.47, -0.45], back: [0.36, 0.46, 0] },
+const NC_HAND = {                                   // 쥔 손 자리(몸 그림 비율) · 든 자세 회전(라디안) · 날 뒤집기
+  // 옆(왼쪽 · 오른쪽을 볼 때)은 11월 20일 사용자 "칼날 끝부분이 아래로 가게" — 자루를 세워 날을 머리 위에 두고 뒤집어 날 끝이 앞 아래로 늘어진다
+  m: { front: [0.66, 0.44, 0], turn: [0.66, 0.44, 0], side: [0.4, 0.5, 2.39, 1], back: [0.34, 0.45, 0] },
+  f: { front: [0.64, 0.45, 0], turn: [0.64, 0.45, 0], side: [0.42, 0.5, 2.39, 1], back: [0.36, 0.46, 0] },
 };
 /* 베기(11월 19일 사용자 "휘두를 때 모션이 이상해") — 손을 축으로 한 덩어리로 돈다(자루 길이 · 쥔 자리 그대로).
    0~0.2 머리 위 뒤로 들어 올림 → 0.2~0.5 앞 아래로 내려벰(판정 wind 0.12초 ≈ 0.35 지점) → 0.5~1 든 자세로 돌아옴. 내려벨 때는 날 잔상 셋.
@@ -318,7 +319,7 @@ export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
   const fr = Math.floor(NOW / 0.18) % 3 === 0 ? 1 : 0;
   const draw = (rot, a, f) => {
     ctx.save(); ctx.translate(lx, ly); ctx.rotate(rot);
-    if (u >= 0) { ctx.rotate(NC_SHAFT); ctx.scale(1, -1); ctx.rotate(-NC_SHAFT); }   // 휘두르는 동안 — 자루 축으로 뒤집어 날 끝이 아래(베는 쪽)를 향한다
+    if (u >= 0 || H[3]) { ctx.rotate(NC_SHAFT); ctx.scale(1, -1); ctx.rotate(-NC_SHAFT); }   // 휘두르는 동안 — 자루 축으로 뒤집어 날 끝이 아래(베는 쪽)를 향한다
     cell(ctx, "nc_scythe", f, 0, 0, K, a, 0, false, a < 1 ? "brightness(1.8)" : ""); ctx.restore(); };
   if (u > NC_SWING.lift && u < NC_SWING.cut + 0.15)   // 내려벨 때 — 지나온 자리에 옅은 날 잔상(같은 손 · 같은 길이)
     for (let k = NC_SWING.ghost; k >= 1; k--) draw(scytheRot(Math.max(NC_SWING.lift, u - NC_SWING.gap * k), H[2]), 0.4 / k, 1);

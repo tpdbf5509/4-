@@ -296,8 +296,10 @@ const NC_HAND = {                                   // 쥔 손 자리(몸 그림
   f: { front: [0.64, 0.45, 0], turn: [0.64, 0.45, 0], side: [0.42, 0.47, -0.45], back: [0.36, 0.46, 0] },
 };
 /* 베기(11월 19일 사용자 "휘두를 때 모션이 이상해") — 손을 축으로 한 덩어리로 돈다(자루 길이 · 쥔 자리 그대로).
-   0~0.2 머리 위 뒤로 들어 올림 → 0.2~0.5 앞 아래로 내려벰(판정 wind 0.12초 ≈ 0.35 지점) → 0.5~1 든 자세로 돌아옴. 내려벨 때는 날 잔상 셋 */
+   0~0.2 머리 위 뒤로 들어 올림 → 0.2~0.5 앞 아래로 내려벰(판정 wind 0.12초 ≈ 0.35 지점) → 0.5~1 든 자세로 돌아옴. 내려벨 때는 날 잔상 셋.
+   같은 날 사용자 "칼날 끝부분을 아래로 가게 휘둘러야 하는데 반대" — 휘두르는 동안은 날을 자루 축으로 뒤집어 그린다(nc_reap 반달도 다시 그린다) */
 const NC_SWING = { up: 2.4, down: -1.1, lift: 0.2, cut: 0.5, ghost: 3, gap: 0.05 };
+const NC_SHAFT = Math.atan2(0.73, -0.68);           // 시트 속 자루 방향(쥔 손 → 날 뿌리, make.py scythe_cells 와 같다)
 const ease = (q) => 1 - Math.pow(1 - clamp(q), 3);
 function scytheRot(u, rest) {
   const S = NC_SWING;
@@ -314,7 +316,10 @@ export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
   const lx = Math.round((H[0] - 0.5) * ww), ly = Math.round(top + H[1] * hh);
   const u = h.swing > 0 ? clamp(1 - h.swing / NC_SCYTHE.swing) : -1;
   const fr = Math.floor(NOW / 0.18) % 3 === 0 ? 1 : 0;
-  const draw = (rot, a, f) => { ctx.save(); ctx.translate(lx, ly); ctx.rotate(rot); cell(ctx, "nc_scythe", f, 0, 0, K, a, 0, false, a < 1 ? "brightness(1.8)" : ""); ctx.restore(); };
+  const draw = (rot, a, f) => {
+    ctx.save(); ctx.translate(lx, ly); ctx.rotate(rot);
+    if (u >= 0) { ctx.rotate(NC_SHAFT); ctx.scale(1, -1); ctx.rotate(-NC_SHAFT); }   // 휘두르는 동안 — 자루 축으로 뒤집어 날 끝이 아래(베는 쪽)를 향한다
+    cell(ctx, "nc_scythe", f, 0, 0, K, a, 0, false, a < 1 ? "brightness(1.8)" : ""); ctx.restore(); };
   if (u > NC_SWING.lift && u < NC_SWING.cut + 0.15)   // 내려벨 때 — 지나온 자리에 옅은 날 잔상(같은 손 · 같은 길이)
     for (let k = NC_SWING.ghost; k >= 1; k--) draw(scytheRot(Math.max(NC_SWING.lift, u - NC_SWING.gap * k), H[2]), 0.4 / k, 1);
   draw(u < 0 ? H[2] + Math.sin(NOW * 2) * 0.03 : scytheRot(u, H[2]), 1, u >= 0 ? 1 : fr);
@@ -333,11 +338,17 @@ export function drawNecroTraces(ctx, h, time) {
 }
 
 /* ── 연출 ─────────────────────────────────────────── */
-// 그림자 낫 베기 — 베는 모습은 손에 든 낫이 직접 그린다(drawNecroScythe · 11월 19일 — 몸에서 떨어진 큰 반달 그림 nc_reap 은 뺐다). 여기는 튀는 알갱이와 판정 범위 1px 반달 선만
+// 그림자 낫 베기 — 손 높이에서 겨눈 쪽 둘레를 위에서 아래로(그림 반지름 × 2 = 판정 반지름). 범위는 1px 반달 선으로 잠깐
 function reap(ctx, f, t, sq) {
-  const ax = f.ax || 1, ay = f.ay || 0;
+  const ax = f.ax || 1, ay = f.ay || 0, left = ax < 0, k = Math.max(1, Math.round(f.r / SH.nc_reap.r));
+  const ang = Math.atan2(ay * sq, Math.abs(ax));
+  ctx.save(); ctx.translate(Math.round(f.x), Math.round(f.y - 30)); if (left) ctx.scale(-1, 1); ctx.rotate(ang * 0.6);
+  ctx.translate(-Math.round(f.x), -Math.round(f.y - 30));
+  cell(ctx, "nc_reap", Math.max(0, once("nc_reap", t / f.life) - 1), f.x - 4, f.y - 26, k, 0.45);   // 뒤따르는 잔상
+  cell(ctx, "nc_reap", once("nc_reap", t / f.life), f.x, f.y - 30, k);
+  ctx.restore();
   const a0 = Math.atan2(ay * sq, ax);
-  motes(ctx, { x: f.x, y: f.y - 30, r: f.r * 0.6, a0, spread: NC_SCYTHE.arc * 2.2, n: 26, mix: "esezm", t, t0: 0.04, span: 0.16, life: 0.32, out: 40, rise: 18, sq, seed: sid(f) });
+  motes(ctx, { x: f.x, y: f.y - 20, r: f.r * 0.85, a0, spread: NC_SCYTHE.arc * 2.2, n: 26, mix: "esezm", t, t0: 0.04, span: 0.16, life: 0.32, out: 40, rise: 18, sq, seed: sid(f) });
   if (t < f.life * 0.5) {
     const a0 = Math.atan2(ay * sq, ax), A = NC_SCYTHE.arc;
     ctx.save(); ctx.globalAlpha *= 0.35 * (1 - t / (f.life * 0.5)); ctx.strokeStyle = C.bright; ctx.lineWidth = 1;

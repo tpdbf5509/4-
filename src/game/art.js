@@ -1,3 +1,4 @@
+import { textUp } from "./bodyScale.js";
 import {
   W, H, CX, CY, R_CORE, C, P, DIRS4, LANES, SLOTS, sk, ENEMY,
   castleTier, castleCost, CASTLE_TIERS, SPOTS, CLASSES, ARENA, ARENA_LIFT, ARENA_PATTERNS, ARENA_LEAP,
@@ -3164,11 +3165,13 @@ export function drawFx(ctx, f) {
     ctx.font = "700 14px Jua, system-ui, sans-serif";
     ctx.textAlign = "center";
     const y = f.y - 30 - (1 - Math.pow(1 - p, 2)) * 18;
+    ctx.save(); textUp(ctx, f.x, y);   // 건물 안은 대사 · 안내 글자도 같이 키운다(bodyScale.js)
     ctx.lineWidth = 3.5;
     ctx.strokeStyle = "rgba(28,22,14,0.9)";
     ctx.strokeText(f.text, f.x, y);
     ctx.fillStyle = f.color;
     ctx.fillText(f.text, f.x, y);
+    ctx.restore();
     ctx.globalAlpha = 1;
   }
 }

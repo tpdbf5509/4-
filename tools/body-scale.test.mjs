@@ -51,5 +51,6 @@ test("엔지니어 루트 출구는 걸어서 닿는다 · 글자 배율은 몸 
       assert.ok(Math.hypot(x - q.x, y - q.y) <= q.r, `${m.id} → ${q.to} 문에 닿지 못한다`);
     }
   assert.equal(textScreen(R.MAPS["eng-oak"]), 1.9);
+  assert.equal(textScreen(R.MAPS["eng-tunnel"]), 1.3);
   assert.equal(textScreen(R.MAPS.dawnwood), 1);
 });

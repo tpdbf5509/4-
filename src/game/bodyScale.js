@@ -32,4 +32,4 @@ export function textUp(ctx, x, y) {
 }
 
 // 이름표 · 말풍선 글자는 몸 그림과 같은 비율로 — 화면에서 보이는 캐릭터 키(screen)만큼 키운다(건물 안만, 나머지는 1)
-export const textScreen = (M) => BODY_SCALE[bodyKind(M)]?.screen || 1;
+export const textScreen = (M) => { const b = BODY_SCALE[bodyKind(M)]; return b ? Math.max(1.3, b.screen) : 1; };   // 키가 작은 곳(도서관 1.0 · 지하 1.2)도 글자는 1.3배 아래로 내려가지 않게(사용자 "메시지도 너무 작아")

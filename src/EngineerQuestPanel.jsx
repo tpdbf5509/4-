@@ -8,9 +8,9 @@ import sfx from './game/sfx.js';
    대사를 보여 주고, 자리마다 퍼즐 입력(숫자판 · 고르기 · 차례 · 다이얼)을 받아 서버에 보낸다(onAct → 입력 kind "eq").
    판정은 서버가 하고, 결과는 영웅 줄 60(eqView R = [자리 차례, 결과, 번호])으로 돌아온다. 1 됨 · 2 틀림 · 3 잠김 · 4 한 단계 · 5 힌트 · 6 이미 함 */
 const split = (l) => { const i = l.indexOf('|'); return i > 0 && i < 12 ? [l.slice(0, i), l.slice(i + 1)] : ['', l]; };
-const DOLL_FIRST = ['가슴 판에 「003」이 새겨진 정비 자동인형이 쓰러져 있다.', '동력 전지 · 기억 장치 · 관절 · 제어 회로가 빠져 있다.', '조립대 옆 기록에 고치는 방법이 남아 있을지 모른다.'];
+const DOLL_FIRST = ['가슴 판에 「003」이 새겨진 정비 자동인형이 쓰러져 있다.', '동력 전지 · 기억 장치 · 관절 · 제어 회로가 빠져 있다.', '조립대 옆 오래된 기록에 고치는 방법이 남아 있을지 모른다.'];
 const DOLL_UP = ['003|…동력 확인. 기억 장치 연결. 관절 정상.', '003|당신이 저를 깨웠습니까?', '003|저는 정비 자동인형 003. 관리자의 귀환을 기다리고 있었습니다.',
-  '003|벽의 정비망 지도를 읽을 수 있게 되었습니다. 흩어진 설계 기록 여섯을 모으면 숨겨진 도시로 갈 수 있습니다.', '자동인형 003 이 곁을 따라오기 시작했다.'];
+  '003|벽의 고대 정비 지도를 읽을 수 있게 되었습니다. 흩어진 설계 기록 여섯을 모으면 숨겨진 도시로 갈 수 있습니다.', '자동인형 003 이 곁을 따라오기 시작했다.'];
 const CODE_HINT = '희미한 기억이 떠오른다 — 숫자는 작업 순서표대로 읽는다. 장인이 모이고 → 동력이 돌고 → 톱날이 움직이고 → 작업이 끝난다.';
 const TRIAL_INTRO = ['중앙 단말기|관리자 후보를 확인했습니다.', '중앙 단말기|최종 병기 시험 — 제어 장치 방어 · E-003 제압 · 과부하 제어.', `중앙 단말기|시험 동안 ${ENGINEER_NAME} 의 기술을 빌려드립니다. 레벨과 장비는 영향을 주지 않습니다.`];
 
@@ -51,7 +51,7 @@ export default function EngineerQuestPanel({ spotId, getHero, tick, onAct, onTra
     if (k === 'travel') return read([], 'travel');
     if (k === 'doll') {
       if (!has('doll')) { onAct(spotId); return read(DOLL_FIRST); }
-      if (has('doll3')) return read(['003|관리자님, 정비망 지도로 다음 기록을 찾으십시오.']);
+      if (has('doll3')) return read(['003|관리자님, 고대 정비 지도로 다음 기록을 찾으십시오.']);
       const n = eqDollParts(getHero());
       if (n < 4) return read([`부품 ${n}/4 — ${['pCell', 'pMem', 'pJoint', 'pCtrl'].filter((f) => !has(f)).map((f) => ({ pCell: '동력 전지', pMem: '기억 장치', pJoint: '관절', pCtrl: '제어 회로' })[f]).join(' · ')} 가 아직 없다.`]);
       return send(undefined, (c) => read(c === 1 ? DOLL_UP : []));
@@ -169,7 +169,7 @@ export default function EngineerQuestPanel({ spotId, getHero, tick, onAct, onTra
         <div className="eq-row"><button type="button" className="shop-btn main" onClick={() => send(dials, (c) => { if (c === 1) read(a.ok); else { setNote(a.bad); setMode('input'); setAfter(() => 'dials'); } })}>맞추기</button></div>
         {note && <p className="eq-note">{note}</p>}
       </div>}
-      {input === 'travel' && <div className="story-picks" role="group" aria-label="정비망 지도">
+      {input === 'travel' && <div className="story-picks" role="group" aria-label="고대 정비 지도">
         {!has('doll3') ? <p className="eq-q">{a.lock[0]}</p> : travelList.map((t) => (
           <button type="button" key={t.to} className="story-pick" disabled={!t.open} onClick={() => { onTravel(t.to); onClose(); }}>
             {t.name}<em>{t.got ? `기록 ${EQ_REC_NAMES[EQ_REC.indexOf(t.rec)]} 찾음` : t.open ? '아직 기록이 남아 있다' : '기록 다섯을 모으면 열린다'}</em>

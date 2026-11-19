@@ -23,8 +23,8 @@ export const rqSealed=q=>!!q&&q.a&&q.b&&q.c===7;
 export function rqGoal(h) {
   const q=h?.bag?.rq;if(!q)return '';
   if(q.rewarded)return '크림슨 레퀴엠과 동기화했습니다.';
-  if(q.killed)return '제3격리실 유리관에서 보상을 수령하세요.';
-  if(rqSealed(q))return '제3격리실 중앙 문 너머 유리관을 조사하세요.';
+  if(q.killed)return '제3격리실 봉인된 유리관에서 보상을 수령하세요.';
+  if(rqSealed(q))return '제3격리실 중앙 문 너머 봉인된 유리관을 조사하세요.';
   if(!rqMap(h.map))return '폐쇄 연구시설을 다시 조사하세요. 광장 분수의 수문으로 내려갑니다.';
   return `봉인 해제: 압축 ${q.a?'완료':'2단계 적혈탄'} · 증폭 ${q.b?'완료':'장치 위 혈역 2초'} · 형상화 ${[1,2,4].filter(b=>q.c&b).length}/3`;
 }

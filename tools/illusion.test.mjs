@@ -97,6 +97,23 @@ test('덱 슬래시 — 두 번 전진하며 지나간 길을 ×7 씩(합 ×14) 
   assert.ok(Math.abs(h.x - x0 - SL.len) < 12, `이동 ${h.x - x0}`);
 });
 
+test('덱 슬래시 — 대기 없이 세 번 이어 쓰고 세 번째 뒤에 대기 · 이어 쓸 시간이 지나도 대기', () => {
+  const { g, h } = setup();
+  use(g, 'slash', [h.x + 500, h.y]); use(g, 'slash', [h.x + 500, h.y]);
+  assert.equal(h.il.acts.filter((q) => q.k === 'slash').length, 1, '앞 돌진 중에는 다음 번이 나가지 않는다');
+  run(g, SL.start + SL.seg * 2 + 0.05);
+  assert.equal(h.il.cd.slash, 0); assert.equal(h.il.sl.n, 1);
+  use(g, 'slash', [h.x + 500, h.y]); run(g, SL.start + SL.seg * 2 + 0.05);
+  assert.equal(h.il.cd.slash, 0); assert.equal(h.il.sl.n, 2);
+  use(g, 'slash', [h.x + 500, h.y]);
+  assert.equal(h.il.sl, null); assert.ok(h.il.cd.slash > SL.cd - 0.1, '세 번째에 대기가 시작된다');
+  run(g, SL.start + SL.seg * 2 + 0.05);
+  const n = h.il.acts.length; use(g, 'slash', [h.x + 500, h.y]); assert.equal(h.il.acts.length, n, '대기 중에는 못 쓴다');
+  const { g: g2, h: h2 } = setup();
+  use(g2, 'slash', [h2.x + 500, h2.y]); run(g2, SL.start + SL.seg * 2 + SL.chainGap + 1);
+  assert.equal(h2.il.sl, null); assert.ok(h2.il.cd.slash > 0, '이어 쓸 시간이 지나면 대기');
+});
+
 test('카드 프리즌 — 네 번 ×4 + 1.70초 ×10(합 ×26) · 일반 몹은 묶고 보스는 둔화만', () => {
   const { g, h } = setup();
   const m = mob(g, h.x + 300, h.y, { stun: 0 }), b = mob(g, h.x + 320, h.y + 20, { stun: 0, boss: 1 });

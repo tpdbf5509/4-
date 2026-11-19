@@ -171,10 +171,10 @@ const inHouse = (E, h, s) => !!(s.house && s.house.map === h.map && s.house.t < 
 
 /* 시전 객체 하나 — sk 스킬 이름 · first 첫 타격 배율. 트릭 3개 이상이면 자동 강화(3개를 쓴다) · 거울 집 안이면 미러 잔상.
    src = { sk, cast, base, map, firstMul, trick, mirror, big, hit 첫 적중 처리됨, xp } */
-function makeSrc(E, h, s, sk, firstMul, sid) {
+function makeSrc(E, h, s, sk, firstMul, sid, follow) {
   const J = jobOf(h);
   const src = { sk, cast: E.cast(h, sid || "il"), base: E.base(h), map: h.map, firstMul, trick: 0, mirror: 0, big: 0, hit: 0, xp: 0 };
-  if (IL_TRICKED.includes(sk) && s.trick >= TK.cost) { s.trick -= TK.cost; src.trick = 1; }
+  if (!follow && IL_TRICKED.includes(sk) && s.trick >= TK.cost) { s.trick -= TK.cost; src.trick = 1; }
   if (IL_ATTACKS.includes(sk) && inHouse(E, h, s)) { src.mirror = 1; src.big = ilEncore(J) ? 1 : 0; }
   return src;
 }
@@ -290,12 +290,15 @@ function tickShuffle(E, g, h, q) {
 /* ── 덱 슬래시 — 두 번 전진하며 벤다. 지나간 띠(폭 110)를 각 전진 끝에 한 번씩 친다 ── */
 function slashUse(E, g, h) {
   if (blocked(E, g, h, "slash")) return;
-  const s = st(h), [ax, ay] = aimDir(E, g, h, SL.len), len = wallCut(E, h, ax, ay, SL.len);
-  const src = makeSrc(E, h, s, "slash", SL.mul);
-  s.cd.slash = SL.cd;
+  const s = st(h);
+  if (s.acts.some((q) => q.k === "slash")) return;           // 앞 돌진이 끝나야 다음 번을 쓴다
+  const [ax, ay] = aimDir(E, g, h, SL.len), len = wallCut(E, h, ax, ay, SL.len);
+  const follow = !!s.sl, src = makeSrc(E, h, s, "slash", SL.mul, undefined, follow);
+  const life = SL.start + SL.seg * 2 + SL.tail, n = (s.sl ? s.sl.n : 0) + 1;
+  if (n >= SL.charges) { s.sl = null; s.cd.slash = SL.cd; }   // 마지막 번 — 이제 대기
+  else s.sl = { n, t: life + SL.chainGap };                   // 대기 없이 이어 쓸 수 있는 동안
   s.acts.push({ k: "slash", t: 0, ax, ay, seg: len / 2, i: 0, at: null, src });
   h.swing = 0.5;
-  const life = SL.start + SL.seg * 2 + SL.tail;
   E.fx(g, h.map, { kind: "sk_il_slash", x: Math.round(h.x), y: Math.round(h.y), ax: r2(ax), ay: r2(ay), len: Math.round(len), w: SL.w, d: SL.start, seg: SL.seg, tk: src.trick, pi: h.pi, t: life, life, snd: "ilSlash" });
   announce(E, g, h, SL, src);
 }
@@ -471,6 +474,7 @@ export function tickIllusion(E, g, h, dt) {
   if (!illusionOn(h)) { if (h.il) h.il = null; return; }
   const s = st(h);
   for (const k in s.cd) s.cd[k] = Math.max(0, s.cd[k] - dt);
+  if (s.sl && (s.sl.t -= dt) <= 0) { s.sl = null; s.cd.slash = SL.cd; }   // 덱 슬래시 — 이어 쓸 시간이 지났다
   if (E.cdOff(g, h)) for (const k in s.cd) s.cd[k] = 0;
   s.calm += dt;
   if (s.chain && s.calm >= chainWindow(jobOf(h))) s.chain = null;   // 연계 시간 동안 유효 공격이 없으면 연계 기록을 지운다
@@ -484,7 +488,7 @@ export function tickIllusion(E, g, h, dt) {
 export function illusionDown(E, g, h) {
   if (!illusionOn(h) || !h.il) return;
   const s = h.il;
-  s.acts = []; s.ghosts = []; s.cards = []; s.house = null; s.chain = null; s.trick = 0;
+  s.acts = []; s.ghosts = []; s.cards = []; s.house = null; s.chain = null; s.trick = 0; s.sl = null;
 }
 // 훈련장 · 연습장 "스택 가득" — 트릭 5
 export function illusionFill(h) { if (illusionOn(h)) st(h).trick = TK.max; }
@@ -497,5 +501,6 @@ export function illusionView(h) {
     cdMax: { shuffle: SH.cd, slash: SL.cd, prison: PR.cd, blink: BL.cd, fist: FI.cd, mirror: MR.cd, final: FN.cd },
     house: s && s.house ? { x: s.house.x, y: s.house.y, left: r1(MR.dur - s.house.t), in: s.house.map === h.map && Math.hypot(h.x - s.house.x, (h.y - s.house.y) / SQUASH) <= MR.r } : null,
     chain: s && s.chain ? { sk: s.chain, name: IL_SKILLS[s.chain].name, left: r1(Math.max(0, chainWindow(J) - s.calm)) } : null,
+    slash: s && s.sl ? { n: s.sl.n, max: SL.charges, left: r1(Math.max(0, s.sl.t)) } : null,
     encore: ilEncore(J), tint: illusionTint(ilTrainSum(J)), ghost: trickGhost(J) };
 }

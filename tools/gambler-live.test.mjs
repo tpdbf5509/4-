@@ -2,7 +2,7 @@
    전투 규칙은 tools/gambler.test.mjs. node --test tools/gambler-live.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, heroRecord, advArtPath, MAPS, SNAP_ORDER } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgApplyOut, heroRecord, advArtPath, MAPS, SNAP_ORDER } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { cleanBag, whyEquip } from '../src/game/shop.js';
 import { rpgAdminCmd } from '../src/game/adminCmd.js';
@@ -91,6 +91,17 @@ test('스냅샷 줄 57 — 손님 화면이 칩 · 직업 레벨 · 대기 · �
   dropGambler(h); rpgApply(guest, rpgPack(g));
   assert.equal(guest.heroes[0].gmv, null, '끄면 손님 화면 값도 사라진다');
   assert.equal(packGambler(h), 0);
+});
+
+test('연출이 자기 k 를 가져도 손님 화면이 받는다(칩 장막 남은 비율) — 소식 종류 k 를 덮어쓰지 않는다', () => {
+  const { g, h } = setup();
+  unlockGambler(h, J200); h.map = 'field'; h.x = 1500; h.y = 700;
+  run(g, .1); g.out.length = 0; use(g, 'veil'); run(g, .3);
+  const out = JSON.parse(JSON.stringify(g.out.filter((o) => o.kind === 'sk_gm_veil')));
+  assert.ok(out.length && out.every((o) => o.k === 'fx'), '소식 종류는 fx 그대로');
+  const guest = makeWorld(); rpgApplyOut(guest, out);
+  const f = guest.fx.find((q) => q.kind === 'sk_gm_veil');
+  assert.ok(f, '손님 화면에 칩 장막 연출이 온다'); assert.equal(f.k, 1); assert.equal(f.fk, undefined);
 });
 
 test('관리자 명령어 /도박꾼 — 켜기 · 직업 레벨 · 연마 · 끄기. 관리자가 아니면 듣지 않는다', () => {

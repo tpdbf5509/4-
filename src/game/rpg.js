@@ -1406,7 +1406,8 @@ export function fx(g, map, item) {
   if (it.kind === "cut") g.fx = g.fx.filter((f) => f.fid !== it.ref);   // 맞은 투사체 그림을 지운다
   else g.fx.push(it);
   if (it.kick && g.heroes[g.mySeat]?.map === map) g.shake = Math.max(g.shake, Math.min(.6, it.kick));
-  if (g.out) g.out.push({ k: "fx", ...it });
+  // 연출이 자기 k 를 가지면(칩 장막 남은 비율 · 엔지니어 · 네크로 연출) 소식 종류 k 를 덮어써 손님 화면에 오지 않았다 → fk 로 옮겨 싣고 받는 쪽이 되돌린다
+  if (g.out) g.out.push({ ...it, k: "fx", ...(it.k !== undefined ? { fk: it.k } : {}) });
 }
 function say(g, map, x, y, text, color) {
   fx(g, map, { kind: "text", x, y, text, color, t: 0.9, life: 0.9 });
@@ -5597,7 +5598,7 @@ export function rpgApplyOut(g, list) {
   list.forEach((o) => {
     if (o.k === "fx") {
       const item = { ...o };
-      delete item.k;
+      if (item.fk !== undefined) { item.k = item.fk; delete item.fk; } else delete item.k;
       if (item.kind === "cut") g.fx = g.fx.filter((f) => f.fid !== item.ref);
       else g.fx.push(item);
       if (item.kick && g.heroes[g.mySeat]?.map === item.map) g.shake = Math.max(g.shake, Math.min(.6, item.kick));

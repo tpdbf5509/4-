@@ -429,12 +429,15 @@ function swap(ctx, f, t) {
 }
 
 /* 군주의 영역 — 나를 따라다니는 땅의 원(r320). 처음 0.35초 펼침(0~3 칸) 뒤 4~7 칸 반복. 유지 장이 겹쳐도 같은 칸 · 같은 자리라 밝아지지 않는다 */
+const NC_EDGE_SPIN = 2.4;                            // 가장자리 물결이 한 바퀴 흐르는 시간(초)
 const ended = new Map();
 const gone = (key, wall) => wall - (ended.get(key) ?? -9) < 0.8;
 function domain(ctx, f, t, sq) {
   const k = Math.max(1, Math.round(f.r / SH.nc_domain.r));
   if (f.start && t < f.d) cell(ctx, "nc_domain", once("nc_domain", t / f.d, 4), f.x, f.y, k);
   else cell(ctx, "nc_domain", 4 + loop(4, 1.2), f.x, f.y, k);
+  // 가장자리 — 원 끝에서 바깥으로 낮게 번지며 일렁이는 그림자(11월 20일 사용자 "옆으로 누운 일렁이는 그림자"). 펼치는 동안은 서서히 나타난다
+  cell(ctx, "nc_domain_edge", loop(SH.nc_domain_edge.n, NC_EDGE_SPIN), f.x, f.y, k, f.start && t < f.d ? t / f.d : 1);
   if (f.start && t < f.d) { ring(ctx, f.x, f.y, f.r, sq, C.bright, 0.55); return; }   // 펼치는 동안만 1px 테두리 — 유지 중에는 끝을 그림자 불꽃이 덮는다(11월 20일 사용자)
   domainPfx(ctx, f, sq);
   // 영역 안 — 0.32초마다 자리를 바꿔 보라 번개가 떨어지고(같은 칸 번갈아 셋), 가장자리에서 연기 기운이 오른다(판정 없음 · 보기만)
@@ -450,7 +453,7 @@ function domain(ctx, f, t, sq) {
     cell(ctx, "nc_aura", loop(SH.nc_aura.n, 1.1, j * 0.13), f.x + Math.cos(a) * f.r * 0.93, f.y + Math.sin(a) * f.r * 0.93 * sq, K, 0.55);
   }
 }
-/* pixelfx 보강(11월 20일 사용자) — 발밑에 룬 원이 돌고, 영역 안 곳곳에서 그림자 팔 · 소환 균열이 엇갈려 솟았다 가라앉고, 테두리를 그림자 불꽃이 두른다.
+/* pixelfx 보강(11월 20일 사용자) — 발밑에 룬 원이 돌고, 영역 안 곳곳에서 그림자 팔 · 소환 균열이 엇갈려 솟았다 가라앉는다.
    하나가 끝나면 다른 자리로 옮긴다. 자리는 씨앗 고정이라 프레임마다 이어진다. 그림을 못 불러오면 cell 이 그리지 않는다 */
 function domainPfx(ctx, f, sq) {
   const P = NC_DOMAIN_PFX, R = SH.nc_pf_rune;
@@ -464,18 +467,13 @@ function domainPfx(ctx, f, sq) {
       list.push([y, name, (ph - slot) * T.n, x, rnd(slot, j + g) < 0.5]);
     }
   });
-  const E = SH.nc_pf_flame, ne = Math.max(8, Math.round(P.edge * PQ));
-  for (let j = 0; j < ne; j++) {                     // 테두리 불꽃 — 원 끝을 딱 자르지 않고 불꽃으로 마감한다
-    const an = (j + rnd(j, 41) * 0.4) / ne * TAU, rr = f.r * (P.edgeR + (rnd(j, 43) - 0.5) * 0.06);
-    const y = f.y + Math.sin(an) * rr * sq;
-    list.push([y, "nc_pf_flame", (Math.floor(NOW * E.fps) + j * 11) % E.n, f.x + Math.cos(an) * rr, rnd(j, 47) < 0.5, P.edgeK, P.edgeA]);
-  }
   list.sort((a, b) => a[0] - b[0]);                  // 뒤(위)에 있는 것부터
-  for (const [y, name, i, x, fl, k = P.k, a = P.a] of list) cell(ctx, name, i, x, y, k, a, 0, fl);
+  for (const [y, name, i, x, fl] of list) cell(ctx, name, i, x, y, P.k, P.a, 0, fl);
 }
 function domainEnd(ctx, f, t, sq) {
   const u = t / f.life, k = Math.max(1, Math.round(f.r / SH.nc_domain.r));
   cell(ctx, "nc_domain", 3 - once("nc_domain", u, 4), f.x, f.y, k, 1 - u * 0.6);
+  cell(ctx, "nc_domain_edge", loop(SH.nc_domain_edge.n, NC_EDGE_SPIN), f.x, f.y, k, 1 - u);
   motes(ctx, { x: f.x, y: f.y, r: f.r * (1 - u * 0.5), n: 40, mix: "mme", t, span: 0.2, life: 0.5, rise: 40, sq, seed: 71 });
 }
 

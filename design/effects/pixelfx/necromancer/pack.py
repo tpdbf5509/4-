@@ -2,7 +2,7 @@
 pixelfx(MIT, github.com/patch-gg/pixelfx 5294518)로 뽑은 시트를 2칸에 1칸씩 골라(15fps) 다시 묶는다.
 뽑은 명령:
   node tools/render.mjs <id> --sheet --no-actor --opts '{"palette":PAL,"light":0.4}'   (id = 아래 JOBS 의 키)
-  (11월 20일 사용자 "불 같은 건 듬성듬성하고 어울리지 않아 · 새로운 걸" → shadow-flames 를 빼고 손 · 룬 원 · 소환 균열을 더했다. 이어 "촉수 빼자"로 shadow-tendrils 도 뺐다. 이어 "원 끝을 그림자 불꽃으로 자연스럽게 마감" → shadow-flames 를 테두리에만 촘촘히 둘렀다)
+  (11월 20일 사용자 "불 같은 건 듬성듬성하고 어울리지 않아 · 새로운 걸" → shadow-flames 를 빼고 손 · 룬 원 · 소환 균열을 더했다. 이어 "촉수 빼자"로 shadow-tendrils 도 뺐다. 이어 "원 끝을 그림자 불꽃으로 자연스럽게 마감" → 세운 불꽃 대신 make.py 의 누운 그림자 nc_domain_edge 로 바꿨다)
   PAL = ["#08050D","#140B20","#221233","#34194D","#9B4DFF","#C792FF"]  (검보라 4단 + 빛나는 보라 2단, make.py DARK · GLOW 와 같다)
 쓰는 법: python3 pack.py <pixelfx records 폴더>  → 원본은 이 폴더(src_*.webp), 게임 시트는 px/nc_pf_*.webp"""
 import json, sys, os
@@ -11,7 +11,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "../../../../public/assets/game/rpg/effects/hidden-jobs/necromancer/px")
 STEP = 2                                     # 30fps → 15fps
-JOBS = {"shadow/shadow-flames": ("nc_pf_flame", 6), "shadow/grasping-hands": ("nc_pf_hands", 7),
+JOBS = {"shadow/grasping-hands": ("nc_pf_hands", 7),
         "arcane/rune-circle": ("nc_pf_rune", 10), "spawn/spawn-portal": ("nc_pf_portal", 8)}
 
 src = sys.argv[1]

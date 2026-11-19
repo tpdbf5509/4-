@@ -535,6 +535,31 @@ def domain_cells(R=160):
         out.append(c)
     return out, (w, h, cx, cy)
 
+# ── 군주의 영역 가장자리(11월 20일 사용자 "원과 자연스럽게 이어지는 옆으로 누운 일렁이는 그림자") ──
+# 원 끝(0.8)에서 바깥으로 낮게 번지는 그림자 띠. 바깥 경계가 각도마다 물결치고 칸마다 물결이 옆으로 흘러 일렁인다(반복).
+# nc_domain 과 같은 가운데 · 같은 배수로 겹쳐 그린다. 세운 불꽃은 쓰지 않는다
+EDGE_N, EDGE_OUT = 12, 1.2   # 칸 수 · 가장 멀리 번지는 반지름 비율
+def domain_edge_cells(R=160):
+    Rm = R * EDGE_OUT; w, h = int(2 * Rm) + 8, int(2 * Rm * SQ) + 8; cx, cy = w // 2, h // 2
+    yy, xx = np.mgrid[0:h, 0:w]
+    dx, dy = (xx + .5 - cx) / R, (yy + .5 - cy) / (R * SQ)
+    d, th = np.sqrt(dx * dx + dy * dy), np.arctan2(dy, dx)
+    bay = BAYER[yy % 4, xx % 4]
+    out = []
+    for i in range(EDGE_N):
+        ph = TAU * i / EDGE_N
+        b = 1.05 + .07 * np.sin(6 * th + ph) + .04 * np.sin(11 * th - 2 * ph + 1) + .025 * np.sin(17 * th + 3 * ph + 2)
+        c = Cv(w, h)
+        u = np.clip((b - d) / (b - .8), 0, 1)                                    # 1 = 원 안쪽, 0 = 물결 끝
+        body = (d >= .8) & (d <= b) & (bay < .2 + .7 * u ** .8)                   # 안에서 짙고 물결 끝으로 성겨진다
+        c.a[body] = al(N[0], DOMAIN_FILL)
+        lip = (np.abs(d - (b - .045)) < .018) & (bay < .55)                      # 물결을 따라 흐르는 연기 결
+        c.a[lip & body] = al(N[2], .8)
+        crest = (np.abs(d - (b - .03)) < .008) & (bay < .14 + .1 * np.sin(4 * th - ph) ** 2)   # 물결 마루의 옅은 보라빛
+        c.a[crest] = GV[1]
+        out.append(c)
+    return out, (w, h, cx, cy)
+
 # ── 일제 진군 표적(28×28, 반복) ──
 def mark_cells(n=6):
     out = []
@@ -859,6 +884,7 @@ def main():
     cells, (w, h, cx, cy) = burst_cells(100, 10, 17, cy_extra=40, big=True); sheets["nc_blast"] = pack("nc_blast", cells, 5, man, cx=cx, cy=cy, r=100)
     sheets["nc_swap"] = pack("nc_swap", swap_cells(), None, man, cx=10, cy=56)
     cells, (w, h, cx, cy) = domain_cells(); sheets["nc_domain"] = pack("nc_domain", cells, 4, man, cx=cx, cy=cy, r=160)
+    cells, (w, h, cx, cy) = domain_edge_cells(); sheets["nc_domain_edge"] = pack("nc_domain_edge", cells, 6, man, cx=cx, cy=cy, loop=1, r=160)
     sheets["nc_mark"] = pack("nc_mark", mark_cells(), None, man, loop=1)
     sheets["nc_crack"] = pack("nc_crack", crack_cells(), None, man, cx=15, cy=38)
     sheets["nc_sigil"] = pack("nc_sigil", sigil_cells(), None, man)

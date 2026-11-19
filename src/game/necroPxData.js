@@ -24,7 +24,8 @@ export const NECRO_PX = {
   nc_boom: { w: 156, h: 155, cols: 4, n: 8, cx: 78, cy: 93, r: 70 },   // 영혼 소각 폭발(핏빛 중심)
   nc_blast: { w: 216, h: 212, cols: 5, n: 10, cx: 108, cy: 126, r: 100 },   // 무명의 군세 마지막 폭발
   nc_swap: { w: 20, h: 60, cols: 6, n: 6, cx: 10, cy: 56 },   // 그림자 교환 — 검은 세로선 셋(발밑 기준)
-  nc_domain: { w: 336, h: 265, cols: 4, n: 8, cx: 168, cy: 132, r: 160 },   // 군주의 영역 — 0~3 펼침 · 4~7 유지(땅 반지름 r, 땅을 가르는 번개 금)
+  nc_domain: { w: 336, h: 265, cols: 4, n: 8, cx: 168, cy: 132, r: 160 },
+  nc_domain_edge: { w: 392, h: 307, cols: 6, n: 12, cx: 196, cy: 153, loop: 1, r: 160 },   // 영역 가장자리 — 원 끝에서 바깥으로 낮게 번지며 일렁이는 그림자(11월 20일 사용자)   // 군주의 영역 — 0~3 펼침 · 4~7 유지(땅 반지름 r, 땅을 가르는 번개 금)
   nc_mark: { w: 28, h: 28, cols: 6, n: 6, cx: 14, cy: 14, loop: 1 },   // 일제 진군 표적
   nc_crack: { w: 30, h: 40, cols: 4, n: 4, cx: 15, cy: 38 },   // 영혼 소각 — 그림자 몸의 붉은 균열
   nc_sigil: { w: 96, h: 72, cols: 8, n: 8, cx: 48, cy: 36 },   // 무명의 군세 — 시전자 뒤 문양(0~5 그려짐 · 6~7 반복)
@@ -48,14 +49,12 @@ export const NC_FRAME = { walk: 0, atk: 4, rise: 8, fade: 12, n: 4 };
 
 /* 군주의 영역 보강 시트(11월 20일 사용자 "pixelfx로 보완해줘") — 위 직접 그린 시트와 따로 둔다.
    pixelfx(MIT)를 검보라 + 빛나는 보라 색으로 뽑았다. 값은 design/effects/pixelfx/necromancer/manifest.json 과 같아야 한다.
-   같은 날 "불 같은 건 듬성듬성하고 어울리지 않아 · 새로운 걸" → 검은 불길을 빼고 손 · 룬 원 · 소환 균열을 더했다. 이어 "촉수 빼자" → 촉수도 뺐다. 이어 "원 끝을 그림자 불꽃으로 자연스럽게 마감" → 불꽃을 테두리에만 촘촘히 두른다.
+   같은 날 "불 같은 건 듬성듬성하고 어울리지 않아 · 새로운 걸" → 검은 불길을 빼고 손 · 룬 원 · 소환 균열을 더했다. 이어 "촉수 빼자" → 촉수도 뺐다. 끝 마감은 pixelfx 가 아니라 make.py 의 nc_domain_edge(누운 그림자)가 맡는다.
    fps 초당 칸, loop 1 이면 반복(0 은 한 번 — 끝나면 자리를 바꿔 다시) */
 export const NECRO_PFX = {
-  nc_pf_flame: { w: 104, h: 112, cols: 6, n: 36, cx: 52, cy: 102, fps: 15, loop: 1 },     // shadow-flames — 영역 테두리를 두르는 그림자 불꽃
   nc_pf_hands: { w: 200, h: 116, cols: 7, n: 47, cx: 100, cy: 100, fps: 15, loop: 0 },    // grasping-hands — 웅덩이에서 움켜쥐는 그림자 팔
   nc_pf_rune: { w: 136, h: 100, cols: 10, n: 60, cx: 68, cy: 80, fps: 15, loop: 1 },      // rune-circle — 시전자 발밑에서 도는 룬 원
   nc_pf_portal: { w: 208, h: 150, cols: 8, n: 58, cx: 104, cy: 122, fps: 15, loop: 0 },   // spawn-portal — 바닥이 찢어져 넋이 솟는 균열
 };
 // 영역 하나에 까는 것 — pop: [시트, 수](연출 품질 Q 를 곱한다, 엇갈려 나오고 끝나면 자리를 바꾼다) · k 배수 · rune 발밑 룬 원 배수 · a 투명도
-export const NC_DOMAIN_PFX = { pop: [["nc_pf_hands", 5], ["nc_pf_portal", 2]], k: 2, rune: 3, a: 0.9,
-  edge: 44, edgeK: 1, edgeR: 0.93, edgeA: 0.85 };   // 테두리 불꽃 수(Q 를 곱함) · 배수 · 반지름 비율 · 투명도
+export const NC_DOMAIN_PFX = { pop: [["nc_pf_hands", 5], ["nc_pf_portal", 2]], k: 2, rune: 3, a: 0.9 };

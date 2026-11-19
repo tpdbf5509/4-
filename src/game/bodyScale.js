@@ -8,12 +8,14 @@ import { W, H } from "./world.js";
 
 export const BODY_SCALE = {
   indoor: { screen: 1.9, npc: 0.75, spd: 3 },    // 마을 속 집 — 에르덴 도서관 1 · 2층 · 참나무 목공소(사용자 "이동속도 5배", 11월 19일 10배에서 낮춤)
+  library: { screen: 1.2, npc: 0.75, spd: 3 },   // 에르덴 도서관 1 · 2층만 — 사용자 "도서관에서 캐릭터 크기 1.2배"(11월 19일, 목공소는 indoor 1.9 그대로)
   under: { screen: 1.2, npc: 0.75, spd: 3 },     // 목공소 지하부터 이어지는 엔지니어 루트 맵(지하 · 연구소 · 기계도시) — 사용자 "목공소 지하 같은 곳은 크기 1.2배만"
 };
 const HOUSE_EQ = ["eng-oak"];                    // 엔지니어 루트 맵 가운데 마을 속 집으로 치는 곳
 export function bodyKind(M) {
   if (!M) return null;
-  if (M.library || (M.eq && HOUSE_EQ.includes(M.id))) return "indoor";
+  if (M.library) return "library";
+  if (M.eq && HOUSE_EQ.includes(M.id)) return "indoor";
   if (M.eq) return "under";
   return null;
 }

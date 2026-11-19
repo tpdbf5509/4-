@@ -184,5 +184,7 @@
 .adm-mob-big div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .adm-mob-big b { font-size: 18px; letter-spacing: -0.03em; }
 .adm-mob-big span { font-size: 12.5px; color: var(--sub); }
-.adm-mob-big button { margin-top: 6px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 5px 14px; font-size: 12.5px; }
+.adm-mob-big button { margin-top: 6px; white-space: nowrap; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 5px 14px; font-size: 12.5px; }
 @media (max-width: 640px) { .adm-mob-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; } }
+.adm-mob-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-mob-big .adm-mob-acts button.dl { border-color: var(--point); color: var(--give-ink); background: var(--give); }

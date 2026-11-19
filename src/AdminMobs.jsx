@@ -7,7 +7,7 @@ import { MOB, MAPS, SPAWNS } from "./game/rpg.js";
 import { DUNGEONS } from "./game/dungeonData.js";
 import { WORLD_BOSSES } from "./game/worldBossData.js";
 import { HIGH_SUMMON_IDS } from "./game/highData.js";
-import { drawMobIcon } from "./game/rpgArt.js";
+import { drawMobIcon, mobArtCanvas } from "./game/rpgArt.js";
 
 const CARD = [132, 108], BIG = [340, 280];   // 칸 그림 · 크게 보기 그림 크기(px)
 
@@ -32,6 +32,21 @@ function whereOf(id) {
   return dg ? dg.name : "";
 }
 
+// 내려받기 — 잘리지 않은 원래 크기 그림을 PNG 로. 파일 이름은 몹 id(우두머리면 _boss)
+function download(m) {
+  const c = mobArtCanvas(m.id, m.boss);
+  if (!c) return false;
+  c.toBlob((b) => {
+    if (!b) return;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = `${m.id}${m.boss ? "_boss" : ""}.png`;   // 한글 이름은 일부 브라우저가 "download" 로 바꿔 버려 id 로 둔다
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, "image/png");
+  return true;
+}
+
 function MobArt({ id, boss, w, h }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -47,6 +62,7 @@ export default function MobsTab() {
   const [grp, setGrp] = useState("all");
   const [q, setQ] = useState("");
   const [pick, setPick] = useState(null);       // 크게 보는 몹 { id, boss }
+  const [fail, setFail] = useState(false);
   const word = q.trim();
   const shown = GROUPS.filter((g) => grp === "all" || g.id === grp)
     .map((g) => ({ ...g, list: g.mobs.filter((m) => !word || nameOf(m).includes(word) || m.id.includes(word)) }))
@@ -68,7 +84,11 @@ export default function MobsTab() {
             <b>{nameOf(pick)}</b>
             <span>{pick.id}{pick.boss ? " · 우두머리 모습" : ""}</span>
             {whereOf(pick.id) && <span>{whereOf(pick.id)}</span>}
-            <button onClick={() => setPick(null)}>닫기</button>
+            <span className="adm-mob-acts">
+              <button className="dl" onClick={() => setFail(!download(pick))}>PNG 내려받기</button>
+              <button onClick={() => setPick(null)}>닫기</button>
+            </span>
+            {fail && <span>그림을 아직 불러오는 중입니다. 잠시 뒤 다시 눌러 주세요.</span>}
           </div>
         </div>
       )}
@@ -79,7 +99,7 @@ export default function MobsTab() {
           <div className="adm-mob-grid">
             {g.list.map((m) => (
               <button key={`${m.id}:${m.boss}`} className={`adm-mob ${pick && pick.id === m.id && pick.boss === m.boss ? "on" : ""}`}
-                onClick={() => { setPick(m); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+                onClick={() => { setPick(m); setFail(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
                 <MobArt id={m.id} boss={m.boss} w={CARD[0]} h={CARD[1]} />
                 <b>{nameOf(m)}</b>
                 <em>{m.id}</em>

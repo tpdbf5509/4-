@@ -30,3 +30,6 @@ export function textUp(ctx, x, y) {
   const k = VIEW.textK;
   if (k !== 1) { ctx.translate(x, y); ctx.scale(k, k); ctx.translate(-x, -y); }
 }
+
+// 이름표 · 말풍선 글자는 몸 그림과 같은 비율로 — 화면에서 보이는 캐릭터 키(screen)만큼 키운다(건물 안만, 나머지는 1)
+export const textScreen = (M) => BODY_SCALE[bodyKind(M)]?.screen || 1;

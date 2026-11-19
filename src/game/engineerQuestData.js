@@ -56,7 +56,7 @@ export const EQ_VILLAGE = { door: { x: 520, y: 1822, r: 40 }, back: [520, 1890] 
 // 맵 사이 출구(밟으면 옮겨 간다 — 늘 열려 있는 쪽만). 진행이 필요한 문은 조사 자리(act 'gate')
 export const EQ_EXITS = [
   { map: 'eng-oak', at: P(770, 1000), r: 60, to: 'dawnwood', back: EQ_VILLAGE.back, label: '에르덴 마을' },
-  { map: 'eng-cellar', at: P(775, 225), r: 60, to: 'eng-oak', back: [1203, 470], label: '참나무 목공소' },
+  { map: 'eng-cellar', at: P(775, 225), r: 100, to: 'eng-oak', back: [1203, 470], label: '참나무 목공소' },
   { map: 'eng-tunnel', at: P(140, 820), r: 60, to: 'eng-cellar', back: [1219, 1300], label: '목공소 지하' },
   { map: 'eng-lab', at: P(770, 1005), r: 60, to: 'eng-tunnel', back: [2141, 420], label: '정비 통로' },
 ];
@@ -112,7 +112,7 @@ export const EQ_SPOTS = [
   S('eng-cellar', 'cellar-lift', 1320, 520, '끊어진 승강기', T(['승강기 줄이 끊어져 있다. 아래 통로로 걸어가야 한다.'])),
   S('eng-cellar', 'cellar-hatch', 780, 880, '정비 통로 문', { k: 'gate', to: 'eng-tunnel', back: [470, 1180] }),
   S('eng-tunnel', 'tun-board', 410, 175, '정비실 도면', T(['벽에 승강기 복구 도면이 붙어 있다.', '「안전핀 → 톱니 → 배터리」 차례로 연결할 것.'], 'board'), { look: { sheet: 'props', i: 7, size: 96 } }),
-  S('eng-tunnel', 'tun-gear', 240, 200, '큰 톱니', { k: 'take', set: 'gear', lines: ['압축 기계 아래에서 큰 톱니를 빼냈다.'] }, { look: { sheet: 'props', i: 5, size: 70 }, show: ['!gear'] }),
+  S('eng-tunnel', 'tun-gear', 1330, 940, '큰 톱니', { k: 'take', set: 'gear', lines: ['부서진 기어 더미 옆에서 큰 톱니를 빼냈다.'] }, { look: { sheet: 'props', i: 5, size: 70 }, show: ['!gear'] }),
   S('eng-tunnel', 'tun-brkA', 100, 460, '배전함 A', { k: 'take', set: 'brkA', lines: ['배전함 A 의 손잡이를 내렸다. 어딘가에서 불꽃 소리가 약해진다.'], done: ['배전함 A 는 내려가 있다.'] }, { look: { sheet: 'props', i: 1, size: 80 } }),
   S('eng-tunnel', 'tun-brkB', 1390, 540, '배전함 B', { k: 'take', set: 'brkB', lines: ['배전함 B 의 손잡이를 내렸다.'], done: ['배전함 B 는 내려가 있다.'] }, { look: { sheet: 'props', i: 1, size: 80 } }),
   S('eng-tunnel', 'tun-pin', 1450, 330, '안전핀 보관함', { k: 'take', set: 'pin', lines: ['상자 안에서 강철 안전핀을 꺼냈다.'] }, { look: { sheet: 'props', i: 6, size: 70 }, show: ['!pin'] }),

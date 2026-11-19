@@ -41,3 +41,15 @@ test("도서관 1.5배로 걸어도 가구 막힘을 건너뛰지 않는다", as
   h.x = 300; h.y = M.h - 200; h.hold = ["right"]; R.rpgWalk(h, 1 / 10);
   assert.ok(Math.abs(h.x - 300 - R.RPG.spd * 1.5 / 10) < 1, "1.5배로 걷는다");
 });
+
+test("엔지니어 루트 출구는 걸어서 닿는다 · 글자 배율은 몸 키(screen)를 따른다", async () => {
+  const R = await import("../src/game/rpg.js");
+  const { textScreen } = await import("../src/game/bodyScale.js");
+  for (const m of Object.values(R.MAPS).filter((q) => q.eq))
+    for (const q of m.gates) {   // 걸을 수 있는 범위(위 top · 아래 h-edge)로 끌어당긴 자리에서 문 반지름 안이어야 한다
+      const y = Math.min(Math.max(q.y, m.top), m.h - R.RPG.edge), x = Math.min(Math.max(q.x, R.RPG.edge), m.w - R.RPG.edge);
+      assert.ok(Math.hypot(x - q.x, y - q.y) <= q.r, `${m.id} → ${q.to} 문에 닿지 못한다`);
+    }
+  assert.equal(textScreen(R.MAPS["eng-oak"]), 1.9);
+  assert.equal(textScreen(R.MAPS.dawnwood), 1);
+});

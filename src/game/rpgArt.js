@@ -61,7 +61,7 @@ import { drawHighBody, highElite, isHighArt, highBackImg, warmHighArt } from "./
 import { HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON_IDS, HIGH_ART } from "./highData.js";
 import { FIELD_LOOKS, FIELD_TRAIL } from "./fieldLookData.js";
 import { SKILL_PX_CAP } from "./skillPxData.js";
-import { heroScale, npcScale, mapSpeed, camZoom, VIEW, textUp } from "./bodyScale.js";
+import { heroScale, npcScale, mapSpeed, camZoom, textScreen, VIEW, textUp } from "./bodyScale.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
 import { setWbIntroQuality } from "./worldBossIntro.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
@@ -2572,6 +2572,7 @@ function drawBubble(ctx, x, y, text, alpha) {
   for (let i = 0; i < text.length && lines.length < 3; i += 14) lines.push(text.slice(i, i + 14));
   if (text.length > 42) lines[2] = `${lines[2].slice(0, 13)}…`;
   ctx.save();
+  textUp(ctx, x, y);   // 건물 안은 말풍선도 몸과 같은 비율(꼬리 끝을 축으로)
   ctx.globalAlpha = alpha;
   ctx.font = "12px 'Jua', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -2763,7 +2764,7 @@ export function drawRpg(ctx, g, bgs) {
   }
   warmRpgArt();
   const z = cam.z || 1, VW = W / z, VH = H / z;
-  VIEW.textK = 1 / z;     // 카메라를 뒤로 당긴 맵(bodyScale.js) — 땅을 z 배로 줄여 그린다
+  VIEW.textK = textScreen(M) / z;     // 카메라를 뒤로 당긴 맵(bodyScale.js) — 땅을 z 배로 줄여 그리고, 건물 안은 몸 크기만큼 글자도 키운다
   if (z !== 1) { ctx.fillStyle = "#1b1611"; ctx.fillRect(0, 0, W, H); ctx.scale(z, z); }
   const bgName = M.bg || M.id;
   const look = !M.dungeon && FIELD_LOOKS[M.id];        // 사냥터 — 맵마다 다른 바탕(fieldLookData.js)

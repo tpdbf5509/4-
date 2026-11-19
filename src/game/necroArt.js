@@ -451,21 +451,22 @@ function domain(ctx, f, t, sq) {
     cell(ctx, "nc_aura", loop(SH.nc_aura.n, 1.1, j * 0.13), f.x + Math.cos(a) * f.r * 0.93, f.y + Math.sin(a) * f.r * 0.93 * sq, K, 0.55);
   }
 }
-/* pixelfx 보강(11월 20일 사용자) — 영역 안 정해진 자리에 검은 불길이 계속 타고, 촉수는 한 번 솟았다 가라앉으면 다른 자리로 옮긴다.
-   자리는 시전자 기준 씨앗 고정이라 프레임마다 이어진다. 그림을 못 불러오면 cell 이 그리지 않는다 */
+/* pixelfx 보강(11월 20일 사용자) — 발밑에 룬 원이 돌고, 영역 안 곳곳에서 그림자 팔 · 촉수 · 소환 균열이 엇갈려 솟았다 가라앉는다.
+   하나가 끝나면 다른 자리로 옮긴다. 자리는 씨앗 고정이라 프레임마다 이어진다. 그림을 못 불러오면 cell 이 그리지 않는다 */
 function domainPfx(ctx, f, sq) {
-  const P = NC_DOMAIN_PFX, nf = Math.max(1, Math.round(P.flame * PQ)), nt = Math.max(1, Math.round(P.tendril * PQ));
-  const at = (a, b) => { const an = rnd(a, b) * TAU, d = (0.25 + 0.5 * Math.sqrt(rnd(a, b + 3))) * f.r; return [f.x + Math.cos(an) * d, f.y + Math.sin(an) * d * sq]; };
-  const T = SH.nc_pf_tendril, span = T.n / T.fps;
-  for (let j = 0; j < nt; j++) {                     // 뒤에 있는 것부터 — 촉수가 불길보다 크다
-    const ph = NOW / span + j / nt, slot = Math.floor(ph), [x, y] = at(slot, j * 17 + 5);
-    cell(ctx, "nc_pf_tendril", (ph - slot) * T.n, x, y, P.k, P.a, 0, rnd(slot, j) < 0.5);
-  }
-  const F = SH.nc_pf_flame;
-  for (let j = 0; j < nf; j++) {
-    const an = (j + 0.5) / nf * TAU + rnd(j, 91) * 0.6, d = (0.45 + 0.4 * rnd(j, 93)) * f.r;
-    cell(ctx, "nc_pf_flame", Math.floor(NOW * F.fps + j * 7) % F.n, f.x + Math.cos(an) * d, f.y + Math.sin(an) * d * sq, P.k, P.a);
-  }
+  const P = NC_DOMAIN_PFX, R = SH.nc_pf_rune;
+  cell(ctx, "nc_pf_rune", Math.floor(NOW * R.fps) % R.n, f.x, f.y, P.rune, P.a);
+  const at = (a, b) => { const an = rnd(a, b) * TAU, d = (0.28 + 0.5 * Math.sqrt(rnd(a, b + 3))) * f.r; return [f.x + Math.cos(an) * d, f.y + Math.sin(an) * d * sq]; };
+  const list = [];
+  P.pop.forEach(([name, cnt], g) => {
+    const T = SH[name], span = T.n / T.fps, n = Math.max(1, Math.round(cnt * PQ));
+    for (let j = 0; j < n; j++) {
+      const ph = NOW / span + j / n + g * 0.37, slot = Math.floor(ph), [x, y] = at(slot, g * 31 + j * 17 + 5);
+      list.push([y, name, (ph - slot) * T.n, x, rnd(slot, j + g) < 0.5]);
+    }
+  });
+  list.sort((a, b) => a[0] - b[0]);                  // 뒤(위)에 있는 것부터
+  for (const [y, name, i, x, fl] of list) cell(ctx, name, i, x, y, P.k, P.a, 0, fl);
 }
 function domainEnd(ctx, f, t, sq) {
   const u = t / f.life, k = Math.max(1, Math.round(f.r / SH.nc_domain.r));

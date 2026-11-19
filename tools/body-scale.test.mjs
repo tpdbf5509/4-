@@ -7,14 +7,15 @@ import { pointerSkillPt } from "../src/game/skillAim.js";
 import { W, H } from "../src/game/world.js";
 
 test("실내 · 이야기 맵만 키우고 사냥터는 그대로", () => {
-  assert.ok(heroScale({ eq: 1, story: 1 }) > 1);
+  assert.ok(heroScale({ eq: 1, story: 1, w: 2400, h: 1600 }) > 1);
   assert.equal(heroScale({ village: 1 }), 1);
   assert.equal(heroScale({ story: 1 }), 1);
   assert.ok(mapSpeed({ library: 1, story: 1 }) > 1);
   assert.equal(mapSpeed({ village: 1 }), 1);
   assert.equal(heroScale({ id: "plaza" }), 1);
   assert.equal(camZoom({ id: "field" }), 1);
-  assert.ok(camZoom({ library: 1 }) < 1);
+  assert.ok(camZoom({ library: 1, w: 2400, h: 1600 }) < 1);
+  assert.ok(camZoom({ eq: 1, w: 2400, h: 1600 }) * 1600 <= H);   // 방 전체가 한 화면에
 });
 test("카메라를 당긴 맵에서 화면 오른쪽 아래 끝은 W/z · H/z 만큼 떨어진 땅", () => {
   const cam = { x: 100, y: 50, z: 0.8 }, rect = { left: 0, top: 0, width: W, height: H };

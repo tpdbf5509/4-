@@ -25,7 +25,7 @@ test("카메라를 당긴 맵에서 화면 오른쪽 아래 끝은 W/z · H/z �
   const h = { map: "a" };
   assert.deepEqual(pointerSkillPt(h, cam, { map: "a", x: 80, y: 40 }), [200, 100]);
 });
-test("건물 안 10배로 걸어도 가구 막힘을 건너뛰지 않는다", async () => {
+test("건물 안 5배로 걸어도 가구 막힘을 건너뛰지 않는다", async () => {
   const R = await import("../src/game/rpg.js");
   const M = R.MAPS["erden-library"];
   const b = M.blocks.find((q) => q.r >= 70);
@@ -35,9 +35,9 @@ test("건물 안 10배로 걸어도 가구 막힘을 건너뛰지 않는다", as
   const h = g.heroes[0]; h.map = M.id; h.x = b.x - b.r - 40; h.y = b.y;
   h.hold = ["right"];
   const x0 = h.x;
-  for (let i = 0; i < 6; i++) R.rpgWalk(h, 1 / 10);   // 한 틱 250px — 가구 지름(140)보다 길다
+  for (let i = 0; i < 6; i++) R.rpgWalk(h, 1 / 10);   // 한 틱 125px — 가구 지름(140)보다 길다
   assert.ok(h.x > x0, "걷지 못했다");
   assert.ok(h.x < b.x, `막힘 ${b.x} 를 건너뜀: ${h.x}`);
   h.x = 300; h.y = M.h - 200; h.hold = ["right"]; R.rpgWalk(h, 1 / 10);
-  assert.ok(Math.abs(h.x - 300 - R.RPG.spd * 10 / 10) < 1, "10배로 걷는다");
+  assert.ok(Math.abs(h.x - 300 - R.RPG.spd * 5 / 10) < 1, "5배로 걷는다");
 });

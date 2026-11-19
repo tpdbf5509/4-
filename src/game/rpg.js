@@ -1483,7 +1483,7 @@ export function rpgWalk(h, dt) {
   if (!h || h.down > 0 || ccRooted(h) || stormBusy(h)) return;   // 결투에서 경직 · 띄움 · 속박이면 걷지 못한다 — 목적지는 남겨 둔다
   if (!h.hold || !h.hold.length) {
     if (!h.dest) return;
-    const n = Math.max(1, Math.ceil(mapSpeed(MAPS[h.map])));   // 빠른 맵(건물 안 10배)은 틱을 나눠 걷는다 — 돌아가기 · 막힘 판단이 보통 걸음과 같은 간격으로 돈다
+    const n = Math.max(1, Math.ceil(mapSpeed(MAPS[h.map])));   // 빠른 맵(건물 안 5배)은 틱을 나눠 걷는다 — 돌아가기 · 막힘 판단이 보통 걸음과 같은 간격으로 돈다
     for (let i = 0; i < n && h.dest; i++) walkTo(h, dt / n);
     return;
   }
@@ -1507,7 +1507,7 @@ export function rpgWalk(h, dt) {
   stepWalk(h, MAPS[h.map], (dx / len) * v * dt, (dy / len) * v * RPG.squash * dt);
 }
 
-// 한 틱에 걷는 거리를 MOVE_SUB 씩 나눠 옮기며 막힌 곳에서 밀어낸다 — 빠르게 걸어도(건물 안 10배) 가구 · 벽을 건너뛰지 않는다
+// 한 틱에 걷는 거리를 MOVE_SUB 씩 나눠 옮기며 막힌 곳에서 밀어낸다 — 빠르게 걸어도(건물 안 5배) 가구 · 벽을 건너뛰지 않는다
 const MOVE_SUB = 16;
 function stepWalk(h, M, mx, my) {
   const n = Math.max(1, Math.ceil(Math.hypot(mx, my / RPG.squash) / MOVE_SUB));

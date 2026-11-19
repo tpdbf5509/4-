@@ -7,11 +7,14 @@
 import { W, H } from "./world.js";
 
 export const BODY_SCALE = {
-  indoor: { screen: 1.9, npc: 0.75, spd: 3 },   // 건물 안 — 참나무 목공소 · 엔지니어 획득 루트 맵 · 에르덴 도서관
+  indoor: { screen: 1.9, npc: 0.75, spd: 10 },   // 마을 속 집 — 에르덴 도서관 1 · 2층 · 참나무 목공소(사용자 "이동속도 10배")
+  under: { screen: 1.2, npc: 0.75, spd: 10 },    // 목공소 지하부터 이어지는 엔지니어 루트 맵(지하 · 연구소 · 기계도시) — 사용자 "목공소 지하 같은 곳은 크기 1.2배만"
 };
+const HOUSE_EQ = ["eng-oak"];                    // 엔지니어 루트 맵 가운데 마을 속 집으로 치는 곳
 export function bodyKind(M) {
   if (!M) return null;
-  if (M.eq || M.library) return "indoor";
+  if (M.library || (M.eq && HOUSE_EQ.includes(M.id))) return "indoor";
+  if (M.eq) return "under";
   return null;
 }
 // 카메라 배율 — 방 전체가 화면(W × H)에 들어오게. 1 보다 크게는 당기지 않는다

@@ -11,6 +11,8 @@ test("실내 · 이야기 맵만 키우고 사냥터는 그대로", () => {
   assert.equal(heroScale({ village: 1 }), 1);
   assert.equal(heroScale({ story: 1 }), 1);
   assert.ok(mapSpeed({ library: 1, story: 1 }) > 1);
+  assert.ok(mapSpeed({ eq: 1, id: "eng-lab" }) > 1);
+  assert.ok(heroScale({ eq: 1, id: "eng-lab", w: 2400, h: 1600 }) < heroScale({ eq: 1, id: "eng-oak", w: 2400, h: 1600 }));
   assert.equal(mapSpeed({ village: 1 }), 1);
   assert.equal(heroScale({ id: "plaza" }), 1);
   assert.equal(camZoom({ id: "field" }), 1);
@@ -22,4 +24,20 @@ test("카메라를 당긴 맵에서 화면 오른쪽 아래 끝은 W/z · H/z �
   assert.deepEqual(canvasToWorld(W, H, rect, cam), { x: 100 + W / 0.8, y: 50 + H / 0.8 });
   const h = { map: "a" };
   assert.deepEqual(pointerSkillPt(h, cam, { map: "a", x: 80, y: 40 }), [200, 100]);
+});
+test("건물 안 10배로 걸어도 가구 막힘을 건너뛰지 않는다", async () => {
+  const R = await import("../src/game/rpg.js");
+  const M = R.MAPS["erden-library"];
+  const b = M.blocks.find((q) => q.r >= 70);
+  const g = R.makeWorld(); g.mySeat = 0;
+  R.rpgSyncSeats(g, Array.from({ length: R.RPG_CREW_MAX }, (_, i) => (i ? null : { id: "x", name: "시험", hero: { name: "시험", job: "warrior", elem: "fire", gender: "f" } })));
+  R.rpgJoin(g, 0, { name: "시험", ts: 1, lv: 10, gift: 0, rs: 0, bag: { oc: 1, n: 2, w: [], e: 0, s: {} } }, "sandbox");
+  const h = g.heroes[0]; h.map = M.id; h.x = b.x - b.r - 40; h.y = b.y;
+  h.hold = ["right"];
+  const x0 = h.x;
+  for (let i = 0; i < 6; i++) R.rpgWalk(h, 1 / 10);   // 한 틱 250px — 가구 지름(140)보다 길다
+  assert.ok(h.x > x0, "걷지 못했다");
+  assert.ok(h.x < b.x, `막힘 ${b.x} 를 건너뜀: ${h.x}`);
+  h.x = 300; h.y = M.h - 200; h.hold = ["right"]; R.rpgWalk(h, 1 / 10);
+  assert.ok(Math.abs(h.x - 300 - R.RPG.spd * 10 / 10) < 1, "10배로 걷는다");
 });

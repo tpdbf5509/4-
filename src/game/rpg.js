@@ -1481,7 +1481,12 @@ export function rpgMove(g, pi, d) {
 export function rpgWalk(h, dt) {
   if (h && MAPS[h.map] && MAPS[h.map].race) return;   // 레이스 트랙 — 위치는 레이스가 정한다(race.js)
   if (!h || h.down > 0 || ccRooted(h) || stormBusy(h)) return;   // 결투에서 경직 · 띄움 · 속박이면 걷지 못한다 — 목적지는 남겨 둔다
-  if (!h.hold || !h.hold.length) { if (h.dest) walkTo(h, dt); return; }
+  if (!h.hold || !h.hold.length) {
+    if (!h.dest) return;
+    const n = Math.max(1, Math.ceil(mapSpeed(MAPS[h.map])));   // 빠른 맵(건물 안 10배)은 틱을 나눠 걷는다 — 돌아가기 · 막힘 판단이 보통 걸음과 같은 간격으로 돈다
+    for (let i = 0; i < n && h.dest; i++) walkTo(h, dt / n);
+    return;
+  }
   if (h.dest) stopMove(h);                        // 방향키가 이긴다
   let dx = 0, dy = 0;
   h.hold.forEach((d) => {
@@ -1498,10 +1503,15 @@ export function rpgWalk(h, dt) {
     h.look = [dx / len, dy / len]; h.lookF = h.face;
   }   // 마지막으로 걸은 쪽 — 키를 떼도 이쪽을 바라본다(aimDir)
   // 이속 물약 · 신발 — 방장과 손님이 같은 값(스냅샷의 물약 효과 · h.arm)으로 걷는다
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화) · 레퀴엠 차징 중 둔화
-  h.x += (dx / len) * v * dt;
-  h.y += (dy / len) * v * RPG.squash * dt;
-  keepIn(h, MAPS[h.map], 20);
+  const v = RPG.spd * mapSpeed(MAPS[h.map]) * (speedMul(h) + armorSpeed(h, dx / len, dy / len)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h);   // 전직 몸(엘프 · 암살자 빠름 · 총사 장전 둔화) · 레퀴엠 차징 중 둔화 · 건물 안 걷기 배율(bodyScale.js)
+  stepWalk(h, MAPS[h.map], (dx / len) * v * dt, (dy / len) * v * RPG.squash * dt);
+}
+
+// 한 틱에 걷는 거리를 MOVE_SUB 씩 나눠 옮기며 막힌 곳에서 밀어낸다 — 빠르게 걸어도(건물 안 10배) 가구 · 벽을 건너뛰지 않는다
+const MOVE_SUB = 16;
+function stepWalk(h, M, mx, my) {
+  const n = Math.max(1, Math.ceil(Math.hypot(mx, my / RPG.squash) / MOVE_SUB));
+  for (let i = 0; i < n; i++) { h.x += mx / n; h.y += my / n; keepIn(h, M, 20); }
 }
 
 // 목적지까지 한 걸음 — 닿으면 목적지를 지운다. 길이 막혀 거의 못 나아가면 잠깐 두고 보다가 버린다
@@ -1515,7 +1525,7 @@ function walkTo(h, dt) {
   else if ((h.destP = (h.destP || 0) + dt) >= MOVE.progT) return void stopMove(h);   // 한참 나아가지 못했다 — 좁은 틈에서 왔다 갔다 한다
   const ux = dx / (d || 1), uy = dy / (d || 1);
   const [sx, sy] = MOVE.steer ? steerAround(h, M, D, ux, uy, d, dt) : [ux, uy];
-  const v = RPG.spd * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h);
+  const v = RPG.spd * mapSpeed(M) * (speedMul(h) + armorSpeed(h, sx, sy)) * advSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h);
   const step = v * dt;
   if (d <= Math.max(MOVE.arrive, step)) {          // 닿았다
     h.x = D.x; h.y = D.y;
@@ -1529,9 +1539,7 @@ function walkTo(h, dt) {
     h.look = [sx, sy]; h.lookF = h.face;
   }
   const ox = h.x, oy = h.y;
-  h.x += sx * step;
-  h.y += sy * step * sq;
-  keepIn(h, M, 20);
+  stepWalk(h, M, sx * step, sy * step * sq);
   const moved = Math.hypot(h.x - ox, (h.y - oy) / sq);
   if (moved < step * MOVE.stuckFrac) {              // 거의 못 나아갔다 — 막힌 곳
     h.destT = (h.destT || 0) + dt;

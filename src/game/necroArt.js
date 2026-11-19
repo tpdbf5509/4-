@@ -7,7 +7,6 @@
               · swap(그림자 교환) · domain · domainend(군주의 영역) · mark(일제 진군) · burn(영혼 소각) · legion · legionend(무명의 군세).
    그림자 병사 · 추출 가능 흔적은 연출이 아니라 판정 상태(necroShadows · necroView)로 그린다 — rpgArt 가 사람과 앞뒤를 맞춰 부른다. */
 import { NECRO_COLORS as C, NC_SUMMON, NC_DOMAIN, NC_SCYTHE } from "./necroData.js";
-import { BLADE_HAND } from "./bloodJobArt.js";   // 손 자리(몸 그림 비율) — BLOOD-001 혈검과 같은 손
 import { necroView, necroShadows } from "./necroJob.js";
 import { NECRO_PX_SRC, NECRO_PX as SH, NC_FRAME as FR } from "./necroPxData.js";
 
@@ -290,16 +289,23 @@ export function drawNecroShadowOf(ctx, h, sd, time) {
   drawNecroShadow(ctx, sd, necroRow(h), dom);
 }
 /* ── 손에 든 그림자 낫 — drawHero 가 몸 그림 좌표(발밑 0, 0 · 좌우 뒤집기 적용된 상태) 안에서 부른다. behind 면 뒤를 볼 때만 ──
-   옆 그림은 왼쪽을 보므로 낫 시트(오른쪽을 본다)를 뒤집어 앞으로 겨눈다. 휘두르는 동안(h.swing) 손을 축으로 위에서 아래로 돈다 */
+   11월 19일 사용자 참고 그림 — 가슴 높이에서 자루를 비스듬히 쥐고(위 끝은 어깨 뒤) 큰 날은 몸 앞 아래에서 위로 솟는다.
+   시트가 이미 이 자세(옆 그림처럼 왼쪽이 앞)라 뒤집지 않는다. 휘두르는 동안(h.swing) 손을 축으로 날이 머리 위 → 앞 아래로 돈다 */
+const NC_HAND = {                                   // 쥔 손 자리(몸 그림 비율)
+  m: { front: [0.66, 0.44], turn: [0.66, 0.44], side: [0.4, 0.46], back: [0.34, 0.45] },
+  f: { front: [0.64, 0.45], turn: [0.64, 0.45], side: [0.42, 0.47], back: [0.36, 0.46] },
+};
+const NC_SWING_ROT = [2.6, -0.5];                   // 베기 — 시작(날이 머리 위 뒤) · 끝(앞 아래) 회전(라디안, 든 자세 기준)
 export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
   if ((view === "back") !== behind) return;
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
   warmNecro();
-  const H = (BLADE_HAND[h.gender === "f" ? "f" : "m"] || BLADE_HAND.m)[view] || BLADE_HAND.m.front;
+  const H = NC_HAND[h.gender === "f" ? "f" : "m"][view] || NC_HAND.m.front;
   const lx = (H[0] - 0.5) * ww, ly = top + H[1] * hh;
   const u = h.swing > 0 ? clamp(1 - h.swing / NC_SCYTHE.swing) : -1;
-  const rot = u < 0 ? 0.25 + Math.sin(NOW * 2) * 0.04 : -1.3 + 2.9 * (1 - Math.pow(1 - clamp(u / 0.6), 3));
-  ctx.save(); ctx.translate(Math.round(lx), Math.round(ly)); ctx.scale(-1, 1); ctx.rotate(rot);
+  const [r0, r1] = NC_SWING_ROT;
+  const rot = u < 0 ? Math.sin(NOW * 2) * 0.03 : r0 + (r1 - r0) * (1 - Math.pow(1 - clamp(u / 0.6), 3));
+  ctx.save(); ctx.translate(Math.round(lx), Math.round(ly)); ctx.rotate(rot);
   cell(ctx, "nc_scythe", Math.floor(NOW / 0.18) % 3 === 0 ? 1 : 0, 0, 0, K);
   ctx.restore();
 }

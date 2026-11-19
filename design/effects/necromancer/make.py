@@ -658,29 +658,42 @@ def puff_cells(n=6):
         out.append(c)
     return out
 
-# ── 그림자 군주의 낫(66×56) — 손잡이 끝(28, 28)을 쥔다. 0 기본 · 1 날에 번개가 흐른다(번갈아 반복) ──
+# ── 그림자 군주의 낫(64×62) — 쥔 손 (42, 22). 0 기본 · 1 날에 번개가 흐른다(번갈아 반복) ──
+# 11월 19일 사용자 참고 그림(낫을 비스듬히 든 자세) — 자루는 손 위 뒤쪽(오른쪽 위)에서 몸 앞 아래(왼쪽 아래)로 길게 내려가고,
+# 아래 끝 날 뿌리에서 큰 낫날이 바깥으로 불룩하게 휘며 위로 솟는다(날은 안쪽 · 자루 쪽). 그림은 따라 그리지 않고 자세 · 날 방향만 본다.
+SCY_GRIP = (42, 22)
 def scythe_cells():
     out = []
+    gx, gy = SCY_GRIP
+    L = math.hypot(.68, .73); dx, dy = -.68 / L, .73 / L                                 # 손 → 날 뿌리 방향(왼쪽 아래)
+    bx, by = gx - dx * 23, gy - dy * 23                                                  # 자루 위 끝(물미)
+    hx, hy = gx + dx * 40, gy + dy * 40                                                  # 날 뿌리
+    R, a0, a1 = 21, math.radians(118), math.radians(258)
+    ox, oy = hx - math.cos(a0) * R, hy - math.sin(a0) * R                                 # 날 둘레 가운데(날 뿌리에서 오른쪽 위)
     for i in range(2):
-        c = Cv(66, 56); hx, hy = 28, 28
-        thick(c, hx - 10, hy + 18, hx + 12, hy - 22, N[1], 2)                                # 자루(손 아래로 조금 · 위로 길게)
-        c.line(hx - 9, hy + 18, hx + 13, hy - 22, GV[1])
-        c.px(hx - 10, hy + 19, GV[2]); c.px(hx - 11, hy + 20, GV[3])
-        tx, ty = hx + 12, hy - 22                                                            # 날 — 자루 끝에서 앞으로 나가 아래로 휜 반달
-        ox, oy, R0 = tx + 3, ty + 15, 16
+        c = Cv(64, 62)
+        thick(c, bx, by, hx, hy, N[1], 2)                                                # 자루
+        c.line(bx + 1, by, hx + 1, hy, N[3])
+        for k in range(0, 41, 9): c.px(gx + dx * k + 1, gy + dy * k, GV[0])                # 자루 마디
+        for k in (-3, -1, 1, 3): c.px(gx + dx * k, gy + dy * k - 1, N[5])                  # 손잡이 감은 끈
+        c.rect(bx - 1, by - 1, 3, 3, N[0]); c.px(bx, by, GV[2])                           # 물미 — 보라 구슬
         pts = []
-        for k in range(26):
-            u = k / 25; ang = -1.85 + u * 2.2
-            pts.append((ox + math.cos(ang) * R0, oy + math.sin(ang) * R0, u))
-        for k, (x, y, u) in enumerate(pts):
-            th = 4 if u < .45 else 3 if u < .75 else 2 if u < .92 else 1
-            ang = -1.85 + u * 2.2
-            for d in range(th):                                                              # 안쪽(가운데 쪽)으로 두께
-                c.px(x - math.cos(ang) * d, y - math.sin(ang) * d, N[1] if d else N[0])
-            c.px(x + math.cos(ang) * .9, y + math.sin(ang) * .9, GV[3] if (i == 1 and k % 3 == 0) else GV[2])   # 바깥 날 빛
-        c.px(pts[-1][0] + 1, pts[-1][1] + 1, GV[4])
-        c.rect(tx - 1, ty - 1, 3, 3, N[0]); c.px(tx, ty, GV[4] if i else GV[3])              # 날 뿌리의 보라 구슬
-        if i == 1: jag(c, pts[10][0], pts[10][1] - 1, 5, 1, -1, GV[3], GV[4], 91)
+        for k in range(34):
+            u = k / 33; ang = a0 + (a1 - a0) * u
+            pts.append((ox + math.cos(ang) * R, oy + math.sin(ang) * R, u, ang))
+        for k, (x, y, u, ang) in enumerate(pts):
+            th = 6 if u < .3 else 5 if u < .55 else 4 if u < .75 else 3 if u < .88 else 2 if u < .96 else 1
+            for d in range(th):                                                          # 등(바깥)에서 안쪽(날)으로 두께
+                c.px(x - math.cos(ang) * d, y - math.sin(ang) * d, N[0] if d == 0 else N[2] if d < th - 1 else N[4])
+            ex, ey = x - math.cos(ang) * th, y - math.sin(ang) * th                       # 날 — 안쪽 빛 줄
+            c.px(ex, ey, GV[3] if (i == 1 and k % 3 == 0) else GV[2])
+            if k % 7 == 3 and u < .8: c.px(x + math.cos(ang), y + math.sin(ang), N[3])     # 등의 톱니
+        tx, ty = pts[-1][0], pts[-1][1]; c.px(tx, ty - 1, GV[4]); c.px(tx + 1, ty - 2, GV[3])
+        c.line(hx, hy, hx + 5, hy + 4, N[1]); c.px(hx + 6, hy + 5, GV[2])                 # 날 뿌리 반대쪽 짧은 가시
+        c.rect(hx - 2, hy - 2, 4, 4, N[0]); c.px(hx - 1, hy - 1, GV[4] if i else GV[3]); c.px(hx, hy - 1, GV[2])   # 날 뿌리의 보라 구슬
+        if i == 1:
+            jag(c, pts[8][0] - 2, pts[8][1], 6, 0, -1, GV[3], GV[4], 91)
+            jag(c, pts[20][0] + 1, pts[20][1] - 2, 5, 1, -1, GV[3], GV[4], 37)
         out.append(c)
     return out
 
@@ -824,7 +837,7 @@ def main():
     sheets["nc_aura"] = pack("nc_aura", aura_cells(), None, man, loop=1, cx=24, cy=60)
     sheets["nc_thunder"] = pack("nc_thunder", thunder_cells(), None, man, cx=15, cy=136)
     sheets["nc_puff"] = pack("nc_puff", puff_cells(), None, man)
-    sheets["nc_scythe"] = pack("nc_scythe", scythe_cells(), None, man, loop=1, cx=28, cy=28)
+    sheets["nc_scythe"] = pack("nc_scythe", scythe_cells(), None, man, loop=1, cx=SCY_GRIP[0], cy=SCY_GRIP[1])
     cells, (cx, cy) = reap_cells(); sheets["nc_reap"] = pack("nc_reap", cells, None, man, cx=cx, cy=cy, r=70)
     sheets["nc_ember"] = pack("nc_ember", ember_cells(), None, man)
     sheets["nc_shard"] = pack("nc_shard", shard_cells(), None, man, loop=1)

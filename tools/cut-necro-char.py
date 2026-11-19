@@ -15,7 +15,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "design/necro-job/char")
 OUT = os.path.join(ROOT, "public/assets/characters/rpg")
 PAD, FAINT = 6, 24
-SCALE = {"m": 1.0, "f": 1.0}   # 암살자 앞 키에 대한 배율 — 머리카락 부피가 있어 1.0 으로 두고 연습장 화면으로 확인한다
+SCALE = {"m": 1.4, "f": 1.4}   # 암살자 앞 키에 대한 배율 — 11월 19일 사용자 "캐릭터가 너무 작아" 로 1.0 → 1.4
 
 def body(a):
     """옅은 부스러기를 버리고 가장 큰 덩어리(머리카락 · 몸)만 남긴다 — 가까운 조각은 부풀려 같은 덩어리로 본다"""

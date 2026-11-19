@@ -74,6 +74,7 @@ export const EQ_ART = { base: '/assets/game/rpg/engineer-quest/', cell: 256, mim
           take(줍기) · gate(다른 맵으로) · mimic(미믹 — 조사 · 물러나기 · 다른 방법) · seal(미믹 봉인) · travel(정비망 지도) · trial(시험) · contract(계약)
    lock: need 가 모자랄 때 보여 줄 대사(lockSet 이 있으면 그 깃발을 세운다 — 문에 새긴 글 같은 단서) */
 // hatch: 1 — 바닥 그림에 문이 없는 출구(gate). 정비망 승강판을 코드로 그린다(engineerQuestArt.js drawEqHatch). hatch: 'open' 은 열린 뒤에만
+// 화면 왼쪽 위(캐릭터 · 퀘스트 카드)는 그림 x 500 · y 330 안쪽을 가린다 — 조사 자리 · 이름표를 그 밖에 둔다(11월 19일 사용자). 왼쪽 아래 채팅 단추 자리도 피한다
 const S = (map, id, px, py, name, act, o = {}) => ({ id, map, at: P(px, py), r: 90, name, act, ...o });
 const T = (lines, set, o = {}) => ({ k: 'talk', lines, set, ...o });
 const MINA_POS = [890, 1570], ELDER_POS = [1670, 1120];   // 마을 새 좌표(storyData.js mina · villageData.js 촌장 하룬)
@@ -93,7 +94,7 @@ export const EQ_SPOTS = [
 
   /* ── 2장 · 참나무 목공소 ── */
   S('eng-oak', 'oak-bench', 230, 480, '작업대', T(['톱날은 멈춰 있는데, 바닥 아래에서 금속이 세 번 부딪히는 소리가 들린다.'], 'bench', { snd: 'eqClank' })),
-  S('eng-oak', 'oak-sign', 430, 330, '작업 순서표', T(['작업대 옆 목제 표지판에 순서가 적혀 있다.', '「장인이 모이고 → 동력이 돌고 → 톱날이 움직이고 → 작업이 끝난다」'], 'cSign')),
+  S('eng-oak', 'oak-sign', 530, 330, '작업 순서표', T(['작업대 옆 목제 표지판에 순서가 적혀 있다.', '「장인이 모이고 → 동력이 돌고 → 톱날이 움직이고 → 작업이 끝난다」'], 'cSign')),
   S('eng-oak', 'oak-blade', 470, 440, '오래된 톱날', T(['오래된 톱날을 뒤집어 본다.', '안쪽에 일부러 새긴 점 일곱 개가 있다.'], 'cBlade')),
   S('eng-oak', 'oak-log', 240, 880, '정비 기록', T(['목공소 주인의 정비 기록이다.', '「지하에 설치한 첫 번째 동력 장치 — 이상 없음」', '「첫 번째」에 밑줄이 그어져 있다.'], 'cLog')),
   S('eng-oak', 'oak-ledger', 1330, 610, '창고 장부', T(['창고 장부를 넘긴다.', '작업 완료란에 같은 모양의 도장 네 개가 찍혀 있다.'], 'cLedger')),
@@ -111,10 +112,10 @@ export const EQ_SPOTS = [
   S('eng-oak', 'oak-lever', 1410, 250, '목재 레버', { k: 'seal', mid: 'oak', set: 'oakMimic', lines: ['레버를 당기자 보관함 걸쇠가 철컥 잠긴다.'], idle: ['벽에 박힌 목재 레버다. 무언가를 잠그는 장치 같다.'] }),
 
   /* ── 3장 · 목공소 지하 · 폐쇄된 정비 통로 ── */
-  S('eng-cellar', 'cellar-boiler', 290, 330, '낡은 보일러실', T(['녹슨 보일러가 식어 있다. 오래전에 누군가 이곳에서 동력을 만들었다.'])),
+  S('eng-cellar', 'cellar-boiler', 330, 400, '낡은 보일러실', T(['녹슨 보일러가 식어 있다. 오래전에 누군가 이곳에서 동력을 만들었다.'])),
   S('eng-cellar', 'cellar-lift', 1320, 520, '끊어진 승강기', T(['승강기 줄이 끊어져 있다. 아래 통로로 걸어가야 한다.'])),
   S('eng-cellar', 'cellar-hatch', 780, 880, '정비 통로 문', { k: 'gate', to: 'eng-tunnel', back: [470, 1180] }),
-  S('eng-tunnel', 'tun-board', 410, 175, '정비실 도면', T(['벽에 승강기 복구 도면이 붙어 있다.', '「안전핀 → 톱니 → 배터리」 차례로 연결할 것.'], 'board'), { look: { sheet: 'props', i: 7, size: 96 } }),
+  S('eng-tunnel', 'tun-board', 820, 150, '정비실 도면', T(['벽에 승강기 복구 도면이 붙어 있다.', '「안전핀 → 톱니 → 배터리」 차례로 연결할 것.'], 'board'), { look: { sheet: 'props', i: 7, size: 96 } }),
   S('eng-tunnel', 'tun-gear', 1330, 940, '큰 톱니', { k: 'take', set: 'gear', lines: ['부서진 기어 더미 옆에서 큰 톱니를 빼냈다.'] }, { look: { sheet: 'props', i: 5, size: 70 }, show: ['!gear'] }),
   S('eng-tunnel', 'tun-brkA', 100, 460, '배전함 A', { k: 'take', set: 'brkA', lines: ['배전함 A 의 손잡이를 내렸다. 어딘가에서 불꽃 소리가 약해진다.'], done: ['배전함 A 는 내려가 있다.'] }, { look: { sheet: 'props', i: 1, size: 80 } }),
   S('eng-tunnel', 'tun-brkB', 1390, 540, '배전함 B', { k: 'take', set: 'brkB', lines: ['배전함 B 의 손잡이를 내렸다.'], done: ['배전함 B 는 내려가 있다.'] }, { look: { sheet: 'props', i: 1, size: 80 } }),
@@ -135,7 +136,7 @@ export const EQ_SPOTS = [
   S('eng-lab', 'lab-swC', 1470, 780, '스위치 C', { k: 'seq', g: 'bat', i: 1, n: 3, set: 'pCell', ok: ['스위치 세 개가 차례로 켜지자 동력 전지가 충전된다.'], bad: '스위치가 모두 꺼진다.' }, { look: { sheet: 'props', i: 0, size: 70 } }),
   S('eng-lab', 'lab-drawer', 120, 650, '기록 서랍장', { k: 'pick', set: 'pMem', q: '어느 서랍을 열까?', opts: ['서랍 001', '서랍 002', '서랍 003', '서랍 004'], ans: 2,
     ok: ['서랍 003 에서 작은 기억 장치를 꺼냈다.'], bad: '먼지 쌓인 서류뿐이다.' }),
-  S('eng-lab', 'lab-parts', 90, 880, '부품 보관 상자', { k: 'multi', set: 'pJoint', q: '조립할 관절 부품 셋을 고른다.', n: 3,
+  S('eng-lab', 'lab-parts', 160, 840, '부품 보관 상자', { k: 'multi', set: 'pJoint', q: '조립할 관절 부품 셋을 고른다.', n: 3,
     opts: ['파란 표식 관절', '붉은 표식 관절', '파란 표식 관절', '녹슨 관절', '회색 관절'], ans: [0, 2, 4],
     ok: ['맞는 관절 셋을 골라 조립대에 올렸다.'], bad: '관절이 맞물리지 않는다. 다시 골라야 한다.' }),
   S('eng-lab', 'lab-ctrl', 1250, 170, '최하층 단말기', { k: 'dials', set: 'pCtrl', q: '세 화살표의 방향을 돌린다.',
@@ -155,7 +156,7 @@ export const EQ_SPOTS = [
     lock: ['케이블 꽂는 구멍 세 개가 비어 있다. 공장 안에 케이블이 남아 있을 것이다.'] }),
   S('eng-scrap', 'scr-room', 1270, 260, '폐쇄 조립실', { k: 'record', set: 'rec1', need: ['scrapOn'], lock: ['셔터가 굳게 내려와 있다. 전기가 들어오지 않는다.'],
     ok: ['조립실 안에서 제1 설계 기록 — 제작을 찾았다.', '003|이 기록은 저와 같은 기계를 만드는 방법이군요.'] }),
-  S('eng-scrap', 'scr-box-0', 320, 260, '부품 상자', T(['재고 일련번호가 찍힌 부품 상자다. 쓸 만한 것은 없다.']), { look: { sheet: 'mimic', i: 2, size: 110 } }),
+  S('eng-scrap', 'scr-box-0', 250, 430, '부품 상자', T(['재고 일련번호가 찍힌 부품 상자다. 쓸 만한 것은 없다.']), { look: { sheet: 'mimic', i: 2, size: 110 } }),
   S('eng-scrap', 'scr-box-1', 230, 600, '부품 상자', { k: 'mimic', mid: 'scrap', seal: 'scrapMimic', sheet: 2,
     intro: ['다른 상자와 똑같아 보인다. 그런데 재고 일련번호가 찍혀 있지 않다.'], opts: ['열어 본다', '물러난다', '집게 기계로 들어 올린다'],
     poke: ['집게 기계가 상자를 들어 올리자 이빨을 딱딱 부딪친다.', '상자를 고철 더미 깊숙이 내려놓았다. 이제 조용하다.'], pokeSeal: 1,
@@ -187,9 +188,9 @@ export const EQ_SPOTS = [
 
   /* ── 지역 D 멈춰버린 시간의 탑 — 사고 시각 기록 ── */
   S('eng-clock', 'clk-desk', 760, 850, '창구 장부', T(['창구 장부에 적혀 있다.', '「중앙 점검 개시 — 06:10」'], 'cT1')),
-  S('eng-clock', 'clk-stair', 180, 330, '계단 벽면', T(['계단 벽면에 긁힌 글씨가 있다.', '「기계 경보 발생 — 06:40」'], 'cT2')),
+  S('eng-clock', 'clk-stair', 95, 410, '계단 벽면', T(['계단 벽면에 긁힌 글씨가 있다.', '「기계 경보 발생 — 06:40」'], 'cT2')),
   S('eng-clock', 'clk-plate', 765, 760, '시계 전당 명판', T(['바닥 시계 아래 명판이다.', '「통신 중단 — 07:00」'], 'cT3')),
-  S('eng-clock', 'clk-h1', 390, 340, '시계바늘 장치', { k: 'seq', g: 'clk', i: 1, n: 4, set: 'clkOn', tag: '06:40', ok: ['네 바늘이 사건 순서대로 맞춰졌다. 보관실 문의 톱니가 돈다.'], bad: '시계바늘이 모두 원위치로 돌아간다.' }),
+  S('eng-clock', 'clk-h1', 395, 400, '시계바늘 장치', { k: 'seq', g: 'clk', i: 1, n: 4, set: 'clkOn', tag: '06:40', ok: ['네 바늘이 사건 순서대로 맞춰졌다. 보관실 문의 톱니가 돈다.'], bad: '시계바늘이 모두 원위치로 돌아간다.' }),
   S('eng-clock', 'clk-h2', 1150, 340, '시계바늘 장치', { k: 'seq', g: 'clk', i: 3, n: 4, set: 'clkOn', tag: '07:20', ok: ['네 바늘이 사건 순서대로 맞춰졌다. 보관실 문의 톱니가 돈다.'], bad: '시계바늘이 모두 원위치로 돌아간다.' }),
   S('eng-clock', 'clk-h3', 390, 700, '시계바늘 장치', { k: 'seq', g: 'clk', i: 0, n: 4, set: 'clkOn', tag: '06:10', ok: ['네 바늘이 사건 순서대로 맞춰졌다. 보관실 문의 톱니가 돈다.'], bad: '시계바늘이 모두 원위치로 돌아간다.' }),
   S('eng-clock', 'clk-h4', 1150, 700, '시계바늘 장치', { k: 'seq', g: 'clk', i: 2, n: 4, set: 'clkOn', tag: '07:00', ok: ['네 바늘이 사건 순서대로 맞춰졌다. 보관실 문의 톱니가 돈다.'], bad: '시계바늘이 모두 원위치로 돌아간다.' }),
@@ -226,7 +227,7 @@ export const EQ_SPOTS = [
 
   /* ── 6장 · 중앙 기계도시 ── */
   S('eng-metro', 'met-gate', 905, 235, '보안문', { k: 'record', set: 'pass', ok: ['보안문 옆 단말기에서 도시 출입증을 발급받았다.', '003|외곽 경비가 아직 살아 있습니다. 감시 드론의 빛을 피하십시오.'] }, { r: 110 }),   // 위쪽 큰 문 오른쪽 등불 기둥 옆 단말기
-  S('eng-metro', 'met-cut', 440, 320, '외곽 포대 배전함', { k: 'take', set: 'drOff', lines: ['외곽 포대 배전함을 내렸다. 감시 드론이 멈춘다.'], done: ['감시 드론은 꺼져 있다.'] }, { look: { sheet: 'props', i: 1, size: 70 } }),
+  S('eng-metro', 'met-cut', 540, 520, '외곽 포대 배전함', { k: 'take', set: 'drOff', lines: ['외곽 포대 배전함을 내렸다. 감시 드론이 멈춘다.'], done: ['감시 드론은 꺼져 있다.'] }, { look: { sheet: 'props', i: 1, size: 70 } }),
   S('eng-metro', 'met-factory', 320, 775, '생산 공장 승강장', { k: 'gate', to: 'eng-factory', back: [1203, 1500], need: ['pass'], lock: ['출입증이 필요합니다.'] }),
   S('eng-metro', 'met-archive', 1360, 690, '기록 보관소 다리', { k: 'gate', to: 'eng-archive', back: [1203, 1450], need: ['pass'], lock: ['출입증이 필요합니다.'] }),
   S('eng-metro', 'met-power', 764, 225, '중앙 동력실 문', { k: 'gate', to: 'eng-power', back: [1203, 1450], need: ['pass', 'factory', 'truth'], lock: ['동력실 문이 잠겨 있다. 공장 전력과 기록 확인이 먼저다.'] }),
@@ -244,7 +245,7 @@ export const EQ_SPOTS = [
     opts: ['냉각수에 바로 담근다', '냉각수를 천천히 순환시킨다', '그대로 수리 집게에 건다'], ans: 1,
     ok: ['냉각수가 천천히 돌며 핵의 균열이 아문다. 복구된 중앙 동력핵을 얻었다.'], bad: '핵이 위험하게 떨린다. 다른 방법이 필요하다.', lock: ['냉각 수리대다. 수리할 것이 없다.'] }),
   S('eng-factory', 'fac-back', 100, 980, '외곽 승강장', { k: 'gate', to: 'eng-metro', back: [700, 1240] }),
-  S('eng-archive', 'arc-cit', 300, 300, '시민 기록함', T(['시민의 일상 기록이다.', '「정지 전날, 중앙이 모든 집에 같은 안내를 보냈다 — 내일은 쉬십시오.」'], 'cRec')),
+  S('eng-archive', 'arc-cit', 110, 560, '시민 기록함', T(['시민의 일상 기록이다.', '「정지 전날, 중앙이 모든 집에 같은 안내를 보냈다 — 내일은 쉬십시오.」'], 'cRec')),
   S('eng-archive', 'arc-vid', 770, 120, '보안 영상 벽', T(['보안 영상이 돌아간다. 06:40 부터 07:20 까지 화면이 비어 있다.', '누군가 잘라 낸 것이 아니라 처음부터 찍지 않았다.'], 'cVid')),
   S('eng-archive', 'arc-note', 560, 450, '기술자 수첩', T(['기술자 수첩이다.', '「두 명령이 부딪쳤다. 하나는 도시를 지켜라, 하나는 사람을 내보내라.」', '「고대 번개 기계형 괴수가 구형 동력핵을 단 채 밖으로 나갔다. 예비 코어는 관찰실에 있다.」'], 'cNote')),
   S('eng-archive', 'arc-term', 765, 470, '최종 단말기 로그', { k: 'pick', set: 'truth', need: ['cRec', 'cVid', 'cNote'], q: '중앙 시스템은 왜 멈췄을까?',
@@ -255,7 +256,7 @@ export const EQ_SPOTS = [
   S('eng-annex', 'anx-t1', 90, 480, '왼쪽 안전 단말기', { k: 'seq', g: 'anx', i: 0, n: 3, set: 'annexOn', cool: 1, ok: ['세 단말기가 모두 켜졌다. 기계 팔이 움직인다.'], bad: '단말기 셋이 모두 꺼진다. 냉각 구간에만 조작해야 한다.' }),
   S('eng-annex', 'anx-t2', 1460, 480, '오른쪽 안전 단말기', { k: 'seq', g: 'anx', i: 1, n: 3, set: 'annexOn', cool: 1, ok: ['세 단말기가 모두 켜졌다. 기계 팔이 움직인다.'], bad: '단말기 셋이 모두 꺼진다. 냉각 구간에만 조작해야 한다.' }),
   S('eng-annex', 'anx-t3', 610, 180, '가운데 안전 단말기', { k: 'seq', g: 'anx', i: 2, n: 3, set: 'annexOn', cool: 1, ok: ['세 단말기가 모두 켜졌다. 기계 팔이 움직인다.'], bad: '단말기 셋이 모두 꺼진다. 냉각 구간에만 조작해야 한다.' }),
-  S('eng-annex', 'anx-log', 400, 300, '옛 전투 기록', T(['괴수의 전기 폭발 사이클이 적혀 있다.', '「충전 3초 → 방출 2초 → 냉각 4초」', '「안전 단말기는 냉각 중에 좌 → 우 → 중앙」'])),
+  S('eng-annex', 'anx-log', 250, 560, '옛 전투 기록', T(['괴수의 전기 폭발 사이클이 적혀 있다.', '「충전 3초 → 방출 2초 → 냉각 4초」', '「안전 단말기는 냉각 중에 좌 → 우 → 중앙」'])),
   S('eng-annex', 'anx-arm', 770, 200, '코어 적출 소켓', { k: 'record', set: 'coreDmg', need: ['annexOn'], lock: ['기계 팔이 멈춰 있다.'],
     ok: ['기계 팔이 손상된 중앙 동력핵을 꺼내 준다.', '003|괴수에 달린 구형 핵과 이어진 예비 코어입니다. 공장에서 식혀야 합니다.'] }),
   S('eng-annex', 'anx-back', 770, 975, '정비 터널', { k: 'gate', to: 'eng-metro', back: [1830, 800] }, { hatch: 1 }),
@@ -299,7 +300,7 @@ export const EQ_SITE_EXIT = { r: 70, to: 'eng-lab', back: [450, 1000], label: '�
 /* ── 위험 장치(피해 없음 — 걸리면 안전한 자리로 밀려난다) ──
    press: period 초마다 on 구간 동안 반지름 r 안을 내려찍는다(warn 초 전부터 경고등) · spark: off 깃발이 모두 서기 전까지 늘 · drone: 길 pts 를 오가며 r 안을 비춘다 · beast: 충전 → 방출 → 냉각 */
 export const EQ_HAZARDS = [
-  { id: 'press', map: 'eng-tunnel', kind: 'press', at: P(240, 200), r: 120, period: 5, on: [3.6, 5], warn: 1, back: P(420, 360), msg: '압축 기계에 밀려났다. 경고등이 꺼진 틈에 들어가자.' },
+  { id: 'press', map: 'eng-tunnel', kind: 'press', at: P(820, 250), r: 120, period: 5, on: [3.6, 5], warn: 1, back: P(820, 420), msg: '압축 기계에 밀려났다. 경고등이 꺼진 틈에 들어가자.' },
   { id: 'spark', map: 'eng-tunnel', kind: 'spark', at: P(1450, 330), r: 170, off: ['brkA', 'brkB'], back: P(1250, 520), msg: '누전된 바닥에 튕겨 나왔다. 배전함 A 와 B 를 모두 내려야 한다.' },
   { id: 'drone1', map: 'eng-signal', kind: 'drone', pts: [P(300, 620), P(1240, 620)], period: 10, r: 120, off: ['drOff'], back: [1203, 1400], msg: '감시 드론에 들켜 입구로 돌아왔다.' },
   { id: 'drone2', map: 'eng-signal', kind: 'drone', pts: [P(770, 420), P(770, 860)], period: 7, r: 110, off: ['drOff'], back: [1203, 1400], msg: '감시 드론에 들켜 입구로 돌아왔다.' },

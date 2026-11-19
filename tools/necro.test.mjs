@@ -13,7 +13,7 @@ import { unlockNecro, necroOn, necroView, cleanNcJob, gradeCost, rosterSlots, ki
 import { holds } from '../src/game/hiddenUnique.js';
 import { cleanHj } from '../src/game/gamblerJob.js';
 import { KEY_ACTIONS } from '../src/game/keys.js';
-import { NECRO_PX, NECRO_ICON } from '../src/game/necroPxData.js';
+import { NECRO_PX, NECRO_ICON, NECRO_PFX } from '../src/game/necroPxData.js';
 import { NECRO_CAP, NECRO_GROUND } from '../src/game/necroArt.js';
 import { GROUND_FX } from '../src/game/skillArt.js';
 import { readFileSync, existsSync } from 'node:fs';
@@ -235,6 +235,9 @@ test('도트 시트 — manifest 와 규격이 같고 파일이 있다 · 연출
     assert.ok(existsSync(new URL(`../public/assets/game/rpg/effects/hidden-jobs/necromancer/px/${k}.webp`, import.meta.url)), k);
   }
   assert.equal(Object.keys(NECRO_ICON).length, NECRO_PX.nc_icons.n);
+  const pf = JSON.parse(readFileSync(new URL('../design/effects/pixelfx/necromancer/manifest.json', import.meta.url)));
+  assert.deepEqual(pf, NECRO_PFX);   // pixelfx 보강 시트(군주의 영역)
+  for (const k of Object.keys(pf)) assert.ok(existsSync(new URL(`../public/assets/game/rpg/effects/hidden-jobs/necromancer/px/${k}.webp`, import.meta.url)), k);
   for (const k of NECRO_GROUND) assert.ok(GROUND_FX.has(k), k);
   const src = readFileSync(new URL('../src/game/necroJob.js', import.meta.url), 'utf8');
   for (const k of new Set(src.match(/sk_nc_\w+/g))) assert.ok(NECRO_CAP[k], `상한 ${k}`);

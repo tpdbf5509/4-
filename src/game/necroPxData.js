@@ -45,3 +45,13 @@ export const NECRO_PX = {
 export const NECRO_ICON = { reap: 0, extract: 1, summon: 2, swap: 3, domain: 4, march: 5, burn: 6, legion: 7 };
 // 그림자 병사 시트 칸 — 걷기 · 공격 · 솟아오름 · 흩어짐이 4칸씩
 export const NC_FRAME = { walk: 0, atk: 4, rise: 8, fade: 12, n: 4 };
+
+/* 군주의 영역 보강 시트(11월 20일 사용자 "pixelfx로 보완해줘") — 위 직접 그린 시트와 따로 둔다.
+   pixelfx(MIT) shadow-flames · shadow-tendrils 를 검보라 + 빛나는 보라 색으로 뽑았다. 값은 design/effects/pixelfx/necromancer/manifest.json 과 같아야 한다.
+   fps 초당 칸, loop 1 이면 반복(0 은 한 번 — 끝나면 자리를 바꿔 다시) */
+export const NECRO_PFX = {
+  nc_pf_flame: { w: 104, h: 112, cols: 6, n: 36, cx: 52, cy: 102, fps: 15, loop: 1 },     // 땅에서 오르는 검은 불길
+  nc_pf_tendril: { w: 208, h: 130, cols: 7, n: 49, cx: 104, cy: 106, fps: 15, loop: 0 },  // 검은 웅덩이에서 솟았다 가라앉는 촉수
+};
+// 영역 하나에 까는 수(연출 품질 Q 를 곱한다) · 크기 배수 · 투명도
+export const NC_DOMAIN_PFX = { flame: 5, tendril: 2, k: 2, a: 0.9 };   // k 2 = 다른 도트 시트와 같은 화면 2픽셀

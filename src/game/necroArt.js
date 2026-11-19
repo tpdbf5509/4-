@@ -8,7 +8,8 @@
    그림자 병사 · 추출 가능 흔적은 연출이 아니라 판정 상태(necroShadows · necroView)로 그린다 — rpgArt 가 사람과 앞뒤를 맞춰 부른다. */
 import { NECRO_COLORS as C, NC_SUMMON, NC_DOMAIN, NC_SCYTHE } from "./necroData.js";
 import { necroView, necroShadows } from "./necroJob.js";
-import { NECRO_PX_SRC, NECRO_PX as SH, NC_FRAME as FR } from "./necroPxData.js";
+import { NECRO_PX_SRC, NECRO_PX, NC_FRAME as FR, NECRO_PFX, NC_DOMAIN_PFX } from "./necroPxData.js";
+const SH = { ...NECRO_PX, ...NECRO_PFX };           // 직접 그린 시트 + pixelfx 보강 시트
 
 const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -436,6 +437,7 @@ function domain(ctx, f, t, sq) {
   else cell(ctx, "nc_domain", 4 + loop(4, 1.2), f.x, f.y, k);
   ring(ctx, f.x, f.y, f.r, sq, C.bright, 0.55);
   if (f.start && t < f.d) return;
+  domainPfx(ctx, f, sq);
   // 영역 안 — 0.32초마다 자리를 바꿔 보라 번개가 떨어지고(같은 칸 번갈아 셋), 가장자리에서 연기 기운이 오른다(판정 없음 · 보기만)
   for (let j = 0; j < 3; j++) {
     const slot = Math.floor((NOW + j * 0.21) / 0.63), ph = ((NOW + j * 0.21) / 0.63) % 1;
@@ -447,6 +449,22 @@ function domain(ctx, f, t, sq) {
   for (let j = 0; j < 8; j++) {
     const a = j / 8 * TAU + NOW * 0.15;
     cell(ctx, "nc_aura", loop(SH.nc_aura.n, 1.1, j * 0.13), f.x + Math.cos(a) * f.r * 0.93, f.y + Math.sin(a) * f.r * 0.93 * sq, K, 0.55);
+  }
+}
+/* pixelfx 보강(11월 20일 사용자) — 영역 안 정해진 자리에 검은 불길이 계속 타고, 촉수는 한 번 솟았다 가라앉으면 다른 자리로 옮긴다.
+   자리는 시전자 기준 씨앗 고정이라 프레임마다 이어진다. 그림을 못 불러오면 cell 이 그리지 않는다 */
+function domainPfx(ctx, f, sq) {
+  const P = NC_DOMAIN_PFX, nf = Math.max(1, Math.round(P.flame * PQ)), nt = Math.max(1, Math.round(P.tendril * PQ));
+  const at = (a, b) => { const an = rnd(a, b) * TAU, d = (0.25 + 0.5 * Math.sqrt(rnd(a, b + 3))) * f.r; return [f.x + Math.cos(an) * d, f.y + Math.sin(an) * d * sq]; };
+  const T = SH.nc_pf_tendril, span = T.n / T.fps;
+  for (let j = 0; j < nt; j++) {                     // 뒤에 있는 것부터 — 촉수가 불길보다 크다
+    const ph = NOW / span + j / nt, slot = Math.floor(ph), [x, y] = at(slot, j * 17 + 5);
+    cell(ctx, "nc_pf_tendril", (ph - slot) * T.n, x, y, P.k, P.a, 0, rnd(slot, j) < 0.5);
+  }
+  const F = SH.nc_pf_flame;
+  for (let j = 0; j < nf; j++) {
+    const an = (j + 0.5) / nf * TAU + rnd(j, 91) * 0.6, d = (0.45 + 0.4 * rnd(j, 93)) * f.r;
+    cell(ctx, "nc_pf_flame", Math.floor(NOW * F.fps + j * 7) % F.n, f.x + Math.cos(an) * d, f.y + Math.sin(an) * d * sq, P.k, P.a);
   }
 }
 function domainEnd(ctx, f, t, sq) {

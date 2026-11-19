@@ -580,6 +580,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     skillFollowRef.current = skillFollow;
     try { localStorage.setItem("flg:skillFollow", skillFollow ? "1" : "0"); } catch { /* 저장이 막힌 브라우저 */ }
   }, [skillFollow]);
+  const inRaceRef = useRef(false);                  // 지금 몹 레이스 트랙에 있는가 — 마우스 방식이어도 이동키를 듣는다
   const moveModeRef = useRef(moveChoice);           // 지금 쓰는 방식(터치 기기는 늘 키보드) — 키 · 마우스 처리기가 읽는다
   const winOpenRef = useRef(false);                 // 창이 열려 있다 — 마우스 이동을 무시한다
   const dragRef = useRef(null);                     // 오른쪽 버튼을 누른 채 끄는 중 { id, at 마지막 전송 ms, x, y 마지막 보낸 점 }
@@ -1256,7 +1257,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (isGm() && (GM_BY_ACT[a] || GM_OFF.test(a))) return;
       if (isEn() && (EN_BY_ACT[a] || GM_OFF.test(a))) return;
       if (a === "skill" && isBlood()) a = "bField";
-      if (MOVE_ACTS[a] && moveKeysOn(moveModeRef.current)) releaseDir(MOVE_ACTS[a]);
+      if (MOVE_ACTS[a]) releaseDir(MOVE_ACTS[a]);   // 놓는 것은 늘 받는다 — 레이스가 끝난 뒤에도 방향이 남지 않게
       if (a === "fire") act("fire", false);
       if (a === "wskill") { chargeRef.current = false; act("wcharge", false); }
       if (a === "bShot") { chargeRef.current = false; act("blood", { op: "release", s: "shot" }); }
@@ -1271,7 +1272,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (!a) return;
       e.preventDefault();
       if (loadRef.current && !loadRef.current.end) return;   // 맵을 불러오는 중 — 다 된 뒤에 움직인다
-      if (MOVE_ACTS[a]) { if (!e.repeat && moveKeysOn(moveModeRef.current)) pressDir(MOVE_ACTS[a]); return; }   // 마우스 방식에서는 이동키가 꺼져 있다
+      if (MOVE_ACTS[a]) { if (!e.repeat && moveKeysOn(moveModeRef.current, inRaceRef.current)) pressDir(MOVE_ACTS[a]); return; }   // 마우스 방식에서는 이동키가 꺼져 있다
       if (e.repeat) return;
       pressAct(a);
     }
@@ -1296,7 +1297,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       e.preventDefault();                           // 휠 클릭 자동 스크롤 · 옆 버튼 페이지 이동을 막는다
       if (mouseHeld.current.has(m.code)) return;
       mouseHeld.current.set(m.code, m.a);
-      if (MOVE_ACTS[m.a]) { if (moveKeysOn(moveModeRef.current)) pressDir(MOVE_ACTS[m.a]); return; }
+      if (MOVE_ACTS[m.a]) { if (moveKeysOn(moveModeRef.current, inRaceRef.current)) pressDir(MOVE_ACTS[m.a]); return; }
       pressAct(m.a);
     }
     function onMouseUp(e) {
@@ -1710,6 +1711,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         if (me && dgRef.current && !dgNear(me)) { dgRef.current = false; setDgOpen(false); }
         if (me && villageRef.current && npcNear(me)?.id !== villageRef.current) { villageRef.current = null; setVillageOpen(null); }
         if (me && marketRef.current && !(npcNear(me) || {}).market) { marketRef.current = false; setMarketOpen(false); }
+        const inRace = me?.map === "race";
+        if (inRaceRef.current && !inRace && isMouseMode(moveModeRef.current)) clearDirs();   // 레이스가 끝나면 마우스 방식으로 돌아간다 — 누르던 방향을 놓는다
+        inRaceRef.current = inRace;
         if (me && raceRef.current && !raceNear(me)) { raceRef.current = false; setRaceOpen(false); }   // 레이스 관리인에게서 멀어지면 닫는다
         if (me && abyssRef.current && !abyssNear(me)) { abyssRef.current = false; setAbyssOpen(false); }   // 탑 입구에서 멀어지면 닫는다   // 게시판에서 멀어지면 닫는다
         if (me && me.loaded && !noticeDone) {

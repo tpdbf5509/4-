@@ -266,6 +266,7 @@ test('터치 기기는 마우스를 골라 둬도 늘 키보드 방식이다',()
 test('마우스 방식에서는 이동키가 꺼지고 키보드 방식에서는 우클릭 이동이 꺼진다',()=>{
  assert.equal(moveKeysOn('keyboard'),true);assert.equal(mouseMoveOn('keyboard'),false);
  assert.equal(moveKeysOn('mouse'),false);assert.equal(mouseMoveOn('mouse'),true);
+ assert.equal(moveKeysOn('mouse',true),true);assert.equal(moveKeysOn('mouse',false),false);   // 몹 레이스 트랙에서는 마우스 방식이어도 이동키가 듣는다
 });
 test('방식을 바꿀 때 — 키보드→마우스는 방향을 놓고 마우스→키보드는 목적지를 취소한다',()=>{
  assert.deepEqual(moveSwitchTasks('keyboard','mouse'),{clearDirs:true,stopDest:false});

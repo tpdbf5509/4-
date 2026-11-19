@@ -29,8 +29,8 @@ export function saveMoveMode(mode, storage) {
 }
 // 실제로 쓰는 방식 — 터치 기기는 마우스를 고를 수 없다
 export const effectiveMoveMode = (mode, touch) => (!touch && mode === "mouse" ? "mouse" : "keyboard");
-// 이동키(WASD · 방향키 · 키 설정에서 바꾼 키)가 듣는 방식인가
-export const moveKeysOn = (mode) => mode !== "mouse";
+// 이동키(WASD · 방향키 · 키 설정에서 바꾼 키)가 듣는 방식인가 — 몹 레이스 트랙(inRace)에서는 마우스 방식이어도 탈것을 이동키로 몬다
+export const moveKeysOn = (mode, inRace) => mode !== "mouse" || !!inRace;
 // 오른쪽 클릭 이동이 듣는 방식인가
 export const mouseMoveOn = (mode) => mode === "mouse";
 // 방식을 바꾸는 순간 정리할 일 — 키보드→마우스는 누르고 있던 방향을 놓고, 마우스→키보드는 가던 목적지를 취소한다

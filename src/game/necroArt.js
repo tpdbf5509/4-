@@ -451,7 +451,7 @@ function domain(ctx, f, t, sq) {
     cell(ctx, "nc_aura", loop(SH.nc_aura.n, 1.1, j * 0.13), f.x + Math.cos(a) * f.r * 0.93, f.y + Math.sin(a) * f.r * 0.93 * sq, K, 0.55);
   }
 }
-/* pixelfx 보강(11월 20일 사용자) — 발밑에 룬 원이 돌고, 영역 안 곳곳에서 그림자 팔 · 촉수 · 소환 균열이 엇갈려 솟았다 가라앉는다.
+/* pixelfx 보강(11월 20일 사용자) — 발밑에 룬 원이 돌고, 영역 안 곳곳에서 그림자 팔 · 소환 균열이 엇갈려 솟았다 가라앉는다.
    하나가 끝나면 다른 자리로 옮긴다. 자리는 씨앗 고정이라 프레임마다 이어진다. 그림을 못 불러오면 cell 이 그리지 않는다 */
 function domainPfx(ctx, f, sq) {
   const P = NC_DOMAIN_PFX, R = SH.nc_pf_rune;

@@ -2,7 +2,7 @@
    전투 규칙은 tools/gambler.test.mjs. node --test tools/gambler-live.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, heroRecord, advArtPath, MAPS, SNAP_ORDER } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgApplyOut, heroRecord, advArtPath, MAPS, SNAP_ORDER } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { cleanBag, whyEquip } from '../src/game/shop.js';
 import { rpgAdminCmd } from '../src/game/adminCmd.js';
@@ -218,4 +218,14 @@ test('맵 차례 · 그림 — 카지노 뒷방은 맵 차례 맨 뒤(도서관 
   assert.ok(existsSync('public/assets/game/rpg/effects/hidden-jobs/gambler/px/gm_props.webp'));
   assert.ok(GAMBLER_CAP.sk_gm_warn > 0);
   assert.equal(GAMBLER_ID, 'gambler');
+});
+
+test('연출 자체의 k 값이 소식 봉투 종류를 덮지 않는다 — 칩 장막 연출이 손님 · 전용 서버 화면에 도착한다', () => {
+  const { g, h } = setup(); h.map = 'field'; h.x = 900; h.y = 900;
+  unlockGambler(h, J200); run(g, .1); g.out = [];
+  use(g, 'veil'); run(g, .3);
+  const o = g.out.filter((q) => q.kind === 'sk_gm_veil');
+  assert.ok(o.length > 0 && o.every((q) => q.k === 'fx' && q.fk !== undefined), '봉투는 fx · 연출 값은 fk');
+  const guest = makeWorld(); guest.fx = []; rpgApplyOut(guest, o);
+  assert.equal(guest.fx.length, o.length); assert.equal(guest.fx[0].k, 1, '손님 쪽에서 연출 k 가 되돌아온다'); assert.equal(guest.fx[0].fk, undefined);
 });

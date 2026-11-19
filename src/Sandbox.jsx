@@ -260,7 +260,7 @@ function IllusionBar({ v, keyOf: key, onUse, onFire }) {
             <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && cd > 0 ? "wait" : ""} ${!lock && !cd && boost ? "boost" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
               title={lock || (q.s === "final" ? `${D.name} · 트릭 전부` : boost ? `${D.name} · 트릭 ${v.cost}개로 강화` : D.name)}>
               <span className="gm-ico" style={illusionIconStyle(ILLUSION_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
-              <span className="gm-label">{lock ? `레벨 ${ILLUSION.unlock[q.s]}` : D.name}</span>
+              <span className="gm-label">{lock ? `레벨 ${ILLUSION.unlock[q.s]}` : q.s === "slash" && v.slash ? `${D.name} ${v.slash.left}회` : D.name}</span>
               {key(q.act) && <kbd>{key(q.act)}</kbd>}
             </button>
           );

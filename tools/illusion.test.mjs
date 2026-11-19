@@ -97,6 +97,24 @@ test('덱 슬래시 — 두 번 전진하며 지나간 길을 ×7 씩(합 ×14) 
   assert.ok(Math.abs(h.x - x0 - SL.len) < 12, `이동 ${h.x - x0}`);
 });
 
+test('덱 슬래시 — 대기 없이 연속 3번 · 세 번째 뒤 대기 · 시간이 지나면 그때 대기', () => {
+  const { g, h } = setup();
+  for (let i = 0; i < SL.uses; i++) {
+    assert.equal(h.il.cd.slash, 0, `${i + 1}번째 전 대기 없음`);
+    use(g, 'slash', [h.x + 500, h.y]);
+    use(g, 'slash', [h.x + 500, h.y]);                 // 돌진 중 연타는 무시
+    run(g, SL.start + SL.seg * 2 + 0.05);
+  }
+  assert.ok(h.il.cd.slash > SL.cd - 1, '세 번 뒤 대기 시작');
+  assert.equal(h.il.sl, null);
+  const t = setup();
+  use(t.g, 'slash', [t.h.x + 500, t.h.y]);
+  run(t.g, SL.start + SL.seg * 2 + 0.05);
+  assert.equal(t.h.il.sl.n, 1); assert.equal(illusionView(t.h).slash.left, SL.uses - 1);
+  run(t.g, SL.chain + 0.1);
+  assert.ok(t.h.il.cd.slash > 0 && t.h.il.sl === null, '시간이 지나면 대기');
+});
+
 test('카드 프리즌 — 네 번 ×4 + 1.70초 ×10(합 ×26) · 일반 몹은 묶고 보스는 둔화만', () => {
   const { g, h } = setup();
   const m = mob(g, h.x + 300, h.y, { stun: 0 }), b = mob(g, h.x + 320, h.y + 20, { stun: 0, boss: 1 });

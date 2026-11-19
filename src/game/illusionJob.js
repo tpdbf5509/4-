@@ -289,10 +289,16 @@ function tickShuffle(E, g, h, q) {
 
 /* ── 덱 슬래시 — 두 번 전진하며 벤다. 지나간 띠(폭 110)를 각 전진 끝에 한 번씩 친다 ── */
 function slashUse(E, g, h) {
-  if (blocked(E, g, h, "slash")) return;
-  const s = st(h), [ax, ay] = aimDir(E, g, h, SL.len), len = wallCut(E, h, ax, ay, SL.len);
+  const s = st(h);
+  if (s.sl && s.acts.some((q) => q.k === "slash")) return;    // 이어 쓰는 중이어도 앞 돌진이 끝나야 다음을 쓴다
+  if (!s.sl && blocked(E, g, h, "slash")) return;
+  if (s.sl && (h.down > 0 || E.locked(h))) return;
+  const [ax, ay] = aimDir(E, g, h, SL.len), len = wallCut(E, h, ax, ay, SL.len);
   const src = makeSrc(E, h, s, "slash", SL.mul);
-  s.cd.slash = SL.cd;
+  // 연속 사용 — 처음은 대기 없이 횟수만 세고 마지막(또는 시간 초과)에 대기가 시작된다
+  s.sl = s.sl || { n: 0, t: 0 };
+  s.sl.n += 1; s.sl.t = 0;
+  if (s.sl.n >= SL.uses) { s.sl = null; s.cd.slash = SL.cd; }
   s.acts.push({ k: "slash", t: 0, ax, ay, seg: len / 2, i: 0, at: null, src });
   h.swing = 0.5;
   const life = SL.start + SL.seg * 2 + SL.tail;
@@ -473,6 +479,7 @@ export function tickIllusion(E, g, h, dt) {
   for (const k in s.cd) s.cd[k] = Math.max(0, s.cd[k] - dt);
   if (E.cdOff(g, h)) for (const k in s.cd) s.cd[k] = 0;
   s.calm += dt;
+  if (s.sl && (s.sl.t += dt) >= SL.chain) { s.sl = null; s.cd.slash = SL.cd; }   // 이어 쓸 시간이 지났다 — 이제 대기
   if (s.chain && s.calm >= chainWindow(jobOf(h))) s.chain = null;   // 연계 시간 동안 유효 공격이 없으면 연계 기록을 지운다
   if (s.house) { s.house.t += dt; if (s.house.t >= MR.dur || s.house.map !== h.map) s.house = null; }
   const here = (q) => (q.src ? q.src.map : q.map) === h.map;
@@ -485,6 +492,7 @@ export function illusionDown(E, g, h) {
   if (!illusionOn(h) || !h.il) return;
   const s = h.il;
   s.acts = []; s.ghosts = []; s.cards = []; s.house = null; s.chain = null; s.trick = 0;
+  if (s.sl) { s.sl = null; s.cd.slash = SL.cd; }
 }
 // 훈련장 · 연습장 "스택 가득" — 트릭 5
 export function illusionFill(h) { if (illusionOn(h)) st(h).trick = TK.max; }
@@ -497,5 +505,6 @@ export function illusionView(h) {
     cdMax: { shuffle: SH.cd, slash: SL.cd, prison: PR.cd, blink: BL.cd, fist: FI.cd, mirror: MR.cd, final: FN.cd },
     house: s && s.house ? { x: s.house.x, y: s.house.y, left: r1(MR.dur - s.house.t), in: s.house.map === h.map && Math.hypot(h.x - s.house.x, (h.y - s.house.y) / SQUASH) <= MR.r } : null,
     chain: s && s.chain ? { sk: s.chain, name: IL_SKILLS[s.chain].name, left: r1(Math.max(0, chainWindow(J) - s.calm)) } : null,
+    slash: s && s.sl ? { left: SL.uses - s.sl.n, win: r1(Math.max(0, SL.chain - s.sl.t)) } : null,
     encore: ilEncore(J), tint: illusionTint(ilTrainSum(J)), ghost: trickGhost(J) };
 }

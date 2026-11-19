@@ -157,3 +157,32 @@
 .adm-code figcaption { padding: 5px 10px; font-size: 11.5px; color: var(--sub); border-bottom: 1px solid var(--line); }
 .adm-code pre { margin: 0; padding: 8px 10px; overflow-x: auto; font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.6; tab-size: 2; }
 .adm-code pre i { display: inline-block; width: 36px; margin-right: 8px; text-align: right; font-style: normal; color: var(--sub); user-select: none; }
+
+/* 몹 그림 탭(AdminMobs.jsx) — 칸은 1px 선, 고른 칸만 포인트 색 */
+.adm-mob-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.adm-mob-bar select, .adm-mob-bar input {
+  font: inherit; font-size: 13px; color: var(--ink); background: var(--card);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px;
+}
+.adm-mob-bar input { flex: 1 1 160px; min-width: 0; max-width: 260px; }
+.adm-mob-h { margin: 22px 0 10px; font-size: 15px; font-weight: 700; letter-spacing: -0.03em; display: flex; align-items: baseline; gap: 10px; }
+.adm-mob-h small { font-size: 12px; font-weight: 400; color: var(--sub); }
+.adm-mob-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+.adm-mob {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px 10px; text-align: left;
+  background: var(--card); border: 1px solid var(--line); border-radius: 6px; color: var(--ink); min-width: 0;
+}
+.adm-mob.on { border-color: var(--point); }
+.adm-mob canvas { width: 100%; height: auto; aspect-ratio: 132 / 108; align-self: center; }
+.adm-mob b { font-size: 13px; font-weight: 600; letter-spacing: -0.03em; overflow-wrap: anywhere; }
+.adm-mob em { font-style: normal; font-size: 11px; color: var(--sub); overflow-wrap: anywhere; }
+.adm-mob-big {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; margin: 12px 0 4px; padding: 12px;
+  background: var(--card); border: 1px solid var(--point); border-radius: 6px;
+}
+.adm-mob-big canvas { width: min(340px, 100%); height: auto; }
+.adm-mob-big div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.adm-mob-big b { font-size: 18px; letter-spacing: -0.03em; }
+.adm-mob-big span { font-size: 12.5px; color: var(--sub); }
+.adm-mob-big button { margin-top: 6px; border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: 5px 14px; font-size: 12.5px; }
+@media (max-width: 640px) { .adm-mob-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; } }

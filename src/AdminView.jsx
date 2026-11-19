@@ -2,7 +2,7 @@
    관리자 캐릭터의 이름 + 코드로만 열린다(코드는 이 화면의 메모리에만 두고 저장하지 않는다).
    RPG 서버마다 방장 화면에 ADMIN.ping 초마다 묻고, 답으로 인원 · 방장 · 왕복 시간을 그린다.
    방장 부여 · 퇴장은 일회용 명령 표를 받아 그 서버의 방장 화면에 보낸다(src/net/admin.js) */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RPG_SERVERS, JOB_BY_ID } from "./game/rpg.js";
 import { UPDATES } from "./game/updates.js";
 import { GUIDE, GUIDE_GROUPS, GUIDE_HOW } from "./game/codeGuideData.js";
@@ -10,8 +10,9 @@ import SNIPS from "./game/codeGuideSnippets.json";
 import { myId } from "./net/room.js";
 import { ADMIN, adminTrades, adminAccounts, adminFeedback, adminRename, adminBlocks, adminCheck, adminTicket, joinAdminLink } from "./net/admin.js";
 import "./ui/admin.css";
+const MobsTab = lazy(() => import("./AdminMobs.jsx"));   // 몹 그림 — 그림 코드가 무거워 탭을 열 때만
 
-const TABS = [["people", "인원"], ["accounts", "계정"], ["trades", "거래"], ["inquiry", "문의"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"], ["guide", "코드 가이드"]];
+const TABS = [["people", "인원"], ["accounts", "계정"], ["trades", "거래"], ["inquiry", "문의"], ["log", "로그"], ["updates", "업뎃 기록"], ["servers", "서버"], ["mobs", "몹 그림"], ["guide", "코드 가이드"]];
 const LOG_MAX = 300;                 // 로그에 남기는 줄 수(이 화면을 연 동안만)
 const BLOCKS_EVERY = 30;             // 로그 탭을 보는 동안 막힌 저장 기록을 다시 읽는 간격(초)
 const WHY = { name: "기록 이름이 다름", down: "레벨이 내려감", jump: "레벨이 너무 뜀", moved: "넘긴 물품이 다시 나타남", coins: "코인이 너무 늚" };
@@ -269,6 +270,7 @@ function AdminBoard({ auth, onOut }) {
         </section>
       )}
 
+      {tab === "mobs" && <Suspense fallback={<p className="adm-sec adm-empty">불러오는 중…</p>}><MobsTab /></Suspense>}
       {tab === "guide" && <GuideTab />}
 
       {tab === "servers" && (

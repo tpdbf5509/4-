@@ -61,7 +61,7 @@ import { drawHighBody, highElite, isHighArt, highBackImg, warmHighArt } from "./
 import { HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON_IDS, HIGH_ART } from "./highData.js";
 import { FIELD_LOOKS, FIELD_TRAIL } from "./fieldLookData.js";
 import { SKILL_PX_CAP } from "./skillPxData.js";
-import { heroScale, npcScale, camZoom, VIEW, textUp } from "./bodyScale.js";
+import { heroScale, npcScale, mapSpeed, camZoom, VIEW, textUp } from "./bodyScale.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
 import { setWbIntroQuality } from "./worldBossIntro.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
@@ -2241,7 +2241,8 @@ const STRIDE = 24;            // 한 걸음에 가는 거리
 function heroMotion(g, h, time) {
   const a = h.anim || (h.anim = { x: h.x, y: h.y, t: time, ph: 0, walk: 0, land: 0 });
   const dt = Math.min(0.1, Math.max(0, time - a.t));
-  const moved = Math.hypot(h.x - a.x, (h.y - a.y) / RPG.squash);
+  // 건물 안은 걷기가 빨라(bodyScale.js spd) 걸은 거리 그대로 걸음 그림을 돌리면 몸이 떨린다 — 속도 배율로 나눠 보통 걸음 박자로 센다
+  const moved = Math.hypot(h.x - a.x, (h.y - a.y) / RPG.squash) / mapSpeed(MAPS[h.map]);
   a.x = h.x; a.y = h.y; a.t = time;
   // 문을 지나거나 위치를 맞추느라 한 번에 크게 옮긴 것은 걸음으로 치지 않는다
   const going = dt > 0 && moved / dt > 30 && moved < 80;

@@ -498,14 +498,16 @@ def swap_cells(n=6):
     return out
 
 # ── 군주의 영역 — 땅의 어두운 원(r160, 게임이 2배로 r320). 0~3 퍼짐 · 4~7 유지(문양 고리가 돈다) ──
+DOMAIN_FILL = 0.55   # 군주의 영역 바닥 채움 진하기(0 투명 ~ 1 꽉 참)
 def domain_cells(R=160):
     w, h = R * 2 + 16, int(R * 2 * SQ) + 16; cx, cy = w // 2, h // 2
     out = []
     for i in range(8):
         c = Cv(w, h)
         r = R * (ez((i + 1) / 4) if i < 4 else 1)
-        c.band(cx, cy, r, r * SQ, .5, 1, N[1], dens=lambda d: .18 + .42 * (d - .5) / .5)          # 가장자리로 갈수록 짙은 그림자 연기
-        c.band(cx, cy, r, r * SQ, 0, .5, N[1], dens=.1)
+        c.disc(cx, cy, r, r * SQ, al(N[0], DOMAIN_FILL))                                     # 11월 20일 사용자 "장판 밀도가 부족해" — 바닥 전체를 반투명 검정으로 먼저 채운다
+        c.band(cx, cy, r, r * SQ, .5, 1, N[1], dens=lambda d: .5 + .4 * (d - .5) / .5)           # 가장자리로 갈수록 짙은 그림자 연기
+        c.band(cx, cy, r, r * SQ, 0, .5, N[1], dens=.45)
         c.band(cx, cy, r, r * SQ, .9, 1, GV[0], dens=.35)
         c.ring(cx, cy, r + 1, (r + 1) * SQ, al(GV[1], .7)); c.ring(cx, cy, r, r * SQ, GV[2]); c.ring(cx, cy, r - 1, (r - 1) * SQ, GV[3], 0, TAU, 4)
         c.ring(cx, cy, r - 3, (r - 3) * SQ, GV[1])

@@ -1,6 +1,6 @@
 /* 메인 스토리 맵 그리기 — 정식 그림(11월 6일). 그림 파일(storyArtPath)이 없으면 임시 도형을 그린다.
    바닥: ground/<맵 id>.webp · 건물 · 장소 · 소품: places/<id>.webp · 사람: people/<인물 id>.webp */
-import { npcScale } from "./bodyScale.js";
+import { npcScale, textUp } from "./bodyScale.js";
 import {STORY_ART as A, PLACE_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
 import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepOpenTargets, storyGateOpen, storyGateCh} from './storyQuestData.js';
 import {VILLAGE_NPCS} from './villageData.js';
@@ -24,7 +24,7 @@ function drawArt(ctx, kind, id, x, y, size) {
   return true;
 }
 function label(ctx, text, x, y, color = '#f6e5bb') {
-  ctx.save(); ctx.font = "14px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.save(); textUp(ctx, x, y); ctx.font = "14px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const w = ctx.measureText(text).width + 20;
   ctx.fillStyle = 'rgba(48,37,24,.88)'; ctx.beginPath(); ctx.roundRect(x - w/2, y - 11, w, 22, 6); ctx.fill();
   ctx.fillStyle = color; ctx.fillText(text, x, y); ctx.restore();

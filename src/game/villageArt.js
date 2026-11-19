@@ -1,3 +1,4 @@
+import { textUp } from "./bodyScale.js";
 import {STORY_VILLAGE} from './storyData.js';
 import {VILLAGE as V, VILLAGE_BUILDINGS, VILLAGE_NPCS, VILLAGE_SIGHTS, VILLAGE_PROPS, VILLAGE_ROADS, VILLAGE_SQUARE as SQ, VILLAGE_FIELDS, VILLAGE_BROOK, VILLAGE_SHIFT as SHF, villageArtPath} from './villageData.js';
 
@@ -21,7 +22,7 @@ export function drawVillageImage(ctx, id, x, y, size) {
   return true;
 }
 function label(ctx, text, x, y, color='#f6e5bb') {
-  ctx.save(); ctx.font="14px 'Do Hyeon', sans-serif"; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.save(); textUp(ctx, x, y); ctx.font="14px 'Do Hyeon', sans-serif"; ctx.textAlign='center'; ctx.textBaseline='middle';
   const w=ctx.measureText(text).width+20;
   ctx.fillStyle='rgba(48,37,24,.88)'; ctx.beginPath(); ctx.roundRect(x-w/2,y-11,w,22,6); ctx.fill();
   ctx.fillStyle=color; ctx.fillText(text,x,y); ctx.restore();

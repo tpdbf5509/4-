@@ -61,7 +61,7 @@ import { drawHighBody, highElite, isHighArt, highBackImg, warmHighArt } from "./
 import { HIGH_IDS, HIGH_ELITE_IDS, HIGH_SUMMON_IDS, HIGH_ART } from "./highData.js";
 import { FIELD_LOOKS, FIELD_TRAIL } from "./fieldLookData.js";
 import { SKILL_PX_CAP } from "./skillPxData.js";
-import { heroScale, npcScale, camZoom } from "./bodyScale.js";
+import { heroScale, npcScale, camZoom, VIEW, textUp } from "./bodyScale.js";
 import { drawSkillFx, drawHeroSkill, drawCcMark, liftOf, GROUND_FX, setFxQuality } from "./skillArt.js";
 import { setWbIntroQuality } from "./worldBossIntro.js";
 import { SHOP_BY_ID, SPECIAL_BY_ID, specialArt } from "./shop.js";
@@ -895,6 +895,7 @@ function drawGate(ctx, gt, time) {
   else drawGateBody(ctx, gt, time);
   // 팻말
   ctx.save();
+  textUp(ctx, x, y - 145);
   ctx.font = "15px 'Do Hyeon', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   const w = ctx.measureText(gt.label).width + 22;
@@ -2460,6 +2461,7 @@ function drawHero(ctx, g, h, time) {
   ctx.fillStyle = down ? "#6a5a52" : r > 0.5 ? "#8fd07f" : r > 0.25 ? "#e8c05e" : "#ef8b7c";
   roundRect(ctx, h.x - bw / 2, byy, Math.max(1.5, bw * r), 4, 2); ctx.fill();
   if (!down && execFoe(g, h)) drawExecTick(ctx, h.x - bw / 2, byy, bw, 4, advExecLine(g.heroes[g.mySeat], h, true));   // 암살자 화면 — 칠 수 있는 상대의 처형 눈금
+  textUp(ctx, h.x, h.y + 6);                        // 카메라를 당긴 맵에서도 이름표는 원래 크기(bodyScale.js)
   ctx.font = "10.5px 'Do Hyeon', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   const nm = `Lv${h.lv} ${(g.names && g.names[pi]) || "모험가"}`;
@@ -2759,7 +2761,8 @@ export function drawRpg(ctx, g, bgs) {
     ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
   }
   warmRpgArt();
-  const z = cam.z || 1, VW = W / z, VH = H / z;     // 카메라를 뒤로 당긴 맵(bodyScale.js) — 땅을 z 배로 줄여 그린다
+  const z = cam.z || 1, VW = W / z, VH = H / z;
+  VIEW.textK = 1 / z;     // 카메라를 뒤로 당긴 맵(bodyScale.js) — 땅을 z 배로 줄여 그린다
   if (z !== 1) { ctx.fillStyle = "#1b1611"; ctx.fillRect(0, 0, W, H); ctx.scale(z, z); }
   const bgName = M.bg || M.id;
   const look = !M.dungeon && FIELD_LOOKS[M.id];        // 사냥터 — 맵마다 다른 바탕(fieldLookData.js)

@@ -1,3 +1,4 @@
+import { mapSpeed } from "./bodyScale.js";   // 건물 안 걷기 속도(11월 19일 사용자)
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
 import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
 import {LIBRARY, LIBRARY_MAPS} from './libraryData.js';
@@ -4073,7 +4074,7 @@ function stepHeroes(g, dt) {
 
 /* 걷는 속도(px/초) — 명사수 약점 포착(나보다 느린 적)이 견준다. 사람은 걷는 식 그대로(신발은 앞쪽 몫),
    몹은 종류마다 쫓는 속도 · 둔화 · 기절이면 0 */
-const heroSpeed = (h) => RPG.spd * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
+const heroSpeed = (h) => RPG.spd * mapSpeed(MAPS[h.map]) * (speedMul(h) + armorSpeed(h, 1, 0)) * advSpeedMul(h) * acSpeedMul(h) * bloodSlow(h) * bloodJobSlow(h) * wyvernSpd(h) * (ccLocked(h) || (h.cc && h.cc.root > 0) ? 0 : 1);
 const MOB_WALK = { rabbit: 160, wolf: 175, boar: BOAR.walk };   // 그 밖은 BRUTE 값 · 보스 AI 값, 모르면 180
 function moveSpeedOf(o) {
   if (isHeroT(o)) return heroSpeed(o);

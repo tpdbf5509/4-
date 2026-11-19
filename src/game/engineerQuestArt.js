@@ -1,6 +1,7 @@
 /* ── Engineer 003 획득 루트 그림 — 조사 자리 · 미믹 · 위험 장치 · 자동인형 003 · 최종 시험(11월 19일) ─────────────
    그림은 Codex 로 만든 시트(engineer-quest/*.webp, 칸 256 · 발 244). 못 불러오면 코드 도형으로 대신한다.
    코드로 그리는 것은 1px 예고선 · 범위 · 이름표뿐. 판정과 같은 함수(eqSpotShown · eqHazardState)를 쓴다 */
+import { textUp } from "./bodyScale.js";
 import { EQ_SPOTS, EQ_HAZARDS, EQ_ART as A, EQ_TRIAL as TR, EQ_MIMIC as MI, eqMap } from './engineerQuestData.js';
 import { eqSpotShown, eqHazardState, eqHas, eqView, EQ_MIMIC_IDS } from './engineerQuest.js';
 
@@ -25,7 +26,7 @@ function cell(ctx, sheet, i, x, y, size, flip, alpha = 1) {
   return true;
 }
 function label(ctx, text, x, y, color = C.text) {
-  ctx.save(); ctx.font = "14px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.save(); textUp(ctx, x, y); ctx.font = "14px 'Do Hyeon', sans-serif"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const w = ctx.measureText(text).width + 18;
   ctx.fillStyle = C.ink; ctx.fillRect(x - w / 2, y - 11, w, 22);
   ctx.strokeStyle = 'rgba(159,227,234,.45)'; ctx.lineWidth = 1; ctx.strokeRect(x - w / 2 + .5, y - 10.5, w - 1, 21);

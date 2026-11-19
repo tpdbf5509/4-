@@ -2052,38 +2052,56 @@ setNecroMobPainter((x, type, fx, fy, f) => {
   return true;
 });
 const ICON_PAD = 320, ICON_FOOT = 0.78;                  // 넓은 판 한 변(px) · 발밑 높이(판 높이의 몫)
+const ICON_BIG_PAD = 1100;                               // 내려받기용 넓은 판 — 월드보스도 원래 크기로 들어간다
+const ICON_TRIES = 5, ICON_SHRINK = 0.6;                 // 가장자리에 닿으면 이만큼 줄여 다시 그린다(최대 횟수)
 const iconMemo = new Map();
-function mobIconSheet(type, boss) {
-  const key = `${type}:${boss ? 1 : 0}`;
+function mobIconSheet(type, boss, pad = ICON_PAD) {
+  const key = `${type}:${boss ? 1 : 0}:${pad}`;
   const kept = iconMemo.get(key);
   if (kept && (kept.done || performance.now() - kept.at < 800)) return kept;
   const c = document.createElement("canvas");
-  c.width = c.height = ICON_PAD;
-  const x = c.getContext("2d");
+  c.width = c.height = pad;
+  const x = c.getContext("2d", { willReadFrequently: true });
   const def = MOB[type];
   let box = null;
   if (def) {
     const sp = SPAWNS.find((q) => q.type === type && q.lv);   // 몹 크기는 레벨을 따른다 — 사냥터 가운데 레벨로 그린다
     const sz = Math.max(0.3, mobSize(type, sp ? (sp.lv[0] + sp.lv[1]) / 2 : 1, boss) || 1);
-    const m = { type, id: 0, x: ICON_PAD / 2, y: ICON_PAD * ICON_FOOT, size: sz, age: 9, moving: false, hp: 1, max: 1, lv: 1,
+    const m = { type, id: 0, x: pad / 2, y: pad * ICON_FOOT, size: sz, age: 9, moving: false, hp: 1, max: 1, lv: 1,
       boss: boss ? 1 : 0, ax: 1, pose: 0, freeze: 0, flash: 0, portrait: 1 };
     try {
-      const fit = Math.min(1, 1 / Math.max(1, sz * 0.9));   // 큰 보스는 판에 들어오게 줄여 그린다
-      x.save(); x.translate(m.x, m.y); x.scale(fit, fit); x.translate(-m.x, -m.y);
-      (MOB_DRAW[type] || drawRabbit)(x, m, 0, null);
-      x.restore();
-      const px = x.getImageData(0, 0, ICON_PAD, ICON_PAD).data;
-      let l = ICON_PAD, t = ICON_PAD, r = -1, b = -1;
-      for (let yy = 0; yy < ICON_PAD; yy++) for (let xx = 0; xx < ICON_PAD; xx++) {
-        if (px[(yy * ICON_PAD + xx) * 4 + 3] < 90) continue;   // 옅은 그림자는 빼고 잰다
-        if (xx < l) l = xx; if (xx > r) r = xx; if (yy < t) t = yy; if (yy > b) b = yy;
+      // 큰 보스는 판에 들어오게 줄여 그린다 — 그림이 판 가장자리에 닿으면(잘림) 더 줄여 다시 그린다(월드보스 그림 등)
+      let fit = Math.min(1, 1 / Math.max(1, sz * 0.9));
+      for (let tries = 0; tries < ICON_TRIES; tries++, fit *= ICON_SHRINK) {
+        x.clearRect(0, 0, pad, pad);
+        x.save(); x.translate(m.x, m.y); x.scale(fit, fit); x.translate(-m.x, -m.y);
+        (MOB_DRAW[type] || drawRabbit)(x, m, 0, null);
+        x.restore();
+        const px = x.getImageData(0, 0, pad, pad).data;
+        let l = pad, t = pad, r = -1, b = -1, edge = false;
+        for (let yy = 0; yy < pad; yy++) for (let xx = 0; xx < pad; xx++) {
+          const a = px[(yy * pad + xx) * 4 + 3];
+          if (a > 0 && (xx === 0 || yy === 0 || xx === pad - 1 || yy === pad - 1)) edge = true;
+          if (a < 90) continue;   // 옅은 그림자는 빼고 잰다
+          if (xx < l) l = xx; if (xx > r) r = xx; if (yy < t) t = yy; if (yy > b) b = yy;
+        }
+        box = r >= l ? { l, t, w: r - l + 1, h: b - t + 1 } : null;
+        if (!edge) break;
       }
-      if (r >= l) box = { l, t, w: r - l + 1, h: b - t + 1 };
     } catch { box = null; }
   }
   const out = { c, box, at: performance.now(), done: !!box && !!kept && !!kept.box && kept.box.w === box.w && kept.box.h === box.h };   // 두 번 같게 그려지면(그림 파일까지 불러옴) 끝
   iconMemo.set(key, out);
   return out;
+}
+// 몹 그림 한 장(잘린 곳 없이 그려진 곳만, 넓은 판에 원래 크기로) — 데이터 시스템 「몹 그림」 내려받기. 그림 파일이 덜 왔으면 null
+export function mobArtCanvas(type, boss) {
+  const s = mobIconSheet(type, boss, ICON_BIG_PAD);
+  if (!s.box) return null;
+  const P = 6, c = document.createElement("canvas");
+  c.width = s.box.w + P * 2; c.height = s.box.h + P * 2;
+  c.getContext("2d").drawImage(s.c, s.box.l, s.box.t, s.box.w, s.box.h, P, P, s.box.w, s.box.h);
+  return c;
 }
 // 도감 칸에 몹을 그린다 — hide 면 아직 못 잡은 몹이라 검은 그림자만
 export function drawMobIcon(ctx, type, w, h, hide, boss) {

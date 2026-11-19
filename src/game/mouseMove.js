@@ -3,6 +3,7 @@
 import { MAPS, RPG } from "./rpg.js";
 import { WORLD_BOSS } from "./worldBossData.js";
 import { W, H } from "./world.js";
+import { npcScale } from "./bodyScale.js";
 
 export const MV_UI = {
   gap: 100,        // 누른 채 끌 때 이만큼(ms)에 한 번만 보낸다 — 메시지를 아낀다
@@ -55,12 +56,13 @@ export const portalHit = (x, y) =>
 export function pickNpc(mapId, x, y) {
   const M = MAPS[mapId];
   if (!M) return null;
+  const nk = npcScale(M);   // 건물 안은 주민 그림이 커진다(bodyScale.js) — 누르는 자리도 같이 넓힌다
   let best = null, bestD = Infinity;
   for (const n of M.npcs) {
     const box = n.worldBoss ? null : (n.shop || n.deep || n.abyss || n.guildDoor || n.guild || n.guildRaidDoor || n.dungeon) ? MV_UI.hitBig : MV_UI.hit;
     const inside = n.worldBoss
       ? mapId === "plaza" && portalHit(x, y)
-      : Math.abs(x - n.x) <= box.w && y >= n.y - box.up && y <= n.y + box.down;
+      : Math.abs(x - n.x) <= box.w * nk && y >= n.y - box.up * nk && y <= n.y + box.down;
     if (!inside) continue;
     const d = Math.hypot(x - n.x, y - n.y);
     if (d < bestD) { bestD = d; best = n; }

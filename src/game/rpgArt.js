@@ -19,7 +19,7 @@ import { bloodView } from './bloodJob.js';
 import { GAMBLER_CAP, drawGamblerSpots } from './gamblerArt.js';
 import { GM_SPOTS } from './gamblerData.js';
 import { gmSpotShown } from './gamblerUnlock.js';
-import { eqSpotsOn, drawEqSpot, eqCompanion, eqCompanionAt, drawEqCompanion, drawEqHazards, drawEqTrialGround, drawEqMob, drawEqFx } from './engineerQuestArt.js';   // Engineer 003 획득 루트
+import { eqSpotsOn, drawEqSpot, eqCompanion, eqCompanionAt, drawEqCompanion, drawEqHazards, drawEqTrialGround, drawEqMob, drawEqFx, drawEqExits, drawEqExitLabel } from './engineerQuestArt.js';   // Engineer 003 획득 루트
 import { eqSpotNear } from './engineerQuest.js';   // Gambler 002 해금 경로 조사물
 import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003 — 무기 그림을 들지 않는다 · 설치물 몸
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
@@ -888,6 +888,7 @@ export function drawGateBody(ctx, gt, time) {
 }
 
 function drawGate(ctx, gt, time) {
+  if (gt.eqGate) return drawEqExitLabel(ctx, gt);   // Engineer 003 맵 — 문은 바닥 그림에, 바닥 빛 · 승강판은 땅 층(drawEqExits)
   if (gt.villageGate) return drawVillageGate(ctx, gt, time);
   const { x, y } = gt;
   const gs = sprite("rpg/gate");
@@ -2897,7 +2898,7 @@ export function drawRpg(ctx, g, bgs) {
   if (M.id === "plaza") drawDgPit(ctx, time);
   drawDust(ctx, g, M.id, time);
   if (me && me.map === M.id) drawNecroTraces(ctx, me, time);
-  if (me && me.map === M.id) { drawEqHazards(ctx, me, M.id, Date.now() / 1000, time); drawEqTrialGround(ctx, me, M.id, time); }   // Engineer 003 획득 루트 — 위험 장치 · 시험 장치(땅)   // Necromancer 004 — 내가 남긴 추출 가능 흔적(땅)
+  drawEqExits(ctx, me, M, time); if (me && me.map === M.id) { drawEqHazards(ctx, me, M.id, Date.now() / 1000, time); drawEqTrialGround(ctx, me, M.id, time); }   // Engineer 003 획득 루트 — 위험 장치 · 시험 장치(땅)   // Necromancer 004 — 내가 남긴 추출 가능 흔적(땅)
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
     // 띄움에 걸린 것은 위로 떠서 그린다 · 걸린 표시(경직 · 속박 · 낙인)는 그 위에

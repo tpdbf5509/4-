@@ -3,7 +3,7 @@
    코드로 그리는 것은 1px 예고선 · 범위 · 이름표뿐. 판정과 같은 함수(eqSpotShown · eqHazardState)를 쓴다 */
 import { textUp } from "./bodyScale.js";
 import { EQ_SPOTS, EQ_HAZARDS, EQ_ART as A, EQ_TRIAL as TR, EQ_MIMIC as MI, eqMap } from './engineerQuestData.js';
-import { eqSpotShown, eqHazardState, eqHas, eqView, EQ_MIMIC_IDS } from './engineerQuest.js';
+import { eqSpotShown, eqHazardState, eqHas, eqView, eqCond, EQ_MIMIC_IDS } from './engineerQuest.js';
 
 const SQ = 0.78, FEET = 244 / 256;
 const C = { teal: '#9fe3ea', line: 'rgba(159,227,234,.8)', warn: '#f0c98a', red: '#ff8a8a', ink: 'rgba(22,30,32,.86)', text: '#dff5f4' };
@@ -54,6 +54,42 @@ export function drawEqSpot(ctx, me, s, time, near) {
   // 발밑 고리 표시는 뺐다(11월 19일 사용자) — 가까이 가면 이름표만 뜬다
   if (near) label(ctx, s.name, x, y - (s.look && !s.look.bg ? s.look.size * 1.3 : 90) - 8);
 }
+
+/* ── 출구 — 문 · 계단 · 사다리는 바닥 그림에 있어 바닥 빛만 얹는다. 그림에 문이 없는 출구(hatch)는 정비망 승강판을 그린다 ── */
+function hatch(ctx, x, y, time) {
+  const R = 72, a = 0.3 + Math.sin(time * 2.2) * 0.12;   // 넓은 맵은 카메라가 멀어 크게
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x, y + 4, R + 6, (R + 6) * SQ, 0, 0, Math.PI * 2); ctx.fill();   // 그림자
+  ctx.fillStyle = '#5d5144'; ctx.strokeStyle = '#2b2520'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x, y, R, R * SQ, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();   // 쇠 테
+  ctx.fillStyle = '#1d1a17'; ctx.beginPath(); ctx.ellipse(x, y, R - 15, (R - 15) * SQ, 0, 0, Math.PI * 2); ctx.fill();   // 아래로 내려가는 구멍
+  ctx.strokeStyle = '#3d352c'; ctx.lineWidth = 4;   // 사다리 가로대
+  for (let i = -1; i <= 1; i++) { const yy = y + i * 13; const w = Math.sqrt(Math.max(0, 1 - ((yy - y) / ((R - 15) * SQ)) ** 2)) * (R - 15) * 0.55; ctx.beginPath(); ctx.moveTo(x - w, yy); ctx.lineTo(x + w, yy); ctx.stroke(); }
+  ctx.fillStyle = '#8a7a62';   // 리벳
+  for (let i = 0; i < 8; i++) { const t = i / 8 * Math.PI * 2; ctx.beginPath(); ctx.arc(x + Math.cos(t) * (R - 6), y + Math.sin(t) * (R - 6) * SQ, 3, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = C.teal; ctx.globalAlpha = a; ctx.lineWidth = 2;   // 정비망 불빛
+  ctx.beginPath(); ctx.ellipse(x, y, R - 16, (R - 16) * SQ, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+function floorGlow(ctx, x, y, r, time) {
+  const a = 0.28 + Math.sin(time * 2) * 0.1;
+  ctx.save(); ctx.strokeStyle = `rgba(159,227,234,${a})`; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x, y, r * 0.9, r * 0.9 * SQ * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = `rgba(159,227,234,${a * 0.3})`; ctx.fill(); ctx.restore();
+}
+// 땅 층(사람보다 먼저) — 밟는 출구(M.gates eqGate)와 바닥 그림에 문이 없는 문 자리(hatch)
+export function drawEqExits(ctx, me, M, time) {
+  if (!M.eq) return;
+  for (const g of M.gates) { if (!g.eqGate) continue; if (g.hatch) hatch(ctx, g.x, g.y, time); floorGlow(ctx, g.x, g.y, g.r, time); }
+  if (!me || !me.bag) return;
+  for (const s of EQ_SPOTS) {
+    if (s.map !== M.id || !s.hatch || !eqSpotShown(me, s)) continue;
+    if (s.hatch === 'open' && !eqCond(me, s.act.need)) continue;   // 숫자판을 풀어야 계단 구멍이 보인다
+    hatch(ctx, s.at[0], s.at[1], time);
+  }
+}
+// 사람과 줄 세우는 층 — 밟는 출구의 이름표만
+export function drawEqExitLabel(ctx, g) { label(ctx, g.label, g.x, g.y - 70); }
 
 /* ── 자동인형 003 — 연구소 조립대에서 고치기 전엔 쓰러져 있고, 고친 뒤엔 탐험 맵에서 곁을 따라다닌다 ── */
 function drawDollAt(ctx, me, x, y, time) {

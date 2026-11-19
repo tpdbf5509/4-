@@ -31,7 +31,7 @@ export const EQ_REC_NAMES = ['제작', '환경', '통신', '사고 시각', '자
 const M = (id, name, top, spawn, extra = {}) => ({ id, name, w: EQ_MAP_W, h: EQ_MAP_H, top, spawn, ...extra });
 export const EQ_MAPS = [
   M('eng-oak', '참나무 목공소', 330, [1203, 1430]),
-  M('eng-cellar', '목공소 지하', 420, [1211, 470]),
+  M('eng-cellar', '목공소 지하', 420, [1211, 540]),   // 위쪽 계단 출구(EQ_EXITS) 바로 아래 — 출구 반지름 밖
   M('eng-tunnel', '폐쇄된 정비 통로', 200, [470, 1180]),
   M('eng-lab', '버려진 기계 연구소', 200, [1203, 1380]),
   M('eng-scrap', '병기 공장 정비지구', 330, [1100, 1470]),
@@ -39,7 +39,7 @@ export const EQ_MAPS = [
   M('eng-signal', '기계도시 통신지구', 300, [1203, 1400]),
   M('eng-clock', '시간의 탑 정비지구', 360, [1700, 1480]),
   M('eng-bio', '생명 연구지구', 300, [1203, 1530]),
-  M('eng-origin', '최초 명령 지구', 470, [1203, 1400]),
+  M('eng-origin', '최초 명령 지구', 470, [1203, 1330]),   // 아래 가운데 승강판(출구) 위
   M('eng-metro', '중앙 기계도시 외곽', 330, [1203, 1300]),
   M('eng-factory', '중앙 기계도시 생산 공장', 330, [1203, 1500]),
   M('eng-archive', '중앙 기계도시 기록 보관소', 420, [1203, 1450]),
@@ -54,11 +54,13 @@ export const EQ_SITE_MAPS = ['eng-scrap', 'eng-forest', 'eng-signal', 'eng-clock
 // 마을 쪽 자리(마을 새 좌표). 목공소는 누구나 들어갈 수 있다 — 건물 앞 문(walk-through)
 export const EQ_VILLAGE = { door: { x: 520, y: 1822, r: 40 }, back: [520, 1890] };
 // 맵 사이 출구(밟으면 옮겨 간다 — 늘 열려 있는 쪽만). 진행이 필요한 문은 조사 자리(act 'gate')
+// 자리는 바닥 그림에 그려진 문 · 계단 · 사다리 위(그림 좌표). 그림에 문이 없는 곳은 hatch: 1 — 정비망 승강판을 코드로 그린다(engineerQuestArt.js drawEqExit)
+// 도착 자리(back · 맵 spawn)는 출구 반지름 밖에 둔다 — 안에 서면 1.2초 뒤 되돌아간다
 export const EQ_EXITS = [
-  { map: 'eng-oak', at: P(770, 1000), r: 60, to: 'dawnwood', back: EQ_VILLAGE.back, label: '에르덴 마을' },
-  { map: 'eng-cellar', at: P(775, 225), r: 100, to: 'eng-oak', back: [1203, 470], label: '참나무 목공소' },
-  { map: 'eng-tunnel', at: P(140, 820), r: 60, to: 'eng-cellar', back: [1219, 1300], label: '목공소 지하' },
-  { map: 'eng-lab', at: P(770, 1005), r: 60, to: 'eng-tunnel', back: [2141, 420], label: '폐쇄된 정비 통로' },
+  { map: 'eng-oak', at: P(770, 1000), r: 60, to: 'dawnwood', back: EQ_VILLAGE.back, label: '에르덴 마을' },          // 아래 두 짝 문
+  { map: 'eng-cellar', at: P(775, 275), r: 60, to: 'eng-oak', back: [1203, 470], label: '참나무 목공소' },         // 위쪽 나무 계단 발치(걷는 끝 top 420 바로 아래)
+  { map: 'eng-tunnel', at: P(140, 815), r: 60, to: 'eng-cellar', back: [1219, 1300], label: '목공소 지하' },        // 왼쪽 아래 사다리 구멍
+  { map: 'eng-lab', at: P(770, 1005), r: 60, to: 'eng-tunnel', back: [2141, 420], label: '폐쇄된 정비 통로' },      // 아래 통로 문
 ];
 
 // 조사 자리 그림(props.webp 4×2 · mimic.webp 3×2 · automaton.webp 3×1) — look 이 없으면 바닥 그림만. look.bg 는 바닥 그림에 이미 있어 깨어난 미믹일 때만 그린다
@@ -71,6 +73,7 @@ export const EQ_ART = { base: '/assets/game/rpg/engineer-quest/', cell: 256, mim
           dial(값 고르기 → u.d[key]) · check(키 값이 모두 맞으면 set) · pick(하나 고르기) · multi(n 개 고르기) · order(차례 맞추기) ·
           take(줍기) · gate(다른 맵으로) · mimic(미믹 — 조사 · 물러나기 · 다른 방법) · seal(미믹 봉인) · travel(정비망 지도) · trial(시험) · contract(계약)
    lock: need 가 모자랄 때 보여 줄 대사(lockSet 이 있으면 그 깃발을 세운다 — 문에 새긴 글 같은 단서) */
+// hatch: 1 — 바닥 그림에 문이 없는 출구(gate). 정비망 승강판을 코드로 그린다(engineerQuestArt.js drawEqHatch). hatch: 'open' 은 열린 뒤에만
 const S = (map, id, px, py, name, act, o = {}) => ({ id, map, at: P(px, py), r: 90, name, act, ...o });
 const T = (lines, set, o = {}) => ({ k: 'talk', lines, set, ...o });
 const MINA_POS = [890, 1570], ELDER_POS = [1670, 1120];   // 마을 새 좌표(storyData.js mina · villageData.js 촌장 하룬)
@@ -98,7 +101,7 @@ export const EQ_SPOTS = [
     intro: ['판자를 들어 올리자 네 자리 숫자판이 드러난다.', '숫자가 무엇을 뜻하는지는 아직 알 수 없다.'],
     ok: ['벽 안쪽에서 금속 핀이 빠지는 소리가 난다.', '뒤편 나무 벽이 밀려나며 아래로 내려가는 계단이 드러났다.'],
     bad: '짧은 경고음이 울린다.', hint: 3, done: ['숫자판은 이미 풀렸다. 뒤편 나무 벽 너머로 계단이 보인다.'] }),
-  S('eng-oak', 'oak-wall', 770, 230, '뒤편 나무 벽', { k: 'gate', to: 'eng-cellar', back: [1211, 470], need: ['oak'], lock: ['두드리면 속이 빈 소리가 난다. 어딘가에 여는 장치가 있을 것 같다.'] }),
+  S('eng-oak', 'oak-wall', 770, 230, '뒤편 나무 벽', { k: 'gate', to: 'eng-cellar', back: [1211, 540], need: ['oak'], lock: ['두드리면 속이 빈 소리가 난다. 어딘가에 여는 장치가 있을 것 같다.'] }, { hatch: 'open' }),   // 숫자판을 풀면 벽 아래 계단 구멍이 보인다
   S('eng-oak', 'oak-chest-0', 1035, 330, '보관함', T(['목재 조각과 녹슨 못이 들어 있다.']), { look: { sheet: 'mimic', i: 0, size: 150, bg: 1 } }),
   S('eng-oak', 'oak-chest-1', 1150, 330, '보관함', T(['대패날과 사포가 가지런히 들어 있다.']), { look: { sheet: 'mimic', i: 0, size: 150, bg: 1 } }),
   S('eng-oak', 'oak-chest-2', 1275, 330, '보관함', { k: 'mimic', mid: 'oak', seal: 'oakMimic', sheet: 0,
@@ -222,12 +225,12 @@ export const EQ_SPOTS = [
       '제6 설계 기록 — 최후의 명령을 얻었다. 여섯 기록이 겹쳐지며 삭제된 기계도시의 좌표가 떠오른다.'], bad: '받침대 불빛이 꺼진다. 차례가 맞지 않는다.' }),
 
   /* ── 6장 · 중앙 기계도시 ── */
-  S('eng-metro', 'met-gate', 770, 120, '보안문', { k: 'record', set: 'pass', ok: ['보안문 옆 단말기에서 도시 출입증을 발급받았다.', '003|외곽 경비가 아직 살아 있습니다. 감시 드론의 빛을 피하십시오.'] }, { r: 130 }),
+  S('eng-metro', 'met-gate', 905, 235, '보안문', { k: 'record', set: 'pass', ok: ['보안문 옆 단말기에서 도시 출입증을 발급받았다.', '003|외곽 경비가 아직 살아 있습니다. 감시 드론의 빛을 피하십시오.'] }, { r: 110 }),   // 위쪽 큰 문 오른쪽 등불 기둥 옆 단말기
   S('eng-metro', 'met-cut', 440, 320, '외곽 포대 배전함', { k: 'take', set: 'drOff', lines: ['외곽 포대 배전함을 내렸다. 감시 드론이 멈춘다.'], done: ['감시 드론은 꺼져 있다.'] }, { look: { sheet: 'props', i: 1, size: 70 } }),
-  S('eng-metro', 'met-factory', 220, 600, '생산 공장 승강장', { k: 'gate', to: 'eng-factory', back: [1203, 1500], need: ['pass'], lock: ['출입증이 필요합니다.'] }),
-  S('eng-metro', 'met-archive', 1320, 600, '기록 보관소 다리', { k: 'gate', to: 'eng-archive', back: [1203, 1450], need: ['pass'], lock: ['출입증이 필요합니다.'] }),
-  S('eng-metro', 'met-power', 600, 120, '중앙 동력실 문', { k: 'gate', to: 'eng-power', back: [1203, 1450], need: ['pass', 'factory', 'truth'], lock: ['동력실 문이 잠겨 있다. 공장 전력과 기록 확인이 먼저다.'] }),
-  S('eng-metro', 'met-annex', 1320, 300, '외곽 정비 터널', { k: 'gate', to: 'eng-annex', back: [1203, 1450], need: ['coreDoc'], lock: ['정비 터널 입구다. 어디로 이어지는지 알 수 없다.'] }),
+  S('eng-metro', 'met-factory', 320, 775, '생산 공장 승강장', { k: 'gate', to: 'eng-factory', back: [1203, 1500], need: ['pass'], lock: ['출입증이 필요합니다.'] }),
+  S('eng-metro', 'met-archive', 1360, 690, '기록 보관소 다리', { k: 'gate', to: 'eng-archive', back: [1203, 1450], need: ['pass'], lock: ['출입증이 필요합니다.'] }),
+  S('eng-metro', 'met-power', 764, 225, '중앙 동력실 문', { k: 'gate', to: 'eng-power', back: [1203, 1450], need: ['pass', 'factory', 'truth'], lock: ['동력실 문이 잠겨 있다. 공장 전력과 기록 확인이 먼저다.'] }),
+  S('eng-metro', 'met-annex', 1230, 440, '외곽 정비 터널', { k: 'gate', to: 'eng-annex', back: [1203, 1450], need: ['coreDoc'], lock: ['정비 터널 입구다. 어디로 이어지는지 알 수 없다.'] }),
   S('eng-metro', 'met-back', 770, 960, '도착 승강장', { k: 'gate', to: 'eng-lab', back: [1203, 900] }),
   S('eng-factory', 'fac-plan', 1310, 470, '조립 지시판', T(['조립 지시판이다.', '「톱니 부품 → 노란 줄 · 회로 부품 → 붉은 줄 · 외장 부품 → 푸른 줄」'])),
   S('eng-factory', 'fac-line', 1100, 300, '조립 라인 제어반', { k: 'dials', set: 'factory', q: '부품 셋을 맞는 라인으로 보낸다.',
@@ -240,7 +243,7 @@ export const EQ_SPOTS = [
   S('eng-factory', 'fac-cool', 1270, 560, '냉각 수리대', { k: 'pick', set: 'coreFix', need: ['coreDmg'], q: '손상된 동력핵을 어떻게 식힐까?',
     opts: ['냉각수에 바로 담근다', '냉각수를 천천히 순환시킨다', '그대로 수리 집게에 건다'], ans: 1,
     ok: ['냉각수가 천천히 돌며 핵의 균열이 아문다. 복구된 중앙 동력핵을 얻었다.'], bad: '핵이 위험하게 떨린다. 다른 방법이 필요하다.', lock: ['냉각 수리대다. 수리할 것이 없다.'] }),
-  S('eng-factory', 'fac-back', 100, 980, '외곽 승강장', { k: 'gate', to: 'eng-metro', back: [400, 900] }),
+  S('eng-factory', 'fac-back', 100, 980, '외곽 승강장', { k: 'gate', to: 'eng-metro', back: [700, 1240] }),
   S('eng-archive', 'arc-cit', 300, 300, '시민 기록함', T(['시민의 일상 기록이다.', '「정지 전날, 중앙이 모든 집에 같은 안내를 보냈다 — 내일은 쉬십시오.」'], 'cRec')),
   S('eng-archive', 'arc-vid', 770, 120, '보안 영상 벽', T(['보안 영상이 돌아간다. 06:40 부터 07:20 까지 화면이 비어 있다.', '누군가 잘라 낸 것이 아니라 처음부터 찍지 않았다.'], 'cVid')),
   S('eng-archive', 'arc-note', 560, 450, '기술자 수첩', T(['기술자 수첩이다.', '「두 명령이 부딪쳤다. 하나는 도시를 지켜라, 하나는 사람을 내보내라.」', '「고대 번개 기계형 괴수가 구형 동력핵을 단 채 밖으로 나갔다. 예비 코어는 관찰실에 있다.」'], 'cNote')),
@@ -248,14 +251,14 @@ export const EQ_SPOTS = [
     opts: ['인간을 적으로 판단해 반란을 일으켰다', '폭발 사고로 부서졌다', '모순된 명령 앞에서 스스로 멈춤을 택했다'], ans: 2,
     ok: ['로그가 확인된다. 「정지는 시스템이 스스로 선택했습니다.」', '괴수 동력 관찰실로 가는 정비 터널 좌표가 함께 열렸다.'], bad: '로그가 맞지 않는다고 표시된다.',
     lock: ['단말기 로그만으로는 알 수 없다. 시민 기록 · 보안 영상 · 기술자 수첩을 먼저 견줘 봐야 한다.'], also: 'coreDoc' }),
-  S('eng-archive', 'arc-back', 770, 1000, '외곽 다리', { k: 'gate', to: 'eng-metro', back: [2000, 900] }),
+  S('eng-archive', 'arc-back', 770, 975, '외곽 다리', { k: 'gate', to: 'eng-metro', back: [1990, 1140] }, { hatch: 1 }),
   S('eng-annex', 'anx-t1', 90, 480, '왼쪽 안전 단말기', { k: 'seq', g: 'anx', i: 0, n: 3, set: 'annexOn', cool: 1, ok: ['세 단말기가 모두 켜졌다. 기계 팔이 움직인다.'], bad: '단말기 셋이 모두 꺼진다. 냉각 구간에만 조작해야 한다.' }),
   S('eng-annex', 'anx-t2', 1460, 480, '오른쪽 안전 단말기', { k: 'seq', g: 'anx', i: 1, n: 3, set: 'annexOn', cool: 1, ok: ['세 단말기가 모두 켜졌다. 기계 팔이 움직인다.'], bad: '단말기 셋이 모두 꺼진다. 냉각 구간에만 조작해야 한다.' }),
   S('eng-annex', 'anx-t3', 610, 180, '가운데 안전 단말기', { k: 'seq', g: 'anx', i: 2, n: 3, set: 'annexOn', cool: 1, ok: ['세 단말기가 모두 켜졌다. 기계 팔이 움직인다.'], bad: '단말기 셋이 모두 꺼진다. 냉각 구간에만 조작해야 한다.' }),
   S('eng-annex', 'anx-log', 400, 300, '옛 전투 기록', T(['괴수의 전기 폭발 사이클이 적혀 있다.', '「충전 3초 → 방출 2초 → 냉각 4초」', '「안전 단말기는 냉각 중에 좌 → 우 → 중앙」'])),
   S('eng-annex', 'anx-arm', 770, 200, '코어 적출 소켓', { k: 'record', set: 'coreDmg', need: ['annexOn'], lock: ['기계 팔이 멈춰 있다.'],
     ok: ['기계 팔이 손상된 중앙 동력핵을 꺼내 준다.', '003|괴수에 달린 구형 핵과 이어진 예비 코어입니다. 공장에서 식혀야 합니다.'] }),
-  S('eng-annex', 'anx-back', 770, 1000, '정비 터널', { k: 'gate', to: 'eng-metro', back: [2000, 600] }),
+  S('eng-annex', 'anx-back', 770, 975, '정비 터널', { k: 'gate', to: 'eng-metro', back: [1830, 800] }, { hatch: 1 }),
 
   /* ── 8장 · 중앙 시스템 재가동 ── */
   S('eng-power', 'pow-wall', 300, 400, '발전소 연결도', T(['벽의 연결선이 발전기 넷을 「서 → 북 → 동 → 남」 차례로 잇는다.'], 'cGen')),
@@ -267,8 +270,8 @@ export const EQ_SPOTS = [
   S('eng-power', 'pow-core', 770, 470, '빈 동력핵 자리', { k: 'mount', need: ['gens', 'dist', 'coreFix'], set: 'restart', keys: { coolT: [20, 30] },
     lock: ['거대한 동력핵 자리가 비어 있다.', '발전기 · 전력 분배 · 냉각 · 동력핵이 모두 갖춰져야 한다.'], bad: '냉각수 온도가 목표 구간이 아니다. 밸브를 다시 맞춰야 한다.',
     ok: ['복구된 중앙 동력핵을 장착했다.', '도시 전체 조명이 구역별로 차례로 켜진다. 멈춰 있던 공장 로봇들이 하나씩 천천히 움직인다.', '003 의 눈빛이 한 번 꺼졌다가 다시 켜진다.'] }, { r: 140 }),
-  S('eng-power', 'pow-ctrl', 1400, 150, '최종 제어실 통로', { k: 'gate', to: 'eng-trial', back: [1203, 1350], need: ['restart'], lock: ['통로가 어둡다. 중앙 시스템이 깨어나야 열린다.'] }),
-  S('eng-power', 'pow-back', 770, 1000, '중앙 대로', { k: 'gate', to: 'eng-metro', back: [1000, 400] }),
+  S('eng-power', 'pow-ctrl', 1400, 150, '최종 제어실 통로', { k: 'gate', to: 'eng-trial', back: [1203, 1350], need: ['restart'], lock: ['통로가 어둡다. 중앙 시스템이 깨어나야 열린다.'] }, { hatch: 1 }),
+  S('eng-power', 'pow-back', 770, 1000, '중앙 대로', { k: 'gate', to: 'eng-metro', back: [1203, 480] }),
 
   /* ── 9~10장 · 최종 제어실 · 시험 · 계약 ── */
   S('eng-trial', 'trl-console', 770, 230, '중앙 단말기', { k: 'trial' }, { r: 130 }),
@@ -283,7 +286,15 @@ export const EQ_TRAVEL = [
   { to: 'eng-bio', name: '금지된 생명 연구구역', rec: 'rec5' }, { to: 'eng-origin', name: '최초의 명령실', rec: 'rec6', after: 5 },
 ];
 // 지역마다 연구소로 돌아가는 정비망 출구(밟으면 옮겨 간다)
-export const EQ_SITE_EXIT = { at: null, r: 60, to: 'eng-lab', back: [450, 1000], label: '버려진 기계 연구소' };
+// at: 맵마다 그림 좌표 — 그림에 그려진 출구(철문 · 계단)나 바닥 철판 위. 철판 · 맨바닥은 hatch 로 승강판을 그린다
+export const EQ_SITE_EXIT = { r: 70, to: 'eng-lab', back: [450, 1000], label: '버려진 기계 연구소', at: {
+  'eng-scrap': { at: P(557, 887), hatch: 1 },    // 컨베이어 왼쪽 아래 녹슨 철판
+  'eng-forest': { at: P(428, 955), hatch: 1 },   // 왼쪽 아래 녹슨 철판
+  'eng-signal': { at: P(767, 980) },             // 아래 부서진 철문 사이(처음 서는 자리 아래)
+  'eng-clock': { at: P(1395, 860) },             // 오른쪽 아래 돌계단 발치
+  'eng-bio': { at: P(253, 827), hatch: 1 },      // 왼쪽 아래 녹슨 철판
+  'eng-origin': { at: P(767, 935), hatch: 1 },   // 아래 벽 띠 바로 위 가운데
+} };
 
 /* ── 위험 장치(피해 없음 — 걸리면 안전한 자리로 밀려난다) ──
    press: period 초마다 on 구간 동안 반지름 r 안을 내려찍는다(warn 초 전부터 경고등) · spark: off 깃발이 모두 서기 전까지 늘 · drone: 길 pts 를 오가며 r 안을 비춘다 · beast: 충전 → 방출 → 냉각 */

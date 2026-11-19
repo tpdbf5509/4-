@@ -447,8 +447,10 @@ RQ_MAPS.forEach(id => {
 });
 /* Engineer 003 획득 루트(engineerQuestData.js, 11월 19일) — 탐험 맵 16곳. 시험장(eng-trial)만 싸울 수 있다. 사냥터로 가는 출구는 없다. 맵 차례는 뒤에만 */
 EQ_MAPS.forEach((m) => {
-  const gates = EQ_EXITS.filter((q) => q.map === m.id).map((q) => ({ x: q.at[0], y: q.at[1], r: q.r, to: q.to, at: q.back, label: q.label, villageGate: 1 }));
-  if (EQ_SITE_MAPS.includes(m.id)) gates.push({ x: 150, y: 1480, r: EQ_SITE_EXIT.r, to: EQ_SITE_EXIT.to, at: EQ_SITE_EXIT.back, label: EQ_SITE_EXIT.label, villageGate: 1 });
+  // eqGate: 바닥 빛 · 이름표(+ hatch 면 승강판)만 그린다 — 문은 바닥 그림에 있다(engineerQuestArt.js drawEqExit)
+  const gates = EQ_EXITS.filter((q) => q.map === m.id).map((q) => ({ x: q.at[0], y: q.at[1], r: q.r, to: q.to, at: q.back, label: q.label, hatch: q.hatch, eqGate: 1 }));
+  const se = EQ_SITE_EXIT.at[m.id];
+  if (EQ_SITE_MAPS.includes(m.id)) gates.push({ x: se.at[0], y: se.at[1], r: EQ_SITE_EXIT.r, to: EQ_SITE_EXIT.to, at: EQ_SITE_EXIT.back, label: EQ_SITE_EXIT.label, hatch: se.hatch, eqGate: 1 });
   MAPS[m.id] = { id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: !m.fight, story: 1, eq: 1, spawn: m.spawn, gates, blocks: [], npcs: [] };
   MAP_IDS.push(m.id);
 });

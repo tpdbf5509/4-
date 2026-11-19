@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { elemOf, MAPS, RPG_SERVER_CAP } from "./game/rpg.js";
+import { elemOf, RPG_SERVER_CAP } from "./game/rpg.js";
+import { shownMapName } from "./game/hiddenPlace.js";
 
 /* 왼쪽 위 인원 · 설명 아이콘 — 같은 갈색 창을 하나씩 연다. */
 export default function RpgCornerMenus({ players, mySeat, partyId, names, seats, hostId, who, onOpen, helpContent }) {
@@ -54,7 +55,7 @@ export default function RpgCornerMenus({ players, mySeat, partyId, names, seats,
           {players.map((h) => <span key={h.pi} className={`rpg-mate ${h.pi === mySeat ? "mine" : ""} ${partyId && h.pty === partyId && h.pi !== mySeat ? "mate" : ""}`}
             style={{ "--pcl": elemOf(seats[h.pi]?.hero).light }}>
             <b>{names[h.pi] || "모험가"}{partyId > 0 && h.pty === partyId && <small> 파티</small>}{hostId && seats[h.pi]?.id === hostId && <i className="rpg-mate-host">방장</i>}</b>
-            <em>{who(h.pi)} · Lv {h.lv} · {MAPS[h.map].name}</em>
+            <em>{who(h.pi)} · Lv {h.lv} · {shownMapName(h.map, h.pi)}</em>
             <span className="rpg-mate-hp"><span style={{ width: `${Math.min(100, (h.hp / (h.max || 1)) * 100)}%` }} /></span>
           </span>)}
         </div>

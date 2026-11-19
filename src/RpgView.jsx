@@ -1,3 +1,4 @@
+import { shownMapName } from "./game/hiddenPlace.js";
 import VillagePanel from './VillagePanel.jsx';
 import LibraryPanel from './LibraryPanel.jsx';
 import RequiemHud from './RequiemHud.jsx';
@@ -2275,7 +2276,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                         <div key={h.pi} className={`rpg-win-row ${mate ? "on" : ""}`}>
                           <span className="rpg-stat-name">
                             <b>{names[h.pi] || "모험가"}{h.title && <small> 「{titleName(h.title)}」</small>}</b>
-                            <em>Lv {h.lv} · {who(h.pi)} · {MAPS[h.map].name}</em>
+                            <em>Lv {h.lv} · {who(h.pi)} · {shownMapName(h.map, h.pi)}</em>
                           </span>
                           <span className="rpg-win-acts">
                             {mine ? <span className="rpg-win-tag">나 · 명예 {h.honor}</span>

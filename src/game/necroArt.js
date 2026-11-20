@@ -388,7 +388,7 @@ const NC_HAND = {                                   // 쥔 손 자리(몸 그림
 // back — 내려벤 뒤 든 자세로 돌아오는 시간(초). 11월 20일 사용자 "벨 때는 빠르게(유지) 되돌아올 때는 느리게" 로 0.17초 → 0.5초.
 // 판정 시간(h.swing)보다 길어 화면이 휘두른 때를 기억해 이어 그린다(swingStart) — 판정 · 수치는 그대로
 const NC_SWING = { up: 2.4, down: -1.1, lift: 0.2, cut: 0.5, ghost: 3, gap: 0.05, back: 0.5, over: 0.7 };   // over — 머리 위로 되짚는 몫(나머지에 든 자세로 내려오며 날을 되돌린다)
-const NC_SCY_K = 1;                                 // 낫 시트는 2배 해상도(11월 20일 사용자 그림, make.py SCY_RES) — 화면에 1:1 로 그려 예전 길이(K 2배)와 같다
+const NC_SCY_K = 1;                                 // 낫 시트는 2배 해상도(11월 20일 사용자 그림, make.py SCY_RES) — 화면에 1:1 로 그린다(크기는 make.py SCY_SIZE)
 const NC_SHAFT = Math.atan2(0.73, -0.68);           // 시트 속 자루 방향(쥔 손 → 날 뿌리, make.py scythe_cells 와 같다)
 const ease = (q) => 1 - Math.pow(1 - clamp(q), 3);
 const smooth = (q) => { q = clamp(q); return q * q * (3 - 2 * q); };

@@ -388,6 +388,7 @@ const NC_HAND = {                                   // 쥔 손 자리(몸 그림
 // back — 내려벤 뒤 든 자세로 돌아오는 시간(초). 11월 20일 사용자 "벨 때는 빠르게(유지) 되돌아올 때는 느리게" 로 0.17초 → 0.5초.
 // 판정 시간(h.swing)보다 길어 화면이 휘두른 때를 기억해 이어 그린다(swingStart) — 판정 · 수치는 그대로
 const NC_SWING = { up: 2.4, down: -1.1, lift: 0.2, cut: 0.5, ghost: 3, gap: 0.05, back: 0.5, over: 0.7 };   // over — 머리 위로 되짚는 몫(나머지에 든 자세로 내려오며 날을 되돌린다)
+const NC_SCY_K = 1;                                 // 낫 시트는 2배 해상도(11월 20일 사용자 그림, make.py SCY_RES) — 화면에 1:1 로 그려 예전 길이(K 2배)와 같다
 const NC_SHAFT = Math.atan2(0.73, -0.68);           // 시트 속 자루 방향(쥔 손 → 날 뿌리, make.py scythe_cells 와 같다)
 const ease = (q) => 1 - Math.pow(1 - clamp(q), 3);
 const smooth = (q) => { q = clamp(q); return q * q * (3 - 2 * q); };
@@ -429,7 +430,7 @@ export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
     // 예전엔 뒤집힌 날이 발밑을 지나 돌아온 뒤 든 자세에서 한 번에 뒤집혀 튀었다. 원래 뒤집어 드는 자세(H[3])는 그대로
     const fold = H[3] || u < 0 ? 1 : u < NC_SWING.cut || backQ(t) < NC_SWING.over ? -1 : -1 + 2 * smooth((backQ(t) - NC_SWING.over) / (1 - NC_SWING.over));
     if (H[3] ? true : fold < 1) { ctx.rotate(NC_SHAFT); ctx.scale(1, H[3] ? -1 : fold === 0 ? 0.01 : fold); ctx.rotate(-NC_SHAFT); }   // 휘두르는 동안 — 자루 축으로 뒤집어 날 끝이 아래(베는 쪽)를 향한다
-    cell(ctx, "nc_scythe", f, 0, 0, K, a, 0, false, a < 1 ? "brightness(1.8)" : ""); ctx.restore(); };
+    cell(ctx, "nc_scythe", f, 0, 0, NC_SCY_K, a, 0, false, a < 1 ? "brightness(1.8)" : ""); ctx.restore(); };
   if (u > NC_SWING.lift && u < NC_SWING.cut + 0.15)   // 내려벨 때 — 지나온 자리에 옅은 날 잔상(같은 손 · 같은 길이)
     for (let k = NC_SWING.ghost; k >= 1; k--) draw(scytheRot(Math.max(NC_SWING.lift, u - NC_SWING.gap * k) * NC_SCYTHE.swing, H[2], !H[3]), 0.4 / k, 1);
   draw(u < 0 ? H[2] + Math.sin(NOW * 2) * 0.03 : scytheRot(t, H[2], !H[3]), 1, u >= 0 ? 1 : fr);

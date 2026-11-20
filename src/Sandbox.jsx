@@ -26,7 +26,7 @@ import { engineerIconStyle } from "./game/engineerArt.js";
 import { EngineerBar } from "./EngineerHud.jsx";   // 실제 게임과 같은 칸(11월 19일)
 import { ENGINEER_ICON } from "./game/engineerPxData.js";
 import { rpgSandboxHit } from "./game/rpg.js";
-import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_SKILLS, NC_SCYTHE, NC_TRAIN_NAMES, NC_KINDS, NC_ROSTER } from "./game/necroData.js";
+import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_SKILLS, NC_SCYTHE, NC_TRAIN_NAMES, NC_KINDS, NC_ROSTER, NC_WEAPON_ITEM } from "./game/necroData.js";
 import { unlockNecro, necroView, ncLock, necroFillRoster, necroPutRoster, necroSandboxRefine, kindOf, gradeCost } from "./game/necroJob.js";
 import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
@@ -110,7 +110,7 @@ function spreadStats(job, lv, cap) {
 }
 
 // 직업에 맞는 무기 — 같은 묶음(검 · 활 · 지팡이)만. BLOOD-001 은 크림슨 레퀴엠만 · Wyvern Knight 006 은 아르카디온만(11월 18일). 히든 직업 전용 무기(hj)는 그 직업에만
-const weaponsFor = (job, blood, wy) => SPECIALS.filter((w) => (wy ? w.id === WY_WEAPON_ITEM.id : blood ? w.id === "blood_gun" : !w.hj && WEAPON_FAMILY[w.t] === JOB_FAMILY[job]));
+const weaponsFor = (job, blood, wy, nc) => SPECIALS.filter((w) => (nc ? w.id === NC_WEAPON_ITEM.id : wy ? w.id === WY_WEAPON_ITEM.id : blood ? w.id === "blood_gun" : !w.hj && WEAPON_FAMILY[w.t] === JOB_FAMILY[job]));
 const jobSkills = (job) => SKILLS.filter((s) => s.use && s.job === job);
 const genSkills = () => SKILLS.filter((s) => s.use && !s.job);
 
@@ -139,7 +139,7 @@ function sandboxWorld(c) {
   const s = {};
   SKILLS.forEach((k) => { if (!k.job || k.job === c.job) s[k.id] = k.gold.length; });   // 이 직업이 배울 수 있는 스킬은 모두 최고 레벨
   const wy = c.adv === "wyvern";
-  const w = !gambler && (!necro || wy) && c.weapon && weaponsFor(c.job, blood, wy).find((q) => q.id === c.weapon);   // Gambler 002 는 무기를 들지 않는다 · Wyvern Knight 006 은 아르카디온만
+  const w = !gambler && (!necro || wy || c.adv === "necro") && c.weapon && weaponsFor(c.job, blood, wy, c.adv === "necro").find((q) => q.id === c.weapon);   // Necromancer 004 는 그림자 낫만   // Gambler 002 는 무기를 들지 않는다 · Wyvern Knight 006 은 아르카디온만
   const lv = Math.max(1, Math.min(LV_TOP, Math.floor(c.lv) || 1));
   rpgJoin(g, 0, {
     name: look.name, ts: 1, lv, gift: GIFT.id, rs: RESET.id, auto: 1,
@@ -404,16 +404,16 @@ export default function Sandbox() {
   skToggle.current = () => { if (!skJob) return; setNcOpen(false); setKeysOpen(false); setSkOpen((o) => !o); };
   const magic = hasElem(cfg.job);
   const advs = ADV_CLASSES.filter((q) => q.job === cfg.job);
-  const weapons = useMemo(() => weaponsFor(cfg.job, blood, wyvern), [cfg.job, blood, wyvern]);
+  const weapons = useMemo(() => weaponsFor(cfg.job, blood, wyvern, necro), [cfg.job, blood, wyvern, necro]);
 
   // 직업이 바뀌면 그 직업에 없는 전직 · 무기 · 직업 스킬을 비운다
   const pickJob = (job) => setCfg((c) => ({
     ...c, job,
     adv: c.adv === "blood" || c.adv === "gambler" || c.adv === "engineer" || c.adv === "necro" || c.adv === "illusion" || c.adv === "wyvern" || ADV_CLASSES.some((q) => q.id === c.adv && q.job === job) ? c.adv : "",
-    weapon: weaponsFor(job, c.adv === "blood", c.adv === "wyvern").some((w) => w.id === c.weapon) ? c.weapon : "",
+    weapon: weaponsFor(job, c.adv === "blood", c.adv === "wyvern", c.adv === "necro").some((w) => w.id === c.weapon) ? c.weapon : "",
     ks: { ...c.ks, job: "" },
   }));
-  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "wyvern" ? WY_WEAPON_ITEM.id : adv === "gambler" || adv === "engineer" || adv === "necro" || adv === "illusion" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
+  const pickAdv = (adv) => setCfg((c) => ({ ...c, adv, weapon: adv === "wyvern" ? WY_WEAPON_ITEM.id : adv === "necro" ? NC_WEAPON_ITEM.id : adv === "gambler" || adv === "engineer" || adv === "illusion" ? "" : weaponsFor(c.job, adv === "blood").some((w) => w.id === c.weapon) ? c.weapon : adv === "blood" ? "blood_gun" : "" }));
   const commitLv = () => {
     const v = Math.max(1, Math.min(LV_TOP, Math.floor(Number(lvText)) || 1));
     setLvText(String(v));
@@ -850,9 +850,9 @@ export default function Sandbox() {
                 <button type="button" className={`jt-chip ${cfg.stats === "spread" ? "on" : ""}`} aria-pressed={cfg.stats === "spread"} onClick={() => set({ stats: "spread" })}>레벨만큼 나눔</button>
                 <button type="button" className={`jt-chip ${cfg.stats === "max" ? "on" : ""}`} aria-pressed={cfg.stats === "max"} onClick={() => set({ stats: "max" })}>스탯 최대</button>
               </div>
-              {(!hidden || wyvern) && <label className="sb-row">무기
+              {(!hidden || wyvern || necro) && <label className="sb-row">무기
                 <select value={cfg.weapon} onChange={(e) => set({ weapon: e.target.value })}>
-                  {!blood && <option value="">{wyvern ? "맨손(아르카디온 기술을 못 씀)" : "맨손(기본 무기)"}</option>}
+                  {!blood && <option value="">{wyvern ? "맨손(아르카디온 기술을 못 씀)" : necro ? "맨손(그림자 낫을 못 휘두름)" : "맨손(기본 무기)"}</option>}
                   {weapons.map((w) => <option key={w.id} value={w.id}>{w.name}{w.hold ? " · 미공개" : ""}</option>)}
                 </select>
               </label>}

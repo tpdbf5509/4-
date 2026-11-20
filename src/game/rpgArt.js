@@ -26,7 +26,7 @@ import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js'
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
 import { WYVERN_CAP, wyvernUnitOf, drawWyvernUnit, drawWyvernHero, wyvernAir } from './wyvernArt.js';   // Wyvern Knight 006 — 와이번 · 반룡 날개 · 공중 높이
 import { wyvernLook } from './wyvernJob.js';
-import { necroLook } from './necroJob.js';
+import { necroLook, ncArmed } from './necroJob.js';
 import { illusionLook } from './illusionJob.js';   // 히든 직업 Illusionist 005 — 무기 그림을 들지 않는다
 import { ILLUSION_CAP } from './illusionArt.js';
 import { NECRO_CAP, necroShadowsOf, drawNecroShadowOf, drawNecroTraces, drawNecroScythe, setNecroMobPainter } from './necroArt.js';   // 그림자 병사 · 추출 가능 흔적
@@ -2443,7 +2443,7 @@ function drawHero(ctx, g, h, time) {
     const bjv = !down && (h.bdv || h.bd) ? bloodView(h) : null;   // BLOOD-001 혈검(11월 15일) — 만드는 중 · 든 검 · 베기(방장 · 손님 모두 스냅샷 값)
     if (bjv) warmBloodJob();
     if (bjv && bjv.sw) drawBloodBlade(ctx, h, bjv, view, flip, ww, hh, top, true, time);
-    const ncs = !down && necroLook(h);              // Necromancer 004 — 손에 든 그림자 낫(근접 평타, 11월 17일 사용자)
+    const ncs = !down && necroLook(h) && ncArmed(h);              // Necromancer 004 — 손에 든 그림자 낫(근접 평타, 11월 17일 사용자)
     if (ncs) drawNecroScythe(ctx, h, view, ww, hh, top, true, time);
     const wyh = !down && wyvernLook(h);             // Wyvern Knight 006 — 역린 해방 날개(몸 뒤) · 용린 · 반룡 기운(몸 앞)
     if (wyh) drawWyvernHero(ctx, h, ww, hh, top, true, time, view, flip);

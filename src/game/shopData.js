@@ -1,7 +1,8 @@
 import { STORM_WEAPONS } from './stormWeaponData.js';
 import { WORLD_WEAPONS, VOID_WEAPONS } from "./worldEquipmentData.js";
 import { BLOOD_GUN_ITEM } from "./bloodGunData.js";
-import { WY_WEAPON_ITEM } from "./wyvernData.js";   // Wyvern Knight 006 전용 아르카디온(11월 18일 — 격자 연습장에서만 든다)
+import { WY_WEAPON_ITEM } from "./wyvernData.js";
+import { NC_WEAPON_ITEM } from "./necroData.js";   // Necromancer 004 전용 그림자 낫(11월 20일 — 격자 연습장에서만 든다)   // Wyvern Knight 006 전용 아르카디온(11월 18일 — 격자 연습장에서만 든다)
 import { JOB_SKILLS } from "./skillData.js";
 import { bagExtra } from "./junkData.js";
 import { DEEP_MAPS } from "./deepData.js";
@@ -98,6 +99,7 @@ export const SPECIALS = [
   { id: "holy_staff", name: "신성 지팡이", t: "staff", lv: 100, g: 4, stat: "int", amt: 240, art: "holy_staff" },
   // 획득처를 정하기 전(hold) — 상점 · 특가 · 랜덤 상자 · 관리자 자동 지급에 나오지 않는다. 관리자 /지급 으로만 받는다(10월 26일)
   { id: "fury_staff", name: "적룡 지팡이", t: "staff", lv: 100, g: 4, stat: "int", amt: 260, art: "fury_staff", hold: 1 },
+  NC_WEAPON_ITEM,   // 그림자 낫(11월 20일) — Necromancer 004 전용(hj). hold 라 어디서도 얻지 못한다
   WY_WEAPON_ITEM,   // 아르카디온(11월 18일) — Wyvern Knight 006 전용(hj). hold 라 어디서도 얻지 못하고 관리자 /지급 목록에도 없다
   BLOOD_GUN_ITEM,   // 크림슨 레퀴엠(11월 13일) — 전용 스킬 혈계 추격(bloodGunData.js). 얻는 곳을 정하기 전이라 hold
   // 활 — 궁수 공격력인 물리력을 올린다. 초보 궁수가 살 활이 50레벨까지 없어 레벨 · 값을 낮췄다(10월 21일).

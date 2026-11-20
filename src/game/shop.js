@@ -29,9 +29,10 @@ import { cleanBlocks } from "./block.js";
 import { cleanBd, bloodOn, dropBlood, bloodWeaponOk } from "./bloodJob.js";
 import { gamblerOn, dropGambler, cleanHj } from "./gamblerJob.js";
 import { engineerOn } from "./engineerJob.js";
-import { necroOn } from "./necroJob.js";
+import { necroOn, ncWeaponOk } from "./necroJob.js";
 import { wyvernOn, wyWeaponOk } from "./wyvernJob.js";
 import { WY_WEAPON_ITEM } from "./wyvernData.js";
+import { NC_WEAPON_ITEM } from "./necroData.js";
 import { illusionOn } from "./illusionJob.js";
 import { cleanGu } from "./gamblerUnlock.js";
 import { cleanEu } from "./engineerQuest.js";   // Engineer 003 획득 루트 진행(11월 19일)
@@ -398,8 +399,9 @@ export function whyEquip(h, u) {
   else if (engineerOn(h)) out.push("Engineer 003 은 무기를 들 수 없습니다");   // 무기 장착 금지(기획안 공통 규칙)   // 무기 장착 금지(사용자 기획) — 가방의 무기는 그대로 남는다
   else if (wyvernOn(h) && !wyWeaponOk(w)) out.push("Wyvern Knight 006 은 아르카디온만 들 수 있습니다");   // 11월 18일 사용자 — 레퀴엠처럼 전용 무기 하나만
   else if (!wyvernOn(h) && w.sp === WY_WEAPON_ITEM.id) out.push("아르카디온은 Wyvern Knight 006 만 들 수 있습니다");
+  else if (!necroOn(h) && w.sp === NC_WEAPON_ITEM.id) out.push(`${NC_WEAPON_ITEM.name}은 Necromancer 004 만 들 수 있습니다`);
   else if (illusionOn(h)) out.push("Illusionist 005 는 무기를 들 수 없습니다");   // 연습장 전용 — 카드는 직업 고유 투사체(무기 아님)
-  else if (necroOn(h)) out.push("Necromancer 004 는 무기를 들 수 없습니다");   // 히든 직업 공통 — 무기 금지(연습장에서만 켜진다)   // 무기 장착 금지(사용자 기획) — 가방의 무기는 그대로 남는다
+  else if (necroOn(h) && !ncWeaponOk(w)) out.push(`Necromancer 004 는 ${NC_WEAPON_ITEM.name}만 들 수 있습니다`);   // 11월 20일 사용자 — 아르카디온처럼 전용 무기 하나만   // 히든 직업 공통 — 무기 금지(연습장에서만 켜진다)   // 무기 장착 금지(사용자 기획) — 가방의 무기는 그대로 남는다
   return out;
 }
 

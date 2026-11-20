@@ -12,7 +12,7 @@
 import { faceAim } from './faceDir.js';
 import { NECRO as NC, NECRO_ID, NECRO_NAME, NECRO_TINT, NC_TRAIN_NAMES, NC_SOUL as SOUL, NC_ROSTER as RS, NC_TRACE as TR, NC_KINDS, NC_KIND_OF,
   NC_SCYTHE as SC, NC_EXTRACT as EX, NC_SUMMON as SM, NC_AI as AI, NC_SWAP as SW, NC_DOMAIN as DM, NC_MARCH as MC, NC_BURN as BN, NC_LEGION as LG,
-  NC_ETERNAL as ET, NC_SKILLS, NC_BOSS_SKILL, NC_BOSS_SK as BSK, NC_NAME } from "./necroData.js";
+  NC_ETERNAL as ET, NC_SKILLS, NC_BOSS_SKILL, NC_BOSS_SK as BSK, NC_NAME, NC_WEAPON_ITEM } from "./necroData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -70,6 +70,10 @@ export function cleanNcJob(d) {
 // 이 직업인가 — 판정은 가방 값으로만 본다. NECRO.live 를 끄면 연습장(sandbox 맵)에서만 켜진다
 export const necroOn = (h) => !!(h && h.bag && h.bag.hj && h.bag.hj.active === NECRO_ID && h.bag.hj.jobs && h.bag.hj.jobs[NECRO_ID] && (NC.live || h.map === "sandbox"));
 export const necroLook = (h) => !!(h && (h.ncv || necroOn(h)));
+// 그림자 낫(11월 20일 사용자 "낫도 전용무기로") — 이 직업은 그림자 낫만 든다 · 들고 있어야 평타. 손님 화면은 h.wsp(든 특별 무기)로 본다
+export const ncWeaponOk = (w) => !w || w.sp === NC_WEAPON_ITEM.id;
+const heldSp = (h) => { if (!h) return ""; if (h.wsp !== undefined) return h.wsp; const b = h.bag, w = b && b.e && b.w ? b.w.find((q) => q.u === b.e) : null; return (w && w.sp) || ""; };
+export const ncArmed = (h) => heldSp(h) === NC_WEAPON_ITEM.id;
 const jobOf = (h) => h.bag.hj.jobs[NECRO_ID];
 export const ncTrainSum = (J) => (J ? J.tr.reduce((n, q) => n + q[0], 0) : 0);
 export const necroTint = (sum) => NECRO_TINT.find((t) => sum >= t.from).id;
@@ -92,7 +96,7 @@ export function unlockNecro(h, init) {
   if (h.bag.bd && h.bag.bd.on) h.bag.bd = { ...h.bag.bd, on: 0 };
   h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
   h.bd = null; h.gm = null;
-  h.bag.e = 0;
+  if (!ncArmed(h)) h.bag.e = 0;                     // 그림자 낫이 아니면 내려놓는다(지우지 않는다)
   h.nc = null;
   h.bag.v = (h.bag.v || 0) + 1;
 }
@@ -236,7 +240,12 @@ const pay = (E, g, h, sk) => { const s = st(h), D = NC_SKILLS[sk]; s.soul -= D.c
    s.reaps = [{ w 맞기까지, ax, ay 휘두른 쪽, cast, base, basic, map }] — wind 초 뒤 앞쪽 부채꼴 안을 한 번에 벤다 */
 export function necroBasic(E, g, h, force) {
   if (!necroOn(h)) return false;
-  const s = st(h), o = nearest(E, g, h, h.x, h.y, SC.reach + 20, h.map);
+  const s = st(h);
+  if (!ncArmed(h)) {                                    // 그림자 낫을 들어야 휘두른다 — 누를 때만 2초에 한 번 알린다
+    if (force && !(g.t - (s.noW || -9) < 2)) { s.noW = g.t; no(E, g, h, `${NC_WEAPON_ITEM.name}을 들어야 합니다`, RED); }
+    return false;
+  }
+  const o = nearest(E, g, h, h.x, h.y, SC.reach + 20, h.map);
   if (!o && !force) return false;
   let ax, ay;
   if (o) { const dx = o.x - h.x, dy = (o.y - h.y) / E.squash, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }

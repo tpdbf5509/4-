@@ -24,7 +24,7 @@ const near = (a, b, eps = 0.03, msg = '') => assert.ok(Math.abs(a / b - 1) < eps
 function setup(lv = 200, tr = [0, 0, 0], roster = []) {
   const g = makeWorld(); g.out = []; g.test = 1; g.high = true; g.wb.lastHour = Infinity;
   rpgSyncSeats(g, [{ id: 'n0', name: '군주', hero: { name: '군주', job: 'mage', gender: 'm' } }]);
-  rpgJoin(g, 0, { name: '군주', rs: RESET.id, gift: GIFT.id, lv: 250, ts: 0, coins: 1000, stats: { str: 100, int: 40, hp: 100 }, bag: { oc: 1, n: 2, w: [{ u: 1, t: 'staff', r: 0, g: 0, p: 0 }], e: 1 } }, 'n0');
+  rpgJoin(g, 0, { name: '군주', rs: RESET.id, gift: GIFT.id, lv: 250, ts: 0, coins: 1000, stats: { str: 100, int: 40, hp: 100 }, bag: { oc: 1, n: 2, w: [{ u: 1, sp: 'nc_scythe', p: 0 }], e: 1 } }, 'n0');   // 전용 무기 그림자 낫을 든다(11월 20일)
   const h = g.heroes[0];
   h.map = SANDBOX.id; h.x = 900; h.y = 900; h.auto = 0; h.look = [1, 0]; h.dir = 1;
   unlockNecro(h, { lv, tr: tr.map(l => [l, 0]), roster });
@@ -53,8 +53,7 @@ test('연습장에만 — live 가 꺼져 있고 연습장 맵 밖에서는 직�
   assert.ok(NC_SLOTS.every(q => KEY_ACTIONS.some(a => a.id === q.act)));
   assert.ok(!holds(h.bag, 'gambler') && !holds(h.bag, 'blood'), '유일 규칙의 다른 직업으로 세지 않는다');
   assert.equal(cleanHj(h.bag.hj, false), null, '저장(cleanHj)은 아직 이 직업을 싣지 않는다 — 실제 게임에 넣을 때 연결');
-  assert.equal(h.bag.e, 0, '든 무기는 내려놓는다');
-  assert.ok(whyEquip(h, 1).some(t => t.includes('무기를 들 수 없습니다')));
+  assert.equal(h.bag.e, 1, '전용 무기 그림자 낫은 그대로 든다(11월 20일 — 다른 무기는 내려놓는다)');
   const m = mob(g, h.x + 150, h.y);
   rpgInput(g, { cls: 0, kind: 'skill' }); rpgInput(g, { cls: 0, kind: 'wskill' }); run(g, .5);
   assert.equal(m.hp, HP, '큰 기술 · 무기 스킬은 나가지 않는다');
@@ -344,3 +343,26 @@ test('그림자 이름 — 처음 등록하면 묻고 · 내린 이름이 명부
   assert.equal(cleanNcName('<b>a\nb</b>'), 'bab/b', '꺾쇠 · 줄바꿈을 지운다');
 });
 function cleanNcRoster(h) { return cleanNcJob(h.bag.hj.jobs.necromancer).roster[0].nm; }
+
+test('그림자 낫 전용 무기 — 이 직업만 · 이것만 들고 · 들어야 평타 · 숨은 무기(hold · hj) · 가방 그림', async () => {
+  const { NC_WEAPON_ITEM } = await import('../src/game/necroData.js');
+  const { SPECIALS } = await import('../src/game/shopData.js');
+  const { ncArmed } = await import('../src/game/necroJob.js');
+  const sp = SPECIALS.find(q => q.id === NC_WEAPON_ITEM.id);
+  assert.ok(sp && sp.hold && sp.hj === 'necromancer');
+  assert.ok(existsSync('public/assets/game/rpg/weapons/nc_scythe.webp'), '가방 그림');
+  const { g, h } = setup();
+  assert.ok(ncArmed(h), '들고 있다');
+  h.bag.w.push({ u: 2, t: 'staff', r: 0, g: 0, p: 0 });
+  assert.ok(whyEquip(h, 2).some(t => t.includes('그림자 낫만')), '다른 무기는 못 든다');
+  assert.deepEqual(whyEquip(h, 1), [], '그림자 낫은 든다');
+  // 맨손이면 평타가 나가지 않는다
+  h.bag.e = 0; const m = mob(g, h.x + 100, h.y);
+  fire(g, true); step(g, .01); fire(g, false); run(g, .45);
+  assert.equal(m.hp, HP, '맨손 — 휘두르지 못한다');
+  h.bag.e = 1; h.cd = 0; fire(g, true); step(g, .01); fire(g, false); run(g, .45);
+  assert.ok(m.hp < HP, '들면 휘두른다');
+  // 다른 직업은 못 든다
+  const b = setup(); b.h.bag.hj.active = '';
+  assert.ok(whyEquip(b.h, 1).some(t => t.includes('Necromancer 004 만')));
+});

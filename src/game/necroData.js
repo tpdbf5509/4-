@@ -200,3 +200,9 @@ export const NC_BOSS_SKILL = {
 /* 그림자 이름(11월 20일 사용자 "처음 추출한 몬스터에 이름을 정할 수 있게, 저장한 이름은 어딜가도 유지") — 처음 등록할 때 이름을 묻는다.
    글자 수는 캐릭터 이름과 같은 8자(rpg.js NAME_MAX). 이 저장소에 금지어 목록이 없어 욕설 줄기만 짧게 막는다(정한 값 · 띄어 쓰기를 빼고 본다) */
 export const NC_NAME = { max: 8, ban: ["시발", "씨발", "씨빨", "시바ㄹ", "ㅅㅂ", "ㅆㅂ", "병신", "ㅂㅅ", "좆", "존나", "지랄", "개새", "새끼", "미친놈", "니미", "fuck", "shit", "bitch"] };
+
+/* 그림자 낫 — Necromancer 004 전용 무기(11월 20일 사용자 "낫도 전용무기로 만들자"). Wyvern Knight 006 아르카디온과 같은 방식:
+   이 직업은 이 무기만 들 수 있고 다른 직업은 들 수 없다. 들어야 평타(그림자 낫)를 휘두른다 — 손에 든 그림도 들었을 때만(정한 해석).
+   hold — 상점 · 특가 · 상자 · 관리자 자동 지급에 없고, hj 표시라 관리자 /지급 목록에도 없다. 레벨 · 등급 · 올리는 양은 아르카디온 · 크림슨 레퀴엠과 같은 단계,
+   스탯은 지능(주술 직업 — 정한 값). 손에 든 그림은 necroArt.js(시트 nc_scythe), 가방 그림은 rpg/weapons/nc_scythe.webp */
+export const NC_WEAPON_ITEM = { id: "nc_scythe", name: "그림자 낫", t: "staff", lv: 100, g: 4, stat: "int", amt: 260, art: "nc_scythe", hold: 1, hj: "necromancer" };

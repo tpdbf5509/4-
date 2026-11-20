@@ -61,10 +61,10 @@ export const NC_DOMAIN_PFX = { pop: [["nc_pf_hands", 5], ["nc_pf_portal", 2]], k
 
 /* 보스 그림자 그림(11월 20일 사용자가 직접 그린 그림) — 이 몹들은 코드로 그림자화하지 않고 이 그림을 그대로 쓴다.
    tools/cut-necro-boss.py 가 원본을 boss/<몹 종류>.webp 로 옮긴다(이름 목록이 같아야 한다 — tools/necro.test.mjs).
-   값 = 그림자 키(px). 0 이면 다른 큰 몹과 같은 최대 크기(necroArt SIL_MAXH · SIL_MAXW 안). 해골은 졸개라 작게 둔다(정한 값) */
+   값 = 그림자 키(px). 0 이면 다른 큰 몹과 같은 최대 크기(necroArt SIL_MAXH · SIL_MAXW 안). */
 export const NC_BOSS_SRC = "/assets/game/rpg/effects/hidden-jobs/necromancer/boss/";
 export const NC_BOSS_ART = {
-  gramor: 0, argas: 0, morgas: 0, barkanon: 0, serka: 0, skeleton: 64,
+  gramor: 0, argas: 0, morgas: 0, barkanon: 0, serka: 0,
   guild_slime: 0, guild_siren: 0, guild_phoenix: 0,
   tg_fire: 0, tg_frost: 0, tg_bolt: 0, tg_poison: 0, tg_corrode: 0, tg_gravity: 0,
   world_dragon: 0, world_serpent: 0, world_machine: 0, world_thunderbird: 0, world_void: 0,

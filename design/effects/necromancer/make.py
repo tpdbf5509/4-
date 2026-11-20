@@ -691,15 +691,18 @@ def puff_cells(n=6):
 # 예전 직접 그린 낫과 같은 자세 · 길이: 쥔 손에서 자루가 위 끝(물미)은 오른쪽 위, 날 뿌리(해골)는 왼쪽 아래로 가고 큰 날이 위로 솟는다.
 # 위아래를 뒤집어 자루 방향을 SCY_DIR 에 맞추고, 물미 → 해골 길이를 예전 자루 길이(63)에 맞춘다. 화면에 1:1 로 그리도록 SCY_RES 배 해상도로 뽑는다
 # (necroArt.js NC_SCY_K = 2 / SCY_RES). 0 기본 · 1 보라 빛이 조금 밝다(번갈아 반복).
+import importlib.util as _iu
+_sp = _iu.spec_from_file_location("cut_nc_scythe_fn", os.path.join(HERE, "..", "..", "..", "tools", "nc_unteal.py")); _m = _iu.module_from_spec(_sp); _sp.loader.exec_module(_m); unteal = _m.unteal
 SCY_SRC = os.path.join(HERE, "..", "..", "necro-job", "ref", "scythe-clean.png")
 SCY_BUTT, SCY_HEAD = (1069, 645), (495, 160)   # 원본 속 물미 구슬 · 해골(자루 축의 두 끝)
 SCY_LEN, SCY_HOLD, SCY_RES = 63, 23, 2          # 예전 자루 길이 · 물미에서 쥔 손까지(예전 그림 단위) · 해상도 배수
+SCY_SIZE = 0.5                                  # 크기 배율 — 11월 20일 사용자 "캐릭터보다 무기가 너무 커"로 예전 길이의 절반(쥔 자리 비율은 그대로)
 SCY_DIR = math.atan2(.73, -.68)                 # 쥔 손 → 날 뿌리 방향(necroArt.js NC_SHAFT 와 같다)
 def scythe_cells():
     src = Image.open(SCY_SRC).convert("RGBA").transpose(Image.FLIP_TOP_BOTTOM)
     H0 = src.size[1]
     bx, by = SCY_BUTT[0], H0 - 1 - SCY_BUTT[1]; hx, hy = SCY_HEAD[0], H0 - 1 - SCY_HEAD[1]
-    L = math.hypot(hx - bx, hy - by); k = SCY_LEN * SCY_RES / L
+    L = math.hypot(hx - bx, hy - by); k = SCY_LEN * SCY_SIZE * SCY_RES / L
     rot = math.degrees(math.atan2(hy - by, hx - bx) - SCY_DIR)   # PIL rotate 는 반시계(화면 기준) — 이만큼 돌리면 SCY_DIR 이 된다
     gx = bx + (hx - bx) * SCY_HOLD / SCY_LEN; gy = by + (hy - by) * SCY_HOLD / SCY_LEN
     im = src.convert("RGBa").resize((round(src.size[0] * k), round(src.size[1] * k)), Image.LANCZOS)
@@ -712,7 +715,7 @@ def scythe_cells():
     big = big.convert("RGBA"); a = np.asarray(big).copy(); a[a[:, :, 3] < 24] = 0
     big = Image.fromarray(a, "RGBA"); x0, y0, x1, y1 = big.getbbox(); a = a[y0:y1, x0:x1]
     grip = (round(gx - x0), round(gy - y0))
-    a[:, :, 1] = np.minimum(a[:, :, 1], np.maximum(a[:, :, 0], a[:, :, 2]))           # 줄일 때 반투명 가장자리에 생기는 초록 기운을 다시 누른다
+    a[:, :, :3] = unteal(a[:, :, :3]).astype(np.uint8)                                 # 줄일 때 반투명 가장자리에 생기는 초록 · 청록 기운을 다시 지운다
     out = []
     for i in range(2):
         c = Cv(a.shape[1], a.shape[0]); b = a.astype(float)

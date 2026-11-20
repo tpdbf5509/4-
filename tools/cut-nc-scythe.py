@@ -5,6 +5,7 @@
 import os
 import numpy as np
 from PIL import Image
+from nc_unteal import unteal
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "design/necro-job/ref/scythe-user.jpg")
@@ -23,6 +24,7 @@ safe = np.maximum(al, 1e-3)[:, :, None]
 rgb = np.clip((a - BG * (1 - al[:, :, None])) / safe, 0, 255)
 # 초록 기운 빼기(11월 20일 사용자 "녹색 끼 없애줘") — 낫에는 초록이 없으니 초록을 빨강 · 파랑 중 큰 값 아래로 누른다(연기는 회보라가 된다)
 rgb[:, :, 1] = np.minimum(rgb[:, :, 1], np.maximum(rgb[:, :, 0], rgb[:, :, 2]) * SPILL)
+rgb = unteal(rgb)
 al[al < 0.08] = 0
 im = np.dstack([rgb, al * 255]).astype(np.uint8)
 out = Image.fromarray(im, "RGBA")

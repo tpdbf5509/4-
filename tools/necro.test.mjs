@@ -35,7 +35,7 @@ function setup(lv = 200, tr = [0, 0, 0], roster = []) {
 const step = (g, dt) => { rpgStep(g, dt); g.mobs = g.mobs.filter(m => m.type !== 'dummy'); };
 const run = (g, t) => { for (let n = 0; n < Math.round(t / .01); n++) step(g, .01); };
 function mob(g, x, y, extra = {}) { const m = { ...structuredClone(proto), id: g.nextId++, map: SANDBOX.id, x, y, hp: HP, max: HP, stun: 999, dead: false, ...extra }; g.mobs.push(m); return m; }
-const use = (g, s, pt) => rpgInput(g, { cls: 0, kind: 'hidden', dir: { op: 'use', s }, ...(pt ? { aim: [1, 0], pt } : {}) });
+const cast = (g, s, pt) => rpgInput(g, { cls: 0, kind: 'hidden', dir: { op: 'use', s }, ...(pt ? { aim: [1, 0], pt } : {}) });
 const fire = (g, on) => rpgInput(g, { cls: 0, kind: 'fire', dir: on });
 const soul = (h, n) => { h.nc.soul = n; };
 const FIVE = [{ t: 'goblin', n: '고블린', g: 1, x: 0 }, { t: 'wolf', n: '늑대', g: 1, x: 0 }, { t: 'skeletal', n: '스켈레톤', g: 1, x: 0 }, { t: 'necro', n: '언데드 마법사', g: 1, x: 0 }, { t: 'ogre', n: '오우거', g: 1, x: 0 }];
@@ -84,18 +84,18 @@ test('처치 — 영혼 +10 · 직업 경험치 · 8초짜리 흔적. 흔적 추
   assert.equal(v.traces.length, 1);
   assert.equal(kindOf('goblin'), 'knight');
   soul(h, 100);
-  use(g, 'extract'); run(g, EX.done + .05);
+  cast(g, 'extract'); run(g, EX.done + .05);
   assert.deepEqual(necroView(h).roster.map(q => [q.t, q.g]), [['goblin', 1]]);
   assert.equal(necroView(h).soul, 100 - EX.cost);
   // 흔적이 없으면 영혼 · 대기를 쓰지 않는다
-  h.nc.cd.extract = 0; use(g, 'extract'); run(g, .1);
+  h.nc.cd.extract = 0; cast(g, 'extract'); run(g, .1);
   assert.equal(necroView(h).soul, 100 - EX.cost); assert.equal(h.nc.cd.extract, 0);
   // 같은 종류 두 번 더 → 2등급(비용 2)
   for (let i = 0; i < 2; i++) {
     sandboxMobs(g, SANDBOX.id, [[h.x + 150, h.y, 'goblin']]);
     const q = g.mobs.find(o => o.sb && !o.dead); q.hp = 1; h.cd = 0;
     fire(g, true); step(g, .01); fire(g, false); run(g, .5);
-    h.nc.cd.extract = 0; soul(h, 100); use(g, 'extract'); run(g, EX.done + .05);
+    h.nc.cd.extract = 0; soul(h, 100); cast(g, 'extract'); run(g, EX.done + .05);
   }
   assert.equal(necroView(h).roster[0].g, 2);
   // 흔적은 8초 뒤 사라진다
@@ -124,7 +124,7 @@ test('그림자 소환 — 영혼 30 · 등급 높은 순 5기 · 20초 · 1.4�
   const { g, h } = setup(200, [0, 0, 0], [...FIVE, { t: 'orc', n: '오크', g: 3, x: 0 }]);
   soul(h, 100);
   const m = mob(g, h.x + 60, h.y);
-  use(g, 'summon');
+  cast(g, 'summon');
   assert.equal(h.nc.sh.length, SM.max);
   assert.equal(h.nc.sh[0].t, 'orc', '등급 높은 것부터');
   assert.equal(necroView(h).soul, 100 - SM.cost);
@@ -139,10 +139,10 @@ test('그림자 소환 — 영혼 30 · 등급 높은 순 5기 · 20초 · 1.4�
 
 test('명부가 비면 소집하지 않는다 · 쓰러지면 그림자 · 영혼을 걷는다 · 맵을 옮기면 그림자가 사라진다', () => {
   const { g, h } = setup();
-  soul(h, 100); use(g, 'summon');
+  soul(h, 100); cast(g, 'summon');
   assert.equal(h.nc.sh.length, 0); assert.equal(necroView(h).soul, 100);
   const b = setup(200, [0, 0, 0], FIVE);
-  soul(b.h, 100); use(b.g, 'summon'); run(b.g, .6);
+  soul(b.h, 100); cast(b.g, 'summon'); run(b.g, .6);
   assert.equal(b.h.nc.sh.length, 5);
   b.h.map = 'field';
   run(b.g, .05);
@@ -151,9 +151,9 @@ test('명부가 비면 소집하지 않는다 · 쓰러지면 그림자 · 영�
 
 test('그림자 교환 — 포인터에 가까운 내 그림자와 0.18초에 자리를 바꾼다(피해 없음)', () => {
   const { g, h } = setup(200, [0, 0, 0], FIVE);
-  soul(h, 100); use(g, 'summon'); run(g, .6);
+  soul(h, 100); cast(g, 'summon'); run(g, .6);
   const sd = h.nc.sh[2]; sd.x = h.x + 400; sd.y = h.y; const at = [sd.x, sd.y], from = [h.x, h.y];
-  use(g, 'swap', [sd.x, sd.y]);
+  cast(g, 'swap', [sd.x, sd.y]);
   run(g, SW.at + .02);
   assert.ok(Math.abs(h.x - at[0]) < 2 && Math.abs(h.y - at[1]) < 2, `캐릭터가 그림자 자리로 ${h.x},${h.y}`);
   assert.ok(Math.hypot(sd.x - from[0], sd.y - from[1]) < 40, '그림자는 캐릭터 자리 곁으로');
@@ -162,11 +162,11 @@ test('그림자 교환 — 포인터에 가까운 내 그림자와 0.18초에 �
 test('일제 진군 — 살아 있는 그림자마다 ×7(지휘 연마 50 → ×11) · 0.65초 안에 끝 · 한 시전', () => {
   for (const [tr, mul] of [[0, MC.mul], [50, MC.mul50]]) {
     const { g, h } = setup(200, [0, tr, 0], FIVE);
-    soul(h, 100); use(g, 'summon'); run(g, .6);
+    soul(h, 100); cast(g, 'summon'); run(g, .6);
     const m = mob(g, h.x + 1400, h.y);           // 그림자가 평소에는 닿지 않는 곳
     const far = mob(g, h.x + 300, h.y);
     for (const sd of h.nc.sh) sd.cd = 99;        // 평소 공격은 막아 진군 피해만 잰다
-    use(g, 'march', [far.x, far.y]); run(g, MC.last + .05);
+    cast(g, 'march', [far.x, far.y]); run(g, MC.last + .05);
     const grades = h.nc.sh.reduce((n, q) => n + (1 + RS.gradeDmg * (q.g - 1)), 0);
     near(HP - far.hp, U * mul * grades, .03, `연마 ${tr}`);
     assert.equal(m.hp, HP);
@@ -176,10 +176,10 @@ test('일제 진군 — 살아 있는 그림자마다 ×7(지휘 연마 50 → �
 test('군주의 영역 — 10초(군주 연마 25 → 12초) · 안의 그림자 피해 +40%(50 → +70%)', () => {
   for (const [tr, add, dur] of [[0, DM.dmg, DM.dur], [50, DM.dmg50, DM.dur25]]) {
     const { g, h } = setup(200, [0, 0, tr], [FIVE[0]]);
-    soul(h, 100); use(g, 'summon'); run(g, .6);
+    soul(h, 100); cast(g, 'summon'); run(g, .6);
     const sd = h.nc.sh[0]; sd.cd = 99;
     const m = mob(g, h.x + 200, h.y);
-    use(g, 'domain'); step(g, .01);
+    cast(g, 'domain'); step(g, .01);
     sd.x = m.x - 40; sd.y = m.y; sd.cd = 0; const hp0 = m.hp;
     run(g, .5);
     near(hp0 - m.hp, U * SM.mul * (1 + add), .03, `군주 연마 ${tr}`);
@@ -189,17 +189,17 @@ test('군주의 영역 — 10초(군주 연마 25 → 12초) · 안의 그림자
 
 test('영혼 소각 — 나와 있는 그림자를 모두 써서 1기당 ×15 · 쓴 종류는 8초 동안 다시 부르지 못한다', () => {
   const { g, h } = setup(200, [0, 0, 0], FIVE);
-  soul(h, 100); use(g, 'summon'); run(g, .6);
+  soul(h, 100); cast(g, 'summon'); run(g, .6);
   for (const sd of h.nc.sh) sd.cd = 99;
   const m = mob(g, h.x + 300, h.y);
-  soul(h, 100); use(g, 'burn', [m.x, m.y]);
+  soul(h, 100); cast(g, 'burn', [m.x, m.y]);
   assert.equal(h.nc.sh.length, 0);
   run(g, BN.boom + BN.gap * 5 + .05);
   near(HP - m.hp, U * BN.mul * 5);
   assert.equal(necroView(h).roster.length, 5, '명부는 그대로');
-  h.nc.cd.summon = 0; soul(h, 100); use(g, 'summon');
+  h.nc.cd.summon = 0; soul(h, 100); cast(g, 'summon');
   assert.equal(h.nc.sh.length, 0, '8초 동안은 부르지 못한다');
-  run(g, BN.lock); h.nc.cd.summon = 0; soul(h, 100); use(g, 'summon');
+  run(g, BN.lock); h.nc.cd.summon = 0; soul(h, 100); cast(g, 'summon');
   assert.equal(h.nc.sh.length, 5);
 });
 
@@ -208,7 +208,7 @@ test('무명의 군세 — 영혼 70 · 파동 10번 ×12 + 마지막 ×100(영�
     const { g, h } = setup(200, [tr, tr, tr]);
     soul(h, 100);
     const m = mob(g, h.x + 300, h.y);
-    use(g, 'legion', [m.x, m.y]);
+    cast(g, 'legion', [m.x, m.y]);
     assert.equal(necroView(h).soul, 100 - LG.cost);
     run(g, LG.end + .05);
     near(HP - m.hp, U * (LG.waves * LG.mul + (ncEternal(cleanNcJob({ tr: [[tr, 0], [tr, 0], [tr, 0]] })) ? LG.endMul150 : LG.endMul)));
@@ -217,10 +217,10 @@ test('무명의 군세 — 영혼 70 · 파동 10번 ×12 + 마지막 ×100(영�
 
 test('레벨 해금 · 영혼 부족 · 스택 가득(영혼 100)', () => {
   const { g, h } = setup(14, [0, 0, 0], FIVE);
-  soul(h, 100); use(g, 'summon');
+  soul(h, 100); cast(g, 'summon');
   assert.equal(h.nc.sh.length, 0, '직업 레벨 15 전에는 잠김');
   const b = setup(200, [0, 0, 0], FIVE);
-  soul(b.h, SM.cost - 1); use(b.g, 'summon');
+  soul(b.h, SM.cost - 1); cast(b.g, 'summon');
   assert.equal(b.h.nc.sh.length, 0, '영혼이 모자라면 쓰지 않는다');
   rpgTrain(b.g, 0, { op: 'stack' }); run(b.g, .05);
   assert.equal(necroView(b.h).soul, NC.soul);
@@ -297,7 +297,7 @@ test('보스 그림자 기술 — 보스마다 원래 피해 기술(즉사기 ·
   const { g, h } = setup(200, [0, 0, 0], [{ t: 'gramor', n: '그라모르', g: 1, x: 0 }]);
   soul(h, 100);
   const a = mob(g, h.x + 150, h.y), b = mob(g, h.x + 150, h.y + 150 * 0.62);
-  use(g, 'summon');
+  cast(g, 'summon');
   const S = NC_BOSS_SKILL.gramor[0];
   run(g, S.cd * NC_BOSS_SK.first - 0.2);
   assert.ok(!g.out.some((f) => f.kind === 'sk_nc_boss'), '대기 전에는 쓰지 않는다');
@@ -315,7 +315,7 @@ test('그림자 이름 — 처음 등록하면 묻고 · 내린 이름이 명부
     sandboxMobs(g, SANDBOX.id, [[h.x + 100, h.y, t]]);
     const m = g.mobs.find(q => q.sb && !q.dead); m.hp = 1; h.cd = 0;
     fire(g, true); step(g, .01); fire(g, false); run(g, .5);
-    h.nc.cd.extract = 0; soul(h, 100); use(g, 'extract'); run(g, EX.done + .05);
+    h.nc.cd.extract = 0; soul(h, 100); cast(g, 'extract'); run(g, EX.done + .05);
   };
   const name = (g, d) => rpgInput(g, { cls: 0, kind: 'hidden', dir: { op: 'name', ...d } });
   const { g, h } = setup(200);
@@ -331,7 +331,7 @@ test('그림자 이름 — 처음 등록하면 묻고 · 내린 이름이 명부
   assert.equal(cleanNcRoster(h), '베르 그림자 군', '저장 꼴에도 남는다');
   kill(g, h, 'goblin');
   assert.equal(necroView(h).ask, null, '재추출은 묻지 않는다');
-  soul(h, 100); use(g, 'summon');
+  soul(h, 100); cast(g, 'summon');
   assert.equal(h.nc.sh[0].n, '베르 그림자 군'); assert.equal(h.nc.sh[0].nm, 1);
   name(g, { t: 'goblin', n: '' });
   assert.ok(!necroView(h).roster[0].nm, '비우면 몹 이름으로');

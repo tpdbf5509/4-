@@ -687,44 +687,39 @@ def puff_cells(n=6):
         out.append(c)
     return out
 
-# ── 그림자 군주의 낫(64×62) — 쥔 손 (42, 22). 0 기본 · 1 날에 번개가 흐른다(번갈아 반복) ──
-# 11월 19일 사용자 참고 그림(낫을 비스듬히 든 자세) — 자루는 손 위 뒤쪽(오른쪽 위)에서 몸 앞 아래(왼쪽 아래)로 길게 내려가고,
-# 아래 끝 날 뿌리에서 큰 낫날이 바깥으로 불룩하게 휘며 위로 솟는다(날은 안쪽 · 자루 쪽). 그림은 따라 그리지 않고 자세 · 날 방향만 본다.
-SCY_GRIP = (42, 22)
+# ── 그림자 군주의 낫 — 11월 20일 사용자 그림(design/necro-job/ref/scythe-clean.png, tools/cut-nc-scythe.py 가 초록 바탕을 지운 것)을 옮긴다.
+# 예전 직접 그린 낫과 같은 자세 · 길이: 쥔 손에서 자루가 위 끝(물미)은 오른쪽 위, 날 뿌리(해골)는 왼쪽 아래로 가고 큰 날이 위로 솟는다.
+# 위아래를 뒤집어 자루 방향을 SCY_DIR 에 맞추고, 물미 → 해골 길이를 예전 자루 길이(63)에 맞춘다. 화면에 1:1 로 그리도록 SCY_RES 배 해상도로 뽑는다
+# (necroArt.js NC_SCY_K = 2 / SCY_RES). 0 기본 · 1 보라 빛이 조금 밝다(번갈아 반복).
+SCY_SRC = os.path.join(HERE, "..", "..", "necro-job", "ref", "scythe-clean.png")
+SCY_BUTT, SCY_HEAD = (1069, 645), (495, 160)   # 원본 속 물미 구슬 · 해골(자루 축의 두 끝)
+SCY_LEN, SCY_HOLD, SCY_RES = 63, 23, 2          # 예전 자루 길이 · 물미에서 쥔 손까지(예전 그림 단위) · 해상도 배수
+SCY_DIR = math.atan2(.73, -.68)                 # 쥔 손 → 날 뿌리 방향(necroArt.js NC_SHAFT 와 같다)
 def scythe_cells():
+    src = Image.open(SCY_SRC).convert("RGBA").transpose(Image.FLIP_TOP_BOTTOM)
+    H0 = src.size[1]
+    bx, by = SCY_BUTT[0], H0 - 1 - SCY_BUTT[1]; hx, hy = SCY_HEAD[0], H0 - 1 - SCY_HEAD[1]
+    L = math.hypot(hx - bx, hy - by); k = SCY_LEN * SCY_RES / L
+    rot = math.degrees(math.atan2(hy - by, hx - bx) - SCY_DIR)   # PIL rotate 는 반시계(화면 기준) — 이만큼 돌리면 SCY_DIR 이 된다
+    gx = bx + (hx - bx) * SCY_HOLD / SCY_LEN; gy = by + (hy - by) * SCY_HOLD / SCY_LEN
+    im = src.convert("RGBa").resize((round(src.size[0] * k), round(src.size[1] * k)), Image.LANCZOS)
+    gx, gy = gx * k, gy * k
+    pad = 8; big = Image.new("RGBa", (im.size[0] + pad * 2, im.size[1] + pad * 2)); big.paste(im, (pad, pad)); gx += pad; gy += pad
+    cx0, cy0 = big.size[0] / 2, big.size[1] / 2
+    big = big.rotate(rot, Image.BICUBIC, expand=True)
+    t = math.radians(rot); dx, dy = gx - cx0, gy - cy0                      # 쥔 손 자리도 같이 돌린다(화면 y 아래, 반시계)
+    gx = big.size[0] / 2 + dx * math.cos(t) + dy * math.sin(t); gy = big.size[1] / 2 - dx * math.sin(t) + dy * math.cos(t)
+    big = big.convert("RGBA"); a = np.asarray(big).copy(); a[a[:, :, 3] < 24] = 0
+    big = Image.fromarray(a, "RGBA"); x0, y0, x1, y1 = big.getbbox(); a = a[y0:y1, x0:x1]
+    grip = (round(gx - x0), round(gy - y0))
     out = []
-    gx, gy = SCY_GRIP
-    L = math.hypot(.68, .73); dx, dy = -.68 / L, .73 / L                                 # 손 → 날 뿌리 방향(왼쪽 아래)
-    bx, by = gx - dx * 23, gy - dy * 23                                                  # 자루 위 끝(물미)
-    hx, hy = gx + dx * 40, gy + dy * 40                                                  # 날 뿌리
-    R, a0, a1 = 21, math.radians(118), math.radians(258)
-    ox, oy = hx - math.cos(a0) * R, hy - math.sin(a0) * R                                 # 날 둘레 가운데(날 뿌리에서 오른쪽 위)
     for i in range(2):
-        c = Cv(64, 62)
-        thick(c, bx, by, hx, hy, N[1], 2)                                                # 자루
-        c.line(bx + 1, by, hx + 1, hy, N[3])
-        for k in range(0, 41, 9): c.px(gx + dx * k + 1, gy + dy * k, GV[0])                # 자루 마디
-        for k in (-3, -1, 1, 3): c.px(gx + dx * k, gy + dy * k - 1, N[5])                  # 손잡이 감은 끈
-        c.rect(bx - 1, by - 1, 3, 3, N[0]); c.px(bx, by, GV[2])                           # 물미 — 보라 구슬
-        pts = []
-        for k in range(34):
-            u = k / 33; ang = a0 + (a1 - a0) * u
-            pts.append((ox + math.cos(ang) * R, oy + math.sin(ang) * R, u, ang))
-        for k, (x, y, u, ang) in enumerate(pts):
-            th = 6 if u < .3 else 5 if u < .55 else 4 if u < .75 else 3 if u < .88 else 2 if u < .96 else 1
-            for d in range(th):                                                          # 등(바깥)에서 안쪽(날)으로 두께
-                c.px(x - math.cos(ang) * d, y - math.sin(ang) * d, N[0] if d == 0 else N[2] if d < th - 1 else N[4])
-            ex, ey = x - math.cos(ang) * th, y - math.sin(ang) * th                       # 날 — 안쪽 빛 줄
-            c.px(ex, ey, GV[3] if (i == 1 and k % 3 == 0) else GV[2])
-            if k % 7 == 3 and u < .8: c.px(x + math.cos(ang), y + math.sin(ang), N[3])     # 등의 톱니
-        tx, ty = pts[-1][0], pts[-1][1]; c.px(tx, ty - 1, GV[4]); c.px(tx + 1, ty - 2, GV[3])
-        c.line(hx, hy, hx + 5, hy + 4, N[1]); c.px(hx + 6, hy + 5, GV[2])                 # 날 뿌리 반대쪽 짧은 가시
-        c.rect(hx - 2, hy - 2, 4, 4, N[0]); c.px(hx - 1, hy - 1, GV[4] if i else GV[3]); c.px(hx, hy - 1, GV[2])   # 날 뿌리의 보라 구슬
-        if i == 1:
-            jag(c, pts[8][0] - 2, pts[8][1], 6, 0, -1, GV[3], GV[4], 91)
-            jag(c, pts[20][0] + 1, pts[20][1] - 2, 5, 1, -1, GV[3], GV[4], 37)
-        out.append(c)
-    return out
+        c = Cv(a.shape[1], a.shape[0]); b = a.astype(float)
+        if i == 1:                                                          # 보라 빛(파랑 · 빨강이 초록보다 높은 곳)을 조금 밝힌다
+            m = (b[:, :, 2] > b[:, :, 1] + 40) & (b[:, :, 0] > b[:, :, 1] + 20)
+            b[m, :3] = np.minimum(255, b[m, :3] * 1.3 + 12)
+        c.a = b.astype(np.uint8); out.append(c)
+    return out, grip
 
 # ── 낫 베기(132×122) — 시전자 손 (22, 60) 기준 오른쪽 둘레를 위에서 아래로 크게 벤다. 반지름 R(그림 속) ──
 def reap_cells(n=7, R=64):
@@ -893,7 +888,7 @@ def main():
     sheets["nc_aura"] = pack("nc_aura", aura_cells(), None, man, loop=1, cx=24, cy=60)
     sheets["nc_thunder"] = pack("nc_thunder", thunder_cells(), None, man, cx=15, cy=136)
     sheets["nc_puff"] = pack("nc_puff", puff_cells(), None, man)
-    sheets["nc_scythe"] = pack("nc_scythe", scythe_cells(), None, man, loop=1, cx=SCY_GRIP[0], cy=SCY_GRIP[1])
+    cells, grip = scythe_cells(); sheets["nc_scythe"] = pack("nc_scythe", cells, None, man, loop=1, cx=grip[0], cy=grip[1])
     cells, (cx, cy) = reap_cells(); sheets["nc_reap"] = pack("nc_reap", cells, None, man, cx=cx, cy=cy, r=70)
     sheets["nc_ember"] = pack("nc_ember", ember_cells(), None, man)
     sheets["nc_shard"] = pack("nc_shard", shard_cells(), None, man, loop=1)

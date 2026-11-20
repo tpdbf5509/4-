@@ -2927,7 +2927,7 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.eqDoll) drawEqCompanion(ctx, o.eqDoll, time);
     else if (o.enUnit) drawEngineerUnit(ctx, o.enUnit, time, RPG.squash, crowd ? Math.min(lod.q, CROWD.q) : lod.q);
     else if (o.herb) drawHerb(ctx, o.herb, herbUp(g, o.herb.i), time);
-    else if (o.nc) drawNecroShadowOf(ctx, o.own, o.nc, time);
+    else if (o.nc) drawNecroShadowOf(ctx, o.own, o.nc, time, o.own === me);   // 내린 이름은 주인 화면에만
     else if (o.wyUnit) drawWyvernUnit(ctx, o.wyUnit, time, RPG.squash, crowd ? Math.min(lod.q, CROWD.q) : lod.q);
   });
   if (me && me.map === M.id) { const hn = herbNear(g, me); if (hn && !me.gath) drawHerbLabel(ctx, hn); }   // 곁의 채집물 이름
@@ -2944,6 +2944,7 @@ export function drawRpg(ctx, g, bgs) {
     if (f.kind.startsWith("sk_eq_")) drawEqFx(ctx, f);   // Engineer 003 획득 루트 — 예고 · 물기 · 레이저 · 충격파
     else if (f.kind.startsWith("sk_")) { if (skFx.has(f)) drawSkillTuned(ctx, f, time, g, crowd); }   // 직업 · 무기 스킬 연출(skillArt.js)
     else if (crowd && f.kind === "dmg" && f.by >= 0 && f.by !== g.mySeat) return;   // 남이 주고받은 피해 숫자 — 보스 체력바로 본다
+    else if (f.kind === "call" && f.mine && f.who !== g.mySeat) return;   // 주인에게만 보이는 외침(그림자 이름)
     else if (crowd && f.kind === "call" && f.who >= 0 && f.who !== g.mySeat) return;   // 남의 스킬 이름 외침
     else if (f.kind !== "art" || (FX_ART[f.art] || {}).over) drawFx(ctx, f);
   });

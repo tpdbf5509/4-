@@ -309,3 +309,38 @@ test('보스 그림자 기술 — 보스마다 원래 피해 기술(즉사기 ·
   assert.ok(hpB > b.hp, '범위 안 몹이 맞았다');
   assert.ok(a.hp < HP);
 });
+
+test('그림자 이름 — 처음 등록하면 묻고 · 내린 이름이 명부 · 소환에 쓰인다 · 금지어 · 8자 · 이 기기 이름은 다시 묻지 않는다 · 남에게는 외침을 숨긴다', async () => {
+  const { cleanNcName } = await import('../src/game/necroJob.js');
+  const kill = (g, h, t) => {
+    sandboxMobs(g, SANDBOX.id, [[h.x + 100, h.y, t]]);
+    const m = g.mobs.find(q => q.sb && !q.dead); m.hp = 1; h.cd = 0;
+    fire(g, true); step(g, .01); fire(g, false); run(g, .5);
+    h.nc.cd.extract = 0; soul(h, 100); use(g, 'extract'); run(g, EX.done + .05);
+  };
+  const name = (g, d) => rpgInput(g, { cls: 0, kind: 'hidden', dir: { op: 'name', ...d } });
+  const { g, h } = setup(200);
+  kill(g, h, 'goblin');
+  assert.deepEqual(necroView(h).ask, { t: 'goblin', n: necroView(h).roster[0].base, g: 1 }, '처음 등록 — 이름을 묻는다');
+  name(g, { t: 'goblin', n: '시 발놈' });
+  assert.ok(!necroView(h).roster[0].nm && necroView(h).ask, '금지어는 거절(띄어 쓰기를 빼고 본다)');
+  name(g, { t: 'goblin', n: '  베르 그림자 군단장님 ' });
+  const e = necroView(h).roster[0];
+  assert.equal(e.nm, '베르 그림자 군'); assert.equal(e.n, e.nm); assert.ok(e.base && e.base !== e.nm);
+  assert.equal(necroView(h).ask, null);
+  assert.ok(g.out.some(f => f.kind === 'call' && f.mine && f.text.includes('베르')), '이름이 든 외침은 주인에게만');
+  assert.equal(cleanNcRoster(h), '베르 그림자 군', '저장 꼴에도 남는다');
+  kill(g, h, 'goblin');
+  assert.equal(necroView(h).ask, null, '재추출은 묻지 않는다');
+  soul(h, 100); use(g, 'summon');
+  assert.equal(h.nc.sh[0].n, '베르 그림자 군'); assert.equal(h.nc.sh[0].nm, 1);
+  name(g, { t: 'goblin', n: '' });
+  assert.ok(!necroView(h).roster[0].nm, '비우면 몹 이름으로');
+  // 이 기기에 둔 이름(연습장 h.ncNames)은 다시 묻지 않고 붙는다
+  const b = setup(200); b.h.ncNames = { wolf: '이그리트' };
+  kill(b.g, b.h, 'wolf');
+  assert.equal(necroView(b.h).ask, null); assert.equal(necroView(b.h).roster[0].nm, '이그리트');
+  name(b.g, { skip: 1 });
+  assert.equal(cleanNcName('<b>a\nb</b>'), 'bab/b', '꺾쇠 · 줄바꿈을 지운다');
+});
+function cleanNcRoster(h) { return cleanNcJob(h.bag.hj.jobs.necromancer).roster[0].nm; }

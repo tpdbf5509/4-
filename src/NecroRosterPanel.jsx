@@ -2,8 +2,8 @@
    탭 셋 — 소환 목록(카드 + 소환 정보) · 군단 편성(소환 차례 5칸) · 승급(재추출 진행). 격자 연습장에서만 연다.
    값은 연습장 화면 값(necroView), 판정은 입력(hidden op)으로만 바꾼다. 「강화」만 연습장 도구(재추출 한 번으로 셈) */
 import { useEffect, useRef, useState } from "react";
-import { NECRO, NC_KINDS, NC_KIND_DESC, NC_ROSTER, NC_SUMMON } from "./game/necroData.js";
-import { gradeCost, kindOf, summonPick } from "./game/necroJob.js";
+import { NECRO, NC_KINDS, NC_KIND_DESC, NC_ROSTER, NC_SUMMON, NC_NAME } from "./game/necroData.js";
+import { gradeCost, kindOf, summonPick, cleanNcName } from "./game/necroJob.js";
 import { drawNecroPortrait } from "./game/necroArt.js";
 
 const ROW = { shade: 0, violet: 1, silver: 2 };
@@ -69,7 +69,7 @@ function Bar({ label, value, max, text }) {
   );
 }
 
-function Info({ v, q, row, onSummon, onRecall, onRefine }) {
+function Info({ v, q, row, onSummon, onRecall, onRefine, onName }) {
   const kid = kindOf(q.t), k = NC_KINDS[kid], st = stateOf(v, q), need = gradeCost({ tr: v.tr }, q.g), out = st.id === "on";
   const canCall = st.id === "ready" || out;
   return (
@@ -78,7 +78,7 @@ function Info({ v, q, row, onSummon, onRecall, onRefine }) {
       <div className="ncw-hero">
         <Portrait t={q.t} size={132} row={row} />
         <div>
-          <b className="ncw-name">{q.n}</b>
+          <b className="ncw-name">{q.n}{q.nm && <em className="ncw-base">{q.base}</em>}</b>
           <p className="ncw-role"><span>역할</span>{k.name} · {k.role}</p>
           <p className="ncw-desc">{NC_KIND_DESC[kid]}</p>
         </div>
@@ -104,6 +104,7 @@ function Info({ v, q, row, onSummon, onRecall, onRefine }) {
           title={`이 그림자를 맨 앞에 두고 ${NC_SUMMON.name}을 씁니다(최대 ${NC_SUMMON.max}기)`}>소환</button>
         <button type="button" className="ncw-btn" disabled={!out} onClick={() => onRecall(q.t)} title="나와 있는 이 그림자만 거둡니다">회수</button>
         <button type="button" className="ncw-btn" disabled={!need} onClick={() => onRefine(q.t)} title="연습장 전용 — 같은 종류를 한 번 재추출한 것으로 셉니다">강화</button>
+        {onName && <button type="button" className="ncw-btn" onClick={() => onName(q)} title="이 그림자의 이름을 정합니다 — 내 화면에만 보입니다">이름</button>}
       </div>
     </section>
   );
@@ -174,7 +175,7 @@ function Grades({ v, row, onRefine }) {
 
 const TABS = [["list", "소환 목록"], ["party", "군단 편성"], ["grade", "승급"]];
 
-export default function NecroRosterPanel({ v, onSummon, onRecall, onParty, onRefine, onClose }) {
+export default function NecroRosterPanel({ v, onSummon, onRecall, onParty, onRefine, onName, onClose }) {
   const [tab, setTab] = useState("list");
   const [pick, setPick] = useState(null);
   const box = useRef(null);
@@ -183,7 +184,7 @@ export default function NecroRosterPanel({ v, onSummon, onRecall, onParty, onRef
   const row = ROW[v.tint] || 0;
   const cur = v.roster.find((q) => q.t === pick) || v.roster[0];
   useEffect(() => {
-    const k = (e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } };
+    const k = (e) => { if (e.key === "Escape" && !document.querySelector(".ncn")) { e.stopPropagation(); onClose(); } };   // 이름 짓기 창이 떠 있으면 그 창이 먼저
     window.addEventListener("keydown", k, true);
     return () => window.removeEventListener("keydown", k, true);
   }, [onClose]);
@@ -204,10 +205,42 @@ export default function NecroRosterPanel({ v, onSummon, onRecall, onParty, onRef
             <div className="ncw-list">
               {v.roster.map((q) => <Card key={q.t} v={v} q={q} row={row} on={cur && cur.t === q.t} onPick={choose} />)}
             </div>
-            {cur && <Info v={v} q={cur} row={row} onSummon={onSummon} onRecall={onRecall} onRefine={onRefine} />}
+            {cur && <Info v={v} q={cur} row={row} onSummon={onSummon} onRecall={onRecall} onRefine={onRefine} onName={onName} />}
           </div>
         ) : tab === "party" ? <Party v={v} row={row} onParty={onParty} />
         : <Grades v={v} row={row} onRefine={onRefine} />}
+    </div>
+  );
+}
+
+/* 이름 짓기 알림창(11월 20일 사용자 참고 사진 — 「이름을 내려 주십시오」). 처음 추출해 명부에 넣은 그림자 · 명부 창 「이름」 단추.
+   q = { t, n 몹 이름, nm 지금 이름, g 등급 }. 이름은 내 화면에만 보인다. Enter 확인 · Esc 나중에 */
+export function NecroNamer({ q, row = 0, onDone, onSkip }) {
+  const [text, setText] = useState(q.nm || "");
+  const ref = useRef(null);
+  const raw = text.trim(), clean = cleanNcName(text), bad = !!raw && !clean;
+  useEffect(() => { if (ref.current) ref.current.focus(); }, []);
+  useEffect(() => {
+    const k = (e) => { if (e.key === "Escape") { e.stopPropagation(); onSkip(); } };
+    window.addEventListener("keydown", k, true);
+    return () => window.removeEventListener("keydown", k, true);
+  }, [onSkip]);
+  const ok = () => { if (!bad) onDone(clean); };
+  return (
+    <div className="ncn" role="dialog" aria-label="그림자 이름 짓기">
+      <div className="ncn-box">
+        <h3 className="ncn-h"><i aria-hidden="true">!</i>알림</h3>
+        <Portrait t={q.t} size={72} row={row} />
+        <p className="ncn-sub">{q.g}등급 · {NC_KINDS[kindOf(q.t)].name} · {q.n}</p>
+        <p className="ncn-ask">이름을 내려 주십시오.</p>
+        <input ref={ref} className="ncn-in" value={text} maxLength={NC_NAME.max + 4} placeholder={q.n} aria-label="그림자 이름"
+          onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") ok(); }} />
+        <p className={`ncn-help ${bad ? "bad" : ""}`}>{bad ? "쓸 수 없는 이름입니다" : `${NC_NAME.max}자까지 · 비우면 몹 이름 · 내 화면에만 보입니다`}</p>
+        <div className="ncn-acts">
+          <button type="button" className="ncw-btn" onClick={onSkip}>나중에</button>
+          <button type="button" className="ncw-btn main" disabled={bad} onClick={ok}>이름 내리기</button>
+        </div>
+      </div>
     </div>
   );
 }

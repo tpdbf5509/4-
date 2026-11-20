@@ -12,7 +12,7 @@
 import { faceAim } from './faceDir.js';
 import { NECRO as NC, NECRO_ID, NECRO_NAME, NECRO_TINT, NC_TRAIN_NAMES, NC_SOUL as SOUL, NC_ROSTER as RS, NC_TRACE as TR, NC_KINDS, NC_KIND_OF,
   NC_SCYTHE as SC, NC_EXTRACT as EX, NC_SUMMON as SM, NC_AI as AI, NC_SWAP as SW, NC_DOMAIN as DM, NC_MARCH as MC, NC_BURN as BN, NC_LEGION as LG,
-  NC_ETERNAL as ET, NC_SKILLS, NC_BOSS_SKILL, NC_BOSS_SK as BSK } from "./necroData.js";
+  NC_ETERNAL as ET, NC_SKILLS, NC_BOSS_SKILL, NC_BOSS_SK as BSK, NC_NAME } from "./necroData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -27,13 +27,23 @@ export const kindOf = (type) => {
   const base = Object.keys(NC_KIND_OF).filter((k) => String(type).startsWith(k)).sort((a, b) => b.length - a.length)[0];   // 800~1200 정예 · 소환 id 는 지역 id 로 시작한다
   return base ? NC_KIND_OF[base] : "knight";
 };
+/* 그림자 이름 — 줄바꿈 · 꺾쇠 · 겹친 띄어쓰기를 지우고 NC_NAME.max 자. 금지어가 들어 있으면 빈 값 */
+export function cleanNcName(v) {
+  const n = String(v || "").normalize("NFKC").replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, NC_NAME.max);
+  const flat = n.replace(/\s/g, "").toLowerCase();
+  return NC_NAME.ban.some((w) => flat.includes(w)) ? "" : n;
+}
+const ncNameBad = (v) => !!String(v || "").trim() && !cleanNcName(v);
 function cleanRoster(list) {
   if (!Array.isArray(list)) return [];
   const seen = new Set(), out = [];
   for (const q of list) {
     if (!q || typeof q.t !== "string" || !q.t || seen.has(q.t) || out.length >= RS.slots25) continue;
     seen.add(q.t);
-    out.push({ t: q.t.slice(0, 40), n: String(q.n || q.t).slice(0, 24), g: clampN(q.g, 1, RS.grades) || 1, x: clampN(q.x, 0, 99) });
+    const e = { t: q.t.slice(0, 40), n: String(q.n || q.t).slice(0, 24), g: clampN(q.g, 1, RS.grades) || 1, x: clampN(q.x, 0, 99) };
+    const nm = cleanNcName(q.nm);                       // 내가 내린 이름(없으면 몹 이름 n 을 쓴다)
+    if (nm) e.nm = nm;
+    out.push(e);
   }
   return out;
 }
@@ -106,6 +116,8 @@ const sq = (E, x, y, o) => Math.hypot(o.x - x, (o.y - y) / E.squash);
 const sqd = (E, x0, y0, x1, y1) => Math.hypot(x1 - x0, (y1 - y0) / E.squash);
 const no = (E, g, h, text, color = DIM) => void E.say(g, h.map, h.x, h.y - 90, text, color);
 const call = (E, g, h, text) => E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 104, text, color: LIGHT, who: h.pi, t: 0.7, life: 0.7 });
+// 그림자 이름이 든 외침 — 주인 화면에만(11월 20일 사용자 "다른 사람들에게는 이름 안 보이게, 아무 이름도"). rpgArt 가 mine 이면 남의 화면에서 뺀다
+const callMine = (E, g, h, text, y = 104, life = 0.7) => E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - y, text, color: LIGHT, who: h.pi, mine: 1, t: life, life });
 function wallCut(E, h, ax, ay, len) {
   let cut = len;
   for (const b of E.blocks(h.map)) {
@@ -274,19 +286,21 @@ function tickExtract(E, g, h, q, dt) {
   if (!e) {
     if (J.roster.length >= rosterSlots(J)) { no(E, g, h, "명부가 가득 찼습니다", RED); return false; }
     e = { t: tr.t, n: tr.n, g: 1, x: 0 };
+    const pre = presetName(h, tr.t);                     // 전에 이 종류에 내린 이름이 있으면 그대로(연습장 — 이 기기)
+    if (pre) e.nm = pre; else st(h).ask = { t: tr.t, n: tr.n, g: 1 };   // 처음 등록 — 이름을 묻는다(화면 창)
     J.roster.push(e);
-    text = `그림자 등록 — ${tr.n}(${NC_KINDS[kindOf(tr.t)].name})`;
-  } else if (e.g >= RS.grades) text = `${tr.n} — 이미 최고 등급`;
+    text = `그림자 등록 — ${e.nm || tr.n}(${NC_KINDS[kindOf(tr.t)].name})`;
+  } else if (e.g >= RS.grades) text = `${e.nm || tr.n} — 이미 최고 등급`;
   else {
     e.x += 1;
     const need = gradeCost(J, e.g);
-    if (e.x >= need) { e.x = 0; e.g += 1; text = `${tr.n} — ${e.g}등급 승급`; }
-    else text = `${tr.n} 승급 ${e.x}/${need}`;
+    if (e.x >= need) { e.x = 0; e.g += 1; text = `${e.nm || tr.n} — ${e.g}등급 승급`; }
+    else text = `${e.nm || tr.n} 승급 ${e.x}/${need}`;
   }
   h.bag.v = (h.bag.v || 0) + 1;
   trainXp(E, g, h, 0);                                  // 추출 연마 — 추출 성공 · 같은 종류 재추출 성공
   E.fx(g, h.map, { kind: "sk_nc_absorb", x: h.x, y: h.y, pi: h.pi, t: 0.4, life: 0.4 });
-  E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 124, text, color: LIGHT, who: h.pi, t: 1.2, life: 1.2 });
+  callMine(E, g, h, text, 124, 1.2);
   return false;
 }
 
@@ -328,7 +342,7 @@ function summonUse(E, g, h, req) {
   pick.forEach((q, i) => {
     const a = (i / pick.length) * Math.PI * 2 + 0.6, d = SM.r * (0.55 + 0.45 * ((i * 37) % 10) / 10);
     const [x, y] = inMap(E, h.map, h.x + Math.cos(a) * d, h.y + Math.sin(a) * d * E.squash);
-    s.sh.push({ id: ++s.q, t: q.t, n: q.n, k: kindOf(q.t), g: q.g, x: Math.round(x), y: Math.round(y), dir: h.dir, born: 0, life: SM.dur, cd: SM.ready - SM.rise + 0.2 * i,
+    s.sh.push({ id: ++s.q, t: q.t, n: q.nm || q.n, nm: q.nm ? 1 : 0, k: kindOf(q.t), g: q.g, x: Math.round(x), y: Math.round(y), dir: h.dir, born: 0, life: SM.dur, cd: SM.ready - SM.rise + 0.2 * i,
       atk: 0, tgt: "", prio: "", first: eternal && i === 0 ? 1 : 0, walk: 0, mv: 0,
       bcd: (NC_BOSS_SKILL[q.t] || []).map((k, j) => k.cd * BSK.first + j), bs: null });   // 보스 그림자 — 기술 대기(원래 보스처럼 처음엔 절반) · 쓰는 중인 기술
   });
@@ -647,7 +661,22 @@ function recallUse(E, g, h, t) {
   if (!sd) return void no(E, g, h, "나와 있지 않은 그림자입니다");
   E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, mt: sd.t, dir: sd.dir, pi: h.pi, t: 0.4, life: 0.4 });
   s.sh = s.sh.filter((q) => q !== sd);
-  call(E, g, h, `${sd.n} 회수`);
+  callMine(E, g, h, `${sd.n} 회수`);
+}
+/* 이름 내리기 — { op: "name", t, n } (빈 n 은 몹 이름으로 되돌림) · { op: "name", skip: 1 } 나중에. 명부에 있는 종류만 */
+const presetName = (h, t) => cleanNcName(h.ncNames && h.ncNames[t]);
+function nameUse(E, g, h, req) {
+  const s = st(h);
+  if (req.skip) { s.ask = null; return; }
+  const J = jobOf(h), e = typeof req.t === "string" && J.roster.find((q) => q.t === req.t);
+  if (!e) return;
+  if (ncNameBad(req.n)) return void no(E, g, h, "쓸 수 없는 이름입니다", WARN);
+  const nm = cleanNcName(req.n);
+  if (nm) e.nm = nm; else delete e.nm;
+  for (const sd of s.sh) if (sd.t === e.t) { sd.n = nm || e.n; sd.nm = nm ? 1 : 0; }
+  if (s.ask && s.ask.t === e.t) s.ask = null;
+  h.bag.v = (h.bag.v || 0) + 1;
+  if (nm) callMine(E, g, h, `이름을 내렸습니다 — ${nm}`);
 }
 const USE = { extract: extractUse, summon: summonUse, swap: swapUse, domain: domainUse, march: marchUse, burn: burnUse, legion: legionUse };
 export function necroInput(E, g, pi, req) {
@@ -655,6 +684,7 @@ export function necroInput(E, g, pi, req) {
   if (!h || !h.loaded || !req || typeof req !== "object" || !necroOn(h)) return false;
   if (req.op === "use" && Object.prototype.hasOwnProperty.call(USE, req.s)) USE[req.s](E, g, h, req);
   else if (req.op === "recall" && typeof req.t === "string") recallUse(E, g, h, req.t);
+  else if (req.op === "name") nameUse(E, g, h, req);
   else if (req.op === "party") { const J = jobOf(h); J.party = cleanParty(req.list, J.roster); h.bag.v = (h.bag.v || 0) + 1; }
   return false;
 }
@@ -700,7 +730,8 @@ export function necroPutRoster(h, t, grade, nameOf) {
   const J = jobOf(h), old = J.roster.findIndex((q) => q.t === t);
   if (old >= 0) J.roster.splice(old, 1);
   const g = clampN(Math.max(grade || 1, ...J.roster.map((q) => q.g)), 1, RS.grades);
-  J.roster.unshift({ t, n: nameOf ? nameOf(t) : t, g, x: 0 });
+  const nm = presetName(h, t);
+  J.roster.unshift({ t, n: nameOf ? nameOf(t) : t, g, x: 0, ...(nm ? { nm } : {}) });
   if (J.roster.length > rosterSlots(J)) J.roster.length = rosterSlots(J);
 }
 /* 격자 연습장 「강화」 — 같은 종류를 한 번 재추출한 것으로 센다(게임에서 승급하는 유일한 길과 같은 값). 승급하면 true. 게임에는 이 단추가 없다 */
@@ -718,7 +749,7 @@ export function necroFillRoster(h, grade, nameOf) {
   for (const [t] of want) {
     const e = J.roster.find((q) => q.t === t);
     if (e) e.g = clampN(grade, 1, RS.grades);
-    else if (J.roster.length < rosterSlots(J)) J.roster.push({ t, n: nameOf ? nameOf(t) : t, g: clampN(grade, 1, RS.grades), x: 0 });
+    else if (J.roster.length < rosterSlots(J)) { const nm = presetName(h, t); J.roster.push({ t, n: nameOf ? nameOf(t) : t, g: clampN(grade, 1, RS.grades), x: 0, ...(nm ? { nm } : {}) }); }
   }
 }
 
@@ -728,7 +759,8 @@ export function necroView(h) {
   if (h.ncv) return h.ncv;
   if (!necroOn(h)) return null;
   const J = jobOf(h), s = h.nc;
-  return { soul: s ? s.soul : 0, max: NC.soul, lv: J.lv, xp: J.xp, tr: J.tr, roster: J.roster, party: J.party || [], slots: rosterSlots(J),
+  // 명부는 보이는 이름(내린 이름 → 몹 이름)을 n 에, 몹 이름을 base 에 — 창 · 소환 목록 · 편성이 모두 n 을 쓴다
+  return { soul: s ? s.soul : 0, max: NC.soul, lv: J.lv, xp: J.xp, tr: J.tr, roster: J.roster.map((q) => ({ ...q, n: q.nm || q.n, base: q.n })), ask: s && s.ask ? s.ask : null, party: J.party || [], slots: rosterSlots(J),
     cd: s ? { ...s.cd } : { ...NO_CD }, cdMax: Object.fromEntries(Object.entries(NC_SKILLS).map(([k, v]) => [k, v.cd])),
     sh: s ? s.sh : [], traces: s ? s.traces.filter((q) => q.map === h.map) : [], dom: s && s.dom ? r1(Math.max(0, s.dom.dur - s.dom.t)) : 0,
     lock: s ? { ...s.lock } : {}, eternal: ncEternal(J), tint: necroTint(ncTrainSum(J)), costs: Object.fromEntries(Object.entries(NC_SKILLS).map(([k, v]) => [k, v.cost])) };

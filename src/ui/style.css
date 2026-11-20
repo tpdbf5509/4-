@@ -3340,3 +3340,23 @@ button.forge-stage:disabled { cursor: default; }
   .eq-code { font-size: 22px; }
   .eq-hud { top: 48px; min-width: 170px; font-size: 12px; }
 }
+/* Necromancer 004 — 그림자 이름 짓기 알림창(11월 20일, 참고 사진 「이름을 내려 주십시오」). 명부 창(.ncw) 색을 그대로 쓴다 */
+.ncn { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; background: rgba(6, 4, 10, 0.55); padding: 16px; box-sizing: border-box; }
+.ncn-box {
+  --nw-line: #3a2a55; --nw-acc: #9c6bff; --nw-text: #d9ccf0; --nw-mute: #8b7fa3;
+  width: min(340px, 100%); box-sizing: border-box; padding: 16px 18px 14px; text-align: left; color: var(--nw-text); letter-spacing: -0.02em;
+  background: rgba(14, 10, 20, 0.97); border: 1px solid var(--nw-acc); border-radius: 6px; box-shadow: 0 0 24px rgba(156, 107, 255, 0.28);
+}
+.ncn-h { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 15px; letter-spacing: -0.03em; color: #eadff8; }
+.ncn-h i { font-style: normal; width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--nw-acc); border-radius: 50%; font-size: 12px; }
+.ncn-box .ncw-face { display: block; border: 1px solid var(--nw-line); border-radius: 4px; margin-bottom: 8px; }
+.ncn-sub { margin: 0; font-size: 12px; color: var(--nw-mute); }
+.ncn-ask { margin: 4px 0 10px; font-size: 15px; }
+.ncn-in { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; padding: 8px 10px; color: #f1e6ff; background: #161020; border: 1px solid var(--nw-line); border-radius: 4px; outline: none; }
+.ncn-in:focus { border-color: var(--nw-acc); }
+.ncn-help { margin: 6px 0 12px; font-size: 11px; color: var(--nw-mute); }
+.ncn-help.bad { color: #e6a0b0; }
+.ncn-acts { display: flex; gap: 8px; justify-content: flex-end; }
+.ncn-acts .ncw-btn { flex: none; padding: 7px 14px; }
+.ncw-base { font-style: normal; font-size: 12px; font-weight: normal; color: var(--nw-mute); margin-left: 6px; }
+.ncn .ncn-in:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--nw-acc); }

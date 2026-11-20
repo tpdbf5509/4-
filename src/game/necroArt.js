@@ -328,7 +328,7 @@ const solName = (k) => `nc_${SH[`nc_${k}`] ? k : "knight"}`;
 
 /* ── 그림자 병사 — 판정 상태 하나를 그린다. 솟아오름(나온 뒤 rise 초) · 공격 자세 · 걷기 · 서 있기 ──
    등급은 머리 위 1px 점(1~5). 군주의 영역 안이면 조금 밝게 */
-export function drawNecroShadow(ctx, sd, row = 0, inDomain = false) {
+export function drawNecroShadow(ctx, sd, row = 0, inDomain = false, tag = false) {
   warmNecro();
   const name = solName(sd.k), T = SH[name], big = sd.k === "giant", seed = (sd.id || 0) * 0.37;
   let i;
@@ -357,17 +357,22 @@ export function drawNecroShadow(ctx, sd, row = 0, inDomain = false) {
   ctx.save(); ctx.fillStyle = sd.first ? C.rim : C.bright;   // 등급 점 — 영원의 명령 첫 그림자는 은색
   const top = Math.round(sd.y + (sil ? sil.top : -T.cy * K) - 6);
   for (let j = 0; j < (sd.g | 0); j++) ctx.fillRect(Math.round(sd.x) - (sd.g - 1) * 2 + j * 4, top, 2, 2);
+  if (tag && sd.nm && sd.n) {                          // 내가 내린 이름(11월 20일 사용자 "나만 볼 수 있게") — 주인 화면에서만 등급 점 위에
+    ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+    ctx.lineWidth = 3; ctx.strokeStyle = C.deep; ctx.strokeText(sd.n, Math.round(sd.x), top - 3);
+    ctx.fillStyle = C.text; ctx.fillText(sd.n, Math.round(sd.x), top - 3);
+  }
   ctx.restore();
 }
 // 주인 연마 색 줄 — 방장은 가방, 손님은 화면 값(necroView 가 같은 모양으로 준다)
 export const necroRow = (h) => { const v = h ? necroView(h) : null; return v ? ROW[v.tint] || 0 : 0; };
 // 이 사람의 그림자 목록 — rpgArt 가 사람 · 몹과 앞뒤를 맞춰 넣는다
 export const necroShadowsOf = (h) => necroShadows(h);
-export function drawNecroShadowOf(ctx, h, sd, time) {
+export function drawNecroShadowOf(ctx, h, sd, time, mine = false) {
   const now = Number.isFinite(time) ? time : performance.now() / 1000;
   if (now !== NOW) { NOW = now; }
   const v = necroView(h), dom = !!(v && v.dom > 0) && Math.hypot(sd.x - h.x, (sd.y - h.y) / GROUND_SQ) <= NC_DOMAIN.r;
-  drawNecroShadow(ctx, sd, necroRow(h), dom);
+  drawNecroShadow(ctx, sd, necroRow(h), dom, mine);
 }
 /* ── 손에 든 그림자 낫 — drawHero 가 몸 그림 좌표(발밑 0, 0 · 좌우 뒤집기 적용된 상태) 안에서 부른다. behind 면 뒤를 볼 때만 ──
    11월 19일 사용자 참고 그림 — 가슴 높이에서 자루를 비스듬히 쥐고(위 끝은 어깨 뒤) 큰 날은 몸 앞 아래에서 위로 솟는다.

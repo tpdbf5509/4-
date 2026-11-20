@@ -30,7 +30,7 @@ import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_SKILLS, NC_SCYTHE, NC_TRAI
 import { unlockNecro, necroView, ncLock, necroFillRoster, necroPutRoster, necroSandboxRefine, kindOf, gradeCost } from "./game/necroJob.js";
 import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
-import NecroRosterPanel from "./NecroRosterPanel.jsx";
+import NecroRosterPanel, { NecroNamer } from "./NecroRosterPanel.jsx";
 import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_SKILLS, WY_CLAW, WY_TRAIN_NAMES, WY_BLOOD, WY_WEAPON_ITEM } from "./game/wyvernData.js";   // 히든 직업 Wyvern Knight 006(11월 17일 — 연습장에만)
 import { unlockWyvern, wyvernView, wyLock } from "./game/wyvernJob.js";
 import { wyvernIconStyle } from "./game/wyvernArt.js";
@@ -81,6 +81,16 @@ const TOOLS = [
 ];
 // 자동 평타 켜고 끄기 — 이 기기에만 기억한다(연습장 전용, 게임 설정과 따로)
 const AUTO_STORE = "flg:sbAuto";
+/* Necromancer 004 그림자 이름(11월 20일 사용자 "저장한 이름은 어딜가도 유지") — 연습장은 아무것도 저장하지 않으므로 이 기기에 { 몹 종류: 이름 } 으로 둔다.
+   캐릭터를 다시 만들거나 새로 고쳐도 같은 종류를 명부에 넣으면 그 이름이 붙는다(판정 h.ncNames). 실제 게임에 열면 명부 칸 nm 이 캐릭터 저장에 실린다 */
+const NC_NAME_STORE = "flg:ncNames";
+const loadNcNames = () => { try { const v = JSON.parse(localStorage.getItem(NC_NAME_STORE) || "{}"); return v && typeof v === "object" ? v : {}; } catch { return {}; } };
+const saveNcName = (t, n) => {
+  const v = loadNcNames();
+  if (n) v[t] = n; else delete v[t];
+  try { localStorage.setItem(NC_NAME_STORE, JSON.stringify(v)); } catch { /* 저장이 막혀 있으면 이번만 */ }
+  return v;
+};
 const loadAuto = () => { try { return localStorage.getItem(AUTO_STORE) !== "0"; } catch { return true; } };
 const fmt = (n) => Math.round(n).toLocaleString("ko-KR");
 const cellOf = (h) => [(h.x - SANDBOX.spawn[0]) / SANDBOX.cell, (h.y - SANDBOX.spawn[1]) / (SANDBOX.cell * RPG.squash)];
@@ -169,6 +179,7 @@ function sandboxWorld(c) {
   if (c.adv === "necro") {                        // Necromancer 004 — 직업 레벨 · 연마 셋 · 처음 명부(연습장에서만 켠다 — NECRO.live)
     const n = (v, a, b) => Math.max(a, Math.min(b, Math.floor(v) || 0));
     unlockNecro(h, { lv: n(c.ncLv, 1, NECRO.maxLv), tr: [0, 1, 2].map((i) => [n((c.ncTr || [])[i], 0, NECRO.train.max), 0]), roster: [] });
+    h.ncNames = loadNcNames();                    // 이 기기에 둔 그림자 이름
     if (c.ncGrade > 0) necroFillRoster(h, c.ncGrade, (t) => mobName({ type: t }));
     refreshHp(h, true);
   }
@@ -368,6 +379,7 @@ export default function Sandbox() {
   const [hud, setHud] = useState(null);
   const [ncPick, setNcPick] = useState(NC_ALL[0]);
   const [ncOpen, setNcOpen] = useState(false);              // Necromancer 004 그림자 명부 창
+  const [ncRename, setNcRename] = useState(null);           // 명부 창 「이름」 단추로 연 이름 짓기(처음 등록 때 묻는 것은 판정의 ask)
   const [skOpen, setSkOpen] = useState(false);              // 히든 직업 스킬 설명 창(M)
   const skToggle = useRef(null);
   const cvsRef = useRef(null);
@@ -703,7 +715,14 @@ export default function Sandbox() {
             {necro && ncOpen && hud && hud.nc && <NecroRosterPanel v={hud.nc} onClose={closeNc}
               onSummon={(t) => act("hidden", { op: "use", s: "summon", t })} onRecall={(t) => act("hidden", { op: "recall", t })}
               onParty={(list) => act("hidden", { op: "party", list })}
-              onRefine={(t) => { const h = G.current && G.current.heroes[0]; if (h) necroSandboxRefine(h, t); }} />}
+              onRefine={(t) => { const h = G.current && G.current.heroes[0]; if (h) necroSandboxRefine(h, t); }}
+              onName={(q) => setNcRename({ t: q.t, n: q.base, nm: q.nm, g: q.g })} />}
+            {necro && hud && hud.nc && (ncRename || hud.nc.ask) && (() => {
+              const q = ncRename || hud.nc.ask;
+              return <NecroNamer key={q.t} q={q}
+                onDone={(name) => { const v = saveNcName(q.t, name); const h = G.current && G.current.heroes[0]; if (h) h.ncNames = v; act("hidden", { op: "name", t: q.t, n: name }); setNcRename(null); }}
+                onSkip={() => { if (ncRename) setNcRename(null); else act("hidden", { op: "name", skip: 1 }); }} />;
+            })()}
             {wyvern && hud && hud.wy && <WyvernBar v={hud.wy} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {illusion && hud && hud.il && <IllusionBar v={hud.il} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {necro && hud && hud.nc && <NecroBar v={hud.nc} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}

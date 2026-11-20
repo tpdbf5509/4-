@@ -73,7 +73,7 @@ test('다시 접속 — 저장한 기록으로 들어오면 직업 레벨 · 연
 test('스냅샷 줄 57 — 손님 화면이 칩 · 직업 레벨 · 대기 · 보호막을 받고 도박꾼 그림을 쓴다. 이 직업이 아니면 0', () => {
   const { g, h } = setup();
   let row = rpgPack(g).h[0];
-  assert.equal(row.length, 59, '영웅 줄은 뒤에만 늘었다(58 — Engineer 003, 11월 17일)'); assert.equal(row[58], 0, '엔지니어가 아니면 0'); assert.equal(row[57], 0); assert.ok(row[56] === 0, 'BLOOD-001 칸(56)은 그대로');
+  assert.equal(row.length, 63, '영웅 줄은 뒤에만 늘었다(58 — Engineer 003 · 59 진혼곡 · 60 엔지니어 루트 · 61 · 62 Necromancer 004)'); assert.equal(row[58], 0, '엔지니어가 아니면 0'); assert.equal(row[57], 0); assert.ok(row[56] === 0, 'BLOOD-001 칸(56)은 그대로');
   unlockGambler(h, J200); h.map = 'field'; h.x = 1500; h.y = 700;
   run(g, .1); h.gm.chips = 5; h.gm.luck = 2; use(g, 'veil'); run(g, .1);
   const snap = rpgPack(g); row = snap.h[0];           // 가방은 바뀐 때만 실린다 — 같은 스냅샷을 손님에게 준다
@@ -212,7 +212,7 @@ test('시험 도중 뒷방을 나가면 빌린 값을 거둔다 — 예전 기�
 
 test('맵 차례 · 그림 — 카지노 뒷방은 맵 차례 맨 뒤(도서관 다음) · 조사물 시트와 예고 연출이 있다', () => {
   const maps = SNAP_ORDER.maps;
-  assert.equal(maps[maps.length - 1], CA.id); assert.equal(maps[maps.length - 2], 'erden-library-2'); assert.equal(maps.indexOf('bloodlab'), maps.length - 4);
+  const ci = maps.indexOf(CA.id); assert.equal(maps[ci - 1], 'erden-library-2'); assert.equal(maps.indexOf('bloodlab'), ci - 3);   // 뒤에 진혼곡 · 엔지니어 · 네크로맨서 맵이 붙는다
   assert.ok(MAPS[CA.id] && !MAPS[CA.id].safe, '싸울 수 있는 곳'); assert.equal(MAPS[CA.id].gates[0].to, 'plaza');
   assert.equal(GAMBLER_PX.gm_props.n, Object.keys(GAMBLER_PROP).length);
   assert.ok(existsSync('public/assets/game/rpg/effects/hidden-jobs/gambler/px/gm_props.webp'));

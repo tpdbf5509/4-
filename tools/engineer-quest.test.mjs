@@ -28,7 +28,7 @@ const act = (g, id, v) => { at(g.heroes[0], id); rpgInput(g, { cls: 0, kind: 'eq
 const say = (g) => g.out.filter((o) => o.kind === 'sys' || o.text).map((o) => o.text || o.msg).join(' / ');
 
 test('맵 · 그림 — 탐험 맵 16곳은 MAP_IDS 끝 · 안전 지역(시험장만 싸움) · 바닥 그림이 있다', () => {
-  const tail = MAP_IDS.slice(-EQ_MAPS.length);
+  const i0 = MAP_IDS.indexOf(EQ_MAPS[0].id), tail = MAP_IDS.slice(i0, i0 + EQ_MAPS.length);   // 뒤에 Necromancer 004 맵이 붙는다(11월 20일)
   assert.deepEqual(tail, EQ_MAPS.map((m) => m.id));
   for (const m of EQ_MAPS) {
     assert.equal(!!MAPS[m.id].safe, m.id !== 'eng-trial', m.id);

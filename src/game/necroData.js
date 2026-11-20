@@ -18,7 +18,7 @@ export const NECRO_COLORS = { deep: "#1A1024", base: "#351B53", mid: "#6C4CA0", 
 export const NECRO_TINT = [{ from: 130, id: "silver" }, { from: 75, id: "violet" }, { from: 0, id: "shade" }];
 
 export const NECRO = {
-  live: false,                // 실제 게임 연결 — false 면 격자 연습장(sandbox 맵)에서만 켜진다(11월 17일 사용자 결정)
+  live: true,                 // 실제 게임 연결 — false 면 격자 연습장(sandbox 맵)에서만 켜진다(11월 17일 사용자 결정 · 11월 20일 획득 루트와 함께 실제 게임에 열었다)
   maxLv: 200,                 // 직업 레벨 최대
   soul: 100,                  // 영혼 최대
   // 직업 레벨 경험치(공통 제안) — 다음 레벨까지 10 + 지금 레벨. 일반 몹 1 · 사냥터 보스 10 · 토벌 · 월드보스 20 · 1분 120 까지

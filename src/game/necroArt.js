@@ -276,7 +276,14 @@ function drawSil(ctx, type, f, row, x, y, flip, { show = 1, lunge = 0, up = 0, a
     // 무기를 든 보스 — 팔을 뗀 몸 위에 팔 + 무기를 어깨 관절로 돌려 그린다(돌린 무기는 그림 상자 밖으로 나갈 수 있어 판 전체를 그린다)
     if (!swingC) { swingC = document.createElement("canvas"); swingC.width = SIL_W + SW_PAD * 2; swingC.height = SIL_H + SW_PAD; }
     const sx = swingC.getContext("2d");
-    sx.setTransform(1, 0, 0, 1, 0, 0); sx.clearRect(0, 0, swingC.width, swingC.height); sx.drawImage(s.body, SW_PAD, SW_PAD);
+    sx.setTransform(1, 0, 0, 1, 0, 0); sx.clearRect(0, 0, swingC.width, swingC.height);
+    // 몸 뒤 팔(11월 20일 사용자 "비어 보인다" — 3번안) — 같은 팔을 어둡게 몸 뒤에 한 번 더, 앞 팔보다 덜 돌아 팔이 빠진 자리를 채운다
+    sx.filter = `brightness(${NC_BOSS_SWING.backDim})`;
+    for (const m of s.arms) {
+      sx.setTransform(1, 0, 0, 1, SW_PAD, SW_PAD); sx.translate(m.px, m.py); sx.rotate(bossSwing(swing, m.k) * m.d * NC_BOSS_SWING.backK); sx.translate(-m.px, -m.py);
+      sx.drawImage(m.c, 0, 0);
+    }
+    sx.filter = "none"; sx.setTransform(1, 0, 0, 1, 0, 0); sx.drawImage(s.body, SW_PAD, SW_PAD);
     for (const m of s.arms) {
       sx.setTransform(1, 0, 0, 1, SW_PAD, SW_PAD); sx.translate(m.px, m.py); sx.rotate(bossSwing(swing, m.k) * m.d); sx.translate(-m.px, -m.py);
       sx.drawImage(m.c, 0, 0);
@@ -375,17 +382,22 @@ const NC_HAND = {                                   // 쥔 손 자리(몸 그림
    같은 날 사용자 "칼날 끝부분을 아래로 가게 휘둘러야 하는데 반대" — 휘두르는 동안은 날을 자루 축으로 뒤집어 그린다(nc_reap 반달도 다시 그린다) */
 // back — 내려벤 뒤 든 자세로 돌아오는 시간(초). 11월 20일 사용자 "벨 때는 빠르게(유지) 되돌아올 때는 느리게" 로 0.17초 → 0.5초.
 // 판정 시간(h.swing)보다 길어 화면이 휘두른 때를 기억해 이어 그린다(swingStart) — 판정 · 수치는 그대로
-const NC_SWING = { up: 2.4, down: -1.1, lift: 0.2, cut: 0.5, ghost: 3, gap: 0.05, back: 0.5 };
+const NC_SWING = { up: 2.4, down: -1.1, lift: 0.2, cut: 0.5, ghost: 3, gap: 0.05, back: 0.5, over: 0.7 };   // over — 머리 위로 되짚는 몫(나머지에 든 자세로 내려오며 날을 되돌린다)
 const NC_SHAFT = Math.atan2(0.73, -0.68);           // 시트 속 자루 방향(쥔 손 → 날 뿌리, make.py scythe_cells 와 같다)
 const ease = (q) => 1 - Math.pow(1 - clamp(q), 3);
 const smooth = (q) => { q = clamp(q); return q * q * (3 - 2 * q); };
 // t 휘두른 뒤 지난 초 — 들어 올림 · 내려벰은 예전 빠르기(판정 길이 NC_SCYTHE.swing 의 비율), 돌아오기만 back 초에 걸쳐 천천히
-function scytheRot(t, rest) {
-  const S = NC_SWING, u = t / NC_SCYTHE.swing;
+// over — 돌아올 때 머리 위로 되짚어 온다(앞 · 뒤 · 돌아보기, 11월 20일 사용자 그림: 오른쪽 아래 → 머리 위 → 왼쪽). 옆은 예전 길
+function backQ(t) { return clamp((t - NC_SWING.cut * NC_SCYTHE.swing) / NC_SWING.back); }
+// 앞 · 뒤 · 돌아보기 각도(뒤집은 날 기준) — 왼쪽 위로 들었다(up) 머리 위를 지나 오른쪽 아래로 벤다(down), 돌아올 땐 머리 위를 되짚어 왼쪽(mid)까지
+const NC_SWING_OVER = { up: 1.4, down: 5.3, mid: 1.7 };
+function scytheRot(t, rest, over) {
+  const S = over ? { ...NC_SWING, ...NC_SWING_OVER } : NC_SWING, u = t / NC_SCYTHE.swing;
   if (t < 0) return rest;
   if (u < S.lift) return rest + (S.up - rest) * ease(u / S.lift);
   if (u < S.cut) return S.up + (S.down - S.up) * ease((u - S.lift) / (S.cut - S.lift));
-  const q = (t - S.cut * NC_SCYTHE.swing) / S.back;
+  const q = backQ(t);
+  if (over) return q < S.over ? S.down + (S.mid - S.down) * smooth(q / S.over) : S.mid + (rest - S.mid) * smooth((q - S.over) / (1 - S.over));
   return S.down + (rest - S.down) * smooth(q);   // 천천히 출발해 천천히 멈춘다
 }
 const swingSeen = new Map();   // 사람마다 { last 지난 프레임 h.swing, at 휘두른 시각 }
@@ -410,12 +422,12 @@ export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
     ctx.save(); ctx.translate(lx, ly); ctx.rotate(rot);
     // 돌아오는 동안(11월 20일 사용자 "위를 보고 휘두를 때 되돌아오는 방향이 이상해") — 뒤집었던 날을 자루를 축으로 천천히 되돌린다(손에서 낫을 돌려 쥐듯).
     // 예전엔 뒤집힌 날이 발밑을 지나 돌아온 뒤 든 자세에서 한 번에 뒤집혀 튀었다. 원래 뒤집어 드는 자세(H[3])는 그대로
-    const fold = H[3] || u < 0 ? 1 : u < NC_SWING.cut ? -1 : -1 + 2 * smooth((t - NC_SWING.cut * NC_SCYTHE.swing) / NC_SWING.back);
+    const fold = H[3] || u < 0 ? 1 : u < NC_SWING.cut || backQ(t) < NC_SWING.over ? -1 : -1 + 2 * smooth((backQ(t) - NC_SWING.over) / (1 - NC_SWING.over));
     if (H[3] ? true : fold < 1) { ctx.rotate(NC_SHAFT); ctx.scale(1, H[3] ? -1 : fold === 0 ? 0.01 : fold); ctx.rotate(-NC_SHAFT); }   // 휘두르는 동안 — 자루 축으로 뒤집어 날 끝이 아래(베는 쪽)를 향한다
     cell(ctx, "nc_scythe", f, 0, 0, K, a, 0, false, a < 1 ? "brightness(1.8)" : ""); ctx.restore(); };
   if (u > NC_SWING.lift && u < NC_SWING.cut + 0.15)   // 내려벨 때 — 지나온 자리에 옅은 날 잔상(같은 손 · 같은 길이)
-    for (let k = NC_SWING.ghost; k >= 1; k--) draw(scytheRot(Math.max(NC_SWING.lift, u - NC_SWING.gap * k) * NC_SCYTHE.swing, H[2]), 0.4 / k, 1);
-  draw(u < 0 ? H[2] + Math.sin(NOW * 2) * 0.03 : scytheRot(t, H[2]), 1, u >= 0 ? 1 : fr);
+    for (let k = NC_SWING.ghost; k >= 1; k--) draw(scytheRot(Math.max(NC_SWING.lift, u - NC_SWING.gap * k) * NC_SCYTHE.swing, H[2], !H[3]), 0.4 / k, 1);
+  draw(u < 0 ? H[2] + Math.sin(NOW * 2) * 0.03 : scytheRot(t, H[2], !H[3]), 1, u >= 0 ? 1 : fr);
 }
 
 /* 추출 가능 흔적 — 내 것만(남의 흔적은 보이지 않는다). 남은 시간이 1.5초 아래면 깜빡인다 */

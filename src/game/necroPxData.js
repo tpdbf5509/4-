@@ -86,4 +86,5 @@ export const NC_BOSS_ARM = {
 export const NC_BOSS_MIRROR = { barkanon: 1, morgas: 1, guild_siren: 1 };
 // 휘두르기 각도(라디안) — 공격 0~lift 들어 올림 → ~cut 내려벰(든 자세를 지나 down 만큼 더) → 끝까지 제자리로.
 // 11월 20일 사용자 "위에서 아래로 벤다는 느낌이 없어" — 머리 위까지 들어 올리게 up 0.9 → 2.3, 내려벰은 짧고 빠르게(lift 0.3 → 0.4, cut 0.55)
-export const NC_BOSS_SWING = { up: 2.3, down: 0.4, lift: 0.4, cut: 0.55 };
+// backK · backDim — 몸 뒤에 한 번 더 그리는 팔이 앞 팔만큼의 몇 배로 돌고 얼마나 어두운지(11월 20일 사용자 3번안, 팔이 빠진 자리 채우기)
+export const NC_BOSS_SWING = { up: 2.3, down: 0.4, lift: 0.4, cut: 0.55, backK: 0.3, backDim: 0.45 };

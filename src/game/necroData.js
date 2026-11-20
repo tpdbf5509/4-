@@ -4,6 +4,7 @@
    그래서 해금 경로 · 저장(cleanBag) · 스냅샷 줄 · 관리자 명령어 · 화면 칸(RpgView)은 아직 없다. NECRO.live 가 false 라 연습장 맵에서만 켜진다(necroOn).
    "정한 값"이라 적은 것은 기획안에 없어 정한 값이다(보고 대상). 그 밖은 기획안 값 그대로. */
 
+import { HIDDEN_RANGE } from "./hiddenFamilyData.js";   // 히든 계열 전용 사거리(11월 20일)
 import { BOSS_AI } from "./dungeonData.js";
 import { GUARDIANS } from "./abyssData.js";
 
@@ -81,7 +82,7 @@ export const NC_KIND_OF = {
 /* 기본 공격 — 그림자 낫(11월 17일 사용자: "네크로맨서 평타 없애고 근거리 무기 낫으로 바꾸자" — 흑영탄을 뺐다).
    앞쪽 부채꼴(반지름 reach · 반각 arc 라디안) 안 가까운 max 명을 한 번에 벤다. 휘두른 뒤 wind 초에 맞는다(낫 그림과 맞춤).
    ×mul · 하나라도 맞히면 영혼 +5(한 번 휘두를 때 한 번). 공격 간격 gap. reach · arc · max · mul · gap 은 정한 값 — 근접이라 흑영탄(×2.0 한 발)보다 조금 세게 */
-export const NC_SCYTHE = { name: "그림자 낫", gap: 0.55, reach: 140, arc: 1.1, max: 6, mul: 2.6, wind: 0.12, swing: 0.34 };
+export const NC_SCYTHE = { name: "그림자 낫", gap: 0.55, reach: HIDDEN_RANGE.necromancer, arc: 1.1, max: 6, mul: 2.6, wind: 0.12, swing: 0.34 };
 
 /* 흔적 추출(직업 레벨 5) — 영혼 20 · 대기 8초 · 내 둘레 240 안의 흔적 하나(가장 가까운 것). 못 쓰면 영혼 · 대기를 쓰지 않는다.
    0.25초에 그림자가 솟고 0.5초에 발밑으로 빨려 든다 — 등록은 0.5초에 */

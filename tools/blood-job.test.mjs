@@ -545,7 +545,7 @@ test('단서 C — 수문 → 분수 바닥 · 두 단서(B+C)로 훈련장 격�
   assert.equal(tg().length, 2);
   // 1단계 — 평타로 혈흔
   h.x = tg()[0].x - 50; h.y = tg()[0].y; h.look = [1, 0]; h.dir = 1;
-  h.cd = 0; h.fire = 1; for (let i = 0; i < 5; i++) rpgStep(g, .02); h.fire = 0; rpgStep(g, .02);
+  h.cd = 0; h.fire = 1; for (let i = 0; i < 5; i++) rpgStep(g, .02); h.fire = 0; for (let i = 0; i < 10; i++) rpgStep(g, .02);   // 레퀴엠 사격 — 탄이 닿을 때까지(11월 20일 히든 계열)
   assert.equal(h.bt.step, 2);
   // 2단계 — 차징한 적혈탄으로 혈흔 회수
   h.bd.mk['m' + tg()[0].id] = [3, 10];

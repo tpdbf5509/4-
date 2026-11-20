@@ -5,6 +5,7 @@
    히든 직업이라 업데이트 노트 · 공지 · 패치노트 책에 적지 않는다(사용자 지시).
    "정한 값"이라 적은 것은 기획안에 없어 정한 값이다(보고 대상). 그 밖은 기획안 값 그대로. */
 
+import { HIDDEN_RANGE } from "./hiddenFamilyData.js";   // 히든 계열 전용 사거리(11월 20일)
 export const ENGINEER_NAME = "Engineer 003";
 export const ENGINEER_TITLE = "엔지니어";
 export const ENGINEER_ID = "engineer";
@@ -37,7 +38,7 @@ export const EN_TRAIN_NAMES = ["포탑 연마", "드론 연마", "동기화 연�
 
 /* 기본 공격 — 펄스 발진. 공격 간격 0.45초 · 사거리 520 · ×2.0 · 유효 적중이면 전력 +6(공격 한 번에 한 번).
    0.08초 뒤 손목에서 떠난다(기획안 타임라인). 탄 지름 · 탄속은 정한 값 */
-export const EN_PULSE = { name: "펄스 발진", gap: 0.45, range: 520, dia: 22, mul: 2.0, gain: 6, wind: 0.08, v: 1200 };
+export const EN_PULSE = { name: "펄스 발진", gap: 0.45, range: HIDDEN_RANGE.engineer, dia: 22, mul: 2.0, gain: 6, wind: 0.08, v: 1200 };
 
 /* 센트리 터렛(직업 레벨 5) — 전력 25 · 대기 12초 · 설치 거리 420. 12초 동안 1.2초마다 ×3.0 · 사거리 520 · 터렛당 최대 10번.
    동시 2기(포탑 연마 50 → 3기). 포탑 연마 25 — 사거리 +15%. 기단이 0.18초에 솟고 0.30초에 포신이 돈다(첫 사격은 0.30초 뒤) */

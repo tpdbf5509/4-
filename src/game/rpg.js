@@ -27,6 +27,7 @@ import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill,
 import { EN_PULSE } from './engineerData.js';
 import { EQ_MAPS, EQ_EXITS, EQ_VILLAGE, EQ_SITE_MAPS, EQ_SITE_EXIT, EQ_TRIAL } from './engineerQuestData.js';   // Engineer 003 획득 루트(11월 19일)
 import { eqInput, tickEq, eqMobHit, packEq, applyEq, eqInTrial } from './engineerQuest.js';
+import { HIDDEN_FAMILY, hiddenRange } from "./hiddenFamilyData.js";   // 히든 계열 · 전용 사거리(11월 20일)
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
 import { NC_SCYTHE } from './necroData.js';
 import { wyvernInput, wyvernBasic, tickWyvernJob, wyvernDown, wyvernFill, wyvernKill, wyvernRaidKill, wyvernOn, wyvernTake, wyvernSpd, wyvernLook } from './wyvernJob.js';   // 히든 직업 Wyvern Knight 006(11월 17일 — 격자 연습장에만)
@@ -823,6 +824,12 @@ export function cleanLook(d) {
 }
 const BASE_LOOK = { name: "", job: "warrior", elem: "none", gender: "m" };
 export const jobOf = (h) => JOB_BY_ID[h && h.job] || JOBS[0];
+/* 히든 계열(11월 20일 사용자 "히든 직업은 히든직업이고") — 켜진 히든 직업 id, 아니면 "".
+   손님 화면은 스냅샷 값(h.bdv · h.gmv · h.env · h.ncv)으로 본다. 사거리 · 다른 무기 판정이 이것을 먼저 본다(hiddenFamilyData.js) */
+export const hiddenOf = (h) => !h ? "" : (h.bdv || bloodOn(h)) ? "blood" : gamblerLook(h) ? "gambler" : engineerLook(h) ? "engineer"
+  : necroLook(h) ? "necromancer" : illusionOn(h) ? "illusionist" : wyvernLook(h) ? "wyvern" : "";
+// 평타 모양을 정하는 직업 — 히든 직업은 바탕 직업(검사 회전 베기 · 마법사 구슬)을 따르지 않는다. BLOOD-001 은 레퀴엠으로 한 대상을 쏜다(피해 · 간격은 바탕 그대로)
+const basicJob = (h) => (hiddenOf(h) ? { ...jobOf(h), id: HIDDEN_FAMILY.id, splash: 0 } : jobOf(h));
 export const elemOf = (h) => (hasElem(jobOf(h).id) ? REAL_ELEM[h.elem] || ELEMS[0] : NO_ELEM);
 export const skillName = (h) => [elemOf(h).name, jobOf(h).skill].filter(Boolean).join(" ");
 // 화면에 쓰는 직업 이름 — 마법사는 원소를 앞에 붙인다(화염 마법사), 검사 · 궁수는 직업만
@@ -928,7 +935,7 @@ export const titleMet = (h, t) => (t.off ? offKey(h) === t.off : Object.entries(
 // 직업과 다른 묶음의 무기를 들었으면 그 묶음(sword · bow · staff), 아니면 "" — 방장만 가방을 본다
 export function offHand(h) {
   const w = h && h.bag && equipped(h.bag);
-  const fam = w ? WEAPON_FAMILY[w.t] : "";
+  const fam = w && !hiddenOf(h) ? WEAPON_FAMILY[w.t] : "";   // 히든 계열은 검 · 활 · 지팡이 묶음 밖 — 전용 무기에 고정 피해를 걸지 않는다(11월 20일)
   return fam && fam !== JOB_FAMILY[jobOf(h).id] ? fam : "";
 }
 const offKey = (h) => { const f = offHand(h); return f ? `${jobOf(h).id}:${f}` : ""; };
@@ -1151,7 +1158,8 @@ export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkM
 export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h)) * bloodJobAtk(h);   // BLOOD-001 폭주 +25% · 탈진 -15%
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
-export const heroRange = (h) => jobOf(h).rng * RPG.rangeMul * (jobOf(h).id === "archer" ? JOB_TUNE.archer.range : 1) * acRangeMul(h);   // 10월 30일 궁수 사거리 +15%
+export const heroRange = (h) => hiddenOf(h) ? hiddenRange(hiddenOf(h)) * acRangeMul(h)   // 히든 계열 전용 사거리 — 바탕 직업 rng · 궁수 보정을 쓰지 않는다
+  : jobOf(h).rng * RPG.rangeMul * (jobOf(h).id === "archer" ? JOB_TUNE.archer.range : 1) * acRangeMul(h);   // 10월 30일 궁수 사거리 +15%
 // 평타 판정과 사거리 원이 버프를 포함한 같은 반지름을 쓴다.
 export const heroAttackRange = h => heroRange(h) * advRangeMul(advEngine, h) * shadowRangeMul(h);
 const heroCd = (h) => jobOf(h).cd / (1 + armorAspd(h) + guildAspd(h)) / acAspdMul(h) / shadowAspd(h);   // 전설 바지 · 신발 — 공격 속도 · 암흑검 연격 지속 중
@@ -2370,7 +2378,7 @@ function afterHit(g, h, m, x, y, dmg) {
 function heroAttack(g, h, force) {
   const pi = h.pi;
   const map = h.map;
-  const job = jobOf(h), el = elemOf(h);
+  const job = basicJob(h), el = elemOf(h);
   const dmg = job.dmg * heroDmgMul(h);
   const rng = heroAttackRange(h);   // 총사 기동 사격 — 물러나며 쏘아도 끊기지 않게 자동 평타 사거리를 늘린다
   const hy = h.y - 34;

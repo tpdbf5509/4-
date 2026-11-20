@@ -4,6 +4,7 @@
    저장 · 스냅샷 · 관리자 명령어 · 유일 규칙(HIDDEN_JOBS)에는 아직 잇지 않았다. 업데이트 노트 · 공지 · 패치노트 책에 적지 않는다.
    "정한 값"이라 적은 것은 기획안에 없어 정한 값이다(보고 대상). 그 밖은 기획안 값 그대로. */
 
+import { HIDDEN_RANGE } from "./hiddenFamilyData.js";   // 히든 계열 전용 사거리(11월 20일)
 export const ILLUSION_NAME = "Illusionist 005";
 export const ILLUSION_TITLE = "마술사";
 export const ILLUSION_ID = "illusionist";
@@ -36,7 +37,7 @@ export const IL_TRICK = { max: 5, basic: 1, chain: 1, cost: 3, window: 4, window
 
 /* 절단 카드(기본) — 공격 간격 0.5초 · 사거리 550 · 폭 32 · ×2.0 · 맞히면 트릭 +1.
    0.00 손 위에서 카드가 돌고 0.09초에 떠난다(기획안 타임라인). 탄속은 정한 값 */
-export const IL_CARD = { name: "절단 카드", gap: 0.5, range: 550, w: 32, mul: 2.0, wind: 0.09, v: 1400 };
+export const IL_CARD = { name: "절단 카드", gap: 0.5, range: HIDDEN_RANGE.illusionist, w: 32, mul: 2.0, wind: 0.09, v: 1400 };
 
 /* 폭렬 셔플(직업 레벨 5) — 대기 9초 · 사거리 580 · 반지름 140. 카드 5장 ×3.0 + 마무리 ×6.0(합 ×21).
    0.15~0.55 카드가 차례로 날아가 겨눈 자리를 치고 0.70 같은 자리에서 폭발(반지름 = 판정 범위). 카드 연마 25 — 카드 +2장.

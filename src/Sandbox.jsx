@@ -9,6 +9,7 @@ import {
   hasElem, elemFor, statEarned, maxStats, statCap, refreshHp, heldSpecial, dist, sandboxDummies, sandboxMobs, mobName, MOB,
 } from "./game/rpg.js";
 import { rpgInput } from "./game/rpgInput.js";
+import { HIDDEN_FAMILY, hiddenRange } from "./game/hiddenFamilyData.js";   // 히든 계열 · 전용 사거리(11월 20일)
 import { drawRpg } from "./game/rpgArt.js";
 import { GIFT, RESET } from "./game/itemData.js";
 import { SPECIALS, SKILLS, JOB_FAMILY, WEAPON_FAMILY } from "./game/shopData.js";
@@ -661,7 +662,9 @@ export default function Sandbox() {
     adv: !blood && ADV_CLASSES.some((q) => q.id === cfg.adv && q.job === cfg.job) ? cfg.adv : "",
   };
   const el = ELEM_BY_ID[elemFor(cfg.job, cfg.elem)];
-  const title = [wyvern ? WYVERN_NAME : engineer ? ENGINEER_NAME : necro ? NECRO_NAME : illusion ? ILLUSION_NAME : gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : (ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name].filter(Boolean).join(" · ");
+  const hjName = wyvern ? WYVERN_NAME : engineer ? ENGINEER_NAME : necro ? NECRO_NAME : illusion ? ILLUSION_NAME : gambler ? GAMBLER_NAME : blood ? BLOOD_NAME : "";
+  // 히든 직업은 검사 · 마법사 · 궁수 묶음이 아니라 히든 계열로 보인다(11월 20일)
+  const title = (hjName ? [HIDDEN_FAMILY.name, hjName] : [(ADV_CLASSES.find((q) => q.id === cfg.adv) || {}).name, JOB_BY_ID[cfg.job].name, el.name]).filter(Boolean).join(" · ");
 
   return (
     <div className="page sb-page">
@@ -758,6 +761,12 @@ export default function Sandbox() {
                 {advs.map((q) => (
                   <button key={q.id} type="button" className={`jt-chip ${cfg.adv === q.id ? "on" : ""}`} aria-pressed={cfg.adv === q.id} onClick={() => pickAdv(q.id)}>{q.name}</button>
                 ))}
+              </div>
+            </section>
+            <section>
+              <h3 className="jt-h">{HIDDEN_FAMILY.name} 직업 <span className="mk-note">· 전용 사거리 {Math.round(hiddenRange(skJob || (blood ? "blood" : "base")))}</span></h3>
+              <div className="jt-chips">
+                <button type="button" className={`jt-chip ${!blood && !hidden ? "on" : ""}`} aria-pressed={!blood && !hidden} onClick={() => pickAdv("")}>없음</button>
                 <button type="button" className={`jt-chip ${blood ? "on" : ""}`} aria-pressed={blood} onClick={() => pickAdv("blood")}>{BLOOD_NAME}</button>
                 <button type="button" className={`jt-chip ${gambler && !engineer ? "on" : ""}`} aria-pressed={gambler && !engineer} onClick={() => pickAdv("gambler")}>{GAMBLER_NAME}</button>
                 <button type="button" className={`jt-chip ${engineer ? "on" : ""}`} aria-pressed={engineer} onClick={() => pickAdv("engineer")}>{ENGINEER_NAME}</button>

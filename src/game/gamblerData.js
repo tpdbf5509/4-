@@ -4,6 +4,7 @@
    저장 bag.hj · 스냅샷 영웅 줄 57 · 해금 경로(gamblerUnlock.js, 진행은 bag.gu) · 관리자 명령어 /도박꾼(adminCmd.js).
    "정한 값"이라 적은 것은 기획안에 없어 정한 값이다(보고 대상). 그 밖은 기획안 값 그대로. */
 
+import { HIDDEN_RANGE } from "./hiddenFamilyData.js";   // 히든 계열 전용 사거리(11월 20일)
 export const GAMBLER_NAME = "Gambler 002";
 export const GAMBLER_TITLE = "도박꾼";
 export const GAMBLER_ID = "gambler";
@@ -38,7 +39,7 @@ export const GM_LUCK = { need: 3, need50: 2, sp50: 50 };
 
 /* 기본 공격 — 황금 칩. 공격 간격 0.5초 · 사거리 480 · 탄 지름 26 · ×2.0 · 적중하면 칩 +1(공격 한 번에 한 번).
    0.08초 뒤 손에서 떠난다(기획안 타임라인). 탄속은 정한 값 */
-export const GM_CHIP = { name: "황금 칩", gap: 0.5, range: 480, dia: 26, mul: 2.0, gain: 1, wind: 0.08, v: 1100 };
+export const GM_CHIP = { name: "황금 칩", gap: 0.5, range: HIDDEN_RANGE.gambler, dia: 26, mul: 2.0, gain: 1, wind: 0.08, v: 1100 };
 
 /* 칩 장막(직업 레벨 5) — 대기 16초 · 내 둘레 300 안의 아군. 나는 최대 체력 18% · 아군 12% 보호막 · 7초.
    방어 연마 25 — 지속 +2초 · 50 — 18% → 26% · 12% → 17%. 내 장막이 실제 피해를 막으면 칩 +1(0.8초에 한 번 — 지속 피해 틱마다 세지 않는다).

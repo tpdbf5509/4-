@@ -252,6 +252,10 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 11월 17일 연출 보강: 조립·충전·추진기·조준 회로 시트 4장 추가. 총구·명중·포격·광선·충격파 시트를 보강했다. `drawEngineerFx`·`drawEngineerUnit`이 품질 값을 받아 장식 잔상을 줄인다. 판정·전력·대기·스냅샷은 그대로며 패치노트에는 적지 않는다.
 - 11월 17일 밀도 보강(사용자 "범위는 큰데 이펙트가 비어 보인다"): 작은 입자 시트 `en_bits`(스파크 청록·금빛 · 불씨 · 금속 파편 · 연기 · 전류 줄기)를 `engineerArt.js bits()` 가 범위 안에 뿌린다. 자리는 연출마다 정해진 씨앗이라 프레임마다 이어진다. 상한 `EN_BITS`(한 연출 56 · 한 프레임 360), `DETAIL` 로 줄어든다. 궤도 포격 · 광선 · 펄스 · 명중 그림도 한 단계 키웠다.
 
+### 히든 계열 · 전용 사거리 (11월 20일)
+- 히든 직업은 검사 · 마법사 · 궁수 묶음 밖의 「히든」 계열이다. 평타 사거리는 `hiddenFamilyData.js HIDDEN_RANGE` 한 곳(공통 `base` 230 · BLOOD-001 230 · 도박꾼 480 · 엔지니어 520 · 네크로맨서 140 · 마술사 550 · 와이번 160). 판별 `rpg.js hiddenOf`, `heroRange` · 사거리 원 · 스킬 설명이 이 값을 쓴다.
+- 전용 무기는 묶음이 달라도 다른 무기 고정 피해(`offHand`)를 받지 않는다. BLOOD-001 평타는 바탕 직업과 상관없이 레퀴엠 한 발(`basicJob`). 피해 스탯 · 직업 피해 배율은 아직 바탕 직업. 새 히든 직업은 `hiddenOf` 와 표에 한 줄씩 더한다. 시험 `tools/hidden-family.test.mjs`.
+
 ### 히든 직업 유일 규칙 (11월 17일)
 - 히든 직업(BLOOD-001 · Gambler 002 …)은 **관리자를 빼고 게임 전체에서 한 명만** 가진다. 먼저 해금한 사람이 갖고, 보유자가 있으면 시험 문(입구 · 카지노 상자)을 열 때 안내가 나오고 해금은 막힌다. 서버 RPG1~4 는 캐릭터 장부가 하나라 서버가 달라도 한 명이다.
 - 규칙 · 판별 `src/game/hiddenUnique.js`(`HIDDEN_JOBS` — id 는 장부 표에 적히니 바꾸지 않고 뒤에만 더한다), 장부 표 `hidden_jobs`(`server/src/ledger-hidden.js`, 함수 `rpg_hidden` claim · sync · list, 전용 서버만 부른다), 방 `room.js hiddenTick`(시험 통과 요청 `g.hjq` → 장부 → 답 `h.hjr`, 가방이 바뀌면 sync). 시험 `tools/hidden-unique.test.mjs`.

@@ -144,8 +144,8 @@ function bloodInfo(h) {
       `혈흔 — 평타마다 1중첩(최대 ${BLOOD.mark.max} · ${BLOOD.mark.dur}초) · 중첩당 피해 +${pct(BLOOD.mark.per)}.`,
     ],
     basic: { s: "basic", act: "fire", name: "평타 · 크림슨 레퀴엠", tag: "기본 공격", lvText: "늘 열림",
-      desc: [`맞히면 혈량 +${BLOOD.basicGain}과 혈흔 1중첩을 얻습니다.`],
-      stats: [["혈량", `+${BLOOD.basicGain}`], ["혈흔", `최대 ${BLOOD.mark.max}중첩`]] },
+      desc: ["바탕 직업과 상관없이 한 대상을 쏩니다.", `맞히면 혈량 +${BLOOD.basicGain}과 혈흔 1중첩을 얻습니다.`],
+      stats: [["혈량", `+${BLOOD.basicGain}`], ["혈흔", `최대 ${BLOOD.mark.max}중첩`], ["사거리", Math.round(heroRange({ ...h, ac: null }))]] },   // 히든 계열 전용 사거리(hiddenFamilyData.js)
     skills: [
       card("shot", "bShot", BLOOD_SHOT.name, U.shot, ["누르는 동안 모으고 뗄 때 쏩니다.", `${T.map((t, i) => `${i ? `${i}단계 ${t.at}초` : "기본"} ${x(t.mul)}`).join(" · ")}`],
         [["혈량", T.map((t) => t.cost).join(" · ")], ["대기", T.map((t) => t.cd).join(" · ") + "초"], ["사거리", T.map((t) => t.range).join(" · ")]],

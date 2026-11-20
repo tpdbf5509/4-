@@ -6,6 +6,7 @@
    1부 요약에만 있는 두 기술(천공강습 · 아르카디온 용참섬멸)은 2부 표에 없어 수치를 모두 정했다.
    아르카디온은 11월 18일 사용자 지시("아르카디온은 레퀴엠처럼 장착하는 무기")로 손에 드는 전용 무기(WY_WEAPON_ITEM)가 됐다. 들어야 X 기술을 쓴다. */
 
+import { HIDDEN_RANGE } from "./hiddenFamilyData.js";   // 히든 계열 전용 사거리(11월 20일)
 export const WYVERN_NAME = "Wyvern Knight 006";
 export const WYVERN_TITLE = "와이번 나이트";
 export const WYVERN_ID = "wyvern";   // bag.hj.jobs 의 칸 이름
@@ -39,7 +40,7 @@ export const WY_BLOOD = { claw: 6, roar: 10, wyvern: 2, sp25: 25, gain25: 0.2 };
 
 /* 용조격(기본) — 공격 간격 0.55초 · 앞 160 · 부채꼴 95° · ×2.5. 0.12초에 참격(기획안 타임라인).
    arc 는 반각(라디안). max — 한 번에 맞는 수(정한 값, 그림자 낫과 같은 6) */
-export const WY_CLAW = { name: "용조격", gap: 0.55, reach: 160, arc: (95 / 2) * Math.PI / 180, mul: 2.5, wind: 0.12, swing: 0.25, max: 6 };
+export const WY_CLAW = { name: "용조격", gap: 0.55, reach: HIDDEN_RANGE.wyvern, arc: (95 / 2) * Math.PI / 180, mul: 2.5, wind: 0.12, swing: 0.25, max: 6 };
 
 /* 비룡의 계약(직업 레벨 5) — 용혈 30(30 아래면 못 쓴다) · 끝난 때부터 15초 · 30초 동안 1.5초마다 ×3.0 화염탄 · 찾는 거리 500.
    주인 뒤 60~120 을 따라다니고 650 넘게 떨어지면 주인 뒤로 다시 놓는다. 고도는 그림자와 그림의 화면 높이 차이로만(따로 Z 축 없음).

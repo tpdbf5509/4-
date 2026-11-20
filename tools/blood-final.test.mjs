@@ -274,7 +274,7 @@ test('결투 — 혈검은 참격마다 새 시전이라 50초 동안 계속 피
 test('결투 — BLOOD-001 결투 피해 ×2(평타 기준) · 다른 직업은 그대로 · 혈수 강타 · 혈류 파동 · 적혈탄도 체력이 준다', () => {
   { const { g, h, o } = duel(); const before = o.hp; h.cd = 0; rpgFire(g, 0, true); rpgStep(g, .01); rpgFire(g, 0, false);
     near(before - o.hp, JOBS[0].dmg * physMul(h) * DUEL.dmgMul, 1e-6, '일반 직업'); }
-  { const { g, h, o } = duel(); unlockBlood(h); job(h, 20); const before = o.hp; h.cd = 0; rpgFire(g, 0, true); rpgStep(g, .01); rpgFire(g, 0, false);
+  { const { g, h, o } = duel(); unlockBlood(h); job(h, 20); const before = o.hp; h.cd = 0; rpgFire(g, 0, true); rpgStep(g, .01); rpgFire(g, 0, false); for (let i = 0; i < 25; i++) rpgStep(g, .01);   // 레퀴엠 사격 — 탄이 닿을 때까지(11월 20일 히든 계열)
     near(before - o.hp, JOBS[0].dmg * physMul(h) * DUEL.dmgMul * DUEL.bloodMul, 1e-6, 'BLOOD-001 ×2');
     assert.ok(h.bd.mk['h1'], '상대에게도 혈흔'); }
   for (const s of ['smash', 'wave', 'shot']) {

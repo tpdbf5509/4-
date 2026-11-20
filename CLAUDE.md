@@ -48,7 +48,7 @@
 | 판정 | 방어전은 **방장 브라우저**가 판정하고 손님은 입력만 보낸다. RPG 는 기본이 **전용 서버 판정**, `?srv=off` 면 방장 브라우저 방식. 규칙 코드는 `src/game/` 을 서버도 그대로 묶어 쓴다 |
 | 장부(계정 · 저장) | D1 `four-lane` + 장부 DO `Ledger`(`server/src/ledger*.js`, 함수 이름 · 인자 `p_*` 는 옛 Supabase rpc 와 같다). 화면은 `ledger(fn, args)`(`src/net/api.js`), 전용 서버 방에서는 방 웹소켓의 `ledger` 말로 서버에 부탁한다. 표는 `server/schema.sql` |
 | 저장 | RPG 캐릭터는 이름 + 숫자 5자리 코드로 장부와 localStorage 둘 다. 홈 이름 · 설정은 localStorage |
-| 소리 | 파일 없이 웹오디오 합성(`sfx.js`) |
+| 소리 | 효과음은 웹오디오 합성. RPG 배경음악은 `public/assets/audio/bakery-morning.mp3`. ☰ 설정에서 전체 음량과 음소거를 조절한다 |
 
 ### 파일 찾는 법
 

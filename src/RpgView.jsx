@@ -654,6 +654,18 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     guideRef.current = null;
     setGuideDone(true);
   };
+  const [volume, setVolume] = useState(() => {
+    const saved = Number(localStorage.getItem("flg:rpgVolume") ?? 60);
+    return Number.isFinite(saved) ? Math.min(100, Math.max(0, saved)) : 60;
+  });
+  useEffect(() => {
+    sfx.setLevel(volume / 100);
+    localStorage.setItem("flg:rpgVolume", String(volume));
+  }, [volume]);
+  useEffect(() => {
+    const stop = sfx.startRpgMusic();
+    return () => { stop(); sfx.setLevel(1); };
+  }, []);
   const [mute, setMute] = useState(() => sfx.isMuted());
   const [dropped, setDropped] = useState(false);
   const [toast, setToast] = useState(null);         // 맵을 옮기면 잠깐 이름을 띄운다
@@ -2026,6 +2038,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <div className="rpg-menu-back" onClick={() => setMenu(false)} />
               <div className="rpg-menu" role="menu">
                 <span className="rpg-menu-head">설정</span>
+                <button type="button" className="rpg-menu-row" role="menuitemcheckbox" aria-checked={mute} onClick={toggleMute}>
+                  <span className="rpg-menu-text"><b>음소거</b><em>배경음악과 효과음</em></span>
+                  <span className={`rpg-switch ${mute ? "on" : ""}`}><span /></span>
+                </button>
+                <label className="rpg-menu-row">
+                  <span className="rpg-menu-text"><b>전체 음량</b><em>{volume}%</em></span>
+                  <input type="range" min="0" max="100" value={volume} aria-label="전체 음량" aria-valuetext={volume + "%"}
+                    onKeyDown={e => e.stopPropagation()} onChange={e => setVolume(Number(e.target.value))} />
+                </label>
                 <button type="button" role="menuitemcheckbox" aria-checked={auto} className="rpg-menu-row" onClick={toggleAuto}>
                   <span className="rpg-menu-text">
                     <b>자동 평타</b>

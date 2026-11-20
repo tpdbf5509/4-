@@ -4,6 +4,12 @@
    ──────────────────────────────────────────────────────────── */
 let ac = null;
 let master = null;
+let level = 1;
+function masterLevel() { return muted ? 0 : 0.5 * level; }
+export function setLevel(value) {
+  level = value;
+  if (master) master.gain.setTargetAtTime(masterLevel(), ac.currentTime, 0.02);
+}
 let muted = localStorage.getItem("flg:mute") === "1";
 const last = new Map();
 // 월드보스 등장 연출 소리 — 연출이 끊기면(wbStop) 아직 울리는 소리도 멈춘다
@@ -23,7 +29,7 @@ function ctx() {
     if (!AC) return null;
     ac = new AC();
     master = ac.createGain();
-    master.gain.value = muted ? 0 : 0.5;
+    master.gain.value = masterLevel();
     master.connect(ac.destination);
     duck = ac.createGain();
     duck.gain.value = 1;
@@ -33,12 +39,38 @@ function ctx() {
   return ac;
 }
 
+export function startRpgMusic() {
+  const music = new Audio("/assets/audio/bakery-morning.mp3");
+  music.loop = true;
+  let source;
+  function play() {
+    const audio = ctx();
+    if (!audio || muted || level === 0) return;
+    if (!source) {
+      source = audio.createMediaElementSource(music);
+      source.connect(duck);
+    }
+    if (music.paused) music.play().catch(() => {});
+  }
+  document.addEventListener("click", play);
+  document.addEventListener("keydown", play);
+  play();
+  return () => {
+    document.removeEventListener("click", play);
+    document.removeEventListener("keydown", play);
+    music.pause();
+    source?.disconnect();
+    music.removeAttribute("src");
+    music.load();
+  };
+}
+
 export function unlock() { ctx(); }
 export function isMuted() { return muted; }
 export function setMuted(v) {
   muted = v;
   localStorage.setItem("flg:mute", v ? "1" : "0");
-  if (master) master.gain.setTargetAtTime(v ? 0 : 0.5, ac.currentTime, 0.02);
+  if (master) master.gain.setTargetAtTime(masterLevel(), ac.currentTime, 0.02);
 }
 
 // 같은 소리가 한꺼번에 겹쳐 터지지 않게 살짝 사이를 둔다
@@ -526,4 +558,4 @@ export function play(name) {
   }
 }
 
-export default { unlock, play, shot, isMuted, setMuted };
+export default { unlock, play, shot, isMuted, setMuted, setLevel, startRpgMusic };

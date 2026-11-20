@@ -12,6 +12,8 @@ SIZE, PAD = 128, 4                 # 그림 크기 · 가장자리 여백
 im = Image.open(SRC).convert("RGBA")
 k = (SIZE - PAD * 2) / max(im.size)
 im = im.convert("RGBa").resize((round(im.size[0] * k), round(im.size[1] * k)), Image.LANCZOS).convert("RGBA")
+import numpy as np
+a = np.asarray(im).copy(); a[:, :, 1] = np.minimum(a[:, :, 1], np.maximum(a[:, :, 0], a[:, :, 2])); im = Image.fromarray(a, "RGBA")   # 줄일 때 생기는 초록 기운을 누른다
 ic = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
 ic.paste(im, ((SIZE - im.size[0]) // 2, (SIZE - im.size[1]) // 2), im)
 ic.save(OUT, lossless=True, quality=100, method=6)

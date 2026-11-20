@@ -3,7 +3,7 @@
    히든 직업이라 업데이트 노트 · 공지 · 패치노트 책에는 적지 않는다 */
 import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_TRAIN_NAMES, GM_CHIP, GM_BET, GM_LUCK, GM_VEIL, GM_DICE, GM_RAIN, GM_DD, GM_TABLE, GM_EDGE, GM_JACK } from "./gamblerData.js";
 import { ENGINEER, ENGINEER_NAME, ENGINEER_TITLE, EN_SLOTS, EN_TRAIN_NAMES, EN_PULSE, EN_TURRET, EN_DRONE, EN_MAGNET, EN_RAIL, EN_MECH, EN_OC, EN_ORBIT } from "./engineerData.js";
-import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_TRAIN_NAMES, NC_SCYTHE, NC_SOUL, NC_ROSTER, NC_EXTRACT, NC_SUMMON, NC_SWAP, NC_DOMAIN, NC_MARCH, NC_BURN, NC_LEGION, NC_WEAPON_ITEM } from "./necroData.js";
+import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_TRAIN_NAMES, NC_SCYTHE, NC_SOUL, NC_ROSTER, NC_EXTRACT, NC_SUMMON, NC_SWAP, NC_DOMAIN, NC_MARCH, NC_BURN, NC_LEGION } from "./necroData.js";
 import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_TRAIN_NAMES, WY_BLOOD, WY_CLAW, WY_CONTRACT, WY_ROAR, WY_DIVE, WY_SCALE, WY_SKY, WY_AWAKE, WY_ULT, WY_ASSAULT, WY_ARCADION } from "./wyvernData.js";
 import { ILLUSION, ILLUSION_NAME, ILLUSION_TITLE, IL_SLOTS, IL_TRAIN_NAMES, IL_TRICK, IL_CARD, IL_SHUFFLE, IL_SLASH, IL_PRISON, IL_BLINK, IL_FIST, IL_MIRROR, IL_FINAL } from "./illusionData.js";
 
@@ -93,7 +93,7 @@ function necro() {
       `등급마다 그림자 공격 +${pct(NC_ROSTER.gradeDmg)}. 그림자는 피해를 받지 않습니다.`,
     ],
     basic: { s: "reap", act: "fire", name: NC_SCYTHE.name, lv: U.reap,
-      desc: ["앞쪽 부채꼴을 낫으로 베는 근접 기본 공격입니다.", `한 번에 가까운 ${NC_SCYTHE.max}명까지. 맞히면 영혼 +${NC_SOUL.hit}.`, `전용 무기 ${NC_WEAPON_ITEM.name}을 들고 있어야 씁니다.`],
+      desc: ["앞쪽 부채꼴을 낫으로 베는 근접 기본 공격입니다.", `한 번에 가까운 ${NC_SCYTHE.max}명까지. 맞히면 영혼 +${NC_SOUL.hit}.`],
       stats: [["피해", x(NC_SCYTHE.mul)], ["공격 간격", `${NC_SCYTHE.gap}초`], ["거리", NC_SCYTHE.reach], ["각도", deg(NC_SCYTHE.arc)]] },
     skills: NC_SLOTS.map((q) => ({ ...q, ...{
       extract: { name: NC_EXTRACT.name, lv: U.extract, desc: ["가장 가까운 흔적을 그림자로 명부에 넣습니다.", "이미 있는 종류면 승급 재추출로 셉니다. 흔적이 없으면 영혼 · 대기를 쓰지 않습니다."],

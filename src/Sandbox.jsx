@@ -852,7 +852,7 @@ export default function Sandbox() {
               </div>
               {(!hidden || wyvern || necro) && <label className="sb-row">무기
                 <select value={cfg.weapon} onChange={(e) => set({ weapon: e.target.value })}>
-                  {!blood && <option value="">{wyvern ? "맨손(아르카디온 기술을 못 씀)" : necro ? "맨손(그림자 낫을 못 휘두름)" : "맨손(기본 무기)"}</option>}
+                  {!blood && <option value="">{wyvern ? "맨손(아르카디온 기술을 못 씀)" : necro ? "맨손" : "맨손(기본 무기)"}</option>}
                   {weapons.map((w) => <option key={w.id} value={w.id}>{w.name}{w.hold ? " · 미공개" : ""}</option>)}
                 </select>
               </label>}

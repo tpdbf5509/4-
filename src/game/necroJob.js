@@ -241,10 +241,7 @@ const pay = (E, g, h, sk) => { const s = st(h), D = NC_SKILLS[sk]; s.soul -= D.c
 export function necroBasic(E, g, h, force) {
   if (!necroOn(h)) return false;
   const s = st(h);
-  if (!ncArmed(h)) {                                    // 그림자 낫을 들어야 휘두른다 — 누를 때만 2초에 한 번 알린다
-    if (force && !(g.t - (s.noW || -9) < 2)) { s.noW = g.t; no(E, g, h, `${NC_WEAPON_ITEM.name}을 들어야 합니다`, RED); }
-    return false;
-  }
+  if (!ncArmed(h)) return false;                       // 그림자 낫을 들어야 휘두른다 — 안내 문구는 띄우지 않는다(11월 20일 사용자 "문구 지워줘")
   const o = nearest(E, g, h, h.x, h.y, SC.reach + 20, h.map);
   if (!o && !force) return false;
   let ax, ay;

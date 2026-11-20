@@ -8,7 +8,7 @@
    그림자 병사 · 추출 가능 흔적은 연출이 아니라 판정 상태(necroShadows · necroView)로 그린다 — rpgArt 가 사람과 앞뒤를 맞춰 부른다. */
 import { NECRO_COLORS as C, NC_SUMMON, NC_DOMAIN, NC_SCYTHE } from "./necroData.js";
 import { necroView, necroShadows } from "./necroJob.js";
-import { NECRO_PX_SRC, NECRO_PX, NC_FRAME as FR, NECRO_PFX, NC_DOMAIN_PFX, NC_BOSS_SRC, NC_BOSS_ART, NC_BOSS_ARM, NC_BOSS_SWING } from "./necroPxData.js";
+import { NECRO_PX_SRC, NECRO_PX, NC_FRAME as FR, NECRO_PFX, NC_DOMAIN_PFX, NC_BOSS_SRC, NC_BOSS_ART, NC_BOSS_ARM, NC_BOSS_SWING, NC_BOSS_MIRROR } from "./necroPxData.js";
 const SH = { ...NECRO_PX, ...NECRO_PFX };           // 직접 그린 시트 + pixelfx 보강 시트
 
 const TAU = Math.PI * 2;
@@ -200,9 +200,11 @@ function bossImg(name) {
   return im;
 }
 const imgReady = (im) => !!im && im.complete && im.naturalWidth > 0;
-function silCanvas(im, l, t, w, h) {
+function silCanvas(im, l, t, w, h, mir) {
   const c = document.createElement("canvas"); c.width = SIL_W; c.height = SIL_H;
-  const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(im, l, t, w, h);
+  const x = c.getContext("2d"); x.imageSmoothingQuality = "high";
+  if (mir) { x.translate(SIL_FX * 2, 0); x.scale(-1, 1); }   // 발 가운데(SIL_FX)를 축으로 좌우 뒤집기
+  x.drawImage(im, l, t, w, h);
   return c;
 }
 function bossSil(type, f) {
@@ -215,7 +217,8 @@ function bossSil(type, f) {
   const want = NC_BOSS_ART[type], k = Math.min((want || SIL_MAXH) / im.naturalHeight, SIL_MAXW / im.naturalWidth);
   const w = Math.round(im.naturalWidth * k), h = Math.round(im.naturalHeight * k), bob = f < 4 ? (f % 2) * 2 : 0;
   const l = Math.round(SIL_FX - w / 2), t = SIL_FY - h - bob;
-  s = { c: silCanvas(im, l, t, w, h), box: { l, t, w, h }, n: w * h, done: true };
+  const mir = !!NC_BOSS_MIRROR[type];
+  s = { c: silCanvas(im, l, t, w, h, mir), box: { l, t, w, h }, n: w * h, done: true };
   // 휘두르기 — 팔을 뗀 몸 · 팔 그림이 모두 오면 붙인다(아직이면 이번엔 굳히지 않는다 · 못 불러오면 휘두르지 않는다)
   const arm = NC_BOSS_ARM[type];
   if (arm) {
@@ -223,8 +226,11 @@ function bossSil(type, f) {
     if ([body, ...arms].some((x) => x && !imgReady(x))) return s;
     if (body && arms.every(Boolean)) {
       const kx = w / im.naturalWidth;
-      s.body = silCanvas(body, l, t, w, h);
-      s.arms = arms.map((a, i) => ({ c: silCanvas(a, l, t, w, h), px: l + arm[i][0] * kx, py: t + arm[i][1] * kx, d: arm[i][2] }));
+      s.body = silCanvas(body, l, t, w, h, mir);
+      s.arms = arms.map((a, i) => {
+        const px = l + arm[i][0] * kx;
+        return { c: silCanvas(a, l, t, w, h, mir), px: mir ? SIL_FX * 2 - px : px, py: t + arm[i][1] * kx, d: mir ? -arm[i][2] : arm[i][2] };
+      });
     }
   }
   SIL.set(key, s);

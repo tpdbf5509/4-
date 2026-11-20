@@ -80,7 +80,9 @@ export const NC_BOSS_ARM = {
   tg_fire: [[312, 100, -1]],
   tg_corrode: [[132, 115, -1]],
   tg_frost: [[270, 128, -1]],
-  guild_siren: [[145, 100, -1]],
+  guild_siren: [[145, 100, 1]],   // 뒤집어 그리는 보스(NC_BOSS_MIRROR)는 d 도 뒤집힌다 — 세운 삼지창은 뒤로 들었다 앞으로 찌르게 1
 };
+// 무기가 그림 왼쪽에 있는 보스 — 게임 몹은 오른쪽(적 쪽)을 보므로 좌우를 뒤집어 그린다(11월 20일 사용자 "적 반대 방향으로 휘두른다")
+export const NC_BOSS_MIRROR = { barkanon: 1, morgas: 1, guild_siren: 1 };
 // 휘두르기 각도(라디안) — 공격 0~lift 들어 올림 → ~cut 내려벰(든 자세를 지나 down 만큼 더) → 끝까지 제자리로
 export const NC_BOSS_SWING = { up: 0.9, down: 0.35, lift: 0.3, cut: 0.55 };

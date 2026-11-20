@@ -229,7 +229,7 @@ function bossSil(type, f) {
       s.body = silCanvas(body, l, t, w, h, mir);
       s.arms = arms.map((a, i) => {
         const px = l + arm[i][0] * kx;
-        return { c: silCanvas(a, l, t, w, h, mir), px: mir ? SIL_FX * 2 - px : px, py: t + arm[i][1] * kx, d: mir ? -arm[i][2] : arm[i][2] };
+        return { c: silCanvas(a, l, t, w, h, mir), px: mir ? SIL_FX * 2 - px : px, py: t + arm[i][1] * kx, d: mir ? -arm[i][2] : arm[i][2], k: arm[i][3] || 1 };
       });
     }
   }
@@ -237,10 +237,10 @@ function bossSil(type, f) {
   return s;
 }
 // 휘두르기 각도 — u 공격 진행 0~1
-function bossSwing(u) {
-  const S = NC_BOSS_SWING, e = (q) => 1 - Math.pow(1 - clamp(q), 3);
-  if (u < S.lift) return S.up * e(u / S.lift);
-  if (u < S.cut) return S.up - (S.up + S.down) * e((u - S.lift) / (S.cut - S.lift));
+function bossSwing(u, k = 1) {
+  const S = NC_BOSS_SWING, e = (q) => 1 - Math.pow(1 - clamp(q), 3), up = S.up * k;
+  if (u < S.lift) return up * e(u / S.lift);
+  if (u < S.cut) return up - (up + S.down) * clamp((u - S.lift) / (S.cut - S.lift)) ** 2;   // 내려벰 — 점점 빨라진다
   return -S.down * (1 - e((u - S.cut) / (1 - S.cut)));
 }
 let swingC = null;
@@ -275,10 +275,10 @@ function drawSil(ctx, type, f, row, x, y, flip, { show = 1, lunge = 0, up = 0, a
   if (swing >= 0 && s.arms) {
     // 무기를 든 보스 — 팔을 뗀 몸 위에 팔 + 무기를 어깨 관절로 돌려 그린다(돌린 무기는 그림 상자 밖으로 나갈 수 있어 판 전체를 그린다)
     if (!swingC) { swingC = document.createElement("canvas"); swingC.width = SIL_W + SW_PAD * 2; swingC.height = SIL_H + SW_PAD; }
-    const sx = swingC.getContext("2d"), ang = bossSwing(swing);
+    const sx = swingC.getContext("2d");
     sx.setTransform(1, 0, 0, 1, 0, 0); sx.clearRect(0, 0, swingC.width, swingC.height); sx.drawImage(s.body, SW_PAD, SW_PAD);
     for (const m of s.arms) {
-      sx.setTransform(1, 0, 0, 1, SW_PAD, SW_PAD); sx.translate(m.px, m.py); sx.rotate(ang * m.d); sx.translate(-m.px, -m.py);
+      sx.setTransform(1, 0, 0, 1, SW_PAD, SW_PAD); sx.translate(m.px, m.py); sx.rotate(bossSwing(swing, m.k) * m.d); sx.translate(-m.px, -m.py);
       sx.drawImage(m.c, 0, 0);
     }
     sx.setTransform(1, 0, 0, 1, 0, 0);

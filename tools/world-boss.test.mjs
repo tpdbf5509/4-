@@ -217,7 +217,7 @@ test('기절 차단에 실패하면 큰 기술이 여러 단계로 터지고 공
  advance(g,a.attack.t+.02);assert(h.hp<before*.6);assert.equal(a.attack.step,1);assert(a.attack.major);assert(!a.stun);
 });
 test('다섯 보스는 이전 체력에서 남은 체력과 기여 비율을 보존해 새 체력으로 바뀐다',()=>{
- const old=[11500000,12000000,12500000,13000000,15000000],updated=[30000000,36000000,40000000,45000000,64000000];
+ const old=[11500000,12000000,12500000,13000000,15000000],updated=[300000000,360000000,400000000,450000000,640000000];
  WORLD_BOSSES.forEach((B,i)=>{
   const g=setup();rpgWorldBoss(g,0,{op:'summon',id:B.id});const a=g.wb.active,m=g.mobs.find(m=>m.id===a.mob);
   assert.equal(m.max,updated[i]);

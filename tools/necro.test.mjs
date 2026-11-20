@@ -280,3 +280,32 @@ test('보스 그림자 휘두르기 — 팔 자르기 목록과 같고 몸 · �
     arms.forEach((a, i) => { assert.ok(existsSync(new URL(`${dir}${k}-arm${i}.webp`, import.meta.url)), `${k} ${i}`); assert.ok(a[2] === 1 || a[2] === -1); });
   }
 });
+
+test('보스 그림자 기술 — 보스마다 원래 피해 기술(즉사기 · 방어 기술 없음) · 준비 뒤 범위 안 몹을 기술 배수로 친다', async () => {
+  const { NC_BOSS_SKILL, NC_BOSS_SK } = await import('../src/game/necroData.js');
+  const { NC_BOSS_ART } = await import('../src/game/necroPxData.js');
+  const { WORLD_BOSS_PATTERNS } = await import('../src/game/worldBossData.js');
+  const doom = Object.values(WORLD_BOSS_PATTERNS).filter((p) => p.doom).map((p) => p.name);
+  for (const t of Object.keys(NC_BOSS_ART)) {
+    const L = NC_BOSS_SKILL[t];
+    assert.ok(L && L.length, `${t} 기술이 있다`);
+    for (const q of L) {
+      assert.ok(!doom.includes(q.name), `${t} 즉사기 ${q.name} 은 뺀다`);
+      assert.ok(q.mul > 0 && q.n >= 1 && q.cd > 0 && q.range > 0 && q.steps.length && q.steps.every((s) => s.length), `${t} ${q.name} 꼴`);
+    }
+  }
+  // 그라모르 그림자 — 대지 강타(r 240 · ×1.8)가 거수형 평타 거리 밖 몹도 친다
+  const { g, h } = setup(200, [0, 0, 0], [{ t: 'gramor', n: '그라모르', g: 1, x: 0 }]);
+  soul(h, 100);
+  const a = mob(g, h.x + 150, h.y), b = mob(g, h.x + 150, h.y + 150 * 0.62);
+  use(g, 'summon');
+  const S = NC_BOSS_SKILL.gramor[0];
+  run(g, S.cd * NC_BOSS_SK.first - 0.2);
+  assert.ok(!g.out.some((f) => f.kind === 'sk_nc_boss'), '대기 전에는 쓰지 않는다');
+  const hpB = b.hp;
+  run(g, 0.4 + S.wind + 0.3);
+  assert.ok(g.out.some((f) => f.kind === 'sk_nc_bwarn') && g.out.some((f) => f.kind === 'sk_nc_boss'), '예고 → 타격 연출');
+  assert.ok(g.out.some((f) => f.kind === 'call' && f.text === S.name), '기술 이름');
+  assert.ok(hpB > b.hp, '범위 안 몹이 맞았다');
+  assert.ok(a.hp < HP);
+});

@@ -654,15 +654,60 @@ function legionEnd(ctx, f, t) {
   motes(ctx, { x: f.x, y: f.y, r: f.r * 0.5, n: 110, mix: "esmzsez", t, span: 0.12, life: 0.7, out: f.r * 0.7, rise: 60, sq: 0.78, seed: sid(f) });
 }
 
+/* ── 보스 그림자 기술(11월 20일 사용자 "각 보스몹들 자기 스킬들을 사용하게") — 범위는 월드보스 범위 꼴(원 · 고리 · 직선 · 부채꼴).
+   준비 중(sk_nc_bwarn, 땅)은 옅은 검보라 바닥 + 1px 점선 테두리, 맞는 순간(sk_nc_boss)은 도트 시트(내려찍기 · 번개 · 타격 · 터짐)와 알갱이로 채운다 */
+function areaPath(ctx, s, sq) {
+  ctx.beginPath();
+  if (s.shape === "circle" || s.shape === "ring") {
+    ctx.moveTo(s.x + s.r, s.y); ctx.ellipse(s.x, s.y, s.r, s.r * sq, 0, 0, TAU);
+    if (s.shape === "ring") { ctx.moveTo(s.x + s.inner, s.y); ctx.ellipse(s.x, s.y, s.inner, s.inner * sq, 0, 0, TAU); }
+    return;
+  }
+  const c = Math.cos(s.a), n = Math.sin(s.a), pt = (al, ac) => ctx.lineTo(s.x + al * c - ac * n, s.y + (al * n + ac * c) * sq);
+  if (s.shape === "line") { pt(0, -s.width); pt(s.len, -s.width); pt(s.len, s.width); pt(0, s.width); }
+  else { ctx.moveTo(s.x, s.y); for (let i = 0; i <= 16; i++) { const a = s.a - s.arc + (2 * s.arc * i) / 16; ctx.lineTo(s.x + Math.cos(a) * s.len, s.y + Math.sin(a) * s.len * sq); } }
+  ctx.closePath();
+}
+function bossWarn(ctx, f, t, sq) {
+  const u = clamp(t / f.life);
+  for (const s of f.areas || []) {
+    ctx.save(); areaPath(ctx, s, sq);
+    ctx.globalAlpha = 0.16 + 0.24 * u; ctx.fillStyle = C.deep; ctx.fill("evenodd");
+    ctx.globalAlpha = 0.85; ctx.strokeStyle = C.bright; ctx.lineWidth = 1; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.restore();
+  }
+}
+// 범위 안 한 점(땅) — 직선 · 부채꼴 따라 고르게
+const along = (s, v, w, sq) => { const a = s.shape === "cone" ? s.a + (w - 0.5) * 2 * s.arc : s.a, d = s.len * v, o = s.shape === "line" ? (w - 0.5) * 2 * s.width : 0;
+  return [s.x + Math.cos(a) * d - Math.sin(a) * o, s.y + (Math.sin(a) * d + Math.cos(a) * o) * sq]; };
+function bossHit(ctx, f, t, sq) {
+  const u = clamp(t / f.life), seed = sid(f);
+  (f.areas || []).forEach((s, j) => {
+    ctx.save(); areaPath(ctx, s, sq); ctx.globalAlpha = 0.45 * (1 - u); ctx.fillStyle = C.base; ctx.fill("evenodd"); ctx.restore();
+    if (s.shape === "circle") {
+      cell(ctx, "nc_slam", once("nc_slam", u), s.x, s.y, Math.max(1, Math.round(s.r / SH.nc_slam.r)));
+      motes(ctx, { x: s.x, y: s.y, r: s.r * 0.7, n: 24, mix: "esmz", t, span: 0.08, life: 0.45, out: s.r * 0.4, rise: 24, sq, seed: seed + j * 31 });
+    } else if (s.shape === "ring") {
+      const n = Math.max(4, Math.round(12 * PQ)), d = (s.inner + s.r) / 2;
+      for (let i = 0; i < n; i++) { const a = (i / n) * TAU + rnd(seed, i) * 0.4, dd = d + (rnd(seed + 7, i) - 0.5) * (s.r - s.inner) * 0.8;
+        cell(ctx, "nc_thunder", once("nc_thunder", u), s.x + Math.cos(a) * dd, s.y + Math.sin(a) * dd * sq, 1); }
+      motes(ctx, { x: s.x, y: s.y, r: s.r, n: 30, mix: "mez", t, span: 0.1, life: 0.45, ring: 1, rise: 30, sq, seed: seed + j * 31 });
+    } else {
+      const n = Math.max(3, Math.min(10, Math.round((s.len / 70) * PQ)));
+      for (let i = 0; i < n; i++) { const [x, y] = along(s, (i + 0.5) / n, s.shape === "cone" ? rnd(seed + j, i) : 0.5, sq);
+        cell(ctx, s.shape === "cone" ? "nc_pop" : "nc_hit", once(s.shape === "cone" ? "nc_pop" : "nc_hit", u - i * 0.03), x, y - (s.shape === "line" ? 10 : 0), 2); }
+    }
+  });
+}
+
 const KINDS = { sk_nc_reap: reap, sk_nc_hit: hit, sk_nc_extract: extract, sk_nc_absorb: absorb, sk_nc_summon: summon, sk_nc_fade: fade, sk_nc_strike: strike, sk_nc_pop: pop,
-  sk_nc_swap: swap, sk_nc_domain: domain, sk_nc_domainend: domainEnd, sk_nc_mark: mark, sk_nc_burn: burn, sk_nc_legion: legion, sk_nc_legionend: legionEnd };
+  sk_nc_swap: swap, sk_nc_domain: domain, sk_nc_domainend: domainEnd, sk_nc_mark: mark, sk_nc_burn: burn, sk_nc_legion: legion, sk_nc_legionend: legionEnd, sk_nc_bwarn: bossWarn, sk_nc_boss: bossHit };
 // 같은 종류는 최근 몇 개만 그린다(rpgArt FX_LOD.cap)
 export const NECRO_CAP = { sk_nc_reap: 6, sk_nc_hit: 16, sk_nc_extract: 3, sk_nc_absorb: 3, sk_nc_summon: 2, sk_nc_fade: 8, sk_nc_strike: 16, sk_nc_pop: 10,
-  sk_nc_swap: 2, sk_nc_domain: 6, sk_nc_domainend: 2, sk_nc_mark: 3, sk_nc_burn: 2, sk_nc_legion: 2, sk_nc_legionend: 2 };
+  sk_nc_swap: 2, sk_nc_domain: 6, sk_nc_domainend: 2, sk_nc_mark: 3, sk_nc_burn: 2, sk_nc_legion: 2, sk_nc_legionend: 2, sk_nc_bwarn: 12, sk_nc_boss: 12 };
 // 시전자를 따라다니는 연출
 const FOLLOW = new Set(["sk_nc_reap", "sk_nc_absorb", "sk_nc_domain", "sk_nc_domainend"]);
 // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
-export const NECRO_GROUND = new Set(["sk_nc_domain", "sk_nc_domainend", "sk_nc_summon", "sk_nc_absorb", "sk_nc_extract"]);
+export const NECRO_GROUND = new Set(["sk_nc_bwarn", "sk_nc_domain", "sk_nc_domainend", "sk_nc_summon", "sk_nc_absorb", "sk_nc_extract"]);
 
 export function drawNecroFx(ctx, f, p, sq, g, time, q = 1) {
   PQ = Number.isFinite(q) ? clamp(q, 0.2, 1) : 1;

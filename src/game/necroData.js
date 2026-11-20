@@ -4,6 +4,9 @@
    그래서 해금 경로 · 저장(cleanBag) · 스냅샷 줄 · 관리자 명령어 · 화면 칸(RpgView)은 아직 없다. NECRO.live 가 false 라 연습장 맵에서만 켜진다(necroOn).
    "정한 값"이라 적은 것은 기획안에 없어 정한 값이다(보고 대상). 그 밖은 기획안 값 그대로. */
 
+import { BOSS_AI } from "./dungeonData.js";
+import { GUARDIANS } from "./abyssData.js";
+
 export const NECRO_NAME = "Necromancer 004";
 export const NECRO_TITLE = "그림자 군주";
 export const NECRO_ID = "necromancer";   // bag.hj.jobs 의 칸 이름(기획안 최종 추천안)
@@ -128,3 +131,68 @@ export const NC_SLOTS = [
   { s: "legion", act: "skill" },   // 기본 Shift
 ];
 export const NC_SKILLS = { extract: NC_EXTRACT, summon: NC_SUMMON, swap: NC_SWAP, domain: NC_DOMAIN, march: NC_MARCH, burn: NC_BURN, legion: NC_LEGION };
+
+/* ── 보스 그림자 기술(11월 20일 사용자 "각 보스몹들 자기 스킬들을 사용하게 하자, 월드보스는 즉사기는 빼고") ─────────
+   보스 그림자는 평소 공격 사이사이에 원래 보스의 피해 기술을 쓴다. 맞는 쪽은 몹이다(그림자는 맞지 않는다).
+   - 던전 보스 · 심연의 탑 수호자: dungeonData BOSS_AI · abyssData GUARDIANS 의 slam(둘레) · multi(둘레 연타) · charge(돌진) 값을 그대로 읽는다 — 이름 · 반지름 · 배수 · 대기 · 연타 수 · 간격.
+     철벽 · 광폭화 · 잔상 · 소환 · 흡수는 받는 피해 · 체력 기술이라 뺐다(그림자는 피해를 받지 않는다 — 정한 해석).
+   - 길드 보스 · 월드보스: 원래 모양(원 · 고리 · 직선 · 부채꼴)과 이름은 그대로, 크기는 scale 몫으로 줄였다(원래는 맵 전체 크기). 즉사기(doom)는 넣지 않는다.
+     원래 피해는 맞은 사람 최대 체력 비율이라 그 비율 × wbK 를 배수로 쓴다(정한 값). 대기는 wbCd 하나 · 타 사이 간격은 원래 × gapK.
+   한 번 맞는 피해 = 평소 공격 배수(NC_SUMMON.mul) × 기술 배수 × 등급 · 영역 · 첫 그림자 배율. 기술마다 새 시전(결투 상한이 기술마다 따로).
+   wind 준비 시간 몫(원래 × wind, 최소 windMin) · first 소환 뒤 첫 기술은 대기의 이만큼 뒤(원래 보스와 같다) */
+export const NC_BOSS_SK = { wind: 0.5, windMin: 0.3, wbWind: 0.6, wbK: 3, wbCd: 10, gapK: 0.6, scale: 0.45, wbRange: 320, first: 0.5 };
+/* 기술 꼴 — { name, cd, range 쓰는 거리, wind, n 타 수, gap, mul, last 마지막 타 배수, steps: [[모양…] 타마다(모자라면 마지막 것)] }
+   모양 — circle(on: self 내 둘레 · tgt 노린 적 · foes 가까운 적 k 마리마다) · ring(inner ~ r, 내 둘레) · line(노린 쪽 a 만큼 돌려 len · 반폭 w, rot 타마다 더 돌림) ·
+   cone(노린 쪽 len · 반각 arc) · dash(노린 쪽으로 len 돌진, 길 반폭 w — 그림자가 끝으로 옮겨 간다) */
+function fromAi(ai) {
+  const B = NC_BOSS_SK, wind = (q) => Math.max(B.windMin, q.wind * B.wind);
+  return ai.skills.flatMap((q) => {
+    if (q.k === "slam") return [{ name: q.name, cd: q.cd, range: q.range, wind: wind(q), n: 1, gap: 0, mul: q.mul, steps: [[{ s: "circle", on: "self", r: q.r }]] }];
+    if (q.k === "multi") return [{ name: q.name, cd: q.cd, range: q.range, wind: wind(q), n: q.n, gap: q.gap, mul: q.mul, steps: [[{ s: "circle", on: "self", r: q.r }]] }];
+    if (q.k === "charge") return [{ name: q.name, cd: q.cd, range: Math.round(q.speed * q.time), wind: wind(q), n: 1, gap: 0, mul: q.mul, steps: [[{ s: "dash", len: Math.round(q.speed * q.time), w: q.width / 2 }]] }];
+    return [];
+  });
+}
+// 길드 · 월드보스 — dmg 원래 피해 비율 · gap 원래 간격 · last 마지막 타 비율. 크기(r · inner · len)는 scale 로 줄인다
+function wb(name, dmg, n, gap, steps, last) {
+  const B = NC_BOSS_SK, k = (v) => (v === undefined ? v : Math.round(v * B.scale));
+  return { name, cd: B.wbCd, range: B.wbRange, wind: B.wbWind, n, gap: gap * B.gapK, mul: dmg * B.wbK, last: last ? last * B.wbK : 0,
+    steps: steps.map((st) => st.map((q) => ({ ...q, r: k(q.r), inner: k(q.inner), len: k(q.len) }))) };
+}
+const C = (r, on = "foes", k = 5) => ({ s: "circle", on, r, k }), R = (inner, r) => ({ s: "ring", inner, r });
+const L = (len, w, a = 0, rot = 0) => ({ s: "line", len, w, a, rot }), F = (len, arc, a = 0) => ({ s: "cone", len, arc, a });
+const spokes = (n, len, w, rot) => Array.from({ length: n }, (_, i) => L(len, w, (i * Math.PI * 2) / n, rot));
+export const NC_BOSS_SKILL = {
+  ...Object.fromEntries(Object.entries(BOSS_AI).map(([t, ai]) => [t, fromAi(ai)])),
+  ...Object.fromEntries(GUARDIANS.map((q) => [q.type, fromAi(q.ai)])),
+  // 길드 보스(guild.js areas) — 피해는 보스마다 하나(GUILD_BOSSES damage)
+  guild_slime: [wb("강화 점액 폭발", 0.32, 1, 0, [[C(380, "self")]]), wb("분열 점액탄", 0.32, 1, 0, [[C(155)]])],
+  guild_siren: [wb("해일의 고리", 0.4, 1, 0, [[R(225, 850)]]), wb("세이렌의 공명", 0.4, 1, 0, [[C(210)]])],
+  guild_phoenix: [wb("불꽃 깃털", 0.5, 1, 0, [spokes(6, 1000, 32, 0)]), wb("불사조의 심판", 0.5, 1, 0, [[R(240, 1050), C(125, "foes", 2)]])],
+  // 월드보스(worldBoss.js patternAreas · thunderbirdCombat · voidBossCombat) — 즉사기 dragon_doom · serpent_doom · machine_doom · thunder_doom · event_horizon 은 뺐다
+  world_dragon: [
+    wb("삼연 화염 숨결", 0.45, 3, 0.95, [[F(780, 0.48)], [F(780, 0.48, 0.68)], [F(780, 0.48, -0.68)]]),
+    wb("추적 운석 폭격", 0.5, 3, 1.1, [[C(120)], [C(120)], [C(180)]]),
+    wb("종말의 화염폭풍", 0.75, 4, 1.4, [[R(200, 800)], [C(155)], [C(205)], [F(1100, 1.02)]], 0.85),
+  ],
+  world_serpent: [
+    wb("맹독 추격", 0.45, 2, 1.2, [[C(155, "foes", 4)]]),
+    wb("이중 꼬리 휩쓸기", 0.5, 2, 1.5, [[R(175, 590)], [C(285, "self")]]),
+    wb("독왕의 탈피", 0.7, 3, 1.8, [[R(245, 850)], [C(310, "self")], [C(195)]], 0.8),
+  ],
+  world_machine: [
+    wb("회전 십자 전류", 0.5, 2, 1.1, [spokes(4, 1050, 30, Math.PI / 4)]),
+    wb("연쇄 추적 낙뢰", 0.5, 3, 0.95, [[C(105)], [C(105)], [C(165)]]),
+    wb("천벌 과부하", 0.75, 3, 1.5, [spokes(8, 1050, 22, Math.PI / 8), spokes(8, 1050, 22, Math.PI / 8), [R(215, 1050)]], 0.85),
+  ],
+  world_thunderbird: [
+    wb("전격 깃털", 0.42, 2, 1.3, [[-0.72, -0.36, 0, 0.36, 0.72].map((a) => L(900, 12, a, 0.18))]),
+    wb("뇌광 급강하", 0.5, 2, 1.35, [[{ s: "dash", len: 650, w: 35 }], [R(140, 330)]]),
+    wb("폭풍의 눈", 0.7, 3, 1.8, [[R(260, 1050)], [R(190, 1050)], [R(210, 1050)]], 0.85),   // 원래는 푸른 원 밖 전부 — 그림자 둘레 원 밖을 친다(정한 해석)
+  ],
+  world_void: [
+    wb("중력 붕괴", 0.45, 1, 0, [[C(185)]]),
+    wb("공간 절단", 0.3, 3, 0.8, [[L(1400, 29)]]),
+    wb("공허의 교차", 0.4, 3, 1.3, [[C(240, "tgt")], [C(240, "tgt")], [R(120, 430)]]),
+  ],
+};

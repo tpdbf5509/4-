@@ -12,7 +12,7 @@
 import { faceAim } from './faceDir.js';
 import { NECRO as NC, NECRO_ID, NECRO_NAME, NECRO_TINT, NC_TRAIN_NAMES, NC_SOUL as SOUL, NC_ROSTER as RS, NC_TRACE as TR, NC_KINDS, NC_KIND_OF,
   NC_SCYTHE as SC, NC_EXTRACT as EX, NC_SUMMON as SM, NC_AI as AI, NC_SWAP as SW, NC_DOMAIN as DM, NC_MARCH as MC, NC_BURN as BN, NC_LEGION as LG,
-  NC_ETERNAL as ET, NC_SKILLS } from "./necroData.js";
+  NC_ETERNAL as ET, NC_SKILLS, NC_BOSS_SKILL, NC_BOSS_SK as BSK } from "./necroData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -329,7 +329,8 @@ function summonUse(E, g, h, req) {
     const a = (i / pick.length) * Math.PI * 2 + 0.6, d = SM.r * (0.55 + 0.45 * ((i * 37) % 10) / 10);
     const [x, y] = inMap(E, h.map, h.x + Math.cos(a) * d, h.y + Math.sin(a) * d * E.squash);
     s.sh.push({ id: ++s.q, t: q.t, n: q.n, k: kindOf(q.t), g: q.g, x: Math.round(x), y: Math.round(y), dir: h.dir, born: 0, life: SM.dur, cd: SM.ready - SM.rise + 0.2 * i,
-      atk: 0, tgt: "", prio: "", first: eternal && i === 0 ? 1 : 0, walk: 0, mv: 0 });
+      atk: 0, tgt: "", prio: "", first: eternal && i === 0 ? 1 : 0, walk: 0, mv: 0,
+      bcd: (NC_BOSS_SKILL[q.t] || []).map((k, j) => k.cd * BSK.first + j), bs: null });   // 보스 그림자 — 기술 대기(원래 보스처럼 처음엔 절반) · 쓰는 중인 기술
   });
   h.swing = 0.3;
   E.fx(g, h.map, { kind: "sk_nc_summon", x: h.x, y: h.y, r: SM.r, n: pick.length, pi: h.pi, t: SM.ready + 0.1, life: SM.ready + 0.1, snd: "ncSummon" });
@@ -365,10 +366,12 @@ function tickShadow(E, g, h, s, sd, i, dt) {
   if (sqd(E, h.x, h.y, sd.x, sd.y) > AI.leash) {        // 너무 멀다 — 주인 곁으로
     const [x, y] = inMap(E, h.map, h.x - h.dir * AI.back, h.y + (i - 2) * AI.spread * E.squash);
     E.fx(g, h.map, { kind: "sk_nc_fade", x: Math.round(sd.x), y: Math.round(sd.y), k: sd.k, mt: sd.t, dir: sd.dir, pi: h.pi, t: 0.3, life: 0.3 });
-    sd.x = x; sd.y = y; sd.tgt = ""; sd.prio = "";
+    sd.x = x; sd.y = y; sd.tgt = ""; sd.prio = ""; sd.bs = null;
     return true;
   }
   sd.cd = Math.max(0, sd.cd - dt);
+  if (sd.bcd) for (let j = 0; j < sd.bcd.length; j++) sd.bcd[j] = Math.max(0, sd.bcd[j] - dt);
+  if (sd.bs) { sd.mv = 0; bossStep(E, g, h, s, sd, dt); return true; }
   const K = NC_KINDS[sd.k], aggro = aggroOf(jobOf(h));
   let o = sd.prio ? find(g, sd.prio) : null;
   if (!o || !E.alive(g, h, o, h.map)) { sd.prio = ""; o = null; }
@@ -376,7 +379,9 @@ function tickShadow(E, g, h, s, sd, i, dt) {
   if (!o) o = nearest(E, g, h, sd.x, sd.y, aggro, h.map);
   sd.tgt = o ? keyOf(o) : "";
   if (o) {
-    const reach = K.reach + (o.rad || 16) * 0.5;
+    const bi = sd.bcd ? sd.bcd.findIndex((c) => c <= 0) : -1, BS = bi >= 0 ? NC_BOSS_SKILL[sd.t][bi] : null;
+    if (BS && sd.atk <= 0 && sd.born >= SM.ready && sq(E, sd.x, sd.y, o) <= BS.range + (o.rad || 16) * 0.5) { bossCast(E, g, h, sd, o, bi); return true; }
+    const reach = Math.min(K.reach, BS ? BS.range : K.reach) + (o.rad || 16) * 0.5;   // 기술이 준비되면 기술 거리까지 다가간다
     if (sq(E, sd.x, sd.y, o) > reach) { if (sd.atk <= 0) moveTo(E, h, s, sd, o.x - Math.sign(o.x - sd.x || 1) * K.reach * 0.6, o.y, dt); }
     else { sd.mv = 0; if (Math.abs(o.x - sd.x) > 2) sd.dir = o.x < sd.x ? -1 : 1; }
     if (sd.cd <= 0 && sd.atk <= 0 && sq(E, sd.x, sd.y, o) <= reach && sd.born >= SM.ready) {
@@ -391,6 +396,83 @@ function tickShadow(E, g, h, s, sd, i, dt) {
   if (sqd(E, sd.x, sd.y, fx, fy) > 18) moveTo(E, h, s, sd, fx, fy, dt);
   else { sd.mv = 0; sd.dir = h.dir; }
   return true;
+}
+/* ── 보스 그림자 기술(11월 20일) — 수치 · 모양은 necroData NC_BOSS_SKILL. 그림자가 그 자리에 서서 준비(wind) → 한 타마다 범위 안 몹을 친다.
+   sd.bs = { i 기술 차례, j 몇 번째 타, t 이번 타까지 남은 초, aim 노린 쪽(땅 각), k 노린 대상, tx · ty 노린 자리, a 이번 타 범위들, sw 휘두름 시작, cast · base } */
+function bossAim(E, g, h, sd, b) {
+  const o = find(g, b.k);
+  if (o && E.alive(g, h, o, h.map)) { b.tx = o.x; b.ty = o.y; }
+  if (Math.hypot(b.tx - sd.x, b.ty - sd.y) > 2) b.aim = Math.atan2((b.ty - sd.y) / E.squash, b.tx - sd.x);
+  if (Math.abs(b.tx - sd.x) > 2) sd.dir = b.tx < sd.x ? -1 : 1;
+}
+// 이번 타 범위 — 월드보스 범위와 같은 꼴 { shape, x, y, r, inner, a, len, width, arc }
+function bossAreas(E, g, h, sd, S, b) {
+  const out = [];
+  for (const q of S.steps[Math.min(b.j, S.steps.length - 1)]) {
+    if (q.s === "circle") {
+      const at = q.on === "self" ? [[sd.x, sd.y]] : q.on === "tgt" ? [[b.tx, b.ty]]
+        : E.near(g, h, sd.x, sd.y, aggroOf(jobOf(h)) + 40).filter((o) => E.alive(g, h, o, h.map) && sq(E, sd.x, sd.y, o) <= aggroOf(jobOf(h)))
+          .sort((p, r) => sq(E, sd.x, sd.y, p) - sq(E, sd.x, sd.y, r)).slice(0, q.k).map((o) => [o.x, o.y]);
+      if (!at.length) at.push([b.tx, b.ty]);
+      for (const [x, y] of at) out.push({ shape: "circle", x, y, r: q.r });
+    } else if (q.s === "ring") out.push({ shape: "ring", x: sd.x, y: sd.y, inner: q.inner, r: q.r });
+    else if (q.s === "cone") out.push({ shape: "cone", x: sd.x, y: sd.y, a: b.aim + q.a, len: q.len, arc: q.arc });
+    else if (q.s === "line") out.push({ shape: "line", x: sd.x, y: sd.y, a: b.aim + q.a + q.rot * b.j, len: q.len, width: q.w });
+    else if (q.s === "dash") {                          // 돌진 — 맵 안에서 끝나는 자리까지
+      const [ex, ey] = inMap(E, h.map, sd.x + Math.cos(b.aim) * q.len, sd.y + Math.sin(b.aim) * q.len * E.squash);
+      const dx = ex - sd.x, dy = (ey - sd.y) / E.squash;
+      out.push({ shape: "line", x: sd.x, y: sd.y, a: Math.atan2(dy, dx), len: Math.hypot(dx, dy), width: q.w, dash: 1, x1: ex, y1: ey });
+    }
+  }
+  return out;
+}
+// 몹이 범위 안인가 — 몸 반지름 절반만큼 너그럽게
+function inArea(E, s, o) {
+  const pad = (o.rad || 16) * 0.5, dx = o.x - s.x, dy = (o.y - s.y) / E.squash, d = Math.hypot(dx, dy);
+  if (s.shape === "circle") return d <= s.r + pad;
+  if (s.shape === "ring") return d <= s.r + pad && d >= s.inner - pad;
+  const c = Math.cos(s.a), t = Math.sin(s.a), along = dx * c + dy * t, across = -dx * t + dy * c;
+  if (s.shape === "line") return along >= -pad && along <= s.len + pad && Math.abs(across) <= s.width + pad;
+  return d <= s.len + pad && Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - s.a), Math.cos(Math.atan2(dy, dx) - s.a))) <= s.arc;
+}
+const areaFx = (a) => ({ ...a, x: Math.round(a.x), y: Math.round(a.y), a: a.a === undefined ? undefined : r2(a.a) });
+function bossWarn(E, g, h, sd, b) {
+  E.fx(g, h.map, { kind: "sk_nc_bwarn", x: Math.round(sd.x), y: Math.round(sd.y), areas: b.a.map(areaFx), pi: h.pi, t: b.t, life: b.t });
+}
+function bossCast(E, g, h, sd, o, i) {
+  const S = NC_BOSS_SKILL[sd.t][i];
+  sd.bcd[i] = S.cd;
+  sd.mv = 0;
+  const b = sd.bs = { i, j: 0, t: S.wind, aim: 0, k: keyOf(o), tx: o.x, ty: o.y, sw: 0, a: [], cast: E.cast(h), base: E.base(h) };
+  bossAim(E, g, h, sd, b);
+  b.a = bossAreas(E, g, h, sd, S, b);
+  bossWarn(E, g, h, sd, b);
+  E.fx(g, h.map, { kind: "call", x: Math.round(sd.x), y: Math.round(sd.y) - 150, text: S.name, color: LIGHT, who: h.pi, t: 0.9, life: 0.9 });
+}
+function bossStep(E, g, h, s, sd, dt) {
+  const b = sd.bs; if (!b) return;
+  const S = NC_BOSS_SKILL[sd.t][b.i];
+  b.t -= dt;
+  if (!b.sw && b.t <= 0.23) { b.sw = 1; sd.atk = 0.42; }   // 맞는 순간에 내려베도록 조금 앞서 휘두른다(NC_BOSS_SWING cut)
+  if (b.t > 0) return;
+  const mul = shadowMul(E, h, s, sd, SM.mul * (b.j === S.n - 1 && S.last ? S.last : S.mul)), hit = new Set();
+  for (const a of b.a) {
+    for (const o of E.near(g, h, a.x, a.y, (a.r || a.len || 0) + 60)) {
+      const k = keyOf(o);
+      if (hit.has(k) || !E.alive(g, h, o, h.map) || !inArea(E, a, o)) continue;
+      hit.add(k);
+      strike(E, g, h, b, o, mul);
+    }
+    if (a.dash) { sd.x = a.x1; sd.y = a.y1; }
+  }
+  if (b.xp && s.dom) s.dom.hit = 1;
+  E.fx(g, h.map, { kind: "sk_nc_boss", x: Math.round(sd.x), y: Math.round(sd.y), areas: b.a.map(areaFx), pi: h.pi, t: 0.55, life: 0.55, snd: "ncSlam" });
+  b.j += 1;
+  if (b.j >= S.n) { sd.bs = null; sd.cd = Math.max(sd.cd, 0.4); return; }
+  b.t = S.gap; b.sw = 0;
+  bossAim(E, g, h, sd, b);
+  b.a = bossAreas(E, g, h, sd, S, b);
+  bossWarn(E, g, h, sd, b);
 }
 // 예약 타격 — 근접은 맞는 순간, 원거리는 날아가 닿는 순간. 범위면 그 대상 자리(이미 없으면 노린 자리) 둘레
 function tickBlow(E, g, h, b, dt) {

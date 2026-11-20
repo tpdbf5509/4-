@@ -1,5 +1,5 @@
 /* Necromancer 004 그림자 명부 창(11월 17일 사용자 "이런 느낌으로 창을 띄워서 볼 수 있게 해줘, 추출한 그림자들").
-   탭 셋 — 소환 목록(카드 + 소환 정보) · 군단 편성(소집 차례 5칸) · 승급(재추출 진행). 격자 연습장에서만 연다.
+   탭 셋 — 소환 목록(카드 + 소환 정보) · 군단 편성(소환 차례 5칸) · 승급(재추출 진행). 격자 연습장에서만 연다.
    값은 연습장 화면 값(necroView), 판정은 입력(hidden op)으로만 바꾼다. 「강화」만 연습장 도구(재추출 한 번으로 셈) */
 import { useEffect, useRef, useState } from "react";
 import { NECRO, NC_KINDS, NC_KIND_DESC, NC_ROSTER, NC_SUMMON } from "./game/necroData.js";
@@ -119,7 +119,7 @@ function Party({ v, row, onParty }) {
   const nameOf = (t) => (v.roster.find((q) => q.t === t) || {}).n || t;
   return (
     <div className="ncw-party">
-      <p className="ncw-note">소집 때 먼저 나올 그림자를 차례대로 고릅니다. 남은 칸은 등급 높은 순서로 채웁니다.</p>
+      <p className="ncw-note">그림자 소환 때 나올 그림자를 고릅니다. 고른 그림자만 나옵니다. 하나도 고르지 않으면 등급 높은 순서로 나옵니다.</p>
       <ol className="ncw-slots">
         {Array.from({ length: NC_SUMMON.max }, (_, i) => {
           const t = party[i];
@@ -131,7 +131,7 @@ function Party({ v, row, onParty }) {
           );
         })}
       </ol>
-      <p className="ncw-next">다음 소집 — {next.length ? next.map((q) => q.n).join(" · ") : "부를 수 있는 그림자가 없습니다"}</p>
+      <p className="ncw-next">다음 소환 — {next.length ? next.map((q) => q.n).join(" · ") : "부를 수 있는 그림자가 없습니다"}</p>
       <div className="ncw-grid">
         {v.roster.map((q) => {
           const i = party.indexOf(q.t);

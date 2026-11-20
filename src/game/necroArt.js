@@ -3,12 +3,12 @@
    연출은 직접 그린 도트 시트(hidden-jobs/necromancer/px/*.webp, necroPxData.js)로만 그린다(Gambler 002 와 같은 방식, pixelfx 를 쓰지 않는다).
    코드로 그리는 것은 판정 범위를 보이는 1px 선 · 등급 점뿐이다. 시트를 못 불러오면 그 연출은 범위 선만 남는다.
    픽셀 그림은 정수 배로만 키운다(보통 2배). 연마 합계 색(기본 · 진한 보라 · 은색 테두리)은 그림자 병사 시트의 줄로 고른다.
-   연출 종류: sk_nc_reap(그림자 낫 베기) · hit · extract · absorb(흔적 추출) · summon · fade(그림자 소집 · 흩어짐) · strike · pop(그림자 공격)
+   연출 종류: sk_nc_reap(그림자 낫 베기) · hit · extract · absorb(흔적 추출) · summon · fade(그림자 소환 · 흩어짐) · strike · pop(그림자 공격)
               · swap(그림자 교환) · domain · domainend(군주의 영역) · mark(일제 진군) · burn(영혼 소각) · legion · legionend(무명의 군세).
    그림자 병사 · 추출 가능 흔적은 연출이 아니라 판정 상태(necroShadows · necroView)로 그린다 — rpgArt 가 사람과 앞뒤를 맞춰 부른다. */
 import { NECRO_COLORS as C, NC_SUMMON, NC_DOMAIN, NC_SCYTHE } from "./necroData.js";
 import { necroView, necroShadows } from "./necroJob.js";
-import { NECRO_PX_SRC, NECRO_PX, NC_FRAME as FR, NECRO_PFX, NC_DOMAIN_PFX, NC_BOSS_SRC, NC_BOSS_ART } from "./necroPxData.js";
+import { NECRO_PX_SRC, NECRO_PX, NC_FRAME as FR, NECRO_PFX, NC_DOMAIN_PFX, NC_BOSS_SRC, NC_BOSS_ART, NC_BOSS_ARM, NC_BOSS_SWING } from "./necroPxData.js";
 const SH = { ...NECRO_PX, ...NECRO_PFX };           // 직접 그린 시트 + pixelfx 보강 시트
 
 const TAU = Math.PI * 2;
@@ -194,23 +194,51 @@ const typeSeed = (type) => { let v = 7; for (const ch of String(type)) v = (v * 
 /* 보스 그림자 — 사용자 그림(NC_BOSS_ART)을 SIL 판 발 자리에 놓는다. 화소를 바꾸지 않고(이미 그림자 그림) 색 줄도 같다.
    걷기 칸(0~3)은 홀수 칸에서 2px 떠 오르내린다. 못 불러오면 undefined — 예전처럼 코드 그림자로 */
 const bossImgs = {};
+function bossImg(name) {
+  let im = bossImgs[name];
+  if (im === undefined) { im = bossImgs[name] = new Image(); im.onerror = () => { bossImgs[name] = null; }; im.src = `${NC_BOSS_SRC}${name}.webp`; }
+  return im;
+}
+const imgReady = (im) => !!im && im.complete && im.naturalWidth > 0;
+function silCanvas(im, l, t, w, h) {
+  const c = document.createElement("canvas"); c.width = SIL_W; c.height = SIL_H;
+  const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(im, l, t, w, h);
+  return c;
+}
 function bossSil(type, f) {
-  let im = bossImgs[type];
-  if (im === undefined) { im = bossImgs[type] = new Image(); im.onerror = () => { bossImgs[type] = null; }; im.src = `${NC_BOSS_SRC}${type}.webp`; }
+  const im = bossImg(type);
   if (!im) return undefined;
-  if (!im.complete || !im.naturalWidth) return null;
+  if (!imgReady(im)) return null;
   const key = `boss|${type}|${f}`;
   let s = SIL.get(key);
   if (s) return s;
   const want = NC_BOSS_ART[type], k = Math.min((want || SIL_MAXH) / im.naturalHeight, SIL_MAXW / im.naturalWidth);
   const w = Math.round(im.naturalWidth * k), h = Math.round(im.naturalHeight * k), bob = f < 4 ? (f % 2) * 2 : 0;
   const l = Math.round(SIL_FX - w / 2), t = SIL_FY - h - bob;
-  const c = document.createElement("canvas"); c.width = SIL_W; c.height = SIL_H;
-  const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(im, l, t, w, h);
-  s = { c, box: { l, t, w, h }, n: w * h, done: true };
+  s = { c: silCanvas(im, l, t, w, h), box: { l, t, w, h }, n: w * h, done: true };
+  // 휘두르기 — 팔을 뗀 몸 · 팔 그림이 모두 오면 붙인다(아직이면 이번엔 굳히지 않는다 · 못 불러오면 휘두르지 않는다)
+  const arm = NC_BOSS_ARM[type];
+  if (arm) {
+    const body = bossImg(`${type}-body`), arms = arm.map((_, i) => bossImg(`${type}-arm${i}`));
+    if ([body, ...arms].some((x) => x && !imgReady(x))) return s;
+    if (body && arms.every(Boolean)) {
+      const kx = w / im.naturalWidth;
+      s.body = silCanvas(body, l, t, w, h);
+      s.arms = arms.map((a, i) => ({ c: silCanvas(a, l, t, w, h), px: l + arm[i][0] * kx, py: t + arm[i][1] * kx, d: arm[i][2] }));
+    }
+  }
   SIL.set(key, s);
   return s;
 }
+// 휘두르기 각도 — u 공격 진행 0~1
+function bossSwing(u) {
+  const S = NC_BOSS_SWING, e = (q) => 1 - Math.pow(1 - clamp(q), 3);
+  if (u < S.lift) return S.up * e(u / S.lift);
+  if (u < S.cut) return S.up - (S.up + S.down) * e((u - S.lift) / (S.cut - S.lift));
+  return -S.down * (1 - e((u - S.cut) / (1 - S.cut)));
+}
+let swingC = null;
+const SW_PAD = 140;                                  // 돌린 무기가 판 밖으로 나가도 잘리지 않게 둘레를 넓힌 판
 export function silhouette(type, f, row) {
   if (typeof document === "undefined" || !type) return null;
   if (type in NC_BOSS_ART) { const b = bossSil(type, f); if (b !== undefined) return b; }
@@ -235,9 +263,25 @@ export function silhouette(type, f, row) {
   return s.c ? s : null;
 }
 /* 몹 그림자 한 칸 그리기 — f 칸(0~3 걷기 · 4 서 있기), show 아래에서 드러난 몫(솟아오름), lunge 앞으로 내민 거리, up 위로 뜬 거리 · a 투명도 */
-function drawSil(ctx, type, f, row, x, y, flip, { show = 1, lunge = 0, up = 0, a = 1, filter = "" } = {}) {
+function drawSil(ctx, type, f, row, x, y, flip, { show = 1, lunge = 0, up = 0, a = 1, filter = "", swing = -1 } = {}) {
   const s = silhouette(type, f, row);
   if (!s) return null;
+  if (swing >= 0 && s.arms) {
+    // 무기를 든 보스 — 팔을 뗀 몸 위에 팔 + 무기를 어깨 관절로 돌려 그린다(돌린 무기는 그림 상자 밖으로 나갈 수 있어 판 전체를 그린다)
+    if (!swingC) { swingC = document.createElement("canvas"); swingC.width = SIL_W + SW_PAD * 2; swingC.height = SIL_H + SW_PAD; }
+    const sx = swingC.getContext("2d"), ang = bossSwing(swing);
+    sx.setTransform(1, 0, 0, 1, 0, 0); sx.clearRect(0, 0, swingC.width, swingC.height); sx.drawImage(s.body, SW_PAD, SW_PAD);
+    for (const m of s.arms) {
+      sx.setTransform(1, 0, 0, 1, SW_PAD, SW_PAD); sx.translate(m.px, m.py); sx.rotate(ang * m.d); sx.translate(-m.px, -m.py);
+      sx.drawImage(m.c, 0, 0);
+    }
+    sx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.save(); ctx.globalAlpha *= clamp(a); if (filter) ctx.filter = filter;
+    ctx.translate(Math.round(x), Math.round(y - up)); if (flip) ctx.scale(-1, 1);
+    ctx.drawImage(swingC, -SIL_FX - SW_PAD + lunge, -SIL_FY - SW_PAD);
+    ctx.restore();
+    return { top: s.box.t - SIL_FY };
+  }
   const B = s.box, vis = Math.max(1, Math.round(B.h * clamp(show))), hid = B.h - vis;
   ctx.save(); ctx.globalAlpha *= clamp(a); ctx.imageSmoothingEnabled = false; if (filter) ctx.filter = filter;
   ctx.translate(Math.round(x), Math.round(y - up)); if (flip) ctx.scale(-1, 1);
@@ -288,7 +332,8 @@ export function drawNecroShadow(ctx, sd, row = 0, inDomain = false) {
   }
   const sf = sd.atk > 0 || !sd.mv ? 4 : Math.floor((sd.walk || 0) / 14) % 4;
   const lunge = sd.atk > 0 ? Math.round(Math.sin(clamp((0.42 - sd.atk) / 0.42) * Math.PI) * 10) : 0;
-  const sil = drawSil(ctx, sd.t, sf, row, sd.x, sd.y, sd.dir < 0, { show: sd.born < NC_SUMMON.rise ? sd.born / NC_SUMMON.rise : 1, lunge, filter: inDomain ? "brightness(1.35)" : "" });
+  const swing = sd.atk > 0 && sd.born >= NC_SUMMON.rise ? clamp((0.42 - sd.atk) / 0.42) : -1;
+  const sil = drawSil(ctx, sd.t, sf, row, sd.x, sd.y, sd.dir < 0, { show: sd.born < NC_SUMMON.rise ? sd.born / NC_SUMMON.rise : 1, lunge, swing, filter: inDomain ? "brightness(1.35)" : "" });
   const ok = sil || cell(ctx, name, i, sd.x, sd.y, K, 1, row, sd.dir < 0, inDomain ? "brightness(1.35)" : "");
   if (!ok) { ctx.save(); ctx.fillStyle = C.deep; ctx.globalAlpha = 0.8; ctx.fillRect(Math.round(sd.x) - 8, Math.round(sd.y) - 34, 16, 34); ctx.restore(); }   // 시트가 없을 때 — 자리만
   // 소환 — 하늘에서 보라 번개가 내리치며 솟는다(나온 뒤 0.5초)
@@ -398,7 +443,7 @@ function absorb(ctx, f, t) {
   motes(ctx, { x: f.x, y: f.y, r: 40, n: 14, mix: "emz", t, span: 0.15, life: 0.3, out: -36, rise: 10, seed: sid(f) });
 }
 
-// 그림자 소집 — 발밑 그림자 다섯이 늘어나며(병사는 판정 상태 그림이 솟아오른다) 부르는 범위 1px 선
+// 그림자 소환 — 발밑 그림자 다섯이 늘어나며(병사는 판정 상태 그림이 솟아오른다) 부르는 범위 1px 선
 function summon(ctx, f, t, sq) {
   const u = t / f.life;
   cell(ctx, "nc_stretch", once("nc_stretch", u * 1.4), f.x, f.y, 3, u > 0.75 ? 1 - (u - 0.75) / 0.25 : 1);

@@ -121,7 +121,7 @@ test('명부 — 12종(추출 연마 25 → 15종) · 승급 비용 2 · 4 · 7 
   assert.equal(J.roster.length, RS.slots25);
 });
 
-test('그림자 소집 — 영혼 30 · 등급 높은 순 5기 · 20초 · 1.4초마다 ×3.0(등급 +10%씩)', () => {
+test('그림자 소환 — 영혼 30 · 등급 높은 순 5기 · 20초 · 1.4초마다 ×3.0(등급 +10%씩)', () => {
   const { g, h } = setup(200, [0, 0, 0], [...FIVE, { t: 'orc', n: '오크', g: 3, x: 0 }]);
   soul(h, 100);
   const m = mob(g, h.x + 60, h.y);
@@ -250,12 +250,12 @@ test("모든 몹 종류가 그림자 종류 짝을 가진다(허수아비 제외
   assert.deepEqual(miss, []);
 });
 
-test("명부 창 — 편성 차례 · 고른 그림자 먼저 소집 · 회수", async () => {
+test("명부 창 — 편성 차례 · 고른 그림자 먼저 소환 · 회수", async () => {
   const { summonPick, necroInput, necroSandboxRefine } = await import("../src/game/necroJob.js");
   const roster = [{ t: "a", n: "a", g: 1, x: 0 }, { t: "b", n: "b", g: 3, x: 0 }, { t: "c", n: "c", g: 2, x: 0 }, { t: "d", n: "d", g: 5, x: 0 }, { t: "e", n: "e", g: 1, x: 0 }, { t: "f", n: "f", g: 4, x: 0 }];
   assert.deepEqual(summonPick({ roster, party: [] }, {}).map((q) => q.t), ["d", "f", "b", "c", "a"]);
-  assert.deepEqual(summonPick({ roster, party: ["e", "a"] }, {}).map((q) => q.t), ["e", "a", "d", "f", "b"]);
-  assert.deepEqual(summonPick({ roster, party: ["e"] }, { e: 3 }, "c").map((q) => q.t), ["c", "d", "f", "b", "a"]);
+  assert.deepEqual(summonPick({ roster, party: ["e", "a"] }, {}).map((q) => q.t), ["e", "a"]);
+  assert.deepEqual(summonPick({ roster, party: ["e"] }, { e: 3 }, "c").map((q) => q.t), ["c"]);
   assert.equal(typeof necroInput, "function");
   assert.equal(typeof necroSandboxRefine, "function");
 });
@@ -266,4 +266,17 @@ test('보스 그림자 그림 — 자르기 스크립트 목록과 같고 파일
   const kinds = [...py.matchAll(/": "([a-z_]+)",/g)].map((m) => m[1]).sort();
   assert.deepEqual(Object.keys(NC_BOSS_ART).sort(), kinds);
   for (const k of kinds) assert.ok(existsSync(new URL(`../public/assets/game/rpg/effects/hidden-jobs/necromancer/boss/${k}.webp`, import.meta.url)), k);
+});
+
+test('보스 그림자 휘두르기 — 팔 자르기 목록과 같고 몸 · 팔 그림이 있다', async () => {
+  const { NC_BOSS_ARM, NC_BOSS_ART } = await import('../src/game/necroPxData.js');
+  const py = readFileSync(new URL('./cut-necro-arm.py', import.meta.url), 'utf8');
+  const kinds = [...py.matchAll(/^    "([a-z_]+)": \[/gm)].map((m) => m[1]).sort();
+  assert.deepEqual(Object.keys(NC_BOSS_ARM).sort(), kinds);
+  const dir = '../public/assets/game/rpg/effects/hidden-jobs/necromancer/boss/';
+  for (const [k, arms] of Object.entries(NC_BOSS_ARM)) {
+    assert.ok(k in NC_BOSS_ART, k);
+    assert.ok(existsSync(new URL(`${dir}${k}-body.webp`, import.meta.url)), k);
+    arms.forEach((a, i) => { assert.ok(existsSync(new URL(`${dir}${k}-arm${i}.webp`, import.meta.url)), `${k} ${i}`); assert.ok(a[2] === 1 || a[2] === -1); });
+  }
 });

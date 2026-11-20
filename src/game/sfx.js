@@ -432,7 +432,7 @@ export function play(name) {
     if (!gate("ncExtract", 300)) return;
     tone({ type: "sine", f0: 110, f1: 330, t: 0.45, gain: 0.11 });
     tone({ type: "triangle", f0: 220, f1: 440, t: 0.3, gain: 0.04, delay: 0.2 });
-  } else if (name === "ncSummon") {          // 그림자 소집 — 낮은 울림 위로 겹소리
+  } else if (name === "ncSummon") {          // 그림자 소환 — 낮은 울림 위로 겹소리
     if (!gate("ncSummon", 400)) return;
     tone({ type: "sine", f0: 82, f1: 123, t: 0.6, gain: 0.16 });
     [0, 0.08, 0.16].forEach((d, i) => tone({ type: "triangle", f0: 196 + i * 30, f1: 165, t: 0.25, gain: 0.04, delay: d }));

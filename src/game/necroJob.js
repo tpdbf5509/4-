@@ -2,7 +2,7 @@
    수치는 necroData.js. 판정 쪽(방장 · 전용 서버 꼴)만 셈한다. 화면은 연출(fx)과 necroView · necroShadows 값만 그린다.
    11월 17일 사용자 결정 — 격자 연습장에만 넣는다(획득 방법 · 저장 · 스냅샷 · 명령어는 아직 없다). NECRO.live 가 false 면 sandbox 맵에서만 켜진다.
    피해는 기존 strikeAny · 평타 판정을 거쳐 결투 시전별 상한 · 사냥터 PvP 상한이 그대로 걸린다(기획안 3부 3장).
-   - 그림자 소집으로 나온 그림자들의 평소 공격은 소집 시전 하나를 함께 쓴다. 일제 진군 · 영혼 소각 · 무명의 군세는 저마다 새 시전.
+   - 그림자 소환으로 나온 그림자들의 평소 공격은 소집 시전 하나를 함께 쓴다. 일제 진군 · 영혼 소각 · 무명의 군세는 저마다 새 시전.
    저장 꼴(기획안 최종 추천안) bag.hj = { active: "necromancer", jobs: { necromancer: { lv, xp, tr: [[연마 레벨, 경험치] × 3], roster: [...] } }, version: 1 }.
    명부 한 칸 roster[i] = { t: 몹 종류, n: 이름, g: 등급 1~5, x: 다음 승급까지 모은 재추출 수 }.
    싸우는 동안의 상태 h.nc — 영혼 · 대기 · 흔적 · 그림자 · 예약 타격 · 영역. 영혼은 저장하지 않는다.
@@ -37,7 +37,7 @@ function cleanRoster(list) {
   }
   return out;
 }
-/* 군단 편성(11월 17일 사용자 — 그림자 명부 창의 「군단 편성」 탭) — 소집 때 먼저 부를 종류 차례, 최대 SM.max(5). 명부에 없는 종류는 뺀다.
+/* 군단 편성(11월 17일 사용자 — 그림자 명부 창의 「군단 편성」 탭) — 소환 때 먼저 부를 종류 차례, 최대 SM.max(5). 명부에 없는 종류는 뺀다.
    남은 칸 · 비어 있을 때는 예전처럼 등급 높은 것 → 먼저 등록한 것(정한 해석) */
 function cleanParty(list, roster) {
   if (!Array.isArray(list)) return [];
@@ -302,15 +302,15 @@ function shadowMul(E, h, s, sd, base) {
   const J = jobOf(h);
   return base * (1 + RS.gradeDmg * (sd.g - 1)) * (domainOn(s, h, sd.x, sd.y, E) ? 1 + domainDmg(J) : 1) * (sd.first ? 1 + ET.first : 1);
 }
-// 소집할 차례 — 편성한 것을 그 차례로 먼저(소각 잠김 제외), 남은 칸은 등급 높은 것 → 먼저 등록한 것. first(명부 창 「소환」)는 맨 앞에 넣는다
+// 소환할 차례(11월 20일 사용자 "명부에 있는 애만 그림자 소환 했을 때 걔만 소환") — 명부 창에서 고른 그림자(first)가 있으면 그 하나만,
+// 군단 편성이 있으면 편성한 그림자만(남은 칸을 채우지 않는다), 둘 다 없으면 예전처럼 등급 높은 것 → 먼저 등록한 것. 소각 잠김은 뺀다
 export function summonPick(J, lock, first) {
   const free = J.roster.filter((q) => !(lock[q.t] > 0));
-  const party = (J.party || []).map((t) => free.find((q) => q.t === t)).filter(Boolean);
-  const auto = free.map((q, i) => ({ q, i })).sort((a, b) => b.q.g - a.q.g || a.i - b.i).map((o) => o.q);
-  let list = [...party, ...auto.filter((q) => !party.includes(q))];
   const f = first && free.find((q) => q.t === first);
-  if (f) list = [f, ...list.filter((q) => q !== f)];
-  return list.slice(0, SM.max);
+  if (f) return [f];
+  const party = (J.party || []).map((t) => free.find((q) => q.t === t)).filter(Boolean);
+  if (party.length) return party.slice(0, SM.max);
+  return free.map((q, i) => ({ q, i })).sort((a, b) => b.q.g - a.q.g || a.i - b.i).map((o) => o.q).slice(0, SM.max);
 }
 function summonUse(E, g, h, req) {
   if (blocked(E, g, h, "summon")) return;
@@ -558,7 +558,7 @@ function tickLegion(E, g, h, q, dt) {
 }
 
 /* ── 입력 — req = { op: "use", s: "extract" | "summon" | "swap" | "domain" | "march" | "burn" | "legion" } ── */
-/* 명부 창(11월 17일) — { op: "use", s: "summon", t } 고른 그림자를 맨 앞에 두고 소집 · { op: "recall", t } 나와 있는 그 그림자만 거둔다(영혼 · 대기 없음) ·
+/* 명부 창(11월 17일) — { op: "use", s: "summon", t } 고른 그림자를 맨 앞에 두고 소환 · { op: "recall", t } 나와 있는 그 그림자만 거둔다(영혼 · 대기 없음) ·
    { op: "party", list } 군단 편성 차례를 바꾼다(저장 값) */
 function recallUse(E, g, h, t) {
   const s = st(h), sd = s.sh.find((q) => q.t === t);
@@ -612,7 +612,7 @@ export function necroDown(E, g, h) {
 export function necroFill(h) { if (necroOn(h)) st(h).soul = NC.soul; }
 // 연습장 — 명부를 grade 등급으로 채운다(그림자 종류 다섯을 하나씩 · 몹 이름 nameOf). 저장하지 않는 연습장에서만 쓴다
 /* 격자 연습장 — 고른 몹 하나를 명부 맨 앞에 넣는다(11월 17일 사용자 "현재 존재하는 모든 몹 전부"). 등급은 명부에서 가장 높은 값(없으면 grade)이라
-   다음 소집에 먼저 나온다. 명부가 가득 차면 맨 뒤 칸을 뺀다. 게임에는 이 길이 없다 */
+   다음 소환에 먼저 나온다. 명부가 가득 차면 맨 뒤 칸을 뺀다. 게임에는 이 길이 없다 */
 export function necroPutRoster(h, t, grade, nameOf) {
   if (!necroOn(h) || !t) return;
   const J = jobOf(h), old = J.roster.findIndex((q) => q.t === t);

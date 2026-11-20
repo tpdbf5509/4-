@@ -98,7 +98,7 @@ function necro() {
     skills: NC_SLOTS.map((q) => ({ ...q, ...{
       extract: { name: NC_EXTRACT.name, lv: U.extract, desc: ["가장 가까운 흔적을 그림자로 명부에 넣습니다.", "이미 있는 종류면 승급 재추출로 셉니다. 흔적이 없으면 영혼 · 대기를 쓰지 않습니다."],
         stats: [["비용", `영혼 ${NC_EXTRACT.cost}`], ["대기", `${NC_EXTRACT.cd}초`], ["범위", `반지름 ${NC_EXTRACT.r}`], ["승급", `재추출 ${NC_ROSTER.cost.join(" · ")}`]] },
-      summon: { name: NC_SUMMON.name, lv: U.summon, desc: [`명부의 그림자를 최대 ${NC_SUMMON.max}기 부릅니다.`, "군단 편성 차례 → 남은 칸은 등급 높은 순서. 이미 나와 있으면 거두고 새로 부릅니다."],
+      summon: { name: NC_SUMMON.name, lv: U.summon, desc: [`명부의 그림자를 최대 ${NC_SUMMON.max}기 부릅니다.`, "군단 편성이 있으면 편성한 그림자만, 없으면 등급 높은 순서. 명부 창에서 고르면 그 하나만. 이미 나와 있으면 거두고 새로 부릅니다."],
         stats: [["비용", `영혼 ${NC_SUMMON.cost}`], ["대기", `${NC_SUMMON.cd}초`], ["피해", `${x(NC_SUMMON.mul)} · ${NC_SUMMON.gap}초마다`], ["지속", `${NC_SUMMON.dur}초`]] },
       swap: { name: NC_SWAP.name, lv: U.swap, desc: ["포인터에 가장 가까운 내 그림자와 자리를 바꿉니다.", "피해는 없습니다."],
         stats: [["비용", `영혼 ${NC_SWAP.cost}`], ["대기", `${NC_SWAP.cd}초`], ["거리", NC_SWAP.reach]] },

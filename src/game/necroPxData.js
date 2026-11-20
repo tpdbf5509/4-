@@ -16,7 +16,7 @@ export const NECRO_PX = {
   nc_extract: { w: 40, h: 72, cols: 10, n: 10, cx: 20, cy: 66 },   // 흔적 추출 — 0~2 원 · 3~6 그림자 줄기 · 7~9 꺼짐(발밑 기준)
   nc_wisp: { w: 10, h: 10, cols: 4, n: 4, cx: 5, cy: 5, loop: 1 },   // 빨려 드는 영혼 조각
   nc_absorb: { w: 48, h: 24, cols: 5, n: 5, cx: 24, cy: 12 },   // 발밑으로 빨려 드는 고리
-  nc_stretch: { w: 120, h: 60, cols: 6, n: 6, cx: 60, cy: 30 },   // 그림자 소집 — 발밑 그림자 다섯이 늘어난다
+  nc_stretch: { w: 120, h: 60, cols: 6, n: 6, cx: 60, cy: 30 },   // 그림자 소환 — 발밑 그림자 다섯이 늘어난다
   nc_slash: { w: 36, h: 30, cols: 5, n: 5, cx: 14, cy: 18 },   // 그림자 근접 베기 — 보라 빛 반달 · 끝 번개
   nc_bolt: { w: 16, h: 6, cols: 2, n: 2, cx: 13, cy: 3, loop: 1 },   // 그림자 화살(오른쪽을 본다)
   nc_pop: { w: 86, h: 70, cols: 6, n: 6, cx: 43, cy: 35, r: 35 },   // 주술형 작은 광역 터짐(그림 속 반지름 r)
@@ -40,7 +40,7 @@ export const NECRO_PX = {
   nc_shard: { w: 8, h: 8, cols: 6, n: 6, cx: 4, cy: 4, loop: 1 },   // 알갱이 — 도는 검은 파편
   nc_zap: { w: 12, h: 18, cols: 4, n: 4, cx: 6, cy: 9 },   // 알갱이 — 짧게 번쩍이는 번개 조각
   nc_smoke: { w: 18, h: 16, cols: 8, n: 8, cx: 9, cy: 8 },   // 알갱이 — 말리며 커지는 그림자 연기
-  nc_icons: { w: 24, h: 24, cols: 8, n: 8, cx: 0, cy: 0 },   // 스킬 아이콘 8칸 — 그림자 낫 · 흔적 추출 · 그림자 소집 · 그림자 교환 · 군주의 영역 · 일제 진군 · 영혼 소각 · 무명의 군세
+  nc_icons: { w: 24, h: 24, cols: 8, n: 8, cx: 0, cy: 0 },   // 스킬 아이콘 8칸 — 그림자 낫 · 흔적 추출 · 그림자 소환 · 그림자 교환 · 군주의 영역 · 일제 진군 · 영혼 소각 · 무명의 군세
 };
 // 아이콘 칸 차례(nc_icons)
 export const NECRO_ICON = { reap: 0, extract: 1, summon: 2, swap: 3, domain: 4, march: 5, burn: 6, legion: 7 };
@@ -69,3 +69,18 @@ export const NC_BOSS_ART = {
   tg_fire: 0, tg_frost: 0, tg_bolt: 0, tg_poison: 0, tg_corrode: 0, tg_gravity: 0,
   world_dragon: 0, world_serpent: 0, world_machine: 0, world_thunderbird: 0, world_void: 0,
 };
+
+/* 보스 그림자 휘두르기(11월 20일 사용자 "무기를 든 그림자는 무기를 분리해서 휘두르는 모습 · 팔도 관절로") —
+   tools/cut-necro-arm.py 가 boss/<종류>-body.webp(팔 · 무기를 뺀 몸) 와 -arm<i>.webp(팔 + 무기) 로 나눈다.
+   [px, py] 어깨 관절(boss webp 픽셀 좌표) · d 휘두르는 방향(1 = 무기 끝이 시계 방향으로 들렸다가 내려벤다, -1 = 반대). 공격할 때만 돈다 */
+export const NC_BOSS_ARM = {
+  barkanon: [[240, 118, 1]],
+  serka: [[175, 95, 1], [270, 125, -1]],
+  morgas: [[222, 125, 1]],
+  tg_fire: [[312, 100, -1]],
+  tg_corrode: [[132, 115, -1]],
+  tg_frost: [[270, 128, -1]],
+  guild_siren: [[145, 100, -1]],
+};
+// 휘두르기 각도(라디안) — 공격 0~lift 들어 올림 → ~cut 내려벰(든 자세를 지나 down 만큼 더) → 끝까지 제자리로
+export const NC_BOSS_SWING = { up: 0.9, down: 0.35, lift: 0.3, cut: 0.55 };

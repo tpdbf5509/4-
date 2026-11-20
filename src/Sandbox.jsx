@@ -691,7 +691,7 @@ export default function Sandbox() {
                   {NC_ALL.map((t) => <option key={t} value={t}>{mobName({ type: t })} · {NC_KINDS[kindOf(t)].name}</option>)}
                 </select>
                 <button type="button" className={`jt-chip ${ncOpen ? "on" : ""}`} aria-pressed={ncOpen} onClick={() => { setSkOpen(false); setKeysOpen(false); setNcOpen((o) => !o); }}>그림자 명부</button>
-                <button type="button" className="jt-chip" title="고른 몹 그림자를 명부 맨 앞에 넣습니다 — 다음 소집에 먼저 나옵니다" onClick={() => { const h = G.current && G.current.heroes[0]; if (h) necroPutRoster(h, ncPick, cfg.ncGrade || 1, (t) => mobName({ type: t })); }}>명부에 넣기</button>
+                <button type="button" className="jt-chip" title="고른 몹 그림자를 명부 맨 앞에 넣습니다 — 다음 소환에 먼저 나옵니다" onClick={() => { const h = G.current && G.current.heroes[0]; if (h) necroPutRoster(h, ncPick, cfg.ncGrade || 1, (t) => mobName({ type: t })); }}>명부에 넣기</button>
               </span>}
             </div>
             {engineer && hud && hud.en && <EngineerBar v={hud.en} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}

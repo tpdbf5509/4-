@@ -8,7 +8,7 @@
    그림자 병사 · 추출 가능 흔적은 연출이 아니라 판정 상태(necroShadows · necroView)로 그린다 — rpgArt 가 사람과 앞뒤를 맞춰 부른다. */
 import { NECRO_COLORS as C, NC_SUMMON, NC_DOMAIN, NC_SCYTHE } from "./necroData.js";
 import { necroView, necroShadows } from "./necroJob.js";
-import { NECRO_PX_SRC, NECRO_PX, NC_FRAME as FR, NECRO_PFX, NC_DOMAIN_PFX } from "./necroPxData.js";
+import { NECRO_PX_SRC, NECRO_PX, NC_FRAME as FR, NECRO_PFX, NC_DOMAIN_PFX, NC_BOSS_SRC, NC_BOSS_ART } from "./necroPxData.js";
 const SH = { ...NECRO_PX, ...NECRO_PFX };           // 직접 그린 시트 + pixelfx 보강 시트
 
 const TAU = Math.PI * 2;
@@ -191,8 +191,30 @@ function fitMob(type, f) {
   return x;
 }
 const typeSeed = (type) => { let v = 7; for (const ch of String(type)) v = (v * 31 + ch.charCodeAt(0)) % 9973; return v; };
+/* 보스 그림자 — 사용자 그림(NC_BOSS_ART)을 SIL 판 발 자리에 놓는다. 화소를 바꾸지 않고(이미 그림자 그림) 색 줄도 같다.
+   걷기 칸(0~3)은 홀수 칸에서 2px 떠 오르내린다. 못 불러오면 undefined — 예전처럼 코드 그림자로 */
+const bossImgs = {};
+function bossSil(type, f) {
+  let im = bossImgs[type];
+  if (im === undefined) { im = bossImgs[type] = new Image(); im.onerror = () => { bossImgs[type] = null; }; im.src = `${NC_BOSS_SRC}${type}.webp`; }
+  if (!im) return undefined;
+  if (!im.complete || !im.naturalWidth) return null;
+  const key = `boss|${type}|${f}`;
+  let s = SIL.get(key);
+  if (s) return s;
+  const want = NC_BOSS_ART[type], k = Math.min((want || SIL_MAXH) / im.naturalHeight, SIL_MAXW / im.naturalWidth);
+  const w = Math.round(im.naturalWidth * k), h = Math.round(im.naturalHeight * k), bob = f < 4 ? (f % 2) * 2 : 0;
+  const l = Math.round(SIL_FX - w / 2), t = SIL_FY - h - bob;
+  const c = document.createElement("canvas"); c.width = SIL_W; c.height = SIL_H;
+  const x = c.getContext("2d"); x.imageSmoothingQuality = "high"; x.drawImage(im, l, t, w, h);
+  s = { c, box: { l, t, w, h }, n: w * h, done: true };
+  SIL.set(key, s);
+  return s;
+}
 export function silhouette(type, f, row) {
-  if (!mobPainter || typeof document === "undefined" || !type) return null;
+  if (typeof document === "undefined" || !type) return null;
+  if (type in NC_BOSS_ART) { const b = bossSil(type, f); if (b !== undefined) return b; }
+  if (!mobPainter) return null;
   const key = `${type}|${f}|${row}`, now = performance.now();
   let s = SIL.get(key);
   if (s && (s.done || now - s.at < SIL_RETRY)) return s.c ? s : null;

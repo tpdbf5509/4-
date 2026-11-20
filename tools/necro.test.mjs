@@ -259,3 +259,11 @@ test("명부 창 — 편성 차례 · 고른 그림자 먼저 소집 · 회수",
   assert.equal(typeof necroInput, "function");
   assert.equal(typeof necroSandboxRefine, "function");
 });
+
+test('보스 그림자 그림 — 자르기 스크립트 목록과 같고 파일이 있다 · 모두 있는 몹 종류', async () => {
+  const { NC_BOSS_ART } = await import('../src/game/necroPxData.js');
+  const py = readFileSync(new URL('./cut-necro-boss.py', import.meta.url), 'utf8');
+  const kinds = [...py.matchAll(/": "([a-z_]+)",/g)].map((m) => m[1]).sort();
+  assert.deepEqual(Object.keys(NC_BOSS_ART).sort(), kinds);
+  for (const k of kinds) assert.ok(existsSync(new URL(`../public/assets/game/rpg/effects/hidden-jobs/necromancer/boss/${k}.webp`, import.meta.url)), k);
+});

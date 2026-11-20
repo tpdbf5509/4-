@@ -43,16 +43,16 @@ const FIVE = [{ t: 'goblin', n: '고블린', g: 1, x: 0 }, { t: 'wolf', n: '늑�
 function unit() { const { g, h } = setup(); const m = mob(g, h.x + 100, h.y); fire(g, true); step(g, .01); fire(g, false); run(g, .45); return (HP - m.hp) / SC.mul; }
 const U = unit();
 
-test('연습장에만 — live 가 꺼져 있고 연습장 맵 밖에서는 직업이 꺼진다 · 키 설정 창에 칸을 만들지 않는다', () => {
-  assert.equal(NC.live, false, '11월 17일 사용자 결정 — 격자 연습장에만');
+test('실제 게임 — live 가 켜져 연습장 밖에서도 직업이 켜진다(11월 20일 획득 루트) · 키 설정 창에 칸을 만들지 않는다', () => {
+  assert.equal(NC.live, true, '11월 20일 — 획득 루트와 함께 실제 게임에 열었다');
   const { g, h } = setup();
   assert.ok(necroOn(h));
-  h.map = 'field'; assert.ok(!necroOn(h), '연습장 밖에서는 꺼진다');
+  h.map = 'field'; assert.ok(necroOn(h), '연습장 밖에서도 켜진다');
   h.map = SANDBOX.id;
   assert.ok(!KEY_ACTIONS.some(a => /necro|네크로|그림자 군주/i.test(a.id + a.name)));
   assert.ok(NC_SLOTS.every(q => KEY_ACTIONS.some(a => a.id === q.act)));
-  assert.ok(!holds(h.bag, 'gambler') && !holds(h.bag, 'blood'), '유일 규칙의 다른 직업으로 세지 않는다');
-  assert.equal(cleanHj(h.bag.hj, false), null, '저장(cleanHj)은 아직 이 직업을 싣지 않는다 — 실제 게임에 넣을 때 연결');
+  assert.ok(!holds(h.bag, 'gambler') && !holds(h.bag, 'blood') && holds(h.bag, 'necromancer'), '유일 규칙은 이 직업으로 센다');
+  assert.equal(cleanHj(h.bag.hj, false).active, 'necromancer', '저장(cleanHj)이 이 직업을 싣는다');
   assert.equal(h.bag.e, 1, '전용 무기 그림자 낫은 그대로 든다(11월 20일 — 다른 무기는 내려놓는다)');
   const m = mob(g, h.x + 150, h.y);
   rpgInput(g, { cls: 0, kind: 'skill' }); rpgInput(g, { cls: 0, kind: 'wskill' }); run(g, .5);
@@ -146,7 +146,7 @@ test('명부가 비면 소집하지 않는다 · 쓰러지면 그림자 · 영�
   assert.equal(b.h.nc.sh.length, 5);
   b.h.map = 'field';
   run(b.g, .05);
-  assert.equal(b.h.nc, null, '연습장 밖 — 직업이 꺼져 상태도 걷힌다');
+  assert.equal(b.h.nc.sh.length, 0, '맵을 옮기면 그림자가 사라진다');
 });
 
 test('그림자 교환 — 포인터에 가까운 내 그림자와 0.18초에 자리를 바꾼다(피해 없음)', () => {

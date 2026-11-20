@@ -36,6 +36,7 @@ import { NC_WEAPON_ITEM } from "./necroData.js";
 import { illusionOn } from "./illusionJob.js";
 import { cleanGu } from "./gamblerUnlock.js";
 import { cleanEu } from "./engineerQuest.js";   // Engineer 003 획득 루트 진행(11월 19일)
+import { cleanNu } from "./necroQuest.js";   // Necromancer 004 획득 루트 진행(11월 20일)
 import { cleanRq } from "./requiemData.js";
 import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
@@ -274,11 +275,13 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (bd && bd.on && !bloodWeaponOk(equipped(b))) b.e = 0;   // BLOOD-001 은 크림슨 레퀴엠만(11월 16일 사용자) — 예전에 든 다른 무기는 내려놓는다
   const hj = cleanHj(d.hj, !!(bd && bd.on));
   if (hj) b.hj = hj;                              // 히든 직업 Gambler 002 · Engineer 003 — 켜짐 · 직업 레벨 · 연마(gamblerJob.js). BLOOD-001 과 둘 다 켜진 기록은 이쪽을 끈다
-  if (hj && hj.active) b.e = 0;                   // 무기를 들지 않는다 — 들고 있던 것은 내려놓는다(가방에는 남는다)
+  if (hj && hj.active && !(hj.active === "necromancer" && equipped(b) && ncWeaponOk(equipped(b)))) b.e = 0;   // 무기를 들지 않는다 — 들고 있던 것은 내려놓는다(가방에는 남는다). Necromancer 004 의 그림자 낫만 그대로
   const gu = cleanGu(d.gu);
   if (gu) b.gu = gu;                              // Gambler 002 해금 경로 — 단서 · 진행 · 연 문(gamblerUnlock.js)
   const eu = cleanEu(d.eu);
   if (eu) b.eu = eu;                              // Engineer 003 획득 루트 — 깃발 · 다이얼 · 시험 체크포인트(engineerQuest.js)
+  const nu = cleanNu(d.nu);
+  if (nu) b.nu = nu;                              // Necromancer 004 획득 루트 — 깃발 · 장치 값 · 왕궁 시험 체크포인트(necroQuest.js)
   const bu = cleanBu(d.bu);
   if (bu) b.bu = bu;                              // BLOOD-001 해금 경로 — 단서 · 진행 · 연 입구(bloodUnlock.js)
   const rq = cleanRq(d.rq); if (rq) b.rq = rq;
@@ -392,7 +395,7 @@ export function whyEquip(h, u) {
   if (!h || !h.bag || !u) return out;
   const w = h.bag.w.find((q) => q.u === u);
   if (!w) out.push("가방에 없는 무기입니다");
-  else if (h.lv < WEAPON_TIERS[w.r]) out.push(`레벨 ${WEAPON_TIERS[w.r]} 필요 (지금 ${h.lv})`);
+  else if (h.lv < WEAPON_TIERS[w.r] && !(w.sp === NC_WEAPON_ITEM.id && necroOn(h))) out.push(`레벨 ${WEAPON_TIERS[w.r]} 필요 (지금 ${h.lv})`);   // 그림자 낫은 계승자의 직업 도구라 레벨과 관계없이 든다(11월 20일 — 1레벨 계승자도 평타를 쓰게, 정한 해석)
   else if (w.sp === "blood_gun" && (!bloodOn(h) || h.bag.bd.trial)) out.push("BLOOD-001 전용 무기입니다");
   else if (bloodOn(h) && !bloodWeaponOk(w)) out.push("BLOOD-001 은 크림슨 레퀴엠만 들 수 있습니다");
   else if (gamblerOn(h)) out.push("Gambler 002 는 무기를 들 수 없습니다");
@@ -568,7 +571,7 @@ export function whyPotionUse(h, id, el) {
   else if (p.kind === "heal" && h.hp >= h.max) out.push("체력이 이미 가득 찼습니다");
   else if (p.kind === "reset" && statSpent(h.st) <= 0) out.push("돌려받을 스탯 포인트가 없습니다");
   else if (p.kind === "hide" && noHide(h)) out.push("결투장 · 던전에서는 마실 수 없습니다");
-  else if (p.kind === "adv" && !advOf(h) && !bloodOn(h) && !gamblerOn(h) && !engineerOn(h)) out.push("전직한 뒤에 마실 수 있습니다");
+  else if (p.kind === "adv" && !advOf(h) && !bloodOn(h) && !gamblerOn(h) && !engineerOn(h) && !necroOn(h)) out.push("전직한 뒤에 마실 수 있습니다");
   else if (p.kind === "elem" && !hasElem(h.job)) out.push("원소가 있는 마법사만 마실 수 있습니다");
   else if (p.kind === "elem" && el !== undefined && !ELEMS.some((e) => e.id === el)) out.push("바꿀 원소를 골라 주세요");
   else if (p.kind === "elem" && el === h.elem) out.push("지금 원소와 같습니다");
@@ -801,7 +804,7 @@ export function rpgShop(g, pi, req) {
       fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 44, color: "#cfd8e6", n: 8, t: 0.5, life: 0.5, who: pi });
       msg = `${Math.ceil(h.bf.hide.t)}초 동안 몹이 알아채지 못합니다(보스도)`;
     } else if (p.kind === "adv") {                 // 전직 초기화 — 전직 · 숙련도 · 전투 특성 · 시험을 비운다. 기본 직업은 그대로
-      const wasFull = h.hp >= h.max, old = advOf(h) || (bloodOn(h) ? { name: "BLOOD-001" } : gamblerOn(h) ? { name: "Gambler 002" } : engineerOn(h) ? { name: "Engineer 003" } : null);
+      const wasFull = h.hp >= h.max, old = advOf(h) || (bloodOn(h) ? { name: "BLOOD-001" } : gamblerOn(h) ? { name: "Gambler 002" } : engineerOn(h) ? { name: "Engineer 003" } : necroOn(h) ? { name: "Necromancer 004" } : null);
       dropBlood(h);                               // 히든 직업 BLOOD-001 도 끈다 — 직업 레벨 · 연마는 남는다
       dropGambler(h);                             // 히든 직업 Gambler 002 · Engineer 003 도 끈다(같은 bag.hj 칸) — 직업 레벨 · 연마는 남는다
       h.en = null; h.env = null;

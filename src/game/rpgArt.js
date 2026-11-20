@@ -20,7 +20,9 @@ import { GAMBLER_CAP, drawGamblerSpots } from './gamblerArt.js';
 import { GM_SPOTS } from './gamblerData.js';
 import { gmSpotShown } from './gamblerUnlock.js';
 import { eqSpotsOn, drawEqSpot, eqCompanion, eqCompanionAt, drawEqCompanion, drawEqHazards, drawEqTrialGround, drawEqMob, drawEqFx, drawEqExits, drawEqExitLabel } from './engineerQuestArt.js';   // Engineer 003 획득 루트
-import { eqSpotNear } from './engineerQuest.js';   // Gambler 002 해금 경로 조사물
+import { eqSpotNear } from './engineerQuest.js';
+import { nqSpotsOn, drawNqSpot, drawNqGround, nqTrialBodies, drawNqAlly, drawNqFoe, drawNqGhost } from './necroQuestArt.js';   // Necromancer 004 획득 루트
+import { nqSpotNear } from './necroQuest.js';   // Gambler 002 해금 경로 조사물
 import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003 — 무기 그림을 들지 않는다 · 설치물 몸
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
@@ -2888,6 +2890,7 @@ export function drawRpg(ctx, g, bgs) {
   (HERBS_BY_MAP[M.id] || []).forEach((n) => { if (inView(n.x, n.y)) order.push({ y: n.y, herb: n }); });   // 약초 채집물(alchemyArt.js)
   if (me && me.bag) GM_SPOTS.forEach((n) => { if (n.map === M.id && inView(n.x, n.y, 200) && gmSpotShown(me, n)) order.push({ y: n.y, gmSpot: n }); });   // Gambler 002 단서 자리(칩 상자 · 계약서 · 주사위 기계) — 사람과 앞뒤를 맞춘다
   if (me && me.map === M.id) { const en = eqSpotNear(me); eqSpotsOn(me, M.id).forEach((n) => { if (inView(n.at[0], n.at[1], 300)) order.push({ y: n.at[1], eqSpot: n, near: n === en }); }); }   // Engineer 003 획득 루트 조사 자리
+  if (me && me.map === M.id) { const ns = nqSpotNear(me); nqSpotsOn(me, M.id).forEach((n) => { if (inView(n.at[0], n.at[1], 300)) order.push({ y: n.at[1], nqSpot: n, near: n === ns }); }); order.push(...nqTrialBodies(me, M.id)); }   // Necromancer 004 획득 루트 조사 자리 · 시험 몸
   if (me && me.map === M.id && eqCompanion(me)) { const p = eqCompanionAt(me, 1 / 60); order.push({ y: p.y, eqDoll: p }); }   // 자동인형 003 — 곁을 따라온다(화면만)
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
@@ -2898,7 +2901,7 @@ export function drawRpg(ctx, g, bgs) {
   if (M.id === "plaza") drawDgPit(ctx, time);
   drawDust(ctx, g, M.id, time);
   if (me && me.map === M.id) drawNecroTraces(ctx, me, time);
-  drawEqExits(ctx, me, M, time); if (me && me.map === M.id) { drawEqHazards(ctx, me, M.id, Date.now() / 1000, time); drawEqTrialGround(ctx, me, M.id, time); }   // Engineer 003 획득 루트 — 위험 장치 · 시험 장치(땅)   // Necromancer 004 — 내가 남긴 추출 가능 흔적(땅)
+  drawEqExits(ctx, me, M, time); drawNqGround(ctx, me, M, time); if (me && me.map === M.id) { drawEqHazards(ctx, me, M.id, Date.now() / 1000, time); drawEqTrialGround(ctx, me, M.id, time); }   // Engineer 003 획득 루트 — 위험 장치 · 시험 장치(땅)   // Necromancer 004 — 내가 남긴 추출 가능 흔적(땅)
   order.sort((a, b) => a.y - b.y);
   order.forEach((o) => {
     // 띄움에 걸린 것은 위로 떠서 그린다 · 걸린 표시(경직 · 속박 · 낙인)는 그 위에
@@ -2924,6 +2927,10 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.tree) drawFieldTree(ctx, o.tree);
     else if (o.gmSpot) drawGamblerSpots(ctx, M, [o.gmSpot], me.bag.gu);
     else if (o.eqSpot) drawEqSpot(ctx, me, o.eqSpot, time, o.near);
+    else if (o.nqSpot) drawNqSpot(ctx, me, o.nqSpot, time, o.near);
+    else if (o.nqAlly) drawNqAlly(ctx, o.nqAlly, time);
+    else if (o.nqFoe) drawNqFoe(ctx, o.nqFoe, time);
+    else if (o.nqGhost) drawNqGhost(ctx, o.nqGhost, time);
     else if (o.eqDoll) drawEqCompanion(ctx, o.eqDoll, time);
     else if (o.enUnit) drawEngineerUnit(ctx, o.enUnit, time, RPG.squash, crowd ? Math.min(lod.q, CROWD.q) : lod.q);
     else if (o.herb) drawHerb(ctx, o.herb, herbUp(g, o.herb.i), time);

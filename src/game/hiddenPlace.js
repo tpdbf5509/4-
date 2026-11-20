@@ -1,11 +1,12 @@
 import { MAPS, FAR_MAPS } from "./rpg.js";
 import { eqMap } from "./engineerQuestData.js";
+import { nqMap } from "./necroQuestData.js";
 import { RQ_MAPS } from "./requiemData.js";
 
 /* 접속 인원 창에서 위치를 숨길 히든 장소 — 히든 직업 해금 · 획득 맵(엔지니어 eng-* · BLOOD-001 연구시설 · 레퀴엠 격리실 · 도박꾼 카지노 뒷방).
    새 히든 직업 맵을 더하면 여기에도 더한다. 광장 · 마을 · 일반 사냥터는 그대로 보인다 */
 const HIDDEN_IDS = new Set(["bloodlab", "casino", ...RQ_MAPS]);
-export const hiddenPlace = (id) => HIDDEN_IDS.has(id) || eqMap(id);
+export const hiddenPlace = (id) => HIDDEN_IDS.has(id) || eqMap(id) || nqMap(id);   // Necromancer 004 탐험 맵(necro_*)도
 
 /* 가짜로 보여 줄 사냥터 — 일반 사냥터 이름만(레벨 제한이 없는 맨 앞 사냥터부터 400레벨대까지) */
 const DECOY = ["field", "wolf", "boar", "gorilla", "goblin", "orc", "ogre", ...FAR_MAPS.map((f) => f.id)];

@@ -313,7 +313,7 @@ function tickExtract(E, g, h, q, dt) {
 /* ── 그림자 ───────────────────────────────────────────
    s.sh = [{ id, t 몹 종류, n 이름, k 종류, g 등급, x, y, dir, born 나온 뒤 초, life 남은 초, cd 다음 공격까지, atk 공격 자세 남은 초,
              tgt 노리는 대상 열쇠, prio 일제 진군 대상, first 영원의 명령 첫 그림자, walk 걸음 누적, mv 걷는 중 }] */
-export const necroShadows = (h) => (h && h.nc ? h.nc.sh : h && h.ncv ? h.ncv.sh || [] : []);
+export const necroShadows = (h) => (h && h.ncv ? h.ncv.sh || [] : h && h.nc ? h.nc.sh : []);
 const aggroOf = (J) => AI.aggro * (J && J.tr[1][0] >= AI.sp25 ? 1 + AI.aggro25 : 1);
 const domainOn = (s, h, x, y, E) => !!(s.dom && sqd(E, h.x, h.y, x, y) <= DM.r);
 const domainDmg = (J) => (J && J.tr[2][0] >= DM.sp50 ? DM.dmg50 : DM.dmg);
@@ -697,8 +697,9 @@ export function necroInput(E, g, pi, req) {
 
 /* ── 시간 ─────────────────────────────────────────── */
 export function tickNecro(E, g, h, dt) {
-  if (!necroOn(h)) { if (h.nc) h.nc = null; return; }
+  if (!necroOn(h)) { if (h.nc) h.nc = null; if (h.ncv) h.ncv = null; return; }
   const s = st(h);
+  if (h.ncv) { s.soul = clampN(h.ncv.soul, 0, NC.soul); h.ncv = null; }   // 방장 승계 — 영혼을 이어받는다
   for (const k in s.cd) s.cd[k] = Math.max(0, s.cd[k] - dt);
   if (E.cdOff(g, h)) for (const k in s.cd) s.cd[k] = 0;
   for (const k in s.lock) { s.lock[k] -= dt; if (s.lock[k] <= 0) delete s.lock[k]; }
@@ -759,10 +760,43 @@ export function necroFillRoster(h, grade, nameOf) {
   }
 }
 
-/* ── 화면 값 — 영혼 · 직업 레벨 · 연마 · 대기 · 명부 · 흔적 · 그림자. 지금은 판정 세계(연습장)만 — 손님 화면 값(h.ncv)은 실제 게임에 넣을 때 스냅샷 줄과 함께 ── */
+/* ── 스냅샷 영웅 줄 62(11월 20일 실제 게임) — 영혼 · 대기 · 그림자 · 흔적 · 영역 · 잠김. 직업 레벨 · 연마 · 명부는 가방(bag.hj)에서 본다.
+   그림자 이름(nm)은 싣지 않는다(11월 20일 사용자 "다른 사람들에게는 아무 이름도") — 주인 화면은 제 가방 명부에서 이름을 찾는다 */
+const CD_KEYS = Object.keys(NO_CD);
+export function packNecro(h) {
+  if (!necroOn(h)) return 0;
+  const s = h.nc;
+  if (!s) return [0, 0, [], [], 0, 0, 0];
+  return [Math.round(s.soul), CD_KEYS.map((k) => r1(s.cd[k] || 0)),
+    s.sh.map((sd) => [sd.id, sd.t, sd.k, sd.g, Math.round(sd.x), Math.round(sd.y), sd.dir, r2(sd.born), r2(sd.atk), sd.mv ? 1 : 0, Math.round(sd.walk || 0), sd.first ? 1 : 0]),
+    s.traces.filter((q) => q.map === h.map).map((q) => [q.id, q.t, q.x, q.y, r1(q.left)]),
+    s.dom ? r1(Math.max(0, s.dom.dur - s.dom.t)) : 0, Object.keys(s.lock).length ? Object.entries(s.lock).map(([k, v]) => [k, r1(v)]) : 0,
+    s.ask ? [s.ask.t, s.ask.g || 1] : 0];
+}
+export function applyNecro(h, a) {
+  if (!Array.isArray(a)) { h.ncv = null; return; }
+  const ro = (h.bag && h.bag.hj && h.bag.hj.jobs && h.bag.hj.jobs[NECRO_ID] && h.bag.hj.jobs[NECRO_ID].roster) || [];
+  const nameOf = (t) => { const e = ro.find((q) => q.t === t); return e ? e.nm || e.n : t; };
+  const cd = Array.isArray(a[1]) ? a[1] : [];
+  h.ncv = { live: 1, soul: +a[0] || 0, cd: Object.fromEntries(CD_KEYS.map((k, i) => [k, +cd[i] || 0])),
+    sh: (Array.isArray(a[2]) ? a[2] : []).map(([id, t, k, g, x, y, dir, born, atk, mv, walk, first]) => {
+      const e = ro.find((q) => q.t === t);
+      return { id, t, k, g, x, y, dir, born, atk, mv, walk, first, n: e ? e.nm || e.n : t, nm: e && e.nm ? 1 : 0 };
+    }),
+    traces: (Array.isArray(a[3]) ? a[3] : []).map(([id, t, x, y, left]) => ({ id, t, n: t, x, y, left, map: h.map })),
+    dom: +a[4] || 0, lock: Array.isArray(a[5]) ? Object.fromEntries(a[5]) : {}, ask: Array.isArray(a[6]) ? { t: a[6][0], n: nameOf(a[6][0]), g: a[6][1] } : null };
+}
+
+/* ── 화면 값 — 영혼 · 직업 레벨 · 연마 · 대기 · 명부 · 흔적 · 그림자. 판정 세계(방장 · 연습장)는 h.nc 에서, 손님은 스냅샷(h.ncv) + 가방에서 같은 모양으로 ── */
 export function necroView(h) {
   if (!h) return null;
-  if (h.ncv) return h.ncv;
+  if (h.ncv) {
+    const J = h.bag && h.bag.hj && h.bag.hj.jobs && h.bag.hj.jobs[NECRO_ID];
+    if (!J) return null;
+    return { ...h.ncv, max: NC.soul, lv: J.lv, xp: J.xp, tr: J.tr, roster: (J.roster || []).map((q) => ({ ...q, n: q.nm || q.n, base: q.n })), party: J.party || [], slots: rosterSlots(J),
+      cdMax: Object.fromEntries(Object.entries(NC_SKILLS).map(([k, v]) => [k, v.cd])), eternal: ncEternal(J), tint: necroTint(ncTrainSum(J)),
+      costs: Object.fromEntries(Object.entries(NC_SKILLS).map(([k, v]) => [k, v.cost])) };
+  }
   if (!necroOn(h)) return null;
   const J = jobOf(h), s = h.nc;
   // 명부는 보이는 이름(내린 이름 → 몹 이름)을 n 에, 몹 이름을 base 에 — 창 · 소환 목록 · 편성이 모두 n 을 쓴다

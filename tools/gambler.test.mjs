@@ -42,7 +42,7 @@ test('새 키 칸은 만들지 않는다 — 키 설정 창에 드러나지 않�
   assert.equal(GM.live, true, '11월 16일 사용자 결정 — 실제 게임에 넣었다(tools/gambler-live.test.mjs)');
   assert.ok(!KEY_ACTIONS.some(a => /gambler|도박/i.test(a.id + a.name)), '키 설정 창에 드러나지 않는다');
   assert.ok(GM_SLOTS.every(q => KEY_ACTIONS.some(a => a.id === q.act)), '기존 행동 키를 그대로 쓴다');
-  assert.equal(SNAP_ORDER.maps[SNAP_ORDER.maps.length - 1], 'casino', '시험 맵은 맵 차례 맨 뒤');
+  { const m = SNAP_ORDER.maps, i = m.indexOf('casino'); assert.ok(i > 0 && i < m.indexOf('necro_nameless_graves'), '시험 맵은 맵 차례 뒤쪽 — 뒤에만 더하므로 뒤로 다른 히든 직업 맵이 붙는다'); }
   const { g, h } = setup(); dropGambler(h);
   assert.ok(!gamblerOn(h));
   const m = mob(g, h.x + 200, h.y);

@@ -27,8 +27,10 @@ import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill,
 import { EN_PULSE } from './engineerData.js';
 import { EQ_MAPS, EQ_EXITS, EQ_VILLAGE, EQ_SITE_MAPS, EQ_SITE_EXIT, EQ_TRIAL } from './engineerQuestData.js';   // Engineer 003 획득 루트(11월 19일)
 import { eqInput, tickEq, eqMobHit, packEq, applyEq, eqInTrial } from './engineerQuest.js';
+import { NQ_MAPS, NQ_EXITS, NQ_BLOCKS } from './necroQuestData.js';   // Necromancer 004 획득 루트(11월 20일)
+import { nqInput, tickNq, packNq, applyNq } from './necroQuest.js';
 import { HIDDEN_FAMILY, hiddenRange } from "./hiddenFamilyData.js";   // 히든 계열 · 전용 사거리(11월 20일)
-import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
+import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook, packNecro, applyNecro } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
 import { NC_SCYTHE } from './necroData.js';
 import { wyvernInput, wyvernBasic, tickWyvernJob, wyvernDown, wyvernFill, wyvernKill, wyvernRaidKill, wyvernOn, wyvernTake, wyvernSpd, wyvernLook } from './wyvernJob.js';   // 히든 직업 Wyvern Knight 006(11월 17일 — 격자 연습장에만)
 import { WY_CLAW } from './wyvernData.js';
@@ -456,6 +458,13 @@ EQ_MAPS.forEach((m) => {
   MAP_IDS.push(m.id);
 });
 MAPS[VILLAGE.id].gates.push({ x: EQ_VILLAGE.door.x, y: EQ_VILLAGE.door.y, r: EQ_VILLAGE.door.r, to: EQ_MAPS[0].id, at: EQ_MAPS[0].spawn, label: EQ_MAPS[0].name, villageGate: 1, libGate: 'door' });   // 바닥 빛 · 이름표만(도서관 문과 같은 꼴)
+/* Necromancer 004 획득 루트(necroQuestData.js, 11월 20일) — 탐험 맵 13곳. 모두 싸움 없는 곳 · 사냥터로 가는 출구는 없다. 맵 차례는 뒤에만.
+   마을 쪽 입구는 MAPS 문이 아니라 약초밭 원래 울타리 쪽문의 조사 자리(necroQuest.js v-gate)라 마을에 새 빛 · 이름표가 생기지 않는다 */
+NQ_MAPS.forEach((m) => {
+  const gates = NQ_EXITS.filter((q) => q.map === m.id).map((q) => ({ x: q.at[0], y: q.at[1], r: q.r, to: q.to, at: q.back, label: q.label, hatch: q.hatch, eqGate: 1 }));
+  MAPS[m.id] = { id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, nq: 1, spawn: m.spawn, gates, blocks: NQ_BLOCKS[m.id] || [], npcs: [] };
+  MAP_IDS.push(m.id);
+});
 MAPS[HIGH.from].gates.push({ x: MAPS[HIGH.from].w - 90, y: 920, r: 64, to: HIGH_MAPS[0].id, at: [260, 920], label: highLabel(HIGH_MAPS[0]), high: 1, highEnter: 1 });
 // 지금 보이는 문 — 열리지 않은 high 문은 빼고(그림 · 흙길 · 문 판정이 같이 쓴다)
 export const gatesOf = (g, M) => (highOn(g) ? M.gates : M.gates.filter((q) => !q.high));
@@ -3504,6 +3513,9 @@ const eqEngine = { ...engineerEngine,
   spawnOf: (map) => MAPS[map].spawn,
   goMap: (g, h, to, at) => { h.map = to; [h.x, h.y] = at; stopMove(h); h.hold = []; h.dash = 0; h.gateCd = 1.2; fx(g, to, { kind: "ring", x: h.x, y: h.y - 10, r: 50, color: "#9fe3ea", t: 0.5, life: 0.5 }); } };
 export const rpgEq = (g, pi, req) => eqInput(eqEngine, g, pi, req);   // 입력 kind "eq"
+/* Necromancer 004 획득 루트(necroQuest.js) — 계승할 때 그림자 낫을 넣는다(bagRoom · gear) */
+const nqEngine = { ...eqEngine, bagRoom: advEngine.bagRoom, gear: advEngine.gear };
+export const rpgNq = (g, pi, req) => nqInput(nqEngine, g, pi, req);   // 입력 kind "nq"
 /* 히든 직업 Necromancer 004(necroJob.js, 11월 17일 — 격자 연습장에만). 기준 피해 · 시전 객체는 Gambler 002 와 같다.
    trace: 추출 가능 흔적을 남기는 몹(일반 몹만 — 보스 · 월드 · 길드 보스 · 허수아비 · 800~1200 소환물 제외) · bounds: 맵 [너비, 높이, 위 벽] · stop: 걷기 멈춤 */
 const necroEngine = { ...gamblerEngine,
@@ -3981,6 +3993,7 @@ function stepHeroes(g, dt) {
     tickGambler(gamblerEngine, g, h, cdt);         // Gambler 002 — 칩 · 코인 · 보호막 · 장판
     tickEq(eqEngine, g, h, cdt);                   // Engineer 003 획득 루트 — 미믹 · 위험 장치 · 최종 시험 · 계약(빌린 기술은 tickEngineer 앞에서)
     tickEngineer(engineerEngine, g, h, cdt);       // Engineer 003 — 전력 · 과열 · 펄스 · 설치물
+    tickNq(nqEngine, g, h, cdt);                   // Necromancer 004 획득 루트 — 의식 · 미믹 · 빛 띠 · 시험 · 계승
     tickNecro(necroEngine, g, h, cdt);             // Necromancer 004 — 영혼 · 그림자 · 예약 타격 · 영역
     tickWyvernJob(wyvernEngine, g, h, cdt);        // Wyvern Knight 006 — 용혈 · 와이번 · 예약 타격 · 변신
     tickIllusion(illusionEngine, g, h, cdt);       // Illusionist 005 — 트릭 · 카드 · 스킬 진행 · 잔상 · 거울 집
@@ -5430,7 +5443,7 @@ export function rpgPack(g) {
           ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0,
         packBloodJob(h),
-        packGambler(h), packEngineer(h), packRq(h), packEq(h)] // 60 — Engineer 003 획득 루트(engineerQuest.js, 아니면 0) · 59 — 마지막 진혼곡 연출 · 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
+        packGambler(h), packEngineer(h), packRq(h), packEq(h), packNq(h), packNecro(h)] // 62 — Necromancer 004(necroJob.js, 아니면 0) · 61 — Necromancer 004 획득 루트(necroQuest.js) · 60 — Engineer 003 획득 루트(engineerQuest.js, 아니면 0) · 59 — 마지막 진혼곡 연출 · 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
     hb: packHerbs(g),                             // 채집한 약초 자리 — { 번호: 다시 나기까지 초 }(alchemy.js)
@@ -5473,6 +5486,8 @@ export function rpgApply(g, s) {
     applyGambler(h, row[57]);                      // Gambler 002 — 칩 · 직업 레벨 · 대기 · 보호막(화면 값 h.gmv)
     applyEngineer(h, row[58]);                     // Engineer 003 — 전력 · 과열 · 설치물(화면 값 h.env)
     applyEq(h, row[59 + 1]);                       // Engineer 003 획득 루트 — 결과 · 미믹 · 시험(화면 값 h.eqv)
+    applyNq(h, row[61]);                           // Necromancer 004 획득 루트 — 결과 · 미믹 · 시험(화면 값 h.nqv)
+    applyNecro(h, row[62]);                        // Necromancer 004 — 영혼 · 대기 · 그림자 · 흔적(화면 값 h.ncv)
     h.serverTs = row[50] || 0; // 확정 기록을 방장이 받았는지 확인한다
     if ((row[50] || 0) < (h.ts || 0) && (!s.w || s.w[pi] === h.sw || s.w[pi] === h.who)) return;
     h.guild=row[52]||null;h.ts = row[50] || 0; h.trade = row[51] || null; h.tradeAck = row[51]?.q || 0;

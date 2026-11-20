@@ -712,6 +712,7 @@ def scythe_cells():
     big = big.convert("RGBA"); a = np.asarray(big).copy(); a[a[:, :, 3] < 24] = 0
     big = Image.fromarray(a, "RGBA"); x0, y0, x1, y1 = big.getbbox(); a = a[y0:y1, x0:x1]
     grip = (round(gx - x0), round(gy - y0))
+    a[:, :, 1] = np.minimum(a[:, :, 1], np.maximum(a[:, :, 0], a[:, :, 2]))           # 줄일 때 반투명 가장자리에 생기는 초록 기운을 다시 누른다
     out = []
     for i in range(2):
         c = Cv(a.shape[1], a.shape[0]); b = a.astype(float)

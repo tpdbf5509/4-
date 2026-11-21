@@ -1,7 +1,8 @@
 """엔지니어 빛 연출 시트(11월 21일 사용자 "pixelfx를 통해서 이팩트만 바꿔봐").
 pixelfx(MIT, github.com/patch-gg/pixelfx 5294518)로 뽑은 시트에서 쓸 칸만 골라 연마 색 셋을 줄로 묶는다.
 뽑은 명령(색마다 한 번씩, 이펙트 id 는 아래 JOBS):
-  node tools/render.mjs <id> --sheet --no-actor --opts '{"palette":PAL[색],"light":0.5}'
+  node tools/render.mjs <id> --sheet --no-actor --opts '{"palette":PAL[색],"light":0.5, ...EXTRA}'
+  EXTRA — plasma-explosion accent · emp-blast fringe · thunderclap / lightning-strike sparks 는 같은 색 계열(아래 EXTRA), ground-slam stone "#3A3F46"
 쓰는 법: python3 pack.py <색별 records 폴더(teal/ pale/ gold/ 아래에 <id>/<이름>.png · .json)>
   → 게임 시트 public/.../engineer/px/en_pf_*.webp + manifest.json(src/game/engineerPxData.js ENGINEER_PFX 와 같아야 한다)"""
 import json, sys, os
@@ -15,11 +16,25 @@ PAL = {   # 어두운 → 밝은. 기계 색을 톤다운, 흰색은 가장 뜨�
     "pale": ["#12262A", "#1E3B40", "#2F6168", "#4FA7B2", "#8FD3DB", "#C6F3FF", "#E4FAFF", "#F7FFFF"],
     "gold": ["#2A2010", "#3E2F14", "#6B4E1E", "#8E6A2C", "#B98A3A", "#D8B266", "#F2DDA6", "#FFF6DE"],
 }
+EXTRA = {
+    "teal": {"accent": ["#12262A", "#2F6168", "#4FA7B2", "#8FD3DB", "#E4FAFF"], "sparks": ["#EFFFFF", "#C6F3FF", "#8FD3DB", "#4FA7B2"], "fringe": "#8FD3DB"},
+    "pale": {"accent": ["#1E3B40", "#4FA7B2", "#8FD3DB", "#C6F3FF", "#F7FFFF"], "sparks": ["#F7FFFF", "#E4FAFF", "#C6F3FF", "#8FD3DB"], "fringe": "#C6F3FF"},
+    "gold": {"accent": ["#3E2F14", "#8E6A2C", "#B98A3A", "#D8B266", "#FFF6DE"], "sparks": ["#FFF6DE", "#F2DDA6", "#D8B266", "#B98A3A"], "fringe": "#D8B266"},
+}
 # id: (시트 이름, 첫 칸, 끝 칸(포함 안 함), 건너뛰기, 열)
 JOBS = {
     "arcane/rune-circle": ("en_pf_rune", 0, 120, 3, 10),           # 바닥 진 — 도는 룬 원(반복)
     "arcane/magic-circle-cast": ("en_pf_cast", 45, 103, 2, 10),    # 빛 기둥 — 진이 번쩍이고 흰 기둥이 솟았다 흩어짐(1.5~3.4초)
     "pickups/collect-burst": ("en_pf_burst", 0, 32, 2, 8),         # 번짐 — 흰 섬광 · 퍼지는 고리 · 흩날리는 반짝이
+    # 11월 21일 사용자 "pixelfx로 새롭게 다시 그려줘" — 스킬 본체 연출도 pixelfx 로
+    "projectiles/plasma-shot": ("en_pf_shot", 0, 24, 2, 6),        # 펄스 발진 탄(오른쪽으로 난다, 반복)
+    "lightning/zap-hit": ("en_pf_zap", 0, 28, 2, 7),               # 전기 명중(왼쪽에서 번개가 꽂힘)
+    "impacts/crit-hit": ("en_pf_crit", 0, 22, 2, 6),               # 큰 명중 — 수호자 주먹 · 레일포 끝
+    "explosions/plasma-explosion": ("en_pf_plasma", 0, 44, 2, 8),  # 플라즈마 폭발 — 수호자 코어 · 궤도 마지막
+    "scifi/emp-blast": ("en_pf_emp", 10, 64, 2, 9),                # 자기장 포획 — 전자기 거품이 부풀었다 끊어짐
+    "lightning/thunderclap": ("en_pf_clap", 2, 40, 2, 7),          # 오버클럭 — 섬광 · 갈래 번개 · 땅 충격 고리
+    "lightning/lightning-strike": ("en_pf_bolt", 20, 72, 2, 9),    # 궤도 포격 한 번 — 굵은 번개가 꽂힘
+    "impacts/ground-slam": ("en_pf_slam", 0, 40, 2, 10),           # 수호자 착지 — 땅 섬광 · 충격파 · 먼지
 }
 
 src = sys.argv[1]

@@ -252,6 +252,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 11월 17일 연출 보강: 조립·충전·추진기·조준 회로 시트 4장 추가. 총구·명중·포격·광선·충격파 시트를 보강했다. `drawEngineerFx`·`drawEngineerUnit`이 품질 값을 받아 장식 잔상을 줄인다. 판정·전력·대기·스냅샷은 그대로며 패치노트에는 적지 않는다.
 - 11월 17일 밀도 보강(사용자 "범위는 큰데 이펙트가 비어 보인다"): 작은 입자 시트 `en_bits`(스파크 청록·금빛 · 불씨 · 금속 파편 · 연기 · 전류 줄기)를 `engineerArt.js bits()` 가 범위 안에 뿌린다. 자리는 연출마다 정해진 씨앗이라 프레임마다 이어진다. 상한 `EN_BITS`(한 연출 56 · 한 프레임 360), `DETAIL` 로 줄어든다. 궤도 포격 · 광선 · 펄스 · 명중 그림도 한 단계 키웠다.
 - 11월 21일 빛 연출(사용자 "빛나는 이펙트를 넣어줘" → "pixelfx를 통해서 이팩트만 바꿔봐"): 이 셋만 pixelfx(MIT) 시트 — 바닥 진 `en_pf_rune`(rune-circle) · 빛 기둥 `en_pf_cast`(magic-circle-cast) · 번짐 `en_pf_burst`(collect-burst). 연마 색 셋을 줄로 묶음(`design/effects/pixelfx/engineer/pack.py` → `engineerPxData.js ENGINEER_PFX`, 시험이 본다). 빛 더하기(`lighter`)로 얹고 3배(`GLOW_K`)까지. 판정 그대로, 패치노트에 적지 않는다.
+- 11월 21일 사용자 "pixelfx로 새롭게 다시 그려줘": 스킬 본체 연출(펄스 · 명중 · 사격 · 자기장 · 레일포 끝 · 착지 · 주먹 · 폭발 · 오버클럭 · 궤도 번개 · 마지막 폭발)도 pixelfx 시트 `en_pf_*` 11장(`ENGINEER_PFX`)으로 그린다. 손 그림은 설치물 몸 · 아이콘 · 레이저 · 레일포 띠 · 과열 · 입자 · 1px 예고선만 남았다. 판정 그대로.
 
 ### 히든 계열 · 전용 사거리 (11월 20일)
 - 히든 직업은 검사 · 마법사 · 궁수 묶음 밖의 「히든」 계열이다. 평타 사거리는 `hiddenFamilyData.js HIDDEN_RANGE` 한 곳(공통 `base` 230 · BLOOD-001 230 · 도박꾼 480 · 엔지니어 520 · 네크로맨서 140 · 마술사 550 · 와이번 160). 판별 `rpg.js hiddenOf`, `heroRange` · 사거리 원 · 스킬 설명이 이 값을 쓴다.

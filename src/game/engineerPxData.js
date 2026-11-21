@@ -28,11 +28,19 @@ export const ENGINEER_PX = {
   en_bits: { w: 16, h: 16, cols: 8, n: 8, cx: 8, cy: 8, rows: 6 },   // 범위를 채우는 작은 입자(11월 17일 밀도 보강) — 줄 0 청록 스파크 · 1 금빛 스파크 · 2 불씨 · 3 금속 파편(칸 = 회전) · 4 연기 · 5 짧은 전류 줄기
 };
 // 아이콘 칸 차례(en_icons)
-// pixelfx(MIT, github.com/patch-gg/pixelfx)로 뽑은 빛 연출(11월 21일 사용자 "pixelfx를 통해서 이팩트만 바꿔봐").
+// pixelfx(MIT, github.com/patch-gg/pixelfx)로 뽑은 연출(11월 21일 사용자 "pixelfx를 통해서 이팩트만 바꿔봐" → "pixelfx로 새롭게 다시 그려줘").
 // 값은 design/effects/pixelfx/engineer/manifest.json 과 같아야 한다(시험이 본다). per 한 색 줄이 차지하는 칸 줄 수(색 차례 = 청록 · 청백 · 금빛)
 export const ENGINEER_PFX = {
-  en_pf_rune: { w: 136, h: 100, cols: 10, n: 40, per: 4, cx: 68, cy: 80, fps: 10, loop: 1 },     // rune-circle — 도는 바닥 진(그림 속 반지름 46)
+  en_pf_rune: { w: 136, h: 100, cols: 10, n: 40, per: 4, cx: 68, cy: 80, fps: 10, loop: 1 },   // rune-circle — 도는 바닥 진(그림 속 반지름 46)
   en_pf_cast: { w: 200, h: 220, cols: 10, n: 29, per: 3, cx: 100, cy: 192, fps: 15, loop: 0 },   // magic-circle-cast 1.5~3.4초 — 진이 번쩍이고 흰 기둥이 솟아 흩어짐
-  en_pf_burst: { w: 112, h: 108, cols: 8, n: 16, per: 2, cx: 56, cy: 94, fps: 15, loop: 0 },     // collect-burst — 흰 섬광 · 퍼지는 고리 · 반짝이
+  en_pf_burst: { w: 112, h: 108, cols: 8, n: 16, per: 2, cx: 56, cy: 94, fps: 15, loop: 0 },   // collect-burst — 흰 섬광 · 퍼지는 고리 · 반짝이
+  en_pf_shot: { w: 144, h: 60, cols: 6, n: 12, per: 2, cx: 108, cy: 30, fps: 15, loop: 1 },   // plasma-shot — 펄스 발진 탄(오른쪽으로 난다, 기준점이 탄 머리)
+  en_pf_zap: { w: 144, h: 112, cols: 7, n: 14, per: 2, cx: 76, cy: 56, fps: 15, loop: 0 },   // zap-hit — 전기 명중
+  en_pf_crit: { w: 216, h: 136, cols: 6, n: 11, per: 2, cx: 84, cy: 106, fps: 15, loop: 0 },   // crit-hit — 큰 명중(기준점 바닥, 맞는 점은 26 위)
+  en_pf_plasma: { w: 224, h: 200, cols: 8, n: 22, per: 3, cx: 112, cy: 100, fps: 15, loop: 0 },   // plasma-explosion — 플라즈마 폭발(가운데 기준)
+  en_pf_emp: { w: 152, h: 116, cols: 9, n: 27, per: 3, cx: 76, cy: 84, fps: 15, loop: 0 },   // emp-blast — 자기장 거품(그림 속 반지름 56)
+  en_pf_clap: { w: 288, h: 156, cols: 7, n: 19, per: 3, cx: 144, cy: 124, fps: 15, loop: 0 },   // thunderclap — 섬광 · 갈래 번개 · 땅 충격 고리(그림 속 반지름 104)
+  en_pf_bolt: { w: 240, h: 264, cols: 9, n: 26, per: 3, cx: 120, cy: 228, fps: 15, loop: 0 },   // lightning-strike — 궤도 번개 한 번(2칸째 땅에 닿음)
+  en_pf_slam: { w: 288, h: 208, cols: 10, n: 20, per: 2, cx: 144, cy: 164, fps: 15, loop: 0 },   // ground-slam — 착지 땅 충격 · 먼지
 };
 export const ENGINEER_ICON = { pulse: 0, turret: 1, drone: 2, magnet: 3, rail: 4, mech: 5, oc: 6, orbit: 7 };

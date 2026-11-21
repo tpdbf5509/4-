@@ -373,9 +373,9 @@ export const NQ_TRIALS = {
   path: { map: 'necro_barracks', name: '검의 길', start: A(770, 880), skills: ['dash'], pads: [A(400, 340), A(1040, 400), A(720, 510), A(465, 705), A(1010, 790)],
     warn: { gap: 1.7, d: 1.0, r: 120 } },
   // 3장 C — 병사를 지켜라: 병사 셋 · 60초 · 둘 이상 살아남으면 통과(정한 값)
-  guard: { map: 'necro_barracks', name: '병사를 지켜라', start: A(770, 760), skills: ['strike', 'shield', 'dash'], dur: 60, need: 2,
-    // 병사 셋: 한 변 420 인 정삼각형(무게중심 그대로, 11월 21일 사용자 — 둔각삼각형에서 바꿈)
-    allies: [A(770, 304), A(560, 668), A(980, 668)], waves: { gap: 3.2, n: [1, 2], kinds: ['hound'] } },
+  guard: { map: 'necro_barracks', name: '병사를 지켜라', start: A(770, 640), skills: ['strike', 'shield', 'dash'], dur: 60, need: 2,
+    // 병사 셋: 한 변 260 인 정삼각형. 화면에서 사용자가 노란 점으로 찍은 자리(11월 21일) — 위 한 명은 캐릭터 바로 위, 아래 둘은 양옆 아래. 시작 자리는 삼각형 가운데
+    allies: [A(770, 497), A(640, 722), A(900, 722)], waves: { gap: 3.2, n: [1, 2], kinds: ['hound'] } },
   // 4장 — 방어: 병사 다섯 · 3분 · 넷 이상
   shield: { map: 'necro_sunken_temple', name: '발테른의 시험', start: A(770, 640), skills: ['strike', 'shield', 'dash', 'decoy'], dur: 180, need: 4,
     allies: [A(560, 480), A(980, 480), A(470, 620), A(1070, 620), A(770, 720)], waves: { gap: 4, n: [1, 3], kinds: ['hound', 'hound', 'knight'] } },

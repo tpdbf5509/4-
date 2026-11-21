@@ -54,5 +54,25 @@ for fx, (name, a, b, step, cols) in JOBS.items():
             sh.paste(f, ((j % cols) * w, (r * per + j // cols) * h))
     sh.save(os.path.join(OUT, f"{name}.webp"), quality=88, alpha_quality=100, method=6)   # 빛 번짐이 알파 계단이라 무손실이면 1MB 가 넘는다
     man[name] = {"w": w, "h": h, "cols": cols, "n": len(keep), "per": per, "cx": m["pivot"][0], "cy": m["pivot"][1], "fps": m["fps"] / step, "loop": 1 if m["loop"] else 0}
+
+# ── 은은한 빛 번짐(11월 21일 사용자 "이거처럼 빛이 은은하게 퍼지는 이펙트") ──
+# pixelfx 시트 바깥으로 넓게 번지는 부드러운 빛. 도트가 아니라 매끈한 그러데이션이라 게임이 늘려(부드럽게) 그린다.
+# 칸 0 둥근 번짐 · 칸 1 기둥 번짐(가로는 가운데가 짙고, 세로는 아래가 짙고 위로 사라짐). 줄 = 연마 색
+import numpy as np
+HALO = {"teal": ("#8FD3DB", "#C6F3FF"), "pale": ("#C6F3FF", "#EFFFFF"), "gold": ("#D8B266", "#F2DDA6")}
+HS = 128
+def rgbv(h): return np.array([int(h[i:i + 2], 16) for i in (1, 3, 5)], float)
+yy, xx = (np.mgrid[0:HS, 0:HS] + .5) / HS * 2 - 1
+ring = np.exp(-(np.hypot(xx, yy) / .5) ** 2) * (np.hypot(xx, yy) < 1)
+col = np.exp(-(xx / .45) ** 2) * np.clip((yy + 1) / 2, 0, 1) ** .8 * (np.abs(xx) < 1)
+halo = np.zeros((HS * 3, HS * 2, 4), np.uint8)
+for r, tint in enumerate(TINTS):
+    a_, b_ = (rgbv(c) for c in HALO[tint])
+    for c, m in enumerate((ring, col)):
+        rgb = a_ + (b_ - a_) * m[..., None] ** 2           # 가운데로 갈수록 밝은 색
+        cell = np.dstack([rgb, m * 255 * .9])
+        halo[r * HS:(r + 1) * HS, c * HS:(c + 1) * HS] = np.clip(np.round(cell), 0, 255)
+Image.fromarray(halo, "RGBA").save(os.path.join(OUT, "en_pf_halo.webp"), quality=90, alpha_quality=100, method=6)
+man["en_pf_halo"] = {"w": HS, "h": HS, "cols": 2, "n": 2, "per": 1, "cx": HS // 2, "cy": HS // 2, "fps": 0, "loop": 0}
 json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
 print(json.dumps(man))

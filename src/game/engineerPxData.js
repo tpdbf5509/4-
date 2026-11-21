@@ -42,5 +42,6 @@ export const ENGINEER_PFX = {
   en_pf_clap: { w: 288, h: 156, cols: 7, n: 19, per: 3, cx: 144, cy: 124, fps: 15, loop: 0 },   // thunderclap — 섬광 · 갈래 번개 · 땅 충격 고리(그림 속 반지름 104)
   en_pf_bolt: { w: 240, h: 264, cols: 9, n: 26, per: 3, cx: 120, cy: 228, fps: 15, loop: 0 },   // lightning-strike — 궤도 번개 한 번(2칸째 땅에 닿음)
   en_pf_slam: { w: 288, h: 208, cols: 10, n: 20, per: 2, cx: 144, cy: 164, fps: 15, loop: 0 },   // ground-slam — 착지 땅 충격 · 먼지
+  en_pf_halo: { w: 128, h: 128, cols: 2, n: 2, per: 1, cx: 64, cy: 64, fps: 0, loop: 0 },   // 은은한 빛 번짐(pack.py 가 그러데이션으로 그림) — 칸 0 둥근 · 1 기둥, 매끈하게 늘려 그린다
 };
 export const ENGINEER_ICON = { pulse: 0, turret: 1, drone: 2, magnet: 3, rail: 4, mech: 5, oc: 6, orbit: 7 };

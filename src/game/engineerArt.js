@@ -114,23 +114,40 @@ function pf(ctx, name, i, x, y, k, a, row) {
     Math.round(x - T.cx * kk), Math.round(y - T.cy * kk), T.w * kk, T.h * kk);
   ctx.restore();
 }
+/* 은은한 빛 번짐(11월 21일 사용자 "이거처럼 빛이 은은하게 퍼지는 이펙트") — en_pf_halo 를 매끈하게 늘려 빛 더하기로 깐다.
+   도트 시트 둘레로 넓게 퍼지는 부드러운 빛이라 이것만 흐림(smoothing)을 켠다. 천천히 숨 쉬듯 밝기가 오르내린다(HALO.breath) */
+const HALO = { a: 1, breath: .15, speed: 2.4 };   // a 전체 세기 · breath 숨쉬기 폭 · speed 숨 빠르기
+function halo(ctx, i, x, y, w, h, a, row) {
+  const T = PF.en_pf_halo, im = sheet("en_pf_halo"); if (!im || a <= 0 || w < 1 || h < 1) return;
+  ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.imageSmoothingEnabled = true;
+  ctx.globalAlpha *= clamp(a * HALO.a * (1 - HALO.breath + HALO.breath * Math.sin(NOW * HALO.speed + x * .01)));
+  ctx.drawImage(im, i * T.w, (row || 0) * T.h, T.w, T.h, x - w / 2, i ? y - h : y - h / 2, w, h);
+  ctx.restore();
+}
+const softRound = (ctx, x, y, r, a, row, sqk = 1) => halo(ctx, 0, x, y, r * 2, r * 2 * sqk, a, row);   // sqk < 1 이면 바닥에 눕힌 번짐
+const softColumn = (ctx, x, y, w, h, a, row) => halo(ctx, 1, x, y, w, h, a, row);
 const pfOnce = (name, u) => Math.min(PF[name].n - 1, Math.floor(clamp(u) * PF[name].n));
 // 번짐 — size 화면 반지름, u 0~1 생애(0 이면 흰 섬광 칸). 그림 속 빛 가운데가 바닥 기준점보다 30 위라 그만큼 내린다
 const BURST_R = 36, BURST_UP = 30;
 function glow(ctx, x, y, size, u, row = 0) {
   if (u < 0 || u > 1 || size <= 0) return;
   const k = clamp(Math.round(size / BURST_R), 1, GLOW_K);
+  softRound(ctx, x, y, size * 1.6, (1 - u) ** 1.5 * .8, row);
   pf(ctx, "en_pf_burst", pfOnce("en_pf_burst", u), x, y + BURST_UP * k, k, 1, row);
 }
 // 바닥 진 — r 화면 반지름, t 연출이 시작된 뒤 초
 const RUNE_R = 46;
 function sigil(ctx, x, y, r, t, a, row = 0) {
   const T = PF.en_pf_rune;
+  softRound(ctx, x, y, r * 1.5, a * .55, row, .45);
   pf(ctx, "en_pf_rune", Math.floor(t * T.fps + x * .01) % T.n, x, y, r / RUNE_R, a, row);
 }
 // 빛 기둥 — u 0~1 생애, k 정수 배
 function pillar(ctx, x, y, u, k, a, row = 0) {
   if (u < 0 || u > 1) return;
+  const env = Math.min(1, u * 5) * (1 - u) ** .6;   // 솟을 때 번지고 흩어질 때 잦아든다
+  softColumn(ctx, x, y, 170 * k, 240 * k, a * env, row);
+  softRound(ctx, x, y, 80 * k, a * env, row, .45);
   pf(ctx, "en_pf_cast", pfOnce("en_pf_cast", u), x, y, k, a, row);
 }
 const seedOf = (f) => (f.x0 ?? f.x ?? 0) * 0.37 + (f.y0 ?? f.y ?? 0) * 0.61 + (f.pi || 0) * 3.1;
@@ -155,6 +172,7 @@ function pulse(ctx, f, t, sq) {
   const ax = f.ax || 1, ay = f.ay || 0, row = R1(f);
   if (t < f.d) return void glow(ctx, f.x0 + ax * 14, f.y0 + ay * 14 * sq, 18, t / f.d * .3, row);
   const d = Math.min(f.len, f.v * (t - f.d)), x = f.x0 + ax * d, y = f.y0 + ay * d * sq;
+  softRound(ctx, x, y, 30, .55, row);
   pfRot(ctx, "en_pf_shot", pfLoop("en_pf_shot", f.x0 * .01), x, y, Math.atan2(ay * sq, ax), 1, 1, row);
 }
 function hit(ctx, f, t, sq) {
@@ -211,6 +229,7 @@ function punch(ctx, f, t, sq) {
 }
 function boom(ctx, f, t, sq) {
   const u = t / f.life;
+  softRound(ctx, f.x, f.y - f.r * .3, f.r * 1.8, (1 - u) ** 1.2, R1(f));
   pf(ctx, "en_pf_plasma", pfOnce("en_pf_plasma", u), f.x, f.y - f.r * .3, f.r / 60, 1, R1(f));
   bits(ctx, seedOf(f), f.x, f.y, sq, u, { deb: 12, spk: 10 }, { r: f.r * 0.75, out: .45, up: 70, spread: .3, gold: .4 });
 }
@@ -220,6 +239,7 @@ const EMP_R = 56;   // emp-blast 그림 속 거품 반지름
 function magnet(ctx, f, t, sq) {
   if (t < f.hit) ring(ctx, f.x, f.y, f.r, sq, C.base, 0.5 + 0.4 * (t / f.hit), 4);
   sigil(ctx, f.x, f.y, f.r, t, 1 - (t / f.life) ** 3, R1(f));
+  softRound(ctx, f.x, f.y - f.r * .3, f.r * 1.3, (1 - t / f.life) * .6, R1(f));
   pf(ctx, "en_pf_emp", pfOnce("en_pf_emp", t / f.life), f.x, f.y, f.r / EMP_R, 1, R1(f));
   const grow = f.hit - 0.05;
   if (t >= grow) bits(ctx, seedOf(f), f.x, f.y, sq, (t - grow) / (f.life - grow), { arc: 16, spk: 16 }, { r: f.r * 0.92, out: -0.25, lift: 8, up: 30, spread: .6, gold: .2, k: 3 });
@@ -252,6 +272,7 @@ function oc(ctx, f, t, sq) {
   const u = t / f.life;
   sigil(ctx, f.x, f.y, 64, t, 1 - u, R1(f));
   pillar(ctx, f.x, f.y, u, 1, .8, R1(f));
+  softRound(ctx, f.x, f.y - 30, 110, (1 - u) * .7, R1(f));
   pf(ctx, "en_pf_clap", pfOnce("en_pf_clap", u), f.x, f.y, 1, 1, R1(f));
 }
 // 과열 — 붉은 경고선(1px)과 주황 전류
@@ -288,6 +309,7 @@ function orbit(ctx, f, t, sq) {
     const at = f.d + i * f.gap, dt = t - at; if (dt < -BOLT_HIT / T.fps || dt > (T.n - BOLT_HIT) / T.fps) continue;
     const a = rnd(i, 3) * TAU, d = R * 0.65 * Math.sqrt(rnd(i, 7));
     const sx = f.x + Math.cos(a) * d, sy = f.y + Math.sin(a) * d * sq;
+    if (dt >= 0) softRound(ctx, sx, sy - 20, 90, Math.max(0, 1 - dt / .5) * .8, R1(f));
     pf(ctx, "en_pf_bolt", BOLT_HIT + Math.floor(dt * T.fps), sx, sy, 1, 1, R1(f));
     if (dt >= 0) bits(ctx, seedOf(f) + i * 31, sx, sy, sq, dt / 0.6, { spk: 6, deb: 5 }, { r: 44, out: .5, up: 46, spread: .2, gold: .3 });
   }
@@ -296,6 +318,7 @@ function orbit(ctx, f, t, sq) {
   if (t >= f.end) {
     const v = (t - f.end) / (f.life - f.end);
     pf(ctx, "en_pf_clap", pfOnce("en_pf_clap", v), f.x, f.y, R / 104, 1, R1(f));
+    softRound(ctx, f.x, f.y - 40, R * 1.4, (1 - v) ** 1.2, R1(f));
     pf(ctx, "en_pf_plasma", pfOnce("en_pf_plasma", v), f.x, f.y - 40, 2, 1, R1(f));
     bits(ctx, seedOf(f) + 3, f.x, f.y, sq, v, { deb: 16, spk: 12 }, { r: R * 0.7, out: .35, up: 90, spread: .3, gold: .4 });
   }

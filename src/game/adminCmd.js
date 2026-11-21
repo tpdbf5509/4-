@@ -28,7 +28,7 @@ import { unlockEngineer, dropEngineer, engineerOn } from "./engineerJob.js";   /
 import { ENGINEER, ENGINEER_ID, ENGINEER_NAME } from "./engineerData.js";
 import { eqAdminStage, EQ_STAGES } from "./engineerQuest.js";
 import { unlockNecro, dropNecro, necroOn } from "./necroJob.js";   // Necromancer 004(11월 20일)
-import { NECRO, NECRO_ID, NECRO_NAME } from "./necroData.js";
+import { NECRO, NECRO_ID, NECRO_NAME, NC_WEAPON_ITEM } from "./necroData.js";
 import { nqAdminStage, NQ_STAGE_LIST } from "./necroQuest.js";
 import { GAMBLER, GAMBLER_ID, GAMBLER_NAME } from "./gamblerData.js";
 import { MATERIALS } from "./itemData.js";
@@ -49,7 +49,7 @@ const HELP = [
   "/블러드 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 BLOOD-001 해금(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
   "/도박꾼 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 Gambler 002 켜기(시험용) · 직업 레벨 · 연마 셋 레벨 바꾸기 · 끄기",
   "/엔지니어 <이름> [직업레벨 | 끄기 | 연마 <0~50> | 루트 <단계>] — 히든 직업 Engineer 003 켜기(시험용) · 직업 레벨 · 연마 · 끄기 · 획득 루트 단계 맞추기",
-  "/네크로맨서 <이름> [직업레벨 | 끄기 | 연마 <0~50> | 루트 <단계>] — 히든 직업 Necromancer 004 켜기(시험용) · 직업 레벨 · 연마 · 끄기 · 획득 루트 단계 맞추기",
+  "/네크로맨서 <이름> [직업레벨 | 끄기 | 낫 | 연마 <0~50> | 루트 <단계>] — 히든 직업 Necromancer 004 켜기(시험용) · 직업 레벨 · 연마 · 끄기 · 그림자 낫 받기 · 획득 루트 단계 맞추기",
   "/탑 <이름> <층> — 그 사람을 심연의 탑 그 층 앞에 올려 둠(1~999). 파편 · 기록도 일반 도전처럼 쌓임",
   "/카드 <이름> — 탑 안의 그 사람에게 흡혈의 이빨 다이아 + 무작위 강화 카드 30장(층 상관없음, 시험용)",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
@@ -331,8 +331,8 @@ export function rpgAdminCmd(g, pi, text) {
     }
     const tw = words.length >= 2 && words[words.length - 2] === "연마" && /^[0-9]{1,2}$/.test(words[words.length - 1]) ? Math.min(NECRO.train.max, Number(words[words.length - 1])) : -1;
     if (tw >= 0) words.splice(-2, 2);
-    const last = tw >= 0 ? "" : words[words.length - 1] || "", off = last === "끄기", lv = /^[0-9]{1,3}$/.test(last) ? Number(last) : 0;
-    if (off || lv) words.pop();
+    const last = tw >= 0 ? "" : words[words.length - 1] || "", off = last === "끄기", sc = last === "낫", lv = /^[0-9]{1,3}$/.test(last) ? Number(last) : 0;
+    if (off || sc || lv) words.pop();
     const [ti, rest] = takeName(g, pi, words);
     if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /네크로맨서 나 · /네크로맨서 나 200 · /네크로맨서 나 연마 50 · /네크로맨서 나 끄기 · /네크로맨서 나 루트 3");
     const t = g.heroes[ti];
@@ -342,6 +342,17 @@ export function rpgAdminCmd(g, pi, text) {
     if (t.bag.hj && t.bag.hj.trial) return void say(`${who(g, ti)}님이 해금 시험 중입니다. 시험이 끝난 뒤 다시 해 주세요.`);
     if (off) { dropNecro(t); bump(t); return void say(`${who(g, ti)}님의 ${NECRO_NAME} 를 껐습니다.`); }
     if (!necroOn(t)) unlockNecro(t);
+    if (sc) {   // /네크로맨서 <이름> 낫 — 그림자 낫(전용 무기)을 가방에 주고 든다. 이미 있으면 그 낫을 든다
+      const b = t.bag, sp = SPECIALS.find((q) => q.id === NC_WEAPON_ITEM.id);
+      let w = b.w.find((q) => q.sp === sp.id);
+      if (!w && b.w.length >= weaponCap(t)) return void say(`${who(g, ti)}님의 무기 가방이 가득 찼습니다.`);
+      if (!w) { w = { u: b.n++, t: sp.t, r: specialTier(sp), g: sp.g, p: specialPrice(sp), sp: sp.id }; b.w.push(w); b.v += 1; }
+      b.e = w.u;
+      bump(t);
+      say(`${who(g, ti)}님에게 ${NC_WEAPON_ITEM.name}을 주고 들게 했습니다.`);
+      if (ti !== pi) sys(g, ti, `관리자가 ${NC_WEAPON_ITEM.name}을 주었습니다.`);
+      return true;
+    }
     const J = t.bag.hj.jobs[NECRO_ID];
     if (lv) { J.lv = Math.max(1, Math.min(NECRO.maxLv, lv)); J.xp = 0; }
     if (tw >= 0) {

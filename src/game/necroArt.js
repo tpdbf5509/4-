@@ -417,7 +417,7 @@ function swingStart(h) {
   return t >= 0 && t < NC_SWING.cut * NC_SCYTHE.swing + NC_SWING.back ? t : -1;
 }
 export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
-  if ((view === "back") !== behind) return;
+  if ((view === "back" || view === "front") !== behind) return;   // 뒤 · 앞 모습은 낫을 몸 뒤에 그린다(11월 21일 사용자 "앞 모습일 때 낫을 캐릭터 뒤로")
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
   warmNecro();
   const H = NC_HAND[h.gender === "f" ? "f" : "m"][view] || NC_HAND.m.front;

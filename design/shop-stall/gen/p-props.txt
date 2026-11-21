@@ -1,0 +1,11 @@
+Reference image 1 (keeper.png): a shopkeeper character from our game. It is the STYLE reference: soft chibi anime illustration, thin warm dark-brown outlines, soft matte cel shading with 2-3 tone steps, no glossy highlights, gentle desaturated colors. Note the small potion flask she holds.
+
+Make a 1024x1024 image of a display of potion bottles that will be placed on top of a wooden shop counter, same style as reference 1.
+- One horizontal row of 6 small glass potion bottles standing side by side, spanning about 80% of the image width, centered, with their bottoms all on the same horizontal line at about 62% of the image height.
+- Bottles of different shapes: round-bottom flask, tall thin neck bottle, square bottle, small vial, bulb bottle. Cork stoppers, a couple with small blank paper labels and string ties.
+- Glass colors toned down and muted: dusty green, muted purple, amber/honey, plus one pale blue. Liquid inside visible. Matte, no strong glossy highlights, only one tiny soft highlight per bottle.
+- Thin bottle necks must stay clearly readable with dark-brown outlines.
+- Sunlight from the upper-left: the left side of each bottle is lighter.
+- Bottles roughly 150-220 px tall in this 1024 image.
+No counter, no table, no shelf, no hands, no text, no ground shadow, no grid lines. Flat solid #00FF00 green background.
+Save the result as props.png in the current directory.

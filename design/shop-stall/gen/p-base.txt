@@ -1,0 +1,14 @@
+Reference image 1 (keeper.png): a shopkeeper character from our game. It is the STYLE reference: soft chibi anime illustration, thin warm dark-brown outlines, soft matte cel shading with 2-3 tone steps, no glossy highlights, gentle desaturated colors.
+Reference image 2 (guide.png): a 1024x1024 layout guide on green. The gray blocks show EXACTLY where each part of a market stall goes: two thin dark-gray vertical posts, a light-gray awning band at the top, a mid-gray sales counter at the bottom.
+
+Draw a wooden market stall for a potion shop in the same style as reference 1, as a 1024x1024 image, matching the guide's positions and proportions exactly (posts, awning and counter in the same places and the same widths). View: the same slightly top-down front view as the character (we see the front face of the counter and a thin strip of the counter top).
+Parts:
+- Two thin wooden posts with visible wood grain.
+- A striped canvas awning: 6 vertical stripes alternating sage green #8fb59a and cream #efe6d2, a sage green top valance band, a scalloped front edge, 2-3 soft sagging cloth folds, slightly darker underside.
+- The awning casts a soft shade band onto the back half of the counter top.
+- A wooden counter made of 3-4 horizontal planks with seams and grain, plank ends visible at the sides, a darker band along the bottom of the front face.
+- Leave the counter top EMPTY (no bottles or items) - items are a separate layer.
+Lighting: sunlight from the upper-left of the image. Left-facing surfaces are lighter, shading falls to the right and bottom.
+The area between the posts above the counter must be flat solid #00FF00 green and completely empty: no person, no back wall, no shelf (a shopkeeper sprite is placed there later).
+No person, no sign board, no text, no letters, no ground, no ground shadow, no grid lines. Flat solid #00FF00 green background everywhere else.
+Save the result as base.png in the current directory.

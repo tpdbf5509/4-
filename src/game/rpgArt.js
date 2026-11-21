@@ -2,7 +2,7 @@ import {drawRqGround,drawRqMob} from './requiemArt.js';
 import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf, drawStoryMarks, drawStoryGateLock} from './storyArt.js';
 import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, drawVillageGround, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
-import {PLAZA_NPC_ART} from "./plazaNpcData.js";
+import {PLAZA_NPC_ART, SHOP_STALL_ART, shopStallPath} from "./plazaNpcData.js";
 import {drawPowerCircles} from './combatRulesArt.js';
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
 import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
@@ -935,17 +935,17 @@ export function drawNpcBody(ctx, x, y, bob) {
   ctx.restore();
 }
 
-/* 광장 상점 — 주인은 투명 WebP이고 노점은 코드로 그린다. 차양 색은 shopData.js 의 color.
+/* 광장 상점 — 주인은 투명 WebP. 매대는 그림(SHOP_STALL_ART)이 있으면 그림, 없으면 코드 도형. 차양 색은 shopData.js 의 color.
    발밑 가운데가 (x, y). 위에 상점 이름, 아래에 주인 이름을 단다. */
 function drawShop(ctx, n, time) {
   const { x, y } = n;
   const c = (SHOP_BY_ID[n.shop] || {}).color || "#b9a07a";
-  shadow(ctx, x, y + 4, 62, 12, 0.28);
+  const stallSrc = shopStallPath(n.shop), stall = stallSrc && artImg(stallSrc);
+  if (!stall) shadow(ctx, x, y + 4, 62, 12, 0.28);   // 그림에는 바닥 그림자가 들어 있다
   ctx.save();
   ctx.translate(x, y);
   // 기둥
-  ctx.fillStyle = "#6b4e33";
-  ctx.fillRect(-54, -92, 5, 92); ctx.fillRect(49, -92, 5, 92);
+  if (!stall) { ctx.fillStyle = "#6b4e33"; ctx.fillRect(-54, -92, 5, 92); ctx.fillRect(49, -92, 5, 92); }
   // 주인 — 판매대 뒤에서 살짝 흔들린다
   const bob = Math.sin(time * 2 + x) * 1.2;
   if (!drawPlazaNpc(ctx, n.id, 0, -4 + bob, PLAZA_NPC_ART.shopSize)) {
@@ -955,18 +955,8 @@ function drawShop(ctx, n, time) {
     ctx.beginPath(); ctx.arc(-3, -58 + bob, 1.3, 0, Math.PI * 2); ctx.arc(3, -58 + bob, 1.3, 0, Math.PI * 2); ctx.fill();
   }
   // 판매대는 주인 앞에 그려 몸이 판매대 위로 겹치지 않게 한다.
-  ctx.fillStyle = "#8a6a46"; roundRect(ctx, -58, -30, 116, 30, 4); ctx.fill();
-  ctx.strokeStyle = "rgba(40,26,14,0.6)"; ctx.lineWidth = 1; ctx.stroke();
-  // 줄무늬 차양
-  for (let i = 0; i < 6; i++) {
-    ctx.fillStyle = i % 2 ? "#efe6d2" : c;
-    ctx.beginPath();
-    ctx.moveTo(-62 + i * 20.7, -92); ctx.lineTo(-62 + (i + 1) * 20.7, -92);
-    ctx.lineTo(-62 + (i + 1) * 20.7, -78); ctx.quadraticCurveTo(-62 + (i + 0.5) * 20.7, -70, -62 + i * 20.7, -78);
-    ctx.closePath(); ctx.fill();
-  }
-  ctx.strokeStyle = "rgba(40,26,14,0.5)"; ctx.lineWidth = 1; ctx.strokeRect(-62, -100, 124, 8);
-  ctx.fillStyle = c; ctx.fillRect(-62, -100, 124, 8);
+  if (stall) { const [bx, by, bw, bh] = SHOP_STALL_ART.box; ctx.drawImage(stall, bx, by, bw, bh); }
+  else drawShopStallShape(ctx, c);
   // 간판 — 상점 이름
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.font = "15px 'Do Hyeon', sans-serif";
@@ -980,6 +970,22 @@ function drawShop(ctx, n, time) {
   ctx.fillStyle = "rgba(20,14,10,0.7)"; roundRect(ctx, -w2 / 2, 8, w2, 16, 7); ctx.fill();
   ctx.fillStyle = "#e8dcc0"; ctx.fillText(n.keeper, 0, 16.5);
   ctx.restore();
+}
+
+/* 그림이 없을 때 그리는 판매대 · 줄무늬 차양(코드 도형). 원점은 발밑 가운데 */
+function drawShopStallShape(ctx, c) {
+  ctx.fillStyle = "#8a6a46"; roundRect(ctx, -58, -30, 116, 30, 4); ctx.fill();
+  ctx.strokeStyle = "rgba(40,26,14,0.6)"; ctx.lineWidth = 1; ctx.stroke();
+  // 줄무늬 차양
+  for (let i = 0; i < 6; i++) {
+    ctx.fillStyle = i % 2 ? "#efe6d2" : c;
+    ctx.beginPath();
+    ctx.moveTo(-62 + i * 20.7, -92); ctx.lineTo(-62 + (i + 1) * 20.7, -92);
+    ctx.lineTo(-62 + (i + 1) * 20.7, -78); ctx.quadraticCurveTo(-62 + (i + 0.5) * 20.7, -70, -62 + i * 20.7, -78);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.strokeStyle = "rgba(40,26,14,0.5)"; ctx.lineWidth = 1; ctx.strokeRect(-62, -100, 124, 8);
+  ctx.fillStyle = c; ctx.fillRect(-62, -100, 124, 8);
 }
 
 /* 계몽의 문(deepData.js) — 생성한 문 그림(DEEP_DOOR_ART) · 문 안쪽이 숨 쉬듯 빛나고 이름판 · 안내 글. 그림을 못 불러오면 길드 문과 같은 돌 아치 */

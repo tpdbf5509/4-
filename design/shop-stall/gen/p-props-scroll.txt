@@ -1,0 +1,11 @@
+Reference image 1 (keeper-scroll.png): the scroll-shop keeper character from our game. It is the STYLE reference: soft chibi anime illustration, thin warm dark-brown outlines, soft matte cel shading with 2-3 tone steps, no glossy highlights, gentle desaturated colors. Note the rolled parchment scroll and quill she holds.
+
+Make a 1024x1024 image of a display of scroll-shop goods that will be placed on top of a wooden shop counter, same style as reference 1.
+- One horizontal row of items standing side by side, spanning about 80% of the image width, centered, with their bottoms all on the same horizontal line at about 62% of the image height.
+- Items: rolled parchment scrolls tied with string and closed with wax seals; one scroll in the middle slightly unrolled showing blank paper; a small ink bottle with a feather quill standing in it; a short flat stack of a few loose paper sheets.
+- Colors toned down and muted: parchment cream, faded brown string, dark red wax seals, navy-blue ink. Matte, no glossy highlights.
+- Thin details (string ties, quill, seals) must stay clearly readable with dark-brown outlines.
+- Sunlight from the upper-left: the left side of each item is lighter.
+- Items roughly 120-200 px tall in this 1024 image.
+No counter, no table, no shelf, no hands, no text, no letters or writing on the paper, no ground shadow, no grid lines. Flat solid #00FF00 green background.
+Save the result as props-scroll.png in the current directory.

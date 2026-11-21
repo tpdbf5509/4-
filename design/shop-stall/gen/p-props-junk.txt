@@ -1,0 +1,11 @@
+Reference image 1 (keeper-junk.png): the general-goods (junk) shop keeper character from our game. It is the STYLE reference: soft chibi anime illustration, thin warm dark-brown outlines, soft matte cel shading with 2-3 tone steps, no glossy highlights, gentle desaturated colors. Note his worn leather bag and small brass pot.
+
+Make a 1024x1024 image of a display of general-store odds and ends that will be placed on top of a wooden shop counter, same style as reference 1.
+- One horizontal row of items standing side by side, spanning about 80% of the image width, centered, with their bottoms all on the same horizontal line at about 62% of the image height.
+- Items: a small wooden crate, a coiled rope, a small leather backpack, an old lantern, a bundle of old keys on a ring or a small clay jar, and a few folded cloths stacked.
+- Colors toned down and muted: earthy browns, faded leather, rusty iron, dull brass. Matte, no glossy highlights.
+- Thin details (rope, lantern handle, keys, straps) must stay clearly readable with dark-brown outlines.
+- Sunlight from the upper-left: the left side of each item is lighter.
+- Items roughly 120-200 px tall in this 1024 image.
+No counter, no table, no shelf, no hands, no text, no ground shadow, no grid lines. Flat solid #00FF00 green background.
+Save the result as props-junk.png in the current directory.

@@ -8,7 +8,7 @@
    설치물 몸(터렛 · 드론 · 수호자)은 연출이 아니라 상태(engineerView(h).units)라 rpgArt 가 사람 · 몹과 앞뒤를 맞춰 drawEngineerUnit 으로 그린다 */
 import { ENGINEER_COLORS as C, EN_TURRET as TU, EN_MECH as MC, EN_DRONE as DR } from "./engineerData.js";
 import { engineerView } from "./engineerJob.js";
-import { ENGINEER_PX_SRC, ENGINEER_PX as SH } from "./engineerPxData.js";
+import { ENGINEER_PX_SRC, ENGINEER_PX as SH, ENGINEER_PFX as PF } from "./engineerPxData.js";
 
 const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -27,7 +27,7 @@ function sheet(name) {
   return im && im.complete && im.naturalWidth ? im : null;
 }
 let warmed = 0;
-export function warmEngineer() { if (warmed) return; warmed = 1; for (const k of Object.keys(SH)) sheet(k); }
+export function warmEngineer() { if (warmed) return; warmed = 1; for (const k of [...Object.keys(SH), ...Object.keys(PF)]) sheet(k); }
 
 // 한 칸 — i 칸 · row 색 줄 · k 정수 배 · flip 좌우 뒤집기
 function cell(ctx, name, i, x, y, k = K, alpha = 1, row = 0, flip = false) {
@@ -101,39 +101,37 @@ function bits(ctx, seed, x, y, sq, u, spec, o = {}) {
     }
   }
 }
-/* ── 빛 연출(11월 21일 사용자 "빛나는 이펙트를 넣어줘 너무 밋밋해") ─────────────
-   참고 그림처럼 바닥 진 · 흰 빛 기둥 · 번짐 · 반짝이를 시트로 얹는다. 번짐 · 기둥 · 반짝이는 빛 더하기(lighter)라 밑 그림이 밝아진다.
-   판정과는 상관없는 장식 — 크기만 판정 수치(r 등)를 따른다. 반짝이는 en_bits 와 같은 상한(EN_BITS)을 나눠 쓴다. */
-const GLOW_K = 3;   // 번짐 · 바닥 진 최대 배율
-function lit(ctx, fn) { ctx.save(); ctx.globalCompositeOperation = "lighter"; try { fn(); } finally { ctx.restore(); } }
-// 번짐 — size 화면 반지름
-function glow(ctx, x, y, size, a, row = 0) {
-  if (a <= 0 || size <= 0) return;
-  // 너무 키우면 체크 무늬가 굵은 덩어리로 보여 GLOW_K 배까지만 — 더 넓은 범위는 바닥 진 · 반짝이가 채운다
-  lit(ctx, () => cell(ctx, "en_glow", loop(4, .45, x * .013), x, y, clamp(Math.round(size / 23), 1, GLOW_K), a, row));
+/* ── 빛 연출(11월 21일 사용자 "빛나는 이펙트를 넣어줘" → "pixelfx를 통해서 이팩트만 바꿔봐") ─────────────
+   pixelfx(MIT)로 뽑은 시트 셋(engineerPxData.js ENGINEER_PFX, 다시 묶기 design/effects/pixelfx/engineer/pack.py)을 빛 더하기(lighter)로 얹는다.
+   바닥 진 = rune-circle · 빛 기둥 = magic-circle-cast(진이 번쩍이고 흰 기둥이 솟아 흩어짐) · 번짐 = collect-burst(섬광 · 고리 · 반짝이).
+   판정과는 상관없는 장식 — 크기만 판정 수치(r 등)를 따르고, 3배(GLOW_K)까지만 키운다. 시트를 못 불러오면 그리지 않는다. */
+const GLOW_K = 3;
+function pf(ctx, name, i, x, y, k, a, row) {
+  const T = PF[name], im = sheet(name); if (!im || a <= 0) return;
+  const j = clamp(i | 0, 0, T.n - 1), kk = clamp(Math.round(k), 1, GLOW_K);
+  ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha *= clamp(a); ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(im, (j % T.cols) * T.w, ((row || 0) * T.per + Math.floor(j / T.cols)) * T.h, T.w, T.h,
+    Math.round(x - T.cx * kk), Math.round(y - T.cy * kk), T.w * kk, T.h * kk);
+  ctx.restore();
+}
+const pfOnce = (name, u) => Math.min(PF[name].n - 1, Math.floor(clamp(u) * PF[name].n));
+// 번짐 — size 화면 반지름, u 0~1 생애(0 이면 흰 섬광 칸). 그림 속 빛 가운데가 바닥 기준점보다 30 위라 그만큼 내린다
+const BURST_R = 36, BURST_UP = 30;
+function glow(ctx, x, y, size, u, row = 0) {
+  if (u < 0 || u > 1 || size <= 0) return;
+  const k = clamp(Math.round(size / BURST_R), 1, GLOW_K);
+  pf(ctx, "en_pf_burst", pfOnce("en_pf_burst", u), x, y + BURST_UP * k, k, 1, row);
 }
 // 바닥 진 — r 화면 반지름, t 연출이 시작된 뒤 초
+const RUNE_R = 46;
 function sigil(ctx, x, y, r, t, a, row = 0) {
-  if (a <= 0) return;
-  const i = t < .24 ? Math.min(3, Math.floor(t / .06)) : 4 + loop(8, 1.2, x * .007);
-  lit(ctx, () => cell(ctx, "en_sigil", i, x, y, clamp(Math.round(r / SH.en_sigil.r), 1, GLOW_K), a, row));
+  const T = PF.en_pf_rune;
+  pf(ctx, "en_pf_rune", Math.floor(t * T.fps + x * .01) % T.n, x, y, r / RUNE_R, a, row);
 }
 // 빛 기둥 — u 0~1 생애, k 정수 배
 function pillar(ctx, x, y, u, k, a, row = 0) {
-  if (u < 0 || u > 1 || a <= 0) return;
-  lit(ctx, () => cell(ctx, "en_pillar", once("en_pillar", u), x, y, k, a, row));
-}
-// 반짝이 — 범위 안에서 위로 떠오르며 깜빡인다
-function stars(ctx, seed, x, y, sq, u, n, R, row = 0, up = 60) {
   if (u < 0 || u > 1) return;
-  const m = bitBudget(nq(n));
-  lit(ctx, () => {
-    for (let i = 0; i < m; i++) {
-      const s0 = seed * 5.71 + i, st = rnd(s0, 1) * .5, v = (u - st) / .5; if (v < 0 || v > 1) continue;
-      const a = rnd(s0, 2) * TAU, d = Math.sqrt(rnd(s0, 3)) * R;
-      cell(ctx, "en_star", once("en_star", v), x + Math.cos(a) * d, y + Math.sin(a) * d * sq - up * v * (.4 + rnd(s0, 4)), K, 1, row);
-    }
-  });
+  pf(ctx, "en_pf_cast", pfOnce("en_pf_cast", u), x, y, k, a, row);
 }
 const seedOf = (f) => (f.x0 ?? f.x ?? 0) * 0.37 + (f.y0 ?? f.y ?? 0) * 0.61 + (f.pi || 0) * 3.1;
 
@@ -141,21 +139,20 @@ const seedOf = (f) => (f.x0 ?? f.x ?? 0) * 0.37 + (f.y0 ?? f.y ?? 0) * 0.61 + (f
 function pulse(ctx, f, t, sq) {
   const ax = f.ax || 1, ay = f.ay || 0, row = f.row || 0;
   if (t < f.d) {
-    glow(ctx, f.x0 + ax * 14, f.y0 + ay * 14 * sq, 18, .8, row);
+    glow(ctx, f.x0 + ax * 14, f.y0 + ay * 14 * sq, 18, t / f.d * .3, row);
     cell(ctx, "en_charge", once("en_charge", t / f.d), f.x0 + ax * 14, f.y0 + ay * 14 * sq, 1, .85, row);
     return void cell(ctx, "en_flash", once("en_flash", t / f.d), f.x0 + ax * 14, f.y0 + ay * 14 * sq, 1);
   }
   const d = Math.min(f.len, f.v * (t - f.d)), x = f.x0 + ax * d, y = f.y0 + ay * d * sq;
   for (let i = 1, n = nq(4); i <= n; i++) { const b = d - i * 13; if (b > 6) cell(ctx, "en_pulse", loop(4, 0.2, i * 0.05), f.x0 + ax * b, f.y0 + ay * b * sq, 1, .55 * (1-i/(n+1)), row); }
-  glow(ctx, x, y, 22, .75, row);
+  glow(ctx, x, y, 22, 0, row);
   cell(ctx, "en_pulse", loop(SH.en_pulse.n, 0.16), x, y, 3, 1, row);
   if (DETAIL > .5) for (let i = 0; i < 2; i++) { const b = d - 10 - i * 22; if (b > 6) cell(ctx, "en_bits", (loop(6, 0.18, i * .09)), f.x0 + ax * b, f.y0 + ay * b * sq + (i ? 4 : -4), 1, .8, row === 2 ? BIT.spkg : BIT.spk); }
 }
 function hit(ctx, f, t, sq) {
   const u = t / f.life;
-  glow(ctx, f.x, f.y - 24, f.big ? 46 : 30, 1 - u, f.row || 0);
+  glow(ctx, f.x, f.y - 24, f.big ? 72 : 36, u, f.row || 0);
   cell(ctx, "en_spark", once("en_spark", u), f.x, f.y - 24, f.big ? 4 : 3);
-  if (f.big) stars(ctx, seedOf(f), f.x, f.y - 20, sq, u, 5, 26, f.row || 0, 30);
   bits(ctx, seedOf(f), f.x, f.y, sq, u, f.big ? { spk: 8, deb: 4, smk: 2 } : { spk: 5, deb: 2 }, { r: f.big ? 26 : 16, lift: 24, up: 26, spread: .2 });
 }
 
@@ -170,7 +167,7 @@ function zap(ctx, f, t, sq) {
   if (u < 0.6) cell(ctx, "en_flash", once("en_flash", u / 0.6), x0, y0, 1);
   // 실제 맞은 끝점에만 불꽃을 두고 레이저 중간에는 발사 잔상을 붙인다.
   if (u < .45 && DETAIL > .6) cell(ctx, "en_pulse", 1, x0 + (x1-x0)*u, y0 + (y1-y0)*u, 1, .65);
-  glow(ctx, x1, y1, f.k === 0 ? 20 : 14, (1 - u) * .85, f.row || 0);
+  glow(ctx, x1, y1, f.k === 0 ? 36 : 20, u, f.row || 0);
   cell(ctx, "en_spark", once("en_spark", u), x1, y1, f.k === 0 ? K : 1);
   bits(ctx, seedOf(f), x1, f.y1, sq, u, { spk: 3, deb: 1 }, { r: 10, lift: 22, up: 18, spread: .15, gold: f.oc ? .5 : .1, k: 1 });
 }
@@ -189,7 +186,6 @@ function hexSum(ctx, f, t, sq) {
   sigil(ctx, f.x, f.y, 64, t, u > .75 ? (1 - u) / .25 : 1, f.row || 0);
   pillar(ctx, f.x, f.y, u, 1, .9, f.row || 0);
   cell(ctx, "en_hex", u < 0.4 ? once("en_hex", u / 0.4, 4) : 4 + loop(4, 0.4), f.x, f.y, 3, u > 0.75 ? (1 - u) / 0.25 : 1);
-  stars(ctx, seedOf(f), f.x, f.y, sq, u, 10, 44, f.row || 0);
   bits(ctx, seedOf(f), f.x, f.y, sq, u, { spk: 10, arc: 4, deb: 3 }, { r: 40, lift: 30, up: 20, gold: .25 });
 }
 // 수호자 착지 자리 — 큰 육각 발판(내려오는 동안) · 1px 원
@@ -201,9 +197,8 @@ function pad(ctx, f, t, sq) {
   if (t < f.d) ring(ctx, f.x, f.y, 70 * (1 - t / f.d) + 20, sq, C.bright, 0.7, 3);
   else {
     const v = (t - f.d) / (f.life - f.d);
-    glow(ctx, f.x, f.y - 20, 70, (1 - v), f.row || 0);
+    glow(ctx, f.x, f.y - 20, 100, v, f.row || 0);
     cell(ctx, "en_boom", once("en_boom", v), f.x, f.y, K, .85);
-    stars(ctx, seedOf(f), f.x, f.y, sq, v, 14, 80, f.row || 0, 80);
     bits(ctx, seedOf(f), f.x, f.y, sq, v, { smk: 10, deb: 10, spk: 8, emb: 4 }, { r: 70, out: .5, up: 50, spread: .25 });
   }
 }
@@ -214,16 +209,15 @@ function fold(ctx, f, t) {
 }
 function punch(ctx, f, t, sq) {
   const u = t / f.life;
-  glow(ctx, f.x, f.y - 30, 40, 1 - u, f.row || 0);
+  glow(ctx, f.x, f.y - 30, 72, u, f.row || 0);
   cell(ctx, "en_spark", once("en_spark", u), f.x, f.y - 30, 4);
   if (u < .5) cell(ctx, "en_flash", once("en_flash", u / .5), f.x, f.y - 30, K);
   bits(ctx, seedOf(f), f.x, f.y, sq, u, { spk: 8, deb: 6, smk: 3, emb: 2 }, { r: 30, lift: 30, up: 34, spread: .15, gold: .3 });
 }
 function boom(ctx, f, t, sq) {
   const u = t / f.life;
-  glow(ctx, f.x, f.y - f.r * .3, f.r * .9, 1 - u, f.row || 0);
+  glow(ctx, f.x, f.y - f.r * .3, f.r * .9, u, f.row || 0);
   cell(ctx, "en_boom", once("en_boom", u), f.x, f.y, f.r / SH.en_boom.r);
-  stars(ctx, seedOf(f), f.x, f.y, sq, u, 12, f.r * .7, f.row || 0, 70);
   bits(ctx, seedOf(f), f.x, f.y, sq, u, { emb: 14, deb: 14, smk: 12, spk: 10 }, { r: f.r * 0.75, out: .45, up: 70, spread: .3, gold: .4 });
 }
 
@@ -231,7 +225,7 @@ function boom(ctx, f, t, sq) {
 function magnet(ctx, f, t, sq) {
   const k = f.r / SH.en_field.r, grow = f.hit - 0.05;
   sigil(ctx, f.x, f.y, f.r, t, 1 - (t / f.life) ** 3, f.row || 0);
-  if (t >= f.hit) glow(ctx, f.x, f.y - 12, f.r * .5, 1 - (t - f.hit) / (f.life - f.hit), f.row || 0);
+  if (t >= f.hit) glow(ctx, f.x, f.y - 12, f.r * .7, (t - f.hit) / (f.life - f.hit), f.row || 0);
   cell(ctx, "en_target", once("en_target", Math.min(1, t/f.hit)), f.x, f.y, K, 1-t/f.life);
   if (t >= f.hit) cell(ctx, "en_charge", once("en_charge", (t-f.hit)/(f.life-f.hit)), f.x, f.y-12, K, 1-(t-f.hit)/(f.life-f.hit), f.row || 0);
   if (t < f.hit) ring(ctx, f.x, f.y, f.r, sq, C.base, 0.5 + 0.4 * (t / f.hit), 4);
@@ -239,7 +233,6 @@ function magnet(ctx, f, t, sq) {
   const i = t < f.hit ? once("en_field", (t - grow) / 0.05, 3) : t < f.hit + 0.15 ? 3 + Math.floor((t - f.hit) / 0.075) % 2 : 5 + Math.min(2, Math.floor((t - f.hit - 0.15) / 0.07));
   cell(ctx, "en_field", i, f.x, f.y, k);
   // 장 안을 기는 전류 줄기 · 스파크 · 끌려온 금속 조각(판정 0.30초 앞뒤로 가장 짙다)
-  stars(ctx, seedOf(f) + 5, f.x, f.y, sq, (t - grow) / (f.life - grow), 12, f.r * .85, f.row || 0, 40);
   bits(ctx, seedOf(f), f.x, f.y, sq, (t - grow) / (f.life - grow), { arc: 20, spk: 22, deb: 8 }, { r: f.r * 0.92, out: -0.25, lift: 8, up: 30, spread: .6, gold: .2, k: 3 });
 }
 
@@ -256,9 +249,9 @@ function rail(ctx, f, t, sq) {
   }
   const u = (t - f.d) / (f.life - f.d), len = Math.hypot(x1 - f.x0, y1 - f.y0);
   // 쏜 길을 따라 번짐 — 흰 심이 색 테두리로 번진다
-  for (let i = 0, n = nq(Math.max(3, Math.round(len / 60))); i <= n; i++) glow(ctx, f.x0 + (x1 - f.x0) * i / n, f.y0 + (y1 - f.y0) * i / n, f.w * .9, (1 - u) * .7, f.row || 0);
+  for (let i = 0, n = nq(Math.max(3, Math.round(len / 60))); i <= n; i++) glow(ctx, f.x0 + (x1 - f.x0) * i / n, f.y0 + (y1 - f.y0) * i / n, 36, u, f.row || 0);
   strip(ctx, "en_rail", once("en_rail", u), f.x0, f.y0, ang, len, f.w / SH.en_rail.h, 1);
-  glow(ctx, f.x0, f.y0, 34, 1 - u, f.row || 0); glow(ctx, x1, y1, 40, 1 - u, f.row || 0);
+  glow(ctx, f.x0, f.y0, 72, u, f.row || 0); glow(ctx, x1, y1, 72, u, f.row || 0);
   if (u < .5) cell(ctx, "en_flash", once("en_flash", u/.5), f.x0, f.y0, K);
   for (let i=1,n=nq(4);i<=n;i++) {
     const d=i/(n+1);
@@ -277,12 +270,11 @@ function oc(ctx, f, t, sq) {
   const u = t / f.life;
   sigil(ctx, f.x, f.y, 64, t, 1 - u, f.row || 0);
   pillar(ctx, f.x, f.y, u, 1, .8, f.row || 0);
-  glow(ctx, f.x, f.y - 34, 30, 1 - u, f.row || 0);
+  glow(ctx, f.x, f.y - 34, 72, u, f.row || 0);
   cell(ctx, "en_hex", 4 + loop(4, 0.3), f.x, f.y, 3, 1 - u);
   cell(ctx, "en_charge", once("en_charge",u), f.x, f.y-34, K, 1-u, f.row||0);
   for (let i = 0,n=nq(6); i < n; i++) cell(ctx, "en_zap", loop(4, 0.12, i * 0.07), f.x + Math.cos(i * TAU / n + u * 3) * 34, f.y - 40 + Math.sin(i * TAU / n + u * 3) * 28, K, 1 - u);
   bits(ctx, seedOf(f), f.x, f.y, sq, u, { spk: 16, arc: 6 }, { r: 52, lift: 36, up: 20, spread: .6, gold: .35 });
-  stars(ctx, seedOf(f) + 9, f.x, f.y, sq, u, 10, 46, f.row || 0, 70);
 }
 // 과열 — 붉은 경고선(1px)과 주황 전류
 function heat(ctx, f, t, sq) {
@@ -321,7 +313,7 @@ function orbit(ctx, f, t, sq) {
     const sx = f.x + Math.cos(a) * d, sy = f.y + Math.sin(a) * d * sq;
     cell(ctx, "en_strike", frame, sx, sy, 4);
     if (dt >= 0) {
-      glow(ctx, sx, sy - 16, 40, 1 - dt / .4, f.row || 0);
+      glow(ctx, sx, sy - 16, 72, dt / .4, f.row || 0);
       cell(ctx, "en_boom", once("en_boom", dt / 0.4), sx, sy, 2, .9);
       bits(ctx, seedOf(f) + i * 31, sx, sy, sq, dt / 0.6, { spk: 8, deb: 7, emb: 5, smk: 4 }, { r: 44, out: .5, up: 46, spread: .2, gold: .3 });
     }
@@ -336,9 +328,8 @@ function orbit(ctx, f, t, sq) {
   }
   if (t >= f.end) {
     const v = (t - f.end) / (f.life - f.end);
-    glow(ctx, f.x, f.y - 30, R * .7, 1 - v, f.row || 0);
+    glow(ctx, f.x, f.y - 30, R, v, f.row || 0);
     cell(ctx, "en_shock", once("en_shock", v), f.x, f.y, R / SH.en_shock.r);
-    stars(ctx, seedOf(f) + 11, f.x, f.y, sq, v, 20, R * .8, f.row || 0, 120);
     cell(ctx, "en_boom", once("en_boom", v), f.x, f.y, Math.max(2, Math.round(R * 0.4 / SH.en_boom.r)));
     bits(ctx, seedOf(f) + 3, f.x, f.y, sq, v, { emb: 16, deb: 16, smk: 14, spk: 12 }, { r: R * 0.7, out: .35, up: 90, spread: .3, gold: .4 });
   }

@@ -11,7 +11,7 @@ import { ENGINEER as EN, EN_PULSE as PU, EN_TURRET as TU, EN_DRONE as DR, EN_MAG
 import { unlockEngineer, dropEngineer, engineerOn, engineerView, unitCap, turretRange } from '../src/game/engineerJob.js';
 import { hiddenHeld } from '../src/game/hiddenUnique.js';
 import { KEY_ACTIONS } from '../src/game/keys.js';
-import { ENGINEER_PX, ENGINEER_ICON } from '../src/game/engineerPxData.js';
+import { ENGINEER_PX, ENGINEER_ICON, ENGINEER_PFX } from '../src/game/engineerPxData.js';
 import { ENGINEER_CAP, ENGINEER_GROUND } from '../src/game/engineerArt.js';
 import { GROUND_FX } from '../src/game/skillArt.js';
 import { readFileSync, existsSync } from 'node:fs';
@@ -209,6 +209,8 @@ test('쓰러지면 · 맵을 옮기면 설치물을 걷는다 · 스냅샷 줄 5
 test('그림 규격 — 시트 · 아이콘 · 연출 덜어내기 · 바닥 연출 목록', () => {
   const man = JSON.parse(readFileSync(new URL('../design/effects/engineer/manifest.json', import.meta.url)));
   assert.deepEqual(ENGINEER_PX, man, 'make.py 가 낸 규격과 같다');
+  const pf = JSON.parse(readFileSync(new URL('../design/effects/pixelfx/engineer/manifest.json', import.meta.url)));
+  assert.deepEqual(ENGINEER_PFX, pf, 'pixelfx 빛 연출 시트 — pack.py 가 낸 규격과 같다');
   for (const [k, T] of Object.entries(ENGINEER_PX)) {
     const path = new URL(`../public/assets/game/rpg/effects/hidden-jobs/engineer/px/${k}.webp`, import.meta.url);
     assert.ok(existsSync(path), k);

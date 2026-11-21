@@ -1873,6 +1873,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           onConv={() => act("blood", { op: "convert" })} />
         <GamblerButtons v={me.gm} touch={touch} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })}
           onFire={() => act("fire", true)} onFireUp={() => act("fire", false)} />
+        {me.nc && <NecroBar part="skills" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
+        {me.en && <EngineerBar part="skills" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
         {me.adv && me.adv.ult && !me.blood && (
           <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>
@@ -2021,9 +2023,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 </span>
                 <BloodBar v={me.blood} />
                 <GamblerBar v={me.gm} />
-                {me.nc && <NecroBar v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
+                {me.nc && <NecroBar part="stat" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
                 {me.nc && <button type="button" className="rpg-lv-stat" aria-expanded={ncOpen} onClick={() => toggleWin(ncOpen, setNcOpen)}>그림자 명부</button>}
-                {me.en && <EngineerBar v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
+                {me.en && <EngineerBar part="stat" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}

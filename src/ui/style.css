@@ -3360,3 +3360,7 @@ button.forge-stage:disabled { cursor: default; }
 .ncn-acts .ncw-btn { flex: none; padding: 7px 14px; }
 .ncw-base { font-style: normal; font-size: 12px; font-weight: normal; color: var(--nw-mute); margin-left: 6px; }
 .ncn .ncn-in:focus-visible { outline: none; box-shadow: 0 0 0 1px var(--nw-acc); }
+/* 엔지니어 · 네크로맨서 스킬 칸 — 정보창(레벨 칸)에서 스킬 탭으로 옮겼다(11월 21일). 탭 안에서는 틀 없이 칸만 */
+.gm-bar.side { margin: 0; padding: 0; border: 0; background: none; }
+.gm-bar.side .gm-skills { margin-top: 0; gap: 5px; }
+.rpg-side .gm-bar.side .gm-skill { width: calc((100% - 15px) / 4); min-width: 0; }

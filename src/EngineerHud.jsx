@@ -6,7 +6,7 @@ import { ENGINEER_ICON } from "./game/engineerPxData.js";
 /* 히든 직업 Engineer 003 화면 칸 — 격자 연습장(Sandbox.jsx)과 실제 게임(RpgView.jsx)이 같이 쓴다(11월 19일 실제 게임에 이음).
    v 는 engineerView(h) 값. 키는 새 칸 없이 기존 행동 키를 빌린다(engineerData.js EN_SLOTS) */
 export /* Engineer 003 칸 — 전력 · 과열 줄 · 설치물 수 · 스킬 일곱(누르면 쓴다). 그림은 직접 그린 도트 시트(en_icons) */
-function EngineerBar({ v, keyOf: key, onUse, onFire }) {
+function EngineerBar({ v, keyOf: key, onUse, onFire, part }) {   // part: "stat"(전력 · 과열 · 설치물 줄만) · "skills"(스킬 칸만, 스킬 탭용) · 없으면 둘 다(연습장)
   const n = (k) => v.units.filter((u) => u.k === k).length;
   const notes = [
     `설치물 ${v.units.length}/${v.cap}`,
@@ -15,6 +15,27 @@ function EngineerBar({ v, keyOf: key, onUse, onFire }) {
     v.lock > 0 && `과열 잠김 ${v.lock.toFixed(1)}초`,
     v.central && "중앙 제어",
   ].filter(Boolean);
+  const skills = (
+    <div className="gm-skills">
+      <button type="button" className="gm-skill" onClick={onFire} title={`${EN_PULSE.name} — 기본 공격`}>
+        <span className="gm-ico" style={engineerIconStyle(ENGINEER_ICON.pulse, 48)} />
+        <span className="gm-label">{EN_PULSE.name}</span>
+        {key("fire") && <kbd>{key("fire")}</kbd>}
+      </button>
+      {EN_SLOTS.map((q) => {
+        const D = EN_SKILLS[q.s], lock = enLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, need = v.power < D.cost || (q.s === "oc" && v.lock > 0);
+        return (
+          <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && (cd > 0 || need) ? "wait" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
+            title={lock || `${D.name} · 전력 ${D.cost}`}>
+            <span className="gm-ico" style={engineerIconStyle(ENGINEER_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
+            <span className="gm-label">{lock ? `레벨 ${ENGINEER.unlock[q.s]}` : D.name}</span>
+            {key(q.act) && <kbd>{key(q.act)}</kbd>}
+          </button>
+        );
+      })}
+    </div>
+  );
+  if (part === "skills") return <div className="gm-bar en-bar side">{skills}</div>;
   return (
     <div className="gm-bar en-bar">
       <div className="gm-top">
@@ -24,26 +45,8 @@ function EngineerBar({ v, keyOf: key, onUse, onFire }) {
           <span className={`en-gauge heat ${v.hot ? "hot" : ""}`} aria-label={`과열 ${Math.floor(v.heat)}/${v.heatMax}`}><i style={{ width: `${(v.heat / v.heatMax) * 100}%` }} /><b>과열 {Math.floor(v.heat)}</b></span>
         </span>
       </div>
-      <div className="gm-skills">
-        <button type="button" className="gm-skill" onClick={onFire} title={`${EN_PULSE.name} — 기본 공격`}>
-          <span className="gm-ico" style={engineerIconStyle(ENGINEER_ICON.pulse, 48)} />
-          <span className="gm-label">{EN_PULSE.name}</span>
-          {key("fire") && <kbd>{key("fire")}</kbd>}
-        </button>
-        {EN_SLOTS.map((q) => {
-          const D = EN_SKILLS[q.s], lock = enLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, need = v.power < D.cost || (q.s === "oc" && v.lock > 0);
-          return (
-            <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && (cd > 0 || need) ? "wait" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
-              title={lock || `${D.name} · 전력 ${D.cost}`}>
-              <span className="gm-ico" style={engineerIconStyle(ENGINEER_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
-              <span className="gm-label">{lock ? `레벨 ${ENGINEER.unlock[q.s]}` : D.name}</span>
-              {key(q.act) && <kbd>{key(q.act)}</kbd>}
-            </button>
-          );
-        })}
-      </div>
+      {part !== "stat" && skills}
       <p className="gm-notes">{notes.join(" · ")}</p>
     </div>
   );
 }
-

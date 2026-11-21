@@ -2259,6 +2259,8 @@ function drawMobMarks(ctx, m, time, top) {
    서 있을 때: 천천히 숨을 쉰다. 칠 때: 치는 쪽으로 몸을 기울였다 돌아온다.
    그리기에만 쓰는 값이라 h.anim 에 두고 주고받지 않는다 — 방장 · 손님 화면 모두 제 화면에서 계산한다. */
 const STRIDE = 24;            // 한 걸음에 가는 거리
+const LUNGE_T = 0.25;         // 칠 때 몸을 기울였다 돌아오는 시간(초) — 예전 h.swing 0.25 → 0 과 같은 모양
+const LUNGE_RENEW = 0.45;     // 서버 휘두름(최대 0.4초) + 스냅샷 한 번보다 길다 — 그 안에서 0.2 로 다시 채운 것은 같은 휘두름
 function heroMotion(g, h, time) {
   const a = h.anim || (h.anim = { x: h.x, y: h.y, t: time, ph: 0, walk: 0, land: 0 });
   const dt = Math.min(0.1, Math.max(0, time - a.t));
@@ -2281,8 +2283,15 @@ function heroMotion(g, h, time) {
   const breath = Math.sin(time * 2.4 + h.pi * 1.3) * (1 - w);
   const sq = a.land * 0.08 * w;
   let lean = 0, lunge = 0;
-  if (h.swing > 0) {
-    const k = Math.sin(Math.min(1, h.swing / 0.25) * Math.PI);
+  // 칠 때 몸 기울이기 — h.swing 값이 아니라 친 때부터 지난 시간으로 그린다(11월 21일 사용자 "캐릭터가 부들부들 떨어, 연습장에서는 안 그랬는데").
+  // 전용 서버 · 손님 화면은 스냅샷(초당 20번)마다 h.swing 을 0.2 로 다시 채워(rpg.js row[9]) 값으로 그리면 0.05초마다 기울기가 튀었다.
+  // 0.2 로 다시 채운 것은 같은 휘두름으로 보고, 더 크게 오르거나(제 화면에서 친 것) LUNGE_RENEW 초가 지난 뒤 오른 것만 새로 친 것으로 센다
+  const e = time - (a.lgAt ?? -99);
+  if (h.swing > 0 && (!(a.lgSw > 0) || (h.swing > a.lgSw + 1e-3 && (h.swing > 0.2 + 1e-3 || e >= LUNGE_RENEW)))) a.lgAt = time;
+  a.lgSw = h.swing;
+  const lg = time - (a.lgAt ?? -99);
+  if (lg >= 0 && lg < LUNGE_T) {
+    const k = Math.sin((1 - lg / LUNGE_T) * Math.PI);
     lean = 0.15 * k; lunge = 5 * k;
   }
   return {

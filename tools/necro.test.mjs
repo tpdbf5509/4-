@@ -14,7 +14,7 @@ import { holds } from '../src/game/hiddenUnique.js';
 import { cleanHj } from '../src/game/gamblerJob.js';
 import { KEY_ACTIONS } from '../src/game/keys.js';
 import { NECRO_PX, NECRO_ICON, NECRO_PFX } from '../src/game/necroPxData.js';
-import { NECRO_CAP, NECRO_GROUND } from '../src/game/necroArt.js';
+import { NECRO_CAP, NECRO_GROUND, necroSwingClock } from '../src/game/necroArt.js';
 import { GROUND_FX } from '../src/game/skillArt.js';
 import { readFileSync, existsSync } from 'node:fs';
 Math.random = () => 0.999;   // 치명타 · 회피 없음
@@ -365,4 +365,19 @@ test('그림자 낫 전용 무기 — 이 직업만 · 이것만 들고 · 들�
   // 다른 직업은 못 든다
   const b = setup(); b.h.bag.hj.active = '';
   assert.ok(whyEquip(b.h, 1).some(t => t.includes('Necromancer 004 만')));
+});
+
+test('낫 휘두르기 그림 — 스냅샷이 h.swing 을 다시 채워도 한 번만 처음부터 그린다(11월 21일)', () => {
+  // 전용 서버 손님 화면: 서버 휘두름 0.34초 동안 0.05초마다 h.swing = 0.2 로 다시 채운다
+  const r = { last: 0, at: -99, rot: 0 }, dt = 1 / 60;
+  let sw = 0, seen = [], next = 0.1;
+  for (let now = 0; now < 1.6; now += dt) {
+    if (now >= next && ((now >= 0.1 && now < 0.45) || (now >= 0.75 && now < 1.1))) { sw = 0.2; next = now + 0.05; }
+    else if (now >= next) next = now + 0.05;
+    sw = Math.max(0, sw - dt);
+    seen.push([now, necroSwingClock(r, sw, now)]);
+  }
+  const starts = seen.filter(([, t], i) => t >= 0 && (i === 0 || seen[i - 1][1] < 0 || t < seen[i - 1][1]));
+  assert.equal(starts.length, 2, '휘두름 둘 — 다시 채울 때마다 새로 시작하지 않는다');
+  starts.forEach(([, t]) => assert.ok(t < 0.02, '처음(들어 올림)부터 그린다'));
 });

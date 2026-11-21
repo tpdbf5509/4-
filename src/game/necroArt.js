@@ -386,7 +386,7 @@ const NC_HAND = {                                   // 쥔 손 자리(몸 그림
    0~0.2 머리 위 뒤로 들어 올림 → 0.2~0.5 앞 아래로 내려벰(판정 wind 0.12초 ≈ 0.35 지점) → 0.5~1 든 자세로 돌아옴. 내려벨 때는 날 잔상 셋.
    같은 날 사용자 "칼날 끝부분을 아래로 가게 휘둘러야 하는데 반대" — 휘두르는 동안은 날을 자루 축으로 뒤집어 그린다(nc_reap 반달도 다시 그린다) */
 // back — 내려벤 뒤 든 자세로 돌아오는 시간(초). 11월 20일 사용자 "벨 때는 빠르게(유지) 되돌아올 때는 느리게" 로 0.17초 → 0.5초.
-// 판정 시간(h.swing)보다 길어 화면이 휘두른 때를 기억해 이어 그린다(swingStart) — 판정 · 수치는 그대로
+// 판정 시간(h.swing)보다 길어 화면이 휘두른 때를 기억해 이어 그린다(necroSwingClock) — 판정 · 수치는 그대로
 const NC_SWING = { up: 2.4, down: -1.1, lift: 0.2, cut: 0.5, ghost: 3, gap: 0.05, back: 0.5, over: 0.7 };   // over — 머리 위로 되짚는 몫(나머지에 든 자세로 내려오며 날을 되돌린다)
 const NC_SCY_K = 1;                                 // 낫 시트는 2배 해상도(11월 20일 사용자 그림, make.py SCY_RES) — 화면에 1:1 로 그린다(크기는 make.py SCY_SIZE)
 const NC_SHAFT = Math.atan2(0.73, -0.68);           // 시트 속 자루 방향(쥔 손 → 날 뿌리, make.py scythe_cells 와 같다)
@@ -397,24 +397,36 @@ const smooth = (q) => { q = clamp(q); return q * q * (3 - 2 * q); };
 function backQ(t) { return clamp((t - NC_SWING.cut * NC_SCYTHE.swing) / NC_SWING.back); }
 // 앞 · 뒤 · 돌아보기 각도(뒤집은 날 기준) — 왼쪽 위로 들었다(up) 머리 위를 지나 오른쪽 아래로 벤다(down), 돌아올 땐 머리 위를 되짚어 왼쪽(mid)까지
 const NC_SWING_OVER = { up: 1.4, down: 5.3, mid: 1.7 };
-function scytheRot(t, rest, over) {
+function scytheRot(t, rest, over, from = rest) {
   const S = over ? { ...NC_SWING, ...NC_SWING_OVER } : NC_SWING, u = t / NC_SCYTHE.swing;
   if (t < 0) return rest;
-  if (u < S.lift) return rest + (S.up - rest) * ease(u / S.lift);
+  if (u < S.lift) return from + (S.up - from) * ease(u / S.lift);   // from — 돌아오던 중 다시 휘두르면 그 자리에서 들어 올린다(든 자세로 튀지 않게)
   if (u < S.cut) return S.up + (S.down - S.up) * ease((u - S.lift) / (S.cut - S.lift));
   const q = backQ(t);
   if (over) return q < S.over ? S.down + (S.mid - S.down) * smooth(q / S.over) : S.mid + (rest - S.mid) * smooth((q - S.over) / (1 - S.over));
   return S.down + (rest - S.down) * smooth(q);   // 천천히 출발해 천천히 멈춘다
 }
-const swingSeen = new Map();   // 사람마다 { last 지난 프레임 h.swing, at 휘두른 시각 }
-function swingStart(h) {
-  const key = h.pi ?? h.id ?? h.name ?? h, sw = h.swing > 0 ? h.swing : 0;
-  let r = swingSeen.get(key);
-  if (!r) { r = { last: 0, at: -99 }; swingSeen.set(key, r); }
-  if (sw > r.last + 1e-3) r.at = NOW - Math.max(0, NC_SCYTHE.swing - sw);   // 새로 휘둘렀다
+/* 휘두른 때 찾기(11월 21일 사용자 영상 "낫 휘두르는 모션이 이상해") — 전용 서버 · 손님 화면은 h.swing 을 스냅샷(초당 20번)마다
+   0.2 로 다시 채운다(rpg.js row[9]). 예전엔 채울 때마다 "새로 휘둘렀다"며 시작을 0.14초 앞으로 잡아(0.34 − 0.2)
+   들어 올림 · 내려벰을 건너뛰고 내려벤 끝 자세에 0.3초 멈췄다가 돌아오기만 보였다(실제 게임에서만, 연습장은 멀쩡).
+   이제 휘두름 하나에 한 번만 — 오르는 순간 처음부터 그리고, 평타 간격(gap)의 RENEW 몫 안의 재충전은 같은 휘두름으로 본다 */
+const NC_SWING_RENEW = 0.8;   // 평타 간격 0.55초 × 0.8 = 0.44초 — 서버 휘두름 0.34초 + 스냅샷 한 번(0.05초)보다 길고 다음 평타보다 짧다
+export function necroSwingClock(r, sw, now) {   // r = { last, at, from, rot } 사람마다 · 반환 지난 초(안 휘두르면 −1)
+  const was = now - r.at;
+  if (sw > r.last + 1e-3 && (r.last <= 0 || was >= NC_SCYTHE.gap * NC_SWING_RENEW)) {
+    r.from = was >= 0 && was < NC_SWING.cut * NC_SCYTHE.swing + NC_SWING.back ? r.rot : undefined;   // 돌아오던 중이면 그 자리에서
+    r.at = now;
+  }
   r.last = sw;
-  const t = NOW - r.at;
+  const t = now - r.at;
   return t >= 0 && t < NC_SWING.cut * NC_SCYTHE.swing + NC_SWING.back ? t : -1;
+}
+const swingSeen = new Map();   // 사람마다 { last 지난 프레임 h.swing, at 휘두른 시각, from 다시 휘두른 자리, rot 지난 프레임 각도 }
+function swingState(h) {
+  const key = h.pi ?? h.id ?? h.name ?? h;
+  let r = swingSeen.get(key);
+  if (!r) { r = { last: 0, at: -99, from: undefined, rot: 0 }; swingSeen.set(key, r); }
+  return r;
 }
 export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
   if ((view === "front") !== behind) return;   // 앞 모습은 낫을 몸 뒤에(11월 21일 사용자 "앞 모습일 때 낫을 캐릭터 뒤로"), 뒤 모습은 등 위에 그린다(사용자 "뒤를 볼 때는 칼이 등에") — 손 높이는 앞과 같게
@@ -422,7 +434,7 @@ export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
   warmNecro();
   const H = NC_HAND[h.gender === "f" ? "f" : "m"][view] || NC_HAND.m.front;
   const lx = Math.round((H[0] - 0.5) * ww), ly = Math.round(top + H[1] * hh);
-  const t = swingStart(h), u = t >= 0 ? t / NC_SCYTHE.swing : -1;
+  const r = swingState(h), t = necroSwingClock(r, h.swing > 0 ? h.swing : 0, NOW), u = t >= 0 ? t / NC_SCYTHE.swing : -1;
   const fr = Math.floor(NOW / 0.18) % 3 === 0 ? 1 : 0;
   const draw = (rot, a, f) => {
     ctx.save(); ctx.translate(lx, ly); ctx.rotate(rot);
@@ -433,7 +445,8 @@ export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
     cell(ctx, "nc_scythe", f, 0, 0, NC_SCY_K, a, 0, false, a < 1 ? "brightness(1.8)" : ""); ctx.restore(); };
   if (u > NC_SWING.lift && u < NC_SWING.cut + 0.15)   // 내려벨 때 — 지나온 자리에 옅은 날 잔상(같은 손 · 같은 길이)
     for (let k = NC_SWING.ghost; k >= 1; k--) draw(scytheRot(Math.max(NC_SWING.lift, u - NC_SWING.gap * k) * NC_SCYTHE.swing, H[2], !H[3]), 0.4 / k, 1);
-  draw(u < 0 ? H[2] + Math.sin(NOW * 2) * 0.03 : scytheRot(t, H[2], !H[3]), 1, u >= 0 ? 1 : fr);
+  r.rot = u < 0 ? H[2] : scytheRot(t, H[2], !H[3], r.from ?? H[2]);
+  draw(u < 0 ? H[2] + Math.sin(NOW * 2) * 0.03 : r.rot, 1, u >= 0 ? 1 : fr);
 }
 
 /* 추출 가능 흔적 — 내 것만(남의 흔적은 보이지 않는다). 남은 시간이 1.5초 아래면 깜빡인다 */

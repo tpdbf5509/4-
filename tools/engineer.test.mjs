@@ -92,6 +92,16 @@ test('센트리 터렛 — 전력 25 · 1.2초마다 ×3.0 · 12초 · 최대 10
   near(turretRange({ tr: [[25, 0], [0, 0], [0, 0]] }), TU.range * 1.15);
 });
 
+test('센트리 터렛 작은 레일포(11월 21일 사용자) — 겨눈 적 뒤 같은 줄의 적도 관통 · 줄 밖은 맞지 않는다', () => {
+  const { g, h } = setup();
+  const a = mob(g, h.x + 250, h.y), b = mob(g, h.x + 450, h.y), off = mob(g, h.x + 350, h.y + 120);
+  use(g, 'turret', [h.x + 100, h.y]);
+  run(g, TU.ready + 0.05);
+  near(HP - a.hp, U * TU.mul, 0.03, '앞 적');
+  near(HP - b.hp, U * TU.mul, 0.03, '뒤 적(관통)');
+  assert.equal(off.hp, HP, '줄 밖');
+});
+
 test('지원 드론 — 두 기 · 1초마다 ×2.0(드론 연마 50 → ×3) · 10초 · 시전자를 따라온다', () => {
   for (const [tr, mul] of [[[0, 0, 0], DR.mul], [[0, 50, 0], DR.mul50]]) {
     const { g, h } = setup(200, tr);

@@ -295,8 +295,12 @@ function tickTurret(E, g, h, s, u, dt) {
   if (o) u.a = Math.atan2((o.y - u.y) / E.squash, o.x - u.x);
   if (!o || u.cd > 0) return;
   u.cd = TU.gap; u.n += 1; u.f = 0;
-  unitHit(E, g, h, s, u, o, TU.mul);
-  E.fx(g, u.map, { kind: "sk_en_zap", x0: u.x, y0: u.y, x1: Math.round(o.x), y1: Math.round(o.y), k: 0, a: r2(u.a), pi: h.pi, oc: s.oc > 0 ? 1 : 0, t: 0.22, life: 0.22, snd: "enZap" });
+  // 작은 레일포 — 겨눈 적 쪽으로 사거리 끝까지(벽 앞에서 멈춤) 관통
+  const dx = o.x - u.x, dy = (o.y - u.y) / E.squash, d = Math.hypot(dx, dy) || 1, ax = dx / d, ay = dy / d;
+  const len = wallCut(E, h, ax, ay, R, u.x, u.y);
+  for (const m of onLine(E, g, h, u.x, u.y, ax, ay, len, TU.railW, u.map)) unitHit(E, g, h, s, u, m, TU.mul);
+  E.fx(g, u.map, { kind: "sk_en_mrail", x: Math.round(u.x), y: Math.round(u.y), x0: Math.round(u.x), y0: Math.round(u.y), ax: r2(ax), ay: r2(ay), len: Math.round(len), w: TU.railW, d: 0, a: r2(u.a),
+    pi: h.pi, oc: s.oc > 0 ? 1 : 0, t: TU.railLife, life: TU.railLife, snd: "enZap" });
 }
 function tickDrone(E, g, h, s, u, dt) {
   const J = jobOf(h), o0 = DR.orbit[u.slot] || DR.orbit[0], spd = droneSpd(J), side = h.dir < 0 ? -1 : 1;
@@ -312,7 +316,7 @@ function tickDrone(E, g, h, s, u, dt) {
   u.cd = DR.gap; u.n += 1; u.f = 0;
   u.a = Math.atan2((o.y - u.y) / E.squash, o.x - u.x);
   unitHit(E, g, h, s, u, o, droneMul(J));
-  E.fx(g, u.map, { kind: "sk_en_zap", x0: Math.round(u.x), y0: Math.round(u.y) + u.hz, x1: Math.round(o.x), y1: Math.round(o.y), k: 1, pi: h.pi, oc: s.oc > 0 ? 1 : 0, t: 0.18, life: 0.18, snd: "enClick" });
+  E.fx(g, u.map, { kind: "sk_en_zap", x: Math.round(u.x), y: Math.round(u.y), x0: Math.round(u.x), y0: Math.round(u.y) + u.hz, x1: Math.round(o.x), y1: Math.round(o.y), k: 1, pi: h.pi, oc: s.oc > 0 ? 1 : 0, t: 0.18, life: 0.18, snd: "enClick" });
 }
 function tickMech(E, g, h, s, u, dt) {
   u.mv = 0;
@@ -383,16 +387,19 @@ function railUse(E, g, h) {
     d: RL.warn, pi: h.pi, t: RL.warn + RL.tail, life: RL.warn + RL.tail, snd: "enCharge" });
   call(E, g, h, RL.name);
 }
+// 줄 위의 적 — 레일포 · 터렛 작은 레일포가 함께 쓴다
+function onLine(E, g, h, x, y, ax, ay, len, w, map) {
+  return E.near(g, h, x, y, len + 60).filter((o) => {
+    if (!E.alive(g, h, o, map)) return false;
+    const dx = o.x - x, dy = (o.y - y) / E.squash, along = dx * ax + dy * ay;
+    return along >= -10 && along <= len + 10 && Math.abs(dx * ay - dy * ax) <= w / 2 + (o.rad || 16) * 0.5;
+  });
+}
 function tickRail(E, g, h, q, dt) {
   q.t += dt;
   if (q.t < RL.warn) return true;
   const s = st(h), k = s.oc > 0 ? 1 + RL.ocDmg : 1;
-  const list = E.near(g, h, q.x, q.y, q.len + 60).filter((o) => {
-    if (!E.alive(g, h, o, q.map)) return false;
-    const dx = o.x - q.x, dy = (o.y - q.y) / E.squash, along = dx * q.ax + dy * q.ay;
-    return along >= -10 && along <= q.len + 10 && Math.abs(dx * q.ay - dy * q.ax) <= q.w / 2 + (o.rad || 16) * 0.5;
-  });
-  for (const o of list) strike(E, g, h, q, o, RL.mul * k);
+  for (const o of onLine(E, g, h, q.x, q.y, q.ax, q.ay, q.len, q.w, q.map)) strike(E, g, h, q, o, RL.mul * k);
   g.shake = Math.max(g.shake || 0, 0.15);
   if (q.xp) trainXp(E, g, h, 2);
   return false;

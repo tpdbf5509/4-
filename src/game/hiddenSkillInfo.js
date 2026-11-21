@@ -59,7 +59,7 @@ function engineer() {
       desc: ["손목에서 펄스를 쏘는 기본 공격입니다.", `맞히면 전력 +${EN_PULSE.gain}(한 번 쏠 때 한 번).`],
       stats: [["피해", x(EN_PULSE.mul)], ["공격 간격", `${EN_PULSE.gap}초`], ["사거리", EN_PULSE.range], ["탄 지름", EN_PULSE.dia]] },
     skills: EN_SLOTS.map((q) => ({ ...q, ...{
-      turret: { name: EN_TURRET.name, lv: U.turret, desc: ["겨눈 자리에 터렛을 세웁니다.", `${EN_TURRET.gap}초마다 쏘고 터렛 하나가 ${EN_TURRET.shots}번까지 쏩니다.`],
+      turret: { name: EN_TURRET.name, lv: U.turret, desc: ["겨눈 자리에 터렛을 세웁니다.", `${EN_TURRET.gap}초마다 작은 레일포를 쏩니다. 겨눈 적 뒤의 적까지 꿰뚫습니다.`, `터렛 하나가 ${EN_TURRET.shots}번까지 쏩니다.`],
         stats: [["비용", `전력 ${EN_TURRET.cost}`], ["대기", `${EN_TURRET.cd}초`], ["설치 거리", EN_TURRET.reach], ["피해", x(EN_TURRET.mul)], ["사거리", EN_TURRET.range], ["지속", `${EN_TURRET.dur}초`], ["동시", `${EN_TURRET.max}기`]],
         train: [`포탑 연마 ${EN_TURRET.sp25} — 사거리 +${pct(EN_TURRET.range25)}`, `포탑 연마 ${EN_TURRET.sp50} — 동시 ${EN_TURRET.max50}기`] },
       drone: { name: EN_DRONE.name, lv: U.drone, desc: [`드론 ${EN_DRONE.n}기가 나를 따라다니며 쏩니다.`, `드론 하나가 ${EN_DRONE.shots}번까지 쏩니다.`],

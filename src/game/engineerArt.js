@@ -267,6 +267,22 @@ function rail(ctx, f, t, sq) {
   }
 }
 
+/* 센트리 터렛 작은 레일포 — 포신 끝에서 사거리 끝까지 가는 띠 · 빛 번짐 · 끝 섬광(큰 레일포의 줄인 판, 예고 없음) */
+const MRAIL = { k: .45, glow: 16, step: 90, bits: 3 };
+function mrail(ctx, f, t, sq) {
+  const u = t / f.life, a = f.a || 0, sa = Math.atan2(Math.sin(a) * sq, Math.cos(a));
+  const x0 = f.x0 + Math.cos(sa) * 24, y0 = f.y0 - 36 + Math.sin(sa) * 24 * 0.6;   // 포신 끝(sk_en_zap 터렛과 같은 자리)
+  const x1 = f.x0 + f.ax * f.len, y1 = f.y0 + f.ay * f.len * sq - 22, ang = Math.atan2(y1 - y0, x1 - x0), len = Math.hypot(x1 - x0, y1 - y0);
+  for (let i = 0, m = nq(Math.max(2, Math.round(len / MRAIL.step))); i <= m; i++) glow(ctx, x0 + (x1 - x0) * i / m, y0 + (y1 - y0) * i / m, MRAIL.glow, u, R1(f));
+  strip(ctx, "en_rail", once("en_rail", u), x0, y0, ang, len, f.w / SH.en_rail.h, 1);
+  if (u < .5) glow(ctx, x0, y0, MRAIL.glow * 1.6, u * .5, R1(f));
+  pf(ctx, "en_pf_crit", pfOnce("en_pf_crit", u), x1, y1 + 12, MRAIL.k, 1, R1(f));
+  for (let i = 0, m = nq(MRAIL.bits); i < m; i++) {
+    const d = (i + 0.5) / m;
+    bits(ctx, seedOf(f) + i * 13, x0 + (x1 - x0) * d, y0 + (y1 - y0) * d, sq, u, { spk: 2 }, { r: f.w * 0.6, lift: 0, up: 14, spread: .25, gold: f.oc ? .5 : .15 });
+  }
+}
+
 /* 오버클럭 — 시작 때 내 발밑에 바닥 진 · 빛 기둥 · 갈래 번개와 땅 충격 고리. 기계 테두리는 drawEngineerUnit 이 상태로 그린다 */
 function oc(ctx, f, t, sq) {
   const u = t / f.life;
@@ -325,10 +341,10 @@ function orbit(ctx, f, t, sq) {
 }
 
 const KINDS = { sk_en_pulse: pulse, sk_en_hit: hit, sk_en_zap: zap, sk_en_place: place, sk_en_hexsum: hexSum, sk_en_pad: pad, sk_en_fold: fold, sk_en_punch: punch,
-  sk_en_boom: boom, sk_en_magnet: magnet, sk_en_rail: rail, sk_en_oc: oc, sk_en_heat: heat, sk_en_orbit: orbit };
+  sk_en_boom: boom, sk_en_magnet: magnet, sk_en_rail: rail, sk_en_mrail: mrail, sk_en_oc: oc, sk_en_heat: heat, sk_en_orbit: orbit };
 // 같은 종류는 최근 몇 개만 그린다(rpgArt FX_LOD.cap)
 export const ENGINEER_CAP = { sk_en_pulse: 10, sk_en_hit: 14, sk_en_zap: 16, sk_en_place: 4, sk_en_hexsum: 4, sk_en_pad: 2, sk_en_fold: 6, sk_en_punch: 4,
-  sk_en_boom: 3, sk_en_magnet: 3, sk_en_rail: 3, sk_en_oc: 2, sk_en_heat: 2, sk_en_orbit: 2 };
+  sk_en_boom: 3, sk_en_magnet: 3, sk_en_rail: 3, sk_en_mrail: 8, sk_en_oc: 2, sk_en_heat: 2, sk_en_orbit: 2 };
 const FOLLOW = new Set(["sk_en_oc", "sk_en_heat"]);
 // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
 export const ENGINEER_GROUND = new Set(["sk_en_place", "sk_en_hexsum", "sk_en_pad", "sk_en_magnet"]);

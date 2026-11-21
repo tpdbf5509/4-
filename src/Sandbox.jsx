@@ -16,7 +16,7 @@ import { SPECIALS, SKILLS, JOB_FAMILY, WEAPON_FAMILY } from "./game/shopData.js"
 import { ADV_CLASSES, ADV_MASTERY } from "./game/advData.js";
 import { BLOOD, BLOOD_NAME } from "./game/bloodJobData.js";
 import { unlockBlood, bloodView, stableCap } from "./game/bloodJob.js";
-import { bloodHud } from "./BloodHud.jsx";
+import { bloodHud, BloodSkillBar } from "./BloodHud.jsx";
 import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_SKILLS, GM_CHIP, GM_TRAIN_NAMES } from "./game/gamblerData.js";
 import { unlockGambler, gamblerView, gmLock } from "./game/gamblerJob.js";
 import { gamblerIconStyle } from "./game/gamblerArt.js";
@@ -395,6 +395,18 @@ export default function Sandbox() {
   const actRef = useRef(act);
   actRef.current = act;
   const tool = (op) => { const g = G.current; if (g) rpgTrain(g, 0, { op }); };
+  // BLOOD-001 표시줄 단추 → 키와 같은 입력(눌림 · 뗌). 누르고 있는 칸(적혈탄 · 혈수 강타 · 혈역 증폭 · 평타 · 무기 스킬)만 뗌을 보낸다
+  const bloodKey = (a, down) => {
+    const S = { bVeil: "veil", bWave: "wave", bHook: "hook", bField: "field", bPierce: "pierce", bSea: "sea", bLegion: "legion", bOrigin: "origin", bAwake: "awake" };
+    if (a === "fire") act("fire", down);
+    else if (a === "dash") { if (down) act("dash"); }
+    else if (a === "wskill") { const sp = heldSpecial(G.current?.heroes[0] || {}); chargeRef.current = down && sp === "blood_gun"; if (down) lastWaim.current = null; act(down ? (HOLD_WSK.has(sp) ? "wcharge" : "wskill") : "wcharge", down ? true : false); }
+    else if (a === "bShot" || a === "bSmash" || a === "bField") { const s = a === "bShot" ? "shot" : a === "bSmash" ? "smash" : "field"; if (a !== "bField") chargeRef.current = down; act("blood", { op: down ? "press" : "release", s }); }
+    else if (!down) return;
+    else if (a === "bConv") act("blood", { op: "convert" });
+    else if (a === "bSword") act("blood", { op: "sword" });
+    else act("blood", { op: "press", s: S[a] });
+  };
   const gmUse = (sk) => act("hidden", { op: "use", s: sk });
   const closeNc = useCallback(() => setNcOpen(false), []);
   const closeSk = useCallback(() => setSkOpen(false), []);
@@ -591,7 +603,7 @@ export default function Sandbox() {
           const nc = necroView(h), il = illusionView(h), wy = wyvernView(h);
           const [cx, cy] = cellOf(h);
           setHud({ en, il, wy, dps: t.dps || 0, tot: Math.round(t.tot || 0), hits: t.hits || 0, god: !!t.god, nocd: !!t.nocd, stack: !!t.stack,
-            hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "", gm,
+            hp: Math.round(h.hp), max: Math.round(h.max), sk: h.sk || 0, cx, cy, blood: bv ? `${bv.b}/${bv.cap} ${bv.state}` : "", bl: bv, gm,
             nc: nc && { ...nc, sh: nc.sh.map((q) => ({ t: q.t, life: q.life })), traces: nc.traces.map((q) => q.id), roster: nc.roster.map((q) => ({ ...q })), party: nc.party.slice(), tr: nc.tr.map((q) => q.slice()) } });
         }
       }
@@ -662,6 +674,7 @@ export default function Sandbox() {
                 <button type="button" className="jt-chip" title="고른 몹 그림자를 명부 맨 앞에 넣습니다 — 다음 소환에 먼저 나옵니다" onClick={() => { const h = G.current && G.current.heroes[0]; if (h) necroPutRoster(h, ncPick, cfg.ncGrade || 1, (t) => mobName({ type: t })); }}>명부에 넣기</button>
               </span>}
             </div>
+            {blood && hud && hud.bl && <BloodSkillBar v={hud.bl} keyOf={key} down={(a) => bloodKey(a, true)} up={(a) => bloodKey(a, false)} />}
             {engineer && hud && hud.en && <EngineerBar v={hud.en} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {gambler && !engineer && hud && hud.gm && <GamblerBar v={hud.gm} keyOf={key} onUse={gmUse} onFire={() => { act("fire", true); setTimeout(() => actRef.current("fire", false), 120); }} />}
             {skJob && skOpen && skInfo && <SkillInfoPanel info={skInfo} onClose={closeSk} keyOf={key}

@@ -222,3 +222,52 @@ export function BloodStat({ v }) {
     </div>
   );
 }
+
+/* 격자 연습장 스킬 표시줄(11월 21일) — 다른 히든 직업(.gm-bar)과 같은 틀. 평타 · 대쉬 · 무기 스킬과 혈 스킬 열세 칸.
+   v 는 bloodHud 값, key 는 키 이름 찾기, down · up 은 연습장이 입력으로 바꾼다(누르고 있는 칸만 up 을 쓴다). 판정은 하지 않는다 */
+const BLOOD_BAR = [   // [행동, 칸 그림, 이름, 값 칸(v 의 키 — 없으면 늘 열림), 누르고 있는 칸]
+  ["bShot", "shot", BLOOD_SHOT.name, "shot", 1], ["bConv", "conv", "혈량 전환", "conv"], ["bSmash", "smash", BLOOD_SMASH.name, "smash", 1],
+  ["bSword", "sword", BLOOD_FORM.sword.name, "sword"], ["bVeil", "veil", BLOOD_FORM.veil.name, "form"], ["bWave", "wave", BLOOD_WAVE.name, "wave"],
+  ["bHook", "hook", BLOOD_HOOK.name, "hook"], ["bField", "field", BLOOD_FIELD.name, "field", 1], ["bPierce", "pierce", BLOOD_PIERCE.name, "pierce"],
+  ["bSea", "sea", BLOOD_SEA.name, "sea"], ["bLegion", "legion", BLOOD_LEGION.name, "legion"], ["bOrigin", "origin", BLOOD_ORIGIN.name, "origin"], ["bAwake", "awake", BLOOD_AWAKE.name, "awake"],
+];
+const box = { width: 48, height: 48 };
+export function BloodSkillBar({ v, keyOf: key, down, up }) {
+  if (!v) return null;
+  const lockOf = (q) => (q.locked ? (q.lockText || (q.at ? `직업 Lv ${q.at}` : `직업 Lv ${BLOOD.unlock.shape}`)) : "");
+  const waitOf = (id, q) => (id === "form" ? q.cd > 0 && !q.veil : q.cd > 0 || (id === "conv" && q.full) || (id === "field" && q.busy) || q.low);
+  return (
+    <div className="gm-bar bl-bar">
+      <div className="gm-top"><span className="gm-name">{BLOOD_NAME} <em>직업 레벨 {v.lv} · 혈량 {v.b}/{v.cap} {v.state}</em></span></div>
+      <div className="gm-skills">
+        <button type="button" className="gm-skill" onPointerDown={(e) => { e.preventDefault(); down("fire"); }} onPointerUp={() => up("fire")} onPointerCancel={() => up("fire")} title="레퀴엠 평타">
+          <span className="gm-ico" style={{ ...box, backgroundImage: "url(/assets/game/rpg/weapons/blood_gun.webp)", backgroundSize: "contain", backgroundPosition: "center", backgroundRepeat: "no-repeat" }} />
+          <span className="gm-label">평타</span>
+          {key("fire") && <kbd>{key("fire")}</kbd>}
+        </button>
+        <button type="button" className="gm-skill" onClick={() => down("dash")} title="대쉬">
+          <span className="gm-ico" style={{ ...box, ...iconStyle(SKILL_ICON_SHEET, SKILL_ICONS.dash) }} />
+          <span className="gm-label">대쉬</span>
+          {key("dash") && <kbd>{key("dash")}</kbd>}
+        </button>
+        <button type="button" className="gm-skill" onPointerDown={(e) => { e.preventDefault(); down("wskill"); }} onPointerUp={() => up("wskill")} onPointerCancel={() => up("wskill")} title="무기 스킬">
+          <span className="gm-ico" style={{ ...box, ...iconStyle(SKILL_ICON_SHEET, SKILL_ICONS.chase) }} />
+          <span className="gm-label">무기 스킬</span>
+          {key("wskill") && <kbd>{key("wskill")}</kbd>}
+        </button>
+        {BLOOD_BAR.map(([act, ico, name, id, hold]) => {
+          const q = v[id], lock = lockOf(q), cd = id === "form" && q.veil ? 0 : q.cd, wait = !lock && waitOf(id, q);
+          const k = act === "bField" ? key("skill") : key(act);   // 혈역 증폭은 큰 기술 키(Shift)
+          const go = hold ? { onPointerDown: (e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); down(act); }, onPointerUp: () => up(act), onPointerCancel: () => up(act) } : { onClick: () => down(act) };
+          return (
+            <button key={act} type="button" className={`gm-skill ${lock ? "lock" : ""} ${wait ? "wait" : ""}`} disabled={!!lock} title={lock || name} {...go}>
+              <span className="gm-ico" style={{ ...box, ...iconStyle(SKILL_ICON_SHEET, SKILL_ICONS[ico]) }}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
+              <span className="gm-label">{lock ? lock : name}</span>
+              {k && <kbd>{k}</kbd>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

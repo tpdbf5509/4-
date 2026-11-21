@@ -3366,4 +3366,3 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-side .gm-bar.side .gm-skill { width: calc((100% - 15px) / 4); min-width: 0; }
 .rpg-hid-stat .gm-bar { margin-top: 0; }
 .rpg-side .rpg-skillbar > .gm-bar.side { grid-column: 1 / -1; }   /* 엔지니어 · 네크로맨서 격자는 5열 칸 하나가 아니라 한 줄 전체를 쓴다 */
-.rpg-skill.off { cursor: default; opacity: 0.45; filter: grayscale(0.6); }   /* 히든 직업 중 못 쓰는 일반 · 무기 · 전직 스킬 칸 */

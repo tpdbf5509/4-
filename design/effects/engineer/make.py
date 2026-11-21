@@ -616,6 +616,127 @@ def bit_cells():
             out.append(c)
     return out
 
+# ── 빛 연출(11월 21일 사용자 "빛나는 이펙트를 넣어줘 너무 밋밋해") — 참고 그림: 도트 마법진 위로 하얗게 빛나는 기둥 · 가장자리 번짐 · 반짝이 ──
+# 색은 기계 색 그대로 톤다운(줄 = 연마 색 셋). 게임은 이 시트를 "lighter"(빛 더하기)로 얹어 밝은 중심을 만든다.
+def glow_pal(tint):   # [바깥 번짐 · 가운데 · 밝은 · 중심]
+    if tint == "teal": return [T[3], T[4], T[5], T[6]]
+    if tint == "pale": return [T[4], T[5], T[6], W]
+    return [Y[1], Y[2], Y[3], W]
+
+# 번짐(48×48, 가운데) — 4칸 숨쉬기. 바깥으로 갈수록 성긴 체크 무늬 + 옅은 알파(도트 글로우)
+def glow_cells():
+    out = []
+    for tint in TINTS:
+        P = glow_pal(tint)
+        for f in range(4):
+            c = Cv(48, 48); R = 23 * (1, .93, .87, .93)[f]
+            yy, xx = np.mgrid[0:48, 0:48]
+            d = np.sqrt((xx + .5 - 24) ** 2 + (yy + .5 - 24) ** 2) / R
+            for (r0, r1, col, a, dn) in [(.62, 1.0, P[0], .30, lambda d: .9 - (d - .62) * 2.1), (.36, .62, P[1], .45, lambda d: 1.0 - (d - .36) * 1.3),
+                                          (.16, .36, P[2], .85, 1.0), (0, .16, P[3], 1.0, 1.0)]:
+                dv = dn(d) if callable(dn) else dn
+                m = (d >= r0) & (d < r1) & (BAYER[yy % 4, xx % 4] < dv)
+                c.a[m] = al(col, a)
+            out.append(c)
+    return out
+
+# 바닥 진(136×108, 가운데 68,54 · 그림 속 반지름 64, 땅 비율로 누름) — 0~3 그려짐 · 4~11 회전 반복.
+# 바깥 이중 고리 + 회로 눈금 · 반대로 도는 끊긴 고리 · 육각과 접점 · 안쪽 고리. 앞(아래) 반원이 더 밝다
+SIG_R = 64
+def sigil_cells():
+    out = []
+    cx, cy, R = 68, 54, SIG_R
+    def arc(c, r, a0, a1, col):
+        c.ring(cx, cy, r, r * SQ, col, a0, a1)
+    for tint in TINTS:
+        P = glow_pal(tint)
+        for f in range(12):
+            c = Cv(136, 108)
+            grow = 1.0 if f >= 4 else (f + 1) / 4
+            rot = 0 if f < 4 else (f - 4) / 8
+            # 안쪽 바닥 빛 — 가운데가 짙고 가장자리로 성겨진다
+            c.band(cx, cy, R * .95, R * .95 * SQ, 0, 1, al(P[0], .28), dens=lambda d: (.55 - d * .45) * grow)
+            sweep = TAU * grow
+            # 바깥 이중 고리(앞쪽 반원은 밝은 색)
+            for r, col in ((R, P[2]), (R - 4, P[1])):
+                arc(c, r, -math.pi / 2, -math.pi / 2 + sweep, col)
+            arc(c, R, 0, min(sweep, math.pi), P[3]) if grow >= 1 else None
+            # 회로 눈금 — 10°마다(한 칸에 1.25° 돈다 → 8칸이면 제자리)
+            for i in range(36):
+                a = i * TAU / 36 + rot * TAU / 36
+                if (a + math.pi / 2) % TAU > sweep: continue
+                r0, r1 = R - 4, R - (9 if i % 3 == 0 else 6)
+                c.line(cx + math.cos(a) * r0, cy + math.sin(a) * r0 * SQ, cx + math.cos(a) * r1, cy + math.sin(a) * r1 * SQ, P[1] if i % 3 else P[2])
+                if i % 6 == 0: c.rect(cx + math.cos(a) * (R + 3) - 1, cy + math.sin(a) * (R + 3) * SQ - 1, 2, 2, P[3])   # 바깥 접점
+            # 반대로 도는 끊긴 고리(24 마디, 한 칸에 15°/8)
+            for i in range(12):
+                a0 = i * TAU / 12 - rot * TAU / 24
+                if grow < 1 and i >= 12 * grow: continue
+                arc(c, R * .76, a0, a0 + TAU / 24, P[2])
+            # 육각 + 꼭짓점 접점(한 칸에 60°/8)
+            if grow >= .5:
+                hr = R * .58; ha = rot * TAU / 6 + math.pi / 6
+                pts = [(cx + math.cos(ha + k * TAU / 6) * hr, cy + math.sin(ha + k * TAU / 6) * hr * SQ) for k in range(6)]
+                c.poly(pts, P[1])
+                for k in range(0, 6, 2): c.line(pts[k][0], pts[k][1], pts[(k + 2) % 6][0], pts[(k + 2) % 6][1], al(P[1], .6))
+                for x, y in pts: c.rect(x - 1, y - 1, 3, 2, P[3])
+            # 안쪽 고리와 세 갈래 꺾쇠
+            if grow >= .75:
+                arc(c, R * .3, 0, TAU, P[2])
+                for k in range(3):
+                    a = -rot * TAU / 3 + k * TAU / 3
+                    arc(c, R * .38, a, a + .5, P[3])
+            # 반짝이는 점 — 고리 위 몇 곳
+            if grow >= 1:
+                for k in range(5):
+                    a = rnd(91, k) * TAU + rot * TAU / 5 * (1 if k % 2 else -1)
+                    star(c, cx + math.cos(a) * R, cy + math.sin(a) * R * SQ, 2 if (f + k) % 3 else 3, P[3], P[2])
+            out.append(c)
+    return out
+
+# 빛 기둥(36×200, 바닥 18,196) — 0~2 솟음 · 3~6 굵게 일렁임 · 7~9 가늘어지며 사라짐. 흰 중심 · 색 가장자리 · 성긴 번짐 · 옆 반짝이
+def pillar_cells():
+    out = []
+    cx, cy, H = 18, 196, 192
+    for tint in TINTS:
+        P = glow_pal(tint)
+        for f in range(10):
+            c = Cv(36, 200)
+            if f < 3: top, wd, a = cy - H * ez((f + 1) / 3), 7, 1.0
+            elif f < 7: top, wd, a = cy - H, (8, 9, 8, 9)[f - 3], 1.0
+            else: top, wd, a = cy - H, 8 - (f - 6) * 2.2, 1 - (f - 7) * .28
+            yy, xx = np.mgrid[0:200, 0:36]
+            dx = np.abs(xx + .5 - cx) / max(1, wd)
+            fade = np.clip((yy - top) / 40.0, 0, 1)                      # 꼭대기는 흐려진다
+            on = (yy >= top) & (yy <= cy)
+            for (r0, r1, col, aa, dn) in [(1.0, 1.9, P[0], .35, .55), (.65, 1.0, P[1], .8, 1.0), (.3, .65, P[2], .95, 1.0), (0, .3, P[3], 1.0, 1.0)]:
+                m = on & (dx >= r0) & (dx < r1) & (BAYER[yy % 4, xx % 4] < fade * dn)
+                c.a[m] = al(col, aa * a)
+            # 바닥 쪽 퍼짐(밑동이 넓어진다)
+            c.band(cx, cy - 2, wd * 2.1, wd * .7, 0, 1, al(P[2], .9 * a), dens=lambda d: (1.1 - d) * a)
+            c.band(cx, cy - 3, wd * 1.1, wd * .4, 0, 1, al(P[3], a), dens=1.0)
+            # 옆으로 흩날리는 반짝이
+            for k in range(7):
+                y = top + 10 + (rnd(97, k) * (cy - top - 14) - f * 9) % max(1, cy - top - 14)
+                x = cx + (1 if k % 2 else -1) * (wd + 2 + rnd(98, k) * 5)
+                if f < 9: star(c, x, y, 1 + (f + k) % 2, al(P[3], a), al(P[2], a))
+            out.append(c)
+    return out
+
+# 반짝이(11×11) — 6칸 생애(커졌다 작아짐), 줄 = 연마 색
+def star_cells():
+    out = []
+    for tint in TINTS:
+        P = glow_pal(tint)
+        for f, arm in enumerate([1, 2, 4, 5, 3, 1]):
+            c = Cv(11, 11)
+            if arm >= 4:
+                for d in (1, 2): c.px(5 + d, 5 + d, al(P[1], .7)); c.px(5 - d, 5 - d, al(P[1], .7)); c.px(5 + d, 5 - d, al(P[1], .7)); c.px(5 - d, 5 + d, al(P[1], .7))
+            star(c, 5, 5, arm, P[2], P[1])
+            c.px(5, 5, P[3])
+            out.append(c)
+    return out
+
 def main():
     man = {}; sheets = {}
     sheets["en_pulse"] = pack("en_pulse", pulse_cells(), 4, man, loop=1, rows=3)
@@ -639,6 +760,10 @@ def main():
     sheets["en_exhaust"] = pack("en_exhaust", exhaust_cells(), 6, man, cx=12, cy=2, rows=2, loop=1)
     sheets["en_target"] = pack("en_target", target_cells(), 5, man, cx=56, cy=40)
     sheets["en_bits"] = pack("en_bits", bit_cells(), 8, man, rows=len(BIT_KINDS))
+    sheets["en_glow"] = pack("en_glow", glow_cells(), 4, man, rows=3, loop=1)
+    sheets["en_sigil"] = pack("en_sigil", sigil_cells(), 12, man, rows=3, r=SIG_R)
+    sheets["en_pillar"] = pack("en_pillar", pillar_cells(), 10, man, cx=18, cy=196, rows=3)
+    sheets["en_star"] = pack("en_star", star_cells(), 6, man, rows=3)
     json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
     if len(sys.argv) > 2 and sys.argv[1] == "preview":
         os.makedirs(sys.argv[2], exist_ok=True)

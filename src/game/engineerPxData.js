@@ -26,6 +26,11 @@ export const ENGINEER_PX = {
   en_exhaust: { w: 24, h: 40, cols: 6, n: 6, cx: 12, cy: 2, loop: 1, rows: 2 },   // 추진 불꽃 — 6칸 · 청록/과열 두 색
   en_target: { w: 112, h: 80, cols: 5, n: 10, cx: 56, cy: 40 },   // 표적 지정 회로 — 진행되는 눈금과 수렴 고리
   en_bits: { w: 16, h: 16, cols: 8, n: 8, cx: 8, cy: 8, rows: 6 },   // 범위를 채우는 작은 입자(11월 17일 밀도 보강) — 줄 0 청록 스파크 · 1 금빛 스파크 · 2 불씨 · 3 금속 파편(칸 = 회전) · 4 연기 · 5 짧은 전류 줄기
+  // 빛 연출(11월 21일 사용자 "빛나는 이펙트를 넣어줘") — 게임이 빛 더하기(lighter)로 얹는다. 줄 = 연마 색 셋
+  en_glow: { w: 48, h: 48, cols: 4, n: 4, cx: 24, cy: 24, loop: 1, rows: 3 },   // 번짐 — 흰 중심 · 색 테두리 · 성긴 바깥(그림 속 반지름 23)
+  en_sigil: { w: 136, h: 108, cols: 12, n: 12, cx: 68, cy: 54, rows: 3, r: 64 },   // 바닥 진 — 0~3 그려짐 · 4~11 회전 반복(땅 비율로 누른 그림)
+  en_pillar: { w: 36, h: 200, cols: 10, n: 10, cx: 18, cy: 196, rows: 3 },   // 빛 기둥(바닥 기준) — 0~2 솟음 · 3~6 일렁임 · 7~9 사라짐
+  en_star: { w: 11, h: 11, cols: 6, n: 6, cx: 5, cy: 5, rows: 3 },   // 반짝이 — 6칸 생애
 };
 // 아이콘 칸 차례(en_icons)
 export const ENGINEER_ICON = { pulse: 0, turret: 1, drone: 2, magnet: 3, rail: 4, mech: 5, oc: 6, orbit: 7 };

@@ -1826,6 +1826,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   };
 
   // 스킬 · 물약 칸 — 넓은 화면(SIDE_MQ)은 판 오른쪽 rpg-side 에, 아니면 예전처럼 판 안 아래에 둔다
+  const hidJob = !!(me && (me.gm || me.en || me.nc));   // 히든 직업 — 일반 스킬 · 무기 스킬 · 전직 스킬 입력을 판정이 버리니 칸도 숨긴다(rpgInput.js)
   const actionBars = (
     <div className={`rpg-touch-actions ${side || me?.blood || me?.gm ? "icons" : ""} ${me?.gm ? "gm" : ""}`}>
     {me && !shopOpen && !bagOpen && (me.nc || me.en) && <div className="rpg-hid-stat">{/* 전력 · 영혼 · 명부 줄 — 정보창에서 스킬 탭으로(11월 21일) */}
@@ -1842,7 +1843,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
           {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
         </button>}{/* 넓은 화면은 스킬 탭에서 대쉬 칸을 뺀다(키는 그대로, 11월 21일) */}
-        {me.wsk && (
+        {me.wsk && !hidJob && (
           <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }}
             onPointerUp={() => { chargeRef.current = false; act("wcharge", false); }}
@@ -1854,7 +1855,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             {me.wsk.cd > 0 && <i style={{ width: `${(me.wsk.cd / me.wsk.max) * 100}%` }} />}
           </button>
         )}
-        {me.adv && !me.blood && (
+        {me.adv && !me.blood && !hidJob && (
           <button type="button" className={`rpg-skill adv ${me.adv.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "use" }); }}>
             {!touch && keyOf(binds, "adv") && <kbd>{keyOf(binds, "adv")}</kbd>}
@@ -1881,7 +1882,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           onFire={() => act("fire", true)} onFireUp={() => act("fire", false)} />
         {me.nc && <NecroBar part="skills" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
         {me.en && <EngineerBar part="skills" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
-        {me.adv && me.adv.ult && !me.blood && (
+        {me.adv && me.adv.ult && !me.blood && !hidJob && (
           <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>
             {!touch && keyOf(binds, "advUlt") && <kbd>{keyOf(binds, "advUlt")}</kbd>}
@@ -1891,7 +1892,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             {me.adv.ult.cd > 0 && <i style={{ width: `${(me.adv.ult.cd / me.adv.ult.max) * 100}%` }} />}
           </button>
         )}
-        {me.adv && me.adv.heal !== undefined && !me.blood && (
+        {me.adv && me.adv.heal !== undefined && !me.blood && !hidJob && (
           <button type="button" className={`rpg-skill adv ${me.adv.heal ? "" : "cool"}`} aria-pressed={me.adv.heal}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "mode" }); }}>
             {!touch && keyOf(binds, "healMode") && <kbd>{keyOf(binds, "healMode")}</kbd>}
@@ -1899,7 +1900,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <span>{me.adv.heal ? "치유 평타" : "공격 평타"}<small>눌러 바꾸기</small></span>
           </button>
         )}
-        {!me.blood && !me.gm && !me.en && me.skills.map((s) => (
+        {!me.blood && !hidJob && me.skills.map((s) => (
           <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
             {!touch && keyOf(binds, s.key) && <kbd>{keyOf(binds, s.key)}</kbd>}

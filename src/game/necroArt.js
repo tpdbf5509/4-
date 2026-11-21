@@ -379,8 +379,8 @@ export function drawNecroShadowOf(ctx, h, sd, time, mine = false) {
    시트가 이미 이 자세(옆 그림처럼 왼쪽이 앞)라 뒤집지 않는다. 휘두르는 동안(h.swing) 손을 축으로 날이 머리 위 → 앞 아래로 돈다 */
 const NC_HAND = {                                   // 쥔 손 자리(몸 그림 비율) · 든 자세 회전(라디안) · 날 뒤집기
   // 옆(왼쪽 · 오른쪽을 볼 때)은 11월 20일 사용자 "칼날 끝부분이 아래로 가게" — 자루를 세워 날을 머리 위에 두고 뒤집어 날 끝이 앞 아래로 늘어진다
-  m: { front: [0.66, 0.44, 0], turn: [0.66, 0.44, 0], side: [0.4, 0.5, 2.99, 1], back: [0.34, 0.45, 0] },
-  f: { front: [0.64, 0.45, 0], turn: [0.64, 0.45, 0], side: [0.42, 0.5, 2.99, 1], back: [0.36, 0.46, 0] },
+  m: { front: [0.66, 0.44, 0], turn: [0.66, 0.44, 0], side: [0.4, 0.5, 2.99, 1], back: [0.5, 0.44, 0] },
+  f: { front: [0.64, 0.45, 0], turn: [0.64, 0.45, 0], side: [0.42, 0.5, 2.99, 1], back: [0.5, 0.45, 0] },
 };
 /* 베기(11월 19일 사용자 "휘두를 때 모션이 이상해") — 손을 축으로 한 덩어리로 돈다(자루 길이 · 쥔 자리 그대로).
    0~0.2 머리 위 뒤로 들어 올림 → 0.2~0.5 앞 아래로 내려벰(판정 wind 0.12초 ≈ 0.35 지점) → 0.5~1 든 자세로 돌아옴. 내려벨 때는 날 잔상 셋.
@@ -417,7 +417,7 @@ function swingStart(h) {
   return t >= 0 && t < NC_SWING.cut * NC_SCYTHE.swing + NC_SWING.back ? t : -1;
 }
 export function drawNecroScythe(ctx, h, view, ww, hh, top, behind, time) {
-  if ((view === "back" || view === "front") !== behind) return;   // 뒤 · 앞 모습은 낫을 몸 뒤에 그린다(11월 21일 사용자 "앞 모습일 때 낫을 캐릭터 뒤로")
+  if ((view === "front") !== behind) return;   // 앞 모습은 낫을 몸 뒤에(11월 21일 사용자 "앞 모습일 때 낫을 캐릭터 뒤로"), 뒤 모습은 등 위에 그린다(사용자 "뒤를 볼 때는 칼이 등에") — 손 높이는 앞과 같게
   NOW = Number.isFinite(time) ? time : performance.now() / 1000;
   warmNecro();
   const H = NC_HAND[h.gender === "f" ? "f" : "m"][view] || NC_HAND.m.front;

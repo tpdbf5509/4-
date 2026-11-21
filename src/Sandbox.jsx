@@ -157,6 +157,7 @@ function sandboxWorld(c) {
   }
   if (blood) {                                    // BLOOD-001 — 직업 레벨 · 연마를 고른 대로, 혈량은 안정 한계까지
     unlockBlood(h);
+    if (w) h.bag.e = (h.bag.w.find((q) => q.sp === w.id) || {}).u || 0;   // rpgJoin 이 켜지기 전이라 레퀴엠을 내려놓았다 — 켠 뒤 다시 든다(안 들면 X 무기 스킬이 안 나간다)
     const blv = Math.max(1, Math.min(BLOOD.maxLv, Math.floor(c.bloodLv) || 1)), tr = Math.max(0, Math.min(BLOOD.train.max, Math.floor(c.train) || 0));
     Object.assign(h.bag.bd, { lv: blv, xp: 0, tr: [[tr, 0], [tr, 0], [tr, 0]], b: stableCap(blv) });
     refreshHp(h, true);

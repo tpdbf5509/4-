@@ -1827,6 +1827,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   // 스킬 · 물약 칸 — 넓은 화면(SIDE_MQ)은 판 오른쪽 rpg-side 에, 아니면 예전처럼 판 안 아래에 둔다
   const actionBars = (
     <div className={`rpg-touch-actions ${me?.blood || me?.gm ? "icons" : ""} ${me?.gm ? "gm" : ""}`}>
+    {me && !shopOpen && !bagOpen && (me.nc || me.en) && <div className="rpg-hid-stat">{/* 전력 · 영혼 · 명부 줄 — 정보창에서 스킬 탭으로(11월 21일) */}
+      {me.nc && <NecroBar part="stat" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
+      {me.en && <EngineerBar part="stat" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
+    </div>}
     {me && !shopOpen && !bagOpen && (
       <div className="rpg-skillbar">
         <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
@@ -2023,9 +2027,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 </span>
                 <BloodBar v={me.blood} />
                 <GamblerBar v={me.gm} />
-                {me.nc && <NecroBar part="stat" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
                 {me.nc && <button type="button" className="rpg-lv-stat" aria-expanded={ncOpen} onClick={() => toggleWin(ncOpen, setNcOpen)}>그림자 명부</button>}
-                {me.en && <EngineerBar part="stat" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
                 <span className="rpg-lv-foot">
                   <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}

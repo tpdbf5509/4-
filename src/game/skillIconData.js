@@ -4,6 +4,10 @@ export const SKILL_ICON_SHEET = { src: "/assets/game/rpg/ui/skill-icons.webp", c
 export const POTION_ICON_SHEET = { src: "/assets/game/rpg/ui/potion-icons.webp", cols: 4, rows: 2 };
 // 스킬 — 칸 번호(왼쪽 위부터)
 export const SKILL_ICONS = { dash: 0, chase: 1, shot: 2, smash: 3, sword: 4, veil: 5, field: 6, conv: 7, wave: 8, hook: 9, pierce: 10, sea: 11, legion: 12, origin: 13, awake: 14 };
+// 일반 직업 · 전직 스킬(11월 21일, design/ui/skill-icons/make-job-icons.py 가 직접 그린 도트 · 4열 × 6행)
+export const JOB_ICON_SHEET = { src: "/assets/game/rpg/ui/skill-icons-job.webp", cols: 4, rows: 6 };
+export const JOB_ICONS = { smash: 0, burst: 1, pierce: 2, aid: 3, j_rush: 4, j_cleave: 5, j_iron: 6, j_pierce: 7, j_volley: 8, j_leap: 9, j_orb: 10, j_chain: 11, j_shield: 12,
+  gladiator: 13, knight: 14, marksman: 15, gunner: 16, archmage: 17, summoner: 18, healer: 19, assassin: 20, elf: 21, summoner_ult: 22, heal_mode: 23 };
 // 물약 — 종류마다 칸 번호. weapon 은 크림슨 레퀴엠이 아닌 무기 스킬 칸
 export const POTION_ICONS = { heal: 0, str: 1, int: 2, crit: 3, reset: 4, speed: 5, hide: 6, weapon: 7 };
 export const potionIconOf = (id) => (/^heal/.test(id) ? "heal" : id === "buff_str" ? "str" : id === "buff_int" ? "int" : id === "buff_crit" ? "crit"

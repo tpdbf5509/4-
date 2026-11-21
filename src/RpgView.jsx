@@ -71,7 +71,7 @@ import { NECRO_NAME, NC_SLOTS, NC_SKILLS, NC_SCYTHE } from "./game/necroData.js"
 import { NecroBar } from "./NecroHud.jsx";
 import NecroRosterPanel, { NecroNamer } from "./NecroRosterPanel.jsx";
 import { bloodHud, BloodBar, BloodButtons, BloodStat, SkillIco } from "./BloodHud.jsx";
-import { POTION_ICON_SHEET, POTION_ICONS, potionIconOf, iconStyle, SKILL_ICON_SHEET, SKILL_ICONS } from "./game/skillIconData.js";   // 스킬 · 물약 아이콘 칸(11월 15일)   // 히든 직업 BLOOD-001(11월 14일)
+import { POTION_ICON_SHEET, POTION_ICONS, potionIconOf, iconStyle, SKILL_ICON_SHEET, SKILL_ICONS, JOB_ICON_SHEET, JOB_ICONS } from "./game/skillIconData.js";   // 스킬 · 물약 아이콘 칸(11월 15일)   // 히든 직업 BLOOD-001(11월 14일)
 import { canvasToWorld, pickNpc, npcStopPoint, MV_UI, loadMoveMode, saveMoveMode, effectiveMoveMode, moveKeysOn, mouseMoveOn as isMouseMode, moveSwitchTasks } from "./game/mouseMove.js";
 import { nearShop, extraStat, SHOP_BY_ID, POTION_BY_ID } from "./game/shop.js";
 import { herbNear } from "./game/alchemy.js";
@@ -111,7 +111,7 @@ function weaponHud(me) {
 // 전직 스킬 칸 — 1차 전직을 마친 사람과 시험 동안 스킬을 쓰는 사람(마도사 시험). 쌓인 패시브를 작은 글자로
 function advHud(me) {
   const q = !me.advClass && me.advQ && ADV_BY_ID[me.advQ.c];
-  if (q && q.trial.skill && q.job === me.job) return { name: q.active.name, cd: (me.as && me.as.cd) || 0, max: q.active.cd, stack: `시험 · ${trialText(q, me.advQ)}` };
+  if (q && q.trial.skill && q.job === me.job) return { id: q.id, name: q.active.name, cd: (me.as && me.as.cd) || 0, max: q.active.cd, stack: `시험 · ${trialText(q, me.advQ)}` };
   const c = ADV_BY_ID[me.advClass];
   if (!c || c.job !== me.job) return null;
   const a = me.as || {}, P = c.passive, mlv = masteryLv(me.advM);
@@ -131,7 +131,7 @@ function advHud(me) {
     : a.sps && a.sps.length ? `정령 ${a.sps.length}/${c.active.max} · ${Math.ceil(Math.max(...a.sps.map((sp) => sp.t)))}초` : P.name;
   const stack = trait ? `${stack0} · ${trait}` : stack0;
   const U = c.ultimate, ult = U ? { name: U.name, cd: a.ucd || 0, max: U.cd, stack: a.gi && a.gi.t > 0 ? (a.gi.pet ? "펫 · 광장" : `체력 ${Math.round((a.gi.hp / a.gi.mhp) * 100)}% · ${Math.ceil(a.gi.t)}초`) : `${U.life}초 · 피해 ${Math.round(U.share * 100)}% 대신 맞음` } : undefined;   // 소환술사 궁극기 칸
-  return { name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined, ult };
+  return { id: c.id, name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined, ult };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT, TITLE_UP, titleUp, titleUpText, titleUpSum } from "./game/socialData.js";
 import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW, QUEST_AREAS, QUEST_MASTER } from "./game/requestData.js";
@@ -162,6 +162,7 @@ import { useTouch } from "./ui/touch.js";
 /* 스킬 · 물약 칸 오른쪽 판(11월 14일) — 판(최대 1040) + 오른쪽 판(260) + 여백이 들어가는 넓은 화면 · 마우스 기기에서만 연다.
    좁은 화면 · 터치는 예전처럼 판 안 아래(rpg-skillbar · rpg-potbar)에 둔다 */
 const SIDE_MQ = "(min-width: 1380px) and (min-height: 640px)";
+const JobIco = ({ id }) => <b className="rpg-ico" style={iconStyle(JOB_ICON_SHEET, JOB_ICONS[id])} aria-hidden="true" />;   // 일반 직업 · 전직 스킬 아이콘(11월 21일)
 function useSidePanel(touch) {
   const q = () => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia(SIDE_MQ).matches;
   const [on, setOn] = useState(q);
@@ -1826,21 +1827,21 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 스킬 · 물약 칸 — 넓은 화면(SIDE_MQ)은 판 오른쪽 rpg-side 에, 아니면 예전처럼 판 안 아래에 둔다
   const actionBars = (
-    <div className={`rpg-touch-actions ${me?.blood || me?.gm ? "icons" : ""} ${me?.gm ? "gm" : ""}`}>
+    <div className={`rpg-touch-actions ${side || me?.blood || me?.gm ? "icons" : ""} ${me?.gm ? "gm" : ""}`}>
     {me && !shopOpen && !bagOpen && (me.nc || me.en) && <div className="rpg-hid-stat">{/* 전력 · 영혼 · 명부 줄 — 정보창에서 스킬 탭으로(11월 21일) */}
       {me.nc && <NecroBar part="stat" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
       {me.en && <EngineerBar part="stat" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
     </div>}
     {me && !shopOpen && !bagOpen && (
       <div className="rpg-skillbar">
-        <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
+        {!side && <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
           onPointerDown={(e) => { e.preventDefault(); act("dash"); }}>
           {!touch && keyOf(binds, "dash") && <kbd>{keyOf(binds, "dash")}</kbd>}
           <SkillIco id="dash" />
           <span>대쉬<small>회피 {DASH.inv}초</small></span>
           {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
           {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
-        </button>
+        </button>}{/* 넓은 화면은 스킬 탭에서 대쉬 칸을 뺀다(키는 그대로, 11월 21일) */}
         {me.wsk && (
           <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }}
@@ -1857,6 +1858,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <button type="button" className={`rpg-skill adv ${me.adv.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "use" }); }}>
             {!touch && keyOf(binds, "adv") && <kbd>{keyOf(binds, "adv")}</kbd>}
+            <JobIco id={me.adv.id} />
             <span>{me.adv.name}<small>{me.adv.stack}</small></span>
             {me.adv.cd > 0 && <em>{Math.ceil(me.adv.cd)}</em>}
             {me.adv.cd > 0 && <i style={{ width: `${(me.adv.cd / me.adv.max) * 100}%` }} />}
@@ -1883,6 +1885,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <button type="button" className={`rpg-skill adv ${me.adv.ult.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "ult" }); }}>
             {!touch && keyOf(binds, "advUlt") && <kbd>{keyOf(binds, "advUlt")}</kbd>}
+            <JobIco id="summoner_ult" />
             <span>{me.adv.ult.name}<small>{me.adv.ult.stack}</small></span>
             {me.adv.ult.cd > 0 && <em>{Math.ceil(me.adv.ult.cd)}</em>}
             {me.adv.ult.cd > 0 && <i style={{ width: `${(me.adv.ult.cd / me.adv.ult.max) * 100}%` }} />}
@@ -1892,6 +1895,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <button type="button" className={`rpg-skill adv ${me.adv.heal ? "" : "cool"}`} aria-pressed={me.adv.heal}
             onPointerDown={(e) => { e.preventDefault(); act("adv", { op: "mode" }); }}>
             {!touch && keyOf(binds, "healMode") && <kbd>{keyOf(binds, "healMode")}</kbd>}
+            <JobIco id={me.adv.heal ? "heal_mode" : "healer"} />
             <span>{me.adv.heal ? "치유 평타" : "공격 평타"}<small>눌러 바꾸기</small></span>
           </button>
         )}
@@ -1899,6 +1903,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           <button key={s.id} type="button" className={`rpg-skill ${s.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); act("use", s.id); }}>
             {!touch && keyOf(binds, s.key) && <kbd>{keyOf(binds, s.key)}</kbd>}
+            <JobIco id={s.id} />
             <span>{s.name}<small>Lv {s.lv}</small></span>
             {s.cd > 0 && <em>{Math.ceil(s.cd)}</em>}
             {s.cd > 0 && <i style={{ width: `${(s.cd / s.max) * 100}%` }} />}

@@ -200,3 +200,8 @@ test('스냅샷 줄 61 · 62 — 손님 화면이 시험 · 직업 값을 받는
   assert.equal(nqGhost({ t: 1, trail: [] }, 3), null);
   assert.equal(NQ_SEALS.length, 7);
 });
+
+test('병사를 지켜라 — 병사 셋은 정삼각형(세 변 길이가 같다)', () => {
+  const [a, b, c] = NQ_TRIALS.guard.allies, d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+  assert.ok(Math.abs(d(a, b) - d(b, c)) < 3 && Math.abs(d(b, c) - d(c, a)) < 3);
+});

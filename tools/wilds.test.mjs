@@ -18,22 +18,21 @@ test('별이슬숲은 맵 목록 맨 뒤에 붙고 안전 지역이다',()=>{
  WILD_MAPS.forEach(m=>assert.ok(MAPS[m.id].safe&&MAPS[m.id].wild));
 });
 
-test('열기 전(live=false)에는 테스트 서버에서만 마을 문이 보인다',()=>{
- assert.equal(WILDS.live,false);
+test('실제 게임에 열렸다(live) — 일반 방 · 테스트 방 모두 마을 문이 보인다',()=>{
+ assert.equal(WILDS.live,true);
  const has=(g)=>gatesOf(g,MAPS.dawnwood).some(q=>q.to==='dew-forest');
- assert.equal(has(world(false)),false);assert.equal(has(world(true)),true);
+ assert.equal(has(world(false)),true);assert.equal(has(world(true)),true);
 });
 
-test('테스트 서버 — 마을 동쪽 문 → 별이슬숲 → 서쪽 출구 → 마을',()=>{
+test('마을 동쪽 문 → 별이슬숲 → 서쪽 출구 → 마을',()=>{
  const g=world(true),h=g.heroes[0],q=WILD_VILLAGE_GATE;
  Object.assign(h,{map:'dawnwood',x:q.back[0],y:q.back[1],gateCd:0});
  walkTo(g,'dawnwood',q.x,q.y);assert.equal(h.map,'dew-forest','마을 → 숲');
  step(g,60);assert.equal(h.map,'dew-forest','들어오자마자 나가지 않는다');
  const out=MAPS['dew-forest'].gates[0];
  walkTo(g,'dew-forest',out.x,out.y);assert.equal(h.map,'dawnwood','숲 → 마을');
- // 테스트가 아닌 방에서는 문을 밟아도 넘어가지 않는다
  const g2=world(false),h2=g2.heroes[0];Object.assign(h2,{map:'dawnwood',x:q.back[0],y:q.back[1],gateCd:0});
- walkTo(g2,'dawnwood',q.x,q.y);assert.equal(h2.map,'dawnwood');
+ walkTo(g2,'dawnwood',q.x,q.y);assert.equal(h2.map,'dew-forest','일반 방에서도');
 });
 
 test('나무는 출구 · 들어오는 자리 · 연못 대화 자리를 막지 않고, 숲 가운데 빈터까지 걸어간다',()=>{

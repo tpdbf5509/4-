@@ -5,8 +5,8 @@
    나무는 바닥 그림과 따로 만들어 코드가 심는다(사용자 지시) — 자리는 design/wilds/plant.py 가 만든 wildsPlant.js. 맵 차례는 rpg.js 끝에 뒤에만 더한다. */
 import {DEW_PLANTS} from './wildsPlant.js';
 
-// live 가 false 면 테스트 서버(?test)에서만 마을 문이 보이고 지나간다. 사용자가 확인하면 true 로 연다
-export const WILDS = {live: false};
+// live 가 false 면 테스트 서버(?test)에서만 마을 문이 보이고 지나간다. 11월 22일 사용자 확인으로 실제 게임에 열었다
+export const WILDS = {live: true};
 export const wildsOn = (g) => WILDS.live || !!g?.test;
 
 /* 나무 · 덤불 종류 — size 는 512 그림을 그릴 크기(사람 키 약 90), r 은 밑동 막힘 반지름(0 이면 밟고 지나간다).

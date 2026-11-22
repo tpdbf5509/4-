@@ -61,6 +61,7 @@
 - `server/src/`: `room.js`(RPG 방) · `relay.js` · `ledger*.js` · `save.js` · `index.js`.
 - `tools/`: 시험(`*.test.mjs`)과 그림 자르기 스크립트. `design/`: 원본 그림(게임이 직접 쓰지 않음).
 - `.claude/skills/`: `codex-image`(Codex 로 그림 생성 — 새 세션은 Codex 로그인이 비어 있다, `bash tools/codex-ready.sh` 로 먼저 점검) · `pixelfx`(외부 MIT 라이브러리로 픽셀 연출 시트 뽑기, 외부 코드는 scratchpad 에 받아 확인 후 실행).
+  · `watch`(올린 영상에서 장면을 뽑아 보기).
 
 ## 5. 바꿀 때 사용자 확인이 필요한 규칙
 
@@ -120,6 +121,9 @@
 - 일부러 줄인 곳은 `// shortcut: <한계>, <언제 고칠지>` 주석을 단다. 보고 끝에 건너뛴 것 · 확인 못 한 것 · 위험을 한두 줄 적는다.
 - 줄이지 않는 것: 입력 검증 · 저장 손실 방지 · 보안 · 사용자가 기획한 기능과 연출. CLAUDE.md 의 다른 규칙과 부딪치면 CLAUDE.md 가 먼저다.
 - 리뷰는 `ponytail-review`(바뀐 코드), 저장소 전체 점검은 `ponytail-audit`. 결과는 한국어로 낸다.
+
+### 영상 보기 — watch (11월 22일 사용자 지시로 적용)
+- 사용자가 올린 플레이 영상(`/mnt/project-files/*.mp4`)은 `.claude/skills/watch` 로 장면을 뽑아 직접 본다(원본 `bradautomates/claude-video`, MIT). 기본 local 엔진, 처음 한 번 `pip install -q yt-dlp`. 영상을 구글로 올리는 Gemini 엔진은 사용자가 원할 때만.
 
 ## 7. 확인 절차 (push 전에 꼭)
 

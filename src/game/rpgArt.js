@@ -22,7 +22,8 @@ import { gmSpotShown } from './gamblerUnlock.js';
 import { eqSpotsOn, drawEqSpot, eqCompanion, eqCompanionAt, drawEqCompanion, drawEqHazards, drawEqTrialGround, drawEqMob, drawEqFx, drawEqExits, drawEqExitLabel } from './engineerQuestArt.js';   // Engineer 003 획득 루트
 import { eqSpotNear } from './engineerQuest.js';
 import { nqSpotsOn, drawNqSpot, drawNqGround, nqTrialBodies, drawNqAlly, drawNqFoe, drawNqGhost } from './necroQuestArt.js';   // Necromancer 004 획득 루트
-import { nqSpotNear } from './necroQuest.js';   // Gambler 002 해금 경로 조사물
+import { nqSpotNear, nqView } from './necroQuest.js';
+import { TEST_MODE } from '../net/testMode.js';   // Gambler 002 해금 경로 조사물
 import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003 — 무기 그림을 들지 않는다 · 설치물 몸
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
@@ -2649,7 +2650,11 @@ function drawTiled(ctx, im, M, cam) {
 // 카메라 — z(camZoom)가 1 보다 작으면 화면에 W/z × H/z 만큼의 땅이 보인다. 화면 → 땅 좌표는 화면/z + cam(mouseMove.js · skillAim.js)
 function follow(g, M) {
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
-  const z = camZoom(M), vw = W / z, vh = H / z;
+  // 테스트 서버 전용 — 발테른 시험(shield) 중에는 카메라가 부드럽게 뒤로 빠져 맵 전체를 크게 본다(실제 게임에는 없다)
+  const wide = TEST_MODE && me && (nqView(me)?.tr?.id === 'shield');
+  const zt = wide ? Math.min(1, W / M.w, H / M.h) : camZoom(M);
+  const z0 = g.cam && g.cam.map === M.id ? g.cam.z || 1 : zt;
+  const z = Math.abs(zt - z0) < 0.003 ? zt : z0 + (zt - z0) * 0.06, vw = W / z, vh = H / z;
   const tx = me ? me.x - vw / 2 : (M.w - vw) / 2;
   const ty = me ? me.y - vh / 2 - 20 / z : (M.h - vh) / 2;
   const cx = M.w <= vw ? (M.w - vw) / 2 : Math.max(0, Math.min(M.w - vw, tx));

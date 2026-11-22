@@ -60,11 +60,11 @@ test('BLOOD-001 · Gambler 002 — 각 직업 설명 · 레벨 · 잠김', () =>
   assert.equal(rg.info.id, 'gambler'); assert.ok(rg.lv >= 1);
 });
 
-test('엔지니어는 실제 게임 설명에 나온다(11월 19일) · 네크로맨서는 아직 나오지 않는다', () => {
+test('엔지니어는 실제 게임 설명에 나온다(11월 19일) · 네크로맨서도 나온다(11월 22일)', () => {
   const { h } = hero('mage', { hj: { active: 'engineer', jobs: { engineer: { lv: 10, xp: 0, tr: [[0, 0], [0, 0], [0, 0]] } }, version: 1 } });
   assert.equal(gameSkillInfo(h).info.id, 'engineer'); assert.equal(gameSkillInfo(h).lv, 10);
   const n = hero('mage'); n.h.bag.hj = { active: 'necromancer', jobs: { necromancer: { lv: 10, xp: 0, tr: [[0, 0], [0, 0], [0, 0]], roster: [] } }, version: 1 };
-  assert.equal(gameSkillInfo(n.h).info.id, 'mage');
+  assert.equal(gameSkillInfo(n.h).info.id, 'necromancer'); assert.equal(gameSkillInfo(n.h).lv, 10);
 });
 
 test('M 키 — 기본 키는 스킬 설명이고 다른 행동과 겹치지 않는다', () => {

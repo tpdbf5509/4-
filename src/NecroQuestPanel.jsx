@@ -70,7 +70,17 @@ export default function NecroQuestPanel({ spotId, getHero, tick, onAct, onGlyph,
       return read([`압력계 바늘이 ${safe ? '푸른 칸' : '붉은 칸'}에 있다(${Math.floor(p)}).`, '바늘은 여덟을 세고 한 바퀴 돈다. 푸른 칸은 끝의 셋뿐이다.']);
     }
     if (k === 'seq') return send(undefined, (c) => read(c === 1 ? a.ok : c === 4 ? [`수문 하나가 열렸다(${(nqView(h0())?.seq?.[a.g] || []).length}/${a.n}).`] : c === 6 ? ['이미 물이 빠졌다.'] : [a.bad]));
-    if (k === 'pick' || k === 'dials') { if (k === 'dials') setDials(a.items.map(() => 0)); return has(a.set) ? read(a.ok) : read(a.intro || [], k); }
+    if (k === 'pick' || k === 'dials') {
+      if (k === 'dials') setDials(a.items.map(() => 0));
+      if (has(a.set)) {
+        if (spotId === 'a-dial') return read([
+          '이미 정답을 맞춘 책장 회전 장치입니다. 완료 상태는 저장되어 새로고침해도 유지됩니다.',
+          has('books') ? '책 네 권의 배치도 완료되어 숨은 기록실이 열린 상태입니다.' : '아직 책 네 권을 빈 책장에 배치해야 숨은 기록실이 열립니다.',
+        ]);
+        return read(a.ok);
+      }
+      return read(a.intro || [], k);
+    }
     if (k === 'order') return has(a.set) ? read(a.ok) : read(a.intro || [], 'order');
     if (k === 'mimic') return has(a.seal) ? read(a.sealed) : read(a.intro, 'mimic');
     if (k === 'trialGen') {

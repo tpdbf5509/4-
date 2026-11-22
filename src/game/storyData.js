@@ -380,6 +380,7 @@ export const RUIN_CHAIN = ['ruin-north', 'ruin-east', 'ruin-south', 'ruin-west']
 /* 에르덴 마을에 더하는 1부 시설과 인물. 기존 마을 배치(villageData.js)의 빈자리에 둔다. */
 import {villageAt} from './villageData.js';
 import {LIBRARY_MAPS, LIBRARY_PEOPLE, LIBRARY_BLOCKS} from './libraryData.js';
+import {WILD_MAPS, WILD_BLOCKS} from './wildsData.js';   // 11월 22일 에르덴 바깥 장소(별이슬숲 …)
 const STORY_VILLAGE_RAW = {
   buildings: [
     {id: 'erden-guardpost', name: '경비대 초소', x: 1400, y: 1600, size: 210, look: 'house'},
@@ -407,7 +408,7 @@ const person = (n) => {
   return {...n, name: p.name, role: n.role || p.role, look: p.look, portrait: storyArtPath('portraits', n.who), art: n.who};
 };
 // 이야기 맵과 같은 틀을 쓰는 장소(에르덴 도서관 1 · 2층, libraryData.js)도 함께 찾는다. STORY_MAPS 자체에는 넣지 않는다(맵 차례 · 이야기 문 판정)
-export const PLACE_MAPS = [...STORY_MAPS, ...LIBRARY_MAPS];
+export const PLACE_MAPS = [...STORY_MAPS, ...LIBRARY_MAPS, ...WILD_MAPS];
 const placeOf = (mapId) => PLACE_MAPS.find((m) => m.id === mapId);
 export const storyNpcsOf = (mapId) => (mapId === 'dawnwood' ? STORY_VILLAGE.npcs : placeOf(mapId)?.npcs || []).map(person);
 // 바닥 그림에 그려진 조사물(bg)은 따로 그림을 부르지 않고, 대화 창 초상화도 비운다
@@ -425,5 +426,6 @@ export function storyBlocks(mapId) {
     ...storyNpcsOf(mapId).map((n) => ({x: n.x, y: n.y - 4, r: 18})),
     ...[...storySightsOf(mapId), ...storyPropsOf(mapId)].filter((n) => n.r > 0).map((n) => ({x: n.x, y: n.y - 4, r: n.r})),
     ...(LIBRARY_BLOCKS[mapId] || []).map(([x, y, r]) => ({x, y, r})),   // 도서관 바닥 그림 속 가구
+    ...(WILD_BLOCKS[mapId] || []).map(([x, y, r]) => ({x, y, r})),      // 바깥 장소 바닥 그림 속 연못 · 바위
   ];
 }

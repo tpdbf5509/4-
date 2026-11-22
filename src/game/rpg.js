@@ -27,7 +27,8 @@ import { engineerInput, engineerBasic, tickEngineer, engineerDown, engineerFill,
 import { EN_PULSE } from './engineerData.js';
 import { EQ_MAPS, EQ_EXITS, EQ_VILLAGE, EQ_SITE_MAPS, EQ_SITE_EXIT, EQ_TRIAL } from './engineerQuestData.js';   // Engineer 003 획득 루트(11월 19일)
 import { eqInput, tickEq, eqMobHit, packEq, applyEq, eqInTrial } from './engineerQuest.js';
-import { NQ_MAPS, NQ_EXITS, NQ_BLOCKS } from './necroQuestData.js';   // Necromancer 004 획득 루트(11월 20일)
+import { NQ_MAPS, NQ_EXITS, NQ_BLOCKS } from './necroQuestData.js';
+import { WILD_MAPS, WILD_VILLAGE_GATE, wildsOn } from './wildsData.js';   // 에르덴 바깥 장소(11월 22일)   // Necromancer 004 획득 루트(11월 20일)
 import { nqInput, tickNq, packNq, applyNq, nqTestGeneral } from './necroQuest.js';
 import { HIDDEN_FAMILY, hiddenRange } from "./hiddenFamilyData.js";   // 히든 계열 · 전용 사거리(11월 20일)
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook, packNecro, applyNecro } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
@@ -465,9 +466,22 @@ NQ_MAPS.forEach((m) => {
   MAPS[m.id] = { id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, nq: 1, spawn: m.spawn, gates, blocks: NQ_BLOCKS[m.id] || [], npcs: [] };
   MAP_IDS.push(m.id);
 });
+/* 에르덴 바깥 장소(wildsData.js, 11월 22일) — 별이슬숲부터. 이야기 맵과 같은 틀이고 안전 지역이다. 맵 차례는 뒤에만.
+   wild 표시가 있는 문은 열렸을 때만 보이고 지나간다(wildsOn — 지금은 테스트 서버만) */
+WILD_MAPS.forEach((m) => {
+  const {to, label, ...exit} = m.exit;
+  const back = to === VILLAGE.id ? [WILD_VILLAGE_GATE.back[0], WILD_VILLAGE_GATE.back[1]] : MAPS[to].spawn;
+  MAPS[m.id] = {
+    id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, wild: 1, spawn: m.spawn,
+    gates: [{...exit, to, at: back, label, villageGate: 1, libGate: 'way', wild: 1}],
+    blocks: storyBlocks(m.id), npcs: storyNpcs(m.id),
+  };
+  MAP_IDS.push(m.id);
+});
+{ const q = WILD_VILLAGE_GATE; MAPS[VILLAGE.id].gates.push({ x: q.x, y: q.y, r: q.r, to: q.to, at: MAPS[q.to].spawn, label: q.label, villageGate: 1, libGate: 'way', wild: 1 }); }
 MAPS[HIGH.from].gates.push({ x: MAPS[HIGH.from].w - 90, y: 920, r: 64, to: HIGH_MAPS[0].id, at: [260, 920], label: highLabel(HIGH_MAPS[0]), high: 1, highEnter: 1 });
 // 지금 보이는 문 — 열리지 않은 high 문은 빼고(그림 · 흙길 · 문 판정이 같이 쓴다)
-export const gatesOf = (g, M) => (highOn(g) ? M.gates : M.gates.filter((q) => !q.high));
+export const gatesOf = (g, M) => M.gates.filter((q) => (!q.high || highOn(g)) && (!q.wild || wildsOn(g)));   // 바깥 장소 문도 열린 곳에서만
 
 // 코인 벌이 — 몹 · 퀘스트가 주는 코인에 곱한다(상점이 생겨 30% 낮췄다). 1코인보다 적게 주지는 않는다
 export const COIN_RATE = 0.7;

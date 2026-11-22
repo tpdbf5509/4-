@@ -1,5 +1,5 @@
 import {drawRqGround,drawRqMob} from './requiemArt.js';
-import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf, drawStoryMarks, drawStoryGateLock} from './storyArt.js';
+import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjectsOf, drawStoryMarks, drawStoryGateLock, drawWildShadows} from './storyArt.js';
 import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, drawVillageGround, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART, SHOP_STALL_ART, shopStallPath} from "./plazaNpcData.js";
@@ -2860,6 +2860,7 @@ export function drawRpg(ctx, g, bgs) {
   if (M.pvp) drawArenaFloor(ctx, M);
   if (M.race) drawRaceTrack(ctx, M, g, time, cam, W);   // 몹 레이스 트랙(raceArt.js)
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + VW + pad && y > cam.y - pad && y < cam.y + VH + pad;
+  if (M.wild) drawWildShadows(ctx, M.id, inView);   // 바깥 장소 나무 그림자(storyArt.js)
 
   drawPowerCircles(ctx,g,M.id);
   drawWorldBossGround(ctx,g,M.id,lod.q);drawGuildGround(ctx,g,M.id);
@@ -2939,7 +2940,7 @@ export function drawRpg(ctx, g, bgs) {
     if (lift) ctx.restore();
     if (who && (o.m || o.h.cc)) drawCcMark(ctx, who, time);
     else if (o.villageObject) drawVillageObject(ctx, o.villageObject);
-    else if (o.storyObject) drawStoryObject(ctx, o.storyObject, M.id);
+    else if (o.storyObject) drawStoryObject(ctx, o.storyObject, M.id, me);
     else if (o.gate) { drawGate(ctx, o.gate, time); drawStoryGateLock(ctx, o.gate, me); }
     else if (o.npc) drawNpc(ctx, g, o.npc, time);
     else if (o.giant) drawAdvGiant(ctx, o.giant, time);

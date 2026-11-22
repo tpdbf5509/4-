@@ -3,8 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {makeWorld,rpgSyncSeats,rpgJoin,rpgStep,rpgMove,rpgTalk,npcNear,mapIdx,MAPS,RPG,SNAP_ORDER,gatesOf} from '../src/game/rpg.js';
-import {WILD_MAPS,WILD_PLANTS,WILD_VILLAGE_GATE,WILDS} from '../src/game/wildsData.js';
-import {DEW_PLANTS} from '../src/game/wildsPlant.js';
+import {WILD_MAPS,WILD_SETS,WILD_VILLAGE_GATE,WILDS} from '../src/game/wildsData.js';
+import * as PLANTS from '../src/game/wildsPlant.js';
 import {npcStopPoint} from '../src/game/mouseMove.js';
 import {RESET,GIFT} from '../src/game/itemData.js';
 const world=(t)=>{const g=makeWorld();g.mySeat=0;g.test=t;rpgSyncSeats(g,[{id:'w-test',name:'숲시험',hero:{name:'숲시험',job:'warrior',gender:'m'}}]);rpgJoin(g,0,{name:'숲시험',lv:5,rs:RESET.id,gift:GIFT.id,stats:{},bag:{oc:1,w:[],n:1}},'w-test');return g;};
@@ -12,8 +12,8 @@ const step=(g,n)=>{for(let i=0;i<n;i++)rpgStep(g,1/30);};
 const distance=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)/RPG.squash);
 const walkTo=(g,m,x,y)=>{rpgMove(g,0,{x,y,m});step(g,500);};
 
-test('별이슬숲은 맵 목록 맨 뒤에 붙고 안전 지역이다',()=>{
- assert.equal(SNAP_ORDER.maps.at(-1),'dew-forest');
+test('바깥 장소는 맵 목록 맨 뒤에 차례로 붙고 안전 지역이다',()=>{
+ assert.deepEqual(SNAP_ORDER.maps.slice(-3),['dew-forest','lantern-forest','scree-forest']);
  assert.ok(mapIdx('dew-forest')>mapIdx('erden-library-2'));
  WILD_MAPS.forEach(m=>assert.ok(MAPS[m.id].safe&&MAPS[m.id].wild));
 });
@@ -50,9 +50,30 @@ test('나무는 출구 · 들어오는 자리 · 연못 대화 자리를 막지 
  assert.equal(npcNear(h)?.id,'dew-pond');rpgTalk(g,0);
 });
 
-test('나무는 빼곡하고(400그루 넘게) 그림 파일이 모두 있다',()=>{
- assert.ok(DEW_PLANTS.length>400,String(DEW_PLANTS.length));
- assert.ok(DEW_PLANTS.every(([k])=>WILD_PLANTS[k]));
- WILD_PLANTS.forEach(p=>assert.ok(existsSync(`public/assets/game/rpg/story/places/prop-${p.look}.webp`),p.look));
- assert.ok(existsSync('public/assets/game/rpg/story/ground/dew-forest.webp'));
+test('나무는 빼곡하고(숲마다 400그루 넘게) 그림 파일이 모두 있다',()=>{
+ const lists={dew:PLANTS.DEW_PLANTS,lantern:PLANTS.LANTERN_PLANTS,scree:PLANTS.SCREE_PLANTS};
+ for(const [set,list] of Object.entries(lists)){
+  assert.ok(list.length>400,set+' '+list.length);assert.ok(list.every(([k])=>WILD_SETS[set][k]),set);
+  WILD_SETS[set].forEach(p=>assert.ok(existsSync(`public/assets/game/rpg/story/places/prop-${p.look}.webp`),p.look));
+ }
+ WILD_MAPS.forEach(m=>assert.ok(existsSync(`public/assets/game/rpg/story/ground/${m.id}.webp`),m.id));
+ assert.ok(PLANTS.LANTERN_PLANTS.filter(([k])=>k===6).length>=4,'등불 기둥');
+});
+
+test('숲끼리 오간다 — 별이슬숲 ↔ 등불고개 숲 · 너덜재 숲, 출구 · 들어오는 자리는 막히지 않고 조사물에 말을 건다',()=>{
+ for(const m of WILD_MAPS){
+  const M=MAPS[m.id],free=(p)=>M.blocks.every(b=>distance(p,b)>b.r+12);
+  assert.ok(free({x:M.spawn[0],y:M.spawn[1]}),m.id+' 들어오는 자리');
+  M.gates.forEach(q=>{assert.ok(free(q),m.id+' 출구 '+q.label);assert.ok(MAPS[q.to].blocks.every(b=>distance({x:q.at[0],y:q.at[1]},b)>b.r+12),m.id+' → '+q.to+' 도착 자리');});
+  for(const q of M.gates){
+   const g=world(false),h=g.heroes[0];Object.assign(h,{map:m.id,x:M.spawn[0],y:M.spawn[1],gateCd:2});step(g,70);
+   rpgMove(g,0,{x:q.x,y:q.y,m:m.id});step(g,1500);
+   assert.equal(h.map,q.to,`${m.id} → ${q.to}: ${h.x.toFixed(0)},${h.y.toFixed(0)}`);
+  }
+  for(const n of M.npcs){
+   const g=world(false),h=g.heroes[0];Object.assign(h,{map:m.id,x:M.spawn[0],y:M.spawn[1],gateCd:3});
+   rpgMove(g,0,{...npcStopPoint(h,n),m:m.id});step(g,1500);
+   assert.equal(npcNear(h)?.id,n.id,`${m.id}/${n.id}: ${h.x.toFixed(0)},${h.y.toFixed(0)}`);
+  }
+ }
 });

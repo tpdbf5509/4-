@@ -469,11 +469,9 @@ NQ_MAPS.forEach((m) => {
 /* 에르덴 바깥 장소(wildsData.js, 11월 22일) — 별이슬숲부터. 이야기 맵과 같은 틀이고 안전 지역이다. 맵 차례는 뒤에만.
    wild 표시가 있는 문은 열렸을 때만 보이고 지나간다(wildsOn — 지금은 테스트 서버만) */
 WILD_MAPS.forEach((m) => {
-  const {to, label, ...exit} = m.exit;
-  const back = to === VILLAGE.id ? [WILD_VILLAGE_GATE.back[0], WILD_VILLAGE_GATE.back[1]] : MAPS[to].spawn;
   MAPS[m.id] = {
     id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, wild: 1, spawn: m.spawn,
-    gates: [{...exit, to, at: back, label, villageGate: 1, libGate: 'way', wild: 1}],
+    gates: m.exits.map((q) => ({...q, villageGate: 1, libGate: 'way', wild: 1})),
     blocks: storyBlocks(m.id), npcs: storyNpcs(m.id),
   };
   MAP_IDS.push(m.id);

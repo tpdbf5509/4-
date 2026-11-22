@@ -77,6 +77,8 @@ export const nqOn = () => !!NC.live;
 const dist = (h, at) => Math.hypot(h.x - at[0], (h.y - at[1]) / SQ);
 export function nqSpotShown(h, s) {
   if (!nqOn() || !h || !h.bag || h.map !== s.map) return false;
+  // 세리온은 책장 회전(dial)만으로 등장하지 않는다. 책 4권 배치(books)까지 끝나야 보인다.
+  if (s.id === 'a-room' && (!nqHas(h, 'dial') || !nqHas(h, 'books'))) return false;
   if (s.act.k === 'mimic' && nqHas(h, s.act.seal) && s.look) return true;
   return nqCond(h, s.show);
 }
@@ -227,6 +229,8 @@ export const nqSeqOf = (h, g0) => (h && h.nqRun && h.nqRun.seq[g0]) || [];
 /* ── 장군 자리 — 차례(steps)대로 문답 · 차례 맞추기 · 장치 확인 · 시험. 다 끝나면 보상 깃발 ── */
 function gen(E, g, h, s, v) {
   const a = s.act;
+  // 서버에서도 세리온 해제 조건을 다시 검증한다(화면/클라이언트 우회 방지).
+  if (s.id === 'a-room' && (!nqHas(h, 'dial') || !nqHas(h, 'books'))) return void res(h, s, 3);
   if (genDone(h, a)) return void res(h, s, 6);
   const st = nqGenStep(h, a);
   if (!st) { finishGen(E, g, h, s); return void res(h, s, 1); }

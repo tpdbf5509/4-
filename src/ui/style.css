@@ -1238,7 +1238,7 @@ kbd {
   background: linear-gradient(rgba(58, 42, 25, 0.94), rgba(38, 28, 17, 0.94));
   border: 1px solid #8a6a3f; border-left: 3px solid var(--pcl);
   box-shadow: 0 4px 0 #22180e, 0 6px 14px rgba(0, 0, 0, 0.4);
-  width: min(320px, calc(100% - 120px));   /* 단추 다섯(스탯 · 가방 · 칭호 · 도감 · 파티)이 코인과 한 줄에 들어가게 */
+  width: min(378px, calc(100% - 120px));   /* 사용자 규격(빨간 상자, 11월 22일) — 코인 · 단추 여섯(스탯 · 가방 · 칭호 · 도감 · 파티 · 스킬 설명)이 한 줄에 들어가게 */
 }
 .rpg-lv-badge {
   flex: none; width: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -2587,7 +2587,7 @@ button.forge-stage:disabled { cursor: default; }
 /* 휴대폰 가로 — 기기마다 hover · pointer 값이 달라 화면이 정한 터치 표시(.touch)만 본다.
    보스 칸 오른쪽은 소리 · 나가기 단추(약 64px) 자리를 비운다 */
 @media (orientation: landscape) and (max-height: 650px) {
-  .rpg-page.touch .rpg-lv { zoom: 0.75; width: clamp(240px, 32vw, 320px); }
+  .rpg-page.touch .rpg-lv { zoom: 0.75; width: clamp(240px, 38vw, 378px); }
   .rpg-page.touch .rpg-dg {
     zoom: 0.7; top: 12px; bottom: auto; left: clamp(280px, 36vw, 365px); right: 110px;
     width: auto; max-width: 520px;

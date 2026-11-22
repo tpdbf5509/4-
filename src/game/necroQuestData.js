@@ -246,7 +246,7 @@ export const NQ_SPOTS = [
       shuffle: [3, 0, 5, 2, 1, 4], ans: [0, 1, 2, 3, 4, 5], bad: '장면들이 흐려지며 흩어진다. 배열만 처음으로 돌아갔다.' },
     steps: [{ flag: 'books' }, { flag: 'sRecord', order: 1 }],
     done: ['세리온|그대는 글을 읽은 것이 아니라, 지워진 자리를 읽었군.', '기록의 인장 · 장군의 기억 3 을 얻었다.', '기억 — 검은 깃털이 내리는 절벽과 하늘의 사원. 서고 뒷문에 순례길 표시가 생겼다.'],
-    reward: ['sRecord', 'm3'] }, { ...gen('serion'), r: 120 }),
+    reward: ['sRecord', 'm3'] }, { ...gen('serion'), r: 120, show: ['dial', 'books'] }),
   S('necro_archive', 'a-back', 1365, 820, '서고 뒷문', { k: 'gate', to: 'necro_sky_shrine', back: P(160, 420), need: ['sRecord'], lock: ['뒷문 밖은 짙은 안개다. 어디로 가야 할지 모르겠다.'] }),
 
   /* ── 6장 · 하늘에서 추방된 자 ── 무너진 하늘의 사원 · 라에딘 */

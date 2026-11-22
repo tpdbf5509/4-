@@ -1,5 +1,9 @@
 import { shownMapName } from "./game/hiddenPlace.js";
 import VillagePanel from './VillagePanel.jsx';
+import { STORY_FX } from './game/storyLines.js';
+import { STORY_STEPS, STORY_STEP_BY_ID, stepTargets } from './game/storyQuestData.js';
+import { VILLAGE_DIALOGUES } from './game/villageData.js';
+import { STORY_DIALOGUES } from './game/storyData.js';
 import LibraryPanel from './LibraryPanel.jsx';
 import RequiemHud from './RequiemHud.jsx';
 import {rqNear} from './game/requiem.js';
@@ -415,7 +419,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
           {/* 오른쪽 — 차례대로 고른다 */}
           <div className="mk-steps">
             <section className="mk-step">
-              <h2 className="mk-h"><span>01</span>이름 · 코드</h2>
+              <h2 className="mk-h">이름 · 코드</h2>
               <RpgAccount char={char} onChar={applyChar} />
             </section>
 
@@ -430,7 +434,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
             )}
 
             <fieldset className="mk-step" disabled={!named}>
-              <h2 className="mk-h"><span>02</span>직업</h2>
+              <h2 className="mk-h">직업</h2>
               {fixed ? fixedRow(`${JOB_BY_ID[job].name} · ${JOB_BY_ID[job].weapon}`) : (
               <div className="mk-jobs">
                 {JOBS.map((j) => (
@@ -449,7 +453,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
 
             {needElem && (
             <fieldset className="mk-step" disabled={!named}>
-              <h2 className="mk-h"><span>03</span>원소</h2>
+              <h2 className="mk-h">원소</h2>
               {fixed ? fixedRow(el ? `${el.name} · ${el.tower}` : "원소 없음") : (
               <div className="mk-elems">
                 {ELEMS.map((e) => (
@@ -473,7 +477,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
             )}
 
             <fieldset className="mk-step" disabled={!named}>
-              <h2 className="mk-h"><span>{needElem ? "04" : "03"}</span>성별</h2>
+              <h2 className="mk-h">성별</h2>
               {fixed ? fixedRow(gender === "f" ? "여" : "남") : (
               <div className="mk-genders">
                 {GENDERS.map((gd) => (
@@ -720,6 +724,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
   const [trainOpen, setTrainOpen] = useState(false); // 훈련 교관 창
   const [testOpen, setTestOpen] = useState(false);   // 테스트 모드(?test) 도구 창
+  // 테스트 모드 이야기 연출 미리보기(11월 22일 사용자) — 진행 · 저장 · 서버와 상관없이 고른 장면을 이 화면에서만 재생한다
+  const [storyPv, setStoryPv] = useState(null);       // { step, npc }
+  const [pvCh, setPvCh] = useState(1);
   const [advOpen, setAdvOpen] = useState(false);     // 전직 교관 창(AdvPanel)
   const [deepOpen, setDeepOpen] = useState(false);   // 계몽의 문 창(DeepPanel)
   const [abyssOpen, setAbyssOpen] = useState(false); // 심연의 탑 창(AbyssPanel)
@@ -819,6 +826,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null); setEqOpen(null); setNqOpen(null); setNcOpen(false); setLibOpen(null); setTestOpen(false); setSkOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
+  // 이야기 연출 미리보기 — 장면의 대화 상대(없으면 단서 대상)로 대화 창을 열고, 실제 장면처럼 카메라를 잠깐 옮긴다
+  const playStoryPv = (id) => {
+    const s = STORY_STEP_BY_ID[id], g = G.current, h = g && g.heroes[mySeat];
+    if (!s || !h) return;
+    const npc = [s.at, ...stepTargets(s)].find((n) => n && (VILLAGE_DIALOGUES[n] || STORY_DIALOGUES[n]));
+    if (!npc) return;
+    closeAll();
+    g.camFocus = { x: h.x + 60, y: h.y - 20, map: h.map, lift: STORY_FX.lift, until: performance.now() + STORY_FX.focus * 1000 };
+    setStoryPv({ step: id, npc });
+  };
   useEffect(() => { bindsRef.current = binds; saveKeys(binds); }, [binds]);
 
   // 서버 저장 — 코드를 정한 캐릭터만. 다른 기기가 나중에 들어오면 이 기기의 서버 저장을 멈추고 알린다
@@ -938,7 +955,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   useEffect(() => { raceRef.current = raceOpen; }, [raceOpen]);
   // 창이 하나라도 열려 있거나 채팅 중이면 마우스 이동을 무시한다(onMoveDown)
   const anyWin = menu || statOpen || !!shopOpen || bagOpen || titleOpen || codexOpen || partyOpen || keysOpen || inqOpen || honorOpen || !!reqOpen || questOpen
-    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || !!eqOpen || !!nqOpen || ncOpen || !!libOpen || testOpen || skOpen || chatOpen || !!waitKey;
+    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || !!storyPv || !!eqOpen || !!nqOpen || ncOpen || !!libOpen || testOpen || skOpen || chatOpen || !!waitKey;
   useEffect(() => { winOpenRef.current = anyWin; }, [anyWin]);
 
   const toggleMute = useCallback(() => {
@@ -1009,7 +1026,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (ns) { closeAll(); setNqOpen(ns.id); return; }
       if (!npc) return;
       if (npc.shelf) { closeAll(); setLibOpen(npc.shelf); return; }   // 에르덴 도서관 책장 — 대화 대신 책장 화면
-      if (npc.village) { closeAll(); setVillageOpen(npc.id); return; }
+      if (npc.village) {
+        closeAll();
+        // 이야기 장면 공통 연출 — 처음 STORY_FX.focus 초 동안 카메라가 나와 상대 사이를 가운데에 둔다(rpgArt.js follow)
+        const sv = storyView(h);
+        if (sv && !sv.done && sv.targets?.includes(npc.id)) g.camFocus = { x: (h.x + npc.x) / 2, y: (h.y + npc.y) / 2, map: h.map, lift: STORY_FX.lift, until: performance.now() + STORY_FX.focus * 1000 };
+        setVillageOpen(npc.id); return;
+      }
       if (npc.board) { closeAll(); setHonorOpen(true); loadRank(); return; }   // 명예 순위판 — 창만 연다
       if (npc.req) { closeAll(); setReqOpen(npc.req); return; }                // 의뢰 NPC — 창을 열고, 받기 · 완료는 창에서 보낸다
       if(npc.guildDoor){guildDoorRef.current?.();return;}          // 광장의 길드 문
@@ -2320,6 +2343,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             return <NecroNamer key={q.t} q={q} onDone={(name) => { act("hidden", { op: "name", t: q.t, n: name }); setNcRename(null); }}
               onSkip={() => { if (ncRename) setNcRename(null); else act("hidden", { op: "name", skip: 1 }); }} />;
           })()}
+          {TEST_MODE && me && storyPv && <VillagePanel key={`pv-${storyPv.step}`} npcId={storyPv.npc} preview={storyPv.step} story={null} myName={names[mySeat]} onClose={() => setStoryPv(null)} />}
           {me && villageOpen && <VillagePanel key={villageOpen} npcId={villageOpen} story={me.story} myName={names[mySeat]} onStory={(d) => act("story", d)} onClose={() => setVillageOpen(null)}
             onBooks={(kind) => { closeAll(); setBookPick(kind); setBagTab("book"); setBagOpen(true); }} />}
           {me && raceOpen && <RacePanel self={me.self} seat={mySeat} race={me.race} names={names} act={act} onClose={() => setRaceOpen(false)} />}
@@ -2974,6 +2998,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                       <span className="rpg-stat-name"><b>회복</b><em>체력을 가득 채우고 모든 대기 시간을 0 으로</em></span>
                       <button type="button" className="rpg-win-btn" onClick={() => act("train", { op: "heal" })}>회복</button>
                     </div>
+                  </div>
+                  <div className="rpg-test-go">
+                    <span className="rpg-test-go-head">이야기 연출 미리보기 <em>진행 · 저장과 상관없이 이 화면에서만 장면을 재생합니다</em></span>
+                    <span className="rpg-test-spots">
+                      <select className="rpg-test-ch" value={pvCh} onChange={(e) => setPvCh(+e.target.value)} aria-label="장">
+                        {[...new Set(STORY_STEPS.map((s) => s.ch))].map((c) => <option key={c} value={c}>{c}장</option>)}
+                      </select>
+                      {STORY_STEPS.filter((s) => s.ch === pvCh).map((s) => (
+                        <button key={s.id} type="button" className="rpg-win-btn" title={s.goal} onClick={() => playStoryPv(s.id)}>{s.id} {s.q}</button>
+                      ))}
+                    </span>
                   </div>
                   <div className="rpg-test-go">
                     <span className="rpg-test-go-head">네크로맨서 장군 시험 <em>앞 단계는 끝낸 것으로 하고 그 장군 곁에 섭니다</em></span>

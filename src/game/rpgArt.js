@@ -2654,8 +2654,11 @@ function follow(g, M) {
   const zt = wide ? Math.min(1, W / M.w, H / M.h) : camZoom(M);
   const z0 = g.cam && g.cam.map === M.id ? g.cam.z || 1 : zt;
   const z = Math.abs(zt - z0) < 0.003 ? zt : z0 + (zt - z0) * 0.06, vw = W / z, vh = H / z;
-  const tx = me ? me.x - vw / 2 : (M.w - vw) / 2;
-  const ty = me ? me.y - vh / 2 - 20 / z : (M.h - vh) / 2;
+  // 이야기 장면을 막 열었으면 잠깐 나와 상대 사이를 본다(RpgView talk — storyLines.js STORY_FX.focus)
+  const fc = g.camFocus && g.camFocus.map === M.id && performance.now() < g.camFocus.until ? g.camFocus : null;
+  const at = fc || me;
+  const tx = at ? at.x - vw / 2 : (M.w - vw) / 2;
+  const ty = at ? at.y - vh / 2 - 20 / z + (fc ? vh * fc.lift : 0) : (M.h - vh) / 2;
   const cx = M.w <= vw ? (M.w - vw) / 2 : Math.max(0, Math.min(M.w - vw, tx));
   const cy = M.h <= vh ? (M.h - vh) / 2 : Math.max(0, Math.min(M.h - vh, ty));
   if (!g.cam || g.cam.map !== M.id) g.cam = { x: cx, y: cy, map: M.id, z };

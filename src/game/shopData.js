@@ -145,26 +145,26 @@ export const SKILL_USE = {
   reach: 1.3,            // 한 마리를 노리는 스킬의 사거리 — 내 평타 사거리의 배수
 };
 export const SKILLS = [...[
-  { id: "smash", name: "강타", kind: "active", fam: "phys", note: "가장 가까운 적 하나를 세게 내려친다",
+  { id: "smash", name: "강타", kind: "active", fam: "phys", note: "",
     use: { key: 1, cd: 6, dmg: "str", mul: [3, 3.6, 4.2, 4.8, 5.4] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [30, 40, 50, 60, 70] },
-  { id: "might", name: "근력 단련", kind: "passive", fam: "phys", note: "물리력이 오른다", bonus: { stat: "str", per: 4 },
+  { id: "might", name: "근력 단련", kind: "passive", fam: "phys", note: "", bonus: { stat: "str", per: 4 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [20, 30, 40, 50, 60] },
-  { id: "burst", name: "마력 폭발", kind: "active", fam: "magic", note: "내 둘레의 적을 모두 친다",
+  { id: "burst", name: "마력 폭발", kind: "active", fam: "magic", note: "",
     use: { key: 2, cd: 10, dmg: "int", radius: 210, mul: [2, 2.4, 2.8, 3.2, 3.6] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [30, 40, 50, 60, 70] },
-  { id: "mana", name: "마나 친화", kind: "passive", fam: "magic", note: "마법력이 오른다", bonus: { stat: "int", per: 4 },
+  { id: "mana", name: "마나 친화", kind: "passive", fam: "magic", note: "", bonus: { stat: "int", per: 4 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [20, 30, 40, 50, 60] },
-  { id: "pierce", name: "급소 찌르기", kind: "active", fam: "crit", note: "제자리에서 가까운 적을 찌른다 · 반드시 치명타가 터진다",
+  { id: "pierce", name: "급소 찌르기", kind: "active", fam: "crit", note: "반드시 치명타가 터진다",
     // 급소 찌르기는 제자리 근접 공격이다. 돌진 베기의 lunge와 분리한다.
     use: { key: 3, cd: 8, dmg: "job", crit: 1, reach: 100, mul: [2.2, 2.6, 3, 3.4, 3.8] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [10, 15, 20, 25, 30] },
-  { id: "eye", name: "날카로운 눈", kind: "passive", fam: "crit", note: "치명타 확률이 오른다", bonus: { stat: "crit", per: 1 },
+  { id: "eye", name: "날카로운 눈", kind: "passive", fam: "crit", note: "", bonus: { stat: "crit", per: 1 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [8, 12, 16, 20, 24] },
-  { id: "aid", name: "응급 처치", kind: "active", fam: "life", note: "최대 체력의 일부를 바로 되찾는다",
+  { id: "aid", name: "응급 처치", kind: "active", fam: "life", note: "",
     use: { key: 4, cd: 30, heal: [0.25, 0.3, 0.35, 0.4, 0.45] },
     gold: [400, 800, 1600, 3200, 6400], lv: [5, 10, 15, 20, 25], need: [200, 300, 400, 500, 600] },
-  { id: "tough", name: "강인함", kind: "passive", fam: "life", note: "최대 체력이 오른다", bonus: { stat: "hp", per: 30 },
+  { id: "tough", name: "강인함", kind: "passive", fam: "life", note: "", bonus: { stat: "hp", per: 30 },
     gold: [300, 600, 1200, 2400, 4800], lv: [1, 5, 10, 15, 20], need: [130, 200, 270, 340, 410] },
 ], ...JOB_SKILLS];   // 직업 스킬은 skillData.js
 

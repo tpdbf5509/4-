@@ -93,9 +93,7 @@ function advCards(h) {
 }
 
 const SKILL_DESC = {
-  warrior: () => ["내 둘레의 적을 크게 벱니다."],
-  mage: (B) => [`사거리 ${B.reach} 안의 가장 가까운 적 자리에 터뜨립니다.`, "적이 없으면 겨눈 쪽에 터집니다."],
-  archer: () => ["내 둘레에 화살비를 쏟습니다."],
+  mage: () => ["적이 없으면 겨눈 쪽에 터집니다."],
 };
 
 function normalInfo(h) {
@@ -107,7 +105,7 @@ function normalInfo(h) {
   rules.push("스킬 상점에서 배워 가방 스킬 칸에 넣은 스킬만 씁니다.");
   const skills = [
     { s: "skill", act: "skill", name: skillName(h), tag: "큰 기술", ult: 1, lvText: "", desc: SKILL_DESC[job.id] ? SKILL_DESC[job.id](B) : [],
-      stats: [["대기", sec(RPG.skillCd)], ["범위", `반지름 ${B.r}`], ["피해", `평타 피해 ${x(B.mul)}`]] },
+      stats: [["대기", sec(RPG.skillCd)], ...(job.id === "mage" ? [["사거리", B.reach]] : []), ["범위", `반지름 ${B.r}`], ["피해", `평타 피해 ${x(B.mul)}`]] },
     ...advCards(h),
   ];
   ks.g.forEach((id, i) => { const q = id && shopCard(h, id, `use${i + 1}`); if (q) skills.push(q); });

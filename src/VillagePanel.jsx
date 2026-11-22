@@ -5,6 +5,8 @@ import {STORY_STEP_BY_ID, STORY_STEPS, STORY_CLEAR_AT, sceneOf, storyLineShown, 
 import {STORY_AFTER} from './game/storyAfter.js';
 import {storyFact, storyMoodFor} from './game/storyGuide.js';
 import sfx from './game/sfx.js';
+import {STORY_FX} from './game/storyLines.js';
+import Cutscene from './Cutscene.jsx';
 
 /* 기존 상점 틀을 쓴다. 평소에는 소개 대화만 보여 준다.
    메인 스토리에서 지금 이 대상과 이야기할 차례면 이야기 장면을 보여 주고, 선택지를 고르게 한다(storyQuestData.js).
@@ -21,6 +23,7 @@ function PickTimer({sec, onEnd}) {
   const end = useRef(onEnd); end.current = onEnd;
   const [left, setLeft] = useState(sec);
   useEffect(() => {
+    try { sfx.play('boss'); } catch { /* 소리를 못 내도 괜찮다 */ }   // 공통 연출 — 결전의 위험은 고르기 전에 경고음으로 먼저 알린다
     const t0 = performance.now();
     const id = setInterval(() => {
       const l = Math.max(0, sec - (performance.now() - t0) / 1000);
@@ -33,11 +36,12 @@ function PickTimer({sec, onEnd}) {
 }
 
 
-export default function VillagePanel({npcId, onClose, story, myName, onStory, onBooks}) {
+export default function VillagePanel({npcId, onClose, story, myName, onStory, onBooks, preview}) {
   const npc = VILLAGE_DIALOGUES[npcId] || STORY_DIALOGUES[npcId], dialog = useRef(null);
   const returnFocus = useRef(null);
   // 이야기 차례인지 — 창을 여는 순간의 진행으로 정한다(대화 중에 진행이 바뀌어도 장면은 그대로)
-  const [step] = useState(() => (story && !story.done && story.targets.includes(npcId) ? STORY_STEP_BY_ID[story.id] : null));
+  // preview — 테스트 모드 연출 미리보기(그 단계 장면을 진행 · 저장 없이 재생, RpgView playStoryPv)
+  const [step] = useState(() => (preview ? STORY_STEP_BY_ID[preview] : story && !story.done && story.targets.includes(npcId) ? STORY_STEP_BY_ID[story.id] : null));
   // 순서 퍼즐에서 차례가 아닌 대상을 고르면 틀린 장면을 보여 준다(서버가 진행을 처음으로 되돌린다)
   const [wrongOrder] = useState(() => !!(step?.order && story?.nextId && story.nextId !== npcId));
   const scene = step ? sceneOf(step, npcId, wrongOrder) : null;
@@ -63,10 +67,21 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   const lineKey = `${at}/${seq.length}/${end}`;
   const [readyKey, setReadyKey] = useState(null);
   const ready = readyKey === lineKey;
+  // 공통 연출(STORY_FX) — 말하는 사람이 바뀌면 반 박자 더, 결과가 확정되면 잠깐 쉰 뒤에 넘긴다
+  const turned = !!step && trail.length > 0 && seq[trail.at(-1)]?.s !== seq[at]?.s;
   useEffect(() => {
-    const id = setTimeout(() => setReadyKey(lineKey), end ? 400 : lineWait(seq[at]?.t));
+    const wait = end ? (step ? STORY_FX.settle * 1000 : 400) : lineWait(seq[at]?.t) + (turned ? STORY_FX.turn * 1000 : 0);
+    const id = setTimeout(() => setReadyKey(lineKey), wait);
     return () => clearTimeout(id);
   }, [lineKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 이야기 장면 동안 배경음악을 낮추고, 두 번째 대사가 끝나면 천천히 되돌린다(닫을 때도 되돌린다)
+  const quiet = !!step && trail.length < 2 && !end;
+  useEffect(() => {
+    if (!step) return undefined;
+    sfx.musicTo(quiet ? STORY_FX.duck : 1, quiet ? 0.4 : STORY_FX.back);
+    return undefined;
+  }, [quiet]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (step) sfx.musicTo(1, STORY_FX.back); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // 줄 연출 — 이 줄에 fx 가 있으면 창을 잠깐 흔들거나 번쩍이고 소리를 낸다. 같은 줄은 한 번만
   const [fxOn, setFxOn] = useState(null);
   const fxLine = !end ? seq[at] : null;
@@ -81,6 +96,15 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
     returnFocus.current = document.activeElement; dialog.current?.focus();
     return () => returnFocus.current?.focus?.();
   }, []);
+  // 컷신 줄(storyLines.js cut) — 처음 닿으면 영상을 틀고, 이미 본 컷신은 장면 설명 한 줄로 보인다
+  const [cutsSeen, setCutsSeen] = useState(() => new Set());
+  const cutNow = step && !end && seq[at]?.cut && !cutsSeen.has(seq[at].cut) ? seq[at].cut : null;
+  const endCut = () => {
+    setCutsSeen((x) => new Set(x).add(cutNow));
+    const k = skip(at + 1);
+    if (k < seq.length) { setTrail((t) => [...t, at]); setAt(k); } else setEnd(true);
+    setTimeout(() => dialog.current?.focus(), 0);
+  };
   if (!npc) return null;
   const say = (t) => (t || '').replaceAll('{playerName}', myName || '모험가');   // 대사 속 내 이름
   const line = seq[at];
@@ -91,7 +115,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   const left = seq.slice(at + 1).filter((l) => shown(l)).length;
 
   const finish = () => {
-    if (step && end) onStory?.({op: 'done', id: npcId, step: step.id, picks: picked});
+    if (step && end && !preview) onStory?.({op: 'done', id: npcId, step: step.id, picks: picked});
     onClose();
   };
   const advance = () => {
@@ -154,7 +178,8 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   };
   return <>
     <div className="rpg-menu-back" onClick={finish}/>
-    <section className={`shop village-panel talk${step ? ' story' : ''}${fxOn ? ` ${fxOn}` : ''}`} role="dialog" aria-modal="true" aria-labelledby="village-dialog-title" ref={dialog} tabIndex={-1} onKeyDown={trap}>
+    {cutNow && <Cutscene key={cutNow} id={cutNow} onDone={endCut}/>}
+    <section className={`shop village-panel talk${step ? ' story' : ''}${fxOn ? ` ${fxOn}` : ''}${cutNow ? ' cut-on' : ''}`} role="dialog" aria-modal="true" aria-labelledby="village-dialog-title" ref={dialog} tabIndex={-1} onKeyDown={trap}>
       {who.img && <img key={who.img} className={`village-portrait${who.sight ? ' sight' : ''}`} src={who.img} alt="" onError={(e) => { e.currentTarget.hidden = true; }}/>}
       <header className="shop-top">
         <div className="shop-title"><b id="village-dialog-title">{who.name}</b><span>{who.role}</span></div>

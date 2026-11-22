@@ -39,6 +39,13 @@ function ctx() {
   return ac;
 }
 
+// 배경음악만 따로 줄이는 통로 — 이야기 장면 동안 음악만 낮추고 효과음은 그대로 둔다(storyLines.js STORY_FX)
+let bgm = null, bgmLevel = 1;
+// 배경음악 크기를 k(몫)로 — sec 초쯤에 걸쳐 바뀐다
+export function musicTo(k, sec = 0.3) {
+  bgmLevel = k;
+  if (bgm && ac) bgm.gain.setTargetAtTime(k, ac.currentTime, Math.max(0.02, sec / 3));
+}
 export function startRpgMusic() {
   const music = new Audio("/assets/audio/bakery-morning.mp3");
   music.loop = true;
@@ -48,7 +55,9 @@ export function startRpgMusic() {
     if (!audio || muted || level === 0) return;
     if (!source) {
       source = audio.createMediaElementSource(music);
-      source.connect(duck);
+      bgm = audio.createGain();
+      bgm.gain.value = bgmLevel;
+      source.connect(bgm); bgm.connect(duck);
     }
     if (music.paused) music.play().catch(() => {});
   }
@@ -59,7 +68,7 @@ export function startRpgMusic() {
     document.removeEventListener("click", play);
     document.removeEventListener("keydown", play);
     music.pause();
-    source?.disconnect();
+    source?.disconnect(); bgm?.disconnect(); bgm = null;
     music.removeAttribute("src");
     music.load();
   };
@@ -239,6 +248,12 @@ export function play(name) {
     tone({ type: "sawtooth", f0: 90, f1: 55, t: 0.9, gain: 0.22 });
     noise({ t: 0.8, gain: 0.2, f: 300, q: 0.6 });
     tone({ type: "square", f0: 147, f1: 110, t: 0.6, gain: 0.12, delay: 0.25 });
+  } else if (name === "cutBell") {          // 이야기 컷신 — 마을 귀환 종(맑은 첫 울림 + 길게 남는 배음)
+    [[392, 0.16], [784, 0.07], [1176, 0.05], [1568, 0.025]].forEach(([f, g]) => tone({ type: "sine", f0: f, f1: f * 0.998, t: 1.8, gain: g }));
+    noise({ t: 0.05, gain: 0.06, f: 3000, q: 3 });
+  } else if (name === "cutRumble") {        // 이야기 컷신 — 무거운 문이 열리며 땅이 울림
+    tone({ type: "sine", f0: 60, f1: 42, t: 1.1, gain: 0.22 });
+    noise({ t: 0.9, gain: 0.12, f: 180, q: 0.6 });
   } else if (name === "bless") {
     [523, 659, 784, 1047].forEach((f, i) => tone({ type: "triangle", f0: f, t: 0.35, gain: 0.11, delay: i * 0.09 }));
   } else if (name === "over") {
@@ -558,4 +573,4 @@ export function play(name) {
   }
 }
 
-export default { unlock, play, shot, isMuted, setMuted, setLevel, startRpgMusic };
+export default { unlock, play, shot, isMuted, setMuted, setLevel, startRpgMusic, musicTo };

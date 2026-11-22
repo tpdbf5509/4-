@@ -3318,6 +3318,19 @@ button.forge-stage:disabled { cursor: default; }
 .skw-ico-txt { display: grid; place-items: center; font-size: 17px; font-weight: 700; color: var(--nw-acc2); background: var(--nw-bg); }
 
 /* Engineer 003 획득 루트 조사 창 — 마을 대화 틀(.village-panel) 위에 퍼즐 입력만 더한다 */
+/* 11월 22일 사용자(휴대폰 가로 화면 세리온 순서 맞추기가 잘려 위를 못 봄) — 조사 창이 화면보다 길면 창 안에서 세로로 넘긴다 */
+.shop.village-panel.eq-panel { max-height: calc(100dvh - 20px); overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+.eq-panel .shop-top { position: sticky; top: 0; z-index: 2; background: rgba(43,33,23,.99); }
+@media (max-height: 520px) {
+  .shop.village-panel.eq-panel { bottom: 6px; max-height: calc(100dvh - 12px); }
+  .eq-panel .village-dialogue-line { min-height: 0; padding: 6px 30px 6px 12px; font-size: 13px; line-height: 1.4; }
+  .eq-panel .story-picks { padding: 6px 10px 2px; gap: 4px; }
+  .eq-panel .eq-q, .eq-panel .eq-note { font-size: 12px; }
+  .eq-panel .eq-row { gap: 4px; }
+  .eq-panel .eq-label { min-width: 56px; font-size: 12px; }
+  .eq-panel .shop-btn { min-height: 26px; padding: 3px 8px; font-size: 12px; }
+  .eq-panel .village-dialogue-actions { padding: 0 10px 6px; }
+}
 .eq-panel .eq-who { margin-right: 10px; font-family: 'Do Hyeon', sans-serif; font-weight: 400; color: #e4c987; letter-spacing: -0.02em; }
 .eq-q { margin: 0 0 4px; font-size: 14px; color: #e8dcc0; letter-spacing: -0.02em; }
 .eq-note { margin: 4px 0 0; font-size: 13px; color: #c4b28e; letter-spacing: -0.02em; }

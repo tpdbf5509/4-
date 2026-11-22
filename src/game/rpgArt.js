@@ -2490,7 +2490,7 @@ function drawHero(ctx, g, h, time) {
   ctx.restore();
 
   // 체력 · 레벨 · 이름
-  const tallK = !down && im && (adminLook(h) || wyvernLook(h) || necroLook(h)) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다 · Necromancer 004 도 11월 19일 1.4배 · 관리자 스킨(1.25배)
+  const tallK = !down && im && (adminLook(h) || gamblerLook(h) || wyvernLook(h) || necroLook(h)) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다 · Necromancer 004 도 11월 19일 1.4배 · 관리자 스킨 · Gambler 002(1.25배, 11월 22일)
   const bw = 40, byy = h.y - tallK * bk - 12;
   const r = Math.max(0, Math.min(1, h.hp / (h.max || 1)));
   ctx.save();

@@ -42,7 +42,7 @@ export function cleanNu(d) {
 // 테스트 서버 전용 「퍼즐 건너뛰기」(도구 창 토글, h.trn.skip) — 실제 게임에서는 g.test 가 아니라 늘 꺼져 있다
 // 테스트 서버 전용 발테른 시험 조정(11월 22일 사용자 — 실제 게임에는 넣지 않는다): 미끼 그림자 대기 12 → 8초, 적이 오는 간격 ×1.25(4 → 5초)
 const nqTest = (g) => !!(g && g.test);
-const NQ_TEST_TUNE = { cd: { decoy: 8 }, gapMul: 1.25 };
+const NQ_TEST_TUNE = { cd: { decoy: 8 }, gapMul: 1.25, decoyDur: 8 };   // 미끼 지속 5 → 8초(11월 22일)
 const nqSkip = (g, h) => !!(g && g.test && h.trn && h.trn.skip);
 const nu = (h) => h.bag.nu || (h.bag.nu = { f: [0, 0, 0, 0], d: {}, t: 0 });
 export function nqHas(h, name) {
@@ -472,7 +472,7 @@ function trialSkill(E, g, h, k) {
     return void E.fx(g, h.map, { kind: 'ring', x: h.x, y: h.y - 10, r: 40, color: VIO, t: 0.3, life: 0.3 });
   }
   if (k === 'decoy') {
-    tr.decoy = { x: h.x, y: h.y, t: SK.decoy.dur };
+    tr.decoy = { x: h.x, y: h.y, t: nqTest(g) && tr.id === 'shield' ? NQ_TEST_TUNE.decoyDur : SK.decoy.dur };
     E.fx(g, h.map, { kind: 'ring', x: h.x, y: h.y - 10, r: 60, color: VIO, t: 0.4, life: 0.4 });
   }
 }

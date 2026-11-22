@@ -61,7 +61,7 @@ export const VILLAGE_ROADS = [
   {w: 72, pts: [[520,1400],[180,1400]]},                                                // 제7연구소
   {w: 72, pts: [[520,1860],[180,1860]]},                                                // 폐광산
   {w: 72, pts: [[2850,1470],[3050,1470]]},                                              // 고대 송신탑
-  {w: 72, pts: [[2665,900],[3110,900]]},                                                // 별이슬숲(11월 22일, wildsData.js WILD_VILLAGE_GATE)
+  {w: 72, pts: [[2665,900],[3090,900]]},                                                // 별이슬숲(11월 22일, wildsData.js WILD_VILLAGE_GATE)
 ]);
 export const VILLAGE_FIELDS = [
   [290,1250],[2000,1250],                                   // 약초밭 · 풍차 텃밭

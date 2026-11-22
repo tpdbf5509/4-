@@ -33,6 +33,9 @@ test('마을 동쪽 문 → 별이슬숲 → 서쪽 출구 → 마을',()=>{
  walkTo(g,'dew-forest',out.x,out.y);assert.equal(h.map,'dawnwood','숲 → 마을');
  const g2=world(false),h2=g2.heroes[0];Object.assign(h2,{map:'dawnwood',x:q.back[0],y:q.back[1],gateCd:0});
  walkTo(g2,'dawnwood',q.x,q.y);assert.equal(h2.map,'dew-forest','일반 방에서도');
+ // 마우스로 이름표(문 40 위)를 눌러도 들어간다 — 11월 22일 입장 제보
+ const g3=world(false),h3=g3.heroes[0];Object.assign(h3,{map:'dawnwood',x:q.back[0],y:q.back[1],gateCd:0});
+ walkTo(g3,'dawnwood',q.x,q.y-40);assert.equal(h3.map,'dew-forest','이름표를 눌러도');
 });
 
 test('나무는 출구 · 들어오는 자리 · 연못 대화 자리를 막지 않고, 숲 가운데 빈터까지 걸어간다',()=>{

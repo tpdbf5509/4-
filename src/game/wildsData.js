@@ -34,7 +34,7 @@ const GROUND = {base: '#5f7448', spot: ['#66804d', '#566b40'], road: '#a7865f', 
    가운데 빈터 오른쪽 위에 작은 연못. 길 자리는 바닥 그림(design/wilds/dew-forest-ground.webp)에 그려져 있다 */
 const DEW = {
   id: 'dew-forest', name: '별이슬숲', w: 3200, h: 2100, top: 170, spawn: [260, 1135],
-  exit: {x: 90, y: 1135, r: 60, to: 'dawnwood', label: '에르덴 마을'},
+  exit: {x: 110, y: 1135, r: 70, to: 'dawnwood', label: '에르덴 마을'},
   ground: GROUND, roads: [], pads: [], buildings: [], npcs: [],
   props: plants(DEW_PLANTS),
   sights: [
@@ -47,5 +47,5 @@ export const WILD_MAPS = [DEW];
 export const WILD_IDS = WILD_MAPS.map((m) => m.id);
 export const WILD_BLOCKS = Object.fromEntries(WILD_MAPS.map((m) => [m.id, m.blocks || []]));
 
-// 에르덴 마을 쪽 문 — 동쪽 가장자리(마을 새 좌표). back 은 별이슬숲에서 돌아올 때 서는 자리
-export const WILD_VILLAGE_GATE = {x: 3110, y: 900, r: 50, to: 'dew-forest', back: [2960, 900], label: '별이슬숲'};
+// 에르덴 마을 쪽 문 — 동쪽 가장자리(마을 새 좌표). 울타리에 붙이지 않고 넉넉한 반지름으로 이름표를 눌러도 닿게 한다(11월 22일 입장 제보). back 은 별이슬숲에서 돌아올 때 서는 자리
+export const WILD_VILLAGE_GATE = {x: 3080, y: 900, r: 70, to: 'dew-forest', back: [2960, 900], label: '별이슬숲'};

@@ -9,6 +9,16 @@ import sfx from './game/sfx.js';
    「탐험 기록」은 지금까지 본 것만 원문 그대로 보여 준다(다음 목표 · 정답은 적지 않는다 — 기획안 2장) */
 const split = (l) => { const i = l.indexOf('|'); return i > 0 && i < 12 ? [l.slice(0, i), l.slice(i + 1)] : ['', l]; };
 const NONE = ['아직 할 수 있는 일이 없다.'];
+// 인장 확인은 기존 진행 플래그만 읽는다. 퍼즐 힌트는 해당 인장을 얻은 뒤에만 공개한다.
+const SEAL_INSPECTION = [
+  { name: '검의 인장', description: '카르돈의 검 문양이 새겨져 있다. 물에 잠긴 전장과 세 기둥의 기억이 희미하게 비친다.' },
+  { name: '방패의 인장', description: '발테른의 방패 안쪽에 새겨진 세 문양: 「달 · 저울 · 나무」. 순서대로 놓인 문양 아래에 서고의 분류 표식이 있다.' },
+  { name: '기록의 인장', description: '세리온의 기록 문양이 있다. 지워진 왕의 이름과 검은 깃털이 흩날리는 절벽의 기억이 남아 있다.' },
+  { name: '날개의 인장', description: '라에딘의 날개 문양이 새겨져 있다. 옆에는 낡은 회중시계의 형상이 남아 있다.' },
+  { name: '시간의 인장', description: '오르벤의 모래시계 문양이 새겨져 있다. 멈춰 버린 장례 행렬의 기억이 떠오른다.' },
+  { name: '경계의 인장', description: '모르켄의 경계문 문양이 새겨져 있다. 서로 마주 보는 두 세계의 조형물이 비친다.' },
+  { name: '침묵의 인장', description: '에레보스의 감은 눈 문양이 새겨져 있다. 일곱 맹세는 첫 무덤에서 끝난다는 문구가 보인다.' },
+];
 
 export default function NecroQuestPanel({ spotId, getHero, tick, onAct, onGlyph, onContract, onClose }) {
   const s = nqSpotById(spotId), a = s.act, k = a.k, si = nqSpotIndex(spotId);
@@ -21,6 +31,7 @@ export default function NecroQuestPanel({ spotId, getHero, tick, onAct, onGlyph,
   const [dials, setDials] = useState([]);
   const [note, setNote] = useState('');
   const [log, setLog] = useState(false);
+  const [sealsOpen, setSealsOpen] = useState(false);
   const waitN = useRef(-1), pend = useRef(null);
   const h0 = () => getHero();
   const has = (n) => nqHas(h0(), n);
@@ -118,38 +129,47 @@ export default function NecroQuestPanel({ spotId, getHero, tick, onAct, onGlyph,
   return <>
     <div className="rpg-menu-back" onClick={onClose}/>
     <section className="shop village-panel eq-panel nq-panel" role="dialog" aria-modal="true" aria-labelledby="nq-dialog-title" ref={box} tabIndex={-1}
-      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); else if ((e.key === 'Enter' || e.key === ' ') && mode === 'read' && !log) { e.preventDefault(); next(); } }}>
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); else if ((e.key === 'Enter' || e.key === ' ') && mode === 'read' && !log && !sealsOpen) { e.preventDefault(); next(); } }}>
       <header className="shop-top">
         <div className="shop-title"><b id="nq-dialog-title">{s.name}</b><span>{NQ_SEALS.some((n) => has(n)) ? `인장 ${nqSealCount(h)}/7` : '조사'}</span></div>
         <button type="button" className="shop-x" aria-label="창 닫기" onClick={onClose}>×</button>
       </header>
-      {log && <div className="story-log" role="region" aria-label="탐험 기록">
+      {sealsOpen && <div className="story-log" role="region" aria-label="획득한 인장 확인">
+        <p><b>획득한 인장 {nqSealCount(h)}/7</b></p>
+        {NQ_SEALS.map((flag, i) => (
+          <div key={flag} style={{ marginBottom: 12 }}>
+            <b>{has(flag) ? '◆' : '◇'} {SEAL_INSPECTION[i].name}</b>
+            <p>{has(flag) ? SEAL_INSPECTION[i].description : '아직 획득하지 않은 인장입니다.'}</p>
+          </div>
+        ))}
+      </div>}
+      {log && !sealsOpen && <div className="story-log" role="region" aria-label="탐험 기록">
         {NQ_LOG.filter((q) => has(q.f)).map((q) => <p key={q.f}>{q.t}</p>)}
         {!NQ_LOG.some((q) => has(q.f)) && <p>아직 적어 둔 것이 없다.</p>}
       </div>}
-      {!log && mode === 'read' && line && (
+      {!log && !sealsOpen && mode === 'read' && line && (
         <button type="button" className={`village-dialogue-line${line[0] ? '' : ' nar'}`} onClick={next} aria-label="대사 넘기기">
           {line[0] && <b className="eq-who">{line[0]}</b>}{line[1]}<span className="village-dialogue-cue" aria-hidden="true">▾</span>
         </button>
       )}
-      {!log && mode === 'wait' && <div className="village-dialogue-line nar" aria-live="polite">…</div>}
-      {!log && input === 'ask' && <div className="story-picks" role="group" aria-label="물어보기">
+      {!log && !sealsOpen && mode === 'wait' && <div className="village-dialogue-line nar" aria-live="polite">…</div>}
+      {!log && !sealsOpen && input === 'ask' && <div className="story-picks" role="group" aria-label="물어보기">
         {a.opts.map((o, i) => <button type="button" key={i} className="story-pick" onClick={() => choose(i)}>{o.t}</button>)}
       </div>}
-      {!log && (input === 'pick' || input === 'mimic') && <div className="story-picks" role="group" aria-label={a.q || '고르기'}>
+      {!log && !sealsOpen && (input === 'pick' || input === 'mimic') && <div className="story-picks" role="group" aria-label={a.q || '고르기'}>
         {a.q && <p className="eq-q">{a.q}</p>}
         {a.opts.map((o, i) => <button type="button" key={i} className="story-pick" onClick={() => choose(i)}>{o}</button>)}
         {note && <p className="eq-note">{note}</p>}
       </div>}
-      {!log && input === 'throne' && <div className="story-picks" role="group" aria-label="대답">
+      {!log && !sealsOpen && input === 'throne' && <div className="story-picks" role="group" aria-label="대답">
         {NQ_THRONE.opts.map((o, i) => <button type="button" key={i} className="story-pick" onClick={() => choose(i)}>{o.t}</button>)}
       </div>}
-      {!log && input === 'dial' && <div className="story-picks" role="group" aria-label={s.name}>
+      {!log && !sealsOpen && input === 'dial' && <div className="story-picks" role="group" aria-label={s.name}>
         <p className="eq-q">{a.note || '값을 고른다.'} 지금 {a.names[nqDial(h, a.key)]}{a.unit}</p>
         <div className="eq-row">{a.opts.map((o) => <button type="button" key={o} className={`shop-btn${nqDial(h, a.key) === o ? ' main' : ''}`}
           onClick={() => send(o, () => read([`${a.names[o]}${a.unit}으로 맞췄다.`]))}>{a.names[o]}{a.unit}</button>)}</div>
       </div>}
-      {!log && (input === 'order') && <div className="story-picks" role="group" aria-label="차례 정하기">
+      {!log && !sealsOpen && (input === 'order') && <div className="story-picks" role="group" aria-label="차례 정하기">
         <p className="eq-q">차례대로 고른다{ord.pickN ? `(${ordN}개)` : ''}: {sel.map((i) => ord.items[i]).join(' → ') || '—'}</p>
         <div className="eq-row">{ordIdx.map((i) => <button type="button" key={i} className="shop-btn" disabled={sel.includes(i) || sel.length >= ordN} onClick={() => setSel([...sel, i])}>{ord.items[i]}</button>)}</div>
         <div className="eq-row">
@@ -158,7 +178,7 @@ export default function NecroQuestPanel({ spotId, getHero, tick, onAct, onGlyph,
         </div>
         {note && <p className="eq-note">{note}</p>}
       </div>}
-      {!log && (input === 'dials' || input === 'quiz' || input === 'glyph') && (() => {
+      {!log && !sealsOpen && (input === 'dials' || input === 'quiz' || input === 'glyph') && (() => {
         const q = input === 'quiz' ? a.quiz : input === 'glyph' ? { items: NQ_TRIALS.palace.glyphs.items.map((n) => ({ n, opts: NQ_TRIALS.palace.glyphs.opts })) } : a;
         return <div className="story-picks" role="group" aria-label={q.q || s.name}>
           {input === 'dials' && a.q && <p className="eq-q">{a.q}</p>}
@@ -173,16 +193,16 @@ export default function NecroQuestPanel({ spotId, getHero, tick, onAct, onGlyph,
           {note && <p className="eq-note">{note}</p>}
         </div>;
       })()}
-      {!log && input === 'check' && <div className="eq-row eq-end">
+      {!log && !sealsOpen && input === 'check' && <div className="eq-row eq-end">
         <button type="button" className="shop-btn main" onClick={() => send(undefined, (c) => (c === 1 ? genNext(a.check.ok) : read(a.check.bad)))}>쇠사슬을 살핀다</button>
         <button type="button" className="shop-btn" onClick={onClose}>나중에</button>
       </div>}
-      {!log && input === 'go' && <div className="eq-row eq-end"><button type="button" className="shop-btn main" onClick={() => { onAct(spotId, 1); onClose(); }}>들어가기</button></div>}
-      {!log && input === 'trial' && <div className="eq-row eq-end">
+      {!log && !sealsOpen && input === 'go' && <div className="eq-row eq-end"><button type="button" className="shop-btn main" onClick={() => { onAct(spotId, 1); onClose(); }}>들어가기</button></div>}
+      {!log && !sealsOpen && input === 'trial' && <div className="eq-row eq-end">
         <button type="button" className="shop-btn main" onClick={() => { onAct(spotId, 'start'); onClose(); }}>시험 시작</button>
         <button type="button" className="shop-btn" onClick={onClose}>나중에</button>
       </div>}
-      {!log && input === 'contract' && <div className="eq-contract" role="group" aria-label={NQ_THRONE.title}>
+      {!log && !sealsOpen && input === 'contract' && <div className="eq-contract" role="group" aria-label={NQ_THRONE.title}>
         <b>{NQ_THRONE.title}</b>
         <p>{NQ_THRONE.q}</p>
         <p className="eq-note">계승하면 1차 전직은 사라지고 그림자 낫만 들 수 있다. 히든 직업은 게임 전체에서 한 명만 가질 수 있다.</p>
@@ -192,9 +212,10 @@ export default function NecroQuestPanel({ spotId, getHero, tick, onAct, onGlyph,
         </div>
       </div>}
       <footer className="village-dialogue-actions">
-        {NQ_LOG.some((q) => has(q.f)) && <button type="button" className="shop-btn" aria-pressed={log} onClick={() => setLog(!log)}>{log ? '돌아가기' : '탐험 기록'}</button>}
-        {!log && mode === 'read' && <button type="button" className="shop-btn main" onClick={next}>{at + 1 < lines.length || after ? '다음' : '닫기'}</button>}
-        {(log || mode !== 'read') && <button type="button" className="shop-btn" onClick={onClose}>닫기</button>}
+        {NQ_SEALS.some(has) && <button type="button" className="shop-btn" aria-pressed={sealsOpen} onClick={() => { setSealsOpen(!sealsOpen); setLog(false); }}>{sealsOpen ? '돌아가기' : '인장 확인'}</button>}
+        {NQ_LOG.some((q) => has(q.f)) && <button type="button" className="shop-btn" aria-pressed={log} onClick={() => { setLog(!log); setSealsOpen(false); }}>{log ? '돌아가기' : '탐험 기록'}</button>}
+        {!log && !sealsOpen && mode === 'read' && <button type="button" className="shop-btn main" onClick={next}>{at + 1 < lines.length || after ? '다음' : '닫기'}</button>}
+        {(log || sealsOpen || mode !== 'read') && <button type="button" className="shop-btn" onClick={onClose}>닫기</button>}
       </footer>
     </section>
   </>;

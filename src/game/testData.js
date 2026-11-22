@@ -10,6 +10,7 @@ export const TEST_SERVER = "RPGT";   // 테스트 전용 서버 방 이름 — �
 export const TEST_TOGGLES = [
   { id: "god", name: "무적", note: "어떤 공격에도 체력이 줄지 않고 쓰러지지 않습니다" },
   { id: "nocd", name: "쿨타임 끄기", note: "평타를 뺀 모든 스킬 · 대쉬 대기 시간이 바로 0" },
+  { id: "skip", name: "장군 시험 퍼즐 건너뛰기", note: "네크로맨서 장군 시험의 퍼즐 · 문답 · 차례 맞추기를 건너뛰고 전투만 합니다" },
   { id: "stack", name: "스택 가득", note: "무기 패시브 쌓인 것을 늘 최대로" },
 ];
 

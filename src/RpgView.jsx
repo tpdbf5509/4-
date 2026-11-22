@@ -1,5 +1,6 @@
 import { shownMapName } from "./game/hiddenPlace.js";
 import VillagePanel from './VillagePanel.jsx';
+import { STORY_FX } from './game/storyLines.js';
 import LibraryPanel from './LibraryPanel.jsx';
 import RequiemHud from './RequiemHud.jsx';
 import {rqNear} from './game/requiem.js';
@@ -415,7 +416,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
           {/* 오른쪽 — 차례대로 고른다 */}
           <div className="mk-steps">
             <section className="mk-step">
-              <h2 className="mk-h"><span>01</span>이름 · 코드</h2>
+              <h2 className="mk-h">이름 · 코드</h2>
               <RpgAccount char={char} onChar={applyChar} />
             </section>
 
@@ -430,7 +431,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
             )}
 
             <fieldset className="mk-step" disabled={!named}>
-              <h2 className="mk-h"><span>02</span>직업</h2>
+              <h2 className="mk-h">직업</h2>
               {fixed ? fixedRow(`${JOB_BY_ID[job].name} · ${JOB_BY_ID[job].weapon}`) : (
               <div className="mk-jobs">
                 {JOBS.map((j) => (
@@ -449,7 +450,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
 
             {needElem && (
             <fieldset className="mk-step" disabled={!named}>
-              <h2 className="mk-h"><span>03</span>원소</h2>
+              <h2 className="mk-h">원소</h2>
               {fixed ? fixedRow(el ? `${el.name} · ${el.tower}` : "원소 없음") : (
               <div className="mk-elems">
                 {ELEMS.map((e) => (
@@ -473,7 +474,7 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
             )}
 
             <fieldset className="mk-step" disabled={!named}>
-              <h2 className="mk-h"><span>{needElem ? "04" : "03"}</span>성별</h2>
+              <h2 className="mk-h">성별</h2>
               {fixed ? fixedRow(gender === "f" ? "여" : "남") : (
               <div className="mk-genders">
                 {GENDERS.map((gd) => (
@@ -1009,7 +1010,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (ns) { closeAll(); setNqOpen(ns.id); return; }
       if (!npc) return;
       if (npc.shelf) { closeAll(); setLibOpen(npc.shelf); return; }   // 에르덴 도서관 책장 — 대화 대신 책장 화면
-      if (npc.village) { closeAll(); setVillageOpen(npc.id); return; }
+      if (npc.village) {
+        closeAll();
+        // 이야기 장면 공통 연출 — 처음 STORY_FX.focus 초 동안 카메라가 나와 상대 사이를 가운데에 둔다(rpgArt.js follow)
+        const sv = storyView(h);
+        if (sv && !sv.done && sv.targets?.includes(npc.id)) g.camFocus = { x: (h.x + npc.x) / 2, y: (h.y + npc.y) / 2, map: h.map, lift: STORY_FX.lift, until: performance.now() + STORY_FX.focus * 1000 };
+        setVillageOpen(npc.id); return;
+      }
       if (npc.board) { closeAll(); setHonorOpen(true); loadRank(); return; }   // 명예 순위판 — 창만 연다
       if (npc.req) { closeAll(); setReqOpen(npc.req); return; }                // 의뢰 NPC — 창을 열고, 받기 · 완료는 창에서 보낸다
       if(npc.guildDoor){guildDoorRef.current?.();return;}          // 광장의 길드 문

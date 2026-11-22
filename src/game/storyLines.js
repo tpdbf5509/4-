@@ -15,3 +15,14 @@ export const beat = (sec, ok, okThen, bads, hit, okAt = 0) => {
   pick.splice(Math.min(okAt, pick.length), 0, {t: ok, then: [nar(okThen)]});
   return {timer: sec, late: {t: '…!', then: [nar(hit)]}, pick};
 };
+
+/* 이야기 장면 공통 연출(11월 22일 사용자 「연출은 실제로 제작해」) — v4 문서에 장면마다 복사돼 있던 공통 지시를 한 곳에서 만든다.
+   VillagePanel(배경음 · 반 박자 · 결과 뒤 쉼 · 시간 제한 경고음)과 RpgView(장면 시작 카메라)가 읽는다. 시간은 초 */
+export const STORY_FX = {
+  focus: 1.5,     // 장면 시작 — 카메라가 나와 상대 사이를 화면 가운데에 둔다
+  lift: 0.15,     // 그때 아래 자막 띠에 가리지 않게 화면 높이의 이만큼 위로 올려 보인다
+  duck: 0.35,     // 장면 동안 배경음악 크기(몫). 효과음은 그대로
+  back: 2,        // 두 번째 대사가 끝나면 배경음악이 이만큼에 걸쳐 돌아온다
+  turn: 0.35,     // 말하는 사람이 바뀌면 듣는 쪽이 반 박자 멈춘다(넘기기 잠금을 더 둔다)
+  settle: 1.2,    // 결과가 확정된 뒤 다음 목표(알게 된 것 · 닫기)를 보여 주기 전 쉼
+};

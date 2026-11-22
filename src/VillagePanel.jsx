@@ -5,6 +5,7 @@ import {STORY_STEP_BY_ID, STORY_STEPS, STORY_CLEAR_AT, sceneOf, storyLineShown, 
 import {STORY_AFTER} from './game/storyAfter.js';
 import {storyFact, storyMoodFor} from './game/storyGuide.js';
 import sfx from './game/sfx.js';
+import {STORY_FX} from './game/storyLines.js';
 
 /* 기존 상점 틀을 쓴다. 평소에는 소개 대화만 보여 준다.
    메인 스토리에서 지금 이 대상과 이야기할 차례면 이야기 장면을 보여 주고, 선택지를 고르게 한다(storyQuestData.js).
@@ -21,6 +22,7 @@ function PickTimer({sec, onEnd}) {
   const end = useRef(onEnd); end.current = onEnd;
   const [left, setLeft] = useState(sec);
   useEffect(() => {
+    try { sfx.play('boss'); } catch { /* 소리를 못 내도 괜찮다 */ }   // 공통 연출 — 결전의 위험은 고르기 전에 경고음으로 먼저 알린다
     const t0 = performance.now();
     const id = setInterval(() => {
       const l = Math.max(0, sec - (performance.now() - t0) / 1000);
@@ -63,10 +65,21 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   const lineKey = `${at}/${seq.length}/${end}`;
   const [readyKey, setReadyKey] = useState(null);
   const ready = readyKey === lineKey;
+  // 공통 연출(STORY_FX) — 말하는 사람이 바뀌면 반 박자 더, 결과가 확정되면 잠깐 쉰 뒤에 넘긴다
+  const turned = !!step && trail.length > 0 && seq[trail.at(-1)]?.s !== seq[at]?.s;
   useEffect(() => {
-    const id = setTimeout(() => setReadyKey(lineKey), end ? 400 : lineWait(seq[at]?.t));
+    const wait = end ? (step ? STORY_FX.settle * 1000 : 400) : lineWait(seq[at]?.t) + (turned ? STORY_FX.turn * 1000 : 0);
+    const id = setTimeout(() => setReadyKey(lineKey), wait);
     return () => clearTimeout(id);
   }, [lineKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 이야기 장면 동안 배경음악을 낮추고, 두 번째 대사가 끝나면 천천히 되돌린다(닫을 때도 되돌린다)
+  const quiet = !!step && trail.length < 2 && !end;
+  useEffect(() => {
+    if (!step) return undefined;
+    sfx.musicTo(quiet ? STORY_FX.duck : 1, quiet ? 0.4 : STORY_FX.back);
+    return undefined;
+  }, [quiet]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { if (step) sfx.musicTo(1, STORY_FX.back); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // 줄 연출 — 이 줄에 fx 가 있으면 창을 잠깐 흔들거나 번쩍이고 소리를 낸다. 같은 줄은 한 번만
   const [fxOn, setFxOn] = useState(null);
   const fxLine = !end ? seq[at] : null;

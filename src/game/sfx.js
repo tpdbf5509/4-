@@ -39,6 +39,13 @@ function ctx() {
   return ac;
 }
 
+// 배경음악만 따로 줄이는 통로 — 이야기 장면 동안 음악만 낮추고 효과음은 그대로 둔다(storyLines.js STORY_FX)
+let bgm = null, bgmLevel = 1;
+// 배경음악 크기를 k(몫)로 — sec 초쯤에 걸쳐 바뀐다
+export function musicTo(k, sec = 0.3) {
+  bgmLevel = k;
+  if (bgm && ac) bgm.gain.setTargetAtTime(k, ac.currentTime, Math.max(0.02, sec / 3));
+}
 export function startRpgMusic() {
   const music = new Audio("/assets/audio/bakery-morning.mp3");
   music.loop = true;
@@ -48,7 +55,9 @@ export function startRpgMusic() {
     if (!audio || muted || level === 0) return;
     if (!source) {
       source = audio.createMediaElementSource(music);
-      source.connect(duck);
+      bgm = audio.createGain();
+      bgm.gain.value = bgmLevel;
+      source.connect(bgm); bgm.connect(duck);
     }
     if (music.paused) music.play().catch(() => {});
   }
@@ -59,7 +68,7 @@ export function startRpgMusic() {
     document.removeEventListener("click", play);
     document.removeEventListener("keydown", play);
     music.pause();
-    source?.disconnect();
+    source?.disconnect(); bgm?.disconnect(); bgm = null;
     music.removeAttribute("src");
     music.load();
   };
@@ -558,4 +567,4 @@ export function play(name) {
   }
 }
 
-export default { unlock, play, shot, isMuted, setMuted, setLevel, startRpgMusic };
+export default { unlock, play, shot, isMuted, setMuted, setLevel, startRpgMusic, musicTo };

@@ -48,7 +48,7 @@ export default function HomeScreen({name,setName,code,setCode,error,needPw,testP
         <button type="button" className="front-enter" aria-label="RPG 입장" onClick={onEnterRpg}>입장 <span aria-hidden="true">›</span></button>
         <p className="front-save">{mine?`${mine.name} · Lv.${mine.lv}`:'나만의 캐릭터로 시작하세요'}</p>
       </article>
-      <article className="front-mode"><h2 className="front-defense-title">Tower <span>defence</span></h2><p className="front-mode-note">네 갈래 길을 함께 지켜요</p>
+      <article className="front-mode"><h2 className="front-defense-title">Tower <span>defense</span></h2><p className="front-mode-note">네 갈래 길을 함께 지켜요</p>
         <img className="front-preview" src="/assets/home/defense.webp" width="1160" height="760" alt="성채를 둘러싼 네 갈래 길에서 탑들이 몬스터를 막는 실제 타워 디펜스 화면"/>
         <button type="button" className="front-enter" aria-label="타워 디펜스 입장" onClick={()=>setDialog('defense')}>입장 <span aria-hidden="true">›</span></button>
         <p className="front-save">최대 4명이 함께하는 방어전</p>

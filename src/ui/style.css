@@ -1007,7 +1007,6 @@ kbd {
   display: flex; align-items: baseline; gap: 10px; margin: 0 0 10px;
   font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 17px; color: #f2e3c2; letter-spacing: -0.03em;
 }
-.mk-h span { font-size: 11px; color: #8d8068; letter-spacing: 0.02em; }
 .mk-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .mk-input {
   flex: 1; min-width: 160px; box-sizing: border-box;

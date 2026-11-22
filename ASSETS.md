@@ -96,6 +96,8 @@ RPG 모드에서 고르는 기본 캐릭터입니다. 직업 3종(warrior · mag
 
 - 사용처: `src/game/rpg.js`의 `heroArtPath()`(경로 조립), `src/game/rpgArt.js`의 `drawHero()`,
   `src/RpgView.jsx`의 `RpgSetup`(캐릭터 만들기 화면).
+- 관리자 전용 스킨 `admin-skin/`(11월 22일): **사용자 제작 그림**(외부 에셋 아님). 원본 `design/admin-skin/`, 자르기 `tools/cut-admin-skin.py`.
+  서기 4장 · `-bare` · 걷기 `walk-<front|back|side>-<0~3>`. `rpg.js adminLook` 이면 모든 직업 외형보다 먼저 쓴다. 서 있는 일러스트(`admin-illust.png`)는 아직 쓰지 않는다.
 - 시트 배율 그대로(캐릭터 키 약 280px → 화면 66) 줄여 그리므로, 방향마다 그림 크기가 달라도 키가 같게 보입니다.
 
 ### Enemies — `public/assets/characters/enemies/`

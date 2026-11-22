@@ -54,7 +54,7 @@ import {
   drawFx, drawBanner, fxWarmUp, FX_ART, mapImg, mapImgFailed,
   sprite, drawSprite, ANIM_T, SR, CR, DR, drawTreeArt, drawTree,
 } from "./art.js";
-import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, whyReqDone, fieldPvpMap, HIDE_GEAR, gatesOf, highOn, abyssLookOf } from "./rpg.js";
+import { DUEL, RPG, MAPS, QUEST, MOB, SPAWNS, mobSize, dist, heroAttackRange, elemOf, heroArtPath, advArtPath, mobName, titleName, heldSpecial, adminLook, whyReqDone, fieldPvpMap, HIDE_GEAR, gatesOf, highOn, abyssLookOf } from "./rpg.js";
 import { SANDBOX } from "./sandboxData.js";   // 격자 연습장 바닥
 import { REQ_BY_NPC, REQUESTS } from "./requestData.js";
 import { DG_LOOKS, DUNGEON } from "./dungeonData.js";
@@ -2385,10 +2385,10 @@ function drawHero(ctx, g, h, time) {
   const { view, flip } = heroView(h);
   const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다 — 특별 무기를 끼면 무기 지운 그림에 그 무기를 들린다
   const hide = h.hideGear || 0;                     // 장비 외형 숨기기(rpg.js HIDE_GEAR) — 겉모습만, 능력치는 그대로
-  const held = hide & HIDE_GEAR.weapon || gamblerLook(h) || engineerLook(h) || necroLook(h) || illusionLook(h) || wyvernLook(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
+  const held = hide & HIDE_GEAR.weapon || adminLook(h) || gamblerLook(h) || engineerLook(h) || necroLook(h) || illusionLook(h) || wyvernLook(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
   let im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
   // 히든 직업 BLOOD-001 여성 · Gambler 002 · Engineer 003 남녀 · Necromancer 004 남녀 — 걸을 때는 걷는 그림 4장(walk-<보기>-<0~3>.webp, tools/cut-blood-f.py · cut-gambler-char.py)을 걸음에 맞춰 바꾼다. 서 있을 때는 기본 그림. 아래로 갈 때(turn)는 앞 그림. 못 불러오면 기본 그림 그대로
-  if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(blood-f|gambler-[mf]|engineer-[mf]|necro-[mf]|wyvern-[mf])\//.test(advIm.src)) {
+  if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(admin-skin|blood-f|gambler-[mf]|engineer-[mf]|necro-[mf]|wyvern-[mf])\//.test(advIm.src)) {
     const k = Math.floor((((h.anim.ph / (Math.PI / 2)) % 4) + 4) % 4);
     im = artImg(advArtPath(h, `walk-${view === "turn" ? "front" : view}-${k}`)) || im;
   }
@@ -2465,7 +2465,7 @@ function drawHero(ctx, g, h, time) {
     const wyh = !down && wyvernLook(h);             // Wyvern Knight 006 — 역린 해방 날개(몸 뒤) · 용린 · 반룡 기운(몸 앞)
     if (wyh) drawWyvernHero(ctx, h, ww, hh, top, true, time, view, flip);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
-    if (!down && !(hide & HIDE_GEAR.armor)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값
+    if (!down && !(hide & HIDE_GEAR.armor) && !adminLook(h)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값. 관리자 스킨은 옷까지 그린 그림이라 겹쳐 그리지 않는다
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
     else if (held && !held.none) {
       if (held.off && advIm) drawHeld(ctx, held.off, ww, top, held.offSwing, col.light);   // 전직 그림은 반대 손이 몸 앞 허리에 있다
@@ -2490,7 +2490,7 @@ function drawHero(ctx, g, h, time) {
   ctx.restore();
 
   // 체력 · 레벨 · 이름
-  const tallK = !down && im && (wyvernLook(h) || necroLook(h)) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다 · Necromancer 004 도 11월 19일 1.4배
+  const tallK = !down && im && (adminLook(h) || wyvernLook(h) || necroLook(h)) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다 · Necromancer 004 도 11월 19일 1.4배 · 관리자 스킨(1.25배)
   const bw = 40, byy = h.y - tallK * bk - 12;
   const r = Math.max(0, Math.min(1, h.hp / (h.max || 1)));
   ctx.save();

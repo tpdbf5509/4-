@@ -846,7 +846,10 @@ export const lookTitle = (h) => [elemOf(h).name, jobOf(h).name].filter(Boolean).
 // 캐릭터 그림 — public/assets/characters/rpg/<직업>-<성별>/<방향>.webp
 export const heroArtPath = (h, view = "front") => `/assets/characters/rpg/${jobOf(h).id}-${h && h.gender === "f" ? "f" : "m"}/${view}.webp`;
 // 전직한 캐릭터 그림 — <전직>-<성별>/<방향>.webp(무기를 든 그림, tools/cut-adv-classes.py). 전직 전이면 null
+// 관리자 전용 스킨(11월 22일 사용자 그림, tools/cut-admin-skin.py) — 서버가 관리자로 알려 준 캐릭터만. h.admin 은 스냅샷(row[23])에 실려 다른 사람 화면에도 이 모습으로 보인다
+export const adminLook = (h) => !!(h && h.admin);
 export const advArtPath = (h, view = "front") => {
+  if (adminLook(h)) return `/assets/characters/rpg/admin-skin/${view}.webp`;   // 직업 · 전직 · 히든 직업 외형보다 먼저. 무기를 들지 않은 그림이라 빈손으로 그린다(rpgArt.js drawHero)
   if (gamblerLook(h)) return `/assets/characters/rpg/gambler-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Gambler 002 외형(사용자 그림, tools/cut-gambler-char.py) — 손님은 스냅샷 h.gmv. 해금 시험 중에는 BLOOD-001 보다 먼저
   if (necroLook(h)) return `/assets/characters/rpg/necro-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Necromancer 004 외형(사용자 그림 남 · 여, tools/cut-necro-char.py · 11월 17일)
   if (wyvernLook(h)) return `/assets/characters/rpg/wyvern-${h.gender === "f" ? "f" : "m"}/${view}.webp`;   // 히든 직업 Wyvern Knight 006 외형(사용자 그림 남 · 여, tools/cut-wyvern-char.py · 11월 18일)

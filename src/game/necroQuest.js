@@ -39,6 +39,8 @@ export function cleanNu(d) {
   if (!f.some(Boolean) && !Object.keys(dd).length && !t) return null;
   return { f, d: dd, t };
 }
+// 테스트 서버 전용 「퍼즐 건너뛰기」(도구 창 토글, h.trn.skip) — 실제 게임에서는 g.test 가 아니라 늘 꺼져 있다
+const nqSkip = (g, h) => !!(g && g.test && h.trn && h.trn.skip);
 const nu = (h) => h.bag.nu || (h.bag.nu = { f: [0, 0, 0, 0], d: {}, t: 0 });
 export function nqHas(h, name) {
   const i = FI[name];
@@ -229,19 +231,24 @@ function gen(E, g, h, s, v) {
   const st = nqGenStep(h, a);
   if (!st) { finishGen(E, g, h, s); return void res(h, s, 1); }
   if (a.need && !nqCond(h, a.need)) return void res(h, s, 3);
+  const sk = nqSkip(g, h);
   if (st.quiz) {
-    if (v == null) return void res(h, s, 4);
-    const items = a.quiz.items;
-    if (!Array.isArray(v) || v.length !== items.length) return;
-    if (!items.every((it, i) => v[i] === it.ans)) return void res(h, s, 2);
+    if (!sk) {
+      if (v == null) return void res(h, s, 4);
+      const items = a.quiz.items;
+      if (!Array.isArray(v) || v.length !== items.length) return;
+      if (!items.every((it, i) => v[i] === it.ans)) return void res(h, s, 2);
+    }
     setAll(h, st.flag);
   } else if (st.order) {
-    if (v == null) return void res(h, s, 4);
-    if (!Array.isArray(v) || v.length !== a.order.ans.length || !v.every((x, i) => x === a.order.ans[i])) return void res(h, s, 2);
+    if (!sk) {
+      if (v == null) return void res(h, s, 4);
+      if (!Array.isArray(v) || v.length !== a.order.ans.length || !v.every((x, i) => x === a.order.ans[i])) return void res(h, s, 2);
+    }
     setAll(h, st.flag);
   } else if (st.check) {
     const d = nu(h).d;
-    if (!Object.entries(a.check.keys).every(([key, want]) => (d[key] || 0) === want)) return void res(h, s, 2);
+    if (!sk && !Object.entries(a.check.keys).every(([key, want]) => (d[key] || 0) === want)) return void res(h, s, 2);
     setAll(h, st.flag);
   } else if (st.trial) {
     if (v !== 'start') return void res(h, s, 4);
@@ -477,8 +484,14 @@ function sweep(E, g, h, tr) {
   tr.fo = left;
 }
 function sealStrike(E, g, h, tr, T) {
-  if (tdist(pt(T.morken), h) <= SK.strike.r + 60) { tr.i = 0; return void tell(E, g, h, '모르켄|나를 베려 하지 마라. 쇠사슬이 다시 조인다.', RED); }
+  if (tdist(pt(T.morken), h) <= SK.strike.r + 60) { tr.i = 0; tr.sk = []; return void tell(E, g, h, '모르켄|나를 베려 하지 마라. 쇠사슬이 다시 조인다.', RED); }
   const j = T.stones.findIndex((p) => tdist(pt(p), h) <= T.stoneR);
+  if (nqSkip(g, h)) {                                            // 테스트 서버 퍼즐 건너뛰기 — 차례 상관없이 아직 안 친 돌만 세고 쫓기는 부분은 그대로
+    tr.sk = tr.sk || [];
+    if (j < 0 || tr.sk.includes(j)) return;
+    tr.sk.push(j); tr.i = tr.sk.length;
+    return void E.fx(g, h.map, { kind: 'call', x: T.stones[j][0], y: T.stones[j][1] - 110, text: `봉인 ${tr.i}/${T.stones.length}`, color: VIO, t: 1, life: 1, snd: 'eqBeep', who: h.pi });
+  }
   if (j < 0 || j < tr.i) return;
   if (j !== tr.i) { tr.i = 0; return void tell(E, g, h, '봉인석이 거꾸로 빛나며 쇠사슬이 다시 조여든다. 벽화의 차례를 떠올리자.', RED); }
   tr.i++;
@@ -697,6 +710,7 @@ function tickPalace(E, g, h, tr, T, dt) {
     }
   }
   if (!tr.gl && lord.hp <= lord.max * P.p3.stop) {
+    if (nqSkip(g, h)) return void win(E, g, h);                  // 테스트 서버 퍼즐 건너뛰기 — 문양 맞추기는 건너뛴다
     tr.gl = 1; tr.glT = P.p3.glyphTime; lord.hp = Math.max(1, lord.hp);
     tr.fo = tr.fo.filter((f) => f.k === 'lord');
     tell(E, g, h, '잔영이 무릎을 꿇는다. 제단에 일곱 문양이 떠오른다 — 제단을 조사해 문양마다 그 장군을 맞춰라.', VIO);

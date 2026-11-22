@@ -3287,7 +3287,7 @@ function tickZones(g, dt) {
 
 /* ── 훈련장 (trainData.js) — 방장만 판정 ─────────────────────
    h.trn = { nocd, stack, god, tot 쌓인 피해, hits 맞힌 수, log [[시각, 피해]] } — 기능은 훈련장 안에서만 듣는다 */
-const trnOf = (h) => h.trn || (h.trn = { nocd: 0, stack: 0, god: 0, tot: 0, hits: 0, log: [] });
+const trnOf = (h) => h.trn || (h.trn = { nocd: 0, stack: 0, god: 0, skip: 0, tot: 0, hits: 0, log: [] });
 function keepDummies(g) {
   g.mobs = g.mobs.filter(m => !m.rq || (g.heroes[m.own]?.who === m.rqOwner && g.heroes[m.own]?.map === m.map));
   g.mobs = g.mobs.filter(m => !m.eq || (g.heroes[m.own]?.who === m.eqOwner && g.heroes[m.own]?.map === m.map && eqInTrial(g.heroes[m.own])));   // Engineer 003 시험 몹도
@@ -3354,7 +3354,7 @@ export function rpgTrain(g, pi, req) {
   if (req.op === "nq") return testNq(g, h, req.n);   // Necromancer 004 획득 루트 — 여섯 장군 시험 앞으로(테스트 서버만)
   if (h.map !== "train" && !g.test) return false;  // 테스트 서버는 어느 맵에서나
   const t = trnOf(h);
-  if (["nocd", "stack", "god"].includes(req.op)) { t[req.op] = t[req.op] ? 0 : 1; return true; }
+  if (["nocd", "stack", "god", "skip"].includes(req.op)) { t[req.op] = t[req.op] ? 0 : 1; return true; }
   if (req.op === "reset") {
     t.tot = 0; t.hits = 0; t.log = [];
     g.mobs.forEach((m) => { if (m.type === "dummy") { m.hp = m.max; m.burn = 0; m.poison = 0; m.slow = 0; m.freeze = 0; m.stun = 0; m.shred = 0; } });
@@ -3417,14 +3417,14 @@ export function sandboxMobs(g, map, spots) {
 export function trainView(g, h) {
   const t = h && h.trn;
   if (!t) return null;
-  return { nocd: t.nocd, stack: t.stack, god: t.god, tot: t.tot || 0, hits: t.hits || 0,
+  return { nocd: t.nocd, stack: t.stack, god: t.god, skip: t.skip, tot: t.tot || 0, hits: t.hits || 0,
     dps: t.log && t.log.length ? Math.round(trainDps(g, h)) : t.dps || 0 };
 }
-// 스냅샷 줄 47 — [쿨타임 끄기, 스택 가득, 체력 고정, 초당 피해, 쌓인 피해, 맞힌 수]
+// 스냅샷 줄 47 — [쿨타임 끄기, 스택 가득, 체력 고정, 초당 피해, 쌓인 피해, 맞힌 수, 퍼즐 건너뛰기]
 function packTrain(g, h) {
   const t = h.trn;
   if (!t) return 0;
-  return [t.nocd, t.stack, t.god, Math.round(trainDps(g, h)), Math.round(t.tot), t.hits];
+  return [t.nocd, t.stack, t.god, Math.round(trainDps(g, h)), Math.round(t.tot), t.hits, t.skip || 0];
 }
 
 /* 1차 전직(advance.js)도 기존 대상 고르기 · 피해 · 결투 한도 · 원소 판정을 그대로 쓴다 */
@@ -5571,8 +5571,8 @@ export function rpgApply(g, s) {
     if (Array.isArray(row[46])) applySkillState(h, row[46]);
     if (row.length > 53) applyAdv(h, row[53]);     // 1차 전직 · 시험 · 전직 스킬 상태
     if (Array.isArray(row[47])) {                  // 훈련장 — 교관 창에 보이는 켜기/끄기 · 초당 피해
-      const [nocd, stack, god, dps, tot, hits] = row[47];
-      h.trn = { ...(h.trn || { log: [] }), nocd, stack, god, dps, tot, hits };
+      const [nocd, stack, god, dps, tot, hits, skip] = row[47];
+      h.trn = { ...(h.trn || { log: [] }), nocd, stack, god, skip: skip || 0, dps, tot, hits };
     }   // 전설 무기 · 직업 스킬 — 불똥 · 별빛 · 분노 · 수호 · 철벽 · 보호막
     if (Array.isArray(row[40])) {                  // 맡은 광장 의뢰
       h.reqs = {};

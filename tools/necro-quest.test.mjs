@@ -217,3 +217,20 @@ test('테스트 서버 — 여섯 장군 시험 앞으로 바로 가서 시험�
   const { g } = setup({ plain: 1 });
   assert.equal(rpgTrain(g, 0, { op: 'nq', n: 0 }), false);
 });
+
+test('테스트 서버 — 퍼즐 건너뛰기 토글: 세리온 · 에레보스 문답 · 모르켄 봉인석 차례를 건너뛴다 · 일반 서버는 소용없다', () => {
+  const on = (g) => { rpgTrain(g, 0, { op: 'skip' }); assert.ok(g.heroes[0].trn.skip); };
+  { const { g, h } = setup({ plain: 1 }); g.test = 1; rpgTrain(g, 0, { op: 'nq', n: 1 });
+    assert.equal(act(g, 'a-room', [9, 9, 9, 9, 9]), 2, '켜기 전에는 틀린 답이 막힌다'); on(g);
+    act(g, 'a-room', null); assert.ok(nqHas(h, 'sRecord'), '켜면 차례 맞추기를 건너뛴다'); }
+  { const { g, h } = setup({ plain: 1 }); g.test = 1; rpgTrain(g, 0, { op: 'nq', n: 5 }); on(g);
+    act(g, 'ob-erebos', null); assert.ok(nqHas(h, 'sSilence'), '문답을 건너뛴다'); }
+  { const { g, h } = setup({ plain: 1 }); g.test = 1; rpgTrain(g, 0, { op: 'nq', n: 4 }); on(g);
+    act(g, 'r-morken', 'start'); const T = NQ_TRIALS.seal; assert.ok(nqInTrial(h));
+    const tr = h.nqRun.tr;
+    for (const j of [3, 1, 0]) { h.x = T.stones[j][0]; h.y = T.stones[j][1]; tr.cd.strike = 0; skill(g, 'strike'); run(g, 0.1); }
+    assert.equal(tr.i, 3, '차례가 달라도 센다');
+    assert.ok(nqInTrial(h), '아직 하나 남았다'); }
+  { const { g, h } = setup({ plain: 1 }); h.trn = { skip: 1, log: [] }; rpgTrain(g, 0, { op: 'nq', n: 1 }); at(h, 'a-room');
+    act(g, 'a-room', [9, 9, 9, 9, 9]); assert.ok(!nqHas(h, 'sRecord'), '테스트 서버가 아니면 건너뛰지 않는다'); }
+});

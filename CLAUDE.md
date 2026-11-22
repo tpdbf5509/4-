@@ -172,6 +172,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 이야기 맵 23곳(1부 10 + `STORY_MAPS_2` 13, `PLACE()` 로 배치, 그림은 임시 도형). 대화 창 `VillagePanel.jsx`, 진행 칸 `StoryCard.jsx`(부 · 장 표시), 기믹(`order` · `hidden` · `wrong` · `timer`)은 그대로다.
 - 완결 보상(30-05 `STORY_CLEAR_ID`): 기록 `rec.story`(REC_IDS 끝) → 칭호 `story30` 「네 갈래의 증인」(체력 +2점) · 단 칭호의 발밑 네 갈래 빛(`rpgArt.js STORY_TITLE`) · 가방 책 탭의 기념 기록서(내 선택으로 만든다). 완결 뒤 마을 인물은 후일담 대사(`storyAfter.js STORY_AFTER`). 칭호 비트는 11월 9일 세 칸(93개)으로 늘었다.
 - **전달 개선(11월 8일)**: 단계 `look`(단서를 다 봐야 `at` 이 열림, 서버도 거절) · 줄 `key` · `fx` · `boss`(체력 줄은 보여 주기만). 의뢰 칸 상황 · 이유 `storyGuide.js`, 알게 된 것 · 장 요약 · 마을 말 `storyRecap.js`, 이야기 기록 `storyJournal`(저장 값 없음, 찾은 것만). 시험 `tools/story-guide.test.mjs`.
+- **컷신(11월 22일 사용자 「동영상처럼 클로즈업 등 짧은 영화처럼」 · 참고 영상은 다른 게임 컷신)**: 대사 줄 `cut(id, 기록 문장)`(`storyLines.js`)에 닿으면 `VillagePanel` 이 `Cutscene.jsx` 를 게임 화면 위에 틀고 끝나면 다음 줄로 간다(이미 본 컷신은 기록 문장 한 줄). 장면 수치 `cutsceneData.js CUTSCENES`(가상 무대 1600 × 900 · 카메라 밀고 당김 · 색 warm/cold/mono · 흑백 위 강조 한 곳 · 알갱이 · 자막 · 소리), 그리기 `cutsceneArt.js`(바탕은 코드 그림, 인물은 기존 초상 · 몸 그림). 지금은 1-01 첫머리 `c1-open` · 빈 마차 `c1-wagon` 둘. 판정 · 진행과 상관없다. 시험 `tools/cutscene.test.mjs`.
 - 보스 실제 전투는 아직 없다(보스는 시간 제한 선택 대화). 광장의 의뢰 NPC 한결 · 보리 · 미나는 이름만 같은 다른 인물이다. 시험은 `tools/story-quest.test.mjs` · `tools/story.test.mjs`.
 
 ### 에르덴 도서관 (11월 16일)

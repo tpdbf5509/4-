@@ -6,6 +6,7 @@ import {STORY_AFTER} from './game/storyAfter.js';
 import {storyFact, storyMoodFor} from './game/storyGuide.js';
 import sfx from './game/sfx.js';
 import {STORY_FX} from './game/storyLines.js';
+import Cutscene from './Cutscene.jsx';
 
 /* 기존 상점 틀을 쓴다. 평소에는 소개 대화만 보여 준다.
    메인 스토리에서 지금 이 대상과 이야기할 차례면 이야기 장면을 보여 주고, 선택지를 고르게 한다(storyQuestData.js).
@@ -95,6 +96,15 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
     returnFocus.current = document.activeElement; dialog.current?.focus();
     return () => returnFocus.current?.focus?.();
   }, []);
+  // 컷신 줄(storyLines.js cut) — 처음 닿으면 영상을 틀고, 이미 본 컷신은 장면 설명 한 줄로 보인다
+  const [cutsSeen, setCutsSeen] = useState(() => new Set());
+  const cutNow = step && !end && seq[at]?.cut && !cutsSeen.has(seq[at].cut) ? seq[at].cut : null;
+  const endCut = () => {
+    setCutsSeen((x) => new Set(x).add(cutNow));
+    const k = skip(at + 1);
+    if (k < seq.length) { setTrail((t) => [...t, at]); setAt(k); } else setEnd(true);
+    setTimeout(() => dialog.current?.focus(), 0);
+  };
   if (!npc) return null;
   const say = (t) => (t || '').replaceAll('{playerName}', myName || '모험가');   // 대사 속 내 이름
   const line = seq[at];
@@ -168,7 +178,8 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   };
   return <>
     <div className="rpg-menu-back" onClick={finish}/>
-    <section className={`shop village-panel talk${step ? ' story' : ''}${fxOn ? ` ${fxOn}` : ''}`} role="dialog" aria-modal="true" aria-labelledby="village-dialog-title" ref={dialog} tabIndex={-1} onKeyDown={trap}>
+    {cutNow && <Cutscene key={cutNow} id={cutNow} onDone={endCut}/>}
+    <section className={`shop village-panel talk${step ? ' story' : ''}${fxOn ? ` ${fxOn}` : ''}${cutNow ? ' cut-on' : ''}`} role="dialog" aria-modal="true" aria-labelledby="village-dialog-title" ref={dialog} tabIndex={-1} onKeyDown={trap}>
       {who.img && <img key={who.img} className={`village-portrait${who.sight ? ' sight' : ''}`} src={who.img} alt="" onError={(e) => { e.currentTarget.hidden = true; }}/>}
       <header className="shop-top">
         <div className="shop-title"><b id="village-dialog-title">{who.name}</b><span>{who.role}</span></div>

@@ -3366,3 +3366,10 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-side .gm-bar.side .gm-skill { width: calc((100% - 15px) / 4); min-width: 0; }
 .rpg-hid-stat .gm-bar { margin-top: 0; }
 .rpg-side .rpg-skillbar > .gm-bar.side { grid-column: 1 / -1; }   /* 엔지니어 · 네크로맨서 격자는 5열 칸 하나가 아니라 한 줄 전체를 쓴다 */
+
+/* 이야기 컷신(Cutscene.jsx) — 게임 화면 전체를 덮는 영상. 건너뛰기만 오른쪽 위 띠 안에 작게 */
+.cutscene { position: absolute; inset: 0; z-index: 40; background: #0d0b0a; }
+.cutscene canvas { width: 100%; height: 100%; display: block; }
+.cutscene-skip { position: absolute; top: 10px; right: 12px; padding: 5px 12px; border: 1px solid rgba(226,205,165,.28); border-radius: 999px; background: rgba(20,16,12,.55); color: #cdbfa8; font: inherit; font-size: 12px; letter-spacing: -0.01em; cursor: pointer; }
+.cutscene-skip:hover, .cutscene-skip:focus-visible { color: #e3c48a; border-color: #bba06a; outline: none; }
+.village-panel.cut-on { visibility: hidden; }

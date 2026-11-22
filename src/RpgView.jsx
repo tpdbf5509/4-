@@ -1670,6 +1670,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       const lm = g.heroes[mySeat];
       if (lm && lm.map !== loadMap) {
         const first = !loadMap;
+        // 곡이 달라지는 맵이면 가림막과 함께 지금 곡을 끈다(처음 들어올 때는 바로)
+        if (sfx.trackOfMap(lm.map) !== sfx.trackOfMap(loadMap)) sfx.musicFadeOut(first ? 0.05 : undefined);
         loadMap = lm.map;
         loadRef.current = { ...loadStart(lm.map, now), toast: !first };
         loadHoldRef.current?.();
@@ -1681,6 +1683,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         loadStep(L, now);
         if (L.end) {
           setMapLoad((v) => v && { ...v, p: 1, out: true });
+          sfx.musicFadeIn(sfx.trackOfMap(L.map));   // 가림막이 걷힐 때 그 맵 곡을 서서히 켠다
           if (L.toast) setToast({ name: MAPS[L.map]?.name || "", at: now });
         } else if (now - loadUi >= 90) { loadUi = now; setMapLoad((v) => v && { ...v, p: L.p }); }
       } else if (L && now - L.end >= MAP_LOAD.fadeMs) { loadRef.current = null; setMapLoad(null); }

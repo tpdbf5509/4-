@@ -46,18 +46,53 @@ export function musicTo(k, sec = 0.3) {
   bgmLevel = k;
   if (bgm && ac) bgm.gain.setTargetAtTime(k, ac.currentTime, Math.max(0.02, sec / 3));
 }
+/* 맵마다 다른 배경음악 — 에르덴 마을(+ 도서관)은 마을 곡, 나머지는 광장 곡.
+   맵을 옮길 때 곡이 달라지면 가림막 시작에 페이드 아웃, 가림막이 걷힐 때 페이드 인한다(RpgView). */
+const TRACKS = { plaza: "/assets/audio/bakery-morning.mp3", village: "/assets/audio/village-morn.mp3" };
+const VILLAGE_MAPS = new Set(["dawnwood", "erden-library", "erden-library-2"]);
+export const MUSIC_FADE = { out: 0.8, in: 1.5 };   // 페이드 아웃 · 인 시간(초)
+export function trackOfMap(map) { return VILLAGE_MAPS.has(map) ? "village" : "plaza"; }
+let rpgMusic = null;   // { el, fade, play, track } — 방송 중인 배경음악
+function fadeTo(k, sec) {
+  const m = rpgMusic;
+  if (!m?.fade || !ac) return;
+  const g = m.fade.gain, t = ac.currentTime;
+  g.cancelScheduledValues(t);
+  g.setValueAtTime(g.value, t);
+  g.linearRampToValueAtTime(k, t + Math.max(0.02, sec));
+}
+// 지금 곡을 서서히 끈다 — 곡이 같은 맵으로 옮길 때는 부르지 않는다
+export function musicFadeOut(sec = MUSIC_FADE.out) {
+  if (rpgMusic) { rpgMusic.want = 0; fadeTo(0, sec); }
+}
+// 곡을 맞춰 서서히 켠다 — 곡이 바뀌면 처음부터 다시 튼다. 음소거 · 음량은 master 가 그대로 지킨다
+export function musicFadeIn(track, sec = MUSIC_FADE.in) {
+  const m = rpgMusic;
+  if (!m) return;
+  if (m.track !== track) {
+    m.track = track;
+    m.el.src = TRACKS[track];
+    m.el.loop = true;
+  }
+  m.want = 1;
+  m.play();
+  fadeTo(1, sec);
+}
 export function startRpgMusic() {
-  const music = new Audio("/assets/audio/bakery-morning.mp3");
+  const music = new Audio(TRACKS.plaza);
   music.loop = true;
   let source;
+  const m = rpgMusic = { el: music, fade: null, track: "plaza", want: 1, play };
   function play() {
     const audio = ctx();
     if (!audio || muted || level === 0) return;
     if (!source) {
       source = audio.createMediaElementSource(music);
+      m.fade = audio.createGain();
+      m.fade.gain.value = m.want;
       bgm = audio.createGain();
       bgm.gain.value = bgmLevel;
-      source.connect(bgm); bgm.connect(duck);
+      source.connect(m.fade); m.fade.connect(bgm); bgm.connect(duck);
     }
     if (music.paused) music.play().catch(() => {});
   }
@@ -68,7 +103,8 @@ export function startRpgMusic() {
     document.removeEventListener("click", play);
     document.removeEventListener("keydown", play);
     music.pause();
-    source?.disconnect(); bgm?.disconnect(); bgm = null;
+    source?.disconnect(); m.fade?.disconnect(); bgm?.disconnect(); bgm = null;
+    if (rpgMusic === m) rpgMusic = null;
     music.removeAttribute("src");
     music.load();
   };
@@ -573,4 +609,4 @@ export function play(name) {
   }
 }
 
-export default { unlock, play, shot, isMuted, setMuted, setLevel, startRpgMusic, musicTo };
+export default { unlock, play, shot, isMuted, setMuted, setLevel, startRpgMusic, musicTo, musicFadeOut, musicFadeIn, trackOfMap };

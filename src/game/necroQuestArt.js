@@ -85,8 +85,39 @@ function floorGlow(ctx, x, y, r, time) {
   ctx.beginPath(); ctx.ellipse(x, y, r * 0.9, r * 0.9 * SQ * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = `rgba(150,110,210,${a * 0.3})`; ctx.fill(); ctx.restore();
 }
+// 일부 서고 배경 이미지에 기록실 입구가 미리 보이더라도
+// 책 4권을 배치하기 전에는 닫힌 서가를 그려 입구를 가린다.
+function drawClosedArchive(ctx) {
+  const s = NQ_SPOTS.find((spot) => spot.id === 'a-room');
+  if (!s) return;
+  const [x, y] = s.at;
+  const w = 250, h = 260, left = x - w / 2, top = y - h + 55;
+  ctx.save();
+  ctx.fillStyle = '#231e29';
+  ctx.fillRect(left - 9, top - 8, w + 18, h + 16);
+  ctx.fillStyle = '#3d313b';
+  ctx.fillRect(left, top, w, h);
+  // 닫힌 서가: 책 배치 퍼즐 완료 전에는 열리는 틈이 나타나지 않는다.
+  for (let shelf = 0; shelf < 4; shelf++) {
+    const sy = top + 38 + shelf * 52;
+    ctx.fillStyle = '#1b151d'; ctx.fillRect(left + 14, sy - 28, w - 28, 45);
+    for (let i = 0; i < 12; i++) {
+      const bx = left + 20 + i * 18;
+      const palette = ['#51414f', '#57443c', '#35434a', '#493846'];
+      ctx.fillStyle = palette[(i + shelf) % palette.length];
+      ctx.fillRect(bx, sy - 22 + (i % 3) * 2, 12, 35 - (i % 3) * 2);
+      ctx.fillStyle = 'rgba(200,180,165,.14)';
+      ctx.fillRect(bx + 2, sy - 12, 8, 2);
+    }
+    ctx.fillStyle = '#67505a'; ctx.fillRect(left + 8, sy + 16, w - 16, 9);
+  }
+  ctx.strokeStyle = '#786377'; ctx.lineWidth = 4;
+  ctx.strokeRect(left, top, w, h);
+  ctx.restore();
+}
 export function drawNqGround(ctx, me, M, time) {
   if (!M.nq) return;
+  if (M.id === 'necro_archive' && me && !nqHas(me, 'books')) drawClosedArchive(ctx);
   for (const g of M.gates) { if (!g.eqGate) continue; if (g.hatch) hatch(ctx, g.x, g.y, time); floorGlow(ctx, g.x, g.y, g.r, time); }
   if (!me || !me.bag || me.map !== M.id) return;
   for (const s of NQ_SPOTS) if (s.map === M.id && s.hatch && nqSpotShown(me, s) && nqCond(me, s.act.need)) hatch(ctx, s.at[0], s.at[1], time);

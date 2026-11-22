@@ -35,11 +35,12 @@ function PickTimer({sec, onEnd}) {
 }
 
 
-export default function VillagePanel({npcId, onClose, story, myName, onStory, onBooks}) {
+export default function VillagePanel({npcId, onClose, story, myName, onStory, onBooks, preview}) {
   const npc = VILLAGE_DIALOGUES[npcId] || STORY_DIALOGUES[npcId], dialog = useRef(null);
   const returnFocus = useRef(null);
   // 이야기 차례인지 — 창을 여는 순간의 진행으로 정한다(대화 중에 진행이 바뀌어도 장면은 그대로)
-  const [step] = useState(() => (story && !story.done && story.targets.includes(npcId) ? STORY_STEP_BY_ID[story.id] : null));
+  // preview — 테스트 모드 연출 미리보기(그 단계 장면을 진행 · 저장 없이 재생, RpgView playStoryPv)
+  const [step] = useState(() => (preview ? STORY_STEP_BY_ID[preview] : story && !story.done && story.targets.includes(npcId) ? STORY_STEP_BY_ID[story.id] : null));
   // 순서 퍼즐에서 차례가 아닌 대상을 고르면 틀린 장면을 보여 준다(서버가 진행을 처음으로 되돌린다)
   const [wrongOrder] = useState(() => !!(step?.order && story?.nextId && story.nextId !== npcId));
   const scene = step ? sceneOf(step, npcId, wrongOrder) : null;
@@ -104,7 +105,7 @@ export default function VillagePanel({npcId, onClose, story, myName, onStory, on
   const left = seq.slice(at + 1).filter((l) => shown(l)).length;
 
   const finish = () => {
-    if (step && end) onStory?.({op: 'done', id: npcId, step: step.id, picks: picked});
+    if (step && end && !preview) onStory?.({op: 'done', id: npcId, step: step.id, picks: picked});
     onClose();
   };
   const advance = () => {

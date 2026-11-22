@@ -2969,6 +2969,7 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-test-group { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px solid rgba(214, 186, 140, 0.18); }
 .rpg-test-group > span:first-child { font-size: 10.5px; color: #8d8068; letter-spacing: -0.02em; }
 .rpg-test-spots { display: flex; flex-wrap: wrap; gap: 4px; }
+.rpg-test-ch { font: inherit; font-size: 12px; padding: 2px 6px; background: #2a2118; color: #e9dcc0; border: 1px solid #6b5636; border-radius: 4px; }
 .rpg-test-spots .rpg-win-btn { min-width: 0; padding: 3px 8px; font-size: 11.5px; }
 @media (max-width: 560px) {
   .rpg-test-hud { top: auto; bottom: 168px; right: 8px; }

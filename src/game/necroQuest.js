@@ -40,6 +40,9 @@ export function cleanNu(d) {
   return { f, d: dd, t };
 }
 // 테스트 서버 전용 「퍼즐 건너뛰기」(도구 창 토글, h.trn.skip) — 실제 게임에서는 g.test 가 아니라 늘 꺼져 있다
+// 테스트 서버 전용 발테른 시험 조정(11월 22일 사용자 — 실제 게임에는 넣지 않는다): 미끼 그림자 대기 12 → 8초, 적이 오는 간격 ×1.25(4 → 5초)
+const nqTest = (g) => !!(g && g.test);
+const NQ_TEST_TUNE = { cd: { decoy: 8 }, gapMul: 1.25 };
 const nqSkip = (g, h) => !!(g && g.test && h.trn && h.trn.skip);
 const nu = (h) => h.bag.nu || (h.bag.nu = { f: [0, 0, 0, 0], d: {}, t: 0 });
 export function nqHas(h, name) {
@@ -437,7 +440,7 @@ function trialSkill(E, g, h, k) {
   const tr = h.nqRun && h.nqRun.tr;
   if (!tr || !SK[k] || !TI(tr.id).skills.includes(k) || tr.cd[k] > 0) return;
   const T = TI(tr.id);
-  tr.cd[k] = SK[k].cd;
+  tr.cd[k] = nqTest(g) && tr.id === 'shield' && NQ_TEST_TUNE.cd[k] != null ? NQ_TEST_TUNE.cd[k] : SK[k].cd;
   if (k === 'strike') {
     E.fx(g, h.map, { kind: 'sk_eq_wave', x: h.x, y: h.y, r: SK.strike.r, t: 0.3, life: 0.3, snd: 'eqClank' });
     if (tr.id === 'seal') return void sealStrike(E, g, h, tr, T);
@@ -611,7 +614,7 @@ function tickAllies(E, g, h, tr, dt) {
   sweep(E, g, h, tr);
 }
 function tickGuard(E, g, h, tr, T, dt) {
-  if ((tr.n -= dt) <= 0) { tr.n = T.waves.gap; spawnWave(tr, h.map, T.waves); }
+  if ((tr.n -= dt) <= 0) { tr.n = T.waves.gap * (nqTest(g) && tr.id === 'shield' ? NQ_TEST_TUNE.gapMul : 1); spawnWave(tr, h.map, T.waves); }
   const alive = tr.al.filter((a) => a.hp > 0);
   for (const f of tr.fo) tickFoe(E, g, h, tr, f, decoyT(tr, f) || alive, dt);
   const before = tr.al.length;

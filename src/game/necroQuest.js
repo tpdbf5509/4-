@@ -40,9 +40,9 @@ export function cleanNu(d) {
   return { f, d: dd, t };
 }
 // 테스트 서버 전용 「퍼즐 건너뛰기」(도구 창 토글, h.trn.skip) — 실제 게임에서는 g.test 가 아니라 늘 꺼져 있다
-// 테스트 서버 전용 발테른 시험 조정(11월 22일 사용자 — 실제 게임에는 넣지 않는다): 미끼 그림자 대기 12 → 8초, 적이 오는 간격 ×1.75(4 → 7초, 11월 22일 두 번째 조정), 남은 병사 4 → 3 이상
+// 테스트 서버 전용 발테른 시험 조정(11월 22일 사용자 — 실제 게임에는 넣지 않는다): 미끼 그림자 대기 12 → 8초, 적이 오는 간격 ×1.75(4 → 7초, 11월 22일 두 번째 조정), 남은 병사 4 → 3 이상 · 병사 5 → 4명(앞의 넷)
 const nqTest = (g) => !!(g && g.test);
-const NQ_TEST_TUNE = { cd: { decoy: 8 }, gapMul: 1.75, decoyDur: 8, need: 3 };   // 미끼 지속 5 → 8초(11월 22일)
+const NQ_TEST_TUNE = { cd: { decoy: 8 }, gapMul: 1.75, decoyDur: 8, need: 3, allies: 4 };   // 미끼 지속 5 → 8초(11월 22일)
 const nqSkip = (g, h) => !!(g && g.test && h.trn && h.trn.skip);
 const nu = (h) => h.bag.nu || (h.bag.nu = { f: [0, 0, 0, 0], d: {}, t: 0 });
 export function nqHas(h, name) {
@@ -363,11 +363,11 @@ function step(o, tx, ty, spd, dt) {
 }
 function endTrial(h) { if (h.nqRun) h.nqRun.tr = null; }
 
-function newTrial(id, sid, h) {
+function newTrial(id, sid, h, g) {
   const T = TI(id);
   const tr = { id, sid, t: 0, hp: TS.hp, ph: 0, cd: { strike: 0, shield: 0, dash: 0, decoy: 0, call: 0 }, msh: 0, al: [], fo: [], wn: [], i: 0, n: 1.5, kill: 0,
     alt: 0, altSh: 0, trail: [], decoy: null, gl: 0, glT: 0, steal: 0, spawned: 0, warnT: T.warn ? T.warn.gap : 0 };
-  if (id === 'guard' || id === 'shield') tr.al = T.allies.map((p) => ({ x: p[0], y: p[1], hp: AL.hp, sh: 0, mode: 'hold', cd: 0 }));
+  if (id === 'guard' || id === 'shield') tr.al = (nqTest(g) && id === 'shield' ? T.allies.slice(0, NQ_TEST_TUNE.allies) : T.allies).map((p) => ({ x: p[0], y: p[1], hp: AL.hp, sh: 0, mode: 'hold', cd: 0 }));
   if (id === 'escort') tr.al = T.allies.map((p) => ({ x: p[0], y: p[1], hp: AL.hp, sh: 0, mode: 'escort', cd: 0 }));
   if (id === 'seal') tr.fo = [foe('chaser', T.chaser[0], T.chaser[1])];
   if (id === 'drill') spawnPosts(tr, 0);
@@ -406,14 +406,14 @@ function trialStart(E, g, h, s, id) {
   if (inTrial(h)) return void res(h, s, 6);
   if (id === 'palace' && hiddenTaken(g, h, NECRO_ID) && !owns(h)) { tell(E, g, h, '제단의 수정이 꺼진 채 울리지 않는다. 군단은 이미 새로운 주인을 섬기고 있다.'); return void res(h, s, 3); }
   const r = run(h);
-  r.tr = newTrial(id, s.id, h);
+  r.tr = newTrial(id, s.id, h, g);
   E.place(g, h, T.start[0], T.start[1]);
   tell(E, g, h, `${T.name} — 시험 체력 ${TS.hp}. 레벨 · 장비 · 직업은 시험에 영향을 주지 않는다.`);
   res(h, s, 1);
 }
 function fail(E, g, h, why) {
   const tr = h.nqRun.tr, T = TI(tr.id);
-  const fresh = newTrial(tr.id, tr.sid, h);
+  const fresh = newTrial(tr.id, tr.sid, h, g);
   h.nqRun.tr = fresh;
   E.place(g, h, T.start[0], T.start[1]);
   tell(E, g, h, `${why} ${T.name}${tr.id === 'palace' ? ` ${fresh.ph}단계` : ''}을(를) 처음부터 다시 한다.`, RED);

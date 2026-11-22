@@ -1,7 +1,7 @@
 """관리자 전용 스킨 — 사용자가 직접 그린 시트 둘을 떼어 낸다(design/admin-skin/, 11월 22일).
    서기 admin-standing-v2.png: 흰 바탕 한 줄 4명 = 앞 · 뒤 · 옆(왼쪽을 본다) · 옆(오른쪽을 본다). 게임은 옆 그림을 뒤집어 쓰므로 셋째만 쓴다.
      흰 바탕은 가장자리에서 이어진 흰 점만 지운다 — 흰 슈트 · 흰 신발은 윤곽선에 막혀 남는다. 칸을 4등분하지 않고 덩어리로 나눈다(옆모습 발이 옆 칸으로 넘어가 잘렸다).
-   걷기 admin-walk-sheet.png(투명 배경): 4칸 × 4줄. 줄 = 앞 · 뒤 · 왼쪽 · 오른쪽, 칸 = 걷기 4장. 오른쪽 줄은 쓰지 않는다.
+   걷기 admin-walk-sheet-v2.png(투명 배경 · 11월 22일 사용자 새 시트, 옛 시트는 admin-walk-sheet.png): 4칸 × 4줄. 줄 = 앞 · 뒤 · 왼쪽 · 오른쪽, 칸 = 걷기 4장. 오른쪽 줄은 쓰지 않는다.
      움찔거림 방지 — 한 줄의 네 장을 같은 창(칸 안 좌표의 합집합)으로 잘라 크기 · 발 기준선 · 가로 중심이 프레임마다 같다.
    결과: public/assets/characters/rpg/admin-skin/ — 무기를 들지 않아 -bare 도 같은 그림.
    실행: python3 tools/cut-admin-skin.py"""
@@ -16,6 +16,7 @@ OUT = os.path.join(ROOT, "public/assets/characters/rpg/admin-skin")
 PAD, FAINT = 6, 40
 SCALE = 1.25     # 암살자(여) 앞 키에 대한 배율 — 머리가 큰 2등신이라 다른 히든 직업(1.2~1.4) 사이로 맞춘다
 WHITE = 236      # 이보다 밝고 색이 거의 없는 점이 바탕 후보
+HALO = 150       # 걷기 시트에서 이보다 옅은 점은 번짐으로 보고 지운다
 EDGE = 2         # 바탕과 닿은 이 폭 안의 밝은 점은 흰 바탕을 빼고 반투명으로 푼다
 
 def unwhite(rgb):
@@ -79,7 +80,8 @@ for v, cr in stand.items():
         o.save(os.path.join(OUT, name), quality=92, method=6)
     print(v, o.size)
 
-wk = np.asarray(Image.open(os.path.join(SRC, "admin-walk-sheet.png")).convert("RGBA"))
+wk = np.asarray(Image.open(os.path.join(SRC, "admin-walk-sheet-v2.png")).convert("RGBA")).copy()
+wk[..., 3] = np.where(wk[..., 3] < HALO, 0, wk[..., 3])      # 새 시트는 둘레에 반투명 회색 번짐이 있어 어두운 바닥에서 테두리처럼 보였다
 H, W = wk.shape[:2]
 ch, cw = H // 4, W // 4
 for r, v in ((0, "front"), (1, "back"), (2, "side")):

@@ -266,7 +266,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 ### 관리자 전용 스킨 (11월 22일)
 - 사용자가 직접 그린 그림(`design/admin-skin/`)을 `tools/cut-admin-skin.py` 로 자른 `characters/rpg/admin-skin/`. `rpg.js adminLook(h)` = `h.admin`(스냅샷 줄 23 이라 다른 사람 화면에도 보인다)이면 `advArtPath` 가 직업 · 전직 · 히든 직업 외형보다 먼저 이 그림을 준다.
 - 무기를 든 그림이 아니라 빈손으로 그리고(`bareHands`), 전설 방어구 겹쳐 그리기는 뺀다. 걷기 4장 · 체력 줄 높이는 히든 직업과 같은 규칙.
-- 서기는 흰 바탕 `admin-standing-v2.png`(가장자리에서 이어진 흰 점만 지운다), 시트는 칸 4등분이 아니라 덩어리로 나눈다(옆모습 발 잘림). 걷기는 한 줄 네 장을 같은 창으로 자르고 슈트 중심 · 진한 발바닥으로 기준을 맞춘다(움찔거림). 그림을 바꾸면 `python3 tools/cut-admin-skin.py`.
+- 걷기는 `admin-walk-sheet-v2.png`(둘레 번짐은 알파 `HALO` 150 아래를 지운다). 서기는 흰 바탕 `admin-standing-v2.png`(가장자리에서 이어진 흰 점만 지운다), 시트는 칸 4등분이 아니라 덩어리로 나눈다(옆모습 발 잘림). 걷기는 한 줄 네 장을 같은 창으로 자르고 슈트 중심 · 진한 발바닥으로 기준을 맞춘다(움찔거림). 그림을 바꾸면 `python3 tools/cut-admin-skin.py`.
 
 ### 히든 계열 · 전용 사거리 (11월 20일)
 - 히든 직업은 검사 · 마법사 · 궁수 묶음 밖의 「히든」 계열이다. 평타 사거리는 `hiddenFamilyData.js HIDDEN_RANGE` 한 곳(공통 `base` 230 · BLOOD-001 230 · 도박꾼 480 · 엔지니어 520 · 네크로맨서 140 · 마술사 550 · 와이번 160). 판별 `rpg.js hiddenOf`, `heroRange` · 사거리 원 · 스킬 설명이 이 값을 쓴다.

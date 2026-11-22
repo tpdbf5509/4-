@@ -26,6 +26,7 @@ export const STORY_PEOPLE = {
   serin: {name: '세린', role: '최초 설계자 · 기록 투영', look: {body: '#b8d6dc', trim: '#86aab2', hair: '#e6f2f2', skin: '#e4f2f4', mark: 'holo'}},
   observer: {name: '공허의 관측자', role: '관측 장치', look: {body: '#6e6a96', trim: '#4c4870', hair: '#9a96c8', skin: '#a8a4d4', mark: 'eye'}},
   ...LIBRARY_PEOPLE,   // 11월 16일 에르덴 도서관 사서(libraryData.js)
+  ...WILD_PEOPLE,      // 11월 22일 루엔 마을 사람들 · 사서(wildsData.js)
 };
 
 /* 맵 — 모두 싸울 수 없는 안전 지역이다. 몹 · 보스는 이야기 진행을 만들 때 더한다.
@@ -380,7 +381,7 @@ export const RUIN_CHAIN = ['ruin-north', 'ruin-east', 'ruin-south', 'ruin-west']
 /* 에르덴 마을에 더하는 1부 시설과 인물. 기존 마을 배치(villageData.js)의 빈자리에 둔다. */
 import {villageAt} from './villageData.js';
 import {LIBRARY_MAPS, LIBRARY_PEOPLE, LIBRARY_BLOCKS} from './libraryData.js';
-import {WILD_MAPS, WILD_BLOCKS} from './wildsData.js';   // 11월 22일 에르덴 바깥 장소(별이슬숲 …)
+import {WILD_MAPS, WILD_BLOCKS, WILD_PEOPLE, LUEN_LIBRARY_MAPS} from './wildsData.js';   // 11월 22일 에르덴 바깥 장소(별이슬숲 …)
 const STORY_VILLAGE_RAW = {
   buildings: [
     {id: 'erden-guardpost', name: '경비대 초소', x: 1400, y: 1600, size: 210, look: 'house'},
@@ -408,7 +409,7 @@ const person = (n) => {
   return {...n, name: p.name, role: n.role || p.role, look: p.look, portrait: storyArtPath('portraits', n.who), art: n.who};
 };
 // 이야기 맵과 같은 틀을 쓰는 장소(에르덴 도서관 1 · 2층, libraryData.js)도 함께 찾는다. STORY_MAPS 자체에는 넣지 않는다(맵 차례 · 이야기 문 판정)
-export const PLACE_MAPS = [...STORY_MAPS, ...LIBRARY_MAPS, ...WILD_MAPS];
+export const PLACE_MAPS = [...STORY_MAPS, ...LIBRARY_MAPS, ...WILD_MAPS, ...LUEN_LIBRARY_MAPS];
 const placeOf = (mapId) => PLACE_MAPS.find((m) => m.id === mapId);
 export const storyNpcsOf = (mapId) => (mapId === 'dawnwood' ? STORY_VILLAGE.npcs : placeOf(mapId)?.npcs || []).map(person);
 // 바닥 그림에 그려진 조사물(bg)은 따로 그림을 부르지 않고, 대화 창 초상화도 비운다

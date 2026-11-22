@@ -28,7 +28,7 @@ import { EN_PULSE } from './engineerData.js';
 import { EQ_MAPS, EQ_EXITS, EQ_VILLAGE, EQ_SITE_MAPS, EQ_SITE_EXIT, EQ_TRIAL } from './engineerQuestData.js';   // Engineer 003 획득 루트(11월 19일)
 import { eqInput, tickEq, eqMobHit, packEq, applyEq, eqInTrial } from './engineerQuest.js';
 import { NQ_MAPS, NQ_EXITS, NQ_BLOCKS } from './necroQuestData.js';
-import { WILD_MAPS, WILD_VILLAGE_GATE, wildsOn } from './wildsData.js';   // 에르덴 바깥 장소(11월 22일)   // Necromancer 004 획득 루트(11월 20일)
+import { WILD_MAPS, WILD_VILLAGE_GATE, wildsOn, LUEN_LIBRARY_MAPS } from './wildsData.js';   // 에르덴 바깥 장소(11월 22일)   // Necromancer 004 획득 루트(11월 20일)
 import { nqInput, tickNq, packNq, applyNq, nqTestGeneral } from './necroQuest.js';
 import { HIDDEN_FAMILY, hiddenRange } from "./hiddenFamilyData.js";   // 히든 계열 · 전용 사거리(11월 20일)
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook, packNecro, applyNecro } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
@@ -471,7 +471,17 @@ NQ_MAPS.forEach((m) => {
 WILD_MAPS.forEach((m) => {
   MAPS[m.id] = {
     id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, wild: 1, spawn: m.spawn,
-    gates: m.exits.map((q) => ({...q, villageGate: 1, libGate: 'way', wild: 1})),
+    gates: m.exits.map((q) => ({...q, villageGate: 1, libGate: q.libGate || 'way', wild: 1})),
+    blocks: storyBlocks(m.id), npcs: storyNpcs(m.id),
+  };
+  MAP_IDS.push(m.id);
+});
+// 루엔 도서관 1 · 2층 — 에르덴 도서관과 같은 틀(library). 루엔 마을 도서관 문 ↔ 1층 ↔ 계단 ↔ 2층. 맵 차례는 뒤에만
+LUEN_LIBRARY_MAPS.forEach((m) => {
+  const {to, at, label, ...exit} = m.exit;
+  MAPS[m.id] = {
+    id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, library: 1, spawn: m.spawn,
+    gates: [{...exit, to, at, label, villageGate: 1, libGate: exit.dir || 'door', wild: 1}, ...(m.stairs ? [{...m.stairs, villageGate: 1, libGate: m.stairs.dir}] : [])],
     blocks: storyBlocks(m.id), npcs: storyNpcs(m.id),
   };
   MAP_IDS.push(m.id);

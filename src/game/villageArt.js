@@ -34,7 +34,7 @@ function drawLibraryGate(ctx, gate, time) {
   ctx.save(); ctx.strokeStyle = `rgba(240,222,170,${a})`; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.ellipse(gate.x, gate.y, gate.r * .9, gate.r * .32, 0, 0, Math.PI * 2); ctx.stroke();
   ctx.fillStyle = `rgba(240,222,170,${a * .35})`; ctx.fill(); ctx.restore();
-  if (gate.libGate === 'door' && gate.to !== 'dawnwood') return;
+  if (gate.libGate === 'door' && gate.to !== 'dawnwood' && !gate.named) return;   // named: 루엔 도서관 1층 → 루엔 마을
   const mark = gate.libGate === 'up' ? ' ▲' : gate.libGate === 'down' ? ' ▼' : '';
   label(ctx, `${gate.label}${mark}`, gate.x, gate.y - (gate.libGate === 'door' || gate.libGate === 'way' ? 40 : 96));
 }

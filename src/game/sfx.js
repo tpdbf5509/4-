@@ -49,8 +49,8 @@ export function musicTo(k, sec = 0.3) {
 /* 맵마다 다른 배경음악 — 에르덴 마을은 마을 곡, 도서관은 도서관 곡, 나머지는 광장 곡.
    맵을 옮길 때 곡이 달라지면 가림막 시작에 페이드 아웃, 가림막이 걷힐 때 페이드 인한다(RpgView). */
 const TRACKS = { plaza: "/assets/audio/bakery-morning.mp3", village: "/assets/audio/village-morn.mp3", library: "/assets/audio/morning-library.mp3" };
-const VILLAGE_MAPS = new Set(["dawnwood", "dew-forest"]);   // 별이슬숲은 마을 곡을 잇는다
-const LIBRARY_MAPS = new Set(["erden-library", "erden-library-2"]);   // 1 · 2층은 같은 곡이라 오가도 끊기지 않는다
+const VILLAGE_MAPS = new Set(["dawnwood", "dew-forest", "lantern-forest", "scree-forest", "luen", "frost-peak", "blade-ridge"]);   // 별이슬숲은 마을 곡을 잇는다
+const LIBRARY_MAPS = new Set(["erden-library", "erden-library-2", "luen-library", "luen-library-2"]);   // 1 · 2층은 같은 곡이라 오가도 끊기지 않는다
 export const MUSIC_FADE = { out: 0.8, in: 1.5 };   // 페이드 아웃 · 인 시간(초)
 export function trackOfMap(map) { return LIBRARY_MAPS.has(map) ? "library" : VILLAGE_MAPS.has(map) ? "village" : "plaza"; }
 let rpgMusic = null;   // { el, fade, play, track } — 방송 중인 배경음악

@@ -10,6 +10,8 @@ SETS = {   # 묶음 → 칸 차례(왼쪽 위부터). 낱장 이름은 prop-<묶
     'dew': ['oak', 'spruce', 'birch', 'round', 'old', 'young', 'shrub', 'fern'],                 # 별이슬숲
     'lantern': ['fir', 'spruce', 'pine', 'larch', 'young', 'juniper', 'lamp', 'boulder'],       # 등불고개 숲
     'scree': ['pine', 'dead', 'birch', 'rowan', 'young', 'shrub', 'rubble', 'rock'],            # 너덜재 숲
+    'frost': ['fir', 'spruce', 'pine', 'young', 'shrub', 'boulder', 'ice', 'cairn'],            # 서리봉
+    'ridge': ['spire', 'crag', 'pine', 'snag', 'rocks', 'boulder', 'grass', 'cairn'],           # 칼등산
 }
 CELL, FOOT = 512, 496
 for name, kinds in SETS.items():

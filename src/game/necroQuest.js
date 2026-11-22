@@ -40,9 +40,6 @@ export function cleanNu(d) {
   return { f, d: dd, t };
 }
 // 테스트 서버 전용 「퍼즐 건너뛰기」(도구 창 토글, h.trn.skip) — 실제 게임에서는 g.test 가 아니라 늘 꺼져 있다
-// 테스트 서버 전용 발테른 시험 조정(11월 22일 사용자 — 실제 게임에는 넣지 않는다): 미끼 그림자 대기 12 → 8초, 적이 오는 간격 ×1.75(4 → 7초, 11월 22일 두 번째 조정), 남은 병사 4 → 3 이상 · 병사 5 → 4명(앞의 넷)
-const nqTest = (g) => !!(g && g.test);
-const NQ_TEST_TUNE = { cd: { decoy: 8 }, gapMul: 1.75, decoyDur: 8, need: 3, allies: 4 };   // 미끼 지속 5 → 8초(11월 22일)
 const nqSkip = (g, h) => !!(g && g.test && h.trn && h.trn.skip);
 const nu = (h) => h.bag.nu || (h.bag.nu = { f: [0, 0, 0, 0], d: {}, t: 0 });
 export function nqHas(h, name) {
@@ -367,7 +364,7 @@ function newTrial(id, sid, h, g) {
   const T = TI(id);
   const tr = { id, sid, t: 0, hp: TS.hp, ph: 0, cd: { strike: 0, shield: 0, dash: 0, decoy: 0, call: 0 }, msh: 0, al: [], fo: [], wn: [], i: 0, n: 1.5, kill: 0,
     alt: 0, altSh: 0, trail: [], decoy: null, gl: 0, glT: 0, steal: 0, spawned: 0, warnT: T.warn ? T.warn.gap : 0 };
-  if (id === 'guard' || id === 'shield') tr.al = (nqTest(g) && id === 'shield' ? T.allies.slice(0, NQ_TEST_TUNE.allies) : T.allies).map((p) => ({ x: p[0], y: p[1], hp: AL.hp, sh: 0, mode: 'hold', cd: 0 }));
+  if (id === 'guard' || id === 'shield') tr.al = T.allies.map((p) => ({ x: p[0], y: p[1], hp: AL.hp, sh: 0, mode: 'hold', cd: 0 }));
   if (id === 'escort') tr.al = T.allies.map((p) => ({ x: p[0], y: p[1], hp: AL.hp, sh: 0, mode: 'escort', cd: 0 }));
   if (id === 'seal') tr.fo = [foe('chaser', T.chaser[0], T.chaser[1])];
   if (id === 'drill') spawnPosts(tr, 0);
@@ -440,7 +437,7 @@ function trialSkill(E, g, h, k) {
   const tr = h.nqRun && h.nqRun.tr;
   if (!tr || !SK[k] || !TI(tr.id).skills.includes(k) || tr.cd[k] > 0) return;
   const T = TI(tr.id);
-  tr.cd[k] = nqTest(g) && tr.id === 'shield' && NQ_TEST_TUNE.cd[k] != null ? NQ_TEST_TUNE.cd[k] : SK[k].cd;
+  tr.cd[k] = SK[k].cd;
   if (k === 'strike') {
     E.fx(g, h.map, { kind: 'sk_eq_wave', x: h.x, y: h.y, r: SK.strike.r, t: 0.3, life: 0.3, snd: 'eqClank' });
     if (tr.id === 'seal') return void sealStrike(E, g, h, tr, T);
@@ -472,7 +469,7 @@ function trialSkill(E, g, h, k) {
     return void E.fx(g, h.map, { kind: 'ring', x: h.x, y: h.y - 10, r: 40, color: VIO, t: 0.3, life: 0.3 });
   }
   if (k === 'decoy') {
-    tr.decoy = { x: h.x, y: h.y, t: nqTest(g) && tr.id === 'shield' ? NQ_TEST_TUNE.decoyDur : SK.decoy.dur };
+    tr.decoy = { x: h.x, y: h.y, t: SK.decoy.dur };
     E.fx(g, h.map, { kind: 'ring', x: h.x, y: h.y - 10, r: 60, color: VIO, t: 0.4, life: 0.4 });
   }
 }
@@ -614,13 +611,13 @@ function tickAllies(E, g, h, tr, dt) {
   sweep(E, g, h, tr);
 }
 function tickGuard(E, g, h, tr, T, dt) {
-  if ((tr.n -= dt) <= 0) { tr.n = T.waves.gap * (nqTest(g) && tr.id === 'shield' ? NQ_TEST_TUNE.gapMul : 1); spawnWave(tr, h.map, T.waves); }
+  if ((tr.n -= dt) <= 0) { tr.n = T.waves.gap; spawnWave(tr, h.map, T.waves); }
   const alive = tr.al.filter((a) => a.hp > 0);
   for (const f of tr.fo) tickFoe(E, g, h, tr, f, decoyT(tr, f) || alive, dt);
   const before = tr.al.length;
   tr.al = tr.al.filter((a) => a.hp > 0);
   if (tr.al.length < before) tell(E, g, h, `병사가 쓰러졌다 — 남은 병사 ${tr.al.length}`, RED);
-  if (tr.al.length < (nqTest(g) && tr.id === 'shield' ? NQ_TEST_TUNE.need : T.need)) return void fail(E, g, h, '지켜야 할 병사가 너무 많이 쓰러졌다.');
+  if (tr.al.length < T.need) return void fail(E, g, h, '지켜야 할 병사가 너무 많이 쓰러졌다.');
   if (tr.t >= T.dur) win(E, g, h);
 }
 function tickEscort(E, g, h, tr, T, dt) {

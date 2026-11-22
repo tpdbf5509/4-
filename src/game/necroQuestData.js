@@ -352,7 +352,7 @@ export const NQ_SKILLS = {
   strike: { name: '그림자 일격', cd: 0.6, r: 150, dmg: 1 },     // 시험 기본 공격 — 둘레 적에게 1(적 체력은 칸 수)
   shield: { name: '영혼 보호막', cd: 8, r: 300 },                // 가까운 아군(병사 · 제단 · 나)이 다음 한 번을 막는다
   dash: { name: '시험 돌진', cd: 5, len: 340 },
-  decoy: { name: '미끼 그림자', cd: 12, dur: 5, r: 520 },       // 그 자리로 적을 끈다
+  decoy: { name: '미끼 그림자', cd: 8, dur: 8, r: 520 },       // 그 자리로 적을 끈다
   call: { name: '소집', cd: 6 }, gather: { name: '집결' }, guard: { name: '방어' }, attack: { name: '공격' }, recall: { name: '귀환' },
 };
 export const NQ_CMDS = ['call', 'gather', 'guard', 'attack', 'recall'];
@@ -377,8 +377,9 @@ export const NQ_TRIALS = {
     // 병사 셋: 한 변 260 인 정삼각형. 화면에서 사용자가 노란 점으로 찍은 자리(11월 21일) — 위 한 명은 캐릭터 바로 위, 아래 둘은 양옆 아래. 시작 자리는 삼각형 가운데
     allies: [A(770, 497), A(640, 722), A(900, 722)], waves: { gap: 3.2, n: [1, 2], kinds: ['hound'] } },
   // 4장 — 방어: 병사 다섯 · 3분 · 넷 이상
-  shield: { map: 'necro_sunken_temple', name: '발테른의 시험', start: A(770, 640), skills: ['strike', 'shield', 'dash', 'decoy'], dur: 180, need: 4,
-    allies: [A(560, 480), A(980, 480), A(470, 620), A(1070, 620), A(770, 720)], waves: { gap: 4, n: [1, 3], kinds: ['hound', 'hound', 'knight'] } },
+  shield: { map: 'necro_sunken_temple', name: '발테른의 시험', start: A(770, 640), skills: ['strike', 'shield', 'dash', 'decoy'], dur: 180, need: 3,
+    // 11월 22일 사용자 조정: 병사 5 → 4명 · 통과 4 → 3명 이상 · 적이 오는 간격 4 → 7초 · 미끼 대기 12 → 8초 · 지속 5 → 8초
+    allies: [A(560, 480), A(980, 480), A(470, 620), A(1070, 620)], waves: { gap: 7, n: [1, 3], kinds: ['hound', 'hound', 'knight'] } },
   // 6장 — 호위: 병사 셋을 다리 건너 전망대까지. 무너지는 자리는 예고 뒤 떨어진다(떨어지면 시작점으로)
   escort: { map: 'necro_sky_shrine', name: '라에딘의 시험', start: A(260, 930), skills: ['dash'], goal: { at: A(1330, 430), r: 150 },
     allies: [A(200, 880), A(300, 900), A(240, 960)], leash: 260, fall: { gap: 2.2, d: 1.2, r: 110 } },

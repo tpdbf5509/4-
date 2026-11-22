@@ -30,7 +30,9 @@ const skill = (g, s) => rpgInput(g, { cls: 0, kind: 'nq', dir: { op: 'skill', s 
 const cmd = (g, c) => rpgInput(g, { cls: 0, kind: 'nq', dir: { op: 'cmd', c } });
 
 test('맵 · 그림 — 탐험 맵 13곳은 MAP_IDS 끝 · 모두 안전 지역 · 바닥 그림 · 사냥터 출구 없음 · 마을에 새 문이 없다', () => {
-  assert.deepEqual(MAP_IDS.slice(-NQ_MAPS.length), NQ_MAPS.map((m) => m.id));
+  const at = MAP_IDS.indexOf(NQ_MAPS[0].id);   // 11월 22일부터 뒤에 바깥 장소(별이슬숲 …)가 붙는다
+  assert.deepEqual(MAP_IDS.slice(at, at + NQ_MAPS.length), NQ_MAPS.map((m) => m.id));
+  assert.equal(MAP_IDS[at + NQ_MAPS.length], 'dew-forest');
   for (const m of NQ_MAPS) {
     assert.ok(MAPS[m.id].safe, m.id);
     assert.ok(existsSync(`public/assets/game/rpg/story/ground/${m.id}.webp`), m.id);

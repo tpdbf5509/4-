@@ -4,6 +4,7 @@ import { npcScale, textUp } from "./bodyScale.js";
 import {STORY_ART as A, PLACE_MAPS, STORY_PEOPLE, storyArtPath, storyBuildingsOf, storyPropsOf, storyNpcsOf, storySightsOf} from './storyData.js';
 import {STORY_QUEST, STORY_STEPS, STORY_HIDDEN_R, stepOpenTargets, storyGateOpen, storyGateCh} from './storyQuestData.js';
 import {VILLAGE_NPCS} from './villageData.js';
+import {WILD_FADE} from './wildsData.js';
 
 const images = new Map();
 function img(kind, id) {
@@ -165,8 +166,17 @@ function pedestal(ctx, n, c) { ctx.fillStyle = c; ctx.strokeStyle = 'rgba(30,30,
 function light(ctx, x, y, r, c) { ctx.save(); ctx.fillStyle = c; ctx.shadowColor = c; ctx.shadowBlur = r * 2; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill(); ctx.restore(); }
 
 const toneOf = (mapId) => mapOf(mapId)?.ground.road || '#c8b994';
-export function drawStoryObject(ctx, n, mapId) {
+// 바깥 장소 나무(wildsData.js) — 내 캐릭터가 나무 뒤 잎 안에 들어가면 그 나무를 반투명으로 그린다
+const hiddenBehind = (n, me) => me && me.y < n.y - 4 && me.y > n.y - n.size * .9 && Math.abs(me.x - n.x) < n.size * .36;
+export function drawStoryObject(ctx, n, mapId, me) {
   if (n.bg) return;   // 바닥 그림에 그려진 조사물(도서관 책장 · 지도) — 이름표만(drawStoryNpc)
+  if (n.wild) {
+    const fade = n.r > 0 && hiddenBehind(n, me);
+    if (fade) { ctx.save(); ctx.globalAlpha = WILD_FADE.alpha; }
+    drawArt(ctx, 'places', n.art, n.x, n.y, n.size);   // 그림이 없으면 그리지 않는다(밑동 그림자만 남는다)
+    if (fade) ctx.restore();
+    return;
+  }
   if (!n.art || !drawArt(ctx, 'places', n.art, n.x, n.y, n.size)) { if (n.decor) return; (SHAPES[n.look] || SHAPES.house)(ctx, n, n.tone || toneOf(mapId)); }   // 장식 소품은 그림이 없으면 그리지 않는다
   if (n.name && !n.sight) label(ctx, n.name, n.x, n.y + 20);
 }
@@ -239,5 +249,16 @@ export function drawStoryGateLock(ctx, gate, me) {
   ctx.fillStyle = 'rgba(30,22,14,.82)'; ctx.beginPath(); ctx.roundRect(gate.x - w / 2, gate.y - 146, w, 20, 6); ctx.fill();
   ctx.fillStyle = '#d8b9a0'; ctx.fillText(t, gate.x, gate.y - 136);
   ctx.fillStyle = 'rgba(30,22,14,.35)'; ctx.beginPath(); ctx.ellipse(gate.x, gate.y - 2, 46, 16, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+// 바깥 장소 나무 그림자 — 땅 층(사람보다 먼저)에 깐다. 햇빛이 왼쪽 위라 그림자는 오른쪽 아래로 조금 비낀다
+export function drawWildShadows(ctx, mapId, inView) {
+  const list = storyPropsOf(mapId);
+  if (!list.length || !list[0].wild) return;
+  ctx.save(); ctx.fillStyle = 'rgba(28,38,20,.26)';
+  for (const n of list) {
+    if (!inView(n.x, n.y, 300)) continue;
+    ctx.beginPath(); ctx.ellipse(n.x + n.size * .07, n.y - 2, n.size * (n.r > 0 ? .3 : .26), n.size * .085, 0, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.restore();
 }

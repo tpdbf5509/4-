@@ -181,6 +181,13 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 바닥 그림에 가구가 그려져 있어 조사물은 `bg: 1`(그림 없음 · 이름표만). `books: 'patch'` 는 대화 창 「책 펼치기」로 가방 책 탭을 연다(`BagPanel book0`). 보상 · 이야기 진행은 없다. 그림 원본 `design/library/`, 시험 `tools/library.test.mjs`.
 - **장서(사용자 기획 · 원고 11권)**: `shelf: 탭` 조사물(1층 「에르덴 장서」 · 2층 「옛이야기 서가」)은 대화 대신 `LibraryPanel.jsx`(책장 → 펼친 책)를 연다. 원고 · 탭 · 책 종류 · 열람 시점은 `libraryBooks.js` 한 곳(`LIB_OPEN_AFTER` 7 · 8 은 1장, 9 · 10 은 4장 뒤). 꽂이 책은 고를 수 없다. 펼친 책 바탕은 공용 그림 `rpg/library/book-open.webp`, 본문은 글자로 놓는다(넓으면 두 쪽, 720px 아래 한 쪽). **붉은 강 설화(BLOOD-001)의 001 단서는 오른쪽 쪽 마지막 문장에만** 둔다(시험이 지킨다). 저장 값 없음.
 
+### 에르덴 바깥 장소 — 별이슬숲 (11월 22일, 실제 게임에 열림)
+- 사용자 요청 여섯 곳(숲 셋 별이슬숲 · 등불고개 숲 · 너덜재 숲, 마을 루엔, 산 둘 서리봉 · 칼등산) 중 별이슬숲만 만들었다. 구성안 · 연결 지도는 프로젝트 `notes/에르덴-바깥-여섯-장소-구성안.md`. 나머지 다섯 곳은 사용자가 화풍을 확인한 뒤 만든다.
+- 수치 `wildsData.js`(`WILD_MAPS` · 나무 종류 `WILD_PLANTS` · 마을 문 `WILD_VILLAGE_GATE`). 이야기 맵 틀(`PLACE_MAPS`)이라 바닥 그림 · 소품 앞뒤 정렬 · 막힘을 그대로 쓴다. 맵 `dew-forest` 는 `MAP_IDS` 맨 뒤.
+- **사용자 지시: 배경과 나무를 한 장에 같이 뽑지 않는다.** 바닥(나무 없는 흙길 · 연못)과 나무 낱장을 따로 Codex 로 뽑고, `design/wilds/plant.py` 가 바닥 그림의 흙길을 비워 나무 자리 `wildsPlant.js` 를 만든다(손으로 고치지 않는다). 내 캐릭터가 나무 뒤 잎 안에 들어가면 그 나무를 반투명(`WILD_FADE`), 그림자는 땅 층(`drawWildShadows`).
+- `WILDS.live = true`(11월 22일 사용자 "실제 게임에 적용해줘"). false 로 되돌리면 마을 동쪽 문은 테스트 서버(`g.test`)에서만 보인다(`gatesOf` 의 `wild`). 마을 길 `VILLAGE_ROADS` 끝 줄이 문까지 잇는다. 몬스터 · 보상 · 상점은 정하지 않았다. 시험 `tools/wilds.test.mjs`.
+- 루엔 마을(사용자 추가 지시): 에르덴과 같은 구성, 길 · 건물은 새로. 도서관은 사서 이름 · 그림만 바꾸고 장서는 같게, 2층 큰 유리창은 새로.
+
 ### 건물 안 캐릭터 크기 · 카메라 · 걷기 속도 (11월 19일)
 - `bodyScale.js BODY_SCALE` 한 곳. `library`(도서관 1 · 2층) 화면 키 1.0 · 주민 1.0 · `indoor`(`eng-oak` 목공소, `HOUSE_EQ`) 화면 키 `screen` 1.9 · `under`(나머지 `eng-*` 지하 · 기계 맵) 1.2 · 주민 0.75 · 걷기 `spd` 도서관 1.5 · 나머지 3. 카메라는 방 전체가 한 화면에 들어오게 자동(`camZoom` = min(W/맵 폭, H/맵 높이)), 몸 배율 = screen / 카메라. 대상 밖(에르덴 마을 · 이야기 장소 등)은 그대로(사용자 "마을에서는 바꾸면 안 돼").
 - 그림은 발밑을 축으로만 키운다. 카메라 `cam.z` — 화면 → 땅은 화면/z + cam(`mouseMove.js` · `skillAim.js` · `guideArt.js`). 이름표는 `textUp` 으로 원래 글자 크기. 걷기는 판정 `rpg.js rpgWalk` · `walkTo` 의 `mapSpeed`(`heroSpeed` 는 다른 데 쓰는 비교값이라 여기만 고치면 안 걷는다), 빠른 걸음은 `stepWalk` 가 16px 씩 나눠 막힘을 건너뛰지 않고, 목적지 걷기는 `rpgWalk` 가 틱을 배율만큼 나눠 돌아가기 판단을 보통 간격으로 돌린다. 시험 `tools/body-scale.test.mjs`.

@@ -36,7 +36,7 @@ function drawLibraryGate(ctx, gate, time) {
   ctx.fillStyle = `rgba(240,222,170,${a * .35})`; ctx.fill(); ctx.restore();
   if (gate.libGate === 'door' && gate.to !== 'dawnwood') return;
   const mark = gate.libGate === 'up' ? ' ▲' : gate.libGate === 'down' ? ' ▼' : '';
-  label(ctx, `${gate.label}${mark}`, gate.x, gate.y - (gate.libGate === 'door' ? 40 : 96));
+  label(ctx, `${gate.label}${mark}`, gate.x, gate.y - (gate.libGate === 'door' || gate.libGate === 'way' ? 40 : 96));
 }
 export function drawVillageGate(ctx, gate, time) {
   if (gate.libGate) return drawLibraryGate(ctx, gate, time);

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, MAPS, SNAP_ORDER } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgTrain, MAPS, SNAP_ORDER } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { cleanBag, whyEquip } from '../src/game/shop.js';
 import { rpgAdminCmd } from '../src/game/adminCmd.js';
@@ -204,4 +204,16 @@ test('스냅샷 줄 61 · 62 — 손님 화면이 시험 · 직업 값을 받는
 test('병사를 지켜라 — 병사 셋은 정삼각형(세 변 길이가 같다)', () => {
   const [a, b, c] = NQ_TRIALS.guard.allies, d = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
   assert.ok(Math.abs(d(a, b) - d(b, c)) < 3 && Math.abs(d(b, c) - d(c, a)) < 3);
+});
+
+test('테스트 서버 — 여섯 장군 시험 앞으로 바로 가서 시험에 들어갈 수 있다 · 일반 서버는 거절', () => {
+  const ids = ['t-valtern', 'a-room', 's-raedin', 'f-orben', 'r-morken', 'ob-erebos'];
+  ids.forEach((id, i) => {
+    const { g, h } = setup({ plain: 1 }); g.test = 1;
+    assert.ok(rpgTrain(g, 0, { op: 'nq', n: i }), id);
+    assert.equal(h.map, spot(id).map, id);
+    if (['t-valtern', 's-raedin', 'f-orben', 'r-morken'].includes(id)) { act(g, id, 'start'); assert.ok(nqInTrial(h), `${id} 시험에 들어간다`); }
+  });
+  const { g } = setup({ plain: 1 });
+  assert.equal(rpgTrain(g, 0, { op: 'nq', n: 0 }), false);
 });

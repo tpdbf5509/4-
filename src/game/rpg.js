@@ -28,7 +28,7 @@ import { EN_PULSE } from './engineerData.js';
 import { EQ_MAPS, EQ_EXITS, EQ_VILLAGE, EQ_SITE_MAPS, EQ_SITE_EXIT, EQ_TRIAL } from './engineerQuestData.js';   // Engineer 003 획득 루트(11월 19일)
 import { eqInput, tickEq, eqMobHit, packEq, applyEq, eqInTrial } from './engineerQuest.js';
 import { NQ_MAPS, NQ_EXITS, NQ_BLOCKS } from './necroQuestData.js';   // Necromancer 004 획득 루트(11월 20일)
-import { nqInput, tickNq, packNq, applyNq } from './necroQuest.js';
+import { nqInput, tickNq, packNq, applyNq, nqTestGeneral } from './necroQuest.js';
 import { HIDDEN_FAMILY, hiddenRange } from "./hiddenFamilyData.js";   // 히든 계열 · 전용 사거리(11월 20일)
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook, packNecro, applyNecro } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
 import { NC_SCYTHE } from './necroData.js';
@@ -3351,6 +3351,7 @@ export function rpgTrain(g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req) return false;
   if (req.op === "go") return testGo(g, h, req.map);
+  if (req.op === "nq") return testNq(g, h, req.n);   // Necromancer 004 획득 루트 — 여섯 장군 시험 앞으로(테스트 서버만)
   if (h.map !== "train" && !g.test) return false;  // 테스트 서버는 어느 맵에서나
   const t = trnOf(h);
   if (["nocd", "stack", "god"].includes(req.op)) { t[req.op] = t[req.op] ? 0 : 1; return true; }
@@ -3384,6 +3385,11 @@ function testGo(g, h, to) {
   h.map = to; [h.x, h.y] = MAPS[to].spawn;
   h.hold = []; h.dest = null; h.dash = 0; h.gateCd = 1.5;
   return true;
+}
+// 테스트 서버에서만 — 장군 시험 앞으로 바로 간다(결투 · 던전 · 레이스 · 거래 중에는 옮기지 않는다)
+function testNq(g, h, n) {
+  if (!g.test || trading(h) || (h.dvs ?? -1) >= 0 || runOf(g, h) || MAPS[h.map].dungeon || MAPS[h.map].pvp || MAPS[h.map].race) return false;
+  return nqTestGeneral(h, Math.floor(Number(n)));
 }
 // 격자 연습장 — 그 맵의 허수아비를 모두 치우고 spots([x, y] 월드 좌표)에 다시 세운다. 판정 · 그림은 훈련장 허수아비와 같다
 export function sandboxDummies(g, map, spots) {

@@ -64,7 +64,7 @@ import EngineerQuestPanel from "./EngineerQuestPanel.jsx";   // Engineer 003 획
 import { eqSpotNear, eqSpotLine, eqView } from "./game/engineerQuest.js";
 import { EQ_TRIAL } from "./game/engineerQuestData.js";
 import NecroQuestPanel from "./NecroQuestPanel.jsx";   // Necromancer 004 획득 루트 조사 창(11월 20일)
-import { nqSpotNear, nqSpotLine, nqView, nqCap } from "./game/necroQuest.js";
+import { nqSpotNear, nqSpotLine, nqView, nqCap, NQ_TEST_GENERALS } from "./game/necroQuest.js";
 import { NQ_TRIALS, NQ_TEST, NQ_SKILLS } from "./game/necroQuestData.js";
 import { necroView } from "./game/necroJob.js";   // 히든 직업 Necromancer 004(11월 20일 실제 게임에 이음)
 import { NECRO_NAME, NC_SLOTS, NC_SKILLS, NC_SCYTHE } from "./game/necroData.js";
@@ -2974,6 +2974,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                       <span className="rpg-stat-name"><b>회복</b><em>체력을 가득 채우고 모든 대기 시간을 0 으로</em></span>
                       <button type="button" className="rpg-win-btn" onClick={() => act("train", { op: "heal" })}>회복</button>
                     </div>
+                  </div>
+                  <div className="rpg-test-go">
+                    <span className="rpg-test-go-head">네크로맨서 장군 시험 <em>앞 단계는 끝낸 것으로 하고 그 장군 곁에 섭니다</em></span>
+                    <span className="rpg-test-spots">
+                      {NQ_TEST_GENERALS.map((q, i) => (
+                        <button key={q.id} type="button" className="rpg-win-btn" onClick={() => act("train", { op: "nq", n: i })}>{q.name}</button>
+                      ))}
+                    </span>
                   </div>
                   <div className="rpg-test-go">
                     <span className="rpg-test-go-head">장소 이동 <em>지금 {MAPS[me.map] ? MAPS[me.map].name : ""}</em></span>

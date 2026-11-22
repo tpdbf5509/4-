@@ -784,6 +784,24 @@ export function nqAdminStage(h, st) {
   return STAGES[n].name;
 }
 
+/* 테스트 서버 전용 — 여섯 장군의 시험(발테른 · 세리온 · 라에딘 · 오르벤 · 모르켄 · 에레보스) 앞으로 바로 간다.
+   앞 단계 깃발을 채우고(다른 단계의 시험은 이미 끝낸 것으로) 그 장군 곁에 세운다. 테스트 방은 저장하지 않으니 가방은 이번 접속에만 바뀐다 */
+export const NQ_TEST_GENERALS = [
+  { id: 't-valtern', name: '방패 · 발테른', stage: 3, need: ['gates'] }, { id: 'a-room', name: '기록 · 세리온', stage: 4, need: ['books'] }, { id: 's-raedin', name: '날개 · 라에딘', stage: 5, need: ['statue'] },
+  { id: 'f-orben', name: '시간 · 오르벤', stage: 6, need: ['clocks'] }, { id: 'r-morken', name: '경계 · 모르켄', stage: 7, need: ['mirror'], dials: { rs: 1, rb: 2, rp: 2, ro: 1 } }, { id: 'ob-erebos', name: '침묵 · 에레보스', stage: 8, need: ['plates'] },
+];
+export function nqTestGeneral(h, n) {
+  const G = NQ_TEST_GENERALS[n];
+  if (!G) return false;
+  nqAdminStage(h, G.stage);
+  for (const f of G.need) setFlag(h, f);
+  if (G.dials) Object.assign(h.bag.nu.d, G.dials);
+  const sp = nqSpotById(G.id);
+  h.map = sp.map; h.x = sp.at[0]; h.y = Math.min(NQ_MAP_H - 60, sp.at[1] + 150);
+  h.hold = []; h.dest = null; h.dash = 0; h.gateCd = 1.5; h.nqRun = null;
+  return true;
+}
+
 /* ── 스냅샷 영웅 줄 61 ── 0 이면 아무것도 없다 */
 const r1 = (v) => Math.round(v * 10) / 10;
 const FOE_KINDS = Object.keys(FO);

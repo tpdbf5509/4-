@@ -3349,7 +3349,7 @@ button.forge-stage:disabled { cursor: default; }
 .eq-hud .eq-meter i { position: absolute; left: 0; top: 0; bottom: 0; background: #9fd2c8; }
 .eq-hud .eq-meter.hot i { background: #e39a5b; }
 /* 네크로맨서 시험 HUD(11월 23일 가독성 · 접근성): 글자 키움 · 체력 줄 · 누르기 쉬운 단추 · 포기 단추는 줄 끝에 따로 */
-.nq-hud { top: 128px; gap: 6px; max-width: min(380px, calc(100vw - 24px)); font-size: 14px; background: rgba(33,25,17,.95); }
+.nq-hud { top: 180px; gap: 6px; max-width: min(380px, calc(100vw - 24px)); font-size: 14px; background: rgba(33,25,17,.95); }
 .nq-hud b { font-size: 17px; }
 .nq-hud .nq-hp { display: grid; gap: 3px; }
 .nq-hud .nq-bar { height: 8px; }
@@ -3360,11 +3360,20 @@ button.forge-stage:disabled { cursor: default; }
 .nq-hud .nq-keys kbd { margin-left: 6px; padding: 0 5px; border: 1px solid rgba(241,228,200,.5); border-radius: 4px; font-size: 12px; }
 .nq-hud .nq-quit { margin-left: auto; order: 99; color: #e8b3a4; border-color: rgba(232,179,164,.5); }
 @media (max-height: 520px), (max-width: 640px) {
-  .nq-hud { top: 124px; min-width: 0; font-size: 13px; padding: 6px 10px; }
+  .nq-hud { top: auto; bottom: 8px; left: 8px; right: 8px; max-width: none; min-width: 0; font-size: 12px; padding: 5px 8px; gap: 3px; }
   .nq-hud b { font-size: 15px; }
-  .nq-hud .nq-keys .btn-ghost { min-height: 44px; padding: 6px 10px; font-size: 13px; }
+  .nq-hud { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+  .nq-hud b { font-size: 14px; }
+  .nq-hud .nq-hp { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }
+  .nq-hud .nq-hp > span:first-child { white-space: nowrap; }
+  .nq-hud .nq-bar { flex: 1; height: 7px; }
+  .nq-hud .nq-keys { flex-basis: 100%; flex-wrap: nowrap; gap: 4px; padding-top: 4px; }
+  .nq-hud .nq-keys .btn-ghost:not(.nq-quit) { flex: 1 1 0; min-width: 0; min-height: 40px; padding: 2px 4px; font-size: 11.5px; line-height: 1.15; }
+  .nq-hud .nq-keys kbd { display: none; }
+  .nq-hud { padding-right: 84px; }
+  .nq-hud .nq-keys .nq-quit { position: absolute; top: 4px; right: 6px; margin: 0; min-height: 30px; padding: 2px 8px; font-size: 11px; }
+  .nq-hud .nq-keys .nq-quit { flex: none; }
 }
-@media (max-height: 520px) { .nq-hud { max-width: min(330px, 46vw); } }
 @media (max-height: 520px), (max-width: 640px) {
   .eq-keys { grid-template-columns: repeat(6, auto); }
   .eq-code { font-size: 22px; }

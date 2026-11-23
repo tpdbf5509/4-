@@ -202,22 +202,26 @@ function trainXp(E, g, h, i, n = NC.train.cast) {
   E.fx(g, h.map, { kind: "call", x: h.x, y: h.y - 160, text: `${NC_TRAIN_NAMES[i]} ${q[0]}`, color: LIGHT, t: 1.2, life: 1.2, who: h.pi });
 }
 /* 몹이 쓰러졌다(rpg.js killMob) — 처치에 기여한 그림자 군주마다 직업 경험치 · 영혼 +10(일반 몹) · 추출 가능 흔적 8초.
-   흔적은 일반 몹만(E.trace — 보스 · 월드보스 · 길드보스 · 허수아비 · 소환물 제외). 그림자의 타격도 주인의 기여로 센다(hitMob 의 친 사람이 주인) */
+   흔적은 E.trace 가 정한다 — 11월 23일 사용자 "보스 그림자가 안 떨어진다"로 보스 · 던전 · 탑 · 길드 · 월드보스도 남긴다(허수아비 · 소환물 제외).
+   그림자의 타격도 주인의 기여로 센다(hitMob 의 친 사람이 주인) */
+function dropTrace(E, h, m) {
+  if (!E.trace(m)) return;
+  const s = st(h);
+  s.traces.push({ id: ++s.q, t: m.type, n: E.mobName(m), x: Math.round(m.x), y: Math.round(m.y), map: m.map, left: TR.life });
+  if (s.traces.length > TR.max) s.traces.shift();
+}
 export function necroKill(E, g, m, got) {
   if (!m || m.type === "dummy") return;
   const n = m.boss ? (m.dg || m.raid ? NC.xp.raid : NC.xp.boss) : NC.xp.mob;
   for (const h of got) {
     if (!necroOn(h)) continue;
     jobXp(E, g, h, n);
-    if (m.boss) continue;
-    gainSoul(h, SOUL.kill);
-    if (!E.trace(m)) continue;
-    const s = st(h);
-    s.traces.push({ id: ++s.q, t: m.type, n: E.mobName(m), x: Math.round(m.x), y: Math.round(m.y), map: m.map, left: TR.life });
-    if (s.traces.length > TR.max) s.traces.shift();
+    if (!m.boss) gainSoul(h, SOUL.kill);
+    dropTrace(E, h, m);
   }
 }
-export const necroRaidKill = (E, g, h) => { if (necroOn(h)) jobXp(E, g, h, NC.xp.raid); };
+// 월드보스 · 길드 보스 — 보상 정산이 따로라 killMob 이 여기로 온다(친 사람마다)
+export const necroRaidKill = (E, g, h, m) => { if (!necroOn(h)) return; jobXp(E, g, h, NC.xp.raid); if (m) dropTrace(E, h, m); };
 
 /* ── 쓸 수 있나 ─────────────────────────────────────── */
 function why(E, g, h) {

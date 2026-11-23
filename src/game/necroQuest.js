@@ -322,6 +322,8 @@ function tickHazards(E, g, h, dt) {
       if (h.y < lane.y0 || h.y >= lane.y1 || !nqLaneState(z, lane, t).on) continue;
       E.place(g, h, z.back[0], z.back[1]);
       r.hz = 1.2;
+      r.lh = (r.lh || 0) + 1;   // 닿은 횟수 — giveUp 번 닿으면 빛을 꺼 준다(못 건너는 사람이 막히지 않게)
+      if (z.giveUp && r.lh >= z.giveUp) { setAll(h, 'lightOk'); return void tell(E, g, h, '관측 장치가 힘을 잃은 듯 빛이 잦아든다. 이제 건너가도 좋다.', WARN); }
       return void tell(E, g, h, z.msg, WARN);
     }
   }

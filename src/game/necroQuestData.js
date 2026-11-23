@@ -351,11 +351,11 @@ export const NQ_SPOTS = [
 // 벽에 붙은 것은 걸을 수 있는 벽 밑으로 내려 다가갈 수 있게 한다
 for (const s of NQ_SPOTS) { const m = NQ_MAPS.find((q) => q.id === s.map); if (m && s.at[1] < m.top + 24) s.at = [s.at[0], m.top + 24]; }
 
-/* 11월 23일 사용자 "지나가는 게 불가능해" — 띠 간격 1.5초에 빛이 1.6초라 이웃 띠가 0.1초씩 겹쳐 걸음 속도(세로 195px/초)로는 건널 수 없었다. 빛을 1.0초로 줄여 한 박자(6초)에 1.1초 남짓 쉬지 않고 올라갈 틈이 생긴다(시험 tools/necro-quest.test.mjs). */
+/* 11월 23일 사용자 "지나가는 게 불가능해" — 띠 간격 1.5초에 빛이 1.6초라 이웃 띠가 0.1초씩 겹쳐 걸음 속도(세로 195px/초)로는 건널 수 없었다. 빛을 1.0초로 줄였다가 11월 23일 "그래도 불가능"이라 0.7초로 더 줄이고, 세 번 닿으면 빛이 꺼지게 했다(giveUp — 못 건너는 사람이 막히지 않게)(시험 tools/necro-quest.test.mjs). */
 /* ── 위험 장치(피해 없음 — 걸리면 구간 시작으로) ── 관측소 빛 띠: 가로 띠마다 period 초 중 on 구간에 빛이 쓸고 warn 초 전부터 희게 빛난다 */
 const LANE = (y0, y1, off) => ({ y0: Math.round(y0 * K), y1: Math.round(y1 * K), off });
 export const NQ_HAZARDS = [
-  { id: 'light', map: 'necro_observatory', kind: 'lanes', period: 6, on: 1.0, warn: 1.2, lanes: [LANE(470, 540, 0), LANE(540, 610, 1.5), LANE(610, 680, 3), LANE(680, 750, 4.5)],
+  { id: 'light', map: 'necro_observatory', kind: 'lanes', period: 6, on: 0.7, warn: 1.2, giveUp: 3, lanes: [LANE(470, 540, 0), LANE(540, 610, 1.5), LANE(610, 680, 3), LANE(680, 750, 4.5)],
     off: ['lightOk'], back: P(230, 900), msg: '관측 장치의 빛에 닿아 통로 입구로 밀려났다. 빛이 닿지 않는 검은 바닥만 밟자.' },
 ];
 // 압력계 박자 — 수문 퍼즐(벽시계로 센다) — 안전 구간에만 중앙 유입문을 받는다

@@ -3349,7 +3349,7 @@ button.forge-stage:disabled { cursor: default; }
 .eq-hud .eq-meter i { position: absolute; left: 0; top: 0; bottom: 0; background: #9fd2c8; }
 .eq-hud .eq-meter.hot i { background: #e39a5b; }
 /* 네크로맨서 시험 HUD(11월 23일 가독성 · 접근성): 글자 키움 · 체력 줄 · 누르기 쉬운 단추 · 포기 단추는 줄 끝에 따로 */
-.nq-hud { gap: 6px; max-width: min(380px, calc(100vw - 24px)); font-size: 14px; background: rgba(33,25,17,.95); }
+.nq-hud { top: 128px; gap: 6px; max-width: min(380px, calc(100vw - 24px)); font-size: 14px; background: rgba(33,25,17,.95); }
 .nq-hud b { font-size: 17px; }
 .nq-hud .nq-hp { display: grid; gap: 3px; }
 .nq-hud .nq-bar { height: 8px; }
@@ -3360,7 +3360,7 @@ button.forge-stage:disabled { cursor: default; }
 .nq-hud .nq-keys kbd { margin-left: 6px; padding: 0 5px; border: 1px solid rgba(241,228,200,.5); border-radius: 4px; font-size: 12px; }
 .nq-hud .nq-quit { margin-left: auto; order: 99; color: #e8b3a4; border-color: rgba(232,179,164,.5); }
 @media (max-height: 520px), (max-width: 640px) {
-  .nq-hud { top: 44px; min-width: 0; font-size: 13px; padding: 6px 10px; }
+  .nq-hud { top: 124px; min-width: 0; font-size: 13px; padding: 6px 10px; }
   .nq-hud b { font-size: 15px; }
   .nq-hud .nq-keys .btn-ghost { min-height: 44px; padding: 6px 10px; font-size: 13px; }
 }

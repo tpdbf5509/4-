@@ -236,3 +236,12 @@ test('테스트 서버 — 퍼즐 건너뛰기 토글: 세리온 · 에레보스
   { const { g, h } = setup({ plain: 1 }); h.trn = { skip: 1, log: [] }; rpgTrain(g, 0, { op: 'nq', n: 1 }); at(h, 'a-room');
     act(g, 'a-room', [9, 9, 9, 9, 9]); assert.ok(!nqHas(h, 'sRecord'), '테스트 서버가 아니면 건너뛰지 않는다'); }
 });
+
+test('시험 포기 — 진행 중인 시험만 끝내고 장군 곁으로 돌아온다 · 깃발은 그대로', () => {
+  const { g, h } = setup({ plain: 1 }); g.test = 1; rpgTrain(g, 0, { op: 'nq', n: 0 });
+  act(g, 't-valtern', 'start'); assert.ok(nqInTrial(h));
+  rpgInput(g, { cls: 0, kind: 'nq', dir: { op: 'quit' } });
+  assert.ok(!nqInTrial(h)); assert.equal(h.map, spot('t-valtern').map); assert.ok(nqHas(h, 'gates'));
+  rpgInput(g, { cls: 0, kind: 'nq', dir: { op: 'quit' } });   // 시험 중이 아니면 아무 일 없다
+  act(g, 't-valtern', 'start'); assert.ok(nqInTrial(h), '다시 도전할 수 있다');
+});

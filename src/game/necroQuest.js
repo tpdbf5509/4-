@@ -124,6 +124,7 @@ export function nqInput(E, g, pi, req) {
   if (req.op === 'cmd') return void trialCmd(E, g, h, req.c);
   if (req.op === 'glyph') return void trialGlyph(E, g, h, req.v);
   if (req.op === 'contract') return void contract(E, g, h, !!req.yes);
+  if (req.op === 'quit') return void quitTrial(E, g, h);
   if (req.op !== 'act') return;
   const s = nqSpotById(req.id);
   if (!s || s.map !== h.map || !nqSpotShown(h, s) || dist(h, s.at) > s.r * 1.6) return;
@@ -361,6 +362,15 @@ function step(o, tx, ty, spd, dt) {
   const m = Math.min(L, spd * dt);
   o.x += (dx / L) * m; o.y += (dy / L) * m * SQ; o.ax = dx < 0 ? -1 : 1;
   return L;
+}
+// 시험 포기(11월 23일 사용자) — 진행 중인 시험만 끝내고 그 장군 곁으로 돌아간다. 시험 기록(깃발)은 건드리지 않으니 그 시험을 다시 볼 수 있다
+function quitTrial(E, g, h) {
+  const r = h.nqRun, tr = r && r.tr;
+  if (!tr) return;
+  const sp = nqSpotById(tr.sid);
+  endTrial(h);
+  if (sp && sp.map === h.map) E.place(g, h, sp.at[0], Math.min(NQ_MAP_H - 60, sp.at[1] + 150));
+  tell(E, g, h, '시험을 포기했다. 준비가 되면 다시 도전할 수 있다.');
 }
 function endTrial(h) { if (h.nqRun) h.nqRun.tr = null; }
 
@@ -805,7 +815,7 @@ export function nqAdminStage(h, st) {
 /* 테스트 서버 전용 — 여섯 장군의 시험(발테른 · 세리온 · 라에딘 · 오르벤 · 모르켄 · 에레보스) 앞으로 바로 간다.
    앞 단계 깃발을 채우고(다른 단계의 시험은 이미 끝낸 것으로) 그 장군 곁에 세운다. 테스트 방은 저장하지 않으니 가방은 이번 접속에만 바뀐다 */
 export const NQ_TEST_GENERALS = [
-  { id: 't-valtern', name: '방패 · 발테른', stage: 3, need: ['gates'] }, { id: 'a-room', name: '기록 · 세리온', stage: 4, need: ['books'] }, { id: 's-raedin', name: '날개 · 라에딘', stage: 5, need: ['statue'] },
+  { id: 't-valtern', name: '방패 · 발테른', stage: 3, need: ['gates'] }, { id: 'a-room', name: '기록 · 세리온', stage: 4, need: ['dial', 'books'] }, { id: 's-raedin', name: '날개 · 라에딘', stage: 5, need: ['statue'] },
   { id: 'f-orben', name: '시간 · 오르벤', stage: 6, need: ['clocks'] }, { id: 'r-morken', name: '경계 · 모르켄', stage: 7, need: ['mirror'], dials: { rs: 1, rb: 2, rp: 2, ro: 1 } }, { id: 'ob-erebos', name: '침묵 · 에레보스', stage: 8, need: ['plates'] },
 ];
 export function nqTestGeneral(h, n) {

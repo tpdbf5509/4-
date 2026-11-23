@@ -735,6 +735,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [marketOpen, setMarketOpen] = useState(false); // 장터 게시판 창(MarketPanel)
   const [villageOpen, setVillageOpen] = useState(null);
   const [eqOpen, setEqOpen] = useState(null);       // Engineer 003 획득 루트 조사 창 — 자리 id
+  const [nqQuitSure, setNqQuitSure] = useState(false);   // 시험 포기 — 한 번 더 눌러야 포기
   const [nqOpen, setNqOpen] = useState(null);       // Necromancer 004 획득 루트 조사 창 — 자리 id
   const [ncOpen, setNcOpen] = useState(false);      // Necromancer 004 그림자 명부 창
   const [ncRename, setNcRename] = useState(null);   // 명부 창 「이름」 — 고칠 그림자
@@ -2907,6 +2908,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               <span className="nq-keys">
                 {T.skills.map((sk) => { const a = Object.keys(NQ_KEY_SKILL).find((q) => NQ_KEY_SKILL[q] === sk); return (
                   <button type="button" key={sk} className="btn-ghost" disabled={t.cd[sk] > 0} onClick={() => act("nq", { op: "skill", s: sk })}>{NQ_SKILLS[sk].name}{t.cd[sk] > 0 ? ` ${Math.ceil(t.cd[sk])}` : ""}{k(a)}</button>); })}
+                <button type="button" className="btn-ghost" onClick={() => { if (!nqQuitSure) { setNqQuitSure(true); setTimeout(() => setNqQuitSure(false), 4000); return; } setNqQuitSure(false); act("nq", { op: "quit" }); }}>{nqQuitSure ? "정말 포기하기" : "시험 포기하기"}</button>
                 {T.cmd && ["call", "gather", "guard", "attack", "recall"].map((c) => { const a = Object.keys(NQ_KEY_CMD).find((q) => NQ_KEY_CMD[q] === c); return (
                   <button type="button" key={c} className="btn-ghost" disabled={c === "call" && t.cd.call > 0} onClick={() => act("nq", { op: "cmd", c })}>{NQ_SKILLS[c].name}{a && k(a)}</button>); })}
               </span>

@@ -1,7 +1,7 @@
-"""히든 직업 Illusionist 005 마술사 여성 외형 — 사용자가 준 시트 둘을 떼어 낸다(design/illusion-job/char/, 11월 23일).
+"""히든 직업 Illusionist 005 마술사 여성 외형 — 사용자가 준 시트 둘을 떼어 낸다(design/illusion-job/char/, 11월 23일 — 같은 날 보랏빛 그림으로 바꿨다).
    서기 illusion-f-standing-sheet.png: 흰 바탕 한 줄 4명 = 앞 · 뒤 · 옆(왼쪽을 본다) · 옆(오른쪽을 본다). 게임은 옆 그림을 뒤집어 쓰므로 셋째만 쓴다.
    걷기 illusion-f-walk-sheet.png: 흰 바탕 4칸 × 4줄. 줄 = 앞 · 뒤 · 왼쪽 · 오른쪽, 칸 = 걷기 4장. 오른쪽 줄은 쓰지 않는다.
-   흰 바탕은 가장자리에서 이어진 흰 점만 지운다 — 흰 깃털 · 크림색 장화 · 프릴은 윤곽선에 막혀 남는다(관리자 스킨과 같은 방식).
+   흰 바탕은 가장자리에서 이어진 흰 점만 지운다 — 흰 깃털 · 흰 장화 · 프릴은 윤곽선에 막혀 남는다(관리자 스킨과 같은 방식).
    움찔거림 방지 — 한 줄 네 장의 위 · 아래(발바닥 진한 점)를 같게 자르고, 장마다 드레스(어두운 점) 가로 중심을 그림 가운데에 둔다(칸 간격이 고르지 않다).
    결과: public/assets/characters/rpg/illusion-f/ — 무기를 들지 않아 -bare 도 같은 그림. 남성은 아직 그림이 없어 기본 외형.
    실행: python3 tools/cut-illusion-char.py"""
@@ -17,12 +17,16 @@ PAD, FAINT = 6, 40
 SCALE = 1.25     # 암살자(여) 앞 키에 대한 배율 — 도박꾼 · 관리자 스킨과 같은 키
 WHITE = 236      # 이보다 밝고 색이 거의 없는 점이 바탕 후보
 EDGE = 2         # 바탕과 닿은 이 폭 안의 밝은 점은 흰 바탕을 빼고 반투명으로 푼다
-POCKET = 0.5     # 갇힌 흰 칸 둘레의 분홍 몫이 이보다 크면 머리카락 사이 빈틈으로 보고 지운다(깃털 · 장화는 짙은 윤곽에 둘러싸여 남는다)
+POCKET = 0.5     # 갇힌 흰 칸 둘레에서 머리카락 색(밝고 색이 진한 점) 몫이 이보다 크면 머리카락 사이 빈틈 후보
 POCKET_MIN = 60  # 이보다 작은 흰 칸은 머리카락 반짝임으로 보고 남긴다
+POCKET_SAT = 66  # 둘레 평균 채도(최대 − 최소)가 이보다 낮으면 남긴다 — 흰 깃털 · 프릴 둘레는 옅은 연보라(40~60)
+POCKET_DIST = 20 # 바깥 바탕에서 이보다 멀면 남긴다 — 머리카락 틈은 실루엣 가장자리 가까이에 있다(눈 · 얼굴 반짝임은 안쪽)
 
 def pockets(a, cand, lab, border):
-    """머리카락 고리 안에 갇힌 흰 바탕 — 가장자리와 이어지지 않아도 둘레가 거의 분홍이면 바탕이다"""
-    pink = (a[..., 0] - a[..., 1] > 45) & (a[..., 0] > 170)
+    """머리카락 고리 안에 갇힌 흰 바탕 — 가장자리와 이어지지 않아도 둘레가 진한 머리카락 색이고 바깥 가까이면 바탕이다"""
+    hc = a.max(2)
+    hair = (hc - a.min(2) > 40) & (hc > 170)
+    dist = ndimage.distance_transform_edt(~np.isin(lab, [b for b in border if b]))
     out = np.zeros(cand.shape, bool)
     for i, sl in enumerate(ndimage.find_objects(lab), 1):
         if sl is None or i in border: continue
@@ -31,7 +35,9 @@ def pockets(a, cand, lab, border):
         m = lab[y0:y1, x0:x1] == i
         if m.sum() < POCKET_MIN: continue
         ring = ndimage.binary_dilation(m, iterations=3) & ~m & ~cand[y0:y1, x0:x1]
-        if ring.any() and pink[y0:y1, x0:x1][ring].mean() > POCKET:
+        if not ring.any() or hair[y0:y1, x0:x1][ring].mean() <= POCKET: continue
+        r = a[y0:y1, x0:x1][ring]
+        if (r.max(1) - r.min(1)).mean() >= POCKET_SAT and dist[y0:y1, x0:x1][m].min() <= POCKET_DIST:
             out[y0:y1, x0:x1] |= m
     return out
 
@@ -74,7 +80,7 @@ def dress_x(im):
     a = np.asarray(im).astype(int)
     H = a.shape[0]
     band = a[int(H * 0.35):int(H * 0.8)]
-    ys, xs = np.where((band[..., 3] > 200) & (band[..., :3].max(2) < 70))
+    ys, xs = np.where((band[..., 3] > 200) & (band[..., :3].max(2) < 90))
     return xs.mean() if len(xs) else im.size[0] / 2
 
 def place(cr, s, cx=None):

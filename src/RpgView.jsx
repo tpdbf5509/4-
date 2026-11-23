@@ -959,6 +959,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || !!storyPv || !!eqOpen || !!nqOpen || ncOpen || !!libOpen || testOpen || skOpen || chatOpen || !!waitKey;
   useEffect(() => { winOpenRef.current = anyWin; }, [anyWin]);
 
+  // 전체 화면 — 브라우저 전체 화면으로 게임 판을 펼친다(지원하지 않는 기기 · 아이폰 사파리는 줄을 숨긴다)
+  const [fs, setFs] = useState(false);
+  useEffect(() => { const f = () => setFs(!!document.fullscreenElement); document.addEventListener("fullscreenchange", f); return () => document.removeEventListener("fullscreenchange", f); }, []);
+  const toggleFs = useCallback(() => { try { if (document.fullscreenElement) document.exitFullscreen(); else (pageRef.current || document.documentElement).requestFullscreen(); } catch { /* 막히면 그대로 둔다 */ } }, []);
   const toggleMute = useCallback(() => {
     sfx.unlock();
     const v = !sfx.isMuted();
@@ -2122,6 +2126,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   <input type="range" min="0" max="100" value={volume} aria-label="전체 음량" aria-valuetext={volume + "%"}
                     onKeyDown={e => e.stopPropagation()} onChange={e => setVolume(Number(e.target.value))} />
                 </label>
+                {document.fullscreenEnabled && <button type="button" role="menuitemcheckbox" aria-checked={fs} className="rpg-menu-row" onClick={toggleFs}>
+                  <span className="rpg-menu-text"><b>전체 화면</b><em>{fs ? "누르면 원래 크기로 돌아갑니다" : "게임 화면을 브라우저 가득 펼칩니다"}</em></span>
+                  <span className={`rpg-switch ${fs ? "on" : ""}`}><span /></span>
+                </button>}
                 <button type="button" role="menuitemcheckbox" aria-checked={auto} className="rpg-menu-row" onClick={toggleAuto}>
                   <span className="rpg-menu-text">
                     <b>자동 평타</b>

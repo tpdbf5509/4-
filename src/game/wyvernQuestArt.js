@@ -116,7 +116,7 @@ export function drawWqSpot(ctx, me, s, time, near) {
       else top = 40;                                                  // 불씨가 살아난 석등은 둘째 통풍구 앞에 있다(drawWqGround 가 그린다)
     } else if (L && L.startsWith('vent')) { vent(ctx, x, y, Number(L.slice(4)), time); top = 140; }
     else if (s.act.k !== 'trial') disc(ctx, x, y - 30, 5 + Math.sin(time * 3 + x) * 1.5, '#f6ead8', 0.55);   // 바닥 그림 속 물건 — 조사할 수 있는 자리
-    else { ctx.save(); ctx.fillStyle = '#6f6a62'; ctx.fillRect(x - 40, y - 64, 80, 64); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(x - 39.5, y - 63.5, 79, 63); ctx.restore(); top = 90; }   // 비문 돌
+    else top = 110;                                                   // 비문 돌 — 바닥 그림에 그려져 있다
   }
   if (near) label(ctx, s.name, x, y - top - 8);
 }

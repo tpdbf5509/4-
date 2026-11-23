@@ -12,7 +12,7 @@ import { illusionOn } from './illusionJob.js';   // 히든 직업 Illusionist 00
    d = { cls: 자리, kind, dir, q, aim: 선택적인 스킬 방향, pt: 선택적인 포인터 자리 }. 늦게 도착한 옛 누름 · 뗌 · 이동(hold · mv · fire)은 버린다(freshInput) */
 import {
   rpgHold, rpgMove, rpgSkill, rpgWeaponSkill, rpgWeaponRelease, rpgWeaponAim, rpgTalk, rpgFire, rpgAuto, rpgPvp, rpgHideGear, rpgStat, rpgUseSkill, rpgDash, rpgParty, rpgTitle,
-  rpgRequiem, rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, rpgBloodBreak, rpgHidden, rpgEq, rpgNq, freshInput, setFxBy,
+  rpgRequiem, rpgWorldBoss, rpgGuild, rpgAdv, rpgDeep, rpgAbyss, rpgRace, rpgDuel, rpgBlock, rpgRequest, rpgQuest, rpgDungeon, rpgTrain, rpgHerb, rpgBloodJob, rpgBloodBreak, rpgHidden, rpgEq, rpgNq, rpgIq, freshInput, setFxBy,
 } from "./rpg.js";
 import { rpgShop } from "./shop.js";
 import { rpgAdminCmd } from "./adminCmd.js";
@@ -52,6 +52,7 @@ const ACTS = {
   hidden: (g, pi, dir) => rpgHidden(g, pi, dir),   // 히든 직업 Gambler 002 — 스킬 한 번 누름(gamblerJob.js, 11월 16일 격자 연습장에만)
   eq: (g, pi, dir) => rpgEq(g, pi, dir),           // Engineer 003 획득 루트 — 조사 · 퍼즐 · 시험 · 계약(engineerQuest.js)
   nq: (g, pi, dir) => rpgNq(g, pi, dir),           // Necromancer 004 획득 루트 — 조사 · 퍼즐 · 시험 · 계승(necroQuest.js)
+  iq: (g, pi, dir) => rpgIq(g, pi, dir),           // Illusionist 005 획득 루트 — 조사 · 퍼즐 · 시험 · 계승(illusionQuest.js)
   adv: (g, pi, dir) => rpgAdv(g, pi, dir),         // 1차 전직 — 시험 · 확정 · 전직 스킬(advance.js)
   deep: (g, pi, dir) => rpgDeep(g, pi, dir),       // 계몽의 문 — 계몽의 눈 만들기 · 400~800레벨 사냥터 입장(deepData.js)
   abyss: (g, pi, dir) => rpgAbyss(g, pi, dir),     // 심연의 탑 — 입장 · 나가기 · 파편 교환(abyssData.js)

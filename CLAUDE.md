@@ -323,6 +323,8 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 이펙트는 pixelfx 없이 `design/effects/illusionist/make.py` 가 직접 그린 도트 시트 14장(`hidden-jobs/illusionist/px/il_*.webp`). 고치면 make.py → `manifest.json` 값을 `illusionPxData.js` 로(시험이 본다). 입자 상한 `IL_BITS`(연출 64 · 프레임 380). 여성 외형은 11월 23일 사용자 그림(`design/illusion-job/char/`)을 `tools/cut-illusion-char.py` 로 자른 `characters/rpg/illusion-f/`(`advArtPath` 의 `illusionLook` + 여성, 걷기 4장 · 키는 도박꾼과 같은 1.25배, 머리카락 사이 갇힌 흰 틈도 지운다). 남성은 아직 기본 그림. 정한 해석은 `docs/작업-상세-기록.md` 끝.
 - 연습장 M 키: 키 행동 「스킬 설명」(기본 M)이 생긴 뒤로 연습장에서 M 이 안 열리던 것을 고쳤다(모든 히든 직업).
 
+- **획득 루트 「존재하지 않았던 공연」(11월 23일, 테스트 서버 전용)**: 사용자 상세기획서 v2.0. 수치 · 자리 · 대사 `illusionQuestData.js` · 판정 `illusionQuest.js`(입력 kind `iq`, 엔진 `eqEngine`) · 그림 `illusionQuestArt.js` · 창 `IllusionQuestPanel.jsx`(`.eq-panel.nq-panel` 틀) · 시험 `tools/illusion-quest.test.mjs`. `IQ_ROUTE.live = false` — `g.test` 에서만 `h.ilt`, 스냅샷 영웅 줄 64(63 은 빈 자리). 진행 `bag.iu`(깃발 차례 뒤에만). 마을 · 광장에 새 물건 없이 원래 벤치 · 인물에 단추만 겹친다. 전용 맵 11곳 `iq_*`(`MAP_IDS` 끝, 바닥 Codex `story/ground/iq_*.webp`), 문 · 구조물은 열림 · 닫힘 낱장 `rpg/illusion-quest/doors.webp`. 시험은 빌린 기술을 `tr` 안에서만 흉내 내고, 계승은 아직 `claimed` 깃발만(직업이 연습장 전용). 테스트 도구 「마술사」 단추로 장마다 바로 간다. 정한 해석은 상세 기록 끝.
+
 ### 격자 연습장 `?sandbox` (11월 16일)
 - 주소 `four-lane.vercel.app/?sandbox`(`main.jsx` 가 `Sandbox.jsx` 를 따로 불러온다). 게임에 넣기 전 캐릭터(직업 · 성별 · 원소 · 전직 · 숙련 단계 · BLOOD-001 직업 레벨 · 연마 · 레벨 · 스탯 · 무기(미공개 hold 포함) · 스킬 칸)를 골라 격자 바닥에서 움직이고 스킬을 써 본다.
 - 직업 체험(`JobTrial.jsx`)처럼 이 기기에서만 도는 세계다. 서버 · 장부 · 기기 캐릭터 기록과 이어지지 않고 아무것도 저장하지 않는다. `g.test` 로 훈련장 기능(무적 · 쿨타임 끄기 · 스택 가득 · 초당 피해)을 쓰고, 월드보스는 나오지 않게 막았다.

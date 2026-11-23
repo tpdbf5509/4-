@@ -70,6 +70,10 @@ import { EQ_TRIAL } from "./game/engineerQuestData.js";
 import NecroQuestPanel from "./NecroQuestPanel.jsx";   // Necromancer 004 획득 루트 조사 창(11월 20일)
 import { nqSpotNear, nqSpotLine, nqView, nqCap, NQ_TEST_GENERALS } from "./game/necroQuest.js";
 import { NQ_TRIALS, NQ_TEST, NQ_SKILLS } from "./game/necroQuestData.js";
+import IllusionQuestPanel from "./IllusionQuestPanel.jsx";   // Illusionist 005 획득 루트 조사 창(11월 23일)
+import { iqSpotNear, iqSpotLine, iqView, IQ_STAGE_LIST } from "./game/illusionQuest.js";
+import { IQ_TRIAL } from "./game/illusionQuestData.js";
+import { IL_SKILLS, IL_CARD } from "./game/illusionData.js";
 import { necroView } from "./game/necroJob.js";   // 히든 직업 Necromancer 004(11월 20일 실제 게임에 이음)
 import { NECRO_NAME, NC_SLOTS, NC_SKILLS, NC_SCYTHE } from "./game/necroData.js";
 import { NecroBar } from "./NecroHud.jsx";
@@ -231,6 +235,8 @@ const NC_BY_ACT = Object.fromEntries(NC_SLOTS.map((q) => [q.act, q.s]));
 // Necromancer 004 획득 루트 시험 — 시험 기술 · 그림자 명령을 기존 행동 키에 잠시 얹는다(시험 밖에서는 원래 키)
 const NQ_KEY_SKILL = { fire: "strike", dash: "dash", use1: "shield", use2: "decoy" };
 const NQ_KEY_CMD = { use5: "call", skill: "gather", adv: "guard", wskill: "attack" };
+// Illusionist 005 획득 루트 최종 시험 — 평타 키는 절단 카드, 나머지는 마술사 키 자리(illusionData.js IL_SLOTS)와 같다
+const IQ_KEY_SKILL = { fire: "card", use1: "shuffle", use2: "slash", bSmash: "prison", bSword: "blink", use5: "fist", adv: "mirror", skill: "final" };
 const EQ_COOL_R = 130;   // 최종 시험 냉각 장치 — 이만큼 가까우면 말 걸기 키로 돌린다(engineerQuest.js trialCool 과 같은 값)
 const LOAD_BLOCK = new Set(["hold", "mv", "fire", "dash", "use", "skill", "wskill", "wcharge", "adv", "talk", "herb", "blood", "hidden"]);
 const loadBlocks = (kind, dir) => LOAD_BLOCK.has(kind) && !(kind === "hold" && !(dir && dir.length))
@@ -737,6 +743,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [eqOpen, setEqOpen] = useState(null);       // Engineer 003 획득 루트 조사 창 — 자리 id
   const [nqQuitSure, setNqQuitSure] = useState(false);
   const [nqFold, setNqFold] = useState(false);   // 시험 표 접기 — 접으면 시험 체력만 보인다(시험 중 유지)   // 시험 포기 — 한 번 더 눌러야 포기
+  const [iqOpen, setIqOpen] = useState(null);       // Illusionist 005 획득 루트 조사 창 — 자리 id
   const [nqOpen, setNqOpen] = useState(null);       // Necromancer 004 획득 루트 조사 창 — 자리 id
   const [ncOpen, setNcOpen] = useState(false);      // Necromancer 004 그림자 명부 창
   const [ncRename, setNcRename] = useState(null);   // 명부 창 「이름」 — 고칠 그림자
@@ -825,7 +832,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const closeAll = useCallback(() => {
     setMenu(false); setStatOpen(false); setShopOpen(null); setBagOpen(false);
     setTitleOpen(false); setCodexOpen(false); setPartyOpen(false); setKeysOpen(false); setInqOpen(false); setWaitKey(null); setHonorOpen(false); setReqOpen(null); setQuestOpen(false); setGiftOpen(null);
-    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null); setEqOpen(null); setNqOpen(null); setNcOpen(false); setLibOpen(null); setTestOpen(false); setSkOpen(false);
+    setDgOpen(false); setTrainOpen(false);setWbOpen(false);setGuildOpen(false); setAdvOpen(false); setDeepOpen(false); setAbyssOpen(false); setMarketOpen(false); setRaceOpen(false); setVillageOpen(null); setEqOpen(null); setNqOpen(null); setIqOpen(null); setNcOpen(false); setLibOpen(null); setTestOpen(false); setSkOpen(false);
   }, []);
   const toggleWin = useCallback((open, set) => { closeAll(); setNote(null); if (!open) set(true); }, [closeAll]);
   // 이야기 연출 미리보기 — 장면의 대화 상대(없으면 단서 대상)로 대화 창을 열고, 실제 장면처럼 카메라를 잠깐 옮긴다
@@ -957,7 +964,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   useEffect(() => { raceRef.current = raceOpen; }, [raceOpen]);
   // 창이 하나라도 열려 있거나 채팅 중이면 마우스 이동을 무시한다(onMoveDown)
   const anyWin = menu || statOpen || !!shopOpen || bagOpen || titleOpen || codexOpen || partyOpen || keysOpen || inqOpen || honorOpen || !!reqOpen || questOpen
-    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || !!storyPv || !!eqOpen || !!nqOpen || ncOpen || !!libOpen || testOpen || skOpen || chatOpen || !!waitKey;
+    || !!giftOpen || dgOpen || trainOpen || wbOpen || !!guildOpen || advOpen || deepOpen || abyssOpen || marketOpen || raceOpen || !!villageOpen || !!storyPv || !!eqOpen || !!nqOpen || !!iqOpen || ncOpen || !!libOpen || testOpen || skOpen || chatOpen || !!waitKey;
   useEffect(() => { winOpenRef.current = anyWin; }, [anyWin]);
 
   // 전체 화면 — 브라우저 전체 화면으로 게임 판을 펼친다(지원하지 않는 기기 · 아이폰 사파리는 줄을 숨긴다)
@@ -1030,6 +1037,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (es) { closeAll(); setEqOpen(es.id); return; }
       const ns = !npc0 && h && nqSpotNear(h);         // Necromancer 004 획득 루트 — 조사 자리(마을 쪽문 · 탐험 맵)
       if (ns) { closeAll(); setNqOpen(ns.id); return; }
+      const is = !npc0 && h && iqSpotNear(h);         // Illusionist 005 획득 루트 — 조사 자리(벤치 · 숨은 맵). 원래 주민에 붙은 단추는 말풍선에서 연다
+      if (is) { closeAll(); setIqOpen(is.id); return; }
       if (!npc) return;
       if (npc.shelf) { closeAll(); setLibOpen(npc.shelf); return; }   // 에르덴 도서관 책장 — 대화 대신 책장 화면
       if (npc.village) {
@@ -1264,10 +1273,15 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const isEn = () => !!engineerView(G.current.heroes[mySeat]);   // Engineer 003 — 손님은 스냅샷 h.env(획득 루트 시험 중 빌린 기술도)
     const isNc = () => !!necroView(G.current.heroes[mySeat]);   // Necromancer 004 — 손님은 스냅샷 h.ncv
     const nqTr = () => nqView(G.current.heroes[mySeat])?.tr;   // Necromancer 004 획득 루트 시험 중
-    const kmap = () => keyMap(bindsRef.current, nqTr() ? [] : isEn() ? EN_FIRST : isNc() ? NC_FIRST : isGm() ? GM_FIRST : isBlood() ? BLOOD_ACTS : []);
+    const iqTr = () => iqView(G.current.heroes[mySeat])?.tr;   // Illusionist 005 획득 루트 시험 중
+    const kmap = () => keyMap(bindsRef.current, nqTr() || iqTr() ? [] : isEn() ? EN_FIRST : isNc() ? NC_FIRST : isGm() ? GM_FIRST : isBlood() ? BLOOD_ACTS : []);
     const BLOOD_OFF = /^(use\d|adv|advUlt|healMode)$/;
     const GM_OFF = /^(use\d|adv|advUlt|healMode|skill|wskill|b[A-Z]\w*)$/;   // 일반 스킬 칸 · 큰 기술 · 전직 · 무기 스킬 · 혈 행동은 쓰지 않는다
     function pressAct(a) {
+      if (iqTr()) {                                 // 시험 동안은 시험 기술만(레벨 · 장비 · 직업과 관계없이)
+        if (IQ_KEY_SKILL[a]) return void act("iq", { op: "skill", s: IQ_KEY_SKILL[a] });
+        if (GM_OFF.test(a) || a === "fire") return;
+      }
       const tr = nqTr();
       if (tr) {                                     // 시험 동안은 시험 기술 · 명령만(레벨 · 장비 · 직업과 관계없이)
         if (NQ_KEY_SKILL[a]) return void act("nq", { op: "skill", s: NQ_KEY_SKILL[a] });
@@ -1328,6 +1342,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     }
     function releaseAct(a) {
       if (nqTr() && (NQ_KEY_SKILL[a] || NQ_KEY_CMD[a] || GM_OFF.test(a))) { if (MOVE_ACTS[a]) releaseDir(MOVE_ACTS[a]); return; }
+      if (iqTr() && (IQ_KEY_SKILL[a] || GM_OFF.test(a))) { if (MOVE_ACTS[a]) releaseDir(MOVE_ACTS[a]); return; }
       if (isNc() && (NC_BY_ACT[a] || GM_OFF.test(a))) return;
       if (isGm() && (GM_BY_ACT[a] || GM_OFF.test(a))) return;
       if (isEn() && (EN_BY_ACT[a] || GM_OFF.test(a))) return;
@@ -1733,6 +1748,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           eqv: eqView(me),
           nqSpot: (() => { const s = nqSpotNear(me); return s ? { id: s.id, name: s.name, line: nqSpotLine(me, s) } : null; })(),   // Necromancer 004 획득 루트 조사 자리
           nqv: nqView(me),
+          iqSpot: (() => { const s = iqSpotNear(me, true); return s ? { id: s.id, name: s.name, npc: s.npc || "", line: iqSpotLine(me, s) } : null; })(),   // Illusionist 005 획득 루트 조사 자리(원래 주민 단추 포함)
+          iqv: iqView(me),
           nc: necroView(me),                        // 히든 직업 Necromancer 004 — 영혼 · 스킬 · 명부
           wsk: gamblerView(me) || engineerView(me) || necroView(me) ? null : weaponHud(me),   // Gambler 002 는 무기 스킬 · 전직 스킬 칸이 없다
           adv: gamblerView(me) || engineerView(me) || necroView(me) ? null : advHud(me),      // 전직 스킬 칸
@@ -2346,6 +2363,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me && eqOpen && <EngineerQuestPanel key={eqOpen} spotId={eqOpen} tick={me.eqv} getHero={() => G.current.heroes[mySeat]}
             onAct={(id, v) => act("eq", { op: "act", id, v })} onTravel={(to) => act("eq", { op: "travel", to })} onContract={(yes) => act("eq", { op: "contract", yes })}
             onCmd={(i) => act("eq", { op: "cmd", i })} onVillage={() => { const n = npcNear(G.current.heroes[mySeat]); setEqOpen(null); if (n && n.village) setVillageOpen(n.id); }} onClose={() => setEqOpen(null)} />}
+          {me && iqOpen && <IllusionQuestPanel key={iqOpen} spotId={iqOpen} tick={me.iqv} getHero={() => G.current.heroes[mySeat]}
+            onAct={(id, v) => act("iq", { op: "act", id, v })} onContract={(yes) => act("iq", { op: "contract", yes })} onClose={() => setIqOpen(null)} />}
           {me && nqOpen && <NecroQuestPanel key={nqOpen} spotId={nqOpen} tick={me.nqv} getHero={() => G.current.heroes[mySeat]}
             onAct={(id, v) => act("nq", { op: "act", id, v })} onGlyph={(v) => act("nq", { op: "glyph", v })} onContract={(yes) => act("nq", { op: "contract", yes })} onClose={() => setNqOpen(null)} />}
           {me && me.nc && ncOpen && <NecroRosterPanel v={me.nc} onClose={() => setNcOpen(false)}
@@ -2884,6 +2903,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 {me.story?.targets?.includes(me.near.id) ? "이야기 진행" : me.near.sight ? "살펴보기" : "이야기 듣기"}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
               </button>
               {me.eqSpot?.npc === me.near.id && <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => { closeAll(); setEqOpen(me.eqSpot.id); }}>다른 것 묻기</button>}
+              {me.iqSpot?.npc === me.near.id && <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => { closeAll(); setIqOpen(me.iqSpot.id); }}>{me.iqSpot.line[1]}</button>}
             </div>
           )}
           {me?.eqSpot && !me.eqSpot.npc && !me.near && !eqOpen && (
@@ -2895,6 +2915,31 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               </button>
             </div>
           )}
+          {me?.iqSpot && !me.iqSpot.npc && !me.near && !iqOpen && !me.iqv?.tr && (
+            <div className="rpg-talk">
+              <span className="rpg-talk-who">{me.iqSpot.name}</span>
+              <span className="rpg-talk-line">{me.iqSpot.line[0]}</span>
+              <button type="button" className="btn-ghost rpg-talk-btn" onClick={() => act("talk")}>
+                {me.iqSpot.line[1]}{!touch && keyOf(binds, "talk") && <kbd>{keyOf(binds, "talk")}</kbd>}
+              </button>
+            </div>
+          )}
+          {me?.iqv?.tr && (() => { const t = me.iqv.tr, T = IQ_TRIAL; const k = (a) => !touch && keyOf(binds, a) && <kbd>{keyOf(binds, a)}</kbd>;   // Illusionist 005 최종 시험 — 막 · 진행 · 시험 체력 · 시험 기술
+            const prog = t.act === 0 ? (t.step === 0 ? `판지 표적 ${t.hit.filter(Boolean).length}/3 — 반사 표적은 맞혀도 줄지 않는다` : t.step === 1 ? "모인 카드 묶음을 폭렬 셔플로 펼쳐라" : `덱 슬래시로 틈 건너기 ${t.lit.filter(Boolean).length}/2`)
+              : t.act === 1 ? `인형 묶기 ${t.task[0] ? "✓" : "—"} · 출발 원에서 블링크 ${t.task[1] ? "✓" : "—"} · 걸쇠 판 피스트 ${t.task[2] ? "✓" : "—"}`
+              : t.act === 2 ? (t.claps >= T.claps ? "최후의 셔플로 막을 내려라" : `거울 곁에 미러 하우스 · 그 안에서 표적 맞히기 ${t.claps}/${T.claps}`) : "진짜 나를 절단 카드로 맞혀라 — 거울 속 나는 좌우가 뒤집힌다";
+            const nm = (sk) => (sk === "card" ? IL_CARD.name : IL_SKILLS[sk].name);
+            return (
+            <div className="eq-hud nq-hud" role="status" aria-live="polite">
+              <b>{T.names[t.act]}</b>
+              <span className="nq-prog">{prog}</span>
+              <span className="nq-hp"><span>시험 체력 {t.hp}/{T.hp}</span><span className={`eq-meter nq-bar${t.hp / T.hp <= 0.3 ? " hot" : ""}`}><i style={{ width: `${Math.max(0, Math.min(100, t.hp / T.hp * 100))}%` }} /></span></span>
+              <span className="nq-keys">
+                {T.skills[t.act].map((sk) => { const a = Object.keys(IQ_KEY_SKILL).find((q) => IQ_KEY_SKILL[q] === sk); return (
+                  <button type="button" key={sk} className="btn-ghost" disabled={t.cd[sk] > 0} onClick={() => act("iq", { op: "skill", s: sk })}>{nm(sk)}{t.cd[sk] > 0 ? ` ${Math.ceil(t.cd[sk])}` : ""}{k(a)}</button>); })}
+                <button type="button" className="btn-ghost nq-quit" onClick={() => act("iq", { op: "quit" })}>시험 멈추기</button>
+              </span>
+            </div>); })()}
           {me?.nqSpot && !me.near && !nqOpen && !me.nqv?.tr && (
             <div className="rpg-talk">
               <span className="rpg-talk-who">{me.nqSpot.name}</span>
@@ -3030,6 +3075,14 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <span className="rpg-test-spots">
                       {NQ_TEST_GENERALS.map((q, i) => (
                         <button key={q.id} type="button" className="rpg-win-btn" onClick={() => act("train", { op: "nq", n: i })}>{q.name}</button>
+                      ))}
+                    </span>
+                  </div>
+                  <div className="rpg-test-go">
+                    <span className="rpg-test-go-head">마술사 「존재하지 않았던 공연」 <em>앞 장은 끝낸 것으로 하고 그 장 시작 자리에 섭니다</em></span>
+                    <span className="rpg-test-spots">
+                      {IQ_STAGE_LIST.map((q, i) => (
+                        <button key={q.name} type="button" className="rpg-win-btn" onClick={() => act("train", { op: "iq", n: i })}>{q.name}</button>
                       ))}
                     </span>
                   </div>

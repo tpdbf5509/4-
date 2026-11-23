@@ -37,6 +37,7 @@ import { illusionOn } from "./illusionJob.js";
 import { cleanGu } from "./gamblerUnlock.js";
 import { cleanEu } from "./engineerQuest.js";   // Engineer 003 획득 루트 진행(11월 19일)
 import { cleanNu } from "./necroQuest.js";   // Necromancer 004 획득 루트 진행(11월 20일)
+import { cleanIu } from "./illusionQuest.js";   // Illusionist 005 획득 루트 진행(11월 23일)
 import { cleanRq } from "./requiemData.js";
 import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
@@ -282,6 +283,8 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (eu) b.eu = eu;                              // Engineer 003 획득 루트 — 깃발 · 다이얼 · 시험 체크포인트(engineerQuest.js)
   const nu = cleanNu(d.nu);
   if (nu) b.nu = nu;                              // Necromancer 004 획득 루트 — 깃발 · 장치 값 · 왕궁 시험 체크포인트(necroQuest.js)
+  const iqu = cleanIu(d.iu);
+  if (iqu) b.iu = iqu;                            // Illusionist 005 획득 루트 — 깃발 · 숲길 구간 · 물레 추(illusionQuest.js)
   const bu = cleanBu(d.bu);
   if (bu) b.bu = bu;                              // BLOOD-001 해금 경로 — 단서 · 진행 · 연 입구(bloodUnlock.js)
   const rq = cleanRq(d.rq); if (rq) b.rq = rq;

@@ -14,7 +14,7 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,(a.y-b.y)/RPG.squash);
 const walkTo=(g,m,x,y)=>{rpgMove(g,0,{x,y,m});step(g,500);};
 
 test('바깥 장소는 맵 목록 맨 뒤에 차례로 붙고 안전 지역이다',()=>{
- assert.deepEqual(SNAP_ORDER.maps.slice(-8),['dew-forest','lantern-forest','scree-forest','luen','frost-peak','blade-ridge','luen-library','luen-library-2']);
+ { const i=SNAP_ORDER.maps.indexOf('dew-forest'); assert.deepEqual(SNAP_ORDER.maps.slice(i,i+8),['dew-forest','lantern-forest','scree-forest','luen','frost-peak','blade-ridge','luen-library','luen-library-2']); }   // 뒤에는 Illusionist 005 획득 루트 맵(iq_*)이 붙는다
  assert.ok(mapIdx('dew-forest')>mapIdx('erden-library-2'));
  WILD_MAPS.forEach(m=>assert.ok(MAPS[m.id].safe&&MAPS[m.id].wild));
 });

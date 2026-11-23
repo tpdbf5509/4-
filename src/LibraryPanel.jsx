@@ -1,5 +1,6 @@
 import {useEffect, useRef, useState} from 'react';
-import {LIB_ART, LIB_TABS, LIB_BOOKS, LIB_LOOKS, shelfRows, libBookOpen, libLockWhy} from './game/libraryBooks.js';
+import {LIB_ART, LIB_TABS, LIB_BOOKS, LIB_LOOKS, shelfRows, libBooksFor, libBookOpen, libLockWhy} from './game/libraryBooks.js';
+import {WQ_BOOK} from './game/wyvernQuestData.js';
 import sfx from './game/sfx.js';
 import {RQ,RQ_CLUE,rqEligible} from './game/requiemData.js';
 
@@ -56,7 +57,7 @@ function Reader({book, onClose, hero, onRead}) {
         <button type="button" className="shop-btn" disabled={pg === 0} onClick={() => { setPg(Math.max(0, pg - step)); play('page'); }} aria-label="앞 쪽">◀</button>
         <span>{shown.map((k) => k + 1).join(' · ')} / {pages.length}</span>
         <button type="button" className="shop-btn" disabled={pg + step >= pages.length} onClick={() => { setPg(pg + step); play('page'); }} aria-label="다음 쪽">▶</button>
-        <button type="button" className="shop-btn main" onClick={() => { if (book.id === RQ.book && hero?.map === "erden-library-2" && rqEligible(hero) && !hero.bag.rq && shown.includes(pages.length-1)) {setClosing(true); onRead(book.id);} else onClose(); }}>책 덮기</button>
+        <button type="button" className="shop-btn main" onClick={() => { if (book.id === RQ.book && hero?.map === "erden-library-2" && rqEligible(hero) && !hero.bag.rq && shown.includes(pages.length-1)) {setClosing(true); onRead(book.id);} else { if (book.id === WQ_BOOK && shown.includes(pages.length-1)) onRead(book.id); onClose(); } }}>책 덮기</button>
       </div>
     </div>
   );
@@ -68,7 +69,7 @@ export default function LibraryPanel({tab0 = 'village', story, admin, onClose, h
   const [reading, setReading] = useState(null);
   const box = useRef(null);
   useEffect(() => { box.current?.focus(); }, [reading]);
-  const book = LIB_BOOKS.find((b) => b.id === pick);
+  const book = libBooksFor(hero).find((b) => b.id === pick);
   const open = book && libBookOpen(book, story, admin);
   const read = () => { if (!open) return; setReading(book.id); play('page'); };
   // 키는 창 어디에 초점이 있든 받는다(쪽 넘김 단추가 비활성이 되며 초점을 잃어도). Esc 는 책 → 책장 → 닫기 차례이고, 게임 쪽 Esc(창 모두 닫기)보다 먼저 잡는다
@@ -86,19 +87,21 @@ export default function LibraryPanel({tab0 = 'village', story, admin, onClose, h
     window.addEventListener('keydown', on, true);
     return () => window.removeEventListener('keydown', on, true);
   }, []);
-  const rows = shelfRows(tab);
+  const rows = shelfRows(tab, hero);
+  const books = libBooksFor(hero);
+  const libName = String(hero?.map || '').startsWith('luen') ? '루엔 도서관' : '에르덴 도서관';
   return <>
     <div className="rpg-menu-back" onClick={onClose}/>
-    <section className={`shop lib-panel${reading ? ' reading' : ''}`} role="dialog" aria-modal="true" aria-label="에르덴 도서관" tabIndex={-1} ref={box} onKeyDown={(e) => e.stopPropagation()}>
+    <section className={`shop lib-panel${reading ? ' reading' : ''}`} role="dialog" aria-modal="true" aria-label={libName} tabIndex={-1} ref={box} onKeyDown={(e) => e.stopPropagation()}>
       <header className="shop-top">
-        <div className="shop-title"><b>에르덴 도서관</b><span>{reading ? 'Esc 로 책을 덮고 책장으로 돌아갑니다' : '책등을 골라 꺼냅니다'}</span></div>
+        <div className="shop-title"><b>{libName}</b><span>{reading ? 'Esc 로 책을 덮고 책장으로 돌아갑니다' : '책등을 골라 꺼냅니다'}</span></div>
         <button type="button" className="shop-x" aria-label="도서관 닫기" onClick={onClose}>×</button>
       </header>
       {reading ? <Reader key={reading} hero={hero} onRead={onRead} book={LIB_BOOKS.find((b) => b.id === reading)} onClose={() => setReading(null)}/> : <div className="shop-body lib-body">
         <div className="shop-tabs" role="tablist">
           {LIB_TABS.map((t) => (
             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => { setTab(t.id); setPick(null); }}>
-              {t.name}<small>{LIB_BOOKS.filter((b) => b.tab === t.id).length}</small>
+              {t.name}<small>{books.filter((b) => b.tab === t.id).length}</small>
             </button>
           ))}
         </div>

@@ -56,13 +56,13 @@ test('도서관 위치는 손님 스냅샷에 그대로 보인다',()=>{
 });
 
 import {LIB_BOOKS,LIB_TABS,LIB_LOOKS,shelfRows,libBookOpen} from '../src/game/libraryBooks.js';
-test('장서 11권 — 탭 셋 · 두 쪽 · 책장에 한 번씩 꽂히고 나머지는 고를 수 없는 꽂이 책',()=>{
- assert.equal(LIB_BOOKS.length,11);
+test('장서 11권(+ 루엔 전용 한 권) — 탭 셋 · 두 쪽 · 책장에 한 번씩 꽂히고 나머지는 고를 수 없는 꽂이 책',()=>{
+ assert.equal(LIB_BOOKS.filter(b=>!b.only).length,11);
  assert.deepEqual(LIB_TABS.map(t=>t.name),['마을 기록','수송대','전설 · 민담']);
  for(const b of LIB_BOOKS){assert.equal(b.pages.length,2,b.id);assert.ok(LIB_LOOKS[b.look]&&b.spine&&b.title&&b.by,b.id);}
  for(const t of LIB_TABS){
   const real=shelfRows(t.id).flat().filter(s=>s.book).map(s=>s.book.id).sort();
-  assert.deepEqual(real,LIB_BOOKS.filter(b=>b.tab===t.id).map(b=>b.id).sort(),t.id);
+  assert.deepEqual(real,LIB_BOOKS.filter(b=>b.tab===t.id&&!b.only).map(b=>b.id).sort(),t.id);
  }
 });
 test('붉은 강 설화는 처음부터 전설 · 민담에 있고 001 단서는 오른쪽 쪽 마지막 문장에만',()=>{

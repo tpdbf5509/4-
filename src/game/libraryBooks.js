@@ -1,7 +1,10 @@
 /* 에르덴 도서관 장서(11월 16일, 사용자 원고 「에르덴 도서관 장서 11권」) — 책장 화면 · 독서 화면(LibraryPanel.jsx)이 쓴다.
    본문은 원고 그대로. 문장 · 줄바꿈을 고칠 때는 여기만 고친다. 쪽마다 줄(블록) 목록:
    문자열 = 문단 · {say} 대사 · {hand} 손글씨 메모 · {check: [항목, 결과]} 검사 칸 · {ill} 삽화(LIB_ART.ill) · {end} 맺는 문장.
-   look 은 책 종류(책등 색 · 본문 꾸밈 — style.css .lib-*), spine 은 책등에 세로로 적는 짧은 이름. 저장 값이 아니므로 차례 · id 를 바꿔도 된다. */
+   look 은 책 종류(책등 색 · 본문 꾸밈 — style.css .lib-*), spine 은 책등에 세로로 적는 짧은 이름. 저장 값이 아니므로 차례 · id 를 바꿔도 된다.
+   only: 'luen' 인 책은 루엔 도서관에서 그 루트가 보이는 사람에게만 꽂힌다(libBooksFor). */
+import { wqOn } from './wyvernQuest.js';
+import { WQ_VERSE } from './wyvernQuestData.js';
 
 // 펼친 책 바탕(공용) · 삽화. 그림이 없으면 CSS 종이색으로 그린다
 export const LIB_ART = {
@@ -70,6 +73,15 @@ export const LIB_BOOKS = [
       '이야기를 처음 옮겨 적은 사람은 책 끝에 이렇게 덧붙였다.',
       {end: '“사내의 이름을 기억하는 이는 없었다. 그가 입고 나온 옷의 목깃에는 붉은 실로 001이 수놓여 있었다고 한다.”'}],
   ]},
+  // Wyvern Knight 006 획득 루트 첫 단서 — 루엔 도서관에만. 마지막 쪽을 펼친 채 덮으면 루트가 시작된다(안내는 띄우지 않는다)
+  {id: 'north-steps', spine: '북쪽 발자국', tab: 'legend', look: 'wing', only: 'luen', title: '북쪽으로 사라진 발자국', by: '루엔에서 전해 오는 노래를 옮겨 적은 책', pages: [
+    ['루엔이 아직 목책 마을이던 때, 마을에는 기사가 한 사람 있었다. 그는 말을 타고 서리봉 아래 길을 오르내리며 길 잃은 짐꾼을 데려왔다.',
+      '겨울마다 그는 산으로 올라가 며칠씩 내려오지 않았다. 마을 사람들은 그가 산꼭대기의 옛 신전에 기도하러 간다고 생각했다.',
+      {say: '“산에 친구가 있어.”'}, '아이들이 물으면 그는 그렇게만 대답했다.'],
+    ['그해 겨울은 길었다. 눈사태가 길을 덮고 북쪽 하늘이 사흘 동안 붉었다. 기사는 말을 끌고 산으로 올라갔다.',
+      ...WQ_VERSE.slice(0, 3),
+      {end: WQ_VERSE[3]}],
+  ]},
 ];
 export const LIB_BOOK_BY_ID = Object.fromEntries(LIB_BOOKS.map((b) => [b.id, b]));
 
@@ -85,15 +97,18 @@ export const LIB_LOOKS = {
   inn: {spine: '#a8704a', band: '#6e4428', mark: '❀'},     // 여관 기록 — 주황 갈색
   lia: {spine: '#ddd2bb', band: '#a99a7c', mark: '✎'},     // 리아의 수첩 — 얇은 종이 표지
   red: {spine: '#7a3a32', band: '#c29a5c', mark: '❧'},     // 붉은 강 — 바랜 적갈색 천
+  wing: {spine: '#5a6672', band: '#b8a27a', mark: '⟡'},    // 북쪽 발자국 — 서리 낀 청회색 천
 };
 
 // 책장 채우기 — 고를 수 없는 꽂이 책(색 · 굵기 · 높이 · 무늬). 탭마다 정해진 씨앗으로 같은 모양
 const FILL_COLORS = ['#4a5e44', '#6e3b34', '#7a5a3a', '#cbb78f', '#3e4c5e', '#8a6b45', '#5b4636', '#6b7350', '#9a7b52', '#4f3a48'];
 const FILL_MARKS = ['', '✦', '❖', '✧', '◆', '❦', ''];
-export function shelfRows(tab) {
+// 이 사람 · 이 도서관에 꽂히는 책 — only 책은 루엔 도서관에서 루트가 보일 때만
+export const libBooksFor = (hero) => LIB_BOOKS.filter((b) => !b.only || (b.only === 'luen' && String(hero?.map || '').startsWith('luen-library') && wqOn(hero)));
+export function shelfRows(tab, hero) {
   let seed = tab.length * 977 + tab.charCodeAt(0) * 31;
   const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-  const real = LIB_BOOKS.filter((b) => b.tab === tab);
+  const real = libBooksFor(hero).filter((b) => b.tab === tab);
   const rows = [[], []], PER = 13;
   // 진짜 책은 두 줄에 번갈아 흩어 꽂는다
   const at = real.map((b, k) => ({b, row: k % 2, slot: 1 + Math.floor(k / 2) * 4 + (k % 2) * 2 + Math.floor(rnd() * 2)}));

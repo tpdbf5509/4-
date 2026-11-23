@@ -3177,6 +3177,8 @@ button.forge-stage:disabled { cursor: default; }
 .lk-lia .lib-text p { margin: 0; }
 .lk-red .lib-page-h b { color: #6b2a22; }
 .lk-red .lib-end { color: #5a221c; }
+.lk-wing .lib-page-h b { color: #3e4a58; }
+.lk-wing .lib-end { color: #34404c; }
 @media (max-width: 560px) {   /* 좁은 화면 — 꽂이 책을 가늘게 해 한 줄에 다 들어가게 */
   .lib-shelf { padding: 10px 8px 4px; }
   .lib-row { overflow: hidden; gap: 1px; }

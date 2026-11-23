@@ -32,6 +32,8 @@ import { WILD_MAPS, WILD_VILLAGE_GATE, wildsOn, LUEN_LIBRARY_MAPS } from './wild
 import { nqInput, tickNq, packNq, applyNq, nqTestGeneral } from './necroQuest.js';
 import { IQ_MAPS, IQ_EXITS, IQ_BLOCKS } from './illusionQuestData.js';
 import { iqInput, tickIq, packIq, applyIq, iqStage } from './illusionQuest.js';
+import { WQ_MAPS, WQ_EXITS, WQ_BLOCKS } from './wyvernQuestData.js';
+import { wqInput, tickWq, packWq, applyWq, wqStage } from './wyvernQuest.js';
 import { HIDDEN_FAMILY, hiddenRange } from "./hiddenFamilyData.js";   // 히든 계열 · 전용 사거리(11월 20일)
 import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, necroRaidKill, necroOn, necroLook, packNecro, applyNecro } from './necroJob.js';   // 히든 직업 Necromancer 004(11월 17일 — 격자 연습장에만)
 import { NC_SCYTHE } from './necroData.js';
@@ -493,6 +495,13 @@ LUEN_LIBRARY_MAPS.forEach((m) => {
 IQ_MAPS.forEach((m) => {
   const gates = IQ_EXITS.filter((q) => q.map === m.id).map((q) => ({ x: q.at[0], y: q.at[1], r: q.r, to: q.to, at: q.back, label: q.label, eqGate: 1 }));
   MAPS[m.id] = { id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, iq: 1, spawn: m.spawn, gates, blocks: IQ_BLOCKS[m.id] || [], npcs: [] };
+  MAP_IDS.push(m.id);
+});
+/* Wyvern Knight 006 획득 루트(wyvernQuestData.js, 11월 23일) — 서리봉 북쪽 숨은 전용 맵 7곳. 맵 차례는 뒤에만(마술사 루트 다음).
+   입구는 서리봉 정상 옆 바위 무리 · 봉우리 아래 그을린 바위라 원래 풍경에 새 문 · 빛이 생기지 않는다 */
+WQ_MAPS.forEach((m) => {
+  const gates = WQ_EXITS.filter((q) => q.map === m.id).map((q) => ({ x: q.at[0], y: q.at[1], r: q.r, to: q.to, at: q.back, label: q.label, eqGate: 1 }));
+  MAPS[m.id] = { id: m.id, name: m.name, w: m.w, h: m.h, top: m.top, safe: true, story: 1, wq: 1, spawn: m.spawn, gates, blocks: WQ_BLOCKS[m.id] || [], npcs: [] };
   MAP_IDS.push(m.id);
 });
 { const q = WILD_VILLAGE_GATE; MAPS[VILLAGE.id].gates.push({ x: q.x, y: q.y, r: q.r, to: q.to, at: MAPS[q.to].spawn, label: q.label, villageGate: 1, libGate: 'way', wild: 1 }); }
@@ -3387,6 +3396,7 @@ export function rpgTrain(g, pi, req) {
   if (!h || !h.loaded || !req) return false;
   if (req.op === "go") return testGo(g, h, req.map);
   if (req.op === "nq") return testNq(g, h, req.n);   // Necromancer 004 획득 루트 — 여섯 장군 시험 앞으로(테스트 서버만)
+  if (req.op === "wq") return testWq(g, h, req.n);   // Wyvern Knight 006 획득 루트 — 장마다 바로 가기(테스트 서버만)
   if (req.op === "iq") return testIq(g, h, req.n);   // Illusionist 005 획득 루트 — 장마다 바로 가기(테스트 서버만)
   if (h.map !== "train" && !g.test) return false;  // 테스트 서버는 어느 맵에서나
   const t = trnOf(h);
@@ -3431,6 +3441,12 @@ function testNq(g, h, n) {
 function testIq(g, h, n) {
   if (!g.test || trading(h) || (h.dvs ?? -1) >= 0 || runOf(g, h) || MAPS[h.map].dungeon || MAPS[h.map].pvp || MAPS[h.map].race) return false;
   iqStage(h, n); h.ilt = 1;
+  return true;
+}
+// 테스트 서버에서만 — 「잠든 날개의 서약」 그 단계 시작 자리로(앞 단계 깃발을 채운다)
+function testWq(g, h, n) {
+  if (!g.test || trading(h) || (h.dvs ?? -1) >= 0 || runOf(g, h) || MAPS[h.map].dungeon || MAPS[h.map].pvp || MAPS[h.map].race) return false;
+  wqStage(h, n); h.wyt = 1;
   return true;
 }
 // 격자 연습장 — 그 맵의 허수아비를 모두 치우고 spots([x, y] 월드 좌표)에 다시 세운다. 판정 · 그림은 훈련장 허수아비와 같다
@@ -3565,6 +3581,7 @@ export const rpgEq = (g, pi, req) => eqInput(eqEngine, g, pi, req);   // 입력 
 const nqEngine = { ...eqEngine, bagRoom: advEngine.bagRoom, gear: advEngine.gear };
 export const rpgNq = (g, pi, req) => nqInput(nqEngine, g, pi, req);   // 입력 kind "nq"
 export const rpgIq = (g, pi, req) => iqInput(eqEngine, g, pi, req);   // 입력 kind "iq" — Illusionist 005 획득 루트(illusionQuest.js)
+export const rpgWq = (g, pi, req) => wqInput(eqEngine, g, pi, req);   // 입력 kind "wq" — Wyvern Knight 006 획득 루트(wyvernQuest.js)
 /* 히든 직업 Necromancer 004(necroJob.js, 11월 17일 — 격자 연습장에만). 기준 피해 · 시전 객체는 Gambler 002 와 같다.
    trace: 추출 가능 흔적을 남기는 몹(보스 · 월드 · 길드 보스 포함, 11월 23일 — 허수아비 · 800~1200 소환물 · 시험 몹 제외) · bounds: 맵 [너비, 높이, 위 벽] · stop: 걷기 멈춤 */
 const necroEngine = { ...gamblerEngine,
@@ -4044,6 +4061,7 @@ function stepHeroes(g, dt) {
     tickEngineer(engineerEngine, g, h, cdt);       // Engineer 003 — 전력 · 과열 · 펄스 · 설치물
     tickNq(nqEngine, g, h, cdt);                   // Necromancer 004 획득 루트 — 의식 · 미믹 · 빛 띠 · 시험 · 계승
     tickIq(eqEngine, g, h, cdt);                   // Illusionist 005 획득 루트 — 최종 시험(테스트 서버 표시 h.ilt)
+    tickWq(eqEngine, g, h, cdt);                   // Wyvern Knight 006 획득 루트 — 세 시련 · 결투(테스트 서버 표시 h.wyt)
     tickNecro(necroEngine, g, h, cdt);             // Necromancer 004 — 영혼 · 그림자 · 예약 타격 · 영역
     tickWyvernJob(wyvernEngine, g, h, cdt);        // Wyvern Knight 006 — 용혈 · 와이번 · 예약 타격 · 변신
     tickIllusion(illusionEngine, g, h, cdt);       // Illusionist 005 — 트릭 · 카드 · 스킬 진행 · 잔상 · 거울 집
@@ -5493,7 +5511,7 @@ export function rpgPack(g) {
           ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0,
         packBloodJob(h),
-        packGambler(h), packEngineer(h), packRq(h), packEq(h), packNq(h), packNecro(h), packIllusion(h), packIq(h)] // 64 — Illusionist 005 획득 루트(illusionQuest.js, 아니면 0) · 63 — Illusionist 005(illusionJob.js packIllusion, 아니면 0) · 62 — Necromancer 004(necroJob.js, 아니면 0) · 61 — Necromancer 004 획득 루트(necroQuest.js) · 60 — Engineer 003 획득 루트(engineerQuest.js, 아니면 0) · 59 — 마지막 진혼곡 연출 · 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
+        packGambler(h), packEngineer(h), packRq(h), packEq(h), packNq(h), packNecro(h), packIllusion(h), packIq(h), 0, packWq(h)] // 66 — Wyvern Knight 006 획득 루트(wyvernQuest.js) · 65 — 와이번 나이트 직업 자리(아직 0) · 64 — Illusionist 005 획득 루트(illusionQuest.js, 아니면 0) · 63 — Illusionist 005(illusionJob.js packIllusion, 아니면 0) · 62 — Necromancer 004(necroJob.js, 아니면 0) · 61 — Necromancer 004 획득 루트(necroQuest.js) · 60 — Engineer 003 획득 루트(engineerQuest.js, 아니면 0) · 59 — 마지막 진혼곡 연출 · 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
     hb: packHerbs(g),                             // 채집한 약초 자리 — { 번호: 다시 나기까지 초 }(alchemy.js)
@@ -5537,6 +5555,7 @@ export function rpgApply(g, s) {
     applyEngineer(h, row[58]);                     // Engineer 003 — 전력 · 과열 · 설치물(화면 값 h.env)
     applyEq(h, row[59 + 1]);                       // Engineer 003 획득 루트 — 결과 · 미믹 · 시험(화면 값 h.eqv)
     applyIllusion(h, row[63]);                     // Illusionist 005 — 트릭 · 대기 · 거울 집 · 연계(화면 값 h.ilv)
+    applyWq(h, row[66]);                           // Wyvern Knight 006 획득 루트 — 테스트 서버 표시 · 결과 · 시련(화면 값 h.wqv)
     applyIq(h, row[64]);                           // Illusionist 005 획득 루트 — 테스트 서버 표시 · 결과 · 시험(화면 값 h.iqv)
     applyNq(h, row[61]);                           // Necromancer 004 획득 루트 — 결과 · 미믹 · 시험(화면 값 h.nqv)
     applyNecro(h, row[62]);                        // Necromancer 004 — 영혼 · 대기 · 그림자 · 흔적(화면 값 h.ncv)

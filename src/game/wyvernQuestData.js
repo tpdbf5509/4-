@@ -32,7 +32,7 @@ export const WQ_MAPS = [
   M('wq_oath', '맹세의 문', 'oath'),
   M('wq_sanctum', '잠든 신전', 'sanctum'),
   M('wq_trail', '옛 피난길', 'trail'),
-  M('wq_beacon', '무너진 봉화대', 'beacon'),
+  M('wq_beacon', '무너진 봉화대', 'beacon', { top: 690 }),   // 봉화대 벽이 그림 아래까지 내려온다
 ];
 export const WQ_MAP_IDS = WQ_MAPS.map((m) => m.id);
 export const wqMap = (id) => WQ_MAP_IDS.includes(id);
@@ -41,8 +41,8 @@ export const WQ_OUT_MAPS = ['luen-library', 'luen', 'lantern-forest', 'frost-pea
 export const wqSpotMap = (id) => wqMap(id) || WQ_OUT_MAPS.includes(id);
 
 /* 서리봉 북쪽 막다른 곳 — 산길 끝(전망 바위) 오른쪽 벼랑 밑. 나무가 없는 자리를 골랐다(정한 자리) */
-export const WQ_ROCKS = { l: [1715, 752], m: [1830, 736], r: [1945, 760] };
-export const WQ_ROCK_BACK = [1830, 830];   // 통로에서 돌아오면 서는 자리
+export const WQ_ROCKS = { l: [1715, 748], m: [1812, 730], r: [1905, 752] };
+export const WQ_ROCK_BACK = [1812, 830];   // 통로에서 돌아오면 서는 자리
 
 /* 밟는 출구 — 모든 전용 맵 남쪽. 잠든 신전은 신전 입구(바람등성이 돌문 앞)로 곧장 돌아간다(기획안 5장 「마을로 돌아간다」) */
 const EX = (map, to, back, label, at = [1200, 1530]) => ({ map, at, r: 60, to, back, label });
@@ -54,13 +54,13 @@ export const WQ_EXITS = [
   EX('wq_oath', 'wq_gallery', [2050, 780], '비늘의 회랑'),
   EX('wq_sanctum', 'wq_ridge', WQ_DOOR_FRONT, '신전 입구'),
   EX('wq_trail', 'frost-peak', [1590, 820], '서리봉'),
-  EX('wq_beacon', 'wq_trail', [1700, 940], '옛 피난길'),
+  EX('wq_beacon', 'wq_trail', [1700, 640], '옛 피난길'),
 ];
 // 막힘 — 바람다리 양옆 낭떠러지(다리 폭 x 1040~1360), 잠든 와이번 몸
 const wall = (x, y0, y1) => Array.from({ length: Math.ceil((y1 - y0) / 56) + 1 }, (_, i) => ({ x, y: y0 + i * 56, r: 40 }));
 export const WQ_WYVERN = [1520, 820];   // 잠든 와이번 자리(땅 기준)
 export const WQ_BLOCKS = {
-  wq_bridge: [...wall(1000, WQ_TOP, WQ_H), ...wall(1400, WQ_TOP, WQ_H)],
+  wq_bridge: [...wall(1040, 480, WQ_H), ...wall(1366, 480, WQ_H)],   // 다리 폭 — 바닥 그림의 난간 안쪽(x 1080~1326)
   wq_sanctum: [{ x: WQ_WYVERN[0] - 60, y: WQ_WYVERN[1], r: 90 }, { x: WQ_WYVERN[0] + 70, y: WQ_WYVERN[1] - 10, r: 80 }],
 };
 
@@ -102,26 +102,26 @@ export const WQ_SPOTS = [
   S('fp-rock-r', 'frost-peak', WQ_ROCKS.r, '이끼 낀 바위', { k: 'talk', lines: ['|이끼가 바위 한쪽을 덮었다. 손을 대니 차고 축축하다.', '|바람은 느껴지지 않는다.'] }, { r: 80, look: 'rockR' }),
 
   /* ── 3 바람등성이 — 무너진 기둥 · 처마돌 셋 · 닳은 문턱 · 발자국 · 빈 벽(돌문) ── */
-  S('rg-pillar', 'wq_ridge', [700, 900], '무너진 기둥', { k: 'talk', set: 'pillar_seen', lines: ['|부러진 돌기둥 하나가 눈 위에 누워 있다.', '|밑동에 글이 새겨져 있다. 「지붕은 무너져도 문턱은 닳는다.」'] }),
-  S('rg-eave0', 'wq_ridge', [1040, 700], '처마돌', { k: 'talk', lines: ['|조각된 처마돌이다. 끝에 비늘 무늬가 남았다.', '|지붕이 있었다면 꽤 높았을 것이다.'] }),
-  S('rg-eave1', 'wq_ridge', [1250, 640], '처마돌', { k: 'talk', lines: ['|두 번째 처마돌. 이끼가 북동쪽 면에만 덜 앉았다.', '|건물이 있던 자리는 돌 셋이 둘러싼 안쪽일 것이다.'] }),
-  S('rg-eave2', 'wq_ridge', [1460, 700], '처마돌', { k: 'talk', lines: ['|세 번째 처마돌이 반쯤 눈에 묻혀 있다.', '|처마만 남고 기둥은 없다. 입구는 여기 보이지 않는다.'] }),
-  S('rg-sill', 'wq_ridge', [560, 1080], '한쪽만 닳은 돌', { k: 'talk', set: 'threshold_found', lines: ['|계단처럼 한쪽만 매끈하게 닳은 납작한 돌이다.', '|오래 사람 발이 오간 자국이다. 문턱이었던 돌인지도 모른다.', '|돌 양옆에 희미한 발자국이 북동쪽으로 이어진다.'] }),
-  S('rg-steps', 'wq_ridge', [1460, 960], '희미한 발자국', { k: 'talk', lines: ['|문턱 돌에서 시작된 발자국이 눈 덮인 비탈을 따라 북동쪽 빈 벽으로 올라간다.'] }, { show: ['threshold_found'] }),
-  S('rg-door', 'wq_ridge', [1860, 700], '빈 벽', { k: 'door' }, { r: 130, look: 'tdoor' }),
+  S('rg-pillar', 'wq_ridge', [720, 900], '무너진 기둥', { k: 'talk', set: 'pillar_seen', lines: ['|부러진 돌기둥 하나가 눈 위에 누워 있다.', '|밑동에 글이 새겨져 있다. 「지붕은 무너져도 문턱은 닳는다.」'] }),
+  S('rg-eave0', 'wq_ridge', [955, 670], '처마돌', { k: 'talk', lines: ['|조각된 처마돌이다. 끝에 비늘 무늬가 남았다.', '|지붕이 있었다면 꽤 높았을 것이다.'] }),
+  S('rg-eave1', 'wq_ridge', [1220, 610], '처마돌', { k: 'talk', lines: ['|두 번째 처마돌. 이끼가 북동쪽 면에만 덜 앉았다.', '|건물이 있던 자리는 돌 셋이 둘러싼 안쪽일 것이다.'] }),
+  S('rg-eave2', 'wq_ridge', [1475, 665], '처마돌', { k: 'talk', lines: ['|세 번째 처마돌이 반쯤 눈에 묻혀 있다.', '|처마만 남고 기둥은 없다. 입구는 여기 보이지 않는다.'] }),
+  S('rg-sill', 'wq_ridge', [540, 1100], '한쪽만 닳은 돌', { k: 'talk', set: 'threshold_found', lines: ['|계단처럼 한쪽만 매끈하게 닳은 납작한 돌이다.', '|오래 사람 발이 오간 자국이다. 문턱이었던 돌인지도 모른다.', '|돌 양옆에 희미한 발자국이 북동쪽으로 이어진다.'] }),
+  S('rg-steps', 'wq_ridge', [1220, 870], '희미한 발자국', { k: 'talk', lines: ['|문턱 돌에서 시작된 발자국이 눈 덮인 비탈을 따라 북동쪽 빈 벽으로 올라간다.'] }, { show: ['threshold_found'] }),
+  S('rg-door', 'wq_ridge', [1880, 720], '빈 벽', { k: 'door' }, { r: 130, look: 'tdoor' }),
 
   /* ── 4 신전의 세 시련 ── */
-  S('br-stone', 'wq_bridge', [1200, 1420], '바람다리 비문', { k: 'trial', id: 'bridge', lines: ['|「바람은 깃발을 먼저 당긴다.」', '|다리 왼쪽 깃발이 수평으로 들리면 곧 강풍이 분다. 오른쪽 벽에 파인 대피 홈 셋에서 버티고, 깃발이 처지면 다음 홈으로 간다.'] }, { r: 120 }),
-  S('br-gate', 'wq_bridge', [1200, 470], '시련의 문', { k: 'gate', to: 'wq_gallery', back: [1200, 1380], need: ['trial_bridge'], lock: ['|돌문이 닫혀 있다. 바람다리를 건너야 열린다.'] }, { look: 'tgate', r: 120 }),
-  S('ga-stone', 'wq_gallery', [1200, 1420], '회랑 비문', { k: 'trial', id: 'gallery', lines: ['|「셋이 함께 울어도 발톱은 하나만 움직인다.」', '|포효하기 전, 한 석상만 바닥에 긴 발톱 자국을 남긴다. 그 앞을 피해 다른 발판을 밟고 서 있자.'] }, { r: 120 }),
-  S('ga-gate', 'wq_gallery', [2080, 660], '시련의 문', { k: 'gate', to: 'wq_oath', back: [1200, 1380], need: ['trial_gallery'], lock: ['|돌문이 닫혀 있다. 회랑의 시련을 넘어야 열린다.'] }, { look: 'tgate', r: 120 }),
-  S('oa-stone', 'wq_oath', [1200, 1420], '맹세의 비문', { k: 'trial', id: 'oath', lines: ['|「날개를 닫은 문은 두드려도 열리지 않는다. 숨을 고를 때 다리를 보라.」', '|석상 날개가 닫혔을 때 치면 튕겨 나온다. 내려찍기를 피한 뒤 날개를 펴면 다리 쪽 표적을 세 번 맞히자.'] }, { r: 120 }),
-  S('oa-gate', 'wq_oath', [1200, 640], '맹세의 문', { k: 'gate', to: 'wq_sanctum', back: [1200, 1380], need: ['trial_oath'], first: ['|문에 문장이 새겨져 있다. 「잠든 자를 먼저 보라. 서약은 깨어난 뒤에 나눈다.」'], lock: ['|석상의 날개가 문을 덮고 있다.'] }, { look: 'ogate', r: 140 }),
+  S('br-stone', 'wq_bridge', [1200, 1440], '바람다리 비문', { k: 'trial', id: 'bridge', lines: ['|「바람은 깃발을 먼저 당긴다.」', '|다리 왼쪽 깃발이 수평으로 들리면 곧 강풍이 분다. 오른쪽 벽에 파인 대피 홈 셋에서 버티고, 깃발이 처지면 다음 홈으로 간다.'] }, { r: 120 }),
+  S('br-gate', 'wq_bridge', [1200, 445], '시련의 문', { k: 'gate', to: 'wq_gallery', back: [1200, 1380], need: ['trial_bridge'], lock: ['|돌문이 닫혀 있다. 바람다리를 건너야 열린다.'] }, { look: 'tgate', r: 120 }),
+  S('ga-stone', 'wq_gallery', [1200, 1340], '회랑 비문', { k: 'trial', id: 'gallery', lines: ['|「셋이 함께 울어도 발톱은 하나만 움직인다.」', '|포효하기 전, 한 석상만 바닥에 긴 발톱 자국을 남긴다. 그 앞을 피해 다른 발판을 밟고 서 있자.'] }, { r: 120 }),
+  S('ga-gate', 'wq_gallery', [2125, 905], '시련의 문', { k: 'gate', to: 'wq_oath', back: [1200, 1380], need: ['trial_gallery'], lock: ['|돌문이 닫혀 있다. 회랑의 시련을 넘어야 열린다.'] }, { look: 'tgate', r: 120 }),
+  S('oa-stone', 'wq_oath', [1200, 1360], '맹세의 비문', { k: 'trial', id: 'oath', lines: ['|「날개를 닫은 문은 두드려도 열리지 않는다. 숨을 고를 때 다리를 보라.」', '|석상 날개가 닫혔을 때 치면 튕겨 나온다. 내려찍기를 피한 뒤 날개를 펴면 다리 쪽 표적을 세 번 맞히자.'] }, { r: 120 }),
+  S('oa-gate', 'wq_oath', [1200, 560], '맹세의 문', { k: 'gate', to: 'wq_sanctum', back: [1200, 1380], need: ['trial_oath'], first: ['|문에 문장이 새겨져 있다. 「잠든 자를 먼저 보라. 서약은 깨어난 뒤에 나눈다.」'], lock: ['|석상의 날개가 문을 덮고 있다.'] }, { look: 'ogate', r: 140 }),
 
   /* ── 5 잠든 신전 — 조사 셋(화상 · 발자국 · 제단) ── */
   S('sn-neck', 'wq_sanctum', [1760, 860], '목 아래', { k: 'talk', set: 'look_burn', lines: ['|와이번의 목 아래 비늘이 오래전 불에 녹아 붙었다. 큰 화상 자국이다.', '|숨을 쉴 때마다 옆구리 아래 얼음이 녹았다가 다시 언다.'] }, { show: ['!after_talk'] }),
-  S('sn-prints', 'wq_sanctum', [1100, 1060], '바닥의 발자국', { k: 'talk', set: 'look_prints', lines: ['|돌바닥에 와이번의 발자국이 얼어붙어 있다.', '|그 옆에 크기도 모양도 다른 발자국이 있다. 발가락이 넷, 와이번보다 훨씬 크다.'] }, { show: ['!after_talk'] }),
-  S('sn-altar', 'wq_sanctum', [760, 720], '제단', { k: 'altar' }, { look: 'altar', r: 130 }),
+  S('sn-prints', 'wq_sanctum', [1110, 930], '바닥의 발자국', { k: 'talk', set: 'look_prints', lines: ['|돌바닥에 와이번의 발자국이 얼어붙어 있다.', '|그 옆에 크기도 모양도 다른 발자국이 있다. 발가락이 넷, 와이번보다 훨씬 크다.'] }, { show: ['!after_talk'] }),
+  S('sn-altar', 'wq_sanctum', [694, 730], '제단', { k: 'altar' }, { look: 'altar', r: 130 }),
   S('sn-sleep', 'wq_sanctum', [1520, 990], '잠든 와이번', { k: 'talk', lines: ['|와이번이 날개를 이불처럼 접고 누워 있다. 성에가 비늘 틈마다 앉았다.', '|흔들어도 깨지 않는다. 칼을 들어도 숨소리가 바뀌지 않는다.'] }, { show: ['!awakened'], r: 120 }),
   S('sn-duel', 'wq_sanctum', [1520, 990], '와이번', { k: 'duel' }, { show: ['awakened', '!duel_won'], r: 130 }),
 
@@ -133,9 +133,9 @@ export const WQ_SPOTS = [
     '나|왜 돌아왔어?',
     `${WQ_NAME}|그 불이 산길을 타고 내려가면, 그가 돌아갈 마을도 없었으니까.`,
     `${WQ_NAME}|제단 뒤와 문턱 아래, 그리고 내 목 아래를 다시 봐라. 나도 오래 보지 못했다.`] }, { show: ['duel_won', '!after_talk'], r: 130 }),
-  S('sn-prints2', 'wq_sanctum', [1100, 1060], '두 갈래 발자국', { k: 'talk', set: 'prints_compared', lines: ['|와이번의 새 발자국과 옛 발자국을 나란히 본다.', '|큰 발자국은 모두 바깥을 향한다. 드래곤이 신전을 나간 자국이다.', '|작은 발자국 하나만 안으로 돌아왔다. 와이번이 다시 돌아온 자국이다.'] }, { show: ['after_talk'] }),
-  S('sn-shield', 'wq_sanctum', [560, 600], '제단 뒤 방패', { k: 'talk', set: 'look_shield', lines: ['|제단 뒤에 녹아 휜 방패가 박혀 있다. 방패 면이 바깥, 산길 쪽을 향한다.', '|불길을 막으려고 세운 것이다. 지키려던 쪽은 신전 안이 아니라 아래 마을이다.'] }, { show: ['after_talk'] }),
-  S('sn-mark', 'wq_sanctum', [1200, 1330], '문턱 아래', { k: 'talk', set: 'look_mark', lines: ['|문턱 돌 아래에 칼로 그은 표식이 있다. 구조대에게 남기는 귀환 표식이다.', '|「돌아온다」. 부상당한 기사가 후일 구조대에게 전한 표식과 같은 모양이다.', `${WQ_NAME}|…그가 돌아오려 했다는 건 몰랐다.`] }, { show: ['after_talk'] }),
+  S('sn-prints2', 'wq_sanctum', [1110, 930], '두 갈래 발자국', { k: 'talk', set: 'prints_compared', lines: ['|와이번의 새 발자국과 옛 발자국을 나란히 본다.', '|큰 발자국은 모두 바깥을 향한다. 드래곤이 신전을 나간 자국이다.', '|작은 발자국 하나만 안으로 돌아왔다. 와이번이 다시 돌아온 자국이다.'] }, { show: ['after_talk'] }),
+  S('sn-shield', 'wq_sanctum', [447, 620], '제단 뒤 방패', { k: 'talk', set: 'look_shield', lines: ['|제단 뒤에 녹아 휜 방패가 박혀 있다. 방패 면이 바깥, 산길 쪽을 향한다.', '|불길을 막으려고 세운 것이다. 지키려던 쪽은 신전 안이 아니라 아래 마을이다.'] }, { show: ['after_talk'] }),
+  S('sn-mark', 'wq_sanctum', [1200, 1290], '문턱 아래', { k: 'talk', set: 'look_mark', lines: ['|문턱 돌 아래에 칼로 그은 표식이 있다. 구조대에게 남기는 귀환 표식이다.', '|「돌아온다」. 부상당한 기사가 후일 구조대에게 전한 표식과 같은 모양이다.', `${WQ_NAME}|…그가 돌아오려 했다는 건 몰랐다.`] }, { show: ['after_talk'] }),
   S('sn-ask', 'wq_sanctum', [1520, 990], WQ_NAME, { k: 'steps', need: WQ_AFTER, lock: [`${WQ_NAME}|흔적을 먼저 봐라. 발자국, 제단 뒤, 문턱 아래.`], steps: [
     { flag: 'answer_done', k: 'pick', q: `${WQ_NAME}: “그 기사는 끝내 무엇을 두고 갔다고 생각하나?”`, opts: [
       { t: '당신에게 돌아올 길을 남겼어' },
@@ -150,12 +150,12 @@ export const WQ_SPOTS = [
   ON('lantern-pass', '고개 등불', '받침 안쪽을 살핀다', { k: 'talk', set: 'tag_read', lines: ['|등불 받침 안쪽에 녹슨 쇠패가 끼워져 있다.', '|「용의 불이 지나간 쪽으로 가지 말 것. 봉화대는 불길을 피해 올라간 옛 피난길 끝에 있다.」', '|「서리봉 전망 바위 아래에서 길이 갈린다.」'] }, ['wyvern_found']),
   ON('frost-summit', '서리 봉우리', '바위 아래 갈림길', { k: 'gate', to: 'wq_trail', back: [1200, 1420] }, ['wyvern_found']),
   S('tr-burnt', 'wq_trail', [640, 820], '검게 녹은 돌', { k: 'talk', set: 'burnt_side', lines: ['|길가의 돌이 검게 녹아 유리처럼 굳었다. 그을음이 길을 따라 이어진다.', '|그을음은 여기서 산 아래로 이어진다. 사람이 짚고 올라갈 만한 돌 표식은 없다.'] }),
-  S('tr-cairn', 'wq_trail', [1760, 820], '작은 돌 표식', { k: 'gate', to: 'wq_beacon', back: [1200, 1380], set: 'trail_found', first: ['|그을음 없는 길가에 손바닥만 한 돌이 하나씩 세워져 있다.', '|사람이 짚으며 올라간 표식이다. 위쪽에 무너진 돌탑이 보인다.'] }),
-  S('bc-memo', 'wq_beacon', [860, 1100], '신전지기의 메모', { k: 'talk', set: 'memo_read', lines: ['|석등 받침 옆에 얇은 돌판이 기대 있다.', '|「큰 바람은 불을 번지게 하고, 막힌 굴에서는 불씨가 죽는다. 얇은 천이 살짝 들리는 틈에 석등을 붙여라.」'] }),
-  S('bc-v0', 'wq_beacon', [780, 650], '첫째 통풍구', { k: 'talk', lines: ['|통풍구 앞 천 조각이 축 늘어져 있다. 바람이 거의 들지 않는다.'] }, { look: 'vent0' }),
-  S('bc-v1', 'wq_beacon', [1200, 610], '둘째 통풍구', { k: 'talk', lines: ['|천 조각이 가볍게 들렸다 내려앉는다. 숨 쉬듯 약한 바람이 든다.'] }, { look: 'vent1' }),
-  S('bc-v2', 'wq_beacon', [1620, 650], '셋째 통풍구', { k: 'talk', lines: ['|천 조각이 팽팽하게 당겨진다. 바람이 세차게 빨려 든다.'] }, { look: 'vent2' }),
-  S('bc-lamp', 'wq_beacon', [1200, 1030], '손잡이 달린 석등', { k: 'steps', steps: [
+  S('tr-cairn', 'wq_trail', [1700, 520], '작은 돌 표식', { k: 'gate', to: 'wq_beacon', back: [1200, 1380], set: 'trail_found', first: ['|그을음 없는 길가에 손바닥만 한 돌이 하나씩 세워져 있다.', '|사람이 짚으며 올라간 표식이다. 위쪽에 무너진 돌탑이 보인다.'] }),
+  S('bc-memo', 'wq_beacon', [890, 1130], '신전지기의 메모', { k: 'talk', set: 'memo_read', lines: ['|석등 받침 옆에 얇은 돌판이 기대 있다.', '|「큰 바람은 불을 번지게 하고, 막힌 굴에서는 불씨가 죽는다. 얇은 천이 살짝 들리는 틈에 석등을 붙여라.」'] }),
+  S('bc-v0', 'wq_beacon', [869, 720], '첫째 통풍구', { k: 'talk', lines: ['|통풍구 앞 천 조각이 축 늘어져 있다. 바람이 거의 들지 않는다.'] }, { look: 'vent0' }),
+  S('bc-v1', 'wq_beacon', [1200, 720], '둘째 통풍구', { k: 'talk', lines: ['|천 조각이 가볍게 들렸다 내려앉는다. 숨 쉬듯 약한 바람이 든다.'] }, { look: 'vent1' }),
+  S('bc-v2', 'wq_beacon', [1531, 720], '셋째 통풍구', { k: 'talk', lines: ['|천 조각이 팽팽하게 당겨진다. 바람이 세차게 빨려 든다.'] }, { look: 'vent2' }),
+  S('bc-lamp', 'wq_beacon', [1200, 1075], '손잡이 달린 석등', { k: 'steps', steps: [
     { flag: 'vent_lit', k: 'pick', q: '석등을 어느 통풍구 앞에 붙일까?', opts: ['첫째 — 천이 축 늘어진 곳', '둘째 — 천이 가볍게 들리는 곳', '셋째 — 천이 팽팽하게 당겨진 곳'], ans: 1,
       ok: ['|석등을 둘째 통풍구 앞에 붙이고 뚜껑을 연다.', '|약한 바람이 석등 안으로 스민다. 재 속에서 붉은 불씨가 살아난다.'],
       badBy: ['석등을 붙이고 뚜껑을 열었지만 바람이 들지 않는다. 불씨가 숨을 쉬지 못한다. 석등을 다시 옮긴다.', '', '세찬 바람이 재를 흩뜨린다. 불씨가 번질 듯 흔들려 얼른 뚜껑을 닫는다. 석등을 다시 옮긴다.'], bad: '불씨가 살아나지 않는다.' },
@@ -167,16 +167,16 @@ export const WQ_SPOTS = [
 /* 시련 · 결투 수치(게임 좌표 · 초) — 정한 값. 피해는 쓰지 않고 시험 체력과 자리만 본다(레벨 · 장비 · 직업 무관) */
 export const WQ_TRIAL = {
   // 바람다리 — 깃발 처짐(calm) → 들림 예고(lift) → 강풍(gust). 강풍 때 홈 밖이면 지난 홈으로 밀린다
-  bridge: { start: [1200, 1460], goal: [1200, 560], goalR: 110, grooves: [[1320, 1190], [1320, 930], [1320, 680]], r: 70, calm: 3.0, lift: 1.4, gust: 1.6,
+  bridge: { start: [1200, 1460], goal: [1200, 560], goalR: 110, grooves: [[1290, 1140], [1290, 912], [1290, 681]], r: 70, calm: 3.0, lift: 1.4, gust: 1.6,
     say: ['깃발이 처졌다 — 다음 홈으로', '깃발이 수평으로 들린다 — 홈으로!', '강풍!'] },
   // 비늘의 회랑 — 세 석상 · 세 발판. 회차마다 한 석상만 발톱 자국(예고) → 셋이 함께 포효 → 그 석상 앞 부채꼴만 친다
-  gallery: { start: [1200, 1400], statues: [[700, 600], [1200, 560], [1700, 600]], plates: [[700, 1130], [1200, 1130], [1700, 1130]], plateR: 85,
+  gallery: { start: [1200, 1400], statues: [[738, 625], [1200, 578], [1656, 625]], plates: [[738, 1131], [1200, 1131], [1656, 1131]], plateR: 85,
     reach: 820, arc: 0.55, rounds: 3, warn: 2.4, gap: 1.4 },
   // 맹세의 문 — 날개 닫힘(closed) → 내려찍기 예고(warn) → 숨 고르기(open). 숨 고를 때 다리 표적 3번
-  oath: { start: [1200, 1400], statue: [1200, 640], legs: [[1110, 720], [1290, 720]], legR: 60, reach: 230, closed: 2.6, warn: 1.5, open: 3.4, slamR: 150, hits: 3, back: 170 },
+  oath: { start: [1200, 1450], statue: [1200, 560], legs: [[1069, 756], [1328, 756]], legR: 60, reach: 230, closed: 2.6, warn: 1.5, open: 3.4, slamR: 150, hits: 3, back: 170 },
   // 결투 — 와이번 체력 100 → 15 에서 항복. 패턴을 한 번씩 보여야 그 아래로 줄어든다(floor)
   duel: { start: [1200, 1300], at: WQ_WYVERN, hp: 100, end: 15, me: 100, floor: [70, 45, 20, 15], reach: 280, hit: 4, restHit: 11, cd: 0.4, idle: 1.3, hover: 40,
-    wind: { warn: 2.2, r: 110, dmg: 20, push: 260, holes: [[880, 1180], [1520, 1240], [2060, 1180]] },
+    wind: { warn: 2.2, r: 110, dmg: 20, push: 260, holes: [[831, 1130], [1456, 1180], [2031, 1130]] },
     roar: { warn: 1.9, reach: 760, arc: 0.6, dmg: 25 },
     dive: { rise: 0.9, warn: 1.5, r: 170, dmg: 30, rest: 3.2 } },
   strikeCd: 0.4,

@@ -77,8 +77,7 @@ function lampFallback(ctx, x, y, lit, time) {
 // 통풍구 — 돌 구멍과 천 조각(0 축 늘어짐 · 1 가볍게 들림 · 2 팽팽히 당겨짐)
 function vent(ctx, x, y, kind, time) {
   ctx.save();
-  ctx.fillStyle = '#2a2420'; ctx.beginPath(); ctx.ellipse(x, y - 70, 46, 34, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(242,196,138,.35)'; ctx.lineWidth = 1; ctx.stroke();
+  // 통풍구 구멍은 바닥 그림에 있다 — 천 조각만 그린다
   const sway = kind === 0 ? Math.sin(time * 0.8) * 0.04 : kind === 1 ? 0.35 + Math.sin(time * 2.4) * 0.3 : 1.05 + Math.sin(time * 18) * 0.04;
   ctx.translate(x - 30, y - 100); ctx.rotate(-sway);
   ctx.fillStyle = '#c9b694'; ctx.strokeStyle = '#6e5e46';
@@ -94,13 +93,13 @@ export function drawWqSpot(ctx, me, s, time, near) {
   const L = s.look;
   if (s.map === 'frost-peak' && L) {                                  // 서리봉 바위 셋 — 멀리서는 비슷하다
     const i = L === 'rockL' ? 0 : L === 'rockR' ? 3 : wqOpen(me, s) ? 2 : 1;
-    if (!cell(ctx, 'rocks', i, x, y, 210)) rockFallback(ctx, x, y, 200, L !== 'rockM', i === 2);
+    if (!cell(ctx, 'rocks', i, x, y, 170)) rockFallback(ctx, x, y, 200, L !== 'rockM', i === 2);
     top = 150;
   } else if (wqMap(s.map)) {
     if (GATE_ROW[L] != null) {
       let open = wqOpen(me, s);
       if (L === 'ogate' && !open) { const tr = wqView(me)?.tr; if (tr && tr.id === 'oath') open = tr.ph === 2; }   // 시련 중 — 숨 고를 때 날개를 편다
-      if (L === 'tdoor' && !wqHas(me, 'threshold_found')) open = false;
+      if (L === 'tdoor' && !wqHas(me, 'threshold_found')) { if (near) label(ctx, s.name, x, y - 160); return; }   // 문턱을 찾기 전에는 바닥 그림의 빈 벽 그대로
       const w = L === 'ogate' ? 460 : L === 'tdoor' ? 400 : 340;
       if (!cell(ctx, 'gates', GATE_ROW[L] * 2 + (open ? 1 : 0), x, y, w)) gateFallback(ctx, L, open, x, y, w * 0.8);
       if (L === 'tdoor' && wqHas(me, 'threshold_found') && !open) ring(ctx, x - 90, y - 120, 10, C.gold, 0.5 + Math.sin(time * 3) * 0.3);   // 경첩
@@ -148,7 +147,7 @@ export function drawWqGround(ctx, me, M, time) {
   const tr = wqView(me)?.tr;
   if (M.id === 'wq_bridge') {
     const B = T.bridge, ph = tr && tr.id === 'bridge' ? tr.ph : 0;
-    B.grooves.forEach((p, i) => { disc(ctx, p[0], p[1], B.r, '#1b1612', 0.35); ring(ctx, p[0], p[1], B.r, tr && tr.got > i ? C.gold : C.line, 0.8, tr && tr.got > i ? 2 : 1); flag(ctx, 1070, p[1] + 30, ph, time + i); });
+    B.grooves.forEach((p, i) => { ring(ctx, p[0], p[1], B.r, tr && tr.got > i ? C.gold : C.line, 0.8, tr && tr.got > i ? 2 : 1); flag(ctx, 1070, p[1] + 30, ph, time + i); });
     flag(ctx, 1070, 1420, ph, time + 3);
     if (tr && tr.id === 'bridge') ring(ctx, B.goal[0], B.goal[1], B.goalR, tr.got >= 3 ? C.gold : C.line, 0.6, 1, [6, 6]);
     if (ph === 2) { ctx.save(); ctx.strokeStyle = 'rgba(220,235,245,.35)'; ctx.lineWidth = 1; for (let i = 0; i < 14; i++) { const yy = 500 + ((i * 97 + time * 600) % 1000); ctx.beginPath(); ctx.moveTo(1020, yy); ctx.lineTo(1380, yy + 10); ctx.stroke(); } ctx.restore(); }
@@ -180,8 +179,8 @@ export function drawWqGround(ctx, me, M, time) {
     if (tr.ph === 2) ring(ctx, tr.at[0], tr.at[1], D.reach, C.gold, 0.45, 1, [6, 6]);
   }
   if (M.id === 'wq_beacon' && wqHas(me, 'vent_lit') && !wqHas(me, 'ember_got')) {   // 불씨가 살아난 석등 — 둘째 통풍구 앞
-    if (!cell(ctx, 'props', 3, 1200, 700, 170)) lampFallback(ctx, 1200, 700, true, time);
-    disc(ctx, 1200, 660, 34 + Math.sin(time * 5) * 5, '#ff9a4a', 0.14);
+    if (!cell(ctx, 'props', 3, 1200, 745, 170)) lampFallback(ctx, 1200, 745, true, time);
+    disc(ctx, 1200, 705, 34 + Math.sin(time * 5) * 5, '#ff9a4a', 0.14);
   }
 }
 
@@ -200,7 +199,7 @@ export function wqBodies(me, mapId) {
 export function drawWqBody(ctx, b, time) {
   const { x, y } = b;
   if (b.k === 'statue') {
-    if (!cell(ctx, 'props', 4 + (b.roar ? 1 : 0), x, y, 280)) { ctx.save(); ctx.fillStyle = '#76716a'; ctx.fillRect(x - 50, y - 200, 100, 200); ctx.restore(); }
+    if (!cell(ctx, 'props', 4 + (b.roar ? 1 : 0), x, y, 220)) { ctx.save(); ctx.fillStyle = '#76716a'; ctx.fillRect(x - 50, y - 200, 100, 200); ctx.restore(); }
     if (b.roar === 2) disc(ctx, x, y - 160, 24, '#ff6a4a', 0.4);
     return;
   }

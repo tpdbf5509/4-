@@ -2390,7 +2390,7 @@ function drawHero(ctx, g, h, time) {
   const held = hide & HIDE_GEAR.weapon || adminLook(h) || gamblerLook(h) || engineerLook(h) || necroLook(h) || illusionLook(h) || wyvernLook(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
   let im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
   // 히든 직업 BLOOD-001 여성 · Gambler 002 · Engineer 003 남녀 · Necromancer 004 남녀 — 걸을 때는 걷는 그림 4장(walk-<보기>-<0~3>.webp, tools/cut-blood-f.py · cut-gambler-char.py)을 걸음에 맞춰 바꾼다. 서 있을 때는 기본 그림. 아래로 갈 때(turn)는 앞 그림. 못 불러오면 기본 그림 그대로
-  if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(admin-skin|blood-f|gambler-[mf]|engineer-[mf]|necro-[mf]|wyvern-[mf]|illusion-f)\//.test(advIm.src)) {
+  if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(admin-skin|blood-f|gambler-[mf]|engineer-[mf]|necro-[mf]|wyvern-[mf]|illusion-[mf])\//.test(advIm.src)) {
     const k = Math.floor((((h.anim.ph / (Math.PI / 2)) % 4) + 4) % 4);
     im = artImg(advArtPath(h, `walk-${view === "turn" ? "front" : view}-${k}`)) || im;
   }
@@ -2492,7 +2492,7 @@ function drawHero(ctx, g, h, time) {
   ctx.restore();
 
   // 체력 · 레벨 · 이름
-  const tallK = !down && im && (adminLook(h) || gamblerLook(h) || wyvernLook(h) || necroLook(h) || (illusionLook(h) && h.gender === "f")) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다 · Necromancer 004 도 11월 19일 1.4배 · 관리자 스킨 · Gambler 002(1.25배, 11월 22일)
+  const tallK = !down && im && (adminLook(h) || gamblerLook(h) || wyvernLook(h) || necroLook(h) || illusionLook(h)) ? Math.max(66, im.naturalHeight * HERO_K - 4) : 66;   // Wyvern Knight 006 — 큰 몸 그림(11월 18일 1.3배)은 체력 줄을 머리 위로 올린다 · Necromancer 004 도 11월 19일 1.4배 · 관리자 스킨 · Gambler 002(1.25배, 11월 22일)
   const bw = 40, byy = h.y - tallK * bk - 12;
   const r = Math.max(0, Math.min(1, h.hp / (h.max || 1)));
   ctx.save();

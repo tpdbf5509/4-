@@ -107,6 +107,19 @@ test('처치 — 영혼 +10 · 직업 경험치 · 8초짜리 흔적. 흔적 추
   assert.equal(necroView(h).traces.length, 0);
 });
 
+test('보스 · 월드보스도 흔적을 남긴다(11월 23일 사용자) — 추출하면 그 보스 그림자가 명부에', () => {
+  for (const [type, extra] of [['gramor', { boss: 1 }], ['world_dragon', {}], ['guild_slime', {}]]) {
+    const { g, h } = setup(5);
+    const m = mob(g, h.x + 100, h.y, { type, hp: 1, max: 1e6, ...extra });
+    if (type.startsWith('world_')) g.wb.active = { id: 'dragon', key: 1, mob: m.id, phase: 'fight', hp: 1, max: 1e6, contrib: [], x: m.x, y: m.y, cd: 99, pools: [] };   // 싸우는 중인 월드보스
+    fire(g, true); step(g, .01); fire(g, false); run(g, .5);
+    assert.ok(m.dead, type);
+    assert.equal(necroView(h).traces.length, 1, `${type} 흔적`);
+    soul(h, 100); cast(g, 'extract'); run(g, EX.done + .05);
+    assert.deepEqual(necroView(h).roster.map(q => q.t), [type]);
+  }
+});
+
 test('명부 — 12종(추출 연마 25 → 15종) · 승급 비용 2 · 4 · 7 · 10(추출 연마 50 → 5등급 8) · 저장 꼴 검사', () => {
   assert.equal(rosterSlots(cleanNcJob({ tr: [[24, 0], [0, 0], [0, 0]] })), RS.slots);
   assert.equal(rosterSlots(cleanNcJob({ tr: [[25, 0], [0, 0], [0, 0]] })), RS.slots25);

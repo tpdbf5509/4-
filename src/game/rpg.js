@@ -2149,7 +2149,7 @@ function killMob(g, m, pi) {
   if (m.boss) dropLoot(g, got, m);
 }
 // 월드 · 길드 보스 — 친 사람 가운데 같은 맵의 BLOOD-001 직업 경험치
-function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); engineerRaidKill(engineerEngine, g, q); necroRaidKill(necroEngine, g, q); illusionRaidKill(illusionEngine, g, q); wyvernRaidKill(wyvernEngine, g, q); } } }
+function bloodRaid(g, m) { for (const qi of m.hitBy || []) { const q = g.heroes[qi]; if (q && q.loaded && q.map === m.map) { bloodRaidKill(bloodJobEngine, g, q); gamblerRaidKill(gamblerEngine, g, q); engineerRaidKill(engineerEngine, g, q); necroRaidKill(necroEngine, g, q, m); illusionRaidKill(illusionEngine, g, q); wyvernRaidKill(wyvernEngine, g, q); } } }
 // 한 사람 몫 — 막타를 친 사람은 몹 자리에, 나머지는 제 머리 위에 숫자를 띄운다
 export function huntingXp(h,m,amount=m.xp){
   const sp=SPAWNS.filter(s=>s.map===m.map&&Array.isArray(s.lv));
@@ -3549,9 +3549,9 @@ export const rpgEq = (g, pi, req) => eqInput(eqEngine, g, pi, req);   // 입력 
 const nqEngine = { ...eqEngine, bagRoom: advEngine.bagRoom, gear: advEngine.gear };
 export const rpgNq = (g, pi, req) => nqInput(nqEngine, g, pi, req);   // 입력 kind "nq"
 /* 히든 직업 Necromancer 004(necroJob.js, 11월 17일 — 격자 연습장에만). 기준 피해 · 시전 객체는 Gambler 002 와 같다.
-   trace: 추출 가능 흔적을 남기는 몹(일반 몹만 — 보스 · 월드 · 길드 보스 · 허수아비 · 800~1200 소환물 제외) · bounds: 맵 [너비, 높이, 위 벽] · stop: 걷기 멈춤 */
+   trace: 추출 가능 흔적을 남기는 몹(보스 · 월드 · 길드 보스 포함, 11월 23일 — 허수아비 · 800~1200 소환물 · 시험 몹 제외) · bounds: 맵 [너비, 높이, 위 벽] · stop: 걷기 멈춤 */
 const necroEngine = { ...gamblerEngine,
-  trace: (m) => !!m && !isHeroT(m) && !m.boss && !m.sum && m.type !== "dummy" && !isWorldBoss(m) && !isGuildBoss(m) && !!MOB[m.type],
+  trace: (m) => !!m && !isHeroT(m) && !m.sum && !m.eq && m.type !== "dummy" && !!MOB[m.type],
   mobName, bounds: (map) => [MAPS[map]?.w || 2000, MAPS[map]?.h || 1400, MAPS[map]?.top || 0], stop: (h) => { stopMove(h); h.hold = []; h.dash = 0; } };
 /* 히든 직업 Wyvern Knight 006(wyvernJob.js, 11월 17일 — 격자 연습장에만). 기준 피해 · 시전 객체는 Gambler 002 와 같다. stop: 걷기 멈춤(급강하 · 돌진) */
 const wyvernEngine = { ...engineerEngine, stop: (h) => { stopMove(h); h.hold = []; } };

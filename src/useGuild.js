@@ -30,11 +30,11 @@ export function useGuild(options){
    if(key!==synced.current){o.act('guild',{op:'sync',state:s});synced.current=key;}
    if(mounted.current)setState(r);
  },[]);
- const refresh=useCallback(async()=>{
+ const refresh=useCallback(async(quiet)=>{ // quiet: 주기 · 자동 조회는 실패해도 팝업 없이 다음 주기에 다시 읽는다
    const c=account(),o=current.current;if(!c||working.current||!o.g.heroes[o.seat]?.loaded)return;
    working.current=true;
-   try{const r=await remoteGuild(o,c,'get',{});if(account()?.tok===c.tok)await receive(r);if(!r?.ok&&mounted.current)setError(ERR[r?.err]||ERR.net);}
-   catch(e){if(mounted.current)setError(e.message);}finally{working.current=false;}
+   try{const r=await remoteGuild(o,c,'get',{});if(account()?.tok===c.tok)await receive(r);if(!r?.ok&&!quiet&&mounted.current)setError(ERR[r?.err]||ERR.net);}
+   catch(e){if(!quiet&&mounted.current)setError(e.message);}finally{working.current=false;}
  },[receive]);
  const action=useCallback(async(op,args={})=>{
    const c=account(),o=current.current,h=o.g.heroes[o.seat];if(!c){setError('서버 계정으로 접속한 뒤 길드를 이용해 주세요.');return {ok:false};}
@@ -56,7 +56,7 @@ export function useGuild(options){
        if(args.outcome==='clear'&&!r.already)setNotice({title:'길드 토벌 보상 반영',text:'길드 점수와 참여자의 길드석을 저장했습니다.',success:true});
      }else if(SUCCESS[op])setNotice({title:SUCCESS[op],success:true});
      return r;
-   }catch(e){if(mounted.current)setError(e.message);return {ok:false};}
+   }catch(e){if(op!=='finish'&&mounted.current)setError(e.message);return {ok:false};} // finish 는 토벌 끝에 자동으로 부르는 것이라 실패해도 조용히 다시 시도한다
    finally{if(op!=='finish')o.trades.lock(false);working.current=false;if(mounted.current)setBusy(false);if(h&&lockPlace(h.map,true))h.fire=0;}
  },[receive]);
  useEffect(()=>{
@@ -66,6 +66,6 @@ export function useGuild(options){
      if(!stopped)timer=setTimeout(tick,1000);
    };tick();return()=>{stopped=true;clearTimeout(timer);};
  },[action]);
- useEffect(()=>{refresh();const t=setInterval(()=>{if(document.visibilityState!=='hidden')refresh();},current.current.room?.viaServer?REFRESH_SRV_MS:REFRESH_MS);return()=>clearInterval(t);},[refresh]);
+ useEffect(()=>{refresh(true);const t=setInterval(()=>{if(document.visibilityState!=='hidden')refresh(true);},current.current.room?.viaServer?REFRESH_SRV_MS:REFRESH_MS);return()=>clearInterval(t);},[refresh]);
  return {state,busy,error,notice,action,refresh,joinRaid:()=>{current.current.act('guild',{op:'enter'});current.current.closeAll();}};
 }

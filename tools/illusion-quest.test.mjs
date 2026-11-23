@@ -3,6 +3,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { iqInput, tickIq, iqHas, iqSpotById, iqSpotNear, cleanIu, packIq, applyIq, iqStage, iqClones, iqDoll } from '../src/game/illusionQuest.js';
+import { illusionOn, packIllusion, applyIllusion } from '../src/game/illusionJob.js';
+import { cleanHj } from '../src/game/gamblerJob.js';
+import { holds } from '../src/game/hiddenUnique.js';
 import { IQ_ROUTE, IQ_TRIAL as T, IQ_EVIDENCE, IQ_FLAGS, IQ_STAGES } from '../src/game/illusionQuestData.js';
 
 function world(test) {
@@ -30,15 +33,13 @@ function solve(w, id) {
   }
 }
 
-test('실제 게임(테스트 서버가 아님)에서는 자리가 보이지도 받지도 않는다', () => {
-  assert.equal(IQ_ROUTE.live, false);
+test('11월 23일부터 실제 게임(테스트 서버가 아님)에도 자리가 보이고 받는다', () => {
+  assert.equal(IQ_ROUTE.live, true);
   const w = world(false);
   w.h.map = 'dawnwood'; w.h.x = 1460; w.h.y = 1345;
   tickIq(w.E, w.g, w.h, 0.05);
-  assert.equal(iqSpotNear(w.h, true), null);
   iqInput(w.E, w.g, 0, { op: 'act', id: 'v-bench', v: 1 });
-  assert.equal(iqHas(w.h, 'ticket_found'), false);
-  assert.equal(packIq(w.h), 0);
+  assert.equal(iqHas(w.h, 'ticket_found'), true);
 });
 
 test('테스트 서버 — 1장부터 계승까지', () => {
@@ -116,10 +117,12 @@ test('테스트 서버 — 1장부터 계승까지', () => {
   assert.ok(iqHas(h, 'trial_passed') || tr()?.act === 3);
   if (!iqHas(h, 'trial_passed')) { for (let i = 0; i < 20 && !iqHas(h, 'trial_passed'); i++) { const c = iqClones(tr(), h.x, h.y); aimTo(c[tr().real]); use('card'); } }
   assert.ok(iqHas(h, 'trial_passed') && iqHas(h, 'story_complete'));
-  // 계승 — 테스트 서버는 기록만
+  // 계승 — 장부가 없는 방이라 유일 규칙 없이 바로 직업을 얻는다
   at(w, 'sg-desk');
   iqInput(w.E, w.g, 0, { op: 'contract', yes: true });
   assert.ok(iqHas(h, 'claimed'));
+  assert.ok(illusionOn(h), '계승하면 마술사가 켜진다');
+  assert.equal(h.bag.hj.active, 'illusionist');
   // 저장 값 · 스냅샷
   const iu = cleanIu(JSON.parse(JSON.stringify(h.bag.iu)));
   assert.deepEqual(iu.f, h.bag.iu.f);
@@ -137,4 +140,17 @@ test('테스트 도구 — 장마다 바로 가면 그 장 자리가 보인다',
     iqStage(w.h, i); w.h.ilt = 1;
     assert.equal(w.h.map, S.map);
   });
+});
+
+test('마술사 — 저장 · 유일 규칙 · 손님 화면 값', () => {
+  const hj = cleanHj({ active: 'illusionist', jobs: { illusionist: { lv: 12, xp: 3, tr: [[5, 1], [0, 0], [0, 0]] } } });
+  assert.equal(hj.active, 'illusionist');
+  assert.equal(hj.jobs.illusionist.lv, 12);
+  assert.ok(holds({ hj }, 'illusionist'));
+  const h = { map: 'dawnwood', bag: { hj }, il: { trick: 4, cd: { shuffle: 2.5 }, house: null, chain: 'slash', calm: 0.4, sl: { n: 1, t: 0.2 } } };
+  const row = packIllusion(h);
+  const o = { map: 'dawnwood', bag: { hj } };
+  applyIllusion(o, JSON.parse(JSON.stringify(row)));
+  assert.equal(o.ilv.trick, 4); assert.equal(o.ilv.cd.shuffle, 2.5); assert.equal(o.ilv.chain, 'slash');
+  assert.equal(packIllusion({ map: 'dawnwood', bag: {} }), 0);
 });

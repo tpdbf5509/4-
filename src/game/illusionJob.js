@@ -31,7 +31,7 @@ export function cleanIlJob(d) {
 }
 // 이 직업인가 — 가방 값으로만 본다. ILLUSION.live 가 false 면 격자 연습장 맵에서만 켜진다
 export const illusionOn = (h) => !!(h && h.bag && h.bag.hj && h.bag.hj.active === ILLUSION_ID && h.bag.hj.jobs && h.bag.hj.jobs[ILLUSION_ID] && (IL.live || h.map === "sandbox"));
-export const illusionLook = (h) => illusionOn(h);
+export const illusionLook = (h) => !!(h && (h.ilv || illusionOn(h)));   // 손님 화면은 스냅샷 값(h.ilv)으로 본다
 const jobOf = (h) => h.bag.hj.jobs[ILLUSION_ID];
 export const ilTrainSum = (J) => (J ? J.tr.reduce((n, q) => n + q[0], 0) : 0);
 export const illusionTint = (sum) => ILLUSION_TINT.find((t) => sum >= t.from).id;
@@ -498,9 +498,28 @@ export function illusionDown(E, g, h) {
 export function illusionFill(h) { if (illusionOn(h)) st(h).trick = TK.max; }
 
 /* ── 화면 값 ── */
+/* 스냅샷 영웅 줄 63(11월 23일 실제 게임) — 트릭 · 대기 · 거울 집 · 연계 · 베기 횟수. 아니면 0, 칸은 뒤에만 더한다 */
+const CD_KEYS = Object.keys(NO_CD);
+export function packIllusion(h) {
+  if (!illusionOn(h)) return 0;
+  const s = h.il;
+  if (!s) return [0, 0, 0, 0, 0];
+  return [s.trick, CD_KEYS.map((k) => r1(s.cd[k] || 0)),
+    s.house ? [Math.round(s.house.x), Math.round(s.house.y), r1(s.house.t), s.house.map === h.map ? 1 : 0] : 0,
+    s.chain ? [s.chain, r1(s.calm)] : 0,
+    s.sl ? [s.sl.n, r1(s.sl.t)] : 0];
+}
+export function applyIllusion(h, a) {
+  if (!Array.isArray(a)) { h.ilv = null; return; }
+  const cd = Array.isArray(a[1]) ? a[1] : [];
+  h.ilv = { trick: +a[0] || 0, cd: Object.fromEntries(CD_KEYS.map((k, i) => [k, +cd[i] || 0])),
+    house: Array.isArray(a[2]) ? { x: a[2][0], y: a[2][1], t: +a[2][2] || 0, map: a[2][3] ? h.map : "" } : null,
+    chain: Array.isArray(a[3]) && IL_SKILLS[a[3][0]] ? a[3][0] : null, calm: Array.isArray(a[3]) ? +a[3][1] || 0 : 0,
+    sl: Array.isArray(a[4]) ? { n: +a[4][0] || 0, t: +a[4][1] || 0 } : null };
+}
 export function illusionView(h) {
   if (!h || !illusionOn(h)) return null;
-  const J = jobOf(h), s = h.il;
+  const J = jobOf(h), s = h.il || h.ilv;
   return { trick: s ? s.trick : 0, max: TK.max, cost: TK.cost, lv: J.lv, xp: J.xp, tr: J.tr, cd: s ? { ...s.cd } : { ...NO_CD },
     cdMax: { shuffle: SH.cd, slash: SL.cd, prison: PR.cd, blink: BL.cd, fist: FI.cd, mirror: MR.cd, final: FN.cd },
     house: s && s.house ? { x: s.house.x, y: s.house.y, left: r1(MR.dur - s.house.t), in: s.house.map === h.map && Math.hypot(h.x - s.house.x, (h.y - s.house.y) / SQUASH) <= MR.r } : null,

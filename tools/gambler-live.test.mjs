@@ -73,7 +73,7 @@ test('다시 접속 — 저장한 기록으로 들어오면 직업 레벨 · 연
 test('스냅샷 줄 57 — 손님 화면이 칩 · 직업 레벨 · 대기 · 보호막을 받고 도박꾼 그림을 쓴다. 이 직업이 아니면 0', () => {
   const { g, h } = setup();
   let row = rpgPack(g).h[0];
-  assert.equal(row.length, 63, '영웅 줄은 뒤에만 늘었다(58 — Engineer 003 · 59 진혼곡 · 60 엔지니어 루트 · 61 · 62 Necromancer 004)'); assert.equal(row[58], 0, '엔지니어가 아니면 0'); assert.equal(row[57], 0); assert.ok(row[56] === 0, 'BLOOD-001 칸(56)은 그대로');
+  assert.equal(row.length, 65, '영웅 줄은 뒤에만 늘었다(58 — Engineer 003 · 59 진혼곡 · 60 엔지니어 루트 · 61 · 62 Necromancer 004 · 63 · 64 Illusionist 005)'); assert.equal(row[58], 0, '엔지니어가 아니면 0'); assert.equal(row[57], 0); assert.ok(row[56] === 0, 'BLOOD-001 칸(56)은 그대로');
   unlockGambler(h, J200); h.map = 'field'; h.x = 1500; h.y = 700;
   run(g, .1); h.gm.chips = 5; h.gm.luck = 2; use(g, 'veil'); run(g, .1);
   const snap = rpgPack(g); row = snap.h[0];           // 가방은 바뀐 때만 실린다 — 같은 스냅샷을 손님에게 준다

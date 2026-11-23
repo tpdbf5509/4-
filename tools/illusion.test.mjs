@@ -38,15 +38,12 @@ function unit() { const { g, h } = setup(); const m = mob(g, h.x + 200, h.y); fi
 const U = unit();
 const dmg = (m) => (HP - m.hp) / U;
 
-test('연습장 맵에서만 켜진다 — 실제 게임 · 획득 방법 · 키 설정 창에 드러나지 않는다', () => {
-  assert.equal(IL.live, false);
+test('11월 23일 실제 게임에 열었다 — 사냥터에서도 켜지고 유일 규칙에 적힌다 · 키 설정 창 · 패치노트에 드러나지 않는다', () => {
+  assert.equal(IL.live, true);
   const { g, h } = setup(200, [0, 0, 0], 'field');
-  assert.ok(!illusionOn(h), '사냥터에서는 꺼져 있다');
-  assert.equal(illusionView(h), null);
-  const m = mob(g, h.x + 200, h.y, { map: 'field' });
-  use(g, 'fist'); run(g, .8);
-  assert.equal(m.hp, HP);
-  assert.deepEqual(hiddenHeld(h), [], '유일 규칙 장부에 적히지 않는다');
+  assert.ok(illusionOn(h), '사냥터에서도 켜진다');
+  assert.ok(illusionView(h));
+  assert.deepEqual(hiddenHeld(h), ['illusionist'], '유일 규칙 장부에 적힌다');
   assert.ok(!KEY_ACTIONS.some(a => /illusion|마술/i.test(a.id + a.name)));
   assert.ok(IL_SLOTS.every(q => KEY_ACTIONS.some(a => a.id === q.act)), '기존 행동 키를 빌린다');
   const notes = readFileSync('src/game/updates.js', 'utf8') + readFileSync('src/game/bookData.js', 'utf8');

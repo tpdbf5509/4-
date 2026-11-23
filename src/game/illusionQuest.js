@@ -3,12 +3,15 @@
    Necromancer 004 「이름 없는 군단」(necroQuest.js)과 같은 틀이다.
    진행은 가방 bag.iu = { f: [깃발 비트 24개씩], d: { fk: 숲길 구간, wh: 물레 추 고정 } } — 저장된다.
    퍼즐 중간 값 · 시험은 h.iqRun(저장하지 않는다) = { R: 마지막 결과, w: 틀린 수, tr: 시험 }.
-   공개: IQ_ROUTE.live 가 false 면 테스트 서버(g.test)에서만 — 판정이 h.ilt 를 세우고 영웅 줄 64 로 화면에 알린다.
+   공개: 11월 23일 실제 게임에 열었다(IQ_ROUTE.live). false 로 되돌리면 테스트 서버(g.test)에서만 — 판정이 h.ilt 를 세우고 영웅 줄 64 로 화면에 알린다.
    화면에 보낼 것은 영웅 줄 64(packIq) — 손님 화면 값 h.iqv.
    입력 kind "iq": { op: 'act', id, v } · { op: 'skill', s } · { op: 'quit' } · { op: 'contract', yes }.
    E(엔진, rpg.js iqEngine): fx · say · sys · goMap · place · face */
 import { IQ_ROUTE, IQ_FLAGS, IQ_SPOTS, IQ_FOREST as FO, IQ_TRIAL as T, IQ_EVIDENCE, IQ_STAGES, IQ_DESK, IQ_TRAVEL, IQ_MAPS, iqMap, iqSpotMap } from './illusionQuestData.js';
-import { IL_SHUFFLE, IL_SLASH, IL_PRISON, IL_BLINK, IL_FIST, IL_MIRROR, IL_FINAL } from './illusionData.js';
+import { ILLUSION_ID, ILLUSION_NAME, IL_SHUFFLE, IL_SLASH, IL_PRISON, IL_BLINK, IL_FIST, IL_MIRROR, IL_FINAL } from './illusionData.js';
+
+import { unlockIllusion } from './illusionJob.js';
+import { hiddenEnforced, hiddenTaken, hiddenAsk, hiddenReply } from './hiddenUnique.js';
 
 export const IQ_STAGE_LIST = IQ_STAGES;
 const SQ = 0.78;
@@ -456,17 +459,37 @@ function tickTrial(E, g, h, dt) {
   if (tr.hp <= 0) fail(E, g, h, '시험 체력이 다했다.');
 }
 
-/* ── 계승 — 계승대(sg-desk) ── */
+/* ── 계승 — 계승대(sg-desk). 유일 규칙(hiddenUnique.js)을 거쳐 해금(Necromancer 004 와 같은 흐름) ── */
 function contract(E, g, h, yes) {
   if (!iqHas(h, 'trial_passed') || iqHas(h, 'claimed') || h.map !== 'iq_stage') return;
   const s = iqSpotById('sg-desk');
   if (dist(h, s.at) > s.r * 1.6) return;
   if (!yes) { setAll(h, 'inherit_later'); return void tell(E, g, h, IQ_DESK.later.replace('이안|', '이안: ')); }
-  // shortcut: 실제 게임에 열 때(IQ_ROUTE.live) 유일 규칙(hiddenAsk/hiddenReply) · HIDDEN_JOBS 등록 · unlockIllusion 을 붙인다.
-  //           지금은 마술사 직업 자체가 격자 연습장 전용(ILLUSION.live = false)이라 계승 기록만 남긴다.
+  if (run(h).ask) return;
+  if (!hiddenEnforced(g, h)) return void finish(E, g, h);
+  if (hiddenTaken(g, h, ILLUSION_ID)) return void tell(E, g, h, IQ_DESK.taken);
+  run(h).ask = { t: 0 };
+  hiddenAsk(g, h, ILLUSION_ID);
+}
+function tickAsk(E, g, h, dt) {
+  const r = h.iqRun, a = r && r.ask;
+  if (!a) return;
+  const rep = hiddenReply(h, ILLUSION_ID);
+  if (rep) {
+    r.ask = null;
+    if (rep.ok) return void finish(E, g, h);
+    if (rep.err === 'taken') return void tell(E, g, h, IQ_DESK.taken);
+    if (rep.err === 'account') return void tell(E, g, h, `서버 계정이 없는 캐릭터는 ${ILLUSION_NAME} 를 계승할 수 없다.`);
+    return void tell(E, g, h, IQ_DESK.error);
+  }
+  if ((a.t += dt) > 10) { r.ask = null; tell(E, g, h, IQ_DESK.error); }
+}
+function finish(E, g, h) {
   setAll(h, 'claimed');
-  E.fx(g, h.map, { kind: 'call', x: h.x, y: h.y - 150, text: 'Illusionist 005 계승', color: LIL, t: 2.4, life: 2.4, snd: 'lvup', who: h.pi });
-  tell(E, g, h, '카드를 받았다. 은빛 장막 극단의 마지막 공연이 기록에 남았다. 마술사 기술은 아직 공개 전이라 격자 연습장에서 써 볼 수 있다.');
+  unlockIllusion(h);
+  E.fx(g, h.map, { kind: 'call', x: h.x, y: h.y - 150, text: `${ILLUSION_NAME} 계승`, color: LIL, t: 2.4, life: 2.4, snd: 'lvup', who: h.pi });
+  const J = h.bag.hj.jobs[ILLUSION_ID];
+  tell(E, g, h, `카드를 받았다. 다음 무대는 내 것이다. ${ILLUSION_NAME} — 1차 전직은 사라졌다. ${J.lv > 1 ? `예전 기록(직업 레벨 ${J.lv})에서 이어 간다.` : '직업 레벨 1 부터 시작한다.'}`);
   if (iqHas(h, 'apology_requested')) tell(E, g, h, IQ_DESK.apology);
 }
 
@@ -476,7 +499,8 @@ export function tickIq(E, g, h, dt) {
   h.ilt = g.test ? 1 : 0;
   if (!h.iqRun) { if (iqMap(h.map)) run(h); else return; }
   if (h.iqRun.tr) tickTrial(E, g, h, dt);
-  if (!iqMap(h.map) && !h.iqRun.tr) h.iqRun = null;
+  tickAsk(E, g, h, dt);
+  if (!iqMap(h.map) && !h.iqRun.tr && !h.iqRun.ask) h.iqRun = null;
 }
 
 /* ── 단계 건너뛰기 — 관리자 · 테스트 서버 「도구」. 그 장 앞까지 깃발을 세우고 시작 자리에 선다 ── */

@@ -37,7 +37,7 @@ import { necroInput, necroBasic, tickNecro, necroDown, necroFill, necroKill, nec
 import { NC_SCYTHE } from './necroData.js';
 import { wyvernInput, wyvernBasic, tickWyvernJob, wyvernDown, wyvernFill, wyvernKill, wyvernRaidKill, wyvernOn, wyvernTake, wyvernSpd, wyvernLook } from './wyvernJob.js';   // 히든 직업 Wyvern Knight 006(11월 17일 — 격자 연습장에만)
 import { WY_CLAW } from './wyvernData.js';
-import { illusionInput, illusionBasic, tickIllusion, illusionDown, illusionFill, illusionKill, illusionRaidKill, illusionOn, illusionLook } from './illusionJob.js';   // 히든 직업 Illusionist 005(11월 17일 — 격자 연습장에만)
+import { illusionInput, illusionBasic, tickIllusion, illusionDown, illusionFill, illusionKill, illusionRaidKill, illusionOn, illusionLook, packIllusion, applyIllusion } from './illusionJob.js';   // 히든 직업 Illusionist 005(11월 17일 — 격자 연습장에만)
 import { IL_CARD } from './illusionData.js';
 import { castBloodWeapon, tickBloodWeapon, bloodOnHit, bloodLifeOnHit, bloodShown, releaseBloodWeapon, aimBloodWeapon, cancelBloodCharge, bloodSlow, bloodAimLock } from './bloodGunCombat.js';   // 크림슨 레퀴엠 혈계 추격(11월 13일)
 import { castWorldWeapon, tickWorldWeapon, worldWeaponBasicHit, worldSetHit } from "./worldWeaponCombat.js";
@@ -867,7 +867,7 @@ export const jobOf = (h) => JOB_BY_ID[h && h.job] || JOBS[0];
 /* 히든 계열(11월 20일 사용자 "히든 직업은 히든직업이고") — 켜진 히든 직업 id, 아니면 "".
    손님 화면은 스냅샷 값(h.bdv · h.gmv · h.env · h.ncv)으로 본다. 사거리 · 다른 무기 판정이 이것을 먼저 본다(hiddenFamilyData.js) */
 export const hiddenOf = (h) => !h ? "" : (h.bdv || bloodOn(h)) ? "blood" : gamblerLook(h) ? "gambler" : engineerLook(h) ? "engineer"
-  : necroLook(h) ? "necromancer" : illusionOn(h) ? "illusionist" : wyvernLook(h) ? "wyvern" : "";
+  : necroLook(h) ? "necromancer" : illusionLook(h) ? "illusionist" : wyvernLook(h) ? "wyvern" : "";
 // 평타 모양을 정하는 직업 — 히든 직업은 바탕 직업(검사 회전 베기 · 마법사 구슬)을 따르지 않는다. BLOOD-001 은 레퀴엠으로 한 대상을 쏜다(피해 · 간격은 바탕 그대로)
 const basicJob = (h) => (hiddenOf(h) ? { ...jobOf(h), id: HIDDEN_FAMILY.id, splash: 0 } : jobOf(h));
 export const elemOf = (h) => (hasElem(jobOf(h).id) ? REAL_ELEM[h.elem] || ELEMS[0] : NO_ELEM);
@@ -5493,7 +5493,7 @@ export function rpgPack(g) {
           ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0,
         packBloodJob(h),
-        packGambler(h), packEngineer(h), packRq(h), packEq(h), packNq(h), packNecro(h), 0, packIq(h)] // 64 — Illusionist 005 획득 루트(illusionQuest.js, 아니면 0) · 63 — 비워 둠(Illusionist 005 직업을 열 때) · 62 — Necromancer 004(necroJob.js, 아니면 0) · 61 — Necromancer 004 획득 루트(necroQuest.js) · 60 — Engineer 003 획득 루트(engineerQuest.js, 아니면 0) · 59 — 마지막 진혼곡 연출 · 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
+        packGambler(h), packEngineer(h), packRq(h), packEq(h), packNq(h), packNecro(h), packIllusion(h), packIq(h)] // 64 — Illusionist 005 획득 루트(illusionQuest.js, 아니면 0) · 63 — Illusionist 005(illusionJob.js packIllusion, 아니면 0) · 62 — Necromancer 004(necroJob.js, 아니면 0) · 61 — Necromancer 004 획득 루트(necroQuest.js) · 60 — Engineer 003 획득 루트(engineerQuest.js, 아니면 0) · 59 — 마지막 진혼곡 연출 · 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
       : 0)),
     b: packBags(g),
     hb: packHerbs(g),                             // 채집한 약초 자리 — { 번호: 다시 나기까지 초 }(alchemy.js)
@@ -5536,6 +5536,7 @@ export function rpgApply(g, s) {
     applyGambler(h, row[57]);                      // Gambler 002 — 칩 · 직업 레벨 · 대기 · 보호막(화면 값 h.gmv)
     applyEngineer(h, row[58]);                     // Engineer 003 — 전력 · 과열 · 설치물(화면 값 h.env)
     applyEq(h, row[59 + 1]);                       // Engineer 003 획득 루트 — 결과 · 미믹 · 시험(화면 값 h.eqv)
+    applyIllusion(h, row[63]);                     // Illusionist 005 — 트릭 · 대기 · 거울 집 · 연계(화면 값 h.ilv)
     applyIq(h, row[64]);                           // Illusionist 005 획득 루트 — 테스트 서버 표시 · 결과 · 시험(화면 값 h.iqv)
     applyNq(h, row[61]);                           // Necromancer 004 획득 루트 — 결과 · 미믹 · 시험(화면 값 h.nqv)
     applyNecro(h, row[62]);                        // Necromancer 004 — 영혼 · 대기 · 그림자 · 흔적(화면 값 h.ncv)

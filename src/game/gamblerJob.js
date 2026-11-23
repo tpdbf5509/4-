@@ -13,6 +13,8 @@ import { cleanEnJob } from './engineerJob.js';   // Engineer 003(11월 19일 실
 import { ENGINEER_ID } from './engineerData.js';
 import { cleanNcJob } from './necroJob.js';   // Necromancer 004(11월 20일 실제 게임) — 같은 bag.hj 칸에 함께 저장한다
 import { NECRO_ID } from './necroData.js';
+import { cleanIlJob } from './illusionJob.js';   // Illusionist 005(11월 23일 실제 게임) — 같은 bag.hj 칸에 함께 저장한다
+import { ILLUSION_ID } from './illusionData.js';
 import { GAMBLER as GM, GAMBLER_ID, GAMBLER_NAME, GAMBLER_TINT, GM_TRAIN_NAMES, GM_BET as BET, GM_LUCK as LUCK, GM_CHIP as CH, GM_VEIL as VL,
   GM_DICE as DC, GM_RAIN as RN, GM_DD as DD, GM_TABLE as TB, GM_EDGE as EG, GM_JACK as JK, GM_SKILLS } from "./gamblerData.js";
 
@@ -38,7 +40,7 @@ export function cleanGmJob(d) {
 /* 가방 칸 bag.hj 저장 검사 — 시험 중 빌린 값은 원래 값(prev)으로. 아는 직업(gambler)만 싣는다.
    bdOn: BLOOD-001 이 켜져 있다 — 히든 직업은 한 번에 하나라 둘 다 켜진 기록은 먼저 있던 BLOOD-001 을 남기고 이쪽을 끈다(직업 레벨 · 연마는 남는다) */
 // 실제 게임에 열린 직업만 싣는다(연습장 전용 직업은 저장하지 않는다). 뒤에만 더한다
-const SAVED_JOBS = { [GAMBLER_ID]: cleanGmJob, [ENGINEER_ID]: (d) => cleanEnJob(d), [NECRO_ID]: (d) => cleanNcJob(d) };
+const SAVED_JOBS = { [GAMBLER_ID]: cleanGmJob, [ENGINEER_ID]: (d) => cleanEnJob(d), [NECRO_ID]: (d) => cleanNcJob(d), [ILLUSION_ID]: (d) => cleanIlJob(d) };
 export function cleanHj(d, bdOn) {
   if (d && typeof d === "object" && d.trial) return cleanHj(d.prev, bdOn);
   if (!d || typeof d !== "object" || !d.jobs || typeof d.jobs !== "object") return null;

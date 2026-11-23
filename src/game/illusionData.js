@@ -15,7 +15,7 @@ export const ILLUSION_COLORS = { deep: "#2A1C3A", base: "#B7A9D8", cream: "#FFF4
 export const ILLUSION_TINT = [{ from: 130, id: "mirror" }, { from: 75, id: "blue" }, { from: 0, id: "white" }];
 
 export const ILLUSION = {
-  live: false,                // 실제 게임 연결 — 사용자가 확인하기 전까지 false(연습장에서만 켜진다)
+  live: true,                 // 11월 23일 사용자 "실제 게임에도 적용해줘" — false 로 되돌리면 연습장에서만 켜진다
   maxLv: 200,
   // 직업 레벨 경험치(공통 제안) — 다음 레벨까지 10 + 지금 레벨. 일반 몹 1 · 사냥터 보스 10 · 토벌 · 월드보스 20 · 1분 120 까지
   xp: { base: 10, per: 1, mob: 1, boss: 10, raid: 20, perMin: 120 },

@@ -406,7 +406,7 @@ export function whyEquip(h, u) {
   else if (wyvernOn(h) && !wyWeaponOk(w)) out.push("Wyvern Knight 006 은 아르카디온만 들 수 있습니다");   // 11월 18일 사용자 — 레퀴엠처럼 전용 무기 하나만
   else if (!wyvernOn(h) && w.sp === WY_WEAPON_ITEM.id) out.push("아르카디온은 Wyvern Knight 006 만 들 수 있습니다");
   else if (!necroOn(h) && w.sp === NC_WEAPON_ITEM.id) out.push(`${NC_WEAPON_ITEM.name}은 Necromancer 004 만 들 수 있습니다`);
-  else if (illusionOn(h)) out.push("Illusionist 005 는 무기를 들 수 없습니다");   // 연습장 전용 — 카드는 직업 고유 투사체(무기 아님)
+  else if (illusionOn(h)) out.push("Illusionist 005 는 무기를 들 수 없습니다");   // 카드는 직업 고유 투사체(무기 아님)
   else if (necroOn(h) && !ncWeaponOk(w)) out.push(`Necromancer 004 는 ${NC_WEAPON_ITEM.name}만 들 수 있습니다`);   // 11월 20일 사용자 — 아르카디온처럼 전용 무기 하나만   // 히든 직업 공통 — 무기 금지(연습장에서만 켜진다)   // 무기 장착 금지(사용자 기획) — 가방의 무기는 그대로 남는다
   return out;
 }
@@ -574,7 +574,7 @@ export function whyPotionUse(h, id, el) {
   else if (p.kind === "heal" && h.hp >= h.max) out.push("체력이 이미 가득 찼습니다");
   else if (p.kind === "reset" && statSpent(h.st) <= 0) out.push("돌려받을 스탯 포인트가 없습니다");
   else if (p.kind === "hide" && noHide(h)) out.push("결투장 · 던전에서는 마실 수 없습니다");
-  else if (p.kind === "adv" && !advOf(h) && !bloodOn(h) && !gamblerOn(h) && !engineerOn(h) && !necroOn(h)) out.push("전직한 뒤에 마실 수 있습니다");
+  else if (p.kind === "adv" && !advOf(h) && !bloodOn(h) && !gamblerOn(h) && !engineerOn(h) && !necroOn(h) && !illusionOn(h)) out.push("전직한 뒤에 마실 수 있습니다");
   else if (p.kind === "elem" && !hasElem(h.job)) out.push("원소가 있는 마법사만 마실 수 있습니다");
   else if (p.kind === "elem" && el !== undefined && !ELEMS.some((e) => e.id === el)) out.push("바꿀 원소를 골라 주세요");
   else if (p.kind === "elem" && el === h.elem) out.push("지금 원소와 같습니다");
@@ -807,10 +807,10 @@ export function rpgShop(g, pi, req) {
       fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 44, color: "#cfd8e6", n: 8, t: 0.5, life: 0.5, who: pi });
       msg = `${Math.ceil(h.bf.hide.t)}초 동안 몹이 알아채지 못합니다(보스도)`;
     } else if (p.kind === "adv") {                 // 전직 초기화 — 전직 · 숙련도 · 전투 특성 · 시험을 비운다. 기본 직업은 그대로
-      const wasFull = h.hp >= h.max, old = advOf(h) || (bloodOn(h) ? { name: "BLOOD-001" } : gamblerOn(h) ? { name: "Gambler 002" } : engineerOn(h) ? { name: "Engineer 003" } : necroOn(h) ? { name: "Necromancer 004" } : null);
+      const wasFull = h.hp >= h.max, old = advOf(h) || (bloodOn(h) ? { name: "BLOOD-001" } : gamblerOn(h) ? { name: "Gambler 002" } : engineerOn(h) ? { name: "Engineer 003" } : necroOn(h) ? { name: "Necromancer 004" } : illusionOn(h) ? { name: "Illusionist 005" } : null);
       dropBlood(h);                               // 히든 직업 BLOOD-001 도 끈다 — 직업 레벨 · 연마는 남는다
       dropGambler(h);                             // 히든 직업 Gambler 002 · Engineer 003 도 끈다(같은 bag.hj 칸) — 직업 레벨 · 연마는 남는다
-      h.en = null; h.env = null;
+      h.en = null; h.env = null; h.il = null; h.ilv = null;
       h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
       h.bag.ar = (h.bag.ar || 0) + 1;             // 초기화 횟수 — 저장이 비운 전직을 받아들이게 한다(rpg.js advRecord)
       h.bag.af = 1;                               // 다음 전직은 시험 없이 확정한다(advance.js whyAdvConfirm)

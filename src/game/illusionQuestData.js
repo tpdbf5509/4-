@@ -10,7 +10,7 @@
 import { VILLAGE_NPCS } from './villageData.js';
 import { WILD_MAPS, LUEN_LIBRARY_MAPS } from './wildsData.js';
 
-export const IQ_ROUTE = { live: false };   // 사용자 확인 전 — 테스트 서버에서만(illusionQuest.js iqOn)
+export const IQ_ROUTE = { live: true };   // 11월 23일 사용자 "실제 게임에도 적용해줘" — false 로 되돌리면 테스트 서버에서만(illusionQuest.js iqOn)
 
 /* 깃발 — 기획서 14.2 표의 차례 그대로(0~35). 저장 값이라 뒤에만 더한다. 36~ 은 정한 중간 깃발 */
 export const IQ_FLAGS = [

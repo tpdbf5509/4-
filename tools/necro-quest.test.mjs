@@ -245,3 +245,15 @@ test('시험 포기 — 진행 중인 시험만 끝내고 장군 곁으로 돌�
   rpgInput(g, { cls: 0, kind: 'nq', dir: { op: 'quit' } });   // 시험 중이 아니면 아무 일 없다
   act(g, 't-valtern', 'start'); assert.ok(nqInTrial(h), '다시 도전할 수 있다');
 });
+
+test('관측소 빛 띠 — 걸음 속도로 쉬지 않고 올라가 건널 수 있는 출발 시각이 있다', () => {
+  const z = NQ_HAZARDS[0], v = 250 * 0.78;   // 세로 걸음 속도(RPG.spd × squash)
+  const top = Math.min(...z.lanes.map((l) => l.y0)), bot = Math.max(...z.lanes.map((l) => l.y1));
+  let ok = 0;
+  for (let t0 = 0; t0 < z.period; t0 += 0.05) {
+    let y = bot + 10, t = t0, hit = false;
+    while (y > top - 10) { if (z.lanes.some((l) => y >= l.y0 && y < l.y1 && nqLaneState(z, l, t).on)) hit = true; y -= v * 0.02; t += 0.02; }
+    if (!hit) ok++;
+  }
+  assert.ok(ok * 0.05 >= 1, `건널 수 있는 틈이 1초 이상이어야 한다(지금 ${(ok * 0.05).toFixed(2)}초)`);
+});

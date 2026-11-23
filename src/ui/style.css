@@ -3360,7 +3360,7 @@ button.forge-stage:disabled { cursor: default; }
 .nq-hud .nq-keys kbd { margin-left: 6px; padding: 0 5px; border: 1px solid rgba(241,228,200,.5); border-radius: 4px; font-size: 12px; }
 .nq-hud .nq-quit { margin-left: auto; order: 99; color: #e8b3a4; border-color: rgba(232,179,164,.5); }
 @media (max-height: 520px), (max-width: 640px) {
-  .nq-hud { top: auto; bottom: 8px; left: 8px; right: 8px; max-width: none; min-width: 0; font-size: 12px; padding: 5px 8px; gap: 3px; }
+  .eq-hud.nq-hud { top: auto; bottom: 8px; left: 8px; right: 8px; max-width: none; min-width: 0; font-size: 12px; padding: 5px 8px; gap: 3px; }
   .nq-hud b { font-size: 15px; }
   .nq-hud { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
   .nq-hud b { font-size: 14px; }
@@ -3417,3 +3417,16 @@ button.forge-stage:disabled { cursor: default; }
 .rpg-page:fullscreen { padding: 0; display: flex; align-items: center; justify-content: center; background: #0d1610; overflow: hidden; }
 .rpg-page:fullscreen .stage { width: min(100vw, calc(100vh * 1160 / 760)); max-width: none; margin: 0; }
 .rpg-page:fullscreen .frame { border-radius: 0; border: 0; box-shadow: none; }
+
+/* 시험 표 접기(11월 23일 사용자 "위에 표가 가려서 선택이 안 돼") — 접으면 시험 체력 줄만 남는다 */
+.nq-hud .nq-fold { position: absolute; top: 4px; right: 6px; min-height: 30px; padding: 2px 10px; font-size: 12px; }
+.nq-hud { padding-right: 84px; }
+.nq-hud.fold .nq-keys, .nq-hud.fold .nq-prog, .nq-hud.fold > b { display: none; }
+.nq-hud.fold { min-width: 0; width: auto; min-height: 40px; }
+@media (max-height: 520px), (max-width: 640px) {
+  .nq-hud .nq-fold { right: 92px; }
+  .nq-hud .nq-keys .nq-quit { right: 6px; }
+  .nq-hud { padding-right: 160px; }
+  .nq-hud.fold { padding-right: 84px; }
+  .nq-hud.fold .nq-fold { right: 6px; }
+}

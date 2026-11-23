@@ -735,7 +735,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [marketOpen, setMarketOpen] = useState(false); // 장터 게시판 창(MarketPanel)
   const [villageOpen, setVillageOpen] = useState(null);
   const [eqOpen, setEqOpen] = useState(null);       // Engineer 003 획득 루트 조사 창 — 자리 id
-  const [nqQuitSure, setNqQuitSure] = useState(false);   // 시험 포기 — 한 번 더 눌러야 포기
+  const [nqQuitSure, setNqQuitSure] = useState(false);
+  const [nqFold, setNqFold] = useState(false);   // 시험 표 접기 — 접으면 시험 체력만 보인다(시험 중 유지)   // 시험 포기 — 한 번 더 눌러야 포기
   const [nqOpen, setNqOpen] = useState(null);       // Necromancer 004 획득 루트 조사 창 — 자리 id
   const [ncOpen, setNcOpen] = useState(false);      // Necromancer 004 그림자 명부 창
   const [ncRename, setNcRename] = useState(null);   // 명부 창 「이름」 — 고칠 그림자
@@ -2909,9 +2910,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
               : t.id === "drill" ? `말뚝 ${t.fo.length} · 그림자 ${t.al.length}/${nqCap(t)}` : t.ph === 1 ? `1단계 제단 ${t.alt}/${T.altar.hp} · 남은 ${Math.max(0, Math.ceil(T.p1.dur - t.t))}초`
               : t.ph === 2 ? `2단계 쓰러뜨린 적 ${t.kill}/${T.p2.total}` : t.gl ? `3단계 문양 — 제단을 조사하라 · ${Math.ceil(t.glT)}초` : `3단계 잔영 · 기둥 ${t.fo.filter((f) => f.k === "pylon").length}`;
             return (
-            <div className="eq-hud nq-hud" role="status" aria-live="polite">
+            <div className={`eq-hud nq-hud${nqFold ? " fold" : ""}`} role="status" aria-live="polite">
+              <button type="button" className="btn-ghost nq-fold" aria-expanded={!nqFold} aria-label={nqFold ? "시험 표 펴기" : "시험 표 접기"} onClick={() => setNqFold((v) => !v)}>{nqFold ? "펴기 ▾" : "접기 ▴"}</button>
               <b>{T.name}</b>
-              <span>{prog}</span>
+              <span className="nq-prog">{prog}</span>
               <span className="nq-hp"><span>시험 체력 {t.hp}/{NQ_TEST.hp}{t.msh ? " · 보호막" : ""}</span><span className={`eq-meter nq-bar${t.hp / NQ_TEST.hp <= 0.3 ? " hot" : ""}`}><i style={{ width: `${Math.max(0, Math.min(100, t.hp / NQ_TEST.hp * 100))}%` }} /></span></span>
               <span className="nq-keys">
                 {T.skills.map((sk) => { const a = Object.keys(NQ_KEY_SKILL).find((q) => NQ_KEY_SKILL[q] === sk); return (

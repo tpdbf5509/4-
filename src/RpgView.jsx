@@ -2904,11 +2904,11 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <div className="eq-hud nq-hud" role="status" aria-live="polite">
               <b>{T.name}</b>
               <span>{prog}</span>
-              <span>시험 체력 {t.hp}/{NQ_TEST.hp}{t.msh ? " · 보호막" : ""}</span>
+              <span className="nq-hp"><span>시험 체력 {t.hp}/{NQ_TEST.hp}{t.msh ? " · 보호막" : ""}</span><span className={`eq-meter nq-bar${t.hp / NQ_TEST.hp <= 0.3 ? " hot" : ""}`}><i style={{ width: `${Math.max(0, Math.min(100, t.hp / NQ_TEST.hp * 100))}%` }} /></span></span>
               <span className="nq-keys">
                 {T.skills.map((sk) => { const a = Object.keys(NQ_KEY_SKILL).find((q) => NQ_KEY_SKILL[q] === sk); return (
                   <button type="button" key={sk} className="btn-ghost" disabled={t.cd[sk] > 0} onClick={() => act("nq", { op: "skill", s: sk })}>{NQ_SKILLS[sk].name}{t.cd[sk] > 0 ? ` ${Math.ceil(t.cd[sk])}` : ""}{k(a)}</button>); })}
-                <button type="button" className="btn-ghost" onClick={() => { if (!nqQuitSure) { setNqQuitSure(true); setTimeout(() => setNqQuitSure(false), 4000); return; } setNqQuitSure(false); act("nq", { op: "quit" }); }}>{nqQuitSure ? "정말 포기하기" : "시험 포기하기"}</button>
+                <button type="button" className="btn-ghost nq-quit" onClick={() => { if (!nqQuitSure) { setNqQuitSure(true); setTimeout(() => setNqQuitSure(false), 4000); return; } setNqQuitSure(false); act("nq", { op: "quit" }); }}>{nqQuitSure ? "정말 포기하기" : "시험 포기하기"}</button>
                 {T.cmd && ["call", "gather", "guard", "attack", "recall"].map((c) => { const a = Object.keys(NQ_KEY_CMD).find((q) => NQ_KEY_CMD[q] === c); return (
                   <button type="button" key={c} className="btn-ghost" disabled={c === "call" && t.cd.call > 0} onClick={() => act("nq", { op: "cmd", c })}>{NQ_SKILLS[c].name}{a && k(a)}</button>); })}
               </span>

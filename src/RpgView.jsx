@@ -59,6 +59,7 @@ import { GAMBLER_ICON } from "./game/gamblerPxData.js";            // 히든 직
 import { gmSpotNear, gmSpotLine } from "./game/gamblerUnlock.js";
 import { GAMBLER_NAME, GM_SLOTS } from "./game/gamblerData.js";
 import { gamblerHud, GamblerBar, GamblerButtons, GamblerStat } from "./GamblerHud.jsx";
+import { HiddenStat } from "./HiddenStat.jsx";   // 엔지니어 · 네크로맨서 · 마술사 · 와이번 나이트 스탯 창 칸(11월 24일)
 import { engineerView } from "./game/engineerJob.js";   // 히든 직업 Engineer 003(11월 19일 실제 게임에 이음)
 import { ENGINEER_NAME, EN_SLOTS, EN_SKILLS, EN_PULSE } from "./game/engineerData.js";
 import { engineerIconStyle } from "./game/engineerArt.js";
@@ -2340,6 +2341,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   </div>
                   <BloodStat v={me.gm ? null : bloodView(G.current.heroes[mySeat])} />
                   <GamblerStat v={gamblerView(G.current.heroes[mySeat])} />
+                  <HiddenStat id="engineer" v={engineerView(G.current.heroes[mySeat])} />
+                  <HiddenStat id="necromancer" v={necroView(G.current.heroes[mySeat])} />
+                  <HiddenStat id="illusionist" v={illusionView(G.current.heroes[mySeat])} />
+                  <HiddenStat id="wyvern" v={wyvernView(G.current.heroes[mySeat])} />
                   <div className="rpg-stat-foot">
                     <button type="button" className="btn-main" disabled={planned <= 0} onClick={applyStats}>
                       적용하기{planned > 0 ? ` (${planned})` : ""}

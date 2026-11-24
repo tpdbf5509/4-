@@ -191,7 +191,7 @@ export default function NecroRosterPanel({ v, onSummon, onRecall, onParty, onRef
   return (
     <div className="ncw" role="dialog" aria-label="그림자 명부" ref={box}>
       <div className="ncw-head">
-        <h2>그림자 명부 <em>{v.roster.length}/{v.slots} · 영혼 {v.soul}</em></h2>
+        <h2>그림자 명부 <em>{v.roster.length}종 · 영혼 {v.soul}</em></h2>
         <button type="button" className="ncw-x" onClick={onClose} aria-label="닫기">닫기</button>
       </div>
       <div className="ncw-tabs" role="tablist">

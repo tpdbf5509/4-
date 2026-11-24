@@ -44,8 +44,8 @@ function NecroBar({ v, keyOf: key, onUse, onFire, part }) {   // part: "stat"(�
         </span>
       </div>
       {part !== "stat" && skills}
-      <ul className="nc-roster" aria-label={`그림자 명부 ${v.roster.length}/${v.slots}`}>
-        <li>명부 {v.roster.length}/{v.slots}</li>
+      <ul className="nc-roster" aria-label={`그림자 명부 ${v.roster.length}종`}>
+        <li>명부 {v.roster.length}종</li>
         {v.roster.map((q) => {
           const next = gradeCost({ tr: v.tr }, q.g);
           return <li key={q.t} className={v.sh.some((s) => s.t === q.t) ? "on" : ""}>{q.n}<em>{NC_KINDS[kindOf(q.t)].name} · {q.g}등급{next ? ` ${q.x}/${next}` : ""}{v.lock[q.t] > 0 ? ` · ${Math.ceil(v.lock[q.t])}초` : ""}</em></li>;

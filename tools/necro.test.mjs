@@ -120,9 +120,8 @@ test('보스 · 월드보스도 흔적을 남긴다(11월 23일 사용자) — �
   }
 });
 
-test('명부 — 12종(추출 연마 25 → 15종) · 승급 비용 2 · 4 · 7 · 10(추출 연마 50 → 5등급 8) · 저장 꼴 검사', () => {
-  assert.equal(rosterSlots(cleanNcJob({ tr: [[24, 0], [0, 0], [0, 0]] })), RS.slots);
-  assert.equal(rosterSlots(cleanNcJob({ tr: [[25, 0], [0, 0], [0, 0]] })), RS.slots25);
+test('명부 — 종류 제한 없음 · 승급 비용 2 · 4 · 7 · 10(추출 연마 50 → 5등급 8) · 저장 꼴 검사', () => {
+  assert.ok(rosterSlots(cleanNcJob({})) >= 100, '몹 종류 62종을 모두 담는다');
   const J0 = cleanNcJob({}), J50 = cleanNcJob({ tr: [[50, 0], [0, 0], [0, 0]] });
   assert.deepEqual([1, 2, 3, 4, 5].map(gg => gradeCost(J0, gg)), [2, 4, 7, 10, 0]);
   assert.equal(gradeCost(J50, 4), 8);
@@ -130,7 +129,7 @@ test('명부 — 12종(추출 연마 25 → 15종) · 승급 비용 2 · 4 · 7 
   assert.equal(J.lv, NC.maxLv);
   assert.equal(J.roster[0].g, RS.grades);
   assert.equal(J.roster.filter(q => q.t === 'wolf').length, 1, '같은 종류는 한 칸');
-  assert.equal(J.roster.length, RS.slots25);
+  assert.equal(J.roster.length, 21, '12 · 15 를 넘어서도 모두 담긴다');
 });
 
 test('그림자 소환 — 영혼 30 · 등급 높은 순 5기 · 20초 · 1.4초마다 ×3.0(등급 +10%씩)', () => {

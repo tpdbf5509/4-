@@ -79,6 +79,9 @@ import { WQ_TRIAL, WQ_BOOK } from "./game/wyvernQuestData.js";
 import { IL_SKILLS, IL_CARD, IL_SLOTS, ILLUSION_NAME } from "./game/illusionData.js";
 import { illusionView } from "./game/illusionJob.js";   // 히든 직업 Illusionist 005(11월 23일 실제 게임에 이음)
 import { IllusionBar } from "./IllusionHud.jsx";
+import { WY_SLOTS, WY_SKILLS, WY_CLAW, WYVERN_NAME } from "./game/wyvernData.js";
+import { wyvernView } from "./game/wyvernJob.js";   // 히든 직업 Wyvern Knight 006(11월 24일 실제 게임에 이음 — 관리자 명령어)
+import { WyvernBar } from "./WyvernHud.jsx";
 import { necroView } from "./game/necroJob.js";   // 히든 직업 Necromancer 004(11월 20일 실제 게임에 이음)
 import { NECRO_NAME, NC_SLOTS, NC_SKILLS, NC_SCYTHE } from "./game/necroData.js";
 import { NecroBar } from "./NecroHud.jsx";
@@ -240,6 +243,9 @@ const NC_BY_ACT = Object.fromEntries(NC_SLOTS.map((q) => [q.act, q.s]));
 // Illusionist 005 — 같은 꼴로 기존 행동 키를 빌린다(illusionData.js IL_SLOTS)
 const IL_FIRST = IL_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
 const IL_BY_ACT = Object.fromEntries(IL_SLOTS.map((q) => [q.act, q.s]));
+// Wyvern Knight 006 — 같은 꼴로 기존 행동 키를 빌린다(wyvernData.js WY_SLOTS)
+const WY_FIRST = WY_SLOTS.map((q) => q.act).filter((a) => BLOOD_ACTS.includes(a));
+const WY_BY_ACT = Object.fromEntries(WY_SLOTS.map((q) => [q.act, q.s]));
 // Necromancer 004 획득 루트 시험 — 시험 기술 · 그림자 명령을 기존 행동 키에 잠시 얹는다(시험 밖에서는 원래 키)
 const NQ_KEY_SKILL = { fire: "strike", dash: "dash", use1: "shield", use2: "decoy" };
 const NQ_KEY_CMD = { use5: "call", skill: "gather", adv: "guard", wskill: "attack" };
@@ -1287,7 +1293,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const iqTr = () => iqView(G.current.heroes[mySeat])?.tr;   // Illusionist 005 획득 루트 시험 중
     const wqTr = () => wqView(G.current.heroes[mySeat])?.tr;   // Wyvern Knight 006 획득 루트 시련 · 결투 중
     const isIl = () => !!illusionView(G.current.heroes[mySeat]);   // Illusionist 005 — 손님은 스냅샷 h.ilv
-    const kmap = () => keyMap(bindsRef.current, nqTr() || iqTr() || wqTr() ? [] : isEn() ? EN_FIRST : isNc() ? NC_FIRST : isIl() ? IL_FIRST : isGm() ? GM_FIRST : isBlood() ? BLOOD_ACTS : []);
+    const isWy = () => !!wyvernView(G.current.heroes[mySeat]);   // Wyvern Knight 006 — 손님은 스냅샷 h.wyv
+    const kmap = () => keyMap(bindsRef.current, nqTr() || iqTr() || wqTr() ? [] : isEn() ? EN_FIRST : isNc() ? NC_FIRST : isIl() ? IL_FIRST : isWy() ? WY_FIRST : isGm() ? GM_FIRST : isBlood() ? BLOOD_ACTS : []);
     const BLOOD_OFF = /^(use\d|adv|advUlt|healMode)$/;
     const GM_OFF = /^(use\d|adv|advUlt|healMode|skill|wskill|b[A-Z]\w*)$/;   // 일반 스킬 칸 · 큰 기술 · 전직 · 무기 스킬 · 혈 행동은 쓰지 않는다
     function pressAct(a) {
@@ -1311,6 +1318,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       }
       if (isIl()) {
         if (IL_BY_ACT[a]) return void act("hidden", { op: "use", s: IL_BY_ACT[a] });
+        if (GM_OFF.test(a)) return;
+      }
+      if (isWy()) {
+        if (WY_BY_ACT[a]) return void act("hidden", { op: "use", s: WY_BY_ACT[a] });
         if (GM_OFF.test(a)) return;
       }
       if (isEn()) {
@@ -1367,6 +1378,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       if (iqTr() && (IQ_KEY_SKILL[a] || GM_OFF.test(a))) { if (MOVE_ACTS[a]) releaseDir(MOVE_ACTS[a]); return; }
       if (isNc() && (NC_BY_ACT[a] || GM_OFF.test(a))) return;
       if (isIl() && (IL_BY_ACT[a] || GM_OFF.test(a))) return;
+      if (isWy() && (WY_BY_ACT[a] || GM_OFF.test(a))) return;
       if (isGm() && (GM_BY_ACT[a] || GM_OFF.test(a))) return;
       if (isEn() && (EN_BY_ACT[a] || GM_OFF.test(a))) return;
       if (a === "skill" && isBlood()) a = "bField";
@@ -1776,11 +1788,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           wqSpot: (() => { const s = wqSpotNear(me, true); return s ? { id: s.id, name: s.name, npc: s.npc || "", line: wqSpotLine(me, s) } : null; })(),   // Wyvern Knight 006 획득 루트 조사 자리(원래 주민 단추 포함)
           wqv: wqView(me),
           il: illusionView(me),                     // 히든 직업 Illusionist 005 — 트릭 · 스킬
+          wy: wyvernView(me),                       // 히든 직업 Wyvern Knight 006 — 용혈 · 스킬
           nc: necroView(me),                        // 히든 직업 Necromancer 004 — 영혼 · 스킬 · 명부
-          wsk: gamblerView(me) || engineerView(me) || necroView(me) || illusionView(me) ? null : weaponHud(me),   // Gambler 002 는 무기 스킬 · 전직 스킬 칸이 없다
-          adv: gamblerView(me) || engineerView(me) || necroView(me) || illusionView(me) ? null : advHud(me),      // 전직 스킬 칸
+          wsk: gamblerView(me) || engineerView(me) || necroView(me) || illusionView(me) || wyvernView(me) ? null : weaponHud(me),   // Gambler 002 는 무기 스킬 · 전직 스킬 칸이 없다
+          adv: gamblerView(me) || engineerView(me) || necroView(me) || illusionView(me) || wyvernView(me) ? null : advHud(me),      // 전직 스킬 칸
           gm: gamblerHud(gamblerView(me)),          // 히든 직업 Gambler 002 — 베팅 칩 · 전용 스킬(해금 시험 중에도)
-          blood: gamblerView(me) || engineerView(me) || necroView(me) || illusionView(me) ? null : bloodHud(bloodView(me)),   // 히든 직업 BLOOD-001 — 혈량 게이지 · 적혈탄 · 혈량 전환(Gambler 002 시험 중에는 숨긴다)
+          blood: gamblerView(me) || engineerView(me) || necroView(me) || illusionView(me) || wyvernView(me) ? null : bloodHud(bloodView(me)),   // 히든 직업 BLOOD-001 — 혈량 게이지 · 적혈탄 · 혈량 전환(Gambler 002 시험 중에는 숨긴다)
           wb:worldBossView(g,me),guild:guildView(g,me),
           race: raceView(g, me),                    // 몹 레이스 — 모집 · 내 체력 · 순위(race.js)
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
@@ -1896,17 +1909,19 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     if (gamblerView(G.current.heroes[pi])) return GAMBLER_NAME;
     if (engineerView(G.current.heroes[pi])) return ENGINEER_NAME;
     if (illusionView(G.current.heroes[pi])) return ILLUSION_NAME;   // 히든 직업 Illusionist 005
+    if (wyvernView(G.current.heroes[pi])) return WYVERN_NAME;   // 히든 직업 Wyvern Knight 006
     if (necroView(G.current.heroes[pi])) return NECRO_NAME;   // 히든 직업 Necromancer 004   // 히든 직업 Engineer 003   // 히든 직업 Gambler 002 — 직업 이름을 바꿔 보인다
     if (bloodView(G.current.heroes[pi])) return BLOOD_NAME;   // 히든 직업 BLOOD-001 — 직업 이름을 바꿔 보인다(11월 15일 사용자 요청)
     return l ? lookTitle(l) : "";
   };
 
   // 스킬 · 물약 칸 — 넓은 화면(SIDE_MQ)은 판 오른쪽 rpg-side 에, 아니면 예전처럼 판 안 아래에 둔다
-  const hidJob = !!(me && (me.gm || me.en || me.nc || me.il));   // 히든 직업 — 일반 스킬 · 무기 스킬 · 전직 스킬 입력을 판정이 버리니 칸도 숨긴다(rpgInput.js)
+  const hidJob = !!(me && (me.gm || me.en || me.nc || me.il || me.wy));   // 히든 직업 — 일반 스킬 · 무기 스킬 · 전직 스킬 입력을 판정이 버리니 칸도 숨긴다(rpgInput.js)
   const actionBars = (
     <div className={`rpg-touch-actions ${side || me?.blood || me?.gm ? "icons" : ""} ${me?.gm ? "gm" : ""}`}>
-    {me && !shopOpen && !bagOpen && (me.nc || me.en || me.il) && <div className="rpg-hid-stat">{/* 전력 · 영혼 · 명부 줄 — 정보창에서 스킬 탭으로(11월 21일) */}
+    {me && !shopOpen && !bagOpen && (me.nc || me.en || me.il || me.wy) && <div className="rpg-hid-stat">{/* 전력 · 영혼 · 명부 줄 — 정보창에서 스킬 탭으로(11월 21일) */}
       {me.il && <IllusionBar part="stat" v={me.il} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
+      {me.wy && <WyvernBar part="stat" v={me.wy} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
       {me.nc && <NecroBar part="stat" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
       {me.en && <EngineerBar part="stat" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
     </div>}
@@ -1958,6 +1973,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         <GamblerButtons v={me.gm} touch={touch} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })}
           onFire={() => act("fire", true)} onFireUp={() => act("fire", false)} />
         {me.il && <IllusionBar part="skills" v={me.il} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
+        {me.wy && <WyvernBar part="skills" v={me.wy} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
         {me.nc && <NecroBar part="skills" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
         {me.en && <EngineerBar part="skills" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
         {me.adv && me.adv.ult && !me.blood && !hidJob && (
@@ -2488,7 +2504,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {keysOpen && (() => {
             const kh = G.current.heroes[mySeat];
             const adv = kh && ADV_BY_ID[kh.advClass];
-            const who = kh ? { blood: !!bloodView(kh), gambler: !!gamblerView(kh), adv: adv && adv.job === kh.job ? adv.id : "", hidden: engineerView(kh) ? { slots: EN_SLOTS, skills: EN_SKILLS, fire: EN_PULSE.name } : necroView(kh) ? { slots: NC_SLOTS, skills: NC_SKILLS, fire: NC_SCYTHE.name } : illusionView(kh) ? { slots: IL_SLOTS, skills: IL_SKILLS, fire: IL_CARD.name } : undefined } : null;   // Engineer 003 — 빌린 행동 키
+            const who = kh ? { blood: !!bloodView(kh), gambler: !!gamblerView(kh), adv: adv && adv.job === kh.job ? adv.id : "", hidden: engineerView(kh) ? { slots: EN_SLOTS, skills: EN_SKILLS, fire: EN_PULSE.name } : necroView(kh) ? { slots: NC_SLOTS, skills: NC_SKILLS, fire: NC_SCYTHE.name } : illusionView(kh) ? { slots: IL_SLOTS, skills: IL_SKILLS, fire: IL_CARD.name } : wyvernView(kh) ? { slots: WY_SLOTS, skills: WY_SKILLS, fire: WY_CLAW.name } : undefined } : null;   // Engineer 003 — 빌린 행동 키
             const layout = keyLayout(binds, who, keysAll);
             const off = offCount(who);
             const bad = layout.flatMap((sec) => sec.rows).filter((r) => r.on && (r.conflict.length || r.empty)).length;

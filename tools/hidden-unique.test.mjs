@@ -83,7 +83,7 @@ test('장부 — 관리자 캐릭터는 자리를 쓰지 않고 막히지도 않
 
 test('장부 — 지워진 캐릭터 · 직업이 빠진 기록 · 서버 초기화 전 기록은 자리를 잃는다(갓 적은 줄은 두고 본다)', async () => {
   const t = await ledger(['가', '나', '다'], { 가: { bag: { hj: hjData } }, 나: { bag: { bd: bdData } } });
-  assert.deepEqual((await t.call(t.who.다, 'list')).hold, { blood: ['나'], gambler: ['가'], engineer: [], necromancer: [], illusionist: [] }, '처음 부를 때 이미 가진 사람을 훑어 적는다(내쫓지 않는다)');
+  assert.deepEqual((await t.call(t.who.다, 'list')).hold, { blood: ['나'], gambler: ['가'], engineer: [], necromancer: [], illusionist: [], wyvern: [] }, '처음 부를 때 이미 가진 사람을 훑어 적는다(내쫓지 않는다)');
   assert.equal((await t.call(t.who.다, 'claim', { p_job: 'gambler' })).err, 'taken');
   // 가 — 기록이 서버 초기화 전 것으로 바뀜(직업이 없어졌다)
   t.d1.db.prepare("UPDATE chars SET data = ? WHERE name_key = '가'").run(JSON.stringify({ ...base({ rs: 'old' }), name: '가', bag: { hj: hjData } }));
@@ -105,7 +105,7 @@ test('장부 — 처음 훑을 때 이미 여러 명이 가졌으면 모두 적�
     가: { bag: { hj: hjData } }, 나: { bag: { hj: hjData } }, 다: { rs: 'old', bag: { hj: hjData } },
   });
   t.d1.db.prepare("UPDATE chars SET admin = 1 WHERE name_key = '라'").run();
-  assert.deepEqual((await t.call(t.who.라, 'list')).hold, { blood: [], gambler: ['가', '나'], engineer: [], necromancer: [], illusionist: [] });
+  assert.deepEqual((await t.call(t.who.라, 'list')).hold, { blood: [], gambler: ['가', '나'], engineer: [], necromancer: [], illusionist: [], wyvern: [] });
   assert.equal((await t.call(t.who.다, 'claim', { p_job: 'gambler' })).err, 'taken');
   assert.equal((await t.call(t.who.가, 'claim', { p_job: 'gambler' })).ok, true, '이미 가진 사람은 그대로');
   await t.call(t.who.가, 'sync', { p_held: [] });
@@ -142,7 +142,7 @@ const box = GM_SPOTS.find((s) => s.id === 'box');
 const labSpot = BLOOD_SPOTS.find((s) => s.id === 'press');
 
 test('유틸 — 가방 판별 · 시험 중 빌린 값은 세지 않는다 · 이름 열쇠 · 적용 조건', () => {
-  assert.deepEqual(HIDDEN_IDS, ['blood', 'gambler', 'engineer', 'necromancer', 'illusionist']);
+  assert.deepEqual(HIDDEN_IDS, ['blood', 'gambler', 'engineer', 'necromancer', 'illusionist', 'wyvern']);
   assert.ok(holds({ bd: { on: 1 } }, 'blood')); assert.ok(!holds({ bd: { on: 1, trial: 1 } }, 'blood')); assert.ok(!holds({ bd: { on: 0 } }, 'blood'));
   assert.ok(holds({ hj: hjData }, 'gambler')); assert.ok(!holds({ hj: { ...hjData, trial: 1 } }, 'gambler')); assert.ok(!holds({ hj: { ...hjData, active: '' } }, 'gambler'));
   assert.equal(nameKey('  ABC  가 '), 'abc 가');

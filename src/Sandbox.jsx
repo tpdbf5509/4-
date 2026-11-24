@@ -33,8 +33,9 @@ import { necroIconStyle } from "./game/necroArt.js";
 import { NECRO_ICON } from "./game/necroPxData.js";
 import NecroRosterPanel, { NecroNamer } from "./NecroRosterPanel.jsx";
 import { NecroBar } from "./NecroHud.jsx";   // Necromancer 004 칸 — 실제 게임(RpgView)과 같이 쓴다
-import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_SKILLS, WY_CLAW, WY_TRAIN_NAMES, WY_BLOOD, WY_WEAPON_ITEM } from "./game/wyvernData.js";   // 히든 직업 Wyvern Knight 006(11월 17일 — 연습장에만)
-import { unlockWyvern, wyvernView, wyLock } from "./game/wyvernJob.js";
+import { WYVERN, WYVERN_NAME, WY_SLOTS, WY_SKILLS, WY_CLAW, WY_TRAIN_NAMES, WY_WEAPON_ITEM } from "./game/wyvernData.js";   // 히든 직업 Wyvern Knight 006(11월 17일 — 연습장에만)
+import { unlockWyvern, wyvernView } from "./game/wyvernJob.js";
+import { WyvernBar } from "./WyvernHud.jsx";   // 11월 24일 실제 게임과 같이 쓰려고 옮겼다
 import { wyvernIconStyle } from "./game/wyvernArt.js";
 import { WYVERN_ICON } from "./game/wyvernPxData.js";
 import { ILLUSION, ILLUSION_NAME, ILLUSION_TITLE, IL_SLOTS, IL_SKILLS, IL_CARD, IL_TRAIN_NAMES, IL_TRICKED } from "./game/illusionData.js";   // 히든 직업 Illusionist 005(11월 17일 — 연습장에만)
@@ -235,47 +236,6 @@ function GamblerBar({ v, keyOf: key, onUse, onFire }) {
               title={lock || (q.s === "dd" ? `칩 ${GM_SKILLS.dd.cost}개 · 직전 운명의 눈이나 코인 폭우를 다시 냅니다` : GM_SKILLS[q.s].name)}>
               <span className="gm-ico" style={gamblerIconStyle(GAMBLER_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
               <span className="gm-label">{lock ? `레벨 ${GAMBLER.unlock[q.s]}` : GM_SKILLS[q.s].name}</span>
-              {key(q.act) && <kbd>{key(q.act)}</kbd>}
-            </button>
-          );
-        })}
-      </div>
-      <p className="gm-notes">{notes.join(" · ")}</p>
-    </div>
-  );
-}
-
-/* Wyvern Knight 006 칸 — 용혈 줄 · 스킬 아홉(누르면 쓴다) · 상태. 그림은 직접 그린 도트 시트(wy_icons) */
-function WyvernBar({ v, keyOf: key, onUse, onFire }) {
-  const full = v.blood >= v.max;
-  const notes = [
-    v.u ? `와이번 ${Math.ceil(v.u.left)}초` : "와이번 없음",
-    v.aw > 0 && `역린 해방 ${v.aw.toFixed(1)}초`,
-    v.sc && `용린 ${v.sc.left.toFixed(1)}초 · 반격 ${v.sc.n}`,
-    v.sync ? "진룡 동조" : v.wing ? "해방 날개 잔상" : v.tint === "line" && "붉은 비늘",
-  ].filter(Boolean);
-  return (
-    <div className="gm-bar">
-      <div className="gm-top">
-        <span className="gm-name">{WYVERN_NAME} <em>{WYVERN_TITLE} · 직업 레벨 {v.lv}</em></span>
-        <span className="nc-soul wy-blood" aria-label={`용혈 ${v.blood}/${v.max}`}>
-          <i><span style={{ width: `${(v.blood / v.max) * 100}%` }} /></i>
-          <b className={full ? "full" : ""}>용혈 {Math.floor(v.blood)}</b>
-        </span>
-      </div>
-      <div className="gm-skills">
-        <button type="button" className="gm-skill" onClick={onFire} title={`${WY_CLAW.name} — 근접 기본 공격 · 맞히면 용혈 +${WY_BLOOD.claw}`}>
-          <span className="gm-ico" style={wyvernIconStyle(WYVERN_ICON.claw, 48)} />
-          <span className="gm-label">{WY_CLAW.name}</span>
-          {key("fire") && <kbd>{key("fire")}</kbd>}
-        </button>
-        {WY_SLOTS.map((q) => {
-          const S = WY_SKILLS[q.s], lock = wyLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, need = v.blood < S.cost;
-          return (
-            <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && (cd > 0 || need) ? "wait" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
-              title={lock || `${S.name} — 용혈 ${S.cost}`}>
-              <span className="gm-ico" style={wyvernIconStyle(WYVERN_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
-              <span className="gm-label">{lock ? `레벨 ${WYVERN.unlock[q.s]}` : S.short || S.name}</span>
               {key(q.act) && <kbd>{key(q.act)}</kbd>}
             </button>
           );

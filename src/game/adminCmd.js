@@ -33,6 +33,8 @@ import { nqAdminStage, NQ_STAGE_LIST } from "./necroQuest.js";
 import { unlockIllusion, dropIllusion, illusionOn } from "./illusionJob.js";   // Illusionist 005(11월 23일)
 import { ILLUSION, ILLUSION_ID, ILLUSION_NAME } from "./illusionData.js";
 import { iqStage, IQ_STAGE_LIST } from "./illusionQuest.js";
+import { unlockWyvern, dropWyvern, wyvernOn } from "./wyvernJob.js";   // Wyvern Knight 006(11월 24일 — 명령어로만 실제 게임에)
+import { WYVERN, WYVERN_ID, WYVERN_NAME } from "./wyvernData.js";
 import { GAMBLER, GAMBLER_ID, GAMBLER_NAME } from "./gamblerData.js";
 import { MATERIALS } from "./itemData.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, armorCap } from "./armorData.js";
@@ -54,6 +56,7 @@ const HELP = [
   "/엔지니어 <이름> [직업레벨 | 끄기 | 연마 <0~50> | 루트 <단계>] — 히든 직업 Engineer 003 켜기(시험용) · 직업 레벨 · 연마 · 끄기 · 획득 루트 단계 맞추기",
   "/네크로맨서 <이름> [직업레벨 | 끄기 | 낫 | 연마 <0~50> | 루트 <단계>] — 히든 직업 Necromancer 004 켜기(시험용) · 직업 레벨 · 연마 · 끄기 · 그림자 낫 받기 · 획득 루트 단계 맞추기",
   "/마술사 <이름> [직업레벨 | 끄기 | 연마 <0~50> | 루트 <단계>] — 히든 직업 Illusionist 005 켜기(시험용) · 직업 레벨 · 연마 · 끄기 · 획득 루트 그 장으로 보내기",
+  "/와이번나이트 <이름> [직업레벨 | 끄기 | 연마 <0~50>] — 히든 직업 Wyvern Knight 006 켜기(시험용) · 직업 레벨 · 연마 · 끄기",
   "/탑 <이름> <층> — 그 사람을 심연의 탑 그 층 앞에 올려 둠(1~999). 파편 · 기록도 일반 도전처럼 쌓임",
   "/카드 <이름> — 탑 안의 그 사람에게 흡혈의 이빨 다이아 + 무작위 강화 카드 30장(층 상관없음, 시험용)",
   "이름 자리에 \"나\" 를 쓰면 나 자신입니다.",
@@ -411,6 +414,35 @@ export function rpgAdminCmd(g, pi, text) {
     bump(t);
     say(`${who(g, ti)}님을 ${ILLUSION_NAME}(직업 레벨 ${J.lv})로 바꿨습니다.`);
     if (ti !== pi) sys(g, ti, `관리자가 히든 직업 ${ILLUSION_NAME} 를 열었습니다.`);
+    return true;
+  }
+
+  if ((cmd === "와이번나이트" || cmd === "와이번" || cmd === "wyvern") && WYVERN.live) {   // 히든 직업 Wyvern Knight 006 — 획득 루트(테스트 서버 전용)를 거치지 않고 켠다(11월 24일 사용자). /마술사 와 같은 꼴
+    const tw = words.length >= 2 && words[words.length - 2] === "연마" && /^[0-9]{1,2}$/.test(words[words.length - 1]) ? Math.min(WYVERN.train.max, Number(words[words.length - 1])) : -1;
+    if (tw >= 0) words.splice(-2, 2);
+    const last = tw >= 0 ? "" : words[words.length - 1] || "", off = last === "끄기", lv = /^[0-9]{1,3}$/.test(last) ? Number(last) : 0;
+    if (off || lv) words.pop();
+    const [ti, rest] = takeName(g, pi, words);
+    if (ti < 0 || rest.length) return void say("그 이름의 사람이 이 서버에 없습니다. 예) /와이번나이트 나 · /와이번나이트 나 200 · /와이번나이트 나 연마 50 · /와이번나이트 나 끄기");
+    const t = g.heroes[ti];
+    if (!t.loaded || !t.bag) return void say("그 사람의 기록을 아직 불러오는 중입니다.");
+    if (trading(t)) return void say("그 사람은 거래 중입니다.");
+    if ((t.dvs ?? -1) >= 0) return void say(`${who(g, ti)}님이 결투 중이라 바꿀 수 없습니다.`);
+    if (t.bag.hj && t.bag.hj.trial) return void say(`${who(g, ti)}님이 해금 시험 중입니다. 시험이 끝난 뒤 다시 해 주세요.`);
+    if (off) { dropWyvern(t); bump(t); return void say(`${who(g, ti)}님의 ${WYVERN_NAME} 를 껐습니다.`); }
+    if (!wyvernOn(t)) unlockWyvern(t);
+    const J = t.bag.hj.jobs[WYVERN_ID];
+    if (lv) { J.lv = Math.max(1, Math.min(WYVERN.maxLv, lv)); J.xp = 0; }
+    if (tw >= 0) {
+      J.tr = J.tr.map(() => [tw, 0]);
+      bump(t);
+      say(`${who(g, ti)}님의 ${WYVERN_NAME} 연마 셋을 ${tw}레벨로 바꿨습니다.`);
+      if (ti !== pi) sys(g, ti, `관리자가 ${WYVERN_NAME} 연마를 ${tw}레벨로 바꿨습니다.`);
+      return true;
+    }
+    bump(t);
+    say(`${who(g, ti)}님을 ${WYVERN_NAME}(직업 레벨 ${J.lv})로 바꿨습니다. 아르카디온은 주지 않습니다(X 기술은 들어야 씁니다).`);
+    if (ti !== pi) sys(g, ti, `관리자가 히든 직업 ${WYVERN_NAME} 를 열었습니다.`);
     return true;
   }
 

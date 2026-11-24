@@ -2,15 +2,16 @@
    node --test tools/wyvern.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgSandboxHit } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgSandboxHit, rpgPack, rpgApply, advArtPath } from '../src/game/rpg.js';
+import { rpgAdminCmd } from '../src/game/adminCmd.js';
 import { rpgInput } from '../src/game/rpgInput.js';
-import { whyEquip } from '../src/game/shop.js';
+import { whyEquip, cleanBag } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { SANDBOX } from '../src/game/sandboxData.js';
 import { WYVERN as WV, WY_BLOOD as BL, WY_CLAW as CL, WY_CONTRACT as CT, WY_ROAR as RO, WY_DIVE as DV, WY_SCALE as SC, WY_SKY as SK, WY_AWAKE as AW,
   WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SLOTS, WY_BITS, WY_WEAPON_ITEM } from '../src/game/wyvernData.js';
 import { SPECIALS } from '../src/game/shopData.js';
-import { unlockWyvern, dropWyvern, wyvernOn, wyvernView, diveR, wyvernTake } from '../src/game/wyvernJob.js';
+import { unlockWyvern, dropWyvern, wyvernOn, wyvernView, diveR, wyvernTake, wyvernLook, packWyvern } from '../src/game/wyvernJob.js';
 import { hiddenHeld } from '../src/game/hiddenUnique.js';
 import { KEY_ACTIONS } from '../src/game/keys.js';
 import { hiddenSkillInfo, HIDDEN_SKILL_JOBS } from '../src/game/hiddenSkillInfo.js';
@@ -43,17 +44,44 @@ const full = (h) => { h.wy.blood = WV.blood; };
 function unit() { const { g, h } = setup(); const m = mob(g, h.x + 100, h.y); fire(g); run(g, .3); return (HP - m.hp) / CL.mul; }
 const U = unit();
 
-test('연습장 맵에서만 켜진다 — 실제 게임에는 잇지 않았다(획득 방법 없음)', () => {
-  assert.equal(WV.live, false);
-  const { g, h } = setup(200, [0, 0, 0], 'field');
-  assert.ok(!wyvernOn(h)); assert.equal(wyvernView(h), null);
-  const m = mob(g, h.x + 100, h.y, { map: 'field' });
-  use(g, 'roar'); run(g, 1);
-  assert.equal(m.hp, HP);
-  assert.deepEqual(hiddenHeld(h), [], '유일 규칙 장부에 적히지 않는다');
-  assert.ok(!KEY_ACTIONS.some(a => /wyvern|와이번/i.test(a.id + a.name)), '키 설정 창에 드러나지 않는다');
+test('실제 게임에 이었다(11월 24일 — 관리자 명령어로만) · 키는 기존 행동 키를 빌린다', () => {
+  assert.equal(WV.live, true);
+  const { h } = setup(200, [0, 0, 0], 'field');
+  assert.ok(wyvernOn(h)); assert.ok(wyvernView(h));
+  assert.deepEqual(hiddenHeld(h), ['wyvern'], '유일 규칙 장부에 적힌다');
+  assert.ok(!KEY_ACTIONS.some(a => /wyvern|와이번/i.test(a.id + a.name)), '키 설정 창에 따로 칸이 없다');
   assert.ok(WY_SLOTS.every(q => KEY_ACTIONS.some(a => a.id === q.act)), '기존 행동 키를 그대로 쓴다');
   assert.equal(new Set(WY_SLOTS.map(q => q.act)).size, WY_SLOTS.length, '키 칸이 겹치지 않는다');
+});
+
+test('스냅샷 줄 65 — 손님 화면이 용혈 · 대기 · 와이번 · 해방을 받고 와이번 그림을 쓴다. 이 직업이 아니면 0', () => {
+  const { g, h } = setup(200, [0, 0, 0], 'field');
+  h.x = 1500; h.y = 700; run(g, .1); full(h); use(g, 'contract'); run(g, .5);
+  const snap = rpgPack(g), row = snap.h[0];
+  assert.equal(row.length, 67); assert.ok(Array.isArray(row[65]));
+  const guest = makeWorld(); rpgApply(guest, snap);
+  const q = guest.heroes[0], v = wyvernView(q), hv = wyvernView(h);
+  assert.ok(q.wyv && wyvernLook(q));
+  assert.equal(v.blood, hv.blood); assert.ok(v.u && Math.abs(v.u.x - hv.u.x) < 1); assert.equal(v.cd.contract, hv.cd.contract); assert.equal(v.cdMax.contract, CT.cd);
+  assert.match(advArtPath(q, 'front'), /\/wyvern-[mf]\/front\.webp$/);
+  q.map = 'field'; rpgStep(guest, .02); assert.equal(q.wyv, null, '판정을 맡으면 스냅샷 값을 버린다');
+  dropWyvern(h); rpgApply(guest, rpgPack(g)); assert.equal(packWyvern(h), 0); assert.equal(guest.heroes[0].wyv, null);
+});
+
+test('관리자 명령어 /와이번나이트 — 켜기 · 직업 레벨 · 연마 · 끄기 · 아르카디온은 주지 않는다', () => {
+  const { g, h } = setup(); dropWyvern(h); h.map = 'field';
+  rpgAdminCmd(g, 0, '/와이번나이트 나'); assert.ok(!wyvernOn(h), '관리자만');
+  h.admin = 1; h.advClass = 'ranger';
+  assert.equal(rpgAdminCmd(g, 0, '/와이번나이트 나'), true);
+  assert.ok(wyvernOn(h)); assert.equal(h.advClass, ''); assert.equal(h.bag.e, 0);
+  assert.ok(!h.bag.w.some(w => w.sp === 'wy_arcadion'), 'hold 무기는 자동으로 주지 않는다');
+  rpgAdminCmd(g, 0, '/와이번나이트 나 150'); assert.equal(h.bag.hj.jobs.wyvern.lv, 150);
+  rpgAdminCmd(g, 0, '/와이번 나 연마 50'); assert.deepEqual(h.bag.hj.jobs.wyvern.tr, [[50, 0], [50, 0], [50, 0]]); assert.equal(h.bag.hj.jobs.wyvern.lv, 150);
+  rpgAdminCmd(g, 0, '/와이번나이트 나 끄기'); assert.ok(!wyvernOn(h)); assert.equal(h.bag.hj.jobs.wyvern.lv, 150, '끈 뒤에도 기록은 남는다');
+  rpgAdminCmd(g, 0, '/와이번나이트 나'); assert.ok(wyvernOn(h));
+  assert.deepEqual(cleanBag(JSON.parse(JSON.stringify(h.bag))).hj.jobs.wyvern, h.bag.hj.jobs.wyvern, '저장 때 직업 칸이 남는다');
+  const before = g.out.length; rpgAdminCmd(g, 0, '/도움');
+  assert.ok(JSON.stringify(g.out.slice(before)).includes('/와이번나이트'), '/도움 목록에 나온다');
 });
 
 test('켜면 다른 무기를 내려놓고 아르카디온만 든다 · 무기 · 일반 스킬 입력을 받지 않는다 · 끄면 직업 레벨은 남는다', () => {

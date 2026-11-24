@@ -17,7 +17,7 @@ export const WYVERN_COLORS = { deep: "#3A1418", base: "#BB3D3D", mid: "#D9654A",
 export const WYVERN_TINT = [{ from: 130, id: "wing" }, { from: 75, id: "line" }, { from: 0, id: "plain" }];
 
 export const WYVERN = {
-  live: false,                // 실제 게임 연결 — false 면 격자 연습장(sandbox 맵)에서만 켜진다
+  live: true,                 // 실제 게임 연결(11월 24일 사용자 「와이번 나이트 되는 명령어」 — 지금은 관리자 명령어로만 켠다) — false 면 격자 연습장(sandbox 맵)에서만 켜진다
   maxLv: 200,
   blood: 100,                 // 용혈 최대
   bloodStart: 0,              // 전투 시작 용혈(기획안)

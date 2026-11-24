@@ -2924,7 +2924,7 @@ export function drawRpg(ctx, g, bgs) {
   g.mobs.forEach((m) => { if (!m.dead && m.map === M.id && inView(m.x, m.y)) order.push({ y: m.y, m }); });
   g.heroes.forEach((h) => { if (h && h.map === M.id) order.push({ y: h.y, h }); });
   g.heroes.forEach((h) => { const us = h && h.map === M.id && engineerUnits(h); if (us) us.forEach((q) => { if (inView(q.u.x, q.u.y, 200)) order.push({ y: q.u.y, enUnit: q }); }); });   // Engineer 003 터렛 · 드론 · 수호자 — 제 발 높이로 줄을 선다
-  g.heroes.forEach((h) => { const wu = h && h.map === M.id && h.wy && wyvernUnitOf(h); if (wu && inView(wu.u.x, wu.u.y, 220)) order.push({ y: wu.u.y, wyUnit: wu }); });   // Wyvern Knight 006 와이번 — 그림자 발 높이로 줄을 선다
+  g.heroes.forEach((h) => { const wu = h && h.map === M.id && (h.wy || h.wyv) && wyvernUnitOf(h); if (wu && inView(wu.u.x, wu.u.y, 220)) order.push({ y: wu.u.y, wyUnit: wu }); });   // Wyvern Knight 006 와이번 — 그림자 발 높이로 줄을 선다
   g.heroes.forEach((h) => { if (h && h.map === M.id) necroShadowsOf(h).forEach((sd) => { if (inView(sd.x, sd.y)) order.push({ y: sd.y, nc: sd, own: h }); }); });   // Necromancer 004 그림자 병사 — 사람 · 몹과 앞뒤를 맞춘다
   g.heroes.forEach((h) => { const gi = h && h.map === M.id && h.as && h.as.gi; if (gi && gi.t > 0 && Number.isFinite(gi.y)) order.push({ y: gi.y, giant: h }); });   // 거대 정령 — 제 발 높이로 줄을 선다
   if (M.id === "plaza") drawDgPit(ctx, time);

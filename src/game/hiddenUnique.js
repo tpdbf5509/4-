@@ -17,6 +17,7 @@ export const HIDDEN_JOBS = [
   { id: "engineer", name: "Engineer 003" },   // 11월 19일 실제 게임에 열었다
   { id: "necromancer", name: "Necromancer 004" },   // 11월 20일 획득 루트와 함께 실제 게임에 열었다
   { id: "illusionist", name: "Illusionist 005" },   // 11월 23일 획득 루트와 함께 실제 게임에 열었다
+  { id: "wyvern", name: "Wyvern Knight 006" },   // 11월 24일 실제 게임(관리자 명령어로만, 획득 루트는 테스트 서버)
 ];
 export const HIDDEN_IDS = HIDDEN_JOBS.map((j) => j.id);
 export const hiddenName = (id) => (HIDDEN_JOBS.find((j) => j.id === id) || { name: "히든 직업" }).name;
@@ -25,7 +26,7 @@ export const hiddenName = (id) => (HIDDEN_JOBS.find((j) => j.id === id) || { nam
 export function holds(bag, id) {
   if (!bag || typeof bag !== "object") return false;
   if (id === "blood") return !!(bag.bd && bag.bd.on && !bag.bd.trial);
-  if (id === "gambler" || id === "engineer" || id === "necromancer" || id === "illusionist") return !!(bag.hj && bag.hj.active === id && !bag.hj.trial && bag.hj.jobs && bag.hj.jobs[id]);
+  if (id === "gambler" || id === "engineer" || id === "necromancer" || id === "illusionist" || id === "wyvern") return !!(bag.hj && bag.hj.active === id && !bag.hj.trial && bag.hj.jobs && bag.hj.jobs[id]);
   return false;
 }
 export const hiddenHeld = (h) => (h && h.bag ? HIDDEN_IDS.filter((id) => holds(h.bag, id)) : []);

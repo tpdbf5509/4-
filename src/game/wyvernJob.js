@@ -30,7 +30,7 @@ export function cleanWyJob(d) {
 }
 // 이 직업인가 — 가방 값으로만 본다. WYVERN.live 가 false 면 격자 연습장 맵에서만 켜진다
 export const wyvernOn = (h) => !!(h && h.bag && h.bag.hj && h.bag.hj.active === WYVERN_ID && h.bag.hj.jobs && h.bag.hj.jobs[WYVERN_ID] && (WV.live || h.map === "sandbox"));
-export const wyvernLook = (h) => wyvernOn(h);
+export const wyvernLook = (h) => !!(h && (h.wyv || wyvernOn(h)));   // 손님 화면은 스냅샷 값(h.wyv)으로 본다(11월 24일 실제 게임)
 // 아르카디온(11월 18일 사용자 "레퀴엠처럼 장착하는 무기") — 이 직업은 아르카디온만 든다 · 들고 있어야 X 기술
 export const wyWeaponOk = (w) => !w || w.sp === WY_WEAPON_ITEM.id;
 const heldSp = (h) => { if (!h) return ""; if (h.wsp !== undefined) return h.wsp; const b = h.bag, w = b && b.e && b.w ? b.w.find((q) => q.u === b.e) : null; return (w && w.sp) || ""; };
@@ -53,7 +53,7 @@ export const diveStorm = (J) => !!(J && J.tr[2][0] >= DV.sp50);
 export function unlockWyvern(h, init) {
   const old = h.bag.hj && h.bag.hj.jobs ? h.bag.hj.jobs : {};
   h.bag.hj = { active: WYVERN_ID, jobs: { ...old, [WYVERN_ID]: cleanWyJob(init || old[WYVERN_ID]) }, version: 1 };
-  h.env = null; h.gm = null; h.gmv = null; h.en = null; h.nc = null;
+  h.env = null; h.gm = null; h.gmv = null; h.en = null; h.nc = null; h.ncv = null; h.il = null; h.ilv = null;
   if (h.bag.bd && h.bag.bd.on) h.bag.bd = { ...h.bag.bd, on: 0 };
   h.advClass = ""; h.advQ = null; h.advM = 0; h.as = null; h.healMode = false;
   h.bd = null;
@@ -64,7 +64,7 @@ export function unlockWyvern(h, init) {
 export function dropWyvern(h) {
   if (!h.bag || !h.bag.hj || h.bag.hj.active !== WYVERN_ID) return;
   h.bag.hj = { ...h.bag.hj, active: "" };
-  h.wy = null;
+  h.wy = null; h.wyv = null;
   h.bag.v = (h.bag.v || 0) + 1;
 }
 
@@ -573,6 +573,7 @@ export function wyvernInput(E, g, pi, req) {
 
 /* ── 시간 ─────────────────────────────────────────── */
 export function tickWyvernJob(E, g, h, dt) {
+  if (h.wyv) h.wyv = null;                         // 판정을 맡은 세계는 스냅샷 화면 값을 버린다(방장 승계)
   if (!wyvernOn(h)) { if (h.wy) h.wy = null; return; }
   const s = st(h);
   for (const k in s.cd) if (k !== "contract" || !s.u) s.cd[k] = Math.max(0, s.cd[k] - dt);
@@ -626,7 +627,33 @@ const unitView = (u) => {
   hz *= 1 - (u.land || 0);   // 내려앉는 만큼 낮게(앉은 그림의 기준점은 땅)
   return { x, y, hz: Math.round(hz), sit: Math.round((u.land || 0) * 100) / 100, t: r1(u.t), left: r1(Math.max(0, u.dur - u.t)), f: r1(Math.min(9, u.f)), fl: u.fl, dv: u.dv ? 1 : 0 };
 };
+const CD_KEYS = Object.keys(NO_CD);
+const CD_MAX = Object.fromEntries(CD_KEYS.map((k) => [k, WY_SKILLS[k].cd]));
+const TINT_IDS = WYVERN_TINT.map((t) => t.id);
+/* 스냅샷 영웅 줄 65(11월 24일 실제 게임) — 화면 값(wyvernView)을 줄로 줄인다. 아니면 0, 칸은 뒤에만 더한다 */
+export function packWyvern(h) {
+  if (!wyvernOn(h)) return 0;
+  const v = wyvernView(h), u = v.u;
+  return [v.blood, CD_KEYS.map((k) => r1(v.cd[k] || 0)),
+    u ? [u.x, u.y, u.hz, u.sit, u.t, u.left, u.f, u.fl ? 1 : 0, u.dv] : 0,
+    v.aw, v.awMax, v.sc ? [v.sc.left, v.sc.n] : 0, v.air,
+    (v.sync ? 1 : 0) | (v.wing ? 2 : 0) | (v.arm ? 4 : 0), Math.max(0, TINT_IDS.indexOf(v.tint)),
+    v.sw ? [v.sw.k, v.sw.u, v.sw.ax, v.sw.ay] : 0];
+}
+export function applyWyvern(h, a) {
+  if (!Array.isArray(a)) { h.wyv = null; return; }
+  const cd = Array.isArray(a[1]) ? a[1] : [], u = a[2], sc = a[5], sw = a[9], f = +a[7] || 0;
+  h.wyv = { blood: +a[0] || 0, max: WV.blood, cd: Object.fromEntries(CD_KEYS.map((k, i) => [k, +cd[i] || 0])), cdMax: CD_MAX,
+    u: Array.isArray(u) ? { x: +u[0] || 0, y: +u[1] || 0, hz: +u[2] || 0, sit: +u[3] || 0, t: +u[4] || 0, left: +u[5] || 0, f: +u[6] || 0, fl: u[7] ? 1 : 0, dv: u[8] ? 1 : 0 } : null,
+    aw: +a[3] || 0, awMax: +a[4] || 0, sc: Array.isArray(sc) ? { left: +sc[0] || 0, n: +sc[1] || 0 } : null, air: +a[6] || 0,
+    sync: !!(f & 1), wing: !!(f & 2), arm: f & 4 ? 1 : 0, tint: TINT_IDS[+a[8]] || "plain",
+    sw: Array.isArray(sw) ? { k: sw[0], u: +sw[1] || 0, ax: +sw[2] || 0, ay: +sw[3] || 0 } : null };
+}
 export function wyvernView(h) {
+  if (h && !h.wy && h.wyv) {   // 전용 서버 · 손님 화면 — 스냅샷 값. 내 가방이 있으면 직업 레벨 · 연마를 붙인다
+    const J = wyvernOn(h) ? jobOf(h) : null;
+    return { ...h.wyv, lv: J ? J.lv : 1, xp: J ? J.xp : 0, tr: J ? J.tr : [[0, 0], [0, 0], [0, 0]] };
+  }
   if (!h || !wyvernOn(h)) return null;
   const J = jobOf(h), s = h.wy, sum = wyTrainSum(J);
   return { blood: s ? s.blood : WV.bloodStart, max: WV.blood, lv: J.lv, xp: J.xp, tr: J.tr, cd: s ? { ...s.cd } : { ...NO_CD },

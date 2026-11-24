@@ -505,7 +505,7 @@ export function drawWyvernHero(ctx, h, ww, hh, top, behind, time, view = "front"
   }
 }
 // 오른 높이(화면 px) — 급강하 · 용성 동안 캐릭터 그림을 위로 띄운다(실제 자리는 땅)
-export const wyvernAir = (h) => { const v = h && h.wy ? wyvernView(h) : null; return v ? v.air : 0; };
+export const wyvernAir = (h) => { const v = h && (h.wy || h.wyv) ? wyvernView(h) : null; return v ? v.air : 0; };
 
 /* 아이콘 한 칸(스킬 단추 · 연습장) — CSS background. 한 칸 24px 을 size 픽셀로 */
 export function wyvernIconStyle(i, size = 48) {

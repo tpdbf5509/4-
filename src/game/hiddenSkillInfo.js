@@ -89,7 +89,7 @@ function necro() {
     id: "necromancer", name: NECRO_NAME, title: NECRO_TITLE, res: "영혼", trainNames: NC_TRAIN_NAMES,
     rules: [
       `영혼 — 평타 적중 +${NC_SOUL.hit} · 처치에 기여한 일반 몹 +${NC_SOUL.kill} · 보스에게 유효 피해 ${NC_SOUL.bossHits}번마다 +${NC_SOUL.boss}.`,
-      `쓰러뜨린 몹 자리에 흔적이 남고 흔적 추출로 그림자 명부에 넣습니다. 명부 ${NC_ROSTER.slots}종(추출 연마 ${NC_ROSTER.sp25} — ${NC_ROSTER.slots25}종) · 등급 1~${NC_ROSTER.grades}.`,
+      `쓰러뜨린 몹 자리에 흔적이 남고 흔적 추출로 그림자 명부에 넣습니다. 명부에 종류 제한은 없습니다 · 등급 1~${NC_ROSTER.grades}.`,
       `등급마다 그림자 공격 +${pct(NC_ROSTER.gradeDmg)}. 그림자는 피해를 받지 않습니다.`,
     ],
     basic: { s: "reap", act: "fire", name: NC_SCYTHE.name, lv: U.reap,

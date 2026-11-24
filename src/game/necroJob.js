@@ -38,7 +38,7 @@ function cleanRoster(list) {
   if (!Array.isArray(list)) return [];
   const seen = new Set(), out = [];
   for (const q of list) {
-    if (!q || typeof q.t !== "string" || !q.t || seen.has(q.t) || out.length >= RS.slots25) continue;
+    if (!q || typeof q.t !== "string" || !q.t || seen.has(q.t) || out.length >= RS.slots) continue;
     seen.add(q.t);
     const e = { t: q.t.slice(0, 40), n: String(q.n || q.t).slice(0, 24), g: clampN(q.g, 1, RS.grades) || 1, x: clampN(q.x, 0, 99) };
     const nm = cleanNcName(q.nm);                       // 내가 내린 이름(없으면 몹 이름 n 을 쓴다)
@@ -79,7 +79,7 @@ export const ncTrainSum = (J) => (J ? J.tr.reduce((n, q) => n + q[0], 0) : 0);
 export const necroTint = (sum) => NECRO_TINT.find((t) => sum >= t.from).id;
 export const ncEternal = (J) => ncTrainSum(J) >= NC.eternal;
 export const ncLock = (J, sk) => (!J ? "잠김" : J.lv < NC.unlock[sk] ? `직업 레벨 ${NC.unlock[sk]}에 열립니다` : "");
-export const rosterSlots = (J) => (J && J.tr[0][0] >= RS.sp25 ? RS.slots25 : RS.slots);
+export const rosterSlots = () => RS.slots;   // 종류 수 제한 없음 — 안전 상한만(necroData NC_ROSTER)
 // 다음 등급까지 드는 재추출 수(5등급이 되는 값은 추출 연마 50 이면 20% 줄어든다). 이미 5등급이면 0
 export function gradeCost(J, g) {
   if (g >= RS.grades) return 0;

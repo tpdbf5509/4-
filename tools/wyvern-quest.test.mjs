@@ -159,3 +159,11 @@ test('저장 · 스냅샷 · 단계 건너뛰기', () => {
   const o = {}; applyWq(o, packWq(w.h)); assert.equal(o.wyt, 1);
   applyWq(o, 0); assert.equal(o.wyt, 0);
 });
+
+test('잠든 용 그림(11월 25일 사용자) — 투명 낱장이 있고 아주 크게 그린다', async () => {
+  const { existsSync } = await import('node:fs');
+  assert.ok(existsSync(new URL('../public/assets/game/rpg/wyvern-quest/sleeping-dragon.webp', import.meta.url)));
+  globalThis.window ??= globalThis;
+  const { SLEEP_DRAGON } = await import('../src/game/wyvernQuestArt.js');
+  assert.ok(SLEEP_DRAGON.w >= 1000);
+});

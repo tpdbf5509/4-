@@ -196,6 +196,22 @@ export function wqBodies(me, mapId) {
   }
   return out;
 }
+// 잠든 용 — 사용자 그림(11월 25일). 아주 크게, 머리는 오른쪽(목 아래 조사 자리 쪽)
+// w 그릴 너비 · foot 낱장 안 발 높이 · z 머리 위 숨소리 자리(발 기준)
+export const SLEEP_DRAGON = { w: 1150, foot: 0.97, flip: 1, breathe: 0.012, z: [260, -300] };
+function sleepDragon(ctx, x, y, k) {
+  const im = img('sleeping-dragon'); if (!im) return false;
+  const { w, foot, flip, breathe } = SLEEP_DRAGON, h = w * im.naturalHeight / im.naturalWidth;
+  ctx.save();                                                         // 바닥 그림자 — 서리 바닥에 몸이 얹히게
+  ctx.globalAlpha = 0.32; ctx.fillStyle = '#1c1a2a';
+  ctx.beginPath(); ctx.ellipse(x, y - 12, w * 0.44, 46, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.save(); ctx.translate(x, y);
+  ctx.scale(flip ? -1 : 1, 1 + breathe * k);                          // 숨 — 발을 축으로 아주 조금 부푼다
+  ctx.drawImage(im, -w / 2, -h * foot, w, h);
+  ctx.restore();
+  return true;
+}
 export function drawWqBody(ctx, b, time) {
   const { x, y } = b;
   if (b.k === 'statue') {
@@ -204,17 +220,22 @@ export function drawWqBody(ctx, b, time) {
     return;
   }
   if (b.k === 'wyvern') {
-    const u = { x, y, hz: b.hz || 0, sit: b.hz > 20 ? 0 : 1, t: 9, left: 9, f: b.breath ? 0.1 : 9, fl: b.fl, dv: 0 };
-    ctx.save();
-    if (b.sleep) ctx.globalAlpha = 0.92;
-    drawWyvernUnit(ctx, { u, v: { tint: 'plain', aw: 0 } }, time, SQ, 1);
-    ctx.restore();
-    if (b.sleep) {                                                    // 성에 — 숨 쉴 때마다 옆구리 얼음이 녹았다 언다
-      const k = 0.5 + Math.sin(time * 0.9) * 0.5;
-      ctx.save(); ctx.globalAlpha = 0.25 + 0.2 * k; ctx.fillStyle = C.frost;
-      for (let i = 0; i < 18; i++) { const px = x - 220 + ((i * 53) % 440), py = y - 30 - ((i * 37) % 90); ctx.fillRect(px, py, 3, 3); }
+    const k = 0.5 + Math.sin(time * 0.9) * 0.5;
+    const big = b.sleep && sleepDragon(ctx, x, y, k);
+    if (!big) {
+      const u = { x, y, hz: b.hz || 0, sit: b.hz > 20 ? 0 : 1, t: 9, left: 9, f: b.breath ? 0.1 : 9, fl: b.fl, dv: 0 };
+      ctx.save();
+      if (b.sleep) ctx.globalAlpha = 0.92;
+      drawWyvernUnit(ctx, { u, v: { tint: 'plain', aw: 0 } }, time, SQ, 1);
       ctx.restore();
-      ctx.save(); ctx.font = "16px 'Do Hyeon', sans-serif"; ctx.fillStyle = `rgba(214,230,242,${0.3 + 0.3 * k})`; ctx.textAlign = 'center'; textUp(ctx, x + 150, y - 150); ctx.fillText('z', x + 150, y - 150 - k * 10); ctx.restore();
+    }
+    if (b.sleep) {                                                    // 성에 — 숨 쉴 때마다 옆구리 얼음이 녹았다 언다
+      const sw = big ? SLEEP_DRAGON.w * 0.8 : 440, sh = big ? 260 : 90, n = big ? 40 : 18;
+      ctx.save(); ctx.globalAlpha = 0.25 + 0.2 * k; ctx.fillStyle = C.frost;
+      for (let i = 0; i < n; i++) { const px = x - sw / 2 + ((i * 53) % sw), py = y - 30 - ((i * 37) % sh); ctx.fillRect(px, py, 3, 3); }
+      ctx.restore();
+      const [zx, zy] = big ? [x + SLEEP_DRAGON.z[0], y + SLEEP_DRAGON.z[1]] : [x + 150, y - 150];
+      ctx.save(); ctx.font = "16px 'Do Hyeon', sans-serif"; ctx.fillStyle = `rgba(214,230,242,${0.3 + 0.3 * k})`; ctx.textAlign = 'center'; textUp(ctx, zx, zy); ctx.fillText('z', zx, zy - k * 10); ctx.restore();
     }
   }
 }

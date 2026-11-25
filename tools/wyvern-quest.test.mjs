@@ -32,23 +32,19 @@ function at(w, id) {
 const act = (w, id, v) => { const s = at(w, id); wqInput(w.E, w.g, 0, { op: 'act', id: s.id, v }); return w.h.wqRun ? w.h.wqRun.R[1] : -1; };
 const tick = (w, sec) => { for (let t = 0; t < sec; t += 0.05) tickWq(w.E, w.g, w.h, 0.05); };
 
-test('실제 게임에는 아직 닫혀 있다 — 책 · 바위 · 맵 조사가 보이지 않는다', () => {
-  assert.equal(WQ_ROUTE.live, false);
+test('실제 게임에도 열렸다(11월 25일) — 테스트 서버가 아니어도 책 · 바위가 보인다', () => {
+  assert.equal(WQ_ROUTE.live, true);
   const w = world(false);
+  assert.equal(libBooksFor({ map: 'luen-library', wyt: 0 }).some((b) => b.id === WQ_BOOK), true);
   wqInput(w.E, w.g, 0, { op: 'read', book: WQ_BOOK });
-  assert.equal(wqHas(w.h, 'book_read'), false);
-  w.h.map = 'frost-peak'; w.h.x = 1830; w.h.y = 736;
-  tickWq(w.E, w.g, w.h, 0.05);
-  assert.equal(wqSpotNear(w.h), null);
-  assert.equal(packWq(w.h), 0);
-  assert.equal(libBooksFor({ map: 'luen-library', wyt: 0 }).some((b) => b.id === WQ_BOOK), false);
+  assert.equal(wqHas(w.h, 'book_read'), true);
 });
 
 test('책은 루엔 도서관에만, 테스트 서버에서만 꽂힌다', () => {
   assert.ok(LIB_BOOK_BY_ID[WQ_BOOK]);
   assert.equal(libBooksFor({ map: 'luen-library-2', wyt: 1 }).some((b) => b.id === WQ_BOOK), true);
   assert.equal(libBooksFor({ map: 'erden-library-2', wyt: 1 }).some((b) => b.id === WQ_BOOK), false);
-  const w = world(true);
+  const w = world(false);
   w.h.map = 'erden-library-2';
   wqInput(w.E, w.g, 0, { op: 'read' });
   assert.equal(wqHas(w.h, 'book_read'), false);
@@ -140,6 +136,7 @@ test('테스트 서버 — 도서관부터 서약까지', () => {
   at(w, 'sn-desk');
   wqInput(w.E, w.g, 0, { op: 'contract', yes: true });
   assert.ok(wqHas(h, 'claimed'));
+  assert.equal(h.bag.hj.active, 'wyvern', '계승하면 직업이 실제로 켜진다');
 });
 
 test('결투 — 포효 부채꼴 · 피해로 체력이 다하면 입구로', () => {

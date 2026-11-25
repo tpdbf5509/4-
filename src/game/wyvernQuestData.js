@@ -4,11 +4,11 @@
    사용자 지시 — 마을 · 광장에 눈에 띄는 새 물건을 두지 않는다. 루엔 주민(서하 · 마루 · 새봄 · 단우)과 고개 등불 · 서리봉 전망 바위는
      원래 말 걸기 칸에 단추 하나만 더한다. 서리봉 북쪽 막다른 곳의 바위 셋만 원래 맵에 놓는다(기획안 2장 — 산 바위라 풍경에 섞인다).
    퍼즐 · 중요한 건축물(신전 돌문 · 시련의 문 · 맹세의 문 · 제단 · 석등 · 석상 · 바위)은 바닥 그림과 따로 그린 낱장이고 열림 · 닫힘이 보인다(사용자 지시).
-   공개: WQ_ROUTE.live = false — 사용자가 확인하기 전까지 테스트 서버(?test, g.test)에서만 열린다. 실제 게임에는 단서도 보이지 않는다.
+   공개: WQ_ROUTE.live = true(11월 25일 실제 게임). false 면 테스트 서버(?test, g.test)에서만 열리고 실제 게임에는 단서도 보이지 않는다.
    "정한 해석"은 기획안이 비워 둔 곳을 정한 값이다(docs/작업-상세-기록.md 끝). */
 import { WILD_MAPS, LUEN_LIBRARY_MAPS } from './wildsData.js';
 
-export const WQ_ROUTE = { live: false };   // false — 테스트 서버에서만(wyvernQuest.js wqOn). 사용자가 열라고 하면 true
+export const WQ_ROUTE = { live: true };   // 11월 25일 사용자 「실제 서버에도 적용해줘」. false 로 되돌리면 테스트 서버에서만(wyvernQuest.js wqOn)
 
 /* 깃발 — 저장 값이라 뒤에만 더한다 */
 export const WQ_FLAGS = [

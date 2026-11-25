@@ -1800,7 +1800,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           trn: trainView(g, me),                    // 훈련장 — 켜기/끄기 · 초당 피해
           story: storyView(me),                     // 메인 스토리 1부 진행 — 위쪽 줄 · 퀘스트 창 · 대화 창(storyQuest.js)
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
-          self: {rqRun: me.rqRun ? structuredClone(me.rqRun) : null, rqBoss: (() => {const b=g.mobs.find(m=>m.rq==="boss" && m.map===me.map && !m.dead); return b ? {hp:b.hp,max:b.max,phase:b.rqPhase,shield:b.rqShield} : null;})(), server:g.wbServer, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
+          self: {rqRun: me.rqRun ? structuredClone(me.rqRun) : null, rqBoss: (() => {const b=g.mobs.find(m=>m.rq==="boss" && m.map===me.map && !m.dead); return b ? {hp:b.hp,max:b.max,phase:b.rqPhase,shield:b.rqShield} : null;})(), server:g.wbServer, wyt: me.wyt || 0, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null, advM: me.advM || 0,
             hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
             dvs: me.dvs, dph:me.dph,duelPotions:me.duelPotions,

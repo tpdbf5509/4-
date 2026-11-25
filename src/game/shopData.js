@@ -100,7 +100,7 @@ export const SPECIALS = [
   // 획득처를 정하기 전(hold) — 상점 · 특가 · 랜덤 상자 · 관리자 자동 지급에 나오지 않는다. 관리자 /지급 으로만 받는다(10월 26일)
   { id: "fury_staff", name: "적룡 지팡이", t: "staff", lv: 100, g: 4, stat: "int", amt: 260, art: "fury_staff", hold: 1 },
   NC_WEAPON_ITEM,   // 그림자 낫(11월 20일) — Necromancer 004 전용(hj). hold 라 어디서도 얻지 못한다
-  WY_WEAPON_ITEM,   // 아르카디온(11월 18일) — Wyvern Knight 006 전용(hj). hold 라 어디서도 얻지 못하고 관리자 /지급 목록에도 없다
+  WY_WEAPON_ITEM,   // 아르카디온(11월 18일) — Wyvern Knight 006 전용(hj). hold 라 관리자 /지급 목록에 없다. 11월 25일부터 /와이번나이트 <이름> 아르카디온 으로만 준다
   BLOOD_GUN_ITEM,   // 크림슨 레퀴엠(11월 13일) — 전용 스킬 혈계 추격(bloodGunData.js). 얻는 곳을 정하기 전이라 hold
   // 활 — 궁수 공격력인 물리력을 올린다. 초보 궁수가 살 활이 50레벨까지 없어 레벨 · 값을 낮췄다(10월 21일).
   // 번개 활 Lv 50 → 20(올리는 양도 20레벨 몫). 전설 활은 한 단계씩 낮추고(값도 그만큼 싸진다) 올리는 양은 예전 그대로 amt 로 둔다

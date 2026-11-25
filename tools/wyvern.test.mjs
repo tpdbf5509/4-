@@ -75,6 +75,10 @@ test('관리자 명령어 /와이번나이트 — 켜기 · 직업 레벨 · 연
   assert.equal(rpgAdminCmd(g, 0, '/와이번나이트 나'), true);
   assert.ok(wyvernOn(h)); assert.equal(h.advClass, ''); assert.equal(h.bag.e, 0);
   assert.ok(!h.bag.w.some(w => w.sp === 'wy_arcadion'), 'hold 무기는 자동으로 주지 않는다');
+  rpgAdminCmd(g, 0, '/와이번나이트 나 아르카디온');
+  const aw = h.bag.w.filter(w => w.sp === 'wy_arcadion'); assert.equal(aw.length, 1); assert.equal(h.bag.e, aw[0].u, '받고 바로 든다');
+  rpgAdminCmd(g, 0, '/와이번나이트 나 아르카디온'); assert.equal(h.bag.w.filter(w => w.sp === 'wy_arcadion').length, 1, '두 번 줘도 하나');
+  assert.equal(whyEquip(h, aw[0].u).length, 0);
   rpgAdminCmd(g, 0, '/와이번나이트 나 150'); assert.equal(h.bag.hj.jobs.wyvern.lv, 150);
   rpgAdminCmd(g, 0, '/와이번 나 연마 50'); assert.deepEqual(h.bag.hj.jobs.wyvern.tr, [[50, 0], [50, 0], [50, 0]]); assert.equal(h.bag.hj.jobs.wyvern.lv, 150);
   rpgAdminCmd(g, 0, '/와이번나이트 나 끄기'); assert.ok(!wyvernOn(h)); assert.equal(h.bag.hj.jobs.wyvern.lv, 150, '끈 뒤에도 기록은 남는다');

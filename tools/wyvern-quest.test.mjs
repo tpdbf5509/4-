@@ -167,3 +167,30 @@ test('잠든 용 그림(11월 25일 사용자) — 투명 낱장이 있고 아�
   const { SLEEP_DRAGON } = await import('../src/game/wyvernQuestArt.js');
   assert.ok(SLEEP_DRAGON.w >= 1000);
 });
+
+test('서리봉 바위 결과는 맵 밖에서도 몇 초 남아 화면이 「…」에 멈추지 않는다(11월 25일)', () => {
+  const w = world(false), h = w.h;
+  wqInput(w.E, w.g, 0, { op: 'read', book: WQ_BOOK });
+  const s = at(w, 'fp-rock-m');
+  wqInput(w.E, w.g, 0, { op: 'act', id: s.id, v: 0 });
+  tickWq(w.E, w.g, h, 0.05);
+  const guest = {}; applyWq(guest, packWq(h));
+  assert.deepEqual(wqView(guest).R.slice(0, 2), [WQ_SPOTS.indexOf(s), 1]);
+  tick(w, 4);
+  assert.equal(h.wqRun, null, '조금 지나면 치운다');
+});
+
+test('잠든 신전 세 곳 — 볼 때마다 n/3, 다 보면 다음 단계 안내', () => {
+  const w = world(false), h = w.h;
+  wqStage(h, 6);
+  w.said.length = 0;
+  act(w, 'sn-neck'); act(w, 'sn-prints');
+  assert.ok(!w.said.some((t) => t.includes('단우')));
+  act(w, 'sn-altar', 0);
+  assert.ok(wqHas(h, 'wyvern_found'));
+  assert.ok(w.said.some((t) => t.includes('단우')), '다음 갈 곳을 알려 준다');
+});
+
+test('테스트 도구로 건너뛰어도 세 시련은 직접 해야 열린다', () => {
+  for (const S of WQ_STAGES) for (const f of S.set) assert.ok(!f.startsWith('trial_'), `${S.name} ${f}`);
+});

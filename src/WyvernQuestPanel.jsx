@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { wqSpotById, wqSpotIndex, wqHas, wqView, wqStep, wqLock, wqCond } from './game/wyvernQuest.js';
-import { WQ_LOG, WQ_DESK, WQ_TRIAL } from './game/wyvernQuestData.js';
+import { WQ_LOG, WQ_DESK, WQ_TRIAL, WQ_LOOKS, WQ_LOOK_NAMES, WQ_FOUND } from './game/wyvernQuestData.js';
 import sfx from './game/sfx.js';
 
 /* Wyvern Knight 006 획득 루트 조사 창 — 마술사 루트 조사 창과 같은 마을 대화 틀(.shop.village-panel.eq-panel)을 쓴다.
@@ -25,6 +25,12 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
   const read = (ls, next) => { setNote(''); setLines(ls); setAt(0); setMode(ls.length ? 'read' : next ? 'input' : 'read'); setAfter(() => next || null); if (!ls.length && !next) onClose(); };
   const send = (val, then) => { waitN.current = (wqView(h0())?.R?.[2] ?? -1); setMode('wait'); pend.current = then || null; onAct(spotId, val); };
 
+  // 잠든 신전 세 곳 — 이번에 처음 보는 곳이면 대사 끝에 진행(n/3)이나 다음 단계 안내를 붙인다
+  const lookTail = (flag) => {
+    if (!WQ_LOOKS.includes(flag) || has(flag)) return [];
+    const n = WQ_LOOKS.filter(has).length + 1;
+    return n >= WQ_LOOKS.length ? WQ_FOUND : [`|조사한 곳 ${n}/${WQ_LOOKS.length} — ${WQ_LOOK_NAMES}`];
+  };
   function stepNext(pre = []) {
     const st = wqStep(h0(), a);
     if (!st) return read([...pre, ...(a.done || [])]);
@@ -33,7 +39,7 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
   useEffect(() => {
     const h = h0();
     if (a.need && k !== 'gate' && !wqCond(h, a.need)) return read(wqLock(a));
-    if (k === 'talk') { onAct(spotId); return read(a.lines); }
+    if (k === 'talk') { const tail = lookTail(a.set); onAct(spotId); return read([...a.lines, ...tail]); }
     if (k === 'steps') return stepNext(a.intro || []);
     if (k === 'gate') {
       if (!wqCond(h, a.need)) return read(wqLock(a));
@@ -53,8 +59,9 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
     if (k === 'altar') {
       if (has('awakened')) return read(['|제단 홈에 석등이 걸려 있다. 불씨가 와이번의 숨결 곁에서 타고 있다.']);
       if (has('ember_got')) return read(['|제단 홈에 손잡이 달린 석등이 꼭 맞을 것 같다.', '|「큰 용이 남긴 불은 오래 식지 않는다. 그 불을 숨 곁에 두어라.」'], 'altar');
+      const tail = lookTail('look_altar');
       onAct(spotId);
-      return read(['|제단 가운데 구슬 같은 것이 빠진 둥근 홈이 있다. 손잡이를 걸던 쇠고리도 남았다.', '|글이 새겨져 있다. 「큰 용이 남긴 불은 오래 식지 않는다. 그 불을 숨 곁에 두어라.」']);
+      return read([...['|제단 가운데 구슬 같은 것이 빠진 둥근 홈이 있다. 손잡이를 걸던 쇠고리도 남았다.', '|글이 새겨져 있다. 「큰 용이 남긴 불은 오래 식지 않는다. 그 불을 숨 곁에 두어라.」'], ...tail]);
     }
     if (k === 'trial') {
       if (wqView(h)?.tr) { onAct(spotId); return onClose(); }
@@ -93,7 +100,8 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
     if (c === 5) return read(st.opts[i].info || NONE, 'pick');
     setNote((st.badBy && st.badBy[i]) || st.bad || '그건 아닌 것 같다.'); setMode('input'); setAfter(() => 'pick');
   });
-  const Choice = ({ items }) => <div className="story-picks" role="group" aria-label={s.name}>
+  // 고르기 단추 — 컴포넌트로 두면 손님 화면이 스냅샷마다(초당 20번) 새로 그려 누르는 사이 단추가 바뀌어 클릭이 사라진다(11월 25일)
+  const choice = (items) => <div className="story-picks" role="group" aria-label={s.name}>
     {items.map(([t, fn]) => <button type="button" key={t} className="story-pick" onClick={fn}>{t}</button>)}
   </div>;
   void tick;
@@ -102,7 +110,7 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
     <section className="shop village-panel eq-panel nq-panel wq-panel" role="dialog" aria-modal="true" aria-labelledby="wq-dialog-title" ref={box} tabIndex={-1}
       onKeyDown={(e) => { if (e.key === 'Escape') onClose(); else if ((e.key === 'Enter' || e.key === ' ') && mode === 'read' && !log) { e.preventDefault(); next(); } }}>
       <header className="shop-top">
-        <div className="shop-title"><b id="wq-dialog-title">{s.name}</b><span>{has('ember_got') && !has('awakened') ? '용심 불씨를 지녔다' : '조사'}</span></div>
+        <div className="shop-title"><b id="wq-dialog-title">{s.name}</b><span>{has('ember_got') && !has('awakened') ? '용심 불씨를 지녔다' : has('wyvern_found') && !has('ember_got') ? '다음 — 와이번을 깨울 불씨' : s.map === 'wq_sanctum' && !has('wyvern_found') ? `조사 ${WQ_LOOKS.filter(has).length}/${WQ_LOOKS.length}` : '조사'}</span></div>
         <button type="button" className="shop-x" aria-label="창 닫기" onClick={onClose}>×</button>
       </header>
       {log && <div className="story-log" role="region" aria-label="옛 날개의 기록">
@@ -120,23 +128,23 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
         {st.opts.map((o, i) => <button type="button" key={i} className="story-pick" onClick={() => pickStep(i)}>{typeof o === 'string' ? o : o.t}</button>)}
         {note && <p className="eq-note">{note}</p>}
       </div>}
-      {!log && input === 'rock' && <Choice items={[
+      {!log && input === 'rock' && choice([
         ['틈에 손을 대 본다', () => send(0, () => read(['|손바닥에 차가운 바람이 닿는다.', '|들어오는 바람이 아니라 바깥으로 나가는 바람이다. 안쪽 어딘가가 뚫려 있다.'], 'rock'))],
         ['돌 틈을 따라 들어간다', () => send(1, (c) => (c === 1 ? onClose() : read(['|틈은 어두워 어디로 이어지는지 알 수 없다. 바람이 어느 쪽으로 부는지 먼저 느껴 보자.'], 'rock')))],
-        ['그만둔다', onClose]]} />}
-      {!log && input === 'rockGo' && <Choice items={[['돌 틈으로 들어간다', () => { onAct(spotId, 1); onClose(); }], ['그만둔다', onClose]]} />}
-      {!log && input === 'door' && <Choice items={[['눈 쌓인 돌문을 당긴다', () => send(0, () => read(['|경첩이 끼익 돌며 눈이 쏟아진다. 벽처럼 서 있던 돌판이 문처럼 열린다.', '|안쪽에 다리가 놓인 깊은 골짜기가 보인다.'], 'enter'))], ['그만둔다', onClose]]} />}
-      {!log && input === 'enter' && <Choice items={[
+        ['그만둔다', onClose]])}
+      {!log && input === 'rockGo' && choice([['돌 틈으로 들어간다', () => { onAct(spotId, 1); onClose(); }], ['그만둔다', onClose]])}
+      {!log && input === 'door' && choice([['눈 쌓인 돌문을 당긴다', () => send(0, () => read(['|경첩이 끼익 돌며 눈이 쏟아진다. 벽처럼 서 있던 돌판이 문처럼 열린다.', '|안쪽에 다리가 놓인 깊은 골짜기가 보인다.'], 'enter'))], ['그만둔다', onClose]])}
+      {!log && input === 'enter' && choice([
         ['들어가기', () => { onAct(spotId, 1); onClose(); }],
         ...(has('wyvern_found') ? [['최종 신전으로 곧장 간다', () => { onAct(spotId, 2); onClose(); }]] : []),
-        ['그만둔다', onClose]]} />}
-      {!log && input === 'altar' && <Choice items={[['불씨를 숨결 가까이에 둔다', () => send(0, () => read(['|석등을 제단 홈에 건다. 불씨가 와이번의 숨결 쪽으로 기운다.', '|성에가 바닥으로 떨어진다. 와이번이 앞발부터 일으킨다.']))], ['나중에', onClose]]} />}
+        ['그만둔다', onClose]])}
+      {!log && input === 'altar' && choice([['불씨를 숨결 가까이에 둔다', () => send(0, () => read(['|석등을 제단 홈에 건다. 불씨가 와이번의 숨결 쪽으로 기운다.', '|성에가 바닥으로 떨어진다. 와이번이 앞발부터 일으킨다.']))], ['나중에', onClose]])}
       {!log && input === 'go' && <div className="eq-row eq-end"><button type="button" className="shop-btn main" onClick={() => { onAct(spotId, 1); onClose(); }}>들어가기</button></div>}
       {!log && input === 'trial' && <div className="eq-row eq-end">
         <button type="button" className="shop-btn main" onClick={() => { onAct(spotId); onClose(); }}>시련 시작 — {WQ_TRIAL.names[a.id]}</button>
         <button type="button" className="shop-btn" onClick={onClose}>나중에</button>
       </div>}
-      {!log && input === 'duel' && <Choice items={[['결투를 받아들인다', () => { onAct(spotId, 1); onClose(); }], ['준비하고 돌아온다', () => { onAct(spotId, 0); onClose(); }]]} />}
+      {!log && input === 'duel' && choice([['결투를 받아들인다', () => { onAct(spotId, 1); onClose(); }], ['준비하고 돌아온다', () => { onAct(spotId, 0); onClose(); }]])}
       {!log && input === 'contract' && <div className="eq-contract" role="group" aria-label={WQ_DESK.title}>
         <b>{WQ_DESK.title}</b>
         {WQ_DESK.notes.map((n) => <p key={n} className="eq-note">{n}</p>)}

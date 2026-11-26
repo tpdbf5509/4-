@@ -5,7 +5,7 @@
    공개: WQ_ROUTE.live 가 false 면 테스트 서버(g.test)에서만 — 판정이 h.wyt 를 세우고 영웅 줄 66 으로 화면에 알린다.
    입력 kind "wq": { op: 'act', id, v } · { op: 'skill', s } · { op: 'quit' } · { op: 'contract', yes } · { op: 'read' }(루엔 도서관에서 책을 덮었다).
    E(엔진, rpg.js eqEngine): fx · say · sys · goMap · place · face */
-import { WQ_ROUTE, WQ_FLAGS, WQ_SPOTS, WQ_TRIAL as T, WQ_STAGES, WQ_DESK, WQ_MAPS, WQ_LOOKS, WQ_NAME, wqMap, wqSpotMap } from './wyvernQuestData.js';
+import { WQ_ROUTE, WQ_FLAGS, WQ_SPOTS, WQ_TRIAL as T, WQ_STAGES, WQ_DESK, WQ_MAPS, WQ_LOOKS, WQ_NAME, WQ_FOUND, wqMap, wqSpotMap } from './wyvernQuestData.js';
 import { WYVERN, WYVERN_ID, WYVERN_NAME } from './wyvernData.js';
 import { unlockWyvern } from './wyvernJob.js';
 import { hiddenEnforced, hiddenTaken, hiddenAsk, hiddenReply } from './hiddenUnique.js';
@@ -105,7 +105,9 @@ export function wqSpotLine(h, s) {
 
 /* ── 결과 — 화면 창이 읽는다(영웅 줄 66 의 R) ── 1 됨 · 2 틀림 · 3 잠김 · 4 한 단계 · 5 더 알아봄 · 6 이미 함 */
 const run = (h) => h.wqRun || (h.wqRun = { R: [-1, 0, 0], w: {}, tr: null });
-function res(h, s, code) { const r = run(h); r.R = [s ? wqSpotIndex(s.id) : -1, code, (r.R[2] + 1) % 1000]; }
+// 결과는 KEEP 초 동안 지우지 않는다 — 전용 맵 밖(서리봉 바위)에서는 다음 틱이 h.wqRun 을 지워 화면이 결과를 못 받고 「…」에 멈췄다(11월 25일)
+const KEEP = 3;
+function res(h, s, code) { const r = run(h); r.R = [s ? wqSpotIndex(s.id) : -1, code, (r.R[2] + 1) % 1000]; r.keep = KEEP; }
 const tell = (E, g, h, text, color) => (color ? E.say(g, h.map, h.x, h.y - 100, text, color) : E.sys(g, h.pi, text));
 const call = (E, g, h, text, life = 1.4, snd = 'eqBeep') => E.fx(g, h.map, { kind: 'call', x: h.x, y: h.y - 130, text, color: GOLD, t: life, life, snd, who: h.pi });
 const go = (E, g, h, to, at) => { endTrial(h); E.goMap(g, h, to, at); };
@@ -136,7 +138,7 @@ function readBook(h) {
 function act(E, g, h, s, v) {
   const a = s.act, k = a.k;
   if (a.need && k !== 'gate' && !wqCond(h, a.need)) return void res(h, s, 3);
-  if (k === 'talk') { if (a.set) setAll(h, a.set); return void res(h, s, 1); }
+  if (k === 'talk') { const n0 = looks(h); if (a.set) setAll(h, a.set); lookNote(E, g, h, n0); return void res(h, s, 1); }
   if (k === 'steps') return void steps(E, g, h, s, v);
   if (k === 'gate') {
     if (!wqCond(h, a.need)) return void res(h, s, 3);
@@ -209,8 +211,19 @@ function altar(E, g, h, s, v) {
     E.fx(g, h.map, { kind: 'call', x: T.duel.at[0], y: T.duel.at[1] - 200, text: '와이번이 깨어난다', color: GOLD, t: 2.4, life: 2.4, snd: 'lvup', who: h.pi });
     return void res(h, s, 1);
   }
+  const n0 = looks(h);
   setAll(h, 'look_altar');
+  lookNote(E, g, h, n0);
   res(h, s, 1);
+}
+// 잠든 신전 세 곳 — 하나 볼 때마다 「조사 n/3」, 다 보면 새 단계 안내(머리 위 글 + 채팅 한 줄)
+const looks = (h) => WQ_LOOKS.filter((n) => wqHas(h, n)).length;
+function lookNote(E, g, h, n0) {
+  const n = looks(h);
+  if (n === n0) return;
+  if (n < WQ_LOOKS.length) return void call(E, g, h, `조사 ${n}/${WQ_LOOKS.length}`, 1.6);
+  call(E, g, h, '새 단계 — 와이번을 깨울 불씨', 2.6, 'lvup');
+  tell(E, g, h, WQ_FOUND.map((l) => l.slice(l.indexOf('|') + 1)).join(' '));
 }
 
 /* ── 시련 · 결투 — 시험 체력과 자리만 본다(레벨 · 장비 · 직업 무관). 표적은 몹 목록에 넣지 않는다 ── */
@@ -449,7 +462,8 @@ export function tickWq(E, g, h, dt) {
   if (!h.wqRun) { if (wqMap(h.map)) run(h); else return; }
   if (h.wqRun.tr) tickTrial(E, g, h, dt);
   tickAsk(E, g, h, dt);
-  if (!wqMap(h.map) && !h.wqRun.tr && !h.wqRun.ask) h.wqRun = null;
+  const r = h.wqRun;
+  if (!wqMap(h.map) && !r.tr && !r.ask && !((r.keep = (r.keep || 0) - dt) > 0)) h.wqRun = null;
 }
 
 /* ── 단계 건너뛰기 — 테스트 서버 「도구」. 그 단계 앞까지 깃발을 세우고 그 자리에 선다 ── */

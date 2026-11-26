@@ -20,6 +20,12 @@ export const WQ_FLAGS = [
 ];
 export const WQ_LOOKS = ['look_burn', 'look_prints', 'look_altar'];       // 셋을 모두 보면 wyvern_found
 export const WQ_AFTER = ['prints_compared', 'look_shield', 'look_mark'];  // 결투 뒤 다시 보는 세 곳
+// 잠든 신전 세 곳 조사 안내(11월 25일 사용자 「세 곳을 다 봐도 다음 단계가 시작된 건지 알 수 없어」) — 몇 곳 봤는지 · 다 보면 다음 갈 곳
+export const WQ_LOOK_NAMES = '목 아래 · 바닥의 발자국 · 제단';
+export const WQ_FOUND = [
+  '|세 곳을 모두 살폈다. 잠든 와이번을 깨우려면 꺼지지 않는 불이 필요하다.',
+  '|새 단서 — 루엔의 대장장이 단우와 등불고개 숲의 고개 등불에 실마리가 있을 것 같다.',
+];
 
 /* 맵 — 그림 1536×1024 를 게임 2400×1600 으로(마술사 루트와 같은 틀). 바닥 그림은 Codex(story/ground/wq_*.webp),
    문 · 제단 · 석등 · 석상 · 바위는 따로 그린 낱장(rpg/wyvern-quest/*.webp) */
@@ -208,6 +214,7 @@ export const WQ_LOG = [
   { f: 'look_burn', t: '잠든 와이번 — 목 아래 오래된 화상.' },
   { f: 'look_prints', t: '바닥 — 와이번과 다른, 훨씬 큰 발자국.' },
   { f: 'look_altar', t: '제단 — 큰 용이 남긴 불은 오래 식지 않는다. 그 불을 숨 곁에 두어라.' },
+  { f: 'wyvern_found', t: '다음 — 와이번을 깨울 불씨를 찾는다. 루엔의 대장장이 단우 · 등불고개 숲의 고개 등불.' },
   { f: 'ask_danwoo', t: '단우 — 제단 홈엔 손잡이 달린 석등. 고개 등불 아래 봉화대 관리표.' },
   { f: 'tag_read', t: '관리표 — 용의 불이 지나간 쪽으로 가지 말 것. 봉화대는 옛 피난길 끝.' },
   { f: 'burnt_side', t: '피난길 — 그을린 쪽에는 돌 표식이 없다.' },
@@ -220,15 +227,16 @@ export const WQ_LOG = [
   { f: 'answer_done', t: `${WQ_NAME} — 갈 곳을 함께 정할 수는 있다.` },
 ];
 
-/* 테스트 서버 「도구」 — 단계마다 앞 단계를 끝낸 것으로 하고 그 자리에 선다 */
+/* 테스트 서버 「도구」 — 단계마다 앞 단계를 끝낸 것으로 하고 그 자리에 선다.
+   세 시련은 건너뛰지 않는다(11월 25일 사용자 「플레이 안 했는데 이미 열려 있음」) — 지나온 시련 문은 닫힌 채로 남아 직접 해 볼 수 있다 */
 export const WQ_STAGES = [
   { name: '1 도서관', map: 'luen-library-2', at: [420, 520], set: [] },
   { name: '2 북쪽 바위', map: 'frost-peak', at: [1830, 830], set: ['book_read', 'ask_seoha', 'ask_maru', 'ask_saebom'] },
   { name: '3 바람등성이', map: 'wq_ridge', at: [1200, 1400], set: ['rock_wind', 'passage_open'] },
   { name: '4 바람다리', map: 'wq_bridge', at: [1200, 1460], set: ['pillar_seen', 'threshold_found', 'temple_open'] },
-  { name: '5 비늘의 회랑', map: 'wq_gallery', at: [1200, 1400], set: ['trial_bridge'] },
-  { name: '6 맹세의 문', map: 'wq_oath', at: [1200, 1400], set: ['trial_gallery'] },
-  { name: '7 잠든 와이번', map: 'wq_sanctum', at: [1200, 1380], set: ['trial_oath'] },
+  { name: '5 비늘의 회랑', map: 'wq_gallery', at: [1200, 1400], set: [] },
+  { name: '6 맹세의 문', map: 'wq_oath', at: [1200, 1400], set: [] },
+  { name: '7 잠든 와이번', map: 'wq_sanctum', at: [1200, 1380], set: [] },
   { name: '8 봉화대', map: 'wq_beacon', at: [1200, 1380], set: [...WQ_LOOKS, 'wyvern_found', 'ask_danwoo', 'tag_read', 'trail_found'] },
   { name: '9 각성 · 결투', map: 'wq_sanctum', at: [1200, 1300], set: ['memo_read', 'vent_lit', 'ember_got', 'awakened'] },
   { name: '10 사건 조사', map: 'wq_sanctum', at: [1200, 1300], set: ['duel_won'] },

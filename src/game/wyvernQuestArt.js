@@ -106,6 +106,7 @@ export function drawWqSpot(ctx, me, s, time, near) {
       top = w * 0.8;
     } else if (L === 'altar') {
       const lit = wqHas(me, 'awakened');
+      if (!wqHas(me, 'look_altar')) fresh(ctx, x, y - 20, time);
       if (!cell(ctx, 'props', lit ? 1 : 0, x, y, 300)) { ctx.save(); ctx.fillStyle = '#6b6660'; ctx.fillRect(x - 90, y - 90, 180, 90); ctx.restore(); if (lit) lampFallback(ctx, x, y - 90, true, time); }
       if (lit) disc(ctx, x, y - 130, 40 + Math.sin(time * 4) * 6, '#ff9a4a', 0.12);
       top = 230;
@@ -114,12 +115,26 @@ export function drawWqSpot(ctx, me, s, time, near) {
       else if (!wqHas(me, 'vent_lit')) { if (!cell(ctx, 'props', 2, x, y, 170)) lampFallback(ctx, x, y, false, time); top = 150; }
       else top = 40;                                                  // 불씨가 살아난 석등은 둘째 통풍구 앞에 있다(drawWqGround 가 그린다)
     } else if (L && L.startsWith('vent')) { vent(ctx, x, y, Number(L.slice(4)), time); top = 140; }
-    else if (s.act.k !== 'trial') disc(ctx, x, y - 30, 5 + Math.sin(time * 3 + x) * 1.5, '#f6ead8', 0.55);   // 바닥 그림 속 물건 — 조사할 수 있는 자리
+    else if (s.act.k !== 'trial') {                                   // 바닥 그림 속 물건 — 조사할 수 있는 자리
+      if (s.act.set && !wqHas(me, s.act.set)) fresh(ctx, x, y, time);   // 아직 안 본 곳 — 은은한 빛(11월 25일 사용자)
+      disc(ctx, x, y - 30, 5 + Math.sin(time * 3 + x) * 1.5, '#f6ead8', 0.55);
+    }
     else top = 110;                                                   // 비문 돌 — 바닥 그림에 그려져 있다
   }
   if (near) label(ctx, s.name, x, y - top - 8);
 }
 
+// 아직 조사하지 않은 자리 — 바닥에서 은은하게 숨 쉬는 빛(11월 25일 사용자 「자리를 알아보기 어렵다」)
+function fresh(ctx, x, y, time) {
+  const k = 0.5 + Math.sin(time * 2.2 + x * 0.01) * 0.5, r = 70;
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(1, SQ * 0.55);
+  const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+  gr.addColorStop(0, `rgba(255,226,170,${0.32 + 0.18 * k})`); gr.addColorStop(1, 'rgba(255,226,170,0)');
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  disc(ctx, x, y - 40 - k * 10, 3, '#fff1d6', 0.35 + 0.35 * k);     // 위로 떠오르는 작은 빛 한 점
+}
 /* ── 땅 층(사람보다 먼저) — 밟는 출구 빛 · 시련 표시 ── */
 function floorGlow(ctx, x, y, r, time) {
   const a = 0.22 + Math.sin(time * 2) * 0.08;
@@ -202,9 +217,11 @@ export const SLEEP_DRAGON = { w: 1150, foot: 0.97, flip: 1, breathe: 0.012, z: [
 function sleepDragon(ctx, x, y, k) {
   const im = img('sleeping-dragon'); if (!im) return false;
   const { w, foot, flip, breathe } = SLEEP_DRAGON, h = w * im.naturalHeight / im.naturalWidth;
-  ctx.save();                                                         // 바닥 그림자 — 서리 바닥에 몸이 얹히게
-  ctx.globalAlpha = 0.32; ctx.fillStyle = '#1c1a2a';
-  ctx.beginPath(); ctx.ellipse(x, y - 12, w * 0.44, 46, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.save();                                                         // 바닥 그림자 — 가운데만 짙고 가장자리로 흐려진다(딱딱한 회색 타원이 보이던 것, 11월 25일)
+  ctx.translate(x, y - 14); ctx.scale(1, 0.12);
+  const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, w * 0.42);
+  gr.addColorStop(0, 'rgba(28,26,42,0.38)'); gr.addColorStop(0.6, 'rgba(28,26,42,0.2)'); gr.addColorStop(1, 'rgba(28,26,42,0)');
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, w * 0.42, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
   ctx.save(); ctx.translate(x, y);
   ctx.scale(flip ? -1 : 1, 1 + breathe * k);                          // 숨 — 발을 축으로 아주 조금 부푼다

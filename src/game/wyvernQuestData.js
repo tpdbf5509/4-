@@ -39,11 +39,12 @@ export const WQ_MAPS = [
   M('wq_sanctum', '잠든 신전', 'sanctum'),
   M('wq_trail', '옛 피난길', 'trail'),
   M('wq_beacon', '무너진 봉화대', 'beacon', { top: 690 }),   // 봉화대 벽이 그림 아래까지 내려온다
+  M('wq_return', '끊어진 귀환로', 'return', { top: 120, spawn: [980, 280] }),   // 아르카디온 획득 「돌아올 길을 지킨 검」(11월 27일) — 바닥은 바람다리 그림을 저녁빛으로 물들인 것
 ];
 export const WQ_MAP_IDS = WQ_MAPS.map((m) => m.id);
 export const wqMap = (id) => WQ_MAP_IDS.includes(id);
-// 바깥 조사 자리가 있는 원래 맵 — 루엔 도서관 1층(서하) · 루엔 · 등불고개 · 서리봉
-export const WQ_OUT_MAPS = ['luen-library', 'luen', 'lantern-forest', 'frost-peak'];
+// 바깥 조사 자리가 있는 원래 맵 — 루엔 도서관 1층(서하) · 루엔 · 등불고개 · 서리봉 · 칼등산(아르카디온 획득)
+export const WQ_OUT_MAPS = ['luen-library', 'luen', 'lantern-forest', 'frost-peak', 'blade-ridge'];
 export const wqSpotMap = (id) => wqMap(id) || WQ_OUT_MAPS.includes(id);
 
 /* 서리봉 북쪽 막다른 곳 — 산길 끝(전망 바위) 오른쪽 벼랑 밑. 나무가 없는 자리를 골랐다(정한 자리) */
@@ -61,13 +62,20 @@ export const WQ_EXITS = [
   EX('wq_sanctum', 'wq_ridge', WQ_DOOR_FRONT, '신전 입구'),
   EX('wq_trail', 'frost-peak', [1590, 820], '서리봉'),
   EX('wq_beacon', 'wq_trail', [1700, 640], '옛 피난길'),
+  EX('wq_return', 'blade-ridge', [2975, 535], '칼등산', [1200, 140]),          // 안쪽 방 위 — 칼등 정상 돌문 앞으로
+  EX('wq_return', 'wq_return', [1200, 330], '안쪽 방', [1200, 505]),           // 귀환로 머리 → 안쪽 방(걸쇠를 푼 뒤에만 다리로 내려온다)
+  EX('wq_return', 'blade-ridge', [2975, 535], '칼등산', [1200, 1560]),         // 바깥 발판 끝
 ];
 // 막힘 — 바람다리 양옆 낭떠러지(다리 폭 x 1040~1360), 잠든 와이번 몸
+const row = (y, x0, x1, step = 56) => Array.from({ length: Math.ceil((x1 - x0) / step) + 1 }, (_, i) => ({ x: Math.min(x1, x0 + i * step), y, r: 40 }));
 const wall = (x, y0, y1) => Array.from({ length: Math.ceil((y1 - y0) / 56) + 1 }, (_, i) => ({ x, y: y0 + i * 56, r: 40 }));
 export const WQ_WYVERN = [1520, 820];   // 잠든 와이번 자리(땅 기준)
 export const WQ_BLOCKS = {
   wq_bridge: [...wall(1040, 480, WQ_H), ...wall(1366, 480, WQ_H)],   // 다리 폭 — 바닥 그림의 난간 안쪽(x 1080~1326)
   wq_sanctum: [{ x: WQ_WYVERN[0] - 60, y: WQ_WYVERN[1], r: 90 }, { x: WQ_WYVERN[0] + 70, y: WQ_WYVERN[1] - 10, r: 80 }],
+  // 끊어진 귀환로 — 안쪽 방(x 790~1620, y 120~420) 둘레 · 귀환로 머리를 막는 쇠창살 줄 · 다리 양옆 난간(다리 폭 x 1090~1310)
+  wq_return: [...wall(755, 60, 470), ...wall(1655, 60, 470), ...row(470, 760, 1060), ...row(470, 1340, 1650), ...row(440, 1090, 1310, 50),
+    ...wall(1050, 500, WQ_H), ...wall(1350, 500, WQ_H)],
 };
 
 /* 원래 주민 · 풍경 자리(말 걸기 칸에 단추를 더한다) */
@@ -241,4 +249,102 @@ export const WQ_STAGES = [
   { name: '9 각성 · 결투', map: 'wq_sanctum', at: [1200, 1300], set: ['memo_read', 'vent_lit', 'ember_got', 'awakened'] },
   { name: '10 사건 조사', map: 'wq_sanctum', at: [1200, 1300], set: ['duel_won'] },
   { name: '계승', map: 'wq_sanctum', at: [1400, 1150], set: ['after_talk', ...WQ_AFTER, 'answer_done'] },
+];
+
+/* ── 아르카디온 획득 「돌아올 길을 지킨 검」(11월 27일, 사용자 계획서) ─────────────
+   칼등 정상에서 아스라를 부르면 숨은 돌문이 드러나고, 문 아래 귀환로(wq_return)를 함께 고쳐 아르카디온을 꺼낸다.
+   「잠든 날개의 서약」 판정 · 창 · 그림 틀을 그대로 쓰고, 진행은 따로 bag.au 에 저장한다(두 퀘스트 값이 서로 덮이지 않게).
+   조건 — 지금 켜진 직업이 와이번 나이트이고 직업 레벨 5 이상(AQ.lv). 해금 루트 · 관리자 명령어로 켠 경우 모두.
+   계획서 수치(정상 반경 · 예고 · 조작 시간)는 첫 시험용이라 여기 한 곳에서 고친다. "정한 값"은 계획서에 없는 값 */
+// 깃발 — bag.au 저장 값이라 뒤에만 더한다
+export const AQ_FLAGS = ['a_start', 'a_chain', 'a_claw', 'a_groove', 'a_stone', 'a_fire', 'a_latch', 'a_lock1', 'a_lock2', 'a_lock3', 'a_return', 'a_got'];
+export const AQ_LOOKS = ['a_chain', 'a_claw', 'a_groove'];     // 귀환로의 흔적 셋 — 다 보면 쓰러진 표지석
+export const AQ_LOOK_NAMES = '잘린 쇠사슬 · 발톱 자국 · 검집 홈';
+export const AQ_TITLE = '돌아올 길을 지킨 검';
+export const AQ = {
+  lv: 5,                                        // 시작 직업 레벨(비룡의 계약이 열리는 레벨)
+  // 칼등 정상 — wildsData.js ridge-summit [2900, 580]. 반경 120 은 정상 바위 마루(걸을 수 있는 곳)를 덮는다(실제 막힘으로 확인)
+  summit: { map: 'blade-ridge', at: [2900, 580], r: 120 },
+  door: [2985, 462],                            // 숨은 돌문 — 정상 위쪽 바위벽(걸을 수 있는 칸). 마술사 「능선 위 운반함」(정상 가운데 r 100)과 상호작용 범위가 겹치지 않게 173 떨어뜨렸다(정한 값)
+  sheath: [3035, 560],                          // 속이 빈 붉은 검집(그림만)
+  sit: [2770, 600],                             // 연출 동안 아스라가 앉는 바위 옆
+  // 시작 연출(초) — 소환 효과(0.9) 뒤 아스라가 앉고 → 먼지 · 검집 · 붉은 선 → 대사 → 제목. 진행은 소환 순간 먼저 기록한다
+  scene: { sit: 0.9, dust: 1.6, say: 2.8, title: 4.6, end: 5.2, cam: 3.2 },
+  // 귀환로 — 돌판 셋(다리의 쇠 고리 홈 높이) · 표식 둘(위 · 아래) · 고정쇠(오른쪽 난간 홈) · 붙들기 자리(왼쪽)
+  slabs: [680, 900, 1120],
+  mark: 75,                                     // 표식 — 돌판 가운데에서 위아래로
+  anchorX: 1290, holdX: 1112,
+  warn: 2.0,                                    // 잔영 내려찍기 예고(계획서 초기값)
+  open: 4.0,                                    // 빗나간 뒤 고정쇠 조작 시간(계획서 초기값)
+  slamR: 105,                                   // 내려찍기 반경 — 한 표식만 덮는다(두 표식 사이 192 · 고정쇠까지 134, 정한 값)
+  band: 165,                                    // 이 돌판 위에 서면 잔영이 움직인다(돌판 가운데에서 위아래, 정한 값)
+  grace: 1.2,                                   // 다시 시작할 때 숨 돌릴 틈(정한 값)
+  home: [1120, 545],                            // 귀환 지점 — 귀환로 머리(안쪽 끝)
+  footing: [1200, 1470],                        // 바깥 발판 — 아스라가 돌아오기 시작하는 곳
+  sword: [1200, 1300],                          // 끝 돌판 아래 검날
+  walk: 3.6,                                    // 아스라가 돌길을 건너오는 시간(정한 값)
+  seat: [1380, 250],                            // 안쪽 방에서 아스라가 앉아 기다리는 곳
+};
+export const AQ_LINE = {
+  hint: '|이 바위 앞에서 날개를 부르면, 길이 다시 열린다.',
+  memory: `${WQ_NAME}|저 검집은 기억난다. 마지막으로 돌아온 날에도 저 자리에 있었어.`,
+  goal: '아스라를 따라 돌문 안으로 들어가세요.',
+  stone: '떠나는 자는 돌을 밟고, 돌아오는 자는 불을 본다.',
+  goal2: '아스라와 함께 위쪽 표식을 살펴보세요.',
+  below: '|이 바위 뒤에 무언가 있는데, 이쪽에서는 닿지 않는다.',
+  lost: `${WQ_NAME}|불이 비추는 건 벽이 아니라 그 아래야.`,
+  full: '무기 가방을 비우면 아르카디온을 받을 수 있습니다.',
+  back: [`${WQ_NAME}|그날 그 사람은 검을 여기 두고 갔어. 내가 돌아올 때까지 길이 버티라고.`, `${WQ_NAME}|이제 뽑아도 돼. 이번엔 네가 길을 고정했으니까.`],
+};
+// 예/아니오만 보는 자리 조건 — '@wy5' 는 와이번 나이트 · 직업 레벨 5 이상(판정과 화면이 같은 가방 값을 본다)
+const AX = (id, at, name, act, o = {}) => ({ ...S(id, 'wq_return', at, name, act, o), show: ['@wy5', ...(o.show || [])] });
+const SL = AQ.slabs;
+WQ_SPOTS.push(
+  /* ── 2.1 칼등 정상 — 원래 정상 말 걸기 칸에 단추 · 소환 뒤에만 보이는 돌문 ── */
+  { ...ON('ridge-summit', '칼등 정상', '바위 앞에 선다', { k: 'talk', lines: [AQ_LINE.hint] }, ['@wy5', '!a_start']) },
+  { ...S('br-door', 'blade-ridge', AQ.door, '숨은 돌문', { k: 'aqDoor' }, { r: 70, look: 'tdoor' }), show: ['@wy5', 'a_start'] },
+  /* ── 2.2 귀환로의 흔적 — 순서 자유 ── */
+  AX('ra-chain', [835, 250], '잘린 쇠사슬', { k: 'talk', set: 'a_chain', lines: ['|기둥 고리에 굵은 쇠사슬이 매여 있다. 끝은 날카롭게 잘렸다.', '|사슬은 문 쪽이 아니라 바깥쪽으로 당겨진 채 굳었다. 문을 닫는 쪽이 아니라 문이 닫히지 않게 잡아 주던 사슬이다.'] }),
+  AX('ra-claw', [1050, 330], '발톱 자국', { k: 'talk', set: 'a_claw', lines: ['|돌바닥에 와이번의 발톱 자국이 길게 나 있다.', '|자국 끝이 모두 방 안쪽을 향한다. 아스라는 밖에서 안으로 되돌아왔다.'] }),
+  AX('ra-groove', [1360, 380], '두 줄로 패인 홈', { k: 'talk', set: 'a_groove', lines: ['|바닥에 나란한 홈 두 줄이 귀환로 쪽으로 이어진다. 검집 폭과 꼭 맞는다.', '|홈은 바깥 발판까지 이어진다. 누군가 검을 꽂아 돌판을 받쳐 둔 흔적이다.'] }),
+  AX('ra-stone', [1530, 360], '쓰러진 표지석', { k: 'talk', set: 'a_stone', lines: [`|쓰러진 표지석에 글이 남아 있다. 「${AQ_LINE.stone}」`, `|다음 — ${AQ_LINE.goal2}`] }, { show: AQ_LOOKS }),
+  /* ── 2.3 위쪽 표식 · 아래쪽 걸쇠 ── */
+  AX('ra-mark', [1000, 150], '위쪽 표식', { k: 'steps', need: ['a_stone'], lock: ['|벽에 그을린 홈이 새겨져 있다. 무엇을 뜻하는지 아직 모르겠다.'], steps: [
+    { flag: 'a_fire', k: 'pick', q: '그을린 홈 안에 오래된 기름이 굳어 있다.', opts: ['아스라에게 불을 부탁한다'], ans: 0,
+      ok: [`${WQ_NAME}|물러서.`, '|아스라가 짧게 불을 뿜는다. 표식에 불이 옮겨 붙는다.', '|불빛이 벽이 아니라 그 아래를 비춘다. 왼쪽 아래 바위 뒤로 숨은 돌계단이 드러난다.'] },
+  ], done: [AQ_LINE.lost] }),
+  AX('ra-latch', [815, 415], '아래쪽 바위', { k: 'steps', need: ['a_fire'], lock: [AQ_LINE.below], steps: [
+    { flag: 'a_latch', k: 'pick', q: '돌계단을 내려가니 바위 뒤에 녹슨 걸쇠가 있다.', opts: ['걸쇠를 푼다'], ans: 0,
+      ok: ['|걸쇠가 풀리며 귀환로 머리의 쇠창살이 덜컹 올라간다.', '|다음 — 귀환로로 내려가 고정쇠를 살펴보세요.'] },
+  ], done: ['|걸쇠는 풀려 있다.'] }),
+  AX('ra-gate', [1200, 380], '귀환로 쇠창살', { k: 'gate', to: 'wq_return', back: [1200, 570], need: ['a_latch'], lock: ['|쇠창살이 내려와 있다. 아래쪽 어딘가의 걸쇠가 잡고 있는 것 같다.'] }, { look: 'tgate', r: 90 }),
+  /* ── 2.4 고정쇠 셋 — 시련 밖에서는 「시련 시작」, 시련 중에는 표식 지시 · 붙들기 · 잠그기 ── */
+  ...SL.map((y, i) => AX(`ra-anchor${i}`, [AQ.anchorX, y], `${i + 1}번 고정쇠`, { k: 'anchor', n: i, tr: 'anchor' }, { r: 62 })),
+  ...SL.flatMap((y, i) => [0, 1].map((m) => AX(`ra-mk${i}${m}`, [1200, y + (m ? AQ.mark : -AQ.mark)], m ? '아래 표식' : '위 표식', { k: 'marker', n: i, m, tr: 'anchor' }, { r: 62, show: ['!a_lock3'] }))),
+  AX('ra-hold', [AQ.holdX, SL[2]], '기운 돌판', { k: 'hold', n: 2, tr: 'anchor' }, { r: 62, show: ['!a_lock3'] }),
+  /* ── 2.5 귀환 · 보상 ── */
+  AX('ra-home', AQ.home, '귀환 지점', { k: 'home' }, { r: 70, show: ['a_lock3'] }),
+  AX('ra-sword', AQ.sword, '끝 돌판 아래 검날', { k: 'sword' }, { r: 80, show: ['a_latch'] }),
+);
+export const AQ_LOG = [
+  { f: 'a_start', t: `칼등 정상 — ${WQ_NAME}가 바위 옆 빈 검집을 기억했다.` },
+  { f: 'a_chain', t: '잘린 쇠사슬 — 문이 닫히지 않게 잡아 주던 사슬.' },
+  { f: 'a_claw', t: '발톱 자국 — 아스라는 밖에서 안으로 되돌아왔다.' },
+  { f: 'a_groove', t: '두 줄 홈 — 검을 꽂아 바깥 돌판을 받쳤다.' },
+  { f: 'a_stone', t: `표지석 — ${AQ_LINE.stone}` },
+  { f: 'a_fire', t: '위쪽 표식에 불을 밝혔다. 왼쪽 아래 숨은 돌계단.' },
+  { f: 'a_latch', t: '걸쇠를 풀었다. 귀환로의 쇠창살이 올라갔다.' },
+  { f: 'a_lock1', t: '1번 고정쇠를 잠갔다.' },
+  { f: 'a_lock2', t: '2번 고정쇠를 잠갔다.' },
+  { f: 'a_lock3', t: '3번 고정쇠를 잠갔다. 귀환 지점에서 아스라를 부르자.' },
+  { f: 'a_return', t: `${WQ_NAME}가 돌길을 건너 돌아왔다. 검날의 장력이 풀렸다.` },
+  { f: 'a_got', t: '아르카디온을 꺼냈다.' },
+];
+// 테스트 서버 「도구」 — 아르카디온 단계(bag.au 만 바꾼다. 와이번 나이트 직업은 따로 켠다)
+export const AQ_STAGES = [
+  { name: 'A1 칼등 정상', map: 'blade-ridge', at: [2900, 620], set: [] },
+  { name: 'A2 귀환로 흔적', map: 'wq_return', at: [980, 280], set: ['a_start'] },
+  { name: 'A3 표식 · 걸쇠', map: 'wq_return', at: [980, 280], set: ['a_chain', 'a_claw', 'a_groove', 'a_stone'] },
+  { name: 'A4 고정쇠', map: 'wq_return', at: [1200, 570], set: ['a_fire', 'a_latch'] },
+  { name: 'A5 귀환 · 보상', map: 'wq_return', at: [1200, 600], set: ['a_lock1', 'a_lock2', 'a_lock3'] },
 ];

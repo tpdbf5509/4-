@@ -9,6 +9,7 @@
 import { faceAim } from './faceDir.js';
 import { WYVERN as WV, WYVERN_ID, WYVERN_NAME, WYVERN_TINT, WY_TRAIN_NAMES, WY_BLOOD as BL, WY_CLAW as CL, WY_CONTRACT as CT, WY_ROAR as RO,
   WY_DIVE as DV, WY_SCALE as SC, WY_SKY as SK, WY_AWAKE as AW, WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SKILLS, WY_WEAPON_ITEM } from "./wyvernData.js";
+import { AQ } from "./wyvernQuestData.js";   // 아르카디온 획득 「돌아올 길을 지킨 검」 — 칼등 정상 소환 예외(11월 27일)
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -36,6 +37,8 @@ export const wyWeaponOk = (w) => !w || w.sp === WY_WEAPON_ITEM.id;
 const heldSp = (h) => { if (!h) return ""; if (h.wsp !== undefined) return h.wsp; const b = h.bag, w = b && b.e && b.w ? b.w.find((q) => q.u === b.e) : null; return (w && w.sp) || ""; };
 export const wyArmed = (h) => heldSp(h) === WY_WEAPON_ITEM.id;
 const jobOf = (h) => h.bag.hj.jobs[WYVERN_ID];
+// 칼등 정상 범위 안 — 비룡의 계약만 안전 지역 제한과 용혈 소모를 면제한다(직업 레벨 · 대기 · 한 마리 제한은 그대로). 아르카디온 획득 시작점
+export const wySummitFree = (h) => wyvernOn(h) && h.map === AQ.summit.map && Math.hypot(h.x - AQ.summit.at[0], (h.y - AQ.summit.at[1]) / 0.78) <= AQ.summit.r;
 export const wyTrainSum = (J) => (J ? J.tr.reduce((n, q) => n + q[0], 0) : 0);
 export const wyvernTint = (sum) => WYVERN_TINT.find((t) => sum >= t.from).id;
 export const wySync = (J) => wyTrainSum(J) >= WV.sync;   // 진룡 동조 — 연마 합계 150
@@ -178,15 +181,15 @@ export function wyvernKill(E, g, m, got) {
 export const wyvernRaidKill = (E, g, h) => { if (wyvernOn(h)) jobXp(E, g, h, WV.xp.raid); };
 
 /* ── 쓸 수 있나 ─────────────────────────────────────── */
-function blocked(E, g, h, sk) {
+function blocked(E, g, h, sk, free) {
   const s = st(h), D = WY_SKILLS[sk];
   if (h.down > 0 || E.locked(h)) return true;
-  const w = E.fight(h);
+  const w = free ? (E.trading && E.trading(h) ? "-" : "") : E.fight(h);
   if (w) { if (w !== "-") no(E, g, h, w); return true; }
   const lock = wyLock(jobOf(h), sk);
   if (lock) { no(E, g, h, lock); return true; }
   if (s.cd[sk] > 0) { no(E, g, h, `${D.name} ${Math.ceil(s.cd[sk])}초`, WARN); return true; }
-  if (s.blood < D.cost) { no(E, g, h, `용혈이 부족합니다 (${D.cost})`, RED); return true; }
+  if (!free && s.blood < D.cost) { no(E, g, h, `용혈이 부족합니다 (${D.cost})`, RED); return true; }
   return false;
 }
 const spend = (s, sk) => { s.blood = Math.max(0, s.blood - WY_SKILLS[sk].cost); };
@@ -229,11 +232,12 @@ function contractUse(E, g, h) {
   const s = st(h);
   if (s.u) return void no(E, g, h, "와이번이 이미 곁에 있습니다", WARN);   // 동시 한 마리
   if (s.aw > 0) return void no(E, g, h, "와이번이 몸 안에 있습니다", WARN);   // 역린 해방 중엔 흡수한 와이번을 다시 부르지 않는다
-  if (blocked(E, g, h, "contract")) return;
-  spend(s, "contract");
+  const free = wySummitFree(h);
+  if (blocked(E, g, h, "contract", free)) return;
+  if (!free) spend(s, "contract");
   const side = h.dir < 0 ? 1 : -1, x = h.x + side * 90, y = h.y - 8;
   s.u = { t: 0, dur: wyvernDur(jobOf(h)), x, y, cd: 0, tg: "", seek: 0, f: 9, fl: h.dir < 0 ? 1 : 0, dv: null,
-    cast: E.cast(h), base: E.base(h), map: h.map, xp: 0, balls: [] };
+    cast: E.cast(h), base: E.base(h), map: h.map, xp: 0, balls: [], summit: free ? 1 : 0 };   // summit — 칼등 정상 소환(wyvernQuest.js 가 아르카디온 획득을 시작한다)
   h.swing = 0.25;
   E.fx(g, h.map, { kind: "sk_wy_sum", x: Math.round(x), y: Math.round(y), pi: h.pi, t: 0.9, life: 0.9, snd: "wyCry" });
   call(E, g, h, CT.name);
@@ -264,6 +268,8 @@ function tickWyvern(E, g, h, s, dt) {
     const k = Math.min(1, Math.max(0, (d.t - DV.up) / (DV.land - DV.up)));
     u.x = d.x0 + (d.x1 - d.x0) * k; u.y = d.y0 + (d.y1 - d.y0) * k;
     if (d.t >= DV.end) u.dv = null;
+  } else if (u.pin) {                                 // 연출 자리(아르카디온 획득 — 칼등 정상 바위 옆)에 앉힌다
+    u.x = u.pin[0]; u.y = u.pin[1]; u.fl = u.pin[2] || 0; u.still = (u.still || 0) + dt;
   } else {
     const px = u.x, py = u.y;
     // 주인 뒤 60~120 — 보는 쪽 반대편, 살짝 위. 650 넘게 떨어지면 주인 뒤로 다시 놓는다

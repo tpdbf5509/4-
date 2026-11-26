@@ -38,7 +38,7 @@ import { cleanGu } from "./gamblerUnlock.js";
 import { cleanEu } from "./engineerQuest.js";   // Engineer 003 획득 루트 진행(11월 19일)
 import { cleanNu } from "./necroQuest.js";   // Necromancer 004 획득 루트 진행(11월 20일)
 import { cleanIu } from "./illusionQuest.js";
-import { cleanWu } from "./wyvernQuest.js";   // Wyvern Knight 006 획득 루트 진행(11월 23일)   // Illusionist 005 획득 루트 진행(11월 23일)
+import { cleanWu, cleanAu } from "./wyvernQuest.js";   // Wyvern Knight 006 획득 루트 진행(11월 23일)   // Illusionist 005 획득 루트 진행(11월 23일)
 import { cleanRq } from "./requiemData.js";
 import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
@@ -288,6 +288,8 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (iqu) b.iu = iqu;                            // Illusionist 005 획득 루트 — 깃발 · 숲길 구간 · 물레 추(illusionQuest.js)
   const wqu = cleanWu(d.wu);
   if (wqu) b.wu = wqu;                            // Wyvern Knight 006 획득 루트 — 깃발 · 봉화대 통풍구(wyvernQuest.js)
+  const aqu = cleanAu(d.au);
+  if (aqu) b.au = aqu;                            // 아르카디온 획득 「돌아올 길을 지킨 검」 — 깃발(wyvernQuest.js, 11월 27일)
   const bu = cleanBu(d.bu);
   if (bu) b.bu = bu;                              // BLOOD-001 해금 경로 — 단서 · 진행 · 연 입구(bloodUnlock.js)
   const rq = cleanRq(d.rq); if (rq) b.rq = rq;

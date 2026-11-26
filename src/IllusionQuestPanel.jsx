@@ -53,6 +53,7 @@ export default function IllusionQuestPanel({ spotId, getHero, tick, onAct, onCon
     if (k === 'tree') { const n = iqDial(h, 'fk'); return read([n ? `|나무 껍질에 칼로 그은 흠집이 ${n}개 있다.` : '|껍질이 매끈하다. 아무 흠집도 없다.', '|같은 길을 돌아와도 이 나무는 늘 이 자리에 있다.']); }
     if (k === 'trace') { onAct(spotId); return read([`|${FO.trace[Math.min(2, iqDial(h, 'fk'))][a.dir]}`]); }
     if (k === 'fork') {
+      if (has('route_solved')) return a.dir === FO.ans[FO.ans.length - 1] ? read(['|접혔던 길이 곧게 펴져 있다. 이 길 끝이 사라진 야외 객석이다.'], 'go') : read(['|길이 다시 접혀 갈림길 한가운데로 돌아온다. 객석은 북쪽 길 끝에 있다.']);
       const fk = Math.min(2, iqDial(h, 'fk'));
       return read([`|${FO.sign[fk][a.dir]}`, ...(has('guide_seam') ? [] : [FO.guide[fk]])], 'fork');
     }

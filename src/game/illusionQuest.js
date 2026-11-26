@@ -228,7 +228,12 @@ function steps(E, g, h, s, v) {
 /* ── 2장 숲길 — 같은 갈림길을 세 번. 맞는 길이면 구간이 오르고(나무 흠집), 틀리면 그대로 갈림길 한가운데로 돌아온다 ── */
 const FORK_BACK = [1200, 1100];
 function fork(E, g, h, s) {
-  if (iqHas(h, 'route_solved')) return void res(h, s, 6);
+  // 이미 푼 숲길 — 마지막 정답 길(북)은 다시 객석으로 이어진다(11월 26일 사용자 신고: 나왔다가 다시 못 들어갔다). 다른 길은 그대로 막힌다
+  if (iqHas(h, 'route_solved')) {
+    if (s.act.dir !== FO.ans[FO.ans.length - 1]) return void res(h, s, 6);
+    res(h, s, 1);
+    return void go(E, g, h, 'iq_seats', [1200, 1380]);
+  }
   const fk = iqDial(h, 'fk');
   if (s.act.dir !== FO.ans[fk]) {
     E.place(g, h, FORK_BACK[0], FORK_BACK[1]);

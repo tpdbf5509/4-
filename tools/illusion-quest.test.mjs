@@ -54,6 +54,9 @@ test('테스트 서버 — 1장부터 계승까지', () => {
   assert.equal(act(w, 'f-n', undefined), 2);
   for (const id of ['f-e', 'f-w', 'f-n']) assert.equal(act(w, id), 1);
   assert.ok(iqHas(h, 'route_solved')); assert.equal(h.map, 'iq_seats');
+  // 객석에서 숲길로 나왔다가 북쪽 길로 다시 들어갈 수 있다(다른 길은 막힘)
+  assert.equal(act(w, 'f-e', 1), 6); assert.equal(h.map, 'iq_fork');
+  assert.equal(act(w, 'f-n', 1), 1); assert.equal(h.map, 'iq_seats');
   // 3장 객석 · 조명 · 거울문
   assert.equal(act(w, 's-seat', [0, 3]), 2);
   solve(w, 's-seat'); solve(w, 's-device');

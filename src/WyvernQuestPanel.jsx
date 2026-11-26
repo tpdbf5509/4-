@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { wqSpotById, wqSpotIndex, wqHas, wqView, wqStep, wqLock, wqCond } from './game/wyvernQuest.js';
-import { WQ_LOG, WQ_DESK, WQ_TRIAL, WQ_LOOKS, WQ_LOOK_NAMES, WQ_FOUND } from './game/wyvernQuestData.js';
+import { WQ_LOG, WQ_DESK, WQ_TRIAL, WQ_LOOKS, WQ_LOOK_NAMES, WQ_FOUND, WQ_NAME, AQ_LOG, AQ_LOOKS, AQ_LOOK_NAMES, AQ_LINE, AQ_TITLE } from './game/wyvernQuestData.js';
 import sfx from './game/sfx.js';
 
 /* Wyvern Knight 006 획득 루트 조사 창 — 마술사 루트 조사 창과 같은 마을 대화 틀(.shop.village-panel.eq-panel)을 쓴다.
@@ -27,6 +27,10 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
 
   // 잠든 신전 세 곳 — 이번에 처음 보는 곳이면 대사 끝에 진행(n/3)이나 다음 단계 안내를 붙인다
   const lookTail = (flag) => {
+    if (AQ_LOOKS.includes(flag) && !has(flag)) {                     // 귀환로의 흔적 셋(아르카디온 획득)
+      const n = AQ_LOOKS.filter(has).length + 1;
+      return n >= AQ_LOOKS.length ? ['|세 흔적을 모두 살폈다. 쓰러진 표지석을 읽을 수 있다.'] : [`|조사한 곳 ${n}/${AQ_LOOKS.length} — ${AQ_LOOK_NAMES}`];
+    }
     if (!WQ_LOOKS.includes(flag) || has(flag)) return [];
     const n = WQ_LOOKS.filter(has).length + 1;
     return n >= WQ_LOOKS.length ? WQ_FOUND : [`|조사한 곳 ${n}/${WQ_LOOKS.length} — ${WQ_LOOK_NAMES}`];
@@ -38,7 +42,23 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
   }
   useEffect(() => {
     const h = h0();
+    if (a.tr && wqView(h)?.tr) { onAct(spotId); return onClose(); }   // 귀환로 시련 중 — 표식 지시 · 붙들기 · 잠그기는 바로 보낸다
     if (a.need && k !== 'gate' && !wqCond(h, a.need)) return read(wqLock(a));
+    if (k === 'aqDoor') return read(['|바위벽에 숨어 있던 돌문이 열려 있다. 붉은 선이 문틈 안으로 이어진다.', `${WQ_NAME}|따라와.`], 'aqIn');
+    if (k === 'anchor') {
+      if (has(`a_lock${a.n + 1}`)) return read(['|고정쇠가 단단히 잠겨 돌판을 붙들고 있다.']);
+      if (a.n > 0 && !has(`a_lock${a.n}`)) return read([`|돌판이 흔들린다. ${a.n}번 고정쇠부터 잠가야 한다.`]);
+      return read(['|돌판 아래 고정쇠가 풀려 있다. 옛 기사의 잔영이 돌판 위를 서성인다.', '|잔영이 내려찍을 자리가 붉은 원으로 보이면, 아스라를 다른 표식으로 부른다(표식 앞에서 상호작용).', '|빗나간 뒤 4초 안에 고정쇠를 잠근다. 끝 돌판은 기울어지니 아스라에게 붙들게 한 뒤 잠근다.'], 'aqTrial');
+    }
+    if (k === 'home') {
+      if (has('a_return')) return read(AQ_LINE.back);
+      return read([`|귀환로 머리. 바깥 발판 끝에서 ${WQ_NAME}가 이쪽을 보고 있다.`], 'aqHome');
+    }
+    if (k === 'sword') {
+      if (has('a_got')) return read(['|검을 뽑아낸 자리에 두 줄 홈만 남았다.']);
+      if (!has('a_return')) return read(['|끝 돌판 아래 검날이 박혀 돌판을 받치고 있다. 검날이 팽팽하게 떨린다.', '|지금 뽑으면 돌판이 무너진다. 길을 먼저 고정해야 한다.']);
+      return read(['|장력이 풀린 검날이 조용하다. 손잡이에 붉은 천이 감겨 있다.'], 'aqSword');
+    }
     if (k === 'talk') { const tail = lookTail(a.set); onAct(spotId); return read([...a.lines, ...tail]); }
     if (k === 'steps') return stepNext(a.intro || []);
     if (k === 'gate') {
@@ -104,18 +124,24 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
   const choice = (items) => <div className="story-picks" role="group" aria-label={s.name}>
     {items.map(([t, fn]) => <button type="button" key={t} className="story-pick" onClick={fn}>{t}</button>)}
   </div>;
+  // 아르카디온 획득 — 지금 단계 한 줄
+  const aqNote = () => has('a_got') ? '아르카디온을 얻었다' : has('a_return') ? '검날의 장력이 풀렸다' : has('a_lock3') ? '귀환 지점에서 아스라를 부르자'
+    : has('a_latch') ? `고정쇠 ${[1, 2, 3].filter((i) => has(`a_lock${i}`)).length}/3` : has('a_stone') ? '위쪽 표식 · 아래쪽 걸쇠'
+    : has('a_start') ? `흔적 ${AQ_LOOKS.filter(has).length}/${AQ_LOOKS.length}` : AQ_TITLE;
   void tick;
   return <>
     <div className="rpg-menu-back" onClick={onClose}/>
     <section className="shop village-panel eq-panel nq-panel wq-panel" role="dialog" aria-modal="true" aria-labelledby="wq-dialog-title" ref={box} tabIndex={-1}
       onKeyDown={(e) => { if (e.key === 'Escape') onClose(); else if ((e.key === 'Enter' || e.key === ' ') && mode === 'read' && !log) { e.preventDefault(); next(); } }}>
       <header className="shop-top">
-        <div className="shop-title"><b id="wq-dialog-title">{s.name}</b><span>{has('ember_got') && !has('awakened') ? '용심 불씨를 지녔다' : has('wyvern_found') && !has('ember_got') ? '다음 — 와이번을 깨울 불씨' : s.map === 'wq_sanctum' && !has('wyvern_found') ? `조사 ${WQ_LOOKS.filter(has).length}/${WQ_LOOKS.length}` : '조사'}</span></div>
+        <div className="shop-title"><b id="wq-dialog-title">{s.name}</b><span>{s.id.startsWith('ra-') || s.id === 'br-door' ? aqNote() : has('ember_got') && !has('awakened') ? '용심 불씨를 지녔다' : has('wyvern_found') && !has('ember_got') ? '다음 — 와이번을 깨울 불씨' : s.map === 'wq_sanctum' && !has('wyvern_found') ? `조사 ${WQ_LOOKS.filter(has).length}/${WQ_LOOKS.length}` : '조사'}</span></div>
         <button type="button" className="shop-x" aria-label="창 닫기" onClick={onClose}>×</button>
       </header>
       {log && <div className="story-log" role="region" aria-label="옛 날개의 기록">
         {WQ_LOG.filter((q) => has(q.f)).map((q) => <p key={q.f}>{q.t}</p>)}
-        {!WQ_LOG.some((q) => has(q.f)) && <p>아직 적어 둔 것이 없다.</p>}
+        {AQ_LOG.some((q) => has(q.f)) && <p><b>「{AQ_TITLE}」</b></p>}
+        {AQ_LOG.filter((q) => has(q.f)).map((q) => <p key={q.f}>{q.t}</p>)}
+        {![...WQ_LOG, ...AQ_LOG].some((q) => has(q.f)) && <p>아직 적어 둔 것이 없다.</p>}
       </div>}
       {!log && mode === 'read' && line && (
         <button type="button" className={`village-dialogue-line${line[0] ? '' : ' nar'}`} onClick={next} aria-label="대사 넘기기">
@@ -139,6 +165,14 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
         ...(has('wyvern_found') ? [['최종 신전으로 곧장 간다', () => { onAct(spotId, 2); onClose(); }]] : []),
         ['그만둔다', onClose]])}
       {!log && input === 'altar' && choice([['불씨를 숨결 가까이에 둔다', () => send(0, () => read(['|석등을 제단 홈에 건다. 불씨가 와이번의 숨결 쪽으로 기운다.', '|성에가 바닥으로 떨어진다. 와이번이 앞발부터 일으킨다.']))], ['나중에', onClose]])}
+      {!log && input === 'aqIn' && choice([['들어가기', () => { onAct(spotId, 1); onClose(); }], ['그만둔다', onClose]])}
+      {!log && input === 'aqTrial' && <div className="eq-row eq-end">
+        <button type="button" className="shop-btn main" onClick={() => { onAct(spotId); onClose(); }}>시련 시작 — 끊어진 귀환로</button>
+        <button type="button" className="shop-btn" onClick={onClose}>나중에</button>
+      </div>}
+      {!log && input === 'aqHome' && choice([[`${WQ_NAME}를 부른다`, () => { onAct(spotId); onClose(); }], ['나중에', onClose]])}
+      {!log && input === 'aqSword' && choice([['아르카디온을 뽑는다', () => send(0, (c) => (c === 1 ? read(['|아르카디온을 뽑았다. 무기 가방에 넣었다.', `${WQ_NAME}|그 검은 이제 네 길을 버틸 거다.`])
+        : c === 7 ? read([`|${AQ_LINE.full}`], 'aqSword') : c === 8 ? read(['|이미 지닌 아르카디온이 검날과 같은 결로 울린다. 기록을 마쳤다.']) : read([])))], ['나중에', onClose]])}
       {!log && input === 'go' && <div className="eq-row eq-end"><button type="button" className="shop-btn main" onClick={() => { onAct(spotId, 1); onClose(); }}>들어가기</button></div>}
       {!log && input === 'trial' && <div className="eq-row eq-end">
         <button type="button" className="shop-btn main" onClick={() => { onAct(spotId); onClose(); }}>시련 시작 — {WQ_TRIAL.names[a.id]}</button>
@@ -154,7 +188,7 @@ export default function WyvernQuestPanel({ spotId, getHero, tick, onAct, onContr
         </div>
       </div>}
       <footer className="village-dialogue-actions">
-        {WQ_LOG.some((q) => has(q.f)) && <button type="button" className="shop-btn" aria-pressed={log} onClick={() => setLog(!log)}>{log ? '돌아가기' : '옛 날개의 기록'}</button>}
+        {[...WQ_LOG, ...AQ_LOG].some((q) => has(q.f)) && <button type="button" className="shop-btn" aria-pressed={log} onClick={() => setLog(!log)}>{log ? '돌아가기' : '옛 날개의 기록'}</button>}
         {!log && mode === 'read' && <button type="button" className="shop-btn main" onClick={next}>{at + 1 < lines.length || after ? '다음' : '닫기'}</button>}
         {(log || mode !== 'read') && <button type="button" className="shop-btn" onClick={onClose}>닫기</button>}
       </footer>

@@ -3581,7 +3581,7 @@ export const rpgEq = (g, pi, req) => eqInput(eqEngine, g, pi, req);   // 입력 
 const nqEngine = { ...eqEngine, bagRoom: advEngine.bagRoom, gear: advEngine.gear };
 export const rpgNq = (g, pi, req) => nqInput(nqEngine, g, pi, req);   // 입력 kind "nq"
 export const rpgIq = (g, pi, req) => iqInput(eqEngine, g, pi, req);   // 입력 kind "iq" — Illusionist 005 획득 루트(illusionQuest.js)
-export const rpgWq = (g, pi, req) => wqInput(eqEngine, g, pi, req);   // 입력 kind "wq" — Wyvern Knight 006 획득 루트(wyvernQuest.js)
+export const rpgWq = (g, pi, req) => wqInput(nqEngine, g, pi, req);   // nqEngine — 아르카디온 획득에서 무기 한 자루(bagRoom · gear)   // 입력 kind "wq" — Wyvern Knight 006 획득 루트(wyvernQuest.js)
 /* 히든 직업 Necromancer 004(necroJob.js, 11월 17일 — 격자 연습장에만). 기준 피해 · 시전 객체는 Gambler 002 와 같다.
    trace: 추출 가능 흔적을 남기는 몹(보스 · 월드 · 길드 보스 포함, 11월 23일 — 허수아비 · 800~1200 소환물 · 시험 몹 제외) · bounds: 맵 [너비, 높이, 위 벽] · stop: 걷기 멈춤 */
 const necroEngine = { ...gamblerEngine,
@@ -4061,7 +4061,7 @@ function stepHeroes(g, dt) {
     tickEngineer(engineerEngine, g, h, cdt);       // Engineer 003 — 전력 · 과열 · 펄스 · 설치물
     tickNq(nqEngine, g, h, cdt);                   // Necromancer 004 획득 루트 — 의식 · 미믹 · 빛 띠 · 시험 · 계승
     tickIq(eqEngine, g, h, cdt);                   // Illusionist 005 획득 루트 — 최종 시험(테스트 서버 표시 h.ilt)
-    tickWq(eqEngine, g, h, cdt);                   // Wyvern Knight 006 획득 루트 — 세 시련 · 결투(테스트 서버 표시 h.wyt)
+    tickWq(nqEngine, g, h, cdt);                   // Wyvern Knight 006 획득 루트 — 세 시련 · 결투(테스트 서버 표시 h.wyt)
     tickNecro(necroEngine, g, h, cdt);             // Necromancer 004 — 영혼 · 그림자 · 예약 타격 · 영역
     tickWyvernJob(wyvernEngine, g, h, cdt);        // Wyvern Knight 006 — 용혈 · 와이번 · 예약 타격 · 변신
     tickIllusion(illusionEngine, g, h, cdt);       // Illusionist 005 — 트릭 · 카드 · 스킬 진행 · 잔상 · 거울 집

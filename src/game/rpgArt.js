@@ -26,7 +26,8 @@ import { nqSpotNear, nqView } from './necroQuest.js';
 import { iqSpotsOn, drawIqSpot, drawIqGround, iqTrialBodies, drawIqBody } from './illusionQuestArt.js';   // Illusionist 005 획득 루트
 import { iqSpotNear } from './illusionQuest.js';
 import { wqSpotsOn, drawWqSpot, drawWqGround, wqBodies, drawWqBody } from './wyvernQuestArt.js';   // Wyvern Knight 006 획득 루트
-import { wqSpotNear } from './wyvernQuest.js';
+import { wqSpotNear, wqView } from './wyvernQuest.js';
+import { AQ } from './wyvernQuestData.js';   // 아르카디온 획득 — 칼등 정상 장면 카메라
 import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003 — 무기 그림을 들지 않는다 · 설치물 몸
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
@@ -2658,6 +2659,10 @@ function follow(g, M) {
   const zt = wide ? Math.min(1, W / M.w, H / M.h) : camZoom(M);
   const z0 = g.cam && g.cam.map === M.id ? g.cam.z || 1 : zt;
   const z = Math.abs(zt - z0) < 0.003 ? zt : z0 + (zt - z0) * 0.06, vw = W / z, vh = H / z;
+  // 아르카디온 획득 — 칼등 정상에서 아스라를 부르면 잠시 정상 바위를 비춘다(이야기 장면과 같은 camFocus)
+  const aqs = me && M.id === AQ.summit.map ? wqView(me)?.sc : null;
+  if (aqs && aqs.k === 'summit') { if (!g.aqCam) { g.aqCam = 1; g.camFocus = { x: AQ.sit[0] + 30, y: AQ.sit[1] - 40, map: M.id, lift: 0, until: performance.now() + AQ.scene.cam * 1000 }; } }
+  else g.aqCam = 0;
   // 이야기 장면을 막 열었으면 잠깐 나와 상대 사이를 본다(RpgView talk — storyLines.js STORY_FX.focus)
   const fc = g.camFocus && g.camFocus.map === M.id && performance.now() < g.camFocus.until ? g.camFocus : null;
   const at = fc || me;

@@ -3166,7 +3166,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     </span>
                   </div>
                   <div className="rpg-test-go">
-                    <span className="rpg-test-go-head">와이번 나이트 「잠든 날개의 서약」 <em>앞 단계는 끝낸 것으로 하고 그 단계 자리에 섭니다</em></span>
+                    <span className="rpg-test-go-head">와이번 나이트 「잠든 날개의 서약」 · 아르카디온(A, 직업 레벨 5 이상) <em>앞 단계는 끝낸 것으로 하고 그 단계 자리에 섭니다</em></span>
                     <span className="rpg-test-spots">
                       {WQ_STAGE_LIST.map((q, i) => (
                         <button key={q.name} type="button" className="rpg-win-btn" onClick={() => act("train", { op: "wq", n: i })}>{q.name}</button>

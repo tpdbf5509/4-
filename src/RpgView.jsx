@@ -2188,9 +2188,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             <>
               <div className="hud2-top" style={{ "--pc": myEl.key, "--pcl": myEl.light }}>
                 <b className="hud2-lv">Lv {me.lv}</b>
-                <span className="hud2-name">{names[mySeat] || "모험가"} {who(mySeat)}</span>
+                <span className="hud2-name">{who(mySeat)}</span>
                 {me.admin && <em className="rpg-admin">관리자</em>}
-                <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
               </div>
               <div className="hud2-quest">{questBox}</div>
               <div className="hud2-dock">
@@ -2203,6 +2202,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <span className="rpg-lv-num">{me.lv >= LV_MAX ? "MAX" : `${Math.floor(me.xp)}/${me.need}`}</span></span>
                   <BloodBar v={me.blood} />
                   <GamblerBar v={me.gm} />
+                  {me.wy && <span className="rpg-lv-row"><span className="rpg-lv-tag">용혈</span>
+                    <span className="rpg-lv-bar wy"><span style={{ width: `${Math.min(100, (me.wy.blood / (me.wy.max || 1)) * 100)}%` }} /></span>
+                    <span className="rpg-lv-num">{Math.round((me.wy.blood / (me.wy.max || 1)) * 100)}%</span></span>}
                 </div>
                 <div className="rpg-side hud2-slots" onPointerOver={onSideOver} onPointerDown={onSideOver}>{actionBars}</div>
               </div>

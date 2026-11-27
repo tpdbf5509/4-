@@ -3434,64 +3434,85 @@ button.forge-stage:disabled { cursor: default; }
 }
 
 /* ── 새 화면 구성 hud2 (11월 27일 사용자 수정안 · 테스트 서버 ?test 에서만) ──────────────────
-   판 위 가운데 아래에 스킬 판(다크 월넛) · 왼쪽 막대 · 오른쪽 물약, 오른쪽 아래에 창 단추 줄.
-   스킬 칸 모양은 옛 .rpg-side .icons 규칙을 빌려 쓰고(히든 직업 칸도 그대로 나온다) 크기만 줄인다 */
+   원본 그림(1672 × 941)을 기준으로 길이를 --u(= 판 너비 / 1672)로 잡아 판 크기에 맞춰 함께 줄고 는다.
+   판은 16:9 로 창을 채우고, 그림(1160 × 760)은 가로를 맞춰 위아래만 조금 잘린다 */
+.hud2 { --u: 0.0598cqw; }
+.hud2.rpg-page { padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.hud2 .stage { width: min(100vw, calc(100vh * 16 / 9)); max-width: none; margin: 0; }
+.hud2 .frame { aspect-ratio: 16 / 9; border-radius: 0; border-width: 1px; box-shadow: none; }
+.hud2 .frame canvas { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+.rpg-page.hud2:fullscreen .stage { width: min(100vw, calc(100vh * 16 / 9)); }
 .hud2 .hud2-top {
-  position: absolute; left: 14px; top: 12px; z-index: 3; display: flex; align-items: baseline; gap: 8px; pointer-events: none;
-  color: #f3e6c6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); letter-spacing: -0.02em;
+  position: absolute; left: calc(var(--u) * 150); top: calc(var(--u) * 22); z-index: 3; display: flex; align-items: center; gap: calc(var(--u) * 12); pointer-events: none;
+  color: #f3e6c6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); letter-spacing: -0.02em; font-size: calc(var(--u) * 17);
 }
-.hud2 .hud2-lv { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 17px; color: #ffe08a; }
-.hud2 .hud2-name { font-size: 14px; }
-.hud2 .hud2-top .rpg-admin { margin-left: 0; background: rgba(20, 14, 8, 0.55); }
-.hud2 .hud2-top .rpg-lv-coin { font-size: 13px; }
-.hud2 .hud2-quest { position: absolute; right: 108px; top: 12px; z-index: 3; max-width: min(360px, 38%); }
-.hud2 .hud2-quest .rpg-quest { position: static; max-width: 100%; text-align: right; align-items: flex-end; }
-.hud2 .hud2-dock { position: absolute; left: 50%; bottom: 10px; z-index: 3; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 14px; pointer-events: none; }
+.hud2 .hud2-lv { font-family: 'Do Hyeon', sans-serif; font-weight: 400; color: #ffe08a; }
+.hud2 .hud2-top .rpg-admin { margin-left: 0; background: rgba(20, 14, 8, 0.55); font-size: calc(var(--u) * 12); }
+.hud2 .hud2-quest { position: absolute; right: calc(var(--u) * 130); top: calc(var(--u) * 22); z-index: 3; max-width: 38%; }
+.hud2 .hud2-quest .rpg-quest { position: static; max-width: 100%; align-items: flex-end; text-align: right; border: 0; background: none; padding: 0; font-size: calc(var(--u) * 14); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); }
+.hud2 .rpg-quest-go { margin-left: calc(var(--u) * 10); }
+.hud2 .hud2-dock { position: absolute; left: calc(var(--u) * 370); right: 0; bottom: calc(var(--u) * 43); z-index: 3; display: flex; align-items: flex-end; gap: calc(var(--u) * 20); pointer-events: none; }
 .hud2 .hud2-dock > * { pointer-events: auto; }
-.hud2 .hud2-bars { width: 196px; display: flex; flex-direction: column; gap: 5px; padding-bottom: 6px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); }
-.hud2 .hud2-bars .rpg-lv-row { grid-template-columns: 28px 1fr auto; }
-.hud2 .hud2-bars .rpg-lv-num { min-width: 0; font-size: 10px; }
-/* .rpg-side 옛 판(그림 테두리)을 걷어 낸다 */
-.hud2 .rpg-side.hud2-slots {
-  flex: none; min-height: 0; padding: 0; border: 0; border-image: none; background: none; filter: none; gap: 0;
-}
-.hud2 .rpg-side .rpg-touch-actions { flex-direction: row; align-items: flex-end; gap: 12px; overflow: visible; }
+.hud2 .hud2-bars { width: calc(var(--u) * 335); display: flex; flex-direction: column; gap: calc(var(--u) * 7); margin-bottom: calc(var(--u) * 14); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); }
+.hud2 .hud2-bars .rpg-lv-row { grid-template-columns: calc(var(--u) * 138) calc(var(--u) * 196) 1fr; gap: 0; }
+.hud2 .hud2-bars .rpg-lv-tag { grid-column: 1; font-size: calc(var(--u) * 13); color: #e8dcc0; }
+.hud2 .hud2-bars .rpg-lv-bar { grid-column: 2; grid-row: 1; height: calc(var(--u) * 8); }
+.hud2 .hud2-bars .rpg-lv-num { grid-column: 1; grid-row: 1; justify-self: end; margin-right: calc(var(--u) * 10); min-width: 0; font-size: calc(var(--u) * 13); color: #f1e6c9; padding-right: calc(var(--u) * 0); }
+.hud2 .hud2-bars .rpg-lv-tag { justify-self: start; }
+.hud2 .rpg-lv-bar.wy > span { background: linear-gradient(#e06a62, #b5403c); }
+/* 오른쪽 옛 판(그림 테두리)을 걷어 낸다 */
+.hud2 .rpg-side.hud2-slots { flex: none; min-height: 0; padding: 0; border: 0; border-image: none; background: none; filter: none; gap: 0; }
+.hud2 .rpg-side .rpg-touch-actions { flex-direction: row; align-items: flex-end; gap: calc(var(--u) * 24); overflow: visible; }
+.hud2 .rpg-hid-stat { align-self: center; margin-bottom: calc(var(--u) * 10); padding-left: calc(var(--u) * 20); border-left: 1px solid rgba(226, 205, 165, 0.3); font-size: calc(var(--u) * 14); color: #e8dcc0; }
+.hud2 .rpg-hid-stat .gm-bar { padding: 0; border: 0; background: none; margin: 0; }
+.hud2 .rpg-hid-stat .gm-bar:has(.wy-blood) .gm-top { display: none; }
+.hud2 .rpg-hid-stat .gm-notes { margin: 0; font-size: calc(var(--u) * 14); color: #e8dcc0; white-space: nowrap; }
+/* 스킬 판 — 한 줄(열 칸) · 5칸씩 나뉜다 */
 .hud2 .rpg-side .icons .rpg-skillbar {
-  display: flex; flex-wrap: nowrap; gap: 4px; padding: 6px 8px 7px; border-radius: 9px;
-  background: linear-gradient(#3b2b1b, #2a1d12); border: 1px solid #8a6a3f; box-shadow: 0 3px 0 #1c130a, 0 6px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 226, 170, 0.08);
+  display: flex; flex-wrap: nowrap; align-items: flex-end; gap: calc(var(--u) * 6); padding: calc(var(--u) * 8) calc(var(--u) * 10) calc(var(--u) * 7); border-radius: calc(var(--u) * 8);
+  background: linear-gradient(#3a2a1b, #2a1d12); border: 1px solid #8a6a3f; box-shadow: 0 calc(var(--u) * 3) 0 #1c130a, 0 calc(var(--u) * 6) calc(var(--u) * 14) rgba(0, 0, 0, 0.45);
 }
-.hud2 .rpg-side .icons .rpg-potbar { display: flex; gap: 4px; padding: 0; border: 0; }
-.hud2 .rpg-side .icons .rpg-skill, .hud2 .rpg-side .icons .rpg-skillbar .rpg-skill, .hud2 .rpg-side .icons .rpg-skill.pot {
-  width: 44px; min-width: 0; min-height: 54px; padding: 16px 0 0; justify-content: flex-start; flex: none;
-  background: rgba(20, 14, 8, 0.55); border: 1px solid rgba(226, 205, 165, 0.22); border-radius: 6px;
+.hud2 .rpg-skillbar > .gm-bar.side, .hud2 .rpg-skillbar .gm-skills { display: contents; }
+.hud2 .rpg-skillbar > .gm-bar.side { margin: 0; padding: 0; border: 0; background: none; }
+.hud2 .rpg-skillbar .gm-skills { margin: 0; }
+.hud2 .rpg-side .icons .rpg-potbar { display: flex; gap: calc(var(--u) * 4); padding: 0; border: 0; align-items: flex-end; }
+/* 칸 — 위에 키 이름 · 아래 아이콘. 칸 이름 글자는 숨긴다 */
+.hud2 .rpg-side .icons .rpg-skill, .hud2 .rpg-side .icons .rpg-skillbar .rpg-skill, .hud2 .rpg-skillbar .gm-skill,
+.hud2 .rpg-side .icons .rpg-skill.pot {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: none; gap: 0;
+  width: calc(var(--u) * 56); min-width: 0; height: calc(var(--u) * 74); min-height: 0; padding: 0 0 calc(var(--u) * 2); box-sizing: border-box;
+  background: rgba(20, 14, 8, 0.5); border: 1px solid rgba(226, 205, 165, 0.14); border-radius: calc(var(--u) * 6); overflow: visible;
 }
-.hud2 .rpg-side .icons .rpg-skill.pot { background: rgba(20, 14, 8, 0.4); border-color: rgba(160, 196, 150, 0.35); }
-.hud2 .rpg-side .icons .rpg-skill .rpg-ico, .hud2 .rpg-side .icons .rpg-skillbar .rpg-skill .rpg-ico, .hud2 .rpg-side .icons .rpg-skill.pot .rpg-ico { width: 34px; height: 34px; margin: 0; background-size: auto; }
-.hud2 .rpg-side .icons .rpg-skill kbd { left: 50%; top: 2px; transform: translateX(-50%); font-size: 9.5px; white-space: nowrap; }
-.hud2 .rpg-side .icons .rpg-skill > span:not(.rpg-ico) { display: none; }   /* 칸 이름은 스킬 설명 창(M)에서 본다 */
-.hud2 .rpg-side .icons .rpg-skillbar .rpg-skill em { top: 20px; font-size: 17px; }
-.hud2 .rpg-side .icons .rpg-skill.pot em { position: static; margin: 1px 0 0; font-size: 12px; color: #d9e8cd; }
-.hud2 .rpg-side .icons .rpg-skill.pot.empty { justify-content: center; padding-top: 14px; }
-.hud2 .rpg-side .icons .rpg-skill.pot.empty > span { display: none; }
-.hud2 .rpg-side .icons .rpg-skill.pot.empty::after { content: "+"; font-size: 18px; color: #a99a7e; }
-.hud2 .rpg-hid-stat { align-self: center; max-width: 160px; font-size: 12px; color: #e8dcc0; }
-.hud2 .hud2-icons { position: absolute; right: 12px; bottom: 12px; z-index: 3; display: flex; gap: 2px; }
-.hud2 .hud2-ico {
-  position: relative; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; cursor: pointer;
-  border: 1px solid transparent; border-radius: 8px; background: none; color: #e3c48a;
+.hud2 .rpg-side .icons .rpg-skill.pot { width: calc(var(--u) * 46); height: calc(var(--u) * 70); background: rgba(20, 14, 8, 0.35); border-color: rgba(160, 196, 150, 0.3); }
+.hud2 .rpg-side .icons .rpg-skill .rpg-ico, .hud2 .rpg-skillbar .gm-skill .gm-ico { zoom: calc(var(--u) * 55 / 48); }
+.hud2 .rpg-side .icons .rpg-skill .rpg-ico, .hud2 .rpg-side .icons .rpg-skillbar .rpg-skill .rpg-ico { width: 38px; height: 38px; margin: 0; }
+.hud2 .rpg-side .icons .rpg-skill.pot .rpg-ico { width: 38px; height: 38px; zoom: calc(var(--u) * 34 / 38); }
+.hud2 .rpg-skillbar .gm-skill .gm-label, .hud2 .rpg-side .icons .rpg-skill > span:not(.rpg-ico) { display: none; }
+.hud2 .rpg-side .icons .rpg-skill kbd, .hud2 .rpg-skillbar .gm-skill kbd {
+  position: absolute; left: 50%; top: calc(var(--u) * 3); transform: translateX(-50%); padding: 0 calc(var(--u) * 5); border-radius: calc(var(--u) * 3);
+  font: 400 calc(var(--u) * 12) / calc(var(--u) * 18) 'Do Hyeon', sans-serif; white-space: nowrap; color: #f1e3c0; background: rgba(20, 14, 8, 0.8); border: 1px solid rgba(226, 205, 165, 0.3);
 }
-.hud2 .hud2-ico svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
+.hud2 .rpg-skillbar .gm-skill .gm-ico b { font-size: calc(var(--u) * 20); }
+.hud2 .rpg-side .icons .rpg-skillbar .rpg-skill em { top: calc(var(--u) * 30); font-size: calc(var(--u) * 22); }
+.hud2 .rpg-side .icons .rpg-skill.pot em { position: static; margin: calc(var(--u) * 1) 0 0; font-size: calc(var(--u) * 14); color: #d9e8cd; }
+.hud2 .rpg-side .icons .rpg-skill.pot.empty { justify-content: center; }
+.hud2 .rpg-side .icons .rpg-skill.pot.empty::after { content: "+"; font-size: calc(var(--u) * 20); color: #a99a7e; }
+.hud2 .rpg-skillbar > .gm-bar.side .gm-skill:nth-child(5):not(:last-child), .hud2 .rpg-skillbar > .rpg-skill:nth-child(5):not(:last-child) { margin-right: calc(var(--u) * 10); }
+.hud2 .rpg-skillbar .gm-skill:nth-child(5):not(:last-child)::after { content: ""; position: absolute; right: calc(var(--u) * -9); top: calc(var(--u) * 6); bottom: calc(var(--u) * 6); width: 1px; background: rgba(226, 205, 165, 0.3); }
+.hud2 .hud2-icons { position: absolute; right: calc(var(--u) * 40); bottom: calc(var(--u) * 52); z-index: 3; display: flex; gap: calc(var(--u) * 14); }
+.hud2 .hud2-ico { position: relative; width: calc(var(--u) * 34); height: calc(var(--u) * 34); padding: 0; display: grid; place-items: center; cursor: pointer; border: 1px solid transparent; border-radius: calc(var(--u) * 8); background: none; color: #e8cf94; }
+.hud2 .hud2-ico svg { width: calc(var(--u) * 28); height: calc(var(--u) * 28); fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
 .hud2 .hud2-ico:hover, .hud2 .hud2-ico.on { border-color: #8a6a3f; background: rgba(58, 42, 25, 0.8); }
-.hud2 .hud2-ico b { position: absolute; right: 0; top: -2px; min-width: 14px; padding: 0 3px; border-radius: 999px; background: #3b2b1b; border: 1px solid #d6b26a; font: 400 10px/13px 'Do Hyeon', sans-serif; color: #ffe08a; text-align: center; }
-.hud2 .rpg-menu { left: auto; right: 12px; top: auto; bottom: 56px; max-height: calc(100% - 140px); }
-.hud2 .rpg-chat { bottom: 88px; }
-.hud2 .rpg-buffs { bottom: 88px; }
-.hud2 .stage { max-width: min(1400px, calc((100vh - 84px) * 1.53)); }   /* 오른쪽 판이 빠진 만큼 판을 넓힌다(세로가 모자라면 가로를 줄인다) */
-.hud2 .hud2-bars { padding: 7px 9px 6px; border-radius: 9px; background: linear-gradient(rgba(20, 14, 8, 0.62), rgba(20, 14, 8, 0.5)); border: 1px solid rgba(214, 178, 106, 0.22); }
-.hud2 .hud2-bars .rpg-lv-tag { color: #d8c293; }
-.hud2 .hud2-bars .rpg-lv-num { color: #f1e6c9; }
-.hud2 .hud2-icons { bottom: 84px; }   /* 판이 좁으면 스킬 판 위 줄로 올린다 */
-@container (min-width: 1180px) {
-  .hud2 .hud2-icons { bottom: 12px; }
-  .hud2 .hud2-dock { left: calc(50% - 110px); }
-}
+.hud2 .hud2-ico b { position: absolute; right: calc(var(--u) * -4); top: calc(var(--u) * -4); min-width: 14px; padding: 0 3px; border-radius: 999px; background: #3b2b1b; border: 1px solid #d6b26a; font: 400 10px/13px 'Do Hyeon', sans-serif; color: #ffe08a; text-align: center; }
+.hud2 .rpg-menu { left: auto; right: calc(var(--u) * 24); top: auto; bottom: calc(var(--u) * 100); max-height: calc(100% - 120px); }
+.hud2 .rpg-chat { left: calc(var(--u) * 38); bottom: calc(var(--u) * 52); width: min(calc(var(--u) * 320), 90%); }
+.hud2 .rpg-buffs { bottom: calc(var(--u) * 150); right: calc(var(--u) * 40); }
+.hud2 .rpg-side .gm-bar.side .gm-skill, .hud2 .rpg-side .icons .rpg-skillbar .gm-skill { width: calc(var(--u) * 56); min-height: 0; }
+.hud2 .hud2-bars .rpg-lv-tag { grid-row: 1; }
+/* 원본 배치 — 막대 · 메모는 스킬 판 위 줄, 스킬 판 · 물약은 아래 줄 */
+.hud2 .hud2-dock { left: calc(var(--u) * 365); right: auto; gap: 0; }
+.hud2 .hud2-bars { position: absolute; left: calc(var(--u) * 5); bottom: calc(100% + var(--u) * 10); margin: 0; }
+.hud2 .rpg-side .rpg-touch-actions { gap: calc(var(--u) * 30); }
+.hud2 .rpg-hid-stat { position: absolute; left: calc(var(--u) * 360); bottom: calc(100% + var(--u) * 22); margin: 0; padding: calc(var(--u) * 4) 0 calc(var(--u) * 4) calc(var(--u) * 22); }
+.hud2 .hud2-top { font-size: calc(var(--u) * 20); }
+.hud2 .hud2-bars .rpg-lv-num { justify-self: start; margin: 0 0 0 calc(var(--u) * 38); }

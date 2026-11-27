@@ -2651,8 +2651,8 @@ function drawTiled(ctx, im, M, cam, VW = W, VH = H) {   // VW · VH = 카메라�
 }
 
 /* 내 영웅을 따라가는 화면 — 맵 끝에 닿으면 멈춘다 */
-// 카메라를 k 배로 뒤로 당기되, 맵 밖(빈 곳)이 보일 만큼은 당기지 않는다(새 화면 구성 hud2 — 광장은 이미 맵이 화면에 꼭 맞아 그대로)
-const zoomBack = (z, k, M) => (k && k < 1 ? Math.max(z * k, Math.min(z, W / M.w, H / M.h)) : z);
+// 카메라를 k 배로 뒤로 당기되, 맵 밖(빈 곳)이 보일 만큼은 당기지 않는다(새 화면 구성 hud2 — 화면이 맵보다 넓어지지 않도록 가로 · 세로 모두 맵 안에 들게 멈춘다. 맵이 작은 곳은 그대로)
+const zoomBack = (z, k, M) => (k && k < 1 ? Math.max(z * k, Math.min(z, Math.max(W / M.w, H / M.h))) : z);
 // 카메라 — z(camZoom)가 1 보다 작으면 화면에 W/z × H/z 만큼의 땅이 보인다. 화면 → 땅 좌표는 화면/z + cam(mouseMove.js · skillAim.js)
 function follow(g, M) {
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
@@ -2848,21 +2848,21 @@ export function drawRpg(ctx, g, bgs) {
     else { ctx.fillStyle='#637d48';ctx.fillRect(0,0,VW,VH); }
   } else if (M.dungeon) {                                    // 던전 — 코드로 그린 바닥(던전마다 하나만 남긴다)
     const bg = bigBg(`dg:${M.dungeon}`, () => paintDungeon(M));
-    if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
-    else { ctx.fillStyle = (DG_LOOKS[M.dungeon] || DG_LOOKS.stone1).floor; ctx.fillRect(0, 0, W, H); }
+    if (bg) ctx.drawImage(bg, cam.x, cam.y, VW, VH, 0, 0, VW, VH);
+    else { ctx.fillStyle = (DG_LOOKS[M.dungeon] || DG_LOOKS.stone1).floor; ctx.fillRect(0, 0, VW, VH); }
   } else if (look) {
     const back = M.high ? highBackImg(M.id) : null;      // 800~1200 — 뒤 풍경 그림이 오면 다시 칠한다
     if (M.high) warmHighArt(M.id);
     const bg = bigBg(`fl:${M.id}:${back ? 1 : 0}`, () => paintFieldLook(M, back));
-    if (bg) drawTiled(ctx, bg, M, cam);
-    else { ctx.fillStyle = look.ground[0]; ctx.fillRect(0, 0, W, H); }
+    if (bg) drawTiled(ctx, bg, M, cam, VW, VH);
+    else { ctx.fillStyle = look.ground[0]; ctx.fillRect(0, 0, VW, VH); }
   } else if (bim) {
     drawTiled(ctx, bim, M, cam, VW, VH);
-    if (M.tint) { ctx.fillStyle = M.tint; ctx.fillRect(0, 0, W, H); }
+    if (M.tint) { ctx.fillStyle = M.tint; ctx.fillRect(0, 0, VW, VH); }
   } else if (mapImgFailed(rpgFile(bgName))) {          // 파일이 없을 때만 예전처럼 코드로 그린다
     const bg = (bgs && bgs[M.id]) || (bgs && (bgs[M.id] = paintMap(M.id)));
-    if (bg) ctx.drawImage(bg, cam.x, cam.y, W, H, 0, 0, W, H);
-  } else { ctx.fillStyle = M.id === "plaza" ? "#4f6e34" : "#557a37"; ctx.fillRect(0, 0, W, H); }
+    if (bg) ctx.drawImage(bg, cam.x, cam.y, VW, VH, 0, 0, VW, VH);
+  } else { ctx.fillStyle = M.id === "plaza" ? "#4f6e34" : "#557a37"; ctx.fillRect(0, 0, VW, VH); }
   ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
   if (look) fieldTrails({ ...M, gates: gatesOf(g, M) }, FIELD_TRAIL).forEach((pts) => dirtPath(ctx, pts, 60, look.path));
   else (M.paths || []).forEach((pts) => dirtPath(ctx, pts, 64));

@@ -1663,6 +1663,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     // 새 화면 구성(hud2)은 판이 커져서 그림 해상도를 화면 크기에 맞춘다 — 1160 × 760 그림을 늘리면 흐려 보였다(최대 2배)
     const fitCanvas = () => {
       const sc = hud2Ref.current ? Math.min(2, Math.max(1, cvs.clientWidth / W)) : 1;
+      cvs.closest(".rpg-page")?.style.setProperty("--wz", hud2Ref.current ? Math.min(1.6, Math.max(1, cvs.clientWidth / 1160)).toFixed(3) : "1");   // 새 화면 구성 — 화면이 커진 만큼 창(가방 · 스탯 · 설정) 글씨도 키운다
       const bw = Math.round(W * dpr * sc);
       if (cvs.width === bw) return;
       cvs.width = bw;

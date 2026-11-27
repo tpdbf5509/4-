@@ -7,7 +7,7 @@
 export const ONYX = {
   name: "오닉스",
   max: 9999999,            // 가질 수 있는 최대(정한 값)
-  icon: "/assets/game/rpg/onyx/icons.webp",   // 4 × 2 칸 아이콘 시트(Codex) — 칸 차례는 OX_ICON
+  icon: "/assets/game/rpg/onyx/icons.webp",   // 4 × 2 칸 아이콘 시트(Codex, 0번 오닉스만 사용자 그림) — 칸 차례는 OX_ICON
   cell: 256,
 };
 // 아이콘 시트 칸 — 0 오닉스 · 1 흑옥 브로치 · 2 단골 배지 · 3 벨벳 망토 · 4 은화 발자국 · 5 성전환 물약 · 6 칭호 메달 · 7 도파민

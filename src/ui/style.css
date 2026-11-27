@@ -3559,3 +3559,5 @@ button.forge-stage:disabled { cursor: default; }
 .hud2 .hud2-ico:hover, .hud2 .hud2-ico.on { border-color: var(--pt); color: var(--pt); background: rgba(227, 196, 138, 0.12); }
 .hud2 .rpg-chat-open { background: var(--pn); border-color: var(--pn-line); color: var(--tx); }
 .hud2 .rpg-chat-line { background: rgba(26, 18, 11, 0.8); color: var(--tx); }
+/* 네크로맨서(11월 27일 사용자) — 테스트 서버 정보 판은 직업 이름 · 영혼 줄만 둔다(명부 목록 · 그림자 기수 줄은 뺀다, 명부 창은 그대로) */
+.hud2 .rpg-hid-stat .gm-bar:has(.nc-soul) .nc-roster, .hud2 .rpg-hid-stat .gm-bar:has(.nc-soul) .gm-notes { display: none; }

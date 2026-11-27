@@ -1,4 +1,5 @@
 import {protectRq} from '../../src/game/requiemData.js';
+import { protectOx } from '../../src/game/onyxData.js';   // 오닉스 · 황금 진열장 물건은 화면 저장으로 늘릴 수 없다(11월 27일)
 /* ── 장부 — Supabase(supabase/rpg.sql · feedback.sql)의 함수를 Cloudflare 에서 그대로 한다 ─────────────
    표는 D1(server/schema.sql). 함수 이름 · 받는 값(p_...) · 돌려주는 모양은 Supabase 때와 같아서 화면은 주소만 바꿨다.
    LedgerCore 는 D1 의 prepare · bind · first · all · run · batch 만 쓴다 — 시험(tools/ledger.test.mjs)은 node:sqlite 로 같은 모양을 흉내 낸다.
@@ -115,7 +116,7 @@ export class LedgerCore {
     const tok = randHex(16), now = this.now();
     const r = await this.run(
       "INSERT INTO chars (name_key, name, code_hash, token_hash, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT (name_key) DO NOTHING",
-      rpgKey(name), name, bcrypt.hashSync(a.p_code, 8), await sha256(tok), JSON.stringify(protectRq(a.p_data)), now, now);
+      rpgKey(name), name, bcrypt.hashSync(a.p_code, 8), await sha256(tok), JSON.stringify(protectOx(protectRq(a.p_data))), now, now);
     if (!r.meta.changes) return { ok: false, err: "taken" };
     return { ok: true, token: tok, name };
   }
@@ -310,7 +311,7 @@ export class LedgerCore {
     if (!isObj(p) || bytes(p) > DATA_MAX) return { ok: false, err: "data" };
     const c = await this.authChar(a.p_name, a.p_token);
     if (!c) return { ok: false, err: "token" };
-    p = protectRq(p, c.data);
+    p = protectOx(protectRq(p, c.data), c.data);
     const now = this.now();
     let note = null;                                   // 막지 않고 남기기만 하는 기록(코인)
     if (!c.admin) {

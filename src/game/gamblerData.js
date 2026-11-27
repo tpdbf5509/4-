@@ -25,7 +25,7 @@ export const GAMBLER = {
   tint: { frost: 75, plum: 130 },
   contract: 150,              // 연마 합계 150 — 황금 계약
   // 직업 레벨 해금(공통 구간) — 기본 1 · 칩 장막 5 · 운명의 눈 15 · 코인 폭우 30 · 더블 다운 55 · 황금 테이블 100 · 하우스 엣지 150 · 777 종결식 200
-  unlock: { chip: 1, veil: 5, dice: 15, rain: 30, dd: 55, table: 100, edge: 150, jack: 200 },
+  unlock: { chip: 1, veil: 5, dice: 15, rain: 30, dd: 55, table: 100, edge: 150, jack: 200, dopa: 1 },   // 도파민 — 직업 레벨 1(11월 27일 정한 값)
   lift: 34,                   // 손 높이(그림 · 탄 시작점) — 다른 원거리 스킬과 같다
 };
 export const GM_TRAIN_NAMES = ["금화 연마", "방어 연마", "행운 연마"];
@@ -76,6 +76,22 @@ export const GM_JACK = { name: "777 종결식", cd: 95, reach: 650, r: 300, coin
 
 /* 조작 — 새 키 칸을 만들지 않고 기존 행동 키를 그대로 쓴다(기획안 "기존 버튼 재사용", 키 설정 창에 히든 직업이 드러나지 않게). 게임 화면 · 연습장이 함께 쓴다.
    act 는 keys.js 행동 id — 그 사람이 바꾼 키도 그대로 따른다. 평타 키는 황금 칩 */
+/* 도파민(11월 27일 사용자 기획) — 카드 한 장을 대상 하나에게 던지고 릴 셋이 결과를 정한다. 결과 · 확률 · PvE 피해는 사용자 표 그대로(합 100%).
+   mul — 기본 공격(황금 칩 ×2.0) 피해의 배수(본전 250% · 적중 600%) · flat — 몹에게 그대로 들어가는 고정 피해(배율 · 치명타 없음).
+   정한 값: 대기 30초 · 직업 레벨 1 · 사거리 600 · 대상 하나(쓰는 순간 포인터에 가장 가까운 적) · 불운 보정 없음 · 사람(결투 · PvP)에게 고정 피해 결과는 적중(600%)과 같게.
+   lock — 릴 셋이 멈추는 초 · hit — 카드가 꽂히는 초(결과마다 연출 길이가 다르다) */
+export const GM_DOPA = { name: "도파민", cd: 30, reach: 600, near: 260,
+  res: [
+    { id: "miss", name: "꽝", p: 20, mul: 0, reel: ["x", "x", "x"], lock: [0.3, 0.45, 0.6], hit: 0.75 },
+    { id: "even", name: "본전", p: 44.28, mul: 2.5, reel: ["coin", "coin", "coin"], lock: [0.3, 0.45, 0.6], hit: 0.8 },
+    { id: "hit", name: "적중", p: 20, mul: 6, reel: ["red", "red", "red"], lock: [0.3, 0.45, 0.6], hit: 0.8 },
+    { id: "seven", name: "세븐", p: 10, flat: 77777777, reel: ["seven", "seven", "seven"], lock: [0.3, 0.5, 0.7], hit: 0.95 },
+    { id: "can", name: "깡통 당첨", p: 0.62, flat: 10000000, reel: ["seven", "seven", "slip"], lock: [0.3, 0.5, 0.85], hit: 1.05 },
+    { id: "big", name: "대박", p: 5, flat: 100000000, reel: ["crown", "crown", "crown"], lock: [0.3, 0.5, 0.7], hit: 0.95 },
+    { id: "jack", name: "잭팟", p: 0.1, flat: 999999999999, reel: ["top", "top", "top"], lock: [0.3, 0.55, 0.9], hit: 1.35, hush: 0.5 },
+  ],
+  pvpMul: 6,     // 사람에게 고정 피해 결과 — 적중과 같은 600%(정한 해석, 결투 상한은 그대로)
+};
 export const GM_SLOTS = [
   { s: "veil", act: "use1" },      // 일반 스킬 칸 1(기본 1)
   { s: "dice", act: "use2" },      // 일반 스킬 칸 2(기본 2)
@@ -84,8 +100,9 @@ export const GM_SLOTS = [
   { s: "table", act: "use5" },     // 직업 스킬 칸(기본 R)
   { s: "edge", act: "adv" },       // 전직 스킬(기본 Z)
   { s: "jack", act: "skill" },     // 큰 기술(기본 Shift)
+  { s: "dopa", act: "wskill" },    // 무기 스킬(기본 X) — 도박꾼은 무기를 들지 않아 비어 있던 키(11월 27일)
 ];
-export const GM_SKILLS = { veil: GM_VEIL, dice: GM_DICE, rain: GM_RAIN, dd: GM_DD, table: GM_TABLE, edge: GM_EDGE, jack: GM_JACK };
+export const GM_SKILLS = { veil: GM_VEIL, dice: GM_DICE, rain: GM_RAIN, dd: GM_DD, table: GM_TABLE, edge: GM_EDGE, jack: GM_JACK, dopa: GM_DOPA };
 
 /* ── 해금 경로 「황금 카지노의 계약」(기획안 14장) ─────────────
    기획안: 시작 단서 광장의 낡은 칩 상자 · 단서 A 상자의 낡은 황금 칩 · B 에르덴 마을의 회수되지 않은 계약서 · C 훈련장의 망가진 주사위 기계 복구.

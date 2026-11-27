@@ -3601,3 +3601,21 @@ button.forge-stage:disabled { cursor: default; }
 .hud2 .hud2-icons { right: calc(var(--u) * 28); bottom: calc(var(--u) * 28); }
 .hud2 .hud2-dock { bottom: calc(var(--u) * 30); }
 .hud2 .rpg-chat { left: calc(var(--u) * 28); bottom: calc(var(--u) * 36); }
+
+/* ── 오닉스 · 황금 진열장 상점(11월 27일) — 아이콘은 Codex 시트 onyx/icons.webp(oxIconStyle) ── */
+.ox-coin { display: inline-block; width: 15px; height: 15px; flex: none; }
+.rpg-lv-coin.ox { color: #cdb8e0; }
+.rpg-lv-coin .ox-coin { width: 14px; height: 14px; }
+.shop-coins.ox { color: #cdb8e0; }
+.shop-price .ox-coin { width: 14px; height: 14px; }
+.shop-ox-ico { display: block; width: 44px; height: 44px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)); }
+.box-ox { --ray: #a99abf; }
+/* 재화 칸 — 소리 단추 왼쪽(사용자 지정). 오닉스 · 코인 두 상자, 코인이 오른쪽 끝 */
+.hud2-wallet { display: flex; gap: 6px; align-items: stretch; pointer-events: none; }
+.hud2-money { display: inline-flex; align-items: center; gap: 6px; height: 38px; box-sizing: border-box; padding: 0 12px 0 9px; min-width: 84px;
+  background: linear-gradient(#4a3722, #322416); border: 1px solid #8a6a3f; border-radius: 10px; box-shadow: 0 4px 0 #22180e, 0 6px 14px rgba(0, 0, 0, 0.4);
+  font-family: 'Do Hyeon', sans-serif; font-size: 16px; letter-spacing: -0.02em; color: #f3d27f; white-space: nowrap; }
+.hud2-money svg { width: 16px; height: 16px; display: block; flex: none; }
+.hud2-money .ox-coin { width: 18px; height: 18px; }
+.hud2-money.ox { color: #d9c9ea; }
+@media (max-width: 720px) { .shop-ox-ico { width: 34px; height: 34px; } }

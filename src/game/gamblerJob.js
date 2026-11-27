@@ -18,7 +18,7 @@ import { ILLUSION_ID } from './illusionData.js';
 import { cleanWyJob } from './wyvernJob.js';   // Wyvern Knight 006(11월 24일 실제 게임 — 관리자 명령어) — 같은 bag.hj 칸에 함께 저장한다
 import { WYVERN_ID } from './wyvernData.js';
 import { GAMBLER as GM, GAMBLER_ID, GAMBLER_NAME, GAMBLER_TINT, GM_TRAIN_NAMES, GM_BET as BET, GM_LUCK as LUCK, GM_CHIP as CH, GM_VEIL as VL,
-  GM_DICE as DC, GM_RAIN as RN, GM_DD as DD, GM_TABLE as TB, GM_EDGE as EG, GM_JACK as JK, GM_SKILLS } from "./gamblerData.js";
+  GM_DICE as DC, GM_RAIN as RN, GM_DD as DD, GM_TABLE as TB, GM_EDGE as EG, GM_JACK as JK, GM_DOPA as DP, GM_SKILLS } from "./gamblerData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -85,10 +85,10 @@ export function dropGambler(h) {
 }
 
 /* ── 싸우는 동안의 상태 h.gm ───────────────────────── */
-const NO_CD = { veil: 0, dice: 0, rain: 0, dd: 0, table: 0, edge: 0, jack: 0 };
+const NO_CD = { veil: 0, dice: 0, rain: 0, dd: 0, table: 0, edge: 0, jack: 0, dopa: 0 };
 function st(h) {
   return h.gm || (h.gm = { chips: 0, cd: { ...NO_CD }, sh: null, shT: 0, luck: 0, last: null, coins: [], bet: [], dice: [], rain: [], dd: [],
-    tbl: null, edge: 0, edgeT: 0, jk: [], xm: [0, 0], q: 0 });
+    tbl: null, edge: 0, edgeT: 0, jk: [], dp: [], xm: [0, 0], q: 0 });
 }
 const keyOf = (o) => (o.type ? `m${o.id}` : `h${o.pi}`);
 // 해금 시험(gamblerUnlock.js h.gt) — 시험 중에만 무엇을 해냈는지 적는다. o 가 있으면 내 시험 표적일 때만
@@ -485,8 +485,56 @@ function tickJack(E, g, h, q, dt) {
   return false;
 }
 
+
+/* ── 도파민(11월 27일) ───────────────────────────────
+   쓰는 순간 결과를 정하고(판정 쪽만) 카드를 대상 하나에게 던진다. s.dp = [{ t, k 대상, res 결과 차례, cast, base, map, xp }].
+   대상 — 포인터(없으면 나)에 가장 가까운 사거리 안의 적. 없으면 대기 없이 거절. 불운 보정 · 풀 베팅은 쓰지 않는 결과도 있다(꽝은 맞지 않는다) */
+const DOPA_SND = { miss: "gmDopaMiss", even: "gmChip", hit: "gmDopaRed" };   // 카드가 꽂힐 때 — 나머지(고정 피해 결과)는 큰 터짐
+export function dopaRoll(x) {                          // x 0~1 → 결과 차례(표의 확률 누적)
+  let acc = 0;
+  for (let i = 0; i < DP.res.length; i++) { acc += DP.res[i].p / 100; if (x < acc) return i; }
+  return 1;                                            // 소수점 끝 — 가장 흔한 본전
+}
+function dopaUse(E, g, h) {
+  if (blocked(E, g, h, "dopa")) return;
+  const s = st(h), px = h.inputPt ? h.inputPt[0] : h.x, py = h.inputPt ? h.inputPt[1] : h.y;
+  const o = E.near(g, h, h.x, h.y, DP.reach).filter((q) => E.alive(g, h, q, h.map) && sq(E, h.x, h.y, q) <= DP.reach)
+    .sort((a, b) => sq(E, px, py, a) - sq(E, px, py, b))[0];
+  if (!o) return void no(E, g, h, "대상이 없습니다");   // 대기 없음
+  const res = dopaRoll(E.rand(g)), R = DP.res[res];
+  s.cd.dopa = DP.cd;
+  s.dp.push({ t: 0, k: keyOf(o), res, cast: E.cast(h), base: E.base(h), map: h.map, xp: 0 });
+  faceAim(h, o.x - h.x, (o.y - h.y) / E.squash);
+  h.swing = 0.25;
+  const life = R.hit + 0.9;
+  E.fx(g, h.map, { kind: "sk_gm_dopa", x: h.x, y: h.y, x1: Math.round(o.x), y1: Math.round(o.y), k: keyOf(o), res, pi: h.pi, t: life, life, snd: R.id === "can" ? "gmDopaCan" : "gmDopaSpin" });
+  call(E, g, h, DP.name);
+}
+function tickDopa(E, g, h, q, dt) {
+  q.t += dt;
+  const R = DP.res[q.res];
+  if (R.hush && !q.hush && q.t >= R.lock[2]) {          // 잭팟 — 셋째 릴이 멈추는 순간 둘레 소리가 잠깐 끊긴다(그림 없음)
+    q.hush = 1;
+    E.fx(g, q.map, { kind: "sk_gm_hush", x: h.x, y: h.y, pi: h.pi, t: 0.1, life: 0.1, snd: "gmDopaHush" });
+  }
+  if (q.t < R.hit) return true;
+  const o = find(g, q.k);
+  if (o && E.alive(g, h, o, q.map)) {
+    if (R.flat && o.type) {                             // 몹 — 표의 고정 피해 그대로(배율 · 치명타 없음)
+      const prev = h.cast; h.cast = q.cast;
+      try { E.flat(g, h, o, R.flat); } finally { h.cast = prev; }
+      if (!E.dummy(o)) q.xp = 1;
+    } else if (R.flat || R.mul) strike(E, g, h, q, o, CH.mul * (R.flat ? DP.pvpMul : R.mul));   // 기본 공격(황금 칩) 피해의 250% · 600%
+    if (q.res >= 3) g.shake = Math.max(g.shake || 0, q.res === 6 ? 0.45 : 0.25);
+    E.fx(g, q.map, { kind: "sk_gm_dopahit", x: o.x, y: o.y, res: q.res, pi: h.pi, t: 0.7, life: 0.7, snd: DOPA_SND[R.id] || "gmBoom" });
+  }
+  E.fx(g, q.map, { kind: "call", x: h.x, y: h.y - 124, text: R.name, color: q.res >= 3 ? (q.res === 6 ? "#E3B5D8" : GOLD) : DIM, who: h.pi, t: 1, life: 1 });
+  if (q.xp) trainXp(E, g, h, 2);                        // 행운 연마 — 도박 스킬로 유효 피해
+  return false;
+}
+
 /* ── 입력 — req = { op: "use", s: "veil" | "dice" | "rain" | "dd" | "table" | "edge" | "jack" }. 한 번 누르면 바로 ── */
-const USE = { veil: veilUse, dice: diceUse, rain: rainUse, dd: ddUse, table: tableUse, edge: edgeUse, jack: jackUse };
+const USE = { veil: veilUse, dice: diceUse, rain: rainUse, dd: ddUse, table: tableUse, edge: edgeUse, jack: jackUse, dopa: dopaUse };
 export function gamblerInput(E, g, pi, req) {
   const h = g.heroes[pi];
   if (!h || !h.loaded || !req || typeof req !== "object" || !gamblerOn(h)) return false;   // 이 직업이 아니면 조용히 넘긴다
@@ -508,6 +556,7 @@ export function tickGambler(E, g, h, dt) {
   s.rain = s.rain.filter((q) => here(q) && tickRain(E, g, h, q, dt));
   s.dd = s.dd.filter((q) => here(q) && tickDd(E, g, h, q, dt));
   s.jk = s.jk.filter((q) => here(q) && tickJack(E, g, h, q, dt));
+  s.dp = s.dp.filter((q) => here(q) && tickDopa(E, g, h, q, dt));
   s.bet = s.bet.filter((q) => here(q) && tickBet(E, g, h, q, dt));
   if (s.tbl) tickTable(E, g, h, s, dt);
   if (s.sh) tickVeil(E, g, h, s, dt);
@@ -526,9 +575,9 @@ export function gamblerDown(E, g, h) {
 export function gamblerFill(h) { if (gamblerOn(h)) st(h).chips = GM.chips; }
 
 /* ── 스냅샷 영웅 줄 57 — 이 직업이 아니면 0. 칸 수는 고정이고 뒤에만 더한다 ──
-   [0 칩, 1 직업 레벨, 2 경험치, 3 연마 [레벨, 경험치] × 3 을 편 것, 4 대기 [장막, 눈, 폭우, 더블 다운, 테이블, 엣지, 777],
+   [0 칩, 1 직업 레벨, 2 경험치, 3 연마 [레벨, 경험치] × 3 을 편 것, 4 대기 [장막, 눈, 폭우, 더블 다운, 테이블, 엣지, 777, 도파민(11월 27일 끝에 더함)],
     5 보호막 [남은 양, 최대, 남은 초] | 0, 6 하우스 엣지 남은 초, 7 테이블 남은 초, 8 불운 보정 연속 실패, 9 직전 공격(0 없음 · 1 운명의 눈 · 2 코인 폭우), 10 해금 시험 단계(0 없음)] */
-const CD_KEYS = ["veil", "dice", "rain", "dd", "table", "edge", "jack"], LAST = ["", "dice", "rain"];
+const CD_KEYS = ["veil", "dice", "rain", "dd", "table", "edge", "jack", "dopa"], LAST = ["", "dice", "rain"];
 export function packGambler(h) {
   if (!gamblerOn(h)) return 0;
   const J = jobOf(h), s = h.gm;
@@ -545,7 +594,7 @@ export function applyGambler(h, a) {
     Array.isArray(a[5]) ? { v: +a[5][0] || 0, max: +a[5][1] || 0, left: +a[5][2] || 0 } : null, +a[6] || 0, +a[7] || 0, a[8] | 0, LAST[a[9]] || "", a[10] | 0);
 }
 const viewOf = (J, chips, cd, sh, edge, tbl, luck, last, trial) => ({ chips, max: GM.chips, lv: J.lv, xp: J.xp, tr: J.tr, cd,
-  cdMax: { veil: VL.cd, dice: diceCd(J), rain: RN.cd, dd: DD.cd, table: TB.cd, edge: EG.cd, jack: JK.cd },
+  cdMax: { veil: VL.cd, dice: diceCd(J), rain: RN.cd, dd: DD.cd, table: TB.cd, edge: EG.cd, jack: JK.cd, dopa: DP.cd },
   sh, edge, tbl, luck, need: luckNeed(J), last, contract: gmContract(J), tint: gamblerTint(gmTrainSum(J)), trial });
 
 /* ── 화면 값 — 칩 · 직업 레벨 · 연마 · 대기 · 보호막 · 하우스 엣지 · 불운 보정. 방장(판정 세계)은 h.bag.hj · h.gm 에서, 손님은 h.gmv 에서 같은 모양으로 ── */

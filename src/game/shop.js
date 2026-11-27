@@ -23,7 +23,7 @@ import { advOf } from "./advance.js";
 import { ARMOR_SLOTS, ARMOR_GRADES, armorName, armorCap } from "./armorData.js";
 import { cleanArmor, wornArmor } from "./armor.js";
 import { ADV_BONUS } from "./advData.js";
-import { titleStat } from "./socialData.js";
+import { titleStat, TITLE_BY_ID, titleUp, titleUpText } from "./socialData.js";
 import { JUNK, bagSteps } from "./junkData.js";
 import { cleanBlocks } from "./block.js";
 import { cleanBd, bloodOn, dropBlood, bloodWeaponOk } from "./bloodJob.js";
@@ -43,6 +43,7 @@ import { cleanRq } from "./requiemData.js";
 import { cleanBu } from "./bloodUnlock.js";
 import { cleanAl, canBuyPotion, isSpecialPotion, craftMany, whyCraft, whyAlchBuy, rollAlchReq, alchReqDone, whyAlchReq } from "./alchemy.js";
 import { ALCH, ALCH_MAT_BY_ID } from "./alchemyData.js";
+import { ONYX, OX_ACC, OX_ACC_BIT, OX_TITLE_BY_ID, OX_GOOD_BY_ID, cleanOx, oxOf, accOwned, accWorn } from "./onyxData.js";   // 오닉스 · 황금 진열장 상점(11월 27일)
 
 export const SHOP_BY_ID = Object.fromEntries(SHOPS.map((s) => [s.id, s]));
 export const WEAPON_BY_ID = Object.fromEntries(WEAPON_TYPES.map((t) => [t.id, t]));
@@ -296,6 +297,7 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (!bd?.on && equipped(b)?.sp === "blood_gun") b.e = 0;
   b.al = cleanAl(d.al);                           // 물약 제작 레벨 · 경험치 · 오늘의 제작 의뢰(alchemy.js) — 옛 캐릭터는 1레벨부터
   cleanWorldBossBag(d,b);
+  cleanOx(d, b);                                  // 오닉스 · 산 장신구 · 단 장신구(onyxData.js, 11월 27일)
   return b;
 }
 export const equipped = (bag) => (bag.e ? bag.w.find((w) => w.u === bag.e) || null : null);
@@ -536,6 +538,7 @@ export function whyPotionBuy(h, id) {
   base(h, "potion", out);
   const p = POTION_BY_ID[id];
   if (!p) { out.push("없는 물약입니다"); return out; }
+  if (p.ox) { out.push("황금 진열장 상점에서 오닉스로 삽니다"); return out; }
   if (!h || !h.bag) return out;
   // 일반 물약은 제작 레벨 50부터 산다(11월 9일). 특별 물약 셋(스탯 · 전직 초기화 · 원소 전환)은 그대로 산다 — 서버도 이 함수로 막는다
   if (!isSpecialPotion(id) && !canBuyPotion(h)) { out.push(`물약 제작 레벨 ${ALCH.buyLv}부터 구매할 수 있습니다.`); return out; }
@@ -583,6 +586,31 @@ export function whyPotionUse(h, id, el) {
   else if (p.kind === "elem" && !hasElem(h.job)) out.push("원소가 있는 마법사만 마실 수 있습니다");
   else if (p.kind === "elem" && el !== undefined && !ELEMS.some((e) => e.id === el)) out.push("바꿀 원소를 골라 주세요");
   else if (p.kind === "elem" && el === h.elem) out.push("지금 원소와 같습니다");
+  else if (p.kind === "gender" && (h.dvs !== undefined && h.dvs >= 0)) out.push("결투 중에는 마실 수 없습니다");
+  return out;
+}
+
+/* ── 황금 진열장 상점 — 오닉스(onyxData.js). 판정은 전용 서버(g.server)만 한다 ───────────── */
+const oxPrice = (kind, id) => (kind === "acc" ? (OX_ACC.find((a) => a.id === id) || {}).price : kind === "title" ? (OX_TITLE_BY_ID[id] || {}).ox : kind === "good" ? (OX_GOOD_BY_ID[id] || {}).ox : undefined);
+export const lackOx = (h, price, out) => { if (h && !h.admin && oxOf(h.bag) < price) out.push(`${ONYX.name} ${won(price - oxOf(h.bag))} 부족`); };
+export function whyOxBuy(h, kind, id) {
+  const out = [];
+  base(h, "onyx", out);
+  const price = oxPrice(kind, id);
+  if (!(price > 0)) { out.push("없는 물건입니다"); return out; }
+  if (!h || !h.bag) return out;
+  if (kind === "acc" && accOwned(h.bag) & OX_ACC_BIT[id]) out.push("이미 가지고 있습니다");
+  else if (kind === "title" && (h.titles || []).includes(id)) out.push("이미 가진 칭호입니다");
+  else if (kind === "good" && (h.bag.p[id] || 0) >= POTION.stackMax) out.push(`한 종류는 ${POTION.stackMax}개까지 가질 수 있습니다`);
+  lackOx(h, price, out);
+  return out;
+}
+// 장신구 달기 · 떼기 — 어디서나(가방 · 상점 창)
+export function whyOxWear(h, id) {
+  const out = [];
+  base(h, null, out);
+  if (!OX_ACC_BIT[id]) out.push("없는 장신구입니다");
+  else if (h && h.bag && !(accOwned(h.bag) & OX_ACC_BIT[id])) out.push("가지고 있지 않습니다");
   return out;
 }
 // 방어구 — 끼기 · 빼기는 어디서나(쓰러졌으면 안 된다), 되팔기는 무기상점에서
@@ -619,9 +647,10 @@ export function whyGuardBuy(h) {
 }
 
 // 랜덤 상자에서 나오는 몫 — 내 레벨로 낄 특별 무기가 없으면 그 몫은 일반 무기로 간다
+export const BOX_ONYX = Object.values(BOX.onyx).reduce((a, b) => a + b, 0) / 100;   // 오닉스가 나올 확률(5%)
 export function boxShares(lv) {
   const sp = specialsFor(lv).length ? BOX.special : 0;
-  return { special: sp, weapon: BOX.weapon + (BOX.special - sp), potion: 1 - BOX.special - BOX.weapon };
+  return { special: sp, weapon: BOX.weapon + (BOX.special - sp), onyx: BOX_ONYX, potion: 1 - BOX.special - BOX.weapon - BOX_ONYX };
 }
 // 랜덤 상자 값 — 내용물 상점가의 기댓값 ÷ 목표 기댓값
 export function boxValue(lv) {
@@ -655,7 +684,7 @@ export function whyGamble(h, game, bet, day = todayKey()) {
   if (usedToday(h.bag, game, day) >= lim) out.push(`오늘은 더 할 수 없습니다 (하루 ${lim}번)`);
   if (game === "box") {
     if (h.bag.w.length >= weaponCap(h)) out.push(`가방이 가득 찼습니다 (${weaponCap(h)}개)`);
-    if (Object.keys(BOX.potions).some((id) => (h.bag.p[id] || 0) >= POTION.stackMax)) out.push(`가득 찬 물약이 있습니다 (${POTION.stackMax}개)`);
+    if (Object.keys(BOX.potions).every((id) => (h.bag.p[id] || 0) >= POTION.stackMax)) out.push(`상자에서 나오는 물약이 모두 가득 찼습니다 (${POTION.stackMax}개)`);
     lackCoin(h, boxPrice(h.lv), out);
   } else {
     if (!isInt(bet) || bet < CASINO.minBet) out.push(`최소 ${won(CASINO.minBet)}코인을 걸어야 합니다`);
@@ -822,6 +851,13 @@ export function rpgShop(g, pi, req) {
       hpChanged(h, wasFull);
       fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 60, color: "#e8d7a8", n: 10, t: 0.7, life: 0.7, snd: "bless", who: pi });
       msg = `${old ? old.name : "전직"}을 비웠습니다. 전직 교관에게서 시험 없이 새 전직을 고를 수 있습니다`;
+    } else if (p.kind === "gender") {              // 성전환 물약(11월 27일) — 자리 소식의 겉모습도 바꾼다(원소 전환과 같은 길 · g.relook)
+      const gd = h.gender === "f" ? "m" : "f";
+      h.gender = gd;
+      (g.relook || (g.relook = [])).push({ pi, who: h.who, gender: gd });
+      if (g.out) g.out.push({ k: "relook", who: pi, gender: gd });
+      fx(g, h.map, { kind: "nova", x: h.x, y: h.y - 20, r: 60, color: "#e9c8d8", n: 12, t: 0.8, life: 0.8, snd: "bless", who: pi });
+      msg = `${gd === "f" ? "여성" : "남성"}이 되었습니다`;
     } else if (p.kind === "elem") {                // 원소 전환 — 자리 소식의 겉모습도 바꾼다(g.relook · out "relook")
       const el = String(req.el);
       h.elem = el;
@@ -1052,6 +1088,45 @@ export function rpgShop(g, pi, req) {
     return note(g, pi, { ok: true, msg: `${MAT_BY_ID[id].name} ${n}개를 ${won(price)}코인에 샀습니다` });
   }
 
+  // 황금 진열장 상점 — 값은 표(onyxData.js)에서 다시 읽는다. 화면이 보낸 것은 종류 · id 뿐
+  if (op === "oxbuy") {
+    const kind = String(req.kind || ""), id = String(req.id || "");
+    if (!g.server) return no(g, pi, ["황금 진열장 상점은 새 서버에서만 쓸 수 있습니다"]);
+    if ((why = whyOxBuy(h, kind, id)).length) return no(g, pi, why);
+    const price = oxPrice(kind, id);
+    if (!h.admin) { h.bag.ox = oxOf(h.bag) - price; if (!h.bag.ox) delete h.bag.ox; }
+    let msg;
+    if (kind === "acc") {
+      const a = OX_ACC.find((q) => q.id === id);
+      h.bag.oa = accOwned(h.bag) | OX_ACC_BIT[id];
+      h.bag.ow = accWorn(h.bag) | OX_ACC_BIT[id];      // 산 장신구는 바로 단다
+      msg = `${jo(a.name, "을", "를")} 샀습니다. 바로 달았습니다`;
+    } else if (kind === "title") {
+      const t = TITLE_BY_ID[id];
+      h.titles.push(id);
+      h.title = id;                                  // 산 칭호는 바로 단다
+      refreshHp(h);
+      const up = titleUpText(titleUp(t));
+      msg = `칭호 「${t.name}」을 얻었습니다${up ? ` (${up})` : ""}`;
+    } else {
+      h.bag.p[id] = (h.bag.p[id] || 0) + 1;
+      msg = `${jo(POTION_BY_ID[id].name, "을", "를")} 샀습니다. 가방에서 마십니다`;
+    }
+    bump(h);
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: kind === "title" ? `칭호 「${TITLE_BY_ID[id].name}」` : msg.split(".")[0], color: "#e9d39a", t: 1.2, life: 1.2, snd: "clear", who: pi });
+    return note(g, pi, { ok: true, msg: `${msg} (${won(price)} ${ONYX.name})` });
+  }
+  if (op === "oxwear") {
+    const id = String(req.id || "");
+    if ((why = whyOxWear(h, id)).length) return no(g, pi, why);
+    const on = !!req.on;
+    h.bag.ow = on ? accWorn(h.bag) | OX_ACC_BIT[id] : accWorn(h.bag) & ~OX_ACC_BIT[id];
+    if (!h.bag.ow) delete h.bag.ow;
+    bump(h);
+    const a = OX_ACC.find((q) => q.id === id);
+    return note(g, pi, { ok: true, msg: on ? `${jo(a.name, "을", "를")} 달았습니다` : `${jo(a.name, "을", "를")} 뗐습니다` });
+  }
+
   // 도박장
   if (op === "box") {
     if ((why = whyGamble(h, "box", 0, day)).length) return no(g, pi, why);
@@ -1075,8 +1150,16 @@ export function rpgShop(g, pi, req) {
       const w = addWeapon(h, t, r, gi, weaponPrice(t, r, gi));     // 되팔 때는 상점가의 40%
       got = { kind: "weapon", g: gi };
       msg = `${jo(weaponName(w), "이", "가")} 나왔습니다 (Lv ${WEAPON_TIERS[r]})`;
+    } else if (g.server && roll < share.special + share.weapon + share.onyx) {   // 오닉스 — 전용 서버에서만(화면 판정 방식은 저장하지 못한다)
+      const n = Number(pickWeighted(Object.entries(BOX.onyx), ([, pct]) => pct)[0]);
+      h.bag.ox = Math.min(ONYX.max, oxOf(h.bag) + n);
+      got = { kind: "onyx", n };
+      msg = `${ONYX.name} ${n}개가 나왔습니다`;
+      fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `${ONYX.name} +${n}`, color: "#d9c9f0", t: 1.4, life: 1.4, snd: n >= 75 ? "clear" : "coin", who: pi });
     } else {
-      const [id] = pickWeighted(Object.entries(BOX.potions), ([, pct]) => pct);
+      // 가득 찬 물약(99개)은 빼고 남은 물약의 무게로 고른다
+      const list = Object.entries(BOX.potions).filter(([id]) => (h.bag.p[id] || 0) < POTION.stackMax);
+      const [id] = pickWeighted(list, ([, pct]) => pct);
       h.bag.p[id] = (h.bag.p[id] || 0) + 1;
       got = { kind: "potion", id };
       msg = `${jo(POTION_BY_ID[id].name, "이", "가")} 나왔습니다`;

@@ -5,10 +5,11 @@
    픽셀 그림은 정수 배로만 키운다(보통 2배). 연마 합계 색(금 · 청백 테두리 · 자주 무늬)은 칩 · 금화 시트의 줄로 고른다.
    연출 종류: sk_gm_chip(황금 칩) · hit · full · bet(풀 베팅) · veil · veilally · veilend · block(칩 장막) · dice · dicehit(운명의 눈)
               · rain(코인 폭우) · dd(더블 다운) · table · tabletick · tableend(황금 테이블) · edge · edgeend(하우스 엣지) · 777 · shock · 777end
-              · warn(해금 시험 예고 — 1px 선만). 해금 경로 조사물(칩 상자 · 계약서 · 주사위 기계)은 drawGamblerSpots 가 gm_props 시트로 그린다 */
-import { GAMBLER_COLORS as C, GAMBLER, GM_CLUE } from "./gamblerData.js";
+              · dopa · dopahit · hush(도파민, 11월 27일) · warn(해금 시험 예고 — 1px 선만). 해금 경로 조사물(칩 상자 · 계약서 · 주사위 기계)은 drawGamblerSpots 가 gm_props 시트로 그린다 */
+import { GAMBLER_COLORS as C, GAMBLER, GM_CLUE, GM_DOPA } from "./gamblerData.js";
 import { gamblerView } from "./gamblerJob.js";
-import { GAMBLER_PX_SRC, GAMBLER_PX as SH, GAMBLER_PROP } from "./gamblerPxData.js";
+import { GAMBLER_PX_SRC, GAMBLER_PX as SH, GAMBLER_PROP, GAMBLER_ICON } from "./gamblerPxData.js";
+import { OX_ICON, oxIconStyle } from "./onyxData.js";
 
 const TAU = Math.PI * 2;
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
@@ -220,6 +221,64 @@ function jackEnd(ctx, f, t) {
   if (f.res > 0) cell(ctx, "gm_pillar", once("gm_pillar", u), f.x, f.y, K, 1, 0, false, f.res === 2 ? "" : "saturate(0.6)");
 }
 
+
+/* 도파민(11월 27일) — 머리 위 작은 릴 셋이 차례로 멈추고(GM_DOPA lock) 셋째가 멈추면 카드가 날아가 hit 에 꽂힌다.
+   결과마다: 꽝 × × × · 카드가 바스러짐 / 본전 동전 셋 · 동전 하나가 튀어 오름 / 적중 붉은 마름모 · 붉은 카드 / 세븐 7 7 7 · 금빛 카드
+   깡통 당첨 7 7 뒤 셋째 7 이 미끄러져 빈 칸 / 대박 왕관 셋 · 금화가 터짐 / 잭팟 자주 7 셋 · 둘레가 잠깐 어두워진다 */
+const REEL = { x: ["gm_dreel", 0], coin: ["gm_dreel", 1], red: ["gm_dreel", 2], crown: ["gm_dreel", 3], seven: ["gm_slot", 4], top: ["gm_slot", 6] };
+const DOPA_GOLD = new Set(["seven", "big", "jack"]);
+function dopa(ctx, f, t, sq, g) {
+  const R = GM_DOPA.res[f.res | 0] || GM_DOPA.res[1], L = R.lock, h = g && g.heroes && g.heroes[f.pi];
+  const hx = h && h.map === f.map && Number.isFinite(h.x) ? h.x : f.x, hy = h && h.map === f.map ? h.y : f.y;
+  const ry = hy - 118, tail = f.life - t, a = t < 0.1 ? t / 0.1 : t > R.hit + 0.4 ? clamp(tail / (f.life - R.hit - 0.4)) : 1;
+  if (R.hush && t >= L[2] && t < R.hit + 0.3) {              // 잭팟 — 셋째 릴이 멈춘 뒤 카드가 꽂힐 때까지 둘레가 어둡다
+    const k = clamp((t - L[2]) / 0.12) * (t > R.hit ? 1 - (t - R.hit) / 0.3 : 1);
+    ctx.save(); ctx.globalAlpha = 0.35 * k; ctx.fillStyle = "#0b0710";
+    ctx.beginPath(); ctx.ellipse(f.x1, f.y1 - 30, 340, 240, 0, 0, TAU); ctx.ellipse(f.x1, f.y1 - 30, 90, 70, 0, 0, TAU); ctx.fill("evenodd"); ctx.restore();
+  }
+  if (t < R.hit) ring(ctx, f.x1, f.y1, 22, sq, R.id === "jack" && t >= L[2] ? "#E3B5D8" : C.bright, 0.7, 3);   // 겨눈 대상 — 1px 점선
+  for (let i = 0; i < 3; i++) {
+    const x = hx + (i - 1) * 30, sym = R.reel[i], st = L[i];
+    let name = "gm_slot", fr = Math.floor((t + i * 0.03) / 0.05) % 4;
+    if (sym === "slip" && t >= st - 0.2) {                  // 깡통 — 7 이 잠깐 서고 아래로 미끄러진다
+      const u = (t - (st - 0.2)) / 0.2;
+      [name, fr] = u < 0.35 ? ["gm_slot", 4] : u < 1 ? ["gm_dreel", 4 + Math.min(2, Math.floor((u - 0.35) / 0.65 * 3))] : ["gm_dreel", 7];
+    } else if (t >= st && REEL[sym]) [name, fr] = REEL[sym];
+    const pop = t >= st && t - st < 0.08 ? 3 : 0;
+    cell(ctx, name, fr, x, ry + pop, 1, a);
+    if (t >= st && t - st < 0.25 && R.id !== "miss" && sym !== "slip") cell(ctx, "gm_glint", once("gm_glint", (t - st) / 0.25), x + 9, ry - 14, 1, a);
+  }
+  const fly = R.hit - L[2], card = R.id === "hit" ? 1 : DOPA_GOLD.has(R.id) ? 2 : 0;
+  if (t >= L[2] && t < R.hit) {                             // 손에서 대상까지 — 포물선 · 돌며 앞뒤가 바뀐다
+    const u = (t - L[2]) / fly, x0 = hx, y0 = hy - LIFT, x = x0 + (f.x1 - x0) * u, y = y0 + (f.y1 - 26 - y0) * u - Math.sin(u * Math.PI) * 40;
+    cell(ctx, "gm_dcard", card, x, y, 1, 1, 0, Math.floor(t / 0.06) % 2 === 1);
+    if (card) cell(ctx, "gm_glint", Math.floor(t / 0.05) % 5, x - (f.x1 - x0) * 0.04, y + 6, 1, 0.8);
+  } else if (t >= R.hit) {
+    const u = (t - R.hit) / 0.5;
+    if (R.id === "miss") cell(ctx, "gm_dcard", 3 + Math.min(3, Math.floor(u * 4)), f.x1, f.y1 - 26 + u * 10, 1, 1 - u * 0.5);
+    else if (u < 1) cell(ctx, "gm_dcard", card, f.x1 + 4, f.y1 - 26, 1, 1 - u);   // 꽂힌 카드
+  }
+}
+function dopaHit(ctx, f, t) {
+  const u = t / f.life, R = GM_DOPA.res[f.res | 0] || GM_DOPA.res[1];
+  if (R.id === "miss") return;
+  if (R.id === "even") {                                     // 동전 하나가 튀어 오른다
+    const k = clamp(u / 0.7), y = f.y - 30 - Math.sin(k * Math.PI) * 46;
+    if (k < 1) cell(ctx, "gm_coin", Math.floor(t / 0.05) % SH.gm_coin.n, f.x + k * 18, y, K, 1, f.row || 0);
+    if (u < 0.4) cell(ctx, "gm_spark", once("gm_spark", u / 0.4), f.x, f.y - 26, 1);
+    return;
+  }
+  if (R.id === "hit") {                                      // 붉게 빛나는 짧은 타격
+    cell(ctx, "gm_spark", once("gm_spark", u), f.x, f.y - 26, K, 1, 0, false, "hue-rotate(-40deg) saturate(1.3)");
+    return;
+  }
+  if (R.id === "can") return void cell(ctx, "gm_burst", once("gm_burst", u), f.x, f.y, 0.6, 0.8, 0, false, DULL);
+  if (R.id === "seven") { cell(ctx, "gm_burst", once("gm_burst", u), f.x, f.y, 1); cell(ctx, "gm_glint", once("gm_glint", u), f.x + 12, f.y - 40, K); return; }
+  if (R.id === "big") return void cell(ctx, "gm_rainhit", once("gm_rainhit", u), f.x, f.y, 0.7);   // 금화가 터진다
+  cell(ctx, "gm_jacktop", once("gm_jacktop", u), f.x, f.y, 0.5);                                   // 잭팟
+  cell(ctx, "gm_pillar", once("gm_pillar", u), f.x, f.y, K);
+}
+
 // 해금 시험 예고 — 판정 반경 점선이 d 초 동안 안쪽 실선으로 차오른다(코드로 그리는 1px 선)
 function warn(ctx, f, t, sq) {
   const u = clamp(t / (f.d || 1));
@@ -229,10 +288,11 @@ function warn(ctx, f, t, sq) {
 
 const KINDS = { sk_gm_warn: warn, sk_gm_chip: chip, sk_gm_hit: hit, sk_gm_full: full, sk_gm_bet: bet, sk_gm_veil: veil, sk_gm_veilally: veilAlly, sk_gm_veilend: veilEnd, sk_gm_block: block,
   sk_gm_dice: dice, sk_gm_dicehit: diceHit, sk_gm_rain: rain, sk_gm_dd: dd, sk_gm_table: table, sk_gm_tabletick: tableTick, sk_gm_tableend: tableEnd,
-  sk_gm_edge: edge, sk_gm_edgeend: edgeEnd, sk_gm_777: jack, sk_gm_shock: shock, sk_gm_777end: jackEnd };
+  sk_gm_edge: edge, sk_gm_edgeend: edgeEnd, sk_gm_777: jack, sk_gm_shock: shock, sk_gm_777end: jackEnd,
+  sk_gm_dopa: dopa, sk_gm_dopahit: dopaHit, sk_gm_hush: () => {} };
 // 같은 종류는 최근 몇 개만 그린다(rpgArt FX_LOD.cap) — 유지 장(veil · edge)은 0.25~0.3초마다 새로 와 한 사람에 셋쯤 겹친다
 export const GAMBLER_CAP = { sk_gm_warn: 4, sk_gm_chip: 10, sk_gm_hit: 14, sk_gm_full: 3, sk_gm_bet: 4, sk_gm_veil: 12, sk_gm_veilally: 6, sk_gm_veilend: 3, sk_gm_block: 6,
-  sk_gm_dice: 4, sk_gm_dicehit: 4, sk_gm_rain: 3, sk_gm_dd: 3, sk_gm_table: 3, sk_gm_tabletick: 4, sk_gm_tableend: 3, sk_gm_edge: 12, sk_gm_edgeend: 3, sk_gm_777: 2, sk_gm_shock: 2, sk_gm_777end: 2 };
+  sk_gm_dice: 4, sk_gm_dicehit: 4, sk_gm_rain: 3, sk_gm_dd: 3, sk_gm_table: 3, sk_gm_tabletick: 4, sk_gm_tableend: 3, sk_gm_edge: 12, sk_gm_edgeend: 3, sk_gm_777: 2, sk_gm_shock: 2, sk_gm_777end: 2, sk_gm_dopa: 4, sk_gm_dopahit: 4, sk_gm_hush: 2 };
 // 시전자를 따라다니는 연출 — 화면이 그릴 때마다 그 사람 자리로 옮긴다
 const FOLLOW = new Set(["sk_gm_full", "sk_gm_veil", "sk_gm_veilally", "sk_gm_veilend", "sk_gm_block", "sk_gm_edge", "sk_gm_edgeend"]);
 // 땅에 깔리는 연출 — 사람 · 몹 아래에 그린다(skillArt GROUND_FX)
@@ -254,12 +314,13 @@ export function drawGamblerFx(ctx, f, p, sq, g, time) {
   else if (key) { if (f.start && clamp(p) * f.life < 0.1) ended.delete(key); else if (gone(key, wall)) return true; }
   if (f.row === undefined) { const row = rowOf(h); if (row) f = { ...f, row }; }
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  try { fn(ctx, f, clamp(p) * f.life, sq); } finally { ctx.restore(); }
+  try { fn(ctx, f, clamp(p) * f.life, sq, g); } finally { ctx.restore(); }
   return true;
 }
 
 /* 아이콘 한 칸(스킬 단추 · 연습장) — CSS background 로 쓴다. 한 칸 24px 을 size 픽셀로(정수 배 권장) */
 export function gamblerIconStyle(i, size = 48) {
+  if (i === GAMBLER_ICON.dopa) return { width: size, height: size, ...oxIconStyle(OX_ICON.dopa) };
   const T = SH.gm_icons, k = size / T.w;
   return { width: size, height: size, backgroundImage: `url(${GAMBLER_PX_SRC}gm_icons.webp)`, backgroundSize: `${T.w * T.cols * k}px ${T.h * k}px`,
     backgroundPosition: `${-i * T.w * k}px 0`, imageRendering: "pixelated", backgroundRepeat: "no-repeat" };

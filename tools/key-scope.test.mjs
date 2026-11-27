@@ -22,8 +22,8 @@ test("혈 직업은 혈 행동만, 일반 스킬 칸은 숨는다", () => {
 });
 test("도박꾼은 빌려 쓰는 행동만", () => {
   const on = activeActs({ gambler: true });
-  ["use1", "use2", "bSmash", "bSword", "use5", "adv", "skill"].forEach((a) => assert.ok(on.has(a)));
-  assert.ok(!on.has("bShot") && !on.has("wskill"));
+  ["use1", "use2", "bSmash", "bSword", "use5", "adv", "skill", "wskill"].forEach((a) => assert.ok(on.has(a)));   // wskill — 도파민(11월 27일)
+  assert.ok(!on.has("bShot"));
 });
 test("숨겨도 저장된 키는 그대로 · 모르면 모두 보인다", () => {
   const b = defaultKeys();

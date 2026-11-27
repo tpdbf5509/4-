@@ -7,6 +7,7 @@
 import { CODEX_IDS, CODEX_FIELD_IDS, CODEX_NEED_NAME } from "./codexData.js";
 import { GUARD_IDS, GUARDIANS } from "./abyssData.js";
 import { HIGH_MAPS, HIGH_IDS, HIGH_ELITE_IDS, eliteId } from "./highData.js";
+import { OX_TITLES } from "./onyxData.js";
 
 export const TITLES = [
   { id: "rookie", name: "새싹 모험가", need: { lv: 1 }, up: { hp: 1 } },
@@ -82,6 +83,8 @@ export const TITLES = [
   { id: "abyss_title_conqueror", name: "심연의 정복자", need: { aconq: 1 }, up: { hp: 3 } },
   // 11월 9일 연금술 — 물약 제작 레벨 50(alchemy.js 가 기록 alch 를 1로 둔다). 중상급 칭호와 같은 3점
   { id: "alch50", name: "마스터 연금술사", need: { alch: 1 }, up: { atk: 3 } },
+  // 11월 27일 황금 진열장 상점 — 오닉스로 사는 칭호 16개(onyxData.js OX_TITLES, ox 는 값). 조건으로 얻지 않는다(rpg.js titleMet)
+  ...OX_TITLES,
 ];
 /* 칭호 능력치 보너스 — 얻은 칭호마다 up 을 스탯 값에 더한다(찍은 포인트와 별개 · 스탯 창에 초록 몫, shop.js extraStat).
    up 은 스탯 포인트로 센 양 — 쉬운 칭호 1점 · 중간 2점 · 어려운 3점 · 가장 어려운 4점. 11월 1일 사용자 요청으로 처음 넣음.

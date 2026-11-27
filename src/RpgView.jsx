@@ -152,6 +152,7 @@ function advHud(me) {
   return { id: c.id, name: c.active.name, cd: a.cd || 0, max: c.active.cd, stack, heal: c.id === "healer" ? !!me.healMode : undefined, ult };
 }
 import { TITLES, NEED_NAME, PARTY, CHAT, TITLE_UP, titleUp, titleUpText, titleUpSum } from "./game/socialData.js";
+import { ONYX, oxOf } from "./game/onyxData.js";            // 황금 진열장 상점 재화(11월 27일)
 import { REQ_BY_NPC, REQ_NPCS, REQUESTS, REQ_SHOW, QUEST_AREAS, QUEST_MASTER } from "./game/requestData.js";
 import { MAT_BY_ID, DROPS, DROP_ROLL, GIFT } from "./game/itemData.js";
 import { DUNGEON, DUNGEONS, DG_BY_ID, DG_GROUPS } from "./game/dungeonData.js";
@@ -159,7 +160,7 @@ import { ARMOR_SLOTS, ARMOR_GRADES } from "./game/armorData.js";
 import { UPDATES, RPG_NOTICE } from "./game/updates.js";
 import { keyLayout, offCount } from "./game/keyScope.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf, mouseCode, BLOOD_ACTS } from "./game/keys.js";
-import { ShopPanel, BagPanel } from "./ShopPanel.jsx";
+import { ShopPanel, BagPanel, OnyxIcon } from "./ShopPanel.jsx";
 import RpgAccount from "./RpgAccount.jsx";
 import JobTrial from "./JobTrial.jsx";
 import { GUIDE, GUIDE_STEPS, guideStep } from "./game/guideData.js";
@@ -1708,7 +1709,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         for (let left = Math.min(real, GUEST_CATCH_UP); left > 0; left -= STEP_MAX) rpgStepVisual(g, Math.min(left, STEP_MAX));
       }
       // 관리자 /직업 · 원소 전환 물약 — 방장은 자리 소식의 겉모습을 고치고, 바뀐 사람은 이 기기 기록 · 다시 들어갈 때의 모습을 고친다
-      const lookPatch = (r) => ({ ...(r.job ? { job: r.job } : {}), ...(r.elem ? { elem: r.elem } : {}) });
+      const lookPatch = (r) => ({ ...(r.job ? { job: r.job } : {}), ...(r.elem ? { elem: r.elem } : {}), ...(r.gender ? { gender: r.gender } : {}) });
       if (g.relook && g.relook.length) g.relook.splice(0).forEach((r) => {
         const mine = r.pi === g.mySeat;
         if (mine && !TEST_MODE) forceLook(lookPatch(r));   // 테스트 모드는 이 기기 기록을 고치지 않는다
@@ -1819,7 +1820,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           // 상점 · 가방 창이 조건을 따질 때 쓰는 내 영웅의 모습
           self: {rqRun: me.rqRun ? structuredClone(me.rqRun) : null, rqBoss: (() => {const b=g.mobs.find(m=>m.rq==="boss" && m.map===me.map && !m.dead); return b ? {hp:b.hp,max:b.max,phase:b.rqPhase,shield:b.rqShield} : null;})(), server:g.wbServer, wyt: me.wyt || 0, trade: me.trade, ts: me.ts, loaded: me.loaded, down: me.down, map: me.map, x: me.x, y: me.y, lv: me.lv, coins: me.coins, admin: !!me.admin,
             advClass: me.advClass || "", advQ: me.advQ ? { ...me.advQ } : null, advM: me.advM || 0,
-            hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job,
+            hp: me.hp, max: me.max, st: { ...me.st }, bag: me.bag, bf: { ...me.bf }, job: me.job, titles: me.titles || [], gender: me.gender,   // 칭호 · 성별 — 황금 진열장 상점 창(11월 27일)
             dvs: me.dvs, dph:me.dph,duelPotions:me.duelPotions,
             reqs: Object.fromEntries(Object.entries(me.reqs || {}).map(([k, v]) => [k, { ...v }])),
             rec: { ...me.rec }, aruns: (g.aruns || []).map((r) => ({ slot: r.slot })) },
@@ -2169,6 +2170,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 <GamblerBar v={me.gm} />
                 {me.nc && <button type="button" className="rpg-lv-stat" aria-expanded={ncOpen} onClick={() => toggleWin(ncOpen, setNcOpen)}>그림자 명부</button>}
                 <span className="rpg-lv-foot">
+                  <span className="rpg-lv-coin ox" title={ONYX.name}><OnyxIcon />{me.admin ? "무제한" : oxOf(me.self?.bag).toLocaleString("ko-KR")}</span>
                   <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
                   <button type="button" className={`rpg-lv-stat ${me.left > 0 ? "has" : ""} ${statOpen ? "on" : ""}`}
                     aria-expanded={statOpen} onClick={() => toggleWin(statOpen, setStatOpen)}>
@@ -2463,7 +2465,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                       : `${NEED_NAME[k]} ${Math.min(needNow(me, k), n).toLocaleString("ko-KR")}/${n.toLocaleString("ko-KR")}`)).join(" · ");
                     return (
                       <div key={t.id} className={`rpg-win-row ${has ? "" : "locked"} ${on ? "on" : ""}`}>
-                        <span className="rpg-stat-name"><b>{t.name} <small>{titleUpText(titleUp(t))}</small></b><em>{t.secret ? "숨은 칭호" : has && !titleMet(me, t) ? "얻음" : prog}</em></span>
+                        <span className="rpg-stat-name"><b>{t.name} <small>{titleUpText(titleUp(t))}</small></b><em>{t.secret ? "숨은 칭호" : t.ox && !has ? `황금 진열장 상점 · ${t.ox.toLocaleString("ko-KR")} 오닉스` : has && !titleMet(me, t) ? "얻음" : prog}</em></span>
                         {has
                           ? <button type="button" className="rpg-win-btn" onClick={() => act("title", on ? "" : t.id)}>{on ? "떼기" : "달기"}</button>
                           : <span className="rpg-win-tag">잠김</span>}
@@ -2984,6 +2986,12 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           )}
 
           <div className="hud hud-right">
+            {hud2 && me && (   /* 재화 — 사용자 지정(11월 27일): 소리 단추 왼쪽 흰 상자, 오닉스 다음 코인(코인이 오른쪽 끝) */
+              <span className="hud2-wallet">
+                <span className="hud2-money ox" title={ONYX.name}><OnyxIcon />{me.admin ? "무제한" : oxOf(me.self?.bag).toLocaleString("ko-KR")}</span>
+                <span className="hud2-money" title="코인"><Coin />{me.admin ? "무제한" : Number(me.coins || 0).toLocaleString("ko-KR")}</span>
+              </span>
+            )}
             <button className="sbtn sbtn-img" onClick={toggleMute} title="소리" style={{ opacity: mute ? 0.65 : 1 }}>
               <img src={mute ? "/assets/ui/sound-off.webp" : "/assets/ui/sound-on.webp"} alt="" />
             </button>

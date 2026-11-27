@@ -5,13 +5,14 @@
 import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GAMBLER_COLORS, GM_TRAIN_NAMES, GM_CHIP, GM_SKILLS, GM_SLOTS, GM_BET, GM_CASINO } from "./game/gamblerData.js";
 import { gmJobNeed, gmTrainNeed } from "./game/gamblerJob.js";
 import { GAMBLER_PX_SRC, GAMBLER_PX, GAMBLER_ICON } from "./game/gamblerPxData.js";
+import { OX_ICON, oxIconStyle } from "./game/onyxData.js";
 
 const fmt = (n) => Math.round(n).toLocaleString("ko-KR");
 const LAST = { dice: GM_SKILLS.dice.name, rain: GM_SKILLS.rain.name };
 // 아이콘 한 칸 — 크기는 CSS(.rpg-ico.gm)가 정한다(비율 배치라 어느 크기에서도 칸이 맞는다)
 const icoStyle = (i) => ({ backgroundImage: `url(${GAMBLER_PX_SRC}gm_icons.webp)`, backgroundSize: `${GAMBLER_PX.gm_icons.cols * 100}% 100%`,
   backgroundPosition: `${(i / (GAMBLER_PX.gm_icons.cols - 1)) * 100}% 0`, imageRendering: "pixelated" });
-const Ico = ({ id }) => <b className="rpg-ico gm" style={icoStyle(GAMBLER_ICON[id])} aria-hidden="true" />;
+const Ico = ({ id }) => <b className="rpg-ico gm" style={id === "dopa" ? oxIconStyle(OX_ICON.dopa) : icoStyle(GAMBLER_ICON[id])} aria-hidden="true" />;   // 도파민은 Codex 그림
 
 // 스킬 칸 아래 한 줄 — 지금 상태가 먼저, 아니면 한 줄 설명
 function subOf(v, s) {
@@ -23,6 +24,7 @@ function subOf(v, s) {
   if (s === "dd") return !v.last ? "다시 낼 공격 없음" : v.chips < D.cost ? `칩 ${D.cost}개 필요` : `칩 ${D.cost}개 · ${LAST[v.last]} 다시`;
   if (s === "table") return v.tbl > 0 ? `유지 ${Math.ceil(v.tbl)}초` : `장판 ${D.dur}초`;
   if (s === "edge") return v.edge > 0 ? `유지 ${Math.ceil(v.edge)}초` : `코인 피해 +${Math.round(D.dmg * 100)}%`;
+  if (s === "dopa") return "꽝부터 잭팟까지";
   return "궁극기";
 }
 // 레벨 카드 HUD 값 — RpgView setHud 가 부른다

@@ -61,7 +61,7 @@ test("히든 직업 스킬 설명 — 평타 + 스킬 일곱(Wyvern Knight 006 �
   const { hiddenSkillInfo, HIDDEN_SKILL_JOBS } = await import("../src/game/hiddenSkillInfo.js");
   for (const id of HIDDEN_SKILL_JOBS) {
     const v = hiddenSkillInfo(id);
-    assert.equal(v.skills.length, id === "wyvern" ? 9 : 7, id);
+    assert.equal(v.skills.length, id === "wyvern" ? 9 : id === "gambler" ? 8 : 7, id);   // Gambler 002 — 도파민(11월 27일)
     for (const q of [v.basic, ...v.skills]) {
       assert.ok(q.name && q.act && q.lv >= 1 && q.desc.length && q.stats.length, `${id} ${q.s}`);
       assert.ok(!/undefined|NaN/.test(JSON.stringify(q)), `${id} ${q.s}`);

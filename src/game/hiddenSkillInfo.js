@@ -1,7 +1,7 @@
 /* 히든 직업 스킬 설명(11월 17일 사용자 "m키를 누르면 스킬들 상세설명 보여주는 탭 만들어줘") — 격자 연습장 설명 창(SkillInfoPanel.jsx)이 쓴다.
    숫자는 모두 각 직업 데이터 파일 상수에서 만든다(수치를 바꾸면 설명도 따라 바뀐다). 설명 문장은 데이터 파일 주석을 짧게 옮긴 것.
    히든 직업이라 업데이트 노트 · 공지 · 패치노트 책에는 적지 않는다 */
-import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_TRAIN_NAMES, GM_CHIP, GM_BET, GM_LUCK, GM_VEIL, GM_DICE, GM_RAIN, GM_DD, GM_TABLE, GM_EDGE, GM_JACK } from "./gamblerData.js";
+import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_TRAIN_NAMES, GM_CHIP, GM_BET, GM_LUCK, GM_VEIL, GM_DICE, GM_RAIN, GM_DD, GM_TABLE, GM_EDGE, GM_JACK, GM_DOPA } from "./gamblerData.js";
 import { ENGINEER, ENGINEER_NAME, ENGINEER_TITLE, EN_SLOTS, EN_TRAIN_NAMES, EN_PULSE, EN_TURRET, EN_DRONE, EN_MAGNET, EN_RAIL, EN_MECH, EN_OC, EN_ORBIT } from "./engineerData.js";
 import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_TRAIN_NAMES, NC_SCYTHE, NC_SOUL, NC_ROSTER, NC_EXTRACT, NC_SUMMON, NC_SWAP, NC_DOMAIN, NC_MARCH, NC_BURN, NC_LEGION } from "./necroData.js";
 import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_TRAIN_NAMES, WY_BLOOD, WY_CLAW, WY_CONTRACT, WY_ROAR, WY_DIVE, WY_SCALE, WY_SKY, WY_AWAKE, WY_ULT, WY_ASSAULT, WY_ARCADION } from "./wyvernData.js";
@@ -43,6 +43,10 @@ function gambler() {
       jack: { name: GM_JACK.name, lv: U.jack, ult: 1, desc: [`겨눈 자리에 코인 ${GM_JACK.coins}번을 떨어뜨린 뒤 결과에 따라 마지막 폭발이 터집니다.`,
         GM_JACK.names.map((n, i) => `${n} ${pct(GM_JACK.odds[i])} ${x(GM_JACK.ends[i])}`).join(" · ")],
         stats: [["대기", `${GM_JACK.cd}초`], ["사거리", GM_JACK.reach], ["범위", `반지름 ${GM_JACK.r}`], ["코인", `${x(GM_JACK.coinMul)} × ${GM_JACK.coins}`]] },
+      dopa: { name: GM_DOPA.name, lv: U.dopa, desc: ["포인터에 가장 가까운 적 하나에게 카드를 던집니다. 릴 셋이 결과를 정합니다.",
+        ...GM_DOPA.res.map((r) => `${r.name} ${r.p}% — ${r.flat ? `${r.flat.toLocaleString("ko-KR")} 고정 피해` : r.mul ? `기본 공격 피해의 ${Math.round(r.mul * 100)}%` : "피해 없음"}`),
+        `사람에게는 고정 피해 대신 기본 공격 피해의 ${Math.round(GM_DOPA.pvpMul * 100)}%.`],
+        stats: [["대기", `${GM_DOPA.cd}초`], ["사거리", GM_DOPA.reach], ["대상", "하나"]] },
     }[q.s] })),
   };
 }

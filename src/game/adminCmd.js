@@ -17,6 +17,7 @@ import { MAPS, JOBS, runOf, sys, abyssPlace, inAbyss } from "./rpg.js";
 import { STORY_MAPS } from "./storyData.js";
 import { LIBRARY_IDS } from "./libraryData.js";
 import { VILLAGE } from "./villageData.js";
+import { ONYX, oxOf } from "./onyxData.js";
 import { POTIONS, POTION, SPECIALS, WARP, GUARD, WEAPON_FAMILY, JOB_FAMILY, weaponCap } from "./shopData.js";
 import { specialTier, specialPrice, addMat, equipped } from "./shop.js";
 import { ADV_CLASSES } from "./advData.js";
@@ -65,6 +66,7 @@ const flat = (s) => String(s || "").toLowerCase().replace(/[\s()·]/g, "");
 
 // 줄 수 있는 물품 — 이름(띄어쓰기 · 괄호 무시)으로 찾는다
 const ITEMS = [
+  { name: "오닉스", give: (b, n) => { const have = oxOf(b); const put = Math.min(n, ONYX.max - have); if (put > 0) b.ox = have + put; return put; } },   // 11월 27일 — 황금 진열장 상점 재화
   ...POTIONS.map((p) => ({ name: p.name, give: (b, n) => { const have = b.p[p.id] || 0; const put = Math.min(n, POTION.stackMax - have); if (put > 0) b.p[p.id] = have + put; return put; } })),
   ...MATERIALS.map((m) => ({ name: m.name, give: (b, n) => addMat(b, m.id, n) })),
   ...SPECIALS.filter((sp) => !sp.hj).map((sp) => ({ name: sp.name, give: (b, n, t) => {

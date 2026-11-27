@@ -89,7 +89,7 @@ test('4. 제작으로 50레벨에 닿으면 칭호 「마스터 연금술사」�
 test('5 · 6 · 7. Lv 49 는 일반 물약을 못 사고(서버도) Lv 50 은 산다 · 특별 물약은 늘 산다', () => {
   const g = world([{ al: { lv: 49 } }, { al: { lv: 50 } }]);
   const [a, b] = g.heroes;
-  const gen = POTIONS.filter((p) => !SPECIAL_POTIONS.includes(p.id));
+  const gen = POTIONS.filter((p) => !SPECIAL_POTIONS.includes(p.id) && !p.ox);   // 오닉스 물약(성전환)은 황금 진열장 상점에서만
   gen.forEach((p) => assert.deepEqual(whyPotionBuy(a, p.id), ['물약 제작 레벨 50부터 구매할 수 있습니다.'], p.id));
   const c0 = a.coins;
   shop(g, 0, { op: 'pbuy', id: 'heal_s' });
@@ -102,7 +102,7 @@ test('5 · 6 · 7. Lv 49 는 일반 물약을 못 사고(서버도) Lv 50 은 �
   shop(g, 0, { op: 'pbuy', id: 'adv_reset' });
   assert.equal(lastNote(g, 0).ok, true); assert.equal(a.coins, 0, '전직 초기화 150만 그대로');
   assert.deepEqual(POTIONS.map((p) => [p.id, p.price]), [['heal_s', 30], ['heal_m', 80], ['heal_l', 200], ['buff_str', 150], ['buff_int', 150], ['buff_crit', 200], ['reset', 5000],
-    ['speed1', 300], ['speed2', 900], ['hide1', 1750], ['hide2', 3000], ['adv_reset', 1500000], ['elem_swap', 1500000]], '가격 그대로');
+    ['speed1', 300], ['speed2', 900], ['hide1', 1750], ['hide2', 3000], ['adv_reset', 1500000], ['elem_swap', 1500000], ['gender_swap', 0]], '가격 그대로(성전환 물약은 오닉스 420)');
 });
 
 test('8. 가진 물약은 제작 레벨과 상관없이 마신다 · 효과 그대로', () => {

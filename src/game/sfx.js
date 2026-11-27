@@ -388,6 +388,22 @@ export function play(name) {
     if (!gate("gmSlot", 400)) return;
     for (let i = 0; i < 12; i++) tone({ type: "square", f0: 880 + (i % 3) * 110, t: 0.03, gain: 0.035, delay: 0.04 * i + 0.004 * i * i });
     tone({ type: "triangle", f0: 1568, f1: 2093, t: 0.2, gain: 0.07, delay: 1.2 });
+  } else if (name === "gmDopaSpin" || name === "gmDopaCan") {   // 도파민 — 짧게 도는 릴 · 깡통 당첨은 잭팟 직전 소리가 오르다 미끄러져 내려간다
+    if (!gate("gmDopaSpin", 300)) return;
+    for (let i = 0; i < 9; i++) tone({ type: "square", f0: 880 + (i % 3) * 110, t: 0.03, gain: 0.035, delay: 0.035 * i + 0.003 * i * i });
+    if (name === "gmDopaCan") {
+      tone({ type: "triangle", f0: 1047, f1: 2093, t: 0.32, gain: 0.07, delay: 0.5 });
+      tone({ type: "triangle", f0: 1568, f1: 392, t: 0.3, gain: 0.07, delay: 0.84 });
+    }
+  } else if (name === "gmDopaRed") {         // 도파민 적중 — 짧은 타격음
+    if (!gate("gmDopaRed", 100)) return;
+    noise({ t: 0.08, gain: 0.16, f: 900, q: 1 });
+    tone({ type: "square", f0: 300, f1: 120, t: 0.08, gain: 0.08 });
+  } else if (name === "gmDopaMiss") {        // 도파민 꽝 — 카드가 바스러지는 마른 소리
+    if (!gate("gmDopaMiss", 100)) return;
+    [0, 0.04, 0.09, 0.15].forEach((d, i) => noise({ t: 0.05, gain: 0.07 - i * 0.012, f: 2600 - i * 400, q: 2, delay: d }));
+  } else if (name === "gmDopaHush") {        // 도파민 잭팟 — 릴이 멈추는 순간 다른 소리가 잠깐 끊긴다
+    if (ctx() && duck) { duck.gain.setTargetAtTime(0.02, ac.currentTime, 0.02); duck.gain.setTargetAtTime(1, ac.currentTime + 0.5, 0.12); }
   } else if (name === "enPulse") {           // Engineer 003 — 짧은 전자 발진음
     if (!gate("enPulse", 70)) return;
     tone({ type: "square", f0: 880, f1: 1760, t: 0.06, gain: 0.05 });

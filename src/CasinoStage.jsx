@@ -58,7 +58,7 @@ export function useCasinoRun({ note, setQuiet, coins, skip }) {
 
 // 크게 이겼나 — 슬롯 별 · 7, 상자 특별 무기 · 전설
 const winBig = (res) => (res.game === "slot" && res.win && ["star", "seven"].includes(res.reels[0]))
-  || (res.game === "box" && res.got && (res.got.kind === "special" || res.got.g >= 4));
+  || (res.game === "box" && res.got && (res.got.kind === "special" || res.got.g >= 4 || (res.got.kind === "onyx" && res.got.n >= 75)));
 
 /* ── 주사위 — 왼쪽에서 굴러 들어와 결과 면으로 멈춘다. 모서리면 비스듬히 선다 ── */
 // 면 배치 — 앞 1 · 뒤 6 · 오른쪽 3 · 왼쪽 4 · 위 2 · 아래 5. 값은 그 면을 앞으로 돌려 오는 회전
@@ -159,8 +159,8 @@ export function BoxStage({ run }) {
   const mine = run.game === "box" ? run : { phase: "idle" };
   const got = mine.res && mine.res.got;
   const open = (mine.phase === "land" || mine.phase === "done") && got;
-  const tone = got ? (got.kind === "special" ? "sp" : got.kind === "weapon" ? `g${got.g}` : "po") : "";
-  const title = mine.phase === "done" && got ? (got.kind === "special" ? "특별 무기!" : got.kind === "weapon" ? "무기" : "물약") : "";
+  const tone = got ? (got.kind === "special" ? "sp" : got.kind === "weapon" ? `g${got.g}` : got.kind === "onyx" ? "ox" : "po") : "";
+  const title = mine.phase === "done" && got ? (got.kind === "special" ? "특별 무기!" : got.kind === "weapon" ? "무기" : got.kind === "onyx" ? `오닉스 ${got.n}` : "물약") : "";
   return (
     <div className={`cas-stage box-stage box-${mine.phase} ${open ? `box-open box-${tone}` : ""} ${got && winBig(mine.res) && mine.phase === "done" ? "cas-big" : ""}`} key={mine.key || 0}>
       <span className="box-rays" />

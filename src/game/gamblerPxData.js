@@ -21,9 +21,12 @@ export const GAMBLER_PX = {
   gm_table: { w: 288, h: 226, cols: 7, n: 14, cx: 144, cy: 113, r: 140 },   // 황금 테이블 — 0~4 펼침 · 5~8 유지 · 9~13 접힘
   gm_pillar: { w: 52, h: 150, cols: 8, n: 8, cx: 26, cy: 146 },   // 잭팟 빛기둥(바닥이 cy)
   gm_icons: { w: 24, h: 24, cols: 8, n: 8, cx: 0, cy: 0 },   // 스킬 아이콘 8칸 — 칩 · 장막 · 눈 · 폭우 · 더블 다운 · 테이블 · 엣지 · 777
-  gm_props: { w: 48, h: 52, cols: 5, n: 5, cx: 24, cy: 48 },   // 해금 경로 조사물(발밑이 기준점) — 0 낡은 칩 상자 · 1 열린 상자 · 2 계약서 게시판 · 3 망가진 주사위 기계 · 4 되살아난 기계
+  gm_props: { w: 48, h: 52, cols: 5, n: 5, cx: 24, cy: 48 },
+  gm_dreel: { w: 28, h: 38, cols: 8, n: 8, cx: 14, cy: 19 },   // 도파민 릴 — 0 꽝 × · 1 동전 · 2 붉은 마름모 · 3 왕관 · 4~6 미끄러지는 7 · 7 빈 칸
+  gm_dcard: { w: 36, h: 48, cols: 7, n: 7, cx: 18, cy: 24 },   // 도파민 카드 — 0 보통 · 1 붉게 빛남 · 2 금빛 · 3~6 바스러짐   // 해금 경로 조사물(발밑이 기준점) — 0 낡은 칩 상자 · 1 열린 상자 · 2 계약서 게시판 · 3 망가진 주사위 기계 · 4 되살아난 기계
 };
 // 아이콘 칸 차례(gm_icons)
-export const GAMBLER_ICON = { chip: 0, veil: 1, dice: 2, rain: 3, dd: 4, table: 5, edge: 6, jack: 7 };
+// dopa 8 — 도파민은 도트 시트 밖 Codex 그림(onyx/icons.webp 의 도파민 칸, oxIconStyle)
+export const GAMBLER_ICON = { chip: 0, veil: 1, dice: 2, rain: 3, dd: 4, table: 5, edge: 6, jack: 7, dopa: 8 };
 // 조사물 칸 차례(gm_props)
 export const GAMBLER_PROP = { box: 0, boxOpen: 1, deed: 2, machine: 3, machineOn: 4 };

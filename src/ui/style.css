@@ -3584,3 +3584,20 @@ button.forge-stage:disabled { cursor: default; }
 /* 그림자 명부 창 — 위쪽 가운데에 작게, 아래 막대 · 스킬 판은 가리지 않는다 */
 .hud2 .ncw { left: 50%; right: auto; transform: translateX(-50%); width: min(calc(var(--u) * 860), 94%); top: calc(var(--u) * 80); max-height: calc(var(--u) * 620); }
 .hud2 .ncw-face { max-width: calc(var(--u) * 150); height: auto; }
+
+/* ── hud2 바깥 여백 (11월 27일 사용자 "위아래 여백이 없어 어색하다") ── 판을 창 안에 살짝 띄운다 */
+.hud2.rpg-page {
+  --g: clamp(12px, 2.6vh, 30px);
+  --sw: min(calc(100vw - 2 * var(--g)), calc((100vh - 2 * var(--g)) * 16 / 9));
+  --fx: calc((100vw - var(--sw)) / 2);
+  padding: var(--g); box-sizing: border-box; background: radial-gradient(ellipse at 50% 40%, #1d2b1f, #0f1711 75%);
+}
+.hud2 .stage { width: var(--sw); }
+.hud2 .frame { border: 1px solid rgba(226, 205, 165, 0.35); border-radius: 10px; box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55); }
+.rpg-page.hud2:fullscreen { padding: 0; --g: 0px; }
+.rpg-page.hud2:fullscreen .frame { border-radius: 0; border: 0; }
+/* 왼쪽 위 · 아래 · 오른쪽은 판 가장자리에서 일정한 안쪽 여백을 둔다(왼쪽 위는 모서리 단추 줄 옆으로 맞춘다) */
+.hud2 .hud2-tl { left: max(calc(var(--u) * 22), calc(116px - var(--fx))); top: max(calc(var(--u) * 20), calc(14px - var(--g))); }
+.hud2 .hud2-icons { right: calc(var(--u) * 28); bottom: calc(var(--u) * 28); }
+.hud2 .hud2-dock { bottom: calc(var(--u) * 30); }
+.hud2 .rpg-chat { left: calc(var(--u) * 28); bottom: calc(var(--u) * 36); }

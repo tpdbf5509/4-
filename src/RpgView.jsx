@@ -1956,6 +1956,35 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
           {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
         </button>}{/* 넓은 화면은 스킬 탭에서 대쉬 칸을 뺀다(키는 그대로, 11월 21일) */}
+        {hud2 && !me.blood && !hidJob && (() => {
+          /* 테스트 서버 새 화면: 일반 직업의 평타 · 대쉬 · 큰 기술 칸(일반 직업은 이 셋이 판에 없었다) */
+          const jid = jobOf(myLook).id;
+          const bigIco = { warrior: "smash", mage: "burst", archer: "pierce" }[jid] || "smash";
+          return (<>
+            <button type="button" className="rpg-skill basic"
+              onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); act("fire", true); }}
+              onPointerUp={() => act("fire", false)} onPointerCancel={() => act("fire", false)}>
+              {!touch && keyOf(binds, "fire") && <kbd>{keyOf(binds, "fire")}</kbd>}
+              <SkillIco id={jid === "warrior" ? "sword" : "shot"} />
+              <span>평타<small>누르고 있기</small></span>
+            </button>
+            <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
+              onPointerDown={(e) => { e.preventDefault(); act("dash"); }}>
+              {!touch && keyOf(binds, "dash") && <kbd>{keyOf(binds, "dash")}</kbd>}
+              <SkillIco id="dash" />
+              <span>대쉬<small>회피 {DASH.inv}초</small></span>
+              {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
+              {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
+            </button>
+            <button type="button" className={`rpg-skill ${me.sk > 0 ? "cool" : ""}`}
+              onPointerDown={(e) => { e.preventDefault(); act("skill"); }}>
+              {!touch && keyOf(binds, "skill") && <kbd>{keyOf(binds, "skill")}</kbd>}
+              <JobIco id={bigIco} />
+              <span>{skillName(myLook)}<small>큰 기술</small></span>
+              {me.sk > 0 && <em>{Math.ceil(me.sk)}</em>}
+            </button>
+          </>);
+        })()}
         {me.wsk && !hidJob && (
           <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }}

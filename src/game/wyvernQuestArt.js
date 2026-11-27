@@ -7,6 +7,7 @@ import { textUp } from "./bodyScale.js";
 import { WQ_SPOTS, WQ_TRIAL as T, WQ_ROCKS, wqMap, wqSpotMap, AQ } from './wyvernQuestData.js';
 import { wqSpotShown, wqView, wqOpen, wqHas, aqReady, aqMarkAt, aqWyvernAt } from './wyvernQuest.js';
 import { drawWyvernUnit } from './wyvernArt.js';
+import { WYVERN_PX, WYVERN_PX_SRC } from './wyvernPxData.js';
 
 const SQ = 0.78;
 const BASE = '/assets/game/rpg/wyvern-quest/';
@@ -19,6 +20,15 @@ function img(name) {
   if (!imgs.has(name)) { const im = new Image(); imgs.set(name, im); im.onerror = () => imgs.set(name, null); im.src = `${BASE}${name}.webp`; }
   const im = imgs.get(name);
   return im && im.complete && im.naturalWidth ? im : null;
+}
+// 끝 돌판 아래 아르카디온 — 새로 그리지 않고 손에 드는 그림을 쓴다(11월 27일 사용자)
+const ARC_CELL = WYVERN_PX.wy_blade;                                     // 한 칸 크기 · 손잡이 자리
+const ARC_K = 1.6;                                                      // 땅에 꽂힌 검 크기 배율
+let arcImg;
+function bladeImg() {
+  if (typeof Image === 'undefined') return null;
+  if (arcImg === undefined) { arcImg = new Image(); arcImg.onerror = () => { arcImg = null; }; arcImg.src = `${WYVERN_PX_SRC}wy_blade.webp`; }
+  return arcImg && arcImg.complete && arcImg.naturalWidth ? arcImg : null;
 }
 // 시트 한 칸을 발(x, y) 기준으로 — w 는 그릴 너비. foot 은 칸 안 발 높이 비율
 function cell(ctx, sheet, i, x, y, w, a = 1, foot = 0.94) {
@@ -368,8 +378,9 @@ function drawAqSpot(ctx, me, s, time) {
     if (wqHas(me, 'a_got')) { ring(ctx, x, y, 24, C.line, 0.5); return 40; }
     const free = wqHas(me, 'a_return'), sh = free ? 0 : Math.sin(time * 30) * 1.2;
     ctx.save(); ctx.translate(x + sh, y); ctx.rotate(-0.12);
-    ctx.fillStyle = '#c8ccd4'; ctx.beginPath(); ctx.moveTo(-5, -70); ctx.lineTo(5, -70); ctx.lineTo(4, 0); ctx.lineTo(0, 8); ctx.lineTo(-4, 0); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#7a2a24'; ctx.fillRect(-14, -76, 28, 6); ctx.fillStyle = '#3a1a16'; ctx.fillRect(-3, -98, 6, 22);
+    const bl = bladeImg();                                              // 손에 드는 아르카디온 그림(wy_blade 첫 칸)을 칼끝이 아래로 가게 세운다
+    if (bl) { const k = ARC_K, P = ARC_CELL; ctx.rotate(Math.PI / 2); ctx.imageSmoothingEnabled = false; ctx.drawImage(bl, 0, 0, P.w, P.h, 8 - P.w * k, -P.cy * k, P.w * k, P.h * k); }
+    else { ctx.fillStyle = '#7a2a24'; ctx.fillRect(-4, -98, 8, 106); }   // 그림을 못 불러오면 대신 그리는 막대
     ctx.restore();
     disc(ctx, x, y - 40, 30 + Math.sin(time * 3) * 4, free ? '#f2c48a' : '#d6483a', free ? 0.22 : 0.14);
     return 110;

@@ -3516,3 +3516,46 @@ button.forge-stage:disabled { cursor: default; }
 .hud2 .rpg-hid-stat { position: absolute; left: calc(var(--u) * 360); bottom: calc(100% + var(--u) * 22); margin: 0; padding: calc(var(--u) * 4) 0 calc(var(--u) * 4) calc(var(--u) * 22); }
 .hud2 .hud2-top { font-size: calc(var(--u) * 20); }
 .hud2 .hud2-bars .rpg-lv-num { justify-self: start; margin: 0 0 0 calc(var(--u) * 38); }
+
+/* ── hud2 가독성 보완 (11월 27일 사용자 "가독성이 떨어진다") ─────────────────
+   조사한 원칙: ① 밝고 복잡한 바닥 위에서는 글자마다 반투명 어두운 판(scrim)을 깐다 ② 글자는 밝은 크림색 · 외곽 그림자 · 14px 아래로 내리지 않는다
+   ③ 판 위에서 칸 · 아이콘이 구분되게 칸 바탕을 판보다 한 단계 밝게 하고 어두운 아이콘은 밝기를 올린다 ④ 색만으로 뜻을 나누지 않고 글자 · 모양을 함께 둔다.
+   색은 배경(어두운 월넛) 60 : 글자(크림) 30 : 포인트(바랜 금색) 10 */
+.hud2 { --pn: rgba(26, 18, 11, 0.86); --pn-line: rgba(226, 205, 165, 0.32); --tx: #f6ecd2; --tx2: #d9ccaa; --pt: #e3c48a; }
+.hud2 .hud2-top, .hud2 .hud2-quest .rpg-quest, .hud2 .hud2-bars, .hud2 .hud2-icons, .hud2 .rpg-hid-stat, .hud2 .rpg-side .icons .rpg-potbar {
+  background: var(--pn); border: 1px solid var(--pn-line); border-radius: calc(var(--u) * 9); box-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 8) rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(3px);
+}
+.hud2 .hud2-top { left: calc(var(--u) * 128); top: calc(var(--u) * 14); padding: calc(var(--u) * 7) calc(var(--u) * 16); color: var(--tx); text-shadow: none; font-size: calc(var(--u) * 18); }
+.hud2 .hud2-lv { color: var(--pt); }
+.hud2 .hud2-top .rpg-admin { border-color: var(--pt); color: var(--pt); background: none; }
+.hud2 .hud2-quest { right: calc(var(--u) * 100); top: calc(var(--u) * 14); max-width: 40%; }
+.hud2 .hud2-quest .rpg-quest { padding: calc(var(--u) * 8) calc(var(--u) * 14); font-size: calc(var(--u) * 14); color: var(--tx); text-shadow: none; }
+.hud2 .hud2-quest .rpg-quest b { color: var(--pt); }
+.hud2 .hud2-quest .rpg-quest-open { color: var(--tx2); font-size: calc(var(--u) * 12); }
+.hud2 .rpg-quest-go { border-color: var(--pt); background: none; color: var(--pt); }
+.hud2 .hud2-bars { padding: calc(var(--u) * 10) calc(var(--u) * 14); width: calc(var(--u) * 350); text-shadow: none; }
+.hud2 .hud2-bars .rpg-lv-tag, .hud2 .hud2-bars .rpg-lv-num { color: var(--tx); font-size: calc(var(--u) * 14); }
+.hud2 .hud2-bars .rpg-lv-bar { height: calc(var(--u) * 10); background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(226, 205, 165, 0.25); }
+.hud2 .rpg-lv-bar.xp > span { background: linear-gradient(#e8cf8c, #c9a24c); }
+.hud2 .rpg-lv-bar.hp > span { background: linear-gradient(#a9dc9a, #6fae60); }
+.hud2 .hud2-bars .rpg-lv-row { grid-template-columns: calc(var(--u) * 130) calc(var(--u) * 196) 1fr; }
+.hud2 .rpg-hid-stat { left: calc(var(--u) * 392); padding: calc(var(--u) * 8) calc(var(--u) * 14); border-left: 1px solid var(--pn-line); max-width: calc(var(--u) * 420); color: var(--tx); }
+.hud2 .rpg-hid-stat .gm-notes, .hud2 .rpg-hid-stat .gm-name, .hud2 .rpg-hid-stat .gm-name em { color: var(--tx); font-size: calc(var(--u) * 14); }
+.hud2 .rpg-hid-stat .nc-soul i { width: calc(var(--u) * 180); }
+.hud2 .rpg-side .icons .rpg-skillbar { background: linear-gradient(rgba(44, 31, 20, 0.95), rgba(30, 21, 13, 0.95)); border-color: rgba(226, 205, 165, 0.45); }
+.hud2 .rpg-side .icons .rpg-skill, .hud2 .rpg-side .icons .rpg-skillbar .rpg-skill, .hud2 .rpg-skillbar .gm-skill, .hud2 .rpg-side .icons .rpg-skill.pot {
+  background: linear-gradient(rgba(120, 94, 62, 0.55), rgba(70, 52, 34, 0.55)); border-color: rgba(226, 205, 165, 0.3);
+}
+.hud2 .rpg-side .icons .rpg-skill:hover, .hud2 .rpg-skillbar .gm-skill:hover { border-color: var(--pt); }
+.hud2 .rpg-side .icons .rpg-skill .rpg-ico, .hud2 .rpg-skillbar .gm-skill .gm-ico { filter: brightness(1.7) contrast(1.15) saturate(1.1); }
+.hud2 .rpg-skillbar .gm-skill.wait .gm-ico, .hud2 .rpg-side .icons .rpg-skill.cool .rpg-ico { filter: brightness(0.85) saturate(0.5); }
+.hud2 .rpg-side .icons .rpg-skill kbd, .hud2 .rpg-skillbar .gm-skill kbd { color: var(--tx); background: rgba(18, 12, 7, 0.92); border-color: rgba(226, 205, 165, 0.45); font-size: calc(var(--u) * 13); }
+.hud2 .rpg-side .icons .rpg-potbar { padding: calc(var(--u) * 7) calc(var(--u) * 8); }
+.hud2 .rpg-side .icons .rpg-skill.pot em { color: var(--tx); font-size: calc(var(--u) * 15); text-shadow: 0 1px 2px #000; }
+.hud2 .hud2-icons { padding: calc(var(--u) * 6) calc(var(--u) * 8); gap: calc(var(--u) * 6); right: calc(var(--u) * 30); bottom: calc(var(--u) * 43); }
+.hud2 .hud2-ico { color: var(--tx); width: calc(var(--u) * 38); height: calc(var(--u) * 38); }
+.hud2 .hud2-ico svg { width: calc(var(--u) * 28); height: calc(var(--u) * 28); stroke-width: 1.7; }
+.hud2 .hud2-ico:hover, .hud2 .hud2-ico.on { border-color: var(--pt); color: var(--pt); background: rgba(227, 196, 138, 0.12); }
+.hud2 .rpg-chat-open { background: var(--pn); border-color: var(--pn-line); color: var(--tx); }
+.hud2 .rpg-chat-line { background: rgba(26, 18, 11, 0.8); color: var(--tx); }

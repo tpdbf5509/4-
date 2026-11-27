@@ -116,7 +116,7 @@ export function wqSpotLine(h, s) {
   if (k === 'anchor') return [s.name, trOf(h) ? '잠그기' : wqHas(h, `a_lock${a.n + 1}`) ? '살펴보기' : '시련 시작'];
   if (k === 'marker') return [s.name, '아스라를 부른다'];
   if (k === 'hold') return [s.name, '붙들게 한다'];
-  if (k === 'home') return [s.name, '아스라를 부른다'];
+  if (k === 'home') return [s.name, s.id === 'ra-asura' ? '말 걸기' : '아스라를 부른다'];
   if (k === 'sword') return [s.name, wqHas(h, 'a_return') && !wqHas(h, 'a_got') ? '아르카디온을 뽑는다' : '살펴보기'];
   return [s.name, '살펴보기'];
 }
@@ -518,7 +518,7 @@ function anchorAct(E, g, h, s, n) {
   if (n === 2) {
     endTrial(h);
     E.fx(g, h.map, { kind: 'sk_wy_gone', x: aqWyAt(tr)[0], y: aqWyAt(tr)[1], fl: 0, pi: h.pi, t: 0.5, life: 0.5 });
-    return void tell(E, g, h, `세 고정쇠를 모두 잠갔다. ${WQ_NAME}가 바깥 발판으로 날아간다. 귀환로 머리의 귀환 지점에서 ${WQ_NAME}를 부르자.`, GOLD);
+    return void tell(E, g, h, `세 고정쇠를 모두 잠갔다. ${WQ_NAME}가 바깥 발판으로 날아간다. 귀환로 머리의 귀환 지점이나 바깥 발판의 ${WQ_NAME}에게 가서 부르자.`, GOLD);
   }
   tr.n += 1; tr.ph = 0; tr.pt = 0; tr.side = -1; tr.hold = 0; tr.base = tr.wy;   // 아스라는 쓰던 표식 쪽 그대로 다음 돌판으로
 }

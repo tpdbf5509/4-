@@ -3432,3 +3432,66 @@ button.forge-stage:disabled { cursor: default; }
   .nq-hud.fold { padding-right: 84px; }
   .nq-hud.fold .nq-fold { right: 6px; }
 }
+
+/* ── 새 화면 구성 hud2 (11월 27일 사용자 수정안 · 테스트 서버 ?test 에서만) ──────────────────
+   판 위 가운데 아래에 스킬 판(다크 월넛) · 왼쪽 막대 · 오른쪽 물약, 오른쪽 아래에 창 단추 줄.
+   스킬 칸 모양은 옛 .rpg-side .icons 규칙을 빌려 쓰고(히든 직업 칸도 그대로 나온다) 크기만 줄인다 */
+.hud2 .hud2-top {
+  position: absolute; left: 14px; top: 12px; z-index: 3; display: flex; align-items: baseline; gap: 8px; pointer-events: none;
+  color: #f3e6c6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); letter-spacing: -0.02em;
+}
+.hud2 .hud2-lv { font-family: 'Do Hyeon', sans-serif; font-weight: 400; font-size: 17px; color: #ffe08a; }
+.hud2 .hud2-name { font-size: 14px; }
+.hud2 .hud2-top .rpg-admin { margin-left: 0; background: rgba(20, 14, 8, 0.55); }
+.hud2 .hud2-top .rpg-lv-coin { font-size: 13px; }
+.hud2 .hud2-quest { position: absolute; right: 108px; top: 12px; z-index: 3; max-width: min(360px, 38%); }
+.hud2 .hud2-quest .rpg-quest { position: static; max-width: 100%; text-align: right; align-items: flex-end; }
+.hud2 .hud2-dock { position: absolute; left: 50%; bottom: 10px; z-index: 3; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 14px; pointer-events: none; }
+.hud2 .hud2-dock > * { pointer-events: auto; }
+.hud2 .hud2-bars { width: 196px; display: flex; flex-direction: column; gap: 5px; padding-bottom: 6px; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9); }
+.hud2 .hud2-bars .rpg-lv-row { grid-template-columns: 28px 1fr auto; }
+.hud2 .hud2-bars .rpg-lv-num { min-width: 0; font-size: 10px; }
+/* .rpg-side 옛 판(그림 테두리)을 걷어 낸다 */
+.hud2 .rpg-side.hud2-slots {
+  flex: none; min-height: 0; padding: 0; border: 0; border-image: none; background: none; filter: none; gap: 0;
+}
+.hud2 .rpg-side .rpg-touch-actions { flex-direction: row; align-items: flex-end; gap: 12px; overflow: visible; }
+.hud2 .rpg-side .icons .rpg-skillbar {
+  display: flex; flex-wrap: nowrap; gap: 4px; padding: 6px 8px 7px; border-radius: 9px;
+  background: linear-gradient(#3b2b1b, #2a1d12); border: 1px solid #8a6a3f; box-shadow: 0 3px 0 #1c130a, 0 6px 14px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 226, 170, 0.08);
+}
+.hud2 .rpg-side .icons .rpg-potbar { display: flex; gap: 4px; padding: 0; border: 0; }
+.hud2 .rpg-side .icons .rpg-skill, .hud2 .rpg-side .icons .rpg-skillbar .rpg-skill, .hud2 .rpg-side .icons .rpg-skill.pot {
+  width: 44px; min-width: 0; min-height: 54px; padding: 16px 0 0; justify-content: flex-start; flex: none;
+  background: rgba(20, 14, 8, 0.55); border: 1px solid rgba(226, 205, 165, 0.22); border-radius: 6px;
+}
+.hud2 .rpg-side .icons .rpg-skill.pot { background: rgba(20, 14, 8, 0.4); border-color: rgba(160, 196, 150, 0.35); }
+.hud2 .rpg-side .icons .rpg-skill .rpg-ico, .hud2 .rpg-side .icons .rpg-skillbar .rpg-skill .rpg-ico, .hud2 .rpg-side .icons .rpg-skill.pot .rpg-ico { width: 34px; height: 34px; margin: 0; background-size: auto; }
+.hud2 .rpg-side .icons .rpg-skill kbd { left: 50%; top: 2px; transform: translateX(-50%); font-size: 9.5px; white-space: nowrap; }
+.hud2 .rpg-side .icons .rpg-skill > span:not(.rpg-ico) { display: none; }   /* 칸 이름은 스킬 설명 창(M)에서 본다 */
+.hud2 .rpg-side .icons .rpg-skillbar .rpg-skill em { top: 20px; font-size: 17px; }
+.hud2 .rpg-side .icons .rpg-skill.pot em { position: static; margin: 1px 0 0; font-size: 12px; color: #d9e8cd; }
+.hud2 .rpg-side .icons .rpg-skill.pot.empty { justify-content: center; padding-top: 14px; }
+.hud2 .rpg-side .icons .rpg-skill.pot.empty > span { display: none; }
+.hud2 .rpg-side .icons .rpg-skill.pot.empty::after { content: "+"; font-size: 18px; color: #a99a7e; }
+.hud2 .rpg-hid-stat { align-self: center; max-width: 160px; font-size: 12px; color: #e8dcc0; }
+.hud2 .hud2-icons { position: absolute; right: 12px; bottom: 12px; z-index: 3; display: flex; gap: 2px; }
+.hud2 .hud2-ico {
+  position: relative; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; cursor: pointer;
+  border: 1px solid transparent; border-radius: 8px; background: none; color: #e3c48a;
+}
+.hud2 .hud2-ico svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)); }
+.hud2 .hud2-ico:hover, .hud2 .hud2-ico.on { border-color: #8a6a3f; background: rgba(58, 42, 25, 0.8); }
+.hud2 .hud2-ico b { position: absolute; right: 0; top: -2px; min-width: 14px; padding: 0 3px; border-radius: 999px; background: #3b2b1b; border: 1px solid #d6b26a; font: 400 10px/13px 'Do Hyeon', sans-serif; color: #ffe08a; text-align: center; }
+.hud2 .rpg-menu { left: auto; right: 12px; top: auto; bottom: 56px; max-height: calc(100% - 140px); }
+.hud2 .rpg-chat { bottom: 88px; }
+.hud2 .rpg-buffs { bottom: 88px; }
+.hud2 .stage { max-width: min(1400px, calc((100vh - 84px) * 1.53)); }   /* 오른쪽 판이 빠진 만큼 판을 넓힌다(세로가 모자라면 가로를 줄인다) */
+.hud2 .hud2-bars { padding: 7px 9px 6px; border-radius: 9px; background: linear-gradient(rgba(20, 14, 8, 0.62), rgba(20, 14, 8, 0.5)); border: 1px solid rgba(214, 178, 106, 0.22); }
+.hud2 .hud2-bars .rpg-lv-tag { color: #d8c293; }
+.hud2 .hud2-bars .rpg-lv-num { color: #f1e6c9; }
+.hud2 .hud2-icons { bottom: 84px; }   /* 판이 좁으면 스킬 판 위 줄로 올린다 */
+@container (min-width: 1180px) {
+  .hud2 .hud2-icons { bottom: 12px; }
+  .hud2 .hud2-dock { left: calc(50% - 110px); }
+}

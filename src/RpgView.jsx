@@ -680,6 +680,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   const touch = useTouch();
   const side = useSidePanel(touch);                  // 넓은 화면이면 스킬 · 물약 칸을 판 오른쪽 판으로
+  const hud2 = TEST_MODE && side;                    // 새 화면 구성(11월 27일 사용자 수정안) — 테스트 서버에서만: 판 아래 가운데 스킬 판 · 왼쪽 아래 막대 · 오른쪽 아래 창 단추
   useEffect(() => {
     if (touch && pageRef.current) return stopGameSelection(pageRef.current);
   }, [touch]);
@@ -2032,8 +2033,27 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     </div>
   );
 
+  const questBox = (
+  me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
+    <div className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
+      {me.story && !me.story.done && <span className="rpg-quest-story"><b>{me.story.ch}장</b>{me.self.map !== me.story.map ? `${me.story.mapName} · ` : ""}{me.story.goal}{me.story.need ? ` ${me.story.got}/${me.story.need}` : ""}
+        {/* 이야기 장소 바로 가기 — 지금 단계의 맵으로 바로 옮긴다(storyQuest.js rpgStory op 'go') */}
+        {me.story.canGo && <button type="button" className="rpg-quest-go" title={`${me.story.mapName}(으)로 바로 가기`}
+          onClick={(e) => { e.stopPropagation(); act("story", { op: "go" }); }}>바로 가기</button>}
+      </span>}
+      {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
+      {Object.entries(me.self.reqs).map(([id, r]) => {
+        const q = REQUESTS[id] && REQUESTS[id][r.i];
+        const xpTxt = q && me.lv < LV_MAX ? reqXpText(q, me.lv, r.coinOnly ?? (me.lv > q.lv)) : "";
+        return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}{xpTxt ? ` · ${xpTxt}` : ""}</span> : null;
+      })}
+      <button type="button" className="rpg-quest-open" onClick={(e) => { e.stopPropagation(); closeAll(); setQuestOpen(true); }}>의뢰 · 퀘스트 ›</button>
+    </div>
+  )
+  );
+
   return (
-    <div ref={pageRef} className={`page rpg-page ${touch ? "touch" : ""} ${side ? "has-side" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch'){skillPointer.current=null;touchAt.current=performance.now();}}}>
+    <div ref={pageRef} className={`page rpg-page ${touch ? "touch" : ""} ${side && !hud2 ? "has-side" : ""} ${hud2 ? "hud2" : ""}`} onPointerDownCapture={e=>{if(e.pointerType==='touch'){skillPointer.current=null;touchAt.current=performance.now();}}}>
       <div className="stage">
         <div className="frame">
           {me?.blood?.mode === "rage" && <div className="rpg-blood-rage" />}{/* BLOOD-001 폭주 — 화면 가장자리만 옅게 붉힌다 */}
@@ -2104,7 +2124,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             </>} />
 
           {/* 왼쪽 위 — 레벨 · 경험치 · 체력 · 코인 */}
-          {me && (
+          {me && !hud2 && (
             <div className="rpg-lv" style={{ "--pc": myEl.key, "--pcl": myEl.light }}>
               <span className="rpg-lv-badge"><em>Lv</em>{me.lv}</span>
               <button type="button" className={`rpg-lv-menu ${menu ? "on" : ""}`} aria-label="메뉴" aria-haspopup="menu"
@@ -2161,23 +2181,49 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 </span>
               </span>
               {/* 의뢰 · 퀘스트 — 레벨 칸 바로 아래에 붙는다(style.css .rpg-quest) */}
-              {me && !menu && !statOpen && !shopOpen && !bagOpen && !titleOpen && !codexOpen && !partyOpen && !keysOpen && !reqOpen && !questOpen && (
-                <div className="rpg-quest" onClick={() => { closeAll(); setQuestOpen(true); }} title="의뢰 · 퀘스트 창 열기">
-                  {me.story && !me.story.done && <span className="rpg-quest-story"><b>{me.story.ch}장</b>{me.self.map !== me.story.map ? `${me.story.mapName} · ` : ""}{me.story.goal}{me.story.need ? ` ${me.story.got}/${me.story.need}` : ""}
-                    {/* 이야기 장소 바로 가기 — 지금 단계의 맵으로 바로 옮긴다(storyQuest.js rpgStory op 'go') */}
-                    {me.story.canGo && <button type="button" className="rpg-quest-go" title={`${me.story.mapName}(으)로 바로 가기`}
-                      onClick={(e) => { e.stopPropagation(); act("story", { op: "go" }); }}>바로 가기</button>}
-                  </span>}
-                  {me.quest.on && <span><b>{QUEST.name}</b> 토끼 {me.quest.n}/{QUEST.need}</span>}
-                  {Object.entries(me.self.reqs).map(([id, r]) => {
-                    const q = REQUESTS[id] && REQUESTS[id][r.i];
-                    const xpTxt = q && me.lv < LV_MAX ? reqXpText(q, me.lv, r.coinOnly ?? (me.lv > q.lv)) : "";
-                    return q ? <span key={id}><b>의뢰</b>{reqTitle(q)} · {reqProg(q, r, me.self)}{xpTxt ? ` · ${xpTxt}` : ""}</span> : null;
-                  })}
-                  <button type="button" className="rpg-quest-open" onClick={(e) => { e.stopPropagation(); closeAll(); setQuestOpen(true); }}>의뢰 · 퀘스트 ›</button>
-                </div>
-              )}
+              {questBox}
             </div>
+          )}
+          {hud2 && me && (   /* 새 화면 구성(테스트 서버 · 11월 27일 사용자 수정안) — 위 가운데 줄 · 위 오른쪽 의뢰 · 아래 막대 · 스킬 판 · 오른쪽 아래 창 단추 */
+            <>
+              <div className="hud2-top" style={{ "--pc": myEl.key, "--pcl": myEl.light }}>
+                <b className="hud2-lv">Lv {me.lv}</b>
+                <span className="hud2-name">{names[mySeat] || "모험가"} {who(mySeat)}</span>
+                {me.admin && <em className="rpg-admin">관리자</em>}
+                <span className="rpg-lv-coin"><Coin />{me.admin ? "무제한" : me.coins}</span>
+              </div>
+              <div className="hud2-quest">{questBox}</div>
+              <div className="hud2-dock">
+                <div className="hud2-bars">
+                  <span className="rpg-lv-row"><span className="rpg-lv-tag">HP</span>
+                    <span className="rpg-lv-bar hp"><span style={{ width: `${Math.min(100, (me.hp / (me.max || 1)) * 100)}%` }} /></span>
+                    <span className="rpg-lv-num">{me.hp}/{me.max}</span></span>
+                  <span className="rpg-lv-row"><span className="rpg-lv-tag">EXP</span>
+                    <span className="rpg-lv-bar xp"><span style={{ width: `${me.lv >= LV_MAX ? 100 : Math.min(100, (me.xp / me.need) * 100)}%` }} /></span>
+                    <span className="rpg-lv-num">{me.lv >= LV_MAX ? "MAX" : `${Math.floor(me.xp)}/${me.need}`}</span></span>
+                  <BloodBar v={me.blood} />
+                  <GamblerBar v={me.gm} />
+                </div>
+                <div className="rpg-side hud2-slots" onPointerOver={onSideOver} onPointerDown={onSideOver}>{actionBars}</div>
+              </div>
+              <div className="hud2-icons" role="toolbar" aria-label="창 열기">
+                {[
+                  ["스탯", statOpen, () => toggleWin(statOpen, setStatOpen), "M5 20V10M12 20V4M19 20v-7", me.left > 0 ? `+${me.left}` : ""],
+                  ["칭호", titleOpen, () => toggleWin(titleOpen, setTitleOpen), "M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z", ""],
+                  ["스킬 설명", skOpen, () => toggleWin(skOpen, setSkOpen), "M12 3c.6 4.6 1.4 5.4 6 6-4.6.6-5.4 1.4-6 6-.6-4.6-1.4-5.4-6-6 4.6-.6 5.4-1.4 6-6zM18 15v5M15.5 17.5h5", ""],
+                  ["가방", bagOpen, () => toggleWin(bagOpen, setBagOpen), "M6 8h12l1 12H5zM9 8a3 3 0 016 0", ""],
+                  ["도감", codexOpen, () => toggleWin(codexOpen, setCodexOpen), "M4 5a2 2 0 012-2h6v16H6a2 2 0 00-2 2zM20 5a2 2 0 00-2-2h-6v16h6a2 2 0 012 2z", ""],
+                  ["파티", partyOpen, () => toggleWin(partyOpen, setPartyOpen), "M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11a2.5 2.5 0 100-5M17.5 14c2.2.4 3.5 2.1 3.5 5", me.pty > 0 ? String(me.party.filter((h) => h.pty === me.pty).length) : ""],
+                  ...(me.nc ? [["그림자 명부", ncOpen, () => toggleWin(ncOpen, setNcOpen), "M12 3a6 6 0 00-6 6v9l3-2 3 2 3-2 3 2V9a6 6 0 00-6-6z", ""]] : []),
+                  ["설정", menu, () => setMenu((v) => !v), "M12 15a3 3 0 100-6 3 3 0 000 6zM12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1", ""],
+                ].map(([name, on, fn, d, badge]) => (
+                  <button key={name} type="button" className={`hud2-ico ${on ? "on" : ""}`} title={name} aria-label={name} aria-pressed={!!on} onClick={fn}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d={d} /></svg>
+                    {badge && <b>{badge}</b>}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
           {menu && (
             <>
@@ -3398,7 +3444,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
             </div>
           )}
         </div>
-        {side && (
+        {side && !hud2 && (
           <aside className="rpg-side" aria-label="스킬 · 물약" onPointerOver={onSideOver} onPointerDown={onSideOver}>{/* 넓은 화면 — 스킬 · 물약 칸을 게임 판 오른쪽 판으로 옮긴다(11월 14일 사용자 요청) */}
             {me && <div className="rpg-side-head"><b>스킬</b>{me.blood && <em>BLOOD-001</em>}{me.gm && <em className="gm">{GAMBLER_NAME}</em>}</div>}
             {actionBars}

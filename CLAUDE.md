@@ -125,6 +125,11 @@
 ### 영상 보기 — watch (11월 22일 사용자 지시로 적용)
 - 사용자가 올린 플레이 영상(`/mnt/project-files/*.mp4`)은 `.claude/skills/watch` 로 장면을 뽑아 직접 본다(원본 `bradautomates/claude-video`, MIT). 기본 local 엔진, 처음 한 번 `pip install -q yt-dlp`. 영상을 구글로 올리는 Gemini 엔진은 사용자가 원할 때만.
 
+### 게임 개발 스킬 — gamedev-skills (11월 27일 사용자 지시로 적용)
+- 원본 `gamedev-skills/awesome-gamedev-agent-skills`(Apache-2.0, 커밋 c6ca6c4) 79개 중 이 게임에 맞는 14개만 `.claude/skills/` 에 넣었다: `gamedev-router`(원본 `router`) · `rpg` · `tower-defense` · `game-feel` · `game-ui-ux` · `audio-design` · `camera-systems` · `input-systems` · `performance-optimization` · `save-systems` · `level-design` · `dialogue-systems` · `game-ai` · `create-game-assets`. 라이선스는 `gamedev-router/LICENSE` · `NOTICE`.
+- 이 게임은 자체 캔버스 엔진이라 라우터는 「자체 엔진」 길(`custom-engines.md`)로 쓴다. Godot · Unity · Unreal · Phaser 등 엔진 스킬과 shader · physics · procedural · steam-publish 등은 넣지 않았다.
+- **이 파일과 부딪치면 CLAUDE.md 가 먼저다.** 그림은 `codex-image` · `pixelfx` 흐름을 그대로 쓰고 `create-game-assets` 는 아트 방향 · 점검 참고용이다. 스킬에 나온 엔진 API 는 근거가 아니다(이 저장소 코드가 근거).
+
 ## 7. 확인 절차 (push 전에 꼭)
 
 ```bash

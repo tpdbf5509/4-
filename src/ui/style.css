@@ -3601,3 +3601,7 @@ button.forge-stage:disabled { cursor: default; }
 .hud2 .hud2-icons { right: calc(var(--u) * 28); bottom: calc(var(--u) * 28); }
 .hud2 .hud2-dock { bottom: calc(var(--u) * 30); }
 .hud2 .rpg-chat { left: calc(var(--u) * 28); bottom: calc(var(--u) * 36); }
+
+/* 창 단추 줄 — 오른쪽 가장자리 아래에 세로로(11월 27일 사용자 지정 자리) */
+.hud2 .hud2-icons { flex-direction: column; right: calc(var(--u) * 28); bottom: calc(var(--u) * 28); gap: calc(var(--u) * 4); padding: calc(var(--u) * 8) calc(var(--u) * 6); }
+.hud2 .rpg-buffs { bottom: calc(var(--u) * 400); right: calc(var(--u) * 28); }

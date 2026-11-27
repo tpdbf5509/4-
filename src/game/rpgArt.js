@@ -2645,12 +2645,13 @@ function drawTiled(ctx, im, M, cam, VW = W, VH = H) {   // VW · VH = 카메라�
     const v0 = Math.max(cam.x, x0), v1 = Math.min(cam.x + VW, x0 + TW);
     if (v1 <= v0) continue;
     const dx = v0 - cam.x, dw = v1 - v0;
+    const ov = x0 + TW < cam.x + VW ? 1 : 0;   // 이음새에 가는 틈(검은 줄)이 생기지 않게 오른쪽으로 1px 겹쳐 그린다 — 다음 조각이 그 위를 덮는다
     if (k % 2 === 0) {
-      ctx.drawImage(im, (v0 - x0) * kx, sy, dw * kx, sh, dx, 0, dw, VH);
+      ctx.drawImage(im, (v0 - x0) * kx, sy, dw * kx, sh, dx, 0, dw + ov, VH);
     } else {
       ctx.save();
-      ctx.translate(dx + dw, 0); ctx.scale(-1, 1);
-      ctx.drawImage(im, (TW - (v1 - x0)) * kx, sy, dw * kx, sh, 0, 0, dw, VH);
+      ctx.translate(dx + dw + ov, 0); ctx.scale(-1, 1);
+      ctx.drawImage(im, (TW - (v1 - x0)) * kx, sy, dw * kx, sh, 0, 0, dw + ov, VH);
       ctx.restore();
     }
   }

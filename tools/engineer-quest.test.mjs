@@ -164,6 +164,22 @@ test('9~10장 — 시험은 엔지니어 기술을 빌려주고 레벨과 관계
   assert.ok(!g.mobs.some((m) => m.eq));
 });
 
+test('시험 — 빌린 기술이 틱마다 지워지지 않고 실제 공격이 시험 몹에 맞는다(도박꾼 시험 정리가 엔지니어 대여를 거두던 사고)', () => {
+  const { g, h } = setup();
+  rpgAdminCmd(g, 0, '/엔지니어 설계 루트 6');
+  h.map = 'eng-trial'; act(g, 'trl-console'); run(g, TR.first + .2);
+  const bot = g.mobs.find((m) => m.eq === 'rush'); assert.ok(bot);
+  run(g, 0.5);
+  assert.equal(h.bag.hj.trial, 1, '대여 꼬리표가 남아 있다');
+  const en = h.en; run(g, 0.5); assert.equal(h.en, en, '엔지니어 상태가 틱마다 새로 만들어지지 않는다');
+  const near = () => { const b = g.mobs.find((m) => m.eq === 'rush'); if (b) { h.x = b.x - 150; h.y = b.y; h.dir = 1; } return b; };
+  const hp0 = bot.hp; near();
+  rpgInput(g, { cls: 0, kind: 'fire', dir: true });
+  for (let i = 0; i < 40 && bot.hp >= hp0 && !bot.dead; i++) { near(); rpgStep(g, .05); }
+  rpgInput(g, { cls: 0, kind: 'fire', dir: false });
+  assert.ok(bot.dead || bot.hp < hp0, '평타 펄스가 시험 몹을 맞힌다');
+});
+
 test('시험 — 시험장을 나가면 빌린 기술을 거둔다', () => {
   const { g, h } = setup();
   rpgAdminCmd(g, 0, '/엔지니어 설계 루트 6');

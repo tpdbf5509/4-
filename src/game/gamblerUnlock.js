@@ -136,7 +136,7 @@ function clearTargets(g, h) { g.mobs = g.mobs.filter((m) => !(m.map === CA.id &&
 // 시험을 그만둔다(뒷방을 나감 · 쓰러짐) — 빌려준 스킬 · 칩을 거둔다
 function endTrial(g, h) {
   const hj = h.bag.hj;
-  if (hj && hj.trial) { if (hj.prev) h.bag.hj = hj.prev; else delete h.bag.hj; h.gm = null; save(h); }
+  if (hj && hj.trial && hj.active === GAMBLER_ID) { if (hj.prev) h.bag.hj = hj.prev; else delete h.bag.hj; h.gm = null; save(h); }   // 엔지니어 최종 시험의 빌린 직업(같은 trial 꼬리표)은 건드리지 않는다
   clearTargets(g, h);
   h.gt = null;
 }
@@ -185,8 +185,9 @@ function finish(E, g, h) {
 // 시간 — tickGambler 앞에서 부른다(시험 가방이면 gamblerOn 이 참이다)
 export function tickGamblerTrial(E, g, h, dt) {
   const hj = h.bag && h.bag.hj;
-  if (!h.gt && !(hj && hj.trial)) return;
-  if (h.map !== CA.id || h.down > 0 || !(hj && hj.trial)) return void endTrial(g, h);
+  const mine = !!(hj && hj.trial && hj.active === GAMBLER_ID);   // 엔지니어 최종 시험도 hj.trial 을 쓴다 — 도박꾼 시험의 대여만 본다(안 그러면 매 틱 거두어 시험 몹이 안 맞는다)
+  if (!h.gt && !mine) return;
+  if (h.map !== CA.id || h.down > 0 || !mine) return void endTrial(g, h);
   const t = h.gt;
   if (!t) return void endTrial(g, h);
   t.t += dt;

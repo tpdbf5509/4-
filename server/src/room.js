@@ -60,6 +60,13 @@ function mask(v, pubs) {
   return v;
 }
 
+// 접속 열쇠 — 같은 집 · 같은 기기는 하나로 센다. IPv6 은 앞 64비트(한 집이 받는 묶음)만 본다
+export const netKey = (ip) => {
+  const t = String(ip || "").trim().toLowerCase();
+  if (!t) return "";
+  return t.includes(":") ? t.split(":").slice(0, 4).join(":") : t;
+};
+
 export class RpgRoom {
   constructor(ctx, env) {
     this.ctx = ctx;
@@ -91,14 +98,14 @@ export class RpgRoom {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     server.accept();
-    this.attach(id, server);
+    this.attach(id, server, netKey(req.headers.get("CF-Connecting-IP")));
     return new Response(null, { status: 101, webSocket: client });
   }
 
   /* ── 접속 ─────────────────────────────────────────── */
   // 붙었다 — 첫 말(auth)의 비밀값을 확인할 때까지는 자리 · 판정에 끼우지 않는다
-  attach(id, ws) {
-    const c = { id, ws, name: "", chatAt: 0, gone: 0, ok: false, checking: false, closed: false, queue: [] };
+  attach(id, ws, ip = "") {
+    const c = { id, ws, ip, name: "", chatAt: 0, gone: 0, ok: false, checking: false, closed: false, queue: [] };
     ws.addEventListener("message", (e) => this.onRaw(c, e.data));
     const bye = () => {
       c.closed = true;
@@ -131,6 +138,7 @@ export class RpgRoom {
     const key = this.keys.get(c.id);
     if (key && key.hash !== hash) return this.refuse(c, CLOSE.badAuth, "auth");   // 남의 id — 기존 연결은 그대로 둔다
     if (!key) this.keys.set(c.id, { hash, pub: this.freshPub() });
+    this.keys.get(c.id).ip = c.ip;                  // 레이스 우승 오닉스 인원 세기(netOf) — 메모리에만 두고 저장 · 스냅샷에 싣지 않는다
     clearTimeout(c.timer);
     const old = this.conns.get(c.id);
     if (old && old.ws !== c.ws) { try { old.ws.close(CLOSE.replaced, "replaced"); } catch { /* 이미 닫혔다 */ } }
@@ -422,10 +430,16 @@ export class RpgRoom {
     this.hiddenReply(g, r.pi, r.id, res && typeof res === "object" ? res : { ok: false, err: "net" });
   }
 
+  // 몹 레이스 우승 오닉스(race.js winOnyx) — 서버 계정으로 들어온 캐릭터의 접속 열쇠. 계정이 없으면 빈 글(인원에 넣지 않는다)
+  netOf(who) {
+    const a = this.accts.get(who), k = this.keys.get(who);
+    return a && a.tok && !a.dead && k && k.ip ? k.ip : "";
+  }
+
   /* ── 판정 루프 ────────────────────────────────────── */
   start() {
     if (this.timer) return;
-    if (!this.g) { this.g = makeWorld(); this.g.test = this.test; this.g.server = true; this.g.mySeat = -1; this.g.out = []; rpgSyncSeats(this.g, this.seats); }
+    if (!this.g) { this.g = makeWorld(); this.g.test = this.test; this.g.server = true; this.g.mySeat = -1; this.g.out = []; this.g.netOf = (who) => this.netOf(who); rpgSyncSeats(this.g, this.seats); }
     this.last = Date.now();
     this.timer = setInterval(() => this.tick(), TICK_MS);
   }

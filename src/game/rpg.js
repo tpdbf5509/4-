@@ -68,6 +68,7 @@ import { SANDBOX } from "./sandboxData.js";
 import { TEST_SERVER, TEST_GROUPS } from "./testData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS, titleUp, titleUpText } from "./socialData.js";
 import { accWorn } from "./onyxData.js";
+import { oxCount, claimOxDaily, addOx } from "./onyxSource.js";   // 오닉스 얻는 곳 — 일일 의뢰 · 레이스 · 월드보스(11월 27일)
 import { ACHIEVES, CODEX_NEED } from "./codexData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, matMax, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, PERSONAL_LEVELS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS, QUEST_MASTER, questXpRate, questMatches } from "./requestData.js";
@@ -1155,6 +1156,7 @@ export function makeWorld() {
     notes: [],                                    // 상점 결과 — { who, ok, msg } 내 것만 화면에 띄운다
     bagRR: 0,                                     // 가방을 돌아가며 다시 보내는 차례
     sys: [],                                      // 알림 한 줄(파티 · 칭호) — { who, msg, at } 내 것만 채팅 칸에 띄운다
+    loots: [],                                    // 보스 보상 「아이템 획득」 창 — { who, title, sub, items, at } 내 것만 띄운다(LootPanel.jsx)
     duels: [],                                    // 진행 중인 결투 — 방장만 { a, b, wa, wb, ring, phase, t, cnt, ret }
     nextParty: 1, titleT: 0,                      // 새 파티 번호 · 칭호 조건을 다시 보는 때
     gruns: [], gresults: [],
@@ -1996,7 +1998,10 @@ export const rpgDuel=(g,pi,req)=>duelInput(duelEngine,g,pi,req);
 export const rpgBlock=(g,pi,req)=>blockInput({name:nameOf,sys},g,pi,req);   // 차단 목록 추가 · 해제(block.js)
 const tickDuels=(g,dt)=>tickDuelMatches(duelEngine,g,dt);
 // 광장 몹 레이스(race.js) — 하루 보상 횟수는 가방의 오늘 칸(bag.day.race)에 센다
-const raceEngine={sys,name:(g,pi)=>nameOf(g,pi),fx,stop:stopMove,dayUsed:h=>usedToday(h.bag,'race'),dayAdd:h=>bumpToday(h.bag,'race')};
+// 우승 오닉스(11월 27일) — net 은 전용 서버가 알려 주는 접속 열쇠(room.js netOf), 오닉스는 전용 서버만 준다
+const raceEngine={sys,name:(g,pi)=>nameOf(g,pi),fx,stop:stopMove,dayUsed:h=>usedToday(h.bag,'race'),dayAdd:h=>bumpToday(h.bag,'race'),
+  net:(g,who)=>(g.server&&typeof g.netOf==='function'?g.netOf(who)||'':''),
+  onyx:(g,h,n)=>{if(!g.server)return 0;const put=addOx(h.bag,n);if(put)h.bag.v+=1;return put;}};
 export const rpgRace=(g,pi,req)=>raceInput(raceEngine,g,pi,req);
 export const raceNear=(h)=>!!h&&h.map==='plaza'&&dist(h.x,h.y,RACE.npc.x,RACE.npc.y)<=RPG.talkR+30;
 
@@ -2191,6 +2196,7 @@ function rewardKill(g, m, h, last) {
   h.coins += coins;
   h.rec[m.type] += 1;
   if (m.boss) h.rec.boss += 1;
+  oxCount(h.bag, m.boss ? "b" : "k");             // 일일 의뢰(onyxSource.js) — 몹 · 보스
   if (h.pty) h.rec.party += 1;
   const xp=huntingXp(h,m);
   fx(g, m.map, { kind: "text", x: last ? m.x : h.x, y: last ? m.y - 16 : h.y - 100, text: `+${Math.round(xp*100)/100} XP · +${coins} 코인`, color: "#f3d27f",
@@ -2263,7 +2269,17 @@ export const reqNear = (h, npcId) => {
    처음 받을 때만 그 NPC 곁에서(말을 걸어 연 창), 그 뒤로는 내 화면의 의뢰 창에서 받고 · 끝내고 · 포기한다(metNpc) */
 export function rpgRequest(g, pi, req) {
   const h = g.heroes[pi];
-  if (!h || !h.loaded || !req || !REQ_BY_NPC[req.npc]) return false;
+  if (!h || !h.loaded || !req) return false;
+  if (req.op === "oxd") {                          // 일일 의뢰 오닉스 받기 — 전용 서버만 준다
+    if (trading(h)) return false;
+    const r = claimOxDaily(h.bag, req.i, !!g.server);
+    sys(g, pi, r.msg);
+    if (!r.ok) return false;
+    h.bag.v += 1;
+    fx(g, h.map, { kind: "call", x: h.x, y: h.y - 110, text: `오닉스 +${r.n}`, color: "#d9c9f0", t: 1.4, life: 1.4, snd: "coin", who: pi });
+    return true;
+  }
+  if (!REQ_BY_NPC[req.npc]) return false;
   const npc = REQ_BY_NPC[req.npc], list = REQUESTS[npc.id];
   const cur = h.reqs[npc.id];
   if (req.op === "take") {
@@ -2296,6 +2312,7 @@ export function rpgRequest(g, pi, req) {
     delete h.reqs[npc.id];
     h.coins += q.coin || 0;
     h.rec.req += 1;
+    oxCount(h.bag, "r");                           // 일일 의뢰(onyxSource.js) — 의뢰 끝내기
     const lowQuest=q.area ? false : (cur.coinOnly??(h.lv>q.lv));
     const got = Object.entries(lowQuest?{}:(q.mats || {})).map(([id, n]) => `${MAT_BY_ID[id].name} ${addMat(h.bag, id, n)}개`);
     const xp = lowQuest?0:requestXp(q, h.lv);
@@ -5004,10 +5021,12 @@ function tickRuns(g, dt) {
           const name = armorName(d.reward.armor, gr);
           fx(g, h.map, { kind: "call", x: h.x, y: h.y - 160, text: name, color: ARMOR_GRADE_COL[gr], t: 2.4, life: 2.4, who: h.pi });
           sys(g, h.pi, `던전 보상 — ${jo(name, "을", "를")} 얻었습니다.${gr === 3 ? " 전설입니다!" : ""}`);
+          lootShow(g, h.pi, "아이템 획득", d.name, [{ k: "armor", id: d.reward.armor, g: gr, n: 1 }]);
           return;
         }
         const put = addMat(h.bag, d.reward.id, d.reward.n);
         if (put) fx(g, h.map, { kind: "call", x: h.x, y: h.y - 160, text: `${mat.name} ×${put}`, color: mat.color, t: 2, life: 2, who: h.pi });
+        lootShow(g, h.pi, "아이템 획득", d.name, [{ k: "material", id: d.reward.id, n: put }]);
         sys(g, h.pi, put ? `던전 보상 — ${mat.name} ${put}개를 얻었습니다.${put < d.reward.n ? " (가방이 가득 차 일부만)" : ""}`
           : `${jo(mat.name, "이", "가")} 가득 차 보상을 받지 못했습니다.`);
       });
@@ -5292,6 +5311,15 @@ export function sys(g, pi, msg) {
   g.sys.push(it);
   if (g.sys.length > 30) g.sys.shift();
   if (g.out) g.out.push({ k: "sys", ...it });
+}
+// 「아이템 획득」 창 — 월드보스 · 던전 보스 보상. items = [{ k: coin|onyx|material|potion|weapon|armor, id, n, g, set }]
+export function lootShow(g, pi, title, sub, items) {
+  const list = (items || []).filter((x) => x && x.n > 0);
+  if (!list.length) return;
+  const it = { who: pi, title, sub, items: list, at: g.t };
+  (g.loots ||= []).push(it);
+  if (g.loots.length > 10) g.loots.shift();
+  if (g.out) g.out.push({ k: "loot", ...it });
 }
 const nameOf = (g, pi) => (g.names && g.names[pi]) || "모험가";
 const partyOf = (g, id) => (id ? g.heroes.filter((o) => o && o.pty === id) : []);
@@ -5706,6 +5734,9 @@ export function rpgApplyOut(g, list) {
       delete item.k;
       g.notes.push(item);
       if (g.notes.length > 20) g.notes.shift();
+    } else if (o.k === "loot") {
+      (g.loots ||= []).push({ who: o.who, title: o.title, sub: o.sub, items: o.items, at: o.at });
+      if (g.loots.length > 10) g.loots.shift();
     } else if (o.k === "sys") {
       g.sys.push({ who: o.who, msg: o.msg, at: o.at });
       if (g.sys.length > 30) g.sys.shift();
@@ -5768,7 +5799,7 @@ const worldBossPull=(g,h,x,y,px)=>{const d=dist(x,y,h.x,h.y);if(d<4)return;const
 export const highEngine = { MAPS, squash: RPG.squash, edge: RPG.edge, dist, fx, say, later, notices, nearestHero, stepBrute, keepIn,
   hurtHero: (g, h, raw, src, kind) => hurtHero(g, h, raw, src, kind),
   newMob: (g, type, lv, map, x, y) => bodyOf(g.nextId++, -1, type, 0, lv, map, x, y, null) };
-const worldBossEngine={pull:worldBossPull,body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),kill:(g,h)=>hurtHero(g,h,h.max,{boss:true,doom:1}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n})};
+const worldBossEngine={pull:worldBossPull,body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),kill:(g,h)=>hurtHero(g,h,h.max,{boss:true,doom:1}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n}),loot:lootShow};
 export function rpgWorldBoss(g,pi,req){return worldBossInput(worldBossEngine,g,pi,req);}
 
 const guildEngine={...worldBossEngine,refresh:h=>refreshHp(h,false)};

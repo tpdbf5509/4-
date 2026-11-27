@@ -161,6 +161,9 @@ import { UPDATES, RPG_NOTICE } from "./game/updates.js";
 import { keyLayout, offCount } from "./game/keyScope.js";
 import { KEY_ACTIONS, KEY_SLOTS, loadKeys, saveKeys, defaultKeys, bindKey, clearKey, keyMap, keyLabel, keyOf, mouseCode, BLOOD_ACTS } from "./game/keys.js";
 import { ShopPanel, BagPanel, OnyxIcon } from "./ShopPanel.jsx";
+import LootPanel from "./LootPanel.jsx";                     // 보스 보상 「아이템 획득」 창(11월 27일)
+import { OX_DAILY } from "./game/onyxData.js";
+import { oxDayView, whyOxDaily } from "./game/onyxSource.js";   // 일일 의뢰 오닉스(11월 27일)
 import RpgAccount from "./RpgAccount.jsx";
 import JobTrial from "./JobTrial.jsx";
 import { GUIDE, GUIDE_STEPS, guideStep } from "./game/guideData.js";
@@ -576,6 +579,28 @@ export function RpgSetup({ room, onStart, onLeave, error }) {
 }
 
 /* ── 광장과 사냥터 ─────────────────────────────────────── */
+// 일일 의뢰 오닉스 칸(11월 27일) — 의뢰 · 퀘스트 창과 퀘스트 마스터 창이 함께 쓴다. 판정은 rpg.js rpgRequest op "oxd"
+function OxDailyRows({ bag, act }) {
+  const o = oxDayView(bag), T = OX_DAILY.tasks;
+  const row = (i, name, em) => {
+    const why = whyOxDaily(bag, i), got = why === "오늘 이미 받았습니다";
+    return (
+      <div key={i} className={`rpg-win-row ${got ? "locked" : !why ? "on" : ""}`}>
+        <span className="rpg-stat-name"><b>{name}</b><em>{em}</em></span>
+        {got ? <span className="rpg-win-tag">받음</span>
+          : <button type="button" className="rpg-win-btn" disabled={!!why} title={why || undefined} onClick={() => act("req", { op: "oxd", i })}>받기</button>}
+      </div>
+    );
+  };
+  return (
+    <>
+      <p className="rpg-stat-rule ox-daily-head"><OnyxIcon />일일 의뢰 · 한국 시간 자정에 새로 셉니다. 오닉스는 전용 서버에서만 받습니다.</p>
+      {T.map((t, i) => row(i, `일일 · ${t.name}`, `${t.note} · ${Math.min(o[t.id], t.need)}/${t.need} · 보상 오닉스 ${t.ox}개`))}
+      {row(T.length, "일일 · 모두 완료", `세 의뢰를 모두 받으면 · 보상 오닉스 ${OX_DAILY.bonus}개`)}
+    </>
+  );
+}
+
 export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onLeave, onHandoff, onKick, onRelook, servers, onMoveServer }) {
   const relookRef = useRef(onRelook);
   relookRef.current = onRelook;
@@ -751,6 +776,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [honorOpen, setHonorOpen] = useState(false); // 명예 순위 창
   const [questArea, setQuestArea] = useState("field");
   const [reqOpen, setReqOpen] = useState(null);      // 열어 둔 의뢰 NPC id
+  const [loot, setLoot] = useState(null);            // 「아이템 획득」 창 — 판정이 보낸 내 보상(rpg.js lootShow)
   const [questOpen, setQuestOpen] = useState(false); // 내 화면의 의뢰 · 퀘스트 목록 — NPC 곁에 가지 않아도 연다
   const [wbOpen,setWbOpen]=useState(false);
   const [dgOpen, setDgOpen] = useState(false);       // 던전 입장 창
@@ -1863,6 +1889,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
         // 결투 신청 · 거절 까닭은 채팅을 접어 두면 못 봐서 "신청이 안 간다"고 보였다 — 화면 가운데에도 잠깐 띄운다
         g.sys.forEach((n) => { if (n.who === mySeat && !n.seen) { n.seen = true; pushChat({ kind: "sys", text: n.msg }); if (n.msg.includes("결투")) setToast({ name: n.msg, at: Date.now(), msg: 1 }); } });
         // 상점 결과 — 내 것 가운데 새로 온 것만
+        (g.loots || []).forEach((n) => { if (n.who === mySeat && !n.seen) { n.seen = true; setLoot(n); } });   // 보스 보상 창 — 새로 온 것만
         const mine = g.notes.filter((n) => n.who === mySeat);
         const top = mine[mine.length - 1];
         if (top && top !== lastNote) { lastNote = top; setNote(top); }
@@ -2816,6 +2843,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                       document.getElementById(`quest-tab-${QUEST_AREAS[index].id}`)?.focus();
                     }} key={a.id} className="rpg-win-btn" onClick={()=>setQuestArea(a.id)}>{a.name} · {a.lv[0]}~{a.lv[1]}{me.lv<a.lv[0]?" 🔒":""}</button>)}
                   </div>}
+                  {master && <div className="rpg-stat-list ox-daily"><OxDailyRows bag={me.self.bag} act={act} /></div>}
                   <div className="rpg-stat-list" id={master ? "quest-area-panel" : undefined} role={master ? "tabpanel" : undefined} aria-labelledby={master ? `quest-tab-${questArea}` : undefined}>
                     {curQ && (
                       <div className="rpg-win-row on">
@@ -2980,6 +3008,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me && shopOpen && (
             <ShopPanel shop={shopOpen} h={me.self} send={sendShop} note={note} onClose={() => setShopOpen(null)} />
           )}
+          {loot && <LootPanel loot={loot} onClose={() => setLoot(null)} />}
           {me && bagOpen && (
             <BagPanel h={me.self} send={sendShop} note={note} tab0={bagTab} book0={bookPick} onClose={() => { setBagOpen(false); setBagTab("weapon"); setBookPick(null); }} />
           )}
@@ -2994,6 +3023,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 <p className="rpg-stat-rule">처음 한 번은 의뢰인에게 말을 걸어 받습니다. 그 뒤로는 여기서 받고 · 끝내고 · 포기할 수 있습니다.</p>
                 {me.story && <StoryCard st={me.story} onGo={() => { setQuestOpen(false); act("story", { op: "go" }); }} />}
                 <div className="rpg-stat-list">
+                  <OxDailyRows bag={me.self.bag} act={act} />
                   <div className={`rpg-win-row ${me.quest.on ? "on" : ""}`}>
                     <span className="rpg-stat-name">
                       <b>사냥꾼 · {QUEST.name}</b>

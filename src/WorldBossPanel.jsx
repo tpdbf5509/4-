@@ -8,6 +8,7 @@ import {MAT_BY_ID} from './game/itemData.js';
 import {POTIONS} from './game/shopData.js';
 import {useEffect,useRef} from 'react';
 import {RPG_SERVER_CAP} from './game/rpg.js';
+import {OX_WB} from './game/onyxData.js';
 const left=ms=>{const n=Math.max(0,Math.ceil(ms/1000));return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;};
 const lootName=x=>x.k==='weapon'?WORLD_BOSS_WEAPONS.find(w=>w.id===x.id)?.name:x.k==='armor'?worldArmorName(x.id,x.set):x.k==='potion'?POTIONS.find(p=>p.id===x.id)?.name:MAT_BY_ID[x.id]?.name;
 // 토벌 진행 칸 — 던전 진행 칸(.rpg-dg)과 같은 틀 · 같은 보스 체력바를 쓴다(RpgView.jsx 던전 칸)
@@ -59,6 +60,7 @@ export default function WorldBossPanel({state,self,act,onClose}){
       <p>400레벨 3인과 강화한 전설 장비를 기준으로 조정했습니다. 큰 기술 준비 마지막 1.6초에 금빛 약점이 나타납니다. 400레벨 3명이 0.85초 안에 스킬을 적중시키면 기술이 취소되고 4초 기절합니다. 평타·화상·독은 합동 공격 인원으로 세지 않습니다.</p>
       <h3 className="shop-h">토벌 보상</h3><p>보스 총 체력의 10%를 초과해 피해를 준 모험가가 받습니다. 10%는 제외합니다. 같은 캐릭터의 기여도는 재입장해도 합산합니다.</p>
       <p>확정: 심장결정 10~20개 · 코인 5만~15만 (100 단위)</p><p>각 무기 2% · 각 방어구 3% · 던전 입장권 30%<br/>대형 회복 물약 65% · 힘·지혜 물약 각25% · 집중 물약 20%</p>
+      <p>오닉스 {OX_WB.chance*100}% · {OX_WB.n[0]}~{OX_WB.n[1]}개 · 하루 {OX_WB.dayMax}개까지(전용 서버)</p>
       <p>뇌조 전용 무기: 뇌명 지팡이 · 자전궁 · 창뢰 쌍검 · 방어구 뇌제.</p>
       <p>공허의 관측자 전용: 공허의 대검 · 지팡이 · 장궁(무기 각 2%) · 방어구 차원의 지배자(부위별 3%).</p>
       <p className="wb-rule">추가 보상은 종류별로 독립 추첨합니다. 여러 종류를 함께 얻을 수 있습니다. 총 피해 비율 기준이므로 보상 대상은 최대 9명입니다.</p>

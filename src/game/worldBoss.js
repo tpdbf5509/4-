@@ -6,6 +6,7 @@ import {ARMOR_SLOTS,armorCap} from './armorData.js';
 import {matMax} from './itemData.js';
 import {specialTier,specialPrice} from './shop.js'; // 물품을 지급할 때만 읽어 기존 장비 생성 규칙을 맞춘다.
 import {trading} from './tradeData.js';
+import {rollWbOnyx,giveWbOnyx} from './onyxSource.js'; // 오닉스 50% 1~3개 · 하루 최대(onyxData.js OX_WB, 11월 27일)
 import {WB_PX_LOOK} from './worldBossPxData.js';
 import {thunderbirdAreas,startThunderbirdDive,tickThunderbirdDive} from './thunderbirdCombat.js';
 import {voidAreas,voidBegin,voidWarp,voidPull} from './voidBossCombat.js';
@@ -29,7 +30,7 @@ export function rollWorldBossReward(id,rng=Math.random){
   if(WORLD_SET_BY_ID[id])ARMOR_SLOTS.forEach(s=>{if(rng()<C.armorChance)items.push({k:'armor',id:s.id,set:id,n:1});});
   if(rng()<C.ticketChance)items.push({k:'material',id:'dungeon_ticket',n:1});
   C.potions.forEach(p=>{if(rng()<p.chance)items.push({k:'potion',id:p.id,n:p.n});});
-  return {coins:randomInt(C.coins[0]/C.coinStep,C.coins[1]/C.coinStep,rng)*C.coinStep,items};
+  return {coins:randomInt(C.coins[0]/C.coinStep,C.coins[1]/C.coinStep,rng)*C.coinStep,items,ox:rollWbOnyx(rng)};
 }
 // 가방이 차도 보상은 사라지지 않는다. 남은 물품은 저장되는 수령함에 둔다.
 export function collectWorldBossMail(h){
@@ -63,7 +64,11 @@ function applyResults(E,g){
       b.wbDone=[...(b.wbDone||[]),result.key].slice(-64);h.coins+=reward.coins;
       b.wbMail=mergeMail([...(b.wbMail||[]),...reward.items]);b.v++;
       collectWorldBossMail(h);
-      notify(E,g,h,'월드보스 보상 획득',`${reward.coins.toLocaleString('ko-KR')}코인 · 심장결정 ${reward.items[0].n}개${b.wbMail.length?' · 남은 물품은 보상 수령함에 보관':''}`);
+      // 오닉스 — 전용 서버만 · 하루 최대 안에서(같은 보상을 두 번 받지 않게 wbDone 안에서만 준다)
+      const ox=g.server&&reward.ox>0?giveWbOnyx(b,reward.ox):0;
+      notify(E,g,h,'월드보스 보상 획득',`${reward.coins.toLocaleString('ko-KR')}코인 · 심장결정 ${reward.items[0].n}개${ox?` · 오닉스 ${ox}개`:''}${b.wbMail.length?' · 남은 물품은 보상 수령함에 보관':''}`);
+      const B=WORLD_BOSS_BY_ID[result.boss];
+      E.loot?.(g,h.pi,'아이템 획득',`월드보스${B?` · ${B.name}`:''}`,[{k:'coin',n:reward.coins},{k:'onyx',n:ox},...reward.items]);
     }
     reward.applied=true;
   }
@@ -129,7 +134,7 @@ export function worldBossKilled(E,g,m){
   E.fx?.(g,C.map,{kind:'sk_raid_end',x:m.x,y:m.y,t:WB_PX_LOOK.fall.life,life:WB_PX_LOOK.fall.life,kick:.3,snd:'clear'}); // 토벌 빛기둥(worldBossPxArt.js)
   const total=a.contrib.reduce((s,c)=>s+c.damage,0);
   const rewards=a.contrib.filter(c=>c.damage>total*C.contribution).map(c=>({name:c.name,...rollWorldBossReward(a.id),applied:false}));
-  g.wb.results.push({key:a.key,rewards});
+  g.wb.results.push({key:a.key,boss:a.id,rewards});
   notify(E,g,null,'월드보스 토벌 완료',`${rewards.length}명 보상 대상 · 기여도 10% 초과`);
   applyResults(E,g);
 }

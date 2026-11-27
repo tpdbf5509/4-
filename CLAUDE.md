@@ -327,6 +327,10 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 가방 `bag.ox` · `oa`(산 장신구 비트) · `ow`(단 비트) — 장신구 · 칭호 차례는 뒤에만. 판정(상점 `oxbuy` · `oxwear` · 상자 오닉스)은 전용 서버만, 화면 저장 · 계정 만들기는 `protectOx` 로 늘릴 수 없다. 단 장신구는 스냅샷 줄 54 extra `oa` → `h.oxw`.
 - 상점 광장 (1650, 870) · 감정사. 그림은 Codex(`rpg/onyx/` · `shop/onyx` · `npc/shop-onyx`). 재화 칸 hud2 는 소리 단추 왼쪽(오닉스 · 코인 순, 사용자 지정).
 - 도박꾼 신규 스킬 도파민(X 키, `GM_DOPA`)은 히든 직업이라 패치노트에 적지 않는다.
+- **오닉스 얻는 곳(11월 28일 사용자)**: 수치 `onyxData.js OX_DAILY` · `OX_RACE` · `OX_WB`, 규칙 `onyxSource.js`, 시험 `tools/onyx-source.test.mjs`. 모두 전용 서버(`g.server`)만 준다. 오늘 칸 `bag.oxd = {d, k, b, r, q, w}` 는 `protectOx` 가 장부 값으로 되돌려 화면 저장으로 못 바꾼다.
+  - 일일 의뢰 셋(몹 150 · 보스 3 · 의뢰 2, 각 1개 + 모두 받으면 2개 — 정한 값) · 입력 `req {op:"oxd", i}` · 화면 `RpgView.jsx OxDailyRows`(의뢰 · 퀘스트 창과 퀘스트 마스터 창).
+  - 레이스 우승: 끝까지 들어온 사람 가운데 접속 열쇠가 다른 수(`room.js netOf` = 서버 계정 캐릭터의 IP, IPv6 은 앞 64비트 `netKey`)로 2명 0 · 3명 3 · 4명 이상 10. 코인 보상을 받은 레이스의 우승자만(`race.js winOnyx`).
+  - 월드보스: 보상 대상마다 50% 1~3개, 하루 10개(상한은 정한 값, 사용자 확인 전). 「아이템 획득」 창 `LootPanel.jsx`(판정 `rpg.js lootShow` → out `loot`)은 월드보스 · 던전 보상 때 뜬다.
 
 ### 히든 직업 Illusionist 005 마술사 (11월 17일 연습장 → 11월 23일 실제 게임 · 획득 루트)
 - 사용자 기획 「히든직업 002~006 통합기획안」 4장. 11월 23일 사용자 "실제 게임에도 적용해줘"로 획득 루트와 함께 실제 게임에 열었다(`ILLUSION.live` · `IQ_ROUTE.live` = true, false 로 되돌리면 연습장 · 테스트 서버에서만). **업데이트 노트 · 공지 · 패치노트 책에 적지 않는다.** 저장 `bag.hj.jobs.illusionist`(`gamblerJob.js SAVED_JOBS`) · `HIDDEN_JOBS` 등록(유일 규칙) · 스냅샷 영웅 줄 **63** = `packIllusion`(손님 `h.ilv`) · 관리자 `/마술사 <이름> [직업레벨 | 끄기 | 연마 N | 루트 0~7]`(별칭 `/일루셔니스트`, 루트는 그 장 시작 자리로 보낸다). 실제 게임 칸 `IllusionHud.jsx IllusionBar`(연습장과 같이 씀) · 키 `IL_SLOTS`(RpgView `IL_FIRST`) · 스킬 설명 `gameSkillInfo`. 계승은 계승대에서 `hiddenAsk`/`hiddenReply` 를 거쳐 `unlockIllusion`.

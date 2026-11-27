@@ -65,7 +65,12 @@ export function cleanOx(d, b) {
   if (ox) b.ox = ox;
   if (oa) b.oa = oa;
   if (ow) b.ow = ow;
+  const od = cleanOxd(d && d.oxd);
+  if (od) b.oxd = od;
 }
+// 오늘 칸 정리 — 날짜가 없으면 칸을 두지 않는다
+const cleanOxd = (o) => (o && typeof o === "object" && typeof o.d === "string" && /^\d{4}-\d\d-\d\d$/.test(o.d)
+  ? { d: o.d, k: n0(o.k, 1e6), b: n0(o.b, 1e6), r: n0(o.r, 1e6), q: n0(o.q, 255), w: n0(o.w, 1e6) } : null);
 /* 화면이 보내는 저장(rpg_save) · 계정 만들기 · 계정 없는 입장 — 오닉스 · 산 장신구 · 오닉스 칭호 · 성전환 물약은 장부에 이미 있는 만큼만 남긴다.
    다는 것(ow)은 가진 것 안에서 화면이 바꿔도 된다. old 가 없으면(새 계정) 모두 0 */
 export function protectOx(data, old) {
@@ -77,6 +82,8 @@ export function protectOx(data, old) {
   if (ox) bag.ox = ox; else delete bag.ox;
   if (oa) bag.oa = oa; else delete bag.oa;
   if (ow) bag.ow = ow; else delete bag.ow;
+  const od = cleanOxd(ob.oxd);                     // 오늘 진행 · 받은 것은 장부에 있던 그대로
+  if (od) bag.oxd = od; else delete bag.oxd;
   const p = bag.p && typeof bag.p === "object" ? { ...bag.p } : null;
   if (p) {
     for (const g of OX_GOODS) {
@@ -91,3 +98,21 @@ export function protectOx(data, old) {
   if (OX_TITLE_BY_ID[out.title] && !had.has(out.title)) out.title = "";
   return out;
 }
+
+/* ── 오닉스 얻는 곳(11월 27일 사용자 기획) — 일일 의뢰 · 몹 레이스 우승 · 월드보스. 규칙은 onyxSource.js ──────
+   모든 지급은 전용 서버(g.server)만 한다. 하루는 한국 시간 자정에 갈린다.
+   오늘 진행 · 받은 것은 가방 bag.oxd = { d 날짜, k 몹, b 보스, r 의뢰, q 받은 칸 비트, w 월드보스 오닉스 } — 화면 저장으로는 바꿀 수 없다(protectOx) */
+// 일일 의뢰 — 칸마다 오닉스 1개, 셋을 다 받으면 2개 더(하루 최대 5개, 정한 값). 상자 하루 10번 기대값(약 12개)보다 적게 둔다
+export const OX_DAILY = {
+  tasks: [
+    { id: "k", name: "몹 사냥", need: 150, ox: 1, note: "사냥터 · 던전에서 몹을 잡습니다" },
+    { id: "b", name: "보스 사냥", need: 3, ox: 1, note: "사냥터 · 던전 보스를 잡습니다" },
+    { id: "r", name: "의뢰 끝내기", need: 2, ox: 1, note: "광장 의뢰인의 의뢰를 끝냅니다" },
+  ],
+  bonus: 2,                // 세 칸을 모두 받으면 더 주는 오닉스
+};
+export const OX_BONUS_BIT = 1 << OX_DAILY.tasks.length;
+// 몹 레이스 우승 — 끝까지 들어온 사람 수(같은 인터넷 주소는 한 명으로 센다)에 따라. 2명 0 · 3명 3 · 4명 10(사용자 결정), 5명은 4명과 같게(정한 값)
+export const OX_RACE = { win: [0, 0, 0, 3, 10, 10] };
+// 월드보스 — 보상 대상(기여 10% 초과)마다 50% 확률로 1~3개(사용자 결정). 하루 최대 10개(정한 값 — 사용자 확인 전)
+export const OX_WB = { chance: 0.5, n: [1, 3], dayMax: 10 };

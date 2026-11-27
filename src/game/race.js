@@ -3,8 +3,9 @@
      go 출발한 사람 수, done 들어온 사람 수, rs 참가자, last 지난 레이스 결과 }. 통째로 스냅샷에 싣는다(rpg.js rpgPack · rpgApply).
    rs[] = { pi 자리, who 주인 id, m 탈것, lane 출발 줄, x · y 트랙 위치, v 빠르기, st 남은 체력, tired 지침, sp 질주 버튼, fin 기록(초), pl 등수, out 포기,
      it 가진 아이템, bt 부스터 남은 초, sl 느려짐 남은 초, sh 방패 남은 초, got 주운 상자(비트) }. traps[] = 깔린 점액 { x, y, t 남은 초, by 깐 자리 }.
-   E = { sys, name, fx, stop, dayUsed, dayAdd } — rpg.js 가 넘긴다(서로 부르지 않게) */
+   E = { sys, name, fx, stop, dayUsed, dayAdd, net, onyx } — rpg.js 가 넘긴다(서로 부르지 않게) */
 import { RACE, MOUNT_BY_ID, RACE_ITEMS, RACE_BOXES, RACE_PADS, RACE_MUDS, laneY } from "./raceData.js";
+import { raceHeads, raceOnyx } from "./onyxSource.js";
 
 export const RACE_MAP = "race";
 export const newRace = () => ({ ph: "idle", t: 0, el: 0, n: 0, go: 0, done: 0, rs: [], last: [], traps: [] });
@@ -96,8 +97,22 @@ function reward(E, g, h, r, R) {
   if (R.go < RACE.minRacers) { E.sys(g, h.pi, `${r.pl}등 · ${tm}초. 혼자 달린 연습이라 보상은 없습니다`); return; }
   if (E.dayUsed(h) >= RACE.daily) { E.sys(g, h.pi, `${r.pl}등 · ${tm}초. 오늘 보상 ${RACE.daily}번을 다 받았습니다`); return; }
   const coin = r.pl <= RACE.prize.length ? RACE.prize[r.pl - 1] : RACE.finishCoin;
-  h.coins += coin; E.dayAdd(h);
+  h.coins += coin; E.dayAdd(h); r.paid = 1;
   E.sys(g, h.pi, `${r.pl}등 · ${tm}초. ${coin.toLocaleString("ko-KR")}코인을 받았습니다`);
+}
+
+/* 우승 오닉스(11월 27일 사용자 기획, onyxData.js OX_RACE) — 레이스가 끝날 때 한 번 센다.
+   인원은 끝까지 들어온 사람 가운데 전용 서버가 준 접속 열쇠(계정 캐릭터의 인터넷 주소)가 다른 사람 수다.
+   한 캐릭터는 한 자리뿐이고, 같은 집 · 같은 기기에서 여러 캐릭터로 들어와도 한 명으로 센다. 우승자는 오늘 코인 보상을 받은 레이스여야 한다 */
+function winOnyx(E, g, R) {
+  if (!E.net || !E.onyx) return;
+  const win = R.rs.find((r) => r.pl === 1 && r.fin), h = win && present(g, win);
+  if (!h || !win.paid || !E.net(g, win.who)) return;
+  const heads = raceHeads(R.rs.filter((r) => r.fin && present(g, r)), (r) => E.net(g, r.who));
+  const n = raceOnyx(heads);
+  if (!n) return;
+  const put = E.onyx(g, h, n);
+  if (put) E.sys(g, h.pi, `${heads}명이 끝까지 달린 레이스 우승 — 오닉스 ${put}개를 받았습니다`);
 }
 
 // 아이템 — 등수가 뒤일수록 부스터가 잘 나온다(RACE.itemOdds)
@@ -136,7 +151,7 @@ function start(E, g, R) {
   }
   ok.forEach((r, i) => {
     const h = present(g, r), M = MOUNT_BY_ID[r.m];
-    Object.assign(r, { lane: i, x: RACE.startX, y: laneY(i), v: 0, st: M.st, tired: 0, sp: 0, fin: 0, pl: 0, out: 0, it: "", bt: 0, sl: 0, sh: 0, got: 0 });
+    Object.assign(r, { lane: i, x: RACE.startX, y: laneY(i), v: 0, st: M.st, tired: 0, sp: 0, fin: 0, pl: 0, out: 0, it: "", bt: 0, sl: 0, sh: 0, got: 0, paid: 0 });
     h.map = RACE_MAP; h.x = RACE.startX; h.y = laneY(i); h.dir = 1; h.face = 0; h.dash = 0; h.gateCd = 1; E.stop(h);
   });
   Object.assign(R, { ph: "ready", t: RACE.readyT, el: 0, n: (R.n || 0) + 1, go: ok.length, done: 0, rs: ok, traps: [] });
@@ -148,6 +163,7 @@ function finish(E, g, R) {
   const rows = R.rs.map((r) => ({ nm: E.name(g, r.pi), m: r.m, pl: r.pl, tm: r.fin ? Math.round(r.fin * 100) / 100 : 0 }));
   rows.sort((a, b) => (a.pl || 99) - (b.pl || 99));
   R.last = rows.slice(0, RACE.results);
+  winOnyx(E, g, R);
   for (const r of R.rs) {
     const h = present(g, r);
     if (h && !r.fin && !r.out && h.map === RACE_MAP) E.sys(g, h.pi, "시간 안에 들어오지 못했습니다");

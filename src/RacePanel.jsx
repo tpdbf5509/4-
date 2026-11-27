@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RACE, RACE_MOUNTS, MOUNT_BY_ID } from "./game/raceData.js";
+import { OX_RACE } from "./game/onyxData.js";
 import { whyRaceJoin } from "./game/race.js";
 import { drawMobIcon } from "./game/rpgArt.js";
 import { todayKey } from "./game/shop.js";
@@ -77,6 +78,7 @@ export default function RacePanel({ self, seat, race, names, act, onClose }) {
           </div>
           {!joined && why.length > 0 && <p className="adv-why">{why[0]}</p>}
           <p className="race-rule">1등 {RACE.prize[0].toLocaleString("ko-KR")} · 2등 {RACE.prize[1].toLocaleString("ko-KR")} · 3등 {RACE.prize[2].toLocaleString("ko-KR")} · 완주 {RACE.finishCoin}코인. 하루 {RACE.daily}번까지 받습니다(오늘 {Math.min(used, RACE.daily)}번).</p>
+          <p className="race-rule">우승하면 끝까지 들어온 인원이 3명일 때 오닉스 {OX_RACE.win[3]}개, 4명 이상일 때 {OX_RACE.win[4]}개를 받습니다. 같은 곳에서 접속한 캐릭터는 한 명으로 셉니다.</p>
           {R.last.length > 0 && (
             <>
               <h3 className="shop-h">지난 레이스</h3>

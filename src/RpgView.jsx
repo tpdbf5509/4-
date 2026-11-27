@@ -168,7 +168,8 @@ import InquiryPanel from "./InquiryPanel.jsx";
 import { compareBuild, BUILD } from "./net/version.js";
 import { adminRedeem, joinAdminLink } from "./net/admin.js";
 import { cloudQueue, cloudFlush, cloudStart, deleteRemote, errText, honorTop } from "./net/rpgSave.js";
-import { drawRpg, setLowFx } from "./game/rpgArt.js";
+import { drawRpg, setLowFx, fxLoaded } from "./game/rpgArt.js";
+import { perfDraw, perfFrame } from "./game/perfProbe.js";
 import { MAP_LOAD, watchImages, loadStart, loadStep } from "./game/mapLoad.js";
 import { loadInfo, loadArt, randomTip, LOAD_ART_ALL } from "./game/loadScreen.js";
 import { ghostStep } from "./game/bossBar.js";
@@ -263,6 +264,7 @@ const PVP_KEY = "flg:rpgPvp";
 const LOWFX_KEY = "flg:rpgLowFx";   // 연출 줄이기 — 느린 기기에서 남의 연출을 더 덜고 내 연출 알갱이도 줄인다(rpgArt.js CROWD.low)
 // 화면 칸(체력 · 버튼 · 창)을 다시 그리는 간격(ms) — 예전엔 5프레임마다(초당 12번) 그려 사람이 많을 때 손님 기기가 무거웠다
 const HUD_MS = 160;
+const HUD_MS_LOAD = 320;   // 화면이 무거워 연출을 덜어내는 중에는 숫자 칸을 느리게 갱신한다 — 칸을 다시 그리는 비용을 아낀다(그림 · 판정은 그대로)
 const GEAR_KEY = "flg:rpgHideGear";   // 장비 외형 숨기기 — 비트 묶음(rpg.js HIDE_GEAR), 처음엔 0(모두 보이기)
 const NOTICE_KEY = "flg:rpgNotice";   // 이 기기에서 마지막으로 본 업데이트 공지 id(updates.js RPG_NOTICE)
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
@@ -1720,7 +1722,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       // 월드보스 등장 연출 — 불러오기 가림막이 걷히기 시작하면 띄운다(worldBossIntro.js, 화면에만)
       const wbMe = g.heroes[mySeat];
       tickWbIntro(g, !!wbMe && wbMe.map === loadMap && !(loadRef.current && !loadRef.current.end), sfx.play);
-      drawRpg(ctx, g, bgsRef.current);
+      perfFrame(now);
+      perfDraw(() => drawRpg(ctx, g, bgsRef.current));
       drawGuideArrow(ctx, g, guideRef.current, now);
       drawWbIntroHud(ctx, g);
       // 맵 불러오기 — 내 맵이 바뀌면 가림막을 띄우고, 가림막 뒤에서 그린 그림이 다 오면 걷는다
@@ -1744,7 +1747,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           if (L.toast) setToast({ name: MAPS[L.map]?.name || "", at: now });
         } else if (now - loadUi >= 90) { loadUi = now; setMapLoad((v) => v && { ...v, p: L.p }); }
       } else if (L && now - L.end >= MAP_LOAD.fadeMs) { loadRef.current = null; setMapLoad(null); }
-      if (now - hudAt >= HUD_MS) {
+      if (now - hudAt >= (fxLoaded() ? HUD_MS_LOAD : HUD_MS)) {
         hudAt = now;
         const me = g.heroes[mySeat];
         setHud(me ? {

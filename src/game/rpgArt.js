@@ -2690,6 +2690,7 @@ const CROWD = { heroes: 5, budget: 6, kind: 2, q: 0.5,
   low: { budget: 3, kind: 1, q: 0.35, mine: 0.6 } };   // 연출 줄이기 — 남의 것은 더 덜고 내 것도 알갱이를 줄인다
 let lowFx = false;
 export const setLowFx = (on) => { lowFx = !!on; };
+export const fxLoaded = () => lod.q < 1;   // 연출을 덜어내는 중인가(RpgView 가 숫자 칸 갱신 간격을 늘린다)
 function stepLod() {
   const now = performance.now(), d = lod.at ? Math.min(100, now - lod.at) : 16;
   lod.at = now;

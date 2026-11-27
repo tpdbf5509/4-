@@ -268,6 +268,7 @@ const LOWFX_KEY = "flg:rpgLowFx";   // 연출 줄이기 — 느린 기기에서 
 const HUD_MS = 160;
 const HUD_MS_LOAD = 320;   // 화면이 무거워 연출을 덜어내는 중에는 숫자 칸을 느리게 갱신한다 — 칸을 다시 그리는 비용을 아낀다(그림 · 판정은 그대로)
 const GEAR_KEY = "flg:rpgHideGear";   // 장비 외형 숨기기 — 비트 묶음(rpg.js HIDE_GEAR), 처음엔 0(모두 보이기)
+const UI_KEY = "flg:rpgUi";   // 화면 구성 — "old" 면 예전 화면, 그 밖에는 새 화면(처음엔 새 화면)
 const NOTICE_KEY = "flg:rpgNotice";   // 이 기기에서 마지막으로 본 업데이트 공지 id(updates.js RPG_NOTICE)
 // 자동 평타 설정은 이 기기에 남긴다 — 처음엔 켜져 있다
 function loadAuto() {
@@ -683,7 +684,9 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const touch = useTouch();
   const side = useSidePanel(touch);                  // 넓은 화면이면 스킬 · 물약 칸을 판 오른쪽 판으로
   const hud2Ref = useRef(false);
-  const hud2 = TEST_MODE && side;                    // 새 화면 구성(11월 27일 사용자 수정안) — 테스트 서버에서만: 판 아래 가운데 스킬 판 · 왼쪽 아래 막대 · 오른쪽 아래 창 단추
+  const [uiOld, setUiOld] = useState(() => { try { return localStorage.getItem(UI_KEY) === "old"; } catch { return false; } });   // 설정에서 옛 UI 를 고른 사람
+  const chooseUi = (old) => { setUiOld(old); try { localStorage.setItem(UI_KEY, old ? "old" : "new"); } catch { /* 저장이 막힌 브라우저 */ } };
+  const hud2 = side && !uiOld;                       // 새 화면 구성(11월 27일 사용자 수정안, 같은 날 모든 서버에 적용) — 판 아래 가운데 스킬 판 · 왼쪽 아래 막대 · 오른쪽 아래 창 단추. 좁은 화면 · 터치 · 옛 UI 는 예전 모습
   hud2Ref.current = hud2;
   if (G.current) G.current.zoomK = hud2 ? HUD2_ZOOM : 1;   // 카메라를 조금 뒤로 당긴다
   useEffect(() => {
@@ -1661,6 +1664,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     // 새 화면 구성(hud2)은 판이 커져서 그림 해상도를 화면 크기에 맞춘다 — 1160 × 760 그림을 늘리면 흐려 보였다(최대 2배)
     const fitCanvas = () => {
       const sc = hud2Ref.current ? Math.min(2, Math.max(1, cvs.clientWidth / W)) : 1;
+      cvs.closest(".rpg-page")?.style.setProperty("--wz", hud2Ref.current ? Math.min(1.6, Math.max(1, cvs.clientWidth / 1160)).toFixed(3) : "1");   // 새 화면 구성 — 화면이 커진 만큼 창(가방 · 스탯 · 설정) 글씨도 키운다
       const bw = Math.round(W * dpr * sc);
       if (cvs.width === bw) return;
       cvs.width = bw;
@@ -1957,6 +1961,35 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
           {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
         </button>}{/* 넓은 화면은 스킬 탭에서 대쉬 칸을 뺀다(키는 그대로, 11월 21일) */}
+        {hud2 && !me.blood && !hidJob && (() => {
+          /* 테스트 서버 새 화면: 일반 직업의 평타 · 대쉬 · 큰 기술 칸(일반 직업은 이 셋이 판에 없었다) */
+          const jid = jobOf(myLook).id;
+          const bigIco = { warrior: "smash", mage: "burst", archer: "pierce" }[jid] || "smash";
+          return (<>
+            <button type="button" className="rpg-skill basic"
+              onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); act("fire", true); }}
+              onPointerUp={() => act("fire", false)} onPointerCancel={() => act("fire", false)}>
+              {!touch && keyOf(binds, "fire") && <kbd>{keyOf(binds, "fire")}</kbd>}
+              <SkillIco id={jid === "warrior" ? "sword" : "shot"} />
+              <span>평타<small>누르고 있기</small></span>
+            </button>
+            <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
+              onPointerDown={(e) => { e.preventDefault(); act("dash"); }}>
+              {!touch && keyOf(binds, "dash") && <kbd>{keyOf(binds, "dash")}</kbd>}
+              <SkillIco id="dash" />
+              <span>대쉬<small>회피 {DASH.inv}초</small></span>
+              {me.dashCd > 0 && <em>{Math.ceil(me.dashCd)}</em>}
+              {me.dashCd > 0 && <i style={{ width: `${(me.dashCd / DASH.cd) * 100}%` }} />}
+            </button>
+            <button type="button" className={`rpg-skill ${me.sk > 0 ? "cool" : ""}`}
+              onPointerDown={(e) => { e.preventDefault(); act("skill"); }}>
+              {!touch && keyOf(binds, "skill") && <kbd>{keyOf(binds, "skill")}</kbd>}
+              <JobIco id={bigIco} />
+              <span>{skillName(myLook)}<small>큰 기술</small></span>
+              {me.sk > 0 && <em>{Math.ceil(me.sk)}</em>}
+            </button>
+          </>);
+        })()}
         {me.wsk && !hidJob && (
           <button type="button" className={`rpg-skill wsk ${me.wsk.cd > 0 ? "cool" : ""}`}
             onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); const sp = heldSpecial(G.current.heroes[mySeat] || {}); chargeRef.current = sp === "blood_gun"; lastWaim.current = null; act(HOLD_WSK.has(sp) ? "wcharge" : "wskill", true); }}
@@ -2240,7 +2273,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   ["도감", codexOpen, () => toggleWin(codexOpen, setCodexOpen), "M4 5a2 2 0 012-2h6v16H6a2 2 0 00-2 2zM20 5a2 2 0 00-2-2h-6v16h6a2 2 0 012 2z", ""],
                   ["파티", partyOpen, () => toggleWin(partyOpen, setPartyOpen), "M9 11a3 3 0 100-6 3 3 0 000 6zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M17 11a2.5 2.5 0 100-5M17.5 14c2.2.4 3.5 2.1 3.5 5", me.pty > 0 ? String(me.party.filter((h) => h.pty === me.pty).length) : ""],
                   ...(me.nc ? [["그림자 명부", ncOpen, () => toggleWin(ncOpen, setNcOpen), "M12 3a6 6 0 00-6 6v9l3-2 3 2 3-2 3 2V9a6 6 0 00-6-6z", ""]] : []),
-                  ["설정", menu, () => setMenu((v) => !v), "M12 15a3 3 0 100-6 3 3 0 000 6zM12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1", ""],
+                  ["설정", menu, () => setMenu((v) => !v), "M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z", ""],
                 ].map(([name, on, fn, d, badge]) => (
                   <button key={name} type="button" className={`hud2-ico ${on ? "on" : ""}`} title={name} aria-label={name} aria-pressed={!!on} onClick={fn}>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d={d} /></svg>
@@ -2290,6 +2323,19 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     </span>
                     <span className={`rpg-switch ${skillFollow ? "on" : ""}`}><span /></span>
                   </button>
+                )}
+                {side && (
+                  <div className="rpg-menu-row rpg-menu-pick" role="radiogroup" aria-label="화면 구성">
+                    <span className="rpg-menu-text">
+                      <b>화면 구성</b>
+                      <em>{uiOld ? "예전 화면 배치를 씁니다" : "새 화면 배치를 씁니다"}</em>
+                    </span>
+                    <span className="rpg-pick">
+                      {[[false, "NEW UI"], [true, "OLD UI"]].map(([old, name]) => (
+                        <button key={name} type="button" role="radio" aria-checked={uiOld === old} className={uiOld === old ? "on" : ""} onClick={() => chooseUi(old)}>{name}</button>
+                      ))}
+                    </span>
+                  </div>
                 )}
                 {!touch && (
                   <div className="rpg-menu-row rpg-menu-pick" role="radiogroup" aria-label="이동 방식">

@@ -3609,3 +3609,9 @@ button.forge-stage:disabled { cursor: default; }
 
 /* 새 화면 구성 — 창(가방 · 스탯 · 설정 · 키 설정)은 화면이 커진 만큼 함께 키운다(--wz 는 RpgView fitCanvas 가 정한다) */
 .hud2 .shop:not(.village-panel), .hud2 .rpg-stat, .hud2 .rpg-menu { zoom: var(--wz, 1); }
+
+/* 새 화면 구성 — NPC 말 걸기 안내(.rpg-talk)가 아래 막대 · 스킬 칸 뒤에 가려졌다. 판 위로 올리고 글씨도 키운다 */
+.hud2 .rpg-talk { bottom: calc(var(--u) * 262); z-index: 4; width: min(calc(var(--u) * 640), calc(100% - 24px)); padding: calc(var(--u) * 12) calc(var(--u) * 18); }
+.hud2 .rpg-talk-who { font-size: calc(var(--u) * 17); }
+.hud2 .rpg-talk-line { font-size: calc(var(--u) * 15); }
+.hud2 .rpg-talk-btn { font-size: calc(var(--u) * 15); }

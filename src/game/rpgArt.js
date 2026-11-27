@@ -44,6 +44,7 @@ import { WORLD_BOSS_BY_TYPE } from "./worldBossData.js";
 import { GUILD_BOSS_BY_TYPE } from "./guildData.js";
 import { WORLD_EQUIPMENT, WORLD_WEAPON_SKILLS, worldArtCell } from "./worldEquipmentData.js";
 import { drawWear } from "./wearArt.js";
+import { oxWornOf, drawOxBack, drawOxFront, drawOxRegular, drawOxSteps } from "./onyxArt.js";   // 황금 진열장 장신구(onyxData.js)
 import { wearOf } from "./armor.js";
 import { warmAbyssArt, drawAbyssGate, drawGuardian } from "./abyssArt.js";
 import { GUARD_IDS } from "./abyssData.js";
@@ -2398,6 +2399,8 @@ function drawHero(ctx, g, h, time) {
     im = artImg(advArtPath(h, `walk-${view === "turn" ? "front" : view}-${k}`)) || im;
   }
   const mo = down ? null : heroMotion(g, h, time);
+  const oxw = down ? 0 : oxWornOf(h);               // 단 황금 진열장 장신구(onyxArt.js) — 겉모습만
+  drawOxSteps(ctx, h, oxw, RPG.spd * mapSpeed(MAPS[h.map]), time);   // 은화 발자국 — 땅에 남아 몸보다 먼저
   const al = down ? 0 : abyssLookOf(h);              // 낀 심연 외형(abyssData.js ABYSS_LOOKS) — 겉모습만, 능력치 없음
   if (held && al & LOOK_BIT.weapon) { held.abyss = 1; if (held.off) held.off.abyss = 1; }
   else if (held) { held.abyss = 0; if (held.off) held.off.abyss = 0; }
@@ -2469,8 +2472,10 @@ function drawHero(ctx, g, h, time) {
     if (ncs) drawNecroScythe(ctx, h, view, ww, hh, top, true, time);
     const wyh = !down && wyvernLook(h);             // Wyvern Knight 006 — 역린 해방 날개(몸 뒤) · 용린 · 반룡 기운(몸 앞)
     if (wyh) drawWyvernHero(ctx, h, ww, hh, top, true, time, view, flip);
+    if (oxw) drawOxBack(ctx, h, oxw, view, hh, top, time);
     ctx.drawImage(im, -ww / 2, top, ww, hh);
     if (!down && !(hide & HIDE_GEAR.armor) && !adminLook(h)) drawWear(ctx, wearOf(h) || h.wear, view, im, ww, hh, top);   // 입은 전설 방어구(wearData.js) — 내 가방 · 방장 판정이면 직접, 남의 화면이면 스냅샷 값. 관리자 스킨은 옷까지 그린 그림이라 겹쳐 그리지 않는다
+    if (oxw) drawOxFront(ctx, h, oxw, view, ww, hh, top, time);
     if (held?.adv) drawAdvHeldItem(ctx, held, ww, top, HERO_K, false);
     else if (held && !held.none) {
       if (held.off && advIm) drawHeld(ctx, held.off, ww, top, held.offSwing, col.light);   // 전직 그림은 반대 손이 몸 앞 허리에 있다
@@ -2521,6 +2526,7 @@ function drawHero(ctx, g, h, time) {
     ctx.fillStyle = "rgba(233,211,154,0.92)";
     ctx.fillText(`「${titleName(h.title)}」`, h.x, h.y + 29);
   }
+  if (oxw) drawOxRegular(ctx, h, oxw, h.y + (h.title ? 43 : 29));   // 황금 진열장의 단골 — 이름(칭호) 아래 금빛 줄
   if (down) {
     ctx.fillStyle = "#ffbdb2"; ctx.font = "11px 'Jua', sans-serif";
     ctx.fillText(`${Math.ceil(h.down)}초 뒤 광장에서`, h.x, byy - 10);

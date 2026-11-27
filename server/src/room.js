@@ -1,4 +1,5 @@
 import {protectRq} from '../../src/game/requiemData.js';
+import { protectOx } from '../../src/game/onyxData.js';
 /* ── RPG 서버 한 곳(RPG1~RPG4) — 예전 "방장" 브라우저가 하던 일을 서버가 한다 ─────────────
    - 접속: 붙은 뒤 첫 말(auth)로 이 창만 아는 비밀값을 보낸다. 같은 접속 id 로 다시 붙으면 비밀값이 맞을 때만 옛 연결을 잇는다.
      남에게는 접속 id 대신 따로 만든 id(pub)만 보인다 — id 를 알아도 남의 자리로 붙을 수 없게
@@ -222,7 +223,7 @@ export class RpgRoom {
     if (!d || this.seatOf(c.id) !== d.cls) return;
     const a = this.accts.get(c.id);
     const data = d.data && typeof d.data === "object" ? d.data : {};
-    const use = a ? { ...a.base, admin: a.admin, auto: data.auto, hold: data.hold, mv: data.mv, hideGear: data.hideGear } : { ...protectRq(data), admin: false };   // 계정 없는 캐릭터는 관리자가 될 수 없다
+    const use = a ? { ...a.base, admin: a.admin, auto: data.auto, hold: data.hold, mv: data.mv, hideGear: data.hideGear } : { ...protectOx(protectRq(data)), admin: false };   // 계정 없는 캐릭터는 관리자가 될 수 없다
     rpgJoin(this.g, d.cls, use, c.id);
   }
   chat(c, d) {
@@ -459,7 +460,7 @@ export class RpgRoom {
     // 바뀐 사람의 기기 기록은 그 화면이 out "relook" 으로 고친다
     if (g.relook && g.relook.length) {
       g.relook.splice(0).forEach((r) => {
-        const patch = { ...(r.job ? { job: r.job } : {}), ...(r.elem ? { elem: r.elem } : {}) };
+        const patch = { ...(r.job ? { job: r.job } : {}), ...(r.elem ? { elem: r.elem } : {}), ...(r.gender ? { gender: r.gender } : {}) };   // 성전환 물약(11월 27일) — 성별도
         const at = this.seats.findIndex((s) => s && s.id === r.who);
         if (at >= 0 && this.seats[at].hero) this.seats[at] = { ...this.seats[at], hero: { ...this.seats[at].hero, ...patch } };
         const a = this.accts.get(r.who);

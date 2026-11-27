@@ -25,6 +25,8 @@ export const SHOPS = [
   { id: "forge", name: "무기 강화소", keeper: "강화 장인", x: 300, y: 310, color: "#a3907c", line: "강화석만 있으면 무기를 더 단단하게 해 주지." },
   // 잡동산이 상점 — 가방 넓히기 · 사냥터 보스 재료 사고팔기(junkData.js)
   { id: "junk", name: "잡동산이 상점", keeper: "잡화상", x: 1500, y: 310, color: "#b0a088", line: "쓸 만한 건 다 있다네. 가방도 넓혀 주지." },
+  // 황금 진열장 상점(11월 27일) — 오닉스로 장신구 · 칭호 · 특수 제품을 판다(onyxData.js). 사냥문 길 아래 오른쪽 풀밭(정한 자리)
+  { id: "onyx", name: "황금 진열장 상점", keeper: "감정사", x: 1650, y: 870, color: "#c9a96a", line: "진열장에 든 것은 오닉스로만 내드립니다.", ox: 1 },
 ];
 export const SHOP_REACH = 110;            // 이만큼 가까우면 상점을 쓸 수 있다
 
@@ -190,6 +192,8 @@ export const POTIONS = [
   // 전직 · 원소를 바꾸는 물약 — 물약 칸(5 · 6 · 7)에는 넣지 못한다(잘못 눌러 마시지 않게)
   { id: "adv_reset", name: "전직 초기화 물약", kind: "adv", price: CLASS_POTION_PRICE, noSlot: 1 },
   { id: "elem_swap", name: "원소 전환 물약", kind: "elem", price: CLASS_POTION_PRICE, noSlot: 1 },
+  // 성전환 물약(11월 27일) — 황금 진열장 상점에서 오닉스(ox)로만 산다. 물약 상점 · 랜덤 상자에는 없다(onyxData.js OX_GOODS)
+  { id: "gender_swap", name: "성전환 물약", kind: "gender", price: 0, ox: 420, noSlot: 1 },
 ];
 export const POTION = {
   stackMax: 99,          // 한 종류를 이만큼까지 가질 수 있다
@@ -224,12 +228,17 @@ export const CASINO = {
   maxBet: 1000,          // 한 번에 걸 수 있는 최대 코인
   daily: { box: 10, dice: 30, slot: 30 },   // 하루 이용 횟수
 };
-// 랜덤 상자 — 내 레벨 단계의 무기 또는 물약이 나온다. 값은 내용물 상점가의 기댓값 ÷ evTarget 으로 정한다.
+// 랜덤 상자 — 내 레벨 단계의 무기 · 물약 · 오닉스가 나온다. 값은 내용물 상점가의 기댓값 ÷ evTarget 으로 정한다(오닉스는 코인 값이 없어 셈에 넣지 않는다).
 export const BOX = {
   special: 0.02,         // 특별 무기가 나올 확률 — 내 레벨로 낄 수 있는 것 가운데 하나. 없으면 일반 무기로 바뀐다
-  weapon: 0.48,          // 일반 무기가 나올 확률(나머지는 물약)
+  weapon: 0.48,          // 일반 무기가 나올 확률(나머지는 오닉스 · 물약)
   grades: [50, 30, 14, 5, 1],               // 무기 등급별 확률(%) — 일반 · 고급 · 희귀 · 영웅 · 전설
-  potions: { heal_s: 30, heal_m: 25, heal_l: 15, buff_str: 10, buff_int: 10, buff_crit: 10 },   // 물약별 확률(%)
+  // 오닉스(11월 27일 사용자 값) — 상자 하나에서 나올 확률(%). 합 5% 는 물약 몫(50% → 45%)에서 뗐다. 전용 서버에서만 나온다
+  onyx: { 10: 3, 25: 1.5, 75: 0.4, 200: 0.1 },
+  // 물약별 무게 — 물약 몫(45%) 안에서 나눈다. 11월 27일 사용자 "랜덤박스에 모든 물약 추가 · 확률은 알아서"(정한 값).
+  // 무게 합 45 라 무게가 곧 상자 하나에서의 %다. 비싼 물약은 아주 드물게 두어 상자 값이 크게 오르지 않게 했다. 성전환 물약은 오닉스 제품이라 뺐다
+  potions: { heal_s: 12, heal_m: 9.5, heal_l: 5.5, buff_str: 4, buff_int: 4, buff_crit: 4, speed1: 3, speed2: 1.5, hide1: 0.8, hide2: 0.5,
+    reset: 0.198, adv_reset: 0.001, elem_swap: 0.001 },
 };
 // 주사위 홀짝 — 맞히면 2배. houseEdge 확률로 주사위가 모서리에 서서 집이 가져간다(기댓값 0.9).
 export const DICE = { pay: 2, house: 0.1 };

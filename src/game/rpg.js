@@ -67,6 +67,7 @@ import { TRAIN } from "./trainData.js";
 import { SANDBOX } from "./sandboxData.js";
 import { TEST_SERVER, TEST_GROUPS } from "./testData.js";
 import { TITLES, TITLE_BY_ID, REC_IDS, PARTY, TITLE_BITS, titleUp, titleUpText } from "./socialData.js";
+import { accWorn } from "./onyxData.js";
 import { ACHIEVES, CODEX_NEED } from "./codexData.js";
 import { DROPS, MAT_BY_ID, GIFT, MATERIALS, matMax, PERSONAL_GIFTS, PERSONAL_ROLLBACKS, PERSONAL_LEVELS, RESET, rollDrop, ENHANCE } from "./itemData.js";
 import { REQ_NPCS, REQ_BY_NPC, REQUESTS, QUEST_MASTER, questXpRate, questMatches } from "./requestData.js";
@@ -984,7 +985,7 @@ export const needNow = (h, k) => (k === "lv" ? h.lv : k === "coins" ? h.coins : 
 // 업적 — 조건을 채웠는지 · 이미 보상을 받았는지(가방 b.ac)
 export const achMet = (h, a) => Object.entries(a.need).every(([k, n]) => needNow(h, k) >= n);
 export const achGot = (h, a) => (((h && h.bag && h.bag.ac) || []).includes(a.id));
-export const titleMet = (h, t) => (t.off ? offKey(h) === t.off : Object.entries(t.need).every(([k, n]) => needNow(h, k) >= n));
+export const titleMet = (h, t) => (t.ox ? false : t.off ? offKey(h) === t.off : Object.entries(t.need).every(([k, n]) => needNow(h, k) >= n));
 // 직업과 다른 묶음의 무기를 들었으면 그 묶음(sword · bow · staff), 아니면 "" — 방장만 가방을 본다
 export function offHand(h) {
   const w = h && h.bag && equipped(h.bag);
@@ -1079,7 +1080,8 @@ export function forceLook(patch) {
   const cur = loadSave();
   if (!cur || !patch) return false;
   const job = JOB_BY_ID[patch.job] ? patch.job : cur.job;
-  return store({ ...cur, job, elem: elemFor(job, patch.elem || cur.elem) });
+  const gender = patch.gender === "m" || patch.gender === "f" ? patch.gender : cur.gender;   // 성전환 물약(11월 27일)
+  return store({ ...cur, job, elem: elemFor(job, patch.elem || cur.elem), gender });
 }
 export function saveLook(d) {
   const cur = loadSave();
@@ -1134,8 +1136,8 @@ export function heroRecord(h, base, look) {
   const { tok: _tok, linked: _linked, admin: _admin, ...rest } = b;
   const bag = { ...h.bag };
   delete bag.ld;
-  // 원소는 지금 영웅의 것을 쓴다 — 원소 전환 물약으로 바뀐 원소가 자리 소식보다 먼저 남는다
-  return { ...rest, ts: h.ts || 0, v: 3, ...(look ? { name: look.name, job: look.job, elem: elemFor(look.job, hasElem(h.job) ? h.elem : look.elem), gender: look.gender, picked: 1 } : {}),
+  // 원소 · 성별은 지금 영웅의 것을 쓴다 — 원소 전환 · 성전환 물약으로 바뀐 값이 자리 소식보다 먼저 남는다
+  return { ...rest, ts: h.ts || 0, v: 3, ...(look ? { name: look.name, job: look.job, elem: elemFor(look.job, hasElem(h.job) ? h.elem : look.elem), gender: h.gender === "m" || h.gender === "f" ? h.gender : look.gender, picked: 1 } : {}),
     lv: h.lv, xp: h.xp, coins: h.coins, quest: { coinOnly:h.quest.coinOnly, on: !!h.quest.on, n: h.quest.n }, stats: { ...h.st }, bag,
     rec: cleanRec(h.rec), titles: cleanTitles(h.titles), title: TITLE_BY_ID[h.title] ? h.title : "",
     honor: Math.max(0, Math.floor(Number(h.honor) || 0)), reqs: cleanReqs(h.reqs),
@@ -5508,7 +5510,8 @@ export function rpgPack(g) {
         {team:h.duelTeam,size:h.duelSize||0,color:h.duelColor??-1,potions:h.duelPotions||0,tauntBy:h.tauntBy??-1,tauntT:h.tauntT||0,inv:h.duelInv||null,questCoinOnly:h.quest.coinOnly,empower:h.empower||0,wear:wearOf(h),hideGear:h.hideGear||0,
           t3:TITLES.reduce((bits, t, i) => (i >= TITLE_BITS * 2 && h.titles.includes(t.id) ? bits | (1 << (i - TITLE_BITS * 2)) : bits), 0),   // 63번째 칭호부터(11월 9일)
           al:lookBits(h.bag, Date.now()),
-          ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0},   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
+          ga:h.gath ? [h.gath.i, r1(h.gath.t)] : 0,
+          oa:accWorn(h.bag)},   // 단 장신구 비트(onyxData.js OX_ACC, 11월 27일) — 남의 화면도 그린다   // 약초 채집 중 — [채집물 번호, 남은 초](alchemy.js)   // 낀 심연 외형 비트(abyssData.js ABYSS_LOOKS) — 남의 화면도 그린다
         h.dest ? [Math.round(h.dest.x), Math.round(h.dest.y)] : 0,
         packBloodJob(h),
         packGambler(h), packEngineer(h), packRq(h), packEq(h), packNq(h), packNecro(h), packIllusion(h), packIq(h), packWyvern(h), packWq(h)] // 66 — Wyvern Knight 006 획득 루트(wyvernQuest.js) · 65 — Wyvern Knight 006(wyvernJob.js packWyvern, 아니면 0) · 64 — Illusionist 005 획득 루트(illusionQuest.js, 아니면 0) · 63 — Illusionist 005(illusionJob.js packIllusion, 아니면 0) · 62 — Necromancer 004(necroJob.js, 아니면 0) · 61 — Necromancer 004 획득 루트(necroQuest.js) · 60 — Engineer 003 획득 루트(engineerQuest.js, 아니면 0) · 59 — 마지막 진혼곡 연출 · 58 — Engineer 003(engineerJob.js, 아니면 0) · 57 — Gambler 002(gamblerJob.js, 아니면 0) · 56 — BLOOD-001(bloodJob.js) · 54 — 결투 팀·물약·도발·의뢰·마법진 상태 · 55 — 마우스 이동 목적지(없으면 0)
@@ -5548,7 +5551,7 @@ export function rpgApply(g, s) {
     const map = MAP_IDS[row[10]] || "plaza";
     let h = g.heroes[pi];
     if (!h) { h = g.heroes[pi] = makeHero(pi, g.looks[pi], map); h.x = row[0]; h.y = row[1]; }
-    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;h.gath=Array.isArray(extra.ga)&&HERBS[extra.ga[0]]?{i:extra.ga[0],t:Number(extra.ga[1])||0,x:h.x,y:h.y,at:Date.now()}:null;}
+    if(row[54]){const extra=row[54];h.duelTeam=extra.team;h.duelSize=extra.size;h.duelColor=extra.color??-1;h.duelPotions=extra.potions;h.tauntBy=extra.tauntBy;h.tauntT=extra.tauntT;h.empower=extra.empower;h.wear=extra.wear||null;h.hideGear=cleanHideGear(extra.hideGear);h.duelInv=extra.inv?structuredClone(extra.inv):null;h.alook=Number(extra.al)||0;h.t3=Number(extra.t3)||0;h.oxw=Number(extra.oa)||0;h.gath=Array.isArray(extra.ga)&&HERBS[extra.ga[0]]?{i:extra.ga[0],t:Number(extra.ga[1])||0,x:h.x,y:h.y,at:Date.now()}:null;}
     h.rqRun = row[59] || null;
     applyBloodJob(h, row[56]);                     // BLOOD-001 — 혈량 · 직업 레벨 · 차징 · 내 혈흔(화면 값 h.bdv)
     applyGambler(h, row[57]);                      // Gambler 002 — 칩 · 직업 레벨 · 대기 · 보호막(화면 값 h.gmv)
@@ -5707,7 +5710,7 @@ export function rpgApplyOut(g, list) {
       g.sys.push({ who: o.who, msg: o.msg, at: o.at });
       if (g.sys.length > 30) g.sys.shift();
     } else if (o.k === "relook") {                 // 관리자 /직업 · 원소 전환 물약 — 바뀐 사람의 화면이 기기 기록을 고친다(RpgView)
-      (g.relooks || (g.relooks = [])).push({ who: o.who, ...(o.job ? { job: o.job } : {}), ...(o.elem ? { elem: o.elem } : {}) });
+      (g.relooks || (g.relooks = [])).push({ who: o.who, ...(o.job ? { job: o.job } : {}), ...(o.elem ? { elem: o.elem } : {}), ...(o.gender ? { gender: o.gender } : {}) });
     } else if (o.k === "banner") {
       g.banner = { text: o.text, sub: o.sub, tone: o.tone, t: o.t, life: o.life };
     }

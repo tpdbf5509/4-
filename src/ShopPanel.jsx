@@ -22,7 +22,7 @@ import {
   weaponLine, weaponArt, specOf, specialTier, specialPrice, specialsFor, sellPrice, dealOf, equipped,
   skillNext, whyDealBuy, whySpecialBuy, whyWeaponSell, whyEquip, whySkill, whyPotionBuy, whyPotionUse,
   whyGamble, boxPrice, boxShares, casinoEv, whyEnhance, whyMatSell, enhFee, itemBonus, weaponStat, matCount, whyScrollBuy, whyWarp,
-  whyGuardBuy, whyArmorWear, whyArmorSell, whyArmorGive, whyBagExpand, whyMatBuy, bagNext, matBuyPrice,
+  whyGuardBuy, whyArmorWear, whyArmorSell, whyArmorGive, whyBagExpand, whyMatBuy, bagNext, matBuyPrice, whyOxBuy, whyOxWear,
 } from "./game/shop.js";
 import { JUNK, bagSteps } from "./game/junkData.js";
 import { MATERIALS, MAT_BY_ID, ENHANCE, STONE_IDS, enhRate, enhDown } from "./game/itemData.js";
@@ -31,6 +31,8 @@ import { wornArmor } from "./game/armor.js";
 import { BOOKS, BOOK_BY_ID, PATCH_BOOKS, GUIDE_BOOKS } from "./game/bookData.js";
 import { storyBook } from "./game/storyAfter.js";
 import { Coin } from "./ui/icons.jsx";
+import { ONYX, OX_ICON, OX_ACC, OX_ACC_BIT, OX_TITLES, OX_GOODS, oxIconStyle, oxOf, accOwned, accWorn } from "./game/onyxData.js";
+import { titleUp, titleUpText } from "./game/socialData.js";
 import { useCasinoRun, DiceStage, SlotStage, BoxStage, CASINO_SKIP } from "./CasinoStage.jsx";
 import { AlchemyShop } from "./AlchemyPanel.jsx";
 import { isSpecialPotion, canBuyPotion } from "./game/alchemy.js";
@@ -57,11 +59,12 @@ export const Price = ({ n, old }) => (
 const Grade = ({ g }) => <span className={`shop-grade g${g}`}>{GRADES[g].name}</span>;
 
 /* 한 줄 — acts: [{ label, why, onClick, main, quiet }]. 막힌 버튼이 있으면 이유를 줄 아래에 적는다(quiet 는 적지 않는다) */
-export function Item({ art, name, meta, desc, price, acts = [], dim }) {
+export function Item({ art, ico, name, meta, desc, price, acts = [], dim }) {
   const blocked = acts.filter((a) => a.why && a.why.length && !a.quiet);
   const why = blocked.map((a) => (acts.length > 1 ? `${a.label} — ${a.why.join(" · ")}` : a.why.join(" · ")));
   return (
-    <div className={`shop-item ${art ? "has-art" : ""} ${art?.includes("#world=") ? "world-equipment-item" : ""} ${dim ? "dim" : ""}`}>
+    <div className={`shop-item ${art || ico ? "has-art" : ""} ${art?.includes("#world=") ? "world-equipment-item" : ""} ${dim ? "dim" : ""}`}>
+      {ico && <b className="shop-art shop-ox-ico" style={ico} aria-hidden="true" />}
       {art && <EquipmentArt className="shop-art" src={art} onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />}
       <div className="shop-main">
         <div className="shop-name">{name}{meta}</div>
@@ -150,10 +153,11 @@ function potionText(p) {
   if (p.kind === "hide") return `${p.dur}초 동안 보스도 몹도 알아채지 못합니다 · 공격해도 풀리지 않습니다 · 결투장 · 던전에서는 못 마십니다`;
   if (p.kind === "adv") return "전직을 비웁니다 · 숙련도와 전투 특성이 사라집니다 · 전직 교관에게서 시험 없이 다른 전직을 고릅니다";
   if (p.kind === "elem") return "마법사의 원소를 다른 원소로 바꿉니다 · 마실 때 원소를 고릅니다";
+  if (p.kind === "gender") return "캐릭터 성별이 바뀝니다 · 결투 중에는 마실 수 없습니다";
   return "찍은 스탯 포인트를 모두 돌려받는다";
 }
 /* 전직 초기화 · 원소 전환 물약 — 마시기 전에 늘 한 번 더 묻는다(원소는 여기서 고른다) */
-const askFirst = (p) => p.kind === "adv" || p.kind === "elem";
+const askFirst = (p) => p.kind === "adv" || p.kind === "elem" || p.kind === "gender";
 const drinkAct = (h, p, send, setAsk, extra = {}) => ({ label: "마시기", ...extra, why: whyPotionUse(h, p.id),
   onClick: () => (askFirst(p) ? setAsk(p) : send({ op: "puse", id: p.id })) });
 function DrinkAsk({ h, p, send, onClose }) {
@@ -176,6 +180,8 @@ function DrinkAsk({ h, p, send, onClose }) {
               ))}
             </div>
           </>
+        ) : p.kind === "gender" ? (
+          <p>캐릭터가 {h.gender === "f" ? "남성" : "여성"}이 됩니다. 되돌리려면 물약을 하나 더 마셔야 합니다.</p>
         ) : (
           <p>전직을 비웁니다. 지금 전직의 숙련도와 전투 특성은 사라지고 되돌릴 수 없습니다. 기본 직업은 그대로입니다.</p>
         )}
@@ -361,6 +367,7 @@ function Casino({ h, send, note, setQuiet }) {
   const left = (k) => Math.max(0, CASINO.daily[k] - usedToday(h.bag, k, day));
   const gsum = BOX.grades.reduce((a, b) => a + b, 0);
   const psum = Object.values(BOX.potions).reduce((a, b) => a + b, 0);
+  const osum = Object.values(BOX.onyx).reduce((a, b) => a + b, 0);
   const share = boxShares(h.lv);
   const own = specialsFor(h.lv);
   const ssum = SLOT.reduce((a, s) => a + s.w, 0);
@@ -383,7 +390,7 @@ function Casino({ h, send, note, setQuiet }) {
         return (
           <>
             <Item name="랜덤 상자" meta={<span className="shop-meta"><span>기댓값 {pct(ev.box, 0)}</span></span>}
-              desc={`내 레벨 단계(Lv ${WEAPON_TIERS[tierOf(h.lv)]})의 무기 또는 물약이 나옵니다.${own.length ? ` 특별 무기는 낄 수 있는 ${own.length}종 가운데 하나입니다.` : ""}`}
+              desc={`내 레벨 단계(Lv ${WEAPON_TIERS[tierOf(h.lv)]})의 무기 · 물약 · ${ONYX.name}가 나옵니다. 가득 찬 물약은 나오지 않습니다.${own.length ? ` 특별 무기는 낄 수 있는 ${own.length}종 가운데 하나입니다.` : ""}`}
               price={<Price n={boxPrice(h.lv)} />} />
             <div className="cas-play">
               <BoxStage run={run} />
@@ -398,7 +405,8 @@ function Casino({ h, send, note, setQuiet }) {
             <Odds rows={[
               ...(share.special > 0 ? [["특별 무기", pct(share.special)]] : []),
               ...GRADES.map((gd) => [`${gd.name} 무기`, pct(share.weapon * (BOX.grades[gd.id] / gsum))]),
-              ...Object.entries(BOX.potions).map(([id, w]) => [POTION_BY_ID[id].name, pct(share.potion * (w / psum))]),
+              ...Object.entries(BOX.onyx).map(([n, w]) => [`${ONYX.name} ${n}개`, pct(share.onyx * (w / osum))]),
+              ...Object.entries(BOX.potions).map(([id, w]) => [POTION_BY_ID[id].name, pct(share.potion * (w / psum), w < 0.01 ? 3 : 1)]),
             ]} />
           </>
         );
@@ -737,10 +745,59 @@ function ScrollShop({ h, send }) {
   );
 }
 
-const BODIES = { scroll: ScrollShop, weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge, junk: JunkShop };
+/* ── 황금 진열장 상점(11월 27일) — 오닉스로만 판다. 값 · 막힌 이유는 판정과 같은 whyOxBuy · whyOxWear. 산 장신구는 여기와 가방에서 단다 ── */
+export const OnyxIcon = () => <b className="ox-coin" style={oxIconStyle(OX_ICON.onyx)} aria-hidden="true" />;
+const OxPrice = ({ n }) => <span className="shop-price"><OnyxIcon />{won(n)}</span>;
+const wearAct = (h, a, send) => {
+  const on = (accWorn(h.bag) & OX_ACC_BIT[a.id]) !== 0;
+  return { label: on ? "떼기" : "달기", main: !on, why: whyOxWear(h, a.id), onClick: () => send({ op: "oxwear", id: a.id, on: !on }) };
+};
+export function OnyxAccList({ h, send, shop }) {
+  const own = accOwned(h.bag);
+  return OX_ACC.filter((a) => shop || own & OX_ACC_BIT[a.id]).map((a) => {
+    const has = (own & OX_ACC_BIT[a.id]) !== 0;
+    return (
+      <Item key={a.id} ico={oxIconStyle(OX_ICON[a.id])} name={a.name}
+        meta={<span className="shop-meta"><span>장신구</span>{has && <span className="shop-tag">가짐</span>}</span>}
+        desc={a.note} price={shop && !has ? <OxPrice n={a.price} /> : null}
+        acts={has ? [wearAct(h, a, send)] : [{ label: "사기", main: true, why: whyOxBuy(h, "acc", a.id), onClick: () => send({ op: "oxbuy", kind: "acc", id: a.id }) }]} />
+    );
+  });
+}
+function OnyxShop({ h, send }) {
+  const [tab, setTab] = useState("acc");
+  const [ask, setAsk] = useState(null);
+  const owned = new Set(h.titles || []);
+  return (
+    <>
+      <DrinkAsk h={h} p={ask} send={send} onClose={() => setAsk(null)} />
+      <Tabs on={tab} set={setTab} tabs={[["acc", "장신구", OX_ACC.length], ["title", "칭호", OX_TITLES.length], ["good", "특수 제품", OX_GOODS.length]]} />
+      <p className="shop-note">{ONYX.name}는 도박장 랜덤 상자에서 나옵니다. 장신구는 겉모습만 바꾸고 여러 개를 함께 달 수 있습니다.</p>
+      {tab === "acc" && <OnyxAccList h={h} send={send} shop />}
+      {tab === "title" && OX_TITLES.map((t) => (
+        <Item key={t.id} ico={oxIconStyle(OX_ICON.title)} name={`「${t.name}」`}
+          meta={<span className="shop-meta"><span>칭호</span>{owned.has(t.id) && <span className="shop-tag">가짐</span>}</span>}
+          desc={titleUpText(titleUp(t))} price={owned.has(t.id) ? null : <OxPrice n={t.ox} />}
+          acts={owned.has(t.id) ? [] : [{ label: "사기", main: true, why: whyOxBuy(h, "title", t.id), onClick: () => send({ op: "oxbuy", kind: "title", id: t.id }) }]} />
+      ))}
+      {tab === "good" && OX_GOODS.map((x) => {
+        const p = POTION_BY_ID[x.id];
+        return (
+          <Item key={x.id} ico={oxIconStyle(OX_ICON[x.id])} name={p.name}
+            meta={<span className="shop-meta"><span>가진 수 {h.bag.p[x.id] || 0}</span></span>}
+            desc={potionText(p)} price={<OxPrice n={x.ox} />}
+            acts={[{ label: "사기", main: true, why: whyOxBuy(h, "good", x.id), onClick: () => send({ op: "oxbuy", kind: "good", id: x.id }) },
+              drinkAct(h, p, send, setAsk, { quiet: true })]} />
+        );
+      })}
+    </>
+  );
+}
+
+const BODIES = { scroll: ScrollShop, weapon: WeaponShop, skill: SkillShop, potion: PotionShop, casino: Casino, forge: Forge, junk: JunkShop, onyx: OnyxShop };
 
 // 창의 틀 — 머리(이름 · 한 줄 · 코인 · 닫기) · 결과 한 줄 · 내용
-export function Frame({ title, sub, coins, admin, note, quiet, onClose, children }) {
+export function Frame({ title, sub, coins, ox, admin, note, quiet, onClose, children }) {
   return (
     <>
       <div className="rpg-menu-back" onClick={onClose} />
@@ -750,6 +807,7 @@ export function Frame({ title, sub, coins, admin, note, quiet, onClose, children
             <b>{title}</b>
             {sub && <span>{sub}</span>}
           </div>
+          {ox !== undefined && <span className="shop-coins ox"><OnyxIcon />{admin ? "무제한" : won(ox)}</span>}
           <span className="shop-coins"><Coin />{admin ? "무제한" : won(quiet && quiet.coins !== undefined ? quiet.coins : coins)}</span>
           <button type="button" className="shop-x" aria-label="닫기" onClick={onClose}>×</button>
         </div>
@@ -766,7 +824,7 @@ export function ShopPanel({ shop, h, send, note, onClose }) {
   const Body = BODIES[s.id];
   const [quiet, setQuiet] = useState(false);          // 강화 망치질 · 도박 연출 중에는 결과 줄을 숨긴다(연출이 끝날 때 보인다). { coins } 면 코인도 그 숫자로 둔다
   return (
-    <Frame title={s.name} sub={`${s.keeper} · ${s.line}`} coins={h.coins} admin={h.admin} note={note} quiet={quiet} onClose={onClose}>
+    <Frame title={s.name} sub={`${s.keeper} · ${s.line}`} coins={h.coins} ox={s.ox ? oxOf(h.bag) : undefined} admin={h.admin} note={note} quiet={quiet} onClose={onClose}>
       <Body h={h} send={send} note={note} setQuiet={setQuiet} />
     </Frame>
   );
@@ -832,9 +890,16 @@ export function BagPanel({ h, send, note, onClose, tab0 = "weapon", book0 }) {
   // 무기 종류별 탭 — 가방에 있는 종류만 보인다
   const weaponTabs = [["all", "전체", h.bag.w.length], ...WEAPON_TYPES.filter((t) => h.bag.w.some((q) => q.t === t.id)).map((t) => [t.id, t.name, h.bag.w.filter((q) => q.t === t.id).length])];
   return (
-    <Frame title="가방" sub="무기 · 방어구 · 물약 · 재료 · 주문서 · 스킬 · 책" coins={h.coins} admin={h.admin} note={note} onClose={onClose}>
-      <Tabs on={tab} set={setTab} tabs={[["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length], ["book", "책", BOOKS.length]]} />
+    <Frame title="가방" sub="무기 · 방어구 · 장신구 · 물약 · 재료 · 주문서 · 스킬 · 책" coins={h.coins} ox={oxOf(h.bag)} admin={h.admin} note={note} onClose={onClose}>
+      <Tabs on={tab} set={setTab} tabs={[["weapon", "무기", h.bag.w.length], ["armor", "방어구", (h.bag.a || []).length], ["acc", "장신구", OX_ACC.filter((a) => accOwned(h.bag) & OX_ACC_BIT[a.id]).length], ["potion", "물약", potions.length], ["mat", "재료", mats.length], ["scroll", "주문서", h.bag.wp || 0], ["skill", "스킬", skills.length], ["book", "책", BOOKS.length]]} />
       {tab === "book" && <Books tab0={tab0} h={h} book0={book0} />}
+      {tab === "acc" && (
+        <>
+          <Head sub="겉모습만 바꿉니다 · 여러 개를 함께 달 수 있습니다">장신구</Head>
+          {!accOwned(h.bag) && <Empty>광장의 황금 진열장 상점에서 {ONYX.name}로 살 수 있습니다.</Empty>}
+          <OnyxAccList h={h} send={send} />
+        </>
+      )}
       {tab === "weapon" && (
         <>
           <Head sub={`${h.bag.w.length}/${weaponCap(h)} · 하나만 낍니다`}>{w ? `장착 — ${weaponName(w)}` : "장착한 무기 없음"}</Head>

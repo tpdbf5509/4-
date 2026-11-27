@@ -7,8 +7,8 @@ import { rpgInput } from '../src/game/rpgInput.js';
 import { whyEquip } from '../src/game/shop.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { SANDBOX } from '../src/game/sandboxData.js';
-import { GAMBLER as GM, GM_BET as BET, GM_CHIP as CH, GM_VEIL as VL, GM_DICE as DC, GM_RAIN as RN, GM_DD as DD, GM_TABLE as TB, GM_EDGE as EG, GM_JACK as JK, GM_LUCK as LUCK, GM_SLOTS } from '../src/game/gamblerData.js';
-import { unlockGambler, dropGambler, gamblerOn, gamblerView, gamblerKill, cleanGmJob, gmJobNeed, gmTrainNeed, veilStat, rainCount, diceCd, luckNeed, gmContract } from '../src/game/gamblerJob.js';
+import { GAMBLER as GM, GM_BET as BET, GM_CHIP as CH, GM_VEIL as VL, GM_DICE as DC, GM_RAIN as RN, GM_DD as DD, GM_TABLE as TB, GM_EDGE as EG, GM_JACK as JK, GM_LUCK as LUCK, GM_SLOTS, GM_DOPA as DP } from '../src/game/gamblerData.js';
+import { unlockGambler, dropGambler, gamblerOn, gamblerView, gamblerKill, cleanGmJob, gmJobNeed, gmTrainNeed, veilStat, rainCount, diceCd, luckNeed, gmContract, dopaRoll } from '../src/game/gamblerJob.js';
 import { KEY_ACTIONS } from '../src/game/keys.js';
 import { GAMBLER_PX, GAMBLER_ICON } from '../src/game/gamblerPxData.js';
 import { GAMBLER_CAP, GAMBLER_GROUND } from '../src/game/gamblerArt.js';
@@ -255,7 +255,7 @@ test('칩 장막 — 최대 체력 18%(방어 50 → 26%) · 7초(방어 25 → 
 });
 
 test('직업 레벨 해금 — 5 · 15 · 30 · 55 · 100 · 150 · 200 전에는 쓰지 못한다', () => {
-  assert.deepEqual(GM.unlock, { chip: 1, veil: 5, dice: 15, rain: 30, dd: 55, table: 100, edge: 150, jack: 200 });
+  assert.deepEqual(GM.unlock, { chip: 1, veil: 5, dice: 15, rain: 30, dd: 55, table: 100, edge: 150, jack: 200, dopa: 1 });
   const { g, h } = setup(14);
   const m = mob(g, h.x + 200, h.y);
   use(g, 'dice', [m.x, m.y]); run(g, .6);
@@ -299,7 +299,7 @@ test('도트 시트 — 규격이 직접 그린 스크립트(make.py)의 manifes
   const man = JSON.parse(readFileSync(new URL('../design/effects/gambler/manifest.json', import.meta.url), 'utf8'));
   assert.deepEqual(JSON.parse(JSON.stringify(GAMBLER_PX)), man);
   for (const k of Object.keys(GAMBLER_PX)) assert.ok(existsSync(new URL(`../public/assets/game/rpg/effects/hidden-jobs/gambler/px/${k}.webp`, import.meta.url)), k);
-  assert.equal(Object.keys(GAMBLER_ICON).length, GAMBLER_PX.gm_icons.n);
+  assert.equal(Object.keys(GAMBLER_ICON).length, GAMBLER_PX.gm_icons.n + 1, '도파민 아이콘만 Codex 그림(onyx/icons.webp)');
   const art = readFileSync(new URL('../src/game/gamblerArt.js', import.meta.url), 'utf8'), make = readFileSync(new URL('../design/effects/gambler/make.py', import.meta.url), 'utf8');
   assert.ok(!/import[^\n]*pixelfx/i.test(art) && !/import[^\n]*pixelfx/i.test(make));
 });
@@ -313,4 +313,35 @@ test('연출 — 규칙이 내는 sk_gm_* 종류는 모두 그리는 곳이 있�
   const snds = new Set([...job.matchAll(/"(gm[A-Z]\w+)"/g)].map(m => m[1]));
   assert.ok(snds.size >= 9);
   for (const n of snds) assert.ok(sfx.includes(`name === "${n}"`), `소리 ${n}`);
+});
+
+test('도파민(11월 27일 사용자 표) — 확률 합 100% · 결과마다 피해 · 대상이 없으면 대기 없이 거절', () => {
+  assert.deepEqual(DP.res.map(r => [r.name, r.p, r.mul || 0, r.flat || 0]), [
+    ['꽝', 20, 0, 0], ['본전', 44.28, 2.5, 0], ['적중', 20, 6, 0], ['세븐', 10, 0, 77777777], ['깡통 당첨', 0.62, 0, 10000000], ['대박', 5, 0, 100000000], ['잭팟', 0.1, 0, 999999999999]]);
+  assert.ok(Math.abs(DP.res.reduce((n, r) => n + r.p, 0) - 100) < 1e-9);
+  assert.ok(DP.res.reduce((n, r) => n + r.p, 0) < 100 + 1e-9);
+  // 누적 확률 경계 — 각 결과의 한가운데 값이 그 결과로
+  let acc = 0;
+  DP.res.forEach((r, i) => { assert.equal(dopaRoll((acc + r.p / 2) / 100), i, r.name); acc += r.p; });
+  assert.equal(dopaRoll(0.99999999), 6);
+  assert.deepEqual(GM_SLOTS.find(q => q.s === 'dopa'), { s: 'dopa', act: 'wskill' });
+  const BIG = 1e13;
+  DP.res.forEach((r, i) => {
+    const { g, h } = setup(1);
+    let acc2 = 0; for (let j = 0; j < i; j++) acc2 += DP.res[j].p;
+    g.gmRand = () => (acc2 + r.p / 2) / 100;
+    const m = mob(g, h.x + 300, h.y, { hp: BIG, max: BIG });
+    use(g, 'dopa', [m.x, m.y]); run(g, r.hit + .2);
+    const got = BIG - m.hp;
+    if (r.flat) assert.equal(got, r.flat, `${r.name} — 고정 피해 그대로`);
+    else if (r.mul) near(got, U * CH.mul * r.mul, .02, `${r.name} — 기본 공격 피해의 ${r.mul * 100}%`);
+    else assert.equal(got, 0, '꽝 — 피해 없음');
+    assert.equal(gamblerView(h).cd.dopa > DP.cd - 2, true, '대기 30초');
+  });
+  const { g, h } = setup(1);
+  use(g, 'dopa', [h.x + 200, h.y]); run(g, .1);
+  assert.equal(gamblerView(h).cd.dopa, 0, '대상이 없으면 대기 없음');
+  const far = mob(g, h.x + DP.reach + 120, h.y);
+  use(g, 'dopa', [far.x, far.y]); run(g, 1.5);
+  assert.equal(far.hp, HP, '사거리 밖은 겨누지 않는다');
 });

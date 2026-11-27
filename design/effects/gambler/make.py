@@ -468,6 +468,75 @@ def icon_cells():
     star(c, 20, 5, 2, G[6], G[4]); out.append(c)
     return out
 
+
+# ── 도파민(11월 27일 사용자 기획) — 릴 그림(28×38) · 카드(36×48) ──
+# gm_dreel: 0 꽝 × · 1 동전 · 2 붉은 마름모(적중) · 3 왕관(대박) · 4~6 미끄러지는 7(깡통 — 아래로 6 · 12 · 18px) · 7 미끄러진 뒤 빈 칸
+GREY = [rgb(c) for c in ["#3E3A36", "#6E6862", "#A39C94"]]
+def reel_frame(c):
+    c.rect(1, 0, 26, 38, G[0]); c.rect(0, 1, 28, 36, G[0])
+    c.rect(1, 1, 26, 36, G[3]); c.rect(2, 2, 24, 34, G[1]); c.rect(3, 3, 22, 32, rgb("#1A130B"))
+    c.rect(1, 1, 26, 1, G[5]); c.rect(1, 1, 1, 36, G[5]); c.rect(1, 36, 26, 1, G[2]); c.rect(26, 1, 1, 36, G[2])
+def reel_line(c): c.rect(3, 18, 2, 2, G[5]); c.rect(23, 18, 2, 2, G[5])
+def dreel_cells():
+    out = []
+    c = Cv(28, 38); reel_frame(c)                                   # 0 ×
+    for d in range(-5, 6):
+        for w in (0, 1):
+            c.px(14 + d + w, 19 + d, GREY[1]); c.px(14 - d + w, 19 + d, GREY[1])
+    c.px(9, 14, GREY[2]); c.px(18, 14, GREY[2]); reel_line(c); out.append(c)
+    c = Cv(28, 38); reel_frame(c); coin(c, 14, 19, 0, "gold", 7); reel_line(c); out.append(c)   # 1 동전
+    c = Cv(28, 38); reel_frame(c)                                   # 2 붉은 마름모
+    d = [(14, 10), (21, 19), (14, 28), (7, 19)]; c.fillpoly(d, RED[1]); c.poly(d, RED[0])
+    c.fillpoly([(14, 13), (18, 19), (14, 19)], RED[2]); c.px(13, 14, W); reel_line(c); out.append(c)
+    c = Cv(28, 38); reel_frame(c)                                   # 3 왕관
+    cr = [(6, 25), (6, 14), (10, 19), (14, 11), (18, 19), (22, 14), (22, 25)]
+    c.fillpoly(cr, G[4]); c.poly(cr, G[1]); c.rect(6, 25, 17, 3, G[3]); c.rect(6, 27, 17, 1, G[1])
+    for (x, y) in ((6, 13), (14, 10), (22, 13)): c.disc(x + .5, y + .5, 1.6, 1.6, G[6])
+    c.disc(14.5, 21.5, 1.8, 1.8, RED[1]); c.px(9, 22, P[3]); c.px(19, 22, P[3]); reel_line(c); out.append(c)
+    for off in (6, 12, 18, 99):                                     # 4~6 미끄러지는 7 · 7 빈 칸
+        c = Cv(28, 38); reel_frame(c); s = Cv(28, 38)
+        if off < 99:
+            for j, r in enumerate(SEVEN):
+                for i, ch in enumerate(r):
+                    if ch == "#": s.rect(7 + i * 2, 10 + j * 2 + off, 2, 2, G[5] if j < 2 else G[3]); s.px(8 + i * 2, 11 + j * 2 + off, G[1] if j >= 2 else G[3])
+            s.a[:3] = 0; s.a[35:] = 0
+            for y in range(0, 38, 2): s.a[y, :, 3] = (s.a[y, :, 3] * .55).astype(np.uint8)   # 흐르는 잔상
+            c.paste(s, 0, 0)
+        else:
+            c.rect(9, 6, 10, 2, al(G[3], .5)); c.rect(10, 31, 8, 2, al(G[3], .35))
+        reel_line(c); out.append(c)
+    return out
+
+# gm_dcard: 0 보통 카드 · 1 붉게 빛나는 카드(적중) · 2 금빛 카드(세븐 · 대박 · 잭팟) · 3~6 바스러지는 카드(꽝)
+def dcard_cells():
+    base = card_cells()[0]
+    def recolor(src, fn):
+        c = Cv(36, 48); a = src.a.copy(); m = a[..., 3] > 0
+        a[m, :3] = np.array([fn(tuple(int(v) for v in a[y, x, :3])) for y, x in zip(*np.nonzero(m))], np.uint8)
+        c.a = a; return c
+    gold_map = {G[i][:3]: G[min(6, i + 1)][:3] for i in range(7)}
+    red_map = {G[0][:3]: (40, 14, 14), G[1][:3]: RED[0][:3], G[2][:3]: RED[0][:3], G[3][:3]: RED[1][:3], G[4][:3]: RED[1][:3], G[5][:3]: RED[2][:3], G[6][:3]: (246, 214, 204),
+               P[0][:3]: (40, 14, 14), P[2][:3]: RED[0][:3], P[3][:3]: RED[2][:3], P[4][:3]: (246, 214, 204)}
+    red = recolor(base, lambda q: red_map.get(q, q))
+    for y in range(48):                                             # 붉은 빛 테두리
+        for x in range(36):
+            if red.a[y, x, 3] == 0 and any(0 <= x + dx < 36 and 0 <= y + dy < 48 and base.a[y + dy, x + dx, 3] for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                red.px(x, y, al(RED[2], .7))
+    gold = recolor(base, lambda q: gold_map.get(q, (min(255, q[0] + 30), min(255, q[1] + 24), min(255, q[2] + 10))))
+    star(gold, 8, 7, 3, W, G[5]); star(gold, 27, 38, 2, G[6], G[4])
+    out = [base, red, gold]
+    ys, xs = np.nonzero(base.a[..., 3])
+    for k in range(1, 5):                                           # 바스러짐 — 조각이 떨어지고 갈수록 사라진다
+        c = Cv(36, 48)
+        for n, (y, x) in enumerate(zip(ys, xs)):
+            if rnd(31, n) < k * .22: continue
+            fall = int(rnd(37, n) * k * 3 + (k - 1) * 2 * (y / 48)); side = int((rnd(41, n) - .5) * k * 2)
+            col = tuple(int(v) for v in base.a[y, x])
+            if k >= 3 and rnd(43, n) < .5: col = BR[min(2, int(rnd(47, n) * 3))]   # 탁해진 조각
+            c.px(x + side, y + fall, col)
+        out.append(c)
+    return out
+
 # ── 해금 경로 조사물(48×52, 발밑 24·48) — 0 낡은 칩 상자 · 1 열린 상자(카지노 문) · 2 계약서 게시판 · 3 망가진 주사위 기계 · 4 되살아난 기계 ──
 WD = [rgb(c) for c in ["#1E150C", "#3A2A18", "#5A4226", "#7A5C36", "#9A7A4C"]]   # 낡은 나무
 def mini_die(c, x, y, n, lit=True):   # 7×7 작은 주사위 눈
@@ -557,6 +626,8 @@ def main():
     sheets["gm_pillar"] = pack("gm_pillar", pillar_cells(), None, man, cx=26, cy=146)
     sheets["gm_icons"] = pack("gm_icons", icon_cells(), None, man, cx=0, cy=0)
     sheets["gm_props"] = pack("gm_props", props_cells(), None, man, cx=24, cy=48)
+    sheets["gm_dreel"] = pack("gm_dreel", dreel_cells(), None, man)
+    sheets["gm_dcard"] = pack("gm_dcard", dcard_cells(), None, man)
     json.dump(man, open(os.path.join(HERE, "manifest.json"), "w"), indent=1)
     if len(sys.argv) > 2 and sys.argv[1] == "preview":
         os.makedirs(sys.argv[2], exist_ok=True)

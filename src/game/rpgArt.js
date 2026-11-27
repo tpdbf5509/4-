@@ -2630,33 +2630,35 @@ function drawBubble(ctx, x, y, text, alpha) {
 }
 
 /* 바탕 그림 — 그림 한 장이 가로 tile 만큼을 덮는다. 맵이 더 넓으면 좌우로 뒤집어 이어 붙여 이음새가 보이지 않게 한다 */
-function drawTiled(ctx, im, M, cam) {
+function drawTiled(ctx, im, M, cam, VW = W, VH = H) {   // VW · VH = 카메라를 뒤로 당겼을 때 보이는 땅 크기
   const TW = M.tile || M.w;
   const kx = (im.naturalWidth || im.width) / TW, ky = (im.naturalHeight || im.height) / M.h;   // 그림 파일 · 캔버스 모두
-  const sy = cam.y * ky, sh = H * ky;
-  for (let k = Math.floor(cam.x / TW); k * TW < cam.x + W; k++) {
+  const sy = cam.y * ky, sh = VH * ky;
+  for (let k = Math.floor(cam.x / TW); k * TW < cam.x + VW; k++) {
     const x0 = k * TW;
-    const v0 = Math.max(cam.x, x0), v1 = Math.min(cam.x + W, x0 + TW);
+    const v0 = Math.max(cam.x, x0), v1 = Math.min(cam.x + VW, x0 + TW);
     if (v1 <= v0) continue;
     const dx = v0 - cam.x, dw = v1 - v0;
     if (k % 2 === 0) {
-      ctx.drawImage(im, (v0 - x0) * kx, sy, dw * kx, sh, dx, 0, dw, H);
+      ctx.drawImage(im, (v0 - x0) * kx, sy, dw * kx, sh, dx, 0, dw, VH);
     } else {
       ctx.save();
       ctx.translate(dx + dw, 0); ctx.scale(-1, 1);
-      ctx.drawImage(im, (TW - (v1 - x0)) * kx, sy, dw * kx, sh, 0, 0, dw, H);
+      ctx.drawImage(im, (TW - (v1 - x0)) * kx, sy, dw * kx, sh, 0, 0, dw, VH);
       ctx.restore();
     }
   }
 }
 
 /* 내 영웅을 따라가는 화면 — 맵 끝에 닿으면 멈춘다 */
+// 카메라를 k 배로 뒤로 당기되, 맵 밖(빈 곳)이 보일 만큼은 당기지 않는다(새 화면 구성 hud2 — 광장은 이미 맵이 화면에 꼭 맞아 그대로)
+const zoomBack = (z, k, M) => (k && k < 1 ? Math.max(z * k, Math.min(z, W / M.w, H / M.h)) : z);
 // 카메라 — z(camZoom)가 1 보다 작으면 화면에 W/z × H/z 만큼의 땅이 보인다. 화면 → 땅 좌표는 화면/z + cam(mouseMove.js · skillAim.js)
 function follow(g, M) {
   const me = g.mySeat >= 0 ? g.heroes[g.mySeat] : null;
   // 발테른 시험(shield) 중에는 카메라가 부드럽게 뒤로 빠져 맵 전체를 크게 본다(11월 22일 사용자)
   const wide = me && (nqView(me)?.tr?.id === 'shield');
-  const zt = wide ? Math.min(1, W / M.w, H / M.h) : camZoom(M);
+  const zt = wide ? Math.min(1, W / M.w, H / M.h) : zoomBack(camZoom(M), g.zoomK, M);
   const z0 = g.cam && g.cam.map === M.id ? g.cam.z || 1 : zt;
   const z = Math.abs(zt - z0) < 0.003 ? zt : z0 + (zt - z0) * 0.06, vw = W / z, vh = H / z;
   // 아르카디온 획득 — 칼등 정상에서 아스라를 부르면 잠시 정상 바위를 비춘다(이야기 장면과 같은 camFocus)
@@ -2855,7 +2857,7 @@ export function drawRpg(ctx, g, bgs) {
     if (bg) drawTiled(ctx, bg, M, cam);
     else { ctx.fillStyle = look.ground[0]; ctx.fillRect(0, 0, W, H); }
   } else if (bim) {
-    drawTiled(ctx, bim, M, cam);
+    drawTiled(ctx, bim, M, cam, VW, VH);
     if (M.tint) { ctx.fillStyle = M.tint; ctx.fillRect(0, 0, W, H); }
   } else if (mapImgFailed(rpgFile(bgName))) {          // 파일이 없을 때만 예전처럼 코드로 그린다
     const bg = (bgs && bgs[M.id]) || (bgs && (bgs[M.id] = paintMap(M.id)));

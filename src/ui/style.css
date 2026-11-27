@@ -3561,3 +3561,26 @@ button.forge-stage:disabled { cursor: default; }
 .hud2 .rpg-chat-line { background: rgba(26, 18, 11, 0.8); color: var(--tx); }
 /* 네크로맨서(11월 27일 사용자) — 테스트 서버 정보 판은 직업 이름 · 영혼 줄만 둔다(명부 목록 · 그림자 기수 줄은 뺀다, 명부 창은 그대로) */
 .hud2 .rpg-hid-stat .gm-bar:has(.nc-soul) .nc-roster, .hud2 .rpg-hid-stat .gm-bar:has(.nc-soul) .gm-notes { display: none; }
+
+/* ── hud2 2차 보완 (11월 27일 사용자 캡처 셋) ── */
+.hud2 .frame canvas { position: static; transform: none; }   /* 판 캔버스만 따로 맞춘다(명부 창 그림까지 늘어났다) */
+.hud2 .frame > canvas { position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
+/* 왼쪽 위 — 직업 줄 아래에 의뢰 줄을 쌓는다 */
+.hud2 .hud2-tl { position: absolute; left: calc(var(--u) * 118); top: calc(var(--u) * 14); z-index: 3; display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--u) * 8); pointer-events: none; }
+.hud2 .hud2-tl > * { position: static; }
+.hud2 .hud2-top { position: static; }
+.hud2 .hud2-quest { position: static; right: auto; top: auto; max-width: calc(var(--u) * 560); pointer-events: auto; }
+.hud2 .hud2-quest .rpg-quest { align-items: flex-start; text-align: left; }
+/* 아래 — 막대 · 정보 판은 같은 높이로 나란히, 스킬 판 + 물약 묶음은 가로 가운데 */
+.hud2 .hud2-dock { left: 50%; right: auto; transform: translateX(-50%); flex-direction: column; align-items: flex-start; gap: calc(var(--u) * 10); }
+.hud2 .hud2-info { display: flex; align-items: stretch; gap: calc(var(--u) * 10); pointer-events: none; }
+.hud2 .hud2-info > * { pointer-events: auto; }
+.hud2 .hud2-bars, .hud2 .rpg-hid-stat { position: static; margin: 0; flex: 0 0 calc(var(--u) * 350); width: calc(var(--u) * 350); box-sizing: border-box; max-width: none; border-left: 1px solid var(--pn-line); display: flex; flex-direction: column; justify-content: center; }
+.hud2 .hud2-bars { gap: calc(var(--u) * 7); }
+.hud2 .rpg-hid-stat .gm-bar { width: 100%; }
+.hud2 .rpg-hid-stat .gm-top { flex-direction: column; align-items: flex-start; gap: calc(var(--u) * 7); }
+.hud2 .rpg-hid-stat .nc-soul { width: 100%; }
+.hud2 .rpg-hid-stat .nc-soul i { flex: 1; width: auto; height: calc(var(--u) * 10); }
+/* 그림자 명부 창 — 위쪽 가운데에 작게, 아래 막대 · 스킬 판은 가리지 않는다 */
+.hud2 .ncw { left: 50%; right: auto; transform: translateX(-50%); width: min(calc(var(--u) * 860), 94%); top: calc(var(--u) * 80); max-height: calc(var(--u) * 620); }
+.hud2 .ncw-face { max-width: calc(var(--u) * 150); height: auto; }

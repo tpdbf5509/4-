@@ -98,6 +98,7 @@ import { WEAPON_SKILLS } from "./game/skillData.js";
 import { TRAIN, TRAIN_TOGGLES, TRIAL } from "./game/trainData.js";
 import { TEST_TOGGLES } from "./game/testData.js";
 import { TEST_MODE } from "./net/testMode.js";
+const HUD2_ZOOM = 0.88;   // 새 화면 구성의 카메라 배율(1 = 예전, 작을수록 넓게 보인다)
 const TEST_SPOTS = TEST_MODE ? testSpots() : [];   // 테스트 도구 창의 장소 이동 묶음
 // 최고 레벨 · 스탯 상한 — 테스트 모드(?test)는 800~1200 사냥터와 함께 1200(highData.js HIGH), 일반 주소는 지금 값
 const LV_MAX = lvCap({ high: TEST_MODE }), STAT_MAX = statCap({ high: TEST_MODE });
@@ -680,7 +681,10 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   const touch = useTouch();
   const side = useSidePanel(touch);                  // 넓은 화면이면 스킬 · 물약 칸을 판 오른쪽 판으로
+  const hud2Ref = useRef(false);
   const hud2 = TEST_MODE && side;                    // 새 화면 구성(11월 27일 사용자 수정안) — 테스트 서버에서만: 판 아래 가운데 스킬 판 · 왼쪽 아래 막대 · 오른쪽 아래 창 단추
+  hud2Ref.current = hud2;
+  if (G.current) G.current.zoomK = hud2 ? HUD2_ZOOM : 1;   // 카메라를 조금 뒤로 당긴다
   useEffect(() => {
     if (touch && pageRef.current) return stopGameSelection(pageRef.current);
   }, [touch]);
@@ -1653,9 +1657,18 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     const cvs = cvsRef.current;
     const ctx = cvs.getContext("2d");
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    cvs.width = W * dpr;
-    cvs.height = H * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // 새 화면 구성(hud2)은 판이 커져서 그림 해상도를 화면 크기에 맞춘다 — 1160 × 760 그림을 늘리면 흐려 보였다(최대 2배)
+    const fitCanvas = () => {
+      const sc = hud2Ref.current ? Math.min(2, Math.max(1, cvs.clientWidth / W)) : 1;
+      const bw = Math.round(W * dpr * sc);
+      if (cvs.width === bw) return;
+      cvs.width = bw;
+      cvs.height = Math.round(H * dpr * sc);
+      ctx.setTransform(dpr * sc, 0, 0, dpr * sc, 0, 0);
+    };
+    fitCanvas();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(fitCanvas) : null;
+    ro?.observe(cvs);
     bgsRef.current = {};                              // 그림 파일이 없을 때만 drawRpg 가 코드로 채운다
     resetWbIntro();                                   // 월드보스 등장 연출 — 새 세계(서버 옮김)의 보스를 새 출현으로 착각하지 않게
     watchImages();                                    // 맵 불러오기 가림막 — 새로 부르는 그림을 센다
@@ -1885,7 +1898,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(raf); clearTimeout(warm); };
+    return () => { cancelAnimationFrame(raf); clearTimeout(warm); ro?.disconnect(); };
   }, [isHost, room, playSounds, mySeat, pushChat, tickBossBars]);
 
   useEffect(() => {
@@ -1922,14 +1935,17 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
 
   // 스킬 · 물약 칸 — 넓은 화면(SIDE_MQ)은 판 오른쪽 rpg-side 에, 아니면 예전처럼 판 안 아래에 둔다
   const hidJob = !!(me && (me.gm || me.en || me.nc || me.il || me.wy));   // 히든 직업 — 일반 스킬 · 무기 스킬 · 전직 스킬 입력을 판정이 버리니 칸도 숨긴다(rpgInput.js)
-  const actionBars = (
-    <div className={`rpg-touch-actions ${side || me?.blood || me?.gm ? "icons" : ""} ${me?.gm ? "gm" : ""}`}>
-    {me && !shopOpen && !bagOpen && (me.nc || me.en || me.il || me.wy) && <div className="rpg-hid-stat">{/* 전력 · 영혼 · 명부 줄 — 정보창에서 스킬 탭으로(11월 21일) */}
+  const hidStat = (
+    me && !shopOpen && !bagOpen && (me.nc || me.en || me.il || me.wy) && <div className="rpg-hid-stat">{/* 전력 · 영혼 · 명부 줄 — 정보창에서 스킬 탭으로(11월 21일) */}
       {me.il && <IllusionBar part="stat" v={me.il} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
       {me.wy && <WyvernBar part="stat" v={me.wy} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
       {me.nc && <NecroBar part="stat" v={me.nc} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
       {me.en && <EngineerBar part="stat" v={me.en} keyOf={(a) => keyOf(binds, a)} onUse={(sk) => act("hidden", { op: "use", s: sk })} onFire={() => { act("fire", true); setTimeout(() => act("fire", false), 120); }} />}
-    </div>}
+    </div>
+  );
+  const actionBars = (
+    <div className={`rpg-touch-actions ${side || me?.blood || me?.gm ? "icons" : ""} ${me?.gm ? "gm" : ""}`}>
+    {!hud2 && hidStat}
     {me && !shopOpen && !bagOpen && (
       <div className="rpg-skillbar">
         {!side && <button type="button" className={`rpg-skill ${me.dashCd > 0 ? "cool" : ""}`}
@@ -2186,13 +2202,16 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           )}
           {hud2 && me && (   /* 새 화면 구성(테스트 서버 · 11월 27일 사용자 수정안) — 위 가운데 줄 · 위 오른쪽 의뢰 · 아래 막대 · 스킬 판 · 오른쪽 아래 창 단추 */
             <>
-              <div className="hud2-top" style={{ "--pc": myEl.key, "--pcl": myEl.light }}>
-                <b className="hud2-lv">Lv {me.lv}</b>
-                <span className="hud2-name">{who(mySeat)}</span>
-                {me.admin && <em className="rpg-admin">관리자</em>}
+              <div className="hud2-tl">
+                <div className="hud2-top" style={{ "--pc": myEl.key, "--pcl": myEl.light }}>
+                  <b className="hud2-lv">Lv {me.lv}</b>
+                  <span className="hud2-name">{who(mySeat)}</span>
+                  {me.admin && <em className="rpg-admin">관리자</em>}
+                </div>
+                <div className="hud2-quest">{questBox}</div>
               </div>
-              <div className="hud2-quest">{questBox}</div>
               <div className="hud2-dock">
+                <div className="hud2-info">
                 <div className="hud2-bars">
                   <span className="rpg-lv-row"><span className="rpg-lv-tag">HP</span>
                     <span className="rpg-lv-bar hp"><span style={{ width: `${Math.min(100, (me.hp / (me.max || 1)) * 100)}%` }} /></span>
@@ -2205,6 +2224,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                   {me.wy && <span className="rpg-lv-row"><span className="rpg-lv-tag">용혈</span>
                     <span className="rpg-lv-bar wy"><span style={{ width: `${Math.min(100, (me.wy.blood / (me.wy.max || 1)) * 100)}%` }} /></span>
                     <span className="rpg-lv-num">{Math.round((me.wy.blood / (me.wy.max || 1)) * 100)}%</span></span>}
+                </div>
+                {hidStat}
                 </div>
                 <div className="rpg-side hud2-slots" onPointerOver={onSideOver} onPointerDown={onSideOver}>{actionBars}</div>
               </div>

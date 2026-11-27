@@ -9,7 +9,7 @@ import { RESET, GIFT } from '../src/game/itemData.js';
 import { WY_WEAPON_ITEM, WY_CONTRACT as CT, WYVERN as WV } from '../src/game/wyvernData.js';
 import { unlockWyvern, wyLock, wySummitFree } from '../src/game/wyvernJob.js';
 import { wqHas, wqSpotById, wqSpotShown, wqSpotNear, packWq, applyWq, wqStage, cleanAu, aqMarkAt } from '../src/game/wyvernQuest.js';
-import { AQ, AQ_FLAGS, WQ_SPOTS, WQ_STAGES, WQ_EXITS, WQ_BLOCKS } from '../src/game/wyvernQuestData.js';
+import { AQ, AQ_FLAGS, WQ_SPOTS, WQ_STAGES, AQ_STAGES, WQ_EXITS, WQ_BLOCKS } from '../src/game/wyvernQuestData.js';
 import { weaponCap } from '../src/game/shopData.js';
 
 Math.random = () => 0.1;   // 첫 돌판 내려찍기는 위 표식(0)
@@ -217,4 +217,14 @@ test('장착 · X 기술 — 캐릭터 레벨 100 부터 들고, 직업 레벨 1
   h.lv = 100; assert.deepEqual(whyEquip(h, w.u), []);
   assert.ok(wyLock({ lv: 124 }, 'arcadion')); assert.equal(wyLock({ lv: 125 }, 'arcadion'), '');
   assert.equal(WV.unlock.arcadion, 125);
+});
+
+test('세 고정쇠 뒤 — 바깥 발판의 아스라에게 말 걸어도 귀환이 시작된다(11월 27일 사용자 신고)', () => {
+  const { g, h } = setup(5, 'wq_return', [1200, 600]);
+  wqStage(h, WQ_STAGES.length + AQ_STAGES.length - 1);   // A5 귀환 · 보상 — 세 고정쇠를 잠근 상태
+  assert.equal(wqHas(h, 'a_lock3'), true);
+  assert.equal(wqSpotShown(h, wqSpotById('ra-asura')), true);
+  assert.equal(act(g, h, 'ra-asura'), 1);
+  assert.equal(wqHas(h, 'a_return'), true);
+  assert.equal(wqSpotShown(h, wqSpotById('ra-asura')), false);
 });

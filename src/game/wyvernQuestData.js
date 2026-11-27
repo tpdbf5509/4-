@@ -324,6 +324,7 @@ WQ_SPOTS.push(
   AX('ra-hold', [AQ.holdX, SL[2]], '기운 돌판', { k: 'hold', n: 2, tr: 'anchor' }, { r: 62, show: ['!a_lock3'] }),
   /* ── 2.5 귀환 · 보상 ── */
   AX('ra-home', AQ.home, '귀환 지점', { k: 'home' }, { r: 70, show: ['a_lock3'] }),
+  AX('ra-asura', AQ.footing, WQ_NAME, { k: 'home' }, { r: 90, show: ['a_lock3', '!a_return'] }),   // 바깥 발판의 아스라에게 바로 말 걸어도 부른 것으로 친다(11월 27일 사용자 「용에게 말을 못 걸어」)
   AX('ra-sword', AQ.sword, '끝 돌판 아래 검날', { k: 'sword' }, { r: 80, show: ['a_latch'] }),
 );
 export const AQ_LOG = [

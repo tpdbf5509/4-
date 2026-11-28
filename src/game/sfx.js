@@ -504,13 +504,14 @@ export function play(name) {
     [0, 0.25].forEach((d) => tone({ type: "sine", f0: 70, f1: 45, t: 0.15, gain: 0.18, delay: d }));
     tone({ type: "sawtooth", f0: 100, f1: 260, t: 0.5, gain: 0.08, delay: 0.5 });
     noise({ t: 0.7, gain: 0.1, f: 500, q: 0.6, delay: 0.5 });
-  } else if (name === "wyUlt") {             // 천룡 강림 — 솟아오름 · 첫 낙하 · 긴 울림
+  } else if (name === "wyUlt" || name === "wyUltAw") {   // 천룡 강림 — 솟아오름 · 첫 낙하 · 긴 울림. wyUltAw 는 역린 해방 중(정지 장면 소리를 더한다)
     if (!gate("wyUlt", 1000)) return;
     noise({ t: 0.5, gain: 0.08, f: 900, q: 0.7, f1: 2600 });
     tone({ type: "sawtooth", f0: 80, f1: 300, t: 0.6, gain: 0.07 });
     noise({ t: 0.6, gain: 0.25, f: 260, q: 0.5, delay: 0.9 });
     tone({ type: "sine", f0: 90, f1: 30, t: 0.7, gain: 0.22, delay: 0.9 });
-    // 최종 폭발(2.0초) — 화면이 멈추는 순간에 맞춰 짧고 단단한 타격음 · 뒤이어 낮게 꺼지는 울림(11월 28일, wyvernArt.js drawWyvernImpact)
+    if (name !== "wyUltAw") return;
+    // 역린 해방 중 최종 폭발(2.0초) — 화면이 멈추는 순간에 맞춰 짧고 단단한 타격음 · 뒤이어 낮게 꺼지는 울림(11월 28일, wyvernArt.js drawWyvernImpact)
     noise({ t: 0.12, gain: 0.3, f: 1800, q: 0.6, delay: 2.0 });
     tone({ type: "square", f0: 160, f1: 60, t: 0.1, gain: 0.08, delay: 2.0 });
     noise({ t: 0.9, gain: 0.2, f: 220, q: 0.5, delay: 2.1 });

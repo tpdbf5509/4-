@@ -364,3 +364,17 @@ test('역린 해방 중 천공강습 두 번 — 0.2초 뒤 한 번 더 · 두 �
   full(h); use(g, 'assault'); step(g, .01);
   assert.equal(h.wy.as2, 0); assert.ok(Math.abs(h.wy.cd.assault - AS.cd) < 0.02, '해방 밖은 평소 대기');
 });
+
+test('종언의 용성 정지 장면은 역린 해방 중에만 — 연출 aw 표시 · 소리 wyUltAw(11월 28일)', () => {
+  let { g, h } = setup();
+  mob(g, h.x + 400, h.y);
+  g.out = []; use(g, 'ult'); step(g, .01);
+  let f = g.fx.find(q => q.kind === 'sk_wy_ult');
+  assert.ok(f && !f.aw && f.snd === 'wyUlt', '평소 — 정지 장면 없음');
+  ({ g, h } = setup());
+  mob(g, h.x + 400, h.y);
+  full(h); use(g, 'contract'); run(g, .05); full(h); use(g, 'awake'); run(g, .1);
+  use(g, 'ult'); step(g, .01);
+  f = g.fx.find(q => q.kind === 'sk_wy_ult');
+  assert.ok(f && f.aw === 1 && f.snd === 'wyUltAw', '해방 중 — 정지 장면');
+});

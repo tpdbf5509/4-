@@ -490,7 +490,7 @@ function ultUse(E, g, h) {
   s.air = { k: "ult", t: 0 };
   const life = (sync ? UL.crack : UL.last) + UL.tail;
   E.fx(g, h.map, { kind: "sk_wy_ult", x, y, x0: Math.round(h.x), y0: Math.round(h.y), r: UL.r, temp: s.u ? 0 : 1, sync: sync ? 1 : 0, aw: k > 1 ? 1 : 0,
-    pi: h.pi, t: life, life, snd: "wyUlt" });
+    pi: h.pi, t: life, life, snd: k > 1 ? "wyUltAw" : "wyUlt" });   // 해방 중이면 정지 장면 소리까지
   call(E, g, h, k > 1 ? `${UL.name} ×${k}` : UL.name, FIRE);
 }
 function tickUlt(E, g, h, q, dt) {

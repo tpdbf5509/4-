@@ -6,7 +6,7 @@ import {ARMOR_SLOTS,armorCap} from './armorData.js';
 import {matMax} from './itemData.js';
 import {specialTier,specialPrice} from './shop.js'; // 물품을 지급할 때만 읽어 기존 장비 생성 규칙을 맞춘다.
 import {trading} from './tradeData.js';
-import {rollWbOnyx,giveWbOnyx} from './onyxSource.js'; // 오닉스 50% 1~3개 · 하루 최대(onyxData.js OX_WB, 11월 27일)
+import {rollWbOnyx,giveWbOnyx} from './onyxSource.js'; // 오닉스 0.5% 1~3개 · 하루 최대(onyxData.js OX_WB, 11월 27일)
 import {WB_PX_LOOK} from './worldBossPxData.js';
 import {thunderbirdAreas,startThunderbirdDive,tickThunderbirdDive} from './thunderbirdCombat.js';
 import {voidAreas,voidBegin,voidWarp,voidPull} from './voidBossCombat.js';

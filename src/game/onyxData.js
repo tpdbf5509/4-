@@ -114,5 +114,5 @@ export const OX_DAILY = {
 export const OX_BONUS_BIT = 1 << OX_DAILY.tasks.length;
 // 몹 레이스 우승 — 끝까지 들어온 사람 수(같은 인터넷 주소는 한 명으로 센다)에 따라. 2명 0 · 3명 3 · 4명 10(사용자 결정), 5명은 4명과 같게(정한 값)
 export const OX_RACE = { win: [0, 0, 0, 3, 10, 10] };
-// 월드보스 — 보상 대상(기여 10% 초과)마다 50% 확률로 1~3개(사용자 결정). 하루 최대 10개(정한 값 — 사용자 확인 전)
-export const OX_WB = { chance: 0.5, n: [1, 3], dayMax: 10 };
+// 월드보스 — 보상 대상(기여 10% 초과)마다 0.5% 확률로 1~3개(사용자 결정, 11월 28일 50%에서 정정). 하루 최대 10개(정한 값 — 사용자 확인 전)
+export const OX_WB = { chance: 0.005, n: [1, 3], dayMax: 10 };

@@ -77,14 +77,14 @@ test('레이스 우승 오닉스 — 서버가 센 인원 · 같은 주소는 �
   assert.equal(g.heroes.filter((h, i) => h && i !== win && oxOf(h.bag)).length, 0);   // 우승자만
 });
 
-test('월드보스 오닉스 — 50% 1~3개 · 하루 최대', () => {
+test('월드보스 오닉스 — 0.5% 1~3개 · 하루 최대', () => {
   assert.equal(rollWbOnyx(() => 0.5), 0);
   assert.equal(rollWbOnyx(() => 0), OX_WB.n[0]);
   const seq = [0, 0.99];
   assert.equal(rollWbOnyx(() => seq.shift()), OX_WB.n[1]);
   let hits = 0;
-  for (let i = 0; i < 4000; i++) { const n = rollWbOnyx(); if (n) { hits++; assert.ok(n >= 1 && n <= 3); } }
-  assert.ok(hits > 1800 && hits < 2200);
+  for (let i = 0; i < 40000; i++) { const n = rollWbOnyx(); if (n) { hits++; assert.ok(n >= 1 && n <= 3); } }
+  assert.ok(hits > 120 && hits < 290);
   assert.ok('ox' in rollWorldBossReward('dragon'));
   const bag = {};
   let got = 0;

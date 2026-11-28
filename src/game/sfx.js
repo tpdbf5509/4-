@@ -516,7 +516,6 @@ export function play(name) {
     tone({ type: "square", f0: 160, f1: 60, t: 0.1, gain: 0.08, delay: 2.0 });
     noise({ t: 0.9, gain: 0.2, f: 220, q: 0.5, delay: 2.1 });
     tone({ type: "sine", f0: 70, f1: 25, t: 1.0, gain: 0.24, delay: 2.1 });
-    noise({ t: 0.35, gain: 0.22, f: 600, q: 0.5, f1: 150, delay: 2.36 });   // 검은 화면에서 흰 폭발이 커질 때(WY_IMPACT 흰 0.2 + 검은 0.16)
   } else if (name === "wyDash") {            // 천공 강습 — 짧게 찢는 돌진 바람
     if (!gate("wyDash", 200)) return;
     noise({ t: 0.3, gain: 0.1, f: 1500, q: 0.8, f1: 600 });

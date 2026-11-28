@@ -20,7 +20,7 @@ import { RQ, RQ_MAPS, rqMap } from './requiemData.js';
 import { rqInput, rqTalk, rqSkillHit, rqDamage, rqKilled, tickRq, tickRqBoss, packRq } from './requiem.js';
 import { BLOOD_LAB } from './bloodJobData.js';
 import { bloodSpotTalk, bloodHunterTalk, bloodSeqHit, tickBloodTrial } from './bloodUnlock.js';   // BLOOD-001 해금 경로(4단계)
-import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn, bloodSwordPress, bloodSwordOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
+import { bloodJobInput, bloodJobOnHit, tickBloodJob, bloodJobKill, bloodRaidKill, bloodJobDown, bloodJobFill, packBloodJob, applyBloodJob, bloodJobAim, bloodJobAimLock, bloodJobSlow, bloodTired, bloodJobTake, bloodJobBreak, bloodJobAtk, bloodOn, bloodSwordPress, bloodSwordOn } from './bloodJob.js';   // 히든 직업 BLOOD-001(11월 14일)
 import { gamblerInput, gamblerBasic, tickGambler, gamblerTake, gamblerDown, gamblerFill, gamblerKill, gamblerRaidKill, gamblerOn, gamblerLook, packGambler, applyGambler } from './gamblerJob.js';   // 히든 직업 Gambler 002(11월 16일 — 연습장에서 확인한 뒤 실제 게임에)
 import { gamblerSpotTalk, gamblerDummyHit, tickGamblerTrial } from './gamblerUnlock.js';   // Gambler 002 해금 경로
 import { GM_CHIP, GM_CASINO } from './gamblerData.js';
@@ -2702,7 +2702,7 @@ export function predictDash(h) {
 }
 // aim — 손님이 대쉬한 방향. 방향키와 대쉬를 같이 누르면 방장에게 순서가 바뀌어 닿을 수 있어 방향을 함께 보낸다
 export function startDash(h, aim) {
-  if (!h || h.down > 0 || ccRooted(h)) return false;
+  if (!h || h.down > 0 || ccRooted(h) || bloodTired(h)) return false;   // BLOOD-001 탈진 중에는 대쉬하지 못한다(11월 28일 사용자)
   if ((h.dashCd || 0) > 0 && !(h.ac && h.ac.ch > 0)) return false;   // 강화 카드 여분의 발걸음 — 대기 중이면 여분을 쓴다
   const al = Array.isArray(aim) && aim.length === 2 && aim.every(Number.isFinite) ? Math.hypot(aim[0], aim[1]) : 0;
   const [dx, dy] = al > 0.5 && al < 1.5 ? [aim[0] / al, aim[1] / al] : aimDir(h);
@@ -2758,6 +2758,7 @@ export function rpgDash(g, pi, aim) {
   if(g.heroes[pi]?.tauntT>0)return;
   const h = g.heroes[pi];
   if (!h || !h.loaded || h.down > 0 || stormBusy(h) || (MAPS[h.map] && MAPS[h.map].race)) return;
+  if (bloodTired(h)) return say(g, h.map, h.x, h.y - 90, "탈진 중에는 대쉬할 수 없습니다", "#d9c9a6");
   if ((h.dashCd || 0) > 0 && !(h.ac && h.ac.ch > 0)) return say(g, h.map, h.x, h.y - 90, `대쉬 ${Math.ceil(h.dashCd)}초`, "#f0dcb4");
   const x0 = h.x, y0 = h.y;
   if (!startDash(h, aim)) return;

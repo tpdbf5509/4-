@@ -2,12 +2,12 @@
    node --test tools/blood-final.test.mjs */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgDuel, rpgFire, physMul, JOBS, DUEL } from '../src/game/rpg.js';
+import { makeWorld, rpgSyncSeats, rpgJoin, rpgStep, rpgPack, rpgApply, rpgDuel, rpgFire, physMul, startDash, predictDash, JOBS, DUEL } from '../src/game/rpg.js';
 import { rpgInput } from '../src/game/rpgInput.js';
 import { RESET, GIFT } from '../src/game/itemData.js';
 import { BLOOD, BLOOD_SHOT as S, BLOOD_SMASH as M, BLOOD_FORM as F, BLOOD_FIELD as FD, BLOOD_WAVE as WV, BLOOD_HOOK as HK,
   BLOOD_PIERCE as PC, BLOOD_SEA as SEA, BLOOD_LEGION as LG, BLOOD_ORIGIN as OG, BLOOD_AWAKE as AW, BLOOD_KEYS } from '../src/game/bloodJobData.js';
-import { stableCap, unlockBlood, bloodView, bloodJobDown, applyBloodJob, bloodCost, costCut, shotTier, newLock, awakeLock, overCap } from '../src/game/bloodJob.js';
+import { stableCap, unlockBlood, bloodView, bloodJobDown, applyBloodJob, bloodCost, costCut, shotTier, newLock, awakeLock, overCap, bloodTired, bloodJobSlow } from '../src/game/bloodJob.js';
 import { KEY_ACTIONS, defaultKeys, BLOOD_ACTS } from '../src/game/keys.js';
 import { highTake } from '../src/game/highCombat.js';
 import { duelHealing, healCut } from '../src/game/duelBalance.js';
@@ -346,4 +346,23 @@ test('탈진 — 25초 · 피해 -90% · 이동 -85% · 체력 회복 -95%, 폭�
   const h = { bd: { rg: { k: 2, t: 25 } } };
   near(healCut(h), 0.05, 1e-9); near(duelHealing({ ...h, map: 'plaza' }, 1000), 50, 1e-6, '물약 · 응급 처치 · 치유 · 흡혈이 지나는 길');
   assert.equal(healCut({ bd: { rg: { k: 1, t: 5 } } }), 1, '폭주 중에는 그대로'); assert.equal(healCut({}), 1); assert.equal(healCut(null), 1);
+});
+
+/* ── 11월 28일 — 탈진 중 대쉬 금지 · 손님 걷기 감속 ── */
+test('탈진 중에는 대쉬하지 못한다 — 서버 판정 · 손님 먼저 그리기 모두, 폭주 · 평소에는 된다', () => {
+  const { g, h } = setup(); job(h, 100);
+  h.bd.rg = { k: 2, t: 20 }; assert.ok(bloodTired(h));
+  const x0 = h.x; rpgInput(g, { cls: 0, kind: 'dash', dir: [1, 0] }); run(g, .3);
+  assert.ok(!(h.dash > 0), '대쉬 시간이 켜지지 않는다'); assert.equal(h.dashCd || 0, 0, '대기도 돌지 않는다'); assert.ok(Math.abs(h.x - x0) < 5, '제자리');
+  assert.ok(JSON.stringify(g.fx).includes('탈진 중에는 대쉬할 수 없습니다'), '짧은 안내');
+  assert.equal(startDash(h, [1, 0]), false); assert.equal(predictDash(h), false);
+  h.bd.rg = { k: 1, t: 5 }; assert.ok(!bloodTired(h)); rpgInput(g, { cls: 0, kind: 'dash', dir: [1, 0] }); assert.ok(h.dash > 0, '폭주 중에는 대쉬된다');
+  run(g, .5); h.bd.rg = null; h.dashCd = 0; rpgInput(g, { cls: 0, kind: 'dash', dir: [1, 0] }); assert.ok(h.dash > 0, '탈진이 끝나면 대쉬된다');
+});
+test('손님 화면도 탈진 감속 · 폭주 가속으로 걷는다(h.bdv) — 방장 자리로 되돌려지며 빨라 보이던 것', () => {
+  const { h } = setup();
+  const host = (rg) => { h.bd.rg = rg; return bloodJobSlow(h); };
+  const guest = (rg) => { const bd = h.bd; h.bd = null; h.bdv = { rg, ch: null, fd: null, og: null }; const v = bloodJobSlow(h); h.bd = bd; h.bdv = null; return v; };
+  for (const rg of [null, { k: 1, t: 5 }, { k: 2, t: 20 }]) assert.equal(guest(rg), host(rg));
+  near(guest({ k: 2, t: 20 }), 0.15, 1e-6, '탈진 이동 -85%'); near(guest({ k: 1, t: 5 }), 1.15, 1e-6);
 });

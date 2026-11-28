@@ -50,5 +50,6 @@ export const BLOOD_JOB_PX = {
   bj_cut: { w: 32, h: 40, cols: 8, n: 8, cx: 17, cy: 9, rim: 1 },   // 11월 16일 — 혈검에 맞은 자리: 사선이 그어지고 피가 터진다(맞은 적마다, 2배)
   /* 11월 15일 — 적혈탄 압축 구슬(blood-form.js core). 예전 bj_orb · bj_gather 차징(지름 80px 넘음)을 대신한다. 2배로 그려 화면 지름 약 32px */
   bj_core: { w: 20, h: 16, cols: 8, n: 8, rows: 3, cx: 10, cy: 9, loop: 1, rim: 1 },   // 줄 = 단계 0 · 1 · 2(갈수록 작고 단단 · 도는 방울이 는다), 칸 = 한 바퀴
+  bj_tired_loop: { w: 44, h: 58, cols: 4, n: 12, cx: 21, cy: 56, loop: 1 },   // status/slowed — 탈진 지속: 식은 회청색 시계 눈금과 가라앉는 방울(반복, 11월 28일). 폭주 불꽃과 색 · 모양이 다르다
   bj_fall: { w: 143, h: 135, cols: 4, n: 10, cx: 71, cy: 50 },            // holy/feather-burst — 탈진: 혈액 갑주 조각이 흩날려 떨어진다
 };

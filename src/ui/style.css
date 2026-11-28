@@ -1171,6 +1171,7 @@ kbd {
 .gm-skill.lock { cursor: default; opacity: 0.45; }
 .gm-ico { position: relative; display: block; }
 .gm-ico b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 400; font-size: 15px; color: #fff6d8; filter: brightness(2.2); font-variant-numeric: tabular-nums; }
+.gm-ico .wy-charge { position: absolute; right: 1px; bottom: 1px; min-width: 14px; padding: 0 3px; font-style: normal; font-size: 11px; line-height: 14px; text-align: center; color: #f4e9ff; background: #2c174f; border: 1px solid #b99de6; border-radius: 7px; filter: none; }   /* 역린 해방 중 천공강습 남은 횟수(WyvernHud.jsx) */
 .gm-label { font-size: 10.5px; line-height: 1.2; letter-spacing: -0.03em; white-space: nowrap; }
 /* Engineer 003 연습장 칸 — 같은 갈색 틀에 전력 · 과열 줄만 더한다(포인트는 전력 줄 청록 한 곳) */
 .en-gauges { display: inline-flex; gap: 8px; }

@@ -25,7 +25,9 @@ export function WyvernBar({ v, keyOf: key, onUse, onFire, part }) {   // part: "
         return (
           <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && (cd > 0 || need) ? "wait" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
             title={lock || `${S.name} — 용혈 ${cost}`}>
-            <span className="gm-ico" style={wyvernIconStyle(WYVERN_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
+            <span className="gm-ico" style={wyvernIconStyle(WYVERN_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}
+              {/* 역린 해방 중 천공강습 남은 횟수(WY_ASSAULT.awake) — 해방 중 대기 없으면 2, 두 번째 기회가 열려 있으면 1 */}
+              {!lock && q.s === "assault" && (v.as2 > 0 || (v.aw > 0 && cd <= 0)) && <i className="wy-charge">{v.as2 > 0 ? 1 : 2}</i>}</span>
             <span className="gm-label">{lock ? `레벨 ${WYVERN.unlock[q.s]}` : S.short || S.name}</span>
             {key(q.act) && <kbd>{key(q.act)}</kbd>}
           </button>

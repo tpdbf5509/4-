@@ -343,3 +343,24 @@ test('용혈 소모 감소(11월 28일) — 직업 레벨 25 단위 8단계 · �
   use(g, 'roar'); run(g, .1); assert.ok(h.wy.cd.roar > 0, '용혈 0 이어도 해방 중엔 쓴다');
   assert.ok(h.wy.blood >= 0);
 });
+
+test('역린 해방 중 천공강습 두 번 — 0.2초 뒤 한 번 더 · 두 번째 뒤 15초 · 기회를 놓치면 첫 사용부터 15초 · 해방 밖은 12초(11월 28일)', () => {
+  const A = AS.awake;
+  let { g, h } = setup();
+  full(h); use(g, 'contract'); run(g, .05); full(h); use(g, 'awake'); run(g, .1);
+  use(g, 'assault'); step(g, .01);
+  assert.ok(h.wy.as2 > 0 && h.wy.cd.assault <= A.gap, `첫 사용 — 기회 ${h.wy.as2} · 대기 ${h.wy.cd.assault}`);
+  assert.equal(wyvernView(h).as2 > 0, true, '화면 값에도 두 번째 기회');
+  const pk = packWyvern(h); assert.ok(pk[10] > 0, '스냅샷 칸 10');
+  const n = h.wy.dashes.length; use(g, 'assault'); step(g, .01);
+  assert.ok(h.wy.dashes.length <= n && h.wy.as2 > 0, '0.2초 안에는 다시 못 쓴다');
+  run(g, A.gap); use(g, 'assault'); step(g, .01);
+  assert.equal(h.wy.as2, 0); near(h.wy.cd.assault, A.cd, 0.01, '두 번째 뒤 15초');
+  ({ g, h } = setup());
+  full(h); use(g, 'contract'); run(g, .05); full(h); use(g, 'awake'); run(g, .1);
+  use(g, 'assault'); run(g, A.keep + 0.05);
+  assert.equal(h.wy.as2, 0); near(h.wy.cd.assault, A.cd - A.keep - 0.05, 0.02, '기회를 놓치면 첫 사용부터 15초');
+  ({ g, h } = setup());
+  full(h); use(g, 'assault'); step(g, .01);
+  assert.equal(h.wy.as2, 0); assert.ok(Math.abs(h.wy.cd.assault - AS.cd) < 0.02, '해방 밖은 평소 대기');
+});

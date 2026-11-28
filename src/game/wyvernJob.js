@@ -75,7 +75,7 @@ export function dropWyvern(h) {
 const NO_CD = { contract: 0, roar: 0, dive: 0, scale: 0, sky: 0, awake: 0, ult: 0, assault: 0, arcadion: 0 };
 function st(h) {
   return h.wy || (h.wy = { blood: WV.bloodStart, cd: { ...NO_CD }, u: null, claws: [], roars: [], dives: [], skies: [], ults: [], dashes: [], arcs: [],
-    sc: null, aw: 0, awMax: 0, awXp: 0, air: null, xm: [0, 0], q: 0, sw: null });
+    sc: null, as2: 0, aw: 0, awMax: 0, awXp: 0, air: null, xm: [0, 0], q: 0, sw: null });
 }
 const sq = (E, x, y, o) => Math.hypot(o.x - x, (o.y - y) / E.squash);
 const no = (E, g, h, text, color = DIM) => void E.say(g, h.map, h.x, h.y - 90, text, color);
@@ -511,7 +511,11 @@ function tickUlt(E, g, h, q, dt) {
 function assaultUse(E, g, h) {
   if (blocked(E, g, h, "assault")) return;
   const s = st(h), [ax, ay] = aimDir(E, g, h, AS.len), len = Math.max(0, wallCut(E, h, ax, ay, AS.len) - 10);
-  spend(h, s, "assault"); s.cd.assault = AS.cd;
+  spend(h, s, "assault");
+  // 역린 해방 중 두 번(WY_ASSAULT.awake) — 첫 사용은 gap 만 걸고 두 번째 기회를 연다. 두 번째(또는 기회 안의 사용)는 15초
+  if (s.as2 > 0) { s.as2 = 0; s.cd.assault = AS.awake.cd; }
+  else if (s.aw > 0) { s.as2 = AS.awake.keep; s.cd.assault = AS.awake.gap; }
+  else s.cd.assault = AS.cd;
   const p = { x: h.x + ax * len, y: h.y + ay * len * E.squash }; E.keep(p, h.map);
   E.stop(h); E.move(h, p, AS.time);
   s.dashes.push({ t: 0, i: 0, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 });
@@ -585,6 +589,7 @@ export function tickWyvernJob(E, g, h, dt) {
   if (!wyvernOn(h)) { if (h.wy) h.wy = null; return; }
   const s = st(h);
   for (const k in s.cd) if (k !== "contract" || !s.u) s.cd[k] = Math.max(0, s.cd[k] - dt);
+  if (s.as2 > 0) { s.as2 = Math.max(0, s.as2 - dt); if (s.as2 <= 0) s.cd.assault = Math.max(s.cd.assault, AS.awake.cd - AS.awake.keep); }   // 두 번째 기회를 안 썼다 — 첫 사용부터 15초
   if (E.cdOff(g, h)) for (const k in s.cd) s.cd[k] = 0;
   if (s.sw) { s.sw.t += dt; if (s.sw.t >= s.sw.d) s.sw = null; }
   if (s.air) { s.air.t += dt; if (s.air.t >= (s.air.k === "ult" ? UL.first : DV.land)) s.air = null; }
@@ -646,7 +651,7 @@ export function packWyvern(h) {
     u ? [u.x, u.y, u.hz, u.sit, u.t, u.left, u.f, u.fl ? 1 : 0, u.dv] : 0,
     v.aw, v.awMax, v.sc ? [v.sc.left, v.sc.n] : 0, v.air,
     (v.sync ? 1 : 0) | (v.wing ? 2 : 0) | (v.arm ? 4 : 0), Math.max(0, TINT_IDS.indexOf(v.tint)),
-    v.sw ? [v.sw.k, v.sw.u, v.sw.ax, v.sw.ay] : 0];
+    v.sw ? [v.sw.k, v.sw.u, v.sw.ax, v.sw.ay] : 0, v.as2];   // 10 천공강습 두 번째 기회 남은 초(11월 28일)
 }
 export function applyWyvern(h, a) {
   if (!Array.isArray(a)) { h.wyv = null; return; }
@@ -655,7 +660,7 @@ export function applyWyvern(h, a) {
     u: Array.isArray(u) ? { x: +u[0] || 0, y: +u[1] || 0, hz: +u[2] || 0, sit: +u[3] || 0, t: +u[4] || 0, left: +u[5] || 0, f: +u[6] || 0, fl: u[7] ? 1 : 0, dv: u[8] ? 1 : 0 } : null,
     aw: +a[3] || 0, awMax: +a[4] || 0, sc: Array.isArray(sc) ? { left: +sc[0] || 0, n: +sc[1] || 0 } : null, air: +a[6] || 0,
     sync: !!(f & 1), wing: !!(f & 2), arm: f & 4 ? 1 : 0, tint: TINT_IDS[+a[8]] || "plain",
-    sw: Array.isArray(sw) ? { k: sw[0], u: +sw[1] || 0, ax: +sw[2] || 0, ay: +sw[3] || 0 } : null };
+    sw: Array.isArray(sw) ? { k: sw[0], u: +sw[1] || 0, ax: +sw[2] || 0, ay: +sw[3] || 0 } : null, as2: +a[10] || 0 };
 }
 export function wyvernView(h) {
   if (h && !h.wy && h.wyv) {   // 전용 서버 · 손님 화면 — 스냅샷 값. 내 가방이 있으면 직업 레벨 · 연마를 붙인다
@@ -668,5 +673,5 @@ export function wyvernView(h) {
     cdMax: Object.fromEntries(Object.keys(NO_CD).map((k) => [k, WY_SKILLS[k].cd])),
     u: s && s.u ? unitView(s.u) : null, aw: s ? r1(s.aw) : 0, awMax: s ? s.awMax : 0, sc: s && s.sc ? { left: r1(SC.dur - s.sc.t), n: SC.counters - s.sc.n } : null,
     air: Math.round(airOf(s)), sync: sum >= WV.sync, wing: sum >= WV.tint.wing, tint: wyvernTint(sum),
-    arm: wyArmed(h) ? 1 : 0, sw: s && s.sw ? { k: s.sw.k, u: r2(Math.min(1, s.sw.t / s.sw.d)), ax: s.sw.ax, ay: s.sw.ay } : null };
+    as2: s ? r1(s.as2) : 0, arm: wyArmed(h) ? 1 : 0, sw: s && s.sw ? { k: s.sw.k, u: r2(Math.min(1, s.sw.t / s.sw.d)), ax: s.sw.ax, ay: s.sw.ay } : null };
 }

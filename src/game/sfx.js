@@ -510,11 +510,12 @@ export function play(name) {
     tone({ type: "sawtooth", f0: 80, f1: 300, t: 0.6, gain: 0.07 });
     noise({ t: 0.6, gain: 0.25, f: 260, q: 0.5, delay: 0.9 });
     tone({ type: "sine", f0: 90, f1: 30, t: 0.7, gain: 0.22, delay: 0.9 });
-    // 최종 폭발(2.0초) — 화면이 멈추는 0.1초에 맞춰 짧고 단단한 타격음 · 뒤이어 낮게 꺼지는 울림(11월 28일, wyvernArt.js drawWyvernImpact)
+    // 최종 폭발(2.0초) — 화면이 멈추는 순간에 맞춰 짧고 단단한 타격음 · 뒤이어 낮게 꺼지는 울림(11월 28일, wyvernArt.js drawWyvernImpact)
     noise({ t: 0.12, gain: 0.3, f: 1800, q: 0.6, delay: 2.0 });
     tone({ type: "square", f0: 160, f1: 60, t: 0.1, gain: 0.08, delay: 2.0 });
     noise({ t: 0.9, gain: 0.2, f: 220, q: 0.5, delay: 2.1 });
     tone({ type: "sine", f0: 70, f1: 25, t: 1.0, gain: 0.24, delay: 2.1 });
+    noise({ t: 0.35, gain: 0.22, f: 600, q: 0.5, f1: 150, delay: 2.36 });   // 검은 화면에서 흰 폭발이 커질 때(WY_IMPACT 흰 0.2 + 검은 0.16)
   } else if (name === "wyDash") {            // 천공 강습 — 짧게 찢는 돌진 바람
     if (!gate("wyDash", 200)) return;
     noise({ t: 0.3, gain: 0.1, f: 1500, q: 0.8, f1: 600 });

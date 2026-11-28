@@ -154,7 +154,7 @@ function wyvern() {
       ult: { name: UL.name, lv: U.ult, ult: 1, desc: ["하늘로 솟아 겨눈 자리에 용성으로 떨어집니다.", `첫 충돌 · 화염 폭발 ${UL.n}번 · 마지막 충돌. 역린 해방 중 ${x(UL.awakeK)}.`],
         stats: [["비용", "용혈 0"], ["대기", `${UL.cd}초`], ["거리", UL.reach], ["범위", `반지름 ${UL.r}`], ["피해", `${x(UL.firstMul)} + ${x(UL.bMul)} × ${UL.n} + ${x(UL.lastMul)}`]],
         train: [`진룡 동조 — 끝에 화염 균열 ${x(UL.crackMul)}`] },
-      assault: { name: AS.name, lv: U.assault, desc: [`겨눈 쪽으로 ${AS.len} 돌진하며 둘레를 ${AS.n}번 벱니다.`, "벽 앞에서 멈춥니다."],
+      assault: { name: AS.name, lv: U.assault, desc: [`겨눈 쪽으로 ${AS.len} 돌진하며 둘레를 ${AS.n}번 벱니다.`, "벽 앞에서 멈춥니다.", `역린 해방 중에는 ${AS.awake.gap}초 뒤 한 번 더 쓸 수 있습니다. 두 번째 기회는 ${AS.awake.keep}초 동안 남고, 두 번 쓰면 대기 ${AS.awake.cd}초입니다.`],
         stats: [["비용", `용혈 ${AS.cost}`], ["대기", `${AS.cd}초`], ["범위", `반지름 ${AS.r}`], ["피해", `${x(AS.mul)} × ${AS.n}`]] },
       arcadion: { name: AR.name, lv: U.arcadion, desc: ["손에 든 용의 대검 아르카디온으로 두 번 돌진해 벱니다.", "아르카디온을 들고 있어야 씁니다."],
         stats: [["비용", `용혈 ${AR.cost}`], ["대기", `${AR.cd}초`], ["범위", `반지름 ${h1.r} · ${h2.r}`], ["피해", `${x(h1.mul)} + ${x(h2.mul)}`]] },

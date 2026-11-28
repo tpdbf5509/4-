@@ -127,7 +127,11 @@ const dmgAdd = (h) => (modeOf(h) === "over" ? Z.over.dmg : 0);
 // 계산용 연마 레벨 — 과충전이면 해금한 연마마다 +5(50까지). 특수 능력 해금은 영구 레벨(h.bag.bd.tr)만 본다
 export const effTrain = (h, i) => { const bd = h.bag.bd, l = bd.tr[i][0]; return modeOf(h) === "over" && trainOpen(bd, i) ? Math.min(BLOOD.train.max, l + Z.over.train) : l; };
 // 공격력 배율 — 폭주 +25% · 탈진 -90%(rpg.js heroDmgMul 이 곱한다: 평타 · 모든 스킬)
-export const bloodJobAtk = (h) => { const rg = h && h.bd && h.bd.rg; return !rg ? 1 : 1 + (rg.k === 1 ? Z.rage.atk : Z.tired.atk); };
+export const bloodJobAtk = (h) => { const rg = bloodRg(h); return !rg ? 1 : 1 + (rg.k === 1 ? Z.rage.atk : Z.tired.atk); };
+// 폭주 · 탈진 상태 — 판정 세계는 h.bd, 손님 화면은 스냅샷 h.bdv. 손님도 제 걷기(예측)에 같은 감속을 써야 방장 자리로 되돌려지는 순간이 없다(11월 28일 — 손님은 h.bd 가 없어 탈진 중에도 보통 속도로 걸었다)
+const bloodRg = (h) => { const s = h && (h.bd || h.bdv); return (s && s.rg) || null; };
+// 탈진 중인가 — 대쉬를 막는 데 쓴다(서버 판정 rpgDash · 손님 먼저 그리기 predictDash)
+export const bloodTired = (h) => { const r = bloodRg(h); return !!r && r.k === 2; };
 // 과부하 — 넘는 몫을 버리고 혈역 · 차징을 끊은 뒤 혈량 60 · 6초 폭주
 function overload(E, g, h) {
   const s = st(h), bd = h.bag.bd;
@@ -1127,7 +1131,7 @@ export function bloodJobAim(h) { const c = h && h.bd && h.bd.ch; if (c && c.ptr 
 export const bloodJobAimLock = (h) => !!(h && h.bd && h.bd.ch && h.bd.ch.ptr);
 // 이동 배율 — 차징 -30% · 혈역 -40% 가 겹치면 가장 큰 하나만. 폭주 +15% · 탈진 -85% 는 따로 곱한다
 export function bloodJobSlow(h) {
-  const s = h && h.bd;
+  const s = h && (h.bd || h.bdv);
   if (!s) return 1;
   const slow = Math.max(s.ch ? (s.ch.s === "smash" ? M.slow : S.slow) : 0, s.fd ? FD.slow : 0, s.og ? OG.slow : 0);
   const rg = s.rg ? 1 + (s.rg.k === 1 ? Z.rage.spd : Z.tired.spd) : 1;
@@ -1238,11 +1242,14 @@ function stepState(E, g, h, s, dt) {
     s.rg.t -= dt;
     if (s.rg.t <= 0) {
       if (s.rg.k === 1 && s.aw) s.rg = null;          // 원초적 지배 중에는 폭주가 끝나도 탈진하지 않는다(11월 16일)
-      else if (s.rg.k === 1) { s.rg = { k: 2, t: Z.tired.dur }; E.fx(g, h.map, { kind: "sk_bj_tired", x: h.x, y: h.y, pi: h.pi, t: 0.8, life: 0.8 }); }
+      else if (s.rg.k === 1) { s.rg = { k: 2, t: Z.tired.dur }; E.fx(g, h.map, { kind: "sk_bj_tired", x: h.x, y: h.y, pi: h.pi, start: 1, t: 0.8, life: 0.8 }); }
       else s.rg = null;
     } else if (s.rg.k === 1) {
       s.rg.hT = (s.rg.hT || 0) - dt;
       if (s.rg.hT <= 0) { s.rg.hT = 0.5; E.fx(g, h.map, { kind: "sk_bj_rage", x: h.x, y: h.y, pi: h.pi, t: 0.58, life: 0.58 }); }   // 남에게도 보이는 폭주 기운
+    } else {
+      s.rg.hT = (s.rg.hT || 0) - dt;
+      if (s.rg.hT <= 0) { s.rg.hT = 0.5; E.fx(g, h.map, { kind: "sk_bj_tired", x: h.x, y: h.y, pi: h.pi, t: 0.58, life: 0.58 }); }   // 남에게도 보이는 탈진 표시(11월 28일)
     }
   }
   const mode = bloodMode(bd.b, cap, s.rg), drain = mode === "rage" ? Z.rage.hp : mode === "over" ? Z.over.hp : 0;

@@ -3600,6 +3600,14 @@ button.forge-stage:disabled { cursor: default; }
 .hud2 .hud2-tl { left: max(calc(var(--u) * 22), calc(116px - var(--fx))); top: max(calc(var(--u) * 20), calc(14px - var(--g))); }
 .hud2 .hud2-icons { right: calc(var(--u) * 28); bottom: calc(var(--u) * 28); }
 .hud2 .hud2-dock { bottom: calc(var(--u) * 30); }
+/* 테스트 서버 — 막대 · 칩 정보 판 너비를 아래 스킬 판과 같게(11월 28일 사용자). 판 높이 · 왼쪽 위치는 그대로 */
+.hud2 .hud2-dock.wide { align-items: stretch; }
+.hud2 .hud2-dock.wide .hud2-info { width: 100%; }
+.hud2 .hud2-dock.wide .hud2-bars { flex: 1 1 0; width: auto; min-width: 0; }
+.hud2 .hud2-dock.wide .hud2-bars .rpg-lv-row { grid-template-columns: calc(var(--u) * 170) 1fr; }
+.hud2 .hud2-dock.wide .hud2-bars .rpg-lv-bar, .hud2 .hud2-dock.wide .hud2-bars .rpg-gm-chips { grid-column: 2; grid-row: 1; }
+.hud2 .hud2-dock.wide .hud2-bars .rpg-gm-chips i { max-width: none; }
+.hud2 .hud2-dock.wide .hud2-bars .rpg-gm-note { white-space: nowrap; }
 .hud2 .rpg-chat { left: calc(var(--u) * 28); bottom: calc(var(--u) * 36); }
 
 /* ── 오닉스 · 황금 진열장 상점(11월 27일) — 아이콘은 Codex 시트 onyx/icons.webp(oxIconStyle) ── */

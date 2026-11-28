@@ -2272,7 +2272,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                 </div>
                 <div className="hud2-quest">{questBox}</div>
               </div>
-              <div className="hud2-dock">
+              <div className={`hud2-dock ${TEST_MODE ? "wide" : ""}`}>   {/* 테스트 서버만 — 위 정보 판 너비를 스킬 판에 맞춘다(11월 28일 사용자) */}
                 <div className="hud2-info">
                 <div className="hud2-bars">
                   <span className="rpg-lv-row"><span className="rpg-lv-tag">HP</span>

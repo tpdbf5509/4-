@@ -1,4 +1,4 @@
-import {duelShield} from './duelBalance.js';
+import {duelShield, healCut} from './duelBalance.js';
 import { WORLD_SET_BY_ID } from "./worldEquipmentData.js";
 import { WEAR_SETS, WEAR_SLOTS } from "./wearData.js";
 /* ── RPG 방어구 규칙 ─────────────────────────────────────────
@@ -120,7 +120,7 @@ export function armorOnKill(h, boss) {
   const sp = special(h, "head");
   if (!sp || h.down > 0) return 0;
   const before = h.hp;
-  h.hp = Math.min(h.max, h.hp + h.max * (boss ? sp.boss : sp.mob));
+  h.hp = Math.min(h.max, h.hp + h.max * (boss ? sp.boss : sp.mob) * healCut(h));   // BLOOD-001 탈진 — 회복 -95%
   return h.hp - before;
 }
 // 맞은 뒤 — 위기 피해 감소를 켠다. 쓰러졌는데 전설 갑옷이면 한 번 일어난다. "revive" · "crisis" · "" 를 돌려준다

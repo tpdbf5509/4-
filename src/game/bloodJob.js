@@ -8,7 +8,7 @@
    3단계(11월 14일): 혈량 상태(증폭 · 과충전 · 폭주 h.bd.rg · 탈진) · 혈역 증폭(h.bd.fd). 공격력은 rpg.js heroDmgMul 이 bloodJobAtk 를 곱한다
    2단계(11월 14일): 혈수 강타(h.bd.sm 내려칠 손) · 혈형 변환 — 혈검(h.bd.sw 생성 → 손에 들고 새 평타마다 베기, 11월 15일) · 혈막(h.bd.vl 받는 피해 감소, hurtHero → bloodJobTake) */
 import { BLOOD, BLOOD_SHOT as S, BLOOD_SMASH as M, BLOOD_FORM as F, BLOOD_STATE as Z, BLOOD_FIELD as FD, BLOOD_WAVE as WV, BLOOD_HOOK as HK, BLOOD_TINT, TRAIN_UNLOCK, TRAIN_NAMES, BLOOD_NAME,
-  BLOOD_PIERCE as PC, BLOOD_SEA as SEA, BLOOD_LEGION as LG, BLOOD_ORIGIN as OG, BLOOD_AWAKE as AW, BLOOD_AIM as AIM, BLOOD_WEAPON } from "./bloodJobData.js";
+  BLOOD_PIERCE as PC, BLOOD_SEA as SEA, BLOOD_LEGION as LG, BLOOD_ORIGIN as OG, BLOOD_AWAKE as AW, BLOOD_AIM as AIM, BLOOD_WEAPON, BLOOD_COST_CUT } from "./bloodJobData.js";
 
 const r1 = (v) => Math.round(v * 10) / 10;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -97,9 +97,16 @@ export function gainBlood(h, n, over = false) {
   return got;
 }
 function spend(h, n) { const bd = h.bag.bd; bd.b = Math.max(0, bd.b - costOf(h, n)); }
-// 원초적 지배 중 혈량 소모 -50%(5 단위로 올림, 11월 16일) — 쓸 수 있는지 볼 때도 같은 값
-export const bloodCost = (aw, n) => (aw ? Math.ceil((n * AW.cost) / BLOOD.unit) * BLOOD.unit : n);
-const costOf = (h, n) => bloodCost(!!(h.bd && h.bd.aw), n);
+// 레벨별 혈량 소모 감소(11월 28일) — 직업 레벨 25 · 50 … 200 에서 단계당 3.75%, 최대 30%
+export const costCut = (lv) => (BLOOD_COST_CUT.max * BLOOD_COST_CUT.steps.filter((q) => lv >= q).length) / BLOOD_COST_CUT.steps.length;
+// 혈량 소모 — 원초적 지배 -50%(11월 16일)와 레벨 감소를 곱하고 5 단위로 맞춘다(반은 올림 · 0 보다 큰 값은 5 아래로 내려가지 않는다).
+// 쓸 수 있는지 볼 때도 같은 값. 레벨 · 지배가 없으면 원래 값 그대로
+export function bloodCost(aw, n, lv = 0) {
+  const m = (1 - costCut(lv)) * (aw ? AW.cost : 1);
+  if (m >= 1 || !(n > 0)) return n;
+  return Math.max(BLOOD.unit, Math.round(n * m / BLOOD.unit + 1e-9) * BLOOD.unit);
+}
+const costOf = (h, n) => bloodCost(!!(h.bd && h.bd.aw), n, h.bag.bd.lv);
 const short = (h, n) => h.bag.bd.b < costOf(h, n);
 
 /* ── 혈량 상태 — 안정 · 증폭 · 과충전 · 폭주 · 탈진 ───────────────── */
@@ -119,7 +126,7 @@ const rangeAdd = (h) => { const m = modeOf(h); return m === "amp" ? Z.amp.range 
 const dmgAdd = (h) => (modeOf(h) === "over" ? Z.over.dmg : 0);
 // 계산용 연마 레벨 — 과충전이면 해금한 연마마다 +5(50까지). 특수 능력 해금은 영구 레벨(h.bag.bd.tr)만 본다
 export const effTrain = (h, i) => { const bd = h.bag.bd, l = bd.tr[i][0]; return modeOf(h) === "over" && trainOpen(bd, i) ? Math.min(BLOOD.train.max, l + Z.over.train) : l; };
-// 공격력 배율 — 폭주 +25% · 탈진 -15%(rpg.js heroDmgMul 이 곱한다: 평타 · 모든 스킬)
+// 공격력 배율 — 폭주 +25% · 탈진 -90%(rpg.js heroDmgMul 이 곱한다: 평타 · 모든 스킬)
 export const bloodJobAtk = (h) => { const rg = h && h.bd && h.bd.rg; return !rg ? 1 : 1 + (rg.k === 1 ? Z.rage.atk : Z.tired.atk); };
 // 과부하 — 넘는 몫을 버리고 혈역 · 차징을 끊은 뒤 혈량 60 · 6초 폭주
 function overload(E, g, h) {
@@ -200,9 +207,9 @@ const markBonus = (h, o) => { const m = st(h).mk[keyOf(o)]; return m ? Math.min(
 /* ── 적혈탄 ─────────────────────────────────────────── */
 const pressLv = (h) => h.bag.bd.tr[0][0];           // 영구 레벨 — 특수 능력 해금
 // 누른 시간 t 와 지금 혈량으로 쏠 단계(못 쏘면 -1)
-export function shotTier(t, b, aw = false) {
+export function shotTier(t, b, aw = false, lv = 0) {
   let tier = -1;
-  S.tiers.forEach((q, i) => { if (t + 1e-6 >= q.at && b >= bloodCost(aw, q.cost)) tier = i; });
+  S.tiers.forEach((q, i) => { if (t + 1e-6 >= q.at && b >= bloodCost(aw, q.cost, lv)) tier = i; });
   return tier;
 }
 // 누른 시간만 본 단계 — 혈량이 모자라 낮은 단계로 쏘게 되면 화면이 "혈량 부족 — 1단계 발사" 를 보인다
@@ -291,7 +298,7 @@ function wallCut(E, h, ax, ay, len) {
 function fireShot(E, g, h) {
   const s = st(h), c = s.ch, bd = h.bag.bd;
   s.ch = null;
-  const tier = shotTier(c.t, bd.b, !!s.aw);
+  const tier = shotTier(c.t, bd.b, !!s.aw, bd.lv);
   if (tier < 0) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const T = S.tiers[tier], lv = pressLv(h);
   const [ax, ay] = skillAim(E, g, h, T.range * (1 + rangeAdd(h)), c.ptr ? [c.ax, c.ay] : null);   // 포인터로 겨눈 시전은 놓는 순간의 방향(몸을 지나가는 적 쪽으로 바로잡음)
@@ -387,9 +394,9 @@ export function bloodJobBreak(E, g, h, kind) {
 }
 
 /* ── 혈수 강타 ─────────────────────────────────────── */
-export function smashTier(t, b, aw = false) {
+export function smashTier(t, b, aw = false, lv = 0) {
   let tier = -1;
-  M.tiers.forEach((q, i) => { if (t + 1e-6 >= q.at && b >= bloodCost(aw, q.cost)) tier = i; });
+  M.tiers.forEach((q, i) => { if (t + 1e-6 >= q.at && b >= bloodCost(aw, q.cost, lv)) tier = i; });
   return tier;
 }
 export const smashTimeTier = (t) => M.tiers.reduce((a, q, i) => (t + 1e-6 >= q.at ? i : a), 0);
@@ -421,7 +428,7 @@ function smashHint(E, g, h, c, tier, ping) {
 function fireSmash(E, g, h) {
   const s = st(h), c = s.ch, bd = h.bag.bd;
   s.ch = null;
-  const tier = smashTier(c.t, bd.b, !!s.aw);
+  const tier = smashTier(c.t, bd.b, !!s.aw, bd.lv);
   if (tier < 0) return void E.say(g, h.map, h.x, h.y - 90, "혈량 부족", "#ff8a8a");
   const [L, W] = smashSize(h, tier);                 // 방향 · 범위는 발동 순간 확정
   const [ax, ay] = skillAim(E, g, h, L, c.ptr ? [c.ax, c.ay] : null);
@@ -1118,7 +1125,7 @@ export function bloodJobInput(E, g, pi, req) {
 // 차징 중 마우스 포인터 방향(waim) — 크림슨 레퀴엠과 같은 입력을 함께 쓴다
 export function bloodJobAim(h) { const c = h && h.bd && h.bd.ch; if (c && c.ptr && h.inputAim) aimTo(h, c, h.inputAim); }
 export const bloodJobAimLock = (h) => !!(h && h.bd && h.bd.ch && h.bd.ch.ptr);
-// 이동 배율 — 차징 -30% · 혈역 -40% 가 겹치면 가장 큰 하나만. 폭주 +15% · 탈진 -15% 는 따로 곱한다
+// 이동 배율 — 차징 -30% · 혈역 -40% 가 겹치면 가장 큰 하나만. 폭주 +15% · 탈진 -85% 는 따로 곱한다
 export function bloodJobSlow(h) {
   const s = h && h.bd;
   if (!s) return 1;
@@ -1147,7 +1154,7 @@ export function tickBloodJob(E, g, h, dt) {
     else {
       c.t += dt;
       if (c.ptr) aimTo(h, c, [c.ax, c.ay]);
-      const tier = smashTier(c.t, h.bag.bd.b), ping = tier > c.tier;
+      const tier = smashTier(c.t, h.bag.bd.b, !!s.aw, h.bag.bd.lv), ping = tier > c.tier;
       c.hT -= dt;
       if (ping || c.hT <= 0) { c.hT = M.hint; c.tier = Math.max(c.tier, tier); smashHint(E, g, h, c, Math.max(0, tier), ping); }
       if (c.t >= M.full) fireSmash(E, g, h);         // 최대 0.9초 — 자동 발동
@@ -1157,7 +1164,7 @@ export function tickBloodJob(E, g, h, dt) {
     else {
       c.t = Math.min(S.full, c.t + dt);              // 1.2초에 2단계로 멈춘다 — 누르고 있는 동안은 쏘지 않고 놓을 때 쏜다(11월 15일 사용자)
       if (c.ptr) aimTo(h, c, [c.ax, c.ay]);
-      const tier = shotTier(c.t, h.bag.bd.b), ping = tier > c.tier;
+      const tier = shotTier(c.t, h.bag.bd.b, !!s.aw, h.bag.bd.lv), ping = tier > c.tier;
       c.hT -= dt;
       if (ping || c.hT <= 0) {
         c.hT = S.hint; c.tier = Math.max(c.tier, tier);

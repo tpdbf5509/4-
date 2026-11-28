@@ -5,7 +5,7 @@ import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBl
 import {LIBRARY, LIBRARY_MAPS} from './libraryData.js';
 import {faceAim, faceAt} from './faceDir.js';
 import {storyGateOpen, storyGateWhy, storyCleared} from './storyQuestData.js';
-import {DUEL, inDuel, duelHealing, duelShield, withCast, makeCast, restoreCasts} from './duelBalance.js';
+import {DUEL, inDuel, duelHealing, duelShield, healCut, withCast, makeCast, restoreCasts} from './duelBalance.js';
 export {DUEL} from './duelBalance.js';
 import {duelInput,tickDuelMatches,duelOpponents,duelMembers} from './duel.js';
 import { blocks, blockInput } from './block.js';
@@ -1213,7 +1213,7 @@ export function refreshHp(h, full) {
 const buffMul = (h) => (h.buff > 0 ? 1 + h.buffAmt : 1);
 export const physMul = (h) => (statTotal(h, "str") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h) * acAtkMul(h);   // 바지 · 전설 신발이 공격력을 올린다
 export const magMul = (h) => (statTotal(h, "int") / 10) * buffMul(h) * armorAtkMul(h) * guildBuff(h) * empowerAttack(h) * acAtkMul(h);
-export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h)) * bloodJobAtk(h);   // BLOOD-001 폭주 +25% · 탈진 -15%
+export const heroDmgMul = (h) => (jobOf(h).id === "mage" ? magMul(h) : physMul(h)) * bloodJobAtk(h);   // BLOOD-001 폭주 +25% · 탈진 -90%
 export const critChance = (h) => Math.min(CRIT_MAX, statTotal(h, "crit") / 100);
 export const critMul = (h) => statTotal(h, "cdmg") / 100 + worldCritBonus(h);
 export const heroRange = (h) => hiddenOf(h) ? hiddenRange(hiddenOf(h)) * acRangeMul(h)   // 히든 계열 전용 사거리 — 바탕 직업 rng · 궁수 보정을 쓰지 않는다
@@ -4122,7 +4122,7 @@ function stepHeroes(g, dt) {
     h.calm += dt;
     const duelRest = inDuel(h);   // 결투장 자동 회복은 회복량 감소를 다시 곱하지 않는다
     const regenDt = duelRest ? Math.max(0, h.calm - Math.max(previousCalm, DUEL.calm)) : dt;
-    if (h.calm >= (duelRest ? DUEL.calm : RPG.calm) && (!duelRest || DUEL.calmRegen > 0)) h.hp = Math.min(h.max, h.hp + h.max * (duelRest ? DUEL.calmRegen : RPG.calmRegen) * regenDt * (h.ac ? acHealMul(h) : 1));   // 강화 카드 — 받는 회복량
+    if (h.calm >= (duelRest ? DUEL.calm : RPG.calm) && (!duelRest || DUEL.calmRegen > 0)) h.hp = Math.min(h.max, h.hp + h.max * (duelRest ? DUEL.calmRegen : RPG.calmRegen) * regenDt * (h.ac ? acHealMul(h) : 1) * healCut(h));   // 강화 카드 — 받는 회복량
     if (h.dash > 0) dashStep(h, dt);                // 대쉬 중에는 걷지 않고 달려 나간다
     else rpgWalk(h, dt);
     if (h.gath) {                                   // 약초 채집(alchemy.js) — 움직이면 취소, 다 되면 그 자리가 나 있을 때만 받는다

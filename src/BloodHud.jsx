@@ -7,13 +7,13 @@ import { SKILL_ICON_SHEET, SKILL_ICONS, iconStyle } from "./game/skillIconData.j
 import { stableCap, bloodCaps, overWarn, shotTier, shotTimeTier, smashTier, smashTimeTier, bloodMode, MODE_NAMES, jobNeed, trainNeed, bloodTint, newLock, awakeLock, bloodCost } from "./game/bloodJob.js";
 
 // 차징 단계 · 비용 — 시간만 본 단계가 혈량 때문에 낮아지면 short 에 실제 단계
-function chargeInfo(ch, b, tierOf, timeOf, tiers, aw) {
-  const t = ch ? ch.t : 0, tier = Math.max(0, tierOf(t, b, aw)), timeTier = ch ? timeOf(t) : 0;
-  return { tier, timeTier, cost: bloodCost(aw, tiers[tier].cost), short: ch && timeTier > tier ? tier : -1 };
+function chargeInfo(ch, b, tierOf, timeOf, tiers, aw, lv) {
+  const t = ch ? ch.t : 0, tier = Math.max(0, tierOf(t, b, aw, lv)), timeTier = ch ? timeOf(t) : 0;
+  return { tier, timeTier, cost: bloodCost(aw, tiers[tier].cost, lv), short: ch && timeTier > tier ? tier : -1 };
 }
 // 신규 스킬 칸(11월 16일) — 잠김 글 · 대기 · 혈량
 function newSkill(v, D, cd, aw, b) {
-  const lock = newLock(v, D), cost = bloodCost(aw, D.cost);
+  const lock = newLock(v, D), cost = bloodCost(aw, D.cost, v.lv);
   return { cd: cd || 0, max: D.cd, low: b < cost, locked: !!lock, lockText: lock.replace(/에 열립니다$/, ""), cost };
 }
 // 레벨 카드 HUD 값 — RpgView setHud 가 부른다
@@ -21,9 +21,9 @@ export function bloodHud(v) {
   if (!v) return null;
   const [cap, amp, top] = bloodCaps(v.lv), b = Math.round(v.b), ch = v.ch;
   const sc = ch && ch.s !== "smash" ? ch : null, mc = ch && ch.s === "smash" ? ch : null;
-  const aw = !!v.aw;
-  const shot = chargeInfo(sc, b, shotTier, shotTimeTier, BLOOD_SHOT.tiers, aw);
-  const smash = chargeInfo(mc, b, smashTier, smashTimeTier, BLOOD_SMASH.tiers, aw);
+  const aw = !!v.aw, c = (n) => bloodCost(aw, n, v.lv);   // 원초적 지배 · 레벨 감소가 든 실제 소모(11월 28일)
+  const shot = chargeInfo(sc, b, shotTier, shotTimeTier, BLOOD_SHOT.tiers, aw, v.lv);
+  const smash = chargeInfo(mc, b, smashTier, smashTimeTier, BLOOD_SMASH.tiers, aw, v.lv);
   const locked = v.lv < BLOOD.unlock.shape, U = BLOOD.unlock;
   const mode = bloodMode(b, cap, v.rg);
   return {
@@ -32,12 +32,12 @@ export function bloodHud(v) {
     field: { cd: v.cd.field || 0, max: BLOOD_FIELD.cd, locked: v.lv < BLOOD.unlock.field, left: v.fd ? Math.max(0, BLOOD_FIELD.dur - v.fd.t) : 0, none: !!(v.fd && v.fd.none), busy: !!v.rg },
     // 적혈탄 대기 막대의 최대 — 쏜 단계의 대기(0.1 · 0.5 · 0.7초). 옛 줄이면 지금 남은 값과 가장 긴 대기 중 맞는 것
     shot: { ...shot, cd: v.cd.shot || 0, max: v.shotMax || BLOOD_SHOT.tiers.map((q) => q.cd).find((c) => c >= (v.cd.shot || 0)) || BLOOD_SHOT.tiers[BLOOD_SHOT.tiers.length - 1].cd, charging: !!sc, u: sc ? Math.min(1, sc.t / BLOOD_SHOT.full) : 0, low: b < BLOOD_SHOT.need },
-    smash: { ...smash, cd: v.cd.smash || 0, max: BLOOD_SMASH.cd, charging: !!mc, low: b < BLOOD_SMASH.tiers[0].cost, locked: v.lv < U.smash, at: U.smash },
-    wave: { cd: v.cd.wave || 0, max: BLOOD_WAVE.cd, low: b < BLOOD_WAVE.cost, locked: v.lv < U.wave, at: U.wave },   // 혈류 파동(11월 15일)
-    hook: { cd: v.cd.hook || 0, max: BLOOD_HOOK.cd, low: b < BLOOD_HOOK.cost, locked: v.lv < U.hook, at: U.hook, on: !!v.hk },   // 혈쇄 갈고리(11월 15일)
-    form: { cd: v.cd.form || 0, max: BLOOD_FORM.cd, locked, veil: v.vl ? Math.max(0, v.vl.max - v.vl.t) : 0, veilLow: b < BLOOD_FORM.veil.cost },   // 혈막 — 대기 15초
+    smash: { ...smash, cd: v.cd.smash || 0, max: BLOOD_SMASH.cd, charging: !!mc, low: b < c(BLOOD_SMASH.tiers[0].cost), locked: v.lv < U.smash, at: U.smash },
+    wave: { cd: v.cd.wave || 0, max: BLOOD_WAVE.cd, cost: c(BLOOD_WAVE.cost), low: b < c(BLOOD_WAVE.cost), locked: v.lv < U.wave, at: U.wave },   // 혈류 파동(11월 15일)
+    hook: { cd: v.cd.hook || 0, max: BLOOD_HOOK.cd, cost: c(BLOOD_HOOK.cost), low: b < c(BLOOD_HOOK.cost), locked: v.lv < U.hook, at: U.hook, on: !!v.hk },   // 혈쇄 갈고리(11월 15일)
+    form: { cd: v.cd.form || 0, max: BLOOD_FORM.cd, locked, veil: v.vl ? Math.max(0, v.vl.max - v.vl.t) : 0, veilCost: c(BLOOD_FORM.veil.cost), veilLow: b < c(BLOOD_FORM.veil.cost) },   // 혈막 — 대기 15초
     // 혈검(11월 15일) — 자체 대기 6초 · 만드는 중 · 남은 베기 · 남은 유지 시간
-    sword: { cd: v.cd.sword || 0, max: BLOOD_FORM.sword.cd, locked, low: b < BLOOD_FORM.sword.cost, making: !!(v.sw && v.sw.ph === 1),
+    sword: { cd: v.cd.sword || 0, max: BLOOD_FORM.sword.cd, locked, cost: c(BLOOD_FORM.sword.cost), low: b < c(BLOOD_FORM.sword.cost), making: !!(v.sw && v.sw.ph === 1),
       held: !!(v.sw && v.sw.ph === 2), hold: v.sw && v.sw.ph === 2 ? Math.max(0, BLOOD_FORM.sword.hold - v.sw.t) : 0 },
     conv: { cd: v.cd.conv || 0, max: BLOOD.convert.cd, full: b >= cap },   // 안정 한계까지만(11월 15일 개편)
     use: sc ? shot.cost : mc ? smash.cost : 0,
@@ -125,7 +125,7 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
   if (!v) return null;
   const s = v.shot, m = v.smash, f = v.form, c = v.conv, d = v.field, w = v.sword;
   const on = w.making || w.held;
-  const swordSub = f.locked ? `직업 Lv ${BLOOD.unlock.shape}` : w.making ? "검을 만드는 중" : w.held ? `평타로 베기 · ${Math.ceil(w.hold)}초` : w.low ? "혈량 부족" : `혈량 ${BLOOD_FORM.sword.cost}`;
+  const swordSub = f.locked ? `직업 Lv ${BLOOD.unlock.shape}` : w.making ? "검을 만드는 중" : w.held ? `평타로 베기 · ${Math.ceil(w.hold)}초` : w.low ? "혈량 부족" : `혈량 ${w.cost}`;
   const lock = `직업 Lv ${BLOOD.unlock.shape}`;
   const shotSub = s.charging ? (s.short >= 0 ? `혈량 부족 — ${tierName(s.short)} 발사` : `${tierName(s.tier)} · 혈량 ${s.cost}`) : s.low ? "혈량 부족" : `혈량 ${s.cost}`;
   const smashSub = m.locked ? `직업 Lv ${m.at}` : m.charging ? (m.short >= 0 ? `혈량 부족 — ${m.short ? `+${m.short * 10}` : "기본"} 발동` : `${m.tier ? `+${m.tier * 10}` : "기본"} · 혈량 ${m.cost}`) : m.low ? "혈량 부족" : `혈량 ${m.cost}`;
@@ -148,12 +148,12 @@ export function BloodButtons({ v, keys, touch, onShot, onShotUp, onShotCancel, o
         onPointerDown={(e) => { e.preventDefault(); onVeil(); }}>
         {!touch && keys.veil && <kbd>{keys.veil}</kbd>}
         <SkillIco id="veil" />
-        <span>{BLOOD_FORM.veil.name}<small>{f.locked ? lock : f.veil ? `유지 ${f.veil.toFixed(1)}초` : f.veilLow ? "혈량 부족" : `혈량 ${BLOOD_FORM.veil.cost}`}</small></span>
+        <span>{BLOOD_FORM.veil.name}<small>{f.locked ? lock : f.veil ? `유지 ${f.veil.toFixed(1)}초` : f.veilLow ? "혈량 부족" : `혈량 ${f.veilCost}`}</small></span>
         {f.cd > 0 && !f.veil && <em>{Math.ceil(f.cd)}</em>}
         {f.cd > 0 && <i style={{ width: `${(f.cd / f.max) * 100}%` }} />}
       </button>
-      <TapBtn name={BLOOD_WAVE.name} q={v.wave} k={keys.wave} touch={touch} ico="wave" cost={BLOOD_WAVE.cost} onDown={onWave} />
-      <TapBtn name={BLOOD_HOOK.name} q={v.hook} k={keys.hook} touch={touch} ico="hook" cost={BLOOD_HOOK.cost} onDown={onHook} />
+      <TapBtn name={BLOOD_WAVE.name} q={v.wave} k={keys.wave} touch={touch} ico="wave" cost={v.wave.cost} onDown={onWave} />
+      <TapBtn name={BLOOD_HOOK.name} q={v.hook} k={keys.hook} touch={touch} ico="hook" cost={v.hook.cost} onDown={onHook} />
       <button type="button" className={`rpg-skill blood ${(d.cd > 0 && !d.left) || d.locked || d.busy ? "cool" : ""}`}
         onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); onField(); }}
         onPointerUp={onFieldUp} onPointerCancel={onFieldUp}>

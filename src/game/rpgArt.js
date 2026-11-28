@@ -34,7 +34,7 @@ import { AQ } from './wyvernQuestData.js';   // 아르카디온 획득 — 칼�
 import { engineerLook } from './engineerJob.js';   // 히든 직업 Engineer 003 — 무기 그림을 들지 않는다 · 설치물 몸
 import { ENGINEER_CAP, engineerUnits, drawEngineerUnit } from './engineerArt.js';
 import { gamblerLook } from './gamblerJob.js';   // 히든 직업 Gambler 002 — 무기 그림을 들지 않는다   // 크림슨 레퀴엠 혈흔 표식(11월 13일)
-import { WYVERN_CAP, wyvernUnitOf, drawWyvernUnit, drawWyvernHero, wyvernAir, drawWyvernImpact } from './wyvernArt.js';   // Wyvern Knight 006 — 와이번 · 반룡 날개 · 공중 높이
+import { WYVERN_CAP, wyvernUnitOf, drawWyvernUnit, drawWyvernHero, wyvernAir, drawWyvernImpact, wyvernImpactCovers } from './wyvernArt.js';   // Wyvern Knight 006 — 와이번 · 반룡 날개 · 공중 높이
 import { wyvernLook } from './wyvernJob.js';
 import { necroLook, ncArmed } from './necroJob.js';
 import { illusionLook } from './illusionJob.js';   // 히든 직업 Illusionist 005 — 무기 그림을 들지 않는다
@@ -2903,6 +2903,7 @@ export function drawRpg(ctx, g, bgs) {
   execSeer = me && me.advClass === "assassin" && me.down <= 0 ? me : null;   // 처형 눈금은 암살자 화면에만
   const M = MAPS[me ? me.map : "plaza"];
   const cam = follow(g, M);
+  if (wyvernImpactCovers(g, lowFx)) return void drawWyvernImpact(ctx, g, W, H, cam, lowFx);   // 종언의 용성 정지 장면이 화면을 다 덮는 동안은 세계를 그리지 않는다
   ctx.save();
   if (g.shake > 0) {
     const s = g.shake * 6;

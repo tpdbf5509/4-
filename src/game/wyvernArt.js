@@ -458,36 +458,55 @@ export function drawWyvernFx(ctx, f, p, sq, g, time, quality = 1) {
    rpgArt drawRpg 가 세계를 다 그린 뒤 화면 좌표로 부른다. 최종 폭발(UL.last)부터 IM.white + IM.black + IM.burst 초 동안만 그린다 — 그리기만, 판정 · 타이머 · 게임 시간은 그대로 흐른다.
    시전자 화면: 폭발 순간 화면을 한 장 떠서(멈춘 그림) 흑백으로 바꾸고 → 흰 종이 위 검은 먹(뒤집은 장면) → 검은 바탕 위 흰 빛(여기까지 같은 그림을 붙잡아 화면이 굳은 것처럼 보인다) → 검은 바탕에서 흰 폭발이 커지고 색이 돌아온다.
    남의 화면 · 「연출 줄이기」: 화면 전체를 바꾸지 않고 폭발 자리에 먹 그림만 옅게 겹친다(번쩍임 줄임) */
-let frz = null;   // { f: 이 장면의 용성 연출, cv: 떠 둔 그림 }
+let frz = null;   // { f: 이 장면의 용성 연출, white · dark: 미리 처리해 둔 멈춘 그림, step: 만든 단계 }
+const newCanvas = (w, h) => { if (typeof document === "undefined") return null; const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+/* 멈춘 그림 미리 만들기(11월 28일 사용자 "살짝 끊기는 감" — 매 프레임 화면 전체에 색 빼기 · 뒤집기를 두세 번 칠해 큰 화면에서 프레임이 두 배로 늘었다).
+   폭발 순간 한 번 떠서 흰 칸 그림을 만들고, 검은 칸 그림은 다음 프레임에 만든다(한 프레임에 몰리지 않게). 그 뒤로는 그림 한 장만 붙인다 */
+function bake(src, dark) {
+  const c = newCanvas(src.width, src.height); if (!c) return null;
+  const x = c.getContext("2d"); x.drawImage(src, 0, 0);
+  x.globalCompositeOperation = "saturation"; x.fillStyle = "#808080"; x.fillRect(0, 0, c.width, c.height);   // 색을 뺀다
+  if (!dark) {
+    x.globalCompositeOperation = "difference"; x.fillStyle = "#ffffff"; x.fillRect(0, 0, c.width, c.height);   // 밝은 불꽃 → 검게, 어두운 땅 → 희게
+    x.globalCompositeOperation = "source-over"; x.globalAlpha = 0.55; x.fillStyle = IM.paper; x.fillRect(0, 0, c.width, c.height);
+  } else { x.globalCompositeOperation = "source-over"; x.globalAlpha = IM.wash; x.fillStyle = IM.ink; x.fillRect(0, 0, c.width, c.height); }
+  return c;
+}
+/* 지금 화면 전체를 정지 장면이 덮는가 — 그렇다면 rpgArt 가 세계를 그리지 않고 이것만 그린다(덮일 그림을 그리느라 프레임이 늘던 것, 11월 28일).
+   폭발 첫 프레임(그림을 뜨는 프레임)은 세계를 그려야 하므로 아니다 */
+export function wyvernImpactCovers(g, low = false) {
+  if (!frz || !frz.white || low || !g || !g.fx) return false;
+  const f = frz.f, me = g.heroes && g.heroes[g.mySeat];
+  if (!f || f.pi !== g.mySeat || !me || f.map !== me.map || !g.fx.includes(f)) return false;
+  const e = f.life - f.t - UL.last;
+  return e >= 0 && e < IM.white + IM.black + IM.burst;
+}
 export function drawWyvernImpact(ctx, g, W, H, cam, low = false) {
   const me = g && g.heroes && g.heroes[g.mySeat], hold = IM.white + IM.black, span = hold + IM.burst;
-  const f = me && cam && g.fx ? g.fx.find((q) => q.kind === "sk_wy_ult" && q.map === me.map && q.life - q.t >= UL.last && q.life - q.t < UL.last + span) : null;
-  if (!f) { if (frz) frz.f = null; return; }
+  // 역린 해방 중에 쓴 용성만(11월 28일 사용자 "역린 해방중에만 용성 정지 이펙트 발동")
+  const f = me && cam && g.fx ? g.fx.find((q) => q.kind === "sk_wy_ult" && q.aw && q.map === me.map && q.life - q.t >= UL.last && q.life - q.t < UL.last + span) : null;
+  if (!f) { frz = null; return; }
   const e = f.life - f.t - UL.last, dark = e >= IM.white, burst = e >= hold, z = cam.z || 1;
   const grow = burst ? clamp((e - hold) / IM.burst) : 0;   // 검은 화면에서 흰 폭발이 커지는 비율
-  const sx = (f.x - cam.x) * z, sy = (f.y - cam.y) * z, kk = Math.max(1, Math.round((f.r * z) / SH.wy_ink.r));
+  const sx = (f.x - cam.x) * z, sy = (f.y - cam.y) * z, k0 = Math.max(1, Math.round((f.r * z) / SH.wy_ink.r));
+  const kg = k0 + 1 + grow * IM.grow;   // 소수 배율로 부드럽게 커진다(정수 배로 끊어 키우면 두 번 툭툭 커졌다)
   const cv = ctx.canvas, full = f.pi === g.mySeat && !low && cv && cv.width > 0;
   warmWyvern();
   ctx.save(); ctx.imageSmoothingEnabled = false;
   try {
-    if (!full) { cell(ctx, "wy_ink", dark ? 1 : 0, sx, sy, kk + Math.round(grow * IM.grow), IM.local * (1 - grow * 0.6), dark ? 1 : 0); return; }
-    if (!frz) frz = { f: null, cv: typeof document !== "undefined" ? document.createElement("canvas") : null };
-    if (frz.f !== f && frz.cv) {   // 폭발 순간 — 지금 화면을 한 장 떠 둔다(멈춤 동안은 이 그림만 보인다)
-      frz.cv.width = cv.width; frz.cv.height = cv.height; frz.cv.getContext("2d").drawImage(cv, 0, 0);
-    }
-    frz.f = f;
+    if (!full) { cellK(ctx, "wy_ink", dark ? 1 : 0, sx, sy, kg - 1, IM.local * (1 - grow * 0.6), dark ? 1 : 0); return; }
+    if (!frz || frz.f !== f) frz = { f, white: null, dark: null, src: null };
+    if (!frz.src) {   // 폭발 순간 — 지금 화면을 반 크기로 한 장 뜬다(멈춘 그림은 흐리게 덮이니 반 크기로 충분하고, 뜨는 일이 4분의 1로 준다)
+      frz.src = newCanvas(Math.ceil(cv.width / IM.down), Math.ceil(cv.height / IM.down));
+      if (frz.src) { frz.src.getContext("2d").drawImage(cv, 0, 0, frz.src.width, frz.src.height); frz.white = bake(frz.src, false); }
+    }   // 폭발 순간 — 지금 화면을 한 장 뜬다
+    else if (!frz.dark) { frz.dark = bake(frz.src, true); frz.src.width = 1; }   // 다음 프레임 — 검은 칸 그림(뜬 원본은 비운다)
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (!burst && frz.cv) ctx.drawImage(frz.cv, 0, 0);   // 멈춤 — 떠 둔 그림. 커지는 동안은 지금 장면 위에 그린다
-    ctx.globalCompositeOperation = "saturation"; ctx.fillStyle = "#808080"; ctx.fillRect(0, 0, cv.width, cv.height);   // 색을 뺀다
-    if (!dark) {
-      ctx.globalCompositeOperation = "difference"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, cv.width, cv.height);   // 밝은 불꽃 → 검게, 어두운 땅 → 희게
-      ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.55; ctx.fillStyle = IM.paper; ctx.fillRect(0, 0, cv.width, cv.height);
-    } else {
-      ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = IM.wash; ctx.fillStyle = IM.ink; ctx.fillRect(0, 0, cv.width, cv.height);
-    }
+    const still = dark ? frz.dark : frz.white;
+    if (!burst && still) { ctx.imageSmoothingEnabled = false; ctx.drawImage(still, 0, 0, cv.width, cv.height); }
+    else { ctx.fillStyle = IM.ink; ctx.fillRect(0, 0, cv.width, cv.height); }   // 흰 폭발이 커지는 동안은 영상처럼 검은 바탕(세계는 그리지 않는다 — wyvernImpactCovers)
     ctx.restore();
-    // 흰 칸은 칸 0, 검은 칸은 칸 1. 커질 때는 흰 빛이 grow 단계만큼 커진다
-    cell(ctx, "wy_ink", dark ? 1 : 0, sx, sy, kk + 1 + Math.round(grow * IM.grow), 1, dark ? 1 : 0);
+    cellK(ctx, "wy_ink", dark ? 1 : 0, sx, sy, kg, 1, dark ? 1 : 0);
   } finally { ctx.restore(); }
 }
 

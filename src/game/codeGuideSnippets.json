@@ -376,7 +376,7 @@
  "결투 자동 회복": [
   {
    "file": "src/game/duelBalance.js",
-   "from": 2,
+   "from": 3,
    "code": [
     "export const DUEL = {",
     "  dmgMul: 0.03, bloodMul: 2.0, basicPct: 0.04, skillPct: 0.18, ultPct: 0.25, // 약한 공격은 그대로 두고 강한 공격은 시전별로 제한한다",
@@ -391,7 +391,7 @@
  "결투 피해 · 시간": [
   {
    "file": "src/game/duelBalance.js",
-   "from": 2,
+   "from": 3,
    "code": [
     "export const DUEL = {",
     "  dmgMul: 0.03, bloodMul: 2.0, basicPct: 0.04, skillPct: 0.18, ultPct: 0.25, // 약한 공격은 그대로 두고 강한 공격은 시전별로 제한한다",

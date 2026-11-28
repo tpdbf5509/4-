@@ -6,6 +6,7 @@
             ph 탑 단계(go · next · fail), big 정예 · 보스가 있는가, t 판정용 시계 · 셈(손님에게 가지 않는다) }
    스냅샷은 rpg.js rpgPack 의 ac 줄(acPack · acUnpack). 방장만 판정하고 손님은 고른 카드 · 선택지 · 보호막만 받는다.
    rpg.js 의 함수(피해 · 몹 찾기 · 연출)는 acBind 로 받는다 — 서로 불러오면 고리가 생긴다 */
+import { healCut } from "./duelBalance.js";
 import { GRACE, CARDS, CARD_BY_N, CURSE_FROM, isCurse, ELITE } from "./abyssCardData.js";
 
 let E = null;
@@ -242,7 +243,7 @@ export function acHealMul(h) {
 // 카드 회복 — amt 는 체력 수치
 function heal(g, h, amt) {
   if (!(amt > 0) || h.down > 0) return;
-  const got = amt * acHealMul(h);
+  const got = amt * acHealMul(h) * healCut(h);   // BLOOD-001 탈진 — 회복 -95%
   const room = h.max - h.hp;
   h.hp = Math.min(h.max, h.hp + got);
   const t = tOf(h);

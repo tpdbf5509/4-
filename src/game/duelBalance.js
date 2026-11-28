@@ -1,3 +1,4 @@
+import { BLOOD_STATE } from "./bloodJobData.js";
 /* 결투장 전용 수치. 사냥터 PvP와 PvE는 기존 수치를 쓴다. */
 export const DUEL = {
   dmgMul: 0.03, bloodMul: 2.0, basicPct: 0.04, skillPct: 0.18, ultPct: 0.25, // 약한 공격은 그대로 두고 강한 공격은 시전별로 제한한다
@@ -7,8 +8,10 @@ export const DUEL = {
   ready: 3, time: 90, end: 2.5, reqT: 30, honorRate: 0.1, honorBase: 10,
   askGap: 5, reaskGap: 20,                                  // 결투 신청 간격 — 아무에게나 5초에 한 번 · 같은 사람에게는 20초에 한 번(11월 7일 반복 신청으로 렉)
 };
+// BLOOD-001 탈진(11월 28일 사용자) — 체력 회복 -95%. 모든 회복 길이 이 값을 곱한다(h.bd.rg.k 2 = 탈진)
+export const healCut = h => (h?.bd?.rg?.k === 2 ? 1 + BLOOD_STATE.tired.heal : 1);
 export const inDuel = h => h?.map === 'arena' && h.dvs >= 0;
-export const duelHealing = (h, amount) => amount * (inDuel(h) ? DUEL.healMul : 1);
+export const duelHealing = (h, amount) => amount * (inDuel(h) ? DUEL.healMul : 1) * healCut(h);
 export const duelShield = (h, amount) => amount * (inDuel(h) ? DUEL.shieldMul : 1);
 // 지연 타격도 예약할 때의 시전을 쓴다. 현재 시전은 판정 뒤 되돌린다.
 export function withCast(h, cast, fn) {

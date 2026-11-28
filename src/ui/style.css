@@ -3601,8 +3601,9 @@ button.forge-stage:disabled { cursor: default; }
 .hud2 .hud2-icons { right: calc(var(--u) * 28); bottom: calc(var(--u) * 28); }
 .hud2 .hud2-dock { bottom: calc(var(--u) * 30); }
 /* 테스트 서버 — 막대 · 칩 정보 판을 조금만 넓힌다(11월 28일 사용자 "원래대로 돌리고 길이만 조금", 350 → 450) */
-.hud2 .hud2-dock.wide .hud2-bars { flex-basis: calc(var(--u) * 450); width: calc(var(--u) * 450); }
-.hud2 .hud2-dock.wide .hud2-bars .rpg-lv-row { grid-template-columns: calc(var(--u) * 130) calc(var(--u) * 296) 1fr; }
+.hud2 .hud2-dock.wide .hud2-bars { flex-basis: calc(var(--u) * 490); width: calc(var(--u) * 490); }
+/* 숫자 · 글씨 칸을 넓히고 막대와 띄운다(11월 28일 사용자 "체력 숫자와 바 · 풀베팅 글씨와 상자 간격이 좁다") */
+.hud2 .hud2-dock.wide .hud2-bars .rpg-lv-row { grid-template-columns: calc(var(--u) * 210) 1fr; column-gap: calc(var(--u) * 16); }
 .hud2 .hud2-dock.wide .hud2-bars .rpg-gm-chips { grid-column: 2; }
 .hud2 .rpg-chat { left: calc(var(--u) * 28); bottom: calc(var(--u) * 36); }
 

@@ -111,6 +111,7 @@ export const PERSONAL_ROLLBACKS = [
    이미 lv 이상이면 건드리지 않는다. 받은 id 는 가방 bag.pg 에 남는다. DB 를 직접 고치면 10초 저장이 덮어쓰므로 이 방법을 쓴다 */
 export const PERSONAL_LEVELS = [
   { id: "pl-2026-11-06-1", name: "놀기", lv: 200 },
+  { id: "pl-2026-11-28-1", name: "돼지똥", lv: 200 },
 ];
 export const GIFT = {
   id: "2026-10-30",

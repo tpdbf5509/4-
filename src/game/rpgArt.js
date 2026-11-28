@@ -377,7 +377,7 @@ export function warmRpgArt() {
   warmDragonFlightArt();warmWorldBossArt();warmGuildArt();warmAdvArt();warmFuryArt();warmAbyssArt();
   if (rpgWarm) return;
   rpgWarm = 1;
-  ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen"].forEach((n) => mapImg(rpgFile(n)));
+  ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen", ...(PLAZA_NEW ? ["plaza-props"] : [])].forEach((n) => mapImg(rpgFile(n)));
   sprite("rpg/fountain"); sprite("rpg/gate");
 }
 
@@ -529,9 +529,21 @@ const MAP_TREES = {
   // 400~800레벨(deepData.js) — 화염 쪽은 그을린 나무가 드문드문, 심연 쪽은 조금 더 짙게
   ...Object.fromEntries(DEEP_MAPS.map((d, i) => [d.id, plantTrees(4500 + i, i < 4 ? 10 : 22, 500, d.w - 150, 0.85, nearGate(MAPS[d.id]))])),
 };
-const PLAZA_PROPS = PLAZA_NEW ? [   // 새 배치(plazaLayout.js) — 등불은 큰 길 입구, 벤치는 분수 쉼터 · 관문 터. 소품 늘리기는 4단계
-  { k: "lamp", x: 840, y: 310 }, { k: "lamp", x: 960, y: 310 }, { k: "lamp", x: 1150, y: 640 }, { k: "lamp", x: 650, y: 580 },
-  { k: "bench", x: 780, y: 700 }, { k: "bench", x: 1020, y: 700 }, { k: "bench", x: 430, y: 950 },
+// 새 광장 소품(Codex 시트 rpg/plaza-props.webp, 4 × 3 칸 · 칸 256px · design/plaza-props/). 화면만의 일이라 막힘이 없다.
+// f = 칸 차례(0 등불 · 1 켜진 등불 · 4 화분 · 5 꽃 상자 · 6 나무 상자 · 7 통 · 8~11 세운 깃발 회청 · 세이지 · 탁한 금 · 회보라), s = 칸 한 변의 게임 크기
+// shortcut: 걸이 등불(칸 2 · 3)과 깃발 줄 · 밤에 켜기는 아직 — 5단계(낮밤)에서 켜진 칸으로 바꾼다
+export const PLAZA_SHEET = { file: "plaza-props", cols: 4, cell: 256, foot: 350 / 384 };
+const PL = 138, PS = 112;   // 등불 · 깃발 칸 크기 / 화분 · 상자 · 통 칸 크기
+const PLAZA_PROPS = PLAZA_NEW ? [   // 새 배치(plazaLayout.js) — 등불은 큰 길 입구마다 한 쌍, 벤치는 분수 쉼터 · 맞이 마당 · 관문 터
+  ...[[840, 310], [960, 310], [1160, 640], [1540, 705], [640, 575], [250, 455], [820, 860], [980, 860]].map(([x, y]) => ({ k: "px", f: 0, s: PL, x, y })),
+  { k: "bench", x: 780, y: 700 }, { k: "bench", x: 1020, y: 700 }, { k: "bench", x: 430, y: 950 }, { k: "bench", x: 1000, y: 360 },
+  // 세운 깃발 — 구역 경계(장비 골목 · 살림 장 · 황금 모퉁이 · 관문 터)
+  { k: "px", f: 8, s: PL, x: 660, y: 500 }, { k: "px", f: 9, s: PL, x: 1180, y: 560 }, { k: "px", f: 10, s: PL, x: 1230, y: 800 }, { k: "px", f: 11, s: PL, x: 600, y: 900 },
+  // 화분 · 꽃 상자 — 가판 곁 · 관문 곁
+  { k: "px", f: 4, s: PS, x: 420, y: 350 }, { k: "px", f: 5, s: PS, x: 1110, y: 480 }, { k: "px", f: 4, s: PS, x: 1650, y: 520 }, { k: "px", f: 5, s: PS, x: 1240, y: 945 },
+  { k: "px", f: 4, s: PS, x: 395, y: 1060 }, { k: "px", f: 4, s: PS, x: 450, y: 835 }, { k: "px", f: 4, s: PS, x: 150, y: 560 },
+  // 나무 상자 · 통 — 가판 뒤
+  { k: "px", f: 6, s: PS, x: 225, y: 215 }, { k: "px", f: 7, s: PS, x: 590, y: 195 }, { k: "px", f: 7, s: PS, x: 1650, y: 425 }, { k: "px", f: 6, s: PS, x: 1530, y: 245 },
 ] : [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
   { k: "bench", x: 1100, y: 900 }, { k: "bench", x: 700, y: 360 }, { k: "bench", x: 1100, y: 360 },   // 왼쪽 아래 의자(700, 900)는 던전 입구 아치가 덮어 뺐다
@@ -836,6 +848,11 @@ export function drawFountainBody(ctx, time) {
 }
 
 function drawProp(ctx, o) {
+  if (o.k === "px") {   // 새 광장 소품 시트 — 못 불러오면 그리지 않는다(장식뿐)
+    const im = mapImg(rpgFile(PLAZA_SHEET.file)), C = PLAZA_SHEET.cell;
+    if (im) ctx.drawImage(im, (o.f % PLAZA_SHEET.cols) * C, Math.floor(o.f / PLAZA_SHEET.cols) * C, C, C, o.x - o.s / 2, o.y - o.s * PLAZA_SHEET.foot, o.s, o.s);
+    return;
+  }
   const pim = mapImg(rpgFile(o.k));
   if (pim) {
     const F = RFRAME[o.k];

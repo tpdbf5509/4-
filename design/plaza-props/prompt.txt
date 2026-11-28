@@ -1,0 +1,20 @@
+Reference image: on the left, a market stall from our game; on the right, our street lamp. It is the STYLE reference: soft chibi anime illustration for a top-down 2D RPG town plaza seen from a 3/4 view, thin warm dark-brown outlines, soft matte cel shading with 2-3 tone steps, no glossy highlights, gentle toned-down pastel colors.
+
+Make a 1536x1152 sprite sheet: 4 columns x 3 rows, each cell 384x384. One object per cell, centered horizontally, standing with its base/feet on a line at about 92% of the cell height, at least 16 px margin inside each cell. Same style as the reference.
+Row 1:
+ 1. a tall iron street lamp post with a glass lantern on top, lantern UNLIT (dark glass), about 330 px tall.
+ 2. the exact same street lamp post, lantern LIT with warm soft yellow light inside the glass (no glow halo outside the object).
+ 3. a small hanging paper/glass lantern on a short hook chain, UNLIT, about 150 px tall, drawn near the top of the cell (it hangs; no ground base).
+ 4. the exact same hanging lantern, LIT warm soft yellow inside.
+Row 2:
+ 5. a round terracotta flower pot with pastel flowers (soft pink, cream, lavender) and leaves, about 150 px tall.
+ 6. a long low wooden flower box (planter) full of small pastel flowers, about 220 px wide.
+ 7. a stack of two wooden crates, the top one smaller, about 200 px tall.
+ 8. two wooden barrels side by side with iron hoops, about 190 px tall.
+Row 3: standing pennant banners on a thin wooden pole with a small stone base, the cloth hanging down as a long swallowtail banner with a plain small emblem shape (no letters), about 300 px tall. Same shape in all four, only the cloth color differs:
+ 9. muted blue-grey cloth (#9aaec4).
+ 10. muted sage green cloth (#a3bfa4).
+ 11. muted dull gold cloth (#cdb382).
+ 12. muted grey-violet cloth (#b3a6c4).
+Colors toned down and pastel, matte. No text, no letters, no ground shadows, no grid lines, no cell borders. Flat solid #00FF00 green background everywhere.
+Save the result as props-sheet.png in the current directory.

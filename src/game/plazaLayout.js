@@ -36,3 +36,19 @@ const NEW = {
 // 지금 배치 값을 받아, 새 배치를 쓰면 NEW 값으로 바꿔 준다
 export const pz = (key, x, y) => { const p = PLAZA_NEW && NEW[key]; return p ? { x: p[0], y: p[1] } : { x, y }; };
 export const pzA = (key, xy) => { const p = PLAZA_NEW && NEW[key]; return p ? [p[0], p[1]] : xy; };
+
+// 새 광장 구역 — 들어가면 화면에 구역 이름이 잠깐 뜬다(RpgView, 계획서 8장 6번). 화면만의 일이라 판정 · 스냅샷과 상관없다.
+// 위에서부터 처음 맞는 칸 [x0, y0, x1, y1]. 분수 둘레 원은 먼저 본다. 아무 데도 아니면 분수 쉼터.
+export const PLAZA_ZONE = { show: 2000, rest: 20000, fountain: 330 };   // 뜨는 시간 · 같은 구역 다시 뜨기까지(ms) · 분수 쉼터 가로 반지름
+const ZONES = [
+  ["맞이 마당", 620, 0, 1180, 360],
+  ["장비 골목", 0, 0, 760, 600],
+  ["살림 장", 1040, 0, 1800, 720],
+  ["황금 모퉁이", 1140, 720, 1800, 1200],
+  ["관문 터", 0, 600, 760, 1200],
+];
+export function plazaZone(x, y) {
+  if (Math.hypot(x - 899.5, (y - 639.5) / 0.78) < PLAZA_ZONE.fountain) return "분수 쉼터";
+  const z = ZONES.find(([, x0, y0, x1, y1]) => x >= x0 && x < x1 && y >= y0 && y < y1);
+  return z ? z[0] : "분수 쉼터";
+}

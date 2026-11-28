@@ -98,6 +98,7 @@ import { WEAPON_SKILLS } from "./game/skillData.js";
 import { TRAIN, TRAIN_TOGGLES, TRIAL } from "./game/trainData.js";
 import { TEST_TOGGLES } from "./game/testData.js";
 import { TEST_MODE } from "./net/testMode.js";
+import { PLAZA_NEW, PLAZA_ZONE, plazaZone } from "./game/plazaLayout.js";
 const HUD2_ZOOM = 0.88;   // 새 화면 구성의 카메라 배율(1 = 예전, 작을수록 넓게 보인다)
 const TEST_SPOTS = TEST_MODE ? testSpots() : [];   // 테스트 도구 창의 장소 이동 묶음
 // 최고 레벨 · 스탯 상한 — 테스트 모드(?test)는 800~1200 사냥터와 함께 1200(highData.js HIGH), 일반 주소는 지금 값
@@ -1705,7 +1706,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
     watchImages();                                    // 맵 불러오기 가림막 — 새로 부르는 그림을 센다
     const warm = setTimeout(() => LOAD_ART_ALL.forEach((u) => fetch(u).catch(() => {})), 1500);   // 불러오기 화면 일러스트를 미리 받아 둔다(fetch 라 가림막이 세지 않는다)
 
-    let raf, last = performance.now(), hudAt = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null, noticeDone = false, loadMap = "", loadUi = 0;
+    let raf, last = performance.now(), hudAt = 0, sinceSnap = 0, saved = "", lastMap = "", lastNote = null, noticeDone = false, loadMap = "", loadUi = 0, lastZone = "";
+    const zoneSeen = {};   // 새 광장 구역 이름을 띄운 때(ms) — 같은 구역은 PLAZA_ZONE.rest 동안 다시 띄우지 않는다
     const loop = (now) => {
       // 첫 프레임의 시각은 루프를 건 시각보다 앞설 수 있다 — 거꾸로 가지 않게 막는다
       const real = Math.max(0, (now - last) / 1000);
@@ -1913,6 +1915,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           giftRef.current = true;
         }
         if (me && me.map !== lastMap) lastMap = me.map;   // 맵 이름은 불러오기 가림막이 걷힐 때 띄운다
+        if (PLAZA_NEW && me && me.map === "plaza" && !loadRef.current) {   // 새 광장 — 구역에 들어가면 이름을 잠깐(맵에 막 들어온 때는 맵 이름만)
+          const z = plazaZone(me.x, me.y), t = Date.now();
+          if (z !== lastZone) {
+            if (lastZone && !(t - (zoneSeen[z] || 0) < PLAZA_ZONE.rest)) { zoneSeen[z] = t; setToast({ name: z, at: t, zone: 1 }); }
+            lastZone = z;
+          }
+        } else if (me && me.map !== "plaza") lastZone = "";
         // 실린 뒤로는 바뀔 때마다 이 기기에 남긴다
         if (me && me.loaded && !me.tradeLocal && !TEST_MODE) {   // 테스트 모드는 이 기기에 남기지 않는다
           const key = `${me.lv}/${me.xp}/${me.coins}/${me.quest.on ? 1 : 0}/${me.quest.n}/${STAT_IDS.map((k) => me.st[k]).join(",")}/${me.bag.ld ? me.bag.v : "-"}`

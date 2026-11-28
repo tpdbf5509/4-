@@ -2861,6 +2861,22 @@ export function drawFx(ctx, f) {
       ctx.beginPath(); ctx.moveTo(-34, 0); ctx.lineTo(10, 0); ctx.stroke();
       ctx.globalAlpha = 1; ctx.fillStyle = "#fff6dd";
       ctx.beginPath(); ctx.ellipse(8, 0, 6, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (f.style === "blood") {                        // 피 탄환 — 길게 이어진 핏줄기 꼬리 · 흩날리는 핏방울 · 물방울 모양 머리
+      const dist0 = Math.hypot(f.x1 - f.x0, f.y1 - f.y0), tail = Math.min(36, dist0 * q + 8);
+      const g2 = ctx.createLinearGradient(-tail, 0, 6, 0);
+      g2.addColorStop(0, "rgba(90,6,16,0)"); g2.addColorStop(1, "rgba(184,25,45,0.85)");
+      ctx.strokeStyle = g2; ctx.lineWidth = 5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(-tail, 0); ctx.lineTo(4, 0); ctx.stroke();
+      ctx.fillStyle = "#7a0c1b";                              // 뒤로 흩날리는 핏방울 — 날아간 거리에 맞춰 위치가 흔들린다
+      for (let i = 0; i < 4; i++) {
+        const dx = -10 - i * 8 - ((q * 60 + i * 7) % 6), dy = ((i % 2) ? 1 : -1) * (2.5 + i * 0.9);
+        ctx.globalAlpha = 0.85 - i * 0.18;
+        ctx.beginPath(); ctx.arc(dx, dy, 2.2 - i * 0.35, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#b8192d";                              // 머리 — 앞이 뾰족한 핏방울
+      ctx.beginPath(); ctx.moveTo(11, 0); ctx.quadraticCurveTo(2, -6.5, -5, -3.6); ctx.quadraticCurveTo(-8, 0, -5, 3.6); ctx.quadraticCurveTo(2, 6.5, 11, 0); ctx.fill();
+      ctx.fillStyle = "#ff6b78"; ctx.beginPath(); ctx.ellipse(2, -1.6, 3, 1.3, 0, 0, Math.PI * 2); ctx.fill();   // 빛 반사
     } else if (f.style === "shell") {
       const lift = Math.sin(q * Math.PI) * 42;               // 포물선으로 날아간다
       ctx.translate(0, -lift);

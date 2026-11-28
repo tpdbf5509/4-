@@ -15,10 +15,10 @@ import { warmDragonFlightArt } from "./dragonFlightArt.js";
 import { warmFuryArt } from "./furyArt.js";
 import { drawStormScreenFlash } from './stormWeaponArt.js';
 import { drawBloodMarks } from './bloodGunArt.js';
-import { drawBloodJobMarks, drawBloodSpots, drawBloodBlade, warmBloodJob, BLOOD_JOB_CAP, BLOOD_JOB_UNDER } from './bloodJobArt.js';
+import { drawBloodJobMarks, drawBloodSpots, drawBloodBlade, BLADE_HAND, warmBloodJob, BLOOD_JOB_CAP, BLOOD_JOB_UNDER } from './bloodJobArt.js';
 import { BLOOD_SPOTS } from './bloodJobData.js';
 import { spotShown } from './bloodUnlock.js';   // 히든 직업 BLOOD-001
-import { bloodView } from './bloodJob.js';
+import { bloodView, bloodOn } from './bloodJob.js';
 import { GAMBLER_CAP, drawGamblerSpots } from './gamblerArt.js';
 import { GM_SPOTS } from './gamblerData.js';
 import { gmSpotShown } from './gamblerUnlock.js';
@@ -205,7 +205,21 @@ const ADV_HOLD = { mage: { front: [-72, 74], turn: [-95, 60], side: [-100, 62], 
 const ADV_OWN = { gunner: "gun", summoner: "grim" };   // 전직 그림에 이미 든 전직 무기 — 이 무기면 그림 그대로
 // 무기 방향을 몸 바깥쪽으로 — 기본 직업과 전직 그림은 무기를 든 손이 반대편일 수 있다(몸을 가로지르지 않게 좌우로 뒤집는다)
 const outward = (deg, onLeft) => (Math.cos((deg * Math.PI) / 180) > 0 === onLeft ? 180 - deg : deg);
+// BLOOD-001 — 크림슨 레퀴엠(blood_gun)을 들면 무기를 지운 몸 그림(<보기>-bare)의 혈검 손 자리에 총을 쥐여 준다(11월 28일 사용자 "장착해도 손에 안 보임").
+// 겨눈 쪽(앞 · 뒤는 오른쪽, 옆 · 돌아보기는 왼쪽)으로 총구를 약간 올려 들고, 왼쪽을 볼 때는 총 그림을 위아래로 뒤집어 손잡이가 아래로 가게 한다
+const BLOOD_GUN_DEG = { front: -8, turn: 188, side: 188, back: -14 }, BLOOD_GUN_LEN = 34;
+function bloodGunHeld(h, view) {
+  const sp = SPECIAL_BY_ID[heldSpecial(h)];
+  if (!sp || sp.id !== "blood_gun") return null;
+  const body = artImg(advArtPath(h, `${view}-bare`)), wpn = body && weaponImg(sp);
+  if (!wpn) return null;                              // 못 불러오면 원래 그림 그대로
+  const H = (BLADE_HAND[h.gender === "f" ? "f" : "m"] || BLADE_HAND.m)[view] || BLADE_HAND.m.front;
+  const deg = BLOOD_GUN_DEG[view] ?? -8, left = Math.cos((deg * Math.PI) / 180) < 0;
+  return { body, hand: [H[0] * body.naturalWidth, H[1] * body.naturalHeight, deg], wpn, grip: BLOOD_GUN_GRIP, len: BLOOD_GUN_LEN, still: true, mirror: left, left };
+}
+const BLOOD_GUN_GRIP = [30, 100, 114, 24];             // 레퀴엠 그림(128px)의 손잡이 → 총구
 function advHeld(h, view) {
+  if (!h.advClass && (h.bdv || bloodOn(h))) return bloodGunHeld(h, view);
   const g = h.gender === "f" ? "f" : "m", xy = ADV_HAND[h.advClass]?.[g]?.[view];
   const sp = SPECIAL_BY_ID[heldSpecial(h)];
   if (!xy || !sp || ADV_OWN[h.advClass] === sp.t) return null;

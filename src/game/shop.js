@@ -214,6 +214,8 @@ export function dealOf(lv, day = todayKey()) {
    oc 는 직업과 다른 무기 정리를 마쳤는지(업데이트 뒤 처음 들어올 때 한 번, rpg.js rpgJoin)
    ld 는 저장된 기록을 실었는지 — 싣기 전의 빈 가방으로 기록을 덮지 않게 한다 */
 export const newBag = () => ({ w: [], e: 0, a: [], ae: {}, p: {}, qs: [], s: {}, m: {}, wp: 0, gd: 0, day: { d: "", box: 0, dice: 0, slot: 0, deal: 0, junk: 0, race: 0 }, n: 1, bx: 0, v: 0, ld: 0, oc: 0, ks: { job: "", g: ["", ""] } });
+// 히든 직업이 지금 든 무기를 그대로 두나 — 전용 무기를 드는 직업만(네크로맨서 · 와이번). 나머지는 맨손
+const hjWeaponKept = (active, w) => !!w && ((active === "necromancer" && ncWeaponOk(w)) || (active === "wyvern" && wyWeaponOk(w)));
 export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(adminBagMax)까지 싣는다
   const b = newBag();
   if (!d || typeof d !== "object") return b;
@@ -278,7 +280,7 @@ export function cleanBag(d, admin) {   // admin 이면 관리자 가방 칸(admi
   if (bd && bd.on && !bloodWeaponOk(equipped(b))) b.e = 0;   // BLOOD-001 은 크림슨 레퀴엠만(11월 16일 사용자) — 예전에 든 다른 무기는 내려놓는다
   const hj = cleanHj(d.hj, !!(bd && bd.on));
   if (hj) b.hj = hj;                              // 히든 직업 Gambler 002 · Engineer 003 — 켜짐 · 직업 레벨 · 연마(gamblerJob.js). BLOOD-001 과 둘 다 켜진 기록은 이쪽을 끈다
-  if (hj && hj.active && !(hj.active === "necromancer" && equipped(b) && ncWeaponOk(equipped(b)))) b.e = 0;   // 무기를 들지 않는다 — 들고 있던 것은 내려놓는다(가방에는 남는다). Necromancer 004 의 그림자 낫만 그대로
+  if (hj && hj.active && !hjWeaponKept(hj.active, equipped(b))) b.e = 0;   // 무기를 들지 않는 직업은 들고 있던 것을 내려놓는다(가방에는 남는다). 전용 무기를 드는 직업(그림자 낫 · 아르카디온)은 그것만 그대로 — 다시 접속해도 장착이 풀리지 않게(11월 28일 사용자)
   const gu = cleanGu(d.gu);
   if (gu) b.gu = gu;                              // Gambler 002 해금 경로 — 단서 · 진행 · 연 문(gamblerUnlock.js)
   const eu = cleanEu(d.eu);

@@ -2506,7 +2506,8 @@ function heroAttack(g, h, force) {
 }
 
 // 궁수 평타 모양 — 총사가 총을 들었으면 화살 대신 주황 탄환(art.js "slug"). 판정은 같다
-const archerShot = (h, el) => (h.advClass === "gunner" && advOf(h) && advEngine.gunHeld(h) ? { style: "slug", color: "#ffb45a" } : { style: "arrow", color: el.light });
+// 크림슨 레퀴엠(BLOOD-001)은 피가 뭉쳐 날아가는 혈탄(art.js "blood", 11월 28일 사용자 "발사 총알도 피가 날라가도록")
+const archerShot = (h, el) => (heldSpecial(h) === "blood_gun" ? { style: "blood", color: "#b8192d" } : h.advClass === "gunner" && advOf(h) && advEngine.gunHeld(h) ? { style: "slug", color: "#ffb45a" } : { style: "arrow", color: el.light });
 
 // 겨누는 방향 — 누르고 있는 방향, 없으면 바라보는 쪽(좌우). 단위 벡터
 export function aimDir(h) {

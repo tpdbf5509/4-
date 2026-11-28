@@ -6,7 +6,7 @@
    큰 형상 · 입자 수는 품질 값(DETAIL)으로 줄고, 입자는 한 연출 · 한 프레임 상한(WY_BITS)을 넘지 않는다.
    와이번 몸은 상태(wyvernView(h).u)라 rpgArt 가 사람 · 몹과 앞뒤를 맞춰 drawWyvernUnit 으로 그린다. 고도는 그림자와 그림의 화면 높이 차이로만 보인다.
    반룡 날개 · 뿔 · 용린 비늘 · 보라 날개 잔상은 drawWyvernHero 가 캐릭터 그림 앞뒤에 겹친다(무기 그림은 없다). */
-import { WY_CONTRACT as CT, WY_BITS, WY_DIVE as DV, WY_ULT as UL, WY_SCALE as SCL, WY_AWAKE as AWK } from "./wyvernData.js";
+import { WY_CONTRACT as CT, WY_BITS, WY_DIVE as DV, WY_ULT as UL, WY_SCALE as SCL, WY_AWAKE as AWK, WY_IMPACT as IM } from "./wyvernData.js";
 import { wyvernView } from "./wyvernJob.js";
 import { WYVERN_PX_SRC, WYVERN_PX as SH } from "./wyvernPxData.js";
 
@@ -120,6 +120,14 @@ const wave = (ctx, x, y, r, u, a = 1) => { if (u >= 0 && u <= 1) cell(ctx, "wy_w
 // 큰 참격 한 장 — 겨눈 쪽으로 돌린다(row 1 보라). k 는 반지름에서
 const slash = (ctx, name, u, x, y, r, rot, row = 0, flipY = false, a = 1) => cell(ctx, name, once(name, u), x, y, Math.max(1, Math.round(r / SH[name].r)), a, row, false, rot, flipY);
 
+/* ── 역린 해방 강화 연출(11월 28일 사용자 "역린 해방 시 모든 스킬이 강화되고 이펙트도 강화된 느낌") — 해방 중 나간 연출(f.aw)에만 겹친다. 그리기만, 판정 그대로.
+   ① 빛 더하기(lighter)로 같은 그림을 한 번 더 얹어 밝게 ② 보라 · 붉은 기운 고리(wy_rage)를 판정 반경 안쪽에 깔아 범위를 넓게 채운다
+   ③ 보라 잔광 · 비늘 조각 입자를 더한다. 고리는 판정 반경을 넘지 않게 내림 배율, 빛 더하기는 반투명이라 화면을 덮지 않는다 */
+const AWX = { glow: 0.45, ring: 0.75 };
+function glow(ctx, a, draw) { ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha *= a; try { draw(); } finally { ctx.restore(); } }
+function rage(ctx, x, y, r, u, a = AWX.ring) { if (u >= 0 && u <= 1) cell(ctx, "wy_rage", once("wy_rage", u), x, y, Math.max(1, Math.floor(r / SH.wy_rage.r)), a); }
+const awBits = (ctx, seed, x, y, sq, u, r, n = 1, o = {}) => bits(ctx, seed + 77, x, y, sq, u, { wisp: Math.round(12 * n), shard: Math.round(6 * n), spk: Math.round(4 * n) }, { r, out: 0.4, up: 46, spread: 0.4, ...o });
+
 /* ── 용조격 — 0.00 손에 불티 · 0.12 굵은 발톱 참격 세 줄(아르카디온을 들었으면 대검 끝에서 뻗는다) · 0.34 잔불 ── */
 function claw(ctx, f, t, sq) {
   const rot = scr(f.ax, f.ay, sq), hx = f.x + f.ax * 10, hy = f.y - 30 + f.ay * 10 * sq;
@@ -131,11 +139,17 @@ function claw(ctx, f, t, sq) {
     cell(ctx, "wy_puff", once("wy_puff", u / 0.5 + 0.1), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq - 28, 1, 0.9);
   }
   bits(ctx, seedOf(f), f.x, f.y, sq, u, { emb: 12, spk: 8, shard: 3 }, { r: f.r * 0.95, out: 0.3, lift: 28, up: 22, spread: 0.2, fan: [f.ax, f.ay * sq, f.arc] });
+  if (f.aw) {   // 해방 — 반대로 긋는 둘째 발톱 · 빛 더하기 · 보라 잔광
+    glow(ctx, AWX.glow, () => slash(ctx, "wy_claw", u, f.x, f.y - 30, f.r, rot, 0, !!f.fl));
+    slash(ctx, "wy_claw", clamp(u * 1.2 + 0.08), f.x, f.y - 30, f.r * 0.8, rot, 0, !f.fl, 0.6);
+    awBits(ctx, seedOf(f), f.x, f.y, sq, u, f.r, 0.8, { out: 0.3, lift: 28, spread: 0.25, fan: [f.ax, f.ay * sq, f.arc] });
+  }
 }
 function hit(ctx, f, t, sq) {
   const u = t / f.life;
   cell(ctx, "wy_hit", once("wy_hit", u), f.x, f.y - 26, f.big ? 3 : K);
   bits(ctx, seedOf(f), f.x, f.y, sq, u, f.big ? { emb: 12, spk: 8, shard: 4, smk: 3 } : { emb: 7, spk: 4, shard: 2 }, { r: f.big ? 34 : 20, out: 0.6, lift: 26, up: 30, spread: 0.15 });
+  if (f.aw) { glow(ctx, 0.6, () => cell(ctx, "wy_hit", once("wy_hit", u), f.x, f.y - 26, f.big ? 4 : 3)); awBits(ctx, seedOf(f), f.x, f.y, sq, u, f.big ? 40 : 26, 0.5, { lift: 26, spread: 0.15 }); }
 }
 // 와이번 화염탄 — 날아가는 불덩이 · 뒤로 불씨
 function ball(ctx, f, t, sq) {
@@ -180,6 +194,13 @@ function roar(ctx, f, t, sq) {
   }
   if (t >= f.d) flares(ctx, seedOf(f) + 4, f.x + ax * f.r * 0.6, f.y + ay * f.r * 0.6 * sq, sq, clamp((t - f.d) / (f.life - f.d)), 12, f.r * 0.4, K, 0.6);
   bits(ctx, seedOf(f), f.x, f.y, sq, clamp((t - f.d) / (f.life - f.d)), { emb: 22, lick: 12, spk: 10, smk: 8 }, { r: f.r, out: 0.15, lift: 14, up: 30, spread: 0.7, fan: [ax, ay * sq, f.arc] });
+  if (f.aw && t >= f.d) {   // 해방 — 포탈 · 불길을 밝게 겹치고 부채꼴을 보라 잔광 · 솟는 불길로 더 채운다
+    const v = clamp((t - f.d) / (f.life - f.d));
+    glow(ctx, AWX.glow, () => cell(ctx, "wy_portal", 4 + Math.min(3, Math.floor((t - f.d) / 0.08)), px, py, K, pa, 0, flip, flip ? -Math.atan2(ay * sq, -ax) * 0.5 : Math.atan2(ay * sq, ax) * 0.5));
+    flares(ctx, seedOf(f) + 40, f.x + ax * f.r * 0.45, f.y + ay * f.r * 0.45 * sq, sq, v, 10, f.r * 0.5, K, 0.55);
+    rage(ctx, f.x, f.y, 100, clamp((t - f.d) / 0.9));
+    awBits(ctx, seedOf(f), f.x, f.y, sq, v, f.r, 1.4, { out: 0.15, lift: 14, spread: 0.7, fan: [ax, ay * sq, f.arc] });
+  }
   // 와이번 갈래 — 와이번 입에서 시전자 앞 짧은 부채꼴로
   const s = f.sub;
   if (s && t >= s.at) {
@@ -217,6 +238,11 @@ function dive(ctx, f, t, sq) {
   bits(ctx, seedOf(f), f.x, f.y, sq, v, { emb: 18, shard: 12, smk: 12, lick: 10, spk: 8 }, { r: f.r * 0.85, out: 0.35, up: 70, spread: 0.3 });
   if (f.ex) { const w = (t - DV.extra) / 0.4; if (w >= 0 && w <= 1) { cell(ctx, "wy_pillar", once("wy_pillar", w), f.x, f.y, 3); cell(ctx, "wy_crack", once("wy_crack", w), f.x, f.y, Math.max(1, k - 1), 0.9); } }
   if (f.storm) { const w = (t - DV.end) / (f.life - DV.end); if (w >= 0) bits(ctx, seedOf(f) + 5, f.x, f.y, sq, w, { wisp: 20, shard: 14, emb: 10 }, { r: f.r, out: 0.6, up: 50, spread: 0.2 }); }
+  if (f.aw || f.ex) {   // 해방 — 착지 자리에 기운 고리 · 균열을 밝게 · 보라 잔광
+    rage(ctx, f.x, f.y, f.r, v * 1.1);
+    glow(ctx, AWX.glow, () => cell(ctx, "wy_crack", once("wy_crack", v * 1.15), f.x, f.y, k));
+    awBits(ctx, seedOf(f), f.x, f.y, sq, v, f.r * 0.9, 1.4, { up: 70, spread: 0.3 });
+  }
 }
 
 /* ── 용린 수호 — 켜질 때 비늘이 발밑에서 쌓여 오르는 동안 불티(방벽은 drawWyvernHero) · 꺼질 때 방벽이 깨져 비늘 조각이 흩어진다 ── */
@@ -225,6 +251,7 @@ function scaleOn(ctx, f, t, sq) {
   const u = t / 0.5;
   ring(ctx, f.x, f.y, 34 + 30 * u, sq, C.warn, 0.8 * (1 - u));
   bits(ctx, seedOf(f), f.x, f.y - 30, sq, u, { shard: 16, spk: 10, emb: 8 }, { r: 46, out: -0.5, up: 16, spread: 0.3 });
+  if (f.aw) { rage(ctx, f.x, f.y, 90, u); awBits(ctx, seedOf(f), f.x, f.y - 30, sq, u, 60, 1, { out: -0.4, up: 20, spread: 0.3 }); }
 }
 function scaleOff(ctx, f, t, sq) {
   const u = t / f.life;
@@ -246,6 +273,7 @@ function sky(ctx, f, t, sq) {
   cell(ctx, "wy_shade", loop(4, 0.25), f.x + Math.cos(a) * f.r * 0.5, f.y + Math.sin(a) * f.r * 0.5 * sq, 2, 0.45 * (1 - u));
   if (f.wy) cell(ctx, "wy_wyvern", loop(4, 0.32), f.x + Math.cos(a) * f.r * 0.5, f.y + Math.sin(a) * f.r * 0.5 * sq - 220, WY_K, 0.75 * (1 - u), 0, Math.sin(a) > 0);   // 와이번이 없을 때 — 임시 비룡(그림만)
   bits(ctx, seedOf(f), f.x, f.y, sq, u, { emb: 24, smk: 10, lick: 10 }, { r: f.r * 0.95, out: 0.05, up: 40, spread: 0.8 });
+  if (f.aw) { ring(ctx, f.x, f.y, f.r * 0.98, sq, C.violet, 0.7 * (1 - u * 0.6)); awBits(ctx, seedOf(f), f.x, f.y, sq, u, f.r * 0.95, 1.6, { out: 0.05, spread: 0.85 }); }
 }
 function drop(ctx, f, t, sq) {
   const k = Math.max(1, Math.round(f.r / SH.wy_crack.r));
@@ -262,6 +290,11 @@ function drop(ctx, f, t, sq) {
   flares(ctx, seedOf(f) + 5, f.x, f.y, sq, v, 6, f.r * 0.7, K, 0.35);
   for (let i = 0, n = nq(7); i < n; i++) { const a = (i / n) * TAU, d = f.r * (0.3 + 0.55 * v); cell(ctx, "wy_puff", once("wy_puff", v * 1.2 + rnd(i, f.i) * 0.2), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq - 10, K, 1); }
   bits(ctx, seedOf(f), f.x, f.y, sq, v, { emb: 12, shard: 6, smk: 6, spk: 6 }, { r: f.r * 0.8, out: 0.4, up: 60, spread: 0.2 });
+  if (f.aw) {   // 해방 — 떨어진 자리마다 기운 고리 · 밝은 불기둥
+    rage(ctx, f.x, f.y, f.r, v);
+    glow(ctx, AWX.glow, () => cell(ctx, "wy_drop", 4 + once("wy_drop", v, 3), f.x, f.y, 4));
+    awBits(ctx, seedOf(f), f.x, f.y, sq, v, f.r * 0.8, 0.8, { up: 60, spread: 0.2 });
+  }
 }
 
 /* ── 역린 해방 — 0~0.3 발밑에서 붉은 기운이 모인다 · 0.3 기둥이 치솟고 충격파 · 날개는 drawWyvernHero(등에서 펼쳐진다) ── */
@@ -333,6 +366,11 @@ function ult(ctx, f, t, sq) {
   boom(UL.first, kc, f.x, f.y, true);
   for (let i = 0; i < UL.n; i++) { const a = i * TAU / UL.n + 0.4, d = R * 0.55; boom(UL.b0 + i * UL.bGap, Math.max(1, kc - 2), f.x + Math.cos(a) * d, f.y + Math.sin(a) * d * sq, false); }
   boom(UL.last, kc, f.x, f.y, true);
+  if (f.aw && t >= UL.warn) {   // 해방 — 넓은 기운 고리가 두 번(첫 충돌 · 최종) 퍼지고, 큰 폭발 기둥을 밝게 겹친다
+    rage(ctx, f.x, f.y, R, (t - UL.first) / 1.0); rage(ctx, f.x, f.y, R, (t - UL.last) / 0.9);
+    for (const at of [UL.first, UL.last]) { const v = (t - at) / 0.6; if (v >= 0 && v <= 1) glow(ctx, AWX.glow, () => cell(ctx, "wy_pillar", once("wy_pillar", v), f.x, f.y, 5)); }
+    awBits(ctx, seedOf(f), f.x, f.y, sq, clamp((t - UL.warn) / (f.life - UL.warn)), R * 0.95, 2, { out: 0.1, up: 60, spread: 0.85, k: 3 });
+  }
   if (f.sync) {
     const v = (t - UL.crack) / 0.6;
     if (v >= 0 && v <= 1) { cell(ctx, "wy_crack", once("wy_crack", v * 0.6), f.x, f.y, kc, 1); bits(ctx, seedOf(f) + 99, f.x, f.y, sq, v, { wisp: 24, lick: 14 }, { r: R * 0.7, out: 0.2, up: 70, spread: 0.2 }); }
@@ -369,6 +407,11 @@ function assault(ctx, f, t, sq) {
   if (e >= 0) { wave(ctx, f.x1, f.y1, f.r * 1.2, e, 0.95); cell(ctx, "wy_hit", once("wy_hit", e), f.x1, f.y1 - 28, 3); }
   bits(ctx, seed, (f.x0 + f.x1) / 2, (f.y0 + f.y1) / 2, sq, t / f.life, { emb: 26, shard: 14, spk: 14, lick: 10, smk: 6 }, { r: len / 2 + f.r * 0.6, out: 0.15, up: 46, spread: 0.6 });
   bits(ctx, seed + 7, f.x1, f.y1, sq, clamp(e), { emb: 16, shard: 10, spk: 8 }, { r: f.r, out: 0.8, up: 60, spread: 0.15 });
+  if (f.aw) {   // 해방 — 불꼬리를 밝게 겹치고 끝에 기운 고리 · 길에 보라 잔광
+    glow(ctx, AWX.glow, () => { for (let i = 0; i < nSeg; i++) { const b = (i + 0.5) / nSeg; if (b > u + 0.02) break; cell(ctx, "wy_trail", once("wy_trail", (t - b * f.d) / (f.life - b * f.d * 0.5)), f.x0 + ax * b, f.y0 + ay * b - 16, K, 1, 0, false, ang); } });
+    if (e >= 0) rage(ctx, f.x1, f.y1, f.r * 1.2, e);
+    awBits(ctx, seed, (f.x0 + f.x1) / 2, (f.y0 + f.y1) / 2, sq, t / f.life, len / 2 + f.r * 0.5, 1.4, { out: 0.15, spread: 0.6 });
+  }
 }
 /* ── 아르카디온 · 용참섬멸 — 손에 든 대검(drawWyvernHero)을 휘두를 때 돌진 잔상 · 발밑 불티. 베기 그림은 sk_wy_arc ── */
 function blade(ctx, f, t, sq, g) {
@@ -376,15 +419,18 @@ function blade(ctx, f, t, sq, g) {
   if (t < 0.12) cell(ctx, "wy_hit", once("wy_hit", t / 0.12) , x, y - 34, K, 0.9);
   for (let i = 0, n = nq(5); i < n; i++) cell(ctx, "wy_trail", Math.min(5, 1 + i), x - f.ax * (14 + i * 18), y - f.ay * (14 + i * 18) * sq - 18, K, 0.75 - i * 0.12, 0, false, scr(f.ax, f.ay, sq));
   bits(ctx, seedOf(f), x, y, sq, u, { emb: 14, spk: 8, shard: 4 }, { r: 50, lift: 20, up: 26, spread: 0.6 });
+  if (f.aw) awBits(ctx, seedOf(f), x, y, sq, u, 60, 0.8, { lift: 20, spread: 0.6 });
 }
 function arc(ctx, f, t, sq) {
   const u = t / f.life, rot = scr(f.ax, f.ay, sq), big = f.i > 1;
-  slash(ctx, "wy_arc", u, f.x, f.y - 30, f.r, rot, big ? 1 : 0, big);
+  slash(ctx, "wy_arc", u, f.x, f.y - 30, f.r, rot, big || f.aw ? 1 : 0, big);   // 해방 중이면 1타도 보라 참격
+  if (f.aw) glow(ctx, AWX.glow, () => slash(ctx, "wy_arc", u, f.x, f.y - 30, f.r, rot, 0, big));
   if (big) slash(ctx, "wy_arc", Math.min(1, u * 1.3 + 0.1), f.x, f.y - 30, f.r * 0.7, rot, 0, false, 0.8);   // 2타 — 안쪽에 한 겹 더
   puffFan(ctx, seedOf(f), f.x, f.y, f.ax, f.ay, f.r, f.arc, sq, clamp(u * 3), clamp(u * 1.5 - 0.2), 1);
   if (big) wave(ctx, f.x + f.ax * f.r * 0.5, f.y + f.ay * f.r * 0.5 * sq, f.r * 0.8, u * 1.3, 0.8);
   flares(ctx, seedOf(f) + 2, f.x + f.ax * f.r * 0.55, f.y + f.ay * f.r * 0.55 * sq, sq, u, big ? 10 : 6, f.r * 0.45, K, 0.3);
   bits(ctx, seedOf(f), f.x, f.y, sq, u, big ? { emb: 18, wisp: 10, shard: 10, spk: 8 } : { emb: 14, spk: 8, shard: 5 }, { r: f.r, lift: 20, up: 28, spread: 0.2, fan: [f.ax, f.ay * sq, f.arc] });
+  if (f.aw) { if (big) rage(ctx, f.x, f.y, f.r, u); awBits(ctx, seedOf(f), f.x, f.y, sq, u, f.r, 1.2, { lift: 20, up: 28, spread: 0.2, fan: [f.ax, f.ay * sq, f.arc] }); }
 }
 
 const KINDS = { sk_wy_claw: claw, sk_wy_hit: hit, sk_wy_ball: ball, sk_wy_sum: summon, sk_wy_gone: gone, sk_wy_roar: roar, sk_wy_dive: dive, sk_wy_scale: scaleOn,
@@ -406,6 +452,41 @@ export function drawWyvernFx(ctx, f, p, sq, g, time, quality = 1) {
   ctx.save(); ctx.imageSmoothingEnabled = false;
   try { fn(ctx, f, clamp(p) * f.life, sq, g); } finally { ctx.restore(); }
   return true;
+}
+
+/* ── 종언의 용성 마지막 폭발 정지 장면(11월 28일 사용자 "화면이 0.1초 경직되면서 흰색과 검은색", 참고 영상의 임팩트 컷) ──
+   rpgArt drawRpg 가 세계를 다 그린 뒤 화면 좌표로 부른다. 최종 폭발(UL.last)부터 IM.white + IM.black 초 동안만 그린다 — 그리기만, 판정 · 타이머 · 게임 시간은 그대로 흐른다.
+   시전자 화면: 폭발 순간 화면을 한 장 떠서(멈춘 그림) 흑백으로 바꾸고 → 흰 종이 위 검은 먹(뒤집은 장면) → 검은 바탕 위 흰 빛. 같은 그림을 0.1초 붙잡아 화면이 굳은 것처럼 보인다.
+   남의 화면 · 「연출 줄이기」: 화면 전체를 바꾸지 않고 폭발 자리에 먹 그림만 옅게 겹친다(번쩍임 줄임) */
+let frz = null;   // { f: 이 장면의 용성 연출, cv: 떠 둔 그림 }
+export function drawWyvernImpact(ctx, g, W, H, cam, low = false) {
+  const me = g && g.heroes && g.heroes[g.mySeat], span = IM.white + IM.black;
+  const f = me && cam && g.fx ? g.fx.find((q) => q.kind === "sk_wy_ult" && q.map === me.map && q.life - q.t >= UL.last && q.life - q.t < UL.last + span) : null;
+  if (!f) { if (frz) frz.f = null; return; }
+  const e = f.life - f.t - UL.last, dark = e >= IM.white, z = cam.z || 1;
+  const sx = (f.x - cam.x) * z, sy = (f.y - cam.y) * z, kk = Math.max(1, Math.round((f.r * z) / SH.wy_ink.r));
+  const cv = ctx.canvas, full = f.pi === g.mySeat && !low && cv && cv.width > 0;
+  warmWyvern();
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  try {
+    if (!full) { cell(ctx, "wy_ink", dark ? 1 : 0, sx, sy, kk, IM.local, dark ? 1 : 0); return; }
+    if (!frz) frz = { f: null, cv: typeof document !== "undefined" ? document.createElement("canvas") : null };
+    if (frz.f !== f && frz.cv) {   // 폭발 순간 — 지금 화면을 한 장 떠 둔다(이 뒤 0.1초는 이 그림만 보인다)
+      frz.cv.width = cv.width; frz.cv.height = cv.height; frz.cv.getContext("2d").drawImage(cv, 0, 0);
+    }
+    frz.f = f;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (frz.cv) ctx.drawImage(frz.cv, 0, 0);
+    ctx.globalCompositeOperation = "saturation"; ctx.fillStyle = "#808080"; ctx.fillRect(0, 0, cv.width, cv.height);   // 색을 뺀다
+    if (!dark) {
+      ctx.globalCompositeOperation = "difference"; ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, cv.width, cv.height);   // 밝은 불꽃 → 검게, 어두운 땅 → 희게
+      ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 0.55; ctx.fillStyle = IM.paper; ctx.fillRect(0, 0, cv.width, cv.height);
+    } else {
+      ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = IM.wash; ctx.fillStyle = IM.ink; ctx.fillRect(0, 0, cv.width, cv.height);
+    }
+    ctx.restore();
+    cell(ctx, "wy_ink", dark ? 1 : 0, sx, sy, kk + 1, 1, dark ? 1 : 0);
+  } finally { ctx.restore(); }
 }
 
 /* ── 와이번 몸 — rpgArt 가 발 높이(땅 y)로 줄 세워 부른다. 땅에 그림자 · 화면 위 hz 에 몸(고도는 이 차이로만) ── */

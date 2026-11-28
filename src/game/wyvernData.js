@@ -88,6 +88,12 @@ export const WY_AWAKE = { name: "역린 해방", cost: 0, cd: 75, dur: 15, dur50
 export const WY_ULT = { name: "종언의 용성", cost: 0, cd: 100, reach: 650, r: 360, warn: 0.5, rise: 0.5, first: 0.9, firstMul: 65, n: 5, b0: 1.0, bGap: 0.2, bMul: 15,
   last: 2.0, lastMul: 65, awakeK: 1.7, crack: 2.2, crackMul: 30, tail: 0.8, near: 320 };
 
+/* 종언의 용성 마지막 폭발 정지 장면(11월 28일 사용자 "마지막 큰 폭발일 때 화면이 0.1초 경직되면서 흰색과 검은색") — 그리기만, 판정 · 타이머와 상관없다.
+   최종 폭발(UL.last) 순간 그 장면을 멈춘 그림으로 white 초는 흰 바탕 · 검은 먹, 이어 black 초는 검은 바탕 · 흰 빛(합 0.1초).
+   시전자 화면만 화면 전체를 바꾸고, 같은 맵의 다른 사람 화면 · 「연출 줄이기」 를 켠 화면은 폭발 자리에만 옅게(local 불투명도) 겹친다.
+   눈부심을 줄이려고 흰색은 순백이 아닌 종이색, 검은 바탕도 아주 검지 않게 둔다(paper · ink) — 정한 값 */
+export const WY_IMPACT = { white: 0.05, black: 0.05, paper: "#ECE6DE", ink: "#141012", wash: 0.82, local: 0.4 };
+
 /* 천공강습(1부 요약 9번 — 직업 레벨 75, 모두 정한 값) — 용혈 25 · 대기 12초. 겨눈 쪽으로 380 을 0.4초에 돌진하며
    0.1초마다 둘레 150 을 4번 벤다(한 번 ×4.0, 합 ×16). 같은 대상은 한 번 벨 때 한 번. 벽 앞에서 멈춘다 */
 export const WY_ASSAULT = { name: "천공강습", cost: 25, cd: 12, len: 380, time: 0.4, n: 4, r: 150, mul: 4.0 };

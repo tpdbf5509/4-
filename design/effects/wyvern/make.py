@@ -788,6 +788,93 @@ def awake_parts():
     tail = _aw_sheet([("tail", part("tail", AW_TAIL_H, AW_TAIL_F))])
     return wings, tail
 
+# ── 역린 해방 기운 고리(200×170, 바닥 기준 100,96 · 그림 속 반지름 88) — 11월 28일 사용자 "역린 해방 시 이펙트도 강화된 느낌".
+# 해방 중에만 스킬 착지 · 타격 자리 바닥에 깐다. 보라 테 · 붉은 안쪽 띠 · 위로 솟는 보라 불혀 · 비늘 모양 각인. 0~2 퍼짐 · 3~7 일렁이다 사그라듦 ──
+def rage_cells():
+    out = []
+    cx, cy, R0 = 100, 96, 88
+    for f in range(8):
+        c = Cv(200, 170); u = f / 7
+        k = ez(min(1, (f + 1) / 3)); rr = R0 * (.55 + .45 * k); fade = max(0.0, (f - 4) / 3)
+        c.band(cx, cy, rr, rr * SQ, .72, .9, al(R[2], .9), dens=lambda d: (.45 - fade * .35) * (d - .72) / .18 + .05)
+        c.band(cx, cy, rr, rr * SQ, .93, 1, V[2] if f < 5 else V[1], dens=.6 - fade * .4)
+        c.ring(cx, cy, rr, rr * SQ, V[4] if f < 4 else V[3], gap=0 if f < 5 else 2)
+        c.ring(cx, cy, rr * .7, rr * .7 * SQ, R[4] if f < 4 else R[3], gap=2)
+        n = 14
+        for i in range(n):   # 비늘 각인 — 테 안쪽에 갈매기 모양
+            if f > 6: break
+            a = i * TAU / n + f * .05; x, y = cx + math.cos(a) * rr * .82, cy + math.sin(a) * rr * .82 * SQ
+            col = V[4] if (i + f) % 3 == 0 else V[3]
+            c.line(x - 3, y - 1, x, y + 2, col); c.line(x, y + 2, x + 3, y - 1, col)
+        m = int(22 + rr * .2)
+        for i in range(m):   # 솟는 보라 불혀
+            if fade >= 1: break
+            a = i * TAU / m + rnd(81, i) * .25; x, y = cx + math.cos(a) * rr, cy + math.sin(a) * rr * SQ
+            hh = (8 + 22 * rnd(83, i, f)) * (1 - fade) * (.6 + .4 * math.sin(f * 1.3 + i))
+            for j in range(int(max(0, hh))):
+                t = j / max(1, hh)
+                c.px(x + math.sin(t * 4 + i + f) * t * 2, y - j, V[4] if t < .25 else V[3] if t < .6 else V[2])
+        if f < 3:
+            for i in range(10):   # 퍼질 때 튀는 비늘 조각
+                a = rnd(85, i) * TAU; d = rr * (.2 + .8 * rnd(87, i)) * k
+                c.px(cx + math.cos(a) * d, cy + math.sin(a) * d * SQ - (3 - f) * 3, R[4] if i % 2 else V[4])
+        out.append(c)
+    return out
+
+# ── 종언의 용성 마지막 폭발 정지 장면(240×200, 바닥 기준 120,124 · 그림 속 반지름 100) — 11월 28일 사용자 "0.1초 화면이 경직되면서 흰색과 검은색".
+# 색 없는 먹 그림 두 칸. 칸 0 흰 화면 위 검은 먹(폭발 덩어리 · 사방 가시 · 끊긴 바닥 고리 · 위로 선 빛줄기),
+# 칸 1 검은 화면 위 흰 빛(커진 핵 · 십자 별 · 빛살 · 날리는 파편). 줄 0 검은 먹 · 줄 1 흰 먹 — 같은 모양을 색만 바꿔 담는다 ──
+def ink_cells():
+    INK = [rgb("#120E10"), rgb("#F4F0EA")]
+    cx, cy, R0 = 120, 124, 100
+    def draw(c, f, col, soft):
+        if f == 0:
+            core = 22
+            for i in range(60):   # 거친 먹 덩어리
+                a = i * TAU / 60; d = core * (.8 + .5 * rnd(91, i))
+                c.line(cx, cy - 18, cx + math.cos(a) * d, cy - 18 + math.sin(a) * d * .9, col)
+            c.disc(cx, cy - 18, core, core * .9, col)
+            for i in range(20):   # 사방 가시 — 끝으로 갈수록 가늘어진다
+                a = rnd(93, i) * TAU; L = 50 + 70 * rnd(95, i); x0, y0 = cx, cy - 18
+                for j in range(int(L)):
+                    t = j / L; w = (1 - t) * 2.2
+                    x, y = x0 + math.cos(a) * (core + j), y0 + math.sin(a) * (core + j) * .8
+                    c.px(x, y, col)
+                    if w > 1.2: c.px(x + math.sin(a), y - math.cos(a), col)
+            c.ring(cx, cy, R0, R0 * SQ, col, a0=.3, a1=2.6); c.ring(cx, cy, R0, R0 * SQ, col, a0=3.2, a1=5.9)
+            c.ring(cx, cy, R0 * .96, R0 * .96 * SQ, soft, a0=.5, a1=2.2, gap=2)
+            for i in range(40):   # 날리는 파편
+                a = rnd(97, i) * TAU; d = R0 * (.4 + .7 * rnd(99, i))
+                x, y = cx + math.cos(a) * d, cy + math.sin(a) * d * SQ - 30 * rnd(101, i)
+                c.rect(x, y, 1 + (i % 3 == 0), 1 + (i % 4 == 0), col)
+            c.line(cx, cy - 40, cx, 0, col); c.line(cx + 1, cy - 40, cx + 1, 10, col)
+        else:
+            core = 30
+            c.disc(cx, cy - 20, core, core * .92, col)
+            for i in range(48):
+                a = i * TAU / 48; d = core * (.85 + .4 * rnd(103, i))
+                c.line(cx, cy - 20, cx + math.cos(a) * d, cy - 20 + math.sin(a) * d * .9, col)
+            for (dx, dy, L) in ((1, 0, 118), (-1, 0, 118), (0, -1, 100), (0, 1, 70)):   # 십자 별
+                for j in range(L):
+                    t = j / L; x, y = cx + dx * (core + j), cy - 20 + dy * (core + j)
+                    c.px(x, y, col)
+                    if t < .5: c.px(x + dy, y + dx, col); c.px(x - dy, y - dx, col)
+            for i in range(26):   # 빛살
+                a = rnd(105, i) * TAU; L = 40 + 80 * rnd(107, i)
+                for j in range(int(L)):
+                    if rnd(109, i, j) < .12: continue
+                    c.px(cx + math.cos(a) * (core + j), cy - 20 + math.sin(a) * (core + j) * .8, col)
+            c.ring(cx, cy, R0 * .85, R0 * .85 * SQ, col, a0=-.2, a1=3.4)
+            for i in range(50):
+                a = rnd(111, i) * TAU; d = R0 * (.5 + .6 * rnd(113, i))
+                c.rect(cx + math.cos(a) * d, cy + math.sin(a) * d * SQ - 40 * rnd(115, i), 1 + (i % 2), 1, col)
+    out = []
+    for row in range(2):
+        col = INK[row]; soft = al(INK[row], .55)
+        for f in range(2):
+            c = Cv(240, 200); draw(c, f, col, soft); out.append(c)
+    return out
+
 def pack(name, cells, cols=None, man=None, cx=None, cy=None, loop=0, rows=1, **extra):
     w, h = cells[0].w, cells[0].h; cols = cols or len(cells) // rows; R_ = math.ceil(len(cells) / cols)
     im = np.zeros((R_ * h, cols * w, 4), np.uint8)
@@ -828,6 +915,8 @@ def main():
     sheets["wy_trail"] = pack("wy_trail", trail_cells(), None, man)
     sheets["wy_wave"] = pack("wy_wave", wave_cells(), 4, man, r=92)
     sheets["wy_flare"] = pack("wy_flare", flare_cells(), None, man, cx=14, cy=46)
+    sheets["wy_rage"] = pack("wy_rage", rage_cells(), 4, man, cx=100, cy=96, r=88)
+    sheets["wy_ink"] = pack("wy_ink", ink_cells(), 2, man, cx=120, cy=124, rows=2, r=100)
     # 가방 · 상점 그림(128×128) — 아르카디온 한 칸을 대각선으로 세워 키운다(rpg/weapons/wy_arcadion.webp, shop.js specialArt)
     bh, bw = man["wy_blade"]["h"], man["wy_blade"]["w"]
     bl = Image.fromarray(sheets["wy_blade"][:bh, :bw], "RGBA").rotate(35, Image.NEAREST, expand=True)

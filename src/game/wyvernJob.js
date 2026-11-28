@@ -141,6 +141,8 @@ function strike(E, g, h, src, o, mul) {
 }
 // 역린 해방 중 시전한 기술 — 피해 +70%(시전 때 정한다)
 const skillK = (s) => (s.aw > 0 ? 1 + AW.dmg : 1);
+// 역린 해방 중 나간 연출 표시(그리기만 — wyvernArt.js 가 해방 연출을 겹친다, 11월 28일)
+const awF = (h) => (h.wy && h.wy.aw > 0 ? 1 : 0);
 function gainBlood(h, n) {
   const s = st(h);
   s.blood = Math.min(WV.blood, s.blood + n * bloodGainK(jobOf(h)));
@@ -211,7 +213,7 @@ export function wyvernBasic(E, g, h, force) {
   s.q += 1;
   s.claws.push({ w: CL.wind, ax: r2(ax), ay: r2(ay), cast: E.cast(h, "basic"), base: E.base(h), basic: 1, map: h.map });
   swingOf(s, s.q % 2 ? "c1" : "c2", 0.3, ax, ay);
-  E.fx(g, h.map, { kind: "sk_wy_claw", x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), r: CL.reach, arc: r2(CL.arc), d: CL.wind, fl: s.q % 2, pi: h.pi, t: 0.34, life: 0.34, snd: "wyClaw" });
+  E.fx(g, h.map, { kind: "sk_wy_claw", x: h.x, y: h.y, ax: r2(ax), ay: r2(ay), r: CL.reach, arc: r2(CL.arc), d: CL.wind, fl: s.q % 2, pi: h.pi, aw: awF(h), t: 0.34, life: 0.34, snd: "wyClaw" });
   return true;
 }
 function stepClaw(E, g, h, c, dt) {
@@ -220,7 +222,7 @@ function stepClaw(E, g, h, c, dt) {
   const hits = inFan(E, g, h, h.x, h.y, c.ax, c.ay, CL.reach, CL.arc, c.map).slice(0, CL.max);
   hits.forEach((q, i) => {
     strike(E, g, h, c, q.o, CL.mul);
-    E.fx(g, c.map, { kind: "sk_wy_hit", x: Math.round(q.o.x), y: Math.round(q.o.y), pi: h.pi, t: 0.32, life: 0.32, ...(i ? {} : { snd: "wyHit" }) });
+    E.fx(g, c.map, { kind: "sk_wy_hit", x: Math.round(q.o.x), y: Math.round(q.o.y), pi: h.pi, aw: awF(h), t: 0.32, life: 0.32, ...(i ? {} : { snd: "wyHit" }) });
   });
   if (hits.length) gainBlood(h, BL.claw);            // 휘두를 때 한 번
   if (c.xp) trainXp(E, g, h, 1);                     // 용혈 연마 — 용조격 적중
@@ -359,7 +361,7 @@ function diveUse(E, g, h) {
   hold(E, h, DV.up);
   s.air = { k: "dive", t: 0 };
   E.fx(g, h.map, { kind: "sk_wy_dive", x, y, x0: Math.round(h.x), y0: Math.round(h.y), r, joint: joint ? 1 : 0, ex: s.aw > 0 ? 1 : 0, storm: diveStorm(J) ? 1 : 0,
-    pi: h.pi, t: DV.end + 0.45, life: DV.end + 0.45, snd: "wyDive" });
+    pi: h.pi, aw: awF(h), t: DV.end + 0.45, life: DV.end + 0.45, snd: "wyDive" });
   call(E, g, h, joint ? `${DV.name} · 합동` : DV.name);
 }
 function tickDive(E, g, h, q, dt) {
@@ -390,7 +392,7 @@ function scaleUse(E, g, h) {
   const s = st(h);
   spend(h, s, "scale"); s.cd.scale = SC.cd;
   s.sc = { t: 0, n: 0, gap: 0, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 };
-  E.fx(g, h.map, { kind: "sk_wy_scale", x: h.x, y: h.y, pi: h.pi, t: SC.dur + 0.4, life: SC.dur + 0.4, snd: "wyScale" });
+  E.fx(g, h.map, { kind: "sk_wy_scale", x: h.x, y: h.y, pi: h.pi, aw: awF(h), t: SC.dur + 0.4, life: SC.dur + 0.4, snd: "wyScale" });
   call(E, g, h, SC.name);
 }
 function endScale(E, g, h, s) {
@@ -409,7 +411,7 @@ export function wyvernTake(E, g, h, dmg, src) {
       v.n += 1; v.gap = SC.gap;
       strike(E, g, h, v, o, SC.mul);
       const a = Math.atan2((o.y - h.y) / E.squash, o.x - h.x);
-      E.fx(g, h.map, { kind: "sk_wy_spike", x: Math.round(h.x), y: Math.round(h.y), x1: Math.round(o.x), y1: Math.round(o.y), a: r2(a), pi: h.pi, t: 0.42, life: 0.42, snd: "wyFire" });
+      E.fx(g, h.map, { kind: "sk_wy_spike", x: Math.round(h.x), y: Math.round(h.y), x1: Math.round(o.x), y1: Math.round(o.y), a: r2(a), pi: h.pi, aw: awF(h), t: 0.42, life: 0.42, snd: "wyFire" });
     }
   }
   return dmg * (1 - SC.cut);
@@ -423,7 +425,7 @@ function skyUse(E, g, h) {
   s.skies.push({ t: 0, i: 0, w: 0, x, y, n, gap: (SK.last - SK.first) / (n - 1), drops: [], cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 });
   h.swing = 0.3;
   const life = SK.last + SK.tail;
-  E.fx(g, h.map, { kind: "sk_wy_sky", x, y, r: SK.r, n, wy: s.u ? 0 : 1, pi: h.pi, t: life, life, snd: "wyCry" });
+  E.fx(g, h.map, { kind: "sk_wy_sky", x, y, r: SK.r, n, wy: s.u ? 0 : 1, pi: h.pi, aw: awF(h), t: life, life, snd: "wyCry" });
   call(E, g, h, n > SK.n ? `${SK.name} ×${n}` : SK.name);
 }
 function tickSky(E, g, h, q, dt) {
@@ -435,7 +437,7 @@ function tickSky(E, g, h, q, dt) {
     if (o) { px = o.x; py = o.y; }
     else { const a = q.w * 2.39996, d = SK.r * 0.75 * Math.sqrt((q.w + 0.5) / q.n); px = q.x + Math.cos(a) * d; py = q.y + Math.sin(a) * d * E.squash; }
     q.drops.push({ x: Math.round(px), y: Math.round(py) });
-    E.fx(g, q.map, { kind: "sk_wy_drop", x: Math.round(px), y: Math.round(py), r: SK.blast, d: SK.warn, i: q.w, pi: h.pi, t: SK.warn + 0.5, life: SK.warn + 0.5, ...(q.w % 2 ? {} : { snd: "wyBoom" }) });
+    E.fx(g, q.map, { kind: "sk_wy_drop", x: Math.round(px), y: Math.round(py), r: SK.blast, d: SK.warn, i: q.w, pi: h.pi, aw: awF(h), t: SK.warn + 0.5, life: SK.warn + 0.5, ...(q.w % 2 ? {} : { snd: "wyBoom" }) });
     q.w += 1;
   }
   while (q.i < q.w && q.t >= SK.first + q.i * q.gap) {
@@ -516,7 +518,7 @@ function assaultUse(E, g, h) {
   swingOf(s, "spin", AS.time + 0.1, ax, ay);
   h.swing = AS.time;
   E.fx(g, h.map, { kind: "sk_wy_assault", x: Math.round(h.x), y: Math.round(h.y), x0: Math.round(h.x), y0: Math.round(h.y), x1: Math.round(p.x), y1: Math.round(p.y),
-    r: AS.r, n: AS.n, d: AS.time, pi: h.pi, t: AS.time + 0.4, life: AS.time + 0.4, snd: "wyDash" });
+    r: AS.r, n: AS.n, d: AS.time, pi: h.pi, aw: awF(h), t: AS.time + 0.4, life: AS.time + 0.4, snd: "wyDash" });
   call(E, g, h, AS.name);
 }
 function tickDash(E, g, h, q, dt) {
@@ -525,7 +527,7 @@ function tickDash(E, g, h, q, dt) {
     q.i += 1;
     for (const o of foes(E, g, h, h.x, h.y, AS.r, q.map)) {
       strike(E, g, h, q, o, AS.mul);
-      E.fx(g, q.map, { kind: "sk_wy_hit", x: Math.round(o.x), y: Math.round(o.y), pi: h.pi, t: 0.3, life: 0.3 });
+      E.fx(g, q.map, { kind: "sk_wy_hit", x: Math.round(o.x), y: Math.round(o.y), pi: h.pi, aw: awF(h), t: 0.3, life: 0.3 });
     }
   }
   if (q.i < AS.n) return true;
@@ -540,7 +542,7 @@ function arcadionUse(E, g, h) {
   const s = st(h), [ax, ay] = aimDir(E, g, h, AR.hits[0].go + AR.hits[1].go);
   spend(h, s, "arcadion"); s.cd.arcadion = AR.cd;
   s.arcs.push({ t: 0, i: 0, sw: 0, ax, ay, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 });
-  E.fx(g, h.map, { kind: "sk_wy_blade", x: Math.round(h.x), y: Math.round(h.y), ax: r2(ax), ay: r2(ay), pi: h.pi, t: AR.hits[1].at + AR.hits[1].time + AR.tail, life: AR.hits[1].at + AR.hits[1].time + AR.tail, snd: "wyBlade" });
+  E.fx(g, h.map, { kind: "sk_wy_blade", x: Math.round(h.x), y: Math.round(h.y), ax: r2(ax), ay: r2(ay), pi: h.pi, aw: awF(h), t: AR.hits[1].at + AR.hits[1].time + AR.tail, life: AR.hits[1].at + AR.hits[1].time + AR.tail, snd: "wyBlade" });
   call(E, g, h, AR.name, FIRE);
 }
 function tickArc(E, g, h, q, dt) {
@@ -558,9 +560,9 @@ function tickArc(E, g, h, q, dt) {
     const H = AR.hits[q.sw]; q.sw += 1;
     for (const p of inFan(E, g, h, h.x, h.y, q.ax, q.ay, H.r, AR.arc, q.map)) {
       strike(E, g, h, q, p.o, H.mul);
-      E.fx(g, q.map, { kind: "sk_wy_hit", x: Math.round(p.o.x), y: Math.round(p.o.y), big: q.sw > 1 ? 1 : 0, pi: h.pi, t: 0.32, life: 0.32 });
+      E.fx(g, q.map, { kind: "sk_wy_hit", x: Math.round(p.o.x), y: Math.round(p.o.y), big: q.sw > 1 ? 1 : 0, pi: h.pi, aw: awF(h), t: 0.32, life: 0.32 });
     }
-    E.fx(g, q.map, { kind: "sk_wy_arc", x: Math.round(h.x), y: Math.round(h.y), ax: r2(q.ax), ay: r2(q.ay), r: H.r, arc: r2(AR.arc), i: q.sw, pi: h.pi, t: 0.4, life: 0.4, snd: q.sw > 1 ? "wyBoom" : "wyClaw" });
+    E.fx(g, q.map, { kind: "sk_wy_arc", x: Math.round(h.x), y: Math.round(h.y), ax: r2(q.ax), ay: r2(q.ay), r: H.r, arc: r2(AR.arc), i: q.sw, pi: h.pi, aw: awF(h), t: 0.4, life: 0.4, snd: q.sw > 1 ? "wyBoom" : "wyClaw" });
     g.shake = Math.max(g.shake || 0, q.sw > 1 ? 0.22 : 0.1);
   }
   if (q.sw < AR.hits.length) return true;

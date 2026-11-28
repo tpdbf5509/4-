@@ -30,6 +30,8 @@ export const WYVERN_PX = {
   wy_trail: { w: 64, h: 32, cols: 6, n: 6, cx: 32, cy: 16 },   // 천공강습 돌진 불꼬리 한 마디(오른쪽으로) — 길 따라 이어 붙인다
   wy_wave: { w: 200, h: 120, cols: 4, n: 7, cx: 100, cy: 60, r: 92 },   // 땅을 쓸고 나가는 불길 고리(그림 속 반지름 r)
   wy_flare: { w: 28, h: 48, cols: 8, n: 8, cx: 14, cy: 46 },   // 솟는 불길(바닥 기준) — 범위를 빽빽하게 채운다
+  wy_rage: { w: 200, h: 170, cols: 4, n: 8, cx: 100, cy: 96, r: 88 },   // 역린 해방 기운 고리(바닥 기준, 그림 속 반지름 r) — 해방 중 스킬 자리 바닥에 깐다(11월 28일)
+  wy_ink: { w: 240, h: 200, cols: 2, n: 2, cx: 120, cy: 124, rows: 2, r: 100 },   // 종언의 용성 마지막 폭발 정지 장면 먹 그림 — 0 흰 화면 칸 · 1 검은 화면 칸. 줄 0 검은 먹 · 1 흰 먹(11월 28일)
 };
 // 아이콘 칸 차례(wy_icons)
 export const WYVERN_ICON = { claw: 0, contract: 1, roar: 2, dive: 3, scale: 4, sky: 5, awake: 6, ult: 7, assault: 8, arcadion: 9 };

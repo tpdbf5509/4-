@@ -4,6 +4,7 @@ import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVilla
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART, SHOP_STALL_ART, shopStallPath} from "./plazaNpcData.js";
 import {PLAZA_NEW} from "./plazaLayout.js";
+import { PLAZA_LIGHT, plazaLight } from "./plazaLightData.js";
 import {drawPowerCircles} from './combatRulesArt.js';
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
 import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
@@ -847,10 +848,51 @@ export function drawFountainBody(ctx, time) {
   }
 }
 
+/* 새 광장 낮과 밤(plazaLightData.js) — 색 덮개 한 번(multiply) + 등불 자리마다 빛 번짐(lighter). 화면 밖 빛은 건너뛴다.
+   shortcut: 이름표는 사람과 함께 그려져 덮개 아래에 든다 — 밤 덮개를 옅게 두어 읽히게 했다. 글자를 덮개 위로 옮기는 것은 사용자가 어둡다고 하면 */
+let plazaLit = false;
+function drawPlazaNight(ctx, M) {
+  const L = PLAZA_LIGHT, { k, w } = plazaLight();
+  plazaLit = k > L.litAt;
+  if (k <= 0.001) return;
+  const mix = (a, b, t) => Math.round(a + (b - a) * t);
+  let c = [255, 255, 255].map((v, i) => mix(v, L.nightTint[i], k));
+  if (w > 0) c = c.map((v, i) => Math.round(v * (1 - w + w * L.duskTint[i] / 255)));
+  ctx.save();
+  ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+  ctx.fillRect(-200, -200, M.w + 400, M.h + 400);
+  if (plazaLit) {
+    const a = (k - L.litAt) / (1 - L.litAt);
+    ctx.globalCompositeOperation = "lighter";
+    const glow = (x, y, r, al) => {
+      if (!inViewNow(x, y, r)) return;
+      const gr = ctx.createRadialGradient(x, y, 2, x, y, r);
+      gr.addColorStop(0, `rgba(${L.glow},${al * a})`); gr.addColorStop(1, `rgba(${L.glow},0)`);
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    };
+    PLAZA_PROPS.forEach((o) => { if (o.k === "px" && o.f === 0) { glow(o.x, o.y - o.s * 0.72, L.lampR, L.lampA); glow(o.x, o.y, L.lampR * 0.8, L.lampA * 0.55); } });
+    M.npcs.forEach((n) => { if (n.shop && n.shop !== "onyx") glow(n.x + 64, n.y - 83, L.hangR, L.hangA); });
+  }
+  ctx.restore();
+}
+let inViewNow = () => true;   // drawRpg 가 그 프레임의 화면 안 판정으로 바꾼다
+
+/* 새 광장 가판 걸이 등불 — 오른쪽 기둥(+54)에 좌우를 뒤집어 건다. 밤에는 켜진 칸 */
+function drawStallLantern(ctx) {
+  const im = mapImg(rpgFile(PLAZA_SHEET.file)), C = PLAZA_SHEET.cell, S = 72;
+  if (!im) return;
+  const f = plazaLit ? 3 : 2;
+  ctx.save(); ctx.translate(54 + 0.6 * S, -96 - 0.07 * S); ctx.scale(-1, 1);
+  ctx.drawImage(im, (f % PLAZA_SHEET.cols) * C, Math.floor(f / PLAZA_SHEET.cols) * C, C, C, 0, 0, S, S);
+  ctx.restore();
+}
+
 function drawProp(ctx, o) {
   if (o.k === "px") {   // 새 광장 소품 시트 — 못 불러오면 그리지 않는다(장식뿐)
     const im = mapImg(rpgFile(PLAZA_SHEET.file)), C = PLAZA_SHEET.cell;
-    if (im) ctx.drawImage(im, (o.f % PLAZA_SHEET.cols) * C, Math.floor(o.f / PLAZA_SHEET.cols) * C, C, C, o.x - o.s / 2, o.y - o.s * PLAZA_SHEET.foot, o.s, o.s);
+    const f = o.f === 0 && plazaLit ? 1 : o.f;   // 밤에는 켜진 등불 칸
+    if (im) ctx.drawImage(im, (f % PLAZA_SHEET.cols) * C, Math.floor(f / PLAZA_SHEET.cols) * C, C, C, o.x - o.s / 2, o.y - o.s * PLAZA_SHEET.foot, o.s, o.s);
     return;
   }
   const pim = mapImg(rpgFile(o.k));
@@ -984,6 +1026,7 @@ function drawShop(ctx, n, time) {
   // 판매대는 주인 앞에 그려 몸이 판매대 위로 겹치지 않게 한다.
   if (stall) { const [bx, by, bw, bh] = SHOP_STALL_ART.box; ctx.drawImage(stall, bx, by, bw, bh); }
   else drawShopStallShape(ctx, c);
+  if (PLAZA_NEW && n.shop !== "onyx") drawStallLantern(ctx);
   // 간판 — 상점 이름
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.font = "15px 'Do Hyeon', sans-serif";
@@ -2900,6 +2943,7 @@ export function drawRpg(ctx, g, bgs) {
   if (M.pvp) drawArenaFloor(ctx, M);
   if (M.race) drawRaceTrack(ctx, M, g, time, cam, W);   // 몹 레이스 트랙(raceArt.js)
   const inView = (x, y, pad = 160) => x > cam.x - pad && x < cam.x + VW + pad && y > cam.y - pad && y < cam.y + VH + pad;
+  inViewNow = inView;
   if (M.wild) drawWildShadows(ctx, M.id, inView);   // 바깥 장소 나무 그림자(storyArt.js)
 
   drawPowerCircles(ctx,g,M.id);
@@ -3006,6 +3050,7 @@ export function drawRpg(ctx, g, bgs) {
     else if (o.nc) drawNecroShadowOf(ctx, o.own, o.nc, time, o.own === me);   // 내린 이름은 주인 화면에만
     else if (o.wyUnit) drawWyvernUnit(ctx, o.wyUnit, time, RPG.squash, crowd ? Math.min(lod.q, CROWD.q) : lod.q);
   });
+  if (M.id === "plaza" && PLAZA_NEW) drawPlazaNight(ctx, M);   // 새 광장 낮과 밤 — 땅 · 사람 위, 연출 · 말풍선 · 알림 아래
   if (me && me.map === M.id) { const hn = herbNear(g, me); if (hn && !me.gath) drawHerbLabel(ctx, hn); }   // 곁의 채집물 이름
   g.heroes.forEach((h) => { if (h && h.map === M.id && h.gath) drawGatherBar(ctx, h); });                  // 채집 진행 막대
 

@@ -327,6 +327,7 @@ npx vite --port 5199   # 백그라운드로 띄운다. 자주 죽으니 연결 �
 - 배치 두 벌: 지금 배치는 각 데이터 파일에 그대로, 새 배치는 `plazaLayout.js NEW` 한 곳. 데이터 파일은 `pz(key, 옛 x, 옛 y)` · `pzA` 로 읽는다. 불러올 때 한 번 정한다 — 화면은 `?test`, 서버는 테스트 전용 워커 `four-lane-rpg-test`(`server/wrangler.test.toml` 의 `__PLAZA_NEW__`, 테스트 · 점검 방만 열고 장부 · 중계는 본 워커 것을 빌림, Actions `deploy-test`). 같은 워커 안의 방은 코드 상태를 함께 써서 RPGT 만 다르게 할 수 없다.
 - 그림(새 광장만): 바닥 `rpg/plaza-v3.webp`(Codex, 흙길 다듬기 `design/plaza-floor/fix_v3_paths.py`) · 가판 `rpg/shop-v2/`(새 가판 넷 + 차양 구역 색, `python3 design/shop-stall/compose.py v2`) · NPC `rpg/npc-v2/`(채도 10% 낮춤, `design/plaza-npc/tone_v2.py`). 길은 `plazaNpcData.js` 가 `PLAZA_NEW` 로 고른다.
 - 소품(4단계): Codex 시트 `rpg/plaza-props.webp` · 자리 `rpgArt.js PLAZA_PROPS`(k "px", 막힘 없음). 구역 이름 띄우기는 `plazaLayout.js plazaZone` · `PLAZA_ZONE`(RpgView 가 기존 맵 이름 띠 `rpg-toast` 로 띄움).
+- 낮과 밤(5단계): 수치 `plazaLightData.js PLAZA_LIGHT` 한 곳(낮 10분 · 밤 10분 · 넘어가기 1분, 이 기기 벽시계). 그리기 `rpgArt.js drawPlazaNight`(땅 · 사람 위 multiply 덮개 + 등불 빛 lighter, 연출 · 말풍선 아래) · 가판 걸이 등불 `drawStallLantern`. 시험은 주소 `?test&night` · `?test&dusk`.
 - 실제 게임에 열 때 `PLAZA.live = true`. NPC · 문 차례와 id 는 바꾸지 않는다. 시험 `tools/plaza-layout.test.mjs`, 새 배치로 다른 시험 돌리기: `node --import 'data:text/javascript,globalThis.__PLAZA_NEW__=true' --test tools/<기능>.test.mjs`.
 
 ### 오닉스 · 황금 진열장 상점 (11월 27일 사용자 기획)

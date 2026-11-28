@@ -213,10 +213,12 @@ function bloodGunHeld(h, view) {
   if (!sp || sp.id !== "blood_gun") return null;
   const body = artImg(advArtPath(h, `${view}-bare`)), wpn = body && weaponImg(sp);
   if (!wpn) return null;                              // 못 불러오면 원래 그림 그대로
+  const A = adminLook(h) ? ADMIN_GUN_HAND[view] : null;   // 관리자 스킨은 몸 그림이 달라 손 자리(그림 px)를 따로 둔다
   const H = (BLADE_HAND[h.gender === "f" ? "f" : "m"] || BLADE_HAND.m)[view] || BLADE_HAND.m.front;
   const deg = BLOOD_GUN_DEG[view] ?? -8, left = Math.cos((deg * Math.PI) / 180) < 0;
-  return { body, hand: [H[0] * body.naturalWidth, H[1] * body.naturalHeight, deg], wpn, grip: BLOOD_GUN_GRIP, len: BLOOD_GUN_LEN, still: true, mirror: left, left };
+  return { body, hand: A ? [A[0], A[1], deg] : [H[0] * body.naturalWidth, H[1] * body.naturalHeight, deg], wpn, grip: BLOOD_GUN_GRIP, len: BLOOD_GUN_LEN, still: true, mirror: left, left };
 }
+const ADMIN_GUN_HAND = { front: [134, 214], turn: [52, 212], side: [86, 212], back: [130, 212] };   // 관리자 스킨 무기 지운 그림(tools/cut-admin-skin.py)의 주먹 자리
 const BLOOD_GUN_GRIP = [30, 100, 114, 24];             // 레퀴엠 그림(128px)의 손잡이 → 총구
 function advHeld(h, view) {
   if (!h.advClass && (h.bdv || bloodOn(h))) return bloodGunHeld(h, view);
@@ -2472,7 +2474,8 @@ function drawHero(ctx, g, h, time) {
   const { view, flip } = heroView(h);
   const advIm = advBody(h, view);                    // 전직 그림은 무기 · 방패를 이미 들고 있다 — 특별 무기를 끼면 무기 지운 그림에 그 무기를 들린다
   const hide = h.hideGear || 0;                     // 장비 외형 숨기기(rpg.js HIDE_GEAR) — 겉모습만, 능력치는 그대로
-  const held = hide & HIDE_GEAR.weapon || adminLook(h) || gamblerLook(h) || engineerLook(h) || necroLook(h) || illusionLook(h) || wyvernLook(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
+  const adminGun = !(hide & HIDE_GEAR.weapon) && adminLook(h) && heldSpecial(h) === "blood_gun" ? bloodGunHeld(h, view) : null;   // 관리자 스킨도 레퀴엠은 손에 쥔다
+  const held = adminGun ? adminGun : hide & HIDE_GEAR.weapon || adminLook(h) || gamblerLook(h) || engineerLook(h) || necroLook(h) || illusionLook(h) || wyvernLook(h) ? bareHands(h, view, advIm) : advIm ? advHeld(h, view) : heldWeapon(h, view);
   let im = held ? held.body : advIm || heroImg(h, view) || heroImg(h, "front");
   // 히든 직업 BLOOD-001 여성 · Gambler 002 · Engineer 003 남녀 · Necromancer 004 남녀 — 걸을 때는 걷는 그림 4장(walk-<보기>-<0~3>.webp, tools/cut-blood-f.py · cut-gambler-char.py)을 걸음에 맞춰 바꾼다. 서 있을 때는 기본 그림. 아래로 갈 때(turn)는 앞 그림. 못 불러오면 기본 그림 그대로
   if (!down && advIm && h.anim && h.anim.walk >= 0.05 && /\/(admin-skin|blood-f|gambler-[mf]|engineer-[mf]|necro-[mf]|wyvern-[mf]|illusion-[mf])\//.test(advIm.src)) {

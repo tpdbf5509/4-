@@ -1,0 +1,11 @@
+Reference image 1 (keeper-weapon.png): the weapon-shop keeper character from our game. It is the STYLE reference: soft chibi anime illustration, thin warm dark-brown outlines, soft matte cel shading with 2-3 tone steps, no glossy highlights, gentle desaturated colors.
+
+Make a 1024x1024 image of a display of weapon-shop goods that will be placed on top of a wooden shop counter, same style as reference 1.
+- One horizontal row of items standing side by side, spanning about 80% of the image width, centered, with their bottoms all on the same horizontal line at about 62% of the image height.
+- Items: a short sword standing upright in a small wooden rack, a round wooden shield with an iron rim leaning, a hand axe, a bow with a quiver of a few arrows, and a sheathed dagger lying flat.
+- Colors toned down and muted: steel grey, worn leather brown, oak wood, a little faded blue cloth. Matte, no glossy highlights.
+- Thin details (blade edges, bowstring, arrow fletching, leather straps) must stay clearly readable with dark-brown outlines.
+- Sunlight from the upper-left: the left side of each item is lighter.
+- Items roughly 120-200 px tall in this 1024 image.
+No counter, no table, no shelf, no hands, no text, no ground shadow, no grid lines. Flat solid #00FF00 green background.
+Save the result as props-weapon.png in the current directory.

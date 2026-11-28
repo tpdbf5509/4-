@@ -1,0 +1,11 @@
+Reference image 1 (keeper-casino.png): the small gambling stall (dice and card games) keeper character from our game. It is the STYLE reference: soft chibi anime illustration, thin warm dark-brown outlines, soft matte cel shading with 2-3 tone steps, no glossy highlights, gentle desaturated colors.
+
+Make a 1024x1024 image of a display of small gambling stall (dice and card games) goods that will be placed on top of a wooden shop counter, same style as reference 1.
+- One horizontal row of items standing side by side, spanning about 80% of the image width, centered, with their bottoms all on the same horizontal line at about 62% of the image height.
+- Items: a short stack of round poker chips, a pair of large dice, a fanned hand of playing cards with plain backs (no symbols, no numbers), a small wooden roulette wheel, and a tiny pouch of gold coins.
+- Colors toned down and muted: muted wine red, dull gold, cream, soft brown wood, faded teal felt. Matte, no glossy highlights.
+- Thin details (card edges, chip stripes, dice pips, roulette spokes) must stay clearly readable with dark-brown outlines.
+- Sunlight from the upper-left: the left side of each item is lighter.
+- Items roughly 120-200 px tall in this 1024 image.
+No counter, no table, no shelf, no hands, no text, no ground shadow, no grid lines. Flat solid #00FF00 green background.
+Save the result as props-casino.png in the current directory.

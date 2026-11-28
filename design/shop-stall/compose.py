@@ -19,6 +19,18 @@ SHOPS = {
     "junk":   {"props": "props-junk.png",   "awning": "#b0a088", "w": 80},
 }
 
+# 광장 리뉴얼(11월 28일, 테스트 서버) — python3 design/shop-stall/compose.py v2 → public/assets/game/rpg/shop-v2/
+# 새 가판 넷을 더하고 차양을 계획서 4-1 구역 색으로: 장비 골목 회청 · 살림 장 세이지 · 황금 모퉁이 탁한 금
+SHOPS_V2 = {
+    "weapon": {"props": "props-weapon.png", "awning": "#9aaec4", "w": 84},
+    "forge":  {"props": "props-forge.png",  "awning": "#9aaec4", "w": 84},
+    "skill":  {"props": "props-skill.png",  "awning": "#9aaec4", "w": 84},
+    "potion": {"props": None,               "awning": "#a3bfa4"},
+    "scroll": {"props": "props-scroll.png", "awning": "#a3bfa4", "w": 80},
+    "junk":   {"props": "props-junk.png",   "awning": "#a3bfa4", "w": 80},
+    "casino": {"props": "props-casino.png", "awning": "#cdb382", "w": 84},
+}
+
 def load(p): return np.asarray(Image.open(p).convert("RGBA")).astype(np.float32) / 255
 def save(a, p, webp=False):
     im = Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA")
@@ -85,20 +97,25 @@ def recolor(aw, hexc):
     return o
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
+    import sys
+    v2 = "v2" in sys.argv[1:]
+    shops, out_dir = (SHOPS_V2, OUT + "-v2") if v2 else (SHOPS, OUT)
+    os.makedirs(out_dir, exist_ok=True)
     L = {k: load(os.path.join(D, "layers", k + ".png")) for k in COMMON + ["4-props"]}
-    for sid, cfg in SHOPS.items():
+    for sid, cfg in shops.items():
         lay = dict(L)
         if cfg["props"]:
             p = os.path.join(D, "gen", cfg["props"])
             if not os.path.exists(p): print("소품 없음:", sid); continue
             lay["4-props"] = place_props(key(load(p)), cfg["w"])
-            lay["5-awning"] = recolor(L["5-awning"], cfg["awning"])
+        if cfg["awning"]: lay["5-awning"] = recolor(L["5-awning"], cfg["awning"])
+        if not v2 and cfg["props"]:
             os.makedirs(os.path.join(D, sid), exist_ok=True)
             for k in ("4-props", "5-awning"): save(lay[k], os.path.join(D, sid, k + ".png"))
         out = np.zeros((FH, FW, 4), np.float32)
         for k in sorted(lay): out = over(out, lay[k])
-        save(out, os.path.join(D, sid + "-front.png")); save(out, os.path.join(OUT, sid + ".webp"), True)
+        if not v2: save(out, os.path.join(D, sid + "-front.png"))
+        save(out, os.path.join(out_dir, sid + ".webp"), True)
         print("ok", sid)
 
 main()

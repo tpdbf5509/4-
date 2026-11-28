@@ -1,0 +1,11 @@
+Reference image 1 (keeper-skill.png): the skill-book shop of a wise sage keeper character from our game. It is the STYLE reference: soft chibi anime illustration, thin warm dark-brown outlines, soft matte cel shading with 2-3 tone steps, no glossy highlights, gentle desaturated colors.
+
+Make a 1024x1024 image of a display of skill-book shop of a wise sage goods that will be placed on top of a wooden shop counter, same style as reference 1.
+- One horizontal row of items standing side by side, spanning about 80% of the image width, centered, with their bottoms all on the same horizontal line at about 62% of the image height.
+- Items: a stack of thick old spellbooks, one open book standing on a small wooden book stand with blank pages, a small crystal orb on a brass holder, a candle in a holder, and two rolled skill scrolls with ribbon ties.
+- Colors toned down and muted: dusty navy blue and faded teal book covers, parchment cream, dull brass, pale lavender glow on the orb. Matte, no glossy highlights.
+- Thin details (book spines, ribbon ties, candle flame, orb holder) must stay clearly readable with dark-brown outlines.
+- Sunlight from the upper-left: the left side of each item is lighter.
+- Items roughly 120-200 px tall in this 1024 image.
+No counter, no table, no shelf, no hands, no text, no ground shadow, no grid lines. Flat solid #00FF00 green background.
+Save the result as props-skill.png in the current directory.

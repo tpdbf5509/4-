@@ -132,12 +132,12 @@ export const bloodJobAtk = (h) => { const rg = bloodRg(h); return !rg ? 1 : 1 + 
 const bloodRg = (h) => { const s = h && (h.bd || h.bdv); return (s && s.rg) || null; };
 // 탈진 중인가 — 대쉬를 막는 데 쓴다(서버 판정 rpgDash · 손님 먼저 그리기 predictDash)
 export const bloodTired = (h) => { const r = bloodRg(h); return !!r && r.k === 2; };
-// 과부하 — 넘는 몫을 버리고 혈역 · 차징을 끊은 뒤 혈량 60 · 6초 폭주
+// 과부하 — 혈역 · 차징을 끊고 혈량은 그대로(과부하 한계까지) 10초 폭주. 11월 28일 사용자 — 예전에는 혈량을 60 으로 깎았다(버그로 봄). 안정 한계를 넘는 몫은 기존 규칙대로 1초 뒤부터 1초에 10씩 한계까지만 줄어든다
 function overload(E, g, h) {
   const s = st(h), bd = h.bag.bd;
   if (s.ch) cancelCharge(E, g, h, true);
   if (s.fd) endField(E, g, h, "over");
-  bd.b = Z.rage.settle;
+  bd.b = Math.min(bd.b, overCap(bd.lv));   // 혈량 유지 — gainBlood 가 이미 과부하 한계에서 멈추므로 넘는 몫은 없다(원초적 지배 끝 정리 때만 안전하게 한계로 맞춘다)
   s.rg = { k: 1, t: Z.rage.dur };
   s.wo = 0; s.w175 = 0;
   g.shake = Math.max(g.shake || 0, 0.35);

@@ -144,7 +144,7 @@ function bloodInfo(h) {
       `혈량으로 스킬을 씁니다. 안정 한계 ${stableCap(lv)} · 증폭 +${BLOOD.cap.amp} · 과부하 +${BLOOD.cap.over}(직업 레벨 ${BLOOD.cap.step}마다 +${BLOOD.cap.per}).`,
       `혈량 ${BLOOD.regen.below} 아래면 사냥터에서 1초마다 +${BLOOD.regen.gain}. 일반 스킬 칸 · 전직 스킬은 쓰지 않습니다.`,
       `직업 레벨 ${BLOOD_COST_CUT.steps[0]}부터 ${BLOOD_COST_CUT.steps.length}단계로 스킬 혈량 소모가 줄어듭니다(단계당 ${pct(BLOOD_COST_CUT.max / BLOOD_COST_CUT.steps.length)} · 최대 ${pct(BLOOD_COST_CUT.max)}). 지금 −${pct(costCut(lv))}.`,
-      `과부하 — 혈량 ${BLOOD_STATE.rage.settle}으로 ${sec(BLOOD_STATE.rage.dur)} 폭주한 뒤 ${sec(BLOOD_STATE.tired.dur)} 탈진합니다. 탈진 중에는 피해 −${pct(-BLOOD_STATE.tired.atk)} · 이동 −${pct(-BLOOD_STATE.tired.spd)} · 체력 회복 −${pct(-BLOOD_STATE.tired.heal)}.`,
+      `과부하 — 혈량은 그대로 두고 ${sec(BLOOD_STATE.rage.dur)} 폭주한 뒤 ${sec(BLOOD_STATE.tired.dur)} 탈진합니다. 탈진 중에는 피해 −${pct(-BLOOD_STATE.tired.atk)} · 이동 −${pct(-BLOOD_STATE.tired.spd)} · 체력 회복 −${pct(-BLOOD_STATE.tired.heal)}.`,
       `혈흔 — 평타마다 1중첩(최대 ${BLOOD.mark.max} · ${BLOOD.mark.dur}초) · 중첩당 피해 +${pct(BLOOD.mark.per)}.`,
     ],
     basic: { s: "basic", act: "fire", name: "평타 · 크림슨 레퀴엠", tag: "기본 공격", lvText: "늘 열림",

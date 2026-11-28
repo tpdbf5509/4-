@@ -228,7 +228,7 @@ test('원초적 지배 — 15초 · 대기 120 · 피해 +100% · 소모 -50% ·
   h.bd.rg = { k: 1, t: .05 }; run(g, .1); assert.equal(h.bd.rg, null);
   // 끝날 때 과부하 한계 이상이면 기존 과부하 규칙
   run(g, AW.dur - h.bd.aw.t - 0.05); h.bag.bd.b = overCap(200); run(g, 0.1);
-  assert.equal(h.bd.aw, null); assert.equal(h.bd.rg.k, 1, '과부하 → 폭주'); assert.equal(h.bag.bd.b, 60);
+  assert.equal(h.bd.aw, null); assert.equal(h.bd.rg.k, 1, '과부하 → 폭주'); assert.equal(h.bag.bd.b, overCap(200), '혈량 유지');
 });
 
 /* ── 혈역 증폭 ── */

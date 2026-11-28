@@ -457,7 +457,7 @@ test('혈역 — 적이 없어도 지형에서 +30(11월 16일 버그 수정) ·
   assert.equal(h.bd.fd, null);
 });
 
-test('과부하 — 과부하 한계(100레벨 250)에 닿으면 혈량 60 · 10초 폭주(공격력 +25% · 이동 +15%) → 25초 탈진(공격 -90% · 이동 -85% · 회복 -95%) · 직전 경고', () => {
+test('과부하 — 과부하 한계(100레벨 250)에 닿으면 혈량 유지 · 10초 폭주(공격력 +25% · 이동 +15%) → 25초 탈진(공격 -90% · 이동 -85% · 회복 -95%) · 직전 경고', () => {
   const { g, h } = setup(); lv100(h); h.bag.bd.b = 200;
   mob(g, h.x + 200, h.y);
   const base = heroDmgMul(h);
@@ -467,10 +467,10 @@ test('과부하 — 과부하 한계(100레벨 250)에 닿으면 혈량 60 · 10
   fd(g, 'press'); run(g, 1.05);
   assert.equal(h.bag.bd.b, 230); assert.ok(h.bd.fd);
   run(g, 1);
-  assert.equal(h.bag.bd.b, 60); assert.equal(h.bd.fd, null); assert.equal(h.bd.rg.k, 1);
+  assert.equal(h.bag.bd.b, 250, '혈량 유지'); assert.equal(h.bd.fd, null); assert.equal(h.bd.rg.k, 1);
   assert.ok(Math.abs(heroDmgMul(h) / base - 1.25) < 1e-6); assert.ok(Math.abs(bloodJobSlow(h) - 1.15) < 1e-9);
   h.bd.cd.field = 0; fd(g, 'press'); assert.equal(h.bd.fd, null, '폭주 중에는 혈역을 못 쓴다');
-  run(g, Z.rage.dur + .05); assert.equal(h.bd.rg.k, 2);
+  run(g, Z.rage.dur + .05); assert.equal(h.bd.rg.k, 2); assert.ok(h.bag.bd.b >= 100 && h.bag.bd.b !== 60, '폭주 / 탈진 진입에도 혈량 유지(안정 한계 위 몫만 줄어듦)');
   assert.equal(Z.rage.dur, 10); assert.equal(Z.tired.dur, 25);
   assert.ok(Math.abs(heroDmgMul(h) / base - 0.1) < 1e-6, '탈진 피해량 -90%'); assert.ok(Math.abs(bloodJobSlow(h) - 0.15) < 1e-9, '탈진 이동 -85%');
   run(g, Z.tired.dur + .05); assert.equal(h.bd.rg, null); assert.equal(bloodJobAtk(h), 1);

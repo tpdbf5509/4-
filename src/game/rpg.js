@@ -157,7 +157,7 @@ export const RPG = {
 export const HONOR_BOARD = { ...pz("honor", 700, 256), r: 40 };   // 새 배치는 북쪽 문 오른쪽(plazaLayout.js)
 export const MAPS = {
   plaza: {
-    id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: pzA("spawn", [900, 820]), bg: PLAZA_NEW ? "plaza-v2" : undefined,   // 새 배치 바닥(design/plaza-floor/make_v2.py)
+    id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: pzA("spawn", [900, 820]), bg: PLAZA_NEW ? "plaza-v3" : undefined,   // 새 배치 바닥 — Codex 그림(원본 design/plaza-floor/codex-plaza-v3.webp, 기준은 make_v2.py 의 plaza-v2)
     gates: [{ ...pz("fieldGate", 1690, 660), r: 64, to: "field", at: [240, 920], label: "사냥문" },
       { x: TRAIN.gate.x, y: TRAIN.gate.y, r: 56, to: "train", at: TRAIN.spawn, label: "훈련장" }],   // 왼쪽 — 허수아비 더미 · 교관(trainData.js)
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC

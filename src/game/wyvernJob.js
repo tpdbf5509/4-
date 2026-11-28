@@ -8,7 +8,7 @@
    E(엔진, rpg.js wyvernEngine): engineerEngine 것 + stop(걷기 멈춤) */
 import { faceAim } from './faceDir.js';
 import { WYVERN as WV, WYVERN_ID, WYVERN_NAME, WYVERN_TINT, WY_TRAIN_NAMES, WY_BLOOD as BL, WY_CLAW as CL, WY_CONTRACT as CT, WY_ROAR as RO,
-  WY_DIVE as DV, WY_SCALE as SC, WY_SKY as SK, WY_AWAKE as AW, WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SKILLS, WY_WEAPON_ITEM } from "./wyvernData.js";
+  WY_DIVE as DV, WY_SCALE as SC, WY_SKY as SK, WY_AWAKE as AW, WY_ULT as UL, WY_ASSAULT as AS, WY_ARCADION as AR, WY_SKILLS, WY_WEAPON_ITEM, wyCost } from "./wyvernData.js";
 import { AQ } from "./wyvernQuestData.js";   // 아르카디온 획득 「돌아올 길을 지킨 검」 — 칼등 정상 소환 예외(11월 27일)
 
 const r1 = (v) => Math.round(v * 10) / 10;
@@ -189,10 +189,11 @@ function blocked(E, g, h, sk, free) {
   const lock = wyLock(jobOf(h), sk);
   if (lock) { no(E, g, h, lock); return true; }
   if (s.cd[sk] > 0) { no(E, g, h, `${D.name} ${Math.ceil(s.cd[sk])}초`, WARN); return true; }
-  if (!free && s.blood < D.cost) { no(E, g, h, `용혈이 부족합니다 (${D.cost})`, RED); return true; }
+  const need = wyCost(sk, jobOf(h).lv, s.aw > 0);
+  if (!free && s.blood < need) { no(E, g, h, `용혈이 부족합니다 (${need})`, RED); return true; }
   return false;
 }
-const spend = (s, sk) => { s.blood = Math.max(0, s.blood - WY_SKILLS[sk].cost); };
+const spend = (h, s, sk) => { s.blood = Math.max(0, s.blood - wyCost(sk, jobOf(h).lv, s.aw > 0)); };   // 레벨 감소 · 해방 중 무소모(wyvernData.js wyCost)
 // 손에 든 아르카디온 휘두르기(그림만) — k 종류 · t 흐른 시간 · d 길이 · 겨눈 쪽
 const swingOf = (s, k, d, ax, ay) => { s.sw = { k, t: 0, d, ax: r2(ax), ay: r2(ay) }; };
 const hold = (E, h, t) => { E.stop(h); h.dvx = 0; h.dvy = 0; h.dash = Math.max(h.dash || 0, t); };   // 그 자리에 붙든다(걷지 않는다)
@@ -234,7 +235,7 @@ function contractUse(E, g, h) {
   if (s.aw > 0) return void no(E, g, h, "와이번이 몸 안에 있습니다", WARN);   // 역린 해방 중엔 흡수한 와이번을 다시 부르지 않는다
   const free = wySummitFree(h);
   if (blocked(E, g, h, "contract", free)) return;
-  if (!free) spend(s, "contract");
+  if (!free) spend(h, s, "contract");
   const side = h.dir < 0 ? 1 : -1, x = h.x + side * 90, y = h.y - 8;
   s.u = { t: 0, dur: wyvernDur(jobOf(h)), x, y, cd: 0, tg: "", seek: 0, f: 9, fl: h.dir < 0 ? 1 : 0, dv: null,
     cast: E.cast(h), base: E.base(h), map: h.map, xp: 0, balls: [], summit: free ? 1 : 0 };   // summit — 칼등 정상 소환(wyvernQuest.js 가 아르카디온 획득을 시작한다)
@@ -316,7 +317,7 @@ function tickWyvern(E, g, h, s, dt) {
 function roarUse(E, g, h) {
   if (blocked(E, g, h, "roar")) return;
   const s = st(h), [ax, ay] = aimDir(E, g, h, RO.reach), arc = Math.min(Math.PI * 0.95, RO.arc * (s.aw > 0 ? 1 + RO.awakeArc : 1));
-  spend(s, "roar"); s.cd.roar = RO.cd;
+  spend(h, s, "roar"); s.cd.roar = RO.cd;
   const u = s.u, sub = u && !u.dv ? { x: Math.round(h.x), y: Math.round(h.y), wx: Math.round(u.x), wy: Math.round(u.y), hz: CT.hz, fl: u.fl ? 1 : 0, m: mouthOf(u) } : null;   // 갈래는 시전자 앞 — 와이번이 그쪽으로 뿜는다
   s.roars.push({ t: 0, i: 0, x: h.x, y: h.y, ax, ay, arc, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0, got: 0, sub, subDone: 0, subXp: 0 });
   h.swing = 0.3;
@@ -349,7 +350,7 @@ function tickRoar(E, g, h, q, dt) {
 function diveUse(E, g, h) {
   if (blocked(E, g, h, "dive")) return;
   const s = st(h), J = jobOf(h), [x, y] = pointAt(E, g, h, DV.reach, DV.near);
-  spend(s, "dive"); s.cd.dive = DV.cd;
+  spend(h, s, "dive"); s.cd.dive = DV.cd;
   const joint = !!(s.u && !s.u.dv), r = Math.round(diveR(J));
   if (joint) s.u.dv = { t: 0, x0: s.u.x, y0: s.u.y, x1: x - (h.dir < 0 ? -40 : 40), y1: y - 6 };
   s.dives.push({ t: 0, x0: h.x, y0: h.y, x, y, r, joint, aw: s.aw > 0, storm: diveStorm(J), cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0,
@@ -387,7 +388,7 @@ function tickDive(E, g, h, q, dt) {
 function scaleUse(E, g, h) {
   if (blocked(E, g, h, "scale")) return;
   const s = st(h);
-  spend(s, "scale"); s.cd.scale = SC.cd;
+  spend(h, s, "scale"); s.cd.scale = SC.cd;
   s.sc = { t: 0, n: 0, gap: 0, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 };
   E.fx(g, h.map, { kind: "sk_wy_scale", x: h.x, y: h.y, pi: h.pi, t: SC.dur + 0.4, life: SC.dur + 0.4, snd: "wyScale" });
   call(E, g, h, SC.name);
@@ -418,7 +419,7 @@ export function wyvernTake(E, g, h, dmg, src) {
 function skyUse(E, g, h) {
   if (blocked(E, g, h, "sky")) return;
   const s = st(h), [x, y] = pointAt(E, g, h, SK.reach, SK.near), n = s.aw > 0 ? SK.nAwake : SK.n;
-  spend(s, "sky"); s.cd.sky = SK.cd;
+  spend(h, s, "sky"); s.cd.sky = SK.cd;
   s.skies.push({ t: 0, i: 0, w: 0, x, y, n, gap: (SK.last - SK.first) / (n - 1), drops: [], cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 });
   h.swing = 0.3;
   const life = SK.last + SK.tail;
@@ -454,8 +455,7 @@ function awakeUse(E, g, h) {
   if (blocked(E, g, h, "awake")) return;
   if (!s.u) return void no(E, g, h, "와이번을 먼저 소환해야 합니다", WARN);   // 11월 18일 사용자 — 와이번 소환 뒤에만
   if (s.u.dv) return void no(E, g, h, "와이번이 급강하 중입니다", WARN);
-  if (s.blood < WV.blood) return void no(E, g, h, `용혈이 ${WV.blood} 이어야 합니다`, RED);
-  s.blood = 0; s.cd.awake = AW.cd;                   // 용혈 100 을 모두
+  s.cd.awake = AW.cd;                                // 11월 28일 사용자 — 용혈을 쓰지 않는다(예전엔 100 을 모두)
   s.aw = s.awMax = awakeDur(jobOf(h)); s.awXp = 0;
   const u = s.u, uv = unitView(u);                   // 와이번을 몸에 흡수한다 — 계약은 여기서 끝(조련 연마 · 계약 대기는 끝날 때와 같다)
   s.u = null;
@@ -480,7 +480,7 @@ export const wyvernSpd = (h) => (h && h.wy && h.wy.aw > 0 && wyvernOn(h) ? 1 + A
 function ultUse(E, g, h) {
   if (blocked(E, g, h, "ult")) return;
   const s = st(h), J = jobOf(h), [x, y] = pointAt(E, g, h, UL.reach, UL.near);
-  spend(s, "ult"); s.cd.ult = UL.cd;
+  spend(h, s, "ult"); s.cd.ult = UL.cd;
   const k = s.aw > 0 ? UL.awakeK : 1, sync = wySync(J);
   if (s.u && !s.u.dv) s.u.dv = { t: DV.up - (UL.rise - 0.05), x0: s.u.x, y0: s.u.y, x1: x + (h.dir < 0 ? 50 : -50), y1: y - 8 };   // 와이번도 함께 내려온다(그림만)
   s.ults.push({ t: 0, i: 0, x, y, k, sync, cast: E.cast(h, "ult"), base: E.base(h), map: h.map, xp: 0, moved: 0, first: 0, last: 0, crack: 0 });
@@ -509,7 +509,7 @@ function tickUlt(E, g, h, q, dt) {
 function assaultUse(E, g, h) {
   if (blocked(E, g, h, "assault")) return;
   const s = st(h), [ax, ay] = aimDir(E, g, h, AS.len), len = Math.max(0, wallCut(E, h, ax, ay, AS.len) - 10);
-  spend(s, "assault"); s.cd.assault = AS.cd;
+  spend(h, s, "assault"); s.cd.assault = AS.cd;
   const p = { x: h.x + ax * len, y: h.y + ay * len * E.squash }; E.keep(p, h.map);
   E.stop(h); E.move(h, p, AS.time);
   s.dashes.push({ t: 0, i: 0, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 });
@@ -538,7 +538,7 @@ function arcadionUse(E, g, h) {
   if (!wyArmed(h)) { no(E, g, h, "아르카디온을 들어야 합니다", RED); return; }   // 11월 18일 사용자 — 손에 드는 무기
   if (blocked(E, g, h, "arcadion")) return;
   const s = st(h), [ax, ay] = aimDir(E, g, h, AR.hits[0].go + AR.hits[1].go);
-  spend(s, "arcadion"); s.cd.arcadion = AR.cd;
+  spend(h, s, "arcadion"); s.cd.arcadion = AR.cd;
   s.arcs.push({ t: 0, i: 0, sw: 0, ax, ay, cast: E.cast(h), base: E.base(h), k: skillK(s), map: h.map, xp: 0 });
   E.fx(g, h.map, { kind: "sk_wy_blade", x: Math.round(h.x), y: Math.round(h.y), ax: r2(ax), ay: r2(ay), pi: h.pi, t: AR.hits[1].at + AR.hits[1].time + AR.tail, life: AR.hits[1].at + AR.hits[1].time + AR.tail, snd: "wyBlade" });
   call(E, g, h, AR.name, FIRE);

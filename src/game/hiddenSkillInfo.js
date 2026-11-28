@@ -4,7 +4,7 @@
 import { GAMBLER, GAMBLER_NAME, GAMBLER_TITLE, GM_SLOTS, GM_TRAIN_NAMES, GM_CHIP, GM_BET, GM_LUCK, GM_VEIL, GM_DICE, GM_RAIN, GM_DD, GM_TABLE, GM_EDGE, GM_JACK, GM_DOPA } from "./gamblerData.js";
 import { ENGINEER, ENGINEER_NAME, ENGINEER_TITLE, EN_SLOTS, EN_TRAIN_NAMES, EN_PULSE, EN_TURRET, EN_DRONE, EN_MAGNET, EN_RAIL, EN_MECH, EN_OC, EN_ORBIT } from "./engineerData.js";
 import { NECRO, NECRO_NAME, NECRO_TITLE, NC_SLOTS, NC_TRAIN_NAMES, NC_SCYTHE, NC_SOUL, NC_ROSTER, NC_EXTRACT, NC_SUMMON, NC_SWAP, NC_DOMAIN, NC_MARCH, NC_BURN, NC_LEGION } from "./necroData.js";
-import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_TRAIN_NAMES, WY_BLOOD, WY_CLAW, WY_CONTRACT, WY_ROAR, WY_DIVE, WY_SCALE, WY_SKY, WY_AWAKE, WY_ULT, WY_ASSAULT, WY_ARCADION } from "./wyvernData.js";
+import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_TRAIN_NAMES, WY_BLOOD, WY_CLAW, WY_CONTRACT, WY_ROAR, WY_DIVE, WY_SCALE, WY_SKY, WY_AWAKE, WY_ULT, WY_ASSAULT, WY_ARCADION, WY_COST_CUT } from "./wyvernData.js";
 import { ILLUSION, ILLUSION_NAME, ILLUSION_TITLE, IL_SLOTS, IL_TRAIN_NAMES, IL_TRICK, IL_CARD, IL_SHUFFLE, IL_SLASH, IL_PRISON, IL_BLINK, IL_FIST, IL_MIRROR, IL_FINAL } from "./illusionData.js";
 
 const pct = (v) => `${Math.round(v * 100)}%`;
@@ -128,6 +128,7 @@ function wyvern() {
     rules: [
       `용혈 최대 ${WYVERN.blood} · 처음 ${WYVERN.bloodStart}. 용조격 적중 +${B.claw} · 용염 포효 적중 +${B.roar} · 와이번 공격 적중 +${B.wyvern}.`,
       `용혈 연마 ${B.sp25} — 얻는 용혈 +${pct(B.gain25)}. 쓰러지면 용혈이 0 이 됩니다.`,
+      `직업 레벨 ${WY_COST_CUT.steps[0]}부터 ${WY_COST_CUT.steps.length}단계로 스킬 용혈 소모가 줄어듭니다(단계당 ${pct(WY_COST_CUT.max / WY_COST_CUT.steps.length)} · 최대 ${pct(WY_COST_CUT.max)}). 아래 비용은 줄기 전 값입니다. 역린 해방 중에는 스킬이 용혈을 쓰지 않습니다.`,
       `연마 합계 ${WYVERN.tint.line} — 붉은 비늘 · ${WYVERN.tint.wing} — 역린 해방 날개 잔상 · ${WYVERN.sync} — 진룡 동조.`,
       "무기를 들 수 없습니다. 와이번은 피해를 받지 않습니다.",
     ],
@@ -147,8 +148,8 @@ function wyvern() {
         stats: [["비용", `용혈 ${SC.cost}`], ["대기", `${SC.cd}초`], ["반격", x(SC.mul)], ["반격 거리", SC.reach]] },
       sky: { name: SK.name, lv: U.sky, desc: ["겨눈 영역에 화염을 떨어뜨립니다.", `떨어질 때마다 영역 안 가장 가까운 적을 쫓습니다. 역린 해방 중 ${SK.nAwake}번.`],
         stats: [["비용", `용혈 ${SK.cost}`], ["대기", `${SK.cd}초`], ["거리", SK.reach], ["영역", `반지름 ${SK.r}`], ["피해", `${x(SK.mul)} × ${SK.n}`]] },
-      awake: { name: AW.name, lv: U.awake, desc: [`곁의 와이번을 몸에 흡수하고 용혈을 모두 써서 ${AW.dur}초 동안 반룡이 됩니다. 와이번을 소환해 둬야 쓸 수 있습니다.`, `기술 피해 +${pct(AW.dmg)} · 걷는 빠르기 +${pct(AW.spd)}. 진룡 동조면 와이번 공격 +${pct(AW.syncWyvern)}.`],
-        stats: [["비용", `용혈 ${AW.cost}`], ["대기", `${AW.cd}초`], ["지속", `${AW.dur}초`]],
+      awake: { name: AW.name, lv: U.awake, desc: [`곁의 와이번을 몸에 흡수하고 용혈 없이 ${AW.dur}초 동안 반룡이 됩니다. 와이번을 소환해 둬야 쓸 수 있습니다.`, `기술 피해 +${pct(AW.dmg)} · 걷는 빠르기 +${pct(AW.spd)}. 진룡 동조면 와이번 공격 +${pct(AW.syncWyvern)}.`],
+        stats: [["비용", "용혈 0"], ["대기", `${AW.cd}초`], ["지속", `${AW.dur}초`]],
         train: [`용혈 연마 ${AW.sp50} — 지속 ${AW.dur50}초`] },
       ult: { name: UL.name, lv: U.ult, ult: 1, desc: ["하늘로 솟아 겨눈 자리에 용성으로 떨어집니다.", `첫 충돌 · 화염 폭발 ${UL.n}번 · 마지막 충돌. 역린 해방 중 ${x(UL.awakeK)}.`],
         stats: [["비용", "용혈 0"], ["대기", `${UL.cd}초`], ["거리", UL.reach], ["범위", `반지름 ${UL.r}`], ["피해", `${x(UL.firstMul)} + ${x(UL.bMul)} × ${UL.n} + ${x(UL.lastMul)}`]],

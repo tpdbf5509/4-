@@ -1,4 +1,4 @@
-import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_SKILLS, WY_CLAW, WY_BLOOD } from "./game/wyvernData.js";
+import { WYVERN, WYVERN_NAME, WYVERN_TITLE, WY_SLOTS, WY_SKILLS, WY_CLAW, WY_BLOOD, wyCost } from "./game/wyvernData.js";
 import { wyLock } from "./game/wyvernJob.js";
 import { wyvernIconStyle } from "./game/wyvernArt.js";
 import { WYVERN_ICON } from "./game/wyvernPxData.js";
@@ -21,10 +21,10 @@ export function WyvernBar({ v, keyOf: key, onUse, onFire, part }) {   // part: "
         {key("fire") && <kbd>{key("fire")}</kbd>}
       </button>
       {WY_SLOTS.map((q) => {
-        const S = WY_SKILLS[q.s], lock = wyLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, need = v.blood < S.cost;
+        const S = WY_SKILLS[q.s], lock = wyLock({ lv: v.lv }, q.s), cd = v.cd[q.s] || 0, cost = wyCost(q.s, v.lv, v.aw > 0), need = v.blood < cost;
         return (
           <button key={q.s} type="button" className={`gm-skill ${lock ? "lock" : ""} ${!lock && (cd > 0 || need) ? "wait" : ""}`} disabled={!!lock} onClick={() => onUse(q.s)}
-            title={lock || `${S.name} — 용혈 ${S.cost}`}>
+            title={lock || `${S.name} — 용혈 ${cost}`}>
             <span className="gm-ico" style={wyvernIconStyle(WYVERN_ICON[q.s], 48)}>{!lock && cd > 0 && <b>{cd >= 10 ? Math.ceil(cd) : cd.toFixed(1)}</b>}</span>
             <span className="gm-label">{lock ? `레벨 ${WYVERN.unlock[q.s]}` : S.short || S.name}</span>
             {key(q.act) && <kbd>{key(q.act)}</kbd>}

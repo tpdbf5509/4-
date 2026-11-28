@@ -5803,5 +5803,8 @@ export const highEngine = { MAPS, squash: RPG.squash, edge: RPG.edge, dist, fx, 
 const worldBossEngine={pull:worldBossPull,body:bodyOf,fx,hurt:(g,h,raw)=>hurtHero(g,h,raw,{boss:true}),kill:(g,h)=>hurtHero(g,h,h.max,{boss:true,doom:1}),plaza:toPlaza,notice:(g,n)=>fx(g,"plaza",{kind:"raid_notice",x:0,y:0,...n}),loot:lootShow};
 export function rpgWorldBoss(g,pi,req){return worldBossInput(worldBossEngine,g,pi,req);}
 
-const guildEngine={...worldBossEngine,refresh:h=>refreshHp(h,false)};
+// 길드 소식(sync)은 접속 뒤 늦게 오기도 한다(전용 서버는 최대 90초) — 성전 체력이 붙을 때 남은 체력 비율을 지킨다.
+// 예전엔 가득 찬 체력이 그대로 남아 광장에서 체력이 깎였다가 차오르는 것처럼 보였다(11월 28일 사용자 신고)
+function guildRefresh(h){const r=h.max>0?h.hp/h.max:1;refreshHp(h,false);if(h.down<=0)h.hp=Math.max(1,Math.min(h.max,Math.round(r*h.max)));}
+const guildEngine={...worldBossEngine,refresh:guildRefresh};
 export function rpgGuild(g,pi,req){return guildInput(guildEngine,g,pi,req);}

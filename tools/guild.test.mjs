@@ -58,3 +58,8 @@ test('길드가 없거나 다른 길드면 길드 광장에 들어가거나 머�
  const g=setup(),h=g.heroes[0],id=h.guild.id;h.guild={...h.guild,id:null};assert(!rpgGuild(g,0,{op:'hall'}));assert.equal(h.map,'plaza');
  h.guild={...h.guild,id};assert(rpgGuild(g,0,{op:'hall'}));h.guild={...h.guild,id:'other-guild'};rpgStep(g,0.05);assert.equal(h.map,'plaza');
 });
+test('길드 소식이 늦게 와도 체력 비율을 지킨다 — 광장에서 체력이 깎였다 차오르지 않는다',()=>{
+ const g=setup(),h=g.heroes[0];assert.equal(h.hp,h.max);
+ rpgGuild(g,0,{op:'sync',state:{id:'test-guild',name:'시험',level:70,used:0}});assert.equal(h.hp,h.max);   // 가득 찬 채로 성전 체력이 붙는다
+ h.hp=Math.round(h.max/2);rpgGuild(g,0,{op:'sync',state:{id:'test-guild',name:'시험',level:0,used:0}});assert(Math.abs(h.hp/h.max-.5)<.01);   // 반만 남았으면 반 그대로(공짜 회복 없음)
+});

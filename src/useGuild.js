@@ -17,7 +17,7 @@ const remoteGuild=(o,c,op,args)=>o.room?.viaServer?o.room.ledger('guild_action',
 export function useGuild(options){
  const current=useRef(options);useEffect(()=>{current.current=options;});
  const [state,setState]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(null);
- const working=useRef(false),synced=useRef(''),mounted=useRef(true);
+ const working=useRef(false),synced=useRef(''),mounted=useRef(true),loadedRef=useRef(null);
  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
  useEffect(()=>{if(!notice&&!error)return;const t=setTimeout(()=>{setNotice(null);setError('');},5000);return()=>clearTimeout(t);},[notice,error]);
  const account=()=>{const o=current.current,c=loadChar();return c?.linked&&c.tok&&c.name===o.selfName?c:null;};
@@ -27,7 +27,8 @@ export function useGuild(options){
    if(r.charTs>(h.ts||0)&&!await o.trades.recover())throw Error('최신 캐릭터 기록을 다시 확인하고 있습니다.');
    const s={id:r.guild?.id||null,name:r.guild?.name||'',level:r.guild?.level||0,used:r.wallet?.used||0,raid:r.guild?.raid||null};
    const key=JSON.stringify([o.hostId,o.isHost,o.seat,s]);
-   if(key!==synced.current){o.act('guild',{op:'sync',state:s});synced.current=key;}
+   const told=(h.guild?.id||null)===s.id&&(h.guild?.level||0)===s.level; // 서버를 옮기거나 다시 접속해 새 영웅이 되면 길드 소식이 비어 있다 — 다시 알린다
+   if(key!==synced.current||!told){o.act('guild',{op:'sync',state:s});synced.current=key;}
    if(mounted.current)setState(r);
  },[]);
  const refresh=useCallback(async(quiet)=>{ // quiet: 주기 · 자동 조회는 실패해도 팝업 없이 다음 주기에 다시 읽는다
@@ -62,10 +63,11 @@ export function useGuild(options){
  useEffect(()=>{
    let stopped=false,timer;const tick=async()=>{
      const o=current.current,h=o.g.heroes[o.seat],reports=h?guildReport(o.g,h):[];
+     if(h?.loaded&&!h.guild&&loadedRef.current!==h){loadedRef.current=h;refresh(true);} // 처음 불러온 뒤 바로 한 번 읽는다(전에는 다음 주기 90초까지 성전 효과가 비었다)
      if(reports.length&&!working.current)await action('finish',reports[0]);
      if(!stopped)timer=setTimeout(tick,1000);
    };tick();return()=>{stopped=true;clearTimeout(timer);};
- },[action]);
+ },[action,refresh]);
  useEffect(()=>{refresh(true);const t=setInterval(()=>{if(document.visibilityState!=='hidden')refresh(true);},current.current.room?.viaServer?REFRESH_SRV_MS:REFRESH_MS);return()=>clearInterval(t);},[refresh]);
  return {state,busy,error,notice,action,refresh,joinRaid:()=>{current.current.act('guild',{op:'enter'});current.current.closeAll();}};
 }

@@ -3,6 +3,7 @@ import {paintStory, drawStoryBackdrop, drawStoryObject, drawStoryNpc, storyObjec
 import {paintVillage, warmVillageArt, drawVillageGate, drawVillageNpc, drawVillageObject, drawVillageGround, villageObjects, villageTrees} from './villageArt.js';
 import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART, SHOP_STALL_ART, shopStallPath} from "./plazaNpcData.js";
+import {PLAZA_NEW} from "./plazaLayout.js";
 import {drawPowerCircles} from './combatRulesArt.js';
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
 import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
@@ -528,7 +529,10 @@ const MAP_TREES = {
   // 400~800레벨(deepData.js) — 화염 쪽은 그을린 나무가 드문드문, 심연 쪽은 조금 더 짙게
   ...Object.fromEntries(DEEP_MAPS.map((d, i) => [d.id, plantTrees(4500 + i, i < 4 ? 10 : 22, 500, d.w - 150, 0.85, nearGate(MAPS[d.id]))])),
 };
-const PLAZA_PROPS = [
+const PLAZA_PROPS = PLAZA_NEW ? [   // 새 배치(plazaLayout.js) — 등불은 큰 길 입구, 벤치는 분수 쉼터 · 관문 터. 소품 늘리기는 4단계
+  { k: "lamp", x: 840, y: 310 }, { k: "lamp", x: 960, y: 310 }, { k: "lamp", x: 1150, y: 640 }, { k: "lamp", x: 650, y: 580 },
+  { k: "bench", x: 780, y: 700 }, { k: "bench", x: 1020, y: 700 }, { k: "bench", x: 430, y: 950 },
+] : [
   { k: "lamp", x: 560, y: 470 }, { k: "lamp", x: 1240, y: 470 }, { k: "lamp", x: 560, y: 820 }, { k: "lamp", x: 1240, y: 820 },
   { k: "bench", x: 1100, y: 900 }, { k: "bench", x: 700, y: 360 }, { k: "bench", x: 1100, y: 360 },   // 왼쪽 아래 의자(700, 900)는 던전 입구 아치가 덮어 뺐다
 ];

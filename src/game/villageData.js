@@ -2,6 +2,7 @@
    지금은 탐방과 대화만 제공하며 보상·스토리 진행 상태를 만들지 않는다. */
 /* 마을 범위를 넓혔다(11월 6일, 사용자 요청). 옛 마을(2200×1700)은 그대로 두고 서쪽 · 동쪽에 500씩, 북쪽에 400을 더한 3200×2100 이다.
    아래 옛 좌표 목록은 옛 마을 기준으로 적혀 있어 VILLAGE_SHIFT 만큼 옮겨 쓰고, 새로 더한 건물 · 길 · 소품은 새 좌표로 적었다. */
+import { pz, pzA } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
 import {LIBRARY} from './libraryData.js';
 export const VILLAGE_SHIFT = {x: 500, y: 400};
 const SH = VILLAGE_SHIFT;
@@ -10,7 +11,7 @@ const pt = ([x, y]) => [x + SH.x, y + SH.y];
 export const VILLAGE = {
   id: 'dawnwood', name: '에르덴 마을', w: 3200, h: 2100, top: 170,
   spawn: pt([1100, 1390]), gate: {x: 900, y: 180, r: 46},   // gate · plazaAt 은 광장 쪽 좌표
-  exit: {...villageAt({x: 1100, y: 1640}), r: 54}, plazaAt: [1030, 240],
+  exit: {...villageAt({x: 1100, y: 1640}), r: 54}, plazaAt: pzA("villageBack", [1030, 240]),
   art: {base: '/assets/game/rpg/village/', size: 512, feet: [256, 496], npcSize: 86},
 };
 

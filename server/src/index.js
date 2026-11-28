@@ -3,6 +3,7 @@
    그래서 아시아에 만들라고 알려 주고(ROOM.hint), 이름에 차례(ROOM.gen)를 붙여 옛 방(미국)은 버리고 새로 만든다 */
 import {WORLD_BOSS,WORLD_BOSSES} from "../../src/game/worldBossData.js";
 import { RPG_SERVERS, RPG_TEST_SERVER } from "../../src/game/rpg.js";
+import { TEST_BLOCK_RPC } from "../../src/net/testMode.js";
 export { RpgRoom } from "./room.js";
 export { Ledger } from "./ledger-do.js";
 export { Relay } from "./relay.js";
@@ -23,7 +24,9 @@ const RPC_BODY_MAX = 65536;          // 요청 크기 한도(바이트) — 기�
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400" };
 const rpcJson = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: { "Content-Type": "application/json", ...CORS } });
 // RPG_TEST_SERVER — 테스트 모드(?test) 방. 저장하지 않는다(room.js test)
-const known = (name) => RPG_SERVERS.includes(name) || name === CHECK || name === RPG_TEST_SERVER;
+// 테스트 전용 워커(wrangler.test.toml) — 테스트 방 · 점검 방만 열고, 일반 계정 기록을 바꾸는 장부 함수는 받지 않는다
+const TEST_WORKER = typeof __TEST_WORKER__ !== "undefined" && !!__TEST_WORKER__;
+const known = (name) => TEST_WORKER ? name === CHECK || name === RPG_TEST_SERVER : RPG_SERVERS.includes(name) || name === CHECK || name === RPG_TEST_SERVER;
 
 const roomOf = (env, name, gen) => env.RPG_ROOM.get(env.RPG_ROOM.idFromName(`${name}@${gen || GENS[name] || ROOM.gen}`), { locationHint: ROOM.hint });
 
@@ -49,6 +52,7 @@ export default {
     if (rpc) {
       if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
       if (req.method !== "POST" || !PUBLIC_RPC.has(rpc[1])) return rpcJson({ ok: false, err: "op" }, 404);
+      if (TEST_WORKER && TEST_BLOCK_RPC.has(rpc[1])) return rpcJson({ ok: false, err: "test" });
       const body = await req.text();
       if (body.length > RPC_BODY_MAX) return rpcJson({ ok: false, err: "data" }, 413);
       const r = await env.LEDGER.get(env.LEDGER.idFromName("main"), { locationHint: ROOM.hint }).fetch(`https://ledger/${rpc[1]}`, { method: "POST", body });

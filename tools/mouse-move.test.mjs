@@ -69,7 +69,7 @@ test('경직 · 속박 · 쓰러짐 · 도발 · 대쉬 · 문 · 워프 · 던�
  {const {g,h}=setup();mv(g,1500,820);h.tauntBy=-1;h.tauntT=0;rpgStep(g,.02);assert(h.dest,'도발이 아니면 그대로');
   h.tauntBy=0;h.tauntT=2;rpgStep(g,.02);assert.equal(h.dest,null,'도발에 걸리면 버린다');}
  {const {g,h}=setup();mv(g,1500,820);h.map='field';rpgStep(g,.02);assert.equal(h.dest,null,'맵이 다르면 안전망으로 버린다');}
- {const {g,h}=setup();h.x=1650;h.y=660;mv(g,1700,660);run(g,.6);assert.equal(h.map,'field');assert.equal(h.dest,null,'문을 지나면 버린다');}
+ {const {g,h}=setup();const fg=MAPS.plaza.gates.find(q=>q.to==='field');h.x=fg.x-40;h.y=fg.y;mv(g,fg.x+10,fg.y);run(g,.6);assert.equal(h.map,'field');assert.equal(h.dest,null,'문을 지나면 버린다');}
  {const {g,h}=setup();mv(g,1500,820);h.bag.wp=2;h.coins=0;h.admin=1;h.lv=50;
   rpgShop(g,0,{op:'warp',to:'field'});if(h.map==='field')assert.equal(h.dest,null);}
  {const {g,h}=setup();mv(g,1500,820);h.tradeLocal=true;h.hold=[];rpgInput(g,{cls:0,kind:'mv',dir:{x:1,y:1,m:'plaza'}});assert(h.dest,'거래 잠금은 입력을 막을 뿐 이미 있던 목적지는 trade 입력이 지운다');h.tradeLocal=false;}

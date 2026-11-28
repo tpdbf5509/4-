@@ -4,6 +4,7 @@
    저장 bag.hj · 스냅샷 영웅 줄 57 · 해금 경로(gamblerUnlock.js, 진행은 bag.gu) · 관리자 명령어 /도박꾼(adminCmd.js).
    "정한 값"이라 적은 것은 기획안에 없어 정한 값이다(보고 대상). 그 밖은 기획안 값 그대로. */
 
+import { pz, pzA } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
 import { HIDDEN_RANGE } from "./hiddenFamilyData.js";   // 히든 계열 전용 사거리(11월 20일)
 export const GAMBLER_NAME = "Gambler 002";
 export const GAMBLER_TITLE = "도박꾼";
@@ -112,7 +113,7 @@ export const GM_CLUE = { A: 1, B: 2, C: 4 };
 export const GM_CLUE_NEED = 2;   // 이만큼 모으면 칩 상자가 문이 된다
 // 조사 자리 — r 안에서 말 걸기. 상자는 늘 보이고, 나머지 둘은 상자를 조사한 사람에게만 보인다
 export const GM_SPOTS = [
-  { id: "box", map: "plaza", x: 1720, y: 470, r: 80, name: "낡은 칩 상자" },             // 카지노 상점 옆
+  { id: "box", map: "plaza", ...pz("gmBox", 1720, 470), r: 80, name: "낡은 칩 상자" },             // 카지노 상점 옆
   { id: "deed", map: "dawnwood", x: 1120, y: 1420, r: 80, name: "빛바랜 계약서" },       // 에르덴 마을 여관 앞
   { id: "machine", map: "train", x: 1500, y: 1080, r: 90, name: "망가진 주사위 기계" },  // 훈련장 오른쪽 아래
 ];
@@ -121,5 +122,5 @@ export const GM_REPAIR = { dice: 3, hitR: 70 };
 /* 황금 카지노 뒷방 — 1인 시험. 빌려주는 직업 레벨 15(황금 칩 · 칩 장막 · 운명의 눈). 시험이 끝나거나 나가면 거둔다.
    veil: 1단계 예고 — gap 초마다 내 자리에 반경 r 원 · warn 초 뒤 최대 체력의 dmg 만큼(칩 장막 18% 보다 작아 다 막힌다).
    far: 3단계에 멀리 세우는 표적(운명의 눈 사거리 580 안) */
-export const GM_CASINO = { id: "casino", name: "황금 카지노 뒷방", w: 1600, h: 1100, spawn: [320, 700], exit: { x: 110, y: 700, r: 56 }, plazaAt: [1690, 540],
+export const GM_CASINO = { id: "casino", name: "황금 카지노 뒷방", w: 1600, h: 1100, spawn: [320, 700], exit: { x: 110, y: 700, r: 56 }, plazaAt: pzA("gmBack", [1690, 540]),
   targets: [[900, 620], [1120, 800]], far: [1380, 560], lv: 15, veil: { gap: 2.5, warn: 1.6, r: 70, dmg: 0.1 } };

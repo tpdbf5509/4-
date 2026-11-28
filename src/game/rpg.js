@@ -1,4 +1,5 @@
 import { mapSpeed } from "./bodyScale.js";   // 건물 안 걷기 속도(11월 19일 사용자)
+import { pz, pzA } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
 import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
 import {LIBRARY, LIBRARY_MAPS} from './libraryData.js';
@@ -153,11 +154,11 @@ export const RPG = {
    zone 은 몹이 나오는 가로 구간이다. 입구 쪽이 낮은 레벨, 끝으로 갈수록 높은 레벨이 나온다.
    bg 는 바탕 그림 이름, tile 은 그 그림이 덮는 가로 폭 — 맵이 더 넓으면 좌우로 뒤집어 이어 붙인다. */
 // 북쪽 마을 문을 가리지 않도록 명예판을 왼쪽에 둔다. 그림·대화·충돌이 같은 좌표를 쓴다.
-export const HONOR_BOARD = { x: 700, y: 256, r: 40 };
+export const HONOR_BOARD = { ...pz("honor", 700, 256), r: 40 };   // 새 배치는 북쪽 문 오른쪽(plazaLayout.js)
 export const MAPS = {
   plaza: {
-    id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: [900, 820],
-    gates: [{ x: 1690, y: 660, r: 64, to: "field", at: [240, 920], label: "사냥문" },
+    id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: pzA("spawn", [900, 820]),
+    gates: [{ ...pz("fieldGate", 1690, 660), r: 64, to: "field", at: [240, 920], label: "사냥문" },
       { x: TRAIN.gate.x, y: TRAIN.gate.y, r: 56, to: "train", at: TRAIN.spawn, label: "훈련장" }],   // 왼쪽 — 허수아비 더미 · 교관(trainData.js)
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC
     blocks: [{ x: 900, y: 620, r: 96 }, ...SHOPS.map((sh) => ({ x: sh.x, y: sh.y - 6, r: 48 })), { x: HONOR_BOARD.x, y: HONOR_BOARD.y - 4, r: HONOR_BOARD.r },
@@ -190,7 +191,7 @@ export const MAPS = {
   field: {
     id: "field", name: "토끼 사냥터", w: 3800, h: 1700, top: 170, spawn: [240, 920], bg: "field", tile: 2600,
     gates: [
-      { x: 90, y: 920, r: 64, to: "plaza", at: [1560, 700], label: "광장" },
+      { x: 90, y: 920, r: 64, to: "plaza", at: pzA("fieldBack", [1560, 700]), label: "광장" },
       { x: 3700, y: 920, r: 64, to: "wolf", at: [260, 920], label: "늑대 사냥터 · 10~20레벨" },
     ],
     blocks: [],

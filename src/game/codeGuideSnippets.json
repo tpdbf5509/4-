@@ -2,7 +2,7 @@
  "걷는 속도": [
   {
    "file": "src/game/rpg.js",
-   "from": 142,
+   "from": 143,
    "code": [
     "  spd: 250,              // 영웅이 걷는 속도"
    ]
@@ -11,7 +11,7 @@
  "쓰러진 뒤 일어나는 시간": [
   {
    "file": "src/game/rpg.js",
-   "from": 145,
+   "from": 146,
    "code": [
     "  down: 5,               // 쓰러지면 이만큼 뒤에 광장에서 일어난다"
    ]
@@ -20,7 +20,7 @@
  "맞지 않을 때 체력 회복": [
   {
    "file": "src/game/rpg.js",
-   "from": 146,
+   "from": 147,
    "code": [
     "  calm: 2.5,             // 이만큼 맞지 않으면 체력이 저절로 차오른다",
     "  calmRegen: 0.03,       // 그때 초당 차오르는 몫 (최대 체력 대비)"
@@ -30,7 +30,7 @@
  "스탯 1포인트당 효과": [
   {
    "file": "src/game/rpg.js",
-   "from": 934,
+   "from": 935,
    "code": [
     "  { id: \"str\", name: \"물리력\", note: \"검사 · 궁수 공격력\", base: 10, per: 3, fmt: (v) => String(v) },",
     "  { id: \"int\", name: \"마법력\", note: \"마법사 공격력 · 화상 · 독 피해\", base: 10, per: 3, fmt: (v) => String(v) },",
@@ -43,7 +43,7 @@
  "최대 체력 바탕": [
   {
    "file": "src/game/rpg.js",
-   "from": 936,
+   "from": 937,
    "code": [
     "  { id: \"hp\", name: \"체력\", note: \"최대 체력 (직업 배율을 곱한다)\", base: 100, per: 22, fmt: (v) => v.toLocaleString(\"ko-KR\") },"
    ]
@@ -52,7 +52,7 @@
  "공격력 바탕": [
   {
    "file": "src/game/rpg.js",
-   "from": 934,
+   "from": 935,
    "code": [
     "  { id: \"str\", name: \"물리력\", note: \"검사 · 궁수 공격력\", base: 10, per: 3, fmt: (v) => String(v) },",
     "  { id: \"int\", name: \"마법력\", note: \"마법사 공격력 · 화상 · 독 피해\", base: 10, per: 3, fmt: (v) => String(v) },"
@@ -62,7 +62,7 @@
  "치명타 확률": [
   {
    "file": "src/game/rpg.js",
-   "from": 937,
+   "from": 938,
    "code": [
     "  { id: \"crit\", name: \"치명타 확률\", note: \"치명타가 터질 확률\", base: 5, per: 0.5, fmt: (v) => `${r1(v)}%` },"
    ]
@@ -71,7 +71,7 @@
  "치명타 피해": [
   {
    "file": "src/game/rpg.js",
-   "from": 938,
+   "from": 939,
    "code": [
     "  { id: \"cdmg\", name: \"치명타 피해\", note: \"치명타가 터졌을 때 피해\", base: 150, per: 1.5, fmt: (v) => `${r1(v)}%` },"
    ]
@@ -80,14 +80,14 @@
  "스탯 한도 · 레벨당 포인트": [
   {
    "file": "src/game/rpg.js",
-   "from": 922,
+   "from": 923,
    "code": [
     "export const STAT_MAX = HIGH.live ? HIGH.stat : HIGH.liveStat;"
    ]
   },
   {
    "file": "src/game/rpg.js",
-   "from": 928,
+   "from": 929,
    "code": [
     "export const STAT_PER_LV = 2;"
    ]
@@ -96,7 +96,7 @@
  "최고 레벨": [
   {
    "file": "src/game/rpg.js",
-   "from": 914,
+   "from": 915,
    "code": [
     "export const LV_MAX = HIGH.live ? HIGH.lv : HIGH.liveLv;"
    ]
@@ -105,7 +105,7 @@
  "직업 평타 피해": [
   {
    "file": "src/game/rpg.js",
-   "from": 811,
+   "from": 812,
    "code": [
     "  { id: \"warrior\", name: \"검사\", weapon: \"검\", note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
     "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
@@ -119,7 +119,7 @@
  "직업 공격 속도": [
   {
    "file": "src/game/rpg.js",
-   "from": 811,
+   "from": 812,
    "code": [
     "  { id: \"warrior\", name: \"검사\", weapon: \"검\", note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
     "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
@@ -133,7 +133,7 @@
  "직업 사거리": [
   {
    "file": "src/game/rpg.js",
-   "from": 811,
+   "from": 812,
    "code": [
     "  { id: \"warrior\", name: \"검사\", weapon: \"검\", note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
     "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
@@ -147,7 +147,7 @@
  "직업 체력 배율": [
   {
    "file": "src/game/rpg.js",
-   "from": 811,
+   "from": 812,
    "code": [
     "  { id: \"warrior\", name: \"검사\", weapon: \"검\", note: \"붙어서 둘레를 한 번에 벤다 · 가장 튼튼하다\",",
     "    hp: 1.35, dmg: 34, cd: 0.55, rng: 72, skill: \"회오리\" },",
@@ -161,7 +161,7 @@
  "직업별 몬스터 피해 배율": [
   {
    "file": "src/game/rpg.js",
-   "from": 826,
+   "from": 827,
    "code": [
     "export const JOB_DMG = { mage: 1.05, archer: JOB_TUNE.archer.dmg };   // 10월 30일 궁수 1 → 0.9(jobTuneData.js)"
    ]
@@ -190,7 +190,7 @@
  "스킬 기본 피해": [
   {
    "file": "src/game/shopData.js",
-   "from": 145,
+   "from": 146,
    "code": [
     "export const SKILL_USE = {",
     "  base: 40,              // 공격 스킬의 기본 피해 — 스탯 10 일 때 mul 1 이면 이만큼",
@@ -202,7 +202,7 @@
  "몬스터 경험치": [
   {
    "file": "src/game/rpg.js",
-   "from": 518,
+   "from": 519,
    "code": [
     "export const XP_RATE = 0.2;"
    ]
@@ -211,7 +211,7 @@
  "몬스터 체력(1~400레벨)": [
   {
    "file": "src/game/rpg.js",
-   "from": 688,
+   "from": 689,
    "code": [
     "export const MOB_HP_EASE = 0.8;"
    ]
@@ -220,7 +220,7 @@
  "200~400레벨 사냥터 난이도": [
   {
    "file": "src/game/rpg.js",
-   "from": 678,
+   "from": 679,
    "code": [
     "export const FAR_EASE = { hp: 0.7, dmg: 0.75 };"
    ]
@@ -229,7 +229,7 @@
  "몬스터 자동 회복": [
   {
    "file": "src/game/rpg.js",
-   "from": 523,
+   "from": 524,
    "code": [
     "export const MOB_REGEN = { calm: 5, rate: 0.08 };"
    ]
@@ -238,7 +238,7 @@
  "몬스터 한 마리 값(체력 · 공격 · 경험치 · 코인)": [
   {
    "file": "src/game/rpg.js",
-   "from": 546,
+   "from": 547,
    "code": [
     "    hp: (lv) => 300 + 60 * (lv - 10),             // 300 ~ 900",
     "    dmg: (lv) => 12 + 2 * (lv - 10),              // 한 번 물 때 12 ~ 32"
@@ -281,7 +281,7 @@
  "다른 무기를 들었을 때 고정 피해": [
   {
    "file": "src/game/shopData.js",
-   "from": 75,
+   "from": 76,
    "code": [
     "export const OFF_HAND = { dmg: { sword: 45, bow: 35, staff: 40 } };   // 기획 값 — 검 45 · 활 35 · 마법봉 40"
    ]
@@ -290,25 +290,25 @@
  "전직 가능 레벨": [
   {
    "file": "src/game/advData.js",
-   "from": 8,
+   "from": 9,
    "code": [
     "export const ADV = {",
     "  lv: 200,                       // 전직할 수 있는 레벨",
-    "  npc: { x: 640, y: 360 },       // 광장의 전직 교관 자리 — 무기상점과 명예 순위판 사이 빈 풀밭"
+    "  npc: pz(\"adv\", 640, 360),       // 광장의 전직 교관 자리 — 무기상점과 명예 순위판 사이 빈 풀밭"
    ]
   }
  ],
  "전직 패시브 추가 피해 상한": [
   {
    "file": "src/game/advData.js",
-   "from": 14,
+   "from": 15,
    "code": [
     "  pvpBonusMax: 0.15,             // 결투 · 사냥터 PvP 에서 패시브 추가 피해 합계 상한(+15%)"
    ]
   },
   {
    "file": "src/game/advData.js",
-   "from": 16,
+   "from": 17,
    "code": [
     "  pveBonusMax: 0.6,              // 몹에게 주는 패시브 추가 피해 합계 상한(+60%)"
    ]
@@ -317,7 +317,7 @@
  "전직 몸(체력 · 속도 · 받는 피해)": [
   {
    "file": "src/game/advData.js",
-   "from": 211,
+   "from": 212,
    "code": [
     "export const ADV_BODY = {",
     "  assassin: { hp: 0.78, spd: 1.2 },                 // 검사 계열(검투사 · 기사)보다 체력 22% 낮게",
@@ -329,7 +329,7 @@
  "전직 추가 스탯": [
   {
    "file": "src/game/advData.js",
-   "from": 256,
+   "from": 257,
    "code": [
     "export const ADV_BONUS = {",
     "  gladiator: { str: 60, cdmg: 10 },   // 검투사 — 공격 · 콤보",
@@ -345,7 +345,7 @@
  "전직 스킬 대기 시간 · 배율": [
   {
    "file": "src/game/advData.js",
-   "from": 198,
+   "from": 199,
    "code": [
     "      cd: 9, dmg: \"str\", n: 5, spread: 0.32, len: 560, width: 34, mul: 1.5, wind: 4, windSpd: 0.15,"
    ]
@@ -354,7 +354,7 @@
  "소환술사 거대 정령(궁극기)": [
   {
    "file": "src/game/advData.js",
-   "from": 122,
+   "from": 123,
    "code": [
     "    ultimate: {",
     "      name: \"거대 정령\", note: \"지금 원소의 거대 정령을 부른다 · 사냥터 · 던전 · 보스전에서 30초 동안 싸운다 · 정령은 체력이 있어 내가 받는 피해의 60%를 대신 맞는다 · 광장에서는 시간이 가지 않고 공격 없이 작은 펫으로 따라다닌다 · 싸우는 곳에 들어가면 30초가 돌고 대기 90초도 함께 돈다 · 결투장에서는 작게 부르고 체력은 내 최대 체력만큼\",",
@@ -406,7 +406,7 @@
  "서버 정원": [
   {
    "file": "src/game/rpg.js",
-   "from": 98,
+   "from": 99,
    "code": [
     "export const RPG_SERVER_CAP = 10;"
    ]

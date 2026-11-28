@@ -31,3 +31,27 @@ jobs:
         run: npx wrangler deploy
       - name: 배포 확인(health · 접속 · 장부)
         run: sleep 5 && node smoke.mjs
+  # 테스트 서버(?test) 전용 워커 — 광장 새 배치로 묶는다(server/wrangler.test.toml). 본 서버 배포가 끝난 뒤 따로 돌아 실패해도 본 서버에 영향이 없다
+  deploy-test:
+    needs: deploy
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: server } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci --no-audit --no-fund
+      - name: 비밀값 다듬기
+        run: |
+          for k in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            v="$(printf '%s' "${!k}" | tr -d '[:space:]')"
+            echo "::add-mask::$v"
+            echo "$k=$v" >> "$GITHUB_ENV"
+          done
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: 테스트 워커 배포
+        run: npx wrangler deploy -c wrangler.test.toml
+      - name: 배포 확인(health · 접속 · 장부)
+        run: sleep 5 && node smoke.mjs https://four-lane-rpg-test.four-lane.workers.dev

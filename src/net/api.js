@@ -4,7 +4,9 @@ import { TEST_MODE, TEST_BLOCK_RPC } from "./testMode.js";
    예전에 Supabase 가 하던 일(계정 · 저장 · 관리 · 의견 · 방 중계)을 워커 하나(server/)가 한다.
    장부 함수는 Supabase 의 rpc 와 같은 모양이다 — POST /rpc/<함수> 에 { p_... } 를 보내면 결과 JSON 이 온다.
    주소는 Vercel 환경 변수 VITE_RPG_SERVER(wss://…)로 덮어쓸 수 있다. 개발 중 ?srv=local 이면 내 컴퓨터의 wrangler dev 로 붙는다 */
-export const SRV_WS = import.meta.env.VITE_RPG_SERVER || "wss://four-lane-rpg.four-lane.workers.dev";
+// 테스트 모드(?test)는 테스트 전용 워커(server/wrangler.test.toml — 광장 새 배치)로 붙는다(11월 28일)
+const TEST_WS = import.meta.env.VITE_RPG_TEST_SERVER || "wss://four-lane-rpg-test.four-lane.workers.dev";
+export const SRV_WS = TEST_MODE ? TEST_WS : import.meta.env.VITE_RPG_SERVER || "wss://four-lane-rpg.four-lane.workers.dev";
 const LOCAL_WS = "ws://127.0.0.1:8787";
 
 function wantsLocalSrv() {

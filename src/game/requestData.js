@@ -1,3 +1,4 @@
+import { pz, pzA } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
 import { DEEP_MAPS } from "./deepData.js";
 import { HIGH_MAPS } from "./highData.js";
 
@@ -10,12 +11,12 @@ import { HIGH_MAPS } from "./highData.js";
    보상: coin 코인 · xp 는 그때 레벨의 필요 경험치에 곱하는 몫(몹 경험치 배율과 상관없다) · mats 재료.
    끝낸 의뢰는 다시 받을 수 있다. 목록의 차례는 저장 · 스냅샷에 쓰니 뒤에만 더한다 */
 export const REQ_NPCS = [
-  { id: "guard", name: "경비대장 한결", x: 1360, y: 560, color: "#7f93b0", line: "사냥터의 몹이 너무 많아. 좀 줄여 주게." },
-  { id: "collector", name: "수집가 보리", x: 1030, y: 1080, color: "#b49a6e", line: "보스가 떨군 재료라면 값을 쳐 드리지요." },
-  { id: "alchemist", name: "연금술사 미나", x: 470, y: 560, color: "#9a86b8", line: "재료를 가져오면 강화석으로 바꿔 줄게요." },
+  { id: "guard", name: "경비대장 한결", ...pz("guard", 1360, 560), color: "#7f93b0", line: "사냥터의 몹이 너무 많아. 좀 줄여 주게." },
+  { id: "collector", name: "수집가 보리", ...pz("collector", 1030, 1080), color: "#b49a6e", line: "보스가 떨군 재료라면 값을 쳐 드리지요." },
+  { id: "alchemist", name: "연금술사 미나", ...pz("alchemist", 470, 560), color: "#9a86b8", line: "재료를 가져오면 강화석으로 바꿔 줄게요." },
 ];
 // 저장과 스냅샷의 기존 NPC 차례를 유지한다.
-REQ_NPCS.push({ id: "questmaster", name: "퀘스트 마스터", x: 1200, y: 780, color: "#c6ac70", line: "자네 레벨에 맞는 사냥터의 퀘스트를 골라 보게." });
+REQ_NPCS.push({ id: "questmaster", name: "퀘스트 마스터", ...pz("questmaster", 1200, 780), color: "#c6ac70", line: "자네 레벨에 맞는 사냥터의 퀘스트를 골라 보게." });
 export const QUEST_AREAS = [
   ...[["field","토끼 사냥터","rabbit",1,5],["wolf","늑대 사냥터","wolf",10,20],
   ["boar","멧돼지 사냥터","boar",20,50],["gorilla","고릴라 사냥터","gorilla",50,100],

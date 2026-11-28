@@ -1,4 +1,5 @@
 /* 월드보스 첫 시험 수치. 출현·판정·드롭 확률은 여기서 조절한다. */
+import { pz, pzA } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
 import { WORLD_WEAPONS, VOID_WEAPONS } from './worldEquipmentData.js';
 import { STORM_WEAPONS } from './stormWeaponData.js';
 // 보상 수령함 검증과 지급도 같은 목록을 쓴다. 원래 무기 ID와 능력치는 유지한다.
@@ -14,7 +15,7 @@ export const WORLD_BOSS = {
   hitPct: .45, poolPct: .14, poolTime: 7, poolTick: 1, // 경고를 보고 피해야 하는 강한 연속 공격으로 바꾼다.
   coop: {window:1.6,sync:.85,players:3,stun:4,lv:400}, // 400레벨 3명이 스킬을 맞춰 큰 기술을 4초간 끊는다. lv — 최고 레벨이 800 으로 올라도(10월 26일) 예전 만렙 400 기준을 그대로 둔다
   w: 2200, h: 1500, spawn: [900,950], center: [1250,1100], squash: .78,
-  portal:{x:1660,y:1115,reach:115},
+  portal:{...pz("worldBoss",1660,1115),reach:115},
   art: '/assets/game/rpg/boss/world-bosses.webp', artCols: 3, artRows: 2, artSize: 700,
   artFeet: [[.75,.755,.77],[.738,.715,.72]],
   heart: [10,20], coins: [50000,150000], coinStep: 100,

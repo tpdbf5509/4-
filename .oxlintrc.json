@@ -21,6 +21,8 @@
   },
   "globals": {
     "__BUILD__": "readonly",
+    "__PLAZA_NEW__": "readonly",
+    "__TEST_WORKER__": "readonly",
     "WebSocketPair": "readonly"
   }
 }

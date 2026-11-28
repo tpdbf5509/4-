@@ -5,7 +5,7 @@
    실제 게임에 열 때는 PLAZA.live 를 true 로 바꾼다(되돌리기도 한 줄). 시험은 globalThis.__PLAZA_NEW__ = true 를 세운 뒤 불러온다 */
 import { TEST_MODE } from "../net/testMode.js";
 
-export const PLAZA = { live: false };
+export const PLAZA = { live: true };   // 11월 28일 사용자 「실제 게임에 적용하자」 — false 로 되돌리면 테스트 서버만 새 배치
 
 const BUILD_FLAG = typeof __PLAZA_NEW__ !== "undefined" ? __PLAZA_NEW__ : globalThis.__PLAZA_NEW__;
 export const PLAZA_NEW = !!(PLAZA.live || BUILD_FLAG || TEST_MODE);

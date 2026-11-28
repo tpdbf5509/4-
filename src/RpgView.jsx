@@ -99,6 +99,7 @@ import { TRAIN, TRAIN_TOGGLES, TRIAL } from "./game/trainData.js";
 import { TEST_TOGGLES } from "./game/testData.js";
 import { TEST_MODE } from "./net/testMode.js";
 import { PLAZA_NEW, PLAZA_ZONE, plazaZone } from "./game/plazaLayout.js";
+import { SCREEN_FX, setScreenFx } from "./game/screenFx.js";
 const HUD2_ZOOM = 0.88;   // 새 화면 구성의 카메라 배율(1 = 예전, 작을수록 넓게 보인다)
 const TEST_SPOTS = TEST_MODE ? testSpots() : [];   // 테스트 도구 창의 장소 이동 묶음
 // 최고 레벨 · 스탯 상한 — 테스트 모드(?test)는 800~1200 사냥터와 함께 1200(highData.js HIGH), 일반 주소는 지금 값
@@ -634,6 +635,8 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
   const [pvp, setPvp] = useState(loadPvp);           // 사냥터 PvP
   const [lowFxOn, setLowFxOn] = useState(loadLowFx);   // 연출 줄이기
   useEffect(() => { setLowFx(lowFxOn); }, [lowFxOn]);
+  const [screenFxOn, setScreenFxOn] = useState(SCREEN_FX.on);   // 화면 효과(셰이더) — 새 광장 그림 · 소품 · 구역 이름(screenFx.js)
+  const toggleScreenFx = useCallback(() => setScreenFxOn((on) => { setScreenFx(!on); return !on; }), []);
   const toggleLowFx = useCallback(() => setLowFxOn((on) => {
     try { localStorage.setItem(LOWFX_KEY, on ? "0" : "1"); } catch { /* 저장이 막혀 있으면 이번만 */ }
     return !on;
@@ -1915,7 +1918,7 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
           giftRef.current = true;
         }
         if (me && me.map !== lastMap) lastMap = me.map;   // 맵 이름은 불러오기 가림막이 걷힐 때 띄운다
-        if (PLAZA_NEW && me && me.map === "plaza" && !loadRef.current) {   // 새 광장 — 구역에 들어가면 이름을 잠깐(맵에 막 들어온 때는 맵 이름만)
+        if (PLAZA_NEW && SCREEN_FX.on && me && me.map === "plaza" && !loadRef.current) {   // 새 광장 — 구역에 들어가면 이름을 잠깐(맵에 막 들어온 때는 맵 이름만)
           const z = plazaZone(me.x, me.y), t = Date.now();
           if (z !== lastZone) {
             if (lastZone && !(t - (zoneSeen[z] || 0) < PLAZA_ZONE.rest)) { zoneSeen[z] = t; setToast({ name: z, at: t, zone: 1 }); }
@@ -2395,6 +2398,13 @@ export default function RpgView({ room, isHost, hostId, seats, mySeat, code, onL
                     <span className={`rpg-switch ${hideGear & bit ? "on" : ""}`}><span /></span>
                   </button>
                 ))}
+                <button type="button" role="menuitemcheckbox" aria-checked={screenFxOn} className="rpg-menu-row" onClick={toggleScreenFx}>
+                  <span className="rpg-menu-text">
+                    <b>화면 효과</b>
+                    <em>{screenFxOn ? "광장의 새 그림 · 소품 · 등불 빛 · 구역 이름을 그립니다" : "광장 배치와 낮밤만 바뀌고 그림은 예전 것입니다. 느린 기기에 맞습니다"}</em>
+                  </span>
+                  <span className={`rpg-switch ${screenFxOn ? "on" : ""}`}><span /></span>
+                </button>
                 <button type="button" role="menuitemcheckbox" aria-checked={lowFxOn} className="rpg-menu-row" onClick={toggleLowFx}>
                   <span className="rpg-menu-text">
                     <b>연출 줄이기</b>

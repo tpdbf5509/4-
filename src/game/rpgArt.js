@@ -5,6 +5,7 @@ import {drawPlazaNpc, warmPlazaNpcArt} from "./plazaNpcArt.js";
 import {PLAZA_NPC_ART, SHOP_STALL_ART, shopStallPath} from "./plazaNpcData.js";
 import {PLAZA_NEW} from "./plazaLayout.js";
 import { PLAZA_LIGHT, plazaLight } from "./plazaLightData.js";
+import { SCREEN_FX } from "./screenFx.js";
 import {drawPowerCircles} from './combatRulesArt.js';
 import {drawGuildStatue,drawGuildBoss,drawGuildGround,warmGuildArt,guildBossTop,drawGuildDoor,drawGuildRaidDoor,drawArchDoor} from './guildArt.js';
 import { DEEP, DEEP_MAPS, DEEP_DOOR_ART } from './deepData.js';
@@ -378,7 +379,7 @@ export function warmRpgArt() {
   warmDragonFlightArt();warmWorldBossArt();warmGuildArt();warmAdvArt();warmFuryArt();warmAbyssArt();
   if (rpgWarm) return;
   rpgWarm = 1;
-  ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen", ...(PLAZA_NEW ? ["plaza-props"] : [])].forEach((n) => mapImg(rpgFile(n)));
+  ["plaza", "field", "lamp", "bench", "hunter", "rabbit", "rabbit-frozen", ...(PLAZA_NEW && SCREEN_FX.on ? ["plaza-props"] : [])].forEach((n) => mapImg(rpgFile(n)));
   sprite("rpg/fountain"); sprite("rpg/gate");
 }
 
@@ -871,8 +872,9 @@ function drawPlazaNight(ctx, M) {
       gr.addColorStop(0, `rgba(${L.glow},${al * a})`); gr.addColorStop(1, `rgba(${L.glow},0)`);
       ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     };
-    PLAZA_PROPS.forEach((o) => { if (o.k === "px" && o.f === 0) { glow(o.x, o.y - o.s * 0.72, L.lampR, L.lampA); glow(o.x, o.y, L.lampR * 0.8, L.lampA * 0.55); } });
-    M.npcs.forEach((n) => { if (n.shop && n.shop !== "onyx") glow(n.x + 64, n.y - 83, L.hangR, L.hangA); });
+    const head = (o) => SCREEN_FX.on ? o.s * 0.72 : 77;   // 등불 머리 높이 — 화면 효과 끔이면 예전 가로등
+    PLAZA_PROPS.forEach((o) => { if (o.k === "px" && o.f === 0) { glow(o.x, o.y - head(o), L.lampR, L.lampA); glow(o.x, o.y, L.lampR * 0.8, L.lampA * 0.55); } });
+    if (SCREEN_FX.on) M.npcs.forEach((n) => { if (n.shop && n.shop !== "onyx") glow(n.x + 64, n.y - 83, L.hangR, L.hangA); });
   }
   ctx.restore();
 }
@@ -889,6 +891,7 @@ function drawStallLantern(ctx) {
 }
 
 function drawProp(ctx, o) {
+  if (o.k === "px" && !SCREEN_FX.on) { if (o.f === 0) drawProp(ctx, { k: "lamp", x: o.x, y: o.y }); return; }   // 화면 효과 끔 — 등불 자리는 예전 가로등, 나머지 소품은 없다
   if (o.k === "px") {   // 새 광장 소품 시트 — 못 불러오면 그리지 않는다(장식뿐)
     const im = mapImg(rpgFile(PLAZA_SHEET.file)), C = PLAZA_SHEET.cell;
     const f = o.f === 0 && plazaLit ? 1 : o.f;   // 밤에는 켜진 등불 칸
@@ -1026,7 +1029,7 @@ function drawShop(ctx, n, time) {
   // 판매대는 주인 앞에 그려 몸이 판매대 위로 겹치지 않게 한다.
   if (stall) { const [bx, by, bw, bh] = SHOP_STALL_ART.box; ctx.drawImage(stall, bx, by, bw, bh); }
   else drawShopStallShape(ctx, c);
-  if (PLAZA_NEW && n.shop !== "onyx") drawStallLantern(ctx);
+  if (PLAZA_NEW && SCREEN_FX.on && n.shop !== "onyx") drawStallLantern(ctx);
   // 간판 — 상점 이름
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.font = "15px 'Do Hyeon', sans-serif";
@@ -2892,7 +2895,7 @@ export function drawRpg(ctx, g, bgs) {
   const z = cam.z || 1, VW = W / z, VH = H / z;
   VIEW.textK = textScreen(M) / z;     // 카메라를 뒤로 당긴 맵(bodyScale.js) — 땅을 z 배로 줄여 그리고, 건물 안은 몸 크기만큼 글자도 키운다
   if (z !== 1) { ctx.fillStyle = "#1b1611"; ctx.fillRect(0, 0, W, H); ctx.scale(z, z); }
-  const bgName = M.bg || M.id;
+  const bgName = M.id === "plaza" && PLAZA_NEW ? (SCREEN_FX.on ? "plaza-v3" : "plaza-v2") : M.bg || M.id;   // 새 광장 — 화면 효과를 끄면 예전 그림을 새 길에 맞춘 바닥
   const look = !M.dungeon && FIELD_LOOKS[M.id];        // 사냥터 — 맵마다 다른 바탕(fieldLookData.js)
   const bim = M.grid || M.dungeon || M.village || M.story || look ? null : mapImg(rpgFile(bgName));
   // 코드로 그린 큰 바탕은 한 장만 남긴다(던전 · 사냥터 합쳐)

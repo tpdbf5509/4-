@@ -5,7 +5,7 @@
    규칙은 rpg.js(rpgAbyss · tickAbyss), 창은 src/AbyssPanel.jsx, 순위는 장부(server/src/ledger.js fn_rpg_abyss_top).
    수치는 시험 전 초안이다 — 플레이 테스트로 맞춘다.
    스냅샷 · 맵 · 몹 · 기록 · 칭호 차례에 쓰는 목록은 뒤에만 더한다 */
-import { pz, pzA } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
+import { pz, pzA, PLAZA_NEW } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
 import { BOSS_AI, BOSS_NAMES, DG_LOOKS } from "./dungeonData.js";
 import { DEEP_MAPS } from "./deepData.js";
 
@@ -103,7 +103,8 @@ GUARDIANS.forEach((q) => { BOSS_AI[q.type] = q.ai; BOSS_NAMES[q.type] = q.name; 
 
 // 그림 — 원본은 design/abyss/. 못 불러와도 코드 그림으로 대신한다
 export const ABYSS_ART = {
-  gate: { src: "/assets/game/rpg/abyss/abyss-gate.webp", h: 280, foot: 0.94, portal: [0.5, 0.66, 0.16] },   // h 맵에서 그리는 높이 · foot 그림 위에서 발밑까지의 몫 · portal 입구 빛 가운데와 반지름 몫
+  gate: { src: "/assets/game/rpg/abyss/abyss-gate.webp", h: PLAZA_NEW ? 200 : 280,   // 새 배치는 둘레 가판과 비율을 맞춰 줄인다(11월 28일 사용자)
+    foot: 0.94, portal: [0.5, 0.66, 0.16] },   // h 맵에서 그리는 높이 · foot 그림 위에서 발밑까지의 몫 · portal 입구 빛 가운데와 반지름 몫
   // 수호자 기술 연출(11월 1일, Codex 생성 · 검은 바탕 lighter) — fx 6열(수호자 차례 = 원소 차례) × 6행: 내려치기 · 돌진 자국 · 연타 한 방 · 광폭화 기운 · 철벽 돔 · 분신 안개. icerain 은 얼음 비 한 줄기 — 크기 · 길이를 늘려 여러 개 겹쳐 쓴다
   fx: { src: "/assets/game/rpg/abyss/abyss-fx.webp", cols: 6, cell: 256, row: { slam: 0, charge: 1, strike: 2, rage: 3, dome: 4, mirage: 5 } },
   icerain: { src: "/assets/game/rpg/abyss/ice-rain.webp" },   // 가로 : 세로 약 1 : 6.4 — 그릴 때 폭 s · 길이 len 으로 늘려 쓴다

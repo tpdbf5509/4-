@@ -1,5 +1,5 @@
 import { mapSpeed } from "./bodyScale.js";   // 건물 안 걷기 속도(11월 19일 사용자)
-import { pz, pzA } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
+import { pz, pzA, PLAZA_NEW } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
 import {VILLAGE, VILLAGE_NPCS, VILLAGE_SIGHTS, villageBlocks} from './villageData.js';
 import {STORY_MAPS, STORY_GATES, RUIN_CHAIN, storyNpcsOf, storySightsOf, storyBlocks} from './storyData.js';
 import {LIBRARY, LIBRARY_MAPS} from './libraryData.js';
@@ -157,7 +157,7 @@ export const RPG = {
 export const HONOR_BOARD = { ...pz("honor", 700, 256), r: 40 };   // 새 배치는 북쪽 문 오른쪽(plazaLayout.js)
 export const MAPS = {
   plaza: {
-    id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: pzA("spawn", [900, 820]),
+    id: "plaza", name: "광장", w: 1800, h: 1200, top: 170, safe: true, spawn: pzA("spawn", [900, 820]), bg: PLAZA_NEW ? "plaza-v2" : undefined,   // 새 배치 바닥(design/plaza-floor/make_v2.py)
     gates: [{ ...pz("fieldGate", 1690, 660), r: 64, to: "field", at: [240, 920], label: "사냥문" },
       { x: TRAIN.gate.x, y: TRAIN.gate.y, r: 56, to: "train", at: TRAIN.spawn, label: "훈련장" }],   // 왼쪽 — 허수아비 더미 · 교관(trainData.js)
     // 가운데 분수 · 상점 노점 · 명예 순위판 · 의뢰 NPC

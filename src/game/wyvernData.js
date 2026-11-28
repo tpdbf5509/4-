@@ -94,8 +94,10 @@ export const WY_ULT = { name: "종언의 용성", cost: 0, cd: 100, reach: 650, 
    white · black 동안은 폭발 순간 떠 둔 그림을 붙잡는다(멈춤). 지금 길이는 아래 줄(사용자가 줄였다).
    시전자 화면만 화면 전체를 바꾸고, 같은 맵의 다른 사람 화면 · 「연출 줄이기」 를 켠 화면은 폭발 자리에만 옅게(local 불투명도) 겹친다.
    눈부심을 줄이려고 흰색은 순백이 아닌 종이색, 검은 바탕도 아주 검지 않게 둔다(paper · ink) — 정한 값 */
-// 11월 28일 사용자 "마지막에 화면 커지는거 꺼줘 · 흰색 검정색 합쳐서 0.3초" — 흰 폭발 구간(burst)을 끄고 둘을 영상 비율 0.20 : 0.16 대로 0.17 · 0.13 초로 줄였다
-export const WY_IMPACT = { white: 0.17, black: 0.13, paper: "#ECE6DE", ink: "#141012", wash: 0.82, local: 0.4, down: 2 };   // down — 멈춘 그림을 뜨는 축소 배율(끊김 줄이기)
+// 11월 28일 사용자 — 흰 폭발 구간을 껐고 길이는 0.3초 → "0.2초로 해볼까?" 로 합 0.2초. 정지 길이는 IMPACT_TOTAL 한 곳만 고친다.
+// 흰 · 검은 나눔은 영상 비율 0.20 : 0.16(IMPACT_WHITE_SHARE)
+const IMPACT_TOTAL = 0.2, IMPACT_WHITE_SHARE = 0.2 / 0.36;
+export const WY_IMPACT = { white: IMPACT_TOTAL * IMPACT_WHITE_SHARE, black: IMPACT_TOTAL * (1 - IMPACT_WHITE_SHARE), paper: "#ECE6DE", ink: "#141012", wash: 0.82, local: 0.4, down: 2 };   // down — 멈춘 그림을 뜨는 축소 배율(끊김 줄이기)
 
 /* 천공강습(1부 요약 9번 — 직업 레벨 75, 모두 정한 값) — 용혈 25 · 대기 12초. 겨눈 쪽으로 380 을 0.4초에 돌진하며
    0.1초마다 둘레 150 을 4번 벤다(한 번 ×4.0, 합 ×16). 같은 대상은 한 번 벨 때 한 번. 벽 앞에서 멈춘다 */

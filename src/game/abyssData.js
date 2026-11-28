@@ -5,6 +5,7 @@
    규칙은 rpg.js(rpgAbyss · tickAbyss), 창은 src/AbyssPanel.jsx, 순위는 장부(server/src/ledger.js fn_rpg_abyss_top).
    수치는 시험 전 초안이다 — 플레이 테스트로 맞춘다.
    스냅샷 · 맵 · 몹 · 기록 · 칭호 차례에 쓰는 목록은 뒤에만 더한다 */
+import { pz, pzA } from "./plazaLayout.js";   // 광장 새 배치(11월 28일) — 테스트 서버 먼저
 import { BOSS_AI, BOSS_NAMES, DG_LOOKS } from "./dungeonData.js";
 import { DEEP_MAPS } from "./deepData.js";
 
@@ -12,9 +13,9 @@ export const ABYSS = {
   lv: 400,                // 들어갈 수 있는 레벨 — 계몽의 문과 같다(계몽의 눈은 필요 없다)
   fee: 30000,             // 입장료(코인) — 들어가는 사람만 낸다. 강화석 던전 중급과 같은 값(초안)
   // 광장의 탑 입구 — 발밑 가운데 자리. 오른쪽 아래 빈 풀밭(11월 1일 노점을 위쪽 한 줄로 옮겨 사냥문 · 노점과 겹치지 않는다)
-  gate: { x: 1420, y: 1040, r: 38 },
+  gate: { ...pz("abyss", 1420, 1040), r: 38 },
   reach: 130,             // 이만큼 가까우면 탑 창을 연다
-  exitAt: [1490, 762],    // 끝나고 돌아오는 광장 자리(입구 앞)
+  exitAt: pzA("abyssBack", [1490, 762]),    // 끝나고 돌아오는 광장 자리(입구 앞)
   slots: 3,               // 동시에 오를 수 있는 무리 수(칸마다 맵 하나)
   w: 2400, h: 1300,       // 층 맵 크기 — 들어가면 가운데에 선다
   time: 90,               // 한 층 제한 시간(초)

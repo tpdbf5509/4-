@@ -13,7 +13,7 @@ test('새 안전 맵은 스냅샷 목록 끝에 추가하고 기존 광장 NPC�
  assert.equal(mapIdx('plaza'),0);assert.equal(mapIdx('field'),1);assert.equal(mapIdx('arena'),5);
  assert.ok(MAPS[V.id].safe);assert.equal(fieldPvpMap(V.id),false);assert.equal(fieldPvpMap('field'),true);
  assert.equal(MAPS.plaza.npcs.length,21);   // 11월 27일 황금 진열장 상점 하나 더함assert.equal(MAPS.plaza.npcs.find(n=>n.board).x,HONOR_BOARD.x);
- assert.ok(HONOR_BOARD.x<V.gate.x-150);
+ assert.ok(Math.abs(HONOR_BOARD.x-V.gate.x)>150);   // 마을 문을 가리지 않는다(광장 새 배치는 오른쪽)
  assert.ok(!MAPS.plaza.blocks.some(b=>b.x===V.gate.x&&b.y===252));
  assert.equal(npcNear({map:'plaza',x:HONOR_BOARD.x,y:HONOR_BOARD.y+50})?.id,'honor');
  assert.equal(MAPS[V.id].npcs.filter(n=>!n.story).length,8);

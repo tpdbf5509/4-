@@ -120,9 +120,9 @@ test('용조격 — ×2.5 · 앞 부채꼴 95°(등 뒤는 맞지 않는다) · 
 test('비룡의 계약 — 용혈 30 · 한 마리만 · 1.5초마다 ×3.0 · 맞히면 용혈 +2 · 30초 뒤 사라지고 그때부터 15초 대기', () => {
   const { g, h } = setup();
   const m = mob(g, h.x + 200, h.y);
-  h.wy.blood = 29; use(g, 'contract'); step(g, .01);
-  assert.equal(h.wy.u, null, '30 아래면 못 쓴다');
-  h.wy.blood = 30; use(g, 'contract'); step(g, .01);
+  h.wy.blood = 19; use(g, 'contract'); step(g, .01);   // 200레벨은 30 → 20(11월 28일 소모 감소)
+  assert.equal(h.wy.u, null, '20 아래면 못 쓴다');
+  h.wy.blood = 20; use(g, 'contract'); step(g, .01);
   assert.ok(h.wy.u); assert.equal(h.wy.blood, 0);
   h.wy.blood = 60; use(g, 'contract'); step(g, .01);
   assert.equal(h.wy.blood, 60, '이미 있으면 다시 부르지 않는다');
@@ -148,7 +148,7 @@ test('조련 연마 — 25 자동 공격 ×4 · 50 유지 40초', () => {
 test('용염 포효 — 5번 ×3.0 · 용혈 +10 한 번 · 와이번이 있으면 두 번째 갈래 ×8 한 번', () => {
   let { g, h } = setup();
   let m = mob(g, h.x + 200, h.y);
-  h.wy.blood = 15; use(g, 'roar'); run(g, 1.2);
+  h.wy.blood = 10; use(g, 'roar'); run(g, 1.2);   // 200레벨은 15 → 10
   near(HP - m.hp, U * RO.mul * RO.n);
   assert.equal(h.wy.blood, BL.roar);
   ({ g, h } = setup());
@@ -167,9 +167,9 @@ test('비룡 급강하 — 520 안으로 착지 · 반경 220 ×26 · 와이번 
   ({ g, h } = setup());
   full(h); use(g, 'contract'); run(g, .2); h.wy.u.cd = 99;
   m = mob(g, h.x + 400, h.y);
-  h.wy.blood = 30; use(g, 'dive'); run(g, 1);
+  h.wy.blood = 20; use(g, 'dive'); run(g, 1);   // 200레벨은 30 → 20
   near(HP - m.hp, U * DV.mulJoint, 0.02, '합동');
-  assert.equal(h.wy.blood, 0, '합동이어도 30 만');
+  assert.equal(h.wy.blood, 0, '합동이어도 한 번 값만');
   ({ g, h } = setup(200, [0, 0, 50]));
   m = mob(g, h.x + 400, h.y);
   full(h); use(g, 'contract'); run(g, .05); full(h); use(g, 'awake'); run(g, .1); full(h);
@@ -209,17 +209,16 @@ test('천공 지배 — 6번 ×7(합 ×42) · 역린 중 10번 · 영역 안 적
   near(HP - m.hp, U * SK.mul * SK.nAwake * (1 + AW.dmg));
 });
 
-test('역린 해방 — 용혈 100 을 모두 · 15초(용혈 연마 50 → 20초) · 기술 +70% · 걷는 빠르기 +25% · 평타는 그대로', () => {
+test('역린 해방 — 용혈 소모 없음 · 15초(용혈 연마 50 → 20초) · 기술 +70% · 걷는 빠르기 +25% · 평타는 그대로', () => {
   let { g, h } = setup();
   h.wy.blood = 100; use(g, 'awake'); step(g, .01);
   assert.equal(h.wy.aw, 0, '와이번이 없으면 못 쓴다');
   assert.equal(h.wy.blood, 100, '용혈도 그대로');
   full(h); use(g, 'contract'); run(g, .05);
-  h.wy.blood = 99; use(g, 'awake'); step(g, .01);
-  assert.equal(h.wy.aw, 0, '100 이 아니면 못 쓴다');
-  assert.ok(h.wy.u, '와이번은 그대로');
-  h.wy.blood = 100; use(g, 'awake'); step(g, .01);
-  assert.equal(h.wy.blood, 0); assert.ok(h.wy.aw > AW.dur - 0.1 && h.wy.aw <= AW.dur);
+  h.wy.blood = 0; use(g, 'awake'); step(g, .01);
+  assert.ok(h.wy.aw > 0, '용혈이 0 이어도 쓴다(11월 28일)');
+  assert.equal(h.wy.blood, 0, '용혈을 쓰지 않는다'); assert.ok(h.wy.aw > AW.dur - 0.1 && h.wy.aw <= AW.dur);
+  assert.equal(AW.cost, 0);
   assert.equal(h.wy.u, null, '와이번은 몸에 흡수된다');
   h.wy.cd.contract = 0; full(h); use(g, 'contract'); step(g, .01);
   assert.equal(h.wy.u, null, '해방 중엔 다시 부르지 않는다');
@@ -312,4 +311,35 @@ test('그림 규격 — 시트 · 아이콘 · 연출 덜어내기 · 바닥 연
   assert.equal(Object.keys(WYVERN_ICON).length, WYVERN_PX.wy_icons.n);
   assert.ok(Object.keys(WYVERN_CAP).every(k => k.startsWith('sk_wy_')));
   assert.ok([...WYVERN_GROUND].every(k => GROUND_FX.has(k)));
+});
+
+test('용혈 소모 감소(11월 28일) — 직업 레벨 25 단위 8단계 · 최대 30% · 5 단위 · 해방 중 무소모 · 화면과 서버가 같은 함수', async () => {
+  const { WY_COST_CUT, wyCost, wyCostCut, WY_SKILLS } = await import('../src/game/wyvernData.js');
+  const eq = (a, b, m) => assert.ok(Math.abs(a - b) < 1e-9, `${m} ${a} ${b}`);
+  assert.equal(WY_COST_CUT.steps.length, 8); eq(wyCostCut(24), 0, '24');
+  WY_COST_CUT.steps.forEach((lv, i) => { eq(wyCostCut(lv), 0.0375 * (i + 1), `${lv}`); eq(wyCostCut(lv - 1), 0.0375 * i, `${lv - 1}`); });
+  eq(wyCostCut(200), 0.3, '200');
+  assert.equal(wyCost('contract', 24), 30); assert.equal(wyCost('contract', 200), 20); assert.equal(wyCost('sky', 200), 30);
+  assert.equal(wyCost('roar', 200), 10); assert.equal(wyCost('roar', 25), 15);
+  assert.equal(wyCost('awake', 200), 0); assert.equal(wyCost('ult', 200), 0);
+  assert.equal(wyCost('sky', 200, true), 0, '해방 중');
+  for (let lv = 1; lv <= 200; lv++) for (const k of Object.keys(WY_SKILLS)) {
+    const n = WY_SKILLS[k].cost, c = wyCost(k, lv);
+    if (!n) { assert.equal(c, 0); continue; }
+    assert.ok(c >= 5 && c % 5 === 0 && c <= n, `${lv} ${k} ${c}`);
+    if (lv < 200) assert.ok(wyCost(k, lv + 1) <= c);
+  }
+  // 판정 — 200레벨은 줄어든 값만 쓰고 모자라면 못 쓴다
+  let { g, h } = setup(200);
+  h.wy.blood = 19; use(g, 'contract'); step(g, .01); assert.equal(h.wy.u, null, '20 미만이면 못 쓴다');
+  h.wy.blood = 20; use(g, 'contract'); step(g, .01); assert.ok(h.wy.u); assert.equal(h.wy.blood, 0);
+  // 레벨 24 는 줄지 않는다
+  ({ g, h } = setup(24));
+  h.wy.blood = 29; use(g, 'contract'); step(g, .01); assert.equal(h.wy.u, null);
+  // 해방 중 스킬은 용혈을 쓰지 않는다
+  ({ g, h } = setup(200));
+  full(h); use(g, 'contract'); run(g, .05); h.wy.blood = 0; use(g, 'awake'); step(g, .01); assert.ok(h.wy.aw > 0);
+  h.wy.blood = 0; h.cd = 0; mob(g, h.x + 300, h.y);
+  use(g, 'roar'); run(g, .1); assert.ok(h.wy.cd.roar > 0, '용혈 0 이어도 해방 중엔 쓴다');
+  assert.ok(h.wy.blood >= 0);
 });
